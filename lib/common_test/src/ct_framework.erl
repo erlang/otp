@@ -73,9 +73,9 @@ init_tc(Mod,Func,Config) ->
 	_ ->
 	    case ct_util:get_testdata(curr_tc) of
 		{Suite,{suite0_failed,{require,Reason}}} ->
-		    {skip,{require_failed_in_suite0,Reason}};
+		    {fail,{require_failed_in_suite0,Reason}};
 		{Suite,{suite0_failed,_}=Failure} ->
-		    {skip,Failure};
+		    {fail,Failure};
 		_ ->
 		    ct_util:update_testdata(curr_tc,
 					    fun(undefined) ->
@@ -103,7 +103,7 @@ init_tc(Mod,Func,Config) ->
 			    end,
 			    init_tc1(Mod,Suite,Func,Config);
 			{failed,Seq,BadFunc} ->
-			    {skip,{sequence_failed,Seq,BadFunc}}
+			    {fail,{sequence_failed,Seq,BadFunc}}
 		    end
 	    end
     end.	    
@@ -115,9 +115,9 @@ init_tc1(?MODULE,_,error_in_suite,[Config0]) when is_list(Config0) ->
 			   data={?MODULE,error_in_suite}}),
     case ?val(error, Config0) of
 	undefined ->
-	    {skip,"unknown_error_in_suite"};
+	    {fail,"unknown_error_in_suite"};
 	Reason ->
-	    {skip,Reason}
+	    {fail,Reason}
     end;
 
 init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
@@ -174,7 +174,7 @@ init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
 		    ct_event:notify(#event{name=tc_start,
 					   node=node(),
 					   data={Mod,FuncSpec}}),
-		    {skip,Reason};
+		    {fail,Reason};
 		_ ->
 		    init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config)
 	    end
@@ -222,11 +222,11 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	{suite0_failed,Reason} ->
 	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,
 						{require,Reason}}}}),
-	    {skip,{require_failed_in_suite0,Reason}};
+	    {fail,{require_failed_in_suite0,Reason}};
 	{error,Reason} ->
-	    {auto_skip,{require_failed,Reason}};
+	    {fail,{require_failed,Reason}};
 	{'EXIT',Reason} ->
-	    {auto_skip,Reason};
+	    {fail,Reason};
 	{ok,PostInitHook,Config1} ->
 	    case get('$test_server_framework_test') of
 		undefined ->

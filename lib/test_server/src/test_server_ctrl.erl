@@ -3970,10 +3970,6 @@ if_auto_skip(Reason={failed,{_,init_per_testcase,_}}, True, _False) ->
     {Reason,True()};
 if_auto_skip({_T,{skip,Reason={failed,{_,init_per_testcase,_}}},_Opts}, True, _False) ->
     {Reason,True()};
-if_auto_skip({fw_auto_skip,Reason}, True, _False) ->
-    {Reason,True()};
-if_auto_skip({_T,{skip,{fw_auto_skip,Reason}},_Opts}, True, _False) ->
-    {Reason,True()};
 if_auto_skip(Reason, _True, False) ->
     {Reason,False()}.
 
