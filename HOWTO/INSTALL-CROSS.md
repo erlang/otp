@@ -515,6 +515,11 @@ When a variable has been set, no warning will be issued.
 *   `erl_xcomp_reliable_fpe` - `yes|no`. Defaults to `no`. If `yes`, the target
     system must have reliable floating point exceptions.
 
+*   `erl_xcomp_posix_memalign` - `yes|no`. Defaults to `yes` if `posix_memalign`
+    system call exists; otherwise `no`. If `yes`, the target system must have a
+    `posix_memalign` implementation that accepts larger than page size
+    alignment.
+
 Copyright and License
 ---------------------
 
