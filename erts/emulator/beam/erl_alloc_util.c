@@ -5512,7 +5512,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
     allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
-    allctr->cpool.util_limit = init->acul;
+    allctr->cpool.util_limit = init->ts ? 0 : init->acul;
 #endif
 
     allctr->sbc_threshold		= init->sbct;
