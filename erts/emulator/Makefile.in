@@ -874,7 +874,9 @@ endif
 ifeq ($(COMPILE_STATIC_LIBS),yes)
 
 $(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS):
-	$(MAKE) BUILD_STATIC_LIBS=1 TYPE=$(TYPE) -C $(ERL_TOP)/lib/ static_lib
+	echo "=== Entering lib to make static libs"
+	(cd $(ERL_TOP)/lib/ && $(MAKE) BUILD_STATIC_LIBS=1 TYPE=$(TYPE) static_lib)
+	echo "=== Leaving lib after making static libs"
 endif
 
 ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
