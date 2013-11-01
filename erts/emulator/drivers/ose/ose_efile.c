@@ -62,11 +62,13 @@
 #endif
 
 #ifdef __OSE__
+#include "ose.h"
 #include "unistd.h"
 #include "sys/stat.h"
 #include "dirent.h"
 #include "sys/time.h"
 #include "time.h"
+#include "heapapi.h"
 #endif
 
 /* Find a definition of MAXIOV, that is used in the code later. */
@@ -99,7 +101,141 @@
 #define IS_DOT_OR_DOTDOT(s) \
     (s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0')))
 
+
+/*
+ * Local file descriptor handling, this is needed for filesystems
+ * that does not handle seeking outside EOF.
+ */
+
+#define L_FD_EXISTS(fd) \
+    ((fdm->is_init == 1) && fdm->fd_array[(fd)] != NULL)
+
+#define L_FD_INVALIDATE(fd) \
+       fdm->fd_array[(fd)]->valid = 0
+
+#define L_FD_IS_VALID(fd) \
+       (fdm->fd_array[(fd)]->valid == 1)
+
+#define L_FD_OFFSET_BEYOND_EOF(fd, offset) \
+       (fdm->fd_array[(fd)]->size < offset)
+
+#define L_FD_CUR(fd) \
+   (fdm->fd_array[(fd)]->pos)
+
+
+struct fd_meta
+{
+   int is_init;
+   uint32_t fd_count;
+   struct fd_data *fd_array[256];
+};
+
+struct fd_data
+{
+   int pos;
+   int whence;
+   int valid;
+   size_t size;
+};
+
+static struct fd_meta *fdm;
+static int l_init_local_fd(void);
+static int l_pad_file(int fd, off_t offset);
+static int l_update_local_fd(int fd, off_t offset, int whence);
+
 static int check_error(int result, Efile_error* errInfo);
+
+static int
+l_init_local_fd()
+{
+   fdm = heap_alloc_private(sizeof(struct fd_meta), __FILE__, __LINE__);
+   fdm->fd_count = 0;
+   fdm->is_init = 1;
+
+   memset(fdm->fd_array, NULL, sizeof(fdm->fd_array));
+   return 1;
+}
+
+static int
+l_update_local_fd(int fd, off_t offset, int whence)
+{
+   errno = 0;
+
+   if (fdm->fd_array[fd] == NULL)
+   {
+      fdm->fd_array[fd] = heap_alloc_private(sizeof(struct fd_data), __FILE__, __LINE__);
+      fdm->fd_count++;
+   }
+
+   switch (whence)
+   {
+      case SEEK_CUR:
+         fdm->fd_array[fd]->pos = lseek(fd, 0, SEEK_CUR) + offset;
+         break;
+
+      case SEEK_END:
+         fdm->fd_array[fd]->pos = lseek(fd, 0, SEEK_END) + offset;
+         break;
+
+      case SEEK_SET:
+         fdm->fd_array[fd]->pos = offset;
+
+      default:
+         errno = ENOSYS;
+         break;
+   }
+   fdm->fd_array[fd]->size = lseek(fd, 0, SEEK_END);
+
+   fdm->fd_array[fd]->whence = whence;
+   fdm->fd_array[fd]->valid = 1;
+
+   return ((errno != 0) ? -1 : 1);
+}
+
+static int
+l_pad_file(int fd, off_t offset)
+{
+   int size_dif;
+   char *pad;
+   char *cursor;
+   int file_size;
+   int written = 0;
+
+   if (!L_FD_IS_VALID(fd))
+   {
+      l_update_local_fd(fd, offset, SEEK_END);
+   }
+
+   if (!L_FD_OFFSET_BEYOND_EOF(fd, offset))
+   {
+
+      return -1;
+   }
+
+
+   file_size = lseek(fd, 0, SEEK_END);
+   size_dif = offset - file_size;
+   pad = heap_alloc_private(size_dif, __FILE__, __LINE__);
+   cursor = pad;
+   memset(pad, '\0', size_dif);
+
+   while (size_dif > 0)
+   {
+      written = write(fd, cursor, size_dif);
+
+      if (written < 0)
+      {
+         return -1;
+      }
+      cursor += written;
+      size_dif -= written;
+   }
+
+   L_FD_INVALIDATE(fd);
+   heap_free_private(pad);
+
+   return ((errno != 0) ? -1 : 1);
+}
 
 static int
 check_error(int result, Efile_error *errInfo)
@@ -110,6 +246,10 @@ check_error(int result, Efile_error *errInfo)
     }
     return 1;
 }
+
+/*
+ * public API
+ */
 
 int
 efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
@@ -155,6 +295,15 @@ int
 efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
 		  char* name)		/* Name of file to delete. */
 {
+    struct stat statbuf;
+
+    /* OSE will accept removal of directories with unlink() */
+    if (stat(name, &statbuf) >= 0 && ISDIR(statbuf))
+    {
+       errno = EPERM;
+       return check_error(-1, errInfo);
+    }
+
     if (unlink(name) == 0) {
 	return 1;
     }
@@ -202,7 +351,22 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 	     char* src,		        /* Original name. */
 	     char* dst)			/* New name. */
 {
-    if (rename(src, dst) == 0) {
+
+   /* temporary fix AFM does not recognize ./<file name>
+    * in destination */
+
+   char *dot_str;
+   if (dst != NULL)
+   {
+      dot_str = strchr(dst, '.');
+
+      if (dot_str && dot_str == dst && dot_str[1] == '/')
+      {
+         dst = dst+2;
+      }
+   }
+
+   if (rename(src, dst) == 0) {
 	return 1;
     }
     if (errno == ENOTEMPTY) {
@@ -445,7 +609,12 @@ efile_may_openfile(Efile_error* errInfo, char *name) {
 void
 efile_closefile(int fd)
 {
-    close(fd);
+   if (L_FD_EXISTS(fd))
+   {
+      free(fdm->fd_array[fd]);
+      fdm->fd_array[fd] = NULL;
+   }
+   close(fd);
 }
 
 int
@@ -546,6 +715,10 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 int
 efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 {
+/* FIXME, this will be dificult to get to work right with the tests on ose
+ * reason being that the info values are sometimes used in different ways, and in
+ * some times not used at all. */
+
 #ifndef __OSE__
     struct utimbuf tval;
 #endif
@@ -593,16 +766,40 @@ efile_write(Efile_error* errInfo,	/* Where to return error codes. */
 {
     ssize_t written;			/* Bytes written in last operation. */
 
-    while (count > 0) {
-	if ((written = write(fd, buf, count)) < 0) {
-	    if (errno != EINTR)
-		return check_error(-1, errInfo);
-	    else
-		written = 0;
-	}
-	ASSERT(written <= count);
-	buf += written;
-	count -= written;
+    if (L_FD_EXISTS(fd))
+    {
+      off_t off;
+      off = (L_FD_IS_VALID(fd)) ? L_FD_CUR(fd) : lseek(fd, 0, SEEK_CUR);
+
+      if (L_FD_OFFSET_BEYOND_EOF(fd, off))
+      {
+         l_pad_file(fd, off);
+      }
+
+      L_FD_INVALIDATE(fd);
+    }
+
+    while (count > 0)
+    {
+       if ((written = write(fd, buf, count)) < 0)
+       {
+          if (errno != EINTR)
+          {
+             return check_error(-1, errInfo);
+          }
+	  else
+          {
+	     written = 0;
+          }
+       }
+       ASSERT(written <= count);
+       buf += written;
+       count -= written;
+    }
+
+    if (L_FD_EXISTS(fd))
+    {
+      L_FD_INVALIDATE(fd);
     }
     return 1;
 }
@@ -676,12 +873,38 @@ efile_read(Efile_error* errInfo,     /* Where to return error codes. */
 					bytes read. */
 {
     ssize_t n;
+   if (L_FD_EXISTS(fd))
+   {
+      off_t off;
+      off = (L_FD_IS_VALID(fd)) ? L_FD_CUR(fd) : lseek(fd, 0, SEEK_CUR);
+      if (L_FD_IS_VALID(fd) == 0)
+      {
+         l_update_local_fd(fd, off, SEEK_SET);
+      }
 
-    for (;;) {
-	if ((n = read(fd, buf, count)) >= 0)
-	    break;
-	else if (errno != EINTR)
-	    return check_error(-1, errInfo);
+      if (L_FD_OFFSET_BEYOND_EOF(fd, off))
+      {
+         *pBytesRead = 0;
+         return 1;
+      }
+      /* FIXME .. is this needed? */
+      lseek(fd, off, SEEK_SET);
+   }
+
+    for (;;)
+    {
+       if ((n = read(fd, buf, count)) >= 0)
+       {
+          break;
+       }
+       else if (errno != EINTR)
+       {
+          return check_error(-1, errInfo);
+       }
+    }
+    if (n != 0 && L_FD_EXISTS(fd))
+    {
+       L_FD_INVALIDATE(fd);
     }
     *pBytesRead = (size_t) n;
     return 1;
@@ -789,6 +1012,7 @@ efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
 	   Sint64 *new_location)      /* Resulting new location in file. */
 {
     off_t off, result;
+    off = (off_t) offset;
 
     switch (origin) {
     case EFILE_SEEK_SET: origin = SEEK_SET; break;
@@ -798,14 +1022,18 @@ efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
 	errno = EINVAL;
 	return check_error(-1, errInfo);
     }
-    off = (off_t) offset;
     if (off != offset) {
-	errno = EINVAL;
-	return check_error(-1, errInfo);
+    errno = EINVAL;
+    return check_error(-1, errInfo);
     }
 
     errno = 0;
     result = lseek(fd, off, origin);
+
+    if (result >= 0 && L_FD_EXISTS(fd))
+    {
+       L_FD_INVALIDATE(fd);
+    }
 
     /*
      * Note that the man page for lseek (on SunOs 5) says:
@@ -815,14 +1043,40 @@ efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
      * negative."
      */
 
-    if (result < 0 && errno == 0)
-	errno = EINVAL;
-    if (result < 0)
-	return check_error(-1, errInfo);
-    if (new_location) {
-	*new_location = result;
-    }
-    return 1;
+     if (result < 0 && errno == 0)
+	 errno = EINVAL;
+      if (result < 0)
+      {
+         /* Some filesystems on OSE does not handle seeking beyond EOF
+          * We handle this here, by localy storing offsets. */
+
+         if ((lseek(fd, 0, SEEK_END) < off) && errno == 78)
+         {
+            if (fdm == NULL) /* first time */
+            {
+               if (l_init_local_fd() == -1)
+               {
+                  errno = EINVAL;
+                  check_error(-1, errInfo);
+               }
+            }
+            l_update_local_fd(fd, off, origin);
+            result = off;
+         }
+         else if (off < 0 && errno == ENOSYS)
+         {
+            errno = EINVAL;
+            return check_error(-1, errInfo);
+         }
+         else
+         {
+	         return check_error(-1, errInfo);
+         }
+      }
+      if (new_location) {
+	 *new_location = result;
+      }
+   return 1;
 }
 
 
@@ -831,6 +1085,12 @@ efile_truncate_file(Efile_error* errInfo, int *fd, int flags)
 {
 #ifndef NO_FTRUNCATE
     off_t offset;
+
+    if (L_FD_EXISTS(fileno(fd)))
+    {
+      L_FD_INVALIDATE(fileno(fd));
+    }
+
     return check_error((offset = lseek(*fd, 0, SEEK_CUR)) >= 0 &&
           ftruncate(*fd, offset) == 0 ? 1 : -1, errInfo);
 #else
