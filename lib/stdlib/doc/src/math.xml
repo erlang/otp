@@ -46,7 +46,7 @@
   <funcs>
     <func>
       <name name="pi" arity="0"/>
-      <fsummary>A useful number</fsummary>
+      <fsummary>An useful number</fsummary>
       <desc>
         <p>A useful number.</p>
       </desc>
