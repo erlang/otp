@@ -105,7 +105,7 @@ client_hello_extensions(Host, Version, CipherSuites, SslOpts, ConnectionStates, 
        next_protocol_negotiation =
 	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
 					      Renegotiation),
-       sni = sni(Host)}.
+       sni = sni(Host, SslOpts#ssl_options.server_name_indication)}.
 
 %%--------------------------------------------------------------------
 -spec certificate(der_cert(), db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
@@ -1159,13 +1159,19 @@ select_curve(Curves, [Curve| Rest]) ->
 	false ->
 	    select_curve(Curves, Rest)
     end.
+%% RFC 6066, Section 3: Currently, the only server names supported are
+%% DNS hostnames
+sni(_, disable) ->
+    undefined;
+sni(Host, undefined) ->
+    sni1(Host);
+sni(_Host, SNIOption) ->
+    sni1(SNIOption).
 
-sni(Host) ->
-    %% RFC 6066, Section 3: Currently, the only server names supported are
-    %% DNS hostnames
-    case inet_parse:domain(Host) of
+sni1(Hostname) ->
+    case inet_parse:domain(Hostname) of
         false -> undefined;
-        true -> #sni{hostname = Host}
+        true -> #sni{hostname = Hostname}
     end.
 %%--------------------------------------------------------------------
 %%% Internal functions

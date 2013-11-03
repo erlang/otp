@@ -89,7 +89,7 @@
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, [binary()]} |
       {client_preferred_next_protocols, {client | server, [binary()]} | {client | server, [binary()], binary()}} |
-      {log_alert, boolean()}
+      {log_alert, boolean()} | {server_name_indication, hostname() | disable}
     </c></p>
 
     <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
@@ -383,6 +383,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </item>
       <tag>{srp_identity, {Username :: string(), Password :: string()}</tag>
       <item>Specifies the Username and Password to use to authenticate to the server.
+      </item>
+      <tag>{server_name_indication, hostname()}</tag>
+      <tag>{server_name_indication, disable}</tag>
+      <item>
+        <p>This option can be specified when upgrading a tcp socket to a tls
+        socket to use the TLS Server Name Indication extension.</p>
+        <p>This option can also be set to disable to explicitly disable usage of
+        the Server Name Indication extension.</p>
       </item>
     </taglist>
    </section>
