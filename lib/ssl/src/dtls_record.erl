@@ -296,7 +296,8 @@ connection_state_by_epoch(#connection_states{pending_write = CS}, Epoch, write)
     CS.
 %%--------------------------------------------------------------------
 -spec set_connection_state_by_epoch(#connection_states{},
-				    #connection_state{}, read | write) -> ok.
+				    #connection_state{}, read | write)
+				   -> #connection_states{}.
 %%
 %% Description: Returns the instance of the connection_state record
 %% that is defined by the Epoch.
@@ -337,7 +338,8 @@ calc_mac_hash(#connection_state{mac_secret = MacSecret,
 				security_parameters = #security_parameters{mac_algorithm = MacAlg}},
 	      Type, Version, Epoch, SeqNo, Fragment) ->
     Length = erlang:iolist_size(Fragment),
-    mac_hash(Version, MacAlg, MacSecret, (Epoch bsl 48) + SeqNo, Type,
+    NewSeq = (Epoch bsl 48) + SeqNo,
+    mac_hash(Version, MacAlg, MacSecret, NewSeq, Type,
 	     Length, Fragment).
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->

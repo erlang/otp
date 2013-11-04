@@ -333,7 +333,7 @@ encrypt_private(PlainText,
     crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
--spec generate_key(#'DHParameter'{} | {namedCurve, Name ::atom()} |
+-spec generate_key(#'DHParameter'{} | {namedCurve, Name ::oid()} |
 		   #'ECParameters'{}) -> {Public::binary(), Private::binary()} |
 					    #'ECPrivateKey'{}.
 %% Description: Generates a new keypair

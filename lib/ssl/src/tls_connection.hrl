@@ -26,12 +26,13 @@
 -define(tls_connection, true).
 
 -include("ssl_connection.hrl").
+-include("tls_record.hrl").
 
 -record(protocol_buffers, {
-	  tls_packets = []            :: [binary()],  % Not yet handled decode SSL/TLS packets.
-          tls_record_buffer = <<>>    :: binary(),  % Buffer of incomplete records
-          tls_handshake_buffer = <<>> :: binary(),  % Buffer of incomplete handshakes
-	  tls_cipher_texts = []       :: [binary()]
+	  tls_packets = [], %%           :: [#ssl_tls{}],  % Not yet handled decode SSL/TLS packets.
+          tls_record_buffer = <<>>, %%    :: binary(),  % Buffer of incomplete records
+          tls_handshake_buffer = <<>>, %% :: binary(),  % Buffer of incomplete handshakes
+	  tls_cipher_texts = []       %%:: [binary()]
 	 }).
 
 -endif. % -ifdef(tls_connection).

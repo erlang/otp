@@ -28,7 +28,7 @@ suites(Minor) ->
    tls_v1:suites(corresponding_minor_tls_version(Minor)).
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
+    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, corresponding_tls_version(Version),
 		    Length, Fragment).
 
 ecc_curves({_Major, Minor}) ->

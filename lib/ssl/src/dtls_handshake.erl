@@ -110,7 +110,7 @@ encode_handshake(Package, Version, MsgSeq, Mss) ->
 
 %--------------------------------------------------------------------
 -spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | binary()) ->
-     {[dtls_handshake()], #ssl_tls{}}.
+     {[dtls_handshake()], #dtls_hs_state{}} | {retransmit, #dtls_hs_state{}}.
 %
 % Description: Given a DTLS state and new data from ssl_record, collects
 % and returns it as a list of handshake messages, also returns a new
@@ -190,7 +190,6 @@ get_dtls_handshake_aux(Version, SeqNo,
 
 get_dtls_handshake_aux(_Version, _SeqNo, <<>>, HsState) ->
     {lists:reverse(HsState#dtls_hs_state.completed),
-     HsState#dtls_hs_state.highest_record_seq,
      HsState#dtls_hs_state{completed = []}}.
 
 dec_dtls_fragment(Version, SeqNo, Type, Length, MessageSeq, MsgBody,

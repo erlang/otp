@@ -917,13 +917,15 @@ calculate_secret(#server_dh_params{dh_p = Prime, dh_g = Base, dh_y = ServerPubli
     Keys = {_, PrivateDhKey} = crypto:generate_key(dh, [Prime, Base]),
     PremasterSecret =
 	ssl_handshake:premaster_secret(ServerPublicDhKey, PrivateDhKey, Params),
-    calculate_master_secret(PremasterSecret, State#state{diffie_hellman_keys = Keys}, Connection, certify, certify);
+    calculate_master_secret(PremasterSecret,
+			    State#state{diffie_hellman_keys = Keys}, Connection, certify, certify);
 
 calculate_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
 		     State, Connection) ->
     ECDHKeys = public_key:generate_key(ECCurve),
     PremasterSecret = ssl_handshake:premaster_secret(#'ECPoint'{point = ECServerPubKey}, ECDHKeys),
-    calculate_master_secret(PremasterSecret, State#state{diffie_hellman_keys = ECDHKeys}, Connection, certify, certify);
+    calculate_master_secret(PremasterSecret,
+			    State#state{diffie_hellman_keys = ECDHKeys}, Connection, certify, certify);
 
 calculate_secret(#server_psk_params{
 			hint = IdentityHint},

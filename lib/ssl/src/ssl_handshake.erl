@@ -1045,13 +1045,12 @@ select_session(SuggestedSessionId, CipherSuites, Compressions, Port, #session{ec
 	    {resumed, Resumed}
     end.
 
-supported_ecc(Version) ->
-    case tls_v1:ecc_curves(Version) of
-	[] ->
-	    undefined;
-	Curves ->
-	    #elliptic_curves{elliptic_curve_list = Curves}
-    end.
+supported_ecc({Major, Minor} = Version) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
+    Curves = tls_v1:ecc_curves(Version),
+    #elliptic_curves{elliptic_curve_list = Curves};
+supported_ecc(_) ->
+    undefined.
+
 %%-------------certificate handling --------------------------------
 
 certificate_types({KeyExchange, _, _, _})
