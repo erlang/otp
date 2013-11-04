@@ -1338,7 +1338,7 @@ TERMCAP_LIB=
 if test "x$with_termcap" != "xno" &&
    test "X$host" != "Xwin32"; then
     # try these libs
-    termcap_libs="ncurses curses termcap termlib"
+    termcap_libs="tinfo ncurses curses termcap termlib"
 
     for termcap_lib in $termcap_libs; do
 	AC_CHECK_LIB($termcap_lib, tgetent, TERMCAP_LIB="-l$termcap_lib")
