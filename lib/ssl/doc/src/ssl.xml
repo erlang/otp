@@ -86,7 +86,7 @@
       {user_lookup_fun, {fun(), term()}}, {psk_identity, string()}, {srp_identity, {string(), string()}} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, [binary()]} |
-      {client_preferred_next_protocols, client | server, [binary()]} |
+      {client_preferred_next_protocols, {client | server, [binary()]} | {client | server, [binary()], binary()}} |
       {log_alert, boolean()}
     </c></p>
 
@@ -353,8 +353,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       when possible.
       </item>
 
-      <tag>{client_preferred_next_protocols, Precedence :: server | client, ClientPrefs :: [binary()]}</tag>
-      <tag>{client_preferred_next_protocols, Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}</tag>
+      <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</tag>
+      <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</tag>
 	   <item>
 	   <p>Indicates the client will try to perform Next Protocol
 	   Negotiation.</p>
