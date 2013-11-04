@@ -1135,6 +1135,7 @@ enum B2TState { /* order is somewhat significant */
     B2TDecodeList,
     B2TDecodeTuple,
     B2TDecodeString,
+    B2TDecodeBinary,
 
     B2TDone,
     B2TDecodeFail,
@@ -1156,6 +1157,7 @@ typedef struct {
     Eterm* hp;
     Eterm* hp_end;
     int remaining_n;
+    char* remaining_bytes;
 } B2TDecodeContext;
 
 typedef struct {
@@ -1347,6 +1349,7 @@ static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
 
 
 #define B2T_BYTES_PER_REDUCTION 128
+#define B2T_MEMCPY_FACTOR 8
 
 /* Define for testing */
 /*#define EXTREME_B2T_TRAPPING 1*/
@@ -1461,7 +1464,8 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 	case B2TDecode:
         case B2TDecodeList:
         case B2TDecodeTuple:
-        case B2TDecodeString: {
+        case B2TDecodeString:
+        case B2TDecodeBinary: {
 	    ErtsDistExternal fakedep;
             fakedep.flags = ctx->flags;
             dec_term(&fakedep, NULL, NULL, &MSO(p), NULL, ctx);
@@ -1494,6 +1498,8 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
             return ctx->u.dc.res;
 
+        default:
+            ASSERT(!"Unknown state in binary_to_term");
         }
     }while (ctx->reds > 0 || ctx->state >= B2TDone);
 
@@ -2830,6 +2836,7 @@ undo_offheap_in_area(ErlOffHeap* off_heap, Eterm* start, Eterm* end)
 #endif /* DEBUG */
 }
 
+
 /* Decode term from external format into *objp.
 ** On failure return NULL and (R13B04) *hpp will be unchanged.
 */
@@ -2852,15 +2859,25 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         hpp      = &ctx->u.dc.hp;
 
         if (ctx->state != B2TDecode) {
-            n = ctx->u.dc.remaining_n;
-            if (reds < n) {
-                ctx->u.dc.remaining_n -= reds;
-                n = reds;
+            int n_limit = reds;
+
+	    n = ctx->u.dc.remaining_n;
+            if (ctx->state == B2TDecodeBinary) {
+                n_limit *= B2T_MEMCPY_FACTOR;
+                ASSERT(n_limit >= reds);
+		reds -= n / B2T_MEMCPY_FACTOR;
+            }
+	    else
+		reds -= n;
+
+            if (n > n_limit) {
+                ctx->u.dc.remaining_n -= n_limit;
+                n = n_limit;
+                reds = 0;
             }
             else {
                 ctx->u.dc.remaining_n = 0;
             }
-            reds -= n;
 
             switch (ctx->state) {
             case B2TDecodeList:
@@ -2893,6 +2910,12 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
                 }
                 hp[-1] = NIL;
                 *hpp = hp;
+                break;
+
+            case B2TDecodeBinary:
+                sys_memcpy(ctx->u.dc.remaining_bytes, ep, n);
+                ctx->u.dc.remaining_bytes += n;
+                ep += n;
                 break;
 
             default:
@@ -3311,7 +3334,6 @@ dec_term_atom_common:
 		    dbin->flags = 0;
 		    dbin->orig_size = n;
 		    erts_refc_init(&dbin->refc, 1);
-		    sys_memcpy(dbin->orig_bytes, ep, n);
 		    pb = (ProcBin *) hp;
 		    hp += PROC_BIN_SIZE;
 		    pb->thing_word = HEADER_PROC_BIN;
@@ -3322,7 +3344,20 @@ dec_term_atom_common:
 		    pb->bytes = (byte*) dbin->orig_bytes;
 		    pb->flags = 0;
 		    *objp = make_binary(pb);
-		}
+                    if (ctx) {
+                        int n_limit = reds * B2T_MEMCPY_FACTOR;
+                        if (n > n_limit) {
+                            ctx->state = B2TDecodeBinary;
+                            ctx->u.dc.remaining_n = n - n_limit;
+                            ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
+                            n = n_limit;
+                            reds = 0;
+                        }
+                        else
+                            reds -= n / B2T_MEMCPY_FACTOR;
+                    }
+                    sys_memcpy(dbin->orig_bytes, ep, n);
+                }
 		ep += n;
 		break;
 	    }
@@ -3343,13 +3378,14 @@ dec_term_atom_common:
 		    sys_memcpy(hb->data, ep, n);
 		    bin = make_binary(hb);
 		    hp += heap_bin_size(n);
+                    ep += n;
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
+
 		    dbin->flags = 0;
 		    dbin->orig_size = n;
 		    erts_refc_init(&dbin->refc, 1);
-		    sys_memcpy(dbin->orig_bytes, ep, n);
 		    pb = (ProcBin *) hp;
 		    pb->thing_word = HEADER_PROC_BIN;
 		    pb->size = n;
@@ -3360,8 +3396,23 @@ dec_term_atom_common:
 		    pb->flags = 0;
 		    bin = make_binary(pb);
 		    hp += PROC_BIN_SIZE;
-		}
-		ep += n;
+                    if (ctx) {
+                        int n_limit = reds * B2T_MEMCPY_FACTOR;
+                        if (n > n_limit) {
+                            ctx->state = B2TDecodeBinary;
+                            ctx->u.dc.remaining_n = n - n_limit;
+                            ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
+                            n = n_limit;
+                            reds = 0;
+                        }
+                        else
+                            reds -= n / B2T_MEMCPY_FACTOR;
+                    }
+                    sys_memcpy(dbin->orig_bytes, ep, n);
+                    ep += n;
+                    n = pb->size;
+                }
+
 		if (bitsize == 0) {
 		    *objp = bin;
 		} else {
