@@ -604,6 +604,16 @@
         </item>
       </taglist>
       </item>
+      <tag><marker id="Mlpm"><c>+Mlpm all|no</c></marker></tag>
+      <item>Lock physical memory. The default value is <c>no</c>, i.e.,
+      no physical memory will be locked. If set to <c>all</c>, all
+      memory mappings made by the runtime system, will be locked into
+      physical memory. If set to <c>all</c>, the runtime system will fail
+      to start if this feature is not supported, the user has not got enough
+      privileges, or the user is not allowed to lock enough physical memory.
+      The runtime system will also fail with an out of memory condition
+      if the user limit on the amount of locked memory is reached.
+      </item>
     </taglist>
     <p>Only some default values have been presented
       here.

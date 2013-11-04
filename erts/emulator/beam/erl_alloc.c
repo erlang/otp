@@ -100,6 +100,8 @@ static Uint install_debug_functions(void);
 #endif
 #endif
 
+static int lock_all_physical_memory = 0;
+
 ErtsAllocatorFunctions_t erts_allctrs[ERTS_ALC_A_MAX+1];
 ErtsAllocatorInfo_t erts_allctrs_info[ERTS_ALC_A_MAX+1];
 ErtsAllocatorThrSpec_t erts_allctr_thr_spec[ERTS_ALC_A_MAX+1];
@@ -618,6 +620,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     hdbg_init();
 #endif
 
+    lock_all_physical_memory = 0;
+
     ncpu = eaiop->ncpu;
     if (ncpu < 1)
 	ncpu = 1;
@@ -640,6 +644,20 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     if (argc && argv)
 	handle_args(argc, argv, &init);
+
+    if (lock_all_physical_memory) {
+#ifdef HAVE_MLOCKALL
+	errno = 0;
+	if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0) {
+	    int err = errno;
+	    char *errstr = err ? strerror(err) : "unknown";
+	    erl_exit(-1, "Failed to lock physical memory: %s (%d)\n",
+		     errstr, err);
+	}
+#else
+	erl_exit(-1, "Failed to lock physical memory: Not supported\n");
+#endif
+    }
 
 #ifndef ERTS_SMP
     init.sl_alloc.thr_spec = 0;
@@ -1629,6 +1647,19 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    default:
 			bad_param(param, param+2);
 		    }
+		    break;
+		case 'l':
+		    if (has_prefix("pm", param+2)) {
+			arg = get_value(argv[i]+5, argv, &i);
+			if (strcmp("all", arg) == 0)
+			    lock_all_physical_memory = 1;
+			else if (strcmp("no", arg) == 0)
+			    lock_all_physical_memory = 0;
+			else
+			    bad_value(param, param+4, arg);
+			break;
+		    }
+		    bad_param(param, param+2);
 		    break;
 		case 'u':
 		    if (has_prefix("ycs", argv[i]+3)) {
@@ -2749,8 +2780,8 @@ erts_allocator_options(void *proc)
 #endif
     Uint sz, *szp, *hp, **hpp;
     Eterm res, features, settings;
-    Eterm atoms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+6];
-    Uint terms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+6];
+    Eterm atoms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+7];
+    Uint terms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+7];
     int a, length;
     SysAllocStat sas;
     Uint *endp = NULL;
@@ -2847,6 +2878,11 @@ erts_allocator_options(void *proc)
 	atoms[length] = am_atom_put("instr", 5); 
 	terms[length++] = erts_bld_2tup_list(hpp, szp, 3, o, v);
     }
+
+    atoms[length] = am_atom_put("lock_physical_memory", 20);
+    terms[length++] = (lock_all_physical_memory
+		       ? am_atom_put("all", 3)
+		       : am_atom_put("no", 2));
 
     settings = erts_bld_2tup_list(hpp, szp, length, atoms, terms);
 

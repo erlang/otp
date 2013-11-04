@@ -106,6 +106,7 @@ static char *plusM_other_switches[] = {
     "im",
     "is",
     "it",
+    "lpm",
     "Mamcbf",
     "Mrmcbf",
     "Mmcs",
