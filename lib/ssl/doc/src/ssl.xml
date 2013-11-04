@@ -387,10 +387,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag>{server_name_indication, hostname()}</tag>
       <tag>{server_name_indication, disable}</tag>
       <item>
-        <p>This option can be specified when upgrading a tcp socket to a tls
+        <p>This option can be specified when upgrading a TCP socket to a TLS
         socket to use the TLS Server Name Indication extension.</p>
-        <p>This option can also be set to disable to explicitly disable usage of
-        the Server Name Indication extension.</p>
+        <p>When starting a TLS connection without upgrade the Server Name
+        Indication extension will be sent if possible, this option may also be
+        used to disable that behavior.</p>
       </item>
     </taglist>
    </section>
