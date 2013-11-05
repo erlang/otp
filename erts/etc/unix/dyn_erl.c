@@ -291,6 +291,10 @@ find_erts_vsn(char *erl_top)
         }
         if (strncmp("erts-", dirp->d_name, 5) == 0) {
 	    copy_latest_vsn(latest_vsn, dirp->d_name);
+        } else if (strncmp("erts", dirp->d_name, 4) == 0) {
+            /* No erts vsn */
+            strcpy(latest_vsn, dirp->d_name);
+            break;
         }
     }
 
