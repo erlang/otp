@@ -549,6 +549,11 @@
        placed in separate memory segments. When this limit has been
        reached, new carriers will be placed in memory retrieved from
       <c>sys_alloc</c>.</item>
+      <tag><marker id="Musac"><c><![CDATA[+Musac <bool>]]></c></marker></tag>
+      <item>
+	Allow <c>sys_alloc</c> carriers. By default <c>true</c>. If
+	set to <c>false</c>, <c>sys_alloc</c> carriers will never be
+	created by allocators using the <c>alloc_util</c> framework.</item>
     </taglist>
     <p>Instrumentation flags:</p>
     <taglist>

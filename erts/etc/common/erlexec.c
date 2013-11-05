@@ -103,6 +103,7 @@ static char *plusM_other_switches[] = {
     "ea",
     "ummc",
     "uycs",
+    "usac",
     "im",
     "is",
     "it",
