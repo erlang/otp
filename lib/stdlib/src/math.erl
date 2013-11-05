@@ -51,9 +51,9 @@ asinh(_) ->
 atan(_) ->
     erlang:nif_error(undef).
 
--spec atan2(X, Y) -> float() when
-      X :: number(),
-      Y :: number().
+-spec atan2(Y, X) -> float() when
+      Y :: number(),
+      X :: number().
 atan2(_, _) ->
     erlang:nif_error(undef).
 
