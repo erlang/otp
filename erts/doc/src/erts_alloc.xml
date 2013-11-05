@@ -275,9 +275,14 @@
       <item>
 	Set <seealso marker="#MMscs">super carrier</seealso> only flag. This
 	flag defaults to <c>true</c>. When a super carrier is used and this
-	flag is <c>true</c>, the system will crash when a carrier request
-	cannot be satisfied by the super carrier. When the flag is <c>false</c>
-	the system will try to create requested carrier	by other means.
+	flag is <c>true</c>, <c>mseg_alloc</c> will only create carriers
+	in the super carrier. Note that the <c>alloc_util</c> framework may
+	create <c>sys_alloc</c> carriers, so if you want all carriers to
+	be created in the super carrier, you therefore want to disable use
+	of <c>sys_alloc</c> carriers by also passing
+	<seealso marker="#Musac"><c>+Musac false</c></seealso>. When the flag
+	is <c>false</c>, <c>mseg_alloc</c> will try to create carriers outside
+	of the super carrier when the super carrier is full.
 	<br/><br/>
 	<em>NOTE</em>: Setting this flag to <c>false</c> may not be supported
 	on all systems. This flag will in that case be ignored.
