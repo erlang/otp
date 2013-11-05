@@ -1364,6 +1364,21 @@ static unsigned b2t_rand(void)
 #endif
 
 
+static B2TContext* b2t_export_context(Process* p, B2TContext* src)
+{
+    Binary* context_b = erts_create_magic_binary(sizeof(B2TContext),
+                                                 b2t_context_destructor);
+    B2TContext* ctx = ERTS_MAGIC_BIN_DATA(context_b);
+    Eterm* hp;
+    sys_memcpy(ctx, src, sizeof(B2TContext));
+    if (ctx->state >= B2TDecode && ctx->u.dc.next == &src->u.dc.res) {
+        ctx->u.dc.next = &ctx->u.dc.res;
+    }
+    hp = HAlloc(p, PROC_BIN_SIZE);
+    ctx->trap_bin = erts_mk_magic_binary_term(&hp, &MSO(p), context_b);
+    return ctx;
+}
+
 static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b)
 {
 #ifdef EXTREME_B2T_TRAPPING
@@ -1373,16 +1388,18 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 #endif
     B2TContext c_buff;
     B2TContext *ctx;
-    Eterm* magic_space = NULL;
+    int is_first_call;
 
     if (context_b == NULL) {
 	/* Setup enough to get started */
+        is_first_call = 1;
         ctx = &c_buff;
 	ctx->state = B2TPrepare;
         ctx->aligned_alloc = NULL;
         ctx->flags = flags;
         IF_DEBUG(ctx->trap_bin = THE_NON_VALUE;)
     } else {
+        is_first_call = 0;
 	ctx = ERTS_MAGIC_BIN_DATA(context_b);
         ASSERT(ctx->state != B2TPrepare);
     }
@@ -1446,12 +1463,11 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             break;
 
         case B2TDecodeInit:
-            if (context_b == NULL && ctx->b2ts.extsize > ctx->reds) {
+            if (ctx == &c_buff && ctx->b2ts.extsize > ctx->reds) {
                 /* dec_term will maybe trap, allocate space for magic bin
                    before result term to make it easy to trim with HRelease.
                  */
-                magic_space = HAlloc(p, PROC_BIN_SIZE);
-                *magic_space = make_pos_bignum_header(PROC_BIN_SIZE-1);
+                ctx = b2t_export_context(p, &c_buff);
             }
             ctx->u.dc.ep = ctx->b2ts.extp;
             ctx->u.dc.res = (Eterm) (UWord) NULL;
@@ -1476,7 +1492,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             /*fall through*/
         case B2TBadArg:
             b2t_destroy_context(ctx);
-            if (context_b) {
+            if (!is_first_call) {
                 erts_set_gc_state(p, 1);
             }
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
@@ -1491,10 +1507,9 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             }
             HRelease(p, ctx->u.dc.hp_end, ctx->u.dc.hp);
 
-            if (context_b) {
+            if (!is_first_call) {
                 erts_set_gc_state(p, 1);
             }
-
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
             return ctx->u.dc.res;
 
@@ -1503,27 +1518,15 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
         }
     }while (ctx->reds > 0 || ctx->state >= B2TDone);
 
-    if (context_b == NULL) {
+    if (ctx == &c_buff) {
         ASSERT(ctx->trap_bin == THE_NON_VALUE);
-
-        context_b = erts_create_magic_binary(sizeof(B2TContext),
-                                             b2t_context_destructor);
-        ctx = ERTS_MAGIC_BIN_DATA(context_b);
-        sys_memcpy(ctx, &c_buff, sizeof(B2TContext));
-        if (ctx->state >= B2TDecode && ctx->u.dc.next == &c_buff.u.dc.res) {
-            ctx->u.dc.next = &ctx->u.dc.res;
-        }
-        if (!magic_space) {
-            ASSERT(ctx->state < B2TDecode);
-            magic_space = HAlloc(p, PROC_BIN_SIZE);
-        }
-        ctx->trap_bin = erts_mk_magic_binary_term(&magic_space, &MSO(p), context_b);
-
-        erts_set_gc_state(p, 0);
+        ctx = b2t_export_context(p, &c_buff);
     }
-    ASSERT(context_b);
     ASSERT(ctx->trap_bin != THE_NON_VALUE);
 
+    if (is_first_call) {
+        erts_set_gc_state(p, 0);
+    }
     BUMP_ALL_REDS(p);
     BIF_TRAP1(&binary_to_term_trap_export, p, ctx->trap_bin);
 }
