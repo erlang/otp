@@ -1464,6 +1464,7 @@ successors(I) ->
       case fail_label(I) of [] -> []; L when is_integer(L) -> [L] end;
     #icode_enter{} -> [];
     #icode_return{} -> [];
+    #icode_comment{} -> [];
     %% the following are included here for handling linear code
     #icode_move{} -> [];
     #icode_begin_handler{} -> []
