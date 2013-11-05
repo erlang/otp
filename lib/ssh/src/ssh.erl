@@ -73,10 +73,9 @@ connect(Host, Port, Options, Timeout) ->
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions} ->
-	    DisableIpv6 =  proplists:get_value(ipv6_disabled, SshOptions, false),
 	    {_, Transport, _} = TransportOpts =
 		proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
-	    Inet = inetopt(DisableIpv6),
+	    Inet = proplists:get_value(inet, SshOptions, inet),
 	    try Transport:connect(Host, Port,  [ {active, false}, Inet | SocketOptions], Timeout) of
 		{ok, Socket} ->
 		    Opts =  [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)],
@@ -136,11 +135,11 @@ daemon(HostAddr, Port, Options0) ->
 		   _ ->
 		       Options0
 	       end,
-    DisableIpv6 =  proplists:get_value(ipv6_disabled, Options0, false),
+
     {Host, Inet, Options} = case HostAddr of
 				any ->
 				    {ok, Host0} = inet:gethostname(), 
-				    {Host0, inetopt(DisableIpv6), Options1};
+				    {Host0,  proplists:get_value(inet, Options1, inet), Options1};
 				{_,_,_,_} ->
 				    {HostAddr, inet, 
 				     [{ip, HostAddr} | Options1]};
@@ -415,7 +414,7 @@ handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;
 
 handle_ssh_option({ipv6_disabled, Value} = Opt) when is_boolean(Value) ->
-    Opt;
+    throw({error, {{ipv6_disabled, Opt}, option_no_longer_valid_use_inet_option_instead}});
 handle_ssh_option({transport, {Protocol, Cb, ClosTag}} = Opt) when is_atom(Protocol),
 								   is_atom(Cb),
 								   is_atom(ClosTag) ->
@@ -442,10 +441,8 @@ handle_inet_option({active, _} = Opt) ->
     throw({error, {{eoptions, Opt}, "Ssh has built in flow control, "
 		   "and activ is handled internaly user is not allowd"
 		   "to specify this option"}});
-handle_inet_option({inet, _} = Opt) ->
-    throw({error, {{eoptions, Opt},"Is set internaly use ipv6_disabled to"
-		   " enforce iv4 in the server, client will fallback to ipv4 if"
-		   " it can not use ipv6"}});
+handle_inet_option({inet, Value} = Opt) when (Value == inet) or (Value == inet6) ->
+    Opt;
 handle_inet_option({reuseaddr, _} = Opt) ->
     throw({error, {{eoptions, Opt},"Is set internaly user is not allowd"
 		   "to specify this option"}});
@@ -468,15 +465,3 @@ handle_pref_algs([H|T], Acc) ->
 	_ ->
 	    false
     end.
-%% Has IPv6 been disabled?
-inetopt(true) ->
-    inet;
-inetopt(false) ->
-    case gen_tcp:listen(0, [inet6]) of
-	{ok, Dummyport} ->
-	    gen_tcp:close(Dummyport),
-	    inet6;
-	_ ->
-	    inet
-    end.
-
