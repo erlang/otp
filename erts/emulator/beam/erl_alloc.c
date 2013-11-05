@@ -1504,11 +1504,11 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 #endif
 			    get_bool_value(argv[i]+8, argv, &i);
 		    }
-		    else if (has_prefix("scmgc", argv[i]+3)) {
+		    else if (has_prefix("scrfsd", argv[i]+3)) {
 #if HAVE_ERTS_MSEG
-			init->mseg.mmap.scmgc =
+			init->mseg.mmap.scrfsd =
 #endif
-			    get_amount_value(argv[i]+8, argv, &i);
+			    get_amount_value(argv[i]+9, argv, &i);
 		    }
 		    else {
 			bad_param(param, param+2);

@@ -114,8 +114,8 @@ cpool(Cfg) -> ?line drv_case(Cfg).
 erts_mmap(Config) when is_list(Config) ->
     case {?t:os_type(), is_halfword_vm()} of
 	{{unix, _}, false} ->
-	    [erts_mmap_do(Config, SCO, SCRPM, SCMGC)
-	     || SCO <-[true,false], SCMGC <-[1234,0], SCRPM <- [true,false]];
+	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
+	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
 
 	{_,true} ->
 	    {skipped, "No supercarrier support on halfword vm"};
@@ -126,14 +126,14 @@ erts_mmap(Config) when is_list(Config) ->
     end.
 
 
-erts_mmap_do(Config, SCO, SCRPM, SCMGC) ->
+erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
     SCS = 100, % Mb
     O1 = "+MMscs" ++ integer_to_list(SCS)
 	++ " +MMsco" ++ atom_to_list(SCO)
 	++ " +MMscrpm" ++ atom_to_list(SCRPM),
-    Opts = case SCMGC of
+    Opts = case SCRFSD of
 	       0 -> O1;
-	       _ -> O1 ++ " +MMscmgc"++integer_to_list(SCMGC)
+	       _ -> O1 ++ " +MMscrfsd"++integer_to_list(SCRFSD)
 	   end,
     {ok, Node} = start_node(Config, Opts),
     Self = self(),
@@ -148,7 +148,7 @@ erts_mmap_do(Config, SCO, SCRPM, SCMGC) ->
 		Total = SCS*1024*1024,
 
 		{reserved,Reserved} = lists:keyfind(reserved,1,Segs),
-		true = (Reserved >= SCMGC),
+		true = (Reserved >= SCRFSD),
 
 		case {SCO,lists:keyfind(os,1,EM)} of
 		    {true, false} -> ok;

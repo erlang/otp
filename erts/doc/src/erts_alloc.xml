@@ -271,15 +271,6 @@
        memory segment cache is not reused if its size exceeds the
        requested size with more than relative max cache bad fit
        percent of the requested size. Default value is 20.</item>
-      <tag><marker id="MMscmgc"><c><![CDATA[+MMscmgc <amount>]]></c></marker></tag>
-      <item>
-	Set <seealso marker="#MMscs">super carrier</seealso> max guaranteed
-	no of carriers. This parameter defaults to <c>65536</c>. This
-	parameter determines an amount of pre-allocated structures that is
-	needed in order to keep track of different areas in the super carrier.
-	When the system runs out of such structures it may crash due to an
-	out of memory condition.
-      </item>
       <tag><marker id="MMsco"><c><![CDATA[+MMsco true|false]]></c></marker></tag>
       <item>
 	Set <seealso marker="#MMscs">super carrier</seealso> only flag. This
@@ -294,6 +285,19 @@
 	<em>NOTE</em>: The super carrier cannot be enabled nor
 	disabled on halfword heap systems. This flag will be
 	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMscrfsd"><c><![CDATA[+MMscrfsd <amount>]]></c></marker></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> reserved
+	free segment descriptors. This parameter defaults to <c>65536</c>.
+	This parameter determines the amount of memory to reserve for
+	free segment descriptors used by the super carrier. If the system
+	runs out of reserved memory for free segment descriptors, other
+	memory will be used. This may however cause fragmentation issues,
+	so you want to ensure that this	never happens. The maximum amount
+	of free segment descriptors used can be retrieved from the
+	<c>erts_mmap</c> tuple part of the result from calling
+	<seealso marker="erts:erlang#system_info_allocator_tuple">erlang:system_info({allocator, mseg_alloc})</seealso>.
       </item>
       <tag><marker id="MMscrpm"><c><![CDATA[+MMscrpm true|false]]></c></marker></tag>
       <item>

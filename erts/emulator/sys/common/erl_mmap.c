@@ -2057,7 +2057,7 @@ static struct {
     Eterm scs;
     Eterm sco;
     Eterm scrpm;
-    Eterm scmgc;
+    Eterm scrfsd;
 
     int is_initialized;
     erts_mtx_t init_mutex;
@@ -2090,7 +2090,7 @@ static void init_atoms(void)
         AM_INIT(scs);
         AM_INIT(sco);
         AM_INIT(scrpm);
-        AM_INIT(scmgc);
+        AM_INIT(scrfsd);
         am.is_initialized = 1;
     }
     erts_mtx_unlock(&am.init_mutex);
@@ -2121,7 +2121,7 @@ erts_mmap_init(ErtsMMapInit *init)
 #if defined(HARD_DEBUG)  || 0
     erts_fprintf(stderr, "erts_mmap: scs = %bpu\n", init->scs);
     erts_fprintf(stderr, "erts_mmap: sco = %i\n", init->sco);
-    erts_fprintf(stderr, "erts_mmap: scmgc = %i\n", init->scmgc);
+    erts_fprintf(stderr, "erts_mmap: scrfsd = %i\n", init->scrfsd);
 #endif
     erts_page_inv_mask = pagesize - 1;
     if (pagesize & erts_page_inv_mask)
@@ -2234,7 +2234,7 @@ erts_mmap_init(ErtsMMapInit *init)
 
 	mmap_state.no_os_mmap = init->sco;
 
-	desc_size = init->scmgc;
+	desc_size = init->scrfsd;
 	if (desc_size < 100)
 	    desc_size = 100;
 	desc_size *= sizeof(ErtsFreeSegDesc);
@@ -2418,7 +2418,7 @@ Eterm erts_mmap_info_options(char *prefix,
         if (mmap_state.supercarrier) {
             erts_print(to, arg, "%ssco: %T\n", prefix, sco);
             erts_print(to, arg, "%sscrpm: %T\n", prefix, scrpm);
-            erts_print(to, arg, "%sscmgc: %beu\n", prefix, mmap_state.desc.reserved);
+            erts_print(to, arg, "%sscrfsd: %beu\n", prefix, mmap_state.desc.reserved);
         }
     }
 
@@ -2429,7 +2429,7 @@ Eterm erts_mmap_info_options(char *prefix,
 
         res = NIL;
         if (mmap_state.supercarrier) {
-            add_2tup(hpp, szp, &res, am.scmgc,
+            add_2tup(hpp, szp, &res, am.scrfsd,
                      erts_bld_uint(hpp,szp, mmap_state.desc.reserved));
             add_2tup(hpp, szp, &res, am.scrpm, scrpm);
             add_2tup(hpp, szp, &res, am.sco, sco);
