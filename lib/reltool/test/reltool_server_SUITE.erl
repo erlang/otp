@@ -144,7 +144,8 @@ all() ->
      mod_incl_cond_derived,
      use_selected_vsn,
      use_selected_vsn_relative_path,
-     non_standard_vsn_id].
+     non_standard_vsn_id,
+     undefined_regexp].
 
 groups() -> 
     [].
@@ -2506,6 +2507,12 @@ non_standard_vsn_id(Config) ->
 	  reltool_server:get_app(Pid2,b)),
    ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+undefined_regexp(_Config) ->
+    ?msym({ok,_},
+          reltool:get_config([{sys,[{app,asn1,[{excl_app_filters,
+                                                {add, ["^priv"]}}]}]}])),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
