@@ -266,7 +266,7 @@ per_enc_open_type([{'cond',
     %% We KNOW that encode_unconstrained_number/1 will return an IO list;
     %% therefore the call to complete/1 can be replaced with a cheaper
     %% call to iolist_to_binary/1.
-    {Dst,Imm} = per_enc_open_type_output([Call], []),
+    {Dst,Imm} = per_enc_open_type_output([Call]),
     ToBin = {erlang,iolist_to_binary},
     Imm ++ per_enc_open_type(Dst, ToBin, Aligned);
 per_enc_open_type([{call,erlang,iolist_to_binary,Args}], Aligned) ->
@@ -279,7 +279,7 @@ per_enc_open_type(Imm0, Aligned) ->
 	Prefix ++ enc_open_type(Imm1, Aligned)
     catch
 	throw:impossible ->
-	    {Dst,Imm} = per_enc_open_type_output(Imm0, []),
+	    {Dst,Imm} = per_enc_open_type_output(Imm0),
 	    ToBin = {enc_mod(Aligned),complete},
 	    Imm ++ per_enc_open_type(Dst, ToBin, Aligned)
     end.
@@ -316,8 +316,9 @@ per_enc_extensions(Val0, Pos0, NumBits, Aligned) when NumBits > 0 ->
 		  _ -> [{put_bits,Bitmap,NumBits,[1]}]
 	      end,
     B++[{call,per_common,extension_bitmap,[Val,Pos,Pos+NumBits],Bitmap},
-	{'cond',[[{eq,Bitmap,0}],
-		 ['_'|Length ++ PutBits]],{var,"Extensions"}}].
+	{list,[{'cond',[[{eq,Bitmap,0}],
+			['_'|Length ++ PutBits]]}],
+	 {var,"Extensions"}}].
 
 per_enc_optional(Val0, {Pos,DefVals}, _Aligned) when is_integer(Pos),
 						     is_list(DefVals) ->
@@ -970,13 +971,11 @@ mk_dest(S) -> S.
 split_off_nonbuilding(Imm) ->
     lists:splitwith(fun is_nonbuilding/1, Imm).
 
-is_nonbuilding({apply,_,_,_}) -> true;
 is_nonbuilding({assign,_,_}) -> true;
 is_nonbuilding({call,_,_,_,_}) -> true;
-is_nonbuilding({call_gen,_,_,_,_,_,_}) -> true;
-is_nonbuilding({'cond',_,_}) -> true;
 is_nonbuilding({lc,_,_,_,_}) -> true;
 is_nonbuilding({set,_,_}) -> true;
+is_nonbuilding({list,_,_}) -> true;
 is_nonbuilding({sub,_,_,_}) -> true;
 is_nonbuilding({'try',_,_,_,_}) -> true;
 is_nonbuilding(_) -> false.
@@ -1394,20 +1393,9 @@ num_bits([_|_], _) ->
     throw(impossible);
 num_bits([], Sum) -> Sum.
 
-per_enc_open_type_output([{apply,F,A}], Acc) ->
+per_enc_open_type_output(Imm) ->
     Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{apply,F,A,Dst}])};
-per_enc_open_type_output([{call,M,F,A}], Acc) ->
-    Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{call,M,F,A,Dst}])};
-per_enc_open_type_output([{call_gen,P,K,G,I,As}], Acc) ->
-    Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{call_gen,P,K,G,I,As,Dst}])};
-per_enc_open_type_output([{'cond',Cs}], Acc) ->
-    Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{'cond',Cs,Dst}])};
-per_enc_open_type_output([H|T], Acc) ->
-    per_enc_open_type_output(T, [H|Acc]).
+    {Dst,[{list,Imm,Dst}]}.
 
 output_var() ->
     asn1ct_name:new(enc),
@@ -1645,8 +1633,6 @@ enc_pre_cg_2({call,_,_,_}=Imm, _, _) ->
     Imm;
 enc_pre_cg_2({call_gen,_,_,_,_,_}=Imm, _, _) ->
     Imm;
-enc_pre_cg_2({call_gen,_,_,_,_,_,_}=Imm, _, _) ->
-    Imm;
 enc_pre_cg_2({'cond',Cs0}, StL, _StB) ->
     Cs = [{C,enc_pre_cg_1(Act, StL, outside_seq)} || [C|Act] <- Cs0],
     {'cond',Cs};
@@ -1680,12 +1666,12 @@ enc_make_cons({integer,Int}, {cons,{binary,H},T}) ->
 enc_make_cons(H, T) ->
     {cons,H,T}.
 
-enc_pre_cg_nonbuilding({'cond',Cs0,Dst}, StL) ->
-    Cs = [{C,enc_pre_cg_1(Act, StL, outside_seq)} || [C|Act] <- Cs0],
-    {'cond',Cs,Dst};
 enc_pre_cg_nonbuilding({lc,B0,Var,List,Dst}, StL) ->
     B = enc_pre_cg_1(B0, StL, outside_seq),
     {lc,B,Var,List,Dst};
+enc_pre_cg_nonbuilding({list,List0,Dst}, _StL) ->
+    List = enc_pre_cg_1(List0, outside_list, outside_seq),
+    {list,List,Dst};
 enc_pre_cg_nonbuilding({'try',Try0,{P,Succ0},Else0,Dst}, StL) ->
     Try = enc_pre_cg_1(Try0, StL, outside_seq),
     Succ = enc_pre_cg_1(Succ0, StL, outside_seq),
@@ -1718,9 +1704,6 @@ enc_cg({apply,F0,As0}) ->
 	{M,F,_} ->
 	    emit([{asis,M},":",{asis,F},"(",As,")"])
     end;
-enc_cg({apply,F,As,Dst}) ->
-    emit([mk_val(Dst)," = "]),
-    enc_cg({apply,F,As});
 enc_cg({assign,Dst0,Expr}) ->
     Dst = mk_val(Dst0),
     emit([Dst," = ",Expr]);
@@ -1736,15 +1719,7 @@ enc_cg({call,M,F,As0,Dst}) ->
 enc_cg({call_gen,Prefix,Key,Gen,_,As0}) ->
     As = [mk_val(A) || A <- As0],
     asn1ct_func:call_gen(Prefix, Key, Gen, As);
-enc_cg({call_gen,Prefix,Key,Gen,_,As0,Dst}) ->
-    As = [mk_val(A) || A <- As0],
-    emit([mk_val(Dst)," = "]),
-    asn1ct_func:call_gen(Prefix, Key, Gen, As);
 enc_cg({'cond',Cs}) ->
-    enc_cg_cond(Cs);
-enc_cg({'cond',Cs,Dst0}) ->
-    Dst = mk_val(Dst0),
-    emit([Dst," = "]),
     enc_cg_cond(Cs);
 enc_cg({error,Error}) when is_function(Error, 0) ->
     Error();
@@ -1761,6 +1736,9 @@ enc_cg({lc,Body,Var,List,Dst}) ->
     emit([mk_val(Dst)," = ["]),
     enc_cg(Body),
     emit([" || ",mk_val(Var)," <- ",mk_val(List),"]"]);
+enc_cg({list,List,Dst}) ->
+    emit([mk_val(Dst)," = "]),
+    enc_cg(List);
 enc_cg(nil) ->
     emit("[]");
 enc_cg({sub,Src0,Int,Dst0}) ->
@@ -1989,19 +1967,12 @@ enc_opt_al(Imm0) ->
     {Imm,_} = enc_opt_al_1(Imm0, unknown),
     Imm.
 
-enc_opt_al_1([{'cond',Cs0,Dst},{call,per,complete,[Dst],Bin}|T0], Al0) ->
-    {Cs1,{M,F}} = enc_opt_al_prepare_cond(Cs0),
-    {Cs,_} = enc_opt_al_cond(Cs1, 0),
-    {T,Al} = enc_opt_al_1([{call,M,F,[Dst],Bin}|T0], Al0),
-    {[{'cond',Cs,Dst}|T],Al};
 enc_opt_al_1([H0|T0], Al0) ->
     {H,Al1} = enc_opt_al(H0, Al0),
     {T,Al} = enc_opt_al_1(T0, Al1),
     {H++T,Al};
 enc_opt_al_1([], Al) -> {[],Al}.
 
-enc_opt_al({apply,_,_,_}=Imm, Al) ->
-    {[Imm],Al};
 enc_opt_al({assign,_,_}=Imm, Al) ->
     {[Imm],Al};
 enc_opt_al({block,Bl0}, Al0) ->
@@ -2023,6 +1994,10 @@ enc_opt_al({'cond',Cs0}, Al0) ->
     {[{'cond',Cs}],Al};
 enc_opt_al({error,_}=Imm, Al) ->
     {[Imm],Al};
+enc_opt_al({list,Imm0,Dst}, Al) ->
+    Imm1 = enc_opt_hoist_align(Imm0),
+    {Imm,_} = enc_opt_al_1(Imm1, 0),
+    {[{list,Imm,Dst}],Al};
 enc_opt_al({put_bits,V,N,[U,align]}, Al0) when Al0 rem 8 =:= 0 ->
     Al = if
 	     is_integer(N) -> N*U;
@@ -2078,29 +2053,25 @@ enc_opt_al_cond_1([], _, CAcc, AAcc) ->
 	 end,
     {lists:reverse(CAcc),Al}.
 
-enc_opt_al_prepare_cond(Cs0) ->
-    try enc_opt_al_prepare_cond_1(Cs0) of
-	Cs ->
-	    {Cs,{erlang,iolist_to_binary}}
+enc_opt_hoist_align([{'cond',Cs0},{put_bits,0,0,[1,align]}]=Imm) ->
+    try
+	Cs = [insert_align_last(C) || C <- Cs0],
+	[{'cond',Cs}]
     catch
 	throw:impossible ->
-	    {Cs0,{per,complete}}
+	    Imm
+    end;
+enc_opt_hoist_align(Imm) -> Imm.
+
+insert_align_last([_,{error,_}]=C) ->
+    C;
+insert_align_last([H|T]) ->
+    case lists:last(T) of
+	{put_bits,_,_,_} ->
+	    [H|T ++ [{put_bits,0,0,[1,align]}]];
+	_ ->
+	    throw(impossible)
     end.
-
-enc_opt_al_prepare_cond_1(Cs) ->
-    [[C|enc_opt_al_prepare_cond_2(Act)] || [C|Act] <- Cs].
-
-enc_opt_al_prepare_cond_2([{put_bits,_,binary,[U|_]}|_]) when U rem 8 =/= 0 ->
-    throw(impossible);
-enc_opt_al_prepare_cond_2([{put_bits,_,_,_}=H|T]) ->
-    [H|enc_opt_al_prepare_cond_2(T)];
-enc_opt_al_prepare_cond_2([{call,per_common,encode_fragmented,_}=H|T]) ->
-    [H|enc_opt_al_prepare_cond_2(T)];
-enc_opt_al_prepare_cond_2([_|_]) ->
-    throw(impossible);
-enc_opt_al_prepare_cond_2([]) ->
-    [{put_bits,0,0,[1,align]}].
-
 
 %%%
 %%% For the aligned PER format, fix up the intermediate format
@@ -2110,8 +2081,6 @@ enc_opt_al_prepare_cond_2([]) ->
 
 per_fixup([{apply,_,_}=H|T]) ->
     [H|per_fixup(T)];
-per_fixup([{apply,_,_,_}=H|T]) ->
-    [H|per_fixup(T)];
 per_fixup([{block,Block}|T]) ->
     [{block,per_fixup(Block)}|per_fixup(T)];
 per_fixup([{'assign',_,_}=H|T]) ->
@@ -2119,16 +2088,11 @@ per_fixup([{'assign',_,_}=H|T]) ->
 per_fixup([{'cond',Cs0}|T]) ->
     Cs = [[C|per_fixup(Act)] || [C|Act] <- Cs0],
     [{'cond',Cs}|per_fixup(T)];
-per_fixup([{'cond',Cs0,Dst}|T]) ->
-    Cs = [[C|per_fixup(Act)] || [C|Act] <- Cs0],
-    [{'cond',Cs,Dst}|per_fixup(T)];
 per_fixup([{call,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{call,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{call_gen,_,_,_,_,_}=H|T]) ->
-    [H|per_fixup(T)];
-per_fixup([{call_gen,_,_,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{error,_}=H|T]) ->
     [H|per_fixup(T)];
@@ -2136,6 +2100,8 @@ per_fixup([{lc,B,V,L}|T]) ->
     [{lc,per_fixup(B),V,L}|per_fixup(T)];
 per_fixup([{lc,B,V,L,Dst}|T]) ->
     [{lc,per_fixup(B),V,L,Dst}|per_fixup(T)];
+per_fixup([{list,Imm,Dst}|T]) ->
+    [{list,per_fixup(Imm),Dst}|per_fixup(T)];
 per_fixup([{set,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{sub,_,_,_}=H|T]) ->
