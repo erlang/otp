@@ -1429,7 +1429,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             break;
         }
 	case B2TUncompressChunk: {
-            Uint chunk = ctx->reds;
+            uLongf chunk = ctx->reds;
             int zret;
 
             if (chunk > ctx->u.uc.dleft)
