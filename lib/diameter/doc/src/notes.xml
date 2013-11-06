@@ -42,6 +42,36 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.4.4</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Fix setting of End-to-End and Hop-by-Hop Identifiers in
+	    outgoing DWA.</p>
+          <p>
+	    Broken by OTP-11184, which caused the identifiers to be
+	    set anew, discarding the values from the incoming DWR.</p>
+          <p>
+	    Own Id: OTP-11367</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 5014, DIAMETER_INVALID_AVP_LENGTH.</p>
+          <p>
+	    The error was detected as 5004,
+	    DIAMETER_INVALID_AVP_VALUE, for some Diameter types, in
+	    which case an AVP length that pointed past the end of a
+	    message resulted in encode failure.</p>
+          <p>
+	    Own Id: OTP-11395</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
