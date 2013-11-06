@@ -57,6 +57,9 @@
 -type rel_name()         :: string().
 -type rel_vsn()          :: string().
 -type boot_rel()         :: rel_name().
+-type boot_phase_fun()   :: fun((rel_name(), rel_vsn(), boot_phase_name(), [boot_script_cmd()]) -> [boot_script_cmd()]).
+-type boot_phase_name()  :: atom().
+-type boot_script_cmd()  :: term().
 -type rel_app()          :: app_name()
                           | {app_name(), app_type()}
                           | {app_name(), [incl_app()]}
@@ -220,9 +223,9 @@
 
 -record(rel,
         {
-          name     :: rel_name(),
-          vsn      :: rel_vsn(),
-          rel_apps :: [#rel_app{}]
+          name           :: rel_name(),
+          vsn            :: rel_vsn(),
+          rel_apps       :: [#rel_app{}]
 	}).
 
 -record(sys,
@@ -236,6 +239,7 @@
 
           %% Target cond
           boot_rel 	       :: boot_rel(),
+          boot_phase_fun       :: boot_phase_fun() | undefined,
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),

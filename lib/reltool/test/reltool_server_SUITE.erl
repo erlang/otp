@@ -106,6 +106,7 @@ all() ->
      create_release,
      create_release_sort,
      create_script,
+     custom_script,
      create_script_sort,
      create_target,
      app_dir_vsn,
@@ -549,6 +550,55 @@ create_script(_Config) ->
     %% ?m(OrigScript2, Script2),
     
     ?m(equal, diff_script(OrigScript, Script)),
+
+    %% Stop server
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+custom_script(_Config) ->
+    %% Configure the server
+    RelName1 = "Customized boot script",
+    RelName2 = "Yet another boot script",
+    RelName3 = "As is",
+    RelVsn = "1.0",
+    Load = {apply,{custom,load,[]}},
+    Start = {apply,{custom,start,[]}},
+    ErlangRc = {apply,{c,erlangrc,[]}},
+    PhaseFun =
+        fun(Rel, _Vsn, Phase, Cmds) ->
+                case Phase of
+                    applications_loaded when Rel =:= RelName2 ->
+                        Cmds ++ [Load];
+                    applications_started when Rel =:= RelName1 ->
+                        Cmds ++ [Start];
+                    started when Rel =:= RelName1; Rel =:= RelName2 ->
+                        Cmds -- [ErlangRc];
+                    _ ->
+                        Cmds
+                end
+        end,
+    Config =
+        {sys,
+         [
+          {lib_dirs, []},
+          {boot_rel, RelName1},
+          {boot_phase_fun, PhaseFun},
+          {rel, RelName1, RelVsn, [stdlib, kernel]},
+          {rel, RelName2, RelVsn, [stdlib, kernel]},
+          {rel, RelName3, RelVsn, [stdlib, kernel]}
+         ]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Config}])),
+
+    %% Generate script files
+    {ok, {script,_,Cmds1}} = ?msym({ok, _}, reltool:get_script(Pid, RelName1)),
+    {ok, {script,_,Cmds2}} = ?msym({ok, _}, reltool:get_script(Pid, RelName2)),
+    {ok, {script,_,Cmds3}} = ?msym({ok, _}, reltool:get_script(Pid, RelName3)),
+
+    %% Verify that the customizations are performed
+    ?m([ErlangRc], Cmds3 -- Cmds1),
+    ?m([ErlangRc], Cmds3 -- Cmds2),
+    ?m([Start], Cmds1 -- Cmds3),
+    ?m([Load],  Cmds2 -- Cmds3),
 
     %% Stop server
     ?m(ok, reltool:stop(Pid)),

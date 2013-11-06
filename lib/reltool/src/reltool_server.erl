@@ -1398,6 +1398,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{incl_cond = Val};
             boot_rel when is_list(Val) ->
                 Sys#sys{boot_rel = Val};
+            boot_phase_fun when is_function(Val, 4) ->
+                Sys#sys{boot_phase_fun = Val};
             emu_name when is_list(Val) ->
                 Sys#sys{emu_name = Val};
 	    profile when Val =:= development;
@@ -1573,7 +1575,7 @@ decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals]) ->
         end,
     case ValidTypesAssigned of
 	true ->
-            decode(Rel#rel{rel_apps = RelApps ++ [RA]}, KeyVals);
+            decode(Rel#rel{rel_apps = [RA | RelApps]}, KeyVals);
         false ->
 	    reltool_utils:throw_error("Illegal option: ~p", [RelApp])
     end;

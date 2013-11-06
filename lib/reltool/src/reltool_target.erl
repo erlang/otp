@@ -424,7 +424,7 @@ gen_script(Rel, Sys, PathFlag, Variables) ->
     end.
 
 do_gen_script(#rel{name = RelName, vsn = RelVsn},
-              #sys{apps = Apps} = Sys,
+              #sys{apps = Apps, boot_phase_fun = PhaseFun} = Sys,
 	      MergedApps,
               PathFlag,
               Variables) ->
@@ -439,45 +439,66 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn},
 			     MergedApps),
 
     %% Create the script
-    DeepList =
+    Phases =
         [
          %% Register preloaded modules
-         {preLoaded, lists:sort(Preloaded)},
-         {progress, preloaded},
+         {preloaded,
+          [
+           {preLoaded, lists:sort(Preloaded)}
+          ]},
+
          %% Load mandatory modules
-         {path, create_mandatory_path(Sys, MergedApps, PathFlag, Variables)},
-         {primLoad, lists:sort(Mandatory)},
-         {kernel_load_completed},
-         {progress, kernel_load_completed},
+         {kernel_load_completed,
+          [
+           {path, create_mandatory_path(Sys, MergedApps, PathFlag, Variables)},
+           {primLoad, lists:sort(Mandatory)},
+           {kernel_load_completed}
+          ]},
 
          %% Load remaining modules
-         [load_app_mods(Sys, A, Early, PathFlag, Variables) || A <- MergedApps],
-         {progress, modules_loaded},
+         {modules_loaded,
+          [load_app_mods(Sys, A, Early, PathFlag, Variables) || A <- MergedApps]
+          },
 
          %% Start kernel processes
-         {path, create_path(Sys, MergedApps, PathFlag, Variables)},
-         kernel_processes(gen_app(KernelApp)),
-         {progress, init_kernel_started},
+         {init_kernel_started,
+          [
+           {path, create_path(Sys, MergedApps, PathFlag, Variables)},
+           kernel_processes(gen_app(KernelApp))
+          ]},
 
          %% Load applications
-         [{apply, {application, load, [gen_app(A)]}} ||
-             A = #app{name = Name, app_type = Type} <- MergedApps,
-             Name =/= kernel,
-             Type =/= none],
-         {progress, applications_loaded},
+         {applications_loaded,
+          [{apply, {application, load, [gen_app(A)]}} ||
+              A = #app{name = Name, app_type = Type} <- MergedApps,
+              Name =/= kernel,
+              Type =/= none]},
 
          %% Start applications
-         [{apply, {application, start_boot, [Name, Type]}} ||
-             #app{name = Name, app_type = Type} <- MergedApps,
-             Type =/= none,
-             Type =/= load,
-             not lists:member(Name, InclApps)],
+         {applications_started,
+          [{apply, {application, start_boot, [Name, Type]}} ||
+              #app{name = Name, app_type = Type} <- MergedApps,
+              Type =/= none,
+              Type =/= load,
+              not lists:member(Name, InclApps)]
+         },
 
          %% Apply user specific customizations
-         {apply, {c, erlangrc, []}},
-         {progress, started}
+         {started,
+          [
+           {apply, {c, erlangrc, []}}]}
         ],
-    {ok, {script, {RelName, RelVsn}, lists:flatten(DeepList)}}.
+    {ok, {script,
+          {RelName, RelVsn},
+          filter_phases(RelName, RelVsn, PhaseFun, Phases)}}.
+
+filter_phases(RelName, RelVsn, undefined, Phases) ->
+    Fun = fun(_RelName, _RelVsn, _Phase, Items) -> Items end,
+    filter_phases(RelName, RelVsn, Fun, Phases);
+filter_phases(RelName, RelVsn, Fun, Phases) when is_function(Fun, 4) ->
+    lists:flatten([[Fun(RelName, RelVsn, Phase, lists:flatten(Items)),
+                    {progress, Phase}] ||
+                      {Phase, Items} <- Phases]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
