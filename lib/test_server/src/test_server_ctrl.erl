@@ -1918,7 +1918,8 @@ add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
 	Suite when Suite =/= undefined, Suite =/= LastMod ->
 	    {PreCases, NextMod, NextRef} =
 		do_add_init_and_end_per_suite(LastMod, LastRef, Suite, FwMod),
-	    Case1 = {conf,Ref,proplists:delete(suite,Props),{FwMod,Func}},
+	    Case1 = {conf,Ref,[{suite,NextMod}|proplists:delete(suite,Props)],
+		     {FwMod,Func}},
 	    PreCases ++ [Case1|add_init_and_end_per_suite(Cases, NextMod,
 							  NextRef, FwMod)];
 	_ ->
@@ -2645,6 +2646,27 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			 Config,
 			 update_status(failed, group_result, get_name(Mode),
 				       delete_status(Ref, Status2))};
+		   not StartConf ->
+			ReportRepeatStop(),
+			print_conf_time(ConfTime),
+			{Cases,tl(Config),delete_status(Ref, Status2)}
+		end,
+	    set_io_buffering(IOHandler),
+	    stop_minor_log_file(),
+	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
+
+	{_,{auto_skip,SkipReason},_} ->
+	    %% this case can only happen if the framework (not the user)
+	    %% decides to skip execution of a conf function
+	    {Cases2,Config1,Status3} =
+		if StartConf ->
+			ReportAbortRepeat(auto_skipped),
+			print(minor, "~n*** ~w auto skipped.~n"
+			      "    Skipping all cases.", [Func]),
+			{skip_cases_upto(Ref, Cases, SkipReason, conf, CurrMode,
+					 auto_skip_case),
+			 Config,
+			 delete_status(Ref, Status2)};
 		   not StartConf ->
 			ReportRepeatStop(),
 			print_conf_time(ConfTime),
@@ -3615,7 +3637,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    {died,Reason} ->
 		progress(failed, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
-	    {_,{'EXIT',{Skip,Reason}}} when Skip==skip; Skip==skipped ->
+	    {_,{'EXIT',{Skip,Reason}}} when Skip==skip; Skip==skipped;
+					    Skip==auto_skip ->
 		progress(skip, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',_Pid,{Skip,Reason}}} when Skip==skip; Skip==skipped ->
@@ -3627,10 +3650,13 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    {_,{'EXIT',Reason}} ->
 		progress(failed, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
-	    {_, {Fail, Reason}} when Fail =:= fail; Fail =:= failed ->
+	    {_,{Fail,Reason}} when Fail =:= fail; Fail =:= failed ->
 		progress(failed, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
-	    {_, {Skip, Reason}} when Skip==skip; Skip==skipped ->
+	    {_,Reason={auto_skip,_Why}} ->
+		progress(skip, Num, Mod, Func, Loc, Reason,
+			 Time, Comment, Style);		
+	    {_,{Skip,Reason}} when Skip==skip; Skip==skipped ->
 		progress(skip, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
 	    {Time,RetVal} ->
@@ -3747,15 +3773,15 @@ num2str(N) -> integer_to_list(N).
 
 progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
 	 Comment, {St0,St1}) ->
-    {Reason1,{Color,Ret}} = 
+    {Reason1,{Color,Ret,ReportTag}} = 
 	if_auto_skip(Reason,
-		     fun() -> {?auto_skip_color,auto_skip} end,
-		     fun() -> {?user_skip_color,skip} end),
-    print(major, "=result        skipped", []),
+		     fun() -> {?auto_skip_color,auto_skip,auto_skipped} end,
+		     fun() -> {?user_skip_color,skip,skipped} end),
+    print(major, "=result        ~w: ~p", [ReportTag,Reason1]),
     print(1, "*** SKIPPED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
-						     {skipped,Reason1}}]),
+						     {ReportTag,Reason1}}]),
     ReasonStr = reason_to_string(Reason1),
     ReasonStr1 = lists:flatten([string:strip(S,left) ||
 				S <- string:tokens(ReasonStr,[$\n])]),
@@ -3968,13 +3994,18 @@ fw_name(Mod) ->
 
 if_auto_skip(Reason={failed,{_,init_per_testcase,_}}, True, _False) ->
     {Reason,True()};
-if_auto_skip({_T,{skip,Reason={failed,{_,init_per_testcase,_}}},_Opts}, True, _False) ->
+if_auto_skip({skip,Reason={failed,{_,init_per_testcase,_}}}, True, _False) ->
+    {Reason,True()};
+if_auto_skip({auto_skip,Reason}, True, _False) ->
     {Reason,True()};
 if_auto_skip(Reason, _True, False) ->
     {Reason,False()}.
 
-update_skip_counters(RetVal, {US,AS}) ->
-    {_,Result} = if_auto_skip(RetVal, fun() -> {US,AS+1} end, fun() -> {US+1,AS} end),
+update_skip_counters({_T,Pat,_Opts}, {US,AS}) ->
+    {_,Result} = if_auto_skip(Pat, fun() -> {US,AS+1} end, fun() -> {US+1,AS} end),
+    Result;    
+update_skip_counters(Pat, {US,AS}) ->
+    {_,Result} = if_auto_skip(Pat, fun() -> {US,AS+1} end, fun() -> {US+1,AS} end),
     Result.
 
 get_info_str(Mod,Func, 0, _Cases) ->

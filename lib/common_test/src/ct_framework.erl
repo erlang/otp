@@ -73,7 +73,7 @@ init_tc(Mod,Func,Config) ->
 	_ ->
 	    case ct_util:get_testdata(curr_tc) of
 		{Suite,{suite0_failed,{require,Reason}}} ->
-		    {fail,{require_failed_in_suite0,Reason}};
+		    {auto_skip,{require_failed_in_suite0,Reason}};
 		{Suite,{suite0_failed,_}=Failure} ->
 		    {fail,Failure};
 		_ ->
@@ -222,9 +222,9 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	{suite0_failed,Reason} ->
 	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,
 						{require,Reason}}}}),
-	    {fail,{require_failed_in_suite0,Reason}};
+	    {auto_skip,{require_failed_in_suite0,Reason}};
 	{error,Reason} ->
-	    {fail,{require_failed,Reason}};
+	    {auto_skip,{require_failed,Reason}};
 	{'EXIT',Reason} ->
 	    {fail,Reason};
 	{ok,PostInitHook,Config1} ->
@@ -621,31 +621,34 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 		   _ -> Func
 	       end,
 
-    case get('$test_server_framework_test') of
-	undefined ->
-	    {FinalResult,FinalNotify} =
-		case ct_hooks:end_tc(
-		       Suite, FuncSpec, Args, Result, Return) of
-		    '$ct_no_change' ->
-			{ok,Result};
-		    FinalResult1 ->
-			{FinalResult1,FinalResult1}
-		end,
-	    %% send sync notification so that event handlers may print
-	    %% in the log file before it gets closed
-	    ct_event:sync_notify(#event{name=tc_done,
-					node=node(),
-					data={Mod,FuncSpec,
-					      tag_cth(FinalNotify)}});
-	Fun ->
-	    %% send sync notification so that event handlers may print
-	    %% in the log file before it gets closed
-	    ct_event:sync_notify(#event{name=tc_done,
-					node=node(),
-					data={Mod,FuncSpec,tag(Result)}}),
-	    FinalResult = Fun(end_tc, Return)
-    end,    
-    
+    {Result1,FinalNotify} =
+	case ct_hooks:end_tc(
+	       Suite, FuncSpec, Args, Result, Return) of
+	    '$ct_no_change' ->
+		{ok,Result};
+	    HookResult ->
+		{HookResult,HookResult}
+	end,
+    FinalResult =
+	case get('$test_server_framework_test') of
+	    undefined ->
+		%% send sync notification so that event handlers may print
+		%% in the log file before it gets closed
+		ct_event:sync_notify(#event{name=tc_done,
+					    node=node(),
+					    data={Mod,FuncSpec,
+						  tag_cth(FinalNotify)}}),
+		Result1;
+	    Fun ->
+		%% send sync notification so that event handlers may print
+		%% in the log file before it gets closed
+		ct_event:sync_notify(#event{name=tc_done,
+					    node=node(),
+					    data={Mod,FuncSpec,
+						  tag(FinalNotify)}}),
+		Fun(end_tc, Return)
+	end,    
+
     case FuncSpec of
 	{_,GroupName,_Props} ->
 	    if Func == end_per_group ->
@@ -685,7 +688,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 		     (Unexpected) ->
 			  exit({error,{reset_curr_tc,{Mod,Func},Unexpected}})
 		  end,
-    ct_util:update_testdata(curr_tc,ClearCurrTC),
+    ct_util:update_testdata(curr_tc, ClearCurrTC),
 
     case FinalResult of
 	{skip,{sequence_failed,_,_}} ->
@@ -1229,6 +1232,8 @@ report(What,Data) ->
 		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
 		{skipped,_} ->
 		    ct_hooks:on_tc_skip(tc_user_skip, Data);
+		{auto_skipped,_} ->
+		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
 		_Else ->
 		    ok
 	    end,
@@ -1253,6 +1258,8 @@ report(What,Data) ->
 		    add_to_stats(auto_skipped);
 		{_,{skipped,_}} ->
 		    add_to_stats(user_skipped);
+		{_,{auto_skipped,_}} ->
+		    add_to_stats(auto_skipped);
 		{_,{SkipOrFail,_Reason}} ->
 		    add_to_stats(SkipOrFail)
 	    end;

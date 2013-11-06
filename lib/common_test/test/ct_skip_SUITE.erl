@@ -91,7 +91,8 @@ auto_skip(Config) when is_list(Config) ->
 	      Join(DataDir, "auto_skip_8_SUITE"),
 	      Join(DataDir, "auto_skip_9_SUITE"),
 	      Join(DataDir, "auto_skip_10_SUITE"),
-	      Join(DataDir, "auto_skip_11_SUITE")
+	      Join(DataDir, "auto_skip_11_SUITE"),
+	      Join(DataDir, "auto_skip_12_SUITE")
 	     ],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
@@ -383,9 +384,9 @@ test_events(auto_skip) ->
 
      {?eh,tc_start,{auto_skip_10_SUITE,init_per_suite}},
      {?eh,tc_done,{auto_skip_10_SUITE,init_per_suite,
-		   {skipped,
-		    {require_failed_in_suite0,
-		     {not_available,undefined_config_variable}}}}},
+		   {failed,{error,
+			    {require_failed_in_suite0,
+			     {not_available,undefined_config_variable}}}}}},
      {?eh,tc_auto_skip,
       {auto_skip_10_SUITE,tc1,
        {require_failed_in_suite0,{not_available,undefined_config_variable}}}},
@@ -434,6 +435,8 @@ test_events(auto_skip) ->
 
      {?eh,tc_start,{auto_skip_11_SUITE,end_per_suite}},
      {?eh,tc_done,{auto_skip_11_SUITE,end_per_suite,ok}},
+
+     %%! HERE: auto_skip_12_SUITE terms!!
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
