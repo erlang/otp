@@ -461,15 +461,28 @@ eraser(Key) ->
 
 %% encode/3
 
-encode(Msg, Mask, Dict) ->
+encode(dwr = M, Dict0, Mask) ->
+    Msg = getr(M),
     Seq = diameter_session:sequence(Mask),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
     Pkt = #diameter_packet{header = Hdr,
                            msg = Msg},
-    #diameter_packet{bin = Bin} = diameter_codec:encode(Dict, Pkt),
-    Bin.
+    #diameter_packet{bin = Bin} = diameter_codec:encode(Dict0, Pkt),
+    Bin;
+
+
+encode(dwa, Dict0, #diameter_packet{header = H, transport_data = TD}
+                   = ReqPkt) ->
+    AnsPkt = #diameter_packet{header
+                              = H#diameter_header{is_request = false,
+                                                  is_error = undefined,
+                                                  is_retransmitted = false},
+                              msg = dwa(ReqPkt),
+                              transport_data = TD},
+
+    diameter_codec:encode(Dict0, AnsPkt).
 
 %% okay/3
 
@@ -527,7 +540,7 @@ send_watchdog(#watchdog{pending = false,
                         dictionary = Dict0,
                         sequence = Mask}
               = S) ->
-    send(TPid, {send, encode(getr(dwr), Mask, Dict0)}),
+    send(TPid, {send, encode(dwr, Dict0, Mask)}),
     ?LOG(send, 'DWR'),
     S#watchdog{pending = true}.
 
@@ -546,9 +559,8 @@ recv(Name, Pkt, S) ->
 %% rcv/3
 
 rcv('DWR', Pkt, #watchdog{transport = TPid,
-                          dictionary = Dict0,
-                          sequence = Mask}) ->
-    send(TPid, {send, encode(dwa(Pkt), Mask, Dict0)}),
+                          dictionary = Dict0}) ->
+    send(TPid, {send, encode(dwa, Dict0, Pkt)}),
     ?LOG(send, 'DWA');
 
 rcv(N, _, _)
