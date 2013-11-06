@@ -603,7 +603,7 @@ cl_loop(State, LogCache) ->
       Msg = failed_anal_msg(Reason, LogCache),
       cl_error(State, Msg);
     {'EXIT', BackendPid, Reason} when Reason =/= 'normal' ->
-      Msg = failed_anal_msg(io_lib:format("~P", [Reason, 12]), LogCache),
+      Msg = failed_anal_msg(io_lib:format("~p", [Reason]), LogCache),
       cl_error(State, Msg);
     _Other ->
       %% io:format("Received ~p\n", [_Other]),

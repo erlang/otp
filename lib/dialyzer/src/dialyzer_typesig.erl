@@ -55,7 +55,9 @@
 	 t_subst/2,
 	 t_timeout/0, t_tuple/0, t_tuple/1,
          t_var/1, t_var_name/1,
-	 t_none/0, t_unit/0]).
+	 t_none/0, t_unit/0,
+	 t_map/1
+     ]).
 
 -include("dialyzer.hrl").
 
@@ -470,6 +472,33 @@ traverse(Tree, DefinedVars, State) ->
           end;
 	[] -> {State2, TupleType}
       end;
+    map ->
+	{State, t_map([])};
+%      Pairs = cerl:map_es(Tree),
+%      {State1, EVars} = traverse_list(Pairs, DefinedVars, State),
+%      case cerl:is_literal(cerl:fold_literal(Tree)) of
+%	  true ->
+%	    %% We do not need to do anything more here.
+%	    {State, t_map([])};
+%	  false ->
+%	    Fun = fun(Var, AccState) ->
+%		      case t_has_var(Var) of
+%			true ->
+%			  {AccState1, NewVar} = state__mk_var(AccState),
+%			  {NewVar,
+%			   state__store_conj(Var, eq, NewVar, AccState1)};
+%			false ->
+%			  {Var, AccState}
+%		      end
+%		  end,
+%	    {_NewEvars, State2} = lists:mapfoldl(Fun, State1, EVars),
+%	    {State2, t_map([])}
+%	end;
+%    map_pair_assoc ->
+%	[K,V] = cerl:map_pair_assoc_es(Tree),
+%	{State1,_} = traverse(K,DefinedVars,State),
+%	{State2,_} = traverse(V,DefinedVars,State),
+%	{_,State2};
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by
@@ -1037,6 +1066,9 @@ get_safe_underapprox_1([Pat|Left], Acc, Map) ->
       {Ts, Map1} = get_safe_underapprox_1(Es, [], Map),
       Type = t_tuple(Ts),
       get_safe_underapprox_1(Left, [Type|Acc], Map1);
+    map ->
+      %% TODO: Can maybe do something here
+      throw(dont_know);
     values ->
       Es = cerl:values_es(Pat),
       {Ts, Map1} = get_safe_underapprox_1(Es, [], Map),

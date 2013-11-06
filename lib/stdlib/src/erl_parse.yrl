@@ -48,6 +48,7 @@ opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
+map_pair_types map_pair_type
 bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
 
 Terminals
@@ -155,6 +156,8 @@ type -> '[' ']'                           : {type, ?line('$1'), nil, []}.
 type -> '[' top_type ']'                  : {type, ?line('$1'), list, ['$2']}.
 type -> '[' top_type ',' '...' ']'        : {type, ?line('$1'),
                                              nonempty_list, ['$2']}.
+type -> '#' '{' '}'                       : {type, ?line('$1'), map, []}.
+type -> '#' '{' map_pair_types '}'        : {type, ?line('$1'), map, '$3'}.
 type -> '{' '}'                           : {type, ?line('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?line('$1'), tuple, '$2'}.
 type -> '#' atom '{' '}'                  : {type, ?line('$1'), record, ['$2']}.
@@ -175,6 +178,10 @@ fun_type -> '(' ')' '->' top_type  : {type, ?line('$1'), 'fun',
 fun_type -> '(' top_types ')' '->' top_type
                                    : {type, ?line('$1'), 'fun',
                                       [{type, ?line('$1'), product, '$2'},'$5']}.
+
+map_pair_types -> map_pair_type                    : ['$1'].
+map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
+map_pair_type  -> top_type '=>' top_type           : {type, ?line('$2'), map_field_assoc,'$1','$3'}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
@@ -674,6 +681,8 @@ skip_paren(Type) ->
 
 build_gen_type({atom, La, tuple}) ->
     {type, La, tuple, any};
+build_gen_type({atom, La, map}) ->
+    {type, La, map, any};
 build_gen_type({atom, La, Name}) ->
     {type, La, Name, []}.
 

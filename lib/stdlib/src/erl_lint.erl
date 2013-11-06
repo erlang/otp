@@ -2607,6 +2607,13 @@ check_type({type, L, range, [From, To]}, SeenVars, St) ->
 	    _ -> add_error(L, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
+check_type({type, _L, map, any}, SeenVars, St) -> {SeenVars, St};
+check_type({type, _L, map, Pairs}, SeenVars, St) ->
+    lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
+			check_type(Pair, AccSeenVars, AccSt)
+		end, {SeenVars, St}, Pairs);
+check_type({type, _L, map_field_assoc, Dom, Range}, SeenVars, St) ->
+    check_type({type, -1, product, [Dom, Range]}, SeenVars, St);
 check_type({type, _L, tuple, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, _L, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, L, binary, [Base, Unit]}, SeenVars, St) ->
@@ -2712,6 +2719,7 @@ is_default_type({iodata, 0}) -> true;
 is_default_type({iolist, 0}) -> true;
 is_default_type({list, 0}) -> true;
 is_default_type({list, 1}) -> true;
+is_default_type({map, 0}) -> true;
 is_default_type({maybe_improper_list, 0}) -> true;
 is_default_type({maybe_improper_list, 2}) -> true;
 is_default_type({mfa, 0}) -> true;
