@@ -28,8 +28,6 @@
 -export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
-	 peername/1,
-	 sockname/1,
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
 
@@ -207,26 +205,6 @@ shell(Host, Port, Options) ->
 	Error ->
 	    Error
     end.
-
-%%--------------------------------------------------------------------
--spec peername(pid()) -> {ok, {inet:ip_address(), integer()}} | {error, term()}.
-%%
-%% Description: Returns the peer address of the connection
-%%--------------------------------------------------------------------
-peername(ConnectionRef) ->
-    [{peer, {_Name,{IP,Port}}}] =
-	ssh_connection_handler:connection_info(ConnectionRef, [peer]),
-    {ok, {IP,Port}}.
-
-%%--------------------------------------------------------------------
--spec sockname(pid()) -> {ok, {inet:ip_address(), integer()}} | {error, term()}.
-%%
-%% Description: Returns the local address of the connection
-%%--------------------------------------------------------------------
-sockname(ConnectionRef) ->
-    [{sockname, Result}] =
-	ssh_connection_handler:connection_info(ConnectionRef, [sockname]),
-    Result.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

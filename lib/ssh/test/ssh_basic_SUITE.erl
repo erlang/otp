@@ -478,7 +478,7 @@ send(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 peername_sockname() ->
-    [{doc, "Test ssh:peername/1 and ssh:sockname/1"}].
+    [{doc, "Test ssh:connection_info([peername, sockname])"}].
 peername_sockname(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -496,13 +496,17 @@ peername_sockname(Config) when is_list(Config) ->
 					  {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:subsystem(ConnectionRef, ChannelId, "peername_sockname", infinity),
-    {ok,{HostPeerClient,PortPeerClient}} = ssh:peername(ConnectionRef),
-    {ok,{HostSockClient,PortSockClient}} = ssh:sockname(ConnectionRef),
+    [{peer, {_Name, {HostPeerClient,PortPeerClient} = ClientPeer}}] =
+	ssh:connection_info(ConnectionRef, [peer]),
+    [{sockname, {HostSockClient,PortSockClient} = ClientSock}] =
+	ssh:connection_info(ConnectionRef, [sockname]),
+    ct:pal("Client: ~p ~p", [ClientPeer, ClientSock]),
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId, _, Response}} ->
 	    {PeerNameSrv,SockNameSrv} = binary_to_term(Response),
-	    {ok,{HostPeerSrv,PortPeerSrv}} = PeerNameSrv,
-	    {ok,{HostSockSrv,PortSockSrv}} = SockNameSrv,
+	    {HostPeerSrv,PortPeerSrv} = PeerNameSrv,
+	    {HostSockSrv,PortSockSrv} = SockNameSrv,
+	    ct:pal("Server: ~p ~p", [PeerNameSrv, SockNameSrv]),
 	    host_equal(HostPeerSrv, HostSockClient),
 	    PortPeerSrv = PortSockClient,
 	    host_equal(HostSockSrv, HostPeerClient),

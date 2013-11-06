@@ -54,6 +54,7 @@
 	  role,
 	  client,
 	  starter,
+	  auth_user,
 	  connection_state,
 	  latest_channel_id = 0,
 	  idle_timer_ref,
@@ -402,7 +403,7 @@ userauth(#ssh_msg_service_accept{name = "ssh-userauth"},
 	 State) ->
     {Msg, Ssh} = ssh_auth:init_userauth_request_msg(Ssh0),
     send_msg(Msg, State),
-    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
+    {next_state, userauth, next_packet(State#state{auth_user = Ssh#ssh.user, ssh_params = Ssh})};
 
 userauth(#ssh_msg_userauth_request{service = "ssh-connection",
                                   method = "none"} = Msg, 
@@ -423,11 +424,10 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
     case ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0) of
 	{authorized, User, {Reply, Ssh}} ->
 	    send_msg(Reply, State),
-	    ssh_userreg:register_user(User, Pid),
 	    Pid ! ssh_connected,
 	    connected_fun(User, Address, Method, Opts),
 	    {next_state, connected, 
-	     next_packet(State#state{ssh_params = Ssh})};
+	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Reason, Opts),
 	    send_msg(Reply, State),
@@ -898,7 +898,6 @@ terminate(normal, _, #state{transport_cb = Transport,
 			    connection_state = Connection,
 			    socket = Socket}) ->
     terminate_subsytem(Connection),
-    (catch ssh_userreg:delete_user(self())),
     (catch Transport:close(Socket)),
     ok;
 
@@ -1428,13 +1427,13 @@ ssh_info([client_version | Rest], #state{ssh_params = #ssh{c_vsn = IntVsn,
 ssh_info([server_version | Rest], #state{ssh_params =#ssh{s_vsn = IntVsn,
 							  s_version = StringVsn}} = State, Acc) ->
     ssh_info(Rest, State, [{server_version, {IntVsn, StringVsn}} | Acc]);
-
 ssh_info([peer | Rest],  #state{ssh_params = #ssh{peer = Peer}} = State, Acc) ->
     ssh_info(Rest, State, [{peer, Peer} | Acc]);
-
 ssh_info([sockname | Rest], #state{socket = Socket} = State, Acc) ->
-    ssh_info(Rest, State, [{sockname,inet:sockname(Socket)}|Acc]);
-
+    {ok, SockName} = inet:sockname(Socket),
+   ssh_info(Rest, State, [{sockname, SockName}|Acc]);
+ssh_info([user | Rest], #state{auth_user = User} = State, Acc) ->
+    ssh_info(Rest, State, [{user, User}|Acc]);
 ssh_info([ _ | Rest], State, Acc) ->
     ssh_info(Rest, State, Acc).
 

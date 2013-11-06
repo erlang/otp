@@ -34,7 +34,6 @@
 	     ssh_sup,
 	     ssh_system_sup,
 	     ssh_transport,
-	     ssh_userreg,
 	     ssh_xfer]},
   {registered, []},
   {applications, [kernel, stdlib, crypto, public_key]},
