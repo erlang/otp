@@ -254,6 +254,12 @@ gexpr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
     gexpr_list([H,T], Def, St);
 gexpr(#c_tuple{es=Es}, Def, _Rt, St) ->
     gexpr_list(Es, Def, St);
+gexpr(#c_map{es=Es}, Def, _Rt, St) ->
+    gexpr_list(Es, Def, St);
+gexpr(#c_map_pair_assoc{key=K,val=V}, Def, _Rt, St) ->
+    gexpr_list([K,V], Def, St);
+gexpr(#c_map_pair_exact{key=K,val=V}, Def, _Rt, St) ->
+    gexpr_list([K,V], Def, St);
 gexpr(#c_binary{segments=Ss}, Def, _Rt, St) ->
     gbitstr_list(Ss, Def, St);
 gexpr(#c_seq{arg=Arg,body=B}, Def, Rt, St0) ->
@@ -278,6 +284,7 @@ gexpr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     St1 = gbody(Arg, Def, PatCount, St0),
     clauses(Cs, Def, PatCount, Rt, St1);
 gexpr(_Core, _, _, St) ->
+    %%io:fwrite("clint gexpr: ~p~n", [_Core]),
     add_error({illegal_guard,St#lint.func}, St).
 
 %% gexpr_list([Expr], Defined, State) -> State.
@@ -303,6 +310,12 @@ expr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
     expr_list([H,T], Def, St);
 expr(#c_tuple{es=Es}, Def, _Rt, St) ->
     expr_list(Es, Def, St);
+expr(#c_map{es=Es}, Def, _Rt, St) ->
+    expr_list(Es, Def, St);
+expr(#c_map_pair_assoc{key=K,val=V},Def,_Rt,St) ->
+    expr_list([K,V],Def,St);
+expr(#c_map_pair_exact{key=K,val=V},Def,_Rt,St) ->
+    expr_list([K,V],Def,St);
 expr(#c_binary{segments=Ss}, Def, _Rt, St) ->
     bitstr_list(Ss, Def, St);
 expr(#c_fun{vars=Vs,body=B}, Def, Rt, St0) ->
@@ -355,7 +368,7 @@ expr(#c_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Def, Rt, St0) ->
     {Ens,St5} = variable_list(Evs, St4),
     body(H, union(Ens, Def), Rt, St5);
 expr(_Other, _, _, St) ->
-    %%io:fwrite("clint: ~p~n", [_Other]),
+    %%io:fwrite("clint expr: ~p~n", [_Other]),
     add_error({illegal_expr,St#lint.func}, St).
 
 %% expr_list([Expr], Defined, State) -> State.
@@ -454,13 +467,19 @@ pattern(#c_cons{hd=H,tl=T}, Def, Ps, St) ->
     pattern_list([H,T], Def, Ps, St);
 pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
+pattern(#c_map{es=Es}, Def, Ps, St) ->
+    pattern_list(Es, Def, Ps, St);
+pattern(#c_map_pair_exact{key=K,val=V},Def,Ps,St) ->
+    pattern_list([K,V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
 pattern(#c_alias{var=V,pat=P}, Def, Ps, St0) ->
     {Vvs,St1} = variable(V, Ps, St0),
     pattern(P, Def, union(Vvs, Ps), St1);
-pattern(_, _, Ps, St) -> {Ps,add_error({not_pattern,St#lint.func}, St)}.
+pattern(_Other, _, Ps, St) ->
+    %%io:fwrite("clint pattern: ~p~n", [_Other]),
+    {Ps,add_error({not_pattern,St#lint.func}, St)}.
 
 pat_var(N, _Def, Ps, St) ->
     case is_element(N, Ps) of

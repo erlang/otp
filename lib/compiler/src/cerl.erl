@@ -120,7 +120,16 @@
 	 update_c_bitstr/5, update_c_bitstr/6, ann_c_bitstr/5,
 	 ann_c_bitstr/6, is_c_bitstr/1, bitstr_val/1, bitstr_size/1,
 	 bitstr_bitsize/1, bitstr_unit/1, bitstr_type/1,
-	 bitstr_flags/1]).
+	 bitstr_flags/1,
+
+	 %% keep map exports here for now
+	 map_es/1,
+	 update_c_map_skel/2,
+	 update_c_map_pair_assoc_skel/2, update_c_map_pair_exact_skel/2,
+	 ann_c_map_skel/2,
+	 ann_c_map_pair_assoc_skel/2, ann_c_map_pair_exact_skel/2,
+	 map_pair_es/1, map_pair_assoc_es/1, map_pair_exact_es/1
+     ]).
 
 -export_type([c_binary/0, c_call/0, c_clause/0, c_cons/0, c_fun/0, c_literal/0,
               c_module/0, c_tuple/0, c_values/0, c_var/0, cerl/0, var_name/0]).
@@ -250,8 +259,8 @@
 
 -type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst'  | 'call'  | 'case'
                | 'catch'   | 'clause' | 'cons'   | 'fun'     | 'let'  | 'letrec'
-               | 'literal' | 'module' | 'primop' | 'receive' | 'seq'   | 'try' 
-               | 'tuple'   | 'values' |  'var'.
+               | 'literal' | 'map'    | 'module' | 'primop'  | 'receive' | 'seq'
+	       | 'try'     | 'tuple'  | 'values' |  'var'.
 
 -spec type(cerl()) -> ctype().
 
@@ -268,6 +277,9 @@ type(#c_fun{}) -> 'fun';
 type(#c_let{}) -> 'let';
 type(#c_letrec{}) -> letrec;
 type(#c_literal{}) -> literal;
+type(#c_map{}) -> map;
+type(#c_map_pair_assoc{}) -> map_pair_assoc;
+type(#c_map_pair_exact{}) -> map_pair_exact;
 type(#c_module{}) -> module;
 type(#c_primop{}) -> primop;
 type(#c_receive{}) -> 'receive';
@@ -1555,6 +1567,58 @@ ann_make_list(As, [], none) ->
     ann_c_nil(As);
 ann_make_list(_, [], Node) ->
     Node.
+
+
+%% ---------------------------------------------------------------------
+%% maps
+
+map_es(#c_map{es = Es}) ->
+    Es.
+
+map_pair_assoc_es(#c_map_pair_assoc{key=K,val=V}) -> [K,V].
+map_pair_exact_es(#c_map_pair_exact{key=K,val=V}) -> [K,V].
+map_pair_es(#c_map_pair_assoc{key=K,val=V}) -> [K,V];
+map_pair_es(#c_map_pair_exact{key=K,val=V}) -> [K,V].
+
+update_c_map_pair_assoc_skel(Old, [K,V]) ->
+    #c_map_pair_assoc{key=K, val=V, anno = get_ann(Old)}.
+
+update_c_map_pair_exact_skel(Old, [K,V]) ->
+    #c_map_pair_exact{key=K, val=V, anno = get_ann(Old)}.
+
+ann_c_map_pair_assoc_skel(As, [K,V]) ->
+    #c_map_pair_assoc{key = K, val=V, anno = As}.
+
+ann_c_map_pair_exact_skel(As, [K,V]) ->
+    #c_map_pair_exact{key = K, val=V, anno = As}.
+
+%c_map_skel(Es) ->
+%    #c_map{es = Es}.
+%
+
+ann_c_map(As, Es) ->
+    #c_map{es = Es, anno = As }.
+%% TODO: when we have map literals use a variant of
+%%    case is_lit_list(Es) of
+%%	false ->
+%%	    #c_map{es = Es, anno = As};
+%%	true ->
+%%	    #c_literal{val = maps:from_list(lit_list_vals(Es)), anno = As}
+%%    end.
+
+
+ann_c_map_pair_assoc(As, [K,V]) ->
+    #c_map_pair_assoc{key = K, val=V, anno = As}.
+
+ann_c_map_pair_exact(As, [K,V]) ->
+    #c_map_pair_exact{key = K, val=V, anno = As}.
+
+
+ann_c_map_skel(As, Es) ->
+    #c_map{es = Es, anno = As}.
+
+update_c_map_skel(Old, Es) ->
+    #c_map{es = Es, anno = get_ann(Old)}.
 
 
 %% ---------------------------------------------------------------------
@@ -2945,6 +3009,10 @@ pat_vars(Node, Vs) ->
 	    pat_vars(cons_hd(Node), pat_vars(cons_tl(Node), Vs));
 	tuple ->
 	    pat_list_vars(tuple_es(Node), Vs);
+	map ->
+	    pat_list_vars(map_es(Node), Vs);
+	map_pair_exact ->
+	    pat_list_vars(map_pair_exact_es(Node), Vs);
 	binary ->
 	    pat_list_vars(binary_segments(Node), Vs);
 	bitstr ->
@@ -3756,6 +3824,12 @@ is_data(#c_cons{}) ->
     true;
 is_data(#c_tuple{}) ->
     true;
+is_data(#c_map{}) ->
+    true;
+is_data(#c_map_pair_assoc{}) ->
+    true;
+is_data(#c_map_pair_exact{}) ->
+    true;
 is_data(_) ->
     false.
 
@@ -3801,7 +3875,13 @@ data_type(#c_literal{val = V}) ->
 data_type(#c_cons{}) ->
     cons;
 data_type(#c_tuple{}) ->
-    tuple.
+    tuple;
+data_type(#c_map{}) ->
+    map;
+data_type(#c_map_pair_assoc{}) ->
+    map_pair_assoc;
+data_type(#c_map_pair_exact{}) ->
+    map_pair_exact.
 
 
 %% @spec data_es(Node::cerl()) -> [cerl()]
@@ -3833,7 +3913,13 @@ data_es(#c_literal{val = V}) ->
 data_es(#c_cons{hd = H, tl = T}) ->
     [H, T];
 data_es(#c_tuple{es = Es}) ->
-    Es.
+    Es;
+data_es(#c_map{es=Es}) ->
+    Es;
+data_es(#c_map_pair_assoc{key=K,val=V}) ->
+    [K,V];
+data_es(#c_map_pair_exact{key=K,val=V}) ->
+    [K,V].
 
 
 %% @spec data_arity(Node::cerl()) -> integer()
@@ -3890,7 +3976,10 @@ make_data(CType, Es) ->
 
 ann_make_data(As, {atomic, V}, []) -> #c_literal{val = V, anno = As};
 ann_make_data(As, cons, [H, T]) -> ann_c_cons(As, H, T);
-ann_make_data(As, tuple, Es) -> ann_c_tuple(As, Es).
+ann_make_data(As, tuple, Es) -> ann_c_tuple(As, Es);
+ann_make_data(As, map, Es) -> ann_c_map(As, Es);
+ann_make_data(As, map_pair_assoc, Es) -> ann_c_map_pair_assoc(As, Es);
+ann_make_data(As, map_pair_exact, Es) -> ann_c_map_pair_exact(As, Es).
 
 
 %% @spec update_data(Old::cerl(), Type::dtype(),
@@ -4022,6 +4111,12 @@ subtrees(T) ->
 		    [[cons_hd(T)], [cons_tl(T)]];
 		tuple ->
 		    [tuple_es(T)];
+		map ->
+		    [map_es(T)];
+		map_pair_assoc ->
+		    [map_pair_assoc_es(T)];
+		map_pair_exact ->
+		    [map_pair_exact_es(T)];
 		'let' ->
 		    [let_vars(T), [let_arg(T)], [let_body(T)]];
 		seq ->
