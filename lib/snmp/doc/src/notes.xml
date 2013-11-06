@@ -33,6 +33,70 @@
   </header>
 
 
+
+  <section>
+    <title>SNMP Development Toolkit 4.25</title>
+    <p>Version 4.25 supports code replacement in runtime from/to
+    version 4.24.2, 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+    
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+      
+<!--
+      <list type="bulleted">
+	<item>
+	  <p>[agent] Errors in <c>vacmAccessTable</c> RowStatus handling.
+	  There are problems with the handling of vacmAccessTableStatus 
+	  that cause some SNMP test suites to report errors.
+	  Most notably, erroneous set operations frequently cause "genErr" 
+	  errors to be returned. These "genErr" errors are usually caused 
+	  by badmatch exceptions coming from 
+	  <c>{ok, Row} = snmpa_vacm:get_row(RowIndex)</c> 
+	  if the row does not exist. </p>
+	  <p>The semantics of the RowStatus handling in that table has 
+	  been adjusted to be compliant with the RowStatus
+	  textual description of SNPMv2-TC MIB. </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10164</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>When converting an Audit Trail Log to text, a corrupt
+	  log entry could cause the entire conversion to fail. </p>
+	  <p>Also, for a log with sequence numbers, failing to 
+	  decode a log entry would cause the conversion to fail
+	  (not because of the failed decode, but because of the 
+	  failure to write the error message). </p>
+          <p>Own Id: OTP-111453</p>
+          <p>Aux Id: Seq 12459</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.25 -->
+
+
+
+
   <section>
     <title>SNMP Development Toolkit 4.24.2</title>
     <p>Version 4.24.2 supports code replacement in runtime from/to
