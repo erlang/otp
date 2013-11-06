@@ -118,8 +118,8 @@ handle_call({disconnect_cb,Obj,Msg},{From,_},State) ->
 handle_call(stop,{_From,_},State = #state{users=Users0, cleaners=Cs0}) ->
     Env = get(?WXE_IDENTIFIER),
     Users = gb_trees:to_list(Users0),
-    Cs = lists:map(fun({Pid,User}) ->
-			   spawn_link(fun() -> cleanup(Env,Pid,[User]) end)
+    Cs = lists:map(fun({_Pid,User}) ->
+			   spawn_link(fun() -> cleanup(Env,[User], false) end)
 		   end, Users),
     {noreply, State#state{users=gb_trees:empty(), cleaners=Cs ++ Cs0}};
 
@@ -179,9 +179,12 @@ handle_info({'DOWN',_,process,Pid,_}, State=#state{users=Users0,cleaners=Cs}) ->
 	Env = wx:get_env(),
 	case User of
 	    #user{events=[], evt_handler=undefined} -> %% No need to spawn
-		{noreply, State#state{users=Users,cleaners=Cs}};
+		case Cs =:= [] andalso gb_trees:is_empty(Users) of
+		    true  -> {stop, normal, State#state{cleaners=Cs}};
+		    false -> {noreply, State#state{users=Users,cleaners=Cs}}
+		end;
 	    _ ->
-		Cleaner = spawn_link(fun() -> cleanup(Env,Pid,[User]) end),
+		Cleaner = spawn_link(fun() -> cleanup(Env,[User],true) end),
 		{noreply, State#state{users=Users,cleaners=[Cleaner|Cs]}}
 	end
     catch  _E:_R ->
@@ -427,15 +430,18 @@ find_handler([],_Object,_Fun,Res) ->
 %% The server handles callbacks from driver so every other wx call must
 %% be called from another process, therefore the cleaning must be spawned.
 %%
-cleanup(Env, _Pid, Data) ->
+%% Using Disconnect when we terminate can crash, it is timing releated
+%% but it seems that disconnect on windows that are being deleted are bad.
+%% Since we are terminating the data will be cleaned up anyway.
+cleanup(Env, Data, Disconnect) ->
     put(?WXE_IDENTIFIER, Env),
-    lists:foreach(fun cleanup/1, Data),
+    lists:foreach(fun(User) -> cleanup(User, Disconnect) end, Data),
     gen_server:cast(Env#wx_env.sv, {cleaned, self()}),
     normal.
 
-cleanup(#user{events=Evs, evt_handler=Handler}) ->
+cleanup(#user{events=Evs, evt_handler=Handler}, Disconnect) ->
     lists:foreach(fun(#event{object=O, callback=CB, cb_handler=CbH}) ->
-			  catch wxEvtHandler:disconnect_impl(CbH,O),
+			  Disconnect andalso (catch wxEvtHandler:disconnect_impl(CbH,O)),
 			  case is_function(CB) of
 			      true ->
 				  wxEvtHandler:destroy_evt_listener(CbH);
