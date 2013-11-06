@@ -103,7 +103,7 @@ init_tc(Mod,Func,Config) ->
 			    end,
 			    init_tc1(Mod,Suite,Func,Config);
 			{failed,Seq,BadFunc} ->
-			    {fail,{sequence_failed,Seq,BadFunc}}
+			    {auto_skip,{sequence_failed,Seq,BadFunc}}
 		    end
 	    end
     end.	    
@@ -691,7 +691,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     ct_util:update_testdata(curr_tc, ClearCurrTC),
 
     case FinalResult of
-	{skip,{sequence_failed,_,_}} ->
+	{auto_skip,{sequence_failed,_,_}} ->
 	    %% ct_logs:init_tc is never called for a skipped test case
 	    %% in a failing sequence, so neither should end_tc	    
 	    ok;
@@ -714,8 +714,13 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 %% {error,Reason} | {skip,Reason} | {timetrap_timeout,TVal} | 
 %% {testcase_aborted,Reason} | testcase_aborted_or_killed | 
 %% {'EXIT',Reason} | Other (ignored return value, e.g. 'ok')
-tag({STag,Reason}) when STag == skip; STag == skipped -> 
-    {skipped,Reason};
+tag({STag,Reason}) when STag == skip; STag == skipped ->
+    case Reason of
+	{failed,{_,init_per_testcase,_}} -> {auto_skipped,Reason};
+	_ -> {skipped,Reason}
+    end;
+tag({auto_skip,Reason}) ->
+    {auto_skipped,Reason};
 tag(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
                        ETag == timetrap_timeout;
                        ETag == testcase_aborted -> 
@@ -725,13 +730,20 @@ tag(E = testcase_aborted_or_killed) ->
 tag(Other) ->
     Other.
 
+tag_cth({skipped,Reason={failed,{_,init_per_testcase,_}}}) ->
+    {auto_skipped,Reason};
 tag_cth({STag,Reason}) when STag == skip; STag == skipped -> 
-    {skipped,Reason};
-tag_cth({fail, Reason}) ->
-    {failed, {error,Reason}};
+    case Reason of
+	{failed,{_,init_per_testcase,_}} -> {auto_skipped,Reason};
+	_ -> {skipped,Reason}
+    end;
+tag_cth({auto_skip,Reason}) ->
+    {auto_skipped,Reason};
+tag_cth({fail,Reason}) ->
+    {failed,{error,Reason}};
 tag_cth(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
-                       ETag == timetrap_timeout;
-                       ETag == testcase_aborted -> 
+			   ETag == timetrap_timeout;
+			   ETag == testcase_aborted -> 
     {failed,E};
 tag_cth(E = testcase_aborted_or_killed) ->
     {failed,E};

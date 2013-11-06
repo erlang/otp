@@ -692,8 +692,10 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 				  test_server:format("Found ~p!", [TEv]),
 				  {Done,RemEvs2,length(RemEvs2)}
 			  end;
-		     %% end_per_group auto skipped
-		     (TEv={TEH,tc_auto_skip,{M,end_per_group,R}}, {Done,RemEvs,_RemSize}) ->
+		     %% end_per_group auto- or user skipped
+		     (TEv={TEH,AutoOrUserSkip,{M,end_per_group,R}}, {Done,RemEvs,_RemSize})
+			when AutoOrUserSkip == tc_auto_skip;
+			     AutoOrUserSkip == tc_user_skip ->
 			  RemEvs1 = 
 			      lists:dropwhile(
 				fun({EH,#event{name=tc_auto_skip,
@@ -704,10 +706,18 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					    match -> false;
 					    _ -> true
 					end;
+				   ({EH,#event{name=tc_user_skip,
+					       node=EvNode,
+					       data={Mod,end_per_group,Reason}}}) when
+				   EH == TEH, EvNode == Node, Mod == M ->
+					case match_data(R, Reason) of
+					    match -> false;
+					    _ -> true
+					end;
 				   ({EH,#event{name=stop_logging,
 					       node=EvNode,data=_}}) when
 					  EH == TEH, EvNode == Node ->
-					exit({tc_auto_skip_not_found,TEv});
+					exit({tc_auto_or_user_skip_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -925,11 +935,18 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 				  test_server:format("Found ~p!", [TEv]),
 				  {Done,RemEvs2,length(RemEvs2)}
 			  end;
-		     %% end_per_group auto skipped
-		     (TEv={TEH,tc_auto_skip,{M,end_per_group,R}}, {Done,RemEvs,_RemSize}) ->
+		     %% end_per_group auto-or user skipped
+		     (TEv={TEH,AutoOrUserSkip,{M,end_per_group,R}}, {Done,RemEvs,_RemSize})
+			when AutoOrUserSkip == tc_auto_skip;
+			     AutoOrUserSkip == tc_user_skip ->
 			  RemEvs1 = 
 			      lists:dropwhile(
 				fun({EH,#event{name=tc_auto_skip,
+					       node=EvNode,
+					       data={Mod,end_per_group,Reason}}}) when
+				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
+					false;
+				   ({EH,#event{name=tc_user_skip,
 					       node=EvNode,
 					       data={Mod,end_per_group,Reason}}}) when
 				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
@@ -1176,6 +1193,9 @@ log_events1([E={_EH,tc_done,{_M,{end_per_group,_GrName,Props},_R}} | Evs], Dev, 
 	    log_events1(Evs, Dev, Ind--"  ")
     end;
 log_events1([E={_EH,tc_auto_skip,{_M,end_per_group,_Reason}} | Evs], Dev, Ind) ->
+    io:format(Dev, "~s~p],~n", [Ind,E]),
+    log_events1(Evs, Dev, Ind--" ");
+log_events1([E={_EH,tc_user_skip,{_M,end_per_group,_Reason}} | Evs], Dev, Ind) ->
     io:format(Dev, "~s~p],~n", [Ind,E]),
     log_events1(Evs, Dev, Ind--" ");
 log_events1([E], Dev, Ind) ->

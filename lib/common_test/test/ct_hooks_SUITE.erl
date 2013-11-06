@@ -749,11 +749,10 @@ test_events(skip_pre_suite_cth) ->
      {?eh,cth,{'_',on_tc_skip,
 	       [init_per_suite,{tc_user_skip,{skipped,"Test skip"}},[]]}},
 
-     {?eh,tc_auto_skip,{ct_cth_empty_SUITE,test_case,"Test skip"}},
-     {?eh,cth,{'_',on_tc_skip,[test_case,{tc_auto_skip,"Test skip"},[]]}},
+     {?eh,tc_user_skip,{ct_cth_empty_SUITE,test_case,"Test skip"}},
+     {?eh,cth,{'_',on_tc_skip,[test_case,{tc_user_skip,"Test skip"},[]]}},
      
-     {?eh,tc_auto_skip, {ct_cth_empty_SUITE, end_per_suite,"Test skip"}},
-     {?eh,cth,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,"Test skip"},[]]}},
+     {?eh,tc_user_skip, {ct_cth_empty_SUITE, end_per_suite,"Test skip"}},
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth, {'_',terminate,[[]]}},
@@ -773,11 +772,10 @@ test_events(skip_post_suite_cth) ->
      {?eh,cth,{'_',on_tc_skip,
 	       [init_per_suite,{tc_user_skip,{skipped,"Test skip"}},[]]}},
 
-     {?eh,tc_auto_skip,{ct_cth_empty_SUITE,test_case,"Test skip"}},
-     {?eh,cth,{'_',on_tc_skip,[test_case,{tc_auto_skip,"Test skip"},[]]}},
+     {?eh,tc_user_skip,{ct_cth_empty_SUITE,test_case,"Test skip"}},
+     {?eh,cth,{'_',on_tc_skip,[test_case,{tc_user_skip,"Test skip"},[]]}},
      
-     {?eh,tc_auto_skip, {ct_cth_empty_SUITE, end_per_suite,"Test skip"}},
-     {?eh,cth,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,"Test skip"},[]]}},
+     {?eh,tc_user_skip, {ct_cth_empty_SUITE, end_per_suite,"Test skip"}},
      
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{'_',terminate,[[]]}},
@@ -1219,11 +1217,15 @@ test_events(cth_log) ->
      {?eh,tc_start,{cth_log_SUITE,init_per_suite}},
 
      {parallel,
-      [{?eh,tc_start,{ct_framework,{init_per_group,g1,[parallel]}}},
-       {?eh,tc_done,{ct_framework,{init_per_group,g1,[parallel]},ok}},
+      [{?eh,tc_start,{ct_framework,{init_per_group,g1,
+				    [{suite,cth_log_SUITE},parallel]}}},
+       {?eh,tc_done,{ct_framework,{init_per_group,g1,
+				   [{suite,cth_log_SUITE},parallel]},ok}},
        {?eh,test_stats,{30,0,{0,0}}},
-       {?eh,tc_start,{ct_framework,{end_per_group,g1,[parallel]}}},
-       {?eh,tc_done,{ct_framework,{end_per_group,g1,[parallel]},ok}}]},
+       {?eh,tc_start,{ct_framework,{end_per_group,g1,
+				    [{suite,cth_log_SUITE},parallel]}}},
+       {?eh,tc_done,{ct_framework,{end_per_group,g1,
+				   [{suite,cth_log_SUITE},parallel]},ok}}]},
        
      {?eh,tc_done,{cth_log_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},

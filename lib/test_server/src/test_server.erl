@@ -925,7 +925,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
 		NewResult = do_end_tc_call(Mod,Func, {Error,Args0},
-					   {skip,{failed,Error}}),
+					   {auto_skip,{failed,Error}}),
 		{{0,NewResult},Where,[]};
 	    {fail,Reason} ->
 		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],

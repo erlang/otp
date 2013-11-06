@@ -2210,12 +2210,18 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %% group1_end                                              | --->
 %%
 
-run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
-		    Config, TimetrapData, Mode, Status) when Type==conf;
-							     Type==make ->
+run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
+		    Config, TimetrapData, Mode, Status) when
+      ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
+      ((Type==conf) or (Type==make)) ->
     file:set_cwd(filename:dirname(get(test_server_dir))),
     CurrIOHandler = get(test_server_common_io_handler),
     ParentMode = tl(Mode),
+
+    {AutoOrUser,ReportTag} = 
+	if SkipTag == auto_skip_case -> {auto,tc_auto_skip};
+	   SkipTag == skip_case      -> {user,tc_user_skip}
+	end,
 
     %% check and update the mode for test case execution and io msg handling
     case {curr_ref(Mode),check_props(parallel, Mode)} of
@@ -2226,9 +2232,9 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    %% group, buffered io can be flushed
 		    handle_test_case_io_and_status(),
 		    set_io_buffering(undefined),
-		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   false, SkipMode),
-		    test_server_sup:framework_call(report, [tc_auto_skip,
+		    test_server_sup:framework_call(report, [ReportTag,
 							    {Mod,Func,Comment}]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
@@ -2236,9 +2242,9 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    %% this is a skipped end conf for a parallel group nested
 		    %% under a parallel group (io buffering is active)
 		    wait_for_cases(Ref),
-		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   true, SkipMode),
-		    test_server_sup:framework_call(report, [tc_auto_skip,
+		    test_server_sup:framework_call(report, [ReportTag,
 							    {Mod,Func,Comment}]),
 		    case CurrIOHandler of
 			{Ref,_} ->
@@ -2256,9 +2262,9 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	{Ref,false} ->
 	    %% this is a skipped end conf for a non-parallel group that's not
 	    %% nested under a parallel group
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   false, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,
+	    test_server_sup:framework_call(report, [ReportTag,
 						    {Mod,Func,Comment}]),
 
 	    %% Check if this group is auto skipped because of error in the
@@ -2277,7 +2283,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 					Reason = {group_result,GrName,failed},
 					skip_cases_upto(ParentRef, Cases,
 							Reason, tc, Mode,
-							auto_skip_case)
+							SkipTag)
 				end;
 			    false ->
 				Cases
@@ -2290,9 +2296,9 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	{Ref,_} ->
 	    %% this is a skipped end conf for a non-parallel group nested under
 	    %% a parallel group (io buffering is active)
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   true, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,
+	    test_server_sup:framework_call(report, [ReportTag,
 						    {Mod,Func,Comment}]),
 	    case CurrIOHandler of
 		{Ref,_} ->
@@ -2308,9 +2314,9 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	{_,false} ->
 	    %% this is a skipped start conf for a group which is not nested
 	    %% under a parallel group
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   false, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,
+	    test_server_sup:framework_call(report, [ReportTag,
 						    {Mod,Func,Comment}]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
 				[conf(Ref,[])|Mode], Status);
@@ -2323,9 +2329,9 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	       true ->
 		    ok
 	    end,
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   true, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,
+	    test_server_sup:framework_call(report, [ReportTag,
 						    {Mod,Func,Comment}]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
 				[conf(Ref,[])|Mode], Status)
@@ -2337,23 +2343,6 @@ run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
 			   Case, Comment, is_io_buffered(), SkipMode),
     test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
-			update_status(skipped, Mod, Func, Status));
-
-run_test_cases_loop([{skip_case,{conf,Ref,Case,Comment}}|Cases0],
-		    Config, TimetrapData, Mode, Status) ->
-    {Mod,Func} = skip_case(user, Ref, 0, Case, Comment, is_io_buffered()),
-    {Cases,Config1} =
-	case curr_ref(Mode) of
-	    Ref ->
-		%% skipped end conf
-		{Cases0,tl(Config)};
-	    _ ->
-		%% skipped start conf
-		{skip_cases_upto(Ref, Cases0, Comment, conf, Mode, skip_case),
-		 Config}
-	end,
-    test_server_sup:framework_call(report, [tc_user_skip,{Mod,Func,Comment}]),
-    run_test_cases_loop(Cases, Config1, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
 run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],

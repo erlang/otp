@@ -78,7 +78,7 @@ init_per_suite(Config0) ->
     {1,0,{0,0}} = ct_test_support:run(ct,run_test,[Opts2],Config),
 
     %% Time the shortest testcase to use for offset
-    {T0,{1,0,{0,0}}} = timer:tc(ct_test_support,run,[ct,run_test,[Opts1],Config]),
+    {_T0,{1,0,{0,0}}} = timer:tc(ct_test_support,run,[ct,run_test,[Opts1],Config]),
 
     %% -2 is to ensure we hit inside the target test case and not after
 %    T = round(T0/1000000)-2,
@@ -343,13 +343,13 @@ skip_first_tc1(Suite) ->
      {?eh,tc_done,{Suite,tc2,?skipped}},
      {?eh,test_stats,{'_',0,{1,0}}},
      {?eh,tc_done,{Suite,{init_per_group,g,[]},?skipped}},
-     {?eh,tc_auto_skip,{Suite,tc1,?skip_reason}},
-     {?eh,test_stats,{'_',0,{1,1}}},
-     {?eh,tc_auto_skip,{Suite,tc2,?skip_reason}},
-     {?eh,test_stats,{'_',0,{1,2}}},
-     {?eh,tc_auto_skip,{Suite,end_per_group,?skip_reason}},
+     {?eh,tc_user_skip,{Suite,tc1,?skip_reason}},
+     {?eh,test_stats,{'_',0,{2,0}}},
+     {?eh,tc_user_skip,{Suite,tc2,?skip_reason}},
+     {?eh,test_stats,{'_',0,{3,0}}},
+     {?eh,tc_user_skip,{Suite,end_per_group,?skip_reason}},
      {?eh,tc_done,{Suite,tc2,?skipped}},
-     {?eh,test_stats,{'_',0,{2,2}}},
+     {?eh,test_stats,{'_',0,{4,0}}},
      {?eh,tc_start,{Suite,end_per_suite}},
      {?eh,tc_done,{Suite,end_per_suite,ok}}].
 
