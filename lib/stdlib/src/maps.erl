@@ -44,8 +44,6 @@
 	values/1
     ]).
 
--type map() :: term(). %% FIXME: remove when erl_bif_types knows map().
-
 %% Shadowed by erl_bif_types: maps:get/3
 -spec get(Key,Map) -> Value when
     Key :: term(),
