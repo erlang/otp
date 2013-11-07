@@ -22,12 +22,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([build_std/1]).
+-export([build_std/1,build_map_module/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [build_std].
+    [build_std,build_map_module].
 
 groups() -> 
     [].
@@ -45,25 +45,28 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-build_std(suite) ->
-    [];
-build_std(doc) ->
-    ["Build some documentation using standard EDoc layout"];
+build_std(suite) -> [];
+build_std(doc) -> ["Build some documentation using standard EDoc layout"];
 build_std(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Overview1 = filename:join(DataDir, "overview.edoc"),
+    Overview2 = filename:join(DataDir, "overview.syntax_tools"),
+    PrivDir = ?config(priv_dir, Config),
 
-    ?line DataDir = ?config(data_dir, Config),
-    ?line Overview1 = filename:join(DataDir, "overview.edoc"),
-    ?line Overview2 = filename:join(DataDir, "overview.syntax_tools"),
-    ?line PrivDir = ?config(priv_dir, Config),
+    ok = edoc:application(edoc, [{overview, Overview1},
+	    {def, {vsn,"TEST"}},
+	    {dir, PrivDir}]),
 
-    ?line ok = edoc:application(edoc, [{overview, Overview1},
-				       {def, {vsn,"TEST"}},
-				       {dir, PrivDir}]),
+    ok = edoc:application(syntax_tools, [{overview, Overview2},
+	    {def, {vsn,"TEST"}},
+	    {dir, PrivDir}]),
 
-    ?line ok = edoc:application(syntax_tools, [{overview, Overview2},
-					       {def, {vsn,"TEST"}},
-					       {dir, PrivDir}]),
+    ok = edoc:application(xmerl, [{dir, PrivDir}]),
+    ok.
 
-    ?line ok = edoc:application(xmerl, [{dir, PrivDir}]),
-
+build_map_module(Config) when is_list(Config) ->
+    DataDir  = ?config(data_dir, Config),
+    PrivDir  = ?config(priv_dir, Config),
+    Filename = filename:join(DataDir, "map_module.erl"),
+    ok = edoc:file(Filename, [{dir, PrivDir}]),
     ok.
