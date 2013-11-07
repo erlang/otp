@@ -150,7 +150,7 @@ test_events(config_info) ->
 		  {timetrap_timeout,400}}}}}],
       {?eh,tc_start,{config_info_1_SUITE,t31}},
       {?eh,tc_done,{config_info_1_SUITE,t31,
-		    {skipped,{failed,{config_info_1_SUITE,init_per_testcase,
+		    {auto_skipped,{failed,{config_info_1_SUITE,init_per_testcase,
 				      {timetrap_timeout,250}}}}}},
       {?eh,tc_start,{config_info_1_SUITE,t32}},
       {?eh,tc_done,{config_info_1_SUITE,t32,

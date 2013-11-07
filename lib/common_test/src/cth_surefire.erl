@@ -330,5 +330,7 @@ count_tcs([#testcase{result={fail,_}}|TCs],Ok,F,S) ->
     count_tcs(TCs,Ok,F+1,S);
 count_tcs([#testcase{result={skipped,_}}|TCs],Ok,F,S) ->
     count_tcs(TCs,Ok,F,S+1);
+count_tcs([#testcase{result={auto_skipped,_}}|TCs],Ok,F,S) ->
+    count_tcs(TCs,Ok,F,S+1);
 count_tcs([],Ok,F,S) ->
     {Ok+F+S,F,S}.

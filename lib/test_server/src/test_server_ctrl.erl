@@ -3049,13 +3049,13 @@ cases_to_shuffle(Ref, Cases) ->
 
 cases_to_shuffle(Ref, [{conf,Ref,_,_} | _]=Cs, N, Ix) ->          % end
     {N-1,Ix,Cs};
-cases_to_shuffle(Ref, [{skip_case,{_,Ref,_,_}} | _]=Cs, N, Ix) -> % end
+cases_to_shuffle(Ref, [{skip_case,{_,Ref,_,_},_} | _]=Cs, N, Ix) -> % end
     {N-1,Ix,Cs};
 
 cases_to_shuffle(Ref, [{conf,Ref1,_,_}=C | Cs], N, Ix) ->          % nested group
     {Cs1,Rest} = get_subcases(Ref1, Cs, []),
     cases_to_shuffle(Ref, Rest, N+1, [{N,[C|Cs1]} | Ix]);
-cases_to_shuffle(Ref, [{skip_case,{_,Ref1,_,_}}=C | Cs], N, Ix) -> % nested group
+cases_to_shuffle(Ref, [{skip_case,{_,Ref1,_,_},_}=C | Cs], N, Ix) -> % nested group
     {Cs1,Rest} = get_subcases(Ref1, Cs, []),
     cases_to_shuffle(Ref, Rest, N+1, [{N,[C|Cs1]} | Ix]);
 
@@ -3064,7 +3064,7 @@ cases_to_shuffle(Ref, [C | Cs], N, Ix) ->
 
 get_subcases(SubRef, [{conf,SubRef,_,_}=C | Cs], SubCs) ->
     {lists:reverse([C|SubCs]),Cs};
-get_subcases(SubRef, [{skip_case,{_,SubRef,_,_}}=C | Cs], SubCs) ->
+get_subcases(SubRef, [{skip_case,{_,SubRef,_,_},_}=C | Cs], SubCs) ->
     {lists:reverse([C|SubCs]),Cs};
 get_subcases(SubRef, [C|Cs], SubCs) ->
     get_subcases(SubRef, Cs, [C|SubCs]).
@@ -3198,7 +3198,7 @@ modify_cases_upto(Ref, ModOp, Cases, Orig, Alt) ->
     %% same ref in the list, if not, this *is* an end conf case
     case lists:any(fun({_,R,_,_}) when R == Ref -> true;
 		      ({_,R,_})   when R == Ref -> true;
-		      ({skip_case,{_,R,_,_}}) when R == Ref -> true;
+		      ({skip_case,{_,R,_,_},_}) when R == Ref -> true;
 		      (_) -> false
 		   end, Cases) of
 	true ->
@@ -3208,9 +3208,9 @@ modify_cases_upto(Ref, ModOp, Cases, Orig, Alt) ->
     end.
 
 %% next case is a conf with same ref, must be end conf = we're done
-modify_cases_upto1(Ref, {skip,Reason,conf,_,skip_case},
+modify_cases_upto1(Ref, {skip,Reason,conf,Mode,skip_case},
 		   [{conf,Ref,_Props,MF}|T], Orig, Alt) ->
-    {Orig,[{skip_case,{conf,Ref,MF,Reason}}|Alt],T};
+    {Orig,[{skip_case,{conf,Ref,MF,Reason},Mode}|Alt],T};
 modify_cases_upto1(Ref, {skip,Reason,conf,Mode,auto_skip_case},
 		   [{conf,Ref,_Props,MF}|T], Orig, Alt) ->
     {Orig,[{auto_skip_case,{conf,Ref,MF,Reason},Mode}|Alt],T};
@@ -3231,7 +3231,7 @@ modify_cases_upto1(Ref, {copy,NewRef}, [{make,Ref,MF}=M|T], Orig, Alt) ->
 
 %% next case is a user skipped end conf with the same ref = we're done
 modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType},
-		   [{skip_case,{Type,Ref,MF,_Cmt}}|T], Orig, Alt) ->
+		   [{skip_case,{Type,Ref,MF,_Cmt},_}|T], Orig, Alt) ->
     {Orig,[{SkipType,{Type,Ref,MF,Reason},Mode}|Alt],T};
 modify_cases_upto1(Ref, {copy,NewRef},
 		   [{skip_case,{Type,Ref,MF,Cmt}}=C|T], Orig, Alt) ->

@@ -328,6 +328,7 @@ events_to_result([]) ->
 
 result(ok) ->[];
 result({skipped,_}) -> [s];
+result({auto_skipped,_}) -> [s];
 result({failed,_}) -> [f].
 
 %% Using the expected events' last test_stats element to produce the

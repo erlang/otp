@@ -84,8 +84,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [{ptop1,[parallel],[{psub1,[parallel],[tc1,tc2]}]},
-     {ptop2,[parallel],[{psub2,[parallel],[tc3,tc4]}]}].
+    [{ptop1,[parallel],[tc1,{psub1,[parallel],[tc3,tc4]},tc2]},
+     {ptop2,[parallel],[tc1,{psub2,[parallel],[tc3,tc4]},tc2]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
