@@ -82,8 +82,8 @@ get_mf() ->
     MaxB = get_mf_maxb(),
     MaxF = get_mf_maxf(),
     case {Dir, MaxB, MaxF} of
-	{undefined,undefined,undefined} = R ->
-	    R;
+	{undefined,undefined,undefined} ->
+	    undefined;
 	{undefined,_,_} ->
 	    exit({missing_config, {sasl, error_logger_mf_dir}});
 	{_,undefined,_} ->
