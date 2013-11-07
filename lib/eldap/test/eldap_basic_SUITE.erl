@@ -28,10 +28,19 @@
 -define(TIMEOUT, 120000). % 2 min
 
 init_per_suite(Config) ->
-    ssl:start(),
-    chk_config(ldap_server, {"localhost",9876},
-	chk_config(ldaps_server, {"localhost",9877},
-	           Config)).
+    StartSsl = try ssl:start() 
+    catch
+	Error:Reason ->
+	    {skip, lists:flatten(io_lib:format("eldap init_per_suite failed to start ssl Error=~p Reason=~p", [Error, Reason]))}
+    end,
+    case StartSsl of
+	ok ->
+	    chk_config(ldap_server, {"localhost",9876},
+		       chk_config(ldaps_server, {"localhost",9877},
+				  Config));
+	_ ->
+	    StartSsl
+    end.
 
 end_per_suite(_Config) ->
     ok.

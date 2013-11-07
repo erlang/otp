@@ -145,6 +145,22 @@ init_per_group(misc = Group, Config) ->
     ok = httpc:set_options([{ipfamily, Inet}]),
     Config;
 
+init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
+    start_apps(Group),
+    StartSsl = try ssl:start()
+    catch
+	Error:Reason ->
+	    {skip, lists:flatten(io_lib:format("Failed to start apps for https Error=~p Reason=~p", [Error, Reason]))}
+    end,
+    case StartSsl of
+	{error, {already_started, _}} ->
+	    do_init_per_group(Group, Config0);
+	ok ->
+	    do_init_per_group(Group, Config0);
+	_ ->
+	    StartSsl
+    end;
+
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
@@ -153,7 +169,10 @@ init_per_group(Group, Config0) ->
 
 end_per_group(_, _Config) ->
     ok.
-
+do_init_per_group(Group, Config0) ->
+    Config = proplists:delete(port, Config0),
+    Port = server_start(Group, server_config(Group, Config)),
+    [{port, Port} | Config].
 %%--------------------------------------------------------------------
 init_per_testcase(pipeline, Config) ->
     inets:start(httpc, [{profile, pipeline}]),
@@ -1068,6 +1087,8 @@ server_config(_, _) ->
     [].
 
 start_apps(https) ->
+    inets_test_lib:start_apps([crypto, public_key, ssl]);
+start_apps(sim_https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
