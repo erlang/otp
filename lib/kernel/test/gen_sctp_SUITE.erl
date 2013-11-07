@@ -36,7 +36,9 @@
     open_multihoming_ipv6_socket/1,
     open_multihoming_ipv4_and_ipv6_socket/1,
     basic_stream/1, xfer_stream_min/1, peeloff_active_once/1,
-    peeloff_active_true/1, buffers/1]).
+    peeloff_active_true/1, buffers/1,
+    names_unihoming_ipv4/1, names_unihoming_ipv6/1,
+    names_multihoming_ipv4/1, names_multihoming_ipv6/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -48,7 +50,9 @@ all() ->
      open_multihoming_ipv6_socket,
      open_multihoming_ipv4_and_ipv6_socket,
      basic_stream, xfer_stream_min, peeloff_active_once,
-     peeloff_active_true, buffers].
+     peeloff_active_true, buffers,
+     names_unihoming_ipv4, names_unihoming_ipv6,
+     names_multihoming_ipv4, names_multihoming_ipv6].
 
 groups() -> 
     [].
@@ -1190,6 +1194,81 @@ open_multihoming_ipv4_and_ipv6_socket(Config) when is_list(Config) ->
 		  {skip, Reason}
 	  end.
 
+names_unihoming_ipv4(doc) ->
+    "Test inet:socknames/peernames on unihoming IPv4 sockets";
+names_unihoming_ipv4(suite) ->
+    [];
+names_unihoming_ipv4(Config) when is_list(Config) ->
+    ?line do_names(Config, inet, 1).
+
+names_unihoming_ipv6(doc) ->
+    "Test inet:socknames/peernames on unihoming IPv6 sockets";
+names_unihoming_ipv6(suite) ->
+    [];
+names_unihoming_ipv6(Config) when is_list(Config) ->
+    ?line do_names(Config, inet6, 1).
+
+names_multihoming_ipv4(doc) ->
+    "Test inet:socknames/peernames on multihoming IPv4 sockets";
+names_multihoming_ipv4(suite) ->
+    [];
+names_multihoming_ipv4(Config) when is_list(Config) ->
+    ?line do_names(Config, inet, 2).
+
+names_multihoming_ipv6(doc) ->
+    "Test inet:socknames/peernames on multihoming IPv6 sockets";
+names_multihoming_ipv6(suite) ->
+    [];
+names_multihoming_ipv6(Config) when is_list(Config) ->
+    ?line do_names(Config, inet6, 2).
+
+
+
+do_names(_, FamilySpec, AddressCount) ->
+    Fun =
+	fun (ServerSocket, _, ServerAssoc, ClientSocket, _, ClientAssoc) ->
+		?line ServerSocknames =
+		    lists:sort(ok(inet:socknames(ServerSocket))),
+		?line ServerSocknames =
+		    lists:sort(ok(inet:socknames(ServerSocket, ServerAssoc))),
+		?line ?LOGVAR(ServerSocknames),
+		?line ClientSocknames =
+		    lists:sort(ok(inet:socknames(ClientSocket))),
+		?line ClientSocknames =
+		    lists:sort(ok(inet:socknames(ClientSocket, ClientAssoc))),
+		?line ?LOGVAR(ClientSocknames),
+		?line {error,einval} = inet:peernames(ServerSocket),
+		?line ServerPeernames =
+		    lists:sort(ok(inet:peernames(ServerSocket, ServerAssoc))),
+		?line ?LOGVAR(ServerPeernames),
+		?line {error,einval} = inet:peernames(ClientSocket),
+		?line ClientPeernames =
+		    lists:sort(ok(inet:peernames(ClientSocket, ClientAssoc))),
+		?line ?LOGVAR(ClientPeernames),
+		?line ServerSocknames = ClientPeernames,
+		?line ClientSocknames = ServerPeernames,
+		?line {ok,Socket} = gen_sctp:peeloff(ServerSocket, ServerAssoc),
+		?line Socknames =
+		    lists:sort(ok(inet:socknames(Socket))),
+		?line Socknames =
+		    lists:sort(ok(inet:socknames(Socket, ServerAssoc))),
+		?line ?LOGVAR(Socknames),
+		?line Peernames =
+		    lists:sort(ok(inet:peernames(Socket, ServerAssoc))),
+		?line ?LOGVAR(Peernames),
+		?line ok = gen_sctp:close(Socket),
+		?line Socknames = ClientPeernames,
+		?line ClientSocknames = Peernames,
+		ok
+	end,
+    ?line case get_addrs_by_family(FamilySpec, AddressCount) of
+	      {ok, Addresses} when length(Addresses) =:= AddressCount ->
+		  ?line do_open_and_connect(Addresses, hd(Addresses), Fun);
+	      {error, Reason} ->
+		  {skip, Reason}
+	  end.
+
+
 
 get_addrs_by_family(Family, NumAddrs) ->
     case os:type() of
@@ -1274,6 +1353,10 @@ f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
+    ?line Fun = fun (_, _, _, _, _, _) -> ok end,
+    ?line do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun).
+%%
+do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
     ?line ServerFamily = get_family_by_addrs(ServerAddresses),
     ?line io:format("Serving ~p addresses: ~p~n",
 		    [ServerFamily, ServerAddresses]),
@@ -1286,12 +1369,14 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
 		    [ClientFamily, AddressToConnectTo]),
     ?line S2 = ok(gen_sctp:open(0, [ClientFamily])),
     %% Verify client can connect
-    ?line #sctp_assoc_change{state=comm_up} =
+    ?line #sctp_assoc_change{state=comm_up} = S2Assoc =
 	ok(gen_sctp:connect(S2, AddressToConnectTo, P1, [])),
     %% verify server side also receives comm_up from client
-    ?line recv_comm_up_eventually(S1),
+    ?line S1Assoc = recv_comm_up_eventually(S1),
+    ?line Result = Fun(S1, ServerFamily, S1Assoc, S2, ClientFamily, S2Assoc),
     ?line ok = gen_sctp:close(S2),
-    ?line ok = gen_sctp:close(S1).
+    ?line ok = gen_sctp:close(S1),
+    Result.
 
 %% If at least one of the addresses is an ipv6 address, return inet6, else inet.
 get_family_by_addrs(Addresses) ->
@@ -1306,8 +1391,9 @@ get_family_by_addr(Addr) when tuple_size(Addr) =:= 8 -> inet6.
 
 recv_comm_up_eventually(S) ->
     ?line case ok(gen_sctp:recv(S)) of
-	      {_Addr, _Port, _Info, #sctp_assoc_change{state=comm_up}} ->
-		  ok;
+	      {_Addr, _Port, _Info,
+	       #sctp_assoc_change{state=comm_up} = Assoc} ->
+		  Assoc;
 	      {_Addr, _Port, _Info, _OtherSctpMsg} ->
 		  ?line recv_comm_up_eventually(S)
 	  end.
