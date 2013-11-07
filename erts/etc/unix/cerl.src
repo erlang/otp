@@ -33,6 +33,7 @@
 #               You have to start beam in gdb using "run".
 #   -rgdb       Run the debug compiled emulator in gdb.
 #               You have to start beam in gdb using "run".
+#   -dump       Dump the bt of all threads in a core.
 #   -break F    Run the debug compiled emulator in emacs and gdb and set break.
 #               The session is started, i.e. "run" is already don for you.
 #   -xxgdb      FIXME currently disabled
@@ -177,6 +178,12 @@ while [ $# -gt 0 ]; do
 	    shift
 	    cargs="$cargs -frmptr"
 	    TYPE=.frmptr
+	    ;;
+	"-dump")
+	    shift
+	    GDB=dump
+	    core="$1"
+	    shift
 	    ;;
 	"-gdb")
 	    shift
@@ -331,7 +338,7 @@ elif [ "x$GDB" = "xgdb" ]; then
     echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
     # Fire up gdb in emacs...
     exec gdb $GDBBP -x $cmdfile $gdbcmd
-else
+elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
     fi
@@ -372,4 +379,23 @@ else
             (comint-send-input)"
     # Fire up gdb in emacs...
     exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU_NAME\") $gdbcmd)"
+elif [ "x$GDB" = "xdump" ]; then
+    cmdfile="/tmp/.cerlgdb.$$"
+    case "x$core" in
+	x/*)
+	    gdbcmd="$EMU_NAME ${core}"
+	    ;;
+	*)
+	    dir=`pwd`
+	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    ;;
+    esac
+    echo "set width 0
+set height 0
+set verbose off
+
+source $ROOTDIR/erts/etc/unix/etp-commands
+thread apply all bt
+" > $cmdfile
+    exec gdb --batch --command=$cmdfile $gdbcmd
 fi
