@@ -174,7 +174,7 @@ handle_cancel(group, Data, St) ->
                        setup_failed -> "fixture setup ";
                        cleanup_failed -> "fixture cleanup "
                    end
-                ++ io_lib:format("~p", [proplists:get_value(id, Data)]),
+                ++ io_lib:format("~w", [proplists:get_value(id, Data)]),
             Desc = format_desc(proplists:get_value(desc, Data)),
             TestCase = #testcase{
               name = Name, description = Desc,
