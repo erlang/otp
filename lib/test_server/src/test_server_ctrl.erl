@@ -1480,6 +1480,11 @@ do_test_cases(TopCases, SkipCases,
 	    put(test_server_case_num, 0),
 	    TestSpec =
 		add_init_and_end_per_suite(TestSpec0, undefined, undefined, FwMod),
+
+
+	    %%! --- Fri Nov  8 14:50:39 2013 --- peppe was here!
+	    io:format(user, ">>> HERE'S THE TS: ~p~n~n", [TestSpec]),
+
 	    TI = get_target_info(),
 	    print(1, "Starting test~ts",
 		  [print_if_known(N, {", ~w test cases",[N]},
@@ -1795,23 +1800,40 @@ downcase([], Result) ->
 %%
 %%  Errors are silently ignored.
 
-html_convert_modules(TestSpec, _Config) ->
-    Mods = html_isolate_modules(TestSpec),
+html_convert_modules(TestSpec, _Config, FwMod) ->
+    Mods = html_isolate_modules(TestSpec, FwMod),
     html_convert_modules(Mods),
     copy_html_files(get(test_server_dir), get(test_server_log_dir_base)).
 
 %% Retrieve a list of modules out of the test spec.
-html_isolate_modules(List) -> html_isolate_modules(List, sets:new()).
+html_isolate_modules(List, FwMod) ->
+    html_isolate_modules(List, sets:new(), FwMod).
 
-html_isolate_modules([], Set) -> sets:to_list(Set);
-html_isolate_modules([{skip_case,_}|Cases], Set) ->
-    html_isolate_modules(Cases, Set);
-html_isolate_modules([{conf,_Ref,_Props,{Mod,_Func}}|Cases], Set) ->
-    html_isolate_modules(Cases, sets:add_element(Mod, Set));
-html_isolate_modules([{Mod,_Case}|Cases], Set) ->
-    html_isolate_modules(Cases, sets:add_element(Mod, Set));
-html_isolate_modules([{Mod,_Case,_Args}|Cases], Set) ->
-    html_isolate_modules(Cases, sets:add_element(Mod, Set)).
+html_isolate_modules([], Set, _) -> sets:to_list(Set);
+html_isolate_modules([{skip_case,_}|Cases], Set, FwMod) ->
+    html_isolate_modules(Cases, Set, FwMod);
+html_isolate_modules([{conf,_Ref,Props,{FwMod,_Func}}|Cases], Set, FwMod) ->
+    Set1 = case proplists:get_value(suite, Props) of
+	       undefined -> Set;
+	       Mod -> sets:add_element(Mod, Set)
+	   end,
+    html_isolate_modules(Cases, Set1, FwMod);
+html_isolate_modules([{conf,_Ref,_Props,{Mod,_Func}}|Cases], Set, FwMod) ->
+    html_isolate_modules(Cases, sets:add_element(Mod, Set), FwMod);
+html_isolate_modules([{skip_case,{conf,_Ref,{FwMod,_Func},_Cmt},Mode}|Cases],
+		     Set, FwMod) ->
+    Set1 = case proplists:get_value(suite, get_props(Mode)) of
+	       undefined -> Set;
+	       Mod -> sets:add_element(Mod, Set)
+	   end,
+    html_isolate_modules(Cases, Set1, FwMod);
+html_isolate_modules([{skip_case,{conf,_Ref,{Mod,_Func},_Cmt},_Props}|Cases],
+		     Set, FwMod) ->
+    html_isolate_modules(Cases, sets:add_element(Mod, Set), FwMod);
+html_isolate_modules([{Mod,_Case}|Cases], Set, FwMod) ->
+    html_isolate_modules(Cases, sets:add_element(Mod, Set), FwMod);
+html_isolate_modules([{Mod,_Case,_Args}|Cases], Set, FwMod) ->
+    html_isolate_modules(Cases, sets:add_element(Mod, Set), FwMod).
 
 %% Given a list of modules, convert each module's source code to HTML.
 html_convert_modules([Mod|Mods]) ->
@@ -1898,6 +1920,11 @@ add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod,
 	do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
+    {PreCases, NextMod, NextRef} =
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_},_}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
@@ -2044,7 +2071,8 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 	true ->
 	    ok;
 	false ->
-	    html_convert_modules(TestSpec, Config)
+	    FwMod = get_fw_mod(?MODULE),
+	    html_convert_modules(TestSpec, Config, FwMod)
     end,
 
     run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
@@ -4460,12 +4488,31 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
 	Props1 ->
 	    Ref = make_ref(),
 	    Skips = St#cc.skip,
+	    Props2 = [{suite,St#cc.mod} | lists:delete(suite,Props1)],
+	    Mode = [{Ref,Props2,undefined}],
 	    case in_skip_list({St#cc.mod,Conf}, Skips) of
 		{true,Comment} ->	    	           % conf init skipped
-		    {ok,[{skip_case,{conf,Ref,InitMF,Comment}} |
+		    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode} |
 			 [] ++ [{conf,Ref,[],FinMF}]],St};
 		{true,Name,Comment} when is_atom(Name) ->  % all cases skipped
-		    {ok,[{skip_case,{{St#cc.mod,{group,Name}},Comment}}],St};
+		    case collect_cases(CaseList, St) of
+			{ok,[],_St} = Empty ->
+			    Empty;
+			{ok,FlatCases,St1} ->
+			    Cases2Skip = FlatCases ++ [{conf,Ref,
+							keep_name(Props1),
+							FinMF}],
+			    Skipped = skip_cases_upto(Ref, Cases2Skip, Comment,
+						      conf, Mode, skip_case),
+
+			    %%! --- Fri Nov  8 16:47:50 2013 --- peppe was here!
+			    io:format(user, "!!! FLAT2 = ~p~n", [Skipped]),
+
+			    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode} |
+				 Skipped],St1};
+			{error,_Reason} = Error ->
+			    Error
+		    end;
 		{true,ToSkip,_} when is_list(ToSkip) ->    % some cases skipped
 		    case collect_cases(CaseList,
 				       St#cc{skip=ToSkip++Skips}) of

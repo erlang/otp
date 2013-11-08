@@ -59,7 +59,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [auto_skip, user_skip].
+    [auto_skip, user_skip, testspec_skip].
 
 groups() -> 
     [].
@@ -133,8 +133,48 @@ user_skip(Config) when is_list(Config) ->
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
+%%% 
+testspec_skip(Config) when is_list(Config) ->
+    TestDir = filename:join(?config(data_dir, Config),
+			    filename:join("skip", "test")),
+    TestSpec1 = [{suites, TestDir, user_skip_7_SUITE},
+		 {skip_cases, TestDir, user_skip_7_SUITE, [tc1,tc3], "SKIPPED"}],
+
+    TestSpec2 = [{suites, TestDir, user_skip_7_SUITE},
+		 {skip_groups, TestDir, user_skip_7_SUITE, ptop1, "SKIPPED"}],
+
+    TestSpec3 = [{suites, TestDir, user_skip_7_SUITE},
+		 {skip_groups, TestDir, user_skip_7_SUITE, psub1, "SKIPPED"}],
+
+    {Opts,ERPid} = setup_testspec([{ts1,TestSpec1},
+				   {ts2,TestSpec2},
+				   {ts3,TestSpec3}], Config),
+
+    ok = ct_test_support:run(Opts, Config),
+
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(testspec_skip, 
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(testspec_skip),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
+setup_testspec(TestSpecs, Config) ->
+    SpecFiles =
+	[begin SpecFile = filename:join(?config(priv_dir, Config),
+					atom_to_list(SpecName)++".spec"),
+	       {ok,Dev} = file:open(SpecFile, [write]),
+	       [io:format(Dev, "~p.~n", [Term]) || Term <- TestSpec],
+	       file:close(Dev),
+	       SpecFile
+	 end || {SpecName,TestSpec} <- TestSpecs],
+    setup({spec,SpecFiles}, Config).
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -678,4 +718,7 @@ test_events(user_skip) ->
        
        {?eh,test_done,{'DEF','STOP_TIME'}},
        {?eh,stop_logging,[]}
-      ].
+    ];
+
+test_events(testspec_skip) ->
+    [].
