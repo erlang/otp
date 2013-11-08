@@ -258,7 +258,11 @@ efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 #ifdef NO_MKDIR_MODE
     return check_error(mkdir(name), errInfo);
 #else
-    return check_error(mkdir(name, DIR_MODE), errInfo);
+    int res = mkdir(name, DIR_MODE);
+    if (res < 0 && errno == EINVAL) {
+      errno = ENOENT;
+    }
+    return check_error(res, errInfo);
 #endif
 }
 

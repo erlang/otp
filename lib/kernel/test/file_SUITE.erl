@@ -161,7 +161,13 @@ init_per_suite(Config) when is_list(Config) ->
 		     ok ->
 			 [{sasl,started}]
 		 end,
-    ok = application:start(os_mon),
+    ok = case os:type() of
+	     {ose,_} ->
+		 ok;
+	     _ ->
+		 application:start(os_mon)
+	 end,
+
     case os:type() of
 	{win32, _} ->
 	    Priv = ?config(priv_dir, Config),
@@ -185,7 +191,13 @@ end_per_suite(Config) when is_list(Config) ->
 	_ ->
 	    ok
     end,
-    application:stop(os_mon),
+
+    case os:type() of
+	{ose,_} ->
+	    ok;
+	_ ->
+	    application:stop(os_mon)
+    end,
     case proplists:get_value(sasl, Config) of
 	started ->
 	    application:stop(sasl);
@@ -525,11 +537,11 @@ cur_dir_1(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(5)),
 
     ?line case os:type() of
-	      {unix, _} ->
-		  ?line {error, enotsup} = ?FILE_MODULE:get_cwd("d:");
-	      {win32, _} ->
-		  win_cur_dir_1(Config)
-	  end,
+	   {win32, _} ->
+		  win_cur_dir_1(Config);
+	    _ ->
+		  ?line {error, enotsup} = ?FILE_MODULE:get_cwd("d:")
+      end,
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -712,7 +724,10 @@ open1(Config) when is_list(Config) ->
     ?line io:format(Fd1,Str,[]),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line Str = io:get_line(Fd1,''),
-    ?line Str = io:get_line(Fd2,''),
+    ?line case io:get_line(Fd2,'') of
+	      Str -> Str;
+	      eof -> Str
+	  end,
     ?line ok = ?FILE_MODULE:close(Fd2),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line ok = ?FILE_MODULE:truncate(Fd1),
@@ -2171,13 +2186,13 @@ e_make_dir(Config) when is_list(Config) ->
 
     %% No permission (on Unix only).
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    ok;
+	_ ->
 	    ?FILE_MODULE:write_file_info(Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:make_dir(filename:join(Base, "xxxx")),
 	    ?FILE_MODULE:write_file_info(
-		     Base, #file_info {mode=8#600});
-	{win32, _} ->
-	    ok
+		     Base, #file_info {mode=8#600})
     end,
     test_server:timetrap_cancel(Dog),
     ok.
