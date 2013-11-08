@@ -111,28 +111,39 @@ BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
  * return value if key *equals* a key in the map
  */
 
+int erts_maps_find(Eterm key, Eterm map, Eterm *value) {
+
+    Eterm *ks,*vs;
+    map_t *mp;
+    Uint n,i;
+
+    mp  = (map_t*)map_val(map);
+    n   = map_get_size(mp);
+    ks  = map_get_keys(mp);
+    vs  = map_get_values(mp);
+
+    for( i = 0; i < n; i++) {
+	if (CMP(ks[i], key)==0) {
+	    *value = vs[i];
+	    return 1;
+	}
+    }
+    return 0;
+}
+
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
-	Eterm *hp, *ks,*vs, key, res;
-	map_t *mp;
-	Uint n,i;
+	Eterm *hp, value,res;
 
-	mp  = (map_t*)map_val(BIF_ARG_2);
-	key = BIF_ARG_1;
-	n   = map_get_size(mp);
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
-
-	for( i = 0; i < n; i++) {
-	    if (CMP(ks[i], key)==0) {
-		hp    = HAlloc(BIF_P, 3);
-		res   = make_tuple(hp);
-		*hp++ = make_arityval(2);
-		*hp++ = am_ok;
-		*hp++ = vs[i];
-		BIF_RET(res);
-	    }
+	if (erts_maps_find(BIF_ARG_1, BIF_ARG_2, &value)) {
+	    hp    = HAlloc(BIF_P, 3);
+	    res   = make_tuple(hp);
+	    *hp++ = make_arityval(2);
+	    *hp++ = am_ok;
+	    *hp++ = value;
+	    BIF_RET(res);
 	}
+
 	BIF_RET(am_error);
     }
     BIF_ERROR(BIF_P, BADARG);
@@ -142,43 +153,54 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
  * exception bad_key if none matches
  */
 
+
+int erts_maps_get(Eterm key, Eterm map, Eterm *value) {
+    Eterm *ks,*vs;
+    map_t *mp;
+    Uint n,i;
+
+    mp  = (map_t*)map_val(map);
+    n   = map_get_size(mp);
+
+    if (n == 0)
+	return 0;
+
+    ks  = map_get_keys(mp);
+    vs  = map_get_values(mp);
+
+    if (is_immed(key)) {
+	for( i = 0; i < n; i++) {
+	    if (ks[i] == key) {
+		*value = vs[i];
+		return 1;
+	    }
+	}
+    }
+
+    for( i = 0; i < n; i++) {
+	if (eq(ks[i], key)) {
+	    *value = vs[i];
+	    return 1;
+	}
+    }
+    return 0;
+}
+
 BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
-	Eterm *hp, *ks,*vs, key, error;
-	map_t *mp;
-	Uint n,i;
+	Eterm *hp;
+	Eterm value, error;
 	char *s_error;
 
-	mp  = (map_t*)map_val(BIF_ARG_2);
-	key = BIF_ARG_1;
-	n   = map_get_size(mp);
-	
-	if (n == 0)
-	    goto error;
-
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
-
-	if (is_immed(key)) {
-	    for( i = 0; i < n; i++) {
-		if (ks[i] == key) {
-		    BIF_RET(vs[i]);
-		}
-	    }
+	if (erts_maps_get(BIF_ARG_1, BIF_ARG_2, &value)) {
+	    BIF_RET(value);
 	}
-
-	for( i = 0; i < n; i++) {
-	    if (eq(ks[i], key)) {
-		BIF_RET(vs[i]);
-	    }
-	}
-error:
 
 	s_error = "bad_key";
 	error = am_atom_put(s_error, sys_strlen(s_error));
 
 	hp = HAlloc(BIF_P, 3);
-	BIF_P->fvalue = TUPLE2(hp, error, key);
+	BIF_P->fvalue = TUPLE2(hp, error, BIF_ARG_1);
 	BIF_ERROR(BIF_P, EXC_ERROR_2);
     }
     BIF_ERROR(BIF_P, BADARG);
@@ -460,7 +482,7 @@ BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
     Eterm tup;
     map_t *mp;
 
-    hp    = HAlloc(BIF_P, (3 + 1));
+    hp    = HAlloc(BIF_P, (MAP_HEADER_SIZE + 1));
     tup   = make_tuple(hp);
     *hp++ = make_arityval(0);
 
@@ -475,183 +497,197 @@ BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
 /* maps:put/3
  */
 
-BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3)) {
-	Sint n,i;
-	Sint c = 0;
-	Eterm* hp, *shp;
-	Eterm *ks,*vs, res, key, tup;
-	map_t *mp = (map_t*)map_val(BIF_ARG_3);
+Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
+    Sint n,i;
+    Sint c = 0;
+    Eterm* hp, *shp;
+    Eterm *ks,*vs, res, tup;
+    map_t *mp = (map_t*)map_val(map);
 
-	key = BIF_ARG_1;
-	n   = map_get_size(mp);
+    n = map_get_size(mp);
 
-	if (n == 0) {
-	    hp    = HAlloc(BIF_P, 4 + 2);
-	    tup   = make_tuple(hp);
-	    *hp++ = make_arityval(1);
-	    *hp++ = key;
-	    res   = make_map(hp);
-	    *hp++ = MAP_HEADER;
-	    *hp++ = 1;
-	    *hp++ = tup;
-	    *hp++ = BIF_ARG_2;
-
-	    BIF_RET(res);
-	}
-
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
-	/* only allocate for values,
-	 * assume key-tuple will be intact
-	 */
-
-	hp  = HAlloc(BIF_P, 3 + n);
-	shp = hp; /* save hp, used if optimistic update fails */
-	res = make_map(hp);
-	*hp++ = MAP_HEADER;
-	*hp++ = n;
-	*hp++ = mp->keys;
-
-	if (is_immed(key)) {
-	    for( i = 0; i < n; i ++) {
-		if (ks[i] == key) {
-		    *hp++ = BIF_ARG_2;
-		    vs++;
-		    c = 1;
-		} else {
-		    *hp++ = *vs++;
-		}
-	    }
-	} else {
-	    for( i = 0; i < n; i ++) {
-		if (eq(ks[i], key)) {
-		    *hp++ = BIF_ARG_2;
-		    vs++;
-		    c = 1;
-		} else {
-		    *hp++ = *vs++;
-		}
-	    }
-	}
-
-	if (c)
-	    BIF_RET(res);
-
-	/* need to make a new tuple,
-	 * use old hp since it needs to be recreated anyway.
-	 */
-	tup    = make_tuple(shp);
-	*shp++ = make_arityval(n+1);
-
-	hp    = HAlloc(BIF_P, 3 + n + 1);
+    if (n == 0) {
+	hp    = HAlloc(p, MAP_HEADER_SIZE + 1 + 2);
+	tup   = make_tuple(hp);
+	*hp++ = make_arityval(1);
+	*hp++ = key;
 	res   = make_map(hp);
 	*hp++ = MAP_HEADER;
-	*hp++ = n + 1;
+	*hp++ = 1;
 	*hp++ = tup;
+	*hp++ = value;
 
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
-
-	ASSERT(n >= 0);
-
-	/* copy map in order */
-	while (n && ((c = CMP(*ks, key)) < 0)) {
-	    *shp++ = *ks++;
-	    *hp++  = *vs++;
-	    n--;
-	}
-
-	*shp++ = key;
-	*hp++  = BIF_ARG_2;
-
-	ASSERT(n >= 0);
-
-	while(n--) {
-	    *shp++ = *ks++;
-	    *hp++  = *vs++;
-	}
-	/* we have one word remaining
-	 * this will work out fine once we get the size word
-	 * in the header.
-	 */
-	*shp = make_pos_bignum_header(0);
-	BIF_RET(res);
+	return res;
     }
 
+    ks  = map_get_keys(mp);
+    vs  = map_get_values(mp);
+
+    /* only allocate for values,
+     * assume key-tuple will be intact
+     */
+
+    hp  = HAlloc(p, MAP_HEADER_SIZE + n);
+    shp = hp; /* save hp, used if optimistic update fails */
+    res = make_map(hp);
+    *hp++ = MAP_HEADER;
+    *hp++ = n;
+    *hp++ = mp->keys;
+
+    if (is_immed(key)) {
+	for( i = 0; i < n; i ++) {
+	    if (ks[i] == key) {
+		*hp++ = value;
+		vs++;
+		c = 1;
+	    } else {
+		*hp++ = *vs++;
+	    }
+	}
+    } else {
+	for( i = 0; i < n; i ++) {
+	    if (eq(ks[i], key)) {
+		*hp++ = value;
+		vs++;
+		c = 1;
+	    } else {
+		*hp++ = *vs++;
+	    }
+	}
+    }
+
+    if (c)
+	return res;
+
+    /* need to make a new tuple,
+     * use old hp since it needs to be recreated anyway.
+     */
+    tup    = make_tuple(shp);
+    *shp++ = make_arityval(n+1);
+
+    hp    = HAlloc(p, 3 + n + 1);
+    res   = make_map(hp);
+    *hp++ = MAP_HEADER;
+    *hp++ = n + 1;
+    *hp++ = tup;
+
+    ks  = map_get_keys(mp);
+    vs  = map_get_values(mp);
+
+    ASSERT(n >= 0);
+
+    /* copy map in order */
+    while (n && ((c = CMP(*ks, key)) < 0)) {
+	*shp++ = *ks++;
+	*hp++  = *vs++;
+	n--;
+    }
+
+    *shp++ = key;
+    *hp++  = value;
+
+    ASSERT(n >= 0);
+
+    while(n--) {
+	*shp++ = *ks++;
+	*hp++  = *vs++;
+    }
+    /* we have one word remaining
+     * this will work out fine once we get the size word
+     * in the header.
+     */
+    *shp = make_pos_bignum_header(0);
+    return res;
+}
+
+BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
+    if (is_map(BIF_ARG_3)) {
+	BIF_RET(erts_maps_put(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
+    }
     BIF_ERROR(BIF_P, BADARG);
 }
 
 /* maps:remove/3
  */
 
-BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2)) {
-	Sint n;
-	Sint found = 0;
-	Uint need;
-	Eterm *thp, *mhp;
-	Eterm *ks, *vs, res, key,tup;
-	map_t *mp = (map_t*)map_val(BIF_ARG_2);
+int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
+    Sint n;
+    Sint found = 0;
+    Uint need;
+    Eterm *thp, *mhp;
+    Eterm *ks, *vs, tup;
+    map_t *mp = (map_t*)map_val(map);
 
-	key = BIF_ARG_1;
-	n   = map_get_size(mp);
+    n = map_get_size(mp);
 
-	if (n == 0)
-	    BIF_RET(BIF_ARG_2);
+    if (n == 0) {
+	*res = map;
+	return 1;
+    }
 
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
+    ks = map_get_keys(mp);
+    vs = map_get_values(mp);
 
-	/* Assume key exists.
-	 * Release allocated if it didn't.
-	 * Allocate key tuple first.
-	 */
+    /* Assume key exists.
+     * Release allocated if it didn't.
+     * Allocate key tuple first.
+     */
 
-	need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
-	thp    = HAlloc(BIF_P, need);
-	mhp    = thp + n;               /* offset with tuple heap size */
+    need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
+    thp    = HAlloc(p, need);
+    mhp    = thp + n;               /* offset with tuple heap size */
 
-	tup    = make_tuple(thp);
-	*thp++ = make_arityval(n - 1);
+    tup    = make_tuple(thp);
+    *thp++ = make_arityval(n - 1);
 
-	res    = make_map(mhp);
-	*mhp++ = MAP_HEADER;
-	*mhp++ = n - 1;
-	*mhp++ = tup;
+    *res   = make_map(mhp);
+    *mhp++ = MAP_HEADER;
+    *mhp++ = n - 1;
+    *mhp++ = tup;
 
-	if (is_immed(key)) {
-	    while(n--) {
-		if (*ks == key) {
-		    ks++;
-		    vs++;
-		    found = 1;
-		} else {
-		    *mhp++ = *vs++;
-		    *thp++ = *ks++;
-		}
-	    }
-	} else {
-	    while(n--) {
-		if (eq(*ks, key)) {
-		    ks++;
-		    vs++;
-		    found = 1;
-		} else {
-		    *mhp++ = *vs++;
-		    *thp++ = *ks++;
-		}
+    if (is_immed(key)) {
+	while(n--) {
+	    if (*ks == key) {
+		ks++;
+		vs++;
+		found = 1;
+	    } else {
+		*mhp++ = *vs++;
+		*thp++ = *ks++;
 	    }
 	}
+    } else {
+	while(n--) {
+	    if (eq(*ks, key)) {
+		ks++;
+		vs++;
+		found = 1;
+	    } else {
+		*mhp++ = *vs++;
+		*thp++ = *ks++;
+	    }
+	}
+    }
 
-	if (found)
+    if (found) {
+	return 1;
+    }
+
+    /* Not found, remove allocated memory
+     * and return previous map.
+     */
+    HRelease(p, thp + need, thp);
+
+    *res = map;
+    return 1;
+}
+
+BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
+    if (is_map(BIF_ARG_2)) {
+	Eterm res;
+	if (erts_maps_remove(BIF_P, BIF_ARG_1, BIF_ARG_2, &res)) {
 	    BIF_RET(res);
-
-	/* Not found, remove allocated memory
-	 * and return previous map.
-	 */
-	HRelease(BIF_P, thp + need, thp);
-	BIF_RET(BIF_ARG_2);
+	}
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -659,19 +695,15 @@ BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
 /* maps:update/3
  */
 
-BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3)) {
+int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
 	Sint n,i;
 	Sint found = 0;
 	Eterm* hp,*shp;
-	Eterm *ks,*vs, res, key;
-	map_t *mp = (map_t*)map_val(BIF_ARG_3);
+	Eterm *ks,*vs;
+	map_t *mp = (map_t*)map_val(map);
 
-	key = BIF_ARG_1;
-	n   = map_get_size(mp);
-
-	if (n == 0) {
-	    BIF_ERROR(BIF_P, BADARG);
+	if ((n = map_get_size(mp)) == 0) {
+	    return 0;
 	}
 
 	ks  = map_get_keys(mp);
@@ -681,9 +713,9 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
 	 * assume key-tuple will be intact
 	 */
 
-	hp  = HAlloc(BIF_P, 3 + n);
+	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
 	shp = hp;
-	res = make_map(hp);
+	*res = make_map(hp);
 	*hp++ = MAP_HEADER;
 	*hp++ = n;
 	*hp++ = mp->keys;
@@ -691,7 +723,7 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
 	if (is_immed(key)) {
 	    for( i = 0; i < n; i ++) {
 		if (ks[i] == key) {
-		    *hp++ = BIF_ARG_2;
+		    *hp++ = value;
 		    vs++;
 		    found = 1;
 		} else {
@@ -701,7 +733,7 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
 	} else {
 	    for( i = 0; i < n; i ++) {
 		if (eq(ks[i], key)) {
-		    *hp++ = BIF_ARG_2;
+		    *hp++ = value;
 		    vs++;
 		    found = 1;
 		} else {
@@ -710,10 +742,19 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
 	    }
 	}
 
-	if (found)
-	    BIF_RET(res);
+	if (found) {
+	    return 1;
+	}
+	HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
+	return 0;
+}
 
-	HRelease(BIF_P, shp + 3 + n, shp);
+BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
+    if (is_map(BIF_ARG_3)) {
+	Eterm res;
+	if (erts_maps_update(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &res)) {
+	    BIF_RET(res);
+	}
     }
     BIF_ERROR(BIF_P, BADARG);
 }

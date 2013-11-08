@@ -62,5 +62,11 @@ typedef struct map_s {
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
 #define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
 
+Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map);
+int   erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res);
+int   erts_maps_find(Eterm key, Eterm map, Eterm *value);
+int   erts_maps_get(Eterm key, Eterm map, Eterm *value);
+int   erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
+
 #endif
 

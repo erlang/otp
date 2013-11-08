@@ -149,6 +149,23 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
 #endif
 
+ERL_NIF_API_FUNC_DECL(int, enif_is_map, (ErlNifEnv* env, ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(int, enif_get_map_size, (ErlNifEnv* env, ERL_NIF_TERM term, int *size));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_new_map, (ErlNifEnv* env));
+ERL_NIF_API_FUNC_DECL(int, enif_make_map_put, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out));
+ERL_NIF_API_FUNC_DECL(int, enif_get_map_value, (ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value));
+ERL_NIF_API_FUNC_DECL(int, enif_find_map_value, (ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value));
+ERL_NIF_API_FUNC_DECL(int, enif_make_map_update, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out));
+ERL_NIF_API_FUNC_DECL(int, enif_make_map_remove, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out));
+ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_create, (ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry));
+ERL_NIF_API_FUNC_DECL(void, enif_map_iterator_destroy, (ErlNifEnv *env, ErlNifMapIterator *iter));
+ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_is_head, (ErlNifEnv *env, ErlNifMapIterator *iter));
+ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_is_tail, (ErlNifEnv *env, ErlNifMapIterator *iter));
+ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_next, (ErlNifEnv *env, ErlNifMapIterator *iter));
+ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_prev, (ErlNifEnv *env, ErlNifMapIterator *iter));
+ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value));
+
+
 /*
 ** Add new entries here to keep compatibility on Windows!!!
 */
@@ -280,6 +297,22 @@ ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
 #  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
 #  define enif_have_dirty_schedulers ERL_NIF_API_FUNC_MACRO(enif_have_dirty_schedulers)
 #endif
+
+#  define enif_is_map ERL_NIF_API_FUNC_MACRO(enif_is_map)
+#  define enif_get_map_size ERL_NIF_API_FUNC_MACRO(enif_get_map_size)
+#  define enif_make_new_map ERL_NIF_FUNC_MACRO(enif_make_new_map)
+#  define enif_make_map_put ERL_NIF_FUNC_MACRO(enif_map_map_put)
+#  define enif_get_map_value ERL_NIF_FUNC_MACRO(enif_get_map_value)
+#  define enif_find_map_value ERL_NIF_FUNC_MACRO(enif_find_map_value)
+#  define enif_make_map_update ERL_NIF_FUNC_MACRO(enif_make_map_update)
+#  define enif_make_map_remove ERL_NIF_FUNC_MACRO(enif_make_map_remove)
+#  define enif_map_iterator_create ERL_NIF_FUNC_MACRO(enif_map_iterator_create)
+#  define enif_map_iterator_destroy ERL_NIF_FUNC_MACRO(enif_map_iterator_destroy)
+#  define enif_map_iterator_is_head ERL_NIF_FUNC_MACRO(enif_map_iterator_is_head)
+#  define enif_map_iterator_is_tail ERL_NIF_FUNC_MACRO(enif_map_iterator_is_tail)
+#  define enif_map_iterator_next ERL_NIF_FUNC_MACRO(enif_map_iterator_next)
+#  define enif_map_iterator_prev ERL_NIF_FUNC_MACRO(enif_map_iterator_prev)
+#  define enif_map_iterator_get_pair NIF_FUNC_MACRO(enif_map_iterator_get_pair)
 
 /*
 ** Add new entries here

@@ -38,14 +38,11 @@
 ** 2.2: R14B03 enif_is_exception
 ** 2.3: R15 enif_make_reverse_list, enif_is_number
 ** 2.4: R16 enif_consume_timeslice
-** 2.5: R17 dirty schedulers
+** 2.5: R17 Maps API additions
+**      R17 dirty schedulers
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 #define ERL_NIF_MINOR_VERSION 5
-#else
-#define ERL_NIF_MINOR_VERSION 4
-#endif
 
 #include <stdlib.h>
 
@@ -168,6 +165,7 @@ typedef int ErlNifTSDKey;
 
 typedef ErlDrvThreadOpts ErlNifThreadOpts;
 
+<<<<<<< HEAD
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 typedef enum
 {
@@ -175,6 +173,24 @@ typedef enum
     ERL_NIF_DIRTY_JOB_IO_BOUND  = 2
 }ErlNifDirtyTaskFlags;
 #endif
+=======
+typedef struct
+{
+    /* use a lot of memory, structure may change */
+    ERL_NIF_TERM map;
+    ErlNifUInt64 h_limit;
+    ErlNifUInt64 t_limit;
+    ErlNifUInt64 idx;
+    ERL_NIF_TERM *ks;
+    ERL_NIF_TERM *vs;
+} ErlNifMapIterator;
+
+typedef enum {
+    ERL_NIF_MAP_ITERATOR_HEAD = 1,
+    ERL_NIF_MAP_ITERATOR_TAIL = 2
+} ErlNifMapIteratorEntry;
+
+>>>>>>> erts: Add NIFs for Maps
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
