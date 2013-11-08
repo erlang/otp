@@ -733,7 +733,7 @@ do_check_emailaddress([]) ->
 do_check_emailaddress([#'AttributeTypeAndValue'{type = ?'id-emailAddress',
 					       value = "invalid@email.com"}|_]) ->
     ok;
-do_check_emailaddress([#'AttributeTypeAndValue'{type = ?'id-at-countryName',
+do_check_emailaddress([#'AttributeTypeAndValue'{type = ?'id-emailAddress',
 					       value =  Value}|_]) ->
     ct:fail({incorrect_email_address, Value});
 do_check_emailaddress([_| Rest]) ->
