@@ -39,7 +39,7 @@ wxWidgets is represented as a module in erlang. This gives
 the <em>wx</em> application a huge interface, spread over several
 modules, and it all starts with the <em>wx</em>
 module. The <em>wx</em> module contains functions to create and
-destroy the gui, i.e. <code>wx:new/0</code>,<code>wx:destroy/0</code>, and
+destroy the gui, i.e. <code>wx:new/0</code>, <code>wx:destroy/0</code>, and
 some other useful functions. 
 
 Objects or object references in <em>wx</em> should be seen as erlang
