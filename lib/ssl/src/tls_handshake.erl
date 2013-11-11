@@ -56,7 +56,7 @@ client_hello(Host, Port, ConnectionStates,
     SecParams = Pending#connection_state.security_parameters,
     CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
 
-    Extensions = ssl_handshake:client_hello_extensions(Version, CipherSuites,
+    Extensions = ssl_handshake:client_hello_extensions(Host, Version, CipherSuites,
 						SslOpts, ConnectionStates, Renegotiation),
 
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),

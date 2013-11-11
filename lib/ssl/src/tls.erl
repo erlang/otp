@@ -664,7 +664,8 @@ handle_options(Opts0, _Role) ->
       next_protocol_selector = 
 			make_next_protocol_selector(
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
-      log_alert = handle_option(log_alert, Opts, true)
+      log_alert = handle_option(log_alert, Opts, true),
+      server_name_indication = handle_option(server_name_indication, Opts, undefined)
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
@@ -854,6 +855,12 @@ validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
     end;
 
 validate_option(next_protocols_advertised, undefined) ->
+    undefined;
+validate_option(server_name_indication, Value) when is_list(Value) ->
+    Value;
+validate_option(server_name_indication, disable) ->
+    disable;
+validate_option(server_name_indication, undefined) ->
     undefined;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).

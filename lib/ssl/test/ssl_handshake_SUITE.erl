@@ -34,7 +34,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> [decode_hello_handshake,
 	  decode_single_hello_extension_correctly,
-	  decode_unknown_hello_extension_correctly].
+	  decode_unknown_hello_extension_correctly,
+	  encode_single_hello_sni_extension_correctly].
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -73,3 +74,12 @@ decode_unknown_hello_extension_correctly(_Config) ->
     Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>),
      #renegotiation_info{renegotiated_connection = <<0>>}
 	= Extensions#hello_extensions.renegotiation_info.
+
+encode_single_hello_sni_extension_correctly(_Config) ->
+    Exts = #hello_extensions{sni = #sni{hostname = "test.com"}},
+    SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
+	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
+    ExtSize = byte_size(SNI),
+    HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
+    Encoded = ssl_handshake:encode_hello_extensions(Exts),
+    HelloExt = Encoded.
