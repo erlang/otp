@@ -1771,7 +1771,11 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 #if defined(PURIFY)
 	    BIF_RET(erts_make_integer(purify_new_leaks(), BIF_P));
 #elif defined(VALGRIND)
+#  ifdef VALGRIND_DO_ADDED_LEAK_CHECK
+	    VALGRIND_DO_ADDED_LEAK_CHECK;
+#  else
 	    VALGRIND_DO_LEAK_CHECK;
+#  endif
 	    BIF_RET(make_small(0));
 #endif
 	} else if (*tp == am_fd) {
