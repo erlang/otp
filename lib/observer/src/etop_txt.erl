@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,6 @@
 -include("etop_defs.hrl").
 
 -import(etop,[loadinfo/1,meminfo/2]).
--import(etop_gui,[formatmfa/1,to_list/1]).
 
 -define(PROCFORM,"~-15w~-20s~8w~8w~8w~8w ~-20s~n").
 
@@ -99,3 +98,13 @@ writepinfo(Fd,[#etop_proc_info{pid=Pid,
 writepinfo(_Fd,[]) ->
     ok.
 
+
+formatmfa({M, F, A}) ->
+    io_lib:format("~w:~w/~w",[M, F, A]);
+formatmfa(Other) ->
+    %% E.g. when running hipe - the current_function for some
+    %% processes will be 'undefined'
+    io_lib:format("~w",[Other]).
+
+to_list(Name) when is_atom(Name) -> atom_to_list(Name);
+to_list({_M,_F,_A}=MFA) -> formatmfa(MFA).

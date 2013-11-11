@@ -68,10 +68,6 @@ ONLY_HTML_FILE = \
 GIF_FILES = \
 	et_processes.gif \
 	et_modsprocs.gif \
-	etop_main.gif \
-	etop_5.gif \
-	etop_lines.gif \
-	etop_opt.gif \
 	note.gif
 
 # ----------------------------------------------------
