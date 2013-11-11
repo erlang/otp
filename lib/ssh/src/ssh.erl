@@ -401,6 +401,8 @@ handle_ssh_option({subsystems, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({ssh_cli, {Cb, _}}= Opt) when is_atom(Cb) ->
     Opt;
+handle_ssh_option({ssh_cli, no_cli} = Opt) ->
+    Opt;
 handle_ssh_option({shell, {Module, Function, _}} = Opt)  when is_atom(Module),
 							      is_atom(Function) ->
     Opt;

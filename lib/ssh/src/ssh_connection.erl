@@ -933,6 +933,8 @@ child_spec(Callback, Id, Args, Exec) ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, [ssh_channel]}.
 
+start_cli(#connection{cli_spec = no_cli}, _) ->
+    {error, cli_disabled};
 start_cli(#connection{cli_spec = {CbModule, Args}, exec = Exec,
 		      sub_system_supervisor = SubSysSup}, ChannelId) ->
     start_channel(CbModule, ChannelId, Args, SubSysSup, Exec).

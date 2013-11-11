@@ -248,13 +248,14 @@
 	    <c><![CDATA[{shell, start, []}]]></c>
 	  </item>
 	  <tag><c><![CDATA[{ssh_cli, {channel_callback(),
-	  channel_init_args()}}]]></c></tag>
+	  channel_init_args()} | no_cli}]]></c></tag>
 	  <item>
-	    Provides your own cli implementation, i.e. a channel callback
+	    Provides your own CLI implementation, i.e. a channel callback
 	    module that implements a shell and command execution. Note
 	    that you may customize the shell read-eval-print loop using the
 	    option <c>shell</c> which is much less work than implementing
-	    your own cli channel.
+	    your own CLI channel. If set to  <c>no_cli</c> you will disable
+	    CLI channels and only subsystem channels will be allowed.
 	  </item>
 	  <tag><c><![CDATA[{user_dir, String}]]></c></tag>
 	  <item>
