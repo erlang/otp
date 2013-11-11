@@ -1,4 +1,4 @@
-%% 
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2007-2013. All Rights Reserved.
@@ -152,17 +152,20 @@ xfer_min(Config) when is_list(Config) ->
 				 assoc_id=SbAssocId}],
 	       Data} -> ok;
 	      Event1 ->
-		  {Loopback,Pa,
-		   #sctp_paddr_change{addr = {Loopback,_},
-				      state = addr_available,
-				      error = 0,
-				      assoc_id = SbAssocId}} =
-		      recv_event(Event1),
-		  {ok,{Loopback,
-		       Pa,
-		       [#sctp_sndrcvinfo{stream=Stream,
-					 assoc_id=SbAssocId}],
-		       Data}} =	gen_sctp:recv(Sb, infinity)
+		  case recv_event(Event1) of
+		      {Loopback,Pa,
+		       #sctp_paddr_change{addr = {Loopback,_},
+					  state = State,
+					  error = 0,
+					  assoc_id = SbAssocId}}
+			when State =:= addr_available;
+			     State =:= addr_confirmed ->
+			  {Loopback,
+			   Pa,
+			   [#sctp_sndrcvinfo{stream=Stream,
+					     assoc_id=SbAssocId}],
+			   Data} = log_ok(gen_sctp:recv(Sb, infinity))
+		  end
 	  end,
     ?line ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
     ?line case log_ok(gen_sctp:recv(Sa, infinity)) of
@@ -459,18 +462,22 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 		   stream=1, ppid=0, context=0, assoc_id=S1AssocId}],
 	       <<"3: ",Data/binary>>} -> ok;
 	      Event2 ->
-		  {Loopback,P2,
-		   #sctp_paddr_change{
-			      addr={Loopback,_}, state=addr_available,
-			      error=0, assoc_id=S1AssocId}} =
-		      recv_event(Event2),
-		  ?line case log_ok(gen_sctp:recv(S1)) of
-			    {Loopback,P2,
-			     [#sctp_sndrcvinfo{
-				 stream=1, ppid=0, context=0,
-				 assoc_id=S1AssocId}],
-			     <<"3: ",Data/binary>>} -> ok
-			end
+		  case recv_event(Event2) of
+		      {Loopback,P2,
+		       #sctp_paddr_change{
+				  addr={Loopback,_},
+				  state=State,
+				  error=0, assoc_id=S1AssocId}}
+			when State =:= addr_available;
+			     State =:= addr_confirmed ->
+			  ?line case log_ok(gen_sctp:recv(S1)) of
+				    {Loopback,P2,
+				     [#sctp_sndrcvinfo{
+					 stream=1, ppid=0, context=0,
+					 assoc_id=S1AssocId}],
+				     <<"3: ",Data/binary>>} -> ok
+				end
+		  end
 	  end,
     ?line ok =
 	do_from_other_process(
@@ -512,6 +519,13 @@ setopt(S, Opt, Val) ->
 log_ok(X) -> log(ok(X)).
 
 ok({ok,X}) -> X.
+
+err([], Result) ->
+    erlang:error(Result);
+err([Reason|_], {error,Reason}) ->
+    ok;
+err([_|Reasons], Result) ->
+    err(Reasons, Result).
 
 log(X) ->
     io:format("LOG[~w]: ~p~n", [self(),X]),
@@ -844,23 +858,36 @@ xfer_stream_min(Config) when is_list(Config) ->
     ?line SbOutboundStreams = SaInboundStreams,
     ?line ?LOGVAR(SbOutboundStreams),
     ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
-    ?line case gen_sctp:recv(Sb, infinity) of
-	      {ok,{Loopback,
+    ?line case log_ok(gen_sctp:recv(Sb, infinity)) of
+	      {Loopback,
+	       Pa,
+	       [#sctp_sndrcvinfo{stream=Stream,
+				 assoc_id=SbAssocId}],
+	       Data} -> ok;
+	      {Loopback,
+	       Pa,[],
+	       #sctp_paddr_change{addr = {Loopback,_},
+				  state = addr_available,
+				  error = 0,
+				  assoc_id = SbAssocId}} ->
+		  {Loopback,
 		   Pa,
 		   [#sctp_sndrcvinfo{stream=Stream,
 				     assoc_id=SbAssocId}],
-		   Data}} -> ok;
-	      {ok,{Loopback,
-		   Pa,[],
-		   #sctp_paddr_change{addr = {Loopback,_},
-				      state = addr_available,
-				      error = 0,
-				      assoc_id = SbAssocId}}} ->
-		  {ok,{Loopback,
-		       Pa,
-		       [#sctp_sndrcvinfo{stream=Stream,
-					 assoc_id=SbAssocId}],
-		       Data}} =	gen_sctp:recv(Sb, infinity)
+		   Data} = log_ok(gen_sctp:recv(Sb, infinity));
+	      {Loopback,
+	       Pa,
+	       [#sctp_sndrcvinfo{stream=Stream,
+				 assoc_id=SbAssocId}],
+	       #sctp_paddr_change{addr = {Loopback,_},
+				  state = addr_confirmed,
+				  error = 0,
+				  assoc_id = SbAssocId}} ->
+		  {Loopback,
+		   Pa,
+		   [#sctp_sndrcvinfo{stream=Stream,
+				     assoc_id=SbAssocId}],
+		   Data} = log_ok(gen_sctp:recv(Sb, infinity))
 	  end,
     ?line ok =
 	do_from_other_process(
@@ -1227,27 +1254,36 @@ names_multihoming_ipv6(Config) when is_list(Config) ->
 do_names(_, FamilySpec, AddressCount) ->
     Fun =
 	fun (ServerSocket, _, ServerAssoc, ClientSocket, _, ClientAssoc) ->
-		?line ServerSocknames =
+		?line ServerSocknamesNoassoc =
 		    lists:sort(ok(inet:socknames(ServerSocket))),
+		?line ?LOGVAR(ServerSocknamesNoassoc),
 		?line ServerSocknames =
 		    lists:sort(ok(inet:socknames(ServerSocket, ServerAssoc))),
 		?line ?LOGVAR(ServerSocknames),
-		?line ClientSocknames =
+		?line [_|_] =
+		    ordsets:intersection
+		      (ServerSocknamesNoassoc, ServerSocknames),
+		?line ClientSocknamesNoassoc =
 		    lists:sort(ok(inet:socknames(ClientSocket))),
+		?line ?LOGVAR(ClientSocknamesNoassoc),
 		?line ClientSocknames =
 		    lists:sort(ok(inet:socknames(ClientSocket, ClientAssoc))),
 		?line ?LOGVAR(ClientSocknames),
-		?line {error,einval} = inet:peernames(ServerSocket),
+		?line [_|_] =
+		    ordsets:intersection
+		      (ClientSocknamesNoassoc, ClientSocknames),
+		?line err([einval,enotconn], inet:peernames(ServerSocket)),
 		?line ServerPeernames =
 		    lists:sort(ok(inet:peernames(ServerSocket, ServerAssoc))),
 		?line ?LOGVAR(ServerPeernames),
-		?line {error,einval} = inet:peernames(ClientSocket),
+		?line err([einval,enotconn], inet:peernames(ClientSocket)),
 		?line ClientPeernames =
 		    lists:sort(ok(inet:peernames(ClientSocket, ClientAssoc))),
 		?line ?LOGVAR(ClientPeernames),
 		?line ServerSocknames = ClientPeernames,
 		?line ClientSocknames = ServerPeernames,
-		?line {ok,Socket} = gen_sctp:peeloff(ServerSocket, ServerAssoc),
+		?line {ok,Socket} =
+		    gen_sctp:peeloff(ServerSocket, ServerAssoc),
 		?line Socknames =
 		    lists:sort(ok(inet:socknames(Socket))),
 		?line Socknames =
@@ -1367,10 +1403,20 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
     ?line ClientFamily = get_family_by_addr(AddressToConnectTo),
     ?line io:format("Connecting to ~p ~p~n",
 		    [ClientFamily, AddressToConnectTo]),
-    ?line S2 = ok(gen_sctp:open(0, [ClientFamily])),
+    ?line ClientOpts =
+	[ClientFamily |
+	 case ClientFamily of
+	    inet6 ->
+		[{ipv6_v6only,true}];
+	    _ ->
+		[]
+	 end],
+    ?line S2 = ok(gen_sctp:open(0, ClientOpts)),
+    log(open),
     %% Verify client can connect
     ?line #sctp_assoc_change{state=comm_up} = S2Assoc =
 	ok(gen_sctp:connect(S2, AddressToConnectTo, P1, [])),
+    log(comm_up),
     %% verify server side also receives comm_up from client
     ?line S1Assoc = recv_comm_up_eventually(S1),
     ?line Result = Fun(S1, ServerFamily, S1Assoc, S2, ClientFamily, S2Assoc),
@@ -1394,7 +1440,8 @@ recv_comm_up_eventually(S) ->
 	      {_Addr, _Port, _Info,
 	       #sctp_assoc_change{state=comm_up} = Assoc} ->
 		  Assoc;
-	      {_Addr, _Port, _Info, _OtherSctpMsg} ->
+	      {_Addr, _Port, _Info, _OtherSctpMsg} = Msg ->
+		  ?line log({unexpected,Msg}),
 		  ?line recv_comm_up_eventually(S)
 	  end.
 
@@ -1575,8 +1622,9 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 		[] -> ok
 	    end,
 	    case {gb_get({assoc_change,AssocId}, State),St} of
-		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],
-		 addr_available} -> ok;
+		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],_}
+		    when St =:= addr_available;
+			 St =:= addr_confirmed -> ok;
 		{[],addr_confirmed} -> ok
 	    end,
 	    Key = {paddr_change,AssocId},
