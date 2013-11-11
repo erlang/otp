@@ -1402,9 +1402,15 @@ remove_conf([{conf, _Ref, Props, _MF}|Cases], NoConf, Repeats) ->
     end;
 remove_conf([{make,_Ref,_MF}|Cases], NoConf, Repeats) ->
     remove_conf(Cases, NoConf, Repeats);
+remove_conf([{skip_case,{{_M,all},_Cmt}}|Cases], NoConf, Repeats) ->
+    remove_conf(Cases, NoConf, Repeats);
 remove_conf([{skip_case,{Type,_Ref,_MF,_Cmt}}|Cases],
 	    NoConf, Repeats) when Type==conf;
 				   Type==make ->
+    remove_conf(Cases, NoConf, Repeats);
+remove_conf([{skip_case,{Type,_Ref,_MF,_Cmt},_Mode}|Cases],
+	    NoConf, Repeats) when Type==conf;
+				  Type==make ->
     remove_conf(Cases, NoConf, Repeats);
 remove_conf([C|Cases], NoConf, Repeats) ->
     remove_conf(Cases, [C|NoConf], Repeats);
@@ -1413,6 +1419,11 @@ remove_conf([], NoConf, true) ->
 remove_conf([], NoConf, false) ->
     lists:reverse(NoConf).
 
+get_suites([{skip_case,{{Mod,_Func},_Cmt}}|Tests], Mods) when is_atom(Mod) ->
+    case add_mod(Mod, Mods) of
+	true ->  get_suites(Tests, [Mod|Mods]);
+	false -> get_suites(Tests, Mods)
+    end;
 get_suites([{Mod,_Case}|Tests], Mods) when is_atom(Mod) ->
     case add_mod(Mod, Mods) of
 	true ->  get_suites(Tests, [Mod|Mods]);
@@ -1478,12 +1489,9 @@ do_test_cases(TopCases, SkipCases,
 		end,
 	    put(test_server_cases, N),
 	    put(test_server_case_num, 0),
+
 	    TestSpec =
 		add_init_and_end_per_suite(TestSpec0, undefined, undefined, FwMod),
-
-
-	    %%! --- Fri Nov  8 14:50:39 2013 --- peppe was here!
-	    io:format(user, ">>> HERE'S THE TS: ~p~n~n", [TestSpec]),
 
 	    TI = get_target_info(),
 	    print(1, "Starting test~ts",
@@ -1934,8 +1942,6 @@ add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod,
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
-add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef, FwMod) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
 			   LastRef, FwMod) ->
     %% if Mod == FwMod, this conf test is (probably) a test case group where
@@ -1957,6 +1963,9 @@ add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([SkipCase|Cases], LastMod, LastRef, FwMod)
+  when element(1,SkipCase) == skip_case ->
+    [SkipCase|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
@@ -2238,6 +2247,13 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %% group1_end                                              | --->
 %%
 
+run_test_cases_loop([{SkipTag,CaseData={Type,_Ref,_Case,_Comment}}|Cases],
+		    Config, TimetrapData, Mode, Status) when
+      ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
+      ((Type==conf) or (Type==make)) ->
+    run_test_cases_loop([{SkipTag,CaseData,Mode}|Cases],
+			Config, TimetrapData, Mode, Status);
+
 run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) when
       ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
@@ -2372,6 +2388,13 @@ run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
     test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
+
+run_test_cases_loop([{skip_case,{{Mod,all}=Case,Comment}}|Cases],
+		    Config, TimetrapData, Mode, Status) ->
+    skip_case(user, undefined, 0, Case, Comment, false, Mode),
+    test_server_sup:framework_call(report, [tc_user_skip,
+					    {Mod,all,Comment}]),
+    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status);
 
 run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
@@ -3227,6 +3250,7 @@ modify_cases_upto(Ref, ModOp, Cases, Orig, Alt) ->
     case lists:any(fun({_,R,_,_}) when R == Ref -> true;
 		      ({_,R,_})   when R == Ref -> true;
 		      ({skip_case,{_,R,_,_},_}) when R == Ref -> true;
+		      ({skip_case,{_,R,_,_}}) when R == Ref -> true;
 		      (_) -> false
 		   end, Cases) of
 	true ->
@@ -3261,6 +3285,12 @@ modify_cases_upto1(Ref, {copy,NewRef}, [{make,Ref,MF}=M|T], Orig, Alt) ->
 modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType},
 		   [{skip_case,{Type,Ref,MF,_Cmt},_}|T], Orig, Alt) ->
     {Orig,[{SkipType,{Type,Ref,MF,Reason},Mode}|Alt],T};
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType},
+		   [{skip_case,{Type,Ref,MF,_Cmt}}|T], Orig, Alt) ->
+    {Orig,[{SkipType,{Type,Ref,MF,Reason},Mode}|Alt],T};
+modify_cases_upto1(Ref, {copy,NewRef},
+		   [{skip_case,{Type,Ref,MF,Cmt},Mode}=C|T], Orig, Alt) ->
+    {[C|Orig],[{skip_case,{Type,NewRef,MF,Cmt},Mode}|Alt],T};
 modify_cases_upto1(Ref, {copy,NewRef},
 		   [{skip_case,{Type,Ref,MF,Cmt}}=C|T], Orig, Alt) ->
     {[C|Orig],[{skip_case,{Type,NewRef,MF,Cmt}}|Alt],T};
@@ -4504,10 +4534,6 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
 							FinMF}],
 			    Skipped = skip_cases_upto(Ref, Cases2Skip, Comment,
 						      conf, Mode, skip_case),
-
-			    %%! --- Fri Nov  8 16:47:50 2013 --- peppe was here!
-			    io:format(user, "!!! FLAT2 = ~p~n", [Skipped]),
-
 			    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode} |
 				 Skipped],St1};
 			{error,_Reason} = Error ->

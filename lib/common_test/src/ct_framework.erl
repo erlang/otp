@@ -1283,7 +1283,10 @@ report(What,Data) ->
 					node=node(),
 					data=Data}),
 	    case Data of
-		{_,Func,_} when Func /= end_per_suite, Func /= end_per_group ->
+		{_,Func,_} when Func /= init_per_suite,
+				Func /= init_per_group,
+				Func /= end_per_suite,
+				Func /= end_per_group ->
 		    ct_hooks:on_tc_skip(What, Data),
 		    add_to_stats(user_skipped);
 		_ ->
