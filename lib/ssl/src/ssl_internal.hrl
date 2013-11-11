@@ -115,7 +115,8 @@
 	  erl_dist = false,
 	  next_protocols_advertised = undefined, %% [binary()],
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
-	  log_alert
+	  log_alert,
+	  server_name_indication = undefined
 	  }).
 
 -record(socket_options,

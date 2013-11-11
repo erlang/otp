@@ -98,7 +98,8 @@
 	  next_protocol_negotiation = undefined, % [binary()]
 	  srp,
 	  ec_point_formats,
-	  elliptic_curves
+	  elliptic_curves,
+	  sni
 	 }).
 
 -record(server_hello, {
@@ -339,6 +340,19 @@
 -define(NAMED_CURVE, 3).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Server name indication RFC 6066 section 3
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(SNI_EXT, 16#0000).
+
+%% enum { host_name(0), (255) } NameType;
+-define(SNI_NAMETYPE_HOST_NAME, 0).
+
+-record(sni, {
+          hostname = undefined
+        }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dialyzer types
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -353,6 +367,3 @@
 
 
 -endif. % -ifdef(ssl_handshake).
-
-
-     
