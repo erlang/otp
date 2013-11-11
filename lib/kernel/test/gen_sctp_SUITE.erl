@@ -111,7 +111,7 @@ xfer_min(Config) when is_list(Config) ->
     ?line {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
     ?line {ok,Pb} = inet:port(Sb),
     ?line ok = gen_sctp:listen(Sb, true),
-    
+
     ?line {ok,Sa} = gen_sctp:open(),
     ?line {ok,Pa} = inet:port(Sa),
     ?line {ok,#sctp_assoc_change{state=comm_up,
@@ -122,18 +122,18 @@ xfer_min(Config) when is_list(Config) ->
 	gen_sctp:connect(Sa, Loopback, Pb, []),
     ?line {SbAssocId,SaOutboundStreams,SaInboundStreams} =
 	case recv_event(log_ok(gen_sctp:recv(Sb, infinity))) of
-	      {Loopback,Pa,
-	       #sctp_assoc_change{state=comm_up,
-				  error=0,
-				  outbound_streams=SbOutboundStreams,
-				  inbound_streams=SbInboundStreams,
-				  assoc_id=AssocId}} ->
-		  {AssocId,SbInboundStreams,SbOutboundStreams};
-	      {Loopback,Pa,
-	       #sctp_paddr_change{state=addr_confirmed,
-				  addr={Loopback,Pa},
-				  error=0,
-				  assoc_id=AssocId}} ->
+	    {Loopback,Pa,
+	     #sctp_assoc_change{state=comm_up,
+				error=0,
+				outbound_streams=SbOutboundStreams,
+				inbound_streams=SbInboundStreams,
+				assoc_id=AssocId}} ->
+		{AssocId,SbInboundStreams,SbOutboundStreams};
+	    {Loopback,Pa,
+	     #sctp_paddr_change{state=addr_confirmed,
+				addr={Loopback,Pa},
+				error=0,
+				assoc_id=AssocId}} ->
 		{Loopback,Pa,
 		 #sctp_assoc_change{state=comm_up,
 				    error=0,
@@ -204,7 +204,7 @@ xfer_min(Config) when is_list(Config) ->
 	recv_event(log_ok(gen_sctp:recv(Sb, infinity))),
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
-    
+
     ?line receive
 	      Msg -> test_server:fail({received,Msg})
 	  after 17 -> ok
@@ -223,7 +223,7 @@ xfer_active(Config) when is_list(Config) ->
     ?line {ok,Sb} = gen_sctp:open([{active,true}]),
     ?line {ok,Pb} = inet:port(Sb),
     ?line ok = gen_sctp:listen(Sb, true),
-    
+
     ?line {ok,Sa} = gen_sctp:open([{active,true}]),
     ?line {ok,Pa} = inet:port(Sa),
     ?line ok = gen_sctp:connect_init(Sa, Loopback, Pb, []),
@@ -355,7 +355,7 @@ def_sndrcvinfo(Config) when is_list(Config) ->
     %%
     ?line S1 =
 	log_ok(gen_sctp:open(
-	     0, [{sctp_default_send_param,#sctp_sndrcvinfo{ppid=17}}])),
+		 0, [{sctp_default_send_param,#sctp_sndrcvinfo{ppid=17}}])),
     ?LOGVAR(S1),
     ?line P1 =
 	log_ok(inet:port(S1)),
@@ -547,57 +547,57 @@ api_open_close(Config) when is_list(Config) ->
     ?line {ok,S1} = gen_sctp:open(0),
     ?line {ok,P}  = inet:port(S1),
     ?line ok      = gen_sctp:close(S1),
-    
+
     ?line {ok,S2} = gen_sctp:open(P),
     ?line {ok,P}  = inet:port(S2),
     ?line ok      = gen_sctp:close(S2),
-    
+
     ?line {ok,S3} = gen_sctp:open([{port,P}]),
     ?line {ok,P}  = inet:port(S3),
     ?line ok      = gen_sctp:close(S3),
-    
+
     ?line {ok,S4} = gen_sctp:open(P, []),
     ?line {ok,P}  = inet:port(S4),
     ?line ok      = gen_sctp:close(S4),
-    
+
     ?line {ok,S5} = gen_sctp:open(P, [{ifaddr,any}]),
     ?line {ok,P}  = inet:port(S5),
     ?line ok      = gen_sctp:close(S5),
 
     ?line ok      = gen_sctp:close(S5),
-    
+
     ?line try gen_sctp:close(0)
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open({})
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open(-1)
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open(65536)
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open(make_ref(), [])
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open(0, {})
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open(0, [make_ref()])
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open([{invalid_option,0}])
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line try gen_sctp:open(0, [{mode,invalid_mode}])
 	  catch error:badarg -> ok
 	  end,
@@ -609,11 +609,11 @@ api_listen(suite) ->
     [];
 api_listen(Config) when is_list(Config) ->
     ?line Localhost = {127,0,0,1},
-    
+
     ?line try gen_sctp:listen(0, true)
 	  catch error:badarg -> ok
 	  end,
-    
+
     ?line {ok,S} = gen_sctp:open(),
     ?line {ok,Pb} = inet:port(S),
     ?line try gen_sctp:listen(S, not_allowed_for_listen)
@@ -621,7 +621,7 @@ api_listen(Config) when is_list(Config) ->
 	  end,
     ?line ok = gen_sctp:close(S),
     ?line {error,closed} = gen_sctp:listen(S, true),
-    
+
     ?line {ok,Sb} = gen_sctp:open(Pb),
     ?line {ok,Sa} = gen_sctp:open(),
     ?line case gen_sctp:connect(Sa, localhost, Pb, []) of
@@ -633,8 +633,8 @@ api_listen(Config) when is_list(Config) ->
 		      gen_sctp:recv(Sa, infinity);
 	      {error,#sctp_assoc_change{state=cant_assoc}} ->
 		  ok%;
-	      %% {error,{Localhost,Pb,_,#sctp_assoc_change{state=cant_assoc}}} ->
-	      %% 	  ok
+		  %% {error,{Localhost,Pb,_,#sctp_assoc_change{state=cant_assoc}}} ->
+		  %% 	  ok
 	  end,
     ?line ok = gen_sctp:listen(Sb, true),
     ?line {ok,#sctp_assoc_change{state=comm_up,
@@ -1003,10 +1003,10 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     ?line ?LOGVAR(S2Ai),
     ?line S1Ai =
 	receive
-	      {S1,{Addr,P2,
-		   #sctp_assoc_change{
-			  state=comm_up,
-			  assoc_id=AssocId1}}} -> AssocId1
+	    {S1,{Addr,P2,
+		 #sctp_assoc_change{
+			state=comm_up,
+			assoc_id=AssocId1}}} -> AssocId1
 	after Timeout ->
 		socket_bailout([S1,S2])
 	end,
@@ -1034,8 +1034,8 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     ?line P3 = case P3_X of 0 -> P1; _ -> P3_X end,
     ?line [{_,#sctp_paddrinfo{assoc_id=S3Ai,state=active}}] =
 	socket_call(S3,
-	    {getopts,[{sctp_get_peer_addr_info,
-		       #sctp_paddrinfo{address={Addr,P2}}}]}),
+		    {getopts,[{sctp_get_peer_addr_info,
+			       #sctp_paddrinfo{address={Addr,P2}}}]}),
     %%?line S3Ai = S1Ai,
     ?line ?LOGVAR(S3Ai),
     %%
@@ -1118,9 +1118,9 @@ buffers(Config) when is_list(Config) ->
     %%
     ?line socket_call(S1, {setopts,[{recbuf,Limit}]}),
     ?line Recbuf =
-	    case socket_call(S1, {getopts,[recbuf]}) of
-		[{recbuf,RB1}] when RB1 >= Limit -> RB1
-	    end,
+	case socket_call(S1, {getopts,[recbuf]}) of
+	    [{recbuf,RB1}] when RB1 >= Limit -> RB1
+	end,
     ?line Data = mk_data(Recbuf+Limit),
     ?line socket_call(S2, {setopts,[{sndbuf,Recbuf+Limit}]}),
     ?line socket_call(S2, {send,S2Ai,Stream,Data}),
@@ -1406,10 +1406,10 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
     ?line ClientOpts =
 	[ClientFamily |
 	 case ClientFamily of
-	    inet6 ->
-		[{ipv6_v6only,true}];
-	    _ ->
-		[]
+	     inet6 ->
+		 [{ipv6_v6only,true}];
+	     _ ->
+		 []
 	 end],
     ?line S2 = ok(gen_sctp:open(0, ClientOpts)),
     log(open),
@@ -1500,10 +1500,10 @@ socket_bailout([]) ->
 
 socket_history({State,Flush}) ->
     {lists:keysort(
-      2,
-      lists:flatten(
-	[[{Key,Val} || Val <- Vals]
-	 || {Key,Vals} <- gb_trees:to_list(State)])),
+       2,
+       lists:flatten(
+	 [[{Key,Val} || Val <- Vals]
+	  || {Key,Vals} <- gb_trees:to_list(State)])),
      Flush}.
 
 s_handler(Socket) ->
@@ -1586,7 +1586,7 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 		     #sctp_assoc_change{
 			    state=comm_up,
 			    inbound_streams=Is}}}|_]
-		 when 0 =< Stream, Stream < Is-> ok;
+		  when 0 =< Stream, Stream < Is-> ok;
 		[] -> ok
 	    end,
 	    Key = {msg,AssocId,Stream},
@@ -1606,7 +1606,7 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    case {gb_get(Key, State),St} of
 		{[],_} -> ok;
 		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],_}
-		when St =:= comm_lost; St =:= shutdown_comp -> ok
+		  when St =:= comm_lost; St =:= shutdown_comp -> ok
 	    end,
 	    NewState = gb_push(Key, Val, State),
 	    Parent ! {self(),{Addr,Port,SAC}},
@@ -1623,8 +1623,8 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    end,
 	    case {gb_get({assoc_change,AssocId}, State),St} of
 		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],_}
-		    when St =:= addr_available;
-			 St =:= addr_confirmed -> ok;
+		  when St =:= addr_available;
+		       St =:= addr_confirmed -> ok;
 		{[],addr_confirmed} -> ok
 	    end,
 	    Key = {paddr_change,AssocId},
