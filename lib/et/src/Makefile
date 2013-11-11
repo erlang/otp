@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2012. All Rights Reserved.
+# Copyright Ericsson AB 2000-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -127,14 +127,11 @@ $(EBIN)/et_selector.$(EMULATOR): et_selector.erl ../include/et.hrl
 
 $(EBIN)/et_contents_viewer.$(EMULATOR): et_contents_viewer.erl ../include/et.hrl et_internal.hrl
 
-$(EBIN)/et_gs_contents_viewer.$(EMULATOR): et_gs_contents_viewer.erl ../include/et.hrl et_internal.hrl
 $(EBIN)/et_wx_contents_viewer.$(EMULATOR): et_wx_contents_viewer.erl ../include/et.hrl et_internal.hrl
 
 $(EBIN)/et_collector.$(EMULATOR): et_collector.erl ../include/et.hrl et_internal.hrl
 
 $(EBIN)/et_viewer.$(EMULATOR): et_viewer.erl ../include/et.hrl et_internal.hrl
-
-$(EBIN)/et_gs_viewer.$(EMULATOR): et_gs_viewer.erl ../include/et.hrl et_internal.hrl
 
 $(EBIN)/et_wx_viewer.$(EMULATOR): et_wx_viewer.erl ../include/et.hrl et_internal.hrl
 
