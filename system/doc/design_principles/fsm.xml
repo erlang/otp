@@ -75,7 +75,7 @@ StateName(Event, StateData) ->
 -export([init/1, locked/2, open/2]).
 
 start_link(Code) ->
-    gen_fsm:start_link({local, code_lock}, code_lock, lists:reverse(Code, []).
+    gen_fsm:start_link({local, code_lock}, code_lock, lists:reverse(Code), []).
 
 button(Digit) ->
     gen_fsm:send_event(code_lock, {button, Digit}).
