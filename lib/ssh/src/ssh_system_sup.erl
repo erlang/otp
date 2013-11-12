@@ -55,13 +55,12 @@ stop_listener(Address, Port) ->
     Name = make_name(Address, Port),
     stop_acceptor(whereis(Name)). 
 
-stop_system(SysSup) ->
-    Name = sshd_sup:system_name(SysSup),
-    sshd_sup:stop_child(Name).
-    
-stop_system(Address, Port) -> 
-    sshd_sup:stop_child(Address, Port).
+stop_system(SysSup) when is_pid(SysSup)->
+    exit(SysSup, shutdown).
 
+stop_system(Address, Port) -> 
+    stop_system(system_supervisor(Address, Port)).
+    
 system_supervisor(Address, Port) ->
     Name = make_name(Address, Port),
     whereis(Name).
@@ -121,7 +120,7 @@ restart_acceptor(Address, Port) ->
 %%%=========================================================================
 init([ServerOpts]) ->
     RestartStrategy = one_for_one,
-    MaxR = 10,
+    MaxR = 0,
     MaxT = 3600,
     Children = child_specs(ServerOpts),
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
