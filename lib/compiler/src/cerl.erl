@@ -154,6 +154,9 @@
 -type c_let()     :: #c_let{}.
 -type c_letrec()  :: #c_letrec{}.
 -type c_literal() :: #c_literal{}.
+-type c_map()     :: #c_map{}.
+-type c_map_pair_assoc()  :: #c_map_pair_assoc{}.
+-type c_map_pair_exact()  :: #c_map_pair_exact{}.
 -type c_module()  :: #c_module{}.
 -type c_primop()  :: #c_primop{}.
 -type c_receive() :: #c_receive{}.
@@ -164,9 +167,10 @@
 -type c_var()     :: #c_var{}.
 
 -type cerl() :: c_alias()  | c_apply()  | c_binary()  | c_bitstr()
-              | c_call()   | c_case()   | c_catch()   | c_clause() | c_cons()
+              | c_call()   | c_case()   | c_catch()   | c_clause()  | c_cons()
               | c_fun()    | c_let()    | c_letrec()  | c_literal()
-              | c_module() | c_primop() | c_receive() | c_seq()
+	      | c_map()    | c_map_pair_assoc()       | c_map_pair_exact()
+	      | c_module() | c_primop() | c_receive() | c_seq()
               | c_try()    | c_tuple()  | c_values()  | c_var().
 
 %% =====================================================================
@@ -1571,6 +1575,8 @@ ann_make_list(_, [], Node) ->
 
 %% ---------------------------------------------------------------------
 %% maps
+
+-spec map_es(c_map()) -> [cerl()].
 
 map_es(#c_map{es = Es}) ->
     Es.
