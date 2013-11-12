@@ -892,7 +892,7 @@ OS_PROCESS(fd_writer_process) {
 	SysIOVec *iov;
 	int iovlen;
 	int iovcnt;
-	int n = 0, i;
+	int n = 0, i = 0, offset = 0;
 	size_t p;
 	/* fprintf(stderr,"0x%x: fd_writer, receive\n", current_process()); */
 	sig = receive(sigsel);
@@ -913,12 +913,22 @@ OS_PROCESS(fd_writer_process) {
 	driver_pdl_unlock(driver_data[fd].pdl);
 
 	if (iovlen > 0) {
-	    for (i = 0; i < iovcnt; i++) {
-		res = write(fd, iov[i].iov_base,
-			    iov[i].iov_len > 256 ? 256 : iov[i].iov_len);
+	    while(i < iovcnt) {
+	      /* We only write 256 chars at the time in order to
+		 not overflow the stdout process */
+	      if ((iov[i].iov_len-offset) > 256) {
+		res = write(fd, iov[i].iov_base+offset, 256);
 		if (res < 0)
 		    break;
-		n += res;
+		offset += res;
+	      } else {
+		res = write(fd, iov[i].iov_base+offset, iov[i].iov_len-offset);
+		if (res < 0)
+		    break;
+		offset = 0;
+		i++;
+	      }
+	      n += res;
 	    }
 	    if (res > 0)
 		res = n;
