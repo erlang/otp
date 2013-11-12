@@ -1318,6 +1318,7 @@ handle_info(timeout, State) ->
 handle_info({tcp, Socket, Data}, 
 	    #state{dsock = {tcp,Socket},
 		   caller = {recv_file, Fd}} = State0) ->    
+    io:format('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
     file_write(binary_to_list(Data), Fd),
     progress_report({binary, Data}, State0),
     State = activate_data_connection(State0),
@@ -1326,10 +1327,12 @@ handle_info({tcp, Socket, Data},
 handle_info({tcp, Socket, Data}, #state{dsock = {tcp,Socket}, client = From,	
 					caller = recv_chunk} 
 	    = State)  ->    
+    io:format('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State]),
     gen_server:reply(From, {ok, Data}),
     {noreply, State#state{client = undefined, data = <<>>}};
 
 handle_info({tcp, Socket, Data}, #state{dsock = {tcp,Socket}} = State0) ->
+    io:format('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
     State = activate_data_connection(State0),
     {noreply, State#state{data = <<(State#state.data)/binary,
 				  Data/binary>>}};
@@ -1380,6 +1383,7 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 					      ctrl_data = {CtrlData, AccLines, 
 							   LineStatus}} 
 	    = State) ->    
+    io:format('--ctrl ~p ----> ~s~p~n',[Socket,<<CtrlData/binary, Data/binary>>,State]),
     case ftp_response:parse_lines(<<CtrlData/binary, Data/binary>>, 
 				  AccLines, LineStatus) of
 	{ok, Lines, NextMsgData} ->
@@ -1393,11 +1397,13 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 					  ctrl_data = {NextMsgData, [], 
 						       start}}};
 		_ ->
+		    io:format('   ...handle_ctrl_result(~p,...) ctrl_data=~p~n',[CtrlResult,{NextMsgData, [], start}]),
 		    handle_ctrl_result(CtrlResult,
 				       State#state{ctrl_data = 
 						   {NextMsgData, [], start}})
 	    end;
 	{continue, NewCtrlData} ->
+	    io:format('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{ctrl_data = NewCtrlData}}
     end;
@@ -1596,21 +1602,23 @@ handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true,
 handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, prot, NextAction},
 					  dsock = {tcp, Socket}, client = From,
 					  tls_options = TLSOptions} = State0) ->
-     case ssl:connect(Socket, TLSOptions) of
-	 {ok, TLSSocket} ->
-	     State = State0#state{dsock = {ssl, TLSSocket},
-				  tls_upgrading_data_connection = {false, undefined}},
-	     next_action_after_tls_upgrade(NextAction, State);
-	 {error, _} = Error ->
-	     gen_server:reply(From,  {Error, self()}),
-	     {stop, normal, State0#state{client = undefined, 
+    io:format('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
+    case ssl:connect(Socket, TLSOptions) of
+	{ok, TLSSocket} ->
+	    State = State0#state{dsock = {ssl, TLSSocket},
+				 tls_upgrading_data_connection = {false, undefined}},
+	    next_action_after_tls_upgrade(NextAction, State);
+	{error, _} = Error ->
+	    gen_server:reply(From,  {Error, self()}),
+	    {stop, normal, State0#state{client = undefined, 
 					caller = undefined}}
-     end;	
+    end;
 
 handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
 					    tls_options = TLSOptions,
 					    caller = open, client = From} 
 		   = State) ->
+    io:format('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State]),
     case ssl:connect(Socket, TLSOptions) of
 	{ok, TLSSocket} ->
 	    gen_server:reply(From,  {ok, self()}),
@@ -2135,11 +2143,13 @@ accept_data_connection(#state{mode     = active,
 accept_data_connection(#state{mode = passive} = State) ->
     maybe_requests_tls_upgrade(State).
 
-send_ctrl_message(#state{csock = Socket, verbose = Verbose}, Message) ->
+send_ctrl_message(S=#state{csock = Socket, verbose = Verbose}, Message) ->
     verbose(lists:flatten(Message),Verbose,send),
+    io:format('<--ctrl ~p ---- ~s~p~n',[Socket,Message,S]),
     send_message(Socket, Message).
 
-send_data_message(#state{dsock = Socket}, Message) ->
+send_data_message(S=#state{dsock = Socket}, Message) ->
+    io:format('<==data ~p ==== ~s~p~n',[Socket,Message,S]),
     case send_message(Socket, Message) of
 	ok ->
 	    ok;
