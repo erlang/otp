@@ -1688,6 +1688,7 @@ handle_ctrl_result({pos_compl, Lines},
 		  string:tokens(NewPortAddr, [$,])),
     IP   = {A1, A2, A3, A4}, 
     Port = (P1 * 256) + P2, 
+io:format('tcp connect to ~p:~p, Caller=~p~n',[IP,Port,Caller]),
     case connect(IP, Port, Timeout, State) of
 	{ok, _, Socket} ->
 	    handle_caller(State#state{caller = Caller, dsock = {tcp,Socket}});
