@@ -118,7 +118,7 @@ void epmd_call(EpmdVars *g,int what)
     if (!g->silent) {
 	rval = erts_snprintf(buf, OUTBUF_SIZE,
 			     "epmd: up and running on port %d with data:\n", j);
-	write(1, buf, rval);
+	fwrite(buf, 1, rval, stdout);
     }
     while(1) {
 	if ((rval = read(fd,buf,OUTBUF_SIZE)) <= 0)  {
@@ -126,7 +126,7 @@ void epmd_call(EpmdVars *g,int what)
 	    epmd_cleanup_exit(g,0);
 	}
 	if (!g->silent)
-	    write(1, buf, rval); /* Potentially UTF-8 encoded */
+	    fwrite(buf, 1, rval, stdout); /* Potentially UTF-8 encoded */
     }
 }
 
