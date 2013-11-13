@@ -429,7 +429,7 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
 	    {next_state, connected, 
 	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-	    retry_fun(User, Reason, Opts),
+	    retry_fun(User, Address, Reason, Opts),
 	    send_msg(Reply, State),
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
     end;
@@ -1399,23 +1399,31 @@ connected_fun(User, PeerAddr, Method, Opts) ->
 	    catch Fun(User, PeerAddr, Method)
     end.
 
-retry_fun(_, undefined, _) ->
+retry_fun(_, _, undefined, _) ->
     ok;
 
-retry_fun(User, {error, Reason}, Opts) ->
+retry_fun(User, PeerAddr, {error, Reason}, Opts) ->
     case proplists:get_value(failfun, Opts) of
 	undefined ->
 	    ok;
 	Fun ->
-	    catch Fun(User, Reason)
+	    do_retry_fun(Fun, User, PeerAddr, Reason)
     end;
 
-retry_fun(User, Reason, Opts) ->
+retry_fun(User, PeerAddr, Reason, Opts) ->
     case proplists:get_value(infofun, Opts) of
 	undefined ->
 	    ok;
-	Fun ->
-	    catch Fun(User, Reason)
+	Fun  ->
+	    do_retry_fun(Fun, User, PeerAddr, Reason)
+    end.
+
+do_retry_fun(Fun, User, PeerAddr, Reason) ->
+    case erlang:fun_info(Fun, arity) of
+	2 -> %% Backwards compatible
+	    catch Fun(User, Reason);
+	3 ->
+	    catch Fun(User, PeerAddr, Reason)
     end.
 
 ssh_info([], _State, Acc) ->

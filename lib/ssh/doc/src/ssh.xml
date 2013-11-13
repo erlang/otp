@@ -53,8 +53,7 @@
     returned by ssh:daemon/[1,2,3]</c></p>
     <p><c>ssh_connection_ref() - opaque to the user
     returned by ssh:connect/3</c></p>
-    <p><c>ip_address() - {N1,N2,N3,N4} % IPv4 |
-    {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6</c></p>
+    <p><c>ip_address() - inet::ip_address()</c></p>
     <p><c>subsystem_spec() = {subsystem_name(),
     {channel_callback(), channel_init_args()}} </c></p>
     <p><c>subsystem_name() = string() </c></p>
@@ -296,7 +295,7 @@
               user. From a security perspective this option makes
 	      the server very vulnerable.</p>
 	  </item>
-	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string() -> boolean()}]]></c></tag>
+	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
 	  <item>
 	    <p>Provide a function for password validation. This is called
 	      with user and password as strings, and should return
@@ -313,17 +312,17 @@
 	  <item>
 	    <p>Allow an existing file-descriptor to be used
 	  (simply passed on to the transport protocol).</p></item>
-	  <tag><c><![CDATA[{failfun, fun()}]]></c></tag>
+	  <tag><c><![CDATA[{failfun, fun(User::string(), PeerAddress::ip_address(), Reason::term()) -> _}]]></c></tag>
 	  <item>
-	    <p>Provide a fun() to implement your own logging when a user fails to authenticate.</p>
+	    <p>Provide a fun to implement your own logging when a user fails to authenticate.</p>
 	  </item>
-	  <tag><c><![CDATA[{connectfun, fun()}]]></c></tag>
+	  <tag><c><![CDATA[{connectfun, fun(User::string(), PeerAddress::ip_address(), Method::string()) ->_}]]></c></tag>
 	  <item>
-	    <p>Provide a fun() to implement your own logging when a user authenticates to the server.</p>
+	    <p>Provide a fun to implement your own logging when a user authenticates to the server.</p>
 	  </item>
-	  <tag><c><![CDATA[{disconnectfun, fun()}]]></c></tag>
+	  <tag><c><![CDATA[{disconnectfun, fun(Reason:term()) -> _}]]></c></tag>
 	  <item>
-	    <p>Provide a fun() to implement your own logging when a user disconnects from the server.</p>
+	    <p>Provide a fun to implement your own logging when a user disconnects from the server.</p>
 	  </item>
         </taglist>
       </desc>
