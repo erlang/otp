@@ -101,8 +101,8 @@
 -type common_reason() ::  'econn' | 'eclosed' | term().
 -type file_write_error_reason() :: term(). % See file:write for more info
 
-%%-define(DBG(F,A), 'n/a').
--define(DBG(F,A), io:format(F,A)).
+-define(DBG(F,A), 'n/a').
+%%-define(DBG(F,A), io:format(F,A)).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -1595,10 +1595,11 @@ handle_user_account(Acc, State) ->
 %%--------------------------------------------------------------------------
 handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
 					    tls_options = TLSOptions,
+					    timeout = Timeout,
 					    caller = open, client = From}
 		   = State0) ->
     ?DBG('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
-    case ssl:connect(Socket, TLSOptions) of
+    case ssl:connect(Socket, TLSOptions, Timeout) of
 	{ok, TLSSocket} ->
 	    State = State0#state{csock = {ssl,TLSSocket}},
 	    send_ctrl_message(State, mk_cmd("PBSZ 0", [])),
@@ -2132,7 +2133,7 @@ accept_data_connection(#state{mode     = active,
 	{ok, Socket} when  is_list(TLSOptions) ->
 	    gen_tcp:close(LSock),
 	    ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
-	    case ssl:connect(Socket, TLSOptions) of
+	    case ssl:connect(Socket, TLSOptions, DTimeout) of
 		{ok, TLSSocket} ->
 		    {ok, State0#state{dsock={ssl,TLSSocket}}};
 		{error, Reason} ->
@@ -2146,10 +2147,11 @@ accept_data_connection(#state{mode     = active,
     end;
 
 accept_data_connection(#state{mode = passive,
+			      dtimeout = DTimeout,
 			      dsock = {tcp,Socket},
 			      tls_options = TLSOptions} = State) when is_list(TLSOptions) ->
     ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State]),
-    case ssl:connect(Socket, TLSOptions) of
+    case ssl:connect(Socket, TLSOptions, DTimeout) of
 	{ok, TLSSocket} ->
 	    {ok, State#state{dsock={ssl,TLSSocket}}};
 	{error, Reason} ->
@@ -2159,13 +2161,13 @@ accept_data_connection(#state{mode = passive} = State) ->
     {ok,State}.
 
 
-send_ctrl_message(S=#state{csock = Socket, verbose = Verbose}, Message) ->
+send_ctrl_message(_S=#state{csock = Socket, verbose = Verbose}, Message) ->
     verbose(lists:flatten(Message),Verbose,send),
-    ?DBG('<--ctrl ~p ---- ~s~p~n',[Socket,Message,S]),
+    ?DBG('<--ctrl ~p ---- ~s~p~n',[Socket,Message,_S]),
     send_message(Socket, Message).
 
-send_data_message(S=#state{dsock = Socket}, Message) ->
-    ?DBG('<==data ~p ==== ~s~p~n',[Socket,Message,S]),
+send_data_message(_S=#state{dsock = Socket}, Message) ->
+    ?DBG('<==data ~p ==== ~s~p~n',[Socket,Message,_S]),
     case send_message(Socket, Message) of
 	ok ->
 	    ok;
