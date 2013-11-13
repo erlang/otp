@@ -167,6 +167,10 @@ init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
 				   data={Mod,FuncSpec}}),
 	    ct_util:set_testdata({curr_tc,{Suite,Error}}),
 	    {error,Error};
+	Error = {group0_failed,_} ->
+	    {auto_skip,Error};
+	Error = {testcase0_failed,_} ->
+	    {auto_skip,Error};
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
 		{error,Reason} ->
@@ -272,6 +276,8 @@ add_defaults(Mod,Func, GroupPath) ->
 	    SuiteInfo = merge_with_suite_defaults(Suite,[]),
 	    SuiteInfoNoCTH = [I || I <- SuiteInfo, element(1,I) =/= ct_hooks],
 	    case add_defaults1(Mod,Func, GroupPath, SuiteInfoNoCTH) of
+		Error = {group0_failed,_} -> Error;
+		Error = {testcase0_failed,_} -> Error;
 		Error = {error,_} -> {SuiteInfo,Error};
 		MergedInfo -> {SuiteInfo,MergedInfo}
 	    end;
@@ -292,13 +298,16 @@ add_defaults(Mod,Func, GroupPath) ->
 					   element(1,I) =/= ct_hooks],
 		    case add_defaults1(Mod,Func, GroupPath,
 				       SuiteInfoNoCTH) of
+			Error = {group0_failed,_} -> Error;
+			Error = {testcase0_failed,_} -> Error;
 			Error = {error,_} -> {SuiteInfo1,Error};
 			MergedInfo -> {SuiteInfo1,MergedInfo}
 		    end;
 		false ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
 					   "Invalid return value from "
-					   "~w:suite/0: ~p~n", [Suite,SuiteInfo]),
+					   "~w:suite/0: ~p~n",
+					   [Suite,SuiteInfo]),
 		    io:format(ErrStr, []),
 		    io:format(user, ErrStr, []),
 		    {suite0_failed,bad_return_value}
@@ -318,36 +327,69 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
     %%     [LevelXGroupInfo, LevelX-1GroupInfo, ..., TopLevelGroupInfo]
     GroupPathInfo =  
 	lists:map(fun(GroupProps) ->
-			  Name = ?val(name, GroupProps),
-			  case catch Suite:group(Name) of
-			      GrInfo when is_list(GrInfo) -> GrInfo;
-			      _ -> []
+			  case ?val(name, GroupProps) of
+			      undefined ->
+				  [];
+			      Name ->
+				  case catch Suite:group(Name) of
+				      GrInfo when is_list(GrInfo) -> GrInfo;
+				      {'EXIT',{undef,_}} -> [];
+				      BadGr0 -> {error,BadGr0,Name}
+				  end
 			  end
 		  end, GroupPath),
-    Args = if Func == init_per_group ; Func == end_per_group ->
-		   [?val(name, hd(GroupPath))];
-	      true ->
-		   []
-	   end,
-    TestCaseInfo =
-	case catch apply(Mod,Func,Args) of
-	    TCInfo when is_list(TCInfo) -> TCInfo;
-	    _ -> []
-	end,
-    %% let test case info (also for all config funcs) override group info,
-    %% and lower level group info override higher level info
-    TCAndGroupInfo = [TestCaseInfo | remove_info_in_prev(TestCaseInfo,
-							 GroupPathInfo)],
-    %% find and save require terms found in suite info
-    SuiteReqs = 
-	[SDDef || SDDef <- SuiteInfo,
-		  ((require == element(1,SDDef)) or
-		   (default_config == element(1,SDDef)))],
-    case check_for_clashes(TestCaseInfo, GroupPathInfo, SuiteReqs) of
-	[] ->
-	    add_defaults2(Mod,Func, TCAndGroupInfo,SuiteInfo,SuiteReqs);
-	Clashes ->
-	    {error,{config_name_already_in_use,Clashes}}
+    case lists:keysearch(error, 1, GroupPathInfo) of
+	{value,{error,BadGr0Val,GrName}} ->
+	    Gr0ErrStr = io_lib:format("~n*** ERROR *** "
+				      "Invalid return value from "
+				      "~w:group(~w): ~p~n",
+				      [Mod,GrName,BadGr0Val]),
+	    io:format(Gr0ErrStr, []),
+	    io:format(user, Gr0ErrStr, []),
+	    {group0_failed,bad_return_value};
+	_ ->
+	    Args = if Func == init_per_group ; Func == end_per_group ->
+			   [?val(name, hd(GroupPath))];
+		      true ->
+			   []
+		   end,
+	    TestCaseInfo =
+		case catch apply(Mod,Func,Args) of
+		    TCInfo when is_list(TCInfo) -> TCInfo;
+		    {'EXIT',{undef,_}} -> [];
+		    BadTC0 -> {error,BadTC0}
+		end,
+	    
+	    case TestCaseInfo of
+		{error,BadTC0Val} ->
+		    TC0ErrStr = io_lib:format("~n*** ERROR *** "
+					      "Invalid return value from "
+					      "~w:~w/0: ~p~n",
+					      [Mod,Func,BadTC0Val]),
+		    io:format(TC0ErrStr, []),
+		    io:format(user, TC0ErrStr, []),
+		    {testcase0_failed,bad_return_value};
+		_ ->
+		    %% let test case info (also for all config funcs) override
+		    %% group info, and lower level group info override higher
+		    %% level info
+		    TCAndGroupInfo =
+			[TestCaseInfo | remove_info_in_prev(TestCaseInfo,
+							    GroupPathInfo)],
+		    %% find and save require terms found in suite info
+		    SuiteReqs = 
+			[SDDef || SDDef <- SuiteInfo,
+				  ((require == element(1,SDDef))
+				   or (default_config == element(1,SDDef)))],
+		    case check_for_clashes(TestCaseInfo, GroupPathInfo,
+					   SuiteReqs) of
+			[] ->
+			    add_defaults2(Mod,Func, TCAndGroupInfo,
+					  SuiteInfo,SuiteReqs);
+			Clashes ->
+			    {error,{config_name_already_in_use,Clashes}}
+		    end
+	    end
     end.
 
 get_suite_name(?MODULE, [Cfg|_]) when is_list(Cfg), Cfg /= [] ->

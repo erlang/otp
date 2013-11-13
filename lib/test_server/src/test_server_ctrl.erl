@@ -1161,8 +1161,11 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	end,
     {SkippedN,SkipStr} =
 	case get(test_server_skipped) of
-	    {0,_} -> {0,""};
-	    {Skipped,_} -> {Skipped,io_lib:format(", ~w Skipped", [Skipped])}
+	    {0,0} -> 
+		{0,""};
+	    {USkipped,ASkipped} ->
+		Skipped = USkipped+ASkipped,
+		{Skipped,io_lib:format(", ~w Skipped", [Skipped])}
 	end,
     OkN = get(test_server_ok),
     FailedN = get(test_server_failed),
@@ -1412,6 +1415,13 @@ remove_conf([{skip_case,{Type,_Ref,_MF,_Cmt},_Mode}|Cases],
 	    NoConf, Repeats) when Type==conf;
 				  Type==make ->
     remove_conf(Cases, NoConf, Repeats);
+remove_conf([C={Mod,error_in_suite,_}|Cases], NoConf, Repeats) ->
+    FwMod = get_fw_mod(?MODULE),
+    if Mod == FwMod ->
+	    remove_conf(Cases, NoConf, Repeats);
+       true ->
+	    remove_conf(Cases, [C|NoConf], Repeats)
+    end;
 remove_conf([C|Cases], NoConf, Repeats) ->
     remove_conf(Cases, [C|NoConf], Repeats);
 remove_conf([], NoConf, true) ->
@@ -2822,7 +2832,14 @@ run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
 			TimetrapData, Mode, Status);
 
 run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status) ->
-    Num = put(test_server_case_num, get(test_server_case_num)+1),
+    {Num,RunInit} =
+	case FwMod = get_fw_mod(?MODULE) of
+	    Mod when Func == error_in_suite ->
+		{-1,skip_init};
+	    _ ->
+		{put(test_server_case_num, get(test_server_case_num)+1),
+		 run_init}
+	end,
 
     %% check the current execution mode and save info about the case if
     %% detected that printouts to common log files is handled later
@@ -2837,7 +2854,7 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
     end,
 
     case run_test_case(undefined, Num+1, Mod, Func, Args,
-		       run_init, TimetrapData, Mode) of
+		       RunInit, TimetrapData, Mode) of
 	%% callback to framework module failed, exit immediately
 	{_,{framework_error,{FwMod,FwFunc},Reason},_} ->
 	    print(minor, "~n*** ~w failed in ~w. Reason: ~p~n",
@@ -3193,6 +3210,7 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
 	  "<td><font color=\"~ts\">SKIPPED</font></td>"
 	  "<td>~ts</td></tr>\n",
 	  [num2str(CaseNum),fw_name(Mod),GroupName,Func,ResultCol,Comment1]),
+
     if CaseNum > 0 ->
 	    {US,AS} = get(test_server_skipped),
 	    case Type of

@@ -73,7 +73,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [].
+    [{g1,[],[tc2]},
+     {g2,[],[tc2]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -83,11 +84,22 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() -> 
-    [tc1].
+    [tc1,{group,g1},{group,g2}].
+
+group(g1) ->
+    exit(g1_byebye);
+group(_) ->
+    [].
 
 tc1() ->
     exit(tc1_byebye).
 
 tc1(_) ->
+    done.
+
+tc2() ->
+    exit(tc2_byebye).
+
+tc2(_) ->
     done.
 
