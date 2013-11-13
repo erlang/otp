@@ -1058,8 +1058,11 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
 	ASSERT(BIF_P->flags & F_DISABLE_GC);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
-	erts_set_gc_state(BIF_P, 1);
-	BIF_RET(res);
+        if (erts_set_gc_state(BIF_P, 1)
+            || MSO(BIF_P).overhead > BIN_VHEAP_SZ(BIF_P))
+            ERTS_BIF_YIELD_RETURN(BIF_P, res);
+        else
+            BIF_RET(res);
     }
 }
     

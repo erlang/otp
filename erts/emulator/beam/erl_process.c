@@ -8271,25 +8271,22 @@ save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio)
 int
 erts_set_gc_state(Process *c_p, int enable)
 {
-    int res;
     ErtsProcSysTaskQs *dgc_tsk_qs;
     ASSERT(c_p == erts_get_current_process());
     ASSERT((ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)
 	   & erts_smp_atomic32_read_nob(&c_p->state));
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
-    res = !(c_p->flags & F_DISABLE_GC);
-
     if (!enable) {
 	c_p->flags |= F_DISABLE_GC;
-	return res;
+	return 0;
     }
 
     c_p->flags &= ~F_DISABLE_GC;
 
     dgc_tsk_qs = ERTS_PROC_GET_DELAYED_GC_TASK_QS(c_p);
     if (!dgc_tsk_qs)
-	return res;
+	return 0;
 
     /* Move delayed gc tasks into sys tasks queues. */
 
@@ -8387,7 +8384,7 @@ erts_set_gc_state(Process *c_p, int enable)
     if (dgc_tsk_qs)
 	proc_sys_task_queues_free(dgc_tsk_qs);
 
-    return res;
+    return 1;
 }
 
 void
