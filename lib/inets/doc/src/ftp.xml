@@ -547,15 +547,14 @@
 	<v>Opts = options()</v>
 	<v>options() = [option()]</v>
 	<v>option() = start_option() | open_option()</v>
-	<!-- <v>start_options() = [start_option()]</v> -->
 	<v>start_option() = {verbose, verbose()} | {debug, debug()}</v>
 	<v>verbose() = boolean() (defaults to false)</v>
 	<v>debug() = disable | debug | trace (defaults to disable)</v>
-	<!-- <v>open_options() = [open_option()]</v> -->
-	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</v>
+	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</v>
 	<v>ipfamily() = inet | inet6 | inet6fb4 (defaults to inet)</v>
 	<v>port() = integer() > 0 (defaults to 21)</v>
 	<v>mode() = active | passive (defaults to passive)</v>
+	<v>tls_options() = [<seealso marker="ssl#type-ssloption">ssl:ssloption()</seealso>]</v>
 	<v>timeout() = integer() > 0 (defaults to 60000 milliseconds)</v>
 	<v>dtimeout() = integer() > 0 | infinity (defaults to infinity)</v>
 	<v>pogress() = ignore | {module(), function(), initial_data()} (defaults to ignore)</v>
@@ -569,6 +568,9 @@
 	<p>This function is used to start a standalone ftp client process 
           (without the inets service framework) and 
           open a session with the FTP server at <c>Host</c>. </p>
+
+	<p>If the option <c>{tls, tls_options()}</c> is present, the ftp session will be transported over tls (ftps, see RFC 4217). The list <c>tls_options()</c> may be empty. The function <seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> is used for establishing both the control connection and the data sessions.
+	</p>
 
         <p>A session opened in this way, is closed using the 
           <seealso marker="#close">close</seealso> function. </p>
