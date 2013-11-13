@@ -23,9 +23,10 @@
 	 is_disable_chunked_send/1, cache_headers/2]).
 -export([map_status_code/2]).
 
--include("httpd.hrl").
--include("http_internal.hrl").
--include("httpd_internal.hrl").
+-include_lib("inets/src/inets_app/inets_internal.hrl").
+-include_lib("inets/include/httpd.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
+-include_lib("inets/src/http_server/httpd_internal.hrl").
 
 -define(VMODULE,"RESPONSE").
 
@@ -35,7 +36,7 @@ generate_and_send_response(#mod{init_data =
 				#init_data{peername = {_,"unknown"}}}) ->
     ok;
 generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
-    Modules = httpd_util:lookup(ConfigDB,modules, ?DEFAULT_MODS),
+    Modules = httpd_util:lookup(ConfigDB, modules, ?DEFAULT_MODS),
     case traverse_modules(ModData, Modules) of
 	done ->
 	    ok;
@@ -68,16 +69,7 @@ traverse_modules(ModData,[]) ->
   {proceed,ModData#mod.data};
 traverse_modules(ModData,[Module|Rest]) ->
     ?hdrd("traverse modules", [{callback_module, Module}]), 
-    case (catch apply(Module, do, [ModData])) of
-	{'EXIT', Reason} ->
-	    String = 
-		lists:flatten(
-		  io_lib:format("traverse exit from apply: ~p:do => ~n~p",
-				[Module, Reason])),
-	    report_error(mod_log, ModData#mod.config_db, String),
-	    report_error(mod_disk_log, ModData#mod.config_db, String),
-	    send_status(ModData, 500, none),
-	    done;
+    try apply(Module, do, [ModData]) of
 	done ->
 	    ?hdrt("traverse modules - done", []), 
 	    done;
@@ -87,6 +79,19 @@ traverse_modules(ModData,[Module|Rest]) ->
 	{proceed, NewData} ->
 	    ?hdrt("traverse modules - proceed", [{new_data, NewData}]), 
 	    traverse_modules(ModData#mod{data = NewData}, Rest)
+    catch 
+	T:E ->
+	    String = 
+		lists:flatten(
+		  io_lib:format("module traverse failed: ~p:do => "
+				"~n   Error Type:  ~p"
+				"~n   Error:       ~p"
+				"~n   Stack trace: ~p",
+				[Module, T, E, ?STACK()])),
+	    report_error(mod_log, ModData#mod.config_db, String),
+	    report_error(mod_disk_log, ModData#mod.config_db, String),
+	    send_status(ModData, 500, none),
+	    done
     end.
 
 %% send_status %%

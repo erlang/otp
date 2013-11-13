@@ -42,6 +42,10 @@ do(Info) ->
 			%% A response has been sent! Nothing to do about it!
 			{already_sent, _StatusCode, _Size} ->
 			    {proceed,Info#mod.data};
+			{response, Header, _Body} -> %% New way
+			    {proceed, 
+			     lists:keyreplace(response, 1, Info#mod.data, 
+					      {response, Header, nobody})};
 			%% A response has been generated!
 			{_StatusCode, _Response} ->
 			    {proceed,Info#mod.data}
