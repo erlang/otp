@@ -38,7 +38,9 @@ all() ->
      erl_script_nocache_opt,
      script_nocache,
      escaped_url_in_error_body,
-     slowdose
+     script_timeout,
+     slowdose,
+     keep_alive_timeout
     ].
 
 groups() -> 
@@ -80,16 +82,19 @@ DUMMY
     DummyFile = filename:join([PrivDir,"dummy.html"]),
     CgiDir =  filename:join(PrivDir, "cgi-bin"),
     ok = file:make_dir(CgiDir),
-    Cgi = case test_server:os_type() of
-	      {win32, _} ->
-		  "printenv.bat";
-	      _ ->
-		  "printenv.sh"
-	  end,
-    inets_test_lib:copy_file(Cgi, DataDir, CgiDir),
-    AbsCgi = filename:join([CgiDir, Cgi]),
-    {ok, FileInfo} = file:read_file_info(AbsCgi),
-    ok = file:write_file_info(AbsCgi, FileInfo#file_info{mode = 8#00755}),
+    {CgiPrintEnv, CgiSleep} = case test_server:os_type() of
+				  {win32, _} ->
+				      {"printenv.bat", "cgi_sleep.exe"};
+				  _ ->
+				      {"printenv.sh", "cgi_sleep"}
+			      end,
+    lists:foreach(
+      fun(Cgi) ->
+	      inets_test_lib:copy_file(Cgi, DataDir, CgiDir),
+	      AbsCgi = filename:join([CgiDir, Cgi]),
+	      {ok, FileInfo} = file:read_file_info(AbsCgi),
+	      ok = file:write_file_info(AbsCgi, FileInfo#file_info{mode = 8#00755})
+      end, [CgiPrintEnv, CgiSleep]),
     {ok, Fd}  = file:open(DummyFile, [write]),
     ok        = file:write(Fd, Dummy),
     ok        = file:close(Fd), 
@@ -100,7 +105,8 @@ DUMMY
 		 {document_root, PrivDir}, 
 		 {bind_address,  "localhost"}],
 
-    [{httpd_conf, HttpdConf}, {cgi_dir, CgiDir}, {cgi_script, Cgi} |  Config].
+    [{httpd_conf, HttpdConf}, {cgi_dir, CgiDir},
+     {cgi_printenv, CgiPrintEnv}, {cgi_sleep, CgiSleep} |  Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -235,7 +241,7 @@ script_nocache(Config) when is_list(Config) ->
 
 verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
     HttpdConf = ?config(httpd_conf, Config),
-    CgiScript = ?config(cgi_script, Config),
+    CgiScript = ?config(cgi_printenv, Config),
     CgiDir = ?config(cgi_dir, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0},
 				    {script_alias,
@@ -363,6 +369,63 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     inets:stop(httpd, Pid),
     tsp("escaped_url_in_error_body -> done"),    
     ok.
+
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+keep_alive_timeout(doc) ->
+    ["Test the keep_alive_timeout option"];
+keep_alive_timeout(suite) ->
+    [];
+keep_alive_timeout(Config) when is_list(Config) ->
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0}, {keep_alive, true}, {keep_alive_timeout, 2} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port,         Info),
+    _Address    = proplists:get_value(bind_address, Info),
+    {ok, S} = gen_tcp:connect("localhost", Port, []),
+    receive
+    after 3000 ->
+	    {error, closed} = gen_tcp:send(S, "hey")
+    end,
+    inets:stop(httpd, Pid).
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+script_timeout(doc) ->
+    ["Test the httpd script_timeout option"];
+script_timeout(suite) ->
+    [];
+script_timeout(Config) when is_list(Config) ->
+    verify_script_timeout(Config, 20, 200),
+    verify_script_timeout(Config, 5, 403),
+    ok.
+
+verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
+    HttpdConf = ?config(httpd_conf, Config),
+    CgiScript = ?config(cgi_sleep, Config),
+    CgiDir = ?config(cgi_dir, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+				    {script_alias,
+				     {"/cgi-bin/", CgiDir ++ "/"}},
+				    {script_timeout, ScriptTimeout}
+				    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/" ++ CgiScript ++
+					   " HTTP/1.0\r\n\r\n",
+				       [{statuscode, StatusCode},
+					{version, "HTTP/1.0"}]),
+    inets:stop(httpd, Pid).
+
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
 slowdose(doc) ->
     ["Testing minimum bytes per second option"];
 slowdose(Config) when is_list(Config) ->

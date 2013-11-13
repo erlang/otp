@@ -75,8 +75,8 @@
           <p>Add (atl) log conversion block option. </p>
 	  <p>It is now possible to request that the Audit Trail Log should
 	  be blocked during conversion (<c>log_to_txt</c> or <c>log_to_io</c>). 
-	  This could be usefull when coverting a large log (when there is
-	  a chance it may otherwise wrap during conversion). </p>
+	  This could be usefull when coverting an entire large log (when 
+	  there is a chance it may otherwise wrap during conversion). </p>
 	  <p>See 
 	  agent 
 	  <seealso marker="snmpa#log_to_txt">log_to_txt</seealso> and
@@ -87,6 +87,17 @@
 	  for details. </p>
           <p>Own Id: OTP-11396</p>
           <p>Own Id: seq12433</p>
+        </item>
+
+        <item>
+          <p>When converting an Audit Trail Log to text, a corrupt
+	  log entry could cause the entire conversion to fail. </p>
+	  <p>Also, for a log with sequence numbers, failing to 
+	  decode a log entry would cause the conversion to fail
+	  (not because of the failed decode, but because of the 
+	  failure to write the error message). </p>
+          <p>Own Id: OTP-111453</p>
+          <p>Aux Id: Seq 12459</p>
         </item>
 
       </list>

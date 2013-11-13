@@ -4433,7 +4433,7 @@ static ErlDrvSSizeT inet_ctl_getiflist(inet_descriptor* desc,
 	case AF_INET6:
 #endif
 	case AF_INET:
-	    ASSERT(sp+IFNAMSIZ+1 < sbuf+ifc.ifc_len+1)
+	    ASSERT(sp+IFNAMSIZ+1 < sbuf+ifc.ifc_len+1);
 	    strncpy(sp, ifrp->ifr_name, IFNAMSIZ);
 	    sp[IFNAMSIZ] = '\0';
 	    sp += strlen(sp), ++sp;

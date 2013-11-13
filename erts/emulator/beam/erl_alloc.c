@@ -718,6 +718,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.mseg.nos = erts_no_schedulers;
     erts_mseg_init(&init.mseg);
 #endif
+
     erts_alcu_init(&init.alloc_util);
     erts_afalc_init();
     erts_bfalc_init();
@@ -1174,6 +1175,25 @@ get_kb_value(char *param_end, char** argv, int* ip)
 	return ((Uint) tmp)*1024;
 }
 
+static UWord
+get_mb_value(char *param_end, char** argv, int* ip)
+{
+    SWord tmp;
+    UWord max = ((~((UWord) 0))/(1024*1024)) + 1;
+    char *rest;
+    char *param = argv[*ip]+1;
+    char *value = get_value(param_end, argv, ip);
+    errno = 0;
+    tmp = (SWord) ErtsStrToSint(value, &rest, 10);
+    if (errno != 0 || rest == value || tmp < 0 || max < ((UWord) tmp))
+	bad_value(param, param_end, value);
+    if (max == (UWord) tmp)
+	return ~((UWord) 0);
+    else
+	return ((UWord) tmp)*1024*1024;
+}
+
+
 #if 0
 static Uint
 get_byte_value(char *param_end, char** argv, int* ip)
@@ -1447,6 +1467,30 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			init->mseg.mcs =
 #endif
 			    get_amount_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("scs", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.scs =
+#endif
+			    get_mb_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("sco", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.sco =
+#endif
+			    get_bool_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("scrpm", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.scrpm =
+#endif
+			    get_bool_value(argv[i]+8, argv, &i);
+		    }
+		    else if (has_prefix("scmgc", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.scmgc =
+#endif
+			    get_amount_value(argv[i]+8, argv, &i);
 		    }
 		    else {
 			bad_param(param, param+2);
@@ -2668,6 +2712,7 @@ erts_allocator_info(int to, void *arg)
 
 #if HAVE_ERTS_MSEG
     {
+	struct erts_mmap_info_struct emis;
 #ifdef ERTS_SMP
 	int max = (int) erts_no_schedulers;
 #else
@@ -2678,6 +2723,8 @@ erts_allocator_info(int to, void *arg)
 	    erts_print(to, arg, "=allocator:mseg_alloc[%d]\n", i);
 	    erts_mseg_info(i, &to, arg, 0, NULL, NULL);
 	}
+	erts_print(to, arg, "=allocator:mseg_alloc.erts_mmap\n");
+	erts_mmap_info(&to, arg, NULL, NULL, &emis);
     }
 #endif
 
@@ -2904,6 +2951,7 @@ reply_alloc_info(void *vair)
     Uint sz, *szp;
     ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
+    struct erts_mmap_info_struct emis;
     int i;
     Eterm (*info_func)(Allctr_t *,
 		       int,
@@ -3016,15 +3064,23 @@ reply_alloc_info(void *vair)
 			     ? NIL
 			     : erts_mseg_info(0, NULL, NULL, hpp != NULL,
 					      hpp, szp));
-		    ainfo = erts_bld_tuple(hpp, szp, 3,
-					   alloc_atom,
-					   make_small(0),
-					   ainfo);
+		    ainfo = erts_bld_tuple3(hpp, szp,
+                                            alloc_atom,
+                                            make_small(0),
+                                            ainfo);
+
+		    ai_list = erts_bld_cons(hpp, szp,
+					    ainfo, ai_list);
+		    ainfo = (air->only_sz ? NIL : erts_mmap_info(NULL, NULL, hpp, szp, &emis));
+		    ainfo = erts_bld_tuple3(hpp, szp,
+                                            alloc_atom,
+                                            erts_bld_atom(hpp,szp,"erts_mmap"),
+                                            ainfo);
 #else
-		    ainfo = erts_bld_tuple(hpp, szp, 2, alloc_atom,
-					   am_false);
+		    ainfo = erts_bld_tuple2(hpp, szp, alloc_atom,
+                                            am_false);
 #endif
-			break;
+		    break;
 		default:
 		    alloc_atom = erts_bld_atom(hpp, szp,
 					       (char *) ERTS_ALC_A2AD(ai));

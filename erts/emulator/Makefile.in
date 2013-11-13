@@ -808,6 +808,7 @@ OS_OBJS +=	$(OBJDIR)/erl_poll.o \
 endif
 
 OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
+		$(OBJDIR)/erl_mmap.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
 		$(OBJDIR)/erl_sys_common_misc.o

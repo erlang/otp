@@ -6,10 +6,12 @@
 %%%           draft-ietf-asid-ldap-c-api-00.txt
 %%%
 %%% Copyright (c) 2010 Torbjorn Tornkvist
+%%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%% See MIT-LICENSE at the top dir for licensing information.
 %%% --------------------------------------------------------------------
 -vc('$Id$ ').
 -export([open/1,open/2,simple_bind/3,controlling_process/2,
+	 start_tls/2, start_tls/3,
 	 baseObject/0,singleLevel/0,wholeSubtree/0,close/1,
 	 equalityMatch/2,greaterOrEqual/2,lessOrEqual/2,
 	 approxMatch/2,search/2,substrings/2,present/1,
@@ -36,14 +38,16 @@
 		host,                % Host running LDAP server
 		port = ?LDAP_PORT,   % The LDAP server port
 		fd,                  % Socket filedescriptor.
+		prev_fd,	     % Socket that was upgraded by start_tls
 		binddn = "",         % Name of the entry to bind as
 		passwd,              % Password for (above) entry
 		id = 0,              % LDAP Request ID
 		log,                 % User provided log function
 		timeout = infinity,  % Request timeout
 		anon_auth = false,   % Allow anonymous authentication
-		use_tls = false,      % LDAP/LDAPS
-		tls_opts = [] % ssl:ssloptsion()
+		ldaps = false,      % LDAP/LDAPS
+		using_tls = false,   % true if LDAPS or START_TLS executed
+		tls_opts = [] % ssl:ssloption()
 	       }).
 
 %%% For debug purposes
@@ -75,6 +79,16 @@ open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
     Self = self(),
     Pid = spawn_link(fun() -> init(Hosts, Opts, Self) end),
     recv(Pid).
+
+%%% --------------------------------------------------------------------
+%%% Upgrade an existing connection to tls
+%%% --------------------------------------------------------------------
+start_tls(Handle, TlsOptions) ->
+    start_tls(Handle, TlsOptions, infinity).
+
+start_tls(Handle, TlsOptions, Timeout) ->
+    send(Handle, {start_tls,TlsOptions,Timeout}),
+    recv(Handle).
 
 %%% --------------------------------------------------------------------
 %%% Shutdown connection (and process) asynchronous.
@@ -351,11 +365,11 @@ parse_args([{anon_auth, true}|T], Cpid, Data) ->
 parse_args([{anon_auth, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
 parse_args([{ssl, true}|T], Cpid, Data) ->
-    parse_args(T, Cpid, Data#eldap{use_tls = true});
+    parse_args(T, Cpid, Data#eldap{ldaps = true, using_tls=true});
 parse_args([{ssl, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
 parse_args([{sslopts, Opts}|T], Cpid, Data) when is_list(Opts) ->
-    parse_args(T, Cpid, Data#eldap{use_tls = true, tls_opts = Opts ++ Data#eldap.tls_opts});
+    parse_args(T, Cpid, Data#eldap{ldaps = true, using_tls=true, tls_opts = Opts ++ Data#eldap.tls_opts});
 parse_args([{sslopts, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
 parse_args([{log, F}|T], Cpid, Data) when is_function(F) ->
@@ -386,11 +400,10 @@ try_connect([Host|Hosts], Data) ->
 try_connect([],_) ->
     {error,"connect failed"}.
 
-do_connect(Host, Data, Opts) when Data#eldap.use_tls == false ->
+do_connect(Host, Data, Opts) when Data#eldap.ldaps == false ->
     gen_tcp:connect(Host, Data#eldap.port, Opts, Data#eldap.timeout);
-do_connect(Host, Data, Opts) when Data#eldap.use_tls == true ->
-    SslOpts = [{verify,0} | Opts ++ Data#eldap.tls_opts],
-    ssl:connect(Host, Data#eldap.port, SslOpts).
+do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
+    ssl:connect(Host, Data#eldap.port, Opts++Data#eldap.tls_opts).
 
 loop(Cpid, Data) ->
     receive
@@ -431,6 +444,11 @@ loop(Cpid, Data) ->
 	    ?PRINT("New Cpid is: ~p~n",[NewCpid]),
 	    ?MODULE:loop(NewCpid, Data);
 
+	{From, {start_tls,TlsOptions,Timeout}} ->
+	    {Res,NewData} = do_start_tls(Data, TlsOptions, Timeout),
+	    send(From,Res),
+	    ?MODULE:loop(Cpid, NewData);
+
 	{_From, close} ->
 	    unlink(Cpid),
 	    exit(closed);
@@ -444,6 +462,51 @@ loop(Cpid, Data) ->
 	    ?MODULE:loop(Cpid, Data)
 
     end.
+
+
+%%% --------------------------------------------------------------------
+%%% startTLS Request
+%%% --------------------------------------------------------------------
+
+do_start_tls(Data=#eldap{using_tls=true}, _, _) ->
+    {{error,tls_already_started}, Data};
+do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout) ->
+    case catch exec_start_tls(Data) of
+	{ok,NewData} ->
+	    case ssl:connect(FD,TlsOptions,Timeout) of
+		{ok, SslSocket} ->
+		    {ok, NewData#eldap{prev_fd = FD,
+				       fd = SslSocket,
+				       using_tls = true
+				      }};
+		{error,Error} ->
+		    {{error,Error}, Data}
+	    end;
+	{error,Error} -> {{error,Error},Data};
+	Else         -> {{error,Else},Data}
+    end.
+
+-define(START_TLS_OID, "1.3.6.1.4.1.1466.20037").
+
+exec_start_tls(Data) ->
+    Req = #'ExtendedRequest'{requestName = ?START_TLS_OID},
+    Reply = request(Data#eldap.fd, Data, Data#eldap.id, {extendedReq, Req}),
+    exec_extended_req_reply(Data, Reply).
+
+exec_extended_req_reply(Data, {ok,Msg}) when
+  Msg#'LDAPMessage'.messageID == Data#eldap.id ->
+    case Msg#'LDAPMessage'.protocolOp of
+	{extendedResp, Result} ->
+	    case Result#'ExtendedResponse'.resultCode of
+		success ->
+		    {ok,Data};
+		Error ->
+		    {error, {response,Error}}
+	    end;
+	Other -> {error, Other}
+    end;
+exec_extended_req_reply(_, Error) ->
+    {error, Error}.
 
 %%% --------------------------------------------------------------------
 %%% bindRequest
@@ -686,14 +749,14 @@ send_request(S, Data, ID, Request) ->
 	Else           -> Else
     end.
 
-do_send(S, Data, Bytes) when Data#eldap.use_tls == false ->
+do_send(S, Data, Bytes) when Data#eldap.using_tls == false ->
     gen_tcp:send(S, Bytes);
-do_send(S, Data, Bytes) when Data#eldap.use_tls == true ->
+do_send(S, Data, Bytes) when Data#eldap.using_tls == true ->
     ssl:send(S, Bytes).
 
-do_recv(S, #eldap{use_tls=false, timeout=Timeout}, Len) ->
+do_recv(S, #eldap{using_tls=false, timeout=Timeout}, Len) ->
     gen_tcp:recv(S, Len, Timeout);
-do_recv(S, #eldap{use_tls=true, timeout=Timeout}, Len) ->
+do_recv(S, #eldap{using_tls=true, timeout=Timeout}, Len) ->
     ssl:recv(S, Len, Timeout).
 
 recv_response(S, Data) ->
@@ -801,7 +864,7 @@ recv(From)   ->
 	    {error, {internal_error, Reason}}
     end.
 
-ldap_closed_p(Data, Emsg) when Data#eldap.use_tls == true ->
+ldap_closed_p(Data, Emsg) when Data#eldap.using_tls == true ->
     %% Check if the SSL socket seems to be alive or not
     case catch ssl:sockname(Data#eldap.fd) of
 	{error, _} ->

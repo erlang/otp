@@ -16,6 +16,7 @@
 %%
 %% %CopyrightEnd%
 %% 
+%% 
 
 -module(snmp_log).
 
@@ -434,6 +435,8 @@ log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start, Stop)
 	    [Log, Block, FileName, Dir, Mibs, TextFile, Start, Stop]),
     File = filename:join(Dir, FileName),
     Converter = fun(L) ->
+			?vtrace("log_to_txt:fun -> entry with"
+				"~n   L: ~p", [L]),
 			do_log_to_file(L, TextFile, Mibs, Start, Stop)
 		end,
     log_convert(Log, Block, File, Converter).
@@ -475,6 +478,8 @@ log_to_io(Log, Block, FileName, Dir, Mibs, Start, Stop)
 	    [Log, Block, FileName, Dir, Mibs, Start, Stop]),
     File = filename:join(Dir, FileName),
     Converter = fun(L) ->
+			?vtrace("log_to_io:fun -> entry with"
+				"~n   L: ~p", [L]),
 			do_log_to_io(L, Mibs, Start, Stop)
 		end,
     log_convert(Log, Block, File, Converter).
@@ -504,15 +509,15 @@ do_log_convert(Log, Block, File, Converter) ->
 	  fun() ->
 		  put(sname,     lc),
 		  put(verbosity, Verbosity), 
+		  ?vlog("begin converting", []),
 		  Result = do_log_convert2(Log, Block, File, Converter),
+		  ?vlog("convert result: ~p", [Result]),
 		  exit(Result)
 	  end),
     receive 
 	{'DOWN', Ref, process, Pid, Result} ->
 	    %% ?vtrace("do_log_converter -> received result"
-	    %% 	    "~n   Result:             ~p"
-	    %% 	    "~n   disk_log:info(Log): ~p", 
-	    %% 	    [Result, disk_log:info(Log)]),
+	    %% 	    "~n   Result: ~p", [Result]),
 	    Result
     end.
     
@@ -529,6 +534,7 @@ do_log_convert2(Log, Block, File, Converter) ->
     %% log, because if we close an already open log we will cause
     %% a runtime error.
 
+    ?vtrace("do_log_convert2 -> entry - check if owner", []),
     case is_owner(Log) of
 	true ->
 	    ?vtrace("do_log_converter2 -> convert an already owned log", []),
@@ -541,19 +547,22 @@ do_log_convert2(Log, Block, File, Converter) ->
 	    ?vtrace("do_log_converter2 -> convert log", []),
 	    case log_open(Log, File) of
 		{ok, _} ->
-		    ?vtrace("do_log_converter2 -> "
-			    "convert (the now opened) log", []),
+		    ?vdebug("do_log_convert2 -> opened - now convert", []),
 		    maybe_block(Log, Block), 
 		    Res = Converter(Log),
 		    maybe_unblock(Log, Block), 
 		    disk_log:close(Log),
+		    ?vdebug("do_log_convert2 -> converted - done: "
+			    "~n   Result: ~p", [Res]),
 		    Res;
 		{error, {name_already_open, _}} ->
-		    ?vtrace("do_log_converter2 -> "
-			    "convert (an already opened) log", []),
+		    ?vdebug("do_log_convert2 -> "
+			    "already opened - now convert", []),
 		    maybe_block(Log, Block), 
                     Res = Converter(Log), 
 		    maybe_unblock(Log, Block), 
+		    ?vdebug("do_log_convert2 -> converted - done: "
+			    "~n   Result: ~p", [Res]),
 		    Res;
                 {error, Reason} ->
 		    ?vinfo("do_log_converter2 -> "
@@ -601,50 +610,93 @@ maybe_unblock(Log, true = _Block) ->
 %% -- do_log_to_text ---
 
 do_log_to_file(Log, TextFile, Mibs, Start, Stop) ->
+    ?vtrace("do_log_to_txt -> entry with"
+	    "~n   Log:      ~p"
+	    "~n   TextFile: ~p"
+	    "~n   Start:    ~p"
+	    "~n   Stop:     ~p", [Log, TextFile, Start, Stop]),
     case file:open(TextFile, [write]) of
         {ok, Fd} ->
+	    ?vtrace("do_log_to_txt -> outfile created - create mini MIB", []),
             MiniMib = snmp_mini_mib:create(Mibs),
+	    ?vtrace("do_log_to_txt -> mini-MIB created - begin conversion", []),
 	    Write = fun(X) -> 
+			    ?vtrace("do_log_to_txt:fun -> "
+				    "entry - try format", []),
 			    case format_msg(X, MiniMib, Start, Stop) of
 				{ok, S} ->
+				    ?vtrace("do_log_to_txt:fun -> "
+					    "formated - now write", []),
 				    io:format(Fd, "~s", [S]);
 				_ ->
+				    ?vdebug("do_log_to_txt:fun -> "
+					    "format failed", []),
 				    ok
 			    end
 		    end,
             Res = (catch loop(disk_log:chunk(Log, start), Log, Write)),
+	    ?vtrace("do_log_to_txt -> converted - now delete mini-MIB", []),
 	    snmp_mini_mib:delete(MiniMib), 
+	    ?vtrace("do_log_to_txt -> "
+		    "mini-MIB closed - now close output file", []),
             file:close(Fd),
+	    ?vtrace("do_log_to_txt -> done", []),
             Res;
         {error, Reason} ->
+	    ?vinfo("failed opening output file: "
+		   "~n   TestFile: ~p"
+		   "~n   Reason:   ~p", [TextFile, Reason]),
             {error, {TextFile, Reason}}
     end.
 
 
 do_log_to_io(Log, Mibs, Start, Stop) ->
+    ?vtrace("do_log_to_io -> entry with"
+	    "~n   Log:   ~p"
+	    "~n   Mibs:  ~p"
+	    "~n   Start: ~p"
+	    "~n   Stop:  ~p", [Log, Mibs, Start, Stop]),
     MiniMib = snmp_mini_mib:create(Mibs),
+    ?vtrace("do_log_to_io -> mini-MIB created - begin conversion", []),
     Write = fun(X) -> 
+		    ?vtrace("do_log_to_io:fun -> entry", []),
 		    case format_msg(X, MiniMib, Start, Stop) of
 			{ok, S} ->
+			    ?vtrace("do_log_to_io:fun -> "
+				    "formated - now write", []),
 			    io:format("~s", [S]);
 			_ ->
+			    ?vdebug("do_log_to_io:fun -> "
+				    "format failed", []),
 			    ok
 		    end
 	    end,
     (catch loop(disk_log:chunk(Log, start), Log, Write)),
+    ?vtrace("do_log_to_io -> converted - now delete mini-MIB", []),
     snmp_mini_mib:delete(MiniMib),
+    ?vtrace("do_log_to_io -> done", []),
     ok.
 
 
 loop(eof, _Log, _Write) ->
+    ?vtrace("loop -> entry when eof", []),
     ok;
-loop({error, _} = Error, _Log, _Write) ->
+loop({error, _Reason} = Error, _Log, _Write) ->
+    ?vtrace("loop -> entry with error"
+	    "~n   Reason: ~p", [_Reason]),
     Error;
 loop({Cont, Terms}, Log, Write) ->
-    case (catch lists:foreach(Write, Terms)) of
+    ?vtrace("loop -> entry with terms"
+	    "~n   Cont:          ~p"
+	    "~n   length(Terms): ~p", [Cont, length(Terms)]), 
+   case (catch lists:foreach(Write, Terms)) of
 	{'EXIT', Reason} ->
+	    ?vtrace("loop -> failure while writing terms"
+		    "~n   Reason: ~p", [Reason]),
 	    {error, Reason};
-	_ ->
+	_X ->
+	   ?vtrace("loop -> terms written"
+		   "~n   X: ~p", [_X]),
 	    loop(disk_log:chunk(Log, Cont), Log, Write)
     end;
 loop({Cont, Terms, BadBytes}, Log, Write) ->
@@ -657,6 +709,8 @@ loop({Cont, Terms, BadBytes}, Log, Write) ->
 	    loop(disk_log:chunk(Log, Cont), Log, Write)
     end;
 loop(Error, _Log, _Write) ->
+    ?vtrace("loop -> entry with unknown"
+	    "~n   Error: ~p", [Error]),
     Error.
 
 
@@ -671,14 +725,17 @@ format_msg(Entry, Mib, Start, Stop) ->
 
 %% This is an old-style entry, that never had the sequence-number
 do_format_msg({Timestamp, Packet, {Addr, Port}}, Mib) ->
+    ?vdebug("do_format_msg -> old style log entry", []),
     do_format_msg(Timestamp, Packet, Addr, Port, Mib);
 
 %% This is the format without sequence-number
 do_format_msg({Timestamp, Packet, Addr, Port}, Mib) ->
+    ?vdebug("do_format_msg -> log entry without seqno", []),
     do_format_msg(Timestamp, Packet, Addr, Port, Mib);
 
 %% This is the format with sequence-number
 do_format_msg({Timestamp, SeqNo, Packet, Addr, Port}, Mib) ->
+    ?vdebug("do_format_msg -> log entry with seqno", []),
     do_format_msg(Timestamp, SeqNo, Packet, Addr, Port, Mib);
 
 %% This is crap...
@@ -686,103 +743,165 @@ do_format_msg(_, _) ->
     format_tab("** unknown entry in log file\n\n", []).
 
 do_format_msg(TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port, Mib) ->
+    ?vtrace("do_format_msg -> entry with"
+	    "~n   Timestamp: ~p"
+	    "~n   Addr:      ~p"
+	    "~n   Port:      ~p"
+	    "~n   => Try decode scoped pdu", 
+	    [TimeStamp, Addr, Port]),
     case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
 	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
+	    ?vtrace("do_format_msg -> scoped pdu decoded"
+		    "~n   ScopedPDU: ~p", [ScopedPDU]),
 	    Msg = #message{version = 'version-3',
 			   vsn_hdr = V3Hdr,
 			   data    = ScopedPDU},
 	    f(ts2str(TimeStamp), "", Msg, Addr, Port, Mib);
+
 	{'EXIT', Reason} ->
-	    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
+	    ?vinfo("Failed decoding scoped pdu: "
+		   "~n   V3Hdr:     ~w"
+		   "~n   ScopedPdu: ~w"
+		   "~n   Reason:    ~p", [V3Hdr, ScopedPdu, Reason]),
+	    format_tab("** error in log file at ~s from ~s:~w ~p\n\n", 
 		       [ts2str(TimeStamp), ip(Addr), Port, Reason])
     end;
+
 do_format_msg(TimeStamp, Packet, Addr, Port, Mib) ->
+    ?vtrace("do_format_msg -> entry with"
+	    "~n   Timestamp: ~p"
+	    "~n   Addr:      ~p"
+	    "~n   Port:      ~p"
+	    "~n   => Try decode packet", 
+	    [TimeStamp, Addr, Port]),
     case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
-	Msg when is_record(Msg, message) ->
+	#message{data = Data} = Msg when (is_record(Data, scopedPdu) orelse 
+					  is_record(Data, pdu) orelse 
+					  is_record(Data, trappdu)) ->
+	    ?vtrace("do_format_msg -> packet decoded"
+		    "~n   Msg: ~p", [Msg]),
 	    f(ts2str(TimeStamp), "", Msg, Addr, Port, Mib);
+
+	#message{version = Vsn, 
+		 vsn_hdr = VsnHdr} = Msg ->
+	    ?vinfo("Message not fully decoded: "
+		   "~n   Msg: ~p", [Msg]),
+	    Reason = 
+		lists:flatten(
+		  io_lib:format("Message not fully decoded: "
+				"Vsn = ~p, VsnHdr = ~w", [Vsn, VsnHdr])),
+	    format_tab("** error in log file ~s from ~s:~w => "
+		       "\n   ~s\n\n", 
+		       [ts2str(TimeStamp), ip(Addr), Port, Reason]);
+
 	{'EXIT', Reason} ->
+	    ?vinfo("Failed decoding packet: "
+		   "~n   Packet: ~w"
+		   "~n   Reason: ~p", [Packet, Reason]),
 	    format_tab("** error in log file ~p\n\n", [Reason])
     end.
     
 do_format_msg(TimeStamp, SeqNo, {V3Hdr, ScopedPdu}, Addr, Port, Mib) ->
+    ?vtrace("do_format_msg -> entry with"
+	    "~n   Timestamp: ~p"
+	    "~n   SeqNo:     ~p"
+	    "~n   Addr:      ~p"
+	    "~n   Port:      ~p"
+	    "~n   => Try decode scoped pdu", 
+	    [TimeStamp, SeqNo, Addr, Port]),
     case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
 	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
+	    ?vtrace("do_format_msg -> scoped pdu decoded"
+		    "~n   ScopedPDU: ~p", [ScopedPDU]),
 	    Msg = #message{version = 'version-3',
 			   vsn_hdr = V3Hdr,
 			   data    = ScopedPDU},
 	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, Addr, Port, Mib);
+
 	{'EXIT', Reason} ->
-	    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
+	    ?vinfo("Failed decoding scoped pdu: "
+		   "~n   V3Hdr:     ~w"
+		   "~n   ScopedPdu: ~w"
+		   "~n   Reason:    ~p", [V3Hdr, ScopedPdu, Reason]),
+	    format_tab("** error in log file at ~s~s from ~s:~w ~p\n\n", 
 		       [ts2str(TimeStamp), sn2str(SeqNo), 
 			ip(Addr), Port, Reason])
     end;
 do_format_msg(TimeStamp, SeqNo, Packet, Addr, Port, Mib) ->
+    ?vtrace("do_format_msg -> entry with"
+	    "~n   Timestamp: ~p"
+	    "~n   SeqNo:     ~p"
+	    "~n   Addr:      ~p"
+	    "~n   Port:      ~p"
+	    "~n   => Try decode message", 
+	    [TimeStamp, SeqNo, Addr, Port]),
     case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
-	Msg when is_record(Msg, message) ->
+	#message{data = Data} = Msg when (is_record(Data, scopedPdu) orelse 
+					  is_record(Data, pdu) orelse 
+					  is_record(Data, trappdu)) ->
+	    ?vtrace("do_format_msg -> message decoded"
+		    "~n   Msg: ~p", [Msg]),
 	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, Addr, Port, Mib);
+
+	#message{version = Vsn, 
+		 vsn_hdr = VsnHdr} = Msg ->
+	    ?vinfo("Message not fully decoded: "
+		   "~n   Msg: ~p", [Msg]),
+	    Reason = 
+		lists:flatten(
+		  io_lib:format("Message not fully decoded: "
+				"Vsn = ~p, VsnHdr = ~w", [Vsn, VsnHdr])),
+	    format_tab("** error in log file ~s~s from ~s:~w => "
+		       "\n   ~s\n\n", 
+		       [ts2str(TimeStamp), sn2str(SeqNo), 
+			ip(Addr), Port, Reason]);
+
 	{'EXIT', Reason} ->
-	    format_tab("** error in log file ~s from ~p:~w ~p\n\n", 
+	    ?vinfo("Failed decoding packet: "
+		   "~n   Packet: ~w"
+		   "~n   Reason: ~p", [Packet, Reason]),
+	    format_tab("** error in log file ~s (~s) from ~s:~w ~p\n\n", 
 		       [ts2str(TimeStamp), sn2str(SeqNo), 
 			ip(Addr), Port, Reason])
     end.
     
     
-%% format_msg({TimeStamp, {V3Hdr, ScopedPdu}, {Addr, Port}}, 
-%% 	   Mib, Start, Stop) ->
-%%     format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
-%% 	      Mib, Start, Stop);
-%% format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
-%% 	  Mib, Start, Stop) ->
-%%     case timestamp_filter(TimeStamp, Start, Stop) of
-%%         true ->
-%%             case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
-%%                 ScopedPDU when record(ScopedPDU, scopedPdu) -> 
-%%                     Msg = #message{version = 'version-3',
-%%                                    vsn_hdr = V3Hdr,
-%%                                    data    = ScopedPDU},
-%%                     f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
-%%                 {'EXIT', Reason} ->
-%%                     format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
-%% 			       [ts2str(TimeStamp), ip(Addr), Port, Reason])
-%%             end;
-%%         false ->
-%%             ignore
-%%     end;
-%% format_msg({TimeStamp, Packet, {Addr, Port}}, Mib, Start, Stop) -> 
-%%     format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop);
-%% format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop) ->
-%%     case timestamp_filter(TimeStamp, Start, Stop) of
-%%         true ->
-%%             case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
-%%                 Msg when record(Msg, message) ->
-%%                     f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
-%%                 {'EXIT', Reason} ->
-%%                     format_tab("** error in log file ~p\n\n", [Reason])
-%%             end;
-%%         false ->
-%%             ignore
-%%     end;
-%% format_msg(_, _Mib, _Start, _Stop) ->
-%%     format_tab("** unknown entry in log file\n\n", []).
-
 f(TimeStamp, SeqNo, 
   #message{version = Vsn, vsn_hdr = VsnHdr, data = Data}, 
   Addr, Port, Mib) ->
-    Str    = format_pdu(Data, Mib),
-    HdrStr = format_header(Vsn, VsnHdr),
-    case get_type(Data) of
-        trappdu ->
-            f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        'snmpv2-trap' ->
-            f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        'inform-request' ->
-            f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        'get-response' ->
-            f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        report ->
-            f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        _ ->
-            f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port)
+    try
+	begin
+	    Str    = format_pdu(Data, Mib),
+	    HdrStr = format_header(Vsn, VsnHdr),
+	    case get_type(Data) of
+		trappdu ->
+		    f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+		'snmpv2-trap' ->
+		    f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+		'inform-request' ->
+		    f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+		'get-response' ->
+		    f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+		report ->
+		    f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+		_ ->
+		    f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port)
+	    end
+	end
+    catch
+	T:E ->
+	    ?vinfo("Failed formating log entry"
+		   "~n   TimeStamp:  ~p"
+		   "~n   SeqNo:      ~p"
+		   "~n   Data:       ~p"
+		   "~n   Vsn:        ~p"
+		   "~n   VsnHdr:     ~p"
+		   "~n   Addr:       ~p"
+		   "~n   Port:       ~p"
+		   "~n   Error Type: ~w"
+		   "~n   Error:      ~p", 
+		   [TimeStamp, SeqNo, Data, Vsn, VsnHdr, Addr, Port, T, E]),
+	    format_tab("** error while formating log entry ~p\n\n", [{T, E}])
     end.
 
 f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
@@ -809,7 +928,7 @@ f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
 %% Convert a timestamp 2-tupple to a printable string
 %%
 ts2str({Local,Universal}) ->
-    dat2str(Local) ++ " , " ++ dat2str(Universal);
+    lists:flatten(dat2str(Local) ++ " , " ++ dat2str(Universal));
 ts2str(_) ->
     "".
 
@@ -906,7 +1025,7 @@ get_type(#pdu{type = Type}) ->
 
 
 ip({A,B,C,D}) ->
-    io_lib:format("~w.~w.~w.~w", [A,B,C,D]).
+    lists:flatten(io_lib:format("~w.~w.~w.~w", [A,B,C,D])).
 
 
 

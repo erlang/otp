@@ -46,7 +46,7 @@
 	 handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
 %% spawn export
--export([ssh_info_handler/3]).
+-export([ssh_info_handler/4]).
 
 -record(state, {
 	  transport_protocol,      % ex: tcp
@@ -533,7 +533,7 @@ handle_event(renegotiate, StateName, State) ->
     {next_state, StateName, State};
 
 handle_event({info, From, Options}, StateName,  #state{ssh_params = Ssh} = State) ->
-    spawn(?MODULE, ssh_info_handler, [Options, Ssh, From]), 
+    spawn(?MODULE, ssh_info_handler, [Options, Ssh, State, From]),
     {next_state, StateName, State};
 handle_event(data_size, connected, #state{ssh_params = Ssh0} = State) ->
     {ok, [{send_oct,Sent}]} = inet:getstat(State#state.socket, [send_oct]),
@@ -1022,26 +1022,29 @@ retry_fun(User, Reason, Opts) ->
 	    catch Fun(User, Reason)
     end.
 
-ssh_info_handler(Options, Ssh, From) ->
-    Info = ssh_info(Options, Ssh, []),
+ssh_info_handler(Options, Ssh, State, From) ->
+    Info = ssh_info(Options, Ssh, State, []),
     ssh_connection_manager:send_msg({channel_requst_reply, From, Info}).
 
-ssh_info([], _, Acc) ->
+ssh_info([], _, _, Acc) ->
     Acc;
 
 ssh_info([client_version | Rest], #ssh{c_vsn = IntVsn,
-				       c_version = StringVsn} = SshParams, Acc) ->
-    ssh_info(Rest, SshParams, [{client_version, {IntVsn, StringVsn}} | Acc]);
+				       c_version = StringVsn} = SshParams, State, Acc) ->
+    ssh_info(Rest, SshParams, State, [{client_version, {IntVsn, StringVsn}} | Acc]);
 
 ssh_info([server_version | Rest], #ssh{s_vsn = IntVsn,
-				       s_version = StringVsn} = SshParams, Acc) ->
-    ssh_info(Rest, SshParams, [{server_version, {IntVsn, StringVsn}} | Acc]);
+				       s_version = StringVsn} = SshParams, State, Acc) ->
+    ssh_info(Rest, SshParams, State, [{server_version, {IntVsn, StringVsn}} | Acc]);
 
-ssh_info([peer | Rest], #ssh{peer = Peer} = SshParams, Acc) ->
-    ssh_info(Rest, SshParams, [{peer, Peer} | Acc]);
+ssh_info([peer | Rest], #ssh{peer = Peer} = SshParams, State, Acc) ->
+    ssh_info(Rest, SshParams, State, [{peer, Peer} | Acc]);
 
-ssh_info([ _ | Rest], SshParams, Acc) ->
-    ssh_info(Rest, SshParams, Acc).
+ssh_info([sockname | Rest], SshParams, #state{socket=Socket}=State, Acc) ->
+    ssh_info(Rest, SshParams, State, [{sockname,inet:sockname(Socket)}|Acc]);
+
+ssh_info([ _ | Rest], SshParams, State, Acc) ->
+    ssh_info(Rest, SshParams, State, Acc).
 
 log_error(Reason) ->
     Report = io_lib:format("Erlang ssh connection handler failed with reason: "

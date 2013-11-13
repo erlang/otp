@@ -27,7 +27,6 @@
 %% {load_module, snmp_pdus, soft_purge, soft_purge, []}
 %% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
 %% {add_module,  snmpm_net_if_mt}
-
  [
   {"4.24.2", [{restart_application, snmp}]}, 
   {"4.24.1", [{restart_application, snmp}]}, 

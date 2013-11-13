@@ -49,13 +49,13 @@
 	]).
 
 %% Cipher suites handling
--export([available_suites/2, available_suites/3, cipher_suites/2,
-	 select_session/10]).
+-export([available_suites/2, cipher_suites/2,
+	 select_session/10, supported_ecc/1]).
 
 %% Extensions handling
 -export([client_hello_extensions/5,
 	 handle_client_hello_extensions/8, %% Returns server hello extensions
-	 handle_server_hello_extensions/9
+	 handle_server_hello_extensions/9, select_curve/2
 	]).
 
 %% MISC
@@ -89,7 +89,7 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
-		ecc_extensions(tls_v1, Version);
+		client_ecc_extensions(tls_v1, Version);
 	    false ->
 		{undefined, undefined}
 	end,
@@ -861,22 +861,29 @@ available_suites(UserSuites, Version) ->
 	    UserSuites
     end.
 
-available_suites(ServerCert, UserSuites, Version) ->
-    ssl_cipher:filter(ServerCert, available_suites(UserSuites, Version)).
+available_suites(ServerCert, UserSuites, Version, Curve) ->
+    ssl_cipher:filter(ServerCert, available_suites(UserSuites, Version))
+	-- unavailable_ecc_suites(Curve).
+
+unavailable_ecc_suites(no_curve) ->
+    ssl_cipher:ec_keyed_suites();
+unavailable_ecc_suites(_) ->
+    [].
 
 cipher_suites(Suites, false) ->
     [?TLS_EMPTY_RENEGOTIATION_INFO_SCSV | Suites];
 cipher_suites(Suites, true) ->
     Suites.
 
-select_session(SuggestedSessionId, CipherSuites, Compressions, Port, Session, Version,
+select_session(SuggestedSessionId, CipherSuites, Compressions, Port, #session{ecc = ECCCurve} = 
+		   Session, Version,
 	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
     {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
 						 SslOpts, Cert,
 						 Cache, CacheCb),
-    Suites = ssl_handshake:available_suites(Cert, UserSuites, Version),
     case Resumed of
         undefined ->
+	    Suites = available_suites(Cert, UserSuites, Version, ECCCurve),
 	    CipherSuite = select_cipher_suite(CipherSuites, Suites),
 	    Compression = select_compression(Compressions),
 	    {new, Session#session{session_id = SessionId,
@@ -886,6 +893,13 @@ select_session(SuggestedSessionId, CipherSuites, Compressions, Port, Session, Ve
 	    {resumed, Resumed}
     end.
 
+supported_ecc(Version) ->
+    case tls_v1:ecc_curves(Version) of
+	[] ->
+	    undefined;
+	Curves ->
+	    #elliptic_curves{elliptic_curve_list = Curves}
+    end.
 %%-------------certificate handling --------------------------------
 
 certificate_types({KeyExchange, _, _, _})
@@ -926,9 +940,8 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 handle_client_hello_extensions(RecordCB, Random,
 			#hello_extensions{renegotiation_info = Info,
 					  srp = SRP,
-					  next_protocol_negotiation = NextProtocolNegotiation,
-					  ec_point_formats = EcPointFormats0,
-					  elliptic_curves = EllipticCurves0}, Version,
+					  ec_point_formats = ECCFormat,
+					  next_protocol_negotiation = NextProtocolNegotiation}, Version,
 			#ssl_options{secure_renegotiate = SecureRenegotation} = Opts,
 			#session{cipher_suite = CipherSuite, compression_method = Compression} = Session0,
 			ConnectionStates0, Renegotiation) ->
@@ -937,12 +950,11 @@ handle_client_hello_extensions(RecordCB, Random,
 						      Random, CipherSuite, Compression,
 						      ConnectionStates0, Renegotiation, SecureRenegotation),
     ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
-    {EcPointFormats, EllipticCurves} = handle_ecc_extensions(Version, EcPointFormats0, EllipticCurves0),
+   
     ServerHelloExtensions =  #hello_extensions{
 				renegotiation_info = renegotiation_info(RecordCB, server,
 									ConnectionStates, Renegotiation),
-				ec_point_formats = EcPointFormats,
-				elliptic_curves = EllipticCurves,
+				ec_point_formats = server_ecc_extension(Version, ECCFormat),
 				next_protocol_negotiation =
 				    encode_protocols_advertised_on_server(ProtocolsToAdvertise)
 			       },
@@ -1078,7 +1090,7 @@ srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
 srp_user(_) ->
     undefined.
 
-ecc_extensions(Module, Version) ->
+client_ecc_extensions(Module, Version) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
     case proplists:get_bool(ecdh, CryptoSupport) of
 	true ->
@@ -1089,26 +1101,19 @@ ecc_extensions(Module, Version) ->
 	    {undefined, undefined}
     end.
 
-handle_ecc_extensions(Version, EcPointFormats0, EllipticCurves0) ->
+server_ecc_extension(_Version, EcPointFormats) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
     case proplists:get_bool(ecdh, CryptoSupport) of
 	true ->
-	    EcPointFormats1 = handle_ecc_point_fmt_extension(EcPointFormats0),
-	    EllipticCurves1 = handle_ecc_curves_extension(Version, EllipticCurves0),
-	    {EcPointFormats1, EllipticCurves1};
-	_ ->
-	    {undefined, undefined}
+	    handle_ecc_point_fmt_extension(EcPointFormats);
+	false ->
+	    undefined
     end.
 
 handle_ecc_point_fmt_extension(undefined) ->
     undefined;
 handle_ecc_point_fmt_extension(_) ->
     #ec_point_formats{ec_point_format_list = [?ECPOINT_UNCOMPRESSED]}.
-
-handle_ecc_curves_extension(_Version, undefined) ->
-    undefined;
-handle_ecc_curves_extension(Version, _) ->
-    #elliptic_curves{elliptic_curve_list = tls_v1:ecc_curves(Version)}.
 
 advertises_ec_ciphers([]) ->
     false;
@@ -1124,6 +1129,22 @@ advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
     true;
 advertises_ec_ciphers([_| Rest]) ->
     advertises_ec_ciphers(Rest).
+select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves}, 
+	     #elliptic_curves{elliptic_curve_list = ServerCurves}) -> 
+    select_curve(ClientCurves, ServerCurves);
+select_curve(undefined, _) ->
+    %% Client did not send ECC extension use default curve if 
+    %% ECC cipher is negotiated
+    {namedCurve, ?secp256k1};
+select_curve(_, []) ->
+    no_curve;
+select_curve(Curves, [Curve| Rest]) ->
+    case lists:member(Curve, Curves) of
+	true ->
+	    {namedCurve, Curve};
+	false ->
+	    select_curve(Curves, Rest)
+    end.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1648,3 +1669,4 @@ advertised_hash_signs({Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
 					 ({Hash, _}) -> proplists:get_bool(Hash, Hashs) end, HashSigns)};
 advertised_hash_signs(_) ->
     undefined.
+

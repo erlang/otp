@@ -2534,89 +2534,54 @@ normalize_integer(S,Int=#'Externalvaluereference'{value=Name},Type) ->
 normalize_integer(_,Int,_) ->
     exit({'Unknown INTEGER value',Int}).
 
-normalize_bitstring(S,Value,Type)->
-    %% There are four different Erlang formats of BIT STRING:
-    %% 1 - a list of ones and zeros.
-    %% 2 - a list of atoms.
-    %% 3 - as an integer, for instance in hexadecimal form.
-    %% 4 - as a tuple {Unused, Binary} where Unused is an integer
-    %%   and tells how many bits of Binary are unused.
-    %% 
-    %% normalize_bitstring/3 transforms Value according to:
-    %% A to 3,
-    %% B to 1,
-    %% C to 1 or 3
-    %% D to 2,
-    %% Value can be on format:
-    %% A - {hstring, String}, where String is a hexadecimal string.
-    %% B - {bstring, String}, where String is a string on bit format
-    %% C - #'Externalvaluereference'{value=V}, where V is a defined value
-    %% D - list of #'Externalvaluereference', where each value component
-    %%     is an identifier corresponing to NamedBits in Type.
-    %% E - list of ones and zeros, if Value already is normalized.
+%% normalize_bitstring(S, Value, Type) -> bitstring()
+%%  Convert a literal value for a BIT STRING to an Erlang bit string.
+%%
+normalize_bitstring(S, Value, Type)->
     case Value of
 	{hstring,String} when is_list(String) ->
-	    hstring_to_int(String);
+	    hstring_to_bitstring(String);
 	{bstring,String} when is_list(String) ->
-	    bstring_to_bitlist(String);
-	Rec when is_record(Rec,'Externalvaluereference') ->
-	    get_normalized_value(S,Value,Type,
-				 fun normalize_bitstring/3,[]);
+	    bstring_to_bitstring(String);
+	#'Externalvaluereference'{} ->
+	    get_normalized_value(S, Value, Type,
+				 fun normalize_bitstring/3, []);
 	RecList when is_list(RecList) ->
-	    case Type of
-		NBL when is_list(NBL) ->
-		    F = fun(#'Externalvaluereference'{value=Name}) ->
-				case lists:keysearch(Name,1,NBL) of
-				    {value,{Name,_}} ->
-					Name;
-				    Other ->
-					throw({error,Other})
-				end;
-			   (I) when I =:= 1; I =:= 0 ->
-				I;
-			   (Other) ->
-				throw({error,Other})
-			end,
-		    case catch lists:map(F,RecList) of
-			{error,Reason} ->
-			    asn1ct:warning("default value not "
-					   "compatible with type definition ~p~n",
-					   [Reason],S,
-					   "default value not "
-					   "compatible with type definition"),
-			    Value;
-			NewList ->
-			    NewList
-		    end;
-		_ ->
+	    F = fun(#'Externalvaluereference'{value=Name}) ->
+			case lists:keymember(Name, 1, Type) of
+			    true -> Name;
+			    false -> throw({error,false})
+			end;
+		   (Name) when is_atom(Name) ->
+			%% Already normalized.
+			Name;
+		   (Other) ->
+			throw({error,Other})
+		end,
+	    try
+		lists:map(F, RecList)
+	    catch
+		throw:{error,Reason} ->
 		    asn1ct:warning("default value not "
 				   "compatible with type definition ~p~n",
-				   [RecList],S,
+				   [Reason],S,
 				   "default value not "
 				   "compatible with type definition"),
 		    Value
 	    end;
-	{Name,String} when is_atom(Name) ->
-	    normalize_bitstring(S,String,Type);
-	Other ->
-	    asn1ct:warning("illegal default value ~p~n",[Other],S,
-			   "illegal default value"),
-	    Value
+	Bs when is_bitstring(Bs) ->
+	    %% Already normalized.
+	    Bs
     end.
 
-hstring_to_int(L) when is_list(L) ->
-    hstring_to_int(L,0).
-hstring_to_int([H|T],Acc) when H >= $A, H =< $F ->
-    hstring_to_int(T,(Acc bsl 4) + (H - $A + 10) ) ;
-hstring_to_int([H|T],Acc) when H >= $0, H =< $9 ->
-    hstring_to_int(T,(Acc bsl 4) + (H - $0));
-hstring_to_int([],Acc) ->
-    Acc.
+hstring_to_bitstring(L) ->
+    << <<(hex_to_int(D)):4>> || D <- L >>.
 
-bstring_to_bitlist([H|T]) when H == $0; H == $1 ->
-    [H - $0 | bstring_to_bitlist(T)];
-bstring_to_bitlist([]) ->
-    [].
+bstring_to_bitstring(L) ->
+    << <<(D-$0):1>> || D <- L >>.
+
+hex_to_int(D) when $0 =< D, D =< $9 -> D - $0;
+hex_to_int(D) when $A =< D, D =< $F -> D - ($A - 10).
 
 %% normalize_octetstring/1 changes representation of input Value to a 
 %% list of octets.

@@ -141,7 +141,7 @@
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the the preferred algorithm fails for
 	    some reason, the other algorithm is tried. The  default is
-	    to try <c><![CDATA[ssh_rsa]]></c> first.</p>
+	    to try <c><![CDATA['ssh-rsa']]></c> first.</p>
 	  </item>
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
@@ -248,7 +248,7 @@
 	    requested by the client. Default is to use the erlang shell:
 	    <c><![CDATA[{shell, start, []}]]></c>
 	  </item>
-	  <tag><c><![CDATA[{ssh_cli,{channel_callback(),
+	  <tag><c><![CDATA[{ssh_cli, {channel_callback(),
 	  channel_init_args()}}]]></c></tag>
 	  <item>
 	    Provides your own cli implementation, i.e. a channel callback
@@ -334,6 +334,20 @@
     </func>
 
     <func>
+      <name>peername(ConnectionRef) -> {ok, {Address,Port}} | {error,Error} </name>
+      <fsummary> </fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref()</v>
+        <v> Address = ip_address()</v>
+	<v> Port = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the address and port for the other end of a connection.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name>shell(Host) -> </name>
       <name>shell(Host, Option) -> </name>
       <name>shell(Host, Port, Option) -> _</name>
@@ -348,6 +362,20 @@
 	given <c>Host</c>. The function waits for user input,
 	and will not return until the remote shell is ended (i.e.
 	exit from the shell).
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>sockname(ConnectionRef) -> {ok, {Address,Port}} | {error,Error} </name>
+      <fsummary> </fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref()</v>
+        <v> Address = ip_address()</v>
+	<v> Port = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the local address and port number for a connection.
 	</p>
       </desc>
     </func>

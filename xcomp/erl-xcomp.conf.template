@@ -264,4 +264,10 @@
 #   system must have reliable floating point exceptions.
 #erl_xcomp_reliable_fpe=
 
+# * `erl_xcomp_posix_memalign' - `yes|no'. Defaults to `yes' if `posix_memalign'
+#   system call exists; otherwise `no'. If `yes', the target system must have a
+#   `posix_memalign' implementation that accepts larger than page size
+#   alignment.
+#erl_xcomp_posix_memalign=
+
 ## -----------------------------------------------------------------------------

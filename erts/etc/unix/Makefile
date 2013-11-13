@@ -29,7 +29,7 @@ opt debug: etc
 etc: etp-commands
 
 etp-commands: etp-commands.in
-	sed 's:@ERL_TOP@:${ERL_TOP}:g' etp-commands.in > etp-commands
+	$(gen_verbose)sed 's:@ERL_TOP@:${ERL_TOP}:g' etp-commands.in > etp-commands
 
 .PHONY: docs
 docs:

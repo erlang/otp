@@ -583,7 +583,7 @@ printable_unicode_list(_) -> false.		%Everything else is false
 
 nl() ->
     "\n".
-
+
 %%
 %% Utilities for collecting characters in input files
 %%

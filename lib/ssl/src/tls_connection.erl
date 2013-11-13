@@ -97,8 +97,7 @@
 	  terminated = false,  %
 	  allow_renegotiate = true,
           expecting_next_protocol_negotiation = false :: boolean(),
-          next_protocol = undefined :: undefined | binary(),
-	  client_ecc          % {Curves, PointFmt}
+          next_protocol = undefined :: undefined | binary()
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS, 
@@ -405,26 +404,24 @@ hello(#server_hello{cipher_suite = CipherSuite,
 hello(Hello = #client_hello{client_version = ClientVersion,
 			    extensions = #hello_extensions{hash_signs = HashSigns}},
       State = #state{connection_states = ConnectionStates0,
-		     port = Port, session = #session{own_certificate = Cert} = Session0,
+		     port = Port, 
+		     session = #session{own_certificate = Cert} = Session0,
 		     renegotiation = {Renegotiation, _},
 		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
 		     ssl_options = SslOpts}) ->
     HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
-				     ConnectionStates0, Cert}, Renegotiation) of
+					      ConnectionStates0, Cert}, Renegotiation) of
         {Version, {Type,  #session{cipher_suite = CipherSuite} = Session},
-	 ConnectionStates,
-	 #hello_extensions{ec_point_formats = EcPointFormats,
-			   elliptic_curves = EllipticCurves} = ServerHelloExt} ->
+	 ConnectionStates, ServerHelloExt} ->
 	    {KeyAlg, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
-	    NegotiatedHashSign = negotiated_hashsign(HashSign, KeyAlg, Version),
-            do_server_hello(Type, ServerHelloExt,
+	    NegotiatedHashSign = negotiated_hashsign(HashSign, KeyAlg, Version),	    
+	    do_server_hello(Type, ServerHelloExt,
 			    State#state{connection_states  = ConnectionStates,
 					negotiated_version = Version,
 					session = Session,
-					hashsign_algorithm = NegotiatedHashSign,
-					client_ecc = {EllipticCurves, EcPointFormats}});
+					hashsign_algorithm = NegotiatedHashSign});
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State)
     end;
@@ -1647,12 +1644,13 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 		    negotiated_version = Version,
 		    tls_handshake_history = Handshake0,
 		    socket = Socket,
-		    transport_cb = Transport
+		    transport_cb = Transport,
+		    session = #session{ecc = Curve}
 		   } = State)
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
        Algo == ecdh_anon ->
 
-    ECDHKeys = public_key:generate_key(select_curve(State)),
+    ECDHKeys = public_key:generate_key(Curve),
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
@@ -3086,12 +3084,7 @@ default_hashsign(_Version, KeyExchange)
        KeyExchange == rsa_psk;
        KeyExchange == srp_anon ->
     {null, anon}.
-
-select_curve(#state{client_ecc = {[Curve|_], _}}) ->
-    {namedCurve, Curve};
-select_curve(_) ->
-    {namedCurve, ?secp256k1}.
-
+	
 is_anonymous(Algo) when Algo == dh_anon;
 			Algo == ecdh_anon;
 			Algo == psk;

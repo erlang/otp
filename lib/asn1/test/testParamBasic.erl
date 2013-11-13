@@ -38,7 +38,9 @@ main(Rules) ->
 	    <<48,3,128,1,11>> =
 		roundtrip_enc('T11', #'T11'{number=11,string="hej"}),
 	    <<48,3,128,1,11>> =
-		roundtrip_enc('T12', #'T12'{number=11,string=[1,0,1,0]});
+		roundtrip_enc('T12',
+			      #'T12'{number=11,string=[1,0,1,0]},
+			      #'T12'{number=11,string = <<10:4>>});
 	_ -> ok
     end,
     ok.
@@ -48,3 +50,6 @@ roundtrip(Type, Value) ->
 
 roundtrip_enc(Type, Value) ->
     asn1_test_lib:roundtrip_enc('ParamBasic', Type, Value).
+
+roundtrip_enc(Type, Value, Expected) ->
+    asn1_test_lib:roundtrip_enc('ParamBasic', Type, Value, Expected).

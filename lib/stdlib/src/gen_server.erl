@@ -393,7 +393,7 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
     end.
 
 %%% ---------------------------------------------------
-%%% Send/recive functions
+%%% Send/receive functions
 %%% ---------------------------------------------------
 do_send(Dest, Msg) ->
     case catch erlang:send(Dest, Msg, [noconnect]) of

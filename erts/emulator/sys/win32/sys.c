@@ -3224,7 +3224,7 @@ erl_bin_write(buf, sz, max)
 }
 
 void
-erl_assert_error(char* expr, char* file, int line)
+erl_assert_error(const char* expr, const char* func, const char* file, int line)
 {   
     char message[1024];
 

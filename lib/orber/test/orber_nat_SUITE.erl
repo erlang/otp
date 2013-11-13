@@ -57,7 +57,6 @@
 	 nat_ip_address_local/1, nat_ip_address_local_local/1,
 	 nat_iiop_port/1, nat_iiop_port_local/1,
 	 nat_iiop_port_local_local/1,
-	 nat_iiop_ssl_port_old/1, nat_iiop_ssl_port_local_old/1,
 	 nat_iiop_ssl_port/1, nat_iiop_ssl_port_local/1]).
 
 
@@ -93,8 +92,6 @@ cases() ->
      nat_iiop_port_local,
      nat_ip_address_local_local,
      nat_iiop_port_local_local,
-     nat_iiop_ssl_port_old,
-     nat_iiop_ssl_port_local_old,
      nat_iiop_ssl_port,
      nat_iiop_ssl_port_local].
 
@@ -103,9 +100,7 @@ cases() ->
 %%-----------------------------------------------------------------
 init_per_testcase(TC, Config)
  when TC =:= nat_iiop_ssl_port;
-      TC =:= nat_iiop_ssl_port_local;
-      TC =:= nat_iiop_ssl_port_old;
-      TC =:= nat_iiop_ssl_port_local_old ->
+      TC =:= nat_iiop_ssl_port_local ->
       case  ?config(crypto_started, Config) of
 	  true ->
 	      case orber_test_lib:ssl_version() of
@@ -290,106 +285,6 @@ nat_iiop_port_local_local(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, ssl security depth 1
 %%-----------------------------------------------------------------
-
-nat_iiop_ssl_port_old(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-			   "Make sure NAT works for SSL"];
-nat_iiop_ssl_port_old(suite) -> [];
-nat_iiop_ssl_port_old(_Config) ->
-
-    IP = orber_test_lib:get_host(),
-    ServerOptions = orber_test_lib:get_options_old(iiop_ssl, server,
-					       1, [{iiop_ssl_port, 0},
-						   {flags, ?ORB_ENV_ENABLE_NAT},
-						   {ip_address, IP}]),
-    ClientOptions = orber_test_lib:get_options_old(iiop_ssl, client,
-					       1, [{iiop_ssl_port, 0}]),
-    {ok, ServerNode, _ServerHost} =
-	?match({ok,_,_}, orber_test_lib:js_node(ServerOptions)),
-    ServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_port, []),
-    SSLServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_ssl_port, []),
-    NATSSLServerPort = SSLServerPort+1,
-    {ok, Ref} = ?match({ok, _},
-		       orber_test_lib:remote_apply(ServerNode, orber,
-						   add_listen_interface,
-						   [IP, ssl, NATSSLServerPort])),
-    orber_test_lib:remote_apply(ServerNode, orber_env, configure_override,
-				[nat_iiop_ssl_port,
-				 {local, NATSSLServerPort, [{4001, 43}]}]),
-
-    {ok, ClientNode, _ClientHost} =
-	?match({ok,_,_}, orber_test_lib:js_node(ClientOptions)),
-    ?match(ok, orber_test_lib:remote_apply(ServerNode, orber_test_lib,
-					   install_test_data,
-					   [ssl])),
-
-    IOR1 = ?match(#'IOP_IOR'{},
-		  orber_test_lib:remote_apply(ClientNode, corba,
-					      string_to_object,
-					      ["corbaname::1.2@"++IP++":"++
-						   integer_to_list(ServerPort)++"/NameService#mamba"])),
-
-    ?match({'external', {_IP, _Port, _ObjectKey, _Counter, _TP,
-			 #host_data{protocol = ssl,
-				    ssl_data = #'SSLIOP_SSL'{port = NATSSLServerPort}}}},
-	   iop_ior:get_key(IOR1)),
-    ?match(ok, orber_test_lib:remote_apply(ServerNode, orber_test_lib,
-					   uninstall_test_data,
-					   [ssl])),
-    ?match(ok,
-	   orber_test_lib:remote_apply(ServerNode, orber,
-				       remove_listen_interface, [Ref])),
-    ok.
-
-nat_iiop_ssl_port_local_old(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-				 "Make sure NAT works for SSL"];
-nat_iiop_ssl_port_local_old(suite) -> [];
-nat_iiop_ssl_port_local_old(_Config) ->
-
-    IP = orber_test_lib:get_host(),
-    ServerOptions = orber_test_lib:get_options_old(iiop_ssl, server,
-					       1, [{iiop_ssl_port, 0},
-						   {flags,
-						    (?ORB_ENV_LOCAL_INTERFACE bor
-							 ?ORB_ENV_ENABLE_NAT)},
-						   {ip_address, IP}]),
-    ClientOptions = orber_test_lib:get_options_old(iiop_ssl, client,
-					       1, [{iiop_ssl_port, 0}]),
-    {ok, ServerNode, _ServerHost} =
-	?match({ok,_,_}, orber_test_lib:js_node(ServerOptions)),
-    ServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_port, []),
-    SSLServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_ssl_port, []),
-    NATSSLServerPort = SSLServerPort+1,
-    {ok, Ref} = ?match({ok, _},
-		       orber_test_lib:remote_apply(ServerNode, orber,
-						   add_listen_interface,
-						   [IP, ssl, NATSSLServerPort])),
-    orber_test_lib:remote_apply(ServerNode, orber_env, configure_override,
-				[nat_iiop_ssl_port,
-				 {local, NATSSLServerPort, [{NATSSLServerPort, NATSSLServerPort}]}]),
-
-    {ok, ClientNode, _ClientHost} =
-	?match({ok,_,_}, orber_test_lib:js_node(ClientOptions)),
-    ?match(ok, orber_test_lib:remote_apply(ServerNode, orber_test_lib,
-					   install_test_data,
-					   [ssl])),
-
-    IOR1 = ?match(#'IOP_IOR'{},
-		  orber_test_lib:remote_apply(ClientNode, corba,
-					      string_to_object,
-					      ["corbaname::1.2@"++IP++":"++
-						   integer_to_list(ServerPort)++"/NameService#mamba"])),
-
-    ?match({'external', {_IP, _Port, _ObjectKey, _Counter, _TP,
-			 #host_data{protocol = ssl,
-				    ssl_data = #'SSLIOP_SSL'{port = NATSSLServerPort}}}},
-	   iop_ior:get_key(IOR1)),
-    ?match(ok, orber_test_lib:remote_apply(ServerNode, orber_test_lib,
-					   uninstall_test_data,
-					   [ssl])),
-    ?match(ok,
-	   orber_test_lib:remote_apply(ServerNode, orber,
-				       remove_listen_interface, [Ref])),
-    ok.
 
 
 nat_iiop_ssl_port(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",

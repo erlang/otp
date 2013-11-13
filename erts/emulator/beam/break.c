@@ -76,7 +76,10 @@ process_info(int to, void *to_arg)
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
-	    if (!ERTS_PROC_IS_EXITING(p))
+	    /* Do not include processes with no heap,
+	     * they are most likely just created and has invalid data
+	     */
+	    if (!ERTS_PROC_IS_EXITING(p) && p->heap != NULL)
 		print_process_info(to, to_arg, p);
 	}
     }

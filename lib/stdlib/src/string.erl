@@ -257,7 +257,7 @@ chars(C, N, Tail) when N > 0 ->
     chars(C, N-1, [C|Tail]);
 chars(C, 0, Tail) when is_integer(C) ->
     Tail.
-
+
 %% Torbjörn's bit.
 
 %%% COPIES %%%
@@ -461,7 +461,7 @@ sub_string(String, Start) -> substr(String, Start).
       Stop :: pos_integer().
 
 sub_string(String, Start, Stop) -> substr(String, Start, Stop - Start + 1).
-
+
 %% ISO/IEC 8859-1 (latin1) letters are converted, others are ignored
 %%
 

@@ -353,7 +353,7 @@ static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
 static void doit_link_net_exits(ErtsLink *lnk, void *vnecp)
 {
     LinkNetExitsContext lnec = {(NetExitsContext *) vnecp, lnk};
-    ASSERT(lnk->type == LINK_PID)
+    ASSERT(lnk->type == LINK_PID);
     erts_sweep_links(ERTS_LINK_ROOT(lnk), &doit_link_net_exits_sub, (void *) &lnec);
 #ifdef DEBUG
     ERTS_LINK_ROOT(lnk) = NULL;
@@ -369,7 +369,7 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
     Process *rp;
     ErtsLink *rlnk;
     Uint i,n;
-    ASSERT(lnk->type == LINK_NODE)
+    ASSERT(lnk->type == LINK_NODE);
     if (is_internal_pid(lnk->pid)) {
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
 	rp = erts_pid2proc(NULL, 0, lnk->pid, rp_locks);
@@ -1509,11 +1509,11 @@ int erts_net_message(Port *prt,
 	    break;
 	}
 	rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
+
+	erts_destroy_monitor(mon);
 	if (rp == NULL) {
 	    break;
 	}
-
-	erts_destroy_monitor(mon);
 
 	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 

@@ -131,9 +131,9 @@ store({script_nocache, Value} = Conf, _)
     {ok, Conf};
 store({script_nocache, Value}, _) ->
     {error, {wrong_type, {script_nocache, Value}}};
-store({script_timeout, Value} = Conf, _) 
+store({script_timeout, Value}, _) 
   when is_integer(Value), Value >= 0 ->
-    {ok, Conf};
+    {ok, {script_timeout, Value * 1000}};
 store({script_timeout, Value}, _) ->
     {error, {wrong_type, {script_timeout, Value}}}.
 	
@@ -238,7 +238,7 @@ send_request_body_to_script(ModData, Port) ->
     end.	
 	   
 deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
-    Timeout = cgi_timeout(Db),    
+    Timeout = script_timeout(Db),    
     case receive_headers(Port, httpd_cgi, parse_headers, 
 			 [<<>>, [], []], Timeout) of
 	{Headers, Body} ->
@@ -341,8 +341,8 @@ script_elements(#mod{method = "PUT", entity_body = Body}, _) ->
 script_elements(_, _) ->
     [].
 
-cgi_timeout(Db) ->
-    httpd_util:lookup(Db, cgi_timeout, ?DEFAULT_CGI_TIMEOUT).
+script_timeout(Db) ->
+    httpd_util:lookup(Db, script_timeout, ?DEFAULT_CGI_TIMEOUT).
 
 %% Convert error to printable string
 %%

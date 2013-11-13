@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -153,7 +153,7 @@ do {									\
 #define binary_bytes(Bin)						\
   (*binary_val(Bin) == HEADER_PROC_BIN ?				\
    ((ProcBin *) binary_val(Bin))->bytes :				\
-   (ASSERT_EXPR(thing_subtag(*binary_val(Bin)) == HEAP_BINARY_SUBTAG),	\
+   (ASSERT(thing_subtag(*binary_val(Bin)) == HEAP_BINARY_SUBTAG),	\
    (byte *)(&(((ErlHeapBin *) binary_val(Bin))->data))))
 
 void erts_init_binary(void);
@@ -183,7 +183,7 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 #endif
 
 #define ERTS_CHK_BIN_ALIGNMENT(B) \
-  do { ASSERT(!(B) || (((UWord) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((UWord) 0)) } while(0)
+  do { ASSERT(!(B) || (((UWord) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((UWord) 0)); } while(0)
 
 ERTS_GLB_INLINE byte* erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);
