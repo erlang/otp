@@ -32,14 +32,17 @@
 -compile(export_all).
 
 -define(FTP_USER, "anonymous").
--define(FTP_PASS, (fun({ok,__H}) -> "ftp_SUITE@" ++ __H;
-		      (_) -> "ftp_SUITE@localhost"
-		   end)(inet:gethostname())
+-define(FTP_PASS(Cmnt), (fun({ok,__H}) -> "ftp_SUITE_"++Cmnt++"@" ++ __H;
+			    (_) -> "ftp_SUITE_"++Cmnt++"@localhost"
+			 end)(inet:gethostname())
        ).
 
 -define(BAD_HOST, "badhostname").
 -define(BAD_USER, "baduser").
 -define(BAD_DIR,  "baddirectory").
+
+go() -> ct:run_test([{suite,"ftp_SUITE"}, {logdir,"LOG"}]).
+gos() -> ct:run_test([{suite,"ftp_SUITE"}, {group,ftps_passive}, {logdir,"LOG"}]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -112,14 +115,24 @@ ftp_tests()->
 	[{"vsftpd",
 	  fun(__CONF__) ->
 %%		  make_config_file(vsftpd, Conf),
-		  ConfFile = filename:join(?config(data_dir,__CONF__), "vsftpd.conf"),
+		  DataDir = ?config(data_dir,__CONF__),
+		  ConfFile = filename:join(DataDir, "vsftpd.conf"),
 		  AnonRoot = ?config(priv_dir,__CONF__),
-		  Cmd = ["vsftpd \"",ConfFile,"\"",
+		  Cmd = ["vsftpd "++filename:join(DataDir,"vsftpd.conf"),
 			 " -oftpd_banner=erlang_otp_testing",
-			 " -oanon_root=\"",AnonRoot,"\""
+			 " -oanon_root=\"",AnonRoot,"\"",
+			 " -orsa_cert_file=\"",filename:join(DataDir,"cert.pem"),"\"",
+			 " -orsa_private_key_file=\"",filename:join(DataDir,"key.pem"),"\""
 			],
-		  ct:log("~s",[Cmd]),
-		  case os:cmd(Cmd) of
+		  Result = os:cmd(Cmd),
+		  ct:log("Config file:~n~s~n~nServer start command:~n  ~s~nResult:~n  ~p",
+			 [case file:read_file(ConfFile) of
+			      {ok,X} -> X;
+			      _ -> ""
+			  end,
+			  Cmd, Result
+			 ]),
+		  case Result of
 		      [] -> {ok,'dont care'};
 		      [Msg] -> {error,Msg}
 		  end
@@ -154,7 +167,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ps_ftpd(Config),
-%%    stop_ftpd(Config),
+    stop_ftpd(Config),
     ps_ftpd(Config),
     ok.
 
@@ -171,19 +184,23 @@ init_per_testcase(Case, Config0) ->
     catch
 	_:_-> ok
     end,
+    TLS = [{tls,[{reuse_sessions,true}]}],
+    ACTIVE = [{mode,active}],
+    PASSIVE = [{mode,passive}],
+    ExtraOpts = [verbose],
     Config =
 	case Group of
-	    ftp_active   -> ftp__open(Config0, [{mode,active}]);
-	    ftps_active  -> ftp__open(Config0, [{mode,active}]);
-	    ftp_passive  -> ftp__open(Config0, [{mode,passive}]);
-	    ftps_passive -> ftp__open(Config0, [{mode,passive}])
+	    ftp_active   -> ftp__open(Config0,       ACTIVE  ++ExtraOpts);
+	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ExtraOpts);
+	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ExtraOpts);
+	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ExtraOpts)
 	end,
     case Case of
 	user -> Config;
 	bad_user -> Config;
 	_ ->
 	    Pid = ?config(ftp,Config),
-	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS),
+	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS(atom_to_list(Group)++"-"++atom_to_list(Case)) ),
 	    ok = ftp:cd(Pid, ?config(priv_dir,Config)),
 	    Config
     end.
@@ -199,7 +216,7 @@ end_per_testcase(_Case, Config) -> ftp__close(Config).
 user(doc) -> ["Open an ftp connection to a host, and logon as anonymous ftp, then logoff"];
 user(Config) ->
     Pid = ?config(ftp, Config),
-    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS),	% logon
+    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS("")),% logon
     ok = ftp:close(Pid),			% logoff
     {error,eclosed} = ftp:pwd(Pid),		% check logoff result
     ok.
@@ -208,7 +225,7 @@ user(Config) ->
 bad_user(doc) -> ["Open an ftp connection to a host, and logon with bad user."];
 bad_user(Config) ->
     Pid = ?config(ftp, Config),
-    {error, euser} = ftp:user(Pid, ?BAD_USER, ?FTP_PASS),
+    {error, euser} = ftp:user(Pid, ?BAD_USER, ?FTP_PASS("")),
     ok.
 
 %%-------------------------------------------------------------------------

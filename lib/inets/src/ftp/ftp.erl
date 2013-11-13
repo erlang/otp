@@ -18,7 +18,7 @@
 %%
 %%
 %% Description: This module implements an ftp client, RFC 959. 
-%% It also supports ipv6 RFC 2428.
+%% It also supports ipv6 RFC 2428 and starttls RFC 4217.
 
 -module(ftp).
 
@@ -92,7 +92,7 @@
 	  ipfamily,     % inet | inet6 | inet6fb4
 	  progress = ignore,   % ignore | pid()	    
 	  dtimeout = ?DATA_ACCEPT_TIMEOUT,  % non_neg_integer() | infinity
-	  tls_upgrading_data_connection = {false,undefined}
+	  tls_upgrading_data_connection = false
 	 }).
 
 
@@ -101,6 +101,8 @@
 -type common_reason() ::  'econn' | 'eclosed' | term().
 -type file_write_error_reason() :: term(). % See file:write for more info
 
+%%-define(DBG(F,A), 'n/a').
+-define(DBG(F,A), io:format(F,A)).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -1315,61 +1317,63 @@ handle_info(timeout, State) ->
     {noreply, State};
 
 %%% Data socket messages %%%
-handle_info({tcp, Socket, Data},
-	    #state{dsock = {tcp,Socket},
-		   caller = {recv_file, Fd}} = State0) ->
-    io:format('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
+handle_info({Trpt, Socket, Data},
+	    #state{dsock = {Trpt,Socket},
+		   caller = {recv_file, Fd}} = State0) when Trpt==tcp;Trpt==ssl ->
+    ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
     file_write(binary_to_list(Data), Fd),
     progress_report({binary, Data}, State0),
     State = activate_data_connection(State0),
     {noreply, State};
 
-handle_info({tcp, Socket, Data}, #state{dsock = {tcp,Socket}, client = From,
+handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}, client = From,
 					caller = recv_chunk}
-	    = State)  ->
-    io:format('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State]),
+	    = State) when Trpt==tcp;Trpt==ssl ->
+    ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State]),
     gen_server:reply(From, {ok, Data}),
     {noreply, State#state{client = undefined, data = <<>>}};
 
-handle_info({tcp, Socket, Data}, #state{dsock = {tcp,Socket}} = State0) ->
-    io:format('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
+handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when Trpt==tcp;Trpt==ssl ->
+    ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
     State = activate_data_connection(State0),
     {noreply, State#state{data = <<(State#state.data)/binary,
 				  Data/binary>>}};
 
-handle_info({tcp_closed, Socket}, #state{dsock = {tcp,Socket},
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
 					 caller = {recv_file, Fd}}
-	    = State) ->
+	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     file_close(Fd),
     progress_report({transfer_size, 0}, State),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
-handle_info({tcp_closed, Socket}, #state{dsock = {tcp,Socket}, client = From,
-					 caller = recv_chunk} 
-	    = State) ->
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, client = From,
+					 caller = recv_chunk}
+	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     gen_server:reply(From, ok),
     {noreply, State#state{dsock = undefined, client = undefined,
 			  data = <<>>, caller = undefined,
 			  chunk = false}};
 
-handle_info({tcp_closed, Socket}, #state{dsock = {tcp,Socket}, caller = recv_bin,
-					 data = Data} = State) ->
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
+					 data = Data} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     activate_ctrl_connection(State),
-    {noreply, State#state{dsock = undefined, data = <<>>, 
+    {noreply, State#state{dsock = undefined, data = <<>>,
 			  caller = {recv_bin, Data}}};
 
-handle_info({tcp_closed, Socket}, #state{dsock = {tcp,Socket}, data = Data,
-					 caller = {handle_dir_result, Dir}} 
-	    = State) ->
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, data = Data,
+					 caller = {handle_dir_result, Dir}}
+	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     activate_ctrl_connection(State),
-    {noreply, State#state{dsock = undefined, 
+    {noreply, State#state{dsock = undefined,
 			  caller = {handle_dir_result, Dir, Data},
 %			  data = <<?CR,?LF>>}};
 			  data = <<>>}};
-	    
-handle_info({tcp_error, Socket, Reason}, #state{dsock = Socket,
-						client = From} = State) ->
+
+handle_info({Err, Socket, Reason}, #state{dsock = {Trpt,Socket},
+					  client = From} = State)
+  when {Err,Trpt}=={tcp_error,tcp} ; {Err,Trpt}=={ssl_error,ssl} ->
     gen_server:reply(From, {error, Reason}),
     close_data_connection(State),
     {noreply, State#state{dsock = undefined, client = undefined,
@@ -1383,7 +1387,7 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 					      ctrl_data = {CtrlData, AccLines,
 							   LineStatus}}
 	    = State) ->
-    io:format('--ctrl ~p ----> ~s~p~n',[Socket,<<CtrlData/binary, Data/binary>>,State]),
+    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<CtrlData/binary, Data/binary>>,State]),
     case ftp_response:parse_lines(<<CtrlData/binary, Data/binary>>,
 				  AccLines, LineStatus) of
 	{ok, Lines, NextMsgData} ->
@@ -1394,37 +1398,34 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 		    gen_server:reply(From, string:tokens(Lines, [?CR, ?LF])),
 		    {noreply, State#state{client = undefined, 
 					  caller = undefined,
-					  ctrl_data = {NextMsgData, [], 
+					  ctrl_data = {NextMsgData, [],
 						       start}}};
 		_ ->
-		    io:format('   ...handle_ctrl_result(~p,...) ctrl_data=~p~n',[CtrlResult,{NextMsgData, [], start}]),
+		    ?DBG('   ...handle_ctrl_result(~p,...) ctrl_data=~p~n',[CtrlResult,{NextMsgData, [], start}]),
 		    handle_ctrl_result(CtrlResult,
-				       State#state{ctrl_data = 
+				       State#state{ctrl_data =
 						   {NextMsgData, [], start}})
 	    end;
 	{continue, NewCtrlData} ->
-	    io:format('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
+	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{ctrl_data = NewCtrlData}}
     end;
 
 %% If the server closes the control channel it is
 %% the expected behavior that connection process terminates.
-handle_info({tcp_closed, Socket}, #state{csock = {tcp, Socket}}) ->
+handle_info({Cls, Socket}, #state{csock = {Trpt, Socket}})
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     exit(normal); %% User will get error message from terminate/2
-handle_info({ssl_closed, Socket}, #state{csock = {ssl, Socket}}) ->
-    exit(normal);
 
-handle_info({tcp_error, Socket, Reason}, _) ->
-    Report = 
-	io_lib:format("tcp_error on socket: ~p  for reason: ~p~n",
-		      [Socket, Reason]),
+handle_info({Err, Socket, Reason}, _) when Err==tcp_error ; Err==ssl_error ->
+    Report =
+	io_lib:format("~p on socket: ~p  for reason: ~p~n",
+		      [Err, Socket, Reason]),
     error_logger:error_report(Report),
     %% If tcp does not work the only option is to terminate,
     %% this is the expected behavior under these circumstances.
     exit(normal); %% User will get error message from terminate/2
-handle_info({ssl_error, _Socket, _Reason}, _) ->
-    exit(normal); %% TODO??
 
 %% Monitor messages - if the process owning the ftp connection goes
 %% down there is no point in continuing.
@@ -1590,47 +1591,39 @@ handle_user_account(Acc, State) ->
 
 
 %%--------------------------------------------------------------------------
-%% handle_ctrl_result 
+%% handle_ctrl_result
 %%--------------------------------------------------------------------------
-%%--------------------------------------------------------------------------
-%% Handling of control connection setup
-handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, pbsz, _}} = State) ->
-    send_ctrl_message(State, mk_cmd("PROT P", [])),
-    activate_ctrl_connection(State),
-    {noreply, State#state{tls_upgrading_data_connection = {true, prot, undefined}}};
-
-handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, prot, NextAction},
-					  dsock = {tcp, Socket}, client = From,
-					  tls_options = TLSOptions} = State0) ->
-    io:format('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
-    case ssl:connect(Socket, TLSOptions) of
-	{ok, TLSSocket} ->
-	    State = State0#state{dsock = {ssl, TLSSocket},
-				 tls_upgrading_data_connection = {false, undefined}},
-	    next_action_after_tls_upgrade(NextAction, State);
-	{error, _} = Error ->
-	    gen_server:reply(From,  {Error, self()}),
-	    {stop, normal, State0#state{client = undefined,
-					caller = undefined}}
-    end;
-
 handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
 					    tls_options = TLSOptions,
 					    caller = open, client = From}
-		   = State) ->
-    io:format('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State]),
+		   = State0) ->
+    ?DBG('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
     case ssl:connect(Socket, TLSOptions) of
 	{ok, TLSSocket} ->
-	    gen_server:reply(From,  {ok, self()}),
-	    {noreply, State#state{csock = {ssl, TLSSocket},
-				  client = undefined,
-				  caller = undefined }};
+	    State = State0#state{csock = {ssl,TLSSocket}},
+	    send_ctrl_message(State, mk_cmd("PBSZ 0", [])),
+	    activate_ctrl_connection(State),
+	    {noreply, State#state{tls_upgrading_data_connection = {true, pbsz}} };
 	{error, _} = Error ->
 	    gen_server:reply(From,  {Error, self()}),
-	    {stop, normal, State#state{client = undefined,
-				       caller = undefined}}
+	    {stop, normal, State0#state{client = undefined,
+					caller = undefined,
+					tls_upgrading_data_connection = false}}
     end;
-handle_ctrl_result({pos_compl, _}, #state{caller = open, client = From} 
+
+handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, pbsz}} = State) ->
+    send_ctrl_message(State, mk_cmd("PROT P", [])),
+    activate_ctrl_connection(State),
+    {noreply, State#state{tls_upgrading_data_connection = {true, prot}}};
+
+handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, prot},
+					  client = From} = State) ->
+    gen_server:reply(From,  {ok, self()}),
+    {noreply, State#state{client = undefined,
+			  caller = undefined,
+			  tls_upgrading_data_connection = false}};
+
+handle_ctrl_result({pos_compl, _}, #state{caller = open, client = From}
 		   = State) ->
     gen_server:reply(From,  {ok, self()}),
     {noreply, State#state{client = undefined, 
@@ -1676,7 +1669,7 @@ handle_ctrl_result({pos_compl, Lines},
 		   #state{mode     = passive, 
 			  ipfamily = inet,
 			  client   = From,
-			  caller   = {setup_data_connection, Caller}, 
+			  caller   = {setup_data_connection, Caller},
 			  timeout  = Timeout} = State) ->
     
     {_, [?LEFT_PAREN | Rest]} = 
@@ -1688,9 +1681,10 @@ handle_ctrl_result({pos_compl, Lines},
 		  string:tokens(NewPortAddr, [$,])),
     IP   = {A1, A2, A3, A4}, 
     Port = (P1 * 256) + P2, 
-io:format('tcp connect to ~p:~p, Caller=~p~n',[IP,Port,Caller]),
+
+    ?DBG('<--data tcp connect to ~p:~p, Caller=~p~n',[IP,Port,Caller]),
     case connect(IP, Port, Timeout, State) of
-	{ok, _, Socket} ->
+	{ok, _, Socket}  ->
 	    handle_caller(State#state{caller = Caller, dsock = {tcp,Socket}});
 	{error, _Reason} = Error ->
 	    gen_server:reply(From, Error),
@@ -2132,25 +2126,46 @@ connect2(Host, Port, IpFam, Timeout) ->
 
 accept_data_connection(#state{mode     = active,
 			      dtimeout = DTimeout, 
+			      tls_options = TLSOptions,
 			      dsock    = {lsock, LSock}} = State0) ->
     case gen_tcp:accept(LSock, DTimeout) of
+	{ok, Socket} when  is_list(TLSOptions) ->
+	    gen_tcp:close(LSock),
+	    ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
+	    case ssl:connect(Socket, TLSOptions) of
+		{ok, TLSSocket} ->
+		    {ok, State0#state{dsock={ssl,TLSSocket}}};
+		{error, Reason} ->
+		    {error, {ssl_connect_failed, Reason}}
+	    end;
 	{ok, Socket} ->
 	    gen_tcp:close(LSock),
-	    maybe_requests_tls_upgrade(State0#state{dsock = {tcp, Socket}});
+	    {ok, State0#state{dsock={tcp,Socket}}};
 	{error, Reason} ->
 	    {error, {data_connect_failed, Reason}}
     end;
 
+accept_data_connection(#state{mode = passive,
+			      dsock = {tcp,Socket},
+			      tls_options = TLSOptions} = State) when is_list(TLSOptions) ->
+    ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State]),
+    case ssl:connect(Socket, TLSOptions) of
+	{ok, TLSSocket} ->
+	    {ok, State#state{dsock={ssl,TLSSocket}}};
+	{error, Reason} ->
+	    {error, {ssl_connect_failed, Reason}}
+    end;
 accept_data_connection(#state{mode = passive} = State) ->
-    maybe_requests_tls_upgrade(State).
+    {ok,State}.
+
 
 send_ctrl_message(S=#state{csock = Socket, verbose = Verbose}, Message) ->
     verbose(lists:flatten(Message),Verbose,send),
-    io:format('<--ctrl ~p ---- ~s~p~n',[Socket,Message,S]),
+    ?DBG('<--ctrl ~p ---- ~s~p~n',[Socket,Message,S]),
     send_message(Socket, Message).
 
 send_data_message(S=#state{dsock = Socket}, Message) ->
-    io:format('<==data ~p ==== ~s~p~n',[Socket,Message,S]),
+    ?DBG('<==data ~p ==== ~s~p~n',[Socket,Message,S]),
     case send_message(Socket, Message) of
 	ok ->
 	    ok;
@@ -2173,34 +2188,28 @@ activate_ctrl_connection(#state{csock = Socket, ctrl_data = {<<>>, _, _}}) ->
 activate_ctrl_connection(#state{csock = Socket}) ->
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
-    self() ! {tcp, Socket, <<>>}.
+    self() ! {tcp, unwrap_socket(Socket), <<>>}.
 
-activate_data_connection(#state{tls_upgrading_data_connection = {false, _},
-				dsock = Socket} = State) ->
+unwrap_socket({tcp,Socket}) -> Socket;
+unwrap_socket({ssl,Socket}) -> Socket;
+unwrap_socket(Socket) -> Socket.
+
+
+activate_data_connection(#state{dsock = Socket} = State) ->
     activate_connection(Socket),
-    State;
-activate_data_connection(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State) ->
-    State#state{tls_upgrading_data_connection = {true, CTRL, {?MODULE,activate_data_connection,undefined}}}.
+    State.
 
-activate_connection({tcp, Socket}) ->
-    inet:setopts(Socket, [{active, once}]);
-activate_connection({ssl, Socket}) ->
-    ssl:setopts(Socket, [{active, once}]).
+activate_connection({tcp, Socket}) ->  inet:setopts(Socket, [{active, once}]);
+activate_connection({ssl, Socket}) ->  ssl:setopts(Socket, [{active, once}]).
 
-close_ctrl_connection(#state{csock = undefined}) ->
-    ok;
-close_ctrl_connection(#state{csock = Socket}) ->
-    close_connection(Socket).
+close_ctrl_connection(#state{csock = undefined}) -> ok;
+close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
 
-close_data_connection(#state{dsock = undefined}) ->
-    ok;
-close_data_connection(#state{dsock = Socket}) ->
-    close_connection(Socket).
+close_data_connection(#state{dsock = undefined}) -> ok;
+close_data_connection(#state{dsock = Socket}) -> close_connection(Socket).
 
-close_connection({tcp, Socket}) ->
-    gen_tcp:close(Socket);
-close_connection({ssl, Socket}) ->
-    ssl:close(Socket).
+close_connection({tcp, Socket}) -> gen_tcp:close(Socket);
+close_connection({ssl, Socket}) -> ssl:close(Socket).
 
 %%  ------------ FILE HANDELING  ----------------------------------------   
 send_file(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State, Fd) ->
@@ -2318,32 +2327,17 @@ millisec_time() ->
     {A,B,C} = erlang:now(),
     A*1000000000+B*1000+(C div 1000).
 
-peername({tcp, Socket}) ->
-    inet:peername(Socket);
-peername({ssl, Socket}) ->
-    ssl:peername(Socket).
-sockname({tcp, Socket}) ->
-    inet:peername(Socket);
-sockname({ssl, Socket}) ->
-    ssl:peername(Socket).
+peername({tcp, Socket}) -> inet:peername(Socket);
+peername({ssl, Socket}) -> ssl:peername(Socket).
+
+sockname({tcp, Socket}) -> inet:peername(Socket);
+sockname({ssl, Socket}) -> ssl:peername(Socket).
 
 maybe_tls_upgrade(Pid, undefined) ->
     {ok, Pid};
 maybe_tls_upgrade(Pid, TLSOptions) ->
     catch ssl:start(),
     call(Pid, {open, tls_upgrade, TLSOptions}, plain).
-
-maybe_requests_tls_upgrade(#state{tls_options=undefined} = State) ->
-    {ok, State};
-maybe_requests_tls_upgrade(State) ->
-    send_ctrl_message(State, mk_cmd("PBSZ 0", [])),
-    activate_ctrl_connection(State),
-    {ok, State#state{tls_upgrading_data_connection = {true, pbsz, undefined}}}.
-
-next_action_after_tls_upgrade({M, F, undefined}, State) ->
-    M:F(State);
-next_action_after_tls_upgrade({M, F, A}, State) ->
-    M:F(State, A).
 
 start_chunk(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State) ->
     State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, start_chunk, undefined}};
