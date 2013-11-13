@@ -43,7 +43,8 @@ GIF_FILES = \
 	flip_static.gif
 
 JS_FILES = \
-	flipmenu.js
+	flipmenu.js \
+	jquery-2.0.3.min.js
 
 # ----------------------------------------------------
 # FLAGS
