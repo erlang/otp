@@ -1055,8 +1055,10 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
     Binary *bin = ((ProcBin *) binary_val(bt))->val;
     Eterm res = erts_term_to_binary_int(BIF_P, Term, 0, 0,bin);
     if (is_tuple(res)) {
+	ASSERT(BIF_P->flags & F_DISABLE_GC);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
+	erts_set_gc_state(BIF_P, 1);
 	BIF_RET(res);
     }
 }
@@ -1065,8 +1067,10 @@ BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
     Eterm res = erts_term_to_binary_int(BIF_P, BIF_ARG_1, 0, TERM_TO_BINARY_DFLAGS, NULL);
     if (is_tuple(res)) {
+	erts_set_gc_state(BIF_P, 0);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
+	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
 	BIF_RET(res);
     }
 }
@@ -1118,8 +1122,10 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 
     res = erts_term_to_binary_int(p, Term, level, flags, bin);
     if (is_tuple(res)) {
+	erts_set_gc_state(p, 0);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
+	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
 	BIF_RET(res);
     }
 }
