@@ -1022,7 +1022,7 @@ BIF_RETTYPE hipe_conv_big_to_float(BIF_ALIST_1)
 */
 void hipe_emulate_fpe(Process* p)
 {
-    if (!finite(p->hipe.float_result)) {
+    if (!isfinite(p->hipe.float_result)) {
 	p->fp_exception = 1;
     }
 }
