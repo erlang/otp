@@ -501,7 +501,7 @@ extern volatile int erts_writing_erl_crash_dump;
 #  define NO_ERF
 #  define NO_ERFC
 /* This definition doesn't take NaN into account, but matherr() gets those */
-#  define finite(x) (fabs(x) != HUGE_VAL)
+#  define isfinite(x) (fabs(x) != HUGE_VAL)
 #  define USE_MATHERR
 #  define HAVE_FINITE
 #endif
