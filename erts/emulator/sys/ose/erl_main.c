@@ -17,7 +17,15 @@
  * %CopyrightEnd%
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include <stdlib.h>
+
+#include "sys.h"
+#include "erl_vm.h"
+#include "global.h"
+#include "ose.h"
 
 int
 main(int argc, char **argv) {
@@ -30,8 +38,8 @@ main(int argc, char **argv) {
     char **tmp_argv = malloc(sizeof(char*)*(argc+1));
     for (i = 0; i < argc; i++)
       tmp_argv[i+1] = argv[i];
-    tmp_argv = "beam";
-    erl_start(argc,tmp_argv);
+    tmp_argv[0] = "beam";
+    erl_start(argc+1,tmp_argv);
     free(tmp_argv);
   } else {
    erl_start(argc,argv);
