@@ -29,12 +29,12 @@
 -include("ssh_transport.hrl").
 -include("ssh.hrl").
 
--export([connect/5, accept/4]). 
 -export([versions/2, hello_version_msg/1]).
 -export([next_seqnum/1, decrypt_first_block/2, decrypt_blocks/3,
-	 is_valid_mac/3, transport_messages/1, kexdh_messages/0,
-	 kex_dh_gex_messages/0, handle_hello_version/1,
-	 key_exchange_init_msg/1, key_init/3, new_keys_message/1,
+	 is_valid_mac/3,
+	 handle_hello_version/1,
+	 key_exchange_init_msg/1,
+	 key_init/3, new_keys_message/1,
 	 handle_kexinit_msg/3, handle_kexdh_init/2,
 	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
@@ -74,112 +74,8 @@ is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
     Mac == mac(Algorithm, Key, SeqNum, Data).
 
-transport_messages(_) ->
-    [{ssh_msg_disconnect, ?SSH_MSG_DISCONNECT, 
-      [uint32, string, string]},
-     
-     {ssh_msg_ignore, ?SSH_MSG_IGNORE,
-      [string]},
-     
-     {ssh_msg_unimplemented, ?SSH_MSG_UNIMPLEMENTED,
-      [uint32]},
-     
-     {ssh_msg_debug, ?SSH_MSG_DEBUG,
-      [boolean, string, string]},
-     
-     {ssh_msg_service_request, ?SSH_MSG_SERVICE_REQUEST,
-      [string]},
-
-     {ssh_msg_service_accept, ?SSH_MSG_SERVICE_ACCEPT,
-      [string]},
-     
-     {ssh_msg_kexinit, ?SSH_MSG_KEXINIT,
-      [cookie,
-       name_list, name_list, 
-       name_list, name_list, 
-       name_list, name_list,
-       name_list, name_list,
-       name_list, name_list,
-       boolean, 
-       uint32]},
-     
-     {ssh_msg_newkeys, ?SSH_MSG_NEWKEYS,
-      []}
-    ].
-
-kexdh_messages() ->
-    [{ssh_msg_kexdh_init, ?SSH_MSG_KEXDH_INIT,
-      [mpint]},
-     
-     {ssh_msg_kexdh_reply, ?SSH_MSG_KEXDH_REPLY,
-      [binary, mpint, binary]}
-    ].
-
-kex_dh_gex_messages() ->
-    [{ssh_msg_kex_dh_gex_request, ?SSH_MSG_KEX_DH_GEX_REQUEST,
-      [uint32, uint32, uint32]},
-     
-     {ssh_msg_kex_dh_gex_request_old, ?SSH_MSG_KEX_DH_GEX_REQUEST_OLD,
-       [uint32]},
-     
-     {ssh_msg_kex_dh_gex_group, ?SSH_MSG_KEX_DH_GEX_GROUP,
-      [mpint, mpint]},
-     
-     {ssh_msg_kex_dh_gex_init, ?SSH_MSG_KEX_DH_GEX_INIT,
-       [mpint]},
-     
-     {ssh_msg_kex_dh_gex_reply, ?SSH_MSG_KEX_DH_GEX_REPLY,
-      [binary, mpint, binary]}
-    ].
-
 yes_no(Ssh, Prompt)  ->
     (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
-
-connect(ConnectionSup, Address, Port, SocketOpts, Opts) ->    
-    Timeout = proplists:get_value(connect_timeout, Opts, infinity),
-    {_, Callback, _} =  
-	proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
-    case do_connect(Callback, Address, Port, SocketOpts, Timeout) of
- 	{ok, Socket} ->
-	    {ok, Pid} = 
-		ssh_connection_sup:start_handler_child(ConnectionSup,
-						       [client, Socket,
-							[{address, Address},
-							 {port, Port} |
-							 Opts]]), 
-	    Callback:controlling_process(Socket, Pid),
-	    ssh_connection_handler:send_event(Pid, socket_control),
-	    {ok, Pid};
-	{error, Reason} ->
-	    {error, Reason} 
-    end.
-
-do_connect(Callback, Address, Port, SocketOpts, Timeout) ->
-    Opts = [{active, false} | SocketOpts],
-    case Callback:connect(Address, Port, Opts, Timeout) of
-	{error, nxdomain} -> 
-	    Callback:connect(Address, Port, lists:delete(inet6, Opts), Timeout);
-	{error, eafnosupport}  ->
-	    Callback:connect(Address, Port, lists:delete(inet6, Opts), Timeout);
-	{error, enetunreach}  ->
-	    Callback:connect(Address, Port, lists:delete(inet6, Opts), Timeout);
-	Other ->
-	    Other
-    end.
-
-accept(Address, Port, Socket, Options) ->
-    {_, Callback, _} =  
-	proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
-    ConnectionSup =
-	ssh_system_sup:connection_supervisor(
-	  ssh_system_sup:system_supervisor(Address, Port)),
-    {ok, Pid} = 
-	ssh_connection_sup:start_handler_child(ConnectionSup,
-					       [server, Socket,
-						[{address, Address},
-						 {port, Port} | Options]]),
-    Callback:controlling_process(Socket, Pid),
-    {ok, Pid}.
 
 format_version({Major,Minor}) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
@@ -257,7 +153,6 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
     {ok, Algoritms} = select_algorithm(client, Own, CounterPart),  
     case verify_algorithm(Algoritms) of
 	true ->
-	    install_messages(Algoritms#alg.kex),
 	    key_exchange_first_msg(Algoritms#alg.kex, 
 				   Ssh0#ssh{algorithms = Algoritms});
 	_  ->
@@ -271,7 +166,6 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 			    #ssh{role = server} = Ssh) ->
     {ok, Algoritms} = select_algorithm(server, CounterPart, Own),
-    install_messages(Algoritms#alg.kex),
     {ok, Ssh#ssh{algorithms = Algoritms}}.
 
 
@@ -283,11 +177,6 @@ verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha1'}) ->
     true;
 verify_algorithm(_) ->
     false.
-
-install_messages('diffie-hellman-group1-sha1') ->
-    ssh_bits:install_messages(kexdh_messages());
-install_messages('diffie-hellman-group-exchange-sha1') ->
-    ssh_bits:install_messages(kex_dh_gex_messages()).
 
 key_exchange_first_msg('diffie-hellman-group1-sha1', Ssh0) ->
     {G, P} = dh_group1(),
@@ -312,10 +201,10 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
     {G, P} = dh_group1(),
     {Private, Public} = dh_gen_key(G, P, 1024),
     K = ssh_math:ipow(E, Private, P),
-    {Key, K_S} = get_host_key(Ssh0),
-    H = kex_h(Ssh0, K_S, E, Public, K),
+    Key = get_host_key(Ssh0),
+    H = kex_h(Ssh0, Key, E, Public, K),
     H_SIG = sign_host_key(Ssh0, Key, H),
-    {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_reply{public_host_key = K_S,
+    {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_reply{public_host_key = Key,
 							f = Public,
 							h_sig = H_SIG
 						       }, Ssh0),
@@ -411,65 +300,33 @@ get_host_key(SSH) ->
     #ssh{key_cb = Mod, opts = Opts, algorithms = ALG} = SSH,
 
     case Mod:host_key(ALG#alg.hkey, Opts) of
-	{ok, #'RSAPrivateKey'{modulus = N, publicExponent = E} = Key} ->
-	    {Key,
-	     ssh_bits:encode(["ssh-rsa",E,N],[string,mpint,mpint])};
-	{ok, #'DSAPrivateKey'{y = Y, p = P, q = Q, g = G} = Key} ->
-	    {Key, ssh_bits:encode(["ssh-dss",P,Q,G,Y],
-				  [string,mpint,mpint,mpint,mpint])};
+	{ok, #'RSAPrivateKey'{} = Key} ->
+	    Key;
+	{ok, #'DSAPrivateKey'{} = Key} ->
+	    Key;
 	Result ->
 	    exit({error, {Result, unsupported_key_type}})
     end.
 
 sign_host_key(_Ssh, #'RSAPrivateKey'{} = Private, H) ->
     Hash = sha, %% Option ?!
-    Signature = sign(H, Hash, Private),
-    ssh_bits:encode(["ssh-rsa", Signature],[string, binary]);
+    _Signature = sign(H, Hash, Private);
 sign_host_key(_Ssh, #'DSAPrivateKey'{} = Private, H) ->
     Hash = sha, %% Option ?!
-    RawSignature = sign(H, Hash, Private),
-    ssh_bits:encode(["ssh-dss", RawSignature],[string, binary]).
+    _RawSignature = sign(H, Hash, Private).
 
-verify_host_key(SSH, K_S, H, H_SIG) ->
-    ALG = SSH#ssh.algorithms,
-    case ALG#alg.hkey of
-	'ssh-rsa' ->
-	    verify_host_key_rsa(SSH, K_S, H, H_SIG);
-	'ssh-dss' ->
-	    verify_host_key_dss(SSH, K_S, H, H_SIG);
-	_ ->
-	    {error, bad_host_key_algorithm}
+verify_host_key(SSH, PublicKey, Digest, Signature) ->
+    case verify(Digest, sha, Signature, PublicKey) of
+	false ->
+	    {error, bad_signature};
+	true ->
+	    known_host_key(SSH, PublicKey, public_algo(PublicKey))
     end.
 
-verify_host_key_rsa(SSH, K_S, H, H_SIG) ->
-    case ssh_bits:decode(K_S,[string,mpint,mpint]) of
-	["ssh-rsa", E, N] ->
-	    ["ssh-rsa",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
-	    Public = #'RSAPublicKey'{publicExponent = E, modulus = N},
-	    case verify(H, sha, SIG, Public) of
-		false ->
-		    {error, bad_signature};
-		true ->
-		    known_host_key(SSH, Public, 'ssh-rsa')
-	    end;
-	_ ->
-	    {error, bad_format}
-    end.
-
-verify_host_key_dss(SSH, K_S, H, H_SIG) ->
-    case ssh_bits:decode(K_S,[string,mpint,mpint,mpint,mpint]) of
-	["ssh-dss",P,Q,G,Y] ->
-	    ["ssh-dss",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
-	    Public = {Y,  #'Dss-Parms'{p = P, q = Q, g = G}},
-	    case verify(H, sha, SIG, Public) of
-		false ->
-		    {error, bad_signature};
-		true ->
-		    known_host_key(SSH, Public, 'ssh-dss')
-	    end;
-	_ ->
-	    {error, bad_host_key_format}
-    end.
+public_algo(#'RSAPublicKey'{}) ->
+    'ssh-rsa';
+public_algo({_, #'Dss-Parms'{}}) ->
+    'ssh-dss'.
 
 accepted_host(Ssh, PeerName, Opts) ->
     case proplists:get_value(silently_accept_hosts, Opts, false) of
@@ -636,12 +493,12 @@ select(CL, SL) ->
     C.
 	    
 ssh_packet(#ssh_msg_kexinit{} = Msg, Ssh0) ->
-    BinMsg = ssh_bits:encode(Msg),
+    BinMsg = ssh_message:encode(Msg),
     Ssh = key_init(Ssh0#ssh.role, Ssh0, BinMsg),
     pack(BinMsg, Ssh);
 
 ssh_packet(Msg, Ssh) ->
-    BinMsg = ssh_bits:encode(Msg),
+    BinMsg = ssh_message:encode(Msg),
     pack(BinMsg, Ssh).
 
 pack(Data0, #ssh{encrypt_block_size = BlockSize, 
@@ -1021,23 +878,23 @@ hash(K, H, Ki, N, HASH) ->
     Kj = HASH([K, H, Ki]),
     hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HASH).
 
-kex_h(SSH, K_S, E, F, K) ->
+kex_h(SSH, Key, E, F, K) ->
     L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
 			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 K_S, E,F,K],
+			 ssh_message:encode_host_key(Key), E,F,K],
 			[string,string,binary,binary,binary,
 			 mpint,mpint,mpint]),
     crypto:hash(sha,L).
  
 
-kex_h(SSH, K_S, Min, NBits, Max, Prime, Gen, E, F, K) ->
+kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
     L = if Min==-1; Max==-1 ->
 		Ts = [string,string,binary,binary,binary,
 		      uint32,
 		      mpint,mpint,mpint,mpint,mpint],
 		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
 				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 K_S, NBits, Prime, Gen, E,F,K],
+				 ssh_message:encode_host_key(Key), NBits, Prime, Gen, E,F,K],
 				Ts);
 	   true ->
 		Ts = [string,string,binary,binary,binary,
@@ -1045,7 +902,7 @@ kex_h(SSH, K_S, Min, NBits, Max, Prime, Gen, E, F, K) ->
 		      mpint,mpint,mpint,mpint,mpint],
 		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
 				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 K_S, Min, NBits, Max,
+				 ssh_message:encode_host_key(Key), Min, NBits, Max,
 				 Prime, Gen, E,F,K], Ts)
 	end,
     crypto:hash(sha,L).

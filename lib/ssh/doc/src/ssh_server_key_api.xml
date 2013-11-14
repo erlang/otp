@@ -40,7 +40,9 @@
 
     <p>Type definitions that are used more than once in this module
     and/or abstractions to indicate the intended use of the data
-    type:</p>
+    type. For more details on public key data types 
+    see the <seealso marker="public_key:public_key_records"> public_key user's guide.</seealso>
+    </p>
 
     <p> boolean() = true | false</p>
     <p> string() = [byte()]</p>

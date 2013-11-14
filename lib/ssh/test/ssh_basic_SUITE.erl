@@ -49,14 +49,18 @@ all() ->
      close].
 
 groups() -> 
-    [{dsa_key, [], [send,
-		    peername_sockname,
-		    exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
-     {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
+    [{dsa_key, [], basic_tests()},
+     {rsa_key, [], basic_tests()},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
     ].
+
+basic_tests() ->
+    [send, peername_sockname,
+     exec, exec_compressed, shell, cli, known_hosts, 
+     idle_time, rekey, openssh_zlib_basic_test].
+
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     case catch crypto:start() of
@@ -255,7 +259,7 @@ idle_time(Config) ->
     ssh_connection:close(ConnectionRef, Id),
     receive
     after 10000 ->
-	    {error,channel_closed} = ssh_connection:session_channel(ConnectionRef, 1000)
+	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
     end,
     ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------
@@ -302,6 +306,41 @@ shell(Config) when is_list(Config) ->
 	    do_shell(IO, Shell)
     end.
     
+%%--------------------------------------------------------------------
+cli() ->
+    [{doc, ""}].
+cli(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+   
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+					       {password, "morot"},
+					       {ssh_cli, {ssh_test_cli, [cli]}}, 
+					       {subsystems, []},
+					       {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+    
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, false},
+						      {user_dir, UserDir}]),
+    
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ssh_connection:shell(ConnectionRef, ChannelId),
+    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"q">>),
+    receive 
+	{ssh_cm, ConnectionRef,
+	 {data,0,0, <<"\r\nYou are accessing a dummy, type \"q\" to exit\r\n\n">>}} ->
+	    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"q">>)
+    end,
+    
+    receive 
+     	{ssh_cm, ConnectionRef,{closed, ChannelId}} ->
+     	    ok
+    end.
+
 %%--------------------------------------------------------------------
 daemon_already_started() ->
     [{doc, "Test that get correct error message if you try to start a daemon",
@@ -448,10 +487,11 @@ internal_error(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {error,"Internal error"} =
+    {error,Error} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
 				 {user_dir, UserDir},
 				 {user_interaction, false}]),
+    check_error(Error),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -477,7 +517,7 @@ send(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 peername_sockname() ->
-    [{doc, "Test ssh:peername/1 and ssh:sockname/1"}].
+    [{doc, "Test ssh:connection_info([peername, sockname])"}].
 peername_sockname(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -495,13 +535,17 @@ peername_sockname(Config) when is_list(Config) ->
 					  {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:subsystem(ConnectionRef, ChannelId, "peername_sockname", infinity),
-    {ok,{HostPeerClient,PortPeerClient}} = ssh:peername(ConnectionRef),
-    {ok,{HostSockClient,PortSockClient}} = ssh:sockname(ConnectionRef),
+    [{peer, {_Name, {HostPeerClient,PortPeerClient} = ClientPeer}}] =
+	ssh:connection_info(ConnectionRef, [peer]),
+    [{sockname, {HostSockClient,PortSockClient} = ClientSock}] =
+	ssh:connection_info(ConnectionRef, [sockname]),
+    ct:pal("Client: ~p ~p", [ClientPeer, ClientSock]),
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId, _, Response}} ->
 	    {PeerNameSrv,SockNameSrv} = binary_to_term(Response),
-	    {ok,{HostPeerSrv,PortPeerSrv}} = PeerNameSrv,
-	    {ok,{HostSockSrv,PortSockSrv}} = SockNameSrv,
+	    {HostPeerSrv,PortPeerSrv} = PeerNameSrv,
+	    {HostSockSrv,PortSockSrv} = SockNameSrv,
+	    ct:pal("Server: ~p ~p", [PeerNameSrv, SockNameSrv]),
 	    host_equal(HostPeerSrv, HostSockClient),
 	    PortPeerSrv = PortSockClient,
 	    host_equal(HostSockSrv, HostPeerClient),
@@ -564,6 +608,15 @@ openssh_zlib_basic_test(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
   
+%% Due to timing the error message may or may not be delivered to
+%% the "tcp-application" before the socket closed message is recived
+check_error("Internal error") ->
+    ok;
+check_error("Connection Lost") ->
+    ok;
+check_error(Error) ->
+    ct:fail(Error).
+
 basic_test(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
