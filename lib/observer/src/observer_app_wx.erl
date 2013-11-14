@@ -178,11 +178,16 @@ handle_event(#wx{id=Id, event=_Sz=#wxSize{size=Size}},
     {noreply, State};
 
 handle_event(#wx{event=#wxMouse{type=Type, x=X0, y=Y0}},
-	     S0=#state{app=#app{ptree=Tree}, app_w=AppWin}) ->
-    {X,Y} = wxScrolledWindow:calcUnscrolledPosition(AppWin, X0, Y0),
-    Hit   = locate_node(X,Y, [Tree]),
-    State = handle_mouse_click(Hit, Type, S0),
-    {noreply, State};
+	     S0=#state{app=App, app_w=AppWin}) ->
+    case App of
+	#app{ptree=Tree} ->
+	    {X,Y} = wxScrolledWindow:calcUnscrolledPosition(AppWin, X0, Y0),
+	    Hit   = locate_node(X,Y, [Tree]),
+	    State = handle_mouse_click(Hit, Type, S0),
+	    {noreply, State};
+	_ ->
+	    {noreply, S0}
+    end;
 
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{sel=undefined}) ->

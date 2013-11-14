@@ -144,29 +144,29 @@ fill_info([{dynamic, Key}|Rest], Data)
     %% Special case used by crashdump_viewer when the value decides
     %% which header to use
     case get_value(Key, Data) of
-	undefined -> fill_info(Rest, Data);
+	undefined -> [undefined | fill_info(Rest, Data)];
 	{Str,Value} -> [{Str, Value} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
-	undefined -> fill_info(Rest, Data);
+	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, Value} | fill_info(Rest, Data)]
     end;
 fill_info([{Str,Attrib,Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
-	undefined -> fill_info(Rest, Data);
+	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str,Attrib,Value} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, {Format, Key}}|Rest], Data)
   when is_atom(Key); is_function(Key), is_atom(Format) ->
     case get_value(Key, Data) of
-	undefined -> fill_info(Rest, Data);
+	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, Attrib, {Format, Key}}|Rest], Data)
   when is_atom(Key); is_function(Key), is_atom(Format) ->
     case get_value(Key, Data) of
-	undefined -> fill_info(Rest, Data);
+	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, Attrib, {Format, Value}} | fill_info(Rest, Data)]
     end;
 fill_info([{Str,SubStructure}|Rest], Data) when is_list(SubStructure) ->
@@ -189,6 +189,8 @@ update_info([Fields|Fs], [{_Header, _Attrib, SubStructure}| Rest]) ->
 update_info([], []) ->
     ok.
 
+update_info2([undefined|Fs], [_|Rest]) ->
+    update_info2(Fs, Rest);
 update_info2([Scroll = {_, _, _}|Fs], [{_, NewInfo}|Rest]) ->
     update_scroll_boxes(Scroll, NewInfo),
     update_info2(Fs, Rest);
@@ -197,6 +199,9 @@ update_info2([Field|Fs], [{_Str, {click, Value}}|Rest]) ->
     update_info2(Fs, Rest);
 update_info2([Field|Fs], [{_Str, Value}|Rest]) ->
     wxTextCtrl:setValue(Field, to_str(Value)),
+    update_info2(Fs, Rest);
+update_info2([Field|Fs], [undefined|Rest]) ->
+    wxTextCtrl:setValue(Field, ""),
     update_info2(Fs, Rest);
 update_info2([], []) -> ok.
 
@@ -223,10 +228,10 @@ to_str({bytes, B}) ->
     MB = KB div 1024,
     GB = MB div 1024,
     if
-	GB > 10 -> integer_to_list(GB) ++ " gB";
-	MB > 10 -> integer_to_list(MB) ++ " mB";
+	GB > 10 -> integer_to_list(GB) ++ " GB";
+	MB > 10 -> integer_to_list(MB) ++ " MB";
 	KB >  0 -> integer_to_list(KB) ++ " kB";
-	true -> integer_to_list(B) ++ " B "
+	true -> integer_to_list(B) ++ " B"
     end;
 to_str({time_ms, MS}) ->
     S = MS div 1000,
@@ -396,7 +401,9 @@ create_box(Panel, {scroll_boxes,Data}) ->
     AddBox = fun({Title,Proportion,Format = {_,_}}) ->
 		     add_box(Panel, OuterBox, Cursor, Title, Proportion, Format);
 		({Title, Format = {_,_}}) ->
-		     add_box(Panel, OuterBox, Cursor, Title, 1, Format)
+		     add_box(Panel, OuterBox, Cursor, Title, 1, Format);
+		(undefined) ->
+		     undefined
 	     end,
     Boxes = [AddBox(Entry) || Entry <- Data],
     wxCursor:destroy(Cursor),
@@ -457,7 +464,9 @@ create_box(Panel, Data) ->
 		     wxTextCtrl:setMinSize(Field,{0,H}),
 
 		     wxSizer:add(Box, Line, [{proportion,0},{flag,?wxEXPAND}]),
-		     Field
+		     Field;
+		(undefined) ->
+		     undefined
 	     end,
     InfoFields = [AddRow(Entry) || Entry <- Info],
     {Box, InfoFields}.
@@ -512,6 +521,8 @@ get_max_size(Txt,[{Desc,_}|Info],MaxX,MaxY) ->
        true ->
 	    get_max_size(Txt,Info,MaxX,MaxY)
     end;
+get_max_size(Txt,[undefined|Info],MaxX,MaxY) ->
+    get_max_size(Txt,Info,MaxX,MaxY);
 get_max_size(_,[],X,Y) ->
     {X+2,Y}.
 

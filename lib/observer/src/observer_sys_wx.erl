@@ -167,9 +167,12 @@ info_fields() ->
 	      {"Async thread pool size",  thread_pool_size}
 	     ]},
 	    {"CPU's and Threads",
-	     [{"System Logical CPU's", logical_processors},
-	      {"Erlang Logical CPU's", logical_processors_online},
-	      {"Used Logical CPU's", logical_processors_available}
+	     [{"Logical CPU's", logical_processors},
+	      {"Online Logical CPU's", logical_processors_online},
+	      {"Available Logical CPU's", logical_processors_available},
+	      {"Schedulers", schedulers},
+	      {"Online schedulers", schedulers_online},
+	      {"Available schedulers", schedulers_available}
 	     ]}
 	   ],
     Stat = [{"Memory Usage", right,
