@@ -69,7 +69,7 @@ init_tc(Mod,Func,Config) ->
 	andalso Func=/=end_per_group
 	andalso ct_util:get_testdata(skip_rest) of
 	true ->
-	    {skip,"Repeated test stopped by force_stop option"};
+	    {auto_skip,"Repeated test stopped by force_stop option"};
 	_ ->
 	    case ct_util:get_testdata(curr_tc) of
 		{Suite,{suite0_failed,{require,Reason}}} ->
@@ -159,25 +159,27 @@ init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
        true ->
 	    ct_config:delete_default_config(testcase)
     end,
+    Initialize = fun() -> 
+			 ct_logs:init_tc(false),
+			 ct_event:notify(#event{name=tc_start,
+						node=node(),
+						data={Mod,FuncSpec}})
+		 end,
     case add_defaults(Mod,Func,AllGroups) of
 	Error = {suite0_failed,_} ->
-	    ct_logs:init_tc(false),
-	    ct_event:notify(#event{name=tc_start,
-				   node=node(),
-				   data={Mod,FuncSpec}}),
+	    Initialize(),
 	    ct_util:set_testdata({curr_tc,{Suite,Error}}),
 	    {error,Error};
 	Error = {group0_failed,_} ->
+	    Initialize(),
 	    {auto_skip,Error};
 	Error = {testcase0_failed,_} ->
+	    Initialize(),
 	    {auto_skip,Error};
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
 		{error,Reason} ->
-		    ct_logs:init_tc(false),
-		    ct_event:notify(#event{name=tc_start,
-					   node=node(),
-					   data={Mod,FuncSpec}}),
+		    Initialize(),
 		    {fail,Reason};
 		_ ->
 		    init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config)
@@ -1318,36 +1320,48 @@ report(What,Data) ->
 		    add_to_stats(SkipOrFail)
 	    end;
 	tc_user_skip ->
-	    %% test case specified as skipped in testspec, or init
-	    %% config func for suite/group has returned {skip,Reason}
-	    %% Data = {Suite,Case,Comment}
+	    %% test case or config function specified as skipped in testspec,
+	    %% or init config func for suite/group has returned {skip,Reason}
+	    %% Data = {Suite,Case,Comment} | 
+	    %%        {Suite,{GroupConfigFunc,GroupName},Comment} 
+	    {Func,Data1} = case Data of
+			       {Suite,{ConfigFunc,undefined},Cmt} ->
+				   {ConfigFunc,{Suite,ConfigFunc,Cmt}};
+			       {_,{ConfigFunc,_},_} -> {ConfigFunc,Data};
+			       {_,Case,_} -> {Case,Data}
+			   end,
+
 	    ct_event:sync_notify(#event{name=tc_user_skip,
 					node=node(),
-					data=Data}),
-	    case Data of
-		{_,Func,_} when Func /= init_per_suite,
-				Func /= init_per_group,
-				Func /= end_per_suite,
-				Func /= end_per_group ->
-		    ct_hooks:on_tc_skip(What, Data),
+					data=Data1}),
+	    ct_hooks:on_tc_skip(What, Data1),
+
+	    if Func /= init_per_suite, Func /= init_per_group,
+	       Func /= end_per_suite, Func /= end_per_group ->
 		    add_to_stats(user_skipped);
-		_ ->
+	       true ->
 		    ok
 	    end;
 	tc_auto_skip ->
-	    %% test case skipped because of error in init_per_suite
-	    %% Data = {Suite,Case,Comment}
-
-	    {_Suite,Case,_Result} = Data,
-
+	    %% test case skipped because of error in config function, or
+	    %% config function skipped because of error in info function
+	    %% Data = {Suite,Case,Comment} |
+	    %%        {Suite,{GroupConfigFunc,GroupName},Comment} 
+	    {Func,Data1} = case Data of
+			       {Suite,{ConfigFunc,undefined},Cmt} ->
+				   {ConfigFunc,{Suite,ConfigFunc,Cmt}};
+			       {_,{ConfigFunc,_},_} -> {ConfigFunc,Data};
+			       {_,Case,_} -> {Case,Data}
+			   end,
 	    %% this test case does not have a log, so printouts
 	    %% from event handlers should end up in the main log
 	    ct_event:sync_notify(#event{name=tc_auto_skip,
 					node=node(),
-					data=Data}),
-	    ct_hooks:on_tc_skip(What, Data),
-	    if Case /= end_per_suite, 
-	       Case /= end_per_group ->
+					data=Data1}),
+	    ct_hooks:on_tc_skip(What, Data1),
+
+	    if Func /= end_per_suite, 
+	       Func /= end_per_group ->
 		    add_to_stats(auto_skipped);
 	       true -> 
 		    ok

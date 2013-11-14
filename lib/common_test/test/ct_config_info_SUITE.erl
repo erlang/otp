@@ -127,7 +127,7 @@ test_events(config_info) ->
 		    {failed,{timetrap_timeout,350}}}},
       {?eh,tc_auto_skip,{config_info_1_SUITE,t11,
 	{failed,{config_info_1_SUITE,init_per_group,{timetrap_timeout,350}}}}},
-      {?eh,tc_auto_skip,{config_info_1_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{config_info_1_SUITE,{end_per_group,g1},
 			 {failed,{config_info_1_SUITE,init_per_group,
 				  {timetrap_timeout,350}}}}}],
 
@@ -145,7 +145,7 @@ test_events(config_info) ->
        {?eh,tc_auto_skip,{config_info_1_SUITE,t41,
 	 {failed,{config_info_1_SUITE,init_per_group,
 		  {timetrap_timeout,400}}}}},
-       {?eh,tc_auto_skip,{config_info_1_SUITE,end_per_group,
+       {?eh,tc_auto_skip,{config_info_1_SUITE,{end_per_group,g4},
 	 {failed,{config_info_1_SUITE,init_per_group,
 		  {timetrap_timeout,400}}}}}],
       {?eh,tc_start,{config_info_1_SUITE,t31}},

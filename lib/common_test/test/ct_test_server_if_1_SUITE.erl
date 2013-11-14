@@ -201,7 +201,7 @@ test_events(ts_if_1) ->
 		    {skipped,g1_got_skipped}}},
       {?eh,tc_user_skip,{ts_if_1_SUITE,gtc1,g1_got_skipped}},
       {?eh,test_stats,{1,4,{3,6}}},
-      {?eh,tc_user_skip,{ts_if_1_SUITE,end_per_group,g1_got_skipped}}],
+      {?eh,tc_user_skip,{ts_if_1_SUITE,{end_per_group,g1},g1_got_skipped}}],
      
      {parallel,
       [{?eh,tc_start,{ts_if_1_SUITE,{init_per_group,g2,[parallel]}}},
@@ -210,7 +210,7 @@ test_events(ts_if_1) ->
     	{?eh,tc_done,{ts_if_1_SUITE,{init_per_group,g3,[]},{skipped,g3_got_skipped}}},
     	{?eh,tc_user_skip,{ts_if_1_SUITE,gtc2,g3_got_skipped}},
     	{?eh,test_stats,{1,4,{4,6}}},
-    	{?eh,tc_user_skip,{ts_if_1_SUITE,end_per_group,g3_got_skipped}}],
+    	{?eh,tc_user_skip,{ts_if_1_SUITE,{end_per_group,g3},g3_got_skipped}}],
        {?eh,tc_start,{ts_if_1_SUITE,{end_per_group,g2,[parallel]}}},
        {?eh,tc_done,{ts_if_1_SUITE,{end_per_group,g2,[parallel]},ok}}]},
 
@@ -282,40 +282,40 @@ test_events(ts_if_1) ->
       {ts_if_7_SUITE,tc2,{group0_failed,bad_return_value}}},
      {?eh,test_stats,{2,7,{4,11}}},
      {?eh,tc_auto_skip,
-      {ts_if_7_SUITE,end_per_group,{group0_failed,bad_return_value}}}],
-
-    [{?eh,tc_start,{ts_if_7_SUITE,{init_per_group,g2,[]}}},
-     {?eh,tc_done,{ts_if_7_SUITE,{init_per_group,g2,[]},ok}},
-     {?eh,tc_done,{ts_if_7_SUITE,tc2,
-		   {auto_skipped,{testcase0_failed,bad_return_value}}}},
-     {?eh,test_stats,{2,7,{4,12}}},
-     {?eh,tc_start,{ts_if_7_SUITE,{end_per_group,g2,[]}}},
-     {?eh,tc_done,{ts_if_7_SUITE,{end_per_group,g2,[]},ok}}],
-
-    {?eh,tc_start,{ct_framework,end_per_suite}},
-    {?eh,tc_done,{ct_framework,end_per_suite,ok}},
-
-    
-    {?eh,tc_start,{ct_framework,init_per_suite}},
-    {?eh,tc_done,{ct_framework,init_per_suite,ok}},
-    {?eh,tc_start,{ts_if_8_SUITE,tc1}},
-    {?eh,tc_done,{ts_if_8_SUITE,tc1,{failed,{error,failed_on_purpose}}}},
-    {?eh,test_stats,{2,8,{4,12}}},
-    {?eh,tc_start,{ct_framework,end_per_suite}},
-    {?eh,tc_done,{ct_framework,end_per_suite,ok}},
-
-    
-    {?eh,tc_user_skip,{skipped_by_spec_1_SUITE,all,"should be skipped"}},
-    {?eh,test_stats,{2,8,{5,12}}},
-    {?eh,tc_start,{skipped_by_spec_2_SUITE,init_per_suite}},
-    {?eh,tc_done,{skipped_by_spec_2_SUITE,init_per_suite,ok}},
-    {?eh,tc_user_skip,{skipped_by_spec_2_SUITE,tc1,"should be skipped"}},
-    {?eh,test_stats,{2,8,{6,12}}},
-    {?eh,tc_start,{skipped_by_spec_2_SUITE,end_per_suite}},
-    {?eh,tc_done,{skipped_by_spec_2_SUITE,end_per_suite,ok}},
-    
-    {?eh,test_done,{'DEF','STOP_TIME'}},
-    {?eh,stop_logging,[]}
-	].
+      {ts_if_7_SUITE,{end_per_group,g1},{group0_failed,bad_return_value}}},
+     
+     [{?eh,tc_start,{ts_if_7_SUITE,{init_per_group,g2,[]}}},
+      {?eh,tc_done,{ts_if_7_SUITE,{init_per_group,g2,[]},ok}},
+      {?eh,tc_done,{ts_if_7_SUITE,tc2,
+		    {auto_skipped,{testcase0_failed,bad_return_value}}}},
+      {?eh,test_stats,{2,7,{4,12}}},
+      {?eh,tc_start,{ts_if_7_SUITE,{end_per_group,g2,[]}}},
+      {?eh,tc_done,{ts_if_7_SUITE,{end_per_group,g2,[]},ok}}],
+     
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}},
+     
+     
+     {?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,tc_done,{ct_framework,init_per_suite,ok}},
+     {?eh,tc_start,{ts_if_8_SUITE,tc1}},
+     {?eh,tc_done,{ts_if_8_SUITE,tc1,{failed,{error,failed_on_purpose}}}},
+     {?eh,test_stats,{2,8,{4,12}}},
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}},
+     
+     
+     {?eh,tc_user_skip,{skipped_by_spec_1_SUITE,all,"should be skipped"}},
+     {?eh,test_stats,{2,8,{5,12}}},
+     {?eh,tc_start,{skipped_by_spec_2_SUITE,init_per_suite}},
+     {?eh,tc_done,{skipped_by_spec_2_SUITE,init_per_suite,ok}},
+     {?eh,tc_user_skip,{skipped_by_spec_2_SUITE,tc1,"should be skipped"}},
+     {?eh,test_stats,{2,8,{6,12}}},
+     {?eh,tc_start,{skipped_by_spec_2_SUITE,end_per_suite}},
+     {?eh,tc_done,{skipped_by_spec_2_SUITE,end_per_suite,ok}},
+     
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].
 
 

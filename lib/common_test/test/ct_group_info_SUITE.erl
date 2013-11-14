@@ -269,13 +269,19 @@ test_events(timetrap_all) ->
       {?eh,tc_done,{group_timetrap_1_SUITE,{end_per_group,g10,[]},ok}}],
 
      [{?eh,tc_start,{group_timetrap_1_SUITE,{init_per_group,g11,[]}}},
-      {?eh,tc_done,{group_timetrap_1_SUITE,{init_per_group,g11,[]},ok}},
-      {?eh,tc_done,{group_timetrap_1_SUITE,t111,{failed,{timetrap_timeout,1000}}}},
-      {?eh,test_stats,{0,14,{0,0}}},
-      {?eh,tc_start,{group_timetrap_1_SUITE,{end_per_group,g11,[]}}},
-      {?eh,tc_done,{group_timetrap_1_SUITE,{end_per_group,g11,[]},ok}}],
+      {?eh,tc_done,{group_timetrap_1_SUITE,
+		    {init_per_group,g11,[]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,
+       {group_timetrap_1_SUITE,t111,{group0_failed,bad_return_value}}},
+      {?eh,test_stats,{0,13,{0,1}}},
+      {?eh,tc_auto_skip,{group_timetrap_1_SUITE,
+			 {end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
 
+     {?eh,tc_start,{group_timetrap_1_SUITE,end_per_suite}},
      {?eh,tc_done,{group_timetrap_1_SUITE,end_per_suite,ok}},
+
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -422,13 +428,15 @@ test_events(timetrap_all_no_ips) ->
       {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g10,[]},ok}}],
 
      [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g11,[]}}},
-      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g11,[]},ok}},
-      {?eh,tc_done,{group_timetrap_2_SUITE,t111,{failed,{timetrap_timeout,1000}}}},
-      {?eh,test_stats,{0,14,{0,0}}},
-      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g11,[]}}},
-      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g11,[]},ok}}],
-
-     {?eh,test_done,{'DEF','STOP_TIME'}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,
+		    {init_per_group,g11,[]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,{group_timetrap_2_SUITE,t111,
+			 {group0_failed,bad_return_value}}},
+      {?eh,test_stats,{0,13,{0,1}}},
+      {?eh,tc_auto_skip,{group_timetrap_2_SUITE,
+			 {end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
      {?eh,stop_logging,[]}
     ];
 
@@ -501,11 +509,13 @@ test_events(timetrap_all_no_ipg) ->
       {?eh,tc_done,{ct_framework,{end_per_group,g10,[{suite,group_timetrap_3_SUITE}]},ok}}],
 
      [{?eh,tc_start,{ct_framework,{init_per_group,g11,[{suite,group_timetrap_3_SUITE}]}}},
-      {?eh,tc_done,{ct_framework,{init_per_group,g11,[{suite,group_timetrap_3_SUITE}]},ok}},
-      {?eh,tc_done,{group_timetrap_3_SUITE,t111,{failed,{timetrap_timeout,1000}}}},
-      {?eh,test_stats,{0,14,{0,0}}},
-      {?eh,tc_start,{ct_framework,{end_per_group,g11,[{suite,group_timetrap_3_SUITE}]}}},
-      {?eh,tc_done,{ct_framework,{end_per_group,g11,[{suite,group_timetrap_3_SUITE}]},ok}}],
+      {?eh,tc_done,{ct_framework,
+		    {init_per_group,g11,[{suite,group_timetrap_3_SUITE}]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,{group_timetrap_3_SUITE,t111,{group0_failed,bad_return_value}}},
+      {?eh,test_stats,{0,13,{0,1}}},
+      {?eh,tc_auto_skip,{ct_framework,{end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
@@ -545,7 +555,7 @@ test_events(require) ->
 			  {require_failed,
 			   {name_in_use,common2_alias,common2}}}},
       {?eh,test_stats,{4,0,{0,1}}},
-      {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{group_require_1_SUITE,{end_per_group,g4},
 	{require_failed,{name_in_use,common2_alias,common2}}}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g5,[]}}},
@@ -573,7 +583,7 @@ test_events(require) ->
       {?eh,tc_auto_skip,{group_require_1_SUITE,t81,
 			 {require_failed,{not_available,non_existing}}}},
       {?eh,test_stats,{8,0,{0,2}}},
-      {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{group_require_1_SUITE,{end_per_group,g8},
 			 {require_failed,{not_available,non_existing}}}}],
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g9,[]}}},
       {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g9,[]},ok}},
@@ -591,12 +601,16 @@ test_events(require) ->
       {?eh,tc_done,{group_require_1_SUITE,{end_per_group,g10,[]},ok}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g11,[]}}},
-      {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g11,[]},ok}},
-      {?eh,tc_done,{group_require_1_SUITE,t111,ok}},
-      {?eh,test_stats,{10,0,{0,3}}},
-      {?eh,tc_start,{group_require_1_SUITE,{end_per_group,g11,[]}}},
-      {?eh,tc_done,{group_require_1_SUITE,{end_per_group,g11,[]},ok}}],
-
+      {?eh,tc_done,{group_require_1_SUITE,
+		    {init_per_group,g11,[]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,{group_require_1_SUITE,t111,
+			 {group0_failed,bad_return_value}}},
+      {?eh,test_stats,{9,0,{0,4}}},
+      {?eh,tc_auto_skip,{group_require_1_SUITE,
+			 {end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
+     
      {?eh,tc_done,{group_require_1_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
@@ -635,7 +649,7 @@ test_events(require_default) ->
       {?eh,tc_auto_skip,{group_require_1_SUITE,t41,
 			 {require_failed,{not_available,common3}}}},
       {?eh,test_stats,{4,0,{0,1}}},
-      {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{group_require_1_SUITE,{end_per_group,g4},
 			 {require_failed,{not_available,common3}}}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g5,[]}}},
@@ -663,7 +677,7 @@ test_events(require_default) ->
       {?eh,tc_auto_skip,{group_require_1_SUITE,t81,
 			 {require_failed,{not_available,non_existing}}}},
       {?eh,test_stats,{8,0,{0,2}}},
-      {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{group_require_1_SUITE,{end_per_group,g8},
 			 {require_failed,{not_available,non_existing}}}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g9,[]}}},
@@ -682,11 +696,15 @@ test_events(require_default) ->
       {?eh,tc_done,{group_require_1_SUITE,{end_per_group,g10,[]},ok}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g11,[]}}},
-      {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g11,[]},ok}},
-      {?eh,tc_done,{group_require_1_SUITE,t111,ok}},
-      {?eh,test_stats,{10,0,{0,3}}},
-      {?eh,tc_start,{group_require_1_SUITE,{end_per_group,g11,[]}}},
-      {?eh,tc_done,{group_require_1_SUITE,{end_per_group,g11,[]},ok}}],
+      {?eh,tc_done,{group_require_1_SUITE,
+		    {init_per_group,g11,[]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,{group_require_1_SUITE,t111,
+			 {group0_failed,bad_return_value}}},
+      {?eh,test_stats,{9,0,{0,4}}},
+      {?eh,tc_auto_skip,{group_require_1_SUITE,
+			 {end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
 
      {?eh,tc_done,{group_require_1_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
@@ -725,7 +743,7 @@ test_events(require_no_ips) ->
       {?eh,tc_auto_skip,{group_require_2_SUITE,t41,
 			  {require_failed,{name_in_use,common2_alias,common2}}}},
       {?eh,test_stats,{4,0,{0,1}}},
-      {?eh,tc_auto_skip,{group_require_2_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{group_require_2_SUITE,{end_per_group,g4},
 			 {require_failed,{name_in_use,common2_alias,common2}}}}],
 
      [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g5,[]}}},
@@ -753,7 +771,7 @@ test_events(require_no_ips) ->
       {?eh,tc_auto_skip,{group_require_2_SUITE,t81,
 			 {require_failed,{not_available,non_existing}}}},
       {?eh,test_stats,{8,0,{0,2}}},
-      {?eh,tc_auto_skip,{group_require_2_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{group_require_2_SUITE,{end_per_group,g8},
 			 {require_failed,{not_available,non_existing}}}}],
      [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g9,[]}}},
       {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g9,[]},ok}},
@@ -769,13 +787,17 @@ test_events(require_no_ips) ->
       {?eh,tc_done,{group_require_2_SUITE,t101,ok}},
       {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g10,[]}}},
       {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g10,[]},ok}}],
-
+     
      [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g11,[]}}},
-      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g11,[]},ok}},
-      {?eh,tc_done,{group_require_2_SUITE,t111,ok}},
-      {?eh,test_stats,{10,0,{0,3}}},
-      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g11,[]}}},
-      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g11,[]},ok}}],
+      {?eh,tc_done,{group_require_2_SUITE,
+		    {init_per_group,g11,[]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,{group_require_2_SUITE,t111,
+			 {group0_failed,bad_return_value}}},
+      {?eh,test_stats,{9,0,{0,4}}},
+      {?eh,tc_auto_skip,{group_require_2_SUITE,
+			 {end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
@@ -812,7 +834,7 @@ test_events(require_no_ipg) ->
       {?eh,tc_auto_skip,{group_require_3_SUITE,t41,
 			 {require_failed,{name_in_use,common2_alias,common2}}}},
       {?eh,test_stats,{4,0,{0,1}}},
-      {?eh,tc_auto_skip,{ct_framework,end_per_group,
+      {?eh,tc_auto_skip,{ct_framework,{end_per_group,g4},
 			 {require_failed,{name_in_use,common2_alias,common2}}}}],
 
      [{?eh,tc_start,{ct_framework,{init_per_group,g5,[{suite,group_require_3_SUITE}]}}},
@@ -838,7 +860,7 @@ test_events(require_no_ipg) ->
       {?eh,tc_auto_skip,{group_require_3_SUITE,t81,
 			 {require_failed,{not_available,non_existing}}}},
       {?eh,test_stats,{8,0,{0,2}}},
-      {?eh,tc_auto_skip,{ct_framework,end_per_group,
+      {?eh,tc_auto_skip,{ct_framework,{end_per_group,g8},
 			 {require_failed,{not_available,non_existing}}}}],
      [{?eh,tc_start,{ct_framework,{init_per_group,g9,[{suite,group_require_3_SUITE}]}}},
       {?eh,tc_done,{ct_framework,{init_per_group,g9,[{suite,group_require_3_SUITE}]},ok}},
@@ -853,13 +875,14 @@ test_events(require_no_ipg) ->
       {?eh,tc_done,{group_require_3_SUITE,t101,ok}},
       {?eh,tc_start,{ct_framework,{end_per_group,g10,[{suite,group_require_3_SUITE}]}}},
       {?eh,tc_done,{ct_framework,{end_per_group,g10,[{suite,group_require_3_SUITE}]},ok}}],
-
+     
      [{?eh,tc_start,{ct_framework,{init_per_group,g11,[{suite,group_require_3_SUITE}]}}},
-      {?eh,tc_done,{ct_framework,{init_per_group,g11,[{suite,group_require_3_SUITE}]},ok}},
-      {?eh,tc_done,{group_require_3_SUITE,t111,ok}},
-      {?eh,test_stats,{10,0,{0,3}}},
-      {?eh,tc_start,{ct_framework,{end_per_group,g11,[{suite,group_require_3_SUITE}]}}},
-      {?eh,tc_done,{ct_framework,{end_per_group,g11,[{suite,group_require_3_SUITE}]},ok}}],
+      {?eh,tc_done,{ct_framework,{init_per_group,g11,[{suite,group_require_3_SUITE}]},
+		    {auto_skipped,{group0_failed,bad_return_value}}}},
+      {?eh,tc_auto_skip,{group_require_3_SUITE,t111,{group0_failed,bad_return_value}}},
+      {?eh,test_stats,{9,0,{0,4}}},
+      {?eh,tc_auto_skip,{ct_framework,{end_per_group,g11},
+			 {group0_failed,bad_return_value}}}],
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}

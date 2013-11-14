@@ -465,7 +465,7 @@ test_events(cfg_error) ->
 		 {'EXIT',{init_per_group_fails,g1}}}}}},
       {?eh,test_stats,{4,0,{0,11}}},
       {?eh,tc_auto_skip,
-       {cfg_error_8_SUITE,end_per_group,
+       {cfg_error_8_SUITE,{end_per_group,g1},
 	{failed,{cfg_error_8_SUITE,init_per_group,
 		 {'EXIT',{init_per_group_fails,g1}}}}}}],
 
@@ -476,7 +476,7 @@ test_events(cfg_error) ->
 			 {failed,{cfg_error_8_SUITE,init_per_group,
 				  {timetrap_timeout,2000}}}}},
       {?eh,test_stats,{4,0,{0,12}}},
-      {?eh,tc_auto_skip,{cfg_error_8_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{cfg_error_8_SUITE,{end_per_group,g2},
 			 {failed,{cfg_error_8_SUITE,init_per_group,
 				  {timetrap_timeout,2000}}}}}],
 
@@ -490,7 +490,7 @@ test_events(cfg_error) ->
 		 {'EXIT',{{badmatch,42},'_'}}}}}},
       {?eh,test_stats,{4,0,{0,13}}},
       {?eh,tc_auto_skip,
-       {cfg_error_8_SUITE,end_per_group,
+       {cfg_error_8_SUITE,{end_per_group,g3},
 	{failed,{cfg_error_8_SUITE,init_per_group,
 		 {'EXIT',{{badmatch,42},'_'}}}}}}],
 
@@ -516,7 +516,7 @@ test_events(cfg_error) ->
 		  {'EXIT',{sub_group_failed,g6}}}}}},
        {?eh,test_stats,{6,0,{0,14}}},
        {?eh,tc_auto_skip,
-	{cfg_error_8_SUITE,end_per_group,
+	{cfg_error_8_SUITE,{end_per_group,g6},
 	 {failed,{cfg_error_8_SUITE,init_per_group,
 		  {'EXIT',{sub_group_failed,g6}}}}}}],
       {?eh,tc_start,{cfg_error_8_SUITE,tc3}},
@@ -1102,7 +1102,7 @@ test_events(timetrap_fun_group) ->
 			 {failed,{timetrap_8_SUITE,init_per_group,
 				  {user_timetrap_error,{kaboom,'_'}}}}}},
       {?eh,test_stats,{0,11,{0,2}}},
-      {?eh,tc_auto_skip,{timetrap_8_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{timetrap_8_SUITE,{end_per_group,g4},
 			 {failed,{timetrap_8_SUITE,init_per_group,
 				  {user_timetrap_error,{kaboom,'_'}}}}}}],
 
@@ -1117,7 +1117,7 @@ test_events(timetrap_fun_group) ->
 			 {failed,{timetrap_8_SUITE,init_per_group,
 				  {user_timetrap_error,{kaboom,'_'}}}}}},
       {?eh,test_stats,{0,11,{0,4}}},
-      {?eh,tc_auto_skip,{timetrap_8_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{timetrap_8_SUITE,{end_per_group,g5},
 			 {failed,{timetrap_8_SUITE,init_per_group,
 				  {user_timetrap_error,{kaboom,'_'}}}}}}],
 
@@ -1132,7 +1132,7 @@ test_events(timetrap_fun_group) ->
 			 {failed,{timetrap_8_SUITE,init_per_group,
 				  {timetrap_timeout,'_'}}}}},
       {?eh,test_stats,{0,11,{0,6}}},
-      {?eh,tc_auto_skip,{timetrap_8_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{timetrap_8_SUITE,{end_per_group,g6},
 			 {failed,{timetrap_8_SUITE,init_per_group,
 				  {timetrap_timeout,'_'}}}}}],
 
@@ -1285,7 +1285,7 @@ test_events(timetrap_fun_group) ->
 			  {failed,{timetrap_8_SUITE,init_per_group,
 				   {user_timetrap_error,{kaboom,'_'}}}}}},
        {?eh,test_stats,{4,26,{0,8}}},
-       {?eh,tc_auto_skip,{timetrap_8_SUITE,end_per_group,
+       {?eh,tc_auto_skip,{timetrap_8_SUITE,{end_per_group,pg4},
 			  {failed,{timetrap_8_SUITE,init_per_group,
 				   {user_timetrap_error,{kaboom,'_'}}}}}}]},
 
@@ -1301,7 +1301,7 @@ test_events(timetrap_fun_group) ->
 			  {failed,{timetrap_8_SUITE,init_per_group,
 				   {user_timetrap_error,{kaboom,'_'}}}}}},
        {?eh,test_stats,{4,26,{0,10}}},
-       {?eh,tc_auto_skip,{timetrap_8_SUITE,end_per_group,
+       {?eh,tc_auto_skip,{timetrap_8_SUITE,{end_per_group,pg5},
 			  {failed,{timetrap_8_SUITE,init_per_group,
 				   {user_timetrap_error,{kaboom,'_'}}}}}}]},
 
@@ -1317,7 +1317,7 @@ test_events(timetrap_fun_group) ->
 			  {failed,{timetrap_8_SUITE,init_per_group,
 				   {timetrap_timeout,'_'}}}}},
        {?eh,test_stats,{4,26,{0,12}}},
-       {?eh,tc_auto_skip,{timetrap_8_SUITE,end_per_group,
+       {?eh,tc_auto_skip,{timetrap_8_SUITE,{end_per_group,pg6},
 			  {failed,{timetrap_8_SUITE,init_per_group,
 				   {timetrap_timeout,'_'}}}}}]},
 

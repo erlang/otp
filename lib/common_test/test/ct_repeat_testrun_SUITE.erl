@@ -36,7 +36,7 @@
 
 -define(eh, ct_test_support_eh).
 -define(skip_reason, "Repeated test stopped by force_stop option").
--define(skipped, {skipped, ?skip_reason}).
+-define(skipped, {auto_skipped, ?skip_reason}).
 
 
 %% Timers used in this test.
@@ -222,7 +222,7 @@ until_force_stop_skip_rest_group(Config) when is_list(Config) ->
 	fun() ->
 		[_] = ct_test_support:run_ct_run_test(
 			Opts++[{until,until_str(?t3,1,Config)}],Config),
-		0 = ct_test_support:run_ct_script_start(
+		1 = ct_test_support:run_ct_script_start(
 		      Opts++[{until,until_str(?t3,1,Config)}],Config)
 	end,
     ok = execute(ExecuteFun,
@@ -341,18 +341,17 @@ skip_first_tc1(Suite) ->
      {?eh,tc_done,{Suite,tc1,ok}},
      {?eh,test_stats,{'_',0,{0,0}}},
      {?eh,tc_done,{Suite,tc2,?skipped}},
-     {?eh,test_stats,{'_',0,{1,0}}},
+     {?eh,test_stats,{'_',0,{0,1}}},
      {?eh,tc_done,{Suite,{init_per_group,g,[]},?skipped}},
-     {?eh,tc_user_skip,{Suite,tc1,?skip_reason}},
-     {?eh,test_stats,{'_',0,{2,0}}},
-     {?eh,tc_user_skip,{Suite,tc2,?skip_reason}},
-     {?eh,test_stats,{'_',0,{3,0}}},
-     {?eh,tc_user_skip,{Suite,end_per_group,?skip_reason}},
+     {?eh,tc_auto_skip,{Suite,tc1,?skip_reason}},
+     {?eh,test_stats,{'_',0,{0,2}}},
+     {?eh,tc_auto_skip,{Suite,tc2,?skip_reason}},
+     {?eh,test_stats,{'_',0,{0,3}}},
+     {?eh,tc_auto_skip,{Suite,{end_per_group,g},?skip_reason}},
      {?eh,tc_done,{Suite,tc2,?skipped}},
-     {?eh,test_stats,{'_',0,{4,0}}},
+     {?eh,test_stats,{'_',0,{0,4}}},
      {?eh,tc_start,{Suite,end_per_suite}},
      {?eh,tc_done,{Suite,end_per_suite,ok}}].
-
 
 skip_tc1_in_group(Suite) ->
     [{?eh,tc_start,{Suite,init_per_suite}},
@@ -369,10 +368,10 @@ skip_tc1_in_group(Suite) ->
       {?eh,tc_done,{Suite,tc1,ok}},
       {?eh,test_stats,{'_',0,{0,0}}},
       {?eh,tc_done,{Suite,tc2,?skipped}},
-      {?eh,test_stats,{'_',0,{1,0}}},
+      {?eh,test_stats,{'_',0,{0,1}}},
       {?eh,tc_start,{Suite,{end_per_group,g,[]}}},
       {?eh,tc_done,{Suite,{end_per_group,g,[]},ok}}],
      {?eh,tc_done,{Suite,tc2,?skipped}},
-     {?eh,test_stats,{'_',0,{2,0}}},
+     {?eh,test_stats,{'_',0,{0,2}}},
      {?eh,tc_start,{Suite,end_per_suite}},
      {?eh,tc_done,{Suite,end_per_suite,ok}}].

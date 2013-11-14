@@ -2288,8 +2288,9 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   false, SkipMode),
-		    test_server_sup:framework_call(report, [ReportTag,
-							    {Mod,Func,Comment}]),
+		    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+		    test_server_sup:framework_call(report,
+						   [ReportTag,ConfData]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
 		_ ->
@@ -2298,8 +2299,8 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    wait_for_cases(Ref),
 		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   true, SkipMode),
-		    test_server_sup:framework_call(report, [ReportTag,
-							    {Mod,Func,Comment}]),
+		    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+		    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 		    case CurrIOHandler of
 			{Ref,_} ->
 			    %% current_io_handler was set by start conf of this
@@ -2318,8 +2319,8 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% nested under a parallel group
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   false, SkipMode),
-	    test_server_sup:framework_call(report, [ReportTag,
-						    {Mod,Func,Comment}]),
+	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 
 	    %% Check if this group is auto skipped because of error in the
 	    %% init conf. If so, check if the parent group is a sequence,
@@ -2352,8 +2353,8 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% a parallel group (io buffering is active)
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   true, SkipMode),
-	    test_server_sup:framework_call(report, [ReportTag,
-						    {Mod,Func,Comment}]),
+	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    case CurrIOHandler of
 		{Ref,_} ->
 		    %% current_io_handler was set by start conf of this
@@ -2370,8 +2371,8 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% under a parallel group
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   false, SkipMode),
-	    test_server_sup:framework_call(report, [ReportTag,
-						    {Mod,Func,Comment}]),
+	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
 				[conf(Ref,[])|Mode], Status);
 	{_,Ref0} when is_reference(Ref0) ->
@@ -2385,8 +2386,8 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    end,
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   true, SkipMode),
-	    test_server_sup:framework_call(report, [ReportTag,
-						    {Mod,Func,Comment}]),
+	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
 				[conf(Ref,[])|Mode], Status)
     end;
@@ -3180,11 +3181,17 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
     ResultCol = if Type == auto -> ?auto_skip_color;
 		   Type == user -> ?user_skip_color
 		end,
-
-    Comment1 = reason_to_string(Comment),
-
     print(major, "~n=case          ~w:~w", [Mod,Func]),
+    GroupName =	case get_name(Mode) of
+		    undefined ->
+			"";
+		    GrName ->
+			GrName1 = cast_to_list(GrName),
+			print(major, "=group_props   ~p", [[{name,GrName1}]]),
+			GrName1
+		end,
     print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
+    Comment1 = reason_to_string(Comment),
     if Type == auto ->
 	    print(major, "=result        auto_skipped: ~ts", [Comment1]);
        Type == user ->

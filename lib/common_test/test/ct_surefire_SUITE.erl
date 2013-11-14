@@ -210,7 +210,7 @@ test_events(_) ->
 			  {surefire_SUITE,init_per_group,
 			   {'EXIT',all_cases_should_be_skipped}}}}},
       {?eh,test_stats,{2,2,{2,3}}},
-      {?eh,tc_auto_skip,{surefire_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{surefire_SUITE,{end_per_group,g_fail},
 			 {failed,
 			  {surefire_SUITE,init_per_group,
 			   {'EXIT',all_cases_should_be_skipped}}}}}],
