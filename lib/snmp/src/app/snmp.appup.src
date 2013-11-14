@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,12 +22,22 @@
 %% ----- U p g r a d e -------------------------------------------------------
 
  [
+  {"4.22.2", 
+   [
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
+    {load_module, snmp_verbosity, soft_purge, soft_purge, []} 
+   ]
+  }, 
   {"4.22.1", 
    [
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
+    {load_module, snmp_verbosity, soft_purge, soft_purge, []} 
    ]
   }, 
   {"4.22", 
    [
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
+    {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm,                   soft_purge, soft_purge, []}, 
     {load_module, snmp_pdus,               soft_purge, soft_purge, []}, 
     {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []}, 
@@ -51,7 +61,7 @@
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpa, soft_purge, soft_purge, [snmp]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -79,7 +89,7 @@
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpa, soft_purge, soft_purge, [snmp]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -105,7 +115,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -137,7 +147,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -173,7 +183,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -209,7 +219,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -247,7 +257,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -286,7 +296,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -316,12 +326,22 @@
 %% ------D o w n g r a d e ---------------------------------------------------
 
  [
+  {"4.22.2", 
+   [
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
+    {load_module, snmp_verbosity, soft_purge, soft_purge, []} 
+   ]
+  }, 
   {"4.22.1", 
    [
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
+    {load_module, snmp_verbosity, soft_purge, soft_purge, []} 
    ]
   }, 
   {"4.22", 
    [
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
+    {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm,                   soft_purge, soft_purge, []}, 
     {load_module, snmp_pdus,               soft_purge, soft_purge, []}, 
     {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []}, 
@@ -346,7 +366,7 @@
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpa, soft_purge, soft_purge, [snmp]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -374,7 +394,7 @@
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpa, soft_purge, soft_purge, [snmp]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -400,7 +420,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -432,7 +452,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -468,7 +488,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -504,7 +524,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -542,7 +562,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
@@ -581,7 +601,7 @@
 
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmp]}, 
-    {load_module, snmp_log, soft_purge, soft_purge, []}, 
+    {load_module, snmp_log, soft_purge, soft_purge, [snmp_verbosity]}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
 
