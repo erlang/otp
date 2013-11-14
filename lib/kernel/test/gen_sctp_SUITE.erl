@@ -1284,11 +1284,14 @@ do_names(_, FamilySpec, AddressCount) ->
 		?line ClientSocknames = ServerPeernames,
 		?line {ok,Socket} =
 		    gen_sctp:peeloff(ServerSocket, ServerAssoc),
-		?line Socknames =
+		?line SocknamesNoassoc =
 		    lists:sort(ok(inet:socknames(Socket))),
+		?line ?LOGVAR(SocknamesNoassoc),
 		?line Socknames =
 		    lists:sort(ok(inet:socknames(Socket, ServerAssoc))),
 		?line ?LOGVAR(Socknames),
+		?line true =
+		    ordsets:is_subset(SocknamesNoassoc, Socknames),
 		?line Peernames =
 		    lists:sort(ok(inet:peernames(Socket, ServerAssoc))),
 		?line ?LOGVAR(Peernames),
