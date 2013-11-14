@@ -185,7 +185,7 @@
 {Mod, Bin, File} = code:get_object_code(Mod), 
 
 %% and load it on all nodes including this one 
-{ResL, _} = rpc:multicall(code, load_binary, [Mod, Bin, File,]),
+{ResL, _} = rpc:multicall(code, load_binary, [Mod, File, Bin]),
 
 %% and then maybe check the ResL list.</code>
       </desc>
