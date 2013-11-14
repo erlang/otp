@@ -34,12 +34,10 @@ init([]) ->
     {ok, #state{}}.
 
 handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
+    [{peer, {_Name, Peer}}] = ssh:connection_info(ConnectionManager, [peer]),
+    [{sockname, Sock}] = ssh:connection_info(ConnectionManager, [sockname]),
     ssh_connection:send(ConnectionManager, ChannelId,
-			term_to_binary(
-			  {catch ssh:peername(ConnectionManager),
-			   catch ssh:sockname(ConnectionManager)
-			  })
-		       ),
+			term_to_binary({Peer, Sock})),
     {ok, State}.
 
 handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, _Error, _}},

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,9 +61,9 @@ init(Args) ->
 %%%=========================================================================
 child_spec(_) ->
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {ssh_connection_sup, start_link, []},
+    StartFunc = {ssh_connection_handler, start_link, []},
     Restart = temporary,
     Shutdown = infinity,
-    Modules = [ssh_connection_sup],
+    Modules = [ssh_connection_handler],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

@@ -39,7 +39,8 @@ MODULES= \
 	ssh_sftpd_erlclient_SUITE \
 	ssh_connection_SUITE \
 	ssh_echo_server \
-	ssh_peername_sockname_server
+	ssh_peername_sockname_server \
+	ssh_test_cli 
 
 HRL_FILES_NEEDED_IN_TEST= \
 	$(ERL_TOP)/lib/ssh/src/ssh.hrl \

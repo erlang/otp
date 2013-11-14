@@ -76,7 +76,7 @@ listen(Addr, Port, Options) ->
 %% Description: Stops the listener
 %%--------------------------------------------------------------------
 stop(Pid) ->
-    ssh_cli:stop(Pid).
+    ssh:stop_listener(Pid).
 
 
 %%% DEPRECATED END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

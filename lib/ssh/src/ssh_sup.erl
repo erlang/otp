@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,8 +51,7 @@ children() ->
     Clients = [Service || Service <- Services, is_client(Service)],
     Servers =  [Service || Service <- Services, is_server(Service)],
 
-    [server_child_spec(Servers), client_child_spec(Clients),
-     ssh_userauth_reg_spec()].
+    [server_child_spec(Servers), client_child_spec(Clients)].
 
 server_child_spec(Servers) ->
     Name = sshd_sup,
@@ -71,16 +70,6 @@ client_child_spec(Clients) ->
     Modules = [sshc_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-ssh_userauth_reg_spec() ->
-    Name = ssh_userreg,
-    StartFunc = {ssh_userreg, start_link, []},
-    Restart = transient, 
-    Shutdown = 5000,
-    Modules = [ssh_userreg],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
 
 is_server({sftpd, _}) ->
     true;
