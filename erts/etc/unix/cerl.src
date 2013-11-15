@@ -346,7 +346,7 @@ elif [ "x$GDB" = "xegdb" ]; then
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	    beam_args=`$EXEC -emu_args_exit ${1+"$@"} | tr '\n' ' '`
 	    gdbcmd="(insert-string \"set args $beam_args\") \
                     (comint-send-input)"
 	    ;;
