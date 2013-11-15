@@ -252,7 +252,17 @@ domainComponent ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 
 emailAddress ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 	ID id-emailAddress
-	TYPE EmailAddress }
+	TYPE EmailAddress } -- this is currently not used when decoding
+ -- The decoding and mapping between ID and Type is done in the code
+ -- in module publickey_cert_records via the function attribute_type
+ -- To be more forgiving and compatible with other SSL implementations
+ -- regarding how to handle and sometimes accept incorrect certificates
+ -- we define and use the type below instead of emailAddress
+
+ OTP-emailAddress ::= CHOICE {
+       ia5String         IA5String       (SIZE (1..255)),
+       utf8String        UTF8String      (SIZE (1..255))
+}
 
 --
 -- Signature and Public Key Algorithms
