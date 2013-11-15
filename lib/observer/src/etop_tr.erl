@@ -59,7 +59,7 @@ reader(Config) ->
     Port = getopt(port, Config),    
     
     {ok, Sock} = gen_tcp:connect(Host, Port, [{active, false}]),
-    spawn_link(fun() -> reader_init(Sock,getopt(store,Config),nopid) end).
+    spawn_link(fun() -> reader_init(Sock,getopt(store,Config),[]) end).
 
 
 %%%%%%%%%%%%%%   Socket reader %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -73,24 +73,30 @@ reader(Sock, Store, Last) ->
     New = handle_data(Last, Data, Store),
     reader(Sock, Store, New).
 
-handle_data(_, {_, Pid, in, _, Time}, _) ->
-    {Pid,Time};
-handle_data({Pid,Time1}, {_, Pid, out, _, Time2}, Store) ->
-    Elapsed = elapsed(Time1, Time2),
-    case ets:member(Store,Pid) of
-	true -> ets:update_counter(Store, Pid, Elapsed);
-	false -> ets:insert(Store,{Pid,Elapsed})
-    end,
-    nopid;
+handle_data(Last, {_, Pid, in, _, Time}, _) ->
+    [{Pid,Time}|Last];
+handle_data([], {_, _, out, _, _}, _Store) ->
+    %% ignore - there was probably just a 'drop'
+    [];
+handle_data(Last, {_, Pid, out, _, Time2} = G, Store) ->
+    case lists:keytake(Pid, 1, Last) of
+         {_, {_, Time1}, New} ->
+             Elapsed = elapsed(Time1, Time2),
+             case ets:member(Store,Pid) of
+                  true -> ets:update_counter(Store, Pid, Elapsed);
+                  false -> ets:insert(Store,{Pid,Elapsed})
+             end,
+             New;
+         false ->
+             io:format("Erlang top got garbage ~p~n", [G]),
+             Last
+    end;
 handle_data(_W, {drop, D}, _) ->  %% Error case we are missing data here!
     io:format("Erlang top dropped data ~p~n", [D]),
-    nopid;
-handle_data(nopid, {_, _, out, _, _}, _Store) ->
-    %% ignore - there was probably just a 'drop'
-    nopid;
-handle_data(_, G, _) ->
+    [];
+handle_data(Last, G, _) ->
     io:format("Erlang top got garbage ~p~n", [G]),
-    nopid.
+    Last.
 
 elapsed({Me1, S1, Mi1}, {Me2, S2, Mi2}) ->
     Me = (Me2 - Me1) * 1000000,
