@@ -33,7 +33,8 @@
 -include("tls_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("tls_record.hrl").
--include("ssl_cipher.hrl"). 
+-include("ssl_cipher.hrl").
+-include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_srp.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
@@ -130,7 +131,7 @@ handshake(#sslsocket{pid = Pid}, Timeout) ->
 socket_control(Socket, Pid, Transport) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, ssl_socket:socket(Pid, Transport, Socket)};
+	    {ok, ssl_socket:socket(Pid, Transport, Socket, ?MODULE)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -1139,7 +1140,7 @@ format_reply(_, _,#socket_options{active = false, mode = Mode, packet = Packet,
     {ok, do_format_reply(Mode, Packet, Header, Data)};
 format_reply(Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
 						header = Header}, Data) ->
-    {ssl, ssl_socket:socket(self(), Transport, Socket), do_format_reply(Mode, Packet, Header, Data)}.
+    {ssl, ssl_socket:socket(self(), Transport, Socket, ?MODULE), do_format_reply(Mode, Packet, Header, Data)}.
 
 deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From) ->
     send_or_reply(Active, Pid, From, format_packet_error(Transport, Socket, SO, Data)).
@@ -1147,7 +1148,7 @@ deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Da
 format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data) ->
     {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
 format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data) ->
-    {ssl_error, ssl_socket:socket(self(), Transport, Socket), {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
+    {ssl_error, ssl_socket:socket(self(), Transport, Socket, ?MODULE), {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
 
 do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
     header(N, Data);
@@ -1571,10 +1572,10 @@ alert_user(Transport, Socket, Active, Pid, From, Alert, Role) ->
     case ssl_alert:reason_code(Alert, Role) of
 	closed ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_closed, ssl_socket:socket(self(), Transport, Socket)});
+			  {ssl_closed, ssl_socket:socket(self(), Transport, Socket, ?MODULE)});
 	ReasonCode ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_error, ssl_socket:socket(self(), Transport, Socket), ReasonCode})
+			  {ssl_error, ssl_socket:socket(self(), Transport, Socket, ?MODULE), ReasonCode})
     end.
 
 log_alert(true, Info, Alert) ->

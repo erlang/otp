@@ -27,6 +27,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").

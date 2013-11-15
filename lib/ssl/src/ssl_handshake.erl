@@ -1049,7 +1049,7 @@ supported_ecc({Major, Minor} = Version) when ((Major == 3) and (Minor >= 1)) ore
     Curves = tls_v1:ecc_curves(Version),
     #elliptic_curves{elliptic_curve_list = Curves};
 supported_ecc(_) ->
-    undefined.
+    #elliptic_curves{elliptic_curve_list = []}.
 
 %%-------------certificate handling --------------------------------
 

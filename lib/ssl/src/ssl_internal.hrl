@@ -24,9 +24,6 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
-%% Looks like it does for backwards compatibility reasons
--record(sslsocket, {fd = nil, pid = nil}).
-
 -type reason()            :: term().
 -type reply()             :: term().
 -type msg()               :: term().
@@ -76,25 +73,26 @@
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 
 -record(ssl_options, {
-	  versions,   % 'tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3
-	  verify,     %   verify_none | verify_peer
-	  verify_fun, % fun(CertVerifyErrors) -> boolean()
-	  fail_if_no_peer_cert, % boolean()
-	  verify_client_once,  % boolean()
+	  protocol    :: tls | dtls,
+	  versions    :: ['tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3] | ['dtlsv1.2' | dtlsv1],
+	  verify      :: verify_none | verify_peer,
+	  verify_fun,  %%:: fun(CertVerifyErrors::term()) -> boolean(),
+	  fail_if_no_peer_cert ::  boolean(),
+	  verify_client_once   ::  boolean(),
 	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
 	  validate_extensions_fun, 
-	  depth,      % integer()
-	  certfile,   % file()
-	  cert,       % der_encoded()
-	  keyfile,    % file()
-	  key,	      % der_encoded()
-	  password,   % 
-	  cacerts,    % [der_encoded()]
-	  cacertfile, % file()
-	  dh,         % der_encoded()
-	  dhfile,     % file()
+	  depth                :: integer(),
+	  certfile             :: string(),
+	  cert                 :: der_encoded(),
+	  keyfile              :: string(),
+	  key	               :: der_encoded(),
+	  password	       :: string(),
+	  cacerts              :: [der_encoded()],
+	  cacertfile           :: string(),
+	  dh                   :: der_encoded(),
+	  dhfile               :: string(),
 	  user_lookup_fun,  % server option, fun to lookup the user
-	  psk_identity,  % binary
+	  psk_identity         :: binary(),
 	  srp_identity,  % client option {User, Password}
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
@@ -103,21 +101,29 @@
 	  reuse_session,  
 	  %% If false sessions will never be reused, if true they
 	  %% will be reused if possible.
-	  reuse_sessions, % boolean()
+	  reuse_sessions       :: boolean(),
 	  renegotiate_at,
 	  secure_renegotiate,
 	  debug,
-	  hibernate_after,% undefined if not hibernating,
-                          % or number of ms of inactivity
-			  % after which ssl_connection will
-                          % go into hibernation
+	  %% undefined if not hibernating, or number of ms of
+	  %% inactivity after which ssl_connection will go into
+	  %% hibernation
+	  hibernate_after      :: boolean(),
 	  %% This option should only be set to true by inet_tls_dist
-	  erl_dist = false,
+	  erl_dist = false     :: boolean(),
 	  next_protocols_advertised = undefined, %% [binary()],
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
-	  log_alert,
+	  log_alert             :: boolean(),
 	  server_name_indication = undefined
 	  }).
+
+-record(config, {ssl,               %% SSL parameters
+		 inet_user,         %% User set inet options
+		 emulated,          %% #socket_option{} emulated
+		 inet_ssl,          %% inet options for internal ssl socket
+		 transport_info,                 %% Callback info
+		 connection_cb
+		}).
 
 -record(socket_options,
 	{
