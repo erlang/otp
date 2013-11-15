@@ -67,6 +67,15 @@ transform(#'AttributeTypeAndValue'{type=Id,value=Value0} = ATAV, Func) ->
 		    {ok, {printableString, ASCCI}} ->
 			{ok, ASCCI}
 		end;
+	    'EmailAddress' when Func == decode ->
+		%% Workaround that some certificates break the ASN-1 spec
+		%% and encode emailAddress as utf8
+		case 'OTP-PUB-KEY':Func('OTP-emailAddress', Value0) of
+		    {ok, {utf8String, Utf8Value}} ->
+			{ok, unicode:characters_to_list(Utf8Value)};
+		    {ok, {ia5String, Ia5Value}} ->
+			{ok, Ia5Value}
+		end;
             Type when is_atom(Type) -> 'OTP-PUB-KEY':Func(Type, Value0);
             _UnknownType            -> {ok, Value0}
         end,
