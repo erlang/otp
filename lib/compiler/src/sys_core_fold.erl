@@ -1381,12 +1381,12 @@ is_atom_or_var(_) -> false.
 clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
     {Ps1,Sub1} = pattern_list(Ps0, Sub0),
     Sub2 = update_types(Cexpr, Ps1, Sub1),
-    GSub = case {Cexpr,Ps1} of
+    CSub = case {Cexpr,Ps1} of
 	       {#c_var{name='_'},_} ->
 		   %% In a 'receive', Cexpr is the variable '_', which represents the
 		   %% message being matched. We must NOT do any extra substiutions.
 		   Sub2;
-	       {#c_var{},[#c_var{}=Var]} ->
+               _ ->
 		   %% The idea here is to optimize expressions such as
 		   %%
 		   %%   case A of A -> ...
@@ -1405,12 +1405,11 @@ clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
 		   %%
 		   %%   case A of NewVar when true -> ...
 		   %%
-		   sub_set_var(Var, Cexpr, Sub2);
-	       _ ->
-		   Sub2
+                   {_,_,Sub3} = let_substs(Ps1, Cexpr, Sub2),
+                   Sub3
 	   end,
-    G1 = guard(G0, GSub),
-    B1 = body(B0, Ctxt, Sub2),
+    G1 = guard(G0, CSub),
+    B1 = body(B0, Ctxt, CSub),
     Cl#c_clause{pats=Ps1,guard=G1,body=B1}.
 
 %% let_substs(LetVars, LetArg, Sub) -> {[Var],[Val],Sub}.
@@ -1553,7 +1552,9 @@ sub_del_var(#c_var{name=V}, #sub{v=S,t=Tdb}=Sub) ->
 
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
-    [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
+    [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V];
+sub_subst_var(_, _, #sub{v=S}) ->
+    S.
 
 sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
     S = [{-1,#c_var{name=Sv}} || Sv <- gb_sets:to_list(Scope)]++S0,
