@@ -694,11 +694,9 @@ validate_option(verify_fun, Fun) when is_function(Fun) ->
      end, Fun};
 validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
    Value;
-validate_option(fail_if_no_peer_cert, Value)
-  when Value == true; Value == false ->
+validate_option(fail_if_no_peer_cert, Value) when is_boolean(Value) ->
     Value;
-validate_option(verify_client_once, Value)
-  when Value == true; Value == false ->
+validate_option(verify_client_once, Value) when is_boolean(Value) ->
     Value;
 validate_option(depth, Value) when is_integer(Value),
                                    Value >= 0, Value =< 255->
@@ -778,12 +776,10 @@ validate_option(ciphers, Value)  when is_list(Value) ->
     end;
 validate_option(reuse_session, Value) when is_function(Value) ->
     Value;
-validate_option(reuse_sessions, Value) when Value == true;
-					    Value == false ->
+validate_option(reuse_sessions, Value) when is_boolean(Value) ->
     Value;
 
-validate_option(secure_renegotiate, Value) when Value == true;
-						Value == false ->
+validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
     Value;
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
@@ -792,8 +788,7 @@ validate_option(hibernate_after, undefined) ->
     undefined;
 validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
-validate_option(erl_dist,Value) when Value == true;
-				     Value == false ->
+validate_option(erl_dist,Value) when is_boolean(Value) ->
     Value;
 validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols} = Value)
   when is_list(PreferredProtocols) ->
@@ -819,8 +814,7 @@ validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredPro
 
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
-validate_option(log_alert, Value) when Value == true;
-				       Value == false ->
+validate_option(log_alert, Value) when is_boolean(Value) ->
     Value;
 validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
     case tls_record:highest_protocol_version([]) of
