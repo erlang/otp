@@ -82,15 +82,15 @@
 	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
 	  validate_extensions_fun, 
 	  depth                :: integer(),
-	  certfile             :: string(),
+	  certfile             :: binary(),
 	  cert                 :: der_encoded(),
-	  keyfile              :: string(),
-	  key	               :: der_encoded(),
+	  keyfile              :: binary(),
+	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', der_encoded()},
 	  password	       :: string(),
 	  cacerts              :: [der_encoded()],
-	  cacertfile           :: string(),
+	  cacertfile           :: binary(),
 	  dh                   :: der_encoded(),
-	  dhfile               :: string(),
+	  dhfile               :: binary(),
 	  user_lookup_fun,  % server option, fun to lookup the user
 	  psk_identity         :: binary(),
 	  srp_identity,  % client option {User, Password}

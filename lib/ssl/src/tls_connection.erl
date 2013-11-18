@@ -877,13 +877,6 @@ init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
 	    file_error(KeyFile, {keyfile, Reason}) 
     end;
 
-%% First two clauses are for backwards compatibility
-init_private_key(_,{rsa, PrivateKey}, _, _,_) ->
-    init_private_key('RSAPrivateKey', PrivateKey);
-init_private_key(_,{dsa, PrivateKey},_,_,_) ->
-    init_private_key('DSAPrivateKey', PrivateKey);
-init_private_key(_,{ec, PrivateKey},_,_,_) ->
-    init_private_key('ECPrivateKey', PrivateKey);
 init_private_key(_,{Asn1Type, PrivateKey},_,_,_) ->
     private_key(init_private_key(Asn1Type, PrivateKey)).
 
