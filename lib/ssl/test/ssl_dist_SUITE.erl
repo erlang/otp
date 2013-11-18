@@ -95,7 +95,7 @@ common_init(Case, Config) ->
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     Flags = proplists:get_value(old_flags, Config),
-    os:putenv("ERL_FLAGS", Flags),
+    catch os:putenv("ERL_FLAGS", Flags),
     common_end(Case, Config).
 
 common_end(_, Config) ->

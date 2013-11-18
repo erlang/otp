@@ -2490,7 +2490,10 @@ ssl_accept_timeout(Config) ->
 	    ssl_test_lib:check_result(Server, {error, timeout}),
 	    receive
 		{'EXIT', Server, _} ->
-		    [] = supervisor:which_children(ssl_connection_sup)
+		    %% Make sure supervisor had time to react on process exit
+		    %% Could we come up with a better solution to this?
+		    ct:sleep(500), 
+		    [] = supervisor:which_children(tls_connection_sup)
 	    end
     end.
 
