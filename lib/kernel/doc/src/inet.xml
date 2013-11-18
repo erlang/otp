@@ -435,6 +435,46 @@ fe80::204:acff:fe17:bf38
       </desc>
     </func>
     <func>
+      <name name="peernames" arity="1"/>
+      <fsummary>
+	Return all address/port numbers for the other end of a connection
+      </fsummary>
+      <desc>
+	<p>
+	  The same as
+	  <seealso marker="#peernames/2">
+	    <c>peernames(<anno>Socket</anno>, 0)</c>
+	  </seealso>.
+	  Note that this function's behaviour for an SCTP
+	  one-to-many style socket is not defined by the SCTP Socket API.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name name="peernames" arity="2"/>
+      <fsummary>
+	Return all address/port numbers for the other end of a connection
+      </fsummary>
+      <desc>
+	<p>
+	  Returns a list of all address/port number pairs for the other end
+	  of a socket's association <c><anno>Assoc</anno></c>.
+	</p>
+	<p>
+	  This function can return multiple addresses for multihomed
+	  sockets such as SCTP sockets.  For other sockets it does the
+	  same as <seealso marker="#peername/1">peername/1</seealso>.
+	</p>
+	<p>
+	  Note that the <c><anno>Assoc</anno></c> parameter
+	  is by the SCTP Socket API defined to be ignored for
+	  one-to-one style sockets.  What the special value <c>0</c>
+	  means hence its behaviour for one-to-many style sockets
+	  is unfortunately not defined.
+	</p>
+      </desc>
+    </func>
+    <func>
       <name name="port" arity="1"/>
       <fsummary>Return the local port number for a socket</fsummary>
       <desc>
@@ -446,6 +486,42 @@ fe80::204:acff:fe17:bf38
       <fsummary>Return the local address and port number for a socket</fsummary>
       <desc>
         <p>Returns the local address and port number for a socket.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="socknames" arity="1"/>
+      <fsummary>Return all local address/port numbers for a socket</fsummary>
+      <desc>
+	<p>
+	  The same as
+	  <seealso marker="#socknames/2">
+	    <c>socknames(<anno>Socket</anno>, 0)</c>
+	  </seealso>.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name name="socknames" arity="2"/>
+      <fsummary>Return all local address/port numbers for a socket</fsummary>
+      <desc>
+	<p>
+	  Returns a list of all local address/port number pairs for a socket
+	  for the given association <c><anno>Assoc</anno></c>.
+	</p>
+	<p>
+	  This function can return multiple addresses for multihomed
+	  sockets such as SCTP sockets.  For other sockets it does the
+	  same as <seealso marker="#sockname/1">sockname/1</seealso>.
+	</p>
+	<p>
+	  Note that the <c><anno>Assoc</anno></c> parameter
+	  is by the SCTP Socket API defined to be ignored for
+	  one-to-one style sockets.  For one-to-many style sockets
+	  the special value <c>0</c> is defined to mean that
+	  the returned addresses shall be without regard to any
+	  particular association.  How different SCTP implementations
+	  interprets this varies somewhat.
+	</p>
       </desc>
     </func>
     <func>
