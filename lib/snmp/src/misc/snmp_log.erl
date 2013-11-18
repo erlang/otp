@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -443,9 +443,12 @@ do_log_convert(Log, File, Converter) ->
     %% 	    "~n   Log:  ~p"
     %% 	    "~n   File: ~p"
     %% 	    "~n   disk_log:info(Log): ~p", [Log, File, disk_log:info(Log)]),
+    Verbosity  = get(verbosity), 
     {Pid, Ref} = 
 	erlang:spawn_monitor(
 	  fun() ->
+		  put(sname,     lc),
+		  put(verbosity, Verbosity), 		  
 		  Result = do_log_convert2(Log, File, Converter),
 		  exit(Result)
 	  end),
@@ -462,19 +465,35 @@ do_log_convert2(Log, File, Converter) ->
     %% First check if the caller process has already opened the
     %% log, because if we close an already open log we will cause
     %% a runtime error.
+    ?vtrace("do_log_convert2 -> entry - check if owner", []),
     case is_owner(Log) of
 	true ->
-	    Converter(Log);
+	    ?vdebug("do_log_converter2 -> owner - now convert log", []),
+	    disk_log:block(Log, true),
+	    Res = Converter(Log),
+	    disk_log:unblock(Log),
+	    Res;
 	false ->
 	    %% Not yet member of the ruling party, apply for membership...
+	    ?vtrace("do_log_converter2 -> not owner - open log", []),
 	    case log_open(Log, File) of
 		{ok, _} ->
+		    ?vdebug("do_log_convert2 -> opened - now convert log", []),
+		    disk_log:block(Log, true),
 		    Res = Converter(Log),
+		    disk_log:unblock(Log),
 		    disk_log:close(Log),
 		    Res;
 		{error, {name_already_open, _}} ->
-                    Converter(Log);
+		    ?vdebug("do_log_convert2 -> "
+			    "already opened - now convert log", []),
+		    disk_log:block(Log, true),
+                    Res = Converter(Log), 
+		    disk_log:unblock(Log),
+		    Res;
                 {error, Reason} ->
+		    ?vinfo("Failed converting log - open failed: "
+			   "~n   Reason: ~p", [Reason]),
                     {error, {Log, Reason}}
 	    end
     end.
@@ -491,6 +510,8 @@ do_log_to_file(Log, TextFile, Mibs, Start, Stop) ->
 				{ok, S} ->
 				    io:format(Fd, "~s", [S]);
 				_ ->
+				    ?vdebug("do_log_to_txt:fun -> "
+					    "format failed", []),
 				    ok
 			    end
 		    end,
@@ -499,6 +520,9 @@ do_log_to_file(Log, TextFile, Mibs, Start, Stop) ->
             file:close(Fd),
             Res;
         {error, Reason} ->
+	    ?vinfo("Failed opening output file: "
+		   "~n   TestFile: ~p"
+		   "~n   Reason:   ~p", [TextFile, Reason]),	    
             {error, {TextFile, Reason}}
     end.
 
@@ -510,6 +534,8 @@ do_log_to_io(Log, Mibs, Start, Stop) ->
 			{ok, S} ->
 			    io:format("~s", [S]);
 			_ ->
+			    ?vdebug("do_log_to_io:fun -> "
+				    "format failed", []),
 			    ok
 		    end
 	    end,
