@@ -180,3 +180,25 @@ BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
     BIF_RET(am_true);
 }
 
+BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
+{
+    char *key_buf;
+    char buf[STATIC_BUF_SIZE];
+
+    key_buf = erts_convert_filename_to_native(BIF_ARG_1,buf,STATIC_BUF_SIZE,
+					      ERTS_ALC_T_TMP,0,0,NULL);
+    if (!key_buf) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (erts_sys_unsetenv(key_buf)) {
+	if (key_buf != buf) {
+	    erts_free(ERTS_ALC_T_TMP, key_buf);
+	}
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    if (key_buf != buf) {
+	erts_free(ERTS_ALC_T_TMP, key_buf);
+    }
+    BIF_RET(am_true);
+}

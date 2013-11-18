@@ -2489,6 +2489,16 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     return res;
 }
 
+int
+erts_sys_unsetenv(char *key)
+{
+    int res;
+    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    res = unsetenv(key);
+    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    return res;
+}
+
 void
 sys_init_io(void)
 {
