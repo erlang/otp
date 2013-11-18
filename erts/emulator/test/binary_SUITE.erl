@@ -631,7 +631,12 @@ safe_binary_to_term2(Config) when is_list(Config) ->
 
 bad_terms(suite) -> [];
 bad_terms(Config) when is_list(Config) ->
-    ?line test_terms(fun corrupter/1).
+    ?line test_terms(fun corrupter/1),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,0,11,22,33>>)),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,9,11,22,33>>)),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,0:32,1,11,22,33>>)),
+    ok.
+
 
 corrupter(Term) when is_function(Term);
 		     is_function(hd(Term));
@@ -1221,14 +1226,9 @@ gc() ->
 gc1() -> ok.
 
 bit_sized_binary_sizes(Config) when is_list(Config) ->
-    ?line [bsbs_1(A) || A <- lists:seq(0, 7)],
+    ?line [bsbs_1(A) || A <- lists:seq(1, 8)],
     ok.
 
-bsbs_1(0) ->
-    BinSize = 32+8,
-    io:format("A: ~p BinSize: ~p", [0,BinSize]),
-    Bin = binary_to_term(<<131,$M,5:32,0,0,0,0,0,0>>),
-    BinSize = bit_size(Bin);
 bsbs_1(A) ->
     BinSize = 32+A,
     io:format("A: ~p BinSize: ~p", [A,BinSize]),
