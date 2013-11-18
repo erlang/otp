@@ -144,6 +144,9 @@ collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
+collect(fclearerror)         -> {set,[],[],fclearerror};
+collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
+collect({fmove,S,D})         -> {set,[D],[S],fmove};
 collect(_)                   -> error.
 
 %% embed_lines([Instruction]) -> [Instruction]
