@@ -141,6 +141,24 @@ void fini_getenv_state(GETENV_STATE *state)
     erts_smp_rwmtx_runlock(&environ_rwmtx);
 }
 
+int erts_sys_unsetenv(char *key)
+{
+    int res = 0;
+    WCHAR *wkey = (WCHAR *) key;
+
+    SetLastError(0);
+    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    GetEnvironmentVariableW(wkey,
+                            NULL,
+                            0);
+    if (GetLastError() != ERROR_ENVVAR_NOT_FOUND) {
+        res = (SetEnvironmentVariableW(wkey,
+                                       NULL) ? 0 : 1);
+    }
+    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    return res;
+}
+
 char*
 win_build_environment(char* new_env)
 {

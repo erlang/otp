@@ -26,7 +26,7 @@
 
 %%% BIFs
 
--export([getenv/0, getenv/1, getpid/0, putenv/2, timestamp/0]).
+-export([getenv/0, getenv/1, getpid/0, putenv/2, timestamp/0, unsetenv/1]).
 
 -spec getenv() -> [string()].
 
@@ -56,6 +56,12 @@ putenv(_, _) ->
       Timestamp :: erlang:timestamp().
 
 timestamp() ->
+    erlang:nif_error(undef).
+
+-spec unsetenv(VarName) -> true when
+      VarName :: string().
+
+unsetenv(_) ->
     erlang:nif_error(undef).
 
 %%% End of BIFs

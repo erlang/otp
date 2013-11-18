@@ -388,8 +388,12 @@ os_env(Config) when is_list(Config) ->
 	      false -> ?line ok;
 	      BadVal -> ?line ?t:fail(BadVal)
 	  end,
-    %% os:putenv and os:getenv currently uses a temp buf of size 1024
-    %% for storing key+value
+    true = os:putenv(EnvVar1, "mors"),
+    true = os:unsetenv(EnvVar1),
+    false = os:getenv(EnvVar1),
+    true = os:unsetenv(EnvVar1), % unset unset variable
+    %% os:putenv, os:getenv and os:unsetenv currently use a temp
+    %% buffer of size 1024 for storing key+value
     ?line os_env_long(1010, 1030, "hej hopp").
     
 os_env_long(Min, Max, _Value) when Min > Max ->
@@ -398,7 +402,7 @@ os_env_long(Min, Max, Value) ->
     ?line EnvVar = lists:duplicate(Min, $X),
     ?line true = os:putenv(EnvVar, Value),
     ?line Value = os:getenv(EnvVar),
-    ?line true = os:putenv(EnvVar, ""),
+    true = os:unsetenv(EnvVar),
     ?line os_env_long(Min+1, Max, Value).
 
 otp_7526(doc) ->    
