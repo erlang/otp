@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([get_path/1, set_path/1, get_file/1,
+-export([get_path/1, set_path/1, get_file/1, normalize_and_backslash/1,
 	 inet_existing/1, inet_coming_up/1, inet_disconnects/1,
 	 multiple_slaves/1, file_requests/1,
 	 local_archive/1, remote_archive/1,
@@ -39,7 +39,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [get_path, set_path, get_file, inet_existing,
+    [get_path, set_path, get_file,
+     normalize_and_backslash, inet_existing,
      inet_coming_up, inet_disconnects, multiple_slaves,
      file_requests, local_archive, remote_archive,
      primary_archive, virtual_dir_in_archive].
@@ -105,6 +106,26 @@ get_file(Config) when is_list(Config) ->
     ?line error = erl_prim_loader:get_file("duuuuuuummmy_file"),
     ?line error = erl_prim_loader:get_file(duuuuuuummmy_file),
     ?line error = erl_prim_loader:get_file({dummy}),
+    ok.
+
+normalize_and_backslash(Config) ->
+    %% Test OTP-11170
+    case os:type() of
+	{win32,_} ->
+	    {skip, "not on windows"};
+	_ ->
+	    test_normalize_and_backslash(Config)
+    end.
+test_normalize_and_backslash(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Dir = filename:join(PrivDir,"\\"),
+    File = filename:join(Dir,"file-OTP-11170"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(File,"a file to test OTP-11170"),
+    {ok,["file-OTP-11170"]} = file:list_dir(Dir),
+    {ok,["file-OTP-11170"]} = erl_prim_loader:list_dir(Dir),
+    ok = file:delete(File),
+    ok = file:del_dir(Dir),
     ok.
 
 inet_existing(doc) -> ["Start a node using the 'inet' loading method, ",
