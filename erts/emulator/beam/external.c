@@ -2970,7 +2970,7 @@ dec_term_atom_common:
 		n = get_int32(ep);
 		ep += 4;
 	    
-		if (n <= ERL_ONHEAP_BIN_LIMIT) {
+		if ((unsigned)n <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
 		    hb->thing_word = header_heap_bin(n);
@@ -3010,7 +3010,7 @@ dec_term_atom_common:
                 if (((bitsize==0) != (n==0)) || bitsize > 8)
                     goto error;
                 ep += 5;
-		if (n <= ERL_ONHEAP_BIN_LIMIT) {
+		if ((unsigned)n <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
 		    hb->thing_word = header_heap_bin(n);
