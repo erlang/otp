@@ -1129,10 +1129,14 @@ handle_msg({Ref,timeout},
     ct_gen_conn:return(Caller,{error,{hello_session_failed,timeout}}),
     {stop,State#state{hello_status={error,timeout}}};
 handle_msg({Ref,timeout},#state{pending=Pending} = State) ->
-    {value,#pending{caller=Caller},Pending1} =
+    {value,#pending{op=Op,caller=Caller},Pending1} =
 	lists:keytake(Ref,#pending.ref,Pending),
     ct_gen_conn:return(Caller,{error,timeout}),
-    {noreply,State#state{pending=Pending1}}.
+    R = case Op of
+	    close_session -> stop;
+	    _ -> noreply
+	end,
+    {R,State#state{pending=Pending1}}.
 
 %% @private
 %% Called by ct_util_server to close registered connections before terminate.
