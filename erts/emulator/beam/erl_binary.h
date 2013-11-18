@@ -225,7 +225,7 @@ erts_free_aligned_binary_bytes(byte* buf)
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
 ** in this code. Do we dare remove this in some major release (R14?) maybe?
 */
-#ifdef DEBUG
+#if defined(DEBUG) || defined(VALGRIND)
 #  define CHICKEN_PAD 0
 #else
 #  define CHICKEN_PAD (sizeof(void*) - 1)

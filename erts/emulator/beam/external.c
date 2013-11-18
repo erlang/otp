@@ -3007,7 +3007,9 @@ dec_term_atom_common:
 
 		n = get_int32(ep);
 		bitsize = ep[4];
-		ep += 5;
+                if (((bitsize==0) != (n==0)) || bitsize > 8)
+                    goto error;
+                ep += 5;
 		if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
@@ -3035,10 +3037,10 @@ dec_term_atom_common:
 		    hp += PROC_BIN_SIZE;
 		}
 		ep += n;
-		if (bitsize == 0) {
+		if (bitsize == 8 || n == 0) {
 		    *objp = bin;
 		} else {
-		    sb = (ErlSubBin *) hp;
+                    sb = (ErlSubBin *)hp;
 		    sb->thing_word = HEADER_SUB_BIN;
 		    sb->orig = bin;
 		    sb->size = n - 1;
