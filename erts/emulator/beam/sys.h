@@ -750,6 +750,8 @@ int erts_sys_getenv(char *key, char *value, size_t *size);
 int erts_sys_getenv_raw(char *key, char *value, size_t *size);
 /* erts_sys_getenv__() is only allowed to be used in early init phase */
 int erts_sys_getenv__(char *key, char *value, size_t *size);
+/* erst_sys_unsetenv() returns 0 on success and a value != 0 on failure. */
+int erts_sys_unsetenv(char *key);
 
 /* Easier to use, but not as efficient, environment functions */
 char *erts_read_env(char *key);
