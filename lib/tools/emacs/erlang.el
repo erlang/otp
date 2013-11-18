@@ -620,7 +620,6 @@ resulting regexp is surrounded by \\_< and \\_>."
       "if"
       "let"
       "of"
-      "query"
       "receive"
       "try"
       "when")
@@ -2608,7 +2607,7 @@ Value is list (stack token-start token-type in-what)."
 			 (erlang-skip-blank to)))
 		   (eq (following-char) ?\())
 		 (erlang-push (list 'fun token (current-column)) stack)))
-	    ((looking-at "\\(begin\\|query\\)[^_a-zA-Z0-9]")
+	    ((looking-at "\\(begin\\)[^_a-zA-Z0-9]")
 	     (erlang-push (list 'begin token (current-column)) stack))
 	    ;; Normal when case
 	    ;;((looking-at "when\\s ")
@@ -3118,7 +3117,7 @@ This assumes that the preceding expression is either simple
 
 (defun erlang-at-keyword ()
   "Are we looking at an Erlang keyword which will increase indentation?"
-  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|query\\|"
+  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|"
 		      "of\\|receive\\|after\\|catch\\|try\\)[^_a-zA-Z0-9]")))
 
 (defun erlang-at-operator ()
