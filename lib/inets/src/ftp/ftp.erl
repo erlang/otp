@@ -39,7 +39,8 @@
 	 send_chunk_start/2, send_chunk/2, send_chunk_end/1, 
 	 type/2, user/3, user/4, account/2,
 	 append/3, append/2, append_bin/3,
-	 append_chunk/2, append_chunk_end/1, append_chunk_start/2, info/1]).
+	 append_chunk/2, append_chunk_end/1, append_chunk_start/2, 
+	 info/1, latest_ctrl_response/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, 
@@ -84,6 +85,7 @@
 	  %% and hence the end of the response is reached!
 	  ctrl_data = {<<>>, [], start},  % {binary(), [bytes()], LineStatus}
 	  %% pid() - Client pid (note not the same as "From")
+	  latest_ctrl_response = "",
 	  owner = undefined,   
 	  client = undefined,  % "From" to be used in gen_server:reply/2
 	  %% Function that activated a connection and maybe some
@@ -753,6 +755,18 @@ info(Pid) ->
     call(Pid, info, list).
 
 
+%%--------------------------------------------------------------------------
+%% latest_ctrl_response(Pid) -> string()
+%%	Pid = pid()
+%%
+%% Description:  The latest received response from the server
+%%--------------------------------------------------------------------------
+
+-spec latest_ctrl_response(Pid :: pid()) -> string().
+
+latest_ctrl_response(Pid) ->
+    call(Pid, latest_ctrl_response, string).
+
 %%%========================================================================
 %%% Behavior callbacks
 %%%========================================================================
@@ -1045,6 +1059,9 @@ handle_call({_, info}, _, #state{verbose  = Verbose,
 	       {timeout,    Timeout}, 
 	       {progress,   Progress}],
     {reply, {ok, Options}, State};
+
+handle_call({_,latest_ctrl_response}, _, #state{latest_ctrl_response=Resp} = State) ->
+    {reply, {ok,Resp}, State};
 
 %% But everything else must come from the owner
 handle_call({Pid, _}, _, #state{owner = Owner} = State) when Owner =/= Pid ->
@@ -1398,13 +1415,15 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 		    gen_server:reply(From, string:tokens(Lines, [?CR, ?LF])),
 		    {noreply, State#state{client = undefined, 
 					  caller = undefined,
+					  latest_ctrl_response = Lines,
 					  ctrl_data = {NextMsgData, [], 
 						       start}}};
 		_ ->
 		    ?DBG('   ...handle_ctrl_result(~p,...) ctrl_data=~p~n',[CtrlResult,{NextMsgData, [], start}]),
 		    handle_ctrl_result(CtrlResult,
-				       State#state{ctrl_data = 
-						   {NextMsgData, [], start}})
+				       State#state{latest_ctrl_response = Lines,
+						   ctrl_data = 
+						       {NextMsgData, [], start}})
 	    end;
 	{continue, NewCtrlData} ->
 	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
@@ -2167,7 +2186,7 @@ send_ctrl_message(_S=#state{csock = Socket, verbose = Verbose}, Message) ->
     send_message(Socket, Message).
 
 send_data_message(_S=#state{dsock = Socket}, Message) ->
-    ?DBG('<==data ~p ==== ~s~p~n',[Socket,Message,_S]),
+    ?DBG('<==data ~p ==== ~s~n~p~n',[Socket,Message,_S]),
     case send_message(Socket, Message) of
 	ok ->
 	    ok;

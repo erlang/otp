@@ -106,15 +106,16 @@ ftp_tests()->
 %%%			                 %       if the server is running. [] if not running.
 %%%			                 %       The string in string() is suitable for logging.
 %%%			   StopCommand,  % fun(start_result()) -> void(). The command to stop the daemon with.
-%%%			   Host,         % string(). Mostly "localhost"
-%%%			   Port         % pos_integer()
+%%%			   AugmentFun,   % fun(config()) -> config() Adds two funs for transforming names of files
+%%%			                 %       and directories to the form they are returned from this server
+%%%			   ServerHost,   % string(). Mostly "localhost"
+%%%			   ServerPort    % pos_integer()
 %%%			  }
 %%%			  
 
 -define(default_ftp_servers,
 	[{"vsftpd",
 	  fun(__CONF__) -> 
-%%		  make_config_file(vsftpd, Conf),
 		  DataDir = ?config(data_dir,__CONF__),
 		  ConfFile = filename:join(DataDir, "vsftpd.conf"),
 		  AnonRoot = ?config(priv_dir,__CONF__),
@@ -208,7 +209,18 @@ init_per_testcase(Case, Config0) ->
     
 end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
-end_per_testcase(_Case, Config) -> ftp__close(Config).
+end_per_testcase(_Case, Config) -> 
+    case ?config(tc_status,Config) of
+	ok -> ok;
+	_ ->
+	    try ftp:latest_ctrl_response(?config(ftp,Config))
+	    of
+		{ok,S} -> ct:log("***~n*** Latest ctrl channel response:~n***     ~p~n***",[S])
+	    catch
+		_:_ -> ok
+	    end
+    end,
+    ftp__close(Config).
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -235,7 +247,6 @@ pwd(Config0) ->
     Pid = ?config(ftp, Config),
     {ok, PWD} = ftp:pwd(Pid),
     {ok, PathLpwd} = ftp:lpwd(Pid),
-    ct:log("PWD=~p~nPathLpwd=~p",[PWD,PathLpwd]),
     PWD = id2ftp_result("", Config),
     PathLpwd = id2ftp_result("", Config).
 
@@ -249,7 +260,6 @@ cd(Config0) ->
     ok = ftp:cd(Pid, id2ftp(Dir,Config)),
     {ok, PWD} = ftp:pwd(Pid),
     ExpectedPWD = id2ftp_result(Dir, Config),
-    ct:log("PWD=~p~nExpectedPWD=~p",[PWD,ExpectedPWD]),
     PWD = ExpectedPWD,
     {error, epath} = ftp:cd(Pid, ?BAD_DIR).
 
@@ -263,7 +273,6 @@ lcd(Config0) ->
     ok = ftp:lcd(Pid, id2ftp(Dir,Config)),
     {ok, PWD} = ftp:lpwd(Pid),
     ExpectedPWD = id2ftp_result(Dir, Config),
-    ct:log("PWD=~p~nExpectedPWD=~p",[PWD,ExpectedPWD]),
     PWD = ExpectedPWD,
     {error, epath} = ftp:lcd(Pid, ?BAD_DIR).
 
@@ -497,7 +506,6 @@ recv_chunk(Config0) ->
     {{error, "ftp:recv_chunk_start/2 not called"},_} = recv_chunk(Pid, <<>>),
     ok = ftp:recv_chunk_start(Pid, id2ftp(File,Config)),
     {ok, ReceivedContents, Nchunks} = recv_chunk(Pid, <<>>),
-    ct:log("Received ~p chunks",[Nchunks]),
     find_diff(ReceivedContents, Contents).
 
 recv_chunk(Pid, Acc) -> recv_chunk(Pid, Acc, 0).
@@ -582,7 +590,6 @@ chk_file(Path=[C|_], ExpectedContents, Config) when 0<C,C=<255 ->
 chk_file(PathList, ExpectedContents, Config) ->
     Path = filename:join(PathList),
     AbsPath = id2abs(Path,Config),
-ct:log("chk_file/3 dbg: PathList=~p, Path=~p~nAbsPath=~p",[PathList,Path,AbsPath]),
     case file:read_file(AbsPath) of
 	{ok,ExpectedContents} -> 
 	    true;
@@ -675,7 +682,6 @@ start_ftpd(Config) ->
     {Name,StartCmd,ChkUp,_StopCommand,ConfigRewrite,Host,Port} = ?config(ftpd_data, Config),
     case StartCmd(Config) of
 	{ok,StartResult} ->
-	    ct:log( ChkUp(StartResult) ),
 	    [{ftpd_host,Host},
 	     {ftpd_port,Port},
 	     {ftpd_start_result,StartResult} | ConfigRewrite(Config)];
@@ -730,33 +736,6 @@ find_diff(<<H,T1/binary>>, <<H,T2/binary>>, Pos) -> find_diff(T1, T2, Pos+1);
 find_diff(RC, LC, Pos) -> {error, {diff, Pos, RC, LC}}.
 %%--------------------------------------------------------------------
 %%
-make_config_file(vsftpd, Config) ->
-    ct:log("Config=~p",[Config]),
-    DstFileName = filename:join(?config(data_dir,Config), "vsftpd.conf"),
-    ct:log("DstFileName=~p",[DstFileName]),
-    SrcFileName = DstFileName ++ ".src",
-    ct:log("SrcFileName=~p",[SrcFileName]),
-    Chroot = ?config(priv_dir,Config),
-    ct:log("Chroot=~p",[Chroot]),
-    {ok,SrcContents} = file:read_file(SrcFileName),
-    ct:log("SrcContents=~p",[SrcContents]),
-    SFN = list_to_binary(SrcFileName),
-    CHR = list_to_binary(Chroot),
-    DstContents = 
-	<<"## Generated, do not edit!\n",
-	  "## Source: ",SFN/binary,"\n",
-	  "\n",
-	  "chroot_local_user=YES\n",
-	  "passwd_chroot_enable=",CHR/binary,"\n",
-	  "\n",
-	  SrcContents/binary
-	>>,
-    ct:log("DstContents=~p",[DstContents]),
-    file:write_file(DstFileName, DstContents).
-    
-
-%%--------------------------------------------------------------------
-%%
 set_state(Ops, Config) when is_list(Ops) -> lists:foldl(fun set_state/2, Config, Ops);
 
 set_state(reset, Config) -> 
@@ -779,7 +758,6 @@ set_state({mkfile,Id,Contents}, Config) ->
 mk_path(Abs) -> lists:foldl(fun mk_path/2, [], filename:split(filename:dirname(Abs))).
 
 mk_path(F, Pfx) ->
-io:format('~p~n',[filename:join(Pfx,F)]),    
     case file:read_file_info(AbsName=filename:join(Pfx,F)) of
 	{ok,#file_info{type=directory}} ->
 	    AbsName;
@@ -793,10 +771,8 @@ io:format('~p~n',[filename:join(Pfx,F)]),
 
 rm('*', Pfx) ->
     {ok,Fs} = file:list_dir(Pfx),
-    ct:log("Deleting ~p with prefix=~p",[Fs,Pfx]),
     lists:foreach(fun(F) -> rm(F, Pfx) end, Fs);
 rm(F, Pfx) -> 
-    ct:log("rm ~p in ~p",[F,Pfx]),    
     case file:read_file_info(AbsName=filename:join(Pfx,F)) of
 	{ok,#file_info{type=directory}} ->
 	    {ok,Fs} = file:list_dir(AbsName),
