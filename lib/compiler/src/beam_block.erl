@@ -123,6 +123,11 @@ is_last_bool([], _) -> false.
 collect_block(Is) ->
     collect_block(Is, []).
 
+collect_block([{allocate,N,R}|Is0], Acc) ->
+    {Inits,Is} = lists:splitwith(fun ({init,{y,_}}) -> true;
+                                     (_) -> false
+                                 end, Is0),
+    collect_block(Is, [{set,[],[],{alloc,R,{nozero,N,0,Inits}}}|Acc]);
 collect_block([{allocate_zero,Ns,R},{test_heap,Nh,R}|Is], Acc) ->
     collect_block(Is, [{set,[],[],{alloc,R,{zero,Ns,Nh,[]}}}|Acc]);
 collect_block([I|Is]=Is0, Acc) ->
@@ -131,7 +136,11 @@ collect_block([I|Is]=Is0, Acc) ->
 	Instr -> collect_block(Is, [Instr|Acc])
     end.
 
+collect({allocate,N,R})      -> {set,[],[],{alloc,R,{nozero,N,0,[]}}};
 collect({allocate_zero,N,R}) -> {set,[],[],{alloc,R,{zero,N,0,[]}}};
+collect({allocate_heap,Ns,Nh,R}) -> {set,[],[],{alloc,R,{nozero,Ns,Nh,[]}}};
+collect({allocate_heap_zero,Ns,Nh,R}) -> {set,[],[],{alloc,R,{zero,Ns,Nh,[]}}};
+collect({init,D})            -> {set,[D],[],init};
 collect({test_heap,N,R})     -> {set,[],[],{alloc,R,{nozero,nostack,N,[]}}};
 collect({bif,N,F,As,D})      -> {set,[D],As,{bif,N,F}};
 collect({gc_bif,N,F,R,As,D}) -> {set,[D],As,{alloc,R,{gc_bif,N,F}}};
