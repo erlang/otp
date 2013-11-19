@@ -569,7 +569,8 @@
           (without the inets service framework) and 
           open a session with the FTP server at <c>Host</c>. </p>
 
-	<p>If the option <c>{tls, tls_options()}</c> is present, the ftp session will be transported over tls (ftps, see RFC 4217). The list <c>tls_options()</c> may be empty. The function <seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> is used for securing both the control connection and the data sessions.
+	<p>If the option <c>{tls, tls_options()}</c> is present, the ftp session will be transported over tls (ftps, see 
+<url href="http://www.ietf.org/rfc/rfc4217.txt">RFC 4217</url>). The list <c>tls_options()</c> may be empty. The function <seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> is used for securing both the control connection and the data sessions.
 	</p>
 
         <p>A session opened in this way, is closed using the 
@@ -817,8 +818,7 @@
         <p>Sets the file transfer type to <c>ascii</c> or <c>binary</c>. When
           an ftp session is opened, the default transfer type of the
           server is used, most often <c>ascii</c>, which is the default
-          according to RFC 959.</p>
-
+          according to <url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>.</p>
        <marker id="user3"></marker>
       </desc>
     </func>
@@ -945,7 +945,7 @@
   <section>
     <title>SEE ALSO</title>
     <p>file, filename, J. Postel and J. Reynolds: File Transfer Protocol
-      (RFC 959).
+      (<url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>).
       </p>
   </section>
   
