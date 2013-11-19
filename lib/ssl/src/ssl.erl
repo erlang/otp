@@ -140,7 +140,8 @@ listen(_Port, []) ->
 listen(Port, Options0) ->
     try
 	{ok, Config} = handle_options(Options0, server),
-	#config{transport_info = {Transport, _, _, _}, inet_user = Options} = Config,
+	ConnectionCb = connection_cb(Options0),
+	#config{transport_info = {Transport, _, _, _}, inet_user = Options, connection_cb = ConnectionCb} = Config,
 	case Transport:listen(Port, Options) of
 	    {ok, ListenSocket} ->
 		{ok, #sslsocket{pid = {ListenSocket, Config}}};
@@ -163,7 +164,9 @@ transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
 transport_accept(#sslsocket{pid = {ListenSocket,
-				   #config{transport_info = CbInfo, ssl = SslOpts}}}, Timeout) ->
+				   #config{transport_info = CbInfo,
+					   connection_cb = ConnectionCb,
+					   ssl = SslOpts}}}, Timeout) ->
     %% The setopt could have been invoked on the listen socket
     %% and options should be inherited.
     EmOptions = emulated_options(),
@@ -176,9 +179,10 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
 	    ConnArgs = [server, "localhost", Port, Socket,
 			{SslOpts, socket_options(SocketValues)}, self(), CbInfo],
-	    case ssl_connection_sup:start_child(ConnArgs) of
+	    ConnectionSup = connection_sup(ConnectionCb),
+	    case ConnectionSup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    tls_connection:socket_control(Socket, Pid, Transport);
+		    ConnectionCb:socket_control(Socket, Pid, Transport);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -211,13 +215,14 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
+    ConnetionCb = connection_cb(SslOptions),
     try handle_options(SslOptions ++ SocketValues, server) of
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
 	    ok = ssl_socket:setopts(Transport, Socket, internal_inet_values()),
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
-	    tls_connection:ssl_accept(Port, Socket,
-				      {SslOpts, EmOpts},
-				      self(), CbInfo, Timeout)
+	    ConnetionCb:ssl_accept(Port, Socket,
+				   {SslOpts, EmOpts},
+				   self(), CbInfo, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end.
@@ -654,13 +659,8 @@ handle_options(Opts0, _Role) ->
 			   end, Opts, SslOptions),
 
     {SSLsock, Emulated} = emulated_options(SockOpts),
+    ConnetionCb = connection_cb(Opts),
 
-    ConnetionCb = case proplists:get_value(protocol, Opts, tls) of
-		      tls ->
-			  tls_connection;
-		      dtls ->
-			  dtls_connection
-		  end,
     {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = SSLsock,
 		 inet_user = SockOpts, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
@@ -1020,3 +1020,15 @@ make_next_protocol_selector({server, AllProtocols, DefaultProtocol}) ->
 		    PreferredProtocol
 	    end
     end.
+
+connection_cb(tls) ->
+    tls_connection;
+connection_cb(dtls) ->
+    dtls_connection;
+connection_cb(Opts) ->
+   connection_cb(proplists:get_value(protocol, Opts, tls)).
+
+connection_sup(tls_connection) ->
+    tls_connection_sup;
+connection_sup(dtls_connection) ->
+    dtls_connection_sup.

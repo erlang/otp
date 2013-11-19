@@ -56,7 +56,8 @@ MODULES= \
 	tls_connection \
 	dtls_connection \
 	ssl_connection \
-	ssl_connection_sup \
+	tls_connection_sup \
+	dtls_connection_sup \
 	tls_handshake \
 	dtls_handshake\
 	ssl_handshake\

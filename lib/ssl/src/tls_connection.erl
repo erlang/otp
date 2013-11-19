@@ -49,7 +49,7 @@
 	 register_session/4
 	]).
 
-%% Called by ssl_connection_sup
+%% Called by tls_connection_sup
 -export([start_link/7]). 
 
 %% gen_fsm callbacks
@@ -263,7 +263,7 @@ send_change_cipher(Msg, #state{connection_states = ConnectionStates0,
     State0#state{connection_states = ConnectionStates}.
 
 %%====================================================================
-%% ssl_connection_sup API
+%% tls_connection_sup API
 %%====================================================================
 
 %%--------------------------------------------------------------------
@@ -777,7 +777,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_} = Opts,
 	  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
     try 
-	{ok, Pid} = ssl_connection_sup:start_child([Role, Host, Port, Socket, 
+	{ok, Pid} = tls_connection_sup:start_child([Role, Host, Port, Socket, 
 						    Opts, User, CbInfo]), 
 	{ok, SslSocket} = socket_control(Socket, Pid, CbModule),
 	ok = handshake(SslSocket, Timeout),
@@ -791,7 +791,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_} = Opts,
 	  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
     try 
-	{ok, Pid} = ssl_connection_sup:start_child_dist([Role, Host, Port, Socket, 
+	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Host, Port, Socket, 
 							 Opts, User, CbInfo]), 
 	{ok, SslSocket} = socket_control(Socket, Pid, CbModule),
 	ok = handshake(SslSocket, Timeout),
