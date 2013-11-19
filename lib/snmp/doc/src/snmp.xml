@@ -341,8 +341,9 @@
 
     <func>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Block | Stop) -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop, Block) -> ok | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -352,53 +353,56 @@
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Block = boolean()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Converts an Audit Trail Log to a readable text file, where
-          each item has a trailing TAB character, and any TAB
-          character in the body of an item has been replaced by ESC
-          TAB.
-          </p>
+	<p>Converts an Audit Trail Log to a readable text file, where
+	each item has a trailing TAB character, and any TAB
+	character in the body of an item has been replaced by ESC
+	TAB. </p>
         <p>The function can be used on a running system, or by copying
-          the entire log directory and calling this function. SNMP
-          must be running in order to provide MIB information.
-          </p>
+	the entire log directory and calling this function. SNMP
+	must be running in order to provide MIB information. </p>
         <p><c>LogDir</c> is the name of the directory where the audit
-          trail log is stored. 
-          <c>Mibs</c> is a list of Mibs to be used. The function uses 
-          the information in the Mibs to convert for example object 
-          identifiers to their symbolic name. 
-          <c>OutFile</c> is the name of the generated text-file.
-          <c>LogName</c> is the name of the log, 
-          <c>LogFile</c> is the name of the log file. 
-          <c>Start</c> is the start (first) date and time from which 
-          log events will be converted and 
-          <c>Stop</c> is the stop (last) date and time to which log 
-          events will be converted.
-          </p>
-        <p>The format of an audit trail log text item is as follows:
-          </p>
-        <p><c>Tag Addr - Community [TimeStamp] Vsn</c><br></br>
-          <c>PDU</c></p>
-        <p>where <c>Tag</c> is <c>request</c>, <c>response</c>, 
-          <c>report</c>, <c>trap</c> or <c>inform</c>; Addr is 
-          <c>IP:Port</c> (or comma space separated list of such);
-          <c>Community</c> is the community parameter (SNMP version
-          v1 and v2), or <c>SecLevel:"AuthEngineID":"UserName"</c>
-          (SNMP v3); <c>TimeStamp</c> is a date and time stamp,
-          and <c>Vsn</c> is the SNMP version. <c>PDU</c> is a textual
-          version of the protocol data unit. There is a new line
-          between <c>Vsn</c> and <c>PDU</c>.</p>
-
+	trail log is stored. 
+	<c>Mibs</c> is a list of Mibs to be used. The function uses 
+	the information in the Mibs to convert for example object 
+	identifiers to their symbolic name. 
+	<c>OutFile</c> is the name of the generated text-file.
+	<c>LogName</c> is the name of the log, 
+	<c>LogFile</c> is the name of the log file. 
+	<c>Start</c> is the start (first) date and time from which 
+	log events will be converted and 
+	<c>Stop</c> is the stop (last) date and time to which log 
+	events will be converted.
+	The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. 
+	</p>
+	<p>The format of an audit trail log text item is as follows: </p>
+	<p><c>Tag Addr - Community [TimeStamp] Vsn</c><br></br>
+	<c>PDU</c></p>
+	<p>where <c>Tag</c> is <c>request</c>, <c>response</c>, 
+	<c>report</c>, <c>trap</c> or <c>inform</c>; Addr is 
+	<c>IP:Port</c> (or comma space separated list of such);
+	<c>Community</c> is the community parameter (SNMP version
+	v1 and v2), or <c>SecLevel:"AuthEngineID":"UserName"</c>
+	(SNMP v3); <c>TimeStamp</c> is a date and time stamp,
+	and <c>Vsn</c> is the SNMP version. <c>PDU</c> is a textual
+	version of the protocol data unit. There is a new line
+	between <c>Vsn</c> and <c>PDU</c>.</p>
+	
         <marker id="log_to_io"></marker>
       </desc>
     </func>
 
     <func>
       <name>log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>

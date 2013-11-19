@@ -1223,7 +1223,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
-        <v>Block = block()</v>
+        <v>Block = boolean()</v>
         <v>OutFile = string()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
@@ -1237,10 +1237,10 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<c>OutFile</c> defaults to "./snmpm_log.txt". 
 	<c>LogName</c> defaults to "snmpm_log". 
 	<c>LogFile</c> defaults to "snmpm.log". 
-	<p>The <c>Block</c> option indicates if the log should be blocked
+	<p>The <c>Block</c> argument indicates if the log should be blocked
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
-	Defaults to <c>false</c>. </p>
+	Defaults to <c>true</c>. </p>
 	See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
 	for more info.</p>
 
@@ -1263,7 +1263,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
-        <v>Block = block()</v>
+        <v>Block = boolean()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
@@ -1276,6 +1276,10 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	prints it on stdio. 
 	<c>LogName</c> defaults to "snmpm_log". 
 	<c>LogFile</c> defaults to "snmpm.log". 
+	<p>The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
 	See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
 	for more info.</p>
 

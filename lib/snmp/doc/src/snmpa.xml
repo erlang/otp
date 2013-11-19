@@ -570,7 +570,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
-        <v>Block = block()</v>
+        <v>Block = boolean()</v>
         <v>OutFile = string()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
@@ -587,7 +587,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	<p>The <c>Block</c> option indicates if the log should be blocked
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
-	Defaults to <c>false</c>. </p>
+	Defaults to <c>true</c>. </p>
 	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
 	for more info.</p>
 
@@ -609,7 +609,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
-        <v>Block = block()</v>
+        <v>Block = boolean()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
@@ -625,7 +625,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	<p>The <c>Block</c> option indicates if the log should be blocked
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
-	Defaults to <c>false</c>. </p>
+	Defaults to <c>true</c>. </p>
 	See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
 	for more info.</p>
 

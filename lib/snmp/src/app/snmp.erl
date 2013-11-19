@@ -172,6 +172,7 @@
  
 
 -define(APPLICATION, snmp).
+-define(ATL_BLOCK_DEFAULT, true).
 
 -include_lib("snmp/include/snmp_types.hrl").
 
@@ -904,7 +905,7 @@ read_mib(FileName) ->
 %%%-----------------------------------------------------------------
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     Start = null, 
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
@@ -915,7 +916,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
@@ -924,7 +925,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
@@ -933,7 +934,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
 
 
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     Start = null, 
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
@@ -944,7 +945,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Block)
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
@@ -953,7 +954,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 

@@ -124,6 +124,7 @@
 -include("snmp_verbosity.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
+-define(ATL_BLOCK_DEFAULT,  true).
 
 
 %%-----------------------------------------------------------------
@@ -807,7 +808,7 @@ log_to_txt(LogDir, Block)
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs) ->
-    Block   = false, 
+    Block   = ?ATL_BLOCK_DEFAULT, 
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
@@ -829,7 +830,7 @@ log_to_txt(LogDir, Mibs, Block)
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile) ->
-    Block   = false, 
+    Block   = ?ATL_BLOCK_DEFAULT, 
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
@@ -851,7 +852,7 @@ log_to_txt(LogDir, Mibs, OutFile, Block)
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block); 
 log_to_txt(LogDir, Mibs, OutFile, LogName) ->
-    Block   = false, 
+    Block   = ?ATL_BLOCK_DEFAULT, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
@@ -873,7 +874,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, Block)
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -spec log_to_txt(LogDir  :: snmp:dir(), 
@@ -895,7 +896,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
 
 -spec log_to_txt(LogDir  :: snmp:dir(), 
@@ -919,7 +920,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 -spec log_to_txt(LogDir  :: snmp:dir(), 
@@ -956,7 +957,7 @@ log_to_io(LogDir, Mibs, Block)
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName) ->
-    Block   = false, 
+    Block   = ?ATL_BLOCK_DEFAULT, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
@@ -965,21 +966,21 @@ log_to_io(LogDir, Mibs, LogName, Block)
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start); 
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    Block = false, 
+    Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
