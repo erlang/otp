@@ -569,7 +569,7 @@
           (without the inets service framework) and 
           open a session with the FTP server at <c>Host</c>. </p>
 
-	<p>If the option <c>{tls, tls_options()}</c> is present, the ftp session will be transported over tls (ftps, see RFC 4217). The list <c>tls_options()</c> may be empty. The function <seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> is used for establishing both the control connection and the data sessions.
+	<p>If the option <c>{tls, tls_options()}</c> is present, the ftp session will be transported over tls (ftps, see RFC 4217). The list <c>tls_options()</c> may be empty. The function <seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> is used for securing both the control connection and the data sessions.
 	</p>
 
         <p>A session opened in this way, is closed using the 
