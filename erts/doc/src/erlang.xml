@@ -4707,8 +4707,8 @@ true</pre>
       <name name="statistics" arity="1" clause_i="6"/>
       <fsummary>Information about the run-queue</fsummary>
       <desc>
-        <p>Returns the length of the run queue, that is, the number
-          of processes that are ready to run.</p>
+        <p>Returns the total length of the run queues, that is, the number
+          of processes that are ready to run on all available run queues.</p>
       </desc>
     </func>
     <func>
