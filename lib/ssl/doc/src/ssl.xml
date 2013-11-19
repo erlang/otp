@@ -70,7 +70,7 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>.
     </p>
     
-    <p> <c>ssloption() = {verify, verify_type()} |
+    <p><marker id="type-ssloption"></marker><c>ssloption() = {verify, verify_type()} |
       {verify_fun, {fun(), term()}} |
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
