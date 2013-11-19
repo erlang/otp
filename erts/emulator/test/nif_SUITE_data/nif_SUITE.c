@@ -1536,6 +1536,63 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 }
 #endif
 
+/* maps */
+static ERL_NIF_TERM maps_from_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM cell = argv[0];
+    ERL_NIF_TERM map  = enif_make_new_map(env);
+    ERL_NIF_TERM tuple;
+    const ERL_NIF_TERM *pair;
+    int arity = -1;
+
+    if (argc != 1 && !enif_is_list(env, cell)) return enif_make_badarg(env);
+
+    /* assume sorted keys */
+
+    while (!enif_is_empty_list(env,cell)) {
+	if (!enif_get_list_cell(env, cell, &tuple, &cell)) return enif_make_badarg(env);
+	if (enif_get_tuple(env,tuple,&arity,&pair)) {
+	    enif_make_map_put(env, map, pair[0], pair[1], &map);
+	}
+    }
+
+    return map;
+}
+
+static ERL_NIF_TERM sorted_list_from_maps(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+
+    ERL_NIF_TERM map = argv[0];
+    ERL_NIF_TERM list_f = enif_make_list(env, 0); /* NIL */
+    ERL_NIF_TERM list_b = enif_make_list(env, 0); /* NIL */
+    ERL_NIF_TERM key, value;
+    ErlNifMapIterator iter;
+
+    if (argc != 1 && !enif_is_map(env, map))
+	return enif_make_badarg(env);
+
+    if(!enif_map_iterator_create(env, map, &iter, ERL_NIF_MAP_ITERATOR_HEAD))
+	return enif_make_badarg(env);
+
+    while(enif_map_iterator_get_pair(env,&iter,&key,&value)) {
+	list_f = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_f);
+	enif_map_iterator_next(env,&iter);
+    }
+
+    enif_map_iterator_destroy(env, &iter);
+
+    if(!enif_map_iterator_create(env, map, &iter, ERL_NIF_MAP_ITERATOR_TAIL))
+	return enif_make_badarg(env);
+
+    while(enif_map_iterator_get_pair(env,&iter,&key,&value)) {
+	list_b = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_b);
+	enif_map_iterator_prev(env,&iter);
+    }
+
+    enif_map_iterator_destroy(env, &iter);
+
+    return enif_make_tuple2(env, list_f, list_b);
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -1589,6 +1646,8 @@ static ErlNifFunc nif_funcs[] =
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
     {"call_dirty_nif", 3, call_dirty_nif},
 #endif
+    {"maps_from_list", 1, maps_from_list},
+    {"sorted_list_from_maps", 1, sorted_list_from_maps}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

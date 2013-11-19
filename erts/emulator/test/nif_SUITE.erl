@@ -29,7 +29,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, 
 	 end_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
-	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, 
+	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
+	 maps/1,
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, 
 	 resource_takeover/1,
@@ -58,7 +59,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, reload, upgrade, heap_frag, types, many_args,
-     binaries, get_string, get_atom, api_macros, from_array,
+     binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
@@ -435,6 +436,21 @@ get_atom(Config) when is_list(Config) ->
     ?line {0, <<>>} = atom_to_bin('',0),
     ok.
 
+maps(doc) -> ["Test NIF maps handling."];
+maps(suite) -> [];
+maps(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+    Pairs = [{adam, "bert"}] ++
+            [{I,I}||I <- lists:seq(1,10)] ++
+	    [{a,value},{"a","value"},{<<"a">>,<<"value">>}],
+    ok = ensure_lib_loaded(Config, 1),
+    M  = maps_from_list(Pairs),
+    R = {RIs,Is} = sorted_list_from_maps(M),
+    io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
+    Is = lists:sort(Pairs),
+    Is = lists:reverse(RIs),
+    ok.
+ 
 api_macros(doc) -> ["Test macros enif_make_list<N> and enif_make_tuple<N>"];
 api_macros(suite) -> [];
 api_macros(Config) when is_list(Config) ->
@@ -1487,6 +1503,11 @@ type_sizes() -> ?nif_stub.
 otp_9668_nif(_) -> ?nif_stub.
 consume_timeslice_nif(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
+
+%% maps
+maps_from_list(_) -> ?nif_stub.
+sorted_list_from_maps(_) -> ?nif_stub.
+
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
