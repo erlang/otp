@@ -150,24 +150,8 @@ INETS_ROOT = ../../inets
 MODULES =                 		\
 	inets_test_lib    		\
 	erl_make_certs                  \
-	old_ftp_SUITE                   \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE  		\
-	ftp_solaris8_sparc_test		\
-	ftp_solaris9_sparc_test		\
-	ftp_solaris10_sparc_test	\
-	ftp_solaris10_x86_test		\
-	ftp_linux_x86_test		\
-	ftp_linux_ppc_test		\
-	ftp_macosx_x86_test		\
-	ftp_macosx_ppc_test		\
-	ftp_openbsd_x86_test		\
-	ftp_freebsd_x86_test		\
-	ftp_netbsd_x86_test		\
-	ftp_windows_xp_test		\
-	ftp_windows_2003_server_test	\
-	ftp_suite_lib	  		\
-	ftp_ticket_test			\
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
 	httpc_cookie_SUITE		\
