@@ -759,6 +759,12 @@ live_opt([{allocate,_,Live}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Live), D, [I|Acc]);
 live_opt([{allocate_heap,_,_,Live}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Live), D, [I|Acc]);
+live_opt([{'%',_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{recv_set,_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{recv_mark,_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
 
 live_opt([], _, _, Acc) -> Acc.
 
