@@ -278,6 +278,16 @@ try_it(StartNode, Module, Conf) ->
     ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
     ?line test_server:timetrap_cancel(LastDog),
 
+    AsmDog = test_server:timetrap(test_server:minutes(10)),
+    io:format("Compiling (from assembly): ~s\n", [Src]),
+    {ok,_} = compile:file(Src, [to_asm,{outdir,Out},report|OtherOpts]),
+    Asm = filename:join(Out, lists:concat([Module, ".S"])),
+    CompRc3 = compile:file(Asm, [from_asm,{outdir,Out},report|OtherOpts]),
+    io:format("Result: ~p\n",[CompRc3]),
+    {ok,_} = CompRc3,
+    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    test_server:timetrap_cancel(AsmDog),
+
     case StartNode of
 	false -> ok;
 	true -> ?line test_server:stop_node(Node)
