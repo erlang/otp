@@ -118,12 +118,13 @@ ftp_tests()->
 	  fun(__CONF__) -> 
 		  DataDir = ?config(data_dir,__CONF__),
 		  ConfFile = filename:join(DataDir, "vsftpd.conf"),
-		  AnonRoot = ?config(priv_dir,__CONF__),
+		  PrivDir = ?config(priv_dir,__CONF__),
+		  AnonRoot = PrivDir,
 		  Cmd = ["vsftpd "++filename:join(DataDir,"vsftpd.conf"),
 			 " -oftpd_banner=erlang_otp_testing",
 			 " -oanon_root=\"",AnonRoot,"\"",
-			 " -orsa_cert_file=\"",filename:join(DataDir,"cert.pem"),"\"",
-			 " -orsa_private_key_file=\"",filename:join(DataDir,"key.pem"),"\""
+			 " -orsa_cert_file=\"",filename:join(DataDir,"server-cert.pem"),"\"",
+			 " -orsa_private_key_file=\"",filename:join(DataDir,"server-key.pem"),"\""
 			],
 		  Result = os:cmd(Cmd),
 		  ct:log("Config file:~n~s~n~nServer start command:~n  ~s~nResult:~n  ~p",
@@ -161,6 +162,7 @@ init_per_suite(Config) ->
 	{ok,Data} -> 
 	    TstDir = filename:join(?config(priv_dir,Config), "test"),
 	    file:make_dir(TstDir),
+	    make_cert_files(dsa, rsa, "server-", ?config(data_dir,Config)),
 	    start_ftpd([{test_dir,TstDir},
 			{ftpd_data,Data}
 			| Config])
@@ -505,7 +507,7 @@ recv_chunk(Config0) ->
     Pid = ?config(ftp, Config),
     {{error, "ftp:recv_chunk_start/2 not called"},_} = recv_chunk(Pid, <<>>),
     ok = ftp:recv_chunk_start(Pid, id2ftp(File,Config)),
-    {ok, ReceivedContents, Nchunks} = recv_chunk(Pid, <<>>),
+    {ok, ReceivedContents, _Ncunks} = recv_chunk(Pid, <<>>),
     find_diff(ReceivedContents, Contents).
 
 recv_chunk(Pid, Acc) -> recv_chunk(Pid, Acc, 0).
@@ -584,6 +586,22 @@ ip_v6_disabled(_Config) ->
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
 
+make_cert_files(Alg1, Alg2, Prefix, Dir) ->
+    CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg1}]),
+    {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg2},{issuer,CaInfo}]),
+    CaCertFile = filename:join(Dir, Prefix++"cacerts.pem"),
+    CertFile = filename:join(Dir, Prefix++"cert.pem"),
+    KeyFile = filename:join(Dir, Prefix++"key.pem"),
+    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
+    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
+    der_to_pem(KeyFile, [CertKey]),
+    ok.
+
+der_to_pem(File, Entries) ->
+    PemBin = public_key:pem_encode(Entries),
+    file:write_file(File, PemBin).
+
+%%--------------------------------------------------------------------
 chk_file(Path=[C|_], ExpectedContents, Config) when 0<C,C=<255 ->
     chk_file([Path], ExpectedContents, Config);
 
@@ -679,7 +697,7 @@ not_available({Name,_StartCmd,_ChkUp,_StopCommand,_ConfigUpd,_Host,_Port}) ->
 %% start/stop of ftpd
 %%
 start_ftpd(Config) ->
-    {Name,StartCmd,ChkUp,_StopCommand,ConfigRewrite,Host,Port} = ?config(ftpd_data, Config),
+    {Name,StartCmd,_ChkUp,_StopCommand,ConfigRewrite,Host,Port} = ?config(ftpd_data, Config),
     case StartCmd(Config) of
 	{ok,StartResult} ->
 	    [{ftpd_host,Host},
