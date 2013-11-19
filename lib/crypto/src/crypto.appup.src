@@ -19,10 +19,12 @@
 %%
 {"%VSN%",
  [
+  {<<"3\\..*">>, [{restart_application, crypto}]},
   {<<"2\\..*">>, [{restart_application, crypto}]},
   {<<"1\\..*">>, [{restart_application, crypto}]}
  ],
  [
+  {<<"3\\..*">>, [{restart_application, crypto}]},
   {<<"2\\..*">>, [{restart_application, crypto}]},
   {<<"1\\..*">>, [{restart_application, crypto}]}
  ]}.
