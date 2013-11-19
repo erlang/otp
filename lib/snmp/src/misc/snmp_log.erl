@@ -52,8 +52,9 @@
 -define(VMODULE,"LOG").
 -include("snmp_verbosity.hrl").
 
--define(LOG_FORMAT, internal).
--define(LOG_TYPE,   wrap).
+-define(LOG_FORMAT,    internal).
+-define(LOG_TYPE,      wrap).
+-define(BLOCK_DEFAULT, true). 
 
 -record(snmp_log, {id, seqno}).
 
@@ -400,7 +401,7 @@ do_change_size(Log, NewSize) ->
 
 %% <BACKWARD-COMPAT>
 log_to_txt(Log, FileName, Dir, Mibs, TextFile) ->
-    log_to_txt(Log, false, FileName, Dir, Mibs, TextFile).
+    log_to_txt(Log, ?BLOCK_DEFAULT, FileName, Dir, Mibs, TextFile).
 %% </BACKWARD-COMPAT>
 
 log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile) 
@@ -408,7 +409,7 @@ log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile)
     log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, null, null);
 %% <BACKWARD-COMPAT>
 log_to_txt(Log, FileName, Dir, Mibs, TextFile, Start) ->
-    log_to_txt(Log, false, FileName, Dir, Mibs, TextFile, Start, null).
+    log_to_txt(Log, ?BLOCK_DEFAULT, FileName, Dir, Mibs, TextFile, Start, null).
 %% </BACKWARD-COMPAT>
 
 log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start) 
@@ -416,7 +417,7 @@ log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start)
     log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start, null);
 %% <BACKWARD-COMPAT>
 log_to_txt(Log, FileName, Dir, Mibs, TextFile, Start, Stop) ->
-    log_to_txt(Log, false, FileName, Dir, Mibs, TextFile, Start, Stop).
+    log_to_txt(Log, ?BLOCK_DEFAULT, FileName, Dir, Mibs, TextFile, Start, Stop).
 %% </BACKWARD-COMPAT>
 
 log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start, Stop) 
@@ -443,7 +444,7 @@ log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start, Stop)
 
 %% <BACKWARD-COMPAT>
 log_to_io(Log, FileName, Dir, Mibs) ->
-    log_to_io(Log, false, FileName, Dir, Mibs, null, null).
+    log_to_io(Log, ?BLOCK_DEFAULT, FileName, Dir, Mibs, null, null).
 %% </BACKWARD-COMPAT>
 
 log_to_io(Log, Block, FileName, Dir, Mibs) 
@@ -451,7 +452,7 @@ log_to_io(Log, Block, FileName, Dir, Mibs)
     log_to_io(Log, Block, FileName, Dir, Mibs, null, null); 
 %% <BACKWARD-COMPAT>
 log_to_io(Log, FileName, Dir, Mibs, Start) ->
-    log_to_io(Log, false, FileName, Dir, Mibs, Start, null).
+    log_to_io(Log, ?BLOCK_DEFAULT, FileName, Dir, Mibs, Start, null).
 %% </BACKWARD-COMPAT>
 
 log_to_io(Log, Block, FileName, Dir, Mibs, Start) 
@@ -459,7 +460,7 @@ log_to_io(Log, Block, FileName, Dir, Mibs, Start)
     log_to_io(Log, Block, FileName, Dir, Mibs, Start, null); 
 %% <BACKWARD-COMPAT>
 log_to_io(Log, FileName, Dir, Mibs, Start, Stop) ->
-    log_to_io(Log, false, FileName, Dir, Mibs, Start, Stop).
+    log_to_io(Log, ?BLOCK_DEFAULT, FileName, Dir, Mibs, Start, Stop).
 %% </BACKWARD-COMPAT>
 
 log_to_io(Log, Block, FileName, Dir, Mibs, Start, Stop) 

@@ -331,7 +331,7 @@ log_to_io1(doc) -> "Log to io from the same process that opened "
 log_to_io1(Config) when is_list(Config) ->
     p(log_to_io1),
     put(sname,l2i1),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_io1 -> start", []),
     Dir    = ?config(log_dir, Config),
     Name   = "snmp_test_l2i1",
@@ -386,7 +386,7 @@ log_to_io2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     p(log_to_io2),
     put(sname, l2i2),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_io2 -> start", []),
     Dir    = ?config(log_dir, Config),
     Name   = "snmp_test_l2i2",
@@ -445,7 +445,7 @@ log_to_txt1(suite) -> [];
 log_to_txt1(Config) when is_list(Config) ->
     p(log_to_txt1),
     put(sname,l2t1),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_txt1 -> start", []),
 
     Name     = "snmp_test_l2t1",
@@ -463,7 +463,7 @@ log_to_txt2(suite) -> [];
 log_to_txt2(Config) when is_list(Config) ->
     p(log_to_txt2),
     put(sname,l2t2),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_txt2 -> start", []),
 
     Name     = "snmp_test_l2t2",
@@ -600,7 +600,7 @@ log_to_txt3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     p(log_to_txt3),
     put(sname,l2t3),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_txt3 -> start", []),
     Dir     = ?config(log_dir, Config),
     Name    = "snmp_test_l2t3",
