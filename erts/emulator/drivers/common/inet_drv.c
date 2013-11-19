@@ -3959,6 +3959,7 @@ static int inet_address_to_erlang(char *dst, inet_address **src) {
 	    dst[0] = INET_AF_INET6;
 	    port = sock_ntohs((*src)->sai6.sin6_port);
 	    put_int16(port, dst+1);
+            VALGRIND_MAKE_MEM_DEFINED(&(*src)->sai6.sin6_addr,16); /* false undefs from syscall sctp_get[lp]addrs */
 	    sys_memcpy(dst+1+2, (char *) &(*src)->sai6.sin6_addr, 16);
 	}
 	(*src) = (inet_address *) (&(*src)->sai6 + 1);
