@@ -21,7 +21,10 @@
 	 detail_pages/0]).
 
 %% Callbacks for cdv_detail_win
-get_details(Id) ->
+get_details({_, {T,Key}}) ->
+    [{Key,Term}] = ets:lookup(T,Key),
+    {ok,{"Expanded Binary", Term, []}};
+get_details({cdv, Id}) ->
     {ok,Bin} = crashdump_viewer:expand_binary(Id),
     {ok,{"Expanded Binary", Bin, []}}.
 

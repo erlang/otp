@@ -84,16 +84,23 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 	    "#Binary?" ++ BinSpec ->
 		[{"offset",Off},{"size",Size},{"pos",Pos}] =
 		    httpd:parse_query(BinSpec),
-		Id = {list_to_integer(Off),
-		      list_to_integer(Size),
-		      list_to_integer(Pos)},
+		Id = {cdv, {list_to_integer(Off),
+			    list_to_integer(Size),
+			    list_to_integer(Pos)}},
+		expand(Id,cdv_bin_wx,State);
+	    "#OBSBinary?" ++ BinSpec ->
+		[{"offset",Off},{"size",Size},{"pos",Pos}] =
+		    httpd:parse_query(BinSpec),
+		Id = {obs, {Tab, {list_to_integer(Off),
+				  list_to_integer(Size),
+				  list_to_integer(Pos)}}},
 		expand(Id,cdv_bin_wx,State);
 	    "#Term?" ++ TermKeys ->
 		[{"key1",Key1},{"key2",Key2},{"key3",Key3}] =
 		    httpd:parse_query(TermKeys),
-		Id = {Tab,{list_to_integer(Key1),
-			   list_to_integer(Key2),
-			   list_to_integer(Key3)}},
+		Id = {cdv, {Tab,{list_to_integer(Key1),
+				 list_to_integer(Key2),
+				 list_to_integer(Key3)}}},
 		expand(Id,cdv_term_wx,State);
 	    _ ->
 		cdv_virtual_list:start_detail_win(Target),

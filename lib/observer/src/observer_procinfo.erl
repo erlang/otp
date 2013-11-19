@@ -49,7 +49,7 @@ start(Process, ParentFrame, Parent) ->
 
 init([Pid, ParentFrame, Parent]) ->
     try
-	Table = ets:new(observer_expand,[set,protected]),
+	Table = ets:new(observer_expand,[set,public]),
 	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
 		  [] -> io_lib:format("~p",[Pid]);
 		  {registered_name, Registered} -> io_lib:format("~p (~p)",[Registered, Pid]);
@@ -123,20 +123,33 @@ handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
     wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
     {noreply, State};
 
-handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href="#Term?"++Keys}}},
+handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	     #state{frame=Frame,expand_table=T,expand_wins=Opened0}=State) ->
-    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Keys),
-    Id = {T,{list_to_integer(Key1),list_to_integer(Key2),list_to_integer(Key3)}},
-    Opened =
-	case lists:keyfind(Id,1,Opened0) of
-	    false ->
-		Win = observer_term_wx:start(Id,Frame),
-		[{Id,Win}|Opened0];
-	    {_,Win} ->
-		wxFrame:raise(Win),
-		Opened0
-	end,
-    {noreply,State#state{expand_wins=Opened}};
+    {Type, Rest} = case Href of
+		       "#Term?"++Keys   -> {cdv_term_wx, Keys};
+		       "#OBSBinary?"++Keys -> {cdv_bin_wx, Keys};
+		       _ -> {other, Href}
+		   end,
+    case Type of
+	other ->
+	    observer ! {open_link, Href},
+	    {noreply, State};
+	Callback ->
+	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Rest),
+	    Id = {observer, {T,{list_to_integer(Key1),
+				list_to_integer(Key2),
+				list_to_integer(Key3)}}},
+	    Opened =
+		case lists:keyfind(Id,1,Opened0) of
+		    false ->
+			Win = cdv_detail_win:start_link(Id,Frame,Callback),
+			[{Id,Win}|Opened0];
+		    {_,Win} ->
+			wxFrame:raise(Win),
+			Opened0
+		end,
+	    {noreply,State#state{expand_wins=Opened}}
+    end;
 
 handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Info}}}, State) ->
     observer ! {open_link, Info},
@@ -145,16 +158,16 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Info}}}, State)
 handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
-handle_info({expand_win_closed,Id}, #state{expand_wins=Opened0}=State) ->
-    Opened = lists:keydelete(Id,1,Opened0),
-    {noreply,State#state{expand_wins=Opened}};
-
 handle_info(_Info, State) ->
     %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
 handle_call(Call, From, _State) ->
     error({unhandled_call, Call, From}).
+
+handle_cast({detail_win_closed,Id}, #state{expand_wins=Opened0}=State) ->
+    Opened = lists:keydelete(Id,1,Opened0),
+    {noreply,State#state{expand_wins=Opened}};
 
 handle_cast(Cast, _State) ->
     error({unhandled_cast, Cast}).

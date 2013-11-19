@@ -590,14 +590,30 @@ all_or_expand(Tab,Term) ->
     all_or_expand(Tab,Term,Preview,Exp).
 all_or_expand(_Tab,_Term,Str,false) ->
     href_proc_port(lists:flatten(Str));
-all_or_expand(Tab,Term,Preview,true) ->
+all_or_expand(Tab,Term,Preview,true)
+  when not is_binary(Term) ->
     Key = {Key1,Key2,Key3} = now(),
     ets:insert(Tab,{Key,Term}),
-    [href_proc_port(lists:flatten(Preview),false), $\n,
-     href("TARGET=\"expanded\"",["#Term?key1="++integer_to_list(Key1)++
-				     "&key2="++integer_to_list(Key2)++
-				     "&key3="++integer_to_list(Key3)],
+    [href_proc_port(lists:flatten(Preview), false), $\n,
+     href("TARGET=\"expanded\"",
+	  ["#Term?key1="++integer_to_list(Key1)++
+	       "&key2="++integer_to_list(Key2)++
+	       "&key3="++integer_to_list(Key3)],
+	  "Click to expand above term")];
+all_or_expand(Tab,Bin,PreviewStr,true) when is_binary(Bin) ->
+    <<Preview:80, _/binary>> = Bin,
+    Size = byte_size(Bin),
+    Hash = erlang:phash2(Bin),
+    Key = {Preview, Size, Hash},
+    ets:insert(Tab,{Key,Bin}),
+    [href_proc_port(lists:flatten(PreviewStr), false), $\n,
+     href("TARGET=\"expanded\"",
+	  ["#OBSBinary?key1="++integer_to_list(Preview)++
+	       "&key2="++integer_to_list(Size)++
+	       "&key3="++integer_to_list(Hash)],
 	  "Click to expand above term")].
+
+
 
 color(true) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_EVEN));
 color(false) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_ODD)).
@@ -1131,31 +1147,10 @@ href_proc_port("<"++([C|_]=T),Acc,LTB) when $0 =< C, C =< $9 ->
     href_proc_port(Rest,[href(Pid,Pid)|Acc],LTB);
 href_proc_port("['#CDVBin'"++T,Acc,LTB) ->
     %% Binary written by crashdump_viewer:parse_heap_term(...)
-    {OffsetSizePos,Rest} = split($],T),
-    BinStr =
-	case string:tokens(OffsetSizePos,",.|") of
-	    [Offset,Size,Pos] ->
-		Id = {list_to_integer(Offset),10,list_to_integer(Pos)},
-		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
-		PreviewBytes = binary_to_list(PreviewBin),
-		PreviewStr = ["&lt;&lt;",
-			      [integer_to_list(X)++"," || X <- PreviewBytes],
-			      "...(",
-			      observer_lib:to_str({bytes,Size}),
-			      ")&gt;&gt;"],
-		if LTB ->
-			href("TARGET=\"expanded\"",
-			     ["#Binary?offset="++Offset++
-				  "&size="++Size++
-				  "&pos="++Pos],
-			     PreviewStr);
-		   true ->
-			PreviewStr
-		end;
-	    _ ->
-		"&lt;&lt; ... &gt;&gt;"
-	end,
-    href_proc_port(Rest,[BinStr|Acc],LTB);
+    href_proc_bin(cdv, T, Acc, LTB);
+href_proc_port("['#OBSBin'"++T,Acc,LTB) ->
+    %% Binary written by crashdump_viewer:parse_heap_term(...)
+    href_proc_bin(obs, T, Acc, LTB);
 href_proc_port("['#CDVPort'"++T,Acc,LTB) ->
     %% Port written by crashdump_viewer:parse_term(...)
     {Port0,Rest} = split($],T),
@@ -1210,6 +1205,48 @@ href_proc_port([H|T],Acc,LTB) ->
     href_proc_port(T,[H|Acc],LTB);
 href_proc_port([],Acc,_) ->
     lists:reverse(Acc).
+
+href_proc_bin(From, T, Acc, LTB) ->
+    {OffsetSizePos,Rest} = split($],T),
+    BinStr =
+	case string:tokens(OffsetSizePos,",.| \n") of
+	    [Offset,Size,Pos] when From =:= cdv ->
+		Id = {list_to_integer(Offset),10,list_to_integer(Pos)},
+		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
+		PreviewStr = ["&lt;&lt;",
+			      [integer_to_list(X)++"," || <<X:8>> <= PreviewBin],
+			      "...(",
+			      observer_lib:to_str({bytes,Size}),
+			      ")&gt;&gt;"],
+		if LTB ->
+			href("TARGET=\"expanded\"",
+			     ["#Binary?offset="++Offset++
+				  "&size="++Size++
+				  "&pos="++Pos],
+			     PreviewStr);
+		   true ->
+			PreviewStr
+		end;
+	    [Preview,Size,Md5] when From =:= obs ->
+		PreviewBin = <<(list_to_integer(Preview)):80>>,
+		PreviewStr = ["&lt;&lt;",
+			      [integer_to_list(X)++"," || <<X:8>> <= PreviewBin],
+			      "...(",
+			      observer_lib:to_str({bytes,list_to_integer(Size)}),
+			      ")&gt;&gt;"],
+		if LTB ->
+			href("TARGET=\"expanded\"",
+			     ["#OBSBinary?offset="++Preview++
+				  "&size="++Size++
+				  "&pos="++Md5],
+			     PreviewStr);
+		   true ->
+			PreviewStr
+		end;
+	    _ ->
+		"&lt;&lt; ... &gt;&gt;"
+	end,
+    href_proc_port(Rest,[BinStr|Acc],LTB).
 
 split(Char,Str) ->
     split(Char,Str,[]).
