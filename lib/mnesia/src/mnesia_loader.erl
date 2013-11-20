@@ -69,9 +69,10 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
-	    Count = mnesia_log:dcd2ets(Tab, Repair),
-	    case ets:info(Tab, size) of
-		X when X < Count * 4 ->
+	    _Count = mnesia_log:dcd2ets(Tab, Repair),
+	    case mnesia_monitor:get_env(dump_disc_copies_at_startup)
+		andalso mnesia_dumper:needs_dump_ets(Tab) of
+		true ->
 		    ok = mnesia_log:ets2dcd(Tab);
 		_ ->
 		    ignore

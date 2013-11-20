@@ -34,6 +34,7 @@
 -export([
 	 get_log_writes/0,
 	 incr_log_writes/0,
+         needs_dump_ets/1,
 	 raw_dump_table/2,
 	 raw_named_dump_table/2,
 	 start_regulator/0,
@@ -981,28 +982,10 @@ open_files(_Tab, _Storage, _UpdateInPlace, _InitBy) ->
     false.
 
 open_disc_copies(Tab, InitBy) ->
-    DclF = mnesia_lib:tab2dcl(Tab),
-    DumpEts =
-	case file:read_file_info(DclF) of
-	    {error, enoent} ->
-		false;
-	    {ok, DclInfo} ->
-		DcdF =  mnesia_lib:tab2dcd(Tab),
-		case file:read_file_info(DcdF) of
-		    {error, Reason} ->
-			mnesia_lib:dbg_out("File ~p info_error ~p ~n",
-					   [DcdF, Reason]),
-			true;
-		    {ok, DcdInfo} ->
-			Mul = case ?catch_val(dc_dump_limit) of
-				  {'EXIT', _} -> ?DumpToEtsMultiplier;
-				  Val -> Val
-			      end,
-			DcdInfo#file_info.size =< (DclInfo#file_info.size * Mul)
-		end
-	end,
+    DumpEts = needs_dump_ets(Tab),
     if
 	DumpEts == false; InitBy == startup ->
+            DclF = mnesia_lib:tab2dcl(Tab),
 	    mnesia_log:open_log({?MODULE,Tab},
 				mnesia_log:dcl_log_header(),
 				DclF,
@@ -1015,6 +998,27 @@ open_disc_copies(Tab, InitBy) ->
 	    mnesia_log:ets2dcd(Tab),
 	    put({?MODULE, Tab}, already_dumped),
 	    false
+    end.
+
+needs_dump_ets(Tab) ->
+    DclF = mnesia_lib:tab2dcl(Tab),
+    case file:read_file_info(DclF) of
+        {error, enoent} ->
+            false;
+        {ok, DclInfo} ->
+            DcdF =  mnesia_lib:tab2dcd(Tab),
+            case file:read_file_info(DcdF) of
+                {error, Reason} ->
+                    mnesia_lib:dbg_out("File ~p info_error ~p ~n",
+                                       [DcdF, Reason]),
+                    true;
+                {ok, DcdInfo} ->
+                    Mul = case ?catch_val(dc_dump_limit) of
+                              {'EXIT', _} -> ?DumpToEtsMultiplier;
+                              Val -> Val
+                          end,
+                    DcdInfo#file_info.size =< (DclInfo#file_info.size * Mul)
+            end
     end.
 
 %% Always opens the dcl file for writing overriding already_dumped
