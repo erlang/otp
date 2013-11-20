@@ -5593,8 +5593,15 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 			     | CFLG_FORCE_SYS_ALLOC
 #endif
 			     | CFLG_MAIN_CARRIER);
-	if (!blk)
-	    goto error;
+	if (!blk) {
+#ifdef USE_THREADS
+	  if (allctr->thread_safe)
+	    erts_mtx_destroy(&allctr->mutex);
+#endif
+	  erl_exit(ERTS_ABORT_EXIT,
+	    "Failed to create main carrier for %salloc\n",
+	    init->name_prefix);
+	}
 
 	(*allctr->link_free_block)(allctr, blk);
 
