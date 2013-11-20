@@ -122,7 +122,6 @@ init(File0) ->
     wxNotebook:connect(Notebook, command_notebook_page_changing),
     wxFrame:connect(Frame, close_window, [{skip, true}]),
     wxMenu:connect(Frame, command_menu_selected),
-    wxFrame:show(Frame),
 
     case load_dump(Frame,File0) of
 	{ok,File} ->
@@ -149,7 +148,7 @@ init(File0) ->
 	    ignore
     end.
 
-setup(#state{frame=Frame, notebook=Notebook, main_panel=Panel}=State) ->
+setup(#state{frame=Frame, notebook=Notebook}=State) ->
 
     %% Setup Menubar & Menus
     MenuBar = wxMenuBar:new(),
@@ -190,8 +189,8 @@ setup(#state{frame=Frame, notebook=Notebook, main_panel=Panel}=State) ->
     %% Memory Panel
     IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_panel, cdv_int_tab_wx),
 
-    %% Force redraw (window needs it)
-    wxWindow:refresh(Panel),
+    %% Show the window
+    wxFrame:show(Frame),
 
     GenPid = wx_object:get_pid(GenPanel),
     GenPid ! active,

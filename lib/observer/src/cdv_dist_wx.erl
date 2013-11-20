@@ -58,10 +58,15 @@ get_detail_cols(_) ->
 
 %% Callbacks for cdv_detail_win
 get_details(Id) ->
-    {ok,Info,TW} = crashdump_viewer:node_info(Id),
-    Proplist = crashdump_viewer:to_proplist(record_info(fields,nod),Info),
-    Title = io_lib:format("~s (~s)",[Info#nod.name,Id]),
-    {ok,{Title,Proplist,TW}}.
+    case crashdump_viewer:node_info(Id) of
+	{ok,Info,TW} ->
+	    Proplist = crashdump_viewer:to_proplist(record_info(fields,nod),Info),
+	    Title = io_lib:format("~s (~s)",[Info#nod.name,Id]),
+	    {ok,{Title,Proplist,TW}};
+	{error,not_found} ->
+	    Info = "The node you are searching for could not be found.",
+	    {info,Info}
+    end.
 
 detail_pages() ->
     [{"General Information",   fun init_gen_page/2}].

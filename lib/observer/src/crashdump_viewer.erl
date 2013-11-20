@@ -107,7 +107,6 @@
 -define(no_distribution,no_distribution).
 -define(node,node).
 -define(not_connected,not_connected).
--define(num_atoms,num_atoms).
 -define(old_instr_data,old_instr_data).
 -define(port,port).
 -define(proc,proc).
@@ -347,10 +346,8 @@ handle_call({port,Id},_From,State=#state{file=File}) ->
 	    {ok,PortInfo} ->
 		TW = truncated_warning([{?port,Id}]),
 		{ok,PortInfo,TW};
-	    {other_node,Node} ->
-		{error,{other_node,Node}};
-	    not_found -> 
-		{error,not_found}
+	    Other ->
+		{error,Other}
 	end,
     {reply,Reply,State};
 handle_call(ports,_From,State=#state{file=File}) ->
@@ -384,9 +381,17 @@ handle_call(dist_info,_From,State=#state{file=File}) ->
     Nods=nods(File),
     {reply,{ok,Nods,TW},State};
 handle_call({node_info,Channel},_From,State=#state{file=File}) ->
-    TW = truncated_warning([?visible_node,?hidden_node,?not_connected]),
-    Nod=get_node(File,Channel),
-    {reply,{ok,Nod,TW},State};
+    Reply =
+	case get_node(File,Channel) of
+	    {ok,Nod} ->
+		TW = truncated_warning([?visible_node,
+					?hidden_node,
+					?not_connected]),
+		{ok,Nod,TW};
+	    {error,Other} ->
+		{error,Other}
+	end,
+    {reply,Reply,State};
 handle_call(loaded_mods,_From,State=#state{file=File}) ->
     TW = truncated_warning([?mod]),
     {_CC,_OC,Mods} = loaded_mods(File),
@@ -400,7 +405,7 @@ handle_call(funs,_From,State=#state{file=File}) ->
     Funs = funs(File),
     {reply,{ok,Funs,TW},State};
 handle_call(atoms,_From,State=#state{file=File,num_atoms=NumAtoms0}) ->
-    TW = truncated_warning([?atoms,?num_atoms]),
+    TW = truncated_warning([?atoms]),
     NumAtoms = try list_to_integer(NumAtoms0) catch error:badarg -> -1 end,
     Atoms = atoms(File,NumAtoms),
     {reply,{ok,Atoms,TW},State};
@@ -587,7 +592,7 @@ progress_read(Fd) ->
     {R,Bytes} =
 	case read(Fd) of
 	    {ok,Bin} ->
-		{{ok,Bin},size(Bin)};
+		{{ok,Bin},byte_size(Bin)};
 	    Other ->
 		{Other,0}
 	end,
@@ -892,11 +897,7 @@ general_info(File) ->
 		  WholeLine -> WholeLine
 	      end,
 
-    GI0 = get_general_info(Fd,#general_info{created=Created}),
-    GI = case GI0#general_info.num_atoms of
-	    undefined -> GI0#general_info{num_atoms=get_num_atoms(Fd)};
-	    _ -> GI0
-	end,
+    GI = get_general_info(Fd,#general_info{created=Created}),
 
     {MemTot,MemMax} = 
 	case lookup_index(?memory) of
@@ -968,35 +969,6 @@ get_general_info(Fd,GenInfo) ->
 	Other ->
 	    unexpected(Fd,Other,"general information"),
 	    GenInfo
-    end.
-
-get_num_atoms(Fd) ->
-    case lookup_index(?hash_table,"atom_tab") of
-	[{_,Pos}] -> 
-	    pos_bof(Fd,Pos),
-	    skip_rest_of_line(Fd), % size
-	    skip_rest_of_line(Fd), % used
-	    case line_head(Fd) of
-		"objs" ->
-		    val(Fd);
-		_1 ->
-		    get_num_atoms2()
-	    end;
-	[] ->
-	    get_num_atoms2()
-    end.
-get_num_atoms2() ->
-    case lookup_index(?num_atoms) of
-	[] -> 
-	    undefined;
-	[{NA,_Pos}] -> 
-	    %% If dump is translated this will exist
-	    case get(truncated) of
-		true ->
-		    [NA," (visible in dump)"]; % might be more
-		false ->
-		    NA
-	    end
     end.
 
 count() ->
@@ -1554,12 +1526,12 @@ get_node(File,Channel) ->
 
     case ets:select(cdv_dump_index_table,Ms) of
 	[] ->
-	    not_found;
+	    {error,not_found};
 	[{Type,Pos}] ->
 	    Fd = open(File),
 	    NodeInfo = get_nodeinfo(Fd,Channel,Type,Pos),
 	    close(Fd),
-	    NodeInfo
+	    {ok,NodeInfo}
     end.
 
 %%-----------------------------------------------------------------
@@ -2509,7 +2481,6 @@ tag_to_atom("mod") -> ?mod;
 tag_to_atom("no_distribution") -> ?no_distribution;
 tag_to_atom("node") -> ?node;
 tag_to_atom("not_connected") -> ?not_connected;
-tag_to_atom("num_atoms") -> ?num_atoms;
 tag_to_atom("old_instr_data") -> ?old_instr_data;
 tag_to_atom("port") -> ?port;
 tag_to_atom("proc") -> ?proc;

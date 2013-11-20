@@ -70,7 +70,7 @@ get_details(Id) ->
 	    Proplist0 =
 		crashdump_viewer:to_proplist(record_info(fields,proc),Info),
 	    Proplist = [{expand_table,Tab}|Proplist0],
-	    Title = io_lib:format("~s (~p)",[Info#proc.name, Id]),
+	    Title = io_lib:format("~s (~s)",[Info#proc.name, Id]),
 	    {ok,{Title,Proplist,TW}};
 	{error,{other_node,NodeId}} ->
 	    Info = "The process you are searching for was residing on "

@@ -89,11 +89,11 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 			    list_to_integer(Pos)}},
 		expand(Id,cdv_bin_wx,State);
 	    "#OBSBinary?" ++ BinSpec ->
-		[{"offset",Off},{"size",Size},{"pos",Pos}] =
+		[{"key1",Preview},{"key2",Size},{"key3",Hash}] =
 		    httpd:parse_query(BinSpec),
-		Id = {obs, {Tab, {list_to_integer(Off),
+		Id = {obs, {Tab, {list_to_integer(Preview),
 				  list_to_integer(Size),
-				  list_to_integer(Pos)}}},
+				  list_to_integer(Hash)}}},
 		expand(Id,cdv_bin_wx,State);
 	    "#Term?" ++ TermKeys ->
 		[{"key1",Key1},{"key2",Key2},{"key3",Key3}] =
