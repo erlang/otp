@@ -757,7 +757,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 	return; /* Can't create the crash dump, skip it */
     
     time(&now);
-    erts_fdprintf(fd, "=erl_crash_dump:0.2\n%s", ctime(&now));
+    erts_fdprintf(fd, "=erl_crash_dump:0.3\n%s", ctime(&now));
 
     if (file != NULL)
        erts_fdprintf(fd, "The error occurred in file %s, line %d\n", file, line);
