@@ -90,7 +90,7 @@
 	  decode a log entry would cause the conversion to fail
 	  (not because of the failed decode, but because of the 
 	  failure to write the error message). </p>
-          <p>Own Id: OTP-111453</p>
+          <p>Own Id: OTP-11453</p>
           <p>Aux Id: Seq 12459</p>
         </item>
 
