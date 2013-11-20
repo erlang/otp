@@ -218,6 +218,15 @@ int_constraints(Rules) ->
     roundtrip('ShorterExt', "abcde"),
     roundtrip('ShorterExt', "abcdef"),
 
+    %%==========================================================
+    %%  Unions of INTEGER constraints
+    %%==========================================================
+    seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 7580),
+    seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 9600),
+    seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 18050),
+    seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 19000),
+    seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 26900),
+
     ok.
 
 %% PER: Ensure that if the lower bound is Lb, Lb+16#80 is encoded
@@ -297,3 +306,12 @@ range_error(Per, Type, Value) when Per =:= per; Per =:= uper ->
     %% on encode.
     {error,_} = 'Constraints':encode(Type, Value),
     ok.
+
+seq_roundtrip(Rules, Seq1, Seq2, Val) ->
+    Enc = roundtrip(Seq1, {Seq1,Val}),
+    case Rules of
+	ber ->
+	    roundtrip(Seq2, {Seq2,Val});
+	_ ->
+	    roundtrip_enc(Seq2, {Seq2,Val}, Enc)
+    end.
