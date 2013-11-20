@@ -39,7 +39,8 @@
 	 raw_named_dump_table/2,
 	 start_regulator/0,
 	 opt_dump_log/1,
-	 update/3
+	 update/3,
+	 snapshot_dcd/1
 	]).
 
  %% Internal stuff
@@ -99,6 +100,19 @@ opt_dump_log(InitBy) ->
 		  Pid
 	  end,
     perform_dump(InitBy, Reg).
+
+snapshot_dcd(Tables) ->
+    lists:foreach(
+      fun(Tab) ->
+	      case mnesia_lib:storage_type_at_node(node(), Tab) of
+		  disc_copies ->
+		      mnesia_log:ets2dcd(Tab);
+		  _ ->
+		      %% Storage type was checked before queueing the op, though
+		      skip
+	      end
+      end, Tables),
+    dumped.
 
 %% Scan for decisions
 perform_dump(InitBy, Regulator) when InitBy == scan_decisions ->
