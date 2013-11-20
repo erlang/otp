@@ -30,12 +30,14 @@
 -include("ssl_record.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_srp.hrl").
+-include("ssl_cipher.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -record(state, {
           role                  :: client | server,
 	  user_application      :: {Monitor::reference(), User::pid()},
           transport_cb          :: atom(),   % callback module
+	  protocol_cb           :: tls_connection | dtls_connection,
           data_tag              :: atom(),   % ex tcp.
 	  close_tag             :: atom(),   % ex tcp_closed
 	  error_tag             :: atom(),   % ex tcp_error

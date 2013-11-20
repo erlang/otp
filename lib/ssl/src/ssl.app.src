@@ -20,6 +20,7 @@
 	       dtls, %% DTLS specific 
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
+	       ssl_config,
 	       ssl_connection,
 	       ssl_handshake,
 	       ssl_record,

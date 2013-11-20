@@ -106,7 +106,7 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
 	    ok = ssl_socket:setopts(Transport, Socket, internal_inet_values()),
 	    case ssl_socket:peername(Transport, Socket) of
 		{ok, {Address, Port}} ->
-		    ConnectionCb:connect(Address, Port, Socket,
+		    ssl_connection:connect(ConnectionCb, Address, Port, Socket,
 					   {SslOptions, EmOpts},
 					   self(), CbInfo, Timeout);
 		{error, Error} ->
@@ -182,7 +182,7 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 	    ConnectionSup = connection_sup(ConnectionCb),
 	    case ConnectionSup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    ConnectionCb:socket_control(Socket, Pid, Transport);
+		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -204,8 +204,8 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 ssl_accept(ListenSocket) ->
     ssl_accept(ListenSocket, infinity).
 
-ssl_accept(#sslsocket{fd = {_,_, ConnetionCb}} = Socket, Timeout) ->
-    ConnetionCb:handshake(Socket, Timeout);
+ssl_accept(#sslsocket{} = Socket, Timeout) ->
+    ssl_connection:handshake(Socket, Timeout);
     
 ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) -> 
     ssl_accept(ListenSocket, SslOptions, infinity).
@@ -220,7 +220,7 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
 	    ok = ssl_socket:setopts(Transport, Socket, internal_inet_values()),
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
-	    ConnetionCb:ssl_accept(Port, Socket,
+	    ssl_connection:ssl_accept(ConnetionCb, Port, Socket,
 				   {SslOpts, EmOpts},
 				   self(), CbInfo, Timeout)
     catch
@@ -232,8 +232,8 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %%
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------
-close(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}) when is_pid(Pid) ->
-    ConnetionCb:close(Pid);
+close(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    ssl_connection:close(Pid);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}) ->
     Transport:close(ListenSocket).
 
@@ -242,8 +242,8 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}
 %%
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
-send(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}, Data) when is_pid(Pid) ->
-    ConnetionCb:send(Pid, Data);
+send(#sslsocket{pid = Pid}, Data) when is_pid(Pid) ->
+    ssl_connection:send(Pid, Data);
 send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}}}}, Data) ->
     Transport:send(ListenSocket, Data). %% {error,enotconn}
 
@@ -255,8 +255,8 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}
 %%--------------------------------------------------------------------
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
-recv(#sslsocket{pid = Pid,  fd = {_,_, ConnetionCb}}, Length, Timeout) when is_pid(Pid) ->
-    ConnetionCb:recv(Pid, Length, Timeout);
+recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid) ->
+    ssl_connection:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {Listen,
 		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->
     Transport:recv(Listen, 0). %% {error,enotconn}
@@ -267,9 +267,8 @@ recv(#sslsocket{pid = {Listen,
 %% Description: Changes process that receives the messages when active = true
 %% or once.
 %%--------------------------------------------------------------------
-controlling_process(#sslsocket{pid = Pid,
-			       fd = {_,_, ConnetionCb}}, NewOwner) when is_pid(Pid), is_pid(NewOwner) ->
-    ConnetionCb:new_user(Pid, NewOwner);
+controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid), is_pid(NewOwner) ->
+    ssl_connection:new_user(Pid, NewOwner);
 controlling_process(#sslsocket{pid = {Listen,
 				      #config{transport_info = {Transport, _, _, _}}}},
 		    NewOwner) when is_port(Listen),
@@ -282,8 +281,8 @@ controlling_process(#sslsocket{pid = {Listen,
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
-connection_info(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}) when is_pid(Pid) ->
-    ConnetionCb:info(Pid);
+connection_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    ssl_connection:info(Pid);
 connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -302,8 +301,8 @@ peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,
 %%
 %% Description: Returns the peercert.
 %%--------------------------------------------------------------------
-peercert(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}) when is_pid(Pid) ->
-    case ConnetionCb:peer_certificate(Pid) of
+peercert(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    case ssl_connection:peer_certificate(Pid) of
 	{ok, undefined} ->
 	    {error, no_peercert};
         Result ->
@@ -327,8 +326,8 @@ suite_definition(S) ->
 %% Description: Returns the next protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, next_protocol_not_negotiated}
 %%--------------------------------------------------------------------
-negotiated_next_protocol(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}) ->
-    ConnetionCb:negotiated_next_protocol(Pid).
+negotiated_next_protocol(#sslsocket{pid = Pid}) ->
+    ssl_connection:negotiated_next_protocol(Pid).
 
 %%--------------------------------------------------------------------
 -spec cipher_suites() -> [erl_cipher_suite()].
@@ -360,8 +359,8 @@ cipher_suites(all) ->
 %%
 %% Description: Gets options
 %%--------------------------------------------------------------------
-getopts(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
-    ConnetionCb:get_opts(Pid, OptionTags);
+getopts(#sslsocket{pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
+    ssl_connection:get_opts(Pid, OptionTags);
 getopts(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}},
 	OptionTags) when is_list(OptionTags) ->
     try ssl_socket:getopts(Transport, ListenSocket, OptionTags) of
@@ -381,11 +380,11 @@ getopts(#sslsocket{}, OptionTags) ->
 %%
 %% Description: Sets options
 %%--------------------------------------------------------------------
-setopts(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}, Options0) when is_pid(Pid), is_list(Options0)  ->
+setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
     try proplists:expand([{binary, [{mode, binary}]},
 			  {list, [{mode, list}]}], Options0) of
 	Options ->
-	    ConnetionCb:set_opts(Pid, Options)
+	    ssl_connection:set_opts(Pid, Options)
     catch
 	_:_ ->
 	    {error, {options, {not_a_proplist, Options0}}}
@@ -412,8 +411,8 @@ setopts(#sslsocket{}, Options) ->
 shutdown(#sslsocket{pid = {Listen, #config{transport_info = {Transport,_, _, _}}}},
 	 How) when is_port(Listen) ->
     Transport:shutdown(Listen, How);
-shutdown(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}, How) ->
-    ConnetionCb:shutdown(Pid, How).
+shutdown(#sslsocket{pid = Pid}, How) ->
+    ssl_connection:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
 -spec sockname(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
@@ -432,8 +431,8 @@ sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid) ->
 %% Description: Returns list of session info currently [{session_id, session_id(),
 %% {cipher_suite, cipher_suite()}]
 %%--------------------------------------------------------------------
-session_info(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}) when is_pid(Pid) ->
-    ConnetionCb:session_info(Pid);
+session_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    ssl_connection:session_info(Pid);
 session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -456,8 +455,8 @@ versions() ->
 %%
 %% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
-renegotiate(#sslsocket{pid = Pid, fd = {_,_, ConnetionCb}}) when is_pid(Pid) ->
-    ConnetionCb:renegotiation(Pid);
+renegotiate(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    ssl_connection:renegotiation(Pid);
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -468,9 +467,9 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf(#sslsocket{pid = Pid, fd = {_,_,ConnetionCb}},
+prf(#sslsocket{pid = Pid},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
-    ConnetionCb:prf(Pid, Secret, Label, Seed, WantedLength);
+    ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
 prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
     {error, enotconn}.
 
@@ -542,7 +541,7 @@ do_connect(Address, Port,
     {Transport, _, _, _} = CbInfo,
     try Transport:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    ConnetionCb:connect(Address, Port, Socket, {SslOpts,EmOpts},
+	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, {SslOpts,EmOpts},
 				   self(), CbInfo, Timeout);
 	{error, Reason} ->
 	    {error, Reason}
