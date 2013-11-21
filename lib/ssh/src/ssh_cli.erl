@@ -334,7 +334,7 @@ delete_chars(N, {Buf, BufTail, Col}, Tty) when N > 0 ->
      {Buf, NewBufTail, Col}};
 delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
     NewBuf = nthtail(-N, Buf),
-    NewCol = Col + N,
+    NewCol = case Col + N of V when V >= 0 -> V; _ -> 0 end,
     M1 = move_cursor(Col, NewCol, Tty),
     M2 = move_cursor(NewCol + length(BufTail) - N, NewCol, Tty),
     {[M1, BufTail, lists:duplicate(-N, $ ) | M2],
