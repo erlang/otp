@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxboxsizer.html">wxBoxSizer</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxboxsizer.html">wxBoxSizer</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxSizer}
 %% </p>
@@ -46,7 +46,7 @@ parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxBoxSizer() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxboxsizer.html#wxboxsizerwxboxsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxboxsizer.html#wxboxsizerwxboxsizer">external documentation</a>.
 -spec new(Orient) -> wxBoxSizer() when
 	Orient::integer().
 new(Orient)
@@ -54,7 +54,7 @@ new(Orient)
   wxe_util:construct(?wxBoxSizer_new,
   <<Orient:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxboxsizer.html#wxboxsizergetorientation">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxboxsizer.html#wxboxsizergetorientation">external documentation</a>.
 -spec getOrientation(This) -> integer() when
 	This::wxBoxSizer().
 getOrientation(#wx_ref{type=ThisT,ref=ThisRef}) ->

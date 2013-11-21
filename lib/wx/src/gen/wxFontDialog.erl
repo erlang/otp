@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontdialog.html">wxFontDialog</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html">wxFontDialog</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDialog}
 %% <br />{@link wxTopLevelWindow}
@@ -86,13 +86,13 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxFontDialog() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontdialog.html#wxfontdialogwxfontdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialogwxfontdialog">external documentation</a>.
 -spec new() -> wxFontDialog().
 new() ->
   wxe_util:construct(?wxFontDialog_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontdialog.html#wxfontdialogwxfontdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialogwxfontdialog">external documentation</a>.
 -spec new(Parent, Data) -> wxFontDialog() when
 	Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef}) ->
@@ -101,7 +101,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef}) ->
   wxe_util:construct(?wxFontDialog_new_2,
   <<ParentRef:32/?UI,DataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontdialog.html#wxfontdialogcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialogcreate">external documentation</a>.
 -spec create(This, Parent, Data) -> boolean() when
 	This::wxFontDialog(), Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef}) ->
@@ -111,7 +111,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_r
   wxe_util:call(?wxFontDialog_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,DataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontdialog.html#wxfontdialoggetfontdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialoggetfontdata">external documentation</a>.
 -spec getFontData(This) -> wxFontData:wxFontData() when
 	This::wxFontDialog().
 getFontData(#wx_ref{type=ThisT,ref=ThisRef}) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html">wxPalette</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html">wxPalette</a>.
 %% @type wxPalette().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -35,13 +35,13 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxPalette() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
 -spec new() -> wxPalette().
 new() ->
   wxe_util:construct(?wxPalette_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
 -spec new(Red, Green, Blue) -> wxPalette() when
 	Red::binary(), Green::binary(), Blue::binary().
 new(Red,Green,Blue)
@@ -52,7 +52,7 @@ new(Red,Green,Blue)
   wxe_util:construct(?wxPalette_new_4,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettecreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettecreate">external documentation</a>.
 -spec create(This, Red, Green, Blue) -> boolean() when
 	This::wxPalette(), Red::binary(), Green::binary(), Blue::binary().
 create(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
@@ -64,7 +64,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
   wxe_util:call(?wxPalette_Create,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettegetcolourscount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettegetcolourscount">external documentation</a>.
 -spec getColoursCount(This) -> integer() when
 	This::wxPalette().
 getColoursCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -72,7 +72,7 @@ getColoursCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPalette_GetColoursCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettegetpixel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettegetpixel">external documentation</a>.
 -spec getPixel(This, Red, Green, Blue) -> integer() when
 	This::wxPalette(), Red::integer(), Green::integer(), Blue::integer().
 getPixel(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
@@ -81,7 +81,7 @@ getPixel(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
   wxe_util:call(?wxPalette_GetPixel,
   <<ThisRef:32/?UI,Red:32/?UI,Green:32/?UI,Blue:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettegetrgb">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettegetrgb">external documentation</a>.
 -spec getRGB(This, Pixel) -> Result when
 	Result ::{Res ::boolean(), Red::integer(), Green::integer(), Blue::integer()},
 	This::wxPalette(), Pixel::integer().
@@ -91,7 +91,7 @@ getRGB(#wx_ref{type=ThisT,ref=ThisRef},Pixel)
   wxe_util:call(?wxPalette_GetRGB,
   <<ThisRef:32/?UI,Pixel:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpaletteisok">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpaletteisok">external documentation</a>.
 -spec isOk(This) -> boolean() when
 	This::wxPalette().
 isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->

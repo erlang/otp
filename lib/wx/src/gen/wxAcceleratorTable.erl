@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratortable.html">wxAcceleratorTable</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratortable.html">wxAcceleratorTable</a>.
 %% @type wxAcceleratorTable().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -34,13 +34,13 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxAcceleratorTable() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratortable.html#wxacceleratortablewxacceleratortable">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratortable.html#wxacceleratortablewxacceleratortable">external documentation</a>.
 -spec new() -> wxAcceleratorTable().
 new() ->
   wxe_util:construct(?wxAcceleratorTable_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratortable.html#wxacceleratortablewxacceleratortable">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratortable.html#wxacceleratortablewxacceleratortable">external documentation</a>.
 -spec new(N, Entries) -> wxAcceleratorTable() when
 	N::integer(), Entries::[wxAcceleratorEntry:wxAcceleratorEntry()].
 new(N,Entries)
@@ -50,7 +50,7 @@ new(N,Entries)
   <<N:32/?UI,(length(Entries)):32/?UI,
      (<< <<(C#wx_ref.ref):32/?UI>> || C <- Entries>>)/binary, 0:(((0+length(Entries)) rem 2)*32)>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratortable.html#wxacceleratortableok">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratortable.html#wxacceleratortableok">external documentation</a>.
 -spec ok(This) -> boolean() when
 	This::wxAcceleratorTable().
 ok(#wx_ref{type=ThisT,ref=ThisRef}) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html">wxSashLayoutWindow</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html">wxSashLayoutWindow</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxSashWindow}
 %% <br />{@link wxWindow}
@@ -82,7 +82,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSashLayoutWindow() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowwxsashlayoutwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowwxsashlayoutwindow">external documentation</a>.
 -spec new() -> wxSashLayoutWindow().
 new() ->
   wxe_util:construct(?wxSashLayoutWindow_new_0,
@@ -96,7 +96,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowwxsashlayoutwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowwxsashlayoutwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSashLayoutWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -123,7 +123,7 @@ create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   create(This,Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSashLayoutWindow(), Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -143,7 +143,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxSashLayoutWindow_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowgetalignment">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowgetalignment">external documentation</a>.
 %%<br /> Res = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
 -spec getAlignment(This) -> wx:wx_enum() when
 	This::wxSashLayoutWindow().
@@ -152,7 +152,7 @@ getAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSashLayoutWindow_GetAlignment,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowgetorientation">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowgetorientation">external documentation</a>.
 %%<br /> Res = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
 -spec getOrientation(This) -> wx:wx_enum() when
 	This::wxSashLayoutWindow().
@@ -161,7 +161,7 @@ getOrientation(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSashLayoutWindow_GetOrientation,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetalignment">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetalignment">external documentation</a>.
 %%<br /> Align = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
 -spec setAlignment(This, Align) -> ok when
 	This::wxSashLayoutWindow(), Align::wx:wx_enum().
@@ -171,7 +171,7 @@ setAlignment(#wx_ref{type=ThisT,ref=ThisRef},Align)
   wxe_util:cast(?wxSashLayoutWindow_SetAlignment,
   <<ThisRef:32/?UI,Align:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetdefaultsize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetdefaultsize">external documentation</a>.
 -spec setDefaultSize(This, Size) -> ok when
 	This::wxSashLayoutWindow(), Size::{W::integer(), H::integer()}.
 setDefaultSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
@@ -180,7 +180,7 @@ setDefaultSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   wxe_util:cast(?wxSashLayoutWindow_SetDefaultSize,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetorientation">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetorientation">external documentation</a>.
 %%<br /> Orient = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
 -spec setOrientation(This, Orient) -> ok when
 	This::wxSashLayoutWindow(), Orient::wx:wx_enum().

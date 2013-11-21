@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html">wxCommandEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html">wxCommandEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_button_clicked</em>, <em>command_checkbox_clicked</em>, <em>command_choice_selected</em>, <em>command_listbox_selected</em>, <em>command_listbox_doubleclicked</em>, <em>command_text_updated</em>, <em>command_text_enter</em>, <em>command_menu_selected</em>, <em>command_slider_updated</em>, <em>command_radiobox_selected</em>, <em>command_radiobutton_selected</em>, <em>command_scrollbar_updated</em>, <em>command_vlbox_selected</em>, <em>command_combobox_selected</em>, <em>command_tool_rclicked</em>, <em>command_tool_enter</em>, <em>command_checklistbox_toggled</em>, <em>command_togglebutton_clicked</em>, <em>command_left_click</em>, <em>command_left_dclick</em>, <em>command_right_click</em>, <em>command_set_focus</em>, <em>command_kill_focus</em>, <em>command_enter</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxCommand(). #wxCommand{}} event record type.
@@ -44,7 +44,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxCommandEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetclientobject">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventgetclientobject">external documentation</a>.
 -spec getClientData(This) -> term() when
 	This::wxCommandEvent().
 getClientData(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -52,7 +52,7 @@ getClientData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_getClientData,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetextralong">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventgetextralong">external documentation</a>.
 -spec getExtraLong(This) -> integer() when
 	This::wxCommandEvent().
 getExtraLong(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -60,7 +60,7 @@ getExtraLong(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_GetExtraLong,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetint">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventgetint">external documentation</a>.
 -spec getInt(This) -> integer() when
 	This::wxCommandEvent().
 getInt(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -68,7 +68,7 @@ getInt(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_GetInt,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventgetselection">external documentation</a>.
 -spec getSelection(This) -> integer() when
 	This::wxCommandEvent().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -76,7 +76,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetstring">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventgetstring">external documentation</a>.
 -spec getString(This) -> unicode:charlist() when
 	This::wxCommandEvent().
 getString(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -84,7 +84,7 @@ getString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_GetString,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventischecked">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventischecked">external documentation</a>.
 -spec isChecked(This) -> boolean() when
 	This::wxCommandEvent().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -92,7 +92,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_IsChecked,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventisselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventisselection">external documentation</a>.
 -spec isSelection(This) -> boolean() when
 	This::wxCommandEvent().
 isSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -100,7 +100,7 @@ isSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCommandEvent_IsSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventsetint">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventsetint">external documentation</a>.
 -spec setInt(This, I) -> ok when
 	This::wxCommandEvent(), I::integer().
 setInt(#wx_ref{type=ThisT,ref=ThisRef},I)
@@ -109,7 +109,7 @@ setInt(#wx_ref{type=ThisT,ref=ThisRef},I)
   wxe_util:cast(?wxCommandEvent_SetInt,
   <<ThisRef:32/?UI,I:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventsetstring">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcommandevent.html#wxcommandeventsetstring">external documentation</a>.
 -spec setString(This, S) -> ok when
 	This::wxCommandEvent(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},S)

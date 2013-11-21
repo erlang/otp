@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html">wxStaticBitmap</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html">wxStaticBitmap</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -77,7 +77,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxStaticBitmap() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
 -spec new() -> wxStaticBitmap().
 new() ->
   wxe_util:construct(?wxStaticBitmap_new_0,
@@ -91,7 +91,7 @@ new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_record(Label, wx_ref) ->
   new(Parent,Id,Label, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxStaticBitmap() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -117,7 +117,7 @@ create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_record(Label, wx_ref) ->
   create(This,Parent,Id,Label, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -136,7 +136,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,#w
   wxe_util:call(?wxStaticBitmap_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,LabelRef:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapgetbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapgetbitmap">external documentation</a>.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
 	This::wxStaticBitmap().
 getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -144,7 +144,7 @@ getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStaticBitmap_GetBitmap,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapsetbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapsetbitmap">external documentation</a>.
 -spec setBitmap(This, Bitmap) -> ok when
 	This::wxStaticBitmap(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->

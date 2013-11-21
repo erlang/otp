@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html">wxPostScriptDC</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html">wxPostScriptDC</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDC}
 %% </p>
@@ -60,13 +60,13 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxPostScriptDC() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
 -spec new() -> wxPostScriptDC().
 new() ->
   wxe_util:construct(?wxPostScriptDC_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
 -spec new(PrintData) -> wxPostScriptDC() when
 	PrintData::wxPrintData:wxPrintData().
 new(#wx_ref{type=PrintDataT,ref=PrintDataRef}) ->
@@ -74,7 +74,7 @@ new(#wx_ref{type=PrintDataT,ref=PrintDataRef}) ->
   wxe_util:construct(?wxPostScriptDC_new_1,
   <<PrintDataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcsetresolution">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcsetresolution">external documentation</a>.
 -spec setResolution(Ppi) -> ok when
 	Ppi::integer().
 setResolution(Ppi)
@@ -82,7 +82,7 @@ setResolution(Ppi)
   wxe_util:cast(?wxPostScriptDC_SetResolution,
   <<Ppi:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcgetresolution">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcgetresolution">external documentation</a>.
 -spec getResolution() -> integer().
 getResolution() ->
   wxe_util:call(?wxPostScriptDC_GetResolution,

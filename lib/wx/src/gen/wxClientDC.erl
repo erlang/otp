@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxclientdc.html">wxClientDC</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html">wxClientDC</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindowDC}
 %% <br />{@link wxDC}
@@ -62,13 +62,13 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxClientDC() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
 -spec new() -> wxClientDC().
 new() ->
   wxe_util:construct(?wxClientDC_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
 -spec new(Win) -> wxClientDC() when
 	Win::wxWindow:wxWindow().
 new(#wx_ref{type=WinT,ref=WinRef}) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html">wxSpinCtrl</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html">wxSpinCtrl</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -78,7 +78,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSpinCtrl() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlwxspinctrl">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlwxspinctrl">external documentation</a>.
 -spec new() -> wxSpinCtrl().
 new() ->
   wxe_util:construct(?wxSpinCtrl_new_0,
@@ -92,7 +92,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlwxspinctrl">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlwxspinctrl">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSpinCtrl() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -127,7 +127,7 @@ create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   create(This,Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSpinCtrl(), Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -155,7 +155,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxSpinCtrl_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlsetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlsetvalue">external documentation</a>.
 %% <br /> Also:<br />
 %% setValue(This, Text) -> ok when<br />
 %% 	This::wxSpinCtrl(), Text::unicode:chardata().<br />
@@ -176,7 +176,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Text)
   wxe_util:cast(?wxSpinCtrl_SetValue_1_1,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlgetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlgetvalue">external documentation</a>.
 -spec getValue(This) -> integer() when
 	This::wxSpinCtrl().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -184,7 +184,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSpinCtrl_GetValue,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlsetrange">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlsetrange">external documentation</a>.
 -spec setRange(This, MinVal, MaxVal) -> ok when
 	This::wxSpinCtrl(), MinVal::integer(), MaxVal::integer().
 setRange(#wx_ref{type=ThisT,ref=ThisRef},MinVal,MaxVal)
@@ -193,7 +193,7 @@ setRange(#wx_ref{type=ThisT,ref=ThisRef},MinVal,MaxVal)
   wxe_util:cast(?wxSpinCtrl_SetRange,
   <<ThisRef:32/?UI,MinVal:32/?UI,MaxVal:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlsetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlsetselection">external documentation</a>.
 -spec setSelection(This, From, To) -> ok when
 	This::wxSpinCtrl(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
@@ -202,7 +202,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
   wxe_util:cast(?wxSpinCtrl_SetSelection,
   <<ThisRef:32/?UI,From:32/?UI,To:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlgetmin">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlgetmin">external documentation</a>.
 -spec getMin(This) -> integer() when
 	This::wxSpinCtrl().
 getMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -210,7 +210,7 @@ getMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSpinCtrl_GetMin,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlgetmax">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlgetmax">external documentation</a>.
 -spec getMax(This) -> integer() when
 	This::wxSpinCtrl().
 getMax(#wx_ref{type=ThisT,ref=ThisRef}) ->

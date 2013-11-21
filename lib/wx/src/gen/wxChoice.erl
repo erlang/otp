@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html">wxChoice</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html">wxChoice</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControlWithItems}
 %% <br />{@link wxControl}
@@ -83,7 +83,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxChoice() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
 -spec new() -> wxChoice().
 new() ->
   wxe_util:construct(?wxChoice_new_0,
@@ -97,7 +97,7 @@ new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxChoice() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -126,7 +126,7 @@ create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Pos,Size,Choices, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicecreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicecreate">external documentation</a>.
 -spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {style, integer()}
@@ -144,7 +144,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{P
   wxe_util:call(?wxChoice_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,PosX:32/?UI,PosY:32/?UI,SizeW:32/?UI,SizeH:32/?UI,(length(Choices_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Choices_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Choices_UCA])) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicedelete">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicedelete">external documentation</a>.
 -spec delete(This, N) -> ok when
 	This::wxChoice(), N::integer().
 delete(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -153,7 +153,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:cast(?wxChoice_Delete,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicegetcolumns">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicegetcolumns">external documentation</a>.
 -spec getColumns(This) -> integer() when
 	This::wxChoice().
 getColumns(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -169,7 +169,7 @@ setColumns(This)
  when is_record(This, wx_ref) ->
   setColumns(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicesetcolumns">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicesetcolumns">external documentation</a>.
 -spec setColumns(This, [Option]) -> ok when
 	This::wxChoice(),
 	Option :: {n, integer()}.

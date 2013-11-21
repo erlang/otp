@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html">wxPageSetupDialog</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialog.html">wxPageSetupDialog</a>.
 %% @type wxPageSetupDialog().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -42,7 +42,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html#wxpagesetupdialogwxpagesetupdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialog.html#wxpagesetupdialogwxpagesetupdialog">external documentation</a>.
 -spec new(Parent, [Option]) -> wxPageSetupDialog() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {data, wxPageSetupDialogData:wxPageSetupDialogData()}.
@@ -55,7 +55,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxPageSetupDialog_new,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html#wxpagesetupdialoggetpagesetupdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialog.html#wxpagesetupdialoggetpagesetupdata">external documentation</a>.
 -spec getPageSetupData(This) -> wxPageSetupDialogData:wxPageSetupDialogData() when
 	This::wxPageSetupDialog().
 getPageSetupData(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -63,7 +63,7 @@ getPageSetupData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPageSetupDialog_GetPageSetupData,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html#wxpagesetupdialogshowmodal">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialog.html#wxpagesetupdialogshowmodal">external documentation</a>.
 -spec showModal(This) -> integer() when
 	This::wxPageSetupDialog().
 showModal(#wx_ref{type=ThisT,ref=ThisRef}) ->

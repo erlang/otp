@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsobject.html">wxGraphicsObject</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsobject.html">wxGraphicsObject</a>.
 %% @type wxGraphicsObject().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -34,7 +34,7 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxGraphicsObject() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsobject.html#wxgraphicsobjectgetrenderer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsobject.html#wxgraphicsobjectgetrenderer">external documentation</a>.
 -spec getRenderer(This) -> wxGraphicsRenderer:wxGraphicsRenderer() when
 	This::wxGraphicsObject().
 getRenderer(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -42,7 +42,7 @@ getRenderer(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGraphicsObject_GetRenderer,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsobject.html#wxgraphicsobjectisnull">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsobject.html#wxgraphicsobjectisnull">external documentation</a>.
 -spec isNull(This) -> boolean() when
 	This::wxGraphicsObject().
 isNull(#wx_ref{type=ThisT,ref=ThisRef}) ->
