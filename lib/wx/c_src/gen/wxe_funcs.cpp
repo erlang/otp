@@ -15137,7 +15137,7 @@ case wxListBox_Set: { // wxListBox::Set
  }
  bp += (8-((0+ itemsASz) & 7 )) & 7;
  if(!This) throw wxe_badarg(0);
- This->Set(items,(void **) NULL);
+ This->Set(items);
  break;
 }
 case wxListBox_HitTest: { // wxListBox::HitTest
