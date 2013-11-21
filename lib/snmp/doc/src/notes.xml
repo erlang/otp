@@ -34,6 +34,79 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.22.3</title>
+    <p>Version 4.22.3 supports code replacement in runtime from/to
+    version 4.22.2, 4.22.1, 4.22, 
+    4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 4.21. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Errors in <c>vacmAccessTable</c> RowStatus handling.
+	  There are problems with the handling of vacmAccessTableStatus 
+	  that cause some SNMP test suites to report errors.
+	  Most notably, erroneous set operations frequently cause "genErr" 
+	  errors to be returned. These "genErr" errors are usually caused 
+	  by badmatch exceptions coming from 
+	  <c>{ok, Row} = snmpa_vacm:get_row(RowIndex)</c> 
+	  if the row does not exist. </p>
+	  <p>The semantics of the RowStatus handling in that table has 
+	  been adjusted to be compliant with the RowStatus
+	  textual description of SNPMv2-TC MIB. </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10164</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+	<item>
+	  <p>Loosing log entries when converting a large Audit Trail Log. </p>
+	  <p>When converting an entire Audit Trail Log in a running 
+	  system its possble to have log wraps and thereby loosing log
+	  entries. </p>
+	  <p>In order to prevent this the log is now blocked
+	  during conversion (<c>log_to_txt</c> or <c>log_to_io</c>). </p>
+	  <p>Own Id: OTP-11396</p>
+	  <p>Own Id: seq12433</p>
+        </item>
+
+        <item>
+          <p>When converting the Audit Trail Log to text a corrupt
+	  log entry could cause the entire conversion to fail. </p>
+	  <p>Also, for a log with sequence numbers, failing to 
+	  decode a log entry would cause the conversion to fail
+	  (not because of the failed decode, but because of the 
+	  failure to write the error message). </p>
+          <p>Own Id: OTP-11453</p>
+          <p>Aux Id: Seq 12459</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.22.3 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.22.2</title>
     <p>Version 4.22.2 supports code replacement in runtime from/to
     version 4.22.1, 4.22, 
