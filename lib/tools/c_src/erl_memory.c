@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -30,6 +30,7 @@
 #	undef WIN32_LEAN_AND_MEAN
 #	define WIN32_LEAN_AND_MEAN
 #	include <windows.h>
+typedef int socklen_t;
 #else
 #	if defined(__linux__) && defined(__GNUC__)
 #   		define _GNU_SOURCE 1
@@ -938,7 +939,7 @@ print_emu_arg(em_state *state)
     struct hostent *hp;
     struct in_addr iaddr;
     usgnd_int_16 port;
-    int saddr_size = sizeof(saddr);
+    socklen_t saddr_size = sizeof(saddr);
     size_t size;
     char *format = "> Emulator command line argument: +Mit %s\n";
 
@@ -2555,7 +2556,7 @@ init_connection(em_state *state)
     SOCKET lsock;
     SOCKET sock = INVALID_SOCKET;
     struct sockaddr_in my_addr;
-    int oth_addr_len;
+    socklen_t oth_addr_len;
     struct sockaddr_in oth_addr;
 #ifdef __WIN32__
     WORD wVersionRequested = MAKEWORD(2,0);
