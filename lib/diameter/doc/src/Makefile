@@ -82,6 +82,7 @@ gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 man: $(MAN1_FILES) $(MAN3_FILES) $(MAN4_FILES)
 
 $(INDEX_TARGET): $(INDEX_SRC) $(APP_FILE)
+	$(gen_verbose) \
 	sed -e 's/%VSN%/$(VSN)/; \
 	        s/%ERLANG_SITE%/www\.erlang\.se\//; \
 	        s/%UP_ONE_LEVEL%/..\/..\/..\/doc\/index.html/; \
@@ -140,7 +141,10 @@ release_spec:
 
 depend.mk: depend.sed Makefile seealso.ent \
            $(XML_REF_FILES) $(XML_CHAPTER_FILES)
+	$(gen_verbose)
+	$(V_at) \
 	sed -f seehere.sed seealso.ent > seehere.ent
+	$(V_at) \
 	(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
 	     sed -f $< $$f | sed "s@%FILE%@`basename $$f .xml`@g"; \
 	 done) \
