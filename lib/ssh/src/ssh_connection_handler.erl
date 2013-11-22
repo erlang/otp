@@ -519,7 +519,8 @@ connected({#ssh_msg_kexinit{}, _Payload} = Event, State) ->
 		   #state{}) -> gen_fsm_state_return().
 
 %%--------------------------------------------------------------------
-handle_event(#ssh_msg_disconnect{description = Desc}, _StateName, #state{} = State) ->
+handle_event(#ssh_msg_disconnect{description = Desc} = DisconnectMsg, _StateName, #state{} = State) ->
+    handle_disconnect(DisconnectMsg, State),
     {stop, {shutdown, Desc}, State};
 
 handle_event(#ssh_msg_ignore{}, StateName, State) ->
@@ -850,7 +851,11 @@ handle_info({Protocol, Socket, Data}, Statename,
 handle_info({CloseTag, _Socket}, _StateName, 
 	    #state{transport_close_tag = CloseTag,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
-    {stop, {shutdown, "Connection Lost"}, State};
+    DisconnectMsg = 
+	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+			    description = "Connection closed",
+			    language = "en"},
+    handle_disconnect(DisconnectMsg, State);
 
 handle_info({timeout, {_, From} = Request}, Statename,
 	    #state{connection_state = #connection{requests = Requests} = Connection} = State) ->
@@ -1377,10 +1382,16 @@ handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
 	    handle_disconnect(DisconnectMsg, State0)
     end.
 
-handle_disconnect(#ssh_msg_disconnect{description = Desc}, State) ->
-    {stop, {shutdown, Desc}, State}.
-handle_disconnect(#ssh_msg_disconnect{description = Desc}, State, ErrorMsg) ->
-    {stop, {shutdown, {Desc, ErrorMsg}}, State}.
+handle_disconnect(#ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
+									role = Role} = State0) ->
+    {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
+    State = send_replies(Replies, State0),
+    {stop, {shutdown, Desc}, State#state{connection_state = Connection}}.
+handle_disconnect(#ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
+									role = Role} = State0, ErrorMsg) ->
+    {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
+    State = send_replies(Replies, State0),
+    {stop, {shutdown, {Desc, ErrorMsg}}, State#state{connection_state = Connection}}.
 
 counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
     Ssh#ssh{c_vsn = NumVsn , c_version = StrVsn};
@@ -1420,9 +1431,9 @@ retry_fun(User, PeerAddr, Reason, Opts) ->
 
 do_retry_fun(Fun, User, PeerAddr, Reason) ->
     case erlang:fun_info(Fun, arity) of
-	2 -> %% Backwards compatible
+	{arity, 2} -> %% Backwards compatible
 	    catch Fun(User, Reason);
-	3 ->
+	{arity, 3} ->
 	    catch Fun(User, PeerAddr, Reason)
     end.
 

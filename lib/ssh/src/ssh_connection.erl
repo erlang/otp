@@ -730,7 +730,6 @@ handle_msg(#ssh_msg_request_success{data = Data},
     {{replies, [{channel_requst_reply, From, {success, Data}}]},
      Connection#connection{requests = Rest}};
 
-%%% This transport message will also be handled at the connection level
 handle_msg(#ssh_msg_disconnect{code = Code,
 			       description = Description,
 			       language = _Lang },
