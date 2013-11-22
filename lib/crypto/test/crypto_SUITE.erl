@@ -143,7 +143,8 @@ app(Config) when is_list(Config) ->
 hash() ->
     [{doc, "Test all different hash functions"}].
 hash(Config) when is_list(Config) ->
-    {Type, Msgs, Digests} = proplists:get_value(hash, Config),
+    {Type, MsgsLE, Digests} = proplists:get_value(hash, Config),
+    Msgs = lists:map(fun lazy_eval/1, MsgsLE),
     [LongMsg | _] = lists:reverse(Msgs),
     Inc = iolistify(LongMsg),
     [IncrDigest | _] = lists:reverse(Digests),
@@ -154,7 +155,8 @@ hash(Config) when is_list(Config) ->
 hmac() ->
      [{doc, "Test all different hmac functions"}].
 hmac(Config) when is_list(Config) ->
-    {Type, Keys, Data, Expected} = proplists:get_value(hmac, Config),
+    {Type, Keys, DataLE, Expected} = proplists:get_value(hmac, Config),
+    Data = lists:map(fun lazy_eval/1, DataLE),
     hmac(Type, Keys, Data, Expected),
     hmac(Type, lists:map(fun iolistify/1, Keys), lists:map(fun iolistify/1, Data), Expected),
     hmac_increment(Type).
@@ -795,7 +797,13 @@ rfc_4634_sha512_digests() ->
      hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA17299AEADB6889018501D289E4900F7E4331B99DEC4B5433AC7D329EEB6DD26545E96E55B874BE909")].
 
 long_msg() ->
-    lists:duplicate(1000000, $a).
+    fun() -> lists:duplicate(1000000, $a) end.
+
+%% Building huge terms (like long_msg/0) in init_per_group seems to cause
+%% test_server crash with 'no_answer_from_tc_supervisor' sometimes on some
+%% machines. Therefore lazy evaluation when test case has started.
+lazy_eval(F) when is_function(F) -> F();
+lazy_eval(Term) -> Term.
 
 long_sha_digest() ->
     hexstr2bin("34aa973c" "d4c4daa4" "f61eeb2b" "dbad2731" "6534016f").
