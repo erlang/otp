@@ -50,7 +50,7 @@ groups() ->
        trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_6121a,otp_6121b,otp_7202,otp_7345,on_load,
-       string_table,otp_8949_a,otp_8949_a,split_cases,
+       string_table,otp_8949_a,otp_8949_b,split_cases,
        beam_utils_liveopt]}].
 
 init_per_suite(Config) ->
@@ -630,13 +630,13 @@ string_table(Config) when is_list(Config) ->
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->
-    value = otp_8949_a(),
+    value = do_otp_8949_a(),
     ok.
 
 -record(cs, {exs,keys = [],flags = 1}).
 -record(exs, {children = []}).
 
-otp_8949_a() ->
+do_otp_8949_a() ->
     case id([#cs{}]) of
         [#cs{}=Cs] ->
             SomeVar = id(value),
