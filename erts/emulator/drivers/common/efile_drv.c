@@ -373,9 +373,6 @@ struct erl_drv_entry efile_driver_entry = {
 #else
     NULL
 #endif /* HAVE_SENDFILE */
-#ifdef __OSE__
-    ,NULL
-#endif
 };
 
 
@@ -768,6 +765,9 @@ file_init(void)
 			    : 0);
     driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
 
+    /* run initiation of efile_driver if needed */
+    efile_init();
+
 #ifdef  USE_VM_PROBES
     erts_mtx_init(&dt_driver_mutex, "efile_drv dtrace mutex");
     pthread_key_create(&dt_driver_key, NULL);
@@ -914,6 +914,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
 
+#ifdef HAVE_SENDFILE
 static void reply_string_error(file_descriptor *desc, char* str) {
     char response[256];		/* Response buffer. */
     char* s;
@@ -924,6 +925,7 @@ static void reply_string_error(file_descriptor *desc, char* str) {
 	*t = tolower(*s);
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
+#endif
 
 static int reply_error(file_descriptor *desc, 
 		       Efile_error *errInfo) /* The error codes. */

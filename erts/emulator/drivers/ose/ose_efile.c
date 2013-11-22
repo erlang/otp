@@ -31,45 +31,16 @@
 #include "sys.h"
 #include "erl_driver.h"
 #include "erl_efile.h"
-/*#include <utime.h>*/
-#ifdef HAVE_UNISTD_H
-#ifndef __OSE__
-#include <unistd.h>
-#endif
-#endif
-#ifdef HAVE_SYS_UIO_H
-#include <sys/types.h>
-#include <sys/uio.h>
-#endif
-#if defined(HAVE_SENDFILE) && (defined(__linux__) || (defined(__sun) && defined(__SVR4)))
-#include <sys/sendfile.h>
-#endif
-
-#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-#define DARWIN 1
-#endif
-
 #if defined(DARWIN) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
-#include <fcntl.h>
+#include "fcntl.h"
 #endif
-
-#ifdef HAVE_LINUX_FALLOC_H
-#include <linux/falloc.h>
-#endif
-
-#ifdef SUNOS4
-#  define getcwd(buf, size) getwd(buf)
-#endif
-
-#ifdef __OSE__
 #include "ose.h"
 #include "unistd.h"
 #include "sys/stat.h"
 #include "dirent.h"
 #include "sys/time.h"
 #include "time.h"
-#include "heapapi.h"
-#endif
+#include "assert.h"
 
 /* Find a definition of MAXIOV, that is used in the code later. */
 #if defined IOV_MAX
@@ -80,7 +51,6 @@
 #define MAXIOV 16
 #endif
 
-
 /*
  * Macros for testing file types.
  */
@@ -88,7 +58,7 @@
 #define ISDIR(st) (((st).st_mode & S_IFMT) == S_IFDIR)
 #define ISREG(st) (((st).st_mode & S_IFMT) == S_IFREG)
 #define ISDEV(st) \
-  (((st).st_mode&S_IFMT) == S_IFCHR || ((st).st_mode&S_IFMT) == S_IFBLK)
+    (((st).st_mode&S_IFMT) == S_IFCHR || ((st).st_mode&S_IFMT) == S_IFBLK)
 #define ISLNK(st) (((st).st_mode & S_IFLNK) == S_IFLNK)
 #ifdef NO_UMASK
 #define FILE_MODE 0644
@@ -101,159 +71,261 @@
 #define IS_DOT_OR_DOTDOT(s) \
     (s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0')))
 
-
 /*
- * Local file descriptor handling, this is needed for filesystems
- * that does not handle seeking outside EOF.
+ * Macros for handling local file descriptors
+ * and mutexes.
+ *
+ * Handling of files like this is necessary because OSE
+ * does not allow seeking after the end of a file. So
+ * what we do it emulate this by keeping track of the size
+ * of the file and where the file's positions is. If a
+ * write happens after eof then we pad it.
+ *
+ * Given time this should be rewritten to get rid of the
+ * mutex and use the port lock to protect the data. This
+ * could be done be done by adapting the efile api for some
+ * calls to allow some meta-data to be associated with the
+ * open file.
  */
 
-#define L_FD_EXISTS(fd) \
-    ((fdm->is_init == 1) && fdm->fd_array[(fd)] != NULL)
+#define L_FD_IS_VALID(fd_data) ((fd_data)->beyond_eof > 0)
+#define L_FD_INVALIDATE(fd_data) (fd_data)->beyond_eof = 0
+#define L_FD_CUR(fd_data) (fd_data)->pos
+#define L_FD_OFFS_BEYOND_EOF(fd_data, offs) \
+    (((fd_data)->size > offs) ? 0 : 1)
 
-#define L_FD_INVALIDATE(fd) \
-       fdm->fd_array[(fd)]->valid = 0
+#define L_FD_FAIL -1
+#define L_FD_SUCCESS 1
+#define L_FD_PAD_SIZE 255
 
-#define L_FD_IS_VALID(fd) \
-       (fdm->fd_array[(fd)]->valid == 1)
-
-#define L_FD_OFFSET_BEYOND_EOF(fd, offset) \
-       (fdm->fd_array[(fd)]->size < offset)
-
-#define L_FD_CUR(fd) \
-   (fdm->fd_array[(fd)]->pos)
-
-
-struct fd_meta
-{
-   int is_init;
-   uint32_t fd_count;
-   struct fd_data *fd_array[256];
+struct fd_meta {
+    ErlDrvMutex *meta_mtx;
+    struct fd_data *fd_data_list;
 };
 
-struct fd_data
-{
-   int pos;
-   int whence;
-   int valid;
-   size_t size;
+struct fd_data {
+    int fd;
+    struct fd_data *next;
+    struct fd_data *prev;
+    int pos;
+    int beyond_eof;
+    size_t size;
+#ifdef DEBUG
+    PROCESS owner;
+#endif
 };
 
-static struct fd_meta *fdm;
-static int l_init_local_fd(void);
-static int l_pad_file(int fd, off_t offset);
-static int l_update_local_fd(int fd, off_t offset, int whence);
-
+static int l_invalidate_local_fd(int fd);
+static int l_pad_file(struct fd_data *fd_data, off_t offset);
 static int check_error(int result, Efile_error* errInfo);
+static struct fd_data* l_new_fd(void);
+static int l_remove_local_fd(int fd);
+static struct fd_data* l_find_local_fd(int fd);
+static int l_update_local_fd(int fd, int pos, int size);
+
+static struct fd_meta* fdm = NULL;
+
+
+/***************************************************************************/
 
 static int
-l_init_local_fd()
+l_remove_local_fd(int fd)
 {
-   fdm = heap_alloc_private(sizeof(struct fd_meta), __FILE__, __LINE__);
-   fdm->fd_count = 0;
-   fdm->is_init = 1;
+    struct fd_data *fd_data;
+    fd_data = l_find_local_fd(fd);
 
-   memset(fdm->fd_array, NULL, sizeof(fdm->fd_array));
-   return 1;
+    if (fd_data == NULL) {
+        return L_FD_FAIL;
+    }
+#ifdef DEBUG
+    assert(fd_data->owner == current_process());
+#endif
+    erl_drv_mutex_lock(fdm->meta_mtx);
+    /* head ? */
+    if (fd_data == fdm->fd_data_list) {
+        if (fd_data->next != NULL) {
+            /* remove link to head */
+            fd_data->next->prev = NULL;
+            /* set new head */
+            fdm->fd_data_list = fd_data->next;
+        }
+        else {
+            /* head is lonely */
+            fdm->fd_data_list = NULL;
+        }
+    }
+    else { /* not head */
+        if (fd_data->prev == NULL) {
+            erl_drv_mutex_unlock(fdm->meta_mtx);
+            return L_FD_FAIL;
+        }
+        else {
+            if (fd_data->next != NULL) {
+                fd_data->next->prev = fd_data->prev;
+                fd_data->prev->next = fd_data->next;
+            }
+            else {
+                fd_data->prev->next = NULL;
+            }
+        }
+    }
+
+    /* scramble values */
+    fd_data->beyond_eof = -1;
+    fd_data->next = NULL;
+    fd_data->prev = NULL;
+    fd_data->fd = -1;
+
+    /* unlock and clean */
+    driver_free(fd_data);
+    erl_drv_mutex_unlock(fdm->meta_mtx);
+
+    return L_FD_SUCCESS;
 }
 
+/***************************************************************************/
+
 static int
-l_update_local_fd(int fd, off_t offset, int whence)
-{
-   errno = 0;
+l_invalidate_local_fd(int fd) {
+    struct fd_data *fd_data;
 
-   if (fdm->fd_array[fd] == NULL)
-   {
-      fdm->fd_array[fd] = heap_alloc_private(sizeof(struct fd_data), __FILE__, __LINE__);
-      fdm->fd_count++;
-   }
+    if ((fd_data = l_find_local_fd(fd)) == NULL) {
+        return L_FD_FAIL;
+    }
 
-   switch (whence)
-   {
-      case SEEK_CUR:
-         fdm->fd_array[fd]->pos = lseek(fd, 0, SEEK_CUR) + offset;
-         break;
-
-      case SEEK_END:
-         fdm->fd_array[fd]->pos = lseek(fd, 0, SEEK_END) + offset;
-         break;
-
-      case SEEK_SET:
-         fdm->fd_array[fd]->pos = offset;
-
-      default:
-         errno = ENOSYS;
-         break;
-   }
-   fdm->fd_array[fd]->size = lseek(fd, 0, SEEK_END);
-
-   fdm->fd_array[fd]->whence = whence;
-   fdm->fd_array[fd]->valid = 1;
-
-   return ((errno != 0) ? -1 : 1);
+    fd_data->beyond_eof = 0;
+    return L_FD_SUCCESS;
 }
 
-static int
-l_pad_file(int fd, off_t offset)
-{
-   int size_dif;
-   char *pad;
-   char *cursor;
-   int file_size;
-   int written = 0;
+/****************************************************************************/
 
-   if (!L_FD_IS_VALID(fd))
-   {
-      l_update_local_fd(fd, offset, SEEK_END);
-   }
+static struct fd_data*
+l_find_local_fd(int fd) {
+    struct fd_data *fd_data;
 
-   if (!L_FD_OFFSET_BEYOND_EOF(fd, offset))
-   {
-
-      return -1;
-   }
-
-
-   file_size = lseek(fd, 0, SEEK_END);
-   size_dif = offset - file_size;
-   pad = heap_alloc_private(size_dif, __FILE__, __LINE__);
-   cursor = pad;
-   memset(pad, '\0', size_dif);
-
-   while (size_dif > 0)
-   {
-      written = write(fd, cursor, size_dif);
-
-      if (written < 0)
-      {
-         return -1;
-      }
-      cursor += written;
-      size_dif -= written;
-   }
-
-   L_FD_INVALIDATE(fd);
-   heap_free_private(pad);
-
-   return ((errno != 0) ? -1 : 1);
+    fd_data = NULL;
+    erl_drv_mutex_lock(fdm->meta_mtx);
+    for (fd_data = fdm->fd_data_list; fd_data != NULL; ) {
+        if (fd_data->fd == fd) {
+#ifdef DEBUG
+            assert(fd_data->owner == current_process());
+#endif
+            break;
+        }
+        fd_data = fd_data->next;
+    }
+    erl_drv_mutex_unlock(fdm->meta_mtx);
+    return fd_data;
 }
 
+/***************************************************************************/
+
+static struct fd_data*
+l_new_fd(void) {
+    struct fd_data *fd_data;
+
+    fd_data = driver_alloc(sizeof(struct fd_data));
+    if (fd_data == NULL) {
+        return NULL;
+    }
+    erl_drv_mutex_lock(fdm->meta_mtx);
+    if (fdm->fd_data_list == NULL) {
+        fdm->fd_data_list = fd_data;
+        fdm->fd_data_list->prev = NULL;
+        fdm->fd_data_list->next = NULL;
+    }
+    else {
+        fd_data->next = fdm->fd_data_list;
+        fdm->fd_data_list = fd_data;
+        fdm->fd_data_list->prev = NULL;
+    }
+#ifdef DEBUG
+    fd_data->owner = current_process();
+#endif
+    erl_drv_mutex_unlock(fdm->meta_mtx);
+    return fd_data;
+}
+
+/***************************************************************************/
+
 static int
-check_error(int result, Efile_error *errInfo)
-{
+l_update_local_fd(int fd, int pos, int size) {
+    struct fd_data *fd_data = NULL;
+
+    fd_data = l_find_local_fd(fd);
+    /* new fd to handle? */
+    if (fd_data == NULL) {
+        fd_data = l_new_fd();
+        if (fd_data == NULL) {
+            /* out of memory */
+            return L_FD_FAIL;
+        }
+    }
+    fd_data->size = size;
+    fd_data->pos = pos;
+    fd_data->fd = fd;
+    fd_data->beyond_eof = 1;
+
+    return L_FD_SUCCESS;
+}
+
+/***************************************************************************/
+
+static int
+l_pad_file(struct fd_data *fd_data, off_t offset) {
+    int size_dif;
+    int written = 0;
+    int ret_val = L_FD_SUCCESS;
+    char padding[L_FD_PAD_SIZE];
+
+    size_dif = (offset - fd_data->size);
+    memset(&padding, '\0', L_FD_PAD_SIZE);
+
+    while (size_dif > 0) {
+        written = write(fd_data->fd, padding,
+                (size_dif < L_FD_PAD_SIZE) ?
+                size_dif : L_FD_PAD_SIZE);
+        if (written < 0 && errno != EINTR && errno != EAGAIN) {
+            ret_val = -1;
+            break;
+        }
+        size_dif -= written;
+    }
+    L_FD_INVALIDATE(fd_data);
+    return ret_val;
+}
+
+/***************************************************************************/
+
+static int
+check_error(int result, Efile_error *errInfo) {
     if (result < 0) {
-	errInfo->posix_errno = errInfo->os_errno = errno;
-	return 0;
+        errInfo->posix_errno = errInfo->os_errno = errno;
+        return 0;
     }
     return 1;
 }
 
-/*
- * public API
- */
+/***************************************************************************/
 
 int
-efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
-	    char* name)			/* Name of directory to create. */
+efile_init() {
+    fdm = driver_alloc(sizeof(struct fd_meta));
+    if (fdm == NULL) {
+        return L_FD_FAIL;
+    }
+    fdm->meta_mtx = erl_drv_mutex_create("ose_efile local fd mutex\n");
+    erl_drv_mutex_lock(fdm->meta_mtx);
+    fdm->fd_data_list = NULL;
+    erl_drv_mutex_unlock(fdm->meta_mtx);
+    return L_FD_SUCCESS;
+}
+
+/***************************************************************************/
+
+int
+efile_mkdir(Efile_error* errInfo,       /* Where to return error codes. */
+        char* name)                 /* Name of directory to create. */
 {
 #ifdef NO_MKDIR_MODE
     return check_error(mkdir(name), errInfo);
@@ -266,53 +338,69 @@ efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 #endif
 }
 
+/***************************************************************************/
+
 int
-efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
-	    char* name)			/* Name of directory to delete. */
+efile_rmdir(Efile_error* errInfo,       /* Where to return error codes. */
+        char* name)                 /* Name of directory to delete. */
 {
     if (rmdir(name) == 0) {
-	return 1;
+        return 1;
     }
     if (errno == ENOTEMPTY) {
-	errno = EEXIST;
+        errno = EEXIST;
     }
-    if (errno == EEXIST) {
-	int saved_errno = errno;
-	struct stat file_stat;
-	struct stat cwd_stat;
+    if (errno == EEXIST || errno == EINVAL) {
+        int saved_errno = errno;
+        struct stat file_stat;
+        struct stat cwd_stat;
 
-	/*
-	 *  The error code might be wrong if this is the current directory.
-	 */
-
-	if (stat(name, &file_stat) == 0 && stat(".", &cwd_stat) == 0 &&
-	    file_stat.st_ino == cwd_stat.st_ino &&
-	    file_stat.st_dev == cwd_stat.st_dev) {
-	    saved_errno = EINVAL;
-	}
-	errno = saved_errno;
+        if(stat(name, &file_stat) != 0) {
+            errno = ENOENT;
+            return check_error(-1, errInfo);
+        }
+        /*
+         *  The error code might be wrong if this is the current directory.
+         */
+        if (stat(name, &file_stat) == 0 && stat(".", &cwd_stat) == 0 &&
+                file_stat.st_ino == cwd_stat.st_ino &&
+                file_stat.st_dev == cwd_stat.st_dev) {
+            saved_errno = EACCES;
+        }
+        errno = saved_errno;
     }
     return check_error(-1, errInfo);
 }
 
+/***************************************************************************/
+
 int
-efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
-		  char* name)		/* Name of file to delete. */
+efile_delete_file(Efile_error* errInfo, /* Where to return error codes. */
+        char* name)           /* Name of file to delete. */
 {
     struct stat statbuf;
 
-    /* OSE will accept removal of directories with unlink() */
-    if (stat(name, &statbuf) >= 0 && ISDIR(statbuf))
-    {
-       errno = EPERM;
-       return check_error(-1, errInfo);
-    }
+    if (stat(name, &statbuf) >= 0) {
+        /* Do not let unlink() remove directories */
+        if (ISDIR(statbuf)) {
+            errno = EPERM;
+            return check_error(-1, errInfo);
+        }
 
-    if (unlink(name) == 0) {
-	return 1;
+        if (unlink(name) == 0) {
+            return 1;
+        }
+
+        if (errno == EISDIR) {
+            errno = EPERM;
+            return check_error(-1, errInfo);
+        }
     }
-    if (errno == EISDIR) {	/* Linux sets the wrong error code. */
-	errno = EPERM;
+    else {
+        if (errno == EINVAL) {
+            errno = ENOENT;
+            return check_error(-1, errInfo);
+        }
     }
     return check_error(-1, errInfo);
 }
@@ -321,150 +409,107 @@ efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
  *---------------------------------------------------------------------------
  *
  *      Changes the name of an existing file or directory, from src to dst.
- *	If src and dst refer to the same file or directory, does nothing
- *	and returns success.  Otherwise if dst already exists, it will be
- *	deleted and replaced by src subject to the following conditions:
- *	    If src is a directory, dst may be an empty directory.
- *	    If src is a file, dst may be a file.
- *	In any other situation where dst already exists, the rename will
- *	fail.
+ *      If src and dst refer to the same file or directory, does nothing
+ *      and returns success.  Otherwise if dst already exists, it will be
+ *      deleted and replaced by src subject to the following conditions:
+ *          If src is a directory, dst may be an empty directory.
+ *          If src is a file, dst may be a file.
+ *      In any other situation where dst already exists, the rename will
+ *      fail.
  *
  * Results:
- *	If the directory was successfully created, returns 1.
- *	Otherwise the return value is 0 and errno is set to
- *	indicate the error.  Some possible values for errno are:
+ *      If the directory was successfully created, returns 1.
+ *      Otherwise the return value is 0 and errno is set to
+ *      indicate the error.  Some possible values for errno are:
  *
- *	EACCES:     src or dst parent directory can't be read and/or written.
- *	EEXIST:	    dst is a non-empty directory.
- *	EINVAL:	    src is a root directory or dst is a subdirectory of src.
- *	EISDIR:	    dst is a directory, but src is not.
- *	ENOENT:	    src doesn't exist, or src or dst is "".
- *	ENOTDIR:    src is a directory, but dst is not.
- *	EXDEV:	    src and dst are on different filesystems.
+ *      EACCES:     src or dst parent directory can't be read and/or written.
+ *      EEXIST:     dst is a non-empty directory.
+ *      EINVAL:     src is a root directory or dst is a subdirectory of src.
+ *      EISDIR:     dst is a directory, but src is not.
+ *      ENOENT:     src doesn't exist, or src or dst is "".
+ *      ENOTDIR:    src is a directory, but dst is not.
+ *      EXDEV:      src and dst are on different filesystems.
  *
  * Side effects:
- *	The implementation of rename may allow cross-filesystem renames,
- *	but the caller should be prepared to emulate it with copy and
- *	delete if errno is EXDEV.
+ *      The implementation of rename may allow cross-filesystem renames,
+ *      but the caller should be prepared to emulate it with copy and
+ *      delete if errno is EXDEV.
  *
  *---------------------------------------------------------------------------
  */
 
 int
-efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
-	     char* src,		        /* Original name. */
-	     char* dst)			/* New name. */
+efile_rename(Efile_error* errInfo,      /* Where to return error codes. */
+        char* src,                 /* Original name. */
+        char* dst)                 /* New name. */
 {
 
-   /* temporary fix AFM does not recognize ./<file name>
-    * in destination */
+    /* temporary fix AFM does not recognize ./<file name>
+     * in destination remove pending on adaption of AFM fix
+     */
 
-   char *dot_str;
-   if (dst != NULL)
-   {
-      dot_str = strchr(dst, '.');
+    char *dot_str;
+    if (dst != NULL) {
+        dot_str = strchr(dst, '.');
+        if (dot_str && dot_str == dst && dot_str[1] == '/') {
+            dst = dst+2;
+        }
+    }
 
-      if (dot_str && dot_str == dst && dot_str[1] == '/')
-      {
-         dst = dst+2;
-      }
-   }
-
-   if (rename(src, dst) == 0) {
-	return 1;
+    if (rename(src, dst) == 0) {
+        return 1;
     }
     if (errno == ENOTEMPTY) {
-	errno = EEXIST;
+        errno = EEXIST;
     }
-#if defined (sparc)
-    /*
-     * SunOS 4.1.4 reports overwriting a non-empty directory with a
-     * directory as EINVAL instead of EEXIST (first rule out the correct
-     * EINVAL result code for moving a directory into itself).  Must be
-     * conditionally compiled because realpath() is only defined on SunOS.
-     */
-
     if (errno == EINVAL) {
-	char srcPath[MAXPATHLEN], dstPath[MAXPATHLEN];
-	DIR *dirPtr;
-	struct dirent *dirEntPtr;
+        struct stat file_stat;
 
-#ifdef PURIFY
-	memset(srcPath, '\0', sizeof(srcPath));
-	memset(dstPath, '\0', sizeof(dstPath));
-#endif
-
-	if ((realpath(src, srcPath) != NULL)
-		&& (realpath(dst, dstPath) != NULL)
-		&& (strncmp(srcPath, dstPath, strlen(srcPath)) != 0)) {
-	    dirPtr = opendir(dst);
-	    if (dirPtr != NULL) {
-		while ((dirEntPtr = readdir(dirPtr)) != NULL) {
-		    if ((strcmp(dirEntPtr->d_name, ".") != 0) &&
-			    (strcmp(dirEntPtr->d_name, "..") != 0)) {
-			errno = EEXIST;
-			closedir(dirPtr);
-			return check_error(-1, errInfo);
-		    }
-		}
-		closedir(dirPtr);
-	    }
-	}
-	errno = EINVAL;
+        if (stat(dst, &file_stat)== 0) {
+            if (ISDIR(file_stat)) {
+                errno = EISDIR;
+            }
+            else if (ISREG(file_stat)) {
+                errno = ENOTDIR;
+            }
+            else {
+                errno = EINVAL;
+            }
+        }
+        else {
+            errno = EINVAL;
+        }
     }
-#endif	/* sparc */
 
     if (strcmp(src, "/") == 0) {
-	/*
-	 * Alpha reports renaming / as EBUSY and Linux reports it as EACCES,
-	 * instead of EINVAL.
-	 */
-
-	errno = EINVAL;
+        errno = EINVAL;
     }
-
-    /*
-     * DEC Alpha OSF1 V3.0 returns EACCES when attempting to move a
-     * file across filesystems and the parent directory of that file is
-     * not writable.  Most other systems return EXDEV.  Does nothing to
-     * correct this behavior.
-     */
-
     return check_error(-1, errInfo);
 }
 
+/***************************************************************************/
+
 int
 efile_chdir(Efile_error* errInfo,   /* Where to return error codes. */
-	    char* name)		    /* Name of directory to make current. */
+        char* name)             /* Name of directory to make current. */
 {
     return check_error(chdir(name), errInfo);
 }
 
+/***************************************************************************/
 
 int
-efile_getdcwd(Efile_error* errInfo,	/* Where to return error codes. */
-	      int drive,		/* 0 - current, 1 - A, 2 - B etc. */
-	      char* buffer,		/* Where to return the current
-					   directory. */
-	      size_t size)		/* Size of buffer. */
+efile_getdcwd(Efile_error* errInfo,     /* Where to return error codes. */
+        int drive,                /* 0 - current, 1 - A, 2 - B etc. */
+        char* buffer,             /* Where to return the current
+                                     directory. */
+        size_t size)              /* Size of buffer. */
 {
     if (drive == 0) {
-	if (getcwd(buffer, size) == NULL)
-	    return check_error(-1, errInfo);
+        if (getcwd(buffer, size) == NULL)
+            return check_error(-1, errInfo);
 
-#ifdef SIMSPARCSOLARIS
-	/* We get "host:" prepended to the dirname - remove!. */
-	{
-	  int i = 0;
-	  int j = 0;
-	  while ((buffer[i] != ':') && (buffer[i] != '\0')) i++;
-	  if (buffer[i] == ':') {
-	    i++;
-	    while ((buffer[j++] = buffer[i++]) != '\0');
-	  }
-	}
-#endif
-	return 1;
+        return 1;
     }
 
     /*
@@ -475,29 +520,31 @@ efile_getdcwd(Efile_error* errInfo,	/* Where to return error codes. */
     return check_error(-1, errInfo);
 }
 
+/***************************************************************************/
+
 int
-efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
-	      char* name,		/* Name of directory to open. */
-	      EFILE_DIR_HANDLE* p_dir_handle,	/* Pointer to directory
-						   handle of
-						   open directory.*/
-	      char* buffer,		/* Pointer to buffer for
-					   one filename. */
-	      size_t *size)		/* in-out Size of buffer, length
-					   of name. */
+efile_readdir(Efile_error* errInfo,     /* Where to return error codes. */
+        char* name,               /* Name of directory to open. */
+        EFILE_DIR_HANDLE* p_dir_handle,   /* Pointer to directory
+                                             handle of
+                                             open directory.*/
+        char* buffer,             /* Pointer to buffer for
+                                     one filename. */
+        size_t *size)             /* in-out Size of buffer, length
+                                     of name. */
 {
-    DIR *dp;			/* Pointer to directory structure. */
-    struct dirent* dirp;	/* Pointer to directory entry. */
+    DIR *dp;                    /* Pointer to directory structure. */
+    struct dirent* dirp;        /* Pointer to directory entry. */
 
     /*
      * If this is the first call, we must open the directory.
      */
 
     if (*p_dir_handle == NULL) {
-	dp = opendir(name);
-	if (dp == NULL)
-	    return check_error(-1, errInfo);
-	*p_dir_handle = (EFILE_DIR_HANDLE) dp;
+        dp = opendir(name);
+        if (dp == NULL)
+            return check_error(-1, errInfo);
+        *p_dir_handle = (EFILE_DIR_HANDLE) dp;
     }
 
     /*
@@ -506,165 +553,138 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 
     dp = *((DIR **)((void *)p_dir_handle));
     for (;;) {
-	dirp = readdir(dp);
-	if (dirp == NULL) {
-	    closedir(dp);
-	    return 0;
-	}
-	if (IS_DOT_OR_DOTDOT(dirp->d_name))
-	    continue;
-	buffer[0] = '\0';
-	strncat(buffer, dirp->d_name, (*size)-1);
-	*size = strlen(dirp->d_name);
-	return 1;
+        dirp = readdir(dp);
+        if (dirp == NULL) {
+            closedir(dp);
+            return 0;
+        }
+        if (IS_DOT_OR_DOTDOT(dirp->d_name))
+            continue;
+        buffer[0] = '\0';
+        strncat(buffer, dirp->d_name, (*size)-1);
+        *size = strlen(dirp->d_name);
+        return 1;
     }
 }
 
+/***************************************************************************/
+
 int
-efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
-	       char* name,		/* Name of directory to open. */
-	       int flags,		/* Flags to user for opening. */
-	       int* pfd,		/* Where to store the file
-					   descriptor. */
-	       Sint64 *pSize)		/* Where to store the size of the
-					   file. */
+efile_openfile(Efile_error* errInfo,    /* Where to return error codes. */
+        char* name,              /* Name of directory to open. */
+        int flags,               /* Flags to user for opening. */
+        int* pfd,                /* Where to store the file
+                                    descriptor. */
+        Sint64 *pSize)           /* Where to store the size of the
+                                    file. */
 {
     struct stat statbuf;
     int fd;
-    int mode;			/* Open mode. */
+    int mode;                   /* Open mode. */
 
     if (stat(name, &statbuf) >= 0 && !ISREG(statbuf)) {
-	/*
-	 * For UNIX only, here is some ugly code to allow
-	 * /dev/null to be opened as a file.
-	 *
-	 * Assumption: The i-node number for /dev/null cannot be zero.
-	 */
-	static ino_t dev_null_ino = 0;
-
-	if (dev_null_ino == 0) {
-	    struct stat nullstatbuf;
-
-	    if (stat("/dev/null", &nullstatbuf) >= 0) {
-		dev_null_ino = nullstatbuf.st_ino;
-	    }
-	}
-	if (!(dev_null_ino && statbuf.st_ino == dev_null_ino)) {
-	    errno = EISDIR;
-	    return check_error(-1, errInfo);
-	}
+        errno = EISDIR;
+        return check_error(-1, errInfo);
     }
 
     switch (flags & (EFILE_MODE_READ|EFILE_MODE_WRITE)) {
-    case EFILE_MODE_READ:
-	mode = O_RDONLY;
-	break;
-    case EFILE_MODE_WRITE:
-	if (flags & EFILE_NO_TRUNCATE)
-	    mode = O_WRONLY | O_CREAT;
-	else
-	    mode = O_WRONLY | O_CREAT | O_TRUNC;
-	break;
-    case EFILE_MODE_READ_WRITE:
-	mode = O_RDWR | O_CREAT;
-	break;
-    default:
-	errno = EINVAL;
-	return check_error(-1, errInfo);
+        case EFILE_MODE_READ:
+            mode = O_RDONLY;
+            break;
+        case EFILE_MODE_WRITE:
+            if (flags & EFILE_NO_TRUNCATE)
+                mode = O_WRONLY | O_CREAT;
+            else
+                mode = O_WRONLY | O_CREAT | O_TRUNC;
+            break;
+        case EFILE_MODE_READ_WRITE:
+            mode = O_RDWR | O_CREAT;
+            break;
+        default:
+            errno = EINVAL;
+            return check_error(-1, errInfo);
     }
 
 
     if (flags & EFILE_MODE_APPEND) {
-	mode &= ~O_TRUNC;
-	mode |= O_APPEND;
+        mode &= ~O_TRUNC;
+        mode |= O_APPEND;
     }
 
     if (flags & EFILE_MODE_EXCL) {
-	mode |= O_EXCL;
+        mode |= O_EXCL;
     }
 
     fd = open(name, mode, FILE_MODE);
 
     if (!check_error(fd, errInfo))
-	return 0;
+        return 0;
 
     *pfd = fd;
     if (pSize) {
-	*pSize = statbuf.st_size;
+        *pSize = statbuf.st_size;
     }
     return 1;
 }
 
+/***************************************************************************/
+
 int
 efile_may_openfile(Efile_error* errInfo, char *name) {
-    struct stat statbuf;	/* Information about the file */
+    struct stat statbuf;        /* Information about the file */
     int result;
 
     result = stat(name, &statbuf);
     if (!check_error(result, errInfo))
-	return 0;
+        return 0;
     if (!ISREG(statbuf)) {
-	errno = EISDIR;
-	return check_error(-1, errInfo);
+        errno = EISDIR;
+        return check_error(-1, errInfo);
     }
     return 1;
 }
 
+/***************************************************************************/
+
 void
 efile_closefile(int fd)
 {
-   if (L_FD_EXISTS(fd))
-   {
-      free(fdm->fd_array[fd]);
-      fdm->fd_array[fd] = NULL;
-   }
-   close(fd);
+    if (l_find_local_fd(fd) != NULL) {
+        l_remove_local_fd(fd);
+    }
+    close(fd);
 }
+
+/***************************************************************************/
 
 int
 efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
-	    int fd)               /* File descriptor for file to sync data. */
+        int fd)               /* File descriptor for file to sync data. */
 {
-#ifdef HAVE_FDATASYNC
-    return check_error(fdatasync(fd), errInfo);
-#else
     return efile_fsync(errInfo, fd);
-#endif
 }
+
+/***************************************************************************/
 
 int
 efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
-	    int fd)               /* File descriptor for file to sync. */
+        int fd)               /* File descriptor for file to sync. */
 {
-#ifdef NO_FSYNC
-  undefined fsync /* XXX: Really? */
-#else
-#if defined(DARWIN) && defined(F_FULLFSYNC)
-    return check_error(fcntl(fd, F_FULLFSYNC), errInfo);
-#else
     return check_error(fsync(fd), errInfo);
-#endif /* DARWIN */
-#endif /* NO_FSYNC */
 }
+
+/***************************************************************************/
 
 int
 efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
-	       char* name, int info_for_link)
+        char* name, int info_for_link)
 {
-    struct stat statbuf;	/* Information about the file */
+    struct stat statbuf;        /* Information about the file */
     int result;
 
-    if (info_for_link) {
-#ifndef __OSE__
-	result = lstat(name, &statbuf);
-#else
-	result = stat(name, &statbuf);
-#endif
-    } else {
-	result = stat(name, &statbuf);
-    }
+    result = stat(name, &statbuf);
     if (!check_error(result, errInfo)) {
-	return 0;
+        return 0;
     }
 
 #if SIZEOF_OFF_T == 4
@@ -682,22 +702,22 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 #else
     pInfo->access = FA_NONE;
     if (access(name, R_OK) == 0)
-	pInfo->access |= FA_READ;
+        pInfo->access |= FA_READ;
     if (access(name, W_OK) == 0)
-	pInfo->access |= FA_WRITE;
+        pInfo->access |= FA_WRITE;
 
 #endif
 
     if (ISDEV(statbuf))
-	pInfo->type = FT_DEVICE;
+        pInfo->type = FT_DEVICE;
     else if (ISDIR(statbuf))
-	pInfo->type = FT_DIRECTORY;
+        pInfo->type = FT_DIRECTORY;
     else if (ISREG(statbuf))
-	pInfo->type = FT_REGULAR;
+        pInfo->type = FT_REGULAR;
     else if (ISLNK(statbuf))
-	pInfo->type = FT_SYMLINK;
+        pInfo->type = FT_SYMLINK;
     else
-	pInfo->type = FT_OTHER;
+        pInfo->type = FT_OTHER;
 
     pInfo->accessTime   = statbuf.st_atime;
     pInfo->modifyTime   = statbuf.st_mtime;
@@ -706,9 +726,6 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     pInfo->mode         = statbuf.st_mode;
     pInfo->links        = statbuf.st_nlink;
     pInfo->major_device = statbuf.st_dev;
-#ifndef __OSE__
-    pInfo->minor_device = statbuf.st_rdev;
-#endif
     pInfo->inode        = statbuf.st_ino;
     pInfo->uid          = statbuf.st_uid;
     pInfo->gid          = statbuf.st_gid;
@@ -716,204 +733,163 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     return 1;
 }
 
+/***************************************************************************/
+
 int
 efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 {
-/* FIXME, this will be dificult to get to work right with the tests on ose
- * reason being that the info values are sometimes used in different ways, and in
- * some times not used at all. */
-
-#ifndef __OSE__
-    struct utimbuf tval;
-#endif
-
     /*
      * On some systems chown will always fail for a non-root user unless
      * POSIX_CHOWN_RESTRICTED is not set.  Others will succeed as long as
      * you don't try to chown a file to someone besides youself.
      */
-#ifndef __OSE__
-    if (chown(name, pInfo->uid, pInfo->gid) && errno != EPERM) {
-	return check_error(-1, errInfo);
-    }
-#endif
-
     if (pInfo->mode != -1) {
-	mode_t newMode = pInfo->mode & (S_ISUID | S_ISGID |
-					S_IRWXU | S_IRWXG | S_IRWXO);
-	if (chmod(name, newMode)) {
-	    newMode &= ~(S_ISUID | S_ISGID);
-	    if (chmod(name, newMode)) {
-		return check_error(-1, errInfo);
-	    }
-	}
+        mode_t newMode = pInfo->mode & (S_ISUID | S_ISGID |
+                S_IRWXU | S_IRWXG | S_IRWXO);
+        if (chmod(name, newMode)) {
+            newMode &= ~(S_ISUID | S_ISGID);
+            if (chmod(name, newMode)) {
+                return check_error(-1, errInfo);
+            }
+        }
     }
 
-#ifndef __OSE__
-    tval.actime  = pInfo->accessTime;
-    tval.modtime = pInfo->modifyTime;
-
-    return check_error(utime(name, &tval), errInfo);
-#else
-   return 1;
-#endif
+    return 1;
 }
 
+/***************************************************************************/
 
 int
-efile_write(Efile_error* errInfo,	/* Where to return error codes. */
-	    int flags,			/* Flags given when file was
-					   opened. */
-	    int fd,			/* File descriptor to write to. */
-	    char* buf,			/* Buffer to write. */
-	    size_t count)		/* Number of bytes to write. */
+efile_write(Efile_error* errInfo,       /* Where to return error codes. */
+        int flags,                  /* Flags given when file was
+                                       opened. */
+        int fd,                     /* File descriptor to write to. */
+        char* buf,                  /* Buffer to write. */
+        size_t count)               /* Number of bytes to write. */
 {
-    ssize_t written;			/* Bytes written in last operation. */
+    ssize_t written;                    /* Bytes written in last operation. */
+    struct fd_data *fd_data;
 
-    if (L_FD_EXISTS(fd))
-    {
-      off_t off;
-      off = (L_FD_IS_VALID(fd)) ? L_FD_CUR(fd) : lseek(fd, 0, SEEK_CUR);
-
-      if (L_FD_OFFSET_BEYOND_EOF(fd, off))
-      {
-         l_pad_file(fd, off);
-      }
-
-      L_FD_INVALIDATE(fd);
+    if ((fd_data = l_find_local_fd(fd)) != NULL) {
+        if (L_FD_IS_VALID(fd_data)) {
+            /* we are beyond eof and need to pad*/
+            if (l_pad_file(fd_data, L_FD_CUR(fd_data)) < 0) {
+                return check_error(-1, errInfo);
+            }
+        }
     }
 
-    while (count > 0)
-    {
-       if ((written = write(fd, buf, count)) < 0)
-       {
-          if (errno != EINTR)
-          {
-             return check_error(-1, errInfo);
-          }
-	  else
-          {
-	     written = 0;
-          }
-       }
-       ASSERT(written <= count);
-       buf += written;
-       count -= written;
-    }
-
-    if (L_FD_EXISTS(fd))
-    {
-      L_FD_INVALIDATE(fd);
+    while (count > 0)  {
+        if ((written = write(fd, buf, count)) < 0) {
+            if (errno != EINTR) {
+                return check_error(-1, errInfo);
+            }
+            else {
+                written = 0;
+            }
+        }
+        ASSERT(written <= count);
+        buf += written;
+        count -= written;
     }
     return 1;
 }
 
+/***************************************************************************/
+
 int
 efile_writev(Efile_error* errInfo,   /* Where to return error codes */
-	     int flags,              /* Flags given when file was
-				      * opened */
-	     int fd,                 /* File descriptor to write to */
-	     SysIOVec* iov,          /* Vector of buffer structs.
-				      * The structs may be changed i.e.
-				      * due to incomplete writes */
-	     int iovcnt)             /* Number of structs in vector */
+        int flags,              /* Flags given when file was
+                                 * opened */
+        int fd,                 /* File descriptor to write to */
+        SysIOVec* iov,          /* Vector of buffer structs.
+                                 * The structs may be changed i.e.
+                                 * due to incomplete writes */
+        int iovcnt)             /* Number of structs in vector */
 {
+    struct fd_data *fd_data;
     int cnt = 0;                     /* Buffers so far written */
 
     ASSERT(iovcnt >= 0);
-
+    if ((fd_data = l_find_local_fd(fd)) != NULL) {
+        if (L_FD_IS_VALID(fd_data)) {
+            /* we are beyond eof and need to pad*/
+            if (l_pad_file(fd_data, L_FD_CUR(fd_data)) < 0) {
+                return check_error(-1, errInfo);
+            }
+        }
+    }
     while (cnt < iovcnt) {
-	if ((! iov[cnt].iov_base) || (iov[cnt].iov_len <= 0)) {
-	    /* Empty buffer - skip */
-	    cnt++;
-	} else { /* Non-empty buffer */
-	    ssize_t w;                   /* Bytes written in this call */
-#ifdef HAVE_WRITEV
-	    int b = iovcnt - cnt;        /* Buffers to write */
-	    /* Use as many buffers as MAXIOV allows */
-	    if (b > MAXIOV)
-		b = MAXIOV;
-	    if (b > 1) {
-		do {
-		    w = writev(fd, &iov[cnt], b);
-		} while (w < 0 && errno == EINTR);
-	    } else
-		/* Degenerated io vector - use regular write */
-#endif
-		{
-		    do {
-			w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
-		    } while (w < 0 && errno == EINTR);
-		    ASSERT(w <= iov[cnt].iov_len || w == -1);
-		}
-	    if (w < 0) return check_error(-1, errInfo);
-	    /* Move forward to next buffer to write */
-	    for (; cnt < iovcnt && w > 0; cnt++) {
-		if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
-		    if (w < iov[cnt].iov_len) {
-			/* Adjust the buffer for next write */
-			iov[cnt].iov_len -= w;
-			iov[cnt].iov_base += w;
-			w = 0;
-			break;
-		    } else {
-			w -= iov[cnt].iov_len;
-		    }
-		}
-	    }
-	    ASSERT(w == 0);
-	} /* else Non-empty buffer */
+        if ((! iov[cnt].iov_base) || (iov[cnt].iov_len <= 0)) {
+            /* Empty buffer - skip */
+            cnt++;
+        }
+        else { /* Non-empty buffer */
+            ssize_t w;                   /* Bytes written in this call */
+            do {
+                w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
+            } while (w < 0 && errno == EINTR);
+
+            ASSERT(w <= iov[cnt].iov_len || w == -1);
+
+            if (w < 0) {
+                return check_error(-1, errInfo);
+            }
+            /* Move forward to next buffer to write */
+            for (; cnt < iovcnt && w > 0; cnt++) {
+                if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
+                    if (w < iov[cnt].iov_len) {
+                        /* Adjust the buffer for next write */
+                        iov[cnt].iov_len -= w;
+                        iov[cnt].iov_base += w;
+                        w = 0;
+                        break;
+                    }
+                    else {
+                        w -= iov[cnt].iov_len;
+                    }
+                }
+            }
+            ASSERT(w == 0);
+        } /* else Non-empty buffer */
     } /* while (cnt< iovcnt) */
     return 1;
 }
 
+/***************************************************************************/
+
 int
 efile_read(Efile_error* errInfo,     /* Where to return error codes. */
-	   int flags,		     /* Flags given when file was opened. */
-	   int fd,		     /* File descriptor to read from. */
-	   char* buf,		     /* Buffer to read into. */
-	   size_t count,	     /* Number of bytes to read. */
-	   size_t *pBytesRead)	     /* Where to return number of
-					bytes read. */
+        int flags,                  /* Flags given when file was opened. */
+        int fd,                     /* File descriptor to read from. */
+        char* buf,                  /* Buffer to read into. */
+        size_t count,       /* Number of bytes to read. */
+        size_t *pBytesRead)         /* Where to return number of
+                                       bytes read. */
 {
     ssize_t n;
-   if (L_FD_EXISTS(fd))
-   {
-      off_t off;
-      off = (L_FD_IS_VALID(fd)) ? L_FD_CUR(fd) : lseek(fd, 0, SEEK_CUR);
-      if (L_FD_IS_VALID(fd) == 0)
-      {
-         l_update_local_fd(fd, off, SEEK_SET);
-      }
+    struct fd_data *fd_data;
 
-      if (L_FD_OFFSET_BEYOND_EOF(fd, off))
-      {
-         *pBytesRead = 0;
-         return 1;
-      }
-      /* FIXME .. is this needed? */
-      lseek(fd, off, SEEK_SET);
-   }
-
-    for (;;)
-    {
-       if ((n = read(fd, buf, count)) >= 0)
-       {
-          break;
-       }
-       else if (errno != EINTR)
-       {
-          return check_error(-1, errInfo);
-       }
+    if ((fd_data = l_find_local_fd(fd)) != NULL) {
+        if (L_FD_IS_VALID(fd_data)) {
+            *pBytesRead = 0;
+            return 1;
+        }
     }
-    if (n != 0 && L_FD_EXISTS(fd))
-    {
-       L_FD_INVALIDATE(fd);
+    for (;;)  {
+        if ((n = read(fd, buf, count)) >= 0) {
+            break;
+        }
+        else if (errno != EINTR) {
+            return check_error(-1, errInfo);
+        }
+    }
+    if (fd_data != NULL && L_FD_IS_VALID(fd_data)) {
+        L_FD_INVALIDATE(fd_data);
     }
     *pBytesRead = (size_t) n;
     return 1;
 }
-
 
 /* pread() and pwrite()                                                   */
 /* Some unix systems, notably Solaris has these syscalls                  */
@@ -928,197 +904,158 @@ efile_read(Efile_error* errInfo,     /* Where to return error codes. */
 
 int
 efile_pread(Efile_error* errInfo,     /* Where to return error codes. */
-	    int fd,		      /* File descriptor to read from. */
-	    Sint64 offset,            /* Offset in bytes from BOF. */
-	    char* buf,		      /* Buffer to read into. */
-	    size_t count,	      /* Number of bytes to read. */
-	    size_t *pBytesRead)	      /* Where to return
-					 number of bytes read. */
+        int fd,                /* File descriptor to read from. */
+        Sint64 offset,            /* Offset in bytes from BOF. */
+        char* buf,                     /* Buffer to read into. */
+        size_t count,          /* Number of bytes to read. */
+        size_t *pBytesRead)            /* Where to return
+                                          number of bytes read. */
 {
-#if defined(HAVE_PREAD) && defined(HAVE_PWRITE)
-    ssize_t n;
-    off_t off = (off_t) offset;
-    if (off != offset) {
-	errno = EINVAL;
-	return check_error(-1, errInfo);
+    int res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
+    if (res) {
+        return efile_read(errInfo, 0, fd, buf, count, pBytesRead);
+    } else {
+        return res;
     }
-    for (;;) {
-	if ((n = pread(fd, buf, count, offset)) >= 0)
-	    break;
-	else if (errno != EINTR)
-	    return check_error(-1, errInfo);
-    }
-    *pBytesRead = (size_t) n;
-    return 1;
-#else
-    {
-	int res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
-	if (res) {
-	    return efile_read(errInfo, 0, fd, buf, count, pBytesRead);
-	} else {
-	    return res;
-	}
-    }
-#endif
 }
 
 
+/***************************************************************************/
 
 int
 efile_pwrite(Efile_error* errInfo,  /* Where to return error codes. */
-	     int fd,		    /* File descriptor to write to. */
-	     char* buf,		    /* Buffer to write. */
-	     size_t count,	    /* Number of bytes to write. */
-	     Sint64 offset)	    /* where to write it */
+        int fd,                /* File descriptor to write to. */
+        char* buf,             /* Buffer to write. */
+        size_t count,          /* Number of bytes to write. */
+        Sint64 offset)         /* where to write it */
 {
-#if defined(HAVE_PREAD) && defined(HAVE_PWRITE)
-    ssize_t written;		    /* Bytes written in last operation. */
-    off_t off = (off_t) offset;
-    if (off != offset) {
-	errno = EINVAL;
-	return check_error(-1, errInfo);
-    }
+    int res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
 
-    while (count > 0) {
-	if ((written = pwrite(fd, buf, count, offset)) < 0) {
-	    if (errno != EINTR)
-		return check_error(-1, errInfo);
-	    else
-		written = 0;
-	}
-	ASSERT(written <= count);
-	buf += written;
-	count -= written;
-	offset += written;
+    if (res) {
+        return efile_write(errInfo, 0, fd, buf, count);
+    } else {
+        return res;
     }
-    return 1;
-#else  /* For unix systems that don't support pread() and pwrite() */
-    {
-	int res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
-
-	if (res) {
-	    return efile_write(errInfo, 0, fd, buf, count);
-	} else {
-	    return res;
-	}
-    }
-#endif
 }
 
+/***************************************************************************/
 
 int
 efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
-	   int fd,                    /* File descriptor to do the seek on. */
-	   Sint64 offset,             /* Offset in bytes from the given
-					 origin. */
-	   int origin,                /* Origin of seek (SEEK_SET, SEEK_CUR,
-				         SEEK_END). */
-	   Sint64 *new_location)      /* Resulting new location in file. */
+        int fd,                    /* File descriptor to do the seek on. */
+        Sint64 offset,             /* Offset in bytes from the given
+                                      origin. */
+        int origin,                /* Origin of seek (SEEK_SET, SEEK_CUR,
+                                      SEEK_END). */
+        Sint64 *new_location)      /* Resulting new location in file. */
 {
     off_t off, result;
     off = (off_t) offset;
 
     switch (origin) {
-    case EFILE_SEEK_SET: origin = SEEK_SET; break;
-    case EFILE_SEEK_CUR: origin = SEEK_CUR; break;
-    case EFILE_SEEK_END: origin = SEEK_END; break;
-    default:
-	errno = EINVAL;
-	return check_error(-1, errInfo);
+        case EFILE_SEEK_SET:
+            origin = SEEK_SET;
+            break;
+        case EFILE_SEEK_CUR:
+            origin = SEEK_CUR;
+            break;
+        case EFILE_SEEK_END:
+            origin = SEEK_END;
+            break;
+        default:
+            errno = EINVAL;
+            return check_error(-1, errInfo);
     }
+
     if (off != offset) {
-    errno = EINVAL;
-    return check_error(-1, errInfo);
+        errno = EINVAL;
+        return check_error(-1, errInfo);
     }
 
     errno = 0;
     result = lseek(fd, off, origin);
 
-    if (result >= 0 && L_FD_EXISTS(fd))
-    {
-       L_FD_INVALIDATE(fd);
+    if (result >= 0) {
+        l_invalidate_local_fd(fd);
     }
 
-    /*
-     * Note that the man page for lseek (on SunOs 5) says:
-     *
-     * "if fildes is a remote file  descriptor  and  offset  is
-     * negative,  lseek()  returns  the  file pointer even if it is
-     * negative."
-     */
+    if (result < 0)
+    {
+        if (errno == ENOSYS) {
+            int size, cur_pos;
 
-     if (result < 0 && errno == 0)
-	 errno = EINVAL;
-      if (result < 0)
-      {
-         /* Some filesystems on OSE does not handle seeking beyond EOF
-          * We handle this here, by localy storing offsets. */
-
-         if ((lseek(fd, 0, SEEK_END) < off) && errno == 78)
-         {
-            if (fdm == NULL) /* first time */
-            {
-               if (l_init_local_fd() == -1)
-               {
-                  errno = EINVAL;
-                  check_error(-1, errInfo);
-               }
+            if (off < 0) {
+                errno = EINVAL;
+                return check_error(-1, errInfo);
             }
-            l_update_local_fd(fd, off, origin);
-            result = off;
-         }
-         else if (off < 0 && errno == ENOSYS)
-         {
+
+            cur_pos = lseek(fd, 0, SEEK_CUR);
+            size = lseek(fd, 0, SEEK_END);
+
+            if (origin == SEEK_SET) {
+                result = offset;
+            }
+            else if (origin == SEEK_CUR) {
+                result = offset + cur_pos;
+            }
+            else if (origin == SEEK_END) {
+                result = size + offset;
+            }
+
+            /* sanity check our result */
+            if (size > result) {
+                return check_error(-1, errInfo);
+            }
+
+            /* store the data localy */
+            l_update_local_fd(fd, result, size);
+
+            /* reset the original file position */
+            if (origin != SEEK_END) {
+                lseek(fd, cur_pos, SEEK_SET);
+            }
+        }
+        else if (errno == 0) {
             errno = EINVAL;
-            return check_error(-1, errInfo);
-         }
-         else
-         {
-	         return check_error(-1, errInfo);
-         }
-      }
-      if (new_location) {
-	 *new_location = result;
-      }
-   return 1;
+        }
+    }
+
+    if (new_location) {
+        *new_location = result;
+    }
+
+    return 1;
 }
 
+/***************************************************************************/
 
 int
 efile_truncate_file(Efile_error* errInfo, int *fd, int flags)
 {
-#ifndef NO_FTRUNCATE
     off_t offset;
+    struct fd_data *fd_data;
 
-    if (L_FD_EXISTS(fileno(fd)))
-    {
-      L_FD_INVALIDATE(fileno(fd));
+    if ((fd_data = l_find_local_fd(*fd)) != NULL && L_FD_IS_VALID(fd_data)) {
+        offset = L_FD_CUR(fd_data);
+    }
+    else {
+        offset = lseek(*fd, 0, SEEK_CUR);
     }
 
-    return check_error((offset = lseek(*fd, 0, SEEK_CUR)) >= 0 &&
-          ftruncate(*fd, offset) == 0 ? 1 : -1, errInfo);
-#else
-    return 1;
-#endif
+    return check_error(((offset >= 0) &&
+                (ftruncate(*fd, offset) == 0)) ? 1 : -1, errInfo);
 }
+
+/***************************************************************************/
 
 int
 efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 {
-#ifndef __OSE__
-    int len;
-    ASSERT(size > 0);
-    len = readlink(name, buffer, size-1);
-    if (len == -1) {
-	return check_error(-1, errInfo);
-    }
-    buffer[len] = '\0';
-    return 1;
-#else
     errno = ENOTSUP;
     return check_error(-1, errInfo);
-#endif
 }
+
+/***************************************************************************/
 
 int
 efile_altname(Efile_error* errInfo, char* name, char* buffer, size_t size)
@@ -1127,158 +1064,35 @@ efile_altname(Efile_error* errInfo, char* name, char* buffer, size_t size)
     return check_error(-1, errInfo);
 }
 
+/***************************************************************************/
+
 int
 efile_link(Efile_error* errInfo, char* old, char* new)
 {
-#ifndef __OSE__
-    return check_error(link(old, new), errInfo);
-#else
     errno = ENOTSUP;
     return check_error(-1, errInfo);
-#endif
 }
+
+/***************************************************************************/
 
 int
 efile_symlink(Efile_error* errInfo, char* old, char* new)
 {
-#ifndef __OSE__
-    return check_error(symlink(old, new), errInfo);
-#else
     errno = ENOTSUP;
     return check_error(-1, errInfo);
-#endif
 }
+
+/***************************************************************************/
 
 int
 efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
-		  Sint64 length, int advise)
+        Sint64 length, int advise)
 {
-#ifdef HAVE_POSIX_FADVISE
     return check_error(posix_fadvise(fd, offset, length, advise), errInfo);
-#else
-    return check_error(0, errInfo);
-#endif
 }
 
-#ifdef HAVE_SENDFILE
-/* For some reason the maximum size_t cannot be used as the max size
-   3GB seems to work on all platforms */
-#define SENDFILE_CHUNK_SIZE ((1UL << 30) -1)
+/***************************************************************************/
 
-/*
- * sendfile: The implementation of the sendfile system call varies
- * a lot on different *nix platforms so to make the api similar in all
- * we have to emulate some things in linux and play with variables on
- * bsd/darwin.
- *
- * All of the calls will split a command which tries to send more than
- * SENDFILE_CHUNK_SIZE of data at once.
- *
- * On platforms where *nbytes of 0 does not mean the entire file, this is
- * simulated.
- *
- * It could be possible to implement header/trailer in sendfile. Though
- * you would have to emulate it in linux and on BSD/Darwin some complex
- * calculations have to be made when using a non blocking socket to figure
- * out how much of the header/file/trailer was sent in each command.
- *
- * The semantics of the API is this:
- * Return value: 1 if all data was sent and the function does not need to
- * be called again. 0 if an error occures OR if there is more data which
- * has to be sent (EAGAIN or EINTR will be set appropriately)
- *
- * The amount of data written in a call is returned through nbytes.
- *
- */
-
-int
-efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl* hdtl)
-{
-    Uint64 written = 0;
-#if defined(__linux__)
-    ssize_t retval;
-    do {
-      /* check if *nbytes is 0 or greater than chunk size */
-      if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
-	retval = sendfile(out_fd, in_fd, offset, SENDFILE_CHUNK_SIZE);
-      else
-	retval = sendfile(out_fd, in_fd, offset, *nbytes);
-      if (retval > 0) {
-	written += retval;
-	*nbytes -= retval;
-      }
-    } while (retval == SENDFILE_CHUNK_SIZE);
-    if (written != 0) {
-      /* -1 is not returned by the linux API so we have to simulate it */
-      retval = -1;
-      errno = EAGAIN;
-    }
-#elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
-    ssize_t retval;
-    size_t len;
-    sendfilevec_t fdrec;
-    fdrec.sfv_fd = in_fd;
-    fdrec.sfv_flag = 0;
-    do {
-      fdrec.sfv_off = *offset;
-      len = 0;
-      /* check if *nbytes is 0 or greater than chunk size */
-      if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
-	fdrec.sfv_len = SENDFILE_CHUNK_SIZE;
-      else
-	fdrec.sfv_len = *nbytes;
-      retval = sendfilev(out_fd, &fdrec, 1, &len);
-
-      /* Sometimes sendfilev can return -1 and still send data.
-         When that happens we just pretend that no error happend. */
-      if (retval != -1 || errno == EAGAIN || errno == EINTR ||
-	  len != 0) {
-        *offset += len;
-	*nbytes -= len;
-	written += len;
-	if (errno != EAGAIN && errno != EINTR && len != 0)
-	  retval = len;
-      }
-    } while (len == SENDFILE_CHUNK_SIZE);
-#elif defined(DARWIN)
-    int retval;
-    off_t len;
-    do {
-      /* check if *nbytes is 0 or greater than chunk size */
-      if(*nbytes > SENDFILE_CHUNK_SIZE)
-	len = SENDFILE_CHUNK_SIZE;
-      else
-	len = *nbytes;
-      retval = sendfile(in_fd, out_fd, *offset, &len, NULL, 0);
-      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
-        *offset += len;
-	*nbytes -= len;
-	written += len;
-      }
-    } while (len == SENDFILE_CHUNK_SIZE);
-#elif defined(__FreeBSD__) || defined(__DragonFly__)
-    off_t len;
-    int retval;
-    do {
-      if (*nbytes > SENDFILE_CHUNK_SIZE)
-	retval = sendfile(in_fd, out_fd, *offset, SENDFILE_CHUNK_SIZE,
-			  NULL, &len, 0);
-      else
-	retval = sendfile(in_fd, out_fd, *offset, *nbytes, NULL, &len, 0);
-      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
-	*offset += len;
-	*nbytes -= len;
-	written += len;
-      }
-    } while(len == SENDFILE_CHUNK_SIZE);
-#endif
-    *nbytes = written;
-    return check_error(retval, errInfo);
-}
-#endif /* HAVE_SENDFILE */
-
-#ifdef HAVE_POSIX_FALLOCATE
 static int
 call_posix_fallocate(int fd, Sint64 offset, Sint64 length)
 {
@@ -1300,58 +1114,11 @@ call_posix_fallocate(int fd, Sint64 offset, Sint64 length)
 
     return ret;
 }
-#endif /* HAVE_POSIX_FALLOCATE */
+
+/***************************************************************************/
 
 int
 efile_fallocate(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length)
 {
-#if defined HAVE_FALLOCATE
-    /* Linux specific, more efficient than posix_fallocate. */
-    int ret;
-
-    do {
-        ret = fallocate(fd, FALLOC_FL_KEEP_SIZE, (off_t) offset, (off_t) length);
-    } while (ret != 0 && errno == EINTR);
-
-#if defined HAVE_POSIX_FALLOCATE
-    /* Fallback to posix_fallocate if available. */
-    if (ret != 0) {
-        ret = call_posix_fallocate(fd, offset, length);
-    }
-#endif
-
-    return check_error(ret, errInfo);
-#elif defined F_PREALLOCATE
-    /* Mac OS X specific, equivalent to posix_fallocate. */
-    int ret;
-    fstore_t fs;
-
-    memset(&fs, 0, sizeof(fs));
-    fs.fst_flags = F_ALLOCATECONTIG;
-    fs.fst_posmode = F_VOLPOSMODE;
-    fs.fst_offset = (off_t) offset;
-    fs.fst_length = (off_t) length;
-
-    ret = fcntl(fd, F_PREALLOCATE, &fs);
-
-    if (-1 == ret) {
-        fs.fst_flags = F_ALLOCATEALL;
-        ret = fcntl(fd, F_PREALLOCATE, &fs);
-
-#if defined HAVE_POSIX_FALLOCATE
-        /* Fallback to posix_fallocate if available. */
-        if (-1 == ret) {
-            ret = call_posix_fallocate(fd, offset, length);
-        }
-#endif
-    }
-
-    return check_error(ret, errInfo);
-#elif defined HAVE_POSIX_FALLOCATE
-    /* Other Unixes, use posix_fallocate if available. */
     return check_error(call_posix_fallocate(fd, offset, length), errInfo);
-#else
-    errno = ENOTSUP;
-    return check_error(-1, errInfo);
-#endif
 }

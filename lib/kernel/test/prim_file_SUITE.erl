@@ -454,7 +454,7 @@ open1(Config) when is_list(Config) ->
     ?line {ok,0} = ?PRIM_FILE:position(Fd1,bof),
     ?line {ok, Str} = ?PRIM_FILE:read(Fd1,Length),
     ?line case ?PRIM_FILE:read(Fd2,Length) of
-	      Str -> Str;
+	      {ok,Str} -> Str;
 	      eof -> Str
 	  end,
     ?line ok = ?PRIM_FILE:close(Fd2),
@@ -1664,7 +1664,7 @@ e_rename(Config) when is_list(Config) ->
 	    %% successfully move a file to
 	    %% another drive.
 	    ok;
-	_ ->
+	{unix, _ } ->
 	    OtherFs = "/tmp",
 	    ?line NameOnOtherFs =
 	    filename:join(OtherFs, 
@@ -1688,7 +1688,10 @@ e_rename(Config) when is_list(Config) ->
 		Else ->
 		    Else
 	    end,
-	    Com
+	    Com;
+	{ose, _} ->
+	    %% disabled for now
+	    ok
     end,
     ?line test_server:timetrap_cancel(Dog),
     Comment.

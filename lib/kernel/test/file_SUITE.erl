@@ -1261,7 +1261,7 @@ file_info_basic_directory(Config) when is_list(Config) ->
             ?line test_directory("/", read_write),
             ?line test_directory("c:/", read_write),
             ?line test_directory("c:\\", read_write);
-        {unix, _} ->
+        _ ->
             ?line test_directory("/", read)
     end,
     test_server:timetrap_cancel(Dog).
@@ -2045,15 +2045,15 @@ e_delete(Config) when is_list(Config) ->
 
     %% No permission.
     ?line case os:type() of
-	      {unix, _} ->
+		{win32, _} ->
+		  %% Remove a character device.
+		  ?line {error, eacces} = ?FILE_MODULE:delete("nul");
+		_ ->
 		  ?line ?FILE_MODULE:write_file_info(
 			   Base, #file_info {mode=0}),
 		  ?line {error, eacces} = ?FILE_MODULE:delete(Afile),
 		  ?line ?FILE_MODULE:write_file_info(
-			   Base, #file_info {mode=8#600});
-	      {win32, _} ->
-		  %% Remove a character device.
-		  ?line {error, eacces} = ?FILE_MODULE:delete("nul")
+			   Base, #file_info {mode=8#600})
 	  end,
 
     ?line [] = flush(),
@@ -2155,6 +2155,9 @@ e_rename(Config) when is_list(Config) ->
 	    %% At least Windows NT can 
 	    %% successfully move a file to
 	    %% another drive.
+	    ok;
+	{ose, _} ->
+	    %% disabled for now
 	    ok
     end,
     [] = flush(),
@@ -2235,14 +2238,14 @@ e_del_dir(Config) when is_list(Config) ->
 
     %% No permission.
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    ok;
+	_ ->
 	    ADirectory = filename:join(Base, "no_perm"),
 	    ok = ?FILE_MODULE:make_dir(ADirectory),
 	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:del_dir(ADirectory),
-	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#600});
-	{win32, _} ->
-	    ok
+	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#600})
     end,
     [] = flush(),
     test_server:timetrap_cancel(Dog),

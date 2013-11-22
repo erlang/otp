@@ -127,7 +127,7 @@ struct t_sendfile_hdtl {
 /*
  * Functions.
  */
-
+int efile_init(void);
 int efile_mkdir(Efile_error* errInfo, char* name);
 int efile_rmdir(Efile_error* errInfo, char* name);
 int efile_delete_file(Efile_error* errInfo, char* name);

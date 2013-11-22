@@ -102,6 +102,11 @@ check_error(int result, Efile_error *errInfo)
 }
 
 int
+efile_init() {
+   return 1;
+}
+
+int
 efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to create. */
 {
