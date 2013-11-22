@@ -1662,9 +1662,13 @@ enc_pre_cg_2({var,_}=Imm, _, _) -> Imm.
 enc_make_cons({binary,H}, {binary,T}) ->
     {binary,H++T};
 enc_make_cons({binary,H0}, {cons,{binary,H1},T}) ->
-    {cons,{binary,H0++H1},T};
+    enc_make_cons({binary,H0++H1}, T);
+enc_make_cons({binary,H}, {cons,{integer,Int},T}) ->
+    enc_make_cons({binary,H++[{put_bits,Int,8,[1]}]}, T);
 enc_make_cons({integer,Int}, {binary,T}) ->
     {binary,[{put_bits,Int,8,[1]}|T]};
+enc_make_cons({integer,Int}, {cons,{binary,H},T}) ->
+    enc_make_cons({binary,[{put_bits,Int,8,[1]}|H]}, T);
 enc_make_cons(H, T) ->
     {cons,H,T}.
 
