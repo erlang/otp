@@ -20,29 +20,19 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+#include "sys/time.h"
+#include "time.h"
+#include "sys/uio.h"
+#include "termios.h"
+#include "ctype.h"
+#include "termios.h"
 
-#ifdef ISC32
-#define _POSIX_SOURCE
-#define _XOPEN_SOURCE
-#endif
-
-#include <sys/time.h>
-#include <time.h>
-
-#include <sys/uio.h>
-#include <termios.h>
-#include <ctype.h>
-
-#ifdef ISC32
-#include <sys/bsdtypes.h>
-#endif
-
-#include <termios.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+#include "fcntl.h"
 #endif
+
 #ifdef HAVE_SYS_IOCTL_H
-#include <sys/ioctl.h>
+#include "sys/ioctl.h"
 #endif
 
 #define ERTS_WANT_BREAK_HANDLING

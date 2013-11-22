@@ -99,7 +99,16 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+
+#ifndef __OSE__
+#include <ctype.h>
+#include <sys/types.h>
 #include <stdlib.h>
+#else
+#include "ctype.h"
+#include "sys/types.h"
+#include "stdlib.h"
+#endif
 
 /* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
@@ -113,8 +122,7 @@
 #include "erl_threads.h"
 #include "gzio.h"
 #include "dtrace-wrapper.h" 
-#include <ctype.h>
-#include <sys/types.h>
+
 
 void erl_exit(int n, char *fmt, ...);
 

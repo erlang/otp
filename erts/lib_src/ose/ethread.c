@@ -26,21 +26,21 @@
 #include "config.h"
 #endif
 
-#include <stdio.h>
+#include "stdio.h"
 #ifdef ETHR_TIME_WITH_SYS_TIME
-#  include <time.h>
-#  include <sys/time.h>
+#  include "time.h"
+#  include "sys/time.h"
 #else
 #  ifdef ETHR_HAVE_SYS_TIME_H
-#    include <sys/time.h>
+#    include "sys/time.h"
 #  else
-#    include <time.h>
+#    include "time.h"
 #  endif
 #endif
-#include <sys/types.h>
-#include <unistd.h>
+#include "sys/types.h"
+#include "unistd.h"
 
-#include <limits.h>
+#include "limits.h"
 
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHREAD_IMPL__
@@ -380,19 +380,16 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 
     /*erts_fprintf(stderr, "creating process %s / stack %d\n", opts->name, use_stack_size);*/
 
-#if 0
     ramlog_printf("[0x%x] process '%s', coreNo = %u\n",
                   current_process(), opts->name, opts->coreNo);
-#endif
-    tid->id = create_process(/*OS_PRI_PROC*/OS_BG_PROC, opts->name, thr_wrapper,
-			     use_stack_size, /*opts->prio+5*/31, 0,
-                             blockId(), NULL, 0, 0);
+    tid->id = create_process(OS_PRI_PROC, opts->name, thr_wrapper,
+			     use_stack_size, /*opts->prio+5*/24, 0,
+                             get_bid(current_process()), NULL, 0, 0);
 
-    /* For now we do not attempt to bind schedulers to different cores.
       if (ose_bind_process(tid->id, opts->coreNo)) {
-       printf("[0x%x] Binding pid 0x%x (%s) to core no %u.\n",
-              current_process(), tid->id, opts->name, opts->coreNo);
-	      }*/
+         printf("[0x%x] Binding pid 0x%x (%s) to core no %u.\n",
+               current_process(), tid->id, opts->name, opts->coreNo);
+      }
 
     /*FIXME!!! Normally this shouldn't be used in shared mode. Still there is
      * a problem with stdin fd in fd_ processes which should be further
