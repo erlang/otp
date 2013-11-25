@@ -98,6 +98,7 @@ static Uint sys_alloc_carrier_size;
 #if HAVE_ERTS_MSEG
 static Uint max_mseg_carriers;
 #endif
+static int allow_sys_alloc_carriers;
 
 #define ONE_GIGA (1000000000)
 
@@ -3256,13 +3257,15 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
     int is_mseg = 0;
 #endif
 
-#if HALFWORD_HEAP
-    flags |= CFLG_FORCE_MSEG;
-#elif ERTS_SUPER_ALIGNED_MSEG_ONLY
-    if (flags & CFLG_MBC) {
+    if (HALFWORD_HEAP
+	|| (ERTS_SUPER_ALIGNED_MSEG_ONLY && (flags & CFLG_MBC))
+	|| !allow_sys_alloc_carriers) {
 	flags |= CFLG_FORCE_MSEG;
-    }
+	flags &= ~CFLG_FORCE_SYS_ALLOC;
+#if !HAVE_ERTS_MSEG
+	return NULL;
 #endif
+    }
 
     ASSERT((flags & CFLG_SBC && !(flags & CFLG_MBC))
 	   || (flags & CFLG_MBC && !(flags & CFLG_SBC)));
@@ -3697,6 +3700,7 @@ static struct {
     Eterm mmc;
 #endif
     Eterm ycs;
+    Eterm sac;
 
     Eterm fix_types;
 
@@ -3789,6 +3793,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(mmc);
 #endif
 	AM_INIT(ycs);
+	AM_INIT(sac);
 
 	AM_INIT(fix_types);
 
@@ -4509,16 +4514,21 @@ erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
 #if HAVE_ERTS_MSEG
 		   "option mmc: %beu\n"
 #endif
-		   "option ycs: %beu\n",
+		   "option ycs: %beu\n"
+		   "option sac: %s\n",
 #if HAVE_ERTS_MSEG
 		   max_mseg_carriers,
 #endif
-		   sys_alloc_carrier_size);
+		   sys_alloc_carrier_size,
+		   allow_sys_alloc_carriers ? "true" : "false");
     }
 
     if (hpp || szp) {
 	res = NIL;
 	ensure_atoms_initialized(NULL);
+	add_2tup(hpp, szp, &res,
+		 am.sac,
+		 allow_sys_alloc_carriers ? am_true : am_false);
 	add_2tup(hpp, szp, &res,
 		 am.ycs,
 		 bld_uint(hpp, szp, sys_alloc_carrier_size));
@@ -5681,6 +5691,7 @@ erts_alcu_init(AlcUInit_t *init)
 #else /* #if HAVE_ERTS_MSEG */
     sys_alloc_carrier_size = ((init->ycs + 4095) / 4096) * 4096;
 #endif
+    allow_sys_alloc_carriers = init->sac;
 
 #ifdef DEBUG
     carrier_alignment = sizeof(Unit_t);

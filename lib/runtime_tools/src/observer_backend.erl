@@ -77,8 +77,8 @@ sys_info() ->
      | MemInfo].
 
 alloc_info() ->
-    {_,_,AllocTypes,_} = erlang:system_info(allocator),
-    try erlang:system_info({allocator_sizes,AllocTypes}) of
+    AlcuAllocs = erlang:system_info(alloc_util_allocators),
+    try erlang:system_info({allocator_sizes, AlcuAllocs}) of
 	Allocators -> Allocators
     catch _:_ -> []
     end.

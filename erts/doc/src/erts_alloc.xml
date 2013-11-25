@@ -271,22 +271,18 @@
        memory segment cache is not reused if its size exceeds the
        requested size with more than relative max cache bad fit
        percent of the requested size. Default value is 20.</item>
-      <tag><marker id="MMscmgc"><c><![CDATA[+MMscmgc <amount>]]></c></marker></tag>
-      <item>
-	Set <seealso marker="#MMscs">super carrier</seealso> max guaranteed
-	no of carriers. This parameter defaults to <c>65536</c>. This
-	parameter determines an amount of pre-allocated structures that is
-	needed in order to keep track of different areas in the super carrier.
-	When the system runs out of such structures it may crash due to an
-	out of memory condition.
-      </item>
       <tag><marker id="MMsco"><c><![CDATA[+MMsco true|false]]></c></marker></tag>
       <item>
 	Set <seealso marker="#MMscs">super carrier</seealso> only flag. This
 	flag defaults to <c>true</c>. When a super carrier is used and this
-	flag is <c>true</c>, the system will crash when a carrier request
-	cannot be satisfied by the super carrier. When the flag is <c>false</c>
-	the system will try to create requested carrier	by other means.
+	flag is <c>true</c>, <c>mseg_alloc</c> will only create carriers
+	in the super carrier. Note that the <c>alloc_util</c> framework may
+	create <c>sys_alloc</c> carriers, so if you want all carriers to
+	be created in the super carrier, you therefore want to disable use
+	of <c>sys_alloc</c> carriers by also passing
+	<seealso marker="#Musac"><c>+Musac false</c></seealso>. When the flag
+	is <c>false</c>, <c>mseg_alloc</c> will try to create carriers outside
+	of the super carrier when the super carrier is full.
 	<br/><br/>
 	<em>NOTE</em>: Setting this flag to <c>false</c> may not be supported
 	on all systems. This flag will in that case be ignored.
@@ -294,6 +290,19 @@
 	<em>NOTE</em>: The super carrier cannot be enabled nor
 	disabled on halfword heap systems. This flag will be
 	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMscrfsd"><c><![CDATA[+MMscrfsd <amount>]]></c></marker></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> reserved
+	free segment descriptors. This parameter defaults to <c>65536</c>.
+	This parameter determines the amount of memory to reserve for
+	free segment descriptors used by the super carrier. If the system
+	runs out of reserved memory for free segment descriptors, other
+	memory will be used. This may however cause fragmentation issues,
+	so you want to ensure that this	never happens. The maximum amount
+	of free segment descriptors used can be retrieved from the
+	<c>erts_mmap</c> tuple part of the result from calling
+	<seealso marker="erts:erlang#system_info_allocator_tuple">erlang:system_info({allocator, mseg_alloc})</seealso>.
       </item>
       <tag><marker id="MMscrpm"><c><![CDATA[+MMscrpm true|false]]></c></marker></tag>
       <item>
@@ -549,6 +558,11 @@
        placed in separate memory segments. When this limit has been
        reached, new carriers will be placed in memory retrieved from
       <c>sys_alloc</c>.</item>
+      <tag><marker id="Musac"><c><![CDATA[+Musac <bool>]]></c></marker></tag>
+      <item>
+	Allow <c>sys_alloc</c> carriers. By default <c>true</c>. If
+	set to <c>false</c>, <c>sys_alloc</c> carriers will never be
+	created by allocators using the <c>alloc_util</c> framework.</item>
     </taglist>
     <p>Instrumentation flags:</p>
     <taglist>
@@ -603,6 +617,16 @@
 	  configuration.
         </item>
       </taglist>
+      </item>
+      <tag><marker id="Mlpm"><c>+Mlpm all|no</c></marker></tag>
+      <item>Lock physical memory. The default value is <c>no</c>, i.e.,
+      no physical memory will be locked. If set to <c>all</c>, all
+      memory mappings made by the runtime system, will be locked into
+      physical memory. If set to <c>all</c>, the runtime system will fail
+      to start if this feature is not supported, the user has not got enough
+      privileges, or the user is not allowed to lock enough physical memory.
+      The runtime system will also fail with an out of memory condition
+      if the user limit on the amount of locked memory is reached.
       </item>
     </taglist>
     <p>Only some default values have been presented
