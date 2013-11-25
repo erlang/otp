@@ -160,7 +160,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
     if (is_internal_port(BIF_ARG_1)) {
 	int send_link_signal = 0;
-	Port *prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	Port *prt = erts_port_lookup(BIF_ARG_1,
+				     (erts_port_synchronous_ops
+				      ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+				      : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 	if (!prt) {
 	    goto res_no_proc;
 	}
@@ -1363,11 +1366,22 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
       */
 
      if (is_internal_port(BIF_ARG_1)) {
-	 Port *prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	 Eterm ref, *refp;
+	 Uint32 invalid_flags;
+	 Port *prt;
+
+	 if (erts_port_synchronous_ops) {
+	     refp = &ref;
+	     invalid_flags = ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP;
+	 }
+	 else {
+	     refp = NULL;
+	     invalid_flags = ERTS_PORT_SFLGS_INVALID_LOOKUP;
+	 }
+
+	 prt = erts_port_lookup(BIF_ARG_1, invalid_flags);
 
 	 if (prt) {
-	     Eterm ref;
-	     Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
 	     ErtsPortOpResult res;
 
 #ifdef DEBUG
@@ -1875,7 +1889,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	if (rp)
 	    goto send_message;
 
-	pt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	pt = erts_port_lookup(id,
+			      (erts_port_synchronous_ops
+			       ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			       : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 	if (pt) {
 	    portid = id;
 	    goto port_common;
@@ -1905,7 +1922,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	int ret_val;
 	portid = to;
 
-	pt = erts_port_lookup(portid, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	pt = erts_port_lookup(portid,
+			      (erts_port_synchronous_ops
+			       ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			       : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 
       port_common:
 	ret_val = 0;
@@ -1994,7 +2014,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	    rp = erts_proc_lookup_raw(id);
 	    if (rp)
 		goto send_message;
-	    pt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	    pt = erts_port_lookup(id,
+				  (erts_port_synchronous_ops
+				   ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+				   : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 	    if (pt) {
 		portid = id;
 		goto port_common;

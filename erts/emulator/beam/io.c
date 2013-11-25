@@ -3601,6 +3601,8 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
    if (send_closed)
        set_state_flags |= ERTS_PORT_SFLG_SEND_CLOSED;
 
+   erts_port_task_sched_enter_exiting_state(&p->sched);
+   
    state = erts_atomic32_read_bor_mb(&p->state, set_state_flags);
    state |= set_state_flags;
 
