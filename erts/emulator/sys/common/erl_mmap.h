@@ -45,8 +45,8 @@ typedef struct {
     } predefined_area;
     UWord scs;  /* super carrier size */
     int sco;    /* super carrier only? */
-    Uint scmgc; /* super carrier: max guaranteed (number of) carriers */
-    int scrpm;
+    UWord scrfsd; /* super carrier reserved free segment descriptors */
+    int scrpm; /* super carrier reserve physical memory */
 }ErtsMMapInit;
 
 #define ERTS_MMAP_INIT_DEFAULT_INITER \
