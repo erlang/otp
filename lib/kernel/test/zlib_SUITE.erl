@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -565,8 +565,8 @@ intro(Config) when is_list(Config) ->
 large_deflate(doc) -> "Test deflate large file, which had a bug reported on erlang-bugs";
 large_deflate(suite) -> [];
 large_deflate(Config) when is_list(Config) ->
-    large_deflate().
-large_deflate() ->
+    large_deflate_do().
+large_deflate_do() ->
     ?line Z = zlib:open(),
     ?line Plain = rand_bytes(zlib:getBufSize(Z)*5),
     ?line ok = zlib:deflateInit(Z),
@@ -899,7 +899,7 @@ worker(Seed, FnATpl, Parent) ->
     Parent ! self().
 
 worker_loop(0, _FnATpl) ->
-    large_deflate(), % the time consuming one as finale
+    large_deflate_do(), % the time consuming one as finale
     ok;
 worker_loop(N, FnATpl) ->
     {F,A} = element(random:uniform(size(FnATpl)),FnATpl),
