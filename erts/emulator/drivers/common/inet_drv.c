@@ -417,13 +417,44 @@ static unsigned long one_value = 1;
 #     define sctp_adaptation_layer_event sctp_adaption_layer_event
 #endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && defined(HAVE_SCTP_BINDX)
 static typeof(sctp_bindx) *p_sctp_bindx = NULL;
+#else
+static int (*p_sctp_bindx)
+	(int sd, struct sockaddr *addrs, int addrcnt, int flags) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_PEELOFF)
 static typeof(sctp_peeloff) *p_sctp_peeloff = NULL;
 #else
-static int (*p_sctp_bindx)(int sd, struct sockaddr *addrs,
-			   int addrcnt, int flags) = NULL;
-static int (*p_sctp_peeloff)(int sd, sctp_assoc_t assoc_id) = NULL;
+static int (*p_sctp_peeloff)
+        (int sd, sctp_assoc_t assoc_id) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_GETLADDRS)
+static typeof(sctp_getladdrs) *p_sctp_getladdrs = NULL;
+#else
+static int (*p_sctp_getladdrs)
+        (int sd, sctp_assoc_t assoc_id, struct sockaddr **ss) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_FREELADDRS)
+static typeof(sctp_freeladdrs) *p_sctp_freeladdrs = NULL;
+#else
+static void (*p_sctp_freeladdrs)(struct sockaddr *addrs) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_GETPADDRS)
+static typeof(sctp_getpaddrs) *p_sctp_getpaddrs = NULL;
+#else
+static int (*p_sctp_getpaddrs)
+        (int sd, sctp_assoc_t assoc_id, struct sockaddr **ss) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_FREEPADDRS)
+static typeof(sctp_freepaddrs) *p_sctp_freepaddrs = NULL;
+#else
+static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
 
 #endif /* #if defined(HAVE_SCTP_H) */
@@ -593,7 +624,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_F_BUSY         0x0080 
 #define INET_F_MULTI_CLIENT 0x0100 /* Multiple clients for one descriptor, i.e. multi-accept */
 
-/* One numberspace for *_REC_* so if an e.g UDP request is issued
+/* One numberspace for *_REQ_* so if an e.g UDP request is issued
 ** for a TCP socket, the driver can protest.
 */
 #define INET_REQ_OPEN          1
@@ -624,6 +655,8 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_REQ_ACCEPT        26
 #define INET_REQ_LISTEN        27
 #define INET_REQ_IGNOREFD      28
+#define INET_REQ_GETLADDRS     29
+#define INET_REQ_GETPADDRS     30
 
 /* TCP requests */
 /* #define TCP_REQ_ACCEPT         40 MOVED */
@@ -1417,8 +1450,7 @@ static int load_ip_address(ErlDrvTermData* spec, int i, int family, char* buf)
 
 #ifdef HAVE_SCTP
 /* For SCTP, we often need to return {IP, Port} tuples: */
-static int inet_get_address
-      (int family, char* dst, inet_address* src, unsigned int* len);
+static int inet_get_address(char* dst, inet_address* src, unsigned int* len);
 
 #define LOAD_IP_AND_PORT_CNT                                              \
         (8*LOAD_INT_CNT + LOAD_TUPLE_CNT + LOAD_INT_CNT + LOAD_TUPLE_CNT)
@@ -1433,8 +1465,7 @@ static int load_ip_and_port
     unsigned int len  = sizeof(struct sockaddr_storage);
     unsigned int alen = len;
     char         abuf  [len];
-    int res =
-	inet_get_address(desc->sfamily, abuf, (inet_address*) addr, &alen);
+    int res = inet_get_address(abuf, (inet_address*) addr, &alen);
     ASSERT(res==0);
     res = 0;
     /* Now "abuf" contains: Family(1b), Port(2b), IP(4|16b) */
@@ -3658,9 +3689,27 @@ static int inet_init()
     /* Check the size of SCTP AssocID -- currently both this driver and the
        Erlang part require 32 bit: */
     ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
-#   if defined(HAVE_SCTP_BINDX) && defined (HAVE_SCTP_PEELOFF)
+#   if defined(HAVE_SCTP_BINDX)
     p_sctp_bindx = sctp_bindx;
+#     if defined(HAVE_SCTP_PEELOFF)
     p_sctp_peeloff = sctp_peeloff;
+#     else
+    p_sctp_peeloff = NULL;
+#     endif
+#     if defined(HAVE_SCTP_GETLADDRS) && defined(HAVE_SCTP_FREELADDRS)
+    p_sctp_getladdrs = sctp_getladdrs;
+    p_sctp_freeladdrs = sctp_freeladdrs;
+#     else
+    p_sctp_getladdrs = NULL;
+    p_sctp_freeladdrs = NULL;
+#     endif
+#     if defined(HAVE_SCTP_GETPADDRS) && defined(HAVE_SCTP_FREEPADDRS)
+    p_sctp_getpaddrs = sctp_getpaddrs;
+    p_sctp_freepaddrs = sctp_freepaddrs;
+#     else
+    p_sctp_getpaddrs = NULL;
+    p_sctp_freepaddrs = NULL;
+#     endif
     inet_init_sctp();
     add_driver_entry(&sctp_inet_driver_entry);
 #   else
@@ -3675,12 +3724,36 @@ static int inet_init()
 	    void *ptr;
 	    if (erts_sys_ddll_sym(h_libsctp, "sctp_bindx", &ptr) == 0) {
 		p_sctp_bindx = ptr;
-		inet_init_sctp();
-		add_driver_entry(&sctp_inet_driver_entry);
 		if (erts_sys_ddll_sym(h_libsctp, "sctp_peeloff", &ptr) == 0) {
 		    p_sctp_peeloff = ptr;
 		}
+		else p_sctp_peeloff = NULL;
+		if (erts_sys_ddll_sym(h_libsctp, "sctp_getladdrs", &ptr) == 0) {
+		    p_sctp_getladdrs = ptr;
+		}
+		else p_sctp_getladdrs = NULL;
+		if (erts_sys_ddll_sym(h_libsctp, "sctp_freeladdrs", &ptr) == 0) {
+		    p_sctp_freeladdrs = ptr;
+		}
+		else {
+		    p_sctp_freeladdrs = NULL;
+		    p_sctp_getladdrs = NULL;
+		}
+		if (erts_sys_ddll_sym(h_libsctp, "sctp_getpaddrs", &ptr) == 0) {
+		    p_sctp_getpaddrs = ptr;
+		}
+		else p_sctp_getpaddrs = NULL;
+		if (erts_sys_ddll_sym(h_libsctp, "sctp_freepaddrs", &ptr) == 0) {
+		    p_sctp_freepaddrs = ptr;
+		}
+		else {
+		    p_sctp_freepaddrs = NULL;
+		    p_sctp_getpaddrs = NULL;
+		}
+		inet_init_sctp();
+		add_driver_entry(&sctp_inet_driver_entry);
 	    }
+	    else p_sctp_bindx = NULL;
 	}
     }
 #   endif
@@ -3835,10 +3908,12 @@ static char *inet_set_faddress(int family, inet_address* dst,
 ** and *len is the length of dst on return 
 ** (suitable to deliver to erlang)
 */
-static int inet_get_address(int family, char* dst, inet_address* src, unsigned int* len)
+static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
 {
+    int family;
     short port;
 
+    family = src->sa.sa_family;
     if ((family == AF_INET) && (*len >= sizeof(struct sockaddr_in))) {
 	dst[0] = INET_AF_INET;
 	port = sock_ntohs(src->sai.sin_port);
@@ -3858,6 +3933,75 @@ static int inet_get_address(int family, char* dst, inet_address* src, unsigned i
     }
 #endif
     return -1;
+}
+
+/* Same as the above, but take family from the address structure,
+** and advance the address pointer to the next address
+** according to the size of the current,
+** and return the resulting encoded size
+*/
+static int inet_address_to_erlang(char *dst, inet_address **src) {
+    short port;
+
+    switch ((*src)->sa.sa_family) {
+    case AF_INET:
+	if (dst) {
+	    dst[0] = INET_AF_INET;
+	    port = sock_ntohs((*src)->sai.sin_port);
+	    put_int16(port, dst+1);
+	    sys_memcpy(dst+1+2, (char *) &(*src)->sai.sin_addr, 4);
+	}
+	(*src) = (inet_address *) (&(*src)->sai + 1);
+	return 1 + 2 + 4;
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    case AF_INET6:
+	if (dst) {
+	    dst[0] = INET_AF_INET6;
+	    port = sock_ntohs((*src)->sai6.sin6_port);
+	    put_int16(port, dst+1);
+            VALGRIND_MAKE_MEM_DEFINED(&(*src)->sai6.sin6_addr,16); /* false undefs from syscall sctp_get[lp]addrs */
+	    sys_memcpy(dst+1+2, (char *) &(*src)->sai6.sin6_addr, 16);
+	}
+	(*src) = (inet_address *) (&(*src)->sai6 + 1);
+	return 1 + 2 + 16;
+#endif
+    default:
+	return -1;
+    }
+}
+
+/* Encode n encoded addresses from addrs in the result buffer
+*/
+static ErlDrvSizeT reply_inet_addrs
+(int n, inet_address *addrs, char **rbuf, ErlDrvSizeT rsize) {
+    inet_address *ia;
+    int i, s;
+    ErlDrvSizeT rlen;
+
+    if (IS_SOCKET_ERROR(n)) return ctl_error(sock_errno(), rbuf, rsize);
+    if (n == 0) return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
+
+    /* Calculate result length */
+    rlen = 1;
+    ia = addrs;
+    for (i = 0;  i < n;  i++) {
+	s = inet_address_to_erlang(NULL, &ia);
+	if (s < 0) break;
+	rlen += s;
+    }
+
+    if (rlen > rsize) (*rbuf) = ALLOC(rlen);
+
+    (*rbuf)[0] = INET_REP_OK;
+    rlen = 1;
+    ia = addrs;
+    for (i = 0;  i < n;  i++) {
+	s = inet_address_to_erlang((*rbuf)+rlen, &ia);
+	if (s < 0) break;
+	rlen += s;
+    }
+
+    return rlen;
 }
 
 static void desc_close(inet_descriptor* desc)
@@ -7879,6 +8023,39 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	return ctl_reply(INET_REP_OK, tbuf, strlen(tbuf), rbuf, rsize);
     }
 
+    case INET_REQ_GETPADDRS: {
+	DEBUGF(("inet_ctl(%ld): INET_GETPADDRS\r\n", (long)desc->port));
+
+	if (len != 4) return ctl_error(EINVAL, rbuf, rsize);
+
+	if (! IS_OPEN(desc)) return ctl_xerror(EXBADPORT, rbuf, rsize);
+	if (! IS_BOUND(desc)) return ctl_xerror(EXBADSEQ, rbuf, rsize);
+
+#ifdef HAVE_SCTP
+	if (IS_SCTP(desc) && p_sctp_getpaddrs) {
+	    struct sockaddr *sa;
+	    Uint32 assoc_id;
+	    int n;
+	    ErlDrvSizeT rlen;
+
+	    assoc_id = get_int32(buf);
+	    n = p_sctp_getpaddrs(desc->s, assoc_id, &sa);
+	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize);
+	    if (n > 0) p_sctp_freepaddrs(sa);
+	    return rlen;
+	}
+#endif
+	{ /* Fallback to sock_peer */
+	    inet_address addr;
+	    unsigned int sz;
+	    int i;
+
+	    sz = sizeof(addr);
+	    i = sock_peer(desc->s, (struct sockaddr *) &addr, &sz);
+	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize);
+	}
+    }
+
     case INET_REQ_PEER:  {      /* get peername */
 	char tbuf[sizeof(inet_address)];
 	inet_address peer;
@@ -7894,7 +8071,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    if (IS_SOCKET_ERROR(sock_peer(desc->s, (struct sockaddr*)ptr,&sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
-	if (inet_get_address(desc->sfamily, tbuf, ptr, &sz) < 0)
+	if (inet_get_address(tbuf, ptr, &sz) < 0)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	return ctl_reply(INET_REP_OK, tbuf, sz, rbuf, rsize);
     }
@@ -7915,6 +8092,39 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	}
     }
 
+    case INET_REQ_GETLADDRS: {
+	DEBUGF(("inet_ctl(%ld): INET_GETLADDRS\r\n", (long)desc->port));
+
+	if (len != 4) return ctl_error(EINVAL, rbuf, rsize);
+
+	if (! IS_OPEN(desc)) return ctl_xerror(EXBADPORT, rbuf, rsize);
+	if (! IS_BOUND(desc)) return ctl_xerror(EXBADSEQ, rbuf, rsize);
+
+#ifdef HAVE_SCTP
+	if (IS_SCTP(desc) && p_sctp_getladdrs) {
+	    struct sockaddr *sa;
+	    Uint32 assoc_id;
+	    int n;
+	    ErlDrvSizeT rlen;
+
+	    assoc_id = get_int32(buf);
+	    n = p_sctp_getladdrs(desc->s, assoc_id, &sa);
+	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize);
+	    if (n > 0) p_sctp_freeladdrs(sa);
+	    return rlen;
+	}
+#endif
+	{ /* Fallback to sock_name */
+	    inet_address addr;
+	    unsigned int sz;
+	    int i;
+
+	    sz = sizeof(addr);
+	    i = sock_name(desc->s, (struct sockaddr *) &addr, &sz);
+	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize);
+	}
+    }
+
     case INET_REQ_NAME:  {      /* get sockname */
 	char tbuf[sizeof(inet_address)];
 	inet_address name;
@@ -7931,7 +8141,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    if (IS_SOCKET_ERROR(sock_name(desc->s, (struct sockaddr*)ptr, &sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
-	if (inet_get_address(desc->sfamily, tbuf, ptr, &sz) < 0)
+	if (inet_get_address(tbuf, ptr, &sz) < 0)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	return ctl_reply(INET_REP_OK, tbuf, sz, rbuf, rsize);
     }
@@ -10770,7 +10980,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
-	    inet_get_address(desc->sfamily, abuf, &other, &len);
+	    inet_get_address(abuf, &other, &len);
 	    /* Copy formatted address to the buffer allocated; "len" is the
 	       actual length which must be <= than the original reserved.
 	       This means that the addr + data in the buffer are contiguous,

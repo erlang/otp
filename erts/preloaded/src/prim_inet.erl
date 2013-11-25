@@ -41,8 +41,8 @@
 	 getifaddrs/1, getiflist/1, ifget/3, ifset/3,
 	 gethostname/1]).
 -export([getservbyname/3, getservbyport/3]).
--export([peername/1, setpeername/2]).
--export([sockname/1, setsockname/2]).
+-export([peername/1, setpeername/2, peernames/1, peernames/2]).
+-export([sockname/1, setsockname/2, socknames/1, socknames/2]).
 -export([attach/1, detach/1]).
 
 -include("inet_sctp.hrl").
@@ -576,6 +576,36 @@ setpeername(S, undefined) when is_port(S) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
+%% PEERNAMES(insock()) -> {ok, [{IP, Port}, ...]} | {error, Reason}
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+peernames(S) when is_port(S) ->
+    peernames(S, undefined).
+
+peernames(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
+    peernames(S, AssocId);
+peernames(S, AssocId)
+  when is_port(S), is_integer(AssocId);
+       is_port(S), AssocId =:= undefined ->
+    Q = get,
+    Type = [[sctp_assoc_id,0]],
+    case type_value(Q, Type, AssocId) of
+	true ->
+	    case ctl_cmd
+		(S, ?INET_REQ_GETPADDRS,
+		 enc_value(Q, Type, AssocId)) of
+		{ok,Addrs} ->
+		    {ok,get_addrs(Addrs)};
+		Error ->
+		    Error
+	    end;
+	false ->
+	    {error,einval}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 %% SOCKNAME(insock()) -> {ok, {IP, Port}} | {error, Reason}
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -597,6 +627,36 @@ setsockname(S, undefined) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_SETNAME, []) of
 	{ok,[]} -> ok;
 	{error,_}=Error -> Error
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% SOCKNAMES(insock()) -> {ok, [{IP, Port}, ...]} | {error, Reason}
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+socknames(S) when is_port(S) ->
+    socknames(S, undefined).
+
+socknames(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
+    socknames(S, AssocId);
+socknames(S, AssocId)
+  when is_port(S), is_integer(AssocId);
+       is_port(S), AssocId =:= undefined ->
+    Q = get,
+    Type = [[sctp_assoc_id,0]],
+    case type_value(Q, Type, AssocId) of
+	true ->
+	    case ctl_cmd
+		(S, ?INET_REQ_GETLADDRS,
+		 enc_value(Q, Type, AssocId)) of
+		{ok,Addrs} ->
+		    {ok,get_addrs(Addrs)};
+		Error ->
+		    Error
+	    end;
+	false ->
+	    {error,einval}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2212,6 +2272,12 @@ ip4_to_bytes({A,B,C,D}) ->
 ip6_to_bytes({A,B,C,D,E,F,G,H}) ->
     [?int16(A), ?int16(B), ?int16(C), ?int16(D),
      ?int16(E), ?int16(F), ?int16(G), ?int16(H)].
+
+get_addrs([]) ->
+    [];
+get_addrs([F,P1,P0|Addr]) ->
+    {IP,Addrs} = get_ip(F, Addr),
+    [{IP,?u16(P1, P0)}|get_addrs(Addrs)].
 
 get_ip(?INET_AF_INET, Addr)  -> get_ip4(Addr);
 get_ip(?INET_AF_INET6, Addr) -> get_ip6(Addr).
