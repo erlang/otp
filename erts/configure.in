@@ -393,30 +393,17 @@ if test X${enable_darwin_64bit} = Xyes -o X${enable_m64_build} = Xyes; then
 			;;
 	esac
 else
-	case $host_os in
-		darwin*)
-			case $CFLAGS in
-			*-m32*)
-				;;
-			*)
-				CFLAGS="-m32 $CFLAGS"
-				;;
-			esac
-			;;
-		*)
-			if test X${enable_m32_build} = Xyes;
-			then
-				enable_hipe=no;
-				case $CFLAGS in
-				*-m32*)
-					;;
-				*)
-					CFLAGS="-m32 $CFLAGS"
-				;;
-				esac ;
-			fi
-			;;
-	esac
+	if test X${enable_m32_build} = Xyes;
+	then
+		enable_hipe=no;
+		case $CFLAGS in
+		    *-m32*)
+			    ;;
+		    *)
+			    CFLAGS="-m32 $CFLAGS"
+			    ;;
+		esac ;
+	fi
 fi
 
 
