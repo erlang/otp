@@ -430,8 +430,16 @@ fe80::204:acff:fe17:bf38
       <name name="peername" arity="1"/>
       <fsummary>Return the address and port for the other end of a connection</fsummary>
       <desc>
-        <p>Returns the address and port for the other end of a
-          connection.</p>
+        <p>
+	  Returns the address and port for the other end of a
+          connection.
+	</p>
+	<p>
+	  Note that for SCTP sockets this function only returns
+	  one of the socket's peer addresses.  The function
+	  <seealso marker="#peernames/1">peernames/1,2</seealso>
+	  returns all.
+	</p>
       </desc>
     </func>
     <func>
@@ -441,12 +449,11 @@ fe80::204:acff:fe17:bf38
       </fsummary>
       <desc>
 	<p>
-	  The same as
-	  <seealso marker="#peernames/2">
-	    <c>peernames(<anno>Socket</anno>, 0)</c>
-	  </seealso>.
+	  Equivalent to
+	  <seealso marker="#peernames/2"><c>peernames(<anno>Socket</anno>, 0)</c></seealso>.
 	  Note that this function's behaviour for an SCTP
-	  one-to-many style socket is not defined by the SCTP Socket API.
+	  one-to-many style socket is not defined by the
+	  <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">SCTP Sockets API Extensions</url>.
 	</p>
       </desc>
     </func>
@@ -462,12 +469,13 @@ fe80::204:acff:fe17:bf38
 	</p>
 	<p>
 	  This function can return multiple addresses for multihomed
-	  sockets such as SCTP sockets.  For other sockets it does the
-	  same as <seealso marker="#peername/1">peername/1</seealso>.
+	  sockets such as SCTP sockets.  For other sockets it
+	  returns a one element list.
 	</p>
 	<p>
-	  Note that the <c><anno>Assoc</anno></c> parameter
-	  is by the SCTP Socket API defined to be ignored for
+	  Note that the <c><anno>Assoc</anno></c> parameter is by the
+	  <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">SCTP Sockets API Extensions</url>
+	  defined to be ignored for
 	  one-to-one style sockets.  What the special value <c>0</c>
 	  means hence its behaviour for one-to-many style sockets
 	  is unfortunately not defined.
@@ -486,6 +494,12 @@ fe80::204:acff:fe17:bf38
       <fsummary>Return the local address and port number for a socket</fsummary>
       <desc>
         <p>Returns the local address and port number for a socket.</p>
+	<p>
+	  Note that for SCTP sockets this function only returns
+	  one of the socket addresses.  The function
+	  <seealso marker="#socknames/1">socknames/1,2</seealso>
+	  returns all.
+	</p>
       </desc>
     </func>
     <func>
@@ -493,10 +507,8 @@ fe80::204:acff:fe17:bf38
       <fsummary>Return all local address/port numbers for a socket</fsummary>
       <desc>
 	<p>
-	  The same as
-	  <seealso marker="#socknames/2">
-	    <c>socknames(<anno>Socket</anno>, 0)</c>
-	  </seealso>.
+	  Equivalent to
+	  <seealso marker="#socknames/2"><c>socknames(<anno>Socket</anno>, 0)</c></seealso>.
 	</p>
       </desc>
     </func>
@@ -510,17 +522,17 @@ fe80::204:acff:fe17:bf38
 	</p>
 	<p>
 	  This function can return multiple addresses for multihomed
-	  sockets such as SCTP sockets.  For other sockets it does the
-	  same as <seealso marker="#sockname/1">sockname/1</seealso>.
+	  sockets such as SCTP sockets.  For other sockets it
+	  returns a one element list.
 	</p>
 	<p>
-	  Note that the <c><anno>Assoc</anno></c> parameter
-	  is by the SCTP Socket API defined to be ignored for
-	  one-to-one style sockets.  For one-to-many style sockets
-	  the special value <c>0</c> is defined to mean that
-	  the returned addresses shall be without regard to any
-	  particular association.  How different SCTP implementations
-	  interprets this varies somewhat.
+	  Note that the <c><anno>Assoc</anno></c> parameter is by the
+	  <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">SCTP Sockets API Extensions</url>
+	  defined to be ignored for one-to-one style sockets.
+	  For one-to-many style sockets the special value <c>0</c>
+	  is defined to mean that the returned addresses shall be
+	  without regard to any particular association.
+	  How different SCTP implementations interprets this varies somewhat.
 	</p>
       </desc>
     </func>
