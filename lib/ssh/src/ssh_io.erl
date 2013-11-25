@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,6 @@
 -module(ssh_io).
 
 -export([yes_no/2, read_password/2, read_line/2, format/2]).
--import(lists, [reverse/1]).
 -include("ssh.hrl").
 
 read_line(Prompt, Ssh) ->
@@ -81,7 +80,7 @@ format(Fmt, Args) ->
 
 
 trim(Line) when is_list(Line) ->
-    reverse(trim1(reverse(trim1(Line))));
+    lists:reverse(trim1(lists:reverse(trim1(Line))));
 trim(Other) -> Other.
 
 trim1([$\s|Cs]) -> trim(Cs);
