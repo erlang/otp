@@ -186,32 +186,8 @@ close_pend_loop(S, N) ->
     end.
 
 close_port(S) ->
-    case erlang:process_info(self(), trap_exit) of
-	{trap_exit,true} ->
-	    %% Ensure exit message and consume it
-	    link(S),
-	    %% This is still not a perfect solution.
-	    %%
-	    %% The problem is to close the port and consume any exit
-	    %% message while not knowing if this process traps exit
-	    %% nor if this process has a link to the port. Here we
-	    %% just knows that this process traps exit.
-	    %%
-	    %% If we right here get killed for some reason that exit
-	    %% signal will propagate to the port and onwards to anyone
-	    %% that is linked to the port. E.g when we close a socket
-	    %% that is not ours.
-	    %%
-	    %% The problem can be solved with lists:member on our link
-	    %% list but we deem that as potentially too expensive. We
-	    %% need an is_linked/1 function or guard, or we need
-	    %% a port_close function that can atomically unlink...
-	    catch erlang:port_close(S),
-	    receive {'EXIT',S,_} -> ok end;
-	{trap_exit,false} ->
-	    catch erlang:port_close(S),
-	    ok
-    end.
+    catch erlang:port_close(S),
+    receive {'EXIT',S,_} -> ok after 0 -> ok end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
