@@ -4079,7 +4079,7 @@ erts_port_control(Process* c_p,
 	    copy = 1;
 	else {
 	    binp = ((ProcBin *) ebinp)->val;
-	    ASSERT(bufp < bufp + size);
+	    ASSERT(bufp <= bufp + size);
 	    ASSERT(binp->orig_bytes <= bufp
 		   && bufp + size <= binp->orig_bytes + binp->orig_size);
 	    erts_refc_inc(&binp->refc, 1);
