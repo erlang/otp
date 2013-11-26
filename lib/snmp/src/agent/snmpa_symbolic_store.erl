@@ -642,10 +642,10 @@ code_change(_Vsn, S, _Extra) ->
     {ok, S}.
 
 
-stop_backup_server(undefined) ->
-    ok;
-stop_backup_server({Pid, _}) when is_pid(Pid) ->
-    exit(Pid, kill).
+%% stop_backup_server(undefined) ->
+%%     ok;
+%% stop_backup_server({Pid, _}) when is_pid(Pid) ->
+%%     exit(Pid, kill).
 
 
     

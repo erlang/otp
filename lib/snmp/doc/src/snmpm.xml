@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2012</year>
+      <year>2004</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1209,32 +1209,40 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>log_to_txt(LogDir, Mibs)</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile) -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir)</name>
+      <name>log_to_txt(LogDir, Block | Mibs)</name>
+      <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
+        <v>Block = boolean()</v>
         <v>OutFile = string()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
-        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
       </type>
       <desc>
         <p>Converts an Audit Trail Log to a readable text file. 
-          <c>OutFile</c> defaults to "./snmpm_log.txt". 
-          <c>LogName</c> defaults to "snmpm_log". 
-          <c>LogFile</c> defaults to "snmpm.log". 
-          See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
-          for more info.</p>
+	<c>OutFile</c> defaults to "./snmpm_log.txt". 
+	<c>LogName</c> defaults to "snmpm_log". 
+	<c>LogFile</c> defaults to "snmpm.log". 
+	<p>The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	for more info.</p>
 
         <marker id="log_to_io"></marker>
       </desc>
@@ -1242,20 +1250,23 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>log_to_io(LogDir) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Block | Mibs) -> ok | {error, Reason}</name>
       <name>log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
       <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
+        <v>Block = boolean()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
-        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -1265,6 +1276,10 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	prints it on stdio. 
 	<c>LogName</c> defaults to "snmpm_log". 
 	<c>LogFile</c> defaults to "snmpm.log". 
+	<p>The <c>Block</c> argument indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
 	See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
 	for more info.</p>
 

@@ -356,7 +356,7 @@ init([AgentType, Opts]) ->
     SymStoreSpec = 
 	worker_spec(snmpa_symbolic_store, SymStoreArgs, Restart, 2000),
 
-    LdbArgs = [Prio, DbDir, LdbOpts],
+    LdbArgs = [Prio, DbDir, DbInitError, LdbOpts],
     LocalDbSpec = 
 	worker_spec(snmpa_local_db, LdbArgs, Restart, 5000),
 

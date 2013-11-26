@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2012. All Rights Reserved.
+# Copyright Ericsson AB 2003-2013. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -78,6 +78,8 @@ endif
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
+
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
 
 ifeq ($(WARN_UNUSED_VARS),true)
 ERL_COMPILE_FLAGS += +warn_unused_vars

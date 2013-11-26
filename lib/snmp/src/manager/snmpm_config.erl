@@ -1215,6 +1215,12 @@ dets_open(Dir, DbInitError, Repair, AutoSave) ->
 		    end
 	    end;
 	_ ->
+	    case DbInitError of
+		create_db_and_dir ->
+		    ok = filelib:ensure_dir(Filename);
+		_ ->
+		    ok
+	    end,
 	    case do_dets_open(Name, Filename, Repair, AutoSave) of
 		{ok, _Dets} ->
 		    ok;
@@ -1316,7 +1322,14 @@ verify_option({server, ServerOpts}) ->
     verify_server_opts(ServerOpts);
 verify_option({note_store, NoteStoreOpts}) ->
     verify_note_store_opts(NoteStoreOpts);
-verify_option({config, ConfOpts}) ->
+verify_option({config, ConfOpts0}) ->
+    %% Make sure any db_dir option is first in the options list to make it
+    %% easier to check if the db_init_error option specifies that a missing
+    %% db_dir should be created.
+    ConfOpts = case lists:keytake(db_dir, 1, ConfOpts0) of
+                   false -> ConfOpts0;
+                   {value, Result, OtherOpts} -> [Result|OtherOpts]
+               end,
     verify_config_opts(ConfOpts);
 verify_option({versions, Vsns}) ->
     verify_versions(Vsns);
@@ -1365,7 +1378,12 @@ verify_config_opts([{dir, Dir}|Opts]) ->
     verify_conf_dir(Dir),
     verify_config_opts(Opts);
 verify_config_opts([{db_dir, Dir}|Opts]) ->
-    verify_conf_db_dir(Dir),
+    case lists:keyfind(db_init_error, 1, Opts) of
+        {db_init_error, create_db_and_dir} ->
+            verify_conf_db_dir(Dir, false);
+        _ ->
+            verify_conf_db_dir(Dir, true)
+    end,
     verify_config_opts(Opts);
 verify_config_opts([{db_init_error, DbInitErr}|Opts]) ->
     verify_conf_db_init_error(DbInitErr),
@@ -1443,7 +1461,7 @@ verify_conf_dir(Dir) ->
 	    error({invalid_conf_dir, Dir})
     end.
 
-verify_conf_db_dir(Dir) ->
+verify_conf_db_dir(Dir, true) ->
     case (catch verify_dir(Dir)) of
 	ok ->
 	    ok;
@@ -1451,12 +1469,15 @@ verify_conf_db_dir(Dir) ->
 	    error({invalid_conf_db_dir, Dir, Reason});
 	_ ->
 	    error({invalid_conf_db_dir, Dir})
-    end.
-
+    end;
+verify_conf_db_dir(_Dir, false) ->
+    ok.
 
 verify_conf_db_init_error(terminate) ->
     ok;
 verify_conf_db_init_error(create) ->
+    ok;
+verify_conf_db_init_error(create_db_and_dir) ->
     ok;
 verify_conf_db_init_error(InvalidDbInitError) ->
     error({invalid_conf_db_init_error, InvalidDbInitError}).
