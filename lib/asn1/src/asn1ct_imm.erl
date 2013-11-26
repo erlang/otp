@@ -36,7 +36,7 @@
 	 per_enc_small_number/2]).
 -export([per_enc_extension_bit/2,per_enc_extensions/4,per_enc_optional/3]).
 -export([per_enc_sof/5]).
--export([enc_absent/3,enc_append/1,enc_bind_var/1]).
+-export([enc_absent/3,enc_append/1,enc_element/2]).
 -export([enc_cg/2]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
@@ -270,7 +270,7 @@ per_enc_open_type([{'cond',
     ToBin = {erlang,iolist_to_binary},
     Imm ++ per_enc_open_type(Dst, ToBin, Aligned);
 per_enc_open_type([{call,erlang,iolist_to_binary,Args}], Aligned) ->
-    {_,[_,Bin,Len]} = mk_vars('dummy', [bin,len]),
+    {_,[_,Bin,Len]} = mk_vars([], [bin,len]),
     [{call,erlang,iolist_to_binary,Args,Bin},
      {call,erlang,byte_size,[Bin],Len}|per_enc_length(Bin, 8, Len, Aligned)];
 per_enc_open_type(Imm0, Aligned) ->
@@ -321,23 +321,21 @@ per_enc_extensions(Val0, Pos0, NumBits, Aligned) when NumBits > 0 ->
 
 per_enc_optional(Val0, {Pos,DefVals}, _Aligned) when is_integer(Pos),
 						     is_list(DefVals) ->
-    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
-    {B,[Val]} = mk_vars(Val1, []),
+    {B,Val} = enc_element(Pos, Val0),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
     B++[{'cond',
 	 [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
 per_enc_optional(Val0, {Pos,{call,M,F,A}}, _Aligned) when is_integer(Pos) ->
-    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
-    {B,[Val,Tmp]} = mk_vars(Val1, [tmp]),
+    {B,Val} = enc_element(Pos, Val0),
+    {[],[[],Tmp]} = mk_vars([], [tmp]),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
     B++[{call,M,F,[Val|A],Tmp},
 	{'cond',
 	 [[{eq,Tmp,true},Zero],['_',One]]}];
 per_enc_optional(Val0, Pos, _Aligned) when is_integer(Pos) ->
-    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
-    {B,[Val]} = mk_vars(Val1, []),
+    {B,Val} = enc_element(Pos, Val0),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
     B++[{'cond',[[{eq,Val,asn1_NOVALUE},Zero],
@@ -391,9 +389,9 @@ enc_append([H|T]) ->
     [{block,H}|enc_append(T)];
 enc_append([]) -> [].
 
-enc_bind_var(Val) ->
-    {B,[{var,Var}]} = mk_vars(Val, []),
-    {B,list_to_atom(Var)}.
+enc_element(N, Val0) ->
+    {[],[Val,Dst]} = mk_vars(Val0, [element]),
+    {[{call,erlang,element,[N,Val],Dst}],Dst}.
 
 enc_cg(Imm0, false) ->
     Imm1 = enc_cse(Imm0),
@@ -988,17 +986,13 @@ mk_vars(Input0, Temps) ->
     Curr = asn1ct_name:curr(enc),
     [H|T] = atom_to_list(Curr),
     Base = [H - ($a - $A)|T ++ "@"],
-    if
-	is_atom(Input0) ->
-	    Input = {var,atom_to_list(Input0)},
-	    {[],[Input|mk_vars_1(Base, Temps)]};
-	is_integer(Input0) ->
+    case Input0 of
+	{var,Name} when is_list(Name) ->
 	    {[],[Input0|mk_vars_1(Base, Temps)]};
-	Input0 =:= [] ->
+	[] ->
 	    {[],[Input0|mk_vars_1(Base, Temps)]};
-	true ->
-	    Input = mk_var(Base, input),
-	    {[{assign,Input,Input0}],[Input|mk_vars_1(Base, Temps)]}
+	_ when is_integer(Input0) ->
+	    {[],[Input0|mk_vars_1(Base, Temps)]}
     end.
 
 mk_vars_1(Base, Vars) ->
@@ -1402,16 +1396,16 @@ num_bits([], Sum) -> Sum.
 
 per_enc_open_type_output([{apply,F,A}], Acc) ->
     Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{apply,F,A,{var,atom_to_list(Dst)}}])};
+    {Dst,lists:reverse(Acc, [{apply,F,A,Dst}])};
 per_enc_open_type_output([{call,M,F,A}], Acc) ->
     Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{call,M,F,A,{var,atom_to_list(Dst)}}])};
+    {Dst,lists:reverse(Acc, [{call,M,F,A,Dst}])};
 per_enc_open_type_output([{call_gen,P,K,G,I,As}], Acc) ->
     Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{call_gen,P,K,G,I,As,{var,atom_to_list(Dst)}}])};
+    {Dst,lists:reverse(Acc, [{call_gen,P,K,G,I,As,Dst}])};
 per_enc_open_type_output([{'cond',Cs}], Acc) ->
     Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{'cond',Cs,{var,atom_to_list(Dst)}}])};
+    {Dst,lists:reverse(Acc, [{'cond',Cs,Dst}])};
 per_enc_open_type_output([H|T], Acc) ->
     per_enc_open_type_output(T, [H|Acc]).
 
@@ -1419,7 +1413,7 @@ output_var() ->
     asn1ct_name:new(enc),
     Curr = asn1ct_name:curr(enc),
     [H|T] = atom_to_list(Curr),
-    list_to_atom([H - ($a - $A)|T ++ "@output"]).
+    {var,[H - ($a - $A)|T ++ "@output"]}.
 
 
 %%%
@@ -1599,16 +1593,16 @@ collect_put_bits(Imm) ->
 %%% the same element twice.
 %%%
 
-enc_cse([{assign,{var,V},E}=H|T]) ->
-    [H|enc_cse_1(T, E, V)];
+enc_cse([{call,erlang,element,Args,V}=H|T]) ->
+    [H|enc_cse_1(T, Args, V)];
 enc_cse(Imm) -> Imm.
 
-enc_cse_1([{assign,Dst,E}|T], E, V) ->
-    [{assign,Dst,V}|enc_cse_1(T, E, V)];
-enc_cse_1([{block,Bl}|T], E, V) ->
-    [{block,enc_cse_1(Bl, E, V)}|enc_cse_1(T, E, V)];
-enc_cse_1([H|T], E, V) ->
-    [H|enc_cse_1(T, E, V)];
+enc_cse_1([{call,erlang,element,Args,Dst}|T], Args, V) ->
+    [{set,V,Dst}|enc_cse_1(T, Args, V)];
+enc_cse_1([{block,Bl}|T], Args, V) ->
+    [{block,enc_cse_1(Bl, Args, V)}|enc_cse_1(T, Args, V)];
+enc_cse_1([H|T], Args, V) ->
+    [H|enc_cse_1(T, Args, V)];
 enc_cse_1([], _, _) -> [].
 
 
