@@ -978,6 +978,7 @@ is_nonbuilding({call,_,_,_,_}) -> true;
 is_nonbuilding({call_gen,_,_,_,_,_,_}) -> true;
 is_nonbuilding({'cond',_,_}) -> true;
 is_nonbuilding({lc,_,_,_,_}) -> true;
+is_nonbuilding({set,_,_}) -> true;
 is_nonbuilding({sub,_,_,_}) -> true;
 is_nonbuilding({'try',_,_,_,_}) -> true;
 is_nonbuilding(_) -> false.
@@ -1698,7 +1699,6 @@ enc_pre_cg_nonbuilding({'try',Try0,{P,Succ0},Else0,Dst}, StL) ->
     {'try',Try,{P,Succ},Else,Dst};
 enc_pre_cg_nonbuilding(Imm, _) -> Imm.
 
-
 %%%
 %%% Code generation for encoding.
 %%%
@@ -1773,6 +1773,8 @@ enc_cg({sub,Src0,Int,Dst0}) ->
     Src = mk_val(Src0),
     Dst = mk_val(Dst0),
     emit([Dst," = ",Src," - ",Int]);
+enc_cg({set,{var,Src},{var,Dst}}) ->
+    emit([Dst," = ",Src]);
 enc_cg({'try',Try,{P,Succ},Else,Dst}) ->
     emit([mk_val(Dst)," = try "]),
     enc_cg(Try),
@@ -2053,6 +2055,8 @@ enc_opt_al({put_bits,_,N,[U]}=PutBits, Al) when is_integer(N), is_integer(Al) ->
     {[PutBits],Al+N*U};
 enc_opt_al({put_bits,_,binary,[U]}=PutBits, Al) when U rem 8 =:= 0 ->
     {[PutBits],Al};
+enc_opt_al({set,_,_}=Imm, Al) ->
+    {[Imm],Al};
 enc_opt_al({sub,_,_,_}=Imm, Al) ->
     {[Imm],Al};
 enc_opt_al({'try',_,_,_,_}=Imm, Al) ->
@@ -2138,6 +2142,8 @@ per_fixup([{lc,B,V,L}|T]) ->
     [{lc,per_fixup(B),V,L}|per_fixup(T)];
 per_fixup([{lc,B,V,L,Dst}|T]) ->
     [{lc,per_fixup(B),V,L,Dst}|per_fixup(T)];
+per_fixup([{set,_,_}=H|T]) ->
+    [H|per_fixup(T)];
 per_fixup([{sub,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{'try',Try0,{P,Succ0},Else0,Dst}|T]) ->
