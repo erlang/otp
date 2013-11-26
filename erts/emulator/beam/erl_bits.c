@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1810,6 +1810,11 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
     Uint rshift;
     int cmp;
     
+    ASSERT(a_offs < 8 && b_offs < 8);
+
+    if (size == 0)
+        return 0;
+
     if (((a_offs | b_offs | size) & 7) == 0) {
 	int byte_size = size >> 3;
 	return sys_memcmp(a_ptr, b_ptr, byte_size);
@@ -1818,13 +1823,15 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
     /* Compare bit by bit until a_ptr is aligned on byte boundary */
     a = *a_ptr++;
     b = *b_ptr++;
-    while (size > 0) {
+    for (;;) {
 	a_bit = get_bit(a, a_offs);
 	b_bit = get_bit(b, b_offs);
 	if ((cmp = (a_bit-b_bit)) != 0) {
 	    return cmp;
 	}
-	size--;
+        if (--size == 0)
+            return 0;
+
 	b_offs++;
 	if (b_offs == 8) {
 	    b_offs = 0;
@@ -1839,37 +1846,49 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
     }
 
     /* Compare byte by byte as long as at least 8 bits remain */
-    lshift = b_offs;
-    rshift = 8 - lshift;
-    while (size >= 8) {
-	byte b_cmp = (b << lshift);
-	b = *b_ptr++;
-	b_cmp |= b >> rshift;
-	if ((cmp = (a - b_cmp)) != 0) {
-	    return cmp;
-	}
+    if (size >= 8) {
+        lshift = b_offs;
+        rshift = 8 - lshift;
+        for (;;) {
+            byte b_cmp = (b << lshift);
+            b = *b_ptr++;
+            b_cmp |= b >> rshift;
+            if ((cmp = (a - b_cmp)) != 0) {
+                return cmp;
+            }
+            size -= 8;
+	    if (size < 8)
+		break;
+            a = *a_ptr++;
+        }
+
+	if (size == 0)
+	    return 0;
 	a = *a_ptr++;
-	size -= 8;
     }
 
     /* Compare the remaining bits bit by bit */
-    while (size > 0) {
-	a_bit = get_bit(a, a_offs);
-	b_bit = get_bit(b, b_offs);
-	if ((cmp = (a_bit-b_bit)) != 0) {
-	    return cmp;
-	}
-	a_offs++;
-	if (a_offs == 8) {
-	    a_offs = 0;
-	    a = *a_ptr++;
-	}
-	b_offs++;
-	if (b_offs == 8) {
-	    b_offs = 0;
-	    b = *b_ptr++;
-	}
-	size--;
+    if (size > 0) {
+        for (;;) {
+            a_bit = get_bit(a, a_offs);
+            b_bit = get_bit(b, b_offs);
+            if ((cmp = (a_bit-b_bit)) != 0) {
+                return cmp;
+            }
+            if (--size == 0)
+                return 0;
+
+            a_offs++;
+            if (a_offs == 8) {
+                a_offs = 0;
+                a = *a_ptr++;
+            }
+            b_offs++;
+            if (b_offs == 8) {
+                b_offs = 0;
+                b = *b_ptr++;
+            }
+        }
     }
 
     return 0;
