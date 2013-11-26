@@ -1823,25 +1823,27 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
     /* Compare bit by bit until a_ptr is aligned on byte boundary */
     a = *a_ptr++;
     b = *b_ptr++;
-    for (;;) {
-	a_bit = get_bit(a, a_offs);
-	b_bit = get_bit(b, b_offs);
-	if ((cmp = (a_bit-b_bit)) != 0) {
-	    return cmp;
-	}
-        if (--size == 0)
-            return 0;
+    if (a_offs) {
+	for (;;) {
+	    a_bit = get_bit(a, a_offs);
+	    b_bit = get_bit(b, b_offs);
+	    if ((cmp = (a_bit-b_bit)) != 0) {
+		return cmp;
+	    }
+	    if (--size == 0)
+		return 0;
 
-	b_offs++;
-	if (b_offs == 8) {
-	    b_offs = 0;
-	    b = *b_ptr++;
-	}
-	a_offs++;
-	if (a_offs == 8) {
-	    a_offs = 0;
-	    a = *a_ptr++;
-	    break;
+	    b_offs++;
+	    if (b_offs == 8) {
+		b_offs = 0;
+		b = *b_ptr++;
+	    }
+	    a_offs++;
+	    if (a_offs == 8) {
+		a_offs = 0;
+		a = *a_ptr++;
+		break;
+	    }
 	}
     }
 
@@ -1879,10 +1881,8 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
                 return 0;
 
             a_offs++;
-            if (a_offs == 8) {
-                a_offs = 0;
-                a = *a_ptr++;
-            }
+	    ASSERT(a_offs < 8);
+
             b_offs++;
             if (b_offs == 8) {
                 b_offs = 0;
