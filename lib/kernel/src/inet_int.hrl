@@ -86,6 +86,8 @@
 -define(INET_REQ_ACCEPT,        26).
 -define(INET_REQ_LISTEN,        27).
 -define(INET_REQ_IGNOREFD,      28).
+-define(INET_REQ_GETLADDRS,     29).
+-define(INET_REQ_GETPADDRS,     30).
 
 %% TCP requests
 %%-define(TCP_REQ_ACCEPT,         40). MOVED
