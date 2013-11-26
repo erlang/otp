@@ -34,6 +34,125 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.25</title>
+    <p>Version 4.25 supports code replacement in runtime from/to
+    version 4.24.2, 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Enable SNMP to create missing database directories. </p>
+	  <p>Add 
+	  <seealso marker="snmp_app#db_init_error">
+	  {db_init_error, create_db_and_dir}</seealso> option to SNMP 
+	  <seealso marker="snmp_app#manager_opts_and_types">manager</seealso> 
+	  and
+	  <seealso marker="snmp_app#agent_opts_and_types">agent</seealso>. 
+	  This allows them to create any missing parent directories for
+	  <c>db_dir</c>, rather than treating any missing directories 
+	  as a fatal error.
+	  The default for <c>db_init_error</c>, which is <c>terminate</c>, 
+	  is unchanged. </p>
+	  <p>Steve Vinoski</p>
+          <p>Own Id: OTP-11352</p>
+        </item>
+
+        <item>
+          <p>[manager] Improved handling of unexpected return values from
+	  <seealso marker="snmpm_user">snmpm_user</seealso>
+	  callback functions. </p>
+	  <p>Violations of the documented API (crashes or invalid return 
+	  values) will now result in an error message. </p>
+          <p>Own Id: OTP-11307</p>
+        </item>
+
+        <item>
+          <p>Add (atl) log conversion block option. </p>
+	  <p>It is now possible to request that the Audit Trail Log should
+	  be blocked during conversion (<c>log_to_txt</c> or <c>log_to_io</c>). 
+	  This could be usefull when coverting an entire large log (when 
+	  there is a chance it may otherwise wrap during conversion). </p>
+	  <p>See 
+	  agent 
+	  <seealso marker="snmpa#log_to_txt">log_to_txt</seealso> and
+	  <seealso marker="snmpa#log_to_io">log_to_io</seealso> and also 
+	  manager 
+	  <seealso marker="snmpm#log_to_txt">log_to_txt</seealso> and
+	  <seealso marker="snmpm#log_to_io">log_to_io</seealso> 
+	  for details. </p>
+          <p>Own Id: OTP-11396</p>
+          <p>Own Id: seq12433</p>
+        </item>
+
+        <item>
+          <p>When converting an Audit Trail Log to text, a corrupt
+	  log entry could cause the entire conversion to fail. </p>
+	  <p>Also, for a log with sequence numbers, failing to 
+	  decode a log entry would cause the conversion to fail
+	  (not because of the failed decode, but because of the 
+	  failure to write the error message). </p>
+          <p>Own Id: OTP-111453</p>
+          <p>Aux Id: Seq 12459</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Wrong block cypher type used for AES ('aes_cbf128' 
+	  instead of 'aes_cfb128') when performing AES block 
+	  encrypt/decrypt which breaks SNMP usmAesCfb128Protocol 
+	  in agent and manager. </p>
+          <p>Own Id: OTP-11412</p>
+        </item>
+
+        <item>
+          <p>[manager] When performing the AES encryption, invalid values for 
+	  the EngineBoots and EngineTime was used. </p>
+	  <p>The values of the local agent was used, which would have produced 
+	  "some" values if an agent was actually running. 
+	  If not it would have caused a crash. </p>
+	  <p>Own Id: OTP-11413</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.25 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.24.2</title>
     <p>Version 4.24.2 supports code replacement in runtime from/to
     version 4.24.1, 4.24, 4.23.1 and 4.23. </p>
@@ -96,7 +215,7 @@
       </list>
 -->
     </section>
-
+    
   </section> <!-- 4.24.2 -->
 
 

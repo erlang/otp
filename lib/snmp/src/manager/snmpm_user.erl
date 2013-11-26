@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,79 +19,100 @@
 
 -module(snmpm_user).
 
--export([behaviour_info/1]).
+-export_type([
+	      snmp_gen_info/0, 
+	      snmp_v1_trap_info/0 
+	     ]).
 
-behaviour_info(callbacks) ->
-    [{handle_error,    3}, 
-     {handle_agent,    5}, 
-     {handle_pdu,      4},
-     {handle_trap,     3},
-     {handle_inform,   3},
-     {handle_report,   3}];
-behaviour_info(_) ->
-    undefined.
+-type snmp_gen_info() :: {ErrorStatus :: atom(), 
+			  ErrorIndex :: pos_integer(), 
+			  Varbinds :: [snmp:varbind()]}.
+-type snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
+			      Generic   :: integer(), 
+			      Spec      :: integer(), 
+			      Timestamp :: integer(), 
+			      Varbinds  :: [snmp:varbind()]}.
+-type ip_address()  :: inet:ip_address().
+-type port_number() :: inet:port_number().
 
 
-%% handle_error(ReqId, Reason, UserData) -> Reply
-%% ReqId       -> integer()
-%% Reason      -> term()
-%% UserData    -> term()     (supplied when the user register)
-%% Reply       -> ignore 
+%% *** handle_error ***
+%% An "asynchronous" error has been detected 
 
-%% handle_agent(Addr, Port, Type, SnmpInfo, UserData) -> Reply
-%% Addr        -> term()
-%% Port        -> integer()
-%% Type        -> pdu | trap | inform | report
-%% SnmpInfo    -> {ErrorStatus, ErrorIndex, Varbinds}
-%% UserId      -> term()
-%% ErrorStatus -> atom()
-%% ErrorIndex  -> integer()
-%% Varbinds    -> [varbind()]
-%% UserData    -> term()     (supplied when the user register)
-%% Reply       -> ignore | {register, UserId, agent_info()}
-%% agent_info() -> [{agent_info_item(), agent_info_value()}]
-%%                 This is the same info as in update_agent_info/4
+-callback handle_error(ReqId :: integer(), 
+		       Reason :: {unexpected_pdu, SnmpInfo :: snmp_gen_info()} |
+				 {invalid_sec_info, SecInfo :: term(), SnmpInfo :: snmp_gen_info()} | 
+				 {empty_message, Addr :: ip_address(), Port :: port_number()} | 
+				 term(), 
+		       UserData :: term()) ->
+    snmp:void().
 
-%% handle_pdu(TargetName, ReqId, SnmpResponse, UserData) -> Reply
-%% TargetName   -> target_name()
-%% ReqId        -> term() (returned when calling ag(...), ...)
-%% SnmpResponse -> {ErrorStatus, ErrorIndex, Varbinds}
-%% ErrorStatus  -> atom()
-%% ErrorIndex   -> integer()
-%% Varbinds     -> [varbind()]
-%% UserData     -> term()     (supplied when the user register)
-%% Reply        -> ignore 
 
-%% handle_trap(TargetName, SnmpTrapInfo, UserData) -> Reply
-%% TargetName   -> target_name()
-%% SnmpTrapInfo -> {Enteprise, Generic, Spec, Timestamp, Varbinds} |
-%%                 {ErrorStatus, ErrorIndex, Varbinds}
-%% Enteprise    -> oid()
-%% Generic      -> integer() 
-%% Spec         -> integer() 
-%% Timestamp    -> integer() 
-%% ErrorStatus  -> atom()
-%% ErrorIndex   -> integer()
-%% Varbinds     -> [varbind()]
-%% UserData     -> term()     (supplied when the user register)
-%% Reply        -> ignore | unregister | {register, UserId, agent_info()}
+%% *** handle_agent ***
+%% A message was received from an unknown agent
 
-%% handle_inform(TargetName, SnmpInform, UserData) -> Reply
-%% TargetName  -> target_name()
-%% SnmpInform  -> {ErrorStatus, ErrorIndex, Varbinds}
-%% ErrorStatus -> atom()
-%% ErrorIndex  -> integer()
-%% Varbinds    -> [varbind()]
-%% UserData    -> term()     (supplied when the user register)
-%% Reply       -> ignore | unregister | {register, UserId, agent_info()}
-%%          
+-callback handle_agent(Addr     :: term(), 
+		       Port     :: pos_integer(), 
+		       Type     :: pdu | trap | inform | report, 
+		       SnmpInfo :: snmp_gen_info() | snmp_v1_trap_info(), 
+		       UserData :: term()) ->
+    Reply :: ignore | 
+	     {register, 
+	      UserId      :: term(), 
+	      RTargetName :: snmpm:target_name(), 
+	      AgentConfig :: [snmpm:agent_config()]}. 
 
-%% handle_report(TargetName, SnmpReport, UserData) -> Reply
-%% TargetName  -> target_name()
-%% SnmpReport  -> {ErrorStatus, ErrorIndex, Varbinds}
-%% ErrorStatus -> integer()
-%% ErrorIndex  -> integer()
-%% Varbinds    -> [varbind()]
-%% UserData    -> term()     (supplied when the user register)
-%% Reply       -> ignore | unregister | {register, UserId, agent_info()}
+
+%% *** handle_pdu ***
+%% Handle the reply to an async request (such as get, get-next and set).
+
+-callback handle_pdu(TargetName   :: snmpm:target_name(), 
+		     ReqId        :: term(), 
+		     SnmpResponse :: snmp_gen_info(), 
+		     UserData     :: term()) ->
+    snmp:void().
+
+
+%% *** handle_trap ***
+%% Handle a trap/notification message received from an agent
+
+-callback handle_trap(TargetName   :: snmpm:target_name(), 
+		      SnmpTrapInfo :: snmp_gen_info() | snmp_v1_trap_info(), 
+		      UserData     :: term()) ->
+    Reply :: ignore | 
+	     unregister | 
+	     {register, 
+	      UserId      :: term(), 
+	      RTargetName :: snmpm:target_name(), 
+	      AgentConfig :: [snmpm:agent_config()]}.
+
+
+%% *** handle_inform ***
+%% Handle a inform message received from an agent
+
+-callback handle_inform(TargetName :: snmpm:target_name(), 
+			SnmpInform :: snmp_gen_info(), 
+			UserData   :: term()) ->
+    Reply :: ignore | no_reply | 
+	     unregister | 
+	     {register, 
+	      UserId      :: term(), 
+	      RTargetName :: snmpm:target_name(), 
+	      AgentConfig :: [snmpm:agent_config()]}.
+
+
+%% *** handle_report *** 
+%% Handle a report message received from an agent
+
+-callback handle_report(TargetName :: snmpm:target_name(), 
+			SnmpReport :: snmp_gen_info(), 
+			UserData   :: term()) ->
+    Reply :: ignore | 
+	     unregister | 
+	     {register, 
+	      UserId      :: term(), 
+	      RTargetName :: snmpm:target_name(), 
+	      AgentConfig :: [snmpm:agent_config()]}.
+
+
 

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,8 @@
 -ifndef(APPLICATION).
 -define(APPLICATION, snmp).
 -endif.
+
+-define(STACK(), erlang:get_stacktrace()).
 
 -define(snmp_info(C, F, A),    ?snmp_msg(info_msg, C, F, A)).
 -define(snmp_warning(C, F, A), ?snmp_msg(warning_msg, C, F, A)).

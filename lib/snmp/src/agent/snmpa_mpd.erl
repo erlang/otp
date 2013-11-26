@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -657,7 +657,7 @@ generate_response_msg(Vsn, RePdu, Type,
 		    ?SEC_USM ->
 			snmpa_usm
 		end,
-	    SecEngineID = LocalEngineID, 
+	    SecEngineID = LocalEngineID, % 3.1.1a
 	    ?vtrace("generate_response_msg -> SecEngineID: ~w", [SecEngineID]),
 	    case (catch SecModule:generate_outgoing_msg(Message, 
 							SecEngineID,

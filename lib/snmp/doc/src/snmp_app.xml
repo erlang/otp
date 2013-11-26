@@ -763,12 +763,15 @@
       </item>
 
       <marker id="db_init_error"></marker>
-      <tag><c>db_init_error() = terminate | create</c></tag>
+      <tag><c>db_init_error() = terminate | create | create_db_and_dir</c></tag>
       <item>
         <p>Defines what to do if the agent or manager is unable to open an
           existing database file. <c>terminate</c> means that the
           agent/manager will terminate and <c>create</c> means that the 
-          agent/manager will remove the faulty file(s) and create new ones.</p>
+          agent/manager will remove the faulty file(s) and create new ones,
+          and <c>create_db_and_dir</c> means that the agent/manager will
+          create the database file along with any missing parent directories
+          for the database file.</p>
         <p>Default is <c>terminate</c>.</p>
       </item>
 
