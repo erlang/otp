@@ -204,20 +204,13 @@ stop() ->
     application:stop(crypto).
 
 supports()->
-    Algs = algorithms(),
-    PubKeyAlgs = 
-	case lists:member(ec, Algs) of
-	    true ->
-		{public_keys, [rsa, dss, ecdsa, dh, srp, ecdh]};
-	    false ->
-		{public_keys, [rsa, dss, dh, srp]}
-	end,
-    [{hashs, Algs -- [ec]},
-     {ciphers, [des_cbc, des_cfb,  des3_cbc, des3_cbf, des_ede3, blowfish_cbc,
+    {Hashs, PubKeys, Ciphers} = algorithms(),
+
+    [{hashs, Hashs},
+     {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
 		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb128,
-		aes_cbc256, aes_ige256, rc2_cbc, aes_ctr, rc4
-	       ]},
-     PubKeyAlgs
+		aes_cbc256, rc2_cbc, aes_ctr, rc4] ++ Ciphers},
+     {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
 
 info_lib() -> ?nif_stub.

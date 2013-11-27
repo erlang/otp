@@ -256,7 +256,7 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
 
 /* helpers */
-static void init_algorithms_types(void);
+static void init_algorithms_types(ErlNifEnv*);
 static void init_digest_types(ErlNifEnv* env);
 static void hmac_md5(unsigned char *key, int klen,
 		     unsigned char *dbuf, int dlen, 
@@ -636,7 +636,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif
 
     init_digest_types(env);
-    init_algorithms_types();
+    init_algorithms_types(env);
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
@@ -717,36 +717,58 @@ static void unload(ErlNifEnv* env, void* priv_data)
     --library_refc;
 }
 
-static int algos_cnt;
-static ERL_NIF_TERM algos[9];   /* increase when extending the list */
+static int algo_hash_cnt;
+static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
+static int algo_pubkey_cnt;
+static ERL_NIF_TERM algo_pubkey[2]; /* increase when extending the list */
+static int algo_cipher_cnt;
+static ERL_NIF_TERM algo_cipher[2]; /* increase when extending the list */
 
-static void init_algorithms_types(void)
+static void init_algorithms_types(ErlNifEnv* env)
 {
-    algos_cnt = 0;
-    algos[algos_cnt++] = atom_md4;
-    algos[algos_cnt++] = atom_md5;
-    algos[algos_cnt++] = atom_sha;
-    algos[algos_cnt++] = atom_ripemd160;
+    algo_hash_cnt = 0;
+    algo_hash[algo_hash_cnt++] = atom_md4;
+    algo_hash[algo_hash_cnt++] = atom_md5;
+    algo_hash[algo_hash_cnt++] = atom_sha;
+    algo_hash[algo_hash_cnt++] = atom_ripemd160;
 #ifdef HAVE_SHA224
-    algos[algos_cnt++] = atom_sha224;
+    algo_hash[algo_hash_cnt++] = atom_sha224;
 #endif
 #ifdef HAVE_SHA256
-    algos[algos_cnt++] = atom_sha256;
+    algo_hash[algo_hash_cnt++] = atom_sha256;
 #endif
 #ifdef HAVE_SHA384
-    algos[algos_cnt++] = atom_sha384;
+    algo_hash[algo_hash_cnt++] = atom_sha384;
 #endif
 #ifdef HAVE_SHA512
-    algos[algos_cnt++] = atom_sha512;
+    algo_hash[algo_hash_cnt++] = atom_sha512;
 #endif
+
+    algo_pubkey_cnt = 0;
 #if defined(HAVE_EC)
-    algos[algos_cnt++] = atom_ec;
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env,"ecdsa");
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env,"ecdh");
 #endif
+
+    algo_cipher_cnt = 0;
+#ifdef HAVE_DES_ede3_cfb_encrypt
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
+#endif
+#ifdef HAVE_AES_IGE
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
+#endif
+
+    ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    return enif_make_list_from_array(env, algos, algos_cnt);
+    return enif_make_tuple3(env,
+			    enif_make_list_from_array(env, algo_hash, algo_hash_cnt),
+			    enif_make_list_from_array(env, algo_pubkey, algo_pubkey_cnt),
+			    enif_make_list_from_array(env, algo_cipher, algo_cipher_cnt));
 }
 
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
