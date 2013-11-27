@@ -54,13 +54,16 @@ stop_listener(SysSup) ->
 stop_listener(Address, Port) ->
     Name = make_name(Address, Port),
     stop_acceptor(whereis(Name)). 
-
-stop_system(SysSup) when is_pid(SysSup)->
-    exit(SysSup, shutdown).
+ 
+stop_system(SysSup) ->
+    Name = sshd_sup:system_name(SysSup),
+    spawn(fun() -> sshd_sup:stop_child(Name) end),
+    ok.
 
 stop_system(Address, Port) -> 
-    stop_system(system_supervisor(Address, Port)).
-    
+    spawn(fun() -> sshd_sup:stop_child(Address, Port) end),
+    ok.
+
 system_supervisor(Address, Port) ->
     Name = make_name(Address, Port),
     whereis(Name).
@@ -136,7 +139,7 @@ ssh_acceptor_child_spec(ServerOpts) ->
     Port = proplists:get_value(port, ServerOpts),
     Name = id(ssh_acceptor_sup, Address, Port),
     StartFunc = {ssh_acceptor_sup, start_link, [ServerOpts]},
-    Restart = permanent, 
+    Restart = transient, 
     Shutdown = infinity,
     Modules = [ssh_acceptor_sup],
     Type = supervisor,
