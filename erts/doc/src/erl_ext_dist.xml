@@ -1014,10 +1014,10 @@
 	  </row>
 	<tcaption></tcaption></table>
 	<p>
-	  This term represents a bitstring whose length in bits is not a 
-	  multiple of 8 (created using the bit syntax in R12B and later).
+	  This term represents a bitstring whose length in bits does
+	  not have to be a multiple of 8.
 	  The <c>Len</c> field is an unsigned 4 byte integer (big endian).
-	  The <c>Bits</c> field is the number of bits that are used 
+	  The <c>Bits</c> field is the number of bits (1-8) that are used
 	  in the last byte in the data field, 
 	  counting from the most significant bit towards the least
 	  significant.
