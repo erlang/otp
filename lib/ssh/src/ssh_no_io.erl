@@ -24,27 +24,27 @@
 -module(ssh_no_io).
 -include("ssh_transport.hrl").
 
--export([yes_no/1, read_password/1, read_line/1, format/2]).
+-export([yes_no/2, read_password/2, read_line/2, format/2]).
 
-yes_no(_Prompt) ->
+yes_no(_, _) ->
     throw({{no_io_allowed, yes_no},
 	   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
 			       description = "User interaction is not allowed",
 			       language = "en"}}).
 
-read_password(_Prompt) ->
+read_password(_, _) ->
     throw({{no_io_allowed, read_password},
 	  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
 			       description = "User interaction is not allowed",
 			      language = "en"}}).
 
-read_line(_Prompt) ->
+read_line(_, _) ->
     throw({{no_io_allowed, read_line},
 	  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
 			      description =  "User interaction is not allowed",
 			      language = "en"}} ).
 
-format(_Fmt, _Args) ->
+format(_, _) ->
     throw({{no_io_allowed, format},
 	   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
 			       description =   "User interaction is not allowed",
