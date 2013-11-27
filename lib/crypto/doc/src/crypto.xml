@@ -159,8 +159,9 @@
       </type>
       <desc>
         <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
-	<c>IVec</c> is an arbitrary initializing vector.
-         </p>
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
 
@@ -175,8 +176,9 @@
       </type>
       <desc>
         <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
-	<c>IVec</c> is an arbitrary initializing vector.
-         </p>
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     

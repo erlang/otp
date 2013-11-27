@@ -1275,7 +1275,13 @@ aes_ige_256_encrypt(Key, IVec, Data) ->
 aes_ige_256_decrypt(Key, IVec, Data) ->
     aes_ige_crypt(Key, IVec, Data, false).
 
-aes_ige_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
+aes_ige_crypt(Key, IVec, Data, IsEncrypt) ->
+    case aes_ige_crypt_nif(Key,IVec,Data,IsEncrypt) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+aes_ige_crypt_nif(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
 %%
 %% aes_ige_ivec(Data) -> binary()
