@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,12 +58,7 @@ start_child(ServerOpts) ->
     end.
 
 stop_child(Name) ->
-    case supervisor:terminate_child(?MODULE, Name) of
-        ok ->
-            supervisor:delete_child(?MODULE, Name);
-        Error ->
-            Error
-    end.
+    supervisor:terminate_child(?MODULE, Name).
 
 stop_child(Address, Port) ->
     Name = id(Address, Port),
@@ -94,7 +89,7 @@ init([Servers]) ->
 child_spec(Address, Port, ServerOpts) ->
     Name = id(Address, Port),
     StartFunc = {ssh_system_sup, start_link, [ServerOpts]},
-    Restart = transient, 
+    Restart = temporary, 
     Shutdown = infinity,
     Modules = [ssh_system_sup],
     Type = supervisor,

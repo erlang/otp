@@ -46,7 +46,7 @@ all() ->
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
-     close].
+     double_close].
 
 groups() -> 
     [{dsa_key, [], basic_tests()},
@@ -57,7 +57,7 @@ groups() ->
     ].
 
 basic_tests() ->
-    [send, peername_sockname,
+    [send, close, peername_sockname,
      exec, exec_compressed, shell, cli, known_hosts, 
      idle_time, rekey, openssh_zlib_basic_test].
 
@@ -487,7 +487,7 @@ internal_error(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {error,Error} =
+    {error, Error} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
 				 {user_dir, UserDir},
 				 {user_interaction, false}]),
@@ -566,9 +566,35 @@ ips(Name) when is_list(Name) ->
     ordsets:from_list(IPs4++IPs6).
 
 %%--------------------------------------------------------------------
+
 close() ->
-    [{doc, "Simulate that we try to close an already closed connection"}].
+    [{doc, "Client receives close when server closes"}].
 close(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    
+    {Server, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    Client =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, ChannelId} = ssh_connection:session_channel(Client, infinity),
+    
+    ssh:stop_daemon(Server),
+    receive 
+	{ssh_cm, Client,{closed, ChannelId}} ->  
+	    ok
+    after 5000 ->
+	    ct:fail(timeout)
+    end.
+
+%%--------------------------------------------------------------------
+double_close() ->
+    [{doc, "Simulate that we try to close an already closed connection"}].
+double_close(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -586,6 +612,8 @@ close(Config) when is_list(Config) ->
     
     exit(CM, {shutdown, normal}),
     ok = ssh:close(CM).
+
+%%--------------------------------------------------------------------
 
 openssh_zlib_basic_test() ->
     [{doc, "Test basic connection with openssh_zlib"}].
@@ -612,7 +640,7 @@ openssh_zlib_basic_test(Config) ->
 %% the "tcp-application" before the socket closed message is recived
 check_error("Internal error") ->
     ok;
-check_error("Connection Lost") ->
+check_error("Connection closed") ->
     ok;
 check_error(Error) ->
     ct:fail(Error).
