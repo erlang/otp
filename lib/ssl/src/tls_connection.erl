@@ -145,6 +145,7 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
 
 init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
+    process_flag(trap_exit, true),
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Handshake = ssl_handshake:init_handshake_history(),
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),

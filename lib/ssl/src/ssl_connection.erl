@@ -822,6 +822,13 @@ handle_info({'DOWN', MonitorRef, _, _, _}, _,
 	    State = #state{user_application={MonitorRef,_Pid}}) ->
     {stop, normal, State};   
 
+%%% So that terminate will be run when supervisor issues shutdown
+handle_info({'EXIT', _Sup, shutdown}, _StateName, State) ->
+    {stop, shutdown, State};
+handle_info({'EXIT', Socket, normal}, _StateName, #state{socket = Socket} = State) ->
+    %% Handle as transport close"
+    {stop, {shutdown, transport_closed}, State};
+
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}, get_timeout(State)};
 
