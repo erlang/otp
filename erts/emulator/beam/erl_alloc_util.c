@@ -373,6 +373,8 @@ do {										\
 
 #define ERTS_CRR_ALCTR_FLG_IN_POOL	(((erts_aint_t) 1) << 0)
 #define ERTS_CRR_ALCTR_FLG_BUSY		(((erts_aint_t) 1) << 1)
+#define ERTS_CRR_ALCTR_FLG_MASK (ERTS_CRR_ALCTR_FLG_IN_POOL | \
+                                 ERTS_CRR_ALCTR_FLG_BUSY)
 
 #ifdef ERTS_SMP
 #define SBC_HEADER_SIZE	   						\
@@ -1405,14 +1407,14 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 
 	    if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock
 		&& pref_allctr->thread_safe) {
-		used_allctr = (Allctr_t *) (iallctr & ~FLG_MASK);
+		used_allctr = (Allctr_t *) (iallctr & ~ERTS_CRR_ALCTR_FLG_MASK);
 		if (pref_allctr == used_allctr) {
 		    erts_mtx_lock(&pref_allctr->mutex);
 		    locked_pref_allctr = 1;
 		}
 	    }
 
-	    while ((iallctr & ((~FLG_MASK)|ERTS_CRR_ALCTR_FLG_IN_POOL))
+	    while ((iallctr & ((~ERTS_CRR_ALCTR_FLG_MASK)|ERTS_CRR_ALCTR_FLG_IN_POOL))
 		   == (((erts_aint_t) pref_allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL)) {
 		erts_aint_t act;
 
@@ -1427,7 +1429,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 		iallctr = act;
 	    }
 
-	    used_allctr = (Allctr_t *) (iallctr & ~FLG_MASK);
+	    used_allctr = (Allctr_t *) (iallctr & ~ERTS_CRR_ALCTR_FLG_MASK);
 
 	    if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock) {
 		if (locked_pref_allctr && used_allctr != pref_allctr) {
@@ -1437,16 +1439,16 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 	    }
 
 	    ERTS_ALC_CPOOL_ASSERT(
-		(((iallctr & ~FLG_MASK) == (erts_aint_t) pref_allctr)
-		 ? (((iallctr & FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL)
-		    || ((iallctr & FLG_MASK) == 0))
+		(((iallctr & ~ERTS_CRR_ALCTR_FLG_MASK) == (erts_aint_t) pref_allctr)
+		 ? (((iallctr & ERTS_CRR_ALCTR_FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL)
+		    || ((iallctr & ERTS_CRR_ALCTR_FLG_MASK) == 0))
 		 : 1));
 
 	    return used_allctr;
 	}
     }
 
-    used_allctr = (Allctr_t *) (iallctr & ~FLG_MASK);
+    used_allctr = (Allctr_t *) (iallctr & ~ERTS_CRR_ALCTR_FLG_MASK);
 
     if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock
 	&& used_allctr == pref_allctr
@@ -1777,7 +1779,7 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
 	    ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
 				  != (erts_smp_atomic_read_nob(&crr->allctr)
-				      & ~FLG_MASK));
+				      & ~ERTS_CRR_ALCTR_FLG_MASK));
 
 	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 
@@ -2920,7 +2922,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 #ifdef ERTS_ALC_CPOOL_DEBUG
 	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_xchg_nob(&crr->allctr,
 							   ((erts_aint_t) allctr))
-				  == (((erts_aint_t) allctr) & ~FLG_MASK));
+				  == (((erts_aint_t) allctr) & ~ERTS_CRR_ALCTR_FLG_MASK));
 #else
 	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 #endif
@@ -2962,7 +2964,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 					     (erts_aint_t) allctr,
 					     exp);
 	    if (act == exp) {
-		cpool_delete(allctr, ((Allctr_t *) (act & ~FLG_MASK)), crr);
+		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
 		return crr;
 	    }
 	}
@@ -3057,7 +3059,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, blk));
 	ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
 			      == (erts_smp_atomic_read_nob(&crr->allctr)
-				  & ~FLG_MASK));
+				  & ~ERTS_CRR_ALCTR_FLG_MASK));
 
 	if (ddq_enqueue(&orig_allctr->dd.q, BLK2UMEM(blk), cinit))
 	    erts_alloc_notify_delayed_dealloc(orig_allctr->ix);
@@ -5431,6 +5433,11 @@ int
 erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 {
     /* erts_alcu_start assumes that allctr has been zeroed */
+
+    if (((UWord)allctr & ERTS_CRR_ALCTR_FLG_MASK) != 0) {
+        erl_exit(ERTS_ABORT_EXIT, "%s:%d:erts_alcu_start: Alignment error\n",
+                 __FILE__, __LINE__);
+    }
 
     if (!initialized)
 	goto error;
