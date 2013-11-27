@@ -1491,7 +1491,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	    bptr->flags = 0;
 	    bptr->orig_size = new_size;
 	    erts_refc_init(&bptr->refc, 1);
-	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, pb->size);
+	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = bptr;
 	    pb->bytes = (byte *) bptr->orig_bytes;
