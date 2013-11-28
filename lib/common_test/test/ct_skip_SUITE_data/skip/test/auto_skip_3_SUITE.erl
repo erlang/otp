@@ -72,7 +72,7 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_testcase(tc1, _Config) ->
-    exit({init_per_testcase,tc1,failed});
+    exit('init_per_testcase for tc1 failed');
 init_per_testcase(_TestCase, Config) ->
     Config.
 

@@ -1249,7 +1249,8 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 		 integer_to_list(NotBuilt),"</a></td>\n"]
 	end,
     FailStr =
-	if Fail > 0 ->  
+	if (Fail > 0) or (NotBuilt > 0) or
+	   ((Success+Fail+UserSkip+AutoSkip) == 0) ->  
 		["<font color=\"red\">",
 		 integer_to_list(Fail),"</font>"];
 	   true ->
@@ -1904,7 +1905,8 @@ runentry(Dir, undefined, _) ->
 runentry(Dir, Totals={Node,Label,Logs,
 		      {TotSucc,TotFail,UserSkip,AutoSkip,NotBuilt}}, Index) ->
     TotFailStr =
-	if TotFail > 0 ->  
+	if (TotFail > 0) or (NotBuilt > 0) or
+	   ((TotSucc+TotFail+UserSkip+AutoSkip) == 0) ->
 		["<font color=\"red\">",
 		 integer_to_list(TotFail),"</font>"];
 	   true ->

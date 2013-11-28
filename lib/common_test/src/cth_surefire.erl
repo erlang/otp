@@ -138,6 +138,9 @@ on_tc_fail(_TC, Res, State) ->
 		  {fail,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
+on_tc_skip({ConfigFunc,_GrName},{Type,_Reason} = Res, State0)
+  when Type == tc_auto_skip; Type == tc_user_skip ->
+    on_tc_skip(ConfigFunc, Res, State0);
 on_tc_skip(Tc,{Type,_Reason} = Res, State0) when Type == tc_auto_skip ->
     TcStr = atom_to_list(Tc),
     State =
@@ -329,6 +332,8 @@ count_tcs([#testcase{result=passed}|TCs],Ok,F,S) ->
 count_tcs([#testcase{result={fail,_}}|TCs],Ok,F,S) ->
     count_tcs(TCs,Ok,F+1,S);
 count_tcs([#testcase{result={skipped,_}}|TCs],Ok,F,S) ->
+    count_tcs(TCs,Ok,F,S+1);
+count_tcs([#testcase{result={auto_skipped,_}}|TCs],Ok,F,S) ->
     count_tcs(TCs,Ok,F,S+1);
 count_tcs([],Ok,F,S) ->
     {Ok+F+S,F,S}.
