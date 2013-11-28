@@ -78,7 +78,7 @@
 
 -record(state, {supervisor, pending_negotiators = [],
 		going_down = [], tm_started = false, early_connects = [],
-		connecting, mq = []}).
+		connecting, mq = [], remote_node_status = []}).
 
 -define(current_protocol_version,  {8,1}).
 
@@ -492,17 +492,18 @@ handle_cast({mnesia_down, mnesia_locker, Node}, State) ->
     GoingDown = lists:delete(Node, State#state.going_down),
     State2 = State#state{going_down = GoingDown},
     Pending = State#state.pending_negotiators,
+    State3 = check_raise_conditon_nodeup(Node, State2),
     case lists:keysearch(Node, 1, Pending) of
 	{value, {Node, Mon, ReplyTo, Reply}} ->
 	    %% Late reply to remote monitor
 	    link(Mon),  %% link to remote Monitor
 	    gen_server:reply(ReplyTo, Reply),
 	    P2 = lists:keydelete(Node, 1,Pending),
-	    State3 = State2#state{pending_negotiators = P2},
-	    process_q(State3);
+	    State4 = State3#state{pending_negotiators = P2},
+	    process_q(State4);
 	false ->
 	    %% No pending remote monitors
-	    process_q(State2)
+	    process_q(State3)
     end;
 
 handle_cast({disconnect, Node}, State) ->
@@ -568,27 +569,18 @@ handle_info({protocol_negotiated, From,Res}, State) ->
     gen_server:reply(From, Res),
     process_q(State#state{connecting = undefined});
 
+handle_info({check_nodeup, Node}, State) ->
+    State2 = check_mnesia_down(Node, State),
+    {noreply, State2};
+
 handle_info({nodeup, Node}, State) ->
-    %% Ok, we are connected to yet another Erlang node
-    %% Let's check if Mnesia is running there in order
-    %% to detect if the network has been partitioned
-    %% due to communication failure.
+    State2 = remote_node_status(Node, up, State),
+    State3 = check_mnesia_down(Node, State2),
+    {noreply, State3};
 
-    HasDown   = mnesia_recover:has_mnesia_down(Node),
-    ImRunning = mnesia_lib:is_running(),
-
-    if
-	%% If I'm not running the test will be made later.
-	HasDown == true, ImRunning == yes ->
-	    spawn_link(?MODULE, detect_partitioned_network, [self(), Node]);
-	true ->
-	    ignore
-    end,
-    {noreply, State};
-
-handle_info({nodedown, _Node}, State) ->
-    %% Ignore, we are only caring about nodeup's
-    {noreply, State};
+handle_info({nodedown, Node}, State) ->
+    State2 = remote_node_status(Node, down, State),
+    {noreply, State2};
 
 handle_info({disk_log, _Node, Log, Info}, State) ->
     case Info of
@@ -830,3 +822,48 @@ report_inconsistency([{badrpc, _Reason} | Replies], Context, Status) ->
     report_inconsistency(Replies, Context, Status);
 report_inconsistency([], _Context, Status) ->
     Status.
+
+remote_node_status(Node, Status, State) ->
+    {ok, Nodes} = mnesia_schema:read_nodes(),
+    case lists:member(Node, Nodes) of
+	true ->
+	    update_node_status({Node, Status}, State);
+	_ ->
+	    State
+    end.
+
+update_node_status({Node, down}, State = #state{remote_node_status = RNodeS}) ->
+    RNodeS2 = lists:ukeymerge(1, [{Node, down}], RNodeS),
+    State#state{remote_node_status = RNodeS2};
+update_node_status({Node, up}, State = #state{remote_node_status = RNodeS}) ->
+    case lists:keyfind(Node, 1, RNodeS) of
+	{Node, down} ->
+	    RNodeS2 = lists:ukeymerge(1, [{Node, up}], RNodeS),
+	    State#state{remote_node_status = RNodeS2};
+	_ ->
+	    State
+    end.
+
+check_raise_conditon_nodeup(Node, State = #state{remote_node_status = RNodeS}) ->
+    case lists:keyfind(Node, 1, RNodeS) of
+	{Node, up} ->
+	    self() ! {check_nodeup, Node};
+	_ ->
+	    ignore
+    end,
+    State#state{remote_node_status = lists:keydelete(Node, 1, RNodeS)}.
+
+check_mnesia_down(Node, State = #state{remote_node_status = RNodeS}) ->
+    %% Check if the network has been partitioned
+    %% due to communication failure.
+
+    HasDown   = mnesia_recover:has_mnesia_down(Node),
+    ImRunning = mnesia_lib:is_running(),
+    if
+	%% If I'm not running the test will be made later.
+	HasDown == true, ImRunning == yes ->
+	    spawn_link(?MODULE, detect_partitioned_network, [self(), Node]),
+	    State#state{remote_node_status = lists:keydelete(Node, 1, RNodeS)};
+	true ->
+	    State
+    end.
