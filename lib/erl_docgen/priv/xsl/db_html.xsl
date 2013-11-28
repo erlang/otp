@@ -309,10 +309,10 @@
   <xsl:template match="all_etypes">
     <xsl:for-each select= "$i//type">
       <pre>
-	<code class="erlang_repl">
+	<span class="bold_code">
 	  <xsl:apply-templates select="typedecl"/>
-	</code><xsl:text>
-      </xsl:text>
+	</span><xsl:text>
+</xsl:text>
       </pre>
     </xsl:for-each>
   </xsl:template>
@@ -598,7 +598,6 @@
       <body bgcolor="white" text="#000000" link="#0000ff" vlink="#ff00ff" alink="#ff0000">
 
         <div id="container">
-	  <script id="js1" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/jquery-2.0.3.min.js"/>
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
           <script language="JavaScript" type="text/javascript">
@@ -926,26 +925,30 @@
   <!-- Note -->
   <xsl:template match="note">
     <xsl:param name="chapnum"/>
-    <div class="alert alert-info">
-      <h4>Note</h4>
-      <p>
-	<xsl:apply-templates>
-	  <xsl:with-param name="chapnum" select="$chapnum"/>
-	</xsl:apply-templates>
-      </p>
+    <div class="note">
+      <div class="label">Note</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
     </div>
   </xsl:template>
 
   <!-- Warning -->
   <xsl:template match="warning">
     <xsl:param name="chapnum"/>
-    <div class="alert alert-error">
-      <h4>Warning</h4>
-      <p>
-	<xsl:apply-templates>
-	  <xsl:with-param name="chapnum" select="$chapnum"/>
-	</xsl:apply-templates>
-      </p>
+    <div class="warning">
+      <div class="label">Warning</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
     </div>
   </xsl:template>
 
@@ -980,7 +983,7 @@
     <xsl:variable name="codenum">
       <xsl:number level="any" from="chapter" count="code"/>
     </xsl:variable>
-    <pre><code class="erlang_repl"><xsl:apply-templates/></code></pre>
+    <div class="example"><pre><xsl:apply-templates/></pre></div>
   </xsl:template>
 
   <!-- Pre -->
@@ -989,7 +992,7 @@
     <xsl:variable name="codenum">
       <xsl:number level="any" from="chapter" count="code"/>
     </xsl:variable>
-    <pre><code class="erlang_repl"><xsl:apply-templates/></code></pre>
+    <div class="example"><pre><xsl:apply-templates/></pre></div>
   </xsl:template>
 
 
@@ -2136,7 +2139,6 @@
       <body bgcolor="white" text="#000000" link="#0000ff" vlink="#ff00ff" alink="#ff0000">
 
         <div id="container">
-	  <script id="js1" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/jquery-2.0.3.min.js"/>
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
 
@@ -2192,7 +2194,6 @@
       <body bgcolor="white" text="#000000" link="#0000ff" vlink="#ff00ff" alink="#ff0000">
 
         <div id="container">
-	  <script id="js1" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/jquery-2.0.3.min.js"/>
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
 
