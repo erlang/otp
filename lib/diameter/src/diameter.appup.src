@@ -31,7 +31,8 @@
   {"1.4",   [{restart_application, diameter}]},  %% R16A
   {"1.4.1", [{restart_application, diameter}]},  %% R16B
   {"1.4.1.1", [{restart_application, diameter}]},
-  {"1.4.2", [{load_module, diameter_types},      %% R16B01
+  {"1.4.2", [{load_module, diameter_codec},      %% R16B01
+             {load_module, diameter_types},
              {load_module, diameter_config},
              {load_module, diameter_service},
              {load_module, diameter_peer_fsm},
