@@ -1108,7 +1108,7 @@ new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Maste
     Args = [ToVsn,Opts],
     {ok,FromBoot} = read_file(FromBootFile,Masters),
     {ok,ToBoot} = read_file(ToBootFile,Masters),
-    {{_,_,KernelPath},{_,_,SaslPath},{_,_,StdlibPath}} = BaseLibs,
+    {{_,_,KernelPath},{_,_,StdlibPath},{_,_,SaslPath}} = BaseLibs,
     Paths = {filename:join(KernelPath,"ebin"),
 	     filename:join(StdlibPath,"ebin"),
 	     filename:join(SaslPath,"ebin")},
