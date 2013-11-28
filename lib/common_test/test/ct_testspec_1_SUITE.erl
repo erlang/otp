@@ -760,16 +760,42 @@ test_events(all_groups) ->
 test_events(skip_all_groups) ->
     [
      {?eh,start_logging,'_'},
+     {?eh,start_info,{1,1,12}},
      {?eh,tc_start,{groups_11_SUITE,init_per_suite}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_1a},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_1a},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1a,"SKIPPED!"}},
      {?eh,test_stats,{0,0,{1,0}}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_1b},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1b,"SKIPPED!"}},
      {?eh,test_stats,{0,0,{2,0}}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_2},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_1a},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_1b},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1a,"SKIPPED!"}},
      {?eh,test_stats,{0,0,{3,0}}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_4},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1b,"SKIPPED!"}},
      {?eh,test_stats,{0,0,{4,0}}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,'_'}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_1b},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_2},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_2a,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{5,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_3a,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{6,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_3b,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{7,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_2b,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{8,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_2},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_4},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_5a,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{9,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_7a,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{10,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_7b,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{11,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_5b,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{12,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_4},"SKIPPED!"}},
+     {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 
@@ -788,21 +814,35 @@ test_events(group) ->
  
 test_events(skip_group) ->
     [
-     {?eh,start_logging,'_'},
-     {?eh,tc_start,{groups_11_SUITE,init_per_suite}},
-     
-     {?eh,tc_start,{groups_11_SUITE,{init_per_group,test_group_1a,[]}}},
-     {?eh,tc_start,{groups_11_SUITE,testcase_1a}},
-     {?eh,tc_start,{groups_11_SUITE,testcase_1b}},
-     {?eh,test_stats,{2,0,{0,0}}},
-     {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_1a,[]},'_'}},
-     
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_1b},"SKIPPED!"}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_2},"SKIPPED!"}},
-     %%! But not test_group_7 since it's a sub-group!
-     {?eh,test_stats,{2,0,{2,0}}},
-     {negative,{?eh,tc_user_skip,'_'},{?eh,stop_logging,'_'}}
-    ];
+      {?eh,start_logging,'_'},
+      {?eh,start_info,{1,1,8}},
+      {?eh,tc_start,{groups_11_SUITE,init_per_suite}},
+      [{?eh,tc_start,{groups_11_SUITE,{init_per_group,test_group_1a,[]}}},
+       {?eh,tc_done,{groups_11_SUITE,{init_per_group,test_group_1a,[]},ok}},
+       {?eh,tc_start,{groups_11_SUITE,testcase_1a}},
+       {?eh,tc_start,{groups_11_SUITE,testcase_1b}},
+       {?eh,test_stats,{2,0,{0,0}}},
+       {?eh,tc_start,{groups_11_SUITE,{end_per_group,test_group_1a,[]}}},
+       {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_1a,[]},ok}}],
+      {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_1b},
+			 "SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,testcase_1a,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,testcase_1b,"SKIPPED!"}},
+      {?eh,test_stats,{2,0,{2,0}}},
+      {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_1b},
+			 "SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_2},
+			 "SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,testcase_2a,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,testcase_3a,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,testcase_3b,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_11_SUITE,testcase_2b,"SKIPPED!"}},
+      {?eh,test_stats,{2,0,{6,0}}},
+      {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_2},
+			 "SKIPPED!"}},
+      {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
+     ];
 
 test_events(group_all_testcases) ->
     [
@@ -820,11 +860,23 @@ test_events(group_all_testcases) ->
 test_events(skip_group_all_testcases) ->
     [
      {?eh,start_logging,'_'},
+     {?eh,start_info,{1,1,4}},
      {?eh,tc_start,{groups_11_SUITE,init_per_suite}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_1a},"SKIPPED!"}},
-     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_1b},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_1a},
+			"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1b,"SKIPPED!"}},
      {?eh,test_stats,{0,0,{2,0}}},
-     {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_1a},
+			"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{init_per_group,test_group_1b},
+			"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_11_SUITE,testcase_1b,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{4,0}}},
+     {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_1b},
+			"SKIPPED!"}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 
@@ -934,7 +986,7 @@ test_events(subgroup) ->
     [
      {?eh,start_logging,'_'},
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
-
+     
      {parallel, 
       [{?eh,tc_start,
 	{groups_12_SUITE,{init_per_group,test_group_2,[parallel]}}},
@@ -962,36 +1014,58 @@ test_events(subgroup) ->
 test_events(skip_subgroup) ->
     [
      {?eh,start_logging,'_'},
+     {?eh,start_info,{1,1,6}},
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
 
-     [{?eh,tc_start,
-       {groups_12_SUITE,{init_per_group,test_group_4,[]}}},
-      {parallel,
-       [{?eh,tc_start,
-	 {groups_12_SUITE,{init_per_group,test_group_5,[parallel]}}},
-	{?eh,tc_done,
-	 {groups_12_SUITE,{init_per_group,test_group_5,[parallel]},ok}},
-	{parallel,
-	 [{?eh,tc_start,
-	   {groups_12_SUITE,{init_per_group,test_group_6,[parallel]}}},
-	  {?eh,tc_done,
-	   {groups_12_SUITE,{init_per_group,test_group_6,[parallel]},ok}},
-	  [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_7,'_'}}},
-	   {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_7,'_'}}}],
-	  {?eh,tc_user_skip,
-	   {groups_12_SUITE,{group,test_group_8},"SKIPPED!"}},
-	  {?eh,tc_start,
-	   {groups_12_SUITE,{end_per_group,test_group_6,[parallel]}}},
-	  {?eh,tc_done,
-	   {groups_12_SUITE,{end_per_group,test_group_6,[parallel]},ok}}
-	 ]},
-	{?eh,tc_start,
-	 {groups_12_SUITE,{end_per_group,test_group_5,[parallel]}}},
-	{?eh,tc_done,
-	 {groups_12_SUITE,{end_per_group,test_group_5,[parallel]},ok}}]},
-      {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_4,[]}}}],
+     [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_4,[]}}},
+      {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_4,[]},ok}},
 
-     {?eh,tc_done,{groups_12_SUITE,end_per_suite,'_'}},
+      {parallel,
+       [{?eh,tc_start,{groups_12_SUITE,
+		       {init_per_group,test_group_5,[parallel]}}},
+       	{?eh,tc_done,{groups_12_SUITE,
+       		      {init_per_group,test_group_5,[parallel]},ok}},
+
+      	{parallel,
+      	 [{?eh,tc_start,{groups_12_SUITE,
+      			 {init_per_group,test_group_6,[parallel]}}},
+      	  {?eh,tc_done,{groups_12_SUITE,
+      			{init_per_group,test_group_6,[parallel]},ok}},
+
+      	  [{?eh,tc_start,{groups_12_SUITE,
+      			  {init_per_group,test_group_7,[sequence]}}},
+      	   {?eh,tc_done,{groups_12_SUITE,
+      			 {init_per_group,test_group_7,[sequence]},ok}},
+           {?eh,tc_done,{groups_12_SUITE,testcase_7a,ok}},
+           {?eh,tc_done,{groups_12_SUITE,testcase_7b,ok}},
+      	   {?eh,tc_start,{groups_12_SUITE,
+      			  {end_per_group,test_group_7,[sequence]}}},
+      	   {?eh,tc_done,{groups_12_SUITE,
+      			 {end_per_group,test_group_7,[sequence]},ok}}],
+
+      	  {?eh,tc_user_skip,{groups_12_SUITE,
+      			     {init_per_group,test_group_8},"SKIPPED!"}},
+      	  {?eh,tc_user_skip,{groups_12_SUITE,testcase_8a,"SKIPPED!"}},
+      	  {?eh,tc_user_skip,{groups_12_SUITE,testcase_8b,"SKIPPED!"}},
+      	  {?eh,tc_user_skip,{groups_12_SUITE,
+      			     {end_per_group,test_group_8},"SKIPPED!"}},
+
+      	  {?eh,tc_start,{groups_12_SUITE,
+      			 {end_per_group,test_group_6,[parallel]}}},
+      	  {?eh,tc_done,{groups_12_SUITE,
+      			{end_per_group,test_group_6,[parallel]},ok}}]},
+
+       	{?eh,test_stats,{4,0,{2,0}}},
+       	{?eh,tc_start,{groups_12_SUITE,
+       		       {end_per_group,test_group_5,[parallel]}}},
+       	{?eh,tc_done,{groups_12_SUITE,
+       		      {end_per_group,test_group_5,[parallel]},ok}}]},
+
+      {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_4,[]}}},
+      {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}],
+
+     {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
+     {?eh,tc_done,{groups_12_SUITE,end_per_suite,init}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 
@@ -1066,17 +1140,26 @@ test_events(subgroup_all_testcases) ->
 test_events(skip_subgroup_all_testcases) ->
     [
      {?eh,start_logging,'_'},
+     {?eh,start_info,{1,1,6}},
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
-
-     [{?eh,tc_start,
-       {groups_12_SUITE,{init_per_group,test_group_4,[]}}},
-      {?eh,tc_done,
-       {groups_12_SUITE,{init_per_group,test_group_4,[]},ok}},
-      {?eh,tc_user_skip,{groups_12_SUITE,{group,test_group_5},"SKIPPED!"}},
-      {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_4,[]}}},
-      {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}
-     ],
-
+     [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_4,[]}}},
+      {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_4,[]},ok}},
+      {?eh,tc_user_skip,{groups_12_SUITE,
+			 {init_per_group,test_group_5},"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_12_SUITE,testcase_5a,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_12_SUITE,testcase_7a,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_12_SUITE,testcase_7b,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_12_SUITE,testcase_8a,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_12_SUITE,testcase_8b,"SKIPPED!"}},
+      {?eh,tc_user_skip,{groups_12_SUITE,testcase_5b,"SKIPPED!"}},
+      {?eh,test_stats,{0,0,{6,0}}},
+      {?eh,tc_user_skip,{groups_12_SUITE,
+			 {end_per_group,test_group_5},"SKIPPED!"}},
+      {?eh,tc_start,{groups_12_SUITE,
+		     {end_per_group,test_group_4,[]}}},
+      {?eh,tc_done,{groups_12_SUITE,
+		    {end_per_group,test_group_4,[]},ok}}],
+     {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
      {?eh,tc_done,{groups_12_SUITE,end_per_suite,'_'}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
@@ -1194,13 +1277,30 @@ test_events(skip_subgroup_testcase) ->
 test_events(sub_skipped_by_top) ->
     [
      {?eh,start_logging,'_'},
+     {?eh,start_info,{1,1,12}},
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
-
-     {?eh,tc_user_skip,{groups_12_SUITE,{group,test_group_4},"SKIPPED!"}},
-     {?eh,tc_user_skip,{groups_12_SUITE,{group,test_group_4},"SKIPPED!"}},
-
+     {?eh,tc_user_skip,{groups_12_SUITE,{init_per_group,test_group_4},
+			"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_5a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_7a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_7b,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_8a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_8b,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_5b,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,
+			{end_per_group,test_group_4},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,
+			{init_per_group,test_group_4},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_5a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_7a,"SKIPPED!"}},     
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_7b,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_8a,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_8b,"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,testcase_5b,"SKIPPED!"}},
+     {?eh,test_stats,{0,0,{12,0}}},
+     {?eh,tc_user_skip,{groups_12_SUITE,
+			{end_per_group,test_group_4},"SKIPPED!"}},
      {?eh,tc_done,{groups_12_SUITE,end_per_suite,'_'}},
-
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 

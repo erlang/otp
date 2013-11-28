@@ -16,11 +16,18 @@
 %%
 %% %CopyrightEnd%
 %%
--module(ts_if_7_SUITE).
+-module(user_skip_6_SUITE).
 
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+
+%%--------------------------------------------------------------------
+%% Function: suite() -> Info
+%% Info = [tuple()]
+%%--------------------------------------------------------------------
+suite() ->
+    [{timetrap,{seconds,30}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_group(GroupName, Config0) ->
@@ -29,6 +36,10 @@
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
+init_per_group(ptop1, Config) ->
+    {skip,"Top group skipped"};
+init_per_group(psub2, Config) ->
+    {skip,"Sub group skipped"};
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -73,8 +84,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [{g1,[],[tc2]},
-     {g2,[],[tc2]}].
+    [{ptop1,[parallel],[tc1,{psub1,[parallel],[tc3,tc4]},tc2]},
+     {ptop2,[parallel],[tc1,{psub2,[parallel],[tc3,tc4]},tc2]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -84,22 +95,24 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() -> 
-    [tc1,{group,g1},{group,g2}].
+    [{group,ptop1},{group,ptop2}].
 
-group(g1) ->
-    exit(g1_byebye);
-group(_) ->
-    [].
-
-tc1() ->
-    exit(tc1_byebye).
-
+%%--------------------------------------------------------------------
+%% Function: TestCase(Config0) ->
+%%               ok | exit() | {skip,Reason} | {comment,Comment} |
+%%               {save_config,Config1} | {skip_and_save,Reason,Config1}
+%% Config0 = Config1 = [tuple()]
+%% Reason = term()
+%% Comment = term()
+%%--------------------------------------------------------------------
 tc1(_) ->
-    done.
-
-tc2() ->
-    exit(tc2_byebye).
+    ok.
 
 tc2(_) ->
-    done.
+    ok.
 
+tc3(_) ->
+    ok.
+
+tc4(_) ->
+    ok.

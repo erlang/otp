@@ -16,30 +16,45 @@
 %%
 %% %CopyrightEnd%
 %%
--module(ts_if_7_SUITE).
+-module(auto_skip_12_SUITE).
 
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
-%% Function: init_per_group(GroupName, Config0) ->
+%% Function: suite() -> Info
+%% Info = [tuple()]
+%%--------------------------------------------------------------------
+suite() ->
+    [].
+
+%%--------------------------------------------------------------------
+%% Function: init_per_suite(Config0) ->
 %%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
-%% GroupName = atom()
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
-init_per_group(_GroupName, Config) ->
+init_per_suite(Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-%% Function: end_per_group(GroupName, Config0) ->
-%%               void() | {save_config,Config1}
-%% GroupName = atom()
+%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
-end_per_group(_GroupName, _Config) ->
+end_per_suite(_Config) ->
     ok.
+
+%%--------------------------------------------------------------------
+%% Function: group(Name) -> Info
+%% Info = [tuple()]
+%%--------------------------------------------------------------------
+group(g1) ->
+    [{require,unknown_variable_g1}];
+group(g4) ->
+    [{require,unknown_variable_g4}];
+group(_) ->
+    [].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config0) ->
@@ -73,8 +88,9 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [{g1,[],[tc2]},
-     {g2,[],[tc2]}].
+    [{g1,[],[tc1,tc2,{g2,[],[tc3]}]},
+     {g1,[],[tc1,tc2,{g2,[],[tc3]}]},
+     {g3,[],[tc1,tc2,{g4,[],[tc3]}]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -84,22 +100,22 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() -> 
-    [tc1,{group,g1},{group,g2}].
+    [{group,g1},
+     {group,g3}].
 
-group(g1) ->
-    exit(g1_byebye);
-group(_) ->
-    [].
+%%--------------------------------------------------------------------
+%% Function: TestCase(Config0) ->
+%%               ok | exit() | {skip,Reason} | {comment,Comment} |
+%%               {save_config,Config1} | {skip_and_save,Reason,Config1}
+%% Config0 = Config1 = [tuple()]
+%% Reason = term()
+%% Comment = term()
+%%--------------------------------------------------------------------
+tc1(_Config) -> 
+    ok.
 
-tc1() ->
-    exit(tc1_byebye).
+tc2(_Config) -> 
+    ok.
 
-tc1(_) ->
-    done.
-
-tc2() ->
-    exit(tc2_byebye).
-
-tc2(_) ->
-    done.
-
+tc3(_Config) ->
+    ok.

@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_test_lib).
+
 -export([parse_suite/1]).
 -export([init/2, pre_init_per_testcase/3, post_end_per_testcase/4]).
 
@@ -185,7 +186,9 @@ parse_case("=result" ++ Result, _, Tc) ->
 	"failed" ++ _ ->
 	    {ok, Tc#tc{ result = failed } };
 	"skipped" ++ _ ->
-	    {ok, Tc#tc{ result = skip } }
+	    {ok, Tc#tc{ result = skip } };
+	"auto_skipped" ++ _ ->
+	    {ok, Tc#tc{ result = auto_skip } }
     end;
 parse_case("=finished" ++ _ , _Fd, #tc{ name = undefined }) ->
     finished;
