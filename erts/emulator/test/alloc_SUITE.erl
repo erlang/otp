@@ -127,7 +127,12 @@ erts_mmap(Config) when is_list(Config) ->
 
 
 erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
-    SCS = 100, % Mb
+    %% We use the number of schedulers + 1 * approx main carriers size
+    %% to calculate how large the super carrier has to be
+    %% and then use a minimum of 100 for systems with a low amount of
+    %% schedulers
+    Schldr = erlang:system_info(schedulers_online)+1,
+    SCS = max(round((262144 * 6 + 3 * 1048576) * Schldr / 1024 / 1024),100),
     O1 = "+MMscs" ++ integer_to_list(SCS)
 	++ " +MMsco" ++ atom_to_list(SCO)
 	++ " +MMscrpm" ++ atom_to_list(SCRPM),
