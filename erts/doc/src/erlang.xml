@@ -3012,7 +3012,10 @@ os_prompt% </pre>
           (see below), being synchronous, and that the port does
 	  <em>not</em> reply with <c>{Port, closed}</c>. Any process may
 	  close a port with <c>port_close/1</c>, not only the port owner
-	  (the connected process).</p>
+	  (the connected process). If the calling process is linked to
+	  port identified by <c><anno>Port</anno></c>, an exit signal due
+	  to that link will be received by the process prior to the return
+	  from <c>port_close/1</c>.</p>
         <p>For comparison: <c><anno>Port</anno> ! {self(), close}</c> fails with
           <c>badarg</c> if <c><anno>Port</anno></c> cannot be sent to (i.e.,
           <c><anno>Port</anno></c> refers neither to a port nor to a process). If
@@ -3021,6 +3024,7 @@ os_prompt% </pre>
           the port replies with <c>{Port, closed}</c> when all buffers
           have been flushed and the port really closes, but if
           the calling process is not the port owner the <em>port owner</em> fails with <c>badsig</c>.</p>
+
         <p>Note that any process can close a port using
           <c><anno>Port</anno> ! {PortOwner, close}</c> just as if it itself was
           the port owner, but the reply always goes to the port owner.</p>
@@ -3030,8 +3034,17 @@ os_prompt% </pre>
 	   implementation has been synchronous. <c>port_close/1</c> is
 	   however still fully synchronous. This due to its error
 	   behavior.</p>
-        <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not an open port or
-          the registered name of an open port.</p>
+        <p>Failure:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	     If <c><anno>Port</anno></c> is not an identifier of an open
+	     port, or the registered name of an open port. If the calling
+	     process was linked to the previously open port identified by
+	     <c><anno>Port</anno></c>, an exit signal due to this link
+	     was received by the process prior to this exception.
+	  </item>
+	</taglist>
       </desc>
     </func>
     <func>
@@ -3066,8 +3079,11 @@ os_prompt% </pre>
         <taglist>
           <tag><c>badarg</c></tag>
           <item>
-	     If <c><anno>Port</anno></c> is not an open port or the registered name
-	     of an open port.
+	     If <c><anno>Port</anno></c> is not an identifier of an open
+	     port, or the registered name of an open port. If the calling
+	     process was linked to the previously open port identified by
+	     <c><anno>Port</anno></c>, an exit signal due to this link
+	     was received by the process prior to this exception.
 	  </item>
           <tag><c>badarg</c></tag>
           <item>
@@ -3110,8 +3126,11 @@ os_prompt% </pre>
         <taglist>
           <tag><c>badarg</c></tag>
           <item>
-	     If <c><anno>Port</anno></c> is not an open port or the registered name
-	     of an open port.
+	     If <c><anno>Port</anno></c> is not an identifier of an open
+	     port, or the registered name of an open port. If the calling
+	     process was linked to the previously open port identified by
+	     <c><anno>Port</anno></c>, an exit signal due to this link
+	     was received by the process prior to this exception.
 	  </item>
           <tag><c>badarg</c></tag>
           <item>
@@ -3178,9 +3197,20 @@ os_prompt% </pre>
 	   implementation has been synchronous. <c>port_connect/2</c> is
 	   however still fully synchronous. This due to its error
 	   behavior.</p>
-        <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not an open port
-          or the registered name of an open port, or if <c>Pid</c> is
-          not an existing local pid.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	     If <c><anno>Port</anno></c> is not an identifier of an open
+	     port, or the registered name of an open port. If the calling
+	     process was linked to the previously open port identified by
+	     <c><anno>Port</anno></c>, an exit signal due to this link
+	     was received by the process prior to this exception.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>If process identified by <c>Pid</c> is not an existing
+	  local process.</item>
+	</taglist>
       </desc>
     </func>
     <func>
@@ -3216,12 +3246,33 @@ os_prompt% </pre>
           binary term format and sent to the port.</p>
         <p>Returns: a term from the driver. The meaning of the returned
           data also depends on the port driver.</p>
-        <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not an open port or
-          the registered name of an open port, if <c><anno>Operation</anno></c>
-          cannot fit in a 32-bit integer, if the port driver does not
-          support synchronous control operations, or if the port driver
-          so decides for any reason (probably something wrong with
-          <c><anno>Operation</anno></c> or <c><anno>Data</anno></c>).</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	     If <c><anno>Port</anno></c> is not an identifier of an open
+	     port, or the registered name of an open port. If the calling
+	     process was linked to the previously open port identified by
+	     <c><anno>Port</anno></c>, an exit signal due to this link
+	     was received by the process prior to this exception.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>
+	     If <c><anno>Operation</anno></c> does not fit in a
+	     32-bit integer.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>
+	     If the port driver does not support synchronous control
+	     operations.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>
+	     If the port driver so decides for any reason (probably
+	     something wrong with <c><anno>Operation</anno></c>, or
+	     <c><anno>Data</anno></c>).
+	  </item>
+	</taglist>
       </desc>
     </func>
     <func>
@@ -3231,7 +3282,12 @@ os_prompt% </pre>
         <p>Returns a list containing tuples with information about
           the <c><anno>Port</anno></c>, or <c>undefined</c> if the port is not open.
           The order of the tuples is not defined, nor are all the
-          tuples mandatory.</p>
+          tuples mandatory.
+	  If <c>undefined</c> is returned and the calling process
+	  was linked to a previously open port identified by
+	  <c><anno>Port</anno></c>, an exit signal due to this link
+	  was received by the process prior to the return from
+	  <c>port_info/1</c>.</p>
 	<p>Currently the result will containt information about the
 	following <c>Item</c>s: <c>registered_name</c> (if the port has
 	a registered name), <c>id</c>, <c>connected</c>, <c>links</c>,
@@ -3249,7 +3305,11 @@ os_prompt% </pre>
 	<p><c><anno>Pid</anno></c> is the process identifier of the process
 	connected to the port.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3261,7 +3321,11 @@ os_prompt% </pre>
 	<p><c><anno>Index</anno></c> is the internal index of the port. This
 	index may be used to separate ports.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3273,7 +3337,11 @@ os_prompt% </pre>
 	<p><c><anno>Bytes</anno></c> is the total number of bytes
 	read from the port.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3285,7 +3353,11 @@ os_prompt% </pre>
 	<p><c><anno>Pids</anno></c> is a list of the process identifiers
 	of the processes that the port is linked to.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3300,7 +3372,11 @@ os_prompt% </pre>
 	that these results are highly implementation specific and might
 	change in the future.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3314,7 +3390,11 @@ os_prompt% </pre>
 	that the port itself might have allocated memory which is not
 	included in <c><anno>Bytes</anno></c>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3326,7 +3406,11 @@ os_prompt% </pre>
 	<p><c><anno>Monitors</anno></c> represent processes that this port
 	is monitoring.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3338,7 +3422,11 @@ os_prompt% </pre>
 	<p><c><anno>Name</anno></c> is the command name set by
 	<seealso marker="#open_port/2">open_port/2</seealso>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3353,7 +3441,11 @@ os_prompt% </pre>
 	Command}, Options)</seealso>. If the port is not the result of spawning
 	an OS process, the value is <c>undefined</c>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3369,7 +3461,11 @@ os_prompt% </pre>
 	or <c><anno>Port</anno> ! {Owner, {command, Data}</c>.
 	</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3392,7 +3488,11 @@ os_prompt% </pre>
 	in bytes, queued by the port using the ERTS driver queue
 	implementation.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3404,7 +3504,11 @@ os_prompt% </pre>
 	<p><c><anno>RegisteredName</anno></c> is the registered name of
 	the port. If the port has no registered name, <c>[]</c> is returned.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned.</p>
+	<c>undefined</c> is returned. If <c>undefined</c> is returned and
+	the calling process was linked to a previously open port identified
+	by <c><anno>Port</anno></c>, an exit signal due to this link
+	was received by the process prior to the return from
+	<c>port_info/2</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
