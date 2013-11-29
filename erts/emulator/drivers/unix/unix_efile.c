@@ -405,6 +405,15 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 	mode |= O_EXCL;
     }
 
+    if (flags & EFILE_MODE_SYNC) {
+#ifdef O_SYNC
+	mode |= O_SYNC;
+#else
+	errno = ENOTSUP;
+	return check_error(-1, errInfo);
+#endif
+    }
+
     fd = open(name, mode, FILE_MODE);
 
     if (!check_error(fd, errInfo))

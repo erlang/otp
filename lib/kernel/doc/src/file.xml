@@ -826,6 +826,16 @@
           <item>
             <p><c>File</c> must be <c>iodata()</c>. Returns an <c>fd()</c> which lets the <c>file</c> module operate on the data in-memory as if it is a file.</p>
           </item>
+          <tag><c>sync</c></tag>
+          <item>
+            <p>On platforms that support it, enables the POSIX <c>O_SYNC</c> synchronous I/O flag or its platform-dependent
+            equivalent (e.g., <c>FILE_FLAG_WRITE_THROUGH</c> on Windows) so that writes to the file block until the data has
+            been physically written to disk. Be aware, though, that the exact semantics of this flag differ from platform to
+            platform; for example, neither Linux nor Windows guarantees that all file metadata are also written before the call
+            returns. For precise semantics, check the details of your platform's documentation. On platforms with no
+            support for POSIX <c>O_SYNC</c> or equivalent, use of the <c>sync</c> flag causes <c>open</c> to return
+            <c>{error, enotsup}</c>.</p>
+          </item>
         </taglist>
         <p>Returns:</p>
         <taglist>
