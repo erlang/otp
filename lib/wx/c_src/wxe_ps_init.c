@@ -34,7 +34,12 @@ void * wxe_ps_init()
    // Enable GUI 
    if(!GetCurrentProcess(&psn)) {
       TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+#ifdef  MAC_OS_X_VERSION_10_6
+      [[NSRunningApplication currentApplication] activateWithOptions:
+       (NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
+#else 
       SetFrontProcess(&psn);
+#endif
    }
    return (void *) 0;
 }
