@@ -204,7 +204,9 @@ what(Tab, Tid, Obj, write, undefined) ->
 	    {mnesia_table_event, {write, Tab, Obj, Old, Tid}};
 	{'EXIT', _} ->
 	    ignore
-    end.
+    end;
+what(Tab, Tid, Obj, write, Old) ->
+    {mnesia_table_event, {write, Tab, Obj, Old, Tid}}.
 
 deliver(_, ignore) -> 
     ok;

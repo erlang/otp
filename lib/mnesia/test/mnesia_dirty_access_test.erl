@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -197,6 +197,11 @@ dirty_update_counter(Config, Storage) ->
  
     ?match(1,  mnesia:dirty_update_counter({Tab, foo}, 1)),
     ?match([{Tab, foo,1}], mnesia:dirty_read({Tab,foo})),
+
+    ?match({ok,_}, mnesia:subscribe({table, Tab, detailed})),
+
+    ?match(2, mnesia:dirty_update_counter({Tab, foo}, 1)),
+    ?match([{Tab, foo,2}], mnesia:dirty_read({Tab,foo})),
 
     ?verify_mnesia(Nodes, []).
 
