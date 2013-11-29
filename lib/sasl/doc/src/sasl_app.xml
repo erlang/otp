@@ -51,7 +51,7 @@
 
   <section>
     <title>Error Logger Event Handlers</title>
-    <p>The following error logger event handlers are defined in
+    <p>The following error logger event handlers are used by
       the SASL application.</p>
     <taglist>
       <tag><c>sasl_report_tty_h</c></tag>
@@ -62,11 +62,10 @@
       <item>
         <p>Formats and writes <em>supervisor reports</em>, <em>crash report</em> and <em>progress report</em> to a single file.</p>
       </item>
-      <tag><c>error_logger_mf_h</c></tag>
+      <tag><c>log_mf_h</c></tag>
       <item>
         <p>This error logger writes <em>all</em> events sent to
-          the error logger to disk. It installs the <c>log_mf_h</c>
-          event handler in the <c>error_logger</c> process.</p>
+          the error logger to disk.</p>
         <p>To activate this event handler, the following three sasl
           configuration parameters must be set:
           <c>error_logger_mf_dir</c>, <c>error_logger_mf_maxbytes</c>
@@ -109,18 +108,18 @@
       <item>
         <p>Specifies in which directory the files are stored. If this
           parameter is undefined or <c>false</c>,
-          the <c>error_logger_mf_h</c> is not installed.</p>
+          the <c>log_mf_h</c> handler is not installed.</p>
       </item>
       <tag><c><![CDATA[error_logger_mf_maxbytes = integer() <optional>]]></c></tag>
       <item>
         <p>Specifies how large each individual file can be. If this
-          parameter is undefined, the <c>error_logger_mf_h</c> is not
+          parameter is undefined, the <c>log_mf_h</c> handler is not
           installed.</p>
       </item>
       <tag><c><![CDATA[error_logger_mf_maxfiles = 0<integer()<256 <optional>]]></c></tag>
       <item>
         <p>Specifies how many files are used. If this parameter is
-          undefined, the <c>error_logger_mf_h</c> is not installed.</p>
+          undefined, the <c>log_mf_h</c> handler is not installed.</p>
       </item>
       <tag><c><![CDATA[overload_max_intensity = float() > 0 <optional>]]></c></tag>
       <item>
