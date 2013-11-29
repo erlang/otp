@@ -2123,8 +2123,10 @@ fixup_put_bits(Other) -> per_fixup(Other).
 %% returns a value range that has the lower bound set to the lowest value
 %% of all single values and lower bound values in C and the upper bound to
 %% the greatest value.
-effective_constraint(integer,[C={{_,_},_}|_Rest]) -> % extension
-    [C];
+effective_constraint(integer, [{{_,_}=Root,_}|_Rest]) ->
+    %% Normalize extension. Note that any range given for the
+    %% extension should be ignored anyway.
+    [{Root,[]}];
 effective_constraint(integer, C) ->
     SVs = get_constraints(C, 'SingleValue'),
     SV = effective_constr('SingleValue', SVs),

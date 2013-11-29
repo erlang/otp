@@ -70,6 +70,8 @@ int_constraints(Rules) ->
     %%==========================================================
     LastNumWithoutLengthEncoding = 65536,
     roundtrip('Range256to65536', LastNumWithoutLengthEncoding),
+    roundtrip('Range256to65536Ext', LastNumWithoutLengthEncoding),
+    roundtrip('Range256to65536Ext', 42),
 
     FirstNumWithLengthEncoding = 65537,
     roundtrip('LargeConstraints', 'RangeMax', FirstNumWithLengthEncoding),
@@ -95,6 +97,8 @@ int_constraints(Rules) ->
     %% Random number within longlong range
     LongLong = 12672809400538808320,
     roundtrip('LongLong', LongLong),
+    roundtrip('LongLongExt', LongLong),
+    roundtrip('LongLongExt', -10000),
 
     %%==========================================================
     %%  Constraint Combinations (Duboisson p. 285)
