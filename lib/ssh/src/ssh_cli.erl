@@ -161,6 +161,21 @@ handle_msg({ssh_channel_up, ChannelId, ConnectionHandler},
 		  cm = ConnectionHandler} = State) ->
     {ok,  State};
 
+handle_msg({Group, set_unicode_state, _Arg}, State) ->
+    Group ! {self(), set_unicode_state, false},
+    {ok, State};
+
+handle_msg({Group, get_unicode_state}, State) ->
+    Group ! {self(), get_unicode_state, false},
+    {ok, State};
+
+handle_msg({Group, tty_geometry}, #state{group = Group,
+					 pty = #ssh_pty{width=Width,
+							height=Height}
+					} = State) ->
+    Group ! {self(),tty_geometry,{Width,Height}},
+    {ok,State};
+    
 handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
 				 cm = ConnectionHandler,
 				 channel = ChannelId} = State) ->
