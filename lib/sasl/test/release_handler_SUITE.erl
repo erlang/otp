@@ -64,7 +64,7 @@ cases() ->
      supervisor_which_children_timeout,
      release_handler_which_releases, install_release_syntax_check,
      upgrade_supervisor, upgrade_supervisor_fail, otp_9864,
-     otp_10463_upgrade_script_regexp].
+     otp_10463_upgrade_script_regexp, no_dot_erlang].
 
 groups() ->
     [{release,[],
@@ -1709,6 +1709,37 @@ otp_10463_upgrade_script_regexp(_Config) ->
 	release_handler:upgrade_script(kernel,code:lib_dir(kernel)),
     ok.
 
+no_dot_erlang(Conf) ->
+    PrivDir = priv_dir(Conf),
+    {ok, OrigWd} = file:get_cwd(),
+    try
+	ok = file:set_cwd(PrivDir),
+
+	Erl = filename:join([code:root_dir(),"bin","erl"]),
+	Args = " -noinput -run io put_chars \"TESTOK\" -run erlang halt",
+	ok = file:write_file(".erlang", <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
+
+	case os:cmd(Erl ++ Args) of
+	    "DOT_ERLANG_READ" ++ _ -> ok;
+	    Other1 ->
+		io:format("Failed: ~s~n",[Erl ++ Args]),
+		io:format("Expected: ~s ++ _~n",["DOT_ERLANG_READ "]),
+		io:format("Got: ~s~n",[Other1]),
+		exit(failed_to_start, test_error)
+	end,
+	NO_DOT_ERL = " -boot no_dot_erlang",
+	case os:cmd(Erl ++ NO_DOT_ERL ++ Args) of
+	    "TESTOK" ++ _ -> ok;
+	    Other2 ->
+		io:format("Failed: ~s~n",[Erl ++ Args]),
+		io:format("Expected: ~s~n",["TESTOK"]),
+		io:format("Got: ~s~n",[Other2]),
+		exit(failed_to_start, no_dot_erlang)
+	end
+    after
+	_ = file:delete(".erlang"),
+	ok = file:set_cwd(OrigWd)
+    end.
 
 %%%=================================================================
 %%% Misceleaneous functions

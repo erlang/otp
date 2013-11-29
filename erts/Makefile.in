@@ -107,7 +107,8 @@ local_setup:
 	fi
 	@cd start_scripts && $(MAKE) $(ERL_TOP)/bin/start.script \
 		$(ERL_TOP)/bin/start_sasl.script \
-		$(ERL_TOP)/bin/start_clean.script
+		$(ERL_TOP)/bin/start_clean.script \
+		$(ERL_TOP)/bin/no_dot_erlang.script
 
 # Run the configure script
 .PHONY: configure
