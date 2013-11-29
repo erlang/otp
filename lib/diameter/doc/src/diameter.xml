@@ -599,7 +599,7 @@ Opts = [&transport_opt;]
 
 <p>
 A connecting transport is attempting to establish/reestablish a
-transport connection with a peer following &reconnect_timer; or
+transport connection with a peer following &connect_timer; or
 &watchdog_timer; expiry.</p>
 </item>
 
@@ -1022,11 +1022,41 @@ The number of milliseconds after which a transport process having an
 established transport connection will be terminated if the expected
 capabilities exchange message (CER or CEA) is not received from the peer.
 For a connecting transport, the timing of reconnection attempts is
-governed by &watchdog_timer; or &reconnect_timer; expiry.
+governed by &watchdog_timer; or &connect_timer; expiry.
 For a listening transport, the peer determines the timing.</p>
 
 <p>
 Defaults to 10000.</p>
+</item>
+
+<marker id="connect_timer"/>
+<tag><c>{connect_timer, Tc}</c></tag>
+<item>
+<pre>
+Tc = &dict_Unsigned32;
+</pre>
+
+<p>
+For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
+Note that this timer determines the frequency with which a transport
+will attempt to establish an initial connection with its peer
+following transport configuration: once an initial connection has been
+established it's &watchdog_timer; that determines the frequency of
+reconnection attempts, as required by RFC 3539.</p>
+
+<p>
+For a listening transport, the timer specifies the time after which a
+previously connected peer will be forgotten: a connection after this time is
+regarded as an initial connection rather than a reestablishment,
+causing the RFC 3539 state machine to pass to state OKAY rather than
+REOPEN.
+Note that these semantics are not governed by the RFC and
+that a listening transport's &connect_timer; should be greater
+than its peer's Tw plus jitter.</p>
+
+<p>
+Defaults to 30000 for a connecting transport and 60000 for a listening
+transport.</p>
 </item>
 
 <marker id="disconnect_cb"/>
@@ -1143,36 +1173,6 @@ An invalid length leaves it with no reliable way to rediscover message
 boundaries, which may result in the failure of subsequent messages.
 See &man_tcp; for the behaviour of that module.</p>
 </note>
-</item>
-
-<marker id="reconnect_timer"/>
-<tag><c>{reconnect_timer, Tc}</c></tag>
-<item>
-<pre>
-Tc = &dict_Unsigned32;
-</pre>
-
-<p>
-For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
-Note that this timer determines the frequency with which a transport
-will attempt to establish a connection with its peer only <em>before</em>
-an initial connection is established: once there is an initial
-connection it's &watchdog_timer; that determines the
-frequency of reconnection attempts, as required by RFC 3539.</p>
-
-<p>
-For a listening transport, the timer specifies the time after which a
-previously connected peer will be forgotten: a connection after this time is
-regarded as an initial connection rather than a reestablishment,
-causing the RFC 3539 state machine to pass to state OKAY rather than
-REOPEN.
-Note that these semantics are not governed by the RFC and
-that a listening transport's &reconnect_timer; should be greater
-than its peer's Tw plus jitter.</p>
-
-<p>
-Defaults to 30000 for a connecting transport and 60000 for a listening
-transport.</p>
 </item>
 
 <marker id="spawn_opt"/>

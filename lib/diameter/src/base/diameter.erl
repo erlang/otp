@@ -343,7 +343,7 @@ call(SvcName, App, Message) ->
     | {capx_timeout, 'Unsigned32'()}
     | {disconnect_cb, evaluable()}
     | {length_errors, exit | handle | discard}
-    | {reconnect_timer, 'Unsigned32'()}
+    | {connect_timer, 'Unsigned32'()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
     | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
     | {spawn_opt, list()}

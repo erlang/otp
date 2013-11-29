@@ -1143,9 +1143,16 @@ q_restart(false, _) ->
 %%   communicate.
 
 default_tc(connect, Opts) ->
-    proplists:get_value(reconnect_timer, Opts, ?DEFAULT_TC);
+    connect_timer(Opts, ?DEFAULT_TC);
 default_tc(accept, _) ->
     0.
+
+%% Accept both connect_timer and the (older) reconnect_timer, the
+%% latter being a remnant from a time in which the timer did apply to
+%% reconnect attempts.
+connect_timer(Opts, Def0) ->
+    Def = proplists:get_value(reconnect_timer, Opts, Def0),
+    proplists:get_value(connect_timer, Opts, Def).
 
 %% Bound tc below if the watchdog was restarted recently to avoid
 %% continuous restarted in case of faulty config or other problems.
@@ -1181,7 +1188,7 @@ tc(false = No, _, _) ->  %% removed
 %% another watchdog to be able to detect that it should transition
 %% from initial into reopen rather than okay. That someone is either
 %% the accepting watchdog upon reception of a CER from the previously
-%% connected peer, or us after reconnect_timer timeout.
+%% connected peer, or us after connect_timer timeout.
 
 close(#watchdog{type = connect}, _) ->
     ok;
@@ -1194,16 +1201,16 @@ close(#watchdog{type = accept,
 
 %% Tell watchdog to (maybe) die later ...
 c(Pid, true, Opts) ->
-    Tc = proplists:get_value(reconnect_timer, Opts, 2*?DEFAULT_TC),
+    Tc = connect_timer(Opts, 2*?DEFAULT_TC),
     erlang:send_after(Tc, Pid, close);
 
 %% ... or now.
 c(Pid, false, _Opts) ->
     Pid ! close.
 
-%% The RFC's only document the behaviour of Tc, our reconnect_timer,
+%% The RFC's only document the behaviour of Tc, our connect_timer,
 %% for the establishment of connections but we also give
-%% reconnect_timer semantics for a listener, being the time within
+%% connect_timer semantics for a listener, being the time within
 %% which a new connection attempt is expected of a connecting peer.
 %% The value should be greater than the peer's Tc + jitter.
 

@@ -329,7 +329,7 @@ code_change(_, State, _) ->
 %% the commentary is ours.
 
 %% Service or watchdog is telling the watchdog of an accepting
-%% transport to die after reconnect_timer expiry or reestablished
+%% transport to die after connect_timer expiry or reestablished
 %% connection (in another transport process) respectively.
 transition(close, #watchdog{status = down}) ->
     {{accept, _}, _, _} = getr(restart), %% assert
