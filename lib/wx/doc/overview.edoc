@@ -39,11 +39,11 @@ wxWidgets is represented as a module in erlang. This gives
 the <em>wx</em> application a huge interface, spread over several
 modules, and it all starts with the <em>wx</em>
 module. The <em>wx</em> module contains functions to create and
-destroy the gui, i.e. <code>wx:new/0</code>,<code>wx:destroy/0</code>, and
+destroy the gui, i.e. <code>wx:new/0</code>, <code>wx:destroy/0</code>, and
 some other useful functions. 
 
 Objects or object references in <em>wx</em> should be seen as erlang
-processes rather then erlang terms. When you operate on them they can
+processes rather than erlang terms. When you operate on them they can
 change state, e.g. they are not functional objects as erlang terms are.
 Each object has a type or rather a class, which is manipulated with
 the corresponding module or by sub-classes of that object. Type
@@ -62,7 +62,7 @@ For example the <em>wxWindow</em> C++ class is implemented in the
 member <em>wxWindow::CenterOnParent</em> is
 thus <em>wxWindow:centerOnParent</em>.  The following C++ code:
 <pre>
-  wxWindow MyWin = new wxWindo();
+  wxWindow MyWin = new wxWindow();
   MyWin.CenterOnParent(wxVERTICAL);
   ...
   delete MyWin;
@@ -153,7 +153,7 @@ increasing memory usage. This is especially important when
 <em>wxWidgets</em> assumes or recommends that you (or rather the C++
 programmer) have allocated the object on the stack since that will
 never be done in the erlang binding. For example <code>wxDC</code> class
-or its sub-classes or <code> wxSizerFlags</code>. 
+or its sub-classes or <code>wxSizerFlags</code>. 
 
 Currently the dialogs show modal function freezes wxWidgets
 until the dialog is closed. That is intended but in erlang where you
@@ -163,14 +163,14 @@ releases.
 
 == Event Handling ==
 
-Event handling in <em>wx</em> differs most the from the original api.
+Event handling in <em>wx</em> differs most from the original api.
 You must specify every event you want to handle in <em>wxWidgets</em>,
-that is the same in the erlang binding but can you choose to receive
+that is the same in the erlang binding but you can choose to receive
 the events as messages or handle them with callback funs.
 
 Otherwise the event subscription is handled as <em>wxWidgets</em>
 dynamic event-handler connection. You subscribe to events of a certain
-type from objects with an <em>ID</em> or within a range of ID:s. The
+type from objects with an <em>ID</em> or within a range of <em>ID</em>s. The
 callback fun is optional, if not supplied the event will be sent to the
 process that called <em>connect/2</em>. Thus, a handler is a callback fun
 or a process which will receive an event message.
@@ -195,7 +195,7 @@ subscribed to
 <em>wxKey</em> event record where <code>Event#wxKey.type =
 key_up</code>.
 
-In <em>wxWidgets</em> the developer have to call 
+In <em>wxWidgets</em> the developer has to call 
 <code>wxEvent:skip()</code> if he wants the event to be processed by
 other handlers. You can do the same in <em>wx</em> if you use
 callbacks. If you want the event as messages you just don't supply a
