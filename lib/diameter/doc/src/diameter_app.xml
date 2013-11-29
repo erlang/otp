@@ -308,7 +308,7 @@ The return value <c>{Peer, NewState}</c> is only allowed if
 the Diameter application in question was configured with the
 &mod_application_opt; <c>{call_mutates_state, true}</c>.
 Otherwise, the <c>State</c> argument is always
-the intial value as configured on the application, not any subsequent
+the initial value as configured on the application, not any subsequent
 value returned by a &peer_up;
 or &peer_down; callback.</p>
 </warning>
@@ -565,7 +565,7 @@ Equivalent to</p>
 </pre>
 <p>
 where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
-Result-Code and (if the request contained one) Session-Id AVP's, and
+Result-Code and (if the request contained one) Session-Id AVPs, and
 possibly Failed-AVP as described below.</p>
 
 <p>

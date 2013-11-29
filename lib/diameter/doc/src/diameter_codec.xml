@@ -13,7 +13,7 @@
 <erlref>
 <header>
 <copyright>
-<year>2012</year>
+<year>2012</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -73,7 +73,7 @@ are defined in diameter.hrl, which can be included as follows.</p>
 </pre>
 
 <p>
-Application-specific records are definied in the hrl
+Application-specific records are defined in the hrl
 files resulting from dictionary file compilation.</p>
 
 </description>
@@ -122,7 +122,7 @@ Fields have the following types.</p>
 <item>
 <p>
 Values in the AVP header, corresponding to AVP Code, the M flag, P
-flags and Vendor-ID respectivelty.
+flags and Vendor-ID respectively.
 A Vendor-ID other than <c>undefined</c> implies a set V flag.</p>
 </item>
 
@@ -222,7 +222,7 @@ header.</p>
 <tag><c>is_retransmitted = boolean()</c></tag>
 <item>
 <p>
-Values correspoding to the R(equest), P(roxiable), E(rror)
+Values corresponding to the R(equest), P(roxiable), E(rror)
 and T(Potentially re-transmitted message) flags of the Diameter
 header.</p>
 </item>

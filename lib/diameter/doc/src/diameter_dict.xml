@@ -431,7 +431,7 @@ equivalent to specifying it with <c>@avp_vendor_id</c>.</p>
 Defines values of AVP Name having type Enumerated.
 Section content consists of names and corresponding integer values.
 Integer values can be prefixed with 0x to be interpreted as
-hexidecimal.</p>
+hexadecimal.</p>
 
 <p>
 Note that the AVP in question can be defined in an inherited

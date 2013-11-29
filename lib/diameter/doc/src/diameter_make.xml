@@ -51,7 +51,7 @@ under the License.
 The function &codec; is used to compile a diameter
 &dictionary; into Erlang source.
 The resulting source implements the interface diameter required
-to encode and decode the dictionary's messages and AVP's.</p>
+to encode and decode the dictionary's messages and AVPs.</p>
 
 <p>
 The utility &man_compile; provides an alternate compilation
