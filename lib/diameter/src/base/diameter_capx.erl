@@ -168,12 +168,13 @@ ipaddr(A) ->
 %%
 %% Build a CER record to send to a remote peer.
 
-%% Use the fact that diameter_caps has the same field names as CER.
+%% Use the fact that diameter_caps is expected to have the same field
+%% names as CER.
 bCER(#diameter_caps{} = Rec, Dict) ->
-    Values = lists:zip(Dict:'#info-'(diameter_base_CER, fields),
+    RecName = Dict:msg2rec('CER'),
+    Values = lists:zip(Dict:'#info-'(RecName, fields),
                        tl(tuple_to_list(Rec))),
-    Dict:'#new-'(diameter_base_CER, [{K, map(K, V, Dict)}
-                                     || {K,V} <- Values]).
+    Dict:'#new-'(RecName, [{K, map(K, V, Dict)} || {K,V} <- Values]).
 
 %% map/3
 %%
@@ -186,8 +187,9 @@ bCER(#diameter_caps{} = Rec, Dict) ->
 %% since the corresponding dictionaries expect different values for a
 %% 'Vendor-Id': a list for 3588, an integer for 6733.
 
-map('Vendor-Specific-Application-Id', L, Dict) ->
-    Rec = Dict:'#new-'('diameter_base_Vendor-Specific-Application-Id', []),
+map('Vendor-Specific-Application-Id' = T, L, Dict) ->
+    RecName = Dict:name2rec(T),
+    Rec = Dict:'#new-'(RecName, []),
     Def = Dict:'#get-'('Vendor-Id', Rec),
     [vsa(V, Def) || V <- L];
 map(_, V, _) ->
@@ -342,8 +344,9 @@ cs(LS, RS) ->
 %% CER is a subset of CEA, the latter adding Result-Code and a few
 %% more AVP's.
 cea_from_cer(CER, Dict) ->
-    [diameter_base_CER | Values] = Dict:'#get-'(CER),
-    Dict:'#set-'(Values, Dict:'#new-'(diameter_base_CEA)).
+    RecName = Dict:msg2rec('CEA'),
+    [_ | Values] = Dict:'#get-'(CER),
+    Dict:'#set-'(Values, Dict:'#new-'(RecName)).
 
 %% rCEA/3
 
