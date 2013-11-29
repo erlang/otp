@@ -181,7 +181,7 @@ mnesia_down(Node) ->
     %% mnesia_monitor takes care of the sync
     case whereis(?MODULE) of
 	undefined ->
-	    mnesia_monitor:mnesia_down(?MODULE, {Node, []});
+	    mnesia_monitor:mnesia_down(?MODULE, Node);
 	Pid ->
 	    Pid ! {mnesia_down, Node}
     end.
@@ -403,7 +403,9 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    Tids = gb_trees:keys(Participants),
 	    reconfigure_participants(N, gb_trees:values(Participants)),
 	    NewState = clear_fixtable(N, State),
-	    mnesia_monitor:mnesia_down(?MODULE, {N, Tids}),
+
+	    mnesia_locker:mnesia_down(N, Tids),
+	    mnesia_monitor:mnesia_down(?MODULE, N),
 	    doit_loop(NewState);
 
 	{From, {unblock_me, Tab}} ->
