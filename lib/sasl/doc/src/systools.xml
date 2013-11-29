@@ -139,7 +139,7 @@
       <type>
         <v>Name = string()</v>
         <v>Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref |
-	  {exref,[App]}] | silent | {outdir,Dir} | no_warn_sasl |
+	  {exref,[App]}] | silent | {outdir,Dir} | no_dot_erlang | no_warn_sasl |
 	  warnings_as_errors</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;Var = {VarName,Prefix}</v>
@@ -252,6 +252,8 @@
           <c>Module:format_error(Error)</c>.</p>
 	<p>If the option <c>warnings_as_errors</c> is provided, warnings
 	   are treated as errors.</p>
+	<p>If the option <c>no_dot_erlang</c> is provided, the instruction to
+	   load the <c>.erlang</c> file during boot is <em>NOT</em> included.</p>
       </desc>
     </func>
     <func>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,8 +26,8 @@
 	 global_lock/5,
 	 ixrlock/5,
 	 init/1,
-	 mnesia_down/2,
 	 release_tid/1,
+	 mnesia_down/2,
 	 async_release_tid/2,
 	 send_release_tid/2,
 	 receive_release_tid_acc/2,
@@ -137,6 +137,17 @@ receive_release_tid_acc([Node | Nodes], Tid) ->
 receive_release_tid_acc([], _Tid) ->
     ok.
 
+mnesia_down(Node, Pending) ->
+    case whereis(?MODULE) of
+	undefined -> {error, node_not_running};
+	Pid ->
+	    Ref = make_ref(),
+	    Pid ! {{self(), Ref}, {release_remote_non_pending, Node, Pending}},
+	    receive   %% No need to wait for anything else if process dies we die soon
+		{Ref,ok} -> ok
+	    end
+    end.
+
 loop(State) ->
     receive
 	{From, {write, Tid, Oid}} ->
@@ -213,9 +224,9 @@ loop(State) ->
 	    reply(From, {tid_released, Tid}),
 	    loop(State);
 
-	{release_remote_non_pending, Node, Pending} ->
+	{{From, Ref},{release_remote_non_pending, Node, Pending}} ->
 	    release_remote_non_pending(Node, Pending),
-	    mnesia_monitor:mnesia_down(?MODULE, Node),
+	    From ! {Ref, ok},
 	    loop(State);
 
 	{'EXIT', Pid, _} when Pid == State#state.supervisor ->
@@ -652,19 +663,6 @@ ix_read_res(Tab,IxKey,Pos) ->
 
 %% ********************* end server code ********************
 %% The following code executes at the client side of a transactions
-
-mnesia_down(N, Pending) ->
-    case whereis(?MODULE) of
-	undefined ->
-	    %% Takes care of mnesia_down's in early startup
-	    mnesia_monitor:mnesia_down(?MODULE, N);
-	Pid ->
-	    %% Syncronously call needed in order to avoid
-	    %% race with mnesia_tm's coordinator processes
-	    %% that may restart and acquire new locks.
-	    %% mnesia_monitor ensures the sync.
-	    Pid ! {release_remote_non_pending, N, Pending}
-    end.
 
 %% Aquire a write lock, but do a read, used by
 %% mnesia:wread/1
