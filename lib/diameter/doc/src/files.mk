@@ -21,7 +21,7 @@ XML_APPLICATION_FILES = \
 	ref_man.xml
 
 XML_REF1_FILES = \
-	diameter_compile.xml
+	diameterc.xml
 
 XML_REF3_FILES = \
 	diameter.xml \
