@@ -435,7 +435,8 @@ generate(forms, File, _) ->
 
 generate(parse, File, Dict) ->
     {ok, [Dict]} = file:consult(File ++ ".D"),  %% assert
-    {ok, [_]} = diameter_make:codec(Dict, [beam, return]);
+    {ok, [F]} = diameter_make:codec(Dict, [forms, return]),
+    {ok, _, _, _} = compile:forms(F, [return]);
 
 generate(hrl, _, _) ->
     ok.
@@ -482,30 +483,23 @@ flatten2(_Config) ->
         "@inherits diameter_gen_base_rfc6733\n"
         "@avp_vendor_id 333 A1\n",
 
-    {ok, [E1, {_,B1}]}
-        = diameter_make:codec(Dict1, [erl, beam, return]),
+    {ok, [E1, F1]}
+        = diameter_make:codec(Dict1, [erl, forms, return]),
     ct:pal("~s", [E1]),
-    {module, diameter_test1}
-        = code:load_binary(diameter_test1, "diameter_test1", B1),
+    diameter_test1 = M1 = load_forms(F1),
 
-
-    {ok, [D2, E2, {_,B2}]}
-        = diameter_make:codec(Dict2, [parse, erl, beam, return]),
+    {ok, [D2, E2, F2]}
+        = diameter_make:codec(Dict2, [parse, erl, forms, return]),
     ct:pal("~s", [E2]),
-    {module, diameter_test2}
-        = code:load_binary(diameter_test2, "diameter_test2", B2),
-
+    diameter_test2 = M2 = load_forms(F2),
 
     Flat = lists:flatten(diameter_make:format(diameter_make:flatten(D2))),
     ct:pal("~s", [Flat]),
-    {ok, [E3, {_,B3}]}
-        = diameter_make:codec(Flat, [erl, beam, return,
+    {ok, [E3, F3]}
+        = diameter_make:codec(Flat, [erl, forms, return,
                                      {name, "diameter_test3"}]),
     ct:pal("~s", [E3]),
-    {module, diameter_test3}
-        = code:load_binary(diameter_test3, "diameter_test3", B3),
-
-    {M1, M2, M3} = {diameter_test1, diameter_test2, diameter_test3},
+    diameter_test3 = M3 = load_forms(F3),
 
     [{1001, 111, M1, 'A1'},  %% @avp_vendor_id
      {1002, 666, M1, 'A2'},  %% @vendor
@@ -537,6 +531,11 @@ flatten2(_Config) ->
 
 'Unsigned32'(T, 'A3', Ref) ->
     {T, Ref}.
+
+load_forms(Forms) ->
+    {ok, Mod, Bin, _} = compile:forms(Forms, [return]),
+    {module, Mod} = code:load_binary(Mod, ?S(Mod), Bin),
+    Mod.
 
 %% ===========================================================================
 

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY compile_forms2
+  '<seealso marker="compiler:compile#forms-2">compile:forms/2</seealso>'>
   <!ENTITY filename
   '<seealso marker="kernel:file#type-name">file:name()</seealso>'>
   <!ENTITY dictionary
@@ -80,28 +82,27 @@ written to file or returned, and can have the following types.</p>
 
 <taglist>
 
-<tag><c>parse | forms | erl | hrl | beam</c></tag>
+<tag><c>parse | forms | erl | hrl</c></tag>
 <item>
 <p>
 Specifies an output format.
 Whether the output is returned or written to file depends on whether
 or not option <c>return</c> is specified.
 When written to file, the resulting file(s) will have extensions
-<c>.D</c>, <c>.F</c>, <c>.erl</c>, <c>.hrl</c> and <c>.beam</c>
+<c>.D</c>, <c>.F</c>, <c>.erl</c>, and <c>.hrl</c>
 respectively, basenames defaulting to <c>dictionary</c> if the input
 dictionary is literal and does not specify <c>&dict_name;</c>.
-When returned, results are returned in the <c>Out</c> list  in the
-order specified.
+When returned, results are in the order of the corresponding format
+options.
 Format options default to <c>erl</c> and <c>hrl</c> (in this order) if
 unspecified.</p>
 
 <p>
-The <c>parsed</c> format is an internal representation that can be
-passed to &format; and &flatten;, while the <c>forms</c> format is
-only intended for debugging purposes.
-Output for the <c>erl</c> and <c>hrl</c> formats are returned as
-iolists, while the <c>beam</c> format returns a <c>{module(),
-binary()}</c> tuple.</p>
+The <c>parse</c> format is an internal representation that can be
+passed to &flatten; and &format;, while the <c>forms</c> format can be
+passed to &compile_forms2;.
+The <c>erl</c> and <c>hrl</c> formats are returned as
+iolists.</p>
 <!-- That codec/2 can take the parsed format is undocumented, and
      options name and inherits have no effect in this case. -->
 </item>

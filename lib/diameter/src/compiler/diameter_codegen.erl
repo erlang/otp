@@ -49,7 +49,7 @@
  when File :: string(),
       ParseD :: orddict:orddict(),
       Opts :: list(),
-      Mode :: parse | forms | erl | hrl | beam.
+      Mode :: parse | forms | erl | hrl.
 
 from_dict(File, ParseD, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
@@ -85,8 +85,6 @@ do_write(M, Path, T)
   when M == parse;
        M == forms ->
     write_term(Path, T);
-do_write(beam, Path, {_Mod, Beam}) ->
-    write(Path, Beam);
 do_write(_, Path, T) ->
     write(Path, T).
 
@@ -130,27 +128,13 @@ gen(parse, ParseD, _Mod) ->
     [?VERSION | ParseD];
 
 gen(forms, ParseD, Mod) ->
-    erl_forms(Mod, ParseD);
-
-gen(beam, ParseD, Mod) ->
-    compile(pp(erl_forms(Mod, ParseD)));
+    pp(erl_forms(Mod, ParseD));
 
 gen(hrl, ParseD, Mod) ->
     gen_hrl(Mod, ParseD);
 
 gen(erl, ParseD, Mod) ->
     [header(), prettypr(erl_forms(Mod, ParseD)), $\n].
-
-compile({ok, Forms}) ->
-    case compile:forms(Forms, [debug_info, return]) of
-        {ok, Mod, Beam, _Warnings} ->
-            {Mod, Beam};
-        {error, Errors, _Warnings} ->
-            erlang:error({compile, Errors})
-    end;
-
-compile({error, Reason}) ->
-    erlang:error(Reason).
 
 erl_forms(Mod, ParseD) ->
     Forms = [[{?attribute, module, Mod},
@@ -866,10 +850,10 @@ pp(Forms) ->
 
 pp(Forms, {ok, Code}) ->
     Files = files(Code, []),
-    {ok, lists:flatmap(fun(T) -> include(T, Files) end, Forms)};
+    lists:flatmap(fun(T) -> include(T, Files) end, Forms);
 
-pp(_, {error, _} = No) ->
-    No.
+pp(Forms, {error, Reason}) ->
+    erlang:error({forms, Reason, Forms}).
 
 include({attribute, _, include_lib, Path}, Files) ->
     Inc = filename:basename(Path),

@@ -44,8 +44,7 @@
              | return
              | verbose
              | parse  %% internal parsed form
-             | forms  %% abstract format from which erl is generated
-             | beam   %% compiled directly from preprocessed forms
+             | forms  %% abstract format for compile:forms/1,2
              | erl
              | hrl.
 
@@ -218,7 +217,7 @@ modes(Opts) ->
     lists:filter(fun is_mode/1, Opts).
 
 is_mode(T) ->
-    lists:member(T, [erl, hrl, parse, forms, beam]).
+    lists:member(T, [erl, hrl, parse, forms]).
 
 identify([Vsn | [T|_] = ParseD])
   when is_tuple(T) ->
