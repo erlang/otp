@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,18 +19,20 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record definition for the TLS SRP protocol
-%% see RFC 5054
+%% Purpose: SSL/TLS specific state
 %%----------------------------------------------------------------------
 
--ifndef(ssl_srp).
--define(ssl_srp, true).
+-ifndef(tls_connection).
+-define(tls_connection, true).
 
--record(srp_user, {
-	  generator :: binary(),
-	  prime     :: binary(),
-	  salt      :: binary(),
-	  verifier  :: binary()
+-include("ssl_connection.hrl").
+-include("tls_record.hrl").
+
+-record(protocol_buffers, {
+	  tls_packets = [], %%           :: [#ssl_tls{}],  % Not yet handled decode SSL/TLS packets.
+          tls_record_buffer = <<>>, %%    :: binary(),  % Buffer of incomplete records
+          tls_handshake_buffer = <<>>, %% :: binary(),  % Buffer of incomplete handshakes
+	  tls_cipher_texts = []       %%:: [binary()]
 	 }).
 
--endif. % -ifdef(ssl_srp).
+-endif. % -ifdef(tls_connection).

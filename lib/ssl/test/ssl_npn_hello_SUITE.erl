@@ -82,11 +82,11 @@ encode_and_decode_npn_server_hello_test(_Config) ->
 
 %%--------------------------------------------------------------------
 create_server_hello_with_no_advertised_protocols_test(_Config) ->
-    Hello = tls_handshake:server_hello(<<>>, {3, 0}, create_connection_states(), #hello_extensions{}),
+    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(), #hello_extensions{}),
     undefined = (Hello#server_hello.extensions)#hello_extensions.next_protocol_negotiation.
 %%--------------------------------------------------------------------
 create_server_hello_with_advertised_protocols_test(_Config) ->
-    Hello = tls_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),
+    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),
 				       #hello_extensions{next_protocol_negotiation = [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
     [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>] =
 	(Hello#server_hello.extensions)#hello_extensions.next_protocol_negotiation.

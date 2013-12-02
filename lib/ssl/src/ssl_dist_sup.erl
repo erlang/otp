@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ session_and_cert_manager_child_spec() ->
 
 connection_manager_child_spec() ->
     Name = ssl_connection_dist,  
-    StartFunc = {ssl_connection_sup, start_link_dist, []},
+    StartFunc = {tls_connection_sup, start_link_dist, []},
     Restart = permanent, 
     Shutdown = 4000,
     Modules = [ssl_connection],

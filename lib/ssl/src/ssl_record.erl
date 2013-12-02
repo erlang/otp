@@ -47,7 +47,8 @@
 %% Compression
 -export([compress/3, uncompress/3, compressions/0]).
 
--export([is_correct_mac/2]).
+%% Payload encryption/decryption
+-export([cipher/4, decipher/3, is_correct_mac/2]).
 
 %%====================================================================
 %% Internal application API
@@ -354,6 +355,41 @@ compress(?NULL, Data, CS) ->
 compressions() ->
     [?byte(?NULL)].
 
+%%--------------------------------------------------------------------
+-spec cipher(tls_version(), iolist(), #connection_state{}, MacHash::binary()) ->
+		    {CipherFragment::binary(), #connection_state{}}.
+%%
+%% Description: Payload encryption
+%%--------------------------------------------------------------------
+cipher(Version, Fragment,
+       #connection_state{cipher_state = CipherS0,
+			 security_parameters=
+			     #security_parameters{bulk_cipher_algorithm =
+						      BulkCipherAlgo}
+			} = WriteState0, MacHash) ->
+
+    {CipherFragment, CipherS1} =
+	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
+    {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
+%%--------------------------------------------------------------------
+-spec decipher(tls_version(), binary(), #connection_state{}) -> {binary(), binary(), #connection_state{}}.
+%%
+%% Description: Payload decryption
+%%--------------------------------------------------------------------
+decipher(Version, CipherFragment,
+	 #connection_state{security_parameters =
+			       #security_parameters{bulk_cipher_algorithm =
+							BulkCipherAlgo,
+						    hash_size = HashSz},
+			   cipher_state = CipherS0
+			  } = ReadState) ->
+    case ssl_cipher:decipher(BulkCipherAlgo, HashSz, CipherS0, CipherFragment, Version) of
+	{PlainFragment, Mac, CipherS1} ->
+	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
+	    {PlainFragment, Mac, CS1};
+	#alert{} = Alert ->
+	    Alert
+    end.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
