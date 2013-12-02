@@ -1073,8 +1073,8 @@ module_loaded(_Module) ->
 %% monitor/2
 -spec monitor(Type, Item) -> MonitorRef when
       Type :: process,
-      Item :: pid() | Module | {Module, Node},
-      Module :: module(),
+      Item :: pid() | RegName | {RegName, Node},
+      RegName :: module(),
       Node :: node(),
       MonitorRef :: reference().
 monitor(_Type, _Item) ->
