@@ -1,8 +1,7 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
-
+#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -16,7 +15,29 @@
 # under the License.
 #
 # %CopyrightEnd%
+#
 
-APPLICATION  = diameter
-DIAMETER_VSN = 1.5
-APP_VSN      = $(APPLICATION)-$(DIAMETER_VSN)$(PRE_VSN)
+#
+# Extract dependencies from .dia files. First line of input is the
+# dictionary's filename, the rest is its contents.
+#
+
+1{
+  s@\.[^.]*$@@
+  h
+  d
+}
+
+# Only interested in @inherits.
+/^@inherits  */!d
+
+s///
+s/ .*//
+
+# Ignore the common application.
+/^common$/d
+
+# Retrieve the dictionary name from the hold space and output
+# a dependency.
+G
+s@^\(.*\)\n\(.*\)@\2.erl: \1.beam@

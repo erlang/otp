@@ -40,7 +40,7 @@ under the License.
 The diameter application is an implementation of the Diameter protocol
 as defined by &the_rfc;.
 It supports arbitrary Diameter applications by way of a
-<em>dictionary</em> interface that allows messages and AVP's to be
+<em>dictionary</em> interface that allows messages and AVPs to be
 defined and input into diameter as configuration.
 It has support for all roles defined in the RFC: client, server and
 agent.
@@ -69,7 +69,7 @@ interface</seealso>.</p>
 <p>
 While a service typically implements a single Diameter node (as
 identified by an Origin-Host AVP), transports can themselves be
-associated with capabilities AVP's so that a single service can be
+associated with capabilities AVPs so that a single service can be
 used to implement more than one Diameter node.</p>
 
 <p>

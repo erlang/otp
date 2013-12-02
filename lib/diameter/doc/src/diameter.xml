@@ -575,7 +575,7 @@ The RFC 3539 watchdog state machine has
 transitioned into (<c>up</c>) or out of (<c>down</c>) the OKAY
 state.
 If a <c>#diameter_packet{}</c> is present in an <c>up</c> event
-then there has been a capabilties exchange on a newly established
+then there has been a capabilities exchange on a newly established
 transport connection and the record contains the received CER or CEA.
 Otherwise a connection has reestablished without the loss or
 connectivity.</p>
@@ -584,7 +584,7 @@ connectivity.</p>
 Note that a single <c>up</c> or <c>down</c> event for a given peer
 corresponds to multiple &app_peer_up; or &app_peer_down;
 callbacks, one for each of the Diameter applications negotiated during
-capablilities exchange.
+capabilities exchange.
 That is, the event communicates connectivity with the
 peer as a whole while the callbacks communicate connectivity with
 respect to individual Diameter applications.</p>
@@ -765,7 +765,7 @@ the application's &dictionary; file.</p>
 The capabilities advertised by a node must match its configured
 applications. In particular, <c>application</c> configuration must
 be matched by corresponding &capability; configuration, of
-Application-Id AVP's in particular.</p>
+*-Application-Id AVPs in particular.</p>
 </warning>
 
 </item>
@@ -804,7 +804,7 @@ Defaults to <c>nodes</c>.</p>
 <p>
 Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
 of 32-bit End-to-End and Hop-by-Hop identifiers generated
-by the service, either explicity or as a return value of a function
+by the service, either explicitly or as a return value of a function
 to be evaluated at &start_service;.
 In particular, an identifier <c>Id</c> is mapped to a new identifier
 as follows.</p>
@@ -946,7 +946,7 @@ Applications not configured on the service in question are ignored.</p>
 The capabilities advertised by a node must match its configured
 applications.
 In particular, setting <c>applications</c> on a transport typically
-implies having to set matching Application-Id AVP's in a
+implies having to set matching *-Application-Id AVPs in a
 &capabilities; tuple.</p>
 </warning>
 
@@ -956,7 +956,7 @@ implies having to set matching Application-Id AVP's in a
 <tag><c>{capabilities, [&capability;]}</c></tag>
 <item>
 <p>
-AVP's used to construct outgoing CER/CEA messages.
+AVPs used to construct outgoing CER/CEA messages.
 Values take precedence over any specified on the service in
 question.</p>
 
@@ -1661,7 +1661,7 @@ R_Flag}</c>.</p>
 Note that <c>watchdog</c>, <c>peer</c>, <c>apps</c>, <c>caps</c>
 and <c>port</c> entries depend on connectivity
 with the peer and may not be present.
-Note also that the <c>statistics</c> entry presents values acuumulated
+Note also that the <c>statistics</c> entry presents values accumulated
 during the lifetime of the transport configuration.</p>
 
 <p>

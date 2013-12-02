@@ -90,7 +90,7 @@ Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and not valid for a listening
 transport: the former is required while latter defaults to 3868 if
 unspecified.
-Mupltiple <c>raddr</c> options can be specified, in which case the
+Multiple <c>raddr</c> options can be specified, in which case the
 connecting transport in question attempts each in sequence until
 an association is established.</p>
 
