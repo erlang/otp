@@ -575,7 +575,7 @@ The RFC 3539 watchdog state machine has
 transitioned into (<c>up</c>) or out of (<c>down</c>) the OKAY
 state.
 If a <c>#diameter_packet{}</c> is present in an <c>up</c> event
-then there has been a capabilties exchange on a newly established
+then there has been a capabilities exchange on a newly established
 transport connection and the record contains the received CER or CEA.
 Otherwise a connection has reestablished without the loss or
 connectivity.</p>
@@ -584,7 +584,7 @@ connectivity.</p>
 Note that a single <c>up</c> or <c>down</c> event for a given peer
 corresponds to multiple &app_peer_up; or &app_peer_down;
 callbacks, one for each of the Diameter applications negotiated during
-capablilities exchange.
+capabilities exchange.
 That is, the event communicates connectivity with the
 peer as a whole while the callbacks communicate connectivity with
 respect to individual Diameter applications.</p>
@@ -599,7 +599,7 @@ Opts = [&transport_opt;]
 
 <p>
 A connecting transport is attempting to establish/reestablish a
-transport connection with a peer following &reconnect_timer; or
+transport connection with a peer following &connect_timer; or
 &watchdog_timer; expiry.</p>
 </item>
 
@@ -765,7 +765,7 @@ the application's &dictionary; file.</p>
 The capabilities advertised by a node must match its configured
 applications. In particular, <c>application</c> configuration must
 be matched by corresponding &capability; configuration, of
-Application-Id AVP's in particular.</p>
+*-Application-Id AVPs in particular.</p>
 </warning>
 
 </item>
@@ -804,7 +804,7 @@ Defaults to <c>nodes</c>.</p>
 <p>
 Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
 of 32-bit End-to-End and Hop-by-Hop identifiers generated
-by the service, either explicity or as a return value of a function
+by the service, either explicitly or as a return value of a function
 to be evaluated at &start_service;.
 In particular, an identifier <c>Id</c> is mapped to a new identifier
 as follows.</p>
@@ -946,7 +946,7 @@ Applications not configured on the service in question are ignored.</p>
 The capabilities advertised by a node must match its configured
 applications.
 In particular, setting <c>applications</c> on a transport typically
-implies having to set matching Application-Id AVP's in a
+implies having to set matching *-Application-Id AVPs in a
 &capabilities; tuple.</p>
 </warning>
 
@@ -956,7 +956,7 @@ implies having to set matching Application-Id AVP's in a
 <tag><c>{capabilities, [&capability;]}</c></tag>
 <item>
 <p>
-AVP's used to construct outgoing CER/CEA messages.
+AVPs used to construct outgoing CER/CEA messages.
 Values take precedence over any specified on the service in
 question.</p>
 
@@ -1022,11 +1022,41 @@ The number of milliseconds after which a transport process having an
 established transport connection will be terminated if the expected
 capabilities exchange message (CER or CEA) is not received from the peer.
 For a connecting transport, the timing of reconnection attempts is
-governed by &watchdog_timer; or &reconnect_timer; expiry.
+governed by &watchdog_timer; or &connect_timer; expiry.
 For a listening transport, the peer determines the timing.</p>
 
 <p>
 Defaults to 10000.</p>
+</item>
+
+<marker id="connect_timer"/>
+<tag><c>{connect_timer, Tc}</c></tag>
+<item>
+<pre>
+Tc = &dict_Unsigned32;
+</pre>
+
+<p>
+For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
+Note that this timer determines the frequency with which a transport
+will attempt to establish an initial connection with its peer
+following transport configuration: once an initial connection has been
+established it's &watchdog_timer; that determines the frequency of
+reconnection attempts, as required by RFC 3539.</p>
+
+<p>
+For a listening transport, the timer specifies the time after which a
+previously connected peer will be forgotten: a connection after this time is
+regarded as an initial connection rather than a reestablishment,
+causing the RFC 3539 state machine to pass to state OKAY rather than
+REOPEN.
+Note that these semantics are not governed by the RFC and
+that a listening transport's &connect_timer; should be greater
+than its peer's Tw plus jitter.</p>
+
+<p>
+Defaults to 30000 for a connecting transport and 60000 for a listening
+transport.</p>
 </item>
 
 <marker id="disconnect_cb"/>
@@ -1143,36 +1173,6 @@ An invalid length leaves it with no reliable way to rediscover message
 boundaries, which may result in the failure of subsequent messages.
 See &man_tcp; for the behaviour of that module.</p>
 </note>
-</item>
-
-<marker id="reconnect_timer"/>
-<tag><c>{reconnect_timer, Tc}</c></tag>
-<item>
-<pre>
-Tc = &dict_Unsigned32;
-</pre>
-
-<p>
-For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
-Note that this timer determines the frequency with which a transport
-will attempt to establish a connection with its peer only <em>before</em>
-an initial connection is established: once there is an initial
-connection it's &watchdog_timer; that determines the
-frequency of reconnection attempts, as required by RFC 3539.</p>
-
-<p>
-For a listening transport, the timer specifies the time after which a
-previously connected peer will be forgotten: a connection after this time is
-regarded as an initial connection rather than a reestablishment,
-causing the RFC 3539 state machine to pass to state OKAY rather than
-REOPEN.
-Note that these semantics are not governed by the RFC and
-that a listening transport's &reconnect_timer; should be greater
-than its peer's Tw plus jitter.</p>
-
-<p>
-Defaults to 30000 for a connecting transport and 60000 for a listening
-transport.</p>
 </item>
 
 <marker id="spawn_opt"/>
@@ -1661,7 +1661,7 @@ R_Flag}</c>.</p>
 Note that <c>watchdog</c>, <c>peer</c>, <c>apps</c>, <c>caps</c>
 and <c>port</c> entries depend on connectivity
 with the peer and may not be present.
-Note also that the <c>statistics</c> entry presents values acuumulated
+Note also that the <c>statistics</c> entry presents values accumulated
 during the lifetime of the transport configuration.</p>
 
 <p>

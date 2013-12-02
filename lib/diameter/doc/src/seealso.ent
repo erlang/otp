@@ -66,7 +66,7 @@ significant.
 <!ENTITY disconnect_cb '<seealso marker="#disconnect_cb">disconnect_cb</seealso>'>
 <!ENTITY transport_config '<seealso marker="#transport_config">transport_config</seealso>'>
 <!ENTITY transport_module '<seealso marker="#transport_module">transport_module</seealso>'>
-<!ENTITY reconnect_timer '<seealso marker="#reconnect_timer">reconnect_timer</seealso>'>
+<!ENTITY connect_timer '<seealso marker="#connect_timer">connect_timer</seealso>'>
 <!ENTITY watchdog_timer '<seealso marker="#watchdog_timer">watchdog_timer</seealso>'>
 
 <!-- diameter_app -->
@@ -115,6 +115,8 @@ significant.
 <!-- diameter_make -->
 
 <!ENTITY make_codec '<seealso marker="diameter_make#codec-2">diameter_make:codec/2</seealso>'>
+<!ENTITY make_format '<seealso marker="diameter_make#format-1">diameter_make:format/1</seealso>'>
+<!ENTITY make_flatten '<seealso marker="diameter_make#flatten-1">diameter_make:flatten/1</seealso>'>
 
 <!-- diameter_transport -->
 

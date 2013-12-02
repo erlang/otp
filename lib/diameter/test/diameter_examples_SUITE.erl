@@ -133,7 +133,7 @@ make(Path, Dict0) ->
     try
         ok = to_erl(Path, [{name, Name},
                            {prefix, Pre},
-                           {inherits, "rfc3588_base/" ++ Mod0}
+                           {inherits, "common/" ++ Mod0}
                            | [{inherits, D ++ "/" ++ M ++ Suf}
                               || {D,M} <- dep(Dict)]]),
         ok = to_beam(Name)
