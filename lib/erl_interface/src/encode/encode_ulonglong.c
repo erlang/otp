@@ -52,7 +52,7 @@ int ei_encode_ulonglong(char *buf, int *index, EI_ULONGLONG p)
     char *s = buf + *index;
     char *s0 = s;
 
-    if ((p < 256) && (p >= 0)) {
+    if (p < 256) {
 	if (!buf) s += 2;
 	else {
 	    put8(s,ERL_SMALL_INTEGER_EXT);

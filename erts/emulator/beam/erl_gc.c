@@ -2770,7 +2770,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	    refc = erts_refc_read(&u.ext->node->refc, 1);
 	    break;
 	default:
-	    ASSERT(!!"erts_check_off_heap2: Invalid thing_word");
+	    ASSERT(!"erts_check_off_heap2: Invalid thing_word");
 	}
 	ERTS_CHK_OFFHEAP_ASSERT(refc >= 1);
 #ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_LIST

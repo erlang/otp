@@ -149,9 +149,28 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_EXIT_AFTER_DUMP exit
 #endif
 
+/* In VC++, noreturn is a declspec that has to be before the types,
+ * but in GNUC it is an att ribute to be placed between return type
+ * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ */
+#if __GNUC__
+#  define __decl_noreturn
+#  define __noreturn __attribute__((noreturn))
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
 #define ERTS_ASSERT(e) \
     ((void) ((e) ? 1 : (erl_assert_error(#e, __func__, __FILE__, __LINE__), 0)))
-void erl_assert_error(const char* expr, const char *func, const char* file, int line);
+
+__decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *func,
+						 const char* file, int line);
 
 #ifdef DEBUG
 #  define ASSERT(e) ERTS_ASSERT(e)
@@ -190,23 +209,6 @@ void erl_assert_error(const char* expr, const char *func, const char* file, int 
 #  define erts_align_attribute(SZ) __attribute__ ((aligned (SZ)))
 #else
 #  define erts_align_attribute(SZ)
-#endif
-
-/* In VC++, noreturn is a declspec that has to be before the types,
- * but in GNUC it is an att ribute to be placed between return type 
- * and function name, hence __decl_noreturn <types> __noreturn <function name>
- */
-#if __GNUC__
-#  define __decl_noreturn 
-#  define __noreturn __attribute__((noreturn))
-#else
-#  if defined(__WIN32__) && defined(_MSC_VER)
-#    define __noreturn 
-#    define __decl_noreturn __declspec(noreturn)
-#  else
-#    define __noreturn
-#    define __decl_noreturn 
-#  endif
 #endif
 
 /*

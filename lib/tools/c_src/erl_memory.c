@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -30,6 +30,7 @@
 #	undef WIN32_LEAN_AND_MEAN
 #	define WIN32_LEAN_AND_MEAN
 #	include <windows.h>
+typedef int socklen_t;
 #else
 #	if defined(__linux__) && defined(__GNUC__)
 #   		define _GNU_SOURCE 1
@@ -149,11 +150,11 @@ typedef struct {
 typedef struct em_buffer_ {
     struct em_buffer_ *next;
     int write;
-    usgnd_int_8 *data;
-    usgnd_int_8 *data_end;
-    usgnd_int_8 *end;
+    char *data;
+    char *data_end;
+    char *end;
     size_t size;
-    usgnd_int_8 start[EM_DEFAULT_BUF_SZ];
+    char start[EM_DEFAULT_BUF_SZ];
 } em_buffer;
 
 typedef struct {
@@ -173,7 +174,7 @@ typedef struct {
 } em_buf_queue;
 
 typedef struct {
-    usgnd_int_8 *ptr;
+    char *ptr;
     size_t size;
 } em_area;
 
@@ -460,7 +461,7 @@ enqueue(em_state *state, em_buf_queue *queue, size_t min_size)
 	    bsize = min_size;
 	
 	buf = (em_buffer *) (*state->alloc)(sizeof(em_buffer)
-					    + (sizeof(usgnd_int_8)
+					    + (sizeof(char)
 					       * (bsize-EM_DEFAULT_BUF_SZ)));
 	if (buf) {
 	    buf->size = bsize;
@@ -595,12 +596,12 @@ get_next_write_area(em_area *area, em_state *state, em_buf_queue *queue,
 \*                                                                         */
 
 static INLINE size_t
-write_str(usgnd_int_8 **dstpp, char *srcp)
+write_str(char **dstpp, char *srcp)
 {
     size_t i = 0;
     if (dstpp)
 	while (srcp[i])
-	    *((*dstpp)++) = (usgnd_int_8) srcp[i++];
+	    *((*dstpp)++) = srcp[i++];
     else
 	while (srcp[i]) i++;
     return i;
@@ -608,7 +609,7 @@ write_str(usgnd_int_8 **dstpp, char *srcp)
 
 
 static size_t
-write_strings(usgnd_int_8 **ptr,
+write_strings(char **ptr,
 	      char **strings,
 	      char *first_line_prefix,
 	      char *line_prefix,
@@ -640,10 +641,10 @@ write_strings(usgnd_int_8 **ptr,
 }
 
 static size_t
-write_title(usgnd_int_8 **bufp, size_t *overflow, size_t width, char *str)
+write_title(char **bufp, size_t *overflow, size_t width, char *str)
 {
     size_t i, sz, ws;
-    usgnd_int_8 *p, *endp;
+    char *p, *endp;
 
     /*
      * Writes at least one '|' character at the beginning.
@@ -689,16 +690,16 @@ write_title(usgnd_int_8 **bufp, size_t *overflow, size_t width, char *str)
     *(p++) = '|';
     while (ws > 1) {
 	ws--;
-	*(p++) = (usgnd_int_8) ' ';
+	*(p++) = ' ';
     }
 
     i = 0;
     while (str[i] && (overflow || p < endp))
-	*(p++) = (usgnd_int_8) str[i++];
+	*(p++) = str[i++];
 
     while (ws) {
 	ws--;
-	*(p++) = (usgnd_int_8) ' ';
+	*(p++) = ' ';
     }
 
     ASSERT(overflow || p == endp);
@@ -708,7 +709,7 @@ write_title(usgnd_int_8 **bufp, size_t *overflow, size_t width, char *str)
 }
 
 static size_t
-write_obj_sub_titles(em_state *state, usgnd_int_8 **bufp, size_t *overflow)
+write_obj_sub_titles(em_state *state, char **bufp, size_t *overflow)
 {
     size_t field_width = state->output.field_width;
     size_t size = write_title(bufp, overflow, field_width, "size");
@@ -733,12 +734,12 @@ write_obj_sub_titles(em_state *state, usgnd_int_8 **bufp, size_t *overflow)
 }
 
 static size_t
-write_header(em_state *state, usgnd_int_8 *ptr, int trunc)
+write_header(em_state *state, char *ptr, int trunc)
 {
 #define MIN_LTEXT_SZ 18
 #define HEADER_EOL_STR "|\n"
-    usgnd_int_8 *p;
-    usgnd_int_8 **pp;
+    char *p;
+    char **pp;
     int i;
     size_t overflow;
     size_t *ofp;
@@ -855,7 +856,7 @@ write_header(em_state *state, usgnd_int_8 *ptr, int trunc)
 }
 
 static INLINE void
-write_mem_info(em_state *state, usgnd_int_8 **p, em_mem_info *mi)
+write_mem_info(em_state *state, char **p, em_mem_info *mi)
 {
     int fw = state->output.field_width - 1;
     *p += sprintf(*p, "%*" USGND_INT_MAX_FSTR " ", fw, mi->size);
@@ -894,7 +895,7 @@ write_mem_info(em_state *state, usgnd_int_8 **p, em_mem_info *mi)
 }
 
 static INLINE void
-write_max_ever_mem_info(em_state *state, usgnd_int_8 **p, em_mem_info *mi)
+write_max_ever_mem_info(em_state *state, char **p, em_mem_info *mi)
 {
     int fw = state->output.field_width - 1;
     *p += sprintf(*p, "%*" USGND_INT_MAX_FSTR " ", fw, mi->max_ever_size);
@@ -913,13 +914,13 @@ static void
 print_string(em_state *state, char *str)
 {
     em_area area = {NULL, 0};
-    usgnd_int_8 *p;
+    char *p;
 
     /* Get area */
 
     get_next_write_area(&area,state,&state->output.queue,write_str(NULL,str));
 
-    p = (usgnd_int_8 *) area.ptr;
+    p = area.ptr;
     area.size = write_str(&p, str);
 
     /* Leave area */
@@ -938,7 +939,7 @@ print_emu_arg(em_state *state)
     struct hostent *hp;
     struct in_addr iaddr;
     usgnd_int_16 port;
-    int saddr_size = sizeof(saddr);
+    socklen_t saddr_size = sizeof(saddr);
     size_t size;
     char *format = "> Emulator command line argument: +Mit %s\n";
 
@@ -996,7 +997,7 @@ print_emu_arg(em_state *state)
 }
 
 static size_t
-write_allocator_info(em_state *state, usgnd_int_8 *ptr)
+write_allocator_info(em_state *state, char *ptr)
 {
     usgnd_int_32 aix, i, j;
     char *header =	"> Allocator information:\n";
@@ -1008,8 +1009,8 @@ write_allocator_info(em_state *state, usgnd_int_8 *ptr)
     char **strings;
     size_t strings_size;
     size_t max_line_size = 80;
-    usgnd_int_8 *p = ptr;
-    usgnd_int_8 **pp = ptr ? &p : NULL;
+    char *p = ptr;
+    char **pp = ptr ? &p : NULL;
 
     strings_size = state->trace_info.max_block_type_ix + 1;
     if (strings_size < state->trace_info.max_allocator_ix + 1)
@@ -1140,7 +1141,7 @@ static void
 print_main_footer(em_state *state)
 {
     em_area area = {NULL, 0};
-    usgnd_int_8 *p;
+    char *p;
     int i;
     char *stop_str =
 	"> Trace stopped\n";
@@ -1248,7 +1249,7 @@ print_main_footer(em_state *state)
 static void
 print_info(em_state *state, usgnd_int_32 secs, char *extra)
 {
-    usgnd_int_8 *p;
+    char *p;
     int i;
     size_t size;
     em_area area = {NULL, 0};
@@ -1913,7 +1914,7 @@ error_msg(int res, char *msg)
 #if EMEM_d_SWITCH
 
 static size_t
-write_output_filename(usgnd_int_8 *ptr,
+write_output_filename(char *ptr,
 		      char *dirname,
 		      char *nodename,
 		      char *hostname,
@@ -1921,8 +1922,8 @@ write_output_filename(usgnd_int_8 *ptr,
 		      char *pid)
 {
     size_t sz = 0;
-    usgnd_int_8 *p = ptr;
-    usgnd_int_8 **pp = ptr ? &p : NULL;
+    char *p = ptr;
+    char **pp = ptr ? &p : NULL;
     sz += write_str(pp, dirname);
     if (pp) *((*pp)++) = DIR_SEP_CHAR;
     sz++;
@@ -2246,7 +2247,7 @@ process_trace(em_state *state)
 	if (!area.size)
 	    return EM_TRUNCATED_TRACE_ERROR;
 	res = emtp_parse(state->trace_state,
-			 &area.ptr, &area.size,
+			 (usgnd_int_8 **)&area.ptr, &area.size,
 			 NULL, 0, NULL);
 	if (res == EMTP_HEADER_PARSED)
 	    break;
@@ -2277,7 +2278,7 @@ process_trace(em_state *state)
 	while (area.size) {
 	    ops_len = EM_NO_OF_OPS;
 	    res = emtp_parse(state->trace_state,
-			     &area.ptr, &area.size,
+			     (usgnd_int_8 **)&area.ptr, &area.size,
 			     ops, sizeof(emtp_operation), &ops_len);
 	    if (res < 0)
 		return res;
@@ -2555,7 +2556,7 @@ init_connection(em_state *state)
     SOCKET lsock;
     SOCKET sock = INVALID_SOCKET;
     struct sockaddr_in my_addr;
-    int oth_addr_len;
+    socklen_t oth_addr_len;
     struct sockaddr_in oth_addr;
 #ifdef __WIN32__
     WORD wVersionRequested = MAKEWORD(2,0);
@@ -2738,7 +2739,7 @@ output_thread_func(void *arg)
 		error_msg(EIO, "Output queue");
 	}
 	if (fwrite((void *) area.ptr,
-		   sizeof(usgnd_int_8),
+		   sizeof(char),
 		   area.size,
 		   state->output.stream) != area.size) {
 	    disconnect_queue_reader(&state->output.queue);
