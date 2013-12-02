@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@
 -spec parse(File, Opts)
    -> {ok, orddict:orddict()}
     | {error, term()}
- when File :: {path, string()}
+ when File :: {path, file:name_all()}
             | iolist()
             | binary(),
       Opts :: list().
@@ -264,6 +264,9 @@ io(K, Id)
 
 io(vendor = K, {Id, Name}) ->
     [?NL, section(K) | [[?SP, tok(X)] || X <- [Id, Name]]];
+
+io(_, []) ->
+    [];
 
 io(avp_types = K, Body) ->
     [?NL, ?NL, section(K), ?NL, [body(K,A) || A <- Body]];

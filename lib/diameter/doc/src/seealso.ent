@@ -115,6 +115,8 @@ significant.
 <!-- diameter_make -->
 
 <!ENTITY make_codec '<seealso marker="diameter_make#codec-2">diameter_make:codec/2</seealso>'>
+<!ENTITY make_format '<seealso marker="diameter_make#format-1">diameter_make:format/1</seealso>'>
+<!ENTITY make_flatten '<seealso marker="diameter_make#flatten-1">diameter_make:flatten/1</seealso>'>
 
 <!-- diameter_transport -->
 
