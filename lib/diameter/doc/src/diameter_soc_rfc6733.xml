@@ -1272,7 +1272,7 @@ during capabilities exchange.)</p>
 
 <p>
 The frequency of reconnection attempts is configured with the
-&mod_transport_opt; <c>reconnect_timer</c> and
+&mod_transport_opt; <c>connect_timer</c> and
 <c>watchdog_timer</c>.</p>
 
 <pre>
