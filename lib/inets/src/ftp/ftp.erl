@@ -2068,7 +2068,7 @@ setup_data_connection(#state{mode   = active,
 	    {ok, LSock} = 
 		gen_tcp:listen(0, [{ip, IP}, {active, false},
 				   inet6, binary, {packet, 0}]),
-	    {ok, {_, Port}} = sockname(LSock),
+	    {ok, {_, Port}} = sockname({tcp,LSock}),
 	    IpAddress = inet_parse:ntoa(IP),
 	    Cmd = mk_cmd("EPRT |2|~s|~p|", [IpAddress, Port]),
 	    send_ctrl_message(State, Cmd),
@@ -2351,8 +2351,8 @@ millisec_time() ->
 peername({tcp, Socket}) -> inet:peername(Socket);
 peername({ssl, Socket}) -> ssl:peername(Socket).
 
-sockname({tcp, Socket}) -> inet:peername(Socket);
-sockname({ssl, Socket}) -> ssl:peername(Socket).
+sockname({tcp, Socket}) -> inet:sockname(Socket);
+sockname({ssl, Socket}) -> ssl:sockname(Socket).
 
 maybe_tls_upgrade(Pid, undefined) ->
     {ok, Pid};
