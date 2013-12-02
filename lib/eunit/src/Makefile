@@ -95,7 +95,7 @@ info:
 realclean: clean
 
 $(EBIN)/%.$(EMULATOR):%.erl
-	erlc -W $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(erlc_verbose)erlc -W $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 $(OBJECTS): $(PARSE_TRANSFORM_BIN)
 
