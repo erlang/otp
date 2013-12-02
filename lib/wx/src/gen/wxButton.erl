@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html">wxButton</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html">wxButton</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -78,7 +78,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxButton() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
 -spec new() -> wxButton().
 new() ->
   wxe_util:construct(?wxButton_new_0,
@@ -92,7 +92,7 @@ new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {label, unicode:chardata()}
@@ -121,7 +121,7 @@ create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttoncreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttoncreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {label, unicode:chardata()}
@@ -143,13 +143,13 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxButton_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
 -spec getDefaultSize() -> {W::integer(), H::integer()}.
 getDefaultSize() ->
   wxe_util:call(?wxButton_GetDefaultSize,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonsetdefault">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetdefault">external documentation</a>.
 -spec setDefault(This) -> ok when
 	This::wxButton().
 setDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -157,7 +157,7 @@ setDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxButton_SetDefault,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
 	This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)

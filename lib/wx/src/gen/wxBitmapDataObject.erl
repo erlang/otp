@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html">wxBitmapDataObject</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html">wxBitmapDataObject</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDataObject}
 %% </p>
@@ -44,7 +44,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectwxbitmapdataobject">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectwxbitmapdataobject">external documentation</a>.
 %% <br /> Also:<br />
 %% new(Bitmap) -> wxBitmapDataObject() when<br />
 %% 	Bitmap::wxBitmap:wxBitmap().<br />
@@ -65,7 +65,7 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   wxe_util:construct(?wxBitmapDataObject_new_1_1,
   <<BitmapRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectgetbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectgetbitmap">external documentation</a>.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
 	This::wxBitmapDataObject().
 getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -73,7 +73,7 @@ getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxBitmapDataObject_GetBitmap,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectsetbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectsetbitmap">external documentation</a>.
 -spec setBitmap(This, Bitmap) -> ok when
 	This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->

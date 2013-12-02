@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html">wxNotebook</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html">wxNotebook</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -82,7 +82,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxNotebook() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
 -spec new() -> wxNotebook().
 new() ->
   wxe_util:construct(?wxNotebook_new_0,
@@ -96,7 +96,7 @@ new(Parent,Winid)
  when is_record(Parent, wx_ref),is_integer(Winid) ->
   new(Parent,Winid, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
 -spec new(Parent, Winid, [Option]) -> wxNotebook() when
 	Parent::wxWindow:wxWindow(), Winid::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -121,7 +121,7 @@ addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
   addPage(This,Page,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookaddpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
@@ -146,7 +146,7 @@ advanceSelection(This)
  when is_record(This, wx_ref) ->
   advanceSelection(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookadvanceselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookadvanceselection">external documentation</a>.
 -spec advanceSelection(This, [Option]) -> ok when
 	This::wxNotebook(),
 	Option :: {forward, boolean()}.
@@ -159,7 +159,7 @@ advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxNotebook_AdvanceSelection,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookassignimagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookassignimagelist">external documentation</a>.
 -spec assignImageList(This, ImageList) -> ok when
 	This::wxNotebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
@@ -176,7 +176,7 @@ create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -194,7 +194,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxNotebook_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookdeleteallpages">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookdeleteallpages">external documentation</a>.
 -spec deleteAllPages(This) -> boolean() when
 	This::wxNotebook().
 deleteAllPages(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -202,7 +202,7 @@ deleteAllPages(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_DeleteAllPages,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookdeletepage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookdeletepage">external documentation</a>.
 -spec deletePage(This, NPage) -> boolean() when
 	This::wxNotebook(), NPage::integer().
 deletePage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
@@ -211,7 +211,7 @@ deletePage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   wxe_util:call(?wxNotebook_DeletePage,
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookremovepage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookremovepage">external documentation</a>.
 -spec removePage(This, NPage) -> boolean() when
 	This::wxNotebook(), NPage::integer().
 removePage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
@@ -220,7 +220,7 @@ removePage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   wxe_util:call(?wxNotebook_RemovePage,
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetcurrentpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetcurrentpage">external documentation</a>.
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
 	This::wxNotebook().
 getCurrentPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -228,7 +228,7 @@ getCurrentPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetCurrentPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetimagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetimagelist">external documentation</a>.
 -spec getImageList(This) -> wxImageList:wxImageList() when
 	This::wxNotebook().
 getImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -236,7 +236,7 @@ getImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetImageList,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetpage">external documentation</a>.
 -spec getPage(This, N) -> wxWindow:wxWindow() when
 	This::wxNotebook(), N::integer().
 getPage(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -245,7 +245,7 @@ getPage(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxNotebook_GetPage,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetpagecount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetpagecount">external documentation</a>.
 -spec getPageCount(This) -> integer() when
 	This::wxNotebook().
 getPageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -253,7 +253,7 @@ getPageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetPageCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetpageimage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetpageimage">external documentation</a>.
 -spec getPageImage(This, NPage) -> integer() when
 	This::wxNotebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
@@ -262,7 +262,7 @@ getPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   wxe_util:call(?wxNotebook_GetPageImage,
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetpagetext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetpagetext">external documentation</a>.
 -spec getPageText(This, NPage) -> unicode:charlist() when
 	This::wxNotebook(), NPage::integer().
 getPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage)
@@ -271,7 +271,7 @@ getPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   wxe_util:call(?wxNotebook_GetPageText,
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetrowcount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetrowcount">external documentation</a>.
 -spec getRowCount(This) -> integer() when
 	This::wxNotebook().
 getRowCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -279,7 +279,7 @@ getRowCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetRowCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetselection">external documentation</a>.
 -spec getSelection(This) -> integer() when
 	This::wxNotebook().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -287,7 +287,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetthemebackgroundcolour">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetthemebackgroundcolour">external documentation</a>.
 -spec getThemeBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxNotebook().
 getThemeBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -295,7 +295,7 @@ getThemeBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetThemeBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookhittest">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookhittest">external documentation</a>.
 -spec hitTest(This, Pt) -> Result when
 	Result ::{Res ::integer(), Flags::integer()},
 	This::wxNotebook(), Pt::{X::integer(), Y::integer()}.
@@ -313,7 +313,7 @@ insertPage(This,Position,Win,StrText)
  when is_record(This, wx_ref),is_integer(Position),is_record(Win, wx_ref),is_list(StrText) ->
   insertPage(This,Position,Win,StrText, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookinsertpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookinsertpage">external documentation</a>.
 -spec insertPage(This, Position, Win, StrText, [Option]) -> boolean() when
 	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::unicode:chardata(),
 	Option :: {bSelect, boolean()}
@@ -330,7 +330,7 @@ insertPage(#wx_ref{type=ThisT,ref=ThisRef},Position,#wx_ref{type=WinT,ref=WinRef
   wxe_util:call(?wxNotebook_InsertPage,
   <<ThisRef:32/?UI,Position:32/?UI,WinRef:32/?UI,(byte_size(StrText_UC)):32/?UI,(StrText_UC)/binary, 0:(((8- ((0+byte_size(StrText_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetimagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetimagelist">external documentation</a>.
 -spec setImageList(This, ImageList) -> ok when
 	This::wxNotebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
@@ -339,7 +339,7 @@ setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageLi
   wxe_util:cast(?wxNotebook_SetImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpadding">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpadding">external documentation</a>.
 -spec setPadding(This, Padding) -> ok when
 	This::wxNotebook(), Padding::{W::integer(), H::integer()}.
 setPadding(#wx_ref{type=ThisT,ref=ThisRef},{PaddingW,PaddingH})
@@ -348,7 +348,7 @@ setPadding(#wx_ref{type=ThisT,ref=ThisRef},{PaddingW,PaddingH})
   wxe_util:cast(?wxNotebook_SetPadding,
   <<ThisRef:32/?UI,PaddingW:32/?UI,PaddingH:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpagesize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpagesize">external documentation</a>.
 -spec setPageSize(This, Size) -> ok when
 	This::wxNotebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
@@ -357,7 +357,7 @@ setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   wxe_util:cast(?wxNotebook_SetPageSize,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpageimage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpageimage">external documentation</a>.
 -spec setPageImage(This, NPage, NImage) -> boolean() when
 	This::wxNotebook(), NPage::integer(), NImage::integer().
 setPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage,NImage)
@@ -366,7 +366,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage,NImage)
   wxe_util:call(?wxNotebook_SetPageImage,
   <<ThisRef:32/?UI,NPage:32/?UI,NImage:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpagetext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpagetext">external documentation</a>.
 -spec setPageText(This, NPage, StrText) -> boolean() when
 	This::wxNotebook(), NPage::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage,StrText)
@@ -376,7 +376,7 @@ setPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage,StrText)
   wxe_util:call(?wxNotebook_SetPageText,
   <<ThisRef:32/?UI,NPage:32/?UI,(byte_size(StrText_UC)):32/?UI,(StrText_UC)/binary, 0:(((8- ((4+byte_size(StrText_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetselection">external documentation</a>.
 -spec setSelection(This, NPage) -> integer() when
 	This::wxNotebook(), NPage::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},NPage)
@@ -385,7 +385,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   wxe_util:call(?wxNotebook_SetSelection,
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookchangeselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookchangeselection">external documentation</a>.
 -spec changeSelection(This, NPage) -> integer() when
 	This::wxNotebook(), NPage::integer().
 changeSelection(#wx_ref{type=ThisT,ref=ThisRef},NPage)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmirrordc.html">wxMirrorDC</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmirrordc.html">wxMirrorDC</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDC}
 %% </p>
@@ -58,7 +58,7 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMirrorDC() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmirrordc.html#wxmirrordcwxmirrordc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmirrordc.html#wxmirrordcwxmirrordc">external documentation</a>.
 -spec new(Dc, Mirror) -> wxMirrorDC() when
 	Dc::wxDC:wxDC(), Mirror::boolean().
 new(#wx_ref{type=DcT,ref=DcRef},Mirror)

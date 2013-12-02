@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontextmenuevent.html">wxContextMenuEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html">wxContextMenuEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>context_menu</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxContextMenu(). #wxContextMenu{}} event record type.
@@ -47,7 +47,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxContextMenuEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontextmenuevent.html#wxcontextmenueventgetposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxContextMenuEvent().
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -55,7 +55,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxContextMenuEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontextmenuevent.html#wxcontextmenueventsetposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventsetposition">external documentation</a>.
 -spec setPosition(This, Pos) -> ok when
 	This::wxContextMenuEvent(), Pos::{X::integer(), Y::integer()}.
 setPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})

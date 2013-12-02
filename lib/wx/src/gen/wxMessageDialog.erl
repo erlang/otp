@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmessagedialog.html">wxMessageDialog</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmessagedialog.html">wxMessageDialog</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDialog}
 %% <br />{@link wxTopLevelWindow}
@@ -94,7 +94,7 @@ new(Parent,Message)
  when is_record(Parent, wx_ref),is_list(Message) ->
   new(Parent,Message, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmessagedialog.html#wxmessagedialogwxmessagedialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmessagedialog.html#wxmessagedialogwxmessagedialog">external documentation</a>.
 -spec new(Parent, Message, [Option]) -> wxMessageDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
 	Option :: {caption, unicode:chardata()}

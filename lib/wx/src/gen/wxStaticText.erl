@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html">wxStaticText</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html">wxStaticText</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -77,7 +77,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxStaticText() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
 -spec new() -> wxStaticText().
 new() ->
   wxe_util:construct(?wxStaticText_new_0,
@@ -91,7 +91,7 @@ new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
   new(Parent,Id,Label, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxStaticText() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -117,7 +117,7 @@ create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
   create(This,Parent,Id,Label, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -136,7 +136,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,La
   wxe_util:call(?wxStaticText_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextgetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextgetlabel">external documentation</a>.
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxStaticText().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -144,7 +144,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStaticText_GetLabel,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextsetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
 	This::wxStaticText(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
@@ -154,7 +154,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
   wxe_util:cast(?wxStaticText_SetLabel,
   <<ThisRef:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextwrap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwrap">external documentation</a>.
 -spec wrap(This, Width) -> ok when
 	This::wxStaticText(), Width::integer().
 wrap(#wx_ref{type=ThisT,ref=ThisRef},Width)

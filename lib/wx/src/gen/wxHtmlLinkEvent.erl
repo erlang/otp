@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmllinkevent.html">wxHtmlLinkEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmllinkevent.html">wxHtmlLinkEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_html_link_clicked</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxHtmlLink(). #wxHtmlLink{}} event record type.
@@ -47,7 +47,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxHtmlLinkEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmllinkevent.html#wxhtmllinkeventgetlinkinfo">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmllinkevent.html#wxhtmllinkeventgetlinkinfo">external documentation</a>.
 -spec getLinkInfo(This) -> wx:wx_wxHtmlLinkInfo() when
 	This::wxHtmlLinkEvent().
 getLinkInfo(#wx_ref{type=ThisT,ref=ThisRef}) ->

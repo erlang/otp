@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html">wxStatusBar</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html">wxStatusBar</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -78,7 +78,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxStatusBar() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
 -spec new() -> wxStatusBar().
 new() ->
   wxe_util:construct(?wxStatusBar_new_0,
@@ -92,7 +92,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
 -spec new(Parent, [Option]) -> wxStatusBar() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {winid, integer()}
@@ -115,7 +115,7 @@ create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   create(This,Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxStatusBar(), Parent::wxWindow:wxWindow(),
 	Option :: {winid, integer()}
@@ -131,7 +131,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxStatusBar_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbargetfieldrect">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetfieldrect">external documentation</a>.
 -spec getFieldRect(This, I) -> Result when
 	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
 	This::wxStatusBar(), I::integer().
@@ -141,7 +141,7 @@ getFieldRect(#wx_ref{type=ThisT,ref=ThisRef},I)
   wxe_util:call(?wxStatusBar_GetFieldRect,
   <<ThisRef:32/?UI,I:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbargetfieldscount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetfieldscount">external documentation</a>.
 -spec getFieldsCount(This) -> integer() when
 	This::wxStatusBar().
 getFieldsCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -157,7 +157,7 @@ getStatusText(This)
  when is_record(This, wx_ref) ->
   getStatusText(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbargetstatustext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetstatustext">external documentation</a>.
 -spec getStatusText(This, [Option]) -> unicode:charlist() when
 	This::wxStatusBar(),
 	Option :: {number, integer()}.
@@ -178,7 +178,7 @@ popStatusText(This)
  when is_record(This, wx_ref) ->
   popStatusText(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarpopstatustext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpopstatustext">external documentation</a>.
 -spec popStatusText(This, [Option]) -> ok when
 	This::wxStatusBar(),
 	Option :: {number, integer()}.
@@ -199,7 +199,7 @@ pushStatusText(This,Text)
  when is_record(This, wx_ref),is_list(Text) ->
   pushStatusText(This,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarpushstatustext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpushstatustext">external documentation</a>.
 -spec pushStatusText(This, Text, [Option]) -> ok when
 	This::wxStatusBar(), Text::unicode:chardata(),
 	Option :: {number, integer()}.
@@ -221,7 +221,7 @@ setFieldsCount(This,Number)
  when is_record(This, wx_ref),is_integer(Number) ->
   setFieldsCount(This,Number, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarsetfieldscount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetfieldscount">external documentation</a>.
 -spec setFieldsCount(This, Number, [Option]) -> ok when
 	This::wxStatusBar(), Number::integer(),
 	Option :: {widths, [integer()]}.
@@ -235,7 +235,7 @@ setFieldsCount(#wx_ref{type=ThisT,ref=ThisRef},Number, Options)
   wxe_util:cast(?wxStatusBar_SetFieldsCount,
   <<ThisRef:32/?UI,Number:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarsetminheight">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetminheight">external documentation</a>.
 -spec setMinHeight(This, Height) -> ok when
 	This::wxStatusBar(), Height::integer().
 setMinHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
@@ -252,7 +252,7 @@ setStatusText(This,Text)
  when is_record(This, wx_ref),is_list(Text) ->
   setStatusText(This,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarsetstatustext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatustext">external documentation</a>.
 -spec setStatusText(This, Text, [Option]) -> ok when
 	This::wxStatusBar(), Text::unicode:chardata(),
 	Option :: {number, integer()}.
@@ -266,7 +266,7 @@ setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
   wxe_util:cast(?wxStatusBar_SetStatusText,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarsetstatuswidths">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatuswidths">external documentation</a>.
 -spec setStatusWidths(This, Widths_field) -> ok when
 	This::wxStatusBar(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
@@ -276,7 +276,7 @@ setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
   <<ThisRef:32/?UI,(length(Widths_field)):32/?UI,
         (<< <<C:32/?I>> || C <- Widths_field>>)/binary, 0:(((0+length(Widths_field)) rem 2)*32)>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbarsetstatusstyles">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatusstyles">external documentation</a>.
 -spec setStatusStyles(This, Styles) -> ok when
 	This::wxStatusBar(), Styles::[integer()].
 setStatusStyles(#wx_ref{type=ThisT,ref=ThisRef},Styles)

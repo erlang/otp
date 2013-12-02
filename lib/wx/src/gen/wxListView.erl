@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html">wxListView</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html">wxListView</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -78,7 +78,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxListView() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewclearcolumnimage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewclearcolumnimage">external documentation</a>.
 -spec clearColumnImage(This, Col) -> ok when
 	This::wxListView(), Col::integer().
 clearColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col)
@@ -87,7 +87,7 @@ clearColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col)
   wxe_util:cast(?wxListView_ClearColumnImage,
   <<ThisRef:32/?UI,Col:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewfocus">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewfocus">external documentation</a>.
 -spec focus(This, Index) -> ok when
 	This::wxListView(), Index::integer().
 focus(#wx_ref{type=ThisT,ref=ThisRef},Index)
@@ -96,7 +96,7 @@ focus(#wx_ref{type=ThisT,ref=ThisRef},Index)
   wxe_util:cast(?wxListView_Focus,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewgetfirstselected">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewgetfirstselected">external documentation</a>.
 -spec getFirstSelected(This) -> integer() when
 	This::wxListView().
 getFirstSelected(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -104,7 +104,7 @@ getFirstSelected(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxListView_GetFirstSelected,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewgetfocuseditem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewgetfocuseditem">external documentation</a>.
 -spec getFocusedItem(This) -> integer() when
 	This::wxListView().
 getFocusedItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -112,7 +112,7 @@ getFocusedItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxListView_GetFocusedItem,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewgetnextselected">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewgetnextselected">external documentation</a>.
 -spec getNextSelected(This, Item) -> integer() when
 	This::wxListView(), Item::integer().
 getNextSelected(#wx_ref{type=ThisT,ref=ThisRef},Item)
@@ -121,7 +121,7 @@ getNextSelected(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxListView_GetNextSelected,
   <<ThisRef:32/?UI,Item:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewisselected">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewisselected">external documentation</a>.
 -spec isSelected(This, Index) -> boolean() when
 	This::wxListView(), Index::integer().
 isSelected(#wx_ref{type=ThisT,ref=ThisRef},Index)
@@ -138,7 +138,7 @@ select(This,N)
  when is_record(This, wx_ref),is_integer(N) ->
   select(This,N, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewselect">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewselect">external documentation</a>.
 -spec select(This, N, [Option]) -> ok when
 	This::wxListView(), N::integer(),
 	Option :: {on, boolean()}.
@@ -151,7 +151,7 @@ select(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
   wxe_util:cast(?wxListView_Select,
   <<ThisRef:32/?UI,N:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewsetcolumnimage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewsetcolumnimage">external documentation</a>.
 -spec setColumnImage(This, Col, Image) -> ok when
 	This::wxListView(), Col::integer(), Image::integer().
 setColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col,Image)

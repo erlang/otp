@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html">wxMDIChildFrame</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html">wxMDIChildFrame</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxFrame}
 %% <br />{@link wxTopLevelWindow}
@@ -89,7 +89,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMDIChildFrame() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
 -spec new() -> wxMDIChildFrame().
 new() ->
   wxe_util:construct(?wxMDIChildFrame_new_0,
@@ -103,7 +103,7 @@ new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxMDIChildFrame() when
 	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -121,7 +121,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
   wxe_util:construct(?wxMDIChildFrame_new_4,
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframeactivate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframeactivate">external documentation</a>.
 -spec activate(This) -> ok when
 	This::wxMDIChildFrame().
 activate(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -137,7 +137,7 @@ create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframecreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -164,7 +164,7 @@ maximize(This)
  when is_record(This, wx_ref) ->
   maximize(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframemaximize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframemaximize">external documentation</a>.
 -spec maximize(This, [Option]) -> ok when
 	This::wxMDIChildFrame(),
 	Option :: {maximize, boolean()}.
@@ -177,7 +177,7 @@ maximize(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxMDIChildFrame_Maximize,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframerestore">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframerestore">external documentation</a>.
 -spec restore(This) -> ok when
 	This::wxMDIChildFrame().
 restore(#wx_ref{type=ThisT,ref=ThisRef}) ->

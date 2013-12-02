@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html">wxMiniFrame</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html">wxMiniFrame</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxFrame}
 %% <br />{@link wxTopLevelWindow}
@@ -89,7 +89,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMiniFrame() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
 -spec new() -> wxMiniFrame().
 new() ->
   wxe_util:construct(?wxMiniFrame_new_0,
@@ -103,7 +103,7 @@ new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxMiniFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -129,7 +129,7 @@ create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html#wxminiframecreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html#wxminiframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}

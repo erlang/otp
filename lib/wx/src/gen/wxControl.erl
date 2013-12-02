@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html">wxControl</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrol.html">wxControl</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -75,7 +75,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxControl() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html#wxcontrolgetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrol.html#wxcontrolgetlabel">external documentation</a>.
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxControl().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -83,7 +83,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxControl_GetLabel,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html#wxcontrolsetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrol.html#wxcontrolsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
 	This::wxControl(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)

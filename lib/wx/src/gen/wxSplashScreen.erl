@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html">wxSplashScreen</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html">wxSplashScreen</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxFrame}
 %% <br />{@link wxTopLevelWindow}
@@ -89,7 +89,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSplashScreen() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
 -spec new() -> wxSplashScreen().
 new() ->
   wxe_util:construct(?wxSplashScreen_new_0,
@@ -103,7 +103,7 @@ new(Bitmap,SplashStyle,Milliseconds,Parent,Id)
  when is_record(Bitmap, wx_ref),is_integer(SplashStyle),is_integer(Milliseconds),is_record(Parent, wx_ref),is_integer(Id) ->
   new(Bitmap,SplashStyle,Milliseconds,Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
 -spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id, [Option]) -> wxSplashScreen() when
 	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -121,7 +121,7 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef},SplashStyle,Milliseconds,#wx_ref{type=Pa
   wxe_util:construct(?wxSplashScreen_new_6,
   <<BitmapRef:32/?UI,SplashStyle:32/?UI,Milliseconds:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreengetsplashstyle">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreengetsplashstyle">external documentation</a>.
 -spec getSplashStyle(This) -> integer() when
 	This::wxSplashScreen().
 getSplashStyle(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -129,7 +129,7 @@ getSplashStyle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSplashScreen_GetSplashStyle,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreengettimeout">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreengettimeout">external documentation</a>.
 -spec getTimeout(This) -> integer() when
 	This::wxSplashScreen().
 getTimeout(#wx_ref{type=ThisT,ref=ThisRef}) ->

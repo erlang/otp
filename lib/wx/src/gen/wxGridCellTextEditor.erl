@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcelltexteditor.html">wxGridCellTextEditor</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcelltexteditor.html">wxGridCellTextEditor</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridCellEditor}
 %% </p>
@@ -39,13 +39,13 @@ parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxGridCellTextEditor() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcelltexteditor.html#wxgridcelltexteditorwxgridcelltexteditor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcelltexteditor.html#wxgridcelltexteditorwxgridcelltexteditor">external documentation</a>.
 -spec new() -> wxGridCellTextEditor().
 new() ->
   wxe_util:construct(?wxGridCellTextEditor_new,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcelltexteditor.html#wxgridcelltexteditorsetparameters">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcelltexteditor.html#wxgridcelltexteditorsetparameters">external documentation</a>.
 -spec setParameters(This, Params) -> ok when
 	This::wxGridCellTextEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)

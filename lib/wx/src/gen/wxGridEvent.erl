@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html">wxGridEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html">wxGridEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>grid_cell_left_click</em>, <em>grid_cell_right_click</em>, <em>grid_cell_left_dclick</em>, <em>grid_cell_right_dclick</em>, <em>grid_label_left_click</em>, <em>grid_label_right_click</em>, <em>grid_label_left_dclick</em>, <em>grid_label_right_dclick</em>, <em>grid_row_size</em>, <em>grid_col_size</em>, <em>grid_range_select</em>, <em>grid_cell_change</em>, <em>grid_select_cell</em>, <em>grid_editor_shown</em>, <em>grid_editor_hidden</em>, <em>grid_editor_created</em>, <em>grid_cell_begin_drag</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxGrid(). #wxGrid{}} event record type.
@@ -50,7 +50,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxGridEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventaltdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventaltdown">external documentation</a>.
 -spec altDown(This) -> boolean() when
 	This::wxGridEvent().
 altDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -58,7 +58,7 @@ altDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_AltDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventcontroldown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventcontroldown">external documentation</a>.
 -spec controlDown(This) -> boolean() when
 	This::wxGridEvent().
 controlDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -66,7 +66,7 @@ controlDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_ControlDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventgetcol">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventgetcol">external documentation</a>.
 -spec getCol(This) -> integer() when
 	This::wxGridEvent().
 getCol(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -74,7 +74,7 @@ getCol(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_GetCol,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventgetposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxGridEvent().
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -82,7 +82,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventgetrow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventgetrow">external documentation</a>.
 -spec getRow(This) -> integer() when
 	This::wxGridEvent().
 getRow(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -90,7 +90,7 @@ getRow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_GetRow,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventmetadown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventmetadown">external documentation</a>.
 -spec metaDown(This) -> boolean() when
 	This::wxGridEvent().
 metaDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -98,7 +98,7 @@ metaDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_MetaDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventselecting">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventselecting">external documentation</a>.
 -spec selecting(This) -> boolean() when
 	This::wxGridEvent().
 selecting(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -106,7 +106,7 @@ selecting(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridEvent_Selecting,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridevent.html#wxgrideventshiftdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventshiftdown">external documentation</a>.
 -spec shiftDown(This) -> boolean() when
 	This::wxGridEvent().
 shiftDown(#wx_ref{type=ThisT,ref=ThisRef}) ->

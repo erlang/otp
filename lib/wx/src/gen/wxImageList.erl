@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html">wxImageList</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html">wxImageList</a>.
 %% @type wxImageList().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -36,7 +36,7 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxImageList() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
 -spec new() -> wxImageList().
 new() ->
   wxe_util:construct(?wxImageList_new_0,
@@ -50,7 +50,7 @@ new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
   new(Width,Height, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
 -spec new(Width, Height, [Option]) -> wxImageList() when
 	Width::integer(), Height::integer(),
 	Option :: {mask, boolean()}
@@ -64,7 +64,7 @@ new(Width,Height, Options)
   wxe_util:construct(?wxImageList_new_3,
   <<Width:32/?UI,Height:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistadd">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistadd">external documentation</a>.
 -spec add(This, Bitmap) -> integer() when
 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap().
 add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
@@ -73,7 +73,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   wxe_util:call(?wxImageList_Add_1,
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistadd">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistadd">external documentation</a>.
 %% <br /> Also:<br />
 %% add(This, Bitmap, MaskColour) -> integer() when<br />
 %% 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().<br />
@@ -103,7 +103,7 @@ create(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
   create(This,Width,Height, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistcreate">external documentation</a>.
 -spec create(This, Width, Height, [Option]) -> boolean() when
 	This::wxImageList(), Width::integer(), Height::integer(),
 	Option :: {mask, boolean()}
@@ -126,7 +126,7 @@ draw(This,Index,Dc,X,Y)
  when is_record(This, wx_ref),is_integer(Index),is_record(Dc, wx_ref),is_integer(X),is_integer(Y) ->
   draw(This,Index,Dc,X,Y, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistdraw">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistdraw">external documentation</a>.
 -spec draw(This, Index, Dc, X, Y, [Option]) -> boolean() when
 	This::wxImageList(), Index::integer(), Dc::wxDC:wxDC(), X::integer(), Y::integer(),
 	Option :: {flags, integer()}
@@ -142,7 +142,7 @@ draw(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=DcT,ref=DcRef},X,Y, Opti
   wxe_util:call(?wxImageList_Draw,
   <<ThisRef:32/?UI,Index:32/?UI,DcRef:32/?UI,X:32/?UI,Y:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistgetbitmap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgetbitmap">external documentation</a>.
 -spec getBitmap(This, Index) -> wxBitmap:wxBitmap() when
 	This::wxImageList(), Index::integer().
 getBitmap(#wx_ref{type=ThisT,ref=ThisRef},Index)
@@ -151,7 +151,7 @@ getBitmap(#wx_ref{type=ThisT,ref=ThisRef},Index)
   wxe_util:call(?wxImageList_GetBitmap,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistgeticon">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgeticon">external documentation</a>.
 -spec getIcon(This, Index) -> wxIcon:wxIcon() when
 	This::wxImageList(), Index::integer().
 getIcon(#wx_ref{type=ThisT,ref=ThisRef},Index)
@@ -160,7 +160,7 @@ getIcon(#wx_ref{type=ThisT,ref=ThisRef},Index)
   wxe_util:call(?wxImageList_GetIcon,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistgetimagecount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgetimagecount">external documentation</a>.
 -spec getImageCount(This) -> integer() when
 	This::wxImageList().
 getImageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -168,7 +168,7 @@ getImageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxImageList_GetImageCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistgetsize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgetsize">external documentation</a>.
 -spec getSize(This, Index) -> Result when
 	Result ::{Res ::boolean(), Width::integer(), Height::integer()},
 	This::wxImageList(), Index::integer().
@@ -178,7 +178,7 @@ getSize(#wx_ref{type=ThisT,ref=ThisRef},Index)
   wxe_util:call(?wxImageList_GetSize,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistremove">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistremove">external documentation</a>.
 -spec remove(This, Index) -> boolean() when
 	This::wxImageList(), Index::integer().
 remove(#wx_ref{type=ThisT,ref=ThisRef},Index)
@@ -187,7 +187,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},Index)
   wxe_util:call(?wxImageList_Remove,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistremoveall">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistremoveall">external documentation</a>.
 -spec removeAll(This) -> boolean() when
 	This::wxImageList().
 removeAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -195,7 +195,7 @@ removeAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxImageList_RemoveAll,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistreplace">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistreplace">external documentation</a>.
 -spec replace(This, Index, Bitmap) -> boolean() when
 	This::wxImageList(), Index::integer(), Bitmap::wxBitmap:wxBitmap().
 replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=BitmapT,ref=BitmapRef})
@@ -205,7 +205,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=BitmapT,ref=BitmapRef
   wxe_util:call(?wxImageList_Replace_2,
   <<ThisRef:32/?UI,Index:32/?UI,BitmapRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistreplace">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistreplace">external documentation</a>.
 -spec replace(This, Index, Bitmap, Mask) -> boolean() when
 	This::wxImageList(), Index::integer(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap().
 replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=BitmapT,ref=BitmapRef},#wx_ref{type=MaskT,ref=MaskRef})

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxshowevent.html">wxShowEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html">wxShowEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>show</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxShow(). #wxShow{}} event record type.
@@ -43,7 +43,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxShowEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxshowevent.html#wxshoweventsetshow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html#wxshoweventsetshow">external documentation</a>.
 -spec setShow(This, Show) -> ok when
 	This::wxShowEvent(), Show::boolean().
 setShow(#wx_ref{type=ThisT,ref=ThisRef},Show)
@@ -52,7 +52,7 @@ setShow(#wx_ref{type=ThisT,ref=ThisRef},Show)
   wxe_util:cast(?wxShowEvent_SetShow,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Show)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxshowevent.html#wxshoweventgetshow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html#wxshoweventgetshow">external documentation</a>.
 -spec getShow(This) -> boolean() when
 	This::wxShowEvent().
 getShow(#wx_ref{type=ThisT,ref=ThisRef}) ->

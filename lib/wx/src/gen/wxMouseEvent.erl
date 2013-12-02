@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html">wxMouseEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html">wxMouseEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>left_down</em>, <em>left_up</em>, <em>middle_down</em>, <em>middle_up</em>, <em>right_down</em>, <em>right_up</em>, <em>motion</em>, <em>enter_window</em>, <em>leave_window</em>, <em>left_dclick</em>, <em>middle_dclick</em>, <em>right_dclick</em>, <em>mousewheel</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxMouse(). #wxMouse{}} event record type.
@@ -49,7 +49,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMouseEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventaltdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaltdown">external documentation</a>.
 -spec altDown(This) -> boolean() when
 	This::wxMouseEvent().
 altDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -57,7 +57,7 @@ altDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_AltDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventbutton">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbutton">external documentation</a>.
 -spec button(This, But) -> boolean() when
 	This::wxMouseEvent(), But::integer().
 button(#wx_ref{type=ThisT,ref=ThisRef},But)
@@ -74,7 +74,7 @@ buttonDClick(This)
  when is_record(This, wx_ref) ->
   buttonDClick(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventbuttondclick">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbuttondclick">external documentation</a>.
 -spec buttonDClick(This, [Option]) -> boolean() when
 	This::wxMouseEvent(),
 	Option :: {but, integer()}.
@@ -95,7 +95,7 @@ buttonDown(This)
  when is_record(This, wx_ref) ->
   buttonDown(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventbuttondown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbuttondown">external documentation</a>.
 -spec buttonDown(This, [Option]) -> boolean() when
 	This::wxMouseEvent(),
 	Option :: {but, integer()}.
@@ -116,7 +116,7 @@ buttonUp(This)
  when is_record(This, wx_ref) ->
   buttonUp(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventbuttonup">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbuttonup">external documentation</a>.
 -spec buttonUp(This, [Option]) -> boolean() when
 	This::wxMouseEvent(),
 	Option :: {but, integer()}.
@@ -129,7 +129,7 @@ buttonUp(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxMouseEvent_ButtonUp,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventcmddown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventcmddown">external documentation</a>.
 -spec cmdDown(This) -> boolean() when
 	This::wxMouseEvent().
 cmdDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -137,7 +137,7 @@ cmdDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_CmdDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventcontroldown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventcontroldown">external documentation</a>.
 -spec controlDown(This) -> boolean() when
 	This::wxMouseEvent().
 controlDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -145,7 +145,7 @@ controlDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_ControlDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventdragging">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventdragging">external documentation</a>.
 -spec dragging(This) -> boolean() when
 	This::wxMouseEvent().
 dragging(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -153,7 +153,7 @@ dragging(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_Dragging,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseevententering">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseevententering">external documentation</a>.
 -spec entering(This) -> boolean() when
 	This::wxMouseEvent().
 entering(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -161,7 +161,7 @@ entering(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_Entering,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetbutton">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetbutton">external documentation</a>.
 -spec getButton(This) -> integer() when
 	This::wxMouseEvent().
 getButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -169,7 +169,7 @@ getButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetButton,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxMouseEvent().
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -177,7 +177,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetlogicalposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetlogicalposition">external documentation</a>.
 -spec getLogicalPosition(This, Dc) -> {X::integer(), Y::integer()} when
 	This::wxMouseEvent(), Dc::wxDC:wxDC().
 getLogicalPosition(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}) ->
@@ -186,7 +186,7 @@ getLogicalPosition(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}) 
   wxe_util:call(?wxMouseEvent_GetLogicalPosition,
   <<ThisRef:32/?UI,DcRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetlinesperaction">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetlinesperaction">external documentation</a>.
 -spec getLinesPerAction(This) -> integer() when
 	This::wxMouseEvent().
 getLinesPerAction(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -194,7 +194,7 @@ getLinesPerAction(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetLinesPerAction,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetwheelrotation">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetwheelrotation">external documentation</a>.
 -spec getWheelRotation(This) -> integer() when
 	This::wxMouseEvent().
 getWheelRotation(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -202,7 +202,7 @@ getWheelRotation(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetWheelRotation,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetwheeldelta">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetwheeldelta">external documentation</a>.
 -spec getWheelDelta(This) -> integer() when
 	This::wxMouseEvent().
 getWheelDelta(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -210,7 +210,7 @@ getWheelDelta(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetWheelDelta,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgetx">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetx">external documentation</a>.
 -spec getX(This) -> integer() when
 	This::wxMouseEvent().
 getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -218,7 +218,7 @@ getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetX,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventgety">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgety">external documentation</a>.
 -spec getY(This) -> integer() when
 	This::wxMouseEvent().
 getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -226,7 +226,7 @@ getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_GetY,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventisbutton">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventisbutton">external documentation</a>.
 -spec isButton(This) -> boolean() when
 	This::wxMouseEvent().
 isButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -234,7 +234,7 @@ isButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_IsButton,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventispagescroll">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventispagescroll">external documentation</a>.
 -spec isPageScroll(This) -> boolean() when
 	This::wxMouseEvent().
 isPageScroll(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -242,7 +242,7 @@ isPageScroll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_IsPageScroll,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventleaving">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventleaving">external documentation</a>.
 -spec leaving(This) -> boolean() when
 	This::wxMouseEvent().
 leaving(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -250,7 +250,7 @@ leaving(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_Leaving,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventleftdclick">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventleftdclick">external documentation</a>.
 -spec leftDClick(This) -> boolean() when
 	This::wxMouseEvent().
 leftDClick(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -258,7 +258,7 @@ leftDClick(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_LeftDClick,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventleftdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventleftdown">external documentation</a>.
 -spec leftDown(This) -> boolean() when
 	This::wxMouseEvent().
 leftDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -266,7 +266,7 @@ leftDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_LeftDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventleftisdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventleftisdown">external documentation</a>.
 -spec leftIsDown(This) -> boolean() when
 	This::wxMouseEvent().
 leftIsDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -274,7 +274,7 @@ leftIsDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_LeftIsDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventleftup">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventleftup">external documentation</a>.
 -spec leftUp(This) -> boolean() when
 	This::wxMouseEvent().
 leftUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -282,7 +282,7 @@ leftUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_LeftUp,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventmetadown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventmetadown">external documentation</a>.
 -spec metaDown(This) -> boolean() when
 	This::wxMouseEvent().
 metaDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -290,7 +290,7 @@ metaDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_MetaDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventmiddledclick">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventmiddledclick">external documentation</a>.
 -spec middleDClick(This) -> boolean() when
 	This::wxMouseEvent().
 middleDClick(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -298,7 +298,7 @@ middleDClick(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_MiddleDClick,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventmiddledown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventmiddledown">external documentation</a>.
 -spec middleDown(This) -> boolean() when
 	This::wxMouseEvent().
 middleDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -306,7 +306,7 @@ middleDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_MiddleDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventmiddleisdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventmiddleisdown">external documentation</a>.
 -spec middleIsDown(This) -> boolean() when
 	This::wxMouseEvent().
 middleIsDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -314,7 +314,7 @@ middleIsDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_MiddleIsDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventmiddleup">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventmiddleup">external documentation</a>.
 -spec middleUp(This) -> boolean() when
 	This::wxMouseEvent().
 middleUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -322,7 +322,7 @@ middleUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_MiddleUp,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventmoving">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventmoving">external documentation</a>.
 -spec moving(This) -> boolean() when
 	This::wxMouseEvent().
 moving(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -330,7 +330,7 @@ moving(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_Moving,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventrightdclick">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventrightdclick">external documentation</a>.
 -spec rightDClick(This) -> boolean() when
 	This::wxMouseEvent().
 rightDClick(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -338,7 +338,7 @@ rightDClick(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_RightDClick,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventrightdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventrightdown">external documentation</a>.
 -spec rightDown(This) -> boolean() when
 	This::wxMouseEvent().
 rightDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -346,7 +346,7 @@ rightDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_RightDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventrightisdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventrightisdown">external documentation</a>.
 -spec rightIsDown(This) -> boolean() when
 	This::wxMouseEvent().
 rightIsDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -354,7 +354,7 @@ rightIsDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_RightIsDown,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventrightup">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventrightup">external documentation</a>.
 -spec rightUp(This) -> boolean() when
 	This::wxMouseEvent().
 rightUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -362,7 +362,7 @@ rightUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseEvent_RightUp,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html#wxmouseeventshiftdown">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventshiftdown">external documentation</a>.
 -spec shiftDown(This) -> boolean() when
 	This::wxMouseEvent().
 shiftDown(#wx_ref{type=ThisT,ref=ThisRef}) ->

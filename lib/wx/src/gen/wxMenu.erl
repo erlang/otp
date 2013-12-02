@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html">wxMenu</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html">wxMenu</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvtHandler}
 %% </p>
@@ -52,7 +52,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
 -spec new([Option]) -> wxMenu() when
 	Option :: {style, integer()}.
 new(Options)
@@ -63,7 +63,7 @@ new(Options)
   wxe_util:construct(?wxMenu_new_1,
   <<BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
 -spec new(Title, [Option]) -> wxMenu() when
 	Title::unicode:chardata(),
 	Option :: {style, integer()}.
@@ -76,7 +76,7 @@ new(Title, Options)
   wxe_util:construct(?wxMenu_new_2,
   <<(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappend">external documentation</a>.
 -spec append(This, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().
 append(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
@@ -93,7 +93,7 @@ append(This,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text) ->
   append(This,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappend">external documentation</a>.
 %% <br /> Also:<br />
 %% append(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),<br />
@@ -122,7 +122,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
   wxe_util:call(?wxMenu_Append_3,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappend">external documentation</a>.
 %% <br /> Also:<br />
 %% append(This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
@@ -159,7 +159,7 @@ appendCheckItem(This,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text) ->
   appendCheckItem(This,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappendcheckitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendcheckitem">external documentation</a>.
 -spec appendCheckItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
 	Option :: {help, unicode:chardata()}.
@@ -181,7 +181,7 @@ appendRadioItem(This,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text) ->
   appendRadioItem(This,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappendradioitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendradioitem">external documentation</a>.
 -spec appendRadioItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
 	Option :: {help, unicode:chardata()}.
@@ -195,7 +195,7 @@ appendRadioItem(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
   wxe_util:call(?wxMenu_AppendRadioItem,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappendseparator">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendseparator">external documentation</a>.
 -spec appendSeparator(This) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu().
 appendSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -203,7 +203,7 @@ appendSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenu_AppendSeparator,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenubreak">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenubreak">external documentation</a>.
 -spec break(This) -> ok when
 	This::wxMenu().
 break(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -211,7 +211,7 @@ break(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxMenu_Break,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenucheck">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenucheck">external documentation</a>.
 -spec check(This, Itemid, Check) -> ok when
 	This::wxMenu(), Itemid::integer(), Check::boolean().
 check(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Check)
@@ -220,7 +220,7 @@ check(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Check)
   wxe_util:cast(?wxMenu_Check,
   <<ThisRef:32/?UI,Itemid:32/?UI,(wxe_util:from_bool(Check)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenudelete">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenudelete">external documentation</a>.
 %% <br /> Also:<br />
 %% delete(This, Item) -> boolean() when<br />
 %% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
@@ -240,7 +240,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   wxe_util:call(?wxMenu_Delete_1_1,
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenudestroy">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenudestroy">external documentation</a>.
 %% <br /> Also:<br />
 %% 'Destroy'(This, Item) -> boolean() when<br />
 %% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
@@ -260,7 +260,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   wxe_util:call(?wxMenu_Destroy_1_1,
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuenable">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuenable">external documentation</a>.
 -spec enable(This, Itemid, Enable) -> ok when
 	This::wxMenu(), Itemid::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
@@ -269,7 +269,7 @@ enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
   wxe_util:cast(?wxMenu_Enable,
   <<ThisRef:32/?UI,Itemid:32/?UI,(wxe_util:from_bool(Enable)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenufinditem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenufinditem">external documentation</a>.
 %% <br /> Also:<br />
 %% findItem(This, Item) -> integer() when<br />
 %% 	This::wxMenu(), Item::unicode:chardata().<br />
@@ -290,7 +290,7 @@ findItem(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxMenu_FindItem_1,
   <<ThisRef:32/?UI,(byte_size(Item_UC)):32/?UI,(Item_UC)/binary, 0:(((8- ((0+byte_size(Item_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenufinditembyposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenufinditembyposition">external documentation</a>.
 -spec findItemByPosition(This, Position) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Position::integer().
 findItemByPosition(#wx_ref{type=ThisT,ref=ThisRef},Position)
@@ -299,7 +299,7 @@ findItemByPosition(#wx_ref{type=ThisT,ref=ThisRef},Position)
   wxe_util:call(?wxMenu_FindItemByPosition,
   <<ThisRef:32/?UI,Position:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenugethelpstring">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugethelpstring">external documentation</a>.
 -spec getHelpString(This, Itemid) -> unicode:charlist() when
 	This::wxMenu(), Itemid::integer().
 getHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -308,7 +308,7 @@ getHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenu_GetHelpString,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenugetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugetlabel">external documentation</a>.
 -spec getLabel(This, Itemid) -> unicode:charlist() when
 	This::wxMenu(), Itemid::integer().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -317,7 +317,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenu_GetLabel,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenugetmenuitemcount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugetmenuitemcount">external documentation</a>.
 -spec getMenuItemCount(This) -> integer() when
 	This::wxMenu().
 getMenuItemCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -325,7 +325,7 @@ getMenuItemCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenu_GetMenuItemCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenugetmenuitems">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugetmenuitems">external documentation</a>.
 -spec getMenuItems(This) -> [wxMenuItem:wxMenuItem()] when
 	This::wxMenu().
 getMenuItems(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -333,7 +333,7 @@ getMenuItems(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenu_GetMenuItems,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenugettitle">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugettitle">external documentation</a>.
 -spec getTitle(This) -> unicode:charlist() when
 	This::wxMenu().
 getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -341,7 +341,7 @@ getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenu_GetTitle,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
 %% <br /> Also:<br />
 %% insert(This, Pos, Item) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Pos::integer(), Item::wxMenuItem:wxMenuItem().<br />
@@ -362,7 +362,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=ItemT,ref=ItemRef})
   wxe_util:call(?wxMenu_Insert_2,
   <<ThisRef:32/?UI,Pos:32/?UI,ItemRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec insert(This, Pos, Itemid, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(),
@@ -388,7 +388,7 @@ insert(This,Pos,Itemid,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Itemid),is_list(Text),is_record(Submenu, wx_ref) ->
   insert(This,Pos,Itemid,Text,Submenu, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
 %% <br /> Also:<br />
 %% insert(This, Pos, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
@@ -425,7 +425,7 @@ insertCheckItem(This,Pos,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Itemid),is_list(Text) ->
   insertCheckItem(This,Pos,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsertcheckitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertcheckitem">external documentation</a>.
 -spec insertCheckItem(This, Pos, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(),
 	Option :: {help, unicode:chardata()}.
@@ -447,7 +447,7 @@ insertRadioItem(This,Pos,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Itemid),is_list(Text) ->
   insertRadioItem(This,Pos,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsertradioitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertradioitem">external documentation</a>.
 -spec insertRadioItem(This, Pos, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(),
 	Option :: {help, unicode:chardata()}.
@@ -461,7 +461,7 @@ insertRadioItem(#wx_ref{type=ThisT,ref=ThisRef},Pos,Itemid,Text, Options)
   wxe_util:call(?wxMenu_InsertRadioItem,
   <<ThisRef:32/?UI,Pos:32/?UI,Itemid:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsertseparator">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertseparator">external documentation</a>.
 -spec insertSeparator(This, Pos) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer().
 insertSeparator(#wx_ref{type=ThisT,ref=ThisRef},Pos)
@@ -470,7 +470,7 @@ insertSeparator(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:call(?wxMenu_InsertSeparator,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuischecked">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuischecked">external documentation</a>.
 -spec isChecked(This, Itemid) -> boolean() when
 	This::wxMenu(), Itemid::integer().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -479,7 +479,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenu_IsChecked,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuisenabled">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuisenabled">external documentation</a>.
 -spec isEnabled(This, Itemid) -> boolean() when
 	This::wxMenu(), Itemid::integer().
 isEnabled(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -488,7 +488,7 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenu_IsEnabled,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
 %% <br /> Also:<br />
 %% prepend(This, Item) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
@@ -508,7 +508,7 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   wxe_util:call(?wxMenu_Prepend_1,
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec prepend(This, Itemid, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(),
@@ -534,7 +534,7 @@ prepend(This,Itemid,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text),is_record(Submenu, wx_ref) ->
   prepend(This,Itemid,Text,Submenu, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
 %% <br /> Also:<br />
 %% prepend(This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
@@ -571,7 +571,7 @@ prependCheckItem(This,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text) ->
   prependCheckItem(This,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprependcheckitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependcheckitem">external documentation</a>.
 -spec prependCheckItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
 	Option :: {help, unicode:chardata()}.
@@ -593,7 +593,7 @@ prependRadioItem(This,Itemid,Text)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text) ->
   prependRadioItem(This,Itemid,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprependradioitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependradioitem">external documentation</a>.
 -spec prependRadioItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
 	Option :: {help, unicode:chardata()}.
@@ -607,7 +607,7 @@ prependRadioItem(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
   wxe_util:call(?wxMenu_PrependRadioItem,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprependseparator">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependseparator">external documentation</a>.
 -spec prependSeparator(This) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu().
 prependSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -615,7 +615,7 @@ prependSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenu_PrependSeparator,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuremove">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuremove">external documentation</a>.
 %% <br /> Also:<br />
 %% remove(This, Item) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
@@ -635,7 +635,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   wxe_util:call(?wxMenu_Remove_1_1,
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenusethelpstring">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusethelpstring">external documentation</a>.
 -spec setHelpString(This, Itemid, HelpString) -> ok when
 	This::wxMenu(), Itemid::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
@@ -645,7 +645,7 @@ setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
   wxe_util:cast(?wxMenu_SetHelpString,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(HelpString_UC)):32/?UI,(HelpString_UC)/binary, 0:(((8- ((4+byte_size(HelpString_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenusetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusetlabel">external documentation</a>.
 -spec setLabel(This, Itemid, Label) -> ok when
 	This::wxMenu(), Itemid::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
@@ -655,7 +655,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
   wxe_util:cast(?wxMenu_SetLabel,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((4+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenusettitle">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusettitle">external documentation</a>.
 -spec setTitle(This, Title) -> ok when
 	This::wxMenu(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
