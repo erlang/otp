@@ -1869,14 +1869,19 @@ subscribe_extended(Config) when is_list(Config) ->
 	    {attributes, record_info(fields, tab)}],
     ?match({atomic, ok}, mnesia:create_table(Tab2, Def2)),
 
+    Tab3 = ctab,
+    Def3 = [{Storage, [N1, N2]}],
+    ?match({atomic, ok}, mnesia:create_table(Tab3, Def3)),
+
     ?match({ok, N1}, mnesia:subscribe({table, Tab1, detailed})),
     ?match({ok, N1}, mnesia:subscribe({table, Tab2, detailed})),
+    ?match({ok, N1}, mnesia:subscribe({table, Tab3, detailed})),
 
     ?match({error, {already_exists, _}}, mnesia:subscribe({table, Tab1, simple})),
     ?match({error, {badarg, {table, Tab1, bad}}}, mnesia:subscribe({table, Tab1, bad})),
 
     ?match({ok, N1}, mnesia:subscribe(activity)),
-    test_ext_sub(Tab1, Tab2),
+    test_ext_sub(Tab1, Tab2, Tab3),
     
     ?match({ok, N1}, mnesia:unsubscribe(activity)),
     ?match({ok, N1}, mnesia:subscribe({table, Tab1, detailed})),
@@ -1895,11 +1900,11 @@ subscribe_extended(Config) when is_list(Config) ->
 					     {max, [Tab1, Tab2]}]),
     ?match({ok, N1}, mnesia:subscribe({table, Tab2, detailed})),
     ?match({ok, N1}, mnesia:subscribe(activity)),
-    test_ext_sub(Tab1, Tab2),
+    test_ext_sub(Tab1, Tab2, Tab3),
 
     ?verify_mnesia(Nodes, []).
 
-test_ext_sub(Tab1, Tab2) ->    
+test_ext_sub(Tab1, Tab2, Tab3) ->
     %% The basics 
     Rec1 = {Tab1, 1, 0, 0},
     Rec2 = {Tab1, 1, 1, 0},
@@ -1940,7 +1945,6 @@ test_ext_sub(Tab1, Tab2) ->
     ?match({atomic, ok}, Delete(Tab1, 1)),
     ?match({mnesia_table_event, {delete, Tab1, {Tab1, 1}, [], {tid,_,S}}}, recv_event()),
     ?match({mnesia_activity_event, {complete, {tid,_,S}}}, recv_event()),
-    
     ?match({ok, _N1}, mnesia:unsubscribe({table, Tab1, detailed})),
 
     %% BAG 
@@ -1969,6 +1973,17 @@ test_ext_sub(Tab1, Tab2) ->
     ?match({atomic, ok}, Delete(Tab2, 2)),
     ?match({mnesia_table_event, {delete, Tab2, {Tab2, 2}, [Rec4, Rec3], {tid,_,S}}}, recv_event()),
     ?match({mnesia_activity_event, {complete, {tid,_,S}}}, recv_event()),
+
+    %% COUNTERS
+
+    Rec5 = {Tab3, counter, 0},
+    ?match(ok, mnesia:dirty_write(Rec5)),
+    ?match({mnesia_table_event, {write, Tab3, Rec5, [], D}}, recv_event()),
+    ?match(1, mnesia:dirty_update_counter({Tab3, counter}, 1)),
+    ?match({mnesia_table_event, {write, Tab3, {Tab3,counter,1}, [Rec5], D}}, recv_event()),
+    ?match(ok, mnesia:dirty_delete({Tab3, counter})),
+    ?match({mnesia_table_event, {delete, Tab3, {Tab3,counter},
+				 [{Tab3,counter,1}], D}}, recv_event()),
     ok.
 
 
@@ -1987,7 +2002,7 @@ subscribe_standard(Config) when is_list(Config)->
     %% Check system events
     ?match({error, {badarg, foo}}, mnesia:unsubscribe(foo)),
     ?match({error, badarg}, mnesia:unsubscribe({table, foo})),
-    ?match(_, mnesia:unsubscribe(activity)),
+    mnesia:unsubscribe(activity),
 
     ?match({ok, N1}, mnesia:subscribe(system)),
     ?match({ok, N1}, mnesia:subscribe(activity)),
