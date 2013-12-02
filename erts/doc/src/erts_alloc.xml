@@ -332,8 +332,11 @@
 	Set super carrier size (in MB). The super carrier size defaults to
 	zero; i.e, the super carrier is by default disabled. The super
 	carrier is a large continuous area in the virtual address space.
-	The system will always try to create new carriers in the super
-	carrier.
+	<c>mseg_alloc</c> will always try to create new carriers in the super
+	carrier if it exists. Note that the <c>alloc_util</c> framework may
+	create <c>sys_alloc</c> carriers. For more information on this, see the
+	documentation of the <seealso marker="#MMsco"><c>+MMsco</c></seealso>
+	flag.
 	<br/><br/>
 	<em>NOTE</em>: The super carrier cannot be enabled nor
 	disabled on halfword heap systems. This flag will be

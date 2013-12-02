@@ -5400,7 +5400,11 @@ ok
 	       As of erts version 5.6.1 the return value is a list
 	       of <c>{instance, InstanceNo, InstanceInfo}</c> tuples
 	       where <c>InstanceInfo</c> contains information about
-	       a specific instance of the allocator.
+	       a specific instance of the allocator. As of erts version
+	       5.10.4 the returned list when calling
+	       <c>erlang:system_info({allocator, mseg_alloc})</c> also
+	       include an <c>{erts_mmap, _}</c> tuple as one element
+	       in the list.
 	       If <c><anno>Alloc</anno></c> is not a recognized allocator,
               <c>undefined</c> is returned. If <c><anno>Alloc</anno></c> is disabled,
               <c>false</c> is returned.</p>
