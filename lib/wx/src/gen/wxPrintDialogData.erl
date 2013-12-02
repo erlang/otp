@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html">wxPrintDialogData</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html">wxPrintDialogData</a>.
 %% @type wxPrintDialogData().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -38,13 +38,13 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxPrintDialogData() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatawxprintdialogdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatawxprintdialogdata">external documentation</a>.
 -spec new() -> wxPrintDialogData().
 new() ->
   wxe_util:construct(?wxPrintDialogData_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatawxprintdialogdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatawxprintdialogdata">external documentation</a>.
 -spec new(DialogData) -> wxPrintDialogData() when
 	DialogData::wxPrintDialogData() | wxPrintData:wxPrintData().
 new(#wx_ref{type=DialogDataT,ref=DialogDataRef}) ->
@@ -57,7 +57,7 @@ new(#wx_ref{type=DialogDataT,ref=DialogDataRef}) ->
   wxe_util:construct(DialogDataOP,
   <<DialogDataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdataenablehelp">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdataenablehelp">external documentation</a>.
 -spec enableHelp(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 enableHelp(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -66,7 +66,7 @@ enableHelp(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_EnableHelp,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdataenablepagenumbers">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdataenablepagenumbers">external documentation</a>.
 -spec enablePageNumbers(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 enablePageNumbers(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -75,7 +75,7 @@ enablePageNumbers(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_EnablePageNumbers,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdataenableprinttofile">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdataenableprinttofile">external documentation</a>.
 -spec enablePrintToFile(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 enablePrintToFile(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -84,7 +84,7 @@ enablePrintToFile(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_EnablePrintToFile,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdataenableselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdataenableselection">external documentation</a>.
 -spec enableSelection(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 enableSelection(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -93,7 +93,7 @@ enableSelection(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_EnableSelection,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetallpages">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetallpages">external documentation</a>.
 -spec getAllPages(This) -> boolean() when
 	This::wxPrintDialogData().
 getAllPages(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -101,7 +101,7 @@ getAllPages(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetAllPages,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetcollate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetcollate">external documentation</a>.
 -spec getCollate(This) -> boolean() when
 	This::wxPrintDialogData().
 getCollate(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -109,7 +109,7 @@ getCollate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetCollate,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetfrompage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetfrompage">external documentation</a>.
 -spec getFromPage(This) -> integer() when
 	This::wxPrintDialogData().
 getFromPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -117,7 +117,7 @@ getFromPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetFromPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetmaxpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetmaxpage">external documentation</a>.
 -spec getMaxPage(This) -> integer() when
 	This::wxPrintDialogData().
 getMaxPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -125,7 +125,7 @@ getMaxPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetMaxPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetminpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetminpage">external documentation</a>.
 -spec getMinPage(This) -> integer() when
 	This::wxPrintDialogData().
 getMinPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -133,7 +133,7 @@ getMinPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetMinPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetnocopies">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetnocopies">external documentation</a>.
 -spec getNoCopies(This) -> integer() when
 	This::wxPrintDialogData().
 getNoCopies(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -141,7 +141,7 @@ getNoCopies(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetNoCopies,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetprintdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetprintdata">external documentation</a>.
 -spec getPrintData(This) -> wxPrintData:wxPrintData() when
 	This::wxPrintDialogData().
 getPrintData(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -149,7 +149,7 @@ getPrintData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetPrintData,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetprinttofile">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetprinttofile">external documentation</a>.
 -spec getPrintToFile(This) -> boolean() when
 	This::wxPrintDialogData().
 getPrintToFile(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -157,7 +157,7 @@ getPrintToFile(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetPrintToFile,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagetselection">external documentation</a>.
 -spec getSelection(This) -> boolean() when
 	This::wxPrintDialogData().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -165,7 +165,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatagettopage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatagettopage">external documentation</a>.
 -spec getToPage(This) -> integer() when
 	This::wxPrintDialogData().
 getToPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -173,7 +173,7 @@ getToPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_GetToPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdataisok">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdataisok">external documentation</a>.
 -spec isOk(This) -> boolean() when
 	This::wxPrintDialogData().
 isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -181,7 +181,7 @@ isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialogData_IsOk,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetcollate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetcollate">external documentation</a>.
 -spec setCollate(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 setCollate(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -190,7 +190,7 @@ setCollate(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_SetCollate,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetfrompage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetfrompage">external documentation</a>.
 -spec setFromPage(This, V) -> ok when
 	This::wxPrintDialogData(), V::integer().
 setFromPage(#wx_ref{type=ThisT,ref=ThisRef},V)
@@ -199,7 +199,7 @@ setFromPage(#wx_ref{type=ThisT,ref=ThisRef},V)
   wxe_util:cast(?wxPrintDialogData_SetFromPage,
   <<ThisRef:32/?UI,V:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetmaxpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetmaxpage">external documentation</a>.
 -spec setMaxPage(This, V) -> ok when
 	This::wxPrintDialogData(), V::integer().
 setMaxPage(#wx_ref{type=ThisT,ref=ThisRef},V)
@@ -208,7 +208,7 @@ setMaxPage(#wx_ref{type=ThisT,ref=ThisRef},V)
   wxe_util:cast(?wxPrintDialogData_SetMaxPage,
   <<ThisRef:32/?UI,V:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetminpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetminpage">external documentation</a>.
 -spec setMinPage(This, V) -> ok when
 	This::wxPrintDialogData(), V::integer().
 setMinPage(#wx_ref{type=ThisT,ref=ThisRef},V)
@@ -217,7 +217,7 @@ setMinPage(#wx_ref{type=ThisT,ref=ThisRef},V)
   wxe_util:cast(?wxPrintDialogData_SetMinPage,
   <<ThisRef:32/?UI,V:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetnocopies">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetnocopies">external documentation</a>.
 -spec setNoCopies(This, V) -> ok when
 	This::wxPrintDialogData(), V::integer().
 setNoCopies(#wx_ref{type=ThisT,ref=ThisRef},V)
@@ -226,7 +226,7 @@ setNoCopies(#wx_ref{type=ThisT,ref=ThisRef},V)
   wxe_util:cast(?wxPrintDialogData_SetNoCopies,
   <<ThisRef:32/?UI,V:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetprintdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetprintdata">external documentation</a>.
 -spec setPrintData(This, PrintData) -> ok when
 	This::wxPrintDialogData(), PrintData::wxPrintData:wxPrintData().
 setPrintData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PrintDataT,ref=PrintDataRef}) ->
@@ -235,7 +235,7 @@ setPrintData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PrintDataT,ref=PrintDa
   wxe_util:cast(?wxPrintDialogData_SetPrintData,
   <<ThisRef:32/?UI,PrintDataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetprinttofile">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetprinttofile">external documentation</a>.
 -spec setPrintToFile(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 setPrintToFile(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -244,7 +244,7 @@ setPrintToFile(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_SetPrintToFile,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasetselection">external documentation</a>.
 -spec setSelection(This, Flag) -> ok when
 	This::wxPrintDialogData(), Flag::boolean().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},Flag)
@@ -253,7 +253,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPrintDialogData_SetSelection,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialogdata.html#wxprintdialogdatasettopage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialogdata.html#wxprintdialogdatasettopage">external documentation</a>.
 -spec setToPage(This, V) -> ok when
 	This::wxPrintDialogData(), V::integer().
 setToPage(#wx_ref{type=ThisT,ref=ThisRef},V)

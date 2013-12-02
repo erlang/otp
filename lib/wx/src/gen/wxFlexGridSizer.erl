@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html">wxFlexGridSizer</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html">wxFlexGridSizer</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridSizer}
 %% <br />{@link wxSizer}
@@ -60,7 +60,7 @@ new(Cols)
  when is_integer(Cols) ->
   new(Cols, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizerwxflexgridsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizerwxflexgridsizer">external documentation</a>.
 -spec new(Cols, [Option]) -> wxFlexGridSizer() when
 	Cols::integer(),
 	Option :: {vgap, integer()}
@@ -74,7 +74,7 @@ new(Cols, Options)
   wxe_util:construct(?wxFlexGridSizer_new_2,
   <<Cols:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizerwxflexgridsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizerwxflexgridsizer">external documentation</a>.
 -spec new(Rows, Cols, Vgap, Hgap) -> wxFlexGridSizer() when
 	Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
 new(Rows,Cols,Vgap,Hgap)
@@ -90,7 +90,7 @@ addGrowableCol(This,Idx)
  when is_record(This, wx_ref),is_integer(Idx) ->
   addGrowableCol(This,Idx, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizeraddgrowablecol">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizeraddgrowablecol">external documentation</a>.
 -spec addGrowableCol(This, Idx, [Option]) -> ok when
 	This::wxFlexGridSizer(), Idx::integer(),
 	Option :: {proportion, integer()}.
@@ -111,7 +111,7 @@ addGrowableRow(This,Idx)
  when is_record(This, wx_ref),is_integer(Idx) ->
   addGrowableRow(This,Idx, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizeraddgrowablerow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizeraddgrowablerow">external documentation</a>.
 -spec addGrowableRow(This, Idx, [Option]) -> ok when
 	This::wxFlexGridSizer(), Idx::integer(),
 	Option :: {proportion, integer()}.
@@ -124,7 +124,7 @@ addGrowableRow(#wx_ref{type=ThisT,ref=ThisRef},Idx, Options)
   wxe_util:cast(?wxFlexGridSizer_AddGrowableRow,
   <<ThisRef:32/?UI,Idx:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizergetflexibledirection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizergetflexibledirection">external documentation</a>.
 -spec getFlexibleDirection(This) -> integer() when
 	This::wxFlexGridSizer().
 getFlexibleDirection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -132,7 +132,7 @@ getFlexibleDirection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFlexGridSizer_GetFlexibleDirection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizergetnonflexiblegrowmode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizergetnonflexiblegrowmode">external documentation</a>.
 %%<br /> Res = ?wxFLEX_GROWMODE_NONE | ?wxFLEX_GROWMODE_SPECIFIED | ?wxFLEX_GROWMODE_ALL
 -spec getNonFlexibleGrowMode(This) -> wx:wx_enum() when
 	This::wxFlexGridSizer().
@@ -141,7 +141,7 @@ getNonFlexibleGrowMode(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFlexGridSizer_GetNonFlexibleGrowMode,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizerremovegrowablecol">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizerremovegrowablecol">external documentation</a>.
 -spec removeGrowableCol(This, Idx) -> ok when
 	This::wxFlexGridSizer(), Idx::integer().
 removeGrowableCol(#wx_ref{type=ThisT,ref=ThisRef},Idx)
@@ -150,7 +150,7 @@ removeGrowableCol(#wx_ref{type=ThisT,ref=ThisRef},Idx)
   wxe_util:cast(?wxFlexGridSizer_RemoveGrowableCol,
   <<ThisRef:32/?UI,Idx:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizerremovegrowablerow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizerremovegrowablerow">external documentation</a>.
 -spec removeGrowableRow(This, Idx) -> ok when
 	This::wxFlexGridSizer(), Idx::integer().
 removeGrowableRow(#wx_ref{type=ThisT,ref=ThisRef},Idx)
@@ -159,7 +159,7 @@ removeGrowableRow(#wx_ref{type=ThisT,ref=ThisRef},Idx)
   wxe_util:cast(?wxFlexGridSizer_RemoveGrowableRow,
   <<ThisRef:32/?UI,Idx:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizersetflexibledirection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizersetflexibledirection">external documentation</a>.
 -spec setFlexibleDirection(This, Direction) -> ok when
 	This::wxFlexGridSizer(), Direction::integer().
 setFlexibleDirection(#wx_ref{type=ThisT,ref=ThisRef},Direction)
@@ -168,7 +168,7 @@ setFlexibleDirection(#wx_ref{type=ThisT,ref=ThisRef},Direction)
   wxe_util:cast(?wxFlexGridSizer_SetFlexibleDirection,
   <<ThisRef:32/?UI,Direction:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html#wxflexgridsizersetnonflexiblegrowmode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html#wxflexgridsizersetnonflexiblegrowmode">external documentation</a>.
 %%<br /> Mode = ?wxFLEX_GROWMODE_NONE | ?wxFLEX_GROWMODE_SPECIFIED | ?wxFLEX_GROWMODE_ALL
 -spec setNonFlexibleGrowMode(This, Mode) -> ok when
 	This::wxFlexGridSizer(), Mode::wx:wx_enum().

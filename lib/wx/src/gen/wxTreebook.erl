@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html">wxTreebook</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html">wxTreebook</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -83,7 +83,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxTreebook() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
 -spec new() -> wxTreebook().
 new() ->
   wxe_util:construct(?wxTreebook_new_0,
@@ -97,7 +97,7 @@ new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxTreebook() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -122,7 +122,7 @@ addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
   addPage(This,Page,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookaddpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
@@ -147,7 +147,7 @@ advanceSelection(This)
  when is_record(This, wx_ref) ->
   advanceSelection(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookadvanceselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookadvanceselection">external documentation</a>.
 -spec advanceSelection(This, [Option]) -> ok when
 	This::wxTreebook(),
 	Option :: {forward, boolean()}.
@@ -160,7 +160,7 @@ advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxTreebook_AdvanceSelection,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookassignimagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookassignimagelist">external documentation</a>.
 -spec assignImageList(This, ImageList) -> ok when
 	This::wxTreebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
@@ -177,7 +177,7 @@ create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxTreebook(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -195,7 +195,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxTreebook_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookdeleteallpages">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookdeleteallpages">external documentation</a>.
 -spec deleteAllPages(This) -> boolean() when
 	This::wxTreebook().
 deleteAllPages(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -203,7 +203,7 @@ deleteAllPages(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreebook_DeleteAllPages,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookdeletepage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookdeletepage">external documentation</a>.
 -spec deletePage(This, Pos) -> boolean() when
 	This::wxTreebook(), Pos::integer().
 deletePage(#wx_ref{type=ThisT,ref=ThisRef},Pos)
@@ -212,7 +212,7 @@ deletePage(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:call(?wxTreebook_DeletePage,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookremovepage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookremovepage">external documentation</a>.
 -spec removePage(This, N) -> boolean() when
 	This::wxTreebook(), N::integer().
 removePage(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -221,7 +221,7 @@ removePage(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxTreebook_RemovePage,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetcurrentpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetcurrentpage">external documentation</a>.
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
 	This::wxTreebook().
 getCurrentPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -229,7 +229,7 @@ getCurrentPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreebook_GetCurrentPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetimagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetimagelist">external documentation</a>.
 -spec getImageList(This) -> wxImageList:wxImageList() when
 	This::wxTreebook().
 getImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -237,7 +237,7 @@ getImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreebook_GetImageList,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpage">external documentation</a>.
 -spec getPage(This, N) -> wxWindow:wxWindow() when
 	This::wxTreebook(), N::integer().
 getPage(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -246,7 +246,7 @@ getPage(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxTreebook_GetPage,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetpagecount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpagecount">external documentation</a>.
 -spec getPageCount(This) -> integer() when
 	This::wxTreebook().
 getPageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -254,7 +254,7 @@ getPageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreebook_GetPageCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetpageimage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpageimage">external documentation</a>.
 -spec getPageImage(This, N) -> integer() when
 	This::wxTreebook(), N::integer().
 getPageImage(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -263,7 +263,7 @@ getPageImage(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxTreebook_GetPageImage,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetpagetext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpagetext">external documentation</a>.
 -spec getPageText(This, N) -> unicode:charlist() when
 	This::wxTreebook(), N::integer().
 getPageText(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -272,7 +272,7 @@ getPageText(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxTreebook_GetPageText,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookgetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetselection">external documentation</a>.
 -spec getSelection(This) -> integer() when
 	This::wxTreebook().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -288,7 +288,7 @@ expandNode(This,Pos)
  when is_record(This, wx_ref),is_integer(Pos) ->
   expandNode(This,Pos, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookexpandnode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookexpandnode">external documentation</a>.
 -spec expandNode(This, Pos, [Option]) -> boolean() when
 	This::wxTreebook(), Pos::integer(),
 	Option :: {expand, boolean()}.
@@ -301,7 +301,7 @@ expandNode(#wx_ref{type=ThisT,ref=ThisRef},Pos, Options)
   wxe_util:call(?wxTreebook_ExpandNode,
   <<ThisRef:32/?UI,Pos:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookisnodeexpanded">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookisnodeexpanded">external documentation</a>.
 -spec isNodeExpanded(This, Pos) -> boolean() when
 	This::wxTreebook(), Pos::integer().
 isNodeExpanded(#wx_ref{type=ThisT,ref=ThisRef},Pos)
@@ -310,7 +310,7 @@ isNodeExpanded(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:call(?wxTreebook_IsNodeExpanded,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookhittest">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookhittest">external documentation</a>.
 -spec hitTest(This, Pt) -> Result when
 	Result ::{Res ::integer(), Flags::integer()},
 	This::wxTreebook(), Pt::{X::integer(), Y::integer()}.
@@ -328,7 +328,7 @@ insertPage(This,Pos,Page,Text)
  when is_record(This, wx_ref),is_integer(Pos),is_record(Page, wx_ref),is_list(Text) ->
   insertPage(This,Pos,Page,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookinsertpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertpage">external documentation</a>.
 -spec insertPage(This, Pos, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Pos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
@@ -353,7 +353,7 @@ insertSubPage(This,Pos,Page,Text)
  when is_record(This, wx_ref),is_integer(Pos),is_record(Page, wx_ref),is_list(Text) ->
   insertSubPage(This,Pos,Page,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookinsertsubpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertsubpage">external documentation</a>.
 -spec insertSubPage(This, Pos, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Pos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
@@ -370,7 +370,7 @@ insertSubPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef
   wxe_util:call(?wxTreebook_InsertSubPage,
   <<ThisRef:32/?UI,Pos:32/?UI,PageRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebooksetimagelist">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetimagelist">external documentation</a>.
 -spec setImageList(This, ImageList) -> ok when
 	This::wxTreebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
@@ -379,7 +379,7 @@ setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageLi
   wxe_util:cast(?wxTreebook_SetImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebooksetpagesize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpagesize">external documentation</a>.
 -spec setPageSize(This, Size) -> ok when
 	This::wxTreebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
@@ -388,7 +388,7 @@ setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   wxe_util:cast(?wxTreebook_SetPageSize,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebooksetpageimage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpageimage">external documentation</a>.
 -spec setPageImage(This, N, ImageId) -> boolean() when
 	This::wxTreebook(), N::integer(), ImageId::integer().
 setPageImage(#wx_ref{type=ThisT,ref=ThisRef},N,ImageId)
@@ -397,7 +397,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},N,ImageId)
   wxe_util:call(?wxTreebook_SetPageImage,
   <<ThisRef:32/?UI,N:32/?UI,ImageId:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebooksetpagetext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpagetext">external documentation</a>.
 -spec setPageText(This, N, StrText) -> boolean() when
 	This::wxTreebook(), N::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},N,StrText)
@@ -407,7 +407,7 @@ setPageText(#wx_ref{type=ThisT,ref=ThisRef},N,StrText)
   wxe_util:call(?wxTreebook_SetPageText,
   <<ThisRef:32/?UI,N:32/?UI,(byte_size(StrText_UC)):32/?UI,(StrText_UC)/binary, 0:(((8- ((4+byte_size(StrText_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebooksetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetselection">external documentation</a>.
 -spec setSelection(This, N) -> integer() when
 	This::wxTreebook(), N::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -416,7 +416,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxTreebook_SetSelection,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreebook.html#wxtreebookchangeselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookchangeselection">external documentation</a>.
 -spec changeSelection(This, N) -> integer() when
 	This::wxTreebook(), N::integer().
 changeSelection(#wx_ref{type=ThisT,ref=ThisRef},N)

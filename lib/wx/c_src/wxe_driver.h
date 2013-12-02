@@ -67,6 +67,7 @@ void push_command(int op,char * buf,int len, wxe_data *);
 void meta_command(int what, wxe_data *sd);
 
 void * wxe_ps_init();
+void * wxe_ps_init2();
 
 extern ErlDrvPort WXE_DRV_PORT_HANDLE;
 extern ErlDrvTermData WXE_DRV_PORT;

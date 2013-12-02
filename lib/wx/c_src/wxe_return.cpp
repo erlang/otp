@@ -66,9 +66,7 @@ int wxeReturn::send() {
 
 #ifdef DEBUG
     if(res == -1) {
-      wxString msg;
-      msg.Printf(wxT("Failed to send return or event msg"));
-      send_msg("internal_error", &msg);
+      fprintf(stderr, "Failed to send return or event msg\r\n");
     }
 #endif
 

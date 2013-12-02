@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html">wxPreviewControlBar</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html">wxPreviewControlBar</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxPanel}
 %% <br />{@link wxWindow}
@@ -86,7 +86,7 @@ new(Preview,Buttons,Parent)
  when is_record(Preview, wx_ref),is_integer(Buttons),is_record(Parent, wx_ref) ->
   new(Preview,Buttons,Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarwxpreviewcontrolbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarwxpreviewcontrolbar">external documentation</a>.
 -spec new(Preview, Buttons, Parent, [Option]) -> wxPreviewControlBar() when
 	Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -104,7 +104,7 @@ new(#wx_ref{type=PreviewT,ref=PreviewRef},Buttons,#wx_ref{type=ParentT,ref=Paren
   wxe_util:construct(?wxPreviewControlBar_new,
   <<PreviewRef:32/?UI,Buttons:32/?UI,ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarcreatebuttons">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarcreatebuttons">external documentation</a>.
 -spec createButtons(This) -> ok when
 	This::wxPreviewControlBar().
 createButtons(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -112,7 +112,7 @@ createButtons(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxPreviewControlBar_CreateButtons,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbargetprintpreview">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbargetprintpreview">external documentation</a>.
 -spec getPrintPreview(This) -> wxPrintPreview:wxPrintPreview() when
 	This::wxPreviewControlBar().
 getPrintPreview(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -120,7 +120,7 @@ getPrintPreview(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPreviewControlBar_GetPrintPreview,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbargetzoomcontrol">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbargetzoomcontrol">external documentation</a>.
 -spec getZoomControl(This) -> integer() when
 	This::wxPreviewControlBar().
 getZoomControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -128,7 +128,7 @@ getZoomControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPreviewControlBar_GetZoomControl,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarsetzoomcontrol">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarsetzoomcontrol">external documentation</a>.
 -spec setZoomControl(This, Zoom) -> ok when
 	This::wxPreviewControlBar(), Zoom::integer().
 setZoomControl(#wx_ref{type=ThisT,ref=ThisRef},Zoom)

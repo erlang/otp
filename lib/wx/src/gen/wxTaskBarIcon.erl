@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtaskbaricon.html">wxTaskBarIcon</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html">wxTaskBarIcon</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvtHandler}
 %% </p>
@@ -38,13 +38,13 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxTaskBarIcon() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
 -spec new() -> wxTaskBarIcon().
 new() ->
   wxe_util:construct(?wxTaskBarIcon_new,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtaskbaricon.html#wxtaskbariconpopupmenu">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconpopupmenu">external documentation</a>.
 -spec popupMenu(This, Menu) -> boolean() when
 	This::wxTaskBarIcon(), Menu::wxMenu:wxMenu().
 popupMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
@@ -53,7 +53,7 @@ popupMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
   wxe_util:call(?wxTaskBarIcon_PopupMenu,
   <<ThisRef:32/?UI,MenuRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtaskbaricon.html#wxtaskbariconremoveicon">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconremoveicon">external documentation</a>.
 -spec removeIcon(This) -> boolean() when
 	This::wxTaskBarIcon().
 removeIcon(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -69,7 +69,7 @@ setIcon(This,Icon)
  when is_record(This, wx_ref),is_record(Icon, wx_ref) ->
   setIcon(This,Icon, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtaskbaricon.html#wxtaskbariconseticon">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconseticon">external documentation</a>.
 -spec setIcon(This, Icon, [Option]) -> boolean() when
 	This::wxTaskBarIcon(), Icon::wxIcon:wxIcon(),
 	Option :: {tooltip, unicode:chardata()}.

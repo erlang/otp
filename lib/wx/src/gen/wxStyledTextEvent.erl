@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html">wxStyledTextEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html">wxStyledTextEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>stc_change</em>, <em>stc_styleneeded</em>, <em>stc_charadded</em>, <em>stc_savepointreached</em>, <em>stc_savepointleft</em>, <em>stc_romodifyattempt</em>, <em>stc_key</em>, <em>stc_doubleclick</em>, <em>stc_updateui</em>, <em>stc_modified</em>, <em>stc_macrorecord</em>, <em>stc_marginclick</em>, <em>stc_needshown</em>, <em>stc_painted</em>, <em>stc_userlistselection</em>, <em>stc_uridropped</em>, <em>stc_dwellstart</em>, <em>stc_dwellend</em>, <em>stc_start_drag</em>, <em>stc_drag_over</em>, <em>stc_do_drop</em>, <em>stc_zoom</em>, <em>stc_hotspot_click</em>, <em>stc_hotspot_dclick</em>, <em>stc_calltip_click</em>, <em>stc_autocomp_selection</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxStyledText(). #wxStyledText{}} event record type.
@@ -51,7 +51,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxStyledTextEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetposition">external documentation</a>.
 -spec getPosition(This) -> integer() when
 	This::wxStyledTextEvent().
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -59,7 +59,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetkey">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetkey">external documentation</a>.
 -spec getKey(This) -> integer() when
 	This::wxStyledTextEvent().
 getKey(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -67,7 +67,7 @@ getKey(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetKey,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetmodifiers">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetmodifiers">external documentation</a>.
 -spec getModifiers(This) -> integer() when
 	This::wxStyledTextEvent().
 getModifiers(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -75,7 +75,7 @@ getModifiers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetModifiers,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetmodificationtype">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetmodificationtype">external documentation</a>.
 -spec getModificationType(This) -> integer() when
 	This::wxStyledTextEvent().
 getModificationType(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -83,7 +83,7 @@ getModificationType(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetModificationType,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgettext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgettext">external documentation</a>.
 -spec getText(This) -> unicode:charlist() when
 	This::wxStyledTextEvent().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -91,7 +91,7 @@ getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetText,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetlength">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetlength">external documentation</a>.
 -spec getLength(This) -> integer() when
 	This::wxStyledTextEvent().
 getLength(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -99,7 +99,7 @@ getLength(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetLength,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetlinesadded">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetlinesadded">external documentation</a>.
 -spec getLinesAdded(This) -> integer() when
 	This::wxStyledTextEvent().
 getLinesAdded(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -107,7 +107,7 @@ getLinesAdded(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetLinesAdded,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetline">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetline">external documentation</a>.
 -spec getLine(This) -> integer() when
 	This::wxStyledTextEvent().
 getLine(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -115,7 +115,7 @@ getLine(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetLine,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetfoldlevelnow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetfoldlevelnow">external documentation</a>.
 -spec getFoldLevelNow(This) -> integer() when
 	This::wxStyledTextEvent().
 getFoldLevelNow(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -123,7 +123,7 @@ getFoldLevelNow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetFoldLevelNow,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetfoldlevelprev">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetfoldlevelprev">external documentation</a>.
 -spec getFoldLevelPrev(This) -> integer() when
 	This::wxStyledTextEvent().
 getFoldLevelPrev(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -131,7 +131,7 @@ getFoldLevelPrev(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetFoldLevelPrev,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetmargin">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetmargin">external documentation</a>.
 -spec getMargin(This) -> integer() when
 	This::wxStyledTextEvent().
 getMargin(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -139,7 +139,7 @@ getMargin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetMargin,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetmessage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetmessage">external documentation</a>.
 -spec getMessage(This) -> integer() when
 	This::wxStyledTextEvent().
 getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -147,7 +147,7 @@ getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetMessage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetwparam">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetwparam">external documentation</a>.
 -spec getWParam(This) -> integer() when
 	This::wxStyledTextEvent().
 getWParam(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -155,7 +155,7 @@ getWParam(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetWParam,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetlparam">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetlparam">external documentation</a>.
 -spec getLParam(This) -> integer() when
 	This::wxStyledTextEvent().
 getLParam(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -163,7 +163,7 @@ getLParam(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetLParam,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetlisttype">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetlisttype">external documentation</a>.
 -spec getListType(This) -> integer() when
 	This::wxStyledTextEvent().
 getListType(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -171,7 +171,7 @@ getListType(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetListType,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetx">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetx">external documentation</a>.
 -spec getX(This) -> integer() when
 	This::wxStyledTextEvent().
 getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -179,7 +179,7 @@ getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetX,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgety">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgety">external documentation</a>.
 -spec getY(This) -> integer() when
 	This::wxStyledTextEvent().
 getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -187,7 +187,7 @@ getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetY,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetdragtext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetdragtext">external documentation</a>.
 -spec getDragText(This) -> unicode:charlist() when
 	This::wxStyledTextEvent().
 getDragText(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -195,7 +195,7 @@ getDragText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetDragText,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetdragallowmove">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetdragallowmove">external documentation</a>.
 -spec getDragAllowMove(This) -> boolean() when
 	This::wxStyledTextEvent().
 getDragAllowMove(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -203,7 +203,7 @@ getDragAllowMove(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetDragAllowMove,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetdragresult">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetdragresult">external documentation</a>.
 %%<br /> Res = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
 -spec getDragResult(This) -> wx:wx_enum() when
 	This::wxStyledTextEvent().
@@ -212,7 +212,7 @@ getDragResult(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetDragResult,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetshift">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetshift">external documentation</a>.
 -spec getShift(This) -> boolean() when
 	This::wxStyledTextEvent().
 getShift(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -220,7 +220,7 @@ getShift(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetShift,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetcontrol">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetcontrol">external documentation</a>.
 -spec getControl(This) -> boolean() when
 	This::wxStyledTextEvent().
 getControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -228,7 +228,7 @@ getControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxStyledTextEvent_GetControl,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetalt">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetalt">external documentation</a>.
 -spec getAlt(This) -> boolean() when
 	This::wxStyledTextEvent().
 getAlt(#wx_ref{type=ThisT,ref=ThisRef}) ->

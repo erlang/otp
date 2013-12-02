@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html">wxHtmlWindow</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html">wxHtmlWindow</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxScrolledWindow}
 %% <br />{@link wxPanel}
@@ -88,7 +88,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxHtmlWindow() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
 -spec new() -> wxHtmlWindow().
 new() ->
   wxe_util:construct(?wxHtmlWindow_new_0,
@@ -102,7 +102,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxHtmlWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -121,7 +121,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxHtmlWindow_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowappendtopage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowappendtopage">external documentation</a>.
 -spec appendToPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 appendToPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
@@ -131,7 +131,7 @@ appendToPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
   wxe_util:call(?wxHtmlWindow_AppendToPage,
   <<ThisRef:32/?UI,(byte_size(Source_UC)):32/?UI,(Source_UC)/binary, 0:(((8- ((0+byte_size(Source_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedanchor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedanchor">external documentation</a>.
 -spec getOpenedAnchor(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedAnchor(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -139,7 +139,7 @@ getOpenedAnchor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_GetOpenedAnchor,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpage">external documentation</a>.
 -spec getOpenedPage(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -147,7 +147,7 @@ getOpenedPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_GetOpenedPage,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpagetitle">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpagetitle">external documentation</a>.
 -spec getOpenedPageTitle(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedPageTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -155,7 +155,7 @@ getOpenedPageTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_GetOpenedPageTitle,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetrelatedframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetrelatedframe">external documentation</a>.
 -spec getRelatedFrame(This) -> wxFrame:wxFrame() when
 	This::wxHtmlWindow().
 getRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -163,7 +163,7 @@ getRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_GetRelatedFrame,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowhistoryback">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryback">external documentation</a>.
 -spec historyBack(This) -> boolean() when
 	This::wxHtmlWindow().
 historyBack(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -171,7 +171,7 @@ historyBack(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_HistoryBack,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowhistorycanback">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistorycanback">external documentation</a>.
 -spec historyCanBack(This) -> boolean() when
 	This::wxHtmlWindow().
 historyCanBack(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -179,7 +179,7 @@ historyCanBack(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_HistoryCanBack,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowhistorycanforward">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistorycanforward">external documentation</a>.
 -spec historyCanForward(This) -> boolean() when
 	This::wxHtmlWindow().
 historyCanForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -187,7 +187,7 @@ historyCanForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_HistoryCanForward,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowhistoryclear">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryclear">external documentation</a>.
 -spec historyClear(This) -> ok when
 	This::wxHtmlWindow().
 historyClear(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -195,7 +195,7 @@ historyClear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxHtmlWindow_HistoryClear,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowhistoryforward">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryforward">external documentation</a>.
 -spec historyForward(This) -> boolean() when
 	This::wxHtmlWindow().
 historyForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -203,7 +203,7 @@ historyForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_HistoryForward,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowloadfile">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowloadfile">external documentation</a>.
 -spec loadFile(This, Filename) -> boolean() when
 	This::wxHtmlWindow(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
@@ -213,7 +213,7 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   wxe_util:call(?wxHtmlWindow_LoadFile,
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowloadpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowloadpage">external documentation</a>.
 -spec loadPage(This, Location) -> boolean() when
 	This::wxHtmlWindow(), Location::unicode:chardata().
 loadPage(#wx_ref{type=ThisT,ref=ThisRef},Location)
@@ -223,7 +223,7 @@ loadPage(#wx_ref{type=ThisT,ref=ThisRef},Location)
   wxe_util:call(?wxHtmlWindow_LoadPage,
   <<ThisRef:32/?UI,(byte_size(Location_UC)):32/?UI,(Location_UC)/binary, 0:(((8- ((0+byte_size(Location_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectall">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectall">external documentation</a>.
 -spec selectAll(This) -> ok when
 	This::wxHtmlWindow().
 selectAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -231,7 +231,7 @@ selectAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxHtmlWindow_SelectAll,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectiontotext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectiontotext">external documentation</a>.
 -spec selectionToText(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 selectionToText(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -239,7 +239,7 @@ selectionToText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_SelectionToText,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectline">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectline">external documentation</a>.
 -spec selectLine(This, Pos) -> ok when
 	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectLine(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
@@ -248,7 +248,7 @@ selectLine(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   wxe_util:cast(?wxHtmlWindow_SelectLine,
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectword">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectword">external documentation</a>.
 -spec selectWord(This, Pos) -> ok when
 	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectWord(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
@@ -257,7 +257,7 @@ selectWord(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   wxe_util:cast(?wxHtmlWindow_SelectWord,
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetborders">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetborders">external documentation</a>.
 -spec setBorders(This, B) -> ok when
 	This::wxHtmlWindow(), B::integer().
 setBorders(#wx_ref{type=ThisT,ref=ThisRef},B)
@@ -274,7 +274,7 @@ setFonts(This,Normal_face,Fixed_face)
  when is_record(This, wx_ref),is_list(Normal_face),is_list(Fixed_face) ->
   setFonts(This,Normal_face,Fixed_face, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
 -spec setFonts(This, Normal_face, Fixed_face, [Option]) -> ok when
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
 	Option :: {sizes, integer()}.
@@ -289,7 +289,7 @@ setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
   wxe_util:cast(?wxHtmlWindow_SetFonts,
   <<ThisRef:32/?UI,(byte_size(Normal_face_UC)):32/?UI,(Normal_face_UC)/binary, 0:(((8- ((0+byte_size(Normal_face_UC)) band 16#7)) band 16#7))/unit:8,(byte_size(Fixed_face_UC)):32/?UI,(Fixed_face_UC)/binary, 0:(((8- ((4+byte_size(Fixed_face_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetpage">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetpage">external documentation</a>.
 -spec setPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
@@ -299,7 +299,7 @@ setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
   wxe_util:call(?wxHtmlWindow_SetPage,
   <<ThisRef:32/?UI,(byte_size(Source_UC)):32/?UI,(Source_UC)/binary, 0:(((8- ((0+byte_size(Source_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedframe">external documentation</a>.
 -spec setRelatedFrame(This, Frame, Format) -> ok when
 	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},Format)
@@ -310,7 +310,7 @@ setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef
   wxe_util:cast(?wxHtmlWindow_SetRelatedFrame,
   <<ThisRef:32/?UI,FrameRef:32/?UI,(byte_size(Format_UC)):32/?UI,(Format_UC)/binary, 0:(((8- ((4+byte_size(Format_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedstatusbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedstatusbar">external documentation</a>.
 -spec setRelatedStatusBar(This, Bar) -> ok when
 	This::wxHtmlWindow(), Bar::integer().
 setRelatedStatusBar(#wx_ref{type=ThisT,ref=ThisRef},Bar)
@@ -319,7 +319,7 @@ setRelatedStatusBar(#wx_ref{type=ThisT,ref=ThisRef},Bar)
   wxe_util:cast(?wxHtmlWindow_SetRelatedStatusBar,
   <<ThisRef:32/?UI,Bar:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowtotext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowtotext">external documentation</a>.
 -spec toText(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 toText(#wx_ref{type=ThisT,ref=ThisRef}) ->

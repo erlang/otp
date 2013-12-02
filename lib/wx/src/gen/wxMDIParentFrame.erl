@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html">wxMDIParentFrame</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html">wxMDIParentFrame</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxFrame}
 %% <br />{@link wxTopLevelWindow}
@@ -91,7 +91,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMDIParentFrame() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframewxmdiparentframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframewxmdiparentframe">external documentation</a>.
 -spec new() -> wxMDIParentFrame().
 new() ->
   wxe_util:construct(?wxMDIParentFrame_new_0,
@@ -105,7 +105,7 @@ new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframewxmdiparentframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframewxmdiparentframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxMDIParentFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -123,7 +123,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
   wxe_util:construct(?wxMDIParentFrame_new_4,
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframeactivatenext">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframeactivatenext">external documentation</a>.
 -spec activateNext(This) -> ok when
 	This::wxMDIParentFrame().
 activateNext(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -131,7 +131,7 @@ activateNext(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxMDIParentFrame_ActivateNext,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframeactivateprevious">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframeactivateprevious">external documentation</a>.
 -spec activatePrevious(This) -> ok when
 	This::wxMDIParentFrame().
 activatePrevious(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -139,7 +139,7 @@ activatePrevious(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxMDIParentFrame_ActivatePrevious,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframearrangeicons">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframearrangeicons">external documentation</a>.
 -spec arrangeIcons(This) -> ok when
 	This::wxMDIParentFrame().
 arrangeIcons(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -147,7 +147,7 @@ arrangeIcons(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxMDIParentFrame_ArrangeIcons,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframecascade">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframecascade">external documentation</a>.
 -spec cascade(This) -> ok when
 	This::wxMDIParentFrame().
 cascade(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -163,7 +163,7 @@ create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframecreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxMDIParentFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -182,7 +182,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ti
   wxe_util:call(?wxMDIParentFrame_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframegetactivechild">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframegetactivechild">external documentation</a>.
 -spec getActiveChild(This) -> wxMDIChildFrame:wxMDIChildFrame() when
 	This::wxMDIParentFrame().
 getActiveChild(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -190,7 +190,7 @@ getActiveChild(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMDIParentFrame_GetActiveChild,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframegetclientwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframegetclientwindow">external documentation</a>.
 -spec getClientWindow(This) -> wxMDIClientWindow:wxMDIClientWindow() when
 	This::wxMDIParentFrame().
 getClientWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -206,7 +206,7 @@ tile(This)
  when is_record(This, wx_ref) ->
   tile(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiparentframe.html#wxmdiparentframetile">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiparentframe.html#wxmdiparentframetile">external documentation</a>.
 %%<br /> Orient = ?wxHORIZONTAL | ?wxVERTICAL | ?wxBOTH
 -spec tile(This, [Option]) -> ok when
 	This::wxMDIParentFrame(),

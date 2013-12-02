@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html">wxIdleEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html">wxIdleEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>idle</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxIdle(). #wxIdle{}} event record type.
@@ -45,7 +45,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxIdleEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventcansend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventcansend">external documentation</a>.
 -spec canSend(Win) -> boolean() when
 	Win::wxWindow:wxWindow().
 canSend(#wx_ref{type=WinT,ref=WinRef}) ->
@@ -53,7 +53,7 @@ canSend(#wx_ref{type=WinT,ref=WinRef}) ->
   wxe_util:call(?wxIdleEvent_CanSend,
   <<WinRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventgetmode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventgetmode">external documentation</a>.
 %%<br /> Res = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
 -spec getMode() -> wx:wx_enum().
 getMode() ->
@@ -68,7 +68,7 @@ requestMore(This)
  when is_record(This, wx_ref) ->
   requestMore(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventrequestmore">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventrequestmore">external documentation</a>.
 -spec requestMore(This, [Option]) -> ok when
 	This::wxIdleEvent(),
 	Option :: {needMore, boolean()}.
@@ -81,7 +81,7 @@ requestMore(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxIdleEvent_RequestMore,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventmorerequested">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventmorerequested">external documentation</a>.
 -spec moreRequested(This) -> boolean() when
 	This::wxIdleEvent().
 moreRequested(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -89,7 +89,7 @@ moreRequested(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxIdleEvent_MoreRequested,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventsetmode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventsetmode">external documentation</a>.
 %%<br /> Mode = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
 -spec setMode(Mode) -> ok when
 	Mode::wx:wx_enum().

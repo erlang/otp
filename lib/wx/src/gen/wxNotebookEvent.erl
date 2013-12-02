@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html">wxNotebookEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html">wxNotebookEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_notebook_page_changed</em>, <em>command_notebook_page_changing</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxNotebook(). #wxNotebook{}} event record type.
@@ -49,7 +49,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxNotebookEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventgetoldselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventgetoldselection">external documentation</a>.
 -spec getOldSelection(This) -> integer() when
 	This::wxNotebookEvent().
 getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -57,7 +57,7 @@ getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebookEvent_GetOldSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventgetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventgetselection">external documentation</a>.
 -spec getSelection(This) -> integer() when
 	This::wxNotebookEvent().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -65,7 +65,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebookEvent_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventsetoldselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventsetoldselection">external documentation</a>.
 -spec setOldSelection(This, NOldSel) -> ok when
 	This::wxNotebookEvent(), NOldSel::integer().
 setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},NOldSel)
@@ -74,7 +74,7 @@ setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},NOldSel)
   wxe_util:cast(?wxNotebookEvent_SetOldSelection,
   <<ThisRef:32/?UI,NOldSel:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventsetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventsetselection">external documentation</a>.
 -spec setSelection(This, NSel) -> ok when
 	This::wxNotebookEvent(), NSel::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},NSel)

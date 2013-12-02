@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmemorydc.html">wxMemoryDC</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html">wxMemoryDC</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDC}
 %% </p>
@@ -58,13 +58,13 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMemoryDC() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmemorydc.html#wxmemorydcwxmemorydc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html#wxmemorydcwxmemorydc">external documentation</a>.
 -spec new() -> wxMemoryDC().
 new() ->
   wxe_util:construct(?wxMemoryDC_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmemorydc.html#wxmemorydcwxmemorydc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html#wxmemorydcwxmemorydc">external documentation</a>.
 -spec new(Dc) -> wxMemoryDC() when
 	Dc::wxDC:wxDC() | wxBitmap:wxBitmap().
 new(#wx_ref{type=DcT,ref=DcRef}) ->
@@ -77,7 +77,7 @@ new(#wx_ref{type=DcT,ref=DcRef}) ->
   wxe_util:construct(DcOP,
   <<DcRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmemorydc.html#wxmemorydcselectobject">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html#wxmemorydcselectobject">external documentation</a>.
 -spec selectObject(This, Bmp) -> ok when
 	This::wxMemoryDC(), Bmp::wxBitmap:wxBitmap().
 selectObject(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
@@ -86,7 +86,7 @@ selectObject(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
   wxe_util:cast(?wxMemoryDC_SelectObject,
   <<ThisRef:32/?UI,BmpRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmemorydc.html#wxmemorydcselectobjectassource">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html#wxmemorydcselectobjectassource">external documentation</a>.
 -spec selectObjectAsSource(This, Bmp) -> ok when
 	This::wxMemoryDC(), Bmp::wxBitmap:wxBitmap().
 selectObjectAsSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->

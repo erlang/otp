@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html">wxDialog</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html">wxDialog</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxTopLevelWindow}
 %% <br />{@link wxWindow}
@@ -84,7 +84,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxDialog() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
 -spec new() -> wxDialog().
 new() ->
   wxe_util:construct(?wxDialog_new_0,
@@ -98,7 +98,7 @@ new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxDialog() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -124,7 +124,7 @@ create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -143,7 +143,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ti
   wxe_util:call(?wxDialog_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogcreatebuttonsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreatebuttonsizer">external documentation</a>.
 -spec createButtonSizer(This, Flags) -> wxSizer:wxSizer() when
 	This::wxDialog(), Flags::integer().
 createButtonSizer(#wx_ref{type=ThisT,ref=ThisRef},Flags)
@@ -152,7 +152,7 @@ createButtonSizer(#wx_ref{type=ThisT,ref=ThisRef},Flags)
   wxe_util:call(?wxDialog_CreateButtonSizer,
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogcreatestddialogbuttonsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreatestddialogbuttonsizer">external documentation</a>.
 -spec createStdDialogButtonSizer(This, Flags) -> wxStdDialogButtonSizer:wxStdDialogButtonSizer() when
 	This::wxDialog(), Flags::integer().
 createStdDialogButtonSizer(#wx_ref{type=ThisT,ref=ThisRef},Flags)
@@ -161,7 +161,7 @@ createStdDialogButtonSizer(#wx_ref{type=ThisT,ref=ThisRef},Flags)
   wxe_util:call(?wxDialog_CreateStdDialogButtonSizer,
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogendmodal">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogendmodal">external documentation</a>.
 -spec endModal(This, RetCode) -> ok when
 	This::wxDialog(), RetCode::integer().
 endModal(#wx_ref{type=ThisT,ref=ThisRef},RetCode)
@@ -170,7 +170,7 @@ endModal(#wx_ref{type=ThisT,ref=ThisRef},RetCode)
   wxe_util:cast(?wxDialog_EndModal,
   <<ThisRef:32/?UI,RetCode:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialoggetaffirmativeid">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialoggetaffirmativeid">external documentation</a>.
 -spec getAffirmativeId(This) -> integer() when
 	This::wxDialog().
 getAffirmativeId(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -178,7 +178,7 @@ getAffirmativeId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDialog_GetAffirmativeId,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialoggetreturncode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialoggetreturncode">external documentation</a>.
 -spec getReturnCode(This) -> integer() when
 	This::wxDialog().
 getReturnCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -186,7 +186,7 @@ getReturnCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDialog_GetReturnCode,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogismodal">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogismodal">external documentation</a>.
 -spec isModal(This) -> boolean() when
 	This::wxDialog().
 isModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -194,7 +194,7 @@ isModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDialog_IsModal,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogsetaffirmativeid">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogsetaffirmativeid">external documentation</a>.
 -spec setAffirmativeId(This, AffirmativeId) -> ok when
 	This::wxDialog(), AffirmativeId::integer().
 setAffirmativeId(#wx_ref{type=ThisT,ref=ThisRef},AffirmativeId)
@@ -203,7 +203,7 @@ setAffirmativeId(#wx_ref{type=ThisT,ref=ThisRef},AffirmativeId)
   wxe_util:cast(?wxDialog_SetAffirmativeId,
   <<ThisRef:32/?UI,AffirmativeId:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogsetreturncode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogsetreturncode">external documentation</a>.
 -spec setReturnCode(This, ReturnCode) -> ok when
 	This::wxDialog(), ReturnCode::integer().
 setReturnCode(#wx_ref{type=ThisT,ref=ThisRef},ReturnCode)
@@ -220,7 +220,7 @@ show(This)
  when is_record(This, wx_ref) ->
   show(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogshow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogshow">external documentation</a>.
 -spec show(This, [Option]) -> boolean() when
 	This::wxDialog(),
 	Option :: {show, boolean()}.
@@ -233,7 +233,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxDialog_Show,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogshowmodal">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogshowmodal">external documentation</a>.
 -spec showModal(This) -> integer() when
 	This::wxDialog().
 showModal(#wx_ref{type=ThisT,ref=ThisRef}) ->

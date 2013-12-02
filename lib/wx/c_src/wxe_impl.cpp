@@ -23,6 +23,10 @@
 
 #include <wx/wx.h>
 
+#if defined(_WIN32)
+#include <wx/msw/private.h> // for wxSetInstance
+#endif
+
 // Avoid including these in dcbuffer below
 #include "wx/dcmemory.h"
 #include "wx/dcclient.h"
@@ -30,10 +34,6 @@
 // Ok ugly but needed for wxBufferedDC crash workaround
 #define private public
 #include <wx/dcbuffer.h>
-
-#if defined(__WXMSW__)
-    #include <wx/msw/private.h> // for wxSetInstance
-#endif
 
 #undef private
 
@@ -221,19 +221,18 @@ void *wxe_main_loop(void *vpdl)
 
   driver_pdl_inc_refc(pdl);
 
-  // ErlDrvSysInfo einfo;
-  // driver_system_info(&einfo, sizeof(ErlDrvSysInfo));
   // Disable floating point execption if they are on.
   // This should be done in emulator but it's not in yet.
 #ifndef _WIN32
   erts_thread_disable_fpe();
-#else 
-  // Setup that wxWidgets should look for cursors and icons in 
-  // this dll and not in werl.exe (which is the default)
-  HMODULE WXEHandle = GetModuleHandle(_T("wxe_driver"));
-  wxSetInstance((HINSTANCE) WXEHandle);
+#else
+   // Setup that wxWidgets should look for cursors and icons in
+   // this dll and not in werl.exe (which is the default)
+   HMODULE WXEHandle = GetModuleHandle(_T("wxe_driver"));
+   wxSetInstance((HINSTANCE) WXEHandle);
 #endif
 
+  wxe_ps_init();
   result = wxEntry(argc, argv);
   // fprintf(stderr, "WXWidgets quits main loop %d \r\n", result);
   if(result >= 0 && wxe_status == WXE_INITIATED) {
@@ -254,67 +253,45 @@ void *wxe_main_loop(void *vpdl)
   }
 }
 
-wxFrame * dummy_window;
-
-void create_dummy_window() {
-  dummy_window = new wxFrame(NULL,-1, wxT("wx driver"),
-			     wxPoint(0,0), wxSize(5,5),
-			     wxFRAME_NO_TASKBAR);
-
-  wxMenuBar * menubar = new wxMenuBar();
-  dummy_window->SetMenuBar(menubar);
-  // wx-2.9 Don't delete the app menubar correctly
-  dummy_window->Connect(wxID_ANY, wxEVT_CLOSE_WINDOW,
-			(wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
-  dummy_window->Connect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED,
-			(wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
-  dummy_window->Show(true);
-  // dummy_window->Show(false);
-}
-
-// wxMac really wants a top level window which command-q quits if there are no
-// windows open, and this will kill the thread, so restart the dummy_window each
-// time a we receive a close.
 void WxeApp::dummy_close(wxEvent& Ev) {
-  if(Ev.GetEventType() == wxEVT_CLOSE_WINDOW) {
-    create_dummy_window();
-  }
+  // fprintf(stderr, "Dummy Close invoked\r\n");
+  // wxMac really wants a top level window which command-q quits if there are no
+  // windows open, and this will kill the erlang, override default handling
 }
 
 
 // Init wx-widgets thread
 bool WxeApp::OnInit()
 {
-  wxe_ps_init();
 
   global_me = new wxeMemEnv();
   wxe_batch = new wxList;
   wxe_batch_cb_saved = new wxList;
   cb_buff = NULL;
 
-  // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); Hmm printpreview doesn't work in 2.9 with this
+  wxe_ps_init2();
+  // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); // Hmm printpreview doesn't work in 2.9 with this
 
-  this->Connect(wxID_ANY, wxEVT_IDLE,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);
-  this->Connect(CREATE_PORT, wxeEVT_META_COMMAND,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::newMemEnv);
-  this->Connect(DELETE_PORT, wxeEVT_META_COMMAND,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::destroyMemEnv);
-  this->Connect(WXE_SHUTDOWN, wxeEVT_META_COMMAND,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::shutdown);
+  Connect(wxID_ANY, wxEVT_IDLE,	(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);
+  Connect(CREATE_PORT, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::newMemEnv);
+  Connect(DELETE_PORT, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::destroyMemEnv);
+  Connect(WXE_SHUTDOWN, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::shutdown);
 
 //   fprintf(stderr, "Size void* %d: long %d long long %d int64 %d \r\n",
 // 	  sizeof(void *), sizeof(long), sizeof(long long), sizeof(wxInt64));
   initEventTable();
   wxInitAllImageHandlers();
 
-  /* Create a dummy window so wxWidgets don't automagicly quits the main loop
-     after the last window */
-#ifdef __DARWIN__
-  create_dummy_window();
-#else
-  SetExitOnFrameDelete(false);
+#ifdef  _MACOSX
+  /* Create a default MenuBar so that we can intercept the quit command */
+  wxMenuBar *macMB = new wxMenuBar;
+  wxMenuBar::MacSetCommonMenuBar(macMB);
+  macMB->MacInstallMenuBar();
+  macMB->Connect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED,
+		 (wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
 #endif
+
+  SetExitOnFrameDelete(false);
 
   init_nonconsts(global_me, init_caller);
   erl_drv_mutex_lock(wxe_status_m);
@@ -325,9 +302,6 @@ bool WxeApp::OnInit()
 }
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
-#ifdef __DARWIN__
-  delete dummy_window;
-#endif
   ExitMainLoop();
 }
 
@@ -367,6 +341,7 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
 
 // Called by wx thread
 void WxeApp::idle(wxIdleEvent& event) {
+  event.Skip(true);
   dispatch_cmds();
 }
 
@@ -905,8 +880,9 @@ wxETreeItemData::~wxETreeItemData()
  * CallbackData *
  * ****************************************************************************/
 
-wxeCallbackData::wxeCallbackData(ErlDrvTermData caller,void * req, char *req_type,
-				 int funcb, int skip_ev, wxeErlTerm * userData)
+wxeCallbackData::wxeCallbackData(ErlDrvTermData caller, int req, char *req_type,
+				 int funcb, int skip_ev, wxeErlTerm * userData,
+				 wxeEvtListener *handler_cb)
   : wxObject()
 {
   listener = caller;
@@ -915,12 +891,25 @@ wxeCallbackData::wxeCallbackData(ErlDrvTermData caller,void * req, char *req_typ
   strcpy(class_name, req_type);
   skip = skip_ev;
   user_data = userData;
+  handler = handler_cb;
 }
 
 wxeCallbackData::~wxeCallbackData() {
-  // fprintf(stderr, "CBD Deleteing %x %s\r\n", (unsigned int) this, class_name); fflush(stderr);
+  // fprintf(stderr, "CBD Deleteing %p %s\r\n", this, class_name); fflush(stderr);
   if(user_data) {
     delete user_data;
+  }
+  ptrMap::iterator it;
+  it = ((WxeApp *)wxTheApp)->ptr2ref.find(handler);
+  if(it != ((WxeApp *)wxTheApp)->ptr2ref.end()) {
+    wxeRefData *refd = it->second;
+    wxeReturn rt = wxeReturn(WXE_DRV_PORT, refd->memenv->owner, false);
+    rt.addAtom("wx_delete_cb");
+    rt.addInt(fun_id);
+    rt.addRef(refd->ref, "wxeEvtListener");
+    rt.addRef(obj, class_name);
+    rt.addTupleCount(4);
+    rt.send();
   }
 }
 

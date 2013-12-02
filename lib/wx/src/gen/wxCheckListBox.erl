@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html">wxCheckListBox</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html">wxCheckListBox</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxListBox}
 %% <br />{@link wxControlWithItems}
@@ -85,7 +85,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxCheckListBox() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
 -spec new() -> wxCheckListBox().
 new() ->
   wxe_util:construct(?wxCheckListBox_new_0,
@@ -99,7 +99,7 @@ new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxCheckListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -128,7 +128,7 @@ check(This,Index)
  when is_record(This, wx_ref),is_integer(Index) ->
   check(This,Index, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxcheck">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxcheck">external documentation</a>.
 -spec check(This, Index, [Option]) -> ok when
 	This::wxCheckListBox(), Index::integer(),
 	Option :: {check, boolean()}.
@@ -141,7 +141,7 @@ check(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
   wxe_util:cast(?wxCheckListBox_Check,
   <<ThisRef:32/?UI,Index:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxischecked">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxischecked">external documentation</a>.
 -spec isChecked(This, Index) -> boolean() when
 	This::wxCheckListBox(), Index::integer().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef},Index)

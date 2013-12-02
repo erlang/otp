@@ -71,29 +71,13 @@ WXERL_CAN_BUILD_DRIVER=true
 
 LM_WINDOWS_ENVIRONMENT
 
+USER_CFLAGS=$CFLAGS
+
 if test  X"$MIXED_CYGWIN_VC" = X"yes" -o X"$MIXED_MSYS_VC" = X"yes"; then
    CFLAGS="-Owx"
 fi
 
-## Check that we are in 32 bits mode on darwin 
-## (wxWidgets require that it currently uses 32-bits Carbon)
-## Otherwise skip building wxErlang
 AC_CHECK_SIZEOF(void *)
-
-# case $ac_cv_sizeof_void_p-$host_os in
-#     8-darwin*)
-# 	if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-# 		AC_MSG_ERROR([Can not use 64bits wxWidgets on Darwin])
-# 	else
-# 		echo "Can not combine 64bits erlang with wxWidgets on MacOSX, wx will not be useable" > ./CONF_INFO
-# 		WXERL_CAN_BUILD_DRIVER=false
-# 		AC_MSG_WARN([Can not combine 64bits erlang with wxWidgets on MacOSX, wx will not be useable])
-# 	fi
-# 	WXERL_CAN_BUILD_DRIVER=false
-# 	;;
-#     *)
-# 	;;
-# esac
 
 PTHR_CFLAGS="-D_THREAD_SAFE -D_REENTRANT"
 
@@ -103,8 +87,12 @@ CXXFLAGS=""
 dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
 case $host_os in
     darwin*)
+	AC_MSG_CHECKING([Checking wxWidgets for min version:])
+	WX_CC=`wx-config --cc`
+	MAC_MIN=`echo "$WX_CC" | sed 's/^[[^ ]]*\ *//'`
+	AC_MSG_RESULT([$MAC_MIN])
+
 	AC_MSG_CHECKING([if compiler accepts -ObjC])
-	saved_CFLAGS=$CFLAGS
   	CFLAGS="$CFLAGS -ObjC"
   	AC_TRY_COMPILE([],[;], accept_objc_flag=true, accept_objc_flag=false)
   	if test "X$accept_objc_flag" = "Xtrue"; then
@@ -171,7 +159,7 @@ case $host_os in
 	      OBJC_CFLAGS="-ObjC"
 	   fi
   	fi
-  	CFLAGS="$saved_CFLAGS -Wno-deprecated-declarations"
+  	CFLAGS="$USER_CFLAGS $MAC_MIN -Wno-deprecated-declarations"
 	CPPFLAGS="$CPPFLAGS -D_MACOSX $PTHR_CFLAGS"
 	;;
     mingw32)
@@ -229,6 +217,11 @@ case $host_os in
 	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
 	CFLAGS="-g -Wall -O2 $CFLAGS"
 	;;
+    darwin*)
+	DEBUG_CFLAGS="-g -Wall -fPIC -DDEBUG $CFLAGS"
+	# Disable -02 crashes with xcode 5.0.2 (clang-500.2.79)
+	CFLAGS="-g -Wall -fPIC -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
+	;;
     *)
 	DEBUG_CFLAGS="-g -Wall -fPIC -DDEBUG $CFLAGS"
 	CFLAGS="-g -Wall -O2 -fPIC -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
@@ -283,11 +276,12 @@ fi
 
 AC_SUBST(GL_LIBS)
 
+DEBUG_CXXFLAGS="$CXXFLAGS $DEBUG_CFLAGS $CPPFLAGS"
+DEBUG_CFLAGS="$DEBUG_CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
+
 CXXFLAGS="$CXXFLAGS $CFLAGS $CPPFLAGS" 
 CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 
-DEBUG_CXXFLAGS="$CXXFLAGS $DEBUG_CFLAGS $CPPFLAGS"
-DEBUG_CFLAGS="$DEBUG_CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(DEBUG_CXXFLAGS)
 
@@ -413,7 +407,22 @@ define(wx_warn_text,[
     fi
 else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
-		  
+
+    # Check whether --with-wxdir was given.
+    AC_MSG_NOTICE(OptionCheck: [$with_wxdir $with_wx_prefix])
+
+    if test "${with_wxdir+set}" = set; then :
+      withval=$with_wxdir;  CWXWIN0=$withval
+    else
+      # Check whether --with-wx-prefix was given.
+      if test "${with_wx_prefix+set}" = set; then :
+        withval=$with_wx_prefix; CWXWIN0=$withval
+      else
+        echo Setting it empty
+        CWXWIN0=""
+      fi
+    fi
+
     if test "x$MIXED_MSYS" = "xyes"; then
         CWXWIN_CONFIG=`win2msys_path.sh $wx_config_name 2>/dev/null`
     else
@@ -444,9 +453,10 @@ else
 		;;
     esac	
 			
-    CWXPATH="$CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
+    CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
 
     for dir in $CWXPATH; do
+        AC_MSG_NOTICE(Checking: [$dir])
 	if test -f $dir/include/wx/wx.h; then
 	    WXINCLUDE_MSVC=$dir/include/msvc
 	    WXINCLUDE_PLAIN=$dir/include

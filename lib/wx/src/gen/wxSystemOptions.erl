@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html">wxSystemOptions</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html">wxSystemOptions</a>.
 %% @type wxSystemOptions().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -34,7 +34,7 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSystemOptions() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsgetoption">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html#wxsystemoptionsgetoption">external documentation</a>.
 -spec getOption(Name) -> unicode:charlist() when
 	Name::unicode:chardata().
 getOption(Name)
@@ -43,7 +43,7 @@ getOption(Name)
   wxe_util:call(?wxSystemOptions_GetOption,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsgetoptionint">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html#wxsystemoptionsgetoptionint">external documentation</a>.
 -spec getOptionInt(Name) -> integer() when
 	Name::unicode:chardata().
 getOptionInt(Name)
@@ -52,7 +52,7 @@ getOptionInt(Name)
   wxe_util:call(?wxSystemOptions_GetOptionInt,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionshasoption">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html#wxsystemoptionshasoption">external documentation</a>.
 -spec hasOption(Name) -> boolean() when
 	Name::unicode:chardata().
 hasOption(Name)
@@ -61,7 +61,7 @@ hasOption(Name)
   wxe_util:call(?wxSystemOptions_HasOption,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsisfalse">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html#wxsystemoptionsisfalse">external documentation</a>.
 -spec isFalse(Name) -> boolean() when
 	Name::unicode:chardata().
 isFalse(Name)
@@ -70,7 +70,7 @@ isFalse(Name)
   wxe_util:call(?wxSystemOptions_IsFalse,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionssetoption">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html#wxsystemoptionssetoption">external documentation</a>.
 %% <br /> Also:<br />
 %% setOption(Name, Value) -> ok when<br />
 %% 	Name::unicode:chardata(), Value::unicode:chardata().<br />

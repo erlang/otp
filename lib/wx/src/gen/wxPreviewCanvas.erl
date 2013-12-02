@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcanvas.html">wxPreviewCanvas</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcanvas.html">wxPreviewCanvas</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxScrolledWindow}
 %% <br />{@link wxPanel}
