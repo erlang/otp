@@ -24,7 +24,7 @@ int oe_encode_erlang_binary(CORBA_Environment *ev, erlang_binary *binary) {
 
   int size = ev->_iout;
     
-  (int) ei_encode_binary(0, &size, binary->_buffer, binary->_length);
+  ei_encode_binary(0, &size, binary->_buffer, binary->_length);
 
   if (size >= ev->_outbufsz) {
     char *buf = ev->_outbuf;

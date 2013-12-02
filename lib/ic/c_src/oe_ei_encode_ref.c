@@ -23,7 +23,7 @@
 int oe_ei_encode_ref(CORBA_Environment *ev, const erlang_ref *p) {
   int size = ev->_iout;
   
-  (int) ei_encode_ref(NULL, &size, p);
+  ei_encode_ref(NULL, &size, p);
   
   if (size >= ev->_outbufsz) {
     char *buf = ev->_outbuf;

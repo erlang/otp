@@ -2660,8 +2660,9 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         <premaster secret> = (B - (k * g^x)) ^ (a + (u * x)) % N
 */
     BIGNUM *bn_exponent = NULL, *bn_a = NULL;
-    BIGNUM *bn_u, *bn_multiplier, *bn_exp2, *bn_base,
-	*bn_prime, *bn_generator, *bn_B, *bn_result;
+    BIGNUM *bn_u = NULL, *bn_multiplier = NULL, *bn_exp2,
+        *bn_base, *bn_prime = NULL, *bn_generator = NULL,
+        *bn_B = NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;
