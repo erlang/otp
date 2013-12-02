@@ -897,8 +897,11 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
     true = port_command(OpenSslPort, Data),
+    
+    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     receive
-	{'EXIT', OpenSslPort, _} ->
+	{'EXIT', OpenSslPort, _} = Exit ->
+	    ct:log("Received: ~p ~n", [Exit]),
 	    ok
 
     end,

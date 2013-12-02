@@ -57,6 +57,7 @@ ERL_FILES = $(MODULES:%=%.erl)
 HRL_FILES =
 
 HRL_FILES_SRC = \
+	ssl_api.hrl\
 	ssl_internal.hrl\
 	ssl_alert.hrl \
 	tls_handshake.hrl \

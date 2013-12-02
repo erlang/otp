@@ -1,13 +1,14 @@
 -module(ssl_socket).
 
 -include("ssl_internal.hrl").
+-include("ssl_api.hrl").
 
--export([socket/3, setopts/3, getopts/3, peername/2, sockname/2, port/2]).
+-export([socket/4, setopts/3, getopts/3, peername/2, sockname/2, port/2]).
 
-socket(Pid, Transport, Socket) ->
+socket(Pid, Transport, Socket, ConnectionCb) ->
     #sslsocket{pid = Pid, 
 	       %% "The name "fd" is keept for backwards compatibility
-	       fd = {Transport, Socket}}.
+	       fd = {Transport, Socket, ConnectionCb}}.
 
 setopts(gen_tcp, Socket, Options) ->
     inet:setopts(Socket, Options);

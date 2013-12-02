@@ -15,18 +15,19 @@
 	       dtls_record,
 	       dtls_v1,
 	       %% API
-	       tls, %% Future API module
-	       dtls, %% Future API module
-               ssl,
+	       ssl,  %% Main API		  
+	       tls,  %% TLS specific
+	       dtls, %% DTLS specific 
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
+	       ssl_config,
+	       ssl_connection,
 	       ssl_handshake,
 	       ssl_record,
 	       ssl_cipher,
 	       ssl_srp_primes,
 	       ssl_alert,
 	       ssl_socket,
-	       %%ssl_connection,
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       ssl_tls_dist_proxy,
@@ -40,7 +41,8 @@
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,
-	       ssl_connection_sup
+	       tls_connection_sup,
+	       dtls_connection_sup	
 	       ]},
     {registered, [ssl_sup, ssl_manager]},
     {applications, [crypto, public_key, kernel, stdlib]},

@@ -21,13 +21,26 @@
 -include("dtls_record.hrl").
 -include("ssl_internal.hrl").
 
--export([client_hello/9, hello/3, get_dtls_handshake/2,
+-export([client_hello/8, client_hello/9, hello/3,
+	 get_dtls_handshake/2,
 	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
 	 encode_handshake/4]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
+%%--------------------------------------------------------------------
+-spec client_hello(host(), inet:port_number(), #connection_states{},
+		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+			  #client_hello{}.
+%%
+%% Description: Creates a client hello message.
+%%--------------------------------------------------------------------
+client_hello(Host, Port, ConnectionStates, SslOpts,
+	     Cache, CacheCb, Renegotiation, OwnCert) ->
+    %% First client hello (two sent in DTLS ) uses empty Cookie
+    client_hello(Host, Port, <<>>, ConnectionStates, SslOpts,
+		 Cache, CacheCb, Renegotiation, OwnCert).
 
 %%--------------------------------------------------------------------
 -spec client_hello(host(), inet:port_number(), term(), #connection_states{},
@@ -87,11 +100,6 @@ hello(Address, Port,
 	    {reply, HelloVerifyRequest}
     end.
 
-address_to_bin({A,B,C,D}, Port) ->
-    <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
-address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
-    <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.
-
 %%--------------------------------------------------------------------
 encode_handshake(Package, Version, MsgSeq, Mss) ->
     {MsgType, Bin} = enc_hs(Package, Version),
@@ -102,7 +110,7 @@ encode_handshake(Package, Version, MsgSeq, Mss) ->
 
 %--------------------------------------------------------------------
 -spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | binary()) ->
-     {[dtls_handshake()], #ssl_tls{}}.
+     {[dtls_handshake()], #dtls_hs_state{}} | {retransmit, #dtls_hs_state{}}.
 %
 % Description: Given a DTLS state and new data from ssl_record, collects
 % and returns it as a list of handshake messages, also returns a new
@@ -182,7 +190,6 @@ get_dtls_handshake_aux(Version, SeqNo,
 
 get_dtls_handshake_aux(_Version, _SeqNo, <<>>, HsState) ->
     {lists:reverse(HsState#dtls_hs_state.completed),
-     HsState#dtls_hs_state.highest_record_seq,
      HsState#dtls_hs_state{completed = []}}.
 
 dec_dtls_fragment(Version, SeqNo, Type, Length, MessageSeq, MsgBody,
@@ -426,3 +433,8 @@ decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
        cookie = Cookie};
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
+
+address_to_bin({A,B,C,D}, Port) ->
+    <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
+address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
+    <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.

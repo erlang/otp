@@ -250,10 +250,15 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 					      {host, Hostname},
 					      {from, self()},
 					      {options, [{active, false} | BadClientOpts]}]),
-
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}},
-			      Client, {error, {tls_alert, "handshake failure"}}).
-
+    receive
+	{Server, {error, {tls_alert, "handshake failure"}}} ->
+	    receive
+		{Client, {error, {tls_alert, "handshake failure"}}} ->
+		    ok;
+		{Client, {error, closed}} ->
+		    ok
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 verify_fun_always_run_client() ->
@@ -827,9 +832,16 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
 					       [{verify, verify_peer},
 						{verify_fun, FunAndState}
 						| ClientOpts]}]),
+    receive
+	{Server, {error, {tls_alert, "unknown ca"}}} ->
+	    receive
+		{Client, {error, {tls_alert, "unknown ca"}}} ->
+		    ok;
+		{Client, {error, closed}} ->
+		    ok
+	    end
+    end.
 
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "unknown ca"}},
-			      Client, {error, {tls_alert, "unknown ca"}}).
 
 %%--------------------------------------------------------------------
 unknown_server_ca_accept_verify_none() ->
