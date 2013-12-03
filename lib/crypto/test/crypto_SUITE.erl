@@ -56,6 +56,7 @@ all() ->
      {group, aes_cbc128},
      {group, aes_cfb128},
      {group, aes_cbc256},
+     {group, aes_ige256},
      {group, rc2_cbc},
      {group, rc4}, 
      {group, aes_ctr},
@@ -90,6 +91,7 @@ groups() ->
      {aes_cbc128,[], [block]},
      {aes_cfb128,[], [block]},
      {aes_cbc256,[], [block]},
+     {aes_ige256,[], [block]},
      {blowfish_cbc, [], [block]},
      {blowfish_ecb, [], [block]},
      {blowfish_cfb64, [], [block]},
@@ -695,6 +697,9 @@ group_config(aes_cbc128, Config) ->
 group_config(aes_cbc256, Config) ->
     Block = aes_cbc256(),
     [{block, Block} | Config];
+group_config(aes_ige256, Config) ->
+    Block = aes_ige256(),
+    [{block, Block} | Config];
 group_config(aes_cfb128, Config) ->
     Block = aes_cfb128(),
     [{block, Block} | Config];
@@ -1114,6 +1119,25 @@ aes_cbc256() ->
       {aes_cbc256,
        hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
        hexstr2bin("39F23369A9D9BACFA530E26304231461"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
+     ].
+
+aes_ige256() ->
+    [{aes_ige256,
+      hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+      hexstr2bin("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_ige256,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("4D0F9E735749215C05CB20DA00F7814B77D33F8A668BEBBAC1739AB20302D4FE"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_ige256,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("2A5569424DAE1ACEABDEEA108DB4606AE21A9227CAB5F55BF52535CFA2B34717"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_ige256,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("15D5A583D2D668E518E683D9BDF1B6D0E0C3B1E5D5C1D51E964822E1ADE88DFA"),
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
