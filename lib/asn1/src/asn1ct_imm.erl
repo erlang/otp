@@ -1143,8 +1143,15 @@ per_enc_length(Bin, Unit, Len, {Lb,Ub}, Aligned, Type)
     U = unit(Unit, Aligned, Type, Lb*Unit, Ub*Unit),
     PutBits = [{put_bits,Bin,binary,U}],
     build_length_cond(Prefix, [[Check|PutLen++PutBits]]);
-per_enc_length(Bin, Unit, Len, Sv, Aligned, Type) when is_integer(Sv) ->
-    NumBits = Sv*Unit,
+per_enc_length(Bin, Unit0, Len, Sv, Aligned, Type) when is_integer(Sv) ->
+    NumBits = Sv*Unit0,
+    Unit = case NumBits rem 8 of
+	       0 ->
+		   %% Help out the alignment optimizer.
+		   8;
+	       _ ->
+		   Unit0
+	   end,
     U = unit(Unit, Aligned, Type, NumBits, NumBits),
     Pb = {put_bits,Bin,binary,U},
     [{'cond',[[{eq,Len,Sv},Pb]]}].
@@ -2043,6 +2050,8 @@ enc_opt_al({put_bits,_,N,[U]}=PutBits, Al) when is_integer(N), is_integer(Al) ->
 enc_opt_al({put_bits,_,binary,[U]}=PutBits, Al) when U rem 8 =:= 0 ->
     {[PutBits],Al};
 enc_opt_al({sub,_,_,_}=Imm, Al) ->
+    {[Imm],Al};
+enc_opt_al({'try',_,_,_,_}=Imm, Al) ->
     {[Imm],Al};
 enc_opt_al(Imm, _) ->
     {[Imm],unknown}.
