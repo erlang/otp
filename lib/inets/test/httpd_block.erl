@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -297,9 +297,12 @@ httpd_restart(Addr, Port) ->
 make_name(Addr, Port) ->
     httpd_util:make_name("httpd", Addr, Port).
 
-get_admin_state(Node, _Host, Port) ->
-    Addr = undefined, 
-    rpc:call(Node, httpd, get_admin_state, [Addr, Port]).
+get_admin_state(_, _Host, Port) ->
+    Name = make_name(undefined, Port),
+    {status, _, _, StatusInfo} = sys:get_status(whereis(Name)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = state(Prop),
+    element(6, State).
 
 validate_admin_state(Node, Host, Port, Expect) ->
     io:format("try validating server admin state: ~p~n", [Expect]),
@@ -363,6 +366,9 @@ do_long_poll(Type, Host, Port, Node, StatusCode, Timeout) ->
     end.
 
 
-
-
-
+state([{data,[{"State", State}]} | _]) ->
+    State;
+state([{data,[{"StateData", State}]} | _]) ->
+    State;
+state([_ | Rest]) ->
+    state(Rest).

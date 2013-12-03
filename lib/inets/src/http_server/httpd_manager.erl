@@ -27,9 +27,7 @@
 %% Application internal API
 -export([start/2, start_link/2, start_link/3, start_link/4, stop/1, reload/2]).
 -export([new_connection/1, done_connection/1]).
--export([config_lookup/2, config_lookup/3, 
-	 config_multi_lookup/2, config_multi_lookup/3, 
-	 config_match/2, config_match/3]).
+-export([config_match/2, config_match/3]).
 
 %% gen_server exports
 -export([init/1, 
@@ -40,11 +38,6 @@
 
 %% Management exports
 -export([block/2, block/3, unblock/1]).
--export([get_admin_state/1, get_usage_state/1]).
--export([is_busy/1,is_busy/2,is_busy_or_blocked/1,is_blocked/1]). %% ???????
--export([get_status/1, get_status/2]).
-
--export([c/1]).
 
 -record(state,{socket_type  = ip_comm,
 	       config_file,
@@ -58,9 +51,6 @@
 
 %%TODO: Clean up this module!
 
-c(Port) ->
-    Ref = httpd_util:make_name("httpd",undefined,Port),
-    call(Ref, fake_close).
 
 %%
 %% External API
@@ -139,24 +129,7 @@ do_block(ServerRef,Method,Timeout) when Timeout > 0 ->
 unblock(ServerRef) ->
     call(ServerRef,unblock).
 
-%% get admin/usage state
 
-get_admin_state(ServerRef) ->
-    call(ServerRef,get_admin_state).
-
-get_usage_state(ServerRef) ->
-    call(ServerRef,get_usage_state).
-
-
-%% get_status
-
-get_status(ServerRef) ->
-    gen_server:call(ServerRef,get_status).
-
-get_status(ServerRef,Timeout) ->
-    gen_server:call(ServerRef,get_status,Timeout).
-
-%%
 %% Internal API
 %%
 
@@ -164,67 +137,19 @@ get_status(ServerRef,Timeout) ->
 %% new_connection
 
 new_connection(Manager) ->
-    gen_server:call(Manager, {new_connection, self()}, infinity).
+    call(Manager, {new_connection, self()}).
 
 %% done
 
 done_connection(Manager) ->
-    gen_server:cast(Manager, {done_connection, self()}).
+    cast(Manager, {done_connection, self()}).
 
-
-%% is_busy(ServerRef) -> true | false
-%% 
-%% Tests if the server is (in usage state) busy, 
-%% i.e. has rached the heavy load limit.
-%% 
-
-is_busy(ServerRef) ->
-    gen_server:call(ServerRef,is_busy).
-    
-is_busy(ServerRef,Timeout) ->
-    gen_server:call(ServerRef,is_busy,Timeout).
-
-
-%% is_busy_or_blocked(ServerRef) -> busy | blocked | false
-%% 
-%% Tests if the server is busy (usage state), i.e. has rached,
-%% the heavy load limit, or blocked (admin state) .
-%% 
-
-is_busy_or_blocked(ServerRef) ->
-    gen_server:call(ServerRef,is_busy_or_blocked).
-    
-
-%% is_blocked(ServerRef) -> true | false
-%% 
-%% Tests if the server is blocked (admin state) .
-%% 
-
-is_blocked(ServerRef) ->
-    gen_server:call(ServerRef,is_blocked).
-    
-
-%%
-%% Module API. Theese functions are intended for use from modules only.
-%%
-
-config_lookup(Port, Query) ->
-    config_lookup(undefined, Port, Query).
-config_lookup(Addr, Port, Query) ->
-    Name = httpd_util:make_name("httpd",Addr,Port),
-    gen_server:call(whereis(Name), {config_lookup, Query}).
-
-config_multi_lookup(Port, Query) ->
-    config_multi_lookup(undefined,Port,Query).
-config_multi_lookup(Addr,Port, Query) ->
-    Name = httpd_util:make_name("httpd",Addr,Port),
-    gen_server:call(whereis(Name), {config_multi_lookup, Query}).
 
 config_match(Port, Pattern) ->
     config_match(undefined,Port,Pattern).
 config_match(Addr, Port, Pattern) ->
     Name = httpd_util:make_name("httpd",Addr,Port),
-    gen_server:call(whereis(Name), {config_match, Pattern}).
+    call(whereis(Name), {config_match, Pattern}).
 
 
 %%
@@ -320,65 +245,9 @@ do_initial_store(ConfigList) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
-handle_call({config_lookup, Query}, _From, State) ->
-    Res = httpd_util:lookup(State#state.config_db, Query),
-    {reply, Res, State};
-
-handle_call({config_multi_lookup, Query}, _From, State) ->
-    Res = httpd_util:multi_lookup(State#state.config_db, Query),
-    {reply, Res, State};
-
 handle_call({config_match, Query}, _From, State) ->
     Res = ets:match_object(State#state.config_db, Query),
     {reply, Res, State};
-
-handle_call(get_status, _From, State) ->
-    ManagerStatus  = manager_status(self()),
-    S1 = [{current_conn,length(State#state.connections)}|State#state.status]++
-	[ManagerStatus],
-    {reply,S1,State};
-
-handle_call(is_busy, _From, State) ->
-    Reply = case get_ustate(State) of
-		busy ->
-		    true;
-		_ ->
-		    false
-	  end,
-    {reply,Reply,State};
-
-handle_call(is_busy_or_blocked, _From, State) ->
-    Reply = 
-	case get_astate(State) of
-	    unblocked ->
-		case get_ustate(State) of
-		    busy ->
-			busy;
-		    _ ->
-			false
-		end;
-	    _ ->
-		blocked
-	  end,
-    {reply,Reply,State};
-
-handle_call(is_blocked, _From, State) ->
-    Reply = 
-	case get_astate(State) of
-	    unblocked ->
-		false;
-	    _ ->
-		true
-	  end,
-    {reply,Reply,State};
-
-handle_call(get_admin_state, _From, State) ->
-    Reply = get_astate(State),
-    {reply,Reply,State};
-
-handle_call(get_usage_state, _From, State) ->
-    Reply = get_ustate(State),
-    {reply,Reply,State};
 
 handle_call({reload, Conf}, _From, State) 
   when State#state.admin_state =:= blocked ->
@@ -830,22 +699,6 @@ update_status_with_time(Status,Key) ->
 
 universal_time() -> calendar:universal_time().
 
-manager_status(P) ->
-    Items = [status, message_queue_len, reductions,
-	     heap_size, stack_size],
-    {manager_status, process_status(P,Items,[])}.
-
-
-process_status(P,[],L) ->
-    [{pid,P}|lists:reverse(L)];
-process_status(P,[H|T],L) ->
-    case (catch process_info(P,H)) of
-	{H, Value} ->
-	    process_status(P,T,[{H,Value}|L]);
-	_ ->
-	    process_status(P,T,[{H,undefined}|L])
-    end.
-	
 make_name(Addr,Port) ->
     httpd_util:make_name("httpd",Addr,Port).
 
@@ -857,9 +710,18 @@ report_error(State,String) ->
     mod_disk_log:report_error(Cdb,String).
         
 %%
-call(ServerRef,Request) ->
-    gen_server:call(ServerRef,Request).
+call(ServerRef, Request) ->
+    try gen_server:call(ServerRef, Request, infinity) 
+    catch
+	exit:_ ->
+	    {error, closed}
+    end.
 
-cast(ServerRef,Message) ->
-    gen_server:cast(ServerRef,Message).
+cast(ServerRef, Message) ->
+    try gen_server:cast(ServerRef, Message)
+    catch
+	exit:_ ->
+	    {error, closed}
+    end.
+
 
