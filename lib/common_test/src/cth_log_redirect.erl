@@ -73,7 +73,7 @@ pre_init_per_group(Group, Config, State) ->
     set_curr_func({group,Group,init_per_group}, Config),
     {Config, State}.
 
-post_init_per_group(Group, Config, Result, tc_log_async) ->
+post_init_per_group(Group, Config, Result, tc_log_async) when is_list(Config) ->
     case lists:member(parallel,proplists:get_value(
 				 tc_group_properties,Config,[])) of
 	true ->
@@ -154,7 +154,8 @@ handle_info(_, State) ->
 handle_call(flush,State) ->
     {ok, ok, State};
 
-handle_call({set_curr_func,{group,Group,Conf},Config}, State) ->
+handle_call({set_curr_func,{group,Group,Conf},Config},
+	    State) when is_list(Config) ->
     Parallel = case proplists:get_value(tc_group_properties, Config) of
 		   undefined -> false;
 		   Props -> lists:member(parallel, Props)
@@ -162,6 +163,10 @@ handle_call({set_curr_func,{group,Group,Conf},Config}, State) ->
     {ok, ok, State#eh_state{curr_group = Group,
 			    curr_func = Conf,
 			    parallel_tcs = Parallel}};
+handle_call({set_curr_func,{group,Group,Conf},_SkipOrFail}, State) ->
+    {ok, ok, State#eh_state{curr_group = Group,
+			    curr_func = Conf,
+			    parallel_tcs = false}};
 handle_call({set_curr_func,{group,undefined},_Config}, State) ->
     {ok, ok, State#eh_state{curr_group = undefined,
 			    curr_func = undefined,
