@@ -80,7 +80,7 @@ all(suite) ->
        scope_per_suite_state_cth, scope_per_group_state_cth, 
        scope_suite_state_cth,
        fail_pre_suite_cth, double_fail_pre_suite_cth,
-       fail_post_suite_cth, skip_pre_suite_cth,
+       fail_post_suite_cth, skip_pre_suite_cth, skip_pre_end_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, options_cth, same_id_cth, 
        fail_n_skip_with_minimal_cth, prio_cth, no_config,
@@ -180,6 +180,10 @@ fail_post_suite_cth(Config) when is_list(Config) ->
 skip_pre_suite_cth(Config) when is_list(Config) ->
     do_test(skip_pre_suite_cth, "ct_cth_empty_SUITE.erl",
 	    [skip_pre_suite_cth],Config).
+
+skip_pre_end_cth(Config) when is_list(Config) ->
+    do_test(skip_pre_end_cth, "ct_scope_per_group_cth_SUITE.erl",
+	    [skip_pre_end_cth],Config).
 
 skip_post_suite_cth(Config) when is_list(Config) ->
     do_test(skip_post_suite_cth, "ct_cth_empty_SUITE.erl",
@@ -756,6 +760,43 @@ test_events(skip_pre_suite_cth) ->
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth, {'_',terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(skip_pre_end_cth) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scope_per_group_cth_SUITE,init_per_suite}},
+     {?eh,tc_done,{ct_scope_per_group_cth_SUITE,init_per_suite,ok}},
+     
+     [{?eh,tc_start,{ct_scope_per_group_cth_SUITE,{init_per_group,group1,[]}}},
+      {?eh,cth,{'_',id,[[]]}},
+      {?eh,cth,{'_',init,['_',[]]}},
+      {?eh,cth,{'_',post_init_per_group,[group1,'$proplist','$proplist',[]]}},
+      {?eh,tc_done,{ct_scope_per_group_cth_SUITE,{init_per_group,group1,[]},ok}},
+      
+      {?eh,tc_start,{ct_scope_per_group_cth_SUITE,test_case}},
+      {?eh,cth,{'_',pre_init_per_testcase,[test_case,'$proplist',[]]}},
+      {?eh,cth,{'_',post_end_per_testcase,[test_case,'$proplist',ok,[]]}},
+      {?eh,tc_done,{ct_scope_per_group_cth_SUITE,test_case,ok}},
+      
+      {?eh,tc_start,{ct_scope_per_group_cth_SUITE,{end_per_group,group1,[]}}},
+      {?eh,cth,{'_',pre_end_per_group,[group1,'$proplist',[]]}},
+      {?eh,cth,{'_',post_end_per_group,[group1,'$proplist','_',[]]}},
+      {?eh,tc_done,{ct_scope_per_group_cth_SUITE,{end_per_group,group1,[]},
+		    {skipped,"Test skip"}}}],
+      {?eh,cth,{'_',on_tc_skip,[end_per_group,
+				{tc_user_skip,{skipped,"Test skip"}},
+				[]]}},
+     {?eh,tc_start,{ct_scope_per_group_cth_SUITE,end_per_suite}},
+     {?eh,tc_done,{ct_scope_per_group_cth_SUITE,end_per_suite,
+		   {skipped,"Test skip"}}},
+     {?eh,cth,{'_',on_tc_skip,[end_per_suite,
+			       {tc_user_skip,{skipped,"Test skip"}},
+			       []]}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,cth,{'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
