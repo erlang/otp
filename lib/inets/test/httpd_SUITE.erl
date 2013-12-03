@@ -222,6 +222,15 @@ init_per_group(ipv6 = _GroupName, Config) ->
 	_ ->
 	    {skip, "Host does not support IPv6"}
     end;
+init_per_group(essl, Config) ->
+    catch crypto:stop(),
+    case (catch crypto:start()) of
+	ok ->
+	    Config;
+	_ ->
+	    {skip, "Crypto not startable"}
+    end;
+
 init_per_group(_GroupName, Config) ->
     Config.
 
