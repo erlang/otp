@@ -205,12 +205,12 @@
     <p>The <c>ct_run</c> program sets the exit status before shutting down. The following values
       are defined:</p>
     <list>
-      <item><c>0</c> indicates a successful testrun, i.e. one without failed or auto-skipped test cases.</item>
-      <item><c>1</c> indicates that one or more test cases have failed, or have been auto-skipped.</item>
+      <item><c>0</c> indicates a successful testrun, i.e. one without failed or auto skipped test cases.</item>
+      <item><c>1</c> indicates that one or more test cases have failed, or have been auto skipped.</item>
       <item><c>2</c> indicates that the test execution has failed because of e.g. compilation errors, an
 	illegal return value from an info function, etc.</item>
     </list>
-    <p>If auto-skipped test cases should not affect the exit status, you may change the default
+    <p>If auto skipped test cases should not affect the exit status, you may change the default
       behaviour using start flag:</p>
     <pre>-exit_status ignore_config</pre>
     
