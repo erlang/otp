@@ -89,7 +89,13 @@ match(Prefix, Alts, Extra) ->
  		    {yes, Remain, []}
  	    end;
  	{complete, Str} ->
- 	    {yes, nthtail(Len, Str) ++ Extra, []};
+            {_, Arity} = lists:keyfind(Str, 1, Matches),
+            case {Arity, Extra} of
+                {0, "("} ->
+                    {yes, nthtail(Len, Str) ++ "()", []};
+                _ ->
+                    {yes, nthtail(Len, Str) ++ Extra, []}
+            end;
  	no ->
  	    {no, [], []}
     end.
