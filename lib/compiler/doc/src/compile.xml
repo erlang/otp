@@ -357,6 +357,13 @@ module.beam: module.erl \
               is not documented, and may change between releases.</p>
           </item>
 
+	  <tag><c>from_core</c></tag>
+          <item>
+            <p>The input file is expected to be core code (default
+	      file suffix ".core"). Note that the format of core files
+              is not documented, and may change between releases.</p>
+          </item>
+
           <tag><c>no_strict_record_tests</c></tag>
           <item>
             <p>This option is not recommended.</p>
