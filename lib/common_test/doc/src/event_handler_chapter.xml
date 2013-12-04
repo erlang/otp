@@ -193,7 +193,8 @@
         <p><c>GroupName = unknown | atom()</c>, name of the group 
 	      (unknown if init- or end function times out).</p>
         <p><c>GroupProperties = list()</c>, list of execution properties for the group.</p>
-        <p><c>Result = ok | {skipped,SkipReason} | {failed,FailReason}</c>, the result.</p>
+        <p><c>Result = ok | {auto_skipped,SkipReason} | {skipped,SkipReason} | {failed,FailReason}</c>,
+	  the result.</p>
 	<marker id="skipreason"/>
         <p><c>SkipReason = {require_failed,RequireInfo} | 
 	                   {require_failed_in_suite0,RequireInfo} | 
