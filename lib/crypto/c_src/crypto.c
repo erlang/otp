@@ -548,9 +548,12 @@ static ERL_NIF_TERM atom_onbasis;
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
 {
-    const unsigned char* p = (unsigned char*)strrchr((char*)bin->data, '/');
-    int i = (p == NULL) ? 0 : (p+1) - bin->data;
+    int i;
     
+    for (i = bin->size; i > 0; i--) {
+	if (bin->data[i-1] == '/')
+	    break;
+    }
     if (i + strlen(newfile) >= bufsz) {
 	PRINTF_ERR0("CRYPTO: lib name too long");
 	return 0;
