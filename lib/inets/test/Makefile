@@ -158,12 +158,14 @@ MODULES =                 		\
 	httpc_cookie_SUITE		\
 	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
+	old_httpd_SUITE       		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\
 	httpd_block	  		\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\
+	httpd_1_0                       \
 	httpd_test_lib    		\
 	inets_sup_SUITE   		\
 	inets_SUITE       		\

@@ -287,7 +287,9 @@ print(F, A, Mod, Line) ->
     print("", F, A, Mod, Line).
 
 hostname() ->
-    from($@, atom_to_list(node())).
+   {ok, Name} = inet:gethostname(),
+    Name.
+
 from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
