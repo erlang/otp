@@ -2398,6 +2398,54 @@ monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
 }
 
 void
+monitor_long_message_queue(Process *p, Uint length)
+{
+    ErlHeapFragment *bp;
+    ErlOffHeap *off_heap;
+#ifndef ERTS_SMP
+    Process *monitor_p;
+#endif
+    Uint hsz;
+    Eterm *hp, list, msg;
+    Eterm long_msg_tpl, long_msg;
+
+#ifndef ERTS_SMP
+    ASSERT(is_internal_pid(system_monitor));
+    monitor_p = erts_proc_lookup(system_monitor);
+    if (!monitor_p || p == monitor_p) {
+    return;
+    }
+#endif
+
+    /*
+     * Size: {monitor, pid, long_message_queue, [{long_message_queue, N}]} ->
+     * 5 (top tuple of 4) + (1 (element) * 2 (cons)) + 3 (long_message_queue
+     * tuple of 2) + size of N
+     * = 10 + size of N
+     */
+    hsz = 10;
+    (void) erts_bld_uint(NULL, &hsz, length);
+    hp = ERTS_ALLOC_SYSMSG_HEAP(hsz, &bp, &off_heap, monitor_p);
+    long_msg = erts_bld_uint(&hp, NULL, length);
+
+    long_msg_tpl = TUPLE2(hp, am_long_message_queue, long_msg);
+    hp += 3;
+    list = CONS(hp, long_msg_tpl, NIL);
+    hp += 2;
+    msg = TUPLE4(hp, am_monitor, p->common.id, am_long_message_queue, list);
+    hp += 5;
+#ifdef ERTS_SMP
+    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
+#else
+    erts_queue_message(monitor_p, NULL, bp, msg, NIL
+#ifdef USE_VM_PROBES
+                       , NIL
+#endif
+                       );
+#endif
+}
+
+void
 monitor_long_gc(Process *p, Uint time) {
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
@@ -3138,6 +3186,7 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
     case SYS_MSG_TYPE_SYSMON:
 	if (receiver == NIL
 	    && !erts_system_monitor_long_gc
+        && !erts_system_monitor_long_message_queue
 	    && !erts_system_monitor_long_schedule
 	    && !erts_system_monitor_large_heap
 	    && !erts_system_monitor_flags.busy_port

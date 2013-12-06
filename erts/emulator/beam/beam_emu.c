@@ -1845,6 +1845,12 @@ void process_main(void)
          /* TODO: Add DTrace probe for this bad message situation? */
 	 UNLINK_MESSAGE(c_p, msgp);
 	 free_message(msgp);
+     if (erts_system_monitor_long_message_queue > c_p->msg.len &&
+         (erts_smp_atomic32_read_nob(&c_p->state) &
+          ERTS_PSFLG_LONG_MSGQ)) {
+         erts_smp_atomic32_read_band_mb(&c_p->state,
+                                        ~ERTS_PSFLG_LONG_MSGQ);
+     }
 	 goto loop_rec__;
      }
      PreFetch(1, next);
@@ -1954,6 +1960,13 @@ void process_main(void)
      JOIN_MESSAGE(c_p);
      CANCEL_TIMER(c_p);
      free_message(msgp);
+
+     if (erts_system_monitor_long_message_queue > c_p->msg.len &&
+         (erts_smp_atomic32_read_nob(&c_p->state) &
+          ERTS_PSFLG_LONG_MSGQ)) {
+         erts_smp_atomic32_read_band_mb(&c_p->state,
+                                        ~ERTS_PSFLG_LONG_MSGQ);
+     }
 
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);

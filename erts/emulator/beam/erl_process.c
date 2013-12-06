@@ -271,6 +271,7 @@ static Uint last_exact_reductions;
 Uint erts_default_process_flags;
 Eterm erts_system_monitor;
 Eterm erts_system_monitor_long_gc;
+Uint erts_system_monitor_long_message_queue;
 Uint erts_system_monitor_long_schedule;
 Eterm erts_system_monitor_large_heap;
 struct erts_system_monitor_flags_t erts_system_monitor_flags;

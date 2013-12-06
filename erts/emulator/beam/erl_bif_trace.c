@@ -2013,6 +2013,7 @@ void erts_system_monitor_clear(Process *c_p) {
     erts_set_system_monitor(NIL);
     erts_system_monitor_long_gc = 0;
     erts_system_monitor_long_schedule = 0;
+    erts_system_monitor_long_message_queue = 0;
     erts_system_monitor_large_heap = 0;
     erts_system_monitor_flags.busy_port = 0;
     erts_system_monitor_flags.busy_dist_port = 0;
@@ -2037,6 +2038,7 @@ static Eterm system_monitor_get(Process *p)
 	Uint hsz = 3 + (erts_system_monitor_flags.busy_dist_port ? 2 : 0) +
 	    (erts_system_monitor_flags.busy_port ? 2 : 0); 
 	Eterm long_gc = NIL;
+    Eterm long_message_queue = NIL;
 	Eterm long_schedule = NIL;
 	Eterm large_heap = NIL;
 
@@ -2044,6 +2046,10 @@ static Eterm system_monitor_get(Process *p)
 	    hsz += 2+3;
 	    (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_long_gc);
 	}
+    if (erts_system_monitor_long_message_queue != 0) {
+        hsz += 2+3;
+        (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_long_message_queue);
+    }
 	if (erts_system_monitor_long_schedule != 0) {
 	    hsz += 2+3;
 	    (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_long_schedule);
@@ -2057,6 +2063,10 @@ static Eterm system_monitor_get(Process *p)
 	if (erts_system_monitor_long_gc != 0) {
 	    long_gc = erts_bld_uint(&hp, NULL, erts_system_monitor_long_gc);
 	}
+    if (erts_system_monitor_long_message_queue != 0) {
+        long_message_queue = erts_bld_uint(&hp, NULL,
+                           erts_system_monitor_long_message_queue);
+    }
 	if (erts_system_monitor_long_schedule != 0) {
 	    long_schedule = erts_bld_uint(&hp, NULL, 
 					  erts_system_monitor_long_schedule);
@@ -2069,6 +2079,10 @@ static Eterm system_monitor_get(Process *p)
 	    Eterm t = TUPLE2(hp, am_long_gc, long_gc); hp += 3;
 	    res = CONS(hp, t, res); hp += 2;
 	}
+    if (long_message_queue != NIL) {
+        Eterm t = TUPLE2(hp, am_long_message_queue, long_message_queue); hp += 3;
+        res = CONS(hp, t, res); hp += 2;
+    }
 	if (long_schedule != NIL) {
 	    Eterm t = TUPLE2(hp, am_long_schedule, long_schedule); hp += 3;
 	    res = CONS(hp, t, res); hp += 2;
@@ -2127,7 +2141,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
     }
     if (is_not_list(list)) goto error;
     else {
-	Uint long_gc, long_schedule, large_heap;
+    Uint long_gc, long_message_queue, long_schedule, large_heap;
 	int busy_port, busy_dist_port;
 
 	system_blocked = 1;
@@ -2137,8 +2151,8 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	if (!erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, monitor_pid, 0))
 	    goto error;
 
-	for (long_gc = 0, long_schedule = 0, large_heap = 0, 
-		 busy_port = 0, busy_dist_port = 0;
+	for (long_gc = 0, long_message_queue = 0, long_schedule = 0,
+         large_heap = 0, busy_port = 0, busy_dist_port = 0;
 	     is_list(list);
 	     list = CDR(list_val(list))) {
 	    Eterm t = CAR(list_val(list));
@@ -2148,6 +2162,11 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 		if (tp[1] == am_long_gc) {
 		    if (! term_to_Uint(tp[2], &long_gc)) goto error;
 		    if (long_gc < 1) long_gc = 1;
+        } else if (tp[1] == am_long_message_queue) {
+            if (! term_to_Uint(tp[2], &long_message_queue)) goto error;
+            if (long_message_queue < 1) long_message_queue = 1;
+            /* This is pretty dangerous, consider raising the
+               lower cap of the alarm */
 		} else if (tp[1] == am_long_schedule) {
 		    if (! term_to_Uint(tp[2], &long_schedule)) goto error;
 		    if (long_schedule < 1) long_schedule = 1;
@@ -2166,6 +2185,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	prev = system_monitor_get(p);
 	erts_set_system_monitor(monitor_pid);
 	erts_system_monitor_long_gc = long_gc;
+    erts_system_monitor_long_message_queue = long_message_queue;
 	erts_system_monitor_long_schedule = long_schedule;
 	erts_system_monitor_large_heap = large_heap;
 	erts_system_monitor_flags.busy_port = !!busy_port;

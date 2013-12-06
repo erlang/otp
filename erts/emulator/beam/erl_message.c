@@ -537,6 +537,19 @@ queue_message(Process *c_p,
     if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE))
 	trace_receive(receiver, message);
 
+    /* We need to use res+1 as it is the length of the
+     * message queue before the append operation happened */
+    if (erts_system_monitor_long_message_queue > 0 &&
+        res+1 >= erts_system_monitor_long_message_queue) {
+        erts_aint32_t old;
+
+        old = erts_smp_atomic32_read_bor_mb(&receiver->state,
+                                            ERTS_PSFLG_LONG_MSGQ);
+        if (!(old & ERTS_PSFLG_LONG_MSGQ)) {
+            monitor_long_message_queue(receiver, res+1);
+        }
+    }
+
     if (locked_msgq)
 	erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
 
@@ -1025,6 +1038,16 @@ erts_send_message(Process* sender,
 	    if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)) {
 		trace_receive(receiver, message);
 	    }
+
+        if (erts_system_monitor_long_message_queue > 0 &&
+            res >= erts_system_monitor_long_message_queue) {
+            erts_aint32_t old;
+            old = erts_smp_atomic32_read_bor_mb(&receiver->state,
+                                                ERTS_PSFLG_LONG_MSGQ);
+            if (!(old & ERTS_PSFLG_LONG_MSGQ)) {
+                monitor_long_message_queue(receiver, res);
+            }
+        }
 	}
         BM_SWAP_TIMER(send,system);
     } else {

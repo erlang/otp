@@ -941,6 +941,7 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(7)
 #define ERTS_PSFLG_BOUND		ERTS_PSFLG_BIT(8)
 #define ERTS_PSFLG_TRAP_EXIT		ERTS_PSFLG_BIT(9)
+#define ERTS_PSFLG_LONG_MSGQ		ERTS_PSFLG_BIT(10)
 
 
 /* The sequential tracing token is a tuple of size 5:
@@ -1023,6 +1024,7 @@ extern erts_smp_rwmtx_t erts_cpu_bind_rwmtx;
 */
 extern Eterm erts_system_monitor;
 extern Uint erts_system_monitor_long_gc;
+extern Uint erts_system_monitor_long_message_queue;
 extern Uint erts_system_monitor_long_schedule;
 extern Uint erts_system_monitor_large_heap;
 struct erts_system_monitor_flags_t {
