@@ -46,7 +46,6 @@ bif erlang:atom_to_list/1
 bif erlang:binary_to_list/1
 bif erlang:binary_to_list/3
 bif erlang:binary_to_term/1	
-bif erlang:check_process_code/2
 bif erlang:crc32/1
 bif erlang:crc32/2
 bif erlang:crc32_combine/3
@@ -67,7 +66,6 @@ bif erlang:float_to_list/1
 bif erlang:float_to_list/2
 bif erlang:fun_info/2
 bif erlang:garbage_collect/0
-bif erlang:garbage_collect/1
 bif erlang:get/0
 bif erlang:get/1
 bif erlang:get_keys/1
@@ -154,6 +152,10 @@ bif erts_internal:port_command/3
 bif erts_internal:port_control/3
 bif erts_internal:port_close/1
 bif erts_internal:port_connect/2
+
+bif erts_internal:request_system_task/3
+bif erts_internal:check_process_code/2
+
 
 # inet_db support
 bif erlang:port_set_data/2

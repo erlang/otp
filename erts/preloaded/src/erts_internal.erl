@@ -33,6 +33,10 @@
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
+-export([request_system_task/3]).
+
+-export([check_process_code/2]).
+
 %%
 %% Await result of send to port
 %%
@@ -139,3 +143,20 @@ port_info(_Result) ->
 
 port_info(_Result, _Item) ->
     erlang:nif_error(undefined).
+
+-spec request_system_task(Pid, Prio, Request) -> 'ok' when
+      Prio :: 'max' | 'high' | 'normal' | 'low',
+      Request :: {'garbage_collect', term()}
+	       | {'check_process_code', term(), module(), boolean()},
+      Pid :: pid().
+
+request_system_task(_Pid, _Prio, _Request) ->
+    erlang:nif_error(undefined).
+
+-spec check_process_code(Module, OptionList) -> boolean() when
+      Module :: module(),
+      Option :: {allow_gc, boolean()},
+      OptionList :: [Option].
+check_process_code(_Module, _OptionList) ->
+    erlang:nif_error(undefined).
+

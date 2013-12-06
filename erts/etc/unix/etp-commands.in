@@ -1316,49 +1316,102 @@ end
 define etp-proc-state-int
 # Args: int
 #
-  if ($arg0 & 0xfffff000)
+  if ($arg0 & 0xff000000)
     printf "GARBAGE | "
   end
-  if ($arg0 & 0x800)
+  if ($arg0 & 0x800000)
+    printf "delayed-sys | "
+  end
+  if ($arg0 & 0x400000)
+    printf "proxy | "
+    set $proxy_process = 1
+  else
+    set $proxy_process = 0
+  end
+  if ($arg0 & 0x200000)
+    printf "running-sys | "
+  end
+  if ($arg0 & 0x100000)
+    printf "active-sys | "
+  end
+  if ($arg0 & 0x80000)
     printf "trapping-exit | "
   end
-  if ($arg0 & 0x400)
+  if ($arg0 & 0x40000)
     printf "bound | "
   end
-  if ($arg0 & 0x200)
+  if ($arg0 & 0x20000)
     printf "garbage-collecting | "
   end
-  if ($arg0 & 0x100)
+  if ($arg0 & 0x10000)
     printf "suspended | "
   end
-  if ($arg0 & 0x80)
+  if ($arg0 & 0x8000)
     printf "running | "
   end
-  if ($arg0 & 0x40)
+  if ($arg0 & 0x4000)
     printf "in-run-queue | "
   end
-  if ($arg0 & 0x20)
+  if ($arg0 & 0x2000)
     printf "active | "
   end
-  if ($arg0 & 0x10)
+  if ($arg0 & 0x1000)
     printf "pending-exit | "
   end
-  if ($arg0 & 0x8)
+  if ($arg0 & 0x800)
     printf "exiting | "
   end
-  if ($arg0 & 0x4)
+  if ($arg0 & 0x400)
     printf "free | "
   end
-  if ($arg0 & 0x3) == 0
-    printf "prio-max\n"
+  if ($arg0 & 0x200)
+    printf "in-prq-low | "
+  end
+  if ($arg0 & 0x100)
+    printf "in-prq-normal | "
+  end
+  if ($arg0 & 0x80)
+    printf "in-prq-high | "
+  end
+  if ($arg0 & 0x40)
+    printf "in-prq-max | "
+  end
+  if ($arg0 & 0x30) == 0x0
+    printf "prq-prio-max | "
   else
-    if ($arg0 & 0x3) == 1
-    printf "prio-high\n"
+    if ($arg0 & 0x30) == 0x10
+      printf "prq-prio-high | "
     else
-      if ($arg0 & 0x3) == 2
-        printf "prio-normal\n"
+      if ($arg0 & 0x30) == 0x20
+        printf "prq-prio-normal | "
       else
-        printf "prio-low\n"
+        printf "prq-prio-low | "
+      end
+    end
+  end
+  if ($arg0 & 0xc) == 0x0
+    printf "usr-prio-max | "
+  else
+    if ($arg0 & 0xc) == 0x4
+      printf "usr-prio-high | "
+    else
+      if ($arg0 & 0xc) == 0x8
+        printf "usr-prio-normal | "
+      else
+        printf "usr-prio-low | "
+      end
+    end
+  end
+  if ($arg0 & 0x3) == 0x0
+    printf "act-prio-max\n"
+  else
+    if ($arg0 & 0x3) == 0x1
+      printf "act-prio-high\n"
+    else
+      if ($arg0 & 0x3) == 0x2
+        printf "act-prio-normal\n"
+      else
+        printf "act-prio-low\n"
       end
     end
   end
@@ -1395,6 +1448,12 @@ define etp-process-info
   etp-1 $arg0->common.id
   printf "\n  State: "
   etp-proc-state $arg0
+  if $proxy_process != 0
+    printf "  Pointer: (Process *) %p\n", $arg0
+    printf "  *** PROXY process struct *** refer to: \n"
+    etp-pid2proc-1 $arg0->common.id
+    etp-process-info $proc
+  else
   if (*(((Uint32 *) &(((Process *) $arg0)->state))) & 0x4) == 0
     if ($arg0->common.u.alive.reg)
       printf "  Registered name: "
@@ -1432,6 +1491,7 @@ define etp-process-info
   printf "  Parent: "
   etp-1 $arg0->parent
   printf "\n  Pointer: (Process *) %p\n", $arg0
+  end
 end
 
 document etp-process-info

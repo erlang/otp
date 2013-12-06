@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
-	 delete/1, purge/1, soft_purge/1, is_loaded/1, all_loaded/1,
+	 delete/1, purge/1, purge_many_exits/1, soft_purge/1, is_loaded/1,
+	 all_loaded/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
@@ -51,7 +52,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs, ensure_loaded,
-     delete, purge, soft_purge, is_loaded, all_loaded,
+     delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      load_binary, dir_req, object_code, set_path_file,
      upgrade,
      pa_pz_option, add_del_path, dir_disappeared,
@@ -368,6 +369,42 @@ purge(Config) when is_list(Config) ->
     true = code_b_test:check_exit(Pid),
     process_flag(trap_exit, OldFlag),
     ok.
+
+purge_many_exits(Config) when is_list(Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    code:purge(code_b_test),
+    {'EXIT',_} = (catch code:purge({})),
+    false = code:purge(code_b_test),
+    TPids = lists:map(fun (_) ->
+			      {code_b_test:do_spawn(),
+			       spawn_link(fun () ->
+						  receive
+						  after infinity -> ok
+						  end
+					  end)}
+			 end,
+			 lists:seq(1, 1000)),
+    % Give them time to start...
+    receive after 1000 -> ok end,
+    true = code:delete(code_b_test),
+    lists:foreach(fun ({Pid1, Pid2}) ->
+			  true = erlang:is_process_alive(Pid1),
+			  false = code_b_test:check_exit(Pid1),
+			  true = erlang:is_process_alive(Pid2)
+		  end, TPids),
+    true = code:purge(code_b_test),
+    lists:foreach(fun ({Pid1, Pid2}) ->
+			  false = erlang:is_process_alive(Pid1),
+			  true = code_b_test:check_exit(Pid1),
+			  true = erlang:is_process_alive(Pid2),
+			  exit(Pid2, kill)
+		  end, TPids),
+    lists:foreach(fun ({_Pid1, Pid2}) ->
+			  receive {'EXIT', Pid2, _} -> ok end
+		  end, TPids),
+    process_flag(trap_exit, OldFlag),
+    ok.
+
 
 soft_purge(suite) -> [];
 soft_purge(doc) -> [];

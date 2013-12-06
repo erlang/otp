@@ -763,17 +763,17 @@ allocate_init t I y
 #################################################################
 
 #
-# The BIFs erlang:check_process_code/2 must be called like a function,
+# The BIFs erts_internal:check_process_code/2 must be called like a function,
 # to ensure that c_p->i (program counter) is set correctly (an ordinary
 # BIF call doesn't set it).
 #
 
-call_ext u==2 Bif=u$bif:erlang:check_process_code/2 => i_call_ext Bif
-call_ext_last u==2 Bif=u$bif:erlang:check_process_code/2 D => i_call_ext_last Bif D
-call_ext_only u==2 Bif=u$bif:erlang:check_process_code/2 => i_call_ext_only Bif
+call_ext u==2 Bif=u$bif:erts_internal:check_process_code/2 => i_call_ext Bif
+call_ext_last u==2 Bif=u$bif:erts_internal:check_process_code/2 D => i_call_ext_last Bif D
+call_ext_only u==2 Bif=u$bif:erts_internal:check_process_code/2 => i_call_ext_only Bif
 
 #
-# The BIFs erlang:garbage_collect/0,1 must be called like functions,
+# The BIFs erlang:garbage_collect/0 must be called like a function,
 # to allow them to invoke the garbage collector. (The stack pointer must
 # be saved and p->arity must be zeroed, which is not done on ordinary BIF calls.)
 #
@@ -781,10 +781,6 @@ call_ext_only u==2 Bif=u$bif:erlang:check_process_code/2 => i_call_ext_only Bif
 call_ext u==0 Bif=u$bif:erlang:garbage_collect/0 => i_call_ext Bif
 call_ext_last u==0 Bif=u$bif:erlang:garbage_collect/0 D => i_call_ext_last Bif D
 call_ext_only u==0 Bif=u$bif:erlang:garbage_collect/0 => i_call_ext_only Bif
-
-call_ext u==1 Bif=u$bif:erlang:garbage_collect/1 => i_call_ext Bif
-call_ext_last u==1 Bif=u$bif:erlang:garbage_collect/1 D => i_call_ext_last Bif D
-call_ext_only u==1 Bif=u$bif:erlang:garbage_collect/1 => i_call_ext_only Bif
 
 #
 # put/2 and erase/1 must be able to do garbage collection, so we must call
