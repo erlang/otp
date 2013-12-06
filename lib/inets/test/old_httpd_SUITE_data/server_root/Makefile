@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -34,22 +34,22 @@ RELSYSDIR = $(RELEASE_PATH)/lib/inets-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULE= 
+MODULE=
 
 AUTH_FILES = auth/group \
-	auth/passwd 
-CGI_FILES = cgi-bin/printenv.sh 
+	auth/passwd
+CGI_FILES = cgi-bin/printenv.sh
 CONF_FILES = conf/8080.conf \
 	conf/8888.conf \
 	conf/httpd.conf \
 	conf/ssl.conf \
-	conf/mime.types 
-OPEN_FILES = htdocs/open/dummy.html 
-MNESIA_OPEN_FILES = htdocs/mnesia_open/dummy.html 
+	conf/mime.types
+OPEN_FILES = htdocs/open/dummy.html
+MNESIA_OPEN_FILES = htdocs/mnesia_open/dummy.html
 MISC_FILES = htdocs/misc/friedrich.html \
 	htdocs/misc/oech.html
-SECRET_FILES = htdocs/secret/dummy.html 
-MNESIA_SECRET_FILES = htdocs/mnesia_secret/dummy.html 
+SECRET_FILES = htdocs/secret/dummy.html
+MNESIA_SECRET_FILES = htdocs/mnesia_secret/dummy.html
 HTDOCS_FILES = htdocs/index.html \
 	htdocs/config.shtml \
 	htdocs/echo.shtml \
@@ -162,7 +162,7 @@ ERL_COMPILE_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-debug opt: 
+debug opt:
 
 clean:
 
@@ -170,7 +170,7 @@ docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
@@ -206,4 +206,3 @@ release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/examples/server_root/logs
 
 release_docs_spec:
-

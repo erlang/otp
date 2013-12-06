@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -287,7 +287,9 @@ print(F, A, Mod, Line) ->
     print("", F, A, Mod, Line).
 
 hostname() ->
-    from($@, atom_to_list(node())).
+   {ok, Name} = inet:gethostname(),
+    Name.
+
 from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
