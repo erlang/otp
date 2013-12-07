@@ -3804,10 +3804,16 @@ if test "$enable_dtrace_test" = "yes" ; then
                 if ! dtrace -h $DTRACE_CPP -Iemulator/beam -o ./foo-dtrace.h -s emulator/beam/erlang_dtrace.d; then
                         AC_MSG_ERROR([Could not precompile erlang_dtrace.d: dtrace -h failed])
                 fi
-                rm -f foo-dtrace.h
+
+                $RM -f dtest.{o,c}
+                cat > dtest.c <<_DTEST
+                        #include "foo-dtrace.h"
+                        int main(void) { ERLANG_DIST_PORT_BUSY_ENABLED(); return 0; }
+_DTEST
+                $CC $CFLAGS -c -o dtest.o dtest.c
 
                 $RM -f $DTRACE_2STEP_TEST
-                if dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d 2> /dev/null && \
+                if dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d dtest.o && \
                    test -f $DTRACE_2STEP_TEST ; then
                         rm $DTRACE_2STEP_TEST
                         DTRACE_ENABLED_2STEP=yes
@@ -3815,6 +3821,8 @@ if test "$enable_dtrace_test" = "yes" ; then
                 else
                         AC_MSG_NOTICE([dtrace precompilation for 1-stage DTrace successful])
                 fi
+                $RM -f dtest.{o,c} foo-dtrace.h
+
                 DTRACE_ENABLED=yes
                 case $OPSYS in
                     linux)
