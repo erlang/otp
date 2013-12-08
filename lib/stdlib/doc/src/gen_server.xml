@@ -92,7 +92,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Options = [Option]</v>
         <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
-        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | {log,N} | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;N = pos_integer()</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;FileName = string()</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;Func = sys:dbg_fun()</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;FuncState = term()</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
         <v>Result = {ok,Pid} | ignore | {error,Error}</v>
         <v>&nbsp;Pid = pid()</v>
@@ -169,7 +173,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Options = [Option]</v>
         <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
-        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | {log,N} | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;N = pos_integer()</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;FileName = string()</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;Func = sys:dbg_fun()</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;FuncState = term()</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
         <v>Result = {ok,Pid} | ignore | {error,Error}</v>
         <v>&nbsp;Pid = pid()</v>
@@ -453,6 +461,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <type>
         <v>Request = term()</v>
         <v>From = {pid(),Tag}</v>
+        <v>&nbsp;Tag = term()</v>
         <v>State = term()</v>
         <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
 	<v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
