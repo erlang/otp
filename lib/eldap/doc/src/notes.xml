@@ -30,7 +30,39 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
-  <section><title>Eldap 1.0.1</title>
+  <section><title>Eldap 1.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed {verify,0} from ssl-options because eldap does
+	    not support peer verification. Thanks to Florian Waas for
+	    reporting.</p>
+          <p>
+	    Own Id: OTP-11354</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ldap client eldap now supports the start_tls
+	    operation. This upgrades an existing tcp connection to
+	    encryption using tls, if the server supports it. See
+	    eldap:start_tls/2 and /3.</p>
+          <p>
+	    Own Id: OTP-11336</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.0.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

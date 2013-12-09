@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Observer did not produce correct result when ERTS
+	    internal memory allocators had been disabled.</p>
+          <p>
+	    Own Id: OTP-11520</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

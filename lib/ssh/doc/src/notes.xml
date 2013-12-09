@@ -29,6 +29,78 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ssh cli is now faster at close and before new prompt.</p>
+          <p>
+	    Own Id: OTP-11339 Aux Id: seq12423 </p>
+        </item>
+        <item>
+          <p>
+	    Ssh process structure was redesigned to better map to
+	    what is truly parallel this has solved a lot of strange
+	    timing issues that sometimes would occur, for instance a
+	    process leak could happen when a lot of connections where
+	    taken up and down in parallel in a short period of time.
+	    Also backwards compatible clauses to "original" but never
+	    supported features has been removed.</p>
+          <p>
+	    Impact: Increases flow efficiency</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11363</p>
+        </item>
+        <item>
+          <p>
+	    Fix various typos in erts, kernel and ssh. Thanks to
+	    Martin Hässler.</p>
+          <p>
+	    Own Id: OTP-11414</p>
+        </item>
+        <item>
+          <p>
+	    Correct private_key type documentation in
+	    ssh_server_key_api. Thanks to Tristan Sloughter.</p>
+          <p>
+	    Own Id: OTP-11449</p>
+        </item>
+        <item>
+          <p>
+	    The functions in ssh_no_io.erl did not mimic the
+	    functions in ssh_io.erl correctly, the arity was
+	    incorrect for some functions which caused ssh to fail in
+	    the wrong way.</p>
+          <p>
+	    Own Id: OTP-11490</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option to disallow CLI</p>
+          <p>
+	    Own Id: OTP-10976</p>
+        </item>
+        <item>
+          <p>
+	    Add sockname and user to ssh:connection_info/2</p>
+          <p>
+	    Own Id: OTP-11296</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.8</title>
 
     <section><title>Improvements and New Features</title>

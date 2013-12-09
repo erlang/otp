@@ -30,6 +30,69 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.16.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the typespec for the inet:ifget/2 and inet:ifget/3
+	    return value. Thanks to Ali Sabil.</p>
+          <p>
+	    Own Id: OTP-11377</p>
+        </item>
+        <item>
+          <p>
+	    Fix various typos in erts, kernel and ssh. Thanks to
+	    Martin Hässler.</p>
+          <p>
+	    Own Id: OTP-11414</p>
+        </item>
+        <item>
+          <p>
+	    Fix rpc multicall sample code. Thanks to Edwin Fine.</p>
+          <p>
+	    Own Id: OTP-11471</p>
+        </item>
+        <item>
+          <p>
+	    Under rare circumstances a process calling <seealso
+	    marker="kernel:inet#close/1"><c>inet:close/1</c></seealso>,
+	    <seealso
+	    marker="kernel:gen_tcp#close/1"><c>gen_tcp:close/1</c></seealso>,
+	    <seealso
+	    marker="kernel:gen_udp#close/1"><c>gen_udp:close/1</c></seealso>,
+	    or <seealso
+	    marker="kernel:gen_sctp#close/1"><c>gen_sctp:close/1</c></seealso>
+	    could hang in the call indefinitely.</p>
+          <p>
+	    Own Id: OTP-11491</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add more SCTP errors as described in RFC 4960. Thanks to
+	    Artem Teslenko.</p>
+          <p>
+	    Own Id: OTP-11379</p>
+        </item>
+        <item>
+          <p>
+	    Add new BIF os:unsetenv/1 which deletes an environment
+	    variable. Thanks to Martin Hässler.</p>
+          <p>
+	    Own Id: OTP-11446</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.16.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -34,6 +34,29 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.21</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a little typo in public_key documentation. Thanks
+	    to Tomas Morstein.</p>
+          <p>
+	    Own Id: OTP-11380</p>
+        </item>
+        <item>
+          <p>
+	    public_key: Workaround for incorrectly encoded utf8
+	    emailAddress. Thanks to Andrew Bennett.</p>
+          <p>
+	    Own Id: OTP-11470</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.20</title>
 
     <section><title>Improvements and New Features</title>

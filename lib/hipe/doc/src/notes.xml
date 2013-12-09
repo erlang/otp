@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a dialyzer crash when using remote types in the
+	    tail position of a maybe_improper_list/2 type. Thanks to
+	    Kostis Sagonas</p>
+          <p>
+	    Own Id: OTP-11374</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.10.2.1</title>
 
     <section><title>Improvements and New Features</title>

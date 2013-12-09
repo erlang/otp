@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix uninitialized pointers in crypto (Thanks to Anthony
+	    Ramine)</p>
+          <p>
+	    Own Id: OTP-11510</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.1</title>
 
     <section><title>Improvements and New Features</title>

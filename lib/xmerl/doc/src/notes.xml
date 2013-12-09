@@ -31,6 +31,29 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Teach xmerl_xpath to resolve context namespaces in more
+	    cases. Thanks to Daniel White.</p>
+          <p>
+	    Own Id: OTP-11461</p>
+        </item>
+        <item>
+          <p>
+	    Avoid serialization on code_server in xmerl:export().
+	    Thanks to Richard Carlsson.</p>
+          <p>
+	    Own Id: OTP-11463</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.4</title>
 
     <section><title>Improvements and New Features</title>

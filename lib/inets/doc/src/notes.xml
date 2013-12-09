@@ -32,7 +32,63 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.9.6</title>
+  <section><title>Inets 5.9.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix httpd config option 'script_timeout' and fixed httpd
+	    config option 'keep_alive_timeout'. Thanks to Johannes
+	    Weissl.</p>
+          <p>
+	    Own Id: OTP-11276</p>
+        </item>
+        <item>
+          <p>
+	    Make httpc:request_cancel/[1,2] asynchronous. Previously
+	    these functions tried to guarantee request answer would
+	    not reach the client, which only worked for some of the
+	    use cases. Now these functions are totally asynchronous
+	    which makes it the clients responsibility to disregard
+	    possible answers to canceled requests. </p>
+          <p>
+	    Also pipelining implementation has been changed to
+	    improve the utilization factor. Further investigation of
+	    possible enhancements in this area are planned for later.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11312</p>
+        </item>
+        <item>
+          <p>
+	    [httpd] Add handling of new response for mod_head
+	    (otherwise causing case_clause crash). Also updated
+	    logging: Removed logging for keep-alive connections
+	    timeout (this is a normal occurrence and not an error)
+	    and some access-log body size corrections.</p>
+          <p>
+	    Own Id: OTP-11328</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ftp client now supports ftp over tls (ftps).</p>
+          <p>
+	    Own Id: OTP-11037</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.6</title>
 
     <section><title>Improvements and New Features</title>
       <list>
