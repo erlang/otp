@@ -1972,8 +1972,35 @@ get_file_args(char *filename, argv_buf *abp, argv_buf *xabp)
 }
 
 static void
+write_erl_otp_flags(char *bufp)
+{
+    /* ERL_OTP<MAJOR-VSN>_FLAGS */
+    int ix = 0;
+    char *otp_p;
+    char otp[] = OTP_SYSTEM_VERSION;
+
+    bufp[ix++] = 'E';
+    bufp[ix++] = 'R';
+    bufp[ix++] = 'L';
+    bufp[ix++] = '_';
+    bufp[ix++] = 'O';
+    bufp[ix++] = 'T';
+    bufp[ix++] = 'P';
+    for (otp_p = &otp[0]; '0' <= *otp_p && *otp_p <= '9'; otp_p++)
+	bufp[ix++] = *otp_p;
+    bufp[ix++] = '_';
+    bufp[ix++] = 'F';
+    bufp[ix++] = 'L';
+    bufp[ix++] = 'A';
+    bufp[ix++] = 'G';
+    bufp[ix++] = 'S';
+    bufp[ix] = '\0';
+}
+
+static void
 initial_argv_massage(int *argc, char ***argv)
 {
+    char erl_otp_flags_buf[] = "ERL_OTP" OTP_SYSTEM_VERSION "_FLAGS";
     argv_buf ab = {0}, xab = {0};
     int ix, vix, ac;
     char **av;
@@ -1989,7 +2016,8 @@ initial_argv_massage(int *argc, char ***argv)
 
     vix = 0;
 
-    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
+    write_erl_otp_flags(erl_otp_flags_buf);
+    av = build_args_from_env(erl_otp_flags_buf);
     if (av)
 	avv[vix++].argv = av;
 

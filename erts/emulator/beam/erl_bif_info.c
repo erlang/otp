@@ -65,8 +65,8 @@ static Export *gather_gc_info_res_trap;
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 /* Keep erts_system_version as a global variable for easy access from a core */
-static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
-				     " (erts-" ERLANG_VERSION ")"
+static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
+				     " [erts-" ERLANG_VERSION "]"
 #if !HEAP_ON_C_STACK && !HALFWORD_HEAP
 				     " [no-c-stack-objects]"
 #endif
