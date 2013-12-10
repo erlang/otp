@@ -387,7 +387,7 @@ Receiver(ReplyInfo)
 </pre>
   	      </item>
 
-              <tag><c><![CDATA[{Module, Funcion, Args}]]></c></tag>
+              <tag><c><![CDATA[{Module, Function, Args}]]></c></tag>
               <item>
 	        <p>Information will be delivered to the receiver via calls 
 		to the callback function: </p>
