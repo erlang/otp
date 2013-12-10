@@ -32,6 +32,35 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix I/O-protocol error handling in eunit. Thanks to Yuki
+	    Ito.</p>
+          <p>
+	    Own Id: OTP-11373</p>
+        </item>
+        <item>
+          <p>
+	    Do not attempt to detect lists of printable characters in
+	    format. Thanks to Roberto Aloi.</p>
+          <p>
+	    Own Id: OTP-11467</p>
+        </item>
+        <item>
+          <p>
+	    Fix silent make rule (Thanks to Anthony Ramine )</p>
+          <p>
+	    Own Id: OTP-11516</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.5</title>
 
     <section><title>Improvements and New Features</title>

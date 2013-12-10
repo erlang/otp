@@ -31,6 +31,34 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Typo fix ambigous -&gt; ambiguous. Thanks to Leo Correa.</p>
+          <p>
+	    Own Id: OTP-11455</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Lift 'after' blocks to zeroary functions. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11267</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.9.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

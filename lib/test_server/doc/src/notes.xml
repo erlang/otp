@@ -32,6 +32,54 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The way Common Test handles skipping of test cases has
+	    been updated. In previous versions, returning
+	    <c>{skip,Reason}</c> from a configuration function (such
+	    as init_per_suite or init_per_group), resulted in all
+	    affected test cases getting skipped with status
+	    <c>auto_skipped</c>. This was inappropriate, since this
+	    status is supposed to be used to inform that Common Test
+	    has taken the initiative to skip something (e.g. a test
+	    case group if init_per_group failed). Therefore, in this
+	    version of Common Test, whenever the user skips a suite,
+	    group, or individual test case (by means of a
+	    configuration function or test specification term), the
+	    affected test cases get the status <c>user_skipped</c>
+	    instead.</p> <p>This update has meant a few changes that
+	    may affect Common Test users in various ways: <list>
+	    <item>The test results and statistics will be affected,
+	    which is important to know when running regression tests
+	    and comparing results to previous test runs.</item>
+	    <item>Users that read or parse the textual log file
+	    <c>suite.log</c> will notice that an auto skipped
+	    function is now reported as <c>auto_skipped</c> rather
+	    than <c>skipped</c> as before.</item> <item>When
+	    <c>require</c> fails in an info function (such as suite/0
+	    or group/1), all affected configuration functions and
+	    test cases are marked as <c>auto_skipped</c>.</item>
+	    <item>If Common Test detects an error in the test suite
+	    (such as e.g. an invalid all/0 function), all affected
+	    configuration functions and test cases are marked as
+	    <c>auto_skipped</c>.</item> <item>If a repeated test run
+	    session reaches a deadline with <c>force_stop</c>
+	    enabled, all remaining test cases are marked as
+	    <c>auto_skipped</c> rather than <c>user_skipped</c> as
+	    before.</item> <item>The event messages that Common Test
+	    generates during test runs have been affected by this
+	    update. For details see OTP-11524.</item> </list> </p>
+          <p>
+	    Own Id: OTP-11305 Aux Id: OTP-11524 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

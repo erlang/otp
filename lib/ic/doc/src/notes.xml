@@ -30,7 +30,29 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3.3</title>
+   <section><title>IC 4.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix two small silent rules omissions. Thanks to Anthony
+	    Ramine.</p>
+          <p>
+	    Own Id: OTP-11351</p>
+        </item>
+        <item>
+          <p>
+	    Silence warnings (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11517</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>

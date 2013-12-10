@@ -30,6 +30,41 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.19.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typo in gen_server.erl. Thanks to Brian L. Troutwine.</p>
+          <p>
+	    Own Id: OTP-11398</p>
+        </item>
+        <item>
+          <p>
+	    Spec for atan2 should be atan2(Y, X), not atan2(X, Y).
+	    Thanks to Ary Borenszweig.</p>
+          <p>
+	    Own Id: OTP-11465</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add XML marker for regexp syntax. Thanks to Håkan
+	    Mattson.</p>
+          <p>
+	    Own Id: OTP-11442</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.19.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

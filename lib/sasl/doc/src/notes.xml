@@ -30,6 +30,56 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't try to add the log_mf_h handler in sasl unless
+	    configured to do so. Thanks to Richard Carlsson.</p>
+          <p>
+	    Own Id: OTP-11464</p>
+        </item>
+        <item>
+          <p>
+	    Fix confusing documentation about error handlers in
+	    SASL.(Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-11507</p>
+        </item>
+        <item>
+          <p>
+	    A bug in the mechanism for upgrading core parts of
+	    Erlang/OTP (emulator, kernel, stdlib, sasl) caused a
+	    switch of paths between stdlib and sasl in the
+	    intermediate .script/.boot file. The bug was introduces
+	    along with this upgrade mechanism in R15B. It has now
+	    been corrected. (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11529</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a boot file which skips loading the "$HOME/.erlang"
+	    file on startup. Enable by starting erlang with "erl
+	    -boot no_dot_erlang".</p>
+          <p>
+	    *** INCOMPATIBILITY with false ***</p>
+          <p>
+	    Own Id: OTP-8479 Aux Id: seq11510 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.3.3</title>
 
     <section><title>Improvements and New Features</title>

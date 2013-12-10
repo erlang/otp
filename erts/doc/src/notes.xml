@@ -30,6 +30,265 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When normalizing paths, erl_prim_loader would always
+	    convert backslash to forward slash. This is correct on
+	    Windows, but not on other operating systems.
+	    erl_prim_loader now checks which OS is running before
+	    performing this conversion.</p>
+          <p>
+	    Own Id: OTP-11170</p>
+        </item>
+        <item>
+          <p>
+	    Fixed syslog defines and defined LOG_ERR for systems
+	    without syslog.h. Thanks to Matt Lewandowsky.</p>
+          <p>
+	    Own Id: OTP-11349</p>
+        </item>
+        <item>
+          <p>
+	    Check all pattern arguments passed to binary:matches/2.
+	    Thanks to Mike Sassak.</p>
+          <p>
+	    Own Id: OTP-11350</p>
+        </item>
+        <item>
+          <p>
+	    Fix two small silent rules omissions. Thanks to Anthony
+	    Ramine.</p>
+          <p>
+	    Own Id: OTP-11351</p>
+        </item>
+        <item>
+          <p>
+	    Teach configure to detect if posix_memalign cannot align
+	    to more than the system page size. </p>
+          <p>
+	    For cross-compiled systems a new environment variable
+	    called erl_xcomp_posix_memalign has been introduced to
+	    indicate whether posix_memalign should be used.</p>
+          <p>
+	    Own Id: OTP-11371</p>
+        </item>
+        <item>
+          <p>
+	    Fix bsr bug occurring when shifting a huge number a huge
+	    number of bits to the right. Thanks to Lars Hesel
+	    Christensen.</p>
+          <p>
+	    Own Id: OTP-11381</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak for distributed monitors</p>
+          <p>
+	    Own Id: OTP-11410</p>
+        </item>
+        <item>
+          <p>
+	    Fix various typos in erts, kernel and ssh. Thanks to
+	    Martin Hässler.</p>
+          <p>
+	    Own Id: OTP-11414</p>
+        </item>
+        <item>
+          <p>
+	    Crashdumps initiated by out-of-memory on process spawn
+	    could cause the beam to segfault during crashdump writing
+	    due to invalid pointers.</p>
+          <p>
+	    The pointers are invalid since the process creation never
+	    finished. This fix removes these processes from the
+	    printouts. Reported by Richard Carlsson.</p>
+          <p>
+	    Own Id: OTP-11420</p>
+        </item>
+        <item>
+          <p>
+	    Crash dumps from 64-bit Erlang machines would have all
+	    memory addresses truncated to 32 bits, which could cause
+	    trouble inspecting processes message queues and stacks in
+	    the crashdump viewer.</p>
+          <p>
+	    Own Id: OTP-11450</p>
+        </item>
+        <item>
+          <p>
+	    Threads other than schedulers threads could make thread
+	    unsafe accesses when support for migration of memory
+	    carriers had been enabled, i.e., when the <seealso
+	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul</c></seealso>
+	    command line flag had been passed to <seealso
+	    marker="erl"><c>erl</c></seealso>. This could cause
+	    corruption of the VMs internal state.</p>
+          <p>
+	    This bug was introduced in erts-5.10.2 when the support
+	    for migration of memory carriers was introduced.</p>
+          <p>
+	    Own Id: OTP-11456 Aux Id: OTP-10279 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> for invalid bitstrings
+	    and very large binaries (>2Gb).</p>
+          <p>
+	    Own Id: OTP-11479</p>
+        </item>
+        <item>
+          <p>
+	    Under rare circumstances a process calling <seealso
+	    marker="kernel:inet#close/1"><c>inet:close/1</c></seealso>,
+	    <seealso
+	    marker="kernel:gen_tcp#close/1"><c>gen_tcp:close/1</c></seealso>,
+	    <seealso
+	    marker="kernel:gen_udp#close/1"><c>gen_udp:close/1</c></seealso>,
+	    or <seealso
+	    marker="kernel:gen_sctp#close/1"><c>gen_sctp:close/1</c></seealso>
+	    could hang in the call indefinitely.</p>
+          <p>
+	    Own Id: OTP-11491</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that could cause a 32-bit emulator to always
+	    crash at start (since R16B01) depending on the alignment
+	    of static data in the beam executable.</p>
+          <p>
+	    Own Id: OTP-11496</p>
+        </item>
+        <item>
+          <p>
+	    Fix benign bugs regarding bitstring compare. Only a
+	    nuisance for debug and valgrind VM.</p>
+          <p>
+	    Own Id: OTP-11501</p>
+        </item>
+        <item>
+          <p>
+	    Silence warnings (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11517</p>
+        </item>
+        <item>
+          <p>
+	    The default wordsize of the emulator (beam) is now
+	    determined by compiler default on Mac OSX (Darwin). This
+	    was previously forced to 32bits by the configure script
+	    unless otherwise specified.</p>
+          <p>
+	    Own Id: OTP-11521</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new memory allocation feature called "super carrier"
+	    has been introduced. The super carrier feature can be
+	    used in different ways. It can for example be used for
+	    pre-allocation of all memory that the runtime system
+	    should be able to use.</p>
+          <p>
+	    By default the super carrier is disabled. It is enabled
+	    by passing the <seealso
+	    marker="erts:erts_alloc#MMscs"><c>+MMscs &lt;size in
+	    MB&gt;</c></seealso> command line argument. For more
+	    information see the documentation of the <seealso
+	    marker="erts:erts_alloc#MMsco"><c>+MMsco</c></seealso>,
+	    <seealso
+	    marker="erts:erts_alloc#MMscrfsd"><c>+MMscrfsd</c></seealso>,
+	    <seealso
+	    marker="erts:erts_alloc#MMscrpm"><c>+MMscrpm</c></seealso>,
+	    <seealso
+	    marker="erts:erts_alloc#MMscs"><c>+MMscs</c></seealso>,
+	    <seealso
+	    marker="erts:erts_alloc#Musac"><c>+MMusac</c></seealso>,
+	    and, <seealso
+	    marker="erts:erts_alloc#Mlpm"><c>+Mlpm</c></seealso>
+	    command line arguments in the <seealso
+	    marker="erts:erts_alloc"><c>erts_alloc(3)</c></seealso>
+	    documentation.</p>
+          <p>
+	    Since it is disabled by default there should be no impact
+	    on system characteristics if not used.</p>
+          <p>
+	    This change has been marked as a potential
+	    incompatibility since the returned list when calling
+	    <seealso
+	    marker="erts:erlang#system_info_allocator_tuple"><c>erlang:system_info({allocator,
+	    mseg_alloc})</c></seealso> now also include an
+	    <c>{erts_mmap, _}</c> tuple as one element in the list.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11149</p>
+        </item>
+        <item>
+          <p>
+	    Added erlang:system_info(ets_limit) to provide a way to
+	    retrieve the runtime's maximum number of ETS tables.
+	    Thanks to Steve Vinoski</p>
+          <p>
+	    Own Id: OTP-11362</p>
+        </item>
+        <item>
+          <p>
+	    Add new BIF os:unsetenv/1 which deletes an environment
+	    variable. Thanks to Martin Hässler.</p>
+          <p>
+	    Own Id: OTP-11446</p>
+        </item>
+        <item>
+	    <p> Introduced a new guarantee regarding exit signals
+	    from ports: </p><p> If the process calling one of the
+	    synchronous port BIFs listed below is linked to the port
+	    identified by the first argument, and the port exits
+	    before sending the result of the port operation, the exit
+	    signal issued due to this link will be received by the
+	    processes before the BIF returns, or fail with an
+	    exception due to the port not being open. </p><p> The
+	    synchronous port BIFs are: </p> <list> <item><seealso
+	    marker="erlang#port_close/1/"><c>port_close/1</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_command/2"><c>port_command/2</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_command/3"><c>port_command/3</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_connect/2"><c>port_connect/2</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_control/3"><c>port_control/3</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_call/3"><c>erlang:port_call/3</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_info/1"><c>erlang:port_info/1</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#port_info/2"><c>erlang:port_info/2</c></seealso></item>
+	    </list> <p> Note that some ports under certain
+	    circumstances unlink themselves from the calling process
+	    before exiting, i.e. even though the process linked
+	    itself to the port there might be no link triggering an
+	    exit signal. </p> <p>Characteristics impact: The return
+	    or exception from the synchronous port BIF will be
+	    delayed if the port simultaneously exit due to some issue
+	    unrelated to the outstanding synchronous port BIF call.
+	    In all other cases characteristics are unchanged. </p>
+          <p>
+	    Own Id: OTP-11489</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.3.1</title>
 
     <section><title>Improvements and New Features</title>

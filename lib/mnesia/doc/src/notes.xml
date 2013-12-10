@@ -38,7 +38,31 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.10</title>
+  <section><title>Mnesia 4.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race in mnesia which could cause hanging
+	    transaction when sticky locks had been used. Thanks
+	    janchochol.</p>
+          <p>
+	    Own Id: OTP-11375</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dirty_update_counter which could return ok, thanks
+	    Anton Ryabkov.</p>
+          <p>
+	    Own Id: OTP-11485</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

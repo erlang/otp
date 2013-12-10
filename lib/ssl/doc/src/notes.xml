@@ -25,7 +25,69 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.1</title>
+  <section><title>SSL 5.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Honors the clients advertised support of elliptic curves
+	    and no longer sends incorrect elliptic curve extension in
+	    server hello.</p>
+          <p>
+	    Own Id: OTP-11370</p>
+        </item>
+        <item>
+          <p>
+	    Fix initialization of DTLS fragment reassembler, in
+	    previously contributed code, for future support of DTLS .
+	    Thanks to Andreas Schultz.</p>
+          <p>
+	    Own Id: OTP-11376</p>
+        </item>
+        <item>
+          <p>
+	    Corrected type error in client_preferred_next_protocols
+	    documentation. Thanks to Julien Barbot.</p>
+          <p>
+	    Own Id: OTP-11457</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS code has been refactored to prepare for future DTLS
+	    support. Also some DTLS code is in place but not yet
+	    runnable, some of it contributed by Andreas Schultz and
+	    some of it written by the OTP team. Thanks to to Andreas
+	    for his participation.</p>
+          <p>
+	    Own Id: OTP-11292</p>
+        </item>
+        <item>
+          <p>
+	    Remove extraneous dev debug code left in the close
+	    function. Thanks to Ken Key.</p>
+          <p>
+	    Own Id: OTP-11447</p>
+        </item>
+        <item>
+          <p>
+	    Add SSL Server Name Indication (SNI) client support.
+	    Thanks to Julien Barbot.</p>
+          <p>
+	    Own Id: OTP-11460</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
