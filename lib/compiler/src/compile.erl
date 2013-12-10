@@ -612,7 +612,7 @@ core_passes() ->
 	?pass(core_fold_module),
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
-	{core_fold_after_inline,fun test_core_inliner/1,fun core_fold_module/1},
+	{core_fold_after_inlining,fun test_core_inliner/1,fun core_fold_module_after_inlining/1},
 	?pass(core_transforms)]},
        {iff,dcopt,{listing,"copt"}},
        {iff,'to_core',{done,"core"}}]}
@@ -1133,6 +1133,12 @@ core_module(#compile{code=Code0,options=Opts}=St) ->
 core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
     {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),
     {ok,St#compile{code=Code,warnings=Warns ++ Ws}}.
+
+core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
+    %% Inlining may produce code that generates spurious warnings.
+    %% Ignore all warnings.
+    {ok,Code,_Ws} = sys_core_fold:module(Code0, Opts),
+    {ok,St#compile{code=Code}}.
 
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
