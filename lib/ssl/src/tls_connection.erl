@@ -299,6 +299,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Handshake = tls_handshake:init_handshake_history(),
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
+    process_flag(trap_exit, true),
     try ssl_init(SSLOpts0, Role) of
 	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} ->
 	    Session = State0#state.session,
@@ -2974,12 +2975,12 @@ get_timeout(#state{ssl_options=#ssl_options{hibernate_after = undefined}}) ->
 get_timeout(#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}}) ->
     HibernateAfter.
 
-handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = <<>>}}) ->
+handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = <<>>, cacerts = []}}) ->
     %% No trusted certs specified
     ok;
 handle_trusted_certs_db(#state{cert_db_ref = Ref,
 			       cert_db = CertDb,
-			       ssl_options = #ssl_options{cacertfile = undefined}}) ->
+			       ssl_options = #ssl_options{cacertfile = <<>>}}) ->
     %% Certs provided as DER directly can not be shared
     %% with other connections and it is safe to delete them when the connection ends.
     ssl_pkix_db:remove_trusted_certs(Ref, CertDb);
