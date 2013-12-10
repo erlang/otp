@@ -183,7 +183,7 @@ AC_SUBST(OBJC_CFLAGS)
 
 case $host_os in
     darwin*)
-	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
+	LDFLAGS="$MAC_MIN -bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
 	# Check sizof_void_p as future will hold 64bit MacOS wx
 	if test $ac_cv_sizeof_void_p = 4; then
 	    LDFLAGS="-m32 $LDFLAGS"
