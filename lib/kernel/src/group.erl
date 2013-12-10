@@ -120,10 +120,14 @@ server_loop(Drv, Shell, Buf0) ->
 	    put(echo, Bool),
 	    server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,interrupt} ->
-	    %% Send interrupt to the shell.
+	    %% Send interrupt to the shell and continue.
+	    %% If the shell terminates because of this,
+	    %% we will receive its exit signal.
 	    exit_shell(interrupt),
 	    server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,R} ->
+	    %% make sure the shell DOES exit.
+	    exit_shell(R),
 	    exit(R);
 	{'EXIT',Shell,R} ->
 	    exit(R);
@@ -137,11 +141,38 @@ server_loop(Drv, Shell, Buf0) ->
 	    server_loop(Drv, Shell, Buf0)
     end.
 
-exit_shell(Reason) ->
+exit_shell(interrupt) ->
+    % just send the 'interrupt' exit signal to the
+    % shell. if trapping exits, it can handle the
+    % signal as needed. Otherwise it's being killed.
     case get(shell) of
 	undefined -> true;
-	Pid -> exit(Pid, Reason)
+	Pid -> exit(Pid, interrupt)
+    end;
+exit_shell(_Reason) ->
+    % the calling code will do an exit(R) and
+    % propagate the exit reason to the shell. Make
+    % sure the shell does get killed.
+    case get(shell) of
+	undefined -> true;
+	Pid -> force_shell_exit(Pid)
     end.
+
+force_shell_exit(Pid) ->
+    % Spawn a separate process that monitors whether the
+    % shell exits or not. If not, forcedly kill the shell
+    % after a timeout of 2 seconds. This gives the shell a
+    % little time to react on the previous exit signal if
+    % it's trapping exits.
+    Func = fun() ->
+	MRef = monitor(process, Pid),
+	receive
+	    {'DOWN', MRef, _, _, _} -> ok
+	    after 2000 -> exit(Pid, kill)
+	end
+    end,
+    spawn(Func),
+    true.
 
 get_tty_geometry(Drv) ->
     Drv ! {self(),tty_geometry},
@@ -180,10 +211,11 @@ io_request(Req, From, ReplyAs, Drv, Buf0) ->
 	    io_reply(From, ReplyAs, Reply),
 	    Buf;
 	{exit,R} ->
-	    %% 'kill' instead of R, since the shell is not always in
-	    %% a state where it is ready to handle a termination
-	    %% message.
-	    exit_shell(kill),
+	    %% spawn a monitor that makes sure that the
+	    %% shell is really gone after a while. Then
+	    %% terminate ourselfs which will send an exit
+	    %% signal to the shell.
+	    exit_shell(R),
 	    exit(R)
     end.
 
@@ -417,10 +449,10 @@ get_password_chars(Drv,Buf) ->
     case get_password_line(Buf, Drv) of
 	{done, Line, Buf1} ->
 	    {ok, Line, Buf1};
-	interrupted ->
+	{exit, interrupt} ->
 	    {error, {error, interrupted}, []};
-	terminated ->
-	    {exit, terminated}
+	{exit, _} = Exit ->
+	    Exit
     end.
 
 get_chars(Prompt, M, F, Xa, Drv, Buf, Encoding) ->
@@ -439,10 +471,10 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
     case Result of
 	{done,Line,Buf1} ->
 	    get_chars_apply(Pbs, M, F, Xa, Drv, Buf1, State, Line, Encoding);
-	interrupted ->
-	    {error,{error,interrupted},[]};
-	terminated ->
-	    {exit,terminated}
+	{exit, interrupt} ->
+	    {error, {error, interrupted}, []};
+	{exit, _} = Exit ->
+	    Exit
     end.
 
 get_chars_apply(Pbs, M, F, Xa, Drv, Buf, State0, Line, Encoding) ->
@@ -617,10 +649,8 @@ more_data(What, Cont0, Drv, Ls, Encoding) ->
 	    io_request(Req, From, ReplyAs, Drv, []), %WRONG!!!
 	    send_drv_reqs(Drv, edlin:redraw_line(Cont)),
 	    get_line1({more_chars,Cont,[]}, Drv, Ls, Encoding);
-	{'EXIT',Drv,interrupt} ->
-	    interrupted;
-	{'EXIT',Drv,_} ->
-	    terminated
+	{'EXIT',Drv,R} ->
+	    {exit,R}
     after
 	get_line_timeout(What)->
 	    get_line1(edlin:edit_line([], Cont0), Drv, Ls, Encoding)
@@ -639,10 +669,8 @@ get_line_echo_off1({Chars,[]}, Drv) ->
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, []),
 	    get_line_echo_off1({Chars,[]}, Drv);
-	{'EXIT',Drv,interrupt} ->
-	    interrupted;
-	{'EXIT',Drv,_} ->
-	    terminated
+	{'EXIT',Drv,R} ->
+	    {exit,R}
     end;
 get_line_echo_off1({Chars,Rest}, _Drv) ->
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
@@ -788,10 +816,8 @@ get_password1({Chars,[]}, Drv) ->
 	    %% set to []. But do we expect anything but plain output?
 
 	    get_password1({Chars, []}, Drv);
-	{'EXIT',Drv,interrupt} ->
-	    interrupted;
-	{'EXIT',Drv,_} ->
-	    terminated
+	{'EXIT',Drv,R} ->
+	    {exit,R}
     end;
 get_password1({Chars,Rest},Drv) ->
     send_drv_reqs(Drv,[{put_chars, unicode, "\n"}]),
