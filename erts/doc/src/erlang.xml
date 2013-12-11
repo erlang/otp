@@ -501,16 +501,87 @@
       <name name="check_process_code" arity="2"/>
       <fsummary>Check if a process is executing old code for a module</fsummary>
       <desc>
-        <p>Returns <c>true</c> if the process <c><anno>Pid</anno></c> is executing
-          old code for <c><anno>Module</anno></c>. That is, if the current call of
-          the process executes old code for this module, or if the
-          process has references to old code for this module, or if the
-          process contains funs that references old code for this
-          module. Otherwise, it returns <c>false</c>.</p>
-        <pre>
-> <input>check_process_code(Pid, lists).</input>
-false</pre>
+        <p>The same as
+	<seealso marker="#check_process_code/3"><c>erlang:check_process_code(<anno>Pid</anno>,
+	<anno>Module</anno>, [])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="check_process_code" arity="3"/>
+      <fsummary>Check if a process is executing old code for a module</fsummary>
+      <desc>
+	<p>Check if the node local process identified by <c><anno>Pid</anno></c>
+	is executing old code for <c><anno>Module</anno></c>.</p>
+	<p>Currently available <c><anno>Option</anno>s</c>:</p>
+        <taglist>
+          <tag><c>{allow_gc, boolean()}</c></tag>
+          <item>
+	    Determines if garbage collection is allowed when performing
+	    the operation. If <c>{allow_gc, false}</c> is passed, and
+	    a garbage collection is needed in order to determine the
+	    result of the operation, the operation will be aborted
+	    (see information on <c><anno>CheckResult</anno></c> below).
+	    The default is to allow garbage collection, i.e.,
+	    <c>{allow_gc, true}</c>.
+	  </item>
+          <tag><c>{async, RequestId}</c></tag>
+          <item>
+	    The <c>check_process_code/3</c> function will return
+	    the value <c>async</c> immediately after the request
+	    has been sent. When the request has been processed, the
+	    process that called this function will be passed a
+	    message on the form:<br/>
+	    <c>{check_process_code, <anno>RequestId</anno>, <anno>CheckResult</anno>}</c>.
+	  </item>
+        </taglist>
+	<p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
+	no <c>async</c> option has been passed, the operation will
+	be performed at once. In all other cases a request for
+	the operation will be sent to the process identified by
+	<c><anno>Pid</anno></c>, and will be handled when
+	appropriate. If no <c>async</c> option has been passed,
+	the caller will block until <c><anno>CheckResult</anno></c>
+	is available and can be returned.</p>
+	<p><c><anno>CheckResult</anno></c> informs about the result of
+	the request:</p>
+        <taglist>
+          <tag><c>true</c></tag>
+          <item>
+	    The process identified by <c><anno>Pid</anno></c> is
+	    executing old code for <c><anno>Module</anno></c>.
+	    That is, the current call of the process executes old
+	    code for this module, or the process has references
+	    to old code for this module, or the process contains
+	    funs that references old code for this module.
+	  </item>
+          <tag><c>false</c></tag>
+          <item>
+	    The process identified by <c><anno>Pid</anno></c> is
+	    not executing old code for <c><anno>Module</anno></c>.
+	  </item>
+          <tag><c>aborted</c></tag>
+          <item>
+	    The operation was aborted since the process needed to
+	    be garbage collected in order to determine the result
+	    of the operation, and the operation was requested
+	    by passing the <c>{allow_gc, false}</c> option.</item>
+        </taglist>
         <p>See also <seealso marker="kernel:code">code(3)</seealso>.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>Pid</anno></c> is not a node local process identifier.
+	  </item>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>Module</anno></c> is not an atom.
+	  </item>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>OptionList</anno></c> is not a valid list of options.
+	  </item>
+        </taglist>
       </desc>
     </func>
     <func>
@@ -1197,20 +1268,74 @@ true
           that the spontaneous garbage collection will occur too late
           or not at all. Improper use may seriously degrade system
           performance.</p>
-        <p>Compatibility note: In versions of OTP prior to R7,
-          the garbage collection took place at the next context switch,
-          not immediately. To force a context switch after a call to
-          <c>erlang:garbage_collect()</c>, it was sufficient to make
-          any function call.</p>
       </desc>
     </func>
     <func>
       <name name="garbage_collect" arity="1"/>
-      <fsummary>Force an immediate garbage collection of a process</fsummary>
+      <fsummary>Garbage collect a process</fsummary>
       <desc>
-        <p>Works like <c>erlang:garbage_collect()</c> but on any
-          process. The same caveats apply. Returns <c>false</c> if
-          <c><anno>Pid</anno></c> refers to a dead process; <c>true</c> otherwise.</p>
+        <p>The same as
+	<seealso marker="#garbage_collect/2"><c>garbage_collect(<anno>Pid</anno>, [])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="garbage_collect" arity="2"/>
+      <fsummary>Garbage collect a process</fsummary>
+      <desc>
+	<p>Garbage collect the node local process identified by
+	<c><anno>Pid</anno></c>.</p>
+	<p>Currently available <c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>{async, RequestId}</c></tag>
+          <item>
+	    The <c>garbage_collect/2</c> function will return
+	    the value <c>async</c> immediately after the request
+	    has been sent. When the request has been processed, the
+	    process that called this function will be passed a
+	    message on the form:<br/>
+	    <c>{garbage_collect, <anno>RequestId</anno>, <anno>GCResult</anno>}</c>.
+	  </item>
+        </taglist>
+	<p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
+	no <c>async</c> option has been passed, the garbage
+	collection will be performed at once, i.e. the same as
+	calling
+	<seealso marker="#garbage_collect/0">garbage_collect/0</seealso>.
+	In all other cases a request for garbage collection will
+	be sent to the process identified by <c><anno>Pid</anno></c>,
+	and will be handled when appropriate. If no <c>async</c>
+	option has been passed, the caller will block until
+	<c><anno>GCResult</anno></c> is available and can be
+	returned.</p>
+	<p><c><anno>GCResult</anno></c> informs about the result of
+	the garbage collection request:</p>
+        <taglist>
+          <tag><c>true</c></tag>
+          <item>
+	    The process identified by <c><anno>Pid</anno></c> has
+	    been garbage collected.
+	  </item>
+          <tag><c>false</c></tag>
+          <item>
+	    No garbage collection was performed. This since the
+	    the process identified by <c><anno>Pid</anno></c>
+	    terminated before the request could be satisfied.
+	  </item>
+        </taglist>
+        <p>Note that the same caveats as for
+	<seealso marker="#garbage_collect/0">garbage_collect/0</seealso>
+	apply.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>Pid</anno></c> is not a node local process identifier.
+	  </item>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>OptionList</anno></c> is not a valid list of options.
+	  </item>
+        </taglist>
       </desc>
     </func>
     <func>

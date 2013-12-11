@@ -3603,6 +3603,20 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_true);
 	    }
 	}
+	else if (ERTS_IS_ATOM_STR("gc_state", BIF_ARG_1)) {
+	    /* Used by process_SUITE (emulator) */
+	    int res, enable;
+
+	    switch (BIF_ARG_2) {
+	    case am_true: enable = 1; break;
+	    case am_false: enable = 0; break;
+	    default: BIF_ERROR(BIF_P, BADARG); break;
+	    }
+ 
+            res = (BIF_P->flags & F_DISABLE_GC) ? am_false : am_true;
+	    erts_set_gc_state(BIF_P, enable);
+	    BIF_RET(res);
+	}
 	else if (ERTS_IS_ATOM_STR("send_fake_exit_signal", BIF_ARG_1)) {
 	    /* Used by signal_SUITE (emulator) */
 

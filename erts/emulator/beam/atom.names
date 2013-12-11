@@ -78,6 +78,7 @@ atom allocated_areas
 atom allocator
 atom allocator_sizes
 atom alloc_util_allocators
+atom allow_gc
 atom allow_passive_connect
 atom already_loaded
 atom amd64
@@ -114,6 +115,7 @@ atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
 atom binary_match_trap
 atom binary_matches_trap
+atom binary_to_term_trap
 atom block
 atom blocked
 atom bm
