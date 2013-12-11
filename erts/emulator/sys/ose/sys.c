@@ -1647,14 +1647,16 @@ int fd;
 
 extern int erts_initialized;
 void
-erl_assert_error(char* expr, char* file, int line)
+erl_assert_error(const char* expr, const char* func,
+		 const char* file, int line)
 {
     fflush(stdout);
-    fprintf(stderr, "Assertion failed: %s in %s, line %d\n",
-	    expr, file, line);
+    fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+	    file, func, line, expr);
     fflush(stderr);
-    ramlog_printf("%d: Assertion failed: %s in %s, line %d\n",
-		  current_process(), expr, file, line);
+    ramlog_printf("%s:%d:%s() Assertion failed: %s\n",
+		  file, func, line, expr);
+
     abort();
 }
 
