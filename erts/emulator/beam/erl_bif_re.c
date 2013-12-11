@@ -1196,8 +1196,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 
 	ovsize = 3*(unsigned_val(tp[2])+1);
 	code_size = binary_size(tp[5]);
-	if ((code_tmp = (const pcre *) 
-	     erts_get_aligned_binary_bytes(tp[5], &temp_alloc)) == NULL) {
+	code_tmp = (const pcre *) erts_get_aligned_binary_bytes(tp[5], &temp_alloc);
+	if (code_tmp == NULL || code_size < 4) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_ERROR(p, BADARG);
 	}
