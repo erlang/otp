@@ -180,7 +180,7 @@ static OS_PROCESS(thr_wrapper)
 
     res = result == 0 ? (*thr_func)(arg) : NULL;
 
-    thr_exit_cleanup(&my_tid, res);
+    ethr_thr_exit(&res);
 }
 
 /* internal exports */
