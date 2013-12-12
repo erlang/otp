@@ -24,7 +24,6 @@
 -include_lib("reltool/src/reltool.hrl").
 -include("reltool_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("kernel/include/file.hrl").
 
 -define(NODE_NAME, '__RELTOOL__TEMPORARY_TEST__NODE__').
 -define(WORK_DIR, "reltool_work_dir").
@@ -33,62 +32,16 @@
 %% Initialization functions.
 
 init_per_suite(Config) ->
-    {ok,Cwd} = file:get_cwd(),
     ?ignore(file:make_dir(?WORK_DIR)),
-    [{cwd,Cwd}|reltool_test_lib:init_per_suite(Config)].
+    reltool_test_lib:init_per_suite(Config).
 
 end_per_suite(Config) ->
     reltool_test_lib:end_per_suite(Config).
 
 init_per_testcase(Func,Config) ->
-    Node = full_node_name(?NODE_NAME),
-    case net_adm:ping(Node) of
-	pong -> stop_node(Node);
-	pang -> ok
-    end,
     reltool_test_lib:init_per_testcase(Func,Config).
 end_per_testcase(Func,Config) ->
-    ok = file:set_cwd(filename:join(?config(cwd,Config),?WORK_DIR)),
-    {ok,All}  = file:list_dir("."),
-    Files = [F || F <- All, false == lists:prefix("save.",F)],
-    case ?config(tc_status,Config) of
-	ok ->
-	    ok;
-	_Fail ->
-	    SaveDir = "save."++atom_to_list(Func),
-	    ok = file:make_dir(SaveDir),
-	    save_test_result(Files,SaveDir)
-    end,
-    rm_files(Files),
-    ok = file:set_cwd(?config(cwd,Config)),
     reltool_test_lib:end_per_testcase(Func,Config).
-
-
-save_test_result(Files,DestDir) ->
-    Tar = "copy.tar",
-    ok = erl_tar:create(Tar, Files),
-    ok = erl_tar:extract(Tar, [{cwd,DestDir}]),
-    ok = file:delete(Tar),
-    ok.
-
-rm_files([F | Fs]) ->
-    case file:read_file_info(F) of
-	{ok,#file_info{type=directory}} ->
-	    rm_dir(F);
-	{ok,_Regular} ->
-	    ok = file:delete(F)
-    end,
-    rm_files(Fs);
-rm_files([]) ->
-    ok.
-
-rm_dir(Dir) ->
-    {ok,Files} = file:list_dir(Dir),
-    rm_files([filename:join(Dir, F) || F <- Files]),
-    ok = file:del_dir(Dir).
-
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% SUITE specification
@@ -105,7 +58,6 @@ all() ->
      create_script_without_dot_erlang,
      create_script_sort,
      create_target,
-     create_target_unicode,
      create_embedded,
      create_standalone,
      create_standalone_beam,
@@ -119,8 +71,6 @@ all() ->
      otp_9229_dupl_mod_exclude_app,
      otp_9229_dupl_mod_exclude_mod,
      dupl_mod_in_app_file,
-     include_non_existing_app,
-     exclude_non_existing_app,
      get_apps,
      get_mod,
      get_sys,
@@ -977,11 +927,11 @@ create_standalone(_Config) ->
     ?msym(ok, stop_node(Node)),
     
     %% Execute escript
-    Expected =  s2b(["Root dir: ", RootDir, "\n"
-		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		     "Emuarg: [\"emuvalue\"]\n",
-		     "ExitCode:0"]),
-    io:format("Expected: ~ts\n", [Expected]),
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "Smp: false\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
     
     ok.
@@ -1024,11 +974,10 @@ create_standalone_beam(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript
-    Expected =  s2b(["Module: mymod\n"
-		     "Root dir: ", RootDir, "\n"
-		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		     "ExitCode:0"]),
-    io:format("Expected: ~ts\n", [Expected]),
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
 
     ok.
@@ -1077,11 +1026,10 @@ create_standalone_app(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript
-    Expected =  s2b(["Module: mymod\n"
-		     "Root dir: ", RootDir, "\n"
-		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		     "ExitCode:0"]),
-    io:format("Expected: ~ts\n", [Expected]),
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
 
     ok.
@@ -1164,20 +1112,19 @@ create_multiple_standalone(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript1
-    Expected1 =  s2b(["Root dir: ", RootDir, "\n"
-		      "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		      "Emuarg: [\"emuvalue\"]\n",
-		      "ExitCode:0"]),
-    io:format("Expected1: ~ts\n", [Expected1]),
+    Expected1 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "Smp: false\n",
+				  "ExitCode:0"]),
+    io:format("Expected1: ~s\n", [Expected1]),
     ?m(Expected1, run(BinDir, EscriptName1, "-arg1 arg2 arg3")),
 
 
     %% Execute escript2
-    Expected2 =  s2b(["Module: mymod\n"
-		      "Root dir: ", RootDir, "\n"
-		      "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		      "ExitCode:0"]),
-    io:format("Expected2: ~ts\n", [Expected2]),
+    Expected2 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected2: ~s\n", [Expected2]),
     ?m(Expected2, run(BinDir, EscriptName2, "-arg1 arg2 arg3")),
 
     ok.
@@ -1259,7 +1206,6 @@ create_slim(Config) ->
 	    "-sasl", "releases_dir", "\""++TargetRelDir++"\""],
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl, Args)),
     ?msym(RootDir, rpc:call(Node, code, root_dir, [])),
-    wait_for_app(Node,sasl,50),
     ?msym([{RelName,RelVsn,_,permanent}],
 	  rpc:call(Node,release_handler,which_releases,[])),
     ?msym(ok, stop_node(Node)),
@@ -1402,6 +1348,7 @@ otp_9229_dupl_mod_exclude_mod(Config) ->
 
     ok.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test that if a module is duplicated in a .app file, then a warning
 %% is produced, but target can still be created.
@@ -1430,56 +1377,6 @@ dupl_mod_in_app_file(Config) ->
        reltool:get_status([{config, Sys}])),
 
     %%! test that only one module installed (in spec)
-
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Test that a reasonable error message is returned if an application
-%% is missing
-include_non_existing_app(_Config) ->
-    %% Configure the server
-    Sys =
-        {sys,
-         [
-          {incl_cond,exclude},
-          {app,foobar,[{incl_cond,include}]},
-          {app,kernel,[{incl_cond,include}]},
-          {app,stdlib,[{incl_cond,include}]},
-          {app,sasl,[{incl_cond,include}]}
-         ]},
-
-    %% Generate target file
-    TargetDir = filename:join([?WORK_DIR, "target_include_non_existing_app"]),
-    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
-    ?m(ok, file:make_dir(TargetDir)),
-    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
-    ?m({error,"foobar: Missing application directory."},
-       reltool:get_status([{config, Sys}])),
-
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Test that if a missing application is explicitly excluded a warning
-%% should be issued.
-exclude_non_existing_app(_Config) ->
-    %% Configure the server
-    Sys =
-        {sys,
-         [
-          {incl_cond,exclude},
-          {app,foobar,[{incl_cond,exclude}]},
-          {app,kernel,[{incl_cond,include}]},
-          {app,stdlib,[{incl_cond,include}]},
-          {app,sasl,[{incl_cond,include}]}
-         ]},
-
-    %% Generate target file
-    TargetDir = filename:join([?WORK_DIR, "target_exclude_non_existing_app"]),
-    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
-    ?m(ok, file:make_dir(TargetDir)),
-    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
-    ?m({ok,["foobar: Missing application directory."]},
-       reltool:get_status([{config, Sys}])),
 
     ok.
 
@@ -2752,13 +2649,13 @@ start_node(Name, ErlPath) ->
 start_node(Name, ErlPath, Args0) ->
     FullName = full_node_name(Name),
     Args = mk_node_args(Name, Args0),
-    io:format("Starting node ~p: ~ts~n",
+    io:format("Starting node ~p: ~s~n",
 	      [FullName, lists:flatten([[X," "] || X <- [ErlPath|Args]])]),
     %io:format("open_port({spawn_executable, ~p}, [{args,~p}])~n",[ErlPath,Args]),
     case open_port({spawn_executable, ErlPath}, [{args,Args}]) of
         Port when is_port(Port) ->
-	    %% no need to close port since node is detached (see
-	    %% mk_node_args) so port will be closed anyway.
+            unlink(Port),
+            erlang:port_close(Port),
             case ping_node(FullName, 50) of
                 ok -> {ok, FullName};
                 Other -> exit({failed_to_start_node, FullName, Other})
@@ -2768,19 +2665,9 @@ start_node(Name, ErlPath, Args0) ->
     end.
 
 stop_node(Node) ->
-    rpc:call(Node,erlang,halt,[]),
-    wait_for_node_down(Node,50).
-
-wait_for_node_down(Node,0) ->
-    test_server:fail({cant_terminate_node,Node});
-wait_for_node_down(Node,N) ->
-    case net_adm:ping(Node) of
-	pong ->
-	    timer:sleep(1000),
-	    wait_for_node_down(Node,N-1);
-	pang ->
-	    ok
-    end.
+    monitor_node(Node, true),
+    spawn(Node, fun () -> halt() end),
+    receive {nodedown, Node} -> ok end.
 
 mk_node_args(Name, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
@@ -2791,7 +2678,7 @@ mk_node_args(Name, Args) ->
              end,
     {ok, Pwd} = file:get_cwd(),
     NameStr = atom_to_list(Name),
-    ["-detached",
+    ["-detached", "-noinput",
      %% Don't want to try to run the debug emulator here
      "-emu_type","opt",
      NameSw, NameStr,
@@ -2829,22 +2716,6 @@ wait_for_process(Node, Name, N) when is_integer(N), N > 0 ->
 	    ok
     end.
 
-wait_for_app(_Node, Name, 0) ->
-    {error, Name};
-wait_for_app(Node, Name, N) when is_integer(N), N > 0 ->
-    case rpc:call(Node,application,which_applications,[]) of
-	{badrpc,Reason} ->
-	    test_server:fail({failed_to_get_applications,Reason});
-	Apps ->
-	    case lists:member(Name,Apps) of
-		false ->
-		    timer:sleep(1000),
-		    wait_for_app(Node, Name, N-1);
-		true ->
-		    ok
-	    end
-    end.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Run escript
 
@@ -2873,7 +2744,7 @@ do_run(Dir, Cmd) ->
     Res = get_data(Port, []),
     receive
         {Port,{exit_status,ExitCode}} ->
-            s2b([Res,"ExitCode:"++integer_to_list(ExitCode)])
+            iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)])
     end.
 
 get_data(Port, SoFar) ->
@@ -2897,9 +2768,3 @@ expected_output([], _) ->
     [];
 expected_output(Bin, _) when is_binary(Bin) -> 
     Bin.
-
-%% Convert the given list to a binary with the same encoding as the
-%% file name translation mode
-s2b(List) ->
-    Enc = file:native_name_encoding(),
-    unicode:characters_to_binary(List,Enc,Enc).

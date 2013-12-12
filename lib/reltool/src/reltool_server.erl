@@ -196,6 +196,7 @@ default_sys() ->
 	 rel_app_type      = ?DEFAULT_REL_APP_TYPE,
 	 embedded_app_type = ?DEFAULT_EMBEDDED_APP_TYPE,
 	 app_file          = ?DEFAULT_APP_FILE,
+         app_dir_vsn       = ?DEFAULT_APP_DIR_VSN,
 	 incl_archive_filters = dec_re(incl_archive_filters,
 				       ?DEFAULT_INCL_ARCHIVE_FILTERS,
 				       []),
@@ -447,6 +448,7 @@ app_set_config_only([],#app{name                 = Name,
 			    use_selected_vsn     = undefined,
 			    debug_info           = undefined,
 			    app_file             = undefined,
+			    app_dir_vsn          = undefined,
 			    app_type             = undefined,
 			    incl_app_filters     = undefined,
 			    excl_app_filters     = undefined,
@@ -461,6 +463,7 @@ app_set_config_only(Mods,#app{name                 = Name,
 			      use_selected_vsn     = UseSelectedVsn,
 			      debug_info           = DebugInfo,
 			      app_file             = AppFile,
+			      app_dir_vsn          = AppDirVsn,
 			      app_type             = AppType,
 			      incl_app_filters     = InclAppFilters,
 			      excl_app_filters     = ExclAppFilters,
@@ -478,6 +481,7 @@ app_set_config_only(Mods,#app{name                 = Name,
 				  use_selected_vsn     = UseSelectedVsn,
 				  debug_info           = DebugInfo,
 				  app_file             = AppFile,
+                                  app_dir_vsn          = AppDirVsn,
 				  app_type             = AppType,
 				  incl_app_filters     = InclAppFilters,
 				  excl_app_filters     = ExclAppFilters,
@@ -611,7 +615,7 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
 		    more_apps_in_rels(RelApps, Apps, Acc2);
 		false ->
 		    reltool_utils:throw_error(
-		      "Release ~tp uses non existing application ~w",
+		      "Release ~p uses non existing application ~w",
 		      [RelName,AppName])
 	    end
     end;
@@ -629,11 +633,7 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 		     #app{name = AppName, mods = Mods} = A,
 		     RelApps,
 		     Status) ->
-    AppCond =
-        case A#app.incl_cond of
-            undefined -> Sys#sys.incl_cond;
-            _         -> A#app.incl_cond
-        end,
+    AppCond = resolve_app_cond(A, Sys#sys.incl_cond),
     ModCond =
         case A#app.mod_cond of
             undefined -> Sys#sys.mod_cond;
@@ -648,12 +648,16 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 		{undefined, false, false, Status};
             {exclude, [RelName | _]} -> % App is included in at least one rel
 		reltool_utils:throw_error(
-		  "Application ~w is used in release ~tp and cannot be excluded",
+		  "Application ~w is used in release ~p and cannot be excluded",
 		  [AppName,RelName]);
             {derived, []} ->
 		{undefined, undefined, undefined, Status};
             {derived, [_ | _]} -> % App is included in at least one rel
-		{true, undefined, true, Status}
+		{true, undefined, true, Status};
+            {release, []} ->
+		{undefined, false, false, Status};
+            {release, [_ | _]} -> % App is included in at least one rel
+		{true, true, true, Status}
         end,
     {Mods2,Status3} = lists:mapfoldl(fun(Mod,Acc) ->
 					     mod_init_is_included(ModTab,
@@ -661,6 +665,8 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 								  ModCond,
 								  AppCond,
 								  Default,
+                                                                  A,
+                                                                  Sys,
 								  Acc)
 				     end,
 				     Status2,
@@ -672,46 +678,18 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
     ets:insert(AppTab, A2),
     Status3.
 
-mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
+resolve_app_cond(#app{incl_cond=InclCond}, SysInclCond) ->
+    case InclCond of
+        undefined -> SysInclCond;
+        _         -> InclCond
+    end.
+
+mod_init_is_included(ModTab, M, ModCond, AppCond, Default, App, Sys, Status) ->
     %% print(M#mod.name, hipe, "incl_cond -> ~w\n", [AppCond]),
-    IsIncl =
-        case AppCond of
-            include ->
-                case M#mod.incl_cond of
-                    include ->
-                        true;
-                    exclude ->
-                        false;
-		    derived ->
-			undefined;
-                    undefined ->
-                        %% print(M#mod.name, hipe, "mod_cond -> ~w\n",
-			%%       [ModCond]),
-                        case ModCond of
-                            all     -> true;
-                            app     -> false_to_undefined(M#mod.is_app_mod);
-                            ebin    -> false_to_undefined(M#mod.is_ebin_mod);
-                            derived -> Default;
-                            none    -> false
-                        end
-                end;
-            exclude ->
-                false;
-            derived ->
-                case M#mod.incl_cond of
-                    include ->
-                        true;
-                    exclude ->
-                        false;
-		    derived ->
-			undefined;
-                    undefined ->
-                        Default
-                end
-        end,
-
+    Path = filename:join(["ebin", atom_to_list(M#mod.name) ++ ".beam"]),
+    IsIncl = match_path(Path, App, Sys) andalso
+        is_mod_included(M, ModCond, AppCond, Default),
     M2 = M#mod{is_pre_included = IsIncl, is_included = IsIncl},
-
     Status2 =
 	case ets:lookup(ModTab,M#mod.name) of
 	    [Existing] ->
@@ -745,6 +723,62 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
 
     %% print(M#mod.name, hipe, "~p -> ~w\n", [M2, IsIncl]),
     {M2,Status2}.
+
+match_path(Path,
+      #app{incl_app_filters  = AppInclRegexps,
+           excl_app_filters  = AppExclRegexps},
+      #sys{incl_app_filters  = SysInclRegexps,
+           excl_app_filters  = SysExclRegexps}) ->
+    InclRegexps = reltool_utils:default_val(AppInclRegexps, SysInclRegexps),
+    ExclRegexps = reltool_utils:default_val(AppExclRegexps, SysExclRegexps),
+    reltool_utils:match(Path, InclRegexps, ExclRegexps).
+
+is_mod_included(M, ModCond, AppCond, Default) ->
+    case AppCond of
+            include ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        %% print(M#mod.name, hipe, "mod_cond -> ~w\n",
+			%%       [ModCond]),
+                        case ModCond of
+                            all     -> true;
+                            app     -> false_to_undefined(M#mod.is_app_mod);
+                            ebin    -> false_to_undefined(M#mod.is_ebin_mod);
+                            derived -> Default;
+                            none    -> false
+                        end
+                end;
+            exclude ->
+                false;
+            derived ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        Default
+                end;
+            release ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        Default
+                end
+        end.
 
 false_to_undefined(Bool) ->
     case Bool of
@@ -960,6 +994,11 @@ app_recap_dependencies(S) ->
 
 app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
     {Mods2, IsIncl2} = mod_recap_dependencies(S, A, Mods, [], IsIncl),
+    IsIncl3 =
+        case resolve_app_cond(A, (S#state.sys)#sys.incl_cond) of
+            release -> IsIncl;
+            _       -> IsIncl2
+        end,
     AppStatus =
         case lists:keymember(missing, #mod.status, Mods2) of
             true  -> missing;
@@ -982,7 +1021,7 @@ app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
                used_by_mods = UsedByMods2,
                uses_apps = UsesApps2,
                used_by_apps = UsedByApps2,
-               is_included = IsIncl2},
+               is_included = IsIncl3},
     ets:insert(S#state.app_tab,A2),
     ok.
 
@@ -1041,7 +1080,7 @@ verify_config(#state{app_tab=AppTab, sys=#sys{boot_rel = BootRel, rels = Rels}},
 			Rels);
         false ->
 	    reltool_utils:throw_error(
-	      "Release ~tp is mandatory (used as boot_rel)",[BootRel])
+	      "Release ~p is mandatory (used as boot_rel)",[BootRel])
     end.
 
 check_app(AppTab, {RelName, AppName}, Status) ->
@@ -1051,7 +1090,7 @@ check_app(AppTab, {RelName, AppName}, Status) ->
 	    Status;
 	_ ->
 	    reltool_utils:throw_error(
-	      "Release ~tp uses non included application ~w",[RelName,AppName])
+	      "Release ~p uses non included application ~w",[RelName,AppName])
     end.
 
 check_rel(RelName, RelApps, Status) ->
@@ -1063,7 +1102,7 @@ check_rel(RelName, RelApps, Status) ->
                     false ->
 			reltool_utils:throw_error(
 			  "Mandatory application ~w is not included in "
-			  "release ~tp", [AppName,RelName])
+			  "release ~p", [AppName,RelName])
                 end
         end,
     Mandatory = [kernel, stdlib],
@@ -1181,18 +1220,18 @@ read_app_info(AppFileOrBin, AppFile, AppName, _ActiveDir, _AppStatus, DefaultVsn
             parse_app_info(AppFile, Info, AI, Status);
         {ok, _BadApp} ->
             {missing_app_info(DefaultVsn),
-	     reltool_utils:add_warning("~w: Illegal contents in app file ~tp, "
+	     reltool_utils:add_warning("~w: Illegal contents in app file ~p, "
 				       "application tuple with arity 3 expected.",
 				       [AppName,AppFile],
 				       Status)};
         {error, Text} when Text =:= EnoentText ->
 	    {missing_app_info(DefaultVsn),
-             reltool_utils:add_warning("~w: Missing app file ~tp.",
+             reltool_utils:add_warning("~w: Missing app file ~p.",
                                        [AppName,AppFile],
                                        Status)};
         {error, Text} ->
             {missing_app_info(DefaultVsn),
-	     reltool_utils:add_warning("~w: Cannot parse app file ~tp (~tp).",
+	     reltool_utils:add_warning("~w: Cannot parse app file ~p (~p).",
 				       [AppName,AppFile,Text],
 				       Status)}
     end.
@@ -1322,7 +1361,7 @@ wait_for_processto_die(Ref, Pid, File) ->
 	{'DOWN', Ref, _Type, _Object, _Info} ->
 	    ok
     after timer:seconds(30) ->
-	    error_logger:error_msg("~w(~w): Waiting for process ~w to die ~tp\n",
+	    error_logger:error_msg("~w(~w): Waiting for process ~w to die ~p\n",
 				   [?MODULE, ?LINE, Pid, File]),
 	    wait_for_processto_die(Ref, Pid, File)
     end.
@@ -1436,7 +1475,7 @@ read_config(OldSys, Filename) when is_list(Filename) ->
         {ok, Content} ->
 	    reltool_utils:throw_error("Illegal file content: ~p",[Content]);
         {error, Reason} ->
-	    reltool_utils:throw_error("Illegal config file ~tp: ~ts",
+	    reltool_utils:throw_error("Illegal config file ~p: ~ts",
 				      [Filename,file:format_error(Reason)])
     end;
 read_config(OldSys, {sys, KeyVals}) ->
@@ -1454,7 +1493,7 @@ read_config(OldSys, {sys, KeyVals}) ->
 	    NewSys2;
 	false ->
 	    reltool_utils:throw_error(
-	      "Release ~tp is mandatory (used as boot_rel)",
+	      "Release ~p is mandatory (used as boot_rel)",
 	      [NewSys2#sys.boot_rel])
     end;
 read_config(_OldSys, BadConfig) ->
@@ -1510,10 +1549,13 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{mod_cond = Val};
             incl_cond when Val =:= include;
 			   Val =:= exclude;
-                           Val =:= derived ->
+                           Val =:= derived;
+                           Val =:= release ->
                 Sys#sys{incl_cond = Val};
             boot_rel when is_list(Val) ->
                 Sys#sys{boot_rel = Val};
+            boot_phase_fun when is_function(Val, 4) ->
+                Sys#sys{boot_phase_fun = Val};
             emu_name when is_list(Val) ->
                 Sys#sys{emu_name = Val};
 	    profile when Val =:= development;
@@ -1560,7 +1602,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
 			    dec_re(Key, Val, Sys#sys.excl_archive_filters)};
             archive_opts when is_list(Val) ->
                 Sys#sys{archive_opts = Val};
-            relocatable when Val =:= true; Val =:= false ->
+            relocatable when Val =:= true;
+                             Val =:= false ->
                 Sys#sys{relocatable = Val};
             rel_app_type when Val =:= permanent;
 			      Val =:= transient;
@@ -1575,9 +1618,15 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
 				   Val =:= none;
 				   Val =:= undefined ->
                 Sys#sys{embedded_app_type = Val};
-            app_file when Val =:= keep; Val =:= strip; Val =:= all ->
+            app_file when Val =:= keep;
+                          Val =:= strip;
+                          Val =:= all ->
                 Sys#sys{app_file = Val};
-            debug_info when Val =:= keep; Val =:= strip ->
+            app_dir_vsn when Val =:= keep;
+                             Val =:= strip ->
+                Sys#sys{app_dir_vsn = Val};
+            debug_info when Val =:= keep;
+                            Val =:= strip ->
                 Sys#sys{debug_info = Val};
             _ ->
 		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
@@ -1594,7 +1643,8 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{mod_cond = Val};
             incl_cond when Val =:= include;
 			   Val =:= exclude;
-			   Val =:= derived ->
+			   Val =:= derived;
+                           Val =:= release ->
                 App#app{incl_cond = Val};
 
             debug_info when Val =:= keep;
@@ -1604,6 +1654,9 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
 			  Val =:= strip;
 			  Val =:= all ->
                 App#app{app_file = Val};
+            app_dir_vsn when Val =:= keep;
+                             Val =:= strip ->
+                App#app{app_dir_vsn = Val};
             app_type when Val =:= permanent;
 			  Val =:= transient;
 			  Val =:= temporary;
@@ -1679,7 +1732,7 @@ decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals]) ->
         end,
     case ValidTypesAssigned of
 	true ->
-            decode(Rel#rel{rel_apps = RelApps ++ [RA]}, KeyVals);
+            decode(Rel#rel{rel_apps = [RA | RelApps]}, KeyVals);
         false ->
 	    reltool_utils:throw_error("Illegal option: ~tp", [RelApp])
     end;
@@ -1735,8 +1788,7 @@ refresh(#state{sys=Sys} = S) ->
     %% to the user configuration.
     %% Then find all modules and their dependencies and set user
     %% configuration per module if it exists.
-    {RefreshedApps, Status3} = refresh_apps(Sys#sys.apps, AllApps, [],
-					    true, Status2),
+    {RefreshedApps, Status3} = refresh_apps(Sys, AllApps, [], true, Status2),
 
     %% Make sure erts exists in app list and has a version (or warn)
     {PatchedApps, Status4} = patch_erts_version(RootDir, RefreshedApps, Status3),
@@ -1767,7 +1819,7 @@ patch_erts_version(RootDir, Apps, Status) ->
             end;
         false ->
 	    reltool_utils:throw_error(
-	      "erts cannot be found in the root directory ~tp", [RootDir])
+	      "erts cannot be found in the root directory ~p", [RootDir])
     end.
 
 libs_to_dirs(RootDir, LibDirs) ->
@@ -1794,10 +1846,10 @@ libs_to_dirs(RootDir, LibDirs) ->
 						   lists:prefix("erts", F)],
                     app_dirs2(AllLibDirs, [ErtsFiles]);
                 [Duplicate | _] ->
-		    reltool_utils:throw_error("Duplicate library: ~tp",[Duplicate])
+		    reltool_utils:throw_error("Duplicate library: ~p",[Duplicate])
             end;
         {error, Reason} ->
-	    reltool_utils:throw_error("Missing root library ~tp: ~ts",
+	    reltool_utils:throw_error("Missing root library ~p: ~ts",
 				      [RootDir,file:format_error(Reason)])
     end.
 
@@ -1822,7 +1874,7 @@ app_dirs2([Lib | Libs], Acc) ->
             Files2 = lists:zf(Filter, Files),
             app_dirs2(Libs, [Files2 | Acc]);
         {error, Reason} ->
-	    reltool_utils:throw_error("Illegal library ~tp: ~ts",
+	    reltool_utils:throw_error("Illegal library ~p: ~ts",
 				      [Lib, file:format_error(Reason)])
     end;
 app_dirs2([], Acc) ->
@@ -2075,14 +2127,14 @@ default_app(Name) ->
 
 
 
-refresh_apps(ConfigApps, [New | NewApps], Acc, Force, Status) ->
+refresh_apps(Sys, [New | NewApps], Acc, Force, Status) ->
     {New2, Status3} =
-	case lists:keymember(New#app.name,#app.name,ConfigApps) of
+	case lists:keymember(New#app.name, #app.name, Sys#sys.apps) of
 	    true ->
 		%% There is user defined config for this application, make
 		%% sure that the application exists and that correct
 		%% version is used. Set active directory.
-		{Info, ActiveDir, Status2} = ensure_app_info(New, Status),
+		{Info, ActiveDir, Status2} = ensure_app_info(Sys, New, Status),
 		OptLabel =
 		    case Info#app_info.vsn =:= New#app.vsn of
 			true -> New#app.label;
@@ -2102,25 +2154,34 @@ refresh_apps(ConfigApps, [New | NewApps], Acc, Force, Status) ->
 		%% from merge_app_dirs.
 		refresh_app(New, Force, Status)
 	end,
-    refresh_apps(ConfigApps, NewApps, [New2 | Acc], Force, Status3);
-refresh_apps(_ConfigApps, [], Acc, _Force, Status) ->
+    refresh_apps(Sys, NewApps, [New2 | Acc], Force, Status3);
+refresh_apps(_Sys, [], Acc, _Force, Status) ->
     {lists:reverse(Acc), Status}.
 
-ensure_app_info(#app{is_escript = IsEscript, active_dir = Dir, info = Info},
+ensure_app_info(_Sys,
+                #app{is_escript = IsEscript, active_dir = Dir, info = Info},
 		Status)
   when IsEscript=/=false ->
     %% Escript or application which is inlined in an escript
     {Info, Dir, Status};
-ensure_app_info(#app{name = Name, sorted_dirs = []} = App, Status) ->
+ensure_app_info(Sys,
+                #app{name = Name,
+		     active_dir = ActiveDir,
+		     sorted_dirs = [],
+                     status = AppStatus} = App,
+                Status) ->
     Reason = "~w: Missing application directory.",
-    case App of
-        #app{incl_cond = exclude, status = missing, active_dir = Dir} ->
+    AppCond = resolve_app_cond(App, Sys#sys.incl_cond),
+    Exclude = (AppCond =:= exclude) orelse (AppCond =:= release),
+    if
+        AppStatus =:= missing, Exclude ->
             Status2 = reltool_utils:add_warning(Reason, [Name], Status),
-            {missing_app_info(""), Dir, Status2};
-        _ ->
+            {missing_app_info(""), ActiveDir, Status2};
+        true ->
             reltool_utils:throw_error(Reason, [Name])
     end;
-ensure_app_info(#app{name = Name,
+ensure_app_info(_Sys,
+                #app{name = Name,
 		     vsn = Vsn,
 		     use_selected_vsn = UseSelectedVsn,
 		     active_dir = ActiveDir,
@@ -2170,13 +2231,13 @@ ensure_app_info(#app{name = Name,
 			false ->
 			    reltool_utils:throw_error(
 			      "~w: No application directory contains "
-			      "selected version ~tp", [Name,Vsn])
+			      "selected version ~p", [Name,Vsn])
 		    end
 	    end;
 	true ->
             {FirstInfo, FirstDir, Status3}
     end;
-ensure_app_info(#app{active_dir = Dir, info = Info}, Status) ->
+ensure_app_info(_Sys, #app{active_dir = Dir, info = Info}, Status) ->
     {Info, Dir, Status}.
 
 find_vsn(Vsn, [#app_info{vsn = Vsn} = Info | _], [Dir | _]) ->

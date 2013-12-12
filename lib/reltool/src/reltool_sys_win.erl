@@ -1178,13 +1178,13 @@ handle_source_event(S,
 		    _UserData) ->
     case wxTreeCtrl:getItemData(ObjRef, Item) of
         #root_data{dir = _Dir} ->
-            %% io:format("Root dialog: ~tp\n", [Dir]),
+            %% io:format("Root dialog: ~p\n", [Dir]),
             S;
         #lib_data{dir = _Dir} ->
-            %% io:format("Lib dialog: ~tp\n", [Dir]),
+            %% io:format("Lib dialog: ~p\n", [Dir]),
             S;
         #escript_data{file = _File} ->
-            %% io:format("Escript dialog: ~tp\n", [File]),
+            %% io:format("Escript dialog: ~p\n", [File]),
             S;
         #app_data{name = Name} ->
             do_open_app(S, Name);
@@ -1204,7 +1204,7 @@ handle_source_event(S,
         #escript_data{file = File} ->
             wx:batch(fun() -> escript_popup(S, File, Tree, Item) end);
         #app_data{name = Name} ->
-            io:format("App menu: ~tp\n", [Name]),
+            io:format("App menu: ~p\n", [Name]),
             S;
         undefined ->
             S

@@ -44,6 +44,7 @@
 	 decode_regexps/3,
 	 default_val/2,
 	 escript_foldl/3,
+         match/3,
 
 	 call/2, cast/2, reply/3]).
 
@@ -113,7 +114,7 @@ normalize_dir([], Path) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 prim_consult(Bin) when is_binary(Bin) ->
-    case erl_scan:string(unicode:characters_to_list(Bin,encoding(Bin))) of
+    case erl_scan:string(binary_to_list(Bin)) of
 	{ok, Tokens, _EndLine} ->
 	    prim_parse(Tokens, []);
 	{error, {_ErrorLine, Module, Reason}, _EndLine} ->
@@ -125,14 +126,6 @@ prim_consult(FullName) when is_list(FullName) ->
 	    prim_consult(Bin);
         error ->
             {error, file:format_error(enoent)}
-    end.
-
-encoding(Bin) when is_binary(Bin) ->
-    case epp:read_encoding_from_binary(Bin) of
-	none ->
-	    epp:default_encoding();
-	E ->
-	    E
     end.
 
 prim_parse(Tokens, Acc) ->
@@ -257,20 +250,22 @@ mod_cond_to_index(ModCond) ->
     end.
 
 incl_conds() ->
-    ["include", "exclude", "derived"].
+    ["include", "derived", "release", "exclude"].
 
 list_to_incl_cond(List) ->
     case List of
 	"include" -> include;
  	"exclude" -> exclude;
-	"derived" -> derived
+	"derived" -> derived;
+	"release" -> release
     end.
 
 incl_cond_to_index(ModCond) ->
     case ModCond of
-	include -> 0;
-	exclude -> 1;	
-	derived -> 2
+        include -> 0;
+        derived -> 1;
+        release -> 2;
+        exclude -> 3
     end.
 
 elem_to_index(Elem, List) ->
@@ -589,9 +584,9 @@ copy_file(From, To) ->
 		    ok;
 		{error, Reason} ->
 		    Text = file:format_error(Reason),
-		    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
+                    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
 	    end;
-	error ->
+        error ->
 	    Text = file:format_error(enoent),
 	    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
     end.
@@ -611,7 +606,7 @@ decode_regexps(Key, Regexps, _Old) when is_list(Regexps) ->
     do_decode_regexps(Key, Regexps, []).
 
 do_decode_regexps(Key, [Regexp | Regexps], Acc) ->
-    case catch re:compile(Regexp, [unicode]) of
+    case catch re:compile(Regexp, []) of
         {ok, MP} ->
             do_decode_regexps(Key,
 			      Regexps,
@@ -650,6 +645,21 @@ escript_foldl(Fun, Acc, File) ->
 	    end;
 	{error, Reason} ->
 	    {error, Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+match(String, InclRegexps, ExclRegexps) ->
+    match(String, InclRegexps) andalso not match(String, ExclRegexps).
+
+%% Match at least one regexp
+match(_String, []) ->
+    false;
+match(String, [#regexp{source = _, compiled = MP} | Regexps]) ->
+    %% io:format("Regexp: ~p ~p\n", [String, Regexp]),
+    case re:run(String, MP, [{capture, none}]) of
+        nomatch -> match(String, Regexps);
+        match   -> true
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

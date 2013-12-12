@@ -336,25 +336,20 @@ find_regular_bin(App, Mod) ->
     SrcDir = filename:join([ActiveDir, "src"]),
     ModStr = atom_to_list(Mod#mod.name),
     Base = "^" ++ ModStr ++ "\\.erl$",
-    Find = fun(F, _Acc) -> throw({file:read_file(F),epp:read_encoding(F)}) end,
+    Find = fun(F, _Acc) -> throw(file:read_file(F)) end,
     case catch filelib:fold_files(SrcDir, Base, true, Find, {error, enoent}) of
-	{{ok, Bin},Encoding0} ->
-	    Encoding =
-		case Encoding0 of
-		    none -> epp:default_encoding();
-		    _ -> Encoding0
-		end,
-	    unicode:characters_to_binary(Bin,Encoding,utf8);
+	{ok, Bin} ->
+	    Bin;
 	{error, enoent} ->
 	    %% Reconstructing the source code from debug info if possible
 	    BeamFile = filename:join([ActiveDir, "ebin", ModStr ++ ".beam"]),
-	    case source_from_beam(BeamFile) of
-		{ok,Source} ->
-		    Source;
-		error ->
-		    unicode:characters_to_binary(
-		      ["%% Bad luck, cannot find any "
-		       "debug info in the file \"", BeamFile])
+	    case beam_lib:chunks(BeamFile, [abstract_code]) of
+		{ok,{_,[{abstract_code,{_,AC}}]}} ->
+		    IoList = erl_prettypr:format(erl_syntax:form_list(AC)),
+		    list_to_binary(IoList);
+		_ ->
+		    list_to_binary(["%% Bad luck, cannot find any "
+				    "debug info in the file \"", BeamFile])
 	    end
     end.
 
@@ -362,7 +357,7 @@ source_from_beam(Beam) ->
     case beam_lib:chunks(Beam, [abstract_code]) of
 	{ok,{_,[{abstract_code,{_,AC}}]}} ->
 	    IoList = [erl_pp:form(F,[{encoding,utf8}]) || F <- AC],
-	    {ok,unicode:characters_to_binary(IoList)};
+	    {ok,list_to_binary(IoList)};
 	_ ->
 	    error
     end.
@@ -426,13 +421,13 @@ find_escript_bin(#app{active_dir = ActiveDir}, Mod) ->
 	    {ok, {obj, Bin}} ->
 		Bin;
 	    _ ->
-		unicode:characters_to_binary(
+		list_to_binary(
 		  ["%% Bad luck, cannot find the "
 		   "code in the escript ", Escript, "."])
 	end
     catch
 	throw:Reason when is_list(Reason) ->
-	    unicode:characters_to_binary(
+	    list_to_binary(
 	      ["%% Bad luck, cannot find the code "
 	       "in the escript ", Escript, ": ", Reason])
     end.

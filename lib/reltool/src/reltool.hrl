@@ -28,8 +28,10 @@
 %% derived  - Include only those modules that others are dependent on
 -type mod_cond()         :: all | app | ebin | derived | none.
 -type incl_cond()        :: include | exclude | derived.
+-type app_cond()         :: incl_cond() | release.
 -type debug_info()       :: keep | strip.
 -type app_file()         :: keep | strip | all.
+-type app_dir_vsn()      :: keep | strip.
 -type re_regexp()        :: string(). % re:regexp()
 -type regexps()          :: [re_regexp()] |
 			    {add, [re_regexp()]} |
@@ -68,8 +70,9 @@
 			  | {lib_dir, lib_dir()}
                           | {mod, mod_name(), [mod()]}
                           | {mod_cond, mod_cond()}
-                          | {incl_cond, incl_cond()}
+                          | {incl_cond, app_cond()}
                           | {app_file, app_file()}
+                          | {app_dir_vsn, app_dir_vsn()}
                           | {debug_info, debug_info()}
                           | {incl_app_filters, incl_app_filters()}
                           | {excl_app_filters, excl_app_filters()}
@@ -77,9 +80,10 @@
                           | {excl_archive_filters, excl_archive_filters()}.
 -type escript()          :: {incl_cond, incl_cond()}.
 -type sys()              :: {mod_cond, mod_cond()}
-                          | {incl_cond, incl_cond()}
+                          | {incl_cond, app_cond()}
                           | {debug_info, debug_info()}
                           | {app_file, app_file()}
+                          | {app_dir_vsn, app_dir_vsn()}
                           | {profile, profile()}
 			  | {excl_lib, excl_lib()}
                           | {incl_sys_filters, incl_sys_filters()}
@@ -189,11 +193,12 @@
 
           %% Static source cond
           mod_cond  :: '_' | mod_cond()  | undefined,
-          incl_cond :: '_' | incl_cond() | undefined,
+          incl_cond :: '_' | app_cond() | undefined,
 
           %% Static target cond
           debug_info            :: '_' | debug_info() | undefined,
           app_file              :: '_' | app_file() | undefined,
+          app_dir_vsn           :: '_' | app_dir_vsn() | undefined,
           app_type              :: '_' | app_type() | undefined,
           incl_app_filters      :: '_' | [#regexp{}] | undefined,
           excl_app_filters      :: '_' | [#regexp{}] | undefined,
@@ -233,11 +238,13 @@
           lib_dirs  :: [dir()],
           escripts  :: [file()],
           mod_cond  :: mod_cond(),
-          incl_cond :: incl_cond(),
+          incl_cond :: app_cond(),
           apps      :: [#app{}] | undefined,
 
           %% Target cond
           boot_rel 	       :: boot_rel(),
+          boot_phase_fun       ::
+            fun((string(), string(), atom(), [term()]) -> [term()]) | undefined,
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),
@@ -253,6 +260,7 @@
           rel_app_type         :: app_type(),
           embedded_app_type    :: app_type() | undefined,
           app_file             :: app_file(),
+          app_dir_vsn          :: app_dir_vsn(),
           debug_info           :: debug_info()
 	}).
 
@@ -277,6 +285,7 @@
 -define(DEFAULT_REL_APP_TYPE,      permanent).
 -define(DEFAULT_EMBEDDED_APP_TYPE, undefined).
 -define(DEFAULT_APP_FILE,          keep).
+-define(DEFAULT_APP_DIR_VSN,       keep).
 -define(DEFAULT_DEBUG_INFO,        keep).
 
 -define(DEFAULT_INCL_ARCHIVE_FILTERS, [".*"]).
