@@ -94,6 +94,8 @@
     <p><code>cipher_info()  =  {"RC2-CBC | "DES-CBC" | "DES-EDE3-CBC", crypto:rand_bytes(8)} |
     'PBES2-params'} </code></p>
 	  
+    <p><code>public_key()  = rsa_public_key() | dsa_public_key() | ec_public_key()</code></p>
+    <p><code>private_key() = rsa_public_key() | dsa_public_key() | ec_public_key()</code></p>
     <p><code>rsa_public_key()  = #'RSAPublicKey'{}</code></p>
 
     <p><code>rsa_private_key() = #'RSAPrivateKey'{} </code></p>
