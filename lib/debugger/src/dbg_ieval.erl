@@ -1315,8 +1315,9 @@ rec_ack(Debugged, Bs, Ieval) ->
 	    true;
 	Msg ->
 	    check_exit_msg(Msg, Bs, Ieval),
-	    io:format("***WARNING*** Unexp msg ~p, ieval ~p~n",
-		      [Msg, Ieval])
+	    %% io:format("***WARNING*** Unexp msg ~p, ieval ~p~n",
+            %%           [Msg, Ieval]),
+            ok
     end.
 
 flush_traces(Debugged) ->

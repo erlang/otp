@@ -221,9 +221,10 @@ handle_msg({int, Msg}, Status, Bs, Ieval) ->
     handle_int_msg(Msg, Status, Bs, Ieval);
 handle_msg({user, Msg}, Status, Bs, Ieval) ->
     handle_user_msg(Msg, Status, Bs, Ieval);
-handle_msg(Msg, Status, Bs, Ieval) ->
-    io:format("***WARNING*** Unexp msg ~p, info ~p~n", 
-	      [Msg,{Status,Bs,Ieval}]).
+handle_msg(_Msg, _Status, _Bs, _Ieval) ->
+    %% io:format("***WARNING*** Unexp msg ~p, info ~p~n",
+    %%           [Msg,{Status,Bs,Ieval}]),
+    ok.
 
 %% handle_int_msg(Msg, Status, Bs, Ieval)
 %%   Msg = {attached, AttPid} | {detached, AttPid}
