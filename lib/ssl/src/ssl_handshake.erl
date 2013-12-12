@@ -164,7 +164,7 @@ next_protocol(SelectedProtocol) ->
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
-				tls_version(), term(), private_key(),
+				tls_version(), term(), public_key:private_key(),
 				tls_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
@@ -207,12 +207,12 @@ certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version) ->
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()} |
+		   binary(), binary(), public_key:private_key()} |
 		   {ecdh, #'ECPrivateKey'{}} |
 		   {psk, binary()} |
 		   {dhe_psk, binary(), binary()} |
 		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()}) ->
+		   binary(), binary(), public_key:private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 
 %%

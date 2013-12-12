@@ -35,7 +35,6 @@
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
 -type der_cert()          :: binary().
--type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{} | #'ECPrivateKey'{}.
 -type issuer()            :: tuple().
 -type serialnumber()      :: integer().
 -type cert_key()          :: {reference(), integer(), issuer()}.
