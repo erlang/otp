@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html">wxGridSizer</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html">wxGridSizer</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxSizer}
 %% </p>
@@ -55,7 +55,7 @@ new(Cols)
  when is_integer(Cols) ->
   new(Cols, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
 -spec new(Cols, [Option]) -> wxGridSizer() when
 	Cols::integer(),
 	Option :: {vgap, integer()}
@@ -69,7 +69,7 @@ new(Cols, Options)
   wxe_util:construct(?wxGridSizer_new_2,
   <<Cols:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
 -spec new(Rows, Cols, Vgap, Hgap) -> wxGridSizer() when
 	Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
 new(Rows,Cols,Vgap,Hgap)
@@ -77,7 +77,7 @@ new(Rows,Cols,Vgap,Hgap)
   wxe_util:construct(?wxGridSizer_new_4,
   <<Rows:32/?UI,Cols:32/?UI,Vgap:32/?UI,Hgap:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergetcols">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergetcols">external documentation</a>.
 -spec getCols(This) -> integer() when
 	This::wxGridSizer().
 getCols(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -85,7 +85,7 @@ getCols(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridSizer_GetCols,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergethgap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergethgap">external documentation</a>.
 -spec getHGap(This) -> integer() when
 	This::wxGridSizer().
 getHGap(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -93,7 +93,7 @@ getHGap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridSizer_GetHGap,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergetrows">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergetrows">external documentation</a>.
 -spec getRows(This) -> integer() when
 	This::wxGridSizer().
 getRows(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -101,7 +101,7 @@ getRows(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridSizer_GetRows,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergetvgap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergetvgap">external documentation</a>.
 -spec getVGap(This) -> integer() when
 	This::wxGridSizer().
 getVGap(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -109,7 +109,7 @@ getVGap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridSizer_GetVGap,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersetcols">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersetcols">external documentation</a>.
 -spec setCols(This, Cols) -> ok when
 	This::wxGridSizer(), Cols::integer().
 setCols(#wx_ref{type=ThisT,ref=ThisRef},Cols)
@@ -118,7 +118,7 @@ setCols(#wx_ref{type=ThisT,ref=ThisRef},Cols)
   wxe_util:cast(?wxGridSizer_SetCols,
   <<ThisRef:32/?UI,Cols:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersethgap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersethgap">external documentation</a>.
 -spec setHGap(This, Gap) -> ok when
 	This::wxGridSizer(), Gap::integer().
 setHGap(#wx_ref{type=ThisT,ref=ThisRef},Gap)
@@ -127,7 +127,7 @@ setHGap(#wx_ref{type=ThisT,ref=ThisRef},Gap)
   wxe_util:cast(?wxGridSizer_SetHGap,
   <<ThisRef:32/?UI,Gap:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersetrows">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersetrows">external documentation</a>.
 -spec setRows(This, Rows) -> ok when
 	This::wxGridSizer(), Rows::integer().
 setRows(#wx_ref{type=ThisT,ref=ThisRef},Rows)
@@ -136,7 +136,7 @@ setRows(#wx_ref{type=ThisT,ref=ThisRef},Rows)
   wxe_util:cast(?wxGridSizer_SetRows,
   <<ThisRef:32/?UI,Rows:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersetvgap">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersetvgap">external documentation</a>.
 -spec setVGap(This, Gap) -> ok when
 	This::wxGridSizer(), Gap::integer().
 setVGap(#wx_ref{type=ThisT,ref=ThisRef},Gap)

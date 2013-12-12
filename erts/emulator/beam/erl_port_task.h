@@ -77,6 +77,7 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 #define ERTS_PTS_FLG_HAVE_NS_TASKS		(((erts_aint32_t) 1) <<  8)
 #define ERTS_PTS_FLG_PARALLELISM		(((erts_aint32_t) 1) <<  9)
 #define ERTS_PTS_FLG_FORCE_SCHED		(((erts_aint32_t) 1) << 10)
+#define ERTS_PTS_FLG_EXITING			(((erts_aint32_t) 1) << 11)
 
 #define ERTS_PTS_FLGS_BUSY \
     (ERTS_PTS_FLG_BUSY_PORT | ERTS_PTS_FLG_BUSY_PORT_Q)
@@ -86,7 +87,8 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
      | ERTS_PTS_FLG_HAVE_BUSY_TASKS		\
      | ERTS_PTS_FLG_HAVE_TASKS			\
      | ERTS_PTS_FLG_EXEC			\
-     | ERTS_PTS_FLG_FORCE_SCHED)
+     | ERTS_PTS_FLG_FORCE_SCHED			\
+     | ERTS_PTS_FLG_EXITING)
 
 #define ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH			8192
 #define ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW			4096
@@ -135,6 +137,7 @@ ERTS_GLB_INLINE void erts_port_task_fini_sched(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_lock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE int erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp);
+ERTS_GLB_INLINE void erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp);
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
@@ -223,6 +226,12 @@ erts_port_task_fini_sched(ErtsPortTaskSched *ptsp)
 #ifdef ERTS_SMP
     erts_mtx_destroy(&ptsp->mtx);
 #endif
+}
+
+ERTS_GLB_INLINE void
+erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
+{
+    erts_smp_atomic32_read_bor_nob(&ptsp->flags, ERTS_PTS_FLG_EXITING);
 }
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS

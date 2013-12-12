@@ -32,7 +32,7 @@
          start_link/4,
          %% connect_and_send/2,
          send/2, 
-         cancel/3,
+         cancel/2,
          stream_next/1,
          info/1
         ]).
@@ -117,8 +117,8 @@ send(Request, Pid) ->
 %% Description: Cancels a request. Intended to be called by the httpc
 %% manager process.
 %%--------------------------------------------------------------------
-cancel(RequestId, Pid, From) ->
-    cast({cancel, RequestId, From}, Pid).
+cancel(RequestId, Pid) ->
+    cast({cancel, RequestId}, Pid).
 
 
 %%--------------------------------------------------------------------
@@ -400,19 +400,17 @@ handle_call(info, _, State) ->
 %% handle_keep_alive_queue/2 on the other hand will just skip the
 %% request as if it was never issued as in this case the request will
 %% not have been sent. 
-handle_cast({cancel, RequestId, From},
+handle_cast({cancel, RequestId},
             #state{request      = #request{id = RequestId} = Request,
                    profile_name = ProfileName,
                    canceled     = Canceled} = State) ->
     ?hcrv("cancel current request", [{request_id, RequestId}, 
                                      {profile,    ProfileName},
                                      {canceled,   Canceled}]),
-    httpc_manager:request_canceled(RequestId, ProfileName, From),
-    ?hcrv("canceled", []),
     {stop, normal, 
      State#state{canceled = [RequestId | Canceled],
                  request  = Request#request{from = answer_sent}}};
-handle_cast({cancel, RequestId, From},
+handle_cast({cancel, RequestId},
             #state{profile_name = ProfileName,
                    request      = #request{id = CurrId},
                    canceled     = Canceled} = State) ->
@@ -420,8 +418,6 @@ handle_cast({cancel, RequestId, From},
                      {curr_req_id, CurrId},
                      {profile, ProfileName},
                      {canceled,   Canceled}]),
-    httpc_manager:request_canceled(RequestId, ProfileName, From),
-    ?hcrv("canceled", []),
     {noreply, State#state{canceled = [RequestId | Canceled]}};
 
 handle_cast(stream_next, #state{session = Session} = State) ->
@@ -521,19 +517,12 @@ handle_info({Proto, _Socket, Data},
                 activate_once(Session),
                 {noreply, State#state{mfa = NewMFA}}
         catch
-            exit:_Exit ->
-                ?hcrd("data processing exit", [{exit, _Exit}]),
+            _:_Reason ->
+                ?hcrd("data processing exit", [{exit, _Reason}]),
                 ClientReason = {could_not_parse_as_http, Data}, 
                 ClientErrMsg = httpc_response:error(Request, ClientReason),
                 NewState     = answer_request(Request, ClientErrMsg, State),
-                {stop, normal, NewState};
-            error:_Error ->    
-                ?hcrd("data processing error", [{error, _Error}]),
-                ClientReason = {could_not_parse_as_http, Data}, 
-                ClientErrMsg = httpc_response:error(Request, ClientReason),
-                NewState     = answer_request(Request, ClientErrMsg, State),   
                 {stop, normal, NewState}
-        
         end,
     ?hcri("data processed", [{final_result, FinalResult}]),
     FinalResult;
@@ -1165,7 +1154,7 @@ handle_http_body(Body, #state{headers       = Headers,
 
 handle_response(#state{status = new} = State) ->
     ?hcrd("handle response - status = new", []),
-    handle_response(try_to_enable_pipeline_or_keep_alive(State));
+    handle_response(check_persistent(State));
 
 handle_response(#state{request      = Request,
 		       status       = Status,
@@ -1440,39 +1429,22 @@ is_keep_alive_enabled_server(_,_) ->
 is_keep_alive_connection(Headers, #session{client_close = ClientClose}) ->
     (not ((ClientClose) orelse httpc_response:is_server_closing(Headers))).
 
-try_to_enable_pipeline_or_keep_alive(
-  #state{session      = Session, 
-	 request      = #request{method = Method},
+check_persistent(
+  #state{session      = #session{type = Type} = Session, 
 	 status_line  = {Version, _, _},
 	 headers      = Headers,
-	 profile_name = ProfileName} = State) ->
-    ?hcrd("try to enable pipeline or keep-alive", 
-	  [{version, Version}, 
-	   {headers, Headers}, 
-	   {session, Session}]),
+	 profile_name = ProfileName} = State) ->    
     case is_keep_alive_enabled_server(Version, Headers) andalso 
-	  is_keep_alive_connection(Headers, Session) of
+	is_keep_alive_connection(Headers, Session) of
 	true ->
-	    case (is_pipeline_enabled_client(Session) andalso 
-		  httpc_request:is_idempotent(Method)) of
-		true ->
-		    insert_session(Session, ProfileName),
-		    State#state{status = pipeline};
-		false ->
-		    insert_session(Session, ProfileName),
-		    %% Make sure type is keep_alive in session
-		    %% as it in this case might be pipeline
-		    NewSession = Session#session{type = keep_alive}, 
-		    State#state{status  = keep_alive,
-				session = NewSession}
-	    end;
+	    mark_persistent(ProfileName, Session),
+	    State#state{status = Type};
 	false ->
 	    State#state{status = close}
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{session      = Session, 
-		      timers       = Timers, 
+	       #state{timers       = Timers, 
 		      profile_name = ProfileName} = State) -> 
     ?hcrt("answer request", [{request, Request}, {msg, Msg}]),
     httpc_response:send(From, Msg),
@@ -1482,19 +1454,14 @@ answer_request(#request{id = RequestId, from = From} = Request, Msg,
     Timer = {RequestId, TimerRef},
     cancel_timer(TimerRef, {timeout, Request#request.id}),
     httpc_manager:request_done(RequestId, ProfileName),
-    NewSession = maybe_make_session_available(ProfileName, Session), 
     Timers2 = Timers#timers{request_timers = lists:delete(Timer, 
 							  RequestTimers)}, 
     State#state{request = Request#request{from = answer_sent},
-		session = NewSession, 
 		timers  = Timers2}.
 
-maybe_make_session_available(ProfileName, 
-			     #session{available = false} = Session) ->
-    update_session(ProfileName, Session, #session.available, true),
-    Session#session{available = true};
-maybe_make_session_available(_ProfileName, Session) ->
-    Session.
+mark_persistent(ProfileName, Session) ->
+    update_session(ProfileName, Session, #session.persistent, true),
+    Session#session{persistent = true}.
     
 cancel_timers(#timers{request_timers = ReqTmrs, queue_timer = QTmr}) ->
     cancel_timer(QTmr, timeout_queue),

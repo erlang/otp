@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -242,7 +242,7 @@ decode_arg(P=#arg{name=Name,type=#type{name=Type,base=guard_int}},A0) ->
     {P, A};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=string,single=true}},A0) ->
     w(" ~s *~s = (~s *) bp;~n", [Type,Name,Type]),
-    w(" int ~sLen[1] = {strlen((char *)~s)}; bp += ~sLen[0]+1+((8-((1+~sLen[0]+~p)%8))%8);~n",
+    w(" int ~sLen[1] = {(int)strlen((char *)~s)}; bp += ~sLen[0]+1+((8-((1+~sLen[0]+~p)%8))%8);~n",
       [Name,Name,Name,Name,A0]),
     {P, 0};
 decode_arg(P=#arg{name=Name,

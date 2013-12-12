@@ -34,7 +34,7 @@
 
 -export([security_parameters/2, security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
-	 suite/1, suites/1, anonymous_suites/0, psk_suites/1, srp_suites/0,
+	 suite/1, suites/1, ec_keyed_suites/0, anonymous_suites/0, psk_suites/1, srp_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
 
@@ -72,7 +72,7 @@ security_parameters(Version, CipherSuite, SecParams) ->
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
--spec cipher(cipher_enum(), #cipher_state{}, binary(), binary(), tls_version()) ->
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), iolist(), tls_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
 %% Description: Encrypts the data and the MAC using chipher described

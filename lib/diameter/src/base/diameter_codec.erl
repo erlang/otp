@@ -477,8 +477,11 @@ split_head(<<Code:32, 1:1, M:1, P:1, _:5, Len:24, V:32, _/bitstring>>) ->
 split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/bitstring>>) ->
     {Code, undefined, M, P, Len, 8};
 
-split_head(Bin) ->
-    ?THROW({5014, #diameter_avp{data = Bin}}).
+%% Header is truncated: pack_avp/1 will pad to the minimum header
+%% length.
+split_head(B)
+  when is_bitstring(B) ->
+    ?THROW({5014, #diameter_avp{data = B}}).
 
 %% 3588:
 %%
@@ -523,9 +526,8 @@ split_data(_, _, _) ->
 %% split_data/4
 
 split_data(Bin, HdrLen, Len, Pad) ->
-    <<_:HdrLen/binary, T/bitstring>> = Bin,
-    case T of
-        <<Data:Len/binary, _:Pad/binary, Rest/bitstring>> ->
+    case Bin of
+        <<_:HdrLen/binary, Data:Len/binary, _:Pad/binary, Rest/bitstring>> ->
             {Data, Rest};
         _ ->
             invalid_avp_length()
@@ -573,15 +575,15 @@ pack_avp(#diameter_avp{data = {Dict, Name, Value}} = A) ->
     {Name, Type} = Dict:avp_name(Code, Vid),
     pack_avp(A#diameter_avp{data = {Hdr, {Type, Value}}});
 
-pack_avp(#diameter_avp{code = undefined, data = Bin})
-  when is_binary(Bin) ->
+pack_avp(#diameter_avp{code = undefined, data = B})
+  when is_bitstring(B) ->
     %% Reset the AVP Length of an AVP Header resulting from a 5014
     %% error. The RFC doesn't explicitly say to do this but the
     %% receiver can't correctly extract this and following AVP's
     %% without a correct length. On the downside, the header doesn't
     %% reveal if the received header has been padded.
-    Pad = 8*header_length(Bin) - bit_size(Bin),
-    Len = size(<<H:5/binary, _:24, T/binary>> = <<Bin/bitstring, 0:Pad>>),
+    Pad = 8*header_length(B) - bit_size(B),
+    Len = size(<<H:5/binary, _:24, T/binary>> = <<B/bitstring, 0:Pad>>),
     <<H/binary, Len:24, T/binary>>;
 
 %% ... or as an iolist.

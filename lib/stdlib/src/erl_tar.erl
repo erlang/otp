@@ -219,7 +219,7 @@ format_error(Atom) when is_atom(Atom) ->
 format_error(Term) ->
     lists:flatten(io_lib:format("~tp", [Term])).
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	Useful definitions (also start of implementation).
@@ -409,7 +409,7 @@ split_filename([Comp|Rest], Prefix, Suffix, Len) ->
 split_filename([], Prefix, Suffix, _) ->
     {filename:join(Prefix),filename:join(Suffix)}.
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% 	Retrieving files from a tape archive.

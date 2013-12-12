@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html">wxGridBagSizer</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html">wxGridBagSizer</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxFlexGridSizer}
 %% <br />{@link wxGridSizer}
@@ -62,7 +62,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizerwxgridbagsizer">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizerwxgridbagsizer">external documentation</a>.
 -spec new([Option]) -> wxGridBagSizer() when
 	Option :: {vgap, integer()}
 		 | {hgap, integer()}.
@@ -75,7 +75,7 @@ new(Options)
   wxe_util:construct(?wxGridBagSizer_new,
   <<BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
 -spec add(This, Item) -> wxSizerItem:wxSizerItem() when
 	This::wxGridBagSizer(), Item::wxSizerItem:wxSizerItem() | wxGBSizerItem:wxGBSizerItem().
 add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
@@ -89,7 +89,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   wxe_util:call(ItemOP,
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
 %% <br /> Also:<br />
 %% add(This, Window, Pos) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()};<br />
@@ -136,7 +136,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
 %% <br /> Also:<br />
 %% add(This, Width, Height, [Option]) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxGridBagSizer(), Width::integer(), Height::integer(),<br />
@@ -198,7 +198,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},{PosR,Po
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI,PosR:32/?UI,PosC:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizeradd">external documentation</a>.
 -spec add(This, Width, Height, Pos, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxGridBagSizer(), Width::integer(), Height::integer(), Pos::{R::integer(), C::integer()},
 	Option :: {span, {RS::integer(), CS::integer()}}
@@ -217,7 +217,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},Width,Height,{PosR,PosC}, Options)
   wxe_util:call(?wxGridBagSizer_Add_4,
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI,PosR:32/?UI,PosC:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizercalcmin">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizercalcmin">external documentation</a>.
 -spec calcMin(This) -> {W::integer(), H::integer()} when
 	This::wxGridBagSizer().
 calcMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -233,7 +233,7 @@ checkForIntersection(This,Item)
  when is_record(This, wx_ref),is_record(Item, wx_ref) ->
   checkForIntersection(This,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizercheckforintersection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizercheckforintersection">external documentation</a>.
 %% <br /> Also:<br />
 %% checkForIntersection(This, Item, [Option]) -> boolean() when<br />
 %% 	This::wxGridBagSizer(), Item::wxGBSizerItem:wxGBSizerItem(),<br />
@@ -258,7 +258,7 @@ checkForIntersection(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=Item
   wxe_util:call(?wxGridBagSizer_CheckForIntersection_2,
   <<ThisRef:32/?UI,ItemRef:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizercheckforintersection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizercheckforintersection">external documentation</a>.
 -spec checkForIntersection(This, Pos, Span, [Option]) -> boolean() when
 	This::wxGridBagSizer(), Pos::{R::integer(), C::integer()}, Span::{RS::integer(), CS::integer()},
 	Option :: {excludeItem, wxGBSizerItem:wxGBSizerItem()}.
@@ -271,7 +271,7 @@ checkForIntersection(#wx_ref{type=ThisT,ref=ThisRef},{PosR,PosC},{SpanRS,SpanCS}
   wxe_util:call(?wxGridBagSizer_CheckForIntersection_3,
   <<ThisRef:32/?UI,PosR:32/?UI,PosC:32/?UI,SpanRS:32/?UI,SpanCS:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizerfinditem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizerfinditem">external documentation</a>.
 -spec findItem(This, Window) -> wxGBSizerItem:wxGBSizerItem() when
 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().
 findItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
@@ -285,7 +285,7 @@ findItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizerfinditematpoint">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizerfinditematpoint">external documentation</a>.
 -spec findItemAtPoint(This, Pt) -> wxGBSizerItem:wxGBSizerItem() when
 	This::wxGridBagSizer(), Pt::{X::integer(), Y::integer()}.
 findItemAtPoint(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
@@ -294,7 +294,7 @@ findItemAtPoint(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:call(?wxGridBagSizer_FindItemAtPoint,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizerfinditematposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizerfinditematposition">external documentation</a>.
 -spec findItemAtPosition(This, Pos) -> wxGBSizerItem:wxGBSizerItem() when
 	This::wxGridBagSizer(), Pos::{R::integer(), C::integer()}.
 findItemAtPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosR,PosC})
@@ -303,7 +303,7 @@ findItemAtPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosR,PosC})
   wxe_util:call(?wxGridBagSizer_FindItemAtPosition,
   <<ThisRef:32/?UI,PosR:32/?UI,PosC:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizerfinditemwithdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizerfinditemwithdata">external documentation</a>.
 -spec findItemWithData(This, UserData) -> wxGBSizerItem:wxGBSizerItem() when
 	This::wxGridBagSizer(), UserData::wx:wx_object().
 findItemWithData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=UserDataT,ref=UserDataRef}) ->
@@ -312,7 +312,7 @@ findItemWithData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=UserDataT,ref=User
   wxe_util:call(?wxGridBagSizer_FindItemWithData,
   <<ThisRef:32/?UI,UserDataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizergetcellsize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizergetcellsize">external documentation</a>.
 -spec getCellSize(This, Row, Col) -> {W::integer(), H::integer()} when
 	This::wxGridBagSizer(), Row::integer(), Col::integer().
 getCellSize(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
@@ -321,7 +321,7 @@ getCellSize(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
   wxe_util:call(?wxGridBagSizer_GetCellSize,
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizergetemptycellsize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizergetemptycellsize">external documentation</a>.
 -spec getEmptyCellSize(This) -> {W::integer(), H::integer()} when
 	This::wxGridBagSizer().
 getEmptyCellSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -329,7 +329,7 @@ getEmptyCellSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridBagSizer_GetEmptyCellSize,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizergetitemposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizergetitemposition">external documentation</a>.
 %% <br /> Also:<br />
 %% getItemPosition(This, Window) -> {R::integer(), C::integer()} when<br />
 %% 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().<br />
@@ -354,7 +354,7 @@ getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowR
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizergetitemspan">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizergetitemspan">external documentation</a>.
 %% <br /> Also:<br />
 %% getItemSpan(This, Window) -> {RS::integer(), CS::integer()} when<br />
 %% 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().<br />
@@ -379,7 +379,7 @@ getItemSpan(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef})
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizersetemptycellsize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizersetemptycellsize">external documentation</a>.
 -spec setEmptyCellSize(This, Sz) -> ok when
 	This::wxGridBagSizer(), Sz::{W::integer(), H::integer()}.
 setEmptyCellSize(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
@@ -388,7 +388,7 @@ setEmptyCellSize(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
   wxe_util:cast(?wxGridBagSizer_SetEmptyCellSize,
   <<ThisRef:32/?UI,SzW:32/?UI,SzH:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizersetitemposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizersetitemposition">external documentation</a>.
 %% <br /> Also:<br />
 %% setItemPosition(This, Window, Pos) -> boolean() when<br />
 %% 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()}.<br />
@@ -414,7 +414,7 @@ setItemPosition(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowR
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI,PosR:32/?UI,PosC:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizersetitemspan">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html#wxgridbagsizersetitemspan">external documentation</a>.
 %% <br /> Also:<br />
 %% setItemSpan(This, Window, Span) -> boolean() when<br />
 %% 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Span::{RS::integer(), CS::integer()}.<br />

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html">wxAuiNotebookEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html">wxAuiNotebookEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_auinotebook_page_close</em>, <em>command_auinotebook_page_changed</em>, <em>command_auinotebook_page_changing</em>, <em>command_auinotebook_button</em>, <em>command_auinotebook_begin_drag</em>, <em>command_auinotebook_end_drag</em>, <em>command_auinotebook_drag_motion</em>, <em>command_auinotebook_allow_dnd</em>, <em>command_auinotebook_tab_middle_down</em>, <em>command_auinotebook_tab_middle_up</em>, <em>command_auinotebook_tab_right_down</em>, <em>command_auinotebook_tab_right_up</em>, <em>command_auinotebook_page_closed</em>, <em>command_auinotebook_drag_done</em>, <em>command_auinotebook_bg_dclick</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxAuiNotebook(). #wxAuiNotebook{}} event record type.
@@ -50,7 +50,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxAuiNotebookEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html#wxauinotebookeventsetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetselection">external documentation</a>.
 -spec setSelection(This, S) -> ok when
 	This::wxAuiNotebookEvent(), S::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
@@ -59,7 +59,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
   wxe_util:cast(?wxAuiNotebookEvent_SetSelection,
   <<ThisRef:32/?UI,S:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html#wxauinotebookeventgetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventgetselection">external documentation</a>.
 -spec getSelection(This) -> integer() when
 	This::wxAuiNotebookEvent().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -67,7 +67,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxAuiNotebookEvent_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html#wxauinotebookeventsetoldselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetoldselection">external documentation</a>.
 -spec setOldSelection(This, S) -> ok when
 	This::wxAuiNotebookEvent(), S::integer().
 setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
@@ -76,7 +76,7 @@ setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
   wxe_util:cast(?wxAuiNotebookEvent_SetOldSelection,
   <<ThisRef:32/?UI,S:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html#wxauinotebookeventgetoldselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventgetoldselection">external documentation</a>.
 -spec getOldSelection(This) -> integer() when
 	This::wxAuiNotebookEvent().
 getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -84,7 +84,7 @@ getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxAuiNotebookEvent_GetOldSelection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html#wxauinotebookeventsetdragsource">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetdragsource">external documentation</a>.
 -spec setDragSource(This, S) -> ok when
 	This::wxAuiNotebookEvent(), S::wxAuiNotebook:wxAuiNotebook().
 setDragSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ST,ref=SRef}) ->
@@ -93,7 +93,7 @@ setDragSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ST,ref=SRef}) ->
   wxe_util:cast(?wxAuiNotebookEvent_SetDragSource,
   <<ThisRef:32/?UI,SRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebookevent.html#wxauinotebookeventgetdragsource">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventgetdragsource">external documentation</a>.
 -spec getDragSource(This) -> wxAuiNotebook:wxAuiNotebook() when
 	This::wxAuiNotebookEvent().
 getDragSource(#wx_ref{type=ThisT,ref=ThisRef}) ->

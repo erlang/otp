@@ -2236,7 +2236,7 @@ static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
     CHECK_TABLES();
 
     tptr = tuple_val(a1);
-    ASSERT(arityval(*tptr) >= 1)
+    ASSERT(arityval(*tptr) >= 1);
 
     if ((tb = db_get_table(p, tptr[1], DB_READ, kind)) == NULL) {
 	BIF_ERROR(p, BADARG);
@@ -2403,7 +2403,7 @@ static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1)
     CHECK_TABLES();
 
     tptr = tuple_val(a1);
-    ASSERT(arityval(*tptr) >= 1)
+    ASSERT(arityval(*tptr) >= 1);
     if ((tb = db_get_table(p, tptr[1], DB_READ, kind)) == NULL) {
 	BIF_ERROR(p, BADARG);
     }

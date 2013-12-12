@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxclipboardtextevent.html">wxClipboardTextEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboardtextevent.html">wxClipboardTextEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_text_copy</em>, <em>command_text_cut</em>, <em>command_text_paste</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxClipboardText(). #wxClipboardText{}} event record type.

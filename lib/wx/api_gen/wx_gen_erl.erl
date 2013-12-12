@@ -61,7 +61,7 @@ gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc See external documentation: "
-      "<a href=\"http://www.wxwidgets.org/manuals/stable/wx_miscellany.html\">Misc</a>.\n\n",[]),
+      "<a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html\">Misc</a>.\n\n",[]),
 
     w("%% This module contains wxWidgets utility functions.~n~n", []),
     w("-module(wx_misc).~n", []),
@@ -96,7 +96,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    NewMs = Ms;
 	false ->
 	    w("%% @doc See external documentation: "
-	      "<a href=\"http://www.wxwidgets.org/manuals/stable/wx_~s.html\">~s</a>.\n",
+	      "<a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_~s.html\">~s</a>.\n",
 	      [lowercase_all(Name), Name]),
 
 	    case C#class.doc of
@@ -745,11 +745,11 @@ optional_type2(#param{name=Name, def=Def, type=T}) ->
     "{" ++ erl_option_name(Name) ++ ", " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
 
 doc_link("utils", Func) ->
-    w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#~s\">"
+    w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html#~s\">"
       "external documentation</a>.~n",
       [lowercase_all(Func)]);
 doc_link(Class, Func) ->
-    w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/stable/wx_~s.html#~s~s\">"
+    w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_~s.html#~s~s\">"
       "external documentation</a>.~n",
       [lowercase_all(Class),lowercase_all(Class),lowercase_all(Func)]).
 

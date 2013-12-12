@@ -34,12 +34,14 @@
 %% Event handler Callbacks
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
-	 terminate/1]).
+	 terminate/1, terminate/2, code_change/3]).
 
 %% Other
 -export([handle_remote_events/1]).
 
 -include("ct.hrl").
+
+-behaviour(gen_event).
 
 -record(eh_state, {log_func,
 		   curr_suite,
@@ -71,7 +73,7 @@ pre_init_per_group(Group, Config, State) ->
     set_curr_func({group,Group,init_per_group}, Config),
     {Config, State}.
 
-post_init_per_group(Group, Config, Result, tc_log_async) ->
+post_init_per_group(Group, Config, Result, tc_log_async) when is_list(Config) ->
     case lists:member(parallel,proplists:get_value(
 				 tc_group_properties,Config,[])) of
 	true ->
@@ -152,7 +154,8 @@ handle_info(_, State) ->
 handle_call(flush,State) ->
     {ok, ok, State};
 
-handle_call({set_curr_func,{group,Group,Conf},Config}, State) ->
+handle_call({set_curr_func,{group,Group,Conf},Config},
+	    State) when is_list(Config) ->
     Parallel = case proplists:get_value(tc_group_properties, Config) of
 		   undefined -> false;
 		   Props -> lists:member(parallel, Props)
@@ -160,6 +163,10 @@ handle_call({set_curr_func,{group,Group,Conf},Config}, State) ->
     {ok, ok, State#eh_state{curr_group = Group,
 			    curr_func = Conf,
 			    parallel_tcs = Parallel}};
+handle_call({set_curr_func,{group,Group,Conf},_SkipOrFail}, State) ->
+    {ok, ok, State#eh_state{curr_group = Group,
+			    curr_func = Conf,
+			    parallel_tcs = false}};
 handle_call({set_curr_func,{group,undefined},_Config}, State) ->
     {ok, ok, State#eh_state{curr_group = undefined,
 			    curr_func = undefined,
@@ -184,9 +191,12 @@ handle_call({handle_remote_events,Bool}, State) ->
 handle_call(_Query, _State) ->
     {error, bad_query}.
 
-terminate(_State) ->
+terminate(_) ->
     error_logger:delete_report_handler(?MODULE),
     [].
+
+terminate(_Arg, _State) ->
+    ok.
 
 tag_event(Event) ->
     {calendar:local_time(), Event}.
@@ -236,3 +246,6 @@ format_header(#eh_state{curr_suite = Suite,
 			curr_func = TC}) ->
     io_lib:format("System report during ~w:~w/1 in ~w",
 		  [Suite,TC,Group]).
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.

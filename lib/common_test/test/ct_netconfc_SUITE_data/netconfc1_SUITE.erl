@@ -84,7 +84,9 @@ all() ->
 	     no_host,
 	     no_port,
 	     invalid_opt,
+	     timeout_close_session,
 	     get,
+	     timeout_get,
 	     get_xpath,
 	     get_config,
 	     get_config_xpath,
@@ -143,11 +145,10 @@ init_per_suite(Config) ->
     end.
 
 end_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
     ?NS:stop(?config(server,Config)),
     ssh:stop(),
     crypto:stop(),
-    remove_id_keys(PrivDir),
+    remove_id_keys(Config),
     Config.
 
 hello(Config) ->
@@ -344,12 +345,30 @@ invalid_opt(Config) ->
     {error,{invalid_option,{some_other_opt,true}}} = ct_netconfc:open(Opts2),
     ok.
 
+timeout_close_session(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    ?NS:expect('close-session'),
+    true = erlang:is_process_alive(Client),
+    {error,timeout} = ct_netconfc:close_session(Client,1000),
+    false = erlang:is_process_alive(Client),
+    ok.
+
 get(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,Client} = open_success(DataDir),
     Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
     ?NS:expect_reply('get',{data,Data}),
     {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
+timeout_get(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    ?NS:expect('get'),
+    {error,timeout} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1000),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
@@ -698,7 +717,7 @@ timeout_receive_chunked_data(Config) ->
     ?ok = ct_netconfc:close_session(Client),
     ok.
 
-%% Same as receive_chunked_data, but timeout waiting for last part.
+%% Same as receive_chunked_data, but close while waiting for last part.
 close_while_waiting_for_chunked_data(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,Client} = open_success(DataDir),

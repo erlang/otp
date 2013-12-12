@@ -31,6 +31,66 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The default value for a <c>BIT STRING</c> would not
+	    always be recognized, causing the encoding to be
+	    incorrect for the DER/PER/UPER encodings.</p>
+          <p>
+	    Own Id: OTP-11319</p>
+        </item>
+        <item>
+          <p>
+	    The <c>asn1</c> application would fail to build if the
+	    <c>.erlang</c> file printed something to standard output.</p>
+          <p>
+	    Own Id: OTP-11360</p>
+        </item>
+        <item>
+	    <p>An union of integer ranges in an INTEGER constraint
+	    could sometimes be interpreted as the intersection of the
+	    range.</p>
+          <p>
+	    Own Id: OTP-11411 Aux Id: seq12443 </p>
+        </item>
+        <item>
+          <p>
+	    Extensible, multiple single value constraints (such as
+	    <c>INTEGER (1|17, ...)</c>) would be incorrectly encoded.</p>
+          <p>
+	    Own Id: OTP-11415</p>
+        </item>
+        <item>
+          <p>
+	    The ASN.1 compiler would fail to compile a constraint
+	    with values given for for the extension part (such as
+	    <c>INTEGER (1..10, ..., 11..20)</c>).</p>
+          <p>
+	    Own Id: OTP-11504</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The new option '<c>no_ok_wrapper</c>' generates
+	    M:encode/2 and M:decode/2 functions that don't wrap the
+	    return value in an {ok,...} tuple.</p>
+          <p>
+	    Own Id: OTP-11314</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 2.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

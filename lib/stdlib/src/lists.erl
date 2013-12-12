@@ -630,7 +630,7 @@ flatlength([H|T], L) when is_list(H) ->
 flatlength([_|T], L) ->
     flatlength(T, L + 1);
 flatlength([], L) -> L.
-
+
 %% keymember(Key, Index, [Tuple]) Now a BIF!
 %% keyfind(Key, Index, [Tuple]) A BIF!
 %% keysearch(Key, Index, [Tuple]) Now a BIF!
@@ -1163,7 +1163,7 @@ rumerge(T1, []) ->
     T1;
 rumerge(T1, [H2 | T2]) ->
     lists:reverse(rumerge2_1(T1, T2, [], H2), []).
-
+
 %% all(Predicate, List)
 %% any(Predicate, List)
 %% map(Function, List)

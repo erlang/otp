@@ -21,7 +21,8 @@ SeqBS ::= SEQUENCE {
   a BIT STRING DEFAULT '1010110'B,
   b BIT STRING DEFAULT 'A8A'H,
   c BIT STRING {first(0),second(1),third(2)} DEFAULT {second},
-  d BIT STRING DEFAULT onelist
+  d BIT STRING DEFAULT onelist,
+  e BIT STRING DEFAULT '01011010'B
 }
 
 SetBS ::= SET {

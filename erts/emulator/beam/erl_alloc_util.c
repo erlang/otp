@@ -87,9 +87,6 @@ static int initialized = 0;
 #define SYS_ALLOC_CARRIER_CEILING(X) \
   SYS_ALLOC_CARRIER_FLOOR((X) + INV_SYS_ALLOC_CARRIER_MASK)
 
-#undef ASSERT
-#define ASSERT ASSERT_EXPR
-
 #if 0
 /* Can be useful for debugging */
 #define MBC_REALLOC_ALWAYS_MOVES
@@ -101,6 +98,7 @@ static Uint sys_alloc_carrier_size;
 #if HAVE_ERTS_MSEG
 static Uint max_mseg_carriers;
 #endif
+static int allow_sys_alloc_carriers;
 
 #define ONE_GIGA (1000000000)
 
@@ -375,6 +373,8 @@ do {										\
 
 #define ERTS_CRR_ALCTR_FLG_IN_POOL	(((erts_aint_t) 1) << 0)
 #define ERTS_CRR_ALCTR_FLG_BUSY		(((erts_aint_t) 1) << 1)
+#define ERTS_CRR_ALCTR_FLG_MASK (ERTS_CRR_ALCTR_FLG_IN_POOL | \
+                                 ERTS_CRR_ALCTR_FLG_BUSY)
 
 #ifdef ERTS_SMP
 #define SBC_HEADER_SIZE	   						\
@@ -759,8 +759,9 @@ static ERTS_INLINE void *
 alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void *res;
-
-    res = erts_mseg_alloc_opt(allctr->alloc_no, size_p, flags, &allctr->mseg_opt);
+    UWord size = (UWord) *size_p;
+    res = erts_mseg_alloc_opt(allctr->alloc_no, &size, flags, &allctr->mseg_opt);
+    *size_p = (Uint) size;
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
@@ -769,9 +770,10 @@ static ERTS_INLINE void *
 alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
 {
     void *res;
-
-    res = erts_mseg_realloc_opt(allctr->alloc_no, seg, old_size, new_size_p,
+    UWord new_size = (UWord) *new_size_p;
+    res = erts_mseg_realloc_opt(allctr->alloc_no, seg, (UWord) old_size, &new_size,
 				ERTS_MSEG_FLG_NONE, &allctr->mseg_opt);
+    *new_size_p = (Uint) new_size;
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }
@@ -779,7 +781,7 @@ alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
 static ERTS_INLINE void
 alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 {
-    erts_mseg_dealloc_opt(allctr->alloc_no, seg, size, flags, &allctr->mseg_opt);
+    erts_mseg_dealloc_opt(allctr->alloc_no, seg, (UWord) size, flags, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_dealloc);
 }
 
@@ -1405,14 +1407,14 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 
 	    if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock
 		&& pref_allctr->thread_safe) {
-		used_allctr = (Allctr_t *) (iallctr & ~FLG_MASK);
+		used_allctr = (Allctr_t *) (iallctr & ~ERTS_CRR_ALCTR_FLG_MASK);
 		if (pref_allctr == used_allctr) {
 		    erts_mtx_lock(&pref_allctr->mutex);
 		    locked_pref_allctr = 1;
 		}
 	    }
 
-	    while ((iallctr & ((~FLG_MASK)|ERTS_CRR_ALCTR_FLG_IN_POOL))
+	    while ((iallctr & ((~ERTS_CRR_ALCTR_FLG_MASK)|ERTS_CRR_ALCTR_FLG_IN_POOL))
 		   == (((erts_aint_t) pref_allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL)) {
 		erts_aint_t act;
 
@@ -1427,7 +1429,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 		iallctr = act;
 	    }
 
-	    used_allctr = (Allctr_t *) (iallctr & ~FLG_MASK);
+	    used_allctr = (Allctr_t *) (iallctr & ~ERTS_CRR_ALCTR_FLG_MASK);
 
 	    if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock) {
 		if (locked_pref_allctr && used_allctr != pref_allctr) {
@@ -1437,16 +1439,16 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 	    }
 
 	    ERTS_ALC_CPOOL_ASSERT(
-		(((iallctr & ~FLG_MASK) == (erts_aint_t) pref_allctr)
-		 ? (((iallctr & FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL)
-		    || ((iallctr & FLG_MASK) == 0))
+		(((iallctr & ~ERTS_CRR_ALCTR_FLG_MASK) == (erts_aint_t) pref_allctr)
+		 ? (((iallctr & ERTS_CRR_ALCTR_FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL)
+		    || ((iallctr & ERTS_CRR_ALCTR_FLG_MASK) == 0))
 		 : 1));
 
 	    return used_allctr;
 	}
     }
 
-    used_allctr = (Allctr_t *) (iallctr & ~FLG_MASK);
+    used_allctr = (Allctr_t *) (iallctr & ~ERTS_CRR_ALCTR_FLG_MASK);
 
     if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock
 	&& used_allctr == pref_allctr
@@ -1777,7 +1779,7 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
 	    ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
 				  != (erts_smp_atomic_read_nob(&crr->allctr)
-				      & ~FLG_MASK));
+				      & ~ERTS_CRR_ALCTR_FLG_MASK));
 
 	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 
@@ -2920,7 +2922,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 #ifdef ERTS_ALC_CPOOL_DEBUG
 	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_xchg_nob(&crr->allctr,
 							   ((erts_aint_t) allctr))
-				  == (((erts_aint_t) allctr) & ~FLG_MASK));
+				  == (((erts_aint_t) allctr) & ~ERTS_CRR_ALCTR_FLG_MASK));
 #else
 	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 #endif
@@ -2962,7 +2964,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 					     (erts_aint_t) allctr,
 					     exp);
 	    if (act == exp) {
-		cpool_delete(allctr, ((Allctr_t *) (act & ~FLG_MASK)), crr);
+		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
 		return crr;
 	    }
 	}
@@ -3057,7 +3059,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, blk));
 	ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
 			      == (erts_smp_atomic_read_nob(&crr->allctr)
-				  & ~FLG_MASK));
+				  & ~ERTS_CRR_ALCTR_FLG_MASK));
 
 	if (ddq_enqueue(&orig_allctr->dd.q, BLK2UMEM(blk), cinit))
 	    erts_alloc_notify_delayed_dealloc(orig_allctr->ix);
@@ -3226,10 +3228,12 @@ static void CHECK_1BLK_CARRIER(Allctr_t* A, int SBC, int MSEGED, Carrier_t* C,
 	ASSERT(IS_MBC_BLK((B)));
 	ASSERT(IS_MB_CARRIER((C)));
 	ASSERT(FBLK_TO_MBC(B) == (C));
+	if ((MSEGED)) {
+	    ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE((CSZ));
+	}
     }
     if ((MSEGED)) {
 	ASSERT(IS_MSEG_CARRIER((C)));
-	ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE((CSZ));
     }
     else {
 	ASSERT(IS_SYS_ALLOC_CARRIER((C)));
@@ -3255,13 +3259,15 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
     int is_mseg = 0;
 #endif
 
-#if HALFWORD_HEAP
-    flags |= CFLG_FORCE_MSEG;
-#elif ERTS_SUPER_ALIGNED_MSEG_ONLY
-    if (flags & CFLG_MBC) {
+    if (HALFWORD_HEAP
+	|| (ERTS_SUPER_ALIGNED_MSEG_ONLY && (flags & CFLG_MBC))
+	|| !allow_sys_alloc_carriers) {
 	flags |= CFLG_FORCE_MSEG;
-    }
+	flags &= ~CFLG_FORCE_SYS_ALLOC;
+#if !HAVE_ERTS_MSEG
+	return NULL;
 #endif
+    }
 
     ASSERT((flags & CFLG_SBC && !(flags & CFLG_MBC))
 	   || (flags & CFLG_MBC && !(flags & CFLG_SBC)));
@@ -3564,7 +3570,6 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 	    /* Old carrier unchanged; restore... */
 	    STAT_SYS_ALLOC_SBC_ALLOC(allctr, old_crr_sz, old_blk_sz);
 	}
-	DEBUG_SAVE_ALIGNMENT(new_crr);
 	return new_blk;
     }
 #endif
@@ -3601,7 +3606,6 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 
 #if HAVE_ERTS_MSEG
 	if (IS_MSEG_CARRIER(crr)) {
-	    ASSERT(crr_sz % ERTS_SACRR_UNIT_SZ == 0);
 	    STAT_MSEG_SBC_FREE(allctr, crr_sz, blk_sz);
 	}
 	else
@@ -3697,6 +3701,7 @@ static struct {
     Eterm mmc;
 #endif
     Eterm ycs;
+    Eterm sac;
 
     Eterm fix_types;
 
@@ -3789,6 +3794,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(mmc);
 #endif
 	AM_INIT(ycs);
+	AM_INIT(sac);
 
 	AM_INIT(fix_types);
 
@@ -4509,16 +4515,21 @@ erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
 #if HAVE_ERTS_MSEG
 		   "option mmc: %beu\n"
 #endif
-		   "option ycs: %beu\n",
+		   "option ycs: %beu\n"
+		   "option sac: %s\n",
 #if HAVE_ERTS_MSEG
 		   max_mseg_carriers,
 #endif
-		   sys_alloc_carrier_size);
+		   sys_alloc_carrier_size,
+		   allow_sys_alloc_carriers ? "true" : "false");
     }
 
     if (hpp || szp) {
 	res = NIL;
 	ensure_atoms_initialized(NULL);
+	add_2tup(hpp, szp, &res,
+		 am.sac,
+		 allow_sys_alloc_carriers ? am_true : am_false);
 	add_2tup(hpp, szp, &res,
 		 am.ycs,
 		 bld_uint(hpp, szp, sys_alloc_carrier_size));
@@ -5422,6 +5433,11 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 {
     /* erts_alcu_start assumes that allctr has been zeroed */
 
+    if (((UWord)allctr & ERTS_CRR_ALCTR_FLG_MASK) != 0) {
+        erl_exit(ERTS_ABORT_EXIT, "%s:%d:erts_alcu_start: Alignment error\n",
+                 __FILE__, __LINE__);
+    }
+
     if (!initialized)
 	goto error;
 
@@ -5512,7 +5528,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
     allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
-    allctr->cpool.util_limit = init->acul;
+    allctr->cpool.util_limit = init->ts ? 0 : init->acul;
 #endif
 
     allctr->sbc_threshold		= init->sbct;
@@ -5593,8 +5609,15 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 			     | CFLG_FORCE_SYS_ALLOC
 #endif
 			     | CFLG_MAIN_CARRIER);
-	if (!blk)
-	    goto error;
+	if (!blk) {
+#ifdef USE_THREADS
+	  if (allctr->thread_safe)
+	    erts_mtx_destroy(&allctr->mutex);
+#endif
+	  erl_exit(ERTS_ABORT_EXIT,
+	    "Failed to create main carrier for %salloc\n",
+	    init->name_prefix);
+	}
 
 	(*allctr->link_free_block)(allctr, blk);
 
@@ -5681,6 +5704,7 @@ erts_alcu_init(AlcUInit_t *init)
 #else /* #if HAVE_ERTS_MSEG */
     sys_alloc_carrier_size = ((init->ycs + 4095) / 4096) * 4096;
 #endif
+    allow_sys_alloc_carriers = init->sac;
 
 #ifdef DEBUG
     carrier_alignment = sizeof(Unit_t);

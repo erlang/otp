@@ -393,30 +393,17 @@ if test X${enable_darwin_64bit} = Xyes -o X${enable_m64_build} = Xyes; then
 			;;
 	esac
 else
-	case $host_os in
-		darwin*)
-			case $CFLAGS in
-			*-m32*)
-				;;
-			*)
-				CFLAGS="-m32 $CFLAGS"
-				;;
-			esac
-			;;
-		*)
-			if test X${enable_m32_build} = Xyes;
-			then
-				enable_hipe=no;
-				case $CFLAGS in
-				*-m32*)
-					;;
-				*)
-					CFLAGS="-m32 $CFLAGS"
-				;;
-				esac ;
-			fi
-			;;
-	esac
+	if test X${enable_m32_build} = Xyes;
+	then
+		enable_hipe=no;
+		case $CFLAGS in
+		    *-m32*)
+			    ;;
+		    *)
+			    CFLAGS="-m32 $CFLAGS"
+			    ;;
+		esac ;
+	fi
 fi
 
 AC_ARG_ENABLE(static-nifs,
@@ -1658,7 +1645,7 @@ if test "x$enable_sctp" != "xno" ; then
 fi
 
 if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
-    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff])
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
     AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
                     SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED,
 		    SCTP_DELAYED_ACK_TIME,
@@ -1985,10 +1972,38 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite memmove strerror strerror_r strncasecmp \
-		gethrtime localtime_r gmtime_r inet_pton posix_memalign \
+		gethrtime localtime_r gmtime_r inet_pton \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
-		setlocale nl_langinfo poll])
+		setlocale nl_langinfo poll mlockall])
+
+
+case X$erl_xcomp_posix_memalign in
+     Xno) ;;
+     Xyes) AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
+                [Define to 1 if you have the `posix_memalign' function.]) ;;
+     *)
+	AC_CHECK_FUNC(
+		[posix_memalign],
+                [if test "$cross_compiling" != yes; then
+AC_TRY_RUN([
+#include <stdlib.h>
+int main(void) {
+    void *ptr = NULL;
+    int error;
+    size_t alignment = 0x40000, size = 0x20028;
+    if ((error = posix_memalign(&ptr, alignment, size)) != 0 || ptr == NULL)
+      return error;
+    return 0;
+}
+],AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
+    [Define to 1 if you have the `posix_memalign' function.])
+)
+		 else
+			AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
+		[Define to 1 if you have the `posix_memalign' function.])
+		 fi]);;
+esac
 
 dnl writev on OS X snow leopard is broken for files > 4GB
 case $host_os in

@@ -149,19 +149,33 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_EXIT_AFTER_DUMP exit
 #endif
 
-#ifdef DEBUG
-#  define ASSERT(e) \
-  if (e) { \
-     ; \
-  } else { \
-     erl_assert_error(#e, __FILE__, __LINE__); \
-  }
-#  define ASSERT_EXPR(e) \
-    ((void) ((e) ? 1 : (erl_assert_error(#e, __FILE__, __LINE__), 0)))
-void erl_assert_error(char* expr, char* file, int line);
+/* In VC++, noreturn is a declspec that has to be before the types,
+ * but in GNUC it is an att ribute to be placed between return type
+ * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ */
+#if __GNUC__
+#  define __decl_noreturn
+#  define __noreturn __attribute__((noreturn))
 #else
-#  define ASSERT(e)
-#  define ASSERT_EXPR(e) ((void) 1)
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
+#define ERTS_ASSERT(e) \
+    ((void) ((e) ? 1 : (erl_assert_error(#e, __func__, __FILE__, __LINE__), 0)))
+
+__decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *func,
+						 const char* file, int line);
+
+#ifdef DEBUG
+#  define ASSERT(e) ERTS_ASSERT(e)
+#else
+#  define ASSERT(e) ((void) 1)
 #endif
 
 /*
@@ -195,23 +209,6 @@ void erl_assert_error(char* expr, char* file, int line);
 #  define erts_align_attribute(SZ) __attribute__ ((aligned (SZ)))
 #else
 #  define erts_align_attribute(SZ)
-#endif
-
-/* In VC++, noreturn is a declspec that has to be before the types,
- * but in GNUC it is an att ribute to be placed between return type 
- * and function name, hence __decl_noreturn <types> __noreturn <function name>
- */
-#if __GNUC__
-#  define __decl_noreturn 
-#  define __noreturn __attribute__((noreturn))
-#else
-#  if defined(__WIN32__) && defined(_MSC_VER)
-#    define __noreturn 
-#    define __decl_noreturn __declspec(noreturn)
-#  else
-#    define __noreturn
-#    define __decl_noreturn 
-#  endif
 #endif
 
 /*
@@ -282,16 +279,19 @@ typedef unsigned long UWord;
 typedef long          SWord;
 #define SWORD_CONSTANT(Const) Const##L
 #define UWORD_CONSTANT(Const) Const##UL
+#define ERTS_SWORD_MAX LONG_MAX
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int UWord;
 typedef int          SWord;
 #define SWORD_CONSTANT(Const) Const
 #define UWORD_CONSTANT(Const) Const##U
+#define ERTS_SWORD_MAX INT_MAX
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
 typedef unsigned long long UWord;
 typedef long long          SWord;
 #define SWORD_CONSTANT(Const) Const##LL
 #define UWORD_CONSTANT(Const) Const##ULL
+#define ERTS_SWORD_MAX LLONG_MAX
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
@@ -304,6 +304,7 @@ typedef unsigned long Uint;
 typedef long          Sint;
 #define SWORD_CONSTANT(Const) Const##L
 #define UWORD_CONSTANT(Const) Const##UL
+#define ERTS_SWORD_MAX LONG_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG
 #define ErtsStrToSint strtol
 #elif SIZEOF_VOID_P == SIZEOF_INT
@@ -312,6 +313,7 @@ typedef unsigned int Uint;
 typedef int          Sint;
 #define SWORD_CONSTANT(Const) Const
 #define UWORD_CONSTANT(Const) Const##U
+#define ERTS_SWORD_MAX INT_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
 #define ErtsStrToSint strtol
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
@@ -320,6 +322,7 @@ typedef unsigned long long Uint;
 typedef long long          Sint;
 #define SWORD_CONSTANT(Const) Const##LL
 #define UWORD_CONSTANT(Const) Const##ULL
+#define ERTS_SWORD_MAX LLONG_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
 #if defined(__WIN32__)
 #define ErtsStrToSint _strtoi64
@@ -749,6 +752,8 @@ int erts_sys_getenv(char *key, char *value, size_t *size);
 int erts_sys_getenv_raw(char *key, char *value, size_t *size);
 /* erts_sys_getenv__() is only allowed to be used in early init phase */
 int erts_sys_getenv__(char *key, char *value, size_t *size);
+/* erst_sys_unsetenv() returns 0 on success and a value != 0 on failure. */
+int erts_sys_unsetenv(char *key);
 
 /* Easier to use, but not as efficient, environment functions */
 char *erts_read_env(char *key);

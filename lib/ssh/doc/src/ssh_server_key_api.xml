@@ -29,7 +29,7 @@
     -behaviour(ssh_server_key_api).
   </modulesummary>
   <description>
-    <p>  Behaviour describing the API for an SSH server's public key handling.By implementing the callbacks defined
+    <p>  Behaviour describing the API for an SSH server's public key handling. By implementing the callbacks defined
     in this behavior it is possible to customize the SSH server's public key
     handling. By default the SSH application implements this behavior
     with help of the standard openssh files, see <seealso marker="SSH_app"> ssh(6)</seealso>.</p>
@@ -40,13 +40,15 @@
 
     <p>Type definitions that are used more than once in this module
     and/or abstractions to indicate the intended use of the data
-    type:</p>
+    type. For more details on public key data types 
+    see the <seealso marker="public_key:public_key_records"> public_key user's guide.</seealso>
+    </p>
 
     <p> boolean() = true | false</p>
     <p> string() = [byte()]</p>
-    <p> public_key() =  #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</p>
-    <p> private_key() =  #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</p>
-    <p> public_key_algorithm() =  'ssh-rsa'| 'ssh-dss' | atom()</p>
+    <p> public_key() =  #'RSAPublicKey'{} | {integer(),  #'Dss-Parms'{}} | term()</p>
+    <p> private_key() =  #'RSAPrivateKey'{} | #'DSAPrivateKey'{} | term()</p>
+    <p> public_key_algorithm() =  'ssh-rsa' | 'ssh-dss' | atom()</p>
   </section>
 
   <funcs>
@@ -56,7 +58,7 @@
       <fsummary>Fetches the hosts private key </fsummary>
       <type>
 	<v>Algorithm = public_key_algorithm()</v>
-	<d> Host key algorithm. Should support 'ssh-rsa'| 'ssh-dss' but additional algorithms
+	<d> Host key algorithm. Should support 'ssh-rsa' | 'ssh-dss' but additional algorithms
 	can be handled.</d>
 	<v> DaemonOptions = proplists:proplist() </v>
 	<d>Options provided to  <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso></d>

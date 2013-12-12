@@ -160,7 +160,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
     if (is_internal_port(BIF_ARG_1)) {
 	int send_link_signal = 0;
-	Port *prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	Port *prt = erts_port_lookup(BIF_ARG_1,
+				     (erts_port_synchronous_ops
+				      ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+				      : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 	if (!prt) {
 	    goto res_no_proc;
 	}
@@ -1363,11 +1366,22 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
       */
 
      if (is_internal_port(BIF_ARG_1)) {
-	 Port *prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	 Eterm ref, *refp;
+	 Uint32 invalid_flags;
+	 Port *prt;
+
+	 if (erts_port_synchronous_ops) {
+	     refp = &ref;
+	     invalid_flags = ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP;
+	 }
+	 else {
+	     refp = NULL;
+	     invalid_flags = ERTS_PORT_SFLGS_INVALID_LOOKUP;
+	 }
+
+	 prt = erts_port_lookup(BIF_ARG_1, invalid_flags);
 
 	 if (prt) {
-	     Eterm ref;
-	     Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
 	     ErtsPortOpResult res;
 
 #ifdef DEBUG
@@ -1875,7 +1889,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	if (rp)
 	    goto send_message;
 
-	pt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	pt = erts_port_lookup(id,
+			      (erts_port_synchronous_ops
+			       ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			       : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 	if (pt) {
 	    portid = id;
 	    goto port_common;
@@ -1905,7 +1922,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	int ret_val;
 	portid = to;
 
-	pt = erts_port_lookup(portid, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	pt = erts_port_lookup(portid,
+			      (erts_port_synchronous_ops
+			       ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			       : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 
       port_common:
 	ret_val = 0;
@@ -1994,7 +2014,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	    rp = erts_proc_lookup_raw(id);
 	    if (rp)
 		goto send_message;
-	    pt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	    pt = erts_port_lookup(id,
+				  (erts_port_synchronous_ops
+				   ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+				   : ERTS_PORT_SFLGS_INVALID_LOOKUP));
 	    if (pt) {
 		portid = id;
 		goto port_common;
@@ -3740,45 +3763,6 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 }
 
 /**********************************************************************/
-
-BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
-{
-    int reds;
-    Process *rp;
-
-    if (is_not_pid(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
-    if (BIF_P->common.id == BIF_ARG_1)
-	rp = BIF_P;
-    else {
-#ifdef ERTS_SMP
-	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-	if (rp == ERTS_PROC_LOCK_BUSY)
-	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
-#else
-	rp = erts_proc_lookup(BIF_ARG_1);
-#endif
-	if (!rp)
-	    BIF_RET(am_false);
-    }
-
-    /* The GC cost is taken for the process executing this BIF. */
-
-    FLAGS(rp) |= F_NEED_FULLSWEEP;
-    reds = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-
-#ifdef ERTS_SMP
-    if (BIF_P != rp) {
-	erts_resume(rp, ERTS_PROC_LOCK_MAIN);
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
-    }
-#endif
-
-    BIF_RET2(am_true, reds);
-}
 
 BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {

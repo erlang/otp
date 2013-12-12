@@ -537,7 +537,9 @@ opt({capx_timeout, Tmo}) ->
 opt({length_errors, T}) ->
     lists:member(T, [exit, handle, discard]);
 
-opt({reconnect_timer, Tmo}) ->
+opt({K, Tmo})
+  when K == reconnect_timer;  %% deprecated
+       K == connect_timer ->
     ?IS_UINT32(Tmo);
 
 opt({watchdog_timer, {M,F,A}})

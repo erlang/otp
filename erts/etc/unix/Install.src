@@ -137,9 +137,9 @@ case $start_option in
 esac
 
 cp -p ../releases/%I_SYSTEM_VSN%/start_*.boot .
+cp -p ../releases/%I_SYSTEM_VSN%/no_dot_erlang.boot .
 cp -p $Name.boot start.boot
 cp -p ../releases/%I_SYSTEM_VSN%/$Name.script start.script
-
 #
 # Fixing the man pages
 #

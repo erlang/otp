@@ -400,10 +400,16 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     Uint reclaimed_now = 0;
     int done = 0;
     Uint ms1, s1, us1;
-    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
+
+    if (p->flags & F_DISABLE_GC)
+	return 1;
+
+    esdp = erts_get_scheduler_data();
+
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, am_gc_start);
     }
@@ -531,6 +537,9 @@ erts_garbage_collect_hibernate(Process* p)
     char* area;
     Uint area_size;
     Sint offs;
+
+    if (p->flags & F_DISABLE_GC)
+	ERTS_INTERNAL_ERROR("GC disabled");
 
     /*
      * Preliminaries.
@@ -667,6 +676,8 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     Uint n;
     struct erl_off_heap_header** prev;
 
+    if (p->flags & F_DISABLE_GC)
+	return;
     /*
      * Set GC state.
      */
@@ -2770,7 +2781,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	    refc = erts_refc_read(&u.ext->node->refc, 1);
 	    break;
 	default:
-	    ASSERT(!!"erts_check_off_heap2: Invalid thing_word");
+	    ASSERT(!"erts_check_off_heap2: Invalid thing_word");
 	}
 	ERTS_CHK_OFFHEAP_ASSERT(refc >= 1);
 #ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_LIST

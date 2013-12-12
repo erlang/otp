@@ -31,7 +31,7 @@
 %%
 -module(hash_SUITE).
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
-	 phash2_test/0, otp_5292_test/0, bit_level_binaries/0,
+	 phash2_test/0, otp_5292_test/0,
          otp_7127_test/0]).
 -compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
@@ -151,7 +151,7 @@ otp_5292(Config) when is_list(Config) ->
 
 %% Test hashing bit-level binaries.
 bit_level_binaries(Config) when is_list(Config) ->
-    bit_level_binaries().
+    bit_level_binaries_do().
 
 otp_7127(suite) ->
     [];
@@ -536,7 +536,7 @@ hash_int(Start, End, F) ->
 md5(T) ->
     erlang:md5(term_to_binary(T)).   
 
-bit_level_binaries() ->
+bit_level_binaries_do() ->
     [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
 	bit_level_all_different(fun erlang:hash/2),
     [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =

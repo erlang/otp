@@ -698,6 +698,7 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
     HANDLE fd;			/* Handle to open file. */
     DWORD access;		/* Access mode: GENERIC_READ, GENERIC_WRITE. */
     DWORD crFlags;
+    DWORD flagsAndAttrs = FILE_ATTRIBUTE_NORMAL;
     WCHAR *wname = (WCHAR *) name;
 
     switch (flags & (EFILE_MODE_READ|EFILE_MODE_WRITE)) {
@@ -719,6 +720,10 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
 	return 0;
     }
 
+    if (flags & EFILE_MODE_SYNC) {
+        flagsAndAttrs = FILE_FLAG_WRITE_THROUGH;
+    }
+
     if (flags & EFILE_MODE_APPEND) {
 	crFlags = OPEN_ALWAYS;
     }
@@ -727,7 +732,7 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
     }
     fd = CreateFileW(wname, access,
 		    FILE_SHARE_FLAGS,
-		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
+		    NULL, crFlags, flagsAndAttrs, NULL);
 
     /*
      * Check for errors.
@@ -1216,7 +1221,7 @@ int flags;
     return 1;
 }
 
-
+
 /*
  * is_root_unc_name - returns TRUE if the argument is a UNC name specifying
  *      a root share.  That is, if it is of the form \\server\share\.

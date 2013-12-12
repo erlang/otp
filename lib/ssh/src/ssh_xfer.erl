@@ -267,7 +267,7 @@ xf_request(XF, Op, Arg) ->
 		   list_to_binary(Arg)
 	   end,
     Size = 1+size(Data),
-    ssh_connection:send(CM, Channel, <<?UINT32(Size), Op, Data/binary>>).
+    ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->    
     Data = if 
@@ -277,7 +277,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 		   list_to_binary(Arg)
 	   end,
     Size = 1 + size(Data),
-    ssh_connection:send(CM, Channel, <<?UINT32(Size), Op, Data/binary>>).
+    ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_name(XF, ReqId, Name, Attr) ->
     xf_send_names(XF, ReqId, [{Name, Attr}]).

@@ -16,6 +16,14 @@ SemiConstrained ::= INTEGER (100..MAX)
 NegSemiConstrained ::= INTEGER (-128..MAX)
 SemiConstrainedExt ::= INTEGER (42..MAX, ...)
 NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
+-- Extensions --
+LongLongExt ::= INTEGER (0..18446744073709551615, ..., -5000..-1)
+Range256to65536Ext ::= INTEGER (256..65536, ..., 1000000..9000000)
+
+-- Union of single values
+Sv1 ::= INTEGER (2|3|17)
+Sv2 ::= INTEGER (2|3|17, ...)
+Sv3 ::= INTEGER {a(2),b(3),z(17)} (2|3|17, ...)
 
 -- Other constraints
 FixedSize ::= OCTET STRING (SIZE(10)) 
@@ -93,5 +101,45 @@ Document ::= OCTET STRING (ENCODED BY pdf)
 pdf OBJECT IDENTIFIER ::= {1,2,3,4,5}
 
 ShorterExt ::= IA5String (SIZE (5, ...))
+
+SeqOverlapping ::= SEQUENCE {
+    v Overlapping
+}
+
+SeqNonOverlapping ::= SEQUENCE {
+    v NonOverlapping
+}
+
+Overlapping ::= INTEGER (7280..7560 |
+7580..7680 |
+7910..8210 |
+8600..8940 |
+9250..9600 |
+14759..15109 |
+15250..15590 |
+18050..18800 |
+19300..19950 |
+21100..21700 |
+26200..26900 |
+18500..19900 |
+20100..20250 |
+21100..21700 |
+23000..24000 |
+24960..26900)
+
+-- The same intervals, but merged and sorted --
+NonOverlapping ::= INTEGER (7280..7560 |
+7580..7680 |
+7910..8210 |
+8600..8940 |
+9250..9600 |
+14759..15109 |
+15250..15590 |
+18050..19950 |
+20100..20250 |
+21100..21700 |
+23000..24000 |
+24960..26900)
+
 
 END

@@ -36,7 +36,7 @@
 #include "erl_thr_progress.h"
 
 static void set_default_trace_pattern(Eterm module);
-static Eterm check_process_code(Process* rp, Module* modp);
+static Eterm check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp);
 static void delete_code(Module* modp);
 static void decrement_refc(BeamInstr* code);
 static int is_native(BeamInstr* code);
@@ -427,68 +427,81 @@ check_old_code_1(BIF_ALIST_1)
 }
 
 Eterm
-check_process_code_2(BIF_ALIST_2)
+erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp)
 {
-    Process* rp;
     Module* modp;
+    Eterm res;
+    ErtsCodeIndex code_ix;
 
-    if (is_not_atom(BIF_ARG_2)) {
-	goto error;
-    }
-    if (is_internal_pid(BIF_ARG_1)) {
-	Eterm res;
-	ErtsCodeIndex code_ix;
+    (*redsp)++;
 
-	code_ix = erts_active_code_ix();
-	modp = erts_get_module(BIF_ARG_2, code_ix);
-	if (modp == NULL) {		/* Doesn't exist. */
-	    return am_false;
-	}
-	erts_rlock_old_code(code_ix);
-	if (modp->old.code == NULL) { /* No old code. */
-	    erts_runlock_old_code(code_ix);
-	    return am_false;
-	}
-	erts_runlock_old_code(code_ix);
-	
-#ifdef ERTS_SMP
-	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-#else
-	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
-#endif
-	if (!rp) {
-	    BIF_RET(am_false);
-	}
-	if (rp == ERTS_PROC_LOCK_BUSY) {
-	    ERTS_BIF_YIELD2(bif_export[BIF_check_process_code_2], BIF_P,
-			    BIF_ARG_1, BIF_ARG_2);
-	}
-	erts_rlock_old_code(code_ix);
-	if (modp->old.code != NULL) { /* must check again */
-	    res = check_process_code(rp, modp);
-	}
-	else {
-	    res = am_false;
-	}
-	erts_runlock_old_code(code_ix);
-#ifdef ERTS_SMP
-	if (BIF_P != rp) {
-	    erts_resume(rp, ERTS_PROC_LOCK_MAIN);
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
-	}
-#endif
-	BIF_RET(res);
-    }
-    else if (is_external_pid(BIF_ARG_1)
-	     && external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
-	BIF_RET(am_false);
-    }
+    ASSERT(is_atom(module));
 
- error:
-    BIF_ERROR(BIF_P, BADARG);
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(module, code_ix);
+    if (!modp)
+	return am_false;
+    erts_rlock_old_code(code_ix);
+    res = modp->old.code ? check_process_code(c_p, modp, allow_gc, redsp) : am_false;
+    erts_runlock_old_code(code_ix);
+
+    return res;
 }
 
+BIF_RETTYPE erts_internal_check_process_code_2(BIF_ALIST_2)
+{
+    int reds = 0;
+    Eterm res;
+    Eterm olist = BIF_ARG_2;
+    int allow_gc = 1;
+
+    if (is_not_atom(BIF_ARG_1))
+	goto badarg;
+
+    while (is_list(olist)) {
+	Eterm *lp = list_val(olist);
+	Eterm opt = CAR(lp);
+	if (is_tuple(opt)) {
+	    Eterm* tp = tuple_val(opt);
+	    switch (arityval(tp[0])) {
+	    case 2:
+		switch (tp[1]) {
+		case am_allow_gc:
+		    switch (tp[2]) {
+		    case am_false:
+			allow_gc = 0;
+			break;
+		    case am_true:
+			allow_gc = 1;
+			break;
+		    default:
+			goto badarg;
+		    }
+		    break;
+		default:
+		    goto badarg;
+		}
+		break;
+	    default:
+		goto badarg;
+	    }
+	}
+	else
+	    goto badarg;
+	olist = CDR(lp);
+    }
+    if (is_not_nil(olist))
+	goto badarg;
+
+    res = erts_check_process_code(BIF_P, BIF_ARG_1, allow_gc, &reds);
+
+    ASSERT(is_value(res));
+
+    BIF_RET2(res, reds);
+
+badarg:
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 {
@@ -710,7 +723,7 @@ set_default_trace_pattern(Eterm module)
 }
 
 static Eterm
-check_process_code(Process* rp, Module* modp)
+check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 {
     BeamInstr* start;
     char* mod_start;
@@ -773,6 +786,16 @@ check_process_code(Process* rp, Module* modp)
 	}
     }
 
+    if (rp->flags & F_DISABLE_GC) {
+	/*
+	 * Cannot proceed. Process has disabled gc in order to
+	 * safely leave inconsistent data on the heap and/or
+	 * off heap lists. Need to wait for gc to be enabled
+	 * again.
+	 */ 
+	return THE_NON_VALUE;
+    }
+
     /*
      * See if there are funs that refer to the old version of the module.
      */
@@ -786,6 +809,8 @@ check_process_code(Process* rp, Module* modp)
 		if (done_gc) {
 		    return am_true;
 		} else {
+		    if (!allow_gc)
+			return am_aborted;
 		    /*
 		    * Try to get rid of this fun by garbage collecting.
 		    * Clear both fvalue and ftrace to make sure they
@@ -796,7 +821,7 @@ check_process_code(Process* rp, Module* modp)
 		    rp->ftrace = NIL;
 		    done_gc = 1;
 		    FLAGS(rp) |= F_NEED_FULLSWEEP;
-		    (void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+		    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 		    goto rescan;
 		}
 	    }
@@ -850,6 +875,9 @@ check_process_code(Process* rp, Module* modp)
 	    Uint lit_size;
 	    struct erl_off_heap_header* oh;
 
+	    if (!allow_gc)
+		return am_aborted;
+
 	    /*
 	     * Try to get rid of constants by by garbage collecting.
 	     * Clear both fvalue and ftrace.
@@ -859,11 +887,12 @@ check_process_code(Process* rp, Module* modp)
 	    rp->ftrace = NIL;
 	    done_gc = 1;
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
-	    (void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+	    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 	    literals = (Eterm *) modp->old.code[MI_LITERALS_START];
 	    lit_size = (Eterm *) modp->old.code[MI_LITERALS_END] - literals;
 	    oh = (struct erl_off_heap_header *)
 		modp->old.code[MI_LITERALS_OFF_HEAP];
+	    *redsp += lit_size / 10; /* Need, better value... */
 	    erts_garbage_collect_literals(rp, literals, lit_size, oh);
 	}
     }

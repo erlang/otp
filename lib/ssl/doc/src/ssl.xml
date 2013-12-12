@@ -52,6 +52,8 @@
       <item>CRL and policy certificate extensions are not supported
       yet. However CRL verification is supported by public_key, only not integrated
       in ssl yet. </item>
+      <item>Support for 'Server Name Indication' extension client side
+      (RFC 6066 section 3).</item>
     </list>
  
   </section>
@@ -74,7 +76,7 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>.
     </p>
     
-    <p> <c>ssloption() = {verify, verify_type()} |
+    <p><marker id="type-ssloption"></marker><c>ssloption() = {verify, verify_type()} |
       {verify_fun, {fun(), term()}} |
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
@@ -86,8 +88,8 @@
       {user_lookup_fun, {fun(), term()}}, {psk_identity, string()}, {srp_identity, {string(), string()}} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, [binary()]} |
-      {client_preferred_next_protocols, client | server, [binary()]} |
-      {log_alert, boolean()}
+      {client_preferred_next_protocols, {client | server, [binary()]} | {client | server, [binary()], binary()}} |
+      {log_alert, boolean()} | {server_name_indication, hostname() | disable}
     </c></p>
 
     <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
@@ -353,8 +355,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       when possible.
       </item>
 
-      <tag>{client_preferred_next_protocols, Precedence :: server | client, ClientPrefs :: [binary()]}</tag>
-      <tag>{client_preferred_next_protocols, Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}</tag>
+      <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</tag>
+      <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</tag>
 	   <item>
 	   <p>Indicates the client will try to perform Next Protocol
 	   Negotiation.</p>
@@ -381,6 +383,15 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </item>
       <tag>{srp_identity, {Username :: string(), Password :: string()}</tag>
       <item>Specifies the Username and Password to use to authenticate to the server.
+      </item>
+      <tag>{server_name_indication, hostname()}</tag>
+      <tag>{server_name_indication, disable}</tag>
+      <item>
+        <p>This option can be specified when upgrading a TCP socket to a TLS
+        socket to use the TLS Server Name Indication extension.</p>
+        <p>When starting a TLS connection without upgrade the Server Name
+        Indication extension will be sent if possible, this option may also be
+        used to disable that behavior.</p>
       </item>
     </taglist>
    </section>

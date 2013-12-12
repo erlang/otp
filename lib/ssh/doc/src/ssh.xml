@@ -53,8 +53,7 @@
     returned by ssh:daemon/[1,2,3]</c></p>
     <p><c>ssh_connection_ref() - opaque to the user
     returned by ssh:connect/3</c></p>
-    <p><c>ip_address() - {N1,N2,N3,N4} % IPv4 |
-    {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6</c></p>
+    <p><c>ip_address() - inet::ip_address()</c></p>
     <p><c>subsystem_spec() = {subsystem_name(),
     {channel_callback(), channel_init_args()}} </c></p>
     <p><c>subsystem_name() = string() </c></p>
@@ -141,7 +140,7 @@
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the the preferred algorithm fails for
 	    some reason, the other algorithm is tried. The  default is
-	    to try <c><![CDATA[ssh_rsa]]></c> first.</p>
+	    to try <c><![CDATA['ssh-rsa']]></c> first.</p>
 	  </item>
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
@@ -181,10 +180,6 @@
 	  <item>
 	    <p>Allow an existing file descriptor to be used
 	  (simply passed on to the transport protocol).</p></item>
-	  <tag><c><![CDATA[{ipv6_disabled, boolean()}]]></c></tag>
-	  <item>
-	    <p>Determines if SSH shall use IPv6 or not.</p>
-	  </item>
 	  <tag><c><![CDATA[{rekey_limit, integer()}]]></c></tag>
 	  <item>
 	    <p>Provide, in bytes, when rekeying should be initiated, 
@@ -202,8 +197,11 @@
       Value}] </name>
       <fsummary> Retrieves information about a connection. </fsummary>
       <type>
-        <v>Option = client_version | server_version | peer</v>
-	<v>Value = term() </v>
+        <v>Option = client_version | server_version | user | peer | sockname </v>
+	<v>Value = [option_value()] </v>
+	<v>option_value() = {{Major::integer(), Minor::integer()}, VersionString::string()} | User::string() |
+	Peer::{inet:hostname(), {inet::ip_adress(), inet::port_number()}} |
+	Sockname::{inet::ip_adress(), inet::port_number()} () </v>
       </type>
       <desc>
         <p> Retrieves information about a connection. 
@@ -248,14 +246,15 @@
 	    requested by the client. Default is to use the erlang shell:
 	    <c><![CDATA[{shell, start, []}]]></c>
 	  </item>
-	  <tag><c><![CDATA[{ssh_cli,{channel_callback(),
-	  channel_init_args()}}]]></c></tag>
+	  <tag><c><![CDATA[{ssh_cli, {channel_callback(),
+	  channel_init_args()} | no_cli}]]></c></tag>
 	  <item>
-	    Provides your own cli implementation, i.e. a channel callback
+	    Provides your own CLI implementation, i.e. a channel callback
 	    module that implements a shell and command execution. Note
 	    that you may customize the shell read-eval-print loop using the
 	    option <c>shell</c> which is much less work than implementing
-	    your own cli channel.
+	    your own CLI channel. If set to  <c>no_cli</c> you will disable
+	    CLI channels and only subsystem channels will be allowed.
 	  </item>
 	  <tag><c><![CDATA[{user_dir, String}]]></c></tag>
 	  <item>
@@ -296,7 +295,7 @@
               user. From a security perspective this option makes
 	      the server very vulnerable.</p>
 	  </item>
-	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string() -> boolean()}]]></c></tag>
+	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
 	  <item>
 	    <p>Provide a function for password validation. This is called
 	      with user and password as strings, and should return
@@ -313,25 +312,22 @@
 	  <item>
 	    <p>Allow an existing file-descriptor to be used
 	  (simply passed on to the transport protocol).</p></item>
-	  <tag><c><![CDATA[{ip_v6_disabled, boolean()}]]></c></tag>
+	  <tag><c><![CDATA[{failfun, fun(User::string(), PeerAddress::ip_address(), Reason::term()) -> _}]]></c></tag>
 	  <item>
-	    <p>Determines if SSH shall use IPv6 or not (only used when 
-               HostAddress is set to any).</p></item>
-	  <tag><c><![CDATA[{failfun, fun()}]]></c></tag>
-	  <item>
-	    <p>Provide a fun() to implement your own logging when a user fails to authenticate.</p>
+	    <p>Provide a fun to implement your own logging when a user fails to authenticate.</p>
 	  </item>
-	  <tag><c><![CDATA[{connectfun, fun()}]]></c></tag>
+	  <tag><c><![CDATA[{connectfun, fun(User::string(), PeerAddress::ip_address(), Method::string()) ->_}]]></c></tag>
 	  <item>
-	    <p>Provide a fun() to implement your own logging when a user authenticates to the server.</p>
+	    <p>Provide a fun to implement your own logging when a user authenticates to the server.</p>
 	  </item>
-	  <tag><c><![CDATA[{disconnectfun, fun()}]]></c></tag>
+	  <tag><c><![CDATA[{disconnectfun, fun(Reason:term()) -> _}]]></c></tag>
 	  <item>
-	    <p>Provide a fun() to implement your own logging when a user disconnects from the server.</p>
+	    <p>Provide a fun to implement your own logging when a user disconnects from the server.</p>
 	  </item>
         </taglist>
       </desc>
     </func>
+
 
     <func>
       <name>shell(Host) -> </name>

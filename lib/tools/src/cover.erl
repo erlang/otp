@@ -255,16 +255,7 @@ compile_directory(Dir, Options) when is_list(Dir), is_list(Options) ->
     end.
 
 compile_modules(Files,Options) ->
-    Options2 = lists:filter(fun(Option) ->
-				    case Option of
-					{i, Dir} when is_list(Dir) -> true;
-					{d, _Macro} -> true;
-					{d, _Macro, _Value} -> true;
-					export_all -> true;
-					_ -> false
-				    end
-			    end,
-			    Options),
+    Options2 = filter_options(Options),
     compile_modules(Files,Options2,[]).
 
 compile_modules([File|Files], Options, Result) ->
@@ -273,6 +264,17 @@ compile_modules([File|Files], Options, Result) ->
 compile_modules([],_Opts,Result) ->
     reverse(Result).
 
+filter_options(Options) ->
+    lists:filter(fun(Option) ->
+                         case Option of
+                             {i, Dir} when is_list(Dir) -> true;
+                             {d, _Macro} -> true;
+                             {d, _Macro, _Value} -> true;
+                             export_all -> true;
+                             _ -> false
+                         end
+                 end,
+                 Options).
 
 %% compile_beam(ModFile) -> Result | {error,Reason}
 %%   ModFile - see compile/1
@@ -622,8 +624,9 @@ main_process_loop(State) ->
 	    Compiled0 = State#main_state.compiled,
 	    case get_beam_file(Module,BeamFile0,Compiled0) of
 		{ok,BeamFile} ->
+		    UserOptions = get_compile_options(Module,BeamFile),
 		    {Reply,Compiled} = 
-			case do_compile_beam(Module,BeamFile,[]) of
+			case do_compile_beam(Module,BeamFile,UserOptions) of
 			    {ok, Module} ->
 				remote_load_compiled(State#main_state.nodes,
 						     [{Module,BeamFile}]),
@@ -1421,12 +1424,23 @@ get_abstract_code(Module, Beam) ->
     end.
 
 get_source_info(Module, Beam) ->
+    Compile = get_compile_info(Module, Beam),
+    case lists:keyfind(source, 1, Compile) of
+        { source, _ } = Tuple -> [Tuple];
+        false -> []
+    end.
+
+get_compile_options(Module, Beam) ->
+    Compile = get_compile_info(Module, Beam),
+    case lists:keyfind(options, 1, Compile) of
+        {options, Options } -> filter_options(Options);
+        false -> []
+    end.
+
+get_compile_info(Module, Beam) ->
     case beam_lib:chunks(Beam, [compile_info]) of
 	{ok, {Module, [{compile_info, Compile}]}} ->
-		case lists:keyfind(source, 1, Compile) of
-			{ source, _ } = Tuple -> [Tuple];
-			false -> []
-		end;
+		Compile;
 	_ ->
 		[]
     end.

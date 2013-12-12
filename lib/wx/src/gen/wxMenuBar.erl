@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html">wxMenuBar</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html">wxMenuBar</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -79,13 +79,13 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxMenuBar() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarwxmenubar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarwxmenubar">external documentation</a>.
 -spec new() -> wxMenuBar().
 new() ->
   wxe_util:construct(?wxMenuBar_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarwxmenubar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarwxmenubar">external documentation</a>.
 -spec new(Style) -> wxMenuBar() when
 	Style::integer().
 new(Style)
@@ -93,7 +93,7 @@ new(Style)
   wxe_util:construct(?wxMenuBar_new_1,
   <<Style:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarappend">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarappend">external documentation</a>.
 -spec append(This, Menu, Title) -> boolean() when
 	This::wxMenuBar(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 append(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef},Title)
@@ -104,7 +104,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef},Title)
   wxe_util:call(?wxMenuBar_Append,
   <<ThisRef:32/?UI,MenuRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarcheck">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarcheck">external documentation</a>.
 -spec check(This, Itemid, Check) -> ok when
 	This::wxMenuBar(), Itemid::integer(), Check::boolean().
 check(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Check)
@@ -121,7 +121,7 @@ enable(This)
  when is_record(This, wx_ref) ->
   enable(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarenable">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarenable">external documentation</a>.
 -spec enable(This, [Option]) -> boolean() when
 	This::wxMenuBar(),
 	Option :: {enable, boolean()}.
@@ -134,7 +134,7 @@ enable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxMenuBar_Enable_1,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarenable">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarenable">external documentation</a>.
 -spec enable(This, Itemid, Enable) -> ok when
 	This::wxMenuBar(), Itemid::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
@@ -143,7 +143,7 @@ enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
   wxe_util:cast(?wxMenuBar_Enable_2,
   <<ThisRef:32/?UI,Itemid:32/?UI,(wxe_util:from_bool(Enable)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarenabletop">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarenabletop">external documentation</a>.
 -spec enableTop(This, Pos, Flag) -> ok when
 	This::wxMenuBar(), Pos::integer(), Flag::boolean().
 enableTop(#wx_ref{type=ThisT,ref=ThisRef},Pos,Flag)
@@ -152,7 +152,7 @@ enableTop(#wx_ref{type=ThisT,ref=ThisRef},Pos,Flag)
   wxe_util:cast(?wxMenuBar_EnableTop,
   <<ThisRef:32/?UI,Pos:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarfindmenu">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarfindmenu">external documentation</a>.
 -spec findMenu(This, Title) -> integer() when
 	This::wxMenuBar(), Title::unicode:chardata().
 findMenu(#wx_ref{type=ThisT,ref=ThisRef},Title)
@@ -162,7 +162,7 @@ findMenu(#wx_ref{type=ThisT,ref=ThisRef},Title)
   wxe_util:call(?wxMenuBar_FindMenu,
   <<ThisRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarfindmenuitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarfindmenuitem">external documentation</a>.
 -spec findMenuItem(This, MenuString, ItemString) -> integer() when
 	This::wxMenuBar(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
 findMenuItem(#wx_ref{type=ThisT,ref=ThisRef},MenuString,ItemString)
@@ -173,7 +173,7 @@ findMenuItem(#wx_ref{type=ThisT,ref=ThisRef},MenuString,ItemString)
   wxe_util:call(?wxMenuBar_FindMenuItem,
   <<ThisRef:32/?UI,(byte_size(MenuString_UC)):32/?UI,(MenuString_UC)/binary, 0:(((8- ((0+byte_size(MenuString_UC)) band 16#7)) band 16#7))/unit:8,(byte_size(ItemString_UC)):32/?UI,(ItemString_UC)/binary, 0:(((8- ((4+byte_size(ItemString_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarfinditem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarfinditem">external documentation</a>.
 -spec findItem(This, Id) -> wxMenuItem:wxMenuItem() when
 	This::wxMenuBar(), Id::integer().
 findItem(#wx_ref{type=ThisT,ref=ThisRef},Id)
@@ -182,7 +182,7 @@ findItem(#wx_ref{type=ThisT,ref=ThisRef},Id)
   wxe_util:call(?wxMenuBar_FindItem,
   <<ThisRef:32/?UI,Id:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubargethelpstring">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargethelpstring">external documentation</a>.
 -spec getHelpString(This, Itemid) -> unicode:charlist() when
 	This::wxMenuBar(), Itemid::integer().
 getHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -191,7 +191,7 @@ getHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenuBar_GetHelpString,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubargetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetlabel">external documentation</a>.
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxMenuBar().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -199,7 +199,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenuBar_GetLabel_0,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubargetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetlabel">external documentation</a>.
 -spec getLabel(This, Itemid) -> unicode:charlist() when
 	This::wxMenuBar(), Itemid::integer().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -208,7 +208,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenuBar_GetLabel_1,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubargetlabeltop">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetlabeltop">external documentation</a>.
 -spec getLabelTop(This, Pos) -> unicode:charlist() when
 	This::wxMenuBar(), Pos::integer().
 getLabelTop(#wx_ref{type=ThisT,ref=ThisRef},Pos)
@@ -217,7 +217,7 @@ getLabelTop(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:call(?wxMenuBar_GetLabelTop,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubargetmenu">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenu">external documentation</a>.
 -spec getMenu(This, Pos) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), Pos::integer().
 getMenu(#wx_ref{type=ThisT,ref=ThisRef},Pos)
@@ -226,7 +226,7 @@ getMenu(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:call(?wxMenuBar_GetMenu,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubargetmenucount">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenucount">external documentation</a>.
 -spec getMenuCount(This) -> integer() when
 	This::wxMenuBar().
 getMenuCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -234,7 +234,7 @@ getMenuCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenuBar_GetMenuCount,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarinsert">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarinsert">external documentation</a>.
 -spec insert(This, Pos, Menu, Title) -> boolean() when
 	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Title)
@@ -245,7 +245,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Title
   wxe_util:call(?wxMenuBar_Insert,
   <<ThisRef:32/?UI,Pos:32/?UI,MenuRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarischecked">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarischecked">external documentation</a>.
 -spec isChecked(This, Itemid) -> boolean() when
 	This::wxMenuBar(), Itemid::integer().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -254,7 +254,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenuBar_IsChecked,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
 -spec isEnabled(This) -> boolean() when
 	This::wxMenuBar().
 isEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -262,7 +262,7 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenuBar_IsEnabled_0,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
 -spec isEnabled(This, Itemid) -> boolean() when
 	This::wxMenuBar(), Itemid::integer().
 isEnabled(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
@@ -271,7 +271,7 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   wxe_util:call(?wxMenuBar_IsEnabled_1,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarremove">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarremove">external documentation</a>.
 -spec remove(This, Pos) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), Pos::integer().
 remove(#wx_ref{type=ThisT,ref=ThisRef},Pos)
@@ -280,7 +280,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:call(?wxMenuBar_Remove,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarreplace">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarreplace">external documentation</a>.
 -spec replace(This, Pos, Menu, Title) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Title)
@@ -291,7 +291,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=MenuT,ref=MenuRef},Titl
   wxe_util:call(?wxMenuBar_Replace,
   <<ThisRef:32/?UI,Pos:32/?UI,MenuRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarsethelpstring">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsethelpstring">external documentation</a>.
 -spec setHelpString(This, Itemid, HelpString) -> ok when
 	This::wxMenuBar(), Itemid::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
@@ -301,7 +301,7 @@ setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
   wxe_util:cast(?wxMenuBar_SetHelpString,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(HelpString_UC)):32/?UI,(HelpString_UC)/binary, 0:(((8- ((4+byte_size(HelpString_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarsetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetlabel">external documentation</a>.
 -spec setLabel(This, S) -> ok when
 	This::wxMenuBar(), S::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},S)
@@ -311,7 +311,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},S)
   wxe_util:cast(?wxMenuBar_SetLabel_1,
   <<ThisRef:32/?UI,(byte_size(S_UC)):32/?UI,(S_UC)/binary, 0:(((8- ((0+byte_size(S_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarsetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetlabel">external documentation</a>.
 -spec setLabel(This, Itemid, Label) -> ok when
 	This::wxMenuBar(), Itemid::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
@@ -321,7 +321,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
   wxe_util:cast(?wxMenuBar_SetLabel_2,
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((4+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenubar.html#wxmenubarsetlabeltop">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetlabeltop">external documentation</a>.
 -spec setLabelTop(This, Pos, Label) -> ok when
 	This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
 setLabelTop(#wx_ref{type=ThisT,ref=ThisRef},Pos,Label)

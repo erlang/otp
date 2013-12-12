@@ -31,6 +31,31 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 1.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for <c>ttb:tracer/2</c> incorrectly
+	    stated that there was an option named '<c>overload</c>',
+	    while the correct name used in the implementation is
+	    '<c>overload_check</c>'.</p>
+          <p>
+	    Own Id: OTP-11335 Aux Id: seq12385 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed typo in observer documentation. Thanks to Dave
+	    Parfitt.</p>
+          <p>
+	    Own Id: OTP-11475</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 1.3.1.1</title>
 
     <section><title>Improvements and New Features</title>

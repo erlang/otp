@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,8 @@
 %%
 
 %%% Description : SSH connection protocol 
+
+-type channel_id()           :: integer().
 
 -define(DEFAULT_PACKET_SIZE, 32768).
 -define(DEFAULT_WINDOW_SIZE, 2*?DEFAULT_PACKET_SIZE).
@@ -260,6 +262,7 @@
 	  port,
 	  options,
 	  exec,
+	  system_supervisor,
 	  sub_system_supervisor,
 	  connection_supervisor
 	 }).

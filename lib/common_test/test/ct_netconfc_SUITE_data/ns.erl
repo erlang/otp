@@ -98,8 +98,9 @@ start(Dir) ->
 
 %% Stop the netconf server
 stop(Pid) ->
-    Pid ! {stop,self()},
-    receive stopped -> ok end.
+    Ref = erlang:monitor(process,Pid),
+    Pid ! stop,
+    receive {'DOWN',Ref,process,Pid,_} -> ok end.
 
 %% Set the session id for the hello message.
 %% If this is not called prior to starting the session, no hello
@@ -177,9 +178,9 @@ init_server(Dir) ->
 
 loop(Daemon) ->
     receive
-	{stop,From} ->
+	stop ->
 	    ssh:stop_daemon(Daemon),
-	    From ! stopped;
+	    ok;
 	{table_trans,Fun,Args,From} ->
 	    %% Simple transaction mechanism for ets table
 	    R = apply(Fun,Args),

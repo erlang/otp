@@ -116,7 +116,7 @@ test_server_shuffle01_SUITE(Config) ->
 
 test_server_skip_SUITE(Config) ->
     run_test_server_tests("test_server_skip_SUITE", [],
-			  3, 0, 1, 0, 0, 1, 3, 0, 0, Config).
+			  3, 0, 1, 0, 1, 0, 3, 0, 0, Config).
 
 test_server_conf01_SUITE(Config) ->
     run_test_server_tests("test_server_conf01_SUITE", [],
@@ -247,11 +247,13 @@ run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
     {NActualSkip,NActualFail,NActualSucc} = 
 	lists:foldl(fun(#tc{ result = skip },{S,F,Su}) ->
 			     {S+1,F,Su};
-			 (#tc{ result = ok },{S,F,Su}) ->
-			     {S,F,Su+1};
-			(#tc{ result = failed },{S,F,Su}) ->
-			     {S,F+1,Su}
-			  end,{0,0,0},Data#suite.cases),
+		       (#tc{ result = auto_skip },{S,F,Su}) ->
+			    {S+1,F,Su};
+		       (#tc{ result = ok },{S,F,Su}) ->
+			    {S,F,Su+1};
+		       (#tc{ result = failed },{S,F,Su}) ->
+			    {S,F+1,Su}
+		    end,{0,0,0},Data#suite.cases),
     Data.
 
 translate_filename(Filename,EncodingOnTestNode) ->

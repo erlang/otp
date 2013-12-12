@@ -1357,8 +1357,6 @@ analyze_attribute(file, Node) ->
     analyze_file_attribute(Node);
 analyze_attribute(record, Node) ->
     analyze_record_attribute(Node);
-analyze_attribute(define, _Node) ->
-    define;
 analyze_attribute(spec, _Node) ->
     spec;
 analyze_attribute(_, Node) ->

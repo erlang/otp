@@ -32,6 +32,126 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Return values from group and testcase info functions are
+	    now properly checked, and associated test cases are auto
+	    skipped if a return value is invalid.</p>
+          <p>
+	    Own Id: OTP-10631 Aux Id: kunagi-345 [256] </p>
+        </item>
+        <item>
+	    <p>The way Common Test handles skipping of test cases has
+	    been updated. In previous versions, returning
+	    <c>{skip,Reason}</c> from a configuration function (such
+	    as init_per_suite or init_per_group), resulted in all
+	    affected test cases getting skipped with status
+	    <c>auto_skipped</c>. This was inappropriate, since this
+	    status is supposed to be used to inform that Common Test
+	    has taken the initiative to skip something (e.g. a test
+	    case group if init_per_group failed). Therefore, in this
+	    version of Common Test, whenever the user skips a suite,
+	    group, or individual test case (by means of a
+	    configuration function or test specification term), the
+	    affected test cases get the status <c>user_skipped</c>
+	    instead.</p> <p>This update has meant a few changes that
+	    may affect Common Test users in various ways: <list>
+	    <item>The test results and statistics will be affected,
+	    which is important to know when running regression tests
+	    and comparing results to previous test runs.</item>
+	    <item>Users that read or parse the textual log file
+	    <c>suite.log</c> will notice that an auto skipped
+	    function is now reported as <c>auto_skipped</c> rather
+	    than <c>skipped</c> as before.</item> <item>When
+	    <c>require</c> fails in an info function (such as suite/0
+	    or group/1), all affected configuration functions and
+	    test cases are marked as <c>auto_skipped</c>.</item>
+	    <item>If Common Test detects an error in the test suite
+	    (such as e.g. an invalid all/0 function), all affected
+	    configuration functions and test cases are marked as
+	    <c>auto_skipped</c>.</item> <item>If a repeated test run
+	    session reaches a deadline with <c>force_stop</c>
+	    enabled, all remaining test cases are marked as
+	    <c>auto_skipped</c> rather than <c>user_skipped</c> as
+	    before.</item> <item>The event messages that Common Test
+	    generates during test runs have been affected by this
+	    update. For details see OTP-11524.</item> </list> </p>
+          <p>
+	    Own Id: OTP-11305 Aux Id: OTP-11524 </p>
+        </item>
+        <item>
+          <p>
+	    Returning {skip, Reason} from a pre_end_per_group/3 user
+	    hook function would result in an exit in the Common Test
+	    cth_log_redirect hook. This problem has been solved.</p>
+          <p>
+	    Own Id: OTP-11409 Aux Id: seq12446 </p>
+        </item>
+        <item>
+          <p>
+	    When the netconf server did not respond to the
+	    close-session request, the call to
+	    ct_netconfc:close_session/2 would hang forever waiting
+	    for the netconf client to terminate. This has been
+	    corrected. The client will now always terminate (and take
+	    down the connection) if the close-session request times
+	    out.</p>
+          <p>
+	    Own Id: OTP-11478</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix cth_log_redirect.erl to fulfill gen_event behaviour.
+	    Thanks to Roberto Aloi.</p>
+          <p>
+	    Own Id: OTP-11401</p>
+        </item>
+        <item>
+          <p>
+	    The first argument of the CT hook callback function
+	    <c>on_tc_skip/3</c> has been modified. When this function
+	    is called for <c>init_per_group</c> or
+	    <c>end_per_group</c>, the value of the first argument is
+	    now <c>{init_per_group,GroupName}</c> or
+	    <c>{end_per_group,GroupName}</c>.</p>
+          <p>
+	    Own Id: OTP-11523</p>
+        </item>
+        <item>
+	    <p>The following modifications have been made to the
+	    event messages that Common Test sends during test
+	    execution: <list> <item>For the <c>tc_auto_skip</c>
+	    event, the value of the <c>Func</c> element has changed
+	    from <c>end_per_group</c> to
+	    <c>{end_per_group,GroupName}</c>.</item> <item>When
+	    <c>require</c> fails in an info function, such as suite/0
+	    or group/1, the init configuration function is now
+	    reported as <c>auto_skipped</c> intead of <c>skipped</c>,
+	    with the <c>tc_done</c> event.</item> <item>When
+	    <c>require</c> fails in an info function because of a
+	    configuration name already in use, the <c>tc_done</c>
+	    event now reports the error with a tuple (of size 2)
+	    tagged <c>failed</c> instead of <c>skipped</c>.</item>
+	    </list> Please see the Event Handling chapter in the
+	    Common Test User's Guide for reference. </p>
+          <p>
+	    Own Id: OTP-11524 Aux Id: OTP-11305 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html">wxTopLevelWindow</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html">wxTopLevelWindow</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -79,7 +79,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxTopLevelWindow() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticon">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticon">external documentation</a>.
 -spec getIcon(This) -> wxIcon:wxIcon() when
 	This::wxTopLevelWindow().
 getIcon(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -87,7 +87,7 @@ getIcon(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTopLevelWindow_GetIcon,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticons">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticons">external documentation</a>.
 -spec getIcons(This) -> wxIconBundle:wxIconBundle() when
 	This::wxTopLevelWindow().
 getIcons(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -95,7 +95,7 @@ getIcons(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTopLevelWindow_GetIcons,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowgettitle">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgettitle">external documentation</a>.
 -spec getTitle(This) -> unicode:charlist() when
 	This::wxTopLevelWindow().
 getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -103,7 +103,7 @@ getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTopLevelWindow_GetTitle,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowisactive">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisactive">external documentation</a>.
 -spec isActive(This) -> boolean() when
 	This::wxTopLevelWindow().
 isActive(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -119,7 +119,7 @@ iconize(This)
  when is_record(This, wx_ref) ->
   iconize(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowiconize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowiconize">external documentation</a>.
 -spec iconize(This, [Option]) -> ok when
 	This::wxTopLevelWindow(),
 	Option :: {iconize, boolean()}.
@@ -132,7 +132,7 @@ iconize(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxTopLevelWindow_Iconize,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowisfullscreen">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisfullscreen">external documentation</a>.
 -spec isFullScreen(This) -> boolean() when
 	This::wxTopLevelWindow().
 isFullScreen(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -140,7 +140,7 @@ isFullScreen(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTopLevelWindow_IsFullScreen,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowisiconized">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisiconized">external documentation</a>.
 -spec isIconized(This) -> boolean() when
 	This::wxTopLevelWindow().
 isIconized(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -148,7 +148,7 @@ isIconized(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTopLevelWindow_IsIconized,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowismaximized">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowismaximized">external documentation</a>.
 -spec isMaximized(This) -> boolean() when
 	This::wxTopLevelWindow().
 isMaximized(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -164,7 +164,7 @@ maximize(This)
  when is_record(This, wx_ref) ->
   maximize(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowmaximize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowmaximize">external documentation</a>.
 -spec maximize(This, [Option]) -> ok when
 	This::wxTopLevelWindow(),
 	Option :: {maximize, boolean()}.
@@ -185,7 +185,7 @@ requestUserAttention(This)
  when is_record(This, wx_ref) ->
   requestUserAttention(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowrequestuserattention">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowrequestuserattention">external documentation</a>.
 -spec requestUserAttention(This, [Option]) -> ok when
 	This::wxTopLevelWindow(),
 	Option :: {flags, integer()}.
@@ -198,7 +198,7 @@ requestUserAttention(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxTopLevelWindow_RequestUserAttention,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowseticon">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowseticon">external documentation</a>.
 -spec setIcon(This, Icon) -> ok when
 	This::wxTopLevelWindow(), Icon::wxIcon:wxIcon().
 setIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef}) ->
@@ -207,7 +207,7 @@ setIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef}) ->
   wxe_util:cast(?wxTopLevelWindow_SetIcon,
   <<ThisRef:32/?UI,IconRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowseticons">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowseticons">external documentation</a>.
 -spec setIcons(This, Icons) -> ok when
 	This::wxTopLevelWindow(), Icons::wxIconBundle:wxIconBundle().
 setIcons(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconsT,ref=IconsRef}) ->
@@ -224,7 +224,7 @@ centerOnScreen(This)
  when is_record(This, wx_ref) ->
   centerOnScreen(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowcenteronscreen">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowcenteronscreen">external documentation</a>.
 -spec centerOnScreen(This, [Option]) -> ok when
 	This::wxTopLevelWindow(),
 	Option :: {dir, integer()}.
@@ -245,7 +245,7 @@ centreOnScreen(This)
  when is_record(This, wx_ref) ->
   centreOnScreen(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowcentreonscreen">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowcentreonscreen">external documentation</a>.
 -spec centreOnScreen(This, [Option]) -> ok when
 	This::wxTopLevelWindow(),
 	Option :: {dir, integer()}.
@@ -258,7 +258,7 @@ centreOnScreen(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxTopLevelWindow_CentreOnScreen,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowsetshape">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowsetshape">external documentation</a>.
 -spec setShape(This, Region) -> boolean() when
 	This::wxTopLevelWindow(), Region::wxRegion:wxRegion().
 setShape(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
@@ -267,7 +267,7 @@ setShape(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
   wxe_util:call(?wxTopLevelWindow_SetShape,
   <<ThisRef:32/?UI,RegionRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowsettitle">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowsettitle">external documentation</a>.
 -spec setTitle(This, Title) -> ok when
 	This::wxTopLevelWindow(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
@@ -285,7 +285,7 @@ showFullScreen(This,Show)
  when is_record(This, wx_ref),is_boolean(Show) ->
   showFullScreen(This,Show, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowshowfullscreen">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowshowfullscreen">external documentation</a>.
 -spec showFullScreen(This, Show, [Option]) -> boolean() when
 	This::wxTopLevelWindow(), Show::boolean(),
 	Option :: {style, integer()}.

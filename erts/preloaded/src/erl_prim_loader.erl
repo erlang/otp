@@ -1439,7 +1439,12 @@ normalize(Name, Acc) ->
 	[Atom | Rest] when is_atom(Atom) ->
 	    normalize(atom_to_list(Atom) ++ Rest, Acc);
 	[$\\ | Chars] ->
-	    normalize(Chars, [$/ | Acc]);
+	    case erlang:system_info(os_type) of
+                {win32, _} ->
+		    normalize(Chars, [$/ | Acc]);
+		_ ->
+		    normalize(Chars, [$\\ | Acc])
+	    end;
 	[Char | Chars] ->
 	    normalize(Chars, [Char | Acc]);
 	[] ->

@@ -48,7 +48,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [connect, disconnect, connect_msg_20, connect_cb_20,
      mouse_on_grid, spin_event, connect_in_callback, recursive,
-     char_events
+     char_events, callback_clean
     ].
 
 groups() -> 
@@ -420,3 +420,78 @@ char_events(Config) ->
     wx_test_lib:flush(),
 
     wx_test_lib:wx_destroy(Frame, Config).
+
+callback_clean(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+callback_clean(Config) ->
+    %% Be sure that event handling are cleanup up correctly and don't keep references to old
+    %% fun's and event listeners
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame Window"),
+    wxFrame:show(Frame),
+
+    %% wx:debug([verbose,driver]),
+    Dlg = wxDialog:new(Frame, ?wxID_ANY, "Testing"),
+    Panel = wxPanel:new(Dlg, []),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    Button = wxButton:new(Panel, 600, [{label, "Foobar"}]),
+    wxSizer:add(Sizer, Button, [{proportion,1}, {flag, ?wxEXPAND}]),
+    wxSizer:add(Sizer, wxDialog:createStdDialogButtonSizer(Dlg,?wxOK bor ?wxCANCEL)),
+    wxDialog:setSizerAndFit(Dlg, Sizer),
+
+    Env = wx:get_env(),
+    SetupEventHandlers =
+	fun() ->
+		wx:set_env(Env),
+		Me = self(),
+		Print = fun(#wx{id=ID, event=#wxCommand{}},Ev) ->
+				io:format("~p Clicked ~p~n", [self(), ID]),
+				Me ! #wx{event=#wxClose{}},
+				wxEvent:skip(Ev, [{skip, true}]);
+			   (#wx{id=ID, event=#wxClose{}},Ev) ->
+				io:format("~p Closed ~p~n", [self(), ID]),
+				wxEvent:skip(Ev, [{skip, true}])
+			end,
+
+		wxDialog:connect(Dlg, command_button_clicked,[{callback,Print}]),
+		wxDialog:connect(Dlg, close_window, [{skip, true}])
+	end,
+    ?m({[],[],[]}, white_box_check_event_handlers()),
+    Pid = spawn_link(fun() ->
+    			     SetupEventHandlers(),
+    			     receive #wx{event=#wxClose{}} -> ok;
+    				     remove -> ok
+    			     end
+    		     end),
+    timer:sleep(500), %% Give it time to remove it
+    ?m({[{Pid,_,_}],[_],[_]}, white_box_check_event_handlers()),
+
+    Pid ! remove,
+    timer:sleep(500), %% Give it time to remove it
+    ?m({[],[],[]}, white_box_check_event_handlers()),
+
+    SetupEventHandlers(),
+    ?m({[{_,_,_}],[_],[_]}, white_box_check_event_handlers()),
+
+    wxDialog:show(Dlg),
+    wx_test_lib:wx_close(Dlg, Config),
+    wxDialog:destroy(Dlg),
+    timer:sleep(500), %% Give it time to remove it
+    ?m({[],[],[]}, white_box_check_event_handlers()),
+
+    wx_test_lib:flush(),
+    io:format("**Deleting Frame**~n",[]),
+    wx_test_lib:wx_destroy(Frame, Config).
+    %% timer:sleep(infinity),
+    %% ok.
+
+white_box_check_event_handlers() ->
+    {_,_,Server,_} = wx:get_env(),
+    {status, _, _, [Env, _, _, _, Data]} = sys:get_status(Server),
+    [_H, _data, {data, [{_, Record}]}] = Data,
+    {state, _Port1, _Port2, Users, [], CBs, _Next} = Record,
+    {[{Pid, Evs, Listener} ||
+	 {Pid, {user, Evs, Listener}} <- gb_trees:to_list(Users),
+	 (Evs =/= [] orelse Listener =/= undefined)], %% Ignore empty
+     gb_trees:to_list(CBs),
+     [Funs || Funs = {Id, {Fun,_}} <- Env, is_integer(Id), is_function(Fun)]
+    }.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html">wxPrintDialog</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialog.html">wxPrintDialog</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDialog}
 %% <br />{@link wxTopLevelWindow}
@@ -94,7 +94,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialogwxprintdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialog.html#wxprintdialogwxprintdialog">external documentation</a>.
 %% <br /> Also:<br />
 %% new(Parent, Data) -> wxPrintDialog() when<br />
 %% 	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().<br />
@@ -118,7 +118,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef}) ->
   wxe_util:construct(?wxPrintDialog_new_2_1,
   <<ParentRef:32/?UI,DataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialoggetprintdialogdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialog.html#wxprintdialoggetprintdialogdata">external documentation</a>.
 -spec getPrintDialogData(This) -> wxPrintDialogData:wxPrintDialogData() when
 	This::wxPrintDialog().
 getPrintDialogData(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -126,7 +126,7 @@ getPrintDialogData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrintDialog_GetPrintDialogData,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialoggetprintdc">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialog.html#wxprintdialoggetprintdc">external documentation</a>.
 -spec getPrintDC(This) -> wxDC:wxDC() when
 	This::wxPrintDialog().
 getPrintDC(#wx_ref{type=ThisT,ref=ThisRef}) ->

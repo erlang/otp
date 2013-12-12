@@ -173,8 +173,9 @@
   <section>
     <title>Report Browser</title>
     <p>The report browser is used to browse and format error reports
-      written by the error logger handler <c>error_logger_mf_h</c>.</p>
-    <p>The <c>error_logger_mf_h</c> handler writes all reports to a
+      written by the error logger handler <c>log_mf_h</c> defined in
+      <c>stdlib</c>.</p>
+    <p>The <c>log_mf_h</c> handler writes all reports to a
       report logging directory. This directory is specified when
       configuring the SASL application.</p>
     <p>If the report browser is

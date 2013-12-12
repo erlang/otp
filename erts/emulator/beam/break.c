@@ -76,7 +76,10 @@ process_info(int to, void *to_arg)
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
-	    if (!ERTS_PROC_IS_EXITING(p))
+	    /* Do not include processes with no heap,
+	     * they are most likely just created and has invalid data
+	     */
+	    if (!ERTS_PROC_IS_EXITING(p) && p->heap != NULL)
 		print_process_info(to, to_arg, p);
 	}
     }
@@ -109,10 +112,12 @@ process_killer(void)
 		    erts_smp_proc_lock(rp, rp_locks);
 		    state = erts_smp_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
-				  | ERTS_PSFLG_EXITING
-				  | ERTS_PSFLG_ACTIVE
-				  | ERTS_PSFLG_IN_RUNQ
-				  | ERTS_PSFLG_RUNNING)) {
+				 | ERTS_PSFLG_EXITING
+				 | ERTS_PSFLG_ACTIVE
+				 | ERTS_PSFLG_ACTIVE_SYS
+				 | ERTS_PSFLG_IN_RUNQ
+				 | ERTS_PSFLG_RUNNING
+				 | ERTS_PSFLG_RUNNING_SYS)) {
 			erts_printf("Can only kill WAITING processes this way\n");
 		    }
 		    else {
@@ -754,7 +759,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 	return; /* Can't create the crash dump, skip it */
     
     time(&now);
-    erts_fdprintf(fd, "=erl_crash_dump:0.2\n%s", ctime(&now));
+    erts_fdprintf(fd, "=erl_crash_dump:0.3\n%s", ctime(&now));
 
     if (file != NULL)
        erts_fdprintf(fd, "The error occurred in file %s, line %d\n", file, line);

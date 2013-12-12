@@ -31,7 +31,23 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.17</title>
+  <section><title>ODBC 2.10.18</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Configure now also checks for the existence of the sql.h
+	    header file</p>
+          <p>
+	    Own Id: OTP-11483</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

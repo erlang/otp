@@ -30,6 +30,50 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Erlang-specific compilation error regexp is added in
+	    erlang-eunit.el. This defvar was earlier in erlang.el,
+	    but was erroneously removed in R15B02, while still used
+	    by erlang-eunit.el.</p>
+          <p>
+	    Own Id: OTP-11417 Aux Id: seq12447 </p>
+        </item>
+        <item>
+          <p>
+	    Take compiler options from beam in cover:compile_beam.
+	    Thanks to Péter Gömöri.</p>
+          <p>
+	    Own Id: OTP-11439</p>
+        </item>
+        <item>
+          <p>
+	    Silence warnings (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11517</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add iodata, nonempty_string to built-in type highlighting
+	    for emacs. Thanks to Paul Oliver.</p>
+          <p>
+	    Own Id: OTP-11394</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.12</title>
 
     <section><title>Improvements and New Features</title>

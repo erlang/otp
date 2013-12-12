@@ -193,7 +193,8 @@
         <p><c>GroupName = unknown | atom()</c>, name of the group 
 	      (unknown if init- or end function times out).</p>
         <p><c>GroupProperties = list()</c>, list of execution properties for the group.</p>
-        <p><c>Result = ok | {skipped,SkipReason} | {failed,FailReason}</c>, the result.</p>
+        <p><c>Result = ok | {auto_skipped,SkipReason} | {skipped,SkipReason} | {failed,FailReason}</c>,
+	  the result.</p>
 	<marker id="skipreason"/>
         <p><c>SkipReason = {require_failed,RequireInfo} | 
 	                   {require_failed_in_suite0,RequireInfo} | 
@@ -228,7 +229,9 @@
 	<marker id="tc_auto_skip"></marker>
         <c>#event{name = tc_auto_skip, data = {Suite,Func,Reason}}</c>
         <p><c>Suite = atom()</c>, the name of the suite.</p>
-        <p><c>Func = atom()</c>, the name of the test case or configuration function.</p>
+        <p><c>Func = atom() | {end_per_group,GroupName}</c>, the name of the test case
+	  or configuration function.</p>
+        <p><c>GroupName = atom()</c>, name of the group.</p>
         <p><c>Reason = {failed,FailReason} |
 	               {require_failed_in_suite0,RequireInfo}</c>, 
 	      reason for auto skipping <c>Func</c>.</p>
@@ -254,9 +257,11 @@
 	
       <item>
 	<marker id="tc_user_skip"></marker>
-        <c>#event{name = tc_user_skip, data = {Suite,TestCase,Comment}}</c>
-        <p><c>Suite = atom()</c>, name of the suite.</p>
-        <p><c>TestCase = atom()</c>, name of the test case.</p>
+        <c>#event{name = tc_user_skip, data = {Suite,Func,Comment}}</c>
+        <p><c>Suite = atom()</c>, the name of the suite.</p>
+        <p><c>Func = atom() | {end_per_group,GroupName}</c>, the name of the test case
+	  or configuration function.</p>
+        <p><c>GroupName = atom()</c>, name of the group.</p>
         <p><c>Comment = string()</c>, reason for skipping the test case.</p>
         <p>This event specifies that a test case has been skipped by the user. 
 	It is only ever received if the skip was declared in a test specification. 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html">wxSashWindow</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html">wxSashWindow</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -77,7 +77,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSashWindow() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
 -spec new() -> wxSashWindow().
 new() ->
   wxe_util:construct(?wxSashWindow_new_0,
@@ -91,7 +91,7 @@ new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSashWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -110,7 +110,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxSashWindow_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowgetsashvisible">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec getSashVisible(This, Edge) -> boolean() when
 	This::wxSashWindow(), Edge::wx:wx_enum().
@@ -120,7 +120,7 @@ getSashVisible(#wx_ref{type=ThisT,ref=ThisRef},Edge)
   wxe_util:call(?wxSashWindow_GetSashVisible,
   <<ThisRef:32/?UI,Edge:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowgetmaximumsizex">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetmaximumsizex">external documentation</a>.
 -spec getMaximumSizeX(This) -> integer() when
 	This::wxSashWindow().
 getMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -128,7 +128,7 @@ getMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSashWindow_GetMaximumSizeX,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowgetmaximumsizey">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetmaximumsizey">external documentation</a>.
 -spec getMaximumSizeY(This) -> integer() when
 	This::wxSashWindow().
 getMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -136,7 +136,7 @@ getMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSashWindow_GetMaximumSizeY,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowgetminimumsizex">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetminimumsizex">external documentation</a>.
 -spec getMinimumSizeX(This) -> integer() when
 	This::wxSashWindow().
 getMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -144,7 +144,7 @@ getMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSashWindow_GetMinimumSizeX,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowgetminimumsizey">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetminimumsizey">external documentation</a>.
 -spec getMinimumSizeY(This) -> integer() when
 	This::wxSashWindow().
 getMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -152,7 +152,7 @@ getMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSashWindow_GetMinimumSizeY,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowsetmaximumsizex">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizex">external documentation</a>.
 -spec setMaximumSizeX(This, Max) -> ok when
 	This::wxSashWindow(), Max::integer().
 setMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Max)
@@ -161,7 +161,7 @@ setMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Max)
   wxe_util:cast(?wxSashWindow_SetMaximumSizeX,
   <<ThisRef:32/?UI,Max:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowsetmaximumsizey">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizey">external documentation</a>.
 -spec setMaximumSizeY(This, Max) -> ok when
 	This::wxSashWindow(), Max::integer().
 setMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Max)
@@ -170,7 +170,7 @@ setMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Max)
   wxe_util:cast(?wxSashWindow_SetMaximumSizeY,
   <<ThisRef:32/?UI,Max:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowsetminimumsizex">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizex">external documentation</a>.
 -spec setMinimumSizeX(This, Min) -> ok when
 	This::wxSashWindow(), Min::integer().
 setMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Min)
@@ -179,7 +179,7 @@ setMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Min)
   wxe_util:cast(?wxSashWindow_SetMinimumSizeX,
   <<ThisRef:32/?UI,Min:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowsetminimumsizey">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizey">external documentation</a>.
 -spec setMinimumSizeY(This, Min) -> ok when
 	This::wxSashWindow(), Min::integer().
 setMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Min)
@@ -188,7 +188,7 @@ setMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Min)
   wxe_util:cast(?wxSashWindow_SetMinimumSizeY,
   <<ThisRef:32/?UI,Min:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsashwindow.html#wxsashwindowsetsashvisible">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec setSashVisible(This, Edge, Sash) -> ok when
 	This::wxSashWindow(), Edge::wx:wx_enum(), Sash::boolean().

@@ -535,7 +535,6 @@ static int must_swap_floats;
 Uint erts_total_code_size;
 /**********************************************************************/
 
-
 void init_load(void)
 {
     FloatDef f;
@@ -1209,7 +1208,6 @@ verify_chunks(LoaderState* stp)
     return 0;
 }
 
-
 static int
 load_atom_table(LoaderState* stp)
 {
@@ -1255,7 +1253,6 @@ load_atom_table(LoaderState* stp)
     return 0;
 }
 
-
 static int
 load_import_table(LoaderState* stp)
 {
@@ -1308,7 +1305,6 @@ load_import_table(LoaderState* stp)
     return 0;
 }
 
-
 static int
 read_export_table(LoaderState* stp)
 {
@@ -1641,7 +1637,6 @@ read_line_table(LoaderState* stp)
     return 0;
 }
 
-
 static int
 read_code_header(LoaderState* stp)
 {
@@ -1711,7 +1706,6 @@ read_code_header(LoaderState* stp)
     return 0;
 }
 
-
 #define VerifyTag(Stp, Actual, Expected) \
     if (Actual != Expected) { \
        LoadError2(Stp, "bad tag %d; expected %d", Actual, Expected); \
@@ -1730,7 +1724,6 @@ read_code_header(LoaderState* stp)
     
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
-
 static int
 load_code(LoaderState* stp)
 {
@@ -2512,7 +2505,6 @@ load_code(LoaderState* stp)
     return retval;
 }
 
-
 #define succ(St, X, Y) ((X).type == (Y).type && (X).val + 1 == (Y).val)
 #define succ2(St, X, Y) ((X).type == (Y).type && (X).val + 2 == (Y).val)
 #define succ3(St, X, Y) ((X).type == (Y).type && (X).val + 3 == (Y).val)
@@ -3958,7 +3950,6 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
 }
 
 
-
 /*
  * Freeze the code in memory, move the string table into place,
  * resolve all labels.
@@ -4276,7 +4267,6 @@ freeze_code(LoaderState* stp)
     return 0;
 }
 
-
 static void
 final_touch(LoaderState* stp)
 {
@@ -4378,7 +4368,6 @@ final_touch(LoaderState* stp)
     }
 }
 
-
 static int
 transform_engine(LoaderState* st)
 {
@@ -4716,7 +4705,6 @@ transform_engine(LoaderState* st)
     return rval;
 }
 
-
 static void
 short_file(int line, LoaderState* stp, unsigned needed)
 {
@@ -4724,7 +4712,6 @@ short_file(int line, LoaderState* stp, unsigned needed)
 		stp->file_name, needed);
 }
 
-
 static void
 load_printf(int line, LoaderState* context, char *fmt,...)
 {
@@ -5190,7 +5177,6 @@ native_addresses(Process* p, Eterm mod)
     return result;
 }
 
-
 /*
  * Builds a list of all exported functions in the given module:
  *     [{Name, Arity},...]
@@ -5240,7 +5226,6 @@ exported_from_module(Process* p, /* Process whose heap to use. */
     return result;
 }
 
-
 /*
  * Returns a list of all attributes for the module.
  *
@@ -5281,7 +5266,6 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
     return result;
 }
 
-
 /*
  * Returns a list containing compilation information.
  *

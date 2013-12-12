@@ -346,7 +346,7 @@ bool sendevent(wxEvent *event, ErlDrvTermData port)
 
  rt.addAtom((char*)"wx");
  rt.addInt((int) event->GetId());
- rt.addRef(getRef((void *)(cb->obj), memenv), cb->class_name);
+ rt.addRef(cb->obj, cb->class_name);
  rt.addExt2Term(cb->user_data);
  switch(Etype->cID) {
 case 164: {// wxCommandEvent

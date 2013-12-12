@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix incorrect reporting of memory on OS X via memsup.
+	    Thanks to Christopher Meiklejohn.</p>
+          <p>
+	    Own Id: OTP-11454</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.2.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

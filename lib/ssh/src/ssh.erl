@@ -32,9 +32,8 @@
 	 shell/1, shell/2, shell/3]).
 
 %%--------------------------------------------------------------------
-%% Function: start([, Type]) -> ok
-%%
-%%  Type =  permanent | transient | temporary
+-spec start() -> ok.
+-spec start(permanent | transient | temporary) -> ok.
 %%
 %% Description: Starts the ssh application. Default type
 %% is temporary. see application(3)
@@ -52,7 +51,7 @@ start(Type) ->
     application:start(ssh, Type).
 
 %%--------------------------------------------------------------------
-%% Function: stop() -> ok
+-spec stop() -> ok.
 %%
 %% Description: Stops the ssh application.
 %%--------------------------------------------------------------------
@@ -60,13 +59,8 @@ stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
-%% Function: connect(Host, Port, Options) -> 
-%%           connect(Host, Port, Options, Timeout -> ConnectionRef | {error, Reason}
-%% 
-%%	Host - string()
-%%	Port - integer()
-%%	Options - [{Option, Value}]
-%%      Timeout - infinity | integer().
+-spec connect(string(), integer(), proplists:proplists()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplists(), timeout()) -> {ok, pid()} |  {error, term()}.
 %%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
@@ -77,83 +71,52 @@ connect(Host, Port, Options, Timeout) ->
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions} ->
-	    DisableIpv6 =  proplists:get_value(ipv6_disabled, SshOptions, false),
-	    Inet = inetopt(DisableIpv6),
-	    do_connect(Host, Port, [Inet | SocketOptions], 
-		       [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)], Timeout, DisableIpv6)
+	    {_, Transport, _} = TransportOpts =
+		proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
+	    Inet = proplists:get_value(inet, SshOptions, inet),
+	    try Transport:connect(Host, Port,  [ {active, false}, Inet | SocketOptions], Timeout) of
+		{ok, Socket} ->
+		    Opts =  [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)],
+		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
+		{error, Reason} ->
+		    {error, Reason}
+	    catch
+		exit:{function_clause, _} ->
+		    {error, {options, {transport, TransportOpts}}};
+		exit:badarg ->
+		    {error, {options, {socket_options, SocketOptions}}}
+	    end
     end.
 
-do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
-    try sshc_sup:start_child([[{address, Host}, {port, Port}, 
-			       {role, client},
-			       {channel_pid, self()},
-			       {socket_opts, SocketOptions}, 
-			       {ssh_opts, SshOptions}]]) of 
- 	{ok, ConnectionSup} ->
-	    {ok, Manager} = 
-		ssh_connection_sup:connection_manager(ConnectionSup),
-	    msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout)
-    catch 
-	exit:{noproc, _} ->
- 	    {error, ssh_not_started}
-    end.
-msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout) ->
-    receive 
-	{Manager, is_connected} ->
-	    {ok, Manager};
-	%% When the connection fails 
-	%% ssh_connection_sup:connection_manager
-	%% might return undefined as the connection manager
-	%% could allready have terminated, so we will not
-	%% match the Manager in this case
-	{_, not_connected, {error, econnrefused}} when DisableIpv6 == false ->
-	    do_connect(Host, Port, proplists:delete(inet6, SocketOptions), 
-		       SshOptions, Timeout, true);
-	{_, not_connected, {error, Reason}} ->
-	    {error, Reason};
-	{_, not_connected, Other} ->
-	    {error, Other};
-	{From, user_password} ->
-	    Pass = io:get_password(),
-	    From ! Pass,
-	    msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout);
-	{From, question} ->
-	    Answer = io:get_line(""),
-	    From ! Answer,
-	    msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout)
-    after Timeout  ->
-	    ssh_connection_manager:stop(Manager),
-	    {error, timeout}
-    end.
 %%--------------------------------------------------------------------
-%% Function: close(ConnectionRef) -> ok
+-spec close(pid()) -> ok.
 %%
 %% Description: Closes an ssh connection.
 %%--------------------------------------------------------------------	
 close(ConnectionRef) ->
-    ssh_connection_manager:stop(ConnectionRef).
+    ssh_connection_handler:stop(ConnectionRef).
 
 %%--------------------------------------------------------------------
-%% Function: connection_info(ConnectionRef) -> [{Option, Value}]
+-spec connection_info(pid(), [atom()]) -> [{atom(), term()}].
 %%
 %% Description: Retrieves information about a connection. 
 %%--------------------------------------------------------------------	
 connection_info(ConnectionRef, Options) ->
-    ssh_connection_manager:connection_info(ConnectionRef, Options).
+    ssh_connection_handler:connection_info(ConnectionRef, Options).
 
 %%--------------------------------------------------------------------
-%% Function: channel_info(ConnectionRef) -> [{Option, Value}]
+-spec channel_info(pid(), channel_id(), [atom()]) -> [{atom(), term()}].
 %%
 %% Description: Retrieves information about a connection. 
 %%--------------------------------------------------------------------	
 channel_info(ConnectionRef, ChannelId, Options) ->
-    ssh_connection_manager:channel_info(ConnectionRef, ChannelId, Options).
+    ssh_connection_handler:channel_info(ConnectionRef, ChannelId, Options).
 
 %%--------------------------------------------------------------------
-%% Function: daemon(Port) ->
-%%           daemon(Port, Options) ->
-%%           daemon(Address, Port, Options) -> SshSystemRef
-%%
+-spec daemon(integer()) -> {ok, pid()}.
+-spec daemon(integer(), proplists:proplist()) -> {ok, pid()}.
+-spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()}.
+
 %% Description: Starts a server listening for SSH connections 
 %% on the given port.
 %%--------------------------------------------------------------------	
@@ -170,11 +133,11 @@ daemon(HostAddr, Port, Options0) ->
 		   _ ->
 		       Options0
 	       end,
-    DisableIpv6 =  proplists:get_value(ipv6_disabled, Options0, false),
+
     {Host, Inet, Options} = case HostAddr of
 				any ->
 				    {ok, Host0} = inet:gethostname(), 
-				    {Host0, inetopt(DisableIpv6), Options1};
+				    {Host0,  proplists:get_value(inet, Options1, inet), Options1};
 				{_,_,_,_} ->
 				    {HostAddr, inet, 
 				     [{ip, HostAddr} | Options1]};
@@ -185,9 +148,8 @@ daemon(HostAddr, Port, Options0) ->
     start_daemon(Host, Port, Options, Inet).
 
 %%--------------------------------------------------------------------
-%% Function: stop_listener(SysRef) -> ok
-%%           stop_listener(Address, Port) -> ok
-%%
+-spec stop_listener(pid()) -> ok.
+-spec stop_listener(inet:ip_address(), integer()) -> ok.
 %%
 %% Description: Stops the listener, but leaves 
 %% existing connections started by the listener up and running.
@@ -198,9 +160,8 @@ stop_listener(Address, Port) ->
     ssh_system_sup:stop_listener(Address, Port).
 
 %%--------------------------------------------------------------------
-%% Function: stop_daemon(SysRef) -> ok
-%%%          stop_daemon(Address, Port) -> ok
-%%
+-spec stop_daemon(pid()) -> ok.
+-spec stop_daemon(inet:ip_address(), integer()) -> ok.
 %%
 %% Description: Stops the listener and all connections started by 
 %% the listener.
@@ -211,9 +172,10 @@ stop_daemon(Address, Port) ->
     ssh_system_sup:stop_system(Address, Port).
 
 %%--------------------------------------------------------------------
-%% Function: shell(Host [,Port,Options]) -> {ok, ConnectionRef} | 
-%%                                                     {error, Reason}
-%%
+-spec shell(string()) ->  _.
+-spec shell(string(), proplists:proplist()) ->  _.
+-spec shell(string(), integer(), proplists:proplist()) ->  _.
+
 %%   Host = string()
 %%   Port = integer()
 %%   Options = [{Option, Value}]
@@ -379,9 +341,9 @@ handle_ssh_option({user_dir, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({user_dir_fun, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({silently_accept_hosts, Value} = Opt) when Value == true; Value == false ->
+handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) ->
     Opt;
-handle_ssh_option({user_interaction, Value} = Opt) when Value == true; Value == false ->
+handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({public_key_alg, ssh_dsa}) ->
     {public_key_alg, 'ssh-dss'};
@@ -429,9 +391,8 @@ handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;
 
-handle_ssh_option({ipv6_disabled, Value} = Opt) when Value == true;
-						      Value == false ->
-    Opt;
+handle_ssh_option({ipv6_disabled, Value} = Opt) when is_boolean(Value) ->
+    throw({error, {{ipv6_disabled, Opt}, option_no_longer_valid_use_inet_option_instead}});
 handle_ssh_option({transport, {Protocol, Cb, ClosTag}} = Opt) when is_atom(Protocol),
 								   is_atom(Cb),
 								   is_atom(ClosTag) ->
@@ -440,13 +401,14 @@ handle_ssh_option({subsystems, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({ssh_cli, {Cb, _}}= Opt) when is_atom(Cb) ->
     Opt;
+handle_ssh_option({ssh_cli, no_cli} = Opt) ->
+    Opt;
 handle_ssh_option({shell, {Module, Function, _}} = Opt)  when is_atom(Module),
 							      is_atom(Function) ->
     Opt;
 handle_ssh_option({shell, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({quiet_mode, Value} = Opt) when Value == true; 
-						  Value == false -> 
+handle_ssh_option({quiet_mode, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({idle_time, Value} = Opt) when is_integer(Value), Value > 0 ->
     Opt;
@@ -459,10 +421,8 @@ handle_inet_option({active, _} = Opt) ->
     throw({error, {{eoptions, Opt}, "Ssh has built in flow control, "
 		   "and activ is handled internaly user is not allowd"
 		   "to specify this option"}});
-handle_inet_option({inet, _} = Opt) ->
-    throw({error, {{eoptions, Opt},"Is set internaly use ipv6_disabled to"
-		   " enforce iv4 in the server, client will fallback to ipv4 if"
-		   " it can not use ipv6"}});
+handle_inet_option({inet, Value} = Opt) when (Value == inet) or (Value == inet6) ->
+    Opt;
 handle_inet_option({reuseaddr, _} = Opt) ->
     throw({error, {{eoptions, Opt},"Is set internaly user is not allowd"
 		   "to specify this option"}});
@@ -485,18 +445,3 @@ handle_pref_algs([H|T], Acc) ->
 	_ ->
 	    false
     end.
-%% Has IPv6 been disabled?
-inetopt(true) ->
-    inet;
-inetopt(false) ->
-    case gen_tcp:listen(0, [inet6]) of
-	{ok, Dummyport} ->
-	    gen_tcp:close(Dummyport),
-	    inet6;
-	_ ->
-	    inet
-    end.
-
-%%%
-%% Deprecated
-%%%

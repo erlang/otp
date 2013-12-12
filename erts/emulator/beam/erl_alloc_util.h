@@ -32,6 +32,7 @@ typedef struct Allctr_t_ Allctr_t;
 typedef struct {
     UWord ycs;
     UWord mmc;
+    int   sac;
 } AlcUInit_t;
 
 typedef struct {
@@ -75,7 +76,8 @@ typedef struct {
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
     1024*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    ~((UWord) 0)	/* (amount) mmc:    max mseg carriers            */ \
+    ~((UWord) 0),	/* (amount) mmc:    max mseg carriers            */\
+    1			/* (bool)   sac:    sys_alloc carriers           */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -109,7 +111,8 @@ typedef struct {
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
     128*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    1024      		/* (amount) mmc:    max mseg carriers            */\
+    1024,      		/* (amount) mmc:    max mseg carriers            */\
+    1			/* (bool)   sac:    sys_alloc carriers           */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -254,9 +257,9 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
 #endif
 
-#define MBC_ABLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)
-#define MBC_FBLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_FBLK_SZ_MASK)
-#define SBC_BLK_SZ(B) (ASSERT_EXPR(is_sbc_blk(B)), (B)->bhdr & SBC_BLK_SZ_MASK)
+#define MBC_ABLK_SZ(B) (ASSERT(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)
+#define MBC_FBLK_SZ(B) (ASSERT(!is_sbc_blk(B)), (B)->bhdr & MBC_FBLK_SZ_MASK)
+#define SBC_BLK_SZ(B) (ASSERT(is_sbc_blk(B)), (B)->bhdr & SBC_BLK_SZ_MASK)
 
 #define CARRIER_SZ(C) \
   ((C)->chdr & CARRIER_SZ_MASK)

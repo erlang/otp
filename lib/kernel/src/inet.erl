@@ -24,6 +24,7 @@
 
 %% socket
 -export([peername/1, sockname/1, port/1, send/2,
+	 peernames/1, peernames/2, socknames/1, socknames/2,
 	 setopts/2, getopts/2, 
 	 getifaddrs/0, getifaddrs/1,
 	 getif/1, getif/0, getiflist/0, getiflist/1,
@@ -120,6 +121,17 @@
       'addr' | 'broadaddr' | 'dstaddr' | 
       'mtu' | 'netmask' | 'flags' |'hwaddr'.
 
+-type if_getopt_result() ::
+      {'addr', ip_address()} |
+      {'broadaddr', ip_address()} |
+      {'dstaddr', ip_address()} |
+      {'mtu', non_neg_integer()} |
+      {'netmask', ip_address()} |
+      {'flags', ['up' | 'down' | 'broadcast' | 'no_broadcast' |
+		 'pointtopoint' | 'no_pointtopoint' |
+		 'running' | 'multicast' | 'loopback']} |
+      {'hwaddr', ether_address()}.
+
 -type address_family() :: 'inet' | 'inet6'.
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
@@ -146,6 +158,7 @@ close(Socket) ->
 	    ok
     end.
 
+
 -spec peername(Socket) ->  {ok, {Address, Port}} | {error, posix()} when
       Socket :: socket(),
       Address :: ip_address(),
@@ -161,6 +174,24 @@ setpeername(Socket, {IP,Port}) ->
     prim_inet:setpeername(Socket, {IP,Port});
 setpeername(Socket, undefined) ->
     prim_inet:setpeername(Socket, undefined).
+
+-spec peernames(Socket) -> {ok, [{Address, Port}]} | {error, posix()} when
+      Socket :: socket(),
+      Address :: ip_address(),
+      Port :: non_neg_integer().
+
+peernames(Socket) ->
+    prim_inet:peernames(Socket).
+
+-spec peernames(Socket, Assoc) ->
+		       {ok, [{Address, Port}]} | {error, posix()} when
+      Socket :: socket(),
+      Assoc :: #sctp_assoc_change{} | gen_sctp:assoc_id(),
+      Address :: ip_address(),
+      Port :: non_neg_integer().
+
+peernames(Socket, Assoc) ->
+    prim_inet:peernames(Socket, Assoc).
 
 
 -spec sockname(Socket) -> {ok, {Address, Port}} | {error, posix()} when
@@ -178,6 +209,25 @@ setsockname(Socket, {IP,Port}) ->
     prim_inet:setsockname(Socket, {IP,Port});
 setsockname(Socket, undefined) ->
     prim_inet:setsockname(Socket, undefined).
+
+-spec socknames(Socket) -> {ok, [{Address, Port}]} | {error, posix()} when
+      Socket :: socket(),
+      Address :: ip_address(),
+      Port :: non_neg_integer().
+
+socknames(Socket) ->
+    prim_inet:socknames(Socket).
+
+-spec socknames(Socket, Assoc) ->
+		       {ok, [{Address, Port}]} | {error, posix()} when
+      Socket :: socket(),
+      Assoc :: #sctp_assoc_change{} | gen_sctp:assoc_id(),
+      Address :: ip_address(),
+      Port :: non_neg_integer().
+
+socknames(Socket, Assoc) ->
+    prim_inet:socknames(Socket, Assoc).
+
 
 -spec port(Socket) -> {'ok', Port} | {'error', any()} when
       Socket :: socket(),
@@ -266,13 +316,13 @@ getiflist() ->
 -spec ifget(Socket :: socket(),
             Name :: string() | atom(),
 	    Opts :: [if_getopt()]) ->
-	{'ok', [if_setopt()]} | {'error', posix()}.
+	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
 ifget(Socket, Name, Opts) -> 
     prim_inet:ifget(Socket, Name, Opts).
 
 -spec ifget(Name :: string() | atom(), Opts :: [if_getopt()]) ->
-	{'ok', [if_setopt()]} | {'error', posix()}.
+	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
 ifget(Name, Opts) ->
     withsocket(fun(S) -> prim_inet:ifget(S, Name, Opts) end).

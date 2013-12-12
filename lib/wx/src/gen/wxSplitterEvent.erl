@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterevent.html">wxSplitterEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html">wxSplitterEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_splitter_sash_pos_changed</em>, <em>command_splitter_sash_pos_changing</em>, <em>command_splitter_doubleclicked</em>, <em>command_splitter_unsplit</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxSplitter(). #wxSplitter{}} event record type.
@@ -49,7 +49,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSplitterEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterevent.html#wxsplittereventgetsashposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html#wxsplittereventgetsashposition">external documentation</a>.
 -spec getSashPosition(This) -> integer() when
 	This::wxSplitterEvent().
 getSashPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -57,7 +57,7 @@ getSashPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSplitterEvent_GetSashPosition,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterevent.html#wxsplittereventgetx">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html#wxsplittereventgetx">external documentation</a>.
 -spec getX(This) -> integer() when
 	This::wxSplitterEvent().
 getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -65,7 +65,7 @@ getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSplitterEvent_GetX,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterevent.html#wxsplittereventgety">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html#wxsplittereventgety">external documentation</a>.
 -spec getY(This) -> integer() when
 	This::wxSplitterEvent().
 getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -73,7 +73,7 @@ getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSplitterEvent_GetY,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterevent.html#wxsplittereventgetwindowbeingremoved">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html#wxsplittereventgetwindowbeingremoved">external documentation</a>.
 -spec getWindowBeingRemoved(This) -> wxWindow:wxWindow() when
 	This::wxSplitterEvent().
 getWindowBeingRemoved(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -81,7 +81,7 @@ getWindowBeingRemoved(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSplitterEvent_GetWindowBeingRemoved,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterevent.html#wxsplittereventsetsashposition">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html#wxsplittereventsetsashposition">external documentation</a>.
 -spec setSashPosition(This, Pos) -> ok when
 	This::wxSplitterEvent(), Pos::integer().
 setSashPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)

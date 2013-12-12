@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix transformation of implicit funs in igor (Thanks to
+	    Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11506</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.11</title>
 
     <section><title>Improvements and New Features</title>

@@ -1330,7 +1330,7 @@ force_imm_drv_call(ErtsTryImmDrvCallState *sp)
     erts_aint32_t invalid_state;
     Port *prt = sp->port;
 
-    ASSERT(ERTS_IS_CRASH_DUMPING)
+    ASSERT(ERTS_IS_CRASH_DUMPING);
     ASSERT(is_atom(sp->port_op));
 
     invalid_state = sp->state;
@@ -3602,6 +3602,8 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
    if (send_closed)
        set_state_flags |= ERTS_PORT_SFLG_SEND_CLOSED;
 
+   erts_port_task_sched_enter_exiting_state(&p->sched);
+   
    state = erts_atomic32_read_bor_mb(&p->state, set_state_flags);
    state |= set_state_flags;
 
@@ -4079,7 +4081,7 @@ erts_port_control(Process* c_p,
 	    copy = 1;
 	else {
 	    binp = ((ProcBin *) ebinp)->val;
-	    ASSERT(bufp < bufp + size);
+	    ASSERT(bufp <= bufp + size);
 	    ASSERT(binp->orig_bytes <= bufp
 		   && bufp + size <= binp->orig_bytes + binp->orig_size);
 	    erts_refc_inc(&binp->refc, 1);

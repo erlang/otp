@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -129,28 +129,30 @@ pick_msg() ->
 
 user_available(Config) ->
     false /= proplists:get_value(user, Config, false).
-   	
 
 wx_destroy(Frame, Config) ->
+    wx_close(Frame, Config),
+    ?m(ok, wx:destroy()).
+
+wx_close(Frame, Config) ->
     case proplists:get_value(user, Config, false) of
 	false ->
 	    timer:sleep(100),
-	    ?m(ok, wxFrame:destroy(Frame)),
-	    ?m(ok, wx:destroy());
+	    ?m(ok, wxWindow:destroy(Frame));
 	true ->
 	    timer:sleep(500),
-	    ?m(ok, wxFrame:destroy(Frame)),
-	    ?m(ok, wx:destroy());	
+	    ?m(ok, wxWindow:destroy(Frame));
 	step -> %% Wait for user to close window
 	    ?m(ok, wxEvtHandler:connect(Frame, close_window, [{skip,true}])),
-	    wait_for_close()
+	    wait_for_close(),
+	    catch wxEvtHandler:disconnect(Frame, close_window),
+	    ok
     end.
 
 wait_for_close() ->
     receive 
 	#wx{event=#wxClose{}} ->
-	    ?log("Got close~n",[]),
-	    ?m(ok, wx:destroy());
+	    ?log("Got close~n",[]);
 	#wx{obj=Obj, event=Event} ->
 	    try 
 		Name = wxTopLevelWindow:getTitle(Obj),

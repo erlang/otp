@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 -export([init/1]).
 
 %%%=========================================================================
-%%%  API
+%%% Internal  API
 %%%=========================================================================
 start_link(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
@@ -54,13 +54,15 @@ stop_listener(SysSup) ->
 stop_listener(Address, Port) ->
     Name = make_name(Address, Port),
     stop_acceptor(whereis(Name)). 
-
+ 
 stop_system(SysSup) ->
     Name = sshd_sup:system_name(SysSup),
-    sshd_sup:stop_child(Name).
-    
+    spawn(fun() -> sshd_sup:stop_child(Name) end),
+    ok.
+
 stop_system(Address, Port) -> 
-    sshd_sup:stop_child(Address, Port).
+    spawn(fun() -> sshd_sup:stop_child(Address, Port) end),
+    ok.
 
 system_supervisor(Address, Port) ->
     Name = make_name(Address, Port),
@@ -121,7 +123,7 @@ restart_acceptor(Address, Port) ->
 %%%=========================================================================
 init([ServerOpts]) ->
     RestartStrategy = one_for_one,
-    MaxR = 10,
+    MaxR = 0,
     MaxT = 3600,
     Children = child_specs(ServerOpts),
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
@@ -137,7 +139,7 @@ ssh_acceptor_child_spec(ServerOpts) ->
     Port = proplists:get_value(port, ServerOpts),
     Name = id(ssh_acceptor_sup, Address, Port),
     StartFunc = {ssh_acceptor_sup, start_link, [ServerOpts]},
-    Restart = permanent, 
+    Restart = transient, 
     Shutdown = infinity,
     Modules = [ssh_acceptor_sup],
     Type = supervisor,
@@ -146,7 +148,7 @@ ssh_acceptor_child_spec(ServerOpts) ->
 ssh_subsystem_child_spec(ServerOpts) ->
     Name = make_ref(),
     StartFunc = {ssh_subsystem_sup, start_link, [ServerOpts]},
-    Restart = transient, 
+    Restart = temporary,
     Shutdown = infinity,
     Modules = [ssh_subsystem_sup],
     Type = supervisor,

@@ -151,10 +151,9 @@ standard_bif_interface_0(nbif_ports_0, ports_0)
  * BIFs and primops that may do a GC (change heap limit and walk the native stack).
  * XXX: erase/1 and put/2 cannot fail
  */
-gc_bif_interface_2(nbif_check_process_code_2, hipe_check_process_code_2)
+gc_bif_interface_2(nbif_erts_internal_check_process_code_2, hipe_erts_internal_check_process_code_2)
 gc_bif_interface_1(nbif_erase_1, erase_1)
 gc_bif_interface_0(nbif_garbage_collect_0, garbage_collect_0)
-gc_bif_interface_1(nbif_garbage_collect_1, hipe_garbage_collect_1)
 gc_nofail_primop_interface_1(nbif_gc_1, hipe_gc)
 gc_bif_interface_2(nbif_put_2, put_2)
 

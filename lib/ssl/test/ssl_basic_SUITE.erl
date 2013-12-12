@@ -27,6 +27,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
@@ -2489,7 +2490,10 @@ ssl_accept_timeout(Config) ->
 	    ssl_test_lib:check_result(Server, {error, timeout}),
 	    receive
 		{'EXIT', Server, _} ->
-		    [] = supervisor:which_children(ssl_connection_sup)
+		    %% Make sure supervisor had time to react on process exit
+		    %% Could we come up with a better solution to this?
+		    ct:sleep(500), 
+		    [] = supervisor:which_children(tls_connection_sup)
 	    end
     end.
 
@@ -2645,7 +2649,7 @@ tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(Pid),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    Socket = element(10, State),
+    Socket = element(11, State),
 
     %% Fake tcp error
     Pid ! {tcp_error, Socket, etimedout},

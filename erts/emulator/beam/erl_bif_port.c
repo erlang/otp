@@ -84,7 +84,7 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
 }
 
 static ERTS_INLINE Port *
-lookup_port(Process *c_p, Eterm id_or_name)
+lookup_port(Process *c_p, Eterm id_or_name, Uint32 invalid_flags)
 {
     /* TODO: Implement nicer lookup in register... */
     Eterm id;
@@ -92,7 +92,19 @@ lookup_port(Process *c_p, Eterm id_or_name)
 	id = erts_whereis_name_to_id(c_p, id_or_name);
     else
 	id = id_or_name;
-    return erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+    return erts_port_lookup(id, invalid_flags);
+}
+
+static ERTS_INLINE Port *
+sig_lookup_port(Process *c_p, Eterm id_or_name)
+{
+    return lookup_port(c_p, id_or_name, ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+}
+
+static ERTS_INLINE Port *
+data_lookup_port(Process *c_p, Eterm id_or_name)
+{
+    return lookup_port(c_p, id_or_name, ERTS_PORT_SFLGS_INVALID_LOOKUP);
 }
 
 /*
@@ -125,7 +137,7 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    BIF_RET(am_badarg);
     }
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
 	BIF_RET(am_badarg);
 
@@ -185,7 +197,7 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
     unsigned int op;
     erts_aint32_t state;
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
 	BIF_RET(am_badarg);
 
@@ -235,7 +247,7 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
     unsigned int op;
     erts_aint32_t state;
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
 	BIF_RET(am_badarg);
 
@@ -290,7 +302,7 @@ BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
     ref = NIL;
 #endif
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
 	BIF_RET(am_badarg);
 
@@ -320,7 +332,7 @@ BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
     Eterm ref;
     Port* prt;
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
 	BIF_RET(am_badarg);
 
@@ -352,7 +364,7 @@ BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
     Port* prt;
 
     if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
-	prt = lookup_port(BIF_P, BIF_ARG_1);
+	prt = sig_lookup_port(BIF_P, BIF_ARG_1);
 	if (!prt)
 	    BIF_RET(am_undefined);
     }
@@ -391,7 +403,7 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
     Port* prt;
 
     if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
-	prt = lookup_port(BIF_P, BIF_ARG_1);
+	prt = sig_lookup_port(BIF_P, BIF_ARG_1);
 	if (!prt)
 	    BIF_RET(am_undefined);
     }
@@ -523,7 +535,7 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
     erts_aint_t data;
     Port* prt;
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = data_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
         BIF_ERROR(BIF_P, BADARG);
 
@@ -564,7 +576,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
     erts_aint_t data;
     Port* prt;
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
+    prt = data_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
         BIF_ERROR(BIF_P, BADARG);
 

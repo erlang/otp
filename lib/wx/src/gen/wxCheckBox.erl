@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html">wxCheckBox</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html">wxCheckBox</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -79,7 +79,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxCheckBox() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
 -spec new() -> wxCheckBox().
 new() ->
   wxe_util:construct(?wxCheckBox_new_0,
@@ -93,7 +93,7 @@ new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
   new(Parent,Id,Label, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxCheckBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -121,7 +121,7 @@ create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
   create(This,Parent,Id,Label, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -142,7 +142,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,La
   wxe_util:call(?wxCheckBox_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxgetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxgetvalue">external documentation</a>.
 -spec getValue(This) -> boolean() when
 	This::wxCheckBox().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -150,7 +150,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCheckBox_GetValue,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxget3statevalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxget3statevalue">external documentation</a>.
 %%<br /> Res = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
 -spec get3StateValue(This) -> wx:wx_enum() when
 	This::wxCheckBox().
@@ -159,7 +159,7 @@ get3StateValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCheckBox_Get3StateValue,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxis3rdstateallowedforuser">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxis3rdstateallowedforuser">external documentation</a>.
 -spec is3rdStateAllowedForUser(This) -> boolean() when
 	This::wxCheckBox().
 is3rdStateAllowedForUser(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -167,7 +167,7 @@ is3rdStateAllowedForUser(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCheckBox_Is3rdStateAllowedForUser,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxis3state">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxis3state">external documentation</a>.
 -spec is3State(This) -> boolean() when
 	This::wxCheckBox().
 is3State(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -175,7 +175,7 @@ is3State(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCheckBox_Is3State,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxischecked">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxischecked">external documentation</a>.
 -spec isChecked(This) -> boolean() when
 	This::wxCheckBox().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -183,7 +183,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCheckBox_IsChecked,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxsetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxsetvalue">external documentation</a>.
 -spec setValue(This, State) -> ok when
 	This::wxCheckBox(), State::boolean().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
@@ -192,7 +192,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
   wxe_util:cast(?wxCheckBox_SetValue,
   <<ThisRef:32/?UI,(wxe_util:from_bool(State)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxset3statevalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxset3statevalue">external documentation</a>.
 %%<br /> State = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
 -spec set3StateValue(This, State) -> ok when
 	This::wxCheckBox(), State::wx:wx_enum().

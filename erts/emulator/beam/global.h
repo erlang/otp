@@ -186,11 +186,6 @@ extern void erts_ddll_remove_monitor(Process *p,
 extern Eterm erts_ddll_monitor_driver(Process *p,
 				      Eterm description,
 				      ErtsProcLocks plocks);
-/*
- * Max no. of drivers (linked in and dynamically loaded). Each table
- * entry uses 4 bytes.
- */
-#define DRIVER_TAB_SIZE 32
 
 /*
 ** Just like the driver binary but with initial flags
@@ -655,6 +650,10 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
+/* beam_bif_load.c */
+Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp);
+
+
 /* beam_load.c */
 typedef struct {
     BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
@@ -854,7 +853,7 @@ void erts_lcnt_enable_io_lock_count(int enable);
 
 /* driver_tab.c */
 typedef void *(*ErtsStaticNifInitFPtr)(void);
-ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name);
+ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len);
 int erts_is_static_nif(void *handle);
 void erts_init_static_drivers(void);
 
@@ -863,7 +862,6 @@ void erl_drv_thr_init(void);
 
 /* utils.c */
 void erts_cleanup_offheap(ErlOffHeap *offheap);
-const char *erts_basename(const char* path, char* buff);
 
 Uint64 erts_timestamp_millis(void);
 
@@ -873,13 +871,13 @@ Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
 
 #define NC_HEAP_SIZE(NC) \
- (ASSERT_EXPR(is_node_container((NC))), \
+ (ASSERT(is_node_container((NC))), \
   IS_CONST((NC)) ? 0 : (thing_arityval(*boxed_val((NC))) + 1))
 #define STORE_NC(Hpp, ETpp, NC) \
- (ASSERT_EXPR(is_node_container((NC))), \
+ (ASSERT(is_node_container((NC))), \
   IS_CONST((NC)) ? (NC) : store_external_or_ref_((Hpp), (ETpp), (NC)))
 #define STORE_NC_IN_PROC(Pp, NC) \
- (ASSERT_EXPR(is_node_container((NC))), \
+ (ASSERT(is_node_container((NC))), \
   IS_CONST((NC)) ? (NC) : store_external_or_ref_in_proc_((Pp), (NC)))
 
 /* duplicates from big.h */
@@ -924,6 +922,10 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf,
 					int allow_empty, int allow_atom,
 					int encoding,
 					Sint *used /* out */);
+char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
+                                     char *statbuf, size_t statbuf_size,
+                                     ErtsAlcType_t alloc_type, Sint* used,
+                                     Uint extra_wchars);
 Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
@@ -1123,7 +1125,12 @@ erts_alloc_message_heap_state(Uint size,
 	if (statep)
 	    *statep = state;
 	if ((state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
+	    || (receiver->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
+	    /*
+	     * The heap is either potentially in an inconsistent
+	     * state, or not large enough.
+	     */
 #ifdef ERTS_SMP
 	    if (locked_main) {
 		*receiver_locks &= ~ERTS_PROC_LOCK_MAIN;

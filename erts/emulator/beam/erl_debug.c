@@ -299,6 +299,9 @@ void erts_check_for_holes(Process* p)
     ErlHeapFragment* hf;
     Eterm* start;
 
+    if (p->flags & F_DISABLE_GC)
+	return;
+
     start = p->last_htop ? p->last_htop : HEAP_START(p);
     check_memory(start, HEAP_TOP(p));
     p->last_htop = HEAP_TOP(p);

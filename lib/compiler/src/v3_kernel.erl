@@ -160,8 +160,8 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
-	
-
+
+
 %% body(Cexpr, Sub, State) -> {Kexpr,[PreKepxr],State}.
 %%  Do the main sequence of a body.  A body ends in an atomic value or
 %%  values.  Must check if vector first so do expr.
@@ -834,7 +834,7 @@ last([_|T]) -> last(T).
 
 first([_]) -> [];
 first([H|T]) -> [H|first(T)].
-
+
 %% This code implements the algorithm for an optimizing compiler for
 %% pattern matching given "The Implementation of Functional
 %% Programming Languages" by Simon Peyton Jones. The code is much
@@ -1428,7 +1428,7 @@ arg_val(Arg, C) ->
 		    {set_kanno(S, []),U,T,Fs}
 	    end
     end.
-
+
 %% ubody_used_vars(Expr, State) -> [UsedVar]
 %%  Return all used variables for the body sequence. Much more
 %%  efficient than using ubody/3 if the body contains nested letrecs.

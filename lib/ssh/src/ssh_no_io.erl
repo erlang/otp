@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,18 +22,31 @@
 %%% Description: ssh_io replacement that throws on everything
 
 -module(ssh_no_io).
+-include("ssh_transport.hrl").
 
--export([yes_no/1, read_password/1, read_line/1, format/2]).
+-export([yes_no/2, read_password/2, read_line/2, format/2]).
 
-yes_no(_Prompt) ->
-    throw({no_io_allowed, yes_no}).
+yes_no(_, _) ->
+    throw({{no_io_allowed, yes_no},
+	   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			       description = "User interaction is not allowed",
+			       language = "en"}}).
 
-read_password(_Prompt) ->
-    throw({no_io_allowed, read_password}).
+read_password(_, _) ->
+    throw({{no_io_allowed, read_password},
+	  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			       description = "User interaction is not allowed",
+			      language = "en"}}).
 
-read_line(_Prompt) ->
-    throw({no_io_allowed, read_line}).
+read_line(_, _) ->
+    throw({{no_io_allowed, read_line},
+	  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			      description =  "User interaction is not allowed",
+			      language = "en"}} ).
 
-format(_Fmt, _Args) ->
-    throw({no_io_allowed, format}).
+format(_, _) ->
+    throw({{no_io_allowed, format},
+	   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			       description =   "User interaction is not allowed",
+			       language = "en"}}).
     

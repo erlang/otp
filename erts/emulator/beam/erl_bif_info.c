@@ -1771,7 +1771,11 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 #if defined(PURIFY)
 	    BIF_RET(erts_make_integer(purify_new_leaks(), BIF_P));
 #elif defined(VALGRIND)
+#  ifdef VALGRIND_DO_ADDED_LEAK_CHECK
+	    VALGRIND_DO_ADDED_LEAK_CHECK;
+#  else
 	    VALGRIND_DO_LEAK_CHECK;
+#  endif
 	    BIF_RET(make_small(0));
 #endif
 	} else if (*tp == am_fd) {
@@ -2091,7 +2095,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_sequential_tracer) {
 	val = erts_get_system_seq_tracer();
-	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false)
+	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);
@@ -3289,6 +3293,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    erts_smp_thr_progress_unblock();
 	    BIF_RET(res);
 	}
+        else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
+            BIF_RET(erts_mmap_debug_info(BIF_P));
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -3595,6 +3602,19 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 		BIF_RET(am_true);
 	    }
+	}
+	else if (ERTS_IS_ATOM_STR("gc_state", BIF_ARG_1)) {
+	    /* Used by process_SUITE (emulator) */
+	    int res, enable;
+
+	    switch (BIF_ARG_2) {
+	    case am_true: enable = 1; break;
+	    case am_false: enable = 0; break;
+	    default: BIF_ERROR(BIF_P, BADARG); break;
+	    }
+ 
+	    res = erts_set_gc_state(BIF_P, enable);
+	    BIF_RET(res ? am_true : am_false);
 	}
 	else if (ERTS_IS_ATOM_STR("send_fake_exit_signal", BIF_ARG_1)) {
 	    /* Used by signal_SUITE (emulator) */

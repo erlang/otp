@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html">wxListBox</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html">wxListBox</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControlWithItems}
 %% <br />{@link wxControl}
@@ -83,7 +83,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxListBox() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
 -spec new() -> wxListBox().
 new() ->
   wxe_util:construct(?wxListBox_new_0,
@@ -97,7 +97,7 @@ new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
@@ -126,7 +126,7 @@ create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Pos,Size,Choices, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxcreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {style, integer()}
@@ -144,7 +144,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{P
   wxe_util:call(?wxListBox_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,PosX:32/?UI,PosY:32/?UI,SizeW:32/?UI,SizeH:32/?UI,(length(Choices_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Choices_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Choices_UCA])) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxdeselect">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxdeselect">external documentation</a>.
 -spec deselect(This, N) -> ok when
 	This::wxListBox(), N::integer().
 deselect(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -153,7 +153,7 @@ deselect(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:cast(?wxListBox_Deselect,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxgetselections">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxgetselections">external documentation</a>.
 -spec getSelections(This) -> Result when
 	Result ::{Res ::integer(), ASelections::[integer()]},
 	This::wxListBox().
@@ -162,7 +162,7 @@ getSelections(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxListBox_GetSelections,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxinsertitems">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxinsertitems">external documentation</a>.
 -spec insertItems(This, Items, Pos) -> ok when
 	This::wxListBox(), Items::[unicode:chardata()], Pos::integer().
 insertItems(#wx_ref{type=ThisT,ref=ThisRef},Items,Pos)
@@ -173,7 +173,7 @@ insertItems(#wx_ref{type=ThisT,ref=ThisRef},Items,Pos)
   wxe_util:cast(?wxListBox_InsertItems,
   <<ThisRef:32/?UI,(length(Items_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Items_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Items_UCA])) band 16#7)) band 16#7))/unit:8,Pos:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxisselected">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxisselected">external documentation</a>.
 -spec isSelected(This, N) -> boolean() when
 	This::wxListBox(), N::integer().
 isSelected(#wx_ref{type=ThisT,ref=ThisRef},N)
@@ -182,7 +182,7 @@ isSelected(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxListBox_IsSelected,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxset">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxset">external documentation</a>.
 -spec set(This, Items) -> ok when
 	This::wxListBox(), Items::[unicode:chardata()].
 set(#wx_ref{type=ThisT,ref=ThisRef},Items)
@@ -193,7 +193,7 @@ set(#wx_ref{type=ThisT,ref=ThisRef},Items)
   wxe_util:cast(?wxListBox_Set,
   <<ThisRef:32/?UI,(length(Items_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Items_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Items_UCA])) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxhittest">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxhittest">external documentation</a>.
 -spec hitTest(This, Point) -> integer() when
 	This::wxListBox(), Point::{X::integer(), Y::integer()}.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
@@ -202,7 +202,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
   wxe_util:call(?wxListBox_HitTest,
   <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxsetfirstitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxsetfirstitem">external documentation</a>.
 %% <br /> Also:<br />
 %% setFirstItem(This, S) -> ok when<br />
 %% 	This::wxListBox(), S::unicode:chardata().<br />

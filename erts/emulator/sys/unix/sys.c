@@ -2489,6 +2489,16 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     return res;
 }
 
+int
+erts_sys_unsetenv(char *key)
+{
+    int res;
+    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    res = unsetenv(key);
+    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    return res;
+}
+
 void
 sys_init_io(void)
 {
@@ -2638,15 +2648,13 @@ int fd;
 }
 
 
-#ifdef DEBUG
-
 extern int erts_initialized;
 void
-erl_assert_error(char* expr, char* file, int line)
+erl_assert_error(const char* expr, const char* func, const char* file, int line)
 {   
     fflush(stdout);
-    fprintf(stderr, "Assertion failed: %s in %s, line %d\n",
-	    expr, file, line);
+    fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+            file, line, func, expr);
     fflush(stderr);
 #if !defined(ERTS_SMP) && 0
     /* Writing a crashdump from a failed assertion when smp support
@@ -2660,6 +2668,8 @@ erl_assert_error(char* expr, char* file, int line)
 #endif
     abort();
 }
+
+#ifdef DEBUG
 
 void
 erl_debug(char* fmt, ...)

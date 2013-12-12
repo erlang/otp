@@ -440,7 +440,10 @@ apply(Module, Function, [ReplyInfo | Args])
 	<v>Profile = profile() | pid() (when started <c>stand_alone</c>)</v>
       </type>
       <desc>
-        <p>Cancels an asynchronous HTTP-request. </p>
+        <p>Cancels an asynchronous HTTP-request. Note this does not guarantee
+	that the request response will not be delivered, as it is asynchronous the
+	the request may already have been completed when the cancellation arrives.
+	</p>
 
         <marker id="set_options"></marker>
       </desc>

@@ -213,7 +213,7 @@ test_3(Config) when is_list(Config) ->
 
 otp_9422(doc) -> [];
 otp_9422(Config) when is_list(Config) ->
-    Laps = 1000,
+    Laps = 10000,
     ?line Fun1 = fun() -> otp_9422_tracee() end,
     ?line P1 = spawn_link(?MODULE, loop_runner, [self(), Fun1, Laps]),
     io:format("spawned ~p as tracee\n", [P1]),
@@ -230,7 +230,7 @@ otp_9422(Config) when is_list(Config) ->
     %%receive after 10*1000 -> ok end,
 
     stop_collect(P1),
-    stop_collect(P2),
+    stop_collect(P2, abort),
     ok.
     
 otp_9422_tracee() ->
@@ -975,7 +975,9 @@ start_collect(P) ->
     P ! {go, self()}.
 
 stop_collect(P) ->
-    P ! {done, self()},
+    stop_collect(P, done).
+stop_collect(P, Order) ->
+    P ! {Order, self()},
     receive
 	{gone, P} ->
 	    ok
@@ -1008,7 +1010,13 @@ loop_runner_cont(_Collector, _Fun, Laps, Laps) ->
     end;
 loop_runner_cont(Collector, Fun, N, Laps) ->
     Fun(),
-    loop_runner_cont(Collector, Fun, N+1, Laps).
+    receive
+	{abort, Collector} ->
+	    io:format("loop_runner ~p aborted after ~p of ~p laps\n", [self(), N+1, Laps]),
+	    Collector ! {gone, self()}
+    after 0 ->
+	    loop_runner_cont(Collector, Fun, N+1, Laps)
+    end.
 
 
 f1(X) ->

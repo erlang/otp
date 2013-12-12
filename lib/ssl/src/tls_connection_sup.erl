@@ -19,9 +19,9 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The top supervisor for the ftp hangs under inets_sup.
+%% Purpose: Supervisor for a SSL/TLS connection
 %%----------------------------------------------------------------------
--module(ssl_connection_sup).
+-module(tls_connection_sup).
 
 -behaviour(supervisor).
 

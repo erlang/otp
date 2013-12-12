@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html">wxTextEntryDialog</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html">wxTextEntryDialog</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDialog}
 %% <br />{@link wxTopLevelWindow}
@@ -94,7 +94,7 @@ new(Parent,Message)
  when is_record(Parent, wx_ref),is_list(Message) ->
   new(Parent,Message, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
 -spec new(Parent, Message, [Option]) -> wxTextEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
 	Option :: {caption, unicode:chardata()}
@@ -114,7 +114,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
   wxe_util:construct(?wxTextEntryDialog_new,
   <<ParentRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html#wxtextentrydialoggetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialoggetvalue">external documentation</a>.
 -spec getValue(This) -> unicode:charlist() when
 	This::wxTextEntryDialog().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -122,7 +122,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTextEntryDialog_GetValue,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html#wxtextentrydialogsetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogsetvalue">external documentation</a>.
 -spec setValue(This, Val) -> ok when
 	This::wxTextEntryDialog(), Val::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Val)

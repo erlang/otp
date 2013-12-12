@@ -576,8 +576,8 @@ erts_bld_2tup_list(Uint **hpp, Uint *szp,
 }
 
 Eterm
-erts_bld_atom_uint_2tup_list(Uint **hpp, Uint *szp,
-			     Sint length, Eterm atoms[], Uint uints[])
+erts_bld_atom_uword_2tup_list(Uint **hpp, Uint *szp,
+                              Sint length, Eterm atoms[], UWord uints[])
 {
     Sint i;
     Eterm res = THE_NON_VALUE;
@@ -1675,7 +1675,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 	p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
 	if (p) {
 	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-	    if (state & ERTS_PSFLG_RUNNING)
+	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
 		p = NULL;
 	}
     }
@@ -4017,28 +4017,6 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
     else
 	return ++icp->counter.not_atomic;
 #endif
-}
-
-const char *erts_basename(const char* path, char* buff) {
-  /* This function is not compliant with bash basename. Edge cases like "//"
-     and "/path//" do not work properly.
-   */
-  int i;
-  int len = strlen(path);
-  const char *basename = path;
-  for (i = 0; path[i] != '\0'; i++) {
-    if (path[i] == '/') {
-      if (path[i+1] == '\0') {
-	    memcpy(buff,basename,len - (basename-path));
-	    buff[len - (basename-path)-1] = '\0';
-	    basename = buff;
-	    break;
-      } else { basename = path+i;}
-    }
-  }
-  if (basename == path)
-    return path;
-  return basename+1;
 }
 
 /*

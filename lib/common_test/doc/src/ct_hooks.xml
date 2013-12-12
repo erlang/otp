@@ -485,8 +485,9 @@
               NewCTHState</name>
       <fsummary>Called after the CTH scope ends</fsummary>
       <type>
-	<v>TestcaseName = end_per_suite | init_per_group | 
-                          end_per_group | atom()</v>
+	<v>TestcaseName = end_per_suite | {init_per_group,GroupName} | 
+                          {end_per_group,GroupName} | atom()</v>
+	<v>GroupName = atom()</v>
 	<v>Reason = {tc_auto_skip | tc_user_skip, term()}</v>
 	<v>CTHState = NewCTHState = term()</v>
       </type>

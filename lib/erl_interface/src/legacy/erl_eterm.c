@@ -686,7 +686,7 @@ int erl_length(const ETERM *ep)
     return n;
 }
 
-
+
 /***********************************************************************
  * I o l i s t   f u n c t i o n s
  *
