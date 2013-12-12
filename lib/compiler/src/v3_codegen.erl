@@ -1572,7 +1572,7 @@ cg_map_pairs(Es0) ->
 	  end || {_,Vs} <- R2],
 
     %% R3 is now [{Op,{Key,Value}}]
-    R = lists:sort(R3),
+    R = termsort(R3),
 
     %% R4 is now sorted with all alloc first in the list, followed by
     %% all exact.
@@ -1610,6 +1610,9 @@ map_pair_op_and_key(L) ->
 	    [{_,assoc,K,_}|_] = L,
 	    {assoc,K}
     end.
+
+termsort(Ls) ->
+    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, Ls).
 
 %%%
 %%% Code generation for constructing binaries.
