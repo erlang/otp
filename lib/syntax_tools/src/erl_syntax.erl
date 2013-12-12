@@ -5485,7 +5485,13 @@ revert_implicit_fun(Node) ->
 	arity_qualifier ->
 	    F = arity_qualifier_body(Name),
 	    A = arity_qualifier_argument(Name),
-	    {'fun', Pos, {function, F, A}};
+	    case {type(F), type(A)} of
+		{atom, integer} ->
+		    {'fun', Pos,
+		     {function, concrete(F), concrete(A)}};
+		_ ->
+		    Node
+	    end;
 	module_qualifier ->
 	    M = module_qualifier_argument(Name),
 	    Name1 = module_qualifier_body(Name),
