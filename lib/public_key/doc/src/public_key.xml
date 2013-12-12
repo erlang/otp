@@ -430,7 +430,7 @@
        constructing the input to this function and that should be run through the <c>verify_fun</c>.</d>
        <v> CertChain = [der_encode()]</v>
        <d>A list of DER encoded certificates in trust order ending with the peer certificate.</d>
-       <v> Options = proplists:proplists()</v>
+       <v> Options = proplists:proplist()</v>
        <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa',
        rsa_public_key() | integer(), 'NULL' | 'Dss-Parms'{}}</v>
        <v> PolicyTree = term() </v>
@@ -492,7 +492,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
      <type>
        <v> OTPCertificate =  #'OTPCertificate'{}</v>
        <v> DPAndCRLs  = [{DP::#'DistributionPoint'{} ,CRL::#'CertificateList'{}}] </v>
-       <v> Options = proplists:proplists()</v>
+       <v> Options = proplists:proplist()</v>
        <v> CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |
        {bad_cert, {revoked, crl_reason()}}</v>
      </type>

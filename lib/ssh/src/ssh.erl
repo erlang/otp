@@ -59,8 +59,8 @@ stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
--spec connect(string(), integer(), proplists:proplists()) -> {ok, pid()} |  {error, term()}.
--spec connect(string(), integer(), proplists:proplists(), timeout()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}.
 %%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
