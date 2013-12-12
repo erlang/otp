@@ -108,7 +108,7 @@ BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
 }
 
 /* maps:find/2
- * return value if key *equals* a key in the map
+ * return value if key *matches* a key in the map
  */
 
 int erts_maps_find(Eterm key, Eterm map, Eterm *value) {
@@ -123,7 +123,7 @@ int erts_maps_find(Eterm key, Eterm map, Eterm *value) {
     vs  = map_get_values(mp);
 
     for( i = 0; i < n; i++) {
-	if (CMP(ks[i], key)==0) {
+	if (EQ(ks[i], key)) {
 	    *value = vs[i];
 	    return 1;
 	}
@@ -178,7 +178,7 @@ int erts_maps_get(Eterm key, Eterm map, Eterm *value) {
     }
 
     for( i = 0; i < n; i++) {
-	if (eq(ks[i], key)) {
+	if (EQ(ks[i], key)) {
 	    *value = vs[i];
 	    return 1;
 	}
@@ -283,7 +283,7 @@ BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
 
 	    idx = size;
 
-	    while(idx > 0 && (c = CMP(kv[1],ks[idx-1])) < 0) { idx--; }
+	    while(idx > 0 && (c = CMP_TERM(kv[1],ks[idx-1])) < 0) { idx--; }
 
 	    if (c == 0) {
 		/* last compare was equal,
@@ -353,7 +353,7 @@ BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
 	}
 
 	for( i = 0; i < n; i++) {
-	    if (eq(ks[i], key)) {
+	    if (EQ(ks[i], key)) {
 		BIF_RET(am_true);
 	    }
 	}
@@ -425,7 +425,7 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
 	vs2 = map_get_values(mp2);
 
 	while(i1 < n1 && i2 < n2) {
-	    c = CMP(ks1[i1],ks2[i2]);
+	    c = CMP_TERM(ks1[i1],ks2[i2]);
 	    if ( c == 0) {
 		/* use righthand side arguments map value,
 		 * but advance both maps */
@@ -546,7 +546,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	}
     } else {
 	for( i = 0; i < n; i ++) {
-	    if (eq(ks[i], key)) {
+	    if (EQ(ks[i], key)) {
 		*hp++ = value;
 		vs++;
 		c = 1;
@@ -577,7 +577,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
     ASSERT(n >= 0);
 
     /* copy map in order */
-    while (n && ((c = CMP(*ks, key)) < 0)) {
+    while (n && ((c = CMP_TERM(*ks, key)) < 0)) {
 	*shp++ = *ks++;
 	*hp++  = *vs++;
 	n--;
@@ -658,7 +658,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 	}
     } else {
 	while(n--) {
-	    if (eq(*ks, key)) {
+	    if (EQ(*ks, key)) {
 		ks++;
 		vs++;
 		found = 1;
@@ -732,7 +732,7 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	    }
 	} else {
 	    for( i = 0; i < n; i ++) {
-		if (eq(ks[i], key)) {
+		if (EQ(ks[i], key)) {
 		    *hp++ = value;
 		    vs++;
 		    found = 1;
