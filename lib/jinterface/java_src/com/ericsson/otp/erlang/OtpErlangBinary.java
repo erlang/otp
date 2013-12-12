@@ -67,6 +67,33 @@ public class OtpErlangBinary extends OtpErlangBitstr {
     }
 
     /**
+     * Get the string representation of this binary object. A binary is
+     * printed as &lt;&lt;"string"&gt;&gt;, where 'string' is max 64
+     * characters from the corresponding string, followed by "......"
+     * if it is longer than 64 characters.
+     *
+     * @return the Erlang string representation of this binary.
+     **/
+    @Override
+    public String toString() {
+        String trail;
+        int i, n;
+        if ((bin.length) > 64) {
+            trail = "......";
+            n = 64;
+        }
+        else {
+            n = bin.length;
+            trail = "";
+        }
+        StringBuffer b = new StringBuffer("<<\"");
+        for (i=0; i<n ;i++)
+            b.append((char)bin[i]);
+        b.append(trail + "\">>");
+        return b.toString();
+    }
+
+    /**
      * Convert this binary to the equivalent Erlang external representation.
      *
      * @param buf
