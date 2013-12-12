@@ -71,7 +71,7 @@
     <p>Use the following include directive to get access to the 
     records and constant macros described here and in the User's Guide.</p>
     
-    <code> -include_lib("public_key/include/public_key.hrl"). </code>
+    <code> -include_lib("public_key/include/public_key.hrl").</code>
 
     <p><em>Data Types </em></p>
     
@@ -84,46 +84,49 @@
     <p><code>der_encoded() = binary()</code></p>
    
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey' |
-    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo' |
-    'PrivateKeyInfo' | 'CertificationRequest' | 'ECPrivateKey'|
-    'EcpkParameters'</code></p>
+    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' |
+    'SubjectPublicKeyInfo' | 'PrivateKeyInfo' |
+    'CertificationRequest' | 'ECPrivateKey' | 'EcpkParameters'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
-          not_encrypted | cipher_info()} </code></p>
+    not_encrypted | cipher_info()}</code></p>
 
-    <p><code>cipher_info()  =  {"RC2-CBC | "DES-CBC" | "DES-EDE3-CBC", crypto:rand_bytes(8)} |
-    'PBES2-params'} </code></p>
+    <p><code>cipher_info()  =  {"RC2-CBC | "DES-CBC" | "DES-EDE3-CBC",
+    crypto:rand_bytes(8)} | 'PBES2-params'}</code></p>
 	  
     <p><code>public_key()  = rsa_public_key() | dsa_public_key() | ec_public_key()</code></p>
     <p><code>private_key() = rsa_public_key() | dsa_public_key() | ec_public_key()</code></p>
     <p><code>rsa_public_key()  = #'RSAPublicKey'{}</code></p>
 
-    <p><code>rsa_private_key() = #'RSAPrivateKey'{} </code></p>
+    <p><code>rsa_private_key() = #'RSAPrivateKey'{}</code></p>
 
-    <p><code>dsa_public_key() = {integer(),  #'Dss-Parms'{}} </code></p>
+    <p><code>dsa_public_key()  = {integer(),  #'Dss-Parms'{}}</code></p>
 
     <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
 
-    <p><code>ec_public_key()  = {#'ECPoint'{}, #'EcpkParameters'{} | {namedCurve, oid()}} </code></p>
+    <p><code>ec_public_key()   = {#'ECPoint'{}, #'EcpkParameters'{} |
+    {namedCurve, oid()}}</code></p>
     
     <p><code>ec_private_key()  = #'ECPrivateKey'{}</code></p>
 
-    <p><code> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </code></p>
+    <p><code>public_crypt_options() = [{rsa_pad, rsa_padding()}].</code></p>
 
-    <p><code> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
-    | 'rsa_no_padding'</code></p>
+    <p><code>rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' |
+    'rsa_no_padding'</code></p>
     
-    <p><code> rsa_digest_type()  = 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
+    <p><code>rsa_digest_type()   = 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' |
+    'sha512'</code></p>
 
-    <p><code> dss_digest_type()  = 'sha' </code></p>
+    <p><code>dss_digest_type()   = 'sha'</code></p>
 
-    <p><code> ecdsa_digest_type()  = 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
+    <p><code>ecdsa_digest_type() = 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'</code></p>
 
-    <p><code> crl_reason()  = unspecified | keyCompromise | cACompromise | affiliationChanged | superseded | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise
-    </code></p>
+    <p><code>crl_reason()  = unspecified | keyCompromise | cACompromise |
+    affiliationChanged | superseded | cessationOfOperation |
+    certificateHold | privilegeWithdrawn | aACompromise</code></p>
 
-    <p><code> ssh_file()  = openssh_public_key | rfc4716_public_key |
-    known_hosts | auth_keys </code></p>
+    <p><code>ssh_file()  = openssh_public_key | rfc4716_public_key | known_hosts |
+    auth_keys</code></p>
     
 <!--     <p><code>policy_tree() = [Root, Children]</code></p> -->
     
