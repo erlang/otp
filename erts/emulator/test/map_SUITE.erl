@@ -228,7 +228,7 @@ t_update_assoc(Config) when is_list(Config) ->
 
     M1 = M0#{1=>42,2=>100,4=>[a,b,c]},
     #{1:=42,2:=100,3.0:=c,4:=[a,b,c],5:=e} = M1,
-    M1 = M0#{1.0=>wrong,1:=42,2.0=>wrong,2.0=>100,4.0=>[a,b,c]},
+    #{1:=42,2:=b,4:=d,5:=e,2.0:=100,3.0:=c,4.0:=[a,b,c]} = M0#{1.0=>float,1:=42,2.0=>wrong,2.0=>100,4.0=>[a,b,c]},
 
     M2 = M0#{3.0=>new},
     #{1:=a,2:=b,3.0:=new,4:=d,5:=e} = M2,
@@ -462,12 +462,10 @@ t_bif_map_find(Config) when is_list(Config) ->
     {ok, 1}     = maps:find(a, #{ a=> 1}),
     {ok, 2}     = maps:find(b, #{ a=> 1, b => 2}),
     {ok, "int"} = maps:find(1, #{ 1   => "int"}),
-    {ok, "int"} = maps:find(1.0, #{ 1 => "int"}),
-    {ok, "float"} = maps:find(1, #{ 1.0  => "float"}),
     {ok, "float"} = maps:find(1.0, #{ 1.0=> "float"}),
 
     {ok, "hi"} = maps:find("hello", #{ a=>1, "hello" => "hi"}),
-    {ok, "tuple hi"} = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
+    {ok, "tuple hi"} = maps:find({1,1.0}, #{ a=>a, {1,1.0} => "tuple hi"}),
 
     M = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
     {ok, "v4"} = maps:find(<<"k2">>, M#{ <<"k2">> => "v4" }),
@@ -475,6 +473,10 @@ t_bif_map_find(Config) when is_list(Config) ->
     %% error case
     error = maps:find(a,#{}),
     error = maps:find(a,#{b=>1, c=>2}),
+    error = maps:find(1.0, #{ 1 => "int"}),
+    error = maps:find(1, #{ 1.0  => "float"}),
+    error = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
+
 
     {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,[])),
     {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,<<>>)),
@@ -737,7 +739,7 @@ t_map_encode_decode(Config) when is_list(Config) ->
 map_encode_decode_and_match([{K,V}|Pairs], EncodedPairs, M0) ->
     M1 = maps:put(K,V,M0),
     B0 = erlang:term_to_binary(M1),
-    Ls = lists:sort([{K, erlang:term_to_binary(K), erlang:term_to_binary(V)}|EncodedPairs]),
+    Ls = lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, [{K, erlang:term_to_binary(K), erlang:term_to_binary(V)}|EncodedPairs]),
     %% sort Ks and Vs according to term spec, then match it
     ok = match_encoded_map(B0, length(Ls), [Kbin||{_,Kbin,_}<-Ls] ++ [Vbin||{_,_,Vbin}<-Ls]),
     %% decode and match it
