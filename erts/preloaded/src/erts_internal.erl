@@ -170,3 +170,13 @@ binary_to_term(_Binary) ->
       Opts :: [safe].
 binary_to_term(_Binary, _Opts) ->
     erlang:nif_error(undefined).
+
+%% term compare where integer() < float() = true
+
+-spec cmp_term(A,B) -> Result when
+    A :: term(),
+    B :: term(),
+    Result :: -1 | 0 | 1.
+
+cmp_term(_A,_B) ->
+    erlang:nif_error(undefined).

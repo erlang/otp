@@ -593,6 +593,8 @@ bif maps:remove/2
 bif maps:update/3
 bif maps:values/1
 
+bif erts_internal:cmp_term/2
+
 #
 # Obsolete
 #
