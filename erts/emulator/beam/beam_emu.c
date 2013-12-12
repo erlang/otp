@@ -6316,7 +6316,7 @@ static int has_not_map_field(Eterm map, Eterm key)
 	}
     } else {
 	for (i = 0; i <  n; i++) {
-	    if (eq(keys[i], key)) {
+	    if (EQ(keys[i], key)) {
 		return 0;
 	    }
 	}
@@ -6343,7 +6343,7 @@ static Eterm get_map_element(Eterm map, Eterm key)
 	}
     } else {
 	for (i = 0; i < n; i++) {
-	    if (eq(ks[i], key)) {
+	    if (EQ(ks[i], key)) {
 		return vs[i];
 	    }
 	}
@@ -6506,7 +6506,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
 	ASSERT(kp < (Eterm *)mp);
 	key = *old_keys;
-	if ((c = CMP(key, new_key)) < 0) {
+	if ((c = CMP_TERM(key, new_key)) < 0) {
 	    /* Copy old key and value */
 	    *kp++ = key;
 	    *hp++ = *old_vals;
