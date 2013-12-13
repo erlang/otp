@@ -1490,8 +1490,8 @@ static int load_ip_and_port
     unsigned int alen = len;
     char         abuf  [len];
     int res = inet_get_address(abuf, (inet_address*) addr, &alen);
-    ASSERT(res==0);
-    res = 0;
+    ASSERT(res==0); (void)res;
+
     /* Now "abuf" contains: Family(1b), Port(2b), IP(4|16b) */
 
     /* NB: the following functions are safe to use, as they create tuples
