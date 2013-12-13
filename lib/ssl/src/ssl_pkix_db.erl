@@ -115,17 +115,17 @@ add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
 	    new_trusted_cert_entry({MD5, File}, Db)
     end.
 %%--------------------------------------------------------------------
--spec cache_pem_file({binary(), binary()}, [db_handle()]) -> {ok, term()}.
--spec cache_pem_file(reference(), {binary(), binary()}, [db_handle()]) -> {ok, term()}.
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
+-spec cache_pem_file({binary(), binary()}, [db_handle()]) -> {ok, term()}.
 cache_pem_file({MD5, File}, [_CertsDb, _RefDb, PemChache]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),
     insert(MD5, Content, PemChache),
     {ok, Content}.
 
+-spec cache_pem_file(reference(), {binary(), binary()}, [db_handle()]) -> {ok, term()}.
 cache_pem_file(Ref, {MD5, File}, [_CertsDb, _RefDb, PemChache]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),

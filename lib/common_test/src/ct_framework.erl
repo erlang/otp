@@ -1412,7 +1412,7 @@ warn(_What) ->
     true.
 
 %%%-----------------------------------------------------------------
-%%% @spec add_data_dir(File0) -> File1
+%%% @spec add_data_dir(File0, Config) -> File1
 add_data_dir(File,Config) when is_atom(File) ->
     add_data_dir(atom_to_list(File),Config);
 

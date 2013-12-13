@@ -76,7 +76,7 @@
 		    tests = []}).
 
 %%%-----------------------------------------------------------------
-%%% @spec init(Mode) -> Result
+%%% @spec init(Mode, Verbosity) -> Result
 %%%   Mode = normal | interactive
 %%%   Result = {StartTime,LogDir}
 %%%   StartTime = term()
