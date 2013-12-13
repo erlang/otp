@@ -1524,7 +1524,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 
     assert_drv_list_rwlocked();
 
-    if ((res =  erts_sys_ddll_open(path, &(dh->handle))) != ERL_DE_NO_ERROR) {
+    if ((res =  erts_sys_ddll_open(path, &(dh->handle), NULL)) != ERL_DE_NO_ERROR) {
 	return res;
     }
     
