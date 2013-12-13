@@ -424,6 +424,8 @@ expand_expr({remote,L,M,F}, C) ->
     {remote,L,expand_expr(M, C),expand_expr(F, C)};
 expand_expr({'fun',L,{clauses,Cs}}, C) ->
     {'fun',L,{clauses,expand_exprs(Cs, C)}};
+expand_expr({named_fun,L,Name,Cs}, C) ->
+    {named_fun,L,Name,expand_exprs(Cs, C)};
 expand_expr({clause,L,H,G,B}, C) ->
     %% Could expand H and G, but then erl_eval has to be changed as well.
     {clause,L,H, G, expand_exprs(B, C)};
@@ -1311,6 +1313,11 @@ list_bindings([{Name,Val}|Bs], RT) ->
         {fun_data,_FBs,FCs0} ->
             FCs = expand_value(FCs0), % looks nicer
             F = {'fun',0,{clauses,FCs}},
+            M = {match,0,{var,0,Name},F},
+            io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
+        {named_fun_data,_FBs,FName,FCs0} ->
+            FCs = expand_value(FCs0), % looks nicer
+            F = {named_fun,0,FName,FCs},
             M = {match,0,{var,0,Name},F},
             io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
         false ->

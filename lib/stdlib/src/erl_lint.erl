@@ -2030,6 +2030,15 @@ expr({'fun',Line,Body}, Vt, St) ->
 	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
 	    {vtupdate(Bvt, Vt),St1}
     end;
+expr({named_fun,_,'_',Cs}, Vt, St) ->
+    fun_clauses(Cs, Vt, St);
+expr({named_fun,Line,Name,Cs}, Vt, St0) ->
+    Nvt0 = [{Name,{bound,unused,[Line]}}],
+    St1 = shadow_vars(Nvt0, Vt, 'named fun', St0),
+    Nvt1 = vtupdate(vtsubtract(Vt, Nvt0), Nvt0),
+    {Csvt,St2} = fun_clauses(Cs, Nvt1, St1),
+    {_,St3} = check_unused_vars(vtupdate(Csvt, Nvt0), [], St2),
+    {vtold(Csvt, Vt),St3};
 expr({call,_Line,{atom,_Lr,is_record},[E,{atom,Ln,Name}]}, Vt, St0) ->
     {Rvt,St1} = expr(E, Vt, St0),
     {Rvt,exist_record(Ln, Name, St1)};
@@ -2182,6 +2191,7 @@ is_valid_record(Rec) ->
         {lc, _, _, _} -> false;
         {record_index, _, _, _} -> false;
         {'fun', _, _} -> false;
+        {named_fun, _, _, _} -> false;
         _ -> true
     end.
 

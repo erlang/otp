@@ -171,6 +171,11 @@ expr({'fun', Line, {function, Name, Arity}, _Extra}, S) ->
     handle_call(local, S#xrefr.module, Name, Arity, Line, S);
 expr({'fun', _Line, {clauses, Cs}, _Extra}, S) ->
     clauses(Cs, S);
+expr({named_fun, _Line, '_', Cs, _Extra}, S) ->
+    clauses(Cs, S);
+expr({named_fun, _Line, Name, Cs, _Extra}, S) ->
+    S1 = S#xrefr{funvars = [Name | S#xrefr.funvars]},
+    clauses(Cs, S1);
 expr({call, Line, {atom, _, Name}, As}, S) ->
     S1 = handle_call(local, S#xrefr.module, Name, length(As), Line, S),
     expr(As, S1);
@@ -186,6 +191,9 @@ expr({match, _Line, {var,_,Var}, {'fun', _, {clauses, Cs}, _Extra}}, S) ->
     %% that are passed around by the "expansion" of list comprehension.
     S1 = S#xrefr{funvars = [Var | S#xrefr.funvars]},
     clauses(Cs, S1);
+expr({match, _Line, {var,_,Var}, {named_fun, _, _, _, _} = Fun}, S) ->
+    S1 = S#xrefr{funvars = [Var | S#xrefr.funvars]},
+    expr(Fun, S1);
 expr({match, _Line, {var,_,Var}, E}, S) ->
     %% Used for resolving code like
     %%     Args = [A,B], apply(m, f, Args)
@@ -287,6 +295,8 @@ check_funarg(W, ArgsList, Line, S) ->
 funarg({'fun', _, _Clauses, _Extra}, _S) -> true;
 funarg({'fun', _, {function,_,_,_}}, _S) ->
     %% New abstract format for fun M:F/A in R15.
+    true;
+funarg({named_fun, _, _, _, _}, _S) ->
     true;
 funarg({var, _, Var}, S) -> member(Var, S#xrefr.funvars);
 funarg(_, _S) -> false.

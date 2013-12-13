@@ -341,6 +341,8 @@ expr({'fun',Line,Body,Info},St) ->
 	{function,M,F,A} ->			%This is an error in lint!
 	    {'fun',Line,{function,M,F,A},Info}
     end;
+expr({named_fun,Loc,Name,Cs,Info},St) ->
+    {named_fun,Loc,Name,fun_clauses(Cs, St),Info};
 expr({call,Lc,{atom,_,new}=Name,As0},#pmod{parameters=Ps}=St)
   when length(As0) =:= length(Ps) ->
     %% The new() function does not take a 'THIS' argument (it's static).

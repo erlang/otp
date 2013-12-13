@@ -954,19 +954,20 @@ Ei = Value |
     <title>Fun Expressions</title>
     <pre>
 fun
-    (Pattern11,...,Pattern1N) [when GuardSeq1] ->
-        Body1;
+    [Name](Pattern11,...,Pattern1N) [when GuardSeq1] ->
+              Body1;
     ...;
-    (PatternK1,...,PatternKN) [when GuardSeqK] ->
-        BodyK
+    [Name](PatternK1,...,PatternKN) [when GuardSeqK] ->
+              BodyK
 end</pre>
     <p>A fun expression begins with the keyword <c>fun</c> and ends
       with the keyword <c>end</c>. Between them should be a function
       declaration, similar to a
-      <seealso marker="functions#syntax">regular function declaration</seealso>, except that no function name is
-      specified.</p>
-    <p>Variables in a fun head shadow variables in the 
-      function clause surrounding the fun expression, and 
+      <seealso marker="functions#syntax">regular function declaration</seealso>,
+      except that the function name is optional and should be a variable if
+      any.</p>
+    <p>Variables in a fun head shadow the function name and both shadow
+      variables in the function clause surrounding the fun expression, and
       variables bound in a fun body are local to the fun body.</p>
     <p>The return value of the expression is the resulting fun.</p>
     <p>Examples:</p>
@@ -978,7 +979,11 @@ end</pre>
 3> <input>Fun2 = fun (X) when X>=5 -> gt; (X) -> lt end.</input>
 #Fun&lt;erl_eval.6.39074546&gt;
 4> <input>Fun2(7).</input>
-gt</pre>
+gt
+5> <input>Fun3 = fun Fact(1) -> 1; Fact(X) when X > 1 -> X * Fact(X - 1) end.</input>
+#Fun&lt;erl_eval.6.39074546&gt;
+6> <input>Fun3(4).</input>
+24</pre>
     <p>The following fun expressions are also allowed:</p>
     <pre>
 fun Name/Arity

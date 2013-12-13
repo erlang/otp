@@ -935,7 +935,7 @@ otp_6817_try_bin(Bin) ->
 otp_8117(doc) -> "Some bugs in binary_to_term when 32-bit integers are negative.";
 otp_8117(suite) -> [];
 otp_8117(Config) when is_list(Config) ->
-    [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',list,tuple],
+    [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',named_fun,list,tuple],
 				   N <- lists:seq(0,31)],
     ok.
 
@@ -943,6 +943,11 @@ otp_8117_do('fun',Neg) ->
     % Fun with negative num_free
     FunBin = term_to_binary(fun() -> ok end),
     ?line <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,   
+    ?line bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
+otp_8117_do(named_fun,Neg) ->
+    % Named fun with negative num_free
+    FunBin = term_to_binary(fun F() -> F end),
+    ?line <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,
     ?line bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
 otp_8117_do(list,Neg) ->
     %% List with negative length

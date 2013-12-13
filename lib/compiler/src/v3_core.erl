@@ -92,7 +92,7 @@
 -record(icase,     {anno=#a{},args,clauses,fc}).
 -record(icatch,    {anno=#a{},body}).
 -record(iclause,   {anno=#a{},pats,pguard=[],guard,body}).
--record(ifun,      {anno=#a{},id,vars,clauses,fc}).
+-record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
 -record(iletrec,   {anno=#a{},defs,body}).
 -record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
 -record(iprimop,   {anno=#a{},name,args}).
@@ -587,7 +587,11 @@ expr({'fun',L,{function,M,F,A}}, St0) ->
 	    name=#c_literal{val=make_fun},
 	    args=As},Aps,St1};
 expr({'fun',L,{clauses,Cs},Id}, St) ->
-    fun_tq(Id, Cs, L, St);
+    fun_tq(Id, Cs, L, St, unnamed);
+expr({named_fun,L,'_',Cs,Id}, St) ->
+    fun_tq(Id, Cs, L, St, unnamed);
+expr({named_fun,L,Name,Cs,{Index,Uniq,_Fname}}, St) ->
+    fun_tq({Index,Uniq,Name}, Cs, L, St, {named, Name});
 expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
     Lanno = lineno_anno(L, St1),
@@ -842,9 +846,9 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	       flags=#c_literal{val=Flags}},
      Eps ++ Eps2,St2}.
 
-%% fun_tq(Id, [Clauses], Line, State) -> {Fun,[PreExp],State}.
+%% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 
-fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
+fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
     Arity = clause_arity(hd(Cs0)),
     {Cs1,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
@@ -853,7 +857,7 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
     Fc = function_clause(Ps, Anno, {Name,Arity}),
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
-		vars=Args,clauses=Cs1,fc=Fc},
+		vars=Args,clauses=Cs1,fc=Fc,name=NameInfo},
     {Fun,[],St3}.
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
@@ -1711,13 +1715,18 @@ uexpr(#icase{anno=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
     Used = union(used_in_any(As1), used_in_any(Cs1)),
     New = new_in_all(Cs1),
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
-uexpr(#ifun{anno=A,id=Id,vars=As,clauses=Cs0,fc=Fc0}, Ks0, St0) ->
+uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}, Ks0, St0) ->
     Avs = lit_list_vars(As),
-    Ks1 = union(Avs, Ks0),
-    {Cs1,St1} = ufun_clauses(Cs0, Ks1, St0),
-    {Fc1,St2} = ufun_clause(Fc0, Ks1, St1),
-    Used = subtract(intersection(used_in_any(Cs1), Ks0), Avs),
-    {#ifun{anno=A#a{us=Used,ns=[]},id=Id,vars=As,clauses=Cs1,fc=Fc1},St2};
+    Ks1 = case Name of
+              unnamed -> Ks0;
+              {named,FName} -> union(subtract([FName], Avs), Ks0)
+          end,
+    Ks2 = union(Avs, Ks1),
+    {Cs1,St1} = ufun_clauses(Cs0, Ks2, St0),
+    {Fc1,St2} = ufun_clause(Fc0, Ks2, St1),
+    Used = subtract(intersection(used_in_any(Cs1), Ks1), Avs),
+    A1 = A0#a{us=Used,ns=[]},
+    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs1,fc=Fc1,name=Name},St2};
 uexpr(#iapply{anno=A,op=Op,args=As}, _, St) ->
     Used = union(lit_vars(Op), lit_list_vars(As)),
     {#iapply{anno=A#a{us=Used},op=Op,args=As},St};
@@ -2012,15 +2021,24 @@ cexpr(#itry{anno=A,args=La,vars=Vs,body=Lb,evars=Evs,handler=Lh}, As, St0) ->
 cexpr(#icatch{anno=A,body=Les}, _As, St0) ->
     {Ces,_Us1,St1} = cexprs(Les, [], St0),	%Never export!
     {#c_catch{body=Ces},[],A#a.us,St1};
-cexpr(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
-    {Ccs,St1} = cclauses(Lcs, [], St0),		%NEVER export!
-    {Cfc,St2} = cclause(Lfc, [], St1),
-    Anno = A#a.anno,
-    {#c_fun{anno=Id++Anno,vars=Args,
-	    body=#c_case{anno=Anno,
-			 arg=set_anno(core_lib:make_values(Args), Anno),
-			 clauses=Ccs ++ [Cfc]}},
-     [],A#a.us,St2};
+cexpr(#ifun{name=unnamed}=Fun, As, St0) ->
+    cfun(Fun, As, St0);
+cexpr(#ifun{anno=#a{us=Us0}=A0,name={named,Name},fc=#iclause{pats=Ps}}=Fun0,
+      As, St0) ->
+    case is_element(Name, Us0) of
+        false ->
+            cfun(Fun0, As, St0);
+        true ->
+            A1 = A0#a{us=del_element(Name, Us0)},
+            Fun1 = Fun0#ifun{anno=A1},
+            {#c_fun{body=Body}=CFun0,[],Us1,St1} = cfun(Fun1, As, St0),
+            RecVar = #c_var{name={Name,length(Ps)}},
+            Let = #c_let{vars=[#c_var{name=Name}],arg=RecVar,body=Body},
+            CFun1 = CFun0#c_fun{body=Let},
+            Letrec = #c_letrec{defs=[{RecVar,CFun1}],
+                               body=RecVar},
+            {Letrec,[],Us1,St1}
+    end;
 cexpr(#iapply{anno=A,op=Op,args=Args}, _As, St) ->
     {#c_apply{anno=A#a.anno,op=Op,args=Args},[],A#a.us,St};
 cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St) ->
@@ -2046,6 +2064,16 @@ cexpr(Lit, _As, St) ->
     Vs = Anno#a.us,
     %%Vs = lit_vars(Lit),
     {set_anno(Lit, Anno#a.anno),[],Vs,St}.
+
+cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
+    {Ccs,St1} = cclauses(Lcs, [], St0),     %NEVER export!
+    {Cfc,St2} = cclause(Lfc, [], St1),
+    Anno = A#a.anno,
+    {#c_fun{anno=Id++Anno,vars=Args,
+            body=#c_case{anno=Anno,
+                         arg=set_anno(core_lib:make_values(Args), Anno),
+                         clauses=Ccs ++ [Cfc]}},
+     [],A#a.us,St2}.
 
 %% lit_vars(Literal) -> [Var].
 

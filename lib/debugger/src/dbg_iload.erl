@@ -369,6 +369,9 @@ expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
     As = new_vars(A, Line),
     Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
+expr({named_fun,Line,FName,Cs0,{_,_,Name}}, _Lc) when is_atom(Name) ->
+    Cs = fun_clauses(Cs0),
+    {make_named_fun,Line,Name,FName,Cs};
 expr({'fun',Line,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Lc)
   when 0 =< A, A =< 255 ->
     %% New format in R15 for fun M:F/A (literal values).

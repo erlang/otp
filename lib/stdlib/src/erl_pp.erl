@@ -511,10 +511,17 @@ lexpr({'fun',_,{function,M,F,A}}, _Prec, Opts) ->
     ArityItem = lexpr(A, Opts),
     ["fun ",NameItem,$:,CallItem,$/,ArityItem];
 lexpr({'fun',_,{clauses,Cs}}, _Prec, Opts) ->
-    {list,[{first,'fun',fun_clauses(Cs, Opts)},'end']};
+    {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},'end']};
+lexpr({named_fun,_,Name,Cs}, _Prec, Opts) ->
+    {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},'end']};
 lexpr({'fun',_,{clauses,Cs},Extra}, _Prec, Opts) ->
     {force_nl,fun_info(Extra),
-     {list,[{first,'fun',fun_clauses(Cs, Opts)},'end']}};
+     {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},'end']}};
+lexpr({named_fun,_,Name,Cs,Extra}, _Prec, Opts) ->
+    {force_nl,fun_info(Extra),
+     {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},'end']}};
+lexpr({'query',_,Lc}, _Prec, Opts) ->
+    {list,[{step,leaf("query"),lexpr(Lc, 0, Opts)},'end']};
 lexpr({call,_,{remote,_,{atom,_,M},{atom,_,F}=N}=Name,Args}, Prec, Opts) ->
     case erl_internal:bif(M, F, length(Args)) of
         true ->
@@ -729,8 +736,13 @@ stack_backtrace(S, El, Opts) ->
 %% fun_clauses(Clauses, Opts) -> [Char].
 %%  Print 'fun' clauses.
 
-fun_clauses(Cs, Opts) ->
-    nl_clauses(fun fun_clause/2, [$;], Opts, Cs).
+fun_clauses(Cs, Opts, unnamed) ->
+    nl_clauses(fun fun_clause/2, [$;], Opts, Cs);
+fun_clauses(Cs, Opts, {named, Name}) ->
+    nl_clauses(fun (C, H) ->
+                       {step,Gl,Bl} = fun_clause(C, H),
+                       {step,[atom_to_list(Name),Gl],Bl}
+               end, [$;], Opts, Cs).
 
 fun_clause({clause,_,A,G,B}, Opts) ->
     El = args(A, Opts),
