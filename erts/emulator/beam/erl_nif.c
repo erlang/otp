@@ -1407,7 +1407,7 @@ void* enif_dlopen(const char* lib,
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     void* handle;
     void* init_func;
-    if (erts_sys_ddll_open2(lib, &handle, &errdesc) == ERL_DE_NO_ERROR) {
+    if (erts_sys_ddll_open(lib, &handle, &errdesc) == ERL_DE_NO_ERROR) {
 	if (erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) == ERL_DE_NO_ERROR) {
 	    erts_sys_ddll_call_nif_init(init_func);
 	}
@@ -1626,7 +1626,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 			     "module '%T' not allowed", mod_atom);
     }    
     else if (init_func == NULL &&
-	     (err=erts_sys_ddll_open2(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
+	     (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
 	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);

@@ -667,8 +667,7 @@ typedef struct {
 #define ERTS_SYS_DDLL_ERROR_INIT {NULL}
 extern void erts_sys_ddll_free_error(ErtsSysDdllError*);
 extern void erl_sys_ddll_init(void); /* to initialize mutexes etc */
-extern int erts_sys_ddll_open2(const char *path, void **handle, ErtsSysDdllError*);
-#define erts_sys_ddll_open(P,H) erts_sys_ddll_open2(P,H,NULL)
+extern int erts_sys_ddll_open(const char *path, void **handle, ErtsSysDdllError*);
 extern int erts_sys_ddll_open_noext(char *path, void **handle, ErtsSysDdllError*);
 extern int erts_sys_ddll_load_driver_init(void *handle, void **function);
 extern int erts_sys_ddll_load_nif_init(void *handle, void **function,ErtsSysDdllError*);

@@ -59,7 +59,7 @@ void erl_sys_ddll_init(void) {
  * Open a shared object
  * Expecting 'full_name' as an UTF-8 string.
  */
-int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* err)
 {
     HINSTANCE hinstance;
     int len;
