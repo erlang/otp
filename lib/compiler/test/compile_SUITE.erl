@@ -769,8 +769,8 @@ do_core({M,A}, Outdir) ->
 	    error
     end.
 
-%% Compile to Beam assembly language (.S) and the try to
-%% run .S throught the compiler again.
+%% Compile to Beam assembly language (.S) and then try to
+%% run .S through the compiler again.
 
 asm(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(20)),

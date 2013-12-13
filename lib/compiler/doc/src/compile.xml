@@ -350,12 +350,18 @@ module.beam: module.erl \
               parsed code before the code is checked for errors.</p>
           </item>
 
-	  <tag><c>asm</c></tag>
+	  <tag><c>from_asm</c></tag>
           <item>
             <p>The input file is expected to be assembler code (default
 	      file suffix ".S"). Note that the format of assembler files
-              is not documented, and may change between releases - this
-              option is primarily for internal debugging use.</p>
+              is not documented, and may change between releases.</p>
+          </item>
+
+	  <tag><c>from_core</c></tag>
+          <item>
+            <p>The input file is expected to be core code (default
+	      file suffix ".core"). Note that the format of core files
+              is not documented, and may change between releases.</p>
           </item>
 
           <tag><c>no_strict_record_tests</c></tag>
