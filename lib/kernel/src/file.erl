@@ -197,7 +197,7 @@ get_cwd(Drive) ->
     check_and_call(get_cwd, [file_name(Drive)]).
 
 -spec set_cwd(Dir) -> ok | {error, Reason} when
-      Dir :: name(),
+      Dir :: name_all(),
       Reason :: posix() | badarg | no_translation.
 
 set_cwd(Dirname) -> 
