@@ -236,4 +236,8 @@ otp_8310() ->
         (catch {a, [X || X <- a]}),
     {'EXIT',{{bad_generator,b},_}} =
         (catch {a, << <<X>>  || << X >> <= b >>}),
+    true = begin (X1 = true) andalso X1, X1 end,
+    false = begin (X2 = false) andalso X2, X2 end,
+    true = begin (X3 = true) orelse X3, X3 end,
+    false = begin (X4 = false) orelse X4, X4 end,
     ok.
