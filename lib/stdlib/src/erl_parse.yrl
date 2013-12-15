@@ -36,6 +36,7 @@ tuple
 record_expr record_tuple record_field record_fields
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
+cond_expr cond_clauses cond_clause
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses
 function_call argument_list
@@ -56,6 +57,7 @@ char integer float atom string var
 
 '(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
+'cond'
 'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
@@ -277,6 +279,7 @@ expr_max -> tuple : '$1'.
 expr_max -> '(' expr ')' : '$2'.
 expr_max -> 'begin' exprs 'end' : {block,?line('$1'),'$2'}.
 expr_max -> if_expr : '$1'.
+expr_max -> cond_expr : '$1'.
 expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
@@ -400,6 +403,15 @@ if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
 
 if_clause -> guard clause_body :
 	{clause,?line(hd(hd('$1'))),[],'$1','$2'}.
+
+
+cond_expr -> 'cond' cond_clauses 'end' : {'cond',?line('$1'),'$2'}.
+
+cond_clauses -> cond_clause : ['$1'].
+cond_clauses -> cond_clause ';' cond_clauses : ['$1' | '$3'].
+
+cond_clause -> expr clause_body :
+	{clause,?line('$1'),[],[['$1']],'$2'}.
 
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :

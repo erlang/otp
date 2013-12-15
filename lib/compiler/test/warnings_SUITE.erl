@@ -39,7 +39,7 @@
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
 	 comprehensions/1,maps/1,redundant_boolean_clauses/1,
-	 latin1_fallback/1]).
+         latin1_fallback/1,'cond'/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -64,7 +64,7 @@ groups() ->
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
-       redundant_boolean_clauses,latin1_fallback]}].
+       redundant_boolean_clauses,latin1_fallback,'cond']}].
 
 init_per_suite(Config) ->
     Config.
@@ -676,6 +676,24 @@ latin1_fallback(Conf) when is_list(Conf) ->
 	    {warnings,[{2,compile,reparsing_invalid_unicode}]}}],
     [] = run(Conf, Ts3),
 
+    ok.
+
+'cond'(Config) when is_list(Config) ->
+    Ts = [{cond_1,
+           <<"
+             t(X) ->
+                 cond true -> ok end.
+           ">>,
+           [],
+           {warnings,[]}},
+          {cond_2,
+           <<"
+             t(X) ->
+                 cond false -> ok end.
+           ">>,
+           [],
+           {warnings,[]}}],
+    run(Config, Ts),
     ok.
 
 %%%

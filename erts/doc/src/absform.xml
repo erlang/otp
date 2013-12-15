@@ -246,6 +246,10 @@
        where each <c><![CDATA[Ic_i]]></c> is an if clause then
        Rep(E) =
       <c><![CDATA[{'if',LINE,[Rep(Ic_1), ..., Rep(Ic_k)]}]]></c>.</item>
+      <item>If E is <c><![CDATA[cond Cc_1 ; ... ; Cc_k  end]]></c>,
+       where each <c><![CDATA[Cc_i]]></c> is a cond clause then
+       Rep(E) =
+      <c><![CDATA[{'cond',LINE,[Rep(Cc_1), ..., Rep(Cc_k)]}]]></c>.</item>
       <item>If E is <c><![CDATA[case E_0 of Cc_1 ; ... ; Cc_k end]]></c>,
        where <c><![CDATA[E_0]]></c> is an expression and each <c><![CDATA[Cc_i]]></c> is a
        case clause then
@@ -361,7 +365,7 @@
 
   <section>
     <title>Clauses</title>
-    <p>There are function clauses, if clauses, case clauses 
+    <p>There are function clauses, if clauses, cond clauses, case clauses
       and catch clauses.</p>
     <p>A clause <c><![CDATA[C]]></c> is one of the following alternatives:</p>
     <list type="bulleted">
@@ -375,6 +379,10 @@
       <item>If C is an if clause <c><![CDATA[Gs -> B]]></c> 
        where <c><![CDATA[Gs]]></c> is a guard sequence and <c><![CDATA[B]]></c> is a body, then 
        Rep(C) = <c><![CDATA[{clause,LINE,[],Rep(Gs),Rep(B)}]]></c>.</item>
+      <item>If C is a cond clause <c><![CDATA[E -> B]]></c>
+       where <c><![CDATA[E]]></c> is an expression and <c><![CDATA[B]]></c> is a
+       body, then
+       Rep(C) = <c><![CDATA[{clause,LINE,[],[[Rep(E)]],Rep(B)}]]></c>.</item>
       <item>If C is a case clause <c><![CDATA[P -> B]]></c> 
        where <c><![CDATA[P]]></c> is a pattern and <c><![CDATA[B]]></c> is a body, then 
        Rep(C) = <c><![CDATA[{clause,LINE,[Rep(P)],[],Rep(B)}]]></c>.</item>

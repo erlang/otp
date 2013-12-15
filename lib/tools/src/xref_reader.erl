@@ -92,19 +92,19 @@ form({function, Line, Name, Arity, Clauses}, S) ->
     S3 = clauses(Clauses, S2),
     S3#xrefr{function = []}.
 
-clauses(Cls, S) ->
-    #xrefr{funvars = FunVars, matches = Matches} = S,
-    clauses(Cls, FunVars, Matches, S).
+clauses(Cs, #xrefr{builtins_too=ShouldScanGuards}=S) ->
+    clauses(Cs, S, ShouldScanGuards).
 
-clauses([{clause, _Line, _H, G, B} | Cs], FunVars, Matches, S) ->
-    S1 = case S#xrefr.builtins_too of
+clauses([{clause, _Line, _H, G, B} | Cs], S, ShouldScanGuards) ->
+    #xrefr{funvars = FunVars, matches = Matches} = S,
+    S1 = case ShouldScanGuards of
 	     true -> expr(G, S);
 	     false -> S
 	 end,
     S2 = expr(B, S1),
     S3 = S2#xrefr{funvars = FunVars, matches = Matches},
-    clauses(Cs, S3);
-clauses([], _FunVars, _Matches, S) ->
+    clauses(Cs, S3, ShouldScanGuards);
+clauses([], S, _ShouldScanGuards) ->
     S.
 
 attr([E={From, To} | As], Ln, M, Fun, AL, AX, B, S) ->
@@ -138,6 +138,8 @@ mfa(_, _M) -> false.
 
 expr({'if', _Line, Cs}, S) ->
     clauses(Cs, S);
+expr({'cond', _Line, Cs}, S) ->
+    clauses(Cs, S, true);
 expr({'case', _Line, E, Cs}, S) ->
     S1 = expr(E, S),
     clauses(Cs, S1);

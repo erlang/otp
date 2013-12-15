@@ -168,7 +168,16 @@ bi() ->
     G = fun _(foo) -> bar;
             _(X) -> X / 3
         end,
-    G(foo).
+    G(foo);
+bi() ->
+    %% Cond. POS16=POS15+12
+    cond m:f() ->
+             io:format("foo!");
+         1 + 2 =:= 3 ->
+             io:format("maths still hold.");
+         true ->
+             io:format("not foo!")
+    end.
 
 local() ->
     true.

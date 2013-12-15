@@ -351,6 +351,9 @@ expr({block,Line,Es0}, St0) ->
 expr({'if',Line,Cs0}, St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {{'if',Line,Cs},St1};
+expr({'cond',Line,Cs0}, St0) ->
+    {Cs,St1} = clauses(Cs0, St0),
+    {{'cond',Line,Cs},St1};
 expr({'case',Line,E0,Cs0}, St0) ->
     {E,St1} = expr(E0, St0),
     {Cs,St2} = clauses(Cs0, St1),

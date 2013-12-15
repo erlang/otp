@@ -268,6 +268,8 @@ expr({block,_,Es}, Bs, Lf, Ef, RBs) ->
     exprs(Es, Bs, Lf, Ef, RBs);
 expr({'if',_,Cs}, Bs, Lf, Ef, RBs) ->
     if_clauses(Cs, Bs, Lf, Ef, RBs);
+expr({'cond',_,Cs}, Bs, Lf, Ef, RBs) ->
+    cond_clauses(Cs, Bs, Lf, Ef, RBs);
 expr({'case',_,E,Cs}, Bs0, Lf, Ef, RBs) ->
     {value,Val,Bs} = expr(E, Bs0, Lf, Ef, none),
     case_clauses(Val, Cs, Bs, Lf, Ef, RBs);
@@ -882,6 +884,17 @@ if_clauses([{clause,_,[],G,B}|Cs], Bs, Lf, Ef, RBs) ->
     end;
 if_clauses([], _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, if_clause, stacktrace()).
+
+%% cond_clauses(Clauses, Bindings, LocalFuncHandler, ExtFuncHandler, RBs)
+
+cond_clauses([{clause,_,[],[[E]],B}|Cs], Bs, Lf, Ef, RBs) ->
+    case expr(E, Bs, Lf, Ef) of
+        {value,true,Bs1} -> exprs(B, Bs1, Lf, Ef, RBs);
+        {value,false,_} -> cond_clauses(Cs, Bs, Lf, Ef, RBs);
+        {value,Other,_} -> erlang:raise(error, {badbool,Other}, stacktrace())
+    end;
+cond_clauses([], _Bs, _Lf, _Ef, _RBs) ->
+    erlang:raise(error, cond_clause, stacktrace()).
 
 %% try_clauses(Body, CaseClauses, CatchClauses, AfterBody, Bindings, 
 %%             LocalFuncHandler, ExtFuncHandler, RBs)

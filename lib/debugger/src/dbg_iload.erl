@@ -372,6 +372,9 @@ expr({block,Line,Es0}, Lc) ->
 expr({'if',Line,Cs0}, Lc) ->
     Cs1 = icr_clauses(Cs0, Lc),
     {'if',Line,Cs1};
+expr({'cond',Line,Cs0}, Lc) ->
+    Cs1 = cond_clauses(Cs0, Lc),
+    {'cond',Line,Cs1};
 expr({'case',Line,E0,Cs0}, Lc) ->
     E1 = expr(E0, false),
     Cs1 = icr_clauses(Cs0, Lc),
@@ -533,6 +536,10 @@ icr_clauses([C0|Cs], Lc) ->
     C1 = clause(C0, Lc),
     [C1|icr_clauses(Cs, Lc)];
 icr_clauses([], _) -> [].
+
+cond_clauses([{clause,L,[],[[G]],B}|Cs], Lc) ->
+    [{clause,L,[],[[expr(G, true)]],exprs(B, Lc)}|cond_clauses(Cs, Lc)];
+cond_clauses([], _) -> [].
 
 fun_clauses([{clause,L,H,G,B}|Cs]) ->
     [{clause,L,head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];

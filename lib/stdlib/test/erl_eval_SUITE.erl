@@ -43,7 +43,8 @@
 	 eval_expr_5/1,
 	 zero_width/1,
          eep37/1,
-         eep43/1]).
+         eep43/1,
+         'cond'/1]).
 
 %%
 %% Define to run outside of test server
@@ -83,7 +84,7 @@ all() ->
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43].
+     eep37, eep43, 'cond'].
 
 groups() -> 
     [].
@@ -1460,6 +1461,33 @@ eep43(Config) when is_list(Config) ->
           [#{hello => 0, price => 0}]),
     error_check("[camembert]#{}.", {badarg,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
+    ok.
+
+'cond'(Config) when is_list(Config) ->
+    check(fun () -> cond true -> ok end end,
+          "cond true -> ok end.",
+          ok),
+    check(fun () -> catch cond throw(not_ok) -> ok end end,
+          "catch cond throw(not_ok) -> ok end.",
+          not_ok),
+    check(fun () ->
+                  {'EXIT',{{badbool,hello},_}} = (catch cond hello -> ok end),
+                  done
+          end,
+          "begin "
+          "    {'EXIT',{{badbool,hello},_}} = (catch cond hello -> ok end), "
+          "    done "
+          "end.",
+          done),
+    check(fun () ->
+                  {'EXIT',{cond_clause,_}} = (catch cond false -> ok end),
+                  done
+          end,
+          "begin "
+          "    {'EXIT',{cond_clause,_}} = (catch cond false -> ok end), "
+          "    done "
+          "end.",
+          done),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

@@ -41,6 +41,7 @@
 -export([warnings/1]).
 -export([no_warnings/1]).
 -export([eep37/1]).
+-export(['cond'/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
@@ -58,7 +59,7 @@ all() ->
      record_index, multipass, bitsyntax, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
-     semicolon, eep37].
+     semicolon, eep37, 'cond'].
 
 groups() -> 
     [].
@@ -814,6 +815,11 @@ eep37(Config) when is_list(Config) ->
                           "            ets:fun2ms(fun (X) -> X end)\n"
                           "    end,\n"
                           "F()">>).
+
+'cond'(Config) when is_list(Config) ->
+    setup(Config),
+    [{'$1',[],['$1']}] =
+        compile_and_run(<<"cond true -> ets:fun2ms(fun (X) -> X end) end">>).
 
 
 

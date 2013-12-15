@@ -38,7 +38,7 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, otp_7101/1, maps/1]).
+	 otp_7078/1, otp_7101/1, maps/1, 'cond'/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -416,6 +416,19 @@ maps(Config) when is_list(Config) ->
 
              id(X) -> X.
             ">>],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
+
+'cond'(Config) when is_list(Config) ->
+    Ts = [<<"-record(rr, {a=0,b,c}).
+             t() ->
+                 R0 = id(#rr{a=1,b=2,c=3}),
+                 cond is_record(R0, rr) -> R0#rr.a;
+                      R0#rr.a =:= #rr{}#rr.a -> R0#rr.b
+                 end,
+                 ok.
+
+             id(X) -> X.">>],
     run(Config, Ts, [strict_record_tests]),
     ok.
 
