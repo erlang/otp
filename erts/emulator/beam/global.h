@@ -921,7 +921,8 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf,
 					ErtsAlcType_t alloc_type,
 					int allow_empty, int allow_atom,
 					int encoding,
-					Sint *used /* out */);
+					Sint *used /* out */,
+					Uint extra);
 char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
                                      char *statbuf, size_t statbuf_size,
                                      ErtsAlcType_t alloc_type, Sint* used,

@@ -1587,7 +1587,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         encoding = ERL_FILENAME_UTF8;
     }
     lib_name = erts_convert_filename_to_encoding(BIF_ARG_1, NULL, 0,
-                                                 ERTS_ALC_T_TMP, 1, 0, encoding, NULL);
+                                                 ERTS_ALC_T_TMP, 1, 0, encoding,
+						 NULL, 0);
     if (!lib_name) {
 	BIF_ERROR(BIF_P, BADARG);
     }
