@@ -1091,9 +1091,11 @@ Uint32
 make_hash2(Eterm term)
 {
     Uint32 hash;
+    Uint32 hash_xor_keys   = 0;
+    Uint32 hash_xor_values = 0;
     DeclareTmpHeapNoproc(tmp_big,2);
 
-/* (HCONST * {2, ..., 14}) mod 2^32 */
+/* (HCONST * {2, ..., 16}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
 #define HCONST_3 0xdaa66d2bUL
 #define HCONST_4 0x78dde6e4UL
@@ -1109,6 +1111,10 @@ make_hash2(Eterm term)
 #define HCONST_14 0xa708a81eUL
 #define HCONST_15 0x454021d7UL
 #define HCONST_16 0xe3779b90UL
+
+#define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
+#define HASH_MAP_KEY  (_make_header(2,_TAG_HEADER_REF))
+#define HASH_MAP_VAL  (_make_header(3,_TAG_HEADER_REF))
 
 #define UINT32_HASH_2(Expr1, Expr2, AConst)       \
          do {                                     \
@@ -1204,36 +1210,45 @@ make_hash2(Eterm term)
 		UINT32_HASH(arity, HCONST_9);
 		if (arity == 0) /* Empty tuple */ 
 		    goto hash2_common;
-		for (i = arity; i >= 2; i--) {
+		for (i = arity; i >= 1; i--) {
 		    tmp = elem[i];
 		    ESTACK_PUSH(s, tmp);
 		}
-		term = elem[1];
+		goto hash2_common;
 	    }
 	    break;
 	    case MAP_SUBTAG:
 	    {
 		map_t *mp = (map_t *)map_val(term);
 		int i;
-		int size = map_get_size(mp);
+		int size  = map_get_size(mp);
 		Eterm *ks = map_get_keys(mp);
 		Eterm *vs = map_get_values(mp);
 		UINT32_HASH(size, HCONST_16);
-		if (size == 0) /* Empty Map */
+		if (size == 0) {
 		    goto hash2_common;
-
+		}
+		ESTACK_PUSH(s, hash_xor_values);
+		ESTACK_PUSH(s, hash_xor_keys);
+		ESTACK_PUSH(s, hash);
+		ESTACK_PUSH(s, HASH_MAP_TAIL);
+		hash = 0;
+		hash_xor_keys = 0;
+		hash_xor_values = 0;
 		for (i = size - 1; i >= 0; i--) {
 		    tmp = vs[i];
+		    ESTACK_PUSH(s, HASH_MAP_VAL);
 		    ESTACK_PUSH(s, tmp);
 		}
 		/* We do not want to expose the tuple representation.
 		 * Do not push the keys as a tuple.
 		 */
-		for (i = size - 1; i >= 1; i--) {
+		for (i = size - 1; i >= 0; i--) {
 		    tmp = ks[i];
+		    ESTACK_PUSH(s, HASH_MAP_KEY);
 		    ESTACK_PUSH(s, tmp);
 		}
-		term = ks[0];
+		goto hash2_common;
 	    }
 	    break;
 	    case EXPORT_SUBTAG:
@@ -1427,15 +1442,47 @@ make_hash2(Eterm term)
 	default:
 	    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
 	hash2_common:
+
+	    /* Uint32 hash always has the hash value of the previous term,
+	     * compounded or otherwise.
+	     */
+
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
 		UnUseTmpHeapNoproc(2);
 		return hash;
 	    }
+
 	    term = ESTACK_POP(s);
+
+	    switch (term) {
+		case HASH_MAP_TAIL: {
+		    hash = (Uint32) ESTACK_POP(s);
+		    UINT32_HASH(hash_xor_keys, HCONST_16);
+		    UINT32_HASH(hash_xor_values, HCONST_16);
+		    hash_xor_keys = (Uint32) ESTACK_POP(s);
+		    hash_xor_values = (Uint32) ESTACK_POP(s);
+		    goto hash2_common;
+		}
+		case HASH_MAP_KEY:
+		    hash_xor_keys ^= hash;
+		    hash = 0;
+		    goto hash2_common;
+		case HASH_MAP_VAL:
+		    hash_xor_values ^= hash;
+		    hash = 0;
+		    goto hash2_common;
+		default:
+		    break;
+	    }
 	}
     }
     }
+
+#undef HASH_MAP_TAIL
+#undef HASH_MAP_KEY
+#undef HASH_MAP_VAL
+
 #undef UINT32_HASH_2
 #undef UINT32_HASH
 #undef SINT32_HASH
