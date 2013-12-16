@@ -808,7 +808,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    if (encoding == ERL_FILENAME_WIN_WCHAR) {
 		encoding = ERL_FILENAME_UTF8;
 	    }
-	    if ((name_buf = erts_convert_filename_to_encoding(name, NULL, 0, ERTS_ALC_T_TMP,0,1, encoding, NULL))
+	    if ((name_buf = erts_convert_filename_to_encoding(name, NULL, 0, ERTS_ALC_T_TMP,0,1, encoding, NULL, 0))
 		== NULL) {
 		goto badarg;
 	    }
