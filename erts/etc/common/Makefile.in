@@ -254,7 +254,9 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/dyn_erl.o
-	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o	
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl_common.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl_common.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/ct_run.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
@@ -399,24 +401,28 @@ $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 # run_erl
-$(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
-	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS) $(ERTS_INTERNAL_LIBS)
-$(OBJDIR)/run_erl.o: ../unix/run_erl.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/run_erl.c
+$(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(OBJDIR)/run_erl_common.o
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LIBS)
+$(OBJDIR)/run_erl.o: ../unix/run_erl.c ../common/run_erl_common.h $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -I ../common/ -o $@ -c ../unix/run_erl.c
+$(OBJDIR)/run_erl_common.o: ../common/run_erl_common.c ../common/run_erl_common.h $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $<
 
 # to_erl
-$(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
-	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
-$(OBJDIR)/to_erl.o: ../unix/to_erl.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/to_erl.c
+$(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o $(OBJDIR)/to_erl_common.o
+	$(V_LD) $(LDFLAGS) -o $@  $^
+$(OBJDIR)/to_erl.o: ../unix/to_erl.c ../common/safe_string.h $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -I ../common/ -o $@ -c ../unix/to_erl.c
+$(OBJDIR)/to_erl_common.o: ../common/to_erl_common.c ../common/to_erl_common.h $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $<
 
 # dyn_erl
 $(BINDIR)/dyn_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 $(OBJDIR)/dyn_erl.o: ../unix/dyn_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ../unix/dyn_erl.c
-$(OBJDIR)/safe_string.o: ../unix/safe_string.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/safe_string.c
+$(OBJDIR)/safe_string.o: ../common/safe_string.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c ../common/safe_string.c
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
