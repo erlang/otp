@@ -584,22 +584,22 @@ t_erlang_hash(Config) when is_list(Config) ->
 
 t_bif_erlang_phash2() ->
 
-    39679005  = erlang:phash2(#{}),
-    106033788 = erlang:phash2(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 }),
-    119861073 = erlang:phash2(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} }),
-    87559846  = erlang:phash2(#{ 1 => a }),
-    76038729  = erlang:phash2(#{ a => 1 }),
+    39679005 = erlang:phash2(#{}),
+    78942764 = erlang:phash2(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 }),
+    37338230 = erlang:phash2(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} }),
+    14363616 = erlang:phash2(#{ 1 => a }),
+    51612236 = erlang:phash2(#{ a => 1 }),
 
-    79950245  = erlang:phash2(#{{} => <<>>}),
-    11244490  = erlang:phash2(#{<<>> => {}}),
+    37468437 = erlang:phash2(#{{} => <<>>}),
+    44049159 = erlang:phash2(#{<<>> => {}}),
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = map:remove("key",M0),
     M2 = M1#{ "key" => <<"value">> },
 
-    67968757  = erlang:phash2(M0),
-    76038729  = erlang:phash2(M1),
-    67968757  = erlang:phash2(M2),
+    118679416 = erlang:phash2(M0),
+    51612236  = erlang:phash2(M1),
+    118679416 = erlang:phash2(M2),
     ok.
 
 t_bif_erlang_phash() ->
