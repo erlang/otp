@@ -547,14 +547,14 @@ tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
     Timestamp = formated_timestamp(), 
-    test_server:format("*** ~s ~p ~p " ++ F ++ "~n", 
+    ct:pal("*** ~s ~p ~p " ++ F ++ "~n", 
 		       [Timestamp, node(), self() | A]).
 
 tsf(Reason) ->
-    test_server:fail(Reason).
+    ct:fail(Reason).
 
 tss(Time) ->
-    test_server:sleep(Time).
+    ct:sleep(Time).
 
 timestamp() ->
     http_util:timestamp().
