@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_multi_panel).
+-module(cdv_multi_wx).
 
 -behaviour(wx_object).
 

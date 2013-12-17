@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(crashdump_viewer_wx).
+-module(cdv_wx).
 -compile(export_all).
 -behaviour(wx_object).
 
@@ -157,37 +157,37 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
     wxFrame:setMenuBar(Frame, MenuBar),
 
     %% General information Panel
-    GenPanel = add_page(Notebook, ?GEN_STR, cdv_info_page, cdv_gen_wx),
+    GenPanel = add_page(Notebook, ?GEN_STR, cdv_info_wx, cdv_gen_cb),
 
     %% Process Panel
-    ProPanel = add_page(Notebook, ?PRO_STR, cdv_virtual_list, cdv_proc_wx),
+    ProPanel = add_page(Notebook, ?PRO_STR, cdv_virtual_list_wx, cdv_proc_cb),
 
     %% Port Panel
-    PortPanel = add_page(Notebook, ?PORT_STR, cdv_virtual_list, cdv_port_wx),
+    PortPanel = add_page(Notebook, ?PORT_STR, cdv_virtual_list_wx, cdv_port_cb),
 
     %% Table Panel
-    EtsPanel = add_page(Notebook, ?ETS_STR, cdv_virtual_list, cdv_ets_wx),
+    EtsPanel = add_page(Notebook, ?ETS_STR, cdv_virtual_list_wx, cdv_ets_cb),
 
     %% Timer Panel
-    TimerPanel = add_page(Notebook, ?TIMER_STR, cdv_virtual_list, cdv_timer_wx),
+    TimerPanel = add_page(Notebook, ?TIMER_STR, cdv_virtual_list_wx,cdv_timer_cb),
 
     %% Fun Panel
-    FunPanel = add_page(Notebook, ?FUN_STR, cdv_virtual_list, cdv_fun_wx),
+    FunPanel = add_page(Notebook, ?FUN_STR, cdv_virtual_list_wx, cdv_fun_cb),
 
     %% Atom Panel
-    AtomPanel = add_page(Notebook, ?ATOM_STR, cdv_virtual_list, cdv_atom_wx),
+    AtomPanel = add_page(Notebook, ?ATOM_STR, cdv_virtual_list_wx, cdv_atom_cb),
 
     %% Distribution Panel
-    DistPanel = add_page(Notebook, ?DIST_STR, cdv_virtual_list, cdv_dist_wx),
+    DistPanel = add_page(Notebook, ?DIST_STR, cdv_virtual_list_wx, cdv_dist_cb),
 
     %% Loaded Modules Panel
-    ModPanel = add_page(Notebook, ?MOD_STR, cdv_virtual_list, cdv_mod_wx),
+    ModPanel = add_page(Notebook, ?MOD_STR, cdv_virtual_list_wx, cdv_mod_cb),
 
     %% Memory Panel
-    MemPanel = add_page(Notebook, ?MEM_STR, cdv_multi_panel, cdv_mem_wx),
+    MemPanel = add_page(Notebook, ?MEM_STR, cdv_multi_wx, cdv_mem_cb),
 
     %% Memory Panel
-    IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_panel, cdv_int_tab_wx),
+    IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_wx, cdv_int_tab_cb),
 
     %% Show the window
     wxFrame:show(Frame),

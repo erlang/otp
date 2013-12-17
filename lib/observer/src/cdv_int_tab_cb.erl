@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_int_tab_wx).
+-module(cdv_int_tab_cb).
 
 -export([get_info/0]).
 
@@ -30,9 +30,9 @@ get_info() ->
     observer_lib:report_progress({ok,66}),
     IntEtsInfo = get_internal_ets_info(),
     observer_lib:report_progress({ok,100}),
-    [{"Hash Tables",cdv_table_page,HashInfo},
-     {"Index Tables",cdv_table_page,IndexInfo},
-     {"Internal ETS Tables",cdv_table_page,IntEtsInfo}].
+    [{"Hash Tables",cdv_table_wx,HashInfo},
+     {"Index Tables",cdv_table_wx,IndexInfo},
+     {"Internal ETS Tables",cdv_table_wx,IntEtsInfo}].
 
 %%%-----------------------------------------------------------------
 %%% Hash tables

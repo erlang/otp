@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_dist_wx).
+-module(cdv_dist_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
@@ -34,7 +34,7 @@
 -define(COL_CH,   ?COL_CTRL+1).
 -define(COL_CRE,  ?COL_CH+1).
 
-%% Callbacks for cdv_virtual_list
+%% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_CH);
 col_to_elem(?COL_NAME)  -> #nod.name;
 col_to_elem(?COL_CH)    -> #nod.channel;
@@ -56,7 +56,7 @@ get_info(_) ->
 get_detail_cols(_) ->
     {[?COL_CH,?COL_CTRL],true}.
 
-%% Callbacks for cdv_detail_win
+%% Callbacks for cdv_detail_wx
 get_details(Id) ->
     case crashdump_viewer:node_info(Id) of
 	{ok,Info,TW} ->
@@ -73,7 +73,7 @@ detail_pages() ->
 
 init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
+    cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
 %%%-----------------------------------------------------------------
 %%% Internal

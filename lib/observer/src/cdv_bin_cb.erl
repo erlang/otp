@@ -15,12 +15,12 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_bin_wx).
+-module(cdv_bin_cb).
 
 -export([get_details/1,
 	 detail_pages/0]).
 
-%% Callbacks for cdv_detail_win
+%% Callbacks for cdv_detail_wx
 get_details({_, {T,Key}}) ->
     [{Key,Term}] = ets:lookup(T,Key),
     {ok,{"Expanded Binary", Term, []}};
@@ -32,15 +32,15 @@ detail_pages() ->
     [{"Binary", fun init_bin_page/2}].
 
 init_bin_page(Parent,Bin) ->
-    cdv_multi_panel:start_link(
+    cdv_multi_wx:start_link(
       Parent,
-      [{"Format \~p",cdv_html_page,format_bin_fun("~p",Bin)},
-       {"Format \~tp",cdv_html_page,format_bin_fun("~tp",Bin)},
-       {"Format \~w",cdv_html_page,format_bin_fun("~w",Bin)},
-       {"Format \~s",cdv_html_page,format_bin_fun("~s",Bin)},
-       {"Format \~ts",cdv_html_page,format_bin_fun("~ts",Bin)},
-       {"Hex",cdv_html_page,hex_binary_fun(Bin)},
-       {"Term",cdv_html_page, binary_to_term_fun(Bin)}]).
+      [{"Format \~p",cdv_html_wx,format_bin_fun("~p",Bin)},
+       {"Format \~tp",cdv_html_wx,format_bin_fun("~tp",Bin)},
+       {"Format \~w",cdv_html_wx,format_bin_fun("~w",Bin)},
+       {"Format \~s",cdv_html_wx,format_bin_fun("~s",Bin)},
+       {"Format \~ts",cdv_html_wx,format_bin_fun("~ts",Bin)},
+       {"Hex",cdv_html_wx,hex_binary_fun(Bin)},
+       {"Term",cdv_html_wx,binary_to_term_fun(Bin)}]).
 
 format_bin_fun(Format,Bin) ->
     fun() ->
@@ -48,7 +48,7 @@ format_bin_fun(Format,Bin) ->
 		Str -> plain_html(lists:flatten(Str))
 	    catch error:badarg ->
 		    Warning = "This binary can not be formatted with " ++ Format,
-		    crashdump_viewer_html:warning(Warning)
+		    observer_html_lib:warning(Warning)
 	    end
     end.
 
@@ -58,7 +58,7 @@ binary_to_term_fun(Bin) ->
 		Term -> plain_html(io_lib:format("~p",[Term]))
 	    catch error:badarg ->
 		    Warning = "This binary can not be coverted to an Erlang term",
-		    crashdump_viewer_html:warning(Warning)
+		    observer_html_lib:warning(Warning)
 	    end
     end.
 
@@ -79,4 +79,4 @@ format_hex(<<B1:4,B2:4,Bin/binary>>,N) ->
      | format_hex(Bin,N-1)].
 
 plain_html(Text) ->
-    crashdump_viewer_html:plain_page(Text).
+    observer_html_lib:plain_page(Text).

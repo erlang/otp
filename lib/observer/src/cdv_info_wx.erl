@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_info_page).
+-module(cdv_info_wx).
 
 -behaviour(wx_object).
 
@@ -60,7 +60,7 @@ init([ParentWin, {InfoFields,Info,TW}]) ->
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_info(active, State) ->
-    crashdump_viewer_wx:set_status(State#state.trunc_warn),
+    cdv_wx:set_status(State#state.trunc_warn),
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -95,7 +95,7 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 handle_event(#wx{event=#wxMouse{type=left_down},userData=Target}, State) ->
-    cdv_virtual_list:start_detail_win(Target),
+    cdv_virtual_list_wx:start_detail_win(Target),
     {noreply, State};
 
 handle_event(#wx{obj=Obj,event=#wxMouse{type=enter_window}},State) ->

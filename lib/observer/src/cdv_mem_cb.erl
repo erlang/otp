@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_mem_wx).
+-module(cdv_mem_cb).
 
 -export([get_info/0]).
 
@@ -30,10 +30,10 @@ get_info() ->
     observer_lib:report_progress({ok,66}),
     AreaInfo = get_area_info(),
     observer_lib:report_progress({ok,100}),
-    [{"Memory",cdv_info_page,MemInfo}
-     | [{Title,cdv_table_page,{Cols,Data,AllocTW}} ||
+    [{"Memory",cdv_info_wx,MemInfo}
+     | [{Title,cdv_table_wx,{Cols,Data,AllocTW}} ||
 	   {Title,Cols,Data} <- AllocInfo]] ++
-	[{"Allocated Areas",cdv_table_page,AreaInfo}].
+	[{"Allocated Areas",cdv_table_wx,AreaInfo}].
 
 
 %%%-----------------------------------------------------------------

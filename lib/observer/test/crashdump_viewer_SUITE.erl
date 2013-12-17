@@ -124,14 +124,14 @@ start_stop(Config) when is_list(Config) ->
     ok = crashdump_viewer:start(Dump),
     true = is_pid(whereis(crashdump_viewer_server)),
     true = is_pid(whereis(cdv_wx)),
-    true = is_pid(whereis(cdv_proc_wx)),
-    true = is_pid(whereis(cdv_port_wx)),
-    true = is_pid(whereis(cdv_ets_wx)),
-    true = is_pid(whereis(cdv_timer_wx)),
-    true = is_pid(whereis(cdv_fun_wx)),
-    true = is_pid(whereis(cdv_atom_wx)),
-    true = is_pid(whereis(cdv_dist_wx)),
-    true = is_pid(whereis(cdv_mod_wx)),
+    true = is_pid(whereis(cdv_proc_cb)),
+    true = is_pid(whereis(cdv_port_cb)),
+    true = is_pid(whereis(cdv_ets_cb)),
+    true = is_pid(whereis(cdv_timer_cb)),
+    true = is_pid(whereis(cdv_fun_cb)),
+    true = is_pid(whereis(cdv_atom_cb)),
+    true = is_pid(whereis(cdv_dist_cb)),
+    true = is_pid(whereis(cdv_mod_cb)),
     timer:sleep(1000), % give some time to live
     ok = crashdump_viewer:stop(),
     timer:sleep(100), % give some time to stop
@@ -379,14 +379,14 @@ lookat_all_pids([#proc{pid=Pid0}|Procs]) ->
 lookat_all_ports([]) ->
     ok;
 lookat_all_ports([#port{id=Port0}|Procs]) ->
-    Port = cdv_port_wx:format(Port0),
+    Port = cdv_port_cb:format(Port0),
     {ok,_PortDetails=#port{},_PortTW} = crashdump_viewer:port(Port),
     lookat_all_ports(Procs).
 
 lookat_all_mods([]) ->
     ok;
 lookat_all_mods([#loaded_mod{mod=ModId}|Mods]) ->
-    ModName = cdv_mod_wx:format(ModId),
+    ModName = cdv_mod_cb:format(ModId),
     {ok,_Mod=#loaded_mod{},_ModTW} = crashdump_viewer:loaded_mod_details(ModName),
     lookat_all_mods(Mods).
 

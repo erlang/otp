@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_gen_wx).
+-module(cdv_gen_cb).
 
 -export([get_info/0]).
 

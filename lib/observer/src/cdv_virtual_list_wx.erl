@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_virtual_list).
+-module(cdv_virtual_list_wx).
 
 -behaviour(wx_object).
 
@@ -68,15 +68,15 @@ start_detail_win(Id) ->
     Callback =
 	case Id of
 	    "<"++_ ->
-		cdv_proc_wx;
+		cdv_proc_cb;
 	    "#Port"++_ ->
-		cdv_port_wx;
+		cdv_port_cb;
 	    _ ->
 		case catch list_to_integer(Id) of
 		    NodeId when is_integer(NodeId) ->
-			cdv_dist_wx;
+			cdv_dist_cb;
 		    _ ->
-			cdv_mod_wx
+			cdv_mod_cb
 		end
 	end,
     start_detail_win(Callback,Id).
@@ -162,7 +162,7 @@ do_start_detail_win(Id, #state{panel=Panel,detail_wins=Opened,
     NewOpened =
 	case lists:keyfind(Id, 1, Opened) of
 	    false ->
-		case cdv_detail_win:start_link(Id, Panel, Callback) of
+		case cdv_detail_wx:start_link(Id, Panel, Callback) of
 		    {error, _} ->
 			Opened;
 		    IW ->
@@ -200,7 +200,7 @@ handle_info({holder_updated, Count}, State=#state{grid=Grid}) ->
     {noreply, State};
 
 handle_info(active, State) ->
-    crashdump_viewer_wx:set_status(State#state.trunc_warn),
+    cdv_wx:set_status(State#state.trunc_warn),
     {noreply, State};
 
 handle_info(Info, State) ->

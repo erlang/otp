@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_html_page).
+-module(cdv_html_wx).
 
 -behaviour(wx_object).
 
@@ -87,23 +87,23 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 		Id = {cdv, {list_to_integer(Off),
 			    list_to_integer(Size),
 			    list_to_integer(Pos)}},
-		expand(Id,cdv_bin_wx,State);
+		expand(Id,cdv_bin_cb,State);
 	    "#OBSBinary?" ++ BinSpec ->
 		[{"key1",Preview},{"key2",Size},{"key3",Hash}] =
 		    httpd:parse_query(BinSpec),
 		Id = {obs, {Tab, {list_to_integer(Preview),
 				  list_to_integer(Size),
 				  list_to_integer(Hash)}}},
-		expand(Id,cdv_bin_wx,State);
+		expand(Id,cdv_bin_cb,State);
 	    "#Term?" ++ TermKeys ->
 		[{"key1",Key1},{"key2",Key2},{"key3",Key3}] =
 		    httpd:parse_query(TermKeys),
 		Id = {cdv, {Tab,{list_to_integer(Key1),
 				 list_to_integer(Key2),
 				 list_to_integer(Key3)}}},
-		expand(Id,cdv_term_wx,State);
+		expand(Id,cdv_term_cb,State);
 	    _ ->
-		cdv_virtual_list:start_detail_win(Target),
+		cdv_virtual_list_wx:start_detail_win(Target),
 		State
     end,
     {noreply, NewState};
@@ -118,7 +118,7 @@ expand(Id,Callback,#state{expand_wins=Opened0}=State) ->
     Opened =
 	case lists:keyfind(Id,1,Opened0) of
 	    false ->
-		EW = cdv_detail_win:start_link(Id,State#state.panel,Callback),
+		EW = cdv_detail_wx:start_link(Id,State#state.panel,Callback),
 		wx_object:get_pid(EW) ! active,
 		[{Id,EW}|Opened0];
 	    {_,EW} ->

@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_mod_wx).
+-module(cdv_mod_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
@@ -33,7 +33,7 @@
 -define(COL_CUR,  ?COL_ID+1).
 -define(COL_OLD,  ?COL_CUR+1).
 
-%% Callbacks for cdv_virtual_list
+%% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_ID);
 col_to_elem(?COL_ID)   -> #loaded_mod.mod;
 col_to_elem(?COL_CUR)  -> #loaded_mod.current_size;
@@ -51,7 +51,7 @@ get_info(_) ->
 get_detail_cols(_) ->
     {[?COL_ID],true}.
 
-%% Callbacks for cdv_detail_win
+%% Callbacks for cdv_detail_wx
 get_details(Id) ->
     {ok,Info,TW} = crashdump_viewer:loaded_mod_details(Id),
     Proplist = crashdump_viewer:to_proplist(record_info(fields,loaded_mod),Info),
@@ -67,7 +67,7 @@ detail_pages() ->
 
 init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
+    cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
 init_curr_attr_page(Parent, Info) ->
     init_info_page(Parent, proplists:get_value(current_attrib,Info)).
@@ -84,7 +84,7 @@ init_old_comp_page(Parent, Info) ->
 init_info_page(Parent, undefined) ->
     init_info_page(Parent, "");
 init_info_page(Parent, String) ->
-    cdv_html_page:start_link(Parent,crashdump_viewer_html:plain_page(String)).
+    cdv_html_wx:start_link(Parent,observer_html_lib:plain_page(String)).
 
 format({Bin,q}) when is_binary(Bin) ->
     [$'|binary_to_list(Bin)];

@@ -64,8 +64,7 @@ XML_FILES = \
 	$(XML_PART_FILES) $(XML_REF1_FILES) $(XML_REF3_FILES) \
 	$(XML_APPLICATION_FILES) $(XML_REF6_FILES)
 
-ONLY_HTML_FILE = \
-	crashdump_help.html
+ONLY_HTML_FILE =
 
 GIF_FILES = \
 	et_processes.gif \

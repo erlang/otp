@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_port_wx).
+-module(cdv_port_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
@@ -37,7 +37,7 @@
 
 
 
-%% Callbacks for cdv_virtual_list
+%% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_ID);
 col_to_elem(?COL_ID)  -> #port.id;
 col_to_elem(?COL_CONN) -> #port.connected;
@@ -59,7 +59,7 @@ get_info(_) ->
 get_detail_cols(_) ->
     {[?COL_ID,?COL_CONN],true}.
 
-%% Callbacks for cdv_detail_win
+%% Callbacks for cdv_detail_wx
 get_details(Id) ->
     case crashdump_viewer:port(Id) of
 	{ok,Info,TW} ->
@@ -70,7 +70,8 @@ get_details(Id) ->
 	    Info = "The port you are searching for was residing on "
 		"a remote node. No port information is available. "
 		"Show information about the remote node?",
-	    {yes_no, Info, fun()->cdv_virtual_list:start_detail_win(NodeId) end};
+	    Fun = fun() -> cdv_virtual_list_wx:start_detail_win(NodeId) end,
+	    {yes_no, Info, Fun};
 	{error,not_found} ->
 	    Info = "The port you are searching for could not be found.",
 	    {info,Info}
@@ -81,7 +82,7 @@ detail_pages() ->
 
 init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
+    cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
 format({I1,I2}) ->
     "#Port<"++integer_to_list(I1) ++ "." ++ integer_to_list(I2) ++ ">";

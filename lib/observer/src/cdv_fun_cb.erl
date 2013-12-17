@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_fun_wx).
+-module(cdv_fun_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
@@ -33,7 +33,7 @@
 -define(COL_NADDR,  ?COL_ADDR+1).
 -define(COL_REFC,  ?COL_NADDR+1).
 
-%% Callbacks for cdv_virtual_list
+%% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_MOD);
 col_to_elem(?COL_MOD)   -> #fu.module;
 col_to_elem(?COL_UNIQ)  -> #fu.uniq;

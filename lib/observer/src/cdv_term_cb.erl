@@ -15,12 +15,12 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_term_wx).
+-module(cdv_term_cb).
 
 -export([get_details/1,
 	 detail_pages/0]).
 
-%% Callbacks for cdv_detail_win
+%% Callbacks for cdv_detail_wx
 get_details({_, {T,Key}}) ->
     [{Key,Term}] = ets:lookup(T,Key),
     {ok,{"Expanded Term", [Term, T], []}}.
@@ -31,13 +31,13 @@ detail_pages() ->
 init_term_page(ParentWin, [Term, Tab]) ->
     Expanded = expand(Term, true),
     BinSaved = expand(Term, Tab),
-    cdv_multi_panel:start_link(
+    cdv_multi_wx:start_link(
       ParentWin,
-      [{"Format \~p",cdv_html_page,format_term_fun("~p",BinSaved,Tab)},
-       {"Format \~tp",cdv_html_page,format_term_fun("~tp",BinSaved,Tab)},
-       {"Format \~w",cdv_html_page,format_term_fun("~w",BinSaved,Tab)},
-       {"Format \~s",cdv_html_page,format_term_fun("~s",Expanded,Tab)},
-       {"Format \~ts",cdv_html_page,format_term_fun("~ts",Expanded,Tab)}]).
+      [{"Format \~p",cdv_html_wx,format_term_fun("~p",BinSaved,Tab)},
+       {"Format \~tp",cdv_html_wx,format_term_fun("~tp",BinSaved,Tab)},
+       {"Format \~w",cdv_html_wx,format_term_fun("~w",BinSaved,Tab)},
+       {"Format \~s",cdv_html_wx,format_term_fun("~s",Expanded,Tab)},
+       {"Format \~ts",cdv_html_wx,format_term_fun("~ts",Expanded,Tab)}]).
 
 format_term_fun(Format,Term,Tab) ->
     fun() ->
@@ -45,12 +45,12 @@ format_term_fun(Format,Term,Tab) ->
 		Str -> {expand, plain_html(Str), Tab}
 	    catch error:badarg ->
 		    Warning = "This term can not be formatted with " ++ Format,
-		    crashdump_viewer_html:warning(Warning)
+		    observer_html_lib:warning(Warning)
 	    end
     end.
 
 plain_html(Text) ->
-    crashdump_viewer_html:plain_page(Text).
+    observer_html_lib:plain_page(Text).
 
 expand(['#CDVBin',Offset,Size,Pos], true) ->
     {ok,Bin} = crashdump_viewer:expand_binary({Offset,Size,Pos}),

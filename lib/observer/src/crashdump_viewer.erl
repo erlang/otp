@@ -153,7 +153,7 @@ stop_debug() ->
 start() ->
     start(undefined).
 start(File) ->
-    crashdump_viewer_wx:start(File).
+    cdv_wx:start(File).
 
 stop() ->
     case whereis(?SERVER) of
@@ -216,7 +216,7 @@ usage() ->
 %% External functions
 %%====================================================================
 %%%--------------------------------------------------------------------
-%%% Start the server - called by crashdump_viewer_wx
+%%% Start the server - called by cdv_wx
 start_link() ->
     case whereis(?SERVER) of
 	undefined ->
@@ -226,7 +226,7 @@ start_link() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% Called by crashdump_viewer_wx
+%%% Called by cdv_wx
 read_file(File) ->
     cast({read_file,File}).
 
@@ -1378,7 +1378,7 @@ get_ports(File) ->
     lookup_and_parse_index(File,?port,ParseFun,"ports").
 
 %% Converting port string to tuple to secure correct sorting. This is
-%% converted back in cdv_port_wx:format/1.
+%% converted back in cdv_port_cb:format/1.
 port_to_tuple("#Port<"++Port) ->
     [I1,I2] = string:tokens(Port,".>"),
     {list_to_integer(I1),list_to_integer(I2)}.
@@ -1790,7 +1790,7 @@ get_atoms1(Fd,[Bin|Bins],N,Atoms) ->
 
 %% This ensures sorting according to first actual letter in the atom,
 %% disregarding possible single quote. It is formatted back to correct
-%% syntax in cdv_atom_wx:format/1
+%% syntax in cdv_atom_cb:format/1
 get_atom(<<"\'",Atom/binary>>) ->
     {Atom,q}; % quoted
 get_atom(Atom) when is_binary(Atom) ->

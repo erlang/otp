@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_proc_wx).
+-module(cdv_proc_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
@@ -35,7 +35,7 @@
 -define(COL_MEM,  ?COL_REDS+1).
 -define(COL_MSG,  ?COL_MEM+1).
 
-%% Callbacks for cdv_virtual_list
+%% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_ID);
 col_to_elem(?COL_ID)  -> #proc.pid;
 col_to_elem(?COL_NAME) -> #proc.name;
@@ -59,13 +59,13 @@ get_info(_) ->
 get_detail_cols(_) ->
     {[?COL_ID],true}.
 
-%% Callbacks for cdv_detail_win
+%% Callbacks for cdv_detail_wx
 get_details(Id) ->
     case crashdump_viewer:proc_details(Id) of
 	{ok,Info,TW} ->
-	    %% The following table is used by crashdump_viewer_html
+	    %% The following table is used by observer_html_lib
 	    %% for storing expanded terms and it is read by
-	    %% cdv_html_page when a link to an expandable term is clicked.
+	    %% cdv_html_wx when a link to an expandable term is clicked.
 	    Tab = ets:new(cdv_expand,[set,public]),
 	    Proplist0 =
 		crashdump_viewer:to_proplist(record_info(fields,proc),Info),
@@ -76,7 +76,8 @@ get_details(Id) ->
 	    Info = "The process you are searching for was residing on "
 		"a remote node. No process information is available. "
 		"Show information about the remote node?",
-	    {yes_no, Info, fun()->cdv_virtual_list:start_detail_win(NodeId) end};
+	    Fun = fun() -> cdv_virtual_list_wx:start_detail_win(NodeId) end,
+	    {yes_no, Info, Fun};
 	{error,not_found} ->
 	    Info = "The process you are searching for could not be found.",
 	    {info,Info}
@@ -92,7 +93,7 @@ detail_pages() ->
 
 init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
+    cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
 init_message_page(Parent, Info) ->
     init_memory_page(Parent, Info, msg_q, "MsgQueue").
@@ -106,16 +107,16 @@ init_stack_page(Parent, Info) ->
 init_memory_page(Parent, Info0, Tag, Heading) ->
     Info = proplists:get_value(Tag,Info0),
     Tab = proplists:get_value(expand_table,Info0),
-    Html = crashdump_viewer_html:expandable_term(Heading,Info,Tab),
-    cdv_html_page:start_link(Parent,{expand,Html,Tab}).
+    Html = observer_html_lib:expandable_term(Heading,Info,Tab),
+    cdv_html_wx:start_link(Parent,{expand,Html,Tab}).
 
 init_ets_page(Parent, Info) ->
     Pid = proplists:get_value(pid,Info),
-    cdv_virtual_list:start_link(Parent, cdv_ets_wx, Pid).
+    cdv_virtual_list_wx:start_link(Parent, cdv_ets_cb, Pid).
 
 init_timer_page(Parent, Info) ->
     Pid = proplists:get_value(pid,Info),
-    cdv_virtual_list:start_link(Parent, cdv_timer_wx, Pid).
+    cdv_virtual_list_wx:start_link(Parent, cdv_timer_cb, Pid).
 
 %%%-----------------------------------------------------------------
 %%% Internal

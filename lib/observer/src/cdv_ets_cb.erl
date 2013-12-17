@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_ets_wx).
+-module(cdv_ets_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
@@ -35,7 +35,7 @@
 -define(COL_MEM,   ?COL_OBJ+1).
 -define(COL_TYPE,  ?COL_MEM+1).
 
-%% Callbacks for cdv_virtual_list
+%% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_ID);
 col_to_elem(?COL_ID)    -> #ets_table.id;
 col_to_elem(?COL_NAME)  -> #ets_table.name;

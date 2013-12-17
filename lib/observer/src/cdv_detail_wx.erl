@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_detail_win).
+-module(cdv_detail_wx).
 
 -behaviour(wx_object).
 

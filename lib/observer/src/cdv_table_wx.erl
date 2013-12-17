@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_table_page).
+-module(cdv_table_wx).
 
 -behaviour(wx_object).
 
@@ -69,7 +69,7 @@ init([ParentWin, {ColumnSpec,Info,TW}]) ->
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_info(active, State) ->
-    crashdump_viewer_wx:set_status(State#state.trunc_warn),
+    cdv_wx:set_status(State#state.trunc_warn),
     {noreply, State};
 
 handle_info(Info, State) ->

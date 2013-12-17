@@ -15,34 +15,37 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
--module(cdv_atom_wx).
+-module(cdv_timer_cb).
 
 -export([col_to_elem/1,
 	 col_spec/0,
 	 get_info/1,
-	 format/1]).
+	 get_detail_cols/1]).
 
 -include_lib("wx/include/wx.hrl").
+-include("crashdump_viewer.hrl").
 
 %% Defines
--define(COL_ID, 0).
--define(COL_ATOM, ?COL_ID+1).
+-define(COL_OWNER, 0).
+-define(COL_MSG,   ?COL_OWNER+1).
+-define(COL_TIME,  ?COL_MSG+1).
 
-%% Callbacks for cdv_virtual_list
-col_to_elem(id) -> col_to_elem(?COL_ID);
-col_to_elem(Id) -> Id+1.
+%% Callbacks for cdv_virtual_list_wx
+col_to_elem(id) -> col_to_elem(?COL_OWNER);
+col_to_elem(?COL_OWNER) -> #timer.pid;
+col_to_elem(?COL_MSG)   -> #timer.msg;
+col_to_elem(?COL_TIME)  -> #timer.time.
 
 col_spec() ->
-    [{"Creation order",   ?wxLIST_FORMAT_CENTER, 100},
-     {"Atom",             ?wxLIST_FORMAT_LEFT,  100}].
+    [{"Owner",      ?wxLIST_FORMAT_LEFT,   110},
+     {"Message",    ?wxLIST_FORMAT_LEFT,   400},
+     {"Time left (ms)",  ?wxLIST_FORMAT_RIGHT,  80}].
 
-get_info(_) ->
-    {ok,Info,TW} = crashdump_viewer:atoms(),
+get_info(Owner) ->
+    {ok,Info,TW} = crashdump_viewer:timers(Owner),
     {Info,TW}.
 
-format({Bin,q}) when is_binary(Bin) ->
-    [$'|binary_to_list(Bin)];
-format({Bin,nq}) when is_binary(Bin) ->
-    lists:flatten(io_lib:format("~ts",[Bin]));
-format(D) ->
-    D.
+get_detail_cols(all) ->
+    {[?COL_OWNER],false};
+get_detail_cols(_) ->
+    {[],false}.

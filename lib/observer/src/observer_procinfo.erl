@@ -126,8 +126,8 @@ handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
 handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	     #state{frame=Frame,expand_table=T,expand_wins=Opened0}=State) ->
     {Type, Rest} = case Href of
-		       "#Term?"++Keys   -> {cdv_term_wx, Keys};
-		       "#OBSBinary?"++Keys -> {cdv_bin_wx, Keys};
+		       "#Term?"++Keys   -> {cdv_term_cb, Keys};
+		       "#OBSBinary?"++Keys -> {cdv_bin_cb, Keys};
 		       _ -> {other, Href}
 		   end,
     case Type of
@@ -142,7 +142,7 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	    Opened =
 		case lists:keyfind(Id,1,Opened0) of
 		    false ->
-			Win = cdv_detail_win:start_link(Id,Frame,Callback),
+			Win = cdv_detail_wx:start_link(Id,Frame,Callback),
 			[{Id,Win}|Opened0];
 		    {_,Win} ->
 			wxFrame:raise(Win),
@@ -201,7 +201,7 @@ init_message_page(Parent, Pid, Table) ->
 					      [Pid, messages])
 		     of
 			 {messages, Messages} ->
-			     Html = crashdump_viewer_html:expandable_term("Message Queue", Messages, Table),
+			     Html = observer_html_lib:expandable_term("Message Queue", Messages, Table),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -216,7 +216,7 @@ init_dict_page(Parent, Pid, Table) ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
 		     of
 			 {dictionary,Dict} ->
-			     Html = crashdump_viewer_html:expandable_term("Dictionary", Dict, Table),
+			     Html = observer_html_lib:expandable_term("Dictionary", Dict, Table),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -273,7 +273,7 @@ init_state_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     StateInfo = fetch_state_info(Pid),
-		     Html = crashdump_viewer_html:expandable_term("ProcState", StateInfo, Table),
+		     Html = observer_html_lib:expandable_term("ProcState", StateInfo, Table),
 		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),
