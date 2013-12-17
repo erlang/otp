@@ -279,18 +279,21 @@ typedef unsigned long UWord;
 typedef long          SWord;
 #define SWORD_CONSTANT(Const) Const##L
 #define UWORD_CONSTANT(Const) Const##UL
+#define ERTS_UWORD_MAX ULONG_MAX
 #define ERTS_SWORD_MAX LONG_MAX
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int UWord;
 typedef int          SWord;
 #define SWORD_CONSTANT(Const) Const
 #define UWORD_CONSTANT(Const) Const##U
+#define ERTS_UWORD_MAX UINT_MAX
 #define ERTS_SWORD_MAX INT_MAX
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
 typedef unsigned long long UWord;
 typedef long long          SWord;
 #define SWORD_CONSTANT(Const) Const##LL
 #define UWORD_CONSTANT(Const) Const##ULL
+#define ERTS_UWORD_MAX ULLONG_MAX
 #define ERTS_SWORD_MAX LLONG_MAX
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
@@ -304,6 +307,7 @@ typedef unsigned long Uint;
 typedef long          Sint;
 #define SWORD_CONSTANT(Const) Const##L
 #define UWORD_CONSTANT(Const) Const##UL
+#define ERTS_UWORD_MAX ULONG_MAX
 #define ERTS_SWORD_MAX LONG_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG
 #define ErtsStrToSint strtol
@@ -313,6 +317,7 @@ typedef unsigned int Uint;
 typedef int          Sint;
 #define SWORD_CONSTANT(Const) Const
 #define UWORD_CONSTANT(Const) Const##U
+#define ERTS_UWORD_MAX UINT_MAX
 #define ERTS_SWORD_MAX INT_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
 #define ErtsStrToSint strtol
@@ -322,6 +327,7 @@ typedef unsigned long long Uint;
 typedef long long          Sint;
 #define SWORD_CONSTANT(Const) Const##LL
 #define UWORD_CONSTANT(Const) Const##ULL
+#define ERTS_UWORD_MAX ULLONG_MAX
 #define ERTS_SWORD_MAX LLONG_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
 #if defined(__WIN32__)

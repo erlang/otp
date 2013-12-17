@@ -3613,8 +3613,9 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    default: BIF_ERROR(BIF_P, BADARG); break;
 	    }
  
-	    res = erts_set_gc_state(BIF_P, enable);
-	    BIF_RET(res ? am_true : am_false);
+            res = (BIF_P->flags & F_DISABLE_GC) ? am_false : am_true;
+	    erts_set_gc_state(BIF_P, enable);
+	    BIF_RET(res);
 	}
 	else if (ERTS_IS_ATOM_STR("send_fake_exit_signal", BIF_ARG_1)) {
 	    /* Used by signal_SUITE (emulator) */
