@@ -71,6 +71,7 @@
 	     lib,
 	     lists,
 	     log_mf_h,
+	     maps,
 	     math,
 	     ms_transform,
 	     orddict,
