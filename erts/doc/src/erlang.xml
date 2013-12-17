@@ -6178,6 +6178,24 @@ ok
 	      notice.
 	      </p>
           </item>
+          <tag><c>{long_message_queue, Length}</c></tag>
+          <item>
+              <p>If the process message queue contains at least
+              <c>Length</c> messages, a message <c>{monitor, Pid,
+              long_message_queue, Info}</c> is sent to <c>MonitorPid</c>.
+              <c>Pid</c> is the pid whose message queue got long enough
+              and <c>Info</c> is a list of two-element tuples describing
+              message queue properties. One of the tuples is
+              <c>{long_message_queue, Length}</c> where <c>Length</c>
+              is the actual length of the message queue.
+              </p>
+              <p>The monitor message is generated only once for a given
+              process after passing the configured monitor level.
+              Another monitor message can be delievered to the monitoring
+              process once the message queue length of the process that
+              was already reported drops below the configured monitor
+              level.</p>
+          </item>
           <tag><c>{long_schedule, Time}</c></tag>
           <item>
               <p>If a process or port in the system runs uninterrupted
@@ -7254,4 +7272,5 @@ true</pre>
     </func>
   </funcs>
 </erlref>
+
 

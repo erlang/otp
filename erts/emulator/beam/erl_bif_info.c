@@ -1034,7 +1034,7 @@ process_info_aux(Process *BIF_P,
 	int n;
 
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
-	n = rp->msg.len;
+	n = erts_smp_atomic32_read_mb(&rp->msg.len);
 
 	if (n == 0 || ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
 	    hp = HAlloc(BIF_P, 3);
@@ -1173,7 +1173,7 @@ process_info_aux(Process *BIF_P,
 			    rp->msg.last = mpp;
 			*mpp = mp->next;
 			mp = mp->next;
-			rp->msg.len--;
+			erts_smp_atomic32_dec_mb(&rp->msg.len);
 			free_message(bad_mp);
 		    }
 		}
@@ -1185,7 +1185,7 @@ process_info_aux(Process *BIF_P,
     case am_message_queue_len:
 	hp = HAlloc(BIF_P, 3);
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
-	res = make_small(rp->msg.len);
+	res = make_small(erts_smp_atomic32_read_mb(&rp->msg.len));
 	break;
 
     case am_links: {

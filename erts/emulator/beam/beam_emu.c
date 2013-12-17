@@ -1845,6 +1845,12 @@ void process_main(void)
          /* TODO: Add DTrace probe for this bad message situation? */
 	 UNLINK_MESSAGE(c_p, msgp);
 	 free_message(msgp);
+     if (erts_system_monitor_long_message_queue > MSGQ_LENGTH(c_p) &&
+         (erts_smp_atomic32_read_nob(&c_p->state) &
+          ERTS_PSFLG_LONG_MSGQ)) {
+         erts_smp_atomic32_read_band_mb(&c_p->state,
+                                        ~ERTS_PSFLG_LONG_MSGQ);
+     }
 	 goto loop_rec__;
      }
      PreFetch(1, next);
@@ -1947,13 +1953,20 @@ void process_main(void)
          }
          DTRACE6(message_receive,
                  receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
-                 c_p->msg.len - 1, tok_label, tok_lastcnt, tok_serial);
+                 erts_smp_atomic32_read_mb(&c_p->msg.len) - 1, tok_label, tok_lastcnt, tok_serial);
      }
 #endif
      UNLINK_MESSAGE(c_p, msgp);
      JOIN_MESSAGE(c_p);
      CANCEL_TIMER(c_p);
      free_message(msgp);
+
+     if (erts_system_monitor_long_message_queue > MSGQ_LENGTH(c_p) &&
+         (erts_smp_atomic32_read_nob(&c_p->state) &
+          ERTS_PSFLG_LONG_MSGQ)) {
+         erts_smp_atomic32_read_band_mb(&c_p->state,
+                                        ~ERTS_PSFLG_LONG_MSGQ);
+     }
 
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -5962,7 +5975,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
      */
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-    if (!c_p->msg.len) {
+    if (!erts_smp_atomic32_read_mb(&c_p->msg.len)) {
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	c_p->fvalue = NIL;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -5972,7 +5985,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 #ifdef ERTS_SMP
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	if (!c_p->msg.len)
+	if (!erts_smp_atomic32_read_mb(&c_p->msg.len))
 #endif
 	    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));

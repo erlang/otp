@@ -34,7 +34,8 @@
 	 system_monitor_args/1, more_system_monitor_args/1,
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
-	 system_monitor_long_schedule/1,
+	 system_monitor_long_schedule/1, system_monitor_long_message_queue_1/1,
+     system_monitor_long_message_queue_2/1,
 	 bad_flag/1, trace_delivered/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -53,7 +54,8 @@ all() ->
      set_on_first_spawn, system_monitor_args,
      more_system_monitor_args, system_monitor_long_gc_1,
      system_monitor_long_gc_2, system_monitor_large_heap_1,
-      system_monitor_long_schedule,
+     system_monitor_long_schedule, system_monitor_long_message_queue_1,
+     system_monitor_long_message_queue_2,
      system_monitor_large_heap_2, bad_flag, trace_delivered].
 
 groups() -> 
@@ -568,6 +570,138 @@ do_system_monitor_long_schedule() ->
     erlang:system_monitor(undefined),
     ok.
 
+system_monitor_long_message_queue_1(suite) ->
+    [];
+system_monitor_long_message_queue_1(doc) ->
+    ["Tests erlang:system_monitor(Pid, [{long_message_queue,Len}]"];
+system_monitor_long_message_queue_1(Config) when is_list(Config) ->
+    ?line WorkerPid =
+        spawn_link(
+          fun() ->
+                  F = fun(Fun) ->
+                              receive
+                                  consume ->
+                                      receive
+                                          _ ->
+                                              ok
+                                      end
+                              end,
+                              Fun(Fun)
+                      end,
+                  F(F)
+          end),
+    ?line erlang:system_monitor(self(), [{long_message_queue, 5}]),
+    ?line WorkerPid ! msg1,
+    ?line WorkerPid ! msg2,
+    ?line WorkerPid ! msg3,
+    ?line WorkerPid ! msg4,
+    ?line erlang:yield(),
+    receive
+        {monitor, Pid, long_message_queue, _Opts}
+          when WorkerPid == Pid ->
+            ?t:fail(monitor_triggered_too_soon)
+    after 0 ->
+            ok
+    end,
+
+    ?line WorkerPid ! msg5,
+    receive
+        {monitor, Pid2, long_message_queue, Opts2}
+          when WorkerPid == Pid2 ->
+            ?line 5 = proplists:get_value(long_message_queue, Opts2)
+    after 1000 ->
+            ?t:fail(no_trace_of_pid)
+    end,
+
+    ?line WorkerPid ! msg6,
+    ?line erlang:yield(),
+    receive
+        {monitor, Pid3, long_message_queue, _Opts3}
+        when WorkerPid == Pid3 ->
+            ?t:fail(monitor_triggered_twice)
+    after 0 ->
+            ok
+    end,
+
+    ?line WorkerPid ! consume,
+    ?line WorkerPid ! consume,
+    erlang:yield(),
+    ?line WorkerPid ! msg7,
+    receive
+        {monitor, Pid4, long_message_queue, Opts4}
+          when WorkerPid == Pid4 ->
+            ?line 5 = proplists:get_value(long_message_queue, Opts4)
+    after 1000 ->
+            ?t:fail(no_trace_of_pid)
+    end,
+
+    unlink(WorkerPid),
+    exit(WorkerPid, kill),
+    erlang:system_monitor(undefined),
+    ok.
+
+system_monitor_long_message_queue_2(suite) ->
+    [];
+system_monitor_long_message_queue_2(doc) ->
+    ["Tests erlang:system_monitor(Pid, [{long_message_queue,Len}])"];
+system_monitor_long_message_queue_2(Config) when is_list(Config) ->
+    ?line Parent = self(),
+    ?line MonitorPid =
+        spawn_link(
+          fun() ->
+                  F = fun(Fun) ->
+                              receive
+                                  {monitor, _, _, _} = Monitor ->
+                                      Parent ! Monitor
+                              end,
+                              Fun(Fun)
+                      end,
+                  F(F)
+          end),
+    ?line erlang:system_monitor(MonitorPid, [{long_message_queue, 5}]),
+    ?line Parent ! msg1,
+    ?line Parent ! msg2,
+    ?line Parent ! msg3,
+    receive
+        {monitor, _, _, _} ->
+            ?t:fail(monitor_triggered_too_soon)
+    after 50 ->
+            ok
+    end,
+
+    ?line Parent ! msg4,
+    ?line Parent ! msg5,
+    receive
+        {monitor, Pid, long_message_queue, Opts}
+          when Pid == Parent ->
+            ?line 5 = proplists:get_value(long_message_queue, Opts)
+    after 1000 ->
+            ?t:fail(no_trace_of_pid)
+    end,
+
+    ?line Parent ! msg6,
+    receive
+        {monitor, _, _, _} ->
+            ?t:fail(monitor_triggered_twice)
+    after 50 ->
+            ok
+    end,
+
+    receive msg1 -> ok end,
+    receive msg2 -> ok end,
+    ?line Parent ! msg7,
+    receive
+        {monitor, Pid2, long_message_queue, Opts2}
+          when Pid2 == Parent ->
+            ?line 5 = proplists:get_value(long_message_queue, Opts2)
+    after 1000 ->
+            ?t:fail(no_trace_of_pid)
+    end,
+
+    unlink(MonitorPid),
+    exit(MonitorPid, kill),
+    erlang:system_monitor(undefined),
+    ok.
 
 -define(LONG_GC_SLEEP, 670).
 

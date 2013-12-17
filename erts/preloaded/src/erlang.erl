@@ -189,6 +189,7 @@
       'busy_dist_port' |
       {'long_gc', non_neg_integer()} |
       {'long_schedule', non_neg_integer()} |
+      {'long_message_queue', non_neg_integer()} |
       {'large_heap', non_neg_integer()}.
 
 

@@ -90,7 +90,7 @@ Uint erts_process_memory(Process *p) {
   if (p->old_hend && p->old_heap)
     size += (p->old_hend - p->old_heap) * sizeof(Eterm);
 
-  size += p->msg.len * sizeof(ErlMessage);
+  size += erts_smp_atomic32_read_mb(&p->msg.len) * sizeof(ErlMessage);
 
   for (mp = p->msg.first; mp; mp = mp->next)
     if (mp->data.attached)

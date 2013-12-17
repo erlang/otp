@@ -259,7 +259,8 @@ print_process_info(int to, void *to_arg, Process *p)
     approx_started = (time_t) p->approx_started;
     erts_print(to, to_arg, "Started: %s", ctime(&approx_started));
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
-    erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
+    erts_print(to, to_arg, "Message queue length: %d\n",
+               erts_smp_atomic32_read_mb(&p->msg.len));
 
     /* display the message queue only if there is anything in it */
     if (!ERTS_IS_CRASH_DUMPING && p->msg.first != NULL && !garbing) {
