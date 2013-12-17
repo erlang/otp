@@ -1793,18 +1793,18 @@ no_dot_erlang(Conf) ->
 	case os:cmd(Erl ++ Args) of
 	    "DOT_ERLANG_READ" ++ _ -> ok;
 	    Other1 ->
-		io:format("Failed: ~s~n",[Erl ++ Args]),
+		io:format("Failed: ~ts~n",[Erl ++ Args]),
 		io:format("Expected: ~s ++ _~n",["DOT_ERLANG_READ "]),
-		io:format("Got: ~s~n",[Other1]),
+		io:format("Got: ~ts~n",[Other1]),
 		exit(failed_to_start, test_error)
 	end,
 	NO_DOT_ERL = " -boot no_dot_erlang",
 	case os:cmd(Erl ++ NO_DOT_ERL ++ Args) of
 	    "TESTOK" ++ _ -> ok;
 	    Other2 ->
-		io:format("Failed: ~s~n",[Erl ++ Args]),
+		io:format("Failed: ~ts~n",[Erl ++ Args]),
 		io:format("Expected: ~s~n",["TESTOK"]),
-		io:format("Got: ~s~n",[Other2]),
+		io:format("Got: ~ts~n",[Other2]),
 		exit(failed_to_start, no_dot_erlang)
 	end
     after
