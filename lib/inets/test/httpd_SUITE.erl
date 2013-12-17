@@ -31,6 +31,9 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
+-record(httpd_user,  {user_name, password, user_data}).
+-record(httpd_group, {group_name, userlist}).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -47,7 +50,8 @@ groups() ->
     [
      {http, [], all_groups()},
      %{https, [], all_groups()},
-     {http_1_1, [], [host, chunked, expect, cgi] ++ http_head() ++ http_get()},
+     {http_1_1, [], [host, chunked, expect, cgi, max_clients
+		    ] ++ http_head() ++ http_get()},
      {http_1_0, [], [host, cgi] ++ http_head() ++ http_get()},
      {http_0_9, [], http_head() ++ http_get()}
     ].
@@ -61,7 +65,9 @@ all_groups ()->
 http_head() ->
     [head].
 http_get() ->
-    [alias, get, basic_auth, esi, ssi].
+    [alias, get,
+     basic_auth,
+     esi, ssi].
 
 init_per_suite(Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -99,14 +105,21 @@ init_per_group(http_0_9, Config) ->
     [{http_version, "HTTP/0.9"} | Config];
 init_per_group(_, Config) ->
     Config.
-end_per_group(_, _Config) ->
+end_per_group(http, _Config) ->
+    inets:stop();
+end_per_group(https, _Config) ->
+    ssl:stop(),
+    inets:stop();
+end_per_group(_, _) ->
     ok.
+
 init_httpd(Group, Config0) ->
-    Config = proplists:delete(port, Config0),
-    Port = server_start(Group, server_config(Group, Config)),
-    [{port, Port} | Config].
+    Config1 = proplists:delete(port, Config0),
+    Config = proplists:delete(server_pid, Config1),
+    {Pid, Port} = server_start(Group, server_config(Group, Config)),
+    [{server_pid, Pid}, {port, Port} | Config].
 %%--------------------------------------------------------------------
-init_per_testcase(host, Config) ->
+init_per_testcase(host = Case, Config) ->
     Prop = ?config(tc_group_properties, Config),
     Name = proplists:get_value(name, Prop),
     Cb = case Name of
@@ -115,11 +128,47 @@ init_per_testcase(host, Config) ->
 	     http_1_1 ->
 		 httpd_1_1
 	 end,
-    [{version_cb, Cb} | proplists:delete(version_cb, Config)];
+    common_init_per_test_case(Case, [{version_cb, Cb} | proplists:delete(version_cb, Config)]);
+
+%% init_per_testcase(basic_auth = Case, Config) ->
+%%     start_mnesia(?config(node, Config)),
+%%     common_init_per_test_case(Case, Config);
+
+init_per_testcase(max_clients, Config) ->
+    Pid = ?config(server_pid, Config),
+    Prop = httpd:info(Pid),
+    Port = proplists:get_value(port, Prop),
+    TempProp = [{port, Port} | proplists:delete(port, server_config(http, Config))],
+    NewProp = [{max_clients, 1} | TempProp],
+    httpd:reload_config(NewProp, non_disturbing),
+    Config;
 
 init_per_testcase(_Case, Config) ->
-    Config.
+    common_init_per_test_case(_Case, Config).
 
+%%% Should be run by all test cases except max_clients, to make
+%%% sure failiure of max_clients does not affect other test cases
+common_init_per_test_case(_Case, Config) ->
+    Pid = ?config(server_pid, Config),
+    Prop = httpd:info(Pid),
+    case proplists:get_value(max_clients, Prop, 150) of
+	150 ->
+	    Config;
+	_ ->
+	    end_per_testcase(max_clients, Config)
+    end.
+
+end_per_testcase(max_clients, Config) ->
+    Pid = ?config(server_pid, Config),
+    Prop = httpd:info(Pid),
+    Port = proplists:get_value(port, Prop),
+    TempProp = [{port, Port} | proplists:delete(port, server_config(http, Config))],
+    NewProp = proplists:delete(max_clients, TempProp),
+    httpd:reload_config(NewProp, non_disturbing),
+    Config;
+
+%% end_per_testcase(basic_auth, Config) ->
+%%     cleanup_mnesia();
 end_per_testcase(_Case, _Config) ->
     ok.
 
@@ -220,6 +269,35 @@ expect() ->
 expect(Config) when is_list(Config) ->
     httpd_1_1:expect(?config(type, Config), ?config(port, Config),
 		     ?config(host, Config), ?config(node, Config)).
+
+max_clients() ->
+    [{doc, "Test max clients limit"}].
+
+max_clients(Config) when is_list(Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Pid = ?config(server_pid, Config),
+    ct:pal("Configurartion: ~p~n", [httpd:info(Pid)]),
+    spawn(fun() -> httpd_test_lib:verify_request(?config(type, Config), Host,
+						 ?config(port, Config),  ?config(node, Config),
+						 http_request("GET /eval?httpd_example:delay(1000) ",
+							      Version, Host),
+						 [{statuscode, 200},
+						  {version, Version}])
+	  end),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host,
+				       ?config(port, Config),  ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 503},
+					{version, Version}]),
+    receive
+    after 1000 ->
+	    ok = httpd_test_lib:verify_request(?config(type, Config), Host,
+				       ?config(port, Config),  ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+					       [{statuscode, 200},
+						{version, Version}])
+    end.
 
 esi() ->
     [{doc, "Test mod_esi"}].
@@ -560,7 +638,7 @@ server_start(_, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
     {value, {_, _, Info}} = lists:keysearch(Pid, 2, Serv),
-    proplists:get_value(port, Info).
+    {Pid, proplists:get_value(port, Info)}.
 
 
 server_config(http, Config) ->
@@ -670,12 +748,48 @@ auth_status(AuthRequest, Config, Expected) ->
 				  Expected ++ [{version, Version}]).
 
 basic_auth_requiered(Config) ->
-    ok = http_status("GET /secret/dummy.html ", Config, [{statuscode, 401},
-							 {header, "WWW-Authenticate"}]),
     ok = http_status("GET /open/ ", Config,  [{statuscode, 401},
 					      {header, "WWW-Authenticate"}]),
     ok = http_status("GET /secret/ ", Config,  [{statuscode, 401},
 						{header, "WWW-Authenticate"}]),
-    ok = http_status("GET /secret/top_secret ", Config,  [{statuscode, 401},
+    ok = http_status("GET /secret/top_secret/ ", Config,  [{statuscode, 401},
 						      {header, "WWW-Authenticate"}]).
 
+start_mnesia(Node) ->
+    case rpc:call(Node, ?MODULE, cleanup_mnesia, []) of
+	ok ->
+	    ok;
+	Other ->
+	    ct:fail({failed_to_cleanup_mnesia, Other})
+    end,
+    case rpc:call(Node, ?MODULE, setup_mnesia, []) of
+	{atomic, ok} ->
+	    ok;
+	Other2 ->
+	    ct:fail({failed_to_setup_mnesia, Other2})
+    end,
+    ok.
+
+setup_mnesia() ->
+    setup_mnesia([node()]).
+
+setup_mnesia(Nodes) ->
+    ok = mnesia:create_schema(Nodes),
+    ok = mnesia:start(),
+    {atomic, ok} = mnesia:create_table(httpd_user,
+				       [{attributes,
+					 record_info(fields, httpd_user)},
+					{disc_copies,Nodes}, {type, set}]),
+    {atomic, ok} = mnesia:create_table(httpd_group,
+				       [{attributes,
+					 record_info(fields,
+						     httpd_group)},
+					{disc_copies,Nodes}, {type,bag}]).
+
+cleanup_mnesia() ->
+    mnesia:start(),
+    mnesia:delete_table(httpd_user),
+    mnesia:delete_table(httpd_group),
+    stopped = mnesia:stop(),
+    mnesia:delete_schema([node()]),
+    ok.

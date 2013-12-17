@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 -module(inets_sup_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
+
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -297,13 +297,14 @@ httpd_subtree(Config) when is_list(Config) ->
     %% Check that we have the expected httpd instance children
     io:format("httpd_subtree -> verify httpd instance children "
 	      "(acceptor, misc and manager)~n", []),
+    {ok, _} = verify_child(Instance, httpd_connection_sup, supervisor),
     {ok, _} = verify_child(Instance, httpd_acceptor_sup, supervisor),
     {ok, _} = verify_child(Instance, httpd_misc_sup, supervisor),
     {ok, _} = verify_child(Instance, httpd_manager, worker),
 
     %% Check that the httpd instance acc supervisor has children
     io:format("httpd_subtree -> verify acc~n", []),
-    InstanceAcc = httpd_util:make_name("httpd_acc_sup", Addr, Port),
+    InstanceAcc = httpd_util:make_name("httpd_acceptor_sup", Addr, Port),
     case supervisor:which_children(InstanceAcc) of
 	[_ | _] -> 
 	    ok;

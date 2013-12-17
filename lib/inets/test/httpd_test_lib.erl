@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -187,12 +187,12 @@ request(#state{mfa = {Module, Function, Args},
 	{tcp_closed, Socket} ->
 	    io:format("~p ~w[~w]request -> received (tcp) closed"
 		      "~n", [self(), ?MODULE, ?LINE]),
-	    test_server:fail(connection_closed);
+	    exit({test_failed, connection_closed});
 	{tcp_error, Socket, Reason} ->
 	    io:format("~p ~w[~w]request -> received (tcp) error"
 		      "~n   Reason: ~p"
 		      "~n", [self(), ?MODULE, ?LINE, Reason]),
-	    test_server:fail({tcp_error, Reason});    
+	    ct:fail({tcp_error, Reason});
 	{ssl, Socket, Data} ->
 	    print(ssl, Data, State),
 	    case Module:Function([Data | Args]) of
@@ -207,13 +207,13 @@ request(#state{mfa = {Module, Function, Args},
 	    print(ssl, "closed", State),
 	    State#state{body = hd(Args)};
 	{ssl_closed, Socket} ->
-	    test_server:fail(connection_closed);
+	    exit({test_failed, connection_closed});
 	{ssl_error, Socket, Reason} ->
-	    test_server:fail({ssl_error, Reason})
+	    ct:fail({ssl_error, Reason})
     after TimeOut ->
 	    io:format("~p ~w[~w]request -> timeout"
 		      "~n", [self(), ?MODULE, ?LINE]),
-	    test_server:fail(connection_timed_out)    
+	    ct:fail(connection_timed_out)
     end.
 
 handle_http_msg({Version, StatusCode, ReasonPharse, Headers, Body}, 
@@ -277,7 +277,7 @@ handle_http_body(Body, State = #state{headers = Headers,
 			     request(State#state{mfa = MFA}, 5000) 
 		     end;
 		 false ->
-		     test_server:fail(body_too_big)
+		     ct:fail(body_too_big)
 	     end
      end.
 
@@ -405,7 +405,7 @@ check_body(_, _, _, _,_) ->
     ok.
 
 print(Proto, Data, #state{print = true}) ->
-    test_server:format("Received ~p: ~p~n", [Proto, Data]);
+    ct:pal("Received ~p: ~p~n", [Proto, Data]);
 print(_, _,  #state{print = false}) ->
     ok.
 
