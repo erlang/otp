@@ -363,7 +363,8 @@ erts_queue_dist_message(Process *rcvr,
                     tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
                 }
                 DTRACE6(message_queued,
-                        receiver_name, size_object(msg), rcvr->msg.len,
+                        receiver_name, size_object(msg),
+                        erts_smp_atomic32_read_mb(&rcvr->msg.len),
                         tok_label, tok_lastcnt, tok_serial);
             }
 #endif
@@ -403,7 +404,8 @@ erts_queue_dist_message(Process *rcvr,
              * TODO: We don't know the real size of the external message here.
              *       -1 will appear to a D script as 4294967295.
              */
-            DTRACE6(message_queued, receiver_name, -1, rcvr->msg.len + 1,
+            DTRACE6(message_queued, receiver_name, -1,
+                    erts_smp_atomic32_read_mb(&rcvr->msg.len) + 1,
                     tok_label, tok_lastcnt, tok_serial);
         }
 #endif
@@ -493,9 +495,9 @@ queue_message(Process *c_p,
     mp->data.heap_frag = bp;
 
 #ifndef ERTS_SMP
-    res = receiver->msg.len;
+    res = erts_smp_atomic32_read_mb(&receiver->msg.len);
 #else
-    res = receiver->msg_inq.len;
+    res = erts_smp_atomic32_read_mb(&receiver->msg_inq.len);
     if (*receiver_locks & ERTS_PROC_LOCK_MAIN) {
 	/*
 	 * We move 'in queue' to 'private queue' and place
@@ -505,7 +507,7 @@ queue_message(Process *c_p,
 	 * we don't need to include the 'in queue' in
 	 * the root set when garbage collecting.
 	 */
-	res += receiver->msg.len;
+    res += erts_smp_atomic32_read_mb(&receiver->msg.len);
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(receiver);
 	LINK_MESSAGE_PRIVQ(receiver, mp);
     }
@@ -529,7 +531,8 @@ queue_message(Process *c_p,
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(seq_trace_token));
         }
         DTRACE6(message_queued,
-                receiver_name, size_object(message), receiver->msg.len,
+                receiver_name, size_object(message),
+                erts_smp_atomic32_read_mb(&receiver->msg.len),
                 tok_label, tok_lastcnt, tok_serial);
     }
 #endif
@@ -1033,7 +1036,7 @@ erts_send_message(Process* sender,
 	    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(receiver);
 	    LINK_MESSAGE_PRIVQ(receiver, mp);
 
-	    res = receiver->msg.len;
+	    res = erts_smp_atomic32_read_mb(&receiver->msg.len);
 
 	    if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)) {
 		trace_receive(receiver, message);
@@ -1111,7 +1114,7 @@ erts_send_message(Process* sender,
 	mp->next = NULL;
 	mp->data.attached = NULL;
 	LINK_MESSAGE(receiver, mp);
-	res = receiver->msg.len;
+	res = erts_smp_atomic32_read_mb(&receiver->msg.len);
 	erts_proc_notify_new_message(receiver);
 
 	if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)) {

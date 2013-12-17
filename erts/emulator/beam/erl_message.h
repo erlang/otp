@@ -90,7 +90,7 @@ typedef struct {
     ErlMessage* first;
     ErlMessage** last;  /* point to the last next pointer */
     ErlMessage** save;
-    Sint len;            /* queue length */
+    erts_smp_atomic32_t len;            /* queue length */
 
     /*
      * The following two fields are used by the recv_mark/1 and
@@ -105,7 +105,7 @@ typedef struct {
 typedef struct {
     ErlMessage* first;
     ErlMessage** last;  /* point to the last next pointer */
-    Sint len;            /* queue length */
+    erts_smp_atomic32_t len;            /* queue length */
 } ErlMessageInQueue;
 
 #endif
@@ -118,7 +118,7 @@ typedef struct {
 #define LINK_MESSAGE_PRIVQ(p, mp) do { \
     *(p)->msg.last = (mp); \
     (p)->msg.last = &(mp)->next; \
-    (p)->msg.len++; \
+    erts_smp_atomic32_inc_mb(&(p)->msg.len);     \
 } while(0)
 
 
@@ -130,10 +130,10 @@ do {									\
     if ((P)->msg_inq.first) {						\
 	*(P)->msg.last = (P)->msg_inq.first;				\
 	(P)->msg.last = (P)->msg_inq.last;				\
-	(P)->msg.len += (P)->msg_inq.len;				\
+    erts_smp_atomic32_add_mb(&(P)->msg.len, erts_smp_atomic32_read_mb(&(P)->msg_inq.len)); \
 	(P)->msg_inq.first = NULL;					\
 	(P)->msg_inq.last = &(P)->msg_inq.first;			\
-	(P)->msg_inq.len = 0;						\
+	erts_smp_atomic32_set_mb(&(P)->msg_inq.len, 0);          \
     }									\
 } while (0)
 
@@ -141,8 +141,10 @@ do {									\
 #define LINK_MESSAGE(p, mp) do { \
     *(p)->msg_inq.last = (mp); \
     (p)->msg_inq.last = &(mp)->next; \
-    (p)->msg_inq.len++; \
+    erts_smp_atomic32_inc_mb(&(p)->msg_inq.len);   \
 } while(0)
+
+#define MSGQ_LENGTH(p) (erts_smp_atomic32_read_mb(&(p)->msg.len) + erts_smp_atomic32_read_mb(&(p)->msg_inq.len))
 
 #else
 
@@ -151,13 +153,15 @@ do {									\
 /* Add message last in message queue */
 #define LINK_MESSAGE(p, mp) LINK_MESSAGE_PRIVQ((p), (mp))
 
+#define MSGQ_LENGTH(p) (erts_smp_atomic32_read_nob(&(p)->msg.len))
+
 #endif
 
 /* Unlink current message */
 #define UNLINK_MESSAGE(p,msgp) do { \
      ErlMessage* __mp = (msgp)->next; \
      *(p)->msg.save = __mp; \
-     (p)->msg.len--; \
+     erts_smp_atomic32_dec_mb(&(p)->msg.len);        \
      if (__mp == NULL) \
          (p)->msg.last = (p)->msg.save; \
      (p)->msg.mark = 0; \

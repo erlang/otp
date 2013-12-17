@@ -7654,11 +7654,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->msg.first = NULL;
     p->msg.last = &p->msg.first;
     p->msg.save = &p->msg.first;
-    p->msg.len = 0;
+    erts_smp_atomic32_init_nob(&p->msg.len, 0);
 #ifdef ERTS_SMP
     p->msg_inq.first = NULL;
     p->msg_inq.last = &p->msg_inq.first;
-    p->msg_inq.len = 0;
+    erts_smp_atomic32_init_nob(&p->msg_inq.len, 0);
 #endif
     p->u.bif_timers = NULL;
     p->mbuf = NULL;
@@ -7841,7 +7841,7 @@ void erts_init_empty_process(Process *p)
     p->msg.first = NULL;
     p->msg.last = &p->msg.first;
     p->msg.save = &p->msg.first;
-    p->msg.len = 0;
+    erts_smp_atomic32_init_nob(&p->msg.len, 0);
     p->u.bif_timers = NULL;
     p->dictionary = NULL;
     p->seq_trace_clock = 0;
@@ -7890,7 +7890,7 @@ void erts_init_empty_process(Process *p)
     p->scheduler_data = NULL;
     p->msg_inq.first = NULL;
     p->msg_inq.last = &p->msg_inq.first;
-    p->msg_inq.len = 0;
+    erts_smp_atomic32_init_nob(&p->msg_inq.len, 0);
     p->suspendee = NIL;
     p->pending_suspenders = NULL;
     p->pending_exit.reason = THE_NON_VALUE;
@@ -7933,7 +7933,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->nodes_monitors == NULL);
     ASSERT(p->suspend_monitors == NULL);
     ASSERT(p->msg.first == NULL);
-    ASSERT(p->msg.len == 0);
+    ASSERT(erts_smp_atomic32_read_mb(&p->msg.len) == 0);
     ASSERT(p->u.bif_timers == NULL);
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
@@ -7945,7 +7945,7 @@ erts_debug_verify_clean_empty_process(Process* p)
 
 #ifdef ERTS_SMP
     ASSERT(p->msg_inq.first == NULL);
-    ASSERT(p->msg_inq.len == 0);
+    ASSERT(erts_smp_atomic32_read_nob(&p->msg_inq.len) == 0);
     ASSERT(p->suspendee == NIL);
     ASSERT(p->pending_suspenders == NULL);
     ASSERT(p->pending_exit.reason == THE_NON_VALUE);
