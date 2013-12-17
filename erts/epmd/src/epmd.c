@@ -175,6 +175,9 @@ int main(int argc, char** argv)
     g->nodes.reg = g->nodes.unreg = g->nodes.unreg_tail = NULL;
     g->nodes.unreg_count = 0;
     g->active_conn    = 0;
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+    g->is_systemd     = 0;
+#endif
 
     for (i = 0; i < MAX_LISTEN_SOCKETS; i++)
 	g->listenfd[i] = -1;
@@ -248,8 +251,12 @@ int main(int argc, char** argv)
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
-	}
-	else
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+	} else if (strcmp(argv[0], "-systemd") == 0) {
+            g->is_systemd = 1;
+            argv++; argc--;
+#endif
+	} else
 	    usage(g);
     }
     dbg_printf(g,1,"epmd running - daemon = %d",g->is_daemon);
@@ -454,6 +461,11 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        Forcibly unregisters a name with epmd\n");
     fprintf(stderr, "        (only allowed if -relaxed_command_check was given when \n");
     fprintf(stderr, "        epmd was started).\n");
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+    fprintf(stderr, "    -systemd\n");
+    fprintf(stderr, "        Wait for socket from systemd. The option makes sense\n");
+    fprintf(stderr, "        when started from .socket unit.\n");
+#endif
     epmd_cleanup_exit(g,1);
 }
 
