@@ -794,7 +794,7 @@ do_asm(Beam, Outdir) ->
 	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
 	ok = file:close(Fd),
-	case compile:file(AsmFile, [from_asm,no_postopt,binary,report]) of
+	case compile:file(AsmFile, [from_asm,binary,report]) of
 	    {ok,M,_} ->
 		ok = file:delete(AsmFile);
 	    Other ->

@@ -123,15 +123,24 @@ is_last_bool([], _) -> false.
 collect_block(Is) ->
     collect_block(Is, []).
 
+collect_block([{allocate,N,R}|Is0], Acc) ->
+    {Inits,Is} = lists:splitwith(fun ({init,{y,_}}) -> true;
+                                     (_) -> false
+                                 end, Is0),
+    collect_block(Is, [{set,[],[],{alloc,R,{nozero,N,0,Inits}}}|Acc]);
 collect_block([{allocate_zero,Ns,R},{test_heap,Nh,R}|Is], Acc) ->
-    collect_block(Is, [{set,[],[],{alloc,R,{no_opt,Ns,Nh,[]}}}|Acc]);
+    collect_block(Is, [{set,[],[],{alloc,R,{zero,Ns,Nh,[]}}}|Acc]);
 collect_block([I|Is]=Is0, Acc) ->
     case collect(I) of
 	error -> {reverse(Acc),Is0};
 	Instr -> collect_block(Is, [Instr|Acc])
     end.
 
+collect({allocate,N,R})      -> {set,[],[],{alloc,R,{nozero,N,0,[]}}};
 collect({allocate_zero,N,R}) -> {set,[],[],{alloc,R,{zero,N,0,[]}}};
+collect({allocate_heap,Ns,Nh,R}) -> {set,[],[],{alloc,R,{nozero,Ns,Nh,[]}}};
+collect({allocate_heap_zero,Ns,Nh,R}) -> {set,[],[],{alloc,R,{zero,Ns,Nh,[]}}};
+collect({init,D})            -> {set,[D],[],init};
 collect({test_heap,N,R})     -> {set,[],[],{alloc,R,{nozero,nostack,N,[]}}};
 collect({bif,N,F,As,D})      -> {set,[D],As,{bif,N,F}};
 collect({gc_bif,N,F,R,As,D}) -> {set,[D],As,{alloc,R,{gc_bif,N,F}}};
@@ -144,6 +153,10 @@ collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
+collect(fclearerror)         -> {set,[],[],fclearerror};
+collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
+collect({fmove,S,D})         -> {set,[D],[S],fmove};
+collect({fconv,S,D})         -> {set,[D],[S],fconv};
 collect(_)                   -> error.
 
 %% embed_lines([Instruction]) -> [Instruction]
