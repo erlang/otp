@@ -221,8 +221,13 @@ factorial 5 = 120
         <v>EmuArgs = string() | 'undefined'</v>
         <v>Body = {source, SourceCode}
                 | {beam, BeamCode}
-	        | {archive, ZipArchive}</v>
-        <v>SourceCode = BeamCode = ZipArchive = binary()</v>
+                | {archive, ZipArchive}
+                | {archive, ZipFiles, ZipOptions}</v>
+        <v>SourceCode = BeamCode = file:filename() | binary()</v>
+        <v>ZipArchive = <seealso marker="stdlib:zip#type-filename">zip:filename()</seealso> | binary()</v>
+        <v>ZipFiles = [ZipFile]</v>
+        <v>ZipFile = file:filename() | {file:filename(), binary()} | {file:filename(), binary(), file:file_info()}</v>
+        <v>ZipOptions = [<seealso marker="stdlib:zip#type-create_option">zip:create_option()</seealso>]</v>
       </type>
       <desc>
         <p>The <marker id="create_2"></marker> <c>create/2</c>
