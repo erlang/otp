@@ -58,7 +58,8 @@
 %%           separatedly.
 %%
 
--spec analyze(cerl:c_module()) -> {dict(), ordset('external' | label()), dict()}.
+-spec analyze(cerl:c_module()) ->
+	{dict(), ordset('external' | label()), dict(), dict()}.
 
 analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
