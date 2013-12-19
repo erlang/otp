@@ -234,6 +234,16 @@ erlc +export_all file.erl</pre>
           from the shell.</p>
         <p>Supported options: -I, -o, -D, -v, -W, -b.</p>
       </item>
+      <tag>.S</tag>
+      <item>
+        <p>Erlang assembler source code. It generates a <c><![CDATA[.beam]]></c> file.</p>
+        <p>Supported options: same as for .erl.</p>
+      </item>
+      <tag>.core</tag>
+      <item>
+        <p>Erlang core source code. It generates a <c><![CDATA[.beam]]></c> file.</p>
+        <p>Supported options: same as for .erl.</p>
+      </item>
       <tag>.yrl</tag>
       <item>
         <p>Yecc source code. It generates an <c><![CDATA[.erl]]></c> file.</p>
