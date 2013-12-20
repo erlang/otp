@@ -45,20 +45,6 @@ MODULES= \
 	dbg_iload \
 	dbg_iserver \
 	dbg_istk \
-	dbg_ui_break \
-	dbg_ui_break_win \
-	dbg_ui_edit \
-	dbg_ui_edit_win \
-	dbg_ui_filedialog_win \
-	dbg_ui_interpret \
-	dbg_ui_mon \
-	dbg_ui_mon_win \
-	dbg_ui_settings \
-	dbg_ui_trace \
-	dbg_ui_trace_win \
-	dbg_ui_view \
-	dbg_ui_win \
-	dbg_ui_winman \
 	dbg_wx_break \
 	dbg_wx_break_win \
 	dbg_wx_code \

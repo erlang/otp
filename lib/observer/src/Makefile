@@ -38,7 +38,6 @@ MODULES= \
 	crashdump_viewer \
 	crashdump_viewer_html \
 	etop \
-	etop_gui \
 	etop_tr \
 	etop_txt \
 	observer \
@@ -72,13 +71,12 @@ PRIVDIR= ../priv
 WEBTOOLFILES= $(PRIVDIR)/crashdump_viewer.tool $(PRIVDIR)/erlang_observer.png
 BINDIR= $(PRIVDIR)/bin
 ifeq ($(findstring win32,$(TARGET)),win32)
-WIN32_EXECUTABLES= $(BINDIR)/etop.bat $(BINDIR)/getop.bat $(BINDIR)/cdv.bat
+WIN32_EXECUTABLES= $(BINDIR)/etop.bat $(BINDIR)/cdv.bat
 else
 WIN32_EXECUTABLES=
 endif
 EXECUTABLES= \
 	$(BINDIR)/etop \
-	$(BINDIR)/getop \
 	$(BINDIR)/cdv \
 	$(WIN32_EXECUTABLES)
 CDVDIR= $(PRIVDIR)/crashdump_viewer

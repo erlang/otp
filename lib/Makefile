@@ -28,10 +28,10 @@ ERLANG_APPLICATIONS = tools test_server common_test runtime_tools \
 			inets xmerl edoc erl_docgen
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = snmp otp_mibs appmon erl_interface asn1 jinterface \
+ALL_ERLANG_APPLICATIONS = snmp otp_mibs erl_interface asn1 jinterface \
 	          wx debugger reltool gs \
 	          ic mnesia crypto orber os_mon parsetools syntax_tools \
-	          pman public_key ssl toolbar tv observer odbc diameter \
+	          public_key ssl observer odbc diameter \
 	          cosTransactions cosEvent cosTime cosNotification \
 	          cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 		  eunit ssh typer percept eldap dialyzer hipe

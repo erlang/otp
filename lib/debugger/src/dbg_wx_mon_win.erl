@@ -43,7 +43,7 @@
 -record(moduleInfo, {module, menubtn}).
 -record(procInfo, {pid, row}).
 -record(breakInfo, {point, status, break}).
--record(break, {mb, smi, emi, dimi, demi}).  %% BUGBUG defined in dbg_ui_win
+-record(break, {mb, smi, emi, dimi, demi}).
 -record(winInfo, {window,       % gsobj()
 		  grid,         % gsobj()
 		  row,          % int() Last row in grid
@@ -75,13 +75,6 @@
 
 init() ->
     dbg_wx_win:init().
-
-%%--------------------------------------------------------------------
-%% create_win(GS, Title, Menus) -> #winInfo{}
-%%   GS = gsobj()
-%%   Title = string()
-%%   Menus = [menu()]  See dbg_ui_win.erl
-%%--------------------------------------------------------------------
 
 -define(GRID,1000).
 
