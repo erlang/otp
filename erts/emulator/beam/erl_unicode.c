@@ -1990,12 +1990,14 @@ char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_
 {
     int encoding = erts_get_native_filename_encoding();
     return erts_convert_filename_to_encoding(name, statbuf, statbuf_size, alloc_type,
-					     allow_empty, allow_atom, encoding, used);
+					     allow_empty, allow_atom, encoding,
+					     used, 0);
 }
 
 char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbuf_size,
 					ErtsAlcType_t alloc_type, int allow_empty,
-					int allow_atom, int encoding, Sint *used)
+					int allow_atom, int encoding, Sint *used,
+					Uint extra)
 {
     char* name_buf = NULL;
 
@@ -2008,13 +2010,14 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	}
 	if (encoding == ERL_FILENAME_WIN_WCHAR) {
 	    need += 2;
+	    extra *= 2;
 	} else {
 	    ++need;
 	}
 	if (used) 
 	    *used = (Sint) need;
-	if (need > statbuf_size) {
-	    name_buf = (char *) erts_alloc(alloc_type, need);
+	if (need+extra > statbuf_size) {
+	    name_buf = (char *) erts_alloc(alloc_type, need+extra);
 	} else {
 	    name_buf = statbuf;
 	}
@@ -2035,8 +2038,8 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	    /*Add 0 termination only*/
 	    if (used) 
 		*used = (Sint) size+1;
-	    if (size+1 > statbuf_size) {
-		name_buf = (char *) erts_alloc(alloc_type, size+1);
+	    if (size+1+extra > statbuf_size) {
+		name_buf = (char *) erts_alloc(alloc_type, size+1+extra);
 	    } else {
 		name_buf = statbuf;
 	    }
@@ -2045,7 +2048,7 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	} else {
             name_buf = erts_convert_filename_to_wchar(bytes, size,
                                                       statbuf, statbuf_size,
-                                                      alloc_type, used, 0);
+                                                      alloc_type, used, extra);
         }
 	erts_free_aligned_binary_bytes(temp_alloc);
     } else {
