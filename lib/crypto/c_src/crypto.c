@@ -1824,7 +1824,7 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Base,Exponent,Modulo,bin_hdr) */
-    BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo, *bn_result;
+    BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo=NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;      
@@ -1839,6 +1839,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 	if (bn_base) BN_free(bn_base);
 	if (bn_exponent) BN_free(bn_exponent);
+	if (bn_modulo) BN_free(bn_modulo);
 	return enif_make_badarg(env);
     }
     bn_result = BN_new();
@@ -2674,7 +2675,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Multiplier, Verifier, Generator, Exponent, Prime) */
     BIGNUM *bn_verifier = NULL;
-    BIGNUM *bn_exponent, *bn_generator, *bn_prime, *bn_multiplier, *bn_result;
+    BIGNUM *bn_exponent = NULL, *bn_generator = NULL, *bn_prime = NULL, *bn_multiplier = NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;
@@ -2687,9 +2688,9 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	|| !get_bn_from_bin(env, argv[4], &bn_prime)) {
 	if (bn_multiplier) BN_free(bn_multiplier);
 	if (bn_verifier) BN_free(bn_verifier);
-	if (bn_verifier) BN_free(bn_generator);
-	if (bn_verifier) BN_free(bn_exponent);
-	if (bn_verifier) BN_free(bn_prime);
+	if (bn_generator) BN_free(bn_generator);
+	if (bn_exponent) BN_free(bn_exponent);
+	if (bn_prime) BN_free(bn_prime);
 	return enif_make_badarg(env);
     }
 
@@ -2813,7 +2814,7 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         <premaster secret> = (A * v^u) ^ b % N
 */
     BIGNUM *bn_b = NULL, *bn_verifier = NULL;
-    BIGNUM *bn_prime, *bn_A, *bn_u, *bn_base, *bn_result;
+    BIGNUM *bn_prime = NULL, *bn_A = NULL, *bn_u = NULL, *bn_base, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;
