@@ -280,7 +280,7 @@ print_environments([],_) ->
 
 print_environment({_Key, false},_) -> ok;
 print_environment({Key, Value},_) ->
-    io:format(" - ~s = ~s~n", [Key, Value]).
+    io:format(" - ~s = ~ts~n", [Key, Value]).
 
 print_modules_from_code(M, [Info|Ms], Opts) ->
     print_module_from_code(M, Info),
@@ -292,14 +292,14 @@ print_modules_from_code(_, [], _) ->
     ok.
 
 print_module_from_code(M, {Path, [{M,ModInfo}]}) ->
-    io:format(" from path \"~s\" (no application):~n", [Path]),
+    io:format(" from path \"~ts\" (no application):~n", [Path]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
     io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok;
 print_module_from_code(M, {App,Vsn,Path,[{M,ModInfo}]}) ->
-    io:format(" from path \"~s\" (~w-~s):~n", [Path,App,Vsn]),
+    io:format(" from path \"~ts\" (~w-~s):~n", [Path,App,Vsn]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
     io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
