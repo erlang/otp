@@ -736,6 +736,12 @@ class EwxPrintout : public wxPrintout {
  EwxPrintout(const wxString& title) : wxPrintout(title) {};
 };
 
+class EwxStyledTextCtrl : public wxStyledTextCtrl {
+ public: ~EwxStyledTextCtrl() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxStyledTextCtrl(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style) : wxStyledTextCtrl(parent,id,pos,size,style) {};
+ EwxStyledTextCtrl() : wxStyledTextCtrl() {};
+};
+
 class EwxClipboard : public wxClipboard {
  public: ~EwxClipboard() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxClipboard() : wxClipboard() {};

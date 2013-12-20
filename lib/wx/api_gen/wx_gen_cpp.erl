@@ -855,34 +855,24 @@ call_arg(#param{name=N,type={merged,_,_,_,_,_,_}}) -> N.
 to_string(Type) when is_atom(Type) -> atom_to_list(Type);
 to_string(Type) when is_list(Type) -> Type.
 
-virtual_dest(#class{abstract=true, parent="root"}) -> false;
-virtual_dest(#class{abstract=true, parent="object"}) -> true;
 virtual_dest(#class{abstract=true, parent=Parent}) ->
-    virtual_dest(get({class,Parent}));
+    virtual_dest(get_parent_class(Parent));
 virtual_dest(#class{methods=Ms, parent=Parent}) ->
     case lists:keysearch(destructor,#method.method_type, lists:append(Ms)) of
 	{value, #method{method_type=destructor, virtual=Virtual}} ->
 	    case Virtual of
-		undefined ->
-		    case get({class,Parent}) of
-			undefined ->
-			    case Parent of
-				"object" ->
-				    true;
-				"root"   ->
-				    false;
-				_ ->
-				    io:format("Error: ~p~n",[Parent]),
-				    erlang:error(no_parent)
-			    end;
-			PClass ->
-			    virtual_dest(PClass)
-		    end;
-		_ ->
-		    Virtual
+		true -> true;
+		_ -> virtual_dest(get_parent_class(Parent))
 	    end;
-	false ->
-	    false
+	false -> virtual_dest(get_parent_class(Parent))
+    end;
+virtual_dest("root") -> false;
+virtual_dest("object") -> true.
+
+get_parent_class(Parent) ->
+    case get({class, Parent}) of
+	undefined -> Parent;
+	Class -> Class
     end.
 
 debug(F,A) ->

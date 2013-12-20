@@ -26953,14 +26953,14 @@ case wxStyledTextCtrl_new_2: { // wxStyledTextCtrl::wxStyledTextCtrl
  style = (long)*(int *) bp; bp += 4;
   } break;
  }};
- wxStyledTextCtrl * Result = new wxStyledTextCtrl(parent,id,pos,size,style);
- /* Possible memory leak here, class is missing virt dest */ 
+ wxStyledTextCtrl * Result = new EwxStyledTextCtrl(parent,id,pos,size,style);
+ newPtr((void *) Result, 0, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxStyledTextCtrl");
  break;
 }
 case wxStyledTextCtrl_new_0: { // wxStyledTextCtrl::wxStyledTextCtrl
- wxStyledTextCtrl * Result = new wxStyledTextCtrl();
- /* Possible memory leak here, class is missing virt dest */ 
+ wxStyledTextCtrl * Result = new EwxStyledTextCtrl();
+ newPtr((void *) Result, 0, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxStyledTextCtrl");
  break;
 }
