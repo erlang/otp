@@ -57,7 +57,6 @@ MODULES =  \
 	dialyzer_dataflow \
 	dialyzer_dep \
 	dialyzer_explanation \
-	dialyzer_gui \
 	dialyzer_gui_wx \
 	dialyzer_options \
 	dialyzer_plt \
@@ -113,9 +112,6 @@ $(EBIN)/dialyzer_cl_parse.$(EMULATOR): dialyzer_cl_parse.erl ../vsn.mk
 $(EBIN)/dialyzer_plt.$(EMULATOR): dialyzer_plt.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_plt.erl
 
-$(EBIN)/dialyzer_gui.$(EMULATOR): dialyzer_gui.erl ../vsn.mk
-	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_gui.erl
-
 $(EBIN)/dialyzer_gui_wx.$(EMULATOR): dialyzer_gui_wx.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_gui_wx.erl
 
@@ -140,7 +136,6 @@ $(EBIN)/dialyzer_contracts.beam: dialyzer.hrl
 $(EBIN)/dialyzer_dataflow.beam: dialyzer.hrl
 $(EBIN)/dialyzer_dep.beam: dialyzer.hrl
 $(EBIN)/dialyzer_explanation.beam: dialyzer.hrl
-$(EBIN)/dialyzer_gui.beam: dialyzer.hrl
 $(EBIN)/dialyzer_gui_wx.beam: dialyzer.hrl dialyzer_gui_wx.hrl
 $(EBIN)/dialyzer_options.beam: dialyzer.hrl
 $(EBIN)/dialyzer_plt.beam: dialyzer.hrl

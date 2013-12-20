@@ -42,7 +42,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES = hipe_tool hipe_profile hipe_jit
+MODULES = hipe_profile hipe_jit
 #	  hipe_timer
 
 HRL_FILES=
@@ -110,5 +110,4 @@ realclean:	clean
 # ---------------------------------------------------- 
 
 $(EBIN)/hipe_ceach.beam: ../main/hipe.hrl
-$(EBIN)/hipe_tool.beam: ../main/hipe.hrl
 
