@@ -368,12 +368,19 @@ finished_label(server) ->
 
 %% list ECC curves in prefered order
 ecc_curves(_Minor) ->
-    [?sect571r1,?sect571k1,?secp521r1,?brainpoolP512r1,
-     ?sect409k1,?sect409r1,?brainpoolP384r1,?secp384r1,
-     ?sect283k1,?sect283r1,?brainpoolP256r1,?secp256k1,?secp256r1,
-     ?sect239k1,?sect233k1,?sect233r1,?secp224k1,?secp224r1,
-     ?sect193r1,?sect193r2,?secp192k1,?secp192r1,?sect163k1,
-     ?sect163r1,?sect163r2,?secp160k1,?secp160r1,?secp160r2].
+    TLSCurves = [sect571r1,sect571k1,secp521r1,brainpoolP512r1,
+		 sect409k1,sect409r1,brainpoolP384r1,secp384r1,
+		 sect283k1,sect283r1,brainpoolP256r1,secp256k1,secp256r1,
+		 sect239k1,sect233k1,sect233r1,secp224k1,secp224r1,
+		 sect193r1,sect193r2,secp192k1,secp192r1,sect163k1,
+		 sect163r1,sect163r2,secp160k1,secp160r1,secp160r2],
+    CryptoCurves = crypto:ec_curves(),
+    lists:foldr(fun(Curve, Curves) ->
+			case proplists:get_bool(Curve, CryptoCurves) of
+			    true ->  [pubkey_cert_records:namedCurves(Curve)|Curves];
+			    false -> Curves
+			end
+		end, [], TLSCurves).
 
 %% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)
 oid_to_enum(?sect163k1) -> 1;

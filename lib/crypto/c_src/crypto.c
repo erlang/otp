@@ -625,7 +625,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 static int algo_hash_cnt;
 static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt;
-static ERL_NIF_TERM algo_pubkey[2]; /* increase when extending the list */
+static ERL_NIF_TERM algo_pubkey[3]; /* increase when extending the list */
 static int algo_cipher_cnt;
 static ERL_NIF_TERM algo_cipher[2]; /* increase when extending the list */
 
@@ -651,6 +651,9 @@ static void init_algorithms_types(ErlNifEnv* env)
 
     algo_pubkey_cnt = 0;
 #if defined(HAVE_EC)
+#if !defined(OPENSSL_NO_EC2M)
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env,"ec_gf2m");
+#endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env,"ecdsa");
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env,"ecdh");
 #endif
@@ -2915,6 +2918,8 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 	    /* create the EC_GROUP structure */
 	    group = EC_GROUP_new_curve_GFp(p, a, b, NULL);
 
+#if !defined(OPENSSL_NO_EC2M)
+
 	} else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
 	    /* {characteristic_two_field, M, Basis} */
 
@@ -2973,6 +2978,7 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 		goto out_err;
 
 	    group = EC_GROUP_new_curve_GF2m(p, a, b, NULL);
+#endif
 	} else
 	    goto out_err;
 

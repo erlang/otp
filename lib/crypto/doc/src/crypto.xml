@@ -120,7 +120,11 @@
       brainpoolP160r1| brainpoolP160t1| brainpoolP192r1| brainpoolP192t1| brainpoolP224r1|
       brainpoolP224t1| brainpoolP256r1| brainpoolP256t1| brainpoolP320r1| brainpoolP320t1|
       brainpoolP384r1| brainpoolP384t1| brainpoolP512r1| brainpoolP512t1
-    </code></p>
+    </code>
+    Note that the <em>sect</em> curves are GF2m (characteristic two) curves and are only supported if the
+    underlying OpenSSL has support for them.
+    See also <seealso marker="#supports-0">crypto:supports/0</seealso>
+    </p>
 
      <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
 
@@ -149,8 +153,11 @@
      </p>
      <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
      blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | aes_ige256 | rc2_cbc | aes_ctr| rc4  </code> </p>
-     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh </code> </p>
-     
+     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
+     Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
+     with ecdsa and ecdh.
+     </p>
+
  </section>
 
   <funcs>
