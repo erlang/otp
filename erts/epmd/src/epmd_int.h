@@ -307,6 +307,7 @@ typedef struct {
   int debug;
   int silent; 
   int is_daemon;
+  int allow_non_local;
   int brutal_kill;
   unsigned packet_timeout;
   unsigned delay_accept;
