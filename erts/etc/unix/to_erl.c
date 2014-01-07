@@ -345,7 +345,7 @@ int main(int argc, char **argv)
     show_terminal_settings(&tty_smode);
 #endif
     /*
-     * 	 "Write a ^R to the FIFO which causes the other end to redisplay
+     * 	 "Write a ^L to the FIFO which causes the other end to redisplay
      *    the input line."
      * This does not seem to work as was intended in old comment above.
      * However, this control character is now (R12B-3) used by run_erl
@@ -354,7 +354,7 @@ int main(int argc, char **argv)
      */
 
     if (write(wfd, "\014", 1) < 0) {
-	fprintf(stderr, "Error in writing ^R to FIFO.\n");
+	fprintf(stderr, "Error in writing ^L to FIFO.\n");
     }
 
     /*
@@ -526,7 +526,7 @@ static int window_size_seq(char* buf, size_t bufsz)
 
 /*   to_erl                     run_erl
  *     |                           |
- *     |---------- '\022' -------->| (session start)
+ *     |---------- '\014' -------->| (session start)
  *     |                           |
  *     |<---- "[run_erl v1-0]" ----| (version interval)
  *     |                           |
