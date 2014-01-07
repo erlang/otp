@@ -1161,6 +1161,7 @@ static unsigned int gen_challenge(void)
 	struct utsname name;
     } s;
 
+    memset(&s, 0, sizeof(s));
     gettimeofday(&s.tv, 0);
     uname(&s.name);
     s.cpu  = clock();
