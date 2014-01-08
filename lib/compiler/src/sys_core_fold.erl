@@ -1452,14 +1452,14 @@ let_subst_list([], [], _) -> {[],[],[]}.
 
 %%pattern(Pat, Sub) -> pattern(Pat, Sub, Sub).
 
-pattern(#c_var{name=V0}=Pat, Isub, Osub) ->
+pattern(#c_var{}=Pat, Isub, Osub) ->
     case sub_is_val(Pat, Isub) of
 	true ->
 	    V1 = make_var_name(),
 	    Pat1 = #c_var{name=V1},
 	    {Pat1,sub_set_var(Pat, Pat1, scope_add([V1], Osub))};
 	false ->
-	    {Pat,sub_del_var(Pat, scope_add([V0], Osub))}
+	    {Pat,sub_del_var(Pat, Osub)}
     end;
 pattern(#c_literal{}=Pat, _, Osub) -> {Pat,Osub};
 pattern(#c_cons{anno=Anno,hd=H0,tl=T0}, Isub, Osub0) ->
@@ -1522,6 +1522,9 @@ is_subst(_) -> false.
 %%  chains so we never have to search more than once.  Use orddict so
 %%  we know the format.
 %%
+%%  In addition to the list of substitutions, we also keep track of
+%%  all variable currently live (the scope).
+%%
 %%  sub_subst_scope/1 adds dummy substitutions for all variables
 %%  in the scope in order to force renaming if variables in the
 %%  scope occurs as pattern variables.
@@ -1548,8 +1551,17 @@ sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb = copy_type(V, Val, Tdb1),
     Sub#sub{v=orddict:store(V, Val, S),s=gb_sets:add(V, Scope),t=Tdb}.
 
-sub_del_var(#c_var{name=V}, #sub{v=S,t=Tdb}=Sub) ->
-    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}.
+sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
+    %% Profiling shows that for programs with many record operations,
+    %% sub_del_var/2 is a bottleneck. Since the scope contains all
+    %% variables that are live, we know that V cannot be present in S
+    %% if it is not in the scope.
+    case gb_sets:is_member(V, Scope) of
+	false ->
+	    Sub#sub{s=gb_sets:insert(V, Scope)};
+	true ->
+	    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}
+    end.
 
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
@@ -1559,13 +1571,16 @@ sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
     S = [{-1,#c_var{name=Sv}} || Sv <- gb_sets:to_list(Scope)]++S0,
     Sub#sub{v=S}.
 
-sub_is_val(#c_var{name=V}, #sub{v=S}) ->
-    v_is_value(V, S).
+sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
+    %% When the bottleneck in sub_del_var/2 was eliminated, this
+    %% became the new bottleneck. Since the scope contains all
+    %% live variables, a variable V can only be the target for
+    %% a substitution if it is in the scope.
+    gb_sets:is_member(V, Scope) andalso v_is_value(V, S).
 
-v_is_value(Var, Sub) ->
-    any(fun ({_,#c_var{name=Val}}) when Val =:= Var -> true;
-	    (_) -> false
-	end, Sub).
+v_is_value(Var, [{_,#c_var{name=Var}}|_]) -> true;
+v_is_value(Var, [_|T]) -> v_is_value(Var, T);
+v_is_value(_, []) -> false.
 
 %% clauses(E, [Clause], TopLevel, Context, Sub) -> [Clause].
 %%  Trim the clauses by removing all clauses AFTER the first one which
