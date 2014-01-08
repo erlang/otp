@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1241,16 +1241,27 @@ bsbs_1(A) ->
     Bin = binary_to_term_stress(<<131,$M,5:32,A,0,0,0,0,0>>),
     BinSize = bit_size(Bin).
 
+%% lists:foldl(_,_,lists:seq(_,_)) with less heap consumption
+lists_foldl_seq(Fun, Acc0, N, To) when N =< To ->
+    Acc1 = Fun(N, Acc0),
+    lists_foldl_seq(Fun, Acc1, N+1, To);
+
+lists_foldl_seq(_, Acc, _, _) ->
+    Acc.
+
 deep(Config) when is_list(Config) ->
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     [E,A]
-				     end, [], lists:seq(1, 1000000))),
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     {E,A}
-				     end, [], lists:seq(1, 1000000))),
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     fun() -> {E,A} end
-				     end, [], lists:seq(1, 1000000))),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   [E,A]
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   {E,A}
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   fun() -> {E,A} end
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
     ok.
 
 deep_roundtrip(T) ->
