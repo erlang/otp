@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -132,9 +132,9 @@ start_stop(Config) when is_list(Config) ->
     true = is_pid(whereis(cdv_atom_cb)),
     true = is_pid(whereis(cdv_dist_cb)),
     true = is_pid(whereis(cdv_mod_cb)),
-    timer:sleep(1000), % give some time to live
+    timer:sleep(5000), % give some time to live
     ok = crashdump_viewer:stop(),
-    timer:sleep(100), % give some time to stop
+    timer:sleep(1000), % give some time to stop
     undefined = whereis(crashdump_viewer_server),
     undefined = whereis(cdv_wx),
     ProcsAfter=length(processes()),

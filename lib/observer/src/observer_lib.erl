@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -730,31 +730,19 @@ progress_loop(Title,PD,Caller) ->
 	    unlink(Caller)
     end.
 
-progress_dialog(Env,Title,Str) ->
-    %% Spawning separat process to hold this since we use showModal.
-    spawn_link(
-      fun() ->
-	      wx:set_env(Env),
-	      PD = wxProgressDialog:new(Title,Str,
-					[{maximum,101},
-					 {style,
-					  ?wxPD_APP_MODAL bor
-					      ?wxPD_SMOOTH bor
-					      ?wxPD_AUTO_HIDE}]),
-	      wxProgressDialog:setMinSize(PD,{200,-1}),
-	      ?progress_handler ! {progress_dialog,PD},
-	      wxProgressDialog:showModal(PD),
-	      wxDialog:destroy(PD)
-      end),
-    receive
-	{progress_dialog,PD} ->
-	    timer:sleep(300), % To allow the window to show before reporting
-	    PD
-    end.
+progress_dialog(_Env,Title,Str) ->
+    PD = wxProgressDialog:new(Title,Str,
+			      [{maximum,101},
+			       {style,
+				?wxPD_APP_MODAL bor
+				    ?wxPD_SMOOTH bor
+				    ?wxPD_AUTO_HIDE}]),
+    wxProgressDialog:setMinSize(PD,{200,-1}),
+    PD.
 
 update_progress(PD,Value) ->
     wxProgressDialog:update(PD,Value).
 update_progress_text(PD,Text) ->
     wxProgressDialog:update(PD,0,[{newmsg,Text}]).
 finish_progress(PD) ->
-    wxProgressDialog:endModal(PD, ?wxID_OK).
+    wxProgressDialog:destroy(PD).
