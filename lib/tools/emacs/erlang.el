@@ -73,6 +73,8 @@
 ;;     M-x set-variable RET debug-on-error RET t RET
 ;;; Code:
 
+(eval-when-compile (require 'cl))
+
 ;; Variables:
 
 (defconst erlang-version "2.7"
@@ -3926,7 +3928,7 @@ non-whitespace characters following the point on the current line."
   (self-insert-command arg)
 
   ;; Was this the second char in bit-syntax open (`<<')?
-  (unless (< (point) 2)
+  (unless (<= (point) 2)
     (save-excursion
       (backward-char 2)
       (when (and (eq (char-after (point)) ?<)
@@ -3947,7 +3949,7 @@ non-whitespace characters following the point on the current line."
 
 (defun erlang-after-bitsyntax-close ()
   "Return t if point is immediately after a bit-syntax close parenthesis (`>>')."
-  (and (>= (point) 2)
+  (and (>= (point) 3)
        (save-excursion
 	 (backward-char 2)
 	 (and (eq (char-after (point)) ?>)
