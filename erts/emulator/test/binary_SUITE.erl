@@ -506,8 +506,8 @@ external_size(Config) when is_list(Config) ->
 	    io:format("Unaligned size: ~p\n", [Sz2]),
 	    ?line ?t:fail()
     end,
-    ?line erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}]),
-    ?line erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}]).
+    true = (erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}])),
+    true = (erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}])).
 
 external_size_1(Term, Size0, Limit) when Size0 < Limit ->
     case erlang:external_size(Term) of
