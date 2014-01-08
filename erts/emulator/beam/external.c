@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -4074,7 +4074,9 @@ init_done:
 	switch (tag) {
 	case INTEGER_EXT:
 	    SKIP(4);
+#if !defined(ARCH_64) || HALFWORD_HEAP
 	    heap_size += BIG_UINT_HEAP_SIZE;
+#endif
 	    break;
 	case SMALL_INTEGER_EXT:
 	    SKIP(1);
