@@ -351,7 +351,7 @@ int pass_on(ProgramState *s) {
     time_t now,last_activity;
 
     time(&last_activity);
-    sig = receive_w_tmo(erts_run_erl_log_alive_minutes*60000,sigsel);
+    sig = receive_w_tmo(erts_run_erl_log_alive_minutes()*60000,sigsel);
 
     time(&now);
 

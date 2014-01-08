@@ -328,7 +328,7 @@ static void pass_on(pid_t childpid)
 	}
 	time(&last_activity);
 	/* don't assume old BSD bug */
-	timeout.tv_sec  = erts_run_erl_log_alive_minutes*60;
+	timeout.tv_sec  = erts_run_erl_log_alive_minutes()*60;
 	timeout.tv_usec = 0;
 	ready = select(maxfd + 1, &readfds, writefds_ptr, NULL, &timeout);
 	if (ready < 0) {

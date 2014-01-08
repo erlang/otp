@@ -71,9 +71,6 @@ char *simple_basename(char *path);
 #define ERRNO_ERR1(Prio,Format,A1) erts_run_erl_log_error(Prio,__LINE__,ADD_ERRNO(Format),A1)
 #define ERRNO_ERR2(Prio,Format,A1,A2) erts_run_erl_log_error(Prio,__LINE__,ADD_ERRNO(Format),A1,A2)
 
-/* defined in run_common.c */
-extern int erts_run_erl_log_alive_minutes;
-
 #define RUN_ERL_USAGE \
   "%s (pipe_name|pipe_dir/) log_dir \"command [parameters ...]\"" \
   "\n\nDESCRIPTION:\n"							\
