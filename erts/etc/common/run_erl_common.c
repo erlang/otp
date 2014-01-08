@@ -36,6 +36,10 @@
 #  include <syslog.h>
 #endif
 
+#ifdef __OSE__
+#  include "ramlog.h"
+#endif
+
 #include "run_erl_common.h"
 #include "safe_string.h"
 
@@ -57,7 +61,9 @@
 #define PIPE_STUBLEN    strlen(PIPE_STUBNAME)
 #define PERM            (S_IWUSR | S_IRUSR | S_IWOTH | S_IROTH | S_IWGRP | S_IRGRP)
 
-#if !defined(O_SYNC)
+/* OSE has defined O_SYNC but it is not recognized by open */
+#if !defined(O_SYNC) || defined(__OSE__)
+#undef O_SYNC
 #define O_SYNC 0
 #define USE_FSYNC 1
 #endif
@@ -81,8 +87,6 @@ static char log_alive_format[ALIVE_BUFFSIZ+1];
 static int run_daemon = 0;
 static unsigned protocol_ver = RUN_ERL_LO_VER; /* assume lowest to begin with */
 
-int erts_run_erl_log_alive_minutes = DEFAULT_LOG_ALIVE_MINUTES;
-
 /*
  * Current log number and log fd
  */
@@ -94,7 +98,11 @@ static int lfd=0;
  * getenv_int:
  */
 static char *getenv_int(const char *name) {
+#ifdef __OSE__
+   return get_env(get_bid(current_process()),name);
+#else
    return getenv(name);
+#endif
 }
 
 /*
@@ -189,9 +197,7 @@ static int open_log(int log_num, int flags)
   /* Create or continue on the current log file */
   sn_printf(buf, sizeof(buf), "%s/%s%d", log_dir, LOG_STUBNAME, log_num);
 
-  do {
-    lfd = open(buf, flags, LOG_PERM);
-  } while (lfd < 0 && errno == EINTR);
+  lfd = sf_open(buf, flags, LOG_PERM);
 
   if(lfd <0){
       ERRNO_ERR1(LOG_ERR,"Can't open log file '%s'.", buf);
@@ -307,7 +313,11 @@ void erts_run_erl_log_status(const char *format,...)
     return;
   now = time(NULL);
   fprintf(stdstatus, "run_erl [%d] %s",
+#ifdef __OSE__
+	  (int)current_process(),
+#else
 	  (int)getpid(),
+#endif
 	  ctime(&now));
   va_start(args, format);
   vfprintf(stdstatus, format, args);
@@ -331,10 +341,22 @@ void erts_run_erl_log_error(int priority, int line, const char *format, ...)
     }
     else
 #endif
+#ifdef __OSE__
+    if (RUN_DAEMON) {
+      char *buff = malloc(sizeof(char)*1024);
+      vsnprintf(buff,1024,format, args);
+      ramlog_printf(buff);
+    }
+    else
+#endif
     {
 	time_t now = time(NULL);
 	fprintf(stderr, "run_erl:%d [%d] %s", line,
+#ifdef __OSE__
+		(int)current_process(),
+#else
 		(int)getpid(),
+#endif
 		ctime(&now));
 	vfprintf(stderr, format, args);
     }
@@ -544,10 +566,12 @@ int erts_run_erl_open_fifo(char *pipename,char *w_pipename,char *r_pipename) {
 			PIPE_STUBNAME, highest_pipe_num+1);
 	      continue;
 	  }
-	  fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
+	  ERROR1(LOG_ERR, "Erlang already running on pipe %s.\n", pipename);
+	  unlink(w_pipename);
 	  return 1;
       }
       if (create_fifo(r_pipename, PERM) < 0) {
+	  unlink(w_pipename);
 	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.",
 		     r_pipename);
 	  return 1;

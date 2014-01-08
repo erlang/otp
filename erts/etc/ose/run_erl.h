@@ -16,19 +16,14 @@
  *
  * %CopyrightEnd%
  */
-/*
- * Module: to_erl.c
- *
- */
+#ifndef ERL_RUN_ERL_H
+#define ERL_RUN_ERL_H
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
+#include "ose.h"
+
+#include "erts.sig"
+
+int run_erl(int argc, char **argv);
+OS_PROCESS(run_erl_process);
+
 #endif
-
-#include <stdio.h>
-
-int main(int argc, char **argv)
-{
-   fprintf(stderr, "to_erl is not supported on OSE targets.\n");
-   return 1;
-}

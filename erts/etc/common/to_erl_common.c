@@ -49,10 +49,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <termios.h>
 #include <dirent.h>
-#include <signal.h>
 #include <errno.h>
+
+#ifdef __OSE__
+#include <aio.h>
+#include "ose.h"
+#include "efs.h"
+#include "ose_spi/fm.sig"
+#else /* __UNIX__ */
+#include <termios.h>
+#include <signal.h>
+#endif
+
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
 #endif
@@ -78,7 +87,11 @@
 
 #define noDEBUG
 
+#ifdef __OSE__
+#define PIPE_DIR        "/pipe/"
+#else
 #define PIPE_DIR        "/tmp/"
+#endif
 #define PIPE_STUBNAME   "erlang.pipe"
 #define PIPE_STUBLEN    strlen(PIPE_STUBNAME)
 
@@ -92,14 +105,38 @@
 #define FILENAME_MAX 250
 #endif
 
-static struct termios tty_smode, tty_rmode;
 static int tty_eof = 0;
-static int recv_sig = 0;
 static int protocol_ver = RUN_ERL_LO_VER; /* assume lowest to begin with */
 
 static int write_all(int fd, const char* buf, int len);
-static int window_size_seq(char* buf, size_t bufsz);
 static int version_handshake(char* buf, int len, int wfd);
+
+
+#ifdef __OSE__
+
+#define SET_AIO(REQ,FD,SIZE,BUFF)					\
+  /* Make sure to clean data structure of previous request */		\
+  memset(&(REQ),0,sizeof(REQ));						\
+  (REQ).aio_fildes = FD;						\
+  (REQ).aio_offset = FM_POSITION_CURRENT;				\
+  (REQ).aio_nbytes = SIZE;						\
+  (REQ).aio_buf = BUFF;							\
+  (REQ).aio_sigevent.sigev_notify = SIGEV_NONE
+
+#define READ_AIO(REQ,FD,SIZE,BUFF)					\
+  SET_AIO(REQ,FD,SIZE,BUFF);						\
+  if (aio_read(&(REQ)) != 0)						\
+    fprintf(stderr,"aio_read of child_read_req(%d) failed\n",FD)
+
+union SIGNAL {
+  SIGSELECT signo;
+  struct FmReadPtr fm_read_ptr;
+};
+
+#else /* __UNIX__ */
+static int recv_sig = 0;
+static struct termios tty_smode, tty_rmode;
+static int window_size_seq(char* buf, size_t bufsz);
 #ifdef DEBUG
 static void show_terminal_settings(struct termios *);
 #endif
@@ -115,6 +152,7 @@ static void handle_sigwinch(int sig)
 {
     recv_sig = SIGWINCH;
 }
+#endif
 
 static void usage(char *pname)
 {
@@ -126,12 +164,21 @@ int to_erl(int argc, char **argv)
 {
     char  FIFO1[FILENAME_MAX], FIFO2[FILENAME_MAX];
     int i, len, wfd, rfd;
-    fd_set readfds;
-    char buf[BUFSIZ];
     char pipename[FILENAME_MAX];
     int pipeIx = 1;
     int force_lock = 0;
     int got_some = 0;
+
+#ifdef __OSE__
+    struct aiocb stdin_read_req, pipe_read_req;
+    FmHandle stdin_fh, pipe_fh;
+    char *stdin_buf, *pipe_buf;
+    char *buf;
+    union SIGNAL *sig;
+#else /* __UNIX__ */
+    char buf[BUFSIZ];
+    fd_set readfds;
+#endif
 
     if (argc >= 2 && argv[1][0]=='-') {
 	switch (argv[1][1]) {
@@ -149,7 +196,13 @@ int to_erl(int argc, char **argv)
     }
 
 #ifdef DEBUG
-    fprintf(stderr, "%s: pid is : %d\n", argv[0], (int)getpid());
+    fprintf(stderr, "%s: pid is : %d\n", argv[0],(int)
+#ifdef __OSE__
+	    current_process()
+#else /* __UNIX__ */
+	    getpid()
+#endif
+	    );
 #endif
 
     strn_cpy(pipename, sizeof(pipename),
@@ -187,6 +240,7 @@ int to_erl(int argc, char **argv)
     /* write FIFO */
     sn_printf(FIFO2,sizeof(FIFO2),"%s.w",pipename);
 
+#ifndef __OSE__
     /* Check that nobody is running to_erl on this pipe already */
     if ((wfd = open (FIFO1, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
 	/* Open as server succeeded -- to_erl is already running! */
@@ -200,6 +254,7 @@ int to_erl(int argc, char **argv)
 	    exit(1);
 	}
     }
+#endif
 
     if ((rfd = open (FIFO1, O_RDONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
 #ifdef DEBUG
@@ -226,6 +281,7 @@ int to_erl(int argc, char **argv)
 
     fprintf(stderr, "Attaching to %s (^D to exit)\n\n", pipename);
 
+#ifndef __OSE__
     /* Set break handler to our handler */
     signal(SIGINT,handle_ctrlc);
 
@@ -344,6 +400,8 @@ int to_erl(int argc, char **argv)
 #ifdef DEBUG
     show_terminal_settings(&tty_smode);
 #endif
+
+#endif /* !__OSE__ */
     /*
      * 	 "Write a ^L to the FIFO which causes the other end to redisplay
      *    the input line."
@@ -357,10 +415,22 @@ int to_erl(int argc, char **argv)
 	fprintf(stderr, "Error in writing ^L to FIFO.\n");
     }
 
+#ifdef __OSE__
+    /* we have a tiny stack so we malloc the buffers */
+    stdin_buf = malloc(sizeof(char) * BUFSIZ);
+    pipe_buf = malloc(sizeof(char) * BUFSIZ);
+
+    efs_examine_fd(rfd,FLIB_FD_HANDLE,&pipe_fh);
+    efs_examine_fd(0,FLIB_FD_HANDLE,&stdin_fh);
+    READ_AIO(stdin_read_req,0,BUFSIZ,stdin_buf);
+    READ_AIO(pipe_read_req,rfd,BUFSIZ,pipe_buf);
+#endif
+
     /*
      * read and write
      */
     while (1) {
+#ifndef __OSE__
 	FD_ZERO(&readfds);
 	FD_SET(0, &readfds);
 	FD_SET(rfd, &readfds);
@@ -393,8 +463,21 @@ int to_erl(int argc, char **argv)
 	    }
 	    recv_sig = 0;
 	}
-	else if (FD_ISSET(0, &readfds)) {
+	else
+#else /* __OSE__ */
+	SIGSELECT sigsel[] = {0};
+	sig = receive(sigsel);
+	len = 0;
+#endif
+#ifndef __OSE__
+	  if (FD_ISSET(0,&readfds)) {
 	    len = read(0, buf, sizeof(buf));
+#else /* __OSE__ */
+	  if (sig->signo == FM_READ_PTR_REPLY &&
+	      sig->fm_read_ptr.handle == stdin_fh) {
+	    len = sig->fm_read_ptr.status == EFS_SUCCESS ? sig->fm_read_ptr.actual : -1;
+	    buf = sig->fm_read_ptr.buffer;
+#endif
 	    if (len <= 0) {
 		close(rfd);
 		close(wfd);
@@ -406,7 +489,7 @@ int to_erl(int argc, char **argv)
 		break;
 	    }
 	    /* check if there is an eof character in input */
-	    for (i = 0; i < len && buf[i] != tty_eof; i++);
+	    for (i = 0; i < len-1 && buf[i] != tty_eof; i++);
 	    if (buf[i] == tty_eof) {
 		fprintf(stderr, "[Quit]\n\r");
 		break;
@@ -424,14 +507,25 @@ int to_erl(int argc, char **argv)
 		break;
 	    }
 	    STATUS("\" OK\r\n");
+#ifdef __OSE__
+	    aio_dispatch(sig);
+	    READ_AIO(stdin_read_req, 0, BUFSIZ, stdin_buf);
+#endif
 	}
 
 	/*
 	 * Read from FIFO, write to terminal.
 	 */
+#ifndef __OSE__
 	if (FD_ISSET(rfd, &readfds)) {
 	    STATUS("FIFO read: ");
 	    len = read(rfd, buf, BUFSIZ);
+#else /* __OSE__ */
+        if (sig->signo == FM_READ_PTR_REPLY &&
+	    sig->fm_read_ptr.handle == pipe_fh) {
+	    len = sig->fm_read_ptr.status == EFS_SUCCESS ? sig->fm_read_ptr.actual : -1;
+	    buf = sig->fm_read_ptr.buffer;
+#endif
 	    if (len < 0 && errno == EAGAIN) {
 		/*
 		 * No data this time, but the writing end of the FIFO is still open.
@@ -457,11 +551,13 @@ int to_erl(int argc, char **argv)
 			close(wfd);
 			break;
 		    }
+#ifndef __OSE__
 		    if (protocol_ver >= 1) {
 			/* Tell run_erl size of terminal window */
 			signal(SIGWINCH, handle_sigwinch);
 			raise(SIGWINCH);
 		    }
+#endif
 		    got_some = 1;
 		}
 
@@ -476,15 +572,21 @@ int to_erl(int argc, char **argv)
 		    break;
 		}
 		STATUS("\" OK\r\n");
+#ifdef __OSE__
+		aio_dispatch(sig);
+		READ_AIO(pipe_read_req, rfd, BUFSIZ, pipe_buf);
+#endif
 	    }
 	}
     }
 
+#ifndef __OSE__
     /*
      * Reset terminal characterstics
      * XXX
      */
     tcsetattr(0, TCSADRAIN, &tty_rmode);
+#endif
     return 0;
 }
 
@@ -506,6 +608,7 @@ static int write_all(int fd, const char* buf, int len)
     return len;
 }
 
+#ifndef __OSE__
 static int window_size_seq(char* buf, size_t bufsz)
 {
 #ifdef TIOCGWINSZ
@@ -523,6 +626,7 @@ static int window_size_seq(char* buf, size_t bufsz)
 #endif /* TIOCGWINSZ */
     return 0;
 }
+#endif /* !__OSE__ */
 
 /*   to_erl                     run_erl
  *     |                           |
@@ -574,7 +678,7 @@ static int version_handshake(char* buf, int len, int wfd)
 }
 
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(__OSE__)
 #define S(x)  ((x) > 0 ? 1 : 0)
 
 static void show_terminal_settings(struct termios *t)
@@ -604,4 +708,4 @@ static void show_terminal_settings(struct termios *t)
   fprintf(stderr,"c_cc:\n");
   fprintf(stderr,"c_cc[VEOF]                           %d\n", t->c_cc[VEOF]);
 }
-#endif
+#endif /* DEBUG && !__OSE__ */

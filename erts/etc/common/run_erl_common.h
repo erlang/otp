@@ -51,7 +51,11 @@ int erts_run_erl_write_all(int fd, const char* buf, int len);
 char *simple_basename(char *path);
 
 #ifndef LOG_ERR
+#ifdef __OSE__
+#define LOG_ERR 0
+#else
 #define LOG_ERR NULL
+#endif
 #endif
 
 #define ERROR0(Prio,Format) erts_run_erl_log_error(Prio,__LINE__,Format"\n")
