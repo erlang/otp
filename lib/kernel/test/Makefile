@@ -79,10 +79,6 @@ MODULES= \
 	loose_node \
 	sendfile_SUITE
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-MODULES+=ose_SUITE
-endif
-
 APP_FILES = \
 	appinc.app \
 	appinc1.app \
