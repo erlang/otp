@@ -288,7 +288,7 @@ parse_file(_, File, Fn) ->
     case file:open(File, [read]) of
 	{ok, Fd} ->
 	    Result = parse_fd(File,Fd, 1, Fn, []),
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    Result;
 	Error -> Error
     end.

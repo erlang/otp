@@ -119,7 +119,7 @@ accept_loop(Kernel, Listen) ->
     case inet_tcp:accept(Listen) of
 	{ok, Socket} ->
 	    Kernel ! {accept,self(),Socket,inet,tcp},
-	    controller(Kernel, Socket),
+	    _ = controller(Kernel, Socket),
 	    accept_loop(Kernel, Listen);
 	Error ->
 	    exit(Error)

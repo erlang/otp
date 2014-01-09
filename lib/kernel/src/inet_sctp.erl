@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -135,7 +135,7 @@ connect_get_assoc(S, Addr, Port, Active, Timer) ->
 	{sctp,S,Addr,Port,{_,#sctp_assoc_change{state=St}=Ev}} ->
 	    case Active of
 		once ->
-		    prim_inet:setopt(S, active, once);
+		    ok = prim_inet:setopt(S, active, once);
 		_ -> ok
 	    end,
 	    if St =:= comm_up ->

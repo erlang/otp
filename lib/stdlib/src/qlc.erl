@@ -1266,6 +1266,8 @@ abstr_term(Fun, Line) when is_function(Fun) ->
     case erl_eval:fun_data(Fun) of
         {fun_data, _Bs, Cs} ->
             {'fun', Line, {clauses, Cs}};
+        {named_fun_data, _Bs, Name, Cs} ->
+            {named_fun, Line, Name, Cs};
         false ->
             {name, Name} = erlang:fun_info(Fun, name),
             {arity, Arity} = erlang:fun_info(Fun, arity),

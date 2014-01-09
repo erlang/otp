@@ -145,16 +145,13 @@ suite_order(sasl) -> 16;
 suite_order(tools) -> 18;
 suite_order(runtime_tools) -> 19;
 suite_order(parsetools) -> 20;
-suite_order(pman) -> 21;
 suite_order(debugger) -> 22;
-suite_order(toolbar) -> 23;
 suite_order(ic) -> 24;
 suite_order(orber) -> 26;
 suite_order(inets) -> 28;
 suite_order(asn1) -> 30;
 suite_order(os_mon) -> 32;
 suite_order(snmp) -> 38;
-suite_order(mnesia_session) -> 42;
 suite_order(mnesia) -> 44;
 suite_order(system) -> 999; %% IMPORTANT: system SHOULD always be last!
 suite_order(_) -> 200.

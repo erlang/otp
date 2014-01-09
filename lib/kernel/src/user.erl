@@ -103,11 +103,11 @@ catch_loop(Port, Shell, Q) ->
 	{unknown_exit,{Shell,Reason},_} ->		 % shell has exited
 	    case Reason of
 		normal ->
-		    put_chars("*** ", Port, []);
+                    put_port(<<"*** ">>, Port);
 		_ ->
-		    put_chars("*** ERROR: ", Port, [])
+                    put_port(<<"*** ERROR: ">>, Port)
 	    end,
-	    put_chars("Shell process terminated! ***\n", Port, []),
+	    put_port(<<"Shell process terminated! ***\n">>, Port),
 	    catch_loop(Port, start_new_shell());
 	{unknown_exit,_,Q1} ->
 	    catch_loop(Port, Shell, Q1);	     
@@ -181,7 +181,7 @@ get_fd_geometry(Port) ->
 do_io_request(Req, From, ReplyAs, Port, Q0) ->
     case io_request(Req, Port, Q0) of
 	{_Status,Reply,Q1} ->
-	    io_reply(From, ReplyAs, Reply),
+	    _ = io_reply(From, ReplyAs, Reply),
 	    Q1;
 	{exit,What} ->
 	    ok = send_port(Port, close),

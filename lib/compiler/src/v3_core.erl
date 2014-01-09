@@ -92,7 +92,7 @@
 -record(icase,     {anno=#a{},args,clauses,fc}).
 -record(icatch,    {anno=#a{},body}).
 -record(iclause,   {anno=#a{},pats,pguard=[],guard,body}).
--record(ifun,      {anno=#a{},id,vars,clauses,fc}).
+-record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
 -record(iletrec,   {anno=#a{},defs,body}).
 -record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
 -record(iprimop,   {anno=#a{},name,args}).
@@ -553,16 +553,22 @@ expr({'try',L,Es0,[],[],As0}, St0) ->
     %% 'try ... after ... end'
     {Es1,St1} = exprs(Es0, St0),
     {As1,St2} = exprs(As0, St1),
-    {Evs,Hs0,St3} = try_after(As1, St2),
-    %% We must kill the id for any funs in the duplicated after body,
-    %% to avoid getting two local functions having the same name.
-    Hs = kill_id_anns(Hs0),
+    {Name,St3} = new_fun_name("after", St2),
     {V,St4} = new_var(St3),		% (must not exist in As1)
-    %% TODO: this duplicates the 'after'-code; should lift to function.
-    Lanno = lineno_anno(L, St4),
-    {#itry{anno=#a{anno=Lanno},args=Es1,vars=[V],body=As1++[V],
-	   evars=Evs,handler=Hs},
-     [],St4};
+    LA = lineno_anno(L, St4),
+    Lanno = #a{anno=LA},
+    Fc = function_clause([], LA, {Name,0}),
+    Fun = #ifun{anno=Lanno,id=[],vars=[],
+		clauses=[#iclause{anno=Lanno,pats=[],
+				  guard=[#c_literal{val=true}],
+				  body=As1}],
+		fc=Fc},
+    App = #iapply{anno=Lanno,op=#c_var{anno=LA,name={Name,0}},args=[]},
+    {Evs,Hs,St5} = try_after([App], St4),
+    Try = #itry{anno=Lanno,args=Es1,vars=[V],body=[App,V],evars=Evs,handler=Hs},
+    Letrec = #iletrec{anno=Lanno,defs=[{{Name,0},Fun}],
+		      body=[Try]},
+    {Letrec,[],St5};
 expr({'try',L,Es,Cs,Ecs,As}, St0) ->
     %% 'try ... [of ...] [catch ...] after ... end'
     expr({'try',L,[{'try',L,Es,Cs,Ecs,[]}],[],[],As}, St0);
@@ -581,7 +587,11 @@ expr({'fun',L,{function,M,F,A}}, St0) ->
 	    name=#c_literal{val=make_fun},
 	    args=As},Aps,St1};
 expr({'fun',L,{clauses,Cs},Id}, St) ->
-    fun_tq(Id, Cs, L, St);
+    fun_tq(Id, Cs, L, St, unnamed);
+expr({named_fun,L,'_',Cs,Id}, St) ->
+    fun_tq(Id, Cs, L, St, unnamed);
+expr({named_fun,L,Name,Cs,{Index,Uniq,_Fname}}, St) ->
+    fun_tq({Index,Uniq,Name}, Cs, L, St, {named, Name});
 expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
     Lanno = lineno_anno(L, St1),
@@ -836,9 +846,9 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	       flags=#c_literal{val=Flags}},
      Eps ++ Eps2,St2}.
 
-%% fun_tq(Id, [Clauses], Line, State) -> {Fun,[PreExp],State}.
+%% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 
-fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
+fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
     Arity = clause_arity(hd(Cs0)),
     {Cs1,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
@@ -847,7 +857,7 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
     Fc = function_clause(Ps, Anno, {Name,Arity}),
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
-		vars=Args,clauses=Cs1,fc=Fc},
+		vars=Args,clauses=Cs1,fc=Fc,name=NameInfo},
     {Fun,[],St3}.
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
@@ -1135,28 +1145,13 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
 
-append_tail_segment(Segs, St) ->
-    app_tail_seg(Segs, St, []).
-
-app_tail_seg([#c_bitstr{val=Var0,size=#c_literal{val=all}}=Seg0]=L,
-	     St0, Acc) ->
-    case Var0 of
-	#c_var{name='_'} ->
-	    {Var,St} = new_var(St0),
-	    Seg = Seg0#c_bitstr{val=Var},
-	    {reverse(Acc, [Seg]),Var,St};
-	#c_var{} ->
-	    {reverse(Acc, L),Var0,St0}
-    end;
-app_tail_seg([H|T], St, Acc) ->
-    app_tail_seg(T, St, [H|Acc]);
-app_tail_seg([], St0, Acc) ->
+append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
     Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
 		     unit=#c_literal{val=1},
 		     type=#c_literal{val=binary},
 		     flags=#c_literal{val=[unsigned,big]}},
-    {reverse(Acc, [Tail]),Var,St}.
+    {Segs++[Tail],Var,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
@@ -1720,13 +1715,18 @@ uexpr(#icase{anno=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
     Used = union(used_in_any(As1), used_in_any(Cs1)),
     New = new_in_all(Cs1),
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
-uexpr(#ifun{anno=A,id=Id,vars=As,clauses=Cs0,fc=Fc0}, Ks0, St0) ->
+uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}, Ks0, St0) ->
     Avs = lit_list_vars(As),
-    Ks1 = union(Avs, Ks0),
-    {Cs1,St1} = ufun_clauses(Cs0, Ks1, St0),
-    {Fc1,St2} = ufun_clause(Fc0, Ks1, St1),
-    Used = subtract(intersection(used_in_any(Cs1), Ks0), Avs),
-    {#ifun{anno=A#a{us=Used,ns=[]},id=Id,vars=As,clauses=Cs1,fc=Fc1},St2};
+    Ks1 = case Name of
+              unnamed -> Ks0;
+              {named,FName} -> union(subtract([FName], Avs), Ks0)
+          end,
+    Ks2 = union(Avs, Ks1),
+    {Cs1,St1} = ufun_clauses(Cs0, Ks2, St0),
+    {Fc1,St2} = ufun_clause(Fc0, Ks2, St1),
+    Used = subtract(intersection(used_in_any(Cs1), Ks1), Avs),
+    A1 = A0#a{us=Used,ns=[]},
+    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs1,fc=Fc1,name=Name},St2};
 uexpr(#iapply{anno=A,op=Op,args=As}, _, St) ->
     Used = union(lit_vars(Op), lit_list_vars(As)),
     {#iapply{anno=A#a{us=Used},op=Op,args=As},St};
@@ -2021,15 +2021,24 @@ cexpr(#itry{anno=A,args=La,vars=Vs,body=Lb,evars=Evs,handler=Lh}, As, St0) ->
 cexpr(#icatch{anno=A,body=Les}, _As, St0) ->
     {Ces,_Us1,St1} = cexprs(Les, [], St0),	%Never export!
     {#c_catch{body=Ces},[],A#a.us,St1};
-cexpr(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
-    {Ccs,St1} = cclauses(Lcs, [], St0),		%NEVER export!
-    {Cfc,St2} = cclause(Lfc, [], St1),
-    Anno = A#a.anno,
-    {#c_fun{anno=Id++Anno,vars=Args,
-	    body=#c_case{anno=Anno,
-			 arg=set_anno(core_lib:make_values(Args), Anno),
-			 clauses=Ccs ++ [Cfc]}},
-     [],A#a.us,St2};
+cexpr(#ifun{name=unnamed}=Fun, As, St0) ->
+    cfun(Fun, As, St0);
+cexpr(#ifun{anno=#a{us=Us0}=A0,name={named,Name},fc=#iclause{pats=Ps}}=Fun0,
+      As, St0) ->
+    case is_element(Name, Us0) of
+        false ->
+            cfun(Fun0, As, St0);
+        true ->
+            A1 = A0#a{us=del_element(Name, Us0)},
+            Fun1 = Fun0#ifun{anno=A1},
+            {#c_fun{body=Body}=CFun0,[],Us1,St1} = cfun(Fun1, As, St0),
+            RecVar = #c_var{name={Name,length(Ps)}},
+            Let = #c_let{vars=[#c_var{name=Name}],arg=RecVar,body=Body},
+            CFun1 = CFun0#c_fun{body=Let},
+            Letrec = #c_letrec{defs=[{RecVar,CFun1}],
+                               body=RecVar},
+            {Letrec,[],Us1,St1}
+    end;
 cexpr(#iapply{anno=A,op=Op,args=Args}, _As, St) ->
     {#c_apply{anno=A#a.anno,op=Op,args=Args},[],A#a.us,St};
 cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St) ->
@@ -2056,23 +2065,15 @@ cexpr(Lit, _As, St) ->
     %%Vs = lit_vars(Lit),
     {set_anno(Lit, Anno#a.anno),[],Vs,St}.
 
-%% Kill the id annotations for any fun inside the expression.
-%% Necessary when duplicating code in try ... after.
-
-kill_id_anns(#ifun{clauses=Cs0}=Fun) ->
-    Cs = kill_id_anns(Cs0),
-    Fun#ifun{clauses=Cs,id=[]};
-kill_id_anns(#a{}=A) ->
-    %% Optimization: Don't waste time searching for funs inside annotations.
-    A;
-kill_id_anns([H|T]) ->
-    [kill_id_anns(H)|kill_id_anns(T)];
-kill_id_anns([]) -> [];
-kill_id_anns(Tuple) when is_tuple(Tuple) ->
-    L0 = tuple_to_list(Tuple),
-    L = kill_id_anns(L0),
-    list_to_tuple(L);
-kill_id_anns(Other) -> Other.
+cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
+    {Ccs,St1} = cclauses(Lcs, [], St0),     %NEVER export!
+    {Cfc,St2} = cclause(Lfc, [], St1),
+    Anno = A#a.anno,
+    {#c_fun{anno=Id++Anno,vars=Args,
+            body=#c_case{anno=Anno,
+                         arg=set_anno(core_lib:make_values(Args), Anno),
+                         clauses=Ccs ++ [Cfc]}},
+     [],A#a.us,St2}.
 
 %% lit_vars(Literal) -> [Var].
 

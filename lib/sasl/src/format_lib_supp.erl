@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,7 +77,7 @@ print_format(Device, Line, [{data, Data}|T]) ->
     print_data(Device, Line, Data),
     print_format(Device, Line, T);
 print_format(Device, Line, [{table, Table}|T]) ->
-    print_table(Device, Line, Table),
+    _ = print_table(Device, Line, Table),
     print_format(Device, Line, T);
 print_format(Device, Line, [{items, Items}|T]) ->
     print_items(Device, Line, Items),

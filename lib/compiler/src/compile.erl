@@ -417,6 +417,10 @@ pass(from_core) ->
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
 pass(asm) ->
+    %% TODO: remove 'asm' in R18
+    io:format("compile:file/2 option 'asm' has been deprecated and will be "
+	      "removed in R18.~n"
+	      "Use 'from_asm' instead.~n"),
     pass(from_asm);
 pass(from_beam) ->
     {".beam",[?pass(read_beam_file)|binary_passes()]};
@@ -1613,7 +1617,7 @@ compile_beam(File0, _OutFile, Opts) ->
 
 compile_asm(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
-    case file(File, [asm|make_erl_options(Opts)]) of
+    case file(File, [from_asm|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.

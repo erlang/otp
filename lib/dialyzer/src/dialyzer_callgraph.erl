@@ -35,6 +35,7 @@
 	 is_escaping/2,
 	 is_self_rec/2,
 	 non_local_calls/1,
+	 lookup_letrec/2,
 	 lookup_rec_var/2,
 	 lookup_call_site/2,
 	 lookup_label/2,
@@ -81,6 +82,8 @@
 %% digraph	-  A digraph representing the callgraph. 
 %%		   Nodes are represented as MFAs or labels.
 %% esc		-  A set of all escaping functions as reported by dialyzer_dep.
+%% letrec_map	-  A dict mapping from letrec bound labels to function labels.
+%%		   Includes all functions.
 %% name_map	-  A mapping from label to MFA.
 %% rev_name_map	-  A reverse mapping of the name_map.
 %% rec_var_map	-  A dict mapping from letrec bound labels to function names.
@@ -93,6 +96,7 @@
 -record(callgraph, {digraph        = digraph:new() :: digraph(),
 		    active_digraph                 :: active_digraph(),
                     esc	                           :: ets:tid(),
+                    letrec_map                     :: ets:tid(),
                     name_map	                   :: ets:tid(),
                     rev_name_map                   :: ets:tid(),
                     rec_var_map                    :: ets:tid(),
@@ -117,11 +121,12 @@
 -spec new() -> callgraph().
 
 new() ->
-  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSSelfRec, ETSCalls] =
+  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSLetrecMap, ETSSelfRec, ETSCalls] =
     [ets:new(N,[public, {read_concurrency, true}]) ||
       N <- [callgraph_esc, callgraph_name_map, callgraph_rev_name_map,
-	    callgraph_rec_var_map, callgraph_self_rec, callgraph_calls]],
+	    callgraph_rec_var_map, callgraph_letrec_map, callgraph_self_rec, callgraph_calls]],
   #callgraph{esc            = ETSEsc,
+	     letrec_map     = ETSLetrecMap,
 	     name_map       = ETSNameMap,
 	     rev_name_map   = ETSRevNameMap,
 	     rec_var_map    = ETSRecVarMap,
@@ -143,6 +148,12 @@ all_nodes(#callgraph{digraph = DG}) ->
 lookup_rec_var(Label, #callgraph{rec_var_map = RecVarMap}) 
   when is_integer(Label) ->
   ets_lookup_dict(Label, RecVarMap).
+
+-spec lookup_letrec(label(), callgraph()) -> 'error' | {'ok', label()}.
+
+lookup_letrec(Label, #callgraph{letrec_map = LetrecMap})
+  when is_integer(Label) ->
+  ets_lookup_dict(Label, LetrecMap).
 
 -spec lookup_call_site(label(), callgraph()) -> 'error' | {'ok', [_]}. % XXX: refine
 
@@ -348,16 +359,18 @@ ets_lookup_set(Key, Table) ->
 
 scan_core_tree(Tree, #callgraph{calls = ETSCalls,
 				esc = ETSEsc,
+				letrec_map = ETSLetrecMap,
 				name_map = ETSNameMap,
 				rec_var_map = ETSRecVarMap,
 				rev_name_map = ETSRevNameMap,
 				self_rec = ETSSelfRec}) ->
   %% Build name map and recursion variable maps.
-  build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap),
+  build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap, ETSLetrecMap),
 
   %% First find the module-local dependencies.
-  {Deps0, EscapingFuns, Calls} = dialyzer_dep:analyze(Tree),
+  {Deps0, EscapingFuns, Calls, Letrecs} = dialyzer_dep:analyze(Tree),
   true = ets:insert(ETSCalls, dict:to_list(Calls)),
+  true = ets:insert(ETSLetrecMap, dict:to_list(Letrecs)),
   true = ets:insert(ETSEsc, [{E} || E <- EscapingFuns]),
 
   LabelEdges = get_edges_from_deps(Deps0),
@@ -394,7 +407,7 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
   NamedEdges3 = NewNamedEdges1 ++ NewNamedEdges2,
   {Names3, NamedEdges3}.
 
-build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap) ->
+build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap, ETSLetrecMap) ->
   %% We only care about the named (top level) functions. The anonymous
   %% functions will be analysed together with their parents. 
   Defs = cerl:module_defs(Tree),
@@ -406,6 +419,7 @@ build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap) ->
 	MFA = {Mod, FunName, Arity},
 	FunLabel = get_label(Function),
 	VarLabel = get_label(Var),
+	true = ets:insert(ETSLetrecMap, {VarLabel, FunLabel}),
 	true = ets:insert(ETSNameMap, {FunLabel, MFA}),
 	true = ets:insert(ETSRevNameMap, {MFA, FunLabel}),
 	true = ets:insert(ETSRecVarMap, {VarLabel, MFA})

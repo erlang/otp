@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -201,7 +201,6 @@ static BOOL do_shutdown(int);
 static void print_last_error(void);
 static HANDLE start_reader_thread(void);
 static DWORD WINAPI reader(LPVOID);
-static int test_win95(void);
 #define read _read
 #define write _write
 #endif
@@ -239,24 +238,39 @@ get_env(char *key)
 {
 #ifdef __WIN32__
     DWORD size = 32;
-    char *value = NULL;
+    char  *value=NULL;
+    wchar_t *wcvalue = NULL;
+    wchar_t wckey[256];
+    int len; 
+
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, wckey, 256);
+    
     while (1) {
 	DWORD nsz;
-	if (value)
-	    free(value);
-	value = malloc(size);
-	if (!value) {
+	if (wcvalue)
+	    free(wcvalue);
+	wcvalue = malloc(size*sizeof(wchar_t));
+	if (!wcvalue) {
 	    print_error("Failed to allocate memory. Terminating...");
 	    exit(1);
 	}
 	SetLastError(0);
-	nsz = GetEnvironmentVariable((LPCTSTR) key, (LPTSTR) value, size);
+	nsz = GetEnvironmentVariableW(wckey, wcvalue, size);
 	if (nsz == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
-	    free(value);
+	    free(wcvalue);
 	    return NULL;
 	}
-	if (nsz <= size)
+	if (nsz <= size) {
+	    len = WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, NULL, 0, NULL, NULL);
+	    value = malloc(len*sizeof(char));
+	    if (!value) {
+		print_error("Failed to allocate memory. Terminating...");
+		exit(1);
+	    }
+	    WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, value, len, NULL, NULL);
+	    free(wcvalue);
 	    return value;
+	}
 	size = nsz;
     }
 #else
@@ -564,13 +578,22 @@ void win_system(char *command)
     char *comspec;
     char * cmdbuff;
     char * extra = " /C ";
+    wchar_t *wccmdbuff;
     char *env;
-    STARTUPINFO start;
+    STARTUPINFOW start;
     SECURITY_ATTRIBUTES attr;
     PROCESS_INFORMATION info;
+    int len;
 
-    if (!debug_on || test_win95()) {
-	system(command);
+    if (!debug_on) {
+	len = MultiByteToWideChar(CP_UTF8, 0, command, -1, NULL, 0);
+	wccmdbuff = malloc(len*sizeof(wchar_t));
+	if (!wccmdbuff) {
+	    print_error("Failed to allocate memory. Terminating...");
+	    exit(1);
+	}
+	MultiByteToWideChar(CP_UTF8, 0, command, -1, wccmdbuff, len);
+	_wsystem(wccmdbuff);
 	return;
     }
     comspec = env = get_env("COMSPEC");
@@ -602,20 +625,29 @@ void win_system(char *command)
 
     fflush(stderr);
 
-    if (!CreateProcess(NULL,
-		       cmdbuff,
-		       &attr,
-		       NULL,
-		       TRUE,
-		       0,
-		       NULL,
-		       NULL,
-		       &start,
-		       &info)) {
+    len = MultiByteToWideChar(CP_UTF8, 0, cmdbuff, -1, NULL, 0);
+    wccmdbuff = malloc(len*sizeof(wchar_t));
+    if (!wccmdbuff) {
+	print_error("Failed to allocate memory. Terminating...");
+	exit(1);
+    }
+    MultiByteToWideChar(CP_UTF8, 0, cmdbuff, -1, wccmdbuff, len);
+
+    if (!CreateProcessW(NULL,
+			wccmdbuff,
+			&attr,
+			NULL,
+			TRUE,
+			0,
+			NULL,
+			NULL,
+			&start,
+			&info)) {
 	debugf("Could not create process for the command %s.\r\n", cmdbuff);
     }
     WaitForSingleObject(info.hProcess,INFINITE);
     free(cmdbuff);
+    free(wccmdbuff);
 }
 #endif /* defined(__WIN32__) */
 
@@ -966,16 +998,6 @@ void print_last_error() {
 	LocalFree( lpMsgBuf );
 }
 
-static int test_win95(void)
-{
-    OSVERSIONINFO osinfo;
-    osinfo.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
-    GetVersionEx(&osinfo);
-    if (osinfo.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) 
-	return 1;
-    else
-	return 0;
-}
 
 static BOOL enable_privilege() {
 	HANDLE ProcessHandle;
@@ -993,27 +1015,18 @@ static BOOL enable_privilege() {
 }
 
 static BOOL do_shutdown(int really_shutdown) {
-    if (test_win95()) {
-    	if (ExitWindowsEx(EWX_REBOOT,0)) {
-		return TRUE;
-	} else {
-		print_last_error();
-		return FALSE;
-	}
-    } else {
-	enable_privilege();
-	if (really_shutdown) {
-	    if (InitiateSystemShutdown(NULL,"shutdown by HEART",10,TRUE,TRUE))
-		return TRUE;
-	} else if (InitiateSystemShutdown(NULL,
-					  "shutdown by HEART\n"
-					  "will be interrupted",
-					  30,TRUE,TRUE)) {
-	    AbortSystemShutdown(NULL);
+    enable_privilege();
+    if (really_shutdown) {
+	if (InitiateSystemShutdown(NULL,"shutdown by HEART",10,TRUE,TRUE))
 	    return TRUE;
-	}
-	return FALSE;
+    } else if (InitiateSystemShutdown(NULL,
+				      "shutdown by HEART\n"
+				      "will be interrupted",
+				      30,TRUE,TRUE)) {
+	AbortSystemShutdown(NULL);
+	return TRUE;
     }
+    return FALSE;
 }
 
 DWORD WINAPI reader(LPVOID lpvParam) {

@@ -27,6 +27,6 @@
 #define RESTART_SUCCESS_WAIT 2
 
 
-int service_main(int argc, char **argv);
+int service_main(int argc, wchar_t **argv);
 
 #endif /* _ERLSRV_SERVICE_H */

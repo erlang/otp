@@ -344,6 +344,8 @@ expr({'receive',Line,Cs0,To0,ToEs0}, St0) ->
     {{'receive',Line,Cs,To,ToEs},St3};
 expr({'fun',Line,Body}, St) ->
     fun_tq(Line, Body, St);
+expr({named_fun,Line,Name,Cs}, St) ->
+    fun_tq(Line, Cs, St, Name);
 expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
@@ -475,6 +477,11 @@ fun_tq(Lf, {clauses,Cs0}, St0) ->
     Index = Uniq = 0,
     {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},St2}.
 
+fun_tq(Line, Cs0, St0, Name) ->
+    {Cs1,St1} = fun_clauses(Cs0, St0),
+    {Fname,St2} = new_fun_name(St1, Name),
+    {{named_fun,Line,Name,Cs1,{0,0,Fname}},St2}.
+
 fun_clauses([{clause,L,H0,G0,B0}|Cs0], St0) ->
     {H,St1} = head(H0, St0),
     {G,St2} = guard(G0, St1),
@@ -485,9 +492,12 @@ fun_clauses([], St) -> {[],St}.
 
 %% new_fun_name(State) -> {FunName,State}.
 
-new_fun_name(#expand{func=F,arity=A,fcount=I}=St) ->
+new_fun_name(St) ->
+    new_fun_name(St, 'fun').
+
+new_fun_name(#expand{func=F,arity=A,fcount=I}=St, FName) ->
     Name = "-" ++ atom_to_list(F) ++ "/" ++ integer_to_list(A)
-        ++ "-fun-" ++ integer_to_list(I) ++ "-",
+        ++ "-" ++ atom_to_list(FName) ++ "-" ++ integer_to_list(I) ++ "-",
     {list_to_atom(Name),St#expand{fcount=I+1}}.
 
 %% pattern_bin([Element], State) -> {[Element],[Variable],[UsedVar],State}.

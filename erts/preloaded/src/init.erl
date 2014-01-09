@@ -465,7 +465,10 @@ make_permanent(Boot,Config,Flags0,State) ->
 set_flag(_Flag,false,Flags) ->
     {ok,Flags};
 set_flag(Flag,Value,Flags) when is_list(Value) ->
-    case catch list_to_binary(Value) of
+    %% The flag here can be -boot or -config, which means the value is
+    %% a file name! Thus the file name encoding is used when coverting.
+    Encoding = file:native_name_encoding(),
+    case catch unicode:characters_to_binary(Value,Encoding,Encoding) of
 	{'EXIT',_} ->
 	    {error,badarg};
 	AValue ->
@@ -1045,7 +1048,7 @@ start_it({eval,Bin}) ->
 	      TsR -> reverse([{dot,1} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
-    erl_eval:exprs(Expr, erl_eval:new_bindings()),
+    {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
     ok;
 start_it([_|_]=MFA) ->
     Ref = make_ref(),

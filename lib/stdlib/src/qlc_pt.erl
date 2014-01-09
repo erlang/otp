@@ -2540,6 +2540,19 @@ nos({'fun',L,{clauses,Cs}}, S) ->
                {clause,Ln,H,G,B}
            end || {clause,Ln,H0,G0,B0} <- Cs],
     {{'fun',L,{clauses,NCs}}, S};
+nos({named_fun,Loc,Name,Cs}, S) ->
+    {{var,NLoc,NName}, S1} = case Name of
+                                 '_' ->
+                                     S;
+                                 Name ->
+                                     nos_pattern({var,Loc,Name}, S)
+                               end,
+    NCs = [begin
+               {H, S2} = nos_pattern(H0, S1),
+               {[G, B], _} = nos([G0, B0], S2),
+               {clause,CLoc,H,G,B}
+           end || {clause,CLoc,H0,G0,B0} <- Cs],
+    {{named_fun,NLoc,NName,NCs}, S};
 nos({lc,L,E0,Qs0}, S) ->
     %% QLCs as well as LCs. It is OK to modify LCs as long as they
     %% occur within QLCs--the warning messages have already been found
@@ -2713,6 +2726,9 @@ var2const(E) ->
 
 var_map(F, {var, _, _}=V) ->
     F(V);
+var_map(F, {named_fun,NLoc,NName,Cs}) ->
+    {var,Loc,Name} = F({var,NLoc,NName}),
+    {named_fun,Loc,Name,var_map(F, Cs)};
 var_map(F, T) when is_tuple(T) ->
     list_to_tuple(var_map(F, tuple_to_list(T)));
 var_map(F, [E | Es]) ->

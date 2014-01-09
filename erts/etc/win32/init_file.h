@@ -36,10 +36,10 @@ typedef struct {
 } InitFile;
 
 /* Load a file structure from a disk file */
-InitFile *load_init_file(char *filename);
+InitFile *load_init_file(wchar_t *filename);
 
 /* Stores a file structure into a disk file */
-int store_init_file(InitFile *inif, char *filename);
+int store_init_file(InitFile *inif, wchar_t *filename);
 
 /* Create an empty  file structure */
 InitFile *create_init_file(void);

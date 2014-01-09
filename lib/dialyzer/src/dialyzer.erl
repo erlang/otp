@@ -62,18 +62,18 @@ plain_cl() ->
       cl_halt(cl_check_init(Opts), Opts);
     {plt_info, Opts} ->
       cl_halt(cl_print_plt_info(Opts), Opts);
-    {{gui, Type}, Opts} ->
+    {gui, Opts} ->
       try check_gui_options(Opts)
       catch throw:{dialyzer_error, Msg} -> cl_error(Msg)
       end,
       case Opts#options.check_plt of
 	true ->
 	  case cl_check_init(Opts#options{get_warnings = false}) of
-	    {ok, _} -> gui_halt(internal_gui(Type, Opts), Opts);
+	    {ok, _} -> gui_halt(internal_gui(Opts), Opts);
 	    {error, _} = Error -> cl_halt(Error, Opts)
 	  end;
 	false ->
-	  gui_halt(internal_gui(Type, Opts), Opts)
+	  gui_halt(internal_gui(Opts), Opts)
       end;
     {cl, Opts} ->
       case Opts#options.check_plt of
@@ -179,12 +179,9 @@ run(Opts) ->
       erlang:error({dialyzer_error, lists:flatten(ErrorMsg)})
   end.
 
-internal_gui(Type, OptsRecord) ->
+internal_gui(OptsRecord) ->
   F = fun() ->
-	  case Type of
-	    gs -> dialyzer_gui:start(OptsRecord);
-	    wx -> dialyzer_gui_wx:start(OptsRecord)
-	  end,
+	  dialyzer_gui_wx:start(OptsRecord),
 	  ?RET_NOTHING_SUSPICIOUS
       end,
   doit(F).
@@ -205,7 +202,7 @@ gui(Opts) ->
       case cl_check_init(OptsRecord) of
 	{ok, ?RET_NOTHING_SUSPICIOUS} ->
 	  F = fun() ->
-		  dialyzer_gui:start(OptsRecord)
+		  dialyzer_gui_wx:start(OptsRecord)
 	      end,
 	  case doit(F) of
 	    {ok, _} -> ok;

@@ -125,7 +125,7 @@ init(Parent, Starter, ApplData, Type) ->
     State = #state{appl_data = ApplData, gleader = OldGleader},
     case start_it(State, Type) of
 	{ok, Pid} ->          % apply(M,F,A) returned ok
-	    set_timer(ApplData#appl_data.maxT),
+	    ok = set_timer(ApplData#appl_data.maxT),
 	    unlink(Starter),
 	    proc_lib:init_ack(Starter, {ok,self()}),
 	    main_loop(Parent, State#state{child = Pid});
@@ -418,4 +418,6 @@ kill_all_procs_1([], _, 0) -> ok;
 kill_all_procs_1([], _, _) -> kill_all_procs().
 
 set_timer(infinity) -> ok;
-set_timer(Time) -> timer:exit_after(Time, timeout).
+set_timer(Time) ->
+    {ok, _} = timer:exit_after(Time, timeout),
+    ok.

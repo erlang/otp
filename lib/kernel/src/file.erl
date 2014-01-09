@@ -95,7 +95,8 @@
                       Delay :: non_neg_integer()}
 		   | 'delayed_write' | {'read_ahead', Size :: pos_integer()}
 		   | 'read_ahead' | 'compressed'
-		   | {'encoding', unicode:encoding()}.
+		   | {'encoding', unicode:encoding()}
+		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].
 -type name()      :: string() | atom() | deep_list().
 -type name_all()  :: string() | atom() | deep_list() | (RawFilename :: binary()).
@@ -376,7 +377,7 @@ write_file(Name, Bin, ModeList) when is_list(ModeList) ->
 			ok ->
 			    close(Handle);
 			E1 ->
-			    close(Handle),
+			    _ = close(Handle),
 			    E1
 		    end;
 		E2 ->
@@ -770,7 +771,7 @@ copy_int({SourceName, SourceOpts}, Dest, Length)
 	    case open(Source, [read | SourceOpts]) of
 		{ok, Handle} ->
 		    Result = copy_opened_int(Handle, Dest, Length, 0),
-		    close(Handle),
+		    _ = close(Handle),
 		    Result;
 		{error, _} = Error ->
 		    Error
@@ -786,9 +787,16 @@ copy_int(Source, {DestName, DestOpts}, Length)
 	Dest ->
 	    case open(Dest, [write | DestOpts]) of
 		{ok, Handle} ->
-		    Result = copy_opened_int(Source, Handle, Length, 0),
-		    close(Handle),
-		    Result;
+                    case copy_opened_int(Source, Handle, Length, 0) of
+                        {ok, _} = OK ->
+                            case close(Handle) of
+                                ok -> OK;
+                                Error -> Error
+                            end;
+                        Error ->
+                            _ = close(Handle),
+                            Error
+                    end;
 		{error, _} = Error ->
 		    Error
 	    end
@@ -957,7 +965,7 @@ consult(File) ->
     case open(File, [read]) of
 	{ok, Fd} ->
 	    R = consult_stream(Fd),
-	    close(Fd),
+	    _ = close(Fd),
 	    R;
 	Error ->
 	    Error
@@ -977,10 +985,10 @@ path_consult(Path, File) ->
 	{ok, Fd, Full} ->
 	    case consult_stream(Fd) of
 		{ok, List} ->
-		    close(Fd),
+		    _ = close(Fd),
 		    {ok, List, Full};
 		E1 ->
-		    close(Fd),
+		    _ = close(Fd),
 		    E1
 	    end;
 	E2 ->
@@ -1005,7 +1013,7 @@ eval(File, Bs) ->
     case open(File, [read]) of
 	{ok, Fd} ->
 	    R = eval_stream(Fd, ignore, Bs),
-	    close(Fd),
+	    _ = close(Fd),
 	    R;
 	Error ->
 	    Error
@@ -1035,10 +1043,10 @@ path_eval(Path, File, Bs) ->
 	{ok, Fd, Full} ->
 	    case eval_stream(Fd, ignore, Bs) of
 		ok ->
-		    close(Fd),
+		    _ = close(Fd),
 		    {ok, Full};
 		E1 ->
-		    close(Fd),
+		    _ = close(Fd),
 		    E1
 	    end;
 	E2 ->
@@ -1065,7 +1073,7 @@ script(File, Bs) ->
     case open(File, [read]) of
 	{ok, Fd} ->
 	    R = eval_stream(Fd, return, Bs),
-	    close(Fd),
+	    _ = close(Fd),
 	    R;
 	Error ->
 	    Error
@@ -1098,10 +1106,10 @@ path_script(Path, File, Bs) ->
 	{ok,Fd,Full} ->
 	    case eval_stream(Fd, return, Bs) of
 		{ok,R} ->
-		    close(Fd),
+		    _ = close(Fd),
 		    {ok, R, Full};
 		E1 ->
-		    close(Fd),
+		    _ = close(Fd),
 		    E1
 	    end;
 	E2 ->
@@ -1247,7 +1255,7 @@ sendfile(Filename, Sock)  ->
 	    {error, Reason};
 	{ok, Fd} ->
 	    Res = sendfile(Fd, Sock, 0, 0, []),
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    Res
     end.
 
@@ -1298,7 +1306,7 @@ sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) ->
     {ok, CurrPos} = file:position(File, {cur, 0}),
     {ok, _NewPos} = file:position(File, {bof, Offset}),
     Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
-    file:position(File, {bof, CurrPos}),
+    _ = file:position(File, {bof, CurrPos}),
     Res.
 
 

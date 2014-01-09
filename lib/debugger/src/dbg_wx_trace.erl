@@ -71,21 +71,10 @@ start(Pid, TraceWin, BackTrace) ->
     start(Pid, TraceWin, BackTrace, ?STRINGS).
 
 start(Pid, TraceWin, BackTrace, Strings) ->
-    case {whereis(dbg_wx_mon), whereis(dbg_ui_mon)} of
-	{undefined, undefined} ->
-	    case which_gui() of
-		gs ->
-		    dbg_ui_trace:start(Pid, TraceWin, BackTrace);
-		wx ->
-		    Parent = wx:new(),
-		    Env = wx:get_env(),
-		    start(Pid, Env, Parent, TraceWin, BackTrace, Strings)
-	    end;
-	{undefined, Monitor} when is_pid(Monitor) ->
-	    dbg_ui_trace:start(Pid, TraceWin, BackTrace);
-	{Monitor, _} when is_pid(Monitor) ->
+    case whereis(dbg_wx_mon) of
+	Monitor when is_pid(Monitor) ->
 	    Monitor ! {?MODULE, self(), get_env},
-	    receive 
+	    receive
 		{env, Monitor, Env, Parent} ->
 		    start(Pid, Env, Parent, TraceWin, BackTrace, Strings)
 	    end
@@ -108,15 +97,6 @@ start(Pid, Env, Parent, TraceWin, BackTrace, Strings) ->
 	    end;
 	error ->
 	    ignore
-    end.
-
-which_gui() ->
-    try
-	wx:new(),
-	wx:destroy(),
-	wx
-    catch _:_ ->
-	    gs
     end.
 
 %%--------------------------------------------------------------------

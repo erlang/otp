@@ -140,9 +140,9 @@ compile_source(File) ->
     ok = file:write_file(OutFileTemp, Code),
     file:rename(OutFileTemp, OutFile).
 
-end_per_suite(Conf) when is_list(Conf) ->
-    %% Nothing.
-    Conf.
+end_per_suite(Config) when is_list(Config) ->
+    rh_test_lib:clean_dir(?privdir),
+    Config.
 
 init_per_testcase(link_tar, Config) ->
     case os:type() of
@@ -1960,12 +1960,12 @@ otp_6226_outdir(Config) when is_list(Config) ->
     ok = file:delete(Relup),
 
     %% d) absolute but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,Outdir2},{path,P},silent]),
 
     %% e) relative but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,"./outdir2"},{path,P},silent]),
 

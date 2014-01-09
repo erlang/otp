@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -135,7 +135,12 @@ handle_event(Event, State) ->
 			State#state{cur_fd = NewFd, curF = NewF, curB = 0}
 		end,
 	    [Hi,Lo] = put_int16(Size),
-	    file:write(NewState#state.cur_fd, [Hi, Lo, Bin]),
+            case file:write(NewState#state.cur_fd, [Hi, Lo, Bin]) of
+                ok ->
+                    ok;
+                {error, Reason} ->
+                    exit({file_exit, Reason})
+            end,
 	    {ok, NewState#state{curB = NewState#state.curB + Size + 2}};
 	_ ->
 	    {ok, State}
@@ -174,7 +179,7 @@ file_open(Dir, FileNo) ->
 	    write_index_file(Dir, FileNo),
 	    {ok, Fd};
 	_ -> 
-	    exit({file, open})
+	    exit(file_open)
     end.
 
 put_int16(I) ->
@@ -211,7 +216,7 @@ write_index_file(Dir, Index) ->
 	    ok = file:close(Fd),
 	    ok = file:rename(TmpFile,File),
 	    ok;
-	_ -> exit(open_index_file)
+	_ -> exit(write_index_file)
     end.
 
 inc(N, Max) ->

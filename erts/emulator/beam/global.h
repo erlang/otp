@@ -186,11 +186,6 @@ extern void erts_ddll_remove_monitor(Process *p,
 extern Eterm erts_ddll_monitor_driver(Process *p,
 				      Eterm description,
 				      ErtsProcLocks plocks);
-/*
- * Max no. of drivers (linked in and dynamically loaded). Each table
- * entry uses 4 bytes.
- */
-#define DRIVER_TAB_SIZE 32
 
 /*
 ** Just like the driver binary but with initial flags
@@ -655,6 +650,10 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
+/* beam_bif_load.c */
+Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp);
+
+
 /* beam_load.c */
 typedef struct {
     BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
@@ -852,6 +851,12 @@ Port *erts_get_heart_port(void);
 void erts_lcnt_enable_io_lock_count(int enable);
 #endif
 
+/* driver_tab.c */
+typedef void *(*ErtsStaticNifInitFPtr)(void);
+ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len);
+int erts_is_static_nif(void *handle);
+void erts_init_static_drivers(void);
+
 /* erl_drv_thread.c */
 void erl_drv_thr_init(void);
 
@@ -911,6 +916,17 @@ char *erts_convert_filename_to_native(Eterm name, char *statbuf,
 				      ErtsAlcType_t alloc_type, 
 				      int allow_empty, int allow_atom,
 				      Sint *used /* out */);
+char *erts_convert_filename_to_encoding(Eterm name, char *statbuf,
+					size_t statbuf_size,
+					ErtsAlcType_t alloc_type,
+					int allow_empty, int allow_atom,
+					int encoding,
+					Sint *used /* out */,
+					Uint extra);
+char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
+                                     char *statbuf, size_t statbuf_size,
+                                     ErtsAlcType_t alloc_type, Sint* used,
+                                     Uint extra_wchars);
 Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
@@ -1110,7 +1126,12 @@ erts_alloc_message_heap_state(Uint size,
 	if (statep)
 	    *statep = state;
 	if ((state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
+	    || (receiver->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
+	    /*
+	     * The heap is either potentially in an inconsistent
+	     * state, or not large enough.
+	     */
 #ifdef ERTS_SMP
 	    if (locked_main) {
 		*receiver_locks &= ~ERTS_PROC_LOCK_MAIN;

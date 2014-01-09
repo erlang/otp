@@ -35,7 +35,8 @@ init_per_suite(Config) ->
     application:start(sasl),
     Config.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    clean_priv_dir(Config,true),
     ok.
 
 all() -> 
@@ -50,7 +51,7 @@ unix_cases() ->
 		true ->  [{group, release}];
 		false -> [no_run_erl]
 	    end,
-    [target_system] ++ RunErlCases ++ cases().
+    [target_system, target_system_unicode] ++ RunErlCases ++ cases().
 
 win32_cases() -> 
     [{group,release} | cases()].
@@ -163,7 +164,6 @@ end_per_group(release, Config) ->
 	{win32,_} -> delete_all_services();
 	_ -> ok
     end,
-    clean_priv_dir(Config,true),
     ?t:timetrap_cancel(Dog),
     Config;
 end_per_group(_GroupName, Config) ->
@@ -1559,6 +1559,9 @@ eval_appup_with_restart(Conf) when is_list(Conf) ->
 %% Test the example/target_system.erl module
 target_system(Conf) when is_list(Conf) ->
     PrivDir = priv_dir(Conf),
+    target_system1(Conf,PrivDir).
+
+target_system1(Conf,PrivDir) ->
     DataDir = ?config(data_dir,Conf),
 
     TargetCreateDir = filename:join([PrivDir,"target_system","create"]),
@@ -1566,7 +1569,6 @@ target_system(Conf) when is_list(Conf) ->
 
     ok = filelib:ensure_dir(filename:join(TargetCreateDir,"xx")),
     ok = filelib:ensure_dir(filename:join(TargetInstallDir,"xx")),
-
 
     %% Create the .rel file
     RelName = filename:join(TargetCreateDir,"ts-1.0"),
@@ -1607,7 +1609,8 @@ target_system(Conf) when is_list(Conf) ->
     StdlibVsn = vsn(stdlib,current),
     SaslVsn = vsn(sasl,current),
     RelFileBasename = filename:basename(RelFile),
-    true = filelib:is_dir(filename:join(LibDir,"kernel-"++KernelVsn)),
+    KernelLibDir = filename:join(LibDir,"kernel-"++KernelVsn),
+    true = filelib:is_dir(KernelLibDir),
     true = filelib:is_dir(filename:join(LibDir,"stdlib-"++StdlibVsn)),
     true = filelib:is_dir(filename:join(LibDir,"sasl-"++SaslVsn)),
     true = filelib:is_dir(filename:join(LibDir,"a-1.0")),
@@ -1616,11 +1619,13 @@ target_system(Conf) when is_list(Conf) ->
     true = filelib:is_regular(filename:join(RelDir,"start_erl.data")),
     true = filelib:is_regular(filename:join(RelDir,RelFileBasename)),
     true = filelib:is_dir(filename:join(RelDir,RelVsn)),
-    true = filelib:is_regular(filename:join([RelDir,RelVsn,"start.boot"])),
+    StartBoot = filename:join([RelDir,RelVsn,"start.boot"]),
+    true = filelib:is_regular(StartBoot),
     true = filelib:is_regular(filename:join([RelDir,RelVsn,RelFileBasename])),
     BinDir = filename:join(TargetInstallDir,bin),
+    Erl = filename:join(BinDir,erl),
+    true = filelib:is_regular(Erl),
     true = filelib:is_regular(filename:join(BinDir,"start.boot")),
-    true = filelib:is_regular(filename:join(BinDir,erl)),
     true = filelib:is_regular(filename:join(BinDir,start_erl)),
     true = filelib:is_regular(filename:join(BinDir,start)),
     true = filelib:is_regular(filename:join(BinDir,epmd)),
@@ -1631,9 +1636,75 @@ target_system(Conf) when is_list(Conf) ->
     ErtsVsn = vsn(erts,current),
     {ok,SED} = file:read_file(filename:join(RelDir,"start_erl.data")),
     [ErtsVsn,RelVsn] = string:tokens(binary_to_list(SED),"\s\n"),
+
+    %% Check that installation can be started
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system"),
+    {ok,Node} = start_target_node_with_erl(Erl,Sname,StartBoot),
+
+    TargetInstallDir = rpc:call(Node,code,root_dir,[]),
+    KernelLibDir = rpc:call(Node,code,lib_dir,[kernel]),
+    [{RelName,RelVsn,_Apps,permanent}] =
+	rpc:call(Node,release_handler,which_releases,[]),
+
+    ?t:format("Target node ok:~nRootDir: ~ts~nKernelLibDir: ~ts~nRelease: ~ts",
+	      [TargetInstallDir,KernelLibDir,RelName]),
+
     ok.
 
+target_system(cleanup,_Conf) ->
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system"),
+    stop_target_node(node_name(Sname)),
+    ok.
 
+start_target_node_with_erl(Erl,Sname,Boot) ->
+    FullName = node_name(Sname),
+    FilenameMode = case file:native_name_encoding() of
+		       latin1 -> "+fnl";
+		       utf8 -> "+fnui"
+		   end,
+    Args = [FilenameMode,"-detached", "-noinput","-sname",atom_to_list(Sname),
+	   "-boot",filename:rootname(Boot)],
+    ?t:format("Starting node ~p: ~ts~n",
+	      [FullName, lists:flatten([[X," "] || X <- [Erl|Args]])]),
+    case rh_test_lib:cmd(Erl,Args,[]) of
+	ok ->
+	    ok = wait_nodes_up([FullName],"target_system test node"),
+	    {ok,FullName};
+	Error ->
+            ?t:fail({failed_to_start_node, FullName, Error})
+    end.
+
+stop_target_node(Node) ->
+    monitor_node(Node, true),
+    _ = rpc:call(Node,erlang,halt,[]),
+    receive {nodedown, Node} -> ok end.
+
+%% Test that the example/target_system.erl module can create and
+%% install under a path which includes unicode characters
+target_system_unicode(Conf) when is_list(Conf) ->
+    PrivDir = priv_dir(Conf),
+    UnicodePrivDir = filename:join(PrivDir,"αβ"),
+
+    PA = filename:dirname(code:which(?MODULE)),
+
+    %% Make sure this runs on a node with unicode file name mode
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system_unicode"),
+    {ok,Node} = ?t:start_node(Sname,peer,[{args,"+fnui -pa " ++ PA}]),
+    ok = rpc:call(Node,file,make_dir,[UnicodePrivDir]),
+    case rpc:call(Node,application,start,[sasl]) of
+	ok -> ok;
+	{error,{already_started,sasl}} -> ok;
+	Error -> ?t:fail({failed_to_start_sasl_on_test_node,Node,Error})
+    end,
+    ok = rpc:call(Node,?MODULE,target_system1,[Conf,UnicodePrivDir]),
+    ok.
+
+target_system_unicode(cleanup,Conf) ->
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system_unicode"),
+    Node = node_name(Sname),
+    _ = rpc:call(Node,?MODULE,target_system,[cleanup,Conf]),
+    _ = stop_node(Node),
+    ok.
 
 %%%=================================================================
 %%% Testing global groups.
@@ -1722,18 +1793,18 @@ no_dot_erlang(Conf) ->
 	case os:cmd(Erl ++ Args) of
 	    "DOT_ERLANG_READ" ++ _ -> ok;
 	    Other1 ->
-		io:format("Failed: ~s~n",[Erl ++ Args]),
+		io:format("Failed: ~ts~n",[Erl ++ Args]),
 		io:format("Expected: ~s ++ _~n",["DOT_ERLANG_READ "]),
-		io:format("Got: ~s~n",[Other1]),
+		io:format("Got: ~ts~n",[Other1]),
 		exit(failed_to_start, test_error)
 	end,
 	NO_DOT_ERL = " -boot no_dot_erlang",
 	case os:cmd(Erl ++ NO_DOT_ERL ++ Args) of
 	    "TESTOK" ++ _ -> ok;
 	    Other2 ->
-		io:format("Failed: ~s~n",[Erl ++ Args]),
+		io:format("Failed: ~ts~n",[Erl ++ Args]),
 		io:format("Expected: ~s~n",["TESTOK"]),
-		io:format("Got: ~s~n",[Other2]),
+		io:format("Got: ~ts~n",[Other2]),
 		exit(failed_to_start, no_dot_erlang)
 	end
     after
@@ -1883,7 +1954,7 @@ stop_node(Node) ->
 
 
 copy_client(Conf,Master,Sname,Client) ->
-    io:format("copy_client(Conf)"),
+    ?t:format("copy_client(Conf)"),
 
     DataDir = ?config(data_dir, Conf),
     MasterDir = filename:join(priv_dir(Conf),Master),
@@ -1922,81 +1993,11 @@ copy_client(Conf,Master,Sname,Client) ->
 
 clean_priv_dir(Conf,Save) ->
     PrivDir = priv_dir(Conf),
-
-    {ok, OrigWd} = file:get_cwd(),
-
-    ok = file:set_cwd(PrivDir),
-    ?t:format("========  current dir ~p~n",[PrivDir]),
-    {ok, Dirs} = file:list_dir(PrivDir),
-    ?t:format("========  deleting  ~p~n",[Dirs]),
-
-    ok = clean_dirs_os(Dirs,Save),
-    {ok,Remaining} = file:list_dir(PrivDir),
-    ?t:format("========  remaining  ~p~n",[Remaining]),
-
-    case Remaining of
-	[] ->
-	    ok;
-	_ ->
-	    clean_dirs_os(Remaining,Save),
-	    Remaining2 = file:list_dir(PrivDir),
-	    ?t:format("========  remaining after second try ~p~n",[Remaining2])
-    end,
-
-    ok = file:set_cwd(OrigWd),
-    ok.
-
-
-clean_dirs_os(Dirs,Save) ->
-    case os:type() of
-	{unix, _} ->
-	    clean_dirs_unix(Dirs,Save);
-	{win32, _} ->
-	    clean_dirs_win32(Dirs,Save);
-	Os ->
-	    test_server:fail({error, {not_yet_implemented_os, Os}})
+    rh_test_lib:clean_dir(PrivDir,Save),
+    case file:list_dir(PrivDir) of
+	{ok,[]} -> _ = file:del_dir(PrivDir);
+	_ -> ok
     end.
-
-
-clean_dirs_unix([],_) ->
-    ok;
-clean_dirs_unix(["save"|Dirs],Save) when Save ->
-    clean_dirs_unix(Dirs,Save);
-clean_dirs_unix([Dir|Dirs],Save) ->
-    Rm = string:concat("rm -rf ", Dir),
-    ?t:format("============== COMMAND ~p~n",[Rm]),
-    case file:list_dir(Dir) of
-	{error, enotdir} ->
-	    ok;
-	X ->
-	    ?t:format("------- Dir ~p~n       ~p~n",[Dir, X])
-    end,
-    case os:cmd(Rm) of
-	      [] ->
-		  ?t:format("------- Result of COMMAND ~p~n",[ok]);
-	      Y ->
-		  ?t:format("!!!!!!! delete ERROR  Dir ~p Error ~p~n",[Dir, Y]),
-		  ?t:format("------- ls -al  ~p~n",[os:cmd("ls -al " ++ Dir)])
-	  end,
-
-    clean_dirs_unix(Dirs,Save).
-
-clean_dirs_win32([],_) ->
-    ok;
-clean_dirs_win32(["save"|Dirs],Save) when Save ->
-    clean_dirs_win32(Dirs,Save);
-clean_dirs_win32([Dir|Dirs],Save) ->
-    Rm =
-       case filelib:is_dir(Dir) of
-          true ->
-             string:concat("rmdir /s /q ", Dir);
-          false ->
-             string:concat("del /q ", Dir)
-       end,
-    ?t:format("============== COMMAND ~p~n",[Rm]),
-    [] = os:cmd(Rm),
-    clean_dirs_win32(Dirs,Save).
-
 
 node_name(Sname) when is_atom(Sname) ->
     {ok,Host} = inet:gethostname(),
@@ -2043,7 +2044,7 @@ chmod(Dest,Opts) ->
 
 
 copy_error(Src, Dest, Reason) ->
-    io:format("Copy ~s to ~s failed: ~s\n",
+    ?t:format("Copy ~ts to ~ts failed: ~ts\n",
 	      [Src,Dest,file:format_error(Reason)]),
     ?t:fail(file_copy_failed).
 
@@ -2083,9 +2084,11 @@ subst_file(Src, Dest, Vars) ->
     subst_file(Src, Dest, Vars, []).
 subst_file(Src, Dest, Vars, Opts) ->
     {ok, Bin} = file:read_file(Src),
-    Conts = binary_to_list(Bin),
+    Conts = binary_to_list(Bin), % The source will always be latin1
     NConts = subst(Conts, Vars),
-    ok = file:write_file(Dest, NConts),
+    %% The destination must be utf8 if file name encoding is unicode
+    Enc = file:native_name_encoding(),
+    ok = file:write_file(Dest, unicode:characters_to_binary(NConts,Enc,Enc)),
     preserve(Src,Dest,Opts),
     chmod(Dest,Opts).
 
@@ -2118,13 +2121,22 @@ subst_var([], Vars, Result, VarAcc) ->
 
 
 priv_dir(Conf) ->
-%%    filename:absname(?config(priv_dir, Conf)). % Get rid of trailing slash
     %% Due to problem with long paths on windows => creating a new
     %% priv_dir under data_dir
-    filename:absname(filename:join(?config(data_dir, Conf),priv_dir)).
+    %% And get rid of trailing slash (absname does that)
+    %% And if file name translation mode is utf8, use a path with
+    %% unicode characters
+    PrivDir =
+	case file:native_name_encoding() of
+	    utf8 ->
+		"priv_dir_αβ";
+	    _ ->
+		"priv_dir"
+	end,
+    filename:absname(filename:join([?config(data_dir, Conf),PrivDir])).
 
 init_priv_dir(Conf) ->
-    Dir = filename:absname(filename:join(?config(data_dir, Conf),priv_dir)),
+    Dir = priv_dir(Conf),
     case filelib:is_dir(Dir) of
 	true ->
 	    clean_priv_dir(Conf,false);
@@ -2149,7 +2161,7 @@ rh_print() ->
     receive
 	{print, {Module,Line}, [H|T]} ->
 	    ?t:format("=== ~p:~p - ~p",[Module,Line,H]),
-	    lists:foreach(fun(Term) -> ?t:format("    ~p",[Term]) end, T),
+	    lists:foreach(fun(Term) -> ?t:format("    ~tp",[Term]) end, T),
 	    ?t:format("",[]),
 	    rh_print();
 	kill ->
@@ -2542,11 +2554,14 @@ start_nodes(Conf,Snames,Tag) ->
     
 start_node_unix(Sname,NodeDir) ->
     Script = filename:join([NodeDir,"bin","start"]),
-    Cmd = "env NODENAME="++atom_to_list(Sname) ++ " " ++ Script,
-    %% {ok,StartFile} = file:read_file(Cmd),
-    %% io:format("~s:\n~s~n~n",[Start,binary_to_list(StartFile)]),
-    Res = os:cmd(Cmd),
-    io:format("Start ~p: ~p~n=>\t~p~n", [Sname,Cmd,Res]).
+    ?t:format("Starting ~p: ~tp~n", [Sname,Script]),
+    case rh_test_lib:cmd(Script,[],[{"NODENAME",atom_to_list(Sname)}]) of
+	ok ->
+	    {ok,node_name(Sname)};
+        Error ->
+            ?t:fail({failed_to_start_node, Sname, Error})
+    end.
+
 
 start_node_win32(Sname,NodeDir) ->
     Name = atom_to_list(Sname) ++ "_P1G",
@@ -2707,7 +2722,7 @@ rpc_inst(Node,Func,Args) ->
 
 delete_all_services() ->
     ErlSrv = erlsrv:erlsrv(erlang:system_info(version)),
-    [_|Serviceinfo] = string:tokens(os:cmd(ErlSrv ++ " list"),"\n"),
+    [_|Serviceinfo] = string:tokens(os:cmd("\"" ++ ErlSrv ++ "\" list"),"\n"),
     Services =
 	[lists:takewhile(fun($\t) -> false; (_) -> true end,S)
 	 || S <- Serviceinfo],

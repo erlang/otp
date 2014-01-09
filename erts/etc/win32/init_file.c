@@ -173,7 +173,7 @@ static void digout_key_value(char *line, char **key, char **value)
     }
 }
 
-InitFile *load_init_file(char *filename)
+InitFile *load_init_file(wchar_t *filename)
 {
     HANDLE infile;
     InitFile *inif;
@@ -187,13 +187,13 @@ InitFile *load_init_file(char *filename)
 
     int i;
 
-    if ( (infile = CreateFile(filename, 
-			      GENERIC_READ,
-			      FILE_SHARE_READ,
-			      NULL,
-			      OPEN_EXISTING,
-			      FILE_ATTRIBUTE_NORMAL,
-			      NULL)) == INVALID_HANDLE_VALUE) {
+    if ( (infile = CreateFileW(filename, 
+			       GENERIC_READ,
+			       FILE_SHARE_READ,
+			       NULL,
+			       OPEN_EXISTING,
+			       FILE_ATTRIBUTE_NORMAL,
+			       NULL)) == INVALID_HANDLE_VALUE) {
 	return NULL;
     }
     
@@ -280,7 +280,7 @@ InitFile *load_init_file(char *filename)
     return inif;
 }
 
-int store_init_file(InitFile *inif, char *filename)
+int store_init_file(InitFile *inif, wchar_t *filename)
 {
     char *buff;
     int size = 10;
@@ -297,13 +297,13 @@ int store_init_file(InitFile *inif, char *filename)
 	buff[num++] = (Char);			\
     } while(0)
 
-    if ( (outfile = CreateFile(filename, 
-			      GENERIC_WRITE,
-			      FILE_SHARE_WRITE,
-			      NULL,
-			      CREATE_ALWAYS,
-			      FILE_ATTRIBUTE_NORMAL,
-			      NULL)) == INVALID_HANDLE_VALUE) {
+    if ( (outfile = CreateFileW(filename, 
+				GENERIC_WRITE,
+				FILE_SHARE_WRITE,
+				NULL,
+				CREATE_ALWAYS,
+				FILE_ATTRIBUTE_NORMAL,
+				NULL)) == INVALID_HANDLE_VALUE) {
 	return INIT_FILE_OPEN_ERROR;
     }
     buff = ALLOC(size);

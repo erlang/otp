@@ -2765,6 +2765,7 @@ void erts_init_io(int port_tab_size,
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
+    erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
 	erts_add_driver_entry(*dp, NULL, 1);
 
@@ -7060,7 +7061,7 @@ void *driver_dl_open(char * path)
     int res;
     int *last_error_p = erts_smp_tsd_get(driver_list_last_error_key);
     int locked = maybe_lock_driver_list();
-    if ((res = erts_sys_ddll_open(path, &ptr)) == 0) {
+    if ((res = erts_sys_ddll_open(path, &ptr, NULL)) == 0) {
 	maybe_unlock_driver_list(locked);
 	return ptr;
     } else {

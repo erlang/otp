@@ -2106,7 +2106,7 @@ static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
     DbTableHash *tb = &tbl->hash;
     int i;
 
-    erts_print(to, to_arg, "Buckets: %d \n", NACTIVE(tb));
+    erts_print(to, to_arg, "Buckets: %d\n", NACTIVE(tb));
     
     if (show) {
 	for (i = 0; i < NACTIVE(tb); i++) {

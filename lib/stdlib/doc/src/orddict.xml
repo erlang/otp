@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2011</year>
+      <year>2000</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -184,6 +184,13 @@ merge(Fun, D1, D2) ->
       <fsummary>Return the number of elements in an ordered dictionary</fsummary>
       <desc>
         <p>Returns the number of elements in an <c><anno>Orddict</anno></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Return true if the dictionary is empty</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Orddict</anno></c> has no elements, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
