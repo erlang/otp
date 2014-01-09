@@ -207,8 +207,13 @@ parse_prolog(?STRING_EMPTY, State) ->
 parse_prolog(?STRING("<") = Bytes, State) ->
     cf(Bytes, State, fun parse_prolog/2);
 parse_prolog(?STRING_REST("<?", Rest), State) ->
-    {Rest1, State1} = parse_pi(Rest, State),
-    parse_prolog(Rest1, State1);
+    case parse_pi(Rest, State) of
+	{Rest1, State1} ->
+	    parse_prolog(Rest1, State1);
+	{endDocument, Rest1, State1} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest1), State1}
+    end;
 parse_prolog(?STRING_REST("<!", Rest), State) ->
     parse_prolog_1(Rest, State);
 parse_prolog(?STRING_REST("<", Rest), State) ->
@@ -411,7 +416,7 @@ parse_pi(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
 		"xml" ->
 		    case State#xmerl_sax_parser_state.end_tags of
 			[] ->
-			    {Bytes, State};
+			    {endDocument, Bytes, State};
 			_ ->
 			    ?fatal_error(State1, "<?xml  ...?> not first in document")
 		    end;
@@ -657,8 +662,13 @@ parse_misc(?STRING_EMPTY, State, Eod) ->
 parse_misc(?STRING("<") = Rest, State, Eod) ->
     cf(Rest, State, Eod, fun parse_misc/3);
 parse_misc(?STRING_REST("<?", Rest), State, Eod) ->
-    {Rest1, State1} = parse_pi(Rest, State),
-    parse_misc(Rest1, State1, Eod);
+    case parse_pi(Rest, State) of
+	{Rest1, State1} ->
+	    parse_misc(Rest1, State1, Eod);
+	{endDocument, Rest1, State1} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest1), State1}
+    end;
 parse_misc(?STRING("<!") = Rest, State, Eod) ->
     cf(Rest, State, Eod, fun parse_misc/3);
 parse_misc(?STRING("<!-") = Rest, State, Eod) ->
@@ -1063,8 +1073,13 @@ parse_content(?STRING_REST("<!--", Rest), State, Acc, IgnorableWS) ->
     parse_content(Rest1, State2, [], true);
 parse_content(?STRING_REST("<?", Rest), State, Acc, IgnorableWS) ->
     State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
-    {Rest1, State2} = parse_pi(Rest, State1),
-    parse_content(Rest1, State2, [], true);
+    case parse_pi(Rest, State1) of
+	{Rest1, State2} ->
+	    parse_content(Rest1, State2, [], true);
+	{endDocument, Rest1, State2} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest1), State2}
+    end;
 parse_content(?STRING_REST("<!", Rest1) = Rest, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
     case ET of 
 	[] ->
@@ -1881,8 +1896,13 @@ parse_doctype_decl(?STRING_EMPTY, State) ->
 parse_doctype_decl(?STRING("<"), State) ->
     cf(?STRING("<"), State, fun parse_doctype_decl/2);
 parse_doctype_decl(?STRING_REST("<?", Rest), State) ->
-    {Rest1, State1} = parse_pi(Rest, State),
-    parse_doctype_decl(Rest1, State1);
+    case parse_pi(Rest, State) of
+	{Rest1, State1} ->
+	     parse_doctype_decl(Rest1, State1);
+	{endDocument, Rest1, State1} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest1), State1}
+    end;
 parse_doctype_decl(?STRING_REST("%", Rest), State) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
