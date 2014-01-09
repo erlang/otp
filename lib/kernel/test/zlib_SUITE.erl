@@ -220,7 +220,6 @@ api_deflateParams(Config) when is_list(Config) ->
     ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
     ?m(ok, zlib:deflateParams(Z1, best_compression, huffman_only)),
     ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, sync)),
-    ?m({'EXIT',_}, zlib:deflateParams(Z1,best_speed, filtered)),
     ?m(ok, zlib:close(Z1)).
 
 api_deflate(doc) -> "Test deflate";
