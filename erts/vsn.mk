@@ -18,7 +18,11 @@
 # 
 
 VSN = 6.0
-SYSTEM_VSN = 17.0-rc0
+
+# OTP major version
+SYSTEM_VSN = 17
+# OTP correction package version
+SYSTEM_CP_VSN = 17.0-rc0
 
 # Port number 4365 in 4.2
 # Port number 4366 in 4.3

@@ -575,7 +575,7 @@ GENERATE += $(TTF_DIR)/erl_alloc_types.h
 
 # version include file
 $(TARGET)/erl_version.h: ../vsn.mk
-	$(gen_verbose)LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(VSN)$(SERIALNO) $(TARGET)
+	$(gen_verbose)LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(SYSTEM_CP_VSN) $(VSN)$(SERIALNO) $(TARGET)
 GENERATE += $(TARGET)/erl_version.h
 
 # driver table
