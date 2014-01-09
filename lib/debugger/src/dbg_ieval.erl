@@ -712,23 +712,25 @@ expr({'if',Line,Cs}, Bs, Ieval) ->
     if_clauses(Cs, Bs, Ieval#ieval{line=Line});
 
 %% Andalso/orelse
-expr({'andalso',Line,E1,E2}, Bs, Ieval) ->
-    case expr(E1, Bs, Ieval#ieval{line=Line, top=false}) of
-	{value,false,_}=Res ->
-	    Res;
-	{value,true,_} -> 
-	    expr(E2, Bs, Ieval#ieval{line=Line, top=false});
-	{value,Val,Bs} ->
-	    exception(error, {badarg,Val}, Bs, Ieval)
+expr({'andalso',Line,E1,E2}, Bs0, Ieval) ->
+    case expr(E1, Bs0, Ieval#ieval{line=Line, top=false}) of
+        {value,false,_}=Res ->
+           Res;
+        {value,true,Bs} ->
+            {value,Val,_} = expr(E2, Bs, Ieval#ieval{line=Line, top=false}),
+            {value,Val,Bs};
+        {value,Val,Bs} ->
+            exception(error, {badarg,Val}, Bs, Ieval)
     end;
-expr({'orelse',Line,E1,E2}, Bs, Ieval) ->
-    case expr(E1, Bs, Ieval#ieval{line=Line, top=false}) of
-	{value,true,_}=Res ->
-	    Res;
-	{value,false,_} ->
-	    expr(E2, Bs, Ieval#ieval{line=Line, top=false});
-	{value,Val,_} ->
-	    exception(error, {badarg,Val}, Bs, Ieval)
+expr({'orelse',Line,E1,E2}, Bs0, Ieval) ->
+    case expr(E1, Bs0, Ieval#ieval{line=Line, top=false}) of
+        {value,true,_}=Res ->
+           Res;
+        {value,false,Bs} ->
+            {value,Val,_} = expr(E2, Bs, Ieval#ieval{line=Line, top=false}),
+            {value,Val,Bs};
+        {value,Val,Bs} ->
+            exception(error, {badarg,Val}, Bs, Ieval)
     end;
 
 %% Matching expression

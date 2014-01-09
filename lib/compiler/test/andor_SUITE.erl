@@ -194,6 +194,9 @@ t_andalso(Config) when is_list(Config) ->
     ?line false = id(false) andalso not id(glurf),
     ?line false = false andalso not id(glurf),
 
+    true = begin (X1 = true) andalso X1, X1 end,
+    false = false = begin (X2 = false) andalso X2, X2 end,
+
     ok.
 
 t_orelse(Config) when is_list(Config) ->
@@ -223,6 +226,9 @@ t_orelse(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch not id(true) orelse not id(glurf)),
     ?line true = id(true) orelse not id(glurf),
     ?line true = true orelse not id(glurf),
+
+    true = begin (X1 = true) orelse X1, X1 end,
+    false = begin (X2 = false) orelse X2, X2 end,
 
     ok.
 
