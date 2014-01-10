@@ -1112,7 +1112,7 @@ case "$THR_LIB_NAME" in
 		   [Define if you have OSE style threads])
 		ETHR_THR_LIB_BASE_DIR=ose
 		AC_CHECK_HEADER(ose_spi/ose_spi.h,
-		  AC_DEFINE(HAVE_OSE_SPI, 1,
+		  AC_DEFINE(HAVE_OSE_SPI_H, 1,
 		    [Define if you have the "ose_spi/ose_spi.h" header file.]))
 		;;
 	esac
