@@ -111,7 +111,6 @@
 #include "erl_driver.h"
 #include "erl_efile.h"
 #include "erl_threads.h"
-#include "zlib.h"
 #include "gzio.h"
 #include "dtrace-wrapper.h" 
 #include <ctype.h>
@@ -818,7 +817,7 @@ file_start(ErlDrvPort port, char* command)
 
 static void do_close(int flags, SWord fd) {
     if (flags & EFILE_COMPRESSED) {
-	erts_gzclose((gzFile)(fd));
+	erts_gzclose((ErtsGzFile)(fd));
     } else {
 	efile_closefile((int) fd);
     }
@@ -1136,7 +1135,7 @@ static void invoke_read(void *data)
     }
     read_size = size;
     if (d->flags & EFILE_COMPRESSED) {
-	read_size = erts_gzread((gzFile)d->fd, 
+	read_size = erts_gzread((ErtsGzFile)d->fd,
 				d->c.read.binp->orig_bytes + d->c.read.bin_offset,
 				size);
 	status = (read_size != (size_t) -1);
@@ -1209,7 +1208,7 @@ static void invoke_read_line(void *data)
 	    size = need - d->c.read_line.read_size;
 	}
 	if (d->flags & EFILE_COMPRESSED) {
-	    read_size = erts_gzread((gzFile)d->fd, 
+	    read_size = erts_gzread((ErtsGzFile)d->fd,
 				    d->c.read_line.binp->orig_bytes + 
 				    d->c.read_line.read_offset + d->c.read_line.read_size,
 				    size);
@@ -1250,7 +1249,7 @@ static void invoke_read_line(void *data)
 		    d->c.read_line.read_size -= too_much;
 		    ASSERT(d->c.read_line.read_size >= 0);
 		    if (d->flags & EFILE_COMPRESSED) {
-			Sint64 location = erts_gzseek((gzFile)d->fd, 
+			Sint64 location = erts_gzseek((ErtsGzFile)d->fd,
 						      -((Sint64) too_much), EFILE_SEEK_CUR);
 			if (location == -1) {
 			    d->result_ok = 0;
@@ -1535,7 +1534,7 @@ static void invoke_writev(void *data) {
 		     */
 		    errno = EINVAL; 
 		    if (! (status = 
-			   erts_gzwrite((gzFile)d->fd, 
+			   erts_gzwrite((ErtsGzFile)d->fd,
 					iov[i].iov_base,
 					iov[i].iov_len)) == iov[i].iov_len) {
 			d->errInfo.posix_errno =
@@ -1797,7 +1796,7 @@ static void invoke_lseek(void *data)
 	    d->errInfo.posix_errno = EINVAL;
 	    status = 0;
 	} else {
-	    d->c.lseek.location = erts_gzseek((gzFile)d->fd, 
+	    d->c.lseek.location = erts_gzseek((ErtsGzFile)d->fd,
 					      offset, d->c.lseek.origin);
 	    if (d->c.lseek.location == -1) {
 		d->errInfo.posix_errno = errno;
@@ -1885,7 +1884,7 @@ static void invoke_open(void *data)
 	    if (status || (d->errInfo.posix_errno != EISDIR)) {
 		mode = (d->flags & EFILE_MODE_READ) ? "rb" : "wb";
 		d->fd = (SWord) erts_gzopen(d->b, mode);
-		if ((gzFile)d->fd) {
+		if ((ErtsGzFile)d->fd) {
 		    status = 1;
 		} else {
 		    if (errno == 0) {
