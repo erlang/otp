@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2013. All Rights Reserved.
+# Copyright Ericsson AB 2003-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -150,7 +150,7 @@ type	LINK_LH		STANDARD	PROCESSES	link_lh
 type	SUSPEND_MON	STANDARD	PROCESSES	suspend_monitor
 type	PEND_SUSPEND	SHORT_LIVED	PROCESSES	pending_suspend
 type	PROC_LIST	SHORT_LIVED	PROCESSES	proc_list
-type	EXTRA_ROOT	SHORT_LIVED	PROCESSES	extra_root
+type	SAVED_ESTACK	SHORT_LIVED	PROCESSES	saved_estack
 type	FUN_ENTRY	LONG_LIVED	CODE		fun_entry
 type	ATOM_TXT	LONG_LIVED	ATOM		atom_text
 type 	BEAM_REGISTER	EHEAP		PROCESSES	beam_register
