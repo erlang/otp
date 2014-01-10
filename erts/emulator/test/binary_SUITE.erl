@@ -1337,15 +1337,10 @@ run_otp_8180(Name) ->
 %% Test that exit and GC during trapping term_to_binary and binary_to_term
 %% does not crash.
 trapping(Config) when is_list(Config)->
-    case erlang:system_info(wordsize) of
-	N when N < 8 ->
-	    {skipped, "Only on 64bit machines"};
-	_ ->
-	    do_trapping(5, term_to_binary,
-			fun() -> [lists:duplicate(2000000,2000000)] end),
-	    do_trapping(5, binary_to_term,
-			fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end)
-    end.
+    do_trapping(5, term_to_binary,
+		fun() -> [lists:duplicate(2000000,2000000)] end),
+    do_trapping(5, binary_to_term,
+		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end).
 
 do_trapping(0, _, _) ->
     ok;
