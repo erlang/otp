@@ -553,8 +553,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "            numbers is %d\n",
 		 ERTS_MAX_NO_OF_SCHEDULERS);
     erts_fprintf(stderr, "-SP p1:p2   specify schedulers (p1) and schedulers online (p2)\n");
-    erts_fprintf(stderr, "	      as percentages of logical processors configured and logical\n");
-    erts_fprintf(stderr, "	      processors available, respectively\n");
+    erts_fprintf(stderr, "            as percentages of logical processors configured and logical\n");
+    erts_fprintf(stderr, "            processors available, respectively\n");
     erts_fprintf(stderr, "-t size     set the maximum number of atoms the "
 			 "emulator can handle\n");
     erts_fprintf(stderr, "            valid range is [%d-%d]\n",
