@@ -103,7 +103,7 @@ typedef struct erts_sigsel_info_ ErtsSigSelInfo;
 struct erts_sigsel_info_ {
     ErtsSigSelInfo *next;
     SIGSELECT signo;
-    int (*decode)(OseSignal* sig, int* mode);
+    ErlDrvOseEventId (*decode)(union SIGNAL* sig);
     ErtsSigSelItem *fds;
 };
 
@@ -131,8 +131,10 @@ static int max_fds = -1;
 /* signal list prototypes */
 static ErtsSigSelInfo *get_sigsel_info(ErtsPollSet ps, SIGSELECT signo);
 static ErtsSigSelItem *get_sigsel_item(ErtsPollSet ps, ErtsSysFdType fd);
-static ErtsSigSelInfo *add_sigsel_info(ErtsPollSet ps, ErtsSysFdType fd, int (*decode)(OseSignal* sig, int* mode));
-static ErtsSigSelItem *add_sigsel_item(ErtsPollSet ps, ErtsSysFdType fd, int (*decode)(OseSignal* sig, int* mode));
+static ErtsSigSelInfo *add_sigsel_info(ErtsPollSet ps, ErtsSysFdType fd,
+				       ErlDrvOseEventId (*decode)(union SIGNAL* sig));
+static ErtsSigSelItem *add_sigsel_item(ErtsPollSet ps, ErtsSysFdType fd,
+				       ErlDrvOseEventId (*decode)(union SIGNAL* sig));
 static int del_sigsel_info(ErtsPollSet ps, ErtsSigSelInfo *info);
 static int del_sigsel_item(ErtsPollSet ps, ErtsSigSelItem *item);
 static int update_sigsel(ErtsPollSet ps);
@@ -170,7 +172,7 @@ get_sigsel_item(ErtsPollSet ps, ErtsSysFdType fd) {
 
 static ErtsSigSelInfo *
 add_sigsel_info(ErtsPollSet ps, ErtsSysFdType fd,
-		int (*decode)(OseSignal* sig, int* mode)) {
+		ErlDrvOseEventId (*decode)(union SIGNAL* sig)) {
     ErtsSigSelInfo *info = SEL_ALLOC(ERTS_ALC_T_POLLSET,
 		       sizeof(ErtsSigSelInfo));
     info->next = ps->info;
@@ -184,7 +186,7 @@ add_sigsel_info(ErtsPollSet ps, ErtsSysFdType fd,
 
 static ErtsSigSelItem *
 add_sigsel_item(ErtsPollSet ps, ErtsSysFdType fd,
-		int (*decode)(OseSignal* sig, int* mode)) {
+		ErlDrvOseEventId (*decode)(union SIGNAL* sig)) {
     ErtsSigSelInfo *info = get_sigsel_info(ps,fd->signo);
     ErtsSigSelItem *item = SEL_ALLOC(ERTS_ALC_T_POLLSET,
 			   sizeof(ErtsSigSelItem));
@@ -394,8 +396,7 @@ void erts_poll_interrupt_timed(ErtsPollSet ps,int set,erts_short_time_t msec) {
 }
 
 ErtsPollEvents erts_poll_control(ErtsPollSet ps, ErtsSysFdType fd,
-	ErtsPollEvents pe, int on, int* do_wake,
-	int(*decode)(OseSignal* sig, int* mode)) {
+	ErtsPollEvents pe, int on, int* do_wake) {
     ErtsSigSelItem *curr;
     ErtsPollEvents new_events;
     int old_sig_count;
@@ -406,11 +407,17 @@ ErtsPollEvents erts_poll_control(ErtsPollSet ps, ErtsSysFdType fd,
 
     ERTS_POLLSET_LOCK(ps);
 
+    if (on && (pe & ERTS_POLL_EV_IN) && (pe & ERTS_POLL_EV_OUT)) {
+      /* Check to make sure both in and out are not used at the same time */
+      new_events = ERTS_POLL_EV_NVAL;
+      goto done;
+    }
+
     curr = get_sigsel_item(ps, fd);
     old_sig_count = ps->sig_count;
 
     if (curr == NULL && on) {
-	curr = add_sigsel_item(ps, fd, decode);
+	curr = add_sigsel_item(ps, fd, fd->resolve_signal);
     } else if (curr == NULL && !on) {
         new_events = ERTS_POLL_EV_NVAL;
 	goto done;
@@ -451,7 +458,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	   SysTimeval *utvp) {
     int res = ETIMEDOUT, no_fds, currid = 0;
     OSTIME timeout;
-    OseSignal *sig;
+    union SIGNAL *sig;
     // HARDTRACEF("%ux: In erts_poll_wait",ps);
     if (ps->interrupt == (PROCESS)0)
       ps->interrupt = current_process();
@@ -515,8 +522,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	}
        {
           ErtsSigSelInfo *info = get_sigsel_info(ps, sig->sig_no);
-	  int mode = -1;
-          struct erts_sys_fd_type fd = { sig->sig_no, info->decode(sig, &mode) };
+          struct erts_sys_fd_type fd = { sig->sig_no, info->decode(sig) };
           ErtsSigSelItem *item = get_sigsel_item(ps, &fd);
 
 	  ASSERT(sig);
@@ -546,38 +552,16 @@ int erts_poll_wait(ErtsPollSet ps,
              erts_send_error_to_logger_nogl(dsbufp);
 	     timeout = 0;
 	     ASSERT(0);
-	  } else if (mode == -1 && item->events == (ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) {
-	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(
-                dsbufp,
-                "erts_poll_wait() failed: found ambigous signal id %d (signo %u) "
-		"(curr_proc 0x%x /sender 0x%x)\n You have to give a specify a mode "
-		"in the resolve_signal callback for this signal.\n",
-                fd.id, fd.signo, current_process(), sender(&sig));
-             erts_send_error_to_logger_nogl(dsbufp);
-	     timeout = 0;
-	     ASSERT(0);
-          } else {
+	  } else {
 	    int i;
 	    struct erts_sys_fd_type *fd = NULL;
 	    ErtsPollOseMsgList *tl,*new;
-
-	    /* Figure out which mode to set and which queue to store
-	       the signal in */
-	    if (mode == -1)
-	      mode = item->events;
-	    else if (mode == 0)
-	      mode = ERTS_POLL_EV_IN;
-	    else if (mode == 1)
-	      mode = ERTS_POLL_EV_OUT;
-	    else
-	      abort();
 
 	    /* Check if this fd has already been triggered by a previous signal */
 	    for (i = 0; i < currid;i++) {
 	      if (pr[i].fd == item->fd) {
 		fd = pr[i].fd;
-		pr[i].events |= mode;
+		pr[i].events |= item->events;
 		break;
 	      }
 	    }
@@ -585,7 +569,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	    /* First time this fd is triggered */
 	    if (fd == NULL) {
 	      pr[currid].fd = item->fd;
-	      pr[currid].events = mode;
+	      pr[currid].events = item->events;
 	      fd = item->fd;
 	      timeout = 0;
 	      currid++;
@@ -597,16 +581,10 @@ int erts_poll_wait(ErtsPollSet ps,
 	    new->data = sig;
 
 	    ethr_mutex_lock(&fd->mtx);
-	    if (mode & ERTS_POLL_EV_IN)
-	      tl = fd->imsgs;
-	    else if (mode & ERTS_POLL_EV_OUT)
-	      tl = fd->omsgs;
+	    tl = fd->msgs;
 
 	    if (tl == NULL) {
-	      if (mode & ERTS_POLL_EV_IN)
-		fd->imsgs = new;
-	      else if (mode & ERTS_POLL_EV_OUT)
-		fd->omsgs = new;
+	      fd->msgs = new;
 	    } else {
 	      while (tl->next != NULL)
 		tl = tl->next;
@@ -741,4 +719,54 @@ void  erts_poll_init(void)
     max_fds = 256;
 
     HARDTRACEF("Out %s", __FUNCTION__);
+}
+
+
+/* OSE driver functions */
+
+union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent drv_ev) {
+    struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+    ethr_mutex_lock(&ev->mtx);
+    if (ev->msgs == NULL) {
+      ethr_mutex_unlock(&ev->mtx);
+      return NULL;
+    } else {
+      ErtsPollOseMsgList *msg = ev->msgs;
+      union SIGNAL *sig = (union SIGNAL*)msg->data;
+      ASSERT(msg->data);
+      ev->msgs = msg->next;
+      ethr_mutex_unlock(&ev->mtx);
+      erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
+      restore(sig);
+      return sig;
+    }
+}
+
+ErlDrvEvent
+erl_drv_ose_event_alloc(SIGSELECT signo, ErlDrvOseEventId id,
+			ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig)) {
+  struct erts_sys_fd_type *ev = erts_alloc(ERTS_ALC_T_DRV_EV,
+					   sizeof(struct erts_sys_fd_type));
+  ev->signo = signo;
+  ev->id = id;
+  ev->msgs = NULL;
+  ev->resolve_signal = resolve_signal;
+  ethr_mutex_init(&ev->mtx);
+  return (ErlDrvEvent)ev;
+}
+
+void erl_drv_ose_event_free(ErlDrvEvent drv_ev) {
+  struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+  ASSERT(ev->msgs == NULL);
+  ethr_mutex_destroy(&ev->mtx);
+  erts_free(ERTS_ALC_T_DRV_EV,ev);
+}
+
+void erl_drv_ose_event_fetch(ErlDrvEvent drv_ev, SIGSELECT *signo,
+			     ErlDrvOseEventId *id) {
+  struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+  if (signo)
+    *signo = ev->signo;
+  if (id)
+    *id = ev->id;
 }

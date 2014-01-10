@@ -272,14 +272,6 @@ typedef struct ErlDrvRWLock_ ErlDrvRWLock;
 typedef int ErlDrvTSDKey;
 
 /*
- * Potential OSE signals
- */
-#ifdef __OSE__
-typedef union SIGNAL OseSignal;
-#endif
-
-
-/*
  * 
  */
 typedef struct erl_drv_port_data_lock * ErlDrvPDL;
@@ -353,9 +345,6 @@ typedef struct erl_drv_entry {
     	                        /* Called on behalf of driver_select when
 				   it is safe to release 'event'. A typical
 				   unix driver would call close(event) */
-#ifdef __OSE__
-    int (*resolve_signal)(OseSignal* sig, int* mode);
-#endif
     /* When adding entries here, dont forget to pad in obsolete/driver.h */
 } ErlDrvEntry;
 
@@ -691,11 +680,13 @@ EXTERN int erl_drv_putenv(char *key, char *value);
 EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
 
 #ifdef __OSE__
-EXTERN OseSignal *erl_drv_ose_get_output_signal(ErlDrvEvent ev);
-EXTERN OseSignal *erl_drv_ose_get_input_signal(ErlDrvEvent ev);
-EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig,int id);
+typedef ErlDrvUInt ErlDrvOseEventId;
+EXTERN union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent ev);
+EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig,ErlDrvOseEventId id,
+					   ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig));
 EXTERN void erl_drv_ose_event_free(ErlDrvEvent ev);
-EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,int *id);
+EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,
+				    ErlDrvOseEventId *id);
 #endif
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */

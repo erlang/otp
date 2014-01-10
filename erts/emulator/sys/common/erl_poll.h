@@ -106,6 +106,23 @@ typedef Uint32 ErtsPollEvents;
 #define ERTS_POLL_EV_ERR  4
 #define ERTS_POLL_EV_NVAL 8
 
+#ifdef __OSE__
+
+typedef struct ErtsPollOseMsgList_ {
+  struct ErtsPollOseMsgList_ *next;
+  union SIGNAL *data;
+} ErtsPollOseMsgList;
+
+struct erts_sys_fd_type {
+    SIGSELECT signo;
+    ErlDrvOseEventId id;
+    ErtsPollOseMsgList *msgs;
+    ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig);
+    ethr_mutex mtx;
+};
+
+#endif
+
 #elif ERTS_POLL_USE_EPOLL	/* --- epoll ------------------------------- */
 
 #include <sys/epoll.h>
@@ -229,9 +246,6 @@ ErtsPollEvents	ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet,
 						    ErtsPollEvents,
 						    int on,
 						    int* wake_poller
-#ifdef __OSE__
-						    ,int (*decode)(OseSignal* sig, int* mode)
-#endif
 						    );
 void		ERTS_POLL_EXPORT(erts_poll_controlv)(ErtsPollSet,
 						     ErtsPollControlEntry [],

@@ -576,7 +576,7 @@ static void ready_output(ErlDrvData, ErlDrvEvent);
 static void output(ErlDrvData, char*, ErlDrvSizeT);
 static void outputv(ErlDrvData, ErlIOVec*);
 static void stop_select(ErlDrvEvent, void*);
-static int resolve_signal(OseSignal* sig, int *mode) {
+static ErlDrvOseEventId resolve_signal(union SIGNAL* sig) {
     return sig->sig_no == ERTS_SIGNAL_FD_DRV_ASYNC ? sig->sys_async.type : -1;
 }
 
@@ -605,8 +605,7 @@ struct erl_drv_entry spawn_driver_entry = {
     ERL_DRV_EXTENDED_MINOR_VERSION,
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL, NULL,
-    stop_select,
-    resolve_signal
+    stop_select
 };
 struct erl_drv_entry fd_driver_entry = {
     NULL,
@@ -631,8 +630,7 @@ struct erl_drv_entry fd_driver_entry = {
     0, /* ERL_DRV_FLAGs */
     NULL, /* handle2 */
     NULL, /* process_exit */
-    stop_select,
-    resolve_signal
+    stop_select
 };
 
 static int set_driver_data(ErlDrvPort port_num,
@@ -645,7 +643,7 @@ static int set_driver_data(ErlDrvPort port_num,
 {
     Port *prt;
     ErtsSysReportExit *report_exit;
-    OseSignal *sig;
+    union SIGNAL *sig;
 
     /*erts_fprintf(stderr, " %s / pid %x / ofd %d / ifd %d\n",
       __FUNCTION__, current_process(), ofd, ifd);*/
@@ -664,10 +662,12 @@ static int set_driver_data(ErlDrvPort port_num,
 
 	if (read_write & DO_READ)
 	  report_exit->in_sig_descr =
-	    erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC, ifd);
+	    erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC, ifd,
+				    resolve_signal);
 	if (read_write & DO_WRITE)
 	  report_exit->out_sig_descr =
-	    erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC, ofd);
+	    erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC, ofd,
+				    resolve_signal);
 
 	report_exit_list = report_exit;
     }
@@ -684,7 +684,8 @@ static int set_driver_data(ErlDrvPort port_num,
 	driver_data[ifd].alive = 1;
 	driver_data[ifd].status = 0;
 	driver_data[ifd].in_sig_descr =
-	  erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ifd);
+	  erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ifd,
+				  resolve_signal);
 
 	driver_data[ifd].in_proc = create_process(OS_PRI_PROC,"beam_fd_reader",
                                                   fd_reader_process, 0x800,
@@ -700,7 +701,8 @@ static int set_driver_data(ErlDrvPort port_num,
 	if (read_write & DO_WRITE) {
 	    driver_data[ifd].ofd = ofd;
 	    driver_data[ifd].out_sig_descr =
-	      erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ofd);
+	      erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ofd,
+				      resolve_signal);
 	    driver_data[ifd].pdl = driver_pdl_create(port_num);
 	    driver_data[ifd].out_proc =
 	      create_process(OS_PRI_PROC,"beam_fd_writer",
@@ -729,7 +731,8 @@ static int set_driver_data(ErlDrvPort port_num,
 	driver_data[ofd].alive = 1;
 	driver_data[ofd].status = 0;
 	driver_data[ofd].in_sig_descr =
-	  erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ofd);
+	  erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ofd,
+				    resolve_signal);
 	driver_data[ofd].out_sig_descr = driver_data[ofd].in_sig_descr;
 	driver_data[ofd].out_proc =
 	  create_process(OS_PRI_PROC, "beam_fd_writer",
@@ -783,7 +786,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num,
 }
 
 OS_PROCESS(fd_reader_process) {
-    OseSignal *sig;
+    union SIGNAL *sig;
     PROCESS parent;
     int fd;
     byte *read_buf;
@@ -844,7 +847,7 @@ OS_PROCESS(fd_reader_process) {
 }
 
 OS_PROCESS(fd_writer_process) {
-    OseSignal *sig;
+    union SIGNAL *sig;
     PROCESS parent;
     int fd;
     SIGSELECT sigsel[] = { 1, ERTS_SIGNAL_FD_DRV_CONFIG,
@@ -1105,7 +1108,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 	driver_pdl_unlock(driver_data[fd].pdl);
     }
     else {
-	OseSignal *sig;
+	union SIGNAL *sig;
 	/* fprintf(stderr,"0x%x: outputv, enq+sel\n", current_process()); */
 	driver_enqv(ix, ev, 0);  /* n is the skip value */
 	driver_pdl_unlock(driver_data[fd].pdl);
@@ -1151,7 +1154,7 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	    set_busy_port(ix, 1);
     }
     else {
-	OseSignal *sig;
+	union SIGNAL *sig;
 	/* fprintf(stderr,"0x%x: output, enq+select\n", current_process()); */
 #if 0
 	iv[0].iov_base = lbp;
@@ -1219,13 +1222,13 @@ static int port_inp_failure(ErlDrvPort port_num, ErlDrvEvent ready_fd, int res)
 }
 
 static int async_read(ErlDrvEvent fd, byte *buff, int size) {
-   OseSignal *sigptr = erl_drv_ose_get_input_signal(fd);
+   union SIGNAL *sigptr = erl_drv_ose_get_signal(fd);
    int res = sigptr->sys_async.res;
    if (res > 0)
        memcpy(buff,sigptr->sys_async.buff,sigptr->sys_async.res);
    errno = sigptr->sys_async.errno_copy;
    send(&sigptr,sender(&sigptr));
-   ASSERT(erl_drv_ose_get_input_signal(fd) == NULL);
+   ASSERT(erl_drv_ose_get_signal(fd) == NULL);
    return res;
 }
 
@@ -1360,7 +1363,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 {
     int fd = (int)(long)e;
     ErlDrvPort ix = driver_data[fd].port_num;
-    OseSignal *sigptr = erl_drv_ose_get_output_signal(ready_fd);
+    union SIGNAL *sigptr = erl_drv_ose_get_signal(ready_fd);
     ssize_t n;
     struct iovec* iv;
     int vsize;
@@ -1374,7 +1377,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 	driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
 	set_busy_port(ix, 0);
 	free_buf(&sigptr);
-	if ((sigptr = erl_drv_ose_get_output_signal(ready_fd)) == NULL)
+	if ((sigptr = erl_drv_ose_get_signal(ready_fd)) == NULL)
 	  return; /* 0; */
 	continue;
       }
@@ -1384,7 +1387,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 	if (errno == ERRNO_BLOCK || errno == EINTR) {
 	  /* fprintf(stderr,"0x%x: ready_output, send to %x\n", current_process(),driver_data[fd].out_proc);*/
 	  send(&sigptr,driver_data[fd].out_proc);
-	  if ((sigptr = erl_drv_ose_get_output_signal(ready_fd)) == NULL)
+	  if ((sigptr = erl_drv_ose_get_signal(ready_fd)) == NULL)
 	    return; /* 0; */
 	  continue;
 	} else {
@@ -1393,7 +1396,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 	  free_buf(&sigptr);
 	  driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
 	  driver_failure_posix(ix, res);
-	  if ((sigptr = erl_drv_ose_get_output_signal(ready_fd)) == NULL)
+	  if ((sigptr = erl_drv_ose_get_signal(ready_fd)) == NULL)
 	    return; /* -1; */
 	  continue;
 	}
@@ -1410,7 +1413,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 	    else
 		continue;
       }
-      sigptr = erl_drv_ose_get_output_signal(ready_fd);
+      sigptr = erl_drv_ose_get_signal(ready_fd);
     }
     return; /* 0; */
 }
@@ -1752,7 +1755,7 @@ erts_sys_main_thread(void)
 
     while (1) {
        static const SIGSELECT sigsel[] = {0};
-       OseSignal *msg = receive(sigsel);
+       union SIGNAL *msg = receive(sigsel);
 
        fprintf(stderr,"Main thread got message %d from 0x%x!!\r\n",
                msg->sig_no, sender(&msg));

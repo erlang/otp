@@ -56,20 +56,6 @@
 #   include "sys/mman.h"
 #endif
 
-typedef struct ErtsPollOseMsgList_ {
-  struct ErtsPollOseMsgList_ *next;
-  void *data;
-} ErtsPollOseMsgList;
-
-struct erts_sys_fd_type {
-    SIGSELECT signo;
-    int id;
-    ErtsPollOseMsgList *imsgs;
-    ErtsPollOseMsgList *omsgs;
-    ethr_mutex mtx;
-};
-
-
 /*
  * Min number of async threads
  */

@@ -7342,9 +7342,6 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	drv->stop_select = de->stop_select;
     else
 	drv->stop_select = no_stop_select_callback;
-#ifdef __OSE__
-    drv->resolve_signal = de->resolve_signal;
-#endif
 
     if (!de->init)
 	return 0;

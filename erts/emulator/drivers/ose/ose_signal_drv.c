@@ -392,6 +392,19 @@ static int drv_init(void) {
   return 0;
 }
 
+/* Signal resolution callback */
+static ErlDrvOseEventId resolve_signal(union SIGNAL* osig) {
+  union SIGNAL *sig = osig;
+  if (sig->signo == ERTS_SIGNAL_OSE_DRV_HUNT ||
+      sig->signo == ERTS_SIGNAL_OSE_DRV_ATTACH) {
+    return sig->async.spid;
+  }
+  DEBUGP("%p: Got signal %d sent to %p from 0x%p\n",
+	 current_process(),sig->signo,addressee(&sig),sender(&sig));
+  return addressee(&sig);
+}
+
+
 /**
  * Start routine for the driver
  **/
@@ -488,11 +501,13 @@ static void outputv(ErlDrvData driver_data, ErlIOVec *ev)
     DEBUGP("0x%x: open\n",ctxt->spid);
 
     ctxt->perm_events[1] =
-      erl_drv_ose_event_alloc(ERTS_SIGNAL_OSE_DRV_ATTACH,(int)ctxt->spid);
+      erl_drv_ose_event_alloc(ERTS_SIGNAL_OSE_DRV_ATTACH,(int)ctxt->spid,
+			      resolve_signal);
     driver_select(ctxt->port,ctxt->perm_events[1],ERL_DRV_READ|ERL_DRV_USE,1);
 
     ctxt->perm_events[0] =
-      erl_drv_ose_event_alloc(ERTS_SIGNAL_OSE_DRV_HUNT,(int)ctxt->spid);
+      erl_drv_ose_event_alloc(ERTS_SIGNAL_OSE_DRV_HUNT,(int)ctxt->spid,
+			      resolve_signal);
     driver_select(ctxt->port,ctxt->perm_events[0],ERL_DRV_READ|ERL_DRV_USE,1);
 
     start(ctxt->spid);
@@ -669,7 +684,8 @@ static void outputv(ErlDrvData driver_data, ErlIOVec *ev)
 	    EV_GET_UINT32(ev,&signo,&p,&q);
 	  } else if (signo < tmp_signo || !ctxt->events) {
 	    /* New signal to select on */
-	    events[i] = erl_drv_ose_event_alloc(signo,(int)ctxt->spid);
+	    events[i] = erl_drv_ose_event_alloc(signo,(int)ctxt->spid,
+						resolve_signal);
 	    driver_select(ctxt->port,events[i++],ERL_DRV_READ|ERL_DRV_USE,1);
 	    EV_GET_UINT32(ev,&signo,&p,&q);
 	  } else {
@@ -708,7 +724,7 @@ static void outputv(ErlDrvData driver_data, ErlIOVec *ev)
 static void ready_input(ErlDrvData driver_data, ErlDrvEvent event)
 {
   driver_context_t *ctxt = (driver_context_t *)driver_data;
-  union SIGNAL *sig = erl_drv_ose_get_input_signal(event);
+  union SIGNAL *sig = erl_drv_ose_get_signal(event);
 
   while (sig != NULL) {
 
@@ -800,7 +816,7 @@ static void ready_input(ErlDrvData driver_data, ErlDrvEvent event)
       }
 
     free_buf(&sig);
-    sig = erl_drv_ose_get_input_signal(event);
+    sig = erl_drv_ose_get_signal(event);
   }
 }
 
@@ -858,17 +874,6 @@ static void stop_select(ErlDrvEvent event, void *reserved)
   erl_drv_ose_event_free(event);
 }
 
-static int resolve_signal(OseSignal* osig, int *mode) {
-  union SIGNAL *sig = osig;
-  if (sig->signo == ERTS_SIGNAL_OSE_DRV_HUNT ||
-      sig->signo == ERTS_SIGNAL_OSE_DRV_ATTACH) {
-    return sig->async.spid;
-  }
-  DEBUGP("%p: Got signal %d sent to %p from 0x%p\n",
-	 current_process(),sig->signo,addressee(&sig),sender(&sig));
-  return addressee(&sig);
-}
-
 /**
  * Setup the driver entry for the Erlang runtime
  **/
@@ -884,6 +889,6 @@ ErlDrvEntry ose_signal_driver_entry = {
   .major_version                = ERL_DRV_EXTENDED_MAJOR_VERSION,
   .minor_version                = ERL_DRV_EXTENDED_MINOR_VERSION,
   .driver_flags                 = ERL_DRV_FLAG_USE_PORT_LOCKING,
-  .stop_select                  = stop_select,
-  .resolve_signal               = resolve_signal
+  .stop_select                  = stop_select
 };
+

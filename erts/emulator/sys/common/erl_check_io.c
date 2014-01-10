@@ -79,11 +79,7 @@ typedef char EventStateFlags;
 #define ERTS_CIO_POLL_INIT	ERTS_POLL_EXPORT(erts_poll_init)
 #define ERTS_CIO_POLL_INFO	ERTS_POLL_EXPORT(erts_poll_info)
 
-#ifdef __OSE__
-#define GET_FD(fd) fd->id
-#else
 #define GET_FD(fd) fd
-#endif
 
 static struct pollset_info
 {
@@ -442,11 +438,7 @@ deselect(ErtsDrvEventState *state, int mode)
 	}
     }
 
-    state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, rm_events, 0, &do_wake
-#ifdef __OSE__
-	    ,NULL
-#endif
-    );
+    state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, rm_events, 0, &do_wake);
 
     if (!(state->events)) {
 	switch (state->type) {
@@ -595,11 +587,7 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 	wake_poller = 1;
     }
 
-    new_events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, ctl_events, on, &wake_poller
-#ifdef __OSE__
-	    ,prt->drv_ptr->resolve_signal
-#endif
-	    );
+    new_events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, ctl_events, on, &wake_poller);
 
     if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
 	if (state->type == ERTS_EV_TYPE_DRV_SEL && !state->events) {
@@ -984,9 +972,6 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 		  mode & ERL_DRV_WRITE ? " ERL_DRV_WRITE" : "",
 		  mode & ERL_DRV_USE ? " ERL_DRV_USE" : "",
 		  mode & (ERL_DRV_USE_NO_CALLBACK & ~ERL_DRV_USE) ? "_NO_CALLBACK" : "",
-#ifdef __OSE__
-	          fd->signo,
-#endif
 		  on);
     print_driver_name(dsbufp, pp != ERTS_INVALID_ERL_DRV_PORT ? pp->common.id : NIL);
     erts_dsprintf(dsbufp, "driver %T ", pp != ERTS_INVALID_ERL_DRV_PORT ? pp->common.id : NIL);
@@ -1417,20 +1402,26 @@ stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 }
 
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
+
 #ifdef __OSE__
 static SafeHashValue drv_ev_state_hash(void *des)
 {
-    SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
-    return val ^ (val >> 8);  /* Good enough for aligned pointer values? */
+    ErtsSysFdType fd = ((ErtsDrvEventState *) des)->fd;
+    /* We use hash on signo ^ id in order for steal to happen when the
+       same signo + fd is selected on by two different ports */
+    SafeHashValue val = (SafeHashValue)(fd->signo ^ fd->id);
+    return val ^ (val >> 8);
 }
 
 static int drv_ev_state_cmp(void *des1, void *des2)
 {
-    return ( ((((ErtsDrvEventState *) des1)->fd->id == ((ErtsDrvEventState *) des2)->fd->id)
-	    && (((ErtsDrvEventState *) des1)->fd->signo == ((ErtsDrvEventState *) des2)->fd->signo))
-	    ? 0 : 1);
+    ErtsSysFdType fd1 = ((ErtsDrvEventState *) des1)->fd;
+    ErtsSysFdType fd2 = ((ErtsDrvEventState *) des2)->fd;
+    if (fd1->signo == fd2->signo && fd1->id == fd2->id)
+      return 0;
+    return 1;
 }
-#else
+#else /* !__OSE__ && !ERTS_SYS_CONTINOUS_FD_NUMBERS i.e. probably windows */
 static SafeHashValue drv_ev_state_hash(void *des)
 {
     SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
@@ -1473,69 +1464,7 @@ static void drv_ev_state_free(void *des)
     erts_smp_spin_unlock(&state_prealloc_lock);
 }
 #endif
-#ifdef __OSE__
-OseSignal *erl_drv_ose_get_input_signal(ErlDrvEvent drv_ev) {
-    struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
-    ethr_mutex_lock(&ev->mtx);
-    if (ev->imsgs == NULL) {
-      ethr_mutex_unlock(&ev->mtx);
-      return NULL;
-    } else {
-      ErtsPollOseMsgList *msg = ev->imsgs;
-      OseSignal *sig = (OseSignal*)msg->data;
-      ASSERT(msg->data);
-      ev->imsgs = msg->next;
-      ethr_mutex_unlock(&ev->mtx);
-      erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
-      restore(sig);
-      return sig;
-    }
-}
 
-OseSignal *erl_drv_ose_get_output_signal(ErlDrvEvent drv_ev) {
-    struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
-    ethr_mutex_lock(&ev->mtx);
-    if (ev->omsgs == NULL) {
-      ethr_mutex_unlock(&ev->mtx);
-      return NULL;
-    } else {
-      ErtsPollOseMsgList *msg = ev->omsgs;
-      OseSignal *sig = (OseSignal*)msg->data;
-      ASSERT(msg->data);
-      ev->omsgs = msg->next;
-      ethr_mutex_unlock(&ev->mtx);
-      erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
-      restore(sig);
-      return sig;
-    }
-}
-
-ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT signo, int id) {
-  struct erts_sys_fd_type *ev = erts_alloc(ERTS_ALC_T_DRV_EV,
-					   sizeof(struct erts_sys_fd_type));
-  ev->signo = signo;
-  ev->id = id;
-  ev->imsgs = NULL;
-  ev->omsgs = NULL;
-  ethr_mutex_init(&ev->mtx);
-  return (ErlDrvEvent)ev;
-}
-
-void erl_drv_ose_event_free(ErlDrvEvent drv_ev) {
-  struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
-  ethr_mutex_destroy(&ev->mtx);
-  erts_free(ERTS_ALC_T_DRV_EV,ev);
-}
-
-void erl_drv_ose_event_fetch(ErlDrvEvent drv_ev, SIGSELECT *signo, int *id) {
-  struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
-  if (signo)
-    *signo = ev->signo;
-  if (id)
-    *id = ev->id;
-}
-
-#endif
 void
 ERTS_CIO_EXPORT(erts_init_check_io)(void)
 {
