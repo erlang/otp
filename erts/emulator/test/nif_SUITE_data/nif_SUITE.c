@@ -1494,6 +1494,48 @@ static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NI
     }
 }
 
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int n;
+    char s[10];
+    ErlNifBinary b;
+    ERL_NIF_TERM result;
+    if (enif_have_dirty_schedulers()) {
+	assert(enif_is_on_dirty_scheduler(env));
+    }
+    assert(argc == 3);
+    enif_get_int(env, argv[0], &n);
+    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1);
+    enif_inspect_binary(env, argv[2], &b);
+    result = enif_make_tuple3(env,
+			      enif_make_int(env, n),
+			      enif_make_string(env, s, ERL_NIF_LATIN1),
+			      enif_make_binary(env, &b));
+    return enif_schedule_dirty_nif_finalizer(env, result, enif_dirty_nif_finalizer);
+}
+
+static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int n;
+    char s[10];
+    ErlNifBinary b;
+    assert(!enif_is_on_dirty_scheduler(env));
+    if (argc != 3)
+	return enif_make_badarg(env);
+    if (enif_have_dirty_schedulers()) {
+	if (enif_get_int(env, argv[0], &n) &&
+	    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1) &&
+	    enif_inspect_binary(env, argv[2], &b))
+	    return enif_schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_CPU_BOUND, dirty_nif, argc, argv);
+	else
+	    return enif_make_badarg(env);
+    } else {
+	return dirty_nif(env, argc, argv);
+    }
+}
+#endif
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -1543,7 +1585,10 @@ static ErlNifFunc nif_funcs[] =
     {"echo_int", 1, echo_int},
     {"type_sizes", 0, type_sizes},
     {"otp_9668_nif", 1, otp_9668_nif},
-    {"consume_timeslice_nif", 2, consume_timeslice_nif}
+    {"consume_timeslice_nif", 2, consume_timeslice_nif},
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+    {"call_dirty_nif", 3, call_dirty_nif},
+#endif
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

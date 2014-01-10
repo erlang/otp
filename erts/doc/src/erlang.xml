@@ -5194,6 +5194,27 @@ ok
     </func>
     <func>
       <name name="system_flag" arity="2" clause_i="3"/>
+      <fsummary>Set system flag dirty CPU schedulers online</fsummary>
+      <desc>
+        <p><marker id="system_flag_dirty_cpu_schedulers_online"></marker>
+        Sets the amount of dirty CPU schedulers online. Valid range is
+        <![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]> where <c>N</c> is the
+        lesser of the return values of <c>erlang:system_info(dirty_cpu_schedulers)</c> and
+        <c>erlang:system_info(schedulers_online)</c>.
+        </p>
+        <p>Returns the old value of the flag.</p>
+	<p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	that you have to enable support for dirty schedulers when building OTP in
+	order to try the functionality out.</p>
+        <p>For more information see
+        <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>
+        and
+        <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="system_flag" arity="2" clause_i="4"/>
       <fsummary>Set system flag fullsweep_after</fsummary>
       <desc>
         <p><c><anno>Number</anno></c> is a non-negative integer which indicates
@@ -5211,7 +5232,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="4"/>
+      <name name="system_flag" arity="2" clause_i="5"/>
       <fsummary>Set system flag min_heap_size</fsummary>
       <desc>
         <p>Sets the default minimum heap size for processes. The
@@ -5226,7 +5247,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="5"/>
+      <name name="system_flag" arity="2" clause_i="6"/>
       <fsummary>Set system flag min_bin_vheap_size</fsummary>
       <desc>
         <p>Sets the default minimum binary virtual heap size for processes. The
@@ -5241,7 +5262,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="6"/>
+      <name name="system_flag" arity="2" clause_i="7"/>
       <fsummary>Set system flag multi_scheduling</fsummary>
       <desc>
         <p><marker id="system_flag_multi_scheduling"></marker>
@@ -5279,7 +5300,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="7"/>
+      <name name="system_flag" arity="2" clause_i="8"/>
       <type name="scheduler_bind_type"/>
       <fsummary>Set system flag scheduler_bind_type</fsummary>
       <desc>
@@ -5399,7 +5420,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="8"/>
+      <name name="system_flag" arity="2" clause_i="9"/>
       <fsummary>Set system flag scheduler_wall_time</fsummary>
       <desc><p><marker id="system_flag_scheduler_wall_time"></marker>
       Turns on/off scheduler wall time measurements. </p>
@@ -5409,7 +5430,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="9"/>
+      <name name="system_flag" arity="2" clause_i="10"/>
       <fsummary>Set system flag schedulers_online</fsummary>
       <desc>
         <p><marker id="system_flag_schedulers_online"></marker>
@@ -5425,7 +5446,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="10"/>
+      <name name="system_flag" arity="2" clause_i="11"/>
       <fsummary>Set system flag trace_control_word</fsummary>
       <desc>
         <p>Sets the value of the node's trace control word to
@@ -5784,6 +5805,71 @@ ok
             <p>Returns <c>true</c> if the emulator has been debug
 	       compiled; otherwise, <c>false</c>.
 	    </p>
+          </item>
+          <tag><marker id="system_info_dirty_cpu_schedulers"><c>dirty_cpu_schedulers</c></marker></tag>
+          <item>
+            <p>Returns the number of dirty CPU scheduler threads used by
+              the emulator. Dirty CPU schedulers execute CPU-bound
+              native functions such as NIFs, linked-in driver code, and BIFs
+              that cannot be managed cleanly by the emulator's normal schedulers.
+            </p>
+            <p>The number of dirty CPU scheduler threads is determined at emulator
+              boot time and cannot be changed after that. The number of dirty CPU
+              scheduler threads online can however be changed at any time. The number of
+              dirty CPU schedulers can be set on startup by passing
+              the <seealso marker="erts:erl#+SDcpu">+SDcpu</seealso> command line flag, see
+              <seealso marker="erts:erl#+SDcpu">erl(1)</seealso>.
+            </p>
+	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	    that you have to enable support for dirty schedulers when building OTP in
+	    order to try the functionality out.</p>
+            <p>See also <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers">erlang:system_info(dirty_io_schedulers)</seealso>,
+              <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>,
+	      <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>, and
+              <seealso marker="#system_flag_schedulers_online">erlang:system_flag(schedulers_online, SchedulersOnline)</seealso>.</p>
+          </item>
+          <tag><marker id="system_info_dirty_cpu_schedulers_online"><c>dirty_cpu_schedulers_online</c></marker></tag>
+          <item>
+            <p>Returns the number of dirty CPU schedulers online. The return value
+              satisfies the following relationship:
+              <c><![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]></c>, where <c>N</c> is
+              the lesser of the return values of <c>erlang:system_info(dirty_cpu_schedulers)</c> and
+              <c>erlang:system_info(schedulers_online)</c>.
+            </p>
+            <p>The number of dirty CPU schedulers online can be set on startup by passing
+              the <seealso marker="erts:erl#+SDcpu">+SDcpu</seealso> command line flag, see
+              <seealso marker="erts:erl#+SDcpu">erl(1)</seealso>.
+            </p>
+	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	    that you have to enable support for dirty schedulers when building OTP in
+	    order to try the functionality out.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers">erlang:system_info(dirty_io_schedulers)</seealso>,
+              <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>, and
+              <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
+            </p>
+          </item>
+          <tag><marker id="system_info_dirty_io_schedulers"><c>dirty_io_schedulers</c></marker></tag>
+          <item>
+            <p>Returns the number of dirty I/O schedulers as an integer. Dirty I/O schedulers
+              execute I/O-bound native functions such as NIFs and linked-in driver code that
+              cannot be managed cleanly by the emulator's normal schedulers.
+            </p>
+            <p>This value can be set on startup by passing
+              the <seealso marker="erts:erl#+SDio">+SDio</seealso> command line flag, see
+              <seealso marker="erts:erl#+SDio">erl(1)</seealso>.
+            </p>
+	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	    that you have to enable support for dirty schedulers when building OTP in
+	    order to try the functionality out.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>, and
+              <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
+            </p>
           </item>
           <tag><c>dist</c></tag>
           <item>

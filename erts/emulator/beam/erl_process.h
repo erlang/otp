@@ -74,6 +74,10 @@ struct ErtsNodesMonitor_;
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
 
 #define ERTS_MAX_NO_OF_SCHEDULERS 1024
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
+#define ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
+#endif
 
 #define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
 
@@ -103,6 +107,11 @@ extern Export exp_send, exp_receive, exp_timeout;
 extern int erts_sched_compact_load;
 extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern Uint erts_no_dirty_cpu_schedulers;
+extern Uint erts_no_dirty_cpu_schedulers_online;
+extern Uint erts_no_dirty_io_schedulers;
+#endif
 extern Uint erts_no_run_queues;
 extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_SCHED_THREAD_MIN_STACK_SIZE 4	/* Kilo words */
@@ -275,6 +284,13 @@ typedef enum {
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+typedef struct {
+    erts_smp_spinlock_t lock;
+    ErtsSchedulerSleepInfo *list;
+} ErtsSchedulerSleepList;
+#endif
+
 struct ErtsSchedulerSleepInfo_ {
 #ifdef ERTS_SMP
     ErtsSchedulerSleepInfo *next;
@@ -386,6 +402,12 @@ struct ErtsRunQueue_ {
 
     erts_smp_mtx_t mtx;
     erts_smp_cnd_t cnd;
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+#ifdef ERTS_SMP
+    ErtsSchedulerSleepList sleepers;
+#endif
+#endif
 
     ErtsSchedulerData *scheduler;
     int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
@@ -547,7 +569,10 @@ struct ErtsSchedulerData_ {
 #endif
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
-    Uint no;			/* Scheduler number */
+    Uint no;			/* Scheduler number for normal schedulers */
+#ifdef ERTS_DIRTY_SCHEDULERS
+    Uint dirty_no;		/* Scheduler number for dirty schedulers */
+#endif
     Port *current_port;
     ErtsRunQueue *run_queue;
     int virtual_reds;
@@ -574,6 +599,10 @@ typedef union {
 } ErtsAlignedSchedulerData;
 
 extern ErtsAlignedSchedulerData *erts_aligned_scheduler_data;
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern ErtsAlignedSchedulerData *erts_aligned_dirty_cpu_scheduler_data;
+extern ErtsAlignedSchedulerData *erts_aligned_dirty_io_scheduler_data;
+#endif
 
 #ifndef ERTS_SMP
 extern ErtsSchedulerData *erts_scheduler_data;
@@ -685,8 +714,13 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_DIST_ENTRY			3
 #define ERTS_PSD_CALL_TIME_BP			4
 #define ERTS_PSD_DELAYED_GC_TASK_QS		5
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT	6
 
+#define ERTS_PSD_SIZE				7
+#else
 #define ERTS_PSD_SIZE				6
+#endif
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -712,6 +746,11 @@ typedef struct {
 
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
+#endif
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -1026,6 +1065,12 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
 #define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(18)
+#define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(19)
+#define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(20)
+#define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(21)
+#endif
 
 #define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
 					 | ERTS_PSFLG_IN_PRQ_HIGH	\
@@ -1231,12 +1276,46 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 	    (p)->flags &= ~F_TIMO; \
     } while (0)
 
+#if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
+#define ERTS_NUM_DIRTY_RUNQS 2
+#else
+#define ERTS_NUM_DIRTY_RUNQS 0
+#endif
+
 #define ERTS_RUNQ_IX(IX)						\
   (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues),			\
    &erts_aligned_run_queues[(IX)].runq)
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_RUNQ_IX_IS_DIRTY(IX)					\
+  (-(ERTS_NUM_DIRTY_RUNQS) <= (IX) && (IX) < 0)
+#define ERTS_DIRTY_RUNQ_IX(IX)						\
+  (ASSERT(ERTS_RUNQ_IX_IS_DIRTY(IX)),					\
+   &erts_aligned_run_queues[(IX)].runq)
+#define ERTS_DIRTY_CPU_RUNQ (&erts_aligned_run_queues[-1].runq)
+#define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[-2].runq)
+#else
+#define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
+#endif
 #define ERTS_SCHEDULER_IX(IX)						\
   (ASSERT(0 <= (IX) && (IX) < erts_no_schedulers),			\
    &erts_aligned_scheduler_data[(IX)].esd)
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_DIRTY_CPU_SCHEDULER_IX(IX)					\
+  (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_cpu_schedulers),		\
+   &erts_aligned_dirty_cpu_scheduler_data[(IX)].esd)
+#define ERTS_DIRTY_IO_SCHEDULER_IX(IX)					\
+  (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_io_schedulers),		\
+   &erts_aligned_dirty_io_scheduler_data[(IX)].esd)
+#ifdef ERTS_SMP
+#define ERTS_SCHEDULER_IS_DIRTY(ESDP)					\
+  ((ESDP)->dirty_no != 0)
+#else
+#define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
+#endif
+#else
+#define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
+#define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
+#endif
 
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
@@ -1439,9 +1518,11 @@ int erts_dbg_check_halloc_lock(Process *p);
 void erts_dbg_multi_scheduling_return_trap(Process *, Eterm);
 #endif
 int erts_get_max_no_executing_schedulers(void);
-#ifdef ERTS_SMP
+#if defined(ERTS_SMP) || defined(ERTS_DIRTY_SCHEDULERS)
 ErtsSchedSuspendResult
-erts_schedulers_state(Uint *, Uint *, Uint *, int);
+erts_schedulers_state(Uint *, Uint *, Uint *, Uint *, Uint *, Uint *, int);
+#endif
+#ifdef ERTS_SMP
 ErtsSchedSuspendResult
 erts_set_schedulers_online(Process *p,
 			   ErtsProcLocks plocks,
@@ -1559,7 +1640,7 @@ do {										\
     ErtsSchedulerData *esdp__ = ((P)						\
 				 ? ERTS_PROC_GET_SCHDATA((Process *) (P))	\
 				 : erts_get_scheduler_data());			\
-    if (esdp__)									\
+    if (esdp__ && !ERTS_SCHEDULER_IS_DIRTY(esdp__))				\
 	esdp__->verify_unused_temp_alloc(					\
 	    esdp__->verify_unused_temp_alloc_data);				\
 } while (0)
@@ -1693,6 +1774,13 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
     ((ErtsProcSysTaskQs *) erts_psd_get((P), ERTS_PSD_DELAYED_GC_TASK_QS))
 #define ERTS_PROC_SET_DELAYED_GC_TASK_QS(P, L, PBT) \
     ((ErtsProcSysTaskQs *) erts_psd_set((P), (L), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(P) \
+    ((Export *) erts_psd_get((P), ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT))
+#define ERTS_PROC_SET_DIRTY_SCHED_TRAP_EXPORT(P, L, DSTE) \
+    ((Export *) erts_psd_set((P), (L), ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT, (void *) (DSTE)))
+#endif
 
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
@@ -1887,7 +1975,12 @@ Uint erts_get_scheduler_id(void)
 {
 #ifdef ERTS_SMP
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    return esdp ? esdp->no : (Uint) 0;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (esdp && ERTS_SCHEDULER_IS_DIRTY(esdp))
+	return 0;
+    else
+#endif
+	return esdp ? esdp->no : (Uint) 0;
 #else
     return erts_get_scheduler_data() ? (Uint) 1 : (Uint) 0;
 #endif

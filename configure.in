@@ -196,6 +196,9 @@ AC_ARG_ENABLE(threads,
 AS_HELP_STRING([--enable-threads], [enable async thread support])
 AS_HELP_STRING([--disable-threads], [disable async thread support]))
 
+AC_ARG_ENABLE(dirty-schedulers,
+AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
+
 AC_ARG_ENABLE(halfword-emulator,
 AS_HELP_STRING([--enable-halfword-emulator],
                [enable halfword emulator (only for 64bit builds)]))

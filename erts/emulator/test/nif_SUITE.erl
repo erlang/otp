@@ -36,7 +36,7 @@
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
-	 otp_9668/1, consume_timeslice/1
+	 otp_9668/1, consume_timeslice/1, dirty_nif/1
 	]).
 
 -export([many_args_100/100]).
@@ -63,7 +63,7 @@ all() ->
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
-     otp_9668, consume_timeslice
+     otp_9668, consume_timeslice, dirty_nif
     ].
 
 groups() -> 
@@ -1343,6 +1343,20 @@ consume_timeslice(Config) when is_list(Config) ->
 
     ok.
 
+dirty_nif(Config) when is_list(Config) ->
+    try erlang:system_info(dirty_cpu_schedulers) of
+	N when is_integer(N) ->
+	    ensure_lib_loaded(Config),
+	    Val1 = 42,
+	    Val2 = "Erlang",
+	    Val3 = list_to_binary([Val2, 0]),
+	    {Val1, Val2, Val3} = call_dirty_nif(Val1, Val2, Val3),
+	    ok
+    catch
+	error:badarg ->
+	    {skipped,"No dirty scheduler support"}
+    end.
+
 next_msg(Pid) ->
     receive
 	M -> M
@@ -1472,6 +1486,7 @@ echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
 otp_9668_nif(_) -> ?nif_stub.
 consume_timeslice_nif(_,_) -> ?nif_stub.
+call_dirty_nif(_,_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -829,7 +829,17 @@ int main(int argc, char **argv)
 		      if (argv[i][2] == 'P') {
 			  if (argv[i][3] != '\0')
 			      goto the_default;
-		      } else if (argv[i][2] != '\0')
+		      }
+#ifdef ERTS_DIRTY_SCHEDULERS
+		      else if (argv[i][2] == 'D') {
+			  char* type = argv[i]+3;
+			  if (strcmp(type, "cpu") != 0 &&
+			      strcmp(type, "Pcpu") != 0 &&
+			      strcmp(type, "io") != 0)
+			      goto the_default;
+		      }
+#endif
+		      else if (argv[i][2] != '\0')
 			  goto the_default;
 		      if (i+1 >= argc)
 			  usage(argv[i]);
