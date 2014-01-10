@@ -54,8 +54,8 @@
 -compile(export_all).
 
 %% Callbacks for ct_telnet.erl
--export([connect/5,get_prompt_regexp/0]).
--import(ct_telnet,[start_log/1,cont_log/2,end_log/0]).
+-export([connect/6,get_prompt_regexp/0]).
+-import(ct_telnet,[start_gen_log/1,log/4,end_gen_log/0]).
 
 -define(username,"login: ").
 -define(password,"Password: ").
@@ -76,7 +76,9 @@ get_prompt_regexp() ->
 
 %%%-----------------------------------------------------------------
 %%% @hidden
-%%% @spec connect(Ip,Port,Timeout,KeepAlive,Extra) -> {ok,Handle} | {error,Reason}
+%%% @spec connect(ConnName,Ip,Port,Timeout,KeepAlive,Extra) -> 
+%%%   {ok,Handle} | {error,Reason}
+%%%      ConnName = ct:target_name()
 %%%      Ip = string() | {integer(),integer(),integer(),integer()}
 %%%      Port = integer()
 %%%      Timeout = integer()
@@ -89,59 +91,68 @@ get_prompt_regexp() ->
 %%% @doc Callback for ct_telnet.erl.
 %%%
 %%% <p>Setup telnet connection to a UNIX host.</p>
-connect(Ip,Port,Timeout,KeepAlive,Extra) ->
+connect(ConnName,Ip,Port,Timeout,KeepAlive,Extra) ->
     case Extra of
 	{Username,Password} -> 
-	    connect1(Ip,Port,Timeout,KeepAlive,Username,Password);
-	Name ->
-	    case get_username_and_password(Name) of
+	    connect1(ConnName,Ip,Port,Timeout,KeepAlive,
+		     Username,Password);
+	KeyOrName ->
+	    case get_username_and_password(KeyOrName) of
 		{ok,{Username,Password}} ->
-		    connect1(Ip,Port,Timeout,KeepAlive,Username,Password);
+		    connect1(ConnName,Ip,Port,Timeout,KeepAlive,
+			     Username,Password);
 		Error ->
 		    Error
 	    end
     end.
 
-connect1(Ip,Port,Timeout,KeepAlive,Username,Password) ->
-    start_log("unix_telnet:connect"),
+connect1(Name,Ip,Port,Timeout,KeepAlive,Username,Password) ->
+    start_gen_log("unix_telnet connect"),
     Result = 
 	case ct_telnet_client:open(Ip,Port,Timeout,KeepAlive) of
 	    {ok,Pid} ->
-		case ct_telnet:silent_teln_expect(Pid,[],[prompt],?prx,[]) of
+		case ct_telnet:silent_teln_expect(Name,Pid,[],
+						  [prompt],?prx,[]) of
 		    {ok,{prompt,?username},_} ->
+			log(Name,send,"Logging in to ~p:~p", [Ip,Port]),
 			ok = ct_telnet_client:send_data(Pid,Username),
-			cont_log("Username: ~ts",[Username]),
-			case ct_telnet:silent_teln_expect(Pid,[],prompt,?prx,[]) of
+			log(Name,send,"Username: ~ts",[Username]),
+			case ct_telnet:silent_teln_expect(Name,Pid,[],
+							  prompt,?prx,[]) of
 			    {ok,{prompt,?password},_} ->
 				ok = ct_telnet_client:send_data(Pid,Password),
 				Stars = lists:duplicate(length(Password),$*),
-				cont_log("Password: ~s",[Stars]),
+				log(Name,send,"Password: ~s",[Stars]),
 				ok = ct_telnet_client:send_data(Pid,""),
-				case ct_telnet:silent_teln_expect(Pid,[],prompt,
+				case ct_telnet:silent_teln_expect(Name,Pid,[],
+								  prompt,
 								  ?prx,[]) of
 				    {ok,{prompt,Prompt},_} 
-				    when Prompt=/=?username, Prompt=/=?password ->
+				    when Prompt=/=?username,
+					 Prompt=/=?password ->
 					{ok,Pid};
 				    Error ->
-					cont_log("Password failed\n~p\n",
-						 [Error]),
+					log(Name,recv,"Password failed\n~p\n",
+					    [Error]),
 					{error,Error}
 				end;
 			    Error ->
-				cont_log("Login failed\n~p\n",[Error]),
+				log(Name,recv,"Login failed\n~p\n",[Error]),
 				{error,Error}
 			end;
 		    {ok,[{prompt,_OtherPrompt1},{prompt,_OtherPrompt2}],_} ->
 			{ok,Pid};
 		    Error ->
-			cont_log("Did not get expected prompt\n~p\n",[Error]),
+			log(Name,error,
+			    "Did not get expected prompt\n~p\n",[Error]),
 			{error,Error}
 		end;
 	    Error ->
-		cont_log("Could not open telnet connection\n~p\n",[Error]),
+		log(Name,error,
+		    "Could not open telnet connection\n~p\n",[Error]),
 		Error
 	end,
-    end_log(),
+    end_gen_log(),
     Result.
 
 get_username_and_password(Name) ->

@@ -16,7 +16,15 @@ end_per_suite(_Config) ->
     ok.
 
 
-suite() -> [{require,telnet_temp,{unix,[telnet]}}].
+suite() -> [
+	    {require,telnet_temp,{unix,[telnet]}}
+
+%% ,	    
+%% 	    {ct_hooks, [{cth_conn_log,
+%% 			 [{ct_telnet,[{log_type,raw},
+%% 				      {hosts,[telnet_temp]}]
+%% 			  }] }] }
+	   ].
 
 all() -> 
     [start_stop, send_and_get, expect, already_closed, 

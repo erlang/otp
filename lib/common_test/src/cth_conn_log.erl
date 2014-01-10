@@ -56,11 +56,29 @@
 	 pre_init_per_testcase/3,
 	 post_end_per_testcase/4]).
 
+%%----------------------------------------------------------------------
+%% Exported types
+%%----------------------------------------------------------------------
+-export_type([hook_options/0,
+	      log_type/0,
+	      conn_mod/0]).
+
+%%----------------------------------------------------------------------
+%% Type declarations
+%%----------------------------------------------------------------------
+-type hook_options() :: [hook_option()].
+%% Options that can be given to `cth_conn_log' in the `ct_hook' statement.
+-type hook_option() :: {log_type,log_type()} |
+		       {hosts,[ct_gen_conn:key_or_name()]}.
+-type log_type() :: raw | pretty | html | silent.
+-type conn_mod() :: ct_netconfc | ct_telnet.
+%%----------------------------------------------------------------------
+
 -spec init(Id, HookOpts) -> Result when
       Id :: term(),
-      HookOpts :: ct_netconfc:hook_options(),
-      Result :: {ok,[{ct_netconfc:conn_mod(),
-		      {ct_netconfc:log_type(),[ct_netconfc:key_or_name()]}}]}.
+      HookOpts :: hook_options(),
+      Result :: {ok,[{conn_mod(),
+		      {log_type(),[ct_gen_conn:key_or_name()]}}]}.
 init(_Id, HookOpts) ->
     ConfOpts = ct:get_config(ct_conn_log,[]),
     {ok,merge_log_info(ConfOpts,HookOpts)}.
@@ -87,6 +105,7 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
     Logs =
 	lists:map(
 	  fun({ConnMod,{LogType,Hosts}}) ->
+		  ct_util:set_testdata({{?MODULE,ConnMod},LogType}),
 		  case LogType of
 		      LogType when LogType==raw; LogType==pretty ->
 			  Dir = ?config(priv_dir,Config),
@@ -121,5 +140,6 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
     {Config,CthState}.
 
 post_end_per_testcase(_TestCase,_Config,Return,CthState) ->
+    [ct_util:delete_testdata({?MODULE,ConnMod}) || {ConnMod,_} <- CthState],
     error_logger:delete_report_handler(ct_conn_log_h),
     {Return,CthState}.

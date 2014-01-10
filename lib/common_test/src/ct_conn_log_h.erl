@@ -96,6 +96,10 @@ terminate(_,#state{logs=Logs}) ->
 
 %%%-----------------------------------------------------------------
 %%% Writing reports
+write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,State) ->
+    {LogType,Fd} = get_log(Info,State),
+    io:format(Fd,"~n~ts",[format_data(ConnMod,LogType,Data)]);
+
 write_report(Time,#conn_log{module=ConnMod}=Info,Data,State) ->
     {LogType,Fd} = get_log(Info,State),
     io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
@@ -147,7 +151,12 @@ format_head(ConnMod,_,Time,Text) ->
     io_lib:format("~n~ts",[Head]).
 
 format_title(raw,#conn_log{client=Client}=Info) ->
-    io_lib:format("Client ~w ~s ~ts",[Client,actionstr(Info),serverstr(Info)]);
+    case actionstr(Info) of
+	{no_server,Action} ->
+	    io_lib:format("Client ~w ~s",[Client,Action]);
+	Action ->
+	    io_lib:format("Client ~w ~s ~ts",[Client,Action,serverstr(Info)])
+    end;
 format_title(_,Info) ->
     Title = pad_char_end(?WIDTH,pretty_title(Info),$=),
     io_lib:format("~n~ts", [Title]).
@@ -195,13 +204,20 @@ pretty_title(#conn_log{client=Client}=Info) ->
 		  [Client,actionstr(Info),serverstr(Info)]).
 
 actionstr(#conn_log{action=send}) -> "----->";
+actionstr(#conn_log{action=cmd}) -> "----->";
 actionstr(#conn_log{action=recv}) -> "<-----";
-actionstr(#conn_log{action=open}) -> "opened session to";
-actionstr(#conn_log{action=close}) -> "closed session to";
+actionstr(#conn_log{action=open}) -> "open session to";
+actionstr(#conn_log{action=close}) -> "close session to";
+actionstr(#conn_log{action=info}) -> {no_server,"info"};
+actionstr(#conn_log{action=error}) -> {no_server,"error"};
 actionstr(_) -> "<---->".
 
+serverstr(#conn_log{name=undefined,address={undefined,_}}) ->
+    io_lib:format("server",[]);
 serverstr(#conn_log{name=undefined,address=Address}) ->
     io_lib:format("~p",[Address]);
+serverstr(#conn_log{name=Alias,address={undefined,_}}) ->
+    io_lib:format("~w()",[Alias]);
 serverstr(#conn_log{name=Alias,address=Address}) ->
     io_lib:format("~w(~p)",[Alias,Address]).
 

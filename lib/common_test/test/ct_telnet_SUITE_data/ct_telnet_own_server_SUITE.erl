@@ -15,7 +15,15 @@ end_per_suite(_Config) ->
     ok.
 
 
-suite() -> [{require,erl_telnet_server,{unix,[telnet]}}].
+suite() ->
+    [
+     {require,erl_telnet_server,{unix,[telnet]}},
+
+     {ct_hooks, [{cth_conn_log,
+		  [{ct_telnet,[{log_type,raw},
+			       {hosts,[erl_telnet_server]}]
+		   }] }] }
+    ].
 
 all() ->
     [expect,
