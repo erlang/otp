@@ -3803,7 +3803,7 @@ dec_term_atom_common:
 	arity = arityval(*keys++);
 
 	while(arity-- > 1) {
-	    if (CMP(keys[arity-1],keys[arity]) >= 0) {
+	    if (CMP_TERM(keys[arity-1],keys[arity]) >= 0) {
 		goto error;
 	    }
 	}
