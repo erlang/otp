@@ -731,3 +731,8 @@ commas_first() ->
             ] }
 ]
 }.
+
+
+%% this used to result in a scan-sexp error
+[{
+}].

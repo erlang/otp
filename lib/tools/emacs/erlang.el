@@ -3038,7 +3038,7 @@ This assumes that the preceding expression is either simple
 \(i.e. an atom) or parenthesized."
   (save-excursion
     (or arg (setq arg 1))
-    (forward-sexp (- arg))
+    (ignore-errors (forward-sexp (- arg)))
     (let ((col (current-column)))
       (skip-chars-backward " \t")
       ;; Special hack to handle: (note line break)
