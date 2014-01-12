@@ -1,1 +1,6 @@
-{suites,"../hipe_test",all}.
+%% -*- erlang -*-
+
+{alias, tests, "../hipe_test"}.
+
+{suites, tests, all}.
+
