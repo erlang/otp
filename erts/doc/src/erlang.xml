@@ -6008,6 +6008,13 @@ ok
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
+          <tag><marker id="system_info_otp_correction_package"><c>otp_correction_package</c></marker></tag>
+          <item>
+            <p>Returns a string containing the OTP correction package version
+	    number that currenly executing VM is part of. Note that other
+	    OTP applications in the system may be part of other OTP correction
+	    packages.</p>
+          </item>
           <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>
             <p>Returns a string containing the OTP release number.</p>

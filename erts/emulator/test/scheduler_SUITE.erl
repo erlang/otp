@@ -1495,7 +1495,7 @@ mcall(Node, Funs) ->
 	      end, Refs).
 
 erl_rel_flag_var() ->
-    "ERL_"++erlang:system_info(otp_release)++"_FLAGS".
+    "ERL_OTP"++erlang:system_info(otp_release)++"_FLAGS".
 
 clear_erl_rel_flags() ->
     EnvVar = erl_rel_flag_var(),
