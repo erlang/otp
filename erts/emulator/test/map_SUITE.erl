@@ -711,19 +711,32 @@ t_map_encode_decode(Config) when is_list(Config) ->
     ],
     ok = map_encode_decode_and_match(Pairs,[],#{}),
 
+    %% check sorting
+
+    %% literally #{ b=>2, a=>1 } in the internal order
+    #{ a:=1, b:=2 } =
+	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,98,100,0,1,97,97,2,97,1>>),
+
+
+    %% literally #{ "hi" => "value", a=>33, b=>55 } in the internal order
+    #{ a:=33, b:=55, "hi" := "value"} = erlang:binary_to_term(<<131,116,0,0,0,3,
+	107,0,2,104,105, % "hi" :: list()
+	100,0,1,97, % a :: atom()
+	100,0,1,98, % b :: atom()
+	107,0,5,118,97,108,117,101, % "value" :: list()
+	97,33, % 33 :: integer()
+	97,55  % 55 :: integer()
+	>>),
+
+
     %% error cases
     %% template: <<131,116,0,0,0,2,100,0,1,97,100,0,1,98,97,1,97,1>>
     %% which is: #{ a=>1, b=>1 }
 
-    %% order violation
-    %% literally #{ b=>1, a=>1 } in the internal order (bad)
-    {'EXIT',{badarg,[{_,_,_,_}|_]}} = (catch
-	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,98,100,0,1,97,97,1,97,1>>)),
-
     %% uniqueness violation
-    %% literally #{ a=>1, a=>1 }
+    %% literally #{ a=>1, "hi"=>"value", a=>2 }
     {'EXIT',{badarg,[{_,_,_,_}|_]}} = (catch
-	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,97,100,0,1,97,97,1,97,1>>)),
+	erlang:binary_to_term(<<131,116,0,0,0,3,100,0,1,97,107,0,2,104,105,100,0,1,97,97,1,107,0,5,118,97,108,117,101,97,2>>)),
 
     %% bad size (too large)
     {'EXIT',{badarg,[{_,_,_,_}|_]}} = (catch
