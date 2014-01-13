@@ -3790,24 +3790,41 @@ dec_term_atom_common:
         }
     }
 
-    /* Iterate through all the maps and check for validity
+    /* Iterate through all the maps and check for validity and sort keys
      * - done here for when we know it is complete.
      */
 
     while (maps_head) {
-	Eterm *keys;
-	Sint  arity;
+	map_t *mp  = (map_t*)maps_head;
+	Eterm *ks  = map_get_keys(mp);
+	Eterm *vs  = map_get_values(mp);
+	Uint   sz  = map_get_size(mp);
+	Uint   ix,jx;
+	Eterm  tmp;
+	int c;
 
 	next  = (Eterm *)(EXPAND_POINTER(*maps_head));
-	keys  = tuple_val(*(maps_head + 2));
-	arity = arityval(*keys++);
 
-	while(arity-- > 1) {
-	    if (CMP_TERM(keys[arity-1],keys[arity]) >= 0) {
-		goto error;
+	/* sort */
+
+	for ( ix = 1; ix < sz; ix++) {
+	    jx = ix;
+	    while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+		/* identical key -> error */
+		if (c == 0) goto error;
+
+		tmp = ks[jx];
+		ks[jx] = ks[jx - 1];
+		ks[jx - 1] = tmp;
+
+		tmp = vs[jx];
+		vs[jx] = vs[jx - 1];
+		vs[jx - 1] = tmp;
+
+		jx--;
 	    }
-	}
 
+	}
 	*maps_head = MAP_HEADER;
 	maps_head  = next;
     }
