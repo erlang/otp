@@ -503,11 +503,11 @@ map_pairs(Es, Sub, St) ->
 	    (#c_map_pair_assoc{key=K0,val=V0}, {Kes,Esp,St0}) ->
 		{K,[],St1} = expr(K0, Sub, St0),
 		{V,Ep,St2} = atomic(V0, Sub, St1),
-		{[#k_map_pair_assoc{key=K,val=V}|Kes],Ep ++ Esp,St2};
+		{[#k_map_pair{op=assoc,key=K,val=V}|Kes],Ep ++ Esp,St2};
 	    (#c_map_pair_exact{key=K0,val=V0}, {Kes,Esp,St0}) ->
 		{K,[],St1} = expr(K0, Sub, St0),
 		{V,Ep,St2} = atomic(V0, Sub, St1),
-		{[#k_map_pair_exact{key=K,val=V}|Kes],Ep ++ Esp,St2}
+		{[#k_map_pair{op=exact,key=K,val=V}|Kes],Ep ++ Esp,St2}
 	end, {[],[],St}, Es).
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
@@ -671,7 +671,7 @@ pattern(#c_map{anno=A,es=Ces}, Isub, Osub0, St0) ->
 pattern(#c_map_pair_exact{anno=A,key=Ck,val=Cv},Isub, Osub0, St0) ->
     {Kk,Osub1,St1} = pattern(Ck, Isub, Osub0, St0),
     {Kv,Osub2,St2} = pattern(Cv, Isub, Osub1, St1),
-    {#k_map_pair_exact{anno=A,key=Kk,val=Kv},Osub2,St2};
+    {#k_map_pair{anno=A,op=exact,key=Kk,val=Kv},Osub2,St2};
 pattern(#c_binary{anno=A,segments=Cv}, Isub, Osub0, St0) ->
     {Kv,Osub1,St1} = pattern_bin(Cv, Isub, Osub0, St0),
     {#k_binary{anno=A,segs=Kv},Osub1,St1};
@@ -1348,8 +1348,8 @@ get_match(#k_tuple{es=Es}, St0) ->
 get_match(#k_map{es=Es0}, St0) ->
     {Mes,St1} = new_vars(length(Es0), St0),
     {Es,_} = mapfoldl(fun
-	    (#k_map_pair_exact{}=Pair, [V|Vs]) ->
-		{Pair#k_map_pair_exact{val=V},Vs}
+	    (#k_map_pair{}=Pair, [V|Vs]) ->
+		{Pair#k_map_pair{val=V},Vs}
 	end, Mes, Es0),
     {#k_map{es=Es},Mes,St1};
 get_match(M, St) ->
@@ -1370,7 +1370,7 @@ new_clauses(Cs0, U, St) ->
 				     [N|As];
 				 #k_map{es=Es} ->
 				     Vals = [V ||
-						#k_map_pair_exact{val=V} <- Es],
+						#k_map_pair{op=exact,val=V} <- Es],
 				     Vals ++ As;
 				 _Other ->
 				     As
@@ -1472,7 +1472,7 @@ arg_val(Arg, C) ->
 	    end;
 	#k_map{es=Es} ->
 	    Keys = [begin
-			#k_map_pair_exact{key=#k_literal{val=Key}} = Pair,
+			#k_map_pair{op=exact,key=#k_literal{val=Key}} = Pair,
 			Key
 		    end || Pair <- Es],
 	    %% multiple keys may have the same name
@@ -1848,9 +1848,7 @@ lit_vars(#k_cons{hd=H,tl=T}) ->
     union(lit_vars(H), lit_vars(T));
 lit_vars(#k_map{var=Var,es=Es}) ->
     lit_list_vars([Var|Es]);
-lit_vars(#k_map_pair_assoc{key=K,val=V}) ->
-    union(lit_vars(K), lit_vars(V));
-lit_vars(#k_map_pair_exact{key=K,val=V}) ->
+lit_vars(#k_map_pair{key=K,val=V}) ->
     union(lit_vars(K), lit_vars(V));
 lit_vars(#k_binary{segs=V}) -> lit_vars(V);
 lit_vars(#k_bin_end{}) -> [];
@@ -1890,7 +1888,7 @@ pat_vars(#k_tuple{es=Es}) ->
     pat_list_vars(Es);
 pat_vars(#k_map{es=Es}) ->
     pat_list_vars(Es);
-pat_vars(#k_map_pair_exact{val=V}) ->
+pat_vars(#k_map_pair{op=exact,val=V}) ->
     pat_vars(V).
 
 pat_list_vars(Ps) ->

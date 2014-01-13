@@ -115,9 +115,9 @@ format_1(#k_map{es=Es}, Ctxt) ->
      format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
      $},$~
     ];
-format_1(#k_map_pair_assoc{key=K,val=V}, Ctxt) ->
+format_1(#k_map_pair{op=assoc,key=K,val=V}, Ctxt) ->
     ["~<",format(K, Ctxt),",",format(V, Ctxt),">"];
-format_1(#k_map_pair_exact{key=K,val=V}, Ctxt) ->
+format_1(#k_map_pair{op=exact,key=K,val=V}, Ctxt) ->
     ["::<",format(K, Ctxt),",",format(V, Ctxt),">"];
 format_1(#k_binary{segs=S}, Ctxt) ->
     ["#<",format(S, ctxt_bump_indent(Ctxt, 2)),">#"];
