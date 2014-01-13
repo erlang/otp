@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -154,22 +154,31 @@ special_init(TestCase, Config)
        TestCase == erlang_client_openssl_server_nowrap_seqnum;
        TestCase == erlang_server_openssl_client_nowrap_seqnum
        ->
-    check_sane_openssl_renegotaite(Config);
+    {ok, Version} = application:get_env(ssl, protocol_version),
+    check_sane_openssl_renegotaite(Config, Version);
 
 special_init(ssl2_erlang_server_openssl_client, Config) ->
     check_sane_openssl_sslv2(Config);
 
 special_init(TestCase, Config)
     when TestCase == erlang_client_openssl_server_npn;
-         TestCase == erlang_server_openssl_client_npn;
-         TestCase == erlang_server_openssl_client_npn_renegotiate;
-         TestCase == erlang_client_openssl_server_npn_renegotiate;
+         TestCase == erlang_server_openssl_client_npn;        
          TestCase == erlang_server_openssl_client_npn_only_server;
          TestCase == erlang_server_openssl_client_npn_only_client;
          TestCase == erlang_client_openssl_server_npn_only_client;
          TestCase == erlang_client_openssl_server_npn_only_server ->
     check_openssl_npn_support(Config);
 
+special_init(TestCase, Config)
+  when TestCase == erlang_server_openssl_client_npn_renegotiate;
+       TestCase == erlang_client_openssl_server_npn_renegotiate ->
+    {ok, Version} = application:get_env(ssl, protocol_version),
+    case check_sane_openssl_renegotaite(Config, Version) of
+	{skip, _} = Skip ->
+	    Skip;
+	_ -> 
+	    check_openssl_npn_support(Config)
+    end;
 special_init(_, Config) ->
     Config.
 
@@ -1315,8 +1324,25 @@ check_openssl_npn_support(Config) ->
             Config
     end.
 
+check_sane_openssl_renegotaite(Config, Version) when Version == 'tlsv1.1';
+						     Version == 'tlsv1.2' ->
+    case os:cmd("openssl version") of     
+	"OpenSSL 1.0.1c" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 1.0.1b" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 1.0.1a" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 1.0.1" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	_ ->
+	    check_sane_openssl_renegotaite(Config)
+    end;
+check_sane_openssl_renegotaite(Config, _) ->
+    check_sane_openssl_renegotaite(Config).
+	
 check_sane_openssl_renegotaite(Config) ->
-    case os:cmd("openssl version") of
+    case os:cmd("openssl version") of     
 	"OpenSSL 0.9.8" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
