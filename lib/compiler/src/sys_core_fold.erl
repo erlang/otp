@@ -421,18 +421,12 @@ expr_list(Es, Ctxt, Sub) ->
 pair_list(Es, Ctxt, Sub) ->
     [pair(E, Ctxt, Sub) || E <- Es].
 
-pair(#c_map_pair_assoc{key=K,val=V}, effect, Sub) ->
+pair(#c_map_pair{key=K,val=V}, effect, Sub) ->
     make_effect_seq([K,V], Sub);
-pair(#c_map_pair_exact{key=K,val=V}, effect, Sub) ->
-    make_effect_seq([K,V], Sub);
-pair(#c_map_pair_assoc{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
+pair(#c_map_pair{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
     K = expr(K0, Ctxt, Sub),
     V = expr(V0, Ctxt, Sub),
-    Pair#c_map_pair_assoc{key=K,val=V};
-pair(#c_map_pair_exact{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
-    K = expr(K0, Ctxt, Sub),
-    V = expr(V0, Ctxt, Sub),
-    Pair#c_map_pair_exact{key=K,val=V}.
+    Pair#c_map_pair{key=K,val=V}.
 
 bitstr_list(Es, Sub) ->
     [bitstr(E, Sub) || E <- Es].
@@ -1542,10 +1536,10 @@ map_pair_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,{_,Osub}} = mapfoldl(fun map_pair_pattern/2, {Isub,Osub0}, Ps0),
     {Ps,Osub}.
 
-map_pair_pattern(#c_map_pair_exact{key=K0,val=V0}=Pair, {Isub,Osub0}) ->
+map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair, {Isub,Osub0}) ->
     {K,Osub1} = pattern(K0, Isub, Osub0),
     {V,Osub} = pattern(V0, Isub, Osub1),
-    {Pair#c_map_pair_exact{key=K,val=V},{Isub,Osub}}.
+    {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
 
 bin_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,{_,Osub}} = mapfoldl(fun bin_pattern/2, {Isub,Osub0}, Ps0),

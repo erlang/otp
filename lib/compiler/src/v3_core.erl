@@ -712,13 +712,13 @@ map_pair_list(Es, St) ->
 		{K,Ep0,St1} = safe(K0, St0),
 		{V,Ep1,St2} = safe(V0, St1),
 		A = lineno_anno(L, St2),
-		Pair = #c_map_pair_assoc{anno=A,key=K,val=V},
+		Pair = #c_map_pair{op=#c_literal{val=assoc},anno=A,key=K,val=V},
 		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2};
 	    ({map_field_exact,L,K0,V0}, {Ces,Esp,St0}) ->
 		{K,Ep0,St1} = safe(K0, St0),
 		{V,Ep1,St2} = safe(V0, St1),
 		A = lineno_anno(L, St2),
-		Pair = #c_map_pair_exact{anno=A,key=K,val=V},
+		Pair = #c_map_pair{op=#c_literal{val=exact},anno=A,key=K,val=V},
 		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2}
 	end, {[],[],St}, Es).
 
@@ -1520,7 +1520,8 @@ pattern({map_field_exact,L,K,V}, St) ->
 	_ ->
 	    pattern(K,St)
     end,
-    #c_map_pair_exact{anno=lineno_anno(L, St),
+    #c_map_pair{anno=lineno_anno(L, St),
+                op=#c_literal{val=exact},
 		key=Key,
 		val=pattern(V, St)};
 pattern({bin,L,Ps}, St) ->
@@ -1871,9 +1872,9 @@ upattern(#c_tuple{es=Es0}=Tuple, Ks, St0) ->
 upattern(#c_map{es=Es0}=Map, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
     {Map#c_map{es=Es1},Esg,Esv,Eus,St1};
-upattern(#c_map_pair_exact{val=V0}=MapPair, Ks, St0) ->
+upattern(#c_map_pair{op=#c_literal{val=exact},val=V0}=MapPair, Ks, St0) ->
     {V,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
-    {MapPair#c_map_pair_exact{val=V},Vg,Vv,Vu,St1};
+    {MapPair#c_map_pair{val=V},Vg,Vv,Vu,St1};
 upattern(#c_binary{segments=Es0}=Bin, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upat_bin(Es0, Ks, St0),
     {Bin#c_binary{segments=Es1},Esg,Esv,Eus,St1};
@@ -2204,9 +2205,7 @@ is_simple(#c_cons{hd=H,tl=T}) ->
     is_simple(H) andalso is_simple(T);
 is_simple(#c_tuple{es=Es}) -> is_simple_list(Es);
 is_simple(#c_map{es=Es}) -> is_simple_list(Es);
-is_simple(#c_map_pair_assoc{key=K,val=V}) ->
-    is_simple(K) andalso is_simple(V);
-is_simple(#c_map_pair_exact{key=K,val=V}) ->
+is_simple(#c_map_pair{key=K,val=V}) ->
     is_simple(K) andalso is_simple(V);
 is_simple(_) -> false.
 

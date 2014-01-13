@@ -256,9 +256,7 @@ gexpr(#c_tuple{es=Es}, Def, _Rt, St) ->
     gexpr_list(Es, Def, St);
 gexpr(#c_map{es=Es}, Def, _Rt, St) ->
     gexpr_list(Es, Def, St);
-gexpr(#c_map_pair_assoc{key=K,val=V}, Def, _Rt, St) ->
-    gexpr_list([K,V], Def, St);
-gexpr(#c_map_pair_exact{key=K,val=V}, Def, _Rt, St) ->
+gexpr(#c_map_pair{key=K,val=V}, Def, _Rt, St) ->
     gexpr_list([K,V], Def, St);
 gexpr(#c_binary{segments=Ss}, Def, _Rt, St) ->
     gbitstr_list(Ss, Def, St);
@@ -312,9 +310,7 @@ expr(#c_tuple{es=Es}, Def, _Rt, St) ->
     expr_list(Es, Def, St);
 expr(#c_map{es=Es}, Def, _Rt, St) ->
     expr_list(Es, Def, St);
-expr(#c_map_pair_assoc{key=K,val=V},Def,_Rt,St) ->
-    expr_list([K,V],Def,St);
-expr(#c_map_pair_exact{key=K,val=V},Def,_Rt,St) ->
+expr(#c_map_pair{key=K,val=V},Def,_Rt,St) ->
     expr_list([K,V],Def,St);
 expr(#c_binary{segments=Ss}, Def, _Rt, St) ->
     bitstr_list(Ss, Def, St);
@@ -469,7 +465,7 @@ pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
 pattern(#c_map{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
-pattern(#c_map_pair_exact{key=K,val=V},Def,Ps,St) ->
+pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V},Def,Ps,St) ->
     pattern_list([K,V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),

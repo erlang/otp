@@ -97,10 +97,10 @@
 
 -record(c_var, {anno=[], name :: cerl:var_name()}).
 
--record(c_map_pair_assoc, {anno=[], key, val}).
-
--record(c_map_pair_exact, {anno=[], key, val}).
+-record(c_map_pair, {anno=[],
+	             op :: 'assoc' | 'exact',
+		     key, val}).
 
 -record(c_map, {anno=[],
 		var=#c_literal{val=[]} :: #c_var{} | #c_literal{},
-		es :: [#c_map_pair_assoc{}|#c_map_pair_exact{}]}).
+		es :: [#c_map_pair{}]}).

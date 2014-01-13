@@ -500,14 +500,11 @@ translate_fc(Args) ->
 %% FIXME: Not completed
 map_pairs(Es, Sub, St) ->
     foldr(fun
-	    (#c_map_pair_assoc{key=K0,val=V0}, {Kes,Esp,St0}) ->
+	    (#c_map_pair{op=#c_literal{val=Op},key=K0,val=V0}, {Kes,Esp,St0}) when
+                                           Op =:= assoc; Op =:= exact -> %% assert Op
 		{K,[],St1} = expr(K0, Sub, St0),
 		{V,Ep,St2} = atomic(V0, Sub, St1),
-		{[#k_map_pair{op=assoc,key=K,val=V}|Kes],Ep ++ Esp,St2};
-	    (#c_map_pair_exact{key=K0,val=V0}, {Kes,Esp,St0}) ->
-		{K,[],St1} = expr(K0, Sub, St0),
-		{V,Ep,St2} = atomic(V0, Sub, St1),
-		{[#k_map_pair{op=exact,key=K,val=V}|Kes],Ep ++ Esp,St2}
+		{[#k_map_pair{op=Op,key=K,val=V}|Kes],Ep ++ Esp,St2}
 	end, {[],[],St}, Es).
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
@@ -668,7 +665,7 @@ pattern(#c_tuple{anno=A,es=Ces}, Isub, Osub0, St0) ->
 pattern(#c_map{anno=A,es=Ces}, Isub, Osub0, St0) ->
     {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
     {#k_map{anno=A,es=Kes},Osub1,St1};
-pattern(#c_map_pair_exact{anno=A,key=Ck,val=Cv},Isub, Osub0, St0) ->
+pattern(#c_map_pair{op=#c_literal{val=exact},anno=A,key=Ck,val=Cv},Isub, Osub0, St0) ->
     {Kk,Osub1,St1} = pattern(Ck, Isub, Osub0, St0),
     {Kv,Osub2,St2} = pattern(Cv, Isub, Osub1, St1),
     {#k_map_pair{anno=A,op=exact,key=Kk,val=Kv},Osub2,St2};
