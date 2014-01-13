@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,9 +40,6 @@ headers([Header | Tail], Headers) ->
 	    headers(Tail, headers(http_util:to_lower(string:strip(Key)), 
 				  string:strip(Value), Headers));
 	{_, []} -> 
-	    Report = io_lib:format("Ignored invalid HTTP-header: ~p~n", 
-				   [Header]),
-	    error_logger:error_report(Report),
 	    headers(Tail, Headers)
     end.
 
