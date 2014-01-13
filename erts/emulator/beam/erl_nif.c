@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1656,17 +1656,6 @@ int enif_get_map_value(ErlNifEnv* env,
 	               Eterm map,
 		       Eterm key,
 		       Eterm *value)
-{
-    if (is_not_map(map)) {
-	return 0;
-    }
-    return erts_maps_get(key, map, value);
-}
-
-int enif_find_map_value(ErlNifEnv* env,
-	                Eterm map,
-			Eterm key,
-			Eterm *value)
 {
     if (is_not_map(map)) {
 	return 0;

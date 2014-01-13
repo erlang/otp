@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -154,7 +154,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_get_map_size, (ErlNifEnv* env, ERL_NIF_TERM term
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_new_map, (ErlNifEnv* env));
 ERL_NIF_API_FUNC_DECL(int, enif_make_map_put, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out));
 ERL_NIF_API_FUNC_DECL(int, enif_get_map_value, (ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value));
-ERL_NIF_API_FUNC_DECL(int, enif_find_map_value, (ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value));
+ERL_NIF_API_FUNC_DECL(void, __enif_PLACEHOLDER__, (void));
 ERL_NIF_API_FUNC_DECL(int, enif_make_map_update, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out));
 ERL_NIF_API_FUNC_DECL(int, enif_make_map_remove, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out));
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_create, (ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry));
@@ -303,7 +303,6 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMa
 #  define enif_make_new_map ERL_NIF_API_FUNC_MACRO(enif_make_new_map)
 #  define enif_make_map_put ERL_NIF_API_FUNC_MACRO(enif_map_map_put)
 #  define enif_get_map_value ERL_NIF_API_FUNC_MACRO(enif_get_map_value)
-#  define enif_find_map_value ERL_NIF_API_FUNC_MACRO(enif_find_map_value)
 #  define enif_make_map_update ERL_NIF_API_FUNC_MACRO(enif_make_map_update)
 #  define enif_make_map_remove ERL_NIF_API_FUNC_MACRO(enif_make_map_remove)
 #  define enif_map_iterator_create ERL_NIF_API_FUNC_MACRO(enif_map_iterator_create)
