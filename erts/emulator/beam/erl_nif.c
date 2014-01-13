@@ -1725,21 +1725,27 @@ int enif_map_iterator_create(ErlNifEnv *env,
     }
 
 error:
+#ifdef DEBUG
     iter->map = THE_NON_VALUE;
+#endif
     return 0;
 }
 
 void enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
     /* not used */
+#ifdef DEBUG
+    iter->map = THE_NON_VALUE;
+#endif
+
 }
 
 int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
+    ASSERT(iter && is_map(iter->map));
     ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
-    if (is_map(iter->map) && (
-		(iter->t_limit - iter->h_limit) == 1 ||
-		 iter->idx == iter->t_limit)) {
+    if ((iter->t_limit - iter->h_limit) == 1
+	|| iter->idx == iter->t_limit) {
 	return 1;
     }
     return 0;
@@ -1747,10 +1753,10 @@ int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)
 
 int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
+    ASSERT(iter && is_map(iter->map));
     ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
-    if (is_map(iter->map) && (
-		(iter->t_limit - iter->h_limit) == 1 ||
-		 iter->idx == iter->h_limit)) {
+    if ((iter->t_limit - iter->h_limit) == 1
+	|| iter->idx == iter->h_limit) {
 	return 1;
     }
     return 0;
@@ -1759,7 +1765,8 @@ int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)
 
 int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    if (is_map(iter->map) && iter->idx < iter->t_limit) {
+    ASSERT(iter && is_map(iter->map));
+    if (iter->idx < iter->t_limit) {
 	iter->idx++;
 	if (iter->idx != iter->t_limit) {
 	    iter->ks++;
@@ -1772,7 +1779,8 @@ int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
 
 int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    if (is_map(iter->map) && iter->idx > iter->h_limit ) {
+    ASSERT(iter && is_map(iter->map));
+    if (iter->idx > iter->h_limit ) {
 	iter->idx--;
 	if (iter->idx != iter->h_limit ) {
 	    iter->ks--;
@@ -1788,7 +1796,8 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
 			       Eterm *key,
 			       Eterm *value)
 {
-    if (is_map(iter->map) && iter->idx > iter->h_limit && iter->idx < iter->t_limit) {
+    ASSERT(iter && is_map(iter->map));
+    if (iter->idx > iter->h_limit && iter->idx < iter->t_limit) {
 	ASSERT(iter->ks >= map_get_keys(map_val(iter->map)) &&
 	       iter->ks  < (map_get_keys(map_val(iter->map)) + map_get_size(map_val(iter->map))));
 	ASSERT(iter->vs >= map_get_values(map_val(iter->map)) &&
