@@ -116,7 +116,7 @@ find_cerl(false) ->
     end;
 find_cerl(DBTop) ->
     case catch filelib:wildcard(filename:join([DBTop,
-					       "otp_src_R*",
+					       "otp_src_*",
 					       "bin",
 					       "cerl"])) of
 	[Cerl | _ ] ->
