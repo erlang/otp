@@ -1743,20 +1743,14 @@ int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
     ASSERT(iter && is_map(iter->map));
     ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
-    if (iter->t_limit == 1 || iter->idx == iter->t_limit) {
-	return 1;
-    }
-    return 0;
+    return (iter->t_limit == 1 || iter->idx == iter->t_limit);
 }
 
 int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
     ASSERT(iter && is_map(iter->map));
     ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
-    if (iter->t_limit == 1 || iter->idx == 0) {
-	return 1;
-    }
-    return 0;
+    return (iter->t_limit == 1 || iter->idx == 0);
 }
 
 
