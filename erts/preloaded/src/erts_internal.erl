@@ -30,6 +30,7 @@
 
 -export([await_port_send_result/3]).
 -export([binary_to_term/1, binary_to_term/2]).
+-export([cmp_term/2]).
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
