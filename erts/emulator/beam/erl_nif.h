@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -103,6 +103,8 @@ typedef unsigned long long ERL_NIF_TERM;
 #  endif
 #endif
 
+typedef ERL_NIF_TERM ERL_NIF_UINT;
+
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
 
@@ -175,15 +177,14 @@ typedef enum
 }ErlNifDirtyTaskFlags;
 #endif
 
-typedef struct
+typedef struct /* All fields all internal and may change */
 {
-    /* use a lot of memory, structure may change */
     ERL_NIF_TERM map;
-    ErlNifUInt64 h_limit;
-    ErlNifUInt64 t_limit;
-    ErlNifUInt64 idx;
+    ERL_NIF_UINT t_limit;
+    ERL_NIF_UINT idx;
     ERL_NIF_TERM *ks;
     ERL_NIF_TERM *vs;
+    void* __spare__[2]; /* for future additions to be ABI compatible (same struct size) */
 } ErlNifMapIterator;
 
 typedef enum {
