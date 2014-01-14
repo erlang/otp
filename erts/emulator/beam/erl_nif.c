@@ -1996,7 +1996,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
     }
     else if (entry->major != ERL_NIF_MAJOR_VERSION
-	     || entry->minor > ERL_NIF_MINOR_VERSION) {
+	     || entry->minor > ERL_NIF_MINOR_VERSION
+	     || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
 	
 	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
 			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);

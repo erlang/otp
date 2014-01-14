@@ -154,7 +154,6 @@ ERL_NIF_API_FUNC_DECL(int, enif_get_map_size, (ErlNifEnv* env, ERL_NIF_TERM term
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_new_map, (ErlNifEnv* env));
 ERL_NIF_API_FUNC_DECL(int, enif_make_map_put, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out));
 ERL_NIF_API_FUNC_DECL(int, enif_get_map_value, (ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value));
-ERL_NIF_API_FUNC_DECL(void, __enif_PLACEHOLDER__, (void));
 ERL_NIF_API_FUNC_DECL(int, enif_make_map_update, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out));
 ERL_NIF_API_FUNC_DECL(int, enif_make_map_remove, (ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out));
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_create, (ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry));
