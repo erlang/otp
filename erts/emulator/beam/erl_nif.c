@@ -1771,8 +1771,8 @@ int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
 	if (iter->idx != iter->t_limit) {
 	    iter->ks++;
 	    iter->vs++;
+	    return 1;
 	}
-	return 1;
     }
     return 0;
 }
@@ -1785,8 +1785,8 @@ int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
 	if (iter->idx != iter->h_limit ) {
 	    iter->ks--;
 	    iter->vs--;
+	    return 1;
 	}
-	return 1;
     }
     return 0;
 }
