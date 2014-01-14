@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2846,7 +2846,7 @@ pop_next:
     return 0;
 
 not_equal:
-    DESTROY_ESTACK(stack);
+    DESTROY_WSTACK(stack);
     return j;
 
 #undef CMP_NODES
