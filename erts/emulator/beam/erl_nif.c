@@ -1759,13 +1759,10 @@ int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
     ASSERT(iter && is_map(iter->map));
     if (iter->idx < iter->t_limit) {
 	iter->idx++;
-	if (iter->idx != iter->t_limit) {
-	    iter->ks++;
-	    iter->vs++;
-	    return 1;
-	}
+	iter->ks++;
+	iter->vs++;
     }
-    return 0;
+    return (iter->idx != iter->t_limit);
 }
 
 int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
@@ -1773,13 +1770,10 @@ int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
     ASSERT(iter && is_map(iter->map));
     if (iter->idx > 0) {
 	iter->idx--;
-	if (iter->idx != 0) {
-	    iter->ks--;
-	    iter->vs--;
-	    return 1;
-	}
+	iter->ks--;
+	iter->vs--;
     }
-    return 0;
+    return (iter->idx > 0);
 }
 
 int enif_map_iterator_get_pair(ErlNifEnv *env,

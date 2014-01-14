@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1564,31 +1564,60 @@ static ERL_NIF_TERM sorted_list_from_maps(ErlNifEnv* env, int argc, const ERL_NI
     ERL_NIF_TERM map = argv[0];
     ERL_NIF_TERM list_f = enif_make_list(env, 0); /* NIL */
     ERL_NIF_TERM list_b = enif_make_list(env, 0); /* NIL */
-    ERL_NIF_TERM key, value;
-    ErlNifMapIterator iter;
+    ERL_NIF_TERM key, value, k2, v2;
+    ErlNifMapIterator iter_f;
+    ErlNifMapIterator iter_b;
+    int cnt, next_ret, prev_ret;
 
     if (argc != 1 && !enif_is_map(env, map))
-	return enif_make_badarg(env);
+	return enif_make_int(env, __LINE__);
 
-    if(!enif_map_iterator_create(env, map, &iter, ERL_NIF_MAP_ITERATOR_HEAD))
-	return enif_make_badarg(env);
+    if(!enif_map_iterator_create(env, map, &iter_f, ERL_NIF_MAP_ITERATOR_HEAD))
+	return enif_make_int(env, __LINE__);
 
-    while(enif_map_iterator_get_pair(env,&iter,&key,&value)) {
+    cnt = 0;
+    while(enif_map_iterator_get_pair(env,&iter_f,&key,&value)) {
+	if (cnt && !next_ret)
+	    return enif_make_int(env, __LINE__);
 	list_f = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_f);
-	enif_map_iterator_next(env,&iter);
+	next_ret = enif_map_iterator_next(env,&iter_f);
+	cnt++;
     }
+    if (cnt && next_ret)
+	return enif_make_int(env, __LINE__);
 
-    enif_map_iterator_destroy(env, &iter);
+    if(!enif_map_iterator_create(env, map, &iter_b, ERL_NIF_MAP_ITERATOR_TAIL))
+	return enif_make_int(env, __LINE__);
 
-    if(!enif_map_iterator_create(env, map, &iter, ERL_NIF_MAP_ITERATOR_TAIL))
-	return enif_make_badarg(env);
+    cnt = 0;
+    while(enif_map_iterator_get_pair(env,&iter_b,&key,&value)) {
+	if (cnt && !prev_ret)
+	    return enif_make_int(env, __LINE__);
 
-    while(enif_map_iterator_get_pair(env,&iter,&key,&value)) {
+	/* Test that iter_f can step "backwards" */
+	if (!enif_map_iterator_prev(env,&iter_f)
+	    || !enif_map_iterator_get_pair(env,&iter_f,&k2,&v2)
+	    || k2 != key || v2 != value) {
+	    return enif_make_int(env, __LINE__);
+	}
+
 	list_b = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_b);
-	enif_map_iterator_prev(env,&iter);
+	prev_ret = enif_map_iterator_prev(env,&iter_b);
     }
 
-    enif_map_iterator_destroy(env, &iter);
+    if (cnt) {
+	if (prev_ret || enif_map_iterator_prev(env,&iter_f))
+	    return enif_make_int(env, __LINE__);
+
+	/* Test that iter_b can step "backwards" one step */
+	if (!enif_map_iterator_next(env, &iter_b)
+	    || !enif_map_iterator_get_pair(env,&iter_b,&k2,&v2)
+	    || k2 != key || v2 != value)
+	    return enif_make_int(env, __LINE__);
+    }
+
+    enif_map_iterator_destroy(env, &iter_f);
+    enif_map_iterator_destroy(env, &iter_b);
 
     return enif_make_tuple2(env, list_f, list_b);
 }

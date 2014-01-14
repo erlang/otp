@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -449,6 +449,9 @@ maps(Config) when is_list(Config) ->
     io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
     Is = lists:sort(Pairs),
     Is = lists:reverse(RIs),
+
+    #{} = maps_from_list([]),
+    {[],[]} = sorted_list_from_maps(#{}),
     ok.
  
 api_macros(doc) -> ["Test macros enif_make_list<N> and enif_make_tuple<N>"];
