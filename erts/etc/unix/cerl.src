@@ -86,6 +86,7 @@ run_valgrind=no
 # Default rootdir
 ROOTDIR=%SRC_ROOTDIR%
 BINDIR="$ROOTDIR/bin/`$ROOTDIR/erts/autoconf/config.guess`"
+TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
@@ -247,6 +248,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+
+if [ ! -f $BINDIR/erlexec -a -f $ROOTDIR/bin/$TARGET/erlexec ]; then
+    # We are in a strange target (I'm looking at you openbsd) where
+    # TARGET != config.guess
+    BINDIR=$ROOTDIR/bin/$TARGET
+fi
 
 PATH=$BINDIR:$ROOTDIR/bin:$PATH
 EXEC=$BINDIR/erlexec
