@@ -123,6 +123,18 @@
         </taglist>
       </desc>
     </datatype>
+    <datatype>
+      <name name="filename"/>
+      <desc>
+        <p>File name as in <seealso marker="kernel:file#name/0">file:name/0</seealso></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="create_option"/>
+      <desc>
+        <p> TODO </p>
+      </desc>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
