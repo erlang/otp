@@ -19,14 +19,14 @@
 /*
  * Author: Rickard Green
  *
- * Description: Driver that fakes driver version 2.0 and tests
+ * Description: Driver that fakes driver version 3.0 and tests
  *              driver_system_info().
  *
  */
 
 #include "sys_info_drv_impl.h"
 
-#define SYS_INFO_DRV_MAJOR_VSN		2
+#define SYS_INFO_DRV_MAJOR_VSN		3
 #define SYS_INFO_DRV_MINOR_VSN		0
 #define SYS_INFO_DRV_NAME_STR		"sys_info_base_drv"
 #define SYS_INFO_DRV_NAME		sys_info_base_drv

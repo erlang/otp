@@ -745,7 +745,7 @@ typedef struct ErlIOVec {
           created and decrement it once when the port associated with
           the lock terminates. The emulator will also increment the
           reference count when an async job is enqueued and decrement
-          it after an async job has been invoked, or canceled. Besides
+          it after an async job has been invoked. Besides
           this, it is the responsibility of the driver to ensure that
           the reference count does not reach zero before the last use
           of the lock by the driver has been made. The reference count
@@ -1995,14 +1995,12 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
           <c>async_invoke</c> and <c>async_free</c>. It's typically a
           pointer to a structure that contains a pipe or event that
           can be used to signal that the async operation completed.
-          The data should be freed in <c>async_free</c>, because it's
-          called if <c>driver_async_cancel</c> is called.</p>
+          The data should be freed in <c>async_free</c>.</p>
         <p>When the async operation is done, <seealso marker="driver_entry#ready_async">ready_async</seealso> driver
           entry function is called. If <c>ready_async</c> is null in
           the driver entry, the <c>async_free</c> function is called
           instead.</p>
-        <p>The return value is a handle to the asynchronous task, which
-          can be used as argument to <c>driver_async_cancel</c>.</p>
+        <p>The return value is a handle to the asynchronous task.</p>
         <note>
           <p>As of erts version 5.5.4.3 the default stack size for
             threads in the async-thread pool is 16 kilowords,
@@ -2037,26 +2035,6 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	can achieve the same distribution based on port id's as before
 	OTP-R16.</p>
 	</note>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_async_cancel(long id)</nametext></name>
-      <fsummary>Cancel an asynchronous call</fsummary>
-      <desc>
-        <marker id="driver_async_cancel"></marker>
-        <p>This function used to cancel a scheduled asynchronous operation,
-	  if it was still in the queue. It returned 1 if it succeeded, and
-	  0 if it failed.</p>
-	<p>Since it could not guarantee success, it was more or less useless.
-	   The user had to implement synchronization of cancellation anyway.
-	   It also unnecessarily complicated the implementation. Therefore,
-	   as of OTP-R15B <c>driver_async_cancel()</c> is deprecated, and
-	   scheduled for removal in OTP-R17. It will currently always fail,
-	   and return 0.</p>
-	<warning><p><c>driver_async_cancel()</c> is deprecated and will
-	            be removed in the OTP-R17 release.</p>
-	</warning>
-
       </desc>
     </func>
     <func>
