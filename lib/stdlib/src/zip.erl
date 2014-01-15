@@ -208,9 +208,12 @@
 -type filename() :: file:name().
 
 -type create_option() :: memory | cooked | verbose | {comment, string()}
-                       | {cwd, string()}
-                       | {compress,   all | [string()] | {add, [string()]} | {del, [string()]}}
-                       | {uncompress, all | [string()] | {add, [string()]} | {del, [string()]}}.
+                       | {cwd, dirname()}
+                       | {compress, extension_spec()}
+                       | {uncompress, extension_spec()}.
+-type dirname() :: filename().
+-type extension_spec() :: all | [extension()] | {add, [extension()]} | {del, [extension()]}.
+-type extension() :: string().
 
 -export_type([filename/0, create_option/0]).
 
