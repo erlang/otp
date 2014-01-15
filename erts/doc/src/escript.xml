@@ -223,7 +223,8 @@ factorial 5 = 120
                 | {beam, BeamCode}
                 | {archive, ZipArchive}
                 | {archive, ZipFiles, ZipOptions}</v>
-        <v>SourceCode = BeamCode = ZipArchive = binary()</v>
+        <v>SourceCode = BeamCode = file:filename() | binary()</v>
+        <v>ZipArchive = zip:filename() | binary()</v>
         <v>ZipFiles = [ZipFile]</v>
         <v>ZipFile = {zip:filename(), SourceCode | BeamCode}</v>
         <v>ZipOptions = [zip:create_option()]</v>
