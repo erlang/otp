@@ -64,7 +64,7 @@
 	       try_body/1, try_vars/1, try_evars/1, try_handler/1,
 	       tuple_es/1, type/1, values_es/1, var_name/1,
 	   
-	       map_es/1, map_pair_assoc_es/1, map_pair_exact_es/1
+	       map_es/1, map_pair_es/1
 	   ]).
 
 -define(PAPER, 76).
@@ -605,13 +605,13 @@ lay_map(Node, Ctxt) ->
 		  floating(text("}~")))).
 
 lay_map_pair_assoc(Node, Ctxt) ->
-    [K,V] = map_pair_assoc_es(Node),
+    [K,V] = map_pair_es(Node),
     beside(floating(text("::<")),
 	beside(lay(K,Ctxt),beside(floating(text(",")), beside(lay(V,Ctxt),
 		    floating(text(">")))))).
 
 lay_map_pair_exact(Node, Ctxt) ->
-    [K,V] = map_pair_exact_es(Node),
+    [K,V] = map_pair_es(Node),
     beside(floating(text("~<")),
 	beside(lay(K,Ctxt),beside(floating(text(",")), beside(lay(V,Ctxt),
 		    floating(text(">")))))).
