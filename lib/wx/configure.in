@@ -211,20 +211,20 @@ dnl ----------------------------------------------------------------------
 case $host_os in
     mingw32)
 	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
-	CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
+	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
 	;;
     win32)
-	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
+	DEBUG_CFLAGS="-g -Wall $CFLAGS -DDEBUG"
 	CFLAGS="-g -Wall -O2 $CFLAGS"
 	;;
     darwin*)
-	DEBUG_CFLAGS="-g -Wall -fPIC -DDEBUG $CFLAGS"
-	# Disable -02 crashes with xcode 5.0.2 (clang-500.2.79)
-	CFLAGS="-g -Wall -fPIC -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
+	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
+	# omit-frame-pointer causes seg faults with 10.9 and clang
+	CFLAGS="-g -Wall -fPIC $CFLAGS -fno-strict-aliasing"
 	;;
     *)
-	DEBUG_CFLAGS="-g -Wall -fPIC -DDEBUG $CFLAGS"
-	CFLAGS="-g -Wall -O2 -fPIC -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
+	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
+	CFLAGS="-g -Wall -O2 -fPIC $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
 	;;
 esac
 
