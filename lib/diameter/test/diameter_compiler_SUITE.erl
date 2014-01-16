@@ -397,8 +397,8 @@ replace({E, Mods}, Bin) ->
     case {E, parse(B, [{include, here()}]), Mods} of
         {ok, {ok, Dict}, _} ->
             Dict;
-        {_, {error, S}, _} when E /= ok ->
-            S
+        {_, {error, {E,_} = T}, _} when E /= ok ->
+            diameter_make:format_error(T)
     end.
 
 re({RE, Repl}, Bin) ->
