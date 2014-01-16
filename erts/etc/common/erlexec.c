@@ -135,6 +135,7 @@ static char *pluss_val_switches[] = {
     "ws",
     "ss",
     "pp",
+    "ub",
     NULL
 };
 /* +h arguments with values */

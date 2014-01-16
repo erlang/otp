@@ -941,6 +941,10 @@
 	    when schedulers frequently run out of work. When disabled,
 	    the frequency with which schedulers run out of work will
 	    not be taken into account by the load balancing logic.
+	    <br/>&nbsp;&nbsp;<c>+scl false</c> is similar to
+	    <seealso marker="#+sub">+sub true</seealso> with the difference
+	    that <c>+sub true</c> also will balance scheduler utilization
+	    between schedulers.
 	    </p>
           </item>
           <tag><marker id="+sct"><c>+sct CpuTopology</c></marker></tag>
@@ -1087,6 +1091,29 @@
 	    documentation of the <seealso marker="#+sbt">+sbt</seealso> flag.
 	    </p>
 	  </item>
+          <tag><marker id="+sub"><c>+sub true|false</c></marker></tag>
+          <item>
+	    <p>Enable or disable
+	    <seealso marker="erts:erlang#statistics_scheduler_wall_time">scheduler
+	    utilization</seealso> balancing of load. By default scheduler
+	    utilization balancing is disabled and instead scheduler
+	    compaction of load is enabled which will strive for a load
+	    distribution which causes as many scheduler threads as possible
+	    to be fully loaded (i.e., not run out of work). When scheduler
+	    utilization balancing is enabled the system will instead try to
+	    balance scheduler utilization between schedulers. That is,
+	    strive for equal scheduler utilization on all schedulers.
+	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> is only supported on
+	    systems where the runtime system detects and use a monotonically
+	    increasing high resolution clock. On other systems, the runtime
+	    system will fail to start.
+	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> implies
+	    <seealso marker="#+scl">+scl false</seealso>. The difference
+	    between <c>+sub true</c> and <c>+scl false</c> is that
+	    <c>+scl false</c> will not try to balance the scheduler
+	    utilization.
+	    </p>
+          </item>
 	  <tag><marker id="+swct"><c>+sws very_eager|eager|medium|lazy|very_lazy</c></marker></tag>
 	  <item>
              <p>

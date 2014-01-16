@@ -537,6 +537,12 @@ void erts_usage(void)
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
+    erts_fprintf(stderr, "-sub bool   enable/disable scheduler utilization balancing,\n");
+#else
+    erts_fprintf(stderr, "-sub false  disable scheduler utilization balancing,\n");
+#endif
+    erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sws val    set scheduler wakeup strategy, valid values are:\n");
     erts_fprintf(stderr, "            default|legacy.\n");
     erts_fprintf(stderr, "-swct val   set scheduler wake cleanup threshold, valid values are:\n");
@@ -1509,6 +1515,26 @@ erl_start(int argc, char **argv)
 		    erts_fprintf(stderr,
 				 "setting scheduler bind type '%s' failed: invalid type\n",
 				 arg);
+		    erts_usage();
+		}
+	    }
+	    else if (has_prefix("ub", sub_param)) {
+		arg = get_arg(sub_param+2, argv[i+1], &i);
+		if (sys_strcmp("true", arg) == 0) {
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
+		    erts_sched_balance_util = 1;
+#else
+		    erts_fprintf(stderr,
+				 "scheduler utilization balancing not "
+				 "supported on this system\n");
+		    erts_usage();
+#endif
+		}
+		else if (sys_strcmp("false", arg) == 0)
+		    erts_sched_balance_util = 0;
+		else {
+		    erts_fprintf(stderr, "bad scheduler utilization balancing "
+				 " value '%s'\n", arg);
 		    erts_usage();
 		}
 	    }
