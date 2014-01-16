@@ -3946,7 +3946,7 @@ non-whitespace characters following the point on the current line."
       (error (if (bolp) (delete-backward-char 1))))))
 
 (defun erlang-electric-dot (&optional arg)
-  "Insert a comma character and possibly a new indented line.
+  "Insert a dot character, indent current line and make a new line.
 The variable `erlang-electric-dot-criteria' states a criterion,
 when fulfilled a newline is inserted and the next line is indented.
 
