@@ -22,7 +22,7 @@
 -export([start/1, 
 	 load_application/1, unload_application/1, 
 	 start_application/2, start_boot_application/2, stop_application/1,
-	 control_application/1,
+	 control_application/1, change_config_data/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, info/0,
@@ -280,6 +280,28 @@ info() ->
 
 control_application(AppName) ->
     gen_server:call(?AC, {control_application, AppName}, infinity).
+
+%%-----------------------------------------------------------------
+%% Func: change_config_data/1
+%% Args: Config = [{AppName, [{Par,Val}]}]
+%% Purpose: The config data is the data loaded from -config files
+%%          specified at boot. The config data is merged into
+%%          the application environment when the application is
+%%          loaded, where it has higher precedence.
+%%          This function allows the config data to be changed
+%%          for cases there is a need to load such data from
+%%          other files than the regular -config ones, merging
+%%          the given Config on top of the existing one. Keep in mind
+%%          that applications that were already loaded won't have
+%%          their data modified by this function. For such cases,
+%%          config_change should be used instead.
+%% Returns: ok | {error, Reason :: iolist()}
+%%          An error may occur if the given data is not valid.
+%%-----------------------------------------------------------------
+change_config_data(Config) when is_list(Config) ->
+    gen_server:call(?AC,
+		    {change_config_data, Config},
+		    infinity).
 
 %%-----------------------------------------------------------------
 %% Func: change_application_data/2
@@ -607,6 +629,7 @@ check_para([Else | _ParaList], AppName) ->
 		  'load_application' | 'start_type' | 'stop_application' |
 		  'unload_application', term()}
                | {'change_application_data', _, _}
+               | {'change_config_data', _}
                | {'permit_application', atom() | {'application',atom(),_},_}
                | {'start_application', _, _}
                | {'unset_env', _, _}
@@ -812,6 +835,14 @@ handle_call({stop_application, AppName}, _From, S) ->
 		false ->
 		    {reply, {error, {not_started, AppName}}, S}
 	    end
+    end;
+
+handle_call({change_config_data, Config}, _From, S) ->
+    case check_conf_data(Config) of
+	ok ->
+	    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data, Config)}};
+	{error, _} = Error ->
+	    {reply, Error, S}
     end;
 
 handle_call({change_application_data, Applications, Config}, _From, S) ->
