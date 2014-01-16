@@ -1732,8 +1732,7 @@ typedef struct TTBSizeContext_ {
     int level;
     Uint result;
     Eterm obj;
-    UWord* stack;
-    Uint   stack_sz;
+    ErtsEStack estack;
 } TTBSizeContext;
 
 typedef struct TTBEncodeContext_ {
@@ -1741,8 +1740,7 @@ typedef struct TTBEncodeContext_ {
     int level;
     byte* ep;
     Eterm obj;
-    UWord* stack;
-    Uint   stack_sz;
+    ErtsWStack wstack;
     Binary *result_bin;
 } TTBEncodeContext;
 
@@ -1772,16 +1770,10 @@ static void ttb_context_destructor(Binary *context_bin)
 	context->alive = 0;
 	switch (context->state) {
 	case TTBSize:
-	    if (context->s.sc.stack) {
-		erts_free(ERTS_ALC_T_SAVED_ESTACK, context->s.sc.stack);
-		context->s.sc.stack = NULL;
-	    }
+	    DESTROY_SAVED_ESTACK(&context->s.sc.estack);
 	    break;
 	case TTBEncode:
-	    if (context->s.ec.stack) {
-		erts_free(ERTS_ALC_T_SAVED_ESTACK, context->s.ec.stack);
-		context->s.ec.stack = NULL;
-	    }
+	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
 	    if (context->s.ec.result_bin != NULL) { /* Set to NULL if ever made alive! */
 		ASSERT(erts_refc_read(&(context->s.ec.result_bin->refc),0) == 0);
 		erts_bin_free(context->s.ec.result_bin);
@@ -1846,7 +1838,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	/* Setup enough to get started */
 	context->state = TTBSize;
 	context->alive = 1;
-	context->s.sc.stack = NULL;
+	context->s.sc.estack.start = NULL;
 	context->s.sc.flags = flags;
 	context->s.sc.level = level;
     } else {
@@ -1889,7 +1881,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->state = TTBEncode;
 		context->s.ec.flags = flags;
 		context->s.ec.level = level;
-		context->s.ec.stack = NULL;
+		context->s.ec.wstack.wstart = NULL;
 		context->s.ec.result_bin = result_bin;
 		break;
 	    }
@@ -2340,8 +2332,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
 	r = *reds;
 
-	if (ctx->stack) { /* restore saved stacks and byte pointer */
-	    WSTACK_RESTORE(s, ctx->stack, ctx->stack_sz);
+	if (ctx->wstack.wstart) { /* restore saved stacks and byte pointer */
+	    WSTACK_RESTORE(s, &ctx->wstack);
 	    ep = ctx->ep;
 	    obj = ctx->obj;
 	}
@@ -2412,7 +2404,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    *reds = r;
 	    ctx->obj = obj;
 	    ctx->ep = ep;
-	    WSTACK_SAVE(s, ctx->stack, ctx->stack_sz);
+	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
 	switch(tag_val_def(obj)) {
@@ -2767,10 +2759,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
     }
     DESTROY_WSTACK(s);
     if (ctx) {
-	if (ctx->stack) {
-	    erts_free(ERTS_ALC_T_SAVED_ESTACK, ctx->stack);
-	    ctx->stack = NULL;
-	}
+	ASSERT(ctx->wstack.wstart == NULL);
 	*reds = r;
     }
     *res = ep;
@@ -3752,8 +3741,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
 	r = *reds;
 
-	if (ctx->stack) { /* restore saved stack */
-	    ESTACK_RESTORE(s, ctx->stack, ctx->stack_sz);
+	if (ctx->estack.start) { /* restore saved stack */
+	    ESTACK_RESTORE(s, &ctx->estack);
 	    result = ctx->result;
 	    obj = ctx->obj;
 	}
@@ -3787,7 +3776,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    *reds = r;
 	    ctx->obj = obj;
 	    ctx->result = result;
-	    ESTACK_SAVE(s, ctx->stack, ctx->stack_sz);
+	    ESTACK_SAVE(s, &ctx->estack);
 	    return -1;
 	}
 	switch (tag_val_def(obj)) {
@@ -3991,10 +3980,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
     DESTROY_ESTACK(s);
     if (ctx) {
-	if (ctx->stack) {
-	    erts_free(ERTS_ALC_T_SAVED_ESTACK, ctx->stack);
-	    ctx->stack = NULL;
-	}
+	ASSERT(ctx->estack.start == NULL);
 	*reds = r;
     }
     *res = result;

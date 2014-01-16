@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -370,231 +370,233 @@ extern int stackdump_on_exit;
  * DESTROY_ESTACK(Stack)
  */
 
+typedef struct {
+    UWord* start;
+    UWord* sp;
+    UWord* end;
+    ErtsAlcType_t alloc_type;
+}ErtsEStack;
 
-void erl_grow_stack(ErtsAlcType_t a_type, Eterm** start, Eterm** sp, Eterm** end);
-#define ESTK_CONCAT(a,b) a##b
-#define ESTK_SUBSCRIPT(s,i) *((Eterm *)((byte *)ESTK_CONCAT(s,_start) + (i)))
 #define DEF_ESTACK_SIZE (16)
 
-#define DECLARE_ESTACK(s)						\
-    Eterm ESTK_CONCAT(s,_default_stack)[DEF_ESTACK_SIZE];		\
-    Eterm* ESTK_CONCAT(s,_start) = ESTK_CONCAT(s,_default_stack);	\
-    Eterm* ESTK_CONCAT(s,_sp) = ESTK_CONCAT(s,_start);			\
-    Eterm* ESTK_CONCAT(s,_end) = ESTK_CONCAT(s,_start) + DEF_ESTACK_SIZE;\
-    ErtsAlcType_t ESTK_CONCAT(s,_alloc_type) = ERTS_ALC_T_ESTACK
+void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
+#define ESTK_CONCAT(a,b) a##b
+#define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
+
+#define DECLARE_ESTACK(s)				\
+    UWord ESTK_DEF_STACK(s)[DEF_ESTACK_SIZE];		\
+    ErtsEStack s = {					\
+        ESTK_DEF_STACK(s),  /* start */ 		\
+        ESTK_DEF_STACK(s),  /* sp */			\
+        ESTK_DEF_STACK(s) + DEF_ESTACK_SIZE, /* end */	\
+        ERTS_ALC_T_ESTACK /* alloc_type */		\
+    }
 
 #define ESTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
-    if (ESTK_CONCAT(s,_start) != ESTK_CONCAT(s,_default_stack)) {	\
+    if (s.start != ESTK_DEF_STACK(s)) {					\
 	erl_exit(1, "Internal error - trying to change allocator "	\
 		 "type of active estack\n");				\
     }									\
-    ESTK_CONCAT(s,_alloc_type) = (t);					\
+    s.alloc_type = (t);							\
  } while (0)
+
+#define DESTROY_ESTACK(s)				\
+do {							\
+    if (s.start != ESTK_DEF_STACK(s)) {			\
+	erts_free(s.alloc_type, s.start); 		\
+    }							\
+} while(0)
+
 
 /*
- * Do not free the stack after this, it may have pointers into what 
- * was saved in 'v'. 'v' and 'vsize' are changed by this macro. If
- * 'v' points to anything, it should have been allocated by a previous 
- * call to this macro. Be careful to set a correct allocator prior to 
- * saving.
- * 'v' can be any lvalue pointer, it will point to an array of UWord
- * after calling this macro.
+ * Do not free the stack after this, it may have pointers into what
+ * was saved in 'dst'.
  */
-#define ESTACK_SAVE(s,v,vsize) /* v and vsize are "name parameters" */	\
-do {									\
-    Uint _esz = ESTACK_COUNT(s);					\
-    if (ESTK_CONCAT(s,_start) == ESTK_CONCAT(s,_default_stack)) {	\
-	if ((v) == NULL) {						\
-	    (v) = erts_alloc(ESTK_CONCAT(s,_alloc_type),		\
-			     DEF_ESTACK_SIZE * sizeof(Eterm));		\
-	}								\
-	memcpy((v),ESTK_CONCAT(s,_start),_esz*sizeof(Eterm));		\
-    } else {								\
-	(v) = (void *) ESTK_CONCAT(s,_start);				\
-    }									\
-    (vsize) = _esz;							\
+#define ESTACK_SAVE(s,dst)\
+do {\
+    if (s.start == ESTK_DEF_STACK(s)) {\
+	UWord _wsz = ESTACK_COUNT(s);\
+	(dst)->start = erts_alloc(s.alloc_type,\
+				  DEF_ESTACK_SIZE * sizeof(UWord));\
+	memcpy((dst)->start, s.start,_wsz*sizeof(UWord));\
+	(dst)->sp = (dst)->start + _wsz;\
+	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
+	(dst)->alloc_type = s.alloc_type;\
+    } else\
+        *(dst) = s;\
  } while (0)
 
-/* 
- * Use on empty stack, only the allocator can be changed before this 
- * The vector parameter is reset to NULL if the vector is moved to stack,
- * otherwise it's kept for reuse, so a saved and restored vector might 
- * need freeing using the correct allocator parameter.
- * 'v' can be any lvalue pointer, it's cast to an (Eterm *).
+#define DESTROY_SAVED_ESTACK(estack)\
+do {\
+    if ((estack)->start) {\
+	erts_free((estack)->alloc_type, (estack)->start);\
+	(estack)->start = NULL;\
+    }\
+} while(0)
+
+/*
+ * Use on empty stack, only the allocator can be changed before this.
+ * The src stack is reset to NULL.
  */
-#define ESTACK_RESTORE(s, v, vsize) /*v is a "name parameter"*/ \
-do {								\
-    if ((vsize) > DEF_ESTACK_SIZE) {				\
-	Uint _ca = DEF_ESTACK_SIZE;				\
-	while (_ca < (vsize))					\
-	    _ca = _ca * 2;					\
-	ESTK_CONCAT(s,_start) = (Eterm *) (v);			\
-	ESTK_CONCAT(s,_end) = ((Eterm *)(v)) + _ca;		\
-	ESTK_CONCAT(s,_sp) = ESTK_CONCAT(s,_start) + (vsize);	\
-	(v) = NULL;                                             \
-    } else {							\
-	memcpy(ESTK_CONCAT(s,_start),(v),(vsize)*sizeof(Eterm));\
-	ESTK_CONCAT(s,_sp) = ESTK_CONCAT(s,_start) + (vsize);	\
-    }								\
- } while (0)
+#define ESTACK_RESTORE(s, src)			\
+do {						\
+    ASSERT(s.start == ESTK_DEF_STACK(s));	\
+    s = *(src);  /* struct copy */		\
+    (src)->start = NULL;			\
+    ASSERT(s.sp >= s.start);			\
+    ASSERT(s.sp <= s.end);			\
+} while (0)
 
-#define ESTACK_IS_STATIC(s) (ESTK_CONCAT(s,_start) == ESTK_CONCAT(s,_default_stack))
+#define ESTACK_IS_STATIC(s) (s.start == ESTK_DEF_STACK(s)))
 
-#define DESTROY_ESTACK(s)						\
-do {									\
-    if (ESTK_CONCAT(s,_start) != ESTK_CONCAT(s,_default_stack)) {	\
-	erts_free(ESTK_CONCAT(s,_alloc_type), ESTK_CONCAT(s,_start));		\
-    }									\
+#define ESTACK_PUSH(s, x)				\
+do {							\
+    if (s.sp == s.end) {				\
+	erl_grow_estack(&s, ESTK_DEF_STACK(s)); 	\
+    }							\
+    *s.sp++ = (x);					\
 } while(0)
 
-#define ESTACK_PUSH(s, x)						\
-do {									\
-    if (ESTK_CONCAT(s,_sp) == ESTK_CONCAT(s,_end)) {			\
-	erl_grow_stack(ESTK_CONCAT(s,_alloc_type),&ESTK_CONCAT(s,_start), \
-		       &ESTK_CONCAT(s,_sp), &ESTK_CONCAT(s,_end));	\
-    }									\
-    *ESTK_CONCAT(s,_sp)++ = (x);					\
+#define ESTACK_PUSH2(s, x, y)			\
+do {						\
+    if (s.sp > s.end - 2) {			\
+	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    }						\
+    *s.sp++ = (x);				\
+    *s.sp++ = (y);				\
 } while(0)
 
-#define ESTACK_PUSH2(s, x, y)						\
-do {									\
-    if (ESTK_CONCAT(s,_sp) > ESTK_CONCAT(s,_end) - 2) {			\
-	erl_grow_stack(ESTK_CONCAT(s,_alloc_type),&ESTK_CONCAT(s,_start), \
-		&ESTK_CONCAT(s,_sp), &ESTK_CONCAT(s,_end));	\
-    }									\
-    *ESTK_CONCAT(s,_sp)++ = (x);					\
-    *ESTK_CONCAT(s,_sp)++ = (y);					\
+#define ESTACK_PUSH3(s, x, y, z)		\
+do {						\
+    if (s.sp > s.end - 3) {			\
+	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    }						\
+    *s.sp++ = (x);				\
+    *s.sp++ = (y);				\
+    *s.sp++ = (z);				\
 } while(0)
 
-#define ESTACK_PUSH3(s, x, y, z)					\
-do {									\
-    if (ESTK_CONCAT(s,_sp) > ESTK_CONCAT(s,_end) - 3) {			\
-	erl_grow_stack(&ESTK_CONCAT(s,_start), &ESTK_CONCAT(s,_sp),	\
-		&ESTK_CONCAT(s,_end));					\
-    }									\
-    *ESTK_CONCAT(s,_sp)++ = (x);					\
-    *ESTK_CONCAT(s,_sp)++ = (y);					\
-    *ESTK_CONCAT(s,_sp)++ = (z);					\
-} while(0)
-
-#define ESTACK_COUNT(s) (ESTK_CONCAT(s,_sp) - ESTK_CONCAT(s,_start))
-
-#define ESTACK_ISEMPTY(s) (ESTK_CONCAT(s,_sp) == ESTK_CONCAT(s,_start))
-#define ESTACK_POP(s) (*(--ESTK_CONCAT(s,_sp)))
+#define ESTACK_COUNT(s) (s.sp - s.start)
+#define ESTACK_ISEMPTY(s) (s.sp == s.start)
+#define ESTACK_POP(s) (*(--s.sp))
 
 
-void erl_grow_wstack(ErtsAlcType_t a_type, UWord** start, UWord** sp, UWord** end);
-#define WSTK_CONCAT(a,b) a##b
-#define WSTK_SUBSCRIPT(s,i) *((UWord *)((byte *)WSTK_CONCAT(s,_start) + (i)))
+/*
+ * WSTACK: same as ESTACK but with UWord instead of Eterm
+ */
+
+typedef struct {
+    UWord* wstart;
+    UWord* wsp;
+    UWord* wend;
+    ErtsAlcType_t alloc_type;
+}ErtsWStack;
+
 #define DEF_WSTACK_SIZE (16)
 
-#define DECLARE_WSTACK(s)						\
-    UWord WSTK_CONCAT(s,_default_stack)[DEF_WSTACK_SIZE];		\
-    UWord* WSTK_CONCAT(s,_start) = WSTK_CONCAT(s,_default_stack);	\
-    UWord* WSTK_CONCAT(s,_sp) = WSTK_CONCAT(s,_start);			\
-    UWord* WSTK_CONCAT(s,_end) = WSTK_CONCAT(s,_start) + DEF_WSTACK_SIZE; \
-    ErtsAlcType_t WSTK_CONCAT(s,_alloc_type) = ERTS_ALC_T_ESTACK
+void erl_grow_wstack(ErtsWStack*, Eterm* def_stack);
+#define WSTK_CONCAT(a,b) a##b
+#define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
+
+#define DECLARE_WSTACK(s)				\
+    UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];		\
+    ErtsWStack s = {					\
+        WSTK_DEF_STACK(s),  /* wstart */ 		\
+        WSTK_DEF_STACK(s),  /* wsp */			\
+        WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */	\
+        ERTS_ALC_T_ESTACK /* alloc_type */		\
+    }
 
 #define WSTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
-    if (WSTK_CONCAT(s,_start) != WSTK_CONCAT(s,_default_stack)) {	\
+    if (s.wstart != WSTK_DEF_STACK(s)) {				\
 	erl_exit(1, "Internal error - trying to change allocator "	\
 		 "type of active wstack\n");				\
     }									\
-    WSTK_CONCAT(s,_alloc_type) = (t);					\
+    s.alloc_type = (t);							\
  } while (0)
 
-#define DESTROY_WSTACK(s)						\
-do {									\
-    if (WSTK_CONCAT(s,_start) != WSTK_CONCAT(s,_default_stack)) {	\
-	erts_free(WSTK_CONCAT(s,_alloc_type), WSTK_CONCAT(s,_start));		\
-    }									\
+#define DESTROY_WSTACK(s)				\
+do {							\
+    if (s.wstart != WSTK_DEF_STACK(s)) {		\
+	erts_free(s.alloc_type, s.wstart); 		\
+    }							\
+} while(0)
+
+
+/*
+ * Do not free the stack after this, it may have pointers into what
+ * was saved in 'dst'.
+ */
+#define WSTACK_SAVE(s,dst)\
+do {\
+    if (s.wstart == WSTK_DEF_STACK(s)) {\
+	UWord _wsz = WSTACK_COUNT(s);\
+	(dst)->wstart = erts_alloc(s.alloc_type,\
+				  DEF_WSTACK_SIZE * sizeof(UWord));\
+	memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
+	(dst)->wsp = (dst)->wstart + _wsz;\
+	(dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;\
+	(dst)->alloc_type = s.alloc_type;\
+    } else\
+        *(dst) = s;\
+ } while (0)
+
+#define DESTROY_SAVED_WSTACK(wstack)\
+do {\
+    if ((wstack)->wstart) {\
+	erts_free((wstack)->alloc_type, (wstack)->wstart);\
+	(wstack)->wstart = NULL;\
+    }\
 } while(0)
 
 /*
- * Do not free the stack after this, it may have pointers into what 
- * was saved in 'v'. 'v' and 'vsize' are changed by this macro. If
- * 'v' points to anything, it should have been allocated by a previous 
- * call to this macro. Be careful to set a correct allocator prior to 
- * saving.
- * 'v' can be any lvalue pointer, it will point to an array of UWord
- * after calling this macro.
+ * Use on empty stack, only the allocator can be changed before this.
+ * The src stack is reset to NULL.
  */
-#define WSTACK_SAVE(s,v,vsize) /* v and vsize are "name parameters" */	\
-do {									\
-    Uint _wsz = WSTACK_COUNT(s);					\
-    if (WSTK_CONCAT(s,_start) == WSTK_CONCAT(s,_default_stack)) {	\
-	if ((v) == NULL) {						\
-	    (v) = erts_alloc(WSTK_CONCAT(s,_alloc_type),		\
-			     DEF_WSTACK_SIZE * sizeof(UWord));		\
-	}								\
-	memcpy((v),WSTK_CONCAT(s,_start),_wsz*sizeof(UWord));		\
-    } else {								\
-	(v) = (void *) WSTK_CONCAT(s,_start);				\
-    }									\
-    (vsize) = _wsz;							\
- } while (0)
+#define WSTACK_RESTORE(s, src)			\
+do {						\
+    ASSERT(s.wstart == WSTK_DEF_STACK(s));	\
+    s = *(src);  /* struct copy */		\
+    (src)->wstart = NULL;			\
+    ASSERT(s.wsp >= s.wstart);			\
+    ASSERT(s.wsp <= s.wend);			\
+} while (0)
 
-/* 
- * Use on empty stack, only the allocator can be changed before this 
- * The vector parameter is reset to NULL if the vector is moved to stack,
- * otherwise it's kept for reuse, so a saved and restored vector might 
- * need freeing using the correct allocator parameter.
- * 'v' can be any lvalue pointer, it's cast to an (UWord *).
- */
-#define WSTACK_RESTORE(s, v, vsize) /*v is a "name parameter"*/ \
-do {								\
-    if ((vsize) > DEF_WSTACK_SIZE) {				\
-	Uint _ca = DEF_WSTACK_SIZE;				\
-	while (_ca < (vsize))					\
-	    _ca = _ca * 2;					\
-	WSTK_CONCAT(s,_start) = (UWord *) (v);			\
-	WSTK_CONCAT(s,_end) = ((UWord *)(v)) + _ca;		\
-	WSTK_CONCAT(s,_sp) = WSTK_CONCAT(s,_start) + (vsize);	\
-	(v) = NULL;                                             \
-    } else {							\
-	memcpy(WSTK_CONCAT(s,_start),(v),(vsize)*sizeof(UWord));\
-	WSTK_CONCAT(s,_sp) = WSTK_CONCAT(s,_start) + (vsize);	\
-    }								\
- } while (0)
+#define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s)))
 
-#define WSTACK_IS_STATIC(s) (WSTK_CONCAT(s,_start) == WSTK_CONCAT(s,_default_stack))
-
-#define WSTACK_PUSH(s, x)						\
-do {									\
-    if (WSTK_CONCAT(s,_sp) == WSTK_CONCAT(s,_end)) {			\
-	erl_grow_wstack(WSTK_CONCAT(s,_alloc_type), &WSTK_CONCAT(s,_start), \
-			&WSTK_CONCAT(s,_sp), &WSTK_CONCAT(s,_end));	\
-    }									\
-    *WSTK_CONCAT(s,_sp)++ = (x);					\
+#define WSTACK_PUSH(s, x)				\
+do {							\
+    if (s.wsp == s.wend) {				\
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); 	\
+    }							\
+    *s.wsp++ = (x);					\
 } while(0)
 
-#define WSTACK_PUSH2(s, x, y)						\
-do {									\
-    if (WSTK_CONCAT(s,_sp) > WSTK_CONCAT(s,_end) - 2) {			\
-	erl_grow_wstack(WSTK_CONCAT(s,_alloc_type), &WSTK_CONCAT(s,_start), \
-		 &WSTK_CONCAT(s,_sp), &WSTK_CONCAT(s,_end));	        \
-    }									\
-    *WSTK_CONCAT(s,_sp)++ = (x);					\
-    *WSTK_CONCAT(s,_sp)++ = (y);					\
+#define WSTACK_PUSH2(s, x, y)			\
+do {						\
+    if (s.wsp > s.wend - 2) {			\
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    }						\
+    *s.wsp++ = (x);				\
+    *s.wsp++ = (y);				\
 } while(0)
 
-#define WSTACK_PUSH3(s, x, y, z)					\
-do {									\
-    if (WSTK_CONCAT(s,_sp) > WSTK_CONCAT(s,_end) - 3) {			\
-	erl_grow_wstack(WSTK_CONCAT(s,_alloc_type), &WSTK_CONCAT(s,_start), \
-		&WSTK_CONCAT(s,_sp), &WSTK_CONCAT(s,_end));		\
-    }									\
-    *WSTK_CONCAT(s,_sp)++ = (x);					\
-    *WSTK_CONCAT(s,_sp)++ = (y);					\
-    *WSTK_CONCAT(s,_sp)++ = (z);					\
+#define WSTACK_PUSH3(s, x, y, z)		\
+do {						\
+    if (s.wsp > s.wend - 3) {	\
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    }						\
+    *s.wsp++ = (x);				\
+    *s.wsp++ = (y);				\
+    *s.wsp++ = (z);				\
 } while(0)
 
-#define WSTACK_COUNT(s) (WSTK_CONCAT(s,_sp) - WSTK_CONCAT(s,_start))
+#define WSTACK_COUNT(s) (s.wsp - s.wstart)
+#define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
+#define WSTACK_POP(s) (*(--s.wsp))
 
-#define WSTACK_ISEMPTY(s) (WSTK_CONCAT(s,_sp) == WSTK_CONCAT(s,_start))
-#define WSTACK_POP(s) (*(--WSTK_CONCAT(s,_sp)))
 
 /* binary.c */
 

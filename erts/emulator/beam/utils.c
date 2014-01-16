@@ -185,39 +185,41 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_stack(ErtsAlcType_t a_type, Eterm** start, Eterm** sp, Eterm** end)
+erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
 {
-    Uint old_size = (*end - *start);
+    Uint old_size = (s->end - s->start);
     Uint new_size = old_size * 2;
-    Uint sp_offs = *sp - *start;
-    if (new_size > 2 * DEF_ESTACK_SIZE) {
-	*start = erts_realloc(a_type, (void *) *start, new_size*sizeof(Eterm));
+    Uint sp_offs = s->sp - s->start;
+    if (s->start != default_estack) {
+	s->start = erts_realloc(s->alloc_type, s->start,
+				new_size*sizeof(Eterm));
     } else {
-	Eterm* new_ptr = erts_alloc(a_type, new_size*sizeof(Eterm));
-	sys_memcpy(new_ptr, *start, old_size*sizeof(Eterm));
-	*start = new_ptr;
+	Eterm* new_ptr = erts_alloc(s->alloc_type, new_size*sizeof(Eterm));
+	sys_memcpy(new_ptr, s->start, old_size*sizeof(Eterm));
+	s->start = new_ptr;
     }
-    *end = *start + new_size;
-    *sp = *start + sp_offs;
+    s->end = s->start + new_size;
+    s->sp = s->start + sp_offs;
 }
 /*
- * Helper function for the ESTACK macros defined in global.h.
+ * Helper function for the WSTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(ErtsAlcType_t a_type, UWord** start, UWord** sp, UWord** end)
+erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
 {
-    Uint old_size = (*end - *start);
+    Uint old_size = (s->wend - s->wstart);
     Uint new_size = old_size * 2;
-    Uint sp_offs = *sp - *start;
-    if (new_size > 2 * DEF_ESTACK_SIZE) {
-	*start = erts_realloc(a_type, (void *) *start, new_size*sizeof(UWord));
+    Uint sp_offs = s->wsp - s->wstart;
+    if (s->wstart != default_wstack) {
+	s->wstart = erts_realloc(s->alloc_type, s->wstart,
+				 new_size*sizeof(UWord));
     } else {
-	UWord* new_ptr = erts_alloc(a_type, new_size*sizeof(UWord));
-	sys_memcpy(new_ptr, *start, old_size*sizeof(UWord));
-	*start = new_ptr;
+	UWord* new_ptr = erts_alloc(s->alloc_type, new_size*sizeof(UWord));
+	sys_memcpy(new_ptr, s->wstart, old_size*sizeof(UWord));
+	s->wstart = new_ptr;
     }
-    *end = *start + new_size;
-    *sp = *start + sp_offs;
+    s->wend = s->wstart + new_size;
+    s->wsp = s->wstart + sp_offs;
 }
 
 /* CTYPE macros */
