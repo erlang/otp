@@ -612,7 +612,6 @@ BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
 
 int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     Sint n;
-    Sint found = 0;
     Uint need;
     Eterm *hp_start;
     Eterm *thp, *mhp;
@@ -650,9 +649,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     if (is_immed(key)) {
 	while(n--) {
 	    if (*ks == key) {
-		ks++;
-		vs++;
-		found = 1;
+		goto found_key;
 	    } else {
 		*mhp++ = *vs++;
 		*thp++ = *ks++;
@@ -661,18 +658,12 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     } else {
 	while(n--) {
 	    if (EQ(*ks, key)) {
-		ks++;
-		vs++;
-		found = 1;
+		goto found_key;
 	    } else {
 		*mhp++ = *vs++;
 		*thp++ = *ks++;
 	    }
 	}
-    }
-
-    if (found) {
-	return 1;
     }
 
     /* Not found, remove allocated memory
@@ -681,6 +672,14 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     HRelease(p, hp_start + need, hp_start);
 
     *res = map;
+    return 1;
+
+found_key:
+    /* Copy rest of keys and values */
+    if (n) {
+	sys_memcpy(mhp, vs+1, n*sizeof(Eterm));
+	sys_memcpy(thp, ks+1, n*sizeof(Eterm));
+    }
     return 1;
 }
 
@@ -699,7 +698,6 @@ BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
 
 int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
 	Sint n,i;
-	Sint found = 0;
 	Eterm* hp,*shp;
 	Eterm *ks,*vs;
 	map_t *mp = (map_t*)map_val(map);
@@ -717,7 +715,6 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 
 	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
 	shp = hp;
-	*res = make_map(hp);
 	*hp++ = MAP_HEADER;
 	*hp++ = n;
 	*hp++ = mp->keys;
@@ -725,9 +722,7 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	if (is_immed(key)) {
 	    for( i = 0; i < n; i ++) {
 		if (ks[i] == key) {
-		    *hp++ = value;
-		    vs++;
-		    found = 1;
+		    goto found_key;
 		} else {
 		    *hp++ = *vs++;
 		}
@@ -735,20 +730,23 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	} else {
 	    for( i = 0; i < n; i ++) {
 		if (EQ(ks[i], key)) {
-		    *hp++ = value;
-		    vs++;
-		    found = 1;
+		    goto found_key;
 		} else {
 		    *hp++ = *vs++;
 		}
 	    }
 	}
 
-	if (found) {
-	    return 1;
-	}
 	HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
 	return 0;
+
+found_key:
+	*hp++ = value;
+	vs++;
+	if (++i < n)
+	    sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+	*res = make_map(shp);
+	return 1;
 }
 
 BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
