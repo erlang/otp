@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -195,9 +195,8 @@ void meta_command(int what, wxe_data *sd) {
       wxeCommand *Cmd = new wxeCommand(WXE_DEBUG_PING, NULL, 0, sd);
       wxe_batch->Append(Cmd);
       erl_drv_cond_signal(wxe_batch_locker_c);
-    } else {
-      wxWakeUpIdle();
     }
+    wxWakeUpIdle();
     erl_drv_mutex_unlock(wxe_batch_locker_m);
   } else {
     if(sd) {
