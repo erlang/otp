@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -204,9 +204,9 @@ int eq(Eterm, Eterm);
 #if HALFWORD_HEAP
 Sint cmp_rel_opt(Eterm, Eterm*, Eterm, Eterm*, int);
 #define cmp_rel(A,A_BASE,B,B_BASE)       cmp_rel_opt(A,A_BASE,B,B_BASE,0)
-#define cmp_rel_exact(A,A_BASE,B,B_BASE) cmp_rel_opt(A,A_BASE,B,B_BASE,1)
-#define CMP(A,B)                         cmp_rel(A,NULL,B,NULL,0)
-#define CMP_TERM(A,B)                    cmp_rel(A,NULL,B,NULL,1)
+#define cmp_rel_term(A,A_BASE,B,B_BASE)  cmp_rel_opt(A,A_BASE,B,B_BASE,1)
+#define CMP(A,B)                         cmp_rel_opt(A,NULL,B,NULL,0)
+#define CMP_TERM(A,B)                    cmp_rel_opt(A,NULL,B,NULL,1)
 #else
 Sint cmp(Eterm, Eterm, int);
 #define cmp_rel(A,A_BASE,B,B_BASE)       cmp(A,B,0)
