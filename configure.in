@@ -255,8 +255,9 @@ AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]))
 
-AC_ARG_ENABLE(shared-zlib,
-AS_HELP_STRING([--enable-shared-zlib], [enable using shared zlib library]))
+AC_ARG_ENABLE(builtin-zlib,
+AS_HELP_STRING([--enable-builtin-zlib],
+               [force use of our own built-in zlib]))
 
 dnl This functionality has been lost along the way... :(
 dnl It could perhaps be nice to reintroduce some day; therefore,
