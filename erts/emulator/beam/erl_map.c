@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013. All Rights Reserved.
+ * Copyright Ericsson AB 2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -614,6 +614,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     Sint n;
     Sint found = 0;
     Uint need;
+    Eterm *hp_start;
     Eterm *thp, *mhp;
     Eterm *ks, *vs, tup;
     map_t *mp = (map_t*)map_val(map);
@@ -634,7 +635,8 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
      */
 
     need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
-    thp    = HAlloc(p, need);
+    hp_start = HAlloc(p, need);
+    thp    = hp_start;
     mhp    = thp + n;               /* offset with tuple heap size */
 
     tup    = make_tuple(thp);
@@ -676,7 +678,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     /* Not found, remove allocated memory
      * and return previous map.
      */
-    HRelease(p, thp + need, thp);
+    HRelease(p, hp_start + need, hp_start);
 
     *res = map;
     return 1;
