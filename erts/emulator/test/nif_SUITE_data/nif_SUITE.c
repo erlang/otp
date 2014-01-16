@@ -1536,8 +1536,48 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 }
 #endif
 
+static ERL_NIF_TERM is_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_int(env, enif_is_map(env,argv[0]));
+}
+static ERL_NIF_TERM get_map_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int size = -123;
+    int ret = enif_get_map_size(env, argv[0], &size);
+    return enif_make_tuple2(env, enif_make_int(env, ret), enif_make_int(env, size));
+}
+static ERL_NIF_TERM make_new_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_new_map(env);
+}
+static ERL_NIF_TERM make_map_put_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
+    int ret = enif_make_map_put(env, argv[0], argv[1], argv[2], &map_out);
+    return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
+}
+static ERL_NIF_TERM get_map_value_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM value = enif_make_atom(env, "undefined");
+    int ret = enif_get_map_value(env, argv[0], argv[1], &value);
+    return enif_make_tuple2(env, enif_make_int(env,ret), value);
+
+}
+static ERL_NIF_TERM make_map_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
+    int ret = enif_make_map_update(env, argv[0], argv[1], argv[2], &map_out);
+    return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
+}
+static ERL_NIF_TERM make_map_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
+    int ret = enif_make_map_remove(env, argv[0], argv[1], &map_out);
+    return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
+}
+
 /* maps */
-static ERL_NIF_TERM maps_from_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM maps_from_list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM cell = argv[0];
     ERL_NIF_TERM map  = enif_make_new_map(env);
@@ -1559,7 +1599,7 @@ static ERL_NIF_TERM maps_from_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return map;
 }
 
-static ERL_NIF_TERM sorted_list_from_maps(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
     ERL_NIF_TERM map = argv[0];
     ERL_NIF_TERM list_f = enif_make_list(env, 0); /* NIL */
@@ -1675,8 +1715,15 @@ static ErlNifFunc nif_funcs[] =
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
     {"call_dirty_nif", 3, call_dirty_nif},
 #endif
-    {"maps_from_list", 1, maps_from_list},
-    {"sorted_list_from_maps", 1, sorted_list_from_maps}
+    {"is_map_nif", 1, is_map_nif},
+    {"get_map_size_nif", 1, get_map_size_nif},
+    {"make_new_map_nif", 0, make_new_map_nif},
+    {"make_map_put_nif", 3, make_map_put_nif},
+    {"get_map_value_nif", 2, get_map_value_nif},
+    {"make_map_update_nif", 3, make_map_update_nif},
+    {"make_map_remove_nif", 2, make_map_remove_nif},
+    {"maps_from_list_nif", 1, maps_from_list_nif},
+    {"sorted_list_from_maps_nif", 1, sorted_list_from_maps_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

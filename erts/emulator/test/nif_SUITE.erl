@@ -444,14 +444,44 @@ maps(Config) when is_list(Config) ->
             [{I,I}||I <- lists:seq(1,10)] ++
 	    [{a,value},{"a","value"},{<<"a">>,<<"value">>}],
     ok = ensure_lib_loaded(Config, 1),
-    M  = maps_from_list(Pairs),
-    R = {RIs,Is} = sorted_list_from_maps(M),
+    M  = maps_from_list_nif(Pairs),
+    R = {RIs,Is} = sorted_list_from_maps_nif(M),
     io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
     Is = lists:sort(Pairs),
     Is = lists:reverse(RIs),
 
-    #{} = maps_from_list([]),
-    {[],[]} = sorted_list_from_maps(#{}),
+    #{} = maps_from_list_nif([]),
+    {[],[]} = sorted_list_from_maps_nif(#{}),
+
+    1 = is_map_nif(M),
+    0 = is_map_nif("no map"),
+
+    Msz = map_size(M),
+    {1,Msz} = get_map_size_nif(M),
+    {1,0} = get_map_size_nif(#{}),
+    {0,-123} = get_map_size_nif({#{}}),
+
+    #{} = M0 = make_new_map_nif(),
+
+    {1, #{key := value}=M1} = make_map_put_nif(M0, key, value),
+    {1, #{key := value, "key2" := "value2"}=M2} = make_map_put_nif(M1, "key2", "value2"),
+    {1, #{key := "value", "key2" := "value2"}=M3} = make_map_put_nif(M2, key, "value"),
+    {0, undefined} = make_map_put_nif(666, key, value),
+
+    {1, "value2"} = get_map_value_nif(M3,"key2"),
+    {0, undefined} = get_map_value_nif(M3,"key3"),
+    {0, undefined} = get_map_value_nif(false,key),
+
+    {0, undefined} = make_map_update_nif(M0, key, value),
+    {0, undefined} = make_map_update_nif(M1, "key2", "value2"),
+    {1, #{key := "value", "key2" := "value2"}} = make_map_update_nif(M2, key, "value"),
+    {0, undefined} = make_map_update_nif(666, key, value),
+
+    {1, #{}} = make_map_remove_nif(M1, key),
+    {1, M1} = make_map_remove_nif(M2, "key2"),
+    {1, M2} = make_map_remove_nif(M2, "key3"),
+    {0, undefined} = make_map_remove_nif(self(), key),
+
     ok.
  
 api_macros(doc) -> ["Test macros enif_make_list<N> and enif_make_tuple<N>"];
@@ -1508,8 +1538,15 @@ consume_timeslice_nif(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 
 %% maps
-maps_from_list(_) -> ?nif_stub.
-sorted_list_from_maps(_) -> ?nif_stub.
+is_map_nif(_) -> ?nif_stub.
+get_map_size_nif(_) -> ?nif_stub.
+make_new_map_nif() -> ?nif_stub.
+make_map_put_nif(_,_,_) -> ?nif_stub.
+get_map_value_nif(_,_) -> ?nif_stub.
+make_map_update_nif(_,_,_) -> ?nif_stub.
+make_map_remove_nif(_,_) -> ?nif_stub.
+maps_from_list_nif(_) -> ?nif_stub.
+sorted_list_from_maps_nif(_) -> ?nif_stub.
 
 
 nif_stub_error(Line) ->
