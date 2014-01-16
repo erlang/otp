@@ -67,7 +67,8 @@ end_per_testcase(_Func,_Config) ->
 %% Description: Checks that end of document is checked properly when continuation fun is missing.
 ticket_8213(suite) -> [];
 ticket_8213(_Config) -> 
-    ?line {ok,ok,[]} = xmerl_sax_parser:stream("<elem/>", [{event_fun, fun (_E,_,_) -> ok end}]).
+    ?line {ok,ok,[]} = xmerl_sax_parser:stream("<elem/>", [{event_fun, fun (_E,_,_) -> ok end}]),
+    ok.
 
 
 %%----------------------------------------------------------------------
@@ -86,7 +87,35 @@ ticket_8214(_Config) ->
 						 ({startElement, _, "elem",_,_}, _,_) -> 
 						     throw({test, "Error in startElement tuple"});
 						 (_E,_,_) -> ok
-					     end}]).
+					     end}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: ticket_8214
+%% Description: Checks that attributes with default namespace don't get [] in NS field.
+ticket_11551(suite) -> [];
+ticket_11551(Config) -> 
+    Stream1 = <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<a>hej</a>
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<a>hej</a>">>,
+    ?line {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
+    Stream2= <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<a>hej</a>
+
+
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<a>hej</a>">>,
+    ?line {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
+    Stream3= <<"<a>hej</a>
+
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<a>hej</a>">>,
+    ?line {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
+    ok.
+		    
+
 
 %%----------------------------------------------------------------------
 %% Bug test cases
@@ -99,7 +128,7 @@ all() ->
     [{group, bugs}].
 
 groups() -> 
-    [{bugs, [], [ticket_8213, ticket_8214]}].
+    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
