@@ -37,6 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 MODULES= \
 	crypto_app \
 	crypto \
+	crypto_ec_curves \
 	crypto_server \
 	crypto_sup
 

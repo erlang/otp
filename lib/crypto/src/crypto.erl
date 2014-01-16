@@ -34,6 +34,7 @@
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
+-export([ec_curve/1, ec_curves/0]).
 
 %% DEPRECATED
 %% Replaced by hash_*
@@ -557,7 +558,7 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(ecdh, Curve, undefined) ->
-    ec_key_generate(Curve).
+    ec_key_generate(nif_curve_params(Curve)).
 
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
@@ -1502,21 +1503,27 @@ ec_key_generate(_Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
+ec_curves() ->
+    crypto_ec_curves:curves().
+
+ec_curve(X) ->
+    crypto_ec_curves:curve(X).
+
 %%
 %% EC
 %%
 
 term_to_nif_prime({prime_field, Prime}) ->
-    {prime_field, int_to_bin(Prime)};
+    {prime_field, ensure_int_as_bin(Prime)};
 term_to_nif_prime(PrimeField) ->
     PrimeField.
 term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
 nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), int_to_bin(Order), int_to_bin(CoFactor)};
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), ensure_int_as_bin(Order), ensure_int_as_bin(CoFactor)};
 nif_curve_params(Curve) when is_atom(Curve) ->
     %% named curve
-    Curve.
+    crypto_ec_curves:curve(Curve).
 
 
 %% MISC --------------------------------------------------------------------
