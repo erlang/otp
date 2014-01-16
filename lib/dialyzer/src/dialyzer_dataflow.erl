@@ -309,10 +309,8 @@ traverse(Tree, Map, State) ->
       handle_tuple(Tree, Map, State);
     map ->
       handle_map(Tree, Map, State);
-    map_pair_assoc ->
-      handle_map_pair_assoc(Tree, Map, State);
-    map_pair_exact ->
-      handle_map_pair_exact(Tree, Map, State);
+    map_pair ->
+      handle_map_pair(Tree, Map, State);
     values ->
       Elements = cerl:values_es(Tree),
       {State1, Map1, EsType} = traverse_list(Elements, Map, State),
@@ -1068,14 +1066,10 @@ handle_map(Tree,Map,State) ->
     {State1, Map1, TypePairs} = traverse_list(Pairs,Map,State),
     {State1, Map1, t_map(TypePairs)}.
 
-handle_map_pair_assoc(Tree,Map,State) ->
-  Elements = cerl:map_pair_assoc_es(Tree),
-  {State1, Map1, [K,V]} = traverse_list(Elements,Map,State),
-  {State1, Map1, {K,V}}.
-
-handle_map_pair_exact(Tree,Map,State) ->
-  Elements = cerl:map_pair_exact_es(Tree),
-  {State1, Map1, [K,V]} = traverse_list(Elements,Map,State),
+handle_map_pair(Tree,Map,State) ->
+  Key = cerl:map_pair_key(Tree),
+  Val = cerl:map_pair_val(Tree),
+  {State1, Map1, [K,V]} = traverse_list([Key,Val],Map,State),
   {State1, Map1, {K,V}}.
 
 %%----------------------------------------
