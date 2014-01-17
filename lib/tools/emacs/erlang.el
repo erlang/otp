@@ -3970,7 +3970,6 @@ non-whitespace characters following the point on the current line."
     (erlang-indent-line)
     (end-of-line)
     (newline)
-    (newline)
     (condition-case nil
   (erlang-indent-line)
       (error (if (bolp) (delete-backward-char 1))))))
