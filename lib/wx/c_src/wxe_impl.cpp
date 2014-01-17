@@ -123,6 +123,8 @@ bool WxeApp::OnInit()
   wxe_batch = new wxList;
   wxe_batch_cb_saved = new wxList;
   cb_buff = NULL;
+  recurse_level = 0;
+  delayed_cleanup = new wxList;
 
   wxe_ps_init2();
   // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); // Hmm printpreview doesn't work in 2.9 with this
@@ -186,23 +188,40 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
 {
   WxeApp * app = (WxeApp *) wxTheApp;
   ErlDrvMonitor monitor;
+  // Is thread safe if pdl have been incremented
   driver_monitor_process(port, process, &monitor);
   // Should we be able to handle commands when recursing? probably
   erl_drv_mutex_lock(wxe_batch_locker_m);
   //fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
+  app->recurse_level++;
   app->dispatch_cb(wxe_batch, wxe_batch_cb_saved, process);
+  app->recurse_level--;
   //fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
   wxe_batch_caller = 0;
   erl_drv_mutex_unlock(wxe_batch_locker_m);
   driver_demonitor_process(port, &monitor);
 }
 
-void WxeApp::dispatch_cmds() {
+void WxeApp::dispatch_cmds()
+{
   erl_drv_mutex_lock(wxe_batch_locker_m);
+  recurse_level++;
   int level = dispatch(wxe_batch_cb_saved, 0, WXE_STORED);
   dispatch(wxe_batch, level, WXE_NORMAL);
+  recurse_level--;
   wxe_batch_caller = 0;
   erl_drv_mutex_unlock(wxe_batch_locker_m);
+  // Cleanup old memenv's
+  if(recurse_level == 0 && delayed_cleanup->size() > 0) {
+    for( wxList::compatibility_iterator node = delayed_cleanup->GetFirst();
+	 node;
+	 node = delayed_cleanup->GetFirst()) {
+      wxeMetaCommand *event = (wxeMetaCommand *)node->GetData();
+      delayed_cleanup->Erase(node);
+      destroyMemEnv(*event);
+      delete event;
+    }
+  }
 }
 
 // Should have  erl_drv_mutex_lock(wxe_batch_locker_m);
@@ -370,9 +389,11 @@ void WxeApp::newMemEnv(wxeMetaCommand& Ecmd) {
   erl_drv_send_term(WXE_DRV_PORT,Ecmd.caller,rt,2);
 }
 
-void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
+void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
+{
   // Clear incoming cmd queue first
   // dispatch_cmds();
+  int delay = false;
   wxWindow *parent = NULL;
   wxeMemEnv * memenv = refmap[Ecmd.port];
 
@@ -389,26 +410,34 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
       ptrMap::iterator it = ptr2ref.find(ptr);
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
-	if(refd->alloc_in_erl) {
-	  if(refd->type == 2) {
-	    wxDialog *win = (wxDialog *) ptr;
-	    if(win->IsModal()) {
-	      win->EndModal(-1);
+	if(refd->alloc_in_erl && refd->type == 2) {
+	  wxDialog *win = (wxDialog *) ptr;
+	  if(win->IsModal()) {
+	    win->EndModal(-1);
+	  }
+	  parent = win->GetParent();
+	  if(parent) {
+	    ptrMap::iterator parentRef = ptr2ref.find(parent);
+	    if(parentRef == ptr2ref.end()) {
+	      // The parent is already dead delete the parent ref
+	      win->SetParent(NULL);
 	    }
-	    parent = win->GetParent();
-	    if(parent) {
-	      ptrMap::iterator parentRef = ptr2ref.find(parent);
-	      if(parentRef == ptr2ref.end()) {
-		// The parent is already dead delete the parent ref
-		win->SetParent(NULL);
-	      }
-	    }
+	  }
+	  if(recurse_level > 0) {
+	    // Delay delete until we are out of dispatch*
+	    delayed_cleanup->Append(Ecmd.Clone());
+	    delay = true;
+	  } else {
 	    delete win;
 	  }
 	}
       }
     }
   }
+
+  if(delay)
+      return;
+
   // First pass, delete all top parents/windows of all linked objects
   //   fprintf(stderr, "close port %x\r\n", Ecmd.port);fflush(stderr);
 

@@ -409,32 +409,31 @@ dialog(Config) ->
     wxFrame:show(Frame),
     Env = wx:get_env(),
     Tester = self(),
-    spawn_link(
-      fun() ->
-	      wx:set_env(Env),
-	      PD = wxProgressDialog:new("Dialog","Testing",
-					[%%{parent, Frame},
-					 {maximum,10},
-					 {style, ?wxPD_SMOOTH bor ?wxPD_AUTO_HIDE}]),
-	      wxDialog:connect(PD, init_dialog
-			       , [{callback, fun(#wx{event=#wxInitDialog{}}, Ev) ->
-						     ?mt(wxInitDialogEvent, Ev),
-						     io:format("Heyhoo~n", []),
-						     wxEvent:skip(Ev),
-						     Tester ! {progress_dialog,PD}
-					     end}]
-			      ),
-	      wxProgressDialog:showModal(PD),
-	      wxDialog:destroy(PD)
-      end),
-    receive {progress_dialog,PD} ->
-	    wxDialog:endModal(PD, ?wxID_OK)
-    after 5000 ->
-	    exit(timeout)
-    end,
-
-    wx_test_lib:flush(),
-
+    PD = wxProgressDialog:new("Dialog","Testing",
+			      [%%{parent, Frame},
+			       {maximum,101},
+			       {style, ?wxPD_SMOOTH bor ?wxPD_AUTO_HIDE}]),
+    Forward = fun(#wx{event=#wxInitDialog{}}, Ev) ->
+		      ?mt(wxInitDialogEvent, Ev),
+		      io:format("Heyhoo~n", []),
+		      wxEvent:skip(Ev),
+		      Tester ! {progress_dialog,PD}
+	      end,
+    wxDialog:connect(PD, init_dialog, [{callback, Forward}]),
+    Recurse = fun(Recurse, N) ->
+		      true = wxProgressDialog:update(PD, min(N,100)),
+		      timer:sleep(5),
+		      Recurse(Recurse,N+1)
+	      end,
+    Run = fun() ->
+		  wx:set_env(Env),
+		  Recurse(Recurse, 0)
+	  end,
+    Worker = spawn_link(Run),
+    timer:sleep(500),
+    io:format("Got ~p~n", [wx_test_lib:flush()]),
+    unlink(Worker),
+    wxProgressDialog:destroy(PD),
     wx_test_lib:wx_destroy(Frame, Config).
 
 

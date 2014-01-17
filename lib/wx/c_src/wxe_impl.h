@@ -79,6 +79,9 @@ public:
   ptrMap   ptr2ref;
   wxeMemEnv * global_me;
 
+  int recurse_level;
+  wxList * delayed_cleanup;
+
   // Temp container for callbacks
   char *cb_buff;
   int  cb_len;
