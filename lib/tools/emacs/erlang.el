@@ -305,6 +305,7 @@ prompted.  If the value is t the source is silently changed.")
 
 (defvar erlang-electric-commands
   '(erlang-electric-comma
+    erlang-electric-dot
     erlang-electric-semicolon
     erlang-electric-gt)
   "*List of activated electric commands.
@@ -312,6 +313,7 @@ prompted.  If the value is t the source is silently changed.")
 The list should contain the electric commands which should be active.
 Currently, the available electric commands are:
     `erlang-electric-comma'
+    `erlang-electric-dot'
     `erlang-electric-semicolon'
     `erlang-electric-gt'
     `erlang-electric-newline'
@@ -337,6 +339,7 @@ inhibited.")
 (defvar erlang-electric-newline-inhibit-list
   '(erlang-electric-semicolon
     erlang-electric-comma
+    erlang-electric-dot
     erlang-electric-gt)
   "*Commands which can inhibit the next newline.")
 
@@ -376,6 +379,23 @@ The test is performed by the function `erlang-test-criteria-list'.")
     erlang-at-end-of-function-p)
   "*List of functions controlling `erlang-electric-comma'.
 The functions in this list are called, in order, whenever a comma
+is typed.  Each function in the list is called with no arguments,
+and should return one of the following values:
+
+  nil             -- no determination made, continue checking
+  'stop           -- do not create prototype for next line
+  (anything else) -- insert prototype, and stop checking
+
+If every function in the list is called with no determination made,
+then no prototype is inserted.
+
+The test is performed by the function `erlang-test-criteria-list'.")
+
+(defvar erlang-electric-dot-criteria
+  '(erlang-next-lines-empty-p
+    erlang-at-end-of-function-p)
+  "*List of functions controlling `erlang-electric-dot'.
+The functions in this list are called, in order, whenever a dot
 is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
 
@@ -987,6 +1007,7 @@ behaviour.")
       (define-key map "\t"        'erlang-indent-command))
     (define-key map ";"	      'erlang-electric-semicolon)
     (define-key map ","	      'erlang-electric-comma)
+    (define-key map "."         'erlang-electric-dot)
     (define-key map "<"         'erlang-electric-lt)
     (define-key map ">"         'erlang-electric-gt)
     (define-key map "\C-m"      'erlang-electric-newline)
@@ -1460,6 +1481,7 @@ Other commands:
 	    (put cmd 'pending-delete t)) ;for pending-del (XEmacs)
 	'(erlang-electric-semicolon
 	  erlang-electric-comma
+    erlang-electric-dot
 	  erlang-electric-gt))
   
   (put 'bitsyntax-open-outer 'syntax-table '(4 . ?>))
@@ -3921,6 +3943,35 @@ non-whitespace characters following the point on the current line."
     (newline)
     (condition-case nil
 	(erlang-indent-line)
+      (error (if (bolp) (delete-backward-char 1))))))
+
+(defun erlang-electric-dot (&optional arg)
+  "Insert a dot character, indent current line and make a new line.
+The variable `erlang-electric-dot-criteria' states a criterion,
+when fulfilled a newline is inserted and the next line is indented.
+
+Behaves just like the normal dot when supplied with a
+numerical arg, point is inside string or comment, or when there are
+non-whitespace characters following the point on the current line."
+  (interactive "P")
+
+  (self-insert-command (prefix-numeric-value arg))
+
+  (if (or arg
+    (and (listp erlang-electric-commands)
+         (not (memq 'erlang-electric-dot erlang-electric-commands)))
+    (erlang-in-literal)
+    (not (looking-at "\\s *\\(%.*\\)?$"))
+    (null (erlang-test-criteria-list
+     erlang-electric-dot-criteria)))
+      (setq erlang-electric-newline-inhibit nil)
+    (setq erlang-electric-newline-inhibit t)
+    (undo-boundary)
+    (erlang-indent-line)
+    (end-of-line)
+    (newline)
+    (condition-case nil
+  (erlang-indent-line)
       (error (if (bolp) (delete-backward-char 1))))))
 
 (defun erlang-electric-lt (&optional arg)
