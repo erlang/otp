@@ -1610,7 +1610,7 @@ int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_map(term);
 }
 
-int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, int *size)
+int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
 {
     if (is_map(term)) {
 	map_t *mp;

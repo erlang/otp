@@ -1542,9 +1542,9 @@ static ERL_NIF_TERM is_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }
 static ERL_NIF_TERM get_map_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    int size = -123;
+    size_t size = (size_t)-123;
     int ret = enif_get_map_size(env, argv[0], &size);
-    return enif_make_tuple2(env, enif_make_int(env, ret), enif_make_int(env, size));
+    return enif_make_tuple2(env, enif_make_int(env, ret), enif_make_int(env, (int)size));
 }
 static ERL_NIF_TERM make_new_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
