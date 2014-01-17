@@ -41,7 +41,17 @@
 	 sval(#{id => 3}) +
 	 sval(#{id => 4}) +
 	 sval(#{id => 5}) +
-	 sval(#{id => 6}).
+	 sval(#{id => 6}),
+
+    M = #{v => 1, m => #{v => 21, m => #{v => 7, m => 13}}},
+
+    42 = decompose(M).
+
+% switch key orders
+decompose(#{ m := M, v := V}) when is_map(M) ->
+    V + decompose(M);
+decompose(#{ v := V, m := M}) -> V + M.
+
 
 mval(#{val := V}) -> V.
 
