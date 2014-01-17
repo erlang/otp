@@ -66,7 +66,8 @@ int wxe_batch_caller = 0;  // inside batch if larger than 0
 
 void push_command(int op,char * buf,int len, wxe_data *sd)
 {
-  // fprintf(stderr, "Op %d %d\r\n", op, (int) driver_caller(sd->port_handle)),fflush(stderr);
+  /* fprintf(stderr, "Op %d %d [%ld] %d\r\n", op, (int) driver_caller(sd->port_handle),
+     wxe_batch->size(), wxe_batch_caller),fflush(stderr); */
   wxeCommand *Cmd = new wxeCommand(op, buf, len, sd);
   erl_drv_mutex_lock(wxe_batch_locker_m);
   wxe_batch->Append(Cmd);
@@ -189,17 +190,18 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
   WxeApp * app = (WxeApp *) wxTheApp;
   ErlDrvMonitor monitor;
   // Is thread safe if pdl have been incremented
-  driver_monitor_process(port, process, &monitor);
-  // Should we be able to handle commands when recursing? probably
-  erl_drv_mutex_lock(wxe_batch_locker_m);
-  //fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
-  app->recurse_level++;
-  app->dispatch_cb(wxe_batch, wxe_batch_cb_saved, process);
-  app->recurse_level--;
-  //fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
-  wxe_batch_caller = 0;
-  erl_drv_mutex_unlock(wxe_batch_locker_m);
-  driver_demonitor_process(port, &monitor);
+  if(driver_monitor_process(port, process, &monitor) == 0) {
+    // Should we be able to handle commands when recursing? probably
+    erl_drv_mutex_lock(wxe_batch_locker_m);
+    //fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
+    app->recurse_level++;
+    app->dispatch_cb(wxe_batch, wxe_batch_cb_saved, process);
+    app->recurse_level--;
+    //fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
+    wxe_batch_caller = 0;
+    erl_drv_mutex_unlock(wxe_batch_locker_m);
+    driver_demonitor_process(port, &monitor);
+  }
 }
 
 void WxeApp::dispatch_cmds()
@@ -305,6 +307,7 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 	  // fprintf(stderr, "  Ev %d %lu\r\n", event->op, event->caller);
 	  if(event->caller == process ||  // Callbacks from CB process only
 	     event->op == WXE_CB_START || // Event callback start change process
+	     event->op == WXE_CB_DIED ||  // Event callback process died
 	     // Allow connect_cb during CB i.e. msg from wxe_server.
 	     (memenv && event->caller == memenv->owner))
 	    {
@@ -317,7 +320,8 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 		if(event->len > 0) {
 		  cb_buff = (char *) driver_alloc(event->len);
 		  memcpy(cb_buff, event->buffer, event->len);
-		}
+		}  // continue
+	      case WXE_CB_DIED:
 		callback_returned = 1;
 		return;
 	      case WXE_CB_START:

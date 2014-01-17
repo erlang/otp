@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -89,6 +89,7 @@ extern char * erl_wx_privdir;
 #define WXE_BIN_INCR        11
 #define WXE_BIN_DECR        12
 #define WXE_INIT_OPENGL     13
+#define WXE_CB_DIED         14
 
 #define OPENGL_START        5000
 
