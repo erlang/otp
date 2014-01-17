@@ -1453,28 +1453,6 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	end;
       map ->
 	  {Map, t_map([])};
-%	Pairs = [ cerl:map_pair_es(Pair) || Pair <- cerl:map_es(Pat) ],
-%	MapType = t_inf(t_map([]), Type),
-%	case t_is_none(MapType) of
-%	    true ->
-%		bind_opaque_pats(MapType, Type, Pat, Map, State, Rev);
-%	    false ->
-%		MapJ = join_maps_begin(Map),
-%		Results = case Rev of
-%		    true ->
-%			[bind_pat_vars_reverse(Pair, [t_any(),t_any()], [], MapJ, State) || Pair <- Pairs];
-%		    false ->
-%			[bind_pat_vars(Pair, [t_any(),t_any()], [], MapJ, State) || Pair <- Pairs]
-%		end,
-%		case [M || {M, _} <- Results, M =/= error] of
-%		    [] -> bind_error([Pat], MapType, t_none(), bind);
-%		    Maps ->
-%			Map1 = join_maps_end(Maps, MapJ),
-%			_PairTypes = [{Ktype,Vtype} || {M, [Ktype,Vtype]} <- Results, M =/= error],
-%			% add t_sup
-%			{Map1, t_map([])}
-%		end
-%	end;
       tuple ->
 	Es = cerl:tuple_es(Pat),
 	{TypedRecord, Prototype} =

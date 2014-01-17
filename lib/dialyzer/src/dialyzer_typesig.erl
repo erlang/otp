@@ -474,31 +474,6 @@ traverse(Tree, DefinedVars, State) ->
       end;
     map ->
 	{State, t_map([])};
-%      Pairs = cerl:map_es(Tree),
-%      {State1, EVars} = traverse_list(Pairs, DefinedVars, State),
-%      case cerl:is_literal(cerl:fold_literal(Tree)) of
-%	  true ->
-%	    %% We do not need to do anything more here.
-%	    {State, t_map([])};
-%	  false ->
-%	    Fun = fun(Var, AccState) ->
-%		      case t_has_var(Var) of
-%			true ->
-%			  {AccState1, NewVar} = state__mk_var(AccState),
-%			  {NewVar,
-%			   state__store_conj(Var, eq, NewVar, AccState1)};
-%			false ->
-%			  {Var, AccState}
-%		      end
-%		  end,
-%	    {_NewEvars, State2} = lists:mapfoldl(Fun, State1, EVars),
-%	    {State2, t_map([])}
-%	end;
-%    map_pair_assoc ->
-%	[K,V] = cerl:map_pair_assoc_es(Tree),
-%	{State1,_} = traverse(K,DefinedVars,State),
-%	{State2,_} = traverse(V,DefinedVars,State),
-%	{_,State2};
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by
