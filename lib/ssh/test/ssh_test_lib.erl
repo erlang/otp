@@ -63,8 +63,13 @@ daemon(Host, Port, Options) ->
 	    Error
     end.
 
+
+
 start_shell(Port, IOServer, UserDir) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, [{user_dir, UserDir}]]).
+    start_shell(Port, IOServer, UserDir, []).
+
+start_shell(Port, IOServer, UserDir, Options) ->
+    spawn_link(?MODULE, init_shell, [Port, IOServer, [{user_dir, UserDir}|Options]]).
 
 start_shell(Port, IOServer) ->
     spawn_link(?MODULE, init_shell, [Port, IOServer, []]).
@@ -91,16 +96,21 @@ loop_io_server(TestCase, Buff0) ->
 	 {input, TestCase, Line} ->
 	     loop_io_server(TestCase, Buff0 ++ [Line]);
 	 {io_request, From, ReplyAs, Request} ->
+%%ct:pal("~p",[{io_request, From, ReplyAs, Request}]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
+%%ct:pal("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} ->
-	     erlang:display('EXIT'),
+	     erlang:display('ssh_test_lib:loop_io_server/2 EXIT'),
 	     ok
      end.
 
 io_request({put_chars, Chars}, TestCase, _, _, Buff) ->
+    reply(TestCase, Chars),
+    {ok, ok, Buff};
+io_request({put_chars, unicode, Chars}, TestCase, _, _, Buff) when is_binary(Chars) ->
     reply(TestCase, Chars),
     {ok, ok, Buff};
 io_request({put_chars, Enc, Chars}, TestCase, _, _, Buff) ->
@@ -120,11 +130,13 @@ io_request({get_line, _Enc,_}, _, _, _, [Line | Buff]) ->
 io_reply(_, _, []) ->
     ok;
 io_reply(From, ReplyAs, Reply) ->
+%%ct:pal("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
     From ! {io_reply, ReplyAs, Reply}.
 
 reply(_, []) ->
     ok;
 reply(TestCase, Result) ->
+%%ct:pal("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
 receive_exec_result(Msg) ->

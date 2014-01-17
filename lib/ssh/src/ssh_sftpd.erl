@@ -214,8 +214,7 @@ handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
 handle_op(?SSH_FXP_REALPATH, ReqId,
 	  <<?UINT32(Rlen), RPath:Rlen/binary>>,
 	  State0) ->
-    RelPath0 = binary_to_list(RPath),
-    RelPath = relate_file_name(RelPath0, State0, _Canonicalize=false),
+    RelPath = relate_file_name(RPath, State0, _Canonicalize=false),
     {Res, State} = resolve_symlinks(RelPath, State0),
     case Res of
 	{ok, AbsPath} ->
@@ -231,7 +230,7 @@ handle_op(?SSH_FXP_OPENDIR, ReqId,
 	 <<?UINT32(RLen), RPath:RLen/binary>>,
 	  State0 = #state{xf = #ssh_xfer{vsn = Vsn}, 
 			  file_handler = FileMod, file_state = FS0}) ->
-    RelPath = binary_to_list(RPath),
+    RelPath = unicode:characters_to_list(RPath),
     AbsPath = relate_file_name(RelPath, State0),
     
     XF = State0#state.xf,
@@ -312,9 +311,8 @@ handle_op(?SSH_FXP_WRITE, ReqId,
 				    ?SSH_FX_INVALID_HANDLE),
 	    State
     end;
-handle_op(?SSH_FXP_READLINK, ReqId, <<?UINT32(PLen), BPath:PLen/binary>>, 
+handle_op(?SSH_FXP_READLINK, ReqId, <<?UINT32(PLen), RelPath:PLen/binary>>, 
 	  State = #state{file_handler = FileMod, file_state = FS0}) ->
-    RelPath = binary_to_list(BPath),
     AbsPath = relate_file_name(RelPath, State),
     {Res, FS1} = FileMod:read_link(AbsPath, FS0),
     case Res of
@@ -524,10 +522,10 @@ close_our_file({_,Fd}, FileMod, FS0) ->
 %%% stat: do the stat
 stat(Vsn, ReqId, Data, State, F) when Vsn =< 3->
     <<?UINT32(BLen), BPath:BLen/binary>> = Data,
-    stat(ReqId, binary_to_list(BPath), State, F);
+    stat(ReqId, unicode:characters_to_list(BPath), State, F);
 stat(Vsn, ReqId, Data, State, F) when Vsn >= 4->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(_Flags)>> = Data,
-    stat(ReqId, binary_to_list(BPath), State, F).
+    stat(ReqId, unicode:characters_to_list(BPath), State, F).
 
 fstat(Vsn, ReqId, Data, State) when Vsn =< 3->
     <<?UINT32(HLen), Handle:HLen/binary>> = Data,
@@ -609,13 +607,13 @@ decode_4_acess([]) ->
 open(Vsn, ReqId, Data, State) when Vsn =< 3 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(PFlags),
      _Attrs/binary>> = Data,
-    Path = binary_to_list(BPath),
+    Path = unicode:characters_to_list(BPath),
     Flags = ssh_xfer:decode_open_flags(Vsn, PFlags),
     do_open(ReqId, State, Path, Flags);
 open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(Access),
      ?UINT32(PFlags), _Attrs/binary>> = Data,
-    Path = binary_to_list(BPath),
+    Path = unicode:characters_to_list(BPath),
     FlagBits = ssh_xfer:decode_open_flags(Vsn, PFlags),
     AcessBits = ssh_xfer:decode_ace_mask(Access),
     %% TODO: This is to make sure the Access flags are not ignored
@@ -712,7 +710,7 @@ relate_file_name(File, State) ->
     relate_file_name(File, State, _Canonicalize=true).
 
 relate_file_name(File, State, Canonicalize) when is_binary(File) ->
-    relate_file_name(binary_to_list(File), State, Canonicalize);
+    relate_file_name(unicode:characters_to_list(File), State, Canonicalize);
 relate_file_name(File, #state{cwd = CWD, root = ""}, Canonicalize) ->
     relate_filename_to_path(File, CWD, Canonicalize);
 relate_file_name(File, #state{root = Root}, Canonicalize) ->
