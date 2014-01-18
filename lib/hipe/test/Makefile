@@ -13,7 +13,11 @@ ERL_FILES= $(MODULES:%=%.erl)
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
-EMAKEFILE=Emakefile
+# ----------------------------------------------------
+# Files
+# ----------------------------------------------------
+EMAKEFILE = Emakefile
+AUXILIARY_FILES = hipe.spec hipe_testsuite_driver.erl $(EMAKEFILE)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -56,10 +60,14 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 
+release_docs_spec:
+
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) hipe.spec "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-
-release_docs_spec:
+	$(INSTALL_DATA) $(AUXILIARY_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	cd "$(RELSYSDIR)";\
+	erlc hipe_testsuite_driver.erl;\
+	erl -noshell -run hipe_testsuite_driver create_all_suites -s erlang halt
