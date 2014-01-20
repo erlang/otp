@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -711,13 +711,6 @@ struct ErtsPendingSuspend_ {
 #endif
 
 
-typedef struct ErlExtraRootSet_ ErlExtraRootSet;
-struct ErlExtraRootSet_ {
-    Eterm *objv;
-    Uint sz;
-    void (*cleanup)(ErlExtraRootSet *);
-};
-
 /* Defines to ease the change of memory architecture */
 #  define HEAP_START(p)     (p)->heap
 #  define HEAP_TOP(p)       (p)->htop
@@ -810,8 +803,6 @@ struct process {
 					     erlang:suspend_process/1 */
 
     ErlMessageQueue msg;	/* Message queue */
-
-    ErlExtraRootSet *extra_root;   /* Used by trapping BIF's */
 
     union {
 	ErtsBifTimer *bif_timers;	/* Bif timers aiming at this process */

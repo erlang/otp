@@ -58,10 +58,10 @@
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
-	 otp_8180/1, ttb_trap/1]).
+	 otp_8180/1, trapping/1]).
 
 %% Internal exports.
--export([sleeper/0,ttb_loop/2]).
+-export([sleeper/0,trapping_loop/4]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,2}}].
@@ -76,7 +76,7 @@ all() ->
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180, ttb_trap].
+     obsolete_funs, robustness, otp_8180, trapping].
 
 groups() -> 
     [].
@@ -1345,36 +1345,44 @@ run_otp_8180(Name) ->
      end || Bin <- Bins],
     ok.
 
-%% Test that exit and GC during term_to_binary trap does not crash.
-ttb_trap(Config) when is_list(Config)->
-    case erlang:system_info(wordsize) of
-	N when N < 8 ->
-	    {skipped, "Only on 64bit machines"};
-	_ ->
-	    do_ttb_trap(5)
-    end.
+%% Test that exit and GC during trapping term_to_binary and binary_to_term
+%% does not crash.
+trapping(Config) when is_list(Config)->
+    do_trapping(5, term_to_binary,
+		fun() -> [lists:duplicate(2000000,2000000)] end),
+    do_trapping(5, binary_to_term,
+		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end).
 
-do_ttb_trap(0) ->
+do_trapping(0, _, _) ->
     ok;
-do_ttb_trap(N) ->
-    Pid = spawn(?MODULE,ttb_loop,[1000,self()]),
+do_trapping(N, Bif, ArgFun) ->
+    io:format("N=~p: Do ~p ~s gc.\n", [N, Bif, case N rem 2 of 0 -> "with"; 1 -> "without" end]),
+    Pid = spawn(?MODULE,trapping_loop,[Bif, ArgFun, 1000, self()]),
     receive ok -> ok end,
     receive after 100 -> ok end,
-    erlang:garbage_collect(Pid),
-    receive after 100 -> ok end,
+    Ref = make_ref(),
+    case N rem 2 of
+	0 -> erlang:garbage_collect(Pid, [{async,Ref}]),
+	     receive after 100 -> ok end;
+	1 -> void
+    end,
     exit(Pid,kill),
+    case N rem 2 of
+	0 -> receive {garbage_collect, Ref, _} -> ok end;
+	1 -> void
+    end,
     receive after 1 -> ok end,
-    do_ttb_trap(N-1).
+    do_trapping(N-1, Bif, ArgFun).
 
-ttb_loop(N,Pid) ->
-    Term = lists:duplicate(2000000,2000000),
+trapping_loop(Bif, ArgFun, N, Pid) ->
+    Args = ArgFun(),
     Pid ! ok,
-    ttb_loop2(N,Term).
-ttb_loop2(0,_T) ->
+    trapping_loop2(Bif,Args,N).
+trapping_loop2(_,_,0) ->
     ok;
-ttb_loop2(N,T) ->
-    apply(erlang,term_to_binary,[T]),
-    ttb_loop2(N-1,T).
+trapping_loop2(Bif,Args,N) ->
+    apply(erlang,Bif,Args),
+    trapping_loop2(Bif, Args, N-1).
 
 
 %% Utilities.

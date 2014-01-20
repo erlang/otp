@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -8755,7 +8755,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->htop = p->heap;
     p->heap_sz = sz;
     p->catches = 0;
-    p->extra_root = NULL;
 
     p->bin_vheap_sz     = p->min_vheap_size;
     p->bin_old_vheap_sz = p->min_vheap_size;
@@ -10218,12 +10217,6 @@ erts_continue_exit_process(Process *p)
 
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
-
-    if (p->extra_root != NULL) {
-	(p->extra_root->cleanup)(p->extra_root); /* Should deallocate 
-						    whole structure */
-	p->extra_root = NULL;
-    }
 
     delete_process(p);
 

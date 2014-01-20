@@ -87,7 +87,8 @@
 static Export term_to_binary_trap_export;
 
 static byte* enc_term(ErtsAtomCacheMap *, Eterm, byte*, Uint32, struct erl_off_heap_header** off_heap);
-static int enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
+struct TTBEncodeContext_;
+static int enc_term_int(struct TTBEncodeContext_*,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 			struct erl_off_heap_header** off_heap, Sint *reds, byte **res);
 static Uint is_external_string(Eterm obj, int* p_is_string);
 static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
@@ -103,7 +104,8 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 				     Binary *context_b);
 
 static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
-static int encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj, 
+struct TTBSizeContext_;
+static int encode_size_struct_int(struct TTBSizeContext_*, ErtsAtomCacheMap *acmp, Eterm obj,
 				  unsigned dflags, Sint *reds, Uint *res);
 
 static Export binary_to_term_trap_export;
@@ -1086,7 +1088,6 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
     int level = 0;
     Uint flags = TERM_TO_BINARY_DFLAGS;
     Eterm res;
-    Binary *bin = NULL;
 
     while (is_list(Flags)) {
 	Eterm arg = CAR(list_val(Flags));
@@ -1123,7 +1124,7 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 	goto error;
     }
 
-    res = erts_term_to_binary_int(p, Term, level, flags, bin);
+    res = erts_term_to_binary_int(p, Term, level, flags, NULL);
     if (is_tuple(res)) {
 	erts_set_gc_state(p, 0);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
@@ -1726,14 +1727,20 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
 
 
 typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
-typedef struct {
+typedef struct TTBSizeContext_ {
     Uint flags;
     int level;
+    Uint result;
+    Eterm obj;
+    ErtsEStack estack;
 } TTBSizeContext;
 
-typedef struct {
+typedef struct TTBEncodeContext_ {
     Uint flags;
     int level;
+    byte* ep;
+    Eterm obj;
+    ErtsWStack wstack;
     Binary *result_bin;
 } TTBEncodeContext;
 
@@ -1763,8 +1770,10 @@ static void ttb_context_destructor(Binary *context_bin)
 	context->alive = 0;
 	switch (context->state) {
 	case TTBSize:
+	    DESTROY_SAVED_ESTACK(&context->s.sc.estack);
 	    break;
 	case TTBEncode:
+	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
 	    if (context->s.ec.result_bin != NULL) { /* Set to NULL if ever made alive! */
 		ASSERT(erts_refc_read(&(context->s.ec.result_bin->refc),0) == 0);
 		erts_bin_free(context->s.ec.result_bin);
@@ -1829,6 +1838,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	/* Setup enough to get started */
 	context->state = TTBSize;
 	context->alive = 1;
+	context->s.sc.estack.start = NULL;
 	context->s.sc.flags = flags;
 	context->s.sc.level = level;
     } else {
@@ -1844,7 +1854,8 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		int level;
 		Uint flags;
 		/* Try for fast path */
-		if (encode_size_struct_int(p, NULL, Term, context->s.sc.flags, &reds, &size) < 0) {
+		if (encode_size_struct_int(&context->s.sc, NULL, Term,
+					   context->s.sc.flags, &reds, &size) < 0) {
 		    EXPORT_CONTEXT();
 		    /* Same state */
 		    RETURN_STATE();
@@ -1870,6 +1881,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->state = TTBEncode;
 		context->s.ec.flags = flags;
 		context->s.ec.level = level;
+		context->s.ec.wstack.wstart = NULL;
 		context->s.ec.result_bin = result_bin;
 		break;
 	    }
@@ -1881,7 +1893,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		Binary *result_bin;
 
 		flags = context->s.ec.flags;
-		if (enc_term_int(p,NULL,Term, bytes+1, flags, NULL, &reds, &endp) < 0) {
+		if (enc_term_int(&context->s.ec, NULL,Term, bytes+1, flags, NULL, &reds, &endp) < 0) {
 		    EXPORT_CONTEXT();
 		    RETURN_STATE();
 		}
@@ -2289,27 +2301,6 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 #define ENC_PATCH_FUN_SIZE ((Eterm) 2)
 #define ENC_LAST_ARRAY_ELEMENT ((Eterm) 3)
 
-/* Free extra rootset (used when trapping) */
-static void cleanup_ttb_extra_root(ErlExtraRootSet *rs)
-{
-    if (rs->objv != NULL) {
-	erts_free(ERTS_ALC_T_EXTRA_ROOT, rs->objv);
-    }
-    erts_free(ERTS_ALC_T_EXTRA_ROOT, rs);
-}
-
-/* Same as above, but we have an extra "stack" beyond GC reach, i.e. an array of two extra roots */
-static void cleanup_ttb_extra_root_2(ErlExtraRootSet *rs)
-{
-    if (rs->objv != NULL) {
-	erts_free(ERTS_ALC_T_EXTRA_ROOT, rs->objv);
-    }
-    if (rs[1].objv != NULL) {
-	erts_free(ERTS_ALC_T_EXTRA_ROOT, rs[1].objv);
-    }
-	
-    erts_free(ERTS_ALC_T_EXTRA_ROOT, rs);
-}
 
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
@@ -2321,39 +2312,43 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 }
 
 static int
-enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
+enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	     struct erl_off_heap_header** off_heap, Sint *reds, byte **res)
 {
-    DECLARE_ESTACK(s);
-    DECLARE_WSTACK(com);
+    DECLARE_WSTACK(s);
     Uint n;
     Uint i;
     Uint j;
     Uint* ptr;
     Eterm val;
     FloatDef f;
-    int count_reds = (p != NULL && reds != NULL);
     Sint r = 0;
+#if HALFWORD_HEAP
+    UWord wobj;
+#endif
 
-    if (count_reds) {
-	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_EXTRA_ROOT);
-	WSTACK_CHANGE_ALLOCATOR(com, ERTS_ALC_T_EXTRA_ROOT);
+
+    if (ctx) {
+	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
 	r = *reds;
-    }
 
-    if (p && p->extra_root) { /* restore saved stacks and byte pointer */
-	ESTACK_RESTORE(s,p->extra_root[0].objv, p->extra_root[0].sz);
-	obj = ESTACK_POP(s);
-	WSTACK_RESTORE(com, p->extra_root[1].objv, p->extra_root[1].sz);
-	ep = (byte *) WSTACK_POP(com);
+	if (ctx->wstack.wstart) { /* restore saved stacks and byte pointer */
+	    WSTACK_RESTORE(s, &ctx->wstack);
+	    ep = ctx->ep;
+	    obj = ctx->obj;
+	}
     }
 
     goto L_jump_start;
 
  outer_loop:
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-	switch (val = WSTACK_POP(com)) {
+    while (!WSTACK_ISEMPTY(s)) {
+#if HALFWORD_HEAP
+	obj = (Eterm) (wobj = WSTACK_POP(s));
+#else
+	obj = WSTACK_POP(s);
+#endif
+	switch (val = WSTACK_POP(s)) {
 	case ENC_TERM:
 	    break;
 	case ENC_ONE_CONS:
@@ -2364,55 +2359,52 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 
 		obj = CAR(cons);
 		tl = CDR(cons);
-		WSTACK_PUSH(com, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		ESTACK_PUSH(s, tl);
+		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
+		WSTACK_PUSH(s, tl);
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
-	    /* obj will be discarded, it was NIL */
 	    {
-		byte* size_p = (byte *) WSTACK_POP(com);
+#if HALFWORD_HEAP
+		byte* size_p = (byte *) wobj;
+#else
+		byte* size_p = (byte *) obj;
+#endif
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
-		Eterm* ptr = tuple_val(obj);
-		i = arityval(*ptr);
-		obj = ptr[i];
+#if HALFWORD_HEAP
+		Eterm* ptr = (Eterm *) wobj;
+#else
+		Eterm* ptr = (Eterm *) obj;
+#endif
+		obj = *ptr;
 	    }
 	    break;
 	default:		/* ENC_LAST_ARRAY_ELEMENT+1 and upwards */
 	    {
-		Eterm* ptr = tuple_val(obj);
-		i = arityval(*ptr);
-		ESTACK_PUSH(s, obj); /* put back tuple and next element index */
-		WSTACK_PUSH(com, val-1);
-		obj = ptr[i - (val - ENC_LAST_ARRAY_ELEMENT)]; /* the index is counting down */
+#if HALFWORD_HEAP
+		Eterm* ptr = (Eterm *) wobj;
+#else
+		Eterm* ptr = (Eterm *) obj;
+#endif
+		WSTACK_PUSH(s, val-1);
+		obj = *ptr++;
+		WSTACK_PUSH(s, (UWord)ptr);
 	    }
 	    break;
 	}
 
     L_jump_start:
 
-	if (count_reds && --r == 0) {
+	if (ctx && --r == 0) {
 	    *reds = r;
-	    ESTACK_PUSH(s,obj); /* push back current object, to be popped on restore */
-	    WSTACK_PUSH(com,((UWord) ep));
-	    if (p->extra_root == NULL) {
-		/* NB. Allocate an array of two "extra-roots", of which only the first element
-		   is seen and handled by the GC. Index 1 holds the Wstack. */
-		p->extra_root = erts_alloc(ERTS_ALC_T_EXTRA_ROOT, sizeof(ErlExtraRootSet)*2);
-		p->extra_root->objv = NULL;
-		p->extra_root->sz = 0;
-		p->extra_root->cleanup = cleanup_ttb_extra_root_2;
-		p->extra_root[1].objv = NULL;
-		p->extra_root[1].sz = 0;
-		p->extra_root[1].cleanup = NULL; /* Never used */
-	    }
-	    ESTACK_SAVE(s, p->extra_root[0].objv, p->extra_root[0].sz);
-	    WSTACK_SAVE(com, p->extra_root[1].objv, (p->extra_root[1].sz));
+	    ctx->obj = obj;
+	    ctx->ep = ep;
+	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
 	switch(tag_val_def(obj)) {
@@ -2558,8 +2550,8 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 		ep += 4;
 	    }
 	    if (i > 0) {
-		WSTACK_PUSH(com, ENC_LAST_ARRAY_ELEMENT+i-1);
-		ESTACK_PUSH(s, obj);
+		WSTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
+		WSTACK_PUSH(s, (UWord)ptr);
 	    }
 	    break;
 
@@ -2703,9 +2695,8 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 		    int ei;
 
 		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH(com, (UWord) ep); /* Position for patching in size */
-		    WSTACK_PUSH(com, ENC_PATCH_FUN_SIZE);
-		    ESTACK_PUSH(s,NIL); /* Will be thrown away */
+		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
+		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
 		    ep += 4;
 		    *ep = funp->arity;
 		    ep += 1;
@@ -2722,8 +2713,8 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 
 		fun_env:
 		    for (ei = funp->num_free-1; ei > 0; ei--) {
-			WSTACK_PUSH(com, ENC_TERM);
-			ESTACK_PUSH(s, (UWord) funp->env[ei]);
+			WSTACK_PUSH(s, ENC_TERM);
+			WSTACK_PUSH(s, (UWord) funp->env[ei]);
 		    }
 		    if (funp->num_free != 0) {
 			obj = funp->env[0];
@@ -2766,13 +2757,9 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 	    break;
 	}
     }
-    DESTROY_ESTACK(s);
-    DESTROY_WSTACK(com);
-    if (p && p->extra_root) {
-	cleanup_ttb_extra_root_2(p->extra_root);
-	p->extra_root = NULL;
-    }
-    if (count_reds) {
+    DESTROY_WSTACK(s);
+    if (ctx) {
+	ASSERT(ctx->wstack.wstart == NULL);
 	*reds = r;
     }
     *res = ep;
@@ -3742,26 +3729,24 @@ static Uint encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dfla
 }
 
 static int
-encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj, 
+encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		       unsigned dflags, Sint *reds, Uint *res)
 {
     DECLARE_ESTACK(s);
     Uint m, i, arity;
     Uint result = 0;
-    int count_reds = (p != NULL && reds != 0);
     Sint r = 0;
 
-    if (count_reds) {
-	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_EXTRA_ROOT);
+    if (ctx) {
+	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
 	r = *reds;
+
+	if (ctx->estack.start) { /* restore saved stack */
+	    ESTACK_RESTORE(s, &ctx->estack);
+	    result = ctx->result;
+	    obj = ctx->obj;
+	}
     }
-
-    if (p && p->extra_root) { /* restore saved stack */
-	ESTACK_RESTORE(s,p->extra_root->objv, p->extra_root->sz + 1);
-	result = ESTACK_POP(s); /*Untagged, beyond  p->extra_root->sz */
-	obj = ESTACK_POP(s);
-
-    } 
 
     goto L_jump_start;
 
@@ -3787,18 +3772,11 @@ encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj,
 	}
     
     L_jump_start:
-	if (count_reds && --r == 0) {
+	if (ctx && --r == 0) {
 	    *reds = r;
-	    ESTACK_PUSH(s,obj); /* push back current object */
-	    ESTACK_PUSH(s,result); /* Untagged, will be out of GC reach */
-	    if (p->extra_root == NULL) {
-		p->extra_root = erts_alloc(ERTS_ALC_T_EXTRA_ROOT, sizeof(ErlExtraRootSet));
-		p->extra_root->objv = NULL;
-		p->extra_root->sz = 0;
-		p->extra_root->cleanup = cleanup_ttb_extra_root;
-	    }
-	    ESTACK_SAVE(s, p->extra_root->objv, p->extra_root->sz);
-	    --p->extra_root->sz; /* Hide result from GC */
+	    ctx->obj = obj;
+	    ctx->result = result;
+	    ESTACK_SAVE(s, &ctx->estack);
 	    return -1;
 	}
 	switch (tag_val_def(obj)) {
@@ -4001,11 +3979,8 @@ encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj,
     }
 
     DESTROY_ESTACK(s);
-    if (p && p->extra_root) {
-	cleanup_ttb_extra_root(p->extra_root);
-	p->extra_root = NULL;
-    }
-    if (count_reds) {
+    if (ctx) {
+	ASSERT(ctx->estack.start == NULL);
 	*reds = r;
     }
     *res = result;
