@@ -38,6 +38,8 @@
       <item>Supported SSH version is 2.0 </item>
       <item>Supported MAC algorithms: hmac-sha1</item>
       <item>Supported encryption algorithms: aes128-cb and 3des-cbc</item>
+      <item>Supports unicode filenames if the emulator does so for the current os</item>
+      <item>Supports unicode in shell and cli</item>
     </list>
  
   </section>
