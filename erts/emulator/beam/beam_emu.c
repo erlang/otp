@@ -4326,7 +4326,19 @@ void process_main(void)
      flags = Arg(2);
      BsGetFieldSize(tmp_arg2, (flags >> 3), ClauseFail(), size);
      if (size >= SMALL_BITS) {
-	 Uint wordsneeded = 1+WSIZE(NBYTES((Uint) size));
+	 Uint wordsneeded;
+	 /* check bits size before potential gc.
+	  * We do not want a gc and then realize we don't need
+	  * the allocated space (i.e. if the op fails)
+	  *
+	  * remember to reacquire the matchbuffer after gc.
+	  */
+
+	 mb = ms_matchbuffer(tmp_arg1);
+	 if (mb->size - mb->offset < size) {
+	     ClauseFail();
+	 }
+	 wordsneeded = 1+WSIZE(NBYTES((Uint) size));
 	 TestHeapPreserve(wordsneeded, Arg(1), tmp_arg1);
      }
      mb = ms_matchbuffer(tmp_arg1);
