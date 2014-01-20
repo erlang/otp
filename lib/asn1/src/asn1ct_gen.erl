@@ -790,7 +790,8 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 
 
 pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
-    emit(["-export([encoding_rule/0,bit_string_format/0]).",nl]),
+    emit(["-export([encoding_rule/0,bit_string_format/0,"
+	  "         legacy_erlang_types/0]).",nl]),
     case Types of
 	[] -> ok;
 	_ ->
@@ -1022,7 +1023,9 @@ gen_info_functions(Erules) ->
     emit(["encoding_rule() -> ",
 	  {asis,Erules},".",nl,nl,
 	  "bit_string_format() -> ",
-	  {asis,asn1ct:get_bit_string_format()},".",nl,nl]).
+	  {asis,asn1ct:get_bit_string_format()},".",nl,nl,
+	  "legacy_erlang_types() -> ",
+	  {asis,asn1ct:use_legacy_types()},".",nl,nl]).
 
 gen_decode_partial_incomplete(ber) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
