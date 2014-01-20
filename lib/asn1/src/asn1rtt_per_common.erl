@@ -37,7 +37,8 @@
 	 bitstring_from_positions/1,bitstring_from_positions/2,
 	 to_bitstring/1,to_bitstring/2,
 	 to_named_bitstring/1,to_named_bitstring/2,
-	 is_default_bitstring/5,
+	 bs_drop_trailing_zeroes/1,adjust_trailing_zeroes/2,
+	 is_default_bitstring/3,is_default_bitstring/5,
 	 extension_bitmap/3]).
 
 -define('16K',16384).
@@ -272,6 +273,25 @@ to_named_bitstring(Val, Lb) ->
     %% for correctness, not speed.
     adjust_trailing_zeroes(to_bitstring(Val), Lb).
 
+is_default_bitstring(asn1_DEFAULT, _, _) ->
+    true;
+is_default_bitstring(Named, Named, _) ->
+    true;
+is_default_bitstring(Bs, _, Bs) ->
+    true;
+is_default_bitstring(Val, _, Def) when is_bitstring(Val) ->
+    Sz = bit_size(Def),
+    case Val of
+	<<Def:Sz/bitstring,T/bitstring>> ->
+	    NumZeroes = bit_size(T),
+	    case T of
+		<<0:NumZeroes>> -> true;
+		_ -> false
+	    end;
+	_ ->
+	    false
+    end.
+
 is_default_bitstring(asn1_DEFAULT, _, _, _, _) ->
     true;
 is_default_bitstring({Unused,Bin}, V0, V1, V2, V3) when is_integer(Unused) ->
@@ -438,6 +458,8 @@ adjust_trailing_zeroes(Bs0, Lb) ->
 bs_drop_trailing_zeroes(Bs) ->
     bs_drop_trailing_zeroes(Bs, bit_size(Bs)).
 
+bs_drop_trailing_zeroes(Bs, 0) ->
+    Bs;
 bs_drop_trailing_zeroes(Bs0, Sz0) when Sz0 < 8 ->
     <<Byte:Sz0>> = Bs0,
     Sz = Sz0 - ntz(Byte),

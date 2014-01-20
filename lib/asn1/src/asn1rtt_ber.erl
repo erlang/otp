@@ -29,6 +29,8 @@
 	 decode_integer/2,decode_integer/3,
 	 decode_named_integer/3,decode_named_integer/4,
 	 encode_enumerated/2,decode_enumerated/3,
+	 encode_unnamed_bit_string/2,encode_unnamed_bit_string/3,
+	 encode_named_bit_string/3,encode_named_bit_string/4,
 	 encode_bit_string/4,
 	 decode_named_bit_string/3,
 	 decode_compact_bit_string/3,
@@ -780,6 +782,55 @@ decode_enumerated1(Val, NamedNumberList) ->
 	    {asn1_enum,Val}
     end.
 
+%%============================================================================
+%% Bitstring value, ITU_T X.690 Chapter 8.6
+%%
+%% encode bitstring value
+%%============================================================================
+
+encode_unnamed_bit_string(Bits, TagIn) ->
+    Unused = (8 - (bit_size(Bits) band 7)) band 7,
+    Bin = <<Unused,Bits/bitstring,0:Unused>>,
+    encode_tags(TagIn, Bin, byte_size(Bin)).
+
+encode_unnamed_bit_string(C, Bits, TagIn) ->
+    NumBits = bit_size(Bits),
+    Unused = (8 - (NumBits band 7)) band 7,
+    Bin = <<Unused,Bits/bitstring,0:Unused>>,
+    case C of
+	{_Min,Max} ->
+	    if
+		NumBits > Max ->
+		    exit({error,{asn1,
+				 {bitstring_length,
+				  {{was,NumBits},{maximum,Max}}}}});
+		true ->
+		    ok
+	    end;
+	Size ->
+	    if NumBits =< Size ->
+		    ok;
+	       true ->
+		    exit({error,{asn1,
+				 {bitstring_length,
+				  {{was,NumBits},{should_be,Size}}}}})
+	    end
+    end,
+    encode_tags(TagIn, Bin, byte_size(Bin)).
+
+encode_named_bit_string([H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
+    encode_bit_string_named([], Bits, NamedBitList, TagIn);
+encode_named_bit_string([{bit,_}|_]=Bits, NamedBitList, TagIn) ->
+    encode_bit_string_named([], Bits, NamedBitList, TagIn);
+encode_named_bit_string(Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
+    encode_unnamed_bit_string(Bits, TagIn).
+
+encode_named_bit_string(C, [H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
+    encode_bit_string_named(C, Bits, NamedBitList, TagIn);
+encode_named_bit_string(C, [{bit,_}|_]=Bits, NamedBitList, TagIn) ->
+    encode_bit_string_named(C, Bits, NamedBitList, TagIn);
+encode_named_bit_string(C, Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
+    encode_unnamed_bit_string(C, Bits, TagIn).
 
 %%============================================================================
 %% Bitstring value, ITU_T X.690 Chapter 8.6

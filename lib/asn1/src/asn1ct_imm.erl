@@ -26,7 +26,8 @@
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1,
 	 per_dec_restricted_string/1]).
 -export([per_dec_constrained/3,per_dec_normally_small_number/1]).
--export([per_enc_bit_string/4,per_enc_boolean/2,
+-export([per_enc_bit_string/4,per_enc_legacy_bit_string/4,
+	 per_enc_boolean/2,
 	 per_enc_choice/3,per_enc_enumerated/3,
 	 per_enc_integer/3,per_enc_integer/4,
 	 per_enc_null/2,
@@ -157,7 +158,35 @@ per_dec_restricted_string(Aligned) ->
 %%% Encoding.
 %%%
 
-per_enc_bit_string(Val0, [], Constraint0, Aligned) ->
+per_enc_bit_string(Val, [], Constraint0, Aligned) ->
+    {B,[[],Bits]} = mk_vars([], [bits]),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    B ++ [{call,erlang,bit_size,[Val],Bits}|
+	  per_enc_length(Val, 1, Bits, Constraint, Aligned, 'BIT STRING')];
+per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
+    {B,[Val,Bs,Bits,Positions]} = mk_vars(Val0, [bs,bits,positions]),
+    NNL = lists:keysort(2, NNL0),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    ExtraArgs = case constr_min_size(Constraint) of
+		    no -> [];
+		    Lb -> [Lb]
+		end,
+    ToBs = case ExtraArgs of
+	       [] ->
+		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
+	       [Lower] ->
+		   {call,per_common,adjust_trailing_zeroes,[Val,Lower]}
+	   end,
+    B ++ [{'try',
+	   [bit_string_name2pos_fun(NNL, Val)],
+	   {Positions,
+	    [{call,per_common,bitstring_from_positions,
+	      [Positions|ExtraArgs]}]},
+	   [ToBs],Bs},
+	  {call,erlang,bit_size,[Bs],Bits}|
+	  per_enc_length(Bs, 1, Bits, Constraint, Aligned, 'BIT STRING')].
+
+per_enc_legacy_bit_string(Val0, [], Constraint0, Aligned) ->
     {B,[Val,Bs,Bits]} = mk_vars(Val0, [bs,bits]),
     Constraint = effective_constraint(bitstring, Constraint0),
     ExtraArgs = case constr_min_size(Constraint) of
@@ -167,7 +196,7 @@ per_enc_bit_string(Val0, [], Constraint0, Aligned) ->
     B ++ [{call,per_common,to_bitstring,[Val|ExtraArgs],Bs},
 	  {call,erlang,bit_size,[Bs],Bits}|
 	  per_enc_length(Bs, 1, Bits, Constraint, Aligned, 'BIT STRING')];
-per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
+per_enc_legacy_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     {B,[Val,Bs,Bits,Positions]} = mk_vars(Val0, [bs,bits,positions]),
     NNL = lists:keysort(2, NNL0),
     Constraint = effective_constraint(bitstring, Constraint0),

@@ -132,7 +132,14 @@ gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
 	    ToBinary = {real_common,encode_real},
 	    asn1ct_imm:per_enc_restricted_string(Val, ToBinary, Aligned);
 	{'BIT STRING',NNL} ->
-	    asn1ct_imm:per_enc_bit_string(Val, NNL, Constraint, Aligned);
+	    case asn1ct:use_legacy_types() of
+		false ->
+		    asn1ct_imm:per_enc_bit_string(Val, NNL,
+						  Constraint, Aligned);
+		true ->
+		    asn1ct_imm:per_enc_legacy_bit_string(Val, NNL,
+							 Constraint, Aligned)
+	    end;
 	'NULL' ->
 	    asn1ct_imm:per_enc_null(Val, Aligned);
 	'OBJECT IDENTIFIER' ->

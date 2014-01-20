@@ -328,6 +328,10 @@ testCompactBitString(Config, Rule, Opts) ->
 testPrimStrings(Config) ->
     test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
 testPrimStrings(Config, Rule, Opts) ->
+    LegacyOpts = [legacy_erlang_types|Opts],
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [Rule|LegacyOpts]),
+    testPrimStrings_cases(Rule, LegacyOpts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
     testPrimStrings_cases(Rule, Opts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
@@ -432,7 +436,8 @@ testDef(Config, Rule, Opts) ->
 testDEFAULT(Config) ->
     test(Config, fun testDEFAULT/3, [ber,{ber,[der]},per,uper]).
 testDEFAULT(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["Def","Default"], Config, [Rule|Opts]),
+    asn1_test_lib:compile_all(["Def","Default"], Config,
+			      [legacy_erlang_types,Rule|Opts]),
     testDef:main(Rule),
     testSeqSetDefaultVal:main(Rule, Opts).
 
@@ -784,7 +789,8 @@ testMergeCompile(Config, Rule, Opts) ->
 
 testobj(Config) -> test(Config, fun testobj/3).
 testobj(Config, Rule, Opts) ->
-    asn1_test_lib:compile("RANAP", Config, [Rule|Opts]),
+    asn1_test_lib:compile("RANAP", Config, [legacy_erlang_types,
+					    Rule|Opts]),
     asn1_test_lib:compile_erlang("testobj", Config, []),
     ok = testobj:run(),
     ok = testParameterizedInfObj:ranap(Rule).
@@ -1022,7 +1028,8 @@ test_x691(Config, Rule, Opts) ->
     test_x691:cases(Rule),
 
     %% OTP-7708.
-    asn1_test_lib:compile("EUTRA-extract-55", Config, [Rule|Opts]),
+    asn1_test_lib:compile("EUTRA-extract-55", Config,
+			  [legacy_erlang_types,Rule|Opts]),
 
     %% OTP-7763.
     Val = {'Seq',15,lists:duplicate(8, 0),[0],lists:duplicate(28, 0),15,true},
@@ -1200,8 +1207,8 @@ ticket_7407_code(FinalPadding) ->
 
 eutra1(msg) ->
     {'BCCH-BCH-Message',
-     {'MasterInformationBlock',[0,1,0,1],[1,0,1,0],
-      {'PHICH-Configuration',short,ffs},[1,0,1,0,0,0,0,0]}}.
+     {'MasterInformationBlock',<<2#0101:4>>,<<2#1010:4>>,
+      {'PHICH-Configuration',short,ffs},<<2#10100000>>}}.
 
 eutra1(result, true) ->
     <<90,80,0>>;

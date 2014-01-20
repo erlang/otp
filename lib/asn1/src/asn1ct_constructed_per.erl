@@ -906,26 +906,36 @@ def_values(#type{def=#'Externaltypereference'{module=Mod,type=Type}}, Def) ->
     #typedef{typespec=T} = asn1_db:dbget(Mod, Type),
     def_values(T, Def);
 def_values(#type{def={'BIT STRING',[]}}, Bs) when is_bitstring(Bs) ->
-    ListBs = [B || <<B:1>> <= Bs],
-    IntBs = lists:foldl(fun(B, A) ->
-				(A bsl 1) bor B
-			end, 0, lists:reverse(ListBs)),
-    Sz = bit_size(Bs),
-    Compact = case 8 - Sz rem 8 of
-		  8 ->
-		      {0,Bs};
-		  Unused ->
-		      {Unused,<<Bs:Sz/bits,0:Unused>>}
-	      end,
-    [asn1_DEFAULT,Bs,Compact,ListBs,IntBs];
+    case asn1ct:use_legacy_types() of
+	false ->
+	    [asn1_DEFAULT,Bs];
+	true ->
+	    ListBs = [B || <<B:1>> <= Bs],
+	    IntBs = lists:foldl(fun(B, A) ->
+					(A bsl 1) bor B
+				end, 0, lists:reverse(ListBs)),
+	    Sz = bit_size(Bs),
+	    Compact = case 8 - Sz rem 8 of
+			  8 ->
+			      {0,Bs};
+			  Unused ->
+			      {Unused,<<Bs:Sz/bits,0:Unused>>}
+		      end,
+	    [asn1_DEFAULT,Bs,Compact,ListBs,IntBs]
+    end;
 def_values(#type{def={'BIT STRING',[_|_]=Ns}}, List) when is_list(List) ->
     Bs = asn1ct_gen:named_bitstring_value(List, Ns),
-    ListBs = [B || <<B:1>> <= Bs],
-    IntBs = lists:foldl(fun(B, A) ->
-				(A bsl 1) bor B
-			end, 0, lists:reverse(ListBs)),
-    Args = [List,Bs,ListBs,IntBs],
-    {call,per_common,is_default_bitstring,Args};
+    As = case asn1ct:use_legacy_types() of
+	     false ->
+		 [List,Bs];
+	     true ->
+		 ListBs = [B || <<B:1>> <= Bs],
+		 IntBs = lists:foldl(fun(B, A) ->
+					     (A bsl 1) bor B
+				     end, 0, lists:reverse(ListBs)),
+		 [List,Bs,ListBs,IntBs]
+	 end,
+    {call,per_common,is_default_bitstring,As};
 def_values(#type{def={'INTEGER',Ns}}, Def) ->
     [asn1_DEFAULT,Def|case lists:keyfind(Def, 2, Ns) of
 			  false -> [];

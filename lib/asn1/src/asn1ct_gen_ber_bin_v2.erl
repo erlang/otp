@@ -206,10 +206,32 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 		  {call,ber,encode_tags,
 		   [DoTag,{curr,realval},{curr,realsize}]},nl,
 		  "end"]);
+	{'BIT STRING',[]} ->
+	    case asn1ct:use_legacy_types() of
+		false when BitStringConstraint =:= [] ->
+		    call(encode_unnamed_bit_string, [Value,DoTag]);
+		false ->
+		    call(encode_unnamed_bit_string,
+			 [{asis,BitStringConstraint},Value,DoTag]);
+		true ->
+		    call(encode_bit_string,
+			 [{asis,BitStringConstraint},Value,
+			  {asis,[]},DoTag])
+	    end;
 	{'BIT STRING',NamedNumberList} ->
-	    call(encode_bit_string,
-		 [{asis,BitStringConstraint},Value,
-		  {asis,NamedNumberList},DoTag]);
+	    case asn1ct:use_legacy_types() of
+		false when BitStringConstraint =:= [] ->
+		    call(encode_named_bit_string,
+			 [Value,{asis,NamedNumberList},DoTag]);
+		false ->
+		    call(encode_named_bit_string,
+			 [{asis,BitStringConstraint},Value,
+			  {asis,NamedNumberList},DoTag]);
+		true ->
+		    call(encode_bit_string,
+			 [{asis,BitStringConstraint},Value,
+			  {asis,NamedNumberList},DoTag])
+	    end;
 	'NULL' ->
 	    call(encode_null, [Value,DoTag]);
 	'OBJECT IDENTIFIER' ->
