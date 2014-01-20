@@ -1466,10 +1466,11 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 
 cg_binary([{bs_put_binary,Fail,{atom,all},U,_Flags,Src}|PutCode],
 	  Target, Temp, Fail, MaxRegs, Anno) ->
+    Line = line(Anno),
     Live = cg_live(Target, MaxRegs),
     SzCode = cg_bitstr_size(PutCode, Target, Temp, Fail, Live),
     BinFlags = {field_flags,[]},
-    Code = SzCode ++
+    Code = [Line|SzCode] ++
 	[case member(single_use, Anno) of
 	     true ->
 		 {bs_private_append,Fail,Target,U,Src,BinFlags,Target};
