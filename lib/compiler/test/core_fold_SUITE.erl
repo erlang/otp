@@ -249,6 +249,12 @@ coverage(Config) when is_list(Config) ->
     case list_to_pid("<0.42.0>") of
 	Pid when is_pid(Pid) -> ok
     end,
+
+    %% Cover the non-variable case in bsm_do_an/4.
+    ok = bsm_an_inlined(<<1>>, Config),
+    error = bsm_an_inlined(<<1,2,3>>, Config),
+    error = bsm_an_inlined([], Config),
+
     ok.
 
 cover_will_match_list_type(A) ->
@@ -289,6 +295,9 @@ cover_is_safe_bool_expr(X) ->
 	_:_ ->
 	    false
     end.
+
+bsm_an_inlined(<<_:8>>, _) -> ok;
+bsm_an_inlined(_, _) -> error.
 
 id(I) -> I.
 
