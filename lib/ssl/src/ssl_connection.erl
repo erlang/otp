@@ -1597,7 +1597,7 @@ default_hashsign(_Version, KeyExchange)
 select_curve(#state{client_ecc = {[Curve|_], _}}) ->
     {namedCurve, Curve};
 select_curve(_) ->
-    {namedCurve, ?secp256k1}.
+    {namedCurve, ?secp256r1}.
 
 is_anonymous(Algo) when Algo == dh_anon;
 			Algo == ecdh_anon;

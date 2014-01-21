@@ -1287,7 +1287,7 @@ select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves},
 select_curve(undefined, _) ->
     %% Client did not send ECC extension use default curve if 
     %% ECC cipher is negotiated
-    {namedCurve, ?secp256k1};
+    {namedCurve, ?secp256r1};
 select_curve(_, []) ->
     no_curve;
 select_curve(Curves, [Curve| Rest]) ->
