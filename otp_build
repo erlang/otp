@@ -1313,7 +1313,7 @@ determine_version_controller
 sys_vsn=`awk '/SYSTEM_VSN = / {print $3}' < erts/vsn.mk`
 sys_erl_flags="ERL_${sys_vsn}_FLAGS"
 unset ERL_FLAGS
-unset ${sys_erl_flags}
+#unset ${sys_erl_flags}
 
 # Target first guess, won't necessarily hold, may be changed for 
 # certain parameters.
