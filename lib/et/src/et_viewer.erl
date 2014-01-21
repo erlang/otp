@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -76,7 +76,7 @@ start() ->
 %% start(Options) -> {ok, ViewerPid} | {error, Reason}
 %%----------------------------------------------------------------------
 
-start(GUI) when GUI =:= wx; GUI =:= gs; GUI =:= default ->
+start(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start(Options) ->
     start_link([{parent_pid, undefined} | Options], default).
@@ -139,7 +139,7 @@ start(Options, GUI) ->
 %% and returns false | true | {true, NewEvent}.
 %%----------------------------------------------------------------------
 
-start_link(GUI) when GUI =:= wx; GUI =:= gs; GUI =:= default ->
+start_link(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start_link(Options) ->
     start_link(Options, default).
@@ -148,22 +148,11 @@ start_link(Options, GUI) ->
     case GUI of
 	wx ->
 	    et_wx_viewer:start_link(Options);
-	gs ->
-	    et_gs_viewer:start_link(Options);
 	default ->
 	    start_link(Options, which_gui())
     end.
 
-
-which_gui() ->
-    try
-	wx:new(),
-	wx:destroy(),
-	wx
-    catch _:_ ->
-	    gs
-    end.
-
+which_gui() -> wx.
 
 get_collector_pid(ViewerPid) ->
     call(ViewerPid, get_collector_pid).

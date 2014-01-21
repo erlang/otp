@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,8 +122,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 start_portprogram(Identifier) ->
     Command =
-	filename:join([code:priv_dir(os_mon),"bin","nteventlog.exe"]) ++
-	" " ++ make_list(Identifier),
+	"\"" ++ filename:join([code:priv_dir(os_mon),"bin","nteventlog.exe"]) ++
+	"\" " ++ make_list(Identifier),
     open_port({spawn,Command},[{packet,2}]).
 
 make_list(X) when is_atom(X) ->

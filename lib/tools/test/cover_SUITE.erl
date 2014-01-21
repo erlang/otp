@@ -28,7 +28,7 @@
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-	 otp_10979_hanging_node/1, compile_beam_opts/1]).
+	 otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -53,7 +53,7 @@ all() ->
 	     dont_reconnect_after_stop, stop_node_after_disconnect,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
-	     otp_8340, otp_10979_hanging_node, compile_beam_opts];
+	     otp_8340, otp_10979_hanging_node, compile_beam_opts, eep37];
 	_pid ->
 	    {skip,
 	     "It looks like the test server is running "
@@ -1380,6 +1380,20 @@ comprehension_8188(Cf) ->
                        "    true >>.\n" % 4
                        "two() -> 2">>, Cf), % 1
 
+    ok.
+
+eep37(Config) when is_list(Config) ->
+    [{{t,1},1},{{t,2},1},{{t,4},6},{{t,6},1},{{t,8},1}] =
+        analyse_expr(<<"begin\n" % 1
+                       "    F =\n" % 1
+                       "        fun Fact(N) when N > 0 ->\n"
+                       "                N * Fact(N - 1);\n" % 6
+                       "            Fact(0) ->\n"
+                       "                1\n" % 1
+                       "        end,\n"
+                       "    F(6)\n" % 1
+                       "end\n">>,
+                    Config),
     ok.
 
 otp_10979_hanging_node(_Config) ->

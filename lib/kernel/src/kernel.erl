@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,8 +32,13 @@ start(_, []) ->
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
 	    Type = get_error_logger_type(),
-	    error_logger:swap_handler(Type),
-	    {ok, Pid, []};
+            case error_logger:swap_handler(Type) of
+                ok -> {ok, Pid, []};
+                Error ->
+                    %% Not necessary since the node will crash anyway:
+                    exit(Pid, shutdown),
+                    Error
+            end;
 	Error -> Error
     end.
 

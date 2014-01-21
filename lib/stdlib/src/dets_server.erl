@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -241,8 +241,8 @@ ensure_started() ->
 init() ->
     set_verbose(verbose_flag()),
     process_flag(trap_exit, true),
-    ets:new(?REGISTRY, [set, named_table]),
-    ets:new(?OWNERS, [set, named_table]),
+    ?REGISTRY = ets:new(?REGISTRY, [set, named_table]),
+    ?OWNERS = ets:new(?OWNERS, [set, named_table]),
     ets:new(?STORE, [duplicate_bag]).
 
 verbose_flag() ->
@@ -338,7 +338,7 @@ handle_close(State, Req, {FromPid,_Tag}=From, Tab) ->
                         [{Tab, _Counter, Pid}] ->
 			    do_unlink(Store, FromPid),
 			    true = ets:match_delete(Store, {FromPid, Tab}),
-			    [true = ets:insert(Store, K) || K <- Keep],
+                            true = ets:insert(Store, Keep),
 			    ets:update_counter(?REGISTRY, Tab, -1),
                             pending_call(Tab, Pid, make_ref(), From, [],
                                          remove_user, State)

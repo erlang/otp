@@ -1,4 +1,4 @@
-%% -*- coding: utf-8; erlang-indent-level: 2 -*-
+%% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %%

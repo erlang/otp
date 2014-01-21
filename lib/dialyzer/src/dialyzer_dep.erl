@@ -39,7 +39,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% analyze(CoreTree) -> {Deps, Esc, Calls}.
+%% analyze(CoreTree) -> {Deps, Esc, Calls, Letrecs}.
 %%
 %% Deps =  a dict mapping labels of functions to an ordset of functions
 %%         it calls.
@@ -53,6 +53,10 @@
 %%         which the operation can refer to. If 'external' is part of
 %%         the set the operation can be externally defined.
 %%
+%% Letrecs = a dict mapping var labels to their recursive definition.
+%%           top-level letrecs are not included as they are handled
+%%           separatedly.
+%%
 
 -spec analyze(cerl:c_module()) -> {dict(), ordset('external' | label()), dict()}.
 
@@ -64,7 +68,8 @@ analyze(Tree) ->
   State1 = state__add_deps(external, output(Esc), State),
   Deps = state__deps(State1),
   Calls = state__calls(State1),
-  {map__finalize(Deps), set__to_ordsets(Esc), map__finalize(Calls)}.
+  Letrecs = state__letrecs(State1),
+  {map__finalize(Deps), set__to_ordsets(Esc), map__finalize(Calls), Letrecs}.
 
 traverse(Tree, Out, State, CurrentFun) ->
   %% io:format("Type: ~w\n", [cerl:type(Tree)]),
@@ -131,9 +136,12 @@ traverse(Tree, Out, State, CurrentFun) ->
     letrec ->
       Defs = cerl:letrec_defs(Tree),
       Body = cerl:letrec_body(Tree),
+      State1 = lists:foldl(fun({ Var, Fun }, Acc) ->
+	state__add_letrecs(cerl_trees:get_label(Var), cerl_trees:get_label(Fun), Acc)
+      end, State, Defs),
       Out1 = bind_defs(Defs, Out),
-      State1 = traverse_defs(Defs, Out1, State, CurrentFun),
-      traverse(Body, Out1, State1, CurrentFun);
+      State2 = traverse_defs(Defs, Out1, State1, CurrentFun),
+      traverse(Body, Out1, State2, CurrentFun);
     literal ->
       {output(none), State};
     module ->
@@ -463,7 +471,8 @@ all_vars(Tree, AccIn) ->
 -record(state, {deps    :: dict(), 
 		esc     :: local_set(), 
 		call    :: dict(), 
-		arities :: dict()}).
+		arities :: dict(),
+		letrecs :: dict()}).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
@@ -471,7 +480,7 @@ state__new(Tree) ->
 			    || {Var, Fun} <- cerl:module_defs(Tree),
 			       set__is_element(Var, Exports)]),
   Arities = cerl_trees:fold(fun find_arities/2, dict:new(), Tree),
-  #state{deps = map__new(), esc = InitEsc, call = map__new(), arities = Arities}.
+  #state{deps = map__new(), esc = InitEsc, call = map__new(), arities = Arities, letrecs = map__new()}.
 
 find_arities(Tree, AccMap) ->
   case cerl:is_c_fun(Tree) of
@@ -490,8 +499,14 @@ state__add_deps(From, #output{type = single, content=To},
   %% io:format("Adding deps from ~w to ~w\n", [From, set__to_ordsets(To)]),
   State#state{deps = map__add(From, To, Map)}.
 
+state__add_letrecs(Var, Fun, #state{letrecs = Map} = State) ->
+  State#state{letrecs = map__store(Var, Fun, Map)}.
+
 state__deps(#state{deps = Deps}) ->
   Deps.
+
+state__letrecs(#state{letrecs = Letrecs}) ->
+  Letrecs.
 
 state__add_esc(#output{content = none}, State) ->
   State;

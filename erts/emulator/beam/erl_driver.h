@@ -365,17 +365,23 @@ typedef struct erl_drv_entry {
  * It must initialize a ErlDrvEntry structure and return a pointer to it.
  */
 
+#ifdef STATIC_ERLANG_DRIVER
+#  define ERLANG_DRIVER_NAME(NAME) NAME ## _driver_init
+#else
+#  define ERLANG_DRIVER_NAME(NAME) driver_init
+#endif
+
 /* For windows dynamic drivers */
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 #if defined(__WIN32__)
 #  define DRIVER_INIT(DRIVER_NAME) \
-    __declspec(dllexport) ErlDrvEntry* driver_init(void); \
-    __declspec(dllexport) ErlDrvEntry* driver_init(void)
+  __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void);	\
+    __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 #else 
 #  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* driver_init(void); \
-    ErlDrvEntry* driver_init(void)
+    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
+    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 #endif
 
 #define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))

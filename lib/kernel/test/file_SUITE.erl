@@ -805,6 +805,20 @@ new_modes(Config) when is_list(Config) ->
     ?line {ok, [$\[]} = ?FILE_MODULE:read(Fd6, 1),
     ?line ok = ?FILE_MODULE:close(Fd6),
 
+    %% write and sync
+    case ?FILE_MODULE:open(Name1, [write, sync]) of
+	{ok, Fd7} ->
+	    ok = io:write(Fd7, Marker),
+	    ok = io:put_chars(Fd7, ".\n"),
+	    ok = ?FILE_MODULE:close(Fd7),
+	    {ok, Fd8} = ?FILE_MODULE:open(Name1, [read]),
+	    {ok, Marker} = io:read(Fd8, prompt),
+	    ok = ?FILE_MODULE:close(Fd8);
+	{error, enotsup} ->
+	    %% for platforms that don't support the sync option
+	    ok
+    end,
+
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
     ok.

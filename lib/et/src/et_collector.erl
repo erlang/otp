@@ -409,8 +409,6 @@ report(TH, TraceOrEvent) when is_record(TH, table_handle) ->
                     report(TH#table_handle.collector_pid, TraceOrEvent)
             end
     end;
-report(TH, end_of_trace) when is_record(TH, table_handle) ->
-    {ok, TH};
 report(_, Bad) ->
     exit({bad_event, Bad}).
 

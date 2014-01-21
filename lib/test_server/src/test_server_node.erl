@@ -82,7 +82,7 @@ start_tracer_node(TraceFile,TI) ->
     Cookie = TI#target_info.cookie,
     {ok,LSock} = gen_tcp:listen(0,[binary,{reuseaddr,true},{packet,2}]),
     {ok,TracePort} = inet:port(LSock),
-    Prog = pick_erl_program(default),
+    Prog = quote_progname(pick_erl_program(default)),
     Cmd = lists:concat([Prog, " -sname tracer -hidden -setcookie ", Cookie, 
 			" -s ", ?MODULE, " trc ", TraceFile, " ", 
 			TracePort, " ", TI#target_info.os_family]),
@@ -312,7 +312,7 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     FailOnError = start_node_get_option_value(fail_on_error, OptList, true),
     Pa = TI#target_info.test_server_dir,
     Prog0 = start_node_get_option_value(erl, OptList, default),
-    Prog = pick_erl_program(Prog0),
+    Prog = quote_progname(pick_erl_program(Prog0)),
     Args = 
 	case string:str(SuppliedArgs,"-setcookie") of
 	    0 -> "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
@@ -589,7 +589,32 @@ pick_erl_program(L) ->
 	{release, S} ->
 	    find_release(S);
 	this ->
-	    lib:progname()
+	    cast_to_list(lib:progname())
+    end.
+
+%% This is an attempt to distinguish between spaces in the program
+%% path and spaces that separate arguments. The program is quoted to
+%% allow spaces in the path.
+%%
+%% Arguments could exist either if the executable is excplicitly given
+%% ({prog,String}) or if the -program switch to beam is used and
+%% includes arguments (typically done by cerl in OTP test environment
+%% in order to ensure that slave/peer nodes are started with the same
+%% emulator and flags as the test node. The return from lib:progname()
+%% could then typically be '/<full_path_to>/cerl -gcov').
+quote_progname(Progname) ->
+    do_quote_progname(string:tokens(Progname," ")).
+
+do_quote_progname([Prog]) ->
+    "\""++Prog++"\"";
+do_quote_progname([Prog,Arg|Args]) ->
+    case os:find_executable(Prog) of
+	false ->
+	    do_quote_progname([Prog++" "++Arg | Args]);
+	_ ->
+	    %% this one has an executable - we assume the rest are arguments
+	    "\""++Prog++"\""++
+		lists:flatten(lists:map(fun(X) -> [" ",X] end, [Arg|Args]))
     end.
 
 random_element(L) ->

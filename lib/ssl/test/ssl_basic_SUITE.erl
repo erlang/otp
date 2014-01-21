@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -110,7 +110,10 @@ options_tests() ->
      empty_protocol_versions,
      ipv6,
      reuseaddr,
-     tcp_reuseaddr].
+     tcp_reuseaddr,
+     honor_server_cipher_order,
+     honor_client_cipher_order
+].
 
 api_tests() ->
     [connection_info,
@@ -130,7 +133,8 @@ api_tests() ->
      listen_socket,
      ssl_accept_timeout,
      ssl_recv_timeout,
-     versions_option
+     versions_option,
+     server_name_indication_option
     ].
 
 session_tests() ->
@@ -2410,6 +2414,51 @@ tcp_reuseaddr(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
+honor_server_cipher_order() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_server_cipher_order(Config) when is_list(Config) ->
+    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, {rsa, aes_256_cbc, sha}).
+
+honor_client_cipher_order() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_client_cipher_order(Config) when is_list(Config) ->
+    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, {rsa, aes_128_cbc, sha}).
+
+honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{ciphers, ServerCiphers}, {honor_cipher_order, Honor}
+						   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{ciphers, ClientCiphers}, {honor_cipher_order, Honor}
+						   | ClientOpts]}]),
+
+    Version =
+	tls_record:protocol_version(tls_record:highest_protocol_version([])),
+
+    ServerMsg = ClientMsg = {ok, {Version, Expected}},
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
 hibernate() ->
     [{doc,"Check that an SSL connection that is started with option "
       "{hibernate_after, 1000} indeed hibernates after 1000ms of "
@@ -2804,6 +2853,47 @@ versions_option(Config) when is_list(Config) ->
     end,	    
    
     ssl_test_lib:check_result(ErrClient, {error, {tls_alert, "protocol version"}}).
+
+
+%%--------------------------------------------------------------------
+
+server_name_indication_option() ->
+    [{doc,"Test API server_name_indication option to connect."}].
+server_name_indication_option(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options,  
+					  [{server_name_indication, disable} | 
+					   ClientOpts]}
+					]),
+    
+    ssl_test_lib:check_result(Server, ok, Client0, ok),
+    Server ! listen,				       
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options,
+					  [{server_name_indication, Hostname} | ClientOpts]
+					 }]),    
+    ssl_test_lib:check_result(Server, ok, Client1, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Client1).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

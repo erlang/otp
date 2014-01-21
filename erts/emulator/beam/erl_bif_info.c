@@ -64,9 +64,11 @@ static Export *gather_gc_info_res_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
+static char otp_correction_package[] = ERLANG_OTP_CORRECTION_PACKAGE;
 /* Keep erts_system_version as a global variable for easy access from a core */
-static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
-				     " (erts-" ERLANG_VERSION ")"
+static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
+				     "%s"
+				     " [erts-" ERLANG_VERSION "]"
 #if !HEAP_ON_C_STACK && !HALFWORD_HEAP
 				     " [no-c-stack-objects]"
 #endif
@@ -304,11 +306,28 @@ make_link_list(Process *p, ErtsLink *root, Eterm tail)
 int
 erts_print_system_version(int to, void *arg, Process *c_p)
 {
+    int i, rc = -1;
+    char *rc_str = "";
+    char rc_buf[100];
+    char *ocp = otp_correction_package;
 #ifdef ERTS_SMP
     Uint total, online, active;
     (void) erts_schedulers_state(&total, &online, &active, 0);
 #endif
-    return erts_print(to, arg, erts_system_version
+    for (i = 0; i < sizeof(otp_correction_package)-4; i++) {
+	if (ocp[i] == '-' && ocp[i+1] == 'r' && ocp[i+2] == 'c')
+	    rc = atoi(&ocp[i+3]);
+    }
+    if (rc >= 0) {
+	if (rc == 0)
+	    rc_str = " [DEVELOPMENT]";
+	else {
+	    erts_snprintf(rc_buf, sizeof(rc_buf), " [RELEASE CANDIDATE %d]", rc);
+	    rc_str = rc_buf;
+	}
+    }
+    return erts_print(to, arg, erts_system_version,
+		      rc_str
 #ifdef ERTS_SMP
 		      , total, online
 #endif
@@ -2417,6 +2436,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    DECL_AM(unknown);
 	    BIF_RET(AM_unknown);
 	}
+    } else if (ERTS_IS_ATOM_STR("otp_correction_package", BIF_ARG_1)) {
+	int n = sizeof(ERLANG_OTP_CORRECTION_PACKAGE)-1;
+	hp = HAlloc(BIF_P, 2*n);
+	BIF_RET(buf_to_intlist(&hp, ERLANG_OTP_CORRECTION_PACKAGE, n, NIL));
     } else if (ERTS_IS_ATOM_STR("otp_release", BIF_ARG_1)) {
 	int n = sizeof(ERLANG_OTP_RELEASE)-1;
 	hp = HAlloc(BIF_P, 2*n);
@@ -3602,6 +3625,20 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 		BIF_RET(am_true);
 	    }
+	}
+	else if (ERTS_IS_ATOM_STR("gc_state", BIF_ARG_1)) {
+	    /* Used by process_SUITE (emulator) */
+	    int res, enable;
+
+	    switch (BIF_ARG_2) {
+	    case am_true: enable = 1; break;
+	    case am_false: enable = 0; break;
+	    default: BIF_ERROR(BIF_P, BADARG); break;
+	    }
+ 
+            res = (BIF_P->flags & F_DISABLE_GC) ? am_false : am_true;
+	    erts_set_gc_state(BIF_P, enable);
+	    BIF_RET(res);
 	}
 	else if (ERTS_IS_ATOM_STR("send_fake_exit_signal", BIF_ARG_1)) {
 	    /* Used by signal_SUITE (emulator) */

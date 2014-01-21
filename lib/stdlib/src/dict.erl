@@ -1,8 +1,7 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +36,7 @@
 -module(dict).
 
 %% Standard interface.
--export([new/0,is_key/2,to_list/1,from_list/1,size/1]).
+-export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).
 -export([fetch/2,find/2,fetch_keys/1,erase/2]).
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
@@ -112,6 +111,11 @@ from_list(L) ->
       Dict :: dict().
 
 size(#dict{size=N}) when is_integer(N), N >= 0 -> N. 
+
+-spec is_empty(Dict) -> boolean() when
+      Dict :: dict().
+
+is_empty(#dict{size=N}) -> N =:= 0.
 
 -spec fetch(Key, Dict) -> Value when
       Key :: term(),

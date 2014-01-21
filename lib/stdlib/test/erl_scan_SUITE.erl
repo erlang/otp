@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -1065,8 +1064,8 @@ otp_10302(Config) when is_list(Config) ->
     {string,0,"str"} = erl_parse:abstract("str"),
     {cons,0,
      {integer,0,$a},
-     {cons,0,{integer,0,1024},{string,0,"c"}}} =
-        erl_parse:abstract("a"++[1024]++"c"),
+     {cons,0,{integer,0,55296},{string,0,"c"}}} =
+        erl_parse:abstract("a"++[55296]++"c"),
 
     Line = 17,
     {integer,Line,1} = erl_parse:abstract(1, Line),
@@ -1081,8 +1080,8 @@ otp_10302(Config) when is_list(Config) ->
     {string,Line,"str"} = erl_parse:abstract("str", Line),
     {cons,Line,
      {integer,Line,$a},
-     {cons,Line,{integer,Line,1024},{string,Line,"c"}}} =
-        erl_parse:abstract("a"++[1024]++"c", Line),
+     {cons,Line,{integer,Line,55296},{string,Line,"c"}}} =
+        erl_parse:abstract("a"++[55296]++"c", Line),
 
     Opts1 = [{line,17}],
     {integer,Line,1} = erl_parse:abstract(1, Opts1),
@@ -1097,8 +1096,8 @@ otp_10302(Config) when is_list(Config) ->
     {string,Line,"str"} = erl_parse:abstract("str", Opts1),
     {cons,Line,
      {integer,Line,$a},
-     {cons,Line,{integer,Line,1024},{string,Line,"c"}}} =
-        erl_parse:abstract("a"++[1024]++"c", Opts1),
+     {cons,Line,{integer,Line,55296},{string,Line,"c"}}} =
+        erl_parse:abstract("a"++[55296]++"c", Opts1),
 
     [begin
          {integer,Line,1} = erl_parse:abstract(1, Opts2),

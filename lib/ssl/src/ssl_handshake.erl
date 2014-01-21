@@ -1029,14 +1029,15 @@ cipher_suites(Suites, true) ->
 
 select_session(SuggestedSessionId, CipherSuites, Compressions, Port, #session{ecc = ECCCurve} = 
 		   Session, Version,
-	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
+	       #ssl_options{ciphers = UserSuites, honor_cipher_order = HCO} = SslOpts,
+	       Cache, CacheCb, Cert) ->
     {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
 						 SslOpts, Cert,
 						 Cache, CacheCb),
     case Resumed of
         undefined ->
 	    Suites = available_suites(Cert, UserSuites, Version, ECCCurve),
-	    CipherSuite = select_cipher_suite(CipherSuites, Suites),
+	    CipherSuite = select_cipher_suite(CipherSuites, Suites, HCO),
 	    Compression = select_compression(Compressions),
 	    {new, Session#session{session_id = SessionId,
 				  cipher_suite = CipherSuite,
@@ -1287,7 +1288,7 @@ select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves},
 select_curve(undefined, _) ->
     %% Client did not send ECC extension use default curve if 
     %% ECC cipher is negotiated
-    {namedCurve, ?secp256k1};
+    {namedCurve, ?secp256r1};
 select_curve(_, []) ->
     no_curve;
 select_curve(Curves, [Curve| Rest]) ->
@@ -1791,6 +1792,11 @@ handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
 
 %%-------------Misc --------------------------------
+
+select_cipher_suite(CipherSuites, Suites, false) ->
+    select_cipher_suite(CipherSuites, Suites);
+select_cipher_suite(CipherSuites, Suites, true) ->
+    select_cipher_suite(Suites, CipherSuites).
 
 select_cipher_suite([], _) ->
    no_suite;

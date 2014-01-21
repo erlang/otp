@@ -258,14 +258,44 @@ run_test([{Module, TC} | Rest], Config) ->
 		    true ->
 			[do_run_test(Module, TC, NewConfig)]
 		end,
-	    Module:end_per_suite(NewConfig),
-	    Res ++ run_test(Rest, NewConfig);
+            CommonTestRes = worst_res(Res),
+	    Res ++ run_test(Rest, [{tc_status,CommonTestRes}|NewConfig]);
 	Error ->
 	    ?error("Test suite skipped: ~w~n", [Error]),
 	    [{skipped, Error}]
     end;
 run_test([], _Config) ->
     [].
+
+worst_res(Res) ->
+    NewRes = [{dummy, {ok,dummy, dummy}} | Res],
+    [{_,WorstRes}|_] = lists:sort(fun compare_res/2, NewRes),
+    common_test_res(WorstRes).
+
+common_test_res(ok) ->
+    ok;
+common_test_res({Res,_,Reason}) ->
+    common_test_res({Res,Reason});
+common_test_res({Res,Reason}) ->
+    case Res of
+        ok      -> ok;
+        skip    -> {skipped, Reason};
+        skipped -> {skipped, Reason};
+        failed  -> {failed, Reason};
+        crash   -> {failed, Reason}
+    end.
+
+% crash < failed < skip < ok
+compare_res({_,{ResA,_,_}},{_,{ResB,_,_}}) ->
+    res_to_int(ResA) < res_to_int(ResB).
+
+res_to_int(Res) ->
+    case Res of
+        ok     -> 4;
+        skip   -> 3;
+        failed -> 2;
+        crash  -> 1
+    end.
 
 do_run_test(Module, all, Config) ->
     All = [{Module, Test} || Test <- Module:all()],
@@ -290,9 +320,10 @@ eval_test_case(Mod, Fun, Config) ->
 
 test_case_evaluator(Mod, Fun, [Config]) ->
     NewConfig = Mod:init_per_testcase(Fun, Config),
-    R = apply(Mod, Fun, [NewConfig]),
-    Mod:end_per_testcase(Fun, NewConfig),
-    exit({test_case_ok, R}).
+    Res = apply(Mod, Fun, [NewConfig]),
+    CommonTestRes = common_test_res(Res),
+    Mod:end_per_testcase(Fun, [{tc_status,CommonTestRes}|NewConfig]),
+    exit({test_case_ok, Res}).
 
 wait_for_evaluator(Pid, Mod, Fun, Config) ->
     receive
@@ -307,13 +338,17 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
 	{'EXIT', Pid, {skipped, Reason}} ->
 	    log("<WARNING> Test case ~w skipped, because ~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:end_per_testcase(Fun, Config),
-	    {skip, {Mod, Fun}, Reason};
+            Res = {skipped, {Mod, Fun}, Reason},
+            CommonTestRes = common_test_res(Res),
+	    Mod:end_per_testcase(Fun, [{tc_status,CommonTestRes}|Config]),
+	    Res;
 	{'EXIT', Pid, Reason} ->
 	    log("<ERROR> Eval process ~w exited, because\n\t~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:end_per_testcase(Fun, Config),
-	    {crash, {Mod, Fun}, Reason}
+            Res = {crash, {Mod, Fun}, Reason},
+            CommonTestRes = common_test_res(Res),
+            Mod:end_per_testcase(Fun, [{tc_status,CommonTestRes}|Config]),
+	    Res
     end.
 
 flush() ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,10 +58,10 @@
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
-	 otp_8180/1, ttb_trap/1]).
+	 otp_8180/1, trapping/1]).
 
 %% Internal exports.
--export([sleeper/0,ttb_loop/2]).
+-export([sleeper/0,trapping_loop/4]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,2}}].
@@ -76,7 +76,7 @@ all() ->
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180, ttb_trap].
+     obsolete_funs, robustness, otp_8180, trapping].
 
 groups() -> 
     [].
@@ -447,26 +447,26 @@ terms(Config) when is_list(Config) ->
               Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
                   ok
               end,
-		      Term = binary_to_term(Bin),
-		      Term = binary_to_term(Bin, [safe]),
+		      Term = binary_to_term_stress(Bin),
+		      Term = binary_to_term_stress(Bin, [safe]),
 		      Unaligned = make_unaligned_sub_binary(Bin),
-		      Term = binary_to_term(Unaligned),
-		      Term = binary_to_term(Unaligned, []),
-		      Term = binary_to_term(Bin, [safe]),
+		      Term = binary_to_term_stress(Unaligned),
+		      Term = binary_to_term_stress(Unaligned, []),
+		      Term = binary_to_term_stress(Bin, [safe]),
 		      BinC = erlang:term_to_binary(Term, [compressed]),
-		      Term = binary_to_term(BinC),
+		      Term = binary_to_term_stress(BinC),
 		      true = size(BinC) =< size(Bin),
 		      Bin = term_to_binary(Term, [{compressed,0}]),
 		      terms_compression_levels(Term, size(Bin), 1),
 		      UnalignedC = make_unaligned_sub_binary(BinC),
-		      Term = binary_to_term(UnalignedC)
+		      Term = binary_to_term_stress(UnalignedC)
 	      end,
     ?line test_terms(TestFun),
     ok.
 
 terms_compression_levels(Term, UncompressedSz, Level) when Level < 10 ->
     BinC = erlang:term_to_binary(Term, [{compressed,Level}]),
-    Term = binary_to_term(BinC),
+    Term = binary_to_term_stress(BinC),
     Sz = byte_size(BinC),
     true = Sz =< UncompressedSz,
     terms_compression_levels(Term, UncompressedSz, Level+1);
@@ -476,9 +476,9 @@ terms_float(Config) when is_list(Config) ->
     ?line test_floats(fun(Term) ->
 			      Bin0 = term_to_binary(Term),
 			      Bin0 = term_to_binary(Term, [{minor_version,0}]),
-			      Term = binary_to_term(Bin0),
+			      Term = binary_to_term_stress(Bin0),
 			      Bin1 = term_to_binary(Term, [{minor_version,1}]),
-			      Term = binary_to_term(Bin1),
+			      Term = binary_to_term_stress(Bin1),
 			      true = size(Bin1) < size(Bin0),
                   Size0 = erlang:external_size(Term),
                   Size00 = erlang:external_size(Term, [{minor_version, 0}]),
@@ -490,7 +490,7 @@ terms_float(Config) when is_list(Config) ->
 float_middle_endian(Config) when is_list(Config) ->
     %% Testing for roundtrip is not enough.
     ?line <<131,70,63,240,0,0,0,0,0,0>> = term_to_binary(1.0, [{minor_version,1}]),
-    ?line 1.0 = binary_to_term(<<131,70,63,240,0,0,0,0,0,0>>).
+    ?line 1.0 = binary_to_term_stress(<<131,70,63,240,0,0,0,0,0,0>>).
 
 external_size(Config) when is_list(Config) ->
     %% Build a term whose external size only fits in a big num (on 32-bit CPU).
@@ -506,8 +506,8 @@ external_size(Config) when is_list(Config) ->
 	    io:format("Unaligned size: ~p\n", [Sz2]),
 	    ?line ?t:fail()
     end,
-    ?line erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}]),
-    ?line erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}]).
+    true = (erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}])),
+    true = (erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}])).
 
 external_size_1(Term, Size0, Limit) when Size0 < Limit ->
     case erlang:external_size(Term) of
@@ -608,10 +608,10 @@ bad_binary_to_term(Config) when is_list(Config) ->
     ok.
 
 bad_bin_to_term(BadBin) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_term(BadBin)).
+    {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin)).
 
 bad_bin_to_term(BadBin,Opts) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_term(BadBin,Opts)).
+    {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
 
 safe_binary_to_term2(doc) -> "Test safety options for binary_to_term/2";
 safe_binary_to_term2(Config) when is_list(Config) ->
@@ -622,7 +622,7 @@ safe_binary_to_term2(Config) when is_list(Config) ->
     BadRef = <<131,114,0,3,BadHostAtom/binary,0,<<0,0,0,255>>/binary,
 	      Empty/binary,Empty/binary>>,
     ?line bad_bin_to_term(BadRef, [safe]), % good ref, with a bad atom
-    ?line fullsweep_after = binary_to_term(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
+    ?line fullsweep_after = binary_to_term_stress(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
     BadExtFun = <<131,113,100,0,4,98,108,117,101,100,0,4,109,111,111,110,97,3>>,
     ?line bad_bin_to_term(BadExtFun, [safe]),
     ok.
@@ -679,14 +679,14 @@ corrupter0(Term) ->
 
 corrupter(Bin, Pos) when Pos >= 0 ->
     ?line {ShorterBin, Rest} = split_binary(Bin, Pos),
-    ?line catch binary_to_term(ShorterBin), %% emulator shouldn't crash
+    ?line catch binary_to_term_stress(ShorterBin), %% emulator shouldn't crash
     ?line MovedBin = list_to_binary([ShorterBin]),
-    ?line catch binary_to_term(MovedBin), %% emulator shouldn't crash
+    ?line catch binary_to_term_stress(MovedBin), %% emulator shouldn't crash
 
     %% Bit faults, shouldn't crash
     <<Byte,Tail/binary>> = Rest,
     Fun = fun(M) -> FaultyByte = Byte bxor M,                    
-		    catch binary_to_term(<<ShorterBin/binary,
+		    catch binary_to_term_stress(<<ShorterBin/binary,
 					  FaultyByte, Tail/binary>>) end,
     ?line lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),    
     ?line corrupter(Bin, Pos-1);
@@ -700,7 +700,7 @@ more_bad_terms(Config) when is_list(Config) ->
     ?line ok = io:format("File: ~s\n", [BadFile]),
     ?line case file:read_file(BadFile) of
 	      {ok,Bin} ->
-		  ?line {'EXIT',{badarg,_}} = (catch binary_to_term(Bin)),
+		  ?line {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin)),
 		  ok;
 	      Other ->
 		  ?line ?t:fail(Other)
@@ -709,7 +709,7 @@ more_bad_terms(Config) when is_list(Config) ->
 otp_5484(Config) when is_list(Config) ->
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       <<131,
 		104,2,				%Tuple, 2 elements
 		103,				%Pid
@@ -722,7 +722,7 @@ otp_5484(Config) when is_list(Config) ->
 
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       <<131,
 		104,2,				%Tuple, 2 elements
 		103,				%Pid
@@ -734,13 +734,13 @@ otp_5484(Config) when is_list(Config) ->
 
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A old-type fun in a list containing a bad creator pid.
 	       <<131,108,0,0,0,1,117,0,0,0,0,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,255,255,0,25,255,0,0,0,0,100,0,1,116,97,0,98,6,142,121,72,106>>)),
 
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad creator pid.
 	       %% 
 	       <<131,
@@ -752,7 +752,7 @@ otp_5484(Config) when is_list(Config) ->
 
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad module.
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
@@ -763,7 +763,7 @@ otp_5484(Config) when is_list(Config) ->
 
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad index.
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
@@ -775,7 +775,7 @@ otp_5484(Config) when is_list(Config) ->
 
     ?line {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad unique value.
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
@@ -788,46 +788,46 @@ otp_5484(Config) when is_list(Config) ->
 
     %% An absurdly large atom.
     ?line {'EXIT',_} = 
-	(catch binary_to_term(iolist_to_binary([<<131,100,65000:16>>|
+	(catch binary_to_term_stress(iolist_to_binary([<<131,100,65000:16>>|
 						lists:duplicate(65000, 42)]))),
 
     %% Longer than 255 characters.
     ?line {'EXIT',_} = 
-	(catch binary_to_term(iolist_to_binary([<<131,100,256:16>>|
+	(catch binary_to_term_stress(iolist_to_binary([<<131,100,256:16>>|
 						lists:duplicate(256, 42)]))),
 
     %% OTP-7218. Thanks to Matthew Dempsky. Also make sure that we
     %% cover the other error cases for external funs (EXPORT_EXT).
     ?line {'EXIT',_} = 
-	(catch binary_to_term(
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  97,13,			%Integer: 13
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
     ?line {'EXIT',_} = 
-	(catch binary_to_term(
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
     ?line {'EXIT',_} = 
-	(catch binary_to_term(
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  106>>)),			%NIL
     ?line {'EXIT',_} = 
-	(catch binary_to_term(
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  98,255,255,255,255>>)),	%Integer: -1
     ?line {'EXIT',_} = 
-	(catch binary_to_term(
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
@@ -835,7 +835,7 @@ otp_5484(Config) when is_list(Config) ->
 		  113,97,13,97,13,97,13>>)),	%fun 13:13/13
 
     %% Bad funs.
-    ?line {'EXIT',_} = (catch binary_to_term(fake_fun(0, lists:seq(0, 256)))),
+    ?line {'EXIT',_} = (catch binary_to_term_stress(fake_fun(0, lists:seq(0, 256)))),
     ok.
 
 fake_fun(Arity, Env0) ->
@@ -869,7 +869,7 @@ try_bad_lengths(B) ->
 try_bad_lengths(B, L) when L > 16#FFFFFFF0 ->
     Bin = <<B/binary,L:32>>,
     io:format("~p\n", [Bin]),
-    {'EXIT',_} = (catch binary_to_term(Bin)),
+    {'EXIT',_} = (catch binary_to_term_stress(Bin)),
     try_bad_lengths(B, L-1);
 try_bad_lengths(_, _) -> ok.
 
@@ -923,7 +923,7 @@ otp_6817_try_bin(Bin) ->
     %% If the bug is present, the heap pointer will moved when the invalid term
     %% is found and we will have a linked list passing through the limbo area
     %% between the heap top and the stack pointer.
-    catch binary_to_term(Bin),
+    catch binary_to_term_stress(Bin),
 
     %% If the bug is present, we will overwrite the pointers in the limbo area.
     Filler = erlang:make_tuple(1024, 16#3FA),
@@ -935,7 +935,7 @@ otp_6817_try_bin(Bin) ->
 otp_8117(doc) -> "Some bugs in binary_to_term when 32-bit integers are negative.";
 otp_8117(suite) -> [];
 otp_8117(Config) when is_list(Config) ->
-    [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',list,tuple],
+    [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',named_fun,list,tuple],
 				   N <- lists:seq(0,31)],
     ok.
 
@@ -943,6 +943,11 @@ otp_8117_do('fun',Neg) ->
     % Fun with negative num_free
     FunBin = term_to_binary(fun() -> ok end),
     ?line <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,   
+    ?line bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
+otp_8117_do(named_fun,Neg) ->
+    % Named fun with negative num_free
+    FunBin = term_to_binary(fun F() -> F end),
+    ?line <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,
     ?line bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
 otp_8117_do(list,Neg) ->
     %% List with negative length
@@ -1233,24 +1238,35 @@ bit_sized_binary_sizes(Config) when is_list(Config) ->
 bsbs_1(A) ->
     BinSize = 32+A,
     io:format("A: ~p BinSize: ~p", [A,BinSize]),
-    Bin = binary_to_term(<<131,$M,5:32,A,0,0,0,0,0>>),
+    Bin = binary_to_term_stress(<<131,$M,5:32,A,0,0,0,0,0>>),
     BinSize = bit_size(Bin).
 
+%% lists:foldl(_,_,lists:seq(_,_)) with less heap consumption
+lists_foldl_seq(Fun, Acc0, N, To) when N =< To ->
+    Acc1 = Fun(N, Acc0),
+    lists_foldl_seq(Fun, Acc1, N+1, To);
+
+lists_foldl_seq(_, Acc, _, _) ->
+    Acc.
+
 deep(Config) when is_list(Config) ->
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     [E,A]
-				     end, [], lists:seq(1, 1000000))),
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     {E,A}
-				     end, [], lists:seq(1, 1000000))),
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     fun() -> {E,A} end
-				     end, [], lists:seq(1, 1000000))),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   [E,A]
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   {E,A}
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   fun() -> {E,A} end
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
     ok.
 
 deep_roundtrip(T) ->
     B = term_to_binary(T),
-    T = binary_to_term(B).
+    T = binary_to_term_stress(B).
 
 obsolete_funs(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1285,29 +1301,29 @@ obsolete_fun(Fun) ->
     Tuple = no_fun_roundtrip(Fun).
 
 no_fun_roundtrip(Term) ->
-    binary_to_term(erts_debug:get_internal_state({term_to_binary_no_funs,Term})).
+    binary_to_term_stress(erts_debug:get_internal_state({term_to_binary_no_funs,Term})).
 
 %% Test non-standard encodings never generated by term_to_binary/1
 %% but recognized by binary_to_term/1.
 
 robustness(Config) when is_list(Config) ->
-    ?line [] = binary_to_term(<<131,107,0,0>>),	%Empty string.
-    ?line [] = binary_to_term(<<131,108,0,0,0,0,106>>),	%Zero-length list.
+    ?line [] = binary_to_term_stress(<<131,107,0,0>>),	%Empty string.
+    ?line [] = binary_to_term_stress(<<131,108,0,0,0,0,106>>),	%Zero-length list.
 
     %% {[],a} where [] is a zero-length list.
-    ?line {[],a} = binary_to_term(<<131,104,2,108,0,0,0,0,106,100,0,1,97>>),
+    ?line {[],a} = binary_to_term_stress(<<131,104,2,108,0,0,0,0,106,100,0,1,97>>),
 
     %% {42,a} where 42 is a zero-length list with 42 in the tail.
-    ?line {42,a} = binary_to_term(<<131,104,2,108,0,0,0,0,97,42,100,0,1,97>>),
+    ?line {42,a} = binary_to_term_stress(<<131,104,2,108,0,0,0,0,97,42,100,0,1,97>>),
 
     %% {{x,y},a} where {x,y} is a zero-length list with {x,y} in the tail.
-    ?line {{x,y},a} = binary_to_term(<<131,104,2,108,0,0,0,0,
+    ?line {{x,y},a} = binary_to_term_stress(<<131,104,2,108,0,0,0,0,
 				      104,2,100,0,1,120,100,0,1,
 				      121,100,0,1,97>>),
 
     %% Bignums fitting in 32 bits.
-    ?line 16#7FFFFFFF = binary_to_term(<<131,98,127,255,255,255>>),
-    ?line -1 = binary_to_term(<<131,98,255,255,255,255>>),
+    ?line 16#7FFFFFFF = binary_to_term_stress(<<131,98,127,255,255,255>>),
+    ?line -1 = binary_to_term_stress(<<131,98,255,255,255,255>>),
     
     ok.
 
@@ -1325,40 +1341,48 @@ run_otp_8180(Name) ->
     ?line {ok,Bins} = file:consult(Name),
     [begin
 	 io:format("~p\n", [Bin]),
-	 ?line {'EXIT',{badarg,_}} = (catch binary_to_term(Bin))
+	 ?line {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin))
      end || Bin <- Bins],
     ok.
 
-%% Test that exit and GC during term_to_binary trap does not crash.
-ttb_trap(Config) when is_list(Config)->
-    case erlang:system_info(wordsize) of
-	N when N < 8 ->
-	    {skipped, "Only on 64bit machines"};
-	_ ->
-	    do_ttb_trap(5)
-    end.
+%% Test that exit and GC during trapping term_to_binary and binary_to_term
+%% does not crash.
+trapping(Config) when is_list(Config)->
+    do_trapping(5, term_to_binary,
+		fun() -> [lists:duplicate(2000000,2000000)] end),
+    do_trapping(5, binary_to_term,
+		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end).
 
-do_ttb_trap(0) ->
+do_trapping(0, _, _) ->
     ok;
-do_ttb_trap(N) ->
-    Pid = spawn(?MODULE,ttb_loop,[1000,self()]),
+do_trapping(N, Bif, ArgFun) ->
+    io:format("N=~p: Do ~p ~s gc.\n", [N, Bif, case N rem 2 of 0 -> "with"; 1 -> "without" end]),
+    Pid = spawn(?MODULE,trapping_loop,[Bif, ArgFun, 1000, self()]),
     receive ok -> ok end,
     receive after 100 -> ok end,
-    erlang:garbage_collect(Pid),
-    receive after 100 -> ok end,
+    Ref = make_ref(),
+    case N rem 2 of
+	0 -> erlang:garbage_collect(Pid, [{async,Ref}]),
+	     receive after 100 -> ok end;
+	1 -> void
+    end,
     exit(Pid,kill),
+    case N rem 2 of
+	0 -> receive {garbage_collect, Ref, _} -> ok end;
+	1 -> void
+    end,
     receive after 1 -> ok end,
-    do_ttb_trap(N-1).
+    do_trapping(N-1, Bif, ArgFun).
 
-ttb_loop(N,Pid) ->
-    Term = lists:duplicate(2000000,2000000),
+trapping_loop(Bif, ArgFun, N, Pid) ->
+    Args = ArgFun(),
     Pid ! ok,
-    ttb_loop2(N,Term).
-ttb_loop2(0,_T) ->
+    trapping_loop2(Bif,Args,N).
+trapping_loop2(_,_,0) ->
     ok;
-ttb_loop2(N,T) ->
-    apply(erlang,term_to_binary,[T]),
-    ttb_loop2(N-1,T).
+trapping_loop2(Bif,Args,N) ->
+    apply(erlang,Bif,Args),
+    trapping_loop2(Bif, Args, N-1).
 
 
 %% Utilities.
@@ -1394,3 +1418,52 @@ unaligned_sub_bin(Bin0, Offs) ->
     Bin.
 
 id(I) -> I.
+
+
+%% Stress binary_to_term with different initial reductions
+binary_to_term_stress(Bin) ->
+    binary_to_term_stress(Bin, no_opts).
+
+binary_to_term_stress(Bin, Opts) ->
+    Reds = get_reds(),
+    T = b2t(erlang:system_info(context_reductions),
+	    Bin, Opts, catch_binary_to_term(Bin, Opts)),
+    set_reds(Reds),
+    T = case Opts of
+	    no_opts -> binary_to_term(Bin);
+	    _ ->       binary_to_term(Bin,Opts)
+	end.
+
+catch_binary_to_term(Bin, no_opts) ->
+    try binary_to_term(Bin)
+    catch
+	error:badarg -> binary_to_term_throws_badarg
+    end;
+catch_binary_to_term(Bin, Opts) ->
+    try binary_to_term(Bin, Opts)
+    catch
+	error:badarg -> binary_to_term_throws_badarg
+    end.
+
+b2t(0, _Bin, _Opts, Term) ->
+    Term;
+b2t(Reds, Bin, Opts, Term) ->
+    set_reds(Reds),
+    Term = catch_binary_to_term(Bin,Opts),
+    b2t(Reds div 3, Bin, Opts, Term).
+
+set_reds(Reds) ->
+    try	erts_debug:set_internal_state(reds_left, Reds)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    set_reds(Reds)
+    end.
+
+get_reds() ->
+    try	erts_debug:get_internal_state(reds_left)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    get_reds()
+    end.

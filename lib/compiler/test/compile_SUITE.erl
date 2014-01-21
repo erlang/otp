@@ -769,8 +769,8 @@ do_core({M,A}, Outdir) ->
 	    error
     end.
 
-%% Compile to Beam assembly language (.S) and the try to
-%% run .S throught the compiler again.
+%% Compile to Beam assembly language (.S) and then try to
+%% run .S through the compiler again.
 
 asm(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(20)),
@@ -791,10 +791,10 @@ do_asm(Beam, Outdir) ->
     try
 	{ok,M,Asm} = compile:forms(A, ['S']),
 	AsmFile = filename:join(Outdir, atom_to_list(M)++".S"),
-	{ok,Fd} = file:open(AsmFile, [write]),
+	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
 	ok = file:close(Fd),
-	case compile:file(AsmFile, [from_asm,no_postopt,binary,report]) of
+	case compile:file(AsmFile, [from_asm,binary,report]) of
 	    {ok,M,_} ->
 		ok = file:delete(AsmFile);
 	    Other ->

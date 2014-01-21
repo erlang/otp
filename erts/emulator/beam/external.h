@@ -146,6 +146,7 @@ typedef struct {
 typedef struct {
     byte *extp;
     int exttmp;
+    Uint extsize;
 } ErtsBinary2TermState;
 
 /* -------------------------------------------------------------------------- */

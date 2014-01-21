@@ -1041,7 +1041,7 @@ apply_archive(PS, Fun, Acc, Archive) ->
 		    apply_archive(PS, Fun, Acc, Archive);
 		Error ->
 		    debug(PS, {cache, {clear, Error}}),
-		    clear_cache(Archive, {ok, PrimZip}),
+		    ok = clear_cache(Archive, {ok, PrimZip}),
 		    apply_archive(PS, Fun, Acc, Archive)
 	    end;
         {Cache, FI} ->

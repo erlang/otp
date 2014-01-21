@@ -262,6 +262,16 @@ equality(Config) when is_list(Config) ->
     ?line false = eq(FF2, FF4),
     ?line false = eq(FF3, FF4),
 
+    %% EEP37
+    H1 = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,
+    H2 = fun Pow(N, M) when M > 0 -> N * Pow(N, M - 1); Pow(_, 0) -> 1 end,
+    H1_copy = copy_term(H1),
+
+    true = eq(H1, H1),
+    true = eq(H1, H1_copy),
+    true = eq(H2, H2),
+    false = eq(H1, H2),
+
     ok.
 
 eq(X, X) -> true;

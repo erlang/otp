@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -399,7 +399,7 @@ eval_restricted({From,_Mod,Cmd,SP}, Bs) ->
 
 eval_nonrestricted({From,Mod,Cmd,SP}, Bs, #ieval{level=Le}) when SP < Le->
     %% Evaluate in stack
-    eval_restricted({From, Mod, Cmd, SP}, Bs),
+    _ = eval_restricted({From, Mod, Cmd, SP}, Bs),
     Bs;
 eval_nonrestricted({From, _Mod, Cmd, _SP}, Bs, 
 		   #ieval{level=Le,module=M,line=Line}=Ieval) ->
@@ -465,7 +465,8 @@ tell_attached(Msg) ->
     case get(attached) of
 	undefined -> ignore;
 	AttPid ->
-	    AttPid ! {self(), Msg}
+	    AttPid ! {self(), Msg},
+            ignore
     end.
 
 %%====================================================================

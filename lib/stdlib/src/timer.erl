@@ -258,7 +258,7 @@ ensure_started() ->
 	undefined -> 
 	    C = {timer_server, {?MODULE, start_link, []}, permanent, 1000, 
 		 worker, [?MODULE]},
-	    supervisor:start_child(kernel_safe_sup, C),  % kernel_safe_sup
+	    _ = supervisor:start_child(kernel_safe_sup, C),
 	    ok;
 	_ -> ok
     end.

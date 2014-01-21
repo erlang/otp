@@ -24,6 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 
 SUB_DIRECTORIES = src c_src doc/src
+static_lib: SUB_DIRECTORIES = c_src
 
 include vsn.mk
 VSN = $(CRYPTO_VSN)

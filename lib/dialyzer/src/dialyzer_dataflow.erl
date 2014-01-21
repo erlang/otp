@@ -308,7 +308,7 @@ traverse(Tree, Map, State) ->
       {State1, Map1, Type};
     var ->
       ?debug("Looking up unknown variable: ~p\n", [Tree]),
-      case state__lookup_type_for_rec_var(Tree, State) of
+      case state__lookup_type_for_letrec(Tree, State) of
 	error ->
 	  LType = lookup_type(Tree, Map),
 	  Opaques = State#state.opaques,
@@ -1468,7 +1468,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
       var ->
 	Opaques = State#state.opaques,
 	VarType1 =
-	  case state__lookup_type_for_rec_var(Pat, State) of
+	  case state__lookup_type_for_letrec(Pat, State) of
 	    error ->
 	      LType = lookup_type(Pat, Map),
 	      case t_opaque_match_record(LType, Opaques) of
@@ -2829,12 +2829,11 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 state__is_escaping(Fun, #state{callgraph = Callgraph}) ->
   dialyzer_callgraph:is_escaping(Fun, Callgraph).
 
-state__lookup_type_for_rec_var(Var, #state{callgraph = Callgraph} = State) ->
+state__lookup_type_for_letrec(Var, #state{callgraph = Callgraph} = State) ->
   Label = get_label(Var),
-  case dialyzer_callgraph:lookup_rec_var(Label, Callgraph) of
+  case dialyzer_callgraph:lookup_letrec(Label, Callgraph) of
     error -> error;
-    {ok, MFA} ->
-      {ok, FunLabel} = dialyzer_callgraph:lookup_label(MFA, Callgraph),
+    {ok, FunLabel} ->
       {ok, state__fun_type(FunLabel, State)}
   end.
 

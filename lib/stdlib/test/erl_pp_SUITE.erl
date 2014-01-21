@@ -130,7 +130,27 @@ func(Config) when is_list(Config) ->
                            true
                    end)().">>},
 	  {func_7,
-           <<"t(M, F, A) -> fun M:F/A.">>}
+           <<"t(M, F, A) -> fun M:F/A.">>},
+          {func_8,
+           <<"-record(r1, {a,b}).
+              -record(r3, {a = fun Id(_) -> #r1{} end(1), b}).
+
+              t() ->
+                  fun Id(A) when record(A#r3.a, r1) -> 7 end(#r3{}).
+             ">>},
+          {func_9,
+           <<"-record(r1, {a,b}).
+              -record(r3, {a = fun Id(_) -> #r1{} end(1), b}).
+
+              t() ->
+                  fsdfsdfjsdfjkljf:sdlfjdsfjlf(
+                      fun Id(sdfsd) -> {sdkjsdf,sdfjsdkljfsdl,sdfkjdklf} end).
+             ">>},
+          {func_10,
+           <<"t() ->
+                  (fun True() ->
+                           true
+                   end)().">>}
           ],
     ?line compile(Config, Ts),
     ok.
@@ -158,6 +178,7 @@ recs(Config) when is_list(Config) ->
               -record(r1, {a,b}).
               -record(r2, {a = #r1{},b,c=length([1,2,3])}).
               -record(r3, {a = fun(_) -> #r1{} end(1), b}).
+              -record(r4, {a = fun R1(_) -> #r1{} end(1), b}).
 
               t() ->
                   foo = fun(A) when A#r1.a > A#r1.b -> foo end(#r1{b = 2}),
@@ -741,6 +762,7 @@ neg_indent(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"{[a,b,c],[d,e|f]}">>),
     ?line ok = pp_expr(<<"f(a,b,c)">>),
     ?line ok = pp_expr(<<"fun() when a,b;c,d -> a end">>),
+    ?line ok = pp_expr(<<"fun A() when a,b;c,d -> a end">>),
     ?line ok = pp_expr(<<"<<34:32,17:32>>">>),
     ?line ok = pp_expr(<<"if a,b,c -> d; e,f,g -> h,i end">>),
     ?line ok = pp_expr(<<"if a -> d; c -> d end">>),
@@ -763,6 +785,9 @@ neg_indent(Config) when is_list(Config) ->
     Fun2 = {'fun',2,{clauses,[{clause,2,[],[],[{atom,3,true}]}]},
             {0,108059557,'-t/0-fun-0-'}},
     ?line "fun() -> true end" = flat_expr(Fun2),
+    Fun3 = {named_fun,3,'True',[{clause,3,[],[],[{atom,3,true}]}],
+            {0,424242424,'-t/0-True-0-'}},
+    ?line "fun True() -> true end" = flat_expr(Fun3),
 
     ok.
 
@@ -1091,7 +1116,7 @@ otp_10820(Config) when is_list(Config) ->
     C1 = <<"%% coding: utf-8\n -module(any).">>,
     ok = do_otp_10820(Config, C1, "+pc latin1"),
     ok = do_otp_10820(Config, C1, "+pc unicode"),
-    C2 = <<"-module(any).">>,
+    C2 = <<"%% coding: latin-1\n -module(any).">>,
     ok = do_otp_10820(Config, C2, "+pc latin1"),
     ok = do_otp_10820(Config, C2, "+pc unicode").
 

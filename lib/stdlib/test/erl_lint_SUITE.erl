@@ -48,6 +48,7 @@
 	  unused_function/1,
 	  unsafe_vars/1,unsafe_vars2/1,
 	  unsafe_vars_try/1,
+	  unsized_binary_in_bin_gen_pattern/1,
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
 	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
@@ -80,6 +81,7 @@ all() ->
     [{group, unused_vars_warn}, export_vars_warn,
      shadow_vars, unused_import, unused_function,
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+     unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,export_all,
@@ -573,7 +575,7 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
     ok.
 
 unused_vars_warn_fun(doc) ->
-    "Warnings for unused variables in records.";
+    "Warnings for unused variables in funs.";
 unused_vars_warn_fun(suite) -> [];
 unused_vars_warn_fun(Config) when is_list(Config) ->
     Ts = [{fun1,
@@ -641,7 +643,60 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                {22,erl_lint,{unused_var,'U'}},
                {24,erl_lint,{unused_var,'U'}},
                {26,erl_lint,{unused_var,'U'}},
-               {26,erl_lint,{shadowed_var,'U','fun'}}]}}
+               {26,erl_lint,{shadowed_var,'U','fun'}}]}},
+          {named_fun,
+           <<"u() ->
+                  fun U() -> foo end, % U unused.
+                  U; % U unbound.
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2;
+                      false ->
+                          true
+                  end,
+                  fun U() -> foo end, % U unused.
+                  U; % U unsafe.
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2;
+                      false ->
+                          U = 3
+                  end,
+                  fun U() -> foo end, % U shadowed. U unused.
+                  U;
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2; % U unused.
+                      false ->
+                          U = 3 % U unused.
+                  end,
+                  fun U() -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun U(U) -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun U(1) -> U; U(U) -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun _(N) -> N + 1 end.  % Cover handling of '_' name.
+           ">>,
+           [warn_unused_vars],
+           {error,[{3,erl_lint,{unbound_var,'U'}},
+                   {12,erl_lint,{unsafe_var,'U',{'case',5}}}],
+                  [{2,erl_lint,{unused_var,'U'}},
+                   {11,erl_lint,{unused_var,'U'}},
+                   {20,erl_lint,{unused_var,'U'}},
+                   {20,erl_lint,{shadowed_var,'U','named fun'}},
+                   {25,erl_lint,{unused_var,'U'}},
+                   {27,erl_lint,{unused_var,'U'}},
+                   {29,erl_lint,{unused_var,'U'}},
+                   {29,erl_lint,{shadowed_var,'U','named fun'}},
+                   {31,erl_lint,{unused_var,'U'}},
+                   {31,erl_lint,{unused_var,'U'}},
+                   {31,erl_lint,{shadowed_var,'U','fun'}},
+                   {33,erl_lint,{unused_var,'U'}},
+                   {33,erl_lint,{shadowed_var,'U','fun'}}]}}
           ],
     ?line [] = run(Config, Ts),
     ok.
@@ -1125,6 +1180,35 @@ unsafe_vars_try(Config) when is_list(Config) ->
            [],
            {errors,[{13,erl_lint,{unsafe_var,'Acc',{'try',6}}}],[]}}],
         ?line [] = run(Config, Ts),
+    ok.
+
+unsized_binary_in_bin_gen_pattern(doc) ->
+    "Unsized binary fields are forbidden in patterns of bit string generators";
+unsized_binary_in_bin_gen_pattern(suite) -> [];
+unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
+    Ts = [{unsized_binary_in_bin_gen_pattern,
+	   <<"t({bc,binary,Bin}) ->
+		  << <<X,Tail/binary>> || <<X,Tail/binary>> <= Bin >>;
+	      t({bc,bits,Bin}) ->
+		  << <<X,Tail/bits>> || <<X,Tail/bits>> <= Bin >>;
+	      t({bc,bitstring,Bin}) ->
+		  << <<X,Tail/bits>> || <<X,Tail/bitstring>> <= Bin >>;
+	      t({lc,binary,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/binary>> <= Bin ];
+	      t({lc,bits,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bits>> <= Bin ];
+	      t({lc,bitstring,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bitstring>> <= Bin ].">>,
+	   [],
+	   {errors,
+	    [{2,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {4,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {6,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {8,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {10,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {12,erl_lint,unsized_binary_in_bin_gen_pattern}],
+	     []}}],
+    [] = run(Config, Ts),
     ok.
 
 guard(doc) ->
@@ -2170,7 +2254,8 @@ otp_5878(Config) when is_list(Config) ->
            <<"-record(r1, {t = case foo of _ -> 3 end}).
               -record(r2, {a = case foo of A -> A; _ -> 3 end}).
               -record(r3, {a = case foo of A -> A end}).
-              t() -> {#r1{},#r2{},#r3{}}.
+              -record(r4, {a = fun _AllowedFunName() -> allowed end}).
+              t() -> {#r1{},#r2{},#r3{},#r4{}}.
              ">>,
            [warn_unused_record],
            {errors,[{2,erl_lint,{variable_in_record_def,'A'}},

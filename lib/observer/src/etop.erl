@@ -44,9 +44,6 @@ help() ->
       "  sort        runtime | reductions | memory | msg_q~n"
       "                         What information to sort by~n"
       "                         Default: runtime (reductions if tracing=off)~n"
-      "  output      graphical | text~n"
-      "                         How to present results~n"
-      "                         Default: graphical~n"
       "  tracing     on | off   etop uses the erlang trace facility, and thus~n"
       "                         no other tracing is possible on the node while~n"
       "                         etop is running, unless this option is set to~n"
@@ -317,7 +314,7 @@ handle_args([_| R], C) ->
 handle_args([], C) ->
     C.
 
-output(graphical) -> etop_gui;
+output(graphical) -> exit({deprecated, "Use observer instead"});
 output(text) -> etop_txt.
 
 

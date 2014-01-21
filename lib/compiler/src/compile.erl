@@ -417,6 +417,10 @@ pass(from_core) ->
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
 pass(asm) ->
+    %% TODO: remove 'asm' in R18
+    io:format("compile:file/2 option 'asm' has been deprecated and will be "
+	      "removed in R18.~n"
+	      "Use 'from_asm' instead.~n"),
     pass(from_asm);
 pass(from_beam) ->
     {".beam",[?pass(read_beam_file)|binary_passes()]};
@@ -608,7 +612,7 @@ core_passes() ->
 	?pass(core_fold_module),
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
-	{core_fold_after_inline,fun test_core_inliner/1,fun core_fold_module/1},
+	{core_fold_after_inlining,fun test_core_inliner/1,fun core_fold_module_after_inlining/1},
 	?pass(core_transforms)]},
        {iff,dcopt,{listing,"copt"}},
        {iff,'to_core',{done,"core"}}]}
@@ -1130,6 +1134,12 @@ core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
     {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),
     {ok,St#compile{code=Code,warnings=Warns ++ Ws}}.
 
+core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
+    %% Inlining may produce code that generates spurious warnings.
+    %% Ignore all warnings.
+    {ok,Code,_Ws} = sys_core_fold:module(Code0, Opts),
+    {ok,St#compile{code=Code}}.
+
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
     %% if we know that it will not be used.
@@ -1613,7 +1623,7 @@ compile_beam(File0, _OutFile, Opts) ->
 
 compile_asm(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
-    case file(File, [asm|make_erl_options(Opts)]) of
+    case file(File, [from_asm|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.

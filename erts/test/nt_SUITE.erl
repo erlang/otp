@@ -74,7 +74,7 @@ end_per_testcase(_Func, Config) ->
     ok.    
 
 erlsrv() ->
-    os:find_executable(erlsrv).
+    "\"" ++ os:find_executable(erlsrv) ++ "\"".
 
 
 recv_prog_output(Port) -> 
@@ -542,7 +542,7 @@ get_current_procs(Config) ->
     ?line erl_parse:parse_term(Tok).
 
 nt_info(Config) when is_list(Config) ->
-    ?line filename:join(?config(data_dir, Config), "nt_info").
+    ?line "\"" ++ filename:join(?config(data_dir, Config), "nt_info") ++ "\"".
 
 
 logdir(Config) ->

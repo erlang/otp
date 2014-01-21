@@ -36,7 +36,7 @@
 
 -type assoc_id() :: term().
 -type option() ::
-        {active, true | false | once} |
+        {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
         {dontroute, boolean()} |
         {high_msgq_watermark, pos_integer()} |
@@ -274,7 +274,7 @@ do_connect(S, Addr, Port, Opts, Timeout, ConnWait) when is_port(S), is_list(Opts
 				    Mod:connect(S, IP, Port, Opts, ConnectTimer);
 				Error -> Error
 			    after
-				inet:stop_timer(Timer)
+				_ = inet:stop_timer(Timer)
 			    end
 		    catch
 			error:badarg ->

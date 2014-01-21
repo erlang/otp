@@ -46,6 +46,11 @@ typedef struct erl_off_heap {
     Uint64 overhead;     /* Administrative overhead (used to force GC). */
 } ErlOffHeap;
 
+#define ERTS_INIT_OFF_HEAP(OHP)			\
+    do {					\
+	(OHP)->first = NULL;			\
+	(OHP)->overhead = 0;			\
+    } while (0)
 #include "external.h"
 #include "erl_process.h"
 

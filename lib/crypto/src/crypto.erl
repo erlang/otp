@@ -34,6 +34,7 @@
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
+-export([ec_curve/1, ec_curves/0]).
 
 %% DEPRECATED
 %% Replaced by hash_*
@@ -183,7 +184,7 @@
 %%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -on_load(on_load/0).
--define(CRYPTO_NIF_VSN,201).
+-define(CRYPTO_NIF_VSN,301).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 nif_stub_error(Line) ->
@@ -204,20 +205,13 @@ stop() ->
     application:stop(crypto).
 
 supports()->
-    Algs = algorithms(),
-    PubKeyAlgs = 
-	case lists:member(ec, Algs) of
-	    true ->
-		{public_keys, [rsa, dss, ecdsa, dh, srp, ecdh]};
-	    false ->
-		{public_keys, [rsa, dss, dh, srp]}
-	end,
-    [{hashs, Algs -- [ec]},
-     {ciphers, [des_cbc, des_cfb,  des3_cbc, des3_cbf, des_ede3, blowfish_cbc,
+    {Hashs, PubKeys, Ciphers} = algorithms(),
+
+    [{hashs, Hashs},
+     {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
 		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4
-	       ]},
-     PubKeyAlgs
+		aes_cbc256, rc2_cbc, aes_ctr, rc4] ++ Ciphers},
+     {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
 
 info_lib() -> ?nif_stub.
@@ -309,13 +303,16 @@ block_encrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cbc256, Key, Ivec, Data) ->
     aes_cbc_256_encrypt(Key, Ivec, Data);
+block_encrypt(aes_ige256, Key, Ivec, Data) ->
+    aes_ige_256_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_encrypt(Key, Ivec, Data);
 block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_cfb128 | rc2_cbc,
+	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
+          aes_cfb128 | rc2_cbc,
 	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
 
 block_decrypt(des_cbc, Key, Ivec, Data) ->
@@ -338,6 +335,8 @@ block_decrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cbc256, Key, Ivec, Data) ->
     aes_cbc_256_decrypt(Key, Ivec, Data);
+block_decrypt(aes_ige256, Key, Ivec, Data) ->
+    aes_ige_256_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_decrypt(Key, Ivec, Data);
 block_decrypt(rc2_cbc, Key, Ivec, Data) ->
@@ -357,14 +356,16 @@ block_decrypt(des_ecb, Key, Data) ->
 block_decrypt(blowfish_ecb, Key, Data) ->
     blowfish_ecb_decrypt(Key, Data).
 
--spec next_iv(des_cbc | des3_cbc | aes_cbc, Data::iodata()) -> binary().
+-spec next_iv(des_cbc | des3_cbc | aes_cbc | aes_ige, Data::iodata()) -> binary().
 
 next_iv(des_cbc, Data) ->
     des_cbc_ivec(Data);
 next_iv(des3_cbc, Data) ->
     des_cbc_ivec(Data);
 next_iv(aes_cbc, Data) ->
-    aes_cbc_ivec(Data).
+    aes_cbc_ivec(Data);
+next_iv(aes_ige, Data) ->
+    aes_ige_ivec(Data).
 
 -spec next_iv(des_cfb, Data::iodata(), Ivec::binary()) -> binary().
 
@@ -557,7 +558,7 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(ecdh, Curve, undefined) ->
-    ec_key_generate(Curve).
+    ec_key_generate(nif_curve_params(Curve)).
 
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
@@ -640,7 +641,7 @@ on_load() ->
 		      end
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
-    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,Lib}) of
+    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,path2bin(Lib)}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
 		     ArchLibDir =
@@ -652,7 +653,7 @@ on_load() ->
 			 [] -> Error1;
 			 _ ->
 			     ArchLib = filename:join([ArchLibDir, LibName]),
-			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchLib})
+			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,path2bin(ArchLib)})
 		     end;
 		 Error1 -> Error1
 	     end,
@@ -663,6 +664,14 @@ on_load() ->
 				   "OpenSSL might not be installed on this system.~n",[E,Str]),
 	    Status
     end.
+
+path2bin(Path) when is_list(Path) ->
+    Encoding = file:native_name_encoding(),
+    case unicode:characters_to_binary(Path,Encoding,Encoding) of
+	Bin when is_binary(Bin) ->
+	    Bin
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions (some internal API functions are part of the deprecated API)
 %%--------------------------------------------------------------------
@@ -1255,6 +1264,41 @@ aes_cbc_ivec(Data) when is_list(Data) ->
     aes_cbc_ivec(list_to_binary(Data)).
 
 
+%%
+%% AES - with 256 bit key in infinite garble extension mode (IGE)
+%%
+
+-spec aes_ige_256_decrypt(iodata(), binary(), iodata()) ->
+                 binary().
+
+aes_ige_256_encrypt(Key, IVec, Data) ->
+    aes_ige_crypt(Key, IVec, Data, true).
+
+aes_ige_256_decrypt(Key, IVec, Data) ->
+    aes_ige_crypt(Key, IVec, Data, false).
+
+aes_ige_crypt(Key, IVec, Data, IsEncrypt) ->
+    case aes_ige_crypt_nif(Key,IVec,Data,IsEncrypt) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+aes_ige_crypt_nif(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
+
+%%
+%% aes_ige_ivec(Data) -> binary()
+%%
+%% Returns the IVec to be used in the next iteration of
+%% aes_ige_*_[encrypt|decrypt].
+%% IVec size: 32 bytes
+%%
+aes_ige_ivec(Data) when is_binary(Data) ->
+    {_, IVec} = split_binary(Data, size(Data) - 32),
+    IVec;
+aes_ige_ivec(Data) when is_list(Data) ->
+    aes_ige_ivec(list_to_binary(Data)).
+
+
 %% Stream ciphers --------------------------------------------------------------------
 
 stream_crypt(Fun, State, Data, Size, MaxByts, []) when Size =< MaxByts ->
@@ -1459,21 +1503,27 @@ ec_key_generate(_Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
+ec_curves() ->
+    crypto_ec_curves:curves().
+
+ec_curve(X) ->
+    crypto_ec_curves:curve(X).
+
 %%
 %% EC
 %%
 
 term_to_nif_prime({prime_field, Prime}) ->
-    {prime_field, int_to_bin(Prime)};
+    {prime_field, ensure_int_as_bin(Prime)};
 term_to_nif_prime(PrimeField) ->
     PrimeField.
 term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
 nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), int_to_bin(Order), int_to_bin(CoFactor)};
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), ensure_int_as_bin(Order), ensure_int_as_bin(CoFactor)};
 nif_curve_params(Curve) when is_atom(Curve) ->
     %% named curve
-    Curve.
+    crypto_ec_curves:curve(Curve).
 
 
 %% MISC --------------------------------------------------------------------

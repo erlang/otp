@@ -78,6 +78,7 @@ XML_CHAPTER_FILES = \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
 	communication.xml \
+	time_correction.xml \
 	notes.xml \
 	notes_history.xml
 

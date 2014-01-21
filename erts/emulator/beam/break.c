@@ -112,10 +112,12 @@ process_killer(void)
 		    erts_smp_proc_lock(rp, rp_locks);
 		    state = erts_smp_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
-				  | ERTS_PSFLG_EXITING
-				  | ERTS_PSFLG_ACTIVE
-				  | ERTS_PSFLG_IN_RUNQ
-				  | ERTS_PSFLG_RUNNING)) {
+				 | ERTS_PSFLG_EXITING
+				 | ERTS_PSFLG_ACTIVE
+				 | ERTS_PSFLG_ACTIVE_SYS
+				 | ERTS_PSFLG_IN_RUNQ
+				 | ERTS_PSFLG_RUNNING
+				 | ERTS_PSFLG_RUNNING_SYS)) {
 			erts_printf("Can only kill WAITING processes this way\n");
 		    }
 		    else {

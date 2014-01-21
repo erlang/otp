@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
 #  define OpCode(OpCode)    ((Uint*)op_##OpCode)
-#  define Goto(Rel) {Go = (int)(Rel); goto emulator_loop;}
+#  define Goto(Rel) {Go = (int)(UWord)(Rel); goto emulator_loop;}
 #  define LabelAddr(Addr) &&##Addr
 #else
 #  define OpCase(OpCode)    lb_##OpCode
@@ -133,7 +133,7 @@ do {                                     \
 
 /* We don't check the range if an ordinary switch is used */
 #ifdef NO_JUMP_TABLE
-#define VALID_INSTR(IP) (0 <= (int)(IP) && ((int)(IP) < (NUMBER_OF_OPCODES*2+10)))
+#define VALID_INSTR(IP) ((UWord)(IP) < (NUMBER_OF_OPCODES*2+10))
 #else
 #define VALID_INSTR(IP) \
    ((SWord)LabelAddr(emulator_loop) <= (SWord)(IP) && \
@@ -4326,7 +4326,19 @@ void process_main(void)
      flags = Arg(2);
      BsGetFieldSize(tmp_arg2, (flags >> 3), ClauseFail(), size);
      if (size >= SMALL_BITS) {
-	 Uint wordsneeded = 1+WSIZE(NBYTES((Uint) size));
+	 Uint wordsneeded;
+	 /* check bits size before potential gc.
+	  * We do not want a gc and then realize we don't need
+	  * the allocated space (i.e. if the op fails)
+	  *
+	  * remember to reacquire the matchbuffer after gc.
+	  */
+
+	 mb = ms_matchbuffer(tmp_arg1);
+	 if (mb->size - mb->offset < size) {
+	     ClauseFail();
+	 }
+	 wordsneeded = 1+WSIZE(NBYTES((Uint) size));
 	 TestHeapPreserve(wordsneeded, Arg(1), tmp_arg1);
      }
      mb = ms_matchbuffer(tmp_arg1);

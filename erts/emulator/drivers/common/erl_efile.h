@@ -34,6 +34,7 @@
 #define EFILE_COMPRESSED 	8
 #define EFILE_MODE_EXCL        16
 #define EFILE_NO_TRUNCATE      32 /* Special for reopening on VxWorks */
+#define EFILE_MODE_SYNC        64
 
 /*
  * Seek modes for efile_seek().

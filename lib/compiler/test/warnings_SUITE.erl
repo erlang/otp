@@ -117,6 +117,7 @@ pattern2(Config) when is_list(Config) ->
 	   Source,
 	   [nowarn_unused_vars],
 	   {warnings,[{2,sys_core_fold,{nomatch_shadow,1}},
+		      {4,sys_core_fold,no_clause_match},
 		      {5,sys_core_fold,nomatch_clause_type},
 		      {6,sys_core_fold,nomatch_clause_type}]}}],
     ?line [] = run(Config, Ts),

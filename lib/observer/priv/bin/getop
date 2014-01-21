@@ -1,4 +1,0 @@
-#!/bin/sh 
-
-NAME="etop"
-erl -sname $NAME -noinput -hidden -s etop -s erlang halt $@

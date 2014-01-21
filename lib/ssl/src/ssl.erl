@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -608,39 +608,41 @@ handle_options(Opts0, _Role) ->
 	       end,
 
     SSLOptions = #ssl_options{
-      versions   = Versions,
-      verify     = validate_option(verify, Verify),
-      verify_fun = VerifyFun,
-      fail_if_no_peer_cert = FailIfNoPeerCert,
-      verify_client_once =  handle_option(verify_client_once, Opts, false),
-      depth      = handle_option(depth,  Opts, 1),
-      cert       = handle_option(cert, Opts, undefined),
-      certfile   = CertFile,
-      key        = handle_option(key, Opts, undefined),
-      keyfile    = handle_option(keyfile,  Opts, CertFile),
-      password   = handle_option(password, Opts, ""),
-      cacerts    = CaCerts,
-      cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
-      dh         = handle_option(dh, Opts, undefined),
-      dhfile     = handle_option(dhfile, Opts, undefined),
-      user_lookup_fun = handle_option(user_lookup_fun, Opts, undefined),
-      psk_identity = handle_option(psk_identity, Opts, undefined),
-      srp_identity = handle_option(srp_identity, Opts, undefined),
-      ciphers    = handle_option(ciphers, Opts, []),
-      %% Server side option
-      reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
-      reuse_sessions = handle_option(reuse_sessions, Opts, true),
-      secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
-      renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
-      hibernate_after = handle_option(hibernate_after, Opts, undefined),
-      erl_dist = handle_option(erl_dist, Opts, false),
-      next_protocols_advertised =
+		    versions   = Versions,
+		    verify     = validate_option(verify, Verify),
+		    verify_fun = VerifyFun,
+		    fail_if_no_peer_cert = FailIfNoPeerCert,
+		    verify_client_once =  handle_option(verify_client_once, Opts, false),
+		    depth      = handle_option(depth,  Opts, 1),
+		    cert       = handle_option(cert, Opts, undefined),
+		    certfile   = CertFile,
+		    key        = handle_option(key, Opts, undefined),
+		    keyfile    = handle_option(keyfile,  Opts, CertFile),
+		    password   = handle_option(password, Opts, ""),
+		    cacerts    = CaCerts,
+		    cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
+		    dh         = handle_option(dh, Opts, undefined),
+		    dhfile     = handle_option(dhfile, Opts, undefined),
+		    user_lookup_fun = handle_option(user_lookup_fun, Opts, undefined),
+		    psk_identity = handle_option(psk_identity, Opts, undefined),
+		    srp_identity = handle_option(srp_identity, Opts, undefined),
+		    ciphers    = handle_option(ciphers, Opts, []),
+		    %% Server side option
+		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
+		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
+		    secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
+		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
+		    hibernate_after = handle_option(hibernate_after, Opts, undefined),
+		    erl_dist = handle_option(erl_dist, Opts, false),
+		    next_protocols_advertised =
 			handle_option(next_protocols_advertised, Opts, undefined),
-      next_protocol_selector =
+		    next_protocol_selector =
 			make_next_protocol_selector(
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
-      log_alert = handle_option(log_alert, Opts, true)
-     },
+		    log_alert = handle_option(log_alert, Opts, true),
+		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
+		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false)
+		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
     SslOptions = [protocol, versions, verify, verify_fun,
@@ -651,7 +653,8 @@ handle_options(Opts0, _Role) ->
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, next_protocols_advertised,
-		  client_preferred_next_protocols, log_alert],
+		  client_preferred_next_protocols, log_alert,
+		  server_name_indication, honor_cipher_order],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -833,6 +836,14 @@ validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
 
 validate_option(next_protocols_advertised, undefined) ->
     undefined;
+validate_option(server_name_indication, Value) when is_list(Value) ->
+    Value;
+validate_option(server_name_indication, disable) ->
+    disable;
+validate_option(server_name_indication, undefined) ->
+    undefined;
+validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
+    Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 

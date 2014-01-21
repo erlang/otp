@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@ start() ->
 -spec create(Name :: name()) -> 'ok'.
 
 create(Name) ->
-    ensure_started(),
+    _ = ensure_started(),
     case ets:member(pg2_table, {group, Name}) of
         false ->
             global:trans({{?MODULE, Name}, self()},
@@ -60,7 +60,7 @@ create(Name) ->
 -spec delete(Name :: name()) -> 'ok'.
 
 delete(Name) ->
-    ensure_started(),
+    _ = ensure_started(),
     global:trans({{?MODULE, Name}, self()},
                  fun() ->
                          gen_server:multi_call(?MODULE, {delete, Name})
@@ -71,7 +71,7 @@ delete(Name) ->
       when Name :: name().
 
 join(Name, Pid) when is_pid(Pid) ->
-    ensure_started(),
+    _ = ensure_started(),
     case ets:member(pg2_table, {group, Name}) of
         false ->
             {error, {no_such_group, Name}};
@@ -88,7 +88,7 @@ join(Name, Pid) when is_pid(Pid) ->
       when Name :: name().
 
 leave(Name, Pid) when is_pid(Pid) ->
-    ensure_started(),
+    _ = ensure_started(),
     case ets:member(pg2_table, {group, Name}) of
         false ->
             {error, {no_such_group, Name}};
@@ -105,7 +105,7 @@ leave(Name, Pid) when is_pid(Pid) ->
       when Name :: name().
 
 get_members(Name) ->
-    ensure_started(),
+    _ = ensure_started(),
     case ets:member(pg2_table, {group, Name}) of
         true ->
             group_members(Name);
@@ -117,7 +117,7 @@ get_members(Name) ->
       when Name :: name().
 
 get_local_members(Name) ->
-    ensure_started(),
+    _ = ensure_started(),
     case ets:member(pg2_table, {group, Name}) of
         true ->
             local_group_members(Name);
@@ -128,7 +128,7 @@ get_local_members(Name) ->
 -spec which_groups() -> [Name :: name()].
 
 which_groups() ->
-    ensure_started(),
+    _ = ensure_started(),
     all_groups().
 
 -spec get_closest_pid(Name) ->  pid() | {'error', Reason} when
@@ -165,7 +165,7 @@ get_closest_pid(Name) ->
 
 init([]) ->
     Ns = nodes(),
-    net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true),
     lists:foreach(fun(N) ->
                           {?MODULE, N} ! {new_pg2, node()},
                           self() ! {nodeup, N}
@@ -283,7 +283,7 @@ member_died(Ref) ->
 
 join_group(Name, Pid) ->
     Ref_Pid = {ref, Pid}, 
-    try _ = ets:update_counter(pg2_table, Ref_Pid, {4, +1})
+    try _ = ets:update_counter(pg2_table, Ref_Pid, {4, +1}), true
     catch _:_ ->
             {RPid, Ref} = do_monitor(Pid),
             true = ets:insert(pg2_table, {Ref_Pid, RPid, Ref, 1}),

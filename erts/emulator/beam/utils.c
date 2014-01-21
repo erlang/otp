@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -185,39 +185,41 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_stack(ErtsAlcType_t a_type, Eterm** start, Eterm** sp, Eterm** end)
+erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
 {
-    Uint old_size = (*end - *start);
+    Uint old_size = (s->end - s->start);
     Uint new_size = old_size * 2;
-    Uint sp_offs = *sp - *start;
-    if (new_size > 2 * DEF_ESTACK_SIZE) {
-	*start = erts_realloc(a_type, (void *) *start, new_size*sizeof(Eterm));
+    Uint sp_offs = s->sp - s->start;
+    if (s->start != default_estack) {
+	s->start = erts_realloc(s->alloc_type, s->start,
+				new_size*sizeof(Eterm));
     } else {
-	Eterm* new_ptr = erts_alloc(a_type, new_size*sizeof(Eterm));
-	sys_memcpy(new_ptr, *start, old_size*sizeof(Eterm));
-	*start = new_ptr;
+	Eterm* new_ptr = erts_alloc(s->alloc_type, new_size*sizeof(Eterm));
+	sys_memcpy(new_ptr, s->start, old_size*sizeof(Eterm));
+	s->start = new_ptr;
     }
-    *end = *start + new_size;
-    *sp = *start + sp_offs;
+    s->end = s->start + new_size;
+    s->sp = s->start + sp_offs;
 }
 /*
- * Helper function for the ESTACK macros defined in global.h.
+ * Helper function for the WSTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(ErtsAlcType_t a_type, UWord** start, UWord** sp, UWord** end)
+erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
 {
-    Uint old_size = (*end - *start);
+    Uint old_size = (s->wend - s->wstart);
     Uint new_size = old_size * 2;
-    Uint sp_offs = *sp - *start;
-    if (new_size > 2 * DEF_ESTACK_SIZE) {
-	*start = erts_realloc(a_type, (void *) *start, new_size*sizeof(UWord));
+    Uint sp_offs = s->wsp - s->wstart;
+    if (s->wstart != default_wstack) {
+	s->wstart = erts_realloc(s->alloc_type, s->wstart,
+				 new_size*sizeof(UWord));
     } else {
-	UWord* new_ptr = erts_alloc(a_type, new_size*sizeof(UWord));
-	sys_memcpy(new_ptr, *start, old_size*sizeof(UWord));
-	*start = new_ptr;
+	UWord* new_ptr = erts_alloc(s->alloc_type, new_size*sizeof(UWord));
+	sys_memcpy(new_ptr, s->wstart, old_size*sizeof(UWord));
+	s->wstart = new_ptr;
     }
-    *end = *start + new_size;
-    *sp = *start + sp_offs;
+    s->wend = s->wstart + new_size;
+    s->wsp = s->wstart + sp_offs;
 }
 
 /* CTYPE macros */
@@ -1675,7 +1677,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 	p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
 	if (p) {
 	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-	    if (state & ERTS_PSFLG_RUNNING)
+	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
 		p = NULL;
 	}
     }
@@ -2846,7 +2848,7 @@ pop_next:
     return 0;
 
 not_equal:
-    DESTROY_ESTACK(stack);
+    DESTROY_WSTACK(stack);
     return j;
 
 #undef CMP_NODES
@@ -3021,6 +3023,14 @@ buf_to_intlist(Eterm** hpp, const char *buf, size_t len, Eterm tail)
 ** Return remaining bytes in buffer on success
 **        ERTS_IOLIST_TO_BUF_OVERFLOW on overflow
 **        ERTS_IOLIST_TO_BUF_TYPE_ERROR on type error (including that result would not be a whole number of bytes)
+**
+** Note! 
+** Do not detect indata errors in this fiunction that are not detected by erts_iolist_size!
+**
+** A caller should be able to rely on a successful return from erts_iolist_to_buf
+** if erts_iolist_size is previously successfully called and erts_iolist_to_buf 
+** is called with a buffer at least as large as the value given by erts_iolist_size.
+** 
 */
 
 ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
@@ -3127,6 +3137,11 @@ ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
 
 /*
  * Return 0 if successful, and non-zero if unsuccessful.
+ *
+ * It is vital that if erts_iolist_to_buf would return an error for
+ * any type of term data, this function should do so as well.
+ * Any input term error detected in erts_iolist_to_buf should also
+ * be detected in this function!
  */
 int erts_iolist_size(Eterm obj, ErlDrvSizeT* sizep)
 {
@@ -4005,7 +4020,6 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 	return ++icp->counter.not_atomic;
 #endif
 }
-
 
 /*
  * A millisecond timestamp without time correction where there's no hrtime

@@ -344,6 +344,9 @@ expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
 expr({'fun',Line,{clauses,Cs0}}, St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {{'fun',Line,{clauses,Cs}},St1};
+expr({named_fun,Line,Name,Cs0}, St0) ->
+    {Cs,St1} = clauses(Cs0, St0),
+    {{named_fun,Line,Name,Cs},St1};
 expr({call,Line,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
     record_test(Line, A, Name, St);
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}},
