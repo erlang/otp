@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,6 @@
 
 -module(httpd_1_1).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -export([host/4, chunked/4, expect/4, range/4, if_test/5, http_trace/4,
@@ -40,14 +38,10 @@
 
 
 %%-------------------------------------------------------------------------
-%% Test cases starts here.
+%% Test cases 
 %%-------------------------------------------------------------------------
 host(Type, Port, Host, Node) ->
-    %% No host needed for HTTP/1.0
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				       "GET / HTTP/1.0\r\n\r\n", 
-				       [{statuscode, 200},
-					{version, "HTTP/1.0"}]),
+  
     %% No host must generate an error
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET / HTTP/1.1\r\n\r\n",
