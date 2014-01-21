@@ -63,7 +63,7 @@ At Ericsson we have a "Daily Build and Test" that runs on:
     *   x86
 *   OpenBSD 5.0
     *   x86\_64
-*   Mac OS X 10.5.8 (Leopard), 10.6.0 (Snow Leopard), 10.7.3 (Lion)
+*   Mac OS X 10.5.8 (Leopard), 10.7.3 (Lion), 10.9 (Mavericks)
     *   x86
 *   Windows XP SP3, 2003, Vista, 7
     *   x86
@@ -703,17 +703,18 @@ Install MacPorts (<http://www.macports.org/>). Then:
 
 ### Building with wxErlang ###
 
-If you want to build the `wx` application, you will need to get wxWidgets-2.9.4 (or later)
-(`wxWidgets-2.9.4.tar.bz2` from <http://sourceforge.net/projects/wxwindows/files/2.9.4/>)
+If you want to build the `wx` application, you will need to get wxWidgets-3.0 (or later)
+(`wxWidgets-3.0.0.tar.bz2` from <http://sourceforge.net/projects/wxwindows/files/3.0.0/>)
 or get it from github:
     $ git clone git@github.com:wxWidgets/wxWidgets.git
 
-Be aware that the wxWidgets-2.9 branch is a development branch of wxWidgets and the MacOsX
-port still lags behind the other ports.
+Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as matured 
+as the old releases and the MacOsX port still lags behind the other ports.
 
-Configure and build wxMac:
+Configure and build wxWidgets:
 
-    $ ./configure --with-cocoa --prefix=/usr/local
+    $ ./configure --with-cocoa --prefix=/usr/local 
+      % Optional version and static libs: --with-macosx-version-min=10.9 --disable-shared
     $ make
     $ sudo make install
     $ export PATH=/usr/local/bin:$PATH
@@ -724,12 +725,11 @@ Check that you got the correct wx-config
 
 ### Finish up ###
 
-Build Erlang with the MacPorts GCC as the main compiler (using `clang`
-for the Objective-C Cocoa code in the `wx` application):
+Build Erlang
 
     $ export PATH=/usr/local/bin:$PATH
     $ cd $ERL_TOP
-    $ CC=/opt/local/bin/gcc-mp-4.5 CXX=/opt/local/bin/g++-mp-4.5 ./configure --enable-darwin-64bit
+    $ ./configure --enable-shared-zlib
     $ make
     $ sudo make install
 

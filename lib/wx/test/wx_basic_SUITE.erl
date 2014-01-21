@@ -324,7 +324,18 @@ data_types(_Config) ->
 wx_object(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 wx_object(Config) ->
     wx:new(),
-    Frame = ?mt(wxFrame, wx_obj_test:start([])),
+    Me = self(),
+    Init = fun() ->
+		   Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Test wx_object", [{size, {500, 400}}]),
+		   Sz = wxBoxSizer:new(?wxHORIZONTAL),
+		   Panel = wxPanel:new(Frame),
+		   wxSizer:add(Sz, Panel, [{flag, ?wxEXPAND}, {proportion, 1}]),
+		   wxPanel:connect(Panel, size, [{skip, true}]),
+		   wxPanel:connect(Panel, paint, [callback, {userData, Me}]),
+		   wxWindow:show(Frame),
+		   {Frame, {Frame, Panel}}
+	   end,
+    Frame = ?mt(wxFrame, wx_obj_test:start([{init, Init}])),
     timer:sleep(500),
     ?m(ok, check_events(flush())),
 

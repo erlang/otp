@@ -484,6 +484,7 @@ callback_clean(Config) ->
     %% timer:sleep(infinity),
     %% ok.
 
+
 white_box_check_event_handlers() ->
     {_,_,Server,_} = wx:get_env(),
     {status, _, _, [Env, _, _, _, Data]} = sys:get_status(Server),
@@ -495,3 +496,35 @@ white_box_check_event_handlers() ->
      gb_trees:to_list(CBs),
      [Funs || Funs = {Id, {Fun,_}} <- Env, is_integer(Id), is_function(Fun)]
     }.
+
+handler_clean(TestInfo) when is_atom(TestInfo) ->
+    wx_test_lib:tc_info(TestInfo);
+handler_clean(_Config) ->
+    wx:new(),
+    Init = fun() -> create_window() end,
+    Frame1 = wx_obj_test:start([{init, Init}]),
+    ?mt(wxFrame, Frame1),
+    wxWindow:show(Frame1),
+    ?m([_|_], lists:sort(wx_test_lib:flush())),
+    ?m({stop,_}, wx_obj_test:stop(Frame1, fun(_) -> normal end)),
+    ?m([{terminate,normal}], lists:sort(wx_test_lib:flush())),
+
+    Frame2 = wx_obj_test:start([{init, Init}]),
+    wxWindow:show(Frame2),
+    ?m([_|_], lists:sort(wx_test_lib:flush())),
+    ?m({stop,_}, wx_obj_test:stop(Frame2, fun(_) -> wxWindow:destroy(Frame2), normal end)),
+    ?m([{terminate,normal}], lists:sort(wx_test_lib:flush())),
+    timer:sleep(104),
+    ?m({[],[],[]}, white_box_check_event_handlers()),
+    ?m(ok, wx:destroy()),
+    ok.
+
+create_window() ->
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Test wx_object", [{size, {500, 400}}]),
+    Sz = wxBoxSizer:new(?wxHORIZONTAL),
+    Panel = wxPanel:new(Frame),
+    wxSizer:add(Sz, Panel, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    wxWindow:connect(Frame, show),
+    %% wxPanel:connect(Panel, paint, [callback, {userData, foobar}]),
+    wxWindow:connect(Panel, size, [callback]),
+    {Frame, {Frame, Panel}}.
