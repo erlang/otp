@@ -34,7 +34,10 @@
 
 fragmented(Rules) ->
     Lens = fragmented_lengths(),
-    fragmented_octet_string(Rules, Lens),
+    case 'PrimStrings':legacy_erlang_types() of
+	false -> fragmented_octet_string(Rules, Lens);
+	true -> ok
+    end,
     fragmented_strings(Lens).
 
 fragmented_strings(Lens) ->
@@ -347,61 +350,62 @@ octet_string(Rules) ->
     %% Os ::= OCTET STRING
     %%==========================================================
 
+    Legacy = 'PrimStrings':legacy_erlang_types(),
     case Rules of
-	ber ->
-	    {ok,"Jones"} =
+	ber when not Legacy ->
+	    {ok,<<"Jones">>} =
 		'PrimStrings':decode('Os', <<4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
-	    {ok,"Jones"} =
+	    {ok,<<"Jones">>} =
 		'PrimStrings':decode('Os', <<36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
-	    {ok,"Jones"} =
+	    {ok,<<"Jones">>} =
 		'PrimStrings':decode('Os', <<36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
 	    ok;
 	_ ->
 	    ok
     end,
 
-    roundtrip('Os', [47,23,99,255,1]),
-    roundtrip('OsCon', [47,23,99,255,1]),
-    roundtrip('OsPri', [47,23,99,255,1]),
-    roundtrip('OsApp', [47,23,99,255,1]),
+    os_roundtrip('Os', <<47,23,99,255,1>>),
+    os_roundtrip('OsCon', <<47,23,99,255,1>>),
+    os_roundtrip('OsPri', <<47,23,99,255,1>>),
+    os_roundtrip('OsApp', <<47,23,99,255,1>>),
 
-    roundtrip('OsExpCon', [47,23,99,255,1]),
-    roundtrip('OsExpPri', [47,23,99,255,1]),
-    roundtrip('OsExpApp', [47,23,99,255,1]),
+    os_roundtrip('OsExpCon', <<47,23,99,255,1>>),
+    os_roundtrip('OsExpPri', <<47,23,99,255,1>>),
+    os_roundtrip('OsExpApp', <<47,23,99,255,1>>),
 
-    roundtrip('Os', []),
-    roundtrip('OsApp', []),
-    roundtrip('OsExpApp',[]),
+    os_roundtrip('Os', <<>>),
+    os_roundtrip('OsApp', <<>>),
+    os_roundtrip('OsExpApp', <<>>),
     
-    OsR = "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+    OsR = <<"12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890">>,
 
-    roundtrip('Os', OsR),
-    roundtrip('OsCon', OsR),
-    roundtrip('OsExpApp', OsR),
+    os_roundtrip('Os', OsR),
+    os_roundtrip('OsCon', OsR),
+    os_roundtrip('OsExpApp', OsR),
 
 
     case Rules of
-	ber ->
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,7,4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,11,36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,13,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
-	    {ok,"JonesJones"} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
+	ber when not Legacy ->
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,7,4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,11,36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,13,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
+	    {ok,<<"JonesJones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
 	    ok;
-
-	_->
+	_ ->
 	    ok
     end,
 
     S255 = lists:seq(1, 255),
-    Strings = {type,true,"","1","12","345",true,
-	       S255,[$a|S255],[$a,$b|S255],397},
-    p_roundtrip('OsFixedStrings', Strings),
-    p_roundtrip('OsFixedStringsExt', Strings),
-    p_roundtrip('OsVarStringsExt', Strings),
+    Strings = {type,true,<<"">>,<<"1">>,<<"12">>,<<"345">>,true,
+	       list_to_binary(S255),list_to_binary([$a|S255]),
+	       list_to_binary([$a,$b|S255]),397},
+    p_os_roundtrip('OsFixedStrings', Strings),
+    p_os_roundtrip('OsFixedStringsExt', Strings),
+    p_os_roundtrip('OsVarStringsExt', Strings),
     ShortenedStrings = shorten_by_two(Strings),
-    p_roundtrip('OsFixedStringsExt', ShortenedStrings),
-    p_roundtrip('OsVarStringsExt', ShortenedStrings),
+    p_os_roundtrip('OsFixedStringsExt', ShortenedStrings),
+    p_os_roundtrip('OsVarStringsExt', ShortenedStrings),
     ok.
 
 fragmented_octet_string(Erules, Lens) ->
@@ -430,13 +434,14 @@ fragmented_octet_string(Erules, Types, L) ->
     ok.
 
 enc_frag(Erules, Type, Value) ->
-    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
+    M = 'PrimStrings',
+    {ok,Encoded} = M:encode(Type, Value),
     case Erules of
 	ber ->
 	    Encoded;
 	_ ->
 	    %% Validate encoding with our own encoder.
-	    Encoded = enc_frag_1(<<>>, list_to_binary(Value))
+	    Encoded = enc_frag_1(<<>>, Value)
     end.
 
 enc_frag_1(Res, Bin0) ->
@@ -455,12 +460,12 @@ enc_frag_1(Res, Bin0) ->
     end.
 
 make_value(L) ->
-    make_value(L, 0, []).
+    make_value(L, 0, <<>>).
 
 make_value(0, _, Acc) ->
     Acc;
 make_value(N, Byte, Acc) when Byte =< 255 ->
-    make_value(N-1, Byte+7, [Byte|Acc]);
+    make_value(N-1, Byte+7, <<Acc/binary,Byte:8>>);
 make_value(N, Byte, Acc) ->
     make_value(N, Byte band 16#FF, Acc).
 
@@ -758,9 +763,31 @@ utf8_string(_Rules) ->
 shorten_by_two(Tuple) ->
     L = [case E of
 	     [_,_|T] -> T;
+	     <<_:16,T/binary>> -> T;
 	     _ -> E
 	 end || E <- tuple_to_list(Tuple)],
     list_to_tuple(L).
+
+p_os_roundtrip(Type, Value0) ->
+    Value = setelement(1, Value0, Type),
+    p_os_roundtrip_1(Type, Value).
+
+p_os_roundtrip_1(Type, Value) ->
+    M = 'PrimStrings',
+    case M:legacy_erlang_types() of
+	false ->
+	    asn1_test_lib:roundtrip(M, Type, Value);
+	true ->
+	    {ok,Encoded} = M:encode(Type, Value),
+	    Es0 = tuple_to_list(Value),
+	    Es1 = [if
+		       is_binary(E) -> binary_to_list(E);
+		       true -> E
+		   end || E <- Es0],
+	    ListValue = list_to_tuple(Es1),
+	    {ok,Encoded} = M:encode(Type, ListValue),
+	    {ok,ListValue} = M:decode(Type, Encoded)
+    end.
 
 p_roundtrip(Type, Value0) ->
     Value = setelement(1, Value0, Type),
@@ -774,6 +801,18 @@ roundtrip(Type, Value, Expected) ->
 
 bs_roundtrip(Type, Value) ->
     bs_roundtrip(Type, Value, Value).
+
+os_roundtrip(Type, Bin) when is_binary(Bin) ->
+    M = 'PrimStrings',
+    case M:legacy_erlang_types() of
+	false ->
+	    asn1_test_lib:roundtrip(M, Type, Bin);
+	true ->
+	    {ok,Encoded} = M:encode(Type, Bin),
+	    List = binary_to_list(Bin),
+	    {ok,Encoded} = M:encode(Type, List),
+	    {ok,List} = M:decode(Type, Encoded)
+    end.
 
 bs_roundtrip(Type, Value, Expected) when is_bitstring(Value) ->
     M = 'PrimStrings',

@@ -32,6 +32,7 @@
 	 per_enc_integer/3,per_enc_integer/4,
 	 per_enc_null/2,
 	 per_enc_k_m_string/4,per_enc_octet_string/3,
+	 per_enc_legacy_octet_string/3,
 	 per_enc_open_type/2,
 	 per_enc_restricted_string/3,
 	 per_enc_small_number/2]).
@@ -305,7 +306,13 @@ per_enc_open_type(Imm0, Aligned) ->
      {call,erlang,byte_size,[Bin],Len}|
      per_enc_length(Bin, 8, Len, Aligned)].
 
-per_enc_octet_string(Val0, Constraint0, Aligned) ->
+per_enc_octet_string(Bin, Constraint0, Aligned) ->
+    {B,[[],Len]} = mk_vars([], [len]),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    B ++ [{call,erlang,byte_size,[Bin],Len}|
+	  per_enc_length(Bin, 8, Len, Constraint, Aligned, 'OCTET STRING')].
+
+per_enc_legacy_octet_string(Val0, Constraint0, Aligned) ->
     {B,[Val,Bin,Len]} = mk_vars(Val0, [bin,len]),
     Constraint = effective_constraint(bitstring, Constraint0),
     B ++ [{call,erlang,iolist_to_binary,[Val],Bin},
@@ -902,6 +909,9 @@ dcg_list_outside([{return,{V,Buf}}|T]) ->
 dcg_list_outside([{call,Fun,{V,Buf},{Dst,DstBuf}}|T]) ->
     emit(["{",Dst,",",DstBuf,"}  = "]),
     Fun(V, Buf),
+    iter_dcg_list_outside(T);
+dcg_list_outside([{convert,{M,F},V,Dst}|T]) ->
+    emit([Dst," = ",{asis,M},":",{asis,F},"(",V,")"]),
     iter_dcg_list_outside(T);
 dcg_list_outside([{convert,Op,V,Dst}|T]) ->
     emit([Dst," = ",Op,"(",V,")"]),

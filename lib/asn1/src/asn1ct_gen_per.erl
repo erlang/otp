@@ -151,7 +151,13 @@ gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
 	'BOOLEAN' ->
 	    asn1ct_imm:per_enc_boolean(Val, Aligned);
 	'OCTET STRING' ->
-	    asn1ct_imm:per_enc_octet_string(Val, Constraint, Aligned);
+	    case asn1ct:use_legacy_types() of
+		false ->
+		    asn1ct_imm:per_enc_octet_string(Val, Constraint, Aligned);
+		true ->
+		    asn1ct_imm:per_enc_legacy_octet_string(Val, Constraint,
+							   Aligned)
+	    end;
 	'ASN1_OPEN_TYPE' ->
 	    case Constraint of
 		[#'Externaltypereference'{type=Tname}] ->
@@ -332,7 +338,10 @@ gen_dec_imm_1('GeneralizedTime', Constraint, Aligned) ->
 gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
     SzConstr = asn1ct_imm:effective_constraint(bitstring, Constraint),
     Imm = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
-    {convert,binary_to_list,Imm};
+    case asn1ct:use_legacy_types() of
+	false -> {convert,{binary,copy},Imm};
+	true -> {convert,binary_to_list,Imm}
+    end;
 gen_dec_imm_1('TeletexString', _Constraint, Aligned) ->
     gen_dec_restricted_string(Aligned);
 gen_dec_imm_1('T61String', _Constraint, Aligned) ->

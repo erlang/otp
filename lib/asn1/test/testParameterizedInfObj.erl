@@ -72,8 +72,8 @@ param(Erule) ->
 	    {error,_Reason2} = 'Param':decode('OS2',[4,4,1,2,3,4]),
 	    {ok,_Val4} = 'Param':decode('OS1',[4,2,1,2]);
 	_ ->					%per/uper
-	    roundtrip('OS1', [1,2]),
-	    {error,_Reason3} = 'Param':encode('OS1', [1,2,3,4])
+	    roundtrip('OS1', <<1,2>>),
+	    {error,_Reason3} = 'Param':encode('OS1', <<1,2,3,4>>)
     end,
 
     roundtrip('Scl', {'Scl',42,{a,9738654}}),
@@ -102,11 +102,11 @@ ranap(_Erule) ->
 param2(Config, Erule) ->
     roundtrip2('HandoverRequired',
 	       {'HandoverRequired',
-		[{'ProtocolIE-Field',1,"ABC"},
+		[{'ProtocolIE-Field',1,<<"ABC">>},
 		 {'ProtocolIE-Field',2,577799}]}),
     Enc = roundtrip2('HandoverRequired',
 		     {'HandoverRequired',
-		      [{'ProtocolIE-Field',1,"ABC"},
+		      [{'ProtocolIE-Field',1,<<"ABC">>},
 		       {'ProtocolIE-Field',2,-42},
 		       {'ProtocolIE-Field',100,533},
 		       {'ProtocolIE-Field',101,true}]}),
@@ -127,7 +127,7 @@ param2(Config, Erule) ->
 			[{i,DataDir},{outdir,CaseDir},Erule]),
 
     %% Decompile extended data.
-    {ok,{'HandoverRequired',[{'ProtocolIE-Field',1,"ABC"},
+    {ok,{'HandoverRequired',[{'ProtocolIE-Field',1,<<"ABC">>},
 			     {'ProtocolIE-Field',2,-42},
 			     {'ProtocolIE-Field',100,Open100},
 			     {'ProtocolIE-Field',101,Open101}]}} =
@@ -137,7 +137,7 @@ param2(Config, Erule) ->
 
     %% Test single root.
     roundtrip2('SingleRoot',
-	       {'SingleRoot',[{'ProtocolIE-Field',1,"ABC"},
+	       {'SingleRoot',[{'ProtocolIE-Field',1,<<"ABC">>},
 			      {'ProtocolIE-Field',2,9999}]}),
     ok.
 

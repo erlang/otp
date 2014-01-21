@@ -44,7 +44,7 @@ main(Erule, DataDir, Opts) ->
     roundtrip('SeqExt4', #'SeqExt4'{bool=true,int=12345}),
     roundtrip('SeqExt4', #'SeqExt4'{bool=false,int=123456}),
 
-    roundtrip('SeqExt5', #'SeqExt5'{name="Arne",shoesize=47}),
+    roundtrip('SeqExt5', #'SeqExt5'{name = <<"Arne">>,shoesize=47}),
 
     %% Encode a value with this version of the specification.
     BigInt = 128638468966,
@@ -52,7 +52,7 @@ main(Erule, DataDir, Opts) ->
 			   s2=#'SeqExt2'{bool=true,int=2345},
 			   s3=#'SeqExt3'{bool=false,int=17},
 			   s4=#'SeqExt4'{bool=true,int=38739739},
-			   s5=#'SeqExt5'{name="Arne",shoesize=47},
+			   s5=#'SeqExt5'{name = <<"Arne">>,shoesize=47},
 			   s6=#'SeqExt6'{i1=531,i2=601,i3=999,
 					 i4=777,i5=11953,
 					 i6=13553,i7=77777},

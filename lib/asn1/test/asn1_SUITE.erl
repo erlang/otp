@@ -817,7 +817,8 @@ testImport(Config, Rule, Opts) ->
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
 testMegaco(Config, Rule, Opts) ->
-    {ok, Module1, Module2} = testMegaco:compile(Config, Rule, Opts),
+    {ok, Module1, Module2} = testMegaco:compile(Config, Rule,
+						[legacy_erlang_types|Opts]),
     ok = testMegaco:main(Module1, Config),
     ok = testMegaco:main(Module2, Config).
 
@@ -898,7 +899,8 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecMyHTTP.asn",
                                "MEDIA-GATEWAY-CONTROL.asn",
                                "P-Record"],
-                              Config, [Rule, asn1config|Opts]),
+                              Config,
+			      [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
     test_selective_decode:test().
 

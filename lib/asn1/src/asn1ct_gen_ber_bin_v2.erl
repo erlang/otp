@@ -493,7 +493,6 @@ gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
 		_ -> ""
 	    end,
     NewTypeName = case Typename of
-		      'OCTET STRING'    -> restricted_string;
 		      'NumericString'   -> restricted_string;
 		      'TeletexString'   -> restricted_string;
 		      'T61String'       -> restricted_string;
@@ -551,6 +550,19 @@ gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
 	'RELATIVE-OID' ->
 	    emit(["decode_relative_oid(",BytesVar,","]),
 	    need(decode_relative_oid, 2);
+	'OCTET STRING' ->
+	    F = case asn1ct:use_legacy_types() of
+		    false -> decode_octet_string;
+		    true -> decode_restricted_string
+		end,
+	    emit([{asis,F},"(",BytesVar,","]),
+	    case Constraint of
+		[] ->
+		    need(F, 2);
+		_ ->
+		    emit([{asis,Constraint},","]),
+		    need(F, 3)
+	    end;
 	restricted_string ->
 	    emit(["decode_restricted_string",AsBin,"(",BytesVar,","]),
 	    case Constraint of

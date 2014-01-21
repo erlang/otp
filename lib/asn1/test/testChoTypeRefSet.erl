@@ -28,15 +28,24 @@
 -record('ChoSetExp', {setInt, setOs}).
 
 set(_Rules) ->
-    roundtrip('ChoTRset', {choSet,#'ChoSet'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {choSetI,#'ChoSet'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {choSetE,#'ChoSet'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {'choSet-I',#'ChoSetImp'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {'choSetI-I',#'ChoSetImp'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {'choSetE-I',#'ChoSetImp'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {'choSet-E',#'ChoSetExp'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {'choSetI-E',#'ChoSetExp'{setInt=88,setOs="A string"}}),
-    roundtrip('ChoTRset', {'choSetE-E',#'ChoSetExp'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {choSet,#'ChoSet'{setInt=88,
+					    setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {choSetI,#'ChoSet'{setInt=88,
+					     setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {choSetE,#'ChoSet'{setInt=88,
+					     setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {'choSet-I',#'ChoSetImp'{setInt=88,
+						   setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {'choSetI-I',#'ChoSetImp'{setInt=88,
+						    setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {'choSetE-I',#'ChoSetImp'{setInt=88,
+						    setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {'choSet-E',#'ChoSetExp'{setInt=88,
+						   setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {'choSetI-E',#'ChoSetExp'{setInt=88,
+						    setOs = <<"A string">>}}),
+    roundtrip('ChoTRset', {'choSetE-E',#'ChoSetExp'{setInt=88,
+						    setOs = <<"A string">>}}),
     ok.
 
 roundtrip(Type, Value) ->

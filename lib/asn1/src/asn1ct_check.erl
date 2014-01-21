@@ -2574,6 +2574,18 @@ normalize_bitstring(S, Value, Type)->
 	    Bs
     end.
 
+hstring_to_binary(L) ->
+    byte_align(hstring_to_bitstring(L)).
+
+bstring_to_binary(L) ->
+    byte_align(bstring_to_bitstring(L)).
+
+byte_align(Bs) ->
+    case bit_size(Bs) rem 8 of
+	0 -> Bs;
+	N -> <<Bs/bitstring,0:(8-N)>>
+    end.
+
 hstring_to_bitstring(L) ->
     << <<(hex_to_int(D)):4>> || D <- L >>.
 
@@ -2592,9 +2604,9 @@ hex_to_int(D) when $A =< D, D =< $F -> D - ($A - 10).
 normalize_octetstring(S,Value,CType) ->
     case Value of
 	{bstring,String} ->
-	    bstring_to_octetlist(String);
+	    bstring_to_binary(String);
 	{hstring,String} ->
-	    hstring_to_octetlist(String);
+	    hstring_to_binary(String);
 	Rec when is_record(Rec,'Externalvaluereference') ->
 	    get_normalized_value(S,Value,CType,
 				 fun normalize_octetstring/3,[]);
@@ -2615,35 +2627,6 @@ normalize_octetstring(S,Value,CType) ->
 			   "unknown default value"),
 	    Value
     end.
-
-
-bstring_to_octetlist([]) ->
-    [];
-bstring_to_octetlist([H|T]) when H == $0 ; H == $1 ->
-    bstring_to_octetlist(T,6,[(H - $0) bsl 7]).
-bstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H == $0; H == $1 ->
-    bstring_to_octetlist(T, 7, [0,Hacc + (H -$0)| Tacc]);
-bstring_to_octetlist([H|T],BSL,[Hacc|Tacc]) when H == $0; H == $1 ->
-    bstring_to_octetlist(T, BSL-1, [Hacc + ((H - $0) bsl BSL)| Tacc]);
-bstring_to_octetlist([],7,[0|Acc]) ->
-    lists:reverse(Acc);
-bstring_to_octetlist([],_,Acc) ->
-    lists:reverse(Acc).
-
-hstring_to_octetlist([]) ->
-    [];
-hstring_to_octetlist(L) ->
-    hstring_to_octetlist(L,4,[]).
-hstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H >= $A, H =< $F ->
-    hstring_to_octetlist(T,4,[Hacc + (H - $A + 10)|Tacc]);
-hstring_to_octetlist([H|T],BSL,Acc) when H >= $A, H =< $F ->
-    hstring_to_octetlist(T,0,[(H - $A + 10) bsl BSL|Acc]);
-hstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H >= $0; H =< $9 ->
-    hstring_to_octetlist(T,4,[Hacc + (H - $0)|Tacc]);
-hstring_to_octetlist([H|T],BSL,Acc) when H >= $0; H =< $9 ->
-    hstring_to_octetlist(T,0,[(H - $0) bsl BSL|Acc]);
-hstring_to_octetlist([],_,Acc) ->
-    lists:reverse(Acc).
 
 normalize_objectidentifier(S, Value) ->
     {ok,Val} = validate_objectidentifier(S, o_id, Value, []),

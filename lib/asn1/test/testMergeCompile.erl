@@ -30,7 +30,7 @@
 main(Erule) ->
     %% test of module MS.set.asn that tests OTP-4492: different tagdefault in 
     %% modules and types  with same name in modules
-    MSVal = {'Type4M2',8,true,three,"OCTET STRING"},
+    MSVal = {'Type4M2',8,true,three,<<"OCTET STRING">>},
     asn1_test_lib:roundtrip('MS', 'Type4M2', MSVal),
 
     %% test of RANAP.set.asn1
@@ -142,7 +142,40 @@ test('InsertSubscriberDataArg') ->
     ok.
 
 test(mvrasn6,'InsertSubscriberDataArg') ->
-    Val = {'InsertSubscriberDataArg',"IMSI","Address","C",serviceGranted,["abc","cde"],["tele","serv","ice"],asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,{'NAEA-PreferredCI',"NCC",asn1_NOVALUE},{'GPRSSubscriptionData','NULL',[{'PDP-Context',49,"PT","PDP-Address","QoS",'NULL',"APN",asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}],asn1_NOVALUE},'NULL',onlyMSC,{'LSAInformation','NULL',accessOutsideLSAsAllowed,[{'LSAData',"LSA","L",'NULL',asn1_NOVALUE},{'LSAData',"LSA","L",'NULL',asn1_NOVALUE}],asn1_NOVALUE},'NULL',{'LCSInformation',["Addr","ess","string"],[{'LCS-PrivacyClass',"S","ExtSS",notifyLocationAllowed,[{'ExternalClient',{'LCSClientExternalID',"Addr",asn1_NOVALUE},asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}],[broadcastService,anonymousLocation,targetMSsubscribedService],asn1_NOVALUE}],asn1_NOVALUE},100,"age",{'MC-SS-Info',"S","ExtSS",5,4,asn1_NOVALUE},"C",{'SGSN-CAMEL-SubscriptionInfo',{'GPRS-CSI',[{'GPRS-CamelTDPData',attach,13,"Addr",continueTransaction,asn1_NOVALUE}],11,asn1_NOVALUE,'NULL','NULL'},{'SMS-CSI',[{'SMS-CAMEL-TDP-DataList','sms-CollectedInfo',13,"Addr",continueTransaction,asn1_NOVALUE}],11,asn1_NOVALUE,'NULL','NULL'},asn1_NOVALUE},"ON"},
-    {ok,Bytes} = 'Mvrasn6':encode('InsertSubscriberDataArg', Val),
-    {ok,_} = 'Mvrasn6':decode('InsertSubscriberDataArg', Bytes),
+    Val = {'InsertSubscriberDataArg',<<"IMSI">>,<<"Address">>,<<"C">>,
+	   serviceGranted,[<<"abc">>,<<"cde">>],
+	   [<<"tele">>,<<"serv">>,<<"ice">>],
+	   asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+	   asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+	   {'NAEA-PreferredCI',<<"NCC">>,asn1_NOVALUE},
+	   {'GPRSSubscriptionData','NULL',
+	    [{'PDP-Context',49,<<"PT">>,<<"PDP-Address">>,<<"QoS">>,
+	      'NULL',<<"APN">>,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}],
+	    asn1_NOVALUE},'NULL',onlyMSC,
+	   {'LSAInformation','NULL',accessOutsideLSAsAllowed,
+	    [{'LSAData',<<"LSA">>,<<"L">>,'NULL',asn1_NOVALUE},
+	     {'LSAData',<<"LSA">>,<<"L">>,'NULL',asn1_NOVALUE}],
+	    asn1_NOVALUE},'NULL',
+	   {'LCSInformation',[<<"Addr">>,<<"ess">>,<<"string">>],
+	    [{'LCS-PrivacyClass',<<"S">>,<<"ExtSS">>,notifyLocationAllowed,
+	      [{'ExternalClient',
+		{'LCSClientExternalID',<<"Addr">>,asn1_NOVALUE},
+		asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}],
+	      [broadcastService,anonymousLocation,targetMSsubscribedService],
+	      asn1_NOVALUE}],asn1_NOVALUE},
+	   100,<<"age">>,
+	   {'MC-SS-Info',<<"S">>,<<"ExtSS">>,5,4,asn1_NOVALUE},
+	   <<"C">>,
+	   {'SGSN-CAMEL-SubscriptionInfo',
+	    {'GPRS-CSI',
+	     [{'GPRS-CamelTDPData',attach,13,<<"Addr">>,
+	       continueTransaction,asn1_NOVALUE}],
+	     11,asn1_NOVALUE,'NULL','NULL'},
+	    {'SMS-CSI',
+	     [{'SMS-CAMEL-TDP-Data','sms-CollectedInfo',
+	       13,<<"Addr">>,continueTransaction,asn1_NOVALUE}],
+	     11,asn1_NOVALUE,'NULL','NULL'},
+	    asn1_NOVALUE},
+	   <<"ON">>},
+    asn1_test_lib:roundtrip('Mvrasn6', 'InsertSubscriberDataArg', Val),
     ok.

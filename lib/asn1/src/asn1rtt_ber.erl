@@ -40,6 +40,7 @@
 	 encode_relative_oid/2,decode_relative_oid/2,
 	 encode_object_identifier/2,decode_object_identifier/2,
 	 encode_restricted_string/2,
+	 decode_octet_string/2,decode_octet_string/3,
 	 decode_restricted_string/2,decode_restricted_string/3,
 	 encode_universal_string/2,decode_universal_string/3,
 	 encode_UTF8_string/2,decode_UTF8_string/2,
@@ -1300,6 +1301,19 @@ encode_restricted_string(OctetList, TagIn)  when is_binary(OctetList) ->
     encode_tags(TagIn, OctetList, byte_size(OctetList));
 encode_restricted_string(OctetList, TagIn) when is_list(OctetList) ->
     encode_tags(TagIn, OctetList, length(OctetList)).
+
+%%============================================================================
+%% decode OCTET STRING to binary
+%%============================================================================
+
+decode_octet_string(Tlv, TagsIn) ->
+    Bin = match_and_collect(Tlv, TagsIn),
+    binary:copy(Bin).
+
+decode_octet_string(Tlv, Range, TagsIn) ->
+    Bin0 = match_and_collect(Tlv, TagsIn),
+    Bin = binary:copy(Bin0),
+    check_restricted_string(Bin, byte_size(Bin), Range).
 
 %%============================================================================
 %% decode Numeric Printable Teletex Videotex Visible IA5 Graphic General strings
