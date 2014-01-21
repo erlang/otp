@@ -460,7 +460,7 @@ create_box(Panel, Data) ->
 		     wxSizer:add(Line, 10, 0), % space of size 10 horisontally
 		     wxSizer:add(Line, Field, RightProportion),
 
-		     {_,H,_,_} = wxTextCtrl:getTextExtent(Field,"W"),
+		     {_,H,_,_} = wxTextCtrl:getTextExtent(Field,"Wj"),
 		     wxTextCtrl:setMinSize(Field,{0,H}),
 
 		     wxSizer:add(Box, Line, [{proportion,0},{flag,?wxEXPAND}]),
@@ -523,8 +523,8 @@ get_max_size(Txt,[{Desc,_}|Info],MaxX,MaxY) ->
     end;
 get_max_size(Txt,[undefined|Info],MaxX,MaxY) ->
     get_max_size(Txt,Info,MaxX,MaxY);
-get_max_size(_,[],X,Y) ->
-    {X+2,Y}.
+get_max_size(_,[],X,_Y) ->
+    {X+2,-1}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 set_listctrl_col_size(LCtrl, Total) ->
@@ -543,10 +543,7 @@ calc_last(LCtrl, _Total) ->
 scroll_size(LCtrl) ->
     case os:type() of
 	{win32, nt} -> 0;
-	{unix, darwin} ->
-	    %% I can't figure out is there is a visible scrollbar
-	    %% Always make room for it
-	    wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+	{unix, darwin} -> 0; %% Always 0 in wxWidgets-3.0
 	_ ->
 	    case wxWindow:hasScrollbar(LCtrl, ?wxVERTICAL) of
 		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);

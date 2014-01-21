@@ -81,7 +81,7 @@ init([Notebook, Parent]) ->
 				  ]),
     Main = wxBoxSizer:new(?wxHORIZONTAL),
     Splitter = wxSplitterWindow:new(Panel, [{size, wxWindow:getClientSize(Panel)},
-					    {style, ?wxSP_LIVE_UPDATE},
+					    {style, ?SASH_STYLE},
 					    {id, 2}
 					   ]),
     Apps = wxListBox:new(Splitter, 3, []),

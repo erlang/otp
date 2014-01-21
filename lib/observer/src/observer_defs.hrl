@@ -46,3 +46,5 @@
 -define(BG_NEW,     {123,168,123}).
 
 -define(LCTRL_WDECR, 4). %% Remove some pixels in column width to avoid creating unnecessary scrollbar
+
+-define(SASH_STYLE, ?wxSP_LIVE_UPDATE bor ?wxSP_NOBORDER bor ?wxSP_3DSASH).

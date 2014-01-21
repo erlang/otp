@@ -60,10 +60,10 @@ init([Notebook, Parent]) ->
     wxSizer:add(TopSizer, FPanel0, [{flag, ?wxEXPAND}, {proportion, 1}]),
     wxSizer:add(TopSizer, FPanel1, [{flag, ?wxEXPAND}, {proportion, 1}]),
     BorderFlags = ?wxLEFT bor ?wxRIGHT,
-    MemoryInfo = create_mem_info(Panel, AllocInfo),
+    {MemPanel, MemoryInfo} = create_mem_info(Panel, AllocInfo),
     wxSizer:add(Sizer, TopSizer, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
 				  {proportion, 0}, {border, 5}]),
-    wxSizer:add(Sizer, MemoryInfo, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
+    wxSizer:add(Sizer, MemPanel, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
 				    {proportion, 1}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
     Timer = observer_lib:start_timer(10),
@@ -86,7 +86,9 @@ update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer, alloc=Allo
     update_alloc(AllocCtrl, AllocInfo),
     wxSizer:layout(Sizer).
 
-create_mem_info(Panel, Fields) ->
+create_mem_info(Parent, Fields) ->
+    Panel = wxPanel:new(Parent),
+    wxWindow:setBackgroundColour(Panel, {255,255,255}),
     Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES bor ?wxLC_VRULES,
     Grid = wxListCtrl:new(Panel, [{style, Style}]),
     Li = wxListItem:new(),
@@ -103,7 +105,12 @@ create_mem_info(Panel, Fields) ->
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
     update_alloc(Grid, Fields),
-    Grid.
+
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT},
+			      {border, 5}, {proportion, 1}]),
+    wxWindow:setSizerAndFit(Panel, Sizer),
+    {Panel, Grid}.
 
 update_alloc(Grid, AllocInfo) ->
     Fields = alloc_info(AllocInfo, [], 0, 0, true),
