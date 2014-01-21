@@ -589,6 +589,8 @@ throw_error(Format, Args) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+decode_regexps(Key, Regexps, undefined) ->
+    decode_regexps(Key, Regexps, []);
 decode_regexps(Key, {add, Regexps}, Old) when is_list(Regexps) ->
     do_decode_regexps(Key, Regexps, Old);
 decode_regexps(_Key, {del, Regexps}, Old)  when is_list(Regexps) ->
