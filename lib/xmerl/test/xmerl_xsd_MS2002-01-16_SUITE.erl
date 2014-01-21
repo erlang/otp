@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
 
 
 all() -> 
-    [att, ct, elem, group, idc_, id, mgABCD, mgEFG, mgHIJ,
+    [att, ct, elem, model_group, idc_, id, mgABCD, mgEFG, mgHIJ,
      mgK, mgLM, mgN, mgOP, mgQR, mgS, particlesAB,
      particlesCDE, particlesFHI, particlesJ,
      particlesKOSRTQUVW, stABCDE, stFGH, stIJK, stZ,
@@ -5743,8 +5743,7 @@ elem(Config) when is_list(Config) ->
 
 %% Syntax Checking Model Group Tests.
 %% Content Checking Model Group Tests.
-
-group(Config) when is_list(Config) ->
+model_group(Config) when is_list(Config) ->
   STResList0 = [],
 
   ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./msxsdtest/Group/groupA001.xsd','./msxsdtest/Group',valid),
