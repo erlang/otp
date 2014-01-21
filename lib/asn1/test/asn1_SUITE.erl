@@ -1128,21 +1128,21 @@ END
     ok = asn1ct:compile(File, [{outdir, PrivDir}]).
 
 
-timer_compile(Config, Rule, Opts) ->
+timer_compile(Config, Rule) ->
     asn1_test_lib:compile_all(["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
-                              Config, [Rule|Opts]).
+                              Config, [no_ok_wrapper,Rule]).
 
 testTimer_ber(Config) ->
-    timer_compile(Config,ber,[]),
-    testTimer:go(Config,ber).
+    timer_compile(Config, ber),
+    testTimer:go().
 
 testTimer_per(Config) ->
-    timer_compile(Config,per,[]),
-    testTimer:go(Config,per).
+    timer_compile(Config, per),
+    testTimer:go().
 
 testTimer_uper(Config) ->
-    timer_compile(Config,uper,[]),
-    {comment,_} = testTimer:go(Config,uper).
+    timer_compile(Config, uper),
+    testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
 testComment(suite) -> [];
