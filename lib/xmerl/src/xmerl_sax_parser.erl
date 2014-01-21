@@ -74,7 +74,8 @@ file(Name,Options) ->
 	    CL = filename:absname(Dir),
             File = filename:basename(Name),
 	    ContinuationFun = fun default_continuation_cb/1,
-            Res = stream(<<>>, [{continuation_fun, ContinuationFun},
+            Res = stream(<<>>, 
+			[{continuation_fun, ContinuationFun},
 			 {continuation_state, FD}, 
 			 {current_location, CL},
 			 {entity, File}
@@ -98,9 +99,13 @@ stream(Xml, Options) when is_list(Xml), is_list(Options) ->
     State = parse_options(Options, initial_state()),
     case  State#xmerl_sax_parser_state.file_type of
 	dtd ->
-	    xmerl_sax_parser_list:parse_dtd(Xml, State#xmerl_sax_parser_state{encoding = list});
+	    xmerl_sax_parser_list:parse_dtd(Xml, 
+					    State#xmerl_sax_parser_state{encoding = list,
+									 input_type = stream});
 	normal ->
-	    xmerl_sax_parser_list:parse(Xml, State#xmerl_sax_parser_state{encoding = list})
+	    xmerl_sax_parser_list:parse(Xml, 
+					State#xmerl_sax_parser_state{encoding = list,
+								     input_type = stream})
     end;
 stream(Xml, Options) when is_binary(Xml), is_list(Options) ->
     case parse_options(Options, initial_state()) of 
@@ -124,17 +129,14 @@ stream(Xml, Options) when is_binary(Xml), is_list(Options) ->
 				    [], 
 				    State#xmerl_sax_parser_state.event_state};
 		{Xml1, State1} ->
-		    parse(Xml1, State1, ParseFunction)
+		    parse_binary(Xml1, 
+				 State1#xmerl_sax_parser_state{input_type = stream},
+				 ParseFunction)
 	    end
     end.
 
-
-%%======================================================================
-%% Internal functions
-%%======================================================================
-
 %%----------------------------------------------------------------------
-%% Function: parse(Encoding, Xml, State, F) -> Result
+%% Function: parse_binary(Encoding, Xml, State, F) -> Result
 %% Input:    Encoding = atom()
 %%           Xml = [integer()] | binary()
 %%           State = #xmerl_sax_parser_state
@@ -144,15 +146,15 @@ stream(Xml, Options) when is_binary(Xml), is_list(Options) ->
 %%           EventState = term()
 %% Description: Chooses the correct parser depending on the encoding.
 %%----------------------------------------------------------------------
-parse(Xml, #xmerl_sax_parser_state{encoding=utf8}=State, F) ->
+parse_binary(Xml, #xmerl_sax_parser_state{encoding=utf8}=State, F) ->
     xmerl_sax_parser_utf8:F(Xml, State);
-parse(Xml, #xmerl_sax_parser_state{encoding={utf16,little}}=State, F) ->
+parse_binary(Xml, #xmerl_sax_parser_state{encoding={utf16,little}}=State, F) ->
     xmerl_sax_parser_utf16le:F(Xml, State);
-parse(Xml, #xmerl_sax_parser_state{encoding={utf16,big}}=State, F) ->
+parse_binary(Xml, #xmerl_sax_parser_state{encoding={utf16,big}}=State, F) ->
     xmerl_sax_parser_utf16be:F(Xml, State);
-parse(Xml, #xmerl_sax_parser_state{encoding=latin1}=State, F) ->
+parse_binary(Xml, #xmerl_sax_parser_state{encoding=latin1}=State, F) ->
     xmerl_sax_parser_latin1:F(Xml, State);
-parse(_, #xmerl_sax_parser_state{encoding=Enc}, _) -> 
+parse_binary(_, #xmerl_sax_parser_state{encoding=Enc}, _) -> 
     {error, lists:flatten(io_lib:format("Charcter set ~p not supported", [Enc]))}.
 
 %%----------------------------------------------------------------------
