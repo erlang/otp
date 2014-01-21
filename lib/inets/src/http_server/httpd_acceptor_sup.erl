@@ -27,7 +27,8 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/2, start_acceptor/6, start_acceptor/7, stop_acceptor/2]).
+-export([start_link/1]).
+%%, start_acceptor/6, start_acceptor/7, stop_acceptor/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -35,63 +36,48 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Addr, Port) ->
+start_link([Addr, Port| _] = Args) ->
     SupName = make_name(Addr, Port),
-    supervisor:start_link({local, SupName}, ?MODULE, []).
-
-%%----------------------------------------------------------------------
-%% Function: [start|stop]_acceptor/5
-%% Description: Starts/stops an [auth | security] worker (child) process
-%%----------------------------------------------------------------------
-start_acceptor(SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout) ->
-    start_worker(httpd_acceptor, SocketType, Addr, Port, IpFamily,
-		 ConfigDb, AcceptTimeout, self(), []).
-start_acceptor(SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout, ListenSocket) ->
-    start_worker(httpd_acceptor, SocketType, Addr, Port, IpFamily,
-		 ConfigDb, AcceptTimeout, ListenSocket, self(), []).
-
-
-stop_acceptor(Addr, Port) ->
-    stop_worker(httpd_acceptor, Addr, Port).
+    supervisor:start_link({local, SupName}, ?MODULE, [Args]).
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_) ->    
-    Flags     = {one_for_one, 500, 100},
-    Workers   = [],
-    {ok, {Flags, Workers}}.
+init([Args]) ->    
+    RestartStrategy = one_for_one,
+    MaxR = 10,
+    MaxT = 3600,
+    Children = [child_spec(Args)],
+    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================  
+child_spec([Address, Port, ConfigList, AcceptTimeout, ListenInfo]) ->
+    Name = id(Address, Port),
+    Manager = httpd_util:make_name("httpd", Address, Port),
+    SockType = proplists:get_value(socket_type, ConfigList, ip_comm),
+    IpFamily = proplists:get_value(ipfamily, ConfigList, inet),
+    StartFunc = case ListenInfo of
+		    undefined ->
+			{httpd_acceptor, start_link, [Manager, SockType, Address, Port, IpFamily,
+						      httpd_util:make_name("httpd_conf", Address, Port), 
+						      AcceptTimeout]};
+		    _ ->
+			{httpd_acceptor, start_link, [Manager, SockType, Address, Port, ListenInfo,
+						      IpFamily,
+						      httpd_util:make_name("httpd_conf", Address, Port), 
+						      AcceptTimeout]}
+		end,
+    Restart = transient, 
+    Shutdown = brutal_kill,
+    Modules = [httpd_acceptor],
+    Type = worker,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+id(Address, Port) ->
+    {httpd_acceptor_sup, Address, Port}.
 
 make_name(Addr,Port) ->
-    httpd_util:make_name("httpd_acc_sup", Addr, Port).
+    httpd_util:make_name("httpd_acceptor_sup", Addr, Port).
 
-start_worker(M, SocketType, Addr, Port, IpFamily, ConfigDB, AcceptTimeout, Manager, Modules) ->
-    SupName = make_name(Addr, Port),
-    Args    = [Manager, SocketType, Addr, Port, IpFamily, ConfigDB, AcceptTimeout],
-    Spec    = {{M, Addr, Port},
-	       {M, start_link, Args}, 
-	       permanent, timer:seconds(1), worker, [M] ++ Modules},
-    supervisor:start_child(SupName, Spec).
-
-start_worker(M, SocketType, Addr, Port, IpFamily, ConfigDB, AcceptTimeout, ListenSocket,
-	     Manager, Modules) ->
-    SupName = make_name(Addr, Port),
-    Args    = [Manager, SocketType, ListenSocket, IpFamily, ConfigDB, AcceptTimeout],
-    Spec    = {{M, Addr, Port},
-	       {M, start_link, Args}, 
-	       permanent, timer:seconds(1), worker, [M] ++ Modules},
-    supervisor:start_child(SupName, Spec).
-
-stop_worker(M, Addr, Port) ->
-    SupName = make_name(Addr, Port),
-    Name    = {M, Addr, Port},
-    case supervisor:terminate_child(SupName, Name) of
-	ok ->
-	    supervisor:delete_child(SupName, Name);
-	Error ->
-	    Error
-    end.

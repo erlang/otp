@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,7 +100,9 @@ start_link(ConfigFile, AcceptTimeout, ListenInfo, Debug) ->
 init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port]) -> 
     httpd_util:enable_debug(Debug), 
     Flags = {one_for_one, 0, 1},
-    Children  = [sup_spec(httpd_acceptor_sup, Address, Port), 
+    Children  = [httpd_connection_sup_spec(Address, Port), 
+		 httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout,
+					 undefined), 
 		 sup_spec(httpd_misc_sup, Address, Port), 
 		 worker_spec(httpd_manager, Address, Port, 
 			     ConfigFile, ConfigList,AcceptTimeout)],
@@ -108,7 +110,9 @@ init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port]) ->
 init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port, ListenInfo]) -> 
     httpd_util:enable_debug(Debug), 
     Flags = {one_for_one, 0, 1},
-    Children  = [sup_spec(httpd_acceptor_sup, Address, Port), 
+    Children  = [httpd_connection_sup_spec(Address, Port), 
+		 httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout,
+					ListenInfo), 
 		 sup_spec(httpd_misc_sup, Address, Port), 
 		 worker_spec(httpd_manager, Address, Port, ListenInfo, 
 			     ConfigFile, ConfigList, AcceptTimeout)],
@@ -118,6 +122,24 @@ init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port, ListenInfo]) 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
+httpd_connection_sup_spec(Address, Port) -> 
+    Name = {httpd_connection_sup, Address, Port},
+    StartFunc = {httpd_connection_sup, start_link, [[Address, Port]]},
+    Restart = permanent,
+    Shutdown = 5000,
+     Modules = [httpd_connection_sup],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout, ListenInfo) ->
+    Name = {httpd_acceptor_sup, Address, Port},
+    StartFunc = {httpd_acceptor_sup, start_link, [[Address, Port, ConfigList, AcceptTimeout, ListenInfo]]},
+    Restart = permanent, 
+    Shutdown = infinity,
+    Modules = [httpd_acceptor_sup],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    
 sup_spec(SupModule, Address, Port) ->
     Name = {SupModule, Address, Port},
     StartFunc = {SupModule, start_link, [Address, Port]},
@@ -167,5 +189,3 @@ file_2_config(ConfigFile) ->
 	Error ->
 	    Error
     end.
-
-

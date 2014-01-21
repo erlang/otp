@@ -1,0 +1,29 @@
+<HTML>
+<HEAD>	
+<TITLE>/flastmod.shtml</TITLE>
+</HEAD>
+<BODY>
+<H1>/flastmod.shtml</H1>
+
+<P>Last modification of index.html: <!--#flastmod file="index.html"-->
+
+<P>Last modification of not_defined.html: <!--#flastmod file="not_defined.html"-->
+
+<P>Last modification of /misc/friedrich.html: <!--#flastmod virtual="/misc/friedrich.html"-->
+
+<P>Last modification of /misc/not_defined.html: <!--#flastmod virtual="/misc/not_defined.html"-->
+
+<P>[<A HREF="ssi.html">Back</A>]
+
+</BODY>
+</HTML>
+
+
+
+
+
+
+
+
+
+
