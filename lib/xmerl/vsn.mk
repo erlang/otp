@@ -1,1 +1,1 @@
-XMERL_VSN = 1.3.5
+XMERL_VSN = 1.3.6
