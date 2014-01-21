@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2013. All Rights Reserved.
+ * Copyright Ericsson AB 2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -67,6 +67,6 @@ int   erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res
 int   erts_maps_find(Eterm key, Eterm map, Eterm *value);
 int   erts_maps_get(Eterm key, Eterm map, Eterm *value);
 int   erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
-
+int   erts_validate_and_sort_map(map_t* map);
 #endif
 

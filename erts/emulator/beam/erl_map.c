@@ -786,3 +786,34 @@ BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
     }
     BIF_ERROR(BIF_P, BADARG);
 }
+
+int erts_validate_and_sort_map(map_t* mp)
+{
+    Eterm *ks  = map_get_keys(mp);
+    Eterm *vs  = map_get_values(mp);
+    Uint   sz  = map_get_size(mp);
+    Uint   ix,jx;
+    Eterm  tmp;
+    int c;
+
+    /* sort */
+
+    for (ix = 1; ix < sz; ix++) {
+	jx = ix;
+	while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+	    /* identical key -> error */
+	    if (c == 0) return 0;
+
+	    tmp = ks[jx];
+	    ks[jx] = ks[jx - 1];
+	    ks[jx - 1] = tmp;
+
+	    tmp = vs[jx];
+	    vs[jx] = vs[jx - 1];
+	    vs[jx - 1] = tmp;
+
+	    jx--;
+	}
+    }
+    return 1;
+}

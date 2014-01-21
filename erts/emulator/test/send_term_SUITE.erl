@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,7 +62,19 @@ basic(Config) when is_list(Config) ->
 
     ?line [] = term(P, 0),
     ?line Self = self(),
-    ?line {blurf,42,[],[-42,{}|"abc"++P],"kalle",3.1416,Self} = term(P, 1),
+    {blurf,42,[],[-42,{}|"abc"++P],"kalle",3.1416,Self,#{}} = term(P, 1),
+
+    Map41 = maps:from_list([{blurf, 42},
+			    {[], [-42,{}|"abc"++P]},
+			    {"kalle", 3.1416},
+			    {Self, #{}}]),
+    Map41 = term(P, 41),
+
+    Map42 = maps:from_list([{42, []},
+			    {[-42,{}|"abc"++P], "kalle"},
+			    {3.1416, Self},
+			    {#{}, blurf}]),
+    Map42 = term(P, 42),
     ?line Deep = lists:seq(0, 199),
     ?line Deep = term(P, 2),
     ?line {B1,B2} = term(P, 3),
@@ -125,7 +137,8 @@ basic(Config) when is_list(Config) ->
                {-1, 36}, % ERL_DRV_INT64
                {-4711, 37}, % ERL_DRV_INT64
                {-20233590931456, 38}, % ERL_DRV_INT64
-               {-9223372036854775808, 39}], % ERL_DRV_INT64
+               {-9223372036854775808, 39},
+	       {#{}, 40}], % ERL_DRV_MAP
     ?line {Terms, Ops} = lists:unzip(Singles),
     ?line Terms = term(P,Ops),
 
