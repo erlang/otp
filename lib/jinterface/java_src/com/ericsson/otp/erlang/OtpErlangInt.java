@@ -55,7 +55,6 @@ public class OtpErlangInt extends OtpErlangLong implements Serializable,
     public OtpErlangInt(final OtpInputStream buf)
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
-
-	final int j = intValue();
+	intValue();
     }
 }

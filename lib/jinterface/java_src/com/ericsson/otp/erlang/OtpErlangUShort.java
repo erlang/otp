@@ -40,7 +40,7 @@ public class OtpErlangUShort extends OtpErlangLong implements Serializable,
     public OtpErlangUShort(final short s) throws OtpErlangRangeException {
 	super(s);
 
-	final short j = uShortValue();
+	uShortValue();
     }
 
     /**
