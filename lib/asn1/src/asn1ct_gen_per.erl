@@ -99,7 +99,7 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 
 
 gen_encode_prim(Erules, D) ->
-    Value = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+    Value = {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(val)))},
     gen_encode_prim(Erules, D, Value).
 
 gen_encode_prim(Erules, #type{}=D, Value) ->
@@ -149,10 +149,10 @@ gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
 	    case Constraint of
 		[#'Externaltypereference'{type=Tname}] ->
 		    EncFunc = enc_func(Tname),
-		    Imm = [{apply,EncFunc,[{expr,Val}]}],
+		    Imm = [{apply,{local,EncFunc,[]},[Val]}],
 		    asn1ct_imm:per_enc_open_type(Imm, Aligned);
 		[] ->
-		    Imm = [{call,erlang,iolist_to_binary,[{expr,Val}]}],
+		    Imm = [{call,erlang,iolist_to_binary,[Val]}],
 		    asn1ct_imm:per_enc_open_type(Imm, Aligned)
 	    end
     end.

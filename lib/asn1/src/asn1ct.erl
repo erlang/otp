@@ -333,8 +333,7 @@ print_structured_errors([_|_]=Errors) ->
 print_structured_errors(_) -> ok.
 
 compile1(File, #st{opts=Opts}=St0) ->
-    verbose("Erlang ASN.1 version ~p, compiling ~p~n", [?vsn,File], Opts),
-    verbose("Compiler Options: ~p~n", [Opts], Opts),
+    compiler_verbose(File, Opts),
     Passes = single_passes(),
     Base = filename:rootname(filename:basename(File)),
     OutFile = outfile(Base, "", Opts),
@@ -349,8 +348,7 @@ compile1(File, #st{opts=Opts}=St0) ->
 %% compile_set/3 merges and compiles a number of asn1 modules
 %% specified in a .set.asn file to one .erl file.
 compile_set(SetBase, Files, #st{opts=Opts}=St0) ->
-    verbose("Erlang ASN.1 version ~p compiling ~p ~n", [?vsn,Files], Opts),
-    verbose("Compiler Options: ~p~n",[Opts], Opts),
+    compiler_verbose(Files, Opts),
     OutFile = outfile(SetBase, "", Opts),
     DbFile = outfile(SetBase, "asn1db", Opts),
     InputModules = [begin
@@ -362,6 +360,11 @@ compile_set(SetBase, Files, #st{opts=Opts}=St0) ->
 		dbfile=DbFile,inputmodules=InputModules},
     Passes = set_passes(),
     run_passes(Passes, St).
+
+compiler_verbose(What, Opts) ->
+    verbose("Erlang ASN.1 compiler ~s\n", [?vsn], Opts),
+    verbose("Compiling: ~p\n", [What], Opts),
+    verbose("Options: ~p\n", [Opts], Opts).
 
 %% merge_modules/2 -> returns a module record where the typeorval lists are merged,
 %% the exports lists are merged, the imports lists are merged when the 

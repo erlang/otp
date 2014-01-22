@@ -79,7 +79,7 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
 		[]
 	end,
     Aligned = is_aligned(Erule),
-    Value0 = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+    Value0 = make_var(val),
     Optionals = optionals(to_textual_order(CompList)),
     ImmOptionals = [asn1ct_imm:per_enc_optional(Value0, Opt, Aligned) ||
 		       Opt <- Optionals],
@@ -87,7 +87,7 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
     ExtImm = case Ext of
 		 {ext,ExtPos,NumExt} when NumExt > 0 ->
 		     gen_encode_extaddgroup(CompList),
-		     Value = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+		     Value = make_var(val),
 		     asn1ct_imm:per_enc_extensions(Value, ExtPos,
 						   NumExt, Aligned);
 		 _ ->
@@ -106,19 +106,17 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
 				   c_index=N,
 				   usedclassfield=UniqueFieldName,
 				   uniqueclassfield=UniqueFieldName,
-				   valueindex=ValueIndex
+				   valueindex=ValueIndex0
 				  } -> %% N is index of attribute that determines constraint
 		{Module,ObjSetName} = ObjectSet,
 		#typedef{typespec=#'ObjectSet'{gen=Gen}} =
 		    asn1_db:dbget(Module, ObjSetName),
 		case Gen of
 		    true ->
-			ObjectEncode = 
-			    asn1ct_gen:un_hyphen_var(lists:concat(['Obj',AttrN])),
-			El = make_element(N+1, asn1ct_gen:mk_var(asn1ct_name:curr(val))),
-			ValueMatch = value_match(ValueIndex, El),
-			ObjSetImm0 = [{assign,{var,ObjectEncode},ValueMatch}],
-			{{AttrN,ObjectEncode},ObjSetImm0};
+			ValueIndex = ValueIndex0 ++ [{N+1,top}],
+			Val = make_var(val),
+			{ObjSetImm0,Dst} = enc_dig_out_value(ValueIndex, Val),
+			{{AttrN,Dst},ObjSetImm0};
 		    false ->
 			{false,[]}
 		end;
@@ -128,7 +126,7 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
 			%% when the simpletableattributes was at an outer
 			%% level and the objfun has been passed through the
 			%% function call
-			{{"got objfun through args","ObjFun"},[]};
+			{{"got objfun through args",{var,"ObjFun"}},[]};
 		    _ ->
 			{false,[]}
 		end
@@ -136,7 +134,7 @@ gen_encode_constructed_imm(Erule, Typename, #type{}=D) ->
     ImmSetExt =
 	case Ext of
 	    {ext,_Pos,NumExt2} when NumExt2 > 0 ->
-		asn1ct_imm:per_enc_extension_bit('Extensions', Aligned);
+		asn1ct_imm:per_enc_extension_bit({var,"Extensions"}, Aligned);
 	    {ext,_Pos,_} ->
 		asn1ct_imm:per_enc_extension_bit([], Aligned);
 	    _ ->
@@ -540,7 +538,7 @@ gen_encode_choice_imm(Erule, TopType, #type{def={'CHOICE',CompList}}) ->
     Aligned = is_aligned(Erule),
     Cs = gen_enc_choice(Erule, TopType, CompList, Ext),
     [{assign,{expr,"{ChoiceTag,ChoiceVal}"},"Val"}|
-     asn1ct_imm:per_enc_choice('ChoiceTag', Cs, Aligned)].
+     asn1ct_imm:per_enc_choice({var,"ChoiceTag"}, Cs, Aligned)].
 
 gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
@@ -562,14 +560,14 @@ gen_encode_sof(Erule, Typename, SeqOrSetOf, D) ->
 gen_encode_sof_imm(Erule, Typename, SeqOrSetOf, #type{}=D) ->
     {_SeqOrSetOf,ComponentType} = D#type.def,
     Aligned = is_aligned(Erule),
-    Constructed_Suffix =
-	asn1ct_gen:constructed_suffix(SeqOrSetOf,
-				      ComponentType#type.def),
-    Conttype = asn1ct_gen:get_inner(ComponentType#type.def),
+    CompType = ComponentType#type.def,
+    Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf, CompType),
+    Conttype = asn1ct_gen:get_inner(CompType),
     Currmod = get(currmod),
     Imm0 = case asn1ct_gen:type(Conttype) of
 	       {primitive,bif} ->
-		   asn1ct_gen_per:gen_encode_prim_imm('Comp', ComponentType, Aligned);
+		   asn1ct_gen_per:gen_encode_prim_imm({var,"Comp"},
+						      ComponentType, Aligned);
 	       {constructed,bif} ->
 		   TypeName = [Constructed_Suffix|Typename],
 		   Enc = enc_func(asn1ct_gen:list2name(TypeName)),
@@ -577,17 +575,19 @@ gen_encode_sof_imm(Erule, Typename, SeqOrSetOf, #type{}=D) ->
 				[{objfun,_}|_] -> [{var,"ObjFun"}];
 				_ -> []
 			    end,
-		   [{apply,Enc,[{var,"Comp"}|ObjArg]}];
+		   [{apply,{local,Enc,CompType},
+		     [{var,"Comp"}|ObjArg]}];
 	       #'Externaltypereference'{module=Currmod,type=Ename} ->
-		   [{apply,enc_func(Ename),[{var,"Comp"}]}];
+		   [{apply,{local,enc_func(Ename),CompType},[{var,"Comp"}]}];
 	       #'Externaltypereference'{module=EMod,type=Ename} ->
-		   [{apply,{EMod,enc_func(Ename)},[{var,"Comp"}]}];
+		   [{apply,{EMod,enc_func(Ename),CompType},[{var,"Comp"}]}];
 	       'ASN1_OPEN_TYPE' ->
-		   asn1ct_gen_per:gen_encode_prim_imm('Comp',
+		   asn1ct_gen_per:gen_encode_prim_imm({var,"Comp"},
 						      #type{def='ASN1_OPEN_TYPE'},
 						      Aligned)
 	   end,
-    asn1ct_imm:per_enc_sof('Val', D#type.constraint, 'Comp', Imm0, Aligned).
+    asn1ct_imm:per_enc_sof({var,"Val"}, D#type.constraint, 'Comp',
+			   Imm0, Aligned).
 
 gen_decode_sof(Erules, Typename, SeqOrSetOf, #type{}=D) ->
     asn1ct_name:start(),
@@ -871,8 +871,8 @@ gen_enc_components_call1(Erule,TopType,
 	    CanonicalNum ->
 		CanonicalNum
 	end,
-    Element0 = make_element(TermNo+1, asn1ct_gen:mk_var(asn1ct_name:curr(val))),
-    {Imm0,Element} = asn1ct_imm:enc_bind_var(Element0),
+    Val = make_var(val),
+    {Imm0,Element} = asn1ct_imm:enc_element(TermNo+1, Val),
     Imm1 = gen_enc_line_imm(Erule, TopType, Cname, Type, Element, DynamicEnc, Ext),
     Category = case {Prop,Ext} of
 		   {'OPTIONAL',_} ->
@@ -967,9 +967,9 @@ gen_enc_line_imm_1(Erule, TopType, Cname, Type, Element, DynamicEnc) ->
 	    CurrMod = get(currmod),
 	    case asn1ct_gen:type(Atype) of
 		#'Externaltypereference'{module=CurrMod,type=EType} ->
-		    [{apply,enc_func(EType),[{expr,Element}]}];
+		    [{apply,{local,enc_func(EType),Atype},[Element]}];
 		#'Externaltypereference'{module=Mod,type=EType} ->
-		    [{apply,{Mod,enc_func(EType)},[{expr,Element}]}];
+		    [{apply,{Mod,enc_func(EType),Atype},[Element]}];
 		{primitive,bif} ->
 		    asn1ct_gen_per:gen_encode_prim_imm(Element, Type, Aligned);
 		'ASN1_OPEN_TYPE' ->
@@ -988,9 +988,9 @@ gen_enc_line_imm_1(Erule, TopType, Cname, Type, Element, DynamicEnc) ->
 		    Enc = enc_func(asn1ct_gen:list2name(NewTypename)),
 		    case {Type#type.tablecinf,DynamicEnc} of
 			{[{objfun,_}|_R],{_,EncFun}} ->
-			    [{apply,Enc,[{expr,Element},{var,EncFun}]}];
+			    [{apply,{local,Enc,Type},[Element,EncFun]}];
 			_ ->
-			    [{apply,Enc,[{expr,Element}]}]
+			    [{apply,{local,Enc,Type},[Element]}]
 		    end
 	    end
     end.
@@ -1014,13 +1014,16 @@ enc_var_type_call(Erule, Name, RestFieldNames,
 		  {_,Key,Code} <- ObjSet1],
     ObjSet = lists:sort([P || {_,B}=P <- ObjSet2, B =/= none]),
     Key = erlang:md5(term_to_binary({encode,ObjSet,RestFieldNames,Extensible})),
+    Imm = enc_objset_imm(Erule, Name, ObjSet, RestFieldNames, Extensible),
+    Lambda = {lambda,[{var,"Val"},{var,"Id"}],Imm},
     Gen = fun(_Fd, N) ->
-		  enc_objset(Erule, Name, N, ObjSet,
-			     RestFieldNames, Extensible)
+		  Aligned = is_aligned(Erule),
+		  emit([{asis,N},"(Val, Id) ->",nl]),
+		  asn1ct_imm:enc_cg(Imm, Aligned),
+		  emit([".",nl])
 	  end,
     Prefix = lists:concat(["enc_os_",Name]),
-    F = asn1ct_func:call_gen(Prefix, Key, Gen),
-    [{apply,F,[{var,atom_to_list(Val)},{var,Fun}]}].
+    [{call_gen,Prefix,Key,Gen,Lambda,[Val,Fun]}].
 
 fix_object_code(Name, [{Name,B}|_], _ClassFields) ->
     B;
@@ -1042,9 +1045,7 @@ fix_object_code(Name, [], ClassFields) ->
 	    end
     end.
 
-
-enc_objset(Erule, Component, Name, ObjSet, RestFieldNames, Extensible) ->
-    asn1ct_name:start(),
+enc_objset_imm(Erule, Component, ObjSet, RestFieldNames, Extensible) ->
     Aligned = is_aligned(Erule),
     E = {error,
 	 fun() ->
@@ -1053,22 +1054,19 @@ enc_objset(Erule, Component, Name, ObjSet, RestFieldNames, Extensible) ->
 		       "{value,Val},"
 		       "{unique_name_and_value,'_'}})",nl])
 	 end},
-    Imm = [{'cond',
-	    [[{eq,{var,"Id"},Key}|
-	      enc_obj(Erule, Obj, RestFieldNames, Aligned)] ||
-		{Key,Obj} <- ObjSet] ++
-		[['_',case Extensible of
-			  false -> E;
-			  true -> {put_bits,{var,"Val"},binary,[1]}
-		      end]]}],
-    emit([{asis,Name},"(Val, Id) ->",nl]),
-    asn1ct_imm:enc_cg(Imm, Aligned),
-    emit([".",nl]).
+    [{'cond',
+      [[{eq,{var,"Id"},Key}|
+	enc_obj(Erule, Obj, RestFieldNames, Aligned)] ||
+	  {Key,Obj} <- ObjSet] ++
+	  [['_',case Extensible of
+		    false -> E;
+		    true -> {put_bits,{var,"Val"},binary,[1]}
+		end]]}].
 
 enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->
     case Obj of
 	#typedef{name={primitive,bif},typespec=Def} ->
-	    asn1ct_gen_per:gen_encode_prim_imm('Val', Def, Aligned);
+	    asn1ct_gen_per:gen_encode_prim_imm({var,"Val"}, Def, Aligned);
 	#typedef{name={constructed,bif},typespec=Def} ->
 	    InnerType = asn1ct_gen:get_inner(Def#type.def),
 	    case InnerType of
@@ -1084,7 +1082,7 @@ enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->
 		    gen_encode_sof_imm(Erule, name, InnerType, Def)
 	    end;
 	#typedef{name=Type} ->
-	    [{apply,enc_func(Type),[{var,"Val"}]}];
+	    [{apply,{local,enc_func(Type),Type},[{var,"Val"}]}];
 	#'Externalvaluereference'{module=Mod,value=Value} ->
 	    case asn1_db:dbget(Mod, Value) of
 		#typedef{typespec=#'Object'{def=Def}} ->
@@ -1097,9 +1095,9 @@ enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->
 	    Func = enc_func(Type),
 	    case get(currmod) of
 		Mod ->
-		    [{apply,Func,[{var,"Val"}]}];
+		    [{apply,{local,Func,Obj},[{var,"Val"}]}];
 		_ ->
-		    [{apply,{Mod,Func},[{var,"Val"}]}]
+		    [{apply,{Mod,Func,Obj},[{var,"Val"}]}]
 	    end
     end.
 
@@ -1540,12 +1538,12 @@ gen_enc_choices([H|T], Erule, TopType, Pos, Constr, Ext) ->
 	    no -> 
 		case Type#type.tablecinf of
 		    [{objfun,_}|_] ->
-			{"got objfun through args","ObjFun"};
+			{"got objfun through args",{var,"ObjFun"}};
 		    _ ->
 			false
 		end;
 	    _ ->
-		{no_attr,"ObjFun"}
+		{no_attr,{var,"ObjFun"}}
 	end,
     DoExt = case Constr of
 		ext -> Ext;
@@ -1561,7 +1559,7 @@ gen_enc_choices([H|T], Erule, TopType, Pos, Constr, Ext) ->
 		  [{put_bits,0,1,[1]}|
 		   asn1ct_imm:per_enc_integer(Pos, Constr, Aligned)]
 	  end,
-    Body = gen_enc_line_imm(Erule, TopType, Cname, Type, 'ChoiceVal',
+    Body = gen_enc_line_imm(Erule, TopType, Cname, Type, {var,"ChoiceVal"},
 			    EncObj, DoExt),
     Imm = Tag ++ Body,
     [{Cname,Imm}|gen_enc_choices(T, Erule, TopType, Pos+1, Constr, Ext)];
@@ -1778,3 +1776,13 @@ value_match1(Value,[],Acc,Depth) ->
     Acc ++ Value ++ lists:concat(lists:duplicate(Depth,")"));
 value_match1(Value,[{VI,_}|VIs],Acc,Depth) ->
     value_match1(Value,VIs,Acc++lists:concat(["element(",VI,","]),Depth+1).
+
+enc_dig_out_value([], Value) ->
+    {[],Value};
+enc_dig_out_value([{N,_}|T], Value) ->
+    {Imm0,Dst0} = enc_dig_out_value(T, Value),
+    {Imm,Dst} = asn1ct_imm:enc_element(N, Dst0),
+    {Imm0++Imm,Dst}.
+
+make_var(Base) ->
+    {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(Base)))}.
