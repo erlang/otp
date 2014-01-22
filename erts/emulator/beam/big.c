@@ -1607,7 +1607,7 @@ big_to_double(Wterm x, double* resp)
  * HALFWORD: Return relative term with 'heap' as base.
  */
 Eterm
-double_to_big(double x, Eterm *heap)
+double_to_big(double x, Eterm *heap, Uint hsz)
 {
     int is_negative;
     int ds;
@@ -1638,6 +1638,7 @@ double_to_big(double x, Eterm *heap)
     res = make_big_rel(hp, heap);
     xp = (ErtsDigit*) (hp + 1);
 
+    ASSERT(ds < hsz);
     for (i = ds - 1; i >= 0; i--) {
 	ErtsDigit d;
 

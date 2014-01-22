@@ -2688,7 +2688,6 @@ tailrecur_ne:
     {
 	FloatDef f1, f2;
 	Eterm big;
-	Eterm big_buf[32];
 #if HALFWORD_HEAP
 	Wterm aw = is_immed(a) ? a : rterm2wterm(a,a_base);
 	Wterm bw = is_immed(b) ? b : rterm2wterm(b,b_base);
@@ -2699,6 +2698,8 @@ tailrecur_ne:
 #define MAX_LOSSLESS_FLOAT ((double)((1LL << 53) - 2))
 #define MIN_LOSSLESS_FLOAT ((double)(((1LL << 53) - 2)*-1))
 #define BIG_ARITY_FLOAT_MAX (1024 / D_EXP) /* arity of max float as a bignum */
+	Eterm big_buf[BIG_NEED_SIZE(BIG_ARITY_FLOAT_MAX)];
+
 	b_tag = tag_val_def(bw);
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
@@ -2761,7 +2762,7 @@ tailrecur_ne:
 		    j = float_comp(f1.fd, f2.fd);
 		}
 	    } else {
-		big = double_to_big(f2.fd, big_buf);
+		big = double_to_big(f2.fd, big_buf, sizeof(big_buf)/sizeof(Eterm));
 		j = big_comp(aw, rterm2wterm(big,big_buf));
 	    }
 	    if (_NUMBER_CODE(a_tag, b_tag) == FLOAT_BIG) {
