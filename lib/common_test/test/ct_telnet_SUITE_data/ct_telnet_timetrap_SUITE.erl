@@ -4,7 +4,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(name,erl_telnet_server).
+-define(name, the_telnet_server).
 
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS

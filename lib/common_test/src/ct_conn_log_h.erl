@@ -200,8 +200,13 @@ pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS},ConnMod,Text0) ->
 		   micro2milli(MicroS)]).
 
 pretty_title(#conn_log{client=Client}=Info) ->
-    io_lib:format("= Client ~w  ~s  Server ~ts ",
-		  [Client,actionstr(Info),serverstr(Info)]).
+    case actionstr(Info) of
+	{no_server,Action} ->
+	    io_lib:format("= Client ~w ~s ",[Client,Action]);
+	Action ->
+	    io_lib:format("= Client ~w ~s ~ts ",[Client,Action,
+						 serverstr(Info)])
+    end.
 
 actionstr(#conn_log{action=send}) -> "----->";
 actionstr(#conn_log{action=cmd}) -> "----->";
