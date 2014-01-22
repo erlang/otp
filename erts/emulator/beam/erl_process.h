@@ -499,7 +499,6 @@ struct ErtsSchedulerData_ {
     Eterm tmp_heap[TMP_HEAP_SIZE];
     int num_tmp_heap_used;
     Eterm beam_emu_tmp_heap[BEAM_EMU_TMP_HEAP_SIZE];
-    Eterm cmp_tmp_heap[CMP_TMP_HEAP_SIZE];
     Eterm erl_arith_tmp_heap[ERL_ARITH_TMP_HEAP_SIZE];
 #endif
     ErtsSchedulerSleepInfo *ssi;

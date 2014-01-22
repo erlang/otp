@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1603,6 +1603,8 @@ big_to_double(Wterm x, double* resp)
 /*
  * Logic has been copied from erl_bif_guard.c and slightly
  * modified to use a static instead of dynamic heap
+ *
+ * HALFWORD: Return relative term with 'heap' as base.
  */
 Eterm
 double_to_big(double x, Eterm *heap)
@@ -1633,7 +1635,7 @@ double_to_big(double x, Eterm *heap)
     sz = BIG_NEED_SIZE(ds); /* number of words including arity */
 
     hp = heap;
-    res = make_big(hp);
+    res = make_big_rel(hp, heap);
     xp = (ErtsDigit*) (hp + 1);
 
     for (i = ds - 1; i >= 0; i--) {
