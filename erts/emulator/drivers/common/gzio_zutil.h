@@ -23,12 +23,6 @@
  * that may change or not exist at all.
  */
 
-#ifndef HAVE_LIBZ
-/* Use our "real" copy of zutil.h if we don't use shared zlib */
-#include "zutil.h"
-
-#else /* HAVE_LIBZ: Shared zlib is used */
-
 #define local static
 #define DEF_MEM_LEVEL 8
 #define zmemcpy sys_memcpy
@@ -76,7 +70,4 @@
 #ifndef OS_CODE
 #  define OS_CODE  0x03  /* assume Unix */
 #endif
-
-
-#endif /* HAVE_LIBZ */
 
