@@ -45,6 +45,9 @@ public class OtpPeer extends AbstractNode {
     public OtpPeer(final String node) {
 	super(node);
     }
+    public OtpPeer(final String node, final String cookie, final String addr) {
+	super(node, cookie, addr);
+    }
 
     /**
      * Create a connection to a remote node.

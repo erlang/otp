@@ -21,6 +21,7 @@ package com.ericsson.otp.erlang;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Random;
 
@@ -58,8 +59,6 @@ import java.util.Random;
  * </p>
  */
 public abstract class AbstractConnection extends Thread {
-	public final static int SOCKET_TIMEOUT_MILLIS=3000;
-
     protected static final int headerLen = 2048; // more than enough
 
     protected static final byte passThrough = (byte) 0x70;
@@ -508,17 +507,20 @@ public abstract class AbstractConnection extends Thread {
 		// don't return until we get a real message
 		// or a failure of some kind (e.g. EXIT)
 		// read length and read buffer must be atomic!
-		tick_loop: do {
+		/*tick_loop:*/ do {
 		    // read 4 bytes - get length of incoming packet
 		    // socket.getInputStream().read(lbuf);
 		    readSock(socket, lbuf);
 		    ibuf = new OtpInputStream(lbuf, flags);
 		    len = ibuf.read4BE();
-
+		    ibuf.close();
 		    // received tick? send tock!
 		    if (len == 0) {
 			synchronized (this) {
-			    socket.getOutputStream().write(tock);
+				OutputStream out = socket.getOutputStream();
+				out.write(tock);
+				out.flush();
+				out.close();
 			}
 		    }
 
@@ -966,7 +968,7 @@ public abstract class AbstractConnection extends Thread {
 	    throw new IOException("Error accepting connection from " + nn);
 	}
 	if (traceLevel >= handshakeThreshold) {
-	    System.out.println("<- MD5 ACCEPTED " + peer.host());
+	    System.out.println("<- MD5 ACCEPTED " + peer.hostName());
 	}
     }
 
@@ -974,11 +976,10 @@ public abstract class AbstractConnection extends Thread {
 	    OtpAuthException {
 	try {
 	    socket = new Socket(peer.hostAddr(), port);
-	    socket.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
 	    socket.setTcpNoDelay(true);
 
 	    if (traceLevel >= handshakeThreshold) {
-		System.out.println("-> MD5 CONNECT TO " + peer.host() + ":"
+		System.out.println("-> MD5 CONNECT TO " + peer.hostAddr() + ":"
 			+ port);
 	    }
 	    sendName(peer.distChoose, self.flags);
@@ -1162,7 +1163,7 @@ public abstract class AbstractConnection extends Thread {
 	final int i = hisname.indexOf('@', 0);
 	peer.node = hisname;
 	peer.alive = hisname.substring(0, i);
-	peer.host = hisname.substring(i + 1, hisname.length());
+	peer.hostName = hisname.substring(i + 1, hisname.length());
 
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("<- " + "HANDSHAKE" + " ntype=" + peer.ntype

@@ -756,7 +756,7 @@ public class OtpNode extends OtpLocalNode {
 
 		try {
 		    newsock = sock.accept();
-		    newsock.setSoTimeout(AbstractConnection.SOCKET_TIMEOUT_MILLIS);
+		    //newsock.setSoTimeout(AbstractConnection.SOCKET_TIMEOUT_MILLIS);
 		} catch (final Exception e) {
 		    // Problem in java1.2.2: accept throws SocketException
 		    // when socket is closed. This will happen when
