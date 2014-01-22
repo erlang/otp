@@ -35,13 +35,7 @@
 fragmented(Rules) ->
     Lens = fragmented_lengths(),
     fragmented_octet_string(Rules, Lens),
-    case Rules of
-	per ->
-	    %% NYI.
-	    ok;
-	_ ->
-	    fragmented_strings(Lens)
-    end.
+    fragmented_strings(Lens).
 
 fragmented_strings(Lens) ->
     Types = ['Ns','Ps','Ps11','Vis','IA5'],
