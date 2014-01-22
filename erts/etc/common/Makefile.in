@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2012. All Rights Reserved.
+# Copyright Ericsson AB 1996-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -488,7 +488,7 @@ ifneq ($(INSTALL_SRC),)
 	$(INSTALL_DATA) $(INSTALL_SRC) "$(RELEASE_PATH)/erts-$(VSN)/src"
 endif
 ifneq ($(INSTALL_EMBEDDED_DATA),)
-	$(INSTALL_DATA) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_SCRIPT) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 ifneq ($(INSTALL_LIBS),)
 	$(INSTALL_DATA) $(INSTALL_LIBS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
