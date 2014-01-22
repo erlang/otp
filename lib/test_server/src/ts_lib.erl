@@ -164,7 +164,7 @@ subst_file(In, Out, Vars) ->
     case file:read_file(In) of
 	{ok, Bin} ->
 	    Subst = subst(b2s(Bin), Vars, []),
-	    case file:write_file(Out, Subst) of
+	    case file:write_file(Out, unicode:characters_to_binary(Subst)) of
 		ok ->
 		    ok;
 		{error, Reason} ->

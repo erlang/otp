@@ -455,7 +455,7 @@ m() ->
     foreach(fun ({Mod,File}) -> mformat(Mod, File) end, sort(code:all_loaded())).
 
 mformat(A1, A2) ->
-    format("~-20s  ~s\n", [A1,A2]).
+    format("~-20s  ~ts\n", [A1,A2]).
 
 %% erlangrc(Home)
 %%  Try to run a ".erlang" file, first in the current directory
@@ -721,7 +721,7 @@ ls(Dir) ->
 	{error, enotdir} ->
 	    ls_print([Dir]);
 	{error, Error} ->
-	    format("~s\n", [file:format_error(Error)])
+	    format("~ts\n", [file:format_error(Error)])
     end.
 
 ls_print([]) -> ok;

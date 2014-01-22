@@ -1524,11 +1524,11 @@ app_info(Config) when is_list(Config) ->
 	    false ->
 		"undefined"
 	end,
-    io:format("Root dir: ~s~n"
-	      "SNMP:   Application dir: ~s~n"
-	      "        Application ver: ~s~n"
-	      "SSL:    Application dir: ~s~n"
-	      "CRYPTO: Application dir: ~s~n", 
+    io:format("Root dir: ~ts~n"
+	      "SNMP:   Application dir: ~ts~n"
+	      "        Application ver: ~ts~n"
+	      "SSL:    Application dir: ~ts~n"
+	      "CRYPTO: Application dir: ~ts~n",
 	      [code:root_dir(), SnmpDir, AppVsn, SslDir, CryptoDir]),
     ok.
 

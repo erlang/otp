@@ -73,7 +73,7 @@ print_error_markers(F, File) ->
     case erl_syntax:type(F) of
 	error_marker ->
 	    {L,M,Info} = erl_syntax:error_marker_info(F),
-	    io:format("~s:~p: ~s", [File,L,M:format_error(Info)]);
+	    io:format("~ts:~p: ~s", [File,L,M:format_error(Info)]);
 	_ ->
 	    ok
     end.

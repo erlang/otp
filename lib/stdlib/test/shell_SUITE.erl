@@ -146,7 +146,7 @@ start_restricted_from_shell(Config) when is_list(Config) ->
 			 "test_restricted) end.">>),
     ?line {ok, test_restricted} = 
 	application:get_env(stdlib, restricted_shell),
-    ?line "Module" ++ _ = t(<<"begin m() end.">>),
+    ?line "Module" ++ _ = t({<<"begin m() end.">>, utf8}),
     ?line "exception exit: restricted shell does not allow c(foo)" = 
 	comm_err(<<"begin c(foo) end.">>),
     ?line "exception exit: restricted shell does not allow init:stop()" = 
@@ -225,7 +225,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
     ?line {ok,Node2} = start_node(shell_suite_helper_2,
 				 "-pa "++?config(priv_dir,Config)++ 
 				 " -stdlib restricted_shell test_restricted2"),
-    ?line "Module" ++ _ = t({Node2,<<"begin m() end.">>}),
+    ?line "Module" ++ _ = t({Node2,<<"begin m() end.">>, utf8}),
     ?line "exception exit: restricted shell does not allow c(foo)" = 
 	comm_err({Node2,<<"begin c(foo) end.">>}),
     ?line "exception exit: restricted shell does not allow init:stop()" = 
@@ -2927,14 +2927,14 @@ t1(Parent, {Bin,Enc}, F) ->
         server_loop(S)
     catch exit:R -> Parent ! {self(), R};
           throw:{?MODULE,LoopReply,latin1} ->
-                   L0 = binary_to_list(list_to_binary(LoopReply)),
-                   [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
-                   Parent ! {self(), dotify(L1)};
+	    L0 = binary_to_list(list_to_binary(LoopReply)),
+	    [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
+	    Parent ! {self(), dotify(L1)};
           throw:{?MODULE,LoopReply,_Uni} ->
-                   Tmp = unicode:characters_to_binary(LoopReply),
-                   L0 = unicode:characters_to_list(Tmp),
-                   [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
-                   Parent ! {self(), dotify(L1)}
+	    Tmp = unicode:characters_to_binary(LoopReply),
+	    L0 = unicode:characters_to_list(Tmp),
+	    [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
+	    Parent ! {self(), dotify(L1)}
     after group_leader(S#state.leader, self())
     end.
 

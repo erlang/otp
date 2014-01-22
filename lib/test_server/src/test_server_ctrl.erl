@@ -4840,7 +4840,7 @@ start_node(Name, Type, Options) ->
     case controller_call({start_node,Name,Type,Options}, T) of
 	{{ok,Nodename}, Host, Cmd, Info, Warning} ->
 	    format(minor,
-		   "Successfully started node ~w on ~tp with command: ~tp",
+		   "Successfully started node ~w on ~tp with command: ~ts",
 		   [Nodename, Host, Cmd]),
 	    format(major, "=node_start    ~w", [Nodename]),
 	    case Info of
@@ -4856,7 +4856,7 @@ start_node(Name, Type, Options) ->
 	    {ok, Nodename};
 	{fail,{Ret, Host, Cmd}}  ->
 	    format(minor,
-		   "Failed to start node ~tp on ~tp with command: ~tp~n"
+		   "Failed to start node ~tp on ~tp with command: ~ts~n"
 		   "Reason: ~p",
 		   [Name, Host, Cmd, Ret]),
 	    {fail,Ret};
@@ -4865,7 +4865,7 @@ start_node(Name, Type, Options) ->
 	    Ret;
 	{Ret, Host, Cmd} ->
 	    format(minor,
-		   "Failed to start node ~tp on ~tp with command: ~tp~n"
+		   "Failed to start node ~tp on ~tp with command: ~ts~n"
 		   "Reason: ~p",
 		   [Name, Host, Cmd, Ret]),
 	    Ret

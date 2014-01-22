@@ -1786,7 +1786,7 @@ no_dot_erlang(Conf) ->
     try
 	ok = file:set_cwd(PrivDir),
 
-	Erl = filename:join([code:root_dir(),"bin","erl"]),
+	Erl = "\"" ++ filename:join([code:root_dir(),"bin","erl"]) ++ "\"",
 	Args = " -noinput -run io put_chars \"TESTOK\" -run erlang halt",
 	ok = file:write_file(".erlang", <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
 
