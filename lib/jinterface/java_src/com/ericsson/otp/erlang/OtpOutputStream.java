@@ -827,7 +827,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		    write_nil(); // it should never ever get here...
 		}
 	    } else { // unicode or longer, must code as list
-		final char[] charbuf = s.toCharArray();
+		//final char[] charbuf = s.toCharArray();
 		final int[] codePoints = OtpErlangString.stringToCodePoints(s);
 		write_list_head(codePoints.length);
 		for (final int codePoint : codePoints) {
@@ -882,6 +882,12 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		// stream is closed, so we do this here, too
 		this.close();
 	    } catch (IOException e) {
+		    try {
+			    oos.flush();
+				oos.close();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
 		throw new java.lang.IllegalArgumentException(
 			"Intermediate stream failed for Erlang object " + o);
 	    }
@@ -910,6 +916,8 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		    oos.writeTo(this);
 		    // if the term is written as a compressed term, the output
 		    // stream is closed, so we do this here, too
+		    oos.flush();
+		    oos.close();
 		    this.close();
 		} catch (IOException e2) {
 		    throw new java.lang.IllegalArgumentException(
