@@ -56,6 +56,6 @@ public class OtpErlangChar extends OtpErlangLong implements Serializable,
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final char i = charValue();
+	charValue();
     }
 }
