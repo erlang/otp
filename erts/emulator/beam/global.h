@@ -371,9 +371,9 @@ extern int stackdump_on_exit;
  */
 
 typedef struct {
-    UWord* start;
-    UWord* sp;
-    UWord* end;
+    Eterm* start;
+    Eterm* sp;
+    Eterm* end;
     ErtsAlcType_t alloc_type;
 }ErtsEStack;
 
@@ -384,7 +384,7 @@ void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
 #define DECLARE_ESTACK(s)				\
-    UWord ESTK_DEF_STACK(s)[DEF_ESTACK_SIZE];		\
+    Eterm ESTK_DEF_STACK(s)[DEF_ESTACK_SIZE];		\
     ErtsEStack s = {					\
         ESTK_DEF_STACK(s),  /* start */ 		\
         ESTK_DEF_STACK(s),  /* sp */			\
@@ -418,8 +418,8 @@ do {\
     if (s.start == ESTK_DEF_STACK(s)) {\
 	UWord _wsz = ESTACK_COUNT(s);\
 	(dst)->start = erts_alloc(s.alloc_type,\
-				  DEF_ESTACK_SIZE * sizeof(UWord));\
-	memcpy((dst)->start, s.start,_wsz*sizeof(UWord));\
+				  DEF_ESTACK_SIZE * sizeof(Eterm));\
+	memcpy((dst)->start, s.start,_wsz*sizeof(Eterm));\
 	(dst)->sp = (dst)->start + _wsz;\
 	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
 	(dst)->alloc_type = s.alloc_type;\
@@ -495,7 +495,7 @@ typedef struct {
 
 #define DEF_WSTACK_SIZE (16)
 
-void erl_grow_wstack(ErtsWStack*, Eterm* def_stack);
+void erl_grow_wstack(ErtsWStack*, UWord* def_stack);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
