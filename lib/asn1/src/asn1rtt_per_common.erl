@@ -39,7 +39,8 @@
 	 to_named_bitstring/1,to_named_bitstring/2,
 	 bs_drop_trailing_zeroes/1,adjust_trailing_zeroes/2,
 	 is_default_bitstring/3,is_default_bitstring/5,
-	 extension_bitmap/3]).
+	 extension_bitmap/3,
+	 open_type_to_binary/1,legacy_open_type_to_binary/1]).
 
 -define('16K',16384).
 
@@ -325,6 +326,16 @@ is_default_bitstring(_, _, _, _, _) -> false.
 
 extension_bitmap(Val, Pos, Limit) ->
     extension_bitmap(Val, Pos, Limit, 0).
+
+open_type_to_binary({asn1_OPENTYPE,Bin}) when is_binary(Bin) ->
+    Bin.
+
+legacy_open_type_to_binary({asn1_OPENTYPE,Bin}) when is_binary(Bin) ->
+    Bin;
+legacy_open_type_to_binary(Bin) when is_binary(Bin) ->
+    Bin;
+legacy_open_type_to_binary(List) when is_list(List) ->
+    List.
 
 %%%
 %%% Internal functions.

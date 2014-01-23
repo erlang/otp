@@ -771,7 +771,10 @@ testParameterizedInfObj(Config) ->
 testParameterizedInfObj(Config, Rule, Opts) ->
     Files = ["Param","Param2"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
-    testParameterizedInfObj:main(Config, Rule).
+    testParameterizedInfObj:main(Config, Rule),
+    asn1_test_lib:compile("Param", Config,
+			  [legacy_erlang_types,Rule|Opts]),
+    testParameterizedInfObj:param(Rule).
 
 testFragmented(Config) ->
     test(Config, fun testFragmented/3).

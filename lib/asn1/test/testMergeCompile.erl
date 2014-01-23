@@ -35,7 +35,7 @@ main(Erule) ->
 
     %% test of RANAP.set.asn1
     PIEVal2 = [{'ProtocolIE-Field',4,ignore,{radioNetwork,'rab-pre-empted'}}],
-    EncVal =
+    EncVal0 =
 	case Erule of
 	    per -> 
 		<<1,100>>;
@@ -44,6 +44,7 @@ main(Erule) ->
 	    ber ->
 		<<2,1,1>>
 	end,
+    EncVal = {asn1_OPENTYPE,EncVal0},
     PEVal2 = [{'ProtocolExtensionField',1,ignore,EncVal},
 	      {'ProtocolExtensionField',2,reject,EncVal}],
     Val2 =

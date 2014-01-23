@@ -450,8 +450,13 @@ dec_objset_default(N, C, LeadingAttr, false) ->
 	  "{value,Bytes},"
 	  "{unique_name_and_value,",{asis,LeadingAttr},",Id}}}).",nl,nl]);
 dec_objset_default(N, _, _, true) ->
-    emit([{asis,N},"(Bytes, Id) ->",nl,
-	  "Bytes.",nl,nl]).
+    emit([{asis,N},"(Bytes, Id) ->",nl|
+	  case asn1ct:use_legacy_types() of
+	      false ->
+		  ["{asn1_OPENTYPE,Bytes}.",nl,nl];
+	      true ->
+		  ["Bytes.",nl,nl]
+	  end]).
 
 dec_objset_1(Erule, N, {Id,Obj}, RestFields, Typename) ->
     emit([{asis,N},"(Bytes, ",{asis,Id},") ->",nl]),
@@ -1069,8 +1074,17 @@ enc_objset_imm(Erule, Component, ObjSet, RestFieldNames, Extensible) ->
 	enc_obj(Erule, Obj, RestFieldNames, Aligned)] ||
 	  {Key,Obj} <- ObjSet] ++
 	  [['_',case Extensible of
-		    false -> E;
-		    true -> {put_bits,{var,"Val"},binary,[1]}
+		    false ->
+			E;
+		    true ->
+			case asn1ct:use_legacy_types() of
+			    false ->
+				{call,per_common,open_type_to_binary,
+				 [{var,"Val"}]};
+			    true ->
+				{call,per_common,legacy_open_type_to_binary,
+				 [{var,"Val"}]}
+			end
 		end]]}].
 
 enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->

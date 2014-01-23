@@ -1124,13 +1124,11 @@ gen_objset_enc(Erules, ObjSetName, UniqueName,
 %% See X.681 Annex E for the following case
 gen_objset_enc(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj,Acc) ->
-    emit(["'getenc_",ObjSetName,"'(_) ->",nl]),
-    emit({indent(3),"fun(_, Val, _RestPrimFieldName) ->",nl}),
-    emit({indent(6),"Len = case Val of",nl,indent(9),
-	  "Bin when is_binary(Bin) -> byte_size(Bin);",nl,indent(9),
- 	  "_ -> length(Val)",nl,indent(6),"end,"}),
-    emit({indent(6),"{Val,Len}",nl}),
-    emit({indent(3),"end.",nl,nl}),
+    emit(["'getenc_",ObjSetName,"'(_) ->",nl,
+	  indent(2),"fun(_, Val, _RestPrimFieldName) ->",nl]),
+    emit_enc_open_type(4),
+    emit([nl,
+	  indent(2),"end.",nl,nl]),
     Acc;
 gen_objset_enc(_, ObjSetName, UniqueName, [], _, _, _, Acc) ->
     emit_default_getenc(ObjSetName, UniqueName),
@@ -1192,13 +1190,8 @@ gen_inlined_enc_funs1(Fields, [{typefield,Name,_}|Rest], ObjSetName,
 		%% were no type in the table and we therefore generate
 		%% code that returns the input for application
 		%% treatment.
-		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"Len = case Val of",nl,
-		      indent(15),"Bin when is_binary(Bin) -> "
-		      "byte_size(Bin);",nl,
-		      indent(15),"_ -> length(Val)",nl,
-		      indent(12),"end,",nl,
-		      indent(12),"{Val,Len}"]),
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_enc_open_type(11),
 		{Acc0,0}
 	end,
     gen_inlined_enc_funs1(Fields, Rest, ObjSetName, Sep, NthObj+NAdd, Acc);
@@ -1208,6 +1201,25 @@ gen_inlined_enc_funs1(_, [], _, _, NthObj, Acc) ->
     emit([nl,indent(6),"end",nl,
 	  indent(3),"end"]),
     {Acc,NthObj}.
+
+emit_enc_open_type(I) ->
+    Indent = indent(I),
+    S = [Indent,          "case Val of",nl,
+	 Indent,indent(2),"{asn1_OPENTYPE,Bin} when is_binary(Bin) ->",nl,
+	 Indent,indent(4),"{Bin,byte_size(Bin)}"|
+	 case asn1ct:use_legacy_types() of
+	     false ->
+		 [nl,
+		  Indent,"end"];
+	     true ->
+		 [";",nl,
+		  Indent,indent(2),"Bin when is_binary(Bin) ->",nl,
+		  Indent,indent(4),"{Bin,byte_size(Bin)};",nl,
+		  Indent,indent(2),"_ ->",nl,
+		  Indent,indent(4),"{Val,length(Val)}",nl,
+		  Indent,          "end"]
+	 end],
+    emit(S).
 
 emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 		  InternalDefFunName) ->
@@ -1292,14 +1304,9 @@ gen_objset_dec(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj) ->
     emit(["'getdec_",ObjSetName,"'(_) ->",nl]),
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
-    
-    emit([indent(4),"case Bytes of",nl,
-	  indent(6),"Bin when is_binary(Bin) -> ",nl,
-	  indent(8),"Bin;",nl,
-	  indent(6),"_ ->",nl,
-	  indent(8),{call,ber,ber_encode,["Bytes"]},nl,
-	  indent(4),"end",nl]),
-    emit([indent(2),"end.",nl,nl]),
+    emit_dec_open_type(4),
+    emit([nl,
+	  indent(2),"end.",nl,nl]),
     ok;
 gen_objset_dec(_, ObjSetName, UniqueName, [], _, _, _) ->
     emit_default_getdec(ObjSetName, UniqueName),
@@ -1346,12 +1353,8 @@ gen_inlined_dec_funs1(Fields, [{typefield,Name,Prop}|Rest],
 		end,
 		0;
 	    false ->
-		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"Len = case Bytes of",nl,
-		      indent(15),"B when is_binary(B) -> byte_size(B);",nl,
-		      indent(15),"_ -> length(Bytes)",nl,
-		      indent(12),"end,",nl,
-		      indent(12),"{Bytes,[],Len}"]),
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_dec_open_type(11),
 		0
     end,
     gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj+N);
@@ -1361,6 +1364,27 @@ gen_inlined_dec_funs1(_, [], _, _, NthObj) ->
     emit([nl,indent(6),"end",nl,
 	  indent(3),"end"]),
     NthObj.
+
+emit_dec_open_type(I) ->
+    Indent = indent(I),
+    S = case asn1ct:use_legacy_types() of
+	    false ->
+		[Indent,          "case Bytes of",nl,
+		 Indent,indent(2),"Bin when is_binary(Bin) -> ",nl,
+		 Indent,indent(4),"{asn1_OPENTYPE,Bin};",nl,
+		 Indent,indent(2),"_ ->",nl,
+		 Indent,indent(4),"{asn1_OPENTYPE,",
+		 {call,ber,ber_encode,["Bytes"]},"}",nl,
+		 Indent,          "end"];
+	    true ->
+		[Indent,          "case Bytes of",nl,
+		 Indent,indent(2),"Bin when is_binary(Bin) -> ",nl,
+		 Indent,indent(4),"Bin;",nl,
+		 Indent,indent(2),"_ ->",nl,
+		 Indent,indent(4),{call,ber,ber_encode,["Bytes"]},nl,
+		 Indent,          "end"]
+	end,
+    emit(S).
 
 emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
 		     InternalDefFunName) ->

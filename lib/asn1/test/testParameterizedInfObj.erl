@@ -20,7 +20,7 @@
 
 -module(testParameterizedInfObj).
 
--export([main/2,ranap/1]).
+-export([main/2,param/1,ranap/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -36,31 +36,29 @@ main(Config, Erule) ->
     param2(Config, Erule).
 
 param(Erule) ->
-    PERVal = #'AllocationOrRetentionPriority'
-      {priorityLevel = true,
-       iE_Extensions = 
-       [#'ProtocolExtensionField'{id=14,
-				  criticality=reject,
-				  extensionValue= <<0>>},
-	#'ProtocolExtensionField'{id=2,
-				  criticality=ignore,
-				  extensionValue= <<1>>}]},
-    BERVal = #'AllocationOrRetentionPriority'
-      {priorityLevel = true,
-       iE_Extensions = 
-       [#'ProtocolExtensionField'{id=14,
-				  criticality=reject,
-				  extensionValue= <<2,1,0>>},
-	#'ProtocolExtensionField'{id=2,
-				  criticality=ignore,
-				  extensionValue= <<2,1,1>>}]},
-    case Erule of
-	ber ->
-	    roundtrip('AllocationOrRetentionPriority', BERVal);
-	per ->
-	    roundtrip('AllocationOrRetentionPriority', PERVal);
-	uper ->
-	    roundtrip('AllocationOrRetentionPriority', PERVal)
+    Exts0 = case Erule of
+		ber ->
+		    %% As implemented, the open type must contain
+		    %% valid BER-encoded data.
+		    [{14,<<2,1,0>>},{2,<<2,1,0>>}];
+		_ ->
+		    %% The PER decoder will not look inside the open type.
+		    [{14,<<0>>},{2,<<"anything goes">>}]
+	    end,
+    case 'Param':legacy_erlang_types() of
+	false ->
+	    Exts = [#'ProtocolExtensionField'{id=Id,
+					      criticality=reject,
+					      extensionValue={asn1_OPENTYPE,
+							      Eval}} ||
+		       {Id,Eval} <- Exts0],
+	    aor_roundtrip(Exts);
+	true ->
+	    Exts = [#'ProtocolExtensionField'{id=Id,
+					      criticality=reject,
+					      extensionValue=Eval} ||
+		       {Id,Eval} <- Exts0],
+	    aor_roundtrip(Exts)
     end,
 
     %% test code for OTP-4242, ValueFromObject
@@ -72,8 +70,13 @@ param(Erule) ->
 	    {error,_Reason2} = 'Param':decode('OS2',[4,4,1,2,3,4]),
 	    {ok,_Val4} = 'Param':decode('OS1',[4,2,1,2]);
 	_ ->					%per/uper
-	    roundtrip('OS1', <<1,2>>),
-	    {error,_Reason3} = 'Param':encode('OS1', <<1,2,3,4>>)
+	    case 'Param':legacy_erlang_types() of
+		false ->
+		    roundtrip('OS1', <<1,2>>),
+		    {error,_Reason3} = 'Param':encode('OS1', <<1,2,3,4>>);
+		true ->
+		    ok
+	    end
     end,
 
     roundtrip('Scl', {'Scl',42,{a,9738654}}),
@@ -81,6 +84,11 @@ param(Erule) ->
     roundtrip('Scl', {'Scl',42,{b,true}}),
 
     ok.
+
+aor_roundtrip(Exts) ->
+    Val = #'AllocationOrRetentionPriority'{priorityLevel = true,
+					   iE_Extensions = Exts},
+    roundtrip('AllocationOrRetentionPriority', Val).
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip('Param', T, V).
@@ -129,8 +137,10 @@ param2(Config, Erule) ->
     %% Decompile extended data.
     {ok,{'HandoverRequired',[{'ProtocolIE-Field',1,<<"ABC">>},
 			     {'ProtocolIE-Field',2,-42},
-			     {'ProtocolIE-Field',100,Open100},
-			     {'ProtocolIE-Field',101,Open101}]}} =
+			     {'ProtocolIE-Field',100,
+			      {asn1_OPENTYPE,Open100}},
+			     {'ProtocolIE-Field',101,
+			      {asn1_OPENTYPE,Open101}}]}} =
 	'Param2':decode('HandoverRequired', Enc),
     true = is_binary(Open100),
     true = is_binary(Open101),
