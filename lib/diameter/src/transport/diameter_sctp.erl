@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,14 +70,14 @@
 
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, inet:port_number()}
-                        | gen_sctp:open_option().
+                        | term(). %% gen_sctp:open_option().
 
 -type match() :: inet:ip_address()
                | string()
                | [match()].
 
 -type listen_option() :: {accept, match()}
-                       | gen_sctp:open_option().
+                       | term().  %% gen_sctp:open_option().
 
 -type uint() :: non_neg_integer().
 
