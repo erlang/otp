@@ -81,7 +81,7 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
-		keymember/3,keyfind/3,partition/2]).
+		keymember/3,keyfind/3,partition/2,droplast/1,last/1]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 -import(cerl, [c_tuple/1]).
 
@@ -347,7 +347,7 @@ expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
     {Kvs,Pv,St2} = match_vars(Ka, St1),		%Must have variables here!
     {Km,St3} = kmatch(Kvs, Ccs, Sub, St2),
     Match = flatten_seq(build_match(Kvs, Km)),
-    {last(Match),Pa ++ Pv ++ first(Match),St3};
+    {last(Match),Pa ++ Pv ++ droplast(Match),St3};
 expr(#c_receive{anno=A,clauses=Ccs0,timeout=Ce,action=Ca}, Sub, St0) ->
     {Ke,Pe,St1} = atomic(Ce, Sub, St0),		%Force this to be atomic!
     {Rvar,St2} = new_var(St1),
@@ -825,15 +825,6 @@ foldr2(Fun, Acc0, [E1|L1], [E2|L2]) ->
     Acc1 = Fun(E1, E2, Acc0),
     foldr2(Fun, Acc1, L1, L2);
 foldr2(_, Acc, [], []) -> Acc.
-
-%% first([A]) -> [A].
-%% last([A]) -> A.
-
-last([L]) -> L;
-last([_|T]) -> last(T).
-
-first([_]) -> [];
-first([H|T]) -> [H|first(T)].
 
 %% This code implements the algorithm for an optimizing compiler for
 %% pattern matching given "The Implementation of Functional
