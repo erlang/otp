@@ -6024,8 +6024,7 @@ ok
 	    <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>,
 	    and
 	    <seealso marker="#system_flag_schedulers_online">erlang:system_flag(schedulers_online, SchedulersOnline)</seealso>.
-	    </p>      <name name="system_info" arity="1" clause_i="49"/>
-
+	    </p>
           </item>
           <tag><c>smp_support</c></tag>
           <item>
