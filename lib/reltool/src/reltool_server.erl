@@ -621,11 +621,7 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 		     #app{name = AppName, mods = Mods} = A,
 		     RelApps,
 		     Status) ->
-    AppCond =
-        case A#app.incl_cond of
-            undefined -> Sys#sys.incl_cond;
-            _         -> A#app.incl_cond
-        end,
+    AppCond = resolve_app_cond(A, Sys#sys.incl_cond),
     ModCond =
         case A#app.mod_cond of
             undefined -> Sys#sys.mod_cond;
@@ -645,7 +641,11 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
             {derived, []} ->
 		{undefined, undefined, undefined, Status};
             {derived, [_ | _]} -> % App is included in at least one rel
-		{true, undefined, true, Status}
+		{true, undefined, true, Status};
+            {release, []} ->
+		{undefined, false, false, Status};
+            {release, [_ | _]} -> % App is included in at least one rel
+		{true, true, true, Status}
         end,
     {Mods2,Status3} = lists:mapfoldl(fun(Mod,Acc) ->
 					     mod_init_is_included(ModTab,
@@ -663,6 +663,12 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 	       rels = Rels},
     ets:insert(AppTab, A2),
     Status3.
+
+resolve_app_cond(#app{incl_cond=InclCond}, SysInclCond) ->
+    case InclCond of
+        undefined -> SysInclCond;
+        _         -> InclCond
+    end.
 
 mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
     %% print(M#mod.name, hipe, "incl_cond -> ~w\n", [AppCond]),
@@ -690,6 +696,17 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
             exclude ->
                 false;
             derived ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        Default
+                end;
+            release ->
                 case M#mod.incl_cond of
                     include ->
                         true;
@@ -858,6 +875,11 @@ app_recap_dependencies(S) ->
 
 app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
     {Mods2, IsIncl2} = mod_recap_dependencies(S, A, Mods, [], IsIncl),
+    IsIncl3 =
+        case resolve_app_cond(A, (S#state.sys)#sys.incl_cond) of
+            release -> IsIncl;
+            _       -> IsIncl2
+        end,
     AppStatus =
         case lists:keymember(missing, #mod.status, Mods2) of
             true  -> missing;
@@ -880,7 +902,7 @@ app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
                used_by_mods = UsedByMods2,
                uses_apps = UsesApps2,
                used_by_apps = UsedByApps2,
-               is_included = IsIncl2},
+               is_included = IsIncl3},
     ets:insert(S#state.app_tab,A2),
     ok.
 
@@ -1390,7 +1412,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{mod_cond = Val};
             incl_cond when Val =:= include;
 			   Val =:= exclude;
-                           Val =:= derived ->
+                           Val =:= derived;
+                           Val =:= release ->
                 Sys#sys{incl_cond = Val};
             boot_rel when is_list(Val) ->
                 Sys#sys{boot_rel = Val};
@@ -1474,7 +1497,8 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{mod_cond = Val};
             incl_cond when Val =:= include;
 			   Val =:= exclude;
-			   Val =:= derived ->
+			   Val =:= derived;
+                           Val =:= release ->
                 App#app{incl_cond = Val};
 
             debug_info when Val =:= keep;

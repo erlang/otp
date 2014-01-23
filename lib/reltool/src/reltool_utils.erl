@@ -245,20 +245,22 @@ mod_cond_to_index(ModCond) ->
     end.
 
 incl_conds() ->
-    ["include", "exclude", "derived"].
+    ["include", "derived", "release", "exclude"].
 
 list_to_incl_cond(List) ->
     case List of
 	"include" -> include;
  	"exclude" -> exclude;
-	"derived" -> derived
+	"derived" -> derived;
+	"release" -> release
     end.
 
 incl_cond_to_index(ModCond) ->
     case ModCond of
-	include -> 0;
-	exclude -> 1;	
-	derived -> 2
+        include -> 0;
+        derived -> 1;
+        release -> 2;
+        exclude -> 3
     end.
 
 elem_to_index(Elem, List) ->
