@@ -43,7 +43,10 @@ class wxeCommand : public wxObject
 {
  public:
     wxeCommand(int fc,char * cbuf,int buflen, wxe_data *);
-    virtual ~wxeCommand();
+    virtual ~wxeCommand(); // Use Delete()
+
+    wxeCommand * Save() {ref_count++; return this; };
+    void Delete() {if(--ref_count < 1) delete this;};
 
     ErlDrvTermData   caller;
     ErlDrvTermData   port;
@@ -51,6 +54,7 @@ class wxeCommand : public wxObject
     char *           buffer;
     int              len;
     int              op;
+    int              ref_count;
 };
 
 class intListElement {
@@ -65,6 +69,13 @@ class intListElement {
 class intList {
  public:
     intList() {list = NULL;};
+    ~intList() {
+	intListElement *head = list;
+	while(head) {
+	    intListElement *tail=head->cdr;
+	    delete head;
+	    head = tail;
+	} };
     bool IsEmpty() {return list == NULL;};
     void Append(int Element) { list = new intListElement(Element, list); };
     int Pop() {

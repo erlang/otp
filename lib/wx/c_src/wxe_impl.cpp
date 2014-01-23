@@ -126,6 +126,7 @@ bool WxeApp::OnInit()
   cb_buff = NULL;
   recurse_level = 0;
   delayed_cleanup = new wxList;
+  delayed_delete  = new wxList;
 
   wxe_ps_init2();
   // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); // Hmm printpreview doesn't work in 2.9 with this
@@ -213,16 +214,26 @@ void WxeApp::dispatch_cmds()
   recurse_level--;
   wxe_batch_caller = 0;
   erl_drv_mutex_unlock(wxe_batch_locker_m);
-  // Cleanup old memenv's
-  if(recurse_level == 0 && delayed_cleanup->size() > 0) {
-    for( wxList::compatibility_iterator node = delayed_cleanup->GetFirst();
-	 node;
-	 node = delayed_cleanup->GetFirst()) {
-      wxeMetaCommand *event = (wxeMetaCommand *)node->GetData();
-      delayed_cleanup->Erase(node);
-      destroyMemEnv(*event);
-      delete event;
-    }
+  // Cleanup old memenv's and deleted objects
+  if(recurse_level == 0) {
+    if(delayed_delete->size() > 0)
+      for( wxList::compatibility_iterator node = delayed_delete->GetFirst();
+	   node;
+	   node = delayed_delete->GetFirst()) {
+	wxeCommand *event = (wxeCommand *)node->GetData();
+	delayed_delete->Erase(node);
+	wxe_dispatch(*event);
+	event->Delete();
+      }
+    if(delayed_cleanup->size() > 0)
+      for( wxList::compatibility_iterator node = delayed_cleanup->GetFirst();
+	   node;
+	   node = delayed_cleanup->GetFirst()) {
+	wxeMetaCommand *event = (wxeMetaCommand *)node->GetData();
+	delayed_cleanup->Erase(node);
+	destroyMemEnv(*event);
+	delete event;
+      }
   }
 }
 
@@ -275,7 +286,7 @@ int WxeApp::dispatch(wxList * batch, int blevel, int list_type)
 	      erl_drv_mutex_lock(wxe_batch_locker_m);
 	      break;
 	    }
-	    delete event;
+	    event->Delete();
 	  }
       } else {
 	if((list_type == WXE_STORED) || (blevel <= 0 && list_type == WXE_NORMAL)) {
@@ -356,7 +367,7 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 		  return;
 		break;
 	      }
-	      delete event;
+	      event->Delete();
 	    } else {
 	    // fprintf(stderr, "  save %d \r\n", event->op);
 	    temp->Append(event);
@@ -397,7 +408,6 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 {
   // Clear incoming cmd queue first
   // dispatch_cmds();
-  int delay = false;
   wxWindow *parent = NULL;
   wxeMemEnv * memenv = refmap[Ecmd.port];
 
@@ -430,7 +440,6 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 	  if(recurse_level > 0) {
 	    // Delay delete until we are out of dispatch*
 	    delayed_cleanup->Append(Ecmd.Clone());
-	    delay = true;
 	  } else {
 	    delete win;
 	  }
@@ -439,8 +448,8 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
     }
   }
 
-  if(delay)
-      return;
+  if(recurse_level > 0)
+    return;
 
   // First pass, delete all top parents/windows of all linked objects
   //   fprintf(stderr, "close port %x\r\n", Ecmd.port);fflush(stderr);

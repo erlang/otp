@@ -29,6 +29,7 @@ wxeCommand::wxeCommand(int fc,char * cbuf,int buflen, wxe_data *sd)
 {
   WXEBinRef *temp, *start, *prev;
   int n = 0;
+  ref_count = 1;
   caller = driver_caller(sd->port_handle);
   port   = sd->port;
   op = fc;

@@ -81,7 +81,7 @@ public:
 
   int recurse_level;
   wxList * delayed_cleanup;
-
+  wxList * delayed_delete;
   // Temp container for callbacks
   char *cb_buff;
   int  cb_len;
