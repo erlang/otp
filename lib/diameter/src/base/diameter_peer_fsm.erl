@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -189,11 +189,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask, Nodes, Dict0, Svc}}) ->
     putr(?RESTRICT_KEY, Nodes),
 
     Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
-    ?IS_TIMEOUT(Tmo) orelse ?ERROR({invalid, {capx_timeout, Tmo}}),
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
-    lists:member(OnLengthErr, [exit, handle, discard])
-        orelse ?ERROR({invalid, {length_errors, OnLengthErr}}),
-    %% Error checking is for configuration added in old code.
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
 
@@ -781,10 +777,6 @@ set([_|_] = Ans, FailedAvp) ->
 
 result_code(#diameter_header{is_error = true}, _) ->
     {3008, []};  %% DIAMETER_INVALID_HDR_BITS
-
-result_code(_, [Bs|_])
-  when is_bitstring(Bs) ->  %% from old code
-    {3009, []};  %% DIAMETER_INVALID_HDR_BITS
 
 result_code(#diameter_header{version = ?DIAMETER_VERSION}, Es) ->
     rc(Es);

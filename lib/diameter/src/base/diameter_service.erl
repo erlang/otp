@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -701,8 +701,7 @@ notify(Share, SvcName, T) ->
     Nodes = remotes(Share),
     [] /= Nodes andalso diameter_peer:notify(Nodes, SvcName, T).
 %% Test for the empty list for upgrade reasons: there's no
-%% diameter_peer:notify/3 in old code so no call means no load order
-%% requirement.
+%% diameter_peer:notify/3 in old code.
 
 remotes(false) ->
     [];
