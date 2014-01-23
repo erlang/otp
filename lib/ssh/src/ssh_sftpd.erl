@@ -675,7 +675,7 @@ resolve_symlinks_2(["." | RestPath], State0, LinkCnt, AccPath) ->
 resolve_symlinks_2([".." | RestPath], State0, LinkCnt, AccPath) ->
     %% Remove the last path component
     AccPathComps0 = filename:split(AccPath),
-    Path =  case lists:droplast(AccPathComps0))) of
+    Path =  case lists:droplast(AccPathComps0) of
 		[] ->
 		    "";
 		AccPathComps ->
