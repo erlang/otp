@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -605,11 +605,13 @@ accept(_, Pid, #listener{ref = Ref, pending = {N,Q}} = S) ->
 %% send/2
 
 %% Outbound Diameter message on a specified stream ...
-send(#diameter_packet{bin = Bin, transport_data = {stream, SId}}, S) ->
-    send(SId, Bin, S),
+send(#diameter_packet{bin = Bin, transport_data = {outstream, SId}},
+     #transport{streams = {_, OS}}
+     = S) ->
+    send(SId rem OS, Bin, S),
     S;
 
-%% ... or not: rotate through all steams.
+%% ... or not: rotate through all streams.
 send(Bin, #transport{streams = {_, OS},
                      os = N}
           = S)
