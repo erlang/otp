@@ -60,6 +60,7 @@
 	 ufunsort_error/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
+         find/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1]).
 
@@ -85,7 +86,7 @@ all() ->
      {group, usort}, {group, keysort}, {group, ukeysort},
      {group, funsort}, {group, ufunsort}, {group, sublist},
      {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
-     zipwith, zipwith3, filter_partition, {group, tickets},
+     zipwith, zipwith3, filter_partition, find, {group, tickets},
      suffix, subtract].
 
 groups() -> 
@@ -2480,6 +2481,24 @@ filpart(F, All, Exp) ->
     Other = lists:filter(fun(E) -> not F(E) end, All),
     {Exp,Other} = lists:partition(F, All).
 
+%% Test lists:find/2,3
+find(Config) when is_list(Config) ->
+    F = fun(I) -> I rem 2 =:= 0 end,
+    F2 = fun(A,B) -> A > B end,
+
+    ?line {value, 2} = lists:find(F, [1,2,3,4]),
+    ?line false = lists:find(F, [1,3,5,7]),
+    ?line false = lists:find(F, []),
+    ?line {value, 2} = lists:find(F, [1,2,3,4], notfound),
+    ?line notfound = lists:find(F, [1,3,5,7], notfound),
+    ?line notfound = lists:find(F, [], notfound),
+
+    %% Error cases.
+    ?line {'EXIT',{function_clause,_}} = (catch lists:find(badfun, [])),
+    ?line {'EXIT',{function_clause,_}} = (catch lists:find(badfun, [], notfound)),
+    ?line {'EXIT',{function_clause,_}} = (catch lists:find(F2, [])),
+    ?line {'EXIT',{function_clause,_}} = (catch lists:find(F2, [], notfound)),
+    ok.
 
 otp_5939(doc) ->   ["OTP-5939. Guard tests added."];
 otp_5939(suite) -> [];

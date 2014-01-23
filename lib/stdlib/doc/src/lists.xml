@@ -177,6 +177,28 @@ filtermap(Fun, List1) ->
       </desc>
     </func>
     <func>
+      <name name="find" arity="2" />
+      <fsummary>Find the first element which satisfies a predicate</fsummary>
+      <desc>
+        <p>Returns <c>{value, <anno>Elem</anno>}</c> for the first
+        element <c><anno>Elem</anno></c> of <c><anno>List</anno></c>
+        for which <c><anno>Pred</anno>(<anno>Elem</anno>)</c>
+        returns <c>true</c>, or <c>false</c>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="find" arity="3" />
+      <fsummary>Find the first element which satisfies a predicate</fsummary>
+      <desc>
+        <p>Returns <c>{value, <anno>Elem</anno>}</c> for the first
+        element <c><anno>Elem</anno></c> of <c><anno>List</anno></c>
+        for which <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns
+        <c>true</c>, or <c><anno>Default</anno></c>.
+        </p>
+      </desc>
+    </func>
+    <func>
       <name name="flatlength" arity="1"/>
       <fsummary>Length of flattened deep list</fsummary>
       <desc>
