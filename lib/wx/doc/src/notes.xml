@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a problem which caused the debugger to crash when
+	    closing a window. Fixed static linking on mac.</p>
+          <p>
+	    Own Id: OTP-11444</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
