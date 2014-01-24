@@ -70,6 +70,9 @@ typedef struct process Process;
 
 struct ErtsNodesMonitor_;
 
+#define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT	0
+#define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
+
 #define ERTS_MAX_NO_OF_SCHEDULERS 1024
 
 #define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
@@ -98,6 +101,7 @@ struct saved_calls {
 
 extern Export exp_send, exp_receive, exp_timeout;
 extern int erts_sched_compact_load;
+extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
 extern Uint erts_no_run_queues;
 extern int erts_sched_thread_suggested_stack_size;
@@ -198,6 +202,10 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLGS_SET(RQ, FLGS)					\
     ((Uint32) erts_smp_atomic32_read_bor_relb(&(RQ)->flags,		\
 					      (erts_aint32_t) (FLGS)))
+#define ERTS_RUNQ_FLGS_BSET(RQ, MSK, FLGS)				\
+    ((Uint32) erts_smp_atomic32_read_bset_relb(&(RQ)->flags,		\
+					       (erts_aint32_t) (MSK),	\
+					       (erts_aint32_t) (FLGS)))
 #define ERTS_RUNQ_FLGS_UNSET(RQ, FLGS)					\
     ((Uint32) erts_smp_atomic32_read_band_relb(&(RQ)->flags,		\
 					       (erts_aint32_t) ~(FLGS)))
@@ -316,9 +324,40 @@ typedef struct {
     int reds;
 } ErtsRunQueueInfo;
 
+
+#ifdef HAVE_GETHRTIME
+#  undef ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
+#  define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT 1
+#endif
+
 #ifdef ERTS_SMP
 
+#undef ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
+#define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
+
+#ifdef ARCH_64
+typedef erts_atomic_t ErtsAtomicSchedTime;
+#elif defined(ARCH_32)
+typedef erts_dw_atomic_t ErtsAtomicSchedTime;
+#else
+# error :-/
+#endif
+
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
 typedef struct {
+    ErtsAtomicSchedTime last;
+    struct {
+	Uint64 short_interval;
+	Uint64 long_interval;
+    } worktime;
+    int is_working;
+} ErtsRunQueueSchedUtil;
+#endif
+
+typedef struct {
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
+    int sched_util;
+#endif
     Uint32 flags;
     ErtsRunQueue *misc_evac_runq;
     struct {
@@ -385,6 +424,9 @@ struct ErtsRunQueue_ {
 	Port *start;
 	Port *end;
     } ports;
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
+    ErtsRunQueueSchedUtil sched_util;
+#endif
 };
 
 #ifdef ERTS_SMP
@@ -414,6 +456,7 @@ do {								\
 } while (0)
 
 typedef struct {
+    int need; /* "+sbu true" or scheduler_wall_time enabled */
     int enabled;
     Uint64 start;
     struct {
@@ -542,6 +585,12 @@ int erts_smp_lc_runq_is_locked(ErtsRunQueue *);
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 
+#ifdef ERTS_SMP
+void erts_empty_runq(ErtsRunQueue *rq);
+void erts_non_empty_runq(ErtsRunQueue *rq);
+#endif
+
+
 /*
  * Run queue locked during modifications. We use atomic ops since
  * other threads peek at values without run queue lock.
@@ -574,6 +623,10 @@ erts_smp_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     erts_smp_atomic32_set_relb(&rqi->len, len);
 
+#ifdef ERTS_SMP
+    if (rq->len == 0)
+	erts_non_empty_runq(rq);
+#endif
     rq->len++;
     if (rq->max_len < rq->len)
 	rq->max_len = len;
@@ -1686,6 +1739,13 @@ erts_proc_set_error_handler(Process *p, ErtsProcLocks plocks, Eterm handler)
 
 extern erts_atomic_t erts_migration_paths;
 
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
+int erts_get_sched_util(ErtsRunQueue *rq,
+			int initially_locked,
+			int short_interval);
+#endif
+
+
 ERTS_GLB_INLINE ErtsMigrationPaths *erts_get_migration_paths_managed(void);
 ERTS_GLB_INLINE ErtsMigrationPaths *erts_get_migration_paths(void);
 ERTS_GLB_INLINE ErtsRunQueue *erts_check_emigration_need(ErtsRunQueue *c_rq,
@@ -1737,22 +1797,36 @@ erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 		return mp->prio[prio].runq;
 	}
 
-
-	if (prio == ERTS_PORT_PRIO_LEVEL)
-	    len = RUNQ_READ_LEN(&c_rq->ports.info.len);
+#if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
+	if (mp->sched_util) {
+	    ErtsRunQueue *rq = mp->prio[prio].runq;
+	    /* No migration if other is non-empty */
+	    if (!(ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY)
+		&& erts_get_sched_util(rq, 0, 1) < mp->prio[prio].limit.other
+		&& erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.this) {
+		return rq;
+	    }
+	}
 	else
-	    len = RUNQ_READ_LEN(&c_rq->procs.prio_info[prio].len);
+#endif
+	{
 
-	if (len > mp->prio[prio].limit.this) {
-	    ErtsRunQueue *n_rq = mp->prio[prio].runq;
-	    if (n_rq) {
-		if (prio == ERTS_PORT_PRIO_LEVEL)
-		    len = RUNQ_READ_LEN(&n_rq->ports.info.len);
-		else
-		    len = RUNQ_READ_LEN(&n_rq->procs.prio_info[prio].len);
+	    if (prio == ERTS_PORT_PRIO_LEVEL)
+		len = RUNQ_READ_LEN(&c_rq->ports.info.len);
+	    else
+		len = RUNQ_READ_LEN(&c_rq->procs.prio_info[prio].len);
 
-		if (len < mp->prio[prio].limit.other)
-		    return n_rq;
+	    if (len > mp->prio[prio].limit.this) {
+		ErtsRunQueue *n_rq = mp->prio[prio].runq;
+		if (n_rq) {
+		    if (prio == ERTS_PORT_PRIO_LEVEL)
+			len = RUNQ_READ_LEN(&n_rq->ports.info.len);
+		    else
+			len = RUNQ_READ_LEN(&n_rq->procs.prio_info[prio].len);
+
+		    if (len < mp->prio[prio].limit.other)
+			return n_rq;
+		}
 	    }
 	}
     }
