@@ -43,7 +43,7 @@
     <p>The module <c>sys</c> contains some functions for simple debugging
       of processes implemented using behaviours. We use the
       <c>code_lock</c> example from
-      the <seealso marker="fsm#ex">gen_event</seealso> chapter to
+      the <seealso marker="fsm#ex">gen_fsm</seealso> chapter to
       illustrate this:</p>
     <pre>
 % <input>erl</input>
