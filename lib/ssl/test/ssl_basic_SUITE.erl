@@ -144,6 +144,7 @@ session_tests() ->
 renegotiate_tests() ->
     [client_renegotiate,
      server_renegotiate,
+     client_secure_renegotiate,
      client_renegotiate_reused_session,
      server_renegotiate_reused_session,
      client_no_wrap_sequence_number,
@@ -1977,6 +1978,37 @@ client_renegotiate(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Client, ok, Server, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+client_secure_renegotiate() ->
+    [{doc,"Test ssl:renegotiate/1 on client."}].
+client_secure_renegotiate(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = "From erlang to erlang",
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+				   {options, [{secure_renegotiate, true} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       renegotiate, [Data]}},
+					{options, [{reuse_sessions, false},
+						   {secure_renegotiate, true}| ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, ok, Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 server_renegotiate() ->

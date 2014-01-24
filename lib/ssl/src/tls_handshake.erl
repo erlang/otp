@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,9 +52,9 @@ client_hello(Host, Port, ConnectionStates,
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
-
-    Extensions = ssl_handshake:client_hello_extensions(Host, Version, CipherSuites,
-						SslOpts, ConnectionStates, Renegotiation),
+    Extensions = ssl_handshake:client_hello_extensions(Host, Version, 
+						       CipherSuites,
+						       SslOpts, ConnectionStates, Renegotiation),
 
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
 
@@ -87,8 +87,8 @@ hello(#server_hello{server_version = Version, random = Random,
       ConnectionStates0, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
-	    handle_hello_extensions(Version, SessionId, Random, CipherSuite,
-				    Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation);
+	    handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
+					   Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation);
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
     end;
@@ -113,9 +113,9 @@ hello(#client_hello{client_version = ClientVersion,
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
 		_ ->
-		    handle_hello_extensions(Version, Type, Random, HelloExt,
-					    SslOpts, Session1, ConnectionStates0,
-					    Renegotiation)
+		    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
+						   SslOpts, Session1, ConnectionStates0,
+						   Renegotiation)
 	    end;
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
@@ -217,8 +217,10 @@ enc_handshake(HandshakeMsg, Version) ->
     ssl_handshake:encode_handshake(HandshakeMsg, Version).
 
 
-handle_hello_extensions(Version, Type, Random, HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation) ->
-    try ssl_handshake:handle_client_hello_extensions(tls_record, Random, HelloExt, Version, SslOpts,
+handle_client_hello_extensions(Version, Type, Random, CipherSuites,
+			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation) ->
+    try ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
+						     HelloExt, Version, SslOpts,
 						     Session0, ConnectionStates0, Renegotiation) of
 	{Session, ConnectionStates, ServerHelloExt} ->
 	    {Version, {Type, Session}, ConnectionStates, ServerHelloExt}
@@ -227,7 +229,7 @@ handle_hello_extensions(Version, Type, Random, HelloExt, SslOpts, Session0, Conn
     end.
 
 
-handle_hello_extensions(Version, SessionId, Random, CipherSuite,
+handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 			Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation) ->
     case ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
 						      Compression, HelloExt, Version,
