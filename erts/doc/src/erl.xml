@@ -1153,18 +1153,18 @@
           <tag><marker id="+spp"><c>+spp Bool</c></marker></tag>
           <item>
 	    <p>Set default scheduler hint for port parallelism. If set to
-	    <c>true</c>, the VM will schedule port tasks when it by this can
-	    improve the parallelism in the system. If set to <c>false</c>,
-	    the VM will try to perform port tasks immediately and by this
-	    improve latency at the expense of parallelism. If this
-	    flag has not been passed, the default scheduler hint for port
-	    parallelism is currently <c>false</c>. The default used can be
-	    inspected in runtime by calling
-	    <seealso marker="erlang#system_info_port_parallelism">erlang:system_info(port_parallelism)</seealso>.
+	    <c>true</c>, the VM will schedule port tasks when doing so will
+	    improve parallelism in the system. If set to <c>false</c>, the VM
+	    will try to perform port tasks immediately, improving latency at the
+	    expense of parallelism. If this flag has not been passed, the
+	    default scheduler hint for port parallelism is currently
+	    <c>false</c>. The default used can be inspected in runtime by
+	    calling <seealso
+	    marker="erlang#system_info_port_parallelism">erlang:system_info(port_parallelism)</seealso>.
 	    The default can be overriden on port creation by passing the
 	    <seealso marker="erlang#open_port_parallelism">parallelism</seealso>
-	    option to
-	    <seealso marker="erlang#open_port/2">open_port/2</seealso></p>.
+	    option to <seealso
+	    marker="erlang#open_port/2">open_port/2</seealso></p>.
 	  </item>
 	  <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
 	  <item>
