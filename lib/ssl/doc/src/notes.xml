@@ -25,7 +25,41 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.2</title>
+  <section><title>SSL 5.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing validation of the server_name_indication
+	    option and test for its explicit use. It was not possible
+	    to set or disable the default server_name_indication as
+	    the validation of the option was missing.</p>
+          <p>
+	    Own Id: OTP-11567</p>
+        </item>
+        <item>
+          <p>
+	    Elliptic curve selection in server mode now properly
+	    selects a curve suggested by the client, if possible, and
+	    the fallback alternative is changed to a more widely
+	    supported curve.</p>
+          <p>
+	    Own Id: OTP-11575</p>
+        </item>
+        <item>
+          <p>
+	    Bug in the TLS hello extension handling caused the server
+	    to behave as it did not understand secure renegotiation.</p>
+          <p>
+	    Own Id: OTP-11595</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

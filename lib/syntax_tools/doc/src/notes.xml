@@ -31,6 +31,38 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In syntax_tools-1.6.12 (OTP R16B03) a bug was introduced
+	    which broke reverting of local implicit funs. Implicit
+	    funs were mistakenly thought to be using abstract terms
+	    for their name and arity. This has now been corrected.
+	    (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11576</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The default encoding of Erlang files has been changed
+	    from ISO-8859-1 to UTF-8. </p> <p> The encoding of XML
+	    files has also been changed to UTF-8. </p>
+          <p>
+	    Own Id: OTP-10907</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
