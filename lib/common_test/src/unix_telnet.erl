@@ -137,19 +137,21 @@ connect1(Name,Ip,Port,Timeout,KeepAlive,Username,Password) ->
 					{error,Error}
 				end;
 			    Error ->
-				log(Name,recv,"Login failed\n~p\n",[Error]),
+				log(Name,recv,"Login to ~p:~p failed\n~p\n",[Ip,Port,Error]),
 				{error,Error}
 			end;
 		    {ok,[{prompt,_OtherPrompt1},{prompt,_OtherPrompt2}],_} ->
 			{ok,Pid};
 		    Error ->
 			log(Name,error,
-			    "Did not get expected prompt\n~p\n",[Error]),
+			    "Did not get expected prompt from ~p:~p\n~p\n",
+			    [Ip,Port,Error]),
 			{error,Error}
 		end;
 	    Error ->
 		log(Name,error,
-		    "Could not open telnet connection\n~p\n",[Error]),
+		    "Could not open telnet connection to ~p:~p\n~p\n",
+		    [Ip,Port,Error]),
 		Error
 	end,
     end_gen_log(),

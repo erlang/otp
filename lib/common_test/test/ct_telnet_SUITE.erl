@@ -50,7 +50,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 groups() ->
     [{legacy, [], [unix_telnet,own_server,timetrap]},
-     {raw, [], [unix_telnet,own_server]},
+     {raw, [], [unix_telnet]},%,own_server,timetrap]},
      {html, [], [unix_telnet,own_server]},
      {silent, [], [unix_telnet,own_server]}].
 
@@ -170,8 +170,10 @@ telnet_config(unix_telnet, LogType) ->
     [{unix, ct:get_config(unix)},
      {ct_conn_log,
       [{ct_telnet,[{log_type,LogType},
-		   {hosts,[the_telnet_server]}]
-       }]}];
+		   {hosts,[telnet_server_conn1,
+			   telnet_server_conn2,
+			   telnet_server_conn3,
+			   telnet_server_conn4]}]}]}];
 telnet_config(_, LogType) ->
     [{unix,[{telnet,"localhost"},
 	    {port, ?erl_telnet_server_port},
@@ -183,8 +185,10 @@ telnet_config(_, LogType) ->
 	true ->
 	     [{ct_conn_log,
 	       [{ct_telnet,[{log_type,LogType},
-			    {hosts,[the_telnet_server]}]
-			    }]}]
+			    {hosts,[telnet_server_conn1,
+				    telnet_server_conn2,
+				    telnet_server_conn3,
+				    telnet_server_conn4]}]}]}]
      end].
 
 %%%-----------------------------------------------------------------

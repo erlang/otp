@@ -181,7 +181,7 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 			end;
 		    Bool -> Bool
 		end,
-	    log(undefined,open,"Opening connection ~p to ~p",
+	    log(undefined,open,"Connecting to ~p(~p)",
 		[KeyOrName,Addr1]),
 	    ct_gen_conn:start(KeyOrName,full_addr(Addr1,ConnType),
 			      {TargetMod,KeepAlive,Extra},?MODULE)
@@ -200,7 +200,7 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
-	    log(undefined,close,"Closing connection for handle: ~w",[Pid]),
+	    log(undefined,close,"Connection closed, handle: ~w",[Pid]),
 	    case ct_gen_conn:stop(Pid) of
 		{error,{process_down,Pid,noproc}} ->
 		    {error,already_closed};
@@ -600,9 +600,9 @@ reconnect(Ip,Port,N,State=#state{name=Name,
 
 %% @hidden
 terminate(TelnPid,State) ->
-    log(State,close,"Closing telnet connection.\nId: ~w",[TelnPid]),
-    ct_telnet_client:close(TelnPid).
-
+    Result = ct_telnet_client:close(TelnPid),
+    log(State,close,"Telnet connection for ~w closed.",[TelnPid]),
+    Result.
 
 %%%=================================================================
 %%% Internal function

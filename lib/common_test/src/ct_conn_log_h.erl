@@ -52,7 +52,7 @@ open_files([],State) ->
 
 
 do_open_files([{Tag,File}|Logs],Acc) ->
-    case file:open(File, [write,{encoding,utf8}]) of
+    case file:open(File, [write,append,{encoding,utf8}]) of
 	{ok,Fd} ->
 	    do_open_files(Logs,[{Tag,Fd}|Acc]);
 	{error,Reason} ->
@@ -63,17 +63,12 @@ do_open_files([],Acc) ->
 
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
-handle_event({_Type,_GL,{Pid,{ct_connection,Action,ConnName},Report}},State) ->
-    %% NOTE: if the format of this event is changed
-    %% ({ct_connection,Action,ConnName}) then remember to change
-    %% test_server_h:report_receiver as well!!!
-    Info = conn_info(Pid,#conn_log{name=ConnName,action=Action}),
+handle_event({_Type,_GL,{Pid,{ct_connection,Mod,Action,ConnName},Report}},
+	     State) ->
+    Info = conn_info(Pid,#conn_log{name=ConnName,action=Action,module=Mod}),
     write_report(now(),Info,Report,State),
     {ok, State};
 handle_event({_Type,_GL,{Pid,Info=#conn_log{},Report}},State) ->
-    %% NOTE: if the format of this event is changed
-    %% (Info=#conn_log{}) then remember to change
-    %% test_server_h:report_receiver as well!!!
     write_report(now(),conn_info(Pid,Info),Report,State),
     {ok, State};
 handle_event({error_report,_,{Pid,_,[{ct_connection,ConnName}|R]}},State) ->
@@ -151,12 +146,7 @@ format_head(ConnMod,_,Time,Text) ->
     io_lib:format("~n~ts",[Head]).
 
 format_title(raw,#conn_log{client=Client}=Info) ->
-    case actionstr(Info) of
-	{no_server,Action} ->
-	    io_lib:format("Client ~w ~s",[Client,Action]);
-	Action ->
-	    io_lib:format("Client ~w ~s ~ts",[Client,Action,serverstr(Info)])
-    end;
+    io_lib:format("Client ~w ~s ~ts",[Client,actionstr(Info),serverstr(Info)]);
 format_title(_,Info) ->
     Title = pad_char_end(?WIDTH,pretty_title(Info),$=),
     io_lib:format("~n~ts", [Title]).
@@ -211,10 +201,8 @@ pretty_title(#conn_log{client=Client}=Info) ->
 actionstr(#conn_log{action=send}) -> "----->";
 actionstr(#conn_log{action=cmd}) -> "----->";
 actionstr(#conn_log{action=recv}) -> "<-----";
-actionstr(#conn_log{action=open}) -> "open session to";
-actionstr(#conn_log{action=close}) -> "close session to";
-actionstr(#conn_log{action=info}) -> {no_server,"info"};
-actionstr(#conn_log{action=error}) -> {no_server,"error"};
+actionstr(#conn_log{action=open}) -> "opened session to";
+actionstr(#conn_log{action=close}) -> "closed session to";
 actionstr(_) -> "<---->".
 
 serverstr(#conn_log{name=undefined,address={undefined,_}}) ->
@@ -222,7 +210,7 @@ serverstr(#conn_log{name=undefined,address={undefined,_}}) ->
 serverstr(#conn_log{name=undefined,address=Address}) ->
     io_lib:format("~p",[Address]);
 serverstr(#conn_log{name=Alias,address={undefined,_}}) ->
-    io_lib:format("~w()",[Alias]);
+    io_lib:format("~w",[Alias]);
 serverstr(#conn_log{name=Alias,address=Address}) ->
     io_lib:format("~w(~p)",[Alias,Address]).
 
