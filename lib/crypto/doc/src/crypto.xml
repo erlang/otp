@@ -452,17 +452,17 @@
     </func>
 
     <func>
-      <name>private_decrypt(Type, ChipherText, PrivateKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
+      <name>private_decrypt(Type, CipherText, PrivateKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
-	<v>ChipherText = binary()</v>
+	<v>CipherText = binary()</v>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seealso marker="#public_encrypt-4">public_encrypt/4</seealso> (or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature  verification operation
@@ -473,7 +473,7 @@
     </func>
     
     <func>
-      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> ChipherText</name>
+      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
@@ -484,7 +484,7 @@
 	used, where N is public modulus of the RSA key.</d>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
@@ -496,17 +496,17 @@
       </desc>
     </func>
     <func>
-      <name>public_decrypt(Type, ChipherText, PublicKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
+      <name>public_decrypt(Type, CipherText, PublicKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
-	<v>ChipherText = binary()</v>
+	<v>CipherText = binary()</v>
 	<v>PublicKey =  rsa_public() </v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seealso marker="#private_encrypt-4">private_encrypt/4</seealso>(or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature verification operation
@@ -517,7 +517,7 @@
     </func>
 
     <func>
-      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> ChipherText</name>
+      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
@@ -528,7 +528,7 @@
 	used, where N is public modulus of the RSA key.</d>
 	<v>PublicKey = rsa_public()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
