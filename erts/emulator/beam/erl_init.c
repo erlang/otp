@@ -1439,8 +1439,10 @@ erl_start(int argc, char **argv)
 	    }
 	    else if (has_prefix("cl", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
-		if (sys_strcmp("true", arg) == 0)
+		if (sys_strcmp("true", arg) == 0) {
 		    erts_sched_compact_load = 1;
+		    erts_sched_balance_util = 0;
+		}
 		else if (sys_strcmp("false", arg) == 0)
 		    erts_sched_compact_load = 0;
 		else {
