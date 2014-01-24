@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,7 @@
 
 %% Extensions handling
 -export([client_hello_extensions/6,
-	 handle_client_hello_extensions/8, %% Returns server hello extensions
+	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2
 	]).
 
@@ -1088,17 +1088,19 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 
 %%-------------Extension handling --------------------------------
 
-handle_client_hello_extensions(RecordCB, Random,
-			#hello_extensions{renegotiation_info = Info,
-					  srp = SRP,
-					  ec_point_formats = ECCFormat,
-					  next_protocol_negotiation = NextProtocolNegotiation}, Version,
-			#ssl_options{secure_renegotiate = SecureRenegotation} = Opts,
-			#session{cipher_suite = CipherSuite, compression_method = Compression} = Session0,
-			ConnectionStates0, Renegotiation) ->
+handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
+			       #hello_extensions{renegotiation_info = Info,
+						 srp = SRP,
+						 ec_point_formats = ECCFormat,
+						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
+			       #ssl_options{secure_renegotiate = SecureRenegotation} = Opts,
+			       #session{cipher_suite = NegotiatedCipherSuite,
+					compression_method = Compression} = Session0,
+			       ConnectionStates0, Renegotiation) ->
     Session = handle_srp_extension(SRP, Session0),
     ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, Info,
-						      Random, CipherSuite, Compression,
+						      Random, NegotiatedCipherSuite, 
+						      ClientCipherSuites, Compression,
 						      ConnectionStates0, Renegotiation, SecureRenegotation),
     ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
    
@@ -1117,7 +1119,8 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
 			       #ssl_options{secure_renegotiate = SecureRenegotation,
 					    next_protocol_selector = NextProtoSelector},
 			       ConnectionStates0, Renegotiation) ->
-    ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version, Info, Random, CipherSuite,
+    ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version, Info, Random, 
+						      CipherSuite, undefined,
 						      Compression, ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
     case handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation) of
@@ -1415,15 +1418,16 @@ calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
 calc_master_secret({3,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 
-handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, CipherSuite, Compression,
+handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite, 
+			       ClientCipherSuites, Compression,
 			       ConnectionStates0, Renegotiation, SecureRenegotation) ->
     case handle_renegotiation_info(RecordCB, Role, Info, ConnectionStates0,
 				   Renegotiation, SecureRenegotation,
-				   [CipherSuite]) of
+				   ClientCipherSuites) of
 	{ok, ConnectionStates} ->
 	    hello_pending_connection_states(RecordCB, Role,
 					    Version,
-					    CipherSuite,
+					    NegotiatedCipherSuite,
 					    Random,
 					    Compression,
 					    ConnectionStates);
