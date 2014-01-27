@@ -111,7 +111,8 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
--type sendfile_option() :: {chunk_size, non_neg_integer()}.
+-type sendfile_option() :: {chunk_size, non_neg_integer()}
+			 | {use_threads, boolean()}.
 -type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
 			  | {'time', 'posix'}.
 %%% BIFs
@@ -1229,8 +1230,7 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 sendfile(File, _Sock, _Offet, _Bytes, _Opts) when is_pid(File) ->
     {error, badarg};
 sendfile(File, Sock, Offset, Bytes, []) ->
-    sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [],
-	     false, false, false);
+    sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [], []);
 sendfile(File, Sock, Offset, Bytes, Opts) ->
     ChunkSize0 = proplists:get_value(chunk_size, Opts, ?MAX_CHUNK_SIZE),
     ChunkSize = if ChunkSize0 > ?MAX_CHUNK_SIZE ->
@@ -1240,8 +1240,7 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
     %% Support for headers, trailers and options has been removed because the
     %% Darwin and BSD API for using it does not play nice with
     %% non-blocking sockets. See unix_efile.c for more info.
-    sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [],
-	     false,false,false).
+    sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [], Opts).
 
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->
@@ -1261,17 +1260,17 @@ sendfile(Filename, Sock)  ->
 
 %% Internal sendfile functions
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
-	 ChunkSize, Headers, Trailers, Nodiskio, MNowait, Sync)
+	 ChunkSize, Headers, Trailers, Opts)
   when is_port(Sock) ->
     case Mod:sendfile(Fd, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
-		      Nodiskio, MNowait, Sync) of
+		      Opts) of
 	{error, enotsup} ->
 	    sendfile_fallback(Fd, Sock, Offset, Bytes, ChunkSize,
 			      Headers, Trailers);
 	Else ->
 	    Else
     end;
-sendfile(_,_,_,_,_,_,_,_,_,_) ->
+sendfile(_,_,_,_,_,_,_,_) ->
     {error, badarg}.
 
 %%%
