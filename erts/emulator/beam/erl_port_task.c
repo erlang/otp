@@ -877,6 +877,11 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
     ASSERT(runq->ports.start && runq->ports.end);
 
     erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
+
+#ifdef ERTS_SMP
+    if (runq->halt_in_progress)
+	erts_non_empty_runq(runq);
+#endif
 }
 
 static ERTS_INLINE Port *
