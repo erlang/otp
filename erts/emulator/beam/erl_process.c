@@ -7603,19 +7603,13 @@ Process *schedule(Process *p, int calls)
 #ifdef ERTS_SMP
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
-
-#ifdef ERTS_SMP
-	{
-	    ErtsProcList *pnd_xtrs = rq->procs.pending_exiters;
-	    if (erts_proclist_fetch(&pnd_xtrs, NULL)) {
-		rq->procs.pending_exiters = NULL;
-		erts_smp_runq_unlock(rq);
-		handle_pending_exiters(pnd_xtrs);
-		erts_smp_runq_lock(rq);
-	    }
-		
+	ErtsProcList *pnd_xtrs = rq->procs.pending_exiters;
+	if (erts_proclist_fetch(&pnd_xtrs, NULL)) {
+	    rq->procs.pending_exiters = NULL;
+	    erts_smp_runq_unlock(rq);
+	    handle_pending_exiters(pnd_xtrs);
+	    erts_smp_runq_lock(rq);
 	}
-#endif
 
 	if (rq->check_balance_reds <= 0)
 	    check_balance(rq);
@@ -7702,6 +7696,7 @@ Process *schedule(Process *p, int calls)
 		flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
 		if (flags & ERTS_RUNQ_FLG_SUSPENDED) {
 		    non_empty_runq(rq);
+		    flags |= ERTS_RUNQ_FLG_NONEMPTY;
 		    goto continue_check_activities_to_run_known_flags;
 		}
 	    }
