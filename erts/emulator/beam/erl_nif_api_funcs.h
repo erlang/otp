@@ -300,7 +300,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMa
 #  define enif_is_map ERL_NIF_API_FUNC_MACRO(enif_is_map)
 #  define enif_get_map_size ERL_NIF_API_FUNC_MACRO(enif_get_map_size)
 #  define enif_make_new_map ERL_NIF_API_FUNC_MACRO(enif_make_new_map)
-#  define enif_make_map_put ERL_NIF_API_FUNC_MACRO(enif_map_map_put)
+#  define enif_make_map_put ERL_NIF_API_FUNC_MACRO(enif_make_map_put)
 #  define enif_get_map_value ERL_NIF_API_FUNC_MACRO(enif_get_map_value)
 #  define enif_make_map_update ERL_NIF_API_FUNC_MACRO(enif_make_map_update)
 #  define enif_make_map_remove ERL_NIF_API_FUNC_MACRO(enif_make_map_remove)
