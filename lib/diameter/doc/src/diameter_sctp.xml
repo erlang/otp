@@ -15,7 +15,8 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year><year>2013</year>
+<year>2011</year>
+<year>2014</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -113,7 +114,7 @@ and port respectively.</p>
 <p>
 Multiple <c>ip</c> options can be specified for a multihomed peer.
 If none are specified then the values of <c>Host-IP-Address</c>
-in the <c>#diameter_service{}</c> record are used.
+in the <c>diameter_service</c> record are used.
 (In particular, one of these must be specified.)
 Option <c>port</c> defaults to 3868 for a listening transport and 0 for a
 connecting transport.</p>
@@ -131,25 +132,18 @@ the buffer size.</p>
 </warning>
 
 <p>
-diameter_sctp uses the <c>transport_data</c> field of
-the <c>#diameter_packet{}</c> record to communicate the stream on which an
-inbound message has been received, or on which an outbound message
-should be sent: the value will be of the form <c>{stream, Id}</c>
-on an inbound message passed to a &app_handle_request; or
-&app_handle_answer; callback.
-For an outbound message, either <c>undefined</c> (explicitly or
-by receiving the outbound message as a <c>binary()</c>) or a tuple
-should be set in the return value of &app_handle_request;
-(typically by retaining the value passed into this function)
-or &app_prepare_request;.
-The value <c>undefined</c> uses a "next outbound stream" id and
-increments this modulo the total number outbound streams.
-That is, successive values of <c>undefined</c> cycle through all
-outbound streams.</p>
-
-<!-- TODO: Some way of getting at the number of available outbound -->
-<!--       streams.                                                -->
-
+The <c>transport_data</c> field of record <c>diameter_packet</c>
+is used to communicate the stream on which an inbound message
+has been received, or on which an outbound message should be sent.
+The value will be of the form <c>{stream, Id}</c> for an inbound
+message passed to a &app_handle_request; or &app_handle_answer;
+callback.
+For an outbound message, <c>{outstream, Id}</c> in the return value of
+&app_handle_request; or &app_prepare_retransmit; sets the outbound
+stream, the stream id being interpreted modulo the number of outbound
+streams.
+Any other value, or not setting a value, causes successive such sends
+to cycle though all outbound streams.</p>
 </desc>
 </func>
 
