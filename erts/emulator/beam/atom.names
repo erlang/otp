@@ -179,6 +179,7 @@ atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary
+atom dirty_cpu_schedulers_online
 atom disable_trace
 atom disabled
 atom display_items

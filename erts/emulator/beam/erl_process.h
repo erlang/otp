@@ -109,7 +109,6 @@ extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Uint erts_no_dirty_cpu_schedulers;
-extern Uint erts_no_dirty_cpu_schedulers_online;
 extern Uint erts_no_dirty_io_schedulers;
 #endif
 extern Uint erts_no_run_queues;
@@ -544,6 +543,21 @@ typedef struct {
 #endif
 } ErtsAuxWorkData;
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+typedef enum {
+    ERTS_DIRTY_CPU_SCHEDULER,
+    ERTS_DIRTY_IO_SCHEDULER
+} ErtsDirtySchedulerType;
+
+typedef union {
+    struct {
+	ErtsDirtySchedulerType type: 1;
+	unsigned num: 31;
+    } s;
+    Uint no;
+} ErtsDirtySchedId;
+#endif
+
 struct ErtsSchedulerData_ {
     /*
      * Keep X registers first (so we get as many low
@@ -570,7 +584,7 @@ struct ErtsSchedulerData_ {
     Process *current_process;
     Uint no;			/* Scheduler number for normal schedulers */
 #ifdef ERTS_DIRTY_SCHEDULERS
-    Uint dirty_no;		/* Scheduler number for dirty schedulers */
+    ErtsDirtySchedId dirty_no;  /* Scheduler number for dirty schedulers */
 #endif
     Port *current_port;
     ErtsRunQueue *run_queue;
@@ -1292,6 +1306,8 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
    &erts_aligned_run_queues[(IX)].runq)
 #define ERTS_DIRTY_CPU_RUNQ (&erts_aligned_run_queues[-1].runq)
 #define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[-2].runq)
+#define ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(RQ) ((RQ)->ix == -1)
+#define ERTS_RUNQ_IS_DIRTY_IO_RUNQ(RQ) ((RQ)->ix == -2)
 #else
 #define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
 #endif
@@ -1305,21 +1321,37 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define ERTS_DIRTY_IO_SCHEDULER_IX(IX)					\
   (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_io_schedulers),		\
    &erts_aligned_dirty_io_scheduler_data[(IX)].esd)
+#define ERTS_DIRTY_SCHEDULER_NO(ESDP)					\
+  ((ESDP)->dirty_no.s.num)
+#define ERTS_DIRTY_SCHEDULER_TYPE(ESDP)					\
+  ((ESDP)->dirty_no.s.type)
 #ifdef ERTS_SMP
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP)					\
-  ((ESDP)->dirty_no != 0)
+  ((ESDP)->dirty_no.s.num != 0)
+#define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP)				\
+    ((ESDP)->dirty_no.s.type == 0)
+#define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP)				\
+    ((ESDP)->dirty_no.s.type == 1)
 #else
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
+#define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
+#define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP) 0
 #endif
 #else
 #define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
+#define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
+#define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP) 0
 #endif
 
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
-void erts_init_scheduling(int, int);
+void erts_init_scheduling(int, int
+#ifdef ERTS_DIRTY_SCHEDULERS
+			  , int, int, int
+#endif
+			  );
 
 int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
@@ -1526,7 +1558,11 @@ ErtsSchedSuspendResult
 erts_set_schedulers_online(Process *p,
 			   ErtsProcLocks plocks,
 			   Sint new_no,
-			   Sint *old_no);
+			   Sint *old_no
+#ifdef ERTS_DIRTY_SCHEDULERS
+			   , int dirty_only
+#endif
+			   );
 ErtsSchedSuspendResult
 erts_block_multi_scheduling(Process *, ErtsProcLocks, int, int);
 int erts_is_multi_scheduling_blocked(void);

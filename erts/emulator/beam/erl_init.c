@@ -178,6 +178,11 @@ int erts_compat_rel;
 
 static int no_schedulers;
 static int no_schedulers_online;
+#ifdef ERTS_DIRTY_SCHEDULERS
+static int no_dirty_cpu_schedulers;
+static int no_dirty_cpu_schedulers_online;
+static int no_dirty_io_schedulers;
+#endif
 
 #ifdef DEBUG
 Uint32 verbose;             /* See erl_debug.h for information about verbose */
@@ -304,7 +309,13 @@ erl_init(int ncpu,
     erts_init_sys_common_misc();
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
     erts_init_scheduling(no_schedulers,
-			 no_schedulers_online);
+			 no_schedulers_online
+#ifdef ERTS_DIRTY_SCHEDULERS
+			 , no_dirty_cpu_schedulers,
+			 no_dirty_cpu_schedulers_online,
+			 no_dirty_io_schedulers
+#endif
+			 );
     erts_init_cpu_topology(); /* Must be after init_scheduling */
     erts_init_gc(); /* Must be after init_scheduling */
     erts_alloc_late_init();
@@ -1055,9 +1066,9 @@ early_init(int *argc, char **argv) /*
     erts_no_schedulers = (Uint) no_schedulers;
 #endif
 #ifdef ERTS_DIRTY_SCHEDULERS
-    erts_no_dirty_cpu_schedulers = dirty_cpu_scheds;
-    erts_no_dirty_cpu_schedulers_online = dirty_cpu_scheds_online;
-    erts_no_dirty_io_schedulers = dirty_io_scheds;
+    erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers = dirty_cpu_scheds;
+    no_dirty_cpu_schedulers_online = dirty_cpu_scheds_online;
+    erts_no_dirty_io_schedulers = no_dirty_io_schedulers = dirty_io_scheds;
 #endif
     erts_early_init_scheduling(no_schedulers);
 

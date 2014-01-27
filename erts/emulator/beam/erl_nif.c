@@ -1510,6 +1510,13 @@ enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
     a = erts_smp_atomic32_read_acqb(&proc->state);
     while (1) {
 	n = state = a;
+	/*
+	 * clear any current dirty flags and dirty queue indicators,
+	 * in case the application is shifting a job from one type
+	 * of dirty scheduler to the other
+	 */
+	n &= ~(ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC
+	       |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q);
 	if (chkflgs == ERL_NIF_DIRTY_JOB_CPU_BOUND)
 	    n |= ERTS_PSFLG_DIRTY_CPU_PROC;
 	else
@@ -1540,22 +1547,15 @@ enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result,
 				  ERL_NIF_TERM (*fp)(ErlNifEnv*, ERL_NIF_TERM))
 {
 #ifdef USE_THREADS
-    erts_aint32_t state, n, a;
     Process* proc = env->proc;
     Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
     Export* ep;
 
-    a = erts_smp_atomic32_read_acqb(&proc->state);
-    while (1) {
-	n = state = a;
-	if (!(n & (ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q)))
-	    break;
-	n &= ~(ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC
-	       |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q);
-	a = erts_smp_atomic32_cmpxchg_mb(&proc->state, n, state);
-	if (a == state)
-	    break;
-    }
+    erts_smp_atomic32_read_band_mb(&proc->state,
+				   ~(ERTS_PSFLG_DIRTY_CPU_PROC
+				     |ERTS_PSFLG_DIRTY_IO_PROC
+				     |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q
+				     |ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
     if (!(ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
 	alloc_proc_psd(proc, &ep);
     ERTS_VBUMP_ALL_REDS(proc);

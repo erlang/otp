@@ -1233,6 +1233,7 @@ if test $emu_threads != yes; then
         AC_MSG_CHECKING(whether dirty schedulers should be enabled)
 	if test "x$enable_dirty_schedulers" != "xno"; then
 	    AC_DEFINE(ERL_NIF_DIRTY_SCHEDULER_SUPPORT, 1, [Dirty scheduler support])
+	    AC_DEFINE(ERL_DRV_DIRTY_SCHEDULER_SUPPORT, 1, [Dirty scheduler support])
 	    AC_MSG_RESULT(yes)
 	else
 	    AC_MSG_RESULT(no)
@@ -1261,6 +1262,7 @@ else
 	    EMU_THR_DEFS="$EMU_THR_DEFS -DERTS_DIRTY_SCHEDULERS"
 	    AC_DEFINE(ERTS_DIRTY_SCHEDULERS, 1, [Define if the emulator supports dirty schedulers])
 	    AC_DEFINE(ERL_NIF_DIRTY_SCHEDULER_SUPPORT, 1, [Dirty scheduler support])
+	    AC_DEFINE(ERL_DRV_DIRTY_SCHEDULER_SUPPORT, 1, [Dirty scheduler support])
 	    AC_MSG_RESULT(yes)
 	else
 	    AC_MSG_RESULT(no)
