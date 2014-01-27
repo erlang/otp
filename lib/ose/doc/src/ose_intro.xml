@@ -40,7 +40,19 @@
       run_erl_lm. Installing and starting the load module will add two new
       shell commands called run_erl and to_erl. They work in exactly the same
       way as the unix variants of run_erl and to_erl, except that the read
-      and write pipes have to be placed under the /pipe vm. See also
+      and write pipes have to be placed under the /pipe vm. One additional
+      option also exists to run_erl on ose:
+      <taglist>
+	<tag><c>-block Name</c></tag>
+	<item>The name of the install handle and block that will be created/used by
+	installing and exectuting the first part of the command. If nothing
+	if given the basename of the load module will be used for this value.
+	Example:
+	<code>pm_install erlang /path/to/erlang/vm
+run_erl -daemon -block erlang /pipe/ /mst/erlang_logs/ "erl -A 10"</code>
+	</item>
+      </taglist>
+      See also
       <seealso marker="erts:run_erl">run_erl</seealso> for more details.
     </p>
   </section>
