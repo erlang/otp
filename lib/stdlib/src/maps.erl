@@ -20,8 +20,7 @@
 -module(maps).
 
 -export([
-	foldl/3,
-	foldr/3,
+	fold/3,
 	map/2,
 	size/1,
 	without/2
@@ -154,7 +153,7 @@ values(_) -> erlang:nif_error(undef).
 
 %%% End of BIFs
 
--spec foldl(Fun,Init,Map) -> Acc when
+-spec fold(Fun,Init,Map) -> Acc when
     Fun :: fun((K, V, AccIn) -> AccOut),
     Init :: term(),
     Acc :: term(),
@@ -164,22 +163,8 @@ values(_) -> erlang:nif_error(undef).
     K :: term(),
     V :: term().
 
-foldl(Fun, Init, Map) when is_function(Fun,3), is_map(Map) ->
+fold(Fun, Init, Map) when is_function(Fun,3), is_map(Map) ->
     lists:foldl(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map)).
-
--spec foldr(Fun,Init,Map) -> Acc when
-    Fun :: fun((K,V,AccIn) -> AccOut),
-    Init :: term(),
-    Acc :: term(),
-    AccIn :: term(),
-    AccOut :: term(),
-    Map :: map(),
-    K :: term(),
-    V :: term().
-
-foldr(Fun, Init, Map) when is_function(Fun,3), is_map(Map) ->
-    lists:foldr(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map)).
-
 
 -spec map(Fun,Map1) -> Map2 when
     Fun :: fun((K, V1) -> V2),
