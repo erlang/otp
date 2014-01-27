@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -155,6 +155,8 @@ fmt(grouped_avp_has_wrong_type) ->
     "Grouped AVP ~s at line ~p defined with type ~s at line ~p";
 fmt(grouped_avp_not_defined) ->
     "Grouped AVP ~s on line ~p not defined in @avp_types";
+fmt(grouped_avp_not_grouped) ->
+    "Grouped AVP ~s on line ~p not defined in @grouped";
 fmt(grouped_vendor_id_without_flag) ->
     "Grouped AVP ~s at line ~p has vendor id "
     "but definition at line ~p does not specify V flag";
@@ -401,9 +403,9 @@ read(File) ->
     {ok, iolist_to_binary([File])}.
 
 make_dict(Parse, Opts) ->
-    make_orddict(pass4(pass3(pass2(pass1(reset(make_dict(Parse),
-                                               Opts))),
-                             Opts))).
+    Dict = pass3(pass2(pass1(reset(make_dict(Parse), Opts))), Opts),
+    ok = examine(Dict),
+    make_orddict(Dict).
 
 %% make_orddict/1
 
@@ -1168,7 +1170,7 @@ import_avps(Dict, Opts) ->
     Import = inherit(Dict, Opts),
     report(imported, Import),
 
-    %% pass4/1 tests that all referenced AVP's are either defined
+    %% examine/1 tests that all referenced AVP's are either defined
     %% or imported.
 
     dict:store(import_avps,
@@ -1276,21 +1278,21 @@ dict(Mod) ->
     end.
 
 %% ===========================================================================
-%% pass4/1
+%% examine/1
 %%
 %% Sanity checks.
 
-pass4(Dict) ->
-    dict:fold(fun(K, V, _) -> p4(K, V, Dict) end, ok, Dict),
-    Dict.
+examine(Dict) ->
+    dict:fold(fun(K, V, _) -> x(K, V, Dict) end, ok, Dict),
+    ok.
 
 %% Ensure enum AVP's have type Enumerated.
-p4({enum, Name}, [Line | _], Dict)
+x({enum, Name}, [Line | _], Dict)
   when is_list(Name) ->
     true = is_enumerated_avp(Name, Dict, Line);
 
 %% Ensure all referenced AVP's are either defined locally or imported.
-p4({K, {Name, AvpName}}, [Line | _], Dict)
+x({K, {Name, AvpName}}, [Line | _], Dict)
   when (K == grouped orelse K == messages),
        is_list(Name),
        is_list(AvpName),
@@ -1298,13 +1300,22 @@ p4({K, {Name, AvpName}}, [Line | _], Dict)
     true = avp_is_defined(AvpName, Dict, Line);
 
 %% Ditto.
-p4({K, AvpName}, [Line | _], Dict)
+x({K, AvpName}, [Line | _], Dict)
   when K == avp_vendor_id;
        K == custom_types;
        K == codecs ->
     true = avp_is_defined(AvpName, Dict, Line);
 
-p4(_, _, _) ->
+%% Ensure that all local AVP's of type Grouped are also present in @grouped.
+x({avp_types, Name}, [Line | Toks], Dict)
+  when 0 < Line, is_list(Name) ->
+    [{number, _, _Code}, {word, _, Type}, {word, _, _Flags}] = Toks,
+    "Grouped" == Type
+        andalso error == dict:find({grouped, Name}, Dict)
+        andalso ?RETURN(grouped_avp_not_grouped, [Name, Line]),
+    ok;
+
+x(_, _, _) ->
     ok.
 
 %% has_enumerated_type/3

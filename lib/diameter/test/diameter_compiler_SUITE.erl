@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -137,6 +137,9 @@
           "\\1Time"},
          {grouped_avp_not_defined,
           "Failed-AVP *.*",
+          ""},
+         {grouped_avp_not_grouped,
+          "Failed-AVP ::=.*\n.*}",
           ""},
          {grouped_vendor_id_without_flag,
           "(Failed-AVP .*)>",
@@ -397,8 +400,8 @@ replace({E, Mods}, Bin) ->
     case {E, parse(B, [{include, here()}]), Mods} of
         {ok, {ok, Dict}, _} ->
             Dict;
-        {_, {error, S}, _} ->
-            S
+        {_, {error, {E,_} = T}, _} when E /= ok ->
+            diameter_make:format_error(T)
     end.
 
 re({RE, Repl}, Bin) ->
