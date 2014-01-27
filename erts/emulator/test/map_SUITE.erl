@@ -816,18 +816,11 @@ t_bif_map_from_list(Config) when is_list(Config) ->
 
 %% Maps module, not BIFs
 t_maps_fold(_Config) ->
-
     Vs = lists:seq(1,100),
-    Rs = lists:reverse(Vs),
     M  = maps:from_list([{{k,I},{v,I}}||I<-Vs]),
 
-    %% foldl
-    5050 = maps:foldl(fun({k,_},{v,V},A) -> V + A end, 0, M),
-    Rs = maps:foldl(fun({k,_},{v,V},A) -> [V|A] end, [], M),
-
-    %% foldr
-    5050 = maps:foldr(fun({k,_},{v,V},A) -> V + A end, 0, M),
-    Vs = maps:foldr(fun({k,_},{v,V},A) -> [V|A] end, [], M),
+    %% fold
+    5050 = maps:fold(fun({k,_},{v,V},A) -> V + A end, 0, M),
 
     ok.
 
