@@ -33,6 +33,7 @@ all() ->
      ,t_sendfile_offset
      ,t_sendfile_sendafter
      ,t_sendfile_recvafter
+     ,t_sendfile_recvafter_remoteclose
      ,t_sendfile_sendduring
      ,t_sendfile_recvduring
      ,t_sendfile_closeduring
@@ -227,6 +228,25 @@ t_sendfile_recvafter(Config) ->
 	   end,
 
     ok = sendfile_send(Send).
+
+%% This tests specifically for a bug fixed in 17.0
+t_sendfile_recvafter_remoteclose(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+
+    Send = fun(Sock, SFServer) ->
+		   {Size, _Data} = sendfile_file_info(Filename),
+		   {ok, Size} = file:sendfile(Filename, Sock),
+
+		   %% Make sure the remote end has been closed
+		   SFServer ! stop,
+		   timer:sleep(100),
+
+		   %% In the bug this returned {error,ebadf}
+		   {error,closed} = gen_tcp:recv(Sock, 1),
+		   -1
+	   end,
+
+    ok = sendfile_send({127,0,0,1},Send,0).
 
 t_sendfile_sendduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
