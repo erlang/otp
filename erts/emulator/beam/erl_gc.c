@@ -1157,7 +1157,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	old_htop = sweep_one_area(OLD_HTOP(p), old_htop, heap, heap_size);
     }
     OLD_HTOP(p) = old_htop;
-    HIGH_WATER(p) = (HEAP_START(p) != HIGH_WATER(p)) ? n_heap : n_htop;
+    HIGH_WATER(p) = n_htop;
 
     if (MSO(p).first) {
 	sweep_off_heap(p, 0);
