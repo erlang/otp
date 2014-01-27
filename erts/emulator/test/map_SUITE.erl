@@ -37,9 +37,11 @@
 	t_bif_map_find/1,
 	t_bif_map_is_key/1,
 	t_bif_map_keys/1,
+	t_bif_map_merge/1,
 	t_bif_map_new/1,
 	t_bif_map_put/1,
 	t_bif_map_remove/1,
+	t_bif_map_update/1,
 	t_bif_map_values/1,
 	t_bif_map_to_list/1,
 	t_bif_map_from_list/1,
@@ -76,8 +78,10 @@ all() -> [
 
 	%% Specific Map BIFs
 	t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
-	t_bif_map_keys,t_bif_map_new,t_bif_map_put,
-	t_bif_map_remove,t_bif_map_values,
+	t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
+	t_bif_map_put,
+	t_bif_map_remove, t_bif_map_update,
+	t_bif_map_values,
 	t_bif_map_to_list, t_bif_map_from_list,
 
 	%% erlang
@@ -478,8 +482,8 @@ t_bif_map_find(Config) when is_list(Config) ->
     error = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
 
 
-    {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,[])),
-    {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,<<>>)),
+    {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,id([]))),
+    {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,id(<<>>))),
     ok.
 
 
@@ -496,11 +500,16 @@ t_bif_map_is_key(Config) when is_list(Config) ->
     false = maps:is_key("h", M1),
     false = maps:is_key("hello", M1),
     false = maps:is_key(atom, M1),
+    false = maps:is_key(any, id(#{})),
 
     false = maps:is_key("hi", maps:remove("hi", M1)),
     true  = maps:is_key("hi", M1),
     true  = maps:is_key(1, maps:put(1, "number", M1)),
     false = maps:is_key(1.0, maps:put(1, "number", M1)),
+
+    %% error case
+    {'EXIT',{badarg,[{maps,is_key,_,_}|_]}} = (catch maps:is_key(a,id([]))),
+    {'EXIT',{badarg,[{maps,is_key,_,_}|_]}} = (catch maps:is_key(a,id(<<>>))),
     ok.
 
 t_bif_map_keys(Config) when is_list(Config) ->
@@ -525,6 +534,34 @@ t_bif_map_new(Config) when is_list(Config) ->
     #{} = maps:new(),
     0   = erlang:map_size(maps:new()),
     ok.
+
+t_bif_map_merge(Config) when is_list(Config) ->
+    0   = erlang:map_size(maps:merge(#{},#{})),
+
+    M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
+	4 => number, 18446744073709551629 => wat},
+
+    #{ "hi" := "hello", int := 3, <<"key">> := <<"value">>,
+	4 := number, 18446744073709551629 := wat} = maps:merge(#{}, M0),
+
+    #{ "hi" := "hello", int := 3, <<"key">> := <<"value">>,
+	4 := number, 18446744073709551629 := wat} = maps:merge(M0, #{}),
+
+    M1 = #{ "hi" => "hello again", float => 3.3, {1,2} => "tuple", 4 => integer },
+
+    #{4 := number, 18446744073709551629 := wat, float := 3.3, int := 3,
+	{1,2} := "tuple", "hi" := "hello", <<"key">> := <<"value">>} = maps:merge(M1,M0),
+
+    #{4 := integer, 18446744073709551629 := wat, float := 3.3, int := 3,
+	{1,2} := "tuple", "hi" := "hello again", <<"key">> := <<"value">>} = maps:merge(M0,M1),
+
+    %% error case
+    {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge((1 bsl 65 + 3), <<>>)),
+    {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(<<>>, id(#{ a => 1}))),
+    {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(id(#{ a => 2}), <<>> )),
+
+    ok.
+
 
 t_bif_map_put(Config) when is_list(Config) ->
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
@@ -555,6 +592,11 @@ t_bif_map_put(Config) when is_list(Config) ->
     [4,18446744073709551629,int,"hi",<<"key">>] = maps:keys(M5),
     [number,wat,3,"hello",<<"value">>]          = maps:values(M5),
 
+    M6 = #{ <<"key">> := <<"other value">> } = maps:put(<<"key">>, <<"other value">>, M5),
+
+    [4,18446744073709551629,int,"hi",<<"key">>] = maps:keys(M6),
+    [number,wat,3,"hello",<<"other value">>]    = maps:values(M6),
+
     %% error case
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,1 bsl 65 + 3)),
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,154)),
@@ -564,6 +606,8 @@ t_bif_map_put(Config) when is_list(Config) ->
      ok.
 
 t_bif_map_remove(Config) when is_list(Config) ->
+    0  = erlang:map_size(maps:remove(some_key, #{})),
+
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
 	4 => number, 18446744073709551629 => wat},
 
@@ -599,6 +643,33 @@ t_bif_map_remove(Config) when is_list(Config) ->
     {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,[])),
     {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,<<>>)),
      ok.
+
+t_bif_map_update(Config) when is_list(Config) ->
+    M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
+	4 => number, 18446744073709551629 => wat},
+
+    #{ "hi" := "hello again", int := 3, <<"key">> := <<"value">>,
+	4 := number, 18446744073709551629 := wat} = maps:update("hi", "hello again", M0),
+
+    #{ "hi" := "hello", int := 1337, <<"key">> := <<"value">>,
+	4 := number, 18446744073709551629 := wat} = maps:update(int, 1337, M0),
+
+    #{ "hi" := "hello", int := 3, <<"key">> := <<"new value">>,
+	4 := number, 18446744073709551629 := wat} = maps:update(<<"key">>, <<"new value">>, M0),
+
+    #{ "hi" := "hello", int := 3, <<"key">> := <<"value">>,
+	4 := integer, 18446744073709551629 := wat} = maps:update(4, integer, M0),
+
+    #{ "hi" := "hello", int := 3, <<"key">> := <<"value">>,
+	4 := number, 18446744073709551629 := wazzup} = maps:update(18446744073709551629, wazzup, M0),
+
+    %% error case
+    {'EXIT',{badarg,[{maps,update,_,_}|_]}} = (catch maps:update(1,none,{})),
+    {'EXIT',{badarg,[{maps,update,_,_}|_]}} = (catch maps:update(1,none,<<"value">>)),
+    {'EXIT',{badarg,[{maps,update,_,_}|_]}} = (catch maps:update(5,none,M0)),
+
+    ok.
+
 
 
 t_bif_map_values(Config) when is_list(Config) ->
@@ -810,6 +881,10 @@ t_bif_map_from_list(Config) when is_list(Config) ->
 	    {<<"hi">>,v6}, {{hi,3},v10},{"hi",v11}, {hi,v9}, {3,v8}]),
 
     %% error cases
+    {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b},b]))),
+    {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b},{b,b,3}]))),
+    {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b},<<>>]))),
+    {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b}|{b,a}]))),
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(a))),
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
