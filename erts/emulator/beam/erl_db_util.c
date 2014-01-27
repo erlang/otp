@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1838,7 +1838,7 @@ restart:
 	    ep = termp;
 	    break;
 	case matchArrayBind: /* When the array size is unknown. */
-	    ASSERT(termp);
+	    ASSERT(termp || arity==0);
 	    n = *pc++;
 	    variables[n].term = dpm_array_to_list(psp, termp, arity);
 	    break;

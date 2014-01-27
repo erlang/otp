@@ -2688,11 +2688,6 @@ tailrecur_ne:
     {
 	FloatDef f1, f2;
 	Eterm big;
-#if HEAP_ON_C_STACK
-	Eterm big_buf[CMP_TMP_HEAP_SIZE]; /* If HEAP_ON_C_STACK */
-#else
-	Eterm *big_buf = erts_get_scheduler_data()->cmp_tmp_heap;
-#endif
 #if HALFWORD_HEAP
 	Wterm aw = is_immed(a) ? a : rterm2wterm(a,a_base);
 	Wterm bw = is_immed(b) ? b : rterm2wterm(b,b_base);
@@ -2703,6 +2698,8 @@ tailrecur_ne:
 #define MAX_LOSSLESS_FLOAT ((double)((1LL << 53) - 2))
 #define MIN_LOSSLESS_FLOAT ((double)(((1LL << 53) - 2)*-1))
 #define BIG_ARITY_FLOAT_MAX (1024 / D_EXP) /* arity of max float as a bignum */
+	Eterm big_buf[BIG_NEED_SIZE(BIG_ARITY_FLOAT_MAX)];
+
 	b_tag = tag_val_def(bw);
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
@@ -2718,8 +2715,9 @@ tailrecur_ne:
 		/* Float is within the no loss limit */
 		f1.fd = signed_val(aw);
 		j = float_comp(f1.fd, f2.fd);
+	    }
 #if ERTS_SIZEOF_ETERM == 8
-	    } else if (f2.fd > (double) (MAX_SMALL + 1)) {
+	    else if (f2.fd > (double) (MAX_SMALL + 1)) {
 		/* Float is a positive bignum, i.e. bigger */
 		j = -1;
 	    } else if (f2.fd < (double) (MIN_SMALL - 1)) {
@@ -2730,7 +2728,7 @@ tailrecur_ne:
 		j = signed_val(aw) - (Sint) f2.fd;
 	    }
 #else
-	    } else {
+	    else {
 		/* If float is positive it is bigger than small */
 		j = (f2.fd > 0.0) ? -1 : 1;
 	    }
@@ -2764,8 +2762,8 @@ tailrecur_ne:
 		    j = float_comp(f1.fd, f2.fd);
 		}
 	    } else {
-		big = double_to_big(f2.fd, big_buf);
-		j = big_comp(aw, big);
+		big = double_to_big(f2.fd, big_buf, sizeof(big_buf)/sizeof(Eterm));
+		j = big_comp(aw, rterm2wterm(big,big_buf));
 	    }
 	    if (_NUMBER_CODE(a_tag, b_tag) == FLOAT_BIG) {
 		j = -j;
@@ -2777,8 +2775,9 @@ tailrecur_ne:
 		/* Float is within the no loss limit */
 		f2.fd = signed_val(bw);
 		j = float_comp(f1.fd, f2.fd);
+	    }
 #if ERTS_SIZEOF_ETERM == 8
-	    } else if (f1.fd > (double) (MAX_SMALL + 1)) {
+	    else if (f1.fd > (double) (MAX_SMALL + 1)) {
 		/* Float is a positive bignum, i.e. bigger */
 		j = 1;
 	    } else if (f1.fd < (double) (MIN_SMALL - 1)) {
@@ -2789,7 +2788,7 @@ tailrecur_ne:
 		j = (Sint) f1.fd - signed_val(bw);
 	    }
 #else
-	    } else {
+	    else {
 		/* If float is positive it is bigger than small */
 		j = (f1.fd > 0.0) ? 1 : -1;
 	    }

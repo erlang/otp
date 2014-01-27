@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1126,6 +1126,7 @@ extern unsigned tag_val_def(Wterm);
 #define make_tuple_rel make_boxed_rel
 #define make_external_rel make_boxed_rel
 #define make_internal_ref_rel make_boxed_rel
+#define make_big_rel make_boxed_rel
 
 #define binary_val_rel(RTERM, BASE) binary_val(rterm2wterm(RTERM, BASE))
 #define list_val_rel(RTERM, BASE) list_val(rterm2wterm(RTERM, BASE))
