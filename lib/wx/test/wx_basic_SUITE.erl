@@ -241,21 +241,6 @@ wx_misc(Config) ->
     
     %% wx:shutdown()  %% How do you test this?
 
-    case os:type() of 
-	{win32, _} -> %% These hangs when running automatic tests
-	    skip;     %% through ssh on windows. Works otherwise
-	_ -> 
-	    wx_misc:shell([{command,"echo TESTING close the popup shell"}])
-    end,
-
-    case wx_test_lib:user_available(Config) of
-	true ->
-	    wx_misc:shell();
-	false ->
-	    %% Don't want to spawn a shell if no user	   
-	    skip %% is available
-    end,
-
     ?m(false, wx_misc:isBusy()),
     ?m(ok, wx_misc:beginBusyCursor([])),
     ?m(true, wx_misc:isBusy()),
@@ -356,6 +341,7 @@ wx_object(Config) ->
     %% Which it did in my buggy handling of the sync_callback
     wxWindow:refresh(Frame),
     ?m([{sync_event, #wx{event=#wxPaint{}}, _}], flush()),
+    timer:sleep(500),
     ?m([{cast, slept}], flush()),
 
     Monitor = erlang:monitor(process, FramePid),

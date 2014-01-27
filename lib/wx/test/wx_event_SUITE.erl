@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [connect, disconnect, connect_msg_20, connect_cb_20,
      mouse_on_grid, spin_event, connect_in_callback, recursive,
-     char_events, callback_clean
+     dialog, char_events, callback_clean
     ].
 
 groups() -> 
@@ -400,6 +400,42 @@ recursive(Config) ->
     wx_test_lib:flush(),
 
     wx_test_lib:wx_destroy(Frame, Config).
+
+
+dialog(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+dialog(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Testing"),
+    wxFrame:show(Frame),
+    Env = wx:get_env(),
+    Tester = self(),
+    PD = wxProgressDialog:new("Dialog","Testing",
+			      [%%{parent, Frame},
+			       {maximum,101},
+			       {style, ?wxPD_SMOOTH bor ?wxPD_AUTO_HIDE}]),
+    Forward = fun(#wx{event=#wxInitDialog{}}, Ev) ->
+		      ?mt(wxInitDialogEvent, Ev),
+		      io:format("Heyhoo~n", []),
+		      wxEvent:skip(Ev),
+		      Tester ! {progress_dialog,PD}
+	      end,
+    wxDialog:connect(PD, init_dialog, [{callback, Forward}]),
+    Recurse = fun(Recurse, N) ->
+		      true = wxProgressDialog:update(PD, min(N,100)),
+		      timer:sleep(5),
+		      Recurse(Recurse,N+1)
+	      end,
+    Run = fun() ->
+		  wx:set_env(Env),
+		  Recurse(Recurse, 0)
+	  end,
+    Worker = spawn_link(Run),
+    timer:sleep(500),
+    io:format("Got ~p~n", [wx_test_lib:flush()]),
+    unlink(Worker),
+    wxProgressDialog:destroy(PD),
+    wx_test_lib:wx_destroy(Frame, Config).
+
 
 
 char_events(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);

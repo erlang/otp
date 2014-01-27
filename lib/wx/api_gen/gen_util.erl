@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -222,11 +222,12 @@ halt(Reason) ->
 
 erl_copyright() ->
     StartYear = start_year(get(current_class)),
+    {CurrentYear,_,_}   = erlang:date(),
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
     w("%%~n",[]),
-    w("%% Copyright Ericsson AB ~p-2013. All Rights Reserved.~n",
-      [StartYear]),
+    w("%% Copyright Ericsson AB ~p-~p. All Rights Reserved.~n",
+      [StartYear, CurrentYear]),
     w("%%~n",[]),
     w("%% The contents of this file are subject to the Erlang Public License,~n",[]),
     w("%% Version 1.1, (the \"License\"); you may not use this file except in~n",[]),
@@ -242,10 +243,11 @@ erl_copyright() ->
     w("%% %CopyrightEnd%~n",[]).
 
 c_copyright() ->
+    {CurrentYear,_,_}   = erlang:date(),
     w("/*~n",[]),
     w(" * %CopyrightBegin%~n",[]),
     w(" *~n",[]),
-    w(" * Copyright Ericsson AB 2008-2013. All Rights Reserved.~n",[]),
+    w(" * Copyright Ericsson AB 2008-~p. All Rights Reserved.~n",[CurrentYear]),
     w(" *~n",[]),
     w(" * The contents of this file are subject to the Erlang Public License,~n",[]),
     w(" * Version 1.1, (the \"License\"); you may not use this file except in~n",[]),

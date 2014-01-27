@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,48 @@
 #include <wx/wx.h>
 #include "wxe_impl.h"
 #include "wxe_return.h"
+#include "wxe_events.h"
+#include "wxe_gl.h"
 #include "gen/wxe_macros.h"
 #include "gen/wxe_derived_dest.h"
+
+
+/* ****************************************************************************
+ * CallbackData *
+ * ****************************************************************************/
+
+wxeCallbackData::wxeCallbackData(ErlDrvTermData caller, int req, char *req_type,
+				 int funcb, int skip_ev, wxeErlTerm * userData,
+				 wxeEvtListener *handler_cb)
+  : wxObject()
+{
+  listener = caller;
+  obj = req;
+  fun_id = funcb;
+  strcpy(class_name, req_type);
+  skip = skip_ev;
+  user_data = userData;
+  handler = handler_cb;
+}
+
+wxeCallbackData::~wxeCallbackData() {
+  // fprintf(stderr, "CBD Deleteing %p %s\r\n", this, class_name); fflush(stderr);
+  if(user_data) {
+    delete user_data;
+  }
+  ptrMap::iterator it;
+  it = ((WxeApp *)wxTheApp)->ptr2ref.find(handler);
+  if(it != ((WxeApp *)wxTheApp)->ptr2ref.end()) {
+    wxeRefData *refd = it->second;
+    wxeReturn rt = wxeReturn(WXE_DRV_PORT, refd->memenv->owner, false);
+    rt.addAtom("wx_delete_cb");
+    rt.addInt(fun_id);
+    rt.addRef(refd->ref, "wxeEvtListener");
+    rt.addRef(obj, class_name);
+    rt.addTupleCount(4);
+    rt.send();
+  }
+}
 
 /* *****************************************************************/
 /* Special Class impls */
@@ -228,6 +268,35 @@ EwxListCtrl::~EwxListCtrl() {
   clear_cb(port, onGetItemColumnImage);
   ((WxeApp *)wxTheApp)->clearPtr(this);
 }
+
+/* ****************************************************************************
+ * wxListCtrlCompare wrapper
+ * ****************************************************************************/
+
+int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
+{
+  callbackInfo * cb = (callbackInfo *)callbackInfoPtr;
+  wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(cb->port);
+  wxeReturn rt = wxeReturn(WXE_DRV_PORT, memenv->owner, false);
+  rt.addInt(cb->callbackID);
+  rt.addInt(item1);
+  rt.addInt(item2);
+  rt.endList(2);
+  rt.addAtom("_wx_invoke_cb_");
+  rt.addTupleCount(3);
+  rt.send();
+  handle_event_callback(WXE_DRV_PORT_HANDLE, memenv->owner);
+
+  if(((WxeApp *) wxTheApp)->cb_buff) {
+    int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
+    driver_free(((WxeApp *) wxTheApp)->cb_buff);
+    ((WxeApp *) wxTheApp)->cb_buff = NULL;
+    return res;
+  }
+  return 0;
+}
+
+
 // tools
 
 void clear_cb(ErlDrvTermData port, int callback)

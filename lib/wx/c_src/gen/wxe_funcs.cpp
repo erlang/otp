@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -45,9 +45,14 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
  switch (Ecmd.op)
 {
   case DESTROY_OBJECT: {
-     wxObject *This = (wxObject *) getPtr(bp,memenv);      if(This) {       ((WxeApp *) wxTheApp)->clearPtr((void *) This);
-       delete This; }
-  } break;
+     wxObject *This = (wxObject *) getPtr(bp,memenv);
+     if(This) {
+       if(recurse_level > 1) {
+          delayed_delete->Append(Ecmd.Save());
+       } else {
+          ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+          delete This; }
+  } } break;
   case WXE_REGISTER_OBJECT: {
      registerPid(bp, Ecmd.caller, memenv);
      rt.addAtom("ok");
