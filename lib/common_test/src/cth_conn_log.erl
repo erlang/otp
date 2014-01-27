@@ -104,7 +104,7 @@ get_log_opts(Opts) ->
 pre_init_per_testcase(TestCase,Config,CthState) ->
     Logs =
 	lists:map(
-	  fun({ConnMod,{LogType,Hosts}}) ->
+	  fun({ConnMod,{LogType,Hosts}}) ->		  
 		  ct_util:set_testdata({{?MODULE,ConnMod},LogType}),
 		  case LogType of
 		      LogType when LogType==raw; LogType==pretty ->
@@ -136,10 +136,61 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
 		  end
 	  end,
 	  CthState),
-    error_logger:add_report_handler(ct_conn_log_h,{group_leader(),Logs}),
+
+    GL = group_leader(),
+    Update =
+	fun(Init) when Init == undefined; Init == [] ->
+
+		%%! --- Tue Jan 28 12:13:08 2014 --- peppe was here!
+		io:format(user, "### ~p: ADDING NEW HANDLER FOR ~p~n", 
+			  [TestCase,GL]),
+
+		error_logger:add_report_handler(ct_conn_log_h,{GL,Logs}),
+		[TestCase];
+	   (PrevUsers) ->
+
+		%%! --- Tue Jan 28 12:13:08 2014 --- peppe was here!
+		io:format(user, "### ~p: CONNECTING ~p TO EXISTING HANDLER~n", 
+			  [TestCase,GL]),
+
+		error_logger:info_report(update,{GL,Logs}),
+		receive
+		    {updated,GL} ->
+			[TestCase|PrevUsers]
+		after
+		    5000 ->
+			{error,no_response}
+		end
+	end,
+    ct_util:update_testdata(?MODULE, Update, [create]),
     {Config,CthState}.
 
-post_end_per_testcase(_TestCase,_Config,Return,CthState) ->
-    [ct_util:delete_testdata({?MODULE,ConnMod}) || {ConnMod,_} <- CthState],
-    error_logger:delete_report_handler(ct_conn_log_h),
+post_end_per_testcase(TestCase,_Config,Return,CthState) ->
+    Update =
+	fun(PrevUsers) ->
+		case lists:delete(TestCase, PrevUsers) of
+		    [] ->
+			'$delete';
+		    PrevUsers1 ->
+			PrevUsers1
+		end
+	end,
+    case ct_util:update_testdata(?MODULE, Update) of
+	deleted ->
+	    [ct_util:delete_testdata({?MODULE,ConnMod}) ||
+		{ConnMod,_} <- CthState],
+	    
+	    %%! --- Tue Jan 28 13:29:37 2014 --- peppe was here!
+	    io:format(user, "### ~p: REMOVING ERROR LOGGER~n", [TestCase]),
+
+	    error_logger:delete_report_handler(ct_conn_log_h);
+	{error,no_response} ->
+	    exit({?MODULE,no_response_from_logger});
+	_PrevUsers ->
+	    %%! --- Tue Jan 28 13:29:37 2014 --- peppe was here!
+	    io:format(user, "### ~p: *NOT* REMOVING ERROR LOGGER~n", [TestCase]),
+
+	    ok
+    end,
     {Return,CthState}.
+

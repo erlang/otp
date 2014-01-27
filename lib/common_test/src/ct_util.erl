@@ -382,9 +382,14 @@ loop(Mode,TestData,StartDir) ->
 	    TestData1 =
 		case lists:keysearch(Key,1,TestData) of
 		    {value,{Key,Val}} ->
-			NewVal = Fun(Val),
-			return(From,NewVal),
-			[{Key,NewVal}|lists:keydelete(Key,1,TestData)];
+			case Fun(Val) of
+			    '$delete' ->
+				return(From,deleted),
+				lists:keydelete(Key,1,TestData);
+			    NewVal ->
+				return(From,NewVal),
+				[{Key,NewVal}|lists:keydelete(Key,1,TestData)]
+			end;
 		    _ ->
 			case lists:member(create,Opts) of
 			    true ->

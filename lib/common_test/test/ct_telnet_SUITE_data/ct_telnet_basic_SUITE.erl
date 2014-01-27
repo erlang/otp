@@ -5,12 +5,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(no_of_sessions, 2).
+-define(no_of_sessions, 4).
 -define(conn_name(N), (list_to_atom("telnet_server_conn"++integer_to_list(N)))).
--define(req_n(), (begin
-		      ?MODULE ! {self(),req},
-		      receive _N -> _N after 2000 -> 0 end
-		  end)).
 -define(get_n(Cfg), (proplists:get_value(n, Cfg))).
 	       
 %%--------------------------------------------------------------------
@@ -23,15 +19,20 @@ suite() -> [
 	   ].
 
 operations() -> 
-    [start_stop, send_and_get, expect, already_closed, 
+    [start_stop
+, send_and_get, expect, already_closed, 
      cmd, sendf, close_wrong_type].
 
-mult_case(_Case, 0) -> [];
-mult_case(Case, N) -> [Case | mult_case(Case, N-1)].
+mult_case(_Case, 0) ->
+    [];
+mult_case(Case, N) ->
+    [list_to_atom(atom_to_list(Case)++integer_to_list(N)) | 
+     mult_case(Case, N-1)].
 
 groups() -> 
     [{single_connection,[],operations()},
-     {multiple_connections,[parallel],mult_case(sessions,?no_of_sessions)}].
+     {multiple_connections,[parallel],
+      lists:reverse(mult_case(sessions,?no_of_sessions))}].
 
 all() ->
     [{group,single_connection},
@@ -40,11 +41,9 @@ all() ->
 init_per_suite(Config) ->
     ct:pal("Will use these log hook options: ~p",
 	   [ct:get_config(ct_conn_log,[])]),
-    SerialNo = spawn(?MODULE, serialno, [1,?no_of_sessions]),		
     Config.
 
 end_per_suite(_Config) ->
-    catch exit(whereis(?MODULE), kill),
     ok.
 
 init_per_group(Group, Config) ->
@@ -58,8 +57,15 @@ init_per_group(Group, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(sessions, Config) ->
-    N = ?req_n(),
+init_per_testcase(Case, Config) when (Case == sessions1) or
+				     (Case == sessions2) or
+				     (Case == sessions3) or
+				     (Case == sessions4) ->
+
+    %%! --- Tue Jan 28 13:46:47 2014 --- peppe was here!
+    io:format(user, ">>> ~p STARTING~n", [Case]),
+
+    N = lists:last(atom_to_list(Case))-48,
     ct:log("Using connection ~w for session ~w on ~w",
 	   [?conn_name(N),N,self()]),
     ct:require(?conn_name(N),{unix,[telnet]}),
@@ -69,7 +75,11 @@ init_per_testcase(Case, Config) ->
 	   [Case,?conn_name(?get_n(Config))]),
     Config.
 
-end_per_testcase(_, _) ->
+end_per_testcase(_Case, _) ->
+
+    %%! --- Tue Jan 28 13:46:47 2014 --- peppe was here!
+    io:format(user, "<<< ~p ENDING~n", [_Case]),
+
     ok.
 
 %%%-----------------------------------------------------------------
@@ -78,6 +88,11 @@ end_per_testcase(_, _) ->
 sessions(Config) ->
     [apply(?MODULE,Op,[Config]) || Op <- operations()],
     ok.
+
+sessions1(Config) -> sessions(Config).
+sessions2(Config) -> sessions(Config).
+sessions3(Config) -> sessions(Config).
+sessions4(Config) -> sessions(Config).
 
 start_stop(Config) ->
     ct:log("Opening ~w...", [?conn_name(?get_n(Config))]),
@@ -129,19 +144,5 @@ close_wrong_type(_) ->
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCS
-
-serialno(Start, Stop) ->
-    register(?MODULE, self()),
-    loop(Start, Stop).
-
-loop(X, Y) when X > Y ->
-    done;
-loop(X, Y) ->
-    receive
-	{Pid,req} ->
-	    Pid ! X
-    end,
-    loop(X+1, Y).
-    
 
 	    

@@ -50,7 +50,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 groups() ->
     [{legacy, [], [unix_telnet,own_server,timetrap]},
-     {raw, [], [unix_telnet]},%,own_server,timetrap]},
+     {raw, [], [unix_telnet,own_server,timetrap]},
+%{raw, [], [unix_telnet]},
      {html, [], [unix_telnet,own_server]},
      {silent, [], [unix_telnet,own_server]}].
 
