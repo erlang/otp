@@ -20,10 +20,12 @@
 %%
 
 -module(hipe_pack_constants).
--export([pack_constants/2, slim_refs/1, slim_constmap/1]).
+-export([pack_constants/2, slim_refs/1, slim_constmap/1,
+        find_const/2, mk_data_relocs/2, slim_sorted_exportmap/3]).
 
 -include("hipe_consttab.hrl").
 -include("../../kernel/src/hipe_ext_format.hrl").
+-include("../main/hipe.hrl"). % Needed for the EXIT macro in find_const/2.
 
 %%-----------------------------------------------------------------------------
 
@@ -36,6 +38,10 @@
 
 -type mfa_refs()  :: {mfa(), [ref()]}.
 
+%% XXX: these types may not belong here: FIX!
+-type fa()         :: {atom(), arity()}.
+-type export_map() :: [{addr(), module(), atom(), arity()}].
+
 -record(pcm_entry, {mfa       :: mfa(),
 		    label     :: hipe_constlbl(),
                    const_num :: const_num(),
@@ -44,9 +50,13 @@
 		    raw_data  :: raw_data()}).
 -type pcm_entry() :: #pcm_entry{}.
 
+-type label_map() :: gb_trees:tree({mfa(), hipe_constlbl()}, addr()).
+
 %% Some of the following types may possibly need to be exported
+-type data_relocs()      :: [ref()].
 -type packed_const_map() :: [pcm_entry()].
 -type mfa_refs_map()     :: [mfa_refs()].
+-type slim_export_map()  :: [addr() | module() | atom() | arity() | boolean()].
 
 %%-----------------------------------------------------------------------------
 
@@ -216,3 +226,60 @@ slim_constmap([#pcm_entry{const_num = ConstNo, start = Offset,
       slim_constmap(Rest, NewInserted, [ConstNo, Offset, Type, Term|Acc])
   end;
 slim_constmap([], _Inserted, Acc) -> Acc.
+
+%%
+%% Lookup a constant in a ConstMap.
+%%
+-spec find_const({mfa(), hipe_constlbl()}, packed_const_map()) -> const_num().
+
+find_const({MFA, Label}, [E = #pcm_entry{mfa = MFA, label = Label}|_]) ->
+  E#pcm_entry.const_num;
+find_const(N, [_|R]) ->
+  find_const(N, R);
+find_const(C, []) ->
+  ?EXIT({constant_not_found, C}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%
+%% Functions to build and handle Refs, ExportMap and LabelMap.
+%% Note: Moved here because they are used by all backends in
+%% hipe_{arm,sparc,ppc,x86}_assemble.erl
+%% XXX: Is this the right place for them?
+%%
+
+-spec mk_data_relocs(mfa_refs_map(), label_map()) -> data_relocs().
+
+mk_data_relocs(RefsFromConsts, LabelMap) ->
+  lists:flatten(mk_data_relocs(RefsFromConsts, LabelMap, [])).
+
+mk_data_relocs([{MFA, Labels} | Rest], LabelMap, Acc) ->
+  Map = [case Label of
+	   {L,Pos} ->
+	     Offset = find({MFA,L}, LabelMap),
+	     {Pos,Offset};
+	   {sorted,Base,OrderedLabels} ->
+	     {sorted, Base, [begin
+			       Offset = find({MFA,L}, LabelMap),
+			       {Order, Offset}
+			     end
+			     || {L,Order} <- OrderedLabels]}
+	 end
+	 || Label <- Labels],
+  %% msg("Map: ~w Map\n", [Map]),
+  mk_data_relocs(Rest, LabelMap, [Map,Acc]);
+mk_data_relocs([], _, Acc) -> Acc.
+
+find({MFA,L}, LabelMap) ->
+  gb_trees:get({MFA,L}, LabelMap).
+
+-spec slim_sorted_exportmap(export_map(), [mfa()], [fa()]) -> slim_export_map().
+
+slim_sorted_exportmap([{Addr,M,F,A}|Rest], Closures, Exports) ->
+  IsClosure = lists:member({M,F,A}, Closures),
+  IsExported = is_exported(F, A, Exports),
+  [Addr,M,F,A,IsClosure,IsExported | slim_sorted_exportmap(Rest, Closures, Exports)];
+slim_sorted_exportmap([], _, _) -> [].
+
+is_exported(F, A, Exports) ->
+  lists:member({F,A}, Exports).

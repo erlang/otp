@@ -45,8 +45,8 @@ assemble(CompiledCode, Closures, Exports, Options) ->
   print("Total num bytes=~w\n", [CodeSize], Options),
   %%
   SC = hipe_pack_constants:slim_constmap(ConstMap),
-  DataRelocs = mk_data_relocs(RefsFromConsts, LabelMap),
-  SSE = slim_sorted_exportmap(ExportMap,Closures,Exports),
+  DataRelocs = hipe_pack_constants:mk_data_relocs(RefsFromConsts, LabelMap),
+  SSE = hipe_pack_constants:slim_sorted_exportmap(ExportMap,Closures,Exports),
   SlimRefs = hipe_pack_constants:slim_refs(AccRefs),
   Bin = term_to_binary([{?VERSION_STRING(),?HIPE_SYSTEM_CRC},
 			ConstAlign, ConstSize,
@@ -222,7 +222,7 @@ do_pseudo_set(I, MFA, ConstMap) ->
 %%%	  end,
 %%%	{load_address, {Tag,untag_mfa_or_prim(MFAorPrim)}};
       {Label,constant} ->
-	ConstNo = find_const({MFA,Label}, ConstMap),
+	ConstNo = hipe_pack_constants:find_const({MFA,Label}, ConstMap),
 	{load_address, {constant,ConstNo}};
       {Label,closure} ->
 	{load_address, {closure,Label}};
@@ -507,37 +507,6 @@ px({pred,Pred}) ->	% XXX: use pt/pn throughout entire backend
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mk_data_relocs(RefsFromConsts, LabelMap) ->
-  lists:flatten(mk_data_relocs(RefsFromConsts, LabelMap, [])).
-
-mk_data_relocs([{MFA,Labels} | Rest], LabelMap, Acc) ->
-  Map = [case Label of
-	   {L,Pos} ->
-	     Offset = find({MFA,L}, LabelMap),
-	     {Pos,Offset};
-	   {sorted,Base,OrderedLabels} ->
-	     {sorted, Base, [begin
-			       Offset = find({MFA,L}, LabelMap),
-			       {Order, Offset}
-			     end
-			     || {L,Order} <- OrderedLabels]}
-	 end
-	 || Label <- Labels],
-  %% msg("Map: ~w Map\n",[Map]),
-  mk_data_relocs(Rest, LabelMap, [Map,Acc]);
-mk_data_relocs([],_,Acc) -> Acc.
-
-find({_MFA,_L} = MFAL, LabelMap) ->
-  gb_trees:get(MFAL, LabelMap).
-
-slim_sorted_exportmap([{Addr,M,F,A}|Rest], Closures, Exports) ->
-  IsClosure = lists:member({M,F,A}, Closures),
-  IsExported = is_exported(F, A, Exports),
-  [Addr,M,F,A,IsClosure,IsExported | slim_sorted_exportmap(Rest, Closures, Exports)];
-slim_sorted_exportmap([],_,_) -> [].
-
-is_exported(F, A, Exports) -> lists:member({F,A}, Exports).
-
 %%%
 %%% Assembly listing support (pp_asm option).
 %%%
@@ -575,14 +544,3 @@ fill_spaces(N) when N > 0 ->
   fill_spaces(N-1);
 fill_spaces(0) ->
   [].
-
-%%%
-%%% Lookup a constant in a ConstMap.
-%%%
-
-find_const({MFA,Label},[{pcm_entry,MFA,Label,ConstNo,_,_,_}|_]) ->
-  ConstNo;
-find_const(N,[_|R]) ->
-  find_const(N,R);
-find_const(C,[]) ->
-  ?EXIT({constant_not_found,C}).
