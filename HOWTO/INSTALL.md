@@ -680,38 +680,10 @@ If you develop linked-in drivers (shared library) you need to link using
 include `-fno-common` in `CFLAGS` when compiling. Use `.so` as the library
 suffix.
 
-Use the `--enable-darwin-64bit` configure flag to build a 64-bit
-binaries on Mac OS X.
+Install `Xcode` from the `AppStore` if it is not already installed.
 
-Building a fast Erlang VM on Mac OS Lion
-----------------------------------------
-
-Starting with Xcode 4.2, Apple no longer includes a "real" `gcc`
-compiler (not based on the LLVM).  Building with `llvm-gcc` or `clang`
-will work, but the performance of the Erlang run-time system will not
-be the best possible.
-
-Note that if you have `gcc-4.2` installed and included in `PATH`
-(from a previous version of Xcode), `configure` will automatically
-make sure that `gcc-4.2` will be used to compile `beam_emu.c`
-(the source file most in need of `gcc`).
-
-If you don't have `gcc-4.2.` and want to build a run-time system with
-the best possible performance, do like this:
-
-Install Xcode from the AppStore if it is not already installed.
-
-If you have Xcode 4.3, or later, you will also need to download 
+If you have Xcode 4.3, or later, you will also need to download
 "Command Line Tools" via the Downloads preference pane in Xcode.
-
-Some tools may still be lacking or out-of-date, we recommend using
-[Homebrew](https://github.com/mxcl/homebrew/wiki/installation) or
-Macports to update those tools.
-
-Install MacPorts (<http://www.macports.org/>). Then:
-
-    $ sudo port selfupdate
-    $ sudo port install gcc45 +universal
 
 ### Building with wxErlang ###
 
@@ -720,13 +692,14 @@ If you want to build the `wx` application, you will need to get wxWidgets-3.0 (o
 or get it from github:
     $ git clone git@github.com:wxWidgets/wxWidgets.git
 
-Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as matured 
+Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as matured
 as the old releases and the MacOsX port still lags behind the other ports.
 
-Configure and build wxWidgets:
+Configure and build wxWidgets (on Mavericks - 10.9):
 
-    $ ./configure --with-cocoa --prefix=/usr/local 
-      % Optional version and static libs: --with-macosx-version-min=10.9 --disable-shared
+    $ ./configure --with-cocoa --prefix=/usr/local
+    or without support for old versions and with static libs
+    $ ./configure --with-cocoa --prefix=/usr/local --with-macosx-version-min=10.9 --disable-shared
     $ make
     $ sudo make install
     $ export PATH=/usr/local/bin:$PATH
@@ -791,7 +764,7 @@ Copyright and License
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 1998-2013. All Rights Reserved.
+Copyright Ericsson AB 1998-2014. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in
