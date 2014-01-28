@@ -190,7 +190,7 @@ map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
 
 map_pair_pattern -> '~' '<' anno_pattern ',' anno_pattern '>' :
-			#c_map_pair{op=exact,key='$3',val='$5'}.
+			#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
 		    #c_cons{hd='$2',tl='$3'}.
