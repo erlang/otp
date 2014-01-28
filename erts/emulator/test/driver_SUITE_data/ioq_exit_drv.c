@@ -277,10 +277,6 @@ static void stop(ErlDrvData drv_data)
 	case IOQ_EXIT_TIMEOUT_ASYNC:
 	    driver_cancel_timer(ddp->port);
 	    break;
-	case IOQ_EXIT_READY_ASYNC:
-	    if (ddp->outstanding_async_task)
-		driver_async_cancel(ddp->async_task);
-	    break;
 	default:
 	    break;
 	}

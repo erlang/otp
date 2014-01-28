@@ -132,8 +132,8 @@ typedef struct {
 #define DO_WRITE ERL_DRV_WRITE
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
-#define ERL_DRV_EXTENDED_MAJOR_VERSION	2
-#define ERL_DRV_EXTENDED_MINOR_VERSION	2
+#define ERL_DRV_EXTENDED_MAJOR_VERSION	3
+#define ERL_DRV_EXTENDED_MINOR_VERSION	0
 
 /*
  * The emulator will refuse to load a driver with different major
@@ -656,12 +656,6 @@ EXTERN long driver_async(ErlDrvPort ix,
 			 void (*async_invoke)(void*), 
 			 void* async_data,
 			 void (*async_free)(void*));
-
-/*
- * driver_async_cancel() is deprecated. It is scheduled for removal
- * in OTP-R16. For more information see the erl_driver(3) documentation.
- */
-EXTERN int driver_async_cancel(unsigned int key) ERL_DRV_DEPRECATED_FUNC;
 
 /* Locks the driver in the machine "forever", there is
    no unlock function. Note that this is almost never useful, as an open
