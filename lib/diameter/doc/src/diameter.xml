@@ -20,7 +20,8 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2013</year>
+<year>2011</year>
+<year>2014</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -355,8 +356,8 @@ question communicates an address list as described in
 <tag><c>{'Origin-State-Id', &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-Origin-State-Id is optional but will be included in outgoing messages
-sent by diameter itself: CER/CEA, DWR/DWA and DPR/DPA.
+Origin-State-Id is optional but, if configured, will be included in
+outgoing CER/CEA and DWR/DWA messages.
 Setting a value of <c>0</c> (zero) is equivalent to not setting a
 value, as documented in &the_rfc;.
 The function &origin_state_id;
