@@ -110,7 +110,10 @@ options_tests() ->
      empty_protocol_versions,
      ipv6,
      reuseaddr,
-     tcp_reuseaddr].
+     tcp_reuseaddr,
+     honor_server_cipher_order,
+     honor_client_cipher_order
+].
 
 api_tests() ->
     [connection_info,
@@ -2440,6 +2443,51 @@ tcp_reuseaddr(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+
+honor_server_cipher_order() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_server_cipher_order(Config) when is_list(Config) ->
+    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, {rsa, aes_256_cbc, sha}).
+
+honor_client_cipher_order() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_client_cipher_order(Config) when is_list(Config) ->
+    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, {rsa, aes_128_cbc, sha}).
+
+honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{ciphers, ServerCiphers}, {honor_cipher_order, Honor}
+						   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{ciphers, ClientCiphers}, {honor_cipher_order, Honor}
+						   | ClientOpts]}]),
+
+    Version =
+	tls_record:protocol_version(tls_record:highest_protocol_version([])),
+
+    ServerMsg = ClientMsg = {ok, {Version, Expected}},
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 

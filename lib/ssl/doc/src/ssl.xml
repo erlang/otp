@@ -460,6 +460,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </item>
       <tag>{log_alert, boolean()}</tag>
       <item>If false, error reports will not be displayed.</item>
+      <tag>{honor_cipher_order, boolean()}</tag>
+      <item>If true, use the server's preference for cipher selection. If false
+      (the default), use the client's preference.
+      </item>
     </taglist>
   </section>
   
