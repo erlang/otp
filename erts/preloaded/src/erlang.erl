@@ -2090,6 +2090,10 @@ subtract(_,_) ->
                         (cpu_topology, CpuTopology) -> OldCpuTopology when
       CpuTopology :: cpu_topology(),
       OldCpuTopology :: cpu_topology();
+                        (dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline) ->
+                                OldDirtyCPUSchedulersOnline when
+      DirtyCPUSchedulersOnline :: pos_integer(),
+      OldDirtyCPUSchedulersOnline :: pos_integer();
                         (fullsweep_after, Number) -> OldNumber when
       Number :: non_neg_integer(),
       OldNumber :: non_neg_integer();
@@ -2220,6 +2224,9 @@ tuple_to_list(_Tuple) ->
       CpuTopology :: cpu_topology();
          (creation) -> integer();
          (debug_compiled) -> boolean();
+         (dirty_cpu_schedulers) -> non_neg_integer();
+         (dirty_cpu_schedulers_online) -> non_neg_integer();
+         (dirty_io_schedulers) -> non_neg_integer();
          (dist) -> binary();
          (dist_buf_busy_limit) -> non_neg_integer();
          (dist_ctrl) -> {Node :: node(),

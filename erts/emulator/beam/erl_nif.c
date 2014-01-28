@@ -34,6 +34,7 @@
 #include "beam_bp.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
+#include "erl_process.h"
 #if defined(USE_DYNAMIC_TRACE) && (defined(USE_DTRACE) || defined(USE_SYSTEMTAP))
 #define HAVE_USE_DTRACE 1
 #endif
@@ -1450,6 +1451,156 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
     BUMP_REDS(env->proc, reds);
     return ERTS_BIF_REDS_LEFT(env->proc) == 0;
 }
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static void
+alloc_proc_psd(Process* proc, Export **ep)
+{
+    int i;
+    if (!*ep) {
+	*ep = erts_alloc(ERTS_ALC_T_PSD, sizeof(Export));
+	sys_memset((void*) *ep, 0, sizeof(Export));
+	for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	    (*ep)->addressv[i] = &(*ep)->code[3];
+	}
+	(*ep)->code[3] = (BeamInstr) em_call_nif;
+    }
+    (void) ERTS_PROC_SET_DIRTY_SCHED_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, *ep);
+}
+
+static ERL_NIF_TERM
+execute_dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Eterm* reg = ERTS_PROC_GET_SCHDATA(env->proc)->x_reg_array;
+    ERL_NIF_TERM result = (ERL_NIF_TERM) reg[0];
+    typedef ERL_NIF_TERM (*FinalizerFP)(ErlNifEnv*, ERL_NIF_TERM);
+    FinalizerFP fp;
+#if HAVE_INT64 && SIZEOF_LONG != 8
+    ASSERT(sizeof(fp) <= sizeof(ErlNifUInt64));
+    enif_get_uint64(env, reg[1], (ErlNifUInt64 *) &fp);
+#else
+    ASSERT(sizeof(fp) <= sizeof(unsigned long));
+    enif_get_ulong(env, reg[1], (unsigned long *) &fp);
+#endif
+    return (*fp)(env, result);
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+
+ERL_NIF_TERM
+enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
+			ERL_NIF_TERM (*fp)(ErlNifEnv*, int, const ERL_NIF_TERM[]),
+			int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef USE_THREADS
+    erts_aint32_t state, n, a;
+    Process* proc = env->proc;
+    Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
+    Export* ep = NULL;
+    int i;
+
+    int chkflgs = (flags & (ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND));
+    if (chkflgs != ERL_NIF_DIRTY_JOB_IO_BOUND && chkflgs != ERL_NIF_DIRTY_JOB_CPU_BOUND)
+	return enif_make_badarg(env);
+
+    a = erts_smp_atomic32_read_acqb(&proc->state);
+    while (1) {
+	n = state = a;
+	if (chkflgs == ERL_NIF_DIRTY_JOB_CPU_BOUND)
+	    n |= ERTS_PSFLG_DIRTY_CPU_PROC;
+	else
+	    n |= ERTS_PSFLG_DIRTY_IO_PROC;
+	a = erts_smp_atomic32_cmpxchg_mb(&proc->state, n, state);
+	if (a == state)
+	    break;
+    }
+    if (!(ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
+	alloc_proc_psd(proc, &ep);
+    ERTS_VBUMP_ALL_REDS(proc);
+    ep->code[2] = argc;
+    for (i = 0; i < argc; i++) {
+	reg[i] = (Eterm) argv[i];
+    }
+    proc->i = (BeamInstr*) ep->addressv[0];
+    ep->code[4] = (BeamInstr) fp;
+    proc->freason = TRAP;
+
+    return THE_NON_VALUE;
+#else
+    return (*fp)(env, argc, argv);
+#endif
+}
+
+ERL_NIF_TERM
+enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result,
+				  ERL_NIF_TERM (*fp)(ErlNifEnv*, ERL_NIF_TERM))
+{
+#ifdef USE_THREADS
+    erts_aint32_t state, n, a;
+    Process* proc = env->proc;
+    Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
+    Export* ep;
+
+    a = erts_smp_atomic32_read_acqb(&proc->state);
+    while (1) {
+	n = state = a;
+	if (!(n & (ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q)))
+	    break;
+	n &= ~(ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC
+	       |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q);
+	a = erts_smp_atomic32_cmpxchg_mb(&proc->state, n, state);
+	if (a == state)
+	    break;
+    }
+    if (!(ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
+	alloc_proc_psd(proc, &ep);
+    ERTS_VBUMP_ALL_REDS(proc);
+    ep->code[2] = 2;
+    reg[0] = (Eterm) result;
+#if HAVE_INT64 && SIZEOF_LONG != 8
+    ASSERT(sizeof(fp) <= sizeof(ErlNifUInt64));
+    reg[1] = (Eterm) enif_make_uint64(env, (ErlNifUInt64) fp);
+#else
+    ASSERT(sizeof(fp) <= sizeof(unsigned long));
+    reg[1] = (Eterm) enif_make_ulong(env, (unsigned long) fp);
+#endif
+    proc->i = (BeamInstr*) ep->addressv[0];
+    ep->code[4] = (BeamInstr) execute_dirty_nif_finalizer;
+    proc->freason = TRAP;
+
+    return THE_NON_VALUE;
+#else
+    return (*fp)(env, result);
+#endif
+}
+
+/* A simple finalizer that just returns its result argument */
+ERL_NIF_TERM
+enif_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result)
+{
+    return result;
+}
+
+int
+enif_is_on_dirty_scheduler(ErlNifEnv* env)
+{
+    return ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data);
+}
+
+int
+enif_have_dirty_schedulers()
+{
+#ifdef USE_THREADS
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+#endif /* ERL_NIF_DIRTY_SCHEDULER_SUPPORT */
 
 /***************************************************************************
  **                              load_nif/2                               **

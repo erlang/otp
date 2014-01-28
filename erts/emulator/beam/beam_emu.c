@@ -217,6 +217,7 @@ BeamInstr beam_continue_exit[1];
 
 BeamInstr* em_call_error_handler;
 BeamInstr* em_apply_bif;
+BeamInstr* em_call_nif;
 
 
 /* NOTE These should be the only variables containing trace instructions.
@@ -3323,6 +3324,13 @@ void process_main(void)
 		reg[0] = r(0);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		erts_post_nif(&env);
+#ifdef ERTS_DIRTY_SCHEDULERS
+		if (is_non_value(nif_bif_result) && c_p->freason == TRAP) {
+		    Export* ep = (Export*) c_p->psd->data[ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT];
+		    ep->code[0] = I[-3];
+		    ep->code[1] = I[-2];
+		}
+#endif
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -4964,6 +4972,7 @@ void process_main(void)
      
      em_call_error_handler = OpCode(call_error_handler);
      em_apply_bif = OpCode(apply_bif);
+     em_call_nif = OpCode(call_nif);
 
      beam_apply[0]             = (BeamInstr) OpCode(i_apply);
      beam_apply[1]             = (BeamInstr) OpCode(normal_exit);

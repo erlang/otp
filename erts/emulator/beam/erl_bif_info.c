@@ -90,6 +90,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [smp:%beu:%beu]"
 #endif
 #ifdef USE_THREADS
+#ifdef ERTS_DIRTY_SCHEDULERS
+				     " [ds:%beu:%beu:%beu]"
+#endif
 				     " [async-threads:%d]"
 #endif
 #ifdef HIPE
@@ -312,7 +315,13 @@ erts_print_system_version(int to, void *arg, Process *c_p)
     char *ocp = otp_correction_package;
 #ifdef ERTS_SMP
     Uint total, online, active;
-    (void) erts_schedulers_state(&total, &online, &active, 0);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    Uint dirty_cpu, dirty_cpu_onln, dirty_io;
+
+    (void) erts_schedulers_state(&total, &online, &active, &dirty_cpu, &dirty_cpu_onln, &dirty_io, 0);
+#else
+    (void) erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 0);
+#endif
 #endif
     for (i = 0; i < sizeof(otp_correction_package)-4; i++) {
 	if (ocp[i] == '-' && ocp[i+1] == 'r' && ocp[i+2] == 'c')
@@ -330,6 +339,9 @@ erts_print_system_version(int to, void *arg, Process *c_p)
 		      rc_str
 #ifdef ERTS_SMP
 		      , total, online
+#ifdef ERTS_DIRTY_SCHEDULERS
+		      , dirty_cpu, dirty_cpu_onln, dirty_io
+#endif
 #endif
 #ifdef USE_THREADS
 		      , erts_async_max_threads
@@ -2477,6 +2489,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	switch (erts_schedulers_state(&total,
 				      &online,
 				      &active,
+				      NULL,
+				      NULL,
+				      NULL,
 				      1)) {
 	case ERTS_SCHDLR_SSPND_DONE: {
 	    Eterm *hp = HAlloc(BIF_P, 4);
@@ -2500,7 +2515,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(make_small(1));
 #else
 	Uint total, online, active;
-	switch (erts_schedulers_state(&total, &online, &active, 1)) {
+	switch (erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 1)) {
 	case ERTS_SCHDLR_SSPND_DONE:
 	    BIF_RET(make_small(online));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
@@ -2517,7 +2532,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(make_small(1));
 #else
 	Uint total, online, active;
-	switch (erts_schedulers_state(&total, &online, &active, 1)) {
+	switch (erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 1)) {
 	case ERTS_SCHDLR_SSPND_DONE:
 	    BIF_RET(make_small(active));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
@@ -2528,6 +2543,20 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    ASSERT(0);
 	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	}
+#endif
+#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
+    } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
+	Uint dirty_cpu;
+	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, 1);
+	BIF_RET(make_small(dirty_cpu));
+    } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers_online", BIF_ARG_1)) {
+	Uint dirty_cpu_onln;
+	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, 1);
+	BIF_RET(make_small(dirty_cpu_onln));
+    } else if (ERTS_IS_ATOM_STR("dirty_io_schedulers", BIF_ARG_1)) {
+	Uint dirty_io;
+	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, &dirty_io, 1);
+	BIF_RET(make_small(dirty_io));
 #endif
     } else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	res = make_small(erts_no_run_queues);

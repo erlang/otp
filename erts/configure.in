@@ -101,7 +101,7 @@ ERL_XCOMP_SYSROOT_INIT
 
 AC_ISC_POSIX
 
-AC_CONFIG_HEADER($host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in)
+AC_CONFIG_HEADER($host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in include/$host/erl_native_features_config.h:include/erl_native_features_config.h.in)
 dnl ----------------------------------------------------------------------
 dnl Optional features.
 dnl ----------------------------------------------------------------------
@@ -123,6 +123,7 @@ AS_HELP_STRING([--enable-bootstrap-only],
 	with_ssl_zlib=no
 	enable_hipe=no
 	enable_sctp=no
+        enable_dirty_schedulers=no
   fi	
 ])
 
@@ -133,6 +134,13 @@ AS_HELP_STRING([--disable-threads], [disable async thread support]),
     no) enable_threads=no ;;
     *)  enable_threads=yes ;;
   esac ], enable_threads=unknown)
+
+AC_ARG_ENABLE(dirty-schedulers,
+AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]),
+[ case "$enableval" in
+    no) enable_dirty_schedulers=no ;;
+    *)  enable_dirty_schedulers=yes ;;
+  esac ], enable_dirty_schedulers=no)
 
 AC_ARG_ENABLE(halfword-emulator,
 AS_HELP_STRING([--enable-halfword-emulator],
@@ -1222,6 +1230,13 @@ esac
 if test $emu_threads != yes; then
 	enable_lock_check=no
 	enable_lock_count=no
+        AC_MSG_CHECKING(whether dirty schedulers should be enabled)
+	if test "x$enable_dirty_schedulers" != "xno"; then
+	    AC_DEFINE(ERL_NIF_DIRTY_SCHEDULER_SUPPORT, 1, [Dirty scheduler support])
+	    AC_MSG_RESULT(yes)
+	else
+	    AC_MSG_RESULT(no)
+	fi
 else
 	# Threads enabled for emulator
 	EMU_THR_LIB_NAME=$ETHR_LIB_NAME
@@ -1240,7 +1255,17 @@ else
 	if test "x$enable_lock_count" != "xno"; then
 	    EMU_THR_DEFS="$EMU_THR_DEFS -DERTS_ENABLE_LOCK_COUNT"
 	fi
-	
+
+        AC_MSG_CHECKING(whether dirty schedulers should be enabled)
+	if test "x$enable_dirty_schedulers" != "xno"; then
+	    EMU_THR_DEFS="$EMU_THR_DEFS -DERTS_DIRTY_SCHEDULERS"
+	    AC_DEFINE(ERTS_DIRTY_SCHEDULERS, 1, [Define if the emulator supports dirty schedulers])
+	    AC_DEFINE(ERL_NIF_DIRTY_SCHEDULER_SUPPORT, 1, [Dirty scheduler support])
+	    AC_MSG_RESULT(yes)
+	else
+	    AC_MSG_RESULT(no)
+	fi
+
 	disable_child_waiter_thread=no
 	case $host_os in
 	    solaris*)

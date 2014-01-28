@@ -23,7 +23,11 @@
 #ifndef __ERL_NIF_H__
 #define __ERL_NIF_H__
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 
+#include "erl_native_features_config.h"
 #include "erl_drv_nif.h"
 
 /* Version history:
@@ -34,9 +38,14 @@
 ** 2.2: R14B03 enif_is_exception
 ** 2.3: R15 enif_make_reverse_list, enif_is_number
 ** 2.4: R16 enif_consume_timeslice
+** 2.5: R17 dirty schedulers
 */
 #define ERL_NIF_MAJOR_VERSION 2
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+#define ERL_NIF_MINOR_VERSION 5
+#else
 #define ERL_NIF_MINOR_VERSION 4
+#endif
 
 #include <stdlib.h>
 
@@ -158,6 +167,14 @@ typedef struct ErlDrvRWLock_ ErlNifRWLock;
 typedef int ErlNifTSDKey;
 
 typedef ErlDrvThreadOpts ErlNifThreadOpts;
+
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+typedef enum
+{
+    ERL_NIF_DIRTY_JOB_CPU_BOUND = 1,
+    ERL_NIF_DIRTY_JOB_IO_BOUND  = 2
+}ErlNifDirtyTaskFlags;
+#endif
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS

@@ -1754,6 +1754,9 @@ erts_alloc_register_scheduler(void *vesdp)
     int ix = (int) esdp->no;
     int aix;
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+#endif
     for (aix = ERTS_ALC_A_MIN; aix <= ERTS_ALC_A_MAX; aix++) {
 	ErtsAllocatorThrSpec_t *tspec = &erts_allctr_thr_spec[aix];
 	esdp->alloc_data.deallctr[aix] = NULL;
