@@ -730,9 +730,14 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 		     (undefined) ->
 			  undefined;
 		     (Unexpected) ->
-			  exit({error,{reset_curr_tc,{Mod,Func},Unexpected}})
+			  {error,{reset_curr_tc,{Mod,Func},Unexpected}}
 		  end,
-    ct_util:update_testdata(curr_tc, ClearCurrTC),
+    case ct_util:update_testdata(curr_tc, ClearCurrTC) of
+	{error,_} = ClearError ->
+	    exit(ClearError);
+	_ ->
+	    ok
+    end,
 
     case FinalResult of
 	{auto_skip,{sequence_failed,_,_}} ->
