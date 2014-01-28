@@ -512,7 +512,7 @@
 %% @see macro/2
 %% @see match_expr/2
 %% @see module_qualifier/2
-%% @see named_fun_expr/1
+%% @see named_fun_expr/2
 %% @see nil/0
 %% @see operator/1
 %% @see parentheses/1
@@ -5699,7 +5699,7 @@ named_fun_expr_name(Node) ->
 %% =====================================================================
 %% @doc Returns the list of clause subtrees of a `named_fun_expr' node.
 %%
-%% @see named_fun_expr/1
+%% @see named_fun_expr/2
 
 -spec named_fun_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -5722,7 +5722,7 @@ named_fun_expr_clauses(Node) ->
 %% syntax tree `C' of type `clause' such that
 %% `clause_patterns(C)' is a nonempty list.
 %%
-%% @see named_fun_expr/1
+%% @see named_fun_expr/2
 %% @see named_fun_expr_clauses/1
 %% @see clause/3
 %% @see clause_patterns/1

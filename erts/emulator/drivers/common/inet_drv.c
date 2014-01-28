@@ -854,9 +854,10 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_IFNAMSIZ          16
 
 /* INET Ignore states */
-#define INET_IGNORE_NONE 0
-#define INET_IGNORE_READ 1
-#define INET_IGNORE_WRITE 1 << 1
+#define INET_IGNORE_NONE    0
+#define INET_IGNORE_READ    (1 << 0)
+#define INET_IGNORE_WRITE   (1 << 1)
+#define INET_IGNORE_PASSIVE (1 << 2)
 
 /* Max length of Erlang Term Buffer (for outputting structured terms):  */
 #ifdef  HAVE_SCTP
@@ -8307,11 +8308,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
       if (*buf == 1 && !desc->is_ignored) {
 	  sock_select(desc, (FD_READ|FD_WRITE|FD_CLOSE|ERL_DRV_USE_NO_CALLBACK), 0);
-	  desc->is_ignored = INET_IGNORE_READ;
+	  if (desc->active)
+	    desc->is_ignored = INET_IGNORE_READ;
+	  else
+	    desc->is_ignored = INET_IGNORE_PASSIVE;
       } else if (*buf == 0 && desc->is_ignored) {
-	  int flags = (FD_READ|FD_CLOSE|((desc->is_ignored & INET_IGNORE_WRITE)?FD_WRITE:0));
+	  int flags = FD_CLOSE;
+	  if (desc->is_ignored & INET_IGNORE_READ)
+	    flags |= FD_READ;
+	  if (desc->is_ignored & INET_IGNORE_WRITE)
+	    flags |= FD_WRITE;
 	  desc->is_ignored = INET_IGNORE_NONE;
-	  sock_select(desc, flags, 1);
+	  if (flags != FD_CLOSE)
+	    sock_select(desc, flags, 1);
       } else
 	  return ctl_error(EINVAL, rbuf, rsize);
 
@@ -8988,6 +8997,8 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 		    driver_set_timer(desc->inet.port, timeout);
 		if (!INETP(desc)->is_ignored)
 		    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
+		else
+		  INETP(desc)->is_ignored |= INET_IGNORE_READ;
 	    }
 	}
 	return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);

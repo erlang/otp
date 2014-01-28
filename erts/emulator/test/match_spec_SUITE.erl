@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,7 @@
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
+	 empty_list/1,
 	 unary_plus/1, unary_minus/1, moving_labels/1]).
 -export([fpe/1]).
 -export([otp_9422/1]).
@@ -60,6 +61,7 @@ all() ->
 	     guard_exceptions, unary_plus, unary_minus, fpe,
 	     moving_labels,
 	     faulty_seq_trace,
+	     empty_list,
 	     otp_9422];
 	true -> [not_run]
     end.
@@ -896,6 +898,11 @@ fpe(Config) when is_list(Config) ->
 					"Floating point exceptions faulty"});
 	_ -> ok 
     end.
+
+empty_list(Config) when is_list(Config) ->
+    Val=[{'$1',[], [{message,'$1'},{message,{caller}},{return_trace}]}],
+     %% Did crash debug VM in faulty assert:
+    erlang:match_spec_test([],Val,trace).
 
 moving_labels(Config) when is_list(Config) ->
     %% Force an andalso/orelse construction to be moved by placing it
