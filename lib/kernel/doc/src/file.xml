@@ -1746,16 +1746,16 @@
           <item>The chunk size used by the erlang fallback to send
 	  data. If using the fallback, this should be set to a value
 	  which comfortably fits in the systems memory. Default is 20 MB.</item>
+	  <tag><c>use_threads</c></tag>
+          <item>Instruct the emulator to use the async thread pool for the
+	  sendfile system call. This could be usefull if the OS you are running
+	  on does not properly support non-blocking sendfile calls. Do note that
+	  using async threads potentially makes your system volnerable to slow
+	  client attacks. If set to true and no async threads are available,
+	  the sendfile call will return <c>{error,einval}</c>.
+	  Introduced in 17.0. Default is false.</item>
 	</taglist>
 	</p>
-	<p>On operating systems with thread support, it is recommended to use
-	async threads. See the command line flag
-	<c>+A</c> in <seealso marker="erts:erl">erl(1)</seealso>. If it is not
-	possible to use async threads for sendfile, it is recommended to use
-	a relatively small value for the send buffer on the socket. Otherwise
-	the Erlang VM might loose some of its soft realtime guarantees.
-	Which size to use depends on the OS/hardware and the requirements
-	of the application.</p>
       </desc>
     </func>
     <func>

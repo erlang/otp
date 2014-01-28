@@ -167,7 +167,7 @@ dt_private *get_dt_private(int);
 
 
 #ifdef USE_THREADS
-#define IF_THRDS if (sys_info.async_threads > 0)
+#define THRDS_AVAILABLE (sys_info.async_threads > 0)
 #ifdef HARDDEBUG /* HARDDEBUG in io.c is expected too */
 #define TRACE_DRIVER fprintf(stderr, "Efile: ")
 #else
@@ -177,24 +177,26 @@ dt_private *get_dt_private(int);
 #define MUTEX_LOCK(m)    do { IF_THRDS { TRACE_DRIVER; driver_pdl_lock(m);   } } while (0)
 #define MUTEX_UNLOCK(m)  do { IF_THRDS { TRACE_DRIVER; driver_pdl_unlock(m); } } while (0)
 #else
-#define IF_THRDS if (0)
+#define THRDS_AVAILABLE (0)
 #define MUTEX_INIT(m, p)
 #define MUTEX_LOCK(m)
 #define MUTEX_UNLOCK(m)
 #endif
+#define IF_THRDS if (THRDS_AVAILABLE)
 
 
+#define SENDFILE_FLGS_USE_THREADS (1 << 0)
 /**
  * On DARWIN sendfile can deadlock with close if called in
  * different threads. So until Apple fixes so that sendfile
  * is not buggy we disable usage of the async pool for
  * DARWIN. The testcase t_sendfile_crashduring reproduces
- * this error when using +A 10.
+ * this error when using +A 10 and enabling SENDFILE_FLGS_USE_THREADS.
  */
 #if defined(__APPLE__) && defined(__MACH__)
-#define USE_THRDS_FOR_SENDFILE 0
+#define USE_THRDS_FOR_SENDFILE(DATA) 0
 #else
-#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
+#define USE_THRDS_FOR_SENDFILE(DATA) (DATA->flags & SENDFILE_FLGS_USE_THREADS)
 #endif /* defined(__APPLE__) && defined(__MACH__) */
 
 
@@ -300,7 +302,7 @@ static void file_stop_select(ErlDrvEvent event, void* _);
 enum e_timer {timer_idle, timer_again, timer_write};
 #ifdef HAVE_SENDFILE
 enum e_sendfile {sending, not_sending};
-static void free_sendfile(void *data);
+#define SENDFILE_USE_THREADS (1 << 0)
 #endif /* HAVE_SENDFILE */
 
 struct t_data;
@@ -1932,7 +1934,7 @@ static void invoke_sendfile(void *data)
 
     d->c.sendfile.written += nbytes;
 
- if (result == 1 || (result == 0 && USE_THRDS_FOR_SENDFILE)) {
+    if (result == 1 || (result == 0 && USE_THRDS_FOR_SENDFILE(d))) {
       d->result_ok = 0;
     } else if (result == 0 && (d->errInfo.posix_errno == EAGAIN
 				 || d->errInfo.posix_errno == EINTR)) {
@@ -1949,7 +1951,7 @@ static void invoke_sendfile(void *data)
 
 static void free_sendfile(void *data) {
     struct t_data *d = (struct t_data *)data;
-    if (USE_THRDS_FOR_SENDFILE) {
+    if (USE_THRDS_FOR_SENDFILE(d)) {
 	SET_NONBLOCKING(d->c.sendfile.out_fd);
     } else {
 	MUTEX_LOCK(d->c.sendfile.q_mtx);
@@ -4122,8 +4124,16 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 
-	if (hd_len != 0 || tl_len != 0 || flags != 0) {
-	    /* We do not allow header, trailers and/or flags right now */
+	if (hd_len != 0 || tl_len != 0) {
+	    /* We do not allow header, trailers */
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+
+	
+	if (flags & SENDFILE_FLGS_USE_THREADS && !THRDS_AVAILABLE) {
+	    /* We do not allow use_threads flag on a system where
+	       no threads are available. */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
@@ -4133,6 +4143,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->invoke = invoke_sendfile;
 	d->free = free_sendfile;
+	d->flags = flags;
 	d->level = 2;
 
 	d->c.sendfile.out_fd = (int) out_fd;
@@ -4152,7 +4163,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	d->c.sendfile.nbytes = nbytes;
 
-	if (USE_THRDS_FOR_SENDFILE) {
+	if (USE_THRDS_FOR_SENDFILE(d)) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
 	} else {
 	    /**
