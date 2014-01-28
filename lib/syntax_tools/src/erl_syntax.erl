@@ -5691,15 +5691,15 @@ fun_expr_arity(Node) ->
 -spec named_fun_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 named_fun_expr(Name, Clauses) ->
-    tree(fun_expr, #named_fun_expr{name = Name, clauses = Clauses}).
+    tree(named_fun_expr, #named_fun_expr{name = Name, clauses = Clauses}).
 
 revert_named_fun_expr(Node) ->
     Pos = get_pos(Node),
     Name = named_fun_expr_name(Node),
     Clauses = [revert_clause(C) || C <- named_fun_expr_clauses(Node)],
     case type(Name) of
-	var ->
-	    {named_fun, Pos, concrete(Name), Clauses};
+	variable ->
+	    {named_fun, Pos, variable_name(Name), Clauses};
 	_ ->
 	    Node
     end.
@@ -5715,7 +5715,7 @@ revert_named_fun_expr(Node) ->
 named_fun_expr_name(Node) ->
     case unwrap(Node) of
 	{named_fun, Pos, Name, _} ->
-	    set_pos(atom(Name), Pos);
+	    set_pos(variable(Name), Pos);
 	Node1 ->
 	    (data(Node1))#named_fun_expr.name
     end.
