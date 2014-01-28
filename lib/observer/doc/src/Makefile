@@ -34,6 +34,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
+XML_REF1_FILES = \
+	cdv.xml
 XML_REF3_FILES = \
 	crashdump.xml \
 	observer.xml \
@@ -59,11 +61,10 @@ BOOK_FILES = book.xml
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) \
+	$(XML_PART_FILES) $(XML_REF1_FILES) $(XML_REF3_FILES) \
 	$(XML_APPLICATION_FILES) $(XML_REF6_FILES)
 
-ONLY_HTML_FILE = \
-	crashdump_help.html
+ONLY_HTML_FILE =
 
 GIF_FILES = \
 	et_processes.gif \
@@ -77,6 +78,7 @@ HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
 
 INFO_FILE = ../../info
 
+MAN1_FILES = $(XML_REF1_FILES:%.xml=$(MAN1DIR)/%.1)
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 
@@ -106,6 +108,7 @@ html: gifs $(HTML_REF_MAN_FILE) $(ONLY_HTML_FILE:%=$(HTMLDIR)/%)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
@@ -115,7 +118,7 @@ clean clean_docs:
 $(HTMLDIR)/$(ONLY_HTML_FILE):
 	$(INSTALL_DATA) $(ONLY_HTML_FILE) $@
 
-man: $(MAN3_FILES) $(MAN6_FILES)
+man: $(MAN1_FILES) $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
@@ -135,6 +138,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(HTMLDIR)/* \
 		"$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
+	$(INSTALL_DATA) $(MAN1DIR)/* "$(RELEASE_PATH)/man/man1"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"

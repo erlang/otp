@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -283,7 +283,12 @@ mem_types() ->
 
 lmax([]) -> 0;
 lmax(List) ->
-    lists:max([lists:max(tuple_to_list(T)) || T <- List]).
+    Max = [lists:max(tuple_to_list(T)) || T <- List,
+					  tuple_size(T) > 0],
+    case Max of
+	[] -> 0;
+	_ -> lists:max(Max)
+    end.
 
 calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|calc_delta(Ss, Ps)];
@@ -301,25 +306,23 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
     {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint),
     Last = 60*WS+X0-1,
     Start = max(61-Len, 0)*WS+X0 - Offset*WS,
-    case Hs of
-	[] -> ignore;
-	[_] -> ignore;
-	_ ->
+    Samples = length(Hs),
+    case Active andalso Samples > 1 andalso NoGraphs > 0 of
+	true ->
 	    Draw = fun(N) ->
 			   Lines = make_lines(Hs, Start, N, {X0,Max*HS,Last}, Y0, WS, HS),
 			   setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
 			   strokeLines(DC, Lines),
 			   N+1
 		   end,
-	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)]
-    end,
-    case Active of
+	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)];
 	false ->
-	    NotActive = "Service not available",
+	    Info = case Active andalso Samples =< 1 of
+		       true -> "Waiting on data";
+		       false -> "Information not available"
+		   end,
 	    setFont(DC, Small, {0,0,0}),
-	    drawText(DC, NotActive, X0 + 100, element(2,Size) div 2);
-	true ->
-	    ignore
+	    drawText(DC, Info, X0 + 100, element(2,Size) div 2)
     end,
     ok.
 

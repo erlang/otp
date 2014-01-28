@@ -38,5 +38,6 @@
   <xi:include href="ttb.xml"/>
   <xi:include href="etop.xml"/>
   <xi:include href="crashdump.xml"/>
+  <xi:include href="cdv.xml"/>
 </application>
 
