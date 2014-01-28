@@ -1,0 +1,39 @@
+module 'bin_alias' ['t'/1]
+    attributes []
+'t'/1 =
+    %% Line 4
+    fun (_cor0) ->
+    case _cor0 of
+      <Bin1> when 'true' ->
+          %% Line 5
+          case Bin1 of
+        %% Line 6
+        <#{}#> when 'true' ->
+            'ok'
+        %% Line 7
+        <Bin2> when 'true' ->
+            %% Line 8
+            case Bin1 of
+              %% Line 9
+              <#{#<0>(8,1,'integer',['unsigned'|['big']])}#> when 'true' ->
+              'ok'
+              %% Line 10
+              <_cor4> when 'true' ->
+              Bin2
+              ( <_cor1> when 'true' ->
+                primop 'match_fail'
+                ({'case_clause',_cor1})
+            -| ['compiler_generated'] )
+            end
+        ( <_cor2> when 'true' ->
+              primop 'match_fail'
+              ({'case_clause',_cor2})
+          -| ['compiler_generated'] )
+          end
+      ( <_cor3> when 'true' ->
+        ( primop 'match_fail'
+              ({'function_clause',_cor3})
+          -| [{'function_name',{'t',1}}] )
+        -| ['compiler_generated'] )
+    end
+end

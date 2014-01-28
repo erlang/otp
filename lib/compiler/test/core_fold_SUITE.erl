@@ -22,7 +22,7 @@
 	 init_per_group/2,end_per_group/2,
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
-	 unused_multiple_values_error/1,unused_multiple_values/1]).
+	 unused_multiple_values_error/1,unused_multiple_values/1,bin_alias/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -38,7 +38,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [t_element,setelement,t_length,append,t_apply,bifs,
        eq,nested_call_in_case,guard_try_catch,coverage,
-       unused_multiple_values_error,unused_multiple_values]}].
+       unused_multiple_values_error,unused_multiple_values,bin_alias]}].
 
 
 init_per_suite(Config) ->
@@ -329,3 +329,11 @@ do_something(I) ->
     put(unused_multiple_values,
 	[I|get(unused_multiple_values)]),
     I.
+
+bin_alias(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Dir = filename:dirname(code:which(?MODULE)),
+    Core = filename:join(Dir, "bin_alias"),
+    Opts = [clint,return,from_core,{outdir,PrivDir}|test_lib:opt_opts(?MODULE)],
+    {ok,bin_alias} = c:c(Core, Opts),
+    ok.
