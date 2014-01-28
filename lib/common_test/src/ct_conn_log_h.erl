@@ -39,36 +39,34 @@
 init({GL,ConnLogs}) ->
     open_files(GL,ConnLogs,#state{default_gl=GL}).
 
-open_files(GL,[{ConnMod,{LogType,ConnLogs}}|T],State) ->
-    case do_open_files(GL,ConnLogs,[]) of
+open_files(GL,[{ConnMod,{LogType,LogFiles}}|T],State=#state{logs=Logs}) ->
+    case do_open_files(LogFiles,[]) of
 	{ok,Fds} ->
-	    open_files(GL,T,State#state{logs=[{GL,[{ConnMod,{LogType,Fds}}]} |
-					      State#state.logs]});
+	    ConnInfo = proplists:get_value(GL,Logs,[]),
+	    Logs1 = [{GL,[{ConnMod,{LogType,Fds}}|ConnInfo]} | 
+		     proplists:delete(GL,Logs)],
+	    open_files(GL,T,State#state{logs=Logs1});
 	Error ->
 	    Error
     end;
 open_files(_GL,[],State) ->
     {ok,State}.
 
-do_open_files(GL,[{Tag,File}|ConnLogs],Acc) ->
+do_open_files([{Tag,File}|LogFiles],Acc) ->
     case file:open(File, [write,append,{encoding,utf8}]) of
 	{ok,Fd} ->
-	    do_open_files(GL,ConnLogs,[{Tag,Fd}|Acc]);
+	    do_open_files(LogFiles,[{Tag,Fd}|Acc]);
 	{error,Reason} ->
 	    {error,{could_not_open_log,File,Reason}}
     end;
-do_open_files(_GL,[],Acc) ->
+do_open_files([],Acc) ->
     {ok,lists:reverse(Acc)}.
 
 handle_event({info_report,_,{From,update,{GL,ConnLogs}}},
 	     State) when node(GL) == node() ->
-
-    %%! --- Tue Jan 28 12:18:50 2014 --- peppe was here!
-    io:format(user, "!!! ADDING NEW LOGS FOR ~p~n", [GL]),
-
-    open_files(GL,ConnLogs,#state{}),
+    Result = open_files(GL,ConnLogs,State),
     From ! {updated,GL},
-    {ok, State};
+    Result;
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
 handle_event({_Type,GL,{Pid,{ct_connection,Mod,Action,ConnName},Report}},
@@ -126,7 +124,7 @@ write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->
     end.
 
 get_log(Info,GL,State) ->
-    case proplists:get_value(GL, State#state.logs) of
+    case proplists:get_value(GL,State#state.logs) of
 	undefined ->
 	    {html,State#state.default_gl};
 	ConnLogs ->

@@ -42,7 +42,106 @@
 %%% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %%% file included in the test and ct_telnet will retrieve the information
 %%% automatically. Note that <c>keep_alive</c> may be specified per connection if
-%%% required. See <c>unix_telnet</c> for details.</p></doc>
+%%% required. See <c>unix_telnet</c> for details.</p>
+%%%
+%%% @end
+%%%
+%%% == Logging ==
+%%%
+%%% `ct_telnet' can be configured to uses the `error_logger' for logging telnet
+%%% traffic. A special purpose error handler is implemented in
+%%% `ct_conn_log_h'. To use this error handler, add the `cth_conn_log'
+%%% hook in your test suite, e.g.
+%%%
+%%%
+%%% ```
+%%% suite() ->
+%%%    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
+%%%'''
+%%%
+%%% `conn_mod()' is the name of the common_test module implementing
+%%% the connection protocol, i.e. `ct_telnet'.
+%%%
+%%% The hook option `log_type' specifies the type of logging:
+%%%
+%%% <dl>
+%%%   <dt>`raw'</dt>
+%%%   <dd>The sent and received telnet data is logged to a separate
+%%%   text file as is without any formatting. A link to the file is
+%%%   added to the test case HTML log.</dd>
+%%%
+%%%   <dt>`html (default)'</dt>
+%%%   <dd>The sent and received telnet traffic is pretty printed
+%%%   directly in the test case HTML log.</dd>
+%%%
+%%%   <dt>`silent'</dt>
+%%%   <dd>Telnet traffic is not logged.</dd>
+%%% </dl>
+%%%
+%%% By default, all telnet traffic is logged in one single log
+%%% file. However, it is possible to have different connections logged
+%%% in separate files. To do this, use the hook option `hosts' and
+%%% list the names of the servers/connections that will be used in the
+%%% suite. Note that the connections must be named for this to work.
+%%%
+%%% The `hosts' option has no effect if `log_type' is set to `html' or
+%%% `silent'.
+%%%
+%%% The hook options can also be specified in a configuration file with
+%%% the configuration variable `ct_conn_log':
+%%%
+%%% ```
+%%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
+%%% '''
+%%%
+%%% For example:
+%%
+%%% ```
+%%% {ct_conn_log,[{ct_telnet,[{log_type,raw},
+%%%                           {hosts,[key_or_name()]}]}]}
+%%% '''
+%%%
+%%% <b>Note</b> that hook options specified in a configuration file
+%%% will overwrite any hardcoded hook options in the test suite.
+%%
+%%% === Logging example 1 ===
+%%%
+%%% The following `ct_hooks' statement will cause raw printing of
+%%% telnet traffic to separate logs for the connections named
+%%% `server1' and `server2'. Any other connections will be logged
+%%% to default telnet log.
+%%%
+%%% ```
+%%% suite() ->
+%%%    [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
+%%%                                             {hosts,[server1,server2]}]}
+%%%                                ]}]}].
+%%%'''
+%%%
+%%% === Logging example 2 ===
+%%%
+%%% The following configuration file will cause raw logging of all
+%%% telnet traffic into one single text file.
+%%%
+%%% ```
+%%% {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.
+%%% '''
+%%%
+%%% The `ct_hooks' statement must look like this:
+%%%
+%%% ```
+%%% suite() ->
+%%%    [{ct_hooks, [{cth_conn_log, []}]}].
+%%% '''
+%%%
+%%% The same `ct_hooks' statement without the configuration file would
+%%% cause HTML logging of all telnet connections into the test case
+%%% HTML log.
+%%%
+%%% <b>Note</b> that if the `cth_conn_log' hook is not added, telnet
+%%% traffic is still logged in the test case log files (on the legacy
+%%% `ct_telnet' format).
+
 
 %%% @type connection_type() = telnet | ts1 | ts2
 

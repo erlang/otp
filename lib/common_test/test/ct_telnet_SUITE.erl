@@ -50,9 +50,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 groups() ->
     [{legacy, [], [unix_telnet,own_server,timetrap]},
-     {raw, [], [unix_telnet,own_server,timetrap]},
-%{raw, [], [unix_telnet]},
-     {html, [], [unix_telnet,own_server]},
+     {raw,    [], [unix_telnet,own_server,timetrap]},
+     {html,   [], [unix_telnet,own_server]},
      {silent, [], [unix_telnet,own_server]}].
 
 all() ->
@@ -205,6 +204,11 @@ events_to_check(timetrap,_Config) ->
 		   {failed,{timetrap_timeout,7000}}}},
      {?eh,tc_done,{ct_telnet_timetrap_SUITE,expect_success,ok}},
      {?eh,stop_logging,[]}].
+
+%%! THIS MUST BE FIXED!!!
+all_cases(ct_telnet_basic_SUITE,_Config) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,stop_logging,[]}];
 
 all_cases(Suite,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),

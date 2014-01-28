@@ -19,8 +19,7 @@ suite() -> [
 	   ].
 
 operations() -> 
-    [start_stop
-, send_and_get, expect, already_closed, 
+    [start_stop, send_and_get, expect, already_closed, 
      cmd, sendf, close_wrong_type].
 
 mult_case(_Case, 0) ->
@@ -61,10 +60,6 @@ init_per_testcase(Case, Config) when (Case == sessions1) or
 				     (Case == sessions2) or
 				     (Case == sessions3) or
 				     (Case == sessions4) ->
-
-    %%! --- Tue Jan 28 13:46:47 2014 --- peppe was here!
-    io:format(user, ">>> ~p STARTING~n", [Case]),
-
     N = lists:last(atom_to_list(Case))-48,
     ct:log("Using connection ~w for session ~w on ~w",
 	   [?conn_name(N),N,self()]),
@@ -76,10 +71,6 @@ init_per_testcase(Case, Config) ->
     Config.
 
 end_per_testcase(_Case, _) ->
-
-    %%! --- Tue Jan 28 13:46:47 2014 --- peppe was here!
-    io:format(user, "<<< ~p ENDING~n", [_Case]),
-
     ok.
 
 %%%-----------------------------------------------------------------

@@ -140,19 +140,9 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
     GL = group_leader(),
     Update =
 	fun(Init) when Init == undefined; Init == [] ->
-
-		%%! --- Tue Jan 28 12:13:08 2014 --- peppe was here!
-		io:format(user, "### ~p: ADDING NEW HANDLER FOR ~p~n", 
-			  [TestCase,GL]),
-
 		error_logger:add_report_handler(ct_conn_log_h,{GL,Logs}),
 		[TestCase];
 	   (PrevUsers) ->
-
-		%%! --- Tue Jan 28 12:13:08 2014 --- peppe was here!
-		io:format(user, "### ~p: CONNECTING ~p TO EXISTING HANDLER~n", 
-			  [TestCase,GL]),
-
 		error_logger:info_report(update,{GL,Logs}),
 		receive
 		    {updated,GL} ->
@@ -179,17 +169,10 @@ post_end_per_testcase(TestCase,_Config,Return,CthState) ->
 	deleted ->
 	    [ct_util:delete_testdata({?MODULE,ConnMod}) ||
 		{ConnMod,_} <- CthState],
-	    
-	    %%! --- Tue Jan 28 13:29:37 2014 --- peppe was here!
-	    io:format(user, "### ~p: REMOVING ERROR LOGGER~n", [TestCase]),
-
 	    error_logger:delete_report_handler(ct_conn_log_h);
 	{error,no_response} ->
 	    exit({?MODULE,no_response_from_logger});
 	_PrevUsers ->
-	    %%! --- Tue Jan 28 13:29:37 2014 --- peppe was here!
-	    io:format(user, "### ~p: *NOT* REMOVING ERROR LOGGER~n", [TestCase]),
-
 	    ok
     end,
     {Return,CthState}.
