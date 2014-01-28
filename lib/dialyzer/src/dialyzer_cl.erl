@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -613,7 +613,7 @@ cl_loop(State, LogCache) ->
 -spec failed_anal_msg(string(), [_]) -> nonempty_string().
 
 failed_anal_msg(Reason, LogCache) ->
-  Msg = "Analysis failed with error:\n" ++ Reason ++ "\n",
+  Msg = "Analysis failed with error:\n" ++ lists:flatten(Reason) ++ "\n",
   case LogCache =:= [] of
     true -> Msg;
     false ->
@@ -640,7 +640,7 @@ store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
 -spec cl_error(string()) -> no_return().
 
 cl_error(Msg) ->
-  throw({dialyzer_error, Msg}).
+  throw({dialyzer_error, lists:flatten(Msg)}).
 
 -spec cl_error(#cl_state{}, string()) -> no_return().
 
@@ -650,7 +650,7 @@ cl_error(State, Msg) ->
     Outfile -> io:format(Outfile, "\n~s\n", [Msg])
   end,
   maybe_close_output_file(State),
-  throw({dialyzer_error, Msg}).
+  throw({dialyzer_error, lists:flatten(Msg)}).
 
 return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,

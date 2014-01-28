@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -149,8 +149,10 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
   NewState = InitState#st{no_warn_unused = NoWarnUnused},
   Mods = dialyzer_callgraph:modules(NewState#st.callgraph),
   MiniPlt = NewState#st.plt,
+  FindOpaques = lookup_and_find_opaques_fun(Codeserver),
   CWarns =
-    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver, MiniPlt),
+    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver,
+                                                     MiniPlt, FindOpaques),
   MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
   ModWarns =
     ?timing(TimingServer, "warning",
@@ -261,7 +263,16 @@ refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, Records),
-  case reached_fixpoint(FunTypes, NewFunTypes) of
+  Contracts1 = dialyzer_codeserver:lookup_mod_contracts(M, CodeServer),
+  Contracts = orddict:from_list(dict:to_list(Contracts1)),
+  FindOpaques = find_opaques_fun(Records),
+  DecoratedFunTypes =
+    decorate_succ_typings(Contracts, Callgraph, NewFunTypes, FindOpaques),
+  %% ?debug("NewFunTypes       ~p\n   ~n", [dict:to_list(NewFunTypes)]),
+  %% ?debug("refine DecoratedFunTypes ~p\n   ~n", [dict:to_list(DecoratedFunTypes)]),
+  debug_pp_functions("Refine", NewFunTypes, DecoratedFunTypes, Callgraph),
+
+  case reached_fixpoint(FunTypes, DecoratedFunTypes) of
     true -> [];
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
@@ -357,9 +368,16 @@ find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt, Solvers}) ->
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes =
     dict:filter(fun(X, _) -> sets:is_element(X, AllFunSet) end, FunTypes),
+  FindOpaques = lookup_and_find_opaques_fun(Codeserver),
+  DecoratedFunTypes =
+    decorate_succ_typings(Contracts3, Callgraph, FilteredFunTypes, FindOpaques),
   %% Check contracts
   PltContracts =
-    dialyzer_contracts:check_contracts(Contracts3, Callgraph, FilteredFunTypes),
+    dialyzer_contracts:check_contracts(Contracts3, Callgraph,
+                                       DecoratedFunTypes, FindOpaques),
+  %% ?debug("FilteredFunTypes ~p\n   ~n", [dict:to_list(FilteredFunTypes)]),
+  %% ?debug("SCC DecoratedFunTypes ~p\n   ~n", [dict:to_list(DecoratedFunTypes)]),
+  debug_pp_functions("SCC", FilteredFunTypes, DecoratedFunTypes, Callgraph),
   ContractFixpoint =
     lists:all(fun({MFA, _C}) ->
 		  %% Check the non-deleted PLT
@@ -368,14 +386,45 @@ find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt, Solvers}) ->
 		    {value, _} -> true
 		  end
 	      end, PltContracts),
-  Plt = insert_into_plt(FilteredFunTypes, Callgraph, Plt),
+  Plt = insert_into_plt(DecoratedFunTypes, Callgraph, Plt),
   Plt = dialyzer_plt:insert_contract_list(Plt, PltContracts),
   case (ContractFixpoint andalso 
-	reached_fixpoint_strict(PropTypes, FilteredFunTypes)) of
+	reached_fixpoint_strict(PropTypes, DecoratedFunTypes)) of
     true -> [];
     false ->
       ?debug("Not fixpoint for: ~w\n", [AllFuns]),
       [Fun || {Fun, _Arity} <- AllFuns]
+  end.
+
+decorate_succ_typings(Contracts, Callgraph, FunTypes, FindOpaques) ->
+  F = fun(Label, Type) ->
+          case dialyzer_callgraph:lookup_name(Label, Callgraph) of
+            {ok, MFA} ->
+              case orddict:find(MFA, Contracts) of
+                {ok, {_FileLine, Contract}} ->
+                  Args = dialyzer_contracts:get_contract_args(Contract),
+                  Ret = dialyzer_contracts:get_contract_return(Contract),
+                  C = erl_types:t_fun(Args, Ret),
+                  {M, _, _} = MFA,
+                  Opaques = FindOpaques(M),
+                  erl_types:t_decorate_with_opaque(Type, C, Opaques);
+                error -> Type
+              end;
+            error -> Type
+          end
+      end,
+  dict:map(F, FunTypes).
+
+lookup_and_find_opaques_fun(Codeserver) ->
+  fun(Module) ->
+      Records = dialyzer_codeserver:lookup_mod_records(Module, Codeserver),
+      (find_opaques_fun(Records))(Module)
+  end.
+
+find_opaques_fun(Records) ->
+  fun(Module) ->
+      erl_types:module_builtin_opaques(Module) ++
+      erl_types:t_opaque_from_records(Records)
   end.
 
 get_fun_types_from_plt(FunList, Callgraph, Plt) ->
@@ -443,8 +492,29 @@ debug_pp_succ_typings(SuccTypes) ->
    || {MFA, {contract, RetFun, ArgT}} <- SuccTypes],
   ?debug("\n", []),
   ok.
+
+debug_pp_functions(Header, FunTypes, DecoratedFunTypes, Callgraph) ->
+  ?debug("FunTypes (~s)\n", [Header]),
+  FTypes = lists:keysort(1, dict:to_list(FunTypes)),
+  DTypes = lists:keysort(1, dict:to_list(DecoratedFunTypes)),
+  Fun = fun({{Label, Type},{Label, DecoratedType}}) ->
+            Name = lookup_name(Label, Callgraph),
+            ?debug("~w (~w): ~s\n",
+                   [Name, Label, erl_types:t_to_string(Type)]),
+            case erl_types:t_is_equal(Type, DecoratedType) of
+              true -> ok;
+              false ->
+                ?debug("  With opaque types: ~s\n",
+                       [erl_types:t_to_string(DecoratedType)])
+            end
+        end,
+  lists:foreach(Fun, lists:zip(FTypes, DTypes)),
+  ?debug("\n", []).
 -else.
 debug_pp_succ_typings(_) ->
+  ok.
+
+debug_pp_functions(_, _, _, _) ->
   ok.
 -endif.
 

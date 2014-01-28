@@ -423,6 +423,9 @@ message_to_string({call_without_opaque, [M, F, Args, ExpectedTriples]}) ->
 message_to_string({opaque_eq, [Type, _Op, OpaqueType]}) ->
   io_lib:format("Attempt to test for equality between a term of type ~s"
 		" and a term of opaque type ~s\n", [Type, OpaqueType]);
+message_to_string({opaque_guard, [Arg1, Infix, Arg2, ArgNs]}) ->
+  io_lib:format("Guard test ~s ~s ~s contains ~s\n",
+		[Arg1, Infix, Arg2, form_positions(ArgNs)]);
 message_to_string({opaque_guard, [Guard, Args]}) ->
   io_lib:format("Guard test ~w~s breaks the opaqueness of its argument\n",
 		[Guard, Args]);
@@ -435,8 +438,16 @@ message_to_string({opaque_match, [Pat, OpaqueType, OpaqueTerm]}) ->
 message_to_string({opaque_neq, [Type, _Op, OpaqueType]}) ->
   io_lib:format("Attempt to test for inequality between a term of type ~s"
 		" and a term of opaque type ~s\n", [Type, OpaqueType]);
-message_to_string({opaque_type_test, [Fun, Opaque]}) ->
-  io_lib:format("The type test ~s(~s) breaks the opaqueness of the term ~s\n", [Fun, Opaque, Opaque]);
+message_to_string({opaque_type_test, [Fun, Args, Arg, ArgType]}) ->
+  io_lib:format("The type test ~s~s breaks the opaqueness of the term ~s~s\n",
+                [Fun, Args, Arg, ArgType]);
+message_to_string({opaque_size, [SizeType, Size]}) ->
+  io_lib:format("The size ~s breaks the opaqueness of ~s\n",
+                [SizeType, Size]);
+message_to_string({opaque_call, [M, F, Args, Culprit, OpaqueType]}) ->
+  io_lib:format("The call ~s:~s~s breaks the opaqueness of the term ~s :: ~s\n",
+                [M, F, Args, Culprit, OpaqueType]);
+
 %%----- Warnings for concurrency errors --------------------
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
   io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]);
