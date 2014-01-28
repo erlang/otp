@@ -912,8 +912,16 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 	{'EXIT', OpenSslPort, _} = Exit ->
 	    ct:log("Received: ~p ~n", [Exit]),
 	    ok
-
     end,
+    receive 
+	{'EXIT', _, _} = UnkownExit ->
+	    Msg = lists:flatten(io_lib:format("Received: ~p ~n", [UnkownExit])),
+	    ct:log(Msg),
+	    ct:comment(Msg),
+	    ok
+    after 0 ->
+	    ok
+    end,		
     ssl_test_lib:check_result(Server, {error, {tls_alert, "protocol version"}}),
     process_flag(trap_exit, false).
 
