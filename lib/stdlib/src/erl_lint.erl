@@ -844,8 +844,9 @@ behaviour_callbacks(Line, B, St0) ->
             {[], St1}
     end.
 
-behaviour_missing_callbacks([{{Line,B},Bfs}|T], #lint{exports=Exp}=St0) ->
-    Missing = ordsets:subtract(ordsets:from_list(Bfs), gb_sets:to_list(Exp)),
+behaviour_missing_callbacks([{{Line,B},Bfs}|T], St0) ->
+    Exports = gb_sets:to_list(exports(St0)),
+    Missing = ordsets:subtract(ordsets:from_list(Bfs), Exports),
     St = foldl(fun (F, S0) ->
 		       add_warning(Line, {undefined_behaviour_func,F,B}, S0)
 	       end, St0, Missing),
@@ -1147,6 +1148,14 @@ export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
     catch
 	error:_ ->
 	    add_error(Line, {bad_export_type, ETs}, St0)
+    end.
+
+-spec exports(lint_state()) -> gb_set().
+
+exports(#lint{compile = Opts, defined = Defs, exports = Es}) ->
+    case lists:member(export_all, Opts) of
+        true -> Defs;
+        false -> Es
     end.
 
 -type import() :: {module(), [fa()]} | module().
