@@ -88,7 +88,8 @@
 -define(privilegeWithdrawn, 9).
 -define(aACompromise, 10).
 
--type public_key()           ::  rsa_public_key() | dsa_public_key().
+-type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key().
+-type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key().
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.

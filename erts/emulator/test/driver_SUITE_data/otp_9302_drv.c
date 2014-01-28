@@ -227,6 +227,4 @@ static void output(ErlDrvData drv_data,
     ad[4]->term_data.msg = driver_mk_atom("end_of_jobs");
     for (i = 0; i < sizeof(id)/sizeof(id[0]); i++)
 	id[i] = driver_async(data->port, &key, async_invoke, ad[i], driver_free);
-    if (id[2] > 0)
-	driver_async_cancel(id[2]);
 }
