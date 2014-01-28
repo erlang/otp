@@ -409,7 +409,9 @@ void sys_tty_reset(int exit_code)
 #ifdef __tile__
 /* Direct malloc to spread memory around the caches of multiple tiles. */
 #include <malloc.h>
+#if defined(MALLOC_USE_HASH)
 MALLOC_USE_HASH(1);
+#endif
 #endif
 
 #ifdef USE_THREADS
