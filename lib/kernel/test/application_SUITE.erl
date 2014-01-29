@@ -33,7 +33,7 @@
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
 
--export([config_change/1,
+-export([config_change/1, change_config_data/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1]).
@@ -53,7 +53,8 @@ all() ->
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
-     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout].
+     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
+     change_config_data].
 
 groups() -> 
     [{reported_bugs, [],
@@ -1986,6 +1987,39 @@ get_appls([_ | T], Res) ->
     get_appls(T, Res);
 get_appls([], Res) ->
     Res.
+
+change_config_data(suite) ->
+    [];
+change_config_data(doc) ->
+    ["Test change of -config data"];
+change_config_data(Conf) when is_list(Conf) ->
+    % Apply configuration change
+    ok = application_controller:change_config_data([{app1, [{key,1},{constant,true}]}]),
+
+    % Start app1
+    ok = application:load(app1()),
+    {ok, 1} = application:get_env(app1, key),
+    {ok, true} = application:get_env(app1, constant),
+
+    % Apply new data and verify env is the same
+    ok = application_controller:change_config_data([{app1, [{key,2}]},{appinc,[{own2,config}]}]),
+    {ok, 1} = application:get_env(app1, key),
+    ok = application:load(appinc()),
+    {ok, config} = application:get_env(appinc, own2),
+
+    % Reload app and pickup new data
+    ok = application:unload(app1),
+    ok = application:load(app1()),
+    {ok, 2} = application:get_env(app1, key),
+    {ok, true} = application:get_env(app1, constant),
+
+    % Try to merge bad data
+    Msg = "application: \"app1\"; application name must be an atom",
+    {error, Msg} = application_controller:change_config_data([{"app1", []}]),
+
+    % Clean up
+    ok = application:unload(app1),
+    ok = application:unload(appinc).
 
 %%%-----------------------------------------------------------------
 %%% Tests the 'shutdown_func' kernel config parameter
