@@ -26,11 +26,13 @@
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1,
 	 per_dec_restricted_string/1]).
 -export([per_dec_constrained/3,per_dec_normally_small_number/1]).
--export([per_enc_bit_string/4,per_enc_boolean/2,
+-export([per_enc_bit_string/4,per_enc_legacy_bit_string/4,
+	 per_enc_boolean/2,
 	 per_enc_choice/3,per_enc_enumerated/3,
 	 per_enc_integer/3,per_enc_integer/4,
 	 per_enc_null/2,
 	 per_enc_k_m_string/4,per_enc_octet_string/3,
+	 per_enc_legacy_octet_string/3,
 	 per_enc_open_type/2,
 	 per_enc_restricted_string/3,
 	 per_enc_small_number/2]).
@@ -157,7 +159,35 @@ per_dec_restricted_string(Aligned) ->
 %%% Encoding.
 %%%
 
-per_enc_bit_string(Val0, [], Constraint0, Aligned) ->
+per_enc_bit_string(Val, [], Constraint0, Aligned) ->
+    {B,[[],Bits]} = mk_vars([], [bits]),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    B ++ [{call,erlang,bit_size,[Val],Bits}|
+	  per_enc_length(Val, 1, Bits, Constraint, Aligned, 'BIT STRING')];
+per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
+    {B,[Val,Bs,Bits,Positions]} = mk_vars(Val0, [bs,bits,positions]),
+    NNL = lists:keysort(2, NNL0),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    ExtraArgs = case constr_min_size(Constraint) of
+		    no -> [];
+		    Lb -> [Lb]
+		end,
+    ToBs = case ExtraArgs of
+	       [] ->
+		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
+	       [Lower] ->
+		   {call,per_common,adjust_trailing_zeroes,[Val,Lower]}
+	   end,
+    B ++ [{'try',
+	   [bit_string_name2pos_fun(NNL, Val)],
+	   {Positions,
+	    [{call,per_common,bitstring_from_positions,
+	      [Positions|ExtraArgs]}]},
+	   [ToBs],Bs},
+	  {call,erlang,bit_size,[Bs],Bits}|
+	  per_enc_length(Bs, 1, Bits, Constraint, Aligned, 'BIT STRING')].
+
+per_enc_legacy_bit_string(Val0, [], Constraint0, Aligned) ->
     {B,[Val,Bs,Bits]} = mk_vars(Val0, [bs,bits]),
     Constraint = effective_constraint(bitstring, Constraint0),
     ExtraArgs = case constr_min_size(Constraint) of
@@ -167,7 +197,7 @@ per_enc_bit_string(Val0, [], Constraint0, Aligned) ->
     B ++ [{call,per_common,to_bitstring,[Val|ExtraArgs],Bs},
 	  {call,erlang,bit_size,[Bs],Bits}|
 	  per_enc_length(Bs, 1, Bits, Constraint, Aligned, 'BIT STRING')];
-per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
+per_enc_legacy_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     {B,[Val,Bs,Bits,Positions]} = mk_vars(Val0, [bs,bits,positions]),
     NNL = lists:keysort(2, NNL0),
     Constraint = effective_constraint(bitstring, Constraint0),
@@ -276,7 +306,13 @@ per_enc_open_type(Imm0, Aligned) ->
      {call,erlang,byte_size,[Bin],Len}|
      per_enc_length(Bin, 8, Len, Aligned)].
 
-per_enc_octet_string(Val0, Constraint0, Aligned) ->
+per_enc_octet_string(Bin, Constraint0, Aligned) ->
+    {B,[[],Len]} = mk_vars([], [len]),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    B ++ [{call,erlang,byte_size,[Bin],Len}|
+	  per_enc_length(Bin, 8, Len, Constraint, Aligned, 'OCTET STRING')].
+
+per_enc_legacy_octet_string(Val0, Constraint0, Aligned) ->
     {B,[Val,Bin,Len]} = mk_vars(Val0, [bin,len]),
     Constraint = effective_constraint(bitstring, Constraint0),
     B ++ [{call,erlang,iolist_to_binary,[Val],Bin},
@@ -873,6 +909,9 @@ dcg_list_outside([{return,{V,Buf}}|T]) ->
 dcg_list_outside([{call,Fun,{V,Buf},{Dst,DstBuf}}|T]) ->
     emit(["{",Dst,",",DstBuf,"}  = "]),
     Fun(V, Buf),
+    iter_dcg_list_outside(T);
+dcg_list_outside([{convert,{M,F},V,Dst}|T]) ->
+    emit([Dst," = ",{asis,M},":",{asis,F},"(",V,")"]),
     iter_dcg_list_outside(T);
 dcg_list_outside([{convert,Op,V,Dst}|T]) ->
     emit([Dst," = ",Op,"(",V,")"]),

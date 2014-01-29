@@ -28,15 +28,24 @@
 -record('ChoSeqExp', {seqInt, seqOs}).
 
 seq(_Rules) ->
-    roundtrip('ChoTRseq', {choSeq,#'ChoSeq'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {choSeqI,#'ChoSeq'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {choSeqE,#'ChoSeq'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {'choSeq-I',#'ChoSeqImp'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {'choSeqI-I',#'ChoSeqImp'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {'choSeqE-I',#'ChoSeqImp'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {'choSeq-E',#'ChoSeqExp'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {'choSeqI-E',#'ChoSeqExp'{seqInt=88,seqOs="A string"}}),
-    roundtrip('ChoTRseq', {'choSeqE-E',#'ChoSeqExp'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {choSeq,#'ChoSeq'{seqInt=88,
+					    seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {choSeqI,#'ChoSeq'{seqInt=88,
+					     seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {choSeqE,#'ChoSeq'{seqInt=88,
+					     seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {'choSeq-I',#'ChoSeqImp'{seqInt=88,
+						   seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {'choSeqI-I',#'ChoSeqImp'{seqInt=88,
+						    seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {'choSeqE-I',#'ChoSeqImp'{seqInt=88,
+						    seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {'choSeq-E',#'ChoSeqExp'{seqInt=88,
+						   seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {'choSeqI-E',#'ChoSeqExp'{seqInt=88,
+						    seqOs = <<"A string">>}}),
+    roundtrip('ChoTRseq', {'choSeqE-E',#'ChoSeqExp'{seqInt=88,
+						    seqOs = <<"A string">>}}),
     ok.
 
 roundtrip(Type, Value) ->

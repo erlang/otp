@@ -328,6 +328,10 @@ testCompactBitString(Config, Rule, Opts) ->
 testPrimStrings(Config) ->
     test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
 testPrimStrings(Config, Rule, Opts) ->
+    LegacyOpts = [legacy_erlang_types|Opts],
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [Rule|LegacyOpts]),
+    testPrimStrings_cases(Rule, LegacyOpts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
     testPrimStrings_cases(Rule, Opts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
@@ -432,7 +436,8 @@ testDef(Config, Rule, Opts) ->
 testDEFAULT(Config) ->
     test(Config, fun testDEFAULT/3, [ber,{ber,[der]},per,uper]).
 testDEFAULT(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["Def","Default"], Config, [Rule|Opts]),
+    asn1_test_lib:compile_all(["Def","Default"], Config,
+			      [legacy_erlang_types,Rule|Opts]),
     testDef:main(Rule),
     testSeqSetDefaultVal:main(Rule, Opts).
 
@@ -766,7 +771,10 @@ testParameterizedInfObj(Config) ->
 testParameterizedInfObj(Config, Rule, Opts) ->
     Files = ["Param","Param2"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
-    testParameterizedInfObj:main(Config, Rule).
+    testParameterizedInfObj:main(Config, Rule),
+    asn1_test_lib:compile("Param", Config,
+			  [legacy_erlang_types,Rule|Opts]),
+    testParameterizedInfObj:param(Rule).
 
 testFragmented(Config) ->
     test(Config, fun testFragmented/3).
@@ -784,7 +792,8 @@ testMergeCompile(Config, Rule, Opts) ->
 
 testobj(Config) -> test(Config, fun testobj/3).
 testobj(Config, Rule, Opts) ->
-    asn1_test_lib:compile("RANAP", Config, [Rule|Opts]),
+    asn1_test_lib:compile("RANAP", Config, [legacy_erlang_types,
+					    Rule|Opts]),
     asn1_test_lib:compile_erlang("testobj", Config, []),
     ok = testobj:run(),
     ok = testParameterizedInfObj:ranap(Rule).
@@ -811,7 +820,8 @@ testImport(Config, Rule, Opts) ->
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
 testMegaco(Config, Rule, Opts) ->
-    {ok, Module1, Module2} = testMegaco:compile(Config, Rule, Opts),
+    {ok, Module1, Module2} = testMegaco:compile(Config, Rule,
+						[legacy_erlang_types|Opts]),
     ok = testMegaco:main(Module1, Config),
     ok = testMegaco:main(Module2, Config).
 
@@ -892,7 +902,8 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecMyHTTP.asn",
                                "MEDIA-GATEWAY-CONTROL.asn",
                                "P-Record"],
-                              Config, [Rule, asn1config|Opts]),
+                              Config,
+			      [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
     test_selective_decode:test().
 
@@ -1022,7 +1033,8 @@ test_x691(Config, Rule, Opts) ->
     test_x691:cases(Rule),
 
     %% OTP-7708.
-    asn1_test_lib:compile("EUTRA-extract-55", Config, [Rule|Opts]),
+    asn1_test_lib:compile("EUTRA-extract-55", Config,
+			  [legacy_erlang_types,Rule|Opts]),
 
     %% OTP-7763.
     Val = {'Seq',15,lists:duplicate(8, 0),[0],lists:duplicate(28, 0),15,true},
@@ -1128,21 +1140,21 @@ END
     ok = asn1ct:compile(File, [{outdir, PrivDir}]).
 
 
-timer_compile(Config, Rule, Opts) ->
+timer_compile(Config, Rule) ->
     asn1_test_lib:compile_all(["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
-                              Config, [Rule|Opts]).
+                              Config, [no_ok_wrapper,Rule]).
 
 testTimer_ber(Config) ->
-    timer_compile(Config,ber,[]),
-    testTimer:go(Config,ber).
+    timer_compile(Config, ber),
+    testTimer:go().
 
 testTimer_per(Config) ->
-    timer_compile(Config,per,[]),
-    testTimer:go(Config,per).
+    timer_compile(Config, per),
+    testTimer:go().
 
 testTimer_uper(Config) ->
-    timer_compile(Config,uper,[]),
-    {comment,_} = testTimer:go(Config,uper).
+    timer_compile(Config, uper),
+    testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
 testComment(suite) -> [];
@@ -1200,8 +1212,8 @@ ticket_7407_code(FinalPadding) ->
 
 eutra1(msg) ->
     {'BCCH-BCH-Message',
-     {'MasterInformationBlock',[0,1,0,1],[1,0,1,0],
-      {'PHICH-Configuration',short,ffs},[1,0,1,0,0,0,0,0]}}.
+     {'MasterInformationBlock',<<2#0101:4>>,<<2#1010:4>>,
+      {'PHICH-Configuration',short,ffs},<<2#10100000>>}}.
 
 eutra1(result, true) ->
     <<90,80,0>>;

@@ -36,9 +36,9 @@ main(_Rules) ->
     roundtrip('Seq', #'Seq'{bool=false,boolCon=true,boolPri=false,boolApp=true,
 			    boolExpCon=false,boolExpPri=true,boolExpApp=false}),
     roundtrip('Empty', #'Empty'{}),
-    roundtrip('Big', #'Big'{os1=lists:duplicate(120, 16#A5),
-			    os2=lists:duplicate(128, 16#A7),
-			    os3=lists:duplicate(17777, 16#F5)}),
+    roundtrip('Big', #'Big'{os1=list_to_binary(lists:duplicate(120, 16#A5)),
+			    os2=list_to_binary(lists:duplicate(128, 16#A7)),
+			    os3=list_to_binary(lists:duplicate(17777, 16#F5))}),
     ok.
 
 roundtrip(Type, Value) ->

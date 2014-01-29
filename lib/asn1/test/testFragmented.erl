@@ -22,10 +22,10 @@
 -export([main/1]).
 
 main(_Erule) ->
-    roundtrip('PDU', {'PDU',1,false,["abc","def"]}),
+    roundtrip('PDU', {'PDU',1,false,[<<"abc">>,<<"def">>]}),
     B256 = lists:seq(0, 255),
     K1 = lists:duplicate(4, B256),
-    K8 = binary_to_list(iolist_to_binary(lists:duplicate(8, K1))),
+    K8 = iolist_to_binary(lists:duplicate(8, K1)),
     roundtrip('PDU', {'PDU',1,false,[K8,K8]}),
     roundtrip('PDU', {'PDU',1,false,[K8,K8,K8,K8]}),
     roundtrip('PDU', {'PDU',1,false,[K8,K8,K8,K8,K8,K8]}),

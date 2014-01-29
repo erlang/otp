@@ -30,7 +30,7 @@ choice(_Rules) ->
     roundtrip('ChoTRcho', {'choChoE-E',{choInt,88}}),
     roundtrip('ChoChoInline', {bool1,true}),
     roundtrip('ChoChoInline', {choCho,{bool,true}}),
-    roundtrip('ChoChoInline', {choCho,{octStr,"kk"}}),
+    roundtrip('ChoChoInline', {choCho,{octStr,<<"kk">>}}),
     roundtrip('ChoChoInline', {choCho,{int,55}}),
     ok.
 

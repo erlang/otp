@@ -45,6 +45,6 @@ external(_Rules) ->
 	     'XExpNT',
 	     'XExpImp',
 	     'XExpExp'],
-    _ = [asn1_test_lib:roundtrip('PrimExternal', T, "kalle") ||
+    _ = [asn1_test_lib:roundtrip('PrimExternal', T, <<"kalle">>) ||
 	    T <- Types],
     ok.

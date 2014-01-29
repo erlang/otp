@@ -450,8 +450,13 @@ dec_objset_default(N, C, LeadingAttr, false) ->
 	  "{value,Bytes},"
 	  "{unique_name_and_value,",{asis,LeadingAttr},",Id}}}).",nl,nl]);
 dec_objset_default(N, _, _, true) ->
-    emit([{asis,N},"(Bytes, Id) ->",nl,
-	  "Bytes.",nl,nl]).
+    emit([{asis,N},"(Bytes, Id) ->",nl|
+	  case asn1ct:use_legacy_types() of
+	      false ->
+		  ["{asn1_OPENTYPE,Bytes}.",nl,nl];
+	      true ->
+		  ["Bytes.",nl,nl]
+	  end]).
 
 dec_objset_1(Erule, N, {Id,Obj}, RestFields, Typename) ->
     emit([{asis,N},"(Bytes, ",{asis,Id},") ->",nl]),
@@ -906,26 +911,36 @@ def_values(#type{def=#'Externaltypereference'{module=Mod,type=Type}}, Def) ->
     #typedef{typespec=T} = asn1_db:dbget(Mod, Type),
     def_values(T, Def);
 def_values(#type{def={'BIT STRING',[]}}, Bs) when is_bitstring(Bs) ->
-    ListBs = [B || <<B:1>> <= Bs],
-    IntBs = lists:foldl(fun(B, A) ->
-				(A bsl 1) bor B
-			end, 0, lists:reverse(ListBs)),
-    Sz = bit_size(Bs),
-    Compact = case 8 - Sz rem 8 of
-		  8 ->
-		      {0,Bs};
-		  Unused ->
-		      {Unused,<<Bs:Sz/bits,0:Unused>>}
-	      end,
-    [asn1_DEFAULT,Bs,Compact,ListBs,IntBs];
+    case asn1ct:use_legacy_types() of
+	false ->
+	    [asn1_DEFAULT,Bs];
+	true ->
+	    ListBs = [B || <<B:1>> <= Bs],
+	    IntBs = lists:foldl(fun(B, A) ->
+					(A bsl 1) bor B
+				end, 0, lists:reverse(ListBs)),
+	    Sz = bit_size(Bs),
+	    Compact = case 8 - Sz rem 8 of
+			  8 ->
+			      {0,Bs};
+			  Unused ->
+			      {Unused,<<Bs:Sz/bits,0:Unused>>}
+		      end,
+	    [asn1_DEFAULT,Bs,Compact,ListBs,IntBs]
+    end;
 def_values(#type{def={'BIT STRING',[_|_]=Ns}}, List) when is_list(List) ->
     Bs = asn1ct_gen:named_bitstring_value(List, Ns),
-    ListBs = [B || <<B:1>> <= Bs],
-    IntBs = lists:foldl(fun(B, A) ->
-				(A bsl 1) bor B
-			end, 0, lists:reverse(ListBs)),
-    Args = [List,Bs,ListBs,IntBs],
-    {call,per_common,is_default_bitstring,Args};
+    As = case asn1ct:use_legacy_types() of
+	     false ->
+		 [List,Bs];
+	     true ->
+		 ListBs = [B || <<B:1>> <= Bs],
+		 IntBs = lists:foldl(fun(B, A) ->
+					     (A bsl 1) bor B
+				     end, 0, lists:reverse(ListBs)),
+		 [List,Bs,ListBs,IntBs]
+	 end,
+    {call,per_common,is_default_bitstring,As};
 def_values(#type{def={'INTEGER',Ns}}, Def) ->
     [asn1_DEFAULT,Def|case lists:keyfind(Def, 2, Ns) of
 			  false -> [];
@@ -1059,8 +1074,17 @@ enc_objset_imm(Erule, Component, ObjSet, RestFieldNames, Extensible) ->
 	enc_obj(Erule, Obj, RestFieldNames, Aligned)] ||
 	  {Key,Obj} <- ObjSet] ++
 	  [['_',case Extensible of
-		    false -> E;
-		    true -> {put_bits,{var,"Val"},binary,[1]}
+		    false ->
+			E;
+		    true ->
+			case asn1ct:use_legacy_types() of
+			    false ->
+				{call,per_common,open_type_to_binary,
+				 [{var,"Val"}]};
+			    true ->
+				{call,per_common,legacy_open_type_to_binary,
+				 [{var,"Val"}]}
+			end
 		end]]}].
 
 enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->

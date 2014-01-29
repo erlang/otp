@@ -260,7 +260,11 @@ from_type_prim(M, D) ->
 	'BOOLEAN' ->
 	    true;
 	'OCTET STRING' ->
-	    adjust_list(size_random(C),c_string(C,"OCTET STRING"));
+	    S0 = adjust_list(size_random(C), c_string(C, "OCTET STRING")),
+	    case M:legacy_erlang_types() of
+		false -> list_to_binary(S0);
+		true -> S0
+	    end;
 	'NumericString' ->
 	    adjust_list(size_random(C),c_string(C,"0123456789"));
 	'TeletexString' ->

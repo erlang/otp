@@ -40,7 +40,7 @@
 	 maybe_rename_function/3,current_sindex/0,
 	 set_current_sindex/1,maybe_saved_sindex/2,
 	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3]).
--export([get_bit_string_format/0]).
+-export([get_bit_string_format/0,use_legacy_types/0]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
@@ -841,6 +841,7 @@ delete_double_of_symbol1([],Acc) ->
 generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
     debug_on(Options),
     setup_bit_string_format(Options),
+    setup_legacy_erlang_types(Options),
     put(encoding_options,Options),
     asn1ct_table:new(check_functions),
 
@@ -868,6 +869,31 @@ generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
     erase(class_default_type),% used in ber
     asn1ct_table:delete(check_functions),
     Result.
+
+setup_legacy_erlang_types(Opts) ->
+    F = case lists:member(legacy_erlang_types, Opts) of
+	    false ->
+		case get_bit_string_format() of
+		    bitstring ->
+			false;
+		    compact ->
+			legacy_forced_info(compact_bit_string),
+			true;
+		    legacy ->
+			legacy_forced_info(legacy_bit_string),
+			true
+		end;
+	    true ->
+		true
+	end,
+    put(use_legacy_erlang_types, F).
+
+legacy_forced_info(Opt) ->
+    io:format("Info: The option 'legacy_erlang_types' "
+	      "is implied by the '~s' option.\n", [Opt]).
+
+use_legacy_types() ->
+    get(use_legacy_erlang_types).
 
 setup_bit_string_format(Opts) ->
     Format = case {lists:member(compact_bit_string, Opts),
@@ -1075,6 +1101,7 @@ remove_asn_flags(Options) ->
 	  X /= optimize,
 	  X /= compact_bit_string,
 	  X /= legacy_bit_string,
+	  X /= legacy_erlang_types,
 	  X /= debug,
 	  X /= asn1config,
 	  X /= record_name_prefix].
