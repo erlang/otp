@@ -332,7 +332,7 @@ Erlang/OTP system which you can try by typing `bin/erl`. This should start
 up Erlang/OTP and give you a prompt:
 
     $ bin/erl
-    Erlang %OTP-REL% (erts-%ERTS-VSN%) [source] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+    Erlang/OTP %OTP-REL% [erts-%ERTS-VSN%] [source] [smp:4:4] [async-threads:0] [kernel-poll:false]
 
     Eshell V%ERTS-VSN%  (abort with ^G)
     1> _
