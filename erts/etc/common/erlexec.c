@@ -833,9 +833,13 @@ int main(int argc, char **argv)
 #ifdef ERTS_DIRTY_SCHEDULERS
 		      else if (argv[i][2] == 'D') {
 			  char* type = argv[i]+3;
-			  if (strcmp(type, "cpu") != 0 &&
-			      strcmp(type, "Pcpu") != 0 &&
-			      strcmp(type, "io") != 0)
+			  if (strncmp(type, "cpu", 3) != 0 &&
+			      strncmp(type, "Pcpu", 4) != 0 &&
+			      strncmp(type, "io", 2) != 0)
+			      usage(argv[i]);
+			  if ((argv[i][3] == 'c' && argv[i][6] != '\0') ||
+			      (argv[i][3] == 'P' && argv[i][7] != '\0') ||
+			      (argv[i][3] == 'i' && argv[i][5] != '\0'))
 			      goto the_default;
 		      }
 #endif

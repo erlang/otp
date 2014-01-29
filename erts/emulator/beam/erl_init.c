@@ -835,7 +835,7 @@ early_init(int *argc, char **argv) /*
 		    else if (argv[i][2] == 'D') {
 			char *arg;
 			char *type = argv[i]+3;
-			if (strcmp(type, "Pcpu") == 0) {
+			if (strncmp(type, "Pcpu", 4) == 0) {
 			    int ptot, ponln;
 			    arg = get_arg(argv[i]+7, argv[i+1], &i);
 			    switch (sscanf(arg, "%d:%d", &ptot, &ponln)) {
@@ -872,7 +872,7 @@ early_init(int *argc, char **argv) /*
 			    VERBOSE(DEBUG_SYSTEM,
 				    ("using %d:%d dirty CPU scheduler percentages\n",
 				     dirty_cpu_scheds_pctg, dirty_cpu_scheds_onln_pctg));
-			} else if (strcmp(type, "cpu") == 0) {
+			} else if (strncmp(type, "cpu", 3) == 0) {
 			    int tot, onln;
 			    arg = get_arg(argv[i]+6, argv[i+1], &i);
 			    switch (sscanf(arg, "%d:%d", &tot, &onln)) {
@@ -923,7 +923,7 @@ early_init(int *argc, char **argv) /*
 			    }
 			    VERBOSE(DEBUG_SYSTEM,
 				    ("using %d:%d dirty CPU scheduler(s)\n", tot, onln));
-			} else if (strcmp(type, "io") == 0) {
+			} else if (strncmp(type, "io", 2) == 0) {
 			    arg = get_arg(argv[i]+5, argv[i+1], &i);
 			    dirty_io_scheds = atoi(arg);
 			    if (dirty_io_scheds < 0 ||
