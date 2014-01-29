@@ -205,22 +205,47 @@ events_to_check(timetrap,_Config) ->
      {?eh,tc_done,{ct_telnet_timetrap_SUITE,expect_success,ok}},
      {?eh,stop_logging,[]}].
 
-%%! THIS MUST BE FIXED!!!
-all_cases(ct_telnet_basic_SUITE,_Config) ->
-    [{?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,stop_logging,[]}];
-
 all_cases(Suite,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
 					     Suite)),
-    TCs = Suite:all(),
+    GroupsAndTCs = Suite:all(),
+
+    Terms =
+	lists:flatmap(
+	  fun({group,G}) ->
+		  {value,{G,Props,GTCs}} =
+		      lists:keysearch(G,1,Suite:groups()),
+		  GTCs1 = case lists:member(parallel,Props) of
+			      true ->
+				  %%! TEMPORARY WORKAROUND FOR PROBLEM
+				  %%! WITH ct_test_support NOT HANDLING
+				  %%! VERIFICATION OF PARALLEL GROUPS
+				  %%! CORRECTLY!
+				  [];
+			      false ->
+				  [[{?eh,tc_start,{Suite,GTC}},
+				    {?eh,tc_done,{Suite,GTC,ok}}] ||
+				      GTC <- GTCs]
+			  end,
+		  [{?eh,tc_start,{Suite,{init_per_group,G,Props}}},
+		   {?eh,tc_done,{Suite,{init_per_group,G,Props},ok}} |
+		   GTCs1] ++
+		      [{?eh,tc_start,{Suite,{end_per_group,G,Props}}},
+		       {?eh,tc_done,{Suite,{end_per_group,G,Props},ok}}];
+	     (TC) ->
+		  [{?eh,tc_done,{Suite,TC,ok}}]
+	  end, GroupsAndTCs),
+    
     code:purge(Suite),
     code:delete(Suite),
 
+    FlatTerms = lists:flatten(Terms),
+
+    ct:log("Verifying with terms:~n~p", [FlatTerms]),
+
     OneTest =
-	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{Suite,TC,ok}} || TC <- TCs] ++
-	[{?eh,stop_logging,[]}],
+	[{?eh,start_logging,{'DEF','RUNDIR'}} |
+	 FlatTerms] ++ [{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default
     OneTest ++ OneTest.
