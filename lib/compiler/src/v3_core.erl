@@ -487,6 +487,17 @@ expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = lineno_anno(L, St1),
     {ann_c_tuple(A, Es1),Eps,St1};
+expr({map,L,Es0}, St0) ->
+    % erl_lint should make sure only #{ K => V } are allowed
+    % in map construction.
+    {Es1,Eps,St1} = map_pair_list(Es0, St0),
+    A = lineno_anno(L, St1),
+    {#c_map{anno=A,es=Es1},Eps,St1};
+expr({map,L,M0,Es0}, St0) ->
+    {M1,Mps,St1} = safe(M0, St0),
+    {Es1,Eps,St2} = map_pair_list(Es0, St1),
+    A = lineno_anno(L, St2),
+    {#c_map{anno=A,var=M1,es=Es1},Mps++Eps,St2};
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -695,6 +706,21 @@ make_bool_switch_guard(L, E, V, T, F) ->
       {clause,NegL,[V],[],[V]}
      ]}.
 
+map_pair_list(Es, St) ->
+    foldr(fun
+	    ({map_field_assoc,L,K0,V0}, {Ces,Esp,St0}) ->
+		{K,Ep0,St1} = safe(K0, St0),
+		{V,Ep1,St2} = safe(V0, St1),
+		A = lineno_anno(L, St2),
+		Pair = #c_map_pair{op=#c_literal{val=assoc},anno=A,key=K,val=V},
+		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2};
+	    ({map_field_exact,L,K0,V0}, {Ces,Esp,St0}) ->
+		{K,Ep0,St1} = safe(K0, St0),
+		{V,Ep1,St2} = safe(V0, St1),
+		A = lineno_anno(L, St2),
+		Pair = #c_map_pair{op=#c_literal{val=exact},anno=A,key=K,val=V},
+		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2}
+	end, {[],[],St}, Es).
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -1478,6 +1504,26 @@ pattern({cons,L,H,T}, St) ->
     ann_c_cons(lineno_anno(L, St), pattern(H, St), pattern(T, St));
 pattern({tuple,L,Ps}, St) ->
     ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
+pattern({map,L,Ps}, St) ->
+    #c_map{anno=lineno_anno(L, St), es=sort(pattern_list(Ps, St))};
+pattern({map_field_exact,L,K,V}, St) ->
+    %% FIXME: Better way to construct literals? or missing case
+    %% {Key,_,_} = expr(K, St),
+    Key = case K of
+	{bin,L,Es0} ->
+	    case constant_bin(Es0) of
+		error ->
+		    throw(badmatch);
+		Bin ->
+		    #c_literal{anno=lineno_anno(L,St),val=Bin}
+	    end;
+	_ ->
+	    pattern(K,St)
+    end,
+    #c_map_pair{anno=lineno_anno(L, St),
+                op=#c_literal{val=exact},
+		key=Key,
+		val=pattern(V, St)};
 pattern({bin,L,Ps}, St) ->
     %% We don't create a #ibinary record here, since there is
     %% no need to hold any used/new annotations in a pattern.
@@ -1823,6 +1869,12 @@ upattern(#c_cons{hd=H0,tl=T0}=Cons, Ks, St0) ->
 upattern(#c_tuple{es=Es0}=Tuple, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
     {Tuple#c_tuple{es=Es1},Esg,Esv,Eus,St1};
+upattern(#c_map{es=Es0}=Map, Ks, St0) ->
+    {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
+    {Map#c_map{es=Es1},Esg,Esv,Eus,St1};
+upattern(#c_map_pair{op=#c_literal{val=exact},val=V0}=MapPair, Ks, St0) ->
+    {V,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
+    {MapPair#c_map_pair{val=V},Vg,Vv,Vu,St1};
 upattern(#c_binary{segments=Es0}=Bin, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upat_bin(Es0, Ks, St0),
     {Bin#c_binary{segments=Es1},Esg,Esv,Eus,St1};
@@ -2152,6 +2204,9 @@ is_simple(#c_literal{}) -> true;
 is_simple(#c_cons{hd=H,tl=T}) ->
     is_simple(H) andalso is_simple(T);
 is_simple(#c_tuple{es=Es}) -> is_simple_list(Es);
+is_simple(#c_map{es=Es}) -> is_simple_list(Es);
+is_simple(#c_map_pair{key=K,val=V}) ->
+    is_simple(K) andalso is_simple(V);
 is_simple(_) -> false.
 
 -spec is_simple_list([cerl:cerl()]) -> boolean().

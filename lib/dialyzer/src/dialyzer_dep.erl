@@ -182,6 +182,15 @@ traverse(Tree, Out, State, CurrentFun) ->
       Args = cerl:tuple_es(Tree),
       {List, State1} = traverse_list(Args, Out, State, CurrentFun),
       {merge_outs(List), State1};
+    map ->
+      Args = cerl:map_es(Tree),
+      {List, State1} = traverse_list(Args, Out, State, CurrentFun),
+      {merge_outs(List), State1};
+    map_pair ->
+      Key = cerl:map_pair_key(Tree),
+      Val = cerl:map_pair_val(Tree),
+      {List, State1} = traverse_list([Key,Val], Out, State, CurrentFun),
+      {merge_outs(List), State1};
     values ->      
       traverse_list(cerl:values_es(Tree), Out, State, CurrentFun);
     var ->

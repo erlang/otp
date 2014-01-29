@@ -137,6 +137,8 @@ scan1([$"|Cs0], Toks, Pos) ->				% String
 	    scan_error({illegal, string}, Pos)
     end;
 %% Punctuation characters and operators, first recognise multiples.
+scan1([$=,$>|Cs], Toks, Pos) ->
+    scan1(Cs, [{'=>',Pos}|Toks], Pos);
 scan1([$<,$<|Cs], Toks, Pos) ->
     scan1(Cs, [{'<<',Pos}|Toks], Pos);
 scan1([$>,$>|Cs], Toks, Pos) ->

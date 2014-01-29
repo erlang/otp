@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -202,23 +202,37 @@ int eq(Eterm, Eterm);
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
 #if HALFWORD_HEAP
-Sint cmp_rel(Eterm, Eterm*, Eterm, Eterm*);
-#define CMP(A,B) cmp_rel(A,NULL,B,NULL)
+Sint cmp_rel_opt(Eterm, Eterm*, Eterm, Eterm*, int);
+#define cmp_rel(A,A_BASE,B,B_BASE)       cmp_rel_opt(A,A_BASE,B,B_BASE,0)
+#define cmp_rel_term(A,A_BASE,B,B_BASE)  cmp_rel_opt(A,A_BASE,B,B_BASE,1)
+#define CMP(A,B)                         cmp_rel_opt(A,NULL,B,NULL,0)
+#define CMP_TERM(A,B)                    cmp_rel_opt(A,NULL,B,NULL,1)
 #else
-Sint cmp(Eterm, Eterm);
-#define cmp_rel(A,A_BASE,B,B_BASE) cmp(A,B)
-#define CMP(A,B) cmp(A,B)
+Sint cmp(Eterm, Eterm, int);
+#define cmp_rel(A,A_BASE,B,B_BASE)       cmp(A,B,0)
+#define cmp_rel_term(A,A_BASE,B,B_BASE)  cmp(A,B,1)
+#define CMP(A,B)                         cmp(A,B,0)
+#define CMP_TERM(A,B)                    cmp(A,B,1)
 #endif
-#define cmp_lt(a,b)	(CMP((a),(b)) < 0)
-#define cmp_le(a,b)	(CMP((a),(b)) <= 0)
-#define cmp_eq(a,b)	(CMP((a),(b)) == 0)
-#define cmp_ne(a,b)	(CMP((a),(b)) != 0)
-#define cmp_ge(a,b)	(CMP((a),(b)) >= 0)
-#define cmp_gt(a,b)	(CMP((a),(b)) > 0)
 
-#define CMP_LT(a,b)	((a) != (b) && cmp_lt((a),(b)))
-#define CMP_GE(a,b)	((a) == (b) || cmp_ge((a),(b)))
-#define CMP_EQ(a,b)	((a) == (b) || cmp_eq((a),(b)))
-#define CMP_NE(a,b)	((a) != (b) && cmp_ne((a),(b)))
+#define cmp_lt(a,b)          (CMP((a),(b)) <  0)
+#define cmp_le(a,b)          (CMP((a),(b)) <= 0)
+#define cmp_eq(a,b)          (CMP((a),(b)) == 0)
+#define cmp_ne(a,b)          (CMP((a),(b)) != 0)
+#define cmp_ge(a,b)          (CMP((a),(b)) >= 0)
+#define cmp_gt(a,b)          (CMP((a),(b)) >  0)
+
+#define cmp_lt_term(a,b)     (CMP_TERM((a),(b)) <  0)
+#define cmp_le_term(a,b)     (CMP_TERM((a),(b)) <= 0)
+#define cmp_ge_term(a,b)     (CMP_TERM((a),(b)) >= 0)
+#define cmp_gt_term(a,b)     (CMP_TERM((a),(b)) >  0)
+
+#define CMP_LT(a,b)          ((a) != (b) && cmp_lt((a),(b)))
+#define CMP_GE(a,b)          ((a) == (b) || cmp_ge((a),(b)))
+#define CMP_EQ(a,b)          ((a) == (b) || cmp_eq((a),(b)))
+#define CMP_NE(a,b)          ((a) != (b) && cmp_ne((a),(b)))
+
+#define CMP_LT_TERM(a,b)     ((a) != (b) && cmp_lt_term((a),(b)))
+#define CMP_GE_TERM(a,b)     ((a) == (b) || cmp_ge_term((a),(b)))
 
 #endif

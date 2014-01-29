@@ -239,6 +239,29 @@ expr({record,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, {undef_record,Name}, stacktrace());
 expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, {undef_record,Name}, stacktrace());
+
+%% map
+expr({map_field_assoc,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
+    {value,K,Bs1} = expr(EK, Bs0, Lf, Ef, none),
+    {value,V,Bs2} = expr(EV, Bs0, Lf, Ef, none),
+    ret_expr({map_assoc,K,V}, merge_bindings(Bs1,Bs2), RBs);
+expr({map_field_exact,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
+    {value,K,Bs1} = expr(EK, Bs0, Lf, Ef, none),
+    {value,V,Bs2} = expr(EV, Bs0, Lf, Ef, none),
+    ret_expr({map_exact,K,V}, merge_bindings(Bs1,Bs2), RBs);
+expr({map,_, Binding,Es}, Bs0, Lf, Ef, RBs) ->
+    {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, RBs),
+    {Vs,Bs} = expr_list(Es, Bs1, Lf, Ef),
+    ret_expr(lists:foldl(fun
+		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+		({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
+	end, Map0, Vs), Bs, RBs);
+expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
+    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
+    ret_expr(lists:foldl(fun
+		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi)
+	    end, maps:new(), Vs), Bs, RBs);
+
 expr({block,_,Es}, Bs, Lf, Ef, RBs) ->
     exprs(Es, Bs, Lf, Ef, RBs);
 expr({'if',_,Cs}, Bs, Lf, Ef, RBs) ->
@@ -994,6 +1017,7 @@ type_test(port) -> is_port;
 type_test(function) -> is_function;
 type_test(binary) -> is_binary;
 type_test(record) -> is_record;
+type_test(map) -> is_map;
 type_test(Test) -> Test.
 
 
@@ -1075,6 +1099,9 @@ match1({tuple,_,Elts}, Tuple, Bs, BBs)
     match_tuple(Elts, Tuple, 1, Bs, BBs);
 match1({tuple,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
+match1({map,_,Fs}, Map, Bs, BBs) ->
+    match_map(Fs, Map, Bs, BBs);
+
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs) ->
     eval_bits:match_bits(Fs, B, Bs0, BBs,
 			 match_fun(BBs),
@@ -1117,6 +1144,18 @@ match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
     match_tuple(Es, Tuple, I+1, Bs, BBs);
 match_tuple([], _, _, Bs, _BBs) ->
     {match,Bs}.
+
+match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
+    Vm = try
+	{value, Ke, _} = expr(K, new_bindings()),
+	maps:get(Ke,Map)
+    catch error:_ ->
+	throw(nomatch)
+    end,
+    {match, Bs} = match1(V, Vm, Bs0, BBs),
+    match_map(Fs, Map, Bs, BBs);
+match_map([], _, Bs, _) ->
+    {match, Bs}.
 
 %% match_list(PatternList, TermList, Bindings) ->
 %%	{match,NewBindings} | nomatch

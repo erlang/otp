@@ -1466,6 +1466,75 @@ apply I
 apply_last I P
 
 #
+# Map instructions in R17.
+#
+
+# put_map Fail Src Dst Live Size Rest=* => jump Fail
+# is_map Fail Src => jump Fail
+# has_map_field Fail Src Key => jump Fail
+# get_map_element Fail Src Key Dst => jump Fail
+
+put_map_assoc F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
+put_map_exact F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
+put_map_assoc F Src Dst Live Size Rest=* => \
+	       update_map_assoc F Src Dst Live Size Rest
+put_map_exact F Src Dst Live Size Rest=* => \
+	      update_map_exact F Src Dst Live Size Rest
+
+new_map j d I I
+update_map_assoc j d d I I
+update_map_exact j d d I I
+
+is_map Fail cq => jump Fail
+
+%macro: is_map IsMap -fail_action
+is_map f r
+is_map f x
+is_map f y
+
+has_map_field Fail Src=rxy Key=arxy => i_has_map_field Fail Src Key
+has_map_field Fail Src Key => move Key x | i_has_map_field Fail Src x
+
+%macro: i_has_map_field HasMapField -fail_action
+i_has_map_field f r a
+i_has_map_field f x a
+i_has_map_field f y a
+i_has_map_field f r r
+i_has_map_field f x r
+i_has_map_field f y r
+i_has_map_field f r x
+i_has_map_field f x x
+i_has_map_field f y x
+i_has_map_field f r y
+i_has_map_field f x y
+i_has_map_field f y y
+
+get_map_element Fail Src=rxy Key=ax Dst => i_get_map_element Fail Src Key Dst
+get_map_element Fail Src=rxy Key=rycq Dst => \
+    move Key x | i_get_map_element Fail Src x Dst
+get_map_element Fail Src Key Dst => jump Fail
+
+%macro: i_get_map_element GetMapElement -fail_action
+i_get_map_element f r a r
+i_get_map_element f x a r
+i_get_map_element f y a r
+i_get_map_element f r a x
+i_get_map_element f x a x
+i_get_map_element f y a x
+i_get_map_element f r a y
+i_get_map_element f x a y
+i_get_map_element f y a y
+i_get_map_element f r x r
+i_get_map_element f x x r
+i_get_map_element f y x r
+i_get_map_element f r x x
+i_get_map_element f x x x
+i_get_map_element f y x x
+i_get_map_element f r x y
+i_get_map_element f x x y
+i_get_map_element f y x y
+
+#
 # Optimize addition and subtraction of small literals using
 # the i_increment/4 instruction (in bodies, not in guards).
 #

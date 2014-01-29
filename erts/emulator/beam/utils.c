@@ -31,6 +31,7 @@
 #include "bif.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_map.h"
 #include "packet_parser.h"
 #include "erl_gc.h"
 #define ERTS_WANT_DB_INTERNAL__
@@ -734,6 +735,8 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 #define FUNNY_NUMBER10 268440479
 #define FUNNY_NUMBER11 268440577
 #define FUNNY_NUMBER12 268440581
+#define FUNNY_NUMBER13 268440593
+#define FUNNY_NUMBER14 268440611
 
 static Uint32
 hash_binary_bytes(Eterm bin, Uint sz, Uint32 hash)
@@ -785,10 +788,10 @@ Uint32 make_hash(Eterm term_arg)
     unsigned op;
 
     /* Must not collide with the real tag_val_def's: */
-#define MAKE_HASH_TUPLE_OP 0x10
-#define MAKE_HASH_FUN_OP 0x11
-#define MAKE_HASH_CDR_PRE_OP 0x12
-#define	MAKE_HASH_CDR_POST_OP 0x13
+#define MAKE_HASH_TUPLE_OP 0x11
+#define MAKE_HASH_TERM_ARRAY_OP 0x12
+#define MAKE_HASH_CDR_PRE_OP 0x13
+#define	MAKE_HASH_CDR_POST_OP 0x14
 
     /* 
     ** Convenience macro for calculating a bytewise hash on an unsigned 32 bit 
@@ -877,7 +880,7 @@ tail_recur:
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
 	    if (num_free > 0) {
 		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_FUN_OP);
+		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
 		}
 		term = funp->env[0];
 		goto tail_recur;
@@ -967,6 +970,24 @@ tail_recur:
 	    hash *= is_neg ? FUNNY_NUMBER4 : FUNNY_NUMBER3;
 	    break;
 	}	
+    case MAP_DEF:
+	{
+	    map_t *mp = (map_t *)map_val(term);
+	    int size  = map_get_size(mp);
+	    Eterm *ks = map_get_keys(mp);
+	    Eterm *vs = map_get_values(mp);
+
+	    /* Use a prime with size to remedy some of
+	     * the {} and <<>> hash problems */
+	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
+	    if (size == 0)
+		break;
+
+	    /* push values first */
+	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    break;
+	}
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -976,7 +997,7 @@ tail_recur:
 	    op = MAKE_HASH_TUPLE_OP;	    
 	}/*fall through*/
     case MAKE_HASH_TUPLE_OP:
-    case MAKE_HASH_FUN_OP:
+    case MAKE_HASH_TERM_ARRAY_OP:
 	{
 	    Uint i = (Uint) WSTACK_POP(stack);
 	    Eterm* ptr = (Eterm*) WSTACK_POP(stack);
@@ -1070,9 +1091,11 @@ Uint32
 make_hash2(Eterm term)
 {
     Uint32 hash;
+    Uint32 hash_xor_keys   = 0;
+    Uint32 hash_xor_values = 0;
     DeclareTmpHeapNoproc(tmp_big,2);
 
-/* (HCONST * {2, ..., 14}) mod 2^32 */
+/* (HCONST * {2, ..., 16}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
 #define HCONST_3 0xdaa66d2bUL
 #define HCONST_4 0x78dde6e4UL
@@ -1087,6 +1110,11 @@ make_hash2(Eterm term)
 #define HCONST_13 0x08d12e65UL
 #define HCONST_14 0xa708a81eUL
 #define HCONST_15 0x454021d7UL
+#define HCONST_16 0xe3779b90UL
+
+#define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
+#define HASH_MAP_KEY  (_make_header(2,_TAG_HEADER_REF))
+#define HASH_MAP_VAL  (_make_header(3,_TAG_HEADER_REF))
 
 #define UINT32_HASH_2(Expr1, Expr2, AConst)       \
          do {                                     \
@@ -1182,11 +1210,45 @@ make_hash2(Eterm term)
 		UINT32_HASH(arity, HCONST_9);
 		if (arity == 0) /* Empty tuple */ 
 		    goto hash2_common;
-		for (i = arity; i >= 2; i--) {
+		for (i = arity; i >= 1; i--) {
 		    tmp = elem[i];
 		    ESTACK_PUSH(s, tmp);
 		}
-		term = elem[1];
+		goto hash2_common;
+	    }
+	    break;
+	    case MAP_SUBTAG:
+	    {
+		map_t *mp = (map_t *)map_val(term);
+		int i;
+		int size  = map_get_size(mp);
+		Eterm *ks = map_get_keys(mp);
+		Eterm *vs = map_get_values(mp);
+		UINT32_HASH(size, HCONST_16);
+		if (size == 0) {
+		    goto hash2_common;
+		}
+		ESTACK_PUSH(s, hash_xor_values);
+		ESTACK_PUSH(s, hash_xor_keys);
+		ESTACK_PUSH(s, hash);
+		ESTACK_PUSH(s, HASH_MAP_TAIL);
+		hash = 0;
+		hash_xor_keys = 0;
+		hash_xor_values = 0;
+		for (i = size - 1; i >= 0; i--) {
+		    tmp = vs[i];
+		    ESTACK_PUSH(s, HASH_MAP_VAL);
+		    ESTACK_PUSH(s, tmp);
+		}
+		/* We do not want to expose the tuple representation.
+		 * Do not push the keys as a tuple.
+		 */
+		for (i = size - 1; i >= 0; i--) {
+		    tmp = ks[i];
+		    ESTACK_PUSH(s, HASH_MAP_KEY);
+		    ESTACK_PUSH(s, tmp);
+		}
+		goto hash2_common;
 	    }
 	    break;
 	    case EXPORT_SUBTAG:
@@ -1380,15 +1442,47 @@ make_hash2(Eterm term)
 	default:
 	    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
 	hash2_common:
+
+	    /* Uint32 hash always has the hash value of the previous term,
+	     * compounded or otherwise.
+	     */
+
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
 		UnUseTmpHeapNoproc(2);
 		return hash;
 	    }
+
 	    term = ESTACK_POP(s);
+
+	    switch (term) {
+		case HASH_MAP_TAIL: {
+		    hash = (Uint32) ESTACK_POP(s);
+		    UINT32_HASH(hash_xor_keys, HCONST_16);
+		    UINT32_HASH(hash_xor_values, HCONST_16);
+		    hash_xor_keys = (Uint32) ESTACK_POP(s);
+		    hash_xor_values = (Uint32) ESTACK_POP(s);
+		    goto hash2_common;
+		}
+		case HASH_MAP_KEY:
+		    hash_xor_keys ^= hash;
+		    hash = 0;
+		    goto hash2_common;
+		case HASH_MAP_VAL:
+		    hash_xor_values ^= hash;
+		    hash = 0;
+		    goto hash2_common;
+		default:
+		    break;
+	    }
 	}
     }
     }
+
+#undef HASH_MAP_TAIL
+#undef HASH_MAP_KEY
+#undef HASH_MAP_VAL
+
 #undef UINT32_HASH_2
 #undef UINT32_HASH
 #undef SINT32_HASH
@@ -1490,7 +1584,7 @@ tail_recur:
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
 	    if (num_free > 0) {
 		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_FUN_OP);
+		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
 		}
 		term = funp->env[0];
 		goto tail_recur;
@@ -1603,6 +1697,24 @@ tail_recur:
 	}
 	break;
 
+    case MAP_DEF:
+	{
+	    map_t *mp = (map_t *)map_val(term);
+	    int size  = map_get_size(mp);
+	    Eterm *ks = map_get_keys(mp);
+	    Eterm *vs = map_get_values(mp);
+
+	    /* Use a prime with size to remedy some of
+	     * the {} and <<>> hash problems */
+	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
+	    if (size == 0)
+		break;
+
+	    /* push values first */
+	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    break;
+	}
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -1612,7 +1724,7 @@ tail_recur:
 	    op = MAKE_HASH_TUPLE_OP;
 	}/*fall through*/ 
     case MAKE_HASH_TUPLE_OP:
-    case MAKE_HASH_FUN_OP:
+    case MAKE_HASH_TERM_ARRAY_OP:
 	{
 	    Uint i = (Uint) WSTACK_POP(stack);
 	    Eterm* ptr = (Eterm*) WSTACK_POP(stack);
@@ -1640,7 +1752,7 @@ tail_recur:
     return hash;
     
 #undef MAKE_HASH_TUPLE_OP
-#undef MAKE_HASH_FUN_OP
+#undef MAKE_HASH_TERM_ARRAY_OP
 #undef MAKE_HASH_CDR_PRE_OP
 #undef MAKE_HASH_CDR_POST_OP
 }
@@ -2007,6 +2119,18 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
+	    case MAP_SUBTAG:
+		{
+		    aa = map_val_rel(a, a_base);
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+			goto not_equal;
+		    bb = map_val_rel(b,b_base);
+		    if ((sz = map_get_size((map_t*)aa)) == 0) goto pop_next;
+		    aa += 2;
+		    bb += 2;
+		    sz += 1; /* increment for tuple-keys */
+		    goto term_array;
+		}
 	    case REFC_BINARY_SUBTAG:
 	    case HEAP_BINARY_SUBTAG:
 	    case SUB_BINARY_SUBTAG:
@@ -2281,7 +2405,7 @@ static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
  *
  * According to the Erlang Standard, types are orderered as follows:
  *   numbers < (characters) < atoms < refs < funs < ports < pids <
- *   tuples < [] < conses < binaries.
+ *   tuples < maps < [] < conses < binaries.
  *
  * Note that characters are currently not implemented.
  *
@@ -2301,10 +2425,14 @@ static int cmp_atoms(Eterm a, Eterm b)
 		    bb->name+3, bb->len-3);
 }
 
+/* cmp(Eterm a, Eterm b, int exact)
+ * exact = 1 -> term-based compare
+ * exact = 0 -> arith-based compare
+ */
 #if HALFWORD_HEAP
-Sint cmp_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
+Sint cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base, int exact)
 #else
-Sint cmp(Eterm a, Eterm b)
+Sint cmp(Eterm a, Eterm b, int exact)
 #endif
 {
     DECLARE_WSTACK(stack);
@@ -2464,7 +2592,25 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
+	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
+		if (!is_map_rel(b,b_base)) {
+		    a_tag = MAP_DEF;
+		    goto mixed_types;
+		}
+		aa = (Eterm *)map_val_rel(a,a_base);
+		bb = (Eterm *)map_val_rel(b,b_base);
 
+		i = map_get_size((map_t*)aa);
+		if (i != map_get_size((map_t*)bb)) {
+		    RETURN_NEQ((int)(i - map_get_size((map_t*)bb)));
+		}
+		if (i == 0) {
+		    goto pop_next;
+		}
+		aa += 2;
+		bb += 2;
+		i  += 1; /* increment for tuple-keys */
+		goto term_array;
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;
@@ -2710,6 +2856,7 @@ tailrecur_ne:
 	    j = big_sign(aw) ? -1 : 1;
 	    break;
 	case SMALL_FLOAT:
+	    if (exact) goto exact_fall_through;
 	    GET_DOUBLE(bw, f2);
 	    if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
 		/* Float is within the no loss limit */
@@ -2735,12 +2882,14 @@ tailrecur_ne:
 #endif /* ERTS_SIZEOF_ETERM == 8 */
 	    break;
         case FLOAT_BIG:
+	    if (exact) goto exact_fall_through;
 	{
 	    Wterm tmp = aw;
 	    aw = bw;
 	    bw = tmp;
 	}/* fall through */
 	case BIG_FLOAT:
+	    if (exact) goto exact_fall_through;
 	    GET_DOUBLE(bw, f2);
 	    if ((f2.fd < (double) (MAX_SMALL + 1))
 		    && (f2.fd > (double) (MIN_SMALL - 1))) {
@@ -2770,6 +2919,7 @@ tailrecur_ne:
 	    }
 	    break;
 	case FLOAT_SMALL:
+	    if (exact) goto exact_fall_through;
 	    GET_DOUBLE(aw, f1);
 	    if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
 		/* Float is within the no loss limit */
@@ -2794,6 +2944,7 @@ tailrecur_ne:
 	    }
 #endif /* ERTS_SIZEOF_ETERM == 8 */
 	    break;
+exact_fall_through:
 	default:
 	    j = b_tag - a_tag;
 	}

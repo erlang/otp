@@ -415,11 +415,11 @@ encrypted_abstr(Config) when is_list(Config) ->
     ?line {Simple,Target} = files(Config, "encrypted_abstr"),
 
     Res = case has_crypto() of
-	      no ->
+	      false ->
 		  %% No crypto.
 		  ?line encrypted_abstr_no_crypto(Simple, Target),
 		  {comment,"The crypto application is missing or broken"};
-	      yes ->
+	      true ->
 		  %% Simulate not having crypto by removing
 		  %% the crypto application from the path.
 		  ?line OldPath = code:get_path(),
@@ -511,6 +511,7 @@ write_crypt_file(Contents0) ->
     ok = file:write_file(".erlang.crypt", Contents).
 
 encrypted_abstr_no_crypto(Simple, Target) ->
+    io:format("simpe: ~p~n", [Simple]),
     ?line TargetDir = filename:dirname(Target),
     ?line Key = "ablurf123BX#$;3",
     ?line error = compile:file(Simple,
@@ -525,11 +526,11 @@ verify_abstract(Target) ->
 has_crypto() ->
     try
 	crypto:start(),
-	crypto:info(),
+	<<_,_,_,_,_>> = crypto:rand_bytes(5),
 	crypto:stop(),
-	yes
+	true
     catch
-	error:_ -> no
+	error:_ -> false
     end.
 
 install_crypto_key(Key) ->

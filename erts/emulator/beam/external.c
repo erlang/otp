@@ -42,6 +42,7 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "erl_zlib.h"
+#include "erl_map.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"
@@ -2555,6 +2556,38 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    }
 	    break;
 
+	case MAP_DEF:
+	    {
+		map_t *mp = (map_t*)map_val(obj);
+		Uint size = map_get_size(mp);
+		Eterm *mptr;
+
+		*ep++ = MAP_EXT;
+		put_int32(size, ep); ep += 4;
+
+		/* Push values first */
+		if (size > 0) {
+		    mptr = map_get_values(mp);
+		    for (i = size-1; i >= 1; i--) {
+			WSTACK_PUSH(s, ENC_TERM);
+			WSTACK_PUSH(s, (UWord) mptr[i]);
+		    }
+
+		    WSTACK_PUSH(s, ENC_TERM);
+		    WSTACK_PUSH(s, (UWord) mptr[0]);
+
+		    mptr = map_get_keys(mp);
+		    for (i = size-1; i >= 1; i--) {
+			WSTACK_PUSH(s, ENC_TERM);
+			WSTACK_PUSH(s, (UWord) mptr[i]);
+		    }
+
+		    obj = mptr[0];
+		    goto L_jump_start;
+		}
+	    }
+	    break;
+
 	case FLOAT_DEF:
 	    GET_DOUBLE(obj, f);
 	    if (dflags & DFLAG_NEW_FLOATS) {
@@ -2845,6 +2878,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     int n;
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
+    Eterm *maps_head = NULL; /* for validation of maps */
     Eterm* next;
     SWord reds;
 
@@ -3469,6 +3503,65 @@ dec_term_atom_common:
 		break;
 	    }
 	    break;
+	case MAP_EXT:
+	    {
+		map_t *mp;
+		Uint32 size,n;
+		Eterm *kptr,*vptr;
+		Eterm keys;
+
+		size = get_int32(ep); ep += 4;
+
+		keys  = make_tuple(hp);
+		*hp++ = make_arityval(size);
+		kptr  = hp;
+		hp   += size;
+
+		mp    = (map_t*)hp;
+		hp   += MAP_HEADER_SIZE;
+		vptr  = hp;
+		hp   += size;
+
+		/* kptr, first word for keys
+		 * vptr, first word for values
+		 */
+
+		/*
+		 * Use thing_word to link through decoded maps.
+		 * The list of maps is for later validation.
+		 */
+
+		mp->thing_word = (Eterm) COMPRESS_POINTER(maps_head);
+		maps_head      = (Eterm *) mp;
+
+		mp->size       = size;
+		mp->keys       = keys;
+		*objp          = make_map(mp);
+
+		/* We assume the map is wellformed, meaning:
+		 * - ascending key order
+		 * - unique keys
+		 */
+
+		objp  = vptr + size - 1;
+		n     = size;
+
+		while (n-- > 0) {
+		    *objp = (Eterm) COMPRESS_POINTER(next);
+		    next  = objp;
+		    objp--;
+		}
+
+		objp  = kptr + size - 1;
+		n     = size;
+
+		while (n-- > 0) {
+		    *objp = (Eterm) COMPRESS_POINTER(next);
+		    next  = objp;
+		    objp--;
+		}
+	    }
+	    break;
 	case NEW_FUN_EXT:
 	    {
 		ErlFunThing* funp = (ErlFunThing *) hp;
@@ -3678,21 +3771,7 @@ dec_term_atom_common:
 	    }
 
 	default:
-	error:
-	    /* UNDO:
-	     * Must unlink all off-heap objects that may have been
-	     * linked into the process. 
-	     */
-	    if (hp < *hpp) { /* Sometimes we used hp and sometimes *hpp */
-		hp = *hpp;   /* the largest must be the freshest */
-	    }
-	    undo_offheap_in_area(off_heap, hp_saved, hp);
-	    *hpp = hp_saved;
-            if (ctx) {
-                ctx->state = B2TDecodeFail;
-		ctx->reds = reds;
-            }
-            return NULL;
+	    goto error;
 	}
 
         if (--reds <= 0) {
@@ -3710,12 +3789,43 @@ dec_term_atom_common:
             }
         }
     }
+
+    /* Iterate through all the maps and check for validity and sort keys
+     * - done here for when we know it is complete.
+     */
+
+    while (maps_head) {
+	next  = (Eterm *)(EXPAND_POINTER(*maps_head));
+	*maps_head = MAP_HEADER;
+	if (!erts_validate_and_sort_map((map_t*)maps_head))
+	    goto error;
+	maps_head  = next;
+    }
+
     if (ctx) {
         ctx->state = B2TDone;
 	ctx->reds = reds;
     }
+
     *hpp = hp;
     return ep;
+
+error:
+    /* UNDO:
+     * Must unlink all off-heap objects that may have been
+     * linked into the process. 
+     */
+    if (hp < *hpp) { /* Sometimes we used hp and sometimes *hpp */
+	hp = *hpp;   /* the largest must be the freshest */
+    }
+    undo_offheap_in_area(off_heap, hp_saved, hp);
+    *hpp = hp_saved;
+    if (ctx) {
+	ctx->state = B2TDecodeFail;
+	ctx->reds = reds;
+    }
+        
+    return NULL;
 }
 
 /* returns the number of bytes needed to encode an object
@@ -3881,6 +3991,46 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 			}
 		    }
 		    ESTACK_PUSH(s,ptr[i]);
+		}
+		goto outer_loop;
+	    }
+	    break;
+	case MAP_DEF:
+	    {
+		map_t *mp = (map_t*)map_val(obj);
+		Uint size = map_get_size(mp);
+		Uint i;
+		Eterm *ptr;
+
+		result += 1 + 4; /* tag + 4 bytes size */
+
+		/* push values first */
+		ptr = map_get_values(mp);
+		i   = size;
+		while(i--) {
+		    if (is_list(*ptr)) {
+			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
+			    result += m + 2 + 1;
+			} else {
+			    result += 5;
+			}
+		    }
+		    ESTACK_PUSH(s,*ptr);
+		    ++ptr;
+		}
+
+		ptr = map_get_keys(mp);
+		i   = size;
+		while(i--) {
+		    if (is_list(*ptr)) {
+			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
+			    result += m + 2 + 1;
+			} else {
+			    result += 5;
+			}
+		    }
+		    ESTACK_PUSH(s,*ptr);
+		    ++ptr;
 		}
 		goto outer_loop;
 	    }
@@ -4174,6 +4324,13 @@ init_done:
 	    ep += 4;
 	    ADDTERMS(n);
 	    heap_size += n + 1;
+	    break;
+	case MAP_EXT:
+	    CHKSIZE(4);
+	    n = get_int32(ep);
+	    ep += 4;
+	    ADDTERMS(2*n);
+	    heap_size += 3 + n + 1 + n;
 	    break;
 	case STRING_EXT:
 	    CHKSIZE(2);

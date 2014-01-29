@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1742,15 +1742,19 @@ typedef struct ErlIOVec {
           term consists of one to four elements in the array. The
           term first has a term type, and then arguments. The
 	  <c>port</c> parameter specifies the sending port.</p>
-        <p>Tuple and lists (with the exception of strings, see below),
+        <p>Tuples, maps and lists (with the exception of strings, see below),
           are built in reverse polish notation, so that to build a
           tuple, the elements are given first, and then the tuple
-          term, with a count. Likewise for lists.</p>
+          term, with a count. Likewise for lists and maps.</p>
         <p>A tuple must be specified with the number of elements. (The
           elements precede the <c>ERL_DRV_TUPLE</c> term.)</p>
         <p>A list must be specified with the number of elements,
           including the tail, which is the last term preceding
           <c>ERL_DRV_LIST</c>.</p>
+        <p>A map must be specified with the number of key-value pairs <c>N</c>.
+	  The key-value pairs must precede the <c>ERL_DRV_MAP</c> in this order:
+	  <c>key1,value1,key2,value2,...,keyN,valueN</c>.
+	  Duplicate keys are not allowed.</p>
         <p>The special term <c>ERL_DRV_STRING_CONS</c> is used to
           "splice" in a string in a list, a string given this way is
           not a list per se, but the elements are elements of the
@@ -1774,6 +1778,7 @@ ERL_DRV_PID          ErlDrvTermData pid (from driver_connected(ErlDrvPort port) 
 ERL_DRV_STRING_CONS  char *str, int len
 ERL_DRV_FLOAT        double *dbl
 ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
+ERL_DRV_MAP          int sz
         </pre>
 	<p>The unsigned integer data type <c>ErlDrvUInt</c> and the
 	  signed integer data type <c>ErlDrvSInt</c> are 64 bits wide
@@ -1856,6 +1861,24 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
     };
     erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
         ]]></code>
+
+        <p>To build the map <c>#{key1 => 100, key2 => {200, 300}}</c>, the
+          following call could be made.</p>
+        <code type="none"><![CDATA[
+    ErlDrvPort port = ...
+    ErlDrvTermData spec[] = {
+          ERL_DRV_ATOM, driver_mk_atom("key1"),
+	  ERL_DRV_INT, 100,
+          ERL_DRV_ATOM, driver_mk_atom("key2"),
+	    ERL_DRV_INT, 200,
+	    ERL_DRV_INT, 300,
+	  ERL_DRV_TUPLE, 2,
+	ERL_DRV_MAP, 2
+    };
+    erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
+        ]]>
+      </code>
+
 	<p>If you want to pass a binary and don't already have the content
 	of the binary in an <c>ErlDrvBinary</c>, you can benefit from using
 	<c>ERL_DRV_BUF2BINARY</c> instead of creating an <c>ErlDrvBinary</c>

@@ -34,6 +34,7 @@ binary_comprehension
 tuple
 %struct
 record_expr record_tuple record_field record_fields
+map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses
@@ -47,6 +48,7 @@ opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
+map_pair_types map_pair_type
 bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
 
 Terminals
@@ -59,7 +61,7 @@ char integer float atom string var
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
 '++' '--'
-'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
+'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>' ':='
 '<<' '>>'
 '!' '=' '::' '..' '...'
 'spec' 'callback' % helper
@@ -154,6 +156,8 @@ type -> '[' ']'                           : {type, ?line('$1'), nil, []}.
 type -> '[' top_type ']'                  : {type, ?line('$1'), list, ['$2']}.
 type -> '[' top_type ',' '...' ']'        : {type, ?line('$1'),
                                              nonempty_list, ['$2']}.
+type -> '#' '{' '}'                       : {type, ?line('$1'), map, []}.
+type -> '#' '{' map_pair_types '}'        : {type, ?line('$1'), map, '$3'}.
 type -> '{' '}'                           : {type, ?line('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?line('$1'), tuple, '$2'}.
 type -> '#' atom '{' '}'                  : {type, ?line('$1'), record, ['$2']}.
@@ -174,6 +178,10 @@ fun_type -> '(' ')' '->' top_type  : {type, ?line('$1'), 'fun',
 fun_type -> '(' top_types ')' '->' top_type
                                    : {type, ?line('$1'), 'fun',
                                       [{type, ?line('$1'), product, '$2'},'$5']}.
+
+map_pair_types -> map_pair_type                    : ['$1'].
+map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
+map_pair_type  -> top_type '=>' top_type           : {type, ?line('$2'), map_field_assoc,'$1','$3'}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
@@ -247,6 +255,7 @@ expr_500 -> expr_600 : '$1'.
 
 expr_600 -> prefix_op expr_700 :
 	?mkop1('$1', '$2').
+expr_600 -> map_expr : '$1'.
 expr_600 -> expr_700 : '$1'.
 
 expr_700 -> function_call : '$1'.
@@ -326,6 +335,30 @@ tuple -> '{' exprs '}' : {tuple,?line('$1'),'$2'}.
 
 %%struct -> atom tuple :
 %%	{struct,?line('$1'),element(3, '$1'),element(3, '$2')}.
+
+map_expr -> '#' map_tuple :
+	{map, ?line('$1'),'$2'}.
+map_expr -> expr_max '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+map_expr -> map_expr '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+
+map_tuple -> '{' '}' : [].
+map_tuple -> '{' map_fields '}' : '$2'.
+
+map_fields -> map_field : ['$1'].
+map_fields -> map_field ',' map_fields : ['$1' | '$3'].
+
+map_field -> map_field_assoc : '$1'.
+map_field -> map_field_exact : '$1'.
+
+map_field_assoc -> map_key '=>' expr :
+	{map_field_assoc,?line('$1'),'$1','$3'}.
+
+map_field_exact -> map_key ':=' expr :
+	{map_field_exact,?line('$1'),'$1','$3'}.
+
+map_key -> expr : '$1'.
 
 
 %% N.B. This is called from expr_700.
@@ -648,6 +681,8 @@ skip_paren(Type) ->
 
 build_gen_type({atom, La, tuple}) ->
     {type, La, tuple, any};
+build_gen_type({atom, La, map}) ->
+    {type, La, map, any};
 build_gen_type({atom, La, Name}) ->
     {type, La, Name, []}.
 
@@ -860,6 +895,12 @@ normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
+normalise({map,_,Pairs}=M) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)};
+		(_) -> erlang:error({badarg,M})
+	    end, Pairs));
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
@@ -1060,3 +1101,5 @@ get_attribute(L, Name) ->
 
 get_attributes(L) ->
     erl_scan:attributes_info(L).
+
+%% vim: ft=erlang

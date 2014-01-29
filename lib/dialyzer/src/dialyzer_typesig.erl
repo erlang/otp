@@ -55,7 +55,9 @@
 	 t_subst/2,
 	 t_timeout/0, t_tuple/0, t_tuple/1,
          t_var/1, t_var_name/1,
-	 t_none/0, t_unit/0]).
+	 t_none/0, t_unit/0,
+	 t_map/1
+     ]).
 
 -include("dialyzer.hrl").
 
@@ -470,6 +472,8 @@ traverse(Tree, DefinedVars, State) ->
           end;
 	[] -> {State2, TupleType}
       end;
+    map ->
+	{State, t_map([])};
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by
@@ -1037,6 +1041,9 @@ get_safe_underapprox_1([Pat|Left], Acc, Map) ->
       {Ts, Map1} = get_safe_underapprox_1(Es, [], Map),
       Type = t_tuple(Ts),
       get_safe_underapprox_1(Left, [Type|Acc], Map1);
+    map ->
+      %% TODO: Can maybe do something here
+      throw(dont_know);
     values ->
       Es = cerl:values_es(Pat),
       {Ts, Map1} = get_safe_underapprox_1(Es, [], Map),

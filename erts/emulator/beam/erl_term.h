@@ -135,11 +135,12 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define REF_SUBTAG		(0x4 << _TAG_PRIMARY_SIZE) /* REF */
 #define FUN_SUBTAG		(0x5 << _TAG_PRIMARY_SIZE) /* FUN */
 #define FLOAT_SUBTAG		(0x6 << _TAG_PRIMARY_SIZE) /* FLOAT */
-#define EXPORT_SUBTAG	(0x7 << _TAG_PRIMARY_SIZE) /* FLOAT */
+#define EXPORT_SUBTAG		(0x7 << _TAG_PRIMARY_SIZE) /* FLOAT */
 #define _BINARY_XXX_MASK	(0x3 << _TAG_PRIMARY_SIZE)
 #define REFC_BINARY_SUBTAG	(0x8 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define SUB_BINARY_SUBTAG	(0xA << _TAG_PRIMARY_SIZE) /* BINARY */
+#define MAP_SUBTAG		(0xB << _TAG_PRIMARY_SIZE) /* MAP */
 #define EXTERNAL_PID_SUBTAG	(0xC << _TAG_PRIMARY_SIZE) /* EXTERNAL_PID */
 #define EXTERNAL_PORT_SUBTAG	(0xD << _TAG_PRIMARY_SIZE) /* EXTERNAL_PORT */
 #define EXTERNAL_REF_SUBTAG	(0xE << _TAG_PRIMARY_SIZE) /* EXTERNAL_REF */
@@ -155,6 +156,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_REFC_BIN	(TAG_PRIMARY_HEADER|REFC_BINARY_SUBTAG)
 #define _TAG_HEADER_HEAP_BIN	(TAG_PRIMARY_HEADER|HEAP_BINARY_SUBTAG)
 #define _TAG_HEADER_SUB_BIN	(TAG_PRIMARY_HEADER|SUB_BINARY_SUBTAG)
+#define _TAG_HEADER_MAP	 	(TAG_PRIMARY_HEADER|MAP_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PID  (TAG_PRIMARY_HEADER|EXTERNAL_PID_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PORT (TAG_PRIMARY_HEADER|EXTERNAL_PORT_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_REF  (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
@@ -354,7 +356,10 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 #define is_value(x)	((x) != THE_NON_VALUE)
 
 /* binary object access methods */
-#define is_binary_header(x)	(((x) & (_TAG_HEADER_MASK-_BINARY_XXX_MASK)) == _TAG_HEADER_REFC_BIN)
+#define is_binary_header(x) \
+	((((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_REFC_BIN) || \
+	 (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_HEAP_BIN) || \
+	 (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_SUB_BIN))
 #define make_binary(x)	make_boxed((Eterm*)(x))
 #define is_binary(x)	(is_boxed((x)) && is_binary_header(*boxed_val((x))))
 #define is_not_binary(x) (!is_binary((x)))
@@ -1064,8 +1069,8 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 
 /*
  * Backwards compatibility definitions:
- * - #define virtal *_DEF constants with values that fit term order:
- *   number < atom < ref < fun < port < pid < tuple < nil < cons < binary
+ * - #define virtual *_DEF constants with values that fit term order:
+ *   number < atom < ref < fun < port < pid < tuple < map < nil < cons < binary
  * - tag_val_def() function generates virtual _DEF tag
  * - not_eq_tags() and NUMBER_CODE() defined in terms
  *   of the tag_val_def() function
@@ -1074,19 +1079,20 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define BINARY_DEF		0x0
 #define LIST_DEF		0x1
 #define NIL_DEF			0x2
-#define TUPLE_DEF		0x3
-#define PID_DEF			0x4
-#define EXTERNAL_PID_DEF	0x5
-#define PORT_DEF		0x6
-#define EXTERNAL_PORT_DEF	0x7
-#define EXPORT_DEF		0x8
-#define FUN_DEF			0x9
-#define REF_DEF			0xa
-#define EXTERNAL_REF_DEF	0xb
-#define ATOM_DEF		0xc
-#define FLOAT_DEF		0xd
-#define BIG_DEF			0xe
-#define SMALL_DEF		0xf
+#define MAP_DEF			0x3
+#define TUPLE_DEF		0x4
+#define PID_DEF			0x5
+#define EXTERNAL_PID_DEF	0x6
+#define PORT_DEF		0x7
+#define EXTERNAL_PORT_DEF	0x8
+#define EXPORT_DEF		0x9
+#define FUN_DEF			0xa
+#define REF_DEF			0xb
+#define EXTERNAL_REF_DEF	0xc
+#define ATOM_DEF		0xd
+#define FLOAT_DEF		0xe
+#define BIG_DEF			0xf
+#define SMALL_DEF		0x10
 
 #if ET_DEBUG
 extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);
@@ -1096,8 +1102,8 @@ extern unsigned tag_val_def(Wterm);
 #endif
 #define not_eq_tags(X,Y)	(tag_val_def((X)) ^ tag_val_def((Y)))
 
-#define NUMBER_CODE(x,y)	((tag_val_def(x) << 4) | tag_val_def(y))
-#define _NUMBER_CODE(TX,TY)	((TX << 4) | TY)
+#define NUMBER_CODE(x,y)	((tag_val_def(x) << 5) | tag_val_def(y))
+#define _NUMBER_CODE(TX,TY)	((TX << 5) | TY)
 #define SMALL_SMALL	_NUMBER_CODE(SMALL_DEF,SMALL_DEF)
 #define SMALL_BIG 	_NUMBER_CODE(SMALL_DEF,BIG_DEF)
 #define SMALL_FLOAT 	_NUMBER_CODE(SMALL_DEF,FLOAT_DEF)

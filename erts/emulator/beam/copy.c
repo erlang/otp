@@ -27,6 +27,7 @@
 #include "erl_process.h"
 #include "erl_gc.h"
 #include "big.h"
+#include "erl_map.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
@@ -146,6 +147,24 @@ Uint size_object(Eterm obj)
 			    sum += PROC_BIN_SIZE;
 			} else {
 			    sum += heap_bin_size(binary_size_rel(obj,base)+extra_bytes);
+			}
+			goto pop_next;
+		    }
+		    break;
+		case MAP_SUBTAG:
+		    {
+			Uint n;
+			map_t *mp;
+			mp  = (map_t*)map_val_rel(obj,base);
+			ptr = (Eterm *)mp;
+			n   = map_get_size(mp) + 1;
+			sum += n + 2;
+			ptr += 2; /* hdr + size words */
+			while (n--) {
+			    obj = *ptr++;
+			    if (!IS_CONST(obj)) {
+				ESTACK_PUSH(s, obj);
+			    }
 			}
 			goto pop_next;
 		    }
@@ -315,6 +334,15 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    }
 		    if (const_flag) {
 			const_tuple = tp; /* this is the latest const_tuple */
+		    }
+		}
+		break;
+	    case MAP_SUBTAG:
+		{
+		    i = map_get_size(objp) + 3;
+		    *argp = make_map_rel(htop, dst_base);
+		    while (i--) {
+			*htop++ = *objp++;
 		    }
 		}
 		break;
@@ -537,6 +565,10 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		}
 		goto off_heap_common;
 
+	    case MAP_SUBTAG:
+		*hp++ = *tp++;
+		sz--;
+		break;
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:

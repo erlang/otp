@@ -4615,6 +4615,17 @@ BIF_RETTYPE bump_reductions_1(BIF_ALIST_1)
     BIF_RET2(am_true, reds);
 }
 
+BIF_RETTYPE erts_internal_cmp_term_2(BIF_ALIST_2) {
+    int res = CMP_TERM(BIF_ARG_1,BIF_ARG_2);
+
+    /* ensure -1, 0, 1 result */
+    if (res < 0) {
+	BIF_RET(make_small(-1));
+    } else if (res > 0) {
+	BIF_RET(make_small(1));
+    }
+    BIF_RET(make_small(0));
+}
 /*
  * Processes doing yield on return in a bif ends up in bif_return_trap().
  */

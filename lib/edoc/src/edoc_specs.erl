@@ -358,6 +358,14 @@ d2e({type,_,tuple,any}) ->
 d2e({type,_,binary,[Base,Unit]}) ->
     #t_binary{base_size = element(3, Base),
               unit_size = element(3, Unit)};
+d2e({type,_,map,any}) ->
+    #t_map{ types = []};
+d2e({type,_,map,Es}) ->
+    #t_map{ types = d2e(Es) };
+d2e({type,_,map_field_assoc,K,V}) ->
+    #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
+d2e({type,_,map_field_exact,K,V}) ->
+    #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
 d2e({type,_,tuple,Ts0}) ->
     Ts = d2e(Ts0),
     typevar_anno(#t_tuple{types = Ts}, Ts);
@@ -476,6 +484,11 @@ xrecs(#t_fun{args = Args0, range = Range0}=T, P) ->
     Args = xrecs(Args0, P),
     Range = xrecs(Range0, P),
     T#t_fun{args = Args, range = Range};
+xrecs(#t_map{ types = Ts0 }=T,P) ->
+    Ts = xrecs(Ts0, P),
+    T#t_map{ types = Ts };
+xrecs(#t_map_field{ k_type=Kt, v_type=Vt}=T, P) ->
+    T#t_map_field{ k_type=xrecs(Kt,P), v_type=xrecs(Vt,P)};
 xrecs(#t_tuple{types = Types0}=T, P) ->
     Types = xrecs(Types0, P),
     T#t_tuple{types = Types};

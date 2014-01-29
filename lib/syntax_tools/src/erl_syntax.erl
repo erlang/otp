@@ -582,6 +582,9 @@ type(Node) ->
 	{match, _, _, _} -> match_expr;
 	{op, _, _, _, _} -> infix_expr;
 	{op, _, _, _} -> prefix_expr;
+	{map,_,_} -> map;
+	{map_field_assoc,_,_,_} -> map_field_assoc;
+	{map_field_exact,_,_,_} -> map_field_exact;
 	{record, _, _, _, _} -> record_expr;
 	{record, _, _, _} -> record_expr;
 	{record_field, _, _, _, _} -> record_access;
@@ -1908,6 +1911,28 @@ atom_name(Node) ->
 atom_literal(Node) ->
     io_lib:write_atom(atom_value(Node)).
 
+
+%% =====================================================================
+
+map_elements(Node) ->
+    case unwrap(Node) of
+	{map, _, List} ->
+	    List;
+	Node1 ->
+	    data(Node1)
+    end.
+
+map_field_elements({_,_,K,V}) ->
+    [K,V].
+
+map(List) ->
+    tree(map, List).
+
+map_field_assoc(List) ->
+    tree(map_field_assoc, List).
+
+map_field_exact(List) ->
+    tree(map_field_exact, List).
 
 %% =====================================================================
 %% @doc Creates an abstract tuple. If `Elements' is
@@ -6396,6 +6421,12 @@ subtrees(T) ->
 		     try_expr_clauses(T),
 		     try_expr_handlers(T),
 		     try_expr_after(T)];
+	        map ->
+		    [map_elements(T)];
+		map_field_assoc ->
+		    [map_field_elements(T)];
+		map_field_exact ->
+		    [map_field_elements(T)];
 		tuple ->
 		    [tuple_elements(T)]
 	    end
@@ -6491,7 +6522,10 @@ make_tree(record_index_expr, [[T], [F]]) ->
 make_tree(rule, [[N], C]) -> rule(N, C);
 make_tree(size_qualifier, [[N], [A]]) -> size_qualifier(N, A);
 make_tree(try_expr, [B, C, H, A]) -> try_expr(B, C, H, A);
-make_tree(tuple, [E]) -> tuple(E).
+make_tree(tuple, [E]) -> tuple(E);
+make_tree(map, [E]) -> map(E);
+make_tree(map_field_assoc, [E]) -> map_field_assoc(E);
+make_tree(map_field_exact, [E]) -> map_field_exact(E).
 
 
 %% =====================================================================

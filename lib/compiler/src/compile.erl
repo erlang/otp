@@ -230,12 +230,25 @@ format_error({undef_parse_transform,M}) ->
 format_error({core_transform,M,R}) ->
     io_lib:format("error in core transform '~s': ~tp", [M, R]);
 format_error({crash,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\ncrash reason: ~tp", [Pass,Reason]);
+    io_lib:format("internal error in ~p;\ncrash reason: ~ts", [Pass,format_error_reason(Reason)]);
 format_error({bad_return,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\nbad return value: ~tp", [Pass,Reason]);
+    io_lib:format("internal error in ~p;\nbad return value: ~ts", [Pass,format_error_reason(Reason)]);
 format_error({module_name,Mod,Filename}) ->
-    io_lib:format("Module name '~s' does not match file name '~ts'",
-		  [Mod,Filename]).
+    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]).
+
+format_error_reason({Reason, Stack}) when is_list(Stack) ->
+    StackFun = fun
+	(escript, run,      2) -> true;
+	(escript, start,    1) -> true;
+	(init,    start_it, 1) -> true;
+	(init,    start_em, 1) -> true;
+	(_Mod, _Fun, _Arity)   -> false
+    end,
+    FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
+    [io_lib:format("~tp", [Reason]),"\n\n",
+     lib:format_stacktrace(1, erlang:get_stacktrace(), StackFun, FormatFun)];
+format_error_reason(Reason) ->
+    io_lib:format("~tp", [Reason]).
 
 %% The compile state record.
 -record(compile, {filename="" :: file:filename(),

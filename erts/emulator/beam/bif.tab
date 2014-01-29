@@ -578,6 +578,23 @@ bif os:unsetenv/1
 
 bif re:inspect/2
 
+ubif erlang:is_map/1
+ubif erlang:map_size/1
+bif maps:to_list/1
+bif maps:find/2
+bif maps:get/2
+bif maps:from_list/1
+bif maps:is_key/2
+bif maps:keys/1
+bif maps:merge/2
+bif maps:new/0
+bif maps:put/3
+bif maps:remove/2
+bif maps:update/3
+bif maps:values/1
+
+bif erts_internal:cmp_term/2
+
 #
 # Obsolete
 #

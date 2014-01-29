@@ -33,6 +33,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 
 static Eterm gc_double_to_integer(Process* p, double x, Eterm* reg, Uint live);
 
@@ -449,6 +450,28 @@ Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live)
 	    hp = p->htop;
 	    p->htop += BIG_UINT_HEAP_SIZE;
 	    return uint_to_big(bytesize, hp);
+	}
+    } else {
+	BIF_ERROR(p, BADARG);
+    }
+}
+
+Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
+{
+    Eterm arg = reg[live];
+    if (is_map(arg)) {
+	map_t *mp = (map_t*)map_val(arg);
+	Uint size = map_get_size(mp);
+	if (IS_USMALL(0, size)) {
+	    return make_small(size);
+	} else {
+	    Eterm* hp;
+	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
+		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
+	    }
+	    hp = p->htop;
+	    p->htop += BIG_UINT_HEAP_SIZE;
+	    return uint_to_big(size, hp);
 	}
     } else {
 	BIF_ERROR(p, BADARG);

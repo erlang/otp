@@ -161,6 +161,27 @@ format_1(#c_tuple{es=Es}, Ctxt) ->
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      $}
     ];
+format_1(#c_map{var=#c_var{}=Var,es=Es}, Ctxt) ->
+    [format_1(Var, Ctxt),
+     "~{",
+     format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
+     "}~"
+    ];
+format_1(#c_map{es=Es}, Ctxt) ->
+    ["~{",
+     format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
+     "}~"
+    ];
+format_1(#c_map_pair{op=#c_literal{val=assoc},key=K,val=V}, Ctxt) ->
+    ["::<",
+     format_hseq([K,V], ",", add_indent(Ctxt, 1), fun format/2),
+     ">"
+    ];
+format_1(#c_map_pair{op=#c_literal{val=exact},key=K,val=V}, Ctxt) ->
+    ["~<",
+     format_hseq([K,V], ",", add_indent(Ctxt, 1), fun format/2),
+     ">"
+    ];
 format_1(#c_cons{hd=H,tl=T}, Ctxt) ->
     Txt = ["["|format(H, add_indent(Ctxt, 1))],
     [Txt|format_list_tail(T, add_indent(Ctxt, width(Txt, Ctxt)))];

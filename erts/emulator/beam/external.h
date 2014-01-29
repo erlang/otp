@@ -50,6 +50,7 @@
 #define LARGE_BIG_EXT     'o'
 #define NEW_FUN_EXT       'p'
 #define EXPORT_EXT        'q'
+#define MAP_EXT           't'
 #define FUN_EXT           'u'
 #define ATOM_UTF8_EXT     'v'
 #define SMALL_ATOM_UTF8_EXT 'w'

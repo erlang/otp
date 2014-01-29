@@ -152,6 +152,7 @@ bif_to_test(is_function, [_]=Ops, Fail) -> {test,is_function,Fail,Ops};
 bif_to_test(is_function, [_,_]=Ops, Fail) -> {test,is_function2,Fail,Ops};
 bif_to_test(is_integer,  [_]=Ops, Fail) -> {test,is_integer,Fail,Ops};
 bif_to_test(is_list,     [_]=Ops, Fail) -> {test,is_list,Fail,Ops};
+bif_to_test(is_map,      [_]=Ops, Fail) -> {test,is_map,Fail,Ops};
 bif_to_test(is_number,   [_]=Ops, Fail) -> {test,is_number,Fail,Ops};
 bif_to_test(is_pid,      [_]=Ops, Fail) -> {test,is_pid,Fail,Ops};
 bif_to_test(is_port,     [_]=Ops, Fail) -> {test,is_port,Fail,Ops};

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -46,6 +46,7 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 #include "dtrace-wrapper.h"
+#include "erl_map.h"
 
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
@@ -5293,6 +5294,17 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    depth++;
 	    break;
 	}
+	case ERL_DRV_MAP: { /* int */
+	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
+	    if ((int) ptr[0] < 0) ERTS_DDT_FAIL;
+	    need += MAP_HEADER_SIZE + 1 + 2*ptr[0];
+	    depth -= 2*ptr[0];
+	    if (depth < 0) ERTS_DDT_FAIL;
+	    ptr++;
+	    depth++;
+	    break;
+	}
+
 	default:
 	    ERTS_DDT_FAIL;
 	}
@@ -5528,6 +5540,36 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		ERTS_DDT_FAIL;
 	    ptr += 2;
 	    break;
+
+	case ERL_DRV_MAP: { /* int */
+	    int size = (int)ptr[0];
+	    Eterm* tp = hp;
+	    Eterm* vp;
+	    map_t *mp;
+
+	    *tp = make_arityval(size);
+
+	    hp += 1 + size;
+	    mp = (map_t*)hp;
+	    mp->thing_word = MAP_HEADER;
+	    mp->size = size;
+	    mp->keys = make_tuple(tp);
+	    mess = make_map(mp);
+
+	    hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
+
+	    tp += size;    /* point at last key */
+	    vp = hp - 1;   /* point at last value */
+
+	    while(size--) {
+		*vp-- = ESTACK_POP(stack);
+		*tp-- = ESTACK_POP(stack);
+	    }
+	    if (!erts_validate_and_sort_map(mp))
+		ERTS_DDT_FAIL;
+	    ptr++;
+	    break;
+	}
 
 	}
 	ESTACK_PUSH(stack, mess);

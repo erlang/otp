@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -604,6 +604,8 @@ EXTERN int null_func(void);
 #define ERL_DRV_BUF2BINARY  ((ErlDrvTermData) 14) /* char *, ErlDrvUInt */
 #define ERL_DRV_INT64       ((ErlDrvTermData) 15) /* ErlDrvSInt64 * */
 #define ERL_DRV_UINT64      ((ErlDrvTermData) 16) /* ErlDrvUInt64 * */
+
+#define ERL_DRV_MAP         ((ErlDrvTermData) 17) /* ErlDrvUInt */
 
 #ifndef ERL_DRIVER_TYPES_ONLY
 

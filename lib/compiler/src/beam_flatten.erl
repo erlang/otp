@@ -61,6 +61,10 @@ norm({set,[],[S],put})            -> {put,S};
 norm({set,[D],[S],{get_tuple_element,I}}) -> {get_tuple_element,S,I,D};
 norm({set,[],[S,D],{set_tuple_element,I}}) -> {set_tuple_element,S,D,I};
 norm({set,[D1,D2],[S],get_list})          -> {get_list,S,D1,D2};
+norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
+    {put_map,F,Op,S,D,R,{list,Puts}};
+norm({set,[D],[S],{get_map_element,K,F}}) ->
+    {get_map_element,F,S,K,D};
 norm({set,[],[],remove_message})   -> remove_message;
 norm({set,[],[],fclearerror}) -> fclearerror;
 norm({set,[],[],fcheckerror}) -> {fcheckerror,{f,0}}.

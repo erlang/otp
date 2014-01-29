@@ -210,6 +210,8 @@ need_heap_0([], H, Acc) ->
 
 need_heap_1(#l{ke={set,_,{binary,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
+need_heap_1(#l{ke={set,_,{map,_,_}},i=I}, H) ->
+    {need_heap_need(I, H),0};
 need_heap_1(#l{ke={set,_,Val}}, H) ->
     %% Just pass through adding to needed heap.
     {[],H + case Val of
@@ -453,8 +455,11 @@ basic_block([Le|Les], Acc) ->
 	    end;
 	no_block -> {reverse(Acc, [Le]),Les}
     end.
+
+%% sets that may garbage collect are not allowed in basic blocks.
 	
 collect_block({set,_,{binary,_}})    -> no_block;
+collect_block({set,_,{map,_,_}})     -> no_block;
 collect_block({set,_,_})             -> include;
 collect_block({call,{var,_}=Var,As,_Rs}) -> {block_end,As++[Var]};
 collect_block({call,Func,As,_Rs})   -> {block_end,As++func_vars(Func)};
@@ -594,14 +599,13 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 %%   number to the outer catch, which is wrong.
 
 turn_yregs(0, Tp, _) -> Tp;
-turn_yregs(El, Tp, MaxY) when element(1, element(El, Tp)) =:= yy ->
-    turn_yregs(El-1, setelement(El, Tp, {y,MaxY-element(2, element(El, Tp))}), MaxY);
-turn_yregs(El, Tp, MaxY) when is_list(element(El, Tp)) ->
-    New = map(fun ({yy,YY}) -> {y,MaxY-YY};
-		  (Other) -> Other end, element(El, Tp)),
-    turn_yregs(El-1, setelement(El, Tp, New), MaxY);
 turn_yregs(El, Tp, MaxY) ->
-    turn_yregs(El-1, Tp, MaxY).
+    turn_yregs(El-1,setelement(El,Tp,turn_yreg(element(El,Tp),MaxY)),MaxY).
+
+turn_yreg({yy,YY},MaxY) -> {y,MaxY-YY};
+turn_yreg({list,Ls},MaxY) -> {list, turn_yreg(Ls,MaxY)};
+turn_yreg(Ts,MaxY) when is_list(Ts) -> [turn_yreg(T,MaxY)||T<-Ts];
+turn_yreg(Other,_MaxY) -> Other.
 
 %% select_cg(Sclause, V, TypeFail, ValueFail, StackReg, State) ->
 %%      {Is,StackReg,State}.
@@ -623,6 +627,8 @@ select_cg(#l{ke={type_clause,bin_int,S}}, {var,V}, Tf, _Vf, Bef, St) ->
     select_bin_segs(S, V, Tf, Bef, St);
 select_cg(#l{ke={type_clause,bin_end,[S]}}, {var,V}, Tf, _Vf, Bef, St) ->
     select_bin_end(S, V, Tf, Bef, St);
+select_cg(#l{ke={type_clause,map,S}}, {var,V}, Tf, Vf, Bef, St) ->
+    select_map(S, V, Tf, Vf, Bef, St);
 select_cg(#l{ke={type_clause,Type,Scs}}, {var,V}, Tf, Vf, Bef, St0) ->
     {Vis,{Aft,St1}} =
 	mapfoldl(fun (S, {Int,Sta}) ->
@@ -637,6 +643,10 @@ select_val_cg(tuple, R, [Arity,{f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,is_tuple,{f,Tf},[R]},{test,test_arity,{f,Vf},[R,Arity]}|Sis];
 select_val_cg(tuple, R, Vls, Tf, Vf, Sis) ->
     [{test,is_tuple,{f,Tf},[R]},{select_tuple_arity,R,{f,Vf},{list,Vls}}|Sis];
+select_val_cg(map, R, [_Val,{f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
+    [{test,is_map,{f,Fail},[R]}|Sis];
+select_val_cg(map, R, [_Val,{f,Lbl}|_], Tf, _Vf, [{label,Lbl}|Sis]) ->
+    [{test,is_map,{f,Tf},[R]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
     [{test,is_eq_exact,{f,Fail},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
@@ -913,6 +923,36 @@ select_extract_tuple(Src, Vs, I, Vdb, Bef, St) ->
 		end
 	end,
     {Es,{Aft,_}} = flatmapfoldl(F, {Bef,0}, Vs),
+    {Es,Aft,St}.
+
+select_map(Scs, V, Tf, Vf, Bef, St0) ->
+    Reg = fetch_var(V, Bef),
+    {Is,Aft,St1} =
+	match_fmf(fun(#l{ke={val_clause,{map,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
+			  select_map_val(V, Es, B, Fail, I, Vdb, Bef, St1)
+		  end, Vf, St0, Scs),
+    {[{test,is_map,{f,Tf},[Reg]}|Is],Aft,St1}.
+
+select_map_val(V, Es, B, Fail, I, Vdb, Bef, St0) ->
+    {Eis,Int,St1} = select_extract_map(V, Es, Fail, I, Vdb, Bef, St0),
+    {Bis,Aft,St2} = match_cg(B, Fail, Int, St1),
+    {Eis++Bis,Aft,St2}.
+
+select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
+    F = fun ({map_pair,Key,{var,V}}, Int0) ->
+		Rsrc = fetch_var(Src, Int0),
+		case vdb_find(V, Vdb) of
+		    {V,_,L} when L =< I ->
+			{[{test,has_map_field,{f,Fail},[Rsrc,Key]}],Int0};
+		    _Other ->
+			Reg1 = put_reg(V, Int0#sr.reg),
+			Int1 = Int0#sr{reg=Reg1},
+			{[{get_map_element,{f,Fail},
+			   Rsrc,Key,fetch_reg(V, Reg1)}],
+			 Int1}
+		end
+	end,
+    {Es,Aft} = flatmapfoldl(F, Bef, Vs),
     {Es,Aft,St}.
 
 select_extract_cons(Src, [{var,Hd}, {var,Tl}], I, Vdb, Bef, St) ->
@@ -1408,7 +1448,7 @@ catch_cg(C, {var,R}, Le, Vdb, Bef, St0) ->
 %%  annotation must reflect this and make sure that the return
 %%  variable is allocated first.
 %%
-%%  put_list for constructing a cons is an atomic instruction
+%%  put_list and put_map are atomic instructions, both of
 %%  which can safely resuse one of the source registers as target.
 
 set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
@@ -1448,6 +1488,55 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
+set_cg([{var,R}], {map,SrcMap,Es0}, Le, Vdb, Bef,
+       #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+    Fail = {f,Bfail},
+    {Sis,Int0} =
+	case InCatch of
+	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
+	    false -> {[],Bef}
+	end,
+    Line = line(Le#l.a),
+    SrcReg = case SrcMap of
+		 {var,SrcVar} -> fetch_var(SrcVar, Int0);
+		 _ -> SrcMap
+	     end,
+    {Assoc,Exact} =
+	try
+	    cg_map_pairs(Es0)
+	catch
+	    throw:badarg ->
+		{[],[{{float,0.0},{atom,badarg}},
+		     {{integer,0},{atom,badarg}}]}
+	end,
+    F = fun ({K,{var,V}}) -> [K,fetch_var(V, Int0)];
+	    ({K,E}) -> [K,E]
+	end,
+    AssocList = flatmap(F, Assoc),
+    ExactList = flatmap(F, Exact),
+    Live0 = max_reg(Bef#sr.reg),
+    Int1 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Bef#sr{reg=put_reg(R, Int1#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
+    Code = [Line] ++
+	case {AssocList,ExactList} of
+	    {[_|_],[]} ->
+		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,AssocList}}];
+	    {[_|_],[_|_]} ->
+		Live = case Target of
+			   {x,TargetX} when TargetX =:= Live0 ->
+			       Live0 + 1;
+			   _ ->
+			       Live0
+		       end,
+		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,AssocList}},
+		 {put_map_exact,Fail,Target,Target,Live,{list,ExactList}}];
+	    {[],[_|_]} ->
+		[{put_map_exact,Fail,SrcReg,Target,Live0,{list,ExactList}}];
+	    {[],[]} ->
+		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,[]}}]
+	end,
+    {Sis++Code,Aft,St};
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     %% Find a place for the return register first.
     Int = Bef#sr{reg=put_reg(R, Bef#sr.reg)},
@@ -1459,6 +1548,71 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
+
+%% cg_map_pairs(MapPairs) -> {Assoc,Exact}
+%%  Assoc = Exact = [{K,V}]
+%%
+%%  Remove multiple assignments to the same key, and return
+%%  one list key-value list with all keys that may or may not exist
+%%  (Assoc), and one with keys that must exist (Exact).
+%%
+
+cg_map_pairs(Es0) ->
+    Es = cg_map_pairs_1(Es0, 0),
+    R0 = sofs:relation(Es),
+    R1 = sofs:relation_to_family(R0),
+    R2 = sofs:to_external(R1),
+
+    %% R2 is now [{KeyValue,[{Order,Op,OriginalKey,Value}]}]
+    R3 = [begin
+	      %% The value for the last pair determines the value.
+	      {_,_,_,V} = lists:last(Vs),
+	      {Op,{_,SortOrder}=K} = map_pair_op_and_key(Vs),
+	      {Op,{SortOrder,K,V}}
+	  end || {_,Vs} <- R2],
+
+    %% R3 is now [{Op,{Key,Value}}]
+    R = termsort(R3),
+
+    %% R4 is now sorted with all alloc first in the list, followed by
+    %% all exact.
+    {Assoc,Exact} = lists:partition(fun({Op,_}) -> Op =:= assoc end, R),
+    {[{K,V} || {_,{_,K,V}} <- Assoc],
+     [{K,V} || {_,{_,K,V}} <- Exact]}.
+
+cg_map_pairs_1([{map_pair_assoc,{_,Kv}=K,V}|T], Order) ->
+    [{Kv,{Order,assoc,K,V}}|cg_map_pairs_1(T, Order+1)];
+cg_map_pairs_1([{map_pair_exact,{_,Kv}=K,V}|T], Order) ->
+    [{Kv,{Order,exact,K,V}}|cg_map_pairs_1(T, Order+1)];
+cg_map_pairs_1([], _) -> [].
+
+%% map_pair_op_and_key({_,Op,K,_}) -> {Operator,Key}
+%%  Determine the operator and key to use. Throw a 'badarg'
+%%  exception if there are contradictory exact updates.
+
+map_pair_op_and_key(L) ->
+    case [K || {_,exact,K,_} <- L] of
+	[K] ->
+	    %% There is a single ':=' operator. Use that key.
+	    {exact,K};
+	[K|T] ->
+	    %% There is more than one ':=' operator. All of them
+	    %% must have the same key.
+	    case lists:all(fun(E) -> E =:= K end, T) of
+		true ->
+		    {exact,K};
+		false ->
+		    %% Some keys are different, e.g. 1 and 1.0.
+		    throw(badarg)
+	    end;
+	[] ->
+	    %% Only '=>' operators. Use the first key in the list.
+	    [{_,assoc,K,_}|_] = L,
+	    {assoc,K}
+    end.
+
+termsort(Ls) ->
+    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, Ls).
 
 %%%
 %%% Code generation for constructing binaries.

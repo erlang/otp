@@ -30,6 +30,7 @@
 
 -export([await_port_send_result/3]).
 -export([binary_to_term/1, binary_to_term/2]).
+-export([cmp_term/2]).
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -169,4 +170,14 @@ binary_to_term(_Binary) ->
       Binary :: binary(),
       Opts :: [safe].
 binary_to_term(_Binary, _Opts) ->
+    erlang:nif_error(undefined).
+
+%% term compare where integer() < float() = true
+
+-spec cmp_term(A,B) -> Result when
+    A :: term(),
+    B :: term(),
+    Result :: -1 | 0 | 1.
+
+cmp_term(_A,_B) ->
     erlang:nif_error(undefined).

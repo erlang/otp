@@ -105,6 +105,10 @@ vu_expr(V, #c_cons{hd=H,tl=T}) ->
     vu_expr(V, H) orelse vu_expr(V, T);
 vu_expr(V, #c_tuple{es=Es}) ->
     vu_expr_list(V, Es);
+vu_expr(V, #c_map{es=Es}) ->
+    vu_expr_list(V, Es);
+vu_expr(V, #c_map_pair{key=Key,val=Val}) ->
+    vu_expr_list(V, [Key,Val]);
 vu_expr(V, #c_binary{segments=Ss}) ->
     vu_seg_list(V, Ss);
 vu_expr(V, #c_fun{vars=Vs,body=B}) ->

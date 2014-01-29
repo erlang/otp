@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,7 @@
 #include "bif.h"
 #include "error.h"
 #include "big.h"
+#include "erl_map.h"
 #include "beam_bp.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
@@ -1602,6 +1603,197 @@ enif_have_dirty_schedulers()
 
 #endif /* ERL_NIF_DIRTY_SCHEDULER_SUPPORT */
 
+/* Maps */
+
+int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return is_map(term);
+}
+
+int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
+{
+    if (is_map(term)) {
+	map_t *mp;
+	mp    = (map_t*)map_val(term);
+	*size = map_get_size(mp);
+	return 1;
+    }
+    return 0;
+}
+
+ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
+{
+    Eterm* hp = alloc_heap(env,MAP_HEADER_SIZE+1);
+    Eterm tup;
+    map_t *mp;
+
+    tup   = make_tuple(hp);
+    *hp++ = make_arityval(0);
+    mp    = (map_t*)hp;
+    mp->thing_word = MAP_HEADER;
+    mp->size = 0;
+    mp->keys = tup;
+
+    return make_map(mp);
+}
+
+int enif_make_map_put(ErlNifEnv* env,
+	              Eterm map_in,
+		      Eterm key,
+		      Eterm value,
+		      Eterm *map_out)
+{
+    if (is_not_map(map_in)) {
+	return 0;
+    }
+    flush_env(env);
+    *map_out = erts_maps_put(env->proc, key, value, map_in);
+    cache_env(env);
+    return 1;
+}
+
+int enif_get_map_value(ErlNifEnv* env,
+	               Eterm map,
+		       Eterm key,
+		       Eterm *value)
+{
+    if (is_not_map(map)) {
+	return 0;
+    }
+    return erts_maps_get(key, map, value);
+}
+
+int enif_make_map_update(ErlNifEnv* env,
+	                 Eterm map_in,
+			 Eterm key,
+			 Eterm value,
+			 Eterm *map_out)
+{
+    int res;
+    if (is_not_map(map_in)) {
+	return 0;
+    }
+
+    flush_env(env);
+    res = erts_maps_update(env->proc, key, value, map_in, map_out);
+    cache_env(env);
+    return res;
+}
+
+int enif_make_map_remove(ErlNifEnv* env,
+	                 Eterm map_in,
+			 Eterm key,
+			 Eterm *map_out)
+{
+    int res;
+    if (is_not_map(map_in)) {
+	return 0;
+    }
+    flush_env(env);
+    res = erts_maps_remove(env->proc, key, map_in, map_out);
+    cache_env(env);
+    return res;
+}
+
+int enif_map_iterator_create(ErlNifEnv *env,
+	                     Eterm map,
+			     ErlNifMapIterator *iter,
+			     ErlNifMapIteratorEntry entry)
+{
+    if (is_map(map)) {
+	map_t *mp = (map_t*)map_val(map);
+	size_t offset;
+
+	switch (entry) {
+	    case ERL_NIF_MAP_ITERATOR_HEAD: offset = 0; break;
+	    case ERL_NIF_MAP_ITERATOR_TAIL: offset = map_get_size(mp) - 1; break;
+	    default: goto error;
+	}
+
+	/* empty maps are ok but will leave the iterator
+	 * in bad shape.
+	 */
+
+	iter->map     = map;
+	iter->ks      = ((Eterm *)map_get_keys(mp)) + offset;
+	iter->vs      = ((Eterm *)map_get_values(mp)) + offset;
+	iter->t_limit = map_get_size(mp) + 1;
+	iter->idx     = offset + 1;
+
+	return 1;
+    }
+
+error:
+#ifdef DEBUG
+    iter->map = THE_NON_VALUE;
+#endif
+    return 0;
+}
+
+void enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)
+{
+    /* not used */
+#ifdef DEBUG
+    iter->map = THE_NON_VALUE;
+#endif
+
+}
+
+int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)
+{
+    ASSERT(iter && is_map(iter->map));
+    ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
+    return (iter->t_limit == 1 || iter->idx == iter->t_limit);
+}
+
+int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)
+{
+    ASSERT(iter && is_map(iter->map));
+    ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
+    return (iter->t_limit == 1 || iter->idx == 0);
+}
+
+
+int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
+{
+    ASSERT(iter && is_map(iter->map));
+    if (iter->idx < iter->t_limit) {
+	iter->idx++;
+	iter->ks++;
+	iter->vs++;
+    }
+    return (iter->idx != iter->t_limit);
+}
+
+int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
+{
+    ASSERT(iter && is_map(iter->map));
+    if (iter->idx > 0) {
+	iter->idx--;
+	iter->ks--;
+	iter->vs--;
+    }
+    return (iter->idx > 0);
+}
+
+int enif_map_iterator_get_pair(ErlNifEnv *env,
+			       ErlNifMapIterator *iter,
+			       Eterm *key,
+			       Eterm *value)
+{
+    ASSERT(iter && is_map(iter->map));
+    if (iter->idx > 0 && iter->idx < iter->t_limit) {
+	ASSERT(iter->ks >= map_get_keys(map_val(iter->map)) &&
+	       iter->ks  < (map_get_keys(map_val(iter->map)) + map_get_size(map_val(iter->map))));
+	ASSERT(iter->vs >= map_get_values(map_val(iter->map)) &&
+	       iter->vs  < (map_get_values(map_val(iter->map)) + map_get_size(map_val(iter->map))));
+	*key   = *(iter->ks);
+	*value = *(iter->vs);
+	return 1;
+    }
+    return 0;
+}
+
 /***************************************************************************
  **                              load_nif/2                               **
  ***************************************************************************/
@@ -1798,7 +1990,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
     }
     else if (entry->major != ERL_NIF_MAJOR_VERSION
-	     || entry->minor > ERL_NIF_MINOR_VERSION) {
+	     || entry->minor > ERL_NIF_MINOR_VERSION
+	     || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
 	
 	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
 			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
