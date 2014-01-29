@@ -3309,6 +3309,8 @@ sys_msg_dispatcher_func(void *unused)
 	    if (erts_thr_progress_update(NULL))
 		erts_thr_progress_leader_update(NULL);
 
+	    ERTS_SCHED_FAIR_YIELD();
+
 #ifdef DEBUG_PRINTOUTS
 	    print_msg_type(smqp);
 #endif

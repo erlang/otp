@@ -2620,6 +2620,8 @@ aux_thread(void *unused)
 		erts_thr_progress_active(NULL, thr_prgr_active = 0);
 	    erts_thr_progress_prepare_wait(NULL);
 
+	    ERTS_SCHED_FAIR_YIELD();
+
 	    flgs = sched_spin_wait(ssi, 0);
 
 	    if (flgs & ERTS_SSI_FLG_SLEEPING) {
@@ -2733,6 +2735,8 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		    erts_thr_progress_prepare_wait(esdp);
 		}
 
+		ERTS_SCHED_FAIR_YIELD();
+
 		flgs = sched_spin_wait(ssi, spincount);
 		if (flgs & ERTS_SSI_FLG_SLEEPING) {
 		    ASSERT(flgs & ERTS_SSI_FLG_WAITING);
@@ -2798,7 +2802,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
 	sys_poll_try:
 	while(!prepare_for_sys_schedule()) {
-		delay(1);
+	  ERTS_SCHED_FAIR_YIELD();
 	}
 #endif
 
@@ -8069,10 +8073,12 @@ Process *schedule(Process *p, int calls)
 	    erts_aint32_t aux_work;
 	    int leader_update = erts_thr_progress_update(esdp);
 	    aux_work = erts_atomic32_read_acqb(&esdp->ssi->aux_work);
-	    if (aux_work | leader_update) {
+	    if (aux_work | leader_update | ERTS_SCHED_FAIR) {
 		erts_smp_runq_unlock(rq);
 		if (leader_update)
 		    erts_thr_progress_leader_update(esdp);
+		else if (ERTS_SCHED_FAIR)
+		  ERTS_SCHED_FAIR_YIELD();
 		if (aux_work)
 		    handle_aux_work(&esdp->aux_work_data, aux_work, 0);
 		erts_smp_runq_lock(rq);

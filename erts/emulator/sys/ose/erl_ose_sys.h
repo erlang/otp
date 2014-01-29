@@ -41,8 +41,9 @@
 #include "ethread.h"
 
 /* FIXME: configuration options */
-#define ERTS_SCHED_MIN_SPIN
-#define ERTS_SCHED_ONLY_POLL_SCHED_1
+#define ERTS_SCHED_MIN_SPIN 1
+#define ERTS_SCHED_ONLY_POLL_SCHED_1 1
+#define ERTS_SCHED_FAIR 1
 #define NO_SYSCONF 1
 #define OPEN_MAX FOPEN_MAX
 
