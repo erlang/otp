@@ -17,146 +17,145 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test specific layer on top of telnet client ct_telnet_client.erl
-%%%
-%%% <p>Use this module to set up telnet connections, send commands and
-%%% perform string matching on the result.
-%%% See the <c>unix_telnet</c> manual page for information about how to use 
-%%% ct_telnet, and configure connections, specifically for unix hosts.</p>
-%%% <p>The following default values are defined in ct_telnet:</p>
-%%% <pre>
-%%% Connection timeout = 10 sec (time to wait for connection)
-%%% Command timeout = 10 sec (time to wait for a command to return)
-%%% Max no of reconnection attempts = 3
-%%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
-%%% <p>These parameters can be altered by the user with the following
-%%% configuration term:</p>
-%%% <pre>
-%%% {telnet_settings, [{connect_timeout,Millisec},
-%%%                    {command_timeout,Millisec},
-%%%                    {reconnection_attempts,N},
-%%%                    {reconnection_interval,Millisec},
-%%%                    {keep_alive,Bool}]}.</pre>
-%%% <p><code>Millisec = integer(), N = integer()</code></p>
-%%% <p>Enter the <code>telnet_settings</code> term in a configuration 
-%%% file included in the test and ct_telnet will retrieve the information
-%%% automatically. Note that <c>keep_alive</c> may be specified per connection if
-%%% required. See <c>unix_telnet</c> for details.</p>
-%%%
-%%% @end
-%%%
-%%% == Logging ==
-%%%
-%%% `ct_telnet' can be configured to uses the `error_logger' for logging telnet
-%%% traffic. A special purpose error handler is implemented in
-%%% `ct_conn_log_h'. To use this error handler, add the `cth_conn_log'
-%%% hook in your test suite, e.g.
-%%%
-%%%
-%%% ```
-%%% suite() ->
-%%%    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
-%%%'''
-%%%
-%%% `conn_mod()' is the name of the common_test module implementing
-%%% the connection protocol, i.e. `ct_telnet'.
-%%%
-%%% The hook option `log_type' specifies the type of logging:
-%%%
-%%% <dl>
-%%%   <dt>`raw'</dt>
-%%%   <dd>The sent and received telnet data is logged to a separate
-%%%   text file as is without any formatting. A link to the file is
-%%%   added to the test case HTML log.</dd>
-%%%
-%%%   <dt>`html (default)'</dt>
-%%%   <dd>The sent and received telnet traffic is pretty printed
-%%%   directly in the test case HTML log.</dd>
-%%%
-%%%   <dt>`silent'</dt>
-%%%   <dd>Telnet traffic is not logged.</dd>
-%%% </dl>
-%%%
-%%% By default, all telnet traffic is logged in one single log
-%%% file. However, it is possible to have different connections logged
-%%% in separate files. To do this, use the hook option `hosts' and
-%%% list the names of the servers/connections that will be used in the
-%%% suite. Note that the connections must be named for this to work.
-%%%
-%%% The `hosts' option has no effect if `log_type' is set to `html' or
-%%% `silent'.
-%%%
-%%% The hook options can also be specified in a configuration file with
-%%% the configuration variable `ct_conn_log':
-%%%
-%%% ```
-%%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
-%%% '''
-%%%
-%%% For example:
+%% @doc Common Test specific layer on top of telnet client `ct_telnet_client.erl'
 %%
-%%% ```
-%%% {ct_conn_log,[{ct_telnet,[{log_type,raw},
-%%%                           {hosts,[key_or_name()]}]}]}
-%%% '''
-%%%
-%%% <b>Note</b> that hook options specified in a configuration file
-%%% will overwrite any hardcoded hook options in the test suite.
+%% <p>Use this module to set up telnet connections, send commands and
+%% perform string matching on the result.
+%% See the `unix_telnet' manual page for information about how to use 
+%% `ct_telnet', and configure connections, specifically for unix hosts.</p>
+%% <p>The following default values are defined in `ct_telnet':</p>
+%% <pre>
+%% Connection timeout = 10 sec (time to wait for connection)
+%% Command timeout = 10 sec (time to wait for a command to return)
+%% Max no of reconnection attempts = 3
+%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
+%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
+%% <p>These parameters can be altered by the user with the following
+%% configuration term:</p>
+%% <pre>
+%% {telnet_settings, [{connect_timeout,Millisec},
+%%                    {command_timeout,Millisec},
+%%                    {reconnection_attempts,N},
+%%                    {reconnection_interval,Millisec},
+%%                    {keep_alive,Bool}]}.</pre>
+%% <p><code>Millisec = integer(), N = integer()</code></p>
+%% <p>Enter the <code>telnet_settings</code> term in a configuration 
+%% file included in the test and ct_telnet will retrieve the information
+%% automatically. Note that `keep_alive' may be specified per connection if
+%% required. See `unix_telnet' for details.</p>
 %%
-%%% === Logging example 1 ===
-%%%
-%%% The following `ct_hooks' statement will cause raw printing of
-%%% telnet traffic to separate logs for the connections named
-%%% `server1' and `server2'. Any other connections will be logged
-%%% to default telnet log.
-%%%
-%%% ```
-%%% suite() ->
-%%%    [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
-%%%                                             {hosts,[server1,server2]}]}
-%%%                                ]}]}].
-%%%'''
-%%%
-%%% === Logging example 2 ===
-%%%
-%%% The following configuration file will cause raw logging of all
-%%% telnet traffic into one single text file.
-%%%
-%%% ```
-%%% {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.
-%%% '''
-%%%
-%%% The `ct_hooks' statement must look like this:
-%%%
-%%% ```
-%%% suite() ->
-%%%    [{ct_hooks, [{cth_conn_log, []}]}].
-%%% '''
-%%%
-%%% The same `ct_hooks' statement without the configuration file would
-%%% cause HTML logging of all telnet connections into the test case
-%%% HTML log.
-%%%
-%%% <b>Note</b> that if the `cth_conn_log' hook is not added, telnet
-%%% traffic is still logged in the test case log files (on the legacy
-%%% `ct_telnet' format).
+%% == Logging ==
+%%
+%% `ct_telnet' can be configured to uses the `error_logger' for logging telnet
+%% traffic. A special purpose error handler is implemented in
+%% `ct_conn_log_h'. To use this error handler, add the `cth_conn_log'
+%% hook in your test suite, e.g:
+%%
+%%
+%% ```
+%% suite() ->
+%%    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
+%%'''
+%%
+%% `conn_mod()' is the name of the common_test module implementing
+%% the connection protocol, i.e. `ct_telnet'.
+%%
+%% The hook option `log_type' specifies the type of logging:
+%%
+%% <dl>
+%%   <dt>`raw'</dt>
+%%   <dd>The sent and received telnet data is logged to a separate
+%%   text file as is, without any formatting. A link to the file is
+%%   added to the test case HTML log.</dd>
+%%
+%%   <dt>`html (default)'</dt>
+%%   <dd>The sent and received telnet traffic is pretty printed
+%%   directly in the test case HTML log.</dd>
+%%
+%%   <dt>`silent'</dt>
+%%   <dd>Telnet traffic is not logged.</dd>
+%% </dl>
+%%
+%% By default, all telnet traffic is logged in one single log
+%% file. However, it is possible to have different connections logged
+%% in separate files. To do this, use the hook option `hosts' and
+%% list the names of the servers/connections that will be used in the
+%% suite. Note that the connections must be named for this to work
+%% (see the `open' function below).
+%%
+%% The `hosts' option has no effect if `log_type' is set to `html' or
+%% `silent'.
+%%
+%% The hook options can also be specified in a configuration file with
+%% the configuration variable `ct_conn_log':
+%%
+%% ```
+%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
+%% '''
+%%
+%% For example:
+%%
+%% ```
+%% {ct_conn_log,[{ct_telnet,[{log_type,raw},
+%%                           {hosts,[key_or_name()]}]}]}
+%% '''
+%%
+%% <b>Note</b> that hook options specified in a configuration file
+%% will overwrite any hardcoded hook options in the test suite.
+%%
+%% === Logging example 1 ===
+%%
+%% The following `ct_hooks' statement will cause raw printing of
+%% telnet traffic to separate logs for the connections named
+%% `server1' and `server2'. Any other connections will be logged
+%% to default telnet log.
+%%
+%% ```
+%% suite() ->
+%%    [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
+%%                                             {hosts,[server1,server2]}]}
+%%                                ]}]}].
+%%'''
+%%
+%% === Logging example 2 ===
+%%
+%% The following configuration file will cause raw logging of all
+%% telnet traffic into one single text file.
+%%
+%% ```
+%% {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.
+%% '''
+%%
+%% The `ct_hooks' statement must look like this:
+%%
+%% ```
+%% suite() ->
+%%    [{ct_hooks, [{cth_conn_log, []}]}].
+%% '''
+%%
+%% The same `ct_hooks' statement without the configuration file would
+%% cause HTML logging of all telnet connections into the test case
+%% HTML log.
+%%
+%% <b>Note</b> that if the `cth_conn_log' hook is not added, telnet
+%% traffic is still logged in the test case HTML log file (on the legacy
+%% `ct_telnet' format).
+%% @end
 
+%% @type connection_type() = telnet | ts1 | ts2
 
-%%% @type connection_type() = telnet | ts1 | ts2
+%% @type connection() = handle() |
+%% {ct:target_name(),connection_type()} | ct:target_name()
 
-%%% @type connection() = handle() |
-%%% {ct:target_name(),connection_type()} | ct:target_name()
+%% @type handle() = ct_gen_conn:handle(). Handle for a
+%% specific telnet connection.
 
-%%% @type handle() = ct_gen_conn:handle(). Handle for a
-%%% specific telnet connection.
-
-%%% @type prompt_regexp() = string(). A regular expression which
-%%% matches all possible prompts for a specific type of target. The
-%%% regexp must not have any groups i.e. when matching, re:run/3 shall
-%%% return a list with one single element.
-%%%
-%%% @see unix_telnet
+%% @type prompt_regexp() = string(). A regular expression which
+%% matches all possible prompts for a specific type of target. The
+%% regexp must not have any groups i.e. when matching, re:run/3 shall
+%% return a list with one single element.
+%%
+%% @see unix_telnet
 
 -module(ct_telnet).
 
