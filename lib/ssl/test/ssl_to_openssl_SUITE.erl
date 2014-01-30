@@ -248,7 +248,7 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     Cmd = "openssl s_client -port " ++ integer_to_list(Port) ++
-	" -host localhost",
+	" -host localhost" ++ workaround_openssl_s_clinent(),
 
     ct:log("openssl cmd: ~p~n", [Cmd]),
     
@@ -1383,3 +1383,20 @@ supports_sslv2(Port) ->
 	    true
     end.
 
+workaround_openssl_s_clinent() ->
+    %% http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=683159
+    %% https://bugs.archlinux.org/task/33919
+    %% Bug seems to manifests it self if TLS version is not
+    %% explicitly specified 
+    case os:cmd("openssl version") of 
+	"OpenSSL 1.0.1c" ++ _ ->
+	    " -no_tls1_2 ";
+	"OpenSSL 1.0.1d" ++ _ ->
+	    " -no_tls1_2 ";
+	"OpenSSL 1.0.1e" ++ _ ->
+	    " -no_tls1_2 ";
+	"OpenSSL 1.0.1f" ++ _ ->
+	    " -no_tls1_2 ";
+	_  ->
+	    ""
+    end.
