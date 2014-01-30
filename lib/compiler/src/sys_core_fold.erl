@@ -305,6 +305,10 @@ expr(#c_let{}=Let, Ctxt, Sub) ->
 	    %% Now recursively re-process the new expression.
 	    expr(Expr, Ctxt, sub_new_preserve_types(Sub))
     end;
+expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
+    %% This is named fun in an 'effect' context. Warn and ignore.
+    add_warning(Letrec, useless_building),
+    void();
 expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
 		      {Name,expr(Fb, {letrec,Ctxt}, Sub)}
