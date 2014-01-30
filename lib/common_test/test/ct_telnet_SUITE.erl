@@ -46,6 +46,26 @@
 %% instance, the tests need to be performed on a separate node (or
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+groups() ->
+    [{legacy, [], [unix_telnet,own_server,timetrap]},
+     {raw,    [], [unix_telnet,own_server,timetrap]},
+     {html,   [], [unix_telnet,own_server]},
+     {silent, [], [unix_telnet,own_server]}].
+
+all() ->
+    [
+     {group,legacy},
+     {group,raw},
+     {group,html},
+     {group,silent}
+    ].
+
+%%--------------------------------------------------------------------
+%% CONFIG FUNCTIONS
+%%--------------------------------------------------------------------
+
 init_per_suite(Config) ->
     ct_test_support:init_per_suite(Config).
 
@@ -67,14 +87,6 @@ end_per_testcase(TestCase, Config) ->
     end,
     ct_test_support:end_per_testcase(TestCase, Config).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
-all() ->
-    [
-     unix_telnet,
-     own_server,
-     timetrap
-    ].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -82,27 +94,43 @@ all() ->
 
 %%%-----------------------------------------------------------------
 %%%
-unix_telnet(Config) when is_list(Config) ->
-    all_tests_in_suite(unix_telnet,"ct_telnet_basic_SUITE","telnet.cfg",Config).
+unix_telnet(Config) ->
+    CfgFile = "telnet.unix_telnet." ++
+	atom_to_list(groupname(Config)) ++ ".cfg",
+    all_tests_in_suite(unix_telnet,"ct_telnet_basic_SUITE",CfgFile,Config).
 
 own_server(Config) ->
+    CfgFile = "telnet.own_server." ++
+	atom_to_list(groupname(Config)) ++ ".cfg",
     all_tests_in_suite(own_server,"ct_telnet_own_server_SUITE",
-		       "telnet2.cfg",Config).
+		       CfgFile,Config).
 
 timetrap(Config) ->
+    CfgFile = "telnet.timetrap." ++
+	atom_to_list(groupname(Config)) ++ ".cfg",
     all_tests_in_suite(timetrap,"ct_telnet_timetrap_SUITE",
-		       "telnet3.cfg",Config).
+		       CfgFile,Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
+groupname(Config) ->
+    case proplists:get_value(tc_group_properties, Config) of
+	undefined ->
+	    undefined;
+	TGP ->
+	    proplists:get_value(name, TGP)
+    end.
+
 all_tests_in_suite(TestCase, SuiteName, CfgFileName, Config) ->
+    PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, SuiteName),
-    CfgFile = filename:join(DataDir, CfgFileName),
-    Cfg = telnet_config(TestCase),
-    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
+    CfgFile = filename:join(PrivDir, CfgFileName),
+    Cfg = telnet_config(TestCase, groupname(Config)),
+    Txt = lists:flatten([lists:flatten(io_lib:write(C))++".\n" || C <- Cfg]),
+    ok = file:write_file(CfgFile, Txt),
     {Opts,ERPid} = setup([{suite,Suite},
 			  {label,TestCase},
 			  {config,CfgFile}],
@@ -132,15 +160,36 @@ execute(Name, Opts, ERPid, Config) ->
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
-
-telnet_config(unix_telnet) ->
-    {unix, ct:get_config(unix)};
-telnet_config(_) ->
-    {unix,[{telnet,"localhost"},
-	   {port, ?erl_telnet_server_port},
-	   {username,?erl_telnet_server_user},
-	   {password,?erl_telnet_server_pwd},
-	   {keep_alive,true}]}.
+telnet_config(_, undefined) ->
+    [];
+telnet_config(unix_telnet, legacy) ->
+    [{unix, ct:get_config(unix)},
+     {ct_conn_log,[]}];
+%% LogType same as GroupName
+telnet_config(unix_telnet, LogType) ->
+    [{unix, ct:get_config(unix)},
+     {ct_conn_log,
+      [{ct_telnet,[{log_type,LogType},
+		   {hosts,[telnet_server_conn1,
+			   telnet_server_conn2,
+			   telnet_server_conn3,
+			   telnet_server_conn4]}]}]}];
+telnet_config(_, LogType) ->
+    [{unix,[{telnet,"localhost"},
+	    {port, ?erl_telnet_server_port},
+	    {username,?erl_telnet_server_user},
+	    {password,?erl_telnet_server_pwd},
+	    {keep_alive,true}]} |
+     if LogType == legacy -> 
+	     [{ct_conn_log,[]}];
+	true ->
+	     [{ct_conn_log,
+	       [{ct_telnet,[{log_type,LogType},
+			    {hosts,[telnet_server_conn1,
+				    telnet_server_conn2,
+				    telnet_server_conn3,
+				    telnet_server_conn4]}]}]}]
+     end].
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
@@ -159,14 +208,44 @@ events_to_check(timetrap,_Config) ->
 all_cases(Suite,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
 					     Suite)),
-    TCs = Suite:all(),
+    GroupsAndTCs = Suite:all(),
+
+    Terms =
+	lists:flatmap(
+	  fun({group,G}) ->
+		  {value,{G,Props,GTCs}} =
+		      lists:keysearch(G,1,Suite:groups()),
+		  GTCs1 = case lists:member(parallel,Props) of
+			      true ->
+				  %%! TEMPORARY WORKAROUND FOR PROBLEM
+				  %%! WITH ct_test_support NOT HANDLING
+				  %%! VERIFICATION OF PARALLEL GROUPS
+				  %%! CORRECTLY!
+				  [];
+			      false ->
+				  [[{?eh,tc_start,{Suite,GTC}},
+				    {?eh,tc_done,{Suite,GTC,ok}}] ||
+				      GTC <- GTCs]
+			  end,
+		  [{?eh,tc_start,{Suite,{init_per_group,G,Props}}},
+		   {?eh,tc_done,{Suite,{init_per_group,G,Props},ok}} |
+		   GTCs1] ++
+		      [{?eh,tc_start,{Suite,{end_per_group,G,Props}}},
+		       {?eh,tc_done,{Suite,{end_per_group,G,Props},ok}}];
+	     (TC) ->
+		  [{?eh,tc_done,{Suite,TC,ok}}]
+	  end, GroupsAndTCs),
+    
     code:purge(Suite),
     code:delete(Suite),
 
+    FlatTerms = lists:flatten(Terms),
+
+    ct:log("Verifying with terms:~n~p", [FlatTerms]),
+
     OneTest =
-	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{Suite,TC,ok}} || TC <- TCs] ++
-	[{?eh,stop_logging,[]}],
+	[{?eh,start_logging,{'DEF','RUNDIR'}} |
+	 FlatTerms] ++ [{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default
     OneTest ++ OneTest.

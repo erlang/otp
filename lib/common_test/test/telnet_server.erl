@@ -64,18 +64,19 @@ accept(#state{listen=LSock}=State) ->
 	{Acceptor,Sock} when is_port(Sock) ->
 	    case init_client(State#state{client=Sock}) of
 		stopped ->
-		    io:format("telnet_server stopped\n"),
+		    io:format("[telnet_server] telnet_server stopped\n"),
 		    ok;
 		R ->
-		    io:format("connection to client closed with reason ~p~n",[R]),
+		    io:format("[telnet_server] connection to client" 
+			      "closed with reason ~p~n",[R]),
 		    accept(State)
 	    end;
 	{Acceptor,closed} ->
-	    io:format("listen socket closed unexpectedly, "
+	    io:format("[telnet_server] listen socket closed unexpectedly, "
 		      "terminating telnet_server\n"),
 	    ok;
 	stop  ->
-	    io:format("telnet_server stopped\n"),
+	    io:format("[telnet_server] telnet_server stopped\n"),
 	    ok
     end.
 
@@ -188,7 +189,7 @@ do_handle_data(_Data,State) ->
 check_user(User,State) ->
     case lists:keyfind(User,1,State#state.users) of
 	{User,Pwd} ->
-	   dbg("user ok\n"),
+	    dbg("user ok\n"),
 	    send("Password: ",State),
 	    {ok,State#state{authorized={user,Pwd}}};
 	false ->
@@ -223,6 +224,6 @@ get_line([],_) ->
     false.
 
 dbg(_F) ->
-    io:format(_F).
+    dbg(_F,[]).
 dbg(_F,_A) ->
-    io:format(_F,_A).
+    io:format("[telnet_server] "++_F,_A).

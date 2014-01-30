@@ -4,7 +4,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(name,erl_telnet_server).
+-define(name, telnet_server_conn1).
 
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
@@ -17,6 +17,8 @@ end_per_suite(_Config) ->
     ok.
 
 suite() -> [{require,?name,{unix,[telnet]}},
+	    {require,ct_conn_log},
+ 	    {ct_hooks, [{cth_conn_log,[]}]},
 	    {timetrap,{seconds,7}}].
 
 all() ->
