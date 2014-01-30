@@ -26,6 +26,7 @@ MODULES= \
 	guard_SUITE \
 	inline_SUITE \
 	lc_SUITE \
+	map_SUITE \
 	match_SUITE \
 	misc_SUITE \
 	num_bif_SUITE \
