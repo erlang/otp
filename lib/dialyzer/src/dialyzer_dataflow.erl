@@ -2302,6 +2302,9 @@ bind_guard_list([], Map, _Env, _Eval, _State, Acc) ->
 signal_guard_fail(Eval, Guard, ArgTypes, State) ->
   signal_guard_failure(Eval, Guard, ArgTypes, fail, State).
 
+-spec signal_guard_fatal_fail(eval(), cerl:c_call(), [erl_types:erl_type()],
+			      state()) -> no_return().
+
 signal_guard_fatal_fail(Eval, Guard, ArgTypes, State) ->
   signal_guard_failure(Eval, Guard, ArgTypes, fatal_fail, State).
 
