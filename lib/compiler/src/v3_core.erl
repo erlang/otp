@@ -900,6 +900,7 @@ lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
     {Head,St2} = new_var(St1),
     {Tname,St3} = new_var_name(St2),
     LA = lineno_anno(Line, St3),
+    CGAnno = #a{anno=[list_comprehension|LA]},
     LAnno = #a{anno=LA},
     Tail = #c_var{anno=LA,name=Tname},
     {Arg,St4} = new_var(St3),
@@ -937,7 +938,7 @@ lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
 			   body=Lps ++ [Lc]}|Cs0]
 	 end,
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,1},Fun}],
+    {#iletrec{anno=CGAnno,defs=[{{Name,1},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,1}},
 				   args=[Gc]}]},
@@ -947,6 +948,7 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
     {Name,St1} = new_fun_name("blc", St0),
     LA = lineno_anno(Line, St1),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     HeadBinPattern = pattern(P, St1),
     #c_binary{segments=Ps0} = HeadBinPattern,
     {Ps,Tail,St2} = append_tail_segment(Ps0, St1),
@@ -975,7 +977,7 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
 		   pats=[#c_binary{anno=LA,segments=TailSegList}],guard=[],
 		   body=[Mc]}],
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,1},Fun}],
+    {#iletrec{anno=CGAnno,defs=[{{Name,1},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,1}},
 				   args=[Gc]}]},
@@ -984,12 +986,13 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
     %% Special case sequences guard tests.
     LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     case is_guard_test(Fil0) of
 	true ->
 	    {Gs0,Qs1} = splitwith(fun is_guard_test/1, Qs0),
 	    {Lc,Lps,St1} = lc_tq(Line, E, Qs1, Mc, St0),
 	    {Gs,St2} = lc_guard_tests([Fil0|Gs0], St1), %These are always flat!
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[],
 		    clauses=[#iclause{anno=LAnno,pats=[],
 				      guard=Gs,body=Lps ++ [Lc]}],
@@ -1003,7 +1006,7 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
 			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St3} = novars(Fil0, St2),
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[Filc],
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[#c_literal{anno=LA,val=true}],
@@ -1047,6 +1050,7 @@ bc_tq1(Line, E, [{generate,Lg,P,G}|Qs0], AccExpr, St0) ->
     LA = lineno_anno(Line, St1),
     {[Head,Tail,AccVar],St2} = new_vars(LA, 3, St1),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     {Arg,St3} = new_var(St2),
     NewMore = {call,Lg,{atom,Lg,Name},[{var,Lg,Tail#c_var.name},
 				       {var,Lg,AccVar#c_var.name}]},
@@ -1080,7 +1084,7 @@ bc_tq1(Line, E, [{generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 			   body=Body}|Cs0]
 	 end,
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,2},Fun}],
+    {#iletrec{anno=CGAnno,defs=[{{Name,2},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,2}},
 				   args=[Gc,AccExpr]}]},
@@ -1091,6 +1095,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
     LA = lineno_anno(Line, St1),
     {AccVar,St2} = new_var(LA, St1),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     HeadBinPattern = pattern(P, St2),
     #c_binary{segments=Ps0} = HeadBinPattern,
     {Ps,Tail,St3} = append_tail_segment(Ps0, St2),
@@ -1119,7 +1124,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 		   pats=[#c_binary{anno=LA,segments=TailSegList},AccVar],
 		   guard=[],
 		   body=[AccVar]}],
-    Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
+    Fun = #ifun{anno=CGAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno,defs=[{{Name,2},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,2}},
@@ -1129,12 +1134,13 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
     %% Special case sequences guard tests.
     LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     case is_guard_test(Fil0) of
 	true ->
 	    {Gs0,Qs1} = splitwith(fun is_guard_test/1, Qs0),
 	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs1, AccVar, St0),
 	    {Gs,St} = lc_guard_tests([Fil0|Gs0], St1), %These are always flat!
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[],
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[],
@@ -1149,7 +1155,7 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
 			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St} = novars(Fil0, St2),
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[Filc],
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[#c_literal{anno=LA,val=true}],
