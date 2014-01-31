@@ -3923,9 +3923,9 @@ check_constraint(S,{simpletable,Type}) ->
 	#'Externaltypereference'{} ->
 	    ERef = check_externaltypereference(S,C),
 	    {simpletable,ERef#'Externaltypereference'.type};
-	#type{def=#'Externaltypereference'{type=T}} ->
-	    check_externaltypereference(S,C#type.def),
-	    {simpletable,T};
+	#type{def=#'Externaltypereference'{}=ExtTypeRef} ->
+	    ERef = check_externaltypereference(S, ExtTypeRef),
+	    {simpletable,ERef#'Externaltypereference'.type};
 	{valueset,#type{def=ERef=#'Externaltypereference'{}}} -> % this is an object set
 	    {_,TDef} = get_referenced_type(S,ERef),
 	    case TDef#typedef.typespec of 
