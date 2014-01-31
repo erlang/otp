@@ -629,19 +629,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.fix_alloc.thr_spec = 0;
 #endif
 
-    if (init.erts_alloc_config) {
-	/* Adjust flags that erts_alloc_config won't like */
-	init.temp_alloc.thr_spec = 0;
-	init.sl_alloc.thr_spec = 0;
-	init.std_alloc.thr_spec = 0;
-	init.ll_alloc.thr_spec = 0;
-	init.eheap_alloc.thr_spec = 0;
-	init.binary_alloc.thr_spec = 0;
-	init.ets_alloc.thr_spec = 0;
-	init.driver_alloc.thr_spec = 0;
-	init.fix_alloc.thr_spec = 0;	
-    }
-
     /* Make adjustments for carrier migration support */
     init.temp_alloc.init.util.acul = 0;
     adjust_carrier_migration_support(&init.sl_alloc);
@@ -652,6 +639,32 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_carrier_migration_support(&init.ets_alloc);
     adjust_carrier_migration_support(&init.driver_alloc);
     adjust_carrier_migration_support(&init.fix_alloc);
+
+    if (init.erts_alloc_config) {
+	/* Adjust flags that erts_alloc_config won't like */
+
+	/* No thread specific instances */
+	init.temp_alloc.thr_spec = 0;
+	init.sl_alloc.thr_spec = 0;
+	init.std_alloc.thr_spec = 0;
+	init.ll_alloc.thr_spec = 0;
+	init.eheap_alloc.thr_spec = 0;
+	init.binary_alloc.thr_spec = 0;
+	init.ets_alloc.thr_spec = 0;
+	init.driver_alloc.thr_spec = 0;
+	init.fix_alloc.thr_spec = 0;
+
+	/* No carrier migration */
+	init.temp_alloc.init.util.acul = 0;
+	init.sl_alloc.init.util.acul = 0;
+	init.std_alloc.init.util.acul = 0;
+	init.ll_alloc.init.util.acul = 0;
+	init.eheap_alloc.init.util.acul = 0;
+	init.binary_alloc.init.util.acul = 0;
+	init.ets_alloc.init.util.acul = 0;
+	init.driver_alloc.init.util.acul = 0;
+	init.fix_alloc.init.util.acul = 0;
+    }
 
 #ifdef ERTS_SMP
     /* Only temp_alloc can use thread specific interface */
