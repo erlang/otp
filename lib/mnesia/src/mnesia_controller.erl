@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -198,7 +198,8 @@ sync_dump_log(InitBy) ->
     call({sync_dump_log, InitBy}).
 
 async_dump_log(InitBy) ->
-    ?SERVER_NAME ! {async_dump_log, InitBy}.
+    ?SERVER_NAME ! {async_dump_log, InitBy},
+    ok.
 
 %% Wait for tables to be active
 %% If needed, we will wait for Mnesia to start
@@ -293,10 +294,11 @@ update(Fun) ->
 
 
 mnesia_down(Node) ->
-    case cast({mnesia_down, Node}) of
-	{error, _} -> mnesia_monitor:mnesia_down(?SERVER_NAME, Node);
-	_Pid ->  ok
+    case whereis(?SERVER_NAME) of
+	undefined -> mnesia_monitor:mnesia_down(?SERVER_NAME, Node);
+	Pid -> gen_server:cast(Pid, {mnesia_down, Node})
     end.
+
 wait_for_schema_commit_lock() ->
     link(whereis(?SERVER_NAME)),
     unsafe_call(wait_for_schema_commit_lock).
@@ -467,7 +469,7 @@ connect_nodes2(Father, Ns, UserFun) ->
     process_flag(trap_exit, true),
     Res = try_merge_schema(New, [], UserFun),
     Msg = {schema_is_merged, [], late_merge, []},
-    multicall([node()|Ns], Msg),
+    _ = multicall([node()|Ns], Msg),
     After = val({current, db_nodes}),
     Father ! {?MODULE, self(), Res, mnesia_lib:intersect(Ns,After)},
     unlink(Father),
@@ -548,7 +550,7 @@ schema_is_merged() ->
 
 cast(Msg) ->
     case whereis(?SERVER_NAME) of
-	undefined ->{error, {node_not_running, node()}};
+	undefined -> ok;
 	Pid ->  gen_server:cast(Pid, Msg)
     end.
 
@@ -1789,7 +1791,7 @@ sync_and_block_table_whereabouts(Tab, ToNode, RemoteS, AccessMode) when Tab /= s
 	    true -> Current -- [ToNode];
 	    false -> Current
 	end,
-    remote_call(ToNode, block_table, [Tab]),
+    _ = remote_call(ToNode, block_table, [Tab]),
     [remote_call(Node, add_active_replica, [Tab, ToNode, RemoteS, AccessMode]) ||
 	Node <- [ToNode | Ns]],
     ok.
