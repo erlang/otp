@@ -171,17 +171,32 @@ start_link(T) ->
 
 info({gen_sctp, Sock}) ->
     lists:flatmap(fun(K) -> info(K, Sock) end,
-                  [{socket, sockname},
-                   {peer, peername},
+                  [{socket, socknames},
+                   {peer, peernames},
                    {statistics, getstat}]).
 
 info({K,F}, Sock) ->
     case inet:F(Sock) of
         {ok, V} ->
-            [{K,V}];
+            [{K, map(F,V)}];
         _ ->
             []
     end.
+
+%% inet:{sock,peer}names/1 returns [{Addr, Port}] but the port number
+%% should be the same in each tuple. Map to a {[Addr], Port} tuple if
+%% so.
+map(K, [{_, Port} | _] = APs)
+  when K == socknames;
+       K == peernames ->
+    try [A || {A,P} <- APs, P == Port orelse throw(?MODULE)] of
+        As -> {As, Port}
+    catch
+        ?MODULE -> APs
+    end;
+
+map(_, V) ->
+    V.
 
 %% ---------------------------------------------------------------------------
 %% # init/1
@@ -549,7 +564,7 @@ accept_peer(_, []) ->
     ok;
 
 accept_peer(Sock, Matches) ->
-    {RAddrs, _} = ok(inet:peername(Sock)),
+    RAddrs = [A || {A,_} <- ok(inet:peernames(Sock))],
     diameter_peer:match(RAddrs, Matches)
         orelse x({accept, RAddrs, Matches}),
     ok.
