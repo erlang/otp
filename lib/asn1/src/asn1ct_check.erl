@@ -3077,7 +3077,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		Ct=maybe_illicit_implicit_tag(open_type,Tag),
 		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
 	    'INTEGER' ->
-		check_integer(S,[],Constr),
 		TempNewDef#newt{tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 
