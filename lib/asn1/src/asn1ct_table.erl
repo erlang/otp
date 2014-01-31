@@ -31,7 +31,7 @@
 -export([lookup/2]).
 -export([match/2]).
 -export([to_list/1]).
--export([delete/1]). % TODO: Remove (since we run in a separate process)
+-export([delete/1]).
 
 
 %% Always creates a new table
@@ -63,14 +63,17 @@ match(Table, MatchSpec) -> ets:match(get(Table), MatchSpec).
 
 to_list(Table) -> ets:tab2list(get(Table)).
 
+%% Deleting tables is no longer strictly necessary since each compilation
+%% runs in separate process, but it will reduce memory consumption
+%% especially when many compilations are run in parallel.
+
 delete(Tables) when is_list(Tables) ->
     [delete(T) || T <- Tables],
     true;
 delete(Table) when is_atom(Table) ->
-    case get(Table) of
+    case erase(Table) of
         undefined ->
             true;
         TableId ->
-            ets:delete(TableId),
-            erase(Table)
+            ets:delete(TableId)
     end.
