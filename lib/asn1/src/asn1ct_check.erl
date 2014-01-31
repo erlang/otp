@@ -2464,7 +2464,7 @@ normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
 	{'BIT STRING',CType,_} ->
 	    normalize_bitstring(S,Value,CType);
 	{'OCTET STRING',CType,_} ->
-	    normalize_octetstring(S,Value,CType);
+	    normalize_octetstring(S0, Value, CType);
 	{'NULL',_CType,_} ->
 	    %%normalize_null(Value);
 	    'NULL';
@@ -2612,20 +2612,9 @@ normalize_octetstring(S,Value,CType) ->
 				 fun normalize_octetstring/3,[]);
 	{Name,String} when is_atom(Name) ->
 	    normalize_octetstring(S,String,CType);
-	List when is_list(List) ->
-	    %% check if list elements are valid octet values
-	    lists:map(fun([])-> ok;
-			 (H)when H > 255->
-			      asn1ct:warning("not legal octet value ~p in OCTET STRING, ~p~n",
-					     [H,List],S,
-					     "not legal octet value ~p in OCTET STRING");
-			 (_)-> ok
-		      end, List),
-	    List;
-	Other ->
-	    asn1ct:warning("unknown default value ~p~n",[Other],S,
-			   "unknown default value"),
-	    Value
+	_ ->
+	    Item = S#state.value,
+	    throw(asn1_error(S, Item, illegal_octet_string_value))
     end.
 
 normalize_objectidentifier(S, Value) ->
@@ -6811,6 +6800,8 @@ asn1_error(#state{mname=Where}, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error(illegal_octet_string_value) ->
+    "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({missing_mandatory_fields,Fields,Obj}) ->
