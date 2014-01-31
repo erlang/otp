@@ -36,7 +36,7 @@ process(Stream,Lno,R) ->
     process(io:get_line(Stream, ''), Stream,Lno+1,R).
 
 process(eof, Stream,Lno,R) ->
-    file:close(Stream),
+    ok = file:close(Stream),
     lists:flatten(lists:reverse([{'$end',Lno}|R]));
 
 
