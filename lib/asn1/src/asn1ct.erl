@@ -1040,7 +1040,7 @@ get_file_list1(Stream,Dir,Includes,Acc) ->
     Ret = io:get_line(Stream,''),
     case Ret of
 	eof ->
-	    file:close(Stream),
+	    ok = file:close(Stream),
 	    lists:reverse(Acc);
 	FileName ->
 	    SuffixedNameList =
@@ -1926,8 +1926,9 @@ read_config_file(ModuleName) ->
 	    Includes = [I || {i,I} <- Options],
 	    read_config_file1(ModuleName,Includes);
 	{error,Reason} ->
-	    file:format_error(Reason),
-	    throw({error,{"error reading asn1 config file",Reason}})
+	    Error = "error reading asn1 config file: " ++
+		file:format_error(Reason),
+	    throw({error,Error})
     end.
 read_config_file1(ModuleName,[]) ->
     case filename:extension(ModuleName) of
@@ -1945,8 +1946,9 @@ read_config_file1(ModuleName,[H|T]) ->
 	{error,enoent} ->
 	    read_config_file1(ModuleName,T);
 	{error,Reason} ->
-	    file:format_error(Reason),
-	    throw({error,{"error reading asn1 config file",Reason}})
+	    Error = "error reading asn1 config file: " ++
+		file:format_error(Reason),
+	    throw({error,Error})
     end.
     
 get_config_info(CfgList,InfoType) ->
