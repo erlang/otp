@@ -43,6 +43,8 @@
 	values/1
     ]).
 
+-compile(no_native).
+
 %% Shadowed by erl_bif_types: maps:get/3
 -spec get(Key,Map) -> Value when
     Key :: term(),
