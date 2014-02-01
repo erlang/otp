@@ -1804,6 +1804,11 @@ munge_expr({record,Line,Name,Exprs}, Vars) ->
     %% Only for Vsn=raw_abstract_v1
     {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
     {{record,Line,Name,MungedExprFields}, Vars2};
+munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
+    %% Only for Vsn=raw_abstract_v1
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
+    {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
+    {{record,Line,MungedArg,Name,MungedExprFields}, Vars3};
 munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
     %% Only for Vsn=raw_abstract_v1
     {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
