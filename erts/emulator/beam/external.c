@@ -1169,6 +1169,7 @@ typedef struct {
     Eterm* hp_end;
     int remaining_n;
     char* remaining_bytes;
+    Eterm* maps_head;
 } B2TDecodeContext;
 
 typedef struct {
@@ -1486,6 +1487,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             ctx->u.dc.hp_start = HAlloc(p, ctx->heap_size);
             ctx->u.dc.hp       = ctx->u.dc.hp_start;
             ctx->u.dc.hp_end   = ctx->u.dc.hp_start + ctx->heap_size;
+	    ctx->u.dc.maps_head = NULL;
             ctx->state = B2TDecode;
             /*fall through*/
 	case B2TDecode:
@@ -2878,7 +2880,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     int n;
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
-    Eterm *maps_head = NULL; /* for validation of maps */
+    Eterm *maps_head;   /* for validation of maps */
     Eterm* next;
     SWord reds;
 
@@ -2888,6 +2890,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         next     = ctx->u.dc.next;
         ep       = ctx->u.dc.ep;
         hpp      = &ctx->u.dc.hp;
+	maps_head = ctx->u.dc.maps_head;
 
         if (ctx->state != B2TDecode) {
             int n_limit = reds;
@@ -2968,6 +2971,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         reds = ERTS_SWORD_MAX;
         next = objp;
         *next = (Eterm) (UWord) NULL;
+	maps_head = NULL;
     }
     hp = *hpp;
 
@@ -3780,6 +3784,7 @@ dec_term_atom_common:
                     ctx->u.dc.ep = ep;
                     ctx->u.dc.next = next;
                     ctx->u.dc.hp = hp;
+		    ctx->u.dc.maps_head = maps_head;
                     ctx->reds = 0;
                     return NULL;
                 }
