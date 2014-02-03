@@ -598,6 +598,14 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 	error:_ ->
 	    throw(impossible)
     end;
+eval_binary_1([#c_bitstr{val=#c_literal{},size=#c_literal{},
+			 unit=#c_literal{},type=#c_literal{},
+			 flags=#c_cons{}=Flags}=Bitstr|Ss], Acc0) ->
+    case cerl:fold_literal(Flags) of
+	#c_literal{} = Flags1 ->
+	    eval_binary_1([Bitstr#c_bitstr{flags=Flags1}|Ss], Acc0);
+	_ -> throw(impossible)
+    end;
 eval_binary_1([], Acc) -> Acc;
 eval_binary_1(_, _) -> throw(impossible).
 
@@ -1536,9 +1544,17 @@ map_pair_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,{_,Osub}} = mapfoldl(fun map_pair_pattern/2, {Isub,Osub0}, Ps0),
     {Ps,Osub}.
 
-map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair, {Isub,Osub0}) ->
-    {K,Osub1} = pattern(K0, Isub, Osub0),
-    {V,Osub} = pattern(V0, Isub, Osub1),
+map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,{Isub,Osub0}) ->
+    {K,Osub1} = case cerl:type(K0) of
+	binary ->
+	    K1 = eval_binary(K0),
+	    case cerl:type(K1) of
+		literal -> {K1,Osub0};
+		_ -> pattern(K0,Isub,Osub0)
+	    end;
+	_ -> pattern(K0,Isub,Osub0)
+    end,
+    {V,Osub} = pattern(V0,Isub,Osub1),
     {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
 
 bin_pattern_list(Ps0, Isub, Osub0) ->

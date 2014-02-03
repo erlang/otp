@@ -1134,7 +1134,7 @@ resolve_inst({line,[Index]},_,_,_) ->
     {line,resolve_arg(Index)};
 
 %%
-%% R17A.
+%% 17.0
 %%
 resolve_inst({put_map_assoc,Args},_,_,_) ->
     [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
@@ -1149,6 +1149,10 @@ resolve_inst({put_map_exact,Args},_,_,_) ->
 resolve_inst({is_map,Args0},_,_,_) ->
     [FLbl|Args] = resolve_args(Args0),
     {test, is_map, FLbl, Args};
+
+resolve_inst({has_map_field,Args0},_,_,_) ->
+    [FLbl|Args] = resolve_args(Args0),
+    {test,has_map_field,FLbl,Args};
 
 resolve_inst({get_map_element,Args},_,_,_) ->
     [FLbl,Src,Key,Dst] = resolve_args(Args),

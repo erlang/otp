@@ -286,57 +286,67 @@ cond_and_ifdef(Config) when is_list(Config) ->
     ok.
 
 listings(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(8)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(DataDir, simple),
-    ?line TargetDir = filename:join(PrivDir, listings),
-    ?line ok = file:make_dir(TargetDir),
+    Dog = test_server:timetrap(test_server:minutes(8)),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ok = do_file_listings(DataDir, PrivDir, [
+	    "simple",
+	    "small",
+	    "small_maps"
+	]),
+    test_server:timetrap_cancel(Dog),
+    ok.
+
+do_file_listings(_, _, []) -> ok;
+do_file_listings(DataDir, PrivDir, [File|Files]) ->
+    Simple = filename:join(DataDir, File),
+    TargetDir = filename:join(PrivDir, listings),
+    ok = file:make_dir(TargetDir),
 
     %% Test all dedicated listing options.
-    ?line do_listing(Simple, TargetDir, 'S'),
-    ?line do_listing(Simple, TargetDir, 'E'),
-    ?line do_listing(Simple, TargetDir, 'P'),
-    ?line do_listing(Simple, TargetDir, dpp, ".pp"),
-    ?line do_listing(Simple, TargetDir, dabstr, ".abstr"),
-    ?line do_listing(Simple, TargetDir, dexp, ".expand"),
-    ?line do_listing(Simple, TargetDir, dcore, ".core"),
-    ?line do_listing(Simple, TargetDir, doldinline, ".oldinline"),
-    ?line do_listing(Simple, TargetDir, dinline, ".inline"),
-    ?line do_listing(Simple, TargetDir, dcore, ".core"),
-    ?line do_listing(Simple, TargetDir, dcopt, ".copt"),
-    ?line do_listing(Simple, TargetDir, dsetel, ".dsetel"),
-    ?line do_listing(Simple, TargetDir, dkern, ".kernel"),
-    ?line do_listing(Simple, TargetDir, dlife, ".life"),
-    ?line do_listing(Simple, TargetDir, dcg, ".codegen"),
-    ?line do_listing(Simple, TargetDir, dblk, ".block"),
-    ?line do_listing(Simple, TargetDir, dbool, ".bool"),
-    ?line do_listing(Simple, TargetDir, dtype, ".type"),
-    ?line do_listing(Simple, TargetDir, ddead, ".dead"),
-    ?line do_listing(Simple, TargetDir, djmp, ".jump"),
-    ?line do_listing(Simple, TargetDir, dclean, ".clean"),
-    ?line do_listing(Simple, TargetDir, dpeep, ".peep"),
-    ?line do_listing(Simple, TargetDir, dopt, ".optimize"),
+    do_listing(Simple, TargetDir, 'S'),
+    do_listing(Simple, TargetDir, 'E'),
+    do_listing(Simple, TargetDir, 'P'),
+    do_listing(Simple, TargetDir, dpp, ".pp"),
+    do_listing(Simple, TargetDir, dabstr, ".abstr"),
+    do_listing(Simple, TargetDir, dexp, ".expand"),
+    do_listing(Simple, TargetDir, dcore, ".core"),
+    do_listing(Simple, TargetDir, doldinline, ".oldinline"),
+    do_listing(Simple, TargetDir, dinline, ".inline"),
+    do_listing(Simple, TargetDir, dcore, ".core"),
+    do_listing(Simple, TargetDir, dcopt, ".copt"),
+    do_listing(Simple, TargetDir, dsetel, ".dsetel"),
+    do_listing(Simple, TargetDir, dkern, ".kernel"),
+    do_listing(Simple, TargetDir, dlife, ".life"),
+    do_listing(Simple, TargetDir, dcg, ".codegen"),
+    do_listing(Simple, TargetDir, dblk, ".block"),
+    do_listing(Simple, TargetDir, dbool, ".bool"),
+    do_listing(Simple, TargetDir, dtype, ".type"),
+    do_listing(Simple, TargetDir, ddead, ".dead"),
+    do_listing(Simple, TargetDir, djmp, ".jump"),
+    do_listing(Simple, TargetDir, dclean, ".clean"),
+    do_listing(Simple, TargetDir, dpeep, ".peep"),
+    do_listing(Simple, TargetDir, dopt, ".optimize"),
 
     %% First clean up.
-    ?line Listings = filename:join(PrivDir, listings),
-    ?line lists:foreach(fun(F) -> ok = file:delete(F) end,
-			filelib:wildcard(filename:join(Listings, "*"))),
+    Listings = filename:join(PrivDir, listings),
+    lists:foreach(fun(F) -> ok = file:delete(F) end,
+	filelib:wildcard(filename:join(Listings, "*"))),
 
     %% Test options that produce a listing file if 'binary' is not given.
-    ?line do_listing(Simple, TargetDir, to_pp, ".P"),
-    ?line do_listing(Simple, TargetDir, to_exp, ".E"),
-    ?line do_listing(Simple, TargetDir, to_core0, ".core"),
-    ?line ok = file:delete(filename:join(Listings, "simple.core")),
-    ?line do_listing(Simple, TargetDir, to_core, ".core"),
-    ?line do_listing(Simple, TargetDir, to_kernel, ".kernel"),
+    do_listing(Simple, TargetDir, to_pp, ".P"),
+    do_listing(Simple, TargetDir, to_exp, ".E"),
+    do_listing(Simple, TargetDir, to_core0, ".core"),
+    ok = file:delete(filename:join(Listings, File ++ ".core")),
+    do_listing(Simple, TargetDir, to_core, ".core"),
+    do_listing(Simple, TargetDir, to_kernel, ".kernel"),
 
     %% Final clean up.
-    ?line lists:foreach(fun(F) -> ok = file:delete(F) end,
-			filelib:wildcard(filename:join(Listings, "*"))),
-    ?line ok = file:del_dir(Listings),
-    ?line test_server:timetrap_cancel(Dog),
-    ok.
+    lists:foreach(fun(F) -> ok = file:delete(F) end,
+	filelib:wildcard(filename:join(Listings, "*"))),
+    ok = file:del_dir(Listings),
+
+    do_file_listings(DataDir,PrivDir,Files).
 
 listings_big(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(10)),
