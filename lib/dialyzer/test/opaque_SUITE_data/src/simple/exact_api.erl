@@ -10,14 +10,14 @@
 		  ntab = notable :: ets:tab(),
 	          cyclic = true  :: boolean()}).
 
--spec new() -> digraph().
+-spec new() -> digraph:graph().
 
 new() ->
     A = #digraph{},
     set_type(A), % does not have an opaque term as 1st argument
     A.
 
--spec set_type(digraph()) -> true.
+-spec set_type(digraph:graph()) -> true.
 
 set_type(G) ->
     digraph:delete(G).

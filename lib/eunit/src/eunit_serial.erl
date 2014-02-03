@@ -56,9 +56,9 @@
 %% future use, and/or cancel the current item and possibly one or more
 %% of its parent groups.
 
--record(state, {listeners			 :: set(),
-		cancelled = eunit_lib:trie_new() :: gb_tree(),
-		messages  = dict:new()		 :: dict()}).
+-record(state, {listeners			 :: sets:set(),
+		cancelled = eunit_lib:trie_new() :: gb_trees:tree(),
+		messages  = dict:new()		 :: dict:dict()}).
 
 start(Pids) ->
     spawn(fun () -> serializer(Pids) end).

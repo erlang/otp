@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,8 @@
 
 %%-----------------------------------------------------------------------
 
--type literals()     :: 'none' | gb_tree().
+-type index()        :: non_neg_integer().
+-type literals()     :: 'none' | gb_trees:tree(index(), term()).
 -type symbolic_tag() :: 'a' | 'f' | 'h' | 'i' | 'u' | 'x' | 'y' | 'z'.
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
@@ -216,7 +217,8 @@ optional_chunk(F, ChunkTag) ->
 %%-----------------------------------------------------------------------
 
 -type l_info() :: {non_neg_integer(), {_,_,_,_,_,_}}.
--spec beam_disasm_lambdas('none' | binary(), gb_tree()) -> 'none' | [l_info()].
+-spec beam_disasm_lambdas('none' | binary(), gb_trees:tree(index(), _)) ->
+        'none' | [l_info()].
 
 beam_disasm_lambdas(none, _) -> none;
 beam_disasm_lambdas(<<_:32,Tab/binary>>, Atoms) ->
@@ -435,7 +437,8 @@ decode_arg([B|Bs]) ->
 	    decode_int(Tag, B, Bs)
     end.
 
--spec decode_arg([byte(),...], gb_tree(), literals()) -> {disasm_term(), [byte()]}.
+-spec decode_arg([byte(),...], gb_trees:tree(index(), _), literals()) ->
+        {disasm_term(), [byte()]}.
 
 decode_arg([B|Bs0], Atoms, Literals) ->
     Tag = decode_tag(B band 2#111),

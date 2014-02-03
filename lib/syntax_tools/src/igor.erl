@@ -14,7 +14,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% @copyright 1998-2006 Richard Carlsson
+%% @copyright 1998-2014 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @end
 %% =====================================================================
@@ -695,7 +695,7 @@ merge_files1(Files, Opts) ->
 		preserved  :: boolean(),
 		no_headers :: boolean(),
 		notes      :: notes(),
-		redirect   :: dict(),	% = dict(atom(), atom())
+		redirect   :: dict:dict(atom(), atom()),
 		no_imports :: ordsets:ordset(atom()),
 		options	   :: [option()]
 	       }).
@@ -727,7 +727,7 @@ merge_sources(Name, Sources, Opts) ->
 
 %% Data structure for keeping state during transformation.
 
--record(state, {export :: set()}).
+-record(state, {export :: sets:set(atom(), arity())}).
 
 state__add_export(Name, Arity, S) ->
     S#state{export = sets:add_element({Name, Arity},
@@ -1039,7 +1039,7 @@ make_stub(M, Map, Env) ->
 -type atts()      :: 'delete' | 'kill'.
 -type file_atts() :: 'delete' | 'keep' | 'kill'.
 
--record(filter, {records         :: set(),
+-record(filter, {records         :: sets:set(atom()),
 		 file_attributes :: file_atts(),
 		 attributes      :: atts()}).
 
@@ -1588,17 +1588,17 @@ alias_expansions_2(Modules, Table) ->
 
 -record(code, {module     :: atom(),
 	       target     :: atom(),
-	       sources    :: set(),	% set(atom()),
-	       static     :: set(),	% set(atom()),
-	       safe       :: set(),	% set(atom()),
+	       sources    :: sets:set(atom()),
+	       static     :: sets:set(atom()),
+	       safe       :: sets:set(atom()),
 	       preserved  :: boolean(),
 	       no_headers :: boolean(),
 	       notes      :: notes(),
 	       map        :: map_fun(),
 	       renaming   :: fun((atom()) -> map_fun()),
-	       expand     :: dict(),	% = dict({atom(), integer()},
-					%      {atom(), {atom(), integer()}})
-	       redirect	  :: dict()	% = dict(atom(), atom())
+	       expand     :: dict:dict({atom(), integer()},
+                                       {atom(), {atom(), integer()}}),
+	       redirect	  :: dict:dict(atom(), atom())
 	      }).
 
 %% `Trees' must be a list of syntax trees of type `form_list'. The

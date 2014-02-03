@@ -52,7 +52,7 @@
 %% to expand records and/or remote types that they might contain.
 %%-----------------------------------------------------------------------
 
--type tmp_contract_fun() :: fun((set(), dict()) -> contract_pair()).
+-type tmp_contract_fun() :: fun((sets:set(mfa()), types()) -> contract_pair()).
 
 -record(tmp_contract, {contract_funs = [] :: [tmp_contract_fun()],
 		       forms	     = [] :: [{_, _}]}).
@@ -163,8 +163,10 @@ process_contract_remote_types(CodeServer) ->
 -type opaques() :: [erl_types:erl_type()] | 'universe'.
 -type opaques_fun() :: fun((module()) -> opaques()).
 
+-type fun_types() :: dict:dict(label(), erl_types:type_table()).
+
 -spec check_contracts([{mfa(), file_contract()}],
-		      dialyzer_callgraph:callgraph(), dict(),
+		      dialyzer_callgraph:callgraph(), fun_types(),
                       opaques_fun()) -> plt_contracts().
 
 check_contracts(Contracts, Callgraph, FunTypes, FindOpaques) ->
@@ -292,7 +294,8 @@ is_not_nil_list(Type) ->
   erl_types:t_is_list(Type) andalso not erl_types:t_is_nil(Type).
 
 %% This is the heart of the "range function"
--spec process_contracts([contract_pair()], [erl_types:erl_type()]) -> erl_types:erl_type().
+-spec process_contracts([contract_pair()], [erl_types:erl_type()]) ->
+                           erl_types:erl_type().
 
 process_contracts(OverContracts, Args) ->
   process_contracts(OverContracts, Args, erl_types:t_none()).
@@ -307,7 +310,8 @@ process_contracts([OverContract|Left], Args, AccRange) ->
 process_contracts([], _Args, AccRange) ->
   AccRange.
 
--spec process_contract(contract_pair(), [erl_types:erl_type()]) -> 'error' | {'ok', erl_types:erl_type()}.
+-spec process_contract(contract_pair(), [erl_types:erl_type()]) ->
+                          'error' | {'ok', erl_types:erl_type()}.
 
 process_contract({Contract, Constraints}, CallTypes0) ->
   CallTypesFun = erl_types:t_fun(CallTypes0, erl_types:t_any()),
@@ -343,8 +347,11 @@ solve_constraints(Contract, Call, Constraints) ->
   %%  ?debug("Inf: ~s\n", [erl_types:t_to_string(Inf)]),
   %%  erl_types:t_assign_variables_to_subtype(Contract, Inf).
 
+-type contracts() :: dict:dict(mfa(),dialyzer_contracts:file_contract()).
+
 %% Checks the contracts for functions that are not implemented
--spec contracts_without_fun(dict(), [_], dialyzer_callgraph:callgraph()) -> [dial_warning()].
+-spec contracts_without_fun(contracts(), [_], dialyzer_callgraph:callgraph()) ->
+        [dial_warning()].
 
 contracts_without_fun(Contracts, AllFuns0, Callgraph) ->
   AllFuns1 = [{dialyzer_callgraph:lookup_name(Label, Callgraph), Arity}
@@ -377,7 +384,10 @@ insert_constraints([{subtype, Type1, Type2}|Left], Dict) ->
   end;
 insert_constraints([], Dict) -> Dict.
 
--spec store_tmp_contract(mfa(), file_line(), [_], dict(), dict()) -> dict().
+-type types() :: erl_types:type_table().
+
+-spec store_tmp_contract(mfa(), file_line(), [_], contracts(), types()) ->
+        contracts().
 
 store_tmp_contract(MFA, FileLine, TypeSpec, SpecDict, RecordsDict) ->
   %% io:format("contract from form: ~p\n", [TypeSpec]),

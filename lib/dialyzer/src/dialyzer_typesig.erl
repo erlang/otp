@@ -83,7 +83,7 @@
 			  list :: [constr()],
 			  deps :: [dep()],
                           masks :: [{dep(),[non_neg_integer()]}] |
-                                   {'d',dict()},
+                                   {'d',dict:dict(dep(), [non_neg_integer()])},
 			  id   :: {'list', dep()}}).
 
 -type constraint_list() :: #constraint_list{}.
@@ -94,25 +94,30 @@
 
 -type constr() :: constraint() | constraint_list() | constraint_ref().
 
--type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, dict()}].
+-type types() :: erl_types:type_table().
+
+-type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, types()}].
 -type typesig_funmap() :: [{type_var(), type_var()}]. %% Orddict
 
--type dict_or_ets() :: {'d', dict()} | {'e', ets:tid()}.
+-type prop_types() :: dict:dict(label(), types()).
+
+-type dict_or_ets() :: {'d', prop_types()} | {'e', ets:tid()}.
 
 -record(state, {callgraph                    :: dialyzer_callgraph:callgraph(),
 		cs          = []                :: [constr()],
 		cmap        = {'d', dict:new()} :: dict_or_ets(),
 		fun_map     = []                :: typesig_funmap(),
-		fun_arities = dict:new()        :: dict(),
+		fun_arities = dict:new()        :: dict:dict(type_var(), arity()),
 		in_match    = false             :: boolean(),
 		in_guard    = false             :: boolean(),
 		module                          :: module(),
-		name_map    = dict:new()        :: dict(),
+		name_map    = dict:new()        :: dict:dict(mfa(),
+                                                             cerl:c_fun()),
 		next_label  = 0                 :: label(),
 		self_rec                        :: 'false' | erl_types:erl_type(),
 		plt                             :: dialyzer_plt:plt(),
 		prop_types  = {'d', dict:new()} :: dict_or_ets(),
-		records     = dict:new()        :: dict(),
+		records     = dict:new()        :: types(),
 		scc         = []                :: [type_var()],
 		mfas                            :: [tuple()],
                 solvers     = []                :: [solver()]
@@ -167,7 +172,7 @@
 
 -spec analyze_scc(typesig_scc(), label(),
 		  dialyzer_callgraph:callgraph(),
-		  dialyzer_plt:plt(), dict(), [solver()]) -> dict().
+		  dialyzer_plt:plt(), prop_types(), [solver()]) -> prop_types().
 
 analyze_scc(SCC, NextLabel, CallGraph, Plt, PropTypes, Solvers0) ->
   Solvers = solvers(Solvers0),
@@ -1890,7 +1895,7 @@ sane_maps(Map1, Map2, Keys, _S1, _S2) ->
 
 %% Solver v2
 
--record(v2_state, {constr_data = dict:new() :: dict(),
+-record(v2_state, {constr_data = dict:new() :: dict:dict(),
                    state :: #state{}}).
 
 v2_solve_ref(Fun, Map, State) ->

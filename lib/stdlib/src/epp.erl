@@ -46,8 +46,8 @@
 	      istk=[],				%Ifdef stack
 	      sstk=[],				%State stack
 	      path=[],				%Include-path
-	      macs = dict:new()  :: dict(),	%Macros (don't care locations)
-	      uses = dict:new()  :: dict(),	%Macro use structure
+	      macs = dict:new()  :: dict:dict(),%Macros (don't care locations)
+	      uses = dict:new()  :: dict:dict(),%Macro use structure
 	      pre_opened = false :: boolean()
 	     }).
 

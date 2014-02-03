@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -64,7 +64,8 @@ walktrough_bb(BB, Info) ->
 %% The counter specific functions
 %%-------------------------------------------------------------------
 
--spec compare(gb_tree(), gb_tree(), gb_tree()) -> gb_tree().
+-spec compare(gb_trees:tree(), gb_trees:tree(), gb_trees:tree()) ->
+        gb_trees:tree().
 
 compare(Name, Old, New) ->
   NewList = gb_trees:to_list(New),

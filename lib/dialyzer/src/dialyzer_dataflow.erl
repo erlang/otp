@@ -86,29 +86,41 @@
 
 %%--------------------------------------------------------------------
 
+-type type()      :: erl_types:erl_type().
+-type types()     :: erl_types:type_table().
+
 -define(no_arg, no_arg).
 
 -define(TYPE_LIMIT, 3).
 
 -record(state, {callgraph            :: dialyzer_callgraph:callgraph(),
-		envs                 :: dict(),
-		fun_tab		     :: dict(),
+		envs                 :: env_tab(),
+		fun_tab		     :: fun_tab(),
 		plt		     :: dialyzer_plt:plt(),
-		opaques              :: [erl_types:erl_type()],
+		opaques              :: [type()],
 		races = dialyzer_races:new() :: dialyzer_races:races(),
-		records = dict:new() :: dict(),
-		tree_map	     :: dict(),
+		records = dict:new() :: types(),
+		tree_map	     :: dict:dict(label(), cerl:cerl()),
 		warning_mode = false :: boolean(),
 		warnings = []        :: [dial_warning()],
-		work                 :: {[_], [_], set()},
+		work                 :: {[_], [_], sets:set()},
 		module               :: module()
                }).
 
--record(map, {dict = dict:new()   :: dict(),
-              subst = dict:new()  :: dict(),
+-record(map, {dict = dict:new()   :: type_tab(),
+              subst = dict:new()  :: subst_tab(),
               modified = []       :: [Key :: term()],
               modified_stack = [] :: [{[Key :: term()],reference()}],
               ref = undefined     :: reference() | undefined}).
+
+-type nowarn()    :: dialyzer_analysis_callgraph:no_warn_unused().
+-type env_tab()   :: dict:dict(label(), #map{}).
+-type fun_entry() :: {Args :: [type()], RetType :: type()}.
+-type fun_tab()   :: dict:dict('top' | label(),
+                             {'not_handled', fun_entry()} | fun_entry()).
+-type key()       :: label() | cerl:cerl().
+-type type_tab()  :: dict:dict(key(), type()).
+-type subst_tab() :: dict:dict(key(), cerl:cerl()).
 
 %% Exported Types
 
@@ -116,9 +128,11 @@
 
 %%--------------------------------------------------------------------
 
+-type fun_types() :: dict:dict(label(), type()).
+
 -spec get_warnings(cerl:c_module(), dialyzer_plt:plt(),
-                   dialyzer_callgraph:callgraph(), dict(), set()) ->
-	{[dial_warning()], dict()}.
+                   dialyzer_callgraph:callgraph(), types(), nowarn()) ->
+	{[dial_warning()], fun_types()}.
 
 get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
   State1 = analyze_module(Tree, Plt, Callgraph, Records, true),
@@ -129,7 +143,8 @@ get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
   {State4#state.warnings, state__all_fun_types(State4)}.
 
 -spec get_fun_types(cerl:c_module(), dialyzer_plt:plt(),
-                    dialyzer_callgraph:callgraph(), dict()) -> dict().
+                    dialyzer_callgraph:callgraph(),
+                    types()) -> fun_types().
 
 get_fun_types(Tree, Plt, Callgraph, Records) ->
   State = analyze_module(Tree, Plt, Callgraph, Records, false),
@@ -2299,7 +2314,7 @@ bind_guard_list([], Map, _Env, _Eval, _State, Acc) ->
 
 -type eval() :: 'pos' | 'neg' | 'dont_know'.
 
--spec signal_guard_fail(eval(), cerl:c_call(), [erl_types:erl_type()],
+-spec signal_guard_fail(eval(), cerl:c_call(), [type()],
 			state()) -> no_return().
 
 signal_guard_fail(Eval, Guard, ArgTypes, State) ->
@@ -3161,7 +3176,7 @@ state__get_callgraph(#state{callgraph = Callgraph}) ->
 state__get_races(#state{races = Races}) ->
   Races.
 
--spec state__get_records(state()) -> dict().
+-spec state__get_records(state()) -> types().
 
 state__get_records(#state{records = Records}) ->
   Records.
@@ -3260,7 +3275,7 @@ get_file([_|Tail]) -> get_file(Tail).
 is_compiler_generated(Ann) ->
   lists:member(compiler_generated, Ann) orelse (get_line(Ann) < 1).
 
--spec format_args([cerl:cerl()], [erl_types:erl_type()], state()) ->
+-spec format_args([cerl:cerl()], [type()], state()) ->
   nonempty_string().
 
 format_args([], [], _State) ->
@@ -3295,17 +3310,17 @@ format_arg(Arg) ->
       Default
   end.
 
--spec format_type(erl_types:erl_type(), state()) -> string().
+-spec format_type(type(), state()) -> string().
 
 format_type(Type, #state{records = R}) ->
   t_to_string(Type, R).
 
--spec format_field_diffs(erl_types:erl_type(), state()) -> string().
+-spec format_field_diffs(type(), state()) -> string().
 
 format_field_diffs(RecConstruction, #state{records = R}) ->
   erl_types:record_field_diffs_to_string(RecConstruction, R).
 
--spec format_sig_args(erl_types:erl_type(), state()) -> string().
+-spec format_sig_args(type(), state()) -> string().
 
 format_sig_args(Type, #state{opaques = Opaques} = State) ->
   SigArgs = t_fun_args(Type, Opaques),

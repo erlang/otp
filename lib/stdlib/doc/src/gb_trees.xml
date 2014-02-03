@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -59,12 +59,24 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-gb_tree">gb_tree()</marker></name>
+      <name name="tree" n_vars="2"/>
       <desc><p>A GB tree.</p></desc>
     </datatype>
     <datatype>
-      <name name="iter"/>
+      <name name="tree" n_vars="0"/>
+      <desc>
+        <p><c>tree()</c> is equivalent to <c>tree(term(), term())</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="iter" n_vars="2"/>
       <desc><p>A GB tree iterator.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="iter" n_vars="0"/>
+      <desc>
+        <p><c>iter()</c> is equivalent to <c>iter(term(), term())</c>.</p>
+      </desc>
     </datatype>
   </datatypes>
   <funcs>
@@ -108,9 +120,9 @@
       <name name="enter" arity="3"/>
       <fsummary>Insert or update key with value in a tree</fsummary>
       <desc>
-        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Val</anno></c> into <c><anno>Tree1</anno></c> if
+        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Value</anno></c> into <c><anno>Tree1</anno></c> if
           the key is not present in the tree, otherwise updates
-          <c><anno>Key</anno></c> to value <c><anno>Val</anno></c> in <c><anno>Tree1</anno></c>. Returns the
+          <c><anno>Key</anno></c> to value <c><anno>Value</anno></c> in <c><anno>Tree1</anno></c>. Returns the
           new tree.</p>
       </desc>
     </func>
@@ -135,7 +147,7 @@
       <name name="insert" arity="3"/>
       <fsummary>Insert a new key and value in a tree</fsummary>
       <desc>
-        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Val</anno></c> into <c><anno>Tree1</anno></c>;
+        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Value</anno></c> into <c><anno>Tree1</anno></c>;
           returns the new tree. Assumes that the key is not present in
           the tree, crashes otherwise.</p>
       </desc>
@@ -181,8 +193,8 @@
       <name name="largest" arity="1"/>
       <fsummary>Return largest key and value</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>}</c>, where <c><anno>Key</anno></c> is the largest
-          key in <c><anno>Tree</anno></c>, and <c><anno>Val</anno></c> is the value associated
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>}</c>, where <c><anno>Key</anno></c> is the largest
+          key in <c><anno>Tree</anno></c>, and <c><anno>Value</anno></c> is the value associated
           with this key. Assumes that the tree is nonempty.</p>
       </desc>
     </func>
@@ -191,7 +203,7 @@
       <fsummary>Look up a key in a tree</fsummary>
       <desc>
         <p>Looks up <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>; returns
-          <c>{value, <anno>Val</anno>}</c>, or <c>none</c> if <c><anno>Key</anno></c> is not
+          <c>{value, <anno>Value</anno>}</c>, or <c>none</c> if <c><anno>Key</anno></c> is not
           present.</p>
       </desc>
     </func>
@@ -207,7 +219,7 @@
       <name name="next" arity="1"/>
       <fsummary>Traverse a tree with an iterator</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>, <anno>Iter2</anno>}</c> where <c><anno>Key</anno></c> is the
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>, <anno>Iter2</anno>}</c> where <c><anno>Key</anno></c> is the
           smallest key referred to by the iterator <c><anno>Iter1</anno></c>, and
           <c><anno>Iter2</anno></c> is the new iterator to be used for
           traversing the remaining nodes, or the atom <c>none</c> if no
@@ -225,8 +237,8 @@
       <name name="smallest" arity="1"/>
       <fsummary>Return smallest key and value</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>}</c>, where <c><anno>Key</anno></c> is the smallest
-          key in <c><anno>Tree</anno></c>, and <c><anno>Val</anno></c> is the value associated
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>}</c>, where <c><anno>Key</anno></c> is the smallest
+          key in <c><anno>Tree</anno></c>, and <c><anno>Value</anno></c> is the value associated
           with this key. Assumes that the tree is nonempty.</p>
       </desc>
     </func>
@@ -234,8 +246,8 @@
       <name name="take_largest" arity="1"/>
       <fsummary>Extract largest key and value</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>, <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
-          largest key in <c><anno>Tree1</anno></c>, <c><anno>Val</anno></c> is the value
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>, <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          largest key in <c><anno>Tree1</anno></c>, <c><anno>Value</anno></c> is the value
           associated with this key, and <c><anno>Tree2</anno></c> is this tree with
           the corresponding node deleted. Assumes that the tree is
           nonempty.</p>
@@ -245,8 +257,8 @@
       <name name="take_smallest" arity="1"/>
       <fsummary>Extract smallest key and value</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>, <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
-          smallest key in <c><anno>Tree1</anno></c>, <c><anno>Val</anno></c> is the value
+        <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>, <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          smallest key in <c><anno>Tree1</anno></c>, <c><anno>Value</anno></c> is the value
           associated with this key, and <c><anno>Tree2</anno></c> is this tree with
           the corresponding node deleted. Assumes that the tree is
           nonempty.</p>
@@ -263,7 +275,7 @@
       <name name="update" arity="3"/>
       <fsummary>Update a key to new value in a tree</fsummary>
       <desc>
-        <p>Updates <c><anno>Key</anno></c> to value <c><anno>Val</anno></c> in <c><anno>Tree1</anno></c>;
+        <p>Updates <c><anno>Key</anno></c> to value <c><anno>Value</anno></c> in <c><anno>Tree1</anno></c>;
           returns the new tree. Assumes that the key is present in the
           tree.</p>
       </desc>

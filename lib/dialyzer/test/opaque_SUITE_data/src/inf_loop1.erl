@@ -1,7 +1,7 @@
 %% -*- erlang-indent-level: 2 -*-
 %%----------------------------------------------------------------------------
 %% Non-sensical (i.e., stripped-down) program that sends the analysis
-%% into an infinite loop. The #we.es field was originally a gb_tree()
+%% into an infinite loop. The #we.es field was originally a gb_trees:tree()
 %% but the programmer declared it as an array in order to change it to
 %% that data type instead. In the file, there are two calls to function
 %% gb_trees:get/2 which seem to be the ones responsible for sending the
@@ -14,7 +14,7 @@
 -export([command/1]).
 
 -record(we, {id,
-	     es = array:new() :: array(),
+	     es = array:new() :: array:array(),
 	     vp,
 	     mirror = none}).
 -record(edge, {vs,ve,a = none,b = none,lf,rf,ltpr,ltsu,rtpr,rtsu}).

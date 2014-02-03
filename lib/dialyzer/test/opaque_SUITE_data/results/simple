@@ -1,6 +1,6 @@
 
-exact_api.erl:17: The call exact_api:set_type(A::#digraph{vtab::'notable',etab::'notable',ntab::'notable',cyclic::'true'}) does not have an opaque term of type digraph() as 1st argument
-exact_api.erl:23: The call digraph:delete(G::#digraph{vtab::'notable',etab::'notable',ntab::'notable',cyclic::'true'}) does not have an opaque term of type digraph() as 1st argument
+exact_api.erl:17: The call exact_api:set_type(A::#digraph{vtab::'notable',etab::'notable',ntab::'notable',cyclic::'true'}) does not have an opaque term of type digraph:graph() as 1st argument
+exact_api.erl:23: The call digraph:delete(G::#digraph{vtab::'notable',etab::'notable',ntab::'notable',cyclic::'true'}) does not have an opaque term of type digraph:graph() as 1st argument
 exact_api.erl:55: The attempt to match a term of type exact_adt:exact_adt() against the pattern {'exact_adt'} breaks the opaqueness of the term
 exact_api.erl:59: The call exact_adt:exact_adt_set_type2(A::#exact_adt{}) does not have an opaque term of type exact_adt:exact_adt() as 1st argument
 is_rec.erl:10: The call erlang:is_record(simple1_adt:d1(),'r',2) contains an opaque term as 1st argument when terms of different types are expected in these positions
@@ -73,7 +73,7 @@ simple1_api.erl:536: Guard test A::simple1_adt:d1() == 3 contains an opaque term
 simple1_api.erl:538: Guard test A::simple1_adt:d1() =:= 3 contains an opaque term as 1st argument
 simple1_api.erl:548: The call erlang:'<'(A::simple1_adt:d1(),3) contains an opaque term as 1st argument when terms of different types are expected in these positions
 simple1_api.erl:558: The call erlang:'=<'(A::simple1_adt:d1(),B::simple1_adt:d2()) contains an opaque term as 1st argument when terms of different types are expected in these positions
-simple1_api.erl:565: Guard test {digraph(),3} > {digraph(),atom() | tid()} contains an opaque term as 2nd argument
+simple1_api.erl:565: Guard test {digraph:graph(),3} > {digraph:graph(),atom() | ets:tid()} contains an opaque term as 2nd argument
 simple1_api.erl:91: Invalid type specification for function simple1_api:tup/0. The success typing is () -> {'a','b'}
 simple2_api.erl:100: The call lists:flatten(A::simple1_adt:tuple1()) contains an opaque term as 1st argument when a structured term of type [any()] is expected
 simple2_api.erl:116: The call lists:flatten({simple1_adt:tuple1()}) will never return since it differs in the 1st argument from the success typing arguments: ([any()])

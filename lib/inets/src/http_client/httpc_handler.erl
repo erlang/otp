@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,8 +55,8 @@
           headers,                   % #http_response_h{}
           body,                      % binary()
           mfa,                       % {Module, Function, Args}
-          pipeline = queue:new(),    % queue() 
-          keep_alive = queue:new(),  % queue() 
+          pipeline = queue:new(),    % queue:queue()
+          keep_alive = queue:new(),  % queue:queue()
           status,   % undefined | new | pipeline | keep_alive | close | {ssl_tunnel, Request}
           canceled = [],             % [RequestId]
           max_header_size = nolimit, % nolimit | integer() 

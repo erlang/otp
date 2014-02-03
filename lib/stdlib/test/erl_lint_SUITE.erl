@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -60,7 +60,8 @@
 	  format_warn/1,
 	  on_load_successful/1, on_load_failing/1, 
 	  too_many_arguments/1,
-	  basic_errors/1,bin_syntax_errors/1
+	  basic_errors/1,bin_syntax_errors/1,
+          predef/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -87,7 +88,7 @@ all() ->
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
-     too_many_arguments, basic_errors, bin_syntax_errors].
+     too_many_arguments, basic_errors, bin_syntax_errors, predef].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3241,6 +3242,23 @@ bin_syntax_errors(Config) ->
     [] = run(Config, Ts),
     ok.
 
+predef(doc) ->
+    "Predefined types: array(), digraph(), and so on";
+predef(suite) -> [];
+predef(Config) when is_list(Config) ->
+    W = get_compilation_warnings(Config, "predef", []),
+    [] = W,
+    W2 = get_compilation_warnings(Config, "predef2", []),
+    [{7,erl_lint,{deprecated_type,{array,0},{array,array},"OTP 18.0"}},
+     {12,erl_lint,{deprecated_type,{dict,0},{dict,dict},"OTP 18.0"}},
+     {17,erl_lint,{deprecated_type,{digraph,0},{digraph,graph},"OTP 18.0"}},
+     {27,erl_lint,{deprecated_type,{gb_set,0},{gb_sets,set},"OTP 18.0"}},
+     {32,erl_lint,{deprecated_type,{gb_tree,0},{gb_trees,tree},"OTP 18.0"}},
+     {37,erl_lint,{deprecated_type,{queue,0},{queue,queue},"OTP 18.0"}},
+     {42,erl_lint,{deprecated_type,{set,0},{sets,set},"OTP 18.0"}},
+     {47,erl_lint,{deprecated_type,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
+    ok.
+
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
                 case catch run_test(Config, P, Ws) of
@@ -3263,8 +3281,10 @@ get_compilation_warnings(Conf, Filename, Warnings) ->
     FileS = binary_to_list(Bin),
     {match,[{Start,Length}|_]} = re:run(FileS, "-module.*\\n"),
     Test = lists:nthtail(Start+Length, FileS),
-    {warnings, Ws} = run_test(Conf, Test, Warnings),
-    Ws.
+    case run_test(Conf, Test, Warnings) of
+        {warnings, Ws} -> Ws;
+        [] -> []
+    end.
 
 %% Compiles a test module and returns the list of errors and warnings.
 

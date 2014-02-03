@@ -14,7 +14,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% @copyright 1999-2006 Richard Carlsson
+%% @copyright 1999-2014 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @end
 %% =====================================================================
@@ -958,7 +958,7 @@ hidden_uses_2(Tree, Used) ->
 -record(env, {file		       :: file:filename(),
               module                   :: atom(),
               current                  :: fa(),
-              imports = dict:new()     :: dict(),
+              imports = dict:new()     :: dict:dict(atom(), atom()),
               context = normal	       :: context(),
               verbosity = 1	       :: 0 | 1 | 2,
               quiet = false            :: boolean(),
@@ -970,12 +970,12 @@ hidden_uses_2(Tree, Used) ->
 	      old_guard_tests = false  :: boolean()}).
 
 -record(st, {varc              :: non_neg_integer(),
-	     used = sets:new() :: set(),
-	     imported          :: set(),
-	     vars              :: set(),
-	     functions         :: set(),
+	     used = sets:new() :: sets:set({atom(), arity()}),
+	     imported          :: sets:set({atom(), arity()}),
+	     vars              :: sets:set(atom()),
+	     functions         :: sets:set({atom(), arity()}),
 	     new_forms = []    :: [erl_syntax:syntaxTree()],
-	     rename            :: dict()}).
+	     rename            :: dict:dict(mfa(), {atom(), atom()})}).
 
 visit_used(Names, Defs, Roots, Imports, Module, Opts) ->
     File = proplists:get_value(file, Opts, ""),

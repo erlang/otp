@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,6 +39,8 @@
 	      one_file_result/0,
 	      compile_result/0]).
 
+-export_type([no_warn_unused/0]).
+
 -include("dialyzer.hrl").
 
 -record(analysis_state,
@@ -48,7 +50,7 @@
 	  defines        = []           :: [dial_define()],
 	  doc_plt                       :: dialyzer_plt:plt(),
 	  include_dirs   = []           :: [file:filename()],
-	  no_warn_unused                :: set(),
+	  no_warn_unused                :: no_warn_unused(),
 	  parent                        :: pid(),
 	  plt                           :: dialyzer_plt:plt(),
 	  start_from     = byte_code    :: start_from(),
@@ -58,6 +60,8 @@
 	 }).
 
 -record(server_state, {parent :: pid(), legal_warnings :: [dial_warn_tag()]}).
+
+-type no_warn_unused()  :: sets:set(mfa()).
 
 %%--------------------------------------------------------------------
 %% Main
