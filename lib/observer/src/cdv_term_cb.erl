@@ -56,8 +56,9 @@ expand(['#CDVBin',Offset,Size,Pos], true) ->
     {ok,Bin} = crashdump_viewer:expand_binary({Offset,Size,Pos}),
     Bin;
 expand(Bin, Tab) when is_binary(Bin), not is_boolean(Tab) ->
-    <<Preview:80, _/binary>> = Bin,
     Size = byte_size(Bin),
+    PrevSize = min(Size, 10) * 8,
+    <<Preview:PrevSize, _/binary>> = Bin,
     Hash = erlang:phash2(Bin),
     Key = {Preview, Size, Hash},
     ets:insert(Tab, {Key,Bin}),
