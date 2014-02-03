@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,8 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config) ->
     tsp("init_per_suite -> entry with"
 	"~n   Config: ~p", [Config]),
-    ok = inets:start(),
+    inets_test_lib:stop_apps([inets]),
+    inets_test_lib:start_apps([inets]),
     PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config), 
 
