@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -136,9 +136,9 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	    {noreply, State};
 	Callback ->
 	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Rest),
-	    Id = {observer, {T,{list_to_integer(Key1),
-				list_to_integer(Key2),
-				list_to_integer(Key3)}}},
+	    Id = {obs, {T,{list_to_integer(Key1),
+			   list_to_integer(Key2),
+			   list_to_integer(Key3)}}},
 	    Opened =
 		case lists:keyfind(Id,1,Opened0) of
 		    false ->
