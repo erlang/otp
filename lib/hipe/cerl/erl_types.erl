@@ -645,15 +645,16 @@ decorate_with_opaque(Type, ?opaque(Set2), Opaques) ->
   end.
 
 decoration([#opaque{struct = S} = Opaque|OpaqueTypes], Type, Opaques,
-           NewOpaqueTypes, All) ->
+           NewOpaqueTypes0, All) ->
   IsOpaque = is_opaque_type2(Opaque, Opaques),
   I = t_inf(Type, S),
-  case not IsOpaque orelse t_is_none(I = t_inf(Type, S)) of
-    true -> decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes, All);
+  case not IsOpaque orelse t_is_none(I) of
+    true -> decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes0, All);
     false ->
       NewOpaque = Opaque#opaque{struct = decorate(I, S, Opaques)},
       NewAll = All orelse t_is_equal(I, Type),
-      decoration(OpaqueTypes, Type, Opaques, [NewOpaque|NewOpaqueTypes], NewAll)
+      NewOpaqueTypes = [NewOpaque|NewOpaqueTypes0],
+      decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes, NewAll)
   end;
 decoration([], _Type, _Opaques, NewOpaqueTypes, All) ->
   {NewOpaqueTypes, All}.
@@ -733,13 +734,14 @@ t_opaque_from_records(RecDict) ->
 		    end
 		end, RecDict),
   OpaqueTypeDict =
-    dict:map(fun({opaque, Name, _Arity}, {Module, Type, ArgNames}) ->
-		 case ArgNames of
-		   [] ->
-		     t_opaque(Module, Name, [], t_from_form(Type, RecDict));
-		   _ ->
-		     throw({error,"Polymorphic opaque types not supported yet"})
-		 end
+    dict:map(fun({opaque, Name, _Arity}, {Module, _Type, ArgNames}) ->
+                 %% Args = args_to_types(ArgNames),
+                 %% List = lists:zip(ArgNames, Args),
+                 %% TmpVarDict = dict:from_list(List),
+                 %% Rep = t_from_form(Type, RecDict, TmpVarDict),
+                 Rep = t_none(), % not used for anything right now
+                 Args = [t_any() || _ <- ArgNames],
+                 skip_opaque_alias(Rep, Module, Name, Args)
 	     end, OpaqueRecDict),
   [OpaqueType || {_Key, OpaqueType} <- dict:to_list(OpaqueTypeDict)].
 
@@ -884,9 +886,7 @@ t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args0} = RemType,
                   true -> t_limit(NewRep, ?REC_TYPE_LIMIT);
                   false -> NewRep
                 end,
-              {t_from_form({opaque, -1, Name, {Mod, Args, RT1}},
-                           RemDict, TmpVarDict),
-               RetRR};
+              {skip_opaque_alias(RT1, Mod, Name, Args), RetRR};
             error ->
               Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
                                   [RemMod, Name]),
@@ -1966,16 +1966,20 @@ t_array() ->
 	   t_tuple([t_atom('array'),
 		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
                     t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_any(), t_any()])).
+		    t_any(),
+                    t_any()])).
 
 -spec t_dict() -> erl_type().
 
 t_dict() ->
   t_opaque(dict, dict, [],
 	   t_tuple([t_atom('dict'),
-		    t_non_neg_integer(), t_non_neg_integer(),
-		    t_non_neg_integer(), t_non_neg_integer(),
-		    t_non_neg_integer(), t_non_neg_integer(),
+		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
+		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
+		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
+		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
+		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
+		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
                     t_sup([t_atom('undefined'), t_tuple()]),
                     t_sup([t_atom('undefined'), t_tuple()])])).
 
@@ -2086,11 +2090,11 @@ t_has_var(?tuple(Elements, _, _)) ->
   t_has_var_list(Elements);
 t_has_var(?tuple_set(_) = T) ->
   t_has_var_list(t_tuple_subtypes(T));
-%% t_has_var(?opaque(_)=T) ->
-%%   %% "Polymorphic opaque types not supported yet"
-%%   t_has_var(t_opaque_structure(T));
-%% t_has_var(?union(_) = U) ->
-%% exit(flat_format("Union happens in t_has_var/1 ~p\n",[U]));
+t_has_var(?opaque(Set)) ->
+  %% Assume variables in 'args' are also present i 'struct'
+  t_has_var_list([O#opaque.struct || O <- set_to_list(Set)]);
+t_has_var(?union(List)) ->
+  t_has_var_list(List);
 t_has_var(_) -> false.
 
 -spec t_has_var_list([erl_type()]) -> boolean().
@@ -2121,9 +2125,10 @@ t_collect_vars(?tuple(Types, _, _), Acc) ->
 t_collect_vars(?tuple_set(_) = TS, Acc) ->
   lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, 
 	      t_tuple_subtypes(TS));
-%% t_collect_vars(?opaque(_)=T, Acc) ->
-%%   %% "Polymorphic opaque types not supported yet"
-%%   t_collect_vars(t_opaque_structure(T), Acc);
+t_collect_vars(?opaque(Set), Acc) ->
+  %% Assume variables in 'args' are also present i 'struct'
+  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc,
+	      [O#opaque.struct || O <- set_to_list(Set)]);
 t_collect_vars(_, Acc) ->
   Acc.
 
@@ -2446,8 +2451,8 @@ sup_opaque(List) ->
   ?opaque(ordsets:from_list(L)).
 
 sup_opaq(L0) ->
-  L1 = [{{Mod,Name}, T} ||
-           #opaque{mod = Mod, name = Name}=T <- L0],
+  L1 = [{{Mod,Name,Args}, T} ||
+         #opaque{mod = Mod, name = Name, args = Args}=T <- L0],
   F = family(L1),
   [supl(Ts) || {_, Ts} <- F].
 
@@ -2813,31 +2818,35 @@ inf_collect(_T1, [], _Opaques, OpL) ->
   OpL.
 
 combine(S, T1, T2) ->
-  #opaque{mod = Mod1, name = Name1} = T1,
-  #opaque{mod = Mod2, name = Name2} = T2,
-  case {Mod1, Name1} =:= {Mod2, Name2} of
-    true  -> [comb(Mod1, Name1, S, T1)];
-    false -> [comb(Mod1, Name1, S, T1), comb(Mod2, Name2, S, T2)]
+  #opaque{mod = Mod1, name = Name1, args = Args1} = T1,
+  #opaque{mod = Mod2, name = Name2, args = Args2} = T2,
+  case is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) of
+    true  -> [comb(Mod1, Name1, Args1, S, T1)];
+    false -> [comb(Mod1, Name1, Args1, S, T1), comb(Mod2, Name2, Args2, S, T2)]
   end.
 
-comb(Mod, Name, S, T) ->
-  case is_same_name(Mod, Name, S) of
+comb(Mod, Name, Args, S, T) ->
+  case is_same_name(Mod, Name, Args, S) of
     true -> S;
     false -> T#opaque{struct = S}
   end.
 
-is_same_name(Mod, Name, ?opaque([#opaque{mod = Mod, name = Name}])) -> true;
-is_same_name(_Mod, _Name, _Opaque) -> false.
+is_same_name(Mod, Name, Args,
+             ?opaque([#opaque{mod = Mod, name = Name, args = Args}])) ->
+  true;
+is_same_name(_, _, _, _) -> false.
 
 %% Combining two lists this way can be very time consuming...
+%% Note: two parameterized opaque types are not the same if their
+%% actual parameters differ
 inf_opaque(Set1, Set2, Opaques) ->
   List1 = inf_look_up(Set1, 1, Opaques),
   List2 = inf_look_up(Set2, 2, Opaques),
   List0 = [combine(Inf, T1, T2) ||
-            {Is1, ModName1, T1} <- List1,
-            {Is2, ModName2, T2} <- List2,
-            not t_is_none(Inf = inf_opaque_types(Is1, ModName1, T1,
-                                                 Is2, ModName2, T2,
+            {Is1, ModNameArgs1, T1} <- List1,
+            {Is2, ModNameArgs2, T2} <- List2,
+            not t_is_none(Inf = inf_opaque_types(Is1, ModNameArgs1, T1,
+                                                 Is2, ModNameArgs2, T2,
                                                  Opaques))],
   List = lists:sort(lists:append(List0)),
   sup_opaque(List).
@@ -2845,18 +2854,22 @@ inf_opaque(Set1, Set2, Opaques) ->
 %% Optimization: do just one lookup.
 inf_look_up(Set, Pos, Opaques) ->
   [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Pos, Opaques),
-    {M, N}, T} ||
-    #opaque{mod = M, name = N} = T <- set_to_list(Set)].
+    {M, N, Args}, T} ||
+    #opaque{mod = M, name = N, args = Args} = T <- set_to_list(Set)].
 
 inf_is_opaque_type2(T, Pos, {match, Opaques}) ->
   is_opaque_type2(T, Opaques) orelse throw(Pos);
 inf_is_opaque_type2(T, _Pos, Opaques) ->
   is_opaque_type2(T, Opaques).
 
-inf_opaque_types(IsOpaque1, ModName1, T1, IsOpaque2, ModName2, T2, Opaques) ->
+inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
+                 IsOpaque2, ModNameArgs2, T2, Opaques) ->
   #opaque{struct = S1}=T1,
   #opaque{struct = S2}=T2,
-  case Opaques =:= 'universe' orelse ModName1 =:= ModName2 of
+  case
+    Opaques =:= 'universe' orelse
+    is_same_type_name(ModNameArgs1, ModNameArgs2)
+  of
     true -> t_inf(S1, S2, Opaques);
     false ->
       case {IsOpaque1, IsOpaque2} of
@@ -3064,11 +3077,13 @@ t_subst_dict(?tuple(Elements, _Arity, _Tag), Dict) ->
   t_tuple([t_subst_dict(E, Dict) || E <- Elements]);
 t_subst_dict(?tuple_set(_) = TS, Dict) ->
   t_sup([t_subst_dict(T, Dict) || T <- t_tuple_subtypes(TS)]);
-%% t_subst_dict(?opaque(Es), Dict) ->
-%%   %% "Polymorphic opaque types not supported yet"
-%%   List = [Opaque#opaque{struct = t_subst_dict(S, Dict)} ||
-%%            Opaque = #opaque{struct = S} <- set_to_list(Es)],
-%%   ?opaque(ordsets:from_list(List));
+t_subst_dict(?opaque(Es), Dict) ->
+  List = [Opaque#opaque{args = [t_subst_dict(Arg, Dict) || Arg <- Args],
+                        struct = t_subst_dict(S, Dict)} ||
+           Opaque = #opaque{args = Args, struct = S} <- set_to_list(Es)],
+  ?opaque(ordsets:from_list(List));
+t_subst_dict(?union(List), Dict) ->
+  ?union([t_subst_dict(E, Dict) || E <- List]);
 t_subst_dict(T, _Dict) ->
   T.
 
@@ -3111,11 +3126,13 @@ t_subst_aux(?tuple(Elements, _Arity, _Tag), VarMap) ->
   t_tuple([t_subst_aux(E, VarMap) || E <- Elements]);
 t_subst_aux(?tuple_set(_) = TS, VarMap) ->
   t_sup([t_subst_aux(T, VarMap) || T <- t_tuple_subtypes(TS)]);
-%% t_subst_aux(?opaque(Es), VarMap) ->
-%%   %% "Polymorphic opaque types not supported yet"
-%%   List = [Opaque#opaque{struct = t_subst_aux(S, VarMap)} ||
-%%            Opaque = #opaque{struct = S} <- set_to_list(Es)],
-%%   ?opaque(ordsets:from_list(List));
+t_subst_aux(?opaque(Es), VarMap) ->
+   List = [Opaque#opaque{args = [t_subst_aux(Arg, VarMap) || Arg <- Args],
+                         struct = t_subst_aux(S, VarMap)} ||
+            Opaque = #opaque{args = Args, struct = S} <- set_to_list(Es)],
+   ?opaque(ordsets:from_list(List));
+t_subst_aux(?union(List), VarMap) ->
+  ?union([t_subst_aux(E, VarMap) || E <- List]);
 t_subst_aux(T, _VarMap) ->
   T.
 	      
@@ -3236,14 +3253,19 @@ unify_union(List) ->
 is_opaque_type(?opaque(Elements), Opaques) ->
   lists:any(fun(Opaque) -> is_opaque_type2(Opaque, Opaques) end, Elements).
 
-is_opaque_type2(#opaque{mod = Mod1, name = Name1}, Opaques) ->
+is_opaque_type2(#opaque{mod = Mod1, name = Name1, args = Args1}, Opaques) ->
   F1 = fun(?opaque(Es)) ->
-           F2 = fun(#opaque{mod = Mod, name = Name}) ->
-                    Mod1 =:= Mod andalso Name1 =:= Name
+           F2 = fun(#opaque{mod = Mod, name = Name, args = Args}) ->
+                    is_type_name(Mod1, Name1, Args1, Mod, Name, Args)
                 end,
            lists:any(F2, Es)
        end,
   lists:any(F1, Opaques).
+
+is_type_name(Mod, Name, Args1, Mod, Name, Args2) ->
+  length(Args1) =:= length(Args2);
+is_type_name(Mod1, Name1, Args1, Mod2, Name2, Args2) ->
+  is_same_type_name2(Mod1, Name1, Args1, Mod2, Name2, Args2).
 
 %% Two functions since t_unify is not symmetric.
 unify_tuple_set_and_tuple1(?tuple_set([{Arity, List}]),
@@ -3889,8 +3911,8 @@ t_to_string(?identifier(Set), _RecDict) ->
       string:join([flat_format("~w()", [T]) || T <- set_to_list(Set)], " | ")
   end;
 t_to_string(?opaque(Set), RecDict) ->
-  string:join([opaque_type(Mod, Name, S, RecDict) ||
-                #opaque{mod = Mod, name = Name, struct = S}
+  string:join([opaque_type(Mod, Name, Args, S, RecDict) ||
+                #opaque{mod = Mod, name = Name, struct = S, args = Args}
                   <- set_to_list(Set)],
 	      " | ");
 t_to_string(?matchstate(Pres, Slots), RecDict) ->
@@ -4063,11 +4085,14 @@ union_sequence(Types, RecDict) ->
   string:join(List, " | ").
 
 -ifdef(DEBUG).
-opaque_type(Mod, Name, S, RecDict) ->
-  opaque_name(Mod, Name, t_to_string(S, RecDict)).
+opaque_type(Mod, Name, _Args, S, RecDict) ->
+  ArgsString = "[ARGS:" ++ comma_sequence(_Args, RecDict) ++ "]",
+  String = t_to_string(S, RecDict),
+  opaque_name(Mod, Name, ArgsString ++ String).
 -else.
-opaque_type(Mod, Name, _S, _RecDict) ->
-  opaque_name(Mod, Name, "").
+opaque_type(Mod, Name, Args, _S, RecDict) ->
+  ArgsString = comma_sequence(Args, RecDict),
+  opaque_name(Mod, Name, ArgsString).
 -endif.
 
 opaque_name(Mod, Name, Extra) ->
@@ -4292,18 +4317,19 @@ t_from_form({type, _L, union, Args}, TypeNames, RecDict, VarDict) ->
   {L, R} = list_from_form(Args, TypeNames, RecDict, VarDict),
   {t_sup(L), R};
 t_from_form({type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
+  type_from_form(Name, Args, TypeNames, RecDict, VarDict);
+t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
+            _RecDict, _VarDict) ->
+  {t_opaque(Mod, Name, Args, Rep), []}.
+
+type_from_form(Name, Args, TypeNames, RecDict, VarDict) ->
   ArgsLen = length(Args),
+  ArgTypes = forms_to_types(Args, TypeNames, RecDict, VarDict),
   case lookup_type(Name, ArgsLen, RecDict) of
     {type, {_Module, Type, ArgNames}} ->
       case can_unfold_more({type, Name}, TypeNames) of
         true ->
-          List = lists:zipwith(
-                   fun(ArgName, ArgType) ->
-                       {Ttemp, _R} = t_from_form(ArgType, TypeNames,
-                                                 RecDict, VarDict),
-                       {ArgName, Ttemp}
-                   end,
-                   ArgNames, Args),
+          List = lists:zip(ArgNames, ArgTypes),
           TmpVarDict = dict:from_list(List),
           {T, R} = t_from_form(Type, [{type, Name}|TypeNames],
                                RecDict, TmpVarDict),
@@ -4317,13 +4343,7 @@ t_from_form({type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
       {Rep, Rret} =
         case can_unfold_more({opaque, Name}, TypeNames) of
           true ->
-            List = lists:zipwith(
-                     fun(ArgName, ArgType) ->
-                         {Ttemp, _R} = t_from_form(ArgType, TypeNames,
-                                                   RecDict, VarDict),
-                         {ArgName, Ttemp}
-                     end,
-                     ArgNames, Args),
+            List = lists:zip(ArgNames, ArgTypes),
             TmpVarDict = dict:from_list(List),
             {T, R} = t_from_form(Type, [{opaque, Name}|TypeNames],
                                  RecDict, TmpVarDict),
@@ -4333,19 +4353,20 @@ t_from_form({type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
             end;
           false -> {t_any(), [{opaque, Name}]}
         end,
-      Tret = t_from_form({opaque, -1, Name, {Module, Args, Rep}},
-                         RecDict, VarDict),
-      {Tret, Rret};
+      Args2 = [subst_all_vars_to_any(ArgType) || ArgType <- ArgTypes],
+      {skip_opaque_alias(Rep, Module, Name, Args2), Rret};
     error ->
       Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
       throw({error, Msg})
-  end;
-t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
-            _RecDict, _VarDict) ->
-  case Args of
-    [] -> {t_opaque(Mod, Name, Args, Rep), []};
-    _ -> throw({error, "Polymorphic opaque types not supported yet"})
   end.
+
+forms_to_types(Forms, TypeNames, RecDict, VarDict) ->
+  {Types, _} = list_from_form(Forms, TypeNames, RecDict, VarDict),
+  Types.
+
+skip_opaque_alias(?opaque(_) = T, _Mod, _Name, _Args) -> T;
+skip_opaque_alias(T, Module, Name, Args) ->
+  t_opaque(Module, Name, Args, T).
 
 record_from_form({atom, _, Name}, ModFields, TypeNames, RecDict, VarDict) ->
   case can_unfold_more({record, Name}, TypeNames) of
@@ -4632,6 +4653,23 @@ do_opaque(?union(List) = Type, Opaques, Pred) ->
   end;
 do_opaque(Type, _Opaques, Pred) ->
   Pred(Type).
+
+is_same_type_name({Mod, Name, Args}, {Mod, Name, Args}) -> true;
+is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) ->
+  is_same_type_name2(Mod1, Name1, Args1, Mod2, Name2, Args2).
+
+%% Compatibility. In Erlang/OTP 17 the pre-defined opaque types
+%% digraph() and so on can be used, but there are also new types such
+%% as digraph:graph() with the exact same meaning. In Erlang/OTP R18.0
+%% all but the last clause can be removed.
+
+is_same_type_name2(digraph,  digraph, [], digraph,  graph, [])   -> true;
+is_same_type_name2(digraph,  graph, [],   digraph,  digraph, []) -> true;
+is_same_type_name2(gb_sets,  gb_set, [],  gb_sets,  set, [?any]) -> true;
+is_same_type_name2(gb_sets,  set, [?any], gb_sets,  gb_set, [])  -> true;
+is_same_type_name2(gb_trees, gb_tree, [], gb_trees, tree, [?any, ?any]) -> true;
+is_same_type_name2(gb_trees, tree, [?any, ?any], gb_trees, gb_tree, []) -> true;
+is_same_type_name2(_, _, _, _, _, _) -> false.
 
 %% -----------------------------------
 %% Set
