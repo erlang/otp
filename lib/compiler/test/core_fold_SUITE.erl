@@ -299,8 +299,6 @@ cover_is_safe_bool_expr(X) ->
 bsm_an_inlined(<<_:8>>, _) -> ok;
 bsm_an_inlined(_, _) -> error.
 
-id(I) -> I.
-
 unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     Dir = filename:dirname(code:which(?MODULE)),
@@ -338,3 +336,5 @@ do_something(I) ->
     put(unused_multiple_values,
 	[I|get(unused_multiple_values)]),
     I.
+
+id(I) -> I.
