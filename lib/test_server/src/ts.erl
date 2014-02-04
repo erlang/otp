@@ -212,6 +212,12 @@ run_all(_Vars) ->
 
 run_some([], _Opts) ->
     ok;
+run_some([{Spec,Mod}|Specs], Opts) ->
+    case run(Spec, Mod, Opts) of
+	ok -> ok;
+	Error -> io:format("~p: ~p~n",[{Spec,Mod},Error])
+    end,
+    run_some(Specs, Opts);
 run_some([Spec|Specs], Opts) ->
     case run(Spec, Opts) of
 	ok -> ok;
@@ -263,8 +269,17 @@ run(List, Opts) when is_list(List), is_list(Opts) ->
     run_some(List, Opts);
 
 %% run/2
-%% Runs one test spec with Options
-run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
+%% Runs one test spec with list of suites or with options
+run(Testspec, ModsOrConfig) when is_atom(Testspec),
+				 is_list(ModsOrConfig) ->
+    case is_list_of_suites(ModsOrConfig) of
+	false ->
+	    run(Testspec, {config_list,ModsOrConfig});
+	true ->
+	    run_some([{Testspec,M} || M <- ModsOrConfig],
+		     [batch])
+    end;
+run(Testspec, {config_list,Config}) ->
     Options=check_test_get_opts(Testspec, Config),
     IsSmoke=proplists:get_value(smoke,Config),
     File=atom_to_list(Testspec),
@@ -310,33 +325,84 @@ run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     run_test(File, [{spec,[Spec]}], Options);
 %% Runs one module in a spec (interactive)
 run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
-    run_test({atom_to_list(Testspec), Mod}, 
+    run_test({atom_to_list(Testspec),Mod}, 
 	     [{suite,Mod}], 
 	     [interactive]).
 
 %% run/3
 %% Run one module in a spec with Config
-run(Testspec,Mod,Config) when is_atom(Testspec), is_atom(Mod), is_list(Config) ->
+run(Testspec, Mod, Config) when is_atom(Testspec),
+				is_atom(Mod),
+				is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
-    run_test({atom_to_list(Testspec), Mod},
-	     [{suite,Mod}], 
-	     Options);
-
-%% Runs one testcase in a module.
-run(Testspec, Mod, Case) when is_atom(Testspec), is_atom(Mod), is_atom(Case) ->
+    run_test({atom_to_list(Testspec),Mod},
+	     [{suite,Mod}], Options);
+%% Run multiple modules with Config
+run(Testspec, Mods, Config) when is_atom(Testspec),
+				 is_list(Mods),
+				 is_list(Config) ->
+    run_some([{Testspec,M} || M <- Mods], Config);
+%% Runs one test case in a module.
+run(Testspec, Mod, Case) when is_atom(Testspec),
+			      is_atom(Mod),
+			      is_atom(Case) ->
     Options=check_test_get_opts(Testspec, []),
-    Args = [{suite,atom_to_list(Mod)},{testcase,atom_to_list(Case)}],
+    Args = [{suite,Mod},{testcase,Case}],
+    run_test(atom_to_list(Testspec), Args, Options);
+%% Runs one or more groups in a module.
+run(Testspec, Mod, Grs={group,_Groups}) when is_atom(Testspec),
+					    is_atom(Mod) ->
+    Options=check_test_get_opts(Testspec, []),
+    Args = [{suite,Mod},Grs],
+    run_test(atom_to_list(Testspec), Args, Options);
+%% Runs one or more test cases in a module.
+run(Testspec, Mod, TCs={testcase,_Cases}) when is_atom(Testspec),
+					       is_atom(Mod) ->
+    Options=check_test_get_opts(Testspec, []),
+    Args = [{suite,Mod},TCs],
     run_test(atom_to_list(Testspec), Args, Options).
 
 %% run/4
-%% Run one testcase in a module with Options.
+%% Run one test case in a module with Options.
 run(Testspec, Mod, Case, Config) when is_atom(Testspec), 
 				      is_atom(Mod), 
 				      is_atom(Case), 
 				      is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
-    Args = [{suite,atom_to_list(Mod)}, {testcase,atom_to_list(Case)}],
+    Args = [{suite,Mod},{testcase,Case}],
+    run_test(atom_to_list(Testspec), Args, Options);
+%% Run one or more test cases in a module with Options.
+run(Testspec, Mod, {testcase,Cases}, Config) when is_atom(Testspec), 
+						  is_atom(Mod) ->
+    run(Testspec, Mod, Cases, Config);
+run(Testspec, Mod, Cases, Config) when is_atom(Testspec), 
+				       is_atom(Mod),
+				       is_list(Cases),
+				       is_list(Config) ->
+    Options=check_test_get_opts(Testspec, Config),
+    Args = [{suite,Mod},Cases],
+    run_test(atom_to_list(Testspec), Args, Options);
+%% Run one or more groups in a module with Options.
+run(Testspec, Mod, Grs={group,_Groups}, Config) when is_atom(Testspec), 
+						     is_atom(Mod) ->
+    Options=check_test_get_opts(Testspec, Config),
+    Args = [{suite,Mod},Grs],
     run_test(atom_to_list(Testspec), Args, Options).
+
+
+is_list_of_suites(List) ->
+    lists:all(fun(Suite) ->
+		      S = if is_atom(Suite) -> atom_to_list(Suite);
+			     true -> Suite
+			  end,
+		      try lists:last(string:tokens(S,"_")) of
+			  "SUITE" -> true;
+			  "suite" -> true;
+			  _ -> false
+		      catch
+			  _:_ -> false
+		      end
+	      end, List).	
 
 %% Create a spec to skip all SUITES, this is used when the application
 %% to be tested is not part of the OTP release to be tested.
