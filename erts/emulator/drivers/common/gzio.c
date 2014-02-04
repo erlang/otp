@@ -73,15 +73,15 @@ typedef struct gz_stream {
     int      transparent; /* 1 if input file is not a .gz file */
     char     mode;    /* 'w' or 'r' */
     int      position; /* Position (for seek) */
-    int (*destroy)OF((struct gz_stream*)); /* Function to destroy
+    int (*destroy)(struct gz_stream*); /* Function to destroy
 					    *  this structure. */
 } gz_stream;
 
-local ErtsGzFile gz_open      OF((const char *path, const char *mode));
-local int    get_byte     OF((gz_stream *s));
-local void   check_header OF((gz_stream *s));
-local int    destroy      OF((gz_stream *s));
-local uLong  getLong      OF((gz_stream *s));
+local ErtsGzFile gz_open      (const char *path, const char *mode);
+local int    get_byte     (gz_stream *s);
+local void   check_header (gz_stream *s);
+local int    destroy      (gz_stream *s);
+local uLong  getLong      (gz_stream *s);
 
 #ifdef UNIX
 /*
