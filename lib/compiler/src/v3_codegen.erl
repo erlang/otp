@@ -459,7 +459,7 @@ basic_block([Le|Les], Acc) ->
 %% sets that may garbage collect are not allowed in basic blocks.
 	
 collect_block({set,_,{binary,_}})    -> no_block;
-collect_block({set,_,{map,_,_}})     -> no_block;
+collect_block({set,_,{map,_,_,_}})   -> no_block;
 collect_block({set,_,_})             -> include;
 collect_block({call,{var,_}=Var,As,_Rs}) -> {block_end,As++[Var]};
 collect_block({call,Func,As,_Rs})   -> {block_end,As++func_vars(Func)};
@@ -928,7 +928,7 @@ select_extract_tuple(Src, Vs, I, Vdb, Bef, St) ->
 select_map(Scs, V, Tf, Vf, Bef, St0) ->
     Reg = fetch_var(V, Bef),
     {Is,Aft,St1} =
-	match_fmf(fun(#l{ke={val_clause,{map,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
+	match_fmf(fun(#l{ke={val_clause,{map,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
 			  select_map_val(V, Es, B, Fail, I, Vdb, Bef, St1)
 		  end, Vf, St0, Scs),
     {[{test,is_map,{f,Tf},[Reg]}|Is],Aft,St1}.
@@ -1488,55 +1488,35 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
-set_cg([{var,R}], {map,SrcMap,Es0}, Le, Vdb, Bef,
+set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
        #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+
     Fail = {f,Bfail},
     {Sis,Int0} =
 	case InCatch of
 	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
 	    false -> {[],Bef}
 	end,
+    SrcReg = cg_reg_arg(Map,Int0),
     Line = line(Le#l.a),
-    SrcReg = case SrcMap of
-		 {var,SrcVar} -> fetch_var(SrcVar, Int0);
-		 _ -> SrcMap
-	     end,
-    {Assoc,Exact} =
-	try
-	    cg_map_pairs(Es0)
-	catch
-	    throw:badarg ->
-		{[],[{{float,0.0},{atom,badarg}},
-		     {{integer,0},{atom,badarg}}]}
-	end,
-    F = fun ({K,{var,V}}) -> [K,fetch_var(V, Int0)];
-	    ({K,E}) -> [K,E]
-	end,
-    AssocList = flatmap(F, Assoc),
-    ExactList = flatmap(F, Exact),
-    Live0 = max_reg(Bef#sr.reg),
-    Int1 = clear_dead(Int0, Le#l.i, Vdb),
-    Aft = Bef#sr{reg=put_reg(R, Int1#sr.reg)},
-    Target = fetch_reg(R, Aft#sr.reg),
-    Code = [Line] ++
-	case {AssocList,ExactList} of
-	    {[_|_],[]} ->
-		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,AssocList}}];
-	    {[_|_],[_|_]} ->
-		Live = case Target of
-			   {x,TargetX} when TargetX =:= Live0 ->
-			       Live0 + 1;
-			   _ ->
-			       Live0
-		       end,
-		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,AssocList}},
-		 {put_map_exact,Fail,Target,Target,Live,{list,ExactList}}];
-	    {[],[_|_]} ->
-		[{put_map_exact,Fail,SrcReg,Target,Live0,{list,ExactList}}];
-	    {[],[]} ->
-		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,[]}}]
-	end,
-    {Sis++Code,Aft,St};
+
+    %% The instruction needs to store keys in term sorted order
+    %% All keys has to be unique here
+    Pairs = map_pair_strip_and_termsort(Es),
+
+    %% fetch registers for values to be put into the map
+    List = flatmap(fun({K,V}) -> [K,cg_reg_arg(V,Int0)] end, Pairs),
+
+    Live = max_reg(Bef#sr.reg),
+    Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
+    Aft = clear_dead(Int1, Le#l.i, Vdb),
+    Target = fetch_reg(R, Int1#sr.reg),
+
+    I = case Op of
+	assoc -> put_map_assoc;
+	exact -> put_map_exact
+    end,
+    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     %% Find a place for the return register first.
     Int = Bef#sr{reg=put_reg(R, Bef#sr.reg)},
@@ -1549,70 +1529,12 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
 
-%% cg_map_pairs(MapPairs) -> {Assoc,Exact}
-%%  Assoc = Exact = [{K,V}]
-%%
-%%  Remove multiple assignments to the same key, and return
-%%  one list key-value list with all keys that may or may not exist
-%%  (Assoc), and one with keys that must exist (Exact).
-%%
-
-cg_map_pairs(Es0) ->
-    Es = cg_map_pairs_1(Es0, 0),
-    R0 = sofs:relation(Es),
-    R1 = sofs:relation_to_family(R0),
-    R2 = sofs:to_external(R1),
-
-    %% R2 is now [{KeyValue,[{Order,Op,OriginalKey,Value}]}]
-    R3 = [begin
-	      %% The value for the last pair determines the value.
-	      {_,_,_,V} = lists:last(Vs),
-	      {Op,{_,SortOrder}=K} = map_pair_op_and_key(Vs),
-	      {Op,{SortOrder,K,V}}
-	  end || {_,Vs} <- R2],
-
-    %% R3 is now [{Op,{Key,Value}}]
-    R = termsort(R3),
-
-    %% R4 is now sorted with all alloc first in the list, followed by
-    %% all exact.
-    {Assoc,Exact} = lists:partition(fun({Op,_}) -> Op =:= assoc end, R),
-    {[{K,V} || {_,{_,K,V}} <- Assoc],
-     [{K,V} || {_,{_,K,V}} <- Exact]}.
-
-cg_map_pairs_1([{map_pair_assoc,{_,Kv}=K,V}|T], Order) ->
-    [{Kv,{Order,assoc,K,V}}|cg_map_pairs_1(T, Order+1)];
-cg_map_pairs_1([{map_pair_exact,{_,Kv}=K,V}|T], Order) ->
-    [{Kv,{Order,exact,K,V}}|cg_map_pairs_1(T, Order+1)];
-cg_map_pairs_1([], _) -> [].
-
-%% map_pair_op_and_key({_,Op,K,_}) -> {Operator,Key}
-%%  Determine the operator and key to use. Throw a 'badarg'
-%%  exception if there are contradictory exact updates.
-
-map_pair_op_and_key(L) ->
-    case [K || {_,exact,K,_} <- L] of
-	[K] ->
-	    %% There is a single ':=' operator. Use that key.
-	    {exact,K};
-	[K|T] ->
-	    %% There is more than one ':=' operator. All of them
-	    %% must have the same key.
-	    case lists:all(fun(E) -> E =:= K end, T) of
-		true ->
-		    {exact,K};
-		false ->
-		    %% Some keys are different, e.g. 1 and 1.0.
-		    throw(badarg)
-	    end;
-	[] ->
-	    %% Only '=>' operators. Use the first key in the list.
-	    [{_,assoc,K,_}|_] = L,
-	    {assoc,K}
-    end.
-
-termsort(Ls) ->
-    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, Ls).
+map_pair_strip_and_termsort(Es) ->
+    %% format in
+    %%    [{map_pair,K,V}]
+    %% where K is for example {integer, 1} and we want to sort on 1.
+    Ls = [{K,V}||{_,K,V}<-Es],
+    lists:sort(fun({{_,A},_},{{_,B},_}) -> erts_internal:cmp_term(A,B) < 0 end, Ls).
 
 %%%
 %%% Code generation for constructing binaries.
@@ -2085,7 +2007,7 @@ load_vars(Vs, Regs) ->
     foldl(fun ({var,V}, Rs) -> put_reg(V, Rs) end, Regs, Vs).
 
 %% put_reg(Val, Regs) -> Regs.
-%% find_reg(Val, Regs) -> ok{r{R}} | error.
+%% find_reg(Val, Regs) -> {ok,r{R}} | error.
 %% fetch_reg(Val, Regs) -> r{R}.
 %%  Functions to interface the registers.
 
