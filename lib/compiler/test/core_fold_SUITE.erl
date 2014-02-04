@@ -22,7 +22,8 @@
 	 init_per_group/2,end_per_group/2,
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
-	 unused_multiple_values_error/1,unused_multiple_values/1]).
+	 unused_multiple_values_error/1,unused_multiple_values/1,
+	 multiple_aliases/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -38,7 +39,8 @@ groups() ->
     [{p,test_lib:parallel(),
       [t_element,setelement,t_length,append,t_apply,bifs,
        eq,nested_call_in_case,guard_try_catch,coverage,
-       unused_multiple_values_error,unused_multiple_values]}].
+       unused_multiple_values_error,unused_multiple_values,
+       multiple_aliases]}].
 
 
 init_per_suite(Config) ->
@@ -336,5 +338,31 @@ do_something(I) ->
     put(unused_multiple_values,
 	[I|get(unused_multiple_values)]),
     I.
+
+
+%% Make sure that multiple aliases does not cause
+%% the case expression to be evaluated twice.
+multiple_aliases(Config) when is_list(Config) ->
+    do_ma(fun() ->
+		  X = Y = run_once(),
+		  {X,Y}
+	  end, {ok,ok}),
+    do_ma(fun() ->
+		  case {true,run_once()} of
+		      {true=A=B,ok=X=Y} ->
+			  {A,B,X,Y}
+		  end
+	  end, {true,true,ok,ok}),
+    ok.
+
+do_ma(Fun, Expected) when is_function(Fun, 0) ->
+    Expected = Fun(),
+    ran_once = erase(run_once),
+    ok.
+
+run_once() ->
+    undefined = put(run_once, ran_once),
+    ok.
+
 
 id(I) -> I.

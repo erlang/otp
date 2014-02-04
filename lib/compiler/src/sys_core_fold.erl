@@ -1925,9 +1925,30 @@ eval_case(#c_case{arg=E,clauses=[#c_clause{pats=Ps0,body=B}]}, Sub) ->
 	     true -> cerl:values_es(E);
 	     false -> [E]
 	 end,
-    {true,Bs} = cerl_clauses:match_list(Ps0, Es),
+    %% Consider:
+    %%
+    %%   case SomeSideEffect() of
+    %%      X=Y -> ...
+    %%   end
+    %%
+    %% We must not rewrite it to:
+    %%
+    %%   let <X,Y> = <SomeSideEffect(),SomeSideEffect()> in ...
+    %%
+    %% because SomeSideEffect() would be called evaluated twice.
+    %%
+    %% Instead we must evaluate the case expression in an outer let
+    %% like this:
+    %%
+    %%   let NewVar = SomeSideEffect() in
+    %%       let <X,Y> = <NewVar,NewVar> in ...
+    %%
+    Vs = make_vars([], length(Es)),
+    {true,Bs} = cerl_clauses:match_list(Ps0, Vs),
     {Ps,As} = unzip(Bs),
-    expr(#c_let{vars=Ps,arg=core_lib:make_values(As),body=B}, sub_new(Sub));
+    InnerLet = cerl:c_let(Ps, core_lib:make_values(As), B),
+    Let = cerl:c_let(Vs, E, InnerLet),
+    expr(Let, sub_new(Sub));
 eval_case(Case, _) -> Case.
 
 %% case_opt(CaseArg, [Clause]) -> {CaseArg,[Clause]}.
