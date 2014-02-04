@@ -63,6 +63,7 @@ config(priv_dir,_) ->
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 init_per_testcase(_Case, Config) ->
+    test_lib:interpret(?MODULE),
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 end_per_testcase(_Case, Config) ->
