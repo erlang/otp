@@ -315,8 +315,8 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_DATA), ?UINT32(Recipient), ?UINT32(Len), Data:Le
        recipient_channel = Recipient,
        data = Data
     };
-decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient),
-	 ?UINT32(DataType), Data/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient), 
+	 ?UINT32(DataType), ?UINT32(Len), Data:Len/binary>>) ->
     #ssh_msg_channel_extended_data{
        recipient_channel = Recipient,
        data_type_code = DataType,
