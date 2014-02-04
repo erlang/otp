@@ -38,10 +38,10 @@
 	%% not covered in 17.0-rc1
 	t_build_and_match_over_alloc/1,
 	t_build_and_match_empty_val/1,
-	t_build_and_match_val/1
+	t_build_and_match_val/1,
 
 	%% errors in 17.0-rc1
-
+	t_update_values/1
     ]).
 
 suite() -> [].
@@ -62,10 +62,10 @@ all() -> [
 	%% not covered in 17.0-rc1
 	t_build_and_match_over_alloc,
 	t_build_and_match_empty_val,
-	t_build_and_match_val
+	t_build_and_match_val,
 
 	%% errors in 17.0-rc1
-
+	t_update_values
     ].
 
 groups() -> [].
@@ -212,15 +212,44 @@ t_update_exact(Config) when is_list(Config) ->
     M2 = M0#{3.0:=new},
     #{1:=a,2:=b,3.0:=new,4:=d,5:=e} = M2,
     M2 = M0#{3.0=>wrong,3.0:=new},
-    M2 = M0#{3=>wrong,3.0:=new},
+    true = M2 =/= M0#{3=>right,3.0:=new},
+    #{ 3 := right, 3.0 := new } = M0#{3=>right,3.0:=new},
+
+    M3 = id(#{ 1 => val}),
+    #{1 := update2,1.0 := new_val4} = M3#{
+	1.0 => new_val1, 1 := update, 1=> update3,
+	1 := update2, 1.0 := new_val2, 1.0 => new_val3,
+	1.0 => new_val4 },
 
     %% Errors cases.
     {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
     {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
-
     ok.
+
+t_update_values(Config) when is_list(Config) ->
+    V0 = id(1337),
+    M0 = #{ a => 1, val => V0},
+    V1 = get_val(M0),
+    M1 = M0#{ val := [V0,V1], "wazzup" => 42 },
+    [1337, {some_val, 1337}] = get_val(M1),
+
+    N = 110,
+    List = [{[I,1,2,3,I],{1,2,3,"wat",I}}|| I <- lists:seq(1,N)],
+
+    {_,_,#{val2 := {1,2,3,"wat",N}, val1 := [N,1,2,3,N]}} = lists:foldl(fun
+	    ({V2,V3},{Old2,Old3,Mi}) ->
+		ok = check_val(Mi,Old2,Old3),
+		#{ val1 := Old2, val2 := Old3 } = Mi,
+		{V2,V3, Mi#{ val1 := id(V2), val2 := V1, val2 => id(V3)}}
+	end, {none, none, #{val1=>none,val2=>none}},List),
+    ok.
+
+check_val(#{val1:=V1, val2:=V2},V1,V2) -> ok.
+
+get_val(#{ "wazzup" := _, val := V}) -> V;
+get_val(#{ val := V }) -> {some_val, V}.
 
 t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_head(#{a=>1}),

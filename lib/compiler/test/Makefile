@@ -48,6 +48,7 @@ NO_OPT= \
 	fun \
 	guard \
 	lc \
+	map \
 	match \
 	misc \
 	num_bif \
