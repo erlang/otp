@@ -574,6 +574,7 @@ valfun_4({apply,Live}, Vst) ->
 valfun_4({apply_last,Live,_}, Vst) ->
     tail_call(apply, Live+2, Vst);
 valfun_4({call_fun,Live}, Vst) ->
+    validate_src([{x,Live}], Vst),
     call('fun', Live+1, Vst);
 valfun_4({call,Live,Func}, Vst) ->
     call(Func, Live, Vst);
