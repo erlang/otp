@@ -215,6 +215,7 @@ t_update_exact(Config) when is_list(Config) ->
     M2 = M0#{3=>wrong,3.0:=new},
 
     %% Errors cases.
+    {'EXIT',{badarg,_}} = (catch ((id(nil))#{ a := b })),
     {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
     {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
