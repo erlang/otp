@@ -637,7 +637,6 @@ find_beam_1(BeamFile, SrcDir) ->
     RootDir = filename:dirname(SrcDir),
     EbinDir = filename:join(RootDir, "ebin"),
     CodePath = [EbinDir | code:get_path()],
-    BeamFile = atom_to_list(Mod) ++ code:objfile_extension(),
     lists:foldl(fun(_, Beam) when is_list(Beam) -> Beam;
 		   (Dir, error) ->
 			File = filename:join(Dir, BeamFile),
