@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,6 @@
 	 start_link/3, 
 	 request/2, 
 	 cancel_request/2,
-	 request_canceled/3,
 	 request_done/2, 
 	 retry_request/2, 
 	 redirect_request/2,
@@ -144,22 +143,7 @@ redirect_request(Request, ProfileName) ->
 %%--------------------------------------------------------------------
 
 cancel_request(RequestId, ProfileName) ->
-    call(ProfileName, {cancel_request, RequestId}).
-
-
-%%--------------------------------------------------------------------
-%% Function: request_canceled(RequestId, ProfileName) -> ok
-%%	RequestId - ref()
-%%      ProfileName = atom()
-%%
-%% Description: Confirms that a request has been canceld. Intended to
-%% be called by the httpc handler process.
-%%--------------------------------------------------------------------
-
-request_canceled(RequestId, ProfileName, From) ->
-    gen_server:reply(From, ok),
-    cast(ProfileName, {request_canceled, RequestId}).
-
+    cast(ProfileName, {cancel_request, RequestId}).
 
 %%--------------------------------------------------------------------
 %% Function: request_done(RequestId, ProfileName) -> ok
@@ -467,31 +451,11 @@ do_init(ProfileName, CookiesDir) ->
 %%--------------------------------------------------------------------
 handle_call({request, Request}, _, State) ->
     ?hcri("request", [{request, Request}]),
-    case (catch handle_request(Request, State)) of
+    case (catch handle_request(Request, State, false)) of
 	{reply, Msg, NewState} ->
 	    {reply, Msg, NewState};
 	Error ->
 	    {stop, Error, httpc_response:error(Request, Error), State}
-    end;
-
-handle_call({cancel_request, RequestId}, From, 
-	    #state{handler_db = HandlerDb} = State) ->
-    ?hcri("cancel_request", [{request_id, RequestId}]),
-    case ets:lookup(HandlerDb, RequestId) of
-	[] ->
-	    %% The request has allready compleated make sure
-	    %% it is deliverd to the client process queue so
-	    %% it can be thrown away by httpc:cancel_request
-	    %% This delay is hopfully a temporary workaround.
-	    %% Note that it will not not delay the manager,
-	    %% only the client that called httpc:cancel_request
-	    timer:apply_after(?DELAY, gen_server, reply, [From, ok]),
-	    {noreply, State};
-	[{_, Pid, _}] ->
-	    httpc_handler:cancel(RequestId, Pid, From),
-	    {noreply, 
-	     State#state{cancel = 
-			 [{RequestId, Pid, From} | State#state.cancel]}}
     end;
 
 handle_call(reset_cookies, _, #state{cookie_db = CookieDb} = State) ->
@@ -547,7 +511,7 @@ handle_cast({retry_or_redirect_request, {Time, Request}},
     {noreply, State};
 
 handle_cast({retry_or_redirect_request, Request}, State) ->
-    case (catch handle_request(Request, State)) of
+    case (catch handle_request(Request, State, true)) of
 	{reply, {ok, _}, NewState} ->
 	    {noreply, NewState};
 	Error  ->
@@ -555,17 +519,17 @@ handle_cast({retry_or_redirect_request, Request}, State) ->
 	    {stop, Error, State}
     end;
 
-handle_cast({request_canceled, RequestId}, State) ->
-    ?hcrv("request canceled", [{request_id, RequestId}]),
-    ets:delete(State#state.handler_db, RequestId),
-    case lists:keysearch(RequestId, 1, State#state.cancel) of
-	{value, Entry = {RequestId, _, From}} ->
-	    ?hcrt("found in cancel", [{from, From}]),
-	    {noreply, 
-	     State#state{cancel = lists:delete(Entry, State#state.cancel)}};
-	Else ->
-	    ?hcrt("not found in cancel", [{else, Else}]),
-	   {noreply, State}
+handle_cast({cancel_request, RequestId},
+	    #state{handler_db = HandlerDb} = State) ->
+    case ets:lookup(HandlerDb, RequestId) of
+	[] ->
+	    %% Request already compleated nothing to
+	    %% cancel
+	    {noreply, State};
+	[{_, Pid, _}] ->
+	    httpc_handler:cancel(RequestId, Pid),
+	    ets:delete(State#state.handler_db, RequestId),
+	    {noreply, State}
     end;
 
 handle_cast({request_done, RequestId}, State) ->
@@ -577,6 +541,7 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
     ?hcrv("set options", [{options, Options}, {old_options, OldOptions}]),
     NewOptions = 
 	#options{proxy                 = get_proxy(Options, OldOptions),
+		 https_proxy           = get_https_proxy(Options, OldOptions),
 		 pipeline_timeout      = get_pipeline_timeout(Options, OldOptions), 
 		 max_pipeline_length   = get_max_pipeline_length(Options, OldOptions), 
 		 max_keep_alive_length = get_max_keep_alive_length(Options, OldOptions), 
@@ -629,21 +594,7 @@ handle_info({'EXIT', _, _}, State) ->
     {noreply, State};
 handle_info({'DOWN', _, _, Pid, _}, State) ->
     ets:match_delete(State#state.handler_db, {'_', Pid, '_'}),
-
-    %% If there where any canceled request, handled by the
-    %% the process that now has terminated, the
-    %% cancelation can be viewed as sucessfull!
-    NewCanceldList =
-	lists:foldl(fun(Entry = {_, HandlerPid, From}, Acc)  ->
-			    case HandlerPid of
-				Pid ->
-				    gen_server:reply(From, ok),
-				    lists:delete(Entry, Acc);
-				_ ->
-				    Acc
-			    end 
-		    end, State#state.cancel, State#state.cancel),
-    {noreply, State#state{cancel = NewCanceldList}};
+    {noreply, State};
 handle_info(Info, State) ->
     Report = io_lib:format("Unknown message in "
 			   "httpc_manager:handle_info ~p~n", [Info]),
@@ -741,7 +692,7 @@ get_manager_info(#state{handler_db = HDB,
     SessionInfo = which_sessions2(SDB), 
     OptionsInfo = 
 	[{Item, get_option(Item, Options)} || 
-	    Item <- record_info(fields, options)], 
+		  Item <- record_info(fields, options)],
     CookieInfo  = httpc_cookie:which_cookies(CDB),
     [{handlers, HandlerInfo}, 
      {sessions, SessionInfo}, 
@@ -769,24 +720,11 @@ get_handler_info(Tab) ->
     Pattern   = {'$2', '$1', '_'},
     Handlers1 = [{Pid, Id} || [Pid, Id] <- ets:match(Tab, Pattern)],
     Handlers2 = sort_handlers(Handlers1), 
-    Handlers3 = [{Pid, Reqs, 
-		  try
-		      begin
-			  httpc_handler:info(Pid)
-		      end
-		  catch
-		      _:_ ->
-			  %% Why would this crash? 
-			  %% Only if the process has died, but we don't 
-			  %% know about it?
-			  []
-		  end} || {Pid, Reqs} <- Handlers2],
-    Handlers3.
-
+    [{Pid, Reqs, httpc_handler:info(Pid)} || {Pid, Reqs} <- Handlers2].
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/0.9"}} = Request,
-	       State) ->
+	       State, _) ->
     %% Act as an HTTP/0.9 client that does not know anything
     %% about persistent connections
 
@@ -799,7 +737,7 @@ handle_request(#request{settings =
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/1.0"}} = Request,
-	       State) ->
+	       State, _) ->
     %% Act as an HTTP/1.0 client that does not
     %% use persistent connections
 
@@ -810,13 +748,13 @@ handle_request(#request{settings =
     start_handler(NewRequest#request{headers = NewHeaders}, State),
     {reply, {ok, NewRequest#request.id}, State};
 
-handle_request(Request, State = #state{options = Options}) ->
+handle_request(Request, State = #state{options = Options}, Retry) ->
 
     NewRequest = handle_cookies(generate_request_id(Request), State),
     SessionType = session_type(Options),
     case select_session(Request#request.method,
 			Request#request.address,
-			Request#request.scheme, SessionType, State) of
+			Request#request.scheme, SessionType, State, Retry) of
 	{ok, HandlerPid} ->
 	    pipeline_or_keep_alive(NewRequest, HandlerPid, State);
 	no_connection ->
@@ -840,6 +778,7 @@ start_handler(#request{id   = Id,
 	      #state{profile_name = ProfileName, 
 		     handler_db   = HandlerDb, 
 		     options      = Options}) ->
+    ClientClose = httpc_request:is_client_closing(Request#request.headers),
     {ok, Pid} =
 	case is_inets_manager() of
 	    true ->
@@ -850,13 +789,18 @@ start_handler(#request{id   = Id,
 	end,
     HandlerInfo = {Id, Pid, From}, 
     ets:insert(HandlerDb, HandlerInfo), 
+    insert_session(#session{id = {Request#request.address, Pid},
+			    scheme = Request#request.scheme,
+			    client_close = ClientClose,
+			    type = session_type(Options)
+			   }, ProfileName),
     erlang:monitor(process, Pid).
 
 
 select_session(Method, HostPort, Scheme, SessionType, 
 	       #state{options = #options{max_pipeline_length   = MaxPipe,
 					 max_keep_alive_length = MaxKeepAlive},
-		      session_db = SessionDb}) ->
+		      session_db = SessionDb}, Retry) ->
     ?hcrd("select session", [{session_type,          SessionType},
 			     {max_pipeline_length,   MaxPipe},
 			     {max_keep_alive_length, MaxKeepAlive}]),
@@ -869,13 +813,23 @@ select_session(Method, HostPort, Scheme, SessionType,
 	    %% client_close, scheme and type specified. 
 	    %% The fields id (part of: HandlerPid) and queue_length
 	    %% specified.
-	    Pattern = #session{id           = {HostPort, '$1'},
-			       client_close = false,
-			       scheme       = Scheme,
-			       queue_length = '$2',
-			       type         = SessionType,
-			       available    = true, 
-			       _            = '_'},
+	    Pattern = case (Retry andalso SessionType == pipeline) of
+			  true ->
+			      #session{id           = {HostPort, '$1'},
+				       client_close = false,
+				       scheme       = Scheme,
+				       queue_length = '$2',
+				       type         = SessionType,
+				       persistent   = true,
+				       _            = '_'};
+			  false ->
+			      #session{id           = {HostPort, '$1'},
+				       client_close = false,
+				       scheme       = Scheme,
+				       queue_length = '$2',
+				       type         = SessionType,
+				       _            = '_'}
+		      end,
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
 	    ?hcrd("select session", [{host_port,  HostPort}, 
@@ -1001,6 +955,8 @@ cast(ProfileName, Msg) ->
 
 get_option(proxy, #options{proxy = Proxy}) ->
     Proxy;
+get_option(https_proxy, #options{https_proxy = Proxy}) ->
+    Proxy;
 get_option(pipeline_timeout, #options{pipeline_timeout = Timeout}) ->
     Timeout;
 get_option(max_pipeline_length, #options{max_pipeline_length = Length}) ->
@@ -1026,6 +982,9 @@ get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
 
 get_proxy(Opts, #options{proxy = Default}) ->
     proplists:get_value(proxy, Opts, Default).
+
+get_https_proxy(Opts, #options{https_proxy = Default}) ->
+    proplists:get_value(https_proxy, Opts, Default).
 
 get_pipeline_timeout(Opts, #options{pipeline_timeout = Default}) ->
     proplists:get_value(pipeline_timeout, Opts, Default).

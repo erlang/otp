@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,6 +37,7 @@
 -define(HTTP_MAX_REDIRECTS,      4).
 -define(HTTP_KEEP_ALIVE_TIMEOUT, 120000).
 -define(HTTP_KEEP_ALIVE_LENGTH,  5).
+-define(TLS_UPGRADE_TOKEN, "TLS/1.0").
 
 %%% HTTP Client per request settings
 -record(http_options,
@@ -72,6 +73,7 @@
 -record(options, 
 	{
 	 proxy = {undefined, []}, % {{ProxyHost, ProxyPort}, [NoProxy]},
+	 https_proxy = {undefined, []}, % {{ProxyHost, ProxyPort}, [NoProxy]}
 	 %% 0 means persistent connections are used without pipelining
 	 pipeline_timeout      = ?HTTP_PIPELINE_TIMEOUT, 
 	 max_pipeline_length   = ?HTTP_PIPELINE_LENGTH,
@@ -141,8 +143,8 @@
 
 	  %% true | false
 	  %% This will be true, when a response has been received for 
-	  %% the first request. See type above.
-	  available = false
+	  %% the first request and the server has not closed the connection
+	  persistent = false
 	 }).
 
 

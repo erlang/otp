@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut)
   when (is_integer(TimeOut) orelse (TimeOut =:= infinity)) ->
     verify_request(SocketType, Host, Port, [], Node, RequestStr, Options, TimeOut).
 
-verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, TimeOut) ->
+verify_request(SocketType, Host, Port, TranspOpts0, Node, RequestStr, Options, TimeOut) ->
     tsp("verify_request -> entry with"
 	"~n   SocketType: ~p"
 	"~n   Host:       ~p"
@@ -100,7 +100,17 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 	"~n   Node:       ~p"
 	"~n   Options:    ~p"
 	"~n   TimeOut:    ~p", 
-	[SocketType, Host, Port, TranspOpts, Node, Options, TimeOut]),
+	[SocketType, Host, Port, TranspOpts0, Node, Options, TimeOut]),
+
+    %% For now, until we modernize the httpd tests
+    TranspOpts =
+	case lists:member(inet6, TranspOpts0) of
+	    true ->
+		TranspOpts0;
+	    false ->
+		[inet | TranspOpts0]
+	end,
+
     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
 	    tsp("verify_request -> connected - now send message"),
@@ -177,12 +187,12 @@ request(#state{mfa = {Module, Function, Args},
 	{tcp_closed, Socket} ->
 	    io:format("~p ~w[~w]request -> received (tcp) closed"
 		      "~n", [self(), ?MODULE, ?LINE]),
-	    test_server:fail(connection_closed);
+	    exit({test_failed, connection_closed});
 	{tcp_error, Socket, Reason} ->
 	    io:format("~p ~w[~w]request -> received (tcp) error"
 		      "~n   Reason: ~p"
 		      "~n", [self(), ?MODULE, ?LINE, Reason]),
-	    test_server:fail({tcp_error, Reason});    
+	    ct:fail({tcp_error, Reason});
 	{ssl, Socket, Data} ->
 	    print(ssl, Data, State),
 	    case Module:Function([Data | Args]) of
@@ -197,13 +207,13 @@ request(#state{mfa = {Module, Function, Args},
 	    print(ssl, "closed", State),
 	    State#state{body = hd(Args)};
 	{ssl_closed, Socket} ->
-	    test_server:fail(connection_closed);
+	    exit({test_failed, connection_closed});
 	{ssl_error, Socket, Reason} ->
-	    test_server:fail({ssl_error, Reason})
+	    ct:fail({ssl_error, Reason})
     after TimeOut ->
 	    io:format("~p ~w[~w]request -> timeout"
 		      "~n", [self(), ?MODULE, ?LINE]),
-	    test_server:fail(connection_timed_out)    
+	    ct:fail(connection_timed_out)
     end.
 
 handle_http_msg({Version, StatusCode, ReasonPharse, Headers, Body}, 
@@ -267,7 +277,7 @@ handle_http_body(Body, State = #state{headers = Headers,
 			     request(State#state{mfa = MFA}, 5000) 
 		     end;
 		 false ->
-		     test_server:fail(body_too_big)
+		     ct:fail(body_too_big)
 	     end
      end.
 
@@ -293,8 +303,7 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 	       list_to_integer(Headers#http_response_h.'content-length'),
 	       Body).
 
-
-%%--------------------------------------------------------------------
+%--------------------------------------------------------------------
 %% Internal functions
 %%------------------------------------------------------------------
 check_version(Version, Options) ->
@@ -352,7 +361,7 @@ do_validate(Header, [{header, HeaderField, Value}|Rest],N,P) ->
 	    tsf({wrong_header_field_value, LowerHeaderField, Header})
     end,
     do_validate(Header, Rest, N, P);
-do_validate(Header,[{no_last_modified, HeaderField}|Rest],N,P) ->
+do_validate(Header,[{no_header, HeaderField}|Rest],N,P) ->
     case lists:keysearch(HeaderField,1,Header) of
 	{value,_} ->
 	    tsf({wrong_header_field_value, HeaderField, Header});
@@ -396,7 +405,7 @@ check_body(_, _, _, _,_) ->
     ok.
 
 print(Proto, Data, #state{print = true}) ->
-    test_server:format("Received ~p: ~p~n", [Proto, Data]);
+    ct:pal("Received ~p: ~p~n", [Proto, Data]);
 print(_, _,  #state{print = false}) ->
     ok.
 

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -149,40 +149,31 @@ INETS_ROOT = ../../inets
 
 MODULES =                 		\
 	inets_test_lib    		\
+	erl_make_certs                  \
 	ftp_SUITE 	  		\
+	ftp_suite_lib			\
 	ftp_format_SUITE  		\
-	ftp_solaris8_sparc_test		\
-	ftp_solaris9_sparc_test		\
-	ftp_solaris10_sparc_test	\
-	ftp_solaris10_x86_test		\
-	ftp_linux_x86_test		\
-	ftp_linux_ppc_test		\
-	ftp_macosx_x86_test		\
-	ftp_macosx_ppc_test		\
-	ftp_openbsd_x86_test		\
-	ftp_freebsd_x86_test		\
-	ftp_netbsd_x86_test		\
-	ftp_windows_xp_test		\
-	ftp_windows_2003_server_test	\
-	ftp_suite_lib	  		\
-	ftp_ticket_test			\
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
 	httpc_cookie_SUITE		\
+	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
+	old_httpd_SUITE       		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\
 	httpd_block	  		\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\
+	httpd_1_0                       \
 	httpd_test_lib    		\
 	inets_sup_SUITE   		\
 	inets_SUITE       		\
         inets_app_test    		\
         inets_appup_test  		\
         tftp_test_lib			\
-        tftp_SUITE
+        tftp_SUITE                      \
+	uri_SUITE
 
 
 EBIN = .
@@ -212,8 +203,8 @@ INETS_FILES = inets.config $(INETS_SPECS)
 # 	inets_tftp_suite
 
 INETS_DATADIRS = inets_SUITE_data inets_sup_SUITE_data 
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data
-HTTPC_DATADIRS = httpc_SUITE_data
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data
+HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 FTP_DATADIRS   = ftp_SUITE_data  
 
 DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS) $(FTP_DATADIRS)

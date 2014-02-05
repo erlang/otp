@@ -547,15 +547,14 @@
 	<v>Opts = options()</v>
 	<v>options() = [option()]</v>
 	<v>option() = start_option() | open_option()</v>
-	<!-- <v>start_options() = [start_option()]</v> -->
 	<v>start_option() = {verbose, verbose()} | {debug, debug()}</v>
 	<v>verbose() = boolean() (defaults to false)</v>
 	<v>debug() = disable | debug | trace (defaults to disable)</v>
-	<!-- <v>open_options() = [open_option()]</v> -->
-	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</v>
+	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</v>
 	<v>ipfamily() = inet | inet6 | inet6fb4 (defaults to inet)</v>
 	<v>port() = integer() > 0 (defaults to 21)</v>
 	<v>mode() = active | passive (defaults to passive)</v>
+	<v>tls_options() = [<seealso marker="ssl:ssl#type-ssloption">ssl:ssloption()</seealso>]</v>
 	<v>timeout() = integer() > 0 (defaults to 60000 milliseconds)</v>
 	<v>dtimeout() = integer() > 0 | infinity (defaults to infinity)</v>
 	<v>pogress() = ignore | {module(), function(), initial_data()} (defaults to ignore)</v>
@@ -569,6 +568,10 @@
 	<p>This function is used to start a standalone ftp client process 
           (without the inets service framework) and 
           open a session with the FTP server at <c>Host</c>. </p>
+
+	<p>If the option <c>{tls, tls_options()}</c> is present, the ftp session will be transported over tls (ftps, see
+<url href="http://www.ietf.org/rfc/rfc4217.txt">RFC 4217</url>). The list <c>tls_options()</c> may be empty. The function <seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> is used for securing both the control connection and the data sessions.
+	</p>
 
         <p>A session opened in this way, is closed using the 
           <seealso marker="#close">close</seealso> function. </p>
@@ -815,8 +818,7 @@
         <p>Sets the file transfer type to <c>ascii</c> or <c>binary</c>. When
           an ftp session is opened, the default transfer type of the
           server is used, most often <c>ascii</c>, which is the default
-          according to RFC 959.</p>
-
+          according to <url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>.</p>
        <marker id="user3"></marker>
       </desc>
     </func>
@@ -943,7 +945,7 @@
   <section>
     <title>SEE ALSO</title>
     <p>file, filename, J. Postel and J. Reynolds: File Transfer Protocol
-      (RFC 959).
+      (<url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>).
       </p>
   </section>
   

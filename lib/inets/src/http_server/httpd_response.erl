@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,12 +20,13 @@
 -module(httpd_response).
 -export([generate_and_send_response/1, send_status/3, send_header/3, 
 	 send_body/3, send_chunk/3, send_final_chunk/2, split_header/2,
-	 is_disable_chunked_send/1, cache_headers/1]).
+	 is_disable_chunked_send/1, cache_headers/2]).
 -export([map_status_code/2]).
 
--include("httpd.hrl").
--include("http_internal.hrl").
--include("httpd_internal.hrl").
+-include_lib("inets/src/inets_app/inets_internal.hrl").
+-include_lib("inets/include/httpd.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
+-include_lib("inets/src/http_server/httpd_internal.hrl").
 
 -define(VMODULE,"RESPONSE").
 
@@ -35,8 +36,7 @@ generate_and_send_response(#mod{init_data =
 				#init_data{peername = {_,"unknown"}}}) ->
     ok;
 generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
-    Modules = httpd_util:lookup(ConfigDB,modules,
-				[mod_get, mod_head, mod_log]),
+    Modules = httpd_util:lookup(ConfigDB, modules, ?DEFAULT_MODS),
     case traverse_modules(ModData, Modules) of
 	done ->
 	    ok;
@@ -69,17 +69,7 @@ traverse_modules(ModData,[]) ->
   {proceed,ModData#mod.data};
 traverse_modules(ModData,[Module|Rest]) ->
     ?hdrd("traverse modules", [{callback_module, Module}]), 
-    case (catch apply(Module, do, [ModData])) of
-	{'EXIT', Reason} ->
-	    ?hdrd("traverse modules - exit", [{reason, Reason}]), 
-	    String = 
-		lists:flatten(
-		  io_lib:format("traverse exit from apply: ~p:do => ~n~p",
-				[Module, Reason])),
-	    report_error(mod_log, ModData#mod.config_db, String),
-	    report_error(mod_disk_log, ModData#mod.config_db, String),
-	    send_status(ModData, 500, none),
-	    done;
+    try apply(Module, do, [ModData]) of
 	done ->
 	    ?hdrt("traverse modules - done", []), 
 	    done;
@@ -89,6 +79,19 @@ traverse_modules(ModData,[Module|Rest]) ->
 	{proceed, NewData} ->
 	    ?hdrt("traverse modules - proceed", [{new_data, NewData}]), 
 	    traverse_modules(ModData#mod{data = NewData}, Rest)
+    catch
+	T:E ->
+	    String =
+		lists:flatten(
+		  io_lib:format("module traverse failed: ~p:do => "
+				"~n   Error Type:  ~p"
+				"~n   Error:       ~p"
+				"~n   Stack trace: ~p",
+				[Module, T, E, ?STACK()])),
+	    report_error(mod_log, ModData#mod.config_db, String),
+	    report_error(mod_disk_log, ModData#mod.config_db, String),
+	    send_status(ModData, 500, none),
+	    done
     end.
 
 %% send_status %%
@@ -268,8 +271,8 @@ get_connection(false,"HTTP/1.1") ->
 get_connection(_,_) ->
     "".
 
-cache_headers(#mod{config_db = Db}) ->
-    case httpd_util:lookup(Db, script_nocache, false) of
+cache_headers(#mod{config_db = Db}, NoCacheType) ->
+    case httpd_util:lookup(Db, NoCacheType, false) of
 	true ->
 	    Date = httpd_util:rfc1123_date(),
 	    [{"cache-control", "no-cache"},

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -163,11 +163,9 @@
       </item>
 
       <marker id="prop_socket_type"></marker>
-      <tag>{socket_type, ip_comm | ssl | essl}</tag>
+      <tag>{socket_type, ip_comm | {essl, Config::proplist()}}</tag>
       <item>
-	<p>When using ssl, there are currently only one alternative. 
-	<c>essl</c> specifically uses the Erlang based SSL. 
-	<c>ssl</c> defaults to <c>essl</c>. </p>
+	<p> For ssl configuration options see <seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso> </p>
 	<p>Defaults to <c>ip_comm</c>. </p> 
       </item>
 
@@ -253,14 +251,14 @@
       </item>
       
       <marker id="prop_max_uri"></marker>
-      <tag>{max_uri, integer()}</tag>
+      <tag>{max_uri_size, integer()}</tag>
       <item>
 	<p>Limits the size of the HTTP request URI. By
 	default there is no limit. </p>
       </item>
       
       <marker id="prop_max_keep_alive_req"></marker>
-      <tag>{max_keep_alive_requests, integer()}</tag>
+      <tag>{max_keep_alive_request, integer()}</tag>
       <item>
 	<p>The number of request that a client can do on one
 	connection. When the server has responded to the number of
@@ -395,71 +393,7 @@ bytes
       </item>
       
     </taglist>
-    
-    <marker id="props_ssl"></marker>
-    <p><em>ssl properties</em></p>
-    <taglist>
-      <marker id="prop_ssl_ca_cert_file"></marker>
-      <tag>{ssl_ca_certificate_file, path()}</tag>
-      <item> 
-	<p>Used as cacertfile option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p> 
-      </item>
-      
-      <marker id="prop_ssl_cert_file"></marker>
-      <tag>{ssl_certificate_file, path()}</tag>
-      <item> 
-	<p>Used as certfile option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p> 
-      </item>
-      
-      <marker id="prop_ssl_ciphers"></marker>
-      <tag>{ssl_ciphers, list()}</tag>
-      <item>
-	<p>Used as ciphers option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-      
-      <marker id="prop_ssl_verify_client"></marker>
-      <tag>{ssl_verify_client, integer()}</tag>
-      <item>
-	<p>Used as verify option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
 
-      <marker id="prop_ssl_verify_depth"></marker>
-      <tag>{ssl_verify_depth, integer()}</tag>
-      <item> 
-	<p>Used as depth option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-      
-      <marker id="prop_ssl_passwd_callback_funct"></marker>
-      <tag>{ssl_password_callback_function, atom()}</tag>
-      <item> 
-	<p>Used together with ssl_password_callback_module
-	to retrieve a value to use as password option to ssl:listen/2 
-	see <seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-
-      <marker id="prop_ssl_passwd_callback_args"></marker>
-      <tag>{ssl_password_callback_arguments, list()}</tag>
-      <item> 
-	<p>Used together with ssl_password_callback_function to supply a
-	list of arguments to the callback function. If not specified
-        the callback function will be assumed to have arity 0. </p>
-      </item>
-      
-      <marker id="prop_ssl_passwd_callback_mod"></marker>
-      <tag>{ssl_password_callback_module, atom()}</tag>
-      <item> 
-	<p>Used together with ssl_password_callback_function
-	to retrieve a value to use as password option to ssl:listen/2 
-	see <seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-
-    </taglist>
-    
     <marker id="props_alias"></marker>
     <p><em>URL aliasing properties - requires mod_alias</em></p>
     <taglist>
@@ -472,7 +406,7 @@ bytes
 	begins with url-path is mapped to local files that begins with
 	directory-filename, for example:
 	
-	<code>{alias, {"/image", "/ftp/pub/image"}</code>
+	<code>{alias, {"/image", "/ftp/pub/image"}}</code>
 	
 	and an access to http://your.server.org/image/foo.gif would refer to
 	the file /ftp/pub/image/foo.gif. </p>
@@ -487,7 +421,7 @@ bytes
         by re:replace/3 to produce a path in the local filesystem.
         For example:
 	
-	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}</code>
+	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code>
 	
 	and an access to http://your.server.org/~bob/foo.gif would refer to
 	the file /home/bob/public/foo.gif.
@@ -534,7 +468,7 @@ bytes
 	scripts. URLs with a path beginning with url-path are mapped to
 	scripts beginning with directory-filename, for example:
 	
-	<code>{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}</code>
+	<code>{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}}</code>
 	
 	and an access to http://your.server.org/cgi-bin/foo would cause
 	the server to run the script /web/cgi-bin/foo. </p>
@@ -549,7 +483,7 @@ bytes
 	scripts. URLs with a path beginning with url-path are mapped to
 	scripts beginning with directory-filename, for example:
 	
-	<code>{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}</code>
+	<code>{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}}</code>
 	
 	and an access to http://your.server.org/cgi-bin/17/foo would cause
 	the server to run the script /web/17/cgi-bin/foo. </p>
@@ -583,7 +517,7 @@ bytes
 	the standard CGI PATH_INFO and PATH_TRANSLATED environment
 	variables.
 
-	<code>{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}</code>
+	<code>{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}</code>
 	</p>
       </item>
 
@@ -598,7 +532,7 @@ bytes
 	the standard CGI PATH_INFO and PATH_TRANSLATED environment
 	variables.
 	
-	<code>{script, {"PUT", "/cgi-bin/put"}</code>
+	<code>{script, {"PUT", "/cgi-bin/put"}}</code>
 	</p>
 	
       </item>
@@ -615,7 +549,7 @@ bytes
 	scheme scripts. A matching URL is mapped into a specific module
 	and function. For example:
 	
-	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}
+	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}}
 	</code>
 	
 	and a request to
@@ -698,7 +632,7 @@ bytes
       </item>
 
       <marker id="prop_edlog"></marker>
-      <tag>{error_disk_log, internal | external}</tag>
+      <tag>{error_disk_log, path()}</tag>
       <item>
 	<p>Defines the filename of the (disk_log(3)) error log file
 	to be used to log server errors. If the filename does not begin
@@ -772,7 +706,7 @@ bytes
 	
 	For example:
 	
-	<code>{allow_from, ["123.34.56.11", "150.100.23"] </code>
+	<code>{allow_from, ["123.34.56.11", "150.100.23"]}</code>
           
 	The host 123.34.56.11 and all machines on the 150.100.23
 	subnet are allowed access. </p>
@@ -785,7 +719,7 @@ bytes
 	which should be denied access to a given directory.
 	For example:
 	
-	<code>{deny_from, ["123.34.56.11", "150.100.23"] </code>
+	<code>{deny_from, ["123.34.56.11", "150.100.23"]}</code>
           
 	The host 123.34.56.11 and all machines on the 150.100.23
 	subnet are not allowed access. </p>
@@ -901,7 +835,7 @@ bytes
     <p><em>Security properties - requires mod_security </em></p>
  
     <marker id="prop_sec_dir"></marker>
-    <p><em>{security_directory, {path(), [{property(), term()}]}</em></p>
+    <p><em>{security_directory, {path(), [{property(), term()}]}}</em></p>
        
     <marker id="props_sdir"></marker>
     <p>Here follows the valid properties for security directories</p>
@@ -1133,7 +1067,7 @@ bytes
       <fsummary>Called for each request to the Web server.</fsummary>
       <type>
         <v>OldData = list()</v>
-        <v>NewData = [{response,{StatusCode,Body}}] | [{response,{response,Head,Body}}] |  [{response,{already_sent,Statuscode,Size}] </v>
+        <v>NewData = [{response,{StatusCode,Body}}] | [{response,{response,Head,Body}}] |  [{response,{already_sent,Statuscode,Size}}] </v>
         <v>StausCode = integer()</v>
         <v>Body = io_list() | nobody | {Fun, Arg}</v>
         <v>Head = [HeaderOption]</v>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -163,14 +163,19 @@ request(Method,
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, ParsedUrl} ->
-	    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
-			   HTTPOptions, Options, Profile)
+	    case header_parse(Headers) of
+		{error, Reason} ->
+		    {error, Reason};
+		_ ->
+		    handle_request(Method, Url, ParsedUrl, Headers, [], [],
+				   HTTPOptions, Options, Profile)
+	    end
     end;
      
 request(Method, 
 	{Url, Headers, ContentType, Body}, 
 	HTTPOptions, Options, Profile) 
-  when ((Method =:= post) orelse (Method =:= put)) andalso 
+  when ((Method =:= post) orelse (Method =:= put) orelse (Method =:= delete)) andalso
        (is_atom(Profile) orelse is_pid(Profile)) ->
     ?hcrt("request", [{method,       Method}, 
 		      {url,          Url},
@@ -203,15 +208,7 @@ cancel_request(RequestId) ->
 cancel_request(RequestId, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
     ?hcrt("cancel request", [{request_id, RequestId}, {profile, Profile}]),
-    ok = httpc_manager:cancel_request(RequestId, profile_name(Profile)), 
-    receive  
-	%% If the request was already fulfilled throw away the 
-	%% answer as the request has been canceled.
-	{http, {RequestId, _}} ->
-	    ok 
-    after 0 ->
-	    ok
-    end.
+    httpc_manager:cancel_request(RequestId, profile_name(Profile)).
 
 
 %%--------------------------------------------------------------------------
@@ -236,14 +233,7 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
     ?hcrt("set options", [{options, Options}, {profile, Profile}]),
     case validate_options(Options) of
 	{ok, Opts} ->
-	    try 
-		begin
-		    httpc_manager:set_options(Opts, profile_name(Profile))
-		end
-	    catch
-		exit:{noproc, _} ->
-		    {error, inets_not_started}
-	    end;
+	    httpc_manager:set_options(Opts, profile_name(Profile));
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -338,8 +328,6 @@ store_cookies(SetCookieHeaders, Url, Profile)
 	    ok
 	end
     catch 
-	exit:{noproc, _} ->
-	    {error, {not_started, Profile}};
 	error:{badmatch, Bad} ->
 	    {error, {parse_failed, Bad}}
     end.
@@ -917,6 +905,10 @@ validate_options([{proxy, Proxy} = Opt| Tail], Acc) ->
     validate_proxy(Proxy),
     validate_options(Tail, [Opt | Acc]);
 
+validate_options([{https_proxy, Proxy} = Opt| Tail], Acc) ->
+    validate_https_proxy(Proxy),
+    validate_options(Tail, [Opt | Acc]);
+
 validate_options([{max_sessions, Value} = Opt| Tail], Acc) ->
     validate_max_sessions(Value),
     validate_options(Tail, [Opt | Acc]);
@@ -978,6 +970,14 @@ validate_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy)
     Proxy;
 validate_proxy(BadProxy) ->
     bad_option(proxy, BadProxy).
+
+validate_https_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy)
+  when is_list(ProxyHost) andalso
+       is_integer(ProxyPort) andalso
+       is_list(NoProxy) ->
+    Proxy;
+validate_https_proxy(BadProxy) ->
+    bad_option(https_proxy, BadProxy).
 
 validate_max_sessions(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;
@@ -1235,7 +1235,12 @@ uri_parse(URI, Opts) ->
 
 
 %%--------------------------------------------------------------------------
-    
+header_parse([]) ->
+    ok;
+header_parse([{Field, Value}|T]) when is_list(Field), is_list(Value) ->
+    header_parse(T);
+header_parse(_) ->
+    {error, {headers_error, not_strings}}.
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info(httpc_manager) ->

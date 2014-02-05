@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -47,17 +47,17 @@
 -define(BAD_DIR,  "baddirectory").
 
 -ifdef(ftp_debug_client).
--define(ftp_open(Host, Flags), 
-	do_ftp_open(Host, [{debug, debug}, 
+-define(ftp_open(Host, Flags),
+	do_ftp_open(Host, [{debug, debug},
 			   {timeout, timer:seconds(15)} | Flags])).
 -else.
 -ifdef(ftp_trace_client).
--define(ftp_open(Host, Flags), 
-	do_ftp_open(Host, [{debug, trace}, 
+-define(ftp_open(Host, Flags),
+	do_ftp_open(Host, [{debug, trace},
 			   {timeout, timer:seconds(15)} | Flags])).
 -else.
--define(ftp_open(Host, Flags), 
-	do_ftp_open(Host, [{verbose, true}, 
+-define(ftp_open(Host, Flags),
+	do_ftp_open(Host, [{verbose, true},
 			   {timeout, timer:seconds(15)} | Flags])).
 -endif.
 -endif.
@@ -73,7 +73,7 @@ tickets(suite) ->
 
 ftpd_init(FtpdTag, Config) ->
     %% Get the host name(s) of FTP server
-    Hosts = 
+    Hosts =
 	case ct:get_config(ftpd_hosts) of
 	    undefined ->
 		ftpd_hosts(data_dir(Config));
@@ -96,7 +96,7 @@ ftpd_init(FtpdTag, Config) ->
 		    inets:stop(),
 		    Reason = lists:flatten(
 			       io_lib:format("Could not find a valid "
-					     "FTP server for ~p (~p)", 
+					     "FTP server for ~p (~p)",
 					     [FtpdTag, TagHosts])),
 		    {skip, Reason}
 	    end;
@@ -110,9 +110,9 @@ ftpd_init(FtpdTag, Config) ->
 ftpd_fin(Config) ->
     lists:keydelete(ftp_remote_host, 1, Config).
 
-get_ftpd_host([]) ->    
+get_ftpd_host([]) ->
     {error, no_host};
-get_ftpd_host([Host|Hosts]) -> 
+get_ftpd_host([Host|Hosts]) ->
     p("get_ftpd_host -> entry with"
       "~n   Host: ~p"
       "~n", [Host]),
@@ -128,7 +128,7 @@ get_ftpd_host([Host|Hosts]) ->
 %%--------------------------------------------------------------------
 
 dirty_select_ftpd_host(Config) ->
-    Hosts = 
+    Hosts =
 	case ct:get_config(ftpd_hosts) of
 	    undefined ->
 		ftpd_hosts(data_dir(Config));
@@ -159,11 +159,11 @@ dirty_select_ftpd_host3([Host|Hosts]) when is_list(Host) ->
 dirty_select_ftpd_host3([_|Hosts]) ->
     dirty_select_ftpd_host3(Hosts).
 
-%% This is a very simple and dirty test that there is a 
+%% This is a very simple and dirty test that there is a
 %% (FTP) deamon on the other end.
 dirty_select_ftpd_host4(Host) ->
-    Port    = 21, 
-    IpFam   = inet, 
+    Port    = 21,
+    IpFam   = inet,
     Opts    = [IpFam, binary, {packet, 0}, {active, false}],
     Timeout = ?SECS(5),
     case gen_tcp:connect(Host, Port, Opts, Timeout) of
@@ -195,26 +195,25 @@ test_filenames() ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
-init_per_testcase(Case, Config) 
-  when (Case =:= open) orelse 
+init_per_testcase(Case, Config)
+  when (Case =:= open) orelse
        (Case =:= open_port) ->
-    put(ftp_testcase, Case), 
+    put(ftp_testcase, Case),
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
     inets:start(),
     NewConfig = data_dir(Config),
     watch_dog(NewConfig);
 
 init_per_testcase(Case, Config)  ->
-    put(ftp_testcase, Case), 
-    inets:enable_trace(max, io, ftpc),
+    put(ftp_testcase, Case),
     do_init_per_testcase(Case, Config).
 
-do_init_per_testcase(Case, Config)  
+do_init_per_testcase(Case, Config)
    when (Case =:= passive_user) ->
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
     inets:start(),
     NewConfig = close_connection(watch_dog(Config)),
-    Host = ftp_host(Config), 
+    Host = ftp_host(Config),
     case (catch ?ftp_open(Host, [{mode, passive}])) of
 	{ok, Pid} ->
 	    [{ftp, Pid} | data_dir(NewConfig)];
@@ -222,12 +221,12 @@ do_init_per_testcase(Case, Config)
 	    SKIP
     end;
 
-do_init_per_testcase(Case, Config)  
+do_init_per_testcase(Case, Config)
   when (Case =:= active_user) ->
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
     inets:start(),
     NewConfig = close_connection(watch_dog(Config)),
-    Host = ftp_host(Config), 
+    Host = ftp_host(Config),
     case (catch ?ftp_open(Host, [{mode, active}])) of
 	{ok, Pid} ->
 	    [{ftp, Pid} | data_dir(NewConfig)];
@@ -235,16 +234,16 @@ do_init_per_testcase(Case, Config)
 	    SKIP
     end;
 
-do_init_per_testcase(Case, Config) 
-  when (Case =:= progress_report_send) orelse 
+do_init_per_testcase(Case, Config)
+  when (Case =:= progress_report_send) orelse
        (Case =:= progress_report_recv) ->
     inets:start(),
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
     NewConfig = close_connection(watch_dog(Config)),
-    Host = ftp_host(Config), 
+    Host = ftp_host(Config),
     Opts = [{port,     ?FTP_PORT},
 	    {verbose,  true},
-	    {progress, {?MODULE, progress, #progress{}}}], 
+	    {progress, {?MODULE, progress, #progress{}}}],
     case ftp:open(Host, Opts) of
 	{ok, Pid} ->
 	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS),
@@ -257,16 +256,16 @@ do_init_per_testcase(Case, Config) ->
     io:format(user,"~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
     inets:start(),
     NewConfig = close_connection(watch_dog(Config)),
-    Host = ftp_host(Config), 
-    Opts1 = 
-	if 
+    Host = ftp_host(Config),
+    Opts1 =
+	if
 	    ((Case =:= passive_ip_v6_disabled) orelse
 	     (Case =:= active_ip_v6_disabled)) ->
- 		[{ipfamily, inet}];
- 	    true ->
- 		[]
- 	end,
-    Opts2 = 
+		[{ipfamily, inet}];
+	    true ->
+		[]
+	end,
+    Opts2 =
 	case string:tokens(atom_to_list(Case), [$_]) of
 	    ["active" | _] ->
 		[{mode, active}  | Opts1];
@@ -290,7 +289,7 @@ do_init_per_testcase(Case, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(_, Config) ->  
+end_per_testcase(_, Config) ->
     NewConfig = close_connection(Config),
     Dog = ?config(watchdog, NewConfig),
     inets:stop(),
@@ -304,51 +303,51 @@ end_per_testcase(_, Config) ->
 
 passive(suite) ->
     [
-     passive_user, 
-     passive_pwd, 
-     passive_cd, 
+     passive_user,
+     passive_pwd,
+     passive_cd,
      passive_lcd,
-     passive_ls, 
-     passive_nlist, 
-     passive_rename, 
-     passive_delete, 
-     passive_mkdir, 
-     passive_send, 
-     passive_send_bin, 
-     passive_send_chunk, 
-     passive_append, 
+     passive_ls,
+     passive_nlist,
+     passive_rename,
+     passive_delete,
+     passive_mkdir,
+     passive_send,
+     passive_send_bin,
+     passive_send_chunk,
+     passive_append,
      passive_append_bin,
-     passive_append_chunk, 
-     passive_recv, 
-     passive_recv_bin, 
-     passive_recv_chunk, 
-     passive_type, 
-     passive_quote, 
+     passive_append_chunk,
+     passive_recv,
+     passive_recv_bin,
+     passive_recv_chunk,
+     passive_type,
+     passive_quote,
      passive_ip_v6_disabled
     ].
 
 active(suite) ->
     [
-     active_user, 
-     active_pwd, 
+     active_user,
+     active_pwd,
      active_cd,
-     active_lcd, 
-     active_ls, 
-     active_nlist, 
-     active_rename, 
-     active_delete, 
-     active_mkdir, 
-     active_send, 
-     active_send_bin, 
-     active_send_chunk, 
-     active_append, 
-     active_append_bin, 
-     active_append_chunk, 
-     active_recv, 
-     active_recv_bin, 
-     active_recv_chunk, 
-     active_type, 
-     active_quote, 
+     active_lcd,
+     active_ls,
+     active_nlist,
+     active_rename,
+     active_delete,
+     active_mkdir,
+     active_send,
+     active_send_bin,
+     active_send_chunk,
+     active_append,
+     active_append_bin,
+     active_append_chunk,
+     active_recv,
+     active_recv_bin,
+     active_recv_chunk,
+     active_type,
+     active_quote,
      active_ip_v6_disabled
     ].
 
@@ -364,7 +363,7 @@ open(doc) ->
 open(suite) ->
     [];
 open(Config) when is_list(Config) ->
-    Host = ftp_host(Config), 
+    Host = ftp_host(Config),
     (catch tc_open(Host)).
 
 
@@ -374,19 +373,19 @@ tc_open(Host) ->
     {ok, Pid} = ?ftp_open(Host, []),
     ok = ftp:close(Pid),
     p("tc_open -> try (ok) open 1"),
-    {ok, Pid1} = 
-	ftp:open({option_list, [{host,Host}, 
-				{port, ?FTP_PORT}, 
-				{flags, [verbose]}, 
+    {ok, Pid1} =
+	ftp:open({option_list, [{host,Host},
+				{port, ?FTP_PORT},
+				{flags, [verbose]},
 				{timeout, 30000}]}),
     ok = ftp:close(Pid1),
-    
+
     p("tc_open -> try (fail) open 2"),
-    {error, ehost} = 
+    {error, ehost} =
 	ftp:open({option_list, [{port, ?FTP_PORT}, {flags, [verbose]}]}),
     {ok, Pid2} = ftp:open(Host),
     ok = ftp:close(Pid2),
-    
+
     p("tc_open -> try (ok) open 3"),
     {ok, NewHost} = inet:getaddr(Host, inet),
     {ok, Pid3} = ftp:open(NewHost),
@@ -397,82 +396,82 @@ tc_open(Host) ->
     ["200" ++ _] = ftp:quote(Pid3, "NOOP"),
     ok = ftp:close(Pid3),
 
-    %% Bad input that has default values are ignored and the defult 
+    %% Bad input that has default values are ignored and the defult
     %% is used.
     p("tc_open -> try (ok) open 4"),
-    {ok, Pid4} = 
-	ftp:open({option_list, [{host,    Host}, 
-				{port,    badarg}, 
-				{flags,   [verbose]}, 
+    {ok, Pid4} =
+	ftp:open({option_list, [{host,    Host},
+				{port,    badarg},
+				{flags,   [verbose]},
 				{timeout, 30000}]}),
     test_server:sleep(100),
     ok = ftp:close(Pid4),
 
     p("tc_open -> try (ok) open 5"),
-    {ok, Pid5} = 
-	ftp:open({option_list, [{host,    Host}, 
-				{port,    ?FTP_PORT}, 
-				{flags,   [verbose]}, 
+    {ok, Pid5} =
+	ftp:open({option_list, [{host,    Host},
+				{port,    ?FTP_PORT},
+				{flags,   [verbose]},
 				{timeout, -42}]}),
     test_server:sleep(100),
     ok = ftp:close(Pid5),
 
     p("tc_open -> try (ok) open 6"),
-    {ok, Pid6} = 
-	ftp:open({option_list, [{host,  Host}, 
-				{port,  ?FTP_PORT}, 
-				{flags, [verbose]}, 
+    {ok, Pid6} =
+	ftp:open({option_list, [{host,  Host},
+				{port,  ?FTP_PORT},
+				{flags, [verbose]},
 				{mode,  cool}]}),
     test_server:sleep(100),
     ok = ftp:close(Pid6),
 
     p("tc_open -> try (ok) open 7"),
-    {ok, Pid7} = 
+    {ok, Pid7} =
 	ftp:open(Host, [{port, ?FTP_PORT}, {verbose, true}, {timeout, 30000}]),
     ok = ftp:close(Pid7),
 
     p("tc_open -> try (ok) open 8"),
-    {ok, Pid8} = 
+    {ok, Pid8} =
 	ftp:open(Host, ?FTP_PORT),
     ok = ftp:close(Pid8),
 
     p("tc_open -> try (ok) open 9"),
-    {ok, Pid9} = 
-	ftp:open(Host, [{port,     ?FTP_PORT}, 
-			{verbose,  true}, 
-			{timeout,  30000}, 
+    {ok, Pid9} =
+	ftp:open(Host, [{port,     ?FTP_PORT},
+			{verbose,  true},
+			{timeout,  30000},
 			{dtimeout, -99}]),
     ok = ftp:close(Pid9),
 
     p("tc_open -> try (ok) open 10"),
-    {ok, Pid10} = 
-	ftp:open(Host, [{port,     ?FTP_PORT}, 
-			{verbose,  true}, 
-			{timeout,  30000}, 
+    {ok, Pid10} =
+	ftp:open(Host, [{port,     ?FTP_PORT},
+			{verbose,  true},
+			{timeout,  30000},
 			{dtimeout, "foobar"}]),
     ok = ftp:close(Pid10),
 
     p("tc_open -> try (ok) open 11"),
-    {ok, Pid11} = 
-	ftp:open(Host, [{port,     ?FTP_PORT}, 
-			{verbose,  true}, 
-			{timeout,  30000}, 
+    {ok, Pid11} =
+	ftp:open(Host, [{port,     ?FTP_PORT},
+			{verbose,  true},
+			{timeout,  30000},
 			{dtimeout, 1}]),
     ok = ftp:close(Pid11),
 
     p("tc_open -> done"),
     ok.
 
-    
+
 %%-------------------------------------------------------------------------
 
 open_port(doc) ->
     ["Open an ftp connection to a host with given port number "
-     "and close the connection."]; % See also OTP-3892 
+     "and close the connection."]; % See also OTP-3892
 open_port(suite) ->
     [];
 open_port(Config) when is_list(Config) ->
-    Host = ftp_host(Config), 
+    Host = ftp_host(Config),
     {ok, Pid} = ftp:open(Host, [{port, ?FTP_PORT}]),
     ok = ftp:close(Pid),
     {error, ehost} = ftp:open(?BAD_HOST, []),
@@ -492,7 +491,7 @@ passive_user(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-    
+
 passive_pwd(doc) ->
     ["Test ftp:pwd/1 & ftp:lpwd/1"];
 passive_pwd(suite) ->
@@ -563,7 +562,7 @@ passive_rename(suite) ->
 passive_rename(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_rename(Pid, Config).
-    
+
 
 %%-------------------------------------------------------------------------
 
@@ -574,7 +573,7 @@ passive_delete(suite) ->
 passive_delete(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_delete(Pid, Config).
-   
+
 
 %%-------------------------------------------------------------------------
 
@@ -586,7 +585,7 @@ passive_mkdir(suite) ->
 passive_mkdir(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_mkdir(Pid).
-   
+
 
 %%-------------------------------------------------------------------------
 
@@ -618,9 +617,9 @@ passive_append(suite) ->
 passive_append(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_append(Pid, Config).
-   
 
-%%------------------------------------------------------------------------- 
+
+%%-------------------------------------------------------------------------
 
 passive_send_bin(doc) ->
     ["Open a connection to a host; cd to the directory \"incoming\"; "
@@ -644,7 +643,7 @@ passive_append_bin(Config) when is_list(Config) ->
     do_append_bin(Pid, Config).
 
 
-%%-------------------------------------------------------------------------    
+%%-------------------------------------------------------------------------
 
 passive_send_chunk(doc) ->
     ["Open a connection to a host; cd to the directory \"incoming\"; "
@@ -682,7 +681,7 @@ passive_recv(suite) ->
 passive_recv(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_recv(Pid, Config).
- 
+
 
 %%-------------------------------------------------------------------------
 
@@ -824,7 +823,7 @@ active_rename(suite) ->
 active_rename(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_rename(Pid, Config).
-    
+
 
 %%-------------------------------------------------------------------------
 
@@ -835,7 +834,7 @@ active_delete(suite) ->
 active_delete(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_delete(Pid, Config).
-   
+
 
 %%-------------------------------------------------------------------------
 
@@ -847,7 +846,7 @@ active_mkdir(suite) ->
 active_mkdir(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_mkdir(Pid).
-   
+
 
 %%-------------------------------------------------------------------------
 
@@ -879,9 +878,9 @@ active_append(suite) ->
 active_append(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_append(Pid, Config).
-   
 
-%%------------------------------------------------------------------------- 
+
+%%-------------------------------------------------------------------------
 
 active_send_bin(doc) ->
     ["Open a connection to a host; cd to the directory \"incoming\"; "
@@ -906,7 +905,7 @@ active_append_bin(Config) when is_list(Config) ->
     do_append_bin(Pid, Config).
 
 
-%%-------------------------------------------------------------------------    
+%%-------------------------------------------------------------------------
 
 active_send_chunk(doc) ->
     ["Open a connection to a host; cd to the directory \"incoming\"; "
@@ -944,7 +943,7 @@ active_recv(suite) ->
 active_recv(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     do_recv(Pid, Config).
- 
+
 
 %%-------------------------------------------------------------------------
 
@@ -1012,9 +1011,9 @@ api_missuse(Config) when is_list(Config) ->
     p("api_missuse -> entry"),
     Flag =  process_flag(trap_exit, true),
     Pid = ?config(ftp, Config),
-    Host = ftp_host(Config), 
-    
-    %% Serious programming fault, connetion will be shut down 
+    Host = ftp_host(Config),
+
+    %% Serious programming fault, connetion will be shut down
     p("api_missuse -> verify bad call termination (~p)", [Pid]),
     case (catch gen_server:call(Pid, {self(), foobar, 10}, infinity)) of
 	{error, {connection_terminated, 'API_violation'}} ->
@@ -1027,7 +1026,7 @@ api_missuse(Config) when is_list(Config) ->
 
     p("api_missuse -> start new client"),
     {ok, Pid2} =  ?ftp_open(Host, []),
-    %% Serious programming fault, connetion will be shut down 
+    %% Serious programming fault, connetion will be shut down
     p("api_missuse -> verify bad cast termination"),
     gen_server:cast(Pid2, {self(), foobar, 10}),
     test_server:sleep(500),
@@ -1035,9 +1034,9 @@ api_missuse(Config) when is_list(Config) ->
 
     p("api_missuse -> start new client"),
     {ok, Pid3} =  ?ftp_open(Host, []),
-    %% Could be an innocent misstake the connection lives. 
+    %% Could be an innocent misstake the connection lives.
     p("api_missuse -> verify bad bang"),
-    Pid3 ! foobar, 
+    Pid3 ! foobar,
     test_server:sleep(500),
     {status, _} = process_info(Pid3, status),
     process_flag(trap_exit, Flag),
@@ -1055,7 +1054,7 @@ not_owner(suite) ->
 not_owner(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
     OtherPid = spawn_link(?MODULE, not_owner, [Pid, self()]),
-    
+
     receive
 	{OtherPid, ok} ->
 	    {ok, _} = ftp:pwd(Pid)
@@ -1078,7 +1077,7 @@ progress_report(suite) ->
     [progress_report_send, progress_report_recv].
 
 
-%% -- 
+%% --
 
 progress_report_send(doc) ->
     ["Test the option progress for ftp:send/[2,3]"];
@@ -1086,7 +1085,7 @@ progress_report_send(suite) ->
     [];
 progress_report_send(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
-    ReportPid = 
+    ReportPid =
 	spawn_link(?MODULE, progress_report_receiver_init, [self(), 1]),
     do_send(Pid, Config),
     receive
@@ -1095,7 +1094,7 @@ progress_report_send(Config) when is_list(Config) ->
     end.
 
 
-%% -- 
+%% --
 
 progress_report_recv(doc) ->
     ["Test the option progress for ftp:recv/[2,3]"];
@@ -1103,19 +1102,19 @@ progress_report_recv(suite) ->
     [];
 progress_report_recv(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
-    ReportPid = 
- 	spawn_link(?MODULE, progress_report_receiver_init, [self(), 3]),
+    ReportPid =
+	spawn_link(?MODULE, progress_report_receiver_init, [self(), 3]),
     do_recv(Pid, Config),
     receive
- 	{ReportPid, ok} ->
- 	    ok
+	{ReportPid, ok} ->
+	    ok
     end,
     ok.
 
 progress(#progress{} = Progress , _File, {file_size, Total}) ->
     progress_report_receiver ! start,
     Progress#progress{total = Total};
-progress(#progress{total = Total, current = Current} 
+progress(#progress{total = Total, current = Current}
 	 = Progress, _File, {transfer_size, 0}) ->
     progress_report_receiver ! finish,
     case Total of
@@ -1128,7 +1127,7 @@ progress(#progress{total = Total, current = Current}
 				      {current, Current}}})
     end,
     Progress;
-progress(#progress{current = Current} = Progress, _File, 
+progress(#progress{current = Current} = Progress, _File,
 	 {transfer_size, Size}) ->
     progress_report_receiver ! update,
     Progress#progress{current = Current + Size}.
@@ -1172,10 +1171,10 @@ ticket_6035(Config) ->
     try
 	begin
 	    p("ticket_6035 -> select ftpd host"),
-	    Host = dirty_select_ftpd_host(Config), 
+	    Host = dirty_select_ftpd_host(Config),
 	    p("ticket_6035 -> ftpd host selected (~p) => now spawn ftp owner", [Host]),
 	    Pid  = spawn(?MODULE, open_wait_6035, [Host, self()]),
-	    p("ticket_6035 -> waiter spawned: ~p => now open error logfile (~p)", 
+	    p("ticket_6035 -> waiter spawned: ~p => now open error logfile (~p)",
 	      [Pid, LogFile]),
 	    error_logger:logfile({open, LogFile}),
 	    p("ticket_6035 -> error logfile open => now kill waiter process"),
@@ -1185,7 +1184,7 @@ ticket_6035(Config) ->
 	    p("ticket_6035 -> done", []),
 	    ok
 	end
-    catch 
+    catch
 	throw:{error, not_found} ->
 	    {skip, "No available FTP servers"}
     end.
@@ -1216,7 +1215,7 @@ open_wait_6035({Tag, FtpServer}, From) ->
 	    p("open_wait_6035 -> login result: ~p", [LoginResult]),
 	    From ! open,
 	    receive
-		dummy -> 
+		dummy ->
 		    p("open_wait_6035 -> received dummy"),
 		    ok
 	    after
@@ -1239,7 +1238,7 @@ is_error_report_6035(LogFile) ->
     Res =
 	case file:read_file(LogFile) of
 	    {ok, Bin} ->
-		Txt = binary_to_list(Bin), 
+		Txt = binary_to_list(Bin),
 		p("is_error_report_6035 -> logfile read: ~n~p", [Txt]),
 		read_log_6035(Txt);
 	    _ ->
@@ -1291,8 +1290,8 @@ do_ls(Pid) ->
     {ok, _} = ftp:ls(Pid),
     {ok, _} = ftp:ls(Pid, "incoming"),
     %% neither nlist nor ls operates on a directory
-    %% they operate on a pathname, which *can* be a 
-    %% directory, but can also be a filename or a group 
+    %% they operate on a pathname, which *can* be a
+    %% directory, but can also be a filename or a group
     %% of files (including wildcards).
     {ok, _} = ftp:ls(Pid, "incom*"),
     ok.
@@ -1301,8 +1300,8 @@ do_nlist(Pid, WildcardSupport) ->
     {ok, _} = ftp:nlist(Pid),
     {ok, _} = ftp:nlist(Pid, "incoming"),
     %% neither nlist nor ls operates on a directory
-    %% they operate on a pathname, which *can* be a 
-    %% directory, but can also be a filename or a group 
+    %% they operate on a pathname, which *can* be a
+    %% directory, but can also be a filename or a group
     %% of files (including wildcards).
     case WildcardSupport of
 	true ->
@@ -1323,7 +1322,7 @@ do_rename(Pid, Config) ->
     ok = ftp:lcd(Pid, PrivDir),
     ftp:delete(Pid, LFile),		% reset
     ftp:delete(Pid, NewLFile),		% reset
-    ok = ftp:send(Pid, LFile), 
+    ok = ftp:send(Pid, LFile),
     {error, epath} = ftp:rename(Pid, NewLFile, LFile),
     ok = ftp:rename(Pid, LFile, NewLFile),
     ftp:delete(Pid, LFile),		% cleanup
@@ -1335,7 +1334,7 @@ do_delete(Pid, Config) ->
     LFile  = ?config(file, Config),
     AbsLFile = filename:absname(LFile, PrivDir),
     Contents = "ftp_SUITE test ...",
-    ok = file:write_file(AbsLFile, list_to_binary(Contents)),    
+    ok = file:write_file(AbsLFile, list_to_binary(Contents)),
     ok = ftp:cd(Pid, "incoming"),
     ok = ftp:lcd(Pid, PrivDir),
     ftp:delete(Pid,LFile),		% reset
@@ -1402,7 +1401,7 @@ do_append(Pid, Config) ->
     ok = ftp:delete(Pid, RFile),
     ok = file:delete(AbsLFile),
     ok = check_content(binary_to_list(Bin1), Contents, double),
-    
+
     {ok, Bin2}  = ftp:recv_bin(Pid, LFile),
     ok = ftp:delete(Pid, LFile),
     ok = check_content(binary_to_list(Bin2), Contents, singel),
@@ -1485,7 +1484,7 @@ do_recv(Pid, Config) ->
     {ok, Files} = file:list_dir(PrivDir),
     true = lists:member(File, Files),
     ok = file:delete(AbsFile), % cleanup
-    ok = ftp:recv(Pid, File, Newfile), 
+    ok = ftp:recv(Pid, File, Newfile),
     ok = ftp:delete(Pid, File),		% cleanup
     ok.
 
@@ -1539,8 +1538,8 @@ do_quote(Pid) ->
     [_| _] = ftp:quote(Pid, "help"),
     %% This negativ test causes some ftp servers to hang. This test
     %% is not important for the client, so we skip it for now.
-    %%["425 Can't build data connection: Connection refused."] 
-    %% = ftp:quote(Pid, "list"), 
+    %%["425 Can't build data connection: Connection refused."]
+    %% = ftp:quote(Pid, "list"),
     ok.
 
  watch_dog(Config) ->
@@ -1550,23 +1549,23 @@ do_quote(Pid) ->
 
  close_connection(Config) ->
      case ?config(ftp, Config) of
- 	Pid when is_pid(Pid) ->
- 	    ok = ftp:close(Pid),
- 	    lists:delete({ftp, Pid}, Config);
- 	_ ->
- 	    Config
+	Pid when is_pid(Pid) ->
+	    ok = ftp:close(Pid),
+	    lists:delete({ftp, Pid}, Config);
+	_ ->
+	    Config
      end.
-  
+
 ftp_host(Config) ->
     case ?config(ftp_remote_host, Config) of
 	undefined ->
 	    exit({skip, "No host specified"});
 	Host ->
-	    Host   
+	    Host
     end.
 
 check_content(RContent, LContent, Amount) ->
-    LContent2 = case Amount of 
+    LContent2 = case Amount of
 		    double ->
 			LContent ++ LContent;
 		    singel ->
@@ -1602,7 +1601,7 @@ split(Cs) ->
     split(Cs, [], []).
 
 split([$\r, $\n| Cs], I, Is) ->
-    split(Cs, [], [lists:reverse(I)| Is]); 
+    split(Cs, [], [lists:reverse(I)| Is]);
 split([C| Cs], I, Is) ->
     split(Cs, [C| I], Is);
 split([], I, Is) ->
@@ -1611,21 +1610,21 @@ split([], I, Is) ->
 do_ftp_open(Host, Opts) ->
     p("do_ftp_open -> entry with"
       "~n   Host: ~p"
-      "~n   Opts: ~p", [Host, Opts]), 
+      "~n   Opts: ~p", [Host, Opts]),
     case ftp:open(Host, Opts) of
 	{ok, _} = OK ->
 	    OK;
 	{error, Reason} ->
-	    Str = 
+	    Str =
 		lists:flatten(
-		  io_lib:format("Unable to reach test FTP server ~p (~p)", 
+		  io_lib:format("Unable to reach test FTP server ~p (~p)",
 				[Host, Reason])),
 	    throw({skip, Str})
     end.
-	 
+
 
 passwd() ->
-    Host = 
+    Host =
 	case inet:gethostname() of
 	    {ok, H} ->
 		H;
@@ -1641,7 +1640,7 @@ ftpd_hosts(Config) ->
     case file:consult(FileName) of
 	{ok, [Hosts]} when is_list(Hosts) ->
 	    Hosts;
-	_ -> 
+	_ ->
 	    []
     end.
 
@@ -1656,14 +1655,14 @@ data_dir(Config) ->
 	    PathList        = filename:split(List),
 	    {NewPathList,_} = lists:split((length(PathList)-1), PathList),
 	    DataDir   = filename:join(NewPathList ++ [ftp_SUITE_data]),
-	    NewConfig = 
+	    NewConfig =
 		lists:keyreplace(data_dir,1,Config, {data_dir,DataDir}),
 	    NewConfig;
 	_ -> Config
     end.
-    
-       
-    
+
+
+
 p(F) ->
     p(F, []).
 

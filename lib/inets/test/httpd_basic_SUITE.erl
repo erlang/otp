@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,7 @@
 %%
 -module(httpd_basic_SUITE).
 
+-include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 
@@ -33,9 +34,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [
      uri_too_long_414, 
-     header_too_long_413, 
+     header_too_long_413,
+     erl_script_nocache_opt,
+     script_nocache,
      escaped_url_in_error_body,
-     slowdose
+     script_timeout,
+     slowdose,
+     keep_alive_timeout
     ].
 
 groups() -> 
@@ -60,8 +65,10 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config) ->
     tsp("init_per_suite -> entry with"
 	"~n   Config: ~p", [Config]),
-    ok = inets:start(),
+    inets_test_lib:stop_apps([inets]),
+    inets_test_lib:start_apps([inets]),
     PrivDir = ?config(priv_dir, Config),
+    DataDir = ?config(data_dir, Config),
 
     Dummy = 
 "<HTML>
@@ -74,6 +81,21 @@ DUMMY
 </HTML>",
 
     DummyFile = filename:join([PrivDir,"dummy.html"]),
+    CgiDir =  filename:join(PrivDir, "cgi-bin"),
+    ok = file:make_dir(CgiDir),
+    {CgiPrintEnv, CgiSleep} = case test_server:os_type() of
+				  {win32, _} ->
+				      {"printenv.bat", "cgi_sleep.exe"};
+				  _ ->
+				      {"printenv.sh", "cgi_sleep"}
+			      end,
+    lists:foreach(
+      fun(Cgi) ->
+	      inets_test_lib:copy_file(Cgi, DataDir, CgiDir),
+	      AbsCgi = filename:join([CgiDir, Cgi]),
+	      {ok, FileInfo} = file:read_file_info(AbsCgi),
+	      ok = file:write_file_info(AbsCgi, FileInfo#file_info{mode = 8#00755})
+      end, [CgiPrintEnv, CgiSleep]),
     {ok, Fd}  = file:open(DummyFile, [write]),
     ok        = file:write(Fd, Dummy),
     ok        = file:close(Fd), 
@@ -84,7 +106,8 @@ DUMMY
 		 {document_root, PrivDir}, 
 		 {bind_address,  "localhost"}],
 
-    [{httpd_conf, HttpdConf} |  Config].
+    [{httpd_conf, HttpdConf}, {cgi_dir, CgiDir},
+     {cgi_printenv, CgiPrintEnv}, {cgi_sleep, CgiSleep} |  Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -178,6 +201,74 @@ header_too_long_413(Config) when is_list(Config) ->
  				        {version, "HTTP/1.1"}]),
     inets:stop(httpd, Pid).
    
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+erl_script_nocache_opt(doc) ->
+    ["Test that too long headers's get 413 HTTP code"];
+erl_script_nocache_opt(suite) ->
+    [];
+erl_script_nocache_opt(Config) when is_list(Config) ->
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0}, {erl_script_nocache, true} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port,         Info),
+    _Address    = proplists:get_value(bind_address, Info),
+    URL1        = ?URL_START ++ integer_to_list(Port),
+    case httpc:request(get, {URL1 ++ "/dummy.html", []},
+		       [{url_encode,  false},
+			{version,     "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {200, _}} ->
+	    ok
+    end,
+    inets:stop(httpd, Pid).
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+script_nocache(doc) ->
+    ["Test nocache option for mod_cgi and mod_esi"];
+script_nocache(suite) ->
+    [];
+script_nocache(Config) when is_list(Config) ->
+    Normal = {no_header, "cache-control"},
+    NoCache = {header, "cache-control", "no-cache"},
+    verify_script_nocache(Config, false, false, Normal, Normal),
+    verify_script_nocache(Config, true, false, NoCache, Normal),
+    verify_script_nocache(Config, false, true, Normal, NoCache),
+    verify_script_nocache(Config, true, true, NoCache, NoCache),
+    ok.
+
+verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
+    HttpdConf = ?config(httpd_conf, Config),
+    CgiScript = ?config(cgi_printenv, Config),
+    CgiDir = ?config(cgi_dir, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+				    {script_alias,
+				     {"/cgi-bin/", CgiDir ++ "/"}},
+				    {script_nocache, CgiNoCache},
+				    {erl_script_alias,
+				     {"/cgi-bin/erl", [httpd_example,io]}},
+				    {erl_script_nocache, EsiNoCache}
+				    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/" ++ CgiScript ++
+					   " HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					CgiOption,
+					{version, "HTTP/1.0"}]),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/erl/httpd_example:get "
+				       "HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					EsiOption,
+					{version, "HTTP/1.0"}]),
+    inets:stop(httpd, Pid).
+
 
 %%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------
@@ -279,6 +370,63 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     inets:stop(httpd, Pid),
     tsp("escaped_url_in_error_body -> done"),    
     ok.
+
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+keep_alive_timeout(doc) ->
+    ["Test the keep_alive_timeout option"];
+keep_alive_timeout(suite) ->
+    [];
+keep_alive_timeout(Config) when is_list(Config) ->
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0}, {keep_alive, true}, {keep_alive_timeout, 2} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port,         Info),
+    _Address    = proplists:get_value(bind_address, Info),
+    {ok, S} = gen_tcp:connect("localhost", Port, []),
+    receive
+    after 3000 ->
+	    {error, closed} = gen_tcp:send(S, "hey")
+    end,
+    inets:stop(httpd, Pid).
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+script_timeout(doc) ->
+    ["Test the httpd script_timeout option"];
+script_timeout(suite) ->
+    [];
+script_timeout(Config) when is_list(Config) ->
+    verify_script_timeout(Config, 20, 200),
+    verify_script_timeout(Config, 5, 403),
+    ok.
+
+verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
+    HttpdConf = ?config(httpd_conf, Config),
+    CgiScript = ?config(cgi_sleep, Config),
+    CgiDir = ?config(cgi_dir, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+				    {script_alias,
+				     {"/cgi-bin/", CgiDir ++ "/"}},
+				    {script_timeout, ScriptTimeout}
+				    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/" ++ CgiScript ++
+					   " HTTP/1.0\r\n\r\n",
+				       [{statuscode, StatusCode},
+					{version, "HTTP/1.0"}]),
+    inets:stop(httpd, Pid).
+
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
 slowdose(doc) ->
     ["Testing minimum bytes per second option"];
 slowdose(Config) when is_list(Config) ->

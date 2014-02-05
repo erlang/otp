@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -589,11 +589,17 @@ validate_config_params([{server_tokens, {private, Value}} | Rest])
 validate_config_params([{server_tokens, Value} | _]) ->
     throw({server_tokens, Value});
 
-validate_config_params([{socket_type, Value} | Rest]) 
-  when (Value =:= ip_comm) orelse 
-       (Value =:= ssl) orelse 
-       (Value =:= essl) ->
+validate_config_params([{socket_type, ip_comm} | Rest]) ->
     validate_config_params(Rest);
+
+validate_config_params([{socket_type, Value} | Rest]) 
+  when Value == ssl; Value == essl ->
+    validate_config_params(Rest);
+
+validate_config_params([{socket_type, {Value, _}} | Rest])
+  when Value == essl orelse Value == ssl ->
+    validate_config_params(Rest);
+
 validate_config_params([{socket_type, Value} | _]) ->
     throw({socket_type, Value});
 
@@ -792,6 +798,8 @@ store({log_format, LogFormat}, _ConfigList)
 store({server_tokens, ServerTokens} = Entry, _ConfigList) ->
     Server = server(ServerTokens), 
     {ok, [Entry, {server, Server}]};
+store({keep_alive_timeout, KeepAliveTimeout}, _ConfigList) ->
+    {ok, {keep_alive_timeout, KeepAliveTimeout * 1000}};
 store(ConfigListEntry, _ConfigList) ->
     {ok, ConfigListEntry}.
 
@@ -847,9 +855,7 @@ os_info(Info) ->
 	{OsFamily, _OsName} when Info =:= partial ->
 	    lists:flatten(io_lib:format("(~w)", [OsFamily]));
 	{OsFamily, OsName} ->
-	    lists:flatten(io_lib:format("(~w/~w)", [OsFamily, OsName]));
-	OsFamily ->
-	    lists:flatten(io_lib:format("(~w)", [OsFamily]))
+	    lists:flatten(io_lib:format("(~w/~w)", [OsFamily, OsName]))
     end.
 
 otp_release() ->
@@ -925,6 +931,8 @@ lookup_socket_type(ConfigDB) ->
     case httpd_util:lookup(ConfigDB, socket_type, ip_comm) of
 	ip_comm ->
 	    ip_comm;
+	{Tag, Conf} ->
+	    {Tag, Conf};
 	SSL when (SSL =:= ssl) orelse (SSL =:= essl) ->
 	    SSLTag = 
 		if
