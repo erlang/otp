@@ -32,7 +32,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.9.2.2</title>
+  <section><title>Inets 5.9.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Mend max_clients check that was broken and avoid too
+	    extensive logging that could cause memory problems.</p>
+          <p>
+	    Own Id: OTP-11557 Aux Id: seq12478 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.2.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>
