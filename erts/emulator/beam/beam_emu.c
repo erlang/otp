@@ -2355,7 +2355,7 @@ void process_main(void)
      Next(4+Arg(3));
  }
 
- OpCase(update_map_assoc_jddII): {
+ OpCase(update_map_assoc_jsdII): {
      Eterm res;
      Eterm map;
 
@@ -2373,7 +2373,7 @@ void process_main(void)
      }
  }
 
- OpCase(update_map_exact_jddII): {
+ OpCase(update_map_exact_jsdII): {
      Eterm res;
      Eterm map;
 
