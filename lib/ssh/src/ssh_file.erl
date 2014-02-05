@@ -65,7 +65,7 @@ is_auth_key(Key, User,Opts) ->
 
 %% Used by client
 is_host_key(Key, PeerName, Algorithm, Opts) ->
-    case lookup_host_key(PeerName, Algorithm, Opts) of
+    case lookup_host_key(Key, PeerName, Algorithm, Opts) of
 	{ok, Key} ->
 	    true;
 	_ ->
@@ -121,9 +121,9 @@ decode_ssh_file(Pem, Password) ->
 %% return {ok, Key(s)} or {error, not_found}
 %%
 
-lookup_host_key(Host, Alg, Opts) ->
+lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
     Host1 = replace_localhost(Host),
-    do_lookup_host_key(Host1, Alg, Opts).
+    do_lookup_host_key(KeyToMatch, Host1, Alg, Opts).
 	    
 
 add_host_key(Host, Key, Opts) ->
@@ -204,10 +204,10 @@ replace_localhost("localhost") ->
 replace_localhost(Host) ->
     Host.
 
-do_lookup_host_key(Host, Alg, Opts) ->
+do_lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
     case file:open(file_name(user, "known_hosts", Opts), [read, binary]) of
 	{ok, Fd} ->
-	    Res = lookup_host_key_fd(Fd, Host, Alg),
+	    Res = lookup_host_key_fd(Fd, KeyToMatch, Host, Alg),
 	    file:close(Fd),
 	    {ok, Res};
 	{error, enoent} -> {error, not_found};
@@ -228,16 +228,16 @@ identity_pass_phrase('ssh-rsa') ->
 identity_pass_phrase("ssh-rsa") ->
     rsa_pass_phrase.
 
-lookup_host_key_fd(Fd, Host, KeyType) ->
+lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType) ->
     case io:get_line(Fd, '') of
 	eof ->
 	    {error, not_found};
 	Line ->
 	    case ssh_decode_line(Line, known_hosts) of
 		[{Key, Attributes}] ->
-		    handle_host(Fd, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
+		    handle_host(Fd, KeyToMatch, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
 		[] ->
-		    lookup_host_key_fd(Fd, Host, KeyType)
+		    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
 	    end
     end.
 
@@ -248,13 +248,13 @@ ssh_decode_line(Line, Type) ->
 	    []
     end.
 
-handle_host(Fd, Host, HostList, Key, KeyType) ->
+handle_host(Fd, KeyToMatch, Host, HostList, Key, KeyType) ->
     Host1 = host_name(Host),
-    case lists:member(Host1, HostList) and key_match(Key, KeyType) of
-	true ->
+    case lists:member(Host1, HostList) andalso key_match(Key, KeyType) of
+	true when KeyToMatch == Key ->
 	    Key;
-	false ->
-	    lookup_host_key_fd(Fd, Host, KeyType)
+	_ ->
+	    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
     end.
 
 host_name(Atom) when is_atom(Atom) ->
