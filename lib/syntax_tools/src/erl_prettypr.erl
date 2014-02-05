@@ -637,6 +637,14 @@ lay_2(Node, Ctxt) ->
 	    sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
 		 text("end")]);
 
+        named_fun_expr ->
+            Ctxt1 = reset_prec(Ctxt),
+            D1 = lay(erl_syntax:named_fun_expr_name(Node), Ctxt1),
+            D = lay_clauses(erl_syntax:named_fun_expr_clauses(Node),
+                            {function,D1}, Ctxt1),
+            sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
+                 text("end")]);
+
 	module_qualifier ->
 	    {PrecL, _Prec, PrecR} = inop_prec(':'),
 	    D1 = lay(erl_syntax:module_qualifier_argument(Node),
