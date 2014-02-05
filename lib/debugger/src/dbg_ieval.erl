@@ -21,6 +21,7 @@
 -export([eval/3,exit_info/5]).
 -export([eval_expr/3]).
 -export([check_exit_msg/3,exception/4]).
+-export([all_frames/0]).
 
 -include("dbg_ieval.hrl").
 
@@ -72,12 +73,23 @@ exit_info(Int, AttPid, OrigPid, Reason, ExitInfo) ->
 	{{Mod,Line},Bs,S} ->
 	    dbg_istk:from_external(S),
 	    Le = dbg_istk:stack_level(),
-	    dbg_icmd:tell_attached({exit_at, {Mod, Line}, Reason, Le}),
+	    dbg_icmd:tell_attached({exit_at, {Mod, Line}, Reason, Le, OrigPid, dbg_istk:all_frames(S), Bs}),
 	    exit_loop(OrigPid, Reason, Bs,#ieval{module=Mod,line=Line});
 	{} ->
 	    dbg_istk:init(),
-	    dbg_icmd:tell_attached({exit_at, null, Reason, 1}),
+	    dbg_icmd:tell_attached({exit_at, null, Reason, 1, OrigPid}),
 	    exit_loop(OrigPid, Reason, erl_eval:new_bindings(),#ieval{})
+    end.
+
+all_frames() ->
+    {dbg_istk:all_frames(), saved_frames()}.
+
+saved_frames() ->
+    Debugged = get(self),
+    Debugged ! {sys, self(), get_saved_stacktrace},
+    receive
+        {sys, Debugged, M} ->
+            M
     end.
 
 %%--------------------------------------------------------------------

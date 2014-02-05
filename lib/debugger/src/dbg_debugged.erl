@@ -32,6 +32,7 @@
 %%--------------------------------------------------------------------
 eval(Mod, Func, Args) ->
     SaveStacktrace = erlang:get_stacktrace(),
+    put(ss2, get_ss2()),
     Meta = dbg_ieval:eval(Mod, Func, Args),
     Mref = erlang:monitor(process, Meta),
     msg_loop(Meta, Mref, SaveStacktrace).
@@ -79,6 +80,11 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 	    Meta ! {sys, self(), Reply},
 	    msg_loop(Meta, Mref, SaveStacktrace);
 
+        %% Fetch saved stack trace
+        {sys, Meta, get_saved_stacktrace} ->
+            Meta ! {sys, self(), {saved_stacktrace, SaveStacktrace, get(ss2)}},
+            msg_loop(Meta, Mref, SaveStacktrace);
+
 	%% Meta has terminated
 	%% Must be due to int:stop() (or -heaven forbid- a debugger bug)
 	{'DOWN', Mref, _, _, Reason} ->
@@ -98,6 +104,13 @@ handle_command(Command) ->
 	    Stacktrace = stacktrace_f(erlang:get_stacktrace()),
 	    {exception,{Class,Reason,Stacktrace}}
     end.
+
+%% Get stacktrace, should work in several layers, but doesn't yet...
+get_ss2() ->
+    _SS = (catch 1 / zero()). % avoid compiler warning
+
+zero() ->
+    0.
 
 reply({apply,M,F,As}) ->
     {value, erlang:apply(M,F,As)};
