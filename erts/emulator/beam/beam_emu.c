@@ -6614,7 +6614,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
-	return new_map(p, reg, I+1);
+	return THE_NON_VALUE;
     }
 
     /*
