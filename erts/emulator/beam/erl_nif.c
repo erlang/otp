@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1235,6 +1235,19 @@ static void steal_resource_type(ErlNifResourceType* type)
     }
 }
 
+/* The opened_rt_list is used by enif_open_resource_type()
+ * in order to rollback "creates" and "take-overs" in case the load fails.
+ */
+struct opened_resource_type
+{
+    struct opened_resource_type* next;
+
+    ErlNifResourceFlags op;
+    ErlNifResourceType* type;
+    ErlNifResourceDtor* new_dtor;
+};
+static struct opened_resource_type* opened_rt_list = NULL;
+
 ErlNifResourceType*
 enif_open_resource_type(ErlNifEnv* env,
 			const char* module_str, 
@@ -1256,22 +1269,21 @@ enif_open_resource_type(ErlNifEnv* env,
     if (type == NULL) {
 	if (flags & ERL_NIF_RT_CREATE) {
 	    type = erts_alloc(ERTS_ALC_T_NIF,
-			      sizeof(struct enif_resource_type_t)); 
-	    type->dtor = dtor;
+			      sizeof(struct enif_resource_type_t));
 	    type->module = module_am;
 	    type->name = name_am;
 	    erts_refc_init(&type->refc, 1);
-	    type->owner = env->mod_nif;
-	    type->prev = &resource_type_list;
-	    type->next = resource_type_list.next;
-	    type->next->prev = type;
-	    type->prev->next = type;
 	    op = ERL_NIF_RT_CREATE;
+	#ifdef DEBUG
+	    type->dtor = (void*)1;
+	    type->owner = (void*)2;
+	    type->prev = (void*)3;
+	    type->next = (void*)4;
+	#endif
 	}
     }
     else {
-	if (flags & ERL_NIF_RT_TAKEOVER) {	
-	    steal_resource_type(type);
+	if (flags & ERL_NIF_RT_TAKEOVER) {
 	    op = ERL_NIF_RT_TAKEOVER;
 	}
 	else {
@@ -1279,18 +1291,64 @@ enif_open_resource_type(ErlNifEnv* env,
 	}
     }
     if (type != NULL) {
-	type->owner = env->mod_nif;
-	type->dtor = dtor;
-	if (type->dtor != NULL) {
-	    erts_refc_inc(&type->owner->rt_dtor_cnt, 1);
-	}
-	erts_refc_inc(&type->owner->rt_cnt, 1);    
+	struct opened_resource_type* ort = erts_alloc(ERTS_ALC_T_TMP,
+						sizeof(struct opened_resource_type));
+	ort->op = op;
+	ort->type = type;
+	ort->new_dtor = dtor;
+	ort->next = opened_rt_list;
+	opened_rt_list = ort;
     }
     if (tried != NULL) {
 	*tried = op;
     }
     return type;
 }
+
+static void commit_opened_resource_types(struct erl_module_nif* lib)
+{
+    while (opened_rt_list) {
+	struct opened_resource_type* ort = opened_rt_list;
+
+	ErlNifResourceType* type = ort->type;
+
+	if (ort->op == ERL_NIF_RT_CREATE) {
+	    type->prev = &resource_type_list;
+	    type->next = resource_type_list.next;
+	    type->next->prev = type;
+	    type->prev->next = type;
+	}
+	else { /* ERL_NIF_RT_TAKEOVER */
+	    steal_resource_type(type);
+	}
+
+	type->owner = lib;
+	type->dtor = ort->new_dtor;
+
+	if (type->dtor != NULL) {
+	    erts_refc_inc(&lib->rt_dtor_cnt, 1);
+	}
+	erts_refc_inc(&lib->rt_cnt, 1);
+
+	opened_rt_list = ort->next;
+	erts_free(ERTS_ALC_T_TMP, ort);
+    }
+}
+
+static void rollback_opened_resource_types(void)
+{
+    while (opened_rt_list) {
+	struct opened_resource_type* ort = opened_rt_list;
+
+	if (ort->op == ERL_NIF_RT_CREATE) {
+	    erts_free(ERTS_ALC_T_NIF, ort->type);
+	}
+
+	opened_rt_list = ort->next;
+	erts_free(ERTS_ALC_T_TMP, ort);
+    }
+}
+
 
 static void nif_resource_dtor(Binary* bin)
 {
@@ -1317,6 +1375,8 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 {
     Binary* bin = erts_create_magic_binary(SIZEOF_ErlNifResource(size), &nif_resource_dtor);
     ErlNifResource* resource = ERTS_MAGIC_BIN_DATA(bin);
+
+    ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
     erts_refc_inc(&bin->refc, 1);
 #ifdef DEBUG
@@ -1696,9 +1756,15 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     lib->entry = entry;
     erts_refc_init(&lib->rt_cnt, 0);
     erts_refc_init(&lib->rt_dtor_cnt, 0);
+    ASSERT(opened_rt_list == NULL);
     lib->mod = mod;
     env.mod_nif = lib;
-    if (mod->curr.nif != NULL) { /* Reload */
+    if (mod->curr.nif != NULL) { /*************** Reload ******************/
+	/*
+	 * Repeated load_nif calls from same Erlang module instance ("reload")
+	 * is deprecated and was only ment as a development feature not to
+	 * be used in production systems. (See warning below)
+	 */
 	int k;
         lib->priv_data = mod->curr.nif->priv_data;
 
@@ -1730,6 +1796,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful.");
 	}
 	else {
+	    commit_opened_resource_types(lib);
 	    mod->curr.nif->entry = NULL; /* to prevent 'unload' callback */
 	    erts_unload_nif(mod->curr.nif);
 	    reload_warning = 1;
@@ -1737,7 +1804,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
     else {
 	lib->priv_data = NULL;
-	if (mod->old.nif != NULL) { /* Upgrade */
+	if (mod->old.nif != NULL) { /**************** Upgrade ***************/
 	    void* prev_old_data = mod->old.nif->priv_data;
 	    if (entry->upgrade == NULL) {
 		ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
@@ -1750,17 +1817,18 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		mod->old.nif->priv_data = prev_old_data;
 		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
 	    }
-	    /*else if (mod->old_nif->priv_data != prev_old_data) {
-		refresh_cached_nif_data(mod->old_code, mod->old_nif);
-	    }*/
+	    else
+		commit_opened_resource_types(lib);
 	}
-	else if (entry->load != NULL) { /* Initial load */
+	else if (entry->load != NULL) { /********* Initial load ***********/
 	    erts_pre_nif(&env, BIF_P, lib);
 	    veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
 	    erts_post_nif(&env);
 	    if (veto) {
 		ret = load_nif_error(BIF_P, "load", "Library load-call unsuccessful.");
 	    }
+	    else
+		commit_opened_resource_types(lib);
 	}
     }
     if (ret == am_ok) {
@@ -1789,6 +1857,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
     else {
     error:
+	rollback_opened_resource_types();
 	ASSERT(ret != am_ok);
         if (lib != NULL) {
 	    erts_free(ERTS_ALC_T_NIF, lib);

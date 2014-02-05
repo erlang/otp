@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -801,6 +801,138 @@ resource_takeover(Config) when is_list(Config) ->
     ?line ok = forget_resource(AN4),
     ?line [] = nif_mod_call_history(),
 
+
+    %%
+    %% Test rollback after failed upgrade of same lib-version
+    %%
+
+    {A5,BinA5} = make_resource(2, Holder, "A5"),
+    {NA5,BinNA5} = make_resource(0, Holder, "NA5"),
+    {AN5,_BinAN5} = make_resource(1, Holder, "AN5"),
+
+    {A6,BinA6} = make_resource(2, Holder, "A6"),
+    {NA6,BinNA6} = make_resource(0, Holder, "NA6"),
+    {AN6,_BinAN6} = make_resource(1, Holder, "AN6"),
+
+    {module,nif_mod} = erlang:load_module(nif_mod,ModBin),
+    undefined = nif_mod:lib_version(),
+    {error,{upgrade,_}} =
+	nif_mod:load_nif_lib(Config, 1,
+			     [{resource_type, 4, ?RT_TAKEOVER, "resource_type_A",resource_dtor_B,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",null,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER, "resource_type_A_null",resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_CREATE, "Mr Pink", resource_dtor_A,
+			       ?RT_CREATE},
+
+			      {return, 1}  % FAIL
+			     ]),
+
+    undefined = nif_mod:lib_version(),
+    [{upgrade,1,5,105}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not changed (from A to B)
+    ok = forget_resource(A5),
+    [{{resource_dtor_A_v1,BinA5},1,6,106}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not nullified (from A to null)
+    ok = forget_resource(NA5),
+    [{{resource_dtor_A_v1,BinNA5},1,7,107}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not added (from null to A)
+    ok = forget_resource(AN5),
+    [] = nif_mod_call_history(),
+
+    %%
+    %% Test rollback after failed upgrade of other lib-version
+    %%
+
+    {error,{upgrade,_}} =
+	nif_mod:load_nif_lib(Config, 2,
+			     [{resource_type, 4, ?RT_TAKEOVER, "resource_type_A",resource_dtor_B,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",null,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER, "resource_type_A_null",resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, null, ?RT_TAKEOVER, "Mr Pink", resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_CREATE, "Mr Pink", resource_dtor_A,
+			       ?RT_CREATE},
+
+			      {return, 1}  % FAIL
+			     ]),
+
+    undefined = nif_mod:lib_version(),
+    [{upgrade,2,_,_}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not changed (from A to B)
+    ok = forget_resource(A6),
+    [{{resource_dtor_A_v1,BinA6},1,_,_}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not nullified (from A to null)
+    ok = forget_resource(NA6),
+    [{{resource_dtor_A_v1,BinNA6},1,_,_}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not added (from null to A)
+    ok = forget_resource(AN6),
+    [] = nif_mod_call_history(),
+
+    %%
+    %% Test rolback after failed initial load
+    %%
+    false = code:purge(nif_mod),
+    [{unload,1,_,_}] = nif_mod_call_history(),
+    true = code:delete(nif_mod),
+    false = code:purge(nif_mod),
+    [] = nif_mod_call_history(),
+
+
+    {module,nif_mod} = erlang:load_module(nif_mod,ModBin),
+    undefined = nif_mod:lib_version(),
+    {error,{load,_}} =
+	nif_mod:load_nif_lib(Config, 1,
+			     [{resource_type, null, ?RT_TAKEOVER, "resource_type_A",resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",null,
+			       ?RT_CREATE},
+			      {resource_type, 4, ?RT_CREATE, "resource_type_A_null",resource_dtor_A,
+			       ?RT_CREATE},
+			      {resource_type, 4, ?RT_CREATE, "Mr Pink", resource_dtor_A,
+			       ?RT_CREATE},
+
+			      {return, 1}  % FAIL
+			     ]),
+
+    undefined = nif_mod:lib_version(),
+    ok = nif_mod:load_nif_lib(Config, 1,
+			      [{resource_type, null, ?RT_TAKEOVER, "resource_type_A",resource_dtor_A,
+				?RT_TAKEOVER},
+			       {resource_type, 0, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",
+				resource_dtor_A, ?RT_CREATE},
+
+			       {resource_type, 1, ?RT_CREATE, "resource_type_A_null", null,
+				?RT_CREATE},
+			       {resource_type, null, ?RT_TAKEOVER, "Mr Pink", resource_dtor_A,
+				?RT_TAKEOVER},
+
+			       {return, 0}  % SUCCESS
+			      ]),
+
+    ?line hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    ?line [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    {NA7,BinNA7} = make_resource(0, Holder, "NA7"),
+    {AN7,BinAN7} = make_resource(1, Holder, "AN7"),
+
+    ok = forget_resource(NA7),
+    [{{resource_dtor_A_v1,BinNA7},1,_,_}] = nif_mod_call_history(),
+
+    ok = forget_resource(AN7),
+    [] = nif_mod_call_history(),
+
     ?line true = lists:member(?MODULE, erlang:system_info(taints)),
     ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),    
@@ -1343,7 +1475,7 @@ consume_timeslice(Config) when is_list(Config) ->
 
     ok.
 
-next_msg(Pid) ->
+next_msg(_Pid) ->
     receive
 	M -> M
     after 100 ->
