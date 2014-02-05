@@ -2535,8 +2535,10 @@ enter_type(Key, Val, Map) when is_integer(Key) ->
       erase_type(Key, Map);
     false ->
       LimitedVal = t_limit(Val, ?INTERNAL_TYPE_LIMIT),
-      [?debug("LimitedVal ~s\n", [format_type(LimitedVal)]) ||
-        not is_equal(LimitedVal, Val)],
+      case is_equal(LimitedVal, Val) of
+	true -> ok;
+	false -> ?debug("LimitedVal ~s\n", [format_type(LimitedVal)])
+      end,
       case dict:find(Key, Map) of
         {ok, Value} ->
           case is_equal(Value, LimitedVal) of
