@@ -390,6 +390,10 @@ effect(Config) when is_list(Config) ->
               	    <<X:8>>;
               	unused_fun ->
               	    fun() -> {ok,X} end;
+		unused_named_fun ->
+		    fun F(0) -> 1;
+                        F(N) -> N*F(N-1)
+                    end;
               	unused_atom ->
               	    ignore;				%no warning
               	unused_nil ->
@@ -484,8 +488,9 @@ effect(Config) when is_list(Config) ->
 		      {22,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
 		      {24,sys_core_fold,useless_building},
 		      {26,sys_core_fold,useless_building},
-		      {32,sys_core_fold,{no_effect,{erlang,'=:=',2}}},
-		      {34,sys_core_fold,{no_effect,{erlang,get_cookie,0}}}]}}],
+		      {28,sys_core_fold,useless_building},
+		      {36,sys_core_fold,{no_effect,{erlang,'=:=',2}}},
+		      {38,sys_core_fold,{no_effect,{erlang,get_cookie,0}}}]}}],
     ?line [] = run(Config, Ts),
     ok.
 

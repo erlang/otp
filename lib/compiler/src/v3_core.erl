@@ -2088,7 +2088,8 @@ cexpr(#ifun{anno=#a{us=Us0}=A0,name={named,Name},fc=#iclause{pats=Ps}}=Fun0,
             RecVar = #c_var{name={Name,length(Ps)}},
             Let = #c_let{vars=[#c_var{name=Name}],arg=RecVar,body=Body},
             CFun1 = CFun0#c_fun{body=Let},
-            Letrec = #c_letrec{defs=[{RecVar,CFun1}],
+            Letrec = #c_letrec{anno=A0#a.anno,
+			       defs=[{RecVar,CFun1}],
                                body=RecVar},
             {Letrec,[],Us1,St1}
     end;
