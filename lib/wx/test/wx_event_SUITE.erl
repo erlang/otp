@@ -149,7 +149,7 @@ disconnect(Config) ->
     timer:sleep(1000),
     wx_test_lib:flush(),
 
-    ?m({'EXIT', {{badarg,_},_}}, wxEvtHandler:disconnect(Panel, non_existing_event_type)),
+    ?m(false, wxEvtHandler:disconnect(Panel, non_existing_event_type)),
     ?m(true, wxEvtHandler:disconnect(Panel, size)),
     ?m(ok, wxWindow:setSize(Panel, {200,102})),
     timer:sleep(1000),
@@ -499,14 +499,14 @@ callback_clean(Config) ->
     			     end
     		     end),
     timer:sleep(500), %% Give it time to remove it
-    ?m({[{Pid,_,_}],[_],[_]}, white_box_check_event_handlers()),
+    ?m({[{Pid,_}],[_],[_]}, white_box_check_event_handlers()),
 
     Pid ! remove,
     timer:sleep(500), %% Give it time to remove it
     ?m({[],[],[]}, white_box_check_event_handlers()),
 
     SetupEventHandlers(),
-    ?m({[{_,_,_}],[_],[_]}, white_box_check_event_handlers()),
+    ?m({[{_,_}],[_],[_]}, white_box_check_event_handlers()),
 
     wxDialog:show(Dlg),
     wx_test_lib:wx_close(Dlg, Config),
@@ -526,9 +526,9 @@ white_box_check_event_handlers() ->
     {status, _, _, [Env, _, _, _, Data]} = sys:get_status(Server),
     [_H, _data, {data, [{_, Record}]}] = Data,
     {state, _Port1, _Port2, Users, [], CBs, _Next} = Record,
-    {[{Pid, Evs, Listener} ||
-	 {Pid, {user, Evs, Listener}} <- gb_trees:to_list(Users),
-	 (Evs =/= [] orelse Listener =/= undefined)], %% Ignore empty
+    {[{Pid, Evs} ||
+	 {Pid, {user, Evs}} <- gb_trees:to_list(Users),
+	 Evs =/= []], %% Ignore empty
      gb_trees:to_list(CBs),
      [Funs || Funs = {Id, {Fun,_}} <- Env, is_integer(Id), is_function(Fun)]
     }.

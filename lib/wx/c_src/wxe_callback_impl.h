@@ -23,6 +23,24 @@
 void pre_callback();
 void handle_event_callback(ErlDrvPort port, ErlDrvTermData process);
 
+/* Fun Callback id */ 
+class wxeEvtListener : public wxEvtHandler
+{
+public:
+   wxeEvtListener(ErlDrvTermData caller, int req, char *req_type,
+		  int funcb, int skip_ev, wxeErlTerm * userData,
+		  ErlDrvTermData Thisport);
+   ~wxeEvtListener();
+   void forward(wxEvent& event);
+   ErlDrvTermData port;
+   ErlDrvTermData listener;
+   int          fun_id;
+   int          obj;
+   char         class_name[40];
+   int          skip;
+   wxeErlTerm * user_data;
+};
+
 class wxEPrintout : public wxPrintout
 {
  public:

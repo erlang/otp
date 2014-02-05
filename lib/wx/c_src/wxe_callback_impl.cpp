@@ -30,27 +30,27 @@
  * CallbackData *
  * ****************************************************************************/
 
-wxeCallbackData::wxeCallbackData(ErlDrvTermData caller, int req, char *req_type,
-				 int funcb, int skip_ev, wxeErlTerm * userData,
-				 wxeEvtListener *handler_cb)
-  : wxObject()
+wxeEvtListener::wxeEvtListener(ErlDrvTermData caller, int req, char *req_type,
+			       int funcb, int skip_ev, wxeErlTerm * userData,
+			       ErlDrvTermData from_port)
+  : wxEvtHandler()
 {
+  port=from_port;
   listener = caller;
   obj = req;
   fun_id = funcb;
   strcpy(class_name, req_type);
   skip = skip_ev;
   user_data = userData;
-  handler = handler_cb;
 }
 
-wxeCallbackData::~wxeCallbackData() {
-  // fprintf(stderr, "CBD Deleteing %p %s\r\n", this, class_name); fflush(stderr);
+wxeEvtListener::~wxeEvtListener() {
+    // fprintf(stderr, "CBD Deleteing %p %s\r\n", this, class_name); fflush(stderr);
   if(user_data) {
     delete user_data;
   }
   ptrMap::iterator it;
-  it = ((WxeApp *)wxTheApp)->ptr2ref.find(handler);
+  it = ((WxeApp *)wxTheApp)->ptr2ref.find(this);
   if(it != ((WxeApp *)wxTheApp)->ptr2ref.end()) {
     wxeRefData *refd = it->second;
     wxeReturn rt = wxeReturn(WXE_DRV_PORT, refd->memenv->owner, false);
@@ -61,6 +61,17 @@ wxeCallbackData::~wxeCallbackData() {
     rt.addTupleCount(4);
     rt.send();
   }
+  ((WxeApp *)wxTheApp)->clearPtr(this);
+}
+
+void wxeEvtListener::forward(wxEvent& event)
+{
+#ifdef DEBUG
+  if(!sendevent(&event, port))
+    fprintf(stderr, "Couldn't send event!\r\n");
+#else
+sendevent(&event, port);
+#endif
 }
 
 /* *****************************************************************/
