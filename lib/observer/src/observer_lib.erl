@@ -699,7 +699,9 @@ progress_handler(Caller,Env,Title,Str) ->
     register(?progress_handler,self()),
     wx:set_env(Env),
     PD = progress_dialog(Env,Title,Str),
-    progress_loop(Title,PD,Caller).
+    try progress_loop(Title,PD,Caller)
+    catch closed -> normal end.
+
 progress_loop(Title,PD,Caller) ->
     receive
 	{progress,{ok,done}} -> % to make wait_for_progress/0 return
@@ -738,8 +740,12 @@ progress_dialog(_Env,Title,Str) ->
     PD.
 
 update_progress(PD,Value) ->
-    wxProgressDialog:update(PD,Value).
+    try wxProgressDialog:update(PD,Value)
+    catch _:_ -> throw(closed) %% Port or window have died
+    end.
 update_progress_text(PD,Text) ->
-    wxProgressDialog:update(PD,0,[{newmsg,Text}]).
+    try wxProgressDialog:update(PD,0,[{newmsg,Text}])
+    catch _:_ -> throw(closed) %% Port or window have died
+    end.
 finish_progress(PD) ->
     wxProgressDialog:destroy(PD).
