@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -171,6 +171,10 @@
         <p>Returns a list of all tables at the node. Named tables are
           given by their names, unnamed tables are given by their
           table identifiers.</p>
+	<p>There is no guarantee of consistency in the returned list. Tables created
+	or deleted by other processes "during" the ets:all() call may or may
+	not be included in the list. Only tables created/deleted <em>before</em>
+	ets:all() is called are guaranteed to be included/excluded.</p>
       </desc>
     </func>
     <func>

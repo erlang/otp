@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,6 +75,7 @@
 -export([otp_9932/1]).
 -export([otp_9423/1]).
 -export([otp_10182/1]).
+-export([ets_all/1]).
 -export([memory_check_summary/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -151,6 +152,7 @@ all() ->
      otp_10182,
      otp_9932,
      otp_9423,
+     ets_all,
      
      memory_check_summary]. % MUST BE LAST
 
@@ -5565,7 +5567,19 @@ otp_10182(Config) when is_list(Config) ->
     ets:delete(Db),
     In = Out.
 
-    
+%% Test that ets:all include/exclude tables that we know are created/deleted
+ets_all(Config) when is_list(Config) ->
+    Pids = [spawn_link(fun() -> ets_all_run() end) || _ <- [1,2]],
+    receive after 3*1000 -> ok end,
+    [begin unlink(P), exit(P,kill) end || P <- Pids],
+    ok.
+
+ets_all_run() ->
+    Table = ets:new(undefined, []),
+    true = lists:member(Table, ets:all()),
+    ets:delete(Table),
+    false = lists:member(Table, ets:all()),
+    ets_all_run().
     
 
 %
