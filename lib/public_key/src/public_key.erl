@@ -49,6 +49,23 @@
 	 pkix_crls_validate/3
 	]).
 
+-export_type([
+	      public_key/0,
+	      private_key/0,
+	      rsa_public_key/0,
+	      rsa_private_key/0,
+	      dsa_private_key/0,
+	      dsa_public_key/0,
+	      ec_public_key/0,
+	      ec_private_key/0,
+	      der_encoded/0,
+	      decrypt_der/0,
+	      pki_asn1_type/0,
+	      pem_entry/0,
+	      asn1_type/0,
+	      ssh_file/0
+	     ]).
+
 -type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
