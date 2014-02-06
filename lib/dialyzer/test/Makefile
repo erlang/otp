@@ -11,6 +11,7 @@ AUXILIARY_FILES=\
 	dialyzer_test_constants.hrl\
 	dialyzer_common.erl\
 	file_utils.erl\
+	dialyzer_SUITE.erl\
 	plt_SUITE.erl
 
 # ----------------------------------------------------
