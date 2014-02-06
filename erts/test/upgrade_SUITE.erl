@@ -39,8 +39,16 @@
 	 ssh,ssl,syntax_tools,test_server,tools,typer,wx,xmerl]).
 
 init_per_suite(Config) ->
-    rm_rf(filename:join([?config(data_dir,Config),priv_dir])),
-    Config.
+    %% Check that a real release is running, not e.g. cerl
+    ok = application:ensure_started(sasl),
+    case release_handler:which_releases() of
+	[{_,_,[],_}] ->
+	    %% Fake release, no applications
+	    {skip, "Need a real release running to create other releases"};
+	_ ->
+	    rm_rf(filename:join([?config(data_dir,Config),priv_dir])),
+	    Config
+    end.
 
 init_per_testcase(Case,Config) ->
     PrivDir = filename:join([?config(data_dir,Config),priv_dir,Case]),
