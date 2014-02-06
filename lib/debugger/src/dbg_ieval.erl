@@ -654,6 +654,21 @@ expr({tuple,Line,Es0}, Bs0, Ieval) ->
     {Vs,Bs} = eval_list(Es0, Bs0, Ieval#ieval{line=Line}),
     {value,list_to_tuple(Vs),Bs};
 
+%% Map
+expr({map,Line,Fs0}, Bs0, Ieval) ->
+    {Fs,Bs} = eval_map_fields(Fs0, Bs0, Ieval#ieval{line=Line,top=false}),
+    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi) end,
+                        #{}, Fs),
+    {value,Value,Bs};
+expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line,top=false},
+    {value,E,Bs1} = expr(E0, Bs0, Ieval),
+    {Fs,Bs2} = eval_map_fields(Fs0, Bs1, Ieval),
+    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+                            ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi) end,
+                        E, Fs),
+    {value,Value,Bs2};
+
 %% A block of statements
 expr({block,Line,Es},Bs,Ieval) ->
     seq(Es, Bs, Ieval#ieval{line=Line});
@@ -1468,6 +1483,19 @@ guard_expr({cons,_,H0,T0}, Bs) ->
 guard_expr({tuple,_,Es0}, Bs) ->
     {values,Es} = guard_exprs(Es0, Bs),
     {value,list_to_tuple(Es)};
+guard_expr({map,_,Fs0}, Bs) ->
+    Fs = eval_map_fields_guard(Fs0, Bs),
+    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi) end,
+                        #{}, Fs),
+    {value,Value};
+guard_expr({map,_,E0,Fs0}, Bs) ->
+    {value,E} = guard_expr(E0, Bs),
+    Fs = eval_map_fields_guard(Fs0, Bs),
+    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+                            ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi) end,
+                        E, Fs),
+    io:format("~p~n", [{E,Value}]),
+    {value,Value};
 guard_expr({bin,_,Flds}, Bs) ->
     {value,V,_Bs} = 
 	eval_bits:expr_grp(Flds, Bs,
@@ -1476,6 +1504,37 @@ guard_expr({bin,_,Flds}, Bs) ->
 				   {value,V,B}
 			   end, [], false),
     {value,V}.
+
+
+%% eval_map_fields([Field], Bindings, IEvalState) ->
+%%  {[{map_assoc | map_exact,Key,Value}],Bindings}
+
+eval_map_fields(Fs, Bs, Ieval) ->
+    eval_map_fields(Fs, Bs, Ieval, fun expr/3).
+
+eval_map_fields_guard(Fs0, Bs) ->
+    {Fs,_} = eval_map_fields(Fs0, Bs, #ieval{},
+                             fun (G0, Bs0, _) ->
+                            {value,G} = guard_expr(G0, Bs0),
+                            {value,G,Bs0}
+                    end),
+    Fs.
+
+eval_map_fields(Fs, Bs, Ieval, F) ->
+    eval_map_fields(Fs, Bs, Ieval, F, []).
+
+eval_map_fields([{map_field_assoc,Line,K0,V0}|Fs], Bs0, Ieval0, F, Acc) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,K,Bs1} = F(K0, Bs0, Ieval),
+    {value,V,Bs2} = F(V0, Bs1, Ieval),
+    eval_map_fields(Fs, Bs2, Ieval0, F, [{map_assoc,K,V}|Acc]);
+eval_map_fields([{map_field_exact,Line,K0,V0}|Fs], Bs0, Ieval0, F, Acc) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,K,Bs1} = F(K0, Bs0, Ieval),
+    {value,V,Bs2} = F(V0, Bs1, Ieval),
+    eval_map_fields(Fs, Bs2, Ieval0, F, [{map_exact,K,V}|Acc]);
+eval_map_fields([], Bs, _Ieval, _F, Acc) ->
+    {lists:reverse(Acc),Bs}.
 
 %% match(Pattern,Term,Bs) -> {match,Bs} | nomatch
 match(Pat, Term, Bs) ->
@@ -1506,6 +1565,8 @@ match1({cons,_,H,T}, [H1|T1], Bs0, BBs) ->
 match1({tuple,_,Elts}, Tuple, Bs, BBs) 
   when length(Elts) =:= tuple_size(Tuple) ->
     match_tuple(Elts, Tuple, 1, Bs, BBs);
+match1({map,_,Fields}, Map, Bs, BBs) when is_map(Map) ->
+    match_map(Fields, Map, Bs, BBs);
 match1({bin,_,Fs}, B, Bs0, BBs) when is_bitstring(B) ->
     try eval_bits:match_bits(Fs, B, Bs0, BBs,
 			     match_fun(BBs),
@@ -1527,6 +1588,17 @@ match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
     {match,Bs} = match1(E, element(I, Tuple), Bs0, BBs),
     match_tuple(Es, Tuple, I+1, Bs, BBs);
 match_tuple([], _, _, Bs, _BBs) ->
+    {match,Bs}.
+
+match_map([{map_field_exact,_,K0,Pat}|Fs], Map, Bs0, BBs) ->
+    {value,K,BBs} = expr(K0, BBs, #ieval{}),
+    case maps:find(K, Map) of
+        {ok,Value} ->
+            {match,Bs} = match1(Pat, Value, Bs0, BBs),
+            match_map(Fs, Map, Bs, BBs);
+        error -> throw(nomatch)
+    end;
+match_map([], _, Bs, _BBs) ->
     {match,Bs}.
 
 head_match([Par|Pars], [Arg|Args], Bs0, BBs) ->

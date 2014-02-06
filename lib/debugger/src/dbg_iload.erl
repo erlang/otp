@@ -194,6 +194,11 @@ pattern({cons,Line,H0,T0}) ->
 pattern({tuple,Line,Ps0}) ->
     Ps1 = pattern_list(Ps0),
     {tuple,Line,Ps1};
+pattern({map,Line,Fs0}) ->
+    Fs1 = lists:map(fun ({map_field_exact,L,K,V}) ->
+                            {map_field_exact,L,expr(K, false),pattern(V)}
+                    end, Fs0),
+    {map,Line,Fs1};
 pattern({op,_,'-',{integer,Line,I}}) ->
     {value,Line,-I};
 pattern({op,_,'+',{integer,Line,I}}) ->
@@ -262,6 +267,8 @@ guard_test({string,Line,_}) -> {value,Line,false};
 guard_test({nil,Line}) -> {value,Line,false};
 guard_test({cons,Line,_,_}) -> {value,Line,false};
 guard_test({tuple,Line,_}) -> {value,Line,false};
+guard_test({map,Line,_}) -> {value,Line,false};
+guard_test({map,Line,_,_}) -> {value,Line,false};
 guard_test({bin,Line,_}) ->  {value,Line,false}.
 
 gexpr({var,Line,V}) -> {var,Line,V};
@@ -279,6 +286,13 @@ gexpr({cons,Line,H0,T0}) ->
 gexpr({tuple,Line,Es0}) ->
     Es1 = gexpr_list(Es0),
     {tuple,Line,Es1};
+gexpr({map,Line,Fs0}) ->
+    Fs1 = map_fields(Fs0, fun gexpr/1),
+    {map,Line,Fs1};
+gexpr({map,Line,E0,Fs0}) ->
+    E1 = gexpr(E0),
+    Fs1 = map_fields(Fs0, fun gexpr/1),
+    {map,Line,E1,Fs1};
 gexpr({bin,Line,Flds0}) ->
     Flds = gexpr_list(Flds0),
     {bin,Line,Flds};
@@ -341,6 +355,13 @@ expr({cons,Line,H0,T0}, _Lc) ->
 expr({tuple,Line,Es0}, _Lc) ->
     Es1 = expr_list(Es0),
     {tuple,Line,Es1};
+expr({map,Line,Fs0}, _Lc) ->
+    Fs1 = map_fields(Fs0),
+    {map,Line,Fs1};
+expr({map,Line,E0,Fs0}, _Lc) ->
+    E1 = expr(E0, false),
+    Fs1 = map_fields(Fs0),
+    {map,Line,E1,Fs1};
 expr({block,Line,Es0}, Lc) ->
     %% Unfold block into a sequence.
     Es1 = exprs(Es0, Lc),
@@ -549,6 +570,15 @@ icr_clauses([], _) -> [].
 fun_clauses([{clause,L,H,G,B}|Cs]) ->
     [{clause,L,head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];
 fun_clauses([]) -> [].
+
+map_fields(Fs) ->
+    map_fields(Fs, fun (E) -> expr(E, false) end).
+
+map_fields([{map_field_assoc,L,N,V}|Fs], F) ->
+    [{map_field_assoc,L,F(N),F(V)}|map_fields(Fs)];
+map_fields([{map_field_exact,L,N,V}|Fs], F) ->
+    [{map_field_exact,L,F(N),F(V)}|map_fields(Fs)];
+map_fields([], _) -> [].
 
 %% new_var_name() -> VarName.
 
