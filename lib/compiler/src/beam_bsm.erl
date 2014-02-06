@@ -209,6 +209,7 @@ btb_reaches_match_2([{call,Arity,{f,Lbl}}|Is], Regs, D) ->
 btb_reaches_match_2([{apply,Arity}|Is], Regs, D) ->
     btb_call(Arity+2, apply, Regs, Is, D);
 btb_reaches_match_2([{call_fun,Live}=I|Is], Regs, D) ->
+    btb_ensure_not_used([{x,Live}], I, Regs),
     btb_call(Live, I, Regs, Is, D);
 btb_reaches_match_2([{make_fun2,_,_,_,Live}|Is], Regs, D) ->
     btb_call(Live, make_fun2, Regs, Is, D);

@@ -34,7 +34,7 @@
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
-	 no_partition/1]).
+	 no_partition/1,calling_a_binary/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -59,7 +59,7 @@ groups() ->
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
-       no_partition]}].
+       no_partition,calling_a_binary]}].
 
 
 init_per_suite(Config) ->
@@ -1177,6 +1177,17 @@ no_partition_2([], a5) ->
     five;
 no_partition_2(42.0, a6) ->
     six.
+
+calling_a_binary(Config) when is_list(Config) ->
+    [] = call_binary(<<>>, []),
+    {'EXIT',{badarg,_}} = (catch call_binary(<<1>>, [])),
+    {'EXIT',{badarg,_}} = (catch call_binary(<<1,2,3>>, [])),
+    ok.
+
+call_binary(<<>>, Acc) ->
+    Acc;
+call_binary(<<H,T/bits>>, Acc) ->
+    T(<<Acc/binary,H>>).
 
 check(F, R) ->
     R = F().
