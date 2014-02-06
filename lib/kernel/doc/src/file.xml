@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1751,7 +1751,7 @@
 	  using async threads potentially makes your system volnerable to slow
 	  client attacks. If set to true and no async threads are available,
 	  the sendfile call will return <c>{error,einval}</c>.
-	  Introduced in 17.0. Default is false.</item>
+	  Introduced in Erlang/OTP 17.0. Default is false.</item>
 	</taglist>
 	</p>
       </desc>
