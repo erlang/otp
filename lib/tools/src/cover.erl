@@ -1800,16 +1800,19 @@ munge_expr({match,Line,ExprL,ExprR}, Vars) ->
 munge_expr({tuple,Line,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
     {{tuple,Line,MungedExprs}, Vars2};
-munge_expr({record,Line,Expr,Exprs}, Vars) ->
+munge_expr({record,Line,Name,Exprs}, Vars) ->
     %% Only for Vsn=raw_abstract_v1
-    {MungedExprName, Vars2} = munge_expr(Expr, Vars),
+    {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
+    {{record,Line,Name,MungedExprFields}, Vars2};
+munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
+    %% Only for Vsn=raw_abstract_v1
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
     {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{record,Line,MungedExprName,MungedExprFields}, Vars3};
+    {{record,Line,MungedArg,Name,MungedExprFields}, Vars3};
 munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
     %% Only for Vsn=raw_abstract_v1
-    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
-    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{record_field,Line,MungedExprL,MungedExprR}, Vars3};
+    {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
+    {{record_field,Line,ExprL,MungedExprR}, Vars2};
 munge_expr({cons,Line,ExprH,ExprT}, Vars) ->
     {MungedExprH, Vars2} = munge_expr(ExprH, Vars),
     {MungedExprT, Vars3} = munge_expr(ExprT, Vars2),
