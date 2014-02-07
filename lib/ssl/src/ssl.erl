@@ -712,7 +712,7 @@ validate_option(certfile, undefined = Value) ->
 validate_option(certfile, Value) when is_binary(Value) ->
     Value;
 validate_option(certfile, Value) when is_list(Value) ->
-    list_to_binary(Value);
+    binary_filename(Value);
 
 validate_option(key, undefined) ->
     undefined;
@@ -729,7 +729,7 @@ validate_option(keyfile, undefined) ->
 validate_option(keyfile, Value) when is_binary(Value) ->
     Value;
 validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
-    list_to_binary(Value);
+    binary_filename(Value);
 validate_option(password, Value) when is_list(Value) ->
     Value;
 
@@ -743,7 +743,7 @@ validate_option(cacertfile, undefined) ->
 validate_option(cacertfile, Value) when is_binary(Value) ->
     Value;
 validate_option(cacertfile, Value) when is_list(Value), Value =/= ""->
-    list_to_binary(Value);
+    binary_filename(Value);
 validate_option(dh, Value) when Value == undefined;
 				is_binary(Value) ->
     Value;
@@ -752,12 +752,12 @@ validate_option(dhfile, undefined = Value)  ->
 validate_option(dhfile, Value) when is_binary(Value) ->
     Value;
 validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
-    list_to_binary(Value);
+    binary_filename(Value);
 validate_option(psk_identity, undefined) ->
     undefined;
 validate_option(psk_identity, Identity)
   when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
-    list_to_binary(Identity);
+    binary_filename(Identity);
 validate_option(user_lookup_fun, undefined) ->
     undefined;
 validate_option(user_lookup_fun, {Fun, _} = Value) when is_function(Fun, 3) ->
@@ -766,7 +766,8 @@ validate_option(srp_identity, undefined) ->
     undefined;
 validate_option(srp_identity, {Username, Password})
   when is_list(Username), is_list(Password), Username =/= "", length(Username) =< 255 ->
-    {list_to_binary(Username), list_to_binary(Password)};
+    {unicode:characters_to_binary(Username),
+     unicode:characters_to_binary(Password)};
 
 validate_option(ciphers, Value)  when is_list(Value) ->
     Version = tls_record:highest_protocol_version([]),
@@ -1036,3 +1037,7 @@ connection_sup(tls_connection) ->
     tls_connection_sup;
 connection_sup(dtls_connection) ->
     dtls_connection_sup.
+
+binary_filename(FileName) ->
+    Enc = file:native_name_encoding(),
+    unicode:characters_to_binary(FileName, unicode, Enc).
