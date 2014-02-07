@@ -33,7 +33,7 @@
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
 
--export([config_change/1,
+-export([config_change/1, persistent_env/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1]).
@@ -53,7 +53,8 @@ all() ->
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
-     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout].
+     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
+     persistent_env].
 
 groups() -> 
     [{reported_bugs, [],
@@ -1986,6 +1987,50 @@ get_appls([_ | T], Res) ->
     get_appls(T, Res);
 get_appls([], Res) ->
     Res.
+
+persistent_env(suite) ->
+    [];
+persistent_env(doc) ->
+    ["Test set_env/4 and unset_env/3 with persistent true"];
+persistent_env(Conf) when is_list(Conf) ->
+    ok = application:set_env(appinc, own2, persist, [{persistent, true}]),
+    ok = application:set_env(appinc, key1, persist, [{persistent, true}]),
+
+    %% own_env1 and own2 are set in appinc
+    ok = application:load(appinc()),
+    {ok, value1} = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, key1),
+
+    %% Changing the environment after loaded reflects and should persist
+    ok = application:set_env(appinc, own_env1, persist, [{persistent, true}]),
+    {ok, persist} = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, key1),
+
+    %% On reload, own_env1, own2 and key1 should all persist
+    ok = application:unload(appinc),
+    ok = application:load(appinc()),
+    {ok, persist} = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, key1),
+
+    %% Unset own_env1 and key1, own2 should still persist
+    ok = application:unset_env(appinc, own_env1, [{persistent, true}]),
+    ok = application:unset_env(appinc, key1, [{persistent, true}]),
+    undefined = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    undefined = application:get_env(appinc, key1),
+
+    %% own_env1 should be back to its application value on reload
+    ok = application:unload(appinc),
+    ok = application:load(appinc()),
+    {ok, value1} = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    undefined = application:get_env(appinc, key1),
+
+    %% Clean up
+    ok = application:unload(appinc).
 
 %%%-----------------------------------------------------------------
 %%% Tests the 'shutdown_func' kernel config parameter
