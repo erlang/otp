@@ -112,7 +112,7 @@ pop_system_message_interceptor(out) ->
 	[{_, []}] ->
 	    ok;
 	[{_, Interceptors}] ->
-	    ets:insert(orber_interceptors, {message_out_interceptors,  remove_last_element(Interceptors)});
+	    ets:insert(orber_interceptors, {message_out_interceptors,  lists:droplast(Interceptors)});
 	_ ->
 	    corba:raise(#'INTERNAL'{completion_status=?COMPLETED_NO})
     end.    
@@ -151,12 +151,3 @@ apply_message_interceptors([], F, ObjRef, Bytes) ->
 apply_message_interceptors([M | Rest], F, ObjRef, Bytes) ->
     apply_message_interceptors(Rest, F, ObjRef, apply(M, F, [ObjRef, Bytes])).
 
-
-remove_last_element([]) ->
-    [];
-remove_last_element([M]) ->
-    [];
-remove_last_element([M |Tail]) ->
-    remove_last_element([Tail]).
-
-    

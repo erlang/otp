@@ -74,7 +74,7 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
-		splitwith/2,keyfind/3,sort/1,foreach/2]).
+		splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_cons_skel/3,ann_c_tuple/2,c_tuple/1]).
@@ -226,13 +226,13 @@ guard(Gs0, St0) ->
 			Gt1 = guard_tests(Gt0),
 			L = element(2, Gt1),
 			{op,L,'or',Gt1,Rhs}
-		end, guard_tests(last(Gs0)), first(Gs0)),
+		end, guard_tests(last(Gs0)), droplast(Gs0)),
     {Gs,St} = gexpr_top(Gs1, St0#core{in_guard=true}),
     {Gs,St#core{in_guard=false}}.
     
 guard_tests(Gs) ->
     L = element(2, hd(Gs)),
-    {protect,L,foldr(fun (G, Rhs) -> {op,L,'and',G,Rhs} end, last(Gs), first(Gs))}.
+    {protect,L,foldr(fun (G, Rhs) -> {op,L,'and',G,Rhs} end, last(Gs), droplast(Gs))}.
 
 %% gexpr_top(Expr, State) -> {Cexpr,State}.
 %%  Generate an internal core expression of a guard test.  Explicitly
@@ -513,7 +513,7 @@ expr({bin,L,Es0}, St0) ->
     end;
 expr({block,_,Es0}, St0) ->
     %% Inline the block directly.
-    {Es1,St1} = exprs(first(Es0), St0),
+    {Es1,St1} = exprs(droplast(Es0), St0),
     {E1,Eps,St2} = expr(last(Es0), St1),
     {E1,Es1 ++ Eps,St2};
 expr({'if',L,Cs0}, St0) ->
@@ -1588,15 +1588,6 @@ pat_alias_list(_, _) -> throw(nomatch).
 
 pattern_list(Ps, St) -> [pattern(P, St) || P <- Ps].
 
-%% first([A]) -> [A].
-%% last([A]) -> A.
-
-first([_]) -> [];
-first([H|T]) -> [H|first(T)].
-
-last([L]) -> L;
-last([_|T]) -> last(T).
-
 %% make_vars([Name]) -> [{Var,Name}].
 
 make_vars(Vs) -> [ #c_var{name=V} || V <- Vs ].
@@ -1679,13 +1670,13 @@ uclause(#iclause{anno=Anno,pats=Ps0,guard=G0,body=B0}, Pks, Ks0, St0) ->
 uguard([], [], _, St) -> {[],St};
 uguard(Pg, [], Ks, St) ->
     %% No guard, so fold together equality tests.
-    uguard(first(Pg), [last(Pg)], Ks, St);
+    uguard(droplast(Pg), [last(Pg)], Ks, St);
 uguard(Pg, Gs0, Ks, St0) ->
     %% Gs0 must contain at least one element here.
     {Gs3,St5} = foldr(fun (T, {Gs1,St1}) ->
 			      {L,St2} = new_var(St1),
 			      {R,St3} = new_var(St2),
-			      {[#iset{var=L,arg=T}] ++ first(Gs1) ++
+			      {[#iset{var=L,arg=T}] ++ droplast(Gs1) ++
 			       [#iset{var=R,arg=last(Gs1)},
 				#icall{anno=#a{}, %Must have an #a{}
 				       module=#c_literal{val=erlang},

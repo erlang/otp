@@ -461,7 +461,7 @@ nice_iter_access(Tab, FragNames, RawRead) ->
     ExpectedLast = lists:last(Keys),
     ?match(ExpectedLast, mnesia:last(Tab)),
     
-    ExpectedAllPrev = ['$end_of_table' | lists:reverse(tl(lists:reverse(Keys)))],
+    ExpectedAllPrev = ['$end_of_table' | lists:droplast(Keys)],
     ?match(ExpectedAllPrev, lists:map(fun(K) -> mnesia:prev(Tab, K) end, Keys)),
     
     ExpectedAllNext = tl(Keys) ++ ['$end_of_table'],
@@ -477,7 +477,7 @@ evil_iter_access(Tab, FragNames, RawRead) ->
     ExpectedLast = lists:last(Keys),
     ?match(ExpectedLast, mnesia:last(Tab)),
     
-    ExpectedAllPrev = ['$end_of_table' | lists:reverse(tl(lists:reverse(Keys)))],
+    ExpectedAllPrev = ['$end_of_table' | lists:droplast(Keys)],
     ?match(ExpectedAllPrev, lists:map(fun(K) -> mnesia:prev(Tab, K) end, Keys)),
     
     ExpectedAllNext = tl(Keys) ++ ['$end_of_table'],
