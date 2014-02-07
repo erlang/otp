@@ -1482,8 +1482,8 @@ put_map_exact F Src Dst Live Size Rest=* => \
 	      update_map_exact F Src Dst Live Size Rest
 
 new_map j d I I
-update_map_assoc j d d I I
-update_map_exact j d d I I
+update_map_assoc j s d I I
+update_map_exact j s d I I
 
 is_map Fail cq => jump Fail
 

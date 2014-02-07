@@ -2355,7 +2355,7 @@ void process_main(void)
      Next(4+Arg(3));
  }
 
- OpCase(update_map_assoc_jddII): {
+ OpCase(update_map_assoc_jsdII): {
      Eterm res;
      Eterm map;
 
@@ -2373,7 +2373,7 @@ void process_main(void)
      }
  }
 
- OpCase(update_map_exact_jddII): {
+ OpCase(update_map_exact_jsdII): {
      Eterm res;
      Eterm map;
 
@@ -6614,7 +6614,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
-	return new_map(p, reg, I+1);
+	return THE_NON_VALUE;
     }
 
     /*
