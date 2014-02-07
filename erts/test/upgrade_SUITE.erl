@@ -236,7 +236,10 @@ do_upgrade(FromVsn,FromApps,ToRel,ToApps,InstallDir) ->
      {"OTP upgrade test",FromVsn,_,old}] =
 	rpc:call(Node,release_handler,which_releases,[]),
     
-    true = test_server:stop_node(Node),
+    erlang:monitor_node(Node,true),
+    _ = rpc:call(Node,init,stop,[]),
+    receive {nodedown,Node} -> ok end,
+
     ok.
 
 %%%-----------------------------------------------------------------
