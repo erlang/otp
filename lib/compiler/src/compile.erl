@@ -625,7 +625,8 @@ core_passes() ->
 	?pass(core_fold_module),
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
-	{core_fold_after_inlining,fun test_core_inliner/1,fun core_fold_module_after_inlining/1},
+        {core_fold_after_inlining,fun test_any_inliner/1,
+         fun core_fold_module_after_inlining/1},
 	?pass(core_transforms)]},
        {iff,dcopt,{listing,"copt"}},
        {iff,'to_core',{done,"core"}}]}
@@ -1170,6 +1171,9 @@ test_core_inliner(#compile{options=Opts}) ->
 		   (_) -> false
 		end, Opts)
     end.
+
+test_any_inliner(St) ->
+    test_old_inliner(St) orelse test_core_inliner(St).
 
 core_old_inliner(#compile{code=Code0,options=Opts}=St) ->
     {ok,Code} = sys_core_inline:module(Code0, Opts),
