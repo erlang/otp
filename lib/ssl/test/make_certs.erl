@@ -410,7 +410,6 @@ ca_cnf(C) ->
 
      "[idpsec]\n"
      "fullname=URI:http://localhost:8000/",C#config.commonName,"/crl.pem\n"
-     %"fullname=URI:file://$ROOTDIR/",C#config.commonName,"/crl.pem\n"
 
      "[user_cert]\n"
      "basicConstraints	= CA:false\n"
@@ -422,7 +421,8 @@ ca_cnf(C) ->
      "crlDistributionPoints=@crl_section\n"
 
      "[crl_section]\n"
-     "URI.1=file://$ROOTDIR/",C#config.commonName,"/crl.pem\n"
+     %% intentionally invalid
+     "URI.1=http://localhost/",C#config.commonName,"/crl.pem\n"
      "URI.2=http://localhost:8000/",C#config.commonName,"/crl.pem\n"
      "\n"
 

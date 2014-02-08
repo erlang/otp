@@ -343,8 +343,8 @@ match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
     case split_uri(URI) of
 	incomplete ->
 	    false;
-	{_, _, _Host, _, _} ->
-	    match_name(fun is_valid_host_or_domain/2, URI,
+	{_, _, Host, _, _} ->
+	    match_name(fun is_valid_host_or_domain/2, Host,
 		       PermittedName, Rest)
     end;
 

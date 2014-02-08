@@ -393,11 +393,15 @@ verify_dp_name(asn1_NOVALUE, _) ->
     ok;
 
 verify_dp_name(IDPNames, DPorIssuerNames) ->
-    case match_one(DPorIssuerNames, IDPNames) of
-	true ->
-	    ok;
-	false ->
-	    throw({bad_crl, scope_error})
+    %% RFC 5280 section 5.2.5
+    %% Check that at least one IssuingDistributionPointName in the CRL lines up
+    %% with a DistributionPointName in the certificate.
+    Matches = [X || X <- IDPNames, Y <- DPorIssuerNames, X == Y],
+    case Matches of
+	[] ->
+	    throw({bad_crl, scope_error});
+	_ ->
+	    ok
     end.
 
 match_one([], _) ->
