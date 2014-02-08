@@ -69,6 +69,7 @@ init_per_suite(Config0) ->
 	false ->
 	    {skip, "Openssl not found"};
 	_ ->
+	    inets:start(),
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
@@ -81,6 +82,7 @@ init_per_suite(Config0) ->
 
 end_per_suite(_Config) ->
     ssl:stop(),
+    inets:stop(),
     application:stop(crypto).
 
 init_per_group(v1_crl, Config) ->
@@ -91,7 +93,12 @@ init_per_group(v1_crl, Config) ->
 			      CertDir,
 			      [{v2_crls, false}])),
     ct:log("Make certs  ~p~n", [Result]),
-    [{make_cert_result, Result}, {cert_dir, CertDir} | Config];
+    %% start a HTTP server to serve the CRLs
+    {ok, Httpd} = inets:start(httpd, [{port, 8000}, {server_name, "localhost"},
+				      {server_root, "/tmp"},
+				      {document_root, CertDir},
+				      {modules, [mod_get]}]),
+    [{make_cert_result, Result}, {cert_dir, CertDir}, {httpd, Httpd} | Config];
 init_per_group(idp_crl, Config) ->
     ssl:start(),
     CertDir = filename:join(?config(priv_dir, Config), "idp_crl"),
@@ -113,7 +120,12 @@ init_per_group(_GroupName, Config) ->
 	(catch make_certs:all(?config(data_dir, Config),
 			      CertDir)),
     ct:log("Make certs  ~p~n", [Result]),
-    [{make_cert_result, Result}, {cert_dir, CertDir} | Config].
+    %% start a HTTP server to serve the CRLs
+    {ok, Httpd} = inets:start(httpd, [{port, 8000}, {server_name, "localhost"},
+				      {server_root, "/tmp"},
+				      {document_root, CertDir},
+				      {modules, [mod_get]}]),
+    [{make_cert_result, Result}, {cert_dir, CertDir}, {httpd, Httpd} | Config].
 
 end_per_group(_GroupName, Config) ->
     case ?config(httpd, Config) of
@@ -185,8 +197,6 @@ crl_verify_revoked(Config) when is_list(Config) ->
 		  {cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])}],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Data = "From openssl to erlang",
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
@@ -462,19 +472,6 @@ fetch_point(#'DistributionPoint'{distributionPoint={fullName, Names}}) ->
 %%
 fetch([]) ->
     not_available;
-fetch([{uniformResourceIdentifier, "file://"++File}|Rest]) ->
-    io:format("getting CRL from ~p~n", [File]),
-    try file:read_file(File) of
-        {ok, Bin} ->
-            %% assume PEM
-            [{'CertificateList', DER, _}=CertList] = public_key:pem_decode(Bin),
-            {DER, public_key:pem_entry_decode(CertList)};
-        _ ->
-            fetch(Rest)
-    catch
-        _:_ ->
-            fetch(Rest)
-    end;
 fetch([{uniformResourceIdentifier, "http"++_=URL}|Rest]) ->
     io:format("getting CRL from ~p~n", [URL]),
     _ = inets:start(),
