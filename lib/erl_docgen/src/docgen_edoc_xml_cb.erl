@@ -1014,6 +1014,8 @@ t_type([#xmlElement{name = nil}]) ->
     t_nil();
 t_type([#xmlElement{name = list, content = Es}]) ->
     t_list(Es);
+t_type([#xmlElement{name = nonempty_list, content = Es}]) ->
+    t_nonempty_list(Es);
 t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
@@ -1045,6 +1047,9 @@ t_nil() ->
 
 t_list(Es) ->
     ["["] ++ t_utype(get_elem(type, Es)) ++ ["]"].
+
+t_nonempty_list(Es) ->
+    ["["] ++ t_utype(get_elem(type, Es)) ++ [", ...]"].
 
 t_tuple(Es) ->
     ["{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
