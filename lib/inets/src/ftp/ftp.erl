@@ -181,7 +181,12 @@ open(Host, Opts) when is_list(Opts) ->
     'ok' | {'error', Reason :: 'euser' | common_reason()}.
 
 user(Pid, User, Pass) ->
-    call(Pid, {user, User, Pass}, atom).
+    case {is_name_sane(User), is_name_sane(Pass)} of
+	{true, true} ->
+	    call(Pid, {user, User, Pass}, atom);
+	_ ->
+	    {error, euser}
+    end.
 
 -spec user(Pid  :: pid(), 
 	   User :: string(), 
@@ -190,7 +195,12 @@ user(Pid, User, Pass) ->
     'ok' | {'error', Reason :: 'euser' | common_reason()}.
 
 user(Pid, User, Pass, Acc) ->
-    call(Pid, {user, User, Pass, Acc}, atom).
+    case {is_name_sane(User), is_name_sane(Pass), is_name_sane(Acc)} of
+	{true, true, true} ->
+	    call(Pid, {user, User, Pass, Acc}, atom);
+	_ ->
+	    {error, euser}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -205,7 +215,12 @@ user(Pid, User, Pass, Acc) ->
     'ok' | {'error', Reason :: 'eacct' | common_reason()}.
 
 account(Pid, Acc) ->
-    call(Pid, {account, Acc}, atom).
+    case is_name_sane(Acc) of
+	true ->
+	    call(Pid, {account, Acc}, atom);
+	_ ->
+	    {error, eacct}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -251,7 +266,12 @@ lpwd(Pid) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 cd(Pid, Dir) ->
-    call(Pid, {cd, Dir}, atom).
+    case is_name_sane(Dir) of
+	true ->
+	    call(Pid, {cd, Dir}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -294,7 +314,12 @@ ls(Pid) ->
 	{'error', Reason ::  restriction_reason() | common_reason()}.
 
 ls(Pid, Dir) ->
-    call(Pid, {dir, long, Dir}, string).
+    case is_name_sane(Dir) of
+	true ->
+	    call(Pid, {dir, long, Dir}, string);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -322,7 +347,12 @@ nlist(Pid) ->
 	{'error', Reason :: restriction_reason() | common_reason()}.
 
 nlist(Pid, Dir) ->
-    call(Pid, {dir, short, Dir}, string).
+    case is_name_sane(Dir) of
+	true ->
+	    call(Pid, {dir, short, Dir}, string);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -338,7 +368,12 @@ nlist(Pid, Dir) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 rename(Pid, Old, New) ->
-    call(Pid, {rename, Old, New}, string).
+    case {is_name_sane(Old), is_name_sane(New)} of
+	{true, true} ->
+	    call(Pid, {rename, Old, New}, string);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -354,7 +389,12 @@ rename(Pid, Old, New) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 delete(Pid, File) ->
-    call(Pid, {delete, File}, string).
+    case is_name_sane(File) of
+	true ->
+	    call(Pid, {delete, File}, string);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -369,7 +409,12 @@ delete(Pid, File) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 mkdir(Pid, Dir) ->
-    call(Pid, {mkdir, Dir}, atom).
+    case is_name_sane(Dir) of
+	true ->
+	    call(Pid, {mkdir, Dir}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -384,7 +429,12 @@ mkdir(Pid, Dir) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 rmdir(Pid, Dir) ->
-    call(Pid, {rmdir, Dir}, atom).
+    case is_name_sane(Dir) of
+	true ->
+	    call(Pid, {rmdir, Dir}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -426,7 +476,12 @@ recv(Pid, RemotFileName) ->
     'ok' | {'error', Reason :: term()}.
 
 recv(Pid, RemotFileName, LocalFileName) ->
-    call(Pid, {recv, RemotFileName, LocalFileName}, atom).
+    case is_name_sane(RemotFileName) of
+	true ->
+	    call(Pid, {recv, RemotFileName, LocalFileName}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -445,7 +500,12 @@ recv(Pid, RemotFileName, LocalFileName) ->
 	{'error', Reason :: restriction_reason() | common_reason()}.
 
 recv_bin(Pid, RemoteFile) ->
-    call(Pid, {recv_bin, RemoteFile}, bin).
+    case is_name_sane(RemoteFile) of
+	true ->
+	    call(Pid, {recv_bin, RemoteFile}, bin);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -462,7 +522,12 @@ recv_bin(Pid, RemoteFile) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 recv_chunk_start(Pid, RemoteFile) ->
-    call(Pid, {recv_chunk_start, RemoteFile}, atom).
+    case is_name_sane(RemoteFile) of
+	true ->
+	    call(Pid, {recv_chunk_start, RemoteFile}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -510,7 +575,12 @@ send(Pid, LocalFileName) ->
                             shortage_reason()}.
 
 send(Pid, LocalFileName, RemotFileName) ->
-    call(Pid, {send, LocalFileName, RemotFileName}, atom).
+    case is_name_sane(RemotFileName) of
+	true ->
+	    call(Pid, {send, LocalFileName, RemotFileName}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -530,7 +600,12 @@ send(Pid, LocalFileName, RemotFileName) ->
                             shortage_reason()}.
 
 send_bin(Pid, Bin, RemoteFile) when is_binary(Bin) ->
-    call(Pid, {send_bin, Bin, RemoteFile}, atom);
+    case is_name_sane(RemoteFile) of
+	true ->
+	    call(Pid, {send_bin, Bin, RemoteFile}, atom);
+	_ ->
+	    {error, efnamena}
+    end;
 send_bin(_Pid, _Bin, _RemoteFile) ->
   {error, enotbinary}.
 
@@ -548,7 +623,12 @@ send_bin(_Pid, _Bin, _RemoteFile) ->
     'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
 
 send_chunk_start(Pid, RemoteFile) ->
-    call(Pid, {send_chunk_start, RemoteFile}, atom).
+    case is_name_sane(RemoteFile) of
+	true ->
+	    call(Pid, {send_chunk_start, RemoteFile}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -564,7 +644,12 @@ send_chunk_start(Pid, RemoteFile) ->
     'ok' | {'error', Reason :: term()}.
 
 append_chunk_start(Pid, RemoteFile) ->
-    call(Pid, {append_chunk_start, RemoteFile}, atom).
+    case is_name_sane(RemoteFile) of
+	true ->
+	    call(Pid, {append_chunk_start, RemoteFile}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -672,7 +757,12 @@ append(Pid, LocalFileName) ->
     'ok' | {'error', Reason :: term()}.
 
 append(Pid, LocalFileName, RemotFileName) ->
-    call(Pid, {append, LocalFileName, RemotFileName}, atom).
+    case is_name_sane(RemotFileName) of
+	true ->
+	    call(Pid, {append, LocalFileName, RemotFileName}, atom);
+	_ ->
+	    {error, efnamena}
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -694,7 +784,12 @@ append(Pid, LocalFileName, RemotFileName) ->
                             shortage_reason()}.
 
 append_bin(Pid, Bin, RemoteFile) when is_binary(Bin) ->
-    call(Pid, {append_bin, Bin, RemoteFile}, atom);
+    case is_name_sane(RemoteFile) of
+	true ->
+	    call(Pid, {append_bin, Bin, RemoteFile}, atom);
+	_ ->
+	    {error, efnamena}
+    end;
 append_bin(_Pid, _Bin, _RemoteFile) ->
     {error, enotbinary}.
 
@@ -2208,6 +2303,15 @@ cast(GenServer, Msg) ->
 
 mk_cmd(Fmt, Args) ->
     [io_lib:format(Fmt, Args)| [?CR, ?LF]].		% Deep list ok.
+
+is_name_sane([]) ->
+    true;
+is_name_sane([?CR| _]) ->
+    false;
+is_name_sane([?LF| _]) ->
+    false;
+is_name_sane([_| Rest]) ->
+    is_name_sane(Rest).
 
 pwd_result(Lines) ->
     {_, [?DOUBLE_QUOTE | Rest]} = 
