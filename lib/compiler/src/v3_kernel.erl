@@ -274,8 +274,7 @@ expr(#c_tuple{anno=A,es=Ces}, Sub, St0) ->
     {#k_tuple{anno=A,es=Kes},Ep,St1};
 expr(#c_map{anno=A,var=Var0,es=Ces}, Sub, St0) ->
     {Var,[],St1} = expr(Var0, Sub, St0),
-    {Kes,Ep,St2} = map_pairs(Ces, Sub, St1),
-    {#k_map{anno=A,var=Var,es=Kes},Ep,St2};
+    map_split_pairs(A, Var, Ces, Sub, St1);
 expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
     try atomic_bin(Cv, Sub, St0) of
 	{Kv,Ep,St1} ->
@@ -497,15 +496,71 @@ translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
 translate_fc(Args) ->
     [#c_literal{val=function_clause},make_list(Args)].
 
-%% FIXME: Not completed
-map_pairs(Es, Sub, St) ->
-    foldr(fun
-	    (#c_map_pair{op=#c_literal{val=Op},key=K0,val=V0}, {Kes,Esp,St0}) when
-                                           Op =:= assoc; Op =:= exact -> %% assert Op
-		{K,[],St1} = expr(K0, Sub, St0),
-		{V,Ep,St2} = atomic(V0, Sub, St1),
-		{[#k_map_pair{op=Op,key=K,val=V}|Kes],Ep ++ Esp,St2}
-	end, {[],[],St}, Es).
+    %{Kes,Ep,St2} = map_pairs(Ces, Sub, St1),
+map_split_pairs(A, Var, Ces, Sub, St0) ->
+    %% two steps
+    %% 1. force variables
+    %% 2. remove multiples
+    Pairs0 = [{Op,K,V} || #c_map_pair{op=#c_literal{val=Op},key=K,val=V} <- Ces],
+    {Pairs,Esp,St1} = foldr(fun
+	    ({Op,K0,V0}, {Ops,Espi,Sti0}) when Op =:= assoc; Op =:= exact ->
+		{K,[],Sti1} = expr(K0, Sub, Sti0),
+		{V,Ep,Sti2} = atomic(V0, Sub, Sti1),
+		{[{Op,K,V}|Ops],Ep ++ Espi,Sti2}
+	end, {[],[],St0}, Pairs0),
+
+    case map_group_pairs(Pairs) of
+	{Assoc,[]} ->
+	    Kes = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
+	    {#k_map{anno=A,op=assoc,var=Var,es=Kes},Esp,St1};
+	{[],Exact} ->
+	    Kes = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
+	    {#k_map{anno=A,op=exact,var=Var,es=Kes},Esp,St1};
+	{Assoc,Exact} ->
+	    Kes1 = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
+	    {Mvar,Em,St2} = force_atomic(#k_map{anno=A,op=assoc,var=Var,es=Kes1},St1),
+	    Kes2 = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
+	    {#k_map{anno=A,op=exact,var=Mvar,es=Kes2},Em ++ Esp,St2}
+
+    end.
+
+%% Group map by Assoc operations and Exact operations
+
+map_group_pairs(Es) ->
+    Groups = dict:to_list(map_group_pairs(Es,dict:new())),
+    partition(fun({_,{Op,_,_}}) -> Op =:= assoc end, Groups).
+
+map_group_pairs([{assoc,K,V}|Es0],Used0) ->
+    Used1 = case map_key_is_used(K,Used0) of
+	{ok, {assoc,_,_}} -> map_key_set_used(K,{assoc,K,V},Used0);
+	{ok, {exact,_,_}} -> map_key_set_used(K,{exact,K,V},Used0);
+	_                 -> map_key_set_used(K,{assoc,K,V},Used0)
+    end,
+    map_group_pairs(Es0,Used1);
+map_group_pairs([{exact,K,V}|Es0],Used0) ->
+    Used1 = case map_key_is_used(K,Used0) of
+	{ok, {assoc,_,_}} -> map_key_set_used(K,{assoc,K,V},Used0);
+	{ok, {exact,_,_}} -> map_key_set_used(K,{exact,K,V},Used0);
+	_                 -> map_key_set_used(K,{exact,K,V},Used0)
+    end,
+    map_group_pairs(Es0,Used1);
+map_group_pairs([],Used) ->
+    Used.
+
+map_key_set_used(K,How,Used) ->
+    dict:store(map_key_clean(K),How,Used).
+
+map_key_is_used(K,Used) ->
+    dict:find(map_key_clean(K),Used).
+
+%% Be explicit instead of using set_kanno(K,[])
+map_key_clean(#k_literal{val=V}) -> {k_literal,V};
+map_key_clean(#k_int{val=V})     -> {k_int,V};
+map_key_clean(#k_float{val=V})   -> {k_float,V};
+map_key_clean(#k_atom{val=V})    -> {k_atom,V};
+map_key_clean(#k_nil{})          -> k_nil;
+map_key_clean(#k_var{name=V})    -> {k_var,V}.
+
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
 %%  Classify the call.
@@ -664,11 +719,11 @@ pattern(#c_tuple{anno=A,es=Ces}, Isub, Osub0, St0) ->
     {#k_tuple{anno=A,es=Kes},Osub1,St1};
 pattern(#c_map{anno=A,es=Ces}, Isub, Osub0, St0) ->
     {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
-    {#k_map{anno=A,es=Kes},Osub1,St1};
+    {#k_map{anno=A,op=exact,es=Kes},Osub1,St1};
 pattern(#c_map_pair{op=#c_literal{val=exact},anno=A,key=Ck,val=Cv},Isub, Osub0, St0) ->
     {Kk,Osub1,St1} = pattern(Ck, Isub, Osub0, St0),
     {Kv,Osub2,St2} = pattern(Cv, Isub, Osub1, St1),
-    {#k_map_pair{anno=A,op=exact,key=Kk,val=Kv},Osub2,St2};
+    {#k_map_pair{anno=A,key=Kk,val=Kv},Osub2,St2};
 pattern(#c_binary{anno=A,segments=Cv}, Isub, Osub0, St0) ->
     {Kv,Osub1,St1} = pattern_bin(Cv, Isub, Osub0, St0),
     {#k_binary{anno=A,segs=Kv},Osub1,St1};
@@ -1356,9 +1411,8 @@ new_clauses(Cs0, U, St) ->
 				     [S,N|As];
 				 #k_bin_int{next=N} ->
 				     [N|As];
-				 #k_map{es=Es} ->
-				     Vals = [V ||
-						#k_map_pair{op=exact,val=V} <- Es],
+				 #k_map{op=exact,es=Es} ->
+				     Vals = [V || #k_map_pair{val=V} <- Es],
 				     Vals ++ As;
 				 _Other ->
 				     As
@@ -1458,9 +1512,9 @@ arg_val(Arg, C) ->
 		_ ->
 		    {set_kanno(S, []),U,T,Fs}
 	    end;
-	#k_map{es=Es} ->
+	#k_map{op=exact,es=Es} ->
 	    Keys = [begin
-			#k_map_pair{op=exact,key=#k_literal{val=Key}} = Pair,
+			#k_map_pair{key=#k_literal{val=Key}} = Pair,
 			Key
 		    end || Pair <- Es],
 	    %% multiple keys may have the same name
@@ -1876,7 +1930,7 @@ pat_vars(#k_tuple{es=Es}) ->
     pat_list_vars(Es);
 pat_vars(#k_map{es=Es}) ->
     pat_list_vars(Es);
-pat_vars(#k_map_pair{op=exact,val=V}) ->
+pat_vars(#k_map_pair{val=V}) ->
     pat_vars(V).
 
 pat_list_vars(Ps) ->

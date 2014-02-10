@@ -110,15 +110,18 @@ format_1(#k_map{var=#k_var{}=Var,es=Es}, Ctxt) ->
      " | ",format_1(Var, Ctxt),
      $},$~
     ];
-format_1(#k_map{es=Es}, Ctxt) ->
-    [$~,${,
+format_1(#k_map{op=assoc,es=Es}, Ctxt) ->
+    ["~{",
      format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
-     $},$~
+     "}~"
     ];
-format_1(#k_map_pair{op=assoc,key=K,val=V}, Ctxt) ->
-    ["~<",format(K, Ctxt),",",format(V, Ctxt),">"];
-format_1(#k_map_pair{op=exact,key=K,val=V}, Ctxt) ->
-    ["::<",format(K, Ctxt),",",format(V, Ctxt),">"];
+format_1(#k_map{op=exact,es=Es}, Ctxt) ->
+    ["::{",
+     format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
+     "}::"
+    ];
+format_1(#k_map_pair{key=K,val=V}, Ctxt) ->
+    ["<",format(K, Ctxt),",",format(V, Ctxt),">"];
 format_1(#k_binary{segs=S}, Ctxt) ->
     ["#<",format(S, ctxt_bump_indent(Ctxt, 2)),">#"];
 format_1(#k_bin_seg{next=Next}=S, Ctxt) ->

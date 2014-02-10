@@ -254,7 +254,15 @@ t_update_exact(Config) when is_list(Config) ->
     M2 = M0#{3.0:=new},
     #{1:=a,2:=b,3.0:=new,4:=d,5:=e} = M2,
     M2 = M0#{3.0=>wrong,3.0:=new},
-    M2 = M0#{3=>wrong,3.0:=new},
+    true = M2 =/= M0#{3=>right,3.0:=new},
+    #{ 3 := right, 3.0 := new } = M0#{3=>right,3.0:=new},
+
+    M3 = id(#{ 1 => val}),
+    #{1 := update2,1.0 := new_val4} = M3#{
+	1.0 => new_val1, 1 := update, 1=> update3,
+	1 := update2, 1.0 := new_val2, 1.0 => new_val3,
+	1.0 => new_val4 },
+
 
     %% Errors cases.
     {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
