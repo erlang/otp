@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -409,7 +409,7 @@ typedef struct LoaderState {
           __result = __result << 8 | *Stp->file_p++; \
        } \
        Dest = __result; \
-    } while (0)
+    }
 
 #define GetByte(Stp, Dest) \
     if ((Stp)->file_left < 1) { \
