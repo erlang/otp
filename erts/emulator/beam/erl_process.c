@@ -472,7 +472,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 
 #ifdef ERTS_SMP
 static void handle_pending_exiters(ErtsProcList *);
-
+static void wake_scheduler(ErtsRunQueue *rq);
 #endif
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
@@ -2307,14 +2307,24 @@ try_set_sys_scheduling(void)
 #endif
 
 static ERTS_INLINE int
-prepare_for_sys_schedule(void)
+prepare_for_sys_schedule(ErtsSchedulerData *esdp)
 {
 #ifdef ERTS_SMP
     while (!erts_port_task_have_outstanding_io_tasks()
 	   && try_set_sys_scheduling()) {
-	if (!erts_port_task_have_outstanding_io_tasks())
-	    return 1;
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+      if (esdp->no != 1) {
+	/* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
+	   then we make sure to wake scheduler 1 */
+	ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
 	clear_sys_scheduling();
+	wake_scheduler(rq);
+	return 0;
+      }
+#endif
+      if (!erts_port_task_have_outstanding_io_tasks())
+	return 1;
+      clear_sys_scheduling();
     }
     return 0;
 #else
@@ -2689,11 +2699,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
      * be waiting in erl_sys_schedule()
      */
 
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-    if (esdp->no != 1) {
-#else
-    if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule()) {
-#endif
+    if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule(esdp)) {
 
 	sched_waiting(esdp->no, rq);
 
@@ -2701,11 +2707,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	spincount = sched_busy_wait.tse;
 
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-	ASSERT(esdp->no != 1);
-#else
     tse_wait:
-#endif
 
 	if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && thr_prgr_active != working)
 	    sched_wall_time_change(esdp, thr_prgr_active);
@@ -2792,6 +2794,10 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #ifdef ERTS_DIRTY_SCHEDULERS
 	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
 #endif
+
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+	ASSERT(esdp->no == 1);
+#endif
 	sched_waiting_sys(esdp->no, rq);
 
 
@@ -2799,12 +2805,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	ASSERT(working);
 	sched_wall_time_change(esdp, working = 0);
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-	sys_poll_try:
-	while(!prepare_for_sys_schedule()) {
-	  ERTS_SCHED_FAIR_YIELD();
-	}
-#endif
 
 	spincount = sched_busy_wait.sys_schedule;
 	if (spincount == 0)
@@ -2863,13 +2863,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
 		 */
-		if (!prepare_for_sys_schedule()) {
+		if (!prepare_for_sys_schedule(esdp)) {
 		    spincount *= ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-		    goto sys_poll_try;
-#else
 		    goto tse_wait;
-#endif
 		}
 	    }
 #endif
@@ -2889,7 +2885,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * Got to check that we still got I/O tasks; otherwise
 	     * we have to wait in erl_sys_schedule() after all...
 	     */
-	    if (!prepare_for_sys_schedule()) {
+	    if (!prepare_for_sys_schedule(esdp)) {
 		/*
 		 * Not allowed to wait in erl_sys_schedule;
 		 * do tse wait instead...
@@ -2897,11 +2893,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		sched_change_waiting_sys_to_waiting(esdp->no, rq);
 		erts_smp_runq_unlock(rq);
 		spincount = 0;
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-		goto sys_poll_try;
-#else
 		goto tse_wait;
-#endif
 	    }
 	}
 #endif
@@ -6883,7 +6875,6 @@ erts_start_schedulers(void)
 	res = ethr_thr_create(&esdp->tid, sched_thread_func,(void*)esdp,&opts);
 
 	if (res != 0) {
-           //actual--;
            break;
 	}
 
@@ -8140,12 +8131,9 @@ Process *schedule(Process *p, int calls)
 
 	    goto check_activities_to_run;
 	}
-	else if (
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-		 esdp->no == 1 &&
-#endif
-		 !ERTS_SCHEDULER_IS_DIRTY(esdp) &&
-		 (fcalls > input_reductions && prepare_for_sys_schedule())) {
+	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
+		 (fcalls > input_reductions &&
+		  prepare_for_sys_schedule(esdp))) {
 	    /*
 	     * Schedule system-level activities.
 	     */

@@ -1732,6 +1732,7 @@ erl_sys_schedule(int runnable)
 {
     ASSERT(get_fsem(current_process()) == 0);
 #ifdef ERTS_SMP
+    ASSERT(erts_get_scheduler_data()->no == 1);
     ERTS_CHK_IO(!runnable);
 #else
     ERTS_CHK_IO( 1 );
