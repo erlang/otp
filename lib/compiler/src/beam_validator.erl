@@ -770,6 +770,9 @@ valfun_4({test,is_nonempty_list,{f,Lbl},[Cons]}, Vst) ->
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,_Op,{f,Lbl},Src,{list,_}}, Vst) ->
+    validate_src([Src], Vst),
+    branch_state(Lbl, Vst);
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -871,13 +874,20 @@ valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Fail, Src, Dst, Live, List, Vst);
 valfun_4({put_map_exact,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Fail, Src, Dst, Live, List, Vst);
-valfun_4({get_map_element,{f,Fail},Src,Key,Dst}, Vst0) ->
-    assert_term(Src, Vst0),
-    assert_term(Key, Vst0),
-    Vst = branch_state(Fail, Vst0),
-    set_type_reg(term, Dst, Vst);
+valfun_4({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
+    verify_get_map(Fail, Src, List, Vst);
 valfun_4(_, _) ->
     error(unknown_instruction).
+
+verify_get_map(Fail, Src, List, Vst0) ->
+    assert_term(Src, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+    verify_get_map_pair(List,Vst0,Vst1).
+
+verify_get_map_pair([],_,Vst) -> Vst;
+verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
+    assert_term(Src, Vst0),
+    verify_get_map_pair(Vs,Vst0,set_type_reg(term,Dst,Vsti)).
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     verify_live(Live, Vst0),

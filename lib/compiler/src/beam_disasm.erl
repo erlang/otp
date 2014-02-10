@@ -1151,12 +1151,12 @@ resolve_inst({is_map,Args0},_,_,_) ->
     {test, is_map, FLbl, Args};
 
 resolve_inst({has_map_field,Args0},_,_,_) ->
-    [FLbl|Args] = resolve_args(Args0),
-    {test,has_map_field,FLbl,Args};
+    [FLbl,Src,{u,_Len}|Args] = resolve_args(Args0),
+    {test,has_map_field,FLbl,Src,{list,Args}};
 
-resolve_inst({get_map_element,Args},_,_,_) ->
-    [FLbl,Src,Key,Dst] = resolve_args(Args),
-    {get_map_element,FLbl,Src,Key,Dst};
+resolve_inst({get_map_element,Args0},_,_,_) ->
+    [FLbl,Src,{u,_Len}|Args] = resolve_args(Args0),
+    {get_map_element,FLbl,Src,{list,Args}};
 
 %%
 %% Catches instructions that are not yet handled.

@@ -154,8 +154,8 @@ collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
-collect({get_map_element,F,S,K,D}) ->
-    {set,[D],[S],{get_map_element,K,F}};
+collect({get_map_elements,F,S,{list,Gets}}) ->
+    {set,Gets,[S],{get_map_elements,F}};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
@@ -240,7 +240,7 @@ move_allocates_2(Alloc, [], Acc) ->
 
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
-alloc_may_pass({set,_,_,{get_map_element,_,_}}) -> false;
+alloc_may_pass({set,_,_,{get_map_elements,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
@@ -291,7 +291,11 @@ opt_moves([X0,Y0], Is0) ->
 	not_possible -> {[X,Y0],Is2};
 	{X,_} -> {[X,Y0],Is2};
 	{Y,Is} -> {[X,Y],Is}
-    end.
+    end;
+opt_moves(Ds, Is) ->
+    %% multiple destinations -> pass through
+    {Ds,Is}.
+
 
 %% opt_move(Dest, [Instruction]) -> {UpdatedDest,[Instruction]} | not_possible
 %%  If there is a {move,Dest,FinalDest} instruction

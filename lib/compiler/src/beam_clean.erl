@@ -262,8 +262,8 @@ replace([{bs_utf16_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
 replace([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D)
   when Lbl =/= 0 ->
     replace(Is, [{I,{f,label(Lbl, D)},Op,Src,Dst,Live,List}|Acc], D);
-replace([{get_map_element=I,{f,Lbl},Src,Key,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Key,Dst}|Acc], D);
+replace([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{I,{f,label(Lbl, D)},Src,List}|Acc], D);
 replace([I|Is], Acc, D) ->
     replace(Is, [I|Acc], D);
 replace([], Acc, _) -> Acc.

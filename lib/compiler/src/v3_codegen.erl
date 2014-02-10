@@ -938,22 +938,39 @@ select_map_val(V, Es, B, Fail, I, Vdb, Bef, St0) ->
     {Bis,Aft,St2} = match_cg(B, Fail, Int, St1),
     {Eis++Bis,Aft,St2}.
 
+select_extract_map(_, [], _, _, _, Bef, St) -> {[],Bef,St};
 select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
-    F = fun ({map_pair,Key,{var,V}}, Int0) ->
-		Rsrc = fetch_var(Src, Int0),
+    %% First split the instruction flow
+    %% We want one set of each
+    %% 1) has_map_fields (no target registers)
+    %% 2) get_map_elements (with target registers)
+    %% Assume keys are term-sorted
+    Rsrc = fetch_var(Src, Bef),
+
+    {{HasKs,GetVs},Aft} = lists:foldr(fun
+	    ({map_pair,Key,{var,V}},{{HasKsi,GetVsi},Int0}) ->
 		case vdb_find(V, Vdb) of
 		    {V,_,L} when L =< I ->
-			{[{test,has_map_field,{f,Fail},[Rsrc,Key]}],Int0};
+			{{[Key|HasKsi],GetVsi},Int0};
 		    _Other ->
 			Reg1 = put_reg(V, Int0#sr.reg),
 			Int1 = Int0#sr{reg=Reg1},
-			{[{get_map_element,{f,Fail},
-			   Rsrc,Key,fetch_reg(V, Reg1)}],
-			 Int1}
+			{{HasKsi,[Key,fetch_reg(V, Reg1)|GetVsi]},Int1}
 		end
-	end,
-    {Es,Aft} = flatmapfoldl(F, Bef, Vs),
-    {Es,Aft,St}.
+	end, {{[],[]},Bef}, Vs),
+
+    Code = case {HasKs,GetVs} of
+	{[],[]} -> {[],Aft,St};
+	{HasKs,[]} ->
+	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}}];
+	{[],GetVs} ->
+	    [{get_map_elements,   {f,Fail},Rsrc,{list,GetVs}}];
+	{HasKs,GetVs} ->
+	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}},
+	     {get_map_elements,   {f,Fail},Rsrc,{list,GetVs}}]
+    end,
+    {Code, Aft, St}.
+
 
 select_extract_cons(Src, [{var,Hd}, {var,Tl}], I, Vdb, Bef, St) ->
     {Es,Aft} = case {vdb_find(Hd, Vdb), vdb_find(Tl, Vdb)} of
