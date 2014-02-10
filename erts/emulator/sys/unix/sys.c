@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2561,7 +2561,7 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 #ifdef HAVE_POSIX_MEMALIGN
     void *ptr = NULL;
     int error;
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     error = posix_memalign(&ptr, (size_t) alignment, (size_t) size);
 #if HAVE_ERTS_MSEG
     if (error || !ptr) {
@@ -2584,7 +2584,7 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 
 void erts_sys_aligned_free(UWord alignment, void *ptr)
 {
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     free(ptr);
 }
 

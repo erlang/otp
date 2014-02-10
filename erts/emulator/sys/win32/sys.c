@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2757,7 +2757,7 @@ void erts_sys_free(ErtsAlcType_t t, void *x, void *p)
 void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 {
     void *ptr;
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     ptr = _aligned_malloc((size_t) size, (size_t) alignment);
     ASSERT(!ptr || (((UWord) ptr) & (alignment - 1)) == 0);
     return ptr;
@@ -2765,14 +2765,14 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 
 void erts_sys_aligned_free(UWord alignment, void *ptr)
 {
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     _aligned_free(ptr);
 }
 
 void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size)
 {
     void *new_ptr;
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     new_ptr = _aligned_realloc(ptr, (size_t) size, (size_t) alignment);
     ASSERT(!new_ptr || (((UWord) new_ptr) & (alignment - 1)) == 0);
     return new_ptr;
