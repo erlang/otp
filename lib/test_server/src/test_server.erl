@@ -176,8 +176,6 @@ module_names(Beams) ->
 do_cover_compile(Modules) ->
     do_cover_compile1(lists:usort(Modules)). % remove duplicates
 
-do_cover_compile1([Dont|Rest]) when Dont=:=cover ->
-    do_cover_compile1(Rest);
 do_cover_compile1([M|Rest]) ->
     case {code:is_sticky(M),code:is_loaded(M)} of
 	{true,_} ->
