@@ -1032,7 +1032,7 @@ eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
     case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
 	{match,Bsn} ->
 	    Bs2 = add_bindings(Bsn, Bs0),
-            CompFun(Bs2) ++ eval_generate(Rest, P, Bs2, CompFun, Ieval);
+            CompFun(Bs2) ++ eval_generate(Rest, P, Bs0, CompFun, Ieval);
 	nomatch -> 
 	    eval_generate(Rest, P, Bs0, CompFun, Ieval)
 	end;

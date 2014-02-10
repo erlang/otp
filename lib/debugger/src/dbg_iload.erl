@@ -433,7 +433,7 @@ expr({lc,Line,E0,Gs0}, _Lc) ->			%R8.
 		       ({b_generate,L,P0,Qs}) -> %R12.
 			   {b_generate,L,expr(P0, false),expr(Qs, false)};
 		       (Expr) ->
-			   case is_guard(Expr) of
+			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr, false)
 			   end
@@ -445,7 +445,7 @@ expr({bc,Line,E0,Gs0}, _Lc) ->			%R12.
 		       ({b_generate,L,P0,Qs}) -> %R12.
 			   {b_generate,L,expr(P0, false),expr(Qs, false)};
 		       (Expr) ->
-			   case is_guard(Expr) of
+			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr, false)
 			   end
@@ -487,42 +487,6 @@ expr({bin_element,Line,Expr,Size,Type}, _Lc) ->
     {bin_element,Line,Expr1,Size1,Type};
 expr(Other, _Lc) ->
     exit({?MODULE,{unknown_expr,Other}}).
-
-%% is_guard(Expression) -> true | false.
-%%  Test if a general expression is a guard test or guard BIF.
-%%  Cannot use erl_lint here as sys_pre_expand has transformed source.
-
-is_guard({op,_,Op,L,R}) ->
-    erl_internal:comp_op(Op, 2) andalso is_gexpr_list([L,R]);
-is_guard({call,_,{remote,_,{atom,_,erlang},{atom,_,Test}},As}) ->
-    Arity = length(As),
-    (erl_internal:guard_bif(Test, Arity) orelse
-     erl_internal:old_type_test(Test, Arity)) andalso is_gexpr_list(As);
-is_guard({atom,_,true}) -> true;
-is_guard(_) -> false.
-
-is_gexpr({var,_,_}) -> true;
-is_gexpr({atom,_,_}) -> true;
-is_gexpr({integer,_,_}) -> true;
-is_gexpr({char,_,_}) -> true;
-is_gexpr({float,_,_}) -> true;
-is_gexpr({string,_,_}) -> true;
-is_gexpr({nil,_}) -> true;
-is_gexpr({cons,_,H,T}) -> is_gexpr_list([H,T]);
-is_gexpr({tuple,_,Es}) -> is_gexpr_list(Es);
-is_gexpr({call,_,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
-    Ar = length(As),
-    case erl_internal:guard_bif(F, Ar) of
-	true -> is_gexpr_list(As);
-	false -> erl_internal:arith_op(F, Ar) andalso is_gexpr_list(As)
-    end;
-is_gexpr({op,_,Op,A}) ->
-    erl_internal:arith_op(Op, 1) andalso is_gexpr(A);
-is_gexpr({op,_,Op,A1,A2}) ->
-    erl_internal:arith_op(Op, 2) andalso is_gexpr_list([A1,A2]);
-is_gexpr(_) -> false.
-
-is_gexpr_list(Es) -> lists:all(fun (E) -> is_gexpr(E) end, Es).
 
 consify([A|As]) -> 
     {cons,0,A,consify(As)};
