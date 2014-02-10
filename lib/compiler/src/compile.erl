@@ -623,6 +623,7 @@ core_passes() ->
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/1},
 	{iff,doldinline,{listing,"oldinline"}},
 	?pass(core_fold_module),
+	{iff,dcorefold,{listing,"corefold"}},
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
 	{core_fold_after_inlining,fun test_core_inliner/1,fun core_fold_module_after_inlining/1},

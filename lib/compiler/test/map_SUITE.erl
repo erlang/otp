@@ -179,6 +179,17 @@ t_update_map_expressions(Config) when is_list(Config) ->
     #{ a :=42, b:=42, c:=42 } = (maps:from_list([{a,1},{b,2},{c,3}]))#{ a := 42, b := 42, c := 42 },
     #{ "a" :=1, "b":=42, "c":=42 } = (maps:from_list([{"a",1},{"b",2}]))#{ "b" := 42, "c" => 42 },
 
+    %% Test need to be in a fun.
+    %% This tests that let expr optimisation in sys_core_fold
+    %% covers maps correctly.
+    F = fun() ->
+	    M0 = id(#{ "a" => [1,2,3] }),
+	    #{ "a" := _ } = M0,
+	    M0#{ "a" := b }
+    end,
+
+    #{ "a" := b } = F(),
+
     %% Error cases, FIXME: should be 'badmap'?
     {'EXIT',{badarg,_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
     {'EXIT',{badarg,_}} = (catch (id([]))#{ a := 42, b => 2 }),
