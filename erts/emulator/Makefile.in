@@ -378,7 +378,9 @@ LIBS += -l$(ERTS_INTERNAL_LIB)$(TYPEMARKER)
 
 endif # erts_internal_r
 
+ifneq ($(TARGET),arm-unknown-linux-androideabi)
 LIBS += @LIBRT@
+endif
 
 LIBS += @LIBCARBON@
 

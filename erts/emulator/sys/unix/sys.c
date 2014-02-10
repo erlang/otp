@@ -149,6 +149,13 @@ extern void erl_crash_dump(char* file, int line, char* fmt, ...);
 
 #define DIR_SEPARATOR_CHAR    '/'
 
+#if defined(__ANDROID__)
+#define SHELL "/system/bin/sh"
+#else
+#define SHELL "/bin/sh"
+#endif /* __ANDROID__ */
+
+
 #if defined(DEBUG)
 #define ERL_BUILD_TYPE_MARKER ".debug"
 #elif defined(PURIFY)
@@ -1596,7 +1603,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 		    }
 		}
 	    } else {
-		execle("/bin/sh", "sh", "-c", cmd_line, (char *) NULL, new_environ);
+		execle(SHELL, "sh", "-c", cmd_line, (char *) NULL, new_environ);
 	    }
 	child_error:
 	    _exit(1);
@@ -1717,7 +1724,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	fcntl(i, F_SETFD, 1);
 
     qnx_spawn_options.flags = _SPAWN_SETSID;
-    if ((pid = spawnl(P_NOWAIT, "/bin/sh", "/bin/sh", "-c", cmd_line, 
+    if ((pid = spawnl(P_NOWAIT, SHELL, SHELL, "-c", cmd_line, 
                       (char *) 0)) < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
         reset_qnx_spawn();
