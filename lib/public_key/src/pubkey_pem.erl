@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,7 +51,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec decode(binary()) -> [pem_entry()].
+-spec decode(binary()) -> [public_key:pem_entry()].
 %%
 %% Description: Decodes a PEM binary.
 %%--------------------------------------------------------------------		    
@@ -59,7 +59,7 @@ decode(Bin) ->
     decode_pem_entries(split_bin(Bin), []).
 
 %%--------------------------------------------------------------------
--spec encode([pem_entry()]) -> iolist().
+-spec encode([public_key:pem_entry()]) -> iolist().
 %%
 %% Description: Encodes a list of PEM entries.
 %%--------------------------------------------------------------------		    
@@ -67,7 +67,7 @@ encode(PemEntries) ->
     encode_pem_entries(PemEntries).
 
 %%--------------------------------------------------------------------
--spec decipher({pki_asn1_type(), DerEncrypted::binary(),
+-spec decipher({public_key:pki_asn1_type(), DerEncrypted::binary(),
 		{Cipher :: string(), Salt :: iodata() | #'PBES2-params'{}}},
 	       string()) -> Der::binary().
 %%
