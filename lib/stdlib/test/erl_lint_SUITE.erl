@@ -2827,7 +2827,24 @@ bif_clash(Config) when is_list(Config) ->
 		    {6,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
 		    {7,erl_lint,{illegal_guard_local_call,{is_list,1}}},
 		    {8,erl_lint,{illegal_guard_local_call,{is_record,3}}},
-		    {9,erl_lint,{illegal_guard_local_call,{is_record,3}}}],[]}}
+		    {9,erl_lint,{illegal_guard_local_call,{is_record,3}}}],[]}},
+	  %% We can also suppress all auto imports at once
+	  {clash22,
+          <<"-export([size/1, binary_part/2]).
+             -compile(no_auto_import).
+             size([]) ->
+               0;
+             size({N,_}) ->
+               N;
+             size([_|T]) ->
+               1+size(T).
+             binary_part({B,_},{X,Y}) ->
+               binary_part(B,{X,Y});
+             binary_part(B,{X,Y}) ->
+               binary:part(B,X,Y).
+            ">>,
+	   [],
+	   []}
 	 ],
 
     ?line [] = run(Config, Ts),

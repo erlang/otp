@@ -408,6 +408,11 @@ module.beam: module.erl \
 	  <code>-compile({no_auto_import,[error/1]}).</code>
 	  </item>
 
+          <tag><c>no_auto_import</c></tag>
+          <item>
+            <p>Do not auto import any functions from the module <c>erlang</c>.</p>
+          </item>
+
           <tag><c>no_line_info</c></tag>
 
           <item>

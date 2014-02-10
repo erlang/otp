@@ -100,7 +100,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                compile=[],                      %Compile flags
                records=dict:new()	:: dict(),	%Record definitions
                locals=gb_sets:empty()	:: gb_set(),	%All defined functions (prescanned)
-	       no_auto=gb_sets:empty()	:: gb_set(),	%Functions explicitly not autoimported
+	       no_auto=gb_sets:empty()	:: gb_set() | 'all',	%Functions explicitly not autoimported
                defined=gb_sets:empty()	:: gb_set(),	%Defined fuctions
 	       on_load=[] :: [fa()],		%On-load function
 	       on_load_line=0 :: line(),	%Line for on_load
@@ -3648,15 +3648,22 @@ is_imported_from_erlang(ImportSet,{Func,Arity}) ->
         {ok,erlang} -> true;
         _ -> false
     end.
-%% Build set of functions where auto-import is explicitly supressed
+%% Build set of functions where auto-import is explicitly suppressed
 auto_import_suppressed(CompileFlags) ->
-    L0 = [ X || {no_auto_import,X} <- CompileFlags ],
-    L1 = [ {Y,Z} || {Y,Z} <- lists:flatten(L0), is_atom(Y), is_integer(Z) ],
-    gb_sets:from_list(L1).
-%% Predicate to find out if autoimport is explicitly supressed for a function
+    case lists:member(no_auto_import, CompileFlags) of
+        true ->
+            all;
+        false ->
+            L0 = [ X || {no_auto_import,X} <- CompileFlags ],
+            L1 = [ {Y,Z} || {Y,Z} <- lists:flatten(L0), is_atom(Y), is_integer(Z) ],
+            gb_sets:from_list(L1)
+    end.
+%% Predicate to find out if autoimport is explicitly suppressed for a function
+is_autoimport_suppressed(all,{_Func,_Arity}) ->
+    true;
 is_autoimport_suppressed(NoAutoSet,{Func,Arity}) ->
     gb_sets:is_element({Func,Arity},NoAutoSet).
-%% Predicate to find out if a function specific bif-clash supression (old deprecated) is present
+%% Predicate to find out if a function specific bif-clash suppression (old deprecated) is present
 bif_clash_specifically_disabled(St,{F,A}) ->
     Nowarn = nowarn_function(nowarn_bif_clash, St#lint.compile),
     lists:member({F,A},Nowarn).
