@@ -92,6 +92,9 @@
 %-export([bump/5]).
 -export([transform/4]). % for test purposes
 
+%% Used internally to ensure we upgrade the code to the latest version.
+-export([main_process_loop/1,remote_process_loop/1]).
+
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
 		     stopper,               % undefined | pid()
@@ -230,25 +233,9 @@ compile_directory(Dir) when is_list(Dir) ->
 compile_directory(Dir, Options) when is_list(Dir), is_list(Options) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    
-	    %% Filter out all erl files (except cover.erl)
-	    ErlFileNames =
-		lists:filter(fun("cover.erl") ->
-				     false;
-				(File) ->
-				     case filename:extension(File) of
-					 ".erl" -> true;
-					 _ -> false
-				     end
-			     end,
-			     Files),
-
-	    %% Create a list of .erl file names (incl path) and call
-	    %% compile_modules/2 with the list of file names.
-	    ErlFiles = lists:map(fun(ErlFileName) ->
-					 filename:join(Dir, ErlFileName)
-				 end,
-				 ErlFileNames),
+	    ErlFiles = [filename:join(Dir, File) ||
+			   File <- Files,
+			   filename:extension(File) =:= ".erl"],
 	    compile_modules(ErlFiles, Options);
 	Error ->
 	    Error
@@ -320,25 +307,9 @@ compile_beam_directory() ->
 compile_beam_directory(Dir) when is_list(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    
-	    %% Filter out all beam files (except cover.beam)
-	    BeamFileNames =
-		lists:filter(fun("cover.beam") ->
-				     false;
-				(File) ->
-				     case filename:extension(File) of
-					 ".beam" -> true;
-					 _ -> false
-				     end
-			     end,
-			     Files),
-
-	    %% Create a list of .beam file names (incl path) and call
-	    %% compile_beam/1 for each such file name
-	    BeamFiles = lists:map(fun(BeamFileName) ->
-					  filename:join(Dir, BeamFileName)
-				  end,
-				  BeamFileNames),
+	    BeamFiles =  [filename:join(Dir, File) ||
+			     File <- Files,
+			     filename:extension(File) =:= ".beam"],
 	    compile_beams(BeamFiles);
 	Error ->
 	    Error
@@ -613,8 +584,11 @@ main_process_loop(State) ->
 		    Compiled = add_compiled(Module, File,
 					    State#main_state.compiled),
 		    Imported = remove_imported(Module,State#main_state.imported),
-		    main_process_loop(State#main_state{compiled = Compiled,
-						       imported = Imported});
+		    NewState = State#main_state{compiled = Compiled,
+						imported = Imported},
+		    %% This module (cover) could have been reloaded. Make
+		    %% sure we run the new code.
+		    ?MODULE:main_process_loop(NewState);
 		error ->
 		    reply(From, {error, File}),
 		    main_process_loop(State)
@@ -639,8 +613,11 @@ main_process_loop(State) ->
 			end,
 		    reply(From,Reply),
 		    Imported = remove_imported(Module,State#main_state.imported),
-		    main_process_loop(State#main_state{compiled = Compiled,
-						       imported = Imported});
+		    NewState = State#main_state{compiled = Compiled,
+						imported = Imported},
+		    %% This module (cover) could have been reloaded. Make
+		    %% sure we run the new code.
+		    ?MODULE:main_process_loop(NewState);
 		{error,no_beam} ->
 		    %% The module has first been compiled from .erl, and now
 		    %% someone tries to compile it from .beam
@@ -857,7 +834,7 @@ remote_process_loop(State) ->
 	{remote,load_compiled,Compiled} ->
 	    Compiled1 = load_compiled(Compiled,State#remote_state.compiled),
 	    remote_reply(State#remote_state.main_node, ok),
-	    remote_process_loop(State#remote_state{compiled=Compiled1});
+	    ?MODULE:remote_process_loop(State#remote_state{compiled=Compiled1});
 
 	{remote,unload,UnloadedModules} ->
 	    unload(UnloadedModules),
