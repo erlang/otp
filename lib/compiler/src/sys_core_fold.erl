@@ -1955,7 +1955,7 @@ eval_case(#c_case{arg=E,clauses=[#c_clause{pats=Ps0,body=B}]}, Sub) ->
     %%
     %%   let <X,Y> = <SomeSideEffect(),SomeSideEffect()> in ...
     %%
-    %% because SomeSideEffect() would be called evaluated twice.
+    %% because SomeSideEffect() would be evaluated twice.
     %%
     %% Instead we must evaluate the case expression in an outer let
     %% like this:
