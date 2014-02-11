@@ -324,7 +324,7 @@ get_mem_procfs(memory_ext *me){
 
 /* arch specific functions */
 
-#if defined(__linux__) /* ifdef SYSINFO */
+#if defined(__linux__) && !defined(__ANDROID__)/* ifdef SYSINFO */
 /* sysinfo does not include cached memory which is a problem. */
 static int
 get_extended_mem_sysinfo(memory_ext *me) {
@@ -395,8 +395,12 @@ get_extended_mem_sgi(memory_ext *me) {
 
 static void
 get_extended_mem(memory_ext *me) {
+/* android */
+#if defined(__ANDROID__)
+    if (get_mem_procfs(me))  return;   
+
 /* linux */
-#if defined(__linux__)
+#elif defined(__linux__)
     if (get_mem_procfs(me))  return;
     if (get_extended_mem_sysinfo(me)) return;
 

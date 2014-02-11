@@ -152,10 +152,14 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 /* In VC++, noreturn is a declspec that has to be before the types,
  * but in GNUC it is an att ribute to be placed between return type
  * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ *
+ * at some platforms (e.g. Android) __noreturn is defined at sys/cdef.h
  */
 #if __GNUC__
 #  define __decl_noreturn
-#  define __noreturn __attribute__((noreturn))
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
 #else
 #  if defined(__WIN32__) && defined(_MSC_VER)
 #    define __noreturn

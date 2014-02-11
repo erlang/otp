@@ -62,7 +62,9 @@ LIBS      = @LIBS@
 LDFLAGS   = @LDFLAGS@
 
 # For clock_gettime in heart
+ifneq ($(TARGET),arm-unknown-linux-androideabi)
 RTLIBS = @LIBRT@
+endif
 
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)

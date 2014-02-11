@@ -642,7 +642,7 @@ struct hostent *ei_gethostbyname_r(const char *name,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyname_r(name,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
+#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__) || defined(__ANDROID__))
   struct hostent *result;
 
   gethostbyname_r(name, hostp, buffer, buflen, &result, h_errnop);
