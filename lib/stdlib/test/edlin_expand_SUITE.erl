@@ -76,11 +76,14 @@ normal(Config) when is_list(Config) ->
 	   [{"a_fun_name",1},
 	    {"a_less_fun_name",1},
 	    {"b_comes_after_a",1},
+            {"expand0arity_entirely",0},
 	    {"module_info",0},
 	    {"module_info",1}]} = edlin_expand:expand(lists:reverse("expand_test:")),
     ?line {yes,[],[{"a_fun_name",1},
 		   {"a_less_fun_name",1}]} = edlin_expand:expand(
 					       lists:reverse("expand_test:a_")),
+    ?line {yes,"arity_entirely()",[]} = edlin_expand:expand(
+                                         lists:reverse("expand_test:expand0")),
     ok.
 
 quoted_fun(doc) ->
@@ -93,7 +96,7 @@ quoted_fun(Config) when is_list(Config) ->
     %% should be no colon after test this time
     ?line {yes, "test", []} = edlin_expand:expand(lists:reverse("expand_")),
     ?line {no, [], []} = edlin_expand:expand(lists:reverse("expandXX_")),
-    ?line {no,[],[{"'#weird-fun-name'",0},
+    ?line {no,[],[{"'#weird-fun-name'",1},
 		  {"'Quoted_fun_name'",0},
 		  {"'Quoted_fun_too'",0},
 		  {"a_fun_name",1},
@@ -108,7 +111,7 @@ quoted_fun(Config) when is_list(Config) ->
 		   {"a_less_fun_name",1}]} = edlin_expand:expand(
 					       lists:reverse("expand_test1:a_")),
     ?line {yes,[],
-	   [{"'#weird-fun-name'",0},
+	   [{"'#weird-fun-name'",1},
 	    {"'Quoted_fun_name'",0},
 	    {"'Quoted_fun_too'",0}]} = edlin_expand:expand(
 					 lists:reverse("expand_test1:'")),
@@ -172,6 +175,6 @@ quoted_both(Config) when is_list(Config) ->
 	   [{"'Quoted_fun_name'",0},
 	    {"'Quoted_fun_too'",0}]} = edlin_expand:expand(
 					 lists:reverse("'ExpandTestCaps1':'Quoted_fun_")),
-    ?line {yes,"weird-fun-name'(",[]} = edlin_expand:expand(
-					  lists:reverse("'ExpandTestCaps1':'#")),
+    ?line {yes,"weird-fun-name'()",[]} = edlin_expand:expand(
+                                           lists:reverse("'ExpandTestCaps1':'#")),
     ok.
