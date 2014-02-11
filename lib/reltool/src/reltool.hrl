@@ -29,6 +29,7 @@
 -type incl_cond()        :: include | exclude | derived.
 -type debug_info()       :: keep | strip.
 -type app_file()         :: keep | strip | all.
+-type app_dir_vsn()      :: keep | strip.
 -type re_regexp()        :: string(). % re:regexp()
 -type regexps()          :: [re_regexp()] |
 			    {add, [re_regexp()]} |
@@ -56,6 +57,9 @@
 -type rel_name()         :: string().
 -type rel_vsn()          :: string().
 -type boot_rel()         :: rel_name().
+-type boot_phase_fun()   :: fun((rel_name(), rel_vsn(), boot_phase_name(), [boot_script_cmd()]) -> [boot_script_cmd()]).
+-type boot_phase_name()  :: atom().
+-type boot_script_cmd()  :: term().
 -type rel_app()          :: app_name()
                           | {app_name(), app_type()}
                           | {app_name(), [incl_app()]}
@@ -68,6 +72,7 @@
                           | {mod_cond, mod_cond()}
                           | {incl_cond, incl_cond()}
                           | {app_file, app_file()}
+                          | {app_dir_vsn, app_dir_vsn()}
                           | {debug_info, debug_info()}
                           | {incl_app_filters, incl_app_filters()}
                           | {excl_app_filters, excl_app_filters()}
@@ -78,6 +83,7 @@
                           | {incl_cond, incl_cond()}
                           | {debug_info, debug_info()}
                           | {app_file, app_file()}
+                          | {app_dir_vsn, app_dir_vsn()}
                           | {profile, profile()}
 			  | {excl_lib, excl_lib()}
                           | {incl_sys_filters, incl_sys_filters()}
@@ -189,6 +195,7 @@
           %% Static target cond
           debug_info            :: '_' | debug_info() | undefined,
           app_file              :: '_' | app_file() | undefined,
+          app_dir_vsn           :: '_' | app_dir_vsn() | undefined,
           app_type              :: '_' | app_type() | undefined,
           incl_app_filters      :: '_' | [#regexp{}],
           excl_app_filters      :: '_' | [#regexp{}],
@@ -216,9 +223,9 @@
 
 -record(rel,
         {
-          name     :: rel_name(),
-          vsn      :: rel_vsn(),
-          rel_apps :: [#rel_app{}]
+          name           :: rel_name(),
+          vsn            :: rel_vsn(),
+          rel_apps       :: [#rel_app{}]
 	}).
 
 -record(sys,
@@ -232,6 +239,7 @@
 
           %% Target cond
           boot_rel 	       :: boot_rel(),
+          boot_phase_fun       :: boot_phase_fun() | undefined,
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),
@@ -247,6 +255,7 @@
           rel_app_type         :: app_type(),
           embedded_app_type    :: app_type() | undefined,
           app_file             :: app_file(),
+          app_dir_vsn          :: app_dir_vsn(),
           debug_info           :: debug_info()
 	}).
 
@@ -271,6 +280,7 @@
 -define(DEFAULT_REL_APP_TYPE,      permanent).
 -define(DEFAULT_EMBEDDED_APP_TYPE, undefined).
 -define(DEFAULT_APP_FILE,          keep).
+-define(DEFAULT_APP_DIR_VSN,       keep).
 -define(DEFAULT_DEBUG_INFO,        keep).
 
 -define(DEFAULT_INCL_ARCHIVE_FILTERS, [".*"]).

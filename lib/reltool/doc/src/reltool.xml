@@ -165,6 +165,23 @@
         booting up.</p>
       </item>
 
+      <tag><c>boot_phase_fun</c></tag>
+      <item>
+        <p>This is a user defined function which can be used for
+        customization of boot scripts. A boot script consists of the
+        following phases: <c>preloaded</c>,
+        <c>kernel_load_completed</c>, <c>modules_loaded</c>,
+        <c>init_kernel_started</c>, <c>applications_loaded</c> and
+        <c>applications_started</c>. The <c>boot_phase_fun</c> has the
+        following signature: <c>fun((rel_name(), rel_vsn(),
+        boot_phase_name(), [boot_script_cmd()]) ->
+        [boot_script_cmd()])</c>. It will be invoked once for each
+        phase with the release name, release version, boot phase name
+        and a list of boot script commands as arguments. The function
+        is intended to return a new list of boot script commands.
+        </p>
+      </item>
+
       <tag><c>rel</c></tag>
       <item>
         <p>Release specific configuration. Each release maps to a
@@ -221,6 +238,15 @@
         file. If the application does not have any <c>app</c> file a
         file will be created for <c>all</c> but not for <c>keep</c>
         and <c>strip</c>.</p>
+      </item>
+
+      <tag><c>app_dir_vsn</c></tag>
+      <item>
+        <p>This parameter controls whether application directories (and
+        archives) should have the version as a part of the name or
+        not. <c>keep</c>, which is the default, means that the version
+        should be kept (e.g. <c>mnesia-4.0</c>). <c>strip</c> means
+        that the version should be stripped (e.g. <c>mnesia</c>).</p>
       </item>
 
       <tag><c>debug_info</c></tag>
@@ -501,9 +527,11 @@ sys()               = {root_dir, root_dir()}
                     | {mod_cond, mod_cond()} 
                     | {incl_cond, incl_cond()}
                     | {boot_rel, boot_rel()}
+                    | {boot_phase_fun, boot_phase_fun()}
                     | {rel, rel_name(), rel_vsn(), [rel_app()]}
                     | {relocatable, relocatable()}
                     | {app_file, app_file()}
+                    | {app_dir_vsn, app_dir_vsn()}
                     | {debug_info, debug_info()}
                     | {incl_sys_filters, incl_sys_filters()}
                     | {excl_sys_filters, excl_sys_filters()}
@@ -519,6 +547,7 @@ app()               = {vsn, app_vsn()}
                     | {incl_cond, incl_cond()}
                     | {debug_info, debug_info()}
                     | {app_file, app_file()}
+                    | {app_dir_vsn, app_dir_vsn()}
 		    | {excl_lib, excl_lib()}
                     | {incl_sys_filters, incl_sys_filters()}
                     | {excl_sys_filters, excl_sys_filters()}
@@ -538,7 +567,11 @@ app_type()          = permanent | transient | temporary | load | none
 app_vsn()           = string()
 archive_opt         = zip_create_opt()
 boot_rel()          = rel_name()
+boot_phase_fun()    = fun((rel_name(), rel_vsn(), boot_phase_name(), [boot_script_cmd()]) -> [term()])
+boot_phase_name()   = atom()
+boot_script_cmd()   = term()
 app_file()          = keep | strip | all
+app_dir_vsn()       = keep | strip
 debug_info()        = keep | strip
 dir()               = string()
 escript()           = {incl_cond, incl_cond()}

@@ -106,8 +106,10 @@ all() ->
      create_release,
      create_release_sort,
      create_script,
+     custom_script,
      create_script_sort,
      create_target,
+     app_dir_vsn,
      create_target_unicode,
      create_embedded,
      create_standalone,
@@ -553,6 +555,55 @@ create_script(_Config) ->
     ?m(ok, reltool:stop(Pid)),
     ok.
 
+custom_script(_Config) ->
+    %% Configure the server
+    RelName1 = "Customized boot script",
+    RelName2 = "Yet another boot script",
+    RelName3 = "As is",
+    RelVsn = "1.0",
+    Load = {apply,{custom,load,[]}},
+    Start = {apply,{custom,start,[]}},
+    ErlangRc = {apply,{c,erlangrc,[]}},
+    PhaseFun =
+        fun(Rel, _Vsn, Phase, Cmds) ->
+                case Phase of
+                    applications_loaded when Rel =:= RelName2 ->
+                        Cmds ++ [Load];
+                    applications_started when Rel =:= RelName1 ->
+                        Cmds ++ [Start];
+                    started when Rel =:= RelName1; Rel =:= RelName2 ->
+                        Cmds -- [ErlangRc];
+                    _ ->
+                        Cmds
+                end
+        end,
+    Config =
+        {sys,
+         [
+          {lib_dirs, []},
+          {boot_rel, RelName1},
+          {boot_phase_fun, PhaseFun},
+          {rel, RelName1, RelVsn, [stdlib, kernel]},
+          {rel, RelName2, RelVsn, [stdlib, kernel]},
+          {rel, RelName3, RelVsn, [stdlib, kernel]}
+         ]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Config}])),
+
+    %% Generate script files
+    {ok, {script,_,Cmds1}} = ?msym({ok, _}, reltool:get_script(Pid, RelName1)),
+    {ok, {script,_,Cmds2}} = ?msym({ok, _}, reltool:get_script(Pid, RelName2)),
+    {ok, {script,_,Cmds3}} = ?msym({ok, _}, reltool:get_script(Pid, RelName3)),
+
+    %% Verify that the customizations are performed
+    ?m([ErlangRc], Cmds3 -- Cmds1),
+    ?m([ErlangRc], Cmds3 -- Cmds2),
+    ?m([Start], Cmds1 -- Cmds3),
+    ?m([Load],  Cmds2 -- Cmds3),
+
+    %% Stop server
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test creation of .script with different sorting of applications and
 %% included applications.
@@ -797,7 +848,25 @@ create_target(_Config) ->
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
     ?msym(ok, stop_node(Node)),
+    ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate target system without application versions
+
+app_dir_vsn(_Config) ->
+    %% Configure the server
+    Config = {sys, [{app_dir_vsn,strip}]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "app_dir_vsn"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    ?msym(ok, stop_node(Node)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

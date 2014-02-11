@@ -576,10 +576,11 @@ copy_file(From, To) ->
 		    write_file_info(To, FileInfo),
 		    ok;
 		{error, Reason} ->
+                    io:format("Stack: ~p\n", [erlang:get_stacktrace()]),
 		    Text = file:format_error(Reason),
-		    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
+                    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
 	    end;
-	error ->
+        error ->
 	    Text = file:format_error(enoent),
 	    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
     end.

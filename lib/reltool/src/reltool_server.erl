@@ -195,6 +195,7 @@ default_sys() ->
 	 rel_app_type      = ?DEFAULT_REL_APP_TYPE,
 	 embedded_app_type = ?DEFAULT_EMBEDDED_APP_TYPE,
 	 app_file          = ?DEFAULT_APP_FILE,
+         app_dir_vsn       = ?DEFAULT_APP_DIR_VSN,
 	 incl_archive_filters = dec_re(incl_archive_filters,
 				       ?DEFAULT_INCL_ARCHIVE_FILTERS,
 				       []),
@@ -446,6 +447,7 @@ app_set_config_only([],#app{name                 = Name,
 			    use_selected_vsn     = undefined,
 			    debug_info           = undefined,
 			    app_file             = undefined,
+			    app_dir_vsn          = undefined,
 			    app_type             = undefined,
 			    incl_app_filters     = undefined,
 			    excl_app_filters     = undefined,
@@ -460,6 +462,7 @@ app_set_config_only(Mods,#app{name                 = Name,
 			      use_selected_vsn     = UseSelectedVsn,
 			      debug_info           = DebugInfo,
 			      app_file             = AppFile,
+			      app_dir_vsn          = AppDirVsn,
 			      app_type             = AppType,
 			      incl_app_filters     = InclAppFilters,
 			      excl_app_filters     = ExclAppFilters,
@@ -477,6 +480,7 @@ app_set_config_only(Mods,#app{name                 = Name,
 				  use_selected_vsn     = UseSelectedVsn,
 				  debug_info           = DebugInfo,
 				  app_file             = AppFile,
+                                  app_dir_vsn          = AppDirVsn,
 				  app_type             = AppType,
 				  incl_app_filters     = InclAppFilters,
 				  excl_app_filters     = ExclAppFilters,
@@ -1394,6 +1398,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{incl_cond = Val};
             boot_rel when is_list(Val) ->
                 Sys#sys{boot_rel = Val};
+            boot_phase_fun when is_function(Val, 4) ->
+                Sys#sys{boot_phase_fun = Val};
             emu_name when is_list(Val) ->
                 Sys#sys{emu_name = Val};
 	    profile when Val =:= development;
@@ -1440,7 +1446,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
 			    dec_re(Key, Val, Sys#sys.excl_archive_filters)};
             archive_opts when is_list(Val) ->
                 Sys#sys{archive_opts = Val};
-            relocatable when Val =:= true; Val =:= false ->
+            relocatable when Val =:= true;
+                             Val =:= false ->
                 Sys#sys{relocatable = Val};
             rel_app_type when Val =:= permanent;
 			      Val =:= transient;
@@ -1455,9 +1462,15 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
 				   Val =:= none;
 				   Val =:= undefined ->
                 Sys#sys{embedded_app_type = Val};
-            app_file when Val =:= keep; Val =:= strip; Val =:= all ->
+            app_file when Val =:= keep;
+                          Val =:= strip;
+                          Val =:= all ->
                 Sys#sys{app_file = Val};
-            debug_info when Val =:= keep; Val =:= strip ->
+            app_dir_vsn when Val =:= keep;
+                             Val =:= strip ->
+                Sys#sys{app_dir_vsn = Val};
+            debug_info when Val =:= keep;
+                            Val =:= strip ->
                 Sys#sys{debug_info = Val};
             _ ->
 		reltool_utils:throw_error("Illegal option: ~p", [{Key, Val}])
@@ -1484,6 +1497,9 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
 			  Val =:= strip;
 			  Val =:= all ->
                 App#app{app_file = Val};
+            app_dir_vsn when Val =:= keep;
+                             Val =:= strip ->
+                App#app{app_dir_vsn = Val};
             app_type when Val =:= permanent;
 			  Val =:= transient;
 			  Val =:= temporary;
@@ -1559,7 +1575,7 @@ decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals]) ->
         end,
     case ValidTypesAssigned of
 	true ->
-            decode(Rel#rel{rel_apps = RelApps ++ [RA]}, KeyVals);
+            decode(Rel#rel{rel_apps = [RA | RelApps]}, KeyVals);
         false ->
 	    reltool_utils:throw_error("Illegal option: ~p", [RelApp])
     end;

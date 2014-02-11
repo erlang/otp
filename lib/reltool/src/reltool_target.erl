@@ -424,7 +424,7 @@ gen_script(Rel, Sys, PathFlag, Variables) ->
     end.
 
 do_gen_script(#rel{name = RelName, vsn = RelVsn},
-              #sys{apps = Apps},
+              #sys{apps = Apps, boot_phase_fun = PhaseFun} = Sys,
 	      MergedApps,
               PathFlag,
               Variables) ->
@@ -439,51 +439,71 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn},
 			     MergedApps),
 
     %% Create the script
-    DeepList =
+    Phases =
         [
          %% Register preloaded modules
-         {preLoaded, lists:sort(Preloaded)},
-         {progress, preloaded},
+         {preloaded,
+          [
+           {preLoaded, lists:sort(Preloaded)}
+          ]},
 
          %% Load mandatory modules
-         {path, create_mandatory_path(MergedApps, PathFlag, Variables)},
-         {primLoad, lists:sort(Mandatory)},
-         {kernel_load_completed},
-         {progress, kernel_load_completed},
+         {kernel_load_completed,
+          [
+           {path, create_mandatory_path(Sys, MergedApps, PathFlag, Variables)},
+           {primLoad, lists:sort(Mandatory)},
+           {kernel_load_completed}
+          ]},
 
          %% Load remaining modules
-         [load_app_mods(A, Early, PathFlag, Variables) || A <- MergedApps],
-         {progress, modules_loaded},
+         {modules_loaded,
+          [load_app_mods(Sys, A, Early, PathFlag, Variables) || A <- MergedApps]
+          },
 
          %% Start kernel processes
-         {path, create_path(MergedApps, PathFlag, Variables)},
-         kernel_processes(gen_app(KernelApp)),
-         {progress, init_kernel_started},
+         {init_kernel_started,
+          [
+           {path, create_path(Sys, MergedApps, PathFlag, Variables)},
+           kernel_processes(gen_app(KernelApp))
+          ]},
 
          %% Load applications
-         [{apply, {application, load, [gen_app(A)]}} ||
-             A = #app{name = Name, app_type = Type} <- MergedApps,
-             Name =/= kernel,
-             Type =/= none],
-         {progress, applications_loaded},
+         {applications_loaded,
+          [{apply, {application, load, [gen_app(A)]}} ||
+              A = #app{name = Name, app_type = Type} <- MergedApps,
+              Name =/= kernel,
+              Type =/= none]},
 
          %% Start applications
-         [{apply, {application, start_boot, [Name, Type]}} ||
-             #app{name = Name, app_type = Type} <- MergedApps,
-             Type =/= none,
-             Type =/= load,
-             not lists:member(Name, InclApps)],
+         {applications_started,
+          [{apply, {application, start_boot, [Name, Type]}} ||
+              #app{name = Name, app_type = Type} <- MergedApps,
+              Type =/= none,
+              Type =/= load,
+              not lists:member(Name, InclApps)]
+         },
 
          %% Apply user specific customizations
-         {apply, {c, erlangrc, []}},
-         {progress, started}
+         {started,
+          [
+           {apply, {c, erlangrc, []}}]}
         ],
-    {ok, {script, {RelName, RelVsn}, lists:flatten(DeepList)}}.
+    {ok, {script,
+          {RelName, RelVsn},
+          filter_phases(RelName, RelVsn, PhaseFun, Phases)}}.
+
+filter_phases(RelName, RelVsn, undefined, Phases) ->
+    Fun = fun(_RelName, _RelVsn, _Phase, Items) -> Items end,
+    filter_phases(RelName, RelVsn, Fun, Phases);
+filter_phases(RelName, RelVsn, Fun, Phases) when is_function(Fun, 4) ->
+    lists:flatten([[Fun(RelName, RelVsn, Phase, lists:flatten(Items)),
+                    {progress, Phase}] ||
+                      {Phase, Items} <- Phases]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-load_app_mods(#app{mods = Mods0} = App, Mand, PathFlag, Variables) ->
-    Path = cr_path(App, PathFlag, Variables),
+load_app_mods(Sys, #app{mods = Mods0} = App, Mand, PathFlag, Variables) ->
+    Path = cr_path(Sys, App, PathFlag, Variables),
     Mods = [M || #mod{name = M, is_included=true} <- Mods0,
 		 not lists:member(M, Mand)],
     [{path, [filename:join([Path])]},
@@ -671,26 +691,30 @@ del_apps([], Apps) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Create the complete path.
-create_path(Apps, PathFlag, Variables) ->
-    make_set([cr_path(App, PathFlag, Variables) || App <- Apps]).
+create_path(Sys, Apps, PathFlag, Variables) ->
+    make_set([cr_path(Sys, App, PathFlag, Variables) || App <- Apps]).
 
 %% Create the path to a specific application.
 %% (The otp_build flag is only used for OTP internal system make)
-cr_path(#app{label = Label}, true, []) ->
-    filename:join(["$ROOT", "lib", Label, "ebin"]);
-cr_path(#app{name = Name, vsn = Vsn, label = Label, active_dir = Dir},
+cr_path(Sys, #app{label = Label} = App, true, []) ->
+    Label2 = strip_app_name(Sys, App, Label),
+    filename:join(["$ROOT", "lib", Label2, "ebin"]);
+cr_path(Sys,
+        #app{name = Name, vsn = Vsn, label = Label, active_dir = Dir} = App,
 	true,
 	Variables) ->
-    Tail = [Label, "ebin"],
+    Label2 = strip_app_name(Sys, App, Label),
+    Tail = [Label2, "ebin"],
     case variable_dir(Dir, atom_to_list(Name), Vsn, Variables) of
         {ok, VarDir} ->
             filename:join([VarDir] ++ Tail);
         _ ->
             filename:join(["$ROOT", "lib"] ++ Tail)
     end;
-cr_path(#app{name = Name}, otp_build, _) ->
-    filename:join(["$ROOT", "lib", atom_to_list(Name), "ebin"]);
-cr_path(#app{active_dir = Dir}, _, _) ->
+cr_path(Sys, #app{name = Name} = App, otp_build, _) ->
+    Name2 = strip_app_name(Sys, App, Name),
+    filename:join(["$ROOT", "lib", Name2, "ebin"]);
+cr_path(_Sys, #app{active_dir = Dir}, _, _) ->
     filename:join([Dir, "ebin"]).
 
 variable_dir(Dir, Name, Vsn, [{Var,Path} | Variables]) ->
@@ -726,12 +750,12 @@ strip_name_ebin(Dir, Name, Vsn) ->
     end.
 
 %% Create the path to the kernel and stdlib applications.
-create_mandatory_path(Apps, PathFlag, Variables) ->
+create_mandatory_path(Sys, Apps, PathFlag, Variables) ->
     Mandatory = [kernel, stdlib],
     make_set(lists:map(fun(#app{name = Name} = App) ->
                                case lists:member(Name, Mandatory) of
                                    true ->
-                                       cr_path(App, PathFlag, Variables);
+                                       cr_path(Sys, App, PathFlag, Variables);
                                    false ->
                                        ""
                                end
@@ -821,7 +845,6 @@ do_gen_spec(#sys{root_dir = RootDir,
 		 excl_lib = ExclLib,
                  incl_sys_filters = InclRegexps,
                  excl_sys_filters = ExclRegexps,
-                 relocatable = Relocatable,
                  apps = Apps} = Sys) ->
     RelFiles = spec_rel_files(Sys),
     {SysFiles, InclRegexps2, ExclRegexps2, Mandatory} =
@@ -830,7 +853,7 @@ do_gen_spec(#sys{root_dir = RootDir,
 		{[],InclRegexps,ExclRegexps,["lib"]};
 	    _ ->
 		{create_dir, _, SF} = spec_dir(RootDir),
-		{ER2, SF2} = strip_sys_files(Relocatable, SF, Apps, ExclRegexps),
+                {ER2, SF2} = strip_sys_files(Sys, SF, Apps, ExclRegexps),
 		{IR2, BinFiles} =
 		    spec_bin_files(Sys, SF, SF2, RelFiles, InclRegexps),
 		SF3 = [{create_dir, "bin", BinFiles}] ++ SF2,
@@ -847,9 +870,9 @@ do_gen_spec(#sys{root_dir = RootDir,
     check_sys(Mandatory, SysFiles4),
     SysFiles4.
 
-strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
+strip_sys_files(#sys{relocatable=Reloc} = Sys, SysFiles, Apps, ExclRegexps) ->
     ExclRegexps2 =
-	case Relocatable of
+	case Reloc of
 	    true ->
 		ExtraExcl = ["^erts.*/bin/.*src\$"],
 		reltool_utils:decode_regexps(excl_sys_filters,
@@ -858,68 +881,107 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 	    false ->
 		ExclRegexps
 	end,
-    {value, Erts} = lists:keysearch(erts, #app.name, Apps),
+    {value, ErtsApp} = lists:keysearch(erts, #app.name, Apps),
     FilterErts =
         fun(Spec) ->
-		File = element(2, Spec),
-		case File of
-		    "erts" ->
-			reltool_utils:throw_error("This system is not installed. "
-						  "The directory ~ts is missing.",
-				    [Erts#app.label]);
-		    _ when File =:= Erts#app.label ->
-			replace_dyn_erl(Relocatable, Spec);
-                    "erts-" ++ _ ->
-			false;
-                    _ ->
-                        true
+		Dir = element(2, Spec),
+                if
+                    Dir =:= "erts"; Dir =:= ErtsApp#app.label ->
+                        Spec2 = strip_app_dir(Sys, ErtsApp, Spec, []),
+                        replace_dyn_erl(Reloc, Spec2);
+                    true ->
+                        not lists:prefix("erts", Dir)
                 end
         end,
     SysFiles2 = lists:zf(FilterErts, SysFiles),
-    SysFiles3 = lists:foldl(fun(F, Acc) -> lists:keydelete(F, 2, Acc) end,
+    SysFiles3 = lists:foldl(fun(F, Acc) ->
+                                    case lists:keymember(F, 2, Acc) of
+                                        true  ->
+                                            lists:keydelete(F, 2, Acc);
+                                        false ->
+                                            reltool_utils:throw_error(
+                                              "This system is not installed. "
+                                              "The directory ~ts is missing.",
+                                              [F])
+                                    end
+                            end,
 			    SysFiles2,
 			    ["releases", "lib", "bin"]),
     {ExclRegexps2, SysFiles3}.
 
-replace_dyn_erl(false, _ErtsSpec) ->
-    true;
-replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
-    [{create_dir, _, BinFiles}] =
-	safe_lookup_spec("bin", ErtsFiles),
-    case lookup_spec("dyn_erl", BinFiles) of
-        [] ->
-            case lookup_spec("erl.ini", BinFiles) of
-                [] ->
-                    true;
-                [{copy_file, ErlIni}] ->
-                    %% Remove Windows .ini file
-                    BinFiles2 = lists:keydelete(ErlIni, 2, BinFiles),
-                    ErtsFiles2 =
-			lists:keyreplace("bin",
-					 2,
-					 ErtsFiles,
-					 {create_dir, "bin", BinFiles2}),
-                    {true, {create_dir, ErtsDir, ErtsFiles2}}
-            end;
-        [{copy_file, DynErlExe}] ->
-            %% Replace erl with dyn_erl
-            ErlExe = "erl" ++ filename:extension(DynErlExe),
-            BinFiles2 = lists:keydelete(DynErlExe, 2, BinFiles),
-            DynErlExe2 = filename:join([ErtsDir, "bin", DynErlExe]),
-            BinFiles3 = lists:keyreplace(ErlExe,
-					 2,
-					 BinFiles2,
-					 {copy_file, ErlExe, DynErlExe2}),
-            ErtsFiles2 = lists:keyreplace("bin",
-					  2,
-					  ErtsFiles,
-					  {create_dir, "bin", BinFiles3}),
-            {true, {create_dir, ErtsDir, ErtsFiles2}}
+strip_app_name(Sys, App, NameVsn) when is_atom(NameVsn) ->
+    strip_app_name(Sys, App, atom_to_list(NameVsn));
+strip_app_name(Sys, App, NameVsn) when is_list(NameVsn) ->
+    case resolve_app_dir_vsn(App, Sys) of
+        keep ->
+            NameVsn;
+        strip ->
+            {Name, _Vsn} = reltool_utils:split_app_name(NameVsn),
+            atom_to_list(Name)
     end.
 
+strip_app_dir(Sys, App, CreateDir, Prefix) ->
+    Dir = element(2, CreateDir),
+    Dir2 = strip_app_name(Sys, App, Dir),
+    case CreateDir of
+        {create_dir, Dir, Files} when Dir =:= Dir2 ->
+            {create_dir, Dir, Files};
+        {create_dir, Dir, Files} when Dir =/= Dir2 ->
+            {create_dir, Dir2, filename:join(Prefix ++ [Dir]), Files};
+        {create_dir, _Dir, SourceDir, Files} ->
+            {create_dir, Dir2, SourceDir, Files}
+    end.
+
+resolve_app_dir_vsn(#app{app_dir_vsn=AppDirVsn}, #sys{app_dir_vsn=SysAppDirVsn}) ->
+    case AppDirVsn of
+        undefined -> SysAppDirVsn;
+        _         -> AppDirVsn
+    end.
+
+replace_dyn_erl(false, CreateDir) ->
+    {true, CreateDir};
+replace_dyn_erl(true, CreateDir) ->
+    FilePos = tuple_size(CreateDir),
+    ErtsFiles = element(FilePos, CreateDir),
+    DirPos = FilePos-1,
+    SourceErtsDir = element(DirPos, CreateDir),
+    [{create_dir, _, BinFiles}] = safe_lookup_spec("bin", ErtsFiles),
+    ErtsFiles2 =
+        case lookup_spec("dyn_erl", BinFiles) of
+            [] ->
+                case lookup_spec("erl.ini", BinFiles) of
+                    [] ->
+                        ErtsFiles;
+                    [{copy_file, ErlIni}] ->
+                        %% Remove Windows .ini file
+                        BinFiles2 = lists:keydelete(ErlIni, 2, BinFiles),
+                        lists:keyreplace("bin",
+                                         2,
+                                         ErtsFiles,
+                                         {create_dir, "bin", BinFiles2})
+                end;
+            [{copy_file, DynErlExe}] ->
+                %% Replace erl with dyn_erl
+                ErlExe = "erl" ++ filename:extension(DynErlExe),
+                BinFiles2 = lists:keydelete(DynErlExe, 2, BinFiles),
+                DynErlExe2 = filename:join([SourceErtsDir, "bin", DynErlExe]),
+                BinFiles3 = lists:keyreplace(ErlExe,
+                                             2,
+                                             BinFiles2,
+                                             {copy_file, ErlExe, DynErlExe2}),
+                lists:keyreplace("bin",
+                                 2,
+                                 ErtsFiles,
+                                 {create_dir, "bin", BinFiles3})
+        end,
+    {true, setelement(FilePos, CreateDir, ErtsFiles2)}.
+
 spec_bin_files(Sys, AllSysFiles, StrippedSysFiles, RelFiles, InclRegexps) ->
-    [{create_dir, ErtsLabel, ErtsFiles}] =
-	safe_lookup_spec("erts", StrippedSysFiles),
+    [ErtsCreateDir] = safe_lookup_spec("erts", StrippedSysFiles),
+    FilePos = tuple_size(ErtsCreateDir),
+    DirPos = FilePos-1,
+    ErtsLabel = element(DirPos, ErtsCreateDir),
+    ErtsFiles = element(FilePos, ErtsCreateDir),
     [{create_dir, _, BinFiles}] = safe_lookup_spec("bin", ErtsFiles),
     ErtsBin = filename:join([ErtsLabel, "bin"]),
     Escripts = spec_escripts(Sys, ErtsBin, BinFiles),
@@ -1094,15 +1156,15 @@ spec_app(#app{name              = Name,
     %% Regular top directory and/or archive
     spec_archive(App, Sys, AppFiles3).
 
-spec_archive(#app{label               = Label,
-                  active_dir          = SourceDir,
+spec_archive(#app{label                = Label,
+                  active_dir           = SourceDir,
                   incl_archive_filters = AppInclArchiveDirs,
                   excl_archive_filters = AppExclArchiveDirs,
-                  archive_opts        = AppArchiveOpts},
-             #sys{root_dir            = RootDir,
+                  archive_opts         = AppArchiveOpts} = App,
+             #sys{root_dir             = RootDir,
                   incl_archive_filters = SysInclArchiveDirs,
                   excl_archive_filters = SysExclArchiveDirs,
-                  archive_opts        = SysArchiveOpts},
+                  archive_opts         = SysArchiveOpts} = Sys,
              Files) ->
     InclArchiveDirs =
 	reltool_utils:default_val(AppInclArchiveDirs, SysInclArchiveDirs),
@@ -1114,23 +1176,25 @@ spec_archive(#app{label               = Label,
     case lists:filter(Match, Files) of
         [] ->
             %% Nothing to archive
-            [spec_create_dir(RootDir, SourceDir, Label, Files)];
+            [spec_app_create_dir(Sys, App, RootDir, SourceDir, Label, Files)];
         ArchiveFiles ->
             OptDir =
                 case Files -- ArchiveFiles of
                     [] ->
                         [];
                     ExternalFiles ->
-                        [spec_create_dir(RootDir,
-					 SourceDir,
-					 Label,
-					 ExternalFiles)]
+                        [spec_app_create_dir(Sys, App, RootDir, SourceDir,
+                                             Label, ExternalFiles)]
                 end,
             ArchiveOpts =
 		reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
             ArchiveDir =
-		spec_create_dir(RootDir, SourceDir, Label, ArchiveFiles),
-            [{archive, Label ++ ".ez", ArchiveOpts, [ArchiveDir]} | OptDir]
+		spec_app_create_dir(Sys, App, RootDir, SourceDir,
+                                    Label, ArchiveFiles),
+%%            io:format("ArchiveDir: ~p\n", [ArchiveDir]),
+
+            NameOrLabel = element(2, ArchiveDir),
+            [{archive, NameOrLabel ++ ".ez", ArchiveOpts, [ArchiveDir]} | OptDir]
     end.
 
 spec_dir(Dir) ->
@@ -1204,12 +1268,14 @@ spec_opt_copy_file(DirName, BaseName) ->
         false -> []
     end.
 
-spec_create_dir(RootDir, SourceDir, BaseDir, Files) ->
+spec_app_create_dir(Sys, App, RootDir, SourceDir, Label, Files) ->
     LibDir = filename:join([RootDir, "lib"]),
-    case abs_to_rel_path(LibDir, SourceDir) of
-        {relative, Dir} ->  {create_dir, Dir, Files};
-        {absolute, Dir} ->  {create_dir, BaseDir, Dir, Files}
-    end.
+    CreateDir =
+        case abs_to_rel_path(LibDir, SourceDir) of
+            {relative, Dir} -> {create_dir, Dir, Files};
+            {absolute, Dir} -> {create_dir, Label, Dir, Files}
+        end,
+    strip_app_dir(Sys, App, CreateDir, ["lib"]).
 
 abs_to_rel_path(RootDir, SourcePath) ->
     R = filename:split(RootDir),
@@ -1265,7 +1331,7 @@ do_eval_spec({create_dir, Dir, OldDir, Files},
     SourceDir2 = filename:join([OrigSourceDir, OldDir]),
     TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
-    do_eval_spec(Files, SourceDir2, SourceDir2, TargetDir2);
+    do_eval_spec(Files, OrigSourceDir, SourceDir2, TargetDir2);
 do_eval_spec({archive, Archive, Options, Files},
 	     OrigSourceDir,
 	     SourceDir,
