@@ -421,10 +421,10 @@ infile(Parent, Infilex, Options) ->
              {error, Reason} ->
                  add_error(St0#yecc.infile, none, {file_error, Reason}, St0)
          end,
-    case {St#yecc.errors, werror(St)} of
-        {[], false} -> ok;
-        _ -> _ = file:delete(St#yecc.outfile)
-    end,
+    _ = case {St#yecc.errors, werror(St)} of
+	    {[], false} -> ok;
+	    _ -> file:delete(St#yecc.outfile)
+	end,
     Parent ! {self(), yecc_ret(St)}.
 
 werror(St) ->
