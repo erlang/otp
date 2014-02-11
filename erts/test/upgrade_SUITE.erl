@@ -86,18 +86,35 @@ major(Config) ->
 %% performs an upgrade from major release X to the current release.
 minor(Config) ->
     CurrentMajor = erlang:system_info(otp_release),
-    Current = list_to_atom(CurrentMajor++"_patched"),
+    Current = CurrentMajor++"_patched",
     upgrade_test(CurrentMajor,Current,Config).
 
 %%%-----------------------------------------------------------------
 upgrade_test(FromVsn,ToVsn,Config) ->
-    case test_server:is_release_available(FromVsn) of
-	true ->
-	    upgrade_test1(FromVsn,ToVsn,Config);
+    OldRel =
+	case test_server:is_release_available(FromVsn) of
+	    true ->
+		{release,FromVsn};
+	    false ->
+		case ct:get_config({otp_releases,list_to_atom(FromVsn)}) of
+		    undefined ->
+			false;
+		    Prog0 ->
+			case os:find_executable(Prog0) of
+			    false ->
+				false;
+			    Prog ->
+				{prog,Prog}
+			end
+		end
+	end,
+    case OldRel of
 	false ->
 	    %% Note that priv_dir here is per test case!
 	    rm_rf(?config(priv_dir,Config)),
-	    {skip, "no previous release available"}
+	    {skip, "no previous release available"};
+	_ ->
+	    upgrade_test1(FromVsn,ToVsn,[{old_rel,OldRel}|Config])
     end.
 
 upgrade_test1(FromVsn,ToVsn,Config) ->
@@ -120,7 +137,7 @@ upgrade_test1(FromVsn,ToVsn,Config) ->
 %%% - chmod 'start' and 'start_erl'
 target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
     {ok,Node} = test_server:start_node(list_to_atom(RelName0),peer,
-				       [{erl,[{release,RelVsn}]}]),
+				       [{erl,[?config(old_rel,Config)]}]),
 
     {RelName,Apps,ErtsVsn} = create_relfile(Node,CreateDir,RelName0,RelVsn),
  
