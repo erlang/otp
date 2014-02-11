@@ -74,6 +74,7 @@ ERL = \
 	OtpErlangShort\
 	OtpErlangString\
 	OtpErlangTuple \
+	OtpErlangMap \
 	OtpErlangUInt \
 	OtpErlangUShort
 

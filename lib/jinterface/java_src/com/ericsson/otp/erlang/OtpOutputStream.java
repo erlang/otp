@@ -974,4 +974,9 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	write_atom(function);
 	write_long(arity);
     }
+
+    public void write_map_head(final int arity) {
+        write1(OtpExternal.mapTag);
+        write4BE(arity);
+    }
 }
