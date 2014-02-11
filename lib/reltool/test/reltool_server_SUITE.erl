@@ -108,6 +108,7 @@ all() ->
      create_script,
      create_script_sort,
      create_target,
+     app_dir_vsn,
      create_target_unicode,
      create_embedded,
      create_standalone,
@@ -797,7 +798,25 @@ create_target(_Config) ->
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
     ?msym(ok, stop_node(Node)),
+    ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate target system without application versions
+
+app_dir_vsn(_Config) ->
+    %% Configure the server
+    Config = {sys, [{app_dir_vsn,strip}]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "app_dir_vsn"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    ?msym(ok, stop_node(Node)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

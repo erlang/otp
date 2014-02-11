@@ -157,7 +157,7 @@ static char *find_erlexec_dir2(char *install_dir)
     p = wildcard+length-1;
     if (*p != '/' && *p != '\\')
 	*++p = '\\';
-    strcpy(++p, "erts-*");
+    strcpy(++p, "erts*");
 
     /* Find first dir */
     dir_handle = FindFirstFile(wildcard, &find_data);
@@ -168,7 +168,8 @@ static char *find_erlexec_dir2(char *install_dir)
     strcpy(latest_vsn, find_data.cFileName);
 
     /* Find the rest */
-    while(FindNextFile(dir_handle, &find_data)) {
+    while((strncmp("erts", latest_vsn, 4) /= 0) &&
+          FindNextFile(dir_handle, &find_data)) {
 	copy_latest_vsn(latest_vsn, find_data.cFileName);
     }
     

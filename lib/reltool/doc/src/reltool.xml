@@ -223,6 +223,15 @@
         and <c>strip</c>.</p>
       </item>
 
+      <tag><c>app_dir_vsn</c></tag>
+      <item>
+        <p>This parameter controls whether application directories (and
+        archives) should have the version as a part of the name or
+        not. <c>keep</c>, which is the default, means that the version
+        should be kept (e.g. <c>mnesia-4.0</c>). <c>strip</c> means
+        that the version should be stripped (e.g. <c>mnesia</c>).</p>
+      </item>
+
       <tag><c>debug_info</c></tag>
       <item>
         <p>The <c>debug_info</c> parameter controls whether the debug
@@ -504,6 +513,7 @@ sys()               = {root_dir, root_dir()}
                     | {rel, rel_name(), rel_vsn(), [rel_app()]}
                     | {relocatable, relocatable()}
                     | {app_file, app_file()}
+                    | {app_dir_vsn, app_dir_vsn()}
                     | {debug_info, debug_info()}
                     | {incl_sys_filters, incl_sys_filters()}
                     | {excl_sys_filters, excl_sys_filters()}
@@ -519,6 +529,7 @@ app()               = {vsn, app_vsn()}
                     | {incl_cond, incl_cond()}
                     | {debug_info, debug_info()}
                     | {app_file, app_file()}
+                    | {app_dir_vsn, app_dir_vsn()}
 		    | {excl_lib, excl_lib()}
                     | {incl_sys_filters, incl_sys_filters()}
                     | {excl_sys_filters, excl_sys_filters()}
@@ -539,6 +550,7 @@ app_vsn()           = string()
 archive_opt         = zip_create_opt()
 boot_rel()          = rel_name()
 app_file()          = keep | strip | all
+app_dir_vsn()       = keep | strip
 debug_info()        = keep | strip
 dir()               = string()
 escript()           = {incl_cond, incl_cond()}
