@@ -89,8 +89,6 @@
 	 flush/1,
 	 stop/0, stop/1]).
 -export([remote_start/1,get_main_node/0]).
-%-export([bump/5]).
--export([transform/4]). % for test purposes
 
 %% Used internally to ensure we upgrade the code to the latest version.
 -export([main_process_loop/1,remote_process_loop/1]).
@@ -113,7 +111,6 @@
 -define(BUMP_REC_NAME,bump).
 
 -record(vars, {module,                      % atom() Module name
-	       vsn,                         % atom()
 	       
 	       init_info=[],                % [{M,F,A,C,L}]
 
@@ -1360,9 +1357,9 @@ do_compile_beam(Module,Beam,UserOptions) ->
 	    {error,E};
 	encrypted_abstract_code=E ->
 	    {error,E};
-	{Vsn,Code} ->
+	{raw_abstract_v1,Code} ->
             Forms0 = epp:interpret_file_attribute(Code),
-	    {Forms,Vars} = transform(Vsn, Forms0, Module, Beam),
+	    {Forms,Vars} = transform(Forms0, Module),
 
 	    %% We need to recover the source from the compilation
 	    %% info otherwise the newly compiled module will have
@@ -1388,7 +1385,11 @@ do_compile_beam(Module,Beam,UserOptions) ->
 		_Error ->
 		    do_clear(Module),
 		    error
-	    end
+	    end;
+	{_VSN,_Code} ->
+	    %% Wrong version of abstract code. Just report that there
+	    %% is no abstract code.
+	    {error,no_abstract_code}
     end.
 
 get_abstract_code(Module, Beam) ->
@@ -1422,28 +1423,9 @@ get_compile_info(Module, Beam) ->
 		[]
     end.
 
-transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
-    Vars0 = #vars{module=Module, vsn=Vsn},
+transform(Code, Module) ->
     MainFile=find_main_filename(Code),
-    {ok, MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
-    
-    %% Add module and export information to the munged forms
-    %% Information about module_info must be removed as this function
-    %% is added at compilation
-    {ok, {Module, [{exports,Exports1}]}} = beam_lib:chunks(Beam, [exports]),
-    Exports2 = lists:filter(fun(Export) ->
-				    case Export of
-					{module_info,_} -> false;
-					_ -> true
-				    end
-			    end,
-			    Exports1),
-    Forms = [{attribute,1,module,Module},
-	     {attribute,2,export,Exports2}]++ MungedForms,
-    {Forms,Vars};
-transform(Vsn=raw_abstract_v1, Code, Module, _Beam) ->
-    MainFile=find_main_filename(Code),
-    Vars0 = #vars{module=Module, vsn=Vsn},
+    Vars0 = #vars{module=Module},
     {ok,MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
     {MungedForms,Vars}.
     
@@ -1530,14 +1512,9 @@ aux_var(Vars, N) ->
     end.
 
 %% This code traverses the abstract code, stored as the abstract_code
-%% chunk in the BEAM file, as described in absform(3) for Erlang/OTP R8B
-%% (Vsn=abstract_v2).
-%% The abstract format after preprocessing differs slightly from the abstract
-%% format given eg using epp:parse_form, this has been noted in comments.
-%% The switch is turned off when we encounter other files then the main file.
+%% chunk in the BEAM file, as described in absform(3).
+%% The switch is turned off when we encounter other files than the main file.
 %% This way we will be able to exclude functions defined in include files.
-munge({function,0,module_info,_Arity,_Clauses},_Vars,_MainFile,_Switch) ->
-    ignore; % module_info will be added again when the forms are recompiled
 munge({function,Line,Function,Arity,Clauses},Vars,_MainFile,on) ->
     Vars2 = Vars#vars{function=Function,
 		      arity=Arity,
@@ -1778,16 +1755,13 @@ munge_expr({tuple,Line,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
     {{tuple,Line,MungedExprs}, Vars2};
 munge_expr({record,Line,Name,Exprs}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
     {{record,Line,Name,MungedExprFields}, Vars2};
 munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedArg, Vars2} = munge_expr(Arg, Vars),
     {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
     {{record,Line,MungedArg,Name,MungedExprFields}, Vars3};
 munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
     {{record_field,Line,ExprL,MungedExprR}, Vars2};
 munge_expr({cons,Line,ExprH,ExprT}, Vars) ->
@@ -1851,23 +1825,10 @@ munge_expr({'try',Line,Body,Clauses,CatchClauses,After}, Vars) ->
     {MungedAfter, Vars4} = munge_body(After, Vars3),
     {{'try',Line,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter}, 
      Vars4};
-%% Difference in abstract format after preprocessing: Funs get an extra
-%% element Extra.
-%% NOT NECESSARY FOR Vsn=raw_abstract_v1
-munge_expr({'fun',Line,{function,Name,Arity},_Extra}, Vars) ->
-    {{'fun',Line,{function,Name,Arity}}, Vars};
-munge_expr({'fun',Line,{clauses,Clauses},_Extra}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{'fun',Line,{clauses,MungedClauses}}, Vars2};
 munge_expr({'fun',Line,{clauses,Clauses}}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
     {{'fun',Line,{clauses,MungedClauses}}, Vars2};
-munge_expr({named_fun,Line,Name,Clauses,_Extra}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{named_fun,Line,Name,MungedClauses}, Vars2};
 munge_expr({named_fun,Line,Name,Clauses}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
     {{named_fun,Line,Name,MungedClauses}, Vars2};
 munge_expr({bin,Line,BinElements}, Vars) ->
