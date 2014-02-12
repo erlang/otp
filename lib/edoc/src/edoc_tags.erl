@@ -454,7 +454,7 @@ check_type(#tag{line = L, data = Data}, P0, Ls, Ts) ->
 check_type(#t_def{type = Type}, P, Ls, Ts) ->
     check_type(Type, P, Ls, Ts);
 check_type(#t_type{name = Name, args = Args}, P, Ls, Ts) ->
-    check_used_type(Name, Args, P, Ls),
+    _ = check_used_type(Name, Args, P, Ls),
     check_types3(Args++Ts, P, Ls);
 check_type(#t_var{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);

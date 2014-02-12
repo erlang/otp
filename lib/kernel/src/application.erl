@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -132,7 +132,7 @@ ensure_all_started(Application, Type) ->
 	{ok, Started} ->
 	    {ok, lists:reverse(Started)};
 	{error, Reason, Started} ->
-	    [stop(App) || App <- Started],
+	    _ = [stop(App) || App <- Started],
 	    {error, Reason}
     end.
 

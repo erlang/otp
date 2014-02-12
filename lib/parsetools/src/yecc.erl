@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -423,7 +423,7 @@ infile(Parent, Infilex, Options) ->
          end,
     case {St#yecc.errors, werror(St)} of
         {[], false} -> ok;
-        _ -> _ = file:delete(St#yecc.outfile)
+        _ -> _ = file:delete(St#yecc.outfile), ok
     end,
     Parent ! {self(), yecc_ret(St)}.
 
