@@ -620,7 +620,7 @@ mkcore(CrashInfo) ->
     Core = [
 	    CrashInfo,
 	    {time, {date(), time()}},
-	    {self, catch process_info(self())},
+	    {self, proc_dbg_info(self())},
 	    {nodes, catch rpc:multicall(Nodes, ?MODULE, get_node_number, [])},
 	    {applications, catch lists:sort(application:loaded_applications())},
 	    {flags, catch init:get_arguments()},
@@ -697,7 +697,7 @@ relatives() ->
     Info = fun(Name) ->
 		   case whereis(Name) of
 		       undefined -> false;
-		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
+		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
     lists:zf(Info, mnesia:ms()).
@@ -706,14 +706,14 @@ workers({workers, Loaders, Senders, Dumper}) ->
     Info = fun({Pid, {send_table, Tab, _Receiver, _St}}) ->
 		   case Pid of
 		       undefined -> false;
-		       Pid -> {true, {Pid, Tab, catch process_info(Pid)}}
+		       Pid -> {true, {Pid, Tab, proc_dbg_info(Pid)}}
 		   end;
 	      ({Pid, What}) when is_pid(Pid) ->
-		   {true, {Pid, What, catch process_info(Pid)}};
+		   {true, {Pid, What, proc_dbg_info(Pid)}};
 	      ({Name, Pid}) ->
 		   case Pid of
 		       undefined -> false;
-		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
+		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
     SInfo = lists:zf(Info, Senders),
@@ -727,12 +727,20 @@ locking_procs(LockList) when is_list(LockList) ->
 		   Pid = Tid#tid.pid,
 		   case node(Pid) == node() of
 		       true -> 
-			   {true, {Pid, catch process_info(Pid)}};
+			   {true, {Pid, proc_dbg_info(Pid)}};
 		       _ ->
 			   false
 		   end
 	   end,
     lists:zf(Info, UT).
+
+proc_dbg_info(Pid) ->
+    try
+	[process_info(Pid, current_stacktrace)|
+	 process_info(Pid)]
+    catch _:R ->
+	    [{process_info,crashed,R}]
+    end.
 
 view() ->
     Bin = mkcore({crashinfo, {"view only~n", []}}),
