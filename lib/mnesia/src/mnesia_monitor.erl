@@ -44,6 +44,7 @@
 	 set_env/2,
 	 start/0,
 	 start_proc/4,
+	 sync_log/1,
 	 terminate_proc/3,
 	 unsafe_close_dets/1,
 	 unsafe_close_log/1,
@@ -117,6 +118,9 @@ open_log(Args) ->
 
 reopen_log(Name, Fname, Head) ->
     unsafe_call({reopen_log, Name, Fname, Head}).
+
+sync_log(Name) ->
+    unsafe_call({sync_log, Name}).
 
 close_log(Name) ->
     unsafe_call({close_log, Name}).
@@ -381,6 +385,9 @@ handle_call({reopen_log, Name, Fname, Head}, _From, State) ->
 	    fatal("~p~n", [Error]),
  	    {noreply, State}
     end;
+
+handle_call({sync_log, Name}, _From, State) ->
+    {reply, disk_log:sync(Name), State};
 
 handle_call({close_log, Name}, _From, State) ->
     case disk_log:close(Name) of

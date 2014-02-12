@@ -104,7 +104,8 @@
 	 set_master_nodes/1, set_master_nodes/2,
 
 	 %% Misc admin
-	 dump_log/0, subscribe/1, unsubscribe/1, report_event/1,
+	 dump_log/0, sync_log/0,
+	 subscribe/1, unsubscribe/1, report_event/1,
 
 	 %% Snmp
 	 snmp_open_table/2, snmp_close_table/1,
@@ -2553,6 +2554,9 @@ set_master_nodes(Tab, Nodes) ->
 
 dump_log() ->
     mnesia_controller:sync_dump_log(user).
+
+sync_log() ->
+    mnesia_monitor:sync_log(latest_log).
 
 subscribe(What) ->
     mnesia_subscr:subscribe(self(), What).
