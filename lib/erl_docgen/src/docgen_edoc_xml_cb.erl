@@ -1025,7 +1025,11 @@ t_type([#xmlElement{name = abstype, content = Es}]) ->
 t_type([#xmlElement{name = union, content = Es}]) ->
     t_union(Es);
 t_type([#xmlElement{name = record, content = Es}]) ->
-    t_record(Es).
+    t_record(Es);
+t_type([#xmlElement{name = map, content = Es}]) ->
+    t_map(Es);
+t_type([#xmlElement{name = map_field, content = Es}]) ->
+    t_map_field(Es).
 
 t_var(E) ->
     [get_attrval(name, E)].
@@ -1062,6 +1066,12 @@ t_record([E|Es]) ->
     ["#", get_attrval(value, E), "{"++ seq(fun t_field/1, Es) ++"}"].
 t_field(#xmlElement{name=field, content=[Atom,Type]}) ->
     [get_attrval(value, Atom), "="] ++ t_utype_elem(Type).
+
+t_map(Es) ->
+    ["#{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
+
+t_map_field([K,V]) ->
+    [t_utype_elem(K) ++ " => " ++ t_utype_elem(V)].
 
 t_abstype(Es) ->
     case split_at_colon(t_name(get_elem(erlangName, Es)),[]) of
