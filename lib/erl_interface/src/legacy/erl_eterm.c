@@ -48,6 +48,7 @@
 
 static void iolist_to_buf(const ETERM* term, char** bufp);
 static char* strsave(const char *src);
+static char* strnsave(const char *src, int size);
 
 /***************************************************************************
  *
@@ -149,20 +150,25 @@ ETERM *erl_mk_float (double d)
  */
 ETERM *erl_mk_atom (const char *s)
 {
-  ETERM *ep;
+    return erl_mk_eatom(s, strlen(s));
+}
 
-  /* ASSERT(s != NULL); */
-  if (!s) return NULL;
+ETERM *erl_mk_eatom(const char *s, int size)
+{
+    ETERM *ep;
 
-  ep = erl_alloc_eterm(ERL_ATOM);
-  ERL_COUNT(ep) = 1;
-  if (erl_atom_init_latin1(&ep->uval.aval.d, s) == NULL) {
-      erl_free_term(ep);
-      erl_errno = ENOMEM;
-      return NULL;
-  }
-  return ep;
-} 
+    /* ASSERT(s != NULL); */
+    if (!s) return NULL;
+
+    ep = erl_alloc_eterm(ERL_ATOM);
+    ERL_COUNT(ep) = 1;
+    if (erl_eatom_init_latin1(&ep->uval.aval.d, s, size) == NULL) {
+        erl_free_term(ep);
+        erl_errno = ENOMEM;
+        return NULL;
+    }
+    return ep;
+}
 
 char* erl_atom_ptr_latin1(Erl_Atom_data* a)
 {
@@ -218,16 +224,19 @@ int erl_atom_size_utf8(Erl_Atom_data* a)
 }
 char* erl_atom_init_latin1(Erl_Atom_data* a, const char* s)
 {
-    a->lenL = strlen(s);
-    if ((a->latin1 = strsave(s)) == NULL)
-    {
-	return NULL;
+    return erl_eatom_init_latin1(a, s, strlen(s));
+}
+
+char* erl_eatom_init_latin1(Erl_Atom_data* a, const char* s, int size)
+{
+    a->lenL = size;
+    if ((a->latin1 = strnsave(s, size)) == NULL) {
+        return NULL;
     }
     a->utf8 = NULL;
     a->lenU = 0;
     return a->latin1;
 }
-
 
 /*
  * Given a string as input, creates a list.
@@ -997,7 +1006,8 @@ int erl_print_term(FILE *fp, const ETERM *ep)
 	    putc('\'', fp);
 	    ch_written++; 
 	}
-	fputs(adata, fp);
+	/* Tail-f: Do not assume a null terminated string */
+	fprintf(fp, "%.*s",ERL_ATOM_SIZE(ep),adata);
 	ch_written += ERL_ATOM_SIZE(ep);	
 	if (doquote) {
 	    putc('\'', fp);
@@ -1402,6 +1412,15 @@ static char* strsave(const char *src)
 
     if (dest != NULL)
 	strcpy(dest, src);
+    return dest;
+}
+
+static char* strnsave(const char *src, int size)
+{
+    char * dest = malloc(size);
+
+    if (dest != NULL)
+	strncpy(dest, src, size);
     return dest;
 }
 

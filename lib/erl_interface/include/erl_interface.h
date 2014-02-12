@@ -198,6 +198,7 @@ char* erl_atom_ptr_utf8(Erl_Atom_data*) EI_DEPRECATED_ATTR;
 int erl_atom_size_latin1(Erl_Atom_data*) EI_DEPRECATED_ATTR;
 int erl_atom_size_utf8(Erl_Atom_data*) EI_DEPRECATED_ATTR;
 char* erl_atom_init_latin1(Erl_Atom_data*, const char*) EI_DEPRECATED_ATTR;
+char* erl_eatom_init_latin1(Erl_Atom_data*, const char*, int) EI_DEPRECATED_ATTR;
 
 typedef struct {
   Erl_Header h;
@@ -381,6 +382,7 @@ char*  erl_iolist_to_string(const ETERM* term) EI_DEPRECATED_ATTR;
 int    erl_iolist_length(const ETERM*) EI_DEPRECATED_ATTR;
 int    erl_length(const ETERM*) EI_DEPRECATED_ATTR;
 ETERM *erl_mk_atom(const char*) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_eatom(const char*, int) EI_DEPRECATED_ATTR;
 ETERM *erl_mk_binary(const char*,int) EI_DEPRECATED_ATTR;
 ETERM *erl_mk_empty_list(void) EI_DEPRECATED_ATTR;
 ETERM *erl_mk_estring(const char*, int) EI_DEPRECATED_ATTR;
