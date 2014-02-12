@@ -479,6 +479,15 @@ lexpr({record_field, _, Rec, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('.'),
     El = [lexpr(Rec, L, Opts),$.,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
+lexpr({map, _, Fs}, Prec, Opts) ->
+    {P,_R} = preop_prec('#'),
+    El = {first,leaf("#"),map_fields(Fs, Opts)},
+    maybe_paren(P, Prec, El);
+lexpr({map, _, Map, Fs}, Prec, Opts) ->
+    {L,P,_R} = inop_prec('#'),
+    Rl = lexpr(Map, L, Opts),
+    El = {first,[Rl,leaf("#")],map_fields(Fs, Opts)},
+    maybe_paren(P, Prec, El);
 lexpr({block,_,Es}, _, Opts) ->
     {list,[{step,'begin',body(Es, Opts)},'end']};
 lexpr({'if',_,Cs}, _, Opts) ->
@@ -670,6 +679,16 @@ record_field({typed_record_field,Field,Type}, Opts) ->
     typed(record_field(Field, Opts), Type);
 record_field({record_field,_,F}, Opts) ->
     lexpr(F, 0, Opts).
+
+map_fields(Fs, Opts) ->
+    tuple(Fs, fun map_field/2, Opts).
+
+map_field({map_field_assoc,_,K,V}, Opts) ->
+    Pl = lexpr(K, 0, Opts),
+    {list,[{step,[Pl,leaf(" =>")],lexpr(V, 0, Opts)}]};
+map_field({map_field_exact,_,K,V}, Opts) ->
+    Pl = lexpr(K, 0, Opts),
+    {list,[{step,[Pl,leaf(" :=")],lexpr(V, 0, Opts)}]}.
 
 list({cons,_,H,T}, Es, Opts) ->
     list(T, [H|Es], Opts);
