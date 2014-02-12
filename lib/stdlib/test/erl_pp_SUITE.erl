@@ -46,6 +46,7 @@
 	  import_export/1, misc_attrs/1, dialyzer_attrs/1,
 	  hook/1,
 	  neg_indent/1,
+	  maps_syntax/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -76,7 +77,8 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, old_mnemosyne_syntax]},
+       messages, old_mnemosyne_syntax, maps_syntax
+    ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
@@ -974,6 +976,25 @@ count_atom(L, A) when is_list(L) ->
     lists:sum([count_atom(T, A) || T <- L]);
 count_atom(_, _) ->
     0.
+
+maps_syntax(doc) -> "Maps syntax";
+maps_syntax(suite) -> [];
+maps_syntax(Config) when is_list(Config) ->
+    Ts = [{map_fun_1,
+            <<"t() ->\n"
+              "    M0 = #{ 1 => hi, hi => 42, 1.0 => {hi,world}},\n"
+              "    M1 = M0#{ 1 := hello, new_val => 1337 },\n"
+              "    map_fun_2:val(M1).\n">>},
+          {map_fun_2,
+            <<"val(#{ 1 := V1, hi := V2, new_val := V3}) -> {V1,V2,V3}.\n">>}],
+    compile(Config, Ts),
+
+    ok = pp_expr(<<"#{}">>),
+    ok = pp_expr(<<"#{ a => 1, <<\"hi\">> => \"world\", 33 => 1.0 }">>),
+    ok = pp_expr(<<"#{ a := V1, <<\"hi\">> := V2 } = M">>),
+    ok = pp_expr(<<"M#{ a => V1, <<\"hi\">> := V2 }">>),
+    ok.
+
 
 otp_8567(doc) ->
     "OTP_8567. Avoid duplicated 'undefined' in record field types.";
