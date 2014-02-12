@@ -241,23 +241,15 @@ expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, {undef_record,Name}, stacktrace());
 
 %% map
-expr({map_field_assoc,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
-    {value,K,Bs1} = expr(EK, Bs0, Lf, Ef, none),
-    {value,V,Bs2} = expr(EV, Bs0, Lf, Ef, none),
-    ret_expr({map_assoc,K,V}, merge_bindings(Bs1,Bs2), RBs);
-expr({map_field_exact,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
-    {value,K,Bs1} = expr(EK, Bs0, Lf, Ef, none),
-    {value,V,Bs2} = expr(EV, Bs0, Lf, Ef, none),
-    ret_expr({map_exact,K,V}, merge_bindings(Bs1,Bs2), RBs);
 expr({map,_, Binding,Es}, Bs0, Lf, Ef, RBs) ->
     {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, RBs),
-    {Vs,Bs} = expr_list(Es, Bs1, Lf, Ef),
+    {Vs,Bs} = eval_map_fields(Es, Bs1, Lf, Ef),
     ret_expr(lists:foldl(fun
 		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
 		({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
 	end, Map0, Vs), Bs, RBs);
 expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
-    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
+    {Vs,Bs} = eval_map_fields(Es, Bs0, Lf, Ef),
     ret_expr(lists:foldl(fun
 		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi)
 	    end, maps:new(), Vs), Bs, RBs);
@@ -748,6 +740,24 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, Acc) ->
                     erlang:raise(error, {bad_filter,V}, stacktrace())
 	    end
     end.
+
+%% eval_map_fields([Field], Bindings, LocalFunctionHandler,
+%%                 ExternalFuncHandler) ->
+%%  {[{map_assoc | map_exact,Key,Value}],Bindings}
+
+eval_map_fields(Fs, Bs, Lf, Ef) ->
+    eval_map_fields(Fs, Bs, Lf, Ef, []).
+
+eval_map_fields([{map_field_assoc,_,K0,V0}|Fs], Bs0, Lf, Ef, Acc) ->
+    {value,K1,Bs1} = expr(K0, Bs0, Lf, Ef, none),
+    {value,V1,Bs2} = expr(V0, Bs1, Lf, Ef, none),
+    eval_map_fields(Fs, Bs2, Lf, Ef, [{map_assoc,K1,V1}|Acc]);
+eval_map_fields([{map_field_exact,_,K0,V0}|Fs], Bs0, Lf, Ef, Acc) ->
+    {value,K1,Bs1} = expr(K0, Bs0, Lf, Ef, none),
+    {value,V1,Bs2} = expr(V0, Bs1, Lf, Ef, none),
+    eval_map_fields(Fs, Bs2, Lf, Ef, [{map_exact,K1,V1}|Acc]);
+eval_map_fields([], Bs, _Lf, _Ef, Acc) ->
+    {lists:reverse(Acc),Bs}.
 
 
 %% RBs is the bindings to return when the evalution of a function
