@@ -506,6 +506,9 @@ static GenOp* gen_select_literals(LoaderState* stp, GenOpArg S,
 static GenOp* const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
 
+static GenOp* gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+                                  GenOpArg Size, GenOpArg* Rest);
+
 static int freeze_code(LoaderState* stp);
 
 static void final_touch(LoaderState* stp);
@@ -3951,6 +3954,49 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
     return op;
 }
 
+/*
+ * Replace a get_map_elements with one key to an instruction with one
+ * element
+ */
+
+static GenOp*
+gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		    GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+
+    ASSERT(Size.type == TAG_u);
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    op->op = genop_get_map_element_4;
+    op->arity = 4;
+
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2] = Rest[0];
+    op->a[3] = Rest[1];
+    return op;
+}
+
+static GenOp*
+gen_has_map_field(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		    GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+
+    ASSERT(Size.type == TAG_u);
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    op->op = genop_has_map_field_3;
+    op->arity = 4;
+
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2] = Rest[0];
+    return op;
+}
 
 /*
  * Freeze the code in memory, move the string table into place,
