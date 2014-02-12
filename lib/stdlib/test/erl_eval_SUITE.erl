@@ -42,7 +42,8 @@
 	 try_catch/1,
 	 eval_expr_5/1,
 	 zero_width/1,
-         eep37/1]).
+         eep37/1,
+         eep43/1]).
 
 %%
 %% Define to run outside of test server
@@ -82,7 +83,7 @@ all() ->
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width,
-     eep37].
+     eep37, eep43].
 
 groups() -> 
     [].
@@ -1422,6 +1423,20 @@ eep37(Config) when is_list(Config) ->
           end,
           "(fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end)(6).",
           720),
+    ok.
+
+eep43(Config) when is_list(Config) ->
+    check(fun () -> #{} end, " #{}.", #{}),
+    check(fun () -> #{a => b} end, "#{a => b}.", #{a => b}),
+    check(fun () ->
+                  Map = #{a => b},
+                  {Map#{a := b},Map#{a => c},Map#{d => e}}
+          end,
+          "begin "
+          "    Map = #{a => B=b}, "
+          "    {Map#{a := B},Map#{a => c},Map#{d => e}} "
+          "end.",
+          {#{a => b},#{a => c},#{a => b,d => e}}),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
