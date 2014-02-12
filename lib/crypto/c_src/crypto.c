@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -444,6 +444,15 @@ static ERL_NIF_TERM atom_ppbasis;
 static ERL_NIF_TERM atom_onbasis;
 #endif
 
+static ErlNifResourceType* hmac_context_rtype;
+struct hmac_context
+{
+    ErlNifMutex* mtx;
+    int alive;
+    HMAC_CTX ctx;
+};
+static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
+
 /*
 #define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
 #define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
@@ -495,6 +504,15 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
+	return 0;
+    }
+
+    hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
+						 (ErlNifResourceDtor*) hmac_context_dtor,
+						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+						 NULL);
+    if (!hmac_context_rtype) {
+	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
 	return 0;
     }
 
@@ -1280,11 +1298,19 @@ static ERL_NIF_TERM sha512_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 #endif
 }
 
+static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
+{
+    if (obj->alive) {
+	HMAC_CTX_cleanup(&obj->ctx);
+	obj->alive = 0;
+    }
+    enif_mutex_destroy(obj->mtx);
+}
+
 static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key) */
     ErlNifBinary key;
-    ERL_NIF_TERM ret;
-    unsigned char * ctx_buf;
+    struct hmac_context* obj;
     const EVP_MD *md;
     
     if (argv[0] == atom_sha) md = EVP_sha1();
@@ -1309,57 +1335,60 @@ static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 	return enif_make_badarg(env);
     }
 
-    ctx_buf = enif_make_new_binary(env, sizeof(HMAC_CTX), &ret);
-    HMAC_CTX_init((HMAC_CTX *) ctx_buf);
-    HMAC_Init((HMAC_CTX *) ctx_buf, key.data, key.size, md);
+    obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context));
+    obj->mtx = enif_mutex_create("crypto.hmac");
+    obj->alive = 1;
+    HMAC_CTX_init(&obj->ctx);
+    HMAC_Init(&obj->ctx, key.data, key.size, md);
 
-    return ret;
+    return enif_make_resource(env, obj);
 }
 
 static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    ErlNifBinary context, data;
-    ERL_NIF_TERM ret;
-    unsigned char * ctx_buf;
+    ErlNifBinary data;
+    struct hmac_context* obj;
     
-    if (!enif_inspect_binary(env, argv[0], &context)
-        || !enif_inspect_iolist_as_binary(env, argv[1], &data)
-        || context.size != sizeof(HMAC_CTX)) {
+    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
 	return enif_make_badarg(env);
     }
+    enif_mutex_lock(obj->mtx);
+    if (!obj->alive) {
+	enif_mutex_unlock(obj->mtx);
+	return enif_make_badarg(env);
+    }
+    HMAC_Update(&obj->ctx, data.data, data.size);
+    enif_mutex_unlock(obj->mtx);
 
-    ctx_buf = enif_make_new_binary(env, sizeof(HMAC_CTX), &ret);
-    memcpy(ctx_buf, context.data, context.size);
-    HMAC_Update((HMAC_CTX *)ctx_buf, data.data, data.size);
     CONSUME_REDS(env,data);
-
-    return ret;
+    return argv[0];
 }
 
 static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) or (Context, HashLen) */
-    ErlNifBinary context;
     ERL_NIF_TERM ret;
-    HMAC_CTX ctx;
+    struct hmac_context* obj;
     unsigned char mac_buf[EVP_MAX_MD_SIZE];
     unsigned char * mac_bin;
     unsigned int req_len = 0;
     unsigned int mac_len;
     
-    if (!enif_inspect_binary(env, argv[0], &context)) {
-	return enif_make_badarg(env);
-    }
-    if (argc == 2 && !enif_get_uint(env, argv[1], &req_len)) {
+    if (!enif_get_resource(env,argv[0],hmac_context_rtype, (void**)&obj)
+	|| (argc == 2 && !enif_get_uint(env, argv[1], &req_len))) {
 	return enif_make_badarg(env);
     }
 
-    if (context.size != sizeof(ctx)) {
-        return enif_make_badarg(env);
+    enif_mutex_lock(obj->mtx);
+    if (!obj->alive) {
+	enif_mutex_unlock(obj->mtx);
+	return enif_make_badarg(env);
     }
-    memcpy(&ctx, context.data, context.size);
     
-    HMAC_Final(&ctx, mac_buf, &mac_len);
-    HMAC_CTX_cleanup(&ctx);
+    HMAC_Final(&obj->ctx, mac_buf, &mac_len);
+    HMAC_CTX_cleanup(&obj->ctx);
+    obj->alive = 0;
+    enif_mutex_unlock(obj->mtx);
 
     if (argc == 2 && req_len < mac_len) { 
         /* Only truncate to req_len bytes if asked. */

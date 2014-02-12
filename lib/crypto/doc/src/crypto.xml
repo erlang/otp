@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -366,7 +366,11 @@
 	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
 	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
 	</p>
-
+	<warning><p>Do not use a <c>Context</c> as argument in more than one
+	call to	hmac_update or hmac_final. The semantics of reusing old contexts
+	in any way is undefined and could even crash the VM in earlier releases.
+	The reason for this limitation is a lack of support in the underlying
+	OpenSSL	API.</p></warning>
       </desc>
     </func>
 
