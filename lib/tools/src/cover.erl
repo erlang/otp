@@ -246,7 +246,7 @@ compile_modules([File|Files], Options, Result) ->
     R = call({compile, File, Options}),
     compile_modules(Files,Options,[R|Result]);
 compile_modules([],_Opts,Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 filter_options(Options) ->
     lists:filter(fun(Option) ->
@@ -318,7 +318,7 @@ compile_beams([File|Files],Result) ->
     R = compile_beam(File),
     compile_beams(Files,[R|Result]);
 compile_beams([],Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 
 %% analyse(Module) ->
@@ -1231,12 +1231,12 @@ add_imported(M, F1, ImportFile, [{M,_F2,ImportFiles}|Imported], Acc) ->
 	    dont_import;
 	false ->
 	    NewEntry = {M, F1, [ImportFile | ImportFiles]},
-	    {ok, reverse([NewEntry | Acc]) ++ Imported}
+	    {ok, lists:reverse([NewEntry | Acc]) ++ Imported}
     end;
 add_imported(M, F, ImportFile, [H|Imported], Acc) ->
     add_imported(M, F, ImportFile, Imported, [H|Acc]);
 add_imported(M, F, ImportFile, [], Acc) ->
-    {ok, reverse([{M, F, [ImportFile]} | Acc])}.
+    {ok, lists:reverse([{M, F, [ImportFile]} | Acc])}.
     
 %% Removes a module from the list of imported modules and writes a warning
 %% This is done when a module is compiled.
@@ -1374,7 +1374,7 @@ do_compile_beam(Module,Beam,UserOptions) ->
 		{module, Module} ->
 		    
 		    %% Store info about all function clauses in database
-		    InitInfo = reverse(Vars#vars.init_info),
+		    InitInfo = lists:reverse(Vars#vars.init_info),
 		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
 		    
 		    %% Store binary code so it can be loaded on remote nodes
@@ -1445,7 +1445,7 @@ transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
 	    transform_2(Forms,[MungedForm|MungedForms],Vars2,MainFile,NewSwitch)
     end;
 transform_2([],MungedForms,Vars,_,_) ->
-    {ok, reverse(MungedForms), Vars}.
+    {ok, lists:reverse(MungedForms), Vars}.
 
 %% Expand short-circuit Boolean expressions.
 expand(Expr) ->
@@ -1572,7 +1572,7 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
 			   MClauses])
     end;
 munge_clauses([], Vars, Lines, MungedClauses) -> 
-    {reverse(MungedClauses), Vars#vars{lines = Lines}}.
+    {lists:reverse(MungedClauses), Vars#vars{lines = Lines}}.
 
 munge_body(Expr, Vars) ->
     munge_body(Expr, Vars, [], []).
@@ -1616,7 +1616,7 @@ munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
 	    munge_body(Body, Vars3, MungedExprs1, NewBumps)
     end;
 munge_body([], Vars, MungedBody, _LastExprBumpLines) ->
-    {reverse(MungedBody), Vars}.
+    {lists:reverse(MungedBody), Vars}.
 
 %%% Fix last expression (OTP-8188). A typical example:
 %%%
@@ -1849,7 +1849,7 @@ munge_exprs([Expr|Exprs], Vars, MungedExprs) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_exprs(Exprs, Vars2, [MungedExpr|MungedExprs]);
 munge_exprs([], Vars, MungedExprs) ->
-    {reverse(MungedExprs), Vars}.
+    {lists:reverse(MungedExprs), Vars}.
 
 %% Every qualifier is decorated with a counter.
 munge_qualifiers(Qualifiers, Vars) ->
@@ -1868,7 +1868,7 @@ munge_qs([Expr|Qs], Vars, MQs) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_qs1(Qs, L, MungedExpr, Vars, Vars2, MQs);
 munge_qs([], Vars, MQs) ->
-    {reverse(MQs), Vars}.
+    {lists:reverse(MQs), Vars}.
 
 munge_qs1(Qs, Line, NQ, Vars, Vars2, MQs) ->
     case new_bumps(Vars2, Vars) of
@@ -2061,7 +2061,7 @@ merge_clauses([{{M,F,A,_C1},R1},{{M,F,A,C2},R2}|Clauses], MFun, Result) ->
 merge_clauses([{{M,F,A,_C},R}|Clauses], MFun, Result) ->
     merge_clauses(Clauses, MFun, [{{M,F,A},R}|Result]);
 merge_clauses([], _Fun, Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 merge_functions([{_MFA,R}|Functions], MFun) ->
     merge_functions(Functions, MFun, R);
@@ -2381,14 +2381,6 @@ not_loaded(_Module,_Else, State) ->
 
 
 %%%--Div-----------------------------------------------------------------
-
-reverse(List) ->
-    reverse(List,[]).
-reverse([H|T],Acc) ->
-    reverse(T,[H|Acc]);
-reverse([],Acc) ->
-    Acc.
-
 
 escape_lt_and_gt(Rawline,HTML) when HTML =/= true ->
     Rawline;
