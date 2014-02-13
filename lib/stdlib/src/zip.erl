@@ -205,6 +205,17 @@
 
 -type zip_file() :: #zip_file{}.
 -type zip_comment() :: #zip_comment{}.
+-type filename() :: file:name().
+
+-type create_option() :: memory | cooked | verbose | {comment, string()}
+                       | {cwd, dirname()}
+                       | {compress, extension_spec()}
+                       | {uncompress, extension_spec()}.
+-type dirname() :: filename().
+-type extension_spec() :: all | [extension()] | {add, [extension()]} | {del, [extension()]}.
+-type extension() :: string().
+
+-export_type([filename/0, create_option/0]).
 
 %% Open a zip archive with options
 %%
@@ -712,8 +723,8 @@ table(F, O) -> list_dir(F, O).
       FileList :: [FileSpec],
       FileSpec :: file:name() | {file:name(), binary()}
                 | {file:name(), binary(), file:file_info()},
-      RetValue :: {ok, FileName :: file:name()}
-                | {ok, {FileName :: file:name(), binary()}}
+      RetValue :: {ok, FileName :: filename()}
+                | {ok, {FileName :: filename(), binary()}}
                 | {error, Reason :: term()}).
 
 create(F, Fs) -> zip(F, Fs).
@@ -724,14 +735,9 @@ create(F, Fs) -> zip(F, Fs).
       FileSpec :: file:name() | {file:name(), binary()}
                 | {file:name(), binary(), file:file_info()},
       Options  :: [Option],
-      Option   :: memory | cooked | verbose | {comment, Comment}
-                | {cwd, CWD} | {compress, What} | {uncompress, What},
-      What     :: all | [Extension] | {add, [Extension]} | {del, [Extension]},
-      Extension :: string(),
-      Comment  :: string(),
-      CWD      :: string(),
-      RetValue :: {ok, FileName :: file:name()}
-                | {ok, {FileName :: file:name(), binary()}}
+      Option   :: create_option(),
+      RetValue :: {ok, FileName :: filename()}
+                | {ok, {FileName :: filename(), binary()}}
                 | {error, Reason :: term()}).
 create(F, Fs, O) -> zip(F, Fs, O).
 

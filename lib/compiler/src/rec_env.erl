@@ -72,6 +72,7 @@ test_1({custom, F} = Type, N, Env) when is_integer(N), N > 0 ->
 test_1(_,0, Env) ->
     Env.
 -endif.
+%%@clear
 
 
 %% Representation:
