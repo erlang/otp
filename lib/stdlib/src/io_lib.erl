@@ -435,6 +435,22 @@ write_map_body(I, D, D0, E) ->
 write_map_assoc(K, V, D, E) ->
     [write1(K, D, E)," => ",write1(V, D, E)].
 
+write_binary(B, D) when is_integer(D), size(B) =:= byte_size(B) ->
+    Sz = size(B),
+    {List, Dots} =
+        if
+            D > 0, Sz > D ->
+                {binary_to_list(B, 1, D), "..."};
+            true ->
+                {binary_to_list(B), ""}
+        end,
+    case printable_list(List) of
+        true ->
+            [$<,$<,$\",List,Dots,$\",$>,$>];
+        false ->
+            {S, _} = write_binary(B, D, -1),
+            S
+    end;
 write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
     S.
