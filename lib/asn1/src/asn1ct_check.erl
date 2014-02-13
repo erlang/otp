@@ -2642,16 +2642,19 @@ normalize_objectdescriptor(Value) ->
 normalize_real(Value) ->
     Value.
 
-normalize_enumerated(S, Id, {Base,Ext}) ->
+normalize_enumerated(S, Id0, NNL) ->
+    {Id,_} = lookup_enum_value(S, Id0, NNL),
+    Id.
+
+lookup_enum_value(S, Id, {Base,Ext}) ->
     %% Extensible ENUMERATED.
-    normalize_enumerated(S, Id, Base++Ext);
-normalize_enumerated(S, #'Externalvaluereference'{value=Id},
-		    NamedNumberList) ->
-    normalize_enumerated(S, Id, NamedNumberList);
-normalize_enumerated(S, Id, NamedNumberList) when is_atom(Id) ->
-    case lists:keymember(Id, 1, NamedNumberList) of
-	true ->
-	    Id;
+    lookup_enum_value(S, Id, Base++Ext);
+lookup_enum_value(S, #'Externalvaluereference'{value=Id}, NNL) ->
+    lookup_enum_value(S, Id, NNL);
+lookup_enum_value(S, Id, NNL) when is_atom(Id) ->
+    case lists:keyfind(Id, 1, NNL) of
+	{_,_}=Ret ->
+	    Ret;
 	false ->
 	    throw(asn1_error(S, S#state.value, {undefined,Id}))
     end.
@@ -3786,8 +3789,9 @@ resolv_value(S,Val) ->
     resolv_value1(S,Id).
 
 resolv_value1(S, ERef = #'Externalvaluereference'{value=Name}) ->
-    case catch resolve_namednumber(S,S#state.type,Name) of
-	V when is_integer(V) -> V;
+    case catch resolve_namednumber(S, S#state.type, Name) of
+	V when is_integer(V) ->
+	    V;
 	_ ->
 	    case get_referenced_type(S,ERef) of
 		{Err,_Reason} when Err == error; Err == 'EXIT' ->
@@ -3840,21 +3844,20 @@ resolve_value_from_object(S,Object,FieldName) ->
     end.
 
 
-
 resolve_namednumber(S,#typedef{typespec=Type},Name) ->
     case Type#type.def of
 	{'ENUMERATED',NameList} ->
-	    NamedNumberList=check_enumerated(S,NameList,Type#type.constraint),
-	    N = normalize_enumerated(S,Name,NamedNumberList),
-	    {value,{_,V}} = lists:keysearch(N,1,NamedNumberList),
-	    V;
+	    resolve_namednumber_1(S, Name, NameList, Type);
 	{'INTEGER',NameList} ->
-	    NamedNumberList = check_enumerated(S,NameList,Type#type.constraint),
-	    {value,{_,V}} = lists:keysearch(Name,1,NamedNumberList),
-	    V;
+	    resolve_namednumber_1(S, Name, NameList, Type);
 	_ ->
 	    not_enumerated
     end.
+
+resolve_namednumber_1(S, Name, NameList, Type) ->
+    NamedNumberList = check_enumerated(S, NameList, Type#type.constraint),
+    {_,N} = lookup_enum_value(S, Name, NamedNumberList),
+    N.
     
 check_constraints(S,[{'ContainedSubtype',Type} | Rest], Acc) ->
     {RefMod,CTDef} = get_referenced_type(S,Type#type.def),
