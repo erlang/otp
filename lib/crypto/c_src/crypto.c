@@ -254,6 +254,8 @@ static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 
 /* helpers */
 static void init_algorithms_types(ErlNifEnv*);
@@ -381,7 +383,9 @@ static ErlNifFunc nif_funcs[] = {
     {"ec_key_generate", 1, ec_key_generate},
     {"ecdsa_sign_nif", 4, ecdsa_sign_nif},
     {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
-    {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif}
+    {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
+
+    {"rand_seed_nif", 1, rand_seed_nif}
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
@@ -3372,6 +3376,15 @@ out_err:
 #else
     return atom_notsup;
 #endif
+}
+
+static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary seed_bin;
+    if (!enif_inspect_binary(env, argv[0], &seed_bin))
+        return enif_make_badarg(env);
+    RAND_seed(seed_bin.data,seed_bin.size);
+    return atom_ok;
 }
 
 

@@ -552,6 +552,21 @@
       </desc>
     </func>
 
+    <func>
+      <name>rand_seed(Seed) -> ok</name>
+      <fsummary>Set the seed for random bytes generation</fsummary>
+      <type>
+        <v>Seed = binary()</v>
+      </type>
+      <desc>
+        <p>Set the seed for PRNG to the given binary. This calls the
+	RAND_seed function from openssl. Only use this if the system
+	you are running on does not have enough "randomness" built in.
+	Normally this is when <seealso marker="#strong_rand_bytes/1">
+	stong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
+      </desc>
+    </func>
+
      <func>
       <name>rand_uniform(Lo, Hi) -> N</name>
       <fsummary>Generate a random number</fsummary>
