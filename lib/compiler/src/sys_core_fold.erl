@@ -353,7 +353,12 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
 	    Case = Case1#c_case{arg=Arg2,clauses=Cs2},
 	    warn_no_clause_match(Case1, Case),
 	    Expr = eval_case(Case, Sub),
-	    bsm_an(Expr);
+            case move_case_into_arg(Case, Sub) of
+                impossible ->
+                    bsm_an(Expr);
+                Other ->
+                    expr(Other, Ctxt, sub_new_preserve_types(Sub))
+            end;
 	Other ->
 	    expr(Other, Ctxt, Sub)
     end;
@@ -2605,6 +2610,77 @@ opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
 	      opt_case_in_let(Let#c_let{vars=Vs,arg=Arg,body=Body}),
 	      value, Sub)
     end.
+
+move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
+                                      body=InnerArg0}=Outer,
+                           clauses=InnerClauses}=Inner, Sub) ->
+    %%
+    %% case let <OuterVars> = <OuterArg> in <InnerArg> of
+    %%     <InnerClauses>
+    %% end
+    %%
+    %%       ==>
+    %%
+    %% let <OuterVars> = <OuterArg>
+    %% in case <InnerArg> of <InnerClauses> end
+    %%
+    ScopeSub0 = sub_subst_scope(Sub#sub{t=[]}),
+    {OuterVars,ScopeSub} = pattern_list(OuterVars0, ScopeSub0),
+    InnerArg = body(InnerArg0, ScopeSub),
+    Outer#c_let{vars=OuterVars,arg=OuterArg,
+                body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
+move_case_into_arg(#c_case{arg=#c_case{arg=OuterArg,
+                                       clauses=[OuterCa0,OuterCb]}=Outer,
+                           clauses=InnerClauses}=Inner0, Sub) ->
+    case is_failing_clause(OuterCb) of
+        true ->
+            #c_clause{pats=OuterPats0,guard=OuterGuard0,
+                      body=InnerArg0} = OuterCa0,
+            %%
+            %% case case <OuterArg> of
+            %%          <OuterPats> when <OuterGuard> -> <InnerArg>
+            %%          <OuterCb>
+            %%          ...
+            %%      end of
+            %%     <InnerClauses>
+            %% end
+            %%
+            %%       ==>
+            %%
+            %% case <OuterArg> of
+            %%     <OuterPats> when <OuterGuard> ->
+            %%         case <InnerArg> of <InnerClauses> end
+            %%     <OuterCb>
+            %% end
+            %%
+            ScopeSub0 = sub_subst_scope(Sub#sub{t=[]}),
+            {OuterPats,ScopeSub} = pattern_list(OuterPats0, ScopeSub0),
+            OuterGuard = guard(OuterGuard0, ScopeSub),
+            InnerArg = body(InnerArg0, ScopeSub),
+            Inner = Inner0#c_case{arg=InnerArg,clauses=InnerClauses},
+            OuterCa = OuterCa0#c_clause{pats=OuterPats,guard=OuterGuard,
+                                        body=Inner},
+            Outer#c_case{arg=OuterArg,
+                         clauses=[OuterCa,OuterCb]};
+        false ->
+            impossible
+    end;
+move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
+                           clauses=InnerClauses}=Inner, _Sub) ->
+    %%
+    %% case do <OuterArg> <InnerArg> of
+    %%     <InnerClauses>
+    %% end
+    %%
+    %%       ==>
+    %%
+    %% do <OuterArg>
+    %%    case <InnerArg> of <InerClauses> end
+    %%
+    Outer#c_seq{arg=OuterArg,
+                body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
+move_case_into_arg(_, _) ->
+    impossible.
 
 %% In guards only, rewrite a case in a let argument like
 %%
