@@ -104,7 +104,21 @@ groups() ->
 init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
-	    Config
+	    try crypto:strong_rand_bytes(1) of
+		_ ->
+		    Config
+	    catch error:low_entropy ->
+		    %% Make sure we are on OSE, otherwise we want to crash
+		    {ose,_} = os:type(),
+
+		    %% This is NOT how you want to seed this, it is just here
+		    %% to make the tests pass. Check your OS manual for how you
+		    %% really want to seed.
+		    {H,M,L} = erlang:now(),
+		    Bin = <<H:24,M:20,L:20>>,
+		    crypto:rand_seed(<< <<Bin/binary>> || _ <- lists:seq(1,16) >>),
+		    Config
+	    end
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
