@@ -424,8 +424,9 @@ decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
     #ssh_msg_kex_dh_gex_request_old{
        n = N
       };
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  ?UINT32(Len0), Prime:Len0/big-signed-integer,
-	 ?UINT32(Len1), Generator:Len1/big-signed-integer>>) ->
+decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
+	 ?UINT32(Len0), Prime:Len0/big-signed-integer-unit:8,
+	 ?UINT32(Len1), Generator:Len1/big-signed-integer-unit:8>>) ->
     #ssh_msg_kex_dh_gex_group{
        p = Prime,
        g = Generator
