@@ -29,10 +29,12 @@
 	 hostatom/0, hostatom/1, hoststr/0, hoststr/1,
 	 framework_call/2,framework_call/3,framework_call/4,
 	 format_loc/1,
+	 util_start/0, util_stop/0, unique_name/0,
 	 call_trace/1]).
 -include("test_server_internal.hrl").
 -define(crash_dump_tar,"crash_dumps.tar.gz").
 -define(src_listing_ext, ".src.html").
+-record(util_state, {starter, latest_name}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timetrap(Timeout,Scale,Pid) -> Handle
@@ -581,6 +583,69 @@ downcase([C|Rest], Result) ->
     downcase(Rest, [C|Result]);
 downcase([], Result) ->
     lists:reverse(Result).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% util_start() -> ok
+%%
+%% Start local utility process
+util_start() ->
+    Starter = self(),
+    case whereis(?MODULE) of
+	undefined ->	
+	    spawn_link(fun() ->
+			       register(?MODULE, self()),
+			       util_loop(#util_state{starter=Starter})
+		       end);
+	_Pid ->
+	    ok
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% util_stop() -> ok
+%%
+%% Stop local utility process
+util_stop() ->
+    try (?MODULE ! {self(),stop}) of
+	_ ->
+	    receive {?MODULE,stopped} -> ok
+	    after 5000 -> exit(whereis(?MODULE), kill)
+	    end
+    catch
+	_:_ ->
+	    ok
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% unique_name() -> string()
+%%
+unique_name() ->
+    ?MODULE ! {self(),unique_name},
+    receive {?MODULE,Name} -> Name
+    after 5000 -> exit({?MODULE,no_util_process})
+    end.
+	    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% util_loop(State) -> ok
+%%
+util_loop(State) ->		       
+    receive
+	{From,unique_name} ->
+	    {_,S,Us} = now(),
+	    Ms = trunc(Us/1000),
+	    Name = lists:flatten(io_lib:format("~w.~w", [S,Ms])),
+	    if Name == State#util_state.latest_name ->
+		    timer:sleep(1),
+		    self() ! {From,unique_name},
+		    util_loop(State);
+	       true ->
+		    From ! {?MODULE,Name},
+		    util_loop(State#util_state{latest_name = Name})
+	    end;
+	{From,stop} ->
+	    catch unlink(State#util_state.starter),
+	    From ! {?MODULE,stopped},
+	    ok
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% call_trace(TraceSpecFile) -> ok
