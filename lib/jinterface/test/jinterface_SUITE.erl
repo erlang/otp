@@ -675,6 +675,17 @@ status_handler_connAttempt(Config) when is_list(Config) ->
 		   "NodeStatusHandler",
 		   [erlang:get_cookie(),node(),?status_handler_connAttempt]).
 
+%%%-----------------------------------------------------------------
+maps(doc) ->
+    ["Maps.java: "
+     "Tests OtpErlangMap encoding, decoding, toString, get"];
+maps(suite) ->
+    [];
+maps(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+           ?config(data_dir, Config),
+           "Maps",
+           []).
 
 %%%-----------------------------------------------------------------
 %%% INTERNAL FUNCTIONS

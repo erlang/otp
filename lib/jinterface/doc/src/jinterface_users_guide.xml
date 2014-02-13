@@ -112,6 +112,10 @@
         <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangTuple">OtpErlangTuple</seealso></cell>
       </row>
       <row>
+        <cell align="left" valign="middle">map</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangMap">OtpErlangMap</seealso></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">term</cell>
         <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangObject">OtpErlangObject</seealso></cell>
       </row>
