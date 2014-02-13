@@ -1505,8 +1505,50 @@ pattern({cons,L,H,T}, St) ->
 pattern({tuple,L,Ps}, St) ->
     ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
 pattern({map,L,Ps}, St) ->
-    #c_map{anno=lineno_anno(L, St), es=sort(pattern_list(Ps, St))};
-pattern({map_field_exact,L,K,V}, St) ->
+    #c_map{anno=lineno_anno(L, St), es=pattern_map_pairs(Ps, St)};
+pattern({bin,L,Ps}, St) ->
+    %% We don't create a #ibinary record here, since there is
+    %% no need to hold any used/new annotations in a pattern.
+    #c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)};
+pattern({match,_,P1,P2}, St) ->
+    pat_alias(pattern(P1, St), pattern(P2, St)).
+
+%% pattern_map_pairs([MapFieldExact],State) -> [#c_map_pairs{}]
+pattern_map_pairs(Ps, St) ->
+    %% check literal key uniqueness (dict is needed)
+    %% pattern all pairs
+    {CMapPairs, Kdb} = lists:mapfoldl(fun
+	    (P,Kdbi) ->
+		#c_map_pair{key=Ck,val=Cv} = CMapPair = pattern_map_pair(P,St),
+		K = core_lib:literal_value(Ck),
+		case dict:find(K,Kdbi) of
+		    {ok, Vs} ->
+			{CMapPair, dict:store(K,[Cv|Vs],Kdbi)};
+		    _ ->
+			{CMapPair, dict:store(K,[Cv],Kdbi)}
+		end
+	end, dict:new(), Ps),
+    pattern_alias_map_pairs(CMapPairs,Kdb,dict:new(),St).
+
+pattern_alias_map_pairs([],_,_,_) -> [];
+pattern_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Kset,St) ->
+    %% alias same keys if needed
+    K = core_lib:literal_value(Ck),
+    case dict:find(K,Kset) of
+	{ok,processed} ->
+	    pattern_alias_map_pairs(Pairs,Kdb,Kset,St);
+	_ ->
+	    Cvs = dict:fetch(K,Kdb),
+	    Cv = pattern_alias_map_pair_patterns(Cvs),
+	    Kset1 = dict:store(K, processed, Kset),
+	    [Pair#c_map_pair{val=Cv}|pattern_alias_map_pairs(Pairs,Kdb,Kset1,St)]
+    end.
+
+pattern_alias_map_pair_patterns([Cv]) -> Cv;
+pattern_alias_map_pair_patterns([Cv1,Cv2|Cvs]) ->
+    pattern_alias_map_pair_patterns([pat_alias(Cv1,Cv2)|Cvs]).
+
+pattern_map_pair({map_field_exact,L,K,V}, St) ->
     %% FIXME: Better way to construct literals? or missing case
     %% {Key,_,_} = expr(K, St),
     Key = case K of
@@ -1523,13 +1565,8 @@ pattern({map_field_exact,L,K,V}, St) ->
     #c_map_pair{anno=lineno_anno(L, St),
                 op=#c_literal{val=exact},
 		key=Key,
-		val=pattern(V, St)};
-pattern({bin,L,Ps}, St) ->
-    %% We don't create a #ibinary record here, since there is
-    %% no need to hold any used/new annotations in a pattern.
-    #c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)};
-pattern({match,_,P1,P2}, St) ->
-    pat_alias(pattern(P1, St), pattern(P2, St)).
+		val=pattern(V, St)}.
+
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
