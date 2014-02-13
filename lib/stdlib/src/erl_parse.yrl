@@ -25,9 +25,7 @@ form
 attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
-expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
-expr_600 expr_700 expr_800
-expr_max
+expr remote_expr expr_max
 list tail
 list_comprehension lc_expr lc_exprs
 binary_comprehension
@@ -47,7 +45,7 @@ opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
-bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
+bin_base_type bin_unit_type.
 
 Terminals
 char integer float atom string var
@@ -65,7 +63,7 @@ char integer float atom string var
 'spec' 'callback' % helper
 dot.
 
-Expect 2.
+Expect 3.
 
 Rootsymbol form.
 
@@ -121,24 +119,21 @@ top_types -> top_type ',' top_types       : ['$1'|'$3'].
 top_type -> var '::' top_type_100         : {ann_type, ?line('$1'), ['$1','$3']}.
 top_type -> top_type_100                  : '$1'.
 
-top_type_100 -> type_200                  : '$1'.
-top_type_100 -> type_200 '|' top_type_100 : lift_unions('$1','$3').
+top_type_100 -> type                      : '$1'.
+top_type_100 -> type     '|' top_type_100 : lift_unions('$1','$3').
 
-type_200 -> type_300 '..' type_300        : {type, ?line('$1'), range,
+Nonassoc 200 '..'.
+type -> type '..' type                    : {type, ?line('$1'), range,
                                              [skip_paren('$1'),
                                               skip_paren('$3')]}.
-type_200 -> type_300                      : '$1'.
 
-type_300 -> type_300 add_op type_400      : ?mkop2(skip_paren('$1'),
+type -> type add_op type                  : ?mkop2(skip_paren('$1'),
                                                    '$2', skip_paren('$3')).
-type_300 -> type_400                      : '$1'.
 
-type_400 -> type_400 mult_op type_500     : ?mkop2(skip_paren('$1'),
+type -> type mult_op type                 : ?mkop2(skip_paren('$1'),
                                                    '$2', skip_paren('$3')).
-type_400 -> type_500                      : '$1'.
 
-type_500 -> prefix_op type                : ?mkop1('$1', skip_paren('$2')).
-type_500 -> type                          : '$1'.
+type -> prefix_op type                    : ?mkop1('$1', skip_paren('$2')).
 
 type -> '(' top_type ')'                  : {paren_type, ?line('$2'), ['$2']}.
 type -> var                               : '$1'.
@@ -215,47 +210,31 @@ clause_guard -> '$empty' : [].
 
 clause_body -> '->' exprs: '$2'.
 
+Unary 22 'catch'.
+Left 100 '=' '!'.
+Left 150 'orelse'.
+Left 160 'andalso'.
+Left 200 comp_op.
+Left 300 list_op.
+Left 400 add_op.
+Left 500 mult_op.
+Unary 600 prefix_op.
 
-expr -> 'catch' expr : {'catch',?line('$1'),'$2'}.
-expr -> expr_100 : '$1'.
+expr ->   'catch' expr                     : {'catch',?line('$1'),'$2'}.
+expr ->           expr '='       expr      : {match,?line('$2'),'$1','$3'}.
+expr ->           expr '!'       expr    : ?mkop2('$1', '$2', '$3').
+expr ->           expr 'orelse'  expr    : ?mkop2('$1', '$2', '$3').
+expr ->           expr 'andalso' expr    : ?mkop2('$1', '$2', '$3').
+expr ->           expr comp_op   expr    : ?mkop2('$1', '$2', '$3').
+expr ->           expr list_op   expr    : ?mkop2('$1', '$2', '$3').
+expr ->           expr add_op    expr    : ?mkop2('$1', '$2', '$3').
+expr ->           expr mult_op   expr    : ?mkop2('$1', '$2', '$3').
+expr -> prefix_op expr                   : ?mkop1('$1', '$2').
 
-expr_100 -> expr_150 '=' expr_100 : {match,?line('$2'),'$1','$3'}.
-expr_100 -> expr_150 '!' expr_100 : ?mkop2('$1', '$2', '$3').
-expr_100 -> expr_150 : '$1'.
-
-expr_150 -> expr_160 'orelse' expr_150 : ?mkop2('$1', '$2', '$3').
-expr_150 -> expr_160 : '$1'.
-
-expr_160 -> expr_200 'andalso' expr_160 : ?mkop2('$1', '$2', '$3').
-expr_160 -> expr_200 : '$1'.
-
-expr_200 -> expr_300 comp_op expr_300 :
-	?mkop2('$1', '$2', '$3').
-expr_200 -> expr_300 : '$1'.
-
-expr_300 -> expr_400 list_op expr_300 :
-	?mkop2('$1', '$2', '$3').
-expr_300 -> expr_400 : '$1'.
-
-expr_400 -> expr_400 add_op expr_500 :
-	?mkop2('$1', '$2', '$3').
-expr_400 -> expr_500 : '$1'.
-
-expr_500 -> expr_500 mult_op expr_600 :
-	?mkop2('$1', '$2', '$3').
-expr_500 -> expr_600 : '$1'.
-
-expr_600 -> prefix_op expr_700 :
-	?mkop1('$1', '$2').
-expr_600 -> expr_700 : '$1'.
-
-expr_700 -> function_call : '$1'.
-expr_700 -> record_expr : '$1'.
-expr_700 -> expr_800 : '$1'.
-
-expr_800 -> expr_max ':' expr_max :
-	{remote,?line('$2'),'$1','$3'}.
-expr_800 -> expr_max : '$1'.
+expr -> function_call    : '$1'.
+expr -> record_expr      : '$1'.
+expr -> remote_expr      : '$1'.
+expr -> expr_max         : '$1'.
 
 expr_max -> var : '$1'.
 expr_max -> atomic : '$1'.
@@ -273,6 +252,11 @@ expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
 
+
+function_call -> remote_expr argument_list : {call,?line('$1'),'$1',element(1, '$2')}.
+function_call -> expr_max    argument_list : {call,?line('$1'),'$1',element(1, '$2')}.
+
+remote_expr -> expr_max ':' expr_max : {remote,?line('$2'),'$1','$3'}.
 
 list -> '[' ']' : {nil,?line('$1')}.
 list -> '[' expr tail : {cons,?line('$1'),'$2','$3'}.
@@ -328,7 +312,6 @@ tuple -> '{' exprs '}' : {tuple,?line('$1'),'$2'}.
 %%	{struct,?line('$1'),element(3, '$1'),element(3, '$2')}.
 
 
-%% N.B. This is called from expr_700.
 %% N.B. Field names are returned as the complete object, even if they are
 %% always atoms for the moment, this might change in the future.
 
@@ -353,11 +336,6 @@ record_fields -> record_field ',' record_fields : ['$1' | '$3'].
 
 record_field -> var '=' expr : {record_field,?line('$1'),'$1','$3'}.
 record_field -> atom '=' expr : {record_field,?line('$1'),'$1','$3'}.
-
-%% N.B. This is called from expr_700.
-
-function_call -> expr_800 argument_list :
-	{call,?line('$1'),'$1',element(1, '$2')}.
 
 
 if_expr -> 'if' if_clauses 'end' : {'if',?line('$1'),'$2'}.
