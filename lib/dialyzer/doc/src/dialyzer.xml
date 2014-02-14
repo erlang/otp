@@ -229,7 +229,7 @@
        match.</item>
       <tag><c><![CDATA[-Wno_opaque]]></c></tag>
       <item>Suppress warnings for violations of opaqueness of data types.</item>
-      <tag><c><![CDATA[-Wno_behaviours]]></c>***</tag>
+      <tag><c><![CDATA[-Wno_behaviours]]></c></tag>
       <item>Suppress warnings about behaviour callbacks which drift from the
        published recommended interfaces.</item>
       <tag><c><![CDATA[-Wunmatched_returns]]></c>***</tag>
