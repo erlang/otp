@@ -101,7 +101,16 @@ handle_cast(_, State) ->
     {noreply, State}.
 
 handle_info({'EXIT', Pid, Reason}, State) when State#state.pid =:= Pid ->
-    report_error(child_terminated, Reason, State),
+	case Reason of
+	normal ->
+	    ok;
+	shutdown ->
+	    ok;
+	{shutdown, _Term} ->
+	    ok;
+	_ ->
+	    report_error(child_terminated, Reason, State)
+	end,
     {stop, Reason, State#state{pid = undefined}};
 handle_info(_, State) ->
     {noreply, State}.
