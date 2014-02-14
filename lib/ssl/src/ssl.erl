@@ -626,7 +626,7 @@ handle_options(Opts0, _Role) ->
 		    user_lookup_fun = handle_option(user_lookup_fun, Opts, undefined),
 		    psk_identity = handle_option(psk_identity, Opts, undefined),
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
-		    ciphers    = handle_option(ciphers, Opts, []),
+		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), hd(Versions)),
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
@@ -769,15 +769,6 @@ validate_option(srp_identity, {Username, Password})
     {unicode:characters_to_binary(Username),
      unicode:characters_to_binary(Password)};
 
-validate_option(ciphers, Value)  when is_list(Value) ->
-    Version = tls_record:highest_protocol_version([]),
-    try cipher_suites(Version, Value)
-    catch
-	exit:_ ->
-	    throw({error, {options, {ciphers, Value}}});
-	error:_->
-	    throw({error, {options, {ciphers, Value}}})
-    end;
 validate_option(reuse_session, Value) when is_function(Value) ->
     Value;
 validate_option(reuse_sessions, Value) when is_boolean(Value) ->
@@ -937,16 +928,26 @@ emulated_options([Opt|Opts], Inet, Emulated) ->
 emulated_options([], Inet,Emulated) ->
     {Inet, Emulated}.
 
-cipher_suites(Version, []) ->
+handle_cipher_option(Value, Version)  when is_list(Value) ->
+    try binary_cipher_suites(Version, Value) of
+	Suites ->
+	    Suites
+    catch
+	exit:_ ->
+	    throw({error, {options, {ciphers, Value}}});
+	error:_->
+	    throw({error, {options, {ciphers, Value}}})
+    end.
+binary_cipher_suites(Version, []) -> %% Defaults to all supported suits
     ssl_cipher:suites(Version);
-cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
+binary_cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
     Ciphers = [{KeyExchange, Cipher, Hash} || {KeyExchange, Cipher, Hash, _} <- Ciphers0],
-    cipher_suites(Version, Ciphers);
-cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
+    binary_cipher_suites(Version, Ciphers);
+binary_cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
-    cipher_suites(Version, Ciphers);
+    binary_cipher_suites(Version, Ciphers);
 
-cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
+binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     Supported0 = ssl_cipher:suites(Version)
 	++ ssl_cipher:anonymous_suites()
 	++ ssl_cipher:psk_suites(Version)
@@ -954,18 +955,18 @@ cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     Supported = ssl_cipher:filter_suites(Supported0),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported)] of
 	[] ->
-	    Supported;
+	    Supported;  %% Defaults to all supported suits
 	Ciphers ->
 	    Ciphers
     end;
-cipher_suites(Version, [Head | _] = Ciphers0) when is_list(Head) ->
+binary_cipher_suites(Version, [Head | _] = Ciphers0) when is_list(Head) ->
     %% Format: ["RC4-SHA","RC4-MD5"]
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- Ciphers0],
-    cipher_suites(Version, Ciphers);
-cipher_suites(Version, Ciphers0)  ->
+    binary_cipher_suites(Version, Ciphers);
+binary_cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:tokens(Ciphers0, ":")],
-    cipher_suites(Version, Ciphers).
+    binary_cipher_suites(Version, Ciphers).
 
 unexpected_format(Error) ->
     lists:flatten(io_lib:format("Unexpected error: ~p", [Error])).
