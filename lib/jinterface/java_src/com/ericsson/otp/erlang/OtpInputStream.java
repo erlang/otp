@@ -1202,6 +1202,9 @@ public class OtpInputStream extends ByteArrayInputStream {
 	case OtpExternal.newRefTag:
 	    return new OtpErlangRef(this);
 
+        case OtpExternal.mapTag:
+            return new OtpErlangMap(this);
+
 	case OtpExternal.portTag:
 	    return new OtpErlangPort(this);
 
@@ -1243,5 +1246,22 @@ public class OtpInputStream extends ByteArrayInputStream {
 	default:
 	    throw new OtpErlangDecodeException("Uknown data type: " + tag);
 	}
+    }
+
+    public int read_map_head() throws OtpErlangDecodeException {
+        int arity = 0;
+        final int tag = read1skip_version();
+
+        // decode the map header and get arity
+        switch (tag) {
+        case OtpExternal.mapTag:
+            arity = read4BE();
+            break;
+
+        default:
+            throw new OtpErlangDecodeException("Not valid map tag: " + tag);
+        }
+
+        return arity;
     }
 }
