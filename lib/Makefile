@@ -25,10 +25,11 @@ ERTS_APPLICATIONS = stdlib sasl kernel compiler
 
 # Then these have to be build
 ERLANG_APPLICATIONS = tools test_server common_test runtime_tools \
-			inets xmerl edoc erl_docgen parsetools
+			inets parsetools
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = snmp otp_mibs erl_interface asn1 jinterface \
+ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
+		  asn1 jinterface \
 	          wx debugger reltool gs \
 	          ic mnesia crypto orber os_mon syntax_tools \
 	          public_key ssl observer odbc diameter \
@@ -59,10 +60,14 @@ else
     else
       ifdef TERTIARY_BOOTSTRAP
         SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
-      else # Not bootstrap build
-        SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
-			  $(ERLANG_APPLICATIONS) \
-			  $(EXTRA_APPLICATIONS)
+      else
+        ifdef DOC_BOOTSTRAP
+          SUB_DIRECTORIES = xmerl edoc erl_docgen
+        else # Not bootstrap build
+          SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
+			    $(ERLANG_APPLICATIONS) \
+			    $(EXTRA_APPLICATIONS)
+        endif
       endif
     endif
   endif
