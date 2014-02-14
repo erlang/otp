@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,7 +146,8 @@ all_or_expand(Tab,Term) ->
     Check = io_lib:format("~P",[Term,100]),
     Exp = Preview=/=Check,
     all_or_expand(Tab,Term,Preview,Exp).
-all_or_expand(_Tab,_Term,Str,false) ->
+all_or_expand(_Tab,Term,Str,false)
+  when not is_binary(Term) ->
     href_proc_port(lists:flatten(Str));
 all_or_expand(Tab,Term,Preview,true)
   when not is_binary(Term) ->
@@ -158,20 +159,16 @@ all_or_expand(Tab,Term,Preview,true)
 	       "&key2="++integer_to_list(Key2)++
 	       "&key3="++integer_to_list(Key3)],
 	  "Click to expand above term")];
-all_or_expand(Tab,Bin,PreviewStr,true) when is_binary(Bin) ->
-    <<Preview:80, _/binary>> = Bin,
+all_or_expand(Tab,Bin,_PreviewStr,_Expand)
+  when is_binary(Bin) ->
     Size = byte_size(Bin),
+    PrevSize = min(Size, 10) * 8,
+    <<Preview:PrevSize, _/binary>> = Bin,
     Hash = erlang:phash2(Bin),
     Key = {Preview, Size, Hash},
     ets:insert(Tab,{Key,Bin}),
-    [href_proc_port(lists:flatten(PreviewStr), false), $\n,
-     href("TARGET=\"expanded\"",
-	  ["#OBSBinary?key1="++integer_to_list(Preview)++
-	       "&key2="++integer_to_list(Size)++
-	       "&key3="++integer_to_list(Hash)],
-	  "Click to expand above term")].
-
-
+    Term = io_lib:format("~p", [['#OBSBin',Preview,Size,Hash]]),
+    href_proc_port(lists:flatten(Term), true).
 
 color(true) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_EVEN));
 color(false) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_ODD)).
@@ -242,7 +239,7 @@ href(Args,Link,Text) ->
     ["<A HREF=\"",Link,"\" ",Args,">",Text,"</A>"].
 font(Args,Text) ->
     ["<FONT ",Args,">\n",Text,"\n</FONT>\n"].
-p(Text) ->    
+p(Text) ->
     ["<P>",Text,"</P>\n"].
 br() ->
     "<BR>\n".
@@ -336,34 +333,28 @@ href_proc_bin(From, T, Acc, LTB) ->
     {OffsetSizePos,Rest} = split($],T),
     BinStr =
 	case string:tokens(OffsetSizePos,",.| \n") of
-	    [Offset,Size,Pos] when From =:= cdv ->
+	    [Offset,SizeStr,Pos] when From =:= cdv ->
 		Id = {list_to_integer(Offset),10,list_to_integer(Pos)},
 		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
-		PreviewStr = ["&lt;&lt;",
-			      [integer_to_list(X)++"," || <<X:8>> <= PreviewBin],
-			      "...(",
-			      observer_lib:to_str({bytes,Size}),
-			      ")&gt;&gt;"],
+		PreviewStr = preview_string(list_to_integer(SizeStr), PreviewBin),
 		if LTB ->
 			href("TARGET=\"expanded\"",
 			     ["#Binary?offset="++Offset++
-				  "&size="++Size++
+				  "&size="++SizeStr++
 				  "&pos="++Pos],
 			     PreviewStr);
 		   true ->
 			PreviewStr
 		end;
-	    [Preview,Size,Md5] when From =:= obs ->
-		PreviewBin = <<(list_to_integer(Preview)):80>>,
-		PreviewStr = ["&lt;&lt;",
-			      [integer_to_list(X)++"," || <<X:8>> <= PreviewBin],
-			      "...(",
-			      observer_lib:to_str({bytes,list_to_integer(Size)}),
-			      ")&gt;&gt;"],
+	    [Preview,SizeStr,Md5] when From =:= obs ->
+		Size = list_to_integer(SizeStr),
+		PrevSize =  min(Size, 10) * 8,
+		PreviewStr = preview_string(Size,
+					    <<(list_to_integer(Preview)):PrevSize>>),
 		if LTB ->
 			href("TARGET=\"expanded\"",
 			     ["#OBSBinary?key1="++Preview++
-				  "&key2="++Size++
+				  "&key2="++SizeStr++
 				  "&key3="++Md5],
 			     PreviewStr);
 		   true ->
@@ -374,13 +365,41 @@ href_proc_bin(From, T, Acc, LTB) ->
 	end,
     href_proc_port(Rest,[BinStr|Acc],LTB).
 
+preview_string(Size, PreviewBin) when Size > 10 ->
+    ["&lt;&lt;",
+     remove_lgt(io_lib:format("~p",[PreviewBin])),
+     "...(",
+     observer_lib:to_str({bytes,Size}),
+     ")",
+     "&gt;&gt"];
+preview_string(_, PreviewBin) ->
+    ["&lt;&lt;",
+     remove_lgt(io_lib:format("~p",[PreviewBin])),
+     "&gt;&gt"].
+
+remove_lgt(Deep) ->
+    remove_lgt_1(lists:flatten(Deep)).
+
+remove_lgt_1([$<,$<|Rest]) ->
+    [$>,$>|BinStr] = lists:reverse(Rest),
+    replace_lgt(lists:reverse(BinStr)).
+
+replace_lgt([$<|R]) ->
+    ["&lt;"|replace_lgt(R)];
+replace_lgt([$>|R]) ->
+    ["&gt;"|replace_lgt(R)];
+replace_lgt([L=[_|_]|R]) ->
+    [replace_lgt(L)|replace_lgt(R)];
+replace_lgt([A|R]) ->
+    [A|replace_lgt(R)];
+replace_lgt([]) -> [].
+
 split(Char,Str) ->
     split(Char,Str,[]).
 split(Char,[Char|Str],Acc) -> % match Char
     {lists:reverse(Acc),Str};
 split(Char,[H|T],Acc) ->
     split(Char,T,[H|Acc]).
-
 
 warn([]) ->
     [];

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -214,7 +214,7 @@ handle_event(#wx{event = #wxClose{}}, State) ->
     {stop, normal, State};
 
 handle_event(#wx{id = ?ID_CDV, event = #wxCommand{type = command_menu_selected}}, State) ->
-    crashdump_viewer:start(),
+    spawn(crashdump_viewer, start, []),
     {noreply, State};
 
 handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->

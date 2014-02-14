@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,6 +30,7 @@
 %% Records
 -record(state,
 	{panel,
+	 app,         %% which tool is the user
 	 expand_table,
 	 expand_wins=[]}).
 
@@ -38,16 +39,21 @@ start_link(ParentWin, Info) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([ParentWin, Fun]) when is_function(Fun) ->
-    init([ParentWin, Fun()]);
+init([ParentWin, {App, Fun}]) when is_function(Fun) ->
+    init([ParentWin, {App, Fun()}]);
 init([ParentWin, {expand,HtmlText,Tab}]) ->
-    HtmlWin = observer_lib:html_window(ParentWin),
-    wxHtmlWindow:setPage(HtmlWin,HtmlText),
-    {HtmlWin, #state{panel=HtmlWin,expand_table=Tab}};
+    init(ParentWin, HtmlText, Tab, cdv);
+init([ParentWin, {App, {expand,HtmlText,Tab}}]) ->
+    init(ParentWin, HtmlText, Tab, App);
+init([ParentWin, {App,HtmlText}]) ->
+    init(ParentWin, HtmlText, undefined, App);
 init([ParentWin, HtmlText]) ->
+    init(ParentWin, HtmlText, undefined, cdv).
+
+init(ParentWin, HtmlText, Tab, App) ->
     HtmlWin = observer_lib:html_window(ParentWin),
     wxHtmlWindow:setPage(HtmlWin,HtmlText),
-    {HtmlWin, #state{panel=HtmlWin}}.
+    {HtmlWin, #state{panel=HtmlWin,expand_table=Tab,app=App}}.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -78,7 +84,7 @@ handle_cast(Msg, State) ->
 
 handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 				   linkInfo=#wxHtmlLinkInfo{href=Target}}},
-	     #state{expand_table=Tab}=State) ->
+	     #state{expand_table=Tab, app=App}=State) ->
     NewState=
 	case Target of
 	    "#Binary?" ++ BinSpec ->
@@ -102,10 +108,12 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 				 list_to_integer(Key2),
 				 list_to_integer(Key3)}}},
 		expand(Id,cdv_term_cb,State);
+	    _ when App =:= obs ->
+		observer ! {open_link, Target};
 	    _ ->
 		cdv_virtual_list_wx:start_detail_win(Target),
 		State
-    end,
+	end,
     {noreply, NewState};
 
 handle_event(Event, State) ->

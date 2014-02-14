@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,26 +21,26 @@
 	 detail_pages/0]).
 
 %% Callbacks for cdv_detail_wx
-get_details({_, {T,Key}}) ->
+get_details({Type, {T,Key}}) ->
     [{Key,Term}] = ets:lookup(T,Key),
-    {ok,{"Expanded Binary", Term, []}};
+    {ok,{"Expanded Binary", {Type, Term}, []}};
 get_details({cdv, Id}) ->
     {ok,Bin} = crashdump_viewer:expand_binary(Id),
-    {ok,{"Expanded Binary", Bin, []}}.
+    {ok,{"Expanded Binary", {cvd, Bin}, []}}.
 
 detail_pages() ->
     [{"Binary", fun init_bin_page/2}].
 
-init_bin_page(Parent,Bin) ->
+init_bin_page(Parent,{Type,Bin}) ->
     cdv_multi_wx:start_link(
       Parent,
-      [{"Format \~p",cdv_html_wx,format_bin_fun("~p",Bin)},
-       {"Format \~tp",cdv_html_wx,format_bin_fun("~tp",Bin)},
-       {"Format \~w",cdv_html_wx,format_bin_fun("~w",Bin)},
-       {"Format \~s",cdv_html_wx,format_bin_fun("~s",Bin)},
-       {"Format \~ts",cdv_html_wx,format_bin_fun("~ts",Bin)},
-       {"Hex",cdv_html_wx,hex_binary_fun(Bin)},
-       {"Term",cdv_html_wx,binary_to_term_fun(Bin)}]).
+      [{"Format \~p",cdv_html_wx,{Type,format_bin_fun("~p",Bin)}},
+       {"Format \~tp",cdv_html_wx,{Type,format_bin_fun("~tp",Bin)}},
+       {"Format \~w",cdv_html_wx,{Type,format_bin_fun("~w",Bin)}},
+       {"Format \~s",cdv_html_wx,{Type,format_bin_fun("~s",Bin)}},
+       {"Format \~ts",cdv_html_wx,{Type,format_bin_fun("~ts",Bin)}},
+       {"Hex",cdv_html_wx,{Type,hex_binary_fun(Bin)}},
+       {"Term",cdv_html_wx,{Type,binary_to_term_fun(Bin)}}]).
 
 format_bin_fun(Format,Bin) ->
     fun() ->
