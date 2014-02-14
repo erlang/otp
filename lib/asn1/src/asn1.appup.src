@@ -1,11 +1,5 @@
+%% -*- erlang -*-
 {"%VSN%",
-% This version does not change anything of the runtime modules
-% Only changes in compile time modules and thus no need for upgrade on target
-[
- ],
- [ 
- ]}.
-
-
-
-
+ [{<<".*">>,[{restart_application, asn1}]}],
+ [{<<".*">>,[{restart_application, asn1}]}]
+}.

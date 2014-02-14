@@ -1,1 +1,5 @@
-{"%VSN%",[],[]}.
+%% -*- erlang -*-
+{"%VSN%",
+ [{<<".*">>,[{restart_application, parsetools}]}],
+ [{<<".*">>,[{restart_application, parsetools}]}]
+}.
