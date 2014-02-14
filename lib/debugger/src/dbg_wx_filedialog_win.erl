@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -242,16 +242,13 @@ handle_event(#wx{event=#wxList{itemIndex=Index}},
 	    {noreply, State0}
     end;
 
-handle_event(#wx{event=#wxCommand{type=command_text_updated, cmdString=Wanted}}, 
+handle_event(#wx{event=#wxCommand{type=command_text_updated, cmdString=Wanted}},
 	     State = #state{ptext=Previous, completion=Comp}) ->
     case Previous =:= undefined orelse lists:prefix(Wanted, Previous) of
-	true -> 
-	    case Comp of
-		{Temp,_} -> wxWindow:destroy(Temp);
-		undefined -> ok
-	    end,
+	true ->
+	    destroy_completion(Comp),
 	    {noreply, State#state{ptext=Wanted,completion=undefined}};
-	false -> 
+	false ->
 	    {noreply, show_completion(Wanted, State)}
     end;
 
@@ -310,8 +307,7 @@ handle_event(#wx{event=#wxSize{size={Width,_}}}, State = #state{list=LC}) ->
 	     end),
     {noreply, State};
 	
-handle_event(Event,State) ->
-    io:format("~p Got ~p ~n",[self(), Event]),
+handle_event(_Event,State) ->
     {noreply, State}.
 
 handle_info(_Msg, State) ->
@@ -419,8 +415,9 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
     end.
 
 destroy_completion(undefined) -> ok;
-destroy_completion({Window, _}) ->
+destroy_completion({Window, _LB}) ->
     Parent = wxWindow:getParent(Window),
+    wxWindow:hide(Window),
     wxWindow:destroy(Window),
     wxWindow:refresh(Parent).
 

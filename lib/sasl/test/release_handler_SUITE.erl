@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1781,36 +1781,45 @@ otp_10463_upgrade_script_regexp(_Config) ->
     ok.
 
 no_dot_erlang(Conf) ->
-    PrivDir = priv_dir(Conf),
+    PrivDir = ?config(data_dir,Conf),
     {ok, OrigWd} = file:get_cwd(),
     try
 	ok = file:set_cwd(PrivDir),
 
-	Erl = "\"" ++ filename:join([code:root_dir(),"bin","erl"]) ++ "\"",
-	Args = " -noinput -run io put_chars \"TESTOK\" -run erlang halt",
+	{ok, Wd} = file:get_cwd(),
+	io:format("Dir ~ts~n", [Wd]),
+
+	Erl0 =  filename:join([code:root_dir(),"bin","erl"]),
+	Erl = filename:nativename(Erl0),
+	Quote = "\"",
+	Args = " -noinput -run c pwd -run erlang halt",
 	ok = file:write_file(".erlang", <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
 
-	case os:cmd(Erl ++ Args) of
+	CMD1 = Quote ++ Erl ++ Quote ++ Args ,
+	case os:cmd(CMD1) of
 	    "DOT_ERLANG_READ" ++ _ -> ok;
 	    Other1 ->
-		io:format("Failed: ~ts~n",[Erl ++ Args]),
+		io:format("Failed: ~ts~n",[CMD1]),
 		io:format("Expected: ~s ++ _~n",["DOT_ERLANG_READ "]),
 		io:format("Got: ~ts~n",[Other1]),
-		exit(failed_to_start, test_error)
+		exit({failed_to_start, test_error})
 	end,
 	NO_DOT_ERL = " -boot no_dot_erlang",
-	case os:cmd(Erl ++ NO_DOT_ERL ++ Args) of
-	    "TESTOK" ++ _ -> ok;
-	    Other2 ->
-		io:format("Failed: ~ts~n",[Erl ++ Args]),
+	CMD2 = Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
+	case lists:prefix(Wd, Other2 = os:cmd(CMD2)) of
+	    true -> ok;
+	    false ->
+		io:format("Failed: ~ts~n",[CMD2]),
 		io:format("Expected: ~s~n",["TESTOK"]),
 		io:format("Got: ~ts~n",[Other2]),
-		exit(failed_to_start, no_dot_erlang)
+		exit({failed_to_start, no_dot_erlang})
 	end
     after
 	_ = file:delete(".erlang"),
-	ok = file:set_cwd(OrigWd)
+	ok = file:set_cwd(OrigWd),
+	ok
     end.
+
 
 %%%=================================================================
 %%% Misceleaneous functions
