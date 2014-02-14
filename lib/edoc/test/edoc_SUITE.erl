@@ -22,12 +22,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([build_std/1,build_map_module/1]).
+-export([app/1,appup/1,build_std/1,build_map_module/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [build_std,build_map_module].
+    [app,appup,build_std,build_map_module].
 
 groups() -> 
     [].
@@ -44,6 +44,19 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+app(doc) ->
+    ["Test that the .app file does not contain any `basic' errors"];
+app(suite) ->
+    [];
+app(Config) when is_list(Config) ->
+    ?line ok = ?t:app_test(edoc).
+
+appup(doc) ->
+    ["Test that the .appup file does not contain any `basic' errors"];
+appup(suite) ->
+    [];
+appup(Config) when is_list(Config) ->
+    ?line ok = ?t:appup_test(edoc).
 
 build_std(suite) -> [];
 build_std(doc) -> ["Build some documentation using standard EDoc layout"];

@@ -84,6 +84,7 @@ all_versions_groups ()->
 
 basic_tests() ->
     [app,
+     appup,
      alerts,
      send_close,
      connect_twice,
@@ -290,6 +291,11 @@ app() ->
     [{doc, "Test that the ssl app file is ok"}].
 app(Config) when is_list(Config) ->
     ok = ?t:app_test(ssl).
+%%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the ssl appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(ssl).
 %%--------------------------------------------------------------------
 alerts() ->
     [{doc, "Test ssl_alert:alert_txt/1"}].

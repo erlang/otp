@@ -26,7 +26,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([app_file/1]).
+-export([app_file/1, appup_file/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(1)).
@@ -43,7 +43,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_file].
+    [app_file, appup_file].
 
 groups() -> 
     [].
@@ -67,4 +67,12 @@ app_file(doc) ->
     ["Testing .app file"];
 app_file(Config) when is_list(Config) ->
     ?line ok = ?t:app_test(observer),
+    ok.
+
+appup_file(suite) ->
+    [];
+appup_file(doc) ->
+    ["Testing .appup file"];
+appup_file(Config) when is_list(Config) ->
+    ?line ok = ?t:appup_test(observer),
     ok.
