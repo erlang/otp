@@ -127,6 +127,14 @@ basic(Config) when is_list(Config) ->
     ok.
 
 basic_option(Config) when is_list(Config) ->
+    %% Eprof is not supported on native-compile code.
+    case lists:module_info(native_addresses) of
+	[] -> basic_option_1(Config);
+	[_|_] -> {skip,"lists is native-compiled"}
+    end.
+
+basic_option_1(Config) ->
+
     %% load eprof_test and change directory
 
     {ok, OldCurDir} = file:get_cwd(),
