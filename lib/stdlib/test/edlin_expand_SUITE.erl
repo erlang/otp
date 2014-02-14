@@ -114,6 +114,10 @@ quoted_fun(Config) when is_list(Config) ->
      [{"'Quoted_fun_name'",0},
       {"'Quoted_fun_too'",0}]} = do_expand("expand_test1:'Quoted_fun_"),
     {yes,"weird-fun-name'(",[]} = do_expand("expand_test1:'#"),
+
+    %% Since there is a module_info/1 as well as a module_info/0
+    %% there should not be a closing parenthesis added.
+    {yes,"(",[]} = do_expand("expand_test:module_info"),
     ok.
 
 quoted_module(doc) ->
