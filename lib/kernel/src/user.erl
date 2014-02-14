@@ -151,8 +151,10 @@ server_loop(Port, Q) ->
 	%% Ignore messages from port here.
 	{'EXIT',Port,badsig} ->			% Ignore badsig errors
 	    server_loop(Port, Q);
-	{'EXIT',Port,What} ->			% Port has exited
-	    exit(What);
+        %% Tail-f: ignore all port exits
+        %% - we close the port when terminating
+	{'EXIT',Port,_What} ->			% Port has exited
+	    server_loop(Port, Q);
 
 	%% Check if shell has exited
 	{'EXIT',SomePid,What} ->
