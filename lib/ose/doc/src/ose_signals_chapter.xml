@@ -79,7 +79,7 @@
       used. The third argument is a function pointer to a function that can
       be used to figure out the id from a given signal. There is a complete
       example of what this could look like in
-      <seealso marker="example">the next section</seealso>.
+      <seealso marker="#example">the next section</seealso>.
       <note>It is very important to issue the driver_select call before
       any of the signals you are interested in are sent. If driver_select
       is called after the signal is sent, there is a high probability that it

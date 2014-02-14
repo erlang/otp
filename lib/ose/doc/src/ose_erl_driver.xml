@@ -74,7 +74,7 @@
         <p>Create a new <c>ErlDrvEvent</c> associated with <c>signo</c>,
 	<c>id</c> and uses the <c>resolve_signal</c> function to extract
 	the <c>id</c> from a signal with <c>signo</c>. See
-	<seealso marker="ose_erl_driver_chapter#driver">
+	<seealso marker="ose_signals_chapter#driver">
 	Signals in a Linked-in driver</seealso> in the OSE User's Guide.
       </p>
       </desc>

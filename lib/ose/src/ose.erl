@@ -108,7 +108,7 @@
 %%
 %% raises: `badarg' | `system_limit'
 %%
-%% @see liten/2
+%% @see listen/2
 %% @end
 %%------------------------------------------------------------------------------
 -spec open(Name) -> Port when
