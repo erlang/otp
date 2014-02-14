@@ -63,7 +63,7 @@
 
 static ethr_tid main_thr_tid;
 static const char* own_tid_key = "ethread_own_tid";
-char* ethr_ts_event_key__ = "ethread_tse";
+ethr_tsd_key ethr_ts_event_key__;
 
 #define ETHREADWRAPDATASIG 1
 
@@ -173,8 +173,6 @@ static OS_PROCESS(thr_wrapper)
     }
 
     /* pthread mutex api says we have to do this */
-    /*erts_fprintf(stderr, "(%s / %d) curr_pid 0x%x / signal_fsem to 0x%x (fsem val %d)\n",
-      __FUNCTION__, __LINE__, current_process(), current_process(), get_fsem(current_process()));*/
     signal_fsem(current_process());
     ETHR_ASSERT(get_fsem(current_process()) == 0);
 
@@ -187,12 +185,12 @@ static OS_PROCESS(thr_wrapper)
 
 int ethr_set_tse__(ethr_ts_event *tsep)
 {
-    return set_envp(current_process(),ethr_ts_event_key__, (OSADDRESS) tsep);
+  return ethr_tsd_set(ethr_ts_event_key__,(void *) tsep);
 }
 
 ethr_ts_event *ethr_get_tse__(void)
 {
-  return (ethr_ts_event *) get_envp(current_process(),ethr_ts_event_key__);
+  return (ethr_ts_event *) ethr_tsd_get(ethr_ts_event_key__);
 }
 
 #if defined(ETHR_PPC_RUNTIME_CONF__)
@@ -296,13 +294,14 @@ ethr_init(ethr_init_data *id)
     main_thr_tid.tsd_key_index = 0;
 
     set_envp(current_process(),own_tid_key,(OSADDRESS)&main_thr_tid);
-        /*erts_fprintf(stderr, "(%s / %d) curr_pid 0x%x / signal_fsem to 0x%x (fsem_val %d)\n",
-                __FUNCTION__, __LINE__, current_process(), current_process(), get_fsem(current_process()));*/
     signal_fsem(current_process());
+
 
     ETHR_ASSERT(&main_thr_tid == ETHR_GET_OWN_TID__);
 
     ethr_not_inited__ = 0;
+
+    ethr_tsd_key_create(&ethr_ts_event_key__,"ethread_tse");
 
     return 0;
  error:

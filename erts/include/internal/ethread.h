@@ -728,13 +728,12 @@ ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
 
-extern char* ethr_ts_event_key__;
+extern ethr_tsd_key ethr_ts_event_key__;
 
 static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
 {
-     ethr_ts_event *tsep = (ethr_ts_event *)get_envp(current_process(),
-						     ethr_ts_event_key__);
+    ethr_ts_event *tsep = *(ethr_ts_event**)ose_get_ppdata(ethr_ts_event_key__);
     if (!tsep) {
 	int res = ethr_get_tmp_ts_event__(&tsep);
 	if (res != 0)
