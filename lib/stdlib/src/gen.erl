@@ -34,7 +34,9 @@
 
 -export([format_status_header/2]).
 
--define(default_timeout, 5000).
+%% Tail-f: 'infinity' is the only sensible default
+%% -define(default_timeout, 5000).
+-define(default_timeout, infinity).
 
 %%-----------------------------------------------------------------
 
