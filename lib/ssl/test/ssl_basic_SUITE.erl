@@ -86,6 +86,7 @@ basic_tests() ->
     [app,
      alerts,
      send_close,
+     version_option,
      connect_twice,
      connect_dist,
      clear_pem_cache
@@ -1071,6 +1072,13 @@ send_close(Config) when is_list(Config) ->
     gen_tcp:close(TcpS),    
     {error, _} = ssl:send(SslS, "Hello world").
 
+%%--------------------------------------------------------------------
+version_option() ->
+    [{doc, "Use version option and do no specify ciphers list. Bug specified incorrect ciphers"}].
+version_option(Config) when is_list(Config) -> 
+    Versions = proplists:get_value(supported, ssl:versions()),
+    [version_option_test(Config, Version) || Version <- Versions].
+   
 %%--------------------------------------------------------------------
 close_transport_accept() ->
     [{doc,"Tests closing ssl socket when waiting on ssl:transport_accept/1"}].
@@ -3488,3 +3496,28 @@ shutdown_both_result(Socket, client) ->
 
 peername_result(S) ->
     ssl:peername(S).
+
+version_option_test(Config, Version) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options,  [{active, false}, {versions, [Version]}| ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = 
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+				   {host, Hostname},
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options, [{active, false}, {versions, [Version]}| ClientOpts]}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+	   [self(), Client, Server]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
