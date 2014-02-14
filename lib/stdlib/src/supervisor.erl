@@ -45,10 +45,13 @@
 -type restart()  :: 'permanent' | 'transient' | 'temporary'.
 -type shutdown() :: 'brutal_kill' | timeout().
 -type worker()   :: 'worker' | 'supervisor'.
--type sup_name() :: {'local', Name :: atom()} | {'global', Name :: atom()}.
+-type sup_name() :: {'local', Name :: atom()}
+                  | {'global', Name :: atom()}
+                  | {'via', Module :: module(), Name :: any()}.
 -type sup_ref()  :: (Name :: atom())
                   | {Name :: atom(), Node :: node()}
                   | {'global', Name :: atom()}
+                  | {'via', Module :: module(), Name :: any()}
                   | pid().
 -type child_spec() :: {Id :: child_id(),
                        StartFunc :: mfargs(),
