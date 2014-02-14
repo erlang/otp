@@ -316,16 +316,6 @@ void initEventTable()
   }
 }
 
-void wxeEvtListener::forward(wxEvent& event)
-{
-#ifdef DEBUG
-  if(!sendevent(&event, port))
-    fprintf(stderr, "Couldn't send event!\r\n");
-#else
-sendevent(&event, port);
-#endif
-}
-
 int getRef(void* ptr, wxeMemEnv* memenv)
 {
   WxeApp * app = (WxeApp *) wxTheApp;
@@ -338,7 +328,7 @@ bool sendevent(wxEvent *event, ErlDrvTermData port)
  char * evClass = NULL;
  wxMBConvUTF32 UTFconverter;
  wxeEtype *Etype = etmap[event->GetEventType()];
- wxeCallbackData *cb = (wxeCallbackData *)event->m_callbackUserData;
+ wxeEvtListener *cb = (wxeEvtListener *)event->m_callbackUserData;
  WxeApp * app = (WxeApp *) wxTheApp;
  wxeMemEnv *memenv = app->getMemEnv(port);
  if(!memenv) return 0;

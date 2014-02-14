@@ -1190,15 +1190,6 @@ find_id(OtherClass) ->
 
 encode_events(Evs) ->
     ?WTC("encode_events"),
-    w("void wxeEvtListener::forward(wxEvent& event)~n"
-      "{~n"
-      "#ifdef DEBUG~n"
-      "  if(!sendevent(&event, port))~n"
-      "    fprintf(stderr, \"Couldn't send event!\\r\\n\");~n"
-      "#else~n"
-      "sendevent(&event, port);~n"
-      "#endif~n"
-      "}~n~n"),
     w("int getRef(void* ptr, wxeMemEnv* memenv)~n"
       "{~n"
       "  WxeApp * app = (WxeApp *) wxTheApp;~n"
@@ -1209,7 +1200,7 @@ encode_events(Evs) ->
       " char * evClass = NULL;~n"
       " wxMBConvUTF32 UTFconverter;~n"
       " wxeEtype *Etype = etmap[event->GetEventType()];~n"
-      " wxeCallbackData *cb = (wxeCallbackData *)event->m_callbackUserData;~n"
+      " wxeEvtListener *cb = (wxeEvtListener *)event->m_callbackUserData;~n"
       " WxeApp * app = (WxeApp *) wxTheApp;~n"
       " wxeMemEnv *memenv = app->getMemEnv(port);~n"
       " if(!memenv) return 0;~n~n"

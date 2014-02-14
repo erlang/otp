@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2012. All Rights Reserved.
+# Copyright Ericsson AB 2008-2014. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -60,7 +60,7 @@ $(GL): glxml_generated $(GL_COMP_T) glapi.conf
 	erl -noshell -run gl_gen code && touch gl_code_generated
 
 %.beam: %.erl wx_gen.hrl gl_gen.hrl
-	$(ERLC) -W $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) $< -o$(EBIN)
+	$(ERLC) -W $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 # TODO split cleans into separate targets?
 complete_clean:

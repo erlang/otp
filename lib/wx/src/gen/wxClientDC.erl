@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,8 @@
 
 -export_type([wxClientDC/0]).
 -deprecated([new/0]).
+
+-compile([{nowarn_deprecated_function, {wxDC,computeScaleAndOrigin,1}}]).
 
 %% @hidden
 parent_class(wxWindowDC) -> true;
