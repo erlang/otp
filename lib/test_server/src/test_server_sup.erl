@@ -29,7 +29,8 @@
 	 hostatom/0, hostatom/1, hoststr/0, hoststr/1,
 	 framework_call/2,framework_call/3,framework_call/4,
 	 format_loc/1,
-	 call_trace/1]).
+	 call_trace/1,
+	 appup_test/1]).
 -include("test_server_internal.hrl").
 -define(crash_dump_tar,"crash_dumps.tar.gz").
 -define(src_listing_ext, ".src.html").
@@ -262,6 +263,249 @@ app_check_export_all([Mod|Mods]) ->
 		    end
 	    end
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% appup_test/1
+%%
+%% Checks one applications .appup file for obvious errors.
+%% Checks..
+%% * .. syntax
+%% * .. that version in app file matches appup file version
+%% * .. validity of appup instructions
+%%
+%% For library application this function checks that the proper
+%% 'restart_application' upgrade and downgrade clauses exist.
+appup_test(Application) ->
+    case is_app(Application) of
+        {ok, AppFile} ->
+            case is_appup(Application, proplists:get_value(vsn, AppFile)) of
+                {ok, Up, Down} ->
+                    StartMod = proplists:get_value(mod, AppFile),
+                    Modules = proplists:get_value(modules, AppFile),
+                    do_appup_tests(StartMod, Application, Up, Down, Modules);
+                Error ->
+                    test_server:fail(Error)
+            end;
+        Error ->
+            test_server:fail(Error)
+    end.
+
+is_appup(Application, Version) ->
+    AppupFile = atom_to_list(Application) ++ ".appup",
+    AppupPath = filename:join([code:lib_dir(Application), "ebin", AppupFile]),
+    case file:consult(AppupPath) of
+        {ok, [{Version, Up, Down}]} when is_list(Up), is_list(Down) ->
+            {ok, Up, Down};
+        _ ->
+            test_server:format(
+              minor,
+              "Application upgrade (.appup) file not found, "
+              "or it has very bad syntax.~n"),
+            {error, appup_not_readable}
+    end.
+
+do_appup_tests(undefined, Application, Up, Down, _Modules) ->
+    %% library application
+    case Up of
+        [{<<".*">>, [{restart_application, Application}]}] ->
+            case Down of
+                [{<<".*">>, [{restart_application, Application}]}] ->
+                    ok;
+                _ ->
+                    test_server:format(
+                      minor,
+                      "Library application needs restart_application "
+                      "downgrade instruction.~n"),
+                    {error, library_downgrade_instruction_malformed}
+            end;
+        _ ->
+            test_server:format(
+              minor,
+              "Library application needs restart_application "
+              "upgrade instruction.~n"),
+            {error, library_upgrade_instruction_malformed}
+    end;
+do_appup_tests(_, _Application, Up, Down, Modules) ->
+    %% normal application
+    case check_appup_clauses_plausible(Up, up, Modules) of
+        ok ->
+            case check_appup_clauses_plausible(Down, down, Modules) of
+                ok ->
+                    test_server:format(minor, "OK~n");
+                Error ->
+                    test_server:format(minor, "ERROR ~p~n", [Error]),
+                    test_server:fail(Error)
+            end;
+        Error ->
+            test_server:format(minor, "ERROR ~p~n", [Error]),
+            test_server:fail(Error)
+    end.
+    
+check_appup_clauses_plausible([], _Direction, _Modules) ->
+    ok;
+check_appup_clauses_plausible([{Re, Instrs} | Rest], Direction, Modules)
+  when is_binary(Re) ->
+    case re:compile(Re) of
+        {ok, _} ->
+            case check_appup_instructions(Instrs, Direction, Modules) of
+                ok ->
+                    check_appup_clauses_plausible(Rest, Direction, Modules);
+                Error ->
+                    Error
+            end;
+        {error, Error} ->
+            {error, {version_regex_malformed, Re, Error}}
+    end;
+check_appup_clauses_plausible([{V, Instrs} | Rest], Direction, Modules)
+  when is_list(V) ->
+    case check_appup_instructions(Instrs, Direction, Modules) of
+        ok ->
+            check_appup_clauses_plausible(Rest, Direction, Modules);
+        Error ->
+            Error
+    end;
+check_appup_clauses_plausible(Clause, _Direction, _Modules) ->
+    {error, {clause_malformed, Clause}}.
+
+check_appup_instructions(Instrs, Direction, Modules) ->
+    case check_instructions(Direction, Instrs, Instrs, [], [], Modules) of
+        {_Good, []} ->
+            ok;
+        {_, Bad} ->
+            {error, {bad_instructions, Bad}}
+    end.
+
+check_instructions(_, [], _, Good, Bad, _) ->
+    {lists:reverse(Good), lists:reverse(Bad)};
+check_instructions(UpDown, [Instr | Rest], All, Good, Bad, Modules) ->
+    case catch check_instruction(UpDown, Instr, All, Modules) of
+        ok ->
+            check_instructions(UpDown, Rest, All, [Instr | Good], Bad, Modules);
+        {error, Reason} ->
+            NewBad = [{Instr, Reason} | Bad],
+            check_instructions(UpDown, Rest, All, Good, NewBad, Modules)
+    end.
+
+check_instruction(up, {add_module, Module}, _, Modules) ->
+    %% A new module is added
+    check_module(Module, Modules);
+check_instruction(down, {add_module, Module}, _, Modules) ->
+    %% An old module is re-added
+    case (catch check_module(Module, Modules)) of
+        {error, {unknown_module, Module, Modules}} -> ok;
+        ok -> throw({error, {existing_readded_module, Module}})
+    end;
+check_instruction(_, {load_module, Module}, _, Modules) ->
+    check_module(Module, Modules);
+check_instruction(_, {load_module, Module, DepMods}, _, Modules) ->
+    check_module(Module, Modules),
+    check_depend(DepMods);
+check_instruction(_, {load_module, Module, Pre, Post, DepMods}, _, Modules) ->
+    check_module(Module, Modules),
+    check_depend(DepMods),
+    check_purge(Pre),
+    check_purge(Post);
+check_instruction(up, {delete_module, Module}, _, Modules) ->
+    case (catch check_module(Module, Modules)) of
+        {error, {unknown_module, Module, Modules}} ->
+            ok;
+        ok ->
+            throw({error,{existing_module_deleted, Module}})
+    end;
+check_instruction(down, {delete_module, Module}, _, Modules) ->
+    check_module(Module, Modules);
+check_instruction(_, {update, Module}, _, Modules) ->
+    check_module(Module, Modules);
+check_instruction(_, {update, Module, supervisor}, _, Modules) ->
+    check_module(Module, Modules);
+check_instruction(_, {update, Module, DepMods}, _, Modules)
+  when is_list(DepMods) ->
+    check_module(Module, Modules);
+check_instruction(_, {update, Module, Change}, _, Modules) ->
+    check_module(Module, Modules),
+    check_change(Change);
+check_instruction(_, {update, Module, Change, DepMods}, _, Modules) ->
+    check_module(Module, Modules),
+    check_change(Change),
+    check_depend(DepMods);
+check_instruction(_, {update, Module, Change, Pre, Post, DepMods}, _, Modules) ->
+    check_module(Module, Modules),
+    check_change(Change),
+    check_purge(Pre),
+    check_purge(Post),
+    check_depend(DepMods);
+check_instruction(_,
+                  {update, Module, Timeout, Change, Pre, Post, DepMods},
+                  _,
+                  Modules) ->
+    check_module(Module, Modules),
+    check_timeout(Timeout),
+    check_change(Change),
+    check_purge(Pre),
+    check_purge(Post),
+    check_depend(DepMods);
+check_instruction(_,
+                  {update, Module, ModType, Timeout, Change, Pre, Post, DepMods},
+                  _,
+                  Modules) ->
+    check_module(Module, Modules),
+    check_mod_type(ModType),
+    check_timeout(Timeout),
+    check_change(Change),
+    check_purge(Pre),
+    check_purge(Post),
+    check_depend(DepMods);
+check_instruction(_, {restart_application, Application}, _, _) ->
+    check_application(Application);
+check_instruction(_, {remove_application, Application}, _, _) ->
+    check_application(Application);
+check_instruction(_, {add_application, Application}, _, _) ->
+    check_application(Application);
+check_instruction(_, {add_application, Application, Type}, _, _) ->
+    check_application(Application),
+    check_restart_type(Type);
+check_instruction(_, Instr, _, _) ->
+    throw({error, {low_level_or_invalid_instruction, Instr}}).
+
+check_module(Module, Modules) when is_atom(Module) ->
+    case {is_atom(Module), lists:member(Module, Modules)} of
+        {true, true}  -> ok;
+        {true, false} -> throw({error, {unknown_module, Module}});
+        {false, _}    -> throw({error, {bad_module, Module}})
+    end.
+
+check_application(App) ->
+    case is_atom(App) of
+        true  -> ok;
+        false -> throw({error, {bad_application, App}})
+    end.
+
+check_depend(Dep) when is_list(Dep) -> ok;
+check_depend(Dep)                   -> throw({error, {bad_depend, Dep}}).
+
+check_restart_type(permanent) -> ok;
+check_restart_type(transient) -> ok;
+check_restart_type(temporary) -> ok;
+check_restart_type(load)      -> ok;
+check_restart_type(none)      -> ok;
+check_restart_type(Type)      -> throw({error, {bad_restart_type, Type}}).
+
+check_timeout(T) when is_integer(T), T > 0 -> ok;
+check_timeout(default)                     -> ok;
+check_timeout(infinity)                    -> ok;
+check_timeout(T)                           -> throw({error, {bad_timeout, T}}).
+
+check_mod_type(static)  -> ok;
+check_mod_type(dynamic) -> ok;
+check_mod_type(Type)    -> throw({error, {bad_mod_type, Type}}).
+
+check_purge(soft_purge)   -> ok;
+check_purge(brutal_purge) -> ok;
+check_purge(Purge)        -> throw({error, {bad_purge, Purge}}).
+
+check_change(soft)          -> ok;
+check_change({advanced, _}) -> ok;
+check_change(Change)        -> throw({error, {bad_change, Change}}).
 
 %% Given two sorted lists, L1 and L2, returns {NotInL2, NotInL1},
 %% NotInL2 is the elements of L1 which don't occurr in L2,
