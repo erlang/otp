@@ -220,6 +220,7 @@ typedef OSPPDKEY ethr_tsd_key;
 #define ETHR_HAVE_THREAD_NICENESS
 
 #define ETHR_PPC_HAVE_NO_LWSYNC
+#undef ETHR_HAVE_NATIVE_SPINLOCKS
 
 #else /* No supported thread lib found */
 
@@ -457,7 +458,11 @@ extern ethr_runtime_t ethr_runtime__;
 #  endif
 #endif
 
-#ifdef VALGRIND  /* mutex as fallback for spinlock for VALGRIND */
+#if defined(VALGRIND) || defined(ETHR_OSE_THREADS)
+/* mutex as fallback for spinlock for VALGRIND and OSE.
+   OSE cannot use spinlocks as processes working on the
+   same execution unit have a tendency to deadlock.
+ */
 #  undef ETHR_HAVE_NATIVE_SPINLOCKS
 #  undef ETHR_HAVE_NATIVE_RWSPINLOCKS
 #else
