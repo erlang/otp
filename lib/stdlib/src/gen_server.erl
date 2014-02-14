@@ -33,6 +33,7 @@
 %%%     ==> {ok, State}
 %%%         {ok, State, Timeout}
 %%%         ignore
+%%%         {ignore, Reason}
 %%%         {stop, Reason}
 %%%
 %%%   handle_call(Msg, {From, Tag}, State)
@@ -122,7 +123,7 @@
 
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term()} | ignore.
+    {stop, Reason :: term()} | ignore | {ignore, term()}.
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -176,15 +177,25 @@
 %%%          {error, {already_started, Pid}} |
 %%%          {error, Reason}
 %%% -----------------------------------------------------------------
+-type start_ret()  :: gen:start_ret() | {'ignore' , term()}.
+
+-spec start(module(), term(), gen:options()) ->
+	start_ret().
 start(Mod, Args, Options) ->
     gen:start(?MODULE, nolink, Mod, Args, Options).
 
+-spec start(gen:emgr_name(), module(), term(), gen:options()) ->
+	start_ret().
 start(Name, Mod, Args, Options) ->
     gen:start(?MODULE, nolink, Name, Mod, Args, Options).
 
+-spec start_link(module(), term(), gen:options()) ->
+	start_ret().
 start_link(Mod, Args, Options) ->
     gen:start(?MODULE, link, Mod, Args, Options).
 
+-spec start_link(gen:emgr_name(), module(), term(), gen:options()) ->
+	start_ret().
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
 
@@ -359,6 +370,11 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, ignore} ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, ignore),
+            unlink(Parent),
+	    exit(normal);
+        {ok, {ignore, Reason}} ->
+	    proc_lib:init_ack(Starter, {ignore, Reason}),
+            unlink(Parent),
 	    exit(normal);
 	{ok, Else} ->
 	    Error = {bad_return_value, Else},
