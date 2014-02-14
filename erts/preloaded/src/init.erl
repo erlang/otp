@@ -48,6 +48,9 @@
 
 -module(init).
 
+%% Tail-f export
+-export([boot_msg/1, halt_msg/2, detach_daemon/0]).
+
 -export([restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
@@ -61,6 +64,10 @@
 	 objfile_extension/0, archive_extension/0,code_path_choice/0]).
 
 -include_lib("kernel/include/file.hrl").
+
+%% Tail-f - from confd.hrl
+-define (XCODE_INTERNAL, 19).
+-define (XCODE_BADINSTALL, 22).
 
 -type internal_status() :: 'starting' | 'started' | 'stopping'.
 
@@ -207,6 +214,7 @@ boot(BootArgs) ->
         true  -> debug_profile_start()
     end,
     Start = map(fun prepare_run_args/1, Start0),
+    start_detached_port(Flags),
     boot(Start, Flags, Args).
 
 prepare_run_args({eval, [Expr]}) ->
@@ -324,7 +332,14 @@ halt_string(String, List) ->
 %% Items in List are truncated if found to be too large
 -spec crash(_, _) -> no_return().
 crash(String, List) ->
-    halt(halt_string(String, List)).
+    case erlang:module_loaded(error_logger) of
+        true ->
+            catch error_logger:error_msg("init:crash: ~p: ~p\n",
+                                         [String, List]);
+        false ->
+            ok
+    end,
+    halt_msg(halt_string(String, List) ++ "\n", ?XCODE_INTERNAL).
 
 %% Status is {InternalStatus,ProvidedStatus}
 -spec boot_loop(pid(), state()) -> no_return().
@@ -351,8 +366,9 @@ boot_loop(BootPid, State) ->
 	    loop(State#state{status = {started,PS},
 			     subscribed = []});
 	{'EXIT',BootPid,Reason} ->
-	    erlang:display({"init terminating in do_boot",Reason}),
-	    crash("init terminating in do_boot", [Reason]);
+	    %% FIXME: tail-f: print if debug is true
+	    %erlang:display({"init terminating in do_boot",Reason}),
+	    crash("Internal error: Terminated in boot", [Reason]);
 	{'EXIT',Pid,Reason} ->
 	    Kernel = State#state.kernel,
 	    terminate(Pid,Kernel,Reason), %% If Pid is a Kernel pid, halt()!
@@ -366,6 +382,10 @@ boot_loop(BootPid, State) ->
 	    {Res, Loaded} = ensure_loaded(Module, State#state.loaded),
 	    From ! {init,Res},
 	    boot_loop(BootPid,State#state{loaded = Loaded});
+        %% tail-f clause for -delayed-heart
+        {From,{set_flag,Flag}} ->
+            From ! {init,ok},
+            boot_loop(BootPid,State#state{flags=[Flag|State#state.flags]});
 	Msg ->
 	    boot_loop(BootPid,handle_msg(Msg,State))
     end.
@@ -382,7 +402,7 @@ do_ensure_loaded(Module, Loaded) ->
     File = atom_to_list(Module) ++ objfile_extension(),
     case erl_prim_loader:get_file(File) of
 	{ok,BinCode,FullName} ->
-	    case do_load_module(Module, BinCode) of
+	    case do_load_module(Module, BinCode, FullName) of
 		ok ->
 		    {{module, Module}, [{Module, FullName}|Loaded]};
 		error ->
@@ -417,9 +437,10 @@ new_kernelpid({_Name,ignore},BootPid,State) ->
     BootPid ! {self(),ignore},
     State;
 new_kernelpid({Name,What},BootPid,State) ->
-    erlang:display({"could not start kernel pid",Name,What}),
+    %% FIXME: tail-f: print if debug is true
+    %erlang:display({"could not start kernel pid",Name,What}),
     clear_system(BootPid,State),
-    crash("could not start kernel pid", [Name, What]).
+    crash("Internal error: Component start failed", [Name, What]).
 
 %% Here is the main loop after the system has booted.
 
@@ -738,8 +759,9 @@ terminate(Pid,Kernel,Reason) ->
     case kernel_pid(Pid,Kernel) of
 	{ok,Name} ->
 	    sleep(500), %% Flush error printouts!
-	    erlang:display({"Kernel pid terminated",Name,Reason}),
-	    crash("Kernel pid terminated", [Name, Reason]);
+	    %% FIXME: tail-f: print if debug is true
+	    %erlang:display({"Kernel pid terminated",Name,Reason}),
+	    crash("Internal error: Component terminated", [Name, Reason]);
 	_ ->
 	    false
     end.
@@ -864,11 +886,17 @@ get_boot(BootFile0,Root) ->
 		{ok, CmdList} ->
 		    CmdList;
 		not_found ->
+		    halt_msg("cannot read bootfile " ++ BootFile ++ "\n",
+                             ?XCODE_BADINSTALL),
 		    exit({'cannot get bootfile',list_to_atom(BootFile)});
 		_ ->
+		    halt_msg("corrupt bootfile " ++ BootFile ++ "\n",
+                             ?XCODE_BADINSTALL),
 		    exit({'bootfile format error',list_to_atom(BootF)})
 	    end;
 	_ ->
+	    halt_msg("corrupt bootfile " ++ BootFile ++ "\n",
+                     ?XCODE_BADINSTALL),
 	    exit({'bootfile format error',list_to_atom(BootFile)})
     end.
     
@@ -956,7 +984,7 @@ load_modules(Mods0, Init) ->
     end.
 
 load_rest([{Mod,Beam,Full}|T], Init) ->
-    do_load_module(Mod, Beam),
+    do_load_module(Mod, Beam, Full),
     Init ! {self(),loaded,[{Mod,Full}]},
     load_rest(T, Init);
 load_rest([], _) ->
@@ -1131,15 +1159,17 @@ start_it([_|_]=MFA) ->
 
 %% Load a module.
 
-do_load_module(Mod, BinCode) ->
+do_load_module(Mod, BinCode, FullName) ->
     case erlang:load_module(Mod, BinCode) of
 	{module,Mod} ->
 	    ok;
 	{error,on_load} ->
 	    ?ON_LOAD_HANDLER ! {loaded,Mod},
 	    ok;
-	_ ->
-	    error
+	Other ->
+            halt_msg("file: " ++ FullName ++ " is corrupt.\n",
+                     ?XCODE_BADINSTALL),
+            exit({'cannot load',Mod,Other})
     end.
 
 %% --------------------------------------------------------
@@ -1456,3 +1486,59 @@ collect_mfas([MFA|MFAs],Info) ->
 collect_mfa(Mfa,[],Count,Time) -> {{Time,Count},Mfa};
 collect_mfa(Mfa,[{_Pid,C,S,Us}|Data],Count,Time) ->
     collect_mfa(Mfa,Data,Count + C,Time + S * 1000000 + Us).
+
+%% Tail-f code
+start_detached_port(Flags) ->
+    case get_argument('detached-fd', Flags) of
+	{ok, [[FdStr]]} ->
+	    Fd = list_to_integer(FdStr),
+	    Port = open_port({fd, Fd, Fd}, [out]),
+	    register(detached_port, Port);
+	_ ->
+	    ok
+    end.
+
+detach_daemon() ->
+    stop_detached_port(),
+    case get_argument('delayed-heart') of
+        {ok, _} ->
+            request({set_flag, {'-heart'}}),
+            start_in_kernel(heart, heart, start, [], whereis(init));
+        _ ->
+            ok
+    end.
+
+stop_detached_port() ->
+    case whereis(detached_port) of
+	undefined ->
+	    ok;
+	Port ->
+	    port_command(Port, [0]),
+	    port_close(Port)
+    end.
+
+boot_msg(Msg) ->
+    case whereis(detached_port) of
+	undefined ->
+	    erlang:display(Msg),
+	    case erlang:module_loaded(error_logger) of
+		true ->
+		    catch error_logger:error_msg("init:boot_msg: ~p", [Msg]);
+		false ->
+		    ok
+	    end;
+	Port ->
+	    port_command(Port, Msg)
+    end.
+
+halt_msg(Msg, Code) when is_integer(Code) ->
+    boot_msg(Msg),
+    case whereis(detached_port) of
+	undefined ->
+	    %% sleep to let error msgs be flushed before halting,
+	    %% only if we're NOT in boot phase
+	    receive after 500 -> ok end;
+	_Port ->
+	    ok
+    end,
+    erlang:halt(Code).
