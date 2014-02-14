@@ -882,7 +882,7 @@ valfun_4(_, _) ->
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    [assert_term(Term, Vst0) || Term <- List],
+    foreach(fun (Term) -> assert_term(Term, Vst0) end, List),
     assert_term(Src, Vst0),
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
@@ -909,7 +909,7 @@ validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
     branch_state(Fail, Vst).
 
 %%
-%% Special state handling for setelement/3 and the set_tuple_element/3 instruction.
+%% Special state handling for setelement/3 and set_tuple_element/3 instructions.
 %% A possibility for garbage collection must not occur between setelement/3 and
 %% set_tuple_element/3.
 %%
