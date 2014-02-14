@@ -42,7 +42,7 @@
 -spec seed0() -> ran().
 
 seed0() ->
-    {3172, 9814, 20125}.
+    erlang:timestamp().
 
 %% seed()
 %%  Seed random number generation with default values
@@ -112,12 +112,33 @@ uniform() ->
 %% uniform(N) -> I
 %%  Given an integer N >= 1, uniform(N) returns a random integer
 %%  between 1 and N.
+%% The algorithm is http://en.wikipedia.org/wiki/Xorshift
 
 -spec uniform(N) -> pos_integer() when
       N :: pos_integer().
 
 uniform(N) when is_integer(N), N >= 1 ->
-    trunc(uniform() * N) + 1.
+    {X,Y,Z,W} = case get(xorshift_seed) of
+                    undefined ->
+                        {A,B, C} = erlang:timestamp(),
+                        {A, B, C, C * 3};
+                    Tup ->
+                        Tup
+                end,
+    uniform(N, X, Y, Z, W, N-1, 0).
+
+%% The algorithm produces a 32-bit integer, we must have more if N is big
+%% (actually it produces 4 32-bit integers, this code could be improved)
+uniform(N, X, Y, Z, W, 0, V) ->
+    put(xorshift_seed, {X, Y, Z, W}),
+    (V rem N) + 1;
+uniform(N, X, Y, Z, W, R, V) ->
+    T = (X bxor (X bsl 11)) band 16#ffffffff,
+    X2 =Y,
+    Y2 = Z,
+    Z2 = W,
+    W2 = ((W bxor (W bsr 19)) bxor (T bxor (T bsr 8))) band 16#ffffffff,
+    uniform(N, X2, Y2, Z2, W2, R bsr 32, (V bsl 32) bor W2).
 
 
 %%% Functional versions
