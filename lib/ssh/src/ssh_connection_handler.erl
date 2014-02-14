@@ -157,7 +157,7 @@ init([Role, Socket, SshOpts]) ->
 
 %%--------------------------------------------------------------------
 -spec open_channel(pid(), string(), iodata(), integer(), integer(),
-		   timeout()) -> {open, channel_id()} | {open_error, term(), string(), string()}.
+		   timeout()) -> {open, channel_id()} | {error, term()}.
 %%--------------------------------------------------------------------
 open_channel(ConnectionHandler, ChannelType, ChannelSpecificData,
 					InitialWindowSize,

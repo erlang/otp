@@ -365,8 +365,11 @@
     </func>
 
     <func>
-      <name>stop() -> ok </name>
+      <name>stop() -> ok | {error, Reason}</name>
       <fsummary>Stops the SSH application.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
       <desc>
         <p>Stops the SSH application. See also
           <seealso marker="kernel:application">application(3)</seealso></p>
