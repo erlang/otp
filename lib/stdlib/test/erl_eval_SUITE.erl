@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -42,7 +41,9 @@
          funs/1,
 	 try_catch/1,
 	 eval_expr_5/1,
-	 zero_width/1]).
+	 zero_width/1,
+         eep37/1,
+         eep43/1]).
 
 %%
 %% Define to run outside of test server
@@ -81,7 +82,8 @@ all() ->
      pattern_expr, match_bin, guard_3, guard_4, lc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
-     otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width].
+     otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width,
+     eep37, eep43].
 
 groups() -> 
     [].
@@ -1400,6 +1402,41 @@ zero_width(Config) when is_list(Config) ->
 			ok
 		end, "begin {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>), "
 		"ok end.", ok),
+    ok.
+
+eep37(Config) when is_list(Config) ->
+    check(fun () -> (fun _(X) -> X end)(42) end,
+          "(fun _(X) -> X end)(42).",
+          42),
+    check(fun () -> (fun _Id(X) -> X end)(42) end,
+          "(fun _Id(X) -> X end)(42).", 42),
+    check(fun () -> is_function((fun Self() -> Self end)(), 0) end,
+          "is_function((fun Self() -> Self end)(), 0).",
+          true),
+    check(fun () ->
+                  F = fun Fact(N) when N > 0 ->
+                              N * Fact(N - 1);
+                          Fact(0) ->
+                              1
+                       end,
+                  F(6)
+          end,
+          "(fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end)(6).",
+          720),
+    ok.
+
+eep43(Config) when is_list(Config) ->
+    check(fun () -> #{} end, " #{}.", #{}),
+    check(fun () -> #{a => b} end, "#{a => b}.", #{a => b}),
+    check(fun () ->
+                  Map = #{a => b},
+                  {Map#{a := b},Map#{a => c},Map#{d => e}}
+          end,
+          "begin "
+          "    Map = #{a => B=b}, "
+          "    {Map#{a := B},Map#{a => c},Map#{d => e}} "
+          "end.",
+          {#{a => b},#{a => c},#{a => b,d => e}}),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

@@ -35,7 +35,9 @@
 -record(state, {parent,
 		frame,
 		pid,
-		pages=[]
+		pages=[],
+		expand_table,
+		expand_wins=[]
 	       }).
 
 -record(worker, {panel, callback}).
@@ -47,6 +49,7 @@ start(Process, ParentFrame, Parent) ->
 
 init([Pid, ParentFrame, Parent]) ->
     try
+	Table = ets:new(observer_expand,[set,public]),
 	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
 		  [] -> io_lib:format("~p",[Pid]);
 		  {registered_name, Registered} -> io_lib:format("~p (~p)",[Registered, Pid]);
@@ -60,11 +63,11 @@ init([Pid, ParentFrame, Parent]) ->
 
 	Notebook = wxNotebook:new(Frame, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
 
-	ProcessPage = init_panel(Notebook, "Process Information", Pid, fun init_process_page/2),
-	MessagePage = init_panel(Notebook, "Messages", Pid, fun init_message_page/2),
-	DictPage    = init_panel(Notebook, "Dictionary", Pid, fun init_dict_page/2),
-	StackPage   = init_panel(Notebook, "Stack Trace", Pid, fun init_stack_page/2),
-	StatePage   = init_panel(Notebook, "State", Pid, fun init_state_page/2),
+	ProcessPage = init_panel(Notebook, "Process Information", [Pid], fun init_process_page/2),
+	MessagePage = init_panel(Notebook, "Messages", [Pid,Table], fun init_message_page/3),
+	DictPage    = init_panel(Notebook, "Dictionary", [Pid,Table], fun init_dict_page/3),
+	StackPage   = init_panel(Notebook, "Stack Trace", [Pid], fun init_stack_page/2),
+	StatePage   = init_panel(Notebook, "State", [Pid,Table], fun init_state_page/3),
 
 	wxFrame:connect(Frame, close_window),
 	wxMenu:connect(Frame, command_menu_selected),
@@ -73,7 +76,8 @@ init([Pid, ParentFrame, Parent]) ->
 	{Frame, #state{parent=Parent,
 		       pid=Pid,
 		       frame=Frame,
-		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage]
+		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage],
+		       expand_table=Table
 		      }}
     catch error:{badrpc, _} ->
 	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
@@ -83,10 +87,10 @@ init([Pid, ParentFrame, Parent]) ->
 	    {stop, normal}
     end.
 
-init_panel(Notebook, Str, Pid, Fun) ->
+init_panel(Notebook, Str, FunArgs, Fun) ->
     Panel  = wxPanel:new(Notebook),
     Sizer  = wxBoxSizer:new(?wxHORIZONTAL),
-    {Window,Callback} = Fun(Panel, Pid),
+    {Window,Callback} = apply(Fun,[Panel|FunArgs]),
     wxSizer:add(Sizer, Window, [{flag, ?wxEXPAND bor ?wxALL}, {proportion, 1}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
     true = wxNotebook:addPage(Notebook, Panel, Str),
@@ -99,11 +103,56 @@ handle_event(#wx{event=#wxClose{type=close_window}}, State) ->
 handle_event(#wx{id=?wxID_CLOSE, event=#wxCommand{type=command_menu_selected}}, State) ->
     {stop, normal, State};
 
-handle_event(#wx{id=?REFRESH}, #state{frame=Frame, pid=Pid, pages=Pages}=State) ->
+handle_event(#wx{id=?REFRESH}, #state{frame=Frame, pid=Pid, pages=Pages, expand_table=T}=State) ->
+    ets:delete_all_objects(T),
     try [(W#worker.callback)() || W <- Pages]
     catch process_undefined ->
 	    wxFrame:setTitle(Frame, io_lib:format("*DEAD* ~p",[Pid]))
     end,
+    {noreply, State};
+
+handle_event(#wx{event=#wxMouse{type=left_down}, userData=TargetPid}, State) ->
+    observer ! {open_link, TargetPid},
+    {noreply, State};
+
+handle_event(#wx{obj=Obj, event=#wxMouse{type=enter_window}}, State) ->
+    wxTextCtrl:setForegroundColour(Obj,{0,0,100,255}),
+    {noreply, State};
+
+handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
+    wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
+    {noreply, State};
+
+handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
+	     #state{frame=Frame,expand_table=T,expand_wins=Opened0}=State) ->
+    {Type, Rest} = case Href of
+		       "#Term?"++Keys   -> {cdv_term_cb, Keys};
+		       "#OBSBinary?"++Keys -> {cdv_bin_cb, Keys};
+		       _ -> {other, Href}
+		   end,
+    case Type of
+	other ->
+	    observer ! {open_link, Href},
+	    {noreply, State};
+	Callback ->
+	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Rest),
+	    Id = {observer, {T,{list_to_integer(Key1),
+				list_to_integer(Key2),
+				list_to_integer(Key3)}}},
+	    Opened =
+		case lists:keyfind(Id,1,Opened0) of
+		    false ->
+			Win = cdv_detail_wx:start_link(Id,Frame,Callback),
+			[{Id,Win}|Opened0];
+		    {_,Win} ->
+			wxFrame:raise(Win),
+			Opened0
+		end,
+	    {noreply,State#state{expand_wins=Opened}}
+    end;
+
+handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Info}}}, State) ->
+    observer ! {open_link, Info},
     {noreply, State};
 
 handle_event(Event, _State) ->
@@ -116,10 +165,15 @@ handle_info(_Info, State) ->
 handle_call(Call, From, _State) ->
     error({unhandled_call, Call, From}).
 
+handle_cast({detail_win_closed,Id}, #state{expand_wins=Opened0}=State) ->
+    Opened = lists:keydelete(Id,1,Opened0),
+    {noreply,State#state{expand_wins=Opened}};
+
 handle_cast(Cast, _State) ->
     error({unhandled_cast, Cast}).
 
-terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame}) ->
+terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame,expand_table=T}) ->
+    T=/=undefined andalso ets:delete(T),
     Parent ! {procinfo_menu_closed, Pid},
     case Frame of
 	undefined ->  ok;
@@ -139,58 +193,37 @@ init_process_page(Panel, Pid) ->
 		     observer_lib:update_info(UpFields, Fields)
 	     end}.
 
-init_text_page(Parent) ->
-    Style = ?wxTE_MULTILINE bor ?wxTE_RICH2 bor ?wxTE_READONLY,
-    Text = wxTextCtrl:new(Parent, ?wxID_ANY, [{style, Style}]),
-    Font = observer_wx:get_attrib({font, fixed}),
-    Attr = wxTextAttr:new(?wxBLACK, [{font, Font}]),
-    true = wxTextCtrl:setDefaultStyle(Text, Attr),
-    wxTextAttr:destroy(Attr),
-    Text.
 
-init_message_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
-    Format = fun(Message, Number) ->
-		     {io_lib:format("~-4.w ~p~n", [Number, Message]),
-		      Number+1}
-	     end,
+init_message_page(Parent, Pid, Table) ->
+    Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, messages])
 		     of
-			 {messages,RawMessages} ->
-			     {Messages,_} = lists:mapfoldl(Format, 1, RawMessages),
-			     Last = wxTextCtrl:getLastPosition(Text),
-			     wxTextCtrl:remove(Text, 0, Last),
-			     case Messages =:= [] of
-				 true ->
-				     wxTextCtrl:writeText(Text, "No messages");
-				 false ->
-				     wxTextCtrl:writeText(Text, Messages)
-			     end;
+			 {messages, Messages} ->
+			     Html = observer_html_lib:expandable_term("Message Queue", Messages, Table),
+			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
 		     end
 	     end,
     Update(),
-    {Text, Update}.
+    {Win, Update}.
 
-init_dict_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
+init_dict_page(Parent, Pid, Table) ->
+    Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
 		     of
-			 {dictionary,RawDict} ->
-			     Dict = [io_lib:format("~-20.w ~p~n", [K, V]) || {K, V} <- RawDict],
-			     Last = wxTextCtrl:getLastPosition(Text),
-			     wxTextCtrl:remove(Text, 0, Last),
-			     wxTextCtrl:writeText(Text, Dict);
+			 {dictionary,Dict} ->
+			     Html = observer_html_lib:expandable_term("Dictionary", Dict, Table),
+			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
 		     end
 	     end,
     Update(),
-    {Text, Update}.
+    {Win, Update}.
 
 init_stack_page(Parent, Pid) ->
     LCtrl = wxListCtrl:new(Parent, [{style, ?wxLC_REPORT bor ?wxLC_HRULES}]),
@@ -236,58 +269,58 @@ init_stack_page(Parent, Pid) ->
     Update(),
     {LCtrl, Update}.
 
-
-init_state_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
+init_state_page(Parent, Pid, Table) ->
+    Win = observer_lib:html_window(Parent),
     Update = fun() ->
-		     %% First, test if sys:get_status/2 have any chance to return an answer
-		     case rpc:call(node(Pid), proc_lib, translate_initial_call, [Pid])
-		     of
-			 %% Not a gen process
-			 {proc_lib,init_p,5} -> Misc = [{"Information", "Not available"}];
-			 %% May be a gen process
-			 {M, _F, _A} ->
-			     %% Get the behavio(u)r
-			     I = rpc:call(node(Pid), M, module_info, [attributes]),
-			     case lists:keyfind(behaviour, 1, I) of
-				 false -> case lists:keyfind(behavior, 1, I) of
-					      false		-> B = undefined;
-					      {behavior, [B]}	-> B
-					  end;
-				 {behaviour, [B]} -> B
-			     end,
-			     %% but not sure that system messages are treated by this process
-			     %% so using a rpc with a small timeout in order not to lag the display
-			     case rpc:call(node(Pid), sys, get_status, [Pid, 200])
-			     of
-				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
-							   [Header,{data, First},{data, Second}]]} ->
-				     Misc = [{"Behaviour", B}] ++ [Header] ++ First ++ Second;
-				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
-							   [Header,{data, First}, OtherFormat]]} ->
-				     Misc = [{"Behaviour", B}] ++ [Header] ++ First ++ [{"State",OtherFormat}];
-				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
-							   OtherFormat]} ->
-				     %% Formatted status ?
-				     case lists:keyfind(format_status, 1, rpc:call(node(Pid), M, module_info, [exports])) of
-					 false	-> Opt = {"Format", unknown};
-					 _	-> Opt = {"Format", overriden}
-				     end,
-				     Misc = [{"Behaviour", B}] ++ [Opt, {"State",OtherFormat}];
-				 {badrpc,{'EXIT',{timeout, _}}} ->
-				     Misc = [{"Information","Timed out"},
-					     {"Tip","system messages are probably not treated by this process"}]
-			     end;
-			 _ -> Misc=[], throw(process_undefined)
-		     end,
-		     Dict = [io_lib:format("~-20.s ~tp~n", [K, V]) || {K, V} <- Misc],
-		     Last = wxTextCtrl:getLastPosition(Text),
-		     wxTextCtrl:remove(Text, 0, Last),
-		     wxTextCtrl:writeText(Text, Dict)
+		     StateInfo = fetch_state_info(Pid),
+		     Html = observer_html_lib:expandable_term("ProcState", StateInfo, Table),
+		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),
-    {Text, Update}.
+    {Win, Update}.
 
+fetch_state_info(Pid) ->
+    %% First, test if sys:get_status/2 have any chance to return an answer
+    case rpc:call(node(Pid), proc_lib, translate_initial_call, [Pid]) of
+	%% Not a gen process
+	{proc_lib,init_p,5} -> [];
+	%% May be a gen process
+	{M, _F, _A} -> fetch_state_info2(Pid, M);
+	_ -> throw(process_undefined)
+    end.
+
+fetch_state_info2(Pid, M) ->
+    %% Get the behavio(u)r
+    I = rpc:call(node(Pid), M, module_info, [attributes]),
+    case lists:keyfind(behaviour, 1, I) of
+	false -> case lists:keyfind(behavior, 1, I) of
+		     false		-> B = undefined;
+		     {behavior, [B]}	-> B
+		 end;
+	{behaviour, [B]} -> B
+    end,
+    %% but not sure that system messages are treated by this process
+    %% so using a rpc with a small timeout in order not to lag the display
+    case rpc:call(node(Pid), sys, get_status, [Pid, 200])
+    of
+	{status, _, {module, _},
+	 [_PDict, _SysState, _Parent, _Dbg,
+	  [Header,{data, First},{data, Second}]]} ->
+	    [{"Behaviour", B}, Header] ++ First ++ Second;
+	{status, _, {module, _},
+	 [_PDict, _SysState, _Parent, _Dbg,
+	  [Header,{data, First}, OtherFormat]]} ->
+	    [{"Behaviour", B}, Header] ++ First ++ [{"State",OtherFormat}];
+	{status, _, {module, _},
+	 [_PDict, _SysState, _Parent, _Dbg, OtherFormat]} ->
+	    %% Formatted status ?
+	    case lists:keyfind(format_status, 1, rpc:call(node(Pid), M, module_info, [exports])) of
+		false	-> Opt = {"Format", unknown};
+		_	-> Opt = {"Format", overriden}
+	    end,
+	    [{"Behaviour", B}, Opt, {"State",OtherFormat}];
+	{badrpc,{'EXIT',{timeout, _}}} -> []
+    end.
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
@@ -301,6 +334,7 @@ process_info_fields(Pid) ->
 		{"Registered Name",  registered_name},
 		{"Status",           status},
 		{"Message Queue Len",message_queue_len},
+		{"Group Leader",     {click, group_leader}},
 		{"Priority",         priority},
 		{"Trap Exit",        trap_exit},
 		{"Reductions",       reductions},
@@ -311,11 +345,10 @@ process_info_fields(Pid) ->
 		{"Suspending",       suspending},
 		{"Sequential Trace Token", sequential_trace_token},
 		{"Error Handler",    error_handler}]},
-	      {"Connections",
-	       [{"Group Leader",     group_leader},
-		{"Links",            links},
-		{"Monitors",         monitors},
-		{"Monitored by",     monitored_by}]},
+	      {scroll_boxes,
+	       [{"Links",            {click, links}},
+		{"Monitors",         {click, filter_monitor_info()}},
+		{"Monitored by",     {click, monitored_by}}]},
 	      {"Memory and Garbage Collection", right,
 	       [{"Memory",           {bytes, memory}},
 		{"Stack and Heaps",  {bytes, total_heap_size}},
@@ -364,4 +397,10 @@ get_gc_info(Arg) ->
     fun(Data) ->
 	    GC = proplists:get_value(garbage_collection, Data),
 	    proplists:get_value(Arg, GC)
+    end.
+
+filter_monitor_info() ->
+    fun(Data) ->
+	    Ms = proplists:get_value(monitors, Data),
+	    [Pid || {process, Pid} <- Ms]
     end.

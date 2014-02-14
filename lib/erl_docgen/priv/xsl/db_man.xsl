@@ -454,13 +454,21 @@
 
   <!-- *ref/Section -->
   <xsl:template match="erlref/section|comref/section|cref/section|fileref/section|appref/section">
-    <xsl:text>&#10;.SH "</xsl:text><xsl:value-of select="translate(title, 'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')"/><xsl:text>"&#10;</xsl:text>
+      <xsl:text>&#10;.SH "</xsl:text><xsl:call-template name="replace-string">
+        <xsl:with-param name="text" select="translate(title, 'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')" />
+        <xsl:with-param name="replace" select="&quot;\&quot;" />
+        <xsl:with-param name="with" select="&quot;\\\&quot;" />
+      </xsl:call-template><xsl:text>"&#10;</xsl:text>
     <xsl:apply-templates/>
   </xsl:template>
 
   <!-- *ref/Subsection -->
   <xsl:template match="section/section">
-    <xsl:text>&#10;.SS "</xsl:text><xsl:value-of select="title"/><xsl:text>"&#10;</xsl:text>
+    <xsl:text>&#10;.SS "</xsl:text><xsl:call-template name="replace-string">
+        <xsl:with-param name="text" select="title" />
+        <xsl:with-param name="replace" select="&quot;\&quot;" />
+        <xsl:with-param name="with" select="&quot;\\\&quot;" />
+      </xsl:call-template><xsl:text>"&#10;</xsl:text>
     <xsl:apply-templates/>
   </xsl:template>
 

@@ -164,7 +164,7 @@ next_protocol(SelectedProtocol) ->
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
-				tls_version(), term(), private_key(),
+				tls_version(), term(), public_key:private_key(),
 				tls_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
@@ -207,12 +207,12 @@ certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version) ->
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()} |
+		   binary(), binary(), public_key:private_key()} |
 		   {ecdh, #'ECPrivateKey'{}} |
 		   {psk, binary()} |
 		   {dhe_psk, binary(), binary()} |
 		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()}) ->
+		   binary(), binary(), public_key:private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 
 %%
@@ -1029,14 +1029,15 @@ cipher_suites(Suites, true) ->
 
 select_session(SuggestedSessionId, CipherSuites, Compressions, Port, #session{ecc = ECCCurve} = 
 		   Session, Version,
-	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
+	       #ssl_options{ciphers = UserSuites, honor_cipher_order = HCO} = SslOpts,
+	       Cache, CacheCb, Cert) ->
     {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
 						 SslOpts, Cert,
 						 Cache, CacheCb),
     case Resumed of
         undefined ->
 	    Suites = available_suites(Cert, UserSuites, Version, ECCCurve),
-	    CipherSuite = select_cipher_suite(CipherSuites, Suites),
+	    CipherSuite = select_cipher_suite(CipherSuites, Suites, HCO),
 	    Compression = select_compression(Compressions),
 	    {new, Session#session{session_id = SessionId,
 				  cipher_suite = CipherSuite,
@@ -1795,6 +1796,11 @@ handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
 
 %%-------------Misc --------------------------------
+
+select_cipher_suite(CipherSuites, Suites, false) ->
+    select_cipher_suite(CipherSuites, Suites);
+select_cipher_suite(CipherSuites, Suites, true) ->
+    select_cipher_suite(Suites, CipherSuites).
 
 select_cipher_suite([], _) ->
    no_suite;

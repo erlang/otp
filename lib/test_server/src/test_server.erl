@@ -40,7 +40,7 @@
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
--export([app_test/1, app_test/2]).
+-export([app_test/1, app_test/2, appup_test/1]).
 -export([is_native/1]).
 -export([comment/1, make_priv_dir/0]).
 -export([os_type/0]).
@@ -176,8 +176,6 @@ module_names(Beams) ->
 do_cover_compile(Modules) ->
     do_cover_compile1(lists:usort(Modules)). % remove duplicates
 
-do_cover_compile1([Dont|Rest]) when Dont=:=cover ->
-    do_cover_compile1(Rest);
 do_cover_compile1([M|Rest]) ->
     case {code:is_sticky(M),code:is_loaded(M)} of
 	{true,_} ->
@@ -405,6 +403,7 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,
 	  ref :: reference(),
 	  pid :: pid(),
 	  mf :: {atom(),atom()},
+	  last_known_loc :: term(),
 	  status :: tc_status() | 'undefined',
 	  ret_val :: term(),
 	  comment :: list(char()),
@@ -436,8 +435,9 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 				     LogOpts, TCCallback)
 	  end),
     put(test_server_detected_fail, []),
-    St = #st{ref=Ref,pid=Pid,mf={Mod,Func},status=starting,ret_val=[],
-	     comment="",timeout=infinity,config=hd(Args)},
+    St = #st{ref=Ref,pid=Pid,mf={Mod,Func},last_known_loc=unknown,
+	     status=starting,ret_val=[],comment="",timeout=infinity,
+	     config=hd(Args)},
     run_test_case_msgloop(St).
 
 %% Ugly bug (pre R5A):
@@ -537,7 +537,22 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	    St = setup_termination(RetVal, St0#st{config=undefined}),
 	    run_test_case_msgloop(St);
 	{'EXIT',Pid,Reason} ->
-	    St = handle_tc_exit(Reason, St0),
+	    %% This exit typically happens when an unknown external process
+	    %% has caused a test case process to terminate (e.g. if a linked
+	    %% process has crashed).
+	    St =
+		case Reason of
+		    {What,[Loc0={_M,_F,A,[{file,_}|_]}|_]} when 
+			  is_integer(A) ->
+			Loc = rewrite_loc_item(Loc0),
+			handle_tc_exit(What, St0#st{last_known_loc=[Loc]});
+		    {What,[Details,Loc0={_M,_F,A,[{file,_}|_]}|_]} when
+			  is_integer(A) ->
+			Loc = rewrite_loc_item(Loc0),
+			handle_tc_exit({What,Details}, St0#st{last_known_loc=[Loc]});
+		    _ ->
+			handle_tc_exit(Reason, St0)
+		end,
 	    run_test_case_msgloop(St);
 	{EndConfPid0,{call_end_conf,Data,_Result}} ->
 	    #st{mf={Mod,Func},config=CurrConf} = St0,
@@ -695,7 +710,7 @@ handle_tc_exit(Reason, #st{config=Config,mf={Mod,Func0},pid=Pid,
 		   {testcase_aborted=E,AbortReason,Loc0} ->
 		       {{E,AbortReason},Loc0};
 		   Other ->
-		       {Other,unknown}
+		       {Other,St#st.last_known_loc}
 	       end,
     Func = case Status of
 	       init_per_testcase=F -> {F,Func0};
@@ -837,9 +852,13 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     spawn_link(FwCall);
 
 spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
+    Func1 = case Func of
+		{_InitOrEndPerTC,F} -> F;
+		F -> F
+	    end,
     FwCall =
 	fun() ->
-		case catch fw_error_notify(Mod,Func,[],
+		case catch fw_error_notify(Mod,Func1,[],
 					   Error,Loc) of
 		    {'EXIT',FwErrorNotifyErr} ->
 			exit({fw_notify_done,error_notification,
@@ -847,8 +866,8 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
 		    _ ->
 			ok
 		end,
-		Conf = [{tc_status,{failed,timetrap_timeout}}|CurrConf],
-		case catch do_end_tc_call(Mod,Func,
+		Conf = [{tc_status,{failed,Error}}|CurrConf],
+		case catch do_end_tc_call(Mod,Func1,
 					  {Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
@@ -2429,8 +2448,11 @@ app_test(App) ->
 app_test(App, Mode) ->
     test_server_sup:app_test(App, Mode).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% appup_test/1
+%%
+appup_test(App) ->
+    test_server_sup:appup_test(App).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% is_native(Mod) -> true | false

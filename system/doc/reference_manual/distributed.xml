@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2011</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -199,7 +199,7 @@ dilbert@uab</pre>
         <cell align="left" valign="middle">Depending on <c>Arg</c>, this function  can return a list not only of visible nodes, but also hidden nodes and previously known nodes, etc.</cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><c>set_cookie(Node, Cookie)</c></cell>
+        <cell align="left" valign="middle"><c>erlang:set_cookie(Node, Cookie)</c></cell>
         <cell align="left" valign="middle">Sets the magic cookie used when connecting to <c>Node</c>. If <c>Node</c> is the current node, <c>Cookie</c> will be used when connecting to all new nodes.</cell>
       </row>
       <row>

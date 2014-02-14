@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY compile_forms2
   '<seealso marker="compiler:compile#forms-2">compile:forms/2</seealso>'>
@@ -16,7 +16,7 @@
 <header>
 <copyright>
 <year>2012</year>
-<year>2013</year>
+<year>2014</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -175,6 +175,10 @@ Note that a dictionary's <c>&dict_name;</c>, together with the
 The <c>&dict_name;</c> of a literal input dictionary defaults to
 <c>dictionary</c>.</p>
 
+<p>
+A returned error reason can be converted into a readable string using
+&format_error;.</p>
+
 </desc>
 </func>
 
@@ -203,6 +207,18 @@ using <c>&dict_inherits;</c>.
 That is, construct an equivalent dictionary in which all AVP's are
 definined in the dictionary itself.
 The return value is also a parsed dictionary.</p>
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name>format_error(Reason) -> string()</name>
+<fsummary>Turn an error reason into a readable string.</fsummary>
+<desc>
+
+<p>
+Turn an error reason returned by &codec; into a readable string.</p>
 </desc>
 </func>
 

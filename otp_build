@@ -1308,12 +1308,12 @@ cd $ERL_TOP
 
 determine_version_controller
 
-# Unset ERL_FLAGS and ERL_<Release>_FLAGS during bootstrap to
+# Unset ERL_FLAGS and ERL_OTP<Major-VSN>_FLAGS during bootstrap to
 # prevent potential problems
-sys_vsn=`awk '/SYSTEM_VSN = / {print $3}' < erts/vsn.mk`
-sys_erl_flags="ERL_${sys_vsn}_FLAGS"
+otp_major_vsn=`cat erts/vsn.mk | grep SYSTEM_VSN | sed "s|SYSTEM_VSN[^=]*=[^0-9]*\([0-9]*\).*|\1|g"`
+erl_otp_flags="ERL_OTP${otp_major_vsn}_FLAGS"
 unset ERL_FLAGS
-#unset ${sys_erl_flags}
+unset ${erl_otp_flags}
 
 # Target first guess, won't necessarily hold, may be changed for 
 # certain parameters.

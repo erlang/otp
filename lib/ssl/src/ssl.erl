@@ -640,7 +640,8 @@ handle_options(Opts0, _Role) ->
 			make_next_protocol_selector(
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
 		    log_alert = handle_option(log_alert, Opts, true),
-		    server_name_indication = handle_option(server_name_indication, Opts, undefined)
+		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
+		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -652,7 +653,8 @@ handle_options(Opts0, _Role) ->
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, next_protocols_advertised,
-		  client_preferred_next_protocols, log_alert, server_name_indication],
+		  client_preferred_next_protocols, log_alert,
+		  server_name_indication, honor_cipher_order],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -695,11 +697,9 @@ validate_option(verify_fun, Fun) when is_function(Fun) ->
      end, Fun};
 validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
    Value;
-validate_option(fail_if_no_peer_cert, Value)
-  when Value == true; Value == false ->
+validate_option(fail_if_no_peer_cert, Value) when is_boolean(Value) ->
     Value;
-validate_option(verify_client_once, Value)
-  when Value == true; Value == false ->
+validate_option(verify_client_once, Value) when is_boolean(Value) ->
     Value;
 validate_option(depth, Value) when is_integer(Value),
                                    Value >= 0, Value =< 255->
@@ -712,7 +712,7 @@ validate_option(certfile, undefined = Value) ->
 validate_option(certfile, Value) when is_binary(Value) ->
     Value;
 validate_option(certfile, Value) when is_list(Value) ->
-    list_to_binary(Value);
+    binary_filename(Value);
 
 validate_option(key, undefined) ->
     undefined;
@@ -729,7 +729,7 @@ validate_option(keyfile, undefined) ->
 validate_option(keyfile, Value) when is_binary(Value) ->
     Value;
 validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
-    list_to_binary(Value);
+    binary_filename(Value);
 validate_option(password, Value) when is_list(Value) ->
     Value;
 
@@ -743,7 +743,7 @@ validate_option(cacertfile, undefined) ->
 validate_option(cacertfile, Value) when is_binary(Value) ->
     Value;
 validate_option(cacertfile, Value) when is_list(Value), Value =/= ""->
-    list_to_binary(Value);
+    binary_filename(Value);
 validate_option(dh, Value) when Value == undefined;
 				is_binary(Value) ->
     Value;
@@ -752,12 +752,12 @@ validate_option(dhfile, undefined = Value)  ->
 validate_option(dhfile, Value) when is_binary(Value) ->
     Value;
 validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
-    list_to_binary(Value);
+    binary_filename(Value);
 validate_option(psk_identity, undefined) ->
     undefined;
 validate_option(psk_identity, Identity)
   when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
-    list_to_binary(Identity);
+    binary_filename(Identity);
 validate_option(user_lookup_fun, undefined) ->
     undefined;
 validate_option(user_lookup_fun, {Fun, _} = Value) when is_function(Fun, 3) ->
@@ -766,7 +766,8 @@ validate_option(srp_identity, undefined) ->
     undefined;
 validate_option(srp_identity, {Username, Password})
   when is_list(Username), is_list(Password), Username =/= "", length(Username) =< 255 ->
-    {list_to_binary(Username), list_to_binary(Password)};
+    {unicode:characters_to_binary(Username),
+     unicode:characters_to_binary(Password)};
 
 validate_option(ciphers, Value)  when is_list(Value) ->
     Version = tls_record:highest_protocol_version([]),
@@ -779,12 +780,10 @@ validate_option(ciphers, Value)  when is_list(Value) ->
     end;
 validate_option(reuse_session, Value) when is_function(Value) ->
     Value;
-validate_option(reuse_sessions, Value) when Value == true;
-					    Value == false ->
+validate_option(reuse_sessions, Value) when is_boolean(Value) ->
     Value;
 
-validate_option(secure_renegotiate, Value) when Value == true;
-						Value == false ->
+validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
     Value;
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
@@ -793,8 +792,7 @@ validate_option(hibernate_after, undefined) ->
     undefined;
 validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
-validate_option(erl_dist,Value) when Value == true;
-				     Value == false ->
+validate_option(erl_dist,Value) when is_boolean(Value) ->
     Value;
 validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols} = Value)
   when is_list(PreferredProtocols) ->
@@ -820,8 +818,7 @@ validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredPro
 
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
-validate_option(log_alert, Value) when Value == true;
-				       Value == false ->
+validate_option(log_alert, Value) when is_boolean(Value) ->
     Value;
 validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
     case tls_record:highest_protocol_version([]) of
@@ -840,6 +837,8 @@ validate_option(server_name_indication, disable) ->
     disable;
 validate_option(server_name_indication, undefined) ->
     undefined;
+validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
+    Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
@@ -1038,3 +1037,7 @@ connection_sup(tls_connection) ->
     tls_connection_sup;
 connection_sup(dtls_connection) ->
     dtls_connection_sup.
+
+binary_filename(FileName) ->
+    Enc = file:native_name_encoding(),
+    unicode:characters_to_binary(FileName, unicode, Enc).

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE part SYSTEM "part.dtd">
 
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -32,6 +32,7 @@
     <p>The Erlang Runtime System Application <em>ERTS</em>.</p>
   </description>
   <xi:include href="communication.xml"/>
+  <xi:include href="time_correction.xml"/>
   <xi:include href="match_spec.xml"/>
   <xi:include href="crash_dump.xml"/>
   <xi:include href="alt_dist.xml"/>

@@ -616,7 +616,7 @@ erts_print_bif_timer_info(int to, void *to_arg)
 			      : btm->receiver.proc.ess->common.id);
 	    erts_print(to, to_arg, "=timer:%T\n", receiver);
 	    erts_print(to, to_arg, "Message: %T\n", btm->message);
-	    erts_print(to, to_arg, "Time left: %u ms\n",
+	    erts_print(to, to_arg, "Time left: %u\n",
 		       erts_time_left(&btm->tm));
 	}
     }

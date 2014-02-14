@@ -21,11 +21,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 
 # ----------------------------------------------------
-# Items from top-level configure
-# ----------------------------------------------------
-DTRACE_ENABLED=@DTRACE_ENABLED@
-DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
-# ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../vsn.mk
@@ -108,28 +103,7 @@ _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
 debug opt valgrind: $(SOLIBS) $(OBJDIR) $(LIBDIR) $(NIF_LIB)
 
-ifdef DTRACE_ENABLED
-DTRACE_USER_HEADER=$(OBJDIR)/dtrace_user.h
-$(OBJDIR)/dtrace_user.h: ./dtrace_user.d
-	$(dtrace_verbose)dtrace -h -C $(INCLUDES) \
-	  -s ./dtrace_user.d \
-	  -o ./dtrace_user.tmp
-	$(V_at)sed -e '/^#define[ 	]*ERLANG_[A-Z0-9_]*(.*)/y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/' ./dtrace_user.tmp > $@
-	$(V_at)rm ./dtrace_user.tmp
-else
-DTRACE_USER_HEADER=
-endif
-
-DTRACE_OBJS =
-ifdef DTRACE_ENABLED_2STEP
-DTRACE_OBJS += $(OBJDIR)/dtrace_user.o
-$(OBJDIR)/dtrace_user.o: $(before_DTrace_OBJS) $(OBJDIR)/dtrace_user.h
-	$(dtrace_verbose)dtrace -G -C \
-	  -s ./dtrace_user.d \
-	  -o $@ $(before_DTrace_OBJS)
-endif
-
-DYNTRACE_OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
+DYNTRACE_OBJS = $(before_DTrace_OBJS)
 
 $(OBJDIR):
 	-@mkdir -p $(OBJDIR)
@@ -137,7 +111,7 @@ $(OBJDIR):
 $(LIBDIR):
 	-@mkdir -p $(LIBDIR)
 
-$(OBJDIR)/dyntrace$(TYPEMARKER).o: dyntrace.c $(DTRACE_USER_HEADER)
+$(OBJDIR)/dyntrace$(TYPEMARKER).o: dyntrace.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 

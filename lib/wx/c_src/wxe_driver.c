@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -195,7 +195,7 @@ void wxe_process_died(ErlDrvData handle, ErlDrvMonitor *monitor)
 {
    /* Callback is active for the dead process */
    wxe_data *sd = ((wxe_data *)handle);
-   push_command(WXE_CB_RETURN,NULL,0,sd);
+   push_command(WXE_CB_DIED,NULL,0,sd);
 
 /*    ErlDrvTermData pid; */
 /*    pid = driver_get_monitored_process(sd->port_handle, monitor);    */

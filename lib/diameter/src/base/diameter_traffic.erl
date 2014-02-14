@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,9 +90,6 @@ make_recvdata([SvcName, PeerT, Apps, Mask | _]) ->
               peerT = PeerT,
               apps = Apps,
               sequence = Mask}.
-%% Take a list so that the caller (diameter_service) can be upgraded
-%% first if new members are added. Note that receive_message/4 might
-%% still get an old term from any watchdog started in old code.
 
 %% ---------------------------------------------------------------------------
 %% peer_up/1
@@ -304,15 +301,6 @@ errors(_, #diameter_packet{header = #diameter_header{version = V},
           = Pkt)
   when V /= ?DIAMETER_VERSION ->
     Pkt#diameter_packet{errors = [5011 | Es]};
-
-%%   DIAMETER_INVALID_AVP_BITS          3009
-%%      A request was received that included an AVP whose flag bits are
-%%      set to an unrecognized value, or that is inconsistent with the
-%%      AVP's definition.
-
-errors(_, #diameter_packet{errors = [Bs | Es]} = Pkt)
-  when is_bitstring(Bs) ->  %% from old code
-    Pkt#diameter_packet{errors = [3009 | Es]};
 
 %%   DIAMETER_COMMAND_UNSUPPORTED       3001
 %%      The Request contained a Command-Code that the receiver did not

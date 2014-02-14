@@ -73,6 +73,8 @@
 ;;     M-x set-variable RET debug-on-error RET t RET
 ;;; Code:
 
+(eval-when-compile (require 'cl))
+
 ;; Variables:
 
 (defconst erlang-version "2.7"
@@ -620,7 +622,6 @@ resulting regexp is surrounded by \\_< and \\_>."
       "if"
       "let"
       "of"
-      "query"
       "receive"
       "try"
       "when")
@@ -2600,9 +2601,15 @@ Value is list (stack token-start token-type in-what)."
 	     (if (save-excursion
 		   (goto-char (match-end 1))
 		   (erlang-skip-blank to)
+		   ;; Use erlang-variable-regexp here to look for an
+		   ;; optional variable name to match EEP37 named funs.
+		   (if (looking-at erlang-variable-regexp)
+		       (progn
+			 (goto-char (match-end 0))
+			 (erlang-skip-blank to)))
 		   (eq (following-char) ?\())
 		 (erlang-push (list 'fun token (current-column)) stack)))
-	    ((looking-at "\\(begin\\|query\\)[^_a-zA-Z0-9]")
+	    ((looking-at "\\(begin\\)[^_a-zA-Z0-9]")
 	     (erlang-push (list 'begin token (current-column)) stack))
 	    ;; Normal when case
 	    ;;((looking-at "when\\s ")
@@ -3038,7 +3045,7 @@ This assumes that the preceding expression is either simple
 \(i.e. an atom) or parenthesized."
   (save-excursion
     (or arg (setq arg 1))
-    (forward-sexp (- arg))
+    (ignore-errors (forward-sexp (- arg)))
     (let ((col (current-column)))
       (skip-chars-backward " \t")
       ;; Special hack to handle: (note line break)
@@ -3112,7 +3119,7 @@ This assumes that the preceding expression is either simple
 
 (defun erlang-at-keyword ()
   "Are we looking at an Erlang keyword which will increase indentation?"
-  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|query\\|"
+  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|"
 		      "of\\|receive\\|after\\|catch\\|try\\)[^_a-zA-Z0-9]")))
 
 (defun erlang-at-operator ()
@@ -3645,6 +3652,10 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
 			(setq cont nil))
 		       ((looking-at "\\s *\\($\\|%\\)")
 			(forward-line 1))
+		       ((looking-at "\\s *<<[^>]*?>>")
+			(when (zerop res)
+			  (setq res (+ 1 res)))
+			(goto-char (match-end 0)))
 		       ((looking-at "\\s *,")
 			(setq res (+ 1 res))
 			(goto-char (match-end 0)))
@@ -3926,7 +3937,7 @@ non-whitespace characters following the point on the current line."
   (self-insert-command arg)
 
   ;; Was this the second char in bit-syntax open (`<<')?
-  (unless (< (point) 2)
+  (unless (<= (point) 2)
     (save-excursion
       (backward-char 2)
       (when (and (eq (char-after (point)) ?<)
@@ -3947,7 +3958,7 @@ non-whitespace characters following the point on the current line."
 
 (defun erlang-after-bitsyntax-close ()
   "Return t if point is immediately after a bit-syntax close parenthesis (`>>')."
-  (and (>= (point) 2)
+  (and (>= (point) 3)
        (save-excursion
 	 (backward-char 2)
 	 (and (eq (char-after (point)) ?>)

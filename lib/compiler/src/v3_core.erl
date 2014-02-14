@@ -74,7 +74,7 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
-		splitwith/2,keyfind/3,sort/1,foreach/2]).
+		splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_cons_skel/3,ann_c_tuple/2,c_tuple/1]).
@@ -92,7 +92,7 @@
 -record(icase,     {anno=#a{},args,clauses,fc}).
 -record(icatch,    {anno=#a{},body}).
 -record(iclause,   {anno=#a{},pats,pguard=[],guard,body}).
--record(ifun,      {anno=#a{},id,vars,clauses,fc}).
+-record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
 -record(iletrec,   {anno=#a{},defs,body}).
 -record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
 -record(iprimop,   {anno=#a{},name,args}).
@@ -226,13 +226,13 @@ guard(Gs0, St0) ->
 			Gt1 = guard_tests(Gt0),
 			L = element(2, Gt1),
 			{op,L,'or',Gt1,Rhs}
-		end, guard_tests(last(Gs0)), first(Gs0)),
+		end, guard_tests(last(Gs0)), droplast(Gs0)),
     {Gs,St} = gexpr_top(Gs1, St0#core{in_guard=true}),
     {Gs,St#core{in_guard=false}}.
     
 guard_tests(Gs) ->
     L = element(2, hd(Gs)),
-    {protect,L,foldr(fun (G, Rhs) -> {op,L,'and',G,Rhs} end, last(Gs), first(Gs))}.
+    {protect,L,foldr(fun (G, Rhs) -> {op,L,'and',G,Rhs} end, last(Gs), droplast(Gs))}.
 
 %% gexpr_top(Expr, State) -> {Cexpr,State}.
 %%  Generate an internal core expression of a guard test.  Explicitly
@@ -487,6 +487,17 @@ expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = lineno_anno(L, St1),
     {ann_c_tuple(A, Es1),Eps,St1};
+expr({map,L,Es0}, St0) ->
+    % erl_lint should make sure only #{ K => V } are allowed
+    % in map construction.
+    {Es1,Eps,St1} = map_pair_list(Es0, St0),
+    A = lineno_anno(L, St1),
+    {#c_map{anno=A,es=Es1},Eps,St1};
+expr({map,L,M0,Es0}, St0) ->
+    {M1,Mps,St1} = safe(M0, St0),
+    {Es1,Eps,St2} = map_pair_list(Es0, St1),
+    A = lineno_anno(L, St2),
+    {#c_map{anno=A,var=M1,es=Es1},Mps++Eps,St2};
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -502,7 +513,7 @@ expr({bin,L,Es0}, St0) ->
     end;
 expr({block,_,Es0}, St0) ->
     %% Inline the block directly.
-    {Es1,St1} = exprs(first(Es0), St0),
+    {Es1,St1} = exprs(droplast(Es0), St0),
     {E1,Eps,St2} = expr(last(Es0), St1),
     {E1,Es1 ++ Eps,St2};
 expr({'if',L,Cs0}, St0) ->
@@ -553,16 +564,23 @@ expr({'try',L,Es0,[],[],As0}, St0) ->
     %% 'try ... after ... end'
     {Es1,St1} = exprs(Es0, St0),
     {As1,St2} = exprs(As0, St1),
-    {Evs,Hs0,St3} = try_after(As1, St2),
-    %% We must kill the id for any funs in the duplicated after body,
-    %% to avoid getting two local functions having the same name.
-    Hs = kill_id_anns(Hs0),
+    {Name,St3} = new_fun_name("after", St2),
     {V,St4} = new_var(St3),		% (must not exist in As1)
-    %% TODO: this duplicates the 'after'-code; should lift to function.
-    Lanno = lineno_anno(L, St4),
-    {#itry{anno=#a{anno=Lanno},args=Es1,vars=[V],body=As1++[V],
-	   evars=Evs,handler=Hs},
-     [],St4};
+    LA = lineno_anno(L, St4),
+    Lanno = #a{anno=LA},
+    Fc = function_clause([], LA, {Name,0}),
+    Fun = #ifun{anno=Lanno,id=[],vars=[],
+		clauses=[#iclause{anno=Lanno,pats=[],
+				  guard=[#c_literal{val=true}],
+				  body=As1}],
+		fc=Fc},
+    App = #iapply{anno=#a{anno=[compiler_generated|LA]},
+		  op=#c_var{anno=LA,name={Name,0}},args=[]},
+    {Evs,Hs,St5} = try_after([App], St4),
+    Try = #itry{anno=Lanno,args=Es1,vars=[V],body=[App,V],evars=Evs,handler=Hs},
+    Letrec = #iletrec{anno=Lanno,defs=[{{Name,0},Fun}],
+		      body=[Try]},
+    {Letrec,[],St5};
 expr({'try',L,Es,Cs,Ecs,As}, St0) ->
     %% 'try ... [of ...] [catch ...] after ... end'
     expr({'try',L,[{'try',L,Es,Cs,Ecs,[]}],[],[],As}, St0);
@@ -581,7 +599,11 @@ expr({'fun',L,{function,M,F,A}}, St0) ->
 	    name=#c_literal{val=make_fun},
 	    args=As},Aps,St1};
 expr({'fun',L,{clauses,Cs},Id}, St) ->
-    fun_tq(Id, Cs, L, St);
+    fun_tq(Id, Cs, L, St, unnamed);
+expr({named_fun,L,'_',Cs,Id}, St) ->
+    fun_tq(Id, Cs, L, St, unnamed);
+expr({named_fun,L,Name,Cs,{Index,Uniq,_Fname}}, St) ->
+    fun_tq({Index,Uniq,Name}, Cs, L, St, {named, Name});
 expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
     Lanno = lineno_anno(L, St1),
@@ -684,6 +706,21 @@ make_bool_switch_guard(L, E, V, T, F) ->
       {clause,NegL,[V],[],[V]}
      ]}.
 
+map_pair_list(Es, St) ->
+    foldr(fun
+	    ({map_field_assoc,L,K0,V0}, {Ces,Esp,St0}) ->
+		{K,Ep0,St1} = safe(K0, St0),
+		{V,Ep1,St2} = safe(V0, St1),
+		A = lineno_anno(L, St2),
+		Pair = #c_map_pair{op=#c_literal{val=assoc},anno=A,key=K,val=V},
+		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2};
+	    ({map_field_exact,L,K0,V0}, {Ces,Esp,St0}) ->
+		{K,Ep0,St1} = safe(K0, St0),
+		{V,Ep1,St2} = safe(V0, St1),
+		A = lineno_anno(L, St2),
+		Pair = #c_map_pair{op=#c_literal{val=exact},anno=A,key=K,val=V},
+		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2}
+	end, {[],[],St}, Es).
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -836,9 +873,9 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	       flags=#c_literal{val=Flags}},
      Eps ++ Eps2,St2}.
 
-%% fun_tq(Id, [Clauses], Line, State) -> {Fun,[PreExp],State}.
+%% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 
-fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
+fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
     Arity = clause_arity(hd(Cs0)),
     {Cs1,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
@@ -847,7 +884,7 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
     Fc = function_clause(Ps, Anno, {Name,Arity}),
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
-		vars=Args,clauses=Cs1,fc=Fc},
+		vars=Args,clauses=Cs1,fc=Fc,name=NameInfo},
     {Fun,[],St3}.
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
@@ -863,6 +900,7 @@ lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
     {Head,St2} = new_var(St1),
     {Tname,St3} = new_var_name(St2),
     LA = lineno_anno(Line, St3),
+    CGAnno = #a{anno=[list_comprehension|LA]},
     LAnno = #a{anno=LA},
     Tail = #c_var{anno=LA,name=Tname},
     {Arg,St4} = new_var(St3),
@@ -900,7 +938,7 @@ lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
 			   body=Lps ++ [Lc]}|Cs0]
 	 end,
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,1},Fun}],
+    {#iletrec{anno=CGAnno,defs=[{{Name,1},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,1}},
 				   args=[Gc]}]},
@@ -910,6 +948,7 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
     {Name,St1} = new_fun_name("blc", St0),
     LA = lineno_anno(Line, St1),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     HeadBinPattern = pattern(P, St1),
     #c_binary{segments=Ps0} = HeadBinPattern,
     {Ps,Tail,St2} = append_tail_segment(Ps0, St1),
@@ -938,7 +977,7 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
 		   pats=[#c_binary{anno=LA,segments=TailSegList}],guard=[],
 		   body=[Mc]}],
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,1},Fun}],
+    {#iletrec{anno=CGAnno,defs=[{{Name,1},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,1}},
 				   args=[Gc]}]},
@@ -947,12 +986,13 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
     %% Special case sequences guard tests.
     LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     case is_guard_test(Fil0) of
 	true ->
 	    {Gs0,Qs1} = splitwith(fun is_guard_test/1, Qs0),
 	    {Lc,Lps,St1} = lc_tq(Line, E, Qs1, Mc, St0),
 	    {Gs,St2} = lc_guard_tests([Fil0|Gs0], St1), %These are always flat!
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[],
 		    clauses=[#iclause{anno=LAnno,pats=[],
 				      guard=Gs,body=Lps ++ [Lc]}],
@@ -966,7 +1006,7 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
 			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St3} = novars(Fil0, St2),
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[Filc],
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[#c_literal{anno=LA,val=true}],
@@ -1010,6 +1050,7 @@ bc_tq1(Line, E, [{generate,Lg,P,G}|Qs0], AccExpr, St0) ->
     LA = lineno_anno(Line, St1),
     {[Head,Tail,AccVar],St2} = new_vars(LA, 3, St1),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     {Arg,St3} = new_var(St2),
     NewMore = {call,Lg,{atom,Lg,Name},[{var,Lg,Tail#c_var.name},
 				       {var,Lg,AccVar#c_var.name}]},
@@ -1043,7 +1084,7 @@ bc_tq1(Line, E, [{generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 			   body=Body}|Cs0]
 	 end,
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,2},Fun}],
+    {#iletrec{anno=CGAnno,defs=[{{Name,2},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,2}},
 				   args=[Gc,AccExpr]}]},
@@ -1054,6 +1095,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
     LA = lineno_anno(Line, St1),
     {AccVar,St2} = new_var(LA, St1),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     HeadBinPattern = pattern(P, St2),
     #c_binary{segments=Ps0} = HeadBinPattern,
     {Ps,Tail,St3} = append_tail_segment(Ps0, St2),
@@ -1082,7 +1124,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 		   pats=[#c_binary{anno=LA,segments=TailSegList},AccVar],
 		   guard=[],
 		   body=[AccVar]}],
-    Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
+    Fun = #ifun{anno=CGAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno,defs=[{{Name,2},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,2}},
@@ -1092,12 +1134,13 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
     %% Special case sequences guard tests.
     LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
+    CGAnno = #a{anno=[list_comprehension|LA]},
     case is_guard_test(Fil0) of
 	true ->
 	    {Gs0,Qs1} = splitwith(fun is_guard_test/1, Qs0),
 	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs1, AccVar, St0),
 	    {Gs,St} = lc_guard_tests([Fil0|Gs0], St1), %These are always flat!
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[],
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[],
@@ -1112,7 +1155,7 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
 			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St} = novars(Fil0, St2),
-	    {#icase{anno=LAnno,
+	    {#icase{anno=CGAnno,
 		    args=[Filc],
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[#c_literal{anno=LA,val=true}],
@@ -1135,28 +1178,13 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
 
-append_tail_segment(Segs, St) ->
-    app_tail_seg(Segs, St, []).
-
-app_tail_seg([#c_bitstr{val=Var0,size=#c_literal{val=all}}=Seg0]=L,
-	     St0, Acc) ->
-    case Var0 of
-	#c_var{name='_'} ->
-	    {Var,St} = new_var(St0),
-	    Seg = Seg0#c_bitstr{val=Var},
-	    {reverse(Acc, [Seg]),Var,St};
-	#c_var{} ->
-	    {reverse(Acc, L),Var0,St0}
-    end;
-app_tail_seg([H|T], St, Acc) ->
-    app_tail_seg(T, St, [H|Acc]);
-app_tail_seg([], St0, Acc) ->
+append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
     Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
 		     unit=#c_literal{val=1},
 		     type=#c_literal{val=binary},
 		     flags=#c_literal{val=[unsigned,big]}},
-    {reverse(Acc, [Tail]),Var,St}.
+    {Segs++[Tail],Var,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
@@ -1482,6 +1510,26 @@ pattern({cons,L,H,T}, St) ->
     ann_c_cons(lineno_anno(L, St), pattern(H, St), pattern(T, St));
 pattern({tuple,L,Ps}, St) ->
     ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
+pattern({map,L,Ps}, St) ->
+    #c_map{anno=lineno_anno(L, St), es=sort(pattern_list(Ps, St))};
+pattern({map_field_exact,L,K,V}, St) ->
+    %% FIXME: Better way to construct literals? or missing case
+    %% {Key,_,_} = expr(K, St),
+    Key = case K of
+	{bin,L,Es0} ->
+	    case constant_bin(Es0) of
+		error ->
+		    throw(badmatch);
+		Bin ->
+		    #c_literal{anno=lineno_anno(L,St),val=Bin}
+	    end;
+	_ ->
+	    pattern(K,St)
+    end,
+    #c_map_pair{anno=lineno_anno(L, St),
+                op=#c_literal{val=exact},
+		key=Key,
+		val=pattern(V, St)};
 pattern({bin,L,Ps}, St) ->
     %% We don't create a #ibinary record here, since there is
     %% no need to hold any used/new annotations in a pattern.
@@ -1545,15 +1593,6 @@ pat_alias_list(_, _) -> throw(nomatch).
 %% pattern_list([P], State) -> [P].
 
 pattern_list(Ps, St) -> [pattern(P, St) || P <- Ps].
-
-%% first([A]) -> [A].
-%% last([A]) -> A.
-
-first([_]) -> [];
-first([H|T]) -> [H|first(T)].
-
-last([L]) -> L;
-last([_|T]) -> last(T).
 
 %% make_vars([Name]) -> [{Var,Name}].
 
@@ -1637,13 +1676,13 @@ uclause(#iclause{anno=Anno,pats=Ps0,guard=G0,body=B0}, Pks, Ks0, St0) ->
 uguard([], [], _, St) -> {[],St};
 uguard(Pg, [], Ks, St) ->
     %% No guard, so fold together equality tests.
-    uguard(first(Pg), [last(Pg)], Ks, St);
+    uguard(droplast(Pg), [last(Pg)], Ks, St);
 uguard(Pg, Gs0, Ks, St0) ->
     %% Gs0 must contain at least one element here.
     {Gs3,St5} = foldr(fun (T, {Gs1,St1}) ->
 			      {L,St2} = new_var(St1),
 			      {R,St3} = new_var(St2),
-			      {[#iset{var=L,arg=T}] ++ first(Gs1) ++
+			      {[#iset{var=L,arg=T}] ++ droplast(Gs1) ++
 			       [#iset{var=R,arg=last(Gs1)},
 				#icall{anno=#a{}, %Must have an #a{}
 				       module=#c_literal{val=erlang},
@@ -1720,13 +1759,18 @@ uexpr(#icase{anno=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
     Used = union(used_in_any(As1), used_in_any(Cs1)),
     New = new_in_all(Cs1),
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
-uexpr(#ifun{anno=A,id=Id,vars=As,clauses=Cs0,fc=Fc0}, Ks0, St0) ->
+uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}, Ks0, St0) ->
     Avs = lit_list_vars(As),
-    Ks1 = union(Avs, Ks0),
-    {Cs1,St1} = ufun_clauses(Cs0, Ks1, St0),
-    {Fc1,St2} = ufun_clause(Fc0, Ks1, St1),
-    Used = subtract(intersection(used_in_any(Cs1), Ks0), Avs),
-    {#ifun{anno=A#a{us=Used,ns=[]},id=Id,vars=As,clauses=Cs1,fc=Fc1},St2};
+    Ks1 = case Name of
+              unnamed -> Ks0;
+              {named,FName} -> union(subtract([FName], Avs), Ks0)
+          end,
+    Ks2 = union(Avs, Ks1),
+    {Cs1,St1} = ufun_clauses(Cs0, Ks2, St0),
+    {Fc1,St2} = ufun_clause(Fc0, Ks2, St1),
+    Used = subtract(intersection(used_in_any(Cs1), Ks1), Avs),
+    A1 = A0#a{us=Used,ns=[]},
+    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs1,fc=Fc1,name=Name},St2};
 uexpr(#iapply{anno=A,op=Op,args=As}, _, St) ->
     Used = union(lit_vars(Op), lit_list_vars(As)),
     {#iapply{anno=A#a{us=Used},op=Op,args=As},St};
@@ -1822,6 +1866,12 @@ upattern(#c_cons{hd=H0,tl=T0}=Cons, Ks, St0) ->
 upattern(#c_tuple{es=Es0}=Tuple, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
     {Tuple#c_tuple{es=Es1},Esg,Esv,Eus,St1};
+upattern(#c_map{es=Es0}=Map, Ks, St0) ->
+    {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
+    {Map#c_map{es=Es1},Esg,Esv,Eus,St1};
+upattern(#c_map_pair{op=#c_literal{val=exact},val=V0}=MapPair, Ks, St0) ->
+    {V,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
+    {MapPair#c_map_pair{val=V},Vg,Vv,Vu,St1};
 upattern(#c_binary{segments=Es0}=Bin, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upat_bin(Es0, Ks, St0),
     {Bin#c_binary{segments=Es1},Esg,Esv,Eus,St1};
@@ -2021,15 +2071,25 @@ cexpr(#itry{anno=A,args=La,vars=Vs,body=Lb,evars=Evs,handler=Lh}, As, St0) ->
 cexpr(#icatch{anno=A,body=Les}, _As, St0) ->
     {Ces,_Us1,St1} = cexprs(Les, [], St0),	%Never export!
     {#c_catch{body=Ces},[],A#a.us,St1};
-cexpr(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
-    {Ccs,St1} = cclauses(Lcs, [], St0),		%NEVER export!
-    {Cfc,St2} = cclause(Lfc, [], St1),
-    Anno = A#a.anno,
-    {#c_fun{anno=Id++Anno,vars=Args,
-	    body=#c_case{anno=Anno,
-			 arg=set_anno(core_lib:make_values(Args), Anno),
-			 clauses=Ccs ++ [Cfc]}},
-     [],A#a.us,St2};
+cexpr(#ifun{name=unnamed}=Fun, As, St0) ->
+    cfun(Fun, As, St0);
+cexpr(#ifun{anno=#a{us=Us0}=A0,name={named,Name},fc=#iclause{pats=Ps}}=Fun0,
+      As, St0) ->
+    case is_element(Name, Us0) of
+        false ->
+            cfun(Fun0, As, St0);
+        true ->
+            A1 = A0#a{us=del_element(Name, Us0)},
+            Fun1 = Fun0#ifun{anno=A1},
+            {#c_fun{body=Body}=CFun0,[],Us1,St1} = cfun(Fun1, As, St0),
+            RecVar = #c_var{name={Name,length(Ps)}},
+            Let = #c_let{vars=[#c_var{name=Name}],arg=RecVar,body=Body},
+            CFun1 = CFun0#c_fun{body=Let},
+            Letrec = #c_letrec{anno=A0#a.anno,
+			       defs=[{RecVar,CFun1}],
+                               body=RecVar},
+            {Letrec,[],Us1,St1}
+    end;
 cexpr(#iapply{anno=A,op=Op,args=Args}, _As, St) ->
     {#c_apply{anno=A#a.anno,op=Op,args=Args},[],A#a.us,St};
 cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St) ->
@@ -2056,23 +2116,15 @@ cexpr(Lit, _As, St) ->
     %%Vs = lit_vars(Lit),
     {set_anno(Lit, Anno#a.anno),[],Vs,St}.
 
-%% Kill the id annotations for any fun inside the expression.
-%% Necessary when duplicating code in try ... after.
-
-kill_id_anns(#ifun{clauses=Cs0}=Fun) ->
-    Cs = kill_id_anns(Cs0),
-    Fun#ifun{clauses=Cs,id=[]};
-kill_id_anns(#a{}=A) ->
-    %% Optimization: Don't waste time searching for funs inside annotations.
-    A;
-kill_id_anns([H|T]) ->
-    [kill_id_anns(H)|kill_id_anns(T)];
-kill_id_anns([]) -> [];
-kill_id_anns(Tuple) when is_tuple(Tuple) ->
-    L0 = tuple_to_list(Tuple),
-    L = kill_id_anns(L0),
-    list_to_tuple(L);
-kill_id_anns(Other) -> Other.
+cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
+    {Ccs,St1} = cclauses(Lcs, [], St0),     %NEVER export!
+    {Cfc,St2} = cclause(Lfc, [], St1),
+    Anno = A#a.anno,
+    {#c_fun{anno=Id++Anno,vars=Args,
+            body=#c_case{anno=Anno,
+                         arg=set_anno(core_lib:make_values(Args), Anno),
+                         clauses=Ccs ++ [Cfc]}},
+     [],A#a.us,St2}.
 
 %% lit_vars(Literal) -> [Var].
 
@@ -2150,6 +2202,9 @@ is_simple(#c_literal{}) -> true;
 is_simple(#c_cons{hd=H,tl=T}) ->
     is_simple(H) andalso is_simple(T);
 is_simple(#c_tuple{es=Es}) -> is_simple_list(Es);
+is_simple(#c_map{es=Es}) -> is_simple_list(Es);
+is_simple(#c_map_pair{key=K,val=V}) ->
+    is_simple(K) andalso is_simple(V);
 is_simple(_) -> false.
 
 -spec is_simple_list([cerl:cerl()]) -> boolean().

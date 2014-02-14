@@ -46,12 +46,11 @@ else
 TYPEMARKER =
 endif
 
-EI_LIBDIR = $(ERL_TOP)/lib/erl_interface/obj$(TYPEMARKER)/$(TARGET)
-
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 CFLAGS = $(DED_INCLUDES) $(EI_INCLUDES) $(DED_CFLAGS)
+STATIC_CFLAGS = $(DED_INCLUDES) $(EI_INCLUDES) $(DED_STATIC_CFLAGS)
 LDFLAGS += $(DED_LDFLAGS)
 
 # ----------------------------------------------------
@@ -59,16 +58,36 @@ LDFLAGS += $(DED_LDFLAGS)
 # ----------------------------------------------------
 
 NIF_OBJ_FILES = $(OBJDIR)/asn1_erl_nif.o
+NIF_STATIC_OBJ_FILES = $(OBJDIR)/asn1_erl_nif_static.o
 
-
+# Module and shared lib have to have same name of
+# static nifs to work
 ifeq ($(TARGET),win32)
-NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.dll
+NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1rt_nif.dll
+NIF_LIB_FILE = $(LIBDIR)/asn1rt_nif.lib
 CLIB_FLAGS =
 LN=cp
 else
-NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.so
+NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1rt_nif.so
+NIF_LIB_FILE = $(LIBDIR)/asn1rt_nif.a
 CLIB_FLAGS = -lc
 LN= ln -s
+endif
+
+ifeq ($(USING_VC),yes)
+AR_OUT=-out:
+AR_FLAGS=
+else
+AR_OUT=
+ifeq ($(V),0)
+AR_FLAGS=rc
+else
+AR_FLAGS=rcv
+endif
+endif
+
+ifndef RANLIB
+RANLIB=true
 endif
 
 # ----------------------------------------------------
@@ -80,6 +99,8 @@ _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 opt: $(NIF_SHARED_OBJ_FILE)
 
 debug: opt
+
+static_lib: $(NIF_LIB_FILE)
 
 clean:
 	rm -f core *~ 
@@ -95,6 +116,13 @@ docs:
 
 $(OBJDIR)/%.o: %.c
 	$(V_CC) -c $(CFLAGS) -O3 -o $@ $<
+
+$(OBJDIR)/%_static.o: %.c
+	$(V_CC) -c $(STATIC_CFLAGS) -O3 -o $@ $<
+
+$(NIF_LIB_FILE): $(NIF_STATIC_OBJ_FILES)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(NIF_STATIC_OBJ_FILES)
+	$(V_RANLIB) $@
 
 $(NIF_SHARED_OBJ_FILE): $(NIF_OBJ_FILES)
 	$(V_LD) $(LDFLAGS) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(CLIB_FLAGS) $(LIBS)

@@ -31,13 +31,13 @@ extension(_Rules) ->
     %% A trick to encode with another compatible CHOICE type to test reception
     %% extension alternative
 
-    roundtrip('ChoExt1x', {str,"abc"}),
+    roundtrip('ChoExt1x', {str,<<"abc">>}),
 
     roundtrip('ChoExt2', {bool,true}),
     roundtrip('ChoExt2', {int,33}),
     roundtrip('ChoExt3', {bool,true}),
     roundtrip('ChoExt3', {int,33}),
-    roundtrip('ChoExt4', {str,"abc"}),
+    roundtrip('ChoExt4', {str,<<"abc">>}),
 
     roundtrip('ChoEmptyRoot', {bool,false}),
     roundtrip('ChoEmptyRoot', {bool,true}),

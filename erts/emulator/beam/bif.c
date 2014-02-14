@@ -3764,45 +3764,6 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 
 /**********************************************************************/
 
-BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
-{
-    int reds;
-    Process *rp;
-
-    if (is_not_pid(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
-    if (BIF_P->common.id == BIF_ARG_1)
-	rp = BIF_P;
-    else {
-#ifdef ERTS_SMP
-	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-	if (rp == ERTS_PROC_LOCK_BUSY)
-	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
-#else
-	rp = erts_proc_lookup(BIF_ARG_1);
-#endif
-	if (!rp)
-	    BIF_RET(am_false);
-    }
-
-    /* The GC cost is taken for the process executing this BIF. */
-
-    FLAGS(rp) |= F_NEED_FULLSWEEP;
-    reds = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-
-#ifdef ERTS_SMP
-    if (BIF_P != rp) {
-	erts_resume(rp, ERTS_PROC_LOCK_MAIN);
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
-    }
-#endif
-
-    BIF_RET2(am_true, reds);
-}
-
 BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {
     int reds;
@@ -4527,7 +4488,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_P->group_leader,
 	    "A call to erlang:system_flag(cpu_topology, _) was made.\n"
 	    "The cpu_topology argument is deprecated and scheduled\n"
-	    "for removal in erts-5.10/OTP-R16. For more information\n"
+	    "for removal in Erlang/OTP 18. For more information\n"
 	    "see the erlang:system_flag/2 documentation.\n");
 	BIF_TRAP1(set_cpu_topology_trap, BIF_P, BIF_ARG_2);
     } else if (ERTS_IS_ATOM_STR("scheduler_bind_type", BIF_ARG_1)) {
@@ -4535,7 +4496,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_P->group_leader,
 	    "A call to erlang:system_flag(scheduler_bind_type, _) was\n"
 	    "made. The scheduler_bind_type argument is deprecated and\n"
-	    "scheduled for removal in erts-5.10/OTP-R16. For more\n"
+	    "scheduled for removal in Erlang/OTP 18. For more\n"
 	    "information see the erlang:system_flag/2 documentation.\n");
 	return erts_bind_schedulers(BIF_P, BIF_ARG_2);
     }
@@ -4654,6 +4615,17 @@ BIF_RETTYPE bump_reductions_1(BIF_ALIST_1)
     BIF_RET2(am_true, reds);
 }
 
+BIF_RETTYPE erts_internal_cmp_term_2(BIF_ALIST_2) {
+    int res = CMP_TERM(BIF_ARG_1,BIF_ARG_2);
+
+    /* ensure -1, 0, 1 result */
+    if (res < 0) {
+	BIF_RET(make_small(-1));
+    } else if (res > 0) {
+	BIF_RET(make_small(1));
+    }
+    BIF_RET(make_small(0));
+}
 /*
  * Processes doing yield on return in a bif ends up in bif_return_trap().
  */

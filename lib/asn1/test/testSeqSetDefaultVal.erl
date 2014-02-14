@@ -162,7 +162,7 @@ main(Rule, Opts) ->
 	  {#'SeqOS'{},
 	   [{#'SeqOS'.a,
 	     [asn1_DEFAULT,
-	      [172]]}]},
+	      <<172>>]}]},
 
 	  {#'SeqOI'{},
 	   [{#'SeqOI'.a,
@@ -314,17 +314,10 @@ der() ->
 		       c=[second], d = <<>>}),
 
     roundtrip(<<48,0>>, 'SeqOS',
-	      #'SeqOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
-    roundtrip(<<48,0>>,
-	      'SeqOS',
-	      #'SeqOS'{a=172,b=43168,c='NULL'},
-	      #'SeqOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
+	      #'SeqOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
 
-    roundtrip(<<49,0>>, 'SetOS', #'SetOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
-    roundtrip(<<49,0>>,
-	      'SetOS',
-	      #'SetOS'{a=172,b=43168,c='NULL'},
-	      #'SetOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
+    roundtrip(<<49,0>>, 'SetOS',
+	      #'SetOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
 
     roundtrip(<<48,0>>,
 	      'SeqOI',

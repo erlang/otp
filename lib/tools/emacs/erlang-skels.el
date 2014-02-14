@@ -109,32 +109,32 @@ include separators of the form %%--...")
 ;; Expression templates:
 (defvar erlang-skel-case
   '((erlang-skel-skip-blank) o >
-    "case " p " of" n> p "_ ->" n> p "ok" n> "end" p)
+    "case " p " of" n> p "_ ->" n> p "ok" n "end" > p)
   "*The skeleton of a `case' expression.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-if
   '((erlang-skel-skip-blank) o >
-    "if"  n> p " ->" n> p "ok" n> "end" p)
+    "if"  n> p " ->" n> p "ok" n "end" > p)
   "The skeleton of an `if' expression.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-receive
   '((erlang-skel-skip-blank) o >
-    "receive" n> p "_ ->" n> p "ok" n> "end" p)
+    "receive" n> p "_ ->" n> p "ok" n "end" > p)
   "*The skeleton of a `receive' expression.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-receive-after
   '((erlang-skel-skip-blank) o >
-    "receive" n> p "_ ->" n> p "ok" n> "after " p "T ->" n>
-    p "ok" n> "end" p)
+    "receive" n> p "_ ->" n> p "ok" n "after " > p "T ->" n>
+    p "ok" n "end" > p)
   "*The skeleton of a `receive' expression with an `after' clause.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-receive-loop
   '(& o "loop(" p ") ->" n> "receive" n> p "_ ->" n>
-      "loop(" p ")" n> "end.")
+      "loop(" p ")" n "end." >)
   "*The skeleton of a simple `receive' loop.
 Please see the function `tempo-define-template'.")
 
@@ -256,8 +256,8 @@ Please see the function `tempo-define-template'.")
     "loop(From) ->" n>
     "receive" n>
     p "_ ->" n>
-    "loop(From)" n>
-    "end." n
+    "loop(From)" n
+    "end." > n
     )
   "*Template of a small server.
 Please see the function `tempo-define-template'.")
@@ -291,8 +291,8 @@ Please see the function `tempo-define-template'.")
     "{ok, Pid} ->" n>
     "{ok, Pid};" n>
     "Error ->" n>
-    "Error" n>
-    "end." n
+    "Error" n
+    "end." > n
     n
     (erlang-skel-separator-start 2)
     "%% @private" n
@@ -421,8 +421,8 @@ Please see the function `tempo-define-template'.")
     "{ok, Pid} ->" n>
     "{ok, Pid, #state{}};" n>
     "Error ->" n>
-    "Error" n>
-    "end." n
+    "Error" n
+    "end." > n
     n
     (erlang-skel-separator-start 2)
     "%% @private" n

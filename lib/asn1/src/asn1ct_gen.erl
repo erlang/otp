@@ -23,6 +23,7 @@
 
 -export([demit/1,
 	 emit/1,
+	 open_output_file/1,close_output_file/0,
 	 get_inner/1,type/1,def_to_tag/1,prim_bif/1,
 	 list2name/1,
 	 list2rname/1,
@@ -70,8 +71,7 @@ pgen_module(OutFile,Erules,Module,
     HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Options,Indent),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
-    Fid = fopen(ErlFile),
-    put(gen_file_out,Fid),
+    open_output_file(ErlFile),
     asn1ct_func:start_link(),
     gen_head(Erules,Module,HrlGenerated),
     pgen_exports(Erules,Module,TypeOrVal),
@@ -85,9 +85,9 @@ pgen_module(OutFile,Erules,Module,
 	  "%%%",nl,
 	  "%%% Run-time functions.",nl,
 	  "%%%",nl]),
-    asn1ct_func:generate(Fid),
-    file:close(Fid),
-    _ = erase(gen_file_out),
+    Fd = get(gen_file_out),
+    asn1ct_func:generate(Fd),
+    close_output_file(),
     _ = erase(outfile),
     asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
@@ -790,7 +790,8 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 
 
 pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
-    emit(["-export([encoding_rule/0,bit_string_format/0]).",nl]),
+    emit(["-export([encoding_rule/0,bit_string_format/0,"
+	  "         legacy_erlang_types/0]).",nl]),
     case Types of
 	[] -> ok;
 	_ ->
@@ -1022,7 +1023,9 @@ gen_info_functions(Erules) ->
     emit(["encoding_rule() -> ",
 	  {asis,Erules},".",nl,nl,
 	  "bit_string_format() -> ",
-	  {asis,asn1ct:get_bit_string_format()},".",nl,nl]).
+	  {asis,asn1ct:get_bit_string_format()},".",nl,nl,
+	  "legacy_erlang_types() -> ",
+	  {asis,asn1ct:use_legacy_types()},".",nl,nl]).
 
 gen_decode_partial_incomplete(ber) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
@@ -1121,8 +1124,7 @@ pgen_info() ->
 
 open_hrl(OutFile,Module) ->
     File = lists:concat([OutFile,".hrl"]),
-    Fid = fopen(File),
-    put(gen_file_out,Fid),
+    open_output_file(File),
     gen_hrlhead(Module).
 
 %% EMIT functions ************************
@@ -1195,14 +1197,18 @@ call_args([A|As], Sep) ->
     [Sep,do_emit(A)|call_args(As, ", ")];
 call_args([], _) -> [].
 
-fopen(F) ->
+open_output_file(F) ->
     case file:open(F, [write,raw,delayed_write]) of
-	{ok, Fd} -> 
+	{ok,Fd} ->
+	    put(gen_file_out, Fd),
 	    Fd;
 	{error, Reason} ->
 	    io:format("** Can't open file ~p ~n", [F]),
 	    exit({error,Reason})
     end.
+
+close_output_file() ->
+    ok = file:close(erase(gen_file_out)).
 
 pgen_hrl(Erules,Module,TypeOrVal,Options,_Indent) ->
     put(currmod,Module),
@@ -1226,8 +1232,7 @@ pgen_hrl(Erules,Module,TypeOrVal,Options,_Indent) ->
 	0 ->
 	    0;
 	Y ->
-	    Fid = get(gen_file_out),
-	    file:close(Fid),
+	    close_output_file(),
 	    asn1ct:verbose("--~p--~n",
 			   [{generated,lists:concat([get(outfile),".hrl"])}],
 			   Options),

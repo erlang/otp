@@ -34,14 +34,11 @@
 
 fragmented(Rules) ->
     Lens = fragmented_lengths(),
-    fragmented_octet_string(Rules, Lens),
-    case Rules of
-	per ->
-	    %% NYI.
-	    ok;
-	_ ->
-	    fragmented_strings(Lens)
-    end.
+    case 'PrimStrings':legacy_erlang_types() of
+	false -> fragmented_octet_string(Rules, Lens);
+	true -> ok
+    end,
+    fragmented_strings(Lens).
 
 fragmented_strings(Lens) ->
     Types = ['Ns','Ps','Ps11','Vis','IA5'],
@@ -74,33 +71,37 @@ bit_string(Rules, Opts) ->
     %% Bs1 ::= BIT STRING
     %%==========================================================
 
-    bs_roundtrip('Bs1', 0, <<>>),
-    bs_roundtrip('Bs1', 4, <<1:3>>),
-    bs_roundtrip('Bs1', 15, <<15:4>>),
-    bs_roundtrip('Bs1', 255, <<255:8>>),
+    bs_roundtrip('Bs1', <<>>),
+    bs_roundtrip('Bs1', <<1:3>>),
+    bs_roundtrip('Bs1', <<15:4>>),
+    bs_roundtrip('Bs1', <<2#010010:6>>),
+    bs_roundtrip('Bs1', <<2#11111111:8>>),
+    bs_roundtrip('Bs1', <<2#100000000:9>>),
+    bs_roundtrip('Bs1', <<2#100000001:9>>),
+    bs_roundtrip('Bs1', <<2#001111011:9>>),
+    bs_roundtrip('Bs1', <<2#0100101111100010011:19>>),
 
-    bs_roundtrip('Bs1', 256, [0,0,0,0,0,0,0,0,1]),
-    bs_roundtrip('Bs1', 257, [1,0,0,0,0,0,0,0,1]),
-    bs_roundtrip('Bs1', 444, [0,0,1,1,1,1,0,1,1]),
-    
-    {ok,Enc1} = 'PrimStrings':encode('Bs1', 12345678901234567890),
-    {ok,_} = 'PrimStrings':decode('Bs1', Enc1),
-
-    bs_roundtrip('Bs1', [1,1,1,1,1,1,1,1]),
-    bs_roundtrip('Bs1', [0,1,0,0,1,0]),
-    bs_roundtrip('Bs1', [1,0,0,0,0,0,0,0,0]),
-    bs_roundtrip('Bs1', [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
+    case 'PrimStrings':legacy_erlang_types() of
+	false ->
+	    ok;
+	true ->
+	    {ok,Enc1} = 'PrimStrings':encode('Bs1', 12345678901234567890),
+	    {ok,_} = 'PrimStrings':decode('Bs1', Enc1)
+    end,
 
 
     case {Rules,Opts} of
-	{ber,[]} ->
+	{ber,[legacy_erlang_types]} ->
 	    bs_decode('Bs1', <<35,8,3,2,0,73,3,2,4,32>>,
 		      [0,1,0,0,1,0,0,1,0,0,1,0]),
 	    bs_decode('Bs1', <<35,9,3,2,0,234,3,3,7,156,0>>,
 		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]),
 	    bs_decode('Bs1', <<35,128,3,2,0,234,3,3,7,156,0,0,0>>,
 		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]);
-	_ ->
+	{ber,[]} ->
+	    %% XXX
+	    ok;
+	{_,_} ->
 	    %% DER, PER, UPER
 	    consistent_def_enc('BsDef1',
 			       [2#111101,
@@ -120,30 +121,39 @@ bit_string(Rules, Opts) ->
     %%==========================================================
     
     roundtrip('Bs2', [mo,tu,fr]),
-    roundtrip('Bs2', [0,1,1,0,0,1,0], [mo,tu,fr]),
+    bs_roundtrip('Bs2', <<2#0110010:7>>, [mo,tu,fr]),
+    bs_roundtrip('Bs2', <<2#0110011:7>>, [mo,tu,fr,sa]),
 
     %%==========================================================
     %% Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
     %%==========================================================
     
     roundtrip('Bs3', [mo,tu,fr]),
-    bs_roundtrip('Bs3', [0,1,1,0,0,1,0], [mo,tu,fr]),
+    bs_roundtrip('Bs3', <<2#0110010:7>>, [mo,tu,fr]),
+    bs_roundtrip('Bs3', <<2#0110010:7>>, [mo,tu,fr]),
+    bs_roundtrip('Bs2', <<2#0110011:7>>, [mo,tu,fr,sa]),
+    bs_roundtrip('Bs3', <<2#011001:6>>, [mo,tu,fr]),
+    bs_roundtrip('Bs3', <<2#11:2>>, [su,mo]),
 
     %%==========================================================
     %% Bs7 ::= BIT STRING (SIZE (24))
     %%==========================================================
 
-    bs_roundtrip('Bs7', 53245,
-		 [1,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0]),
-    bs_roundtrip('Bs7', [1,0,1,0],
-		 [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]),
+    bs_roundtrip('Bs7', <<23563:24>>),
+    case 'PrimStrings':legacy_erlang_types() of
+	false ->
+%%	    {error,_} = 'PrimStrings':encode('Bs7', <<2#1010:4>>);
+	    ok;
+	true ->
+	    ok
+    end,
     
     %%==========================================================
     %% BsPri ::= [PRIVATE 61] BIT STRING
     %%==========================================================
     
-    bs_roundtrip('BsPri', 45, [1,0,1,1,0,1]),
-    bs_roundtrip('BsPri', 211, [1,1,0,0,1,0,1,1]),
+    bs_roundtrip('BsPri', <<2#101101:6>>),
+    bs_roundtrip('BsPri', <<2#11001011:8>>),
     
     case Rules of
 	ber ->
@@ -164,8 +174,8 @@ bit_string(Rules, Opts) ->
     %% BsExpPri ::= [PRIVATE 61] EXPLICIT BIT STRING
     %%==========================================================
     
-    bs_roundtrip('BsExpPri', 45, [1,0,1,1,0,1]),
-    bs_roundtrip('BsExpPri', 211, [1,1,0,0,1,0,1,1]),
+    bs_roundtrip('BsExpPri', <<2#101101:6>>),
+    bs_roundtrip('BsExpPri', <<2#11001011:8>>),
     
     case Rules of
 	ber ->
@@ -186,14 +196,14 @@ bit_string(Rules, Opts) ->
     %%    veteran(2), collegeGraduate(3)}, test case for OTP-5710
     %%==========================================================
     
-    {ok,Bytes54} = 'BitStr':encode('PersonalStatus', []),
+    {ok,Bytes54} = 'BitStr':encode('PersonalStatus', <<>>),
     {ok,[]} = 'BitStr':decode('PersonalStatus', Bytes54),
     
     %%==========================================================
     %% BS5932 ::= BIT STRING (SIZE (5..MAX))
     %% test case for OTP-5932
     %%==========================================================
-    bs_roundtrip('BSMAX', [1,0,1,0,1]),
+    bs_roundtrip('BSMAX', <<2#10101:5>>),
     case Rules of
 	ber ->
 	    {error,_} = 'PrimStrings':encode('BSMAX', [1,0,1]);
@@ -207,28 +217,35 @@ bit_string(Rules, Opts) ->
     %% BS1024 ::= BIT STRING (SIZE (1024))
     %% test case for OTP-7602
     %%==========================================================
-    BSmaker =
-	fun(_F,S,S,_,Acc) -> 
-		Acc;
-	   (F,Ix,S,{A,B},Acc) -> 
-		F(F,Ix+1,S,{B,A},[A|Acc]) 
-	end,
-    
-    BSList255 = BSmaker(BSmaker,0,255,{1,0},[]),
-    bs_roundtrip('BS255', BSList255),
-    BSList256 = BSmaker(BSmaker,0,256,{1,0},[]),
-    bs_roundtrip('BS256', BSList256),
-    BSList1024 = BSmaker(BSmaker,0,1024,{1,0},[]),
-    bs_roundtrip('BS1024', BSList1024),
 
-    bs_roundtrip('TransportLayerAddress', [0,1,1,0]),
+    bs_roundtrip('BS255', random_bits(255)),
+    bs_roundtrip('BS256', random_bits(256)),
+    bs_roundtrip('BS1024', random_bits(1024)),
+
+    bs_roundtrip('TransportLayerAddress', <<2#0110:4>>),
 
     case Rules of
 	ber -> ok;
 	_ -> per_bs_strings()
     end.
 
-consistent_def_enc(Type, Vs) ->
+random_bits(N) ->
+    Seed = integer_to_list(erlang:phash2(erlang:now())),
+    random_bits(<<>>, N, Seed).
+
+random_bits(Bin, N, Seed) ->
+    RandomBits = erlang:md5(Seed),
+    Bits = bit_size(RandomBits),
+    if
+	Bits < N ->
+	    random_bits(<<Bin/bitstring,RandomBits/bitstring>>,
+			N-Bits, RandomBits);
+	true ->
+	    <<LastBits:N/bitstring,_/bitstring>> = RandomBits,
+	    <<Bin/bitstring,LastBits/bitstring>>
+    end.
+
+consistent_def_enc(Type, Vs0) ->
     M = 'PrimStrings',
     {ok,Enc} = M:encode(Type, {Type,asn1_DEFAULT}),
     {ok,Val} = M:decode(Type, Enc),
@@ -241,6 +258,13 @@ consistent_def_enc(Type, Vs) ->
 	{legacy,{_,Bs}} when is_list(Bs) -> ok
     end,
 
+    %% If this is not the legacy format, only bitstrings are
+    %% allowed.
+    Vs = case M:legacy_erlang_types() of
+	     false -> [V || V <- Vs0, is_bitstring(V)];
+	     true -> Vs0
+	 end,
+
     %% All values should be recognized and encoded as the
     %% the default value (i.e. not encoded at all).
     _ = [{ok,Enc} = M:encode(Type, {Type,V}) || V <- Vs],
@@ -252,18 +276,9 @@ consistent_def_enc(Type, Vs) ->
 %% a SIZE constraint).
 
 per_bs_strings() ->
-    bs_roundtrip('Bs3', [0,0,1,0,0,0,0], [tu]),
     bs_roundtrip('Bs3', <<2#0010000:7>>, [tu]),
-    bs_roundtrip('Bs3', {1,<<2#00100000:8>>}, [tu]),
-
-    bs_roundtrip('Bs4', [0,1,1,0,0,1,0], [mo,tu,fr]),
     bs_roundtrip('Bs4', <<2#0110010:7>>, [mo,tu,fr]),
-    bs_roundtrip('Bs4', {1,<<2#01100100:8>>}, [mo,tu,fr]),
-
-    bs_roundtrip('Bs4', [0,1,1,0,0,0,0], [mo,tu]),
     bs_roundtrip('Bs4', <<2#011:3,0:32>>, [mo,tu]),
-    bs_roundtrip('Bs4', {5,<<2#011:3,0:32,0:5>>}, [mo,tu]),
-
     [per_trailing_zeroes(B) || B <- lists:seq(0, 255)],
     ok.
 
@@ -279,10 +294,6 @@ per_trailing_zeroes(Byte) ->
 		     {bit,LastBitPos} -> LastBitPos+1
 		 end,
 
-    %% List of zeroes and ones.
-    named_roundtrip(L, Pos, ExpectedSz),
-    named_roundtrip(L++[0,0,0,0,0], Pos, ExpectedSz),
-
     %% Bitstrings.
     Bs = << <<B:1>> || B <- L >>,
     Sz = bit_size(Bs),
@@ -290,14 +301,22 @@ per_trailing_zeroes(Byte) ->
     Bin = <<Bs:Sz/bits,0:16,0:7>>,
     named_roundtrip(Bin, Pos, ExpectedSz),
 
-    %% Compact bitstring.
-    named_roundtrip({7,Bin}, Pos, ExpectedSz),
+    case 'PrimStrings':legacy_erlang_types() of
+	false ->
+	    ok;
+	true ->
+	    %% List of zeroes and ones.
+	    named_roundtrip(L, Pos, ExpectedSz),
+	    named_roundtrip(L++[0,0,0,0,0], Pos, ExpectedSz),
 
-    %% Integer bitstring (obsolete).
-    IntBs = intlist_to_integer(L, 0, 0),
-    named_roundtrip(IntBs, Pos, ExpectedSz),
+	    %% Compact bitstring.
+	    named_roundtrip({7,Bin}, Pos, ExpectedSz),
 
-    ok.
+	    %% Integer bitstring (obsolete).
+	    IntBs = intlist_to_integer(L, 0, 0),
+	    named_roundtrip(IntBs, Pos, ExpectedSz),
+	    ok
+    end.
 
 make_bit_list(0) -> [];
 make_bit_list(B) -> [B band 1|make_bit_list(B bsr 1)].
@@ -331,61 +350,62 @@ octet_string(Rules) ->
     %% Os ::= OCTET STRING
     %%==========================================================
 
+    Legacy = 'PrimStrings':legacy_erlang_types(),
     case Rules of
-	ber ->
-	    {ok,"Jones"} =
+	ber when not Legacy ->
+	    {ok,<<"Jones">>} =
 		'PrimStrings':decode('Os', <<4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
-	    {ok,"Jones"} =
+	    {ok,<<"Jones">>} =
 		'PrimStrings':decode('Os', <<36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
-	    {ok,"Jones"} =
+	    {ok,<<"Jones">>} =
 		'PrimStrings':decode('Os', <<36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
 	    ok;
 	_ ->
 	    ok
     end,
 
-    roundtrip('Os', [47,23,99,255,1]),
-    roundtrip('OsCon', [47,23,99,255,1]),
-    roundtrip('OsPri', [47,23,99,255,1]),
-    roundtrip('OsApp', [47,23,99,255,1]),
+    os_roundtrip('Os', <<47,23,99,255,1>>),
+    os_roundtrip('OsCon', <<47,23,99,255,1>>),
+    os_roundtrip('OsPri', <<47,23,99,255,1>>),
+    os_roundtrip('OsApp', <<47,23,99,255,1>>),
 
-    roundtrip('OsExpCon', [47,23,99,255,1]),
-    roundtrip('OsExpPri', [47,23,99,255,1]),
-    roundtrip('OsExpApp', [47,23,99,255,1]),
+    os_roundtrip('OsExpCon', <<47,23,99,255,1>>),
+    os_roundtrip('OsExpPri', <<47,23,99,255,1>>),
+    os_roundtrip('OsExpApp', <<47,23,99,255,1>>),
 
-    roundtrip('Os', []),
-    roundtrip('OsApp', []),
-    roundtrip('OsExpApp',[]),
+    os_roundtrip('Os', <<>>),
+    os_roundtrip('OsApp', <<>>),
+    os_roundtrip('OsExpApp', <<>>),
     
-    OsR = "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+    OsR = <<"12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890">>,
 
-    roundtrip('Os', OsR),
-    roundtrip('OsCon', OsR),
-    roundtrip('OsExpApp', OsR),
+    os_roundtrip('Os', OsR),
+    os_roundtrip('OsCon', OsR),
+    os_roundtrip('OsExpApp', OsR),
 
 
     case Rules of
-	ber ->
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,7,4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,11,36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,13,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
-	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
-	    {ok,"JonesJones"} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
+	ber when not Legacy ->
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,7,4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,11,36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,13,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
+	    {ok,<<"Jones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
+	    {ok,<<"JonesJones">>} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
 	    ok;
-
-	_->
+	_ ->
 	    ok
     end,
 
     S255 = lists:seq(1, 255),
-    Strings = {type,true,"","1","12","345",true,
-	       S255,[$a|S255],[$a,$b|S255],397},
-    p_roundtrip('OsFixedStrings', Strings),
-    p_roundtrip('OsFixedStringsExt', Strings),
-    p_roundtrip('OsVarStringsExt', Strings),
+    Strings = {type,true,<<"">>,<<"1">>,<<"12">>,<<"345">>,true,
+	       list_to_binary(S255),list_to_binary([$a|S255]),
+	       list_to_binary([$a,$b|S255]),397},
+    p_os_roundtrip('OsFixedStrings', Strings),
+    p_os_roundtrip('OsFixedStringsExt', Strings),
+    p_os_roundtrip('OsVarStringsExt', Strings),
     ShortenedStrings = shorten_by_two(Strings),
-    p_roundtrip('OsFixedStringsExt', ShortenedStrings),
-    p_roundtrip('OsVarStringsExt', ShortenedStrings),
+    p_os_roundtrip('OsFixedStringsExt', ShortenedStrings),
+    p_os_roundtrip('OsVarStringsExt', ShortenedStrings),
     ok.
 
 fragmented_octet_string(Erules, Lens) ->
@@ -414,13 +434,14 @@ fragmented_octet_string(Erules, Types, L) ->
     ok.
 
 enc_frag(Erules, Type, Value) ->
-    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
+    M = 'PrimStrings',
+    {ok,Encoded} = M:encode(Type, Value),
     case Erules of
 	ber ->
 	    Encoded;
 	_ ->
 	    %% Validate encoding with our own encoder.
-	    Encoded = enc_frag_1(<<>>, list_to_binary(Value))
+	    Encoded = enc_frag_1(<<>>, Value)
     end.
 
 enc_frag_1(Res, Bin0) ->
@@ -439,12 +460,12 @@ enc_frag_1(Res, Bin0) ->
     end.
 
 make_value(L) ->
-    make_value(L, 0, []).
+    make_value(L, 0, <<>>).
 
 make_value(0, _, Acc) ->
     Acc;
 make_value(N, Byte, Acc) when Byte =< 255 ->
-    make_value(N-1, Byte+7, [Byte|Acc]);
+    make_value(N-1, Byte+7, <<Acc/binary,Byte:8>>);
 make_value(N, Byte, Acc) ->
     make_value(N, Byte band 16#FF, Acc).
 
@@ -742,9 +763,31 @@ utf8_string(_Rules) ->
 shorten_by_two(Tuple) ->
     L = [case E of
 	     [_,_|T] -> T;
+	     <<_:16,T/binary>> -> T;
 	     _ -> E
 	 end || E <- tuple_to_list(Tuple)],
     list_to_tuple(L).
+
+p_os_roundtrip(Type, Value0) ->
+    Value = setelement(1, Value0, Type),
+    p_os_roundtrip_1(Type, Value).
+
+p_os_roundtrip_1(Type, Value) ->
+    M = 'PrimStrings',
+    case M:legacy_erlang_types() of
+	false ->
+	    asn1_test_lib:roundtrip(M, Type, Value);
+	true ->
+	    {ok,Encoded} = M:encode(Type, Value),
+	    Es0 = tuple_to_list(Value),
+	    Es1 = [if
+		       is_binary(E) -> binary_to_list(E);
+		       true -> E
+		   end || E <- Es0],
+	    ListValue = list_to_tuple(Es1),
+	    {ok,Encoded} = M:encode(Type, ListValue),
+	    {ok,ListValue} = M:decode(Type, Encoded)
+    end.
 
 p_roundtrip(Type, Value0) ->
     Value = setelement(1, Value0, Type),
@@ -759,15 +802,57 @@ roundtrip(Type, Value, Expected) ->
 bs_roundtrip(Type, Value) ->
     bs_roundtrip(Type, Value, Value).
 
-bs_roundtrip(Type, Value, Expected) ->
+os_roundtrip(Type, Bin) when is_binary(Bin) ->
     M = 'PrimStrings',
-    {ok,Encoded} = M:encode(Type, Value),
-    {ok,Encoded} = M:encode(Type, Expected),
-    case M:decode(Type, Encoded) of
-	{ok,Expected} ->
-	    ok;
-	{ok,Other} ->
-	    Expected = convert(Other, Expected)
+    case M:legacy_erlang_types() of
+	false ->
+	    asn1_test_lib:roundtrip(M, Type, Bin);
+	true ->
+	    {ok,Encoded} = M:encode(Type, Bin),
+	    List = binary_to_list(Bin),
+	    {ok,Encoded} = M:encode(Type, List),
+	    {ok,List} = M:decode(Type, Encoded)
+    end.
+
+bs_roundtrip(Type, Value, Expected) when is_bitstring(Value) ->
+    M = 'PrimStrings',
+    case M:legacy_erlang_types() of
+	false ->
+	    asn1_test_lib:roundtrip(M, Type, Value, Expected);
+	true ->
+	    {ok,Encoded} = M:encode(Type, Value),
+	    BitList = [B || <<B:1>> <= Value],
+	    {ok,Encoded} = M:encode(Type, BitList),
+	    case BitList of
+		[] ->
+		    {ok,Encoded} = M:encode(Type, 0);
+		[_|_] ->
+		    case lists:last(BitList) of
+			1 ->
+			    Int = lists:foldr(fun(B, A) ->
+						      (A bsl 1) bor B
+					      end, 0, BitList),
+			    {ok,Encoded} = M:encode(Type, Int);
+			0 ->
+			    %% This BIT STRING cannot be represented
+			    %% as an integer.
+			    ok
+		    end
+	    end,
+	    Compact = case bit_size(Value) of
+			  Bits when Bits rem 8 =:= 0 ->
+			      {0,Value};
+			  Bits ->
+			      Unused = 8 - Bits rem 8,
+			      {Unused,<<Value:Bits/bitstring,0:Unused>>}
+		      end,
+	    {ok,Encoded} = M:encode(Type, Compact),
+	    case M:decode(Type, Encoded) of
+		{ok,Expected} ->
+		    ok;
+		{ok,Other} ->
+		    Expected = convert(Other, Expected)
+	    end
     end.
 
 bs_decode(Type, Encoded, Expected) ->

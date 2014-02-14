@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -67,7 +67,7 @@ get_port_data(Port, Last0, Complete0) ->
     end.
 
 update_last([C|Rest], Line, true) ->
-    io:put_chars(Line),
+    io:put_chars(list_to_binary(Line)), %% Utf-8 list to utf-8 binary
     io:nl(),
     update_last([C|Rest], [], false);
 update_last([$\r|Rest], Result, Complete) ->
@@ -79,7 +79,7 @@ update_last([C|Rest], Result, Complete) ->
 update_last([], Result, Complete) ->
     {Result, Complete};
 update_last(eof, Result, _) ->
-    Result.
+    unicode:characters_to_list(list_to_binary(Result)).
 
 run_make_script({win32, _}, Make, Dir, Makefile) ->
     {"run_make.bat",

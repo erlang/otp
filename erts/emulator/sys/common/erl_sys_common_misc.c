@@ -52,7 +52,7 @@ static int filename_warning = ERL_FILENAME_WARNING_WARNING;
 /* Default unicode on windows and MacOS X */
 static int user_filename_encoding = ERL_FILENAME_UTF8; 
 #else
-static int user_filename_encoding = ERL_FILENAME_LATIN1;
+static int user_filename_encoding = ERL_FILENAME_UNKNOWN;
 #endif
 /* This controls the heuristic in printing characters in shell and w/ 
    io:format("~tp", ...) etc. */

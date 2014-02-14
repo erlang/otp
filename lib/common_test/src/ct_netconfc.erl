@@ -212,11 +212,7 @@
 %%----------------------------------------------------------------------
 %% Exported types
 %%----------------------------------------------------------------------
--export_type([hook_options/0,
-	      conn_mod/0,
-	      log_type/0,
-	      key_or_name/0,
-	      notification/0]).
+-export_type([notification/0]).
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -292,18 +288,10 @@
 %%----------------------------------------------------------------------
 %% Type declarations
 %%----------------------------------------------------------------------
--type client() :: handle() | server_id() | target_name().
+-type client() :: handle() | ct_gen_conn:server_id() | ct_gen_conn:target_name().
 -type handle() :: term().
 %% An opaque reference for a connection (netconf session). See {@link
 %% ct} for more information.
-
--type server_id() :: atom().
-%% A `ServerId' which exists in a configuration file.
--type target_name() :: atom().
-%% A name which is associated to a `server_id()' via a
-%% `require' statement or a call to {@link ct:require/2} in the
-%% test suite.
--type key_or_name() :: server_id() | target_name().
 
 -type options() :: [option()].
 %% Options used for setting up ssh connection to a netconf server.
@@ -326,14 +314,7 @@
 %% See XML Schema for Event Notifications found in RFC5277 for further
 %% detail about the data format for the string values.
 
--type hook_options() :: [hook_option()].
-%% Options that can be given to `cth_conn_log' in the `ct_hook' statement.
--type hook_option() :: {log_type,log_type()} |
-		       {hosts,[key_or_name()]}.
--type log_type() :: raw | pretty | html | silent.
 %-type error_handler() :: module().
--type conn_mod() :: ct_netconfc.
-
 -type error_reason() :: term().
 
 -type simple_xml() :: {xml_tag(), xml_attributes(), xml_content()} |
@@ -384,7 +365,7 @@ open(Options) ->
 
 %%----------------------------------------------------------------------
 -spec open(KeyOrName, ExtraOptions) -> Result when
-      KeyOrName :: key_or_name(),
+      KeyOrName :: ct_gen_conn:key_or_name(),
       ExtraOptions :: options(),
       Result :: {ok,handle()} | {error,error_reason()}.
 %% @doc Open a named netconf session and exchange `hello' messages.
@@ -461,7 +442,7 @@ only_open(Options) ->
 
 %%----------------------------------------------------------------------
 -spec only_open(KeyOrName,ExtraOptions) -> Result when
-      KeyOrName :: key_or_name(),
+      KeyOrName :: ct_gen_conn:key_or_name(),
       ExtraOptions :: options(),
       Result :: {ok,handle()} | {error,error_reason()}.
 %% @doc Open a name netconf session, but don't send `hello'.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,15 +23,15 @@
 -include("test_server.hrl").
 
 n1_proc(N2,Creator) ->
-    spawn(fun() -> n1_proc(Creator,N2,x,[]) end).
-n1_proc(Creator,N2,P2,L) when P2==x;length(L)<2->
+    spawn(fun() -> n1_proc(Creator,N2,x,y,[]) end).
+n1_proc(Creator,N2,Pid2,Port2,L) when Pid2==x;length(L)<2->
     receive 
-	{N2,P} ->
-	    n1_proc(Creator,N2,P,L);
+	{N2,Pid,Port} ->
+	    n1_proc(Creator,N2,Pid,Port,L);
 	P ->
-	    n1_proc(Creator,N2,P2,[P|L])
+	    n1_proc(Creator,N2,Pid2,Port2,[P|L])
     end;
-n1_proc(Creator,_N2,P2,_L) ->
+n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     register(aaaaaaaa,self()),
     process_flag(save_calls,3),
     ets:new(cdv_test_ordset_table,[ordered_set]),
@@ -42,20 +42,50 @@ n1_proc(Creator,_N2,P2,_L) ->
     Pid = self(),
     Bin = list_to_binary(lists:seq(1, 255)),
     SubBin = element(1, split_binary(element(2, split_binary(Bin, 8)), 17)),
-    DictionaryValue = {"list",atom,42,54.654,math:pow(2,1023),{},
-		       Port,Fun,Ref,Pid,
-		       Bin,SubBin,83974938738373873,-38748762783736367},
-    put(dictionary_key,DictionaryValue),
-    spawn(fun() -> register(aaaaaaab,self()),
-		   receive after infinity -> ok end 
-	  end),
-    link(P2),
+
+    register(named_port,Port),
+
+    %% Dictionary
+    put(list,"list"),
+    put(atom,atom),
+    put(integer,42),
+    put(float,54.654),
+    put(big_float,math:pow(2,1023)),
+    put(tuple,{1,2,{}}),
+    put(port,Port),
+    put('fun',Fun),
+    put(ref,Ref),
+    put(pid,Pid),
+    put(bin,Bin),
+    put(sub_bin,SubBin),
+    put(bignum,83974938738373873),
+    put(neg_bignum,-38748762783736367),
+    put(ext_pid,Pid2),
+    put(ext_port,Port2),
+
+    %% Message queue
+    L = lists:seq(0,255),
+    BigMsg = {message,list_to_binary(L),L},
+    Port = hd(erlang:ports()),
+    self() ! {short,message,1,2.5,"hello world",Port,{}},
+    self() ! BigMsg,
+
+    OtherPid = spawn(fun() -> register(aaaaaaab,self()),
+			      receive after infinity -> ok end
+		     end),
+    link(OtherPid), % own node
+    link(Pid2),     % external node
+    erlang:monitor(process,OtherPid),
+    erlang:monitor(process,Pid2),
+
+    code:load_file(?MODULE),
+
     Creator ! {self(),done},
     receive after infinity -> ok end.
 
 remote_proc(P1,Creator) ->
     spawn(fun() ->
-		  P1 ! {node(),self()},
+		  P1 ! {node(),self(),hd(erlang:ports())},
 		  Creator ! {self(),done},
 		  receive after infinity -> ok end
 	  end).

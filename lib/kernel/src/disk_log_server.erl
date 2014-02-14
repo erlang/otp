@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -83,8 +83,8 @@ accessible_logs() ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    ets:new(?DISK_LOG_NAME_TABLE, [named_table, set]),
-    ets:new(?DISK_LOG_PID_TABLE, [named_table, set]),
+    _ = ets:new(?DISK_LOG_NAME_TABLE, [named_table, set]),
+    _= ets:new(?DISK_LOG_PID_TABLE, [named_table, set]),
     {ok, #state{}}.
 
 handle_call({open, W, A}, From, State) ->
@@ -159,13 +159,23 @@ ensure_started() ->
 	undefined ->
 	    LogSup = {disk_log_sup, {disk_log_sup, start_link, []}, permanent,
 		      1000, supervisor, [disk_log_sup]},
-	    supervisor:start_child(kernel_safe_sup, LogSup),
+	    {ok, _} = ensure_child_started(kernel_safe_sup, LogSup),
 	    LogServer = {disk_log_server,
 			 {disk_log_server, start_link, []},
 			 permanent, 2000, worker, [disk_log_server]},
-	    supervisor:start_child(kernel_safe_sup, LogServer),
+	    {ok, _} = ensure_child_started(kernel_safe_sup, LogServer),
 	    ok;
 	_ -> ok
+    end.
+
+ensure_child_started(Sup,Child) ->
+    case supervisor:start_child(Sup, Child) of
+	{ok,Pid} ->
+	    {ok,Pid};
+	{error,{already_started,Pid}} ->
+	    {ok,Pid};
+	Error ->
+	    Error
     end.
 
 open([{Req, From} | L], State) ->

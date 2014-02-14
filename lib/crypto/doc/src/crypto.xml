@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -99,7 +99,9 @@
 
     <p><code>ecdh_private() = key_value() </code></p>
 
-    <p><code>ecdh_params() =  ec_named_curve() |
+    <p><code>ecdh_params() =  ec_named_curve() | ec_explicit_curve()</code></p>
+
+    <p><code>ec_explicit_curve() =
     {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
 
     <p><code>ec_field() = {prime_field, Prime :: integer()} |
@@ -114,11 +116,19 @@
       secp192k1| secp160r2| secp128r2| secp128r1| sect233r1| sect233k1| sect193r2| sect193r1|
       sect131r2| sect131r1| sect283r1| sect283k1| sect163r2| secp256k1| secp160k1| secp160r1|
       secp112r2| secp112r1| sect113r2| sect113r1| sect239k1| sect163r1| sect163k1| secp256r1|
-      secp192r1 </code></p>
+      secp192r1|
+      brainpoolP160r1| brainpoolP160t1| brainpoolP192r1| brainpoolP192t1| brainpoolP224r1|
+      brainpoolP224t1| brainpoolP256r1| brainpoolP256t1| brainpoolP320r1| brainpoolP320t1|
+      brainpoolP384r1| brainpoolP384t1| brainpoolP512r1| brainpoolP512t1
+    </code>
+    Note that the <em>sect</em> curves are GF2m (characteristic two) curves and are only supported if the
+    underlying OpenSSL has support for them.
+    See also <seealso marker="#supports-0">crypto:supports/0</seealso>
+    </p>
 
      <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
 
-     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | blowfish_cbc |
+     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | aes_ige256 | blowfish_cbc |
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
      | des_ede3 | rc2_cbc </code></p>
 
@@ -142,9 +152,12 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | rc2_cbc | aes_ctr| rc4  </code> </p>
-     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh </code> </p>
-     
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | aes_ige256 | rc2_cbc | aes_ctr| rc4  </code> </p>
+     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
+     Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
+     with ecdsa and ecdh.
+     </p>
+
  </section>
 
   <funcs>
@@ -159,8 +172,9 @@
       </type>
       <desc>
         <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
-	<c>IVec</c> is an arbitrary initializing vector.
-         </p>
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
 
@@ -175,8 +189,9 @@
       </type>
       <desc>
         <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
-	<c>IVec</c> is an arbitrary initializing vector.
-         </p>
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     
@@ -437,17 +452,17 @@
     </func>
 
     <func>
-      <name>private_decrypt(Type, ChipherText, PrivateKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
+      <name>private_decrypt(Type, CipherText, PrivateKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
-	<v>ChipherText = binary()</v>
+	<v>CipherText = binary()</v>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seealso marker="#public_encrypt-4">public_encrypt/4</seealso> (or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature  verification operation
@@ -458,7 +473,7 @@
     </func>
     
     <func>
-      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> ChipherText</name>
+      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
@@ -469,7 +484,7 @@
 	used, where N is public modulus of the RSA key.</d>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
@@ -481,17 +496,17 @@
       </desc>
     </func>
     <func>
-      <name>public_decrypt(Type, ChipherText, PublicKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
+      <name>public_decrypt(Type, CipherText, PublicKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
-	<v>ChipherText = binary()</v>
+	<v>CipherText = binary()</v>
 	<v>PublicKey =  rsa_public() </v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seealso marker="#private_encrypt-4">private_encrypt/4</seealso>(or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature verification operation
@@ -502,7 +517,7 @@
     </func>
 
     <func>
-      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> ChipherText</name>
+      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
@@ -513,7 +528,7 @@
 	used, where N is public modulus of the RSA key.</d>
 	<v>PublicKey = rsa_public()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
@@ -678,7 +693,29 @@
       </desc>
     </func>
 
-    
+    <func>
+      <name>ec_curves() -> EllipticCurveList </name>
+      <fsummary>Provide a list of available named elliptic curves.</fsummary>
+      <type>
+      <v>EllipticCurveList = [ec_named_curve()]</v>
+      </type>
+      <desc>
+        <p>Can be used to determine which named elliptic curves are supported.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ec_curve(NamedCurve) -> EllipticCurve </name>
+      <fsummary>Get the defining parameters of a elliptic curve.</fsummary>
+      <type>
+      <v>NamedCurve = ec_named_curve()</v>
+      <v>EllipticCurve = ec_explicit_curve()</v>
+      </type>
+      <desc>
+        <p>Return the defining parameters of a elliptic curve.</p>
+      </desc>
+    </func>
+
   <func>
       <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
       <fsummary>Verifies a digital signature.</fsummary>

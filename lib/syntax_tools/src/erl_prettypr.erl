@@ -637,6 +637,14 @@ lay_2(Node, Ctxt) ->
 	    sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
 		 text("end")]);
 
+        named_fun_expr ->
+            Ctxt1 = reset_prec(Ctxt),
+            D1 = lay(erl_syntax:named_fun_expr_name(Node), Ctxt1),
+            D = lay_clauses(erl_syntax:named_fun_expr_clauses(Node),
+                            {function,D1}, Ctxt1),
+            sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
+                 text("end")]);
+
 	module_qualifier ->
 	    {PrecL, _Prec, PrecR} = inop_prec(':'),
 	    D1 = lay(erl_syntax:module_qualifier_argument(Node),
@@ -891,6 +899,32 @@ lay_2(Node, Ctxt) ->
 	    D3 = beside(beside(floating(text("#")), D1),
 			beside(floating(text(".")), D2)),
 	    maybe_parentheses(D3, Prec, Ctxt);
+
+        map_expr ->
+            {PrecL, Prec, _} = inop_prec('#'),
+            Ctxt1 = reset_prec(Ctxt),
+            D1 = par(seq(erl_syntax:map_expr_fields(Node),
+                         floating(text(",")), Ctxt1, fun lay/2)),
+            D2 = beside(text("#{"), beside(D1, floating(text("}")))),
+            D3 = case erl_syntax:map_expr_argument(Node) of
+                         none ->
+                             D2;
+                         A ->
+                             beside(lay(A, set_prec(Ctxt, PrecL)), D2)
+                 end,
+            maybe_parentheses(D3, Prec, Ctxt);
+
+        map_field_assoc ->
+            Ctxt1 = reset_prec(Ctxt),
+            D1 = lay(erl_syntax:map_field_assoc_name(Node), Ctxt1),
+            D2 = lay(erl_syntax:map_field_assoc_value(Node), Ctxt1),
+            par([D1, floating(text("=>")), D2], Ctxt1#ctxt.break_indent);
+
+        map_field_exact ->
+            Ctxt1 = reset_prec(Ctxt),
+            D1 = lay(erl_syntax:map_field_exact_name(Node), Ctxt1),
+            D2 = lay(erl_syntax:map_field_exact_value(Node), Ctxt1),
+            par([D1, floating(text(":=")), D2], Ctxt1#ctxt.break_indent);
 
 	rule ->
 	    %% Comments on the name will be repeated; cf.

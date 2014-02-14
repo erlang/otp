@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@
 	 log_mf_h_env/1]).
 
 all() -> 
-    [app_test, appup_test, log_mf_h_env].
+    [log_mf_h_env, app_test, appup_test].
 
 groups() -> 
     [].
@@ -61,88 +61,60 @@ app_test(Config) when is_list(Config) ->
 %% Test that appup allows upgrade from/downgrade to a maximum of two
 %% major releases back.
 appup_test(_Config) ->
+    do_appup_tests(create_test_vsns()).
+
+do_appup_tests({[],[]}) ->
+    {skip,"no previous releases available"};
+do_appup_tests({OkVsns,NokVsns}) ->
     application:load(sasl),
-    {sasl,_,SaslVsn} = lists:keyfind(sasl,1,application:loaded_applications()),
-    Ebin = filename:join(code:lib_dir(sasl),ebin),
-    {ok,[{SaslVsn,UpFrom,DownTo}=Appup]} =
-	file:consult(filename:join(Ebin,"sasl.appup")),
-    ct:log("~p~n",[Appup]),
-    {OkVsns,NokVsns} = create_test_vsns(SaslVsn),
+    {_,_,Vsn} = lists:keyfind(sasl,1,application:loaded_applications()),
+    AppupFile = filename:join([code:lib_dir(sasl),ebin,"sasl.appup"]),
+    {ok,[{Vsn,UpFrom,DownTo}=AppupScript]} = file:consult(AppupFile),
+    ct:log("~p~n",[AppupScript]),
+    ct:log("Testing ok versions: ~p~n",[OkVsns]),
     check_appup(OkVsns,UpFrom,{ok,[restart_new_emulator]}),
     check_appup(OkVsns,DownTo,{ok,[restart_new_emulator]}),
+    ct:log("Testing not ok versions: ~p~n",[NokVsns]),
     check_appup(NokVsns,UpFrom,error),
     check_appup(NokVsns,DownTo,error),
     ok.
 
+create_test_vsns() ->
+    This = erlang:system_info(otp_release),
+    FirstMajor = previous_major(This),
+    SecondMajor = previous_major(FirstMajor),
+    ThirdMajor = previous_major(SecondMajor),
+    Ok = sasl_vsn([FirstMajor,SecondMajor]),
+    Nok0 = sasl_vsn([ThirdMajor]),
+    Nok = case Ok of
+	       [Ok1|_] ->
+		   [Ok1 ++ ",1" | Nok0]; % illegal
+	       _ ->
+		   Nok0
+	   end,
+    {Ok,Nok}.
 
-%% For sasl, the versions up to R14B03 were not according to the rule
-%% used for other core applications - i.e. to change the second number
-%% at major releases, the third at maintenance releases and the fourth
-%% for patches - therefore test versions up to and including R16 are
-%% hardcoded.
-%% (All versions below are not necessarily existing.)
--define(r12_vsns,["2.1.5"]).
--define(r13_vsns,["2.1.6","2.1.7.1","2.1.9","2.1.9.1.2"]).
--define(r14_vsns,["2.1.9.2","2.1.9.2.20","2.1.9.4","2.1.10"]).
--define(r15_major,"2.2").
--define(r16_major,"2.3").
--define(r17_major,"2.4").
-create_test_vsns(?r15_major ++ Rest) ->
-    R15Vsns =
-	case string:tokens(Rest,".") of
-	    [] -> [];
-	    ["1"] -> [?r15_major];
-	    _ -> [?r15_major,?r15_major++".1"]
-	end,
-    OkVsns = ?r13_vsns ++ ?r14_vsns ++ R15Vsns,
-    NokVsns = ?r12_vsns ++ [?r15_major++",1", ?r16_major],
-    {OkVsns,NokVsns};
-create_test_vsns(?r16_major ++ Rest) ->
-    R16Vsns =
-	case string:tokens(Rest,".") of
-	    [] -> [];
-	    ["1"] -> [?r16_major];
-	    _ -> [?r16_major,?r16_major++".1"]
-	end,
-    OkVsns = ?r14_vsns ++ [?r15_major, ?r15_major ++ ".1.4"] ++ R16Vsns,
-    NokVsns = ?r13_vsns ++ [?r16_major++",1", ?r17_major],
-    {OkVsns,NokVsns};
-%% Normal erts case - i.e. for versions that comply to the erts standard
-create_test_vsns(Current) ->
-    [XStr,YStr|Rest] = string:tokens(Current,"."),
-    X = list_to_integer(XStr),
-    Y = list_to_integer(YStr),
-    SecondMajor = vsn(X,Y-2),
-    SecondMinor = SecondMajor ++ ".1.3",
-    FirstMajor = vsn(X,Y-1),
-    FirstMinor = FirstMajor ++ ".57",
-    ThisMajor = vsn(X,Y),
-    This =
-	case Rest of
-	    [] ->
-		[];
-	    ["1"] ->
-		[ThisMajor];
-	    _ ->
-		ThisMinor = ThisMajor ++ ".1",
-		[ThisMajor,ThisMinor]
-	end,
-    OkVsns = This ++ [FirstMajor, FirstMinor, SecondMajor, SecondMinor],
+previous_major("17") ->
+    "r16";
+previous_major("r"++Rel) ->
+    "r"++previous_major(Rel);
+previous_major(Rel) ->
+    integer_to_list(list_to_integer(Rel)-1).
 
-    ThirdMajor = vsn(X,Y-3),
-    ThirdMinor = ThirdMajor ++ ".10.12",
-    Illegal = ThisMajor ++ ",1",
-    Newer1Major = vsn(X,Y+1),
-    Newer1Minor = Newer1Major ++ ".1",
-    Newer2Major = ThisMajor ++ "1",
-    NokVsns = [ThirdMajor,ThirdMinor,
-	       Illegal,
-	       Newer1Major,Newer1Minor,
-	       Newer2Major],
-    {OkVsns,NokVsns}.
-
-vsn(X,Y) ->
-    integer_to_list(X) ++ "." ++ integer_to_list(Y).
+sasl_vsn([R|Rs]) ->
+    case test_server:is_release_available(R) of
+	true ->
+	    {ok,N} = test_server:start_node(prevrel,peer,[{erl,[{release,R}]}]),
+	    _ = rpc:call(N,application,load,[sasl]),
+	    As = rpc:call(N,application,loaded_applications,[]),
+	    {_,_,V} = lists:keyfind(sasl,1,As),
+	    test_server:stop_node(N),
+	    [V|sasl_vsn(Rs)];
+	false ->
+	    sasl_vsn(Rs)
+    end;
+sasl_vsn([]) ->
+    [].
 
 check_appup([Vsn|Vsns],Instrs,Expected) ->
     case systools_relup:appup_search_for_version(Vsn, Instrs) of
@@ -151,7 +123,6 @@ check_appup([Vsn|Vsns],Instrs,Expected) ->
     end;
 check_appup([],_,_) ->
     ok.
-
 
 
 %% OTP-9185 - fail sasl start if some but not all log_mf_h env vars

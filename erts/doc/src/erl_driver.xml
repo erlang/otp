@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE cref SYSTEM "cref.dtd">
 
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -745,7 +745,7 @@ typedef struct ErlIOVec {
           created and decrement it once when the port associated with
           the lock terminates. The emulator will also increment the
           reference count when an async job is enqueued and decrement
-          it after an async job has been invoked, or canceled. Besides
+          it after an async job has been invoked. Besides
           this, it is the responsibility of the driver to ensure that
           the reference count does not reach zero before the last use
           of the lock by the driver has been made. The reference count
@@ -1742,15 +1742,19 @@ typedef struct ErlIOVec {
           term consists of one to four elements in the array. The
           term first has a term type, and then arguments. The
 	  <c>port</c> parameter specifies the sending port.</p>
-        <p>Tuple and lists (with the exception of strings, see below),
+        <p>Tuples, maps and lists (with the exception of strings, see below),
           are built in reverse polish notation, so that to build a
           tuple, the elements are given first, and then the tuple
-          term, with a count. Likewise for lists.</p>
+          term, with a count. Likewise for lists and maps.</p>
         <p>A tuple must be specified with the number of elements. (The
           elements precede the <c>ERL_DRV_TUPLE</c> term.)</p>
         <p>A list must be specified with the number of elements,
           including the tail, which is the last term preceding
           <c>ERL_DRV_LIST</c>.</p>
+        <p>A map must be specified with the number of key-value pairs <c>N</c>.
+	  The key-value pairs must precede the <c>ERL_DRV_MAP</c> in this order:
+	  <c>key1,value1,key2,value2,...,keyN,valueN</c>.
+	  Duplicate keys are not allowed.</p>
         <p>The special term <c>ERL_DRV_STRING_CONS</c> is used to
           "splice" in a string in a list, a string given this way is
           not a list per se, but the elements are elements of the
@@ -1774,6 +1778,7 @@ ERL_DRV_PID          ErlDrvTermData pid (from driver_connected(ErlDrvPort port) 
 ERL_DRV_STRING_CONS  char *str, int len
 ERL_DRV_FLOAT        double *dbl
 ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
+ERL_DRV_MAP          int sz
         </pre>
 	<p>The unsigned integer data type <c>ErlDrvUInt</c> and the
 	  signed integer data type <c>ErlDrvSInt</c> are 64 bits wide
@@ -1856,6 +1861,24 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
     };
     erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
         ]]></code>
+
+        <p>To build the map <c>#{key1 => 100, key2 => {200, 300}}</c>, the
+          following call could be made.</p>
+        <code type="none"><![CDATA[
+    ErlDrvPort port = ...
+    ErlDrvTermData spec[] = {
+          ERL_DRV_ATOM, driver_mk_atom("key1"),
+	  ERL_DRV_INT, 100,
+          ERL_DRV_ATOM, driver_mk_atom("key2"),
+	    ERL_DRV_INT, 200,
+	    ERL_DRV_INT, 300,
+	  ERL_DRV_TUPLE, 2,
+	ERL_DRV_MAP, 2
+    };
+    erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
+        ]]>
+      </code>
+
 	<p>If you want to pass a binary and don't already have the content
 	of the binary in an <c>ErlDrvBinary</c>, you can benefit from using
 	<c>ERL_DRV_BUF2BINARY</c> instead of creating an <c>ErlDrvBinary</c>
@@ -1995,14 +2018,12 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
           <c>async_invoke</c> and <c>async_free</c>. It's typically a
           pointer to a structure that contains a pipe or event that
           can be used to signal that the async operation completed.
-          The data should be freed in <c>async_free</c>, because it's
-          called if <c>driver_async_cancel</c> is called.</p>
+          The data should be freed in <c>async_free</c>.</p>
         <p>When the async operation is done, <seealso marker="driver_entry#ready_async">ready_async</seealso> driver
           entry function is called. If <c>ready_async</c> is null in
           the driver entry, the <c>async_free</c> function is called
           instead.</p>
-        <p>The return value is a handle to the asynchronous task, which
-          can be used as argument to <c>driver_async_cancel</c>.</p>
+        <p>The return value is a handle to the asynchronous task.</p>
         <note>
           <p>As of erts version 5.5.4.3 the default stack size for
             threads in the async-thread pool is 16 kilowords,
@@ -2037,26 +2058,6 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	can achieve the same distribution based on port id's as before
 	OTP-R16.</p>
 	</note>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_async_cancel(long id)</nametext></name>
-      <fsummary>Cancel an asynchronous call</fsummary>
-      <desc>
-        <marker id="driver_async_cancel"></marker>
-        <p>This function used to cancel a scheduled asynchronous operation,
-	  if it was still in the queue. It returned 1 if it succeeded, and
-	  0 if it failed.</p>
-	<p>Since it could not guarantee success, it was more or less useless.
-	   The user had to implement synchronization of cancellation anyway.
-	   It also unnecessarily complicated the implementation. Therefore,
-	   as of OTP-R15B <c>driver_async_cancel()</c> is deprecated, and
-	   scheduled for removal in OTP-R17. It will currently always fail,
-	   and return 0.</p>
-	<warning><p><c>driver_async_cancel()</c> is deprecated and will
-	            be removed in the OTP-R17 release.</p>
-	</warning>
-
       </desc>
     </func>
     <func>

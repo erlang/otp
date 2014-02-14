@@ -365,6 +365,10 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_select_inst(select_val, Bs, Atoms, Literals);
 	select_tuple_arity ->
 	    disasm_select_inst(select_tuple_arity, Bs, Atoms, Literals);
+	put_map_assoc ->
+	    disasm_map_inst(put_map_assoc, Bs, Atoms, Literals);
+	put_map_exact ->
+	    disasm_map_inst(put_map_exact, Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -395,6 +399,17 @@ disasm_select_inst(Inst, Bs, Atoms, Literals) ->
     {List, RestBs} = decode_n_args(Len, Bs4, Atoms, Literals),
     {{Inst, [X,F,{Z,U,List}]}, RestBs}.
 
+disasm_map_inst(Inst, Bs0, Atoms, Literals) ->
+    {F, Bs1} = decode_arg(Bs0, Atoms, Literals),
+    {S, Bs2} = decode_arg(Bs1, Atoms, Literals),
+    {X, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {N, Bs4} = decode_arg(Bs3, Atoms, Literals),
+    {Z, Bs5} = decode_arg(Bs4, Atoms, Literals),
+    {U, Bs6} = decode_arg(Bs5, Atoms, Literals),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs6, Atoms, Literals),
+    {{Inst, [F,S,X,N,{Z,U,List}]}, RestBs}.
+
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
 %%
@@ -421,7 +436,7 @@ decode_arg([B|Bs]) ->
 
 decode_arg([B|Bs0], Atoms, Literals) ->
     Tag = decode_tag(B band 2#111),
-    ?NO_DEBUG('Tag = ~p, B = ~p, Bs = ~p~n', [Tag, B, Bs]),
+    ?NO_DEBUG('Tag = ~p, B = ~p, Bs = ~p~n', [Tag, B, Bs0]),
     case Tag of
 	z ->
 	    decode_z_tagged(Tag, B, Bs0, Literals);
@@ -1117,6 +1132,31 @@ resolve_inst({recv_set,[Lbl]},_,_,_) ->
 %%
 resolve_inst({line,[Index]},_,_,_) ->
     {line,resolve_arg(Index)};
+
+%%
+%% 17.0
+%%
+resolve_inst({put_map_assoc,Args},_,_,_) ->
+    [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
+    List = resolve_args(List0),
+    {put_map_assoc,FLbl,Src,Dst,N,{list,List}};
+
+resolve_inst({put_map_exact,Args},_,_,_) ->
+    [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
+    List = resolve_args(List0),
+    {put_map_exact,FLbl,Src,Dst,N,{list,List}};
+
+resolve_inst({is_map,Args0},_,_,_) ->
+    [FLbl|Args] = resolve_args(Args0),
+    {test, is_map, FLbl, Args};
+
+resolve_inst({has_map_field,Args0},_,_,_) ->
+    [FLbl|Args] = resolve_args(Args0),
+    {test,has_map_field,FLbl,Args};
+
+resolve_inst({get_map_element,Args},_,_,_) ->
+    [FLbl,Src,Key,Dst] = resolve_args(Args),
+    {get_map_element,FLbl,Src,Key,Dst};
 
 %%
 %% Catches instructions that are not yet handled.

@@ -269,6 +269,13 @@ file(Name) ->
 %%       is typically most useful if the `verbose' flag is enabled, to
 %%       generate reports about the program files without affecting
 %%       them. The default value is `false'.</dd>
+%%
+%%   <dt>{stdout, boolean()}</dt>
+%%
+%%      <dd>If the value is `true', instead of the file being written
+%%      to disk it will be printed to stdout. The default value is
+%%      `false'.</dd>
+%%
 %% </dl>
 %%
 %% See the function `module/2' for further options.
@@ -309,9 +316,15 @@ file_2(Name, Opts) ->
         true ->
             ok;
         false ->
-            write_module(Tree, Name, Opts1),
-            ok
-    end.
+			case proplists:get_bool(stdout, Opts1) of
+				true ->
+					print_module(Tree, Opts1),
+					ok;
+				false ->
+					write_module(Tree, Name, Opts1),
+					ok
+			end
+	end.
 
 read_module(Name, Opts) ->
     verbose("reading module `~ts'.", [filename(Name)], Opts),
@@ -398,6 +411,10 @@ write_module(Tree, Name, Opts) ->
             error_write_file(File),
             throw(R)
     end.
+
+print_module(Tree, Opts) ->
+	Printer = proplists:get_value(printer, Opts),
+	io:format(Printer(Tree, Opts)).
 
 output(FD, Printer, Tree, Opts) ->
     io:put_chars(FD, Printer(Tree, Opts)),

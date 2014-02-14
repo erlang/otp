@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -148,6 +148,12 @@ do_recv(Sock, Bs) ->
           as messages:</p>
         <code type="none">
 {tcp, Socket, Data}</code>
+        <p>If the socket is in <c>{active, N}</c> mode (see <seealso marker="inet#setopts/2">
+          inet:setopts/2</seealso> for details) and its message counter
+          drops to 0, the following message is delivered to indicate that the
+          socket has transitioned to passive (<c>{active, false}</c>) mode:</p>
+        <code type="none">
+{tcp_passive, Socket}</code>
         <p>If the socket is closed, the following message is delivered:</p>
         <code type="none">
 {tcp_closed, Socket}</code>

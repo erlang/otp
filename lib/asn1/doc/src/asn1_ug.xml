@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -653,7 +653,7 @@ Day1 = saturday,
 Bits1 ::= BIT STRING
 Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}
       </pre>
-      <p>There are five different notations available for representation of
+      <p>There are two notations available for representation of
         BIT STRING values in Erlang and as input to the encode functions.</p>
       <list type="ordered">
 	<item>A bitstring. By default, a BIT STRING with no
@@ -661,43 +661,10 @@ Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}
         <item>A list of atoms corresponding to atoms in the <c>NamedBitList</c> 
          in the BIT STRING definition. A BIT STRING with symbolic
 	 names will always be decoded to this format.</item>
-        <item>A list of binary digits (0 or 1). This format is always
-	  accepted as input to the encode functions. A BIT STRING will
-	  be decoded to this format if <em>legacy_bit_string</em> option
-	  has been given. <em>This format may be withdrawn in a future
-         release.</em>
-	</item>
-        <item>As <c>{Unused,Binary}</c> where <c>Unused</c> denotes how
-          many trailing zero-bits 0 to 7 that are unused in the least
-          significant byte in <c>Binary</c>. This format is always
-	  accepted as input to the encode functions. A BIT STRING will
-	  be decoded to this format if <em>compact_bit_string</em> has
-	  been given. <em>This format may be withdrawn in a future
-          release.</em>
-	</item>
-        <item>A hexadecimal number (or an integer). This format should be
-         avoided, since it is easy to misinterpret a <c>BIT STRING</c>
-         value in this format. <em>This format may be withdrawn in a future
-         release.</em>
-	</item>
       </list>
-      <note>
-        <p>It is recommended to either use the bitstring format (for
-	  BIT STRINGs with no symbolic names) or a list of symbolic
-	  names (for BIT STRINGs with symbolic names). The other formats
-	  should be avoided since they may be withdrawn in a future
-	  release.
-	</p>
-      </note>
+      <p>Example:</p>
       <pre>
 Bits1Val1 = &lt;&lt;0:1,1:1,0:1,1:1,1:1&gt;&gt;,
-Bits1Val2 = 16#1A,
-Bits1Val3 = {3,&lt;&lt;0:1,1:1,0:1,1:1,1:1,0:3&gt;&gt;},
-Bits1Val4 = [0,1,0,1,1]
-      </pre>
-      <p>Note that <c>Bits1Val1</c>, <c>Bits1Val2</c>, <c>Bits1Val3</c>,
-	and <c>Bits1Val1</c> denote the same value.</p>
-      <pre>
 Bits2Val1 = [gnu,punk],
 Bits2Val2 = &lt;&lt;2#1110:4&gt;&gt;,
 Bits2Val3 = [bar,gnu,gnome],
@@ -708,37 +675,60 @@ Bits2Val3 = [bar,gnu,gnome],
         2 and 14 are set to 1 and the rest set to 0. The symbolic values
         appear as a list of values. If a named value appears, which is not
         specified in the type definition, a run-time error will occur.</p>
-      <p>The compact notation equivalent to the empty BIT STRING is
-        <c><![CDATA[{0,<<>>}]]></c>, which in the other notations is
-	<c><![CDATA[<<>>]]></c>, <c>[]</c>, or
-        <c>0</c>.</p>
       <p>BIT STRINGS may also be sub-typed with, for example, a SIZE
         specification:</p>
       <pre>
 Bits3 ::= BIT STRING (SIZE(0..31))      </pre>
       <p>This means that no bit higher than 31 can ever be set.</p>
+
+      <section>
+	<title>Deprecated representations for BIT STRING</title>
+	<p>In addition to the representations described above, the
+	following deprecated representations are available if the
+	specification has been compiled with the
+	<c>legacy_erlang_types</c> option:</p>
+	<list type="ordered">
+	  <item>A list of binary digits (0 or 1). This format is
+	  accepted as input to the encode functions, and a BIT STRING
+	  will be decoded to this format if the
+	  <em>legacy_bit_string</em> option has been given.
+	  </item>
+	  <item>As <c>{Unused,Binary}</c> where <c>Unused</c> denotes
+	  how many trailing zero-bits 0 to 7 that are unused in the
+	  least significant byte in <c>Binary</c>. This format is
+	  accepted as input to the encode functions, and a <c>BIT
+	  STRING</c> will be decoded to this format if
+	  <em>compact_bit_string</em> has been given.
+	  </item>
+	  <item>A hexadecimal number (or an integer). This format
+	  should be avoided, since it is easy to misinterpret a BIT
+	  STRING value in this format.
+	  </item>
+	</list>
+      </section>
     </section>
 
     <section>
       <marker id="OCTET STRING"></marker>
       <title>OCTET STRING</title>
-      <p>The OCTET STRING is the simplest of all ASN.1 types The OCTET STRING
-        only moves or transfers e.g. binary files or other unstructured
-        information complying to two rules.
-        Firstly, the bytes consist of octets and secondly, encoding is 
-        not required.</p>
+      <p>The OCTET STRING is the simplest of all ASN.1 types. The
+      OCTET STRING only moves or transfers e.g. binary files or other
+      unstructured information complying to two rules.  Firstly, the
+      bytes consist of octets and secondly, encoding is not
+      required.</p>
       <p>It is possible to have the following ASN.1 type definitions:</p>
       <pre>
 O1 ::= OCTET STRING
 O2 ::= OCTET STRING (SIZE(28))      </pre>
       <p>With the following example assignments in Erlang:</p>
       <pre>
-O1Val = [17,13,19,20,0,0,255,254],
-O2Val = "must be exactly 28 chars....",      </pre>
-      <p>Observe that <c>O1Val</c> is assigned a series of numbers between 0 
-        and 255 i.e. octets.
-        <c>O2Val</c> is assigned using the string notation.
-        </p>
+O1Val = &lt;&lt;17,13,19,20,0,0,255,254&gt;&gt;,
+O2Val = &lt;&lt;"must be exactly 28 chars...."&gt;&gt;,</pre>
+       <p>By default, an OCTET STRING is always represented as
+       an Erlang binary. If the specification has been compiled with
+       the <c>legacy_erlang_types</c> option, the encode functions
+       will accept both lists and binaries, and the decode functions
+       will decode an OCTET STRING to a list.</p>
     </section>
 
     <section>

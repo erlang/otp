@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -28,6 +28,7 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_map.h"
 #include "error.h"
 #include "big.h"
 #include "erl_gc.h"
@@ -400,10 +401,16 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     Uint reclaimed_now = 0;
     int done = 0;
     Uint ms1, s1, us1;
-    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
+
+    if (p->flags & F_DISABLE_GC)
+	return 1;
+
+    esdp = erts_get_scheduler_data();
+
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, am_gc_start);
     }
@@ -531,6 +538,9 @@ erts_garbage_collect_hibernate(Process* p)
     char* area;
     Uint area_size;
     Sint offs;
+
+    if (p->flags & F_DISABLE_GC)
+	ERTS_INTERNAL_ERROR("GC disabled");
 
     /*
      * Preliminaries.
@@ -667,6 +677,8 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     Uint n;
     struct erl_off_heap_header** prev;
 
+    if (p->flags & F_DISABLE_GC)
+	return;
     /*
      * Set GC state.
      */
@@ -1146,7 +1158,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	old_htop = sweep_one_area(OLD_HTOP(p), old_htop, heap, heap_size);
     }
     OLD_HTOP(p) = old_htop;
-    HIGH_WATER(p) = (HEAP_START(p) != HIGH_WATER(p)) ? n_heap : n_htop;
+    HIGH_WATER(p) = n_htop;
 
     if (MSO(p).first) {
 	sweep_off_heap(p, 0);
@@ -1964,17 +1976,6 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
         ++n;
     }
 
-    /*
-     * A trapping BIF can add to rootset by setting the extra_root
-     * in the process_structure.
-     */
-    if (p->extra_root != NULL) {
-	roots[n].v = p->extra_root->objv;
-	roots[n].sz = p->extra_root->sz;
-	++n;
-    }
-
-
     ASSERT((is_nil(p->seq_trace_token) ||
 	    is_tuple(follow_moved(p->seq_trace_token)) ||
 	    is_atom(p->seq_trace_token)));
@@ -2551,11 +2552,6 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 	offset_heap(p->dictionary->data, 
 		    p->dictionary->used, 
 		    offs, area, area_size);
-    }
-    if (p->extra_root != NULL) {
-	offset_heap_ptr(p->extra_root->objv, 
-			p->extra_root->sz, 
-			offs, area, area_size);
     }
 
     offset_heap_ptr(&p->fvalue, 1, offs, area, area_size);

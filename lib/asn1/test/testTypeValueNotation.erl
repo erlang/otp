@@ -24,7 +24,7 @@
 -record('Seq', {octstr, int, bool, enum, bitstr, null, oid, vstr}).
 
 main(_Rule, _Option) ->
-    Value = #'Seq'{octstr = [1, 2, 3, 4],
+    Value = #'Seq'{octstr = <<1,2,3,4>>,
 		   int = 12,
 		   bool = true,
 		   enum = a,

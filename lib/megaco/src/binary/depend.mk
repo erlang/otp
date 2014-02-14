@@ -28,7 +28,7 @@
 # This means that the ASN.1 runtime library will be inlined.
 #
 
-ASN1_CT_OPTS += +noobj
+ASN1_CT_OPTS += +noobj +legacy_erlang_types
 ifeq ($(MEGACO_INLINE_ASN1_RT),true)
 # We need atleast version 1.4.6 of the ANS.1 application
 ASN1_CT_OPTS += +inline

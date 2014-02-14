@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,7 +33,8 @@
 -export([codec/2,
          codec/1,
          format/1,
-         flatten/1]).
+         flatten/1,
+         format_error/1]).
 
 -export_type([opt/0]).
 
@@ -81,8 +82,8 @@ codec(File, Opts) ->
     case parse(Dict, Opts) of
         {ok, ParseD} ->
             make(Path, default(Opts), ParseD);
-        {error = E, Reason} ->
-            {E, diameter_dict_util:format_error(Reason)}
+        {error, _} = E ->
+            E
     end.
 
 codec(File) ->
@@ -114,6 +115,11 @@ flatten([?VERSION = V | Dict]) ->
                       [avp_types, import_avps],
                       [grouped, import_groups],
                       [enum, import_enums]])].
+
+%% format_error/1
+
+format_error(T) ->
+    diameter_dict_util:format_error(T).
 
 %% ===========================================================================
 

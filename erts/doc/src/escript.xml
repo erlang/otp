@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE comref SYSTEM "comref.dtd">
 
 <comref>
@@ -44,6 +44,7 @@
         <p><c>escript</c> runs a script written in Erlang.</p>
         <p>Here follows an example.</p>
         <pre>
+$ <input>chmod u+x factorial</input>
 $ <input>cat factorial</input>
 #!/usr/bin/env escript
 %% -*- erlang -*-
@@ -66,12 +67,13 @@ usage() ->
 
 fac(0) -> 1;
 fac(N) -> N * fac(N-1).
-$ <input>factorial 5</input>
+$ <input>./factorial 5</input>
 factorial 5 = 120
-$ <input>factorial</input>
+$ <input>./factorial</input>
 usage: factorial integer
-$ <input>factorial five</input>
-usage: factorial integer        </pre>
+$ <input>./factorial five</input>
+usage: factorial integer
+        </pre>
         <p>The header of the Erlang script in the example differs from
         a normal Erlang module.  The first line is intended to be the
         interpreter line, which invokes <c>escript</c>. However if you

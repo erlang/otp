@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -42,6 +42,17 @@
       can be used in during development of applications which handles ASN.1
       data (encoded as BER or PER).</p>
       <note>
+	<p>By default in OTP 17, the representation of the BIT STRING
+	and OCTET STRING types as Erlang terms have changed. BIT
+	STRING values are now Erlang bitstrings and OCTET STRING values
+	are binaries.  For details see <seealso
+	marker="asn1_ug#BIT STRING">BIT STRING</seealso> and <seealso
+	marker="asn1_ug#OCTET STRING">OCTET STRING</seealso> in User's
+	Guide.</p>
+	<p>To revert to the old representation of the types, use the
+	<c>legacy_erlang_types</c> option.</p>
+      </note>
+      <note>
 	<p>In R16, the options have been simplified. The back-end is chosen
 	using one of the options <c>ber</c>, <c>per</c>, or <c>uper</c>.
 	The options <c>optimize</c>, <c>nif</c>, and <c>driver</c> options
@@ -64,7 +75,7 @@
         <v>Asn1module = atom() | string()</v>
         <v>Options = [Option| OldOption]</v>
         <v>Option = ber | per | uper | der | compact_bit_string |
-	legacy_bit_string |
+	legacy_bit_string | legacy_erlang_types |
 	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
 	asn1config | undec_rest | no_ok_wrapper |
 	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
@@ -163,6 +174,7 @@ File3.asn        </pre>
 		BIT STRING type section in the Users Guide
 	      </seealso>.
 	    </p>
+	    <p>This option implies the <c>legacy_erlang_types</c> option.</p>
 	  </item>
           <tag><c>legacy_bit_string</c></tag>
           <item>
@@ -175,7 +187,18 @@ File3.asn        </pre>
 	      <seealso marker="asn1_ug#BIT STRING">
 		BIT STRING type section in the Users Guide
 	      </seealso>.
+	      <p>This option implies the <c>legacy_erlang_types</c> option.</p>
 	    </p>
+	  </item>
+          <tag><c>legacy_erlang_types</c></tag>
+          <item>
+            <p>Use the same Erlang types to represent BIT STRING and
+            OCTET STRING as in R16. For details see <seealso
+            marker="asn1_ug#BIT STRING">BIT STRING</seealso> and
+            <seealso marker="asn1_ug#OCTET STRING">OCTET
+            STRING</seealso> in User's Guide.</p>
+	    <p><em>This option is not recommended for
+            new code.</em></p>
 	  </item>
           <tag><c>{n2n, EnumTypeName}</c></tag>
           <item>

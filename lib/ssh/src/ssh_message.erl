@@ -120,7 +120,7 @@ encode(#ssh_msg_userauth_request{
 	  data = Data
 	 }) ->
     ssh_bits:encode([?SSH_MSG_USERAUTH_REQUEST, User, Service, Method, Data],
-		    [byte, string, string, string, '...']);
+		    [byte, string_utf8, string, string, '...']);
 encode(#ssh_msg_userauth_failure{
 	  authentications = Auths,
 	  partial_success = Bool
@@ -135,7 +135,7 @@ encode(#ssh_msg_userauth_banner{
        language = Lang
       }) ->
     ssh_bits:encode([?SSH_MSG_USERAUTH_BANNER, Banner, Lang],
-		    [byte, string, string]);
+		    [byte, string_utf8, string]);
 
 encode(#ssh_msg_userauth_pk_ok{
 	  algorithm_name = Alg,
@@ -315,8 +315,8 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_DATA), ?UINT32(Recipient), ?UINT32(Len), Data:Le
        recipient_channel = Recipient,
        data = Data
     };
-decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient),
-	 ?UINT32(DataType), Data/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient), 
+	 ?UINT32(DataType), ?UINT32(Len), Data:Len/binary>>) ->
     #ssh_msg_channel_extended_data{
        recipient_channel = Recipient,
        data_type_code = DataType,

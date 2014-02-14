@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -244,9 +244,6 @@ handle_call({read, Refs, Del}, _From, State) ->
 
 handle_call({read, Refs}, _, State) ->
     {reply, read_refs(Refs), State};
-
-handle_call({flush, Refs}, _From, State) ->  %% from old code
-    {reply, to_refdict(read(Refs, true)), State};
 
 handle_call(Req, From, State) ->
     ?UNEXPECTED([Req, From]),

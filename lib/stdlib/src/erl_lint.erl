@@ -100,7 +100,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                compile=[],                      %Compile flags
                records=dict:new()	:: dict(),	%Record definitions
                locals=gb_sets:empty()	:: gb_set(),	%All defined functions (prescanned)
-	       no_auto=gb_sets:empty()	:: gb_set(),	%Functions explicitly not autoimported
+	       no_auto=gb_sets:empty()	:: gb_set() | 'all',	%Functions explicitly not autoimported
                defined=gb_sets:empty()	:: gb_set(),	%Defined fuctions
 	       on_load=[] :: [fa()],		%On-load function
 	       on_load_line=0 :: line(),	%Line for on_load
@@ -225,6 +225,8 @@ format_error({too_many_arguments,Arity}) ->
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
 %% --- patterns and guards ---
 format_error(illegal_pattern) -> "illegal pattern";
+format_error({illegal_map_key_variable,K}) ->
+    io_lib:format("illegal use of variable ~w in map",[K]);
 format_error(illegal_bin_pattern) ->
     "binary patterns cannot be matched in parallel using '='";
 format_error(illegal_expr) -> "illegal expression";
@@ -232,6 +234,9 @@ format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~w/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
+%% --- maps ---
+format_error(illegal_map_construction) ->
+    "only association operators '=>' are allowed in map construction";
 %% --- records ---
 format_error({undefined_record,T}) ->
     io_lib:format("record ~w undefined", [T]);
@@ -281,6 +286,8 @@ format_error(utf_bittype_size_or_unit) ->
     "neither size nor unit must be given for segments of type utf8/utf16/utf32";
 format_error({bad_bitsize,Type}) ->
     io_lib:format("bad ~s bit size", [Type]);
+format_error(unsized_binary_in_bin_gen_pattern) ->
+    "binary fields without size are not allowed in patterns of bit string generators";
 %% --- behaviours ---
 format_error({conflicting_behaviours,{Name,Arity},B,FirstL,FirstB}) ->
     io_lib:format("conflicting behaviours - callback ~w/~w required by both '~p' "
@@ -842,8 +849,9 @@ behaviour_callbacks(Line, B, St0) ->
             {[], St1}
     end.
 
-behaviour_missing_callbacks([{{Line,B},Bfs}|T], #lint{exports=Exp}=St0) ->
-    Missing = ordsets:subtract(ordsets:from_list(Bfs), gb_sets:to_list(Exp)),
+behaviour_missing_callbacks([{{Line,B},Bfs}|T], St0) ->
+    Exports = gb_sets:to_list(exports(St0)),
+    Missing = ordsets:subtract(ordsets:from_list(Bfs), Exports),
     St = foldl(fun (F, S0) ->
 		       add_warning(Line, {undefined_behaviour_func,F,B}, S0)
 	       end, St0, Missing),
@@ -1147,6 +1155,14 @@ export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
 	    add_error(Line, {bad_export_type, ETs}, St0)
     end.
 
+-spec exports(lint_state()) -> gb_set().
+
+exports(#lint{compile = Opts, defined = Defs, exports = Es}) ->
+    case lists:member(export_all, Opts) of
+        true -> Defs;
+        false -> Es
+    end.
+
 -type import() :: {module(), [fa()]} | module().
 -spec import(line(), import(), lint_state()) -> lint_state().
 
@@ -1355,6 +1371,19 @@ pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
     {vtmerge_pat(Hvt, Tvt),vtmerge_pat(Bvt1,Bvt2),St2};
 pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
+pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
+    pattern_list(Ps, Vt, Old, Bvt, St);
+pattern({map_field_assoc,Line,_,_}, _, _, _, St) ->
+    {[],[],add_error(Line, illegal_pattern, St)};
+pattern({map_field_exact,Line,KP,VP}, Vt, Old, Bvt0, St0) ->
+    %% if the key pattern has variables we should fail
+    case expr(KP,[],St0) of
+	{[],_} ->
+	    pattern(VP, Vt, Old, Bvt0, St0);
+	{[Var|_],_} ->
+	    %% found variables in key expression
+	    {Vt,Old,add_error(Line,{illegal_map_key_variable,element(1,Var)},St0)}
+    end;
 %%pattern({struct,_Line,_Tag,Ps}, Vt, Old, Bvt, St) ->
 %%    pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
@@ -1742,6 +1771,14 @@ gexpr({cons,_Line,H,T}, Vt, St) ->
     gexpr_list([H,T], Vt, St);
 gexpr({tuple,_Line,Es}, Vt, St) ->
     gexpr_list(Es, Vt, St);
+gexpr({map,_Line,Es}, Vt, St) ->
+    gexpr_list(Es, Vt, St);
+gexpr({map,_Line,Src,Es}, Vt, St) ->
+    gexpr_list([Src|Es], Vt, St);
+gexpr({map_field_assoc,_Line,K,V}, Vt, St) ->
+    gexpr_list([K,V], Vt, St);
+gexpr({map_field_exact,_Line,K,V}, Vt, St) ->
+    gexpr_list([K,V], Vt, St);
 gexpr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end );
@@ -1959,6 +1996,24 @@ expr({bc,_Line,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
 expr({tuple,_Line,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
+expr({map,Line,Es}, Vt, St) ->
+    {Rvt,St1} = expr_list(Es,Vt,St),
+    case is_valid_map_construction(Es) of
+	true  -> {Rvt,St1};
+	false -> {[],add_error(Line,illegal_map_construction,St1)}
+    end;
+expr({map,_Line,Src,Es}, Vt, St) ->
+    expr_list([Src|Es], Vt, St);
+expr({map_field_assoc,Line,K,V}, Vt, St) ->
+    case is_valid_map_key(K,St) of
+	true  -> expr_list([K,V], Vt, St);
+	{false,Var} -> {[],add_error(Line,{illegal_map_key_variable,Var},St)}
+    end;
+expr({map_field_exact,Line,K,V}, Vt, St) ->
+    case is_valid_map_key(K,St) of
+	true  -> expr_list([K,V], Vt, St);
+	{false,Var} -> {[],add_error(Line,{illegal_map_key_variable,Var},St)}
+    end;
 expr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end);
@@ -2028,6 +2083,15 @@ expr({'fun',Line,Body}, Vt, St) ->
 	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
 	    {vtupdate(Bvt, Vt),St1}
     end;
+expr({named_fun,_,'_',Cs}, Vt, St) ->
+    fun_clauses(Cs, Vt, St);
+expr({named_fun,Line,Name,Cs}, Vt, St0) ->
+    Nvt0 = [{Name,{bound,unused,[Line]}}],
+    St1 = shadow_vars(Nvt0, Vt, 'named fun', St0),
+    Nvt1 = vtupdate(vtsubtract(Vt, Nvt0), Nvt0),
+    {Csvt,St2} = fun_clauses(Cs, Nvt1, St1),
+    {_,St3} = check_unused_vars(vtupdate(Csvt, Nvt0), [], St2),
+    {vtold(Csvt, Vt),St3};
 expr({call,_Line,{atom,_Lr,is_record},[E,{atom,Ln,Name}]}, Vt, St0) ->
     {Rvt,St1} = expr(E, Vt, St0),
     {Rvt,exist_record(Ln, Name, St1)};
@@ -2180,6 +2244,7 @@ is_valid_record(Rec) ->
         {lc, _, _, _} -> false;
         {record_index, _, _, _} -> false;
         {'fun', _, _} -> false;
+        {named_fun, _, _, _} -> false;
         _ -> true
     end.
 
@@ -2206,6 +2271,20 @@ is_valid_call(Call) ->
         {record_index, _, _, _} -> false;
         {tuple, _, Exprs} when length(Exprs) =/= 2 -> false;
         _ -> true
+    end.
+
+%% check_map_construction
+%% Only #{ K => V }, i.e. assoc is a valid construction
+is_valid_map_construction([{map_field_assoc,_,_,_}|Es]) ->
+    is_valid_map_construction(Es);
+is_valid_map_construction([]) -> true;
+is_valid_map_construction(_)  -> false.
+
+is_valid_map_key(K,St) ->
+    case expr(K,[],St) of
+	{[],_} -> true;
+	{[Var|_],_} ->
+	    {false,element(1,Var)}
     end.
 
 %% record_def(Line, RecordName, [RecField], State) -> State.
@@ -2528,6 +2607,13 @@ check_type({type, L, range, [From, To]}, SeenVars, St) ->
 	    _ -> add_error(L, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
+check_type({type, _L, map, any}, SeenVars, St) -> {SeenVars, St};
+check_type({type, _L, map, Pairs}, SeenVars, St) ->
+    lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
+			check_type(Pair, AccSeenVars, AccSt)
+		end, {SeenVars, St}, Pairs);
+check_type({type, _L, map_field_assoc, Dom, Range}, SeenVars, St) ->
+    check_type({type, -1, product, [Dom, Range]}, SeenVars, St);
 check_type({type, _L, tuple, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, _L, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, L, binary, [Base, Unit]}, SeenVars, St) ->
@@ -2633,6 +2719,7 @@ is_default_type({iodata, 0}) -> true;
 is_default_type({iolist, 0}) -> true;
 is_default_type({list, 0}) -> true;
 is_default_type({list, 1}) -> true;
+is_default_type({map, 0}) -> true;
 is_default_type({maybe_improper_list, 0}) -> true;
 is_default_type({maybe_improper_list, 2}) -> true;
 is_default_type({mfa, 0}) -> true;
@@ -2882,7 +2969,8 @@ lc_quals([{generate,_Line,P,E} | Qs], Vt0, Uvt0, St0) ->
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
     lc_quals(Qs, Vt, Uvt, St);
 lc_quals([{b_generate,_Line,P,E} | Qs], Vt0, Uvt0, St0) ->
-    {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
+    St1 = handle_bitstring_gen_pat(P,St0),
+    {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St1),
     lc_quals(Qs, Vt, Uvt, St);
 lc_quals([F|Qs], Vt, Uvt, St0) ->
     {Fvt,St1} = case is_guard_test2(F, St0#lint.records) of
@@ -2909,6 +2997,22 @@ handle_generator(P,E,Vt,Uvt,St0) ->
     NUvt = vtupdate(vtnew(Svt, Uvt), Uvt),
     Vt3 = vtupdate(vtsubtract(Vt2, Binvt), Binvt),
     {Vt3,NUvt,St5}.
+
+handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
+    case lists:last(Segments) of
+        {bin_element,Line,{var,_,_},default,Flags} when is_list(Flags) ->
+            case member(binary, Flags) orelse member(bits, Flags)
+                                       orelse member(bitstring, Flags) of
+                true ->
+                    add_error(Line, unsized_binary_in_bin_gen_pattern, St);
+                false ->
+                    St
+            end;
+        _ ->
+            St
+    end;
+handle_bitstring_gen_pat(_,St) ->
+    St.
 
 %% fun_clauses(Clauses, ImportVarTable, State) ->
 %%      {UsedVars, State}.
@@ -3544,15 +3648,22 @@ is_imported_from_erlang(ImportSet,{Func,Arity}) ->
         {ok,erlang} -> true;
         _ -> false
     end.
-%% Build set of functions where auto-import is explicitly supressed
+%% Build set of functions where auto-import is explicitly suppressed
 auto_import_suppressed(CompileFlags) ->
-    L0 = [ X || {no_auto_import,X} <- CompileFlags ],
-    L1 = [ {Y,Z} || {Y,Z} <- lists:flatten(L0), is_atom(Y), is_integer(Z) ],
-    gb_sets:from_list(L1).
-%% Predicate to find out if autoimport is explicitly supressed for a function
+    case lists:member(no_auto_import, CompileFlags) of
+        true ->
+            all;
+        false ->
+            L0 = [ X || {no_auto_import,X} <- CompileFlags ],
+            L1 = [ {Y,Z} || {Y,Z} <- lists:flatten(L0), is_atom(Y), is_integer(Z) ],
+            gb_sets:from_list(L1)
+    end.
+%% Predicate to find out if autoimport is explicitly suppressed for a function
+is_autoimport_suppressed(all,{_Func,_Arity}) ->
+    true;
 is_autoimport_suppressed(NoAutoSet,{Func,Arity}) ->
     gb_sets:is_element({Func,Arity},NoAutoSet).
-%% Predicate to find out if a function specific bif-clash supression (old deprecated) is present
+%% Predicate to find out if a function specific bif-clash suppression (old deprecated) is present
 bif_clash_specifically_disabled(St,{F,A}) ->
     Nowarn = nowarn_function(nowarn_bif_clash, St#lint.compile),
     lists:member({F,A},Nowarn).

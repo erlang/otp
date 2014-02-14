@@ -7,9 +7,11 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 AUXILIARY_FILES=\
 	dialyzer.spec\
+	dialyzer.cover\
 	dialyzer_test_constants.hrl\
 	dialyzer_common.erl\
 	file_utils.erl\
+	dialyzer_SUITE.erl\
 	plt_SUITE.erl
 
 # ----------------------------------------------------

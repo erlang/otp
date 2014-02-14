@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -501,16 +501,87 @@
       <name name="check_process_code" arity="2"/>
       <fsummary>Check if a process is executing old code for a module</fsummary>
       <desc>
-        <p>Returns <c>true</c> if the process <c><anno>Pid</anno></c> is executing
-          old code for <c><anno>Module</anno></c>. That is, if the current call of
-          the process executes old code for this module, or if the
-          process has references to old code for this module, or if the
-          process contains funs that references old code for this
-          module. Otherwise, it returns <c>false</c>.</p>
-        <pre>
-> <input>check_process_code(Pid, lists).</input>
-false</pre>
+        <p>The same as
+	<seealso marker="#check_process_code/3"><c>erlang:check_process_code(<anno>Pid</anno>,
+	<anno>Module</anno>, [])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="check_process_code" arity="3"/>
+      <fsummary>Check if a process is executing old code for a module</fsummary>
+      <desc>
+	<p>Check if the node local process identified by <c><anno>Pid</anno></c>
+	is executing old code for <c><anno>Module</anno></c>.</p>
+	<p>Currently available <c><anno>Option</anno>s</c>:</p>
+        <taglist>
+          <tag><c>{allow_gc, boolean()}</c></tag>
+          <item>
+	    Determines if garbage collection is allowed when performing
+	    the operation. If <c>{allow_gc, false}</c> is passed, and
+	    a garbage collection is needed in order to determine the
+	    result of the operation, the operation will be aborted
+	    (see information on <c><anno>CheckResult</anno></c> below).
+	    The default is to allow garbage collection, i.e.,
+	    <c>{allow_gc, true}</c>.
+	  </item>
+          <tag><c>{async, RequestId}</c></tag>
+          <item>
+	    The <c>check_process_code/3</c> function will return
+	    the value <c>async</c> immediately after the request
+	    has been sent. When the request has been processed, the
+	    process that called this function will be passed a
+	    message on the form:<br/>
+	    <c>{check_process_code, <anno>RequestId</anno>, <anno>CheckResult</anno>}</c>.
+	  </item>
+        </taglist>
+	<p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
+	no <c>async</c> option has been passed, the operation will
+	be performed at once. In all other cases a request for
+	the operation will be sent to the process identified by
+	<c><anno>Pid</anno></c>, and will be handled when
+	appropriate. If no <c>async</c> option has been passed,
+	the caller will block until <c><anno>CheckResult</anno></c>
+	is available and can be returned.</p>
+	<p><c><anno>CheckResult</anno></c> informs about the result of
+	the request:</p>
+        <taglist>
+          <tag><c>true</c></tag>
+          <item>
+	    The process identified by <c><anno>Pid</anno></c> is
+	    executing old code for <c><anno>Module</anno></c>.
+	    That is, the current call of the process executes old
+	    code for this module, or the process has references
+	    to old code for this module, or the process contains
+	    funs that references old code for this module.
+	  </item>
+          <tag><c>false</c></tag>
+          <item>
+	    The process identified by <c><anno>Pid</anno></c> is
+	    not executing old code for <c><anno>Module</anno></c>.
+	  </item>
+          <tag><c>aborted</c></tag>
+          <item>
+	    The operation was aborted since the process needed to
+	    be garbage collected in order to determine the result
+	    of the operation, and the operation was requested
+	    by passing the <c>{allow_gc, false}</c> option.</item>
+        </taglist>
         <p>See also <seealso marker="kernel:code">code(3)</seealso>.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>Pid</anno></c> is not a node local process identifier.
+	  </item>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>Module</anno></c> is not an atom.
+	  </item>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>OptionList</anno></c> is not a valid list of options.
+	  </item>
+        </taglist>
       </desc>
     </func>
     <func>
@@ -1197,20 +1268,74 @@ true
           that the spontaneous garbage collection will occur too late
           or not at all. Improper use may seriously degrade system
           performance.</p>
-        <p>Compatibility note: In versions of OTP prior to R7,
-          the garbage collection took place at the next context switch,
-          not immediately. To force a context switch after a call to
-          <c>erlang:garbage_collect()</c>, it was sufficient to make
-          any function call.</p>
       </desc>
     </func>
     <func>
       <name name="garbage_collect" arity="1"/>
-      <fsummary>Force an immediate garbage collection of a process</fsummary>
+      <fsummary>Garbage collect a process</fsummary>
       <desc>
-        <p>Works like <c>erlang:garbage_collect()</c> but on any
-          process. The same caveats apply. Returns <c>false</c> if
-          <c><anno>Pid</anno></c> refers to a dead process; <c>true</c> otherwise.</p>
+        <p>The same as
+	<seealso marker="#garbage_collect/2"><c>garbage_collect(<anno>Pid</anno>, [])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="garbage_collect" arity="2"/>
+      <fsummary>Garbage collect a process</fsummary>
+      <desc>
+	<p>Garbage collect the node local process identified by
+	<c><anno>Pid</anno></c>.</p>
+	<p>Currently available <c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>{async, RequestId}</c></tag>
+          <item>
+	    The <c>garbage_collect/2</c> function will return
+	    the value <c>async</c> immediately after the request
+	    has been sent. When the request has been processed, the
+	    process that called this function will be passed a
+	    message on the form:<br/>
+	    <c>{garbage_collect, <anno>RequestId</anno>, <anno>GCResult</anno>}</c>.
+	  </item>
+        </taglist>
+	<p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
+	no <c>async</c> option has been passed, the garbage
+	collection will be performed at once, i.e. the same as
+	calling
+	<seealso marker="#garbage_collect/0">garbage_collect/0</seealso>.
+	In all other cases a request for garbage collection will
+	be sent to the process identified by <c><anno>Pid</anno></c>,
+	and will be handled when appropriate. If no <c>async</c>
+	option has been passed, the caller will block until
+	<c><anno>GCResult</anno></c> is available and can be
+	returned.</p>
+	<p><c><anno>GCResult</anno></c> informs about the result of
+	the garbage collection request:</p>
+        <taglist>
+          <tag><c>true</c></tag>
+          <item>
+	    The process identified by <c><anno>Pid</anno></c> has
+	    been garbage collected.
+	  </item>
+          <tag><c>false</c></tag>
+          <item>
+	    No garbage collection was performed. This since the
+	    the process identified by <c><anno>Pid</anno></c>
+	    terminated before the request could be satisfied.
+	  </item>
+        </taglist>
+        <p>Note that the same caveats as for
+	<seealso marker="#garbage_collect/0">garbage_collect/0</seealso>
+	apply.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>Pid</anno></c> is not a node local process identifier.
+	  </item>
+          <tag><c>badarg</c></tag>
+          <item>
+	    If <c><anno>OptionList</anno></c> is not a valid list of options.
+	  </item>
+        </taglist>
       </desc>
     </func>
     <func>
@@ -2613,7 +2738,28 @@ os_prompt% </pre>
       <desc>
         <p>Returns a port identifier as the result of opening a
           new Erlang port. A port can be seen as an external Erlang
-          process. <c><anno>PortName</anno></c> is one of the following:</p>
+          process.
+	</p>
+	<p>The name of the executable as well as the arguments
+	given in <c>cd</c>, <c>env</c>, <c>args</c> and <c>arg0</c> is subject to
+	Unicode file name translation if the system is running
+	in Unicode file name mode. To avoid
+	translation or force i.e. UTF-8, supply the executable
+	and/or arguments as a binary in the correct
+	encoding. See the <seealso
+	marker="kernel:file">file</seealso> module, the
+	<seealso marker="kernel:file#native_name_encoding/0">
+	  file:native_name_encoding/0</seealso> function and the
+	  <seealso marker="stdlib:unicode_usage">stdlib users guide
+	</seealso> for details.</p>
+
+	<note><p>The characters in the name (if given as a list)
+	can only be &gt; 255 if the Erlang VM is started in
+	Unicode file name translation mode, otherwise the name
+	of the executable is limited to the ISO-latin-1
+	character set.</p></note>
+
+	<p><c><anno>PortName</anno></c> is one of the following:</p>
         <taglist>
           <tag><c>{spawn, <anno>Command</anno>}</c></tag>
           <item>
@@ -2668,25 +2814,6 @@ os_prompt% </pre>
 	      executed, the appropriate command interpreter will
 	      implicitly be invoked, but there will still be no
 	      command argument expansion or implicit PATH search.</p>
-
-	      <p>The name of the executable as well as the arguments
-	      given in <c>args</c> and <c>arg0</c> is subject to
-	      Unicode file name translation if the system is running
-	      in Unicode file name mode. To avoid
-	      translation or force i.e. UTF-8, supply the executable
-	      and/or arguments as a binary in the correct
-	      encoding. See the <seealso
-	      marker="kernel:file">file</seealso> module, the
-	      <seealso marker="kernel:file#native_name_encoding/0">
-	      file:native_name_encoding/0</seealso> function and the 
-	      <seealso marker="stdlib:unicode_usage">stdlib users guide
-	      </seealso> for details.</p>
-
-	      <note><p>The characters in the name (if given as a list)
-	      can only be &gt; 255 if the Erlang VM is started in
-	      Unicode file name translation mode, otherwise the name
-	      of the executable is limited to the ISO-latin-1
-	      character set.</p></note>
   
 	      <p>If the <c><anno>FileName</anno></c> cannot be run, an error
 	      exception, with the posix error code as the reason, is
@@ -2762,11 +2889,7 @@ os_prompt% </pre>
               strings. The one exception is <c><anno>Val</anno></c> being the atom
               <c>false</c> (in analogy with <c>os:getenv/1</c>), which
               removes the environment variable.
-		  </p>
-	      <p>If Unicode filename encoding is in effect (see the <seealso
-	      marker="erts:erl#file_name_encoding">erl manual
-	      page</seealso>), the strings (both <c>Name</c> and
-	      <c>Value</c>) may contain characters with codepoints > 255.</p>
+	    </p>
           </item>
 	  <tag><c>{args, [ string() | binary() ]}</c></tag>
           <item>
@@ -2794,21 +2917,6 @@ os_prompt% </pre>
 	    should not be given in this list. The proper executable name will
 	    automatically be used as argv[0] where applicable.</p>
 
-	    <p>When the Erlang VM is running in Unicode file name
-	    mode, the arguments can contain any Unicode characters and
-	    will be translated into whatever is appropriate on the
-	    underlying OS, which means UTF-8 for all platforms except
-	    Windows, which has other (more transparent) ways of
-	    dealing with Unicode arguments to programs. To avoid
-	    Unicode translation of arguments, they can be supplied as
-	    binaries in whatever encoding is deemed appropriate.</p>
-
-	      <note><p>The characters in the arguments (if given as a
-	      list of characters) can only be &gt; 255 if the Erlang
-	      VM is started in Unicode file name mode,
-	      otherwise the arguments are limited to the
-	      ISO-latin-1 character set.</p></note>
-
 	    <p>If one, for any reason, wants to explicitly set the
 	    program name in the argument vector, the <c>arg0</c>
 	    option can be used.</p>
@@ -2823,9 +2931,6 @@ os_prompt% </pre>
 	    on some operating systems, be desirable. How the program
 	    responds to this is highly system dependent and no specific 
 	    effect is guaranteed.</p>
-
-	    <p>The unicode file name translation rules of the
-	    <c>args</c> option apply to this option as well.</p>
 
 	  </item> 
 
@@ -2906,11 +3011,11 @@ os_prompt% </pre>
           <tag><marker id="open_port_parallelism"><c>{parallelism, Boolean}</c></marker></tag>
           <item>
             <p>Set scheduler hint for port parallelism. If set to <c>true</c>,
-	    the VM will schedule port tasks when it by this can improve the
+	    the VM will schedule port tasks when doing so will improve
 	    parallelism in the system. If set to <c>false</c>, the VM will
-	    try to perform port tasks immediately and by this improving the
-	    latency at the expense of parallelism. The default can be set on
-	    system startup by passing the
+	    try to perform port tasks immediately, improving latency at the
+            expense of parallelism. The default can be set on system startup
+            by passing the
 	    <seealso marker="erl#+spp">+spp</seealso> command line argument
 	    to <seealso marker="erl">erl(1)</seealso>.
 	    </p>
@@ -5089,6 +5194,27 @@ ok
     </func>
     <func>
       <name name="system_flag" arity="2" clause_i="3"/>
+      <fsummary>Set system flag dirty CPU schedulers online</fsummary>
+      <desc>
+        <p><marker id="system_flag_dirty_cpu_schedulers_online"></marker>
+        Sets the amount of dirty CPU schedulers online. Valid range is
+        <![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]> where <c>N</c> is the
+        lesser of the return values of <c>erlang:system_info(dirty_cpu_schedulers)</c> and
+        <c>erlang:system_info(schedulers_online)</c>.
+        </p>
+        <p>Returns the old value of the flag.</p>
+	<p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	that you have to enable support for dirty schedulers when building OTP in
+	order to try the functionality out.</p>
+        <p>For more information see
+        <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>
+        and
+        <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="system_flag" arity="2" clause_i="4"/>
       <fsummary>Set system flag fullsweep_after</fsummary>
       <desc>
         <p><c><anno>Number</anno></c> is a non-negative integer which indicates
@@ -5106,7 +5232,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="4"/>
+      <name name="system_flag" arity="2" clause_i="5"/>
       <fsummary>Set system flag min_heap_size</fsummary>
       <desc>
         <p>Sets the default minimum heap size for processes. The
@@ -5121,7 +5247,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="5"/>
+      <name name="system_flag" arity="2" clause_i="6"/>
       <fsummary>Set system flag min_bin_vheap_size</fsummary>
       <desc>
         <p>Sets the default minimum binary virtual heap size for processes. The
@@ -5136,7 +5262,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="6"/>
+      <name name="system_flag" arity="2" clause_i="7"/>
       <fsummary>Set system flag multi_scheduling</fsummary>
       <desc>
         <p><marker id="system_flag_multi_scheduling"></marker>
@@ -5174,7 +5300,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="7"/>
+      <name name="system_flag" arity="2" clause_i="8"/>
       <type name="scheduler_bind_type"/>
       <fsummary>Set system flag scheduler_bind_type</fsummary>
       <desc>
@@ -5294,7 +5420,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="8"/>
+      <name name="system_flag" arity="2" clause_i="9"/>
       <fsummary>Set system flag scheduler_wall_time</fsummary>
       <desc><p><marker id="system_flag_scheduler_wall_time"></marker>
       Turns on/off scheduler wall time measurements. </p>
@@ -5304,7 +5430,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="9"/>
+      <name name="system_flag" arity="2" clause_i="10"/>
       <fsummary>Set system flag schedulers_online</fsummary>
       <desc>
         <p><marker id="system_flag_schedulers_online"></marker>
@@ -5320,7 +5446,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="10"/>
+      <name name="system_flag" arity="2" clause_i="11"/>
       <fsummary>Set system flag trace_control_word</fsummary>
       <desc>
         <p>Sets the value of the node's trace control word to
@@ -5680,6 +5806,71 @@ ok
 	       compiled; otherwise, <c>false</c>.
 	    </p>
           </item>
+          <tag><marker id="system_info_dirty_cpu_schedulers"><c>dirty_cpu_schedulers</c></marker></tag>
+          <item>
+            <p>Returns the number of dirty CPU scheduler threads used by
+              the emulator. Dirty CPU schedulers execute CPU-bound
+              native functions such as NIFs, linked-in driver code, and BIFs
+              that cannot be managed cleanly by the emulator's normal schedulers.
+            </p>
+            <p>The number of dirty CPU scheduler threads is determined at emulator
+              boot time and cannot be changed after that. The number of dirty CPU
+              scheduler threads online can however be changed at any time. The number of
+              dirty CPU schedulers can be set on startup by passing
+              the <seealso marker="erts:erl#+SDcpu">+SDcpu</seealso> command line flag, see
+              <seealso marker="erts:erl#+SDcpu">erl(1)</seealso>.
+            </p>
+	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	    that you have to enable support for dirty schedulers when building OTP in
+	    order to try the functionality out.</p>
+            <p>See also <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers">erlang:system_info(dirty_io_schedulers)</seealso>,
+              <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>,
+	      <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>, and
+              <seealso marker="#system_flag_schedulers_online">erlang:system_flag(schedulers_online, SchedulersOnline)</seealso>.</p>
+          </item>
+          <tag><marker id="system_info_dirty_cpu_schedulers_online"><c>dirty_cpu_schedulers_online</c></marker></tag>
+          <item>
+            <p>Returns the number of dirty CPU schedulers online. The return value
+              satisfies the following relationship:
+              <c><![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]></c>, where <c>N</c> is
+              the lesser of the return values of <c>erlang:system_info(dirty_cpu_schedulers)</c> and
+              <c>erlang:system_info(schedulers_online)</c>.
+            </p>
+            <p>The number of dirty CPU schedulers online can be set on startup by passing
+              the <seealso marker="erts:erl#+SDcpu">+SDcpu</seealso> command line flag, see
+              <seealso marker="erts:erl#+SDcpu">erl(1)</seealso>.
+            </p>
+	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	    that you have to enable support for dirty schedulers when building OTP in
+	    order to try the functionality out.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers">erlang:system_info(dirty_io_schedulers)</seealso>,
+              <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>, and
+              <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
+            </p>
+          </item>
+          <tag><marker id="system_info_dirty_io_schedulers"><c>dirty_io_schedulers</c></marker></tag>
+          <item>
+            <p>Returns the number of dirty I/O schedulers as an integer. Dirty I/O schedulers
+              execute I/O-bound native functions such as NIFs and linked-in driver code that
+              cannot be managed cleanly by the emulator's normal schedulers.
+            </p>
+            <p>This value can be set on startup by passing
+              the <seealso marker="erts:erl#+SDio">+SDio</seealso> command line flag, see
+              <seealso marker="erts:erl#+SDio">erl(1)</seealso>.
+            </p>
+	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+	    that you have to enable support for dirty schedulers when building OTP in
+	    order to try the functionality out.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>, and
+              <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
+            </p>
+          </item>
           <tag><c>dist</c></tag>
           <item>
             <p>Returns a binary containing a string of distribution
@@ -5902,6 +6093,13 @@ ok
             <p>See also <seealso marker="#system_flag_multi_scheduling">erlang:system_flag(multi_scheduling, BlockState)</seealso>,
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
+          </item>
+          <tag><marker id="system_info_otp_correction_package"><c>otp_correction_package</c></marker></tag>
+          <item>
+            <p>Returns a string containing the OTP correction package version
+	    number that currenly executing VM is part of. Note that other
+	    OTP applications in the system may be part of other OTP correction
+	    packages.</p>
           </item>
           <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>

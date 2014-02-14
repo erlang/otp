@@ -1455,10 +1455,11 @@ do_install(RelName, TargetDir) ->
 		{win32, _} ->
 		    NativeRootDir = nativename(TargetDir2),
 		    NativeErtsBinDir = nativename(ErtsBinDir),
-		    IniData = ["[erlang]\r\n",
-			       "Bindir=", NativeErtsBinDir, "\r\n",
-			       "Progname=erl\r\n",
-			       "Rootdir=", NativeRootDir, "\r\n"],
+		    IniData0 = ["[erlang]\r\n",
+				"Bindir=", NativeErtsBinDir, "\r\n",
+				"Progname=erl\r\n",
+				"Rootdir=", NativeRootDir, "\r\n"],
+		    IniData = unicode:characters_to_binary(IniData0),
 		    IniFile = filename:join([BinDir, "erl.ini"]),
                     ok = file:write_file(IniFile, IniData);
 		_ ->

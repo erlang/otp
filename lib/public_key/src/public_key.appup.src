@@ -1,8 +1,5 @@
 %% -*- erlang -*-
 {"%VSN%",
- [
-  {<<"0\\.*">>,  [{restart_application, public_key}]}
- ],
- [
-  {<<"0\\.*">>,  [{restart_application, public_key}]}
- ]}.
+ [{<<".*">>,[{restart_application, public_key}]}],
+ [{<<".*">>,[{restart_application, public_key}]}]
+}.

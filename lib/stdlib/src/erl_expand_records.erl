@@ -132,6 +132,12 @@ pattern({cons,Line,H,T}, St0) ->
 pattern({tuple,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{tuple,Line,TPs},St1};
+pattern({map,Line,Ps}, St0) ->
+    {TPs,St1} = pattern_list(Ps, St0),
+    {{map,Line,TPs},St1};
+pattern({map_field_exact,Line,Key,V0}, St0) ->
+    {V,St1} = pattern(V0, St0),
+    {{map_field_exact,Line,Key,V},St1};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{struct,Line,Tag,TPs},TPsvs,St1};
@@ -301,6 +307,20 @@ expr({bc,Line,E0,Qs0}, St0) ->
 expr({tuple,Line,Es0}, St0) ->
     {Es1,St1} = expr_list(Es0, St0),
     {{tuple,Line,Es1},St1};
+expr({map,Line,Es0}, St0) ->
+    {Es1,St1} = expr_list(Es0, St0),
+    {{map,Line,Es1},St1};
+expr({map,Line,Var,Es0}, St0) ->
+    {Es1,St1} = expr_list(Es0, St0),
+    {{map,Line,Var,Es1},St1};
+expr({map_field_assoc,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_assoc,Line,K,V},St2};
+expr({map_field_exact,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_exact,Line,K,V},St2};
 %%expr({struct,Line,Tag,Es0}, Vs, St0) ->
 %%    {Es1,Esvs,Esus,St1} = expr_list(Es0, Vs, St0),
 %%    {{struct,Line,Tag,Es1},Esvs,Esus,St1};
@@ -344,6 +364,9 @@ expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
 expr({'fun',Line,{clauses,Cs0}}, St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {{'fun',Line,{clauses,Cs}},St1};
+expr({named_fun,Line,Name,Cs0}, St0) ->
+    {Cs,St1} = clauses(Cs0, St0),
+    {{named_fun,Line,Name,Cs},St1};
 expr({call,Line,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
     record_test(Line, A, Name, St);
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}},

@@ -992,9 +992,12 @@ $(IBIN_DIR):
 
 clean: check_recreate_primary_bootstrap
 	rm -f *~ *.bak config.log config.status prebuilt.files ibin/*
-	find . -type f -name SKIP -print | xargs $(RM)
 	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) clean
 	cd lib  && ERL_TOP=$(ERL_TOP) $(MAKE) clean BUILD_ALL=true
+
+distclean: clean
+	find . -type f -name SKIP              -print | xargs $(RM)
+	find . -type f -name SKIP-APPLICATIONS -print | xargs $(RM)
 
 #
 # Just wipe out emulator, not libraries

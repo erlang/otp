@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -297,6 +297,7 @@ void initEventTable()
    {wxEVT_TASKBAR_RIGHT_UP, 227, "taskbar_right_up"},
    {wxEVT_TASKBAR_LEFT_DCLICK, 227, "taskbar_left_dclick"},
    {wxEVT_TASKBAR_RIGHT_DCLICK, 227, "taskbar_right_dclick"},
+   {wxEVT_INIT_DIALOG, 228, "init_dialog"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -810,6 +811,13 @@ case 224: {// wxAuiManagerEvent
 case 227: {// wxTaskBarIconEvent
     evClass = (char*)"wxTaskBarIconEvent";
     rt.addAtom((char*)"wxTaskBarIcon");
+    rt.addAtom(Etype->eName);
+    rt.addTupleCount(2);
+  break;
+}
+case 228: {// wxInitDialogEvent
+    evClass = (char*)"wxInitDialogEvent";
+    rt.addAtom((char*)"wxInitDialog");
     rt.addAtom(Etype->eName);
     rt.addTupleCount(2);
   break;

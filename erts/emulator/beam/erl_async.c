@@ -602,7 +602,7 @@ unsigned int driver_async_port_key(ErlDrvPort port)
 ** return values:
 **  0  completed 
 **  -1 error
-**  N  handle value (used with async_cancel)
+**  N  handle value
 **  arguments:
 **      ix             driver index 
 **      key            pointer to secedule queue (NULL means round robin)
@@ -687,23 +687,3 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
 
     return id;
 }
-
-int driver_async_cancel(unsigned int id)
-{
-    /*
-     * Not supported anymore. Always fail (which is backward
-     * compatible).
-     *
-     * This functionality could be implemented again. However,
-     * it is (and always has been) completely useless since
-     * it doesn't give you any guarantees whatsoever. The user
-     * needs to (and always have had to) synchronize in his/her
-     * own code in order to get any guarantees.
-     */
-    return 0;
-}
-
-
-
-
-

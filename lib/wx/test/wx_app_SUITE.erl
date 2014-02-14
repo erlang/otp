@@ -26,6 +26,7 @@
 -compile(export_all).
 
 -include("wx_test_lib.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 t()     -> wx_test_lib:t(?MODULE).
@@ -50,7 +51,7 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [fields, modules, exportall, app_depend, undef_funcs].
+    [fields, modules, exportall, app_depend, undef_funcs, appup].
 
 groups() -> 
     [].
@@ -281,3 +282,12 @@ key1search(Key, L) ->
 	{value, {Key, Value}} ->
 	    Value
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+appup(suite) ->
+    [];
+appup(doc) ->
+    ["Test that the wx appup file is ok"];
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(wx).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -190,10 +190,14 @@ gen_funcs(Defs) ->
 %%     w("  case WXE_REMOVE_PORT:~n", []),
 %%     w("   { destroyMemEnv(Ecmd.port); } break;~n", []),
     w("  case DESTROY_OBJECT: {~n"),
-    w("     wxObject *This = (wxObject *) getPtr(bp,memenv); "),
-    w("     if(This) {"),
-    w("       ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
-    w("       delete This; }~n  } break;~n"),
+    w("     wxObject *This = (wxObject *) getPtr(bp,memenv);~n"),
+    w("     if(This) {~n"),
+    w("       if(recurse_level > 1) {~n"),
+    w("          delayed_delete->Append(Ecmd.Save());~n"),
+    w("       } else {~n"),
+    w("          ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
+    w("          delete This; }~n"),
+    w("  } } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"
       "     rt.addAtom(\"ok\");~n"

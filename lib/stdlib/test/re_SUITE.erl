@@ -1,8 +1,7 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +24,10 @@
 	 global_capture/1,replace_input_types/1,replace_return/1,
 	 split_autogen/1,split_options/1,split_specials/1,
 	 error_handling/1,pcre_cve_2008_2371/1,
-	 pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
+	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
+	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
+	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
+	 match_limit/1,sub_binaries/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -37,7 +39,10 @@ all() ->
      replace_autogen, global_capture, replace_input_types,
      replace_return, split_autogen, split_options,
      split_specials, error_handling, pcre_cve_2008_2371,
-     pcre_compile_workspace_overflow, re_infinite_loop].
+     pcre_compile_workspace_overflow, re_infinite_loop, 
+     re_backwards_accented, opt_dupnames, opt_all_names, 
+     inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
+     match_limit, sub_binaries].
 
 groups() -> 
     [].
@@ -469,115 +474,152 @@ error_handling() ->
     % The malformed precomiled RE is detected after 
     % the trap to re:grun from grun, in the grun function clause
     % that handles precompiled expressions
-    ?line {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa",{1,2,3,4},[global])),
     % An invalid capture list will also cause a badarg late, 
     % but with a non pre compiled RE, the exception should be thrown by the
     % grun function clause that handles RE's compiled implicitly by
     % the run/3 BIF before trapping.
-    ?line {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa","p",[{capture,[1,{a}]},global])),
     % And so the case of a precompiled expression together with
     % a compile-option (binary and list subject):
-    ?line {ok,RE} = re:compile("(p)"),
-    ?line {match,[[{1,1},{1,1}]]} = re:run(<<"apa">>,RE,[global]),
-    ?line {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
-    ?line {'EXIT',{badarg,[{re,run,
-			    [<<"apa">>,
-			     {re_pattern,1,0,_},
-			     [global,unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {ok,RE} = re:compile("(p)"),
+    {match,[[{1,1},{1,1}]]} = re:run(<<"apa">>,RE,[global]),
+    {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
+    {'EXIT',{badarg,[{re,run,
+		      [<<"apa">>,
+		       {re_pattern,1,0,_,_},
+		       [global,unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run(<<"apa">>,RE,[global,unicode])),
-    ?line {'EXIT',{badarg,[{re,run,
-			    ["apa",
-			     {re_pattern,1,0,_},
-			     [global,unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,run,
+		      ["apa",
+		       {re_pattern,1,0,_,_},
+		       [global,unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa",RE,[global,unicode])),
-    ?line {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[])),
-    ?line {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
+    {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[])),
+    {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors]),
+    {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
+    {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors,global]),
+    % Badly formed options
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,["global"])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,-1}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,ett}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{captore,[1,2],binary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,[1,2],binary,list}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,[1,2],bunary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,{1,2},binary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{newline,3}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{newline,apa}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{njuline,cr}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{<<"newline">>,cr}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[global|dupnames])),
+    {'EXIT',{badarg,_}} = (catch re:run([<<"ap">>|$a],RE,[])), % Not an IO-list
+    {'EXIT',{badarg,_}} = (catch re:compile([<<"ap">>|$a],[])), % Not an IO-list
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,[0|1],binary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,
+					[{capture,[<<"apa">>|1],binary}])), 
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,
+					[{capture,[[<<"ap">>|$a]],binary}])), 
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,[<<"(p">>|41],[])), 
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,{re_pattern,3,0,0,[]},[])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,{re_pattern,3,0,0,<<"apa">>},[])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,{re_pattern,3,0,0,<<"apa",3:2>>},[])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa",2:2>>,<<"(p)">>,[{capture,[0,1],binary}])), 
+    <<_:4,Temp:3/binary,_:4>> = <<38,23,6,18>>,
+    {match,[{1,1},{1,1}]} = re:run(Temp,<<"(p)">>,[]), % Unaligned works 
     % The replace errors:
-    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[])),
-    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[global])),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa",
-			     {re_pattern,1,0,_},
-			     "X",
-			     [unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa",
+		       {re_pattern,1,0,_,_},
+		       "X",
+		       [unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",RE,"X",[unicode])),
-    ?line <<"aXa">> = iolist_to_binary(re:replace("apa","p","X",[])),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{capture,all,binary}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    <<"aXa">> = iolist_to_binary(re:replace("apa","p","X",[])),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[report_errors]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
-					  [{capture,all,binary}]))),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{capture,all}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+					   [report_errors]))),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[{capture,all,binary}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
-					  [{capture,all}]))),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{return,banana}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+					   [{capture,all,binary}]))),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[{capture,all}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
-					  [{return,banana}]))),
-    ?line {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
+					   [{capture,all}]))),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[{return,banana}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
+	(catch iolist_to_binary(re:replace("apa","p","X",
+					   [{return,banana}]))),
+    {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
     % Badarg, not compile error.
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","(p","X",[{return,banana}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","(p","X",[{return,banana}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","(p","X",
-					  [{return,banana}]))),
+					   [{return,banana}]))),
     % And the split errors:
-    ?line [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
-    ?line [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
+    [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
+    {'EXIT',{badarg,[{re,split,["apa","p",[report_errors]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
+	(catch re:split("apa","p",[report_errors])),
+    {'EXIT',{badarg,[{re,split,["apa","p",[global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[global])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all}])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
-			   {?MODULE, error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
+		     {?MODULE, error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all,binary}])),
-    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4})),
-    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4},[])),
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     RE,
-			     [unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       RE,
+		       [unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[unicode])),
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     RE,
-			     [{return,banana}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       RE,
+		       [{return,banana}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[{return,banana}])),
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     RE,
-			     [banana]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       RE,
+		       [banana]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[banana])),
-    ?line {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
+    {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
     %Exception on bad argument, not compilation error
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     "(p",
-			     [banana]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       "(p",
+		       [banana]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa","(p",[banana])),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -600,13 +642,280 @@ re_infinite_loop(doc) ->
     "Make sure matches that really loop infinitely actually fail";
 re_infinite_loop(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),
-    ?line Str =
+    Str =
         "http:/www.flickr.com/slideShow/index.gne?group_id=&user_id=69845378@N0",
-    ?line EMail_regex = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
+    EMail_regex = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
         ++ "(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
         ++ "@.*([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+"
         ++ "([a-zA-Z]{2}|com|org|net|gov|mil"
         ++ "|biz|info|mobi|name|aero|jobs|museum)",
-    ?line nomatch = re:run(Str, EMail_regex),
+    nomatch = re:run(Str, EMail_regex),
+    nomatch = re:run(Str, EMail_regex, [global]),
+    {error,match_limit} = re:run(Str, EMail_regex,[report_errors]),
+    {error,match_limit} = re:run(Str, EMail_regex,[report_errors,global]),
     ?t:timetrap_cancel(Dog),
+    ok.
+re_backwards_accented(doc) ->
+    "Check for nasty bug where accented graphemes can make PCRE back past "
+	"beginning of subject";
+re_backwards_accented(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    ?line match = re:run(<<65,204,128,65,204,128,97,98,99>>,
+			 <<"\\X?abc">>,
+			 [unicode,{capture,none}]),
+    ?t:timetrap_cancel(Dog),
+    ok.
+opt_dupnames(doc) ->
+    "Check correct handling of dupnames option to re";
+opt_dupnames(Config) when is_list(Config) ->
+    Days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    _ = [ begin
+	      Short = lists:sublist(Day,3),
+	      {match,[Short]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, ['DN'], list}])
+	  end || Day <- Days ],
+    _ = [ begin
+	      Short = list_to_binary(lists:sublist(Day,3)),
+	      {match,[Short]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, ['DN'], binary}])
+	  end || Day <- Days ],
+    _ = [ begin
+	      {match,[{0,3}]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, ['DN'], index}])
+	  end || Day <- Days ],
+    {match,[{0,1},{1,3},{7,1}]} = re:run("SMondayX","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    {match,[{-1,0},{0,3},{-1,0}]} = re:run("Wednesday","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    nomatch = re:run("Wednsday","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+		     "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+		     "(?<DN>Sat)(?:urday)?",
+		     [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    {match,[<<>>]} = re:run("Subject","b",[dupnames,{capture,['B'],binary}]),
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,{capture,['S','u','b','j','e','c','t',
+				   'I','s','M','o','r','e','T',
+				   'h','a','n','T','e','n'],binary}]),
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,
+		{capture,all_but_first,list},
+		{capture,['S','u','b','j','e','c','t',
+			  'I','s','M','o','r','e','T',
+			  'h','a','n','T','e','n'],binary}]),
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,
+		{capture,["S","u","b","j","e","c","t",
+			  "I","s","M","o","r","e","T",
+			  "h","a","n","T","e","n"],binary}]), 
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<then>n)",
+	       [dupnames,
+		{capture,["S","u","b","j","e","c","t",
+			  "I","s","M","o","r","e","T",
+			  "h","a","n","T","e","then"],binary}]), 
+    ok.
+
+opt_all_names(doc) ->
+    "Test capturing of all_names";
+opt_all_names(Config) when is_list(Config) ->
+    Days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    {match,[{1,3},{0,1},{7,1}]} = re:run("SMondayX","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, all_names,index}]),
+    {match,[{0,3},{-1,0},{-1,0}]} = re:run("Wednesday","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, all_names,index}]),
+    
+    _ = [ begin
+	      {match,[{0,3}]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, all_names, index}])
+	  end || Day <- Days ],
+    _ = [ begin
+	      match =
+		  re:run(Day,
+			 "(Mon|Fri|Sun)(?:day)?|(Tue)(?:sday)?|"
+			 "(Wed)(?:nesday)?|(Thu)(?:rsday)?|"
+			 "(Sat)(?:urday)?",
+			 [dupnames, {capture, all_names, index}])
+	  end || Day <- Days ],
+    {match,[{0,1},{-1,0},{-1,0}]} = re:run("A","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, index}]),
+    {match,[{-1,0},{0,1},{-1,0}]} = re:run("B","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, index}]),
+    {match,[{-1,0},{-1,0},{0,1}]} = re:run("C","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, index}]),
+    {match,[<<"A">>,<<>>,<<>>]} = re:run("A","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<"B">>,<<>>]} = re:run("B","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<>>,<<"C">>]} = re:run("C","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, binary}]),
+    {match,["A",[],[]]} = re:run("A","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, list}]),
+    {match,[[],"B",[]]} = re:run("B","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, list}]),
+    {match,[[],[],"C"]} = re:run("C","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, list}]),
+    {match,[{-1,0},{-1,0},{0,1}]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
+    {match,[{-1,0},{0,1},{-1,0}]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
+    {match,[{0,1},{-1,0},{-1,0}]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
+    {match,[<<>>,<<>>,<<"A">>]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<>>,<<"A">>]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_but_first, binary},{capture, all_names, binary}]),
+    {match,[<<>>,<<"B">>,<<>>]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[<<"C">>,<<>>,<<>>]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[[],[],"A"]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
+    {match,[[],"B",[]]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
+    {match,["C",[],[]]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
+    {match,[[<<>>,<<>>,<<"C">>],
+	    [<<>>,<<>>,<<"C">>],
+	    [<<>>,<<>>,<<"C">>]]} = re:run("CCC","(?<A>A)|(?<B>B)|(?<C>C)",
+				       [global,{capture, all_names, binary}]),
+    {match,[[<<"C">>,<<>>],
+	    [<<>>,<<"B">>],
+	    [<<"C">>,<<>>]]} = re:run("CBC","(?<A>A)|(?<B>B)|(?<A>C)",
+				      [global,dupnames,{capture, all_names, binary}]),
+    {match,[[]]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A'],list}]),
+    {match,["D"]} = re:run("ABCDE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A'],list}]),
+    {match,["F"]} = re:run("ABCFE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A'],list}]),
+    {match,["F",[]]} = re:run("ABCFE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A','B'],list}]),
+    {match,[[],"E"]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A','B'],list}]),
+    {match,[[],"E"]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,all_names,list}]),
+    {match,[{-1,0},{3,1}]}  = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,all_names,index}]),
+    match = re:run("Subject","b",[dupnames,{capture,all_names,binary}]),
+    {match,[<<"I">>,<<"M">>,<<"S">>,<<"T">>,<<"a">>,<<"b">>,              
+	    <<"c">>,<<"e">>,<<"h">>,<<"j">>,<<"n">>,<<"o">>,<<"r">>,
+	    <<"s">>,<<"t">>,<<"u">>]} =
+	re:run("SubjectIsMoreThanTen","(?<S>S)(?<u>u)(?<b>b)(?<j>j)"
+	       "(?<e>e)(?<c>c)(?<t>t)(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)"
+	       "(?<e>e)(?<T>T)(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,{capture,all_names,binary}]),
+    ok.
+
+inspect(doc) ->
+    "Test the minimal inspect function";
+inspect(Config) when is_list(Config)->
+    {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)."),
+    {namelist,[<<"A">>,<<"B">>,<<"C">>]} = re:inspect(MP,namelist),
+    {ok,MPD} = re:compile("(?<A>A)|(?<B>B)|(?<A>C).",[dupnames]),
+    {namelist,[<<"A">>,<<"B">>]} = re:inspect(MPD,namelist),
+    {ok,MPN} = re:compile("(A)|(B)|(C)."),
+    {namelist,[]} = re:inspect(MPN,namelist),
+    {'EXIT',{badarg,_}} = (catch re:inspect(MPD,namelistk)),
+    {'EXIT',{badarg,_}} = (catch re:inspect({re_pattern,3,0,0,<<"kalle">>},namelist)),
+    {'EXIT',{badarg,_}} = (catch re:inspect({re_pattern,3,0,0,<<"kalle",2:2>>},namelist)),
+    ok.
+
+opt_no_start_optimize(doc) ->
+    "Test that the no_start_optimize compilation flag works";
+opt_no_start_optimize(Config) when is_list(Config) ->
+    {match, [{3,3}]} = re:run("DEFABC","(*COMMIT)ABC",[]), % Start optimization makes this result wrong!
+    nomatch = re:run("DEFABC","(*COMMIT)ABC",[no_start_optimize]), % This is the correct result...
+    ok.
+
+opt_never_utf(doc) ->
+    "Check that the never_utf option works";
+opt_never_utf(Config) when is_list(Config) ->
+    {match,[{0,3}]} = re:run("ABC","ABC",[never_utf]),
+    {match,[{0,3}]} = re:run("ABC","(*UTF)ABC",[]),
+    {ok,_} = re:compile("(*UTF)ABC"),
+    {ok,_} = re:compile("(*UTF)ABC",[unicode]),
+    {ok,_} = re:compile("(*UTF8)ABC"),
+    {'EXIT',{badarg,_}} = (catch re:run("ABC","ABC",[unicode,never_utf])),
+    {'EXIT',{badarg,_}} = (catch re:run("ABC","(*UTF)ABC",[never_utf])),
+    {'EXIT',{badarg,_}} = (catch re:run("ABC","(*UTF8)ABC",[never_utf])),
+    {error,_} = (catch re:compile("ABC",[unicode,never_utf])),
+    {error,_} = (catch re:compile("(*UTF)ABC",[never_utf])),
+    {error,_} = (catch re:compile("(*UTF8)ABC",[never_utf])),
+    ok.
+opt_ucp(doc) ->
+    "Check that the ucp option is passed to PCRE";
+opt_ucp(Config) when is_list(Config) ->
+    {match,[{0,1}]} = re:run([$a],"\\w",[unicode]),
+    {match,[{0,2}]} = re:run([229],"\\w",[unicode]), % Latin1 works without UCP, as we have a default 
+						     % Latin1 table
+    nomatch = re:run([1024],"\\w",[unicode]), % Latin1 word characters only, 1024 is not latin1
+    {match,[{0,2}]} = re:run([1024],"\\w",[unicode,ucp]), % Any Unicode word character works with 'ucp'
+    ok.
+match_limit(doc) ->
+    "Check that the match_limit and match_limit_recursion options work";
+match_limit(Config) when is_list(Config) ->
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[]),
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit,3000}]),
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit_recursion,10}]),
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[report_errors]),
+    {error,match_limit} = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit,3000},
+						 report_errors]),
+    {error,match_limit_recursion} = 
+	re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit_recursion,10},
+					   report_errors]),
+    {error,match_limit} = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit,3000},
+						 report_errors,global]),
+    {error,match_limit_recursion} = 
+	re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit_recursion,10},
+					   report_errors,global]),
+    ["aaaaaaaaaaaaaz"] = re:split("aaaaaaaaaaaaaz","(a+)*zz",
+				  [{match_limit_recursion,10},{return,list}]),
+    ["aaaaaaaaaaaaaz"] = re:split("aaaaaaaaaaaaaz","(a+)*zz",
+				  [{match_limit,3000},{return,list}]),
+    "aaaaaaaaaaaaaz" = re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit_recursion,10},{return,list}]),
+    "aaaaaaaaaaaaaz" = re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit,3000},{return,list}]),
+    {'EXIT', {badarg,_}} = (catch re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit_recursion,-1},{return,list}])),
+    {'EXIT', {badarg,_}} = (catch re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit,-1},{return,list}])),
+    {'EXIT', {badarg,_}} = (catch re:run("aaaaaaaaaaaaaz","(a+)*zz",
+					 [{match_limit_recursion,-1},
+					  report_errors,global])),
+    {'EXIT', {badarg,_}} = (catch re:run("aaaaaaaaaaaaaz","(a+)*zz",
+					 [{match_limit,-1},
+					  report_errors,global])),
+    ok.
+sub_binaries(doc) ->
+    "test that we get sub-binaries if subject is a binary and we "
+	"capture binaries";
+sub_binaries(Config) when is_list(Config) ->
+    Bin = list_to_binary(lists:seq(1,255)),
+    {match,[B,C]}=re:run(Bin,"(a)",[{capture,all,binary}]),
+    255 = binary:referenced_byte_size(B),
+    255 = binary:referenced_byte_size(C),
+    {match,[D]}=re:run(Bin,"(a)",[{capture,[1],binary}]),
+    255 = binary:referenced_byte_size(D),
     ok.

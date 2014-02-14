@@ -84,6 +84,7 @@ end_per_testcase(_TestCase, Config) ->
 
 all() ->
     [app,
+     appup,
      api,
      ssl_api,
      start_tls,
@@ -95,7 +96,12 @@ all() ->
 app(doc) ->  "Test that the eldap app file is ok";
 app(suite) -> [];
 app(Config) when is_list(Config) ->
-    ok = test_server:app_test(public_key).
+    ok = test_server:app_test(eldap).
+
+appup(doc) ->  "Test that the eldap appup file is ok";
+appup(suite) -> [];
+appup(Config) when is_list(Config) ->
+    ok = test_server:appup_test(eldap).
 
 api(doc) -> "Basic test that all api functions works as expected";
 api(suite) -> [];

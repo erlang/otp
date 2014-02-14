@@ -31,16 +31,16 @@ external(_Rules) ->
     roundtrip('ChoXBool', {xboolImp,true}),
     roundtrip('ChoXBool', {xboolExp,true}),
 
-    roundtrip('NT', {os,"kalle"}),
-    roundtrip('Exp', {os,"kalle"}),
-    roundtrip('NTNT', {os,"kalle"}),
-    roundtrip('NTExp', {os,"kalle"}),
-    roundtrip('ExpNT', {os,"kalle"}),
-    roundtrip('ExpExp', {os,"kalle"}),
-    roundtrip('XNTNT', {os,"kalle"}),
-    roundtrip('XNTExp', {os,"kalle"}),
-    roundtrip('XExpNT', {os,"kalle"}),
-    roundtrip('XExpExp', {os,"kalle"}),
+    roundtrip('NT', {os,<<"kalle">>}),
+    roundtrip('Exp', {os,<<"kalle">>}),
+    roundtrip('NTNT', {os,<<"kalle">>}),
+    roundtrip('NTExp', {os,<<"kalle">>}),
+    roundtrip('ExpNT', {os,<<"kalle">>}),
+    roundtrip('ExpExp', {os,<<"kalle">>}),
+    roundtrip('XNTNT', {os,<<"kalle">>}),
+    roundtrip('XNTExp', {os,<<"kalle">>}),
+    roundtrip('XExpNT', {os,<<"kalle">>}),
+    roundtrip('XExpExp', {os,<<"kalle">>}),
     
     ok.
 

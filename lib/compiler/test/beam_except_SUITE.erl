@@ -57,6 +57,11 @@ coverage(_) ->
 
     {'EXIT',{undef,[{erlang,error,[a,b,c],_}|_]}} =
 	(catch erlang:error(a, b, c)),
+
+    {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
+	(catch bar(x)),
+    {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
+	(catch bar(0)),
     ok.
 
 -file("fake.erl", 1).
@@ -65,3 +70,8 @@ fc(a) ->	                                %Line 2
 fc(L) when length(L) > 2 ->			%Line 4
     %% Not the same as a "real" function_clause error.
     error(function_clause, [L]).		%Line 6
+%% Would crash the compiler.
+bar(X) ->					%Line 8
+    case {X+1} of				%Line 9
+	1 -> ok					%Line 10
+    end.					%Line 11

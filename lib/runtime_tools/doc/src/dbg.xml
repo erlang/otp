@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -1024,7 +1024,7 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>stop() -> stopped</name>
+      <name>stop() -> ok</name>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes.</fsummary>
       <desc>
         <p>Stops the <c>dbg</c> server and clears all trace flags for
@@ -1035,7 +1035,7 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>stop_clear() -> stopped</name>
+      <name>stop_clear() -> ok</name>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes, and clears trace patterns.</fsummary>
       <desc>
         <p>Same as stop/0, but also clears all trace patterns on local

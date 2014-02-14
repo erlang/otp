@@ -32,15 +32,15 @@
 
 main(_Rules) ->
     roundtrip('SeqTRset',
-	      #'SeqTRset'{seqSet=#'SeqSet'{setInt=2,setOs="A1"},
-			  seqSetI=#'SeqSet'{setInt=2,setOs="A2"},
-			  seqSetE=#'SeqSet'{setInt=2,setOs="A3"},
-			  'seqSet-I'=#'SeqSetImp'{setInt=2,setOs="A4"},
-			  'seqSetI-I'=#'SeqSetImp'{setInt=2,setOs="A5"},
-			  'seqSetE-I'=#'SeqSetImp'{setInt=2,setOs="A6"},
-			  'seqSet-E'=#'SeqSetExp'{setInt=2,setOs="A7"},
-			  'seqSetI-E'=#'SeqSetExp'{setInt=2,setOs="A8"},
-			  'seqSetE-E'=#'SeqSetExp'{setInt=2,setOs="A9"}}),
+	      #'SeqTRset'{seqSet=#'SeqSet'{setInt=2,setOs = <<"A1">>},
+			  seqSetI=#'SeqSet'{setInt=2,setOs = <<"A2">>},
+			  seqSetE=#'SeqSet'{setInt=2,setOs = <<"A3">>},
+			  'seqSet-I'=#'SeqSetImp'{setInt=2,setOs = <<"A4">>},
+			  'seqSetI-I'=#'SeqSetImp'{setInt=2,setOs = <<"A5">>},
+			  'seqSetE-I'=#'SeqSetImp'{setInt=2,setOs = <<"A6">>},
+			  'seqSet-E'=#'SeqSetExp'{setInt=2,setOs = <<"A7">>},
+			  'seqSetI-E'=#'SeqSetExp'{setInt=2,setOs = <<"A8">>},
+			  'seqSetE-E'=#'SeqSetExp'{setInt=2,setOs = <<"A9">>}}),
     ok.
 
 roundtrip(T, V) ->

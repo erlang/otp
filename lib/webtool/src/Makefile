@@ -66,7 +66,7 @@ ERL_COMPILE_FLAGS += +warn_obsolete_guard
 debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
-	rm -f $(TARGET_FILES) $(APP_TARGET) $(APP_TARGET)
+	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 	rm -f core
 
 docs:

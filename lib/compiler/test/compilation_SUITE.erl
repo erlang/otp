@@ -196,7 +196,7 @@ redundant_case_1(_) -> d.
 failure(Module, Conf) ->
     ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Module)),
     ?line Out = ?config(priv_dir,Conf),
-    ?line io:format("Compiling: ~s\n", [Src]),
+    ?line io:format("Compiling: ~ts\n", [Src]),
     ?line CompRc = compile:file(Src, [{outdir,Out},return,time]),
     ?line io:format("Result: ~p\n",[CompRc]),
     ?line case CompRc of
@@ -277,6 +277,16 @@ try_it(StartNode, Module, Conf) ->
     ?line {ok,_Mod} = CompRc2,
     ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
     ?line test_server:timetrap_cancel(LastDog),
+
+    AsmDog = test_server:timetrap(test_server:minutes(10)),
+    io:format("Compiling (from assembly): ~s\n", [Src]),
+    {ok,_} = compile:file(Src, [to_asm,{outdir,Out},report|OtherOpts]),
+    Asm = filename:join(Out, lists:concat([Module, ".S"])),
+    CompRc3 = compile:file(Asm, [from_asm,{outdir,Out},report|OtherOpts]),
+    io:format("Result: ~p\n",[CompRc3]),
+    {ok,_} = CompRc3,
+    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    test_server:timetrap_cancel(AsmDog),
 
     case StartNode of
 	false -> ok;
@@ -466,8 +476,8 @@ self_compile_node(CompilerDir, OutDir, Version, Opts) ->
     ok.
 
 compile_compiler(Files, OutDir, Version, InlineOpts) ->
-    io:format("~s", [code:which(compile)]),
-    io:format("Compiling ~s into ~s", [Version,OutDir]),
+    io:format("~ts", [code:which(compile)]),
+    io:format("Compiling ~s into ~ts", [Version,OutDir]),
     Opts = [report,
 	    bin_opt_info,
 	    {outdir,OutDir},

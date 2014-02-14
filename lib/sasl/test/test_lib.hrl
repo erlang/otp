@@ -1,3 +1,3 @@
 -define(ertsvsn,"4.4").
--define(kernelvsn,"2.14.3").
--define(stdlibvsn,"1.17.3").
+-define(kernelvsn,"2.15.3").
+-define(stdlibvsn,"1.18.3").

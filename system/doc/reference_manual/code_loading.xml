@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2011</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -121,10 +121,9 @@ loop() ->
     <title>Running a function when a module is loaded</title>
 
     <warning>
-    <p>This section describes an experimental feature that was
-      introduced in R13B03, and changed in a backwards-incompatible
-      way in R13B04. There may be more backward-incompatible changes
-      in future releases.</p>
+    <p>We recommend that the feature described in this section is to
+    be used only for loading NIF libraries. For other usages this
+    feature should be considered experimental.</p>
     </warning>
 
     <p>The <c>-on_load()</c> directive names a function that should

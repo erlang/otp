@@ -41,7 +41,7 @@
           data_tag              :: atom(),   % ex tcp.
 	  close_tag             :: atom(),   % ex tcp_closed
 	  error_tag             :: atom(),   % ex tcp_error
-          host                  :: string() | inet:ipaddress(),
+          host                  :: string() | inet:ip_address(),
           port                  :: integer(),
           socket                :: port(),
           ssl_options           :: #ssl_options{},

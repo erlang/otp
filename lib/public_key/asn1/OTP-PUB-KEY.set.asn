@@ -9,3 +9,4 @@ DSS.asn1
 ECPrivateKey.asn1
 PKCS-7.asn1
 PKCS-10.asn1
+RFC5639.asn1

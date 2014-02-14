@@ -131,9 +131,13 @@ translate_exception(_, _, _, _) -> no.
 
 fix_block(Is, 0) ->
     reverse(Is);
-fix_block(Is0, Words) ->
-    [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is] = reverse(Is0),
-    [{set,[],[],{alloc,Live,{F1,F2,Needed-Words,F3}}}|Is].
+fix_block(Is, Words) ->
+    fix_block_1(reverse(Is), Words).
+
+fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is], Words) ->
+    [{set,[],[],{alloc,Live,{F1,F2,Needed-Words,F3}}}|Is];
+fix_block_1([I|Is], Words) ->
+    [I|fix_block_1(Is, Words)].
 
 dig_out_block_fc([{set,[],[],{alloc,Live,_}}|Bl]) ->
     case dig_out_fc(Bl, Live-1, nil) of

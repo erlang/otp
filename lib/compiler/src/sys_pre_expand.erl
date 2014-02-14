@@ -228,6 +228,13 @@ pattern({cons,Line,H,T}, St0) ->
 pattern({tuple,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{tuple,Line,TPs},St1};
+pattern({map,Line,Ps}, St0) ->
+    {TPs,St1} = pattern_list(Ps, St0),
+    {{map,Line,TPs},St1};
+pattern({map_field_exact,Line,K0,V0}, St0) ->
+    {K,St1} = pattern(K0, St0),
+    {V,St2} = pattern(V0, St1),
+    {{map_field_exact,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{tuple,Line,[{atom,Line,Tag}|TPs]},TPsvs,St1};
@@ -321,6 +328,20 @@ expr({tuple,Line,Es0}, St0) ->
 %%expr({struct,Line,Tag,Es0}, Vs, St0) ->
 %%    {Es1,Esvs,Esus,St1} = expr_list(Es0, Vs, St0),
 %%    {{tuple,Line,[{atom,Line,Tag}|Es1]},Esvs,Esus,St1};
+expr({map,Line,Es0}, St0) ->
+    {Es1,St1} = expr_list(Es0, St0),
+    {{map,Line,Es1},St1};
+expr({map,Line,Var,Es0}, St0) ->
+    {Es1,St1} = expr_list(Es0, St0),
+    {{map,Line,Var,Es1},St1};
+expr({map_field_assoc,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_assoc,Line,K,V},St2};
+expr({map_field_exact,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_exact,Line,K,V},St2};
 expr({bin,Line,Es0}, St0) ->
     {Es1,St1} = expr_bin(Es0, St0),
     {{bin,Line,Es1},St1};
@@ -344,6 +365,8 @@ expr({'receive',Line,Cs0,To0,ToEs0}, St0) ->
     {{'receive',Line,Cs,To,ToEs},St3};
 expr({'fun',Line,Body}, St) ->
     fun_tq(Line, Body, St);
+expr({named_fun,Line,Name,Cs}, St) ->
+    fun_tq(Line, Cs, St, Name);
 expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
@@ -475,6 +498,11 @@ fun_tq(Lf, {clauses,Cs0}, St0) ->
     Index = Uniq = 0,
     {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},St2}.
 
+fun_tq(Line, Cs0, St0, Name) ->
+    {Cs1,St1} = fun_clauses(Cs0, St0),
+    {Fname,St2} = new_fun_name(St1, Name),
+    {{named_fun,Line,Name,Cs1,{0,0,Fname}},St2}.
+
 fun_clauses([{clause,L,H0,G0,B0}|Cs0], St0) ->
     {H,St1} = head(H0, St0),
     {G,St2} = guard(G0, St1),
@@ -485,9 +513,12 @@ fun_clauses([], St) -> {[],St}.
 
 %% new_fun_name(State) -> {FunName,State}.
 
-new_fun_name(#expand{func=F,arity=A,fcount=I}=St) ->
+new_fun_name(St) ->
+    new_fun_name(St, 'fun').
+
+new_fun_name(#expand{func=F,arity=A,fcount=I}=St, FName) ->
     Name = "-" ++ atom_to_list(F) ++ "/" ++ integer_to_list(A)
-        ++ "-fun-" ++ integer_to_list(I) ++ "-",
+        ++ "-" ++ atom_to_list(FName) ++ "-" ++ integer_to_list(I) ++ "-",
     {list_to_atom(Name),St#expand{fcount=I+1}}.
 
 %% pattern_bin([Element], State) -> {[Element],[Variable],[UsedVar],State}.
