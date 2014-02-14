@@ -461,14 +461,16 @@ permit_application(ApplName, Flag) ->
 
 
 set_env(AppName, Key, Val) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val}).
-set_env(AppName, Key, Val, Timeout) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val}, Timeout).
+    gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
+set_env(AppName, Key, Val, Opts) ->
+    Timeout = proplists:get_value(timeout, Opts, 5000),
+    gen_server:call(?AC, {set_env, AppName, Key, Val, Opts}, Timeout).
 
 unset_env(AppName, Key) ->
-    gen_server:call(?AC, {unset_env, AppName, Key}).
-unset_env(AppName, Key, Timeout) ->
-    gen_server:call(?AC, {unset_env, AppName, Key}, Timeout).
+    gen_server:call(?AC, {unset_env, AppName, Key, []}).
+unset_env(AppName, Key, Opts) ->
+    Timeout = proplists:get_value(timeout, Opts, 5000),
+    gen_server:call(?AC, {unset_env, AppName, Key, Opts}, Timeout).
 
 %%%-----------------------------------------------------------------
 %%% call-back functions from gen_server
@@ -609,8 +611,8 @@ check_para([Else | _ParaList], AppName) ->
                | {'change_application_data', _, _}
                | {'permit_application', atom() | {'application',atom(),_},_}
                | {'start_application', _, _}
-               | {'unset_env', _, _}
-               | {'set_env', _, _, _}.
+               | {'unset_env', _, _, _}
+               | {'set_env', _, _, _, _}.
 
 -spec handle_call(calls(), {pid(), term()}, state()) ->
         {'noreply', state()} | {'reply', term(), state()}.
@@ -858,13 +860,25 @@ handle_call(which_applications, _From, S) ->
 	       end, S#state.running),
     {reply, Reply, S};
 
-handle_call({set_env, AppName, Key, Val}, _From, S) ->
+handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
     ets:insert(ac_tab, {{env, AppName, Key}, Val}),
-    {reply, ok, S};
+    case proplists:get_value(persistent, Opts, false) of
+	true ->
+	    Fun = fun(Env) -> lists:keystore(Key, 1, Env, {Key, Val}) end,
+	    {reply, ok, S#state{conf_data = change_app_env(S#state.conf_data, AppName, Fun)}};
+	false ->
+	    {reply, ok, S}
+    end;
 
-handle_call({unset_env, AppName, Key}, _From, S) ->
+handle_call({unset_env, AppName, Key, Opts}, _From, S) ->
     ets:delete(ac_tab, {env, AppName, Key}),
-    {reply, ok, S};
+    case proplists:get_value(persistent, Opts, false) of
+	true ->
+	    Fun = fun(Env) -> lists:keydelete(Key, 1, Env) end,
+	    {reply, ok, S#state{conf_data = change_app_env(S#state.conf_data, AppName, Fun)}};
+	false ->
+	    {reply, ok, S}
+    end;
 
 handle_call({control_application, AppName}, {Pid, _Tag}, S) ->
     Control = S#state.control,
@@ -1639,6 +1653,16 @@ merge_env([{App, AppEnv1} | T], Env2, Res) ->
     end;
 merge_env([], Env2, Res) ->
     Env2 ++ Res.
+
+%% Changes the environment for the given application
+%% If there is no application, an empty one is created
+change_app_env(Env, App, Fun) ->
+    case get_env_key(App, Env) of
+	{value, AppEnv, RestEnv} ->
+	    [{App, Fun(AppEnv)} | RestEnv];
+	_ ->
+	    [{App, Fun([])} | Env]
+    end.
 
 %% Merges envs for an application.  Env2 overrides Env1
 merge_app_env(Env1, Env2) ->

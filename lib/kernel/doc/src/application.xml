@@ -239,10 +239,19 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <desc>
         <p>Sets the value of the configuration parameter <c><anno>Par</anno></c> for
           <c><anno>Application</anno></c>.</p>
-        <p><c>set_env/3</c> uses the standard <c>gen_server</c> timeout
-          value (5000 ms). A <c><anno>Timeout</anno></c> argument can be provided
+        <p><c>set_env/4</c> uses the standard <c>gen_server</c> timeout
+          value (5000 ms). The <c>timeout</c> option can be provided
           if another timeout value is useful, for example, in situations
           where the application controller is heavily loaded.</p>
+        <p>If <c>set_env/4</c> is called before the application is loaded,
+          the application environment values specified in the <c>Application.app</c>
+          file will override the ones previously set. This is also true for application
+          reloads.</p>
+        <p>The <c>persistent</c> option can be set to <c>true</c>
+          when there is a need to guarantee parameters set with <c>set_env/4</c>
+          will not be overridden by the ones defined in the application resource
+          file on load. This means persistent values will stick after the application
+          is loaded and also on application reload.</p>
         <warning>
           <p>Use this function only if you know what you are doing, 
             that is, on your own applications. It is very application
@@ -406,9 +415,11 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <p>Removes the configuration parameter <c><anno>Par</anno></c> and its value
           for <c><anno>Application</anno></c>.</p>
         <p><c>unset_env/2</c> uses the standard <c>gen_server</c>
-          timeout value (5000 ms). A <c><anno>Timeout</anno></c> argument can be
+          timeout value (5000 ms). The <c>timeout</c> option can be
           provided if another timeout value is useful, for example, in
           situations where the application controller is heavily loaded.</p>
+        <p><c>unset_env/3</c> also allows the persistent option to be passed
+          (see <c>set_env/4</c> above).</p>
         <warning>
           <p>Use this function only if you know what you are doing, 
             that is, on your own applications. It is very application
