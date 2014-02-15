@@ -180,17 +180,25 @@ AC_PROG_LN_S
 AC_PROG_RANLIB
 
 #
-# Get erts version and otp release from erts/vsn.mk
+# Get erts version from erts/vsn.mk
 #
 AC_MSG_CHECKING([ERTS version])
 [ERTS_VSN=`sed -n "s/^VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
 AC_MSG_RESULT([$ERTS_VSN])
 AC_SUBST(ERTS_VSN)
 
+#
+# Get OTP release and OTP version from $ERL_TOP/OTP_VERSION
+#
 AC_MSG_CHECKING([OTP release])
-[OTP_REL=`sed -n "s/^SYSTEM_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
+[OTP_REL=`cat $ERL_TOP/OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`]
 AC_MSG_RESULT([$OTP_REL])
 AC_SUBST(OTP_REL)
+
+AC_MSG_CHECKING([OTP version])
+[OTP_VSN=`cat $ERL_TOP/OTP_VERSION`]
+AC_MSG_RESULT([$OTP_VSN])
+AC_SUBST(OTP_VSN)
 
 AC_ARG_ENABLE(threads,
 AS_HELP_STRING([--enable-threads], [enable async thread support])

@@ -64,7 +64,7 @@ static Export *gather_gc_info_res_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
-static char otp_correction_package[] = ERLANG_OTP_CORRECTION_PACKAGE;
+static char otp_version[] = ERLANG_OTP_VERSION;
 /* Keep erts_system_version as a global variable for easy access from a core */
 static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     "%s"
@@ -312,7 +312,7 @@ erts_print_system_version(int to, void *arg, Process *c_p)
     int i, rc = -1;
     char *rc_str = "";
     char rc_buf[100];
-    char *ocp = otp_correction_package;
+    char *ov = otp_version;
 #ifdef ERTS_SMP
     Uint total, online, active;
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -323,9 +323,9 @@ erts_print_system_version(int to, void *arg, Process *c_p)
     (void) erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 0);
 #endif
 #endif
-    for (i = 0; i < sizeof(otp_correction_package)-4; i++) {
-	if (ocp[i] == '-' && ocp[i+1] == 'r' && ocp[i+2] == 'c')
-	    rc = atoi(&ocp[i+3]);
+    for (i = 0; i < sizeof(otp_version)-4; i++) {
+	if (ov[i] == '-' && ov[i+1] == 'r' && ov[i+2] == 'c')
+	    rc = atoi(&ov[i+3]);
     }
     if (rc >= 0) {
 	if (rc == 0)
@@ -2448,10 +2448,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    DECL_AM(unknown);
 	    BIF_RET(AM_unknown);
 	}
-    } else if (ERTS_IS_ATOM_STR("otp_correction_package", BIF_ARG_1)) {
-	int n = sizeof(ERLANG_OTP_CORRECTION_PACKAGE)-1;
-	hp = HAlloc(BIF_P, 2*n);
-	BIF_RET(buf_to_intlist(&hp, ERLANG_OTP_CORRECTION_PACKAGE, n, NIL));
     } else if (ERTS_IS_ATOM_STR("otp_release", BIF_ARG_1)) {
 	int n = sizeof(ERLANG_OTP_RELEASE)-1;
 	hp = HAlloc(BIF_P, 2*n);

@@ -6094,16 +6094,19 @@ ok
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><marker id="system_info_otp_correction_package"><c>otp_correction_package</c></marker></tag>
-          <item>
-            <p>Returns a string containing the OTP correction package version
-	    number that currenly executing VM is part of. Note that other
-	    OTP applications in the system may be part of other OTP correction
-	    packages.</p>
-          </item>
           <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>
-            <p>Returns a string containing the OTP release number.</p>
+            <p>Returns a string containing the OTP release number of the
+	    OTP release that the currently executing ERTS application is
+            part of.</p>
+            <p>As of OTP release 17, the OTP release number corresponds to
+            the major OTP version number. There is no
+	    <c>erlang:system_info()</c> argument giving the exact OTP
+	    version. This since the exact OTP version in the general case
+	    is hard to determine.  For more information see 
+	    <seealso marker="doc/installation_guide:otp_version">the
+	    documentation of the OTP version in the installation
+	    guide</seealso>.</p>
           </item>
 	  <tag><marker id="system_info_port_parallelism"><c>port_parallelism</c></marker></tag>
 	  <item><p>Returns the default port parallelism scheduling hint used.

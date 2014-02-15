@@ -334,6 +334,8 @@ text(Line) ->
 
 text("%ERTS-VSN%" ++ Cs, Acc) ->
     text(Cs, ["@ERTS_VSN@"|Acc]);
+text("%OTP-VSN%" ++ Cs, Acc) ->
+    text(Cs, ["@OTP_VSN@"|Acc]);
 text("%OTP-REL%" ++ Cs, Acc) ->
     text(Cs, ["@OTP_REL@"|Acc]);
 
@@ -357,6 +359,8 @@ put_text(#state{c = CTag, emphasis = EmTag} = S, Line) ->
 
 put_text(S, "%ERTS-VSN%"++Cs, CTag, EmTag, Acc) ->
     put_text(S, Cs, CTag, EmTag, ["@ERTS_VSN@"|Acc]);
+put_text(S, "%OTP-VSN%"++Cs, CTag, EmTag, Acc) ->
+    put_text(S, Cs, CTag, EmTag, ["@OTP_VSN@"|Acc]);
 put_text(S, "%OTP-REL%"++Cs, CTag, EmTag, Acc) ->
     put_text(S, Cs, CTag, EmTag, ["@OTP_REL@"|Acc]);
 
@@ -560,6 +564,8 @@ code(Line) ->
 
 code("%ERTS-VSN%" ++ Cs, Acc) ->
     code(Cs, ["@ERTS_VSN@"|Acc]);
+code("%OTP-VSN%" ++ Cs, Acc) ->
+    code(Cs, ["@OTP_VSN@"|Acc]);
 code("%OTP-REL%" ++ Cs, Acc) ->
     code(Cs, ["@OTP_REL@"|Acc]);
 
