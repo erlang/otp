@@ -28,19 +28,24 @@ make noboot [-j4]
 
 ### Make Release ###
 
-./otp_build release -a /usr/local/otp-R16B03-arm
+./otp_build release -a /usr/local/otp_R16B03_arm
 
 ### Target Deployment ###
 
-Make a tarball out of /usr/local/otp-R16B03-arm and copy it to target device
+Make a tarball out of /usr/local/otp_R16B03_arm and copy it to target device
 (e.g. Raspberry Pi). Extract it and install
 
-./Install /usr/local/otp-R16B03-arm
+./Install /usr/local/otp_R16B03_arm
 
+Android SDK (adb tool) is used to deploy OTP/Erlang to target device for 
+evaluation purpose only.
+
+adb push /usr/local/otp_R16B03_arm /mnt/sdcard/otp_R16B03_arm
+adb shell
 
 ### Known Issues ###
 
- * inets:gethostbyname/1 unable to resolve 
+ * native inet:gethostbyname/1 return {error, nxdomain} on Raspberry PI. Use dns resolver to by-pass the issue (see http://www.erlang.org/doc/apps/erts/inet_cfg.html) 
 
 ### References ###
 

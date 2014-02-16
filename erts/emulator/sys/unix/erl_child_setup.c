@@ -102,12 +102,13 @@ main(int argc, char *argv[])
 	return 1;
 
 #if defined(__ANDROID__)
-    for (i = from; i <= to; i++)
-    if (i!=__system_properties_fd)
-    (void) close(i);
+    for (i = from; i <= to; i++) {
+	if (i!=__system_properties_fd)
+	    (void) close(i);
+    }
 #else
     for (i = from; i <= to; i++)
-    (void) close(i);
+	(void) close(i);
 #endif /* __ANDROID__ */
 
     if (!(argv[CS_ARGV_WD_IX][0] == '.' && argv[CS_ARGV_WD_IX][1] == '\0')
@@ -155,3 +156,4 @@ int __system_properties_fd(void)
     return fd;
 }
 #endif /* __ANDROID__ */
+
