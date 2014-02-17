@@ -77,7 +77,8 @@ close(_) ->
 %% Adds a file to a tape archive.
 
 add(File, Name, Options) ->
-    add(File, Name, Name, Options).
+    NameInArchive = proplists:get_value( name_in_archive, Options, Name ),
+    add(File, Name, NameInArchive, Options).
 
 add({write, File}, Name, NameInArchive, Options) ->
     Opts = #add_opts{read_info=fun(F) -> file:read_link_info(F) end},
