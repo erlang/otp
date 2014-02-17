@@ -58,10 +58,12 @@
 	 t_fun_range/2, t_integer/0, t_integers/1,
 	 t_is_any/1, t_is_atom/1, t_is_atom/2, t_is_any_atom/3,
          t_is_boolean/2,
-	 t_is_integer/2, t_is_nil/2, t_is_none/1, t_is_none_or_unit/1,
+	 t_is_integer/2, t_is_list/1,
+	 t_is_nil/2, t_is_none/1, t_is_none_or_unit/1,
 	 t_is_number/2, t_is_reference/2, t_is_pid/2, t_is_port/2,
          t_is_unit/1,
-	 t_limit/2, t_list/0, t_maybe_improper_list/0, t_module/0,
+	 t_limit/2, t_list/0, t_list_elements/2,
+	 t_maybe_improper_list/0, t_module/0,
 	 t_none/0, t_non_neg_integer/0, t_number/0, t_number_vals/2,
 	 t_pid/0, t_port/0, t_product/1, t_reference/0,
          t_to_string/2, t_to_tlist/1,
@@ -293,6 +295,7 @@ traverse(Tree, Map, State) ->
               t_is_any(ArgType)
               orelse t_is_simple(ArgType, State)
               orelse is_call_to_send(Arg)
+	      orelse is_lc_simple_list(Arg, ArgType, State)
             of
 	      true -> % do not warn in these cases
 		State1;
@@ -2712,6 +2715,13 @@ is_call_to_send(Tree) ->
 	andalso (cerl:atom_val(Mod) =:= erlang)
 	andalso (Arity =:= 2)
   end.
+
+is_lc_simple_list(Tree, TreeType, State) ->
+  Opaques = State#state.opaques,
+  Ann = cerl:get_ann(Tree),
+  lists:member(list_comprehension, Ann)
+    andalso t_is_list(TreeType)
+    andalso t_is_simple(t_list_elements(TreeType, Opaques), State).
 
 filter_match_fail([Clause] = Cls) ->
   Body = cerl:clause_body(Clause),
