@@ -26,7 +26,7 @@
 	 match_bin/1,
 	 string_plusplus/1,
 	 pattern_expr/1,
-         guard_3/1, guard_4/1,
+         guard_3/1, guard_4/1, guard_5/1,
          lc/1,
          simple_cases/1,
          unary_plus/1,
@@ -78,7 +78,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [guard_1, guard_2, match_pattern, string_plusplus,
-     pattern_expr, match_bin, guard_3, guard_4, lc,
+     pattern_expr, match_bin, guard_3, guard_4, guard_5, lc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width].
@@ -246,6 +246,20 @@ guard_4(Config) when is_list(Config) ->
                 false),
     ok.
 
+guard_5(doc) ->
+    ["Guards with erlang:'=='/2"];
+guard_5(suite) ->
+    [];
+guard_5(Config) when is_list(Config) ->
+    {ok,Tokens ,_} =
+	erl_scan:string("case 1 of A when erlang:'=='(A, 1) -> true end."),
+    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
+    true = guard_5_compiled(),
+    {value, true, [{'A',1}]} = erl_eval:expr(Expr, []),
+    ok.
+
+guard_5_compiled() ->
+    case 1 of A when erlang:'=='(A, 1) -> true end.
 
 lc(doc) ->
     ["OTP-4518."];
