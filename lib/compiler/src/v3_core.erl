@@ -101,6 +101,8 @@
 -record(ireceive2, {anno=#a{},clauses,timeout,action}).
 -record(iset,      {anno=#a{},var,arg}).
 -record(itry,      {anno=#a{},args,vars,body,evars,handler}).
+-record(ifilter,   {anno=#a{},arg}).
+-record(igen,      {anno=#a{},acc_pat,acc_guard,skip_pat,tail,tail_pat,arg}).
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -117,10 +119,13 @@
 -type ireceive2() :: #ireceive2{}.
 -type iset()      :: #iset{}.
 -type itry()      :: #itry{}.
+-type ifilter()   :: #ifilter{}.
+-type igen()      :: #igen{}.
 
 -type i() :: iapply()   | ibinary()   | icall()     | icase()  | icatch()
            | iclause()  | ifun()      | iletrec()   | imatch() | iprimop()
-           | iprotect() | ireceive1() | ireceive2() | iset()   | itry().
+           | iprotect() | ireceive1() | ireceive2() | iset()   | itry()
+           | ifilter()  | igen().
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
@@ -479,8 +484,9 @@ expr({cons,L,H0,T0}, St0) ->
     {T1,Tps,St2} = safe(T0, St1),
     A = lineno_anno(L, St2),
     {ann_c_cons(A, H1, T1),Hps ++ Tps,St2};
-expr({lc,L,E,Qs}, St) ->
-    lc_tq(L, E, Qs, #c_literal{anno=lineno_anno(L, St),val=[]}, St);
+expr({lc,L,E,Qs0}, St0) ->
+    {Qs1,St1} = preprocess_quals(L, Qs0, St0),
+    lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({bc,L,E,Qs}, St) ->
     bc_tq(L, E, Qs, {nil,L}, St);
 expr({tuple,L,Es0}, St0) ->
@@ -647,7 +653,7 @@ expr({match,L,P0,E0}, St0) ->
 	Other when not is_atom(Other) ->
 	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps,St4}
     end;
-expr({op,_,'++',{lc,Llc,E,Qs},More}, St0) ->
+expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
     %%
     %% To avoid achieving quadratic complexity if there is a chain of
@@ -655,7 +661,8 @@ expr({op,_,'++',{lc,Llc,E,Qs},More}, St0) ->
     %% evaluation of More now. Evaluating More here could also reduce the
     %% number variables in the environment for letrec.
     {Mc,Mps,St1} = safe(More, St0),
-    {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St1),
+    {Qs,St2} = preprocess_quals(Llc, Qs0, St1),
+    {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
     {Y,Mps++Yps,St};
 expr({op,L,'andalso',E1,E2}, St0) ->
     {#c_var{name=V0},St} = new_var(L, St0),
@@ -889,136 +896,45 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Simon PJ pp 127-138.  
-%%  This gets a bit messy as we must transform all directly here.  We
-%%  recognise guard tests and try to fold them together and join to a
-%%  preceding generators, this should give us better and more compact
-%%  code.
 
-lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
-    {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
+lc_tq(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
+                      skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
+                      arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lc", St0),
-    {Head,St2} = new_var(St1),
-    {Tname,St3} = new_var_name(St2),
-    LA = lineno_anno(Line, St3),
-    CGAnno = #a{anno=[list_comprehension|LA]},
-    LAnno = #a{anno=LA},
-    Tail = #c_var{anno=LA,name=Tname},
-    {Arg,St4} = new_var(St3),
-    {Nc,[],St5} = expr({call,Lg,{atom,Lg,Name},[{var,Lg,Tname}]}, St4),
-    {Guardc,St6} = lc_guard_tests(Gs, St5),	%These are always flat!
-    {Lc,Lps,St7} = lc_tq(Line, E, Qs1, Nc, St6),
-    {Pc,St8} = list_gen_pattern(P, Line, St7),
-    {Gc,Gps,St9} = safe(G, St8),		%Will be a function argument!
-    Fc = function_clause([Arg], LA, {Name,1}),
-
-    %% Avoid constructing a default clause if the list comprehension
-    %% only has a variable as generator and there are no guard
-    %% tests. In other words, if the comprehension is equivalent to
-    %% lists:map/2.
-    Cs0 = case {Guardc, Pc} of
-	      {[], #c_var{}} ->
-		  [#iclause{anno=LAnno,
-			    pats=[#c_literal{anno=LA,val=[]}],guard=[],
-			    body=[Mc]}];
-	      _ ->
-		  [#iclause{anno=#a{anno=[compiler_generated|LA]},
-			    pats=[ann_c_cons(LA, Head, Tail)],
-			    guard=[],
-			    body=[Nc]},
-		   #iclause{anno=LAnno,
-			    pats=[#c_literal{anno=LA,val=[]}],guard=[],
-			    body=[Mc]}]
-	  end,
-    Cs = case Pc of
-	     nomatch -> Cs0;
-	     _ ->
-		 [#iclause{anno=LAnno,
-			   pats=[ann_c_cons(LA, Pc, Tail)],
-			   guard=Guardc,
-			   body=Lps ++ [Lc]}|Cs0]
-	 end,
-    Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
-    {#iletrec{anno=CGAnno,defs=[{{Name,1},Fun}],
-	      body=Gps ++ [#iapply{anno=LAnno,
-				   op=#c_var{anno=LA,name={Name,1}},
-				   args=[Gc]}]},
-     [],St9};
-lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
-    {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
-    {Name,St1} = new_fun_name("blc", St0),
     LA = lineno_anno(Line, St1),
     LAnno = #a{anno=LA},
-    CGAnno = #a{anno=[list_comprehension|LA]},
-    HeadBinPattern = pattern(P, St1),
-    #c_binary{segments=Ps0} = HeadBinPattern,
-    {Ps,Tail,St2} = append_tail_segment(Ps0, St1),
-    {EPs,St3} = emasculate_segments(Ps, St2),
-    Pattern = HeadBinPattern#c_binary{segments=Ps},
-    EPattern = HeadBinPattern#c_binary{segments=EPs},
-    {Arg,St4} = new_var(St3),
-    {Guardc,St5} = lc_guard_tests(Gs, St4),	%These are always flat!
-    Tname = Tail#c_var.name,
-    {Nc,[],St6} = expr({call,Lg,{atom,Lg,Name},[{var,Lg,Tname}]}, St5),
-    {Bc,Bps,St7} = lc_tq(Line, E, Qs1, Nc, St6),
-    {Gc,Gps,St10} = safe(G, St7),		%Will be a function argument!
-    Fc = function_clause([Arg], LA, {Name,1}),
-    {TailSegList,_,St} = append_tail_segment([], St10),
-    Cs = [#iclause{anno=#a{anno=[compiler_generated|LA]},
-		   pats=[Pattern],
-		   guard=Guardc,
-		   body=Bps ++ [Bc]},
-	  #iclause{anno=#a{anno=[compiler_generated|LA]},
-		   pats=[EPattern],
-		   guard=[],
-		   body=[#iapply{anno=LAnno,
-				 op=#c_var{anno=LA,name={Name,1}},
-				 args=[Tail]}]},
-	  #iclause{anno=LAnno,
-		   pats=[#c_binary{anno=LA,segments=TailSegList}],guard=[],
-		   body=[Mc]}],
-    Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
-    {#iletrec{anno=CGAnno,defs=[{{Name,1},Fun}],
-	      body=Gps ++ [#iapply{anno=LAnno,
-				   op=#c_var{anno=LA,name={Name,1}},
-				   args=[Gc]}]},
-     [],St};
-lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
-    %% Special case sequences guard tests.
-    LA = lineno_anno(element(2, Fil0), St0),
-    LAnno = #a{anno=LA},
-    CGAnno = #a{anno=[list_comprehension|LA]},
-    case is_guard_test(Fil0) of
-	true ->
-	    {Gs0,Qs1} = splitwith(fun is_guard_test/1, Qs0),
-	    {Lc,Lps,St1} = lc_tq(Line, E, Qs1, Mc, St0),
-	    {Gs,St2} = lc_guard_tests([Fil0|Gs0], St1), %These are always flat!
-	    {#icase{anno=CGAnno,
-		    args=[],
-		    clauses=[#iclause{anno=LAnno,pats=[],
-				      guard=Gs,body=Lps ++ [Lc]}],
-		    fc=#iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
-				pats=[],guard=[],body=[Mc]}},
-	     [],St2};
-	false ->
-	    {Lc,Lps,St1} = lc_tq(Line, E, Qs0, Mc, St0),
-	    {Fpat,St2} = new_var(St1),
-	    Fc = fail_clause([Fpat], LA,
-			     c_tuple([#c_literal{val=case_clause},Fpat])),
-	    %% Do a novars little optimisation here.
-	    {Filc,Fps,St3} = novars(Fil0, St2),
-	    {#icase{anno=CGAnno,
-		    args=[Filc],
-		    clauses=[#iclause{anno=LAnno,
-				      pats=[#c_literal{anno=LA,val=true}],
-				      guard=[],
-				      body=Lps ++ [Lc]},
-			     #iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
-				      pats=[#c_literal{anno=LA,val=false}],
-				      guard=[],
-				      body=[Mc]}],
-		    fc=Fc},
-	     Fps,St3}
-    end;
+    F = #c_var{anno=LA,name={Name,1}},
+    Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
+    {Var,St2} = new_var(St1),
+    Fc = function_clause([Var], LA, {Name,1}),
+    TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
+    Cs0 = case {AccPat,AccGuard} of
+              {SkipPat,[]} ->
+                  %% Skip and accumulator patterns are the same and there is
+                  %% no guard, no need to generate a skip clause.
+                  [TailClause];
+              _ ->
+                  [#iclause{anno=#a{anno=[compiler_generated|LA]},
+                            pats=[SkipPat],guard=[],body=[Nc]},
+                   TailClause]
+          end,
+    {Cs,St4} = case AccPat of
+                   nomatch ->
+                       %% The accumulator pattern never matches, no need
+                       %% for an accumulator clause.
+                       {Cs0,St2};
+                   _ ->
+                       {Lc,Lps,St3} = lc_tq(Line, E, Qs, Nc, St2),
+                       {[#iclause{anno=LAnno,pats=[AccPat],guard=AccGuard,
+                                  body=Lps ++ [Lc]}|Cs0],
+                        St3}
+               end,
+    Fun = #ifun{anno=LAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
+    {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,1},Fun}],
+              body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg]}]},
+     [],St4};
+lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
+    filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
 lc_tq(Line, E0, [], Mc0, St0) ->
     {H1,Hps,St1} = safe(E0, St0),
     {T1,Tps,St} = force_safe(Mc0, St1),
@@ -1028,146 +944,60 @@ lc_tq(Line, E0, [], Mc0, St0) ->
 
 %% bc_tq(Line, Exp, [Qualifier], More, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Gustafsson ERLANG'05.  
-%%  This gets a bit messy as we must transform all directly here.  We
-%%  recognise guard tests and try to fold them together and join to a
-%%  preceding generators, this should give us better and more compact
-%%  code.
 %%  More could be transformed before calling bc_tq.
 
-bc_tq(Line, Exp, Qualifiers, _, St0) ->
+bc_tq(Line, Exp, Qs0, _, St0) ->
     {BinVar,St1} = new_var(St0),
-    {Sz,SzPre,St2} = bc_initial_size(Exp, Qualifiers, St1),
-    {E,BcPre,St} = bc_tq1(Line, Exp, Qualifiers, BinVar, St2),
+    {Sz,SzPre,St2} = bc_initial_size(Exp, Qs0, St1),
+    {Qs,St3} = preprocess_quals(Line, Qs0, St2),
+    {E,BcPre,St} = bc_tq1(Line, Exp, Qs, BinVar, St3),
     Pre = SzPre ++
 	[#iset{var=BinVar,
 	       arg=#iprimop{name=#c_literal{val=bs_init_writable},
 			    args=[Sz]}}] ++ BcPre,
     {E,Pre,St}.
 
-bc_tq1(Line, E, [{generate,Lg,P,G}|Qs0], AccExpr, St0) ->
-    {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
+bc_tq1(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
+                       skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
+                       arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lbc", St0),
     LA = lineno_anno(Line, St1),
-    {[Head,Tail,AccVar],St2} = new_vars(LA, 3, St1),
     LAnno = #a{anno=LA},
-    CGAnno = #a{anno=[list_comprehension|LA]},
-    {Arg,St3} = new_var(St2),
-    NewMore = {call,Lg,{atom,Lg,Name},[{var,Lg,Tail#c_var.name},
-				       {var,Lg,AccVar#c_var.name}]},
-    {Guardc,St4} = lc_guard_tests(Gs, St3),	%These are always flat!
-    {Lc,Lps,St5} = bc_tq1(Line, E, Qs1, AccVar, St4),
-    {Nc,Nps,St6} = expr(NewMore, St5),
-    {Pc,St7} = list_gen_pattern(P, Line, St6),
-    {Gc,Gps,St8} = safe(G, St7),		%Will be a function argument!
-    Fc = function_clause([Arg,AccVar], LA, {Name,2}),
-    Cs0 = case {Guardc, Pc} of
-	      {[], #c_var{}} ->
-		  [#iclause{anno=LAnno,
-			    pats=[#c_literal{anno=LA,val=[]},AccVar],guard=[],
-			    body=[AccVar]}];
-	      _ ->
-		  [#iclause{anno=#a{anno=[compiler_generated|LA]},
-			    pats=[ann_c_cons(LA, Head, Tail),AccVar],
-			    guard=[],
-			    body=Nps ++ [Nc]},
-		   #iclause{anno=LAnno,
-			    pats=[#c_literal{anno=LA,val=[]},AccVar],guard=[],
-			    body=[AccVar]}]
-	  end,
-    Cs = case Pc of
-	     nomatch -> Cs0;
-	     _ ->
-		 Body = Lps ++ Nps ++ [#iset{var=AccVar,arg=Lc},Nc],
-		 [#iclause{anno=LAnno,
-			   pats=[ann_c_cons(LA,Pc,Tail),AccVar],
-			   guard=Guardc,
-			   body=Body}|Cs0]
-	 end,
-    Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
-    {#iletrec{anno=CGAnno,defs=[{{Name,2},Fun}],
-	      body=Gps ++ [#iapply{anno=LAnno,
-				   op=#c_var{anno=LA,name={Name,2}},
-				   args=[Gc,AccExpr]}]},
-     [],St8};
-bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
-    {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
-    {Name,St1} = new_fun_name("lbc", St0),
-    LA = lineno_anno(Line, St1),
-    {AccVar,St2} = new_var(LA, St1),
-    LAnno = #a{anno=LA},
-    CGAnno = #a{anno=[list_comprehension|LA]},
-    HeadBinPattern = pattern(P, St2),
-    #c_binary{segments=Ps0} = HeadBinPattern,
-    {Ps,Tail,St3} = append_tail_segment(Ps0, St2),
-    {EPs,St4} = emasculate_segments(Ps, St3),
-    Pattern = HeadBinPattern#c_binary{segments=Ps},
-    EPattern = HeadBinPattern#c_binary{segments=EPs},
-    {Arg,St5} = new_var(St4),
-    NewMore = {call,Lg,{atom,Lg,Name},[{var,Lg,Tail#c_var.name},
-				       {var,Lg,AccVar#c_var.name}]},
-    {Guardc,St6} = lc_guard_tests(Gs, St5),	%These are always flat!
-    {Bc,Bps,St7} = bc_tq1(Line, E, Qs1, AccVar, St6),
-    {Nc,Nps,St8} = expr(NewMore, St7),
-    {Gc,Gps,St9} = safe(G, St8),	 %Will be a function argument!
-    Fc = function_clause([Arg,AccVar], LA, {Name,2}),
-    Body = Bps ++ Nps ++ [#iset{var=AccVar,arg=Bc},Nc],
-    {TailSegList,_,St} = append_tail_segment([], St9),
-    Cs = [#iclause{anno=LAnno,
-		   pats=[Pattern,AccVar],
-		   guard=Guardc,
-		   body=Body},
-	  #iclause{anno=#a{anno=[compiler_generated|LA]},
-		   pats=[EPattern,AccVar],
-		   guard=[],
-		   body=Nps ++ [Nc]},
-	  #iclause{anno=LAnno,
-		   pats=[#c_binary{anno=LA,segments=TailSegList},AccVar],
-		   guard=[],
-		   body=[AccVar]}],
-    Fun = #ifun{anno=CGAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno,defs=[{{Name,2},Fun}],
-	      body=Gps ++ [#iapply{anno=LAnno,
-				   op=#c_var{anno=LA,name={Name,2}},
-				   args=[Gc,AccExpr]}]},
-     [],St};
-bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
-    %% Special case sequences guard tests.
-    LA = lineno_anno(element(2, Fil0), St0),
-    LAnno = #a{anno=LA},
-    CGAnno = #a{anno=[list_comprehension|LA]},
-    case is_guard_test(Fil0) of
-	true ->
-	    {Gs0,Qs1} = splitwith(fun is_guard_test/1, Qs0),
-	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs1, AccVar, St0),
-	    {Gs,St} = lc_guard_tests([Fil0|Gs0], St1), %These are always flat!
-	    {#icase{anno=CGAnno,
-		    args=[],
-		    clauses=[#iclause{anno=LAnno,
-				      pats=[],
-				      guard=Gs,body=Bps ++ [Bc]}],
-		    fc=#iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
-				pats=[],guard=[],body=[AccVar]}},
-	     [],St};
-	false ->
-	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs0, AccVar, St0),
-	    {Fpat,St2} = new_var(St1),
-	    Fc = fail_clause([Fpat], LA,
-			     c_tuple([#c_literal{val=case_clause},Fpat])),
-	    %% Do a novars little optimisation here.
-	    {Filc,Fps,St} = novars(Fil0, St2),
-	    {#icase{anno=CGAnno,
-		    args=[Filc],
-		    clauses=[#iclause{anno=LAnno,
-				      pats=[#c_literal{anno=LA,val=true}],
-				      guard=[],
-				      body=Bps ++ [Bc]},
-			     #iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
-				      pats=[#c_literal{anno=LA,val=false}],
-				      guard=[],
-				      body=[AccVar]}],
-		    fc=Fc},
-	     Fps,St}
-    end;
+    {Vars=[_,AccVar],St2} = new_vars(LA, 2, St1),
+    F = #c_var{anno=LA,name={Name,2}},
+    Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
+    Fc = function_clause(Vars, LA, {Name,2}),
+    TailClause = #iclause{anno=LAnno,pats=[TailPat,AccVar],guard=[],
+                          body=[AccVar]},
+    Cs0 = case {AccPat,AccGuard} of
+              {SkipPat,[]} ->
+                  %% Skip and accumulator patterns are the same and there is
+                  %% no guard, no need to generate a skip clause.
+                  [TailClause];
+              _ ->
+                  [#iclause{anno=#a{anno=[compiler_generated|LA]},
+                            pats=[SkipPat,AccVar],guard=[],body=[Nc]},
+                   TailClause]
+          end,
+    {Cs,St4} = case AccPat of
+                   nomatch ->
+                       %% The accumulator pattern never matches, no need
+                       %% for an accumulator clause.
+                       {Cs0,St2};
+                   _ ->
+                       {Bc,Bps,St3} = bc_tq1(Line, E, Qs, AccVar, St2),
+                       Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
+                       {[#iclause{anno=LAnno,
+                                  pats=[AccPat,AccVar],guard=AccGuard,
+                                  body=Body}|Cs0],
+                        St3}
+               end,
+    Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
+    {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
+              body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
+     [],St4};
+bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
+    filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     {E,Pre,St} = expr({bin,Bl,[{bin_element,Bl,
 				{var,Bl,AccVar#c_var.name},
@@ -1175,8 +1005,146 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
 				[binary,{unit,1}]}|Elements]}, St0),
     #a{anno=A} = Anno0 = get_anno(E),
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
-    %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
+
+%% filter_tq(Line, Expr, Filter, Mc, State, [Qualifier], TqFun) ->
+%%     {Case,[PreExpr],State}.
+%%  Transform an intermediate comprehension filter to its intermediate case
+%%  representation.
+
+filter_tq(Line, E, #ifilter{anno=#a{anno=LA}=LAnno,arg={Pre,Arg}},
+          Mc, St0, Qs, TqFun) ->
+    %% The filter is an expression, it is compiled to a case of degree 1 with
+    %% 3 clauses, one accumulating, one skipping and the final one throwing
+    %% {case_clause,Value} where Value is the result of the filter and is not a
+    %% boolean.
+    {Lc,Lps,St1} = TqFun(Line, E, Qs, Mc, St0),
+    {FailPat,St2} = new_var(St1),
+    Fc = fail_clause([FailPat], LA,
+                     c_tuple([#c_literal{val=case_clause},FailPat])),
+    {#icase{anno=LAnno#a{anno=[list_comprehension|LA]},args=[Arg],
+            clauses=[#iclause{anno=LAnno,
+                              pats=[#c_literal{val=true}],guard=[],
+                              body=Lps ++ [Lc]},
+                     #iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
+                              pats=[#c_literal{val=false}],guard=[],
+                              body=[Mc]}],
+            fc=Fc},
+     Pre,St2};
+filter_tq(Line, E, #ifilter{anno=#a{anno=LA}=LAnno,arg=Guard},
+          Mc, St0, Qs, TqFun) when is_list(Guard) ->
+    %% Otherwise it is a guard, compiled to a case of degree 0 with 2 clauses,
+    %% the first matches if the guard succeeds and the comprehension continues
+    %% or the second one is selected and the current element is skipped.
+    {Lc,Lps,St1} = TqFun(Line, E, Qs, Mc, St0),
+    {#icase{anno=LAnno#a{anno=[list_comprehension|LA]},args=[],
+            clauses=[#iclause{anno=LAnno,pats=[],guard=Guard,body=Lps ++ [Lc]}],
+            fc=#iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
+                        pats=[],guard=[],body=[Mc]}},
+     [],St1}.
+
+%% preprocess_quals(Line, [Qualifier], State) -> {[Qualifier'],State}.
+%%  Preprocess a list of Erlang qualifiers into its intermediate representation,
+%%  represented as a list of #igen{} and #ifilter{} records. We recognise guard
+%%  tests and try to fold them together and join to a preceding generators, this
+%%  should give us better and more compact code.
+
+preprocess_quals(Line, Qs, St) ->
+    preprocess_quals(Line, Qs, St, []).
+
+preprocess_quals(Line, [Q|Qs0], St0, Acc) ->
+    case is_generator(Q) of
+        true ->
+            {Gs,Qs} = splitwith(fun is_guard_test/1, Qs0),
+            {Gen,St} = generator(Line, Q, Gs, St0),
+            preprocess_quals(Line, Qs, St, [Gen|Acc]);
+        false ->
+            LAnno = #a{anno=lineno_anno(get_anno(Q), St0)},
+            case is_guard_test(Q) of
+                true ->
+                    %% When a filter is a guard test, its argument in the
+                    %% #ifilter{} record is a list as returned by
+                    %% lc_guard_tests/2.
+                    {Gs,Qs} = splitwith(fun is_guard_test/1, Qs0),
+                    {Cg,St} = lc_guard_tests([Q|Gs], St0),
+                    Filter = #ifilter{anno=LAnno,arg=Cg},
+                    preprocess_quals(Line, Qs, St, [Filter|Acc]);
+                false ->
+                    %% Otherwise, it is a pair {Pre,Arg} as in a generator
+                    %% input.
+                    {Ce,Pre,St} = novars(Q, St0),
+                    Filter = #ifilter{anno=LAnno,arg={Pre,Ce}},
+                    preprocess_quals(Line, Qs0, St, [Filter|Acc])
+            end
+    end;
+preprocess_quals(_, [], St, Acc) ->
+    {reverse(Acc),St}.
+
+is_generator({generate,_,_,_}) -> true;
+is_generator({b_generate,_,_,_}) -> true;
+is_generator(_) -> false.
+
+%%
+%% Generators are abstracted as sextuplets:
+%%  - acc_pat is the accumulator pattern, e.g. [Pat|Tail] for Pat <- Expr.
+%%  - acc_guard is the list of guards immediately following the current
+%%    generator in the qualifier list input.
+%%  - skip_pat is the skip pattern, e.g. <<X,_:X,Tail/bitstring>> for
+%%    <<X,1:X>> <= Expr.
+%%  - tail is the variable used in AccPat and SkipPat bound to the rest of the
+%%    generator input.
+%%  - tail_pat is the tail pattern, respectively [] and <<_/bitstring>> for list
+%%    and bit string generators.
+%%  - arg is a pair {Pre,Arg} where Pre is the list of expressions to be
+%%    inserted before the comprehension function and Arg is the expression
+%%    that it should be passed.
+%%
+
+%% generator(Line, Generator, Guard, State) -> {Generator',State}.
+%%  Transform a given generator into its #igen{} representation.
+
+generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
+    LA = lineno_anno(Line, St0),
+    GA = lineno_anno(Lg, St0),
+    {Head,St1} = list_gen_pattern(P0, Line, St0),
+    {[Tail,Skip],St2} = new_vars(2, St1),
+    {Cg,St3} = lc_guard_tests(Gs, St2),
+    {AccPat,SkipPat} = case Head of
+                           #c_var{} ->
+                               %% If the generator pattern is a variable, the
+                               %% pattern from the accumulator clause can be
+                               %% reused in the skip one. lc_tq and bc_tq1 takes
+                               %% care of dismissing the latter in that case.
+                               Cons = ann_c_cons(LA, Head, Tail),
+                               {Cons,Cons};
+                           nomatch ->
+                               %% If it never matches, there is no need for
+                               %% an accumulator clause.
+                               {nomatch,ann_c_cons(LA, Skip, Tail)};
+                           _ ->
+                               {ann_c_cons(LA, Head, Tail),
+                                ann_c_cons(LA, Skip, Tail)}
+                       end,
+    {Ce,Pre,St4} = safe(E, St3),
+    Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
+                tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
+    {Gen,St4};
+generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
+    LA = lineno_anno(Line, St0),
+    GA = lineno_anno(Lg, St0),
+    Cp = #c_binary{segments=Segs} = pattern(P, St0),
+    %% The function append_tail_segment/2 keeps variable patterns as-is, making
+    %% it possible to have the same skip clause removal as with list generators.
+    {AccSegs,Tail,TailSeg,St1} = append_tail_segment(Segs, St0),
+    AccPat = Cp#c_binary{segments=AccSegs},
+    {Cg,St2} = lc_guard_tests(Gs, St1),
+    {SkipSegs,St3} = emasculate_segments(AccSegs, St2),
+    SkipPat = Cp#c_binary{segments=SkipSegs},
+    {Ce,Pre,St4} = safe(E, St3),
+    Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
+                tail=Tail,tail_pat=#c_binary{anno=LA,segments=[TailSeg]},
+                arg={Pre,Ce}},
+    {Gen,St4}.
 
 append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
@@ -1184,7 +1152,7 @@ append_tail_segment(Segs, St0) ->
 		     unit=#c_literal{val=1},
 		     type=#c_literal{val=binary},
 		     flags=#c_literal{val=[unsigned,big]}},
-    {Segs++[Tail],Var,St}.
+    {Segs++[Tail],Var,Tail,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
@@ -1195,7 +1163,7 @@ emasculate_segments([B|Rest], St0, Acc) ->
     {Var,St1} = new_var(St0),
     emasculate_segments(Rest, St1, [B#c_bitstr{val=Var}|Acc]);
 emasculate_segments([], St, Acc) ->
-    {lists:reverse(Acc),St}.
+    {reverse(Acc),St}.
 
 lc_guard_tests([], St) -> {[],St};
 lc_guard_tests(Gs0, St0) ->
