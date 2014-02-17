@@ -215,23 +215,18 @@ all_cases(Suite,Config) ->
 	  fun({group,G}) ->
 		  {value,{G,Props,GTCs}} =
 		      lists:keysearch(G,1,Suite:groups()),
-		  GTCs1 = case lists:member(parallel,Props) of
-			      true ->
-				  %%! TEMPORARY WORKAROUND FOR PROBLEM
-				  %%! WITH ct_test_support NOT HANDLING
-				  %%! VERIFICATION OF PARALLEL GROUPS
-				  %%! CORRECTLY!
-				  [];
-			      false ->
-				  [[{?eh,tc_start,{Suite,GTC}},
-				    {?eh,tc_done,{Suite,GTC,ok}}] ||
-				      GTC <- GTCs]
-			  end,
-		  [{?eh,tc_start,{Suite,{init_per_group,G,Props}}},
-		   {?eh,tc_done,{Suite,{init_per_group,G,Props},ok}} |
-		   GTCs1] ++
-		      [{?eh,tc_start,{Suite,{end_per_group,G,Props}}},
-		       {?eh,tc_done,{Suite,{end_per_group,G,Props},ok}}];
+		  GTCs1 = [[{?eh,tc_start,{Suite,GTC}},
+			    {?eh,tc_done,{Suite,GTC,ok}}] ||
+			      GTC <- GTCs],
+		  GEvs = [{?eh,tc_start,{Suite,{init_per_group,G,Props}}},
+			  {?eh,tc_done,{Suite,{init_per_group,G,Props},ok}} |
+			  GTCs1] ++
+		         [{?eh,tc_start,{Suite,{end_per_group,G,Props}}},
+			  {?eh,tc_done,{Suite,{end_per_group,G,Props},ok}}],
+		  case lists:member(parallel, Props) of
+		      true -> [{parallel,GEvs}];
+		      false -> GEvs
+		  end;
 	     (TC) ->
 		  [{?eh,tc_done,{Suite,TC,ok}}]
 	  end, GroupsAndTCs),
