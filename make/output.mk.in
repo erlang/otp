@@ -65,9 +65,9 @@ cc_verbose_0 = @echo " CC	"$@;
 cc_verbose = $(cc_verbose_$(V))
 V_CC = $(cc_verbose)$(CC)
 
-cpp_verbose_0 = @echo " CPP	"$@;
-cpp_verbose = $(cpp_verbose_$(V))
-V_CPP = $(cpp_verbose)$(CPP)
+cxx_verbose_0 = @echo " CXX	"$@;
+cxx_verbose = $(cxx_verbose_$(V))
+V_CXX = $(cxx_verbose)$(CXX)
 
 # For the diameter compiler.
 dia_verbose_0 = @echo " DIA	"$@;
