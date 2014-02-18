@@ -40,7 +40,7 @@
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
--export([app_test/1, app_test/2]).
+-export([app_test/1, app_test/2, appup_test/1]).
 -export([is_native/1]).
 -export([comment/1, make_priv_dir/0]).
 -export([os_type/0]).
@@ -2448,8 +2448,11 @@ app_test(App) ->
 app_test(App, Mode) ->
     test_server_sup:app_test(App, Mode).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% appup_test/1
+%%
+appup_test(App) ->
+    test_server_sup:appup_test(App).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% is_native(Mod) -> true | false
