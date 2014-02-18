@@ -45,7 +45,7 @@
 	 end_per_testcase/2]).
 
 % Test cases must be exported.
--export([nt_basic_types/1, nt_high_reduction_count/1]).
+-export([app/1, appup/1, nt_basic_types/1, nt_high_reduction_count/1]).
 
 -define(TRAP_UDP,      5000).
 -define(AGENT_UDP,     4000).
@@ -75,9 +75,10 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 
 suite() -> [{ct_hooks,[ts_install_cth]}, {require, snmp_mgr_agent, snmp}].
 
-all() -> [{group, node_table}].
+all() -> [{group, app}, {group, node_table}].
 
-groups() -> [{node_table, [], [nt_basic_types, nt_high_reduction_count]}].
+groups() -> [{app, [], [app, appup]},
+             {node_table, [], [nt_basic_types, nt_high_reduction_count]}].
 
 init_per_group(_GroupName, Config) -> Config.
 
@@ -117,6 +118,14 @@ end_per_suite(Config) ->
 %%---------------------------------------------------------------------
 %% Test cases
 %%---------------------------------------------------------------------
+
+%% Test that the otp_mibs app file is ok
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(otp_mibs).
+
+%% Test that the otp_mibs appup file is ok
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(otp_mibs).
 
 nt_basic_types(suite) ->
     [];

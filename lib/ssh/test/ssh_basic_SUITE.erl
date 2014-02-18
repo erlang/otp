@@ -38,6 +38,7 @@ suite() ->
 
 all() -> 
     [app_test,
+     appup_test,
      {group, dsa_key},
      {group, rsa_key},
      {group, dsa_pass_key},
@@ -149,6 +150,11 @@ app_test() ->
 app_test(Config) when is_list(Config) ->
     ?t:app_test(ssh),
     ok.
+%%--------------------------------------------------------------------
+appup_test() ->
+    [{doc, "Appup file consistency test."}].
+appup_test(Config) when is_list(Config) ->
+    ok = ?t:appup_test(ssh).
 %%--------------------------------------------------------------------
 misc_ssh_options() ->
     [{doc, "Test that we can set some misc options not tested elsewhere, "
