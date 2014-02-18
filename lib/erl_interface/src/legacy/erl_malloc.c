@@ -231,7 +231,7 @@ void* erl_malloc (long size)
 {
     void *res;
   
-    if ((res =  ei_malloc(size)) == NULL)
+    if ((res =  ei_malloc(size == 0 ? 1 : size)) == NULL)
 	erl_err_sys("<ERROR> erl_malloc: Failed to allocate more memory");
     
     return res;
@@ -249,4 +249,11 @@ void* erl_realloc(void* orig, long size)
 void erl_free (void *ptr)
 {
     ei_free(ptr);
+}
+
+void   erl_set_malloc(void *(*a)(long),
+		      void *(*r)(void *orig, long size),
+		      void (*f)(void *ptr))
+{
+    ei_set_malloc(a,r,f);
 }

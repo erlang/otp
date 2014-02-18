@@ -22,8 +22,16 @@
 #ifndef _EI_MALLOC_H
 #define _EI_MALLOC_H
 
-void* ei_malloc (long size);
+void* ei_malloc(long size);
 void* ei_realloc(void* orig, long size);
-void ei_free (void *ptr);
+void  ei_free(void *ptr);
+
+typedef void* (*ei_malloc_fun_t)(long size);
+typedef void  (*ei_free_fun_t)(void* ptr);
+typedef void* (*ei_realloc_fun_t)(void* orig, long size);
+
+void ei_set_malloc(ei_malloc_fun_t my_malloc,
+		   ei_realloc_fun_t my_realloc,
+		   ei_free_fun_t my_free);
 
 #endif /* _EI_MALLOC_H */

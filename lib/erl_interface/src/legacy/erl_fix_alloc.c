@@ -36,6 +36,8 @@
 
 #define WIPE_CHAR ((char)0xaa) /* 10101010 */
 
+//#define PURIFY 1
+
 /* the freelist is a singly linked list of these */
 /* i.e. the user structure and a link pointer */
 struct fix_block {
@@ -110,6 +112,7 @@ void *erl_eterm_alloc (void)
 	erl_eterm_state->freed--;      
     } else if ((b = malloc(sizeof(*b))) == NULL) {
 	erl_errno = ENOMEM;
+	return NULL;
 #ifdef _REENTRANT
 	ei_mutex_unlock(erl_eterm_state->lock);
 #endif /* _REENTRANT */

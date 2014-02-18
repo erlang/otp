@@ -26,17 +26,31 @@
 #include <stdlib.h>
 #include "ei_malloc.h"
 
+static ei_malloc_fun_t  ei_m_fun = (ei_malloc_fun_t) malloc;
+static ei_realloc_fun_t ei_r_fun = (ei_realloc_fun_t) realloc;
+static ei_free_fun_t    ei_f_fun = (ei_free_fun_t) free;
+
+
 void* ei_malloc (long size)
 {
-  return malloc(size);
+  return ei_m_fun(size);
 }
 
 void* ei_realloc(void* orig, long size)
 {
-  return realloc(orig, size);
+  return ei_r_fun(orig, size);
 }
 
 void ei_free (void *ptr)
 {
-  free(ptr);
+  ei_f_fun(ptr);
+}
+
+void ei_set_malloc(ei_malloc_fun_t my_malloc,
+		   ei_realloc_fun_t my_realloc,
+		   ei_free_fun_t my_free)
+{
+    ei_m_fun = my_malloc;
+    ei_r_fun = my_realloc;
+    ei_f_fun = my_free;
 }

@@ -1418,7 +1418,7 @@ static char* strsave(const char *src)
 
 static char* strnsave(const char *src, int size)
 {
-    char * dest = malloc(size);
+    char * dest = malloc(size ? size : 1); /* avoid malloc(0) */
 
     if (dest != NULL)
 	strncpy(dest, src, size);

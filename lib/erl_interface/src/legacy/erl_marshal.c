@@ -1038,8 +1038,9 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    ((*ext)[2] << 8) | (*ext)[3];
 	*ext += 4;
 	ep->uval.bval.size = i;
-	ep->uval.bval.b = (unsigned char *) erl_malloc(i);
+	ep->uval.bval.b = (unsigned char *) erl_malloc(i+1);
 	memcpy(ep->uval.bval.b, *ext, i);
+	ep->uval.bval.b[i] = 0;
 	*ext += i;
 	return ep;
 

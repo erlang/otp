@@ -423,6 +423,9 @@ void   erl_free_term(ETERM*) EI_DEPRECATED_ATTR;
 void   erl_free_compound(ETERM*) EI_DEPRECATED_ATTR;
 void  *erl_malloc(long) EI_DEPRECATED_ATTR;
 void   erl_free(void*) EI_DEPRECATED_ATTR;
+void   erl_set_malloc(void *(*a)(long),
+		      void *(*r)(void *orig, long size),
+		      void (*f)(void *ptr)) EI_DEPRECATED_ATTR;
 
 int    erl_compare_ext(unsigned char*, unsigned char*) EI_DEPRECATED_ATTR;
 ETERM *erl_decode(unsigned char*) EI_DEPRECATED_ATTR;
