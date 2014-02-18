@@ -12,3 +12,8 @@ HEAP_MAX_SIZE=1000000000
 HEAP_SMALL_BUF_INIT_SIZE=64000000
 HEAP_LARGE_BUF_THRESHOLD=16000000
 HEAP_LOCK_TYPE=2
+
+# Setting the environment variable EFS_RESOLVE_TMO on the block to 0.
+# This will eliminiate delays when trying to open files on not mounted
+# volumes.
+EFS_RESOLVE_TMO=0
