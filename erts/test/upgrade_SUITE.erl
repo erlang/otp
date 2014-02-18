@@ -284,7 +284,7 @@ create_relfile(Node,CreateDir,RelName0,RelVsn) ->
 						 true ->
 						     [];
 						 false ->
-						     [{App,Vsn}]
+						     [{App,Vsn,restart_type(App)}]
 					     end;
 					 _ ->
 					     []
@@ -308,6 +308,11 @@ create_relfile(Node,CreateDir,RelName0,RelVsn) ->
     io:format(Fd,"~tp.~n",[RelContent]),
     ok = file:close(Fd),
     {RelName,Apps,ErtsVsn}.
+
+restart_type(App) when App==kernel; App==stdlib; App==sasl ->
+    permanent;
+restart_type(_) ->
+    temporary.
 
 copy_file(Src, Dest) ->
     copy_file(Src, Dest, []).
@@ -400,7 +405,8 @@ start_node(Start,ExpStatus,ExpVsn,ExpApps) ->
             Error
     end.
 
-wait_node_up(ExpStatus,ExpVsn,ExpApps) ->
+wait_node_up(ExpStatus,ExpVsn,ExpApps0) ->
+    ExpApps = [{A,V} || {A,V,_T} <- ExpApps0],
     Node = node_name(?upgr_sname),
     wait_node_up(Node,ExpStatus,ExpVsn,lists:keysort(1,ExpApps),60).
 
