@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,7 @@
 -export([config_change/1, persistent_env/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
-	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1]).
+	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
@@ -54,6 +54,7 @@ all() ->
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
+     shutdown_deadlock,
      persistent_env].
 
 groups() -> 
@@ -961,7 +962,7 @@ nodedown_start(Conf) when is_list(Conf) ->
 
 ensure_started(suite) -> [];
 ensure_started(doc) -> ["Test application:ensure_started/1."];
-ensure_started(Conf) ->
+ensure_started(_Conf) ->
 
     {ok, Fd} = file:open("app1.app", [write]),
     w_app1(Fd),
@@ -981,7 +982,7 @@ ensure_started(Conf) ->
 
 ensure_all_started(suite) -> [];
 ensure_all_started(doc) -> ["Test application:ensure_all_started/1-2."];
-ensure_all_started(Conf) ->
+ensure_all_started(_Conf) ->
 
     {ok, Fd1} = file:open("app1.app", [write]),
     w_app1(Fd1),
@@ -2096,7 +2097,31 @@ shutdown_timeout(Config) when is_list(Config) ->
     end,
     ok.
 
+%%%-----------------------------------------------------------------
+%%% Provokes a (previous) application shutdown deadlock
+%%%-----------------------------------------------------------------
+shutdown_deadlock(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir,Config),
+    code:add_path(filename:join([DataDir,deadlock])),
+    %% ok = rpc:call(Cp1, application, start, [sasl]),
+    ok = application:start(deadlock),
+    Tester = self(),
+    application:set_env(deadlock, fail_stop, Tester),
+    spawn(fun() -> Tester ! {stop, application:stop(deadlock)} end),
 
+    receive
+	{deadlock, Server} ->
+	    spawn(fun() ->
+			  Master = application_controller:get_master(deadlock),
+			  Child = application_master:get_child(Master),
+			  Tester ! {child, Child}
+		  end),
+	    timer:sleep(100),
+	    erlang:display({self(), "Sending Continue", Server}),
+	    Server ! continue
+    end,
+    [_|_] = application:which_applications(),
+    ok.
 
 
 %%-----------------------------------------------------------------
