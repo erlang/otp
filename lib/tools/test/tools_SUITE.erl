@@ -30,12 +30,12 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
--export([app_test/1]).
+-export([app_test/1, appup_test/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test].
+    [app_test, appup_test].
 
 groups() -> 
     [].
@@ -71,3 +71,7 @@ app_test(suite) ->
     [];
 app_test(Config) when is_list(Config) ->
     ?line ?t:app_test(tools, tolerant).
+
+%% Test that the .appup file does not contain any `basic' errors
+appup_test(Config) when is_list(Config) ->
+    ok = ?t:appup_test(tools).

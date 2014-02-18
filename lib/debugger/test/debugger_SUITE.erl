@@ -27,13 +27,13 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 app_test/1,erts_debug/1,encrypted_debug_info/1,
+	 app_test/1,appup_test/1,erts_debug/1,encrypted_debug_info/1,
 	 no_abstract_code/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test, erts_debug, no_abstract_code,
+    [app_test, appup_test, erts_debug, no_abstract_code,
      encrypted_debug_info].
 
 groups() -> 
@@ -63,6 +63,9 @@ end_per_testcase(_Case, Config) ->
 app_test(Config) when is_list(Config) ->
     ?line ?t:app_test(debugger),
     ok.
+
+appup_test(Config) when is_list(Config) ->
+    ok = ?t:appup_test(debugger).
 
 erts_debug(Config) when is_list(Config) ->
     c:l(erts_debug),

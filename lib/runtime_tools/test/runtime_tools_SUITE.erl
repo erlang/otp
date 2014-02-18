@@ -25,7 +25,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([app_file/1, start_stop_app/1]).
+-export([app_file/1, appup_file/1, start_stop_app/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(1)).
@@ -43,6 +43,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_file,
+     appup_file,
      start_stop_app].
 
 groups() -> 
@@ -64,6 +65,9 @@ end_per_group(_GroupName, Config) ->
 app_file(_Config) ->
     ?line ok = ?t:app_test(runtime_tools),
     ok.
+
+appup_file(_Config) ->
+    ok = ?t:appup_test(runtime_tools).
 
 start_stop_app(_Config) ->
     ok = application:start(runtime_tools),
