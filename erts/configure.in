@@ -4196,8 +4196,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 		fi
 		if test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.a"; then
 			SSL_DYNAMIC_ONLY=yes
-		fi
-		if test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.so"; then
+		elif test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.so" -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
 			SSL_STATIC_ONLY=yes
 		fi
 		SSL_BINDIR="$rdir/bin"
@@ -4379,10 +4378,9 @@ dnl		so it is - be adoptable
     else	 
 	SSL_LIBDIR="$with_ssl/lib"
     fi
-    if test '!' -f $SSL_LIBDIR/libcrypto.a; then
+    if test '!' -f "${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.a"; then
 	SSL_DYNAMIC_ONLY=yes
-    fi
-    if test '!' -f $SSL_LIBDIR/libcrypto.so; then
+    elif test '!' -f ${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.so -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
 	SSL_STATIC_ONLY=yes
     fi
     SSL_INCLUDE="-I$with_ssl/include"
