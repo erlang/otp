@@ -2425,14 +2425,24 @@ static int cmp_atoms(Eterm a, Eterm b)
 		    bb->name+3, bb->len-3);
 }
 
-/* cmp(Eterm a, Eterm b, int exact)
+#if !HALFWORD_HEAP
+/* cmp(Eterm a, Eterm b)
+ *  For compatibility with HiPE - arith-based compare.
+ */
+Sint cmp(Eterm a, Eterm b)
+{
+    return erts_cmp(a, b, 0);
+}
+#endif
+
+/* erts_cmp(Eterm a, Eterm b, int exact)
  * exact = 1 -> term-based compare
  * exact = 0 -> arith-based compare
  */
 #if HALFWORD_HEAP
-Sint cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base, int exact)
+Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base, int exact)
 #else
-Sint cmp(Eterm a, Eterm b, int exact)
+Sint erts_cmp(Eterm a, Eterm b, int exact)
 #endif
 {
     DECLARE_WSTACK(stack);
