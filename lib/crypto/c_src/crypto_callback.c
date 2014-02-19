@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012. All Rights Reserved.
+ * Copyright Ericsson AB 2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -17,6 +17,7 @@
  * %CopyrightEnd%
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <openssl/opensslconf.h>
 
@@ -51,13 +52,28 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks);
 
 static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 
+static void nomem(size_t size, const char* op)
+{
+    fprintf(stderr, "Out of memory abort. Crypto failed to %s %zu bytes.\r\n",
+	    op, size);
+    abort();
+}
+
 static void* crypto_alloc(size_t size)
 {
-    return enif_alloc(size);
+    void *ret = enif_alloc(size);
+
+    if (!ret && size)
+	nomem(size, "allocate");
+    return ret;
 }
 static void* crypto_realloc(void* ptr, size_t size)
 {
-    return enif_realloc(ptr, size);
+    void* ret = enif_realloc(ptr, size);
+
+    if (!ret && size)
+	nomem(size, "reallocate");
+    return ret;
 }
 static void crypto_free(void* ptr)
 {
