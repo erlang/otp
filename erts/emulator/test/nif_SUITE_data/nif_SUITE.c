@@ -1477,7 +1477,6 @@ static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NI
 {
     int percent;
     char atom[10];
-    int do_repeat;
 
     if (!enif_get_int(env, argv[0], &percent) ||
 	!enif_get_atom(env, argv[1], atom, sizeof(atom), ERL_NIF_LATIN1)) {
