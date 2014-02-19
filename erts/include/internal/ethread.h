@@ -219,7 +219,6 @@ typedef OSPPDKEY ethr_tsd_key;
 #define ETHR_HAVE_THREAD_NAMES
 
 #define ETHR_PPC_HAVE_NO_LWSYNC
-#undef ETHR_HAVE_NATIVE_SPINLOCKS
 
 #else /* No supported thread lib found */
 
