@@ -833,8 +833,12 @@ t_solve_remote(?union(List), ET, R, C) ->
   {t_sup(RL), RR};
 t_solve_remote(T, _ET, _R, _C) -> {T, []}.
 
-t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
+t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args0} = RemType,
                     ET, R, C) ->
+  Args = lists:map(fun(A) ->
+                       {Arg, _} = t_solve_remote(A, ET, R, C),
+                       Arg
+                   end, Args0),
   ArgsLen = length(Args),
   case dict:find(RemMod, R) of
     error ->
