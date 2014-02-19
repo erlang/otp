@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1945,6 +1945,14 @@ otp_9302(Config) when is_list(Config) ->
 	  end.
 
 thr_free_drv(Config) when is_list(Config) ->
+    case erlang:system_info(threads) of
+	false ->
+	    {skipped, "No thread support"};
+	true ->
+	    thr_free_drv_do(Config)
+    end.
+
+thr_free_drv_do(Config) ->
     ?line Path = ?config(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, thr_free_drv),
