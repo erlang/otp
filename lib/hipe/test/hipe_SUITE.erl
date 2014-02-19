@@ -47,4 +47,6 @@ app(Config) when is_list(Config) ->
 appup() ->
     [{doc, "Test that the hipe appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(hipe).
+    AppupFile = "hipe.appup",
+    AppupPath = filename:join([code:lib_dir(hipe), "ebin", AppupFile]),
+    {ok, [{_Vsn, [], []}]} = file:consult(AppupPath).

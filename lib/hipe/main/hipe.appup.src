@@ -15,7 +15,4 @@
 %% under the License.
 %% 
 %% %CopyrightEnd%
-{"%VSN%",
- [{<<".*">>,[{restart_application, hipe}]}],
- [{<<".*">>,[{restart_application, hipe}]}]
-}.
+{"%VSN%", [], []}.
