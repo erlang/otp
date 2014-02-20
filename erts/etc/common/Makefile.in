@@ -161,7 +161,8 @@ INSTALL_TOP_BIN = $(BINDIR)/Install.exe
 INSTALL_PROGS =              \
 	$(INET_GETHOST)      \
 	$(BINDIR)/heart.exe   $(BINDIR)/erlsrv.exe   \
-	$(BINDIR)/erl.exe $(BINDIR)/werl.exe \
+	$(BINDIR)/erl.exe $(BINDIR)/erl_log.exe \
+	$(BINDIR)/werl.exe \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
 
@@ -271,6 +272,7 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/ct_run.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl_log.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/werl.o
 	rm -f $(TEXTFILES)
 	rm -f *~ core
@@ -293,6 +295,9 @@ $(BINDIR)/erl@EXEEXT@: $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_
 
 $(BINDIR)/werl@EXEEXT@: $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ)
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
+
+$(BINDIR)/erl_log@EXEEXT@: $(OBJDIR)/erl_log.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/erl_log.o
 
 $(BINDIR)/start_erl@EXEEXT@: $(OBJDIR)/start_erl.o 
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/start_erl.o
@@ -346,6 +351,10 @@ $(OBJDIR)/erlsrv_util.o: $(WINETC)/erlsrv/erlsrv_util.c $(ERLSRV_HEADERS) \
 $(OBJDIR)/werl.o: $(WINETC)/erl.c $(WINETC)/init_file.h $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
 	-DWIN32_WERL -o $@ -c $(WINETC)/erl.c
+
+$(OBJDIR)/erl_log.o: $(WINETC)/erl_log.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
+	-o $@ -c $(WINETC)/erl_log.c
 
 $(OBJDIR)/erl.o: $(WINETC)/erl.c $(WINETC)/init_file.h $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
