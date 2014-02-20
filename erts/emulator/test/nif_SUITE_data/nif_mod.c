@@ -191,7 +191,8 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
     add_call(env, data, "load");
 
     do_load_info(env, load_info, &retval);
-    data->calls = 0;    
+    if (retval)
+	NifModPrivData_release(data);
     return retval;
 }
 
