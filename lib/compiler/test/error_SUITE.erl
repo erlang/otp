@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
-	 transforms/1]).
+	 transforms/1,forbidden_maps/1]).
 
 %% Used by transforms/1 test case.
 -export([parse_transform/2]).
@@ -36,7 +36,7 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [head_mismatch_line,warnings_as_errors,bif_clashes,transforms]}].
+      [head_mismatch_line,warnings_as_errors,bif_clashes,transforms,forbidden_maps]}].
 
 init_per_suite(Config) ->
     Config.
@@ -238,6 +238,21 @@ transforms(Config) ->
 
 parse_transform(_, _) ->
     error(too_bad).
+
+
+forbidden_maps(Config) when is_list(Config) ->
+    Ts1 = [{map_illegal_use_of_pattern,
+	   <<"
+              -export([t/0]).
+              t() ->
+                 V = 32,
+                 #{<<\"hi\",V,\"all\">> := 1} = id(#{<<\"hi all\">> => 1}).
+              id(I) -> I.
+             ">>,
+	    [return],
+	    {error,[{5,erl_lint,{illegal_map_key_variable,'V'}}], []}}],
+    [] = run2(Config, Ts1),
+    ok.
 
 
 run(Config, Tests) ->

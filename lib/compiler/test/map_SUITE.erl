@@ -106,8 +106,6 @@ t_build_and_match_literals(Config) when is_list(Config) ->
 	 id(#{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first}),
 
     %% error case
-    %V = 32,
-    %{'EXIT',{{badmatch,_},_}} = (catch (#{<<"hi all">> => 1} = id(#{<<"hi",V,"all">> => 1}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3,x:=2} = id(#{x=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=2} = id(#{x=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id({a,b,c}))),
