@@ -18,6 +18,7 @@
 %%
 %%
 -module(asn1ct_value).
+-compile([{nowarn_deprecated_function,{asn1rt,utf8_list_to_binary,1}}]).
 
 %%  Generate Erlang values for ASN.1 types.
 %%  The value is randomized within it's constraints

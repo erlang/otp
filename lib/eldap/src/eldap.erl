@@ -743,7 +743,7 @@ request(S, Data, ID, Request) ->
 send_request(S, Data, ID, Request) ->
     Message = #'LDAPMessage'{messageID  = ID,
 			     protocolOp = Request},
-    {ok,Bytes} = asn1rt:encode('ELDAPv3', 'LDAPMessage', Message),
+    {ok,Bytes} = 'ELDAPv3':encode('LDAPMessage', Message),
     case do_send(S, Data, Bytes) of
 	{error,Reason} -> throw({gen_tcp_error,Reason});
 	Else           -> Else
@@ -762,7 +762,7 @@ do_recv(S, #eldap{using_tls=true, timeout=Timeout}, Len) ->
 recv_response(S, Data) ->
     case do_recv(S, Data, 0) of
 	{ok, Packet} ->
-	    case asn1rt:decode('ELDAPv3', 'LDAPMessage', Packet) of
+	    case 'ELDAPv3':decode('LDAPMessage', Packet) of
 		{ok,Resp} -> {ok,Resp};
 		Error     -> throw(Error)
 	    end;
