@@ -3848,28 +3848,26 @@ esac
 if test "$enable_dtrace_test" = "yes" ; then
         if test "$DTRACE" = "dtrace" ; then
                 AC_CHECK_HEADERS(sys/sdt.h)
+		AC_MSG_CHECKING([for 1-stage DTrace precompilation])
                 # The OS X version of dtrace prints a spurious line here.
                 if ! dtrace -h $DTRACE_CPP -Iemulator/beam -o ./foo-dtrace.h -s emulator/beam/erlang_dtrace.d; then
                         AC_MSG_ERROR([Could not precompile erlang_dtrace.d: dtrace -h failed])
                 fi
+		AC_MSG_RESULT([yes])
 
-                $RM -f dtest.{o,c}
-                cat > dtest.c <<_DTEST
-                        #include "foo-dtrace.h"
-                        int main(void) { ERLANG_DIST_PORT_BUSY_ENABLED(); return 0; }
-_DTEST
-                $CC $CFLAGS -c -o dtest.o dtest.c
-
-                $RM -f $DTRACE_2STEP_TEST
-                if dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d dtest.o && \
-                   test -f $DTRACE_2STEP_TEST ; then
-                        rm $DTRACE_2STEP_TEST
+		AC_MSG_CHECKING([for 2-stage DTrace precompilation])
+                AC_TRY_COMPILE([ #include "foo-dtrace.h" ],
+                    [ERLANG_DIST_PORT_BUSY_ENABLED();],
+		    [$RM -f $DTRACE_2STEP_TEST
+		     dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d conftest.$OBJEXT 2>&AS_MESSAGE_LOG_FD
+                     if test -f $DTRACE_2STEP_TEST; then
+			rm $DTRACE_2STEP_TEST
                         DTRACE_ENABLED_2STEP=yes
-                        AC_MSG_NOTICE([dtrace precompilation for 2-stage DTrace successful])
-                else
-                        AC_MSG_NOTICE([dtrace precompilation for 1-stage DTrace successful])
-                fi
-                $RM -f dtest.{o,c} foo-dtrace.h
+		     fi],
+                    [])
+		AS_IF([test "x$DTRACE_ENABLED_2STEP" = "xyes"],
+		      [AC_MSG_RESULT([yes])],
+                      [AC_MSG_RESULT([no])])
 
                 DTRACE_ENABLED=yes
                 case $OPSYS in
