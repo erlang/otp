@@ -71,7 +71,7 @@ pgen_module(OutFile,Erules,Module,
     HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Options,Indent),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
-    open_output_file(ErlFile),
+    _ = open_output_file(ErlFile),
     asn1ct_func:start_link(),
     gen_head(Erules,Module,HrlGenerated),
     pgen_exports(Erules,Module,TypeOrVal),
@@ -190,7 +190,7 @@ pgen_check_defaultval(Erules,Module) ->
 				  "********~n~n",[X]) 
 		end,
 	    lists:foreach(Fun,CheckObjects),
-	    file:close(IoDevice);
+	    ok = file:close(IoDevice);
 	_ -> ok
     end,
     gen_check_defaultval(Erules,Module,CheckObjects).
@@ -1124,7 +1124,7 @@ pgen_info() ->
 
 open_hrl(OutFile,Module) ->
     File = lists:concat([OutFile,".hrl"]),
-    open_output_file(File),
+    _ = open_output_file(File),
     gen_hrlhead(Module).
 
 %% EMIT functions ************************
