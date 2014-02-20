@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -329,13 +329,26 @@
         automatically ensured.</p>
       <p>When the release handler encounters the instruction, it first
         generates a temporary boot file, which starts the new versions
-        of the emulator and the core applications. Then it shuts down
+        of the emulator and the core applications, and the old version
+        of all other applications. Then it shuts down
         the current emulator by calling <c>init:reboot()</c>, see
         <c>init(3)</c>. All processes are terminated gracefully and
         the system is rebooted by the heart program, using the
         temporary boot file. After the reboot, the rest of the relup
         instructions are executed. This is done as a part of the
         temporary boot script.</p>
+      <warning>
+	<p>Since this mechanism causes the new versions of the
+	emulator and core applications to run with the old version of
+	other applications during startup, extra care must be taken to
+	avoid incompatibility. Incompatible changes in the core
+	applications may in some situations be necessary. If possible,
+	such changes are preceded by deprecation over two major
+	releases before the actual change. To make sure your
+	application is not crashed by an incompatible change, always
+	remove any call to deprecated functions as soon as
+	possible.</p>
+      </warning>
       <p>An info report is written when the upgrade is completed. To
         programatically find out if the upgrade is complete,
         call <c>release_handler:which_releases(current)</c> and check
