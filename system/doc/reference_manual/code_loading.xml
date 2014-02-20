@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -121,9 +121,22 @@ loop() ->
     <title>Running a function when a module is loaded</title>
 
     <warning>
-    <p>We recommend that the feature described in this section is to
-    be used only for loading NIF libraries. For other usages this
-    feature should be considered experimental.</p>
+    <p>The <c>on_load</c> feature should be considered experimental
+    as there are a number of known weak points in current semantics
+    which therefore might also change in future releases:</p>
+    <list>
+      <item><p>Doing external call in on_load to the module itself
+      leads to deadlock.</p></item>
+      <item><p>At module upgrade, other processes calling the module
+      get suspended waiting for on_load to finish. This can be very bad
+      for applications with demands on realtime characteristics.</p></item>
+      <item><p>At module upgrade, no rollback is done if the on_load function fails.
+      The system will be left in a bad limbo state without any working
+      and reachable instance of the module.</p></item>
+    </list>
+    <p>The problems with module upgrade described above could be fixed in future
+    releases by changing the behaviour to not make the module reachable until
+    after the on_load function has successfully returned.</p>
     </warning>
 
     <p>The <c>-on_load()</c> directive names a function that should
