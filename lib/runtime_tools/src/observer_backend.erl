@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -227,7 +227,9 @@ fetch_stats(Parent, Time) ->
 fetch_stats_loop(Parent, Time) ->
     erlang:system_flag(scheduler_wall_time, true),
     receive
-	_Msg -> erlang:system_flag(scheduler_wall_time, false)
+	_Msg ->
+	    %% erlang:system_flag(scheduler_wall_time, false)
+	    ok
     after Time ->
 	    _M = Parent ! {stats, 1,
 			   erlang:statistics(scheduler_wall_time),
@@ -244,17 +246,6 @@ etop_collect(Collector) ->
     %% utilization in etop). Next time the flag will be true and then
     %% there will be a measurement.
     SchedulerWallTime = erlang:statistics(scheduler_wall_time),
-
-    %% Turn off the flag while collecting data per process etc.
-    case erlang:system_flag(scheduler_wall_time,false) of
-	false ->
-	    %% First time and the flag was false - start a monitoring
-	    %% process to set the flag back to false when etop is stopped.
-	    spawn(fun() -> flag_holder_proc(Collector) end);
-	_ ->
-	    ok
-    end,
-
     ProcInfo = etop_collect(processes(), []),
 
     Collector ! {self(),#etop_info{now = now(),
@@ -264,13 +255,22 @@ etop_collect(Collector) ->
 				   memi = etop_memi(),
 				   procinfo = ProcInfo
 				  }},
+
+    case SchedulerWallTime of
+	undefined ->
+	    spawn(fun() -> flag_holder_proc(Collector) end);
+	_ ->
+	    ok
+    end,
+
     erlang:system_flag(scheduler_wall_time,true).
 
 flag_holder_proc(Collector) ->
     Ref = erlang:monitor(process,Collector),
     receive
 	{'DOWN',Ref,_,_,_} ->
-	    erlang:system_flag(scheduler_wall_time,false)
+	    %% erlang:system_flag(scheduler_wall_time,false)
+	    ok
     end.
 
 etop_memi() ->
