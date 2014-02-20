@@ -78,17 +78,18 @@ app_test(Config) when is_list(Config) ->
     ok.
 
 
-%% Test that appup allows upgrade from/downgrade to a maximum of two
-%% major releases back.
+%% Test that appup allows upgrade from/downgrade to a maximum of one
+%% major release back.
 appup_test(_Config) ->
-    do_appup_tests(create_test_vsns()).
+    appup_tests(kernel,create_test_vsns(kernel)).
 
-do_appup_tests({[],[]}) ->
+appup_tests(_App,{[],[]}) ->
     {skip,"no previous releases available"};
-do_appup_tests({OkVsns,NokVsns}) ->
-    application:load(kernel),
-    {_,_,Vsn} = lists:keyfind(kernel,1,application:loaded_applications()),
-    AppupFile = filename:join([code:lib_dir(kernel),ebin,"kernel.appup"]),
+appup_tests(App,{OkVsns,NokVsns}) ->
+    application:load(App),
+    {_,_,Vsn} = lists:keyfind(App,1,application:loaded_applications()),
+    AppupFileName = atom_to_list(App) ++ ".appup",
+    AppupFile = filename:join([code:lib_dir(App),ebin,AppupFileName]),
     {ok,[{Vsn,UpFrom,DownTo}=AppupScript]} = file:consult(AppupFile),
     ct:log("~p~n",[AppupScript]),
     ct:log("Testing ok versions: ~p~n",[OkVsns]),
@@ -99,13 +100,12 @@ do_appup_tests({OkVsns,NokVsns}) ->
     check_appup(NokVsns,DownTo,error),
     ok.
 
-create_test_vsns() ->
+create_test_vsns(App) ->
     This = erlang:system_info(otp_release),
     FirstMajor = previous_major(This),
     SecondMajor = previous_major(FirstMajor),
-    ThirdMajor = previous_major(SecondMajor),
-    Ok = kernel_vsn([FirstMajor,SecondMajor]),
-    Nok0 = kernel_vsn([ThirdMajor]),
+    Ok = app_vsn(App,[FirstMajor]),
+    Nok0 = app_vsn(App,[SecondMajor]),
     Nok = case Ok of
 	       [Ok1|_] ->
 		   [Ok1 ++ ",1" | Nok0]; % illegal
@@ -121,18 +121,36 @@ previous_major("r"++Rel) ->
 previous_major(Rel) ->
     integer_to_list(list_to_integer(Rel)-1).
 
-kernel_vsn([R|Rs]) ->
-    case test_server:is_release_available(R) of
-	true ->
-	    {ok,N} = test_server:start_node(prevrel,peer,[{erl,[{release,R}]}]),
-	    As = rpc:call(N,application,which_applications,[]),
-	    {_,_,KV} = lists:keyfind(kernel,1,As),
-	    test_server:stop_node(N),
-	    [KV|kernel_vsn(Rs)];
+app_vsn(App,[R|Rs]) ->
+    OldRel =
+	case test_server:is_release_available(R) of
+	    true ->
+		{release,R};
+	    false ->
+		case ct:get_config({otp_releases,list_to_atom(R)}) of
+		    undefined ->
+			false;
+		    Prog0 ->
+			case os:find_executable(Prog0) of
+			    false ->
+				false;
+			    Prog ->
+				{prog,Prog}
+			end
+		end
+	end,
+    case OldRel of
 	false ->
-	    kernel_vsn(Rs)
+	    app_vsn(App,Rs);
+	_ ->
+	    {ok,N} = test_server:start_node(prevrel,peer,[{erl,[OldRel]}]),
+	    _ = rpc:call(N,application,load,[App]),
+	    As = rpc:call(N,application,loaded_applications,[]),
+	    {_,_,V} = lists:keyfind(App,1,As),
+	    test_server:stop_node(N),
+	    [V|app_vsn(App,Rs)]
     end;
-kernel_vsn([]) ->
+app_vsn(_App,[]) ->
     [].
 
 check_appup([Vsn|Vsns],Instrs,Expected) ->
