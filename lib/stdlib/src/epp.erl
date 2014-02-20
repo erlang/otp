@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -640,7 +640,7 @@ leave_file(From, St) ->
 		    Ms = dict:store({atom,'FILE'},
 				    {none,[{string,CurrLoc,OldName2}]},
 				    St#epp.macs),
-                    NextSt = OldSt#epp{sstk=Sts,macs=Ms},
+                    NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses},
 		    enter_file_reply(From, OldName, CurrLoc, CurrLoc),
                     case OldName2 =:= OldName of
                         true ->
