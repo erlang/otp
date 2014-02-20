@@ -406,8 +406,10 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
 
-    if (p->flags & F_DISABLE_GC)
+    if (p->flags & F_DISABLE_GC) {
+	ASSERT(need == 0);
 	return 1;
+    }
 
     esdp = erts_get_scheduler_data();
 
