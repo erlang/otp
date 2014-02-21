@@ -2079,9 +2079,9 @@ esac
 case $host_os in
         *ose)
 	    AC_MSG_CHECKING([for mmap])
-	    AC_MSG_RESULT(no)
+	    AC_MSG_RESULT(not using for OSE)
 	    AC_MSG_CHECKING([for mremap])
-	    AC_MSG_RESULT(no) ;;
+	    AC_MSG_RESULT(not using for OSE) ;;
         *)
 	    AC_CHECK_FUNCS([mmap mremap]) ;;
 esac
