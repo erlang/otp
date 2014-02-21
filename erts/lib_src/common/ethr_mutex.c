@@ -1428,8 +1428,6 @@ void LeaveCriticalSection(CRITICAL_SECTION *cs)
 	ETHR_FATAL_ERROR__(res);
 }
 
-#else
-#error "No mutex implementation found"
 #endif
 
 #define ETHR_CND_WAIT__ ((ethr_sint32_t) 0x11dead11)
@@ -1754,6 +1752,8 @@ ethr_cond_destroy(ethr_cond *cnd)
     return 0;
 }
 
+#else
+#error "No mutex implementation found"
 #endif
 
 /* -- Exported symbols of inline functions --------------------------------- */
