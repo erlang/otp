@@ -28,7 +28,10 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    Config.
+    case erlang:system_info(hipe_architecture) of
+        undefined -> {skip, "HiPE not available or enabled"};
+        _ -> Config
+    end.
 
 end_per_suite(_Config) ->
      ok.
