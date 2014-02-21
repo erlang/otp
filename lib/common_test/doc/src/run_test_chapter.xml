@@ -589,8 +589,8 @@
 	Common Test will either execute one test run per specification file, or
 	join the files and perform all tests within one single test run. The first
 	behaviour is the default one. The latter requires that the start
-	flag/option <c>join_suites</c> is provided, e.g.
-	<c>run_test -spec ./my_tests1.ts ./my_tests2.ts -join_suites</c>.</p>
+	flag/option <c>join_specs</c> is provided, e.g.
+	<c>run_test -spec ./my_tests1.ts ./my_tests2.ts -join_specs</c>.</p>
 	
 	<p>Joining a number of specifications, or running them separately, can
 	also be accomplished with (and may be combined with) test specification
