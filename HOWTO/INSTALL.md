@@ -268,6 +268,11 @@ Some of the available `configure` options are:
     default if possible)
 *   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported
     platforms)
+*   `--{enable,disable}-fp-exceptions` - Floating point exceptions (an
+    optimization for floating point operations). The default differs
+    depending on operating system and hardware platform. Note that by
+    enabling this you might get a seemingly working system that sometimes
+    fail on floating point operations.
 *   `--enable-darwin-universal` - Build universal binaries on darwin i386.
 *   `--enable-darwin-64bit` - Build 64-bit binaries on darwin
 *   `--enable-m64-build` - Build 64-bit binaries using the `-m64` flag to
@@ -288,7 +293,7 @@ Some of the available `configure` options are:
     memory accesses. If `configure` should inform you about no native atomic
     implementation available, you typically want to try using the
     `libatomic_ops` library. It can be downloaded from
-    <http://www.hpl.hp.com/research/linux/atomic_ops/>.
+    <https://github.com/ivmai/libatomic_ops/>.
 *   `--disable-smp-require-native-atomics` - By default `configure` will
     fail if an SMP runtime system is about to be built, and no implementation
     for native atomic memory accesses can be found. If this happens, you are
