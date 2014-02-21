@@ -573,8 +573,8 @@ $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types
 GENERATE += $(TTF_DIR)/erl_alloc_types.h
 
 # version include file
-$(TARGET)/erl_version.h: ../vsn.mk
-	$(gen_verbose)LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(SYSTEM_CP_VSN) $(VSN)$(SERIALNO) $(TARGET)
+$(TARGET)/erl_version.h: ../vsn.mk $(ERL_TOP)/make/$(TARGET)/otp.mk
+	$(gen_verbose)LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(OTP_VERSION) $(VSN)$(SERIALNO) $(TARGET)
 GENERATE += $(TARGET)/erl_version.h
 
 # driver table

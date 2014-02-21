@@ -357,6 +357,16 @@ else
 fi
 AC_SUBST(OTP_RELEASE)
 
+AC_MSG_CHECKING([OTP release])
+[SYSTEM_VSN=`cat $ERL_TOP/OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`]
+AC_MSG_RESULT([$SYSTEM_VSN])
+AC_SUBST(SYSTEM_VSN)
+
+AC_MSG_CHECKING([OTP version])
+[OTP_VERSION=`cat $ERL_TOP/OTP_VERSION`]
+AC_MSG_RESULT([$OTP_VERSION])
+AC_SUBST(OTP_VERSION)
+
 dnl OK, we might have darwin switches off different kinds, lets 
 dnl check it all before continuing.
 TMPSYS=`uname -s`-`uname -m`

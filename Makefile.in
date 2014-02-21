@@ -172,6 +172,7 @@ endif
 TARGET	:= @TARGET@
 include $(ERL_TOP)/make/target.mk
 export TARGET
+include $(ERL_TOP)/make/otp_default_release_path.mk
 
 BOOTSTRAP_ONLY = @BOOTSTRAP_ONLY@
 
@@ -395,6 +396,11 @@ endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
+ifeq ($(RELEASE_ROOT),)
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)"
+else
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(RELEASE_ROOT)"
+endif
 
 # ---------------------------------------------------------------
 # Target only used when building commercial ERTS patches
@@ -921,7 +927,7 @@ $(TEST_DIRS):
 #
 # Order is important here, don't change it!
 #
-INST_DEP += install.dirs install.emulator install.libs install.Install install.bin
+INST_DEP += install.dirs install.emulator install.libs install.Install install.otp_version install.bin
 
 install: $(INST_DEP)
 
@@ -949,6 +955,13 @@ endif
 install.Install:
 	(cd "$(ERLANG_LIBDIR)" \
 	 && ./Install $(INSTALL_CROSS) -minimal "$(ERLANG_INST_LIBDIR)")
+
+install.otp_version:
+ifeq ($(ERLANG_LIBDIR),)
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)"
+else
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(ERLANG_LIBDIR)"
+endif
 
 #
 # Install erlang base public files

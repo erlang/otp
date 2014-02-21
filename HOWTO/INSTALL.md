@@ -189,16 +189,16 @@ section below before proceeding.
 Step 1: Start by unpacking the Erlang/OTP distribution file with your GNU
 compatible TAR program.
 
-    $ gunzip -c otp_src_%OTP-REL%.tar.gz | tar xf -
+    $ gunzip -c otp_src_%OTP-VSN%.tar.gz | tar xf -
 
 alternatively:
 
-    $ zcat otp_src_%OTP-REL%.tar.gz | tar xf -
+    $ zcat otp_src_%OTP-VSN%.tar.gz | tar xf -
 
 
 Step 2: Now cd into the base directory (`$ERL_TOP`).
 
-    $ cd otp_src_%OTP-REL%
+    $ cd otp_src_%OTP-VSN%
 
 ### Configuring ###
 
@@ -553,13 +553,13 @@ For some graphical tools to find the on-line help you have to install
 the HTML documentation on top of the installed OTP applications, i.e.
 
     $ cd <ReleaseDir>
-    $ gunzip -c otp_html_%OTP-REL%.tar.gz | tar xf -
+    $ gunzip -c otp_html_%OTP-VSN%.tar.gz | tar xf -
 
 For `erl -man <page>` to work the Unix manual pages have to be
 installed in the same way, i.e.
 
     $ cd <ReleaseDir>
-    $ gunzip -c otp_man_%OTP-REL%.tar.gz | tar xf -
+    $ gunzip -c otp_man_%OTP-VSN%.tar.gz | tar xf -
 
 Where `<ReleaseDir>` is
 
@@ -803,9 +803,9 @@ Before modifying this document you need to have a look at the
    [Building in Git]: #How-to-Build-and-Install-ErlangOTP_Building-in-Git
    [Pre-built Source Release]: #How-to-Build-and-Install-ErlangOTP_Prebuilt-Source-Release
    [make and $ERL_TOP]: #How-to-Build-and-Install-ErlangOTP_make-and-ERLTOP
-   [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-REL%.tar.gz
-   [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-REL%.tar.gz
-   [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-REL%.tar.gz
+   [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-VSN%.tar.gz
+   [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
+   [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
    [$ERL_TOP/HOWTO/MARKDOWN.md]: MARKDOWN.md
 
    [?TOC]: true

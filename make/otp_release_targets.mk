@@ -17,6 +17,8 @@
 # %CopyrightEnd%
 #
 
+include $(ERL_TOP)/make/otp_default_release_path.mk
+
 # ----------------------------------------------------
 # Targets for the new documentation support
 # ----------------------------------------------------
@@ -137,7 +139,7 @@ endif
 ifeq ($(TESTROOT),)
 
 release release_docs release_tests release_html:
-	$(MAKE) $(MFLAGS) RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)" \
+	$(MAKE) $(MFLAGS) RELEASE_PATH=$(OTP_DEFAULT_RELEASE_PATH) \
 		$(TARGET_MAKEFILE)  $@_spec
 
 else

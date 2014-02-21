@@ -198,7 +198,7 @@ $(GLOSSARY): $(GLOSSARY_SCRIPT)
 
 #--------------------------------------------------------------------------
 
-PR.template: PR.template.src $(ERL_TOP)/erts/vsn.mk
+PR.template: PR.template.src $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%VSN%;$(VSN);' \
 	    -e 's;%SYSTEM_VSN%;$(SYSTEM_VSN);' \
 	    $< > $@

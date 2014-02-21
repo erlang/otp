@@ -139,7 +139,7 @@ man: $(MAN1_FILES) $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-$(INFO_FILE): $(INFO_FILE_SRC) ../../vsn.mk
+$(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
 
 

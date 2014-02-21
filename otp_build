@@ -1216,7 +1216,11 @@ do_patch_app ()
 	echo "No OTP $otp_major_vsn installation in $target_dir" 1>&2
 	exit 1
     fi
+
     shift
+
+    otp_version=`cat "$target_dir/OTP_VERSION"` || { echo "Not able to read $target_dir/OTP_VERSION" 1>&2; exit 1; }
+    { echo "$otp_version" | sed "s|^\([^\*]*\)\**|\1\*\*|g" > $target_dir/OTP_VERSION; } 2>/dev/null || { echo "Not able to update $target_dir/OTP_VERSION" 1>&2; exit 1; }
 
     # Build all applications to target
     for app in "$@"; do
@@ -1430,9 +1434,9 @@ cd $ERL_TOP
 
 determine_version_controller
 
-# Unset ERL_FLAGS and ERL_OTP<Major-VSN>_FLAGS during bootstrap to
+# Unset ERL_FLAGS and ERL_OTP<OTP Release>_FLAGS during bootstrap to
 # prevent potential problems
-otp_major_vsn=`cat erts/vsn.mk | grep SYSTEM_VSN | sed "s|SYSTEM_VSN[^=]*=[^0-9]*\([0-9]*\).*|\1|g"`
+otp_major_vsn=`cat OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`
 erl_otp_flags="ERL_OTP${otp_major_vsn}_FLAGS"
 unset ERL_FLAGS
 unset ${erl_otp_flags}
