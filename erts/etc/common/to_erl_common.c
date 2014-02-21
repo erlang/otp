@@ -279,7 +279,11 @@ int to_erl(int argc, char **argv)
     fprintf(stderr, "to_erl: %s opened for writing\n", FIFO2);
 #endif
 
+#ifndef __OSE__
     fprintf(stderr, "Attaching to %s (^D to exit)\n\n", pipename);
+#else
+    fprintf(stderr, "Attaching to %s (^C to exit)\n\n", pipename);
+#endif
 
 #ifndef __OSE__
     /* Set break handler to our handler */

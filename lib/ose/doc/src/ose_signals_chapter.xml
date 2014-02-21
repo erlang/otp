@@ -45,6 +45,29 @@
   <marker id="erlang"></marker>
   <section>
     <title>Signals in Erlang</title>
+    <p>Erlang/OTP on OSE provides a erlang module called
+    <seealso marker="ose:ose">ose</seealso> that can be used to interact
+    with other OSE processes using message passing. The api in the module
+    is very similar to the native OSE api, so for details of how the
+    functions work please refer to the official OSE documenation. Below
+    is an example usage of the API.
+    </p>
+    <code>1> P1 = ose:open("p1").
+#Port&gt;0.344>
+2> ose:hunt(P1,"p2").
+{#Port&gt;0.344>,1}
+3> P2 = ose:open("p2").
+#Port&gt;0.355>
+4> flush().
+Shell got {mailbox_up,#Port&gt;0.344>,{#Port&gt;0.344>,1},852189}
+ok
+5> ose:listen(P1,[1234]).
+ok
+6> ose:send(P2,ose:get_id(P1),1234,&gt;&gt;"hello">>).
+ok
+7> flush().
+Shell got {message,#Port&gt;0.344>,{852189,1245316,1234,&gt;&gt;"hello">>}}
+ok</code>
   </section>
 
   <marker id="driver"></marker>
