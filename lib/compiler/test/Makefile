@@ -69,6 +69,7 @@ INLINE= \
 	fun \
 	guard \
 	lc \
+	map \
 	match \
 	misc \
 	num_bif \
