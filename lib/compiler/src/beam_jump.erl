@@ -529,7 +529,7 @@ ulbl({bs_put,Lbl,_,_}, Used) ->
     mark_used(Lbl, Used);
 ulbl({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}, Used) ->
     mark_used(Lbl, Used);
-ulbl({get_map_element,Lbl,_Src,_Key,_Dst}, Used) ->
+ulbl({get_map_elements,Lbl,_Src,_List}, Used) ->
     mark_used(Lbl, Used);
 ulbl(_, Used) -> Used.
 

@@ -30,6 +30,7 @@
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
 	t_map_size/1,
+	t_build_and_match_aliasing/1,
 
 	%% warnings
 	t_warn_useless_build/1,
@@ -54,6 +55,8 @@ all() -> [
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
+	t_map_size,
+	t_build_and_match_aliasing,
 
 	%% warnings
 	t_warn_useless_build,
@@ -103,8 +106,6 @@ t_build_and_match_literals(Config) when is_list(Config) ->
 	 id(#{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first}),
 
     %% error case
-    %V = 32,
-    %{'EXIT',{{badmatch,_},_}} = (catch (#{<<"hi all">> => 1} = id(#{<<"hi",V,"all">> => 1}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3,x:=2} = id(#{x=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=2} = id(#{x=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id({a,b,c}))),
@@ -112,6 +113,20 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
     ok.
 
+t_build_and_match_aliasing(Config) when is_list(Config) ->
+    M1 = id(#{a=>1,b=>2,c=>3,d=>4}),
+    #{c:=C1=_=_=C2} = M1,
+    true = C1 =:= C2,
+    #{a:=A,a:=A,a:=A,b:=B,b:=B} = M1,
+    #{a:=A,a:=A,a:=A,b:=B,b:=B,b:=2} = M1,
+    #{a:=A=1,a:=A,a:=A,b:=B=2,b:=B,b:=2} = M1,
+    #{c:=C1, c:=_, c:=3, c:=_, c:=C2} = M1,
+    #{c:=C=_=3=_=C} = M1,
+
+    M2 = id(#{"a"=>1,"b"=>2,"c"=>3,"d"=>4}),
+    #{"a":=A2,"a":=A2,"a":=A2,"b":=B2,"b":=B2,"b":=2} = M2,
+    #{"a":=_,"a":=_,"a":=_,"b":=_,"b":=_,"b":=2} = M2,
+    ok.
 
 t_map_size(Config) when is_list(Config) ->
     0 = map_size(id(#{})),

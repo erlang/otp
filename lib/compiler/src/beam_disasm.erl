@@ -366,9 +366,13 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	select_tuple_arity ->
 	    disasm_select_inst(select_tuple_arity, Bs, Atoms, Literals);
 	put_map_assoc ->
-	    disasm_map_inst(put_map_assoc, Bs, Atoms, Literals);
+	    disasm_map_inst(put_map_assoc, Arity, Bs, Atoms, Literals);
 	put_map_exact ->
-	    disasm_map_inst(put_map_exact, Bs, Atoms, Literals);
+	    disasm_map_inst(put_map_exact, Arity, Bs, Atoms, Literals);
+	get_map_elements ->
+	    disasm_map_inst(get_map_elements, Arity, Bs, Atoms, Literals);
+	has_map_fields ->
+	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -399,16 +403,15 @@ disasm_select_inst(Inst, Bs, Atoms, Literals) ->
     {List, RestBs} = decode_n_args(Len, Bs4, Atoms, Literals),
     {{Inst, [X,F,{Z,U,List}]}, RestBs}.
 
-disasm_map_inst(Inst, Bs0, Atoms, Literals) ->
-    {F, Bs1} = decode_arg(Bs0, Atoms, Literals),
-    {S, Bs2} = decode_arg(Bs1, Atoms, Literals),
-    {X, Bs3} = decode_arg(Bs2, Atoms, Literals),
-    {N, Bs4} = decode_arg(Bs3, Atoms, Literals),
-    {Z, Bs5} = decode_arg(Bs4, Atoms, Literals),
-    {U, Bs6} = decode_arg(Bs5, Atoms, Literals),
-    {u, Len} = U,
-    {List, RestBs} = decode_n_args(Len, Bs6, Atoms, Literals),
-    {{Inst, [F,S,X,N,{Z,U,List}]}, RestBs}.
+disasm_map_inst(Inst, Arity, Bs0, Atoms, Literals) ->
+    {Args0,Bs1} = decode_n_args(Arity, Bs0, Atoms, Literals),
+    %% no droplast ..
+    [Z|Args1]  = lists:reverse(Args0),
+    Args       = lists:reverse(Args1),
+    {U, Bs2}   = decode_arg(Bs1, Atoms, Literals),
+    {u, Len}   = U,
+    {List, RestBs} = decode_n_args(Len, Bs2, Atoms, Literals),
+    {{Inst, Args ++ [{Z,U,List}]}, RestBs}.
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -1150,13 +1153,15 @@ resolve_inst({is_map,Args0},_,_,_) ->
     [FLbl|Args] = resolve_args(Args0),
     {test, is_map, FLbl, Args};
 
-resolve_inst({has_map_field,Args0},_,_,_) ->
-    [FLbl|Args] = resolve_args(Args0),
-    {test,has_map_field,FLbl,Args};
+resolve_inst({has_map_fields,Args0},_,_,_) ->
+    [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
+    List = resolve_args(List0),
+    {test,has_map_fields,FLbl,Src,{list,List}};
 
-resolve_inst({get_map_element,Args},_,_,_) ->
-    [FLbl,Src,Key,Dst] = resolve_args(Args),
-    {get_map_element,FLbl,Src,Key,Dst};
+resolve_inst({get_map_elements,Args0},_,_,_) ->
+    [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
+    List = resolve_args(List0),
+    {get_map_elements,FLbl,Src,{list,List}};
 
 %%
 %% Catches instructions that are not yet handled.

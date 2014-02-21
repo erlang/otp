@@ -2355,6 +2355,126 @@ void process_main(void)
      Next(4+Arg(3));
  }
 
+ OpCase(i_has_map_fields_fsI): {
+    map_t* mp;
+    Eterm map;
+    Eterm field;
+    Eterm *ks;
+    BeamInstr* fs;
+    Uint sz,n;
+
+    GetArg1(1, map);
+
+    /* this instruction assumes Arg1 is a map,
+     * i.e. that it follows a test is_map if needed.
+     */
+
+    mp = (map_t *)map_val(map);
+    sz = map_get_size(mp);
+
+    if (sz == 0) {
+	SET_I((BeamInstr *) Arg(0));
+	goto has_map_fields_fail;
+    }
+
+    ks = map_get_keys(mp);
+    n  = (Uint)Arg(2);
+    fs = &Arg(3); /* pattern fields */
+
+    ASSERT(n>0);
+
+    while(sz) {
+	field = (Eterm)*fs;
+	if (EQ(field,*ks)) {
+	    n--;
+	    fs++;
+	    if (n == 0) break;
+	}
+	ks++; sz--;
+    }
+
+    if (n) {
+	SET_I((BeamInstr *) Arg(0));
+	goto has_map_fields_fail;
+    }
+
+    I += 4 + Arg(2);
+has_map_fields_fail:
+    ASSERT(VALID_INSTR(*I));
+    Goto(*I);
+ }
+
+#define PUT_TERM_REG(term, desc)				\
+do {								\
+    switch ((desc) & _TAG_IMMED1_MASK) {			\
+    case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	r(0) = (term);						\
+	break;							\
+    case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	x((desc) >> _TAG_IMMED1_SIZE) = (term);			\
+	break;							\
+    case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	y((desc) >> _TAG_IMMED1_SIZE) = (term);			\
+	break;							\
+    default:							\
+	ASSERT(0);						\
+	break;							\
+    }								\
+} while(0)
+
+ OpCase(i_get_map_elements_fsI): {
+    Eterm map;
+    map_t *mp;
+    Eterm field;
+    Eterm *ks;
+    Eterm *vs;
+    BeamInstr *fs;
+    Uint sz,n;
+
+    GetArg1(1, map);
+
+    /* this instruction assumes Arg1 is a map,
+     * i.e. that it follows a test is_map if needed.
+     */
+
+    mp = (map_t *)map_val(map);
+    sz = map_get_size(mp);
+
+    if (sz == 0) {
+	SET_I((BeamInstr *) Arg(0));
+	goto get_map_elements_fail;
+    }
+
+    n  = (Uint)Arg(2) / 2;
+    fs = &Arg(3); /* pattern fields and target registers */
+    ks = map_get_keys(mp);
+    vs = map_get_values(mp);
+
+    while(sz) {
+	field = (Eterm)*fs;
+	if (EQ(field,*ks)) {
+	    PUT_TERM_REG(*vs, fs[1]);
+	    n--;
+	    fs += 2;
+	    /* no more values to fetch, we are done */
+	    if (n == 0) break;
+	}
+	ks++; sz--;
+	vs++;
+    }
+
+    if (n) {
+	SET_I((BeamInstr *) Arg(0));
+	goto get_map_elements_fail;
+    }
+
+    I += 4 + Arg(2);
+get_map_elements_fail:
+    ASSERT(VALID_INSTR(*I));
+    Goto(*I);
+ }
+#undef PUT_TERM_REG
+
  OpCase(update_map_assoc_jsdII): {
      Eterm res;
      Eterm map;

@@ -92,6 +92,8 @@ rename_instr({put_map_assoc,Fail,S,D,R,L}) ->
     {put_map,Fail,assoc,S,D,R,L};
 rename_instr({put_map_exact,Fail,S,D,R,L}) ->
     {put_map,Fail,exact,S,D,R,L};
+rename_instr({test,has_map_fields,Fail,Src,{list,List}}) ->
+    {test,has_map_fields,Fail,[Src|List]};
 rename_instr({select_val=I,Reg,Fail,{list,List}}) ->
     {select,I,Reg,Fail,List};
 rename_instr({select_tuple_arity=I,Reg,Fail,{list,List}}) ->

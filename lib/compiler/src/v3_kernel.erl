@@ -496,7 +496,6 @@ translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
 translate_fc(Args) ->
     [#c_literal{val=function_clause},make_list(Args)].
 
-    %{Kes,Ep,St2} = map_pairs(Ces, Sub, St1),
 map_split_pairs(A, Var, Ces, Sub, St0) ->
     %% two steps
     %% 1. force variables
@@ -718,12 +717,8 @@ pattern(#c_tuple{anno=A,es=Ces}, Isub, Osub0, St0) ->
     {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
     {#k_tuple{anno=A,es=Kes},Osub1,St1};
 pattern(#c_map{anno=A,es=Ces}, Isub, Osub0, St0) ->
-    {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
+    {Kes,Osub1,St1} = pattern_map_pairs(Ces, Isub, Osub0, St0),
     {#k_map{anno=A,op=exact,es=Kes},Osub1,St1};
-pattern(#c_map_pair{op=#c_literal{val=exact},anno=A,key=Ck,val=Cv},Isub, Osub0, St0) ->
-    {Kk,Osub1,St1} = pattern(Ck, Isub, Osub0, St0),
-    {Kv,Osub2,St2} = pattern(Cv, Isub, Osub1, St1),
-    {#k_map_pair{anno=A,key=Kk,val=Kv},Osub2,St2};
 pattern(#c_binary{anno=A,segments=Cv}, Isub, Osub0, St0) ->
     {Kv,Osub1,St1} = pattern_bin(Cv, Isub, Osub0, St0),
     {#k_binary{anno=A,segs=Kv},Osub1,St1};
@@ -737,6 +732,25 @@ flatten_alias(#c_alias{var=V,pat=P}) ->
     {Vs,Pat} = flatten_alias(P),
     {[V|Vs],Pat};
 flatten_alias(Pat) -> {[],Pat}.
+
+pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
+    %% It is assumed that all core keys are literals
+    %% It is later assumed that these keys are term sorted
+    %% so we need to sort them here
+    Ces1 = lists:sort(fun
+	    (#c_map_pair{key=CkA},#c_map_pair{key=CkB}) ->
+		A = core_lib:literal_value(CkA),
+		B = core_lib:literal_value(CkB),
+		erts_internal:cmp_term(A,B) < 0
+	end, Ces0),
+    %% pattern the pair keys and values as normal
+    {Kes,{Osub1,St1}} = lists:mapfoldl(fun
+	    (#c_map_pair{anno=A,key=Ck,val=Cv},{Osubi0,Sti0}) ->
+		{Kk,Osubi1,Sti1} = pattern(Ck, Isub, Osubi0, Sti0),
+		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi1, Sti1),
+		{#k_map_pair{anno=A,key=Kk,val=Kv},{Osubi2,Sti2}}
+	end, {Osub0, St0}, Ces1),
+    {Kes,Osub1,St1}.
 
 pattern_bin(Es, Isub, Osub0, St0) ->
     {Kbin,{_,Osub},St} = pattern_bin_1(Es, Isub, Osub0, St0),
@@ -1388,13 +1402,13 @@ get_match(#k_bin_int{}=BinInt, St0) ->
 get_match(#k_tuple{es=Es}, St0) ->
     {Mes,St1} = new_vars(length(Es), St0),
     {#k_tuple{es=Mes},Mes,St1};
-get_match(#k_map{es=Es0}, St0) ->
+get_match(#k_map{op=exact,es=Es0}, St0) ->
     {Mes,St1} = new_vars(length(Es0), St0),
     {Es,_} = mapfoldl(fun
 	    (#k_map_pair{}=Pair, [V|Vs]) ->
 		{Pair#k_map_pair{val=V},Vs}
 	end, Mes, Es0),
-    {#k_map{es=Es},Mes,St1};
+    {#k_map{op=exact,es=Es},Mes,St1};
 get_match(M, St) ->
     {M,[],St}.
 
@@ -1519,7 +1533,7 @@ arg_val(Arg, C) ->
 		    end || Pair <- Es],
 	    %% multiple keys may have the same name
 	    %% do not use ordsets
-	    lists:sort(Keys)
+	    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, Keys)
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]

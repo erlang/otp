@@ -3146,9 +3146,6 @@ format_error(result_ignored) ->
 	"(suppress the warning by assigning the expression to the _ variable)";
 format_error(useless_building) ->
     "a term is constructed, but never used";
-format_error({map_pair_key_overloaded,K}) ->
-    M = io_lib:format("the key ~p is used multiple times in map value association",[K]),
-    flatten(M);
 format_error(bin_opt_alias) ->
     "INFO: the '=' operator will prevent delayed sub binary optimization";
 format_error(bin_partition) ->

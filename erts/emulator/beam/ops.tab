@@ -1469,11 +1469,6 @@ apply_last I P
 # Map instructions in R17.
 #
 
-# put_map Fail Src Dst Live Size Rest=* => jump Fail
-# is_map Fail Src => jump Fail
-# has_map_field Fail Src Key => jump Fail
-# get_map_element Fail Src Key Dst => jump Fail
-
 put_map_assoc F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
 put_map_exact F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
 put_map_assoc F Src Dst Live Size Rest=* => \
@@ -1492,6 +1487,15 @@ is_map f r
 is_map f x
 is_map f y
 
+## Transform has_map_field(s) #{ K1 := _, K2 := _ }
+
+has_map_field/3
+
+has_map_fields Fail Src Size=u==1 Rest=* => gen_has_map_field(Fail,Src,Size,Rest)
+has_map_fields Fail Src Size Rest=* => i_has_map_fields Fail Src Size Rest
+
+i_has_map_fields f s I
+
 has_map_field Fail Src=rxy Key=arxy => i_has_map_field Fail Src Key
 has_map_field Fail Src Key => move Key x | i_has_map_field Fail Src x
 
@@ -1508,6 +1512,15 @@ i_has_map_field f y x
 i_has_map_field f r y
 i_has_map_field f x y
 i_has_map_field f y y
+
+## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
+
+get_map_element/4
+
+get_map_elements Fail Src=rxy Size=u==2 Rest=* => gen_get_map_element(Fail,Src,Size,Rest)
+get_map_elements Fail Src Size Rest=* => i_get_map_elements Fail Src Size Rest
+
+i_get_map_elements f s I
 
 get_map_element Fail Src=rxy Key=ax Dst => i_get_map_element Fail Src Key Dst
 get_map_element Fail Src=rxy Key=rycq Dst => \

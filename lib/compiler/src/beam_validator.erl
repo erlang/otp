@@ -770,6 +770,10 @@ valfun_4({test,is_nonempty_list,{f,Lbl},[Cons]}, Vst) ->
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
+    validate_src([Src], Vst),
+    assert_strict_literal_termorder(List),
+    branch_state(Lbl, Vst);
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -871,13 +875,22 @@ valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Fail, Src, Dst, Live, List, Vst);
 valfun_4({put_map_exact,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Fail, Src, Dst, Live, List, Vst);
-valfun_4({get_map_element,{f,Fail},Src,Key,Dst}, Vst0) ->
-    assert_term(Src, Vst0),
-    assert_term(Key, Vst0),
-    Vst = branch_state(Fail, Vst0),
-    set_type_reg(term, Dst, Vst);
+valfun_4({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
+    verify_get_map(Fail, Src, List, Vst);
 valfun_4(_, _) ->
     error(unknown_instruction).
+
+verify_get_map(Fail, Src, List, Vst0) ->
+    assert_term(Src, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+    Lits = mmap(fun(L,_R) -> [L] end, List),
+    assert_strict_literal_termorder(Lits),
+    verify_get_map_pair(List,Vst0,Vst1).
+
+verify_get_map_pair([],_,Vst) -> Vst;
+verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
+    assert_term(Src, Vst0),
+    verify_get_map_pair(Vs,Vst0,set_type_reg(term,Dst,Vsti)).
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     verify_live(Live, Vst0),
@@ -1098,6 +1111,39 @@ assert_freg_set({fr,Fr}=Freg, #vst{current=#st{f=Fregs}})
 	true -> error({uninitialized_reg,Freg})
     end;
 assert_freg_set(Fr, _) -> error({bad_source,Fr}).
+
+%%% Maps
+
+%% ensure that a list of literals has a strict
+%% ascending term order (also meaning unique literals)
+assert_strict_literal_termorder(Ls) ->
+    Vs = lists:map(fun (L) -> get_literal(L) end, Ls),
+    case check_strict_value_termorder(Vs) of
+	true ->  ok;
+	false -> error({not_strict_order, Ls})
+    end.
+
+%% usage:
+%% mmap(fun(A,B) -> [{A,B}] end, [1,2,3,4]),
+%% [{1,2},{3,4}]
+
+mmap(F,List) ->
+    {arity,Ar} = erlang:fun_info(F,arity),
+    mmap(F,Ar,List).
+mmap(_F,_,[]) -> [];
+mmap(F,Ar,List) ->
+    {Hd,Tl} = lists:split(Ar,List),
+    apply(F,Hd) ++ mmap(F,Ar,Tl).
+
+check_strict_value_termorder([]) -> true;
+check_strict_value_termorder([_]) -> true;
+check_strict_value_termorder([V1,V2]) ->
+    erts_internal:cmp_term(V1,V2) < 0;
+check_strict_value_termorder([V1,V2|Vs]) ->
+    case erts_internal:cmp_term(V1,V2) < 0 of
+	true -> check_strict_value_termorder([V2|Vs]);
+	false -> false
+    end.
 
 %%%
 %%% Binary matching.
@@ -1334,6 +1380,7 @@ assert_term(Src, Vst) ->
 %% number		Integer or Float of unknown value
 %%
 
+
 assert_type(WantedType, Term, Vst) ->
     assert_type(WantedType, get_term_type(Term, Vst)).
 
@@ -1348,7 +1395,6 @@ assert_type({tuple_element,I}, {tuple,Sz})
     ok;
 assert_type(Needed, Actual) ->
     error({bad_type,{needed,Needed},{actual,Actual}}).
-
 
 %% upgrade_tuple_type(NewTupleType, OldType) -> TupleType.
 %%  upgrade_tuple_type/2 is used when linear code finds out more and
@@ -1428,6 +1474,15 @@ get_term_type_1({y,Y}=Reg, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
 	{value,Type} -> Type
     end;
 get_term_type_1(Src, _) -> error({bad_source,Src}).
+
+
+%% get_literal(Src) -> literal_value().
+get_literal(nil) -> [];
+get_literal({atom,A}) when is_atom(A) -> A;
+get_literal({float,F}) when is_float(F) -> F;
+get_literal({integer,I}) when is_integer(I) -> I;
+get_literal({literal,L}) -> L;
+get_literal(T) -> error({not_literal,T}).
 
 
 branch_arities([], _, #vst{}=Vst) -> Vst;

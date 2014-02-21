@@ -115,7 +115,7 @@ format_1(#k_map{op=assoc,es=Es}, Ctxt) ->
      format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
      "}~"
     ];
-format_1(#k_map{op=exact,es=Es}, Ctxt) ->
+format_1(#k_map{es=Es}, Ctxt) ->
     ["::{",
      format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
      "}::"
