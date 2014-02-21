@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -189,6 +189,7 @@ adm(Attrs, Node1, Node2) ->
     ?match({atomic, ok}, mnesia:move_table_copy(nice_tab, Node2, Node1)), 
 
     ?match(yes, mnesia:force_load_table(nice_counter_tab)), 
+    ?match(ok, mnesia:sync_log()),
     ?match(dumped, mnesia:dump_log()),
     ok.
 

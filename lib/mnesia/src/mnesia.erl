@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -104,7 +104,8 @@
 	 set_master_nodes/1, set_master_nodes/2,
 
 	 %% Misc admin
-	 dump_log/0, subscribe/1, unsubscribe/1, report_event/1,
+	 dump_log/0, sync_log/0,
+	 subscribe/1, unsubscribe/1, report_event/1,
 
 	 %% Snmp
 	 snmp_open_table/2, snmp_close_table/1,
@@ -1808,7 +1809,7 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 	{badrpc, Reason} ->
 	    timer:sleep(20), %% Do not be too eager, and can't use yield on SMP
 	    %% Sync with mnesia_monitor
-	    try sys:get_status(mnesia_monitor) catch _:_ -> ok end,
+	    _ = try sys:get_status(mnesia_monitor) catch _:_ -> ok end,
 	    case mnesia_controller:call({check_w2r, Node, Tab}) of % Sync
 		NewNode when NewNode =:= Node ->
 		    ErrorTag = mnesia_lib:dirty_rpc_error_tag(Reason),
@@ -2553,6 +2554,9 @@ set_master_nodes(Tab, Nodes) ->
 
 dump_log() ->
     mnesia_controller:sync_dump_log(user).
+
+sync_log() ->
+    mnesia_monitor:sync_log(latest_log).
 
 subscribe(What) ->
     mnesia_subscr:subscribe(self(), What).

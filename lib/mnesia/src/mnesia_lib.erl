@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -296,11 +296,7 @@ active_here(Tab) ->
 not_active_here(Tab) ->
     not active_here(Tab).
 
-exists(Fname) ->
-    case file:open(Fname, [raw,read]) of
-	{ok, F} ->file:close(F), true;
-	_ -> false
-    end.
+exists(Fname) -> filelib:is_regular(Fname).
 
 dir() -> mnesia_monitor:get_env(dir).
 
@@ -596,7 +592,7 @@ coredump(CrashInfo) ->
     Core = mkcore(CrashInfo),
     Out = core_file(),
     important("Writing Mnesia core to file: ~p...~p~n", [Out, CrashInfo]),
-    file:write_file(Out, Core),
+    _ = file:write_file(Out, Core),
     Out.
 
 core_file() ->
@@ -620,7 +616,7 @@ mkcore(CrashInfo) ->
     Core = [
 	    CrashInfo,
 	    {time, {date(), time()}},
-	    {self, catch process_info(self())},
+	    {self, proc_dbg_info(self())},
 	    {nodes, catch rpc:multicall(Nodes, ?MODULE, get_node_number, [])},
 	    {applications, catch lists:sort(application:loaded_applications())},
 	    {flags, catch init:get_arguments()},
@@ -697,7 +693,7 @@ relatives() ->
     Info = fun(Name) ->
 		   case whereis(Name) of
 		       undefined -> false;
-		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
+		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
     lists:zf(Info, mnesia:ms()).
@@ -706,14 +702,14 @@ workers({workers, Loaders, Senders, Dumper}) ->
     Info = fun({Pid, {send_table, Tab, _Receiver, _St}}) ->
 		   case Pid of
 		       undefined -> false;
-		       Pid -> {true, {Pid, Tab, catch process_info(Pid)}}
+		       Pid -> {true, {Pid, Tab, proc_dbg_info(Pid)}}
 		   end;
 	      ({Pid, What}) when is_pid(Pid) ->
-		   {true, {Pid, What, catch process_info(Pid)}};
+		   {true, {Pid, What, proc_dbg_info(Pid)}};
 	      ({Name, Pid}) ->
 		   case Pid of
 		       undefined -> false;
-		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
+		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
     SInfo = lists:zf(Info, Senders),
@@ -727,12 +723,20 @@ locking_procs(LockList) when is_list(LockList) ->
 		   Pid = Tid#tid.pid,
 		   case node(Pid) == node() of
 		       true -> 
-			   {true, {Pid, catch process_info(Pid)}};
+			   {true, {Pid, proc_dbg_info(Pid)}};
 		       _ ->
 			   false
 		   end
 	   end,
     lists:zf(Info, UT).
+
+proc_dbg_info(Pid) ->
+    try
+	[process_info(Pid, current_stacktrace)|
+	 process_info(Pid)]
+    catch _:R ->
+	    [{process_info,crashed,R}]
+    end.
 
 view() ->
     Bin = mkcore({crashinfo, {"view only~n", []}}),
@@ -806,9 +810,9 @@ vcore(File) ->
 
 vcore_elem({schema_file, {ok, B}}) ->
     Fname = "/tmp/schema.DAT",
-    file:write_file(Fname, B),
-    dets:view(Fname),
-    file:delete(Fname);
+    _ = file:write_file(Fname, B),
+    _ = dets:view(Fname),
+    _ = file:delete(Fname);
 
 vcore_elem({logfile, {ok, BinList}}) ->
     Fun = fun({F, Info}) ->
@@ -922,7 +926,7 @@ random_time(Retries, _Counter0) ->
     case get(random_seed) of
 	undefined ->
 	    {X, Y, Z} = erlang:now(), %% time()
-	    random:seed(X, Y, Z),
+	    _ = random:seed(X, Y, Z),
 	    Time = Dup + random:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time;
@@ -958,20 +962,17 @@ report_system_event({'EXIT', Reason}, Event) ->
 	    unlink(Pid),
 
             %% We get an exit signal if server dies
-            receive
-                {'EXIT', Pid, _Reason} ->
-                    {error, {node_not_running, node()}}
-            after 0 ->
-		    gen_event:stop(mnesia_event),
-                    ok
+            receive {'EXIT', Pid, _Reason} -> ok
+            after 0 -> gen_event:stop(mnesia_event)
             end;
 
 	Error ->
 	    Msg = "Mnesia(~p): Cannot report event ~p: ~p (~p)~n",
 	    error_logger:format(Msg, [node(), Event, Reason, Error])
-    end;
+    end,
+    ok;
 report_system_event(_Res, _Event) ->
-    ignore.
+    ok.
 
 %% important messages are reported regardless of debug level
 important(Format, Args) ->
@@ -1025,8 +1026,8 @@ copy_file(From, To) ->
 	    case file:open(To, [raw, binary, write]) of
 		{ok, T} ->
 		    Res = copy_file_loop(F, T, 8000),
-		    file:close(F),
-		    file:close(T),
+		    ok = file:close(F),
+		    ok = file:close(T),
 		    Res;
 		{error, Reason} ->
 		    {error, Reason}
@@ -1038,7 +1039,7 @@ copy_file(From, To) ->
 copy_file_loop(F, T, ChunkSize) ->
     case file:read(F, ChunkSize) of
 	{ok, Bin} ->
-	    file:write(T, Bin),
+	    ok = file:write(T, Bin),
 	    copy_file_loop(F, T, ChunkSize);
 	eof ->
 	    ok;
@@ -1205,7 +1206,7 @@ dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
 			{keypos, 2}, {repair, Rep}]) of
 	{ok, Tabname} ->
 	    Res = dets:to_ets(Tabname, Tab),
-	    Close(Tabname),
+	    ok = Close(Tabname),
 	    trav_ret(Res, Tab);
 	Other ->
 	    Other

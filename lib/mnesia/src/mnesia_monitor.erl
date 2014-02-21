@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,6 +44,7 @@
 	 set_env/2,
 	 start/0,
 	 start_proc/4,
+	 sync_log/1,
 	 terminate_proc/3,
 	 unsafe_close_dets/1,
 	 unsafe_close_log/1,
@@ -117,6 +118,9 @@ open_log(Args) ->
 
 reopen_log(Name, Fname, Head) ->
     unsafe_call({reopen_log, Name, Fname, Head}).
+
+sync_log(Name) ->
+    unsafe_call({sync_log, Name}).
 
 close_log(Name) ->
     unsafe_call({close_log, Name}).
@@ -202,7 +206,7 @@ needs_protocol_conversion(Node) ->
 
 cast(Msg) ->
     case whereis(?MODULE) of
-	undefined -> ignore;
+	undefined -> ok;
 	Pid ->  gen_server:cast(Pid, Msg)
     end.
 
@@ -382,6 +386,9 @@ handle_call({reopen_log, Name, Fname, Head}, _From, State) ->
  	    {noreply, State}
     end;
 
+handle_call({sync_log, Name}, _From, State) ->
+    {reply, disk_log:sync(Name), State};
+
 handle_call({close_log, Name}, _From, State) ->
     case disk_log:close(Name) of
 	ok ->
@@ -395,7 +402,7 @@ handle_call({close_log, Name}, _From, State) ->
     end;
 
 handle_call({unsafe_close_log, Name}, _From, State) ->
-    disk_log:close(Name),
+    _ = disk_log:close(Name),
     {reply, ok, State};
 
 handle_call({negotiate_protocol, Mon, _Version, _Protocols}, _From, State)
@@ -439,7 +446,7 @@ handle_call({negotiate_protocol, Nodes}, From, State) ->
     end;
 
 handle_call(init, _From, State) ->
-    net_kernel:monitor_nodes(true),
+    _ = net_kernel:monitor_nodes(true),
     EarlyNodes = State#state.early_connects,
     State2 = State#state{tm_started = true},
     {reply, EarlyNodes, State2};
