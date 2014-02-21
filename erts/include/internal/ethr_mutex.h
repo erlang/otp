@@ -97,15 +97,12 @@ void LeaveCriticalSection(CRITICAL_SECTION *);
 #if 0
 #  define ETHR_MTX_Q_LOCK_SPINLOCK__
 #  define ETHR_MTX_QLOCK_TYPE__ ethr_spinlock_t
-#elif defined(ETHR_PTHREADS)
+#elif defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)
 #  define ETHR_MTX_Q_LOCK_PTHREAD_MUTEX__
 #  define ETHR_MTX_QLOCK_TYPE__ pthread_mutex_t
 #elif defined(ETHR_WIN32_THREADS)
 #  define ETHR_MTX_Q_LOCK_CRITICAL_SECTION__
 #  define ETHR_MTX_QLOCK_TYPE__ CRITICAL_SECTION
-#elif defined(ETHR_OSE_THREADS)
-#  define ETHR_MTX_Q_LOCK_PTHREAD_MUTEX__
-#  define ETHR_MTX_QLOCK_TYPE__ pthread_mutex_t
 #else
 #  error Need a qlock implementation
 #endif
@@ -213,7 +210,7 @@ struct ethr_cond_ {
 #endif
 };
 
-#elif defined(ETHR_PTHREADS) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
+#elif (defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
 
 typedef struct ethr_mutex_ ethr_mutex;
 struct ethr_mutex_ {
@@ -257,25 +254,6 @@ struct ethr_cond_ {
     int initialized;
 #endif
 };
-
-#elif defined(ETHR_OSE_THREADS)
-
-typedef struct ethr_mutex_ ethr_mutex;
-struct ethr_mutex_ {
-    pthread_mutex_t pt_mtx;
-#if ETHR_XCHK
-    int initialized;
-#endif
-};
-
-typedef struct ethr_cond_ ethr_cond;
-struct ethr_cond_ {
-    pthread_cond_t pt_cnd;
-#if ETHR_XCHK
-    int initialized;
-#endif
-};
-
 
 #else
 #  error "no mutex implementation"
@@ -655,7 +633,7 @@ ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 
-#elif defined(ETHR_PTHREADS) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
+#elif (defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_MUTEX_IMPL__)
 

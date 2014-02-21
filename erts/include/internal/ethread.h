@@ -214,11 +214,10 @@ typedef OSPPDKEY ethr_tsd_key;
 
 #undef ETHR_HAVE_ETHR_SIG_FUNCS
 
+/* Out own RW mutexes are probably faster, but use OSEs mutexes */
 #define ETHR_USE_OWN_RWMTX_IMPL__
-#define ETHR_USE_OWN_MTX_IMPL__
-#define ETHR_HAVE_THREAD_NAMES
 
-#define ETHR_PPC_HAVE_NO_LWSYNC
+#define ETHR_HAVE_THREAD_NAMES
 
 #else /* No supported thread lib found */
 

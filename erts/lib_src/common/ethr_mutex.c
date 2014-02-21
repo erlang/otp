@@ -1249,7 +1249,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
     return 0;
 }
 
-#elif defined(ETHR_PTHREADS) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
+#elif (defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
 /* -- pthread mutex and condition variables -------------------------------- */
 
 int
@@ -1428,6 +1428,8 @@ void LeaveCriticalSection(CRITICAL_SECTION *cs)
 	ETHR_FATAL_ERROR__(res);
 }
 
+#else
+#error "No mutex implementation found"
 #endif
 
 #define ETHR_CND_WAIT__ ((ethr_sint32_t) 0x11dead11)
