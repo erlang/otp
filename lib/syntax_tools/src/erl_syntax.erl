@@ -453,32 +453,37 @@
 %%  </tr><tr>
 %%   <td>list_comp</td>
 %%   <td>macro</td>
+%%   <td>map_expr</td>
+%%   <td>map_field_assoc</td>
+%%  </tr><tr>
+%%   <td>map_field_exact</td>
 %%   <td>match_expr</td>
 %%   <td>module_qualifier</td>
-%%  </tr><tr>
 %%   <td>named_fun_expr</td>
+%%  </tr><tr>
 %%   <td>nil</td>
 %%   <td>operator</td>
 %%   <td>parentheses</td>
-%%  </tr><tr>
 %%   <td>prefix_expr</td>
+%%  </tr><tr>
 %%   <td>receive_expr</td>
 %%   <td>record_access</td>
 %%   <td>record_expr</td>
-%%  </tr><tr>
 %%   <td>record_field</td>
+%%  </tr><tr>
 %%   <td>record_index_expr</td>
 %%   <td>rule</td>
 %%   <td>size_qualifier</td>
-%%  </tr><tr>
 %%   <td>string</td>
+%%  </tr><tr>
 %%   <td>text</td>
 %%   <td>try_expr</td>
 %%   <td>tuple</td>
-%%  </tr><tr>
 %%   <td>underscore</td>
+%%  </tr><tr>
 %%   <td>variable</td>
 %%   <td>warning_marker</td>
+%%   <td></td>
 %%   <td></td>
 %%  </tr>
 %% </table></center>
@@ -520,6 +525,9 @@
 %% @see list/2
 %% @see list_comp/2
 %% @see macro/2
+%% @see map_expr/2
+%% @see map_field_assoc/2
+%% @see map_field_exact/2
 %% @see match_expr/2
 %% @see module_qualifier/2
 %% @see named_fun_expr/2
