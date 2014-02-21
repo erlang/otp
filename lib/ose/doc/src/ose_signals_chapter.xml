@@ -77,7 +77,12 @@
       in this case the port id that we got in the
       <seealso marker="erts:driver_entry#start">start</seealso> callback is
       used. The third argument is a function pointer to a function that can
-      be used to figure out the id from a given signal. There is a complete
+      be used to figure out the id from a given signal. The fourth argument can
+      point to any additional data you might want to associate with the event.
+      There is a complete. You can examine the data contained in the event with
+      <seealso marker="ose_erl_driver#erl_drv_ose_event_fetch">erl_drv_ose_event_fetch</seealso>
+      , eg:
+      <code>erl_drv_ose_event_fetch(event, &amp;signal, &amp;port, (void **)&amp;extra);</code>
       example of what this could look like in
       <seealso marker="#example">the next section</seealso>.
       <note>It is very important to issue the driver_select call before
@@ -132,8 +137,12 @@ static ErlDrvSSizeT control(ErlDrvData driver_data, unsigned int cmd,
                             char **rbuf, ErlDrvSizeT rlen) {
   ErlDrvPort port = (ErlDrvPort)driver_data;
 
+  /* An example of extra data to associate with the event */
+  char *extra_data = driver_alloc(80);
+  snprintf("extra_data, "Event, sig_no: 1234, and port: %d", port);
+
   /* Create a new event to select on */
-  ErlDrvOseEvent evt = erl_drv_ose_event_alloc(1234,port,resolver);
+  ErlDrvOseEvent evt = erl_drv_ose_event_alloc(1234,port,resolver, extra_data);
 
   /* Make sure to do the select call _BEFORE_ the signal arrives.
      The signal might get lost if the hunt call is done before the
@@ -147,11 +156,16 @@ static ErlDrvSSizeT control(ErlDrvData driver_data, unsigned int cmd,
 }
 
 static void ready_input(ErlDrvData driver_data, ErlDrvEvent evt) {
+  char *extra_data;
   /* Get the first signal payload from the event */
   union SIGNAL *sig = erl_drv_ose_get_signal(evt);
   ErlDrvPort port = (ErlDrvPort)driver_data;
   while (sig != NULL) {
     if (sig->signo == 1234) {
+      /* Print out the string we added as the extra parameter */
+      erl_drv_ose_event_fetch(evt, NULL, NULL, (void **)&amp;extra_data);
+      printf("We've received: %s\n", extra_data);
+
       /* If it is our signal we send a message with the sender of the signal
          to the controlling erlang process */
       ErlDrvTermData reply[] = { ERL_DRV_UINT, (ErlDrvUInt)sender(&amp;sig) };
@@ -172,6 +186,11 @@ static void ready_input(ErlDrvData driver_data, ErlDrvEvent evt) {
 
 static void stop_select(ErlDrvEvent event, void *reserved)
 {
+  /* Free the extra_data */
+  erl_drv_ose_event_fetch(evt, NULL, NULL, (void **)&amp;extra_data);
+  driver_free(extra_data);
+
+  /* Free the event itself */
   erl_drv_ose_event_free(event);
 }
 

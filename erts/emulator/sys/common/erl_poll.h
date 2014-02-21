@@ -119,6 +119,7 @@ struct erts_sys_fd_type {
     ErtsPollOseMsgList *msgs;
     ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig);
     ethr_mutex mtx;
+    void *extra;
 };
 
 #endif

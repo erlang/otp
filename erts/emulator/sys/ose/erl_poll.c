@@ -547,8 +547,8 @@ int erts_poll_wait(ErtsPollSet ps,
 	    erts_dsprintf(
                 dsbufp,
                 "erts_poll_wait() failed: found unkown signal id %d (signo %u) "
-		"(curr_proc 0x%x /sender 0x%x)\n",
-                fd.id, fd.signo, current_process(), sender(&sig));
+		"(curr_proc 0x%x)\n",
+                fd.id, fd.signo, current_process());
              erts_send_error_to_logger_nogl(dsbufp);
 	     timeout = 0;
 	     ASSERT(0);
@@ -737,17 +737,17 @@ union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent drv_ev) {
       ev->msgs = msg->next;
       ethr_mutex_unlock(&ev->mtx);
       erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
-      restore(sig);
       return sig;
     }
 }
 
 ErlDrvEvent
 erl_drv_ose_event_alloc(SIGSELECT signo, ErlDrvOseEventId id,
-			ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig)) {
+			ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig), void *extra) {
   struct erts_sys_fd_type *ev = erts_alloc(ERTS_ALC_T_DRV_EV,
 					   sizeof(struct erts_sys_fd_type));
   ev->signo = signo;
+  ev->extra = extra;
   ev->id = id;
   ev->msgs = NULL;
   ev->resolve_signal = resolve_signal;
@@ -763,10 +763,12 @@ void erl_drv_ose_event_free(ErlDrvEvent drv_ev) {
 }
 
 void erl_drv_ose_event_fetch(ErlDrvEvent drv_ev, SIGSELECT *signo,
-			     ErlDrvOseEventId *id) {
+                             ErlDrvOseEventId *id, void **extra) {
   struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
   if (signo)
     *signo = ev->signo;
+  if (extra)
+    *extra = ev->extra;
   if (id)
     *id = ev->id;
 }

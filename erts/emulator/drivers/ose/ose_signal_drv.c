@@ -504,12 +504,12 @@ static void outputv(ErlDrvData driver_data, ErlIOVec *ev)
 
     ctxt->perm_events[1] =
       erl_drv_ose_event_alloc(ERTS_SIGNAL_OSE_DRV_ATTACH,(int)ctxt->spid,
-			      resolve_signal);
+			      resolve_signal, NULL);
     driver_select(ctxt->port,ctxt->perm_events[1],ERL_DRV_READ|ERL_DRV_USE,1);
 
     ctxt->perm_events[0] =
       erl_drv_ose_event_alloc(ERTS_SIGNAL_OSE_DRV_HUNT,(int)ctxt->spid,
-			      resolve_signal);
+			      resolve_signal, NULL);
     driver_select(ctxt->port,ctxt->perm_events[0],ERL_DRV_READ|ERL_DRV_USE,1);
 
     start(ctxt->spid);
@@ -679,7 +679,7 @@ static void outputv(ErlDrvData driver_data, ErlIOVec *ev)
 	for (i = 0, j = 0; i < event_cnt || j < ctxt->event_cnt; ) {
 
 	  if (ctxt->events)
-	    erl_drv_ose_event_fetch(ctxt->events[j],&tmp_signo,NULL);
+	    erl_drv_ose_event_fetch(ctxt->events[j],&tmp_signo,NULL,NULL);
 
 	  if (signo == tmp_signo) {
 	    events[i++] = ctxt->events[j++];
@@ -687,7 +687,7 @@ static void outputv(ErlDrvData driver_data, ErlIOVec *ev)
 	  } else if (signo < tmp_signo || !ctxt->events) {
 	    /* New signal to select on */
 	    events[i] = erl_drv_ose_event_alloc(signo,(int)ctxt->spid,
-						resolve_signal);
+						resolve_signal, NULL);
 	    driver_select(ctxt->port,events[i++],ERL_DRV_READ|ERL_DRV_USE,1);
 	    EV_GET_UINT32(ev,&signo,&p,&q);
 	  } else {

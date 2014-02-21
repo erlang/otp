@@ -68,12 +68,13 @@
       </desc>
     </func>
     <func>
-      <name><ret>ErlDrvEvent</ret><nametext>erl_drv_ose_event_alloc(SIGSELECT signo, ErlDrvOseEventId id, ErlDrvOseEventId (*resolve_signal)(union SIGNAL* sig))</nametext></name>
+      <name><ret>ErlDrvEvent</ret><nametext>erl_drv_ose_event_alloc(SIGSELECT signo, ErlDrvOseEventId id, ErlDrvOseEventId (*resolve_signal)(union SIGNAL* sig), void *extra)</nametext></name>
       <desc>
         <marker id="erl_drv_ose_event_alloc"></marker>
         <p>Create a new <c>ErlDrvEvent</c> associated with <c>signo</c>,
 	<c>id</c> and uses the <c>resolve_signal</c> function to extract
-	the <c>id</c> from a signal with <c>signo</c>. See
+	the <c>id</c> from a signal with <c>signo</c>. The <c>extra</c>
+	parameter can be used for additional data. See
 	<seealso marker="ose_signals_chapter#driver">
 	Signals in a Linked-in driver</seealso> in the OSE User's Guide.
       </p>
@@ -89,10 +90,10 @@
       </desc>
     </func>
     <func>
-      <name><ret>void</ret><nametext>erl_drv_ose_event_fetch(ErlDrvEvent drv_event, SIGSELECT *signo, int *id)</nametext></name>
+      <name><ret>void</ret><nametext>erl_drv_ose_event_fetch(ErlDrvEvent drv_event, SIGSELECT *signo, ErlDrvOseEventId *id, void **extra)</nametext></name>
       <desc>
         <marker id="erl_drv_ose_event_fetch"></marker>
-        <p>Write the signal number and id associated with <c>drv_event</c>
+        <p>Write the signal number, id and any extra data associated with <c>drv_event</c>
 	into <c>*signo</c> and <c>*id</c> respectively. <c>NULL</c> can be
 	also passed as <c>signo</c> or <c>id</c> in order to ignore that field.
 	</p>
