@@ -22,7 +22,13 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() ->
-    [app, appup].
+    case application:ensure_all_started(typer) of
+        {ok, Apps} ->
+            [application:stop(App) || App <- lists:reverse(Apps)],
+            [app, appup];
+        _ ->
+            [appup]
+    end.
 
 groups() ->
     [].
