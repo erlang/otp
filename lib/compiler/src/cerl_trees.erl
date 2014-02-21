@@ -57,9 +57,9 @@
 	       update_c_try/6, update_c_tuple/2, update_c_tuple_skel/2,
 	       update_c_values/2, values_es/1, var_name/1,
 
-	       map_es/1, 
-	       ann_c_map/2,
-	       update_c_map/2,
+	       map_val/1, map_es/1,
+	       ann_c_map/3,
+	       update_c_map/3,
 	       map_pair_key/1,map_pair_val/1,map_pair_op/1,
 	       ann_c_map_pair/4,
 	       update_c_map_pair/4
@@ -138,7 +138,7 @@ map_1(F, T) ->
  	tuple ->
 	    update_c_tuple_skel(T, map_list(F, tuple_es(T)));
  	map ->
-	    update_c_map(T, map_list(F, map_es(T)));
+	    update_c_map(T, map(F,map_val(T)), map_list(F, map_es(T)));
 	map_pair ->
 	    update_c_map_pair(T, map(F, map_pair_op(T)),
                                  map(F, map_pair_key(T)),
@@ -372,8 +372,9 @@ mapfold(F, S0, T) ->
 	    {Ts, S1} = mapfold_list(F, S0, tuple_es(T)),
 	    F(update_c_tuple_skel(T, Ts), S1);
 	map ->
-	    {Ts, S1} = mapfold_list(F, S0, map_es(T)),
-	    F(update_c_map(T, Ts), S1);
+	    {M , S1} = mapfold(F, S0, map_val(T)),
+	    {Ts, S2} = mapfold_list(F, S1, map_es(T)),
+	    F(update_c_map(T, M, Ts), S2);
 	map_pair ->
 	    {Op,  S1} = mapfold(F, S0, map_pair_op(T)),
 	    {Key, S2} = mapfold(F, S1, map_pair_key(T)),
@@ -723,9 +724,10 @@ label(T, N, Env) ->
 	    {As, N2} = label_ann(T, N1),
 	    {ann_c_tuple_skel(As, Ts), N2};
  	map ->
-	    {Ts, N1} = label_list(map_es(T), N, Env),
-	    {As, N2} = label_ann(T, N1),
-	    {ann_c_map(As, Ts), N2};
+	    {M,  N1} = label(map_val(T), N, Env),
+	    {Ts, N2} = label_list(map_es(T), N1, Env),
+	    {As, N3} = label_ann(T, N2),
+	    {ann_c_map(As, M, Ts), N3};
 	map_pair ->
 	    {Op,  N1} = label(map_pair_op(T), N, Env),
 	    {Val, N2} = label(map_pair_key(T), N1, Env),

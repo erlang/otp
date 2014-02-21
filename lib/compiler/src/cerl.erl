@@ -124,8 +124,9 @@
 
 	 %% keep map exports here for now
 	 map_es/1,
-	 update_c_map/2,
-	 ann_c_map/2,
+	 map_val/1,
+	 update_c_map/3,
+	 ann_c_map/3,
 	 map_pair_op/1,map_pair_key/1,map_pair_val/1,
 	 update_c_map_pair/4,
 	 ann_c_map_pair/4
@@ -1579,11 +1580,15 @@ ann_make_list(_, [], Node) ->
 map_es(#c_map{es = Es}) ->
     Es.
 
-ann_c_map(As, Es) ->
-    #c_map{es = Es, anno = As }.
+-spec map_val(c_map()) -> cerl().
+map_val(#c_map{var = M}) ->
+    M.
 
-update_c_map(Old, Es) ->
-    #c_map{es = Es, anno = get_ann(Old)}.
+ann_c_map(As,M,Es) ->
+    #c_map{var=M,es = Es, anno = As }.
+
+update_c_map(Old,M,Es) ->
+    #c_map{var=M, es = Es, anno = get_ann(Old)}.
 
 map_pair_key(#c_map_pair{key=K}) -> K.
 map_pair_val(#c_map_pair{val=V}) -> V.
