@@ -500,21 +500,11 @@ The Erlang/OTP Documentation
 
 ### How to Build the Documentation ###
 
+Before you can build the documentation you need to either [native build][]
+or [cross build][] the Erlang/OTP system. After this you can build the
+documentation as follows.
+
     $ cd $ERL_TOP
-
-If you have just built Erlang/OTP in the current source tree, you have
-already ran `configure` and do not need to do this again; otherwise, run
-`configure`.
-
-    $ ./configure [Configure Args]
-
-When building the documentation you need a full Erlang/OTP-%OTP-REL% system in
-the `$PATH`.
-
-    $ export PATH=<Erlang/OTP-%OTP-REL% bin dir>:$PATH     # Assuming bash/sh
-
-Build the documentation.
-
     $ make docs
 
 The documentation can be installed either using the `install-docs` target,
@@ -806,6 +796,8 @@ Before modifying this document you need to have a look at the
    [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-VSN%.tar.gz
    [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
    [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
+   [native build]: #How-to-Build-and-Install-ErlangOTP
+   [cross build]: INSTALL-CROSS.md
    [$ERL_TOP/HOWTO/MARKDOWN.md]: MARKDOWN.md
 
    [?TOC]: true

@@ -103,14 +103,6 @@ has to be provided in the `$PATH`. The Erlang/OTP for the target system will
 be built using this Erlang system, together with the cross compilation tools
 provided.
 
-If you want to build the documentation out of the same source tree as you are
-cross compiling in, you currently need a full Erlang/OTP system of the same
-release as the one being built for the build machine. If this is the case,
-build and install one for the build machine (or use one already built) and add
-it to the `$PATH` before cross building, and building the documentation. See
-the [How to Build the Documentation][] section in the [$ERL_TOP/HOWTO/INSTALL.md][]
-document for information on how to build the documentation.
-
 If you want to build using a compatible Erlang/OTP system in the `$PATH`,
 jump to (3).
 
@@ -283,6 +275,14 @@ and then do the cross build of the system.
 
 `otp_build release -a` will do the same as (5), and you will after this have
 to do a manual install either by doing (6), or (7).
+
+Building and Installing the Documentation
+-----------------------------------------
+
+After the system has been cross built you can build and install the
+documentation the same way as after a native build of the system. See the
+[How to Build the Documentation][] section in the [$ERL_TOP/HOWTO/INSTALL.md][]
+document for information on how to build the documentation.
 
 Testing the cross compiled system
 ---------------------------------
