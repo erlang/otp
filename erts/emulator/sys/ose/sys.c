@@ -1530,24 +1530,24 @@ int
 erts_sys_putenv(char *key, char *value)
 {
     int res;
-    char *env;
-    Uint need = strlen(key) + strlen(value) + 2;
 
-#ifdef HAVE_COPYING_PUTENV
-    env = erts_alloc(ERTS_ALC_T_TMP, need);
-#else
-    env = erts_alloc(ERTS_ALC_T_PUTENV_STR, need);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, need);
-#endif
-    strcpy(env,key);
-    strcat(env,"=");
-    strcat(env,value);
     erts_smp_rwmtx_rwlock(&environ_rwmtx);
-    res = putenv(env);
+    res = set_env(get_bid(current_process()), key,
+		  value);
     erts_smp_rwmtx_rwunlock(&environ_rwmtx);
-#ifdef HAVE_COPYING_PUTENV
-    erts_free(ERTS_ALC_T_TMP, env);
-#endif
+    return res;
+}
+
+
+int
+erts_sys_unsetenv(char *key)
+{
+    int res;
+
+    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    res = set_env(get_bid(current_process()),key,NULL);
+    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+
     return res;
 }
 
@@ -1555,7 +1555,7 @@ int
 erts_sys_getenv__(char *key, char *value, size_t *size)
 {
     int res;
-    char *orig_value = getenv(key);
+    char *orig_value = get_env(get_bid(current_process()), key);
     if (!orig_value)
 	res = -1;
     else {
@@ -1569,6 +1569,7 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 	    sys_memcpy((void *) value, (void *) orig_value, len+1);
 	    res = 0;
 	}
+	free_buf((union SIGNAL **)&orig_value);
     }
     return res;
 }
