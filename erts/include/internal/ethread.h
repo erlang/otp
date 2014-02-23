@@ -417,9 +417,9 @@ extern ethr_runtime_t ethr_runtime__;
 #  endif
 #elif defined(ETHR_OSE_THREADS)
 #  ifndef ETHR_SPIN_BODY
-#    define ETHR_SPIN_BODY delay(1)
+#    define ETHR_SPIN_BODY set_pri(get_pri(current_process()))
 #  else
-#  error "Have to use delay on OSE"
+#    error "OSE should use set_pri(get_pri(current_process()))"
 #  endif
 #endif
 
@@ -452,7 +452,7 @@ extern ethr_runtime_t ethr_runtime__;
 #      define ETHR_YIELD() (pthread_yield(), 0)
 #    endif
 #  elif defined(ETHR_OSE_THREADS)
-#    define ETHR_YIELD() (delay(1), 0)
+#    define ETHR_YIELD() (set_pri(get_pri(current_process())), 0)
 #  else
 #    define ETHR_YIELD() (ethr_compiler_barrier(), 0)
 #  endif
