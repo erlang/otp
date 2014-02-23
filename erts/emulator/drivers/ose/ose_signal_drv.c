@@ -29,6 +29,7 @@
 #include "erl_driver.h"
 #include "ose.h"
 
+
 #ifdef HAVE_OSE_SPI_H
 #include "ose_spi/ose_spi.h"
 #endif
@@ -362,6 +363,7 @@ static OS_PROCESS(driver_proxy_process) {
     }
   }
 }
+
 
 /**
  * Init routine for the driver

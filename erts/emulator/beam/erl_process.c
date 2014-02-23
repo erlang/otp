@@ -6830,9 +6830,16 @@ erts_start_schedulers(void)
 
     opts.detached = 1;
 
+#ifdef ETHR_HAVE_THREAD_NAMES
+    opts.name = malloc(80);
+#endif
+
 #ifdef ERTS_SMP
     if (erts_runq_supervision_interval) {
 	opts.suggested_stack_size = 16;
+#ifdef ETHR_HAVE_THREAD_NAMES
+        sprintf(opts.name, "runq_supervisor");
+#endif
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
 	    erl_exit(1, "Failed to create run-queue supervision event\n");
@@ -6854,17 +6861,13 @@ erts_start_schedulers(void)
 	res = ENOTSUP;
     }
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-    opts.name = malloc(sizeof(char)*(strlen("scheduler_XXXX")+1));
-#endif
-
     for (actual = 0; actual < wanted; actual++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(actual);
 
 	ASSERT(actual == esdp->no - 1);
 
 #ifdef ETHR_HAVE_THREAD_NAMES
-	sprintf(opts.name,"scheduler_%d", actual+1);
+	sprintf(opts.name, "scheduler_%d", actual + 1);
 #endif
 
 #ifdef __OSE__
@@ -6872,14 +6875,13 @@ erts_start_schedulers(void)
 	opts.coreNo = (actual+1) % ose_num_cpus();
 #endif
 
-	res = ethr_thr_create(&esdp->tid, sched_thread_func,(void*)esdp,&opts);
+	res = ethr_thr_create(&esdp->tid, sched_thread_func, (void*)esdp, &opts);
 
 	if (res != 0) {
            break;
 	}
-
     }
-    
+
     erts_no_schedulers = actual;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -6888,12 +6890,18 @@ erts_start_schedulers(void)
 	int ix;
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
+#ifdef ETHR_HAVE_THREAD_NAMES
+            sprintf(opts.name,"dirty_cpu_scheduler_%d", ix + 1);
+#endif
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
 		erl_exit(1, "Failed to create dirty cpu scheduler thread %d\n", ix);
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
+#ifdef ETHR_HAVE_THREAD_NAMES
+            sprintf(opts.name,"dirty_io_scheduler_%d", ix + 1);
+#endif
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
 		erl_exit(1, "Failed to create dirty io scheduler thread %d\n", ix);
@@ -6903,16 +6911,14 @@ erts_start_schedulers(void)
 #endif
 
     ERTS_THR_MEMORY_BARRIER;
+
 #ifdef ETHR_HAVE_THREAD_NAMES
-    free(opts.name);
-    opts.name   = "aux_thread";
+    sprintf(opts.name, "aux");
 #endif
+
 #ifdef __OSE__
     opts.coreNo = 0;
-#endif
-#ifdef ETHR_HAVE_THREAD_NICENESS
-    opts.prio++;
-#endif
+#endif /* __OSE__ */
 
     res = ethr_thr_create(&aux_tid, aux_thread, NULL, &opts);
     if (res != 0)
@@ -6933,6 +6939,10 @@ erts_start_schedulers(void)
 		      actual, actual == 1 ? " was" : "s were");
 	erts_send_error_to_logger_nogl(dsbufp);
     }
+
+#ifdef ETHR_HAVE_THREAD_NAMES
+    free(opts.name);
+#endif
 }
 
 #endif /* ERTS_SMP */

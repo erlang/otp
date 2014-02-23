@@ -22,6 +22,7 @@
  * Author: Lukas Larsson
  */
 
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -50,16 +51,29 @@
 
 #include "erl_printf.h"
 #include "efs.h"
+#include "ose.h"
 
 #include "ose_spi.h"
 
 #include "string.h"
+#include "ctype.h"
+#include "stdlib.h"
 
 #ifndef ETHR_HAVE_ETHREAD_DEFINES
 #error Missing configure defines
 #endif
 
 #define ETHR_INVALID_TID_ID -1
+
+#define DEFAULT_PRIO_NAME        "ERTS_ETHR_DEFAULT_PRIO"
+
+/* Set the define to 1 to get some logging */
+#if 0
+#include "ramlog.h"
+#define LOG(output) ramlog_printf output
+#else
+#define LOG(output)
+#endif
 
 static ethr_tid main_thr_tid;
 static const char* own_tid_key = "ethread_own_tid";
@@ -92,6 +106,157 @@ union SIGNAL {
  * Static functions
  * --------------------------------------------------------------------------
  */
+
+/* Will retrive the instrinsic name by removing the 'prefix' and the
+ * suffix from 'name'.
+ * The 'prefix' is given as an inparameter. If NULL or an empty string no
+ * prefix will be removed.
+ * If 'strip_suffix' is 1 suffixes in the form of '_123' will be removed.
+ * Will return a pointer to a newly allocated buffer containing the intrinsic
+ * name in uppercase characters.
+ * The caller must remember to free this buffer when no lnger needed.
+ */
+static char *
+ethr_intrinsic_name(const char *name, const char *prefix, int strip_suffix)
+{
+   const char *start = name;
+   const char *end  = name + strlen(name);
+   char *intrinsic_name = NULL;
+   int i;
+
+   if (name == NULL) {
+      LOG(("ERTS - ethr_intrinsic_namNo input name.\n"));
+      return NULL;
+   }
+
+   /* take care of the prefix */
+   if ((prefix != NULL) && (*prefix != '\0')) {
+      const char *found = strstr(name, prefix);
+
+      if (found == name) {
+         /* found the prefix at the beginning */
+         start += strlen(prefix);
+      }
+   }
+
+   /* take care of the suffix */
+   if (strip_suffix) {
+      const char *suffix_start = strrchr(start, '_');
+
+      if (suffix_start != NULL) {
+         const char *ch;
+         int only_numbers = 1;
+
+         for (ch = suffix_start + 1; *ch != '\0'; ch++) {
+            if (strchr("0123456789", *ch) == NULL) {
+               only_numbers = 0;
+               break;
+            }
+         }
+
+         if (only_numbers) {
+            end = suffix_start;
+         }
+      }
+   }
+
+   intrinsic_name = malloc(end - start + 1);
+   for (i = 0; (start + i) < end; i++) {
+      intrinsic_name[i] = toupper(start[i]);
+   }
+   intrinsic_name[i] = '\0';
+
+   return intrinsic_name;
+}
+
+static char *
+ethr_get_amended_env(const char *name, const char *prefix, const char *suffix)
+{
+   unsigned len;
+   char *env_name = NULL;
+   char *env_value = NULL;
+
+   if (name == NULL) {
+      return NULL;
+   }
+
+   len = strlen(name);
+
+   if (prefix != NULL) {
+      len += strlen(prefix);
+   }
+
+   if (suffix != NULL) {
+      len += strlen(suffix);
+   }
+
+   env_name = malloc(len + 1);
+   sprintf(env_name, "%s%s%s", (prefix != NULL) ? prefix : "",
+                               name,
+                               (suffix != NULL) ? suffix : "");
+   env_value = get_env(get_bid(current_process()), env_name);
+
+   if (env_value == NULL) {
+      LOG(("ERTS - ethr_get_amended_env(): %s environment variable not present\n", env_name));
+   } else {
+      LOG(("ERTS - ethr_get_amended_env(): Found %s environment variable: %s.\n", env_name, env_value));
+   }
+   free(env_name);
+
+   return env_value;
+}
+
+/* Reads the environment variable derived from 'name' and interprets it as as an
+ * OSE priority. If successfull it will update 'out_prio'.
+ * Returns:  0 if successfull
+ *          -1 orherwise.
+ */
+static int
+ethr_get_prio(const char *name, OSPRIORITY *out_prio)
+{
+   int rc = -1;
+   char *intrinsic_name = NULL;
+   char *prio_env = NULL;
+   long prio;
+   char *endptr = NULL;
+
+   LOG(("ERTS - ethr_get_prio(): name: %s.\n", name));
+
+   intrinsic_name = ethr_intrinsic_name(name, NULL, 1);
+   LOG(("ERTS - ethr_get_prio(): Intrinsic name: %s.\n", intrinsic_name));
+
+   prio_env = ethr_get_amended_env(intrinsic_name, "ERTS_", "_PRIO");
+   if (prio_env == NULL) {
+      goto fini;
+   }
+
+   prio = efs_str_to_long(prio_env, (const char **)&endptr);
+   if (endptr != NULL) {
+      LOG(("ERTS - ethr_get_prio(): Environment varible for '%s' includes "
+           "non-numerical characters: '%s'.\n", intrinsic_name, prio_env));
+      goto fini;
+   }
+
+   if ((prio < 0) || (prio > 32)) {
+      LOG(("ERTS - ethr_get_prio(): prio for '%s' (%d) is out of bounds (0-32).\n",
+               intrinsic_name, prio));
+      goto fini;
+   }
+
+   /* Success */
+   *out_prio = (OSPRIORITY)prio;
+   rc = 0;
+
+fini:
+   if (intrinsic_name != NULL) {
+      free(intrinsic_name);
+   }
+   if (prio_env != NULL) {
+      free_buf((union SIGNAL **) &prio_env);
+   }
+
+   return rc;
+}
 
 static PROCESS blockId(void) {
    static PROCESS bid = (PROCESS)0;
@@ -328,9 +493,44 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     int use_stack_size = (opts && opts->suggested_stack_size >= 0
 			  ? opts->suggested_stack_size
 			  : 0x200 /* Use system default */);
+    OSPRIORITY use_prio;
+    char *use_name;
+    char default_thr_name[20];
+    static int no_of_thr = 0;
+    cpuid_t use_core;
+
     union SIGNAL *init_msg;
     SIGSELECT sigsel[] = {1,ETHREADWRAPDATASIG};
     void *prep_func_res;
+
+
+    if (opts != NULL) {
+        LOG(("ERTS - ethr_thr_create(): opts supplied: name: %s, coreNo: %u.\n",
+                      opts->name, opts->coreNo));
+        use_name = opts->name;
+        use_core = opts->coreNo;
+        if (0 != ethr_get_prio(use_name, &use_prio)) {
+           if (0 != ethr_get_prio("DEFAULT", &use_prio)) {
+              use_prio = get_pri(current_process());
+              LOG(("ERTS - ethr_thr_create(): Using current process' prio: %d.\n", use_prio));
+           } else {
+              LOG(("ERTS - ethr_thr_create(): Using default prio: %d.\n", use_prio));
+           }
+        } else {
+           LOG(("ERTS - ethr_thr_create(): Using configured prio: %d.\n", use_prio));
+        }
+    } else {
+        LOG(("ERTS - ethr_thr_create(): opts not supplied. Using defaults.\n"));
+        no_of_thr++;
+        sprintf(default_thr_name, "ethread_%d", no_of_thr);
+        use_name = default_thr_name;
+        use_core = ose_cpu_id();
+
+        if (0 != ethr_get_prio("DEFAULT", &use_prio)) {
+           use_prio = get_pri(current_process());
+           LOG(("ERTS - ethr_thr_create(): Using current process' prio: %d.\n", use_prio));
+        }
+    }
 
 #ifdef ETHR_MODIFIED_DEFAULT_STACK_SIZE
     if (use_stack_size < 0)
@@ -377,17 +577,18 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     else
 	init_msg->data.prep_func_res = NULL;
 
-    /*erts_fprintf(stderr, "creating process %s / stack %d\n", opts->name, use_stack_size);*/
+    LOG(("ERTS - ethr_thr_create(): Process [0x%x] is creating '%s', coreNo = %u, prio:%u\n",
+                  current_process(), use_name, use_core, use_prio));
 
-    ramlog_printf("[0x%x] process '%s', coreNo = %u\n",
-                  current_process(), opts->name, opts->coreNo);
-    tid->id = create_process(OS_PRI_PROC, opts->name, thr_wrapper,
-			     use_stack_size, /*opts->prio+5*/24, 0,
+    tid->id = create_process(OS_PRI_PROC, use_name, thr_wrapper,
+			     use_stack_size, use_prio, 0,
                              get_bid(current_process()), NULL, 0, 0);
-
-      if (ose_bind_process(tid->id, opts->coreNo)) {
-         printf("[0x%x] Binding pid 0x%x (%s) to core no %u.\n",
-               current_process(), tid->id, opts->name, opts->coreNo);
+      if (ose_bind_process(tid->id, use_core)) {
+         LOG(("ERTS - ethr_thr_create(): Bound pid 0x%x (%s) to core no %u.\n",
+              tid->id, use_name, use_core));
+      } else {
+            LOG(("ERTS - ethr_thr_create(): Failed binding pid 0x%x (%s) to core no %u.\n",
+                 tid->id, use_name, use_core));
       }
 
     /*FIXME!!! Normally this shouldn't be used in shared mode. Still there is
@@ -418,6 +619,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     if (ethr_thr_parent_func__)
 	ethr_thr_parent_func__(prep_func_res);
 
+    LOG(("ERTS - ethr_thr_create(): Exiting.\n"));
     return res;
 }
 

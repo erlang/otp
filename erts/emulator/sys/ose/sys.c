@@ -50,6 +50,14 @@
 #include "efs.h"
 #include "erl_printf.h"
 
+/* Set the define to 1 to get some logging */
+#if 0
+#include "ramlog.h"
+#define LOG(output) ramlog_printf output
+#else
+#define LOG(output)
+#endif
+
 extern char **environ;
 static erts_smp_rwmtx_t environ_rwmtx;
 
@@ -68,7 +76,7 @@ static erts_smp_rwmtx_t environ_rwmtx;
 #include "erl_cpu_topology.h"
 
 /* The priority for reader/writer processes */
-#define FD_PROC_PRI 20
+#define FD_PROC_PRI get_pri(current_process())
 
 typedef struct ErtsSysReportExit_ ErtsSysReportExit;
 struct ErtsSysReportExit_ {

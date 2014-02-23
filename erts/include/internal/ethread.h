@@ -217,7 +217,6 @@ typedef OSPPDKEY ethr_tsd_key;
 #define ETHR_USE_OWN_RWMTX_IMPL__
 #define ETHR_USE_OWN_MTX_IMPL__
 #define ETHR_HAVE_THREAD_NAMES
-#define ETHR_HAVE_THREAD_NICENESS
 
 #define ETHR_PPC_HAVE_NO_LWSYNC
 #undef ETHR_HAVE_NATIVE_SPINLOCKS
@@ -510,7 +509,6 @@ typedef struct {
     int suggested_stack_size;		/* kilo words (default sys dependent) */
 #ifdef ETHR_OSE_THREADS
     char *name;
-    OSPRIORITY prio;
     U32 coreNo;
 #endif
 } ethr_thr_opts;
@@ -518,7 +516,7 @@ typedef struct {
 #if defined(ETHR_OSE_THREADS)
 /* Default ethr name is big as we want to be able to sprint stuff in there */
 #define ETHR_THR_OPTS_DEFAULT_INITER \
-   {0, -1, "ethread", get_pri(current_process()), 0}
+   {0, -1, "ethread", 0}
 #else
 #define ETHR_THR_OPTS_DEFAULT_INITER {0, -1}
 #endif
