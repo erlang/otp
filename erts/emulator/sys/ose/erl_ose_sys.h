@@ -70,6 +70,11 @@ struct erts_sys_fd_type {
 
 
 /*
+ * Min number of async threads
+ */
+#define ERTS_MIN_NO_OF_ASYNC_THREADS 1
+
+/*
  * Our own type of "FD's"
  */
 #define ERTS_SYS_FD_TYPE struct erts_sys_fd_type*
