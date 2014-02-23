@@ -404,7 +404,8 @@ contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], RecDict,
 	      throw({error, NewMsg})
 	  end,
 	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
-	{NewType, []}
+        NewTypeNoVars = erl_types:subst_all_vars_to_any(NewType),
+	{NewTypeNoVars, []}
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, []} | FormAcc],
@@ -418,7 +419,8 @@ contract_from_form([{type, _L1, bounded_fun,
 	  process_constraints(Constr, RecDict, ExpTypes, AllRecords),
 	Type = erl_types:t_from_form(Form, RecDict, VarDict),
 	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
-	{NewType, Constr1}
+        NewTypeNoVars = erl_types:subst_all_vars_to_any(NewType),
+	{NewTypeNoVars, Constr1}
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, Constr} | FormAcc],
