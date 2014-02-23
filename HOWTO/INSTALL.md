@@ -274,6 +274,11 @@ Some of the available `configure` options are:
     `(g)cc`
 *   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
     `(g)cc`
+*   `--with-assumed-cache-line-size=SIZE` - Set assumed cache-line size in
+    bytes. Default is 64. Valid values are powers of two between and
+    including 16 and 8192. The runtime system use this value in order to
+    try to avoid false sharing. A too large value wastes memory. A to
+    small value will increase the amount of false sharing.
 *   `--{with,without}-termcap` - termcap (without implies that only the old
     Erlang shell can be used)
 *   `--with-javac=JAVAC` - Specify Java compiler to use

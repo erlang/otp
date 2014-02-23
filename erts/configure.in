@@ -347,6 +347,25 @@ AS_HELP_STRING([--enable-clock-gettime],
     *) clock_gettime_correction=yes ;;
   esac ], clock_gettime_correction=unknown)
 
+AC_ARG_WITH(assumed-cache-line-size,
+AS_HELP_STRING([--with-assumed-cache-line-size=SIZE],
+               [specify assumed cache line size in bytes (valid values are powers of two between and including 16 and 8192; default is 64)]))
+
+dnl Require the assumed cache-line size to be a power of two between 16 and 8192
+case "$with_assumed_cache_line_size" in
+     ""|no|yes)
+	with_assumed_cache_line_size=64;;
+     16|32|64|128|256|512|1024|2048|4096|8192)
+	;;
+     *)
+	AC_MSG_ERROR([Invalid assumed cache-line size of $with_assumed_cache_line_size bytes])
+	;;
+esac
+
+AC_DEFINE_UNQUOTED(ASSUMED_CACHE_LINE_SIZE,
+		   $with_assumed_cache_line_size,
+		   [Assumed cache-line size (in bytes)])
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
