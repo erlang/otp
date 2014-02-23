@@ -235,4 +235,126 @@ extern int getpagesize(void);
 #  define UINT_MAX   4294967295U
 #endif
 
+/*
+static void erts_ose_sys_send(union SIGNAL **signal,PROCESS dst,
+			      char* file,int line) {
+  SIGSELECT **ziggy = (SIGSELECT**)signal;
+  printf("%s:%d 0x%x Send signal 0x%x(0x%x) to 0x%x\r\n",
+	 file,line,current_process(),ziggy[0][0],*ziggy,dst);
+  send(signal,dst);
+}
+#define send(signal,dst) erts_ose_sys_send(signal,dst,__FILE__,__LINE__)
+
+static void erts_ose_sys_send_w_sender(union SIGNAL **signal,
+				       PROCESS sender,PROCESS dst,
+				       char* file,int line) {
+  SIGSELECT **ziggy = (SIGSELECT**)signal;
+  printf("%s:%d 0x%x Send signal 0x%x(0x%x) to 0x%x as 0x%x\r\n",
+	 file,line,current_process(),ziggy[0][0],*ziggy,dst,sender);
+  send_w_sender(signal,sender,dst);
+}
+#define send_w_sender(signal,sender,dst) \
+  erts_ose_sys_send_w_sender(signal,sender,dst,__FILE__,__LINE__)
+
+
+static union SIGNAL *erts_ose_sys_receive(SIGSELECT *sigsel,
+					  char *file,
+					  int line) {
+  SIGSELECT *sig;
+  int i;
+
+  printf("%s:%d 0x%x receive({%d,",file,line,current_process(),sigsel[0]);
+  for (i = 1; i < sigsel[0]; i++)
+    printf("0x%x, ",sigsel[i]);
+  if (sigsel[0] != 0)
+    printf("0x%x",sigsel[i]);
+  printf("})\n");
+  sig = (SIGSELECT*)receive(sigsel);
+  printf("%s:%d 0x%x got 0x%x from 0x%x\n",file,line,current_process(),
+	 *sig,sender((union SIGNAL**)(&sig)));
+  return (union SIGNAL*)sig;
+}
+#define receive(SIGSEL) erts_ose_sys_receive(SIGSEL,__FILE__,__LINE__)
+
+static union SIGNAL *erts_ose_sys_receive_w_tmo(OSTIME tmo,SIGSELECT *sigsel,
+						char *file,int line) {
+  SIGSELECT *sig;
+  int i;
+  if (tmo == 0) {
+    sig = (SIGSELECT*)receive_w_tmo(tmo,sigsel);
+    if (sig != NULL) {
+      printf("%s:%d 0x%x receive_w_tmo(0,{%d,",file,line,current_process(),
+	     sigsel[0]);
+      for (i = 1; i < sigsel[0]; i++)
+	printf("0x%x, ",sigsel[i]);
+      if (sigsel[0] != 0)
+	printf("0x%x",sigsel[i]);
+      printf("})\n");
+      printf("%s:%d 0x%x got 0x%x from 0x%x\n",file,line,current_process(),
+	     *sig,sender((union SIGNAL**)(&sig)));
+    }
+  } else {
+    printf("%s:%d 0x%x receive_w_tmo(%u,{%d,",file,line,current_process(),tmo,
+	   sigsel[0]);
+      for (i = 1; i < sigsel[0]; i++)
+	printf("0x%x, ",sigsel[i]);
+      if (sigsel[0] != 0)
+	printf("0x%x",sigsel[i]);
+      printf("})\n");
+      sig = (SIGSELECT*)receive_w_tmo(tmo,sigsel);
+      printf("%s:%d 0x%x got ",file,line,current_process());
+      if (sig == NULL)
+	printf("TIMEOUT\n");
+      else
+	printf("0x%x from 0x%x\n",*sig,sender((union SIGNAL**)(&sig)));
+  }
+
+  return (union SIGNAL*)sig;
+}
+
+#define receive_w_tmo(tmo,sigsel) erts_ose_sys_receive_w_tmo(tmo,sigsel, \
+							     __FILE__,__LINE__)
+
+static union SIGNAL *erts_ose_sys_receive_fsem(OSTIME tmo,SIGSELECT *sigsel,
+					       OSFSEMVAL fsem,
+					       char *file,int line) {
+  SIGSELECT *sig;
+  int i;
+  if (tmo == 0) {
+    sig = (SIGSELECT*)receive_fsem(tmo,sigsel,fsem);
+    if (sig != NULL && sig != OS_RCV_FSEM) {
+      printf("%s:%d 0x%x receive_fsem(0,{%d,",file,line,current_process(),
+	     sigsel[0]);
+      for (i = 1; i < sigsel[0]; i++)
+	printf("0x%x, ",sigsel[i]);
+      if (sigsel[0] != 0)
+	printf("0x%x",sigsel[i]);
+      printf("},%d)\n",fsem);
+      printf("%s:%d 0x%x got 0x%x from 0x%x\n",file,line,current_process(),
+	     *sig,sender((union SIGNAL**)(&sig)));
+    }
+  } else {
+    printf("%s:%d 0x%x receive_fsem(%u,{%d,",file,line,current_process(),tmo,
+	   sigsel[0]);
+      for (i = 1; i < sigsel[0]; i++)
+	printf("0x%x, ",sigsel[i]);
+      if (sigsel[0] != 0)
+	printf("0x%x",sigsel[i]);
+      printf("},%d)\n",fsem);
+      sig = (SIGSELECT*)receive_fsem(tmo,sigsel,fsem);
+      printf("%s:%d 0x%x got ",file,line,current_process());
+      if (sig == NULL)
+	printf("TIMEOUT\n");
+      else if (sig == OS_RCV_FSEM)
+	printf("FSEM\n");
+      else
+	printf("0x%x from 0x%x\n",*sig,sender((union SIGNAL**)(&sig)));
+  }
+
+  return (union SIGNAL*)sig;
+}
+
+#define receive_fsem(tmo,sigsel,fsem) \
+  erts_ose_sys_receive_fsem(tmo,sigsel,fsem,__FILE__,__LINE__)
+*/
 #endif  /* _ERL_OSE_SYS_H */
