@@ -1006,12 +1006,16 @@ guard0([], _Bs, _Lf, _Ef) -> true.
 guard_test({call,L,{atom,Ln,F},As0}, Bs0, Lf, Ef) ->
     TT = type_test(F),
     G = {call,L,{atom,Ln,TT},As0},
-    try {value,true,_} = expr(G, Bs0, Lf, Ef, none)
-    catch error:_ -> {value,false,Bs0} end;
-guard_test({call,L,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,_F}=T},As0}, 
+    expr_guard_test(G, Bs0, Lf, Ef);
+guard_test({call,L,{remote,Lr,{atom,Lm,erlang},{atom,Lf,F}},As0},
            Bs0, Lf, Ef) ->
-    guard_test({call,L,T,As0}, Bs0, Lf, Ef);
+    TT = type_test(F),
+    G = {call,L,{remote,Lr,{atom,Lm,erlang},{atom,Lf,TT}},As0},
+    expr_guard_test(G, Bs0, Lf, Ef);
 guard_test(G, Bs0, Lf, Ef) ->
+    expr_guard_test(G, Bs0, Lf, Ef).
+
+expr_guard_test(G, Bs0, Lf, Ef) ->
     try {value,true,_} = expr(G, Bs0, Lf, Ef, none)
     catch error:_ -> {value,false,Bs0} end.
     
