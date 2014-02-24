@@ -860,7 +860,7 @@ duplicate_tags(Config) ->
 rtUI(Config) -> test(Config, fun rtUI/3).
 rtUI(Config, Rule, Opts) ->
     asn1_test_lib:compile("Prim", Config, [Rule|Opts]),
-    {ok, _} = asn1rt:info('Prim'),
+    _ = 'Prim':info(),
     Rule = 'Prim':encoding_rule(),
     io:format("Default BIT STRING format: ~p\n",
 	      ['Prim':bit_string_format()]).

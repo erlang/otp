@@ -18,6 +18,8 @@
 %%
 %%
 -module(testPrimStrings).
+-compile([{nowarn_deprecated_function,{asn1rt,utf8_list_to_binary,1}},
+	  {nowarn_deprecated_function,{asn1rt,utf8_binary_to_list,1}}]).
 
 -export([bit_string/2]).
 -export([octet_string/1]).
