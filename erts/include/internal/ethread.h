@@ -60,7 +60,7 @@
 #endif
 
 /* Assume 64-byte cache line size */
-#define ETHR_CACHE_LINE_SIZE 64
+#define ETHR_CACHE_LINE_SIZE ASSUMED_CACHE_LINE_SIZE
 #define ETHR_CACHE_LINE_MASK (ETHR_CACHE_LINE_SIZE - 1)
 
 #define ETHR_CACHE_LINE_ALIGN_SIZE(SZ) \
