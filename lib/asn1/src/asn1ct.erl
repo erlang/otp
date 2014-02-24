@@ -19,6 +19,10 @@
 %%
 %%
 -module(asn1ct).
+-deprecated([decode/3,encode/3]).
+-compile([{nowarn_deprecated_function,{asn1rt,decode,3}},
+	  {nowarn_deprecated_function,{asn1rt,encode,2}},
+	  {nowarn_deprecated_function,{asn1rt,encode,3}}]).
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
