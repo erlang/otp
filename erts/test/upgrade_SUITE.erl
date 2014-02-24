@@ -31,12 +31,14 @@
 	 cosProperty,cosTime,cosTransactions,erts,ic,netconf,orber,
 	 safe]).
 
-%% Applications that are excluded from this test because they don't
-%% have useful appup files.
+%% Applications that are excluded from this test because their appup
+%% file don't support the upgrade.
+%% In specific:
+%% - hipe does not support any upgrade at all
+%% - dialyzer requires hipe (in the .app file)
+%% - typer requires hipe (in the .app file)
 -define(appup_exclude, 
-	[asn1,common_test,compiler,crypto,dialyzer,edoc,eldap,eunit,
-	 hipe,inets,observer,odbc,os_mon,public_key,runtime_tools,
-	 ssh,ssl,syntax_tools,test_server,tools,typer,wx,xmerl]).
+	[dialyzer,hipe,typer]).
 
 init_per_suite(Config) ->
     %% Check that a real release is running, not e.g. cerl
