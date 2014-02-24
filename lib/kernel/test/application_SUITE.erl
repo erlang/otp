@@ -2121,6 +2121,7 @@ shutdown_deadlock(Config) when is_list(Config) ->
 	    Server ! continue
     end,
     [_|_] = application:which_applications(),
+    application:unload(deadlock), % clean up!
     ok.
 
 
