@@ -77,6 +77,8 @@
 -record(suite_data, {key,name,value}).
 
 %%%-----------------------------------------------------------------
+start() ->
+    start(normal, ".", ?default_verbosity).
 %%% @spec start(Mode) -> Pid | exit(Error)
 %%%       Mode = normal | interactive
 %%%       Pid = pid()
@@ -91,9 +93,6 @@
 %%% <code>ct_util_server</code>.</p>
 %%%
 %%% @see ct
-start() ->
-    start(normal, ".", ?default_verbosity).
-
 start(LogDir) when is_list(LogDir) ->
     start(normal, LogDir, ?default_verbosity);
 start(Mode) ->

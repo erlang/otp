@@ -450,10 +450,9 @@ flat_format(Fmt, Lst) ->
 %% Created     : 5 March 2007
 %%-------------------------------------------------------------------
 
+-spec pp_hook() -> fun((cerl:cerl(), _, _) -> term()).
 pp_hook() ->
   fun pp_hook/3.
-
--spec pp_hook() -> fun((cerl:cerl(), _, _) -> term()).
 
 pp_hook(Node, Ctxt, Cont) ->
   case cerl:type(Node) of
