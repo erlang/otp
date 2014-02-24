@@ -6589,11 +6589,12 @@ ok
           some details of the encoding. This option was
           introduced in R11B-4. Currently, the allowed values for <c><anno>Version</anno></c>
           are <c>0</c> and <c>1</c>.</p>
-        <p><c>{minor_version, 1}</c> forces any floats in the term to be encoded
+        <p><c>{minor_version, 1}</c> is since 17.0 the default, it forces any floats in
+	  the term to be encoded
           in a more space-efficient and exact way (namely in the 64-bit IEEE format,
           rather than converted to a textual representation). <c>binary_to_term/1</c>
-          in R11B-4 and later is able decode the new representation.</p>
-        <p><c>{minor_version, 0}</c> is currently the default, meaning that floats
+          in R11B-4 and later is able decode this representation.</p>
+        <p><c>{minor_version, 0}</c> meaning that floats
           will be encoded using a textual representation; this option is useful if
           you want to ensure that releases prior to R11B-4 can decode resulting
           binary.</p>
