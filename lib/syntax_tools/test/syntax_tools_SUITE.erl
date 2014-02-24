@@ -24,12 +24,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([smoke_test/1,revert/1]).
+-export([app_test/1,appup_test/1,smoke_test/1,revert/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [smoke_test,revert].
+    [app_test,appup_test,smoke_test,revert].
 
 groups() -> 
     [].
@@ -46,6 +46,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+app_test(Config) when is_list(Config) ->
+    ok = ?t:app_test(syntax_tools).
+
+appup_test(Config) when is_list(Config) ->
+    ok = ?t:appup_test(syntax_tools).
 
 %% Read and parse all source in the OTP release.
 smoke_test(Config) when is_list(Config) ->

@@ -24,7 +24,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 app_test/1,
+	 app_test/1,appup_test/1,
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
@@ -42,7 +42,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [app_test, file_1, forms_2, module_mismatch, big_file, outdir,
+    [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
@@ -70,6 +70,10 @@ end_per_group(_GroupName, Config) ->
 %% Test that the Application file has no `basic' errors.";
 app_test(Config) when is_list(Config) ->
     ?line ?t:app_test(compiler).
+
+%% Test that the Application upgrade file has no `basic' errors.";
+appup_test(Config) when is_list(Config) ->
+    ok = ?t:appup_test(compiler).
 
 %% Tests that we can compile and run a simple Erlang program,
 %% using compile:file/1.

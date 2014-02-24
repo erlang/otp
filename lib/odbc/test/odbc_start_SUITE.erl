@@ -109,8 +109,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case odbc_test_lib:odbc_check() of
-	ok -> [start];
-	Other -> {skip, Other}
+	ok -> [app, appup, start];
+	Other -> [app, appup]
     end.
 
 groups() -> 
@@ -126,6 +126,14 @@ end_per_group(_GroupName, Config) ->
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
+
+%% Test that the odbc app file is ok
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(odbc).
+
+%% Test that the odbc appup file is ok
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(odbc).
 
 start(doc) -> 
     ["Test start/stop of odbc"];

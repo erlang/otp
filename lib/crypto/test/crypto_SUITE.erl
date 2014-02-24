@@ -30,6 +30,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app,
+     appup,
      {group, md4},
      {group, md5},
      {group, ripemd160},
@@ -141,6 +142,11 @@ app() ->
     [{doc, "Test that the crypto app file is ok"}].
 app(Config) when is_list(Config) ->
     ok = ?t:app_test(crypto).
+%%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the crypto appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(crypto).
 %%--------------------------------------------------------------------
 hash() ->
     [{doc, "Test all different hash functions"}].

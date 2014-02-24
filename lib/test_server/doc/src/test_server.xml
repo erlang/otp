@@ -625,6 +625,31 @@ Only valid for peer nodes. Note that slave nodes always
       </desc>
     </func>
     <func>
+      <name>appup_test(App) -> ok | test_server:fail()</name>
+      <fsummary>Checks an applications .appup file for obvious errors</fsummary>
+      <type>
+        <v>App = term()</v>
+        <d>The name of the application to test</d>
+      </type>
+      <desc>
+        <p>Checks an applications .appup file for obvious errors.
+          The following is checked:
+          </p>
+        <list type="bulleted">
+          <item>syntax
+          </item>
+          <item>that .app file version and .appup file version match
+          </item>
+          <item>for non-library applications: validity of high-level upgrade
+           instructions, specifying no instructions is explicitly allowed
+           (in this case the application is not upgradeable)</item>
+          <item>for library applications: that there is exactly one wildcard
+           regexp clause restarting the application when upgrading or
+           downgrading from any version</item>
+        </list>
+      </desc>
+    </func>
+    <func>
       <name>comment(Comment) -> ok</name>
       <fsummary>Print a comment on the HTML result page</fsummary>
       <type>

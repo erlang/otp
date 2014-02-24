@@ -21,6 +21,7 @@
 -module(mnesia_SUITE).
 -author('hakan@erix.ericsson.se').
 -compile([export_all]).
+-include_lib("common_test/include/ct.hrl").
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->
@@ -50,7 +51,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 %% and do not involve the normal test machinery.
 
 all() -> 
-    [{group, light}, {group, medium}, {group, heavy},
+    [app, appup, {group, light}, {group, medium}, {group, heavy},
      clean_up_suite].
 
 groups() -> 
@@ -142,6 +143,18 @@ end_per_suite(Config) ->
 silly() ->
     mnesia_install_test:silly().
     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Test structure of the mnesia application resource file
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(mnesia).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Test that all required versions have appup directives
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(mnesia).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clean_up_suite(doc) -> ["Not a test case only kills mnesia and nodes, that where" 

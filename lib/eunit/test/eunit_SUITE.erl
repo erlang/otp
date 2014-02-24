@@ -19,14 +19,15 @@
 -module(eunit_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,eunit_test/1]).
+	 init_per_group/2,end_per_group/2,
+	 app_test/1,appup_test/1,eunit_test/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [eunit_test].
+    [app_test, appup_test, eunit_test].
 
 groups() -> 
     [].
@@ -43,6 +44,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+app_test(Config) when is_list(Config) ->
+    ok = ?t:app_test(eunit).
+
+appup_test(Config) when is_list(Config) ->
+    ok = ?t:appup_test(eunit).
 
 eunit_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
