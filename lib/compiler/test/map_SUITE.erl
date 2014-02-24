@@ -418,8 +418,12 @@ t_guard_fun(Config) when is_list(Config) ->
     {l,V} = F2(#{s=>l,v=>[V,V]}),
 
     %% error case
-    {'EXIT', {function_clause,[{?MODULE,_,[#{s:=none,v:=none}],_}|_]}} = (catch F1(#{s=>none,v=>none})),
-    ok.
+    case (catch F1(#{s=>none,v=>none})) of
+	{'EXIT', {function_clause,[{?MODULE,_,[#{s:=none,v:=none}],_}|_]}} -> ok;
+	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
+	Other ->
+	    test_server:fail({no_match, Other})
+    end.
 
 
 t_map_sort_literals(Config) when is_list(Config) ->
@@ -500,8 +504,12 @@ t_build_and_match_empty_val(Config) when is_list(Config) ->
     ok = F(id(#{"hi"=>ok,{1,2}=>ok,1337=>ok})),
 
     %% error case
-    {'EXIT',{function_clause,_}} = (catch (F(id(#{"hi"=>ok})))),
-    ok.
+    case (catch (F(id(#{"hi"=>ok})))) of
+	{'EXIT',{function_clause,_}} -> ok;
+	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
+	Other ->
+	    test_server:fail({no_match, Other})
+    end.
 
 t_build_and_match_val(Config) when is_list(Config) ->
     F = fun
@@ -514,8 +522,12 @@ t_build_and_match_val(Config) when is_list(Config) ->
     {2,"second"} = F(id(#{"hi"=>second,v=>"second"})),
 
     %% error case
-    {'EXIT',{function_clause,_}} = (catch (F(id(#{"hi"=>ok})))),
-    ok.
+    case (catch (F(id(#{"hi"=>ok})))) of
+	{'EXIT',{function_clause,_}} -> ok;
+	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
+	Other ->
+	    test_server:fail({no_match, Other})
+    end.
 
 
 %% Use this function to avoid compile-time evaluation of an expression.

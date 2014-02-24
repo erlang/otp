@@ -64,7 +64,7 @@
 	       seq_body/1, set_ann/2, try_arg/1, try_body/1, try_vars/1,
 	       try_evars/1, try_handler/1, tuple_es/1, tuple_arity/1,
 	       type/1, values_es/1, var_name/1,
-	       map_es/1, update_c_map/2,
+	       map_val/1, map_es/1, update_c_map/3,
 	       update_c_map_pair/4,
 	       map_pair_op/1, map_pair_key/1, map_pair_val/1
 	   ]).
@@ -1334,12 +1334,12 @@ i_bitstr(E, Ren, Env, S) ->
 
 i_map(E, Ctx, Ren, Env, S) ->
     %% Visit the segments for value.
-    {Es, S1} = mapfoldl(fun (E, S) ->
-				i_map_pair(E, Ctx, Ren, Env, S)
-			end,
-			S, map_es(E)),
-    S2 = count_size(weight(map), S1),
-    {update_c_map(E, Es), S2}.
+    {M1, S1} = i(map_val(E), value, Ren, Env, S),
+    {Es, S2} = mapfoldl(fun (E, S) ->
+		i_map_pair(E, Ctx, Ren, Env, S)
+	end, S1, map_es(E)),
+    S3 = count_size(weight(map), S2),
+    {update_c_map(E, M1,Es), S3}.
 
 i_map_pair(E, Ctx, Ren, Env, S) ->
     %% It is not necessary to visit the Op and Key fields,
@@ -1411,13 +1411,15 @@ i_pattern(E, Ren, Env, Ren0, Env0, S) ->
 	    S2 = count_size(weight(binary), S1),
 	    {update_c_binary(E, Es), S2};
 	map ->
+	    %% map patterns should not have vals
+	    M = map_val(E),
+
 	    {Es, S1} = mapfoldl(fun (E, S) ->
-					i_map_pair_pattern(E, Ren, Env,
-							  Ren0, Env0, S)
-				end,
-				S, map_es(E)),
+			i_map_pair_pattern(E, Ren, Env, Ren0, Env0, S)
+		end,
+		S, map_es(E)),
 	    S2 = count_size(weight(map), S1),
-	    {update_c_map(E, Es), S2};
+	    {update_c_map(E, M, Es), S2};
 	_ ->
 	    case is_literal(E) of
 		true ->
