@@ -170,10 +170,19 @@ handle_msg({Group, get_unicode_state}, State) ->
     {ok, State};
 
 handle_msg({Group, tty_geometry}, #state{group = Group,
-					 pty = #ssh_pty{width=Width,
-							height=Height}
+					 pty = Pty
 					} = State) ->
-    Group ! {self(),tty_geometry,{Width,Height}},
+    case Pty of
+	#ssh_pty{width=Width,height=Height} ->
+	    Group ! {self(),tty_geometry,{Width,Height}};
+	_ ->
+	    %% This is a dirty fix of the problem with the otp ssh:shell
+	    %% client. That client will not allocate a tty, but someone
+	    %% asks for the tty_geometry just before every erlang prompt.
+	    %% If that question is not answered, there is a 2 sec timeout
+	    %% Until the prompt is seen by the user at the client side ...
+	    Group ! {self(),tty_geometry,{0,0}}
+    end,
     {ok,State};
     
 handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
@@ -349,7 +358,7 @@ delete_chars(N, {Buf, BufTail, Col}, Tty) when N > 0 ->
      {Buf, NewBufTail, Col}};
 delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
     NewBuf = nthtail(-N, Buf),
-    NewCol = Col + N,
+    NewCol = case Col + N of V when V >= 0 -> V; _ -> 0 end,
     M1 = move_cursor(Col, NewCol, Tty),
     M2 = move_cursor(NewCol + length(BufTail) - N, NewCol, Tty),
     {[M1, BufTail, lists:duplicate(-N, $ ) | M2],
