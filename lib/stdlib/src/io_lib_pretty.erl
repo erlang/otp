@@ -66,13 +66,13 @@ print(Term) ->
            (term(), options()) -> chars().
 
 print(Term, Options) when is_list(Options) ->
-    Col = proplists:get_value(column, Options, 1),
-    Ll = proplists:get_value(line_length, Options, 80),
-    D = proplists:get_value(depth, Options, -1),
-    M = proplists:get_value(max_chars, Options, -1),
-    RecDefFun = proplists:get_value(record_print_fun, Options, no_fun),
-    Encoding = proplists:get_value(encoding, Options, epp:default_encoding()),
-    Strings = proplists:get_value(strings, Options, true),
+    Col = get_option(column, Options, 1),
+    Ll = get_option(line_length, Options, 80),
+    D = get_option(depth, Options, -1),
+    M = get_option(max_chars, Options, -1),
+    RecDefFun = get_option(record_print_fun, Options, no_fun),
+    Encoding = get_option(encoding, Options, epp:default_encoding()),
+    Strings = get_option(strings, Options, true),
     print(Term, Col, Ll, D, M, RecDefFun, Encoding, Strings);
 print(Term, RecDefFun) ->
     print(Term, -1, RecDefFun).
@@ -761,3 +761,10 @@ chars(C, N) when (N band 1) =:= 0 ->
 chars(C, N) ->
     S = chars(C, N bsr 1),
     [C, S | S].
+
+get_option(Key, TupleList, Default) ->
+    case lists:keyfind(Key, 1, TupleList) of
+	false -> Default;
+	{Key, Value} -> Value;
+	_ -> Default
+    end.
