@@ -65,7 +65,7 @@ analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
   {_, State} = traverse(Tree, map__new(), state__new(Tree), top),
   Esc = state__esc(State), 
-  %% Add dependency from 'external' to all escaping function
+  %% Add dependency from 'external' to all escaping functions
   State1 = state__add_deps(external, output(Esc), State),
   Deps = state__deps(State1),
   Calls = state__calls(State1),
@@ -486,11 +486,22 @@ all_vars(Tree, AccIn) ->
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
-  InitEsc = set__from_list([cerl_trees:get_label(Fun) 
-			    || {Var, Fun} <- cerl:module_defs(Tree),
-			       set__is_element(Var, Exports)]),
+  %% get the labels of all exported functions
+  ExpLs = [cerl_trees:get_label(Fun) || {Var, Fun} <- cerl:module_defs(Tree),
+					set__is_element(Var, Exports)],
+  %% make sure to also initiate an analysis from all functions called
+  %% from on_load attributes; in Core these exist as a list of {F,A} pairs
+  OnLoadFAs = lists:flatten([cerl:atom_val(Args)
+			     || {Attr, Args} <- cerl:module_attrs(Tree),
+				cerl:atom_val(Attr) =:= on_load]),
+  OnLoadLs = [cerl_trees:get_label(Fun)
+	      || {Var, Fun} <- cerl:module_defs(Tree),
+		 lists:member(cerl:var_name(Var), OnLoadFAs)],
+  %% init the escaping function labels to exported + called from on_load
+  InitEsc = set__from_list(OnLoadLs ++ ExpLs),
   Arities = cerl_trees:fold(fun find_arities/2, dict:new(), Tree),
-  #state{deps = map__new(), esc = InitEsc, call = map__new(), arities = Arities, letrecs = map__new()}.
+  #state{deps = map__new(), esc = InitEsc, call = map__new(),
+	 arities = Arities, letrecs = map__new()}.
 
 find_arities(Tree, AccMap) ->
   case cerl:is_c_fun(Tree) of
