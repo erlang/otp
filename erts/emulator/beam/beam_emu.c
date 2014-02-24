@@ -1203,7 +1203,11 @@ void process_main(void)
 
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
-	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
+	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    && !ERTS_SCHEDULER_IS_DIRTY(c_p->scheduler_data)
+#endif
+	    ) {
 	    BeamInstr *inptr = find_function_from_pc(start_time_i);
 	    BeamInstr *outptr = find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);

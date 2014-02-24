@@ -54,6 +54,7 @@
 	 sbt_cmd/1,
 	 scheduler_threads/1,
 	 scheduler_suspend/1,
+	 dirty_scheduler_threads/1,
 	 reader_groups/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(15)).
@@ -68,6 +69,7 @@ all() ->
      equal_and_high_with_part_time_max, equal_with_high,
      equal_with_high_max, bound_process,
      {group, scheduler_bind}, scheduler_threads, scheduler_suspend,
+     dirty_scheduler_threads,
      reader_groups].
 
 groups() -> 
@@ -1092,6 +1094,55 @@ scheduler_threads(Config) when is_list(Config) ->
     end,
     ok.
 
+dirty_scheduler_threads(Config) when is_list(Config) ->
+    SmpSupport = erlang:system_info(smp_support),
+    try
+	erlang:system_info(dirty_cpu_schedulers),
+	dirty_scheduler_threads_test(Config, SmpSupport)
+    catch
+	error:badarg ->
+	    {skipped, "No dirty scheduler support"}
+    end.
+
+dirty_scheduler_threads_test(Config, SmpSupport) ->
+    {Sched, SchedOnln, _} = get_dsstate(Config, ""),
+    {HalfSched, HalfSchedOnln} = case SmpSupport of
+                                     false -> {1,1};
+                                     true ->
+                                         {Sched div 2,
+                                          SchedOnln div 2}
+                                 end,
+    Cmd1 = "+SDcpu "++integer_to_list(HalfSched)++":"++
+	integer_to_list(HalfSchedOnln),
+    {HalfSched, HalfSchedOnln, _} = get_dsstate(Config, Cmd1),
+    {HalfSched, HalfSchedOnln, _} = get_dsstate(Config, "+SDPcpu 50:50"),
+    IOSched = 20,
+    {_, _, IOSched} = get_dsstate(Config, "+SDio "++integer_to_list(IOSched)),
+    {ok, Node} = start_node(Config, ""),
+    [ok] = mcall(Node, [fun() -> dirty_schedulers_online_test() end]),
+    ok.
+
+dirty_schedulers_online_test() ->
+    dirty_schedulers_online_test(erlang:system_info(smp_support)).
+dirty_schedulers_online_test(false) -> ok;
+dirty_schedulers_online_test(true) ->
+    dirty_schedulers_online_smp_test(erlang:system_info(schedulers_online)).
+dirty_schedulers_online_smp_test(SchedOnln) when SchedOnln < 4 -> ok;
+dirty_schedulers_online_smp_test(SchedOnln) ->
+    DirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
+    SchedOnln = DirtyCPUSchedOnln,
+    HalfSchedOnln = SchedOnln div 2,
+    SchedOnln = erlang:system_flag(schedulers_online, HalfSchedOnln),
+    HalfDirtyCPUSchedOnln = DirtyCPUSchedOnln div 2,
+    HalfDirtyCPUSchedOnln = erlang:system_flag(schedulers_online, SchedOnln),
+    DirtyCPUSchedOnln = erlang:system_flag(dirty_cpu_schedulers_online,
+					   HalfDirtyCPUSchedOnln),
+    HalfDirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
+    QrtrDirtyCPUSchedOnln = HalfDirtyCPUSchedOnln div 2,
+    SchedOnln = erlang:system_flag(schedulers_online, HalfSchedOnln),
+    QrtrDirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
+    ok.
+
 get_sstate(Config, Cmd) ->
     {ok, Node} = start_node(Config, Cmd),
     [SState] = mcall(Node, [fun () ->
@@ -1099,6 +1150,20 @@ get_sstate(Config, Cmd) ->
                             end]),
     stop_node(Node),
     SState.
+
+get_dsstate(Config, Cmd) ->
+    {ok, Node} = start_node(Config, Cmd),
+    [DSCPU] = mcall(Node, [fun () ->
+				   erlang:system_info(dirty_cpu_schedulers)
+			   end]),
+    [DSCPUOnln] = mcall(Node, [fun () ->
+				       erlang:system_info(dirty_cpu_schedulers_online)
+			       end]),
+    [DSIO] = mcall(Node, [fun () ->
+				  erlang:system_info(dirty_io_schedulers)
+			  end]),
+    stop_node(Node),
+    {DSCPU, DSCPUOnln, DSIO}.
 
 scheduler_suspend(Config) when is_list(Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(5)),
@@ -1171,16 +1236,40 @@ sst2_loop(N) ->
     erlang:system_flag(multi_scheduling, unblock),
     sst2_loop(N-1).
 
-sst3_loop(_S, 0) ->
-    ok;
 sst3_loop(S, N) ->
+    try erlang:system_info(dirty_cpu_schedulers) of
+	DS ->
+	    sst3_loop_with_dirty_schedulers(S, DS, N)
+    catch
+	error:badarg ->
+	    sst3_loop_normal_schedulers_only(S, N)
+    end.
+
+sst3_loop_normal_schedulers_only(_S, 0) ->
+    ok;
+sst3_loop_normal_schedulers_only(S, N) ->
     erlang:system_flag(schedulers_online, (S div 2)+1),
     erlang:system_flag(schedulers_online, 1),
     erlang:system_flag(schedulers_online, (S div 2)+1),
     erlang:system_flag(schedulers_online, S),
     erlang:system_flag(schedulers_online, 1),
     erlang:system_flag(schedulers_online, S),
-    sst3_loop(S, N-1).
+    sst3_loop_normal_schedulers_only(S, N-1).
+
+sst3_loop_with_dirty_schedulers(_S, _DS, 0) ->
+    ok;
+sst3_loop_with_dirty_schedulers(S, DS, N) ->
+    erlang:system_flag(schedulers_online, (S div 2)+1),
+    erlang:system_flag(dirty_cpu_schedulers_online, (DS div 2)+1),
+    erlang:system_flag(schedulers_online, 1),
+    erlang:system_flag(schedulers_online, (S div 2)+1),
+    erlang:system_flag(dirty_cpu_schedulers_online, 1),
+    erlang:system_flag(schedulers_online, S),
+    erlang:system_flag(dirty_cpu_schedulers_online, DS),
+    erlang:system_flag(schedulers_online, 1),
+    erlang:system_flag(schedulers_online, S),
+    erlang:system_flag(dirty_cpu_schedulers_online, DS),
+    sst3_loop_with_dirty_schedulers(S, DS, N-1).
 
 reader_groups(Config) when is_list(Config) ->
     %% White box testing. These results are correct, but other results

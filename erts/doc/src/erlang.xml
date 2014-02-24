@@ -5203,9 +5203,16 @@ ok
         <c>erlang:system_info(schedulers_online)</c>.
         </p>
         <p>Returns the old value of the flag.</p>
-	<p><em>Note that the dirty schedulers functionality is experimental</em>, and
-	that you have to enable support for dirty schedulers when building OTP in
-	order to try the functionality out.</p>
+        <p>Note that the number of dirty CPU schedulers online may change if the number of
+        schedulers online changes. For example, if there are 12 schedulers and all are
+        online, and 6 dirty CPU schedulers, all online as well, and <c>system_flag/2</c>
+        is used to set the number of schedulers online to 6, then the number of dirty
+        CPU schedulers online is automatically decreased by half as well, down to 3.
+        Similarly, the number of dirty CPU schedulers online increases proportionally
+        to increases in the number of schedulers online.</p>
+        <p><em>Note that the dirty schedulers functionality is experimental</em>, and
+        that you have to enable support for dirty schedulers when building OTP in order
+        to try out the functionality.</p>
         <p>For more information see
         <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>
         and
@@ -5438,6 +5445,15 @@ ok
         <![CDATA[1 <= SchedulersOnline <= erlang:system_info(schedulers)]]>.
         </p>
         <p>Returns the old value of the flag.</p>
+        <p>Note that if the emulator was built with support for <seealso
+        marker="#system_flag_dirty_cpu_schedulers_online">dirty schedulers</seealso>,
+        changing the number of schedulers online can also change the number of dirty
+        CPU schedulers online. For example, if there are 12 schedulers and all are
+        online, and 6 dirty CPU schedulers, all online as well, and <c>system_flag/2</c>
+        is used to set the number of schedulers online to 6, then the number of dirty
+        CPU schedulers online is automatically decreased by half as well, down to 3.
+        Similarly, the number of dirty CPU schedulers online increases proportionally
+        to increases in the number of schedulers online.</p>
         <p>For more information see,
         <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>,
         and
@@ -5817,12 +5833,13 @@ ok
               boot time and cannot be changed after that. The number of dirty CPU
               scheduler threads online can however be changed at any time. The number of
               dirty CPU schedulers can be set on startup by passing
-              the <seealso marker="erts:erl#+SDcpu">+SDcpu</seealso> command line flag, see
-              <seealso marker="erts:erl#+SDcpu">erl(1)</seealso>.
+              the <seealso marker="erts:erl#+SDcpu">+SDcpu</seealso> or
+              <seealso marker="erts:erl#+SDPcpu">+SDPcpu</seealso> command line flags,
+              see <seealso marker="erts:erl#+SDcpu">erl(1)</seealso>.
             </p>
 	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
 	    that you have to enable support for dirty schedulers when building OTP in
-	    order to try the functionality out.</p>
+	    order to try out the functionality.</p>
             <p>See also <seealso marker="#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>,
               <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>,
               <seealso marker="#system_info_dirty_io_schedulers">erlang:system_info(dirty_io_schedulers)</seealso>,
@@ -5844,7 +5861,7 @@ ok
             </p>
 	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
 	    that you have to enable support for dirty schedulers when building OTP in
-	    order to try the functionality out.</p>
+	    order to try out the functionality.</p>
             <p>For more information, see
               <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>,
               <seealso marker="#system_info_dirty_io_schedulers">erlang:system_info(dirty_io_schedulers)</seealso>,
@@ -5864,7 +5881,7 @@ ok
             </p>
 	    <p><em>Note that the dirty schedulers functionality is experimental</em>, and
 	    that you have to enable support for dirty schedulers when building OTP in
-	    order to try the functionality out.</p>
+	    order to try out the functionality.</p>
             <p>For more information, see
               <seealso marker="#system_info_dirty_cpu_schedulers">erlang:system_info(dirty_cpu_schedulers)</seealso>,
               <seealso marker="#system_info_dirty_cpu_schedulers_online">erlang:system_info(dirty_cpu_schedulers_online)</seealso>, and

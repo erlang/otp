@@ -4333,7 +4333,11 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	switch (erts_set_schedulers_online(BIF_P,
 					   ERTS_PROC_LOCK_MAIN,
 					   signed_val(BIF_ARG_2),
-					   &old_no)) {
+					   &old_no
+#ifdef ERTS_DIRTY_SCHEDULERS
+					   , 0
+#endif
+					   )) {
 	case ERTS_SCHDLR_SSPND_DONE:
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
@@ -4465,6 +4469,33 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 		      ref,
 		      old ? am_true : am_false);
 	}
+#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
+    } else if (BIF_ARG_1 == am_dirty_cpu_schedulers_online) {
+	Sint old_no;
+	if (!is_small(BIF_ARG_2))
+	    goto error;
+	switch (erts_set_schedulers_online(BIF_P,
+					   ERTS_PROC_LOCK_MAIN,
+					   signed_val(BIF_ARG_2),
+					   &old_no,
+					   1)) {
+	case ERTS_SCHDLR_SSPND_DONE:
+	    BIF_RET(make_small(old_no));
+	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
+	    ERTS_VBUMP_ALL_REDS(BIF_P);
+	    BIF_TRAP2(bif_export[BIF_system_flag_2],
+		      BIF_P, BIF_ARG_1, BIF_ARG_2);
+	case ERTS_SCHDLR_SSPND_YIELD_DONE:
+	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
+				    am_dirty_cpu_schedulers_online);
+	case ERTS_SCHDLR_SSPND_EINVAL:
+	    goto error;
+	default:
+	    ASSERT(0);
+	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+	    break;
+	}
+#endif
     } else if (ERTS_IS_ATOM_STR("scheduling_statistics", BIF_ARG_1)) {
 	int what;
 	if (ERTS_IS_ATOM_STR("disable", BIF_ARG_2))
