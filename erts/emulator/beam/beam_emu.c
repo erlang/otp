@@ -71,7 +71,8 @@ do {									\
     	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
 } while (0)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
+					   __FILE__, __LINE__)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #  else
@@ -1190,11 +1191,16 @@ void process_main(void)
      * c_p->arg_reg before calling the scheduler.
      */
     if (!init_done) {
+       /* This should only be reached during the init phase when only the main
+        * process is running. I.e. there is no race for init_done.
+        */
 	init_done = 1;
 	goto init_emulator;
     }
+
     c_p = NULL;
     reds_used = 0;
+
     goto do_schedule1;
 
  do_schedule:

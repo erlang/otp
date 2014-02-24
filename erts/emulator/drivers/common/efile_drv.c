@@ -99,7 +99,16 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+
+#ifndef __OSE__
+#include <ctype.h>
+#include <sys/types.h>
 #include <stdlib.h>
+#else
+#include "ctype.h"
+#include "sys/types.h"
+#include "stdlib.h"
+#endif
 
 /* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
@@ -113,8 +122,7 @@
 #include "erl_threads.h"
 #include "gzio.h"
 #include "dtrace-wrapper.h" 
-#include <ctype.h>
-#include <sys/types.h>
+
 
 void erl_exit(int n, char *fmt, ...);
 
@@ -765,6 +773,9 @@ file_init(void)
 			    : 0);
     driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
 
+    /* run initiation of efile_driver if needed */
+    efile_init();
+
 #ifdef  USE_VM_PROBES
     erts_mtx_init(&dt_driver_mutex, "efile_drv dtrace mutex");
     pthread_key_create(&dt_driver_key, NULL);
@@ -911,6 +922,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
 
+#ifdef HAVE_SENDFILE
 static void reply_string_error(file_descriptor *desc, char* str) {
     char response[256];		/* Response buffer. */
     char* s;
@@ -921,6 +933,7 @@ static void reply_string_error(file_descriptor *desc, char* str) {
 	*t = tolower(*s);
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
+#endif
 
 static int reply_error(file_descriptor *desc, 
 		       Efile_error *errInfo) /* The error codes. */

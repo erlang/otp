@@ -585,7 +585,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     if (ncpu < 1)
 	ncpu = 1;
 
-    erts_tsd_key_create(&erts_allctr_prelock_tsd_key);
+    erts_tsd_key_create(&erts_allctr_prelock_tsd_key,
+			"erts_allctr_prelock_tsd_key");
 
     erts_sys_alloc_init();
     erts_init_utils_mem();

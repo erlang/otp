@@ -185,11 +185,13 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
     ptsp->taskq.in.last = NULL;
     erts_smp_atomic32_init_nob(&ptsp->flags, 0);
 #ifdef ERTS_SMP
+    erts_mtx_init_x(&ptsp->mtx, lock_str, instr_id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
-	lock_str = NULL;
+		    (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+#else
+		    1
 #endif
-    erts_mtx_init_x(&ptsp->mtx, lock_str, instr_id);
+		    );
 #endif
 }
 

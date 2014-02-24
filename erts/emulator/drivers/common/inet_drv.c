@@ -121,6 +121,10 @@ typedef unsigned long long llu_t;
 #undef WANT_NONBLOCKING
 #include "sys.h"
 
+#ifdef __OSE__
+#include "inet.h"
+#endif
+
 #undef EWOULDBLOCK
 #undef ETIMEDOUT
 
@@ -289,7 +293,111 @@ static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
 static unsigned long zero_value = 0;
 static unsigned long one_value = 1;
 
-#else /* #ifdef __WIN32__ */
+#elif defined (__OSE__)
+#include "sys/socket.h"
+#include "sys/uio.h"
+#include "sfk/sys/sfk_uio.h"
+#include "netinet/in.h"
+#include "netinet/tcp.h"
+#include "netdb.h"
+
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
+{
+   return 0;
+}
+
+#define INVALID_SOCKET -1
+#define INVALID_EVENT  -1
+#define SOCKET_ERROR   -1
+
+#define SOCKET int
+#define HANDLE long int
+#define FD_READ    ERL_DRV_READ
+#define FD_WRITE   ERL_DRV_WRITE
+#define FD_CLOSE   0
+#define FD_CONNECT ERL_DRV_WRITE
+#define FD_ACCEPT  ERL_DRV_READ
+
+#define sock_connect(s, addr, len)  connect((s), (addr), (len))
+#define sock_listen(s, b)           listen((s), (b))
+#define sock_bind(s, addr, len)     bind((s), (addr), (len))
+#define sock_getopt(s,t,n,v,l)      getsockopt((s),(t),(n),(v),(l))
+#define sock_setopt(s,t,n,v,l)      setsockopt((s),(t),(n),(v),(l))
+#define sock_name(s, addr, len)     getsockname((s), (addr), (len))
+#define sock_peer(s, addr, len)     getpeername((s), (addr), (len))
+#define sock_ntohs(x)               ntohs((x))
+#define sock_ntohl(x)               ntohl((x))
+#define sock_htons(x)               htons((x))
+#define sock_htonl(x)               htonl((x))
+
+#define sock_accept(s, addr, len)   accept((s), (addr), (len))
+#define sock_send(s,buf,len,flag)   inet_send((s),(buf),(len),(flag))
+#define sock_sendto(s,buf,blen,flag,addr,alen) \
+                sendto((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_sendv(s, vec, size, np, flag) \
+		(*(np) = writev((s), (struct iovec*)(vec), (size)))
+#define sock_sendmsg(s,msghdr,flag) sendmsg((s),(msghdr),(flag))
+
+#define sock_open(af, type, proto)  socket((af), (type), (proto))
+#define sock_close(s)               close((s))
+#define sock_shutdown(s, how)       shutdown((s), (how))
+
+#define sock_hostname(buf, len)     gethostname((buf), (len))
+#define sock_getservbyname(name,proto) getservbyname((name), (proto))
+#define sock_getservbyport(port,proto) getservbyport((port), (proto))
+
+#define sock_recv(s,buf,len,flag)   recv((s),(buf),(len),(flag))
+#define sock_recvfrom(s,buf,blen,flag,addr,alen) \
+                recvfrom((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_recvmsg(s,msghdr,flag) recvmsg((s),(msghdr),(flag))
+
+#define sock_errno()                errno
+#define sock_create_event(d)        ((d)->s) /* return file descriptor */
+#define sock_close_event(e)                  /* do nothing */
+
+#define inet_driver_select(port, e, mode, on) \
+                                    driver_select(port, e, mode | (on?ERL_DRV_USE:0), on)
+
+#define sock_select(d, flags, onoff) do { \
+        ASSERT(!(d)->is_ignored); \
+        (d)->event_mask = (onoff) ? \
+                 ((d)->event_mask | (flags)) : \
+                 ((d)->event_mask & ~(flags)); \
+        DEBUGF(("sock_select(%ld): flags=%02X, onoff=%d, event_mask=%02lX\r\n", \
+		(long) (d)->port, (flags), (onoff), (unsigned long) (d)->event_mask)); \
+        inet_driver_select((d)->port, (ErlDrvEvent)(long)(d)->event, (flags), (onoff)); \
+   } while(0)
+
+#ifndef WANT_NONBLOCKING
+#define WANT_NONBLOCKING
+#endif
+#include "sys.h"
+
+typedef unsigned long  u_long;
+#define  IN_CLASSA(a)      ((((in_addr_t)(a)) & 0x80000000) == 0)
+#define  IN_CLASSA_NET     0xff000000
+#define  IN_CLASSA_NSHIFT  24
+#define  IN_CLASSA_HOST    (0xffffffff & ~IN_CLASSA_NET)
+#define  IN_CLASSA_MAX     128
+
+#define  IN_CLASSB(a)      ((((in_addr_t)(a)) & 0xc0000000) == 0x80000000)
+#define  IN_CLASSB_NET     0xffff0000
+#define  IN_CLASSB_NSHIFT  16
+#define  IN_CLASSB_HOST    (0xffffffff & ~IN_CLASSB_NET)
+#define  IN_CLASSB_MAX     65536
+
+#define  IN_CLASSC(a)      ((((in_addr_t)(a)) & 0xe0000000) == 0xc0000000)
+#define  IN_CLASSC_NET     0xffffff00
+#define  IN_CLASSC_NSHIFT  8
+#define  IN_CLASSC_HOST    (0xffffffff & ~IN_CLASSC_NET)
+
+#define  IN_CLASSD(a)      ((((in_addr_t)(a)) & 0xf0000000) == 0xe0000000)
+#define  IN_MULTICAST(a)      IN_CLASSD(a)
+
+#define  IN_EXPERIMENTAL(a)   ((((in_addr_t)(a)) & 0xe0000000) == 0xe0000000)
+#define  IN_BADCLASS(a)    ((((in_addr_t)(a)) & 0xf0000000) == 0xf0000000)
+
+#else /* !__OSE__ && !__WIN32__ */
 
 #include <sys/time.h>
 #ifdef NETDB_H_NEEDS_IN_H

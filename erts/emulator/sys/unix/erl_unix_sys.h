@@ -127,6 +127,11 @@
 #   endif
 #endif
 
+/*
+ * Min number of async threads
+ */
+#define  ERTS_MIN_NO_OF_ASYNC_THREADS 0
+
 /* File descriptors are numbers anc consecutively allocated on Unix */
 #define  ERTS_SYS_CONTINOUS_FD_NUMBERS
 

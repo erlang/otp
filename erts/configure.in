@@ -455,6 +455,17 @@ AS_HELP_STRING([--enable-static-drivers], [comma seperated list of linked-in dri
 	       STATIC_DRIVERS=no)
 AC_SUBST(STATIC_DRIVERS)
 
+AC_ARG_WITH(ets-write-concurrency-locks,
+  AS_HELP_STRING([--with-ets-write-concurrency-locks={8,16,32,64,128,256}],
+                 [specify how many locks the write_concurrency option for ets should use.])
+  AS_HELP_STRING([--without-ets-write-concurrency-locks],
+                 [use the default number of write_concurrency locks (default)]))
+
+if test X"$with_ets_write_concurrency_locks" != X""; then
+   AC_DEFINE_UNQUOTED(ERTS_DB_HASH_LOCK_CNT,$with_ets_write_concurrency_locks,
+		      [Define to override the default number of write_concurrency locks])
+fi
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
@@ -934,7 +945,10 @@ dnl what the user say. This might not be the right way to do it, but
 dnl for now that is the way we do it.
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
-LD='$(CC)'
+case $host in
+   *ose) ;;
+   *) LD='$(CC)' ;;
+esac
 AC_SUBST(LD)
 
 LDFLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
@@ -945,12 +959,15 @@ dnl AC_CYGWIN is deprecated
 AC_EXEEXT
 AC_OBJEXT
 
-dnl This is the os flavour, should be unix, vxworks or win32
-if test "X$host" = "Xwin32"; then
-	ERLANG_OSTYPE=win32
-else
-	ERLANG_OSTYPE=unix         
-fi
+dnl This is the os flavour, should be unix, ose, vxworks or win32
+case $host in
+   win32)
+      ERLANG_OSTYPE=win32 ;;
+   *ose)
+      ERLANG_OSTYPE=ose ;;
+   *)
+      ERLANG_OSTYPE=unix ;;
+esac
 
 AC_SUBST(ERLANG_OSTYPE)
 
@@ -1235,7 +1252,7 @@ case "$enable_threads"-"$found_threads" in
 	AC_MSG_RESULT(yes; enabled by user) ;;
     unknown-yes)
 	case $host_os in
-	    solaris*|linux*|darwin*|win32)
+	    solaris*|linux*|darwin*|win32|ose)
 		emu_threads=yes
 		AC_MSG_RESULT(yes; default on this platform)
 		;;
@@ -1317,7 +1334,7 @@ else
 		    enable_child_waiter_thread=no
 		fi
 		;;
-	    win32)
+	    win32|ose)
 		# Child waiter thread cannot be enabled
 		disable_child_waiter_thread=yes
 		enable_child_waiter_thread=no
@@ -2049,7 +2066,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r inet_pton \
-		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
+		memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall])
 
@@ -2089,6 +2106,17 @@ case $host_os in
         *)
 	    AC_CHECK_FUNCS([writev]) ;;
 esac
+
+case $host_os in
+        *ose)
+	    AC_MSG_CHECKING([for mmap])
+	    AC_MSG_RESULT(not using for OSE)
+	    AC_MSG_CHECKING([for mremap])
+	    AC_MSG_RESULT(not using for OSE) ;;
+        *)
+	    AC_CHECK_FUNCS([mmap mremap]) ;;
+esac
+
 
 AC_CHECK_DECLS([posix2time, time2posix],,,[#include <time.h>])
 
@@ -3946,7 +3974,7 @@ AC_SUBST(STATIC_KERBEROS_LIBS)
 AC_SUBST(SSL_LINK_WITH_ZLIB)
 AC_SUBST(STATIC_ZLIB_LIBS)
 
-std_ssl_locations="/usr/local /usr/sfw /usr /opt/local /usr/pkg /usr/local/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl"
+std_ssl_locations="/usr/local /usr/sfw /usr /opt/local /usr/pkg /usr/local/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl /"
 
 AC_ARG_WITH(ssl-zlib,
 AS_HELP_STRING([--with-ssl-zlib=PATH],
@@ -4053,6 +4081,7 @@ for a in ssl crypto ssh; do
 done
 
 SSL_DYNAMIC_ONLY=$enable_dynamic_ssl
+SSL_STATIC_ONLY=no
 
 case "$erl_xcomp_without_sysroot-$with_ssl" in
   yes-* | no-no)
@@ -4172,6 +4201,10 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			else
 				is_real_ssl=no
 			fi
+		elif test -f "$dir/lib/powerpc/libsslcrypto.a"; then
+			SSL_CRYPTO_LIBNAME=sslcrypto
+			SSL_LIBDIR="$dir/lib/powerpc/"
+			SSL_RUNTIME_LIBDIR="$rdir/lib/powerpc/"
 		else
 			if test "x$ac_cv_sizeof_void_p" = "x8"; then
 				if test -f "$dir/lib64/libcrypto.a"; then
@@ -4195,8 +4228,10 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 				SSL_LIBDIR="$dir/lib"
 			fi
 		fi
-		if test '!' -f $SSL_LIBDIR/libcrypto.a; then
+		if test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.a"; then
 			SSL_DYNAMIC_ONLY=yes
+		elif test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.so" -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
+			SSL_STATIC_ONLY=yes
 		fi
 		SSL_BINDIR="$rdir/bin"
 		if test "x$is_real_ssl" = "xyes" ; then
@@ -4218,13 +4253,20 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			if test "x$ssl_found" = "xyes"; then
 			   	if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
 				   	ssl_linkable=yes
+				elif test "x${SSL_CRYPTO_LIBNAME}" = "xsslcrypto"; then
+				# This should only be triggered seen OSE
+					ssl_linkable=yes
 				else
 					saveCFLAGS="$CFLAGS"
  					saveLDFLAGS="$LDFLAGS"
 					saveLIBS="$LIBS"
  					CFLAGS="$CFLAGS $SSL_INCLUDE"
- 					LDFLAGS="$LDFLAGS -L$SSL_LIBDIR"
-					LIBS="-lcrypto"
+					if test "x$SSL_STATIC_ONLY" = "xyes"; then
+						LIBS="${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.a"
+					else
+						LDFLAGS="$LDFLAGS -L$SSL_LIBDIR"
+						LIBS="$LIBS -l${SSL_CRYPTO_LIBNAME}"
+					fi
  					AC_TRY_LINK([
 					#include <stdio.h>
  					#include <openssl/hmac.h>],
@@ -4352,6 +4394,9 @@ dnl		so it is - be adoptable
 	    # This probably wont work, but that's what the user said, so...
 	    SSL_LIBDIR="$with_ssl/lib"
 	fi
+    elif test -f "$dir/lib/powerpc/libsslcrypto.a"; then
+	    SSL_CRYPTO_LIBNAME=sslcrypto
+	    SSL_LIBDIR="$with_ssl/lib/powerpc/"
     elif test "x$ac_cv_sizeof_void_p" = "x8"; then
 	if test -f "$with_ssl/lib64/libcrypto.a"; then
 		SSL_LIBDIR="$with_ssl/lib64"
@@ -4367,8 +4412,10 @@ dnl		so it is - be adoptable
     else	 
 	SSL_LIBDIR="$with_ssl/lib"
     fi
-    if test '!' -f $SSL_LIBDIR/libcrypto.a; then
+    if test '!' -f "${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.a"; then
 	SSL_DYNAMIC_ONLY=yes
+    elif test '!' -f ${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.so -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
+	SSL_STATIC_ONLY=yes
     fi
     SSL_INCLUDE="-I$with_ssl/include"
     SSL_APP=ssl
@@ -4762,6 +4809,7 @@ AC_OUTPUT(
   Makefile:Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
   ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
+  ../make/$host/ose_lm.mk:../make/ose_lm.mk.in
 dnl
 dnl The ones below should be moved to their respective lib
 dnl

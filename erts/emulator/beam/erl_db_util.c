@@ -483,7 +483,8 @@ void
 match_pseudo_process_init(void)
 {
 #ifdef ERTS_SMP
-    erts_smp_tsd_key_create(&match_pseudo_process_key);
+    erts_smp_tsd_key_create(&match_pseudo_process_key,
+			    "erts_match_pseudo_process_key");
     erts_smp_install_exit_handler(destroy_match_pseudo_process);
 #else
     match_pseudo_process = create_match_pseudo_process();

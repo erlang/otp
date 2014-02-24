@@ -158,6 +158,8 @@ erts_milli_sleep(long ms)
     if (ms > 0) {
 #ifdef __WIN32__
 	Sleep((DWORD) ms);
+#elif defined(__OSE__)
+	delay(ms);
 #else
 	struct timeval tv;
 	tv.tv_sec = ms / 1000;
@@ -316,6 +318,10 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 	    online = 0;
 #endif
     }
+#elif defined(__OSE__)
+    online = ose_num_cpus();
+    configured = ose_num_cpus();
+    available = ose_num_cpus();
 #endif
 
     if (online > configured)

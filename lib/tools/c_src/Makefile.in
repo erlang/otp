@@ -96,7 +96,10 @@ DRIVERS=
 
 ifneq ($(strip $(ETHR_LIB_NAME)),)
 # Need ethread package for emem
+ifneq ($(findstring ose,$(TARGET)),ose)
+# Do not build on OSE
 PROGS += $(BIN_DIR)/emem$(TYPEMARKER)@EXEEXT@
+endif
 endif
 
 EMEM_OBJ_DIR=$(OBJ_DIR)/emem
@@ -148,7 +151,12 @@ ERTS_LIB = $(ERL_TOP/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
 
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
 
+ifneq ($(findstring ose,$(TARGET)),ose)
 all: $(PROGS) $(DRIVERS)
+else
+# Do not build dynamic files on OSE
+all:
+endif
 
 $(ERTS_LIB):
 	$(make_verbose)cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)

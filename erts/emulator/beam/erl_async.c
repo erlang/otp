@@ -166,6 +166,7 @@ async_ready_q(Uint sched_id)
 
 #endif
 
+
 void
 erts_init_async(void)
 {
@@ -226,11 +227,23 @@ erts_init_async(void)
 	thr_opts.suggested_stack_size
 	    = erts_async_thread_suggested_stack_size;
 
+#ifdef ETHR_HAVE_THREAD_NAMES
+	thr_opts.name = malloc(sizeof(char)*(strlen("async_XXXX")+1));
+#endif
+
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
+
+#ifdef ETHR_HAVE_THREAD_NAMES
+            sprintf(thr_opts.name, "async_%d", i+1);
+#endif
+
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
 
+#ifdef ETHR_HAVE_THREAD_NAMES
+	free(thr_opts.name);
+#endif
 	/* Wait for async threads to initialize... */
 
 	erts_mtx_lock(&async->init.data.mtx);

@@ -976,7 +976,7 @@ tsd_test(void)
     ethr_tid tid[TT_THREADS];
     int values[TT_THREADS];
 
-    res = ethr_tsd_key_create(&tt_key);
+    res = ethr_tsd_key_create(&tt_key,"tsd_test");
     ASSERT(res == 0);
 
     for (i = 1; i < TT_THREADS; i++) {

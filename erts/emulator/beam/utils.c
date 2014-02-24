@@ -258,7 +258,7 @@ erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
  * Returns -1 if not a proper list (i.e. not terminated with NIL)
  */
 int
-list_length(Eterm list)
+erts_list_length(Eterm list)
 {
     int i = 0;
 

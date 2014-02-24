@@ -987,6 +987,11 @@ TEST_DIRS := \
 	erts/epmd/test \
 	erts/emulator/test
 
+# Any applications listed in SKIP-APPLICATIONS should be skipped
+SKIP_FILE := $(wildcard lib/SKIP-APPLICATIONS)
+SKIP_TEST_DIRS := $(if $(SKIP_FILE),$(foreach APP,$(shell cat $(SKIP_FILE)),lib/$(APP)/test))
+TEST_DIRS := $(filter-out $(SKIP_TEST_DIRS),$(TEST_DIRS))
+
 .PHONY: tests release_tests $(TEST_DIRS)
 
 tests release_tests: $(TEST_DIRS)

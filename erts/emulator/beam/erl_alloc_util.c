@@ -5561,11 +5561,11 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	erts_mtx_init_x_opt(&allctr->mutex,
 			    "alcu_allocator",
 			    make_small(allctr->alloc_no),
-			    ERTS_LCNT_LT_ALLOC);
+			    ERTS_LCNT_LT_ALLOC,1);
 #else
 	erts_mtx_init_x(&allctr->mutex,
 			"alcu_allocator",
-			make_small(allctr->alloc_no));
+			make_small(allctr->alloc_no),1);
 #endif /*ERTS_ENABLE_LOCK_COUNT*/
 	
 #ifdef DEBUG

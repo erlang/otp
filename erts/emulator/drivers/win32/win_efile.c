@@ -196,6 +196,11 @@ set_error(Efile_error* errInfo)
     return 0;
 }
 
+int
+efile_init() {
+   return 1;
+}
+
 /*
  * A writev with Unix semantics, but with Windows arguments 
  */

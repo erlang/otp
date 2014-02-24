@@ -38,6 +38,8 @@
 
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
+#elif defined (__OSE__)
+#  include "erl_ose_sys.h"
 #else 
 #  include "erl_unix_sys.h"
 #ifndef UNIX

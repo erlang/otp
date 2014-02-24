@@ -58,7 +58,8 @@ void erts_code_ix_init(void)
     erts_smp_atomic32_init_nob(&the_staging_code_index, 0);
     erts_smp_mtx_init(&code_write_permission_mtx, "code_write_permission");
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_tsd_key_create(&has_code_write_permission);
+    erts_tsd_key_create(&has_code_write_permission,
+			"erts_has_code_write_permission");
 #endif
     CIX_TRACE("init");
 }

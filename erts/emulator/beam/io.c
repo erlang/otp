@@ -49,7 +49,9 @@
 #include "erl_map.h"
 
 extern ErlDrvEntry fd_driver_entry;
+#ifndef __OSE__
 extern ErlDrvEntry vanilla_driver_entry;
+#endif
 extern ErlDrvEntry spawn_driver_entry;
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
@@ -245,11 +247,13 @@ static ERTS_INLINE void port_init_instr(Port *prt
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
 	char *lock_str = "port_lock";
+	erts_mtx_init_locked_x(prt->lock, lock_str, id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-	if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
-	    lock_str = NULL;
+			       (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+#else
+			       0
 #endif
-	erts_mtx_init_locked_x(prt->lock, lock_str, id);
+			       );
     }
 #endif
     erts_port_task_init_sched(&prt->sched, id);
@@ -2743,8 +2747,10 @@ void erts_init_io(int port_tab_size,
 			    &drv_list_rwmtx_opts,
 			    "driver_list");
     driver_list = NULL;
-    erts_smp_tsd_key_create(&driver_list_lock_status_key);
-    erts_smp_tsd_key_create(&driver_list_last_error_key);
+    erts_smp_tsd_key_create(&driver_list_lock_status_key,
+			    "erts_driver_list_lock_status_key");
+    erts_smp_tsd_key_create(&driver_list_last_error_key,
+			    "erts_driver_list_last_error_key");
 
     erts_ptab_init_table(&erts_port,
 			 ERTS_ALC_T_PORT_TABLE,
@@ -2764,7 +2770,9 @@ void erts_init_io(int port_tab_size,
     erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
+#ifndef __OSE__
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
+#endif
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
     erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
@@ -7306,10 +7314,11 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 			    erts_atom_put((byte *) drv->name,
 					  sys_strlen(drv->name),
 					  ERTS_ATOM_ENC_LATIN1,
-					  1)
+					  1),
 #else
-			NIL
+			NIL,
 #endif
+			1
 	    );
     }
 #endif

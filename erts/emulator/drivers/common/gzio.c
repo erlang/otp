@@ -20,6 +20,7 @@
 #endif
 #include <ctype.h>
 #include "erl_driver.h"
+#include "erl_efile.h"
 #include "sys.h"
 
 #ifdef __WIN32__
@@ -596,6 +597,15 @@ erts_gzseek(ErtsGzFile file, int offset, int whence)
 {
     int pos;
     gz_stream* s = (gz_stream *) file;
+
+    switch (whence) {
+    case EFILE_SEEK_SET: whence = SEEK_SET; break;
+    case EFILE_SEEK_CUR: whence = SEEK_CUR; break;
+    case EFILE_SEEK_END: whence = SEEK_END; break;
+    default:
+	errno = EINVAL;
+	return -1;
+    }
 
     if (s == NULL) {
 	errno = EINVAL;

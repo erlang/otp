@@ -876,7 +876,7 @@ int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
 int enif_get_list_length(ErlNifEnv* env, Eterm term, unsigned* len)
 {
     if (is_not_list(term) && is_not_nil(term)) return 0;
-    *len = list_length(term);
+    *len = erts_list_length(term);
     return 1;
 }
 

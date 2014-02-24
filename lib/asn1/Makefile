@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 
 SUB_DIRECTORIES = src doc/src c_src
+
 static_lib: SUB_DIRECTORIES = c_src
 
 
@@ -61,7 +62,6 @@ info:
 
 version:
 	@echo "$(VSN)"
-
 
 # ----------------------------------------------------
 # Application (source) release targets

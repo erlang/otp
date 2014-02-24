@@ -516,8 +516,10 @@ pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
 pathtype(Name) when is_list(Name) or is_binary(Name) ->
     case os:type() of
-	{unix, _}  -> unix_pathtype(Name);
-	{win32, _} -> win32_pathtype(Name)
+	{win32, _} ->
+	    win32_pathtype(Name);
+	{_, _}  ->
+	    unix_pathtype(Name)
     end.
 
 unix_pathtype(<<$/,_/binary>>) ->

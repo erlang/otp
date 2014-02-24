@@ -35,6 +35,7 @@
 -export([private_encrypt/4, public_decrypt/4]).
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 -export([ec_curve/1, ec_curves/0]).
+-export([rand_seed/1]).
 
 %% DEPRECATED
 %% Replaced by hash_*
@@ -437,6 +438,11 @@ rand_uniform_pos(_,_) ->
 
 rand_uniform_nif(_From,_To) -> ?nif_stub.
 
+-spec rand_seed(binary()) -> ok.
+rand_seed(Seed) ->
+    rand_seed_nif(Seed).
+
+rand_seed_nif(_Seed) -> ?nif_stub.
 
 -spec mod_pow(binary()|integer(), binary()|integer(), binary()|integer()) -> binary() | error.
 mod_pow(Base, Exponent, Prime) ->
@@ -1774,6 +1780,7 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 		    rand_bytes,
 		    strong_rand_bytes,
 		    rand_uniform,
+		    rand_seed,
 		    mod_pow,
 		    exor,
 		    %% deprecated

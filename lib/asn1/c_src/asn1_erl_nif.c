@@ -1320,6 +1320,7 @@ static void unload(ErlNifEnv* env, void* priv_data) {
 
 }
 
+
 static ErlNifFunc nif_funcs[] =  {
     { "encode_per_complete", 1, encode_per_complete },
     { "decode_ber_tlv_raw", 1, decode_ber_tlv_raw },

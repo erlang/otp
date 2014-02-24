@@ -215,7 +215,7 @@ typedef struct erts_proc_lock_t_ {
 
 /* Lock counter implemetation */
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 #define erts_smp_proc_lock__(P,I,L) erts_smp_proc_lock_x__(P,I,L,__FILE__,__LINE__)
 #define erts_smp_proc_lock(P,L) erts_smp_proc_lock_x(P,L,__FILE__,__LINE__)
 #endif
@@ -243,8 +243,10 @@ void erts_lcnt_enable_proc_lock_count(int enable);
   erts_proc_lc_chk_no_proc_locks(__FILE__, __LINE__)
 #define ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(P) \
   erts_proc_lc_chk_only_proc_main((P))
-void erts_proc_lc_lock(Process *p, ErtsProcLocks locks);
-void erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked);
+void erts_proc_lc_lock(Process *p, ErtsProcLocks locks,
+		       char *file, unsigned int line);
+void erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked,
+			  char *file, unsigned int line);
 void erts_proc_lc_unlock(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_have_proc_locks(Process *p, ErtsProcLocks locks);
@@ -253,7 +255,8 @@ void erts_proc_lc_chk_only_proc_main(Process *p);
 void erts_proc_lc_chk_no_proc_locks(char *file, int line);
 ErtsProcLocks erts_proc_lc_my_proc_locks(Process *p);
 int erts_proc_lc_trylock_force_busy(Process *p, ErtsProcLocks locks);
-void erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks);
+void erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks,
+			       char* file, unsigned int line);
 void erts_proc_lc_unrequire_lock(Process *p, ErtsProcLocks locks);
 #else
 #define ERTS_SMP_CHK_NO_PROC_LOCKS
@@ -372,7 +375,7 @@ ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(erts_pix_lock_t *);
 
 ERTS_GLB_INLINE ErtsProcLocks erts_smp_proc_raw_trylock__(Process *p,
 							  ErtsProcLocks locks);
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE void erts_smp_proc_lock_x__(Process *,
 					    erts_pix_lock_t *,
 					    ErtsProcLocks,
@@ -482,7 +485,7 @@ busy_main:
 }
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_proc_lock_x__(Process *p,
 		     erts_pix_lock_t *pix_lck,
 		     ErtsProcLocks locks,
@@ -528,7 +531,7 @@ erts_smp_proc_lock__(Process *p,
     erts_lcnt_proc_lock_post_x(&(p->lock), locks, file, line);
 #endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_proc_lc_lock(p, locks);
+    erts_proc_lc_lock(p, locks, file, line);
 #endif
 
 #ifdef ERTS_PROC_LOCK_DEBUG
@@ -695,7 +698,7 @@ erts_smp_proc_trylock__(Process *p,
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_proc_lc_trylock(p, locks, res == 0);
+    erts_proc_lc_trylock(p, locks, res == 0, __FILE__, __LINE__);
 #endif
 
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
@@ -741,7 +744,7 @@ erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
 
 #endif /* ERTS_SMP */
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE void erts_smp_proc_lock_x(Process *, ErtsProcLocks, char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_smp_proc_lock(Process *, ErtsProcLocks);
@@ -756,13 +759,13 @@ ERTS_GLB_INLINE void erts_smp_proc_add_refc(Process *, Sint32);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_proc_lock_x(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
 #else
 erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 #endif 
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_smp_proc_lock_x__(p,
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			 NULL,
