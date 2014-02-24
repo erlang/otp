@@ -634,7 +634,8 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 		    do {
 			w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
 		    } while (w < 0 && errno == EINTR);
-		    ASSERT(w <= iov[cnt].iov_len);
+		    ASSERT(w <= iov[cnt].iov_len ||
+			   (w == -1 && errno != EINTR));
 		}
 	    if (w < 0) return check_error(-1, errInfo);
 	    /* Move forward to next buffer to write */
