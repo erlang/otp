@@ -315,8 +315,8 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_DATA), ?UINT32(Recipient), ?UINT32(Len), Data:Le
        recipient_channel = Recipient,
        data = Data
     };
-decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient),
-	 ?UINT32(DataType), Data/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient), 
+	 ?UINT32(DataType), ?UINT32(Len), Data:Len/binary>>) ->
     #ssh_msg_channel_extended_data{
        recipient_channel = Recipient,
        data_type_code = DataType,
@@ -380,18 +380,6 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_BANNER),
        language = Lang
       };
 
-decode(<<?BYTE(?SSH_MSG_USERAUTH_PK_OK), ?UINT32(Len), Alg:Len/binary, KeyBlob/binary>>) ->
-    #ssh_msg_userauth_pk_ok{
-       algorithm_name = Alg,
-       key_blob = KeyBlob
-      };
-
-decode(<<?BYTE(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?UINT32(Len0), Prompt:Len0/binary,
-	 ?UINT32(Len1), Lang:Len1/binary>>) ->
-    #ssh_msg_userauth_passwd_changereq{
-       prompt = Prompt,
-       languge = Lang
-      };
 decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST), ?UINT32(Len0), Name:Len0/binary,
 	 ?UINT32(Len1), Inst:Len1/binary, ?UINT32(Len2), Lang:Len2/binary,
 	 ?UINT32(NumPromtps), Data/binary>>) ->
@@ -401,6 +389,21 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST), ?UINT32(Len0), Name:Len0/binary,
        language_tag = Lang,
        num_prompts = NumPromtps,
        data = Data};
+
+%%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
+decode(<<?BYTE(?SSH_MSG_USERAUTH_PK_OK), ?UINT32(Len), Alg:Len/binary, KeyBlob/binary>>) ->
+    #ssh_msg_userauth_pk_ok{
+       algorithm_name = Alg,
+       key_blob = KeyBlob
+      };
+
+%%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
+decode(<<?BYTE(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?UINT32(Len0), Prompt:Len0/binary,
+	 ?UINT32(Len1), Lang:Len1/binary>>) ->
+    #ssh_msg_userauth_passwd_changereq{
+       prompt = Prompt,
+       languge = Lang
+      };
 
 decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
     #ssh_msg_userauth_info_response{
@@ -424,8 +427,9 @@ decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
     #ssh_msg_kex_dh_gex_request_old{
        n = N
       };
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  ?UINT32(Len0), Prime:Len0/big-signed-integer,
-	 ?UINT32(Len1), Generator:Len1/big-signed-integer>>) ->
+decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
+	 ?UINT32(Len0), Prime:Len0/big-signed-integer-unit:8,
+	 ?UINT32(Len1), Generator:Len1/big-signed-integer-unit:8>>) ->
     #ssh_msg_kex_dh_gex_group{
        p = Prime,
        g = Generator
