@@ -1018,7 +1018,7 @@ Copyright and License
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 2003-2012. All Rights Reserved.
+Copyright Ericsson AB 2003-2014. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in
@@ -1033,15 +1033,7 @@ under the License.
 
 %CopyrightEnd%
 
-Modifying This Document
------------------------
-
-Before modifying this document you need to have a look at the
-[$ERL_TOP/HOWTO/MARKDOWN.md][] document.
-
-
 
    [1]: http://www.erlang.org/faq.html "mailing lists"
-   [$ERL_TOP/HOWTO/MARKDOWN.md]: MARKDOWN.md
 
    [?TOC]: true

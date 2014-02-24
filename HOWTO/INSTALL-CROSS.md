@@ -563,12 +563,6 @@ under the License.
 
 %CopyrightEnd%
 
-Modifying This Document
------------------------
-
-Before modifying this document you need to have a look at the
-[$ERL_TOP/HOWTO/MARKDOWN.md][] document.
-
 
 
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
@@ -576,6 +570,4 @@ Before modifying this document you need to have a look at the
    [How to Build the Documentation]: INSTALL.md#The-ErlangOTP-Documentation_How-to-Build-the-Documentation
    [cross configuration variables]: #Currently-Used-Configuration-Variables
    [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
-   [$ERL_TOP/HOWTO/MARKDOWN.md]: MARKDOWN.md
-
    [?TOC]: true
