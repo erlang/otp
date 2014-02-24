@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -168,7 +168,7 @@ analysis_start(Parent, Analysis) ->
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
   NewPlt0 = dialyzer_plt:insert_types(Plt, dialyzer_codeserver:get_records(NewCServer)),
-  ExpTypes =  dialyzer_codeserver:get_exported_types(NewCServer),
+  ExpTypes = dialyzer_codeserver:get_exported_types(NewCServer),
   NewPlt1 = dialyzer_plt:insert_exported_types(NewPlt0, ExpTypes),
   State0 = State#analysis_state{plt = NewPlt1},
   dump_callgraph(Callgraph, State0, Analysis),
@@ -423,11 +423,8 @@ abs_get_nowarn(Abs, M) ->
     false ->
       [{M, F, A} || {function, _, F, A, _} <- Abs]; % all functions
     true ->
-      OnLoad =
-	lists:flatten([{M, F, A} || {attribute, _, on_load, {F, A}} <- Abs]),
-      OnLoad ++ [{M, F, A} ||
-		  {nowarn_unused_function, FAs} <- Opts,
-		  {F, A} <- lists:flatten([FAs])]
+      [{M, F, A} || {nowarn_unused_function, FAs} <- Opts,
+                    {F, A} <- lists:flatten([FAs])]
   end.
 
 get_exported_types_from_core(Core) ->
