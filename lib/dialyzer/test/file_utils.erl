@@ -106,7 +106,7 @@ lcs_fast(S1, S2) ->
 
 -spec lcs_fast([string()], [string()],
 	       pos_integer(), pos_integer(),
-	       non_neg_integer(), array()) -> {[string()], array()}.
+	       non_neg_integer(), array:array()) -> {[string()], array:array()}.
 
 lcs_fast([], _, _, _, _, Acc) ->
   {[], Acc};

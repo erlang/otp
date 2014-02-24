@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,7 +59,7 @@
 %%
 
 -spec analyze(cerl:c_module()) ->
-	{dict(), ordset('external' | label()), dict(), dict()}.
+        {dict:dict(), ordset('external' | label()), dict:dict(), dict:dict()}.
 
 analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
@@ -309,7 +309,7 @@ primop(Tree, ArgFuns, State) ->
 %% Set
 %%
 
--record(set, {set :: set()}).
+-record(set, {set :: sets:set()}).
 
 set__singleton(Val) ->
   #set{set = sets:add_element(Val, sets:new())}.
@@ -478,11 +478,11 @@ all_vars(Tree, AccIn) ->
 
 -type local_set() :: 'none' | #set{}.
 
--record(state, {deps    :: dict(), 
+-record(state, {deps    :: dict:dict(),
 		esc     :: local_set(), 
-		call    :: dict(), 
-		arities :: dict(),
-		letrecs :: dict()}).
+		call    :: dict:dict(),
+		arities :: dict:dict(),
+		letrecs :: dict:dict()}).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),

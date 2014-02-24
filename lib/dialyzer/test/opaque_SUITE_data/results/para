@@ -1,0 +1,21 @@
+
+para1.erl:18: The test para1:t(atom()) =:= para1:t(integer()) can never evaluate to 'true'
+para1.erl:23: The test para1:t(atom()) =:= para1:t() can never evaluate to 'true'
+para1.erl:28: The test para1:t() =:= para1:t(integer()) can never evaluate to 'true'
+para1.erl:33: The test {3,2} =:= {'a','b'} can never evaluate to 'true'
+para1.erl:38: Attempt to test for equality between a term of type para1_adt:t(integer()) and a term of opaque type para1_adt:t(atom())
+para1.erl:43: Attempt to test for equality between a term of type para1_adt:t() and a term of opaque type para1_adt:t(atom())
+para1.erl:48: Attempt to test for equality between a term of type para1_adt:t(integer()) and a term of opaque type para1_adt:t()
+para1.erl:53: The test {3,2} =:= {'a','b'} can never evaluate to 'true'
+para2.erl:103: Attempt to test for equality between a term of type para2_adt:circ({{integer(),integer()},{integer(),integer()}},{{integer(),integer()},{integer(),integer()}}) and a term of opaque type para2_adt:circ({{integer(),integer()},{integer(),integer()}})
+para2.erl:117: Attempt to test for equality between a term of type para2_adt:un(atom(),integer()) and a term of opaque type para2_adt:un(integer(),atom())
+para2.erl:31: The test 'a' =:= 'b' can never evaluate to 'true'
+para2.erl:61: Attempt to test for equality between a term of type para2_adt:c2() and a term of opaque type para2_adt:c1()
+para2.erl:66: The test 'a' =:= 'b' can never evaluate to 'true'
+para2.erl:88: The test para2:circ({{integer(),integer()},{integer(),integer()}}) =:= para2:circ({{integer(),integer()},{integer(),integer()}},{{integer(),integer()},{integer(),integer()}}) can never evaluate to 'true'
+para3.erl:28: Invalid type specification for function para3:ot2/0. The success typing is () -> 'foo'
+para3.erl:36: The pattern {{{17}}} can never match the type {{{{{{_,_,_,_,_}}}}}}
+para3.erl:55: Invalid type specification for function para3:t2/0. The success typing is () -> 'foo'
+para3.erl:65: The attempt to match a term of type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}} against the pattern {{{{{17}}}}} breaks the opaqueness of para3_adt:ot1(_,_,_,_,_)
+para3.erl:68: The pattern {{{{17}}}} can never match the type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}}
+para3.erl:74: Invalid type specification for function para3:exp_adt/0. The success typing is () -> 3

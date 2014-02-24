@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -437,7 +437,7 @@ regexpr({ModExpr, FunExpr, ArityExpr}, Var) ->
 	    V2
     end.
 
-%% -> digraph()
+%% -> digraph:graph()
 relation_to_graph(S) ->
     G = digraph:new(),
     Fun = fun({From, To}) -> 

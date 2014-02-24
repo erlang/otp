@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,8 +41,14 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-dict">dict()</marker></name>
+      <name name="dict" n_vars="2"/>
       <desc><p>Dictionary as returned by <c>new/0</c>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="dict" n_vars="0"/>
+      <desc>
+        <p><c>dict()</c> is equivalent to <c>dict(term(), term())</c>.</p>
+      </desc>
     </datatype>
   </datatypes>
   <funcs>

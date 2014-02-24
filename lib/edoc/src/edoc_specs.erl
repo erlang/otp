@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 %%  Exported functions
 %%
 
--spec type(Form::syntaxTree(), TypeDocs::dict()) -> #tag{}.
+-spec type(Form::syntaxTree(), TypeDocs::dict:dict()) -> #tag{}.
 
 %% @doc Convert an Erlang type to EDoc representation.
 %% TypeDocs is a dict of {Name, Doc}.
@@ -88,7 +88,7 @@ dummy_spec(Form) ->
 
 -spec docs(Forms::[syntaxTree()],
            CommentFun :: fun( ([syntaxTree()], Line :: term()) -> #tag{} ))
-          -> dict().
+          -> dict:dict().
 
 %% @doc Find comments after -type/-opaque declarations.
 %% Postcomments "inside" the type are skipped.

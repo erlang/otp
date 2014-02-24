@@ -12,12 +12,12 @@
 
 -export([new/0, get_g/1]).
 
--record(rec, {g :: gb_set()}).
+-record(rec, {g :: gb_sets:set()}).
 
 -spec new() -> #rec{}.
 new() ->
   #rec{g = gb_sets:empty()}.
 
--spec get_g(#rec{}) -> gb_set().
+-spec get_g(#rec{}) -> gb_sets:set().
 get_g(R) ->
   R#rec.g.

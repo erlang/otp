@@ -17,6 +17,6 @@ t3() ->
     is_atom(n()). % no warning since atom() is possible
 
 t4() ->
-    is_integer(n()). % opaque warning since tid() is opaque
+    is_integer(n()). % opaque warning since ets:tid() is opaque
 
-n() -> ets:new(n, [named_table]). % -> atom() | tid()
+n() -> ets:new(n, [named_table]). % -> atom() | ets:tid()

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -73,7 +73,7 @@
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
 	  start_or_recv_from   :: term(),
 	  timer                :: undefined | reference(), % start_or_recive_timer
-	  send_queue           :: queue(),
+	  send_queue           :: queue:queue(),
 	  terminated = false                          ::boolean(),
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),

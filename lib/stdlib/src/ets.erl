@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,10 +53,8 @@
                       | {tab(),integer(),integer(),binary(),list(),integer()}
                       | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
 
-%% a similar definition is also in erl_types
 -opaque tid()      :: integer().
 
-%% these ones are also defined in erl_bif_types
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
 

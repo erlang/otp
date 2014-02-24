@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -98,14 +98,14 @@
                      def_vars   :: [core_vars()],
                      arg_types  :: [erl_types:erl_type()],
                      call_vars  :: [core_vars()],
-                     var_map    :: dict()}).
+                     var_map    :: dict:dict()}).
 -record(dep_call,   {call_name  :: dep_calls(),
                      args       :: args(),
                      arg_types  :: [erl_types:erl_type()],
                      vars       :: [core_vars()],
                      state      :: _, %% XXX: recursive
                      file_line  :: file_line(),
-                     var_map    :: dict()}).
+                     var_map    :: dict:dict()}).
 -record(fun_call,   {caller     :: dialyzer_callgraph:mfa_or_funlbl(),
                      callee     :: dialyzer_callgraph:mfa_or_funlbl(),
                      arg_types  :: [erl_types:erl_type()],
@@ -114,7 +114,7 @@
                      arg        :: var_to_map1()}).
 -record(warn_call,  {call_name  :: warn_calls(),
                      args       :: args(),
-                     var_map    :: dict()}).
+                     var_map    :: dict:dict()}).
 
 -type case_tags()  :: 'beg_case' | #beg_clause{} | #end_clause{} | #end_case{}.
 -type code()       :: [#dep_call{} | #fun_call{} | #warn_call{} |
@@ -1565,7 +1565,7 @@ any_args(StrList) ->
       end
   end.
 
--spec bind_dict_vars(label(), label(), dict()) -> dict().
+-spec bind_dict_vars(label(), label(), dict:dict()) -> dict:dict().
 
 bind_dict_vars(Key, Label, RaceVarMap) ->
   case Key =:= Label of
@@ -1751,7 +1751,7 @@ compare_vars(Var1, Var2, RaceVarMap) when is_integer(Var1), is_integer(Var2) ->
 compare_vars(_Var1, _Var2, _RaceVarMap) ->
   false.
 
--spec compare_var_list(label_type(), [label_type()], dict()) -> boolean().
+-spec compare_var_list(label_type(), [label_type()], dict:dict()) -> boolean().
 
 compare_var_list(Var, VarList, RaceVarMap) ->
   lists:any(fun (V) -> compare_vars(Var, V, RaceVarMap) end, VarList).
@@ -1956,7 +1956,8 @@ mnesia_tuple_argtypes(TupleStr) ->
   [TupleStr2|_T] = string:tokens(TupleStr1, " ,"),
   lists:flatten(string:tokens(TupleStr2, " |")).
 
--spec race_var_map(var_to_map1(), var_to_map2(), dict(), op()) -> dict().
+-spec race_var_map(var_to_map1(), var_to_map2(), dict:dict(), op()) ->
+        dict:dict().
 
 race_var_map(Vars1, Vars2, RaceVarMap, Op) ->
   case Vars1 =:= ?no_arg orelse Vars1 =:= ?bypassed

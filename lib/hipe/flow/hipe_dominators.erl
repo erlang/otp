@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,7 +57,7 @@
 
 -record(domTree, {root                     :: cfg_lbl(),
 		  size  = 0		   :: non_neg_integer(),
-		  nodes = gb_trees:empty() :: gb_tree()}).
+		  nodes = gb_trees:empty() :: gb_trees:tree()}).
 -type domTree() :: #domTree{}.
 
 %%>----------------------------------------------------------------------<
@@ -590,7 +590,7 @@ domTree_pp_children([], _) ->
 %%
 %%========================================================================
 
--type domFrontier() :: gb_tree().
+-type domFrontier() :: gb_trees:tree().
 
 %%>----------------------------------------------------------------------<
 %% Procedure : domFrontier_create

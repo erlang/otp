@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -213,9 +213,12 @@ validate_error_1(Error, Module, Name, Ar) ->
     {{Module,Name,Ar},
      {internal_error,'_',{Error,erlang:get_stacktrace()}}}.
 
+-type index() :: non_neg_integer().
+-type reg_tab() :: gb_trees:tree(index(), 'none' | {'value', _}).
+
 -record(st,				%Emulation state
-	{x=init_regs(0, term)        :: gb_tree(),	%x register info.
-	 y=init_regs(0, initialized) :: gb_tree(),	%y register info.
+	{x=init_regs(0, term)        :: reg_tab(),%x register info.
+	 y=init_regs(0, initialized) :: reg_tab(),%y register info.
 	 f=init_fregs(),                %
 	 numy=none,			%Number of y registers.
 	 h=0,				%Available heap size.
@@ -227,11 +230,16 @@ validate_error_1(Error, Module, Name, Ar) ->
 	 setelem=false			%Previous instruction was setelement/3.
 	}).
 
+-type label()        :: integer().
+-type label_set()    :: gb_sets:set(label()).
+-type branched_tab() :: gb_trees:tree(label(), #st{}).
+-type ft_tab()       :: gb_trees:tree().
+
 -record(vst,				%Validator state
 	{current=none              :: #st{} | 'none',	%Current state
-	 branched=gb_trees:empty() :: gb_tree(),	%States at jumps
-	 labels=gb_sets:empty()    :: gb_set(),		%All defined labels
-	 ft=gb_trees:empty()       :: gb_tree()         %Some other functions
+	 branched=gb_trees:empty() :: branched_tab(),	%States at jumps
+	 labels=gb_sets:empty()    :: label_set(),	%All defined labels
+	 ft=gb_trees:empty()       :: ft_tab()          %Some other functions
 	 		% in the module (those that start with bs_start_match2).
 	}).
 

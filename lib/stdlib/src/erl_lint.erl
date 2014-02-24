@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -85,8 +85,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -record(usage, {
           calls = dict:new(),			%Who calls who
           imported = [],                        %Actually imported functions
-          used_records=sets:new() :: set(),	%Used record definitions
-	  used_types = dict:new() :: dict()	%Used type definitions
+          used_records=sets:new() :: sets:set(),%Used record definitions
+	  used_types = dict:new() :: dict:dict()%Used type definitions
          }).
 
 %% Define the lint state record.
@@ -95,13 +95,13 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -record(lint, {state=start		:: 'start' | 'attribute' | 'function',
                module=[],                       %Module
                behaviour=[],                    %Behaviour
-               exports=gb_sets:empty()	:: gb_set(),	%Exports
+               exports=gb_sets:empty()	:: gb_sets:set(),%Exports
                imports=[],                      %Imports
                compile=[],                      %Compile flags
-               records=dict:new()	:: dict(),	%Record definitions
-               locals=gb_sets:empty()	:: gb_set(),	%All defined functions (prescanned)
-	       no_auto=gb_sets:empty()	:: gb_set() | 'all',	%Functions explicitly not autoimported
-               defined=gb_sets:empty()	:: gb_set(),	%Defined fuctions
+               records=dict:new()	:: dict:dict(),	%Record definitions
+               locals=gb_sets:empty()	:: gb_sets:set(),%All defined functions (prescanned)
+	       no_auto=gb_sets:empty()	:: gb_sets:set() | 'all',%Functions explicitly not autoimported
+               defined=gb_sets:empty()	:: gb_sets:set(),%Defined fuctions
 	       on_load=[] :: [fa()],		%On-load function
 	       on_load_line=0 :: line(),	%Line for on_load
 	       clashes=[],			%Exported functions named as BIFs
@@ -118,10 +118,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                new = false :: boolean(),	%Has user-defined 'new/N'
                called= [] :: [{fa(),line()}],		%Called functions
                usage = #usage{}		:: #usage{},
-	       specs = dict:new()	:: dict(),	%Type specifications
-	       callbacks = dict:new()   :: dict(),      %Callback types
-	       types = dict:new()	:: dict(),	%Type definitions
-	       exp_types=gb_sets:empty():: gb_set()	%Exported types
+	       specs = dict:new()	:: dict:dict(),	%Type specifications
+	       callbacks = dict:new()   :: dict:dict(), %Callback types
+	       types = dict:new()	:: dict:dict(),	%Type definitions
+	       exp_types=gb_sets:empty():: gb_sets:set()%Exported types
               }).
 
 -type lint_state() :: #lint{}.
@@ -344,9 +344,10 @@ format_error(spec_wrong_arity) ->
     "spec has the wrong arity";
 format_error(callback_wrong_arity) ->
     "callback has the wrong arity";
-format_error({imported_predefined_type, Name}) ->
-    io_lib:format("referring to built-in type ~w as a remote type; "
-		  "please take out the module name", [Name]);
+format_error({deprecated_type, {Name, Arity}, {Mod, NewName}, Rel}) ->
+    io_lib:format("type ~w/~w is deprecated and will be "
+                  "removed in ~s; use ~w:~w/~w",
+                  [Name, Arity, Rel, Mod, NewName, Arity]);
 format_error({not_exported_opaque, {TypeName, Arity}}) ->
     io_lib:format("opaque type ~w~s is not exported",
                   [TypeName, gen_type_paren(Arity)]);
@@ -1155,7 +1156,7 @@ export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
 	    add_error(Line, {bad_export_type, ETs}, St0)
     end.
 
--spec exports(lint_state()) -> gb_set().
+-spec exports(lint_state()) -> gb_sets:set().
 
 exports(#lint{compile = Opts, defined = Defs, exports = Es}) ->
     case lists:member(export_all, Opts) of
@@ -1888,7 +1889,7 @@ is_guard_test(Expression, Forms) ->
                 end, start(), RecordAttributes),
     is_guard_test2(zip_file_and_line(Expression, "nofile"), St0#lint.records).
 
-%% is_guard_test2(Expression, RecordDefs :: dict()) -> boolean().
+%% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
 is_guard_test2({call,Line,{atom,Lr,record},[E,A]}, RDs) ->
     is_gexpr({call,Line,{atom,Lr,is_record},[E,A]}, RDs);
 is_guard_test2({call,_Line,{atom,_La,Test},As}=Call, RDs) ->
@@ -2566,18 +2567,12 @@ check_type({paren_type, _L, [Type]}, SeenVars, St) ->
     check_type(Type, SeenVars, St);
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, #lint{module=CurrentMod} = St) ->
-    St1 =
-	case is_default_type({Name, length(Args)})
-	      orelse is_var_arity_type(Name) of
-	    true -> add_error(L, {imported_predefined_type, Name}, St);
-	    false -> St
-	end,
     case Mod =:= CurrentMod of
-	true -> check_type({type, L, Name, Args}, SeenVars, St1);
+	true -> check_type({type, L, Name, Args}, SeenVars, St);
 	false ->
 	    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 				check_type(T, AccSeenVars, AccSt)
-			end, {SeenVars, St1}, Args)
+			end, {SeenVars, St}, Args)
     end;
 check_type({integer, _L, _}, SeenVars, St) -> {SeenVars, St};
 check_type({atom, _L, _}, SeenVars, St) -> {SeenVars, St};
@@ -2635,14 +2630,33 @@ check_type({type, _L, product, Args}, SeenVars, St) ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Args);
-check_type({type, La, TypeName, Args}, SeenVars, #lint{usage=Usage} = St) ->
+check_type({type, La, TypeName, Args}, SeenVars, St) ->
+    #lint{usage=Usage, module = Module, types=Types} = St,
     Arity = length(Args),
+    TypePair = {TypeName, Arity},
     St1 = case is_var_arity_type(TypeName) of
 	      true -> St;
 	      false ->
-		  OldUsed = Usage#usage.used_types,
-		  UsedTypes = dict:store({TypeName, Arity}, La, OldUsed),
-		  St#lint{usage=Usage#usage{used_types=UsedTypes}}
+                  Obsolete = obsolete_type(TypePair),
+                  IsObsolete =
+                      case Obsolete of
+                          {deprecated, {M, _}, _} when M =/= Module ->
+                              case dict:find(TypePair, Types) of
+                                  {ok, _} -> false;
+                                  error -> true
+                              end;
+                          _ -> false
+                      end,
+                  case IsObsolete of
+                      true ->
+                          {deprecated, Replacement, Rel} = Obsolete,
+                          W = {deprecated_type, TypePair, Replacement, Rel},
+                          add_warning(La, W, St);
+                      false ->
+                          OldUsed = Usage#usage.used_types,
+                          UsedTypes = dict:store(TypePair, La, OldUsed),
+                          St#lint{usage=Usage#usage{used_types=UsedTypes}}
+                  end
 	  end,
     check_type({type, -1, product, Args}, SeenVars, St1);
 check_type(I, SeenVars, St) ->
@@ -2764,6 +2778,17 @@ is_newly_introduced_builtin_type({set, 0}) -> true; % opaque
 %% R13B01
 is_newly_introduced_builtin_type({boolean, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
+
+%% Obsolete in OTP 17.0.
+obsolete_type({array, 0}) -> {deprecated, {array, array}, "OTP 18.0"};
+obsolete_type({dict, 0}) -> {deprecated, {dict, dict}, "OTP 18.0"};
+obsolete_type({digraph, 0}) -> {deprecated, {digraph, graph}, "OTP 18.0"};
+obsolete_type({gb_set, 0}) -> {deprecated, {gb_sets, set}, "OTP 18.0"};
+obsolete_type({gb_tree, 0}) -> {deprecated, {gb_trees, tree}, "OTP 18.0"};
+obsolete_type({queue, 0}) -> {deprecated, {queue, queue}, "OTP 18.0"};
+obsolete_type({set, 0}) -> {deprecated, {sets, set}, "OTP 18.0"};
+obsolete_type({tid, 0}) -> {deprecated, {ets, tid}, "OTP 18.0"};
+obsolete_type({Name, _}) when is_atom(Name) -> no.
 
 %% spec_decl(Line, Fun, Types, State) -> State.
 

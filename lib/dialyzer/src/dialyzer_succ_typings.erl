@@ -72,7 +72,7 @@
 
 -record(st, {callgraph      :: dialyzer_callgraph:callgraph(),
 	     codeserver     :: dialyzer_codeserver:codeserver(),
-	     no_warn_unused :: set(),
+	     no_warn_unused :: sets:set(mfa()),
 	     parent = none  :: parent(),
 	     timing_server  :: dialyzer_timing:timing_server(),
              solvers        :: [solver()],
@@ -137,7 +137,7 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
 -spec get_warnings(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
-		   doc_plt(), dialyzer_codeserver:codeserver(), set(),
+		   doc_plt(), dialyzer_codeserver:codeserver(), sets:set(mfa()),
 		   dialyzer_timing:timing_server(), [solver()], pid()) ->
 	 {[dial_warning()], dialyzer_plt:plt(), doc_plt()}.
 

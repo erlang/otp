@@ -228,7 +228,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0]).
+-export_type([erl_type/0, type_table/0, var_table/0]).
 
 %%-define(DEBUG, true).
 
@@ -362,6 +362,15 @@
 -define(integer_neg,               ?int_range(neg_inf, -1)).
 
 -type opaques() :: [erl_type()] | 'universe'.
+
+-type record_key()   :: {'record', atom()}.
+-type type_key()     :: {'type' | 'opaque', atom(), arity()}.
+-type record_value() :: orddict:orddict(). % XXX. To be refined
+-type type_value()   :: {module(), erl_type(), atom()}.
+-type type_table() :: dict:dict(record_key(), record_value())
+                    | dict:dict(type_key(), type_value()).
+
+-type var_table() :: dict:dict(atom(), erl_type()).
 
 %%-----------------------------------------------------------------------------
 %% Unions
@@ -723,7 +732,7 @@ decorate_tuples_in_sets([T1|Tuples], L2, Opaques, Acc) ->
 decorate_tuples_in_sets([], _L, _Opaques, Acc) ->
   lists:reverse(Acc).
 
--spec t_opaque_from_records(dict()) -> [erl_type()].
+-spec t_opaque_from_records(type_table()) -> [erl_type()].
 
 t_opaque_from_records(RecDict) ->
   OpaqueRecDict =
@@ -798,7 +807,9 @@ t_is_remote(Type) ->
 is_remote(?remote(_)) -> true;
 is_remote(_) -> false.
 
--spec t_solve_remote(erl_type(), set(), dict()) -> erl_type().
+-type mod_records() :: dict:dict(module(), type_table()).
+
+-spec t_solve_remote(erl_type(), sets:set(mfa()), mod_records()) -> erl_type().
 
 t_solve_remote(Type, ExpTypes, Records) ->
   {RT, _RR} = t_solve_remote(Type, ExpTypes, Records, []),
@@ -1962,7 +1973,7 @@ t_timeout() ->
 -spec t_array() -> erl_type().
 
 t_array() ->
-  t_opaque(array, array, [],
+  t_opaque(array, array, [t_any()],
 	   t_tuple([t_atom('array'),
 		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
                     t_sup([t_atom('undefined'), t_non_neg_integer()]),
@@ -1972,7 +1983,7 @@ t_array() ->
 -spec t_dict() -> erl_type().
 
 t_dict() ->
-  t_opaque(dict, dict, [],
+  t_opaque(dict, dict, [t_any(), t_any()],
 	   t_tuple([t_atom('dict'),
 		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
 		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
@@ -2008,12 +2019,12 @@ t_gb_tree() ->
 -spec t_queue() -> erl_type().
 
 t_queue() ->
-  t_opaque(queue, queue, [], t_tuple([t_list(), t_list()])).
+  t_opaque(queue, queue, [t_any()], t_tuple([t_list(), t_list()])).
 
 -spec t_set() -> erl_type().
 
 t_set() ->
-  t_opaque(sets, set, [],
+  t_opaque(sets, set, [t_any()],
 	   t_tuple([t_atom('set'), t_non_neg_integer(), t_non_neg_integer(),
 		    t_pos_integer(), t_non_neg_integer(), t_non_neg_integer(),
 		    t_non_neg_integer(),
@@ -2030,18 +2041,6 @@ t_tid() ->
 all_opaque_builtins() ->
   [t_array(), t_dict(), t_digraph(), t_gb_set(),
    t_gb_tree(), t_queue(), t_set(), t_tid()].
-
--spec is_opaque_builtin(atom(), atom()) -> boolean().
-
-is_opaque_builtin(array, array) -> true;
-is_opaque_builtin(dict, dict) -> true;
-is_opaque_builtin(digraph, digraph) -> true;
-is_opaque_builtin(gb_sets, gb_set) -> true;
-is_opaque_builtin(gb_trees, gb_tree) -> true;
-is_opaque_builtin(queue, queue) -> true;
-is_opaque_builtin(sets, set) -> true;
-is_opaque_builtin(ets, tid) -> true;
-is_opaque_builtin(_, _) -> false.
 
 %%------------------------------------
 
@@ -2831,9 +2830,9 @@ comb(Mod, Name, Args, S, T) ->
     false -> T#opaque{struct = S}
   end.
 
-is_same_name(Mod, Name, Args,
-             ?opaque([#opaque{mod = Mod, name = Name, args = Args}])) ->
-  true;
+is_same_name(Mod1, Name1, Args1,
+             ?opaque([#opaque{mod = Mod2, name = Name2, args = Args2}])) ->
+  is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2});
 is_same_name(_, _, _, _) -> false.
 
 %% Combining two lists this way can be very time consuming...
@@ -3035,13 +3034,13 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
 %% to types. Hans Bolinder suggested the use of lists of Key-Value pairs for
 %% this data structure and measurements showed a non-trivial speedup when using
 %% them for operations within this module (e.g. in t_unify/2). However, there
-%% is code outside erl_types that still passes a dict() in the 2nd argument.
+%% is code outside erl_types that still passes a dict:dict() in the 2nd argument.
 %% So, for the time being, this module provides a t_subst/2 function for these
 %% external calls and a clone of it (t_subst_kv/2) which is used from all calls
 %% from within this module. This code duplication needs to be eliminated at
 %% some point.
 
--spec t_subst(erl_type(), dict()) -> erl_type().
+-spec t_subst(erl_type(), dict:dict(atom(), erl_type())) -> erl_type().
 
 t_subst(T, Dict) ->
   case t_has_var(T) of
@@ -3785,7 +3784,7 @@ t_limit_k(T, _K) -> T.
 %%
 %%============================================================================
 
--spec t_abstract_records(erl_type(), dict()) -> erl_type().
+-spec t_abstract_records(erl_type(), type_table()) -> erl_type().
 
 t_abstract_records(?list(Contents, Termination, Size), RecDict) ->
   case t_abstract_records(Contents, RecDict) of
@@ -3865,7 +3864,7 @@ t_map(Fun, T) ->
 t_to_string(T) ->
   t_to_string(T, dict:new()).
 
--spec t_to_string(erl_type(), dict()) -> string().
+-spec t_to_string(erl_type(), type_table()) -> string().
 
 t_to_string(?any, _RecDict) ->
   "any()";
@@ -4051,7 +4050,7 @@ record_fields_to_string([F|Fs], [{FName, _DefType}|FDefs], RecDict, Acc) ->
 record_fields_to_string([], [], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec record_field_diffs_to_string(erl_type(), dict()) -> string().
+-spec record_field_diffs_to_string(erl_type(), type_table()) -> string().
 
 record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
   [TagAtom] = atom_vals(Tag),
@@ -4086,9 +4085,9 @@ union_sequence(Types, RecDict) ->
 
 -ifdef(DEBUG).
 opaque_type(Mod, Name, _Args, S, RecDict) ->
-  ArgsString = "[ARGS:" ++ comma_sequence(_Args, RecDict) ++ "]",
+  ArgsString = comma_sequence(_Args, RecDict),
   String = t_to_string(S, RecDict),
-  opaque_name(Mod, Name, ArgsString ++ String).
+  opaque_name(Mod, Name, ArgsString) ++ "[" ++ String ++ "]".
 -else.
 opaque_type(Mod, Name, Args, _S, RecDict) ->
   ArgsString = comma_sequence(Args, RecDict),
@@ -4100,10 +4099,15 @@ opaque_name(Mod, Name, Extra) ->
   flat_format("~s(~s)", [S, Extra]).
 
 mod_name(Mod, Name) ->
-  case is_opaque_builtin(Mod, Name) of
+  case is_obsolete_opaque_builtin(Mod, Name) of
     true  -> flat_format("~w", [Name]);
     false -> flat_format("~w:~w", [Mod, Name])
   end.
+
+is_obsolete_opaque_builtin(digraph, digraph) -> true;
+is_obsolete_opaque_builtin(gb_sets, gb_set) -> true;
+is_obsolete_opaque_builtin(gb_trees, gb_tree) -> true;
+is_obsolete_opaque_builtin(_, _) -> false.
 
 %%=============================================================================
 %% 
@@ -4116,19 +4120,20 @@ mod_name(Mod, Name) ->
 t_from_form(Form) ->
   t_from_form(Form, dict:new()).
 
--spec t_from_form(parse_form(), dict()) -> erl_type().
+-spec t_from_form(parse_form(), type_table()) -> erl_type().
 
 t_from_form(Form, RecDict) ->
   t_from_form(Form, RecDict, dict:new()).
 
--spec t_from_form(parse_form(), dict(), dict()) -> erl_type().
+-spec t_from_form(parse_form(), type_table(), var_table()) -> erl_type().
 
 t_from_form(Form, RecDict, VarDict) ->
   {T, _R} = t_from_form(Form, [], RecDict, VarDict),
   T.
 
--type type_names() :: [{'type' | 'opaque' | 'record', atom()}].
--spec t_from_form(parse_form(), type_names(), dict(), dict()) ->
+-type type_names() :: [type_key() | record_key()].
+
+-spec t_from_form(parse_form(), type_names(), type_table(), var_table()) ->
                      {erl_type(), type_names()}.
 
 t_from_form({var, _L, '_'}, _TypeNames, _RecDict, _VarDict) ->
@@ -4167,8 +4172,8 @@ t_from_form({type, _L, any, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_any(), []};
 t_from_form({type, _L, arity, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_arity(), []};
-t_from_form({type, _L, array, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_array(), []};
+t_from_form({type, _L, array, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(array, t_array(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, atom, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_atom(), []};
 t_from_form({type, _L, binary, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4190,10 +4195,10 @@ t_from_form({type, _L, byte, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_byte(), []};
 t_from_form({type, _L, char, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_char(), []};
-t_from_form({type, _L, dict, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_dict(), []};
-t_from_form({type, _L, digraph, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_digraph(), []};
+t_from_form({type, _L, dict, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(dict, t_dict(), TypeNames, RecDict, VarDict);
+t_from_form({type, _L, digraph, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(digraph, t_digraph(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, float, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_float(), []};
 t_from_form({type, _L, function, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4209,10 +4214,10 @@ t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
   {L, R1} = list_from_form(Domain, TypeNames, RecDict, VarDict),
   {T, R2} = t_from_form(Range, TypeNames, RecDict, VarDict),
   {t_fun(L, T), R1 ++ R2};
-t_from_form({type, _L, gb_set, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_gb_set(), []};
-t_from_form({type, _L, gb_tree, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_gb_tree(), []};
+t_from_form({type, _L, gb_set, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(gb_set, t_gb_set(), TypeNames, RecDict, VarDict);
+t_from_form({type, _L, gb_tree, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(gb_tree, t_gb_tree(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, identifier, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_identifier(), []};
 t_from_form({type, _L, integer, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4285,8 +4290,8 @@ t_from_form({type, _L, maybe_improper_list, [Content, Termination]},
 t_from_form({type, _L, product, Elements}, TypeNames, RecDict, VarDict) ->
   {L, R} = list_from_form(Elements, TypeNames, RecDict, VarDict),
   {t_product(L), R};
-t_from_form({type, _L, queue, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_queue(), []};
+t_from_form({type, _L, queue, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(queue, t_queue(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, range, [From, To]} = Type,
 	    _TypeNames, _RecDict, _VarDict) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
@@ -4298,14 +4303,14 @@ t_from_form({type, _L, record, [Name|Fields]}, TypeNames, RecDict, VarDict) ->
   record_from_form(Name, Fields, TypeNames, RecDict, VarDict);
 t_from_form({type, _L, reference, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_reference(), []};
-t_from_form({type, _L, set, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_set(), []};
+t_from_form({type, _L, set, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(set, t_set(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, string, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_string(), []};
 t_from_form({type, _L, term, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_any(), []};
-t_from_form({type, _L, tid, []}, _TypeNames, _RecDict, _VarDict) ->
-  {t_tid(), []};
+t_from_form({type, _L, tid, []}, TypeNames, RecDict, VarDict) ->
+  builtin_type(tid, t_tid(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, timeout, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_timeout(), []};
 t_from_form({type, _L, tuple, any}, _TypeNames, _RecDict, _VarDict) ->
@@ -4322,36 +4327,46 @@ t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
             _RecDict, _VarDict) ->
   {t_opaque(Mod, Name, Args, Rep), []}.
 
+builtin_type(Name, Type, TypeNames, RecDict, VarDict) ->
+  case lookup_type(Name, 0, RecDict) of
+    {_, {_M, _T, _A}} ->
+      type_from_form(Name, [], TypeNames, RecDict, VarDict);
+    error ->
+      {Type, []}
+  end.
+
 type_from_form(Name, Args, TypeNames, RecDict, VarDict) ->
   ArgsLen = length(Args),
   ArgTypes = forms_to_types(Args, TypeNames, RecDict, VarDict),
   case lookup_type(Name, ArgsLen, RecDict) of
     {type, {_Module, Type, ArgNames}} ->
-      case can_unfold_more({type, Name}, TypeNames) of
+      TypeName = {type, Name, ArgsLen},
+      case can_unfold_more(TypeName, TypeNames) of
         true ->
           List = lists:zip(ArgNames, ArgTypes),
           TmpVarDict = dict:from_list(List),
-          {T, R} = t_from_form(Type, [{type, Name}|TypeNames],
+          {T, R} = t_from_form(Type, [TypeName|TypeNames],
                                RecDict, TmpVarDict),
-          case lists:member({type, Name}, R) of
+          case lists:member(TypeName, R) of
             true -> {t_limit(T, ?REC_TYPE_LIMIT), R};
             false -> {T, R}
           end;
-        false -> {t_any(), [{type, Name}]}
+        false -> {t_any(), [TypeName]}
       end;
     {opaque, {Module, Type, ArgNames}} ->
+      TypeName = {opaque, Name, ArgsLen},
       {Rep, Rret} =
-        case can_unfold_more({opaque, Name}, TypeNames) of
+        case can_unfold_more(TypeName, TypeNames) of
           true ->
             List = lists:zip(ArgNames, ArgTypes),
             TmpVarDict = dict:from_list(List),
-            {T, R} = t_from_form(Type, [{opaque, Name}|TypeNames],
+            {T, R} = t_from_form(Type, [TypeName|TypeNames],
                                  RecDict, TmpVarDict),
-            case lists:member({opaque, Name}, R) of
+            case lists:member(TypeName, R) of
               true -> {t_limit(T, ?REC_TYPE_LIMIT), R};
               false -> {T, R}
             end;
-          false -> {t_any(), [{opaque, Name}]}
+          false -> {t_any(), [TypeName]}
         end,
       Args2 = [subst_all_vars_to_any(ArgType) || ArgType <- ArgTypes],
       {skip_opaque_alias(Rep, Module, Name, Args2), Rret};
@@ -4588,7 +4603,7 @@ is_erl_type(?unit) -> true;
 is_erl_type(#c{}) -> true;
 is_erl_type(_) -> false.
 
--spec lookup_record(atom(), dict()) ->
+-spec lookup_record(atom(), type_table()) ->
         'error' | {'ok', [{atom(), parse_form() | erl_type()}]}.
 
 lookup_record(Tag, RecDict) when is_atom(Tag) ->
@@ -4603,7 +4618,8 @@ lookup_record(Tag, RecDict) when is_atom(Tag) ->
       error
   end.
 
--spec lookup_record(atom(), arity(), dict()) -> 'error' | {'ok', [{atom(), erl_type()}]}.
+-spec lookup_record(atom(), arity(), type_table()) ->
+        'error' | {'ok', [{atom(), erl_type()}]}.
 
 lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
   case dict:find({record, Tag}, RecDict) of
@@ -4622,7 +4638,8 @@ lookup_type(Name, Arity, RecDict) ->
     {ok, Found} -> {type, Found}
   end.
 
--spec type_is_defined('type' | 'opaque', atom(), arity(), dict()) -> boolean().
+-spec type_is_defined('type' | 'opaque', atom(), arity(), type_table()) ->
+        boolean().
 
 type_is_defined(TypeOrOpaque, Name, Arity, RecDict) ->
   dict:is_key({TypeOrOpaque, Name, Arity}, RecDict).
@@ -4654,9 +4671,16 @@ do_opaque(?union(List) = Type, Opaques, Pred) ->
 do_opaque(Type, _Opaques, Pred) ->
   Pred(Type).
 
-is_same_type_name({Mod, Name, Args}, {Mod, Name, Args}) -> true;
+is_same_type_name(ModNameArgs, ModNameArgs) -> true;
+is_same_type_name({Mod, Name, Args1}, {Mod, Name, Args2}) ->
+  all_any(Args1) orelse all_any(Args2);
 is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) ->
   is_same_type_name2(Mod1, Name1, Args1, Mod2, Name2, Args2).
+
+all_any([]) -> true;
+all_any([T|L]) ->
+  t_is_any(T) andalso all_any(L);
+all_any(_) -> false.
 
 %% Compatibility. In Erlang/OTP 17 the pre-defined opaque types
 %% digraph() and so on can be used, but there are also new types such
@@ -4665,10 +4689,10 @@ is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) ->
 
 is_same_type_name2(digraph,  digraph, [], digraph,  graph, [])   -> true;
 is_same_type_name2(digraph,  graph, [],   digraph,  digraph, []) -> true;
-is_same_type_name2(gb_sets,  gb_set, [],  gb_sets,  set, [?any]) -> true;
-is_same_type_name2(gb_sets,  set, [?any], gb_sets,  gb_set, [])  -> true;
-is_same_type_name2(gb_trees, gb_tree, [], gb_trees, tree, [?any, ?any]) -> true;
-is_same_type_name2(gb_trees, tree, [?any, ?any], gb_trees, gb_tree, []) -> true;
+is_same_type_name2(gb_sets,  gb_set, [],  gb_sets,  set, [_]) -> true;
+is_same_type_name2(gb_sets,  set, [_], gb_sets,  gb_set, [])  -> true;
+is_same_type_name2(gb_trees, gb_tree, [], gb_trees, tree, [_, _]) -> true;
+is_same_type_name2(gb_trees, tree, [_, _], gb_trees, gb_tree, []) -> true;
 is_same_type_name2(_, _, _, _, _, _) -> false.
 
 %% -----------------------------------

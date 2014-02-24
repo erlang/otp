@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,7 +95,7 @@ test_1(_,0, Env) ->
 %% =====================================================================
 %% @type environment(). An abstract environment.
 
--type mapping()     :: {'map', dict()} | {'rec', dict(), dict()}.
+-type mapping()     :: {'map', dict:dict()} | {'rec', dict:dict(), dict:dict()}.
 -type environment() :: [mapping(),...].
 
 %% =====================================================================
