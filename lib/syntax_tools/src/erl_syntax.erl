@@ -1984,7 +1984,7 @@ revert_map_expr(Node) ->
 %% Otherwise, if `Node' represents "<code><em>Argument</em>#{...}</code>",
 %% `Argument' is returned.
 %%
-%% @see map_expr/3
+%% @see map_expr/2
 
 -spec map_expr_argument(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -2002,7 +2002,7 @@ map_expr_argument(Node) ->
 %% =====================================================================
 %% @doc Returns the list of field subtrees of a `map_expr' node.
 %%
-%% @see map_expr/3
+%% @see map_expr/2
 
 -spec map_expr_fields(syntaxTree()) -> [syntaxTree()].
 
@@ -2023,7 +2023,7 @@ map_expr_fields(Node) ->
 %%
 %% @see map_field_assoc_name/1
 %% @see map_field_assoc_value/1
-%% @see map_expr/3
+%% @see map_expr/2
 
 -record(map_field_assoc, {name :: syntaxTree(), value :: syntaxTree()}).
 
@@ -2081,7 +2081,7 @@ map_field_assoc_value(Node) ->
 %%
 %% @see map_field_exact_name/1
 %% @see map_field_exact_value/1
-%% @see map_expr/3
+%% @see map_expr/2
 
 -record(map_field_exact, {name :: syntaxTree(), value :: syntaxTree()}).
 
