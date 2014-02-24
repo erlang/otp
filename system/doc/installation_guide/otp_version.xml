@@ -32,13 +32,29 @@
     <file>otp_version.xml</file>
   </header>
     <p>As of OTP release 17, the OTP release number corresponds to
-    the major OTP version number. In the normal case, the OTP version
-    number will be constructed as
-    <c>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</c>. However more
-    dot separated parts may exist. If all parts less significant than
-    <c>Minor</c> equals <c>0</c>, they are omitted when printing the
-    version. Release candidates have an <c>-rc&lt;N&gt;</c> suffix. The
-    OTP version as a concept was introduced in OTP 17.</p>
+    the major part of the OTP version. The OTP version as a concept was
+    introduced in OTP 17. In the normal case, the OTP version will be
+    constructed as
+    <c>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</c> where <c>&lt;Major&gt;</c>
+    is the most significant part. However, more dot separated parts than
+    this may exist. The dot separated parts consists of integers. If all
+    parts less significant than <c>&lt;Minor&gt;</c> equals <c>0</c>, they
+    are omitted. The three normal parts
+    <c>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</c> will be changed as
+    follows:</p>
+    <taglist>
+      <tag><c>&lt;Major&gt;</c></tag><item>Increased when major changes,
+      including incompatibilities, have been made.</item>
+      <tag><c>&lt;Minor&gt;</c></tag><item>Increased when new functionality
+      has been added.</item>
+      <tag><c>&lt;Patch&gt;</c></tag><item>Increased when pure bug fixes
+      have been made.</item>
+    </taglist>
+    <p>When a part in the version number is increased, all less significant
+    parts are set to <c>0</c>. Release candidates have an <c>-rc&lt;N&gt;</c>
+    suffix. The suffix <c>-rc0</c> will be used during development up to
+    the first release candidate.</p>
+
     <p>OTP of a specific version is a set of applications of
     specific versions. The application versions identified by
     an OTP version corresponds to application versions that
@@ -48,6 +64,15 @@
     has not been tested by the Erlang/OTP team. It is therefore
     <em>always preferred to use OTP applications from one single OTP
     version</em>.</p>
+
+    <p>Application versions will be managed the same way as the OTP version.
+    Application versions part of a release candidate will however not have an
+    <c>-rc&lt;N&gt;</c> suffix as the OTP version. Also note that a major
+    increment in an application version does not necessarily imply a major
+    increment of the OTP version. This depends on whether the
+    major change in the application is considered as a major change for
+    OTP as a whole or not.</p>
+
     <p>In an OTP source code tree as well as in an installed OTP
     development system, the OTP version can be read from the text
     file <c>OTP_VERSION</c> in the OTP installation root directory
@@ -58,14 +83,14 @@
     this case, the system consists of application versions from
     multiple OTP versions. The version preceding the <c>**</c>
     suffix corresponds to the OTP version of the base system that
-    has been patched.</p>
+    has been patched. Note that if a development system is updated by
+    other means than <c>$ERL_TOP/otp_build patch_app</c>, the
+    <c>OTP_VERSION</c> file may identify wrong OTP version.</p>
+
     <p>On a target system (see the
     <seealso marker="doc/system_principles:create_target">system principles</seealso>
     documentation) no <c>OTP_VERSION</c> file will exist. This since
     one easily can create a target system where it is hard to even
     determine the base OTP version.</p>
-    <p>Note that if a development system is updated by other means
-    than <c>$ERL_TOP/otp_build patch_app</c>, the <c>OTP_VERSION</c>
-    file may identify wrong OTP version.</p>
 </chapter>
 
