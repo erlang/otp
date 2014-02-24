@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,8 @@ MODULES= \
 	erl_print_SUITE \
 	run_erl_SUITE \
 	erlexec_SUITE \
-	z_SUITE
+	z_SUITE \
+	upgrade_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
