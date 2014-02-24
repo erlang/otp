@@ -375,9 +375,9 @@ AS_HELP_STRING(
   [verbose build output (undo: "make V=0")])dnl
 ])
 
-DEFAULT_VERBOSITY=1
-if test X${enable_silent_rules} = Xyes; then
-  DEFAULT_VERBOSITY=0
+DEFAULT_VERBOSITY=0
+if test X${enable_silent_rules} = Xno; then
+  DEFAULT_VERBOSITY=1
 fi
 AC_SUBST(DEFAULT_VERBOSITY)
 

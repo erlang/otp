@@ -80,8 +80,8 @@ TARGET_DIR = ../priv/$(SYS_TYPE)
 COMMON_CFLAGS = @DEFS@ $(ERL_INCS) 
 
 CC		= @CC@
-CPP		= @CXX@
-LD		= $(CPP)
+CXX		= @CXX@
+LD		= $(CXX)
 LDFLAGS		= @LDFLAGS@
 RESCOMP		= @WX_RESCOMP@
 
@@ -111,7 +111,7 @@ GL_LIBS         = @GL_LIBS@
 
 CC_O		= $(V_CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
-CPP_O		= $(V_CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
+CXX_O		= $(V_CXX) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
 
 # Targets
 
@@ -141,7 +141,7 @@ $(WX_OBJECTS): $(GENERATED_H) $(GENERAL_H)
 
 $(SYS_TYPE)/%.o: %.cpp 
 	$(V_at)mkdir -p $(SYS_TYPE)
-	$(CPP_O) $< -o $@
+	$(CXX_O) $< -o $@
 
 $(SYS_TYPE)/%.o: %.c 
 	$(V_at)mkdir -p $(SYS_TYPE)
@@ -153,7 +153,7 @@ $(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c
 
 $(SYS_TYPE)/%.o: gen/%.cpp 
 	$(V_at)mkdir -p $(SYS_TYPE)
-	$(CPP_O) $< -o $@
+	$(CXX_O) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.c 
 	$(V_at)mkdir -p $(SYS_TYPE)
