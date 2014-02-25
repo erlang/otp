@@ -20,7 +20,7 @@
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
 	 already_defined/1,bitstrings/1,enumerated/1,
-	 instance_of/1,integers/1,objects/1,values/1]).
+	 imports/1,instance_of/1,integers/1,objects/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -34,6 +34,7 @@ groups() ->
       [already_defined,
        bitstrings,
        enumerated,
+       imports,
        instance_of,
        integers,
        objects,
@@ -117,6 +118,30 @@ enumerated(Config) ->
       {structured_error,{'Enumerated',13},asn1ct_check,{undefined,xyz}}
      ]
     } = run(P, Config),
+    ok.
+
+imports(Config) ->
+    Ext = 'ExternalModule',
+    ExtP = {Ext,
+	    <<"ExternalModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	      "END\n">>},
+    ok = run(ExtP, Config),
+
+    M = 'Imports',
+    P = {M,
+	 <<"Imports DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "IMPORTS NotDefined FROM ExternalModule\n"
+	   "X FROM UndefinedModule objid\n"
+	   "Y, Z FROM UndefinedModule2;\n"
+	   "objid OBJECT IDENTIFIER ::= {joint-iso-ccitt(2) remote-operations(4)\n"
+	   "    notation(0)}\n"
+	   "END\n">>},
+    {error,[{structured_error,{M,2},asn1ct_check,
+	     {undefined_import,'NotDefined','ExternalModule'}},
+	    {structured_error,{M,3},asn1ct_check,{undefined_import,'X','UndefinedModule'}},
+	    {structured_error,{M,4},asn1ct_check,{undefined_import,'Y','UndefinedModule2'}},
+	    {structured_error,{M,4},asn1ct_check,{undefined_import,'Z','UndefinedModule2'}}
+	   ]} = run(P, Config),
     ok.
 
 instance_of(Config) ->

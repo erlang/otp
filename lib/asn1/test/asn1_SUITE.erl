@@ -813,10 +813,10 @@ testExport(Config) ->
 testImport(Config) ->
     test(Config, fun testImport/3).
 testImport(Config, Rule, Opts) ->
-    {error, _} = asn1ct:compile(filename:join(?config(data_dir, Config),
-                                              "ImportsFrom"),
-                                [Rule, {outdir, ?config(priv_dir, Config)}
-                                 |Opts]).
+    Files = ["ImportsFrom","ImportsFrom2","ImportsFrom3"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    42 = 'ImportsFrom':i(),
+    ok.
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
 testMegaco(Config, Rule, Opts) ->

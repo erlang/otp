@@ -270,46 +270,30 @@ check_exports(S,Module = #module{}) ->
 	    end
     end.
 
-check_imports(S,Module = #module{ }) ->
-    case Module#module.imports of
-	{imports,[]} ->
-	    [];
-	{imports,ImportList} when is_list(ImportList) ->
-	    check_imports2(S,ImportList,[]);
-	_ ->
-	    []
-    end.
-check_imports2(_S,[],Acc) ->
+check_imports(S, #module{imports={imports,Imports}}) ->
+    check_imports_1(S, Imports, []).
+
+check_imports_1(_S, [], Acc) ->
     Acc;
-check_imports2(S,[#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs],Acc) ->
-    NameOfDef =
-	fun(#'Externaltypereference'{type=N}) -> N;
-	   (#'Externalvaluereference'{value=N}) -> N
-	end,
-    Module = NameOfDef(ModuleRef),
-    Refs = [{M,R}||{{M,_},R} <- [{catch get_referenced_type(S,Ref),Ref}||Ref <- Imports]],
-    {Illegal,Other} = lists:splitwith(fun({error,_}) -> true;(_) -> false end,
-				      Refs),
-    ChainedRefs = [R||{M,R} <- Other, M =/= Module],
-    IllegalRefs = [R||{error,R} <- Illegal] ++ 
-	[R||{M,R} <- ChainedRefs, 
-	    ok =/= chained_import(S,Module,M,NameOfDef(R))],
-    ReportError =
-	fun(Ref) ->
-		NewS=S#state{type=Ref,tname=NameOfDef(Ref)},
-		error({import,"imported undefined entity",NewS})
-	end,
-    check_imports2(S,SFMs,[ReportError(Err)||Err <- IllegalRefs]++Acc).
+check_imports_1(S, [#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs], Acc0) ->
+    Module = name_of_def(ModuleRef),
+    Refs0 = [{catch get_referenced_type(S, Ref),Ref} || Ref <- Imports],
+    Refs = [{M,R} || {{M,_},R} <- Refs0],
+    {Illegal,Other} = lists:splitwith(fun({error,_}) -> true;
+					 (_) -> false
+				      end, Refs),
+    ChainedRefs = [R || {M,R} <- Other, M =/= Module],
+    IllegalRefs = [R || {error,R} <- Illegal] ++
+	[R || {M,R} <- ChainedRefs,
+	      ok =/= chained_import(S, Module, M, name_of_def(R))],
+    Acc = [return_asn1_error(S, Ref, {undefined_import,name_of_def(Ref),Module}) ||
+	      Ref <- IllegalRefs] ++ Acc0,
+    check_imports_1(S, SFMs, Acc).
 
 chained_import(S,ImpMod,DefMod,Name) ->
     %% Name is a referenced structure that is not defined in ImpMod,
     %% but must be present in the Imports list of ImpMod. The chain of
     %% imports of Name must end in DefMod.
-    NameOfDef =
-	fun(#'Externaltypereference'{type=N}) -> N;
-	   (#'Externalvaluereference'{value=N}) -> N;
-	   (Other) -> Other
-	end,
     GetImports =
 	fun(_M_) ->
 		case asn1_db:dbget(_M_,'MODULE') of
@@ -321,9 +305,9 @@ chained_import(S,ImpMod,DefMod,Name) ->
     FindNameInImports =
 	fun([],N,_) -> {no_mod,N};
 	   ([#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs],N,F) ->
-		case [NameOfDef(X)||X <- Imports, NameOfDef(X) =:= N] of
+		case [name_of_def(X) || X <- Imports, name_of_def(X) =:= N] of
 		    [] -> F(SFMs,N,F);
-		    [N] -> {NameOfDef(ModuleRef),N}
+		    [N] -> {name_of_def(ModuleRef),N}
 		end
 	end,
     case GetImports(ImpMod) of
@@ -6787,6 +6771,8 @@ format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
 format_error({undefined,Name}) ->
     io_lib:format("'~s' is referenced, but is not defined", [Name]);
+format_error({undefined_import,Ref,Module}) ->
+    io_lib:format("'~s' is not exported from ~s", [Ref,Module]);
 format_error({value_reused,Val}) ->
     io_lib:format("the value '~p' is used more than once", [Val]);
 format_error(Other) ->
@@ -6804,14 +6790,6 @@ error({export,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
     Pos = Ref#'Externaltypereference'.pos,
     io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
     {error,{export,Pos,Mname,Typename,Msg}};
-error({import,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
-    PosOfDef =
-	fun(#'Externaltypereference'{pos=P}) -> P;
-	   (#'Externalvaluereference'{pos=P}) -> P
-	end,
-    Pos = PosOfDef(Ref),
-    io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
-    {error,{import,Pos,Mname,Typename,Msg}};
 % error({type,{Msg1,Msg2},#state{mname=Mname,type=Type,tname=Typename}}) 
 %   when is_record(Type,typedef) ->
 %     io:format("asn1error:~p:~p:~p ~p~n",
@@ -7112,3 +7090,6 @@ check_fold(S, [H|T], Check) ->
 	    [Error|check_fold(S, T, Check)]
     end;
 check_fold(_, [], Check) when is_function(Check, 3) -> [].
+
+name_of_def(#'Externaltypereference'{type=N}) -> N;
+name_of_def(#'Externalvaluereference'{value=N}) -> N.
