@@ -19,7 +19,7 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,enumerated/1,objects/1,values/1]).
+	 already_defined/1,bitstrings/1,enumerated/1,integers/1,objects/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -31,7 +31,9 @@ all() ->
 groups() ->
     [{p,parallel(),
       [already_defined,
+       bitstrings,
        enumerated,
+       integers,
        objects,
        values]}].
 
@@ -70,6 +72,23 @@ already_defined(Config) ->
     } = run(P, Config),
     ok.
 
+bitstrings(Config) ->
+    M = 'Bitstrings',
+    P = {M,
+	 <<"Bitstrings DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Bs1 ::= BIT STRING {a(1), a(1)}\n"
+	   "  Bs2 ::= BIT STRING {a(1), b(2), a(3)}\n"
+	   "  Bs3 ::= BIT STRING {x(1), y(1)}\n"
+	   "  Bs4 ::= BIT STRING {x(-1), y(0)}\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,3},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,4},asn1ct_check,{value_reused,1}},
+      {structured_error,{M,5},asn1ct_check,{invalid_bit_number,-1}}
+     ]} = run(P, Config),
+    ok.
+
 enumerated(Config) ->
     M = 'Enumerated',
     P = {M,
@@ -96,6 +115,21 @@ enumerated(Config) ->
       {structured_error,{'Enumerated',13},asn1ct_check,{undefined,xyz}}
      ]
     } = run(P, Config),
+    ok.
+
+integers(Config) ->
+    M = 'Integers',
+    P = {M,
+	 <<"Integers DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Int1 ::= INTEGER {a(1), a(1)}\n"
+	   "  Int2 ::= INTEGER {a(1), b(2), a(3)}\n"
+	   "  Int3 ::= INTEGER {x(1), y(1)}\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,3},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,4},asn1ct_check,{value_reused,1}}
+     ]} = run(P, Config),
     ok.
 
 objects(Config) ->

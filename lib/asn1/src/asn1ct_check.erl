@@ -3084,7 +3084,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 
 	    {'INTEGER',NamedNumberList} ->
-		TempNewDef#newt{type={'INTEGER',check_integer(S,NamedNumberList,Constr)},
+		TempNewDef#newt{type={'INTEGER',check_integer(S,NamedNumberList)},
 				tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 	    'REAL' ->
@@ -3092,8 +3092,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 
 		TempNewDef#newt{tag=merge_tags(Tag,?TAG_PRIMITIVE(?N_REAL))};
 	    {'BIT STRING',NamedNumberList} ->
-		NewL = check_bitstring(S,NamedNumberList,Constr),
-%%		erlang:display({asn1ct_check,NamedNumberList,NewL}),
+		NewL = check_bitstring(S, NamedNumberList),
 		TempNewDef#newt{type={'BIT STRING',NewL},
 				tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_BIT_STRING))};
@@ -4910,70 +4909,46 @@ imported1(Name,
     end;
 imported1(_Name,[]) ->
     false.
-	
 
-check_integer(_S,[],_C) ->
+%% Check the named number list for an INTEGER or a BIT STRING.
+check_named_number_list(_S, []) ->
     [];
-check_integer(S,NamedNumberList,_C) ->
-    case [X || X <- NamedNumberList, tuple_size(X) =:= 2] of
-	NamedNumberList ->
-	    %% An already checked integer with NamedNumberList
-	    NamedNumberList;
-	_ ->
-	    case check_unique(NamedNumberList,2) of
-		[] -> 
-		    check_int(S,NamedNumberList,[]);
-		L when is_list(L) ->
-		    error({type,{duplicates,L},S}),
-		    unchanged
-	    end
+check_named_number_list(_S, [{_,_}|_]=NNL) ->
+    %% The named number list has already been checked.
+    NNL;
+check_named_number_list(S, NNL0) ->
+    %% Check that the names are unique.
+    T = S#state.type,
+    case check_unique(NNL0, 2) of
+	[] ->
+	    NNL1 = [{Id,resolve_valueref(S, Val)} || {'NamedNumber',Id,Val} <- NNL0],
+	    NNL = lists:keysort(2, NNL1),
+	    case check_unique(NNL, 2) of
+		[] ->
+		    NNL;
+		[Val|_] ->
+		    asn1_error(S, T, {value_reused,Val})
+	    end;
+	[H|_] ->
+	    asn1_error(S, T, {namelist_redefinition,H})
     end.
 
-    
-check_int(S,[{'NamedNumber',Id,Num}|T],Acc) when is_integer(Num) ->
-    check_int(S,T,[{Id,Num}|Acc]);
-check_int(S,[{'NamedNumber',Id,{'Externalvaluereference',_,Mod,Name}}|T],Acc) ->
-    Val = dbget_ex(S,Mod,Name),
-    check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
-check_int(_S,[],Acc) ->
-    lists:keysort(2,Acc).
+resolve_valueref(S, #'Externalvaluereference'{module=Mod,value=Name}) ->
+    dbget_ex(S, Mod, Name);
+resolve_valueref(_, Val) when is_integer(Val) ->
+    Val.
+
+check_integer(S, NNL) ->
+    check_named_number_list(S, NNL).
+
+check_bitstring(S, NNL0) ->
+    NNL = check_named_number_list(S, NNL0),
+    _ = [asn1_error(S, S#state.type, {invalid_bit_number,Bit}) ||
+	    {_,Bit} <- NNL, Bit < 0],
+    NNL.
 
 check_real(_S,_Constr) ->
     ok.
-
-check_bitstring(_S,[],_Constr) ->
-    [];
-check_bitstring(S,NamedNumberList,_Constr) ->
-    case check_unique(NamedNumberList,2) of
-	[] ->
-	    check_bitstr(S,NamedNumberList,[]);
-	L when is_list(L) ->
-	    error({type,{duplicates,L},S}),
-	    unchanged
-    end.
-
-check_bitstr(S,[{'NamedNumber',Id,Num}|T],Acc)when is_integer(Num) ->
-    check_bitstr(S,T,[{Id,Num}|Acc]);
-check_bitstr(S,[{'NamedNumber',Id,Name}|T],Acc) when is_atom(Name) ->
-%%check_bitstr(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc) -> 
-%%    io:format("asn1ct_check:check_bitstr/3 hej hop ~w~n",[Name]),
-    Val = dbget_ex(S,S#state.mname,Name),
-%%    io:format("asn1ct_check:check_bitstr/3: ~w~n",[Val]),
-    check_bitstr(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
-check_bitstr(S,[],Acc) ->
-    case check_unique(Acc,2) of
-	[] ->
-	    lists:keysort(2,Acc);
-	L when is_list(L) ->
-	    error({type,{duplicate_values,L},S}),
-	    unchanged
-    end;
-%% When a BIT STRING already is checked, for instance a COMPONENTS OF S
-%% where S is a sequence that has a component that is a checked BS, the
-%% NamedNumber list is a list of {atom(),integer()} elements.
-check_bitstr(S,[El={Id,Num}|Rest],Acc) when is_atom(Id),is_integer(Num) ->
-    check_bitstr(S,Rest,[El|Acc]).
-    
     
 %% Check INSTANCE OF
 %% check that DefinedObjectClass is of TYPE-IDENTIFIER class
@@ -6803,11 +6778,17 @@ format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
+format_error({invalid_bit_number,Bit}) ->
+    io_lib:format("the bit number '~p' is invalid", [Bit]);
 format_error({missing_mandatory_fields,Fields,Obj}) ->
     io_lib:format("missing mandatory ~s in ~p",
 		  [format_fields(Fields),Obj]);
+format_error({namelist_redefinition,Name}) ->
+    io_lib:format("the name '~s' can not be redefined", [Name]);
 format_error({undefined,Name}) ->
     io_lib:format("'~s' is referenced, but is not defined", [Name]);
+format_error({value_reused,Val}) ->
+    io_lib:format("the value '~p' is used more than once", [Val]);
 format_error(Other) ->
     io_lib:format("~p", [Other]).
 
