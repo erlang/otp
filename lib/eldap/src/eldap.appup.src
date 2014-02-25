@@ -16,6 +16,12 @@
 %%
 %% %CopyrightEnd%
 {"%VSN%",
- [{<<".*">>,[{restart_application, eldap}]}],
- [{<<".*">>,[{restart_application, eldap}]}]
+ [
+  {"1.0.2", [{load_module, eldap, soft_purge, soft_purge, []}]},
+  {<<".*">>,[{restart_application, eldap}]}
+ ],
+ [
+  {"1.0.2", [{load_module, eldap, soft_purge, soft_purge, []}]},
+  {<<".*">>,[{restart_application, eldap}]}
+ ]
 }.
