@@ -727,7 +727,7 @@ merge_sources(Name, Sources, Opts) ->
 
 %% Data structure for keeping state during transformation.
 
--record(state, {export :: sets:set(atom(), arity())}).
+-record(state, {export :: sets:set({atom(), arity()})}).
 
 state__add_export(Name, Arity, S) ->
     S#state{export = sets:add_element({Name, Arity},
