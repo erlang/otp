@@ -1567,13 +1567,13 @@ check_defaultfields(S, Fields, ClassFields) ->
 	[] ->
 	    ok;
 	[_|_]=Invalid ->
-	    throw(asn1_error(S, T, {invalid_fields,Invalid,Obj}))
+	    asn1_error(S, T, {invalid_fields,Invalid,Obj})
     end,
     case ordsets:subtract(Mandatory, Present) of
 	[] ->
 	    check_defaultfields_1(S, Fields, ClassFields, []);
 	[_|_]=Missing ->
-	    throw(asn1_error(S, T, {missing_mandatory_fields,Missing,Obj}))
+	    asn1_error(S, T, {missing_mandatory_fields,Missing,Obj})
     end.
 
 check_defaultfields_1(_S, [], _ClassFields, Acc) ->
@@ -2614,7 +2614,7 @@ normalize_octetstring(S,Value,CType) ->
 	    normalize_octetstring(S,String,CType);
 	_ ->
 	    Item = S#state.value,
-	    throw(asn1_error(S, Item, illegal_octet_string_value))
+	    asn1_error(S, Item, illegal_octet_string_value)
     end.
 
 normalize_objectidentifier(S, Value) ->
@@ -2645,7 +2645,7 @@ lookup_enum_value(S, Id, NNL) when is_atom(Id) ->
 	{_,_}=Ret ->
 	    Ret;
 	false ->
-	    throw(asn1_error(S, S#state.value, {undefined,Id}))
+	    asn1_error(S, S#state.value, {undefined,Id})
     end.
 
 normalize_choice(S,{'CHOICE',{C,V}},CType,NameList) when is_atom(C) ->
@@ -6748,7 +6748,7 @@ storeindb(#state{mname=Module}=S, [H|T], Errors) ->
 	    storeindb(S, T, Errors);
 	Prev ->
 	    PrevLine = asn1ct:get_pos_of_def(Prev),
-	    {error,Error} = asn1_error(S, H, {already_defined,Name,PrevLine}),
+	    Error = return_asn1_error(S, H, {already_defined,Name,PrevLine}),
 	    storeindb(S, T, [Error|Errors])
     end;
 storeindb(_, [], []) ->
@@ -6795,9 +6795,12 @@ findtypes_and_values([],Tacc,Vacc,Pacc,Cacc,Oacc,OSacc) ->
     {lists:reverse(Tacc),lists:reverse(Vacc),lists:reverse(Pacc),
      lists:reverse(Cacc),lists:reverse(Oacc),lists:reverse(OSacc)}.
     
-asn1_error(#state{mname=Where}, Item, Error) ->
+return_asn1_error(#state{mname=Where}, Item, Error) ->
     Pos = asn1ct:get_pos_of_def(Item),
-    {error,{structured_error,{Where,Pos},?MODULE,Error}}.
+    {structured_error,{Where,Pos},?MODULE,Error}.
+
+asn1_error(S, Item, Error) ->
+    throw({error,return_asn1_error(S, Item, Error)}).
 
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
