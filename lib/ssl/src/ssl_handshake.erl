@@ -315,8 +315,7 @@ finished(Version, Role, PrfAlgo, MasterSecret, {Handshake, _}) -> % use the curr
 
 %% ---------- Handle handshake messages  ----------
 
-verify_server_key(#server_key_params{params = Params,
-				     params_bin = EncParams,
+verify_server_key(#server_key_params{params_bin = EncParams,
 				     signature = Signature},
 		  HashSign = {HashAlgo, _},
 		  ConnectionStates, Version, PubKeyInfo) ->
