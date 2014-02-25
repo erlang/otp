@@ -1166,9 +1166,9 @@ printCallList([]) -> io:format("~n").
 %% removeUnElems([#icode_call{'fun'={unsafe_element,_}, args=Var}|List], Var, Res) ->
 %%     removeUnElems(List, Var, Res);
 %% removeUnElems([I=#icode_move{dst=Var}|List], [Var], Res) ->
-%%     lists:reverse(Res) ++ [I|List];
+%%     lists:reverse(Res, [I|List]);
 %% removeUnElems([I=#icode_call{dstlist=Var}|List], Var, Res) ->
-%%     lists:reverse(Res) ++ [I|List];
+%%     lists:reverse(Res, [I|List]);
 %% removeUnElems([I|List], Var, Res) ->
 %%     removeUnElems(List, Var, [I|Res]);
 %% removeUnElems([], _, Res) -> lists:reverse(Res).
@@ -1187,7 +1187,7 @@ printCallList([]) -> io:format("~n").
 %% 			false ->
 %% 			    case lists:member(Var, Defs) of
 %% 				true ->
-%% 				    lists:reverse(Res) ++ [I|List];
+%% 				    lists:reverse(Res, [I|List]);
 %% 				false ->
 %% 				    removeUnElems(List, Var, [I|Res])
 %% 			    end 
@@ -1195,7 +1195,7 @@ printCallList([]) -> io:format("~n").
 %% 		false ->
 %% 		    case lists:member(Var, Defs) of
 %% 			true ->
-%% 			    lists:reverse(Res) ++ [I|List];
+%% 			    lists:reverse(Res, [I|List]);
 %% 			false ->
 %% 			    removeUnElems(List, Var, [I|Res])
 %% 		    end
@@ -1203,7 +1203,7 @@ printCallList([]) -> io:format("~n").
 %% 	false ->
 %% 	    case lists:member(Var, Defs) of
 %% 		true ->
-%% 		    lists:reverse(Res) ++ [I|List];
+%% 		    lists:reverse(Res, [I|List]);
 %% 		false ->
 %% 		    removeUnElems(List, Var, [I|Res])
 %% 	    end
@@ -1248,16 +1248,16 @@ printCallList([]) -> io:format("~n").
 %% modifyCode([I|Code], Var, Res) ->
 %%     case scanInstr(I, Var) of
 %% 	{move, Arity, VarLst} ->
-%% 	    Code2 = [#icode_return{vars=VarLst}, I |lists:reverse(Res) ++ Code],
+%% 	    Code2 = [#icode_return{vars=VarLst}, I |lists:reverse(Res, Code)],
 %% 	    {Arity, lists:reverse(Code2)};
 %% 	{mktuple, Arity, VarLst} ->
-%% 	    Code2 = [#icode_return{vars=VarLst}|lists:reverse(Res) ++ Code],
+%% 	    Code2 = [#icode_return{vars=VarLst}|lists:reverse(Res, Code)],
 %% 	    {Arity, lists:reverse(Code2)};
 %% 	other ->
 %% 	    modifyCode(Code, Var, [I|Res])
 %%     end;
 %% modifyCode([], Var, Res) ->
-%%     {1, lists:reverse(Res) ++ [#icode_return{vars=Var}]}.
+%%     {1, lists:reverse(Res, [#icode_return{vars=Var}]}.
     
 %% scanInstr(#icode_call{dstlist=Var, 'fun'=mktuple, args=Lst}, Var) ->
 %%     {mktuple, length(Lst), Lst};

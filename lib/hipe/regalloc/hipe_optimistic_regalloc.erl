@@ -958,9 +958,9 @@ splits_2({Cols, NonCols, OldSpillCost}, L, SpillCost) ->
 %% Merge two ordered sub-splits into one.
 
 spillCostOrderedMerge(Spl1, [], Spl) ->
-  lists:reverse(Spl) ++ Spl1;
+  lists:reverse(Spl, Spl1);
 spillCostOrderedMerge([], Spl2, Spl) ->
-  lists:reverse(Spl) ++ Spl2;
+  lists:reverse(Spl, Spl2);
 spillCostOrderedMerge(Spl1, Spl2, Spl) ->
   {_, _, SpillCost1} = hd(Spl1),
   {_, _, SpillCost2} = hd(Spl2),
