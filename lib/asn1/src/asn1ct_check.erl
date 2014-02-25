@@ -4932,9 +4932,6 @@ check_integer(S,NamedNumberList,_C) ->
     
 check_int(S,[{'NamedNumber',Id,Num}|T],Acc) when is_integer(Num) ->
     check_int(S,T,[{Id,Num}|Acc]);
-check_int(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc) ->
-    Val = dbget_ex(S,S#state.mname,Name),
-    check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
 check_int(S,[{'NamedNumber',Id,{'Externalvaluereference',_,Mod,Name}}|T],Acc) ->
     Val = dbget_ex(S,Mod,Name),
     check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
@@ -5130,9 +5127,6 @@ check_enumerated(S,NamedNumberList,_Constr) ->
 %% the latter is returned if the ENUMERATION contains EXTENSIONMARK
 check_enum(S,[{'NamedNumber',Id,Num}|T],Acc1,Acc2,Root) when is_integer(Num) ->
     check_enum(S,T,[{Id,Num}|Acc1],Acc2,Root);
-check_enum(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc1,Acc2,Root) ->
-    Val = dbget_ex(S,S#state.mname,Name),
-    check_enum(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc1,Acc2,Root);
 check_enum(S,['EXTENSIONMARK'|T],Acc1,Acc2,_Root) ->
     NewAcc2 = lists:keysort(2,Acc1),
     NewList = enum_number(lists:reverse(Acc2),NewAcc2,0,[],[]),
