@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -262,7 +262,17 @@ noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
  * Standard BIFs.
  * BIF_LIST(ModuleAtom,FunctionAtom,Arity,CFun,Index)
  */
-define(BIF_LIST,`standard_bif_interface_$3(nbif_$4, $4)')
+
+/* BIFs that disable GC while trapping are called via a wrapper
+ * to reserve stack space for the "trap frame".
+ */
+define(CFUN,`ifelse($1,term_to_binary_1,hipe_wrapper_term_to_binary_1,
+ifelse($1,term_to_binary_2,hipe_wrapper_term_to_binary_2,
+ifelse($1,erts_internal_binary_to_term_1,hipe_wrapper_erts_internal_binary_to_term_1,
+ifelse($1,erts_internal_binary_to_term_2,hipe_wrapper_erts_internal_binary_to_term_2,
+$1))))')
+
+define(BIF_LIST,`standard_bif_interface_$3(nbif_$4, CFUN($4))')
 include(TARGET/`erl_bif_list.h')
 
 /*

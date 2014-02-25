@@ -1068,7 +1068,7 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
             BIF_RET(res);
     }
 }
-    
+
 BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
     Eterm res = erts_term_to_binary_int(BIF_P, BIF_ARG_1, 0, TERM_TO_BINARY_DFLAGS, NULL);
@@ -4459,3 +4459,66 @@ error:
 #undef SKIP2
 #undef CHKSIZE
 }
+
+
+#ifdef HIPE
+BIF_RETTYPE hipe_wrapper_term_to_binary_1(BIF_ALIST_1);
+BIF_RETTYPE hipe_wrapper_term_to_binary_2(BIF_ALIST_2);
+BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_1(BIF_ALIST_1);
+BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_2(BIF_ALIST_2);
+
+/* Hipe wrappers used by native code for BIFs that disable GC while trapping.
+ *
+ * Problem:
+ * When native code calls a BIF that traps, hipe_mode_switch will push a
+ * "trap frame" on the Erlang stack in order to find its way back from beam_emu
+ * back to native caller when finally done. If GC is disabled and stack/heap
+ * is full there is no place to push the "trap frame".
+ *
+ * Solution:
+ * We reserve space on stack for the "trap frame" here before the BIF is called.
+ * If the BIF does not trap, the space is reclaimed here before returning.
+ * If the BIF traps, hipe_push_beam_trap_frame() will detect that a "trap frame"
+ * already is reserved and use it.
+ */
+BIF_RETTYPE hipe_wrapper_term_to_binary_1(BIF_ALIST_1)
+{
+    Eterm res;
+    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 1);
+    res = term_to_binary_1(BIF_P, BIF__ARGS);
+    if (is_value(res) || BIF_P->freason != TRAP) {
+	hipe_unreserve_beam_trap_frame(BIF_P);
+    }
+    return res;
+}
+BIF_RETTYPE hipe_wrapper_term_to_binary_2(BIF_ALIST_2)
+{
+    Eterm res;
+    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 2);
+    res = term_to_binary_2(BIF_P, BIF__ARGS);
+    if (is_value(res) || BIF_P->freason != TRAP) {
+	hipe_unreserve_beam_trap_frame(BIF_P);
+    }
+    return res;
+}
+BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_1(BIF_ALIST_1)
+{
+    Eterm res;
+    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 1);
+    res = erts_internal_binary_to_term_1(BIF_P, BIF__ARGS);
+    if (is_value(res) || BIF_P->freason != TRAP) {
+	hipe_unreserve_beam_trap_frame(BIF_P);
+    }
+    return res;
+}
+BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_2(BIF_ALIST_2)
+{
+    Eterm res;
+    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 2);
+    res = erts_internal_binary_to_term_2(BIF_P, BIF__ARGS);
+    if (is_value(res) || BIF_P->freason != TRAP) {
+	hipe_unreserve_beam_trap_frame(BIF_P);
+    }
+    return res;
+}
+#endif /*HIPE*/
