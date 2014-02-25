@@ -16,6 +16,12 @@
 %%
 %% %CopyrightEnd%
 {"%VSN%",
- [{<<"5\\..*">>,[{restart_application, inets}]}],
- [{<<"5\\..*">>,[{restart_application, inets}]}]
+ [
+  {"5.9.8", [{load_module, ftp, soft_purge, soft_purge, []}]},
+  {<<"5\\..*">>,[{restart_application, inets}]}
+ ],
+ [
+  {"5.9.8", [{load_module, ftp, soft_purge, soft_purge, []}]},
+  {<<"5\\..*">>,[{restart_application, inets}]}
+ ]
 }.
