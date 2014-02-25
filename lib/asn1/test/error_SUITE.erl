@@ -19,7 +19,8 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,bitstrings/1,enumerated/1,integers/1,objects/1,values/1]).
+	 already_defined/1,bitstrings/1,enumerated/1,
+	 instance_of/1,integers/1,objects/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -33,6 +34,7 @@ groups() ->
       [already_defined,
        bitstrings,
        enumerated,
+       instance_of,
        integers,
        objects,
        values]}].
@@ -117,6 +119,23 @@ enumerated(Config) ->
     } = run(P, Config),
     ok.
 
+instance_of(Config) ->
+    M = 'InstanceOf',
+    P = {M,
+	 <<"InstanceOf DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "XX ::= INSTANCE OF CL ({TI})\n"
+	   "CL ::= CLASS {\n"
+           "&id INTEGER,\n"
+           "&Type\n"
+	   "}\n"
+	   "o1 CL ::= {&id 1, &Type OCTET STRING}\n"
+	   "TI CL ::= { o1 }\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{illegal_instance_of,'CL'}}
+     ]} = run(P, Config),
+    ok.
+
 integers(Config) ->
     M = 'Integers',
     P = {M,
@@ -131,6 +150,7 @@ integers(Config) ->
       {structured_error,{M,4},asn1ct_check,{value_reused,1}}
      ]} = run(P, Config),
     ok.
+
 
 objects(Config) ->
     M = 'Objects',

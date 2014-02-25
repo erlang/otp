@@ -4959,20 +4959,16 @@ check_instance_of(S,DefinedObjectClass,Constraint) ->
     check_type_identifier(S,DefinedObjectClass),
     iof_associated_type(S,Constraint).
     
-
-check_type_identifier(_S,'TYPE-IDENTIFIER') ->
-    ok;
-check_type_identifier(S,Eref=#'Externaltypereference'{}) ->
-    case get_referenced_type(S,Eref) of
-	{_,#classdef{name='TYPE-IDENTIFIER'}} -> ok;
-	{_,#classdef{typespec=NextEref}} 
-	when is_record(NextEref,'Externaltypereference') ->
-	    check_type_identifier(S,NextEref);
+check_type_identifier(S, Eref=#'Externaltypereference'{type=Class}) ->
+    case get_referenced_type(S, Eref) of
+	{_,#classdef{name='TYPE-IDENTIFIER'}} ->
+	    ok;
+	{_,#classdef{typespec=#'Externaltypereference'{}=NextEref}} ->
+	    check_type_identifier(S, NextEref);
 	{_,TD=#typedef{typespec=#type{def=#'Externaltypereference'{}}}} ->
-	    check_type_identifier(S,(TD#typedef.typespec)#type.def);
-	Err ->
-	    error({type,{"object set in type INSTANCE OF "
-			 "not of class TYPE-IDENTIFIER",Eref,Err},S})
+	    check_type_identifier(S, (TD#typedef.typespec)#type.def);
+	_ ->
+	    asn1_error(S, S#state.type, {illegal_instance_of,Class})
     end.
 
 iof_associated_type(S,[]) ->
@@ -6774,6 +6770,10 @@ asn1_error(S, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({illegal_instance_of,Class}) ->
+    io_lib:format("using INSTANCE OF on class '~s' is illegal, "
+		  "because INSTANCE OF may only be used on the class TYPE-IDENTFIER",
+		  [Class]);
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({invalid_fields,Fields,Obj}) ->
