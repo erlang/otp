@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -172,7 +172,7 @@ run(Opts) ->
       end,
       case dialyzer_cl:start(OptsRecord) of
         {?RET_DISCREPANCIES, Warnings} -> Warnings;
-        {?RET_NOTHING_SUSPICIOUS, []}  -> []
+        {?RET_NOTHING_SUSPICIOUS, _}  -> []
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->
@@ -474,7 +474,14 @@ message_to_string({callback_missing, [B, F, A]}) ->
   io_lib:format("Undefined callback function ~w/~w (behaviour '~w')\n",
 		[F, A, B]);
 message_to_string({callback_info_missing, [B]}) ->
-  io_lib:format("Callback info about the ~w behaviour is not available\n", [B]).
+  io_lib:format("Callback info about the ~w behaviour is not available\n", [B]);
+%%----- Warnings for unknown functions, types, and behaviours -------------
+message_to_string({unknown_type, {M, F, A}}) ->
+  io_lib:format("Unknown type ~w:~w/~w", [M, F, A]);
+message_to_string({unknown_function, {M, F, A}}) ->
+  io_lib:format("Unknown function ~w:~w/~w", [M, F, A]);
+message_to_string({unknown_behaviour, B}) ->
+  io_lib:format("Unknown behaviour ~w", [B]).
 
 %%-----------------------------------------------------------------------------
 %% Auxiliary functions below

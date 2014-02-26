@@ -678,8 +678,19 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
-      {RetValue, process_warnings(StoredWarnings)}
+      Unknown =
+        unknown_functions(State) ++
+        unknown_types(State) ++
+        unknown_behaviours(State),
+      UnknownWarnings =
+        [{?WARN_UNKNOWN, {_Filename = "", _Line = 0}, W} || W <- Unknown],
+      AllWarnings =
+        UnknownWarnings ++ process_warnings(StoredWarnings),
+      {RetValue, AllWarnings}
   end.
+
+unknown_functions(#cl_state{external_calls = Calls}) ->
+  [{unknown_function, MFA} || MFA <- Calls].
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
@@ -710,6 +721,9 @@ do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
 do_print_ext_calls(_, [], _) ->
   ok.
 
+unknown_types(#cl_state{external_types = Types}) ->
+  [{unknown_type, MFA} || MFA <- Types].
+
 print_ext_types(#cl_state{report_mode = quiet}) ->
   ok;
 print_ext_types(#cl_state{output = Output,
@@ -739,6 +753,15 @@ do_print_ext_types(Output, [{M,F,A}|T], Before) ->
   do_print_ext_types(Output, T, Before);
 do_print_ext_types(_, [], _) ->
   ok.
+
+unknown_behaviours(#cl_state{unknown_behaviours = DupBehaviours,
+                             legal_warnings = LegalWarnings}) ->
+  case ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings) of
+    false -> [];
+    true ->
+      Behaviours = lists:usort(DupBehaviours),
+      [{unknown_behaviour, B} || B <- Behaviours]
+  end.
 
 %%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
 %%  ok;
