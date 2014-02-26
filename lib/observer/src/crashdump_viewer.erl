@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2559,11 +2559,11 @@ progress_pmap(Report,File,Fun,List) ->
 		  {L1,L2} = if length(L)>=NPerProc -> lists:split(NPerProc,L);
 			       true -> {L,[]} % last chunk
 			    end,
-		  P = spawn(
+		  {P,_Ref} =
+		      spawn_monitor(
 			fun() ->
 				progress_map(Collector,ReportInterval,File,Fun,L1)
 			end),
-		  erlang:monitor(process,P),
 		  {L2,[P|Ps]}
 	  end,
 	  {List,[]},
