@@ -2829,8 +2829,6 @@ if test X${enable_fp_exceptions} = Xauto ; then
    	*linux*)
 	      enable_fp_exceptions=no
 	      AC_MSG_NOTICE([Floating point exceptions disabled by default on Linux]) ;;
-	      *)
-	      ;;
 	darwin*)
 	      enable_fp_exceptions=no
 	      AC_MSG_NOTICE([Floating point exceptions disabled by default on MacOS X]) ;;
