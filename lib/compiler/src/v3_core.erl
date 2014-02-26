@@ -77,7 +77,8 @@
 		splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
--import(cerl, [ann_c_cons/3,ann_c_cons_skel/3,ann_c_tuple/2,c_tuple/1]).
+-import(cerl, [ann_c_cons/3,ann_c_cons_skel/3,ann_c_tuple/2,c_tuple/1,
+	       ann_c_map/2, ann_c_map/3]).
 
 -include("core_parse.hrl").
 
@@ -515,12 +516,12 @@ expr({map,L,Es0}, St0) ->
     % in map construction.
     {Es1,Eps,St1} = map_pair_list(Es0, St0),
     A = lineno_anno(L, St1),
-    {#c_map{anno=A,es=Es1},Eps,St1};
+    {ann_c_map(A,Es1),Eps,St1};
 expr({map,L,M0,Es0}, St0) ->
     {M1,Mps,St1} = safe(M0, St0),
     {Es1,Eps,St2} = map_pair_list(Es0, St1),
     A = lineno_anno(L, St2),
-    {#c_map{anno=A,var=M1,es=Es1},Mps++Eps,St2};
+    {ann_c_map(A,M1,Es1),Mps++Eps,St2};
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
