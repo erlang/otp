@@ -19,15 +19,9 @@
 
 {"%VSN%",	
  [
-  {<<"3\\.0\\..*">>, [{restart_application, ssh}]},
-  {<<"2\\.1\\..*">>, [{restart_application, ssh}]},
-  {<<"2\\.0\\..*">>, [{restart_application, ssh}]},
-  {<<"1\\..*">>,     [{restart_application, ssh}]}
+  {<<".*">>, [{restart_application, ssh}]}
  ],
  [
-  {<<"3\\.0\\..*">>, [{restart_application, ssh}]},
-  {<<"2\\.1\\..*">>, [{restart_application, ssh}]},
-  {<<"2\\.0\\..*">>, [{restart_application, ssh}]},
-  {<<"1\\..*">>,     [{restart_application, ssh}]}
+  {<<".*">>, [{restart_application, ssh}]}
  ]
 }.
