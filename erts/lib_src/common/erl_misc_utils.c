@@ -25,6 +25,7 @@
 #  include <windows.h>
 #endif
 
+#include "ethread.h"
 #include "erl_misc_utils.h"
 
 #if defined(__WIN32__)
@@ -191,7 +192,7 @@ struct erts_cpu_info_t_ {
 
 #if defined(__WIN32__)
 
-static __forceinline int
+static ETHR_FORCE_INLINE int
 get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
 {
     DWORD_PTR pamask;
@@ -206,7 +207,7 @@ get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
     }
 }
 
-static __forceinline int
+static ETHR_FORCE_INLINE int
 set_thr_affinity(cpu_set_t *set)
 {
     if (*set == (cpu_set_t) 0)
@@ -1157,7 +1158,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 #define ERTS_MU_RELATION_CACHE                2 /* RelationCache */
 #define ERTS_MU_RELATION_PROCESSOR_PACKAGE    3 /* RelationProcessorPackage */
 
-static __forceinline int
+static ETHR_FORCE_INLINE int
 rel_cmp_val(int r)
 {
     switch (r) {

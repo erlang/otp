@@ -54,13 +54,16 @@
 #undef ETHR_INLINE
 #if defined(__GNUC__)
 #  define ETHR_INLINE __inline__
+#  define ETHR_FORCE_INLINE __inline__ __attribute__((__always_inline__))
 #elif defined(__WIN32__)
 #  define ETHR_INLINE __forceinline
+#  define ETHR_FORCE_INLINE __forceinline
 #endif
 #if defined(ETHR_DEBUG) || !defined(ETHR_INLINE) || ETHR_XCHK \
     || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC))
 #  undef ETHR_INLINE
 #  define ETHR_INLINE 
+#  define ETHR_FORCE_INLINE
 #  undef ETHR_TRY_INLINE_FUNCS
 #endif
 

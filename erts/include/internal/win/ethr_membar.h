@@ -63,13 +63,13 @@ do {							\
 #pragma intrinsic(_mm_sfence)
 #pragma intrinsic(_mm_lfence)
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 ethr_cfence__(void)
 {
     _ReadWriteBarrier();
 }
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 ethr_mfence__(void)
 {
 #if ETHR_SIZEOF_PTR == 4
@@ -80,7 +80,7 @@ ethr_mfence__(void)
 	_mm_mfence();
 }
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 ethr_sfence__(void)
 {
 #if ETHR_SIZEOF_PTR == 4
@@ -91,7 +91,7 @@ ethr_sfence__(void)
 	_mm_sfence();
 }
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 ethr_lfence__(void)
 {
 #if ETHR_SIZEOF_PTR == 4
