@@ -54,7 +54,7 @@ config(priv_dir,_) ->
 -include_lib("test_server/include/test_server.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(2)).
+-define(default_timeout, ?t:minutes(10)).
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     ?line OrigPath = code:get_path(),
