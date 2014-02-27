@@ -29,6 +29,7 @@
 	t_guard_receive/1, t_guard_fun/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
+	t_map_equal/1,
 	%t_size/1,
 	t_map_size/1,
 
@@ -74,6 +75,7 @@ all() -> [
 	t_update_assoc,t_update_exact,
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
+	t_map_equal,
 	t_map_sort_literals,
 
 	%% Specific Map BIFs
@@ -448,6 +450,23 @@ t_map_sort_literals(Config) when is_list(Config) ->
     [#{1:=3},#{a:=2},#{"a":=1},#{<<"a">>:=4}] = lists:sort(SortVs),
     [#{1:=3},#{a:=2},#{"a":=1},#{<<"a">>:=4}] = lists:sort(lists:reverse(SortVs)),
 
+    ok.
+
+t_map_equal(Config) when is_list(Config) ->
+    true  = id(#{}) =:= id(#{}),
+    false = id(#{}) =:= id(#{a=>1}),
+    false = id(#{a=>1}) =:= id(#{}),
+    true  = id(#{ "a" => "hi", b => 134 }) =:= id(#{ b => 134,"a" => "hi"}),
+
+    false = id(#{ a => 1 }) =:= id(#{ a => 2}),
+    false = id(#{ a => 2 }) =:= id(#{ a => 1}),
+    false = id(#{ a => 2, b => 1 }) =:= id(#{ a => 1, b => 3}),
+    false = id(#{ a => 1, b => 1 }) =:= id(#{ a => 1, b => 3}),
+
+    true = id(#{ a => 1 }) =:= id(#{ a => 1}),
+    true = id(#{ "a" => 2 }) =:= id(#{ "a" => 2}),
+    true = id(#{ "a" => 2, b => 3 }) =:= id(#{ "a" => 2, b => 3}),
+    true = id(#{ a => 1, b => 3, c => <<"wat">> }) =:= id(#{ a => 1, b => 3, c=><<"wat">>}),
     ok.
 
 %% BIFs

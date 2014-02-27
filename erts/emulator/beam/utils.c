@@ -2125,7 +2125,11 @@ tailrecur_ne:
 		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
 			goto not_equal;
 		    bb = map_val_rel(b,b_base);
-		    if ((sz = map_get_size((map_t*)aa)) == 0) goto pop_next;
+		    sz = map_get_size((map_t*)aa);
+
+		    if (sz != map_get_size((map_t*)bb)) goto not_equal;
+		    if (sz == 0) goto pop_next;
+
 		    aa += 2;
 		    bb += 2;
 		    sz += 1; /* increment for tuple-keys */
