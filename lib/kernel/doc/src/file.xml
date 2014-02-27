@@ -1622,6 +1622,11 @@
       <desc>
         <p>Sets the current working directory of the file server to
           <c><anno>Dir</anno></c>. Returns <c>ok</c> if successful.</p>
+        <p>The functions in the <c>file</c> module usually treat binaries
+          as raw filenames, i.e. they are passed as is even when the encoding
+          of the binary does not agree with <c>file:native_name_encoding()</c>.
+          This function however expects binaries to be encoded according to the
+          value returned by <c>file:native_name_encoding()</c>.</p>
         <p>Typical error reasons are:</p>
         <taglist>
           <tag><c>enoent</c></tag>
@@ -1646,8 +1651,8 @@
           <tag><c>no_translation</c></tag>
           <item>
             <p><c><anno>Dir</anno></c> is a <c>binary()</c> with
-              characters coded in ISO-latin-1 and the VM was started
-              with the parameter <c>+fnue</c>.</p>
+              characters coded in ISO-latin-1 and the VM is operating
+              with unicode file name encoding.</p>
           </item>
         </taglist>
         <warning>
