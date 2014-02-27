@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,7 +72,7 @@ security_parameters(Version, CipherSuite, SecParams) ->
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
--spec cipher(cipher_enum(), #cipher_state{}, binary(), iolist(), tls_version()) ->
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), iodata(), tls_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
 %% Description: Encrypts the data and the MAC using chipher described

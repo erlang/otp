@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,24 +28,19 @@
 -include("ssl_connection.hrl").
 
 -record(protocol_buffers, {
-	  dtls_packets = []      ::[binary()],  % Not yet handled decode ssl/tls packets.
-          dtls_record_buffer     :: binary(),   % Buffer of incomplete records
-          dtls_handshake_buffer  :: binary(),   % Buffer of incomplete handshakes
-	  dtls_cipher_texts      :: [binary()],
-	  dtls_cipher_texts_next :: [binary()]  % Received for Epoch not yet active
+	  dtls_packets = [],              %%::[binary()],  % Not yet handled decode ssl/tls packets.
+          dtls_record_buffer = <<>>,      %%:: binary(),   % Buffer of incomplete records
+          dtls_handshake_buffer = <<>>,   %%:: binary(),   % Buffer of incomplete handshakes
+	  dtls_cipher_texts = [],         %%:: [binary()],
+	  dtls_cipher_texts_next          %%:: [binary()]  % Received for Epoch not yet active
 	 }).
 
 -record(flight, {
 	  last_retransmit,
 	  last_read_seq,
 	  msl_timer,
-	  flight_state,
-	  flight_buffer,        % buffer of not yet ACKed TLS records
-	 }).
-
--record(message_sequences, {
-	  read = 0,
-	  write = 0
+	  state,
+	  buffer        % buffer of not yet ACKed TLS records
 	 }).
 
 -endif. % -ifdef(dtls_connection).

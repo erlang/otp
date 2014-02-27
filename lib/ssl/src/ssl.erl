@@ -558,6 +558,8 @@ handle_options(Opts0, _Role) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
     assert_proplist(Opts),
+    RecordCb = record_cb(Opts),
+
     ReuseSessionFun = fun(_, _, _, _) -> true end,
 
     DefaultVerifyNoneFun =
@@ -600,12 +602,14 @@ handle_options(Opts0, _Role) ->
 	end,
 
     CertFile = handle_option(certfile, Opts, <<>>),
-
+    
+    RecordCb = record_cb(Opts),
+    
     Versions = case handle_option(versions, Opts, []) of
 		   [] ->
-		       tls_record:supported_protocol_versions();
+		       RecordCb:supported_protocol_versions();
 		   Vsns  ->
-		       [tls_record:protocol_version(Vsn) || Vsn <- Vsns]
+		       [RecordCb:protocol_version(Vsn) || Vsn <- Vsns]
 	       end,
 
     SSLOptions = #ssl_options{
@@ -1034,6 +1038,13 @@ connection_cb(dtls) ->
     dtls_connection;
 connection_cb(Opts) ->
    connection_cb(proplists:get_value(protocol, Opts, tls)).
+
+record_cb(tls) ->
+    tls_record;
+record_cb(dtls) ->
+    dtls_record;
+record_cb(Opts) ->
+   record_cb(proplists:get_value(protocol, Opts, tls)).
 
 connection_sup(tls_connection) ->
     tls_connection_sup;

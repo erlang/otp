@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -356,7 +356,7 @@ compressions() ->
     [?byte(?NULL)].
 
 %%--------------------------------------------------------------------
--spec cipher(tls_version(), iolist(), #connection_state{}, MacHash::binary()) ->
+-spec cipher(tls_version(), iodata(), #connection_state{}, MacHash::binary()) ->
 		    {CipherFragment::binary(), #connection_state{}}.
 %%
 %% Description: Payload encryption

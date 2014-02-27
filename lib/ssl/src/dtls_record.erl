@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 -export([decode_cipher_text/2]).
 
 %% Encoding
--export([encode_plain_text/4]).
+-export([encode_plain_text/4, encode_handshake/3, encode_change_cipher_spec/2]).
 
 %% Protocol version handling
 -export([protocol_version/1, lowest_protocol_version/2,
@@ -70,7 +70,7 @@ get_dtls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
 		     Acc) ->
     get_dtls_records_aux(Rest, [#ssl_tls{type = ?APPLICATION_DATA,
 					 version = {MajVer, MinVer},
-					 epoch = Epoch, record_seq = SequenceNumber,
+					 epoch = Epoch, sequence_number = SequenceNumber,
 					 fragment = Data} | Acc]);
 get_dtls_records_aux(<<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
 		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
@@ -78,7 +78,7 @@ get_dtls_records_aux(<<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
 		       Data:Length/binary, Rest/binary>>, Acc) when MajVer >= 128 ->
     get_dtls_records_aux(Rest, [#ssl_tls{type = ?HANDSHAKE,
 					 version = {MajVer, MinVer},
-					 epoch = Epoch, record_seq = SequenceNumber,
+					 epoch = Epoch, sequence_number = SequenceNumber,
 					 fragment = Data} | Acc]);
 get_dtls_records_aux(<<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
 		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
@@ -86,7 +86,7 @@ get_dtls_records_aux(<<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
 		       Rest/binary>>, Acc) ->
     get_dtls_records_aux(Rest, [#ssl_tls{type = ?ALERT,
 					 version = {MajVer, MinVer},
-					 epoch = Epoch, record_seq = SequenceNumber,
+					 epoch = Epoch, sequence_number = SequenceNumber,
 					 fragment = Data} | Acc]);
 get_dtls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
 		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
@@ -94,7 +94,7 @@ get_dtls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
 		     Acc) ->
     get_dtls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
 					 version = {MajVer, MinVer},
-					 epoch = Epoch, record_seq = SequenceNumber,
+					 epoch = Epoch, sequence_number = SequenceNumber,
 					 fragment = Data} | Acc]);
 
 get_dtls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
@@ -125,14 +125,15 @@ encode_plain_text(Type, Version, Data,
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
     WriteState1 = WriteState0#connection_state{compression_state = CompS1},
     MacHash = calc_mac_hash(WriteState1, Type, Version, Epoch, Seq, Comp),
-    {CipherFragment, WriteState} = ssl_record:cipher(Version, Comp, WriteState1, MacHash),
+    {CipherFragment, WriteState} = ssl_record:cipher(dtls_v1:corresponding_tls_version(Version), 
+						     Comp, WriteState1, MacHash),
     CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
     {CipherText, ConnectionStates#connection_states{current_write =
 							WriteState#connection_state{sequence_number = Seq +1}}}.
 
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    epoch = Epoch,
-			    record_seq = Seq,
+			    sequence_number = Seq,
 			    fragment = CipherFragment} = CipherText,
 		   #connection_states{current_read =
 					  #connection_state{compression_state = CompressionS0,
@@ -141,7 +142,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
     CompressAlg = SecParams#security_parameters.compression_algorithm,
     {PlainFragment, Mac, ReadState1} = ssl_record:decipher(dtls_v1:corresponding_tls_version(Version),
 							   CipherFragment, ReadState0),
-    MacHash = calc_mac_hash(Type, Version, Epoch, Seq, PlainFragment, ReadState1),
+    MacHash = calc_mac_hash(ReadState1, Type, Version, Epoch, Seq, PlainFragment),
     case ssl_record:is_correct_mac(Mac, MacHash) of
 	true ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
@@ -153,6 +154,23 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	false ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
+%%--------------------------------------------------------------------
+-spec encode_handshake(iolist(), tls_version(), #connection_states{}) ->
+			      {iolist(), #connection_states{}}.
+%%
+%% Description: Encodes a handshake message to send on the ssl-socket.
+%%--------------------------------------------------------------------
+encode_handshake(Frag, Version, ConnectionStates) ->
+    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
+
+%%--------------------------------------------------------------------
+-spec encode_change_cipher_spec(tls_version(), #connection_states{}) ->
+				       {iolist(), #connection_states{}}.
+%%
+%% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
+%%--------------------------------------------------------------------
+encode_change_cipher_spec(Version, ConnectionStates) ->
+    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec protocol_version(tls_atom_version() | tls_version()) ->
@@ -343,5 +361,5 @@ calc_mac_hash(#connection_state{mac_secret = MacSecret,
 	     Length, Fragment).
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    dtls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
+    dtls_v1:mac_hash(Version, MacAlg, MacSecret, SeqNo, Type,
 		     Length, Fragment).

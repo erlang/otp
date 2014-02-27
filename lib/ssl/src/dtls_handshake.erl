@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,10 +21,10 @@
 -include("dtls_record.hrl").
 -include("ssl_internal.hrl").
 
--export([client_hello/8, client_hello/9, hello/3,
+-export([client_hello/8, client_hello/9, hello/4,
 	 get_dtls_handshake/2,
 	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
-	 encode_handshake/4]).
+	 encode_handshake/2]).
 
 %%====================================================================
 %% Internal application API
@@ -32,7 +32,7 @@
 %%--------------------------------------------------------------------
 -spec client_hello(host(), inet:port_number(), #connection_states{},
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
-			  #client_hello{}.
+			  #client_hello{}  | {retransmit, term()}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
@@ -45,16 +45,16 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 %%--------------------------------------------------------------------
 -spec client_hello(host(), inet:port_number(), term(), #connection_states{},
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
-			  #client_hello{}.
+			  #client_hello{} | {retransmit, term()}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, Cookie, ConnectionStates,
-	     #ssl_options{versions = Versions,
+	     #ssl_options{versions = _Versions,
 			  ciphers = UserSuites
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
-    Version = dtls_record:highest_protocol_version(Versions),
+    Version =  [{254, 253}], %%dtls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
@@ -74,11 +74,17 @@ client_hello(Host, Port, Cookie, ConnectionStates,
 		 }.
 
 hello(Address, Port,
-      #ssl_tls{epoch = _Epoch, record_seq = _Seq,
+      #ssl_tls{epoch = _Epoch, sequence_number = _Seq,
 	       version = Version} = Record) ->
-    {[{Hello, _}], _, _} =
-	get_dtls_handshake(Record,
-			   dtls_handshake_new_flight(undefined)),
+    case get_dtls_handshake(Record,
+				dtls_handshake_new_flight(undefined)) of
+	{[Hello | _], _} ->
+	    hello(Address, Port, Version, Hello);
+	{retransmit, HandshakeState} ->
+	    {retransmit, HandshakeState}
+    end.
+					     
+hello(Address, Port, Version, Hello) ->
     #client_hello{client_version = {Major, Minor},
 		  random = Random,
 		  session_id = SessionId,
@@ -94,19 +100,19 @@ hello(Address, Port,
 	    accept;
 	_ ->
 	    %% generate HelloVerifyRequest
-	    HelloVerifyRequest = encode_handshake(#hello_verify_request{protocol_version = Version,
+	    HelloVerifyRequest = enc_hs(#hello_verify_request{protocol_version = Version,
 									  cookie = Cookie},
 						    Version, 0, 1400),
 	    {reply, HelloVerifyRequest}
     end.
 
 %%--------------------------------------------------------------------
-encode_handshake(Package, Version, MsgSeq, Mss) ->
-    {MsgType, Bin} = enc_hs(Package, Version),
+enc_hs(Package, Version, MsgSeq, Mss) ->
+    {MsgType, Bin} = encode_handshake(Package, Version),
     Len = byte_size(Bin),
-    HsHistory = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(0), ?uint24(Len), Bin],
-    BinMsg = dtls_split_handshake(Mss, MsgType, Len, MsgSeq, Bin, 0, []),
-    {HsHistory, BinMsg}.
+    Handshake = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(0), ?uint24(Len), Bin],
+    FragmentedHandshake = dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, 0, []),
+    {Handshake, FragmentedHandshake}.
 
 %--------------------------------------------------------------------
 -spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | binary()) ->
@@ -147,19 +153,19 @@ dtls_handshake_new_flight(ExpectedReadReq) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-dtls_split_handshake(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc)
+dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc)
   when byte_size(Bin) + 12 < Mss ->
     FragmentLen = byte_size(Bin),
     BinMsg = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragmentLen), Bin],
     lists:reverse([BinMsg|Acc]);
-dtls_split_handshake(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc) ->
+dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc) ->
     FragmentLen = Mss - 12,
     <<Fragment:FragmentLen/bytes, Rest/binary>> = Bin,
     BinMsg = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragmentLen), Fragment],
-    dtls_split_handshake(Mss, MsgType, Len, MsgSeq, Rest, Offset + FragmentLen, [BinMsg|Acc]).
+    dtls_fragment(Mss, MsgType, Len, MsgSeq, Rest, Offset + FragmentLen, [BinMsg|Acc]).
 
 get_dtls_handshake_aux(#ssl_tls{version = Version,
-				record_seq = SeqNo,
+				sequence_number = SeqNo,
 				fragment = Data}, HsState) ->
     get_dtls_handshake_aux(Version, SeqNo, Data, HsState).
 
@@ -370,14 +376,14 @@ merge_fragment_list([{HStart, HEnd}|Rest], _Frag = {FStart, FEnd}, Acc)
 add_fragment(List, {FragmentOffset, FragmentLength}) ->
     merge_fragment_list(List, {FragmentOffset, FragmentOffset + FragmentLength}, []).
 
-enc_hs(#hello_verify_request{protocol_version = {Major, Minor},
-			     cookie = Cookie}, _Version) ->
+encode_handshake(#hello_verify_request{protocol_version = {Major, Minor},
+				       cookie = Cookie}, _Version) ->
     CookieLength = byte_size(Cookie),
     {?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
 			      ?BYTE(CookieLength),
 			      Cookie/binary>>};
 
-enc_hs(#client_hello{client_version = {Major, Minor},
+encode_handshake(#client_hello{client_version = {Major, Minor},
 		     random = Random,
 		     session_id = SessionID,
 		     cookie = Cookie,
@@ -397,7 +403,7 @@ enc_hs(#client_hello{client_version = {Major, Minor},
 		      BinCookie/binary,
 				?UINT16(CsLength), BinCipherSuites/binary,
 		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
-enc_hs(HandshakeMsg, Version) ->
+encode_handshake(HandshakeMsg, Version) ->
     ssl_handshake:encode_handshake(HandshakeMsg, Version).
 
 enc_client_hello_cookie(_, <<>>) ->
