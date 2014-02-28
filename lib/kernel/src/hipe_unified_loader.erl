@@ -566,8 +566,8 @@ patch_closure(DestMFA, Uniq, Index, Address, Addresses) ->
       RemoteOrLocal = local, % closure code refs are local
       DestAddress = get_native_address(DestMFA, Addresses, RemoteOrLocal),
       BEAMAddress = hipe_bifs:fun_to_address(DestMFA),
-      FE = hipe_bifs:make_fe(DestAddress, mod(DestMFA), 
-			     {Uniq, Index, BEAMAddress}),
+      FE = hipe_bifs:get_fe(mod(DestMFA), {Uniq, Index, BEAMAddress}),
+      hipe_bifs:set_native_address_in_fe(FE, DestAddress),
       ?debug_msg("Patch FE(~w) to 0x~.16b->0x~.16b (emu:0x~.16b)\n",
 		 [DestMFA, FE, DestAddress, BEAMAddress]),
       ?ASSERT(assert_local_patch(Address)),
