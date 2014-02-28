@@ -520,9 +520,9 @@ reconnect(Config) ->
     rpc:cast(N1,f,call_f2_when_isolated,[]),
 
     %% Disconnect and check that node is removed from main cover node
-    net_kernel:disconnect(N1),
+    true = net_kernel:disconnect(N1),
     timer:sleep(500), % allow some to detect disconnect and for f:f2() call
-    [] = cover:which_nodes(),
+    cover_which_nodes([]),
 
     %% Do some add one module (b) and remove one module (a)
     code:purge(a),
@@ -530,7 +530,7 @@ reconnect(Config) ->
     {ok,b} = cover:compile(b),
     cover_compiled = code:which(b),
 
-    [] = cover:which_nodes(),
+    cover_which_nodes([]),
     check_f_calls(1,0), % only the first call - before the flush
 
     %% Reconnect the node and check that b and f are cover compiled but not a
@@ -573,7 +573,7 @@ die_and_reconnect(Config) ->
 
     %% Kill the node
     rpc:call(N1,erlang,halt,[]),
-    [] = cover:which_nodes(),
+    cover_which_nodes([]),
 
     check_f_calls(1,0), % only the first call - before the flush
 
@@ -614,7 +614,7 @@ dont_reconnect_after_stop(Config) ->
     %% Stop cover on the node, then terminate the node
     cover:stop(N1),
     rpc:call(N1,erlang,halt,[]),
-    [] = cover:which_nodes(),
+    cover_which_nodes([]),
 
     check_f_calls(1,0),
 
@@ -622,7 +622,7 @@ dont_reconnect_after_stop(Config) ->
     {ok,N1} = ?t:start_node(NodeName,peer,
 			    [{args," -pa " ++ DataDir},{start_cover,false}]),
     timer:sleep(300),
-    [] = cover:which_nodes(),
+    cover_which_nodes([]),
     Beam = rpc:call(N1,code,which,[f]),
     false = (Beam==cover_compiled),
 
@@ -667,7 +667,7 @@ stop_node_after_disconnect(Config) ->
     {ok,N1} = ?t:start_node(NodeName,peer,
 			    [{args," -pa " ++ DataDir},{start_cover,false}]),
     timer:sleep(300),
-    [] = cover:which_nodes(),
+    cover_which_nodes([]),
     Beam = rpc:call(N1,code,which,[f]),
     false = (Beam==cover_compiled),
 
@@ -1575,3 +1575,21 @@ is_unloaded(What) ->
 
 check_f_calls(F1,F2) ->
     {ok,[{{f,f1,0},F1},{{f,f2,0},F2}|_]} = cover:analyse(f,calls,function).
+
+cover_which_nodes(Expected) ->
+    case cover:which_nodes() of
+	Expected ->
+	    ok;
+	Other ->
+	    {Time,ok} = timer:tc(fun Retry() ->
+					 case cover:which_nodes() of
+					     Expected -> ok;
+					     _ ->
+						 ?t:sleep(100),
+						 Retry()
+					 end
+				 end),
+	    io:format("~p ms before cover:which_nodes() returned ~p",
+		      [Time,Expected]),
+	    Expected = Other
+    end.
