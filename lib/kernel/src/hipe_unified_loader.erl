@@ -203,6 +203,7 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
 	   "please regenerate native code for this runtime system\n", [Mod]),
       bad_crc;
     true ->
+      put(closures_to_patch, []),
       %% Create data segment
       {ConstAddr,ConstMap2} =
 	create_data_segment(ConstAlign, ConstSize, ConstMap),
@@ -224,14 +225,23 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       %% Patch all dynamic references in the code.
       %%  Function calls, Atoms, Constants, System calls
       ok = patch(Refs, CodeAddress, ConstMap2, Addresses, TrampolineMap),
+
       %% Tell the system where the loaded funs are. 
       %%  (patches the BEAM code to redirect to native.)
       case Beam of
 	[] ->
+	  %% This module was previously loaded as BEAM code during system
+	  %% start-up before the code server has started (-enable-native-libs
+	  %% is active), so we must now patch the pre-existing entries in the
+	  %% fun table with the native code addresses for all closures.
+	  lists:foreach(fun({FE, DestAddress}) ->
+			    hipe_bifs:set_native_address_in_fe(FE, DestAddress)
+			end, erase(closures_to_patch)),
 	  export_funs(Addresses),
 	  ok;
 	BeamBinary when is_binary(BeamBinary) ->
 	  %% Find all closures in the code.
+	  [] = erase(closures_to_patch),	%Clean up, assertion.
 	  ClosurePatches = find_closure_patches(Refs),
 	  AddressesOfClosuresToPatch =
 	    calculate_addresses(ClosurePatches, CodeAddress, Addresses),
@@ -245,6 +255,9 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       %% The call to export_funs/1 above updated the native addresses
       %% for the targets, so passing 'Addresses' is not needed.
       redirect(ReferencesToPatch),
+      %% Final clean up.
+      _ = erase(hipe_patch_closures),
+      _ = erase(hipe_assert_code_area),
       ?debug_msg("****************Loader Finished****************\n", []),
       {module,Mod}  % for compatibility with code:load_file/1
   end.
@@ -562,12 +575,17 @@ patch_closure(DestMFA, Uniq, Index, Address, Addresses) ->
   case get(hipe_patch_closures) of
     false ->
       []; % This is taken care of when registering the module.
-    true -> % We are not loading a module patch these closures
+    true ->
+      %% We are replacing a previosly loaded BEAM module with native code,
+      %% so we must reference the pre-existing entries in the fun table
+      %% from the native code. We must delay actually patching the native
+      %% address into the fun entry to ensure that the native code cannot
+      %% be called until it has been completely fixed up.
       RemoteOrLocal = local, % closure code refs are local
       DestAddress = get_native_address(DestMFA, Addresses, RemoteOrLocal),
       BEAMAddress = hipe_bifs:fun_to_address(DestMFA),
       FE = hipe_bifs:get_fe(mod(DestMFA), {Uniq, Index, BEAMAddress}),
-      hipe_bifs:set_native_address_in_fe(FE, DestAddress),
+      put(closures_to_patch, [{FE,DestAddress}|get(closures_to_patch)]),
       ?debug_msg("Patch FE(~w) to 0x~.16b->0x~.16b (emu:0x~.16b)\n",
 		 [DestMFA, FE, DestAddress, BEAMAddress]),
       ?ASSERT(assert_local_patch(Address)),
