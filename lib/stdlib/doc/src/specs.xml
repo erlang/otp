@@ -34,6 +34,7 @@
   <xi:include href="../specs/specs_lib.xml"/>
   <xi:include href="../specs/specs_lists.xml"/>
   <xi:include href="../specs/specs_log_mf_h.xml"/>
+  <xi:include href="../specs/specs_maps.xml"/>
   <xi:include href="../specs/specs_math.xml"/>
   <xi:include href="../specs/specs_ms_transform.xml"/>
   <xi:include href="../specs/specs_orddict.xml"/>
