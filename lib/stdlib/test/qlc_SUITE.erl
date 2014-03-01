@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,7 +72,7 @@
 
 	  otp_5644/1, otp_5195/1, otp_6038_bug/1, otp_6359/1, otp_6562/1,
 	  otp_6590/1, otp_6673/1, otp_6964/1, otp_7114/1, otp_7238/1,
-	  otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1,
+	  otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1, otp_11758/1,
 
 	  manpage/1,
 
@@ -142,7 +142,7 @@ groups() ->
      {tickets, [],
       [otp_5644, otp_5195, otp_6038_bug, otp_6359, otp_6562,
        otp_6590, otp_6673, otp_6964, otp_7114, otp_7232,
-       otp_7238, otp_7552, otp_6674, otp_7714]},
+       otp_7238, otp_7552, otp_6674, otp_7714, otp_11758]},
      {compat, [], [backward, forward]}].
 
 init_per_suite(Config) ->
@@ -6669,6 +6669,19 @@ otp_7714(Config) when is_list(Config) ->
              ets:delete(E1),
              ets:delete(E2)">>],
     ?line run(Config, Ts).
+
+otp_11758(doc) ->
+    "OTP-11758. Bug.";
+otp_11758(suite) -> [];
+otp_11758(Config) when is_list(Config) ->
+    Ts = [<<"T = ets:new(r, [{keypos, 2}]),
+             L = [{rrr, xxx, aaa}, {rrr, yyy, bbb}],
+             true = ets:insert(T, L),
+             QH = qlc:q([{rrr, B, C} || {rrr, B, C} <- ets:table(T),
+                              (B =:= xxx) or (B =:= yyy) and (C =:= aaa)]),
+             [{rrr,xxx,aaa}] = qlc:e(QH),
+             ets:delete(T)">>],
+    run(Config, Ts).
 
 otp_6674(doc) ->
     "OTP-6674. match/comparison.";
