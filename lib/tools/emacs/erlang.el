@@ -2570,9 +2570,9 @@ Value is list (stack token-start token-type in-what)."
 		 (erlang-pop stack))
 	       (if (and stack (memq (car (car stack)) '(icr begin fun try)))
 		   (erlang-pop stack))))
-	    ((looking-at "catch.*of")
+	    ((looking-at "catch\\b.*of")
 	     t)
-	    ((looking-at "catch\\s *\\($\\|%\\|.*->\\)")
+	    ((looking-at "catch\\b\\s *\\($\\|%\\|.*->\\)")
 	     ;; Must pop top icr layer, `catch' in try/catch
 	     ;;will push a new layer next.
 	     (progn
@@ -2620,9 +2620,9 @@ Value is list (stack token-start token-type in-what)."
 	    ;;((looking-at "when\\s *\\($\\|%\\)")
 	    ((looking-at "when[^_a-zA-Z0-9]")
 	     (erlang-push (list 'when token (current-column)) stack))
-	    ((looking-at "catch.*of")
+	    ((looking-at "catch\\b.*of")
 	     t)
-	    ((looking-at "catch\\s *\\($\\|%\\|.*->\\)")
+	    ((looking-at "catch\\b\\s *\\($\\|%\\|.*->\\)")
 	     (erlang-push (list 'icr token (current-column)) stack))
 	    ;;(erlang-push (list '-> token (current-column)) stack))
 	    ;;((looking-at "^of$") 
@@ -2913,7 +2913,7 @@ Return nil if inside string, t if in a comment."
 			(if stack
 			    (erlang-caddr (car stack))
 			  0))
-		       ((looking-at "catch\\($\\|[^_a-zA-Z0-9]\\)")
+		       ((looking-at "catch\\b\\($\\|[^_a-zA-Z0-9]\\)")
 			;; Are we in a try
 			(let ((start (if (eq (car stack-top) '->)
 					 (car (cdr stack))
@@ -3124,12 +3124,12 @@ This assumes that the preceding expression is either simple
 (defun erlang-at-keyword ()
   "Are we looking at an Erlang keyword which will increase indentation?"
   (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|"
-		      "of\\|receive\\|after\\|catch\\|try\\)[^_a-zA-Z0-9]")))
+		      "of\\|receive\\|after\\|catch\\|try\\)\\b")))
 
 (defun erlang-at-operator ()
   "Are we looking at an Erlang operator?"
   (looking-at
-   "\\(bnot\\|div\\|mod\\|band\\|bor\\|bxor\\|bsl\\|bsr\\)[^_a-zA-Z0-9]"))
+   "\\(bnot\\|div\\|mod\\|band\\|bor\\|bxor\\|bsl\\|bsr\\)\\b"))
 
 (defun erlang-comment-indent ()
   "Compute Erlang comment indentation.

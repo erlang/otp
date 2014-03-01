@@ -749,3 +749,14 @@ commas_first() ->
 %% this used to result in a scan-sexp error
 [{
  }].
+
+%% this used to result in 2x the correct indentation within the function
+%% body, due to the function name being mistaken for a keyword
+catcher(N) ->
+    try generate_exception(N) of
+	Val -> {N, normal, Val}
+    catch
+	throw:X -> {N, caught, thrown, X};
+	exit:X -> {N, caught, exited, X};
+	error:X -> {N, caught, error, X}
+    end.
