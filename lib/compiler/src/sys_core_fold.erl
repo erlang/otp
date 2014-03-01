@@ -2356,6 +2356,15 @@ is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
     %% been rewritten to is_record(Expr, LiteralTag, TupleSize).
     false;
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
+                            name=#c_literal{val=is_function},
+                            args=[A,#c_literal{val=Arity}]},
+                    Sub, _BoolVars) when is_integer(Arity), Arity >= 0 ->
+    is_safe_simple(A, Sub);
+is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
+                            name=#c_literal{val=is_function}},
+                    _Sub, _BoolVars) ->
+    false;
+is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
 			    name=#c_literal{val=Name},args=Args},
 		    Sub, BoolVars) ->
     NumArgs = length(Args),
