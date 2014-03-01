@@ -1493,7 +1493,15 @@ guard(Config) when is_list(Config) ->
 	    [],
 	    {errors,[{1,erl_lint,illegal_guard_expr},
 		     {2,erl_lint,illegal_guard_expr},
-		     {3,erl_lint,illegal_guard_expr}],[]}}
+		     {3,erl_lint,illegal_guard_expr}],[]}},
+           {guard9,
+            <<"t(X, Y) when erlang:'andalso'(X, Y) -> ok;
+               t(X, Y) when erlang:'orelse'(X, Y) -> ok.
+            ">>,
+            [],
+            {errors,[{1,erl_lint,illegal_guard_expr},
+                     {2,erl_lint,illegal_guard_expr}],
+             []}}
 	  ],
     ?line [] = run(Config, Ts1),
     ok.
