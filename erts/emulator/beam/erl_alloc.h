@@ -492,7 +492,7 @@ static TYPE *								\
 NAME##_alloc(void)							\
 {									\
     ErtsSchedulerData *esdp = erts_get_scheduler_data();		\
-    if (!esdp)								\
+    if (!esdp || ERTS_SCHEDULER_IS_DIRTY(esdp))				\
 	return NULL;							\
     return (TYPE *) erts_sspa_alloc(sspa_data_##NAME##__,		\
 				    (int) esdp->no - 1);		\
