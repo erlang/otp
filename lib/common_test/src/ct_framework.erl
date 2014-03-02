@@ -1277,13 +1277,13 @@ report(What,Data) ->
 	    ct_util:set_testdata({What,Data}),
 	    ok;
 	tc_start ->
-	    %% Data = {{Suite,Func},LogFileName}
+	    %% Data = {{Suite,GroupName,Func},LogFileName}
 	    ct_event:sync_notify(#event{name=tc_logfile,
 					node=node(),
 					data=Data}),
 	    ok;
 	tc_done ->
-	    {_Suite,Case,Result} = Data,
+	    {_Suite,_GroupName,Case,Result} = Data,
 	    case Result of
 		{failed, _} ->
 		    ct_hooks:on_tc_fail(What, Data);
@@ -1327,20 +1327,12 @@ report(What,Data) ->
 	tc_user_skip ->
 	    %% test case or config function specified as skipped in testspec,
 	    %% or init config func for suite/group has returned {skip,Reason}
-	    %% Data = {Suite,Case,Comment} | 
-	    %%        {Suite,{GroupConfigFunc,GroupName},Comment} 
-	    {Func,Data1} = case Data of
-			       {Suite,{ConfigFunc,undefined},Cmt} ->
-				   {ConfigFunc,{Suite,ConfigFunc,Cmt}};
-			       {_,{ConfigFunc,_},_} -> {ConfigFunc,Data};
-			       {_,Case,_} -> {Case,Data}
-			   end,
-
+	    %% Data = {Suite,GroupName,Func,Comment}
 	    ct_event:sync_notify(#event{name=tc_user_skip,
 					node=node(),
-					data=Data1}),
-	    ct_hooks:on_tc_skip(What, Data1),
-
+					data=Data}),
+	    ct_hooks:on_tc_skip(What, Data),
+	    Func = element(3, Data),
 	    if Func /= init_per_suite, Func /= init_per_group,
 	       Func /= end_per_suite, Func /= end_per_group ->
 		    add_to_stats(user_skipped);
@@ -1350,21 +1342,15 @@ report(What,Data) ->
 	tc_auto_skip ->
 	    %% test case skipped because of error in config function, or
 	    %% config function skipped because of error in info function
-	    %% Data = {Suite,Case,Comment} |
-	    %%        {Suite,{GroupConfigFunc,GroupName},Comment} 
-	    {Func,Data1} = case Data of
-			       {Suite,{ConfigFunc,undefined},Cmt} ->
-				   {ConfigFunc,{Suite,ConfigFunc,Cmt}};
-			       {_,{ConfigFunc,_},_} -> {ConfigFunc,Data};
-			       {_,Case,_} -> {Case,Data}
-			   end,
+	    %% Data = {Suite,GroupName,Func,Comment}
+
 	    %% this test case does not have a log, so printouts
 	    %% from event handlers should end up in the main log
 	    ct_event:sync_notify(#event{name=tc_auto_skip,
 					node=node(),
-					data=Data1}),
-	    ct_hooks:on_tc_skip(What, Data1),
-
+					data=Data}),
+	    ct_hooks:on_tc_skip(What, Data),
+	    Func = element(3, Data),
 	    if Func /= end_per_suite, 
 	       Func /= end_per_group ->
 		    add_to_stats(auto_skipped);

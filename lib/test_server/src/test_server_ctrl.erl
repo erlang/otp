@@ -2169,7 +2169,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %% comment (which gets printed in the log files) describes why the case
 %% was skipped.
 %%
-%% {skip_case,{Case,Comment}} A normal test case skipped by the user.
+%% {skip_case,{Case,Comment},Mode} A normal test case skipped by the user.
 %% The comment (which gets printed in the log files) describes why the
 %% case was skipped.
 %%
@@ -2293,7 +2293,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   false, SkipMode),
-		    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+		    ConfData = {Mod,get_name(SkipMode),Func,Comment},
 		    test_server_sup:framework_call(report,
 						   [ReportTag,ConfData]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
@@ -2304,7 +2304,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    wait_for_cases(Ref),
 		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   true, SkipMode),
-		    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+		    ConfData = {Mod,get_name(SkipMode),Func,Comment},
 		    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 		    case CurrIOHandler of
 			{Ref,_} ->
@@ -2324,7 +2324,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% nested under a parallel group
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   false, SkipMode),
-	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    ConfData = {Mod,get_name(SkipMode),Func,Comment},
 	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 
 	    %% Check if this group is auto skipped because of error in the
@@ -2358,7 +2358,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% a parallel group (io buffering is active)
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   true, SkipMode),
-	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    ConfData = {Mod,get_name(SkipMode),Func,Comment},
 	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    case CurrIOHandler of
 		{Ref,_} ->
@@ -2376,7 +2376,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% under a parallel group
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   false, SkipMode),
-	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    ConfData = {Mod,get_name(SkipMode),Func,Comment},
 	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
 				[conf(Ref,[])|Mode], Status);
@@ -2391,7 +2391,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    end,
 	    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 				   true, SkipMode),
-	    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
+	    ConfData = {Mod,get_name(SkipMode),Func,Comment},
 	    test_server_sup:framework_call(report, [ReportTag,ConfData]),
 	    run_test_cases_loop(Cases, Config, TimetrapData,
 				[conf(Ref,[])|Mode], Status)
@@ -2401,7 +2401,9 @@ run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
     {Mod,Func} = skip_case(auto, undefined, get(test_server_case_num)+1,
 			   Case, Comment, is_io_buffered(), SkipMode),
-    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
+    test_server_sup:framework_call(report, [tc_auto_skip,
+					    {Mod,get_name(SkipMode),
+					     Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
@@ -2409,14 +2411,26 @@ run_test_cases_loop([{skip_case,{{Mod,all}=Case,Comment}}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
     skip_case(user, undefined, 0, Case, Comment, false, Mode),
     test_server_sup:framework_call(report, [tc_user_skip,
-					    {Mod,all,Comment}]),
+					    {Mod,undefined,all,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status);
+
+run_test_cases_loop([{skip_case,{Case,Comment},SkipMode}|Cases],
+		    Config, TimetrapData, Mode, Status) ->
+    {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1,
+			   Case, Comment, is_io_buffered(), SkipMode),
+    test_server_sup:framework_call(report, [tc_user_skip,
+					    {Mod,get_name(SkipMode),
+					     Func,Comment}]),
+    run_test_cases_loop(Cases, Config, TimetrapData, Mode,
+			update_status(skipped, Mod, Func, Status));
 
 run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
     {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1,
-			   Case, Comment, is_io_buffered()),
-    test_server_sup:framework_call(report, [tc_user_skip,{Mod,Func,Comment}]),
+			   Case, Comment, is_io_buffered(), []),
+    test_server_sup:framework_call(report, [tc_user_skip,
+					    {Mod,undefined,
+					     Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
@@ -2955,7 +2969,6 @@ get_tc_results([{_,{OkSkipFail,_}} | _Status]) ->
 get_tc_results([]) ->		      % in case init_per_suite crashed
     {[],[],[]}.
 
-
 conf(Ref, Props) ->
     {Ref,Props,?now}.
 
@@ -3160,10 +3173,6 @@ random_order(N, {Pos,NewSeed}, IxCases, Shuffled) ->
 %% SendSync determines if start and finished messages must be sent so
 %% that the printouts can be buffered and handled in order with io from
 %% parallel processes.
-
-skip_case(Type, Ref, CaseNum, Case, Comment, SendSync) ->
-    skip_case(Type, Ref, CaseNum, Case, Comment, SendSync, []).
-
 skip_case(Type, Ref, CaseNum, Case, Comment, SendSync, Mode) ->
     MF = {Mod,Func} = case Case of
 			  {M,F,_A} -> {M,F};
@@ -3330,17 +3339,30 @@ modify_cases_upto1(Ref, ModOp, [{skip_case,{_F,_Cmt}}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, ModOp, T, [MF|Orig], [MF|Alt]);
 
 %% next is a normal case (possibly in a sequence), mark as skipped, or copy, and proceed
-modify_cases_upto1(Ref, {skip,Reason,_,_,skip_case}=Op,
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,skip_case}=Op,
 		   [{_M,_F}=MF|T], Orig, Alt) ->
-    modify_cases_upto1(Ref, Op, T, Orig, [{skip_case,{MF,Reason}}|Alt]);
+    modify_cases_upto1(Ref, Op, T, Orig, [{skip_case,{MF,Reason},Mode}|Alt]);
 modify_cases_upto1(Ref, {skip,Reason,_,Mode,auto_skip_case}=Op,
 		   [{_M,_F}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, Op, T, Orig, [{auto_skip_case,{MF,Reason},Mode}|Alt]);
 modify_cases_upto1(Ref, CopyOp, [{_M,_F}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, CopyOp, T, [MF|Orig], [MF|Alt]);
 
+%% next is a conf case, modify the Mode arg to keep track of sub groups
+modify_cases_upto1(Ref, {skip,Reason,FType,Mode,SkipType},
+		   [{conf,OtherRef,Props,_MF}|T], Orig, Alt) ->
+    case hd(Mode) of
+	{OtherRef,_,_} ->			% end conf
+	    modify_cases_upto1(Ref, {skip,Reason,FType,tl(Mode),SkipType},
+			       T, Orig, Alt);
+	_ ->					% start conf
+	    Mode1 = [conf(OtherRef,Props)|Mode],
+	    modify_cases_upto1(Ref, {skip,Reason,FType,Mode1,SkipType},
+			       T, Orig, Alt)
+    end;
+
 %% next is some other case, ignore or copy
-modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [_|T], Orig, Alt) ->
+modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [_Other|T], Orig, Alt) ->
     modify_cases_upto1(Ref, Op, T, Orig, Alt);
 modify_cases_upto1(Ref, CopyOp, [C|T], Orig, Alt) ->
     modify_cases_upto1(Ref, CopyOp, T, [C|Orig], [C|Alt]).
@@ -3665,12 +3687,13 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		update_config(hd(Args), [{priv_dir,PrivDir++"/"},
 					 {tc_logfile,MinorName}])
 	end,
-
+    GrName = get_name(Mode),
     test_server_sup:framework_call(report,
-				   [tc_start,{{Mod,Func},MinorName}]),
+				   [tc_start,{{Mod,GrName,Func},
+					      MinorName}]),
 
     print_props((RunInit==skip_init), get_props(Mode)),
-    GroupName =	case get_name(Mode) of
+    GrNameStr =	case GrName of
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)
 		end,
@@ -3683,14 +3706,14 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	  "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
 	  "<td><a href=\"~ts\">~w</a></td>"
 	  "<td><a href=\"~ts#top\"><</a> <a href=\"~ts#end\">></a></td>",
-	  [num2str(Num),fw_name(Mod),GroupName,EncMinorBase,Func,
+	  [num2str(Num),fw_name(Mod),GrNameStr,EncMinorBase,Func,
 	   EncMinorBase,EncMinorBase]),
 
     do_unless_parallel(Main, fun erlang:yield/0),
 
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
-	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], get_name(Mode),
+	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
 			    RunInit, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
@@ -3709,41 +3732,41 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     Status =
 	case {Time,RetVal} of
 	    {died,{timetrap_timeout,TimetrapTimeout}} ->
-		progress(failed, Num, Mod, Func, Loc,
+		progress(failed, Num, Mod, Func, GrName, Loc,
 			 timetrap_timeout, TimetrapTimeout, Comment, Style);
 	    {died,Reason} ->
-		progress(failed, Num, Mod, Func, Loc, Reason,
+		progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',{Skip,Reason}}} when Skip==skip; Skip==skipped;
 					    Skip==auto_skip ->
-		progress(skip, Num, Mod, Func, Loc, Reason,
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',_Pid,{Skip,Reason}}} when Skip==skip; Skip==skipped ->
-		progress(skip, Num, Mod, Func, Loc, Reason,
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',_Pid,Reason}} ->
-		progress(failed, Num, Mod, Func, Loc, Reason,
+		progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{'EXIT',Reason}} ->
-		progress(failed, Num, Mod, Func, Loc, Reason,
+		progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,{Fail,Reason}} when Fail =:= fail; Fail =:= failed ->
-		progress(failed, Num, Mod, Func, Loc, Reason,
+		progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {_,Reason={auto_skip,_Why}} ->
-		progress(skip, Num, Mod, Func, Loc, Reason,
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);		
 	    {_,{Skip,Reason}} when Skip==skip; Skip==skipped ->
-		progress(skip, Num, Mod, Func, Loc, Reason,
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
 			 Time, Comment, Style);
 	    {Time,RetVal} ->
 		case DetectedFail of
 		    [] ->
-			progress(ok, Num, Mod, Func, Loc, RetVal,
+			progress(ok, Num, Mod, Func, GrName, Loc, RetVal,
 				 Time, Comment, Style);
 
 		    Reason ->
-			progress(failed, Num, Mod, Func, Loc, Reason,
+			progress(failed, Num, Mod, Func, GrName, Loc, Reason,
 				 Time, Comment, Style)
 		end
 	end,
@@ -3848,7 +3871,7 @@ num2str(N) -> integer_to_list(N).
 %% Note: Strings that are to be written to the minor log must
 %% be prefixed with "=== " here, or the indentation will be wrong.
 
-progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
+progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	 Comment, {St0,St1}) ->
     {Reason1,{Color,Ret,ReportTag}} = 
 	if_auto_skip(Reason,
@@ -3857,7 +3880,7 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
     print(major, "=result        ~w: ~p", [ReportTag,Reason1]),
     print(1, "*** SKIPPED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
-    test_server_sup:framework_call(report, [tc_done,{Mod,Func,
+    test_server_sup:framework_call(report, [tc_done,{Mod,GrName,Func,
 						     {ReportTag,Reason1}}]),
     ReasonStr = reason_to_string(Reason1),
     ReasonStr1 = lists:flatten([string:strip(S,left) ||
@@ -3882,13 +3905,13 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
     print(minor, "=== reason = ~ts", [ReasonStr1]),
     Ret;
 
-progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: timeout, ~p", [Loc]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
-				   [tc_done,{Mod,Func,
+				   [tc_done,{Mod,GrName,Func,
 					     {failed,timetrap_timeout}}]),
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
     ErrorReason = io_lib:format("{timetrap_timeout,~ts}", [FormatLastLoc]),
@@ -3908,13 +3931,13 @@ progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
     print(minor, "=== reason = timetrap timeout", []),
     failed;
 
-progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: testcase_aborted, ~p", [Loc]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
-				   [tc_done,{Mod,Func,
+				   [tc_done,{Mod,GrName,Func,
 					     {failed,testcase_aborted}}]),
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
     ErrorReason = io_lib:format("{testcase_aborted,~ts}", [FormatLastLoc]),
@@ -3934,12 +3957,12 @@ progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
     print(minor, "=== reason = {testcase_aborted,~p}", [Reason]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
+progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: ~p, ~w", [Reason,unknown]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
-    test_server_sup:framework_call(report, [tc_done,{Mod,Func,
+    test_server_sup:framework_call(report, [tc_done,{Mod,GrName,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
 			       true -> "~w"
@@ -3970,12 +3993,12 @@ progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
     print(minor, "=== reason = " ++ FStr, [FormattedReason]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: ~p, ~p", [Reason,Loc]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
-    test_server_sup:framework_call(report, [tc_done,{Mod,Func,
+    test_server_sup:framework_call(report, [tc_done,{Mod,GrName,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
 			       true -> "~w"
@@ -3997,10 +4020,10 @@ progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
     print(minor, "=== reason = " ++ FStr, [FormattedReason]),
     failed;
 
-progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
+progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
     print(minor, "successfully completed test case", []),
-    test_server_sup:framework_call(report, [tc_done,{Mod,Func,ok}]),
+    test_server_sup:framework_call(report, [tc_done,{Mod,GrName,Func,ok}]),
     Comment =
 	case RetVal of
 	    {comment,RetComment} ->
