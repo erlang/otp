@@ -2346,10 +2346,16 @@ is_safe_bool_expr(Core, Sub) ->
     is_safe_bool_expr_1(Core, Sub, gb_sets:empty()).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
-			    name=#c_literal{val=is_record},
-			    args=[_,_]},
-		    _Sub, _BoolVars) ->
+                            name=#c_literal{val=is_record},
+                            args=[A,#c_literal{val=Tag},#c_literal{val=Size}]},
+                    Sub, _BoolVars) when is_atom(Tag), is_integer(Size) ->
+    is_safe_simple(A, Sub);
+is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
+                            name=#c_literal{val=is_record}},
+                    _Sub, _BoolVars) ->
     %% The is_record/2 BIF is NOT allowed in guards.
+    %% The is_record/3 BIF where its second argument is not an atom or its third
+    %% is not an integer is NOT allowed in guards.
     %%
     %% NOTE: Calls like is_record(Expr, LiteralTag), where LiteralTag
     %% is a literal atom referring to a defined record, have already
