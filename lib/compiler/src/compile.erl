@@ -246,7 +246,7 @@ format_error_reason({Reason, Stack}) when is_list(Stack) ->
     end,
     FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
     [io_lib:format("~tp", [Reason]),"\n\n",
-     lib:format_stacktrace(1, erlang:get_stacktrace(), StackFun, FormatFun)];
+     lib:format_stacktrace(1, Stack, StackFun, FormatFun)];
 format_error_reason(Reason) ->
     io_lib:format("~tp", [Reason]).
 
