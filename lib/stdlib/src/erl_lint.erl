@@ -344,10 +344,19 @@ format_error(spec_wrong_arity) ->
     "spec has the wrong arity";
 format_error(callback_wrong_arity) ->
     "callback has the wrong arity";
-format_error({deprecated_type, {Name, Arity}, {Mod, NewName}, Rel}) ->
+format_error({deprecated_builtin_type, {Name, Arity},
+              Replacement, Rel}) ->
+    UseS = case Replacement of
+               {Mod, NewName} ->
+                   io_lib:format("use ~w:~w/~w", [Mod, NewName, Arity]);
+               {Mod, NewName, NewArity} ->
+                   io_lib:format("use ~w:~w/~w or preferably ~w:~w/~w",
+                                 [Mod, NewName, Arity,
+                                  Mod, NewName, NewArity])
+           end,
     io_lib:format("type ~w/~w is deprecated and will be "
-                  "removed in ~s; use ~w:~w/~w",
-                  [Name, Arity, Rel, Mod, NewName, Arity]);
+                  "removed in ~s; use ~s",
+                  [Name, Arity, Rel, UseS]);
 format_error({not_exported_opaque, {TypeName, Arity}}) ->
     io_lib:format("opaque type ~w~s is not exported",
                   [TypeName, gen_type_paren(Arity)]);
@@ -2637,10 +2646,10 @@ check_type({type, La, TypeName, Args}, SeenVars, St) ->
     St1 = case is_var_arity_type(TypeName) of
 	      true -> St;
 	      false ->
-                  Obsolete = obsolete_type(TypePair),
+                  Obsolete = obsolete_builtin_type(TypePair),
                   IsObsolete =
                       case Obsolete of
-                          {deprecated, {M, _}, _} when M =/= Module ->
+                          {deprecated, Repl, _} when element(1, Repl) =/= Module ->
                               case dict:find(TypePair, Types) of
                                   {ok, _} -> false;
                                   error -> true
@@ -2650,7 +2659,8 @@ check_type({type, La, TypeName, Args}, SeenVars, St) ->
                   case IsObsolete of
                       true ->
                           {deprecated, Replacement, Rel} = Obsolete,
-                          W = {deprecated_type, TypePair, Replacement, Rel},
+                          Tag = deprecated_builtin_type,
+                          W = {Tag, TypePair, Replacement, Rel},
                           add_warning(La, W, St);
                       false ->
                           OldUsed = Usage#usage.used_types,
@@ -2780,15 +2790,23 @@ is_newly_introduced_builtin_type({boolean, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 %% Obsolete in OTP 17.0.
-obsolete_type({array, 0}) -> {deprecated, {array, array}, "OTP 18.0"};
-obsolete_type({dict, 0}) -> {deprecated, {dict, dict}, "OTP 18.0"};
-obsolete_type({digraph, 0}) -> {deprecated, {digraph, graph}, "OTP 18.0"};
-obsolete_type({gb_set, 0}) -> {deprecated, {gb_sets, set}, "OTP 18.0"};
-obsolete_type({gb_tree, 0}) -> {deprecated, {gb_trees, tree}, "OTP 18.0"};
-obsolete_type({queue, 0}) -> {deprecated, {queue, queue}, "OTP 18.0"};
-obsolete_type({set, 0}) -> {deprecated, {sets, set}, "OTP 18.0"};
-obsolete_type({tid, 0}) -> {deprecated, {ets, tid}, "OTP 18.0"};
-obsolete_type({Name, _}) when is_atom(Name) -> no.
+obsolete_builtin_type({array, 0}) ->
+    {deprecated, {array, array, 1}, "OTP 18.0"};
+obsolete_builtin_type({dict, 0}) ->
+    {deprecated, {dict, dict, 2}, "OTP 18.0"};
+obsolete_builtin_type({digraph, 0}) ->
+    {deprecated, {digraph, graph}, "OTP 18.0"};
+obsolete_builtin_type({gb_set, 0}) ->
+    {deprecated, {gb_sets, set, 1}, "OTP 18.0"};
+obsolete_builtin_type({gb_tree, 0}) ->
+    {deprecated, {gb_trees, tree, 2}, "OTP 18.0"};
+obsolete_builtin_type({queue, 0}) ->
+    {deprecated, {queue, queue, 1}, "OTP 18.0"};
+obsolete_builtin_type({set, 0}) ->
+    {deprecated, {sets, set, 1}, "OTP 18.0"};
+obsolete_builtin_type({tid, 0}) ->
+    {deprecated, {ets, tid}, "OTP 18.0"};
+obsolete_builtin_type({Name, _}) when is_atom(Name) -> no.
 
 %% spec_decl(Line, Fun, Types, State) -> State.
 

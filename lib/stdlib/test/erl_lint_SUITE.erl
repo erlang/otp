@@ -3249,14 +3249,15 @@ predef(Config) when is_list(Config) ->
     W = get_compilation_warnings(Config, "predef", []),
     [] = W,
     W2 = get_compilation_warnings(Config, "predef2", []),
-    [{7,erl_lint,{deprecated_type,{array,0},{array,array},"OTP 18.0"}},
-     {12,erl_lint,{deprecated_type,{dict,0},{dict,dict},"OTP 18.0"}},
-     {17,erl_lint,{deprecated_type,{digraph,0},{digraph,graph},"OTP 18.0"}},
-     {27,erl_lint,{deprecated_type,{gb_set,0},{gb_sets,set},"OTP 18.0"}},
-     {32,erl_lint,{deprecated_type,{gb_tree,0},{gb_trees,tree},"OTP 18.0"}},
-     {37,erl_lint,{deprecated_type,{queue,0},{queue,queue},"OTP 18.0"}},
-     {42,erl_lint,{deprecated_type,{set,0},{sets,set},"OTP 18.0"}},
-     {47,erl_lint,{deprecated_type,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
+    Tag = deprecated_builtin_type,
+    [{7,erl_lint,{Tag,{array,0},{array,array,1},"OTP 18.0"}},
+     {12,erl_lint,{Tag,{dict,0},{dict,dict,2},"OTP 18.0"}},
+     {17,erl_lint,{Tag,{digraph,0},{digraph,graph},"OTP 18.0"}},
+     {27,erl_lint,{Tag,{gb_set,0},{gb_sets,set,1},"OTP 18.0"}},
+     {32,erl_lint,{Tag,{gb_tree,0},{gb_trees,tree,2},"OTP 18.0"}},
+     {37,erl_lint,{Tag,{queue,0},{queue,queue,1},"OTP 18.0"}},
+     {42,erl_lint,{Tag,{set,0},{sets,set,1},"OTP 18.0"}},
+     {47,erl_lint,{Tag,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
     ok.
 
 run(Config, Tests) ->
