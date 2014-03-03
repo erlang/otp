@@ -121,12 +121,13 @@ end_tc(_Mod, TC, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
 	'$ct_no_change').
 
-on_tc_skip(How, {Suite, GroupName, Case, Reason}) ->
-    call(fun call_cleanup/3, {How, Reason},
-	 [on_tc_skip, Suite, GroupName, Case]).
+%% Case = TestCase | {TestCase,GroupName}
+on_tc_skip(How, {Suite, Case, Reason}) ->
+    call(fun call_cleanup/3, {How, Reason}, [on_tc_skip, Suite, Case]).
 
-on_tc_fail(_How, {Suite, GroupName, Case, Reason}) ->
-    call(fun call_cleanup/3, Reason, [on_tc_fail, Suite, GroupName, Case]).
+%% Case = TestCase | {TestCase,GroupName}
+on_tc_fail(_How, {Suite, Case, Reason}) ->
+    call(fun call_cleanup/3, Reason, [on_tc_fail, Suite, Case]).
 
 %% -------------------------------------------------------------------------
 %% Internal Functions
@@ -246,7 +247,7 @@ scope([post_init_per_suite, SuiteName|_]) ->
 scope(init) ->
     none.
 
-terminate_if_scope_ends(HookId, [on_tc_skip,_Suite,Name,end_per_group], 
+terminate_if_scope_ends(HookId, [on_tc_skip,_Suite,{end_per_group,Name}], 
 			Hooks) ->
     terminate_if_scope_ends(HookId, [post_end_per_group, Name], Hooks);
 terminate_if_scope_ends(HookId, [on_tc_skip,Suite,end_per_suite], Hooks) ->
