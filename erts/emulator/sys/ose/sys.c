@@ -213,7 +213,6 @@ static volatile int children_died;
 /* When we have several schedulers, we need to make sure
  * that scheduler issuing aio_dispatch() is the owner on the signal */
 #define DISPATCH_AIO(sig) do {                                          \
-   restore(sig);                                                        \
    aio_dispatch(sig);                                                   \
    } while(0)
 

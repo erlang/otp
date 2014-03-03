@@ -737,6 +737,7 @@ union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent drv_ev) {
       ev->msgs = msg->next;
       ethr_mutex_unlock(&ev->mtx);
       erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
+      restore(sig);
       return sig;
     }
 }
