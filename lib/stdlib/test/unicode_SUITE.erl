@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -98,7 +98,7 @@ ex_binaries_errors_utf8(Config) when is_list(Config) ->
 		    unicode:characters_to_list(Chomped),
 		BrokenPart = iolist_to_binary(DeepBrokenPart2)
 	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,20) ],
+      end || N <- lists:seq(1,21,4) ],
     ok.
 
 ex_binaries_errors_utf16_little(Config) when is_list(Config) ->
@@ -124,7 +124,7 @@ ex_binaries_errors_utf16_little(Config) when is_list(Config) ->
 		    unicode:characters_to_list(Chomped,{utf16,little}),
 		BrokenPart = iolist_to_binary(DeepBrokenPart2)
 	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,15) ],
+      end || N <- lists:seq(1,16,3) ],
     ok.
 ex_binaries_errors_utf16_big(Config) when is_list(Config) ->
     BrokenPart = << <<X:16/big>> || X <- lists:seq(16#DC00,16#DFFF) >>,
@@ -149,7 +149,7 @@ ex_binaries_errors_utf16_big(Config) when is_list(Config) ->
 		    unicode:characters_to_list(Chomped,{utf16,big}),
 		BrokenPart = iolist_to_binary(DeepBrokenPart2)
 	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,15) ],
+      end || N <- lists:seq(1,16,3) ],
     ok.
     
 ex_binaries_errors_utf32_big(Config) when is_list(Config) ->
@@ -175,7 +175,7 @@ ex_binaries_errors_utf32_big(Config) when is_list(Config) ->
 		    unicode:characters_to_list(Chomped,{utf32,big}),
 		BrokenPart = iolist_to_binary(DeepBrokenPart2)
 	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,15) ],
+      end || N <- lists:seq(1,16,3) ],
     ok.
     
 ex_binaries_errors_utf32_little(Config) when is_list(Config) ->
@@ -201,7 +201,7 @@ ex_binaries_errors_utf32_little(Config) when is_list(Config) ->
 		    unicode:characters_to_list(Chomped,{utf32,little}),
 		BrokenPart = iolist_to_binary(DeepBrokenPart2)
 	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,15) ],
+      end || N <- lists:seq(1,16,3) ],
     ok.
     
 

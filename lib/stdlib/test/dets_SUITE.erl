@@ -3953,15 +3953,6 @@ otp_11709(Config) when is_list(Config) ->
 %% Parts common to several test cases
 %% 
 
-start_node_rel(Name, Rel, How) ->
-    Release = [{release, atom_to_list(Rel)}],
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, How,
-                           [{args,
-                             " -kernel net_setuptime 100 "
-                             " -pa " ++ Pa},
-                            {erl, Release}]).
-
 crash(File, Where) ->
     crash(File, Where, 10).
 
@@ -4352,7 +4343,7 @@ check_badarg({'EXIT', {badarg, [{M,F,Args,_} | _]}}, M, F, Args) ->
 check_badarg({'EXIT', {badarg, [{M,F,A,_} | _]}}, M, F, Args)  ->
     true = test_server:is_native(M) andalso length(Args) =:= A.
 
-check_pps(P0) ->
+check_pps({Ports0,Procs0} = P0) ->
     case pps() of
         P0 ->
             ok;
@@ -4364,22 +4355,28 @@ check_pps(P0) ->
             case pps() of
                 P0 ->
                     ok;
-                P1 -> 
-                    io:format("failure, got ~p~n, expected ~p\n", [P1, P0]),
-                    {Ports0,Procs0} = P0,
-                    {Ports1,Procs1} = P1,
-                    show("Old ports", Ports0 -- Ports1),
-                    show("New ports", Ports1 -- Ports0),
-                    show("Old procs", Procs0 -- Procs1),
-                    show("New procs", Procs1 -- Procs0),
-                    ?t:fail()
-            end
+                {Ports1,Procs1} = P1 ->
+		    case {Ports1 -- Ports0, Procs1 -- Procs0} of
+			{[], []} -> ok;
+			{PortsDiff,ProcsDiff} ->
+			    io:format("failure, got ~p~n, expected ~p\n", [P1, P0]),
+			    show("Old port", Ports0 -- Ports1),
+			    show("New port", PortsDiff),
+			    show("Old proc", Procs0 -- Procs1),
+			    show("New proc", ProcsDiff),
+			    ?t:fail()
+		    end
+	    end
     end.
 
 show(_S, []) ->
     ok;
-show(S, L) ->
-    io:format("~s: ~p~n", [S, L]).
+show(S, [Pid|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~p~n", [S, erlang:process_info(Pid)]),
+    show(S, Pids);
+show(S, [Port|Ports]) when is_port(Port)->
+    io:format("~s: ~p~n", [S, erlang:port_info(Port)]),
+    show(S, Ports).
 
 pps() ->
     dets:start(),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -60,7 +60,7 @@
 	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
 
 %% Misc tests
--export([child_unlink/1, tree/1, count_children_memory/1,
+-export([child_unlink/1, tree/1, count_children/1,
 	 do_not_save_start_parameters_for_temporary_children/1,
 	 do_not_save_child_specs_for_temporary_children/1,
 	 simple_one_for_one_scale_many_temporary_children/1,
@@ -82,7 +82,7 @@ all() ->
      {group, normal_termination},
      {group, shutdown_termination},
      {group, abnormal_termination}, child_unlink, tree,
-     count_children_memory, do_not_save_start_parameters_for_temporary_children,
+     count_children, do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
      simple_global_supervisor, hanging_restart_loop, hanging_restart_loop_simple].
@@ -129,23 +129,10 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(count_children_memory, Config) ->
-    try erlang:memory() of
-	_ ->
-	    erts_debug:set_internal_state(available_internal_state, true),
-	    Dog = ?t:timetrap(?TIMEOUT),
-	    [{watchdog,Dog}|Config]
-    catch error:notsup ->
-	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
-    end;
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?TIMEOUT),
     [{watchdog,Dog}|Config].
 
-end_per_testcase(count_children_memory, Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    ?t:timetrap_cancel(?config(watchdog,Config)),
-    ok;
 end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(?config(watchdog,Config)),
     ok.
@@ -1249,34 +1236,24 @@ tree(Config) when is_list(Config) ->
     [0,0,0,0] = get_child_counts(NewSup2).
 
 %%-------------------------------------------------------------------------
-%% Test that count_children does not eat memory.
-count_children_memory(Config) when is_list(Config) ->
+%% Test count_children
+count_children(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
 	     worker, []},
     {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
     [supervisor:start_child(sup_test, []) || _Ignore <- lists:seq(1,1000)],
 
-    garbage_collect(),
-    _Size1 = proc_memory(),
     Children = supervisor:which_children(sup_test),
-    _Size2 = proc_memory(),
     ChildCount = get_child_counts(sup_test),
-    _Size3 = proc_memory(),
 
     [supervisor:start_child(sup_test, []) || _Ignore2 <- lists:seq(1,1000)],
 
-    garbage_collect(),
-    Children2 = supervisor:which_children(sup_test),
-    Size4 = proc_memory(),
     ChildCount2 = get_child_counts(sup_test),
-    Size5 = proc_memory(),
+    Children2 = supervisor:which_children(sup_test),
 
-    garbage_collect(),
-    Children3 = supervisor:which_children(sup_test),
-    Size6 = proc_memory(),
     ChildCount3 = get_child_counts(sup_test),
-    Size7 = proc_memory(),
+    Children3 = supervisor:which_children(sup_test),
 
     1000 = length(Children),
     [1,1000,0,1000] = ChildCount,
@@ -1285,26 +1262,8 @@ count_children_memory(Config) when is_list(Config) ->
     Children3 = Children2,
     ChildCount3 = ChildCount2,
 
-    %% count_children consumes memory using an accumulator function,
-    %% but the space can be reclaimed incrementally,
-    %% which_children may generate garbage that will be reclaimed later.
-    case (Size5 =< Size4) of
-	true -> ok;
-	false ->
-	    test_server:fail({count_children, used_more_memory,Size4,Size5})
-    end,
-    case Size7 =< Size6 of
-	true -> ok;
-	false ->
-	    test_server:fail({count_children, used_more_memory,Size6,Size7})
-    end,
-
     [terminate(SupPid, Pid, child, kill) || {undefined, Pid, worker, _Modules} <- Children3],
     [1,0,0,0] = get_child_counts(sup_test).
-
-proc_memory() ->
-    erts_debug:set_internal_state(wait, deallocations),
-    erlang:memory(processes_used).
 
 %%-------------------------------------------------------------------------
 %% Temporary children shall not be restarted so they should not save
@@ -1483,7 +1442,7 @@ simple_one_for_one_scale_many_temporary_children(_Config) ->
     
     if T1 > 0 ->
 	    Scaling = T2 div T1,
-	    if Scaling > 20 ->
+	    if Scaling > 50 ->
 		    %% The scaling shoul be linear (i.e.10, really), but we
 		    %% give some extra here to avoid failing the test
 		    %% unecessarily.
