@@ -234,7 +234,9 @@ format_error({crash,Pass,Reason}) ->
 format_error({bad_return,Pass,Reason}) ->
     io_lib:format("internal error in ~p;\nbad return value: ~ts", [Pass,format_error_reason(Reason)]);
 format_error({module_name,Mod,Filename}) ->
-    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]).
+    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]);
+format_error(reparsing_invalid_unicode) ->
+    "Non-UTF-8 character(s) detected, but no encoding declared. Encode the file in UTF-8 or add \"%% coding: latin-1\" at the beginning of the file. Retrying with latin-1 encoding.".
 
 format_error_reason({Reason, Stack}) when is_list(Stack) ->
     StackFun = fun
@@ -792,19 +794,58 @@ no_native_compilation(BeamFile, #compile{options=Opts0}) ->
 	_ -> false
     end.
 
-parse_module(St) ->
-    Opts = St#compile.options,
-    Cwd = ".",
-    IncludePath = [Cwd, St#compile.dir|inc_paths(Opts)],
-    R =  epp:parse_file(St#compile.ifile, IncludePath, pre_defs(Opts)),
+parse_module(St0) ->
+    case do_parse_module(utf8, St0) of
+	{ok,_}=Ret ->
+	    Ret;
+	{error,_}=Ret ->
+	    Ret;
+	{invalid_unicode,File,Line} ->
+	    case do_parse_module(latin1, St0) of
+		{ok,St} ->
+		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
+		    {ok,St#compile{warnings=Es++St#compile.warnings}};
+		{error,St} ->
+		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
+		    {error,St#compile{errors=Es++St#compile.errors}}
+	    end
+    end.
+
+do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
+    R = epp:parse_file(File,
+		       [{includes,[".",Dir|inc_paths(Opts)]},
+			{macros,pre_defs(Opts)},
+			{default_encoding,DefEncoding},
+			extra]),
     case R of
-	{ok,Forms} ->
-            Encoding = epp:read_encoding(St#compile.ifile),
-	    {ok,St#compile{code=Forms,encoding=Encoding}};
+	{ok,Forms,Extra} ->
+	    Encoding = proplists:get_value(encoding, Extra),
+	    case find_invalid_unicode(Forms, File) of
+		none ->
+		    {ok,St#compile{code=Forms,encoding=Encoding}};
+		{invalid_unicode,_,_}=Ret ->
+		    case Encoding of
+			none ->
+			    Ret;
+			_ ->
+			    {ok,St#compile{code=Forms,encoding=Encoding}}
+		    end
+	    end;
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+find_invalid_unicode([H|T], File0) ->
+    case H of
+	{attribute,_,file,{File,_}} ->
+	    find_invalid_unicode(T, File);
+	{error,{Line,file_io_server,invalid_unicode}} ->
+	    {invalid_unicode,File0,Line};
+	_Other ->
+	    find_invalid_unicode(T, File0)
+    end;
+find_invalid_unicode([], _) -> none.
 
 parse_core(St) ->
     case file:read_file(St#compile.ifile) of

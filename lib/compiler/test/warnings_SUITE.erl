@@ -37,8 +37,9 @@
 
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
-         files/1,effect/1,bin_opt_info/1,bin_construction/1, comprehensions/1,
-         maps/1,redundant_boolean_clauses/1]).
+         files/1,effect/1,bin_opt_info/1,bin_construction/1,
+	 comprehensions/1,maps/1,redundant_boolean_clauses/1,
+	 latin1_fallback/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -63,7 +64,7 @@ groups() ->
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
-       redundant_boolean_clauses]}].
+       redundant_boolean_clauses,latin1_fallback]}].
 
 init_per_suite(Config) ->
     Config.
@@ -589,6 +590,37 @@ redundant_boolean_clauses(Config) when is_list(Config) ->
            [],
            {warnings,[{5,sys_core_fold,nomatch_shadow}]}}],
     run(Config, Ts),
+    ok.
+
+latin1_fallback(Conf) when is_list(Conf) ->
+    DataDir = ?privdir,
+    IncFile = filename:join(DataDir, "include_me.hrl"),
+    file:write_file(IncFile, <<"%% ",246," in include file\n">>),
+    Ts1 = [{latin1_fallback1,
+	    %% Test that the compiler fall backs to latin-1 with
+	    %% a warning if a file has no encoding and does not
+	    %% contain correct UTF-8 sequences.
+	    <<"%% Bj",246,"rn
+              t(_) -> \"",246,"\";
+              t(x) -> ok.
+              ">>,
+	    [],
+	    {warnings,[{1,compile,reparsing_invalid_unicode},
+		       {3,sys_core_fold,{nomatch_shadow,2}}]}}],
+    [] = run(Conf, Ts1),
+
+    Ts2 = [{latin1_fallback2,
+	    %% Test that the compiler fall backs to latin-1 with
+	    %% a warning if a file has no encoding and does not
+	    %% contain correct UTF-8 sequences.
+	    <<"
+
+	      -include(\"include_me.hrl\").
+              ">>,
+	    [],
+	    {warnings,[{1,compile,reparsing_invalid_unicode}]}
+	   }],
+    [] = run(Conf, Ts2),
     ok.
 
 %%%
