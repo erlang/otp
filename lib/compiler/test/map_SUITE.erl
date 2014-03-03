@@ -279,6 +279,7 @@ get_val(#{ "wazzup" := _, val := V}) -> V;
 get_val(#{ val := V }) -> {some_val, V}.
 
 t_guard_bifs(Config) when is_list(Config) ->
+    true   = map_guard_empty(),
     true   = map_guard_head(#{a=>1}),
     false  = map_guard_head([]),
     true   = map_guard_body(#{a=>1}),
@@ -286,6 +287,8 @@ t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
     false  = map_guard_pattern("list"),
     ok.
+
+map_guard_empty() when is_map(#{}); false -> true.
 
 map_guard_head(M) when is_map(M) -> true;
 map_guard_head(_) -> false.
