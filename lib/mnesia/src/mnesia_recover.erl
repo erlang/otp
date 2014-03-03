@@ -178,7 +178,11 @@ log_decision(D) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason); 
+	{'EXIT', Reason} ->
+            case mnesia_lib:other_val(Var) of
+                error -> mnesia_lib:pr_other(Var, Reason);
+                Val -> Val
+            end;
 	Value -> Value
     end.
 
