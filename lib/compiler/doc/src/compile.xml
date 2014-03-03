@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -549,6 +549,14 @@ module.beam: module.erl \
 	      <c>nowarn_deprecated_function</c> but only for
 	      the mentioned functions. <c>MFAs</c> is a tuple
               <c>{Module,Name,Arity}</c> or a list of such tuples.</p>
+          </item>
+
+	  <tag><c>nowarn_deprecated_type</c></tag>
+          <item>
+            <p>Turns off warnings for uses of deprecated types. By
+	      default (<c>warn_deprecated_type</c>), warnings are
+	      emitted for every use of a type known by the compiler
+	      to be deprecated.</p>
           </item>
 
 	  <tag><c>warn_obsolete_guard</c></tag>

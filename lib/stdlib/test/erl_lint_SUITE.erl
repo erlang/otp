@@ -3243,7 +3243,7 @@ bin_syntax_errors(Config) ->
     ok.
 
 predef(doc) ->
-    "Predefined types: array(), digraph(), and so on";
+    "OTP-10342: Predefined types: array(), digraph(), and so on";
 predef(suite) -> [];
 predef(Config) when is_list(Config) ->
     W = get_compilation_warnings(Config, "predef", []),
@@ -3258,6 +3258,27 @@ predef(Config) when is_list(Config) ->
      {37,erl_lint,{Tag,{queue,0},{queue,queue,1},"OTP 18.0"}},
      {42,erl_lint,{Tag,{set,0},{sets,set,1},"OTP 18.0"}},
      {47,erl_lint,{Tag,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
+    Ts = [{otp_10342_1,
+           <<"-compile(nowarn_deprecated_type).
+
+              -spec t(dict()) -> non_neg_integer().
+
+              t(D) ->
+                  erlang:phash2(D, 3000).
+             ">>,
+           {[nowarn_unused_function]},
+           []},
+         {otp_10342_2,
+           <<"-spec t(dict()) -> non_neg_integer().
+
+              t(D) ->
+                  erlang:phash2(D, 3000).
+             ">>,
+           {[nowarn_unused_function]},
+           {warnings,[{1,erl_lint,
+                       {deprecated_builtin_type,{dict,0},{dict,dict,2},
+                        "OTP 18.0"}}]}}],
+    [] = run(Config, Ts),
     ok.
 
 run(Config, Tests) ->

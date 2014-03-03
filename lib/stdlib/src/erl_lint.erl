@@ -508,6 +508,9 @@ start(File, Opts) ->
 	 {deprecated_function,
 	  bool_option(warn_deprecated_function, nowarn_deprecated_function,
 		      true, Opts)},
+	 {deprecated_type,
+	  bool_option(warn_deprecated_type, nowarn_deprecated_type,
+		      true, Opts)},
          {obsolete_guard,
           bool_option(warn_obsolete_guard, nowarn_obsolete_guard,
                       true, Opts)},
@@ -2646,7 +2649,8 @@ check_type({type, La, TypeName, Args}, SeenVars, St) ->
     St1 = case is_var_arity_type(TypeName) of
 	      true -> St;
 	      false ->
-                  Obsolete = obsolete_builtin_type(TypePair),
+                  Obsolete = (is_warn_enabled(deprecated_type, St)
+                              andalso obsolete_builtin_type(TypePair)),
                   IsObsolete =
                       case Obsolete of
                           {deprecated, Repl, _} when element(1, Repl) =/= Module ->
