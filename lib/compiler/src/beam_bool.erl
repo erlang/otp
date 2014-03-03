@@ -318,6 +318,8 @@ split_block_label_used([{set,[_],_,{bif,_,{f,Fail}}}|_], Fail) ->
     true;
 split_block_label_used([{set,[_],_,{alloc,_,{gc_bif,_,{f,Fail}}}}|_], Fail) ->
     true;
+split_block_label_used([{set,[_],_,{alloc,_,{put_map,_,{f,Fail}}}}|_], Fail) ->
+    true;
 split_block_label_used([_|Is], Fail) ->
     split_block_label_used(Is, Fail);
 split_block_label_used([], _) -> false.
