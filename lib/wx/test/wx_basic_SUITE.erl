@@ -341,23 +341,22 @@ wx_object(Config) ->
     Me = self(),
     ?m({call, foobar, {Me, _}}, wx_object:call(Frame, foobar)),
     ?m(ok, wx_object:cast(Frame, foobar2)),
-    ?m([{cast, foobar2}], flush()),
+    ?m([{cast, foobar2}|_], flush()),
     FramePid = wx_object:get_pid(Frame),
     io:format("wx_object pid ~p~n",[FramePid]),
     FramePid ! foo3,
-    ?m([{info, foo3}], flush()),
+    ?m([{info, foo3}|_], flush()),
 
     ?m(ok, wx_object:cast(Frame, fun(_) -> hehe end)),
-    ?m([{cast, hehe}], flush()),
+    ?m([{cast, hehe}|_], flush()),
     wxWindow:refresh(Frame),
-    ?m([{sync_event, #wx{event=#wxPaint{}}, _}], flush()),
+    ?m([{sync_event, #wx{event=#wxPaint{}}, _}|_], flush()),
     ?m(ok, wx_object:cast(Frame, fun(_) -> timer:sleep(200), slept end)),
     %% The sleep above should not hinder the Paint event below
     %% Which it did in my buggy handling of the sync_callback
     wxWindow:refresh(Frame),
-    ?m([{sync_event, #wx{event=#wxPaint{}}, _}], flush()),
     timer:sleep(500),
-    ?m([{cast, slept}], flush()),
+    ?m([{sync_event, #wx{event=#wxPaint{}}, _}, {cast, slept}|_], flush()),
 
     Monitor = erlang:monitor(process, FramePid),
     case proplists:get_value(user, Config, false) of
@@ -397,7 +396,7 @@ check_events([], Async, Sync) ->
     end.
 
 flush() ->
-    flush([], 500).
+    flush([], 1500).
 
 flush(Acc, Wait) ->
     receive
