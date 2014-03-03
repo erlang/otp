@@ -26,7 +26,7 @@
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
-         otp_11728/1]).
+         otp_11728/1, encoding/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -68,7 +68,8 @@ all() ->
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
-     otp_8665, otp_8911, otp_10302, otp_10820, otp_11728].
+     otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
+     encoding].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -123,10 +124,22 @@ include_local(Config) when is_list(Config) ->
 %%% regular epp:parse_file, the test case will time out, and then epp
 %%% server will go on growing until we dump core.
 epp_parse_file(File, Inc, Predef) ->
-    {ok, Epp} = epp:open(File, Inc, Predef),
+    List = do_epp_parse_file(fun() ->
+				     epp:open(File, Inc, Predef)
+			     end),
+    List = do_epp_parse_file(fun() ->
+				     Opts = [{name, File},
+					     {includes, Inc},
+					     {macros, Predef}],
+				     epp:open(Opts)
+			     end),
+    {ok, List}.
+
+do_epp_parse_file(Open) ->
+    {ok, Epp} = Open(),
     List = collect_epp_forms(Epp),
     epp:close(Epp),
-    {ok, List}.
+    List.
 
 collect_epp_forms(Epp) ->
     Result = epp_parse_erl_form(Epp),
@@ -1412,6 +1425,63 @@ otp_11728(Config) when is_list(Config) ->
     _ = file:delete(HrlFile),
     _ = file:delete(ErlFile),
     ok.
+
+%% Check the new API for setting the default encoding.
+encoding(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    ErlFile = filename:join(Dir, "encoding.erl"),
+
+    %% Try a latin-1 file with no encoding given.
+    C1 = <<"-module(encoding).
+           %% ",246,"
+	  ">>,
+    ok = file:write_file(ErlFile, C1),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {error,_},
+	 {error,{2,epp,cannot_parse}},
+	 {eof,2}]} = epp:parse_file(ErlFile, []),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,3}]} =
+	epp:parse_file(ErlFile, [{default_encoding,latin1}]),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,3}],[{encoding,none}]} =
+	epp:parse_file(ErlFile, [{default_encoding,latin1},extra]),
+
+    %% Try a latin-1 file with encoding given in a comment.
+    C2 = <<"-module(encoding).
+           %% encoding: latin-1
+           %% ",246,"
+	  ">>,
+    ok = file:write_file(ErlFile, C2),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,4}]} =
+	epp:parse_file(ErlFile, []),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,4}]} =
+	epp:parse_file(ErlFile, [{default_encoding,latin1}]),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,4}]} =
+	epp:parse_file(ErlFile, [{default_encoding,utf8}]),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,4}],[{encoding,latin1}]} =
+	epp:parse_file(ErlFile, [extra]),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,4}],[{encoding,latin1}]} =
+	epp:parse_file(ErlFile, [{default_encoding,latin1},extra]),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,encoding},
+	 {eof,4}],[{encoding,latin1}]} =
+	epp:parse_file(ErlFile, [{default_encoding,utf8},extra]),
+    ok.
+
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
