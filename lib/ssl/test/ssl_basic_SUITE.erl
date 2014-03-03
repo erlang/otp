@@ -96,6 +96,7 @@ basic_tests() ->
 options_tests() ->
     [der_input,
      misc_ssl_options,
+     ssl_options_not_proplist,
      socket_options,
      invalid_inet_get_option,
      invalid_inet_get_option_not_list,
@@ -990,7 +991,7 @@ misc_ssl_options(Config) when is_list(Config) ->
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
-    %% Chek that ssl options not tested elsewhere are filtered away e.i. not passed to inet.
+    %% Check that ssl options not tested elsewhere are filtered away e.i. not passed to inet.
     TestOpts = [{depth, 1}, 
 		{key, undefined}, 
 		{password, []},
@@ -1016,6 +1017,17 @@ misc_ssl_options(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+ssl_options_not_proplist() ->
+    [{doc,"Test what happens if an option is not a key value tuple"}].
+
+ssl_options_not_proplist(Config) when is_list(Config) ->
+    BadOption =  {client_preferred_next_protocols, 
+		  client, [<<"spdy/3">>,<<"http/1.1">>], <<"http/1.1">>},
+    {option_not_a_key_value_tuple, BadOption} =
+	ssl:connect("twitter.com", 443, [binary, {active, false}, 
+					 BadOption]).
 
 %%--------------------------------------------------------------------
 versions() ->
