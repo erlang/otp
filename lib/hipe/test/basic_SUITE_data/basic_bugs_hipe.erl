@@ -1,9 +1,9 @@
 %%% -*- erlang-indent-level: 2 -*-
-%%%-------------------------------------------------------------------
+%%%----------------------------------------------------------------------
 %%% Author: Kostis Sagonas
 %%%
 %%% Contains code examples that exhibited bugs in the HiPE compiler.
-%%%-------------------------------------------------------------------
+%%%----------------------------------------------------------------------
 -module(basic_bugs_hipe).
 
 -export([test/0]).
@@ -11,10 +11,13 @@
 test() ->
   ok = test_ets_bifs(),
   ok = test_bit_shift(),
+  ok = test_match_big_list(),
+  ok = test_unsafe_bsl(),
+  ok = test_unsafe_bsr(),
   ok = test_R12B5_seg_fault(),
   ok.
 
-%%--------------------------------------------------------------------
+%%-----------------------------------------------------------------------
 %% From: Bjorn Gustavsson
 %%
 %% This code, if HiPE compiled, crashed like this (on SPARC)
@@ -34,7 +37,7 @@ test() ->
 %% to other ets BIFs with a *different* arity (i.e. they have more or
 %% less arguments).  I have probably forgotten to mention that subtle
 %% change.
-%%--------------------------------------------------------------------
+%%-----------------------------------------------------------------------
 
 test_ets_bifs() ->
   Seed = {1032, 15890, 22716},
@@ -63,8 +66,7 @@ do_random_test() ->
 		   true ->
 		     ok
 		 end
-	     end,
-	     2000),
+	     end, 2000),
   %% io:format("~nData matched~n"),
   ets:match_delete(OrdSet, '_'),
   ets:match_delete(Set, '_'),
@@ -107,7 +109,7 @@ do_n_times(Fun, N) ->
   end,
   do_n_times(Fun, N - 1).
 
-%%--------------------------------------------------------------------
+%%-----------------------------------------------------------------------
 %% From: Niclas Pehrsson
 %% Date: Apr 20, 2006
 %%
@@ -115,7 +117,7 @@ do_n_times(Fun, N) ->
 %% that bsr in some cases shifts the bits in the wrong way...
 %%
 %% Fixed about 10 mins afterwards; was a bug in constant propagation.
-%%--------------------------------------------------------------------
+%%-----------------------------------------------------------------------
 
 test_bit_shift() ->
   1 = plain_shift(),                 %  1
@@ -154,12 +156,103 @@ shift_fun() ->
   (length_list() + 4) bsr 2.
 
 %%-----------------------------------------------------------------------
+%% From: Igor Goryachev
+%% Date: June 15, 2006
+%%
+%% I have experienced a different behaviour and possibly a weird result
+%% while playing with matching a big list on x86 and x86_64 machines.
+%%-----------------------------------------------------------------------
+
+-define(BIG_LIST,
+	["uid", "nickname", "n_family", "n_given", "email_pref",
+          "tel_home_number", "tel_cellular_number", "adr_home_country",
+          "adr_home_locality", "adr_home_region", "url", "gender", "bday",
+          "constitution", "height", "weight", "hair", "routine", "smoke",
+          "maritalstatus", "children", "independence", "school_number",
+          "school_locality", "school_title", "school_period", "org_orgname",
+          "title", "adr_work_locality", "photo_type", "photo_binval"]).
+
+test_match_big_list() ->
+  case create_tuple_with_big_const_list() of
+    {selected, ?BIG_LIST, _} -> ok;
+    _ -> weird
+  end.
+
+create_tuple_with_big_const_list() ->
+  {selected, ?BIG_LIST, [{"test"}]}.
+
+%%-----------------------------------------------------------------------
+%% In October 2006 the HiPE compiler acquired more type-driven
+%% optimisations of arithmetic operations. One of these, the
+%% transformation of bsl to a pure fixnum bsl fixnum -> fixnum version
+%% (unsafe_bsl), was incorrectly performed even when the result
+%% wouldn't be a fixnum. The error occurred for all backends, but the
+%% only place known to break was hipe_arm:imm_to_am1/2. Some
+%% immediates got broken on ARM, causing segmentation faults in
+%% compiler_tests when HiPE recompiled itself.
+%%-----------------------------------------------------------------------
+
+test_unsafe_bsl() ->
+  ok = bsl_check(bsl_test_cases()).
+
+bsl_test_cases() ->
+  [{16#FF, {16#FF, 0}},
+   {16#F000000F, {16#FF, 2}}].
+
+bsl_check([]) -> ok;
+bsl_check([{X, Y}|Rest]) ->
+  case imm_to_am1(X) of
+    Y -> bsl_check(Rest);
+    _ -> 'hipe_broke_bsl'
+  end.
+
+imm_to_am1(Imm) ->
+  imm_to_am1(Imm band 16#FFFFFFFF, 16).
+imm_to_am1(Imm, RotCnt) ->
+  if Imm >= 0, Imm =< 255 -> {Imm, RotCnt band 15};
+     true ->
+      NewRotCnt = RotCnt - 1,
+      if NewRotCnt =:= 0 -> []; % full circle, no joy
+         true ->
+          NewImm = (Imm bsr 2) bor ((Imm band 3) bsl 30),
+          imm_to_am1(NewImm, NewRotCnt)
+      end
+  end.
+
+%%-----------------------------------------------------------------------
+%% Another transformation, namely that of bsr to a pure fixnum bsr
+%% fixnum -> fixnum version (unsafe_bsr), failed to check for shifts
+%% larger than the number of bits in fixnums. Such shifts should
+%% return zero, but instead they became plain machine-level shift
+%% instructions.  Machines often only consider the low-order bits of
+%% the shift count, so machine-level shifts larger than the word size
+%% do not match the Erlang semantics.
+%%-----------------------------------------------------------------------
+
+test_unsafe_bsr() ->
+  ok = bsr_check(bsr_test_cases()).
+
+bsr_test_cases() ->
+  [{16#FF, 4, 16#0F},
+   {16#FF, 64, 0}].
+
+bsr_check([]) -> ok;
+bsr_check([{X, Y, Z}|Rest]) ->
+  case do_bsr(X, Y) of
+    Z -> bsr_check(Rest);
+    _ -> 'hipe_broke_bsr'
+  end.
+
+do_bsr(X, Y) ->
+  (X band 16#FFFF) bsr (Y band 16#FFFF).
+
+%%-----------------------------------------------------------------------
 %% From: Sergey S, mid January 2009.
 %%
 %%   While I was playing with +native option, I run into a bug in HiPE
 %%   which leads to segmentation fault using +native and Erlang R12B-5.
 %%
-%%   Eshell V5.6.5  (abort with ^G)
+%%   Eshell V5.6.5
 %%   1> crash:test().
 %%   # Some message to be printed here each loop iteration
 %%   Segmentation fault

@@ -13,6 +13,7 @@ test() ->
   ok = guard1([foo]),
   ok = test_guard2(),
   ok = test_guard3(),
+  ok = test_guard4(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -56,3 +57,19 @@ test_guard3() ->
 
 f(X) when ?is_foo(X) -> yes;
 f(_) -> no.
+
+%%--------------------------------------------------------------------
+
+-define(EXT_REF, <<131,114,0,3,100,0,19,114,101,102,95,116,101,115,116,95,98,117,103,64,103,111,114,98,97,103,2,0,0,0,125,0,0,0,0,0,0,0,0>>).
+
+test_guard4() ->
+  yes = is_ref(make_ref()),
+  no  = is_ref(gazonk),
+  yes = is_ref(an_external_ref(?EXT_REF)),  
+  ok.
+
+is_ref(Ref) when is_reference(Ref) -> yes;
+is_ref(_Ref) -> no.
+
+an_external_ref(Bin) ->
+  binary_to_term(Bin).

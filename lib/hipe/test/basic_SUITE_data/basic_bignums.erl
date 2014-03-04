@@ -13,6 +13,8 @@ test() ->
   ok = test_big_fac(),
   ok = test_int_overfl_32(),
   ok = test_int_overfl_64(),
+  ok = test_int_overfl_32_guard(),
+  ok = test_int_overfl_64_guard(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -122,3 +124,20 @@ test_int_overfl_64() ->
 add(X, Y) -> X + Y.
 
 %%--------------------------------------------------------------------
+%% Tests for correct handling of integer overflow in guards
+
+test_int_overfl_32_guard() ->
+  ok = overfl_in_guard(16#7ffffff, 0),
+  ok = overfl_in_guard(16#7ffffff, 16#7ffffff),
+  ok.
+
+test_int_overfl_64_guard() ->
+  ok = overfl_in_guard(16#7ffffffffffffff, 0),
+  ok = overfl_in_guard(16#7ffffffffffffff, 16#7ffffffffffffff),
+  ok.
+
+overfl_in_guard(X, Y) ->
+  case ok of
+    V when X+Y > 12 -> V;
+    _ -> bad
+  end.

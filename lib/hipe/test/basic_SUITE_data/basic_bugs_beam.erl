@@ -8,6 +8,8 @@
 
 -export([test/0]).
 
+%% the following is needed for the test_weird_message
+-export([loop/1]).
 %% the following are needed for the test_catch_bug
 -behaviour(gen_server).
 -export([start_link/1]).
@@ -16,6 +18,7 @@
 
 test() ->
   ok = test_fp_basic_blocks(),
+  ok = test_weird_message(),
   ok = test_catch_bug(),
   ok.
 
@@ -62,6 +65,40 @@ bad_arith2(X, Y) when is_float(X) ->
   X1 = X * 1.7e+308,
   Y1 = element(1, Y),
   {X1 + 1.0, Y1}.
+
+%%--------------------------------------------------------------------
+%% Sending 'test' to this process should return 'ok'.  But:
+%%
+%% 1> MOD:test().
+%% Weird: received true
+%% timeout
+%%
+%% Surprisingly, the message has been bound to the value of 'ena'
+%% in the record! The problem was visible in the .S file.
+%%--------------------------------------------------------------------
+
+-record(state, {ena = true}).
+
+test_weird_message() ->
+  P = spawn_link(?MODULE, loop, [#state{}]),
+  P ! {msg, self()},
+  receive
+    What -> What
+  after 42 -> timeout
+  end.
+
+loop(S) ->
+  receive
+    _ when S#state.ena == false ->
+        io:format("Weird: ena is false\n");
+        % loop(S);
+    {msg, Pid} ->
+        Pid ! ok;
+        % loop(S);
+    Other ->
+        io:format("Weird: received ~p\n", [Other])
+        % loop(S)
+  end.
 
 %%--------------------------------------------------------------------
 %% This was posted on the Erlang mailing list as a question:

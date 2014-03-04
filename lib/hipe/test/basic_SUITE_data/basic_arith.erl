@@ -43,7 +43,7 @@ bbb(X, Y, Z) ->
 %% Tests unary plus: it used to be the identity function but not anymore
 
 test_uplus() ->
-  badarith = try uplus(gazonk) catch error:E -> E end,
+  badarith = try uplus(gazonk) catch error:Err -> Err end,
   42 = uplus(42),
   ok.
 

@@ -12,8 +12,10 @@
 -export([auth/4]).
 
 test() ->
-  ok = test_bif_fails(),
+  ok = test_dominance_trees(),
+  ok = test_merged_const(),
   ok = test_var_pair(),
+  ok = test_bif_fails(),
   ok = test_find_catches(),
   ok = test_heap_allocate_trim(),
   ok.
@@ -24,10 +26,42 @@ test() ->
 %%
 %% No tests here; we simply check that the HiPE compiler does not go
 %% into an infinite loop when compiling strange functions like this.
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 auth(_, A, B, C) ->
   auth(A, B, C, []).
+
+%%--------------------------------------------------------------------
+%% Exposed a crash in the generation of dominance trees used in SSA.
+%%--------------------------------------------------------------------
+
+-record(state, {f}).
+
+test_dominance_trees() ->
+  {ok, true} = doit(true, #state{f = true}),
+  ok.
+
+doit(Foo, S) ->
+  Fee = case Foo of
+	  Bar when Bar == S#state.f; Bar == [] -> true;
+	  _ -> false
+	end,
+  {ok, Fee}.
+
+%%--------------------------------------------------------------------
+%% Checks that the merging of constants in the constant table uses the
+%% appropriate comparison function for this.
+%%--------------------------------------------------------------------
+
+test_merged_const() ->
+  Const1 = {'', 1.0000},
+  Const2 = {'', 1},
+  match(Const1, Const2).
+
+match(A, A) ->
+  error;
+match(_A, _B) ->
+  ok.
 
 %%--------------------------------------------------------------------
 %% Checks that the HiPE compiler does not get confused by constant

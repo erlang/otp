@@ -13,6 +13,7 @@ test() ->
   ok = test_switch_val(),
   ok = test_put_literal(),
   ok = test_set_tuple_element(),
+  ok = test_unguarded_unsafe_element(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -88,3 +89,14 @@ simple_set(State, Val) ->            %% f3 = Val is the one used in set_element;
 
 odd_set(State, Val) ->               %% f3 = foo is the one used in set_element;
   State#rec{f1 = foo, f5 = Val*2.0}. %% this checks the case of constant
+
+%%--------------------------------------------------------------------
+%% Tests the handling of unguarded unsafe_element operations that BEAM
+%% can sometimes construct on records (when it has enough context).
+
+test_unguarded_unsafe_element() ->
+  {badrecord, rec} = try unguarded_unsafe_element(42) catch error:E -> E end,
+  ok.
+
+unguarded_unsafe_element(X) ->
+  X#rec{f1 = X#rec.f3}.

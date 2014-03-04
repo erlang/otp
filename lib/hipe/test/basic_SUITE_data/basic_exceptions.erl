@@ -6,7 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(basic_exceptions).
 
--export([test/0]).
+-export([test/0, test_catches/0]).
 
 %% functions used as arguments to spawn/3
 -export([bad_guy/2]).
@@ -15,10 +15,62 @@ test() ->
   ok = test_catch_exit(42),
   ok = test_catch_throw(42),
   ok = test_catch_element(),
+  ok = test_catch_crash(),
+  ok = test_catch_empty(),
   ok = test_catch_merge(),
+  ok = test_catches_merged(),
   ok = test_pending_errors(),
   ok = test_bad_fun_call(),
   ok.
+
+%%--------------------------------------------------------------------
+%% Written in 2001 by Erik Johansson.
+
+test_catches() ->
+  ExitBar = {'EXIT', bar},
+  L1 = [ExitBar, ok, ExitBar, {ok, ExitBar}],
+  L1 = [t1(), t2(), t3(), t4()],
+  badarith = (catch element(1, element(2, t5(a, b)))),
+  L2 = [42, ExitBar, ExitBar, {no_exception, ok}],
+  L2 = [t5(21, 21), t6(), t7(), t8()],
+  ok.
+
+t1() ->
+  catch foo().
+
+t2() ->
+  V = (catch ok()),
+  s(),
+  V.
+
+t3() ->
+  V = (catch foo()),
+  V.
+
+t4() ->
+  V1 = ok(),
+  V2 = (catch foo()),
+  {V1, V2}.
+
+t5(A, B) ->
+  catch A + B.
+
+t6() ->
+  catch {no_exception, ok(), foo()}.
+
+t7() ->
+  catch {no_exception, foo(), ok()}.
+
+t8() ->
+  catch {no_exception, ok()}.
+
+foo() ->
+  s(),
+  exit(bar).
+
+ok() -> s(), ok.
+
+s() -> nada.
 
 %%--------------------------------------------------------------------
 
@@ -49,6 +101,52 @@ test_catch_element(N) ->
   element(1, catch element(N, {1,2,3,4,5,6,7,8,9,10,11})).
 
 %%--------------------------------------------------------------------
+
+-define(try_match(E),
+        catch ?MODULE:non_existing(),
+	{'EXIT', {{badmatch, nomatch}, _}} = (catch E = no_match())).
+
+test_catch_crash() ->
+  ?try_match(a),
+  ?try_match(42),
+  ?try_match({a, b, c}),
+  ?try_match([]),
+  ?try_match(1.0),
+  ok.
+
+no_match() -> nomatch.
+
+%% small_test() ->
+%%   catch ?MODULE:non_existing(),
+%%   io:format("Before\n",[]),
+%%   hipe_bifs:show_nstack(self()),
+%%   io:format("After\n",[]),
+%%   garbage_collect().
+
+%%--------------------------------------------------------------------
+%% Tests whether the HiPE compiler optimizes catches in a way that
+%% does not result in an infinite loop.
+%%--------------------------------------------------------------------
+
+test_catch_empty() ->
+  badmatch().
+
+badmatch() ->
+  Big = ret_big(),
+  Float = ret_float(),
+  catch a = Big,
+  catch b = Float,
+  ok = case Big of Big -> ok end,
+  ok = case Float of Float -> ok end,
+  ok.
+
+ret_big() ->
+  329847987298478924982978248748729829487298292982972978239874.
+
+ret_float() ->
+  3.1415927.
+
+%%--------------------------------------------------------------------
 %% Test that shows how BEAM can merge catch-end blocks that belong to
 %% different catch-start instructions. Written by Richard Carlsson.
 %%--------------------------------------------------------------------
@@ -66,6 +164,28 @@ merge(X) ->
 f(_) -> ok.
 
 g(_) -> ok.
+
+%%--------------------------------------------------------------------
+%% Written by Tobias Lindahl.
+
+test_catches_merged() ->
+  {'EXIT', _} = merged_catches(foo),
+  {'EXIT', {badarith, _}} = merged_catches(bar),
+  {'EXIT', _} = merged_catches(baz),
+  ok.
+
+merged_catches(X) ->
+  case X of
+    foo -> catch fail1(0);
+    bar -> catch {catch(1 = X), fail2(0)};
+    baz -> catch fail3(0)
+  end.
+
+fail1(X) -> 1/X.
+
+fail2(X) -> 1/X.
+
+fail3(X) -> 1/X.
 
 %%--------------------------------------------------------------------
 %% Taken from exception_SUITE.erl
