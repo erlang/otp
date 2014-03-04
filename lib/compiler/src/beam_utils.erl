@@ -748,6 +748,8 @@ live_opt([{try_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{loop_rec_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{wait_timeout,_,nil}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{wait_timeout,_,{Tag,_}}=I|Is], Regs, D, Acc) when Tag =/= x ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{line,_}=I|Is], Regs, D, Acc) ->
