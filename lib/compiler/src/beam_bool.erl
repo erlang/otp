@@ -391,10 +391,14 @@ bopt_tree([{set,_,_,{bif,'xor',_}}|_], _, _) ->
     throw('xor');
 bopt_tree([{protected,[Dst],Code,_}|Is], Forest0, Pre) ->
     ProtForest0 = gb_trees:from_orddict([P || {_,any}=P <- gb_trees:to_list(Forest0)]),
-    {ProtPre,[{_,ProtTree}]} = bopt_tree(Code, ProtForest0, []),
-    Prot = {prot,ProtPre,ProtTree},
-    Forest = gb_trees:enter(Dst, Prot, Forest0),
-    bopt_tree(Is, Forest, Pre);    
+    case bopt_tree(Code, ProtForest0, []) of
+        {ProtPre,[{_,ProtTree}]} ->
+            Prot = {prot,ProtPre,ProtTree},
+            Forest = gb_trees:enter(Dst, Prot, Forest0),
+            bopt_tree(Is, Forest, Pre);
+        _Res ->
+            throw(not_boolean_expr)
+    end;
 bopt_tree([{set,[Dst],[Src],move}=Move|Is], Forest, Pre) ->
     case {Src,Dst} of
 	{{tmp,_},_} -> throw(move);
