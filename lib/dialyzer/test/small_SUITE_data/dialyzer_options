@@ -1,1 +1,1 @@
-{dialyzer_options, []}.
+{dialyzer_options, [{warnings, [no_unknown]}]}.

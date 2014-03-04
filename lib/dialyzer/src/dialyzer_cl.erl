@@ -658,7 +658,8 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
-			       stored_warnings = StoredWarnings},
+			       stored_warnings = StoredWarnings,
+                               legal_warnings = LegalWarnings},
 	     Plt) ->
   case OutputPlt =:= none of
     true -> ok;
@@ -679,9 +680,13 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       {RetValue, []};
     true -> 
       Unknown =
-        unknown_functions(State) ++
-        unknown_types(State) ++
-        unknown_behaviours(State),
+        case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+          true ->
+            unknown_functions(State) ++
+              unknown_types(State) ++
+              unknown_behaviours(State);
+          false -> []
+        end,
       UnknownWarnings =
         [{?WARN_UNKNOWN, {_Filename = "", _Line = 0}, W} || W <- Unknown],
       AllWarnings =
@@ -697,8 +702,10 @@ print_ext_calls(#cl_state{report_mode = quiet}) ->
 print_ext_calls(#cl_state{output = Output,
 			  external_calls = Calls,
 			  stored_warnings = Warnings,
-			  output_format = Format}) ->
-  case Calls =:= [] of
+			  output_format = Format,
+                          legal_warnings = LegalWarnings}) ->
+  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
+    orelse Calls =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] of
@@ -730,8 +737,10 @@ print_ext_types(#cl_state{output = Output,
                           external_calls = Calls,
                           external_types = Types,
                           stored_warnings = Warnings,
-                          output_format = Format}) ->
-  case Types =:= [] of
+                          output_format = Format,
+                          legal_warnings = LegalWarnings}) ->
+  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
+    orelse Types =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] andalso Calls =:= [] of
