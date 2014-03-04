@@ -43,7 +43,8 @@
 
 	%% errors in 17.0-rc1
 	t_update_values/1,
-        t_expand_map_update/1
+        t_expand_map_update/1,
+        t_bad_update/1
     ]).
 
 suite() -> [].
@@ -70,7 +71,8 @@ all() -> [
 
 	%% errors in 17.0-rc1
 	t_update_values,
-        t_expand_map_update
+        t_expand_map_update,
+        t_bad_update
     ].
 
 groups() -> [].
@@ -278,6 +280,11 @@ t_update_values(Config) when is_list(Config) ->
 t_expand_map_update(Config) when is_list(Config) ->
     M = #{<<"hello">> => <<"world">>}#{<<"hello">> := <<"les gens">>},
     #{<<"hello">> := <<"les gens">>} = M,
+    ok.
+
+t_bad_update(Config) when is_list(Config) ->
+    X = id(reblochon),
+    {'EXIT',{badarg,_}} = (catch [raclette,X]#{fromage=>exquis}),
     ok.
 
 check_val(#{val1:=V1, val2:=V2},V1,V2) -> ok.

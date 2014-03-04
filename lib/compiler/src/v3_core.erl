@@ -500,10 +500,17 @@ expr({map,L,Es0}, St0) ->
     A = lineno_anno(L, St1),
     {#c_map{anno=A,es=Es1},Eps,St1};
 expr({map,L,M0,Es0}, St0) ->
-    {M1,Mps,St1} = safe(M0, St0),
-    {Es1,Eps,St2} = map_pair_list(Es0, St1),
-    A = lineno_anno(L, St2),
-    {#c_map{anno=A,var=M1,es=Es1},Mps++Eps,St2};
+    {M1,Mps0,St1} = safe(M0, St0),
+    {M2,Mps1,St3} = case M1 of
+                        #c_var{} ->
+                            {M1,Mps0,St1};
+                        _ ->
+                            {V,St2} = new_var(St1),
+                            {V,Mps0++[#iset{var=V,arg=M1}],St2}
+                    end,
+    {Es1,Eps,St4} = map_pair_list(Es0, St3),
+    A = lineno_anno(L, St4),
+    {#c_map{anno=A,var=M2,es=Es1},Mps1++Eps,St4};
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
