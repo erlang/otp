@@ -1407,7 +1407,7 @@ remove_conf([{conf, _Ref, Props, _MF}|Cases], NoConf, Repeats) ->
     end;
 remove_conf([{make,_Ref,_MF}|Cases], NoConf, Repeats) ->
     remove_conf(Cases, NoConf, Repeats);
-remove_conf([{skip_case,{{_M,all},_Cmt}}|Cases], NoConf, Repeats) ->
+remove_conf([{skip_case,{{_M,all},_Cmt},_Mode}|Cases], NoConf, Repeats) ->
     remove_conf(Cases, NoConf, Repeats);
 remove_conf([{skip_case,{Type,_Ref,_MF,_Cmt}}|Cases],
 	    NoConf, Repeats) when Type==conf;
@@ -1431,7 +1431,7 @@ remove_conf([], NoConf, true) ->
 remove_conf([], NoConf, false) ->
     lists:reverse(NoConf).
 
-get_suites([{skip_case,{{Mod,_Func},_Cmt}}|Tests], Mods) when is_atom(Mod) ->
+get_suites([{skip_case,{{Mod,_F},_Cmt},_Mode}|Tests], Mods) when is_atom(Mod) ->
     case add_mod(Mod, Mods) of
 	true ->  get_suites(Tests, [Mod|Mods]);
 	false -> get_suites(Tests, Mods)
@@ -1833,7 +1833,7 @@ html_isolate_modules(List, FwMod) ->
     html_isolate_modules(List, sets:new(), FwMod).
 
 html_isolate_modules([], Set, _) -> sets:to_list(Set);
-html_isolate_modules([{skip_case,_}|Cases], Set, FwMod) ->
+html_isolate_modules([{skip_case,{_Case,_Cmt},_Mode}|Cases], Set, FwMod) ->
     html_isolate_modules(Cases, Set, FwMod);
 html_isolate_modules([{conf,_Ref,Props,{FwMod,_Func}}|Cases], Set, FwMod) ->
     Set1 = case proplists:get_value(suite, Props) of
@@ -1937,26 +1937,30 @@ copy_html_file(Src, DestDir) ->
 
 add_init_and_end_per_suite([{make,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
-add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod,
+add_init_and_end_per_suite([{skip_case,{{Mod,all},_},_}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
-add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod,
-			   LastRef, FwMod) when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{{Mod,_},_Cmt},_Mode}=Case|Cases],
+			   LastMod, LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
-add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_},_}=Case|Cases], LastMod,
-			   LastRef, FwMod) when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_},_}=Case|Cases],
+			   LastMod, LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
 add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
 add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
 			   LastRef, FwMod) ->
     %% if Mod == FwMod, this conf test is (probably) a test case group where
@@ -1977,7 +1981,8 @@ add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
 add_init_and_end_per_suite([SkipCase|Cases], LastMod, LastRef, FwMod)
   when element(1,SkipCase) == skip_case ->
     [SkipCase|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
@@ -1987,12 +1992,14 @@ add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
   when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
 add_init_and_end_per_suite([{Mod,_,_}=Case|Cases], LastMod, LastRef, FwMod)
   when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
 add_init_and_end_per_suite([Case|Cases], LastMod, LastRef, FwMod)->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([], _LastMod, undefined, _FwMod) ->
@@ -2342,7 +2349,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 				    ParentRef ->
 					Reason = {group_result,GrName,failed},
 					skip_cases_upto(ParentRef, Cases,
-							Reason, tc, Mode,
+							Reason, tc, ParentMode,
 							SkipTag)
 				end;
 			    false ->
@@ -2407,11 +2414,12 @@ run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
-run_test_cases_loop([{skip_case,{{Mod,all}=Case,Comment}}|Cases],
+run_test_cases_loop([{skip_case,{{Mod,all}=Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
-    skip_case(user, undefined, 0, Case, Comment, false, Mode),
+    skip_case(user, undefined, 0, Case, Comment, false, SkipMode),
     test_server_sup:framework_call(report, [tc_user_skip,
-					    {Mod,{all,undefined},Comment}]),
+					    {Mod,{all,get_name(SkipMode)},
+					     Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status);
 
 run_test_cases_loop([{skip_case,{Case,Comment},SkipMode}|Cases],
@@ -2420,16 +2428,6 @@ run_test_cases_loop([{skip_case,{Case,Comment},SkipMode}|Cases],
 			   Case, Comment, is_io_buffered(), SkipMode),
     test_server_sup:framework_call(report, [tc_user_skip,
 					    {Mod,{Func,get_name(SkipMode)},
-					     Comment}]),
-    run_test_cases_loop(Cases, Config, TimetrapData, Mode,
-			update_status(skipped, Mod, Func, Status));
-
-run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
-		    Config, TimetrapData, Mode, Status) ->
-    {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1,
-			   Case, Comment, is_io_buffered(), []),
-    test_server_sup:framework_call(report, [tc_user_skip,
-					    {Mod,{Func,undefined},
 					     Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
@@ -2444,8 +2442,9 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    {Ref,Ref} ->
 		case check_props(parallel, tl(Mode0)) of
 		    false ->
-			%% this is an end conf for a top level parallel group, collect
-			%% results from the test case processes and calc total time
+			%% this is an end conf for a top level parallel group,
+			%% collect results from the test case processes
+			%% and calc total time
 			OkSkipFail = handle_test_case_io_and_status(),
 			file:set_cwd(filename:dirname(get(test_server_dir))),
 			After = ?now,
@@ -3250,7 +3249,7 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
 %% SkipType = skip_case | auto_skip_case
 %% Mark all cases tagged with Ref as skipped.
 
-skip_cases_upto(Ref, Cases, Reason, Origin, Mode, SkipType) ->
+skip_cases_upto(Ref, Cases, Reason, Origin, Mode, SkipType) ->    
     {_,Modified,Rest} =
 	modify_cases_upto(Ref, {skip,Reason,Origin,Mode,SkipType}, Cases),
     Modified++Rest.
@@ -3335,7 +3334,7 @@ modify_cases_upto1(Ref, {copy,NewRef},
     {[C|Orig],[{skip_case,{Type,NewRef,MF,Cmt}}|Alt],T};
 
 %% next is a skip_case, could be one test case or 'all' in suite, we must proceed
-modify_cases_upto1(Ref, ModOp, [{skip_case,{_F,_Cmt}}=MF|T], Orig, Alt) ->
+modify_cases_upto1(Ref, ModOp, [{skip_case,{_F,_Cmt},_Mode}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, ModOp, T, [MF|Orig], [MF|Alt]);
 
 %% next is a normal case (possibly in a sequence), mark as skipped, or copy, and proceed
@@ -4512,18 +4511,18 @@ update_config(Config, []) ->
 
 collect_all_cases(Top, Skip) when is_list(Skip) ->
     Result =
-	case collect_cases(Top, #cc{mod=[],skip=Skip}) of
+	case collect_cases(Top, #cc{mod=[],skip=Skip}, []) of
 	    {ok,Cases,_St} -> Cases;
 	    Other          -> Other
 	end,
     Result.
 
 
-collect_cases([], St) -> {ok,[],St};
-collect_cases([Case|Cs0], St0) ->
-    case collect_cases(Case, St0) of
+collect_cases([], St, _) -> {ok,[],St};
+collect_cases([Case|Cs0], St0, Mode) ->
+    case collect_cases(Case, St0, Mode) of
 	{ok,FlatCases1,St1} ->
-	    case collect_cases(Cs0, St1) of
+	    case collect_cases(Cs0, St1, Mode) of
 		{ok,FlatCases2,St} ->
 		    {ok,FlatCases1 ++ FlatCases2,St};
 		{error,_Reason} = Error -> Error
@@ -4532,39 +4531,41 @@ collect_cases([Case|Cs0], St0) ->
     end;
 
 
-collect_cases({module,Case}, St) when is_atom(Case), is_atom(St#cc.mod) ->
-    collect_case({St#cc.mod,Case}, St);
-collect_cases({module,Mod,Case}, St) ->
-    collect_case({Mod,Case}, St);
-collect_cases({module,Mod,Case,Args}, St) ->
-    collect_case({Mod,Case,Args}, St);
+collect_cases({module,Case}, St, Mode) when is_atom(Case), is_atom(St#cc.mod) ->
+    collect_case({St#cc.mod,Case}, St, Mode);
+collect_cases({module,Mod,Case}, St, Mode) ->
+    collect_case({Mod,Case}, St, Mode);
+collect_cases({module,Mod,Case,Args}, St, Mode) ->
+    collect_case({Mod,Case,Args}, St, Mode);
 
-collect_cases({dir,SubDir}, St) ->
-    collect_files(SubDir, "*_SUITE", St);
-collect_cases({dir,SubDir,Pattern}, St) ->
-    collect_files(SubDir, Pattern++"*", St);
+collect_cases({dir,SubDir}, St, Mode) ->
+    collect_files(SubDir, "*_SUITE", St, Mode);
+collect_cases({dir,SubDir,Pattern}, St, Mode) ->
+    collect_files(SubDir, Pattern++"*", St, Mode);
 
-collect_cases({conf,InitF,CaseList,FinMF}, St) when is_atom(InitF) ->
-    collect_cases({conf,[],{St#cc.mod,InitF},CaseList,FinMF}, St);
-collect_cases({conf,InitMF,CaseList,FinF}, St) when is_atom(FinF) ->
-    collect_cases({conf,[],InitMF,CaseList,{St#cc.mod,FinF}}, St);
-collect_cases({conf,InitMF,CaseList,FinMF}, St0) ->
-    collect_cases({conf,[],InitMF,CaseList,FinMF}, St0);
-collect_cases({conf,Props,InitF,CaseList,FinMF}, St) when is_atom(InitF) ->
+collect_cases({conf,InitF,CaseList,FinMF}, St, Mode) when is_atom(InitF) ->
+    collect_cases({conf,[],{St#cc.mod,InitF},CaseList,FinMF}, St, Mode);
+collect_cases({conf,InitMF,CaseList,FinF}, St, Mode) when is_atom(FinF) ->
+    collect_cases({conf,[],InitMF,CaseList,{St#cc.mod,FinF}}, St, Mode);
+collect_cases({conf,InitMF,CaseList,FinMF}, St0, Mode) ->
+    collect_cases({conf,[],InitMF,CaseList,FinMF}, St0, Mode);
+collect_cases({conf,Props,InitF,CaseList,FinMF}, St, Mode) when is_atom(InitF) ->
     case init_props(Props) of
 	{error,_} ->
 	    {ok,[],St};
 	Props1 ->
-	    collect_cases({conf,Props1,{St#cc.mod,InitF},CaseList,FinMF}, St)
+	    collect_cases({conf,Props1,{St#cc.mod,InitF},CaseList,FinMF},
+			  St, Mode)
     end;
-collect_cases({conf,Props,InitMF,CaseList,FinF}, St) when is_atom(FinF) ->
+collect_cases({conf,Props,InitMF,CaseList,FinF}, St, Mode) when is_atom(FinF) ->
     case init_props(Props) of
 	{error,_} ->
 	    {ok,[],St};
 	Props1 ->
-	    collect_cases({conf,Props1,InitMF,CaseList,{St#cc.mod,FinF}}, St)
+	    collect_cases({conf,Props1,InitMF,CaseList,{St#cc.mod,FinF}},
+			  St, Mode)
     end;
-collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
+collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St, Mode) ->
     case init_props(Props) of
 	{error,_} ->
 	    {ok,[],St};
@@ -4572,13 +4573,13 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
 	    Ref = make_ref(),
 	    Skips = St#cc.skip,
 	    Props2 = [{suite,St#cc.mod} | lists:delete(suite,Props1)],
-	    Mode = [{Ref,Props2,undefined}],
+	    Mode1 = [{Ref,Props2,undefined} | Mode],
 	    case in_skip_list({St#cc.mod,Conf}, Skips) of
 		{true,Comment} ->	    	           % conf init skipped
-		    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode} |
+		    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode1} |
 			 [] ++ [{conf,Ref,[],FinMF}]],St};
 		{true,Name,Comment} when is_atom(Name) ->  % all cases skipped
-		    case collect_cases(CaseList, St) of
+		    case collect_cases(CaseList, St, Mode1) of
 			{ok,[],_St} = Empty ->
 			    Empty;
 			{ok,FlatCases,St1} ->
@@ -4586,15 +4587,15 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
 							keep_name(Props1),
 							FinMF}],
 			    Skipped = skip_cases_upto(Ref, Cases2Skip, Comment,
-						      conf, Mode, skip_case),
-			    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode} |
+						      conf, Mode1, skip_case),
+			    {ok,[{skip_case,{conf,Ref,InitMF,Comment},Mode1} |
 				 Skipped],St1};
 			{error,_Reason} = Error ->
 			    Error
 		    end;
 		{true,ToSkip,_} when is_list(ToSkip) ->    % some cases skipped
 		    case collect_cases(CaseList,
-				       St#cc{skip=ToSkip++Skips}) of
+				       St#cc{skip=ToSkip++Skips}, Mode1) of
 			{ok,[],_St} = Empty ->
 			    Empty;
 			{ok,FlatCases,St1} ->
@@ -4606,7 +4607,7 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
 			    Error
 		    end;
 		false ->
-		    case collect_cases(CaseList, St) of
+		    case collect_cases(CaseList, St, Mode1) of
 			{ok,[],_St} = Empty ->
 			    Empty;
 			{ok,FlatCases,St1} ->
@@ -4620,8 +4621,8 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
 	    end
     end;
 
-collect_cases({make,InitMFA,CaseList,FinMFA}, St0) ->
-    case collect_cases(CaseList, St0) of
+collect_cases({make,InitMFA,CaseList,FinMFA}, St0, Mode) ->
+    case collect_cases(CaseList, St0, Mode) of
 	{ok,[],_St} = Empty -> Empty;
 	{ok,FlatCases,St} ->
 	    Ref = make_ref(),
@@ -4630,62 +4631,62 @@ collect_cases({make,InitMFA,CaseList,FinMFA}, St0) ->
 	{error,_Reason} = Error -> Error
     end;
 
-collect_cases({Module, Cases}, St) when is_list(Cases)  ->
-    case (catch collect_case(Cases, St#cc{mod=Module}, [])) of
+collect_cases({Module, Cases}, St, Mode) when is_list(Cases)  ->
+    case (catch collect_case(Cases, St#cc{mod=Module}, [], Mode)) of
 	{ok, NewCases, NewSt} ->
  	    {ok, NewCases, NewSt};
  	Other ->
 	    {error, Other}
      end;
 
-collect_cases({_Mod,_Case}=Spec, St) ->
-    collect_case(Spec, St);
+collect_cases({_Mod,_Case}=Spec, St, Mode) ->
+    collect_case(Spec, St, Mode);
 
-collect_cases({_Mod,_Case,_Args}=Spec, St) ->
-    collect_case(Spec, St);
-collect_cases(Case, St) when is_atom(Case), is_atom(St#cc.mod) ->
-    collect_case({St#cc.mod,Case}, St);
-collect_cases(Other, St) ->
+collect_cases({_Mod,_Case,_Args}=Spec, St, Mode) ->
+    collect_case(Spec, St, Mode);
+collect_cases(Case, St, Mode) when is_atom(Case), is_atom(St#cc.mod) ->
+    collect_case({St#cc.mod,Case}, St, Mode);
+collect_cases(Other, St, _Mode) ->
     {error,{bad_subtest_spec,St#cc.mod,Other}}.
 
-collect_case({Mod,{conf,_,_,_,_}=Conf}, St) ->
-    collect_case_invoke(Mod, Conf, [], St);
+collect_case({Mod,{conf,_,_,_,_}=Conf}, St, Mode) ->
+    collect_case_invoke(Mod, Conf, [], St, Mode);
 
-collect_case(MFA, St) ->
+collect_case(MFA, St, Mode) ->
     case in_skip_list(MFA, St#cc.skip) of
 	{true,Comment} ->
-	    {ok,[{skip_case,{MFA,Comment}}],St};
+	    {ok,[{skip_case,{MFA,Comment},Mode}],St};
 	false ->
 	    case MFA of
-		{Mod,Case} -> collect_case_invoke(Mod, Case, MFA, St);
+		{Mod,Case} -> collect_case_invoke(Mod, Case, MFA, St, Mode);
 		{_Mod,_Case,_Args} -> {ok,[MFA],St}
 	    end
     end.
 
-collect_case([], St, Acc) ->
+collect_case([], St, Acc, _Mode) ->
     {ok, Acc, St};
 
-collect_case([Case | Cases], St, Acc) ->
-    {ok, FlatCases, NewSt}  = collect_case({St#cc.mod, Case}, St),
-    collect_case(Cases, NewSt, Acc ++ FlatCases).
+collect_case([Case | Cases], St, Acc, Mode) ->
+    {ok, FlatCases, NewSt}  = collect_case({St#cc.mod, Case}, St, Mode),
+    collect_case(Cases, NewSt, Acc ++ FlatCases, Mode).
 
-collect_case_invoke(Mod, Case, MFA, St) ->
+collect_case_invoke(Mod, Case, MFA, St, Mode) ->
     case get_fw_mod(undefined) of
 	undefined ->
 	    case catch apply(Mod, Case, [suite]) of
 		{'EXIT',_} ->
 		    {ok,[MFA],St};
 		Suite ->
-		    collect_subcases(Mod, Case, MFA, St, Suite)
+		    collect_subcases(Mod, Case, MFA, St, Suite, Mode)
 	    end;
 	_ ->
 	    Suite = test_server_sup:framework_call(get_suite,
 						   [Mod,Case],
 						   []),
-	    collect_subcases(Mod, Case, MFA, St, Suite)
+	    collect_subcases(Mod, Case, MFA, St, Suite, Mode)
     end.
 
-collect_subcases(Mod, Case, MFA, St, Suite) ->
+collect_subcases(Mod, Case, MFA, St, Suite, Mode) ->
     case Suite of
 	[] when Case == all -> {ok,[],St};
 	[] when element(1, Case) == conf -> {ok,[],St};
@@ -4693,28 +4694,28 @@ collect_subcases(Mod, Case, MFA, St, Suite) ->
 %%%! --- START Kept for backwards compatibility ---
 %%%! Requirements are not used
 	{req,ReqList} ->
-	    collect_case_deny(Mod, Case, MFA, ReqList, [], St);
+	    collect_case_deny(Mod, Case, MFA, ReqList, [], St, Mode);
 	{req,ReqList,SubCases} ->
-	    collect_case_deny(Mod, Case, MFA, ReqList, SubCases, St);
+	    collect_case_deny(Mod, Case, MFA, ReqList, SubCases, St, Mode);
 %%%! --- END Kept for backwards compatibility ---
 	{Skip,Reason} when Skip==skip; Skip==skipped ->
-	    {ok,[{skip_case,{MFA,Reason}}],St};
+	    {ok,[{skip_case,{MFA,Reason},Mode}],St};
 	{error,Reason} ->
 	    throw(Reason);
 	SubCases ->
-	    collect_case_subcases(Mod, Case, SubCases, St)
+	    collect_case_subcases(Mod, Case, SubCases, St, Mode)
     end.
 
-collect_case_subcases(Mod, Case, SubCases, St0) ->
+collect_case_subcases(Mod, Case, SubCases, St0, Mode) ->
     OldMod = St0#cc.mod,
-    case collect_cases(SubCases, St0#cc{mod=Mod}) of
+    case collect_cases(SubCases, St0#cc{mod=Mod}, Mode) of
 	{ok,FlatCases,St} ->
 	    {ok,FlatCases,St#cc{mod=OldMod}};
 	{error,Reason} ->
 	    {error,{{Mod,Case},Reason}}
     end.
 
-collect_files(Dir, Pattern, St) ->
+collect_files(Dir, Pattern, St, Mode) ->
     {ok,Cwd} = file:get_cwd(),
     Dir1 = filename:join(Cwd, Dir),
     Wc = filename:join([Dir1,Pattern++code:objfile_extension()]),
@@ -4724,7 +4725,7 @@ collect_files(Dir, Pattern, St) ->
 	    {error,{collect_fail,Dir,Pattern}};
 	Mods0 ->
 	    Mods = [{path_to_module(Mod),all} || Mod <- lists:sort(Mods0)],
-	    collect_cases(Mods, St)
+	    collect_cases(Mods, St, Mode)
     end.
 
 path_to_module(Path) when is_list(Path) ->
@@ -4734,14 +4735,14 @@ path_to_module(Path) when is_list(Path) ->
     %% anyway. It should be removed or renamed!
     list_to_atom(filename:rootname(filename:basename(Path))).
 
-collect_case_deny(Mod, Case, MFA, ReqList, SubCases, St) ->
+collect_case_deny(Mod, Case, MFA, ReqList, SubCases, St, Mode) ->
     case {check_deny(ReqList, St#cc.skip),SubCases} of
 	{{denied,Comment},_SubCases} ->
-	    {ok,[{skip_case,{MFA,Comment}}],St};
+	    {ok,[{skip_case,{MFA,Comment},Mode}],St};
 	{granted,[]} ->
 	    {ok,[MFA],St};
 	{granted,SubCases} ->
-	    collect_case_subcases(Mod, Case, SubCases, St)
+	    collect_case_subcases(Mod, Case, SubCases, St, Mode)
     end.
 
 check_deny([Req|Reqs], DenyList) ->
