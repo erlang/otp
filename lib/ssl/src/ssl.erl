@@ -1048,5 +1048,10 @@ assert_proplist([]) ->
     true;
 assert_proplist([{Key,_} | Rest]) when is_atom(Key) ->
     assert_proplist(Rest);
+%% Handle exceptions 
+assert_proplist([inet | Rest]) ->
+    assert_proplist(Rest);
+assert_proplist([inet6 | Rest]) ->
+    assert_proplist(Rest);
 assert_proplist([Value | _]) ->
     throw({option_not_a_key_value_tuple, Value}).
