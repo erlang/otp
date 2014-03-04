@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,9 @@ init_per_testcase(accept_system_limit, Config) when is_list(Config) ->
           Dog = test_server:timetrap(test_server:seconds(240)),
           [{watchdog,Dog}|Config]
     end;
+init_per_testcase(wrapping_oct, Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:seconds(600)),
+    [{watchdog, Dog}|Config];
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
     [{watchdog, Dog}|Config].
@@ -553,7 +556,6 @@ otp_3924(Config) when is_list(Config) ->
     otp_3924_1(MaxDelay).
 
 otp_3924_1(MaxDelay) ->
-    Dog = test_server:timetrap(test_server:seconds(240)),
     ?line {ok, Node} = start_node(otp_3924),
     ?line DataLen = 100*1024,
     ?line Data = otp_3924_data(DataLen),
@@ -564,7 +566,6 @@ otp_3924_1(MaxDelay) ->
 		   ?line ok = otp_3924(MaxDelay, Node, Data, DataLen, N)
 	   end),
     ?line test_server:stop_node(Node),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 otp_3924(MaxDelay, Node, Data, DataLen, N) ->
@@ -1969,7 +1970,9 @@ accept_system_limit(doc) ->
 accept_system_limit(Config) when is_list(Config) ->
     ?line {ok, LS} = gen_tcp:listen(0, []),
     ?line {ok, TcpPort} = inet:port(LS),
-    ?line Connector = spawn_link(fun () -> connector(TcpPort) end),
+    Me = self(),
+    ?line Connector = spawn_link(fun () -> connector(TcpPort, Me) end),
+    receive {Connector, sync} -> Connector ! {self(), continue} end,
     ?line ok = acceptor(LS, false, []),
     ?line Connector ! stop,
     ok.
@@ -1986,8 +1989,10 @@ acceptor(LS, GotSL, A) ->
 	    error
     end.
 
-connector(TcpPort) ->
+connector(TcpPort, Tester) ->
     ManyPorts = open_ports([]),
+    Tester ! {self(), sync},
+    receive {Tester, continue} -> timer:sleep(100) end,
     ConnF = fun (Port) ->
 		    case catch gen_tcp:connect({127,0,0,1}, TcpPort, []) of
 			{ok, Sock} ->

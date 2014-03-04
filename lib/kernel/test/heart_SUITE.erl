@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,10 +93,10 @@ start_check(Type, Name) ->
     start_check(Type, Name, []).
 start_check(Type, Name, Envs) ->
     Args = case ?t:os_type() of
-	{win32,_} -> 
-	    "-heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
+	{win32,_} ->
+	    "+t50000 -heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
 	_ ->
-	    "-heart " ++ env_encode(Envs)
+	    "+t50000 -heart " ++ env_encode(Envs)
     end,
     {ok, Node} = case Type of
 	loose ->
