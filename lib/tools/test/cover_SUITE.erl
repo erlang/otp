@@ -516,11 +516,9 @@ reconnect(Config) ->
     cover:flush(N1),
     rpc:call(N1,f,f1,[]),
 
-    %% This will cause a call to f:f2() when nodes()==[] on N1
+    %% This will cause first casue the N1 node to initiate a
+    %% disconnect and then call f:f2() when nodes() =:= [] on N1.
     rpc:cast(N1,f,call_f2_when_isolated,[]),
-
-    %% Disconnect and check that node is removed from main cover node
-    true = net_kernel:disconnect(N1),
     timer:sleep(500), % allow some to detect disconnect and for f:f2() call
     cover_which_nodes([]),
 
