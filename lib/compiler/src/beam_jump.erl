@@ -451,6 +451,7 @@ is_label_used_in_2({set,_,_,Info}, Lbl) ->
 	{put_tuple,_} -> false;
 	{get_tuple_element,_} -> false;
 	{set_tuple_element,_} -> false;
+        {get_map_elements,{f,F}} -> F =:= Lbl;
 	{line,_} -> false;
 	_ when is_atom(Info) -> false
     end.
