@@ -1764,6 +1764,25 @@ munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
 munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
     {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
     {{record_field,Line,ExprL,MungedExprR}, Vars2};
+munge_expr({map,Line,Fields}, Vars) ->
+    %% EEP 43
+    {MungedFields, Vars2} = munge_exprs(Fields, Vars, []),
+    {{map,Line,MungedFields}, Vars2};
+munge_expr({map,Line,Arg,Fields}, Vars) ->
+    %% EEP 43
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
+    {MungedFields, Vars3} = munge_exprs(Fields, Vars2, []),
+    {{map,Line,MungedArg,MungedFields}, Vars3};
+munge_expr({map_field_assoc,Line,Name,Value}, Vars) ->
+    %% EEP 43
+    {MungedName, Vars2} = munge_expr(Name, Vars),
+    {MungedValue, Vars3} = munge_expr(Value, Vars2),
+    {{map_field_assoc,Line,MungedName,MungedValue}, Vars3};
+munge_expr({map_field_exact,Line,Name,Value}, Vars) ->
+    %% EEP 43
+    {MungedName, Vars2} = munge_expr(Name, Vars),
+    {MungedValue, Vars3} = munge_expr(Value, Vars2),
+    {{map_field_exact,Line,MungedName,MungedValue}, Vars3};
 munge_expr({cons,Line,ExprH,ExprT}, Vars) ->
     {MungedExprH, Vars2} = munge_expr(ExprH, Vars),
     {MungedExprT, Vars3} = munge_expr(ExprT, Vars2),
