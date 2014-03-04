@@ -331,9 +331,10 @@ expr({tuple,Line,Es0}, St0) ->
 expr({map,Line,Es0}, St0) ->
     {Es1,St1} = expr_list(Es0, St0),
     {{map,Line,Es1},St1};
-expr({map,Line,Var,Es0}, St0) ->
-    {Es1,St1} = expr_list(Es0, St0),
-    {{map,Line,Var,Es1},St1};
+expr({map,Line,E0,Es0}, St0) ->
+    {E1,St1} = expr(E0, St0),
+    {Es1,St2} = expr_list(Es0, St1),
+    {{map,Line,E1,Es1},St2};
 expr({map_field_assoc,Line,K0,V0}, St0) ->
     {K,St1} = expr(K0, St0),
     {V,St2} = expr(V0, St1),

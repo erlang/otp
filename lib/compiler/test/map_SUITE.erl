@@ -42,7 +42,8 @@
 	t_build_and_match_val/1,
 
 	%% errors in 17.0-rc1
-	t_update_values/1
+	t_update_values/1,
+        t_expand_map_update/1
     ]).
 
 suite() -> [].
@@ -68,7 +69,8 @@ all() -> [
 	t_build_and_match_val,
 
 	%% errors in 17.0-rc1
-	t_update_values
+	t_update_values,
+        t_expand_map_update
     ].
 
 groups() -> [].
@@ -271,6 +273,11 @@ t_update_values(Config) when is_list(Config) ->
 		#{ val1 := Old2, val2 := Old3 } = Mi,
 		{V2,V3, Mi#{ val1 := id(V2), val2 := V1, val2 => id(V3)}}
 	end, {none, none, #{val1=>none,val2=>none}},List),
+    ok.
+
+t_expand_map_update(Config) when is_list(Config) ->
+    M = #{<<"hello">> => <<"world">>}#{<<"hello">> := <<"les gens">>},
+    #{<<"hello">> := <<"les gens">>} = M,
     ok.
 
 check_val(#{val1:=V1, val2:=V2},V1,V2) -> ok.
