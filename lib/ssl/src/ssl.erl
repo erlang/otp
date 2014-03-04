@@ -557,6 +557,7 @@ do_connect(Address, Port,
 handle_options(Opts0, _Role) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
+    assert_proplist(Opts),
     ReuseSessionFun = fun(_, _, _, _) -> true end,
 
     DefaultVerifyNoneFun =
@@ -1042,3 +1043,10 @@ connection_sup(dtls_connection) ->
 binary_filename(FileName) ->
     Enc = file:native_name_encoding(),
     unicode:characters_to_binary(FileName, unicode, Enc).
+
+assert_proplist([]) ->
+    true;
+assert_proplist([{Key,_} | Rest]) when is_atom(Key) ->
+    assert_proplist(Rest);
+assert_proplist([Value | _]) ->
+    throw({option_not_a_key_value_tuple, Value}).
