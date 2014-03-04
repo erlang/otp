@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
--export([host/4, chunked/4, expect/4, range/4, if_test/5, http_trace/4,
+-export([host/4, chunked/4, expect/4, range/4, if_test/5, trace/4,
 	 head/4, mod_cgi_chunked_encoding_test/5]).
 
 %% -define(all_keys_lower_case,true).
@@ -226,16 +226,12 @@ if_test(Type, Port, Host, Node, DocRoot)->
     					  [{statuscode,200}]),
     ok.
     
-http_trace(Type, Port, Host, Node)->
+trace(Type, Port, Host, Node)->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 					  "TRACE / HTTP/1.1\r\n" ++
 					  "Host:" ++ Host ++ "\r\n" ++
 					  "Max-Forwards:2\r\n\r\n",
-					  [{statuscode, 200}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				       "TRACE / HTTP/1.0\r\n\r\n",
-				       [{statuscode, 501}, 
-					{version, "HTTP/1.0"}]).
+					  [{statuscode, 200}]).
 head(Type, Port, Host, Node)->
     %% mod_include 
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
@@ -283,7 +279,7 @@ mod_cgi_chunked_encoding_test(Type, Port, Host, Node, [Request| Rest])->
 %%--------------------------------------------------------------------
 validateRangeRequest(Socket,Response,ValidBody,C,O,DE)->
     receive
-	{tcp,Socket,Data} ->
+	{_,Socket,Data} ->
 	    case string:str(Data,"\r\n") of
 		0->
 		    validateRangeRequest(Socket,
@@ -312,7 +308,7 @@ validateRangeRequest1(Socket, Response, ValidBody) ->
     case end_of_header(Response) of
 	false ->
 	    receive
-		{tcp,Socket,Data} ->
+		{_,Socket,Data} ->
 		    validateRangeRequest1(Socket, Response ++ Data, 
 					  ValidBody);
 		_->
@@ -331,10 +327,10 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, {multiPart,Boundary})->
 	    validateMultiPartRangeRequest(Body, ValidBody, Boundary);
 	false->
 	    receive
-		{tcp, Socket, Data} ->
+		{_, Socket, Data} ->
 		    validateRangeRequest2(Socket, Head, Body ++ Data,
 					  ValidBody, {multiPart, Boundary});
-		{tcp_closed, Socket} ->
+		{_, Socket} ->
 		    error;
 		_ ->
 		    error
@@ -353,7 +349,7 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, BodySize)
 	    end;	
 	Size when Size < BodySize ->
 	    receive
-		{tcp, Socket, Data} ->
+		{_, Socket, Data} ->
 		    validateRangeRequest2(Socket, Head,
 					  Body ++ Data, ValidBody, BodySize);
 		_ ->

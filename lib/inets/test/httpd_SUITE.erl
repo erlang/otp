@@ -26,6 +26,7 @@
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("public_key/include/public_key.hrl").
 -include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
@@ -43,17 +44,17 @@ suite() ->
 all() ->
     [
      {group, http},
-     {group, http_limit}
-     %%{group, https}
+     {group, http_limit},
+     {group, https}
     ].
 
 groups() ->
     [
      {http, [], all_groups()},
-     %%{https, [], all_groups()},
+     {https, [], all_groups()},
      {http_limit, [], [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
-     {http_1_1, [], [host, chunked, expect, cgi] ++ http_head() ++ http_get()},
-     {http_1_0, [], [host, cgi] ++ http_head() ++ http_get()},
+     {http_1_1, [], [host, chunked, expect, cgi, trace, range] ++ http_head() ++ http_get()},
+     {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get()},
      {http_0_9, [], http_head() ++ http_get()}
     ].
 
@@ -89,6 +90,29 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(https = Group, Config0) ->
+    PrivDir = ?config(priv_dir, Config0),
+    CaKey = {_Trusted,_} = 
+	erl_make_certs:make_cert([{key, dsa},
+				  {subject, 
+				   [{name, "Public Key"},
+				    {?'id-at-name', 
+				     {printableString, "public_key"}},
+				    {?'id-at-pseudonym', 
+				     {printableString, "pubkey"}},
+				    {city, "Stockholm"},
+				    {country, "SE"},
+				    {org, "erlang"},
+				    {org_unit, "testing dep"}
+				   ]}
+				 ]),
+    ok = erl_make_certs:write_pem(PrivDir, "public_key_cacert", CaKey),
+    
+    CertK1 = {_Cert1, _} = erl_make_certs:make_cert([{issuer, CaKey}]),
+    CertK2 = {_Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
+						   {digest, md5}, 
+						   {extensions, false}]),
+    ok = erl_make_certs:write_pem(PrivDir, "public_key_cert", CertK2),
+
     case start_apps(Group) of
 	ok ->
 	    init_httpd(Group, [{type, ssl} | Config0]);
@@ -119,7 +143,7 @@ init_httpd(Group, Config0) ->
     {Pid, Port} = server_start(Group, server_config(Group, Config)),
     [{server_pid, Pid}, {port, Port} | Config].
 %%--------------------------------------------------------------------
-init_per_testcase(host, Config) ->
+init_per_testcase(Case, Config) when Case == host; Case == trace ->
     Prop = ?config(tc_group_properties, Config),
     Name = proplists:get_value(name, Prop),
     Cb = case Name of
@@ -129,6 +153,11 @@ init_per_testcase(host, Config) ->
 		 httpd_1_1
 	 end,
     [{version_cb, Cb} | proplists:delete(version_cb, Config)];
+
+init_per_testcase(range, Config) ->
+    DocRoot = ?config(doc_root, Config),
+    create_range_data(DocRoot),
+    Config;
 init_per_testcase(_, Config) ->
     Config.
 
@@ -163,8 +192,11 @@ get() ->
 get(Config) when is_list(Config) -> 
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),
+    Type = ?config(type, Config),
     ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
 				       http_request("GET /index.html ", Version, Host),
 				       [{statuscode, 200},
 					{header, "Content-Type", "text/html"},
@@ -209,7 +241,9 @@ ssi() ->
 ssi(Config) when is_list(Config) -> 
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),
+    Type = ?config(type, Config),
     ok = httpd_test_lib:verify_request(?config(type, Config), Host, ?config(port, Config),  
+				       transport_opts(Type, Config),
 				       ?config(node, Config),
 				       http_request("GET /fsize.shtml ", Version, Host),
 				       [{statuscode, 200},
@@ -389,7 +423,34 @@ alias(Config) when is_list(Config) ->
 		     [{statuscode, 301},
 		      {header, "Location"},
 		      {header, "Content-Type","text/html"}]).
+%% action() ->
+%%     [{doc, "Test mod_actions"}].
 
+%% action(Config) when is_list(Config) -> 
+%%     ok = http_status("HEAD /", Config,
+%% 		     [{statuscode, 200}]).
+    
+range() ->
+    [{doc, "Test Range header"}].
+
+range(Config) when is_list(Config) -> 
+    httpd_1_1:range(?config(type, Config), ?config(port, Config), 
+		    ?config(host, Config), ?config(node, Config)).
+
+if_modified_since() ->
+    [{doc, "Test If-Modified-Since header"}].
+
+if_modified_since(Config) when is_list(Config) -> 
+    httpd_1_1:if_test(?config(type, Config), ?config(port, Config), 
+		      ?config(host, Config), ?config(node, Config),
+		      ?config(doc_root, Config)).
+trace() ->
+    [{doc, "Test TRACE method"}].
+
+trace(Config) when is_list(Config) ->
+    Cb = ?config(version_cb, Config),
+    Cb:trace(?config(type, Config), ?config(port, Config), 
+	     ?config(host, Config), ?config(node, Config)).
 
 %% auth_api() ->
 %%     [{doc, "Test mod_auth API"}].
@@ -551,16 +612,21 @@ alias(Config) when is_list(Config) ->
 do_max_clients(Config) ->
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),
+    Type = ?config(type, Config),
     start_blocker(Config),
     ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
 				       http_request("GET /index.html ", Version, Host),
 				       [{statuscode, 503},
 					{version, Version}]),
     receive 
     after 2000 ->
 	    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-					       ?config(port, Config),  ?config(node, Config),
+					       ?config(port, Config),
+					       transport_opts(Type, Config),
+					       ?config(node, Config),
 					       http_request("GET /index.html ", Version, Host),
 					       [{statuscode, 200},
 						{version, Version}])
@@ -605,7 +671,7 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
 			      FileInfo1#file_info{mode = 8#00755}).
     
 start_apps(https) ->
-    inets_test_lib:start_apps([crypto, public_key, ssl]);
+    inets_test_lib:start_apps([asn1, crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
 
@@ -633,13 +699,30 @@ server_config(http, Config) ->
      {script_alias, {"/htbin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
      {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
      {eval_script_alias, {"/eval", [httpd_example, io]}}
-    ] ++  auth_conf(ServerRoot);
+    ] ++  auth_conf(ServerRoot) ++ mod_conf();
 
 server_config(http_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(http, Config);
-    
-server_config(_, _) ->
-    [].
+
+%% server_config(range, Config) -> 
+%%     range_conf() ++ server_config(http, Config);
+
+%% server_config(if_modified_since, Config) -> 
+%%     if_modified_since_conf() ++ server_config(http, Config);
+
+%% server_config(trace, Config) -> 
+%%     trace_conf() ++ server_config(http, Config);
+
+server_config(https, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    [{socket_type, {essl,
+		  [{cacertfile, 
+		    filename:join(PrivDir, "public_key_cacert.pem")},
+		   {certfile, 
+		    filename:join(PrivDir, "public_key_cert.pem")},
+		   {keyfile,
+		    filename:join(PrivDir, "public_key_cert_key.pem")}
+		  ]}}] ++ server_config(http, Config).
 
 http_request(Request, "HTTP/1.1" = Version, Host, {Headers, Body}) ->
     Request ++ Version ++ "\r\nhost:" ++ Host ++ "\r\n" ++ Headers ++ "\r\n" ++ Body;
@@ -700,28 +783,40 @@ auth_conf(Root) ->
 		   {require_group, ["group1", "group2"]}]}}
     ]. 
 
+mod_conf() ->
+    [{modules, [mod_alias, mod_auth, mod_responsecontrol, mod_esi, mod_actions, mod_cgi, mod_trace, mod_include,
+		mod_dir, mod_range, mod_get, mod_head, mod_log, mod_disk_log]}].
 
 http_status(Request, Config, Expected) ->
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),    
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  http_request(Request, Version, Host),
 				  Expected ++ [{version, Version}]).
 
 http_status(Request, HeadersAndBody, Config, Expected) ->
     Version = ?config(http_version, Config),
-    Host = ?config(host, Config),    
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  http_request(Request, Version, Host, HeadersAndBody),
 				  Expected ++ [{version, Version}]).
 
 auth_status(AuthRequest, Config, Expected) ->
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),    
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  AuthRequest,
 				  Expected ++ [{version, Version}]).
 
@@ -786,9 +881,31 @@ init_blocker(From, Config) ->
 block(Config) ->
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  http_request("GET /eval?httpd_example:delay(1000) ", 
 					       Version, Host),
 				  [{statuscode, 200},
 				   {version, Version}]).
+
+transport_opts(ssl, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    [{cacertfile, filename:join(PrivDir, "public_key_cacert.pem")}];
+transport_opts(_, _) ->
+    [].
+
+create_range_data(Path) ->
+    PathAndFileName=filename:join([Path,"range.txt"]),
+    case file:read_file(PathAndFileName) of
+	{error, enoent} ->
+	    file:write_file(PathAndFileName,list_to_binary(["12345678901234567890",
+							    "12345678901234567890",
+							    "12345678901234567890",
+							    "12345678901234567890",
+							    "12345678901234567890"]));
+	_ ->
+	    ok
+    end.
