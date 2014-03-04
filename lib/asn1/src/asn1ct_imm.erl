@@ -26,17 +26,19 @@
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1,
 	 per_dec_restricted_string/1]).
 -export([per_dec_constrained/3,per_dec_normally_small_number/1]).
--export([per_enc_bit_string/4,per_enc_boolean/2,
+-export([per_enc_bit_string/4,per_enc_legacy_bit_string/4,
+	 per_enc_boolean/2,
 	 per_enc_choice/3,per_enc_enumerated/3,
 	 per_enc_integer/3,per_enc_integer/4,
 	 per_enc_null/2,
 	 per_enc_k_m_string/4,per_enc_octet_string/3,
+	 per_enc_legacy_octet_string/3,
 	 per_enc_open_type/2,
 	 per_enc_restricted_string/3,
 	 per_enc_small_number/2]).
 -export([per_enc_extension_bit/2,per_enc_extensions/4,per_enc_optional/3]).
 -export([per_enc_sof/5]).
--export([enc_absent/3,enc_append/1,enc_bind_var/1]).
+-export([enc_absent/3,enc_append/1,enc_element/2]).
 -export([enc_cg/2]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
@@ -157,7 +159,35 @@ per_dec_restricted_string(Aligned) ->
 %%% Encoding.
 %%%
 
-per_enc_bit_string(Val0, [], Constraint0, Aligned) ->
+per_enc_bit_string(Val, [], Constraint0, Aligned) ->
+    {B,[[],Bits]} = mk_vars([], [bits]),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    B ++ [{call,erlang,bit_size,[Val],Bits}|
+	  per_enc_length(Val, 1, Bits, Constraint, Aligned, 'BIT STRING')];
+per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
+    {B,[Val,Bs,Bits,Positions]} = mk_vars(Val0, [bs,bits,positions]),
+    NNL = lists:keysort(2, NNL0),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    ExtraArgs = case constr_min_size(Constraint) of
+		    no -> [];
+		    Lb -> [Lb]
+		end,
+    ToBs = case ExtraArgs of
+	       [] ->
+		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
+	       [Lower] ->
+		   {call,per_common,adjust_trailing_zeroes,[Val,Lower]}
+	   end,
+    B ++ [{'try',
+	   [bit_string_name2pos_fun(NNL, Val)],
+	   {Positions,
+	    [{call,per_common,bitstring_from_positions,
+	      [Positions|ExtraArgs]}]},
+	   [ToBs],Bs},
+	  {call,erlang,bit_size,[Bs],Bits}|
+	  per_enc_length(Bs, 1, Bits, Constraint, Aligned, 'BIT STRING')].
+
+per_enc_legacy_bit_string(Val0, [], Constraint0, Aligned) ->
     {B,[Val,Bs,Bits]} = mk_vars(Val0, [bs,bits]),
     Constraint = effective_constraint(bitstring, Constraint0),
     ExtraArgs = case constr_min_size(Constraint) of
@@ -167,7 +197,7 @@ per_enc_bit_string(Val0, [], Constraint0, Aligned) ->
     B ++ [{call,per_common,to_bitstring,[Val|ExtraArgs],Bs},
 	  {call,erlang,bit_size,[Bs],Bits}|
 	  per_enc_length(Bs, 1, Bits, Constraint, Aligned, 'BIT STRING')];
-per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
+per_enc_legacy_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     {B,[Val,Bs,Bits,Positions]} = mk_vars(Val0, [bs,bits,positions]),
     NNL = lists:keysort(2, NNL0),
     Constraint = effective_constraint(bitstring, Constraint0),
@@ -256,35 +286,33 @@ per_enc_k_m_string(Val0, StringType, Constraint, Aligned) ->
 	    B ++ [{call,erlang,length,[Val],Len},Enc]
     end ++ per_enc_length(Bin, Unit, Len, SzConstraint, Aligned, k_m_string).
 
-per_enc_open_type([], Aligned) ->
-    [{put_bits,1,8,unit(1, Aligned)},{put_bits,0,8,[1]}];
-per_enc_open_type([{'cond',
-		    [['_',
-		      {put_bits,0,0,_},
-		      {call,per_common,encode_unconstrained_number,_}=Call]]}],
-		  Aligned) ->
-    %% We KNOW that encode_unconstrained_number/1 will return an IO list;
-    %% therefore the call to complete/1 can be replaced with a cheaper
-    %% call to iolist_to_binary/1.
-    {Dst,Imm} = per_enc_open_type_output([Call], []),
-    ToBin = {erlang,iolist_to_binary},
-    Imm ++ per_enc_open_type(Dst, ToBin, Aligned);
-per_enc_open_type([{call,erlang,iolist_to_binary,Args}], Aligned) ->
-    {_,[_,Bin,Len]} = mk_vars('dummy', [bin,len]),
-    [{call,erlang,iolist_to_binary,Args,Bin},
-     {call,erlang,byte_size,[Bin],Len}|per_enc_length(Bin, 8, Len, Aligned)];
 per_enc_open_type(Imm0, Aligned) ->
-    try
-	{Prefix,Imm1} = split_off_nonbuilding(Imm0),
-	Prefix ++ enc_open_type(Imm1, Aligned)
-    catch
-	throw:impossible ->
-	    {Dst,Imm} = per_enc_open_type_output(Imm0, []),
-	    ToBin = {enc_mod(Aligned),complete},
-	    Imm ++ per_enc_open_type(Dst, ToBin, Aligned)
-    end.
+    Imm = case Aligned of
+	      true ->
+		  %% Temporarily make the implicit 'align' done by
+		  %% complete/1 explicit to facilitate later
+		  %% optimizations: the absence of 'align' can be used
+		  %% as an indication that complete/1 can be replaced
+		  %% with a cheaper operation such as
+		  %% iolist_to_binary/1. The redundant 'align' will be
+		  %% optimized away later.
+		  Imm0 ++ [{put_bits,0,0,[1,align]}];
+	      false ->
+		  Imm0
+	  end,
+    {[],[[],Val,Len,Bin]} = mk_vars([], [output,len,bin]),
+    [{list,Imm,Val},
+     {call,enc_mod(Aligned),complete,[Val],Bin},
+     {call,erlang,byte_size,[Bin],Len}|
+     per_enc_length(Bin, 8, Len, Aligned)].
 
-per_enc_octet_string(Val0, Constraint0, Aligned) ->
+per_enc_octet_string(Bin, Constraint0, Aligned) ->
+    {B,[[],Len]} = mk_vars([], [len]),
+    Constraint = effective_constraint(bitstring, Constraint0),
+    B ++ [{call,erlang,byte_size,[Bin],Len}|
+	  per_enc_length(Bin, 8, Len, Constraint, Aligned, 'OCTET STRING')].
+
+per_enc_legacy_octet_string(Val0, Constraint0, Aligned) ->
     {B,[Val,Bin,Len]} = mk_vars(Val0, [bin,len]),
     Constraint = effective_constraint(bitstring, Constraint0),
     B ++ [{call,erlang,iolist_to_binary,[Val],Bin},
@@ -316,28 +344,27 @@ per_enc_extensions(Val0, Pos0, NumBits, Aligned) when NumBits > 0 ->
 		  _ -> [{put_bits,Bitmap,NumBits,[1]}]
 	      end,
     B++[{call,per_common,extension_bitmap,[Val,Pos,Pos+NumBits],Bitmap},
-	{'cond',[[{eq,Bitmap,0}],
-		 ['_'|Length ++ PutBits]],{var,"Extensions"}}].
+	{list,[{'cond',[[{eq,Bitmap,0}],
+			['_'|Length ++ PutBits]]}],
+	 {var,"Extensions"}}].
 
 per_enc_optional(Val0, {Pos,DefVals}, _Aligned) when is_integer(Pos),
 						     is_list(DefVals) ->
-    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
-    {B,[Val]} = mk_vars(Val1, []),
+    {B,Val} = enc_element(Pos, Val0),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
     B++[{'cond',
 	 [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
 per_enc_optional(Val0, {Pos,{call,M,F,A}}, _Aligned) when is_integer(Pos) ->
-    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
-    {B,[Val,Tmp]} = mk_vars(Val1, [tmp]),
+    {B,Val} = enc_element(Pos, Val0),
+    {[],[[],Tmp]} = mk_vars([], [tmp]),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
     B++[{call,M,F,[Val|A],Tmp},
 	{'cond',
 	 [[{eq,Tmp,true},Zero],['_',One]]}];
 per_enc_optional(Val0, Pos, _Aligned) when is_integer(Pos) ->
-    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
-    {B,[Val]} = mk_vars(Val1, []),
+    {B,Val} = enc_element(Pos, Val0),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
     B++[{'cond',[[{eq,Val,asn1_NOVALUE},Zero],
@@ -391,20 +418,22 @@ enc_append([H|T]) ->
     [{block,H}|enc_append(T)];
 enc_append([]) -> [].
 
-enc_bind_var(Val) ->
-    {B,[{var,Var}]} = mk_vars(Val, []),
-    {B,list_to_atom(Var)}.
+enc_element(N, Val0) ->
+    {[],[Val,Dst]} = mk_vars(Val0, [element]),
+    {[{call,erlang,element,[N,Val],Dst}],Dst}.
 
 enc_cg(Imm0, false) ->
     Imm1 = enc_cse(Imm0),
-    Imm = enc_pre_cg(Imm1),
+    Imm2 = enc_pre_cg(Imm1),
+    Imm = enc_opt(Imm2),
     enc_cg(Imm);
 enc_cg(Imm0, true) ->
     Imm1 = enc_cse(Imm0),
     Imm2 = enc_hoist_align(Imm1),
     Imm3 = enc_opt_al(Imm2),
     Imm4 = per_fixup(Imm3),
-    Imm = enc_pre_cg(Imm4),
+    Imm5 = enc_pre_cg(Imm4),
+    Imm = enc_opt(Imm5),
     enc_cg(Imm).
 
 %%%
@@ -881,6 +910,9 @@ dcg_list_outside([{call,Fun,{V,Buf},{Dst,DstBuf}}|T]) ->
     emit(["{",Dst,",",DstBuf,"}  = "]),
     Fun(V, Buf),
     iter_dcg_list_outside(T);
+dcg_list_outside([{convert,{M,F},V,Dst}|T]) ->
+    emit([Dst," = ",{asis,M},":",{asis,F},"(",V,")"]),
+    iter_dcg_list_outside(T);
 dcg_list_outside([{convert,Op,V,Dst}|T]) ->
     emit([Dst," = ",Op,"(",V,")"]),
     iter_dcg_list_outside(T);
@@ -972,11 +1004,11 @@ mk_dest(S) -> S.
 split_off_nonbuilding(Imm) ->
     lists:splitwith(fun is_nonbuilding/1, Imm).
 
-is_nonbuilding({apply,_,_,_}) -> true;
 is_nonbuilding({assign,_,_}) -> true;
 is_nonbuilding({call,_,_,_,_}) -> true;
-is_nonbuilding({'cond',_,_}) -> true;
 is_nonbuilding({lc,_,_,_,_}) -> true;
+is_nonbuilding({set,_,_}) -> true;
+is_nonbuilding({list,_,_}) -> true;
 is_nonbuilding({sub,_,_,_}) -> true;
 is_nonbuilding({'try',_,_,_,_}) -> true;
 is_nonbuilding(_) -> false.
@@ -986,17 +1018,13 @@ mk_vars(Input0, Temps) ->
     Curr = asn1ct_name:curr(enc),
     [H|T] = atom_to_list(Curr),
     Base = [H - ($a - $A)|T ++ "@"],
-    if
-	is_atom(Input0) ->
-	    Input = {var,atom_to_list(Input0)},
-	    {[],[Input|mk_vars_1(Base, Temps)]};
-	is_integer(Input0) ->
+    case Input0 of
+	{var,Name} when is_list(Name) ->
 	    {[],[Input0|mk_vars_1(Base, Temps)]};
-	Input0 =:= [] ->
+	[] ->
 	    {[],[Input0|mk_vars_1(Base, Temps)]};
-	true ->
-	    Input = mk_var(Base, input),
-	    {[{assign,Input,Input0}],[Input|mk_vars_1(Base, Temps)]}
+	_ when is_integer(Input0) ->
+	    {[],[Input0|mk_vars_1(Base, Temps)]}
     end.
 
 mk_vars_1(Base, Vars) ->
@@ -1143,8 +1171,15 @@ per_enc_length(Bin, Unit, Len, {Lb,Ub}, Aligned, Type)
     U = unit(Unit, Aligned, Type, Lb*Unit, Ub*Unit),
     PutBits = [{put_bits,Bin,binary,U}],
     build_length_cond(Prefix, [[Check|PutLen++PutBits]]);
-per_enc_length(Bin, Unit, Len, Sv, Aligned, Type) when is_integer(Sv) ->
-    NumBits = Sv*Unit,
+per_enc_length(Bin, Unit0, Len, Sv, Aligned, Type) when is_integer(Sv) ->
+    NumBits = Sv*Unit0,
+    Unit = case NumBits rem 8 of
+	       0 ->
+		   %% Help out the alignment optimizer.
+		   8;
+	       _ ->
+		   Unit0
+	   end,
     U = unit(Unit, Aligned, Type, NumBits, NumBits),
     Pb = {put_bits,Bin,binary,U},
     [{'cond',[[{eq,Len,Sv},Pb]]}].
@@ -1358,58 +1393,6 @@ opt_choice_2([_|_], _) ->
     throw(impossible);
 opt_choice_2([], _) -> [].
 
-
-%%%
-%%% Helper functions for code generation of open types.
-%%%
-
-per_enc_open_type(Val0, {ToBinMod,ToBinFunc}, Aligned) ->
-    {B,[Val,Len,Bin]} = mk_vars(Val0, [len,bin]),
-    B ++ [{call,ToBinMod,ToBinFunc,[Val],Bin},
-	  {call,erlang,byte_size,[Bin],Len}|
-	  per_enc_length(Bin, 8, Len, Aligned)].
-
-enc_open_type([{'cond',Cs}], Aligned) ->
-    [{'cond',[[C|enc_open_type_1(Act, Aligned)] || [C|Act] <- Cs]}];
-enc_open_type(_, _) ->
-    throw(impossible).
-
-enc_open_type_1([{error,_}]=Imm, _) ->
-    Imm;
-enc_open_type_1(Imm, Aligned) ->
-    NumBits = num_bits(Imm, 0),
-    Pad = case 8 - (NumBits rem 8) of
-	      8 -> [];
-	      Pad0 -> [{put_bits,0,Pad0,[1]}]
-	  end,
-    NumBytes = (NumBits+7) div 8,
-    enc_length(NumBytes, no, Aligned) ++ Imm ++ Pad.
-
-num_bits([{put_bits,_,N,[U|_]}|T], Sum) when is_integer(N) ->
-    num_bits(T, Sum+N*U);
-num_bits([_|_], _) ->
-    throw(impossible);
-num_bits([], Sum) -> Sum.
-
-per_enc_open_type_output([{apply,F,A}], Acc) ->
-    Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{apply,F,A,{var,atom_to_list(Dst)}}])};
-per_enc_open_type_output([{call,M,F,A}], Acc) ->
-    Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{call,M,F,A,{var,atom_to_list(Dst)}}])};
-per_enc_open_type_output([{'cond',Cs}], Acc) ->
-    Dst = output_var(),
-    {Dst,lists:reverse(Acc, [{'cond',Cs,{var,atom_to_list(Dst)}}])};
-per_enc_open_type_output([H|T], Acc) ->
-    per_enc_open_type_output(T, [H|Acc]).
-
-output_var() ->
-    asn1ct_name:new(enc),
-    Curr = asn1ct_name:curr(enc),
-    [H|T] = atom_to_list(Curr),
-    list_to_atom([H - ($a - $A)|T ++ "@output"]).
-
-
 %%%
 %%% Optimize list comprehensions (SEQUENCE OF/SET OF).
 %%%
@@ -1587,16 +1570,16 @@ collect_put_bits(Imm) ->
 %%% the same element twice.
 %%%
 
-enc_cse([{assign,{var,V},E}=H|T]) ->
-    [H|enc_cse_1(T, E, V)];
+enc_cse([{call,erlang,element,Args,V}=H|T]) ->
+    [H|enc_cse_1(T, Args, V)];
 enc_cse(Imm) -> Imm.
 
-enc_cse_1([{assign,Dst,E}|T], E, V) ->
-    [{assign,Dst,V}|enc_cse_1(T, E, V)];
-enc_cse_1([{block,Bl}|T], E, V) ->
-    [{block,enc_cse_1(Bl, E, V)}|enc_cse_1(T, E, V)];
-enc_cse_1([H|T], E, V) ->
-    [H|enc_cse_1(T, E, V)];
+enc_cse_1([{call,erlang,element,Args,Dst}|T], Args, V) ->
+    [{set,V,Dst}|enc_cse_1(T, Args, V)];
+enc_cse_1([{block,Bl}|T], Args, V) ->
+    [{block,enc_cse_1(Bl, Args, V)}|enc_cse_1(T, Args, V)];
+enc_cse_1([H|T], Args, V) ->
+    [H|enc_cse_1(T, Args, V)];
 enc_cse_1([], _, _) -> [].
 
 
@@ -1637,7 +1620,7 @@ enc_pre_cg_2({block,Bl0}, StL, StB) ->
     enc_pre_cg_1(Bl0, StL, StB);
 enc_pre_cg_2({call,_,_,_}=Imm, _, _) ->
     Imm;
-enc_pre_cg_2({call_gen,_,_,_,_}=Imm, _, _) ->
+enc_pre_cg_2({call_gen,_,_,_,_,_}=Imm, _, _) ->
     Imm;
 enc_pre_cg_2({'cond',Cs0}, StL, _StB) ->
     Cs = [{C,enc_pre_cg_1(Act, StL, outside_seq)} || [C|Act] <- Cs0],
@@ -1662,24 +1645,584 @@ enc_pre_cg_2({var,_}=Imm, _, _) -> Imm.
 enc_make_cons({binary,H}, {binary,T}) ->
     {binary,H++T};
 enc_make_cons({binary,H0}, {cons,{binary,H1},T}) ->
-    {cons,{binary,H0++H1},T};
+    enc_make_cons({binary,H0++H1}, T);
+enc_make_cons({binary,H}, {cons,{integer,Int},T}) ->
+    enc_make_cons({binary,H++[{put_bits,Int,8,[1]}]}, T);
 enc_make_cons({integer,Int}, {binary,T}) ->
     {binary,[{put_bits,Int,8,[1]}|T]};
+enc_make_cons({integer,Int}, {cons,{binary,H},T}) ->
+    enc_make_cons({binary,[{put_bits,Int,8,[1]}|H]}, T);
 enc_make_cons(H, T) ->
     {cons,H,T}.
 
-enc_pre_cg_nonbuilding({'cond',Cs0,Dst}, StL) ->
-    Cs = [{C,enc_pre_cg_1(Act, StL, outside_seq)} || [C|Act] <- Cs0],
-    {'cond',Cs,Dst};
 enc_pre_cg_nonbuilding({lc,B0,Var,List,Dst}, StL) ->
     B = enc_pre_cg_1(B0, StL, outside_seq),
     {lc,B,Var,List,Dst};
+enc_pre_cg_nonbuilding({list,List0,Dst}, _StL) ->
+    List = enc_pre_cg_1(List0, outside_list, outside_seq),
+    {list,List,Dst};
 enc_pre_cg_nonbuilding({'try',Try0,{P,Succ0},Else0,Dst}, StL) ->
     Try = enc_pre_cg_1(Try0, StL, outside_seq),
     Succ = enc_pre_cg_1(Succ0, StL, outside_seq),
     Else = enc_pre_cg_1(Else0, StL, outside_seq),
     {'try',Try,{P,Succ},Else,Dst};
 enc_pre_cg_nonbuilding(Imm, _) -> Imm.
+
+%%%
+%%% Optimize calls to complete/1 and surrounding code. There are
+%%% several opportunities for optimizations.
+%%%
+%%% It may be possible to replace the call to complete/1 with
+%%% something cheaper (most important for the PER back-end which has
+%%% an expensive complete/1 implementation). If we can be sure that
+%%% complete/1 will be called with an iolist (no 'align' atoms or
+%%% bitstrings in the list), we can call iolist_to_binary/1
+%%% instead. If the list may include bitstrings, we can can call
+%%% list_to_bitstring/1 (note that list_to_bitstring/1 does not accept
+%%% a binary or bitstring, so we MUST be sure that we only pass it a
+%%% list).  If complete/1 is called with a binary, we can omit the
+%%% call altogether.
+%%%
+%%% A call to byte_size/1 that follows complete/1 can be eliminated
+%%% if the size of the binary produced by complete/1 can be determined
+%%% and is constant.
+%%%
+%%% The code that encodes the length descriptor (a 'cond' instruction)
+%%% for a binary produced by complete/1 can be simplified if the lower
+%%% and upper bounds for the size of the binary are known.
+%%%
+
+-record(ost,
+	{sym,
+	 t
+	}).
+
+enc_opt(Imm0) ->
+    {Imm,_} = enc_opt(Imm0, #ost{sym=gb_trees:empty()}),
+    Imm.
+
+enc_opt(align, St) ->
+    {align,St#ost{t=t_align({0,7})}};
+enc_opt({apply,What,As}, St) ->
+    {{apply,What,subst_list(As, St)},St#ost{t=t_any()}};
+enc_opt({assign,_,_}=Imm, St) ->
+    {Imm,St};
+enc_opt({binary,PutBits0}, St) ->
+    PutBits = [{put_bits,subst(V, St),Sz,F} ||
+		  {put_bits,V,Sz,F} <- PutBits0],
+    NumBits = lists:foldl(fun({put_bits,_,Bits,_}, Sum) ->
+				  Sum+Bits
+			  end, 0, PutBits),
+    {{binary,PutBits},St#ost{t=t_bitstring(NumBits)}};
+enc_opt({block,Bl0}, St0) ->
+    {Bl,St} = enc_opt(Bl0, St0),
+    {{block,Bl},St};
+enc_opt({call,binary,encode_unsigned,[Int],Bin}=Imm, St0) ->
+    Type = get_type(Int, St0),
+    St = case t_range(Type) of
+	     any ->
+		 set_type(Bin, t_binary(), St0);
+	     {Lb0,Ub0} ->
+		 Lb = bit_size(binary:encode_unsigned(Lb0)),
+		 Ub = bit_size(binary:encode_unsigned(Ub0)),
+		 set_type(Bin, t_binary({Lb,Ub}), St0)
+	 end,
+    {Imm,St};
+enc_opt({call,erlang,bit_size,[Bin],Dst}=Imm0, St0) ->
+    Type = get_type(Bin, St0),
+    case t_range(Type) of
+	any ->
+	    St1 = set_type(Bin, t_bitstring(), St0),
+	    St = propagate(Dst,
+			   fun(T, S) ->
+				   bit_size_propagate(Bin, T, S)
+			   end, St1),
+	    {Imm0,St};
+	{Lb,Ub}=Range ->
+	    St = set_type(Dst, t_integer(Range), St0),
+	    Imm = case Lb of
+		      Ub -> none;
+		      _ -> Imm0
+		  end,
+	    {Imm,St}
+    end;
+enc_opt({call,erlang,byte_size,[Bin],Dst}=Imm0, St0) ->
+    Type = get_type(Bin, St0),
+    case t_range(Type) of
+	any ->
+	    St1 = set_type(Bin, t_binary(), St0),
+	    St = propagate(Dst,
+			   fun(T, S) ->
+				   byte_size_propagate(Bin, T, S)
+			   end, St1),
+	    {Imm0,St};
+	{Lb0,Ub0} ->
+	    Lb = (Lb0+7) div 8,
+	    Ub = (Ub0+7) div 8,
+	    St = set_type(Dst, t_integer({Lb,Ub}), St0),
+	    Imm = case Lb of
+		      Ub -> none;
+		      _ -> Imm0
+		  end,
+	    {Imm,St}
+    end;
+enc_opt({call,erlang,iolist_to_binary,_}=Imm, St) ->
+    {Imm,St#ost{t=t_binary()}};
+enc_opt({call,erlang,length,[List],Dst}=Imm0, St0) ->
+    St1 = propagate(Dst,
+		    fun(T, S) ->
+			    length_propagate(List, T, S)
+		    end, St0),
+    {Imm0,St1};
+enc_opt({call,per,complete,[Data],Dst}, St0) ->
+    Type = get_type(Data, St0),
+    St = set_type(Dst, t_binary(t_range(Type)), St0),
+    case t_type(Type) of
+	binary ->
+	    {{set,Data,Dst},St};
+	bitlist ->
+	    %% We KNOW that list_to_bitstring/1 will construct
+	    %% a binary (the number of bits is divisible by 8)
+	    %% because per_enc_open_type/2 added an 'align' atom
+	    %% at the end. If that 'align' atom had not been
+	    %% optimized away, the type would have been 'align'
+	    %% instead of 'bitlist'.
+	    {{call,erlang,list_to_bitstring,[Data],Dst},St};
+	iolist ->
+	    {{call,erlang,iolist_to_binary,[Data],Dst},St};
+	nil ->
+	    Imm = {list,{binary,[{put_bits,0,8,[1]}]},Dst},
+	    enc_opt(Imm, St0);
+	_ ->
+	    {{call,per,complete,[Data],Dst},St}
+    end;
+enc_opt({call,uper,complete,[Data],Dst}, St0) ->
+    Type = get_type(Data, St0),
+    St = set_type(Dst, t_binary(t_range(Type)), St0),
+    case t_type(Type) of
+	binary ->
+	    {{set,Data,Dst},St0};
+	iolist ->
+	    {{call,erlang,iolist_to_binary,[Data],Dst},St};
+	nil ->
+	    Imm = {list,{binary,[{put_bits,0,8,[1]}]},Dst},
+	    enc_opt(Imm, St0);
+	_ ->
+	    %% 'bitlist' or 'any'.
+	    {{call,uper,complete,[Data],Dst},St}
+    end;
+enc_opt({call,per_common,encode_chars,[List,NumBits|_],Dst}=Imm, St0) ->
+    %% Note: Never used when NumBits =:= 8 (list_to_binary/1 will
+    %% be used instead).
+    St1 = set_type(Dst, t_bitstring(), St0),
+    St = propagate(List,
+		   fun(T, S) ->
+			   char_propagate(Dst, T, NumBits, S)
+		   end, St1),
+    {Imm,St};
+enc_opt({call,per_common,encode_chars_16bit,[List],Dst}=Imm, St0) ->
+    St1 = set_type(Dst, t_binary(), St0),
+    St = propagate(List,
+		   fun(T, S) ->
+			   char_propagate(Dst, T, 16, S)
+		   end, St1),
+    {Imm,St};
+enc_opt({call,per_common,encode_big_chars,[List],Dst}=Imm, St0) ->
+    St1 = set_type(Dst, t_binary(), St0),
+    St = propagate(List,
+		   fun(T, S) ->
+			   char_propagate(Dst, T, 32, S)
+		   end, St1),
+    {Imm,St};
+enc_opt({call,per_common,encode_fragmented,[_,Unit]}=Imm, St) ->
+    T = case Unit rem 8 of
+	    0 -> t_iolist();
+	    _ -> t_bitlist()
+	end,
+    {Imm,St#ost{t=T}};
+enc_opt({call,per_common,encode_unconstrained_number,_}=Imm, St) ->
+    {Imm,St#ost{t=t_iolist()}};
+enc_opt({call,per_common,bitstring_from_positions,_}=Imm, St) ->
+    {Imm,St#ost{t=t_bitstring()}};
+enc_opt({call,per_common,to_named_bitstring,_}=Imm, St) ->
+    {Imm,St#ost{t=t_bitstring()}};
+enc_opt({call,_,_,_}=Imm, St) ->
+    {Imm,St#ost{t=t_any()}};
+enc_opt({call,_,_,_,_}=Imm, St) ->
+    {Imm,St#ost{t=undefined}};
+enc_opt({call_gen,N,K,F,L,As}, St) ->
+    {{call_gen,N,K,F,L,subst(As, St)},St#ost{t=t_any()}};
+enc_opt({'cond',Cs0}, St0) ->
+    case enc_opt_cs(Cs0, St0) of
+	[{'_',Imm,Type}] ->
+	    {Imm,St0#ost{t=Type}};
+	[{Cond,Imm,Type0}|Cs1] ->
+	    {Cs,Type} = enc_opt_cond_1(Cs1, Type0, [{Cond,Imm}]),
+	    {{'cond',Cs},St0#ost{t=Type}}
+    end;
+enc_opt({cons,H0,T0}, St0) ->
+    {H,#ost{t=TypeH}=St1} = enc_opt(H0, St0),
+    {T,#ost{t=TypeT}=St} = enc_opt(T0, St1),
+    {{cons,H,T},St#ost{t=t_cons(TypeH, TypeT)}};
+enc_opt({error,_}=Imm, St) ->
+    {Imm,St#ost{t=t_any()}};
+enc_opt({integer,V}, St) ->
+    {{integer,subst(V, St)},St#ost{t=t_integer()}};
+enc_opt({lc,E0,B,C}, St) ->
+    {E,_} = enc_opt(E0, St),
+    {{lc,E,B,C},St#ost{t=t_any()}};
+enc_opt({lc,E0,B,C,Dst}, St) ->
+    {E,_} = enc_opt(E0, St),
+    {{lc,E,B,C,Dst},St#ost{t=undefined}};
+enc_opt({list,Imm0,Dst}, St0) ->
+    {Imm,#ost{t=Type}=St1} = enc_opt(Imm0, St0),
+    St = set_type(Dst, Type, St1),
+    {{list,Imm,Dst},St#ost{t=undefined}};
+enc_opt(nil, St) ->
+    {nil,St#ost{t=t_nil()}};
+enc_opt({seq,H0,T0}, St0) ->
+    {H,St1} = enc_opt(H0, St0),
+    {T,St} = enc_opt(T0, St1),
+    case {H,T} of
+	{none,_} ->
+	    {T,St};
+	{{list,Imm,Data},
+	 {seq,{call,per,complete,[Data],_},_}} ->
+	    %% Get rid of any explicit 'align' added by per_enc_open_type/2.
+	    {{seq,{list,remove_trailing_align(Imm),Data},T},St};
+	{_,_} ->
+	    {{seq,H,T},St}
+    end;
+enc_opt({set,_,_}=Imm, St) ->
+    {Imm,St#ost{t=undefined}};
+enc_opt({sub,Src0,Int,Dst}, St0) ->
+    Src = subst(Src0, St0),
+    Type = get_type(Src, St0),
+    St = case t_range(Type) of
+	     any ->
+		 propagate(Dst,
+			   fun(T, S) ->
+				   set_type(Src, t_add(T, Int), S)
+			   end,
+			   St0);
+	     {Lb,Ub} ->
+		 set_type(Dst, t_integer({Lb-Int,Ub-Int}), St0)
+	 end,
+    {{sub,Src,Int,Dst},St#ost{t=undefined}};
+enc_opt({'try',Try0,{P,Succ0},Else0,Dst}, St0) ->
+    {Try,_} = enc_opt(Try0, St0),
+    {Succ,_} = enc_opt(Succ0, St0),
+    {Else,_} = enc_opt(Else0, St0),
+    {{'try',Try,{P,Succ},Else,Dst},St0#ost{t=undefined}};
+enc_opt({var,_}=Imm, St) ->
+    Type = get_type(Imm, St),
+    {subst(Imm, St),St#ost{t=Type}}.
+
+remove_trailing_align({block,Bl}) ->
+    {block,remove_trailing_align(Bl)};
+remove_trailing_align({cons,H,{cons,align,nil}}) ->
+    H;
+remove_trailing_align({seq,H,T}) ->
+    {seq,H,remove_trailing_align(T)};
+remove_trailing_align(Imm) -> Imm.
+
+bit_size_propagate(Bin, Type, St) ->
+    case t_range(Type) of
+	any ->
+	    St;
+	{Lb,Ub} ->
+	    set_type(Bin, t_bitstring({Lb,Ub}), St)
+    end.
+
+byte_size_propagate(Bin, Type, St) ->
+    case t_range(Type) of
+	any ->
+	    St;
+	{Lb,Ub} ->
+	    set_type(Bin, t_binary({Lb*8,Ub*8}), St)
+    end.
+
+char_propagate(Dst, T, NumBits, St) ->
+    case t_range(T) of
+	any ->
+	    St;
+	{Sz,Sz} when Sz*NumBits rem 8 =:= 0 ->
+	    Bits = Sz*NumBits,
+	    set_type(Dst, t_binary({Bits,Bits}), St);
+	{Lb,Ub} ->
+	    Range = {Lb*NumBits,Ub*NumBits},
+	    case NumBits rem 8 of
+		0 ->
+		    set_type(Dst, t_binary(Range), St);
+		_ ->
+		    set_type(Dst, t_bitstring(Range), St)
+	    end
+    end.
+
+length_propagate(List, Type, St) ->
+    set_type(List, t_list(t_range(Type)), St).
+
+enc_opt_cond_1([{Cond,{error,_}=Imm,_}|T], St, Acc) ->
+    enc_opt_cond_1(T, St, [{Cond,Imm}|Acc]);
+enc_opt_cond_1([{Cond,Imm,Curr0}|T], Curr1, Acc) ->
+    Curr = t_join(Curr0, Curr1),
+    enc_opt_cond_1(T, Curr, [{Cond,Imm}|Acc]);
+enc_opt_cond_1([], St, Acc) ->
+    {lists:reverse(Acc),St}.
+
+enc_opt_cs([{Cond,Imm0}|T], St0) ->
+    case eo_eval_cond(Cond, St0) of
+	false ->
+	    enc_opt_cs(T, St0);
+	true ->
+	    {Imm,#ost{t=Type}} = enc_opt(Imm0, St0),
+	    [{'_',Imm,Type}];
+	maybe ->
+	    St = update_type_info(Cond, St0),
+	    {Imm,#ost{t=Type}} = enc_opt(Imm0, St),
+	    [{Cond,Imm,Type}|enc_opt_cs(T, St0)]
+    end;
+enc_opt_cs([], _) -> [].
+
+eo_eval_cond('_', _) ->
+    true;
+eo_eval_cond({Op,{var,_}=Var,Val}, St) ->
+    Type = get_type(Var, St),
+    case t_range(Type) of
+	any -> maybe;
+	{_,_}=Range -> eval_cond_range(Op, Range, Val)
+    end;
+eo_eval_cond({_Op,{expr,_},_Val}, _St) -> maybe.
+
+eval_cond_range(lt, {Lb,Ub}, Val) ->
+    if
+	Ub < Val -> true;
+	Val =< Lb -> false;
+	true -> maybe
+    end;
+eval_cond_range(_Op, _Range, _Val) -> maybe.
+
+update_type_info({ult,{var,_}=Var,Val}, St) ->
+    Int = t_integer({0,Val-1}),
+    Type = t_meet(get_type(Var, St), Int),
+    set_type(Var, Type, St);
+update_type_info({lt,{var,_}=Var,Val}, St) ->
+    Int = t_integer({0,Val-1}),
+    Type = t_meet(get_type(Var, St), Int),
+    set_type(Var, Type, St);
+update_type_info({eq,{var,_}=Var,Val}, St) when is_integer(Val) ->
+    Int = t_integer(Val),
+    Type = t_meet(get_type(Var, St), Int),
+    set_type(Var, Type, St);
+update_type_info({eq,_,_}, St) ->
+    St;
+update_type_info({ge,_,_}, St) -> St.
+
+subst_list(As, St) ->
+    [subst(A, St) || A <- As].
+
+subst({var,_}=Var, St) ->
+    Type = get_type(Var, St),
+    case t_type(Type) of
+	integer ->
+	    case t_range(Type) of
+		any -> Var;
+		{Val,Val} -> Val;
+		{_,_} -> Var
+	    end;
+	_ ->
+	    Var
+    end;
+subst(V, _St) -> V.
+
+set_type({var,Var}, {_,_}=Type, #ost{sym=Sym0}=St0) ->
+    Sym1 = gb_trees:enter(Var, Type, Sym0),
+    case gb_trees:lookup({propagate,Var}, Sym1) of
+	none ->
+	    St0#ost{sym=Sym1};
+	{value,Propagate} ->
+	    Sym = gb_trees:delete({propagate,Var}, Sym1),
+	    St = St0#ost{sym=Sym},
+	    Propagate(Type, St)
+    end.
+
+get_type({var,V}, #ost{sym=Sym}) ->
+    case gb_trees:lookup(V, Sym) of
+	none -> t_any();
+	{value,T} -> T
+    end.
+
+propagate({var,Var}, Propagate, #ost{sym=Sym0}=St) when is_function(Propagate, 2) ->
+    Sym = gb_trees:enter({propagate,Var}, Propagate, Sym0),
+    St#ost{sym=Sym}.
+
+%%%
+%%% A simple type system.
+%%%
+%%% Each type descriptions is a tuple {Type,Range}.
+%%% Type is one of the following atoms:
+%%%
+%%% Type name   Description
+%%% ---------   -----------
+%%% any         Anything.
+%%%
+%%% align       Basically iodata, but the list may contain bitstrings
+%%%             and the the atom 'align'. Can be passed to complete/1
+%%%             to construct a binary. Only used for aligned PER (per).
+%%%
+%%% bitstring   An Erlang bitstring.
+%%%
+%%% bitlist     A list that may be passed to list_to_bitstring/1 to
+%%%             construct a bitstring.
+%%%             NOTE: When analysing aligned PER (per), the number
+%%%             of bits in the bitlist is always divisible by 8 (if
+%%%             not, the type will be 'align' instead).
+%%%
+%%% binary      An Erlang binary (the number of bits is divisible by 8).
+%%%
+%%% iolist      An Erlang iolist.
+%%%
+%%% nil         []
+%%%
+%%% integer     An integer.
+%%%
+%%%
+%%% Range is one of:
+%%%
+%%%     any
+%%%     {LowerBound,UpperBound}
+%%%
+%%%
+
+t_align(Range) ->
+    {align,t__range(Range)}.
+
+t_any() ->
+    {any,any}.
+
+t_binary() ->
+    {binary,any}.
+
+t_binary(Range) ->
+    {binary,t__range(Range)}.
+
+t_bitlist() ->
+    {bitlist,any}.
+
+t_bitstring() ->
+    {bitstring,any}.
+
+t_bitstring(Range0) ->
+    case t__range(Range0) of
+	{Bits,Bits}=Range when Bits rem 8 =:= 0 ->
+	    {binary,Range};
+	Range ->
+	    {bitstring,Range}
+    end.
+
+t_add({integer,{Lb,Ub}}, N) ->
+    {integer,{Lb+N,Ub+N}}.
+
+t_cons({_,_}=T1, {_,_}=T2) ->
+    T = case {t__cons_type(T1),t__cons_type(T2)} of
+	    {_,any} -> any;
+	    {any,_} -> any;
+	    {align,_} -> align;
+	    {_,align} -> align;
+	    {binary,binary} -> iolist;
+	    {binary,bitstring} -> bitlist;
+	    {bitstring,binary} -> bitlist;
+	    {bitstring,bitstring} -> bitlist
+	end,
+    {T,t__cons_ranges(t__cons_range(T1), t__cons_range(T2))}.
+
+t_integer() ->
+    {integer,any}.
+
+t_integer(Range) ->
+    {integer,t__range(Range)}.
+
+t_iolist() ->
+    {iolist,any}.
+
+t_list(Range) ->
+    {list,t__range(Range)}.
+
+t_nil() ->
+    {nil,{0,0}}.
+
+t_meet({T1,Range1}, {T2,Range2}) ->
+    {t_meet_types(T1, T2),t_meet_ranges(Range1, Range2)}.
+
+t_meet_types(integer, integer) -> integer;
+t_meet_types(any, integer) -> integer.
+
+t_meet_ranges(any, Range) ->
+    Range;
+t_meet_ranges({Lb1,Ub1}, {Lb2,Ub2}) ->
+    if
+	Lb1 =< Ub2, Lb2 =< Ub1 ->
+	    {max(Lb1, Lb2),Ub1};
+	Lb2 =< Ub1, Lb1 =< Ub2 ->
+	    {max(Lb1, Lb2),Ub2}
+    end.
+
+t_join({T1,Range1}, {T2,Range2}) ->
+    T = t_join_types(lists:sort([T1,T2])),
+    Range = t_join_ranges(Range1, Range2),
+    {T,Range}.
+
+t_join_ranges({Lb1,Ub1}, {Lb2,Ub2}) ->
+    {min(Lb1, Lb2),max(Ub1, Ub2)};
+t_join_ranges(any, _) -> any;
+t_join_ranges(_, any) -> any.
+
+t_join_types([T,T]) -> T;
+t_join_types([align,any]) -> any;
+t_join_types([align,_]) -> align;
+t_join_types([any,_]) -> any;
+t_join_types([bitlist,bitstring]) -> any;
+t_join_types([bitlist,integer]) -> any;
+t_join_types([bitlist,iolist]) -> bitlist;
+t_join_types([bitlist,nil]) -> bitlist;
+t_join_types([binary,bitlist]) -> bitlist;
+t_join_types([binary,bitstring]) -> bitstring;
+t_join_types([binary,integer]) -> binary;
+t_join_types([binary,iolist]) -> iolist;
+t_join_types([binary,nil]) -> iolist;
+t_join_types([bitstring,integer]) -> any;
+t_join_types([bitstring,iolist]) -> any;
+t_join_types([bitstring,nil]) -> any;
+t_join_types([integer,_]) -> any;
+t_join_types([iolist,nil]) -> iolist.
+
+t_type({T,_}) -> T.
+
+t_range({_,Range}) -> Range.
+
+t__cons_type({align,_}) -> align;
+t__cons_type({any,_}) -> any;
+t__cons_type({binary,_}) -> binary;
+t__cons_type({bitstring,_}) -> bitstring;
+t__cons_type({bitlist,_}) -> bitstring;
+t__cons_type({integer,_}) -> binary;
+t__cons_type({iolist,_}) -> binary;
+t__cons_type({nil,_}) -> binary.
+
+t__cons_range({integer,_}) -> {8,8};
+t__cons_range({_,Range}) -> Range.
+
+t__cons_ranges({Lb1,Ub1}, {Lb2,Ub2}) ->
+    {Lb1+Lb2,Ub1+Ub2};
+t__cons_ranges(any, _) -> any;
+t__cons_ranges(_, any) -> any.
+
+t__range({Lb,Ub}=Range) when is_integer(Lb), is_integer(Ub) ->
+    Range;
+t__range(any) ->
+    any;
+t__range(Val) when is_integer(Val) ->
+    {Val,Val}.
 
 
 %%%
@@ -1702,19 +2245,10 @@ enc_cg(align) ->
 enc_cg({apply,F0,As0}) ->
     As = enc_call_args(As0, ""),
     case F0 of
-	{M,F} ->
-	    emit([{asis,M},":",{asis,F},"(",As,")"]);
-	F when is_atom(F) ->
-	    emit([{asis,F},"(",As,")"])
-    end;
-enc_cg({apply,F0,As0,Dst}) ->
-    As = enc_call_args(As0, ""),
-    emit([mk_val(Dst)," = "]),
-    case F0 of
-	{M,F} ->
-	    emit([{asis,M},":",{asis,F},"(",As,")"]);
-	F when is_atom(F) ->
-	    emit([{asis,F},"(",As,")"])
+	{local,F,_} when is_atom(F) ->
+	    emit([{asis,F},"(",As,")"]);
+	{M,F,_} ->
+	    emit([{asis,M},":",{asis,F},"(",As,")"])
     end;
 enc_cg({assign,Dst0,Expr}) ->
     Dst = mk_val(Dst0),
@@ -1728,14 +2262,10 @@ enc_cg({call,M,F,As0,Dst}) ->
     As = [mk_val(A) || A <- As0],
     emit([mk_val(Dst)," = "]),
     asn1ct_func:call(M, F, As);
-enc_cg({call_gen,Prefix,Key,Gen,As0}) ->
+enc_cg({call_gen,Prefix,Key,Gen,_,As0}) ->
     As = [mk_val(A) || A <- As0],
     asn1ct_func:call_gen(Prefix, Key, Gen, As);
 enc_cg({'cond',Cs}) ->
-    enc_cg_cond(Cs);
-enc_cg({'cond',Cs,Dst0}) ->
-    Dst = mk_val(Dst0),
-    emit([Dst," = "]),
     enc_cg_cond(Cs);
 enc_cg({error,Error}) when is_function(Error, 0) ->
     Error();
@@ -1752,12 +2282,17 @@ enc_cg({lc,Body,Var,List,Dst}) ->
     emit([mk_val(Dst)," = ["]),
     enc_cg(Body),
     emit([" || ",mk_val(Var)," <- ",mk_val(List),"]"]);
+enc_cg({list,List,Dst}) ->
+    emit([mk_val(Dst)," = "]),
+    enc_cg(List);
 enc_cg(nil) ->
     emit("[]");
 enc_cg({sub,Src0,Int,Dst0}) ->
     Src = mk_val(Src0),
     Dst = mk_val(Dst0),
     emit([Dst," = ",Src," - ",Int]);
+enc_cg({set,{var,Src},{var,Dst}}) ->
+    emit([Dst," = ",Src]);
 enc_cg({'try',Try,{P,Succ},Else,Dst}) ->
     emit([mk_val(Dst)," = try "]),
     enc_cg(Try),
@@ -1792,8 +2327,6 @@ enc_call_args([A|As], Sep) ->
     [Sep,mk_val(A)|enc_call_args(As, ", ")];
 enc_call_args([], _) -> [].
 
-enc_cg_cond([{'_',Action}]) ->
-    enc_cg(Action);
 enc_cg_cond(Cs) ->
     emit("if "),
     enc_cg_cond(Cs, ""),
@@ -1849,7 +2382,7 @@ mk_val(Other) -> {asis,Other}.
 
 bit_string_name2pos_fun(NNL, Src) ->
     {call_gen,"bit_string_name2pos_",NNL,
-     fun(Fd, Name) -> gen_name2pos(Fd, Name, NNL) end,[Src]}.
+     fun(Fd, Name) -> gen_name2pos(Fd, Name, NNL) end,[],[Src]}.
 
 gen_name2pos(Fd, Name, Names) ->
     Cs0 = gen_name2pos_cs(Names, Name),
@@ -1978,19 +2511,12 @@ enc_opt_al(Imm0) ->
     {Imm,_} = enc_opt_al_1(Imm0, unknown),
     Imm.
 
-enc_opt_al_1([{'cond',Cs0,Dst},{call,per,complete,[Dst],Bin}|T0], Al0) ->
-    {Cs1,{M,F}} = enc_opt_al_prepare_cond(Cs0),
-    {Cs,_} = enc_opt_al_cond(Cs1, 0),
-    {T,Al} = enc_opt_al_1([{call,M,F,[Dst],Bin}|T0], Al0),
-    {[{'cond',Cs,Dst}|T],Al};
 enc_opt_al_1([H0|T0], Al0) ->
     {H,Al1} = enc_opt_al(H0, Al0),
     {T,Al} = enc_opt_al_1(T0, Al1),
     {H++T,Al};
 enc_opt_al_1([], Al) -> {[],Al}.
 
-enc_opt_al({apply,_,_,_}=Imm, Al) ->
-    {[Imm],Al};
 enc_opt_al({assign,_,_}=Imm, Al) ->
     {[Imm],Al};
 enc_opt_al({block,Bl0}, Al0) ->
@@ -2012,6 +2538,10 @@ enc_opt_al({'cond',Cs0}, Al0) ->
     {[{'cond',Cs}],Al};
 enc_opt_al({error,_}=Imm, Al) ->
     {[Imm],Al};
+enc_opt_al({list,Imm0,Dst}, Al) ->
+    Imm1 = enc_opt_hoist_align(Imm0),
+    {Imm,_} = enc_opt_al_1(Imm1, 0),
+    {[{list,Imm,Dst}],Al};
 enc_opt_al({put_bits,V,N,[U,align]}, Al0) when Al0 rem 8 =:= 0 ->
     Al = if
 	     is_integer(N) -> N*U;
@@ -2038,7 +2568,11 @@ enc_opt_al({put_bits,_,N,[U]}=PutBits, Al) when is_integer(N), is_integer(Al) ->
     {[PutBits],Al+N*U};
 enc_opt_al({put_bits,_,binary,[U]}=PutBits, Al) when U rem 8 =:= 0 ->
     {[PutBits],Al};
+enc_opt_al({set,_,_}=Imm, Al) ->
+    {[Imm],Al};
 enc_opt_al({sub,_,_,_}=Imm, Al) ->
+    {[Imm],Al};
+enc_opt_al({'try',_,_,_,_}=Imm, Al) ->
     {[Imm],Al};
 enc_opt_al(Imm, _) ->
     {[Imm],unknown}.
@@ -2063,29 +2597,25 @@ enc_opt_al_cond_1([], _, CAcc, AAcc) ->
 	 end,
     {lists:reverse(CAcc),Al}.
 
-enc_opt_al_prepare_cond(Cs0) ->
-    try enc_opt_al_prepare_cond_1(Cs0) of
-	Cs ->
-	    {Cs,{erlang,iolist_to_binary}}
+enc_opt_hoist_align([{'cond',Cs0},{put_bits,0,0,[1,align]}]=Imm) ->
+    try
+	Cs = [insert_align_last(C) || C <- Cs0],
+	[{'cond',Cs}]
     catch
 	throw:impossible ->
-	    {Cs0,{per,complete}}
+	    Imm
+    end;
+enc_opt_hoist_align(Imm) -> Imm.
+
+insert_align_last([_,{error,_}]=C) ->
+    C;
+insert_align_last([H|T]) ->
+    case lists:last(T) of
+	{put_bits,_,_,_} ->
+	    [H|T ++ [{put_bits,0,0,[1,align]}]];
+	_ ->
+	    throw(impossible)
     end.
-
-enc_opt_al_prepare_cond_1(Cs) ->
-    [[C|enc_opt_al_prepare_cond_2(Act)] || [C|Act] <- Cs].
-
-enc_opt_al_prepare_cond_2([{put_bits,_,binary,[U|_]}|_]) when U rem 8 =/= 0 ->
-    throw(impossible);
-enc_opt_al_prepare_cond_2([{put_bits,_,_,_}=H|T]) ->
-    [H|enc_opt_al_prepare_cond_2(T)];
-enc_opt_al_prepare_cond_2([{call,per_common,encode_fragmented,_}=H|T]) ->
-    [H|enc_opt_al_prepare_cond_2(T)];
-enc_opt_al_prepare_cond_2([_|_]) ->
-    throw(impossible);
-enc_opt_al_prepare_cond_2([]) ->
-    [{put_bits,0,0,[1,align]}].
-
 
 %%%
 %%% For the aligned PER format, fix up the intermediate format
@@ -2095,8 +2625,6 @@ enc_opt_al_prepare_cond_2([]) ->
 
 per_fixup([{apply,_,_}=H|T]) ->
     [H|per_fixup(T)];
-per_fixup([{apply,_,_,_}=H|T]) ->
-    [H|per_fixup(T)];
 per_fixup([{block,Block}|T]) ->
     [{block,per_fixup(Block)}|per_fixup(T)];
 per_fixup([{'assign',_,_}=H|T]) ->
@@ -2104,14 +2632,11 @@ per_fixup([{'assign',_,_}=H|T]) ->
 per_fixup([{'cond',Cs0}|T]) ->
     Cs = [[C|per_fixup(Act)] || [C|Act] <- Cs0],
     [{'cond',Cs}|per_fixup(T)];
-per_fixup([{'cond',Cs0,Dst}|T]) ->
-    Cs = [[C|per_fixup(Act)] || [C|Act] <- Cs0],
-    [{'cond',Cs,Dst}|per_fixup(T)];
 per_fixup([{call,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{call,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
-per_fixup([{call_gen,_,_,_,_}=H|T]) ->
+per_fixup([{call_gen,_,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{error,_}=H|T]) ->
     [H|per_fixup(T)];
@@ -2119,6 +2644,10 @@ per_fixup([{lc,B,V,L}|T]) ->
     [{lc,per_fixup(B),V,L}|per_fixup(T)];
 per_fixup([{lc,B,V,L,Dst}|T]) ->
     [{lc,per_fixup(B),V,L,Dst}|per_fixup(T)];
+per_fixup([{list,Imm,Dst}|T]) ->
+    [{list,per_fixup(Imm),Dst}|per_fixup(T)];
+per_fixup([{set,_,_}=H|T]) ->
+    [H|per_fixup(T)];
 per_fixup([{sub,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{'try',Try0,{P,Succ0},Else0,Dst}|T]) ->

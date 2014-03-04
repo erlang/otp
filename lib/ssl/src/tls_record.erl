@@ -262,18 +262,18 @@ supported_protocol_versions([_|_] = Vsns) ->
     Vsns.
 
 %%--------------------------------------------------------------------
--spec is_acceptable_version(tls_version()) -> boolean().
--spec is_acceptable_version(tls_version(), Supported :: [tls_version()]) -> boolean().
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.
 %% 
 %%--------------------------------------------------------------------
+-spec is_acceptable_version(tls_version()) -> boolean().
 is_acceptable_version({N,_}) 
   when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
     true;
 is_acceptable_version(_) ->
     false.
 
+-spec is_acceptable_version(tls_version(), Supported :: [tls_version()]) -> boolean().
 is_acceptable_version({N,_} = Version, Versions)   
   when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
     lists:member(Version, Versions);

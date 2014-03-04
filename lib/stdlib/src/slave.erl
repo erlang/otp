@@ -289,7 +289,8 @@ register_unique_name(Number) ->
 %% If the node should run on the local host, there is
 %% no need to use rsh.
 
-mk_cmd(Host, Name, Args, Waiter, Prog) ->
+mk_cmd(Host, Name, Args, Waiter, Prog0) ->
+    Prog = quote_progname(Prog0),
     BasicCmd = lists:concat([Prog,
 			     " -detached -noinput -master ", node(),
 			     " ", long_or_short(), Name, "@", Host,
@@ -307,6 +308,31 @@ mk_cmd(Host, Name, Args, Waiter, Prog) ->
 		Other ->
 		    Other
 	    end
+    end.
+
+%% This is an attempt to distinguish between spaces in the program
+%% path and spaces that separate arguments. The program is quoted to
+%% allow spaces in the path.
+%%
+%% Arguments could exist either if the executable is excplicitly given
+%% (through start/5) or if the -program switch to beam is used and
+%% includes arguments (typically done by cerl in OTP test environment
+%% in order to ensure that slave/peer nodes are started with the same
+%% emulator and flags as the test node. The return from lib:progname()
+%% could then typically be '/<full_path_to>/cerl -gcov').
+quote_progname(Progname) ->
+    do_quote_progname(string:tokens(to_list(Progname)," ")).
+
+do_quote_progname([Prog]) ->
+    "\""++Prog++"\"";
+do_quote_progname([Prog,Arg|Args]) ->
+    case os:find_executable(Prog) of
+	false ->
+	    do_quote_progname([Prog++" "++Arg | Args]);
+	_ ->
+	    %% this one has an executable - we assume the rest are arguments
+	    "\""++Prog++"\""++
+		lists:flatten(lists:map(fun(X) -> [" ",X] end, [Arg|Args]))
     end.
 
 %% Give the user an opportunity to run another program,

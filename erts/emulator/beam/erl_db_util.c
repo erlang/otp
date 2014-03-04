@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -35,6 +35,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #include "erl_thr_progress.h"
 
 #include "erl_db_util.h"
@@ -482,7 +483,8 @@ void
 match_pseudo_process_init(void)
 {
 #ifdef ERTS_SMP
-    erts_smp_tsd_key_create(&match_pseudo_process_key);
+    erts_smp_tsd_key_create(&match_pseudo_process_key,
+			    "erts_match_pseudo_process_key");
     erts_smp_install_exit_handler(destroy_match_pseudo_process);
 #else
     match_pseudo_process = create_match_pseudo_process();
@@ -565,6 +567,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_is_map,
+	&is_map_1,
+	1,
+	DBIF_ALL
+    },
+    {
 	am_is_binary,
 	&is_binary_1,
 	1,
@@ -627,6 +635,12 @@ static DMCGuardBif guard_tab[] =
     {
 	am_size,
 	&size_1,
+	1,
+	DBIF_ALL
+    },
+    {
+	am_map_size,
+	&map_size_1,
 	1,
 	DBIF_ALL
     },
@@ -1838,7 +1852,7 @@ restart:
 	    ep = termp;
 	    break;
 	case matchArrayBind: /* When the array size is unknown. */
-	    ASSERT(termp);
+	    ASSERT(termp || arity==0);
 	    n = *pc++;
 	    variables[n].term = dpm_array_to_list(psp, termp, arity);
 	    break;

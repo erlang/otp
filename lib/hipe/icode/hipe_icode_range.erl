@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,8 +72,8 @@
 -type final_fun() :: fun((mfa(), [range()]) -> 'ok').
 -type data() :: {mfa(), args_fun(), call_fun(), final_fun()}.
 -type label() :: non_neg_integer().
--type info() :: gb_tree().
--type work_list() :: {[label()], [label()], set()}.
+-type info() :: gb_trees:tree().
+-type work_list() :: {[label()], [label()], sets:set()}.
 -type variable() :: #icode_variable{}.
 -type annotated_variable() :: #icode_variable{}.
 -type argument() :: #icode_const{} | variable().
@@ -82,9 +82,9 @@
 -type last_instr_return() :: {instr_split_info(), range()}.
 
 -record(state, {info_map = gb_trees:empty()	:: info(), 
-		counter  = dict:new()		:: dict(), 
+		counter  = dict:new()		:: dict:dict(),
 		cfg				:: cfg(), 
-		liveness = gb_trees:empty()	:: gb_tree(), 
+		liveness = gb_trees:empty()	:: gb_trees:tree(),
 		ret_type			:: range(),
 		lookup_fun			:: call_fun(),
 		result_action			:: final_fun()}).

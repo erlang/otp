@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,12 +42,12 @@
 %%
 %% Data is a triple with a dict of constants, a list of labels and an integer
 %%
--type cfg_data() :: {dict(), [cfg_lbl()], non_neg_integer()}.
+-type cfg_data() :: {dict:dict(), [cfg_lbl()], non_neg_integer()}.
 
 %%
 %% The following is to be used by other modules
 %%
--record(cfg, {table = gb_trees:empty() :: gb_tree(),
+-record(cfg, {table = gb_trees:empty() :: gb_trees:tree(),
               info                     :: #cfg_info{},
               data                     :: cfg_data()}).
 -type cfg() :: #cfg{}.

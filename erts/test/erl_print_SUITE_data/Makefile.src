@@ -17,7 +17,7 @@
 # %CopyrightEnd%
 # 
 
-include @erts_lib_include_internal_generated@@DS@ethread.mk
+include @erts_lib_make_ethread@
 
 CC = @CC@
 CFLAGST = @ERTS_CFLAGS@

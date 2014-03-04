@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,11 @@
 #ifndef __ERL_NIF_H__
 #define __ERL_NIF_H__
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 
+#include "erl_native_features_config.h"
 #include "erl_drv_nif.h"
 
 /* Version history:
@@ -34,9 +38,13 @@
 ** 2.2: R14B03 enif_is_exception
 ** 2.3: R15 enif_make_reverse_list, enif_is_number
 ** 2.4: R16 enif_consume_timeslice
+** 2.5: First experimental maps API additions (libs of this version is not compatible with any other VM)
+** 2.5: R17 Maps API additions
+** 2.6: R17 with maps
+**      R17 dirty schedulers
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 4
+#define ERL_NIF_MINOR_VERSION 6
 
 #include <stdlib.h>
 
@@ -94,6 +102,8 @@ typedef unsigned long ERL_NIF_TERM;
 typedef unsigned long long ERL_NIF_TERM;
 #  endif
 #endif
+
+typedef ERL_NIF_TERM ERL_NIF_UINT;
 
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
@@ -159,6 +169,29 @@ typedef int ErlNifTSDKey;
 
 typedef ErlDrvThreadOpts ErlNifThreadOpts;
 
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+typedef enum
+{
+    ERL_NIF_DIRTY_JOB_CPU_BOUND = ERL_DRV_DIRTY_JOB_CPU_BOUND,
+    ERL_NIF_DIRTY_JOB_IO_BOUND  = ERL_DRV_DIRTY_JOB_IO_BOUND
+}ErlNifDirtyTaskFlags;
+#endif
+
+typedef struct /* All fields all internal and may change */
+{
+    ERL_NIF_TERM map;
+    ERL_NIF_UINT t_limit;
+    ERL_NIF_UINT idx;
+    ERL_NIF_TERM *ks;
+    ERL_NIF_TERM *vs;
+    void* __spare__[2]; /* for future additions to be ABI compatible (same struct size) */
+} ErlNifMapIterator;
+
+typedef enum {
+    ERL_NIF_MAP_ITERATOR_HEAD = 1,
+    ERL_NIF_MAP_ITERATOR_TAIL = 2
+} ErlNifMapIteratorEntry;
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {
@@ -168,7 +201,7 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
 
-#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)) && !defined(STATIC_ERLANG_DRIVER)
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)) && !defined(STATIC_ERLANG_DRIVER) && !defined(STATIC_ERLANG_NIF)
 #  define ERL_NIF_API_FUNC_MACRO(NAME) (WinDynNifCallbacks.NAME)
 #  include "erl_nif_api_funcs.h"
 /* note that we have to keep ERL_NIF_API_FUNC_MACRO defined */
@@ -180,15 +213,22 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
 
-
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
-#  define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
+#  ifdef STATIC_ERLANG_NIF
+#    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* MODNAME ## _nif_init(TWinDynNifCallbacks* callbacks)
+#  else
+#    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
+#  endif
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
 #else 
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_BODY
-#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* nif_init(void)
+#  ifdef STATIC_ERLANG_NIF
+#    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* MODNAME ## _nif_init(void)
+#  else
+#    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* nif_init(void)
+#  endif
 #endif
 
 

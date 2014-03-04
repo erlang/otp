@@ -1,4 +1,3 @@
-%%% -*- coding: utf-8 -*-
 %%%
 %%% Dialyzer was giving a warning with this input because of a bug in the
 %%% substitution of remote types in specs. Remote types in the first element of

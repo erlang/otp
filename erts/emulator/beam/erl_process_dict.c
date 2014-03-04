@@ -659,7 +659,7 @@ static void shrink(Process *p, Eterm* ret)
 	    } else {
 		int needed = 4;
 		if (is_list(hi) && is_list(lo)) {
-		    needed = 2*list_length(hi);
+		    needed = 2*erts_list_length(hi);
 		}
 		if (HeapWordsLeft(p) < needed) {
 		    BUMP_REDS(p, erts_garbage_collect(p, needed, ret, 1));

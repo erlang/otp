@@ -84,8 +84,10 @@ all_versions_groups ()->
 
 basic_tests() ->
     [app,
+     appup,
      alerts,
      send_close,
+     version_option,
      connect_twice,
      connect_dist,
      clear_pem_cache
@@ -94,6 +96,7 @@ basic_tests() ->
 options_tests() ->
     [der_input,
      misc_ssl_options,
+     ssl_options_not_proplist,
      socket_options,
      invalid_inet_get_option,
      invalid_inet_get_option_not_list,
@@ -110,7 +113,10 @@ options_tests() ->
      empty_protocol_versions,
      ipv6,
      reuseaddr,
-     tcp_reuseaddr].
+     tcp_reuseaddr,
+     honor_server_cipher_order,
+     honor_client_cipher_order
+].
 
 api_tests() ->
     [connection_info,
@@ -287,6 +293,11 @@ app() ->
     [{doc, "Test that the ssl app file is ok"}].
 app(Config) when is_list(Config) ->
     ok = ?t:app_test(ssl).
+%%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the ssl appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(ssl).
 %%--------------------------------------------------------------------
 alerts() ->
     [{doc, "Test ssl_alert:alert_txt/1"}].
@@ -980,7 +991,7 @@ misc_ssl_options(Config) when is_list(Config) ->
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
-    %% Chek that ssl options not tested elsewhere are filtered away e.i. not passed to inet.
+    %% Check that ssl options not tested elsewhere are filtered away e.i. not passed to inet.
     TestOpts = [{depth, 1}, 
 		{key, undefined}, 
 		{password, []},
@@ -1006,6 +1017,17 @@ misc_ssl_options(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+ssl_options_not_proplist() ->
+    [{doc,"Test what happens if an option is not a key value tuple"}].
+
+ssl_options_not_proplist(Config) when is_list(Config) ->
+    BadOption =  {client_preferred_next_protocols, 
+		  client, [<<"spdy/3">>,<<"http/1.1">>], <<"http/1.1">>},
+    {option_not_a_key_value_tuple, BadOption} =
+	ssl:connect("twitter.com", 443, [binary, {active, false}, 
+					 BadOption]).
 
 %%--------------------------------------------------------------------
 versions() ->
@@ -1068,6 +1090,13 @@ send_close(Config) when is_list(Config) ->
     gen_tcp:close(TcpS),    
     {error, _} = ssl:send(SslS, "Hello world").
 
+%%--------------------------------------------------------------------
+version_option() ->
+    [{doc, "Use version option and do no specify ciphers list. Bug specified incorrect ciphers"}].
+version_option(Config) when is_list(Config) -> 
+    Versions = proplists:get_value(supported, ssl:versions()),
+    [version_option_test(Config, Version) || Version <- Versions].
+   
 %%--------------------------------------------------------------------
 close_transport_accept() ->
     [{doc,"Tests closing ssl socket when waiting on ssl:transport_accept/1"}].
@@ -2197,7 +2226,14 @@ der_input(Config) when is_list(Config) ->
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:close(Client),
+
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    [CADb | _] = element(5, State),
+    [] = ets:tab2list(CADb).
+    
 %%--------------------------------------------------------------------
 der_input_opts(Opts) ->
     Certfile = proplists:get_value(certfile, Opts),
@@ -2440,6 +2476,51 @@ tcp_reuseaddr(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+
+honor_server_cipher_order() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_server_cipher_order(Config) when is_list(Config) ->
+    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, {rsa, aes_256_cbc, sha}).
+
+honor_client_cipher_order() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_client_cipher_order(Config) when is_list(Config) ->
+    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, {rsa, aes_128_cbc, sha}).
+
+honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{ciphers, ServerCiphers}, {honor_cipher_order, Honor}
+						   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{ciphers, ClientCiphers}, {honor_cipher_order, Honor}
+						   | ClientOpts]}]),
+
+    Version =
+	tls_record:protocol_version(tls_record:highest_protocol_version([])),
+
+    ServerMsg = ClientMsg = {ok, {Version, Expected}},
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 
@@ -3440,3 +3521,28 @@ shutdown_both_result(Socket, client) ->
 
 peername_result(S) ->
     ssl:peername(S).
+
+version_option_test(Config, Version) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options,  [{active, false}, {versions, [Version]}| ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = 
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+				   {host, Hostname},
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options, [{active, false}, {versions, [Version]}| ClientOpts]}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+	   [self(), Client, Server]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).

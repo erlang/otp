@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,8 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec decode(binary(), public_key | ssh_file()) -> [{public_key(), Attributes::list()}].
+-spec decode(binary(), public_key | public_key:ssh_file()) -> 
+		    [{public_key:public_key(), Attributes::list()}].
 %%
 %% Description: Decodes a ssh file-binary.
 %%--------------------------------------------------------------------
@@ -52,7 +53,7 @@ decode(Bin, Type) ->
     openssh_decode(Bin, Type).
 
 %%--------------------------------------------------------------------
--spec encode([{public_key(), Attributes::list()}], ssh_file()) ->
+-spec encode([{public_key:public_key(), Attributes::list()}], public_key:ssh_file()) ->
 		    binary().
 %%
 %% Description: Encodes a list of ssh file entries.

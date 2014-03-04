@@ -487,6 +487,7 @@ init([]) ->
 	    ok
     end,
     test_server_sup:cleanup_crash_dumps(),
+    test_server_sup:util_start(),
     State = #state{jobs=[],finish=false},
     TI0 = test_server:init_target_info(),
     TargetHost = test_server_sup:hoststr(),
@@ -1055,6 +1056,7 @@ handle_info(_, State) ->
 %% test suites (if any) and any possible remainting slave node
 
 terminate(_Reason, State) ->
+    test_server_sup:util_stop(),
     case State#state.trc of
 	false -> ok;
 	Sock -> test_server_node:stop_tracer_node(Sock)
@@ -1725,30 +1727,33 @@ make_html_link(LinkName, Target, Explanation) ->
     ok = write_html_file(LinkName, H).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% start_minor_log_file(Mod, Func) -> AbsName
+%% start_minor_log_file(Mod, Func, ParallelTC) -> AbsName
 %% Mod = atom()
 %% Func = atom()
+%% ParallelTC = bool()
 %% AbsName = string()
 %%
 %% Create a minor log file for the test case Mod,Func,Args. The log file
-%% will be stored in the log directory under the name <Mod>.<Func>.log.
-%% Some header info will also be inserted into the log file.
+%% will be stored in the log directory under the name <Mod>.<Func>.html.
+%% Some header info will also be inserted into the log file. If the test
+%% case runs in a parallel group, then to avoid clashing file names if the
+%% case is executed more than once, the name <Mod>.<Func>.<Timestamp>.html
+%% is used.
 
-start_minor_log_file(Mod, Func) ->
+start_minor_log_file(Mod, Func, ParallelTC) ->
     MFA = {Mod,Func,1},
     LogDir = get(test_server_log_dir_base),
     Name0 = lists:flatten(io_lib:format("~w.~w~ts", [Mod,Func,?html_ext])),
     Name = downcase(Name0),
     AbsName = filename:join(LogDir, Name),
-    case file:read_file_info(AbsName) of
-	{error,_} ->                         %% normal case, unique name
+    case (ParallelTC orelse (element(1,file:read_file_info(AbsName))==ok)) of
+	false ->                           %% normal case, unique name
 	    start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA);
-	{ok,_} ->                            %% special case, duplicate names
-	    {_,S,Us} = now(),
+	true ->                            %% special case, duplicate names
+	    Tag = test_server_sup:unique_name(),
 	    Name1_0 =
-		lists:flatten(io_lib:format("~w.~w.~w.~w~ts", [Mod,Func,S,
-							       trunc(Us/1000),
-							       ?html_ext])),
+		lists:flatten(io_lib:format("~w.~w.~ts~ts", [Mod,Func,Tag,
+							      ?html_ext])),
 	    Name1 = downcase(Name1_0),
 	    AbsName1 = filename:join(LogDir, Name1),
 	    start_minor_log_file1(Mod, Func, LogDir, AbsName1, MFA)
@@ -3631,7 +3636,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     TSDir = get(test_server_dir),
 
     print(major, "=case          ~w:~w", [Mod, Func]),
-    MinorName = start_minor_log_file(Mod, Func),
+    MinorName = start_minor_log_file(Mod, Func, self() /= Main),
     print(minor, "<a name=\"top\"></a>", [], internal_raw),
     MinorBase = filename:basename(MinorName),
     print(major, "=logfile       ~ts", [filename:basename(MinorName)]),
@@ -4840,7 +4845,7 @@ start_node(Name, Type, Options) ->
     case controller_call({start_node,Name,Type,Options}, T) of
 	{{ok,Nodename}, Host, Cmd, Info, Warning} ->
 	    format(minor,
-		   "Successfully started node ~w on ~tp with command: ~tp",
+		   "Successfully started node ~w on ~tp with command: ~ts",
 		   [Nodename, Host, Cmd]),
 	    format(major, "=node_start    ~w", [Nodename]),
 	    case Info of
@@ -4856,7 +4861,7 @@ start_node(Name, Type, Options) ->
 	    {ok, Nodename};
 	{fail,{Ret, Host, Cmd}}  ->
 	    format(minor,
-		   "Failed to start node ~tp on ~tp with command: ~tp~n"
+		   "Failed to start node ~tp on ~tp with command: ~ts~n"
 		   "Reason: ~p",
 		   [Name, Host, Cmd, Ret]),
 	    {fail,Ret};
@@ -4865,7 +4870,7 @@ start_node(Name, Type, Options) ->
 	    Ret;
 	{Ret, Host, Cmd} ->
 	    format(minor,
-		   "Failed to start node ~tp on ~tp with command: ~tp~n"
+		   "Failed to start node ~tp on ~tp with command: ~ts~n"
 		   "Reason: ~p",
 		   [Name, Host, Cmd, Ret]),
 	    Ret

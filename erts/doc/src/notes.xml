@@ -257,7 +257,7 @@
 	    processes before the BIF returns, or fail with an
 	    exception due to the port not being open. </p><p> The
 	    synchronous port BIFs are: </p> <list> <item><seealso
-	    marker="erlang#port_close/1/"><c>port_close/1</c></seealso></item>
+	    marker="erlang#port_close/1"><c>port_close/1</c></seealso></item>
 	    <item><seealso
 	    marker="erlang#port_command/2"><c>port_command/2</c></seealso></item>
 	    <item><seealso

@@ -323,11 +323,11 @@ handle_external_opt_call([Opt|Options],Gstkid,TkW,DB,ExtraArg,ExtRes,S,P,C) ->
     end.
 
 handle_external_read(Res) ->
-    _ = case Res of 
-	{bad_result,{Objtype,Reason,Option}} ->
-	    {error,{Objtype,Reason,Option}};
-	_ -> ok
-    end,
+    %% We have removed dead code here that attempted to translate
+    %% a bad return value from {bad_result,{A,B,C}} to {error,{A,B,C}}.
+    %% Since the gs application is deprecated, we don't want to introduce
+    %% a potential incompatibility; thus we have removed the dead code
+    %% instead of correcting it.
     Res.
 
 %%----------------------------------------------------------------------

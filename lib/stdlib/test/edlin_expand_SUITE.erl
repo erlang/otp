@@ -26,11 +26,11 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
-% Default timetrap timeout (set in init_per_testcase).
+%% Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
+    Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
@@ -67,20 +67,21 @@ normal(doc) ->
 normal(suite) ->
     [];
 normal(Config) when is_list(Config) ->
-    ?line {module,expand_test} = c:l(expand_test),
-    % These tests might fail if another module with the prefix "expand_" happens
-    % to also be loaded.
-    ?line {yes, "test:", []} = edlin_expand:expand(lists:reverse("expand_")),
-    ?line {no, [], []} = edlin_expand:expand(lists:reverse("expandXX_")),
-    ?line {no,[],
-	   [{"a_fun_name",1},
-	    {"a_less_fun_name",1},
-	    {"b_comes_after_a",1},
-	    {"module_info",0},
-	    {"module_info",1}]} = edlin_expand:expand(lists:reverse("expand_test:")),
-    ?line {yes,[],[{"a_fun_name",1},
-		   {"a_less_fun_name",1}]} = edlin_expand:expand(
-					       lists:reverse("expand_test:a_")),
+    {module,expand_test} = c:l(expand_test),
+    %% These tests might fail if another module with the prefix
+    %% "expand_" happens to also be loaded.
+    {yes, "test:", []} = do_expand("expand_"),
+    {no, [], []} = do_expand("expandXX_"),
+    {no,[],
+     [{"a_fun_name",1},
+      {"a_less_fun_name",1},
+      {"b_comes_after_a",1},
+      {"expand0arity_entirely",0},
+      {"module_info",0},
+      {"module_info",1}]} = do_expand("expand_test:"),
+    {yes,[],[{"a_fun_name",1},
+	     {"a_less_fun_name",1}]} = do_expand("expand_test:a_"),
+    {yes,"arity_entirely()",[]} = do_expand("expand_test:expand0"),
     ok.
 
 quoted_fun(doc) ->
@@ -88,38 +89,35 @@ quoted_fun(doc) ->
 quoted_fun(suite) ->
     [];
 quoted_fun(Config) when is_list(Config) ->
-    ?line {module,expand_test} = c:l(expand_test),
-    ?line {module,expand_test1} = c:l(expand_test1),
+    {module,expand_test} = c:l(expand_test),
+    {module,expand_test1} = c:l(expand_test1),
     %% should be no colon after test this time
-    ?line {yes, "test", []} = edlin_expand:expand(lists:reverse("expand_")),
-    ?line {no, [], []} = edlin_expand:expand(lists:reverse("expandXX_")),
-    ?line {no,[],[{"'#weird-fun-name'",0},
-		  {"'Quoted_fun_name'",0},
-		  {"'Quoted_fun_too'",0},
-		  {"a_fun_name",1},
-		  {"a_less_fun_name",1},
-		  {"b_comes_after_a",1},
-		  {"module_info",0},
-		  {"module_info",1}]} = edlin_expand:expand(
-					  lists:reverse("expand_test1:")),
-    ?line {yes,"_",[]} = edlin_expand:expand(
-			   lists:reverse("expand_test1:a")),
-    ?line {yes,[],[{"a_fun_name",1},
-		   {"a_less_fun_name",1}]} = edlin_expand:expand(
-					       lists:reverse("expand_test1:a_")),
-    ?line {yes,[],
-	   [{"'#weird-fun-name'",0},
+    {yes, "test", []} = do_expand("expand_"),
+    {no, [], []} = do_expand("expandXX_"),
+    {no,[],[{"'#weird-fun-name'",1},
 	    {"'Quoted_fun_name'",0},
-	    {"'Quoted_fun_too'",0}]} = edlin_expand:expand(
-					 lists:reverse("expand_test1:'")),
-    ?line {yes,"uoted_fun_",[]} = edlin_expand:expand(
-				    lists:reverse("expand_test1:'Q")),
-    ?line {yes,[],
-	   [{"'Quoted_fun_name'",0},
-	    {"'Quoted_fun_too'",0}]} = edlin_expand:expand(
-					 lists:reverse("expand_test1:'Quoted_fun_")),
-    ?line {yes,"weird-fun-name'(",[]} = edlin_expand:expand(
-					  lists:reverse("expand_test1:'#")),
+	    {"'Quoted_fun_too'",0},
+	    {"a_fun_name",1},
+	    {"a_less_fun_name",1},
+	    {"b_comes_after_a",1},
+	    {"module_info",0},
+	    {"module_info",1}]} = do_expand("expand_test1:"),
+    {yes,"_",[]} = do_expand("expand_test1:a"),
+    {yes,[],[{"a_fun_name",1},
+	     {"a_less_fun_name",1}]} = do_expand("expand_test1:a_"),
+    {yes,[],
+     [{"'#weird-fun-name'",1},
+      {"'Quoted_fun_name'",0},
+      {"'Quoted_fun_too'",0}]} = do_expand("expand_test1:'"),
+    {yes,"uoted_fun_",[]} = do_expand("expand_test1:'Q"),
+    {yes,[],
+     [{"'Quoted_fun_name'",0},
+      {"'Quoted_fun_too'",0}]} = do_expand("expand_test1:'Quoted_fun_"),
+    {yes,"weird-fun-name'(",[]} = do_expand("expand_test1:'#"),
+
+    %% Since there is a module_info/1 as well as a module_info/0
+    %% there should not be a closing parenthesis added.
+    {yes,"(",[]} = do_expand("expand_test:module_info"),
     ok.
 
 quoted_module(doc) ->
@@ -127,51 +125,46 @@ quoted_module(doc) ->
 quoted_module(suite) ->
     [];
 quoted_module(Config) when is_list(Config) ->
-    ?line {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
-    ?line {yes, "Caps':", []} = edlin_expand:expand(lists:reverse("'ExpandTest")),
-    ?line {no,[],
-	   [{"a_fun_name",1},
-	    {"a_less_fun_name",1},
-	    {"b_comes_after_a",1},
-	    {"module_info",0},
-	    {"module_info",1}]} = edlin_expand:expand(lists:reverse("'ExpandTestCaps':")),
-    ?line {yes,[],[{"a_fun_name",1},
-		   {"a_less_fun_name",1}]} = edlin_expand:expand(
-					       lists:reverse("'ExpandTestCaps':a_")),
+    {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
+    {yes, "Caps':", []} = do_expand("'ExpandTest"),
+    {no,[],
+     [{"a_fun_name",1},
+      {"a_less_fun_name",1},
+      {"b_comes_after_a",1},
+      {"module_info",0},
+      {"module_info",1}]} = do_expand("'ExpandTestCaps':"),
+    {yes,[],[{"a_fun_name",1},
+	     {"a_less_fun_name",1}]} = do_expand("'ExpandTestCaps':a_"),
     ok.
 
 quoted_both(suite) ->
     [];
 quoted_both(Config) when is_list(Config) ->
-    ?line {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
-    ?line {module,'ExpandTestCaps1'} = c:l('ExpandTestCaps1'),
+    {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
+    {module,'ExpandTestCaps1'} = c:l('ExpandTestCaps1'),
     %% should be no colon (or quote) after test this time
-    ?line {yes, "Caps", []} = edlin_expand:expand(lists:reverse("'ExpandTest")),
-    ?line {no,[],[{"'#weird-fun-name'",0},
-		  {"'Quoted_fun_name'",0},
-		  {"'Quoted_fun_too'",0},
-		  {"a_fun_name",1},
-		  {"a_less_fun_name",1},
-		  {"b_comes_after_a",1},
-		  {"module_info",0},
-		  {"module_info",1}]} = edlin_expand:expand(
-					  lists:reverse("'ExpandTestCaps1':")),
-    ?line {yes,"_",[]} = edlin_expand:expand(
-			   lists:reverse("'ExpandTestCaps1':a")),
-    ?line {yes,[],[{"a_fun_name",1},
-		   {"a_less_fun_name",1}]} = edlin_expand:expand(
-					       lists:reverse("'ExpandTestCaps1':a_")),
-    ?line {yes,[],
-	   [{"'#weird-fun-name'",0},
+    {yes, "Caps", []} = do_expand("'ExpandTest"),
+    {no,[],[{"'#weird-fun-name'",0},
 	    {"'Quoted_fun_name'",0},
-	    {"'Quoted_fun_too'",0}]} = edlin_expand:expand(
-					 lists:reverse("'ExpandTestCaps1':'")),
-    ?line {yes,"uoted_fun_",[]} = edlin_expand:expand(
-				    lists:reverse("'ExpandTestCaps1':'Q")),
-    ?line {yes,[],
-	   [{"'Quoted_fun_name'",0},
-	    {"'Quoted_fun_too'",0}]} = edlin_expand:expand(
-					 lists:reverse("'ExpandTestCaps1':'Quoted_fun_")),
-    ?line {yes,"weird-fun-name'(",[]} = edlin_expand:expand(
-					  lists:reverse("'ExpandTestCaps1':'#")),
+	    {"'Quoted_fun_too'",0},
+	    {"a_fun_name",1},
+	    {"a_less_fun_name",1},
+	    {"b_comes_after_a",1},
+	    {"module_info",0},
+	    {"module_info",1}]} = do_expand("'ExpandTestCaps1':"),
+    {yes,"_",[]} = do_expand("'ExpandTestCaps1':a"),
+    {yes,[],[{"a_fun_name",1},
+	     {"a_less_fun_name",1}]} = do_expand("'ExpandTestCaps1':a_"),
+    {yes,[],
+     [{"'#weird-fun-name'",0},
+      {"'Quoted_fun_name'",0},
+      {"'Quoted_fun_too'",0}]} = do_expand("'ExpandTestCaps1':'"),
+    {yes,"uoted_fun_",[]} = do_expand("'ExpandTestCaps1':'Q"),
+    {yes,[],
+     [{"'Quoted_fun_name'",0},
+      {"'Quoted_fun_too'",0}]} = do_expand("'ExpandTestCaps1':'Quoted_fun_"),
+    {yes,"weird-fun-name'()",[]} = do_expand("'ExpandTestCaps1':'#"),
     ok.
+
+do_expand(String) ->
+    edlin_expand:expand(lists:reverse(String)).

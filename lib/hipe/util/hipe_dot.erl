@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%% 
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -70,13 +70,13 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 
--spec translate_digraph(digraph(), string(), string()) -> 'ok'.
+-spec translate_digraph(digraph:graph(), string(), string()) -> 'ok'.
 
 translate_digraph(G, FileName, GName) ->
   translate_digraph(G, FileName, GName, 
 		    fun(X) -> io_lib:format("~p", [X]) end, []).
 
--spec translate_digraph(digraph(), string(), string(),
+-spec translate_digraph(digraph:graph(), string(), string(),
 			fun((_) -> string()), [_]) -> 'ok'.
 
 translate_digraph(G, FileName, GName, Fun, Opts) ->

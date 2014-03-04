@@ -756,7 +756,8 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 
     pix = erts_ptab_id2pix(ptab, ptab_el->id);
 
-    ASSERT(erts_get_scheduler_id()); /* *Need* to be a scheduler */
+    /* *Need* to be an managed thread */
+    ERTS_SMP_LC_ASSERT(erts_thr_progress_is_managed_thread());
 
     erts_ptab_rlock(ptab);
     maybe_save = ptab->list.data.deleted.end != NULL;

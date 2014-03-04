@@ -523,7 +523,7 @@ to_list(X) when is_atom(X) -> atom_to_list(X);
 to_list(X) when is_list(X) -> X.
 
 
-%% write_relup_file(Relup, Opts) -> {ok. Relup}
+%% write_relup_file(Relup, Opts) -> ok
 %% 
 %% Writes a relup file.
 %%
@@ -545,12 +545,17 @@ write_relup_file(Relup, Opts) ->
 	    case file:open(Filename, [write]) of
 		{ok, Fd} ->
 		    io:format(Fd, "~p.~n", [Relup]),
-		    file:close(Fd);
+		    case file:close(Fd) of
+			ok -> ok;
+			{error,Reason} ->
+			    throw({error, ?MODULE,
+				   {file_problem, {"relup", {close,Reason}}}})
+		    end;
 		{error, Reason} ->
-		    throw({error, ?MODULE, {file_problem, {"relup", Reason}}})
+		    throw({error, ?MODULE,
+			   {file_problem, {"relup", {open, Reason}}}})
 	    end
-    end,
-    {ok, Relup}.    
+    end.
 
 add_code_path(Opts) ->
     case get_opt(path, Opts) of
@@ -597,8 +602,6 @@ print_error({error, Mod, Error}) ->
 print_error(Other) ->
     io:format("Error: ~p~n", [Other]).
 
-format_error({file_problem, {"relup", _Posix}}) ->
-    io_lib:format("Could not open file relup~n", []);
 format_error({file_problem, {File, What}}) ->
     io_lib:format("Could not ~w file ~ts~n", [get_reason(What), File]);
 format_error({no_relup, File, App, Vsn}) ->
@@ -642,12 +645,14 @@ format_warning(Prefix, What) ->
 get_reason({error, {open, _, _}}) -> open;
 get_reason({error, {read, _, _}}) -> read;
 get_reason({error, {parse, _, _}}) -> parse;
+get_reason({error, {close, _, _}}) -> close;
 get_reason({error, {open, _}}) -> open;
 get_reason({error, {read, _}}) -> read;
 get_reason({error, {parse, _}}) -> parse;
 get_reason({open, _}) -> open;
 get_reason({read, _}) -> read;
 get_reason({parse, _}) -> parse;
+get_reason({close, _}) -> close;
 get_reason(open) -> open;
 get_reason(read) -> read;
 get_reason(parse) -> parse.

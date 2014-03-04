@@ -78,6 +78,7 @@ XML_CHAPTER_FILES = \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
 	communication.xml \
+	time_correction.xml \
 	notes.xml \
 	notes_history.xml
 
@@ -138,7 +139,7 @@ man: $(MAN1_FILES) $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-$(INFO_FILE): $(INFO_FILE_SRC) ../../vsn.mk
+$(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
 
 

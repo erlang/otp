@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,7 @@
 -record(ig_moves, {movelist                    :: hipe_vector(),	
 		   nrmoves   = 0               :: non_neg_integer(),
 		   moveinsns = []              :: [{_,_}],
-		   moveset   = gb_sets:empty() :: gb_set()}).
+		   moveset   = gb_sets:empty() :: gb_sets:set()}).
 
 %%-----------------------------------------------------------------------------
 

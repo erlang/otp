@@ -81,7 +81,8 @@
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
 -export([bit_size/1, bitsize/1, bitstr_to_list/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
--export([cancel_timer/1, check_old_code/1, check_process_code/2, crc32/1]).
+-export([cancel_timer/1, check_old_code/1, check_process_code/2,
+	 check_process_code/3, crc32/1]).
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
@@ -91,7 +92,7 @@
 -export([float_to_binary/1, float_to_binary/2,
 	 float_to_list/1, float_to_list/2]).
 -export([fun_info/2, fun_to_list/1, function_exported/3]).
--export([garbage_collect/0, garbage_collect/1]).
+-export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
 -export([group_leader/2, halt/0, halt/1, halt/2, hash/2, hibernate/3]).
@@ -103,10 +104,9 @@
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
 -export([list_to_pid/1, list_to_tuple/1, loaded/0]).
--export([localtime/0, make_ref/0, match_spec_test/3, md5/1, md5_final/1]).
+-export([localtime/0, make_ref/0, map_size/1, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
--export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2
-]).
+-export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2]).
 -export([node/0, node/1, now/0, phash/2, phash2/1, phash2/2]).
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
@@ -127,7 +127,7 @@
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
          is_atom/1, is_binary/1, is_bitstring/1, is_boolean/1,
          is_float/1, is_function/1, is_function/2, is_integer/1,
-         is_list/1, is_number/1, is_pid/1, is_port/1, is_record/2,
+         is_list/1, is_map/1, is_number/1, is_pid/1, is_port/1, is_record/2,
          is_record/3, is_reference/1, is_tuple/1, load_module/2,
          load_nif/2, localtime_to_universaltime/2, make_fun/3,
          make_tuple/2, make_tuple/3, nodes/1, open_port/2,
@@ -361,15 +361,25 @@ binary_to_list(_Binary, _Start, _Stop) ->
 %% binary_to_term/1
 -spec binary_to_term(Binary) -> term() when
       Binary :: ext_binary().
-binary_to_term(_Binary) ->
-    erlang:nif_error(undefined).
+binary_to_term(Binary) ->
+    %% This BIF may throw badarg while trapping
+    try
+	erts_internal:binary_to_term(Binary)
+    catch
+	error:Reason -> erlang:error(Reason,[Binary])
+    end.
 
 %% binary_to_term/2
 -spec binary_to_term(Binary, Opts) -> term() when
       Binary :: ext_binary(),
       Opts :: [safe].
-binary_to_term(_Binary, _Opts) ->
-    erlang:nif_error(undefined).
+binary_to_term(Binary, Opts) ->
+    %% This BIF may throw badarg while trapping
+    try
+	erts_internal:binary_to_term(Binary,Opts)
+    catch
+	error:Reason -> erlang:error(Reason,[Binary,Opts])
+    end.
 
 %% bit_size/1
 %% Shadowed by erl_bif_types: erlang:bit_size/1
@@ -429,11 +439,71 @@ check_old_code(_Module) ->
     erlang:nif_error(undefined).
 
 %% check_process_code/2
--spec check_process_code(Pid, Module) -> boolean() when
+-spec check_process_code(Pid, Module) -> CheckResult when
       Pid :: pid(),
-      Module :: module().
-check_process_code(_Pid, _Module) ->
-    erlang:nif_error(undefined).
+      Module :: module(),
+      CheckResult :: boolean().
+check_process_code(Pid, Module) ->
+    try
+	erlang:check_process_code(Pid, Module, [{allow_gc, true}])
+    catch
+	error:Error -> erlang:error(Error, [Pid, Module])
+    end.
+
+%% check_process_code/3
+-spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
+      Pid :: pid(),
+      Module :: module(),
+      RequestId :: term(),
+      Option :: {async, RequestId} | {allow_gc, boolean()},
+      OptionList :: [Option],
+      CheckResult :: boolean() | aborted.
+check_process_code(Pid, Module, OptionList)  ->
+    try
+	{Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
+	case Async of
+	    {async, ReqId} ->
+		{priority, Prio} = erlang:process_info(erlang:self(),
+						       priority),
+		erts_internal:request_system_task(Pid,
+						  Prio,
+						  {check_process_code,
+						   ReqId,
+						   Module,
+						   AllowGC}),
+		async;
+	    sync ->
+		case Pid == erlang:self() of
+		    true ->
+			erts_internal:check_process_code(Module,
+							 [{allow_gc, AllowGC}]);
+		    false ->
+			{priority, Prio} = erlang:process_info(erlang:self(),
+							       priority),
+			ReqId = erlang:make_ref(),
+			erts_internal:request_system_task(Pid,
+							  Prio,
+							  {check_process_code,
+							   ReqId,
+							   Module,
+							   AllowGC}),
+			receive
+			    {check_process_code, ReqId, CheckResult} ->
+				CheckResult
+			end
+		end
+	end
+    catch
+	error:Error -> erlang:error(Error, [Pid, Module, OptionList])
+    end.
+
+% gets async and allow_gc opts and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
+    get_cpc_opts(Options, AsyncTuple, AllowGC);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
+    get_cpc_opts(Options, Async, AllowGC);
+get_cpc_opts([], Async, AllowGC) ->
+    {Async, AllowGC}.
 
 %% crc32/1
 -spec erlang:crc32(Data) -> non_neg_integer() when
@@ -793,10 +863,61 @@ garbage_collect() ->
     erlang:nif_error(undefined).
 
 %% garbage_collect/1
--spec garbage_collect(Pid) -> boolean() when
-      Pid :: pid().
-garbage_collect(_Pid) ->
-    erlang:nif_error(undefined).
+-spec garbage_collect(Pid) -> GCResult when
+      Pid :: pid(),
+      GCResult :: boolean().
+garbage_collect(Pid) ->
+    try
+	erlang:garbage_collect(Pid, [])
+    catch
+	error:Error -> erlang:error(Error, [Pid])
+    end.
+
+%% garbage_collect/2
+-spec garbage_collect(Pid, OptionList) -> GCResult | async when
+      Pid :: pid(),
+      RequestId :: term(),
+      Option :: {async, RequestId},
+      OptionList :: [Option],
+      GCResult :: boolean().
+garbage_collect(Pid, OptionList)  ->
+    try
+	Async = get_gc_opts(OptionList, sync),
+	case Async of
+	    {async, ReqId} ->
+		{priority, Prio} = erlang:process_info(erlang:self(),
+						       priority),
+		erts_internal:request_system_task(Pid,
+						  Prio,
+						  {garbage_collect, ReqId}),
+		async;
+	    sync ->
+		case Pid == erlang:self() of
+		    true ->
+			erlang:garbage_collect();
+		    false ->
+			{priority, Prio} = erlang:process_info(erlang:self(),
+							       priority),
+			ReqId = erlang:make_ref(),
+			erts_internal:request_system_task(Pid,
+							  Prio,
+							  {garbage_collect,
+							   ReqId}),
+			receive
+			    {garbage_collect, ReqId, GCResult} ->
+				GCResult
+			end
+		end
+	end
+    catch
+	error:Error -> erlang:error(Error, [Pid, OptionList])
+    end.
+
+% gets async opt and verify valid option list
+get_gc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
+    get_gc_opts(Options, AsyncTuple);
+get_gc_opts([], Async) ->
+    Async.
 
 %% garbage_collect_message_area/0
 -spec erlang:garbage_collect_message_area() -> boolean().
@@ -1025,6 +1146,12 @@ localtime() ->
 %% make_ref/0
 -spec make_ref() -> reference().
 make_ref() ->
+    erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:map_size/1
+-spec map_size(Map) -> non_neg_integer() when
+      Map :: map().
+map_size(_Map) ->
     erlang:nif_error(undefined).
 
 %% match_spec_test/3
@@ -1617,6 +1744,12 @@ is_number(_Term) ->
 is_pid(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_map/1
+-spec is_map(Map) -> boolean() when
+      Map :: map().
+is_map(_Map) ->
+    erlang:nif_error(undefined).
+
 %% Shadowed by erl_bif_types: erlang:is_port/1
 -spec is_port(Term) -> boolean() when
       Term :: term().
@@ -1715,15 +1848,15 @@ nodes(_Arg) ->
     erlang:nif_error(undefined).
 
 -spec open_port(PortName, PortSettings) -> port() when
-      PortName :: {spawn, Command :: string()} |
-                  {spawn_driver, Command :: [byte()]} |
+      PortName :: {spawn, Command :: string() | binary()} |
+                  {spawn_driver, Command :: string() | binary()} |
                   {spawn_executable, FileName :: file:name() } |
                   {fd, In :: non_neg_integer(), Out :: non_neg_integer()},
       PortSettings :: [Opt],
       Opt :: {packet, N :: 1 | 2 | 4}
            | stream
            | {line, L :: non_neg_integer()}
-           | {cd, Dir :: string()}
+           | {cd, Dir :: string() | binary()}
            | {env, Env :: [{Name :: string(), Val :: string() | false}]}
            | {args, [string() | binary()]}
            | {arg0, string() | binary()}
@@ -1968,6 +2101,10 @@ subtract(_,_) ->
                         (cpu_topology, CpuTopology) -> OldCpuTopology when
       CpuTopology :: cpu_topology(),
       OldCpuTopology :: cpu_topology();
+                        (dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline) ->
+                                OldDirtyCPUSchedulersOnline when
+      DirtyCPUSchedulersOnline :: pos_integer(),
+      OldDirtyCPUSchedulersOnline :: pos_integer();
                         (fullsweep_after, Number) -> OldNumber when
       Number :: non_neg_integer(),
       OldNumber :: non_neg_integer();
@@ -2098,6 +2235,9 @@ tuple_to_list(_Tuple) ->
       CpuTopology :: cpu_topology();
          (creation) -> integer();
          (debug_compiled) -> boolean();
+         (dirty_cpu_schedulers) -> non_neg_integer();
+         (dirty_cpu_schedulers_online) -> non_neg_integer();
+         (dirty_io_schedulers) -> non_neg_integer();
          (dist) -> binary();
          (dist_buf_busy_limit) -> non_neg_integer();
          (dist_ctrl) -> {Node :: node(),
@@ -2124,6 +2264,7 @@ tuple_to_list(_Tuple) ->
          (modified_timing_level) -> integer() | undefined;
          (multi_scheduling) -> disabled | blocked | enabled;
          (multi_scheduling_blockers) -> [PID :: pid()];
+         (otp_correction_package) -> string();
          (otp_release) -> string();
          (port_count) -> non_neg_integer();
          (port_limit) -> pos_integer();

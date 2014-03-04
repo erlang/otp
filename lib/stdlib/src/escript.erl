@@ -771,9 +771,11 @@ interpret(Forms, HasRecs,  File, Args) ->
     ArgsA = erl_parse:abstract(Args, 0),
     Call = {call,0,{atom,0,main},[ArgsA]},
     try
-        erl_eval:expr(Call,
-                      erl_eval:new_bindings(),
-                      {value,fun(I, J) -> code_handler(I, J, Dict, File) end}),
+        _ = erl_eval:expr(Call,
+                          erl_eval:new_bindings(),
+                          {value,fun(I, J) ->
+                                         code_handler(I, J, Dict, File)
+                                 end}),
         my_halt(0)
     catch
         Class:Reason ->

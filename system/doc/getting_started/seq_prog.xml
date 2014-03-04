@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2011</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -408,7 +408,7 @@ list_length([First | Rest]) ->
       or "structs" in other languages and we use lists when we want to
       represent things which have varying sizes, (i.e. where we would
       use linked lists in other languages).</p>
-    <p>Erlang does not have a string date type, instead strings can be
+    <p>Erlang does not have a string data type, instead strings can be
       represented by lists of ASCII characters. So the list
       <c>[97,98,99]</c> is equivalent to "abc". The Erlang shell is
       "clever" and guesses the what sort of list we mean and outputs it
@@ -1031,7 +1031,7 @@ month_length(Year, Month) ->
     <title>Built In Functions (BIFs)</title>
     <p>Built in functions BIFs are functions which for some reason is
       built in to the Erlang virtual machine. BIFs often implement 
-      functionality that is impossible to implement in Erlang or is to
+      functionality that is impossible to implement in Erlang or is too
       inefficient to implement in Erlang. Some BIFs can be called 
       by use of the function name only but they are by default belonging
       to the erlang module so for example the call to the BIF <c>trunc</c>

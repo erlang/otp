@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,14 +70,14 @@
 
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, inet:port_number()}
-                        | gen_sctp:open_option().
+                        | term(). %% gen_sctp:open_option().
 
 -type match() :: inet:ip_address()
                | string()
                | [match()].
 
 -type listen_option() :: {accept, match()}
-                       | gen_sctp:open_option().
+                       | term().  %% gen_sctp:open_option().
 
 -type uint() :: non_neg_integer().
 
@@ -171,17 +171,32 @@ start_link(T) ->
 
 info({gen_sctp, Sock}) ->
     lists:flatmap(fun(K) -> info(K, Sock) end,
-                  [{socket, sockname},
-                   {peer, peername},
+                  [{socket, socknames},
+                   {peer, peernames},
                    {statistics, getstat}]).
 
 info({K,F}, Sock) ->
     case inet:F(Sock) of
         {ok, V} ->
-            [{K,V}];
+            [{K, map(F,V)}];
         _ ->
             []
     end.
+
+%% inet:{sock,peer}names/1 returns [{Addr, Port}] but the port number
+%% should be the same in each tuple. Map to a {[Addr], Port} tuple if
+%% so.
+map(K, [{_, Port} | _] = APs)
+  when K == socknames;
+       K == peernames ->
+    try [A || {A,P} <- APs, P == Port orelse throw(?MODULE)] of
+        As -> {As, Port}
+    catch
+        ?MODULE -> APs
+    end;
+
+map(_, V) ->
+    V.
 
 %% ---------------------------------------------------------------------------
 %% # init/1
@@ -338,9 +353,6 @@ handle_call({{accept, Ref}, Pid}, _, #listener{ref = Ref,
     {TPid, NewS} = accept(Ref, Pid, S),
     {reply, {ok, TPid}, NewS#listener{count = N+1}};
 
-handle_call(T, From, {listener,_,_,_,_,_,_} = S) -> % started in old code
-    handle_call(T, From, upgrade(S));
-
 handle_call(_, _, State) ->
     {reply, nok, State}.
 
@@ -359,10 +371,7 @@ handle_info(T, #transport{} = S) ->
     {noreply, #transport{} = t(T,S)};
 
 handle_info(T, #listener{} = S) ->
-    {noreply, #listener{} = l(T,S)};
-
-handle_info(T, {listener,_,_,_,_,_,_} = S) -> % started in old code
-    handle_info(T, upgrade(S)).
+    {noreply, #listener{} = l(T,S)}.
 
 %% ---------------------------------------------------------------------------
 %% # code_change/3
@@ -395,9 +404,6 @@ terminate(_, #listener{socket = Sock}) ->
     gen_sctp:close(Sock).
 
 %% ---------------------------------------------------------------------------
-
-upgrade(S) ->
-    #listener{} = erlang:append_element(S, ?DEFAULT_ACCEPT).
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
@@ -502,8 +508,6 @@ transition({peeloff, Sock, {sctp, LSock, _RA, _RP, _Data} = Msg, Matches},
            = S) ->
     ok = accept_peer(Sock, Matches),
     transition(Msg, S#transport{socket = Sock});
-transition({peeloff = T, _Sock, _Msg} = T, #transport{} = S) ->% from old code
-    transition(erlang:append_element(T, ?DEFAULT_ACCEPT), S);
 
 %% Incoming message.
 transition({sctp, _Sock, _RA, _RP, Data}, #transport{socket = Sock} = S) ->
@@ -560,7 +564,7 @@ accept_peer(_, []) ->
     ok;
 
 accept_peer(Sock, Matches) ->
-    {RAddrs, _} = ok(inet:peername(Sock)),
+    RAddrs = [A || {A,_} <- ok(inet:peernames(Sock))],
     diameter_peer:match(RAddrs, Matches)
         orelse x({accept, RAddrs, Matches}),
     ok.
@@ -605,11 +609,13 @@ accept(_, Pid, #listener{ref = Ref, pending = {N,Q}} = S) ->
 %% send/2
 
 %% Outbound Diameter message on a specified stream ...
-send(#diameter_packet{bin = Bin, transport_data = {stream, SId}}, S) ->
-    send(SId, Bin, S),
+send(#diameter_packet{bin = Bin, transport_data = {outstream, SId}},
+     #transport{streams = {_, OS}}
+     = S) ->
+    send(SId rem OS, Bin, S),
     S;
 
-%% ... or not: rotate through all steams.
+%% ... or not: rotate through all streams.
 send(Bin, #transport{streams = {_, OS},
                      os = N}
           = S)

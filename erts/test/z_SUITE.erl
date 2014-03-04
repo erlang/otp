@@ -116,7 +116,7 @@ find_cerl(false) ->
     end;
 find_cerl(DBTop) ->
     case catch filelib:wildcard(filename:join([DBTop,
-					       "otp_src_R*",
+					       "otp_src_*",
 					       "bin",
 					       "cerl"])) of
 	[Cerl | _ ] ->
@@ -242,7 +242,7 @@ dump_core(#core_search_conf{ cerl = Cerl }, Core) ->
 	       _ ->
 		   os:cmd(Cerl ++ " -dump " ++ Core)
 	   end,
-    ct:log("~s~n~n~s",[Core,Dump]).
+    ct:log("~ts~n~n~ts",[Core,Dump]).
 
 
 format_core(Conf, {ignore, Core}) ->

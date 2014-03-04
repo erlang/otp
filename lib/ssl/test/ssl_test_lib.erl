@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,7 +146,7 @@ remove_close_msg(ReconnectTimes) ->
     end.
 	    
 start_client(Args) ->
-    Result = spawn_link(?MODULE, run_client, [lists:delete(return_socket, Args)]),
+    Result = spawn_link(?MODULE, run_client_init, [lists:delete(return_socket, Args)]),
     receive 
 	{ connected, Socket } ->
         case lists:member(return_socket, Args) of
@@ -154,6 +154,10 @@ start_client(Args) ->
             false -> Result
         end
     end.
+
+run_client_init(Opts) ->
+    put(retries, 0),
+    run_client(Opts).
 
 run_client(Opts) ->
     Node = proplists:get_value(node, Opts),
@@ -189,9 +193,19 @@ run_client(Opts) ->
 		{gen_tcp, closed} ->
 		    ok
 	    end;
+	{error, econnrefused = Reason} ->
+	    case get(retries) of
+		N when N < 5 ->
+		    put(retries, N+1),
+		    ct:sleep(?SLEEP),
+		    run_client(Opts);
+	       _ ->
+		    ct:log("Client faild several times: connection failed: ~p ~n", [Reason]),
+		    Pid ! {self(), {error, Reason}}
+	    end;
 	{error, Reason} ->
 	    ct:log("Client: connection failed: ~p ~n", [Reason]),
-	       Pid ! {self(), {error, Reason}}
+	    Pid ! {self(), {error, Reason}}
     end.
 
 close(Pid) ->

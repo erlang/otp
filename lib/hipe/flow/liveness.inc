@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -71,7 +71,7 @@
 %% The generic liveness analysis
 %%
 
--spec analyze(cfg()) -> gb_tree().
+-spec analyze(cfg()) -> gb_trees:tree().
 
 -ifdef(HIPE_LIVENESS_CALC_LARGEST_LIVESET).
 analyze(CFG) ->
@@ -209,7 +209,7 @@ successors(L, Liveness) ->
   {_GK, _LiveIn, Successors} = liveness_lookup(L, Liveness),
   Successors.
 
--spec livein(gb_tree(), _) -> [_].
+-spec livein(gb_trees:tree(), _) -> [_].
 
 livein(Liveness, L) ->
   {_GK, LiveIn, _Successors} = liveness_lookup(L, Liveness),

@@ -79,4 +79,10 @@
 -define(tablesorter_script, "jquery.tablesorter.min.js").
 
 %% Logging information for error handler
--record(conn_log, {client, name, address, action, module}).
+-record(conn_log, {header=true,
+		   client,
+		   name,
+		   address,
+		   conn_pid,
+		   action,
+		   module}).

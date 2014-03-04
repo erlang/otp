@@ -38,7 +38,7 @@ transform_to_EXTERNAL1990([{'context-negotiation',Context_negot}|Rest], Acc) ->
 transform_to_EXTERNAL1990([asn1_NOVALUE|Rest], Acc) ->
     transform_to_EXTERNAL1990(Rest, [asn1_NOVALUE|Acc]);
 transform_to_EXTERNAL1990([Data_val_desc,Data_value], Acc)
-  when is_list(Data_value)->
+    when is_list(Data_value); is_binary(Data_value) ->
     list_to_tuple(lists:reverse([{'octet-aligned',Data_value},
 				 Data_val_desc|Acc]));
 transform_to_EXTERNAL1990([Data_val_desc,Data_value], Acc)

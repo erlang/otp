@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@ init(Type) ->
 handle_event({Type, GL, _Msg}, Type) when node(GL) /= node() ->
     {ok, Type};
 handle_event(Event, Type) ->
-    sasl_report:write_report(standard_io, Type, tag_event(Event)),
+    _ = sasl_report:write_report(standard_io, Type, tag_event(Event)),
     {ok, Type}.
 
 handle_info(_, Type) -> {ok, Type}.

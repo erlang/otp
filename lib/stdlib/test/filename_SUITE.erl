@@ -96,11 +96,19 @@ absname(Config) when is_list(Config) ->
 	    
 	    ?line file:set_cwd(Cwd),
 	    ok;
-	{unix, _} ->  
-	    ?line ok = file:set_cwd("/usr"),
-	    ?line "/usr/foo" = filename:absname(foo),
-	    ?line "/usr/foo" = filename:absname("foo"),
-	    ?line "/usr/../ebin" = filename:absname("../ebin"),
+	Type ->
+	    case Type of
+		{unix, _} ->
+		    ?line ok = file:set_cwd("/usr"),
+		    ?line "/usr/foo" = filename:absname(foo),
+		    ?line "/usr/foo" = filename:absname("foo"),
+		    ?line "/usr/../ebin" = filename:absname("../ebin");
+		{ose, _} ->
+		    ?line ok = file:set_cwd("/romfs"),
+		    ?line "/romfs/foo" = filename:absname(foo),
+		    ?line "/romfs/foo" = filename:absname("foo"),
+		    ?line "/romfs/../ebin" = filename:absname("../ebin")
+	    end,
 	    
 	    ?line file:set_cwd("/"),
 	    ?line "/foo" = filename:absname(foo),
@@ -155,7 +163,7 @@ absname_2(Config) when is_list(Config) ->
 	    ?line "a:/erlang" = filename:absname("a:erlang", [Drive|":/"]),
 	    
 	    ok;
-	{unix, _} ->
+	_ ->
 	    ?line "/usr/foo" = filename:absname(foo, "/usr"),
 	    ?line "/usr/foo" = filename:absname("foo", "/usr"),
 	    ?line "/usr/../ebin" = filename:absname("../ebin", "/usr"),
@@ -189,7 +197,7 @@ basename_1(Config) when is_list(Config) ->
 		  ?line "foo" = filename:basename(["usr\\foo\\"]),
 		  ?line "foo" = filename:basename("A:\\usr\\foo"),
 		  ?line "foo" = filename:basename("A:foo");
-	      {unix, _} ->
+	      _ ->
 		  ?line "strange\\but\\true" =
 		      filename:basename("strange\\but\\true")
 	  end,
@@ -219,7 +227,7 @@ basename_2(Config) when is_list(Config) ->
 		  ?line "foo.erl" = filename:basename("c:\\usr.hrl\\foo.erl",
 						      ".hrl"),
 		  ?line "foo" = filename:basename("A:\\usr\\foo", ".hrl");
-	      {unix, _} ->
+	      _ ->
 		  ?line "strange\\but\\true" =
 		      filename:basename("strange\\but\\true.erl", ".erl"),
 		  ?line "strange\\but\\true" =
@@ -317,7 +325,7 @@ join(Config) when is_list(Config) ->
 		      filename:join(["A:","C:usr","foo.erl"]),
 		  ?line "d:/foo" = filename:join([$D, $:, $/, []], "foo"),
 		  ok;
-	      {unix, _} ->
+	      _ ->
 		  ok
 	  end.
 
@@ -332,7 +340,7 @@ pathtype(Config) when is_list(Config) ->
 	    ?line volumerelative = filename:pathtype("/usr/local/bin"),
 	    ?line volumerelative = filename:pathtype("A:usr/local/bin"),
 	    ok;
-	{unix, _} ->
+	_ ->
 	    ?line absolute = filename:pathtype("/"),
 	    ?line absolute = filename:pathtype("/usr/local/bin"),
 	    ok
@@ -450,10 +458,17 @@ absname_bin(Config) when is_list(Config) ->
 	    
 	    ?line file:set_cwd(Cwd),
 	    ok;
-	{unix, _} ->  
-	    ?line ok = file:set_cwd(<<"/usr">>),
-	    ?line <<"/usr/foo">> = filename:absname(<<"foo">>),
-	    ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>),
+	Type ->
+	    case Type of
+		{unix,_} ->
+		    ?line ok = file:set_cwd(<<"/usr">>),
+		    ?line <<"/usr/foo">> = filename:absname(<<"foo">>),
+		    ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>);
+		{ose,_} ->
+		    ?line ok = file:set_cwd(<<"/romfs">>),
+		    ?line <<"/romfs/foo">> = filename:absname(<<"foo">>),
+		    ?line <<"/romfs/../ebin">> = filename:absname(<<"../ebin">>)
+	    end,
 	    
 	    ?line file:set_cwd(<<"/">>),
 	    ?line <<"/foo">> = filename:absname(<<"foo">>),
@@ -503,7 +518,7 @@ absname_bin_2(Config) when is_list(Config) ->
 	    ?line <<"a:/erlang">> = filename:absname(<<"a:erlang">>, <<Drive:8,":/">>),
 	    
 	    ok;
-	{unix, _} ->
+	_ ->
 	    ?line <<"/usr/foo">> = filename:absname(<<"foo">>, <<"/usr">>),
 	    ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>, <<"/usr">>),
 	    
@@ -527,7 +542,7 @@ basename_bin_1(Config) when is_list(Config) ->
 	      {win32, _} ->
 		  ?line <<"foo">> = filename:basename(<<"A:\\usr\\foo">>),
 		  ?line <<"foo">> = filename:basename(<<"A:foo">>);
-	      {unix, _} ->
+	      _ ->
 		  ?line <<"strange\\but\\true">> =
 		      filename:basename(<<"strange\\but\\true">>)
 	  end,
@@ -551,7 +566,7 @@ basename_bin_2(Config) when is_list(Config) ->
 		  ?line <<"foo.erl">> = filename:basename(<<"c:\\usr.hrl\\foo.erl">>,
 						      <<".hrl">>),
 		  ?line <<"foo">> = filename:basename(<<"A:\\usr\\foo">>, <<".hrl">>);
-	      {unix, _} ->
+	      _ ->
 		  ?line <<"strange\\but\\true">> =
 		      filename:basename(<<"strange\\but\\true.erl">>, <<".erl">>),
 		  ?line <<"strange\\but\\true">> =
@@ -639,7 +654,7 @@ join_bin(Config) when is_list(Config) ->
 		      filename:join([<<"A:">>,<<"C:usr">>,<<"foo.erl">>]),
 		  ?line <<"d:/foo">> = filename:join([$D, $:, $/, []], <<"foo">>),
 		  ok;
-	      {unix, _} ->
+	      _ ->
 		  ok
 	  end.
 
@@ -653,7 +668,7 @@ pathtype_bin(Config) when is_list(Config) ->
 	    volumerelative = filename:pathtype(<<"/usr/local/bin">>),
 	    volumerelative = filename:pathtype(<<"A:usr/local/bin">>),
 	    ok;
-	{unix, _} ->
+	_ ->
 	    absolute = filename:pathtype(<<"/">>),
 	    absolute = filename:pathtype(<<"/usr/local/bin">>),
 	    ok

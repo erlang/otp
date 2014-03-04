@@ -2,7 +2,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2009-2013. All Rights Reserved.
+Copyright Ericsson AB 2009-2014. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in
@@ -104,10 +104,16 @@ In addition to the documentation here Erlang is described in several recent book
 </p>
 <ul>
 <li>
+<a href="http://shop.oreilly.com/product/0636920025818.do">"Introducing Erlang"</a> from O'Reilly.
+</li>
+<li>
+<a href="http://www.nostarch.com/erlang">"Learn You Some Erlang for Great Good!"</a> from nostarch.
+</li>
+<li>
 <a href="http://oreilly.com/catalog/9780596518189">"Erlang Programming"</a> from O'Reilly.
 </li>
 <li>
-<a href="http://www.pragprog.com/titles/jaerlang">"Programming Erlang"</a> from Pragmatic.
+<a href="http://www.pragprog.com/book/jaerlang2/programming-erlang">"Programming Erlang"</a> from Pragmatic.
 </li>
 <li>
 <a href="http://www.manning.com/logan">"Erlang and OTP in Action"</a> from Manning.

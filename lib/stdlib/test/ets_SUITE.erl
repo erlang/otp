@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,7 +33,7 @@
 -export([ match1/1, match2/1, match_object/1, match_object2/1]).
 -export([ dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
 -export([ tab2file/1, tab2file2/1, tabfile_ext1/1,
-	tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1]).
+	tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([ heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
 -export([ lookup_element_mult/1]).
 -export([]).
@@ -75,6 +75,7 @@
 -export([otp_9932/1]).
 -export([otp_9423/1]).
 -export([otp_10182/1]).
+-export([ets_all/1]).
 -export([memory_check_summary/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -151,6 +152,7 @@ all() ->
      otp_10182,
      otp_9932,
      otp_9423,
+     ets_all,
      
      memory_check_summary]. % MUST BE LAST
 
@@ -171,7 +173,7 @@ groups() ->
       [misc1, safe_fixtable, info, dups, tab2list]},
      {files, [],
       [tab2file, tab2file2, tabfile_ext1,
-       tabfile_ext2, tabfile_ext3, tabfile_ext4]},
+       tabfile_ext2, tabfile_ext3, tabfile_ext4, badfile]},
      {heavy, [],
       [heavy_lookup, heavy_lookup_element, heavy_concurrent]},
      {fold, [],
@@ -4202,7 +4204,56 @@ tabfile_ext4(Config) when is_list(Config) ->
     file:delete(FName),
     ok.
 
+badfile(suite) ->
+    [];
+badfile(doc) ->
+    ["Tests that no disk_log is left open when file has been corrupted"];
+badfile(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    File = filename:join(PrivDir, "badfile"),
+    _ = file:delete(File),
+    T = ets:new(table, []),
+    true = ets:insert(T, [{a,1},{b,2}]),
+    ok = ets:tab2file(T, File, []),
+    true = ets:delete(T),
+    [H0 | Ts ] = get_all_terms(l, File),
+    H1 = tuple_to_list(H0),
+    H2 = [{K,V} || {K,V} <- H1, K =/= protection],
+    H = list_to_tuple(H2),
+    ok = file:delete(File),
+    write_terms(l, File, [H | Ts]),
+    %% All mandatory keys are no longer members of the header
+    {error, badfile} = ets:file2tab(File),
+    {error, badfile} = ets:tabfile_info(File),
+    file:delete(File),
+    {[],[]} = disk_log:accessible_logs(),
+    ok.
 
+get_all_terms(Log, File) ->
+    {ok, Log} = disk_log:open([{name,Log},
+                               {file, File},
+                               {mode, read_only}]),
+    Ts = get_all_terms(Log),
+    ok = disk_log:close(Log),
+    Ts.
+
+get_all_terms(Log) ->
+    get_all_terms1(Log, start, []).
+
+get_all_terms1(Log, Cont, Res) ->
+    case disk_log:chunk(Log, Cont) of
+	{error, _R} ->
+            throw(fel);
+	{Cont2, Terms} ->
+	    get_all_terms1(Log, Cont2, Res ++ Terms);
+	eof ->
+	    Res
+    end.
+
+write_terms(Log, File, Terms) ->
+    {ok, Log} = disk_log:open([{name,Log},{file, File},{mode,read_write}]),
+    ok = disk_log:log(Log, Terms),
+    ok = disk_log:close(Log).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -5516,7 +5567,19 @@ otp_10182(Config) when is_list(Config) ->
     ets:delete(Db),
     In = Out.
 
-    
+%% Test that ets:all include/exclude tables that we know are created/deleted
+ets_all(Config) when is_list(Config) ->
+    Pids = [spawn_link(fun() -> ets_all_run() end) || _ <- [1,2]],
+    receive after 3*1000 -> ok end,
+    [begin unlink(P), exit(P,kill) end || P <- Pids],
+    ok.
+
+ets_all_run() ->
+    Table = ets:new(undefined, []),
+    true = lists:member(Table, ets:all()),
+    ets:delete(Table),
+    false = lists:member(Table, ets:all()),
+    ets_all_run().
     
 
 %

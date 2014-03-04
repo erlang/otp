@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@ reply([Addr,Port,Msg]) ->
     P = list_to_integer(atom_to_list(Port)),
     M = atom_to_list(Msg),
     {ok, S} = gen_tcp:connect(Ip,P,[]),
-    gen_tcp:send(S,M),
+    ok = gen_tcp:send(S,M),
     gen_tcp:close(S),
     reply_done;
 reply(_) ->

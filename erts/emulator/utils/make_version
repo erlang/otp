@@ -39,7 +39,10 @@ if ($ARGV[0] eq '-o') {
 }
 
 my $release = shift;
-defined $release or die "No release specified";
+defined $release or die "No otp release specified";
+
+my $otp_version = shift;
+defined $otp_version or die "No otp version specified";
 
 my $version = shift;
 defined $version or die "No version name specified";
@@ -53,6 +56,7 @@ open(FILE, ">$outputfile") or die "Can't create $outputfile: $!";
 print FILE <<EOF;
 /* This file was created by 'make_version' -- don't modify. */
 #define ERLANG_OTP_RELEASE "$release"
+#define ERLANG_OTP_VERSION "$otp_version"
 #define ERLANG_VERSION "$version"
 #define ERLANG_COMPILE_DATE "$time_str"
 #define ERLANG_ARCHITECTURE "$architecture"

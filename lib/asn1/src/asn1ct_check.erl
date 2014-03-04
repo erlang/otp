@@ -2464,7 +2464,7 @@ normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
 	{'BIT STRING',CType,_} ->
 	    normalize_bitstring(S,Value,CType);
 	{'OCTET STRING',CType,_} ->
-	    normalize_octetstring(S,Value,CType);
+	    normalize_octetstring(S0, Value, CType);
 	{'NULL',_CType,_} ->
 	    %%normalize_null(Value);
 	    'NULL';
@@ -2574,6 +2574,18 @@ normalize_bitstring(S, Value, Type)->
 	    Bs
     end.
 
+hstring_to_binary(L) ->
+    byte_align(hstring_to_bitstring(L)).
+
+bstring_to_binary(L) ->
+    byte_align(bstring_to_bitstring(L)).
+
+byte_align(Bs) ->
+    case bit_size(Bs) rem 8 of
+	0 -> Bs;
+	N -> <<Bs/bitstring,0:(8-N)>>
+    end.
+
 hstring_to_bitstring(L) ->
     << <<(hex_to_int(D)):4>> || D <- L >>.
 
@@ -2592,58 +2604,18 @@ hex_to_int(D) when $A =< D, D =< $F -> D - ($A - 10).
 normalize_octetstring(S,Value,CType) ->
     case Value of
 	{bstring,String} ->
-	    bstring_to_octetlist(String);
+	    bstring_to_binary(String);
 	{hstring,String} ->
-	    hstring_to_octetlist(String);
+	    hstring_to_binary(String);
 	Rec when is_record(Rec,'Externalvaluereference') ->
 	    get_normalized_value(S,Value,CType,
 				 fun normalize_octetstring/3,[]);
 	{Name,String} when is_atom(Name) ->
 	    normalize_octetstring(S,String,CType);
-	List when is_list(List) ->
-	    %% check if list elements are valid octet values
-	    lists:map(fun([])-> ok;
-			 (H)when H > 255->
-			      asn1ct:warning("not legal octet value ~p in OCTET STRING, ~p~n",
-					     [H,List],S,
-					     "not legal octet value ~p in OCTET STRING");
-			 (_)-> ok
-		      end, List),
-	    List;
-	Other ->
-	    asn1ct:warning("unknown default value ~p~n",[Other],S,
-			   "unknown default value"),
-	    Value
+	_ ->
+	    Item = S#state.value,
+	    throw(asn1_error(S, Item, illegal_octet_string_value))
     end.
-
-
-bstring_to_octetlist([]) ->
-    [];
-bstring_to_octetlist([H|T]) when H == $0 ; H == $1 ->
-    bstring_to_octetlist(T,6,[(H - $0) bsl 7]).
-bstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H == $0; H == $1 ->
-    bstring_to_octetlist(T, 7, [0,Hacc + (H -$0)| Tacc]);
-bstring_to_octetlist([H|T],BSL,[Hacc|Tacc]) when H == $0; H == $1 ->
-    bstring_to_octetlist(T, BSL-1, [Hacc + ((H - $0) bsl BSL)| Tacc]);
-bstring_to_octetlist([],7,[0|Acc]) ->
-    lists:reverse(Acc);
-bstring_to_octetlist([],_,Acc) ->
-    lists:reverse(Acc).
-
-hstring_to_octetlist([]) ->
-    [];
-hstring_to_octetlist(L) ->
-    hstring_to_octetlist(L,4,[]).
-hstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H >= $A, H =< $F ->
-    hstring_to_octetlist(T,4,[Hacc + (H - $A + 10)|Tacc]);
-hstring_to_octetlist([H|T],BSL,Acc) when H >= $A, H =< $F ->
-    hstring_to_octetlist(T,0,[(H - $A + 10) bsl BSL|Acc]);
-hstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H >= $0; H =< $9 ->
-    hstring_to_octetlist(T,4,[Hacc + (H - $0)|Tacc]);
-hstring_to_octetlist([H|T],BSL,Acc) when H >= $0; H =< $9 ->
-    hstring_to_octetlist(T,0,[(H - $0) bsl BSL|Acc]);
-hstring_to_octetlist([],_,Acc) ->
-    lists:reverse(Acc).
 
 normalize_objectidentifier(S, Value) ->
     {ok,Val} = validate_objectidentifier(S, o_id, Value, []),
@@ -2659,16 +2631,19 @@ normalize_objectdescriptor(Value) ->
 normalize_real(Value) ->
     Value.
 
-normalize_enumerated(S, Id, {Base,Ext}) ->
+normalize_enumerated(S, Id0, NNL) ->
+    {Id,_} = lookup_enum_value(S, Id0, NNL),
+    Id.
+
+lookup_enum_value(S, Id, {Base,Ext}) ->
     %% Extensible ENUMERATED.
-    normalize_enumerated(S, Id, Base++Ext);
-normalize_enumerated(S, #'Externalvaluereference'{value=Id},
-		    NamedNumberList) ->
-    normalize_enumerated(S, Id, NamedNumberList);
-normalize_enumerated(S, Id, NamedNumberList) when is_atom(Id) ->
-    case lists:keymember(Id, 1, NamedNumberList) of
-	true ->
-	    Id;
+    lookup_enum_value(S, Id, Base++Ext);
+lookup_enum_value(S, #'Externalvaluereference'{value=Id}, NNL) ->
+    lookup_enum_value(S, Id, NNL);
+lookup_enum_value(S, Id, NNL) when is_atom(Id) ->
+    case lists:keyfind(Id, 1, NNL) of
+	{_,_}=Ret ->
+	    Ret;
 	false ->
 	    throw(asn1_error(S, S#state.value, {undefined,Id}))
     end.
@@ -3105,7 +3080,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		Ct=maybe_illicit_implicit_tag(open_type,Tag),
 		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
 	    'INTEGER' ->
-		check_integer(S,[],Constr),
 		TempNewDef#newt{tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 
@@ -3803,8 +3777,9 @@ resolv_value(S,Val) ->
     resolv_value1(S,Id).
 
 resolv_value1(S, ERef = #'Externalvaluereference'{value=Name}) ->
-    case catch resolve_namednumber(S,S#state.type,Name) of
-	V when is_integer(V) -> V;
+    case catch resolve_namednumber(S, S#state.type, Name) of
+	V when is_integer(V) ->
+	    V;
 	_ ->
 	    case get_referenced_type(S,ERef) of
 		{Err,_Reason} when Err == error; Err == 'EXIT' ->
@@ -3857,21 +3832,20 @@ resolve_value_from_object(S,Object,FieldName) ->
     end.
 
 
-
 resolve_namednumber(S,#typedef{typespec=Type},Name) ->
     case Type#type.def of
 	{'ENUMERATED',NameList} ->
-	    NamedNumberList=check_enumerated(S,NameList,Type#type.constraint),
-	    N = normalize_enumerated(S,Name,NamedNumberList),
-	    {value,{_,V}} = lists:keysearch(N,1,NamedNumberList),
-	    V;
+	    resolve_namednumber_1(S, Name, NameList, Type);
 	{'INTEGER',NameList} ->
-	    NamedNumberList = check_enumerated(S,NameList,Type#type.constraint),
-	    {value,{_,V}} = lists:keysearch(Name,1,NamedNumberList),
-	    V;
+	    resolve_namednumber_1(S, Name, NameList, Type);
 	_ ->
 	    not_enumerated
     end.
+
+resolve_namednumber_1(S, Name, NameList, Type) ->
+    NamedNumberList = check_enumerated(S, NameList, Type#type.constraint),
+    {_,N} = lookup_enum_value(S, Name, NamedNumberList),
+    N.
     
 check_constraints(S,[{'ContainedSubtype',Type} | Rest], Acc) ->
     {RefMod,CTDef} = get_referenced_type(S,Type#type.def),
@@ -3952,9 +3926,9 @@ check_constraint(S,{simpletable,Type}) ->
 	#'Externaltypereference'{} ->
 	    ERef = check_externaltypereference(S,C),
 	    {simpletable,ERef#'Externaltypereference'.type};
-	#type{def=#'Externaltypereference'{type=T}} ->
-	    check_externaltypereference(S,C#type.def),
-	    {simpletable,T};
+	#type{def=#'Externaltypereference'{}=ExtTypeRef} ->
+	    ERef = check_externaltypereference(S, ExtTypeRef),
+	    {simpletable,ERef#'Externaltypereference'.type};
 	{valueset,#type{def=ERef=#'Externaltypereference'{}}} -> % this is an object set
 	    {_,TDef} = get_referenced_type(S,ERef),
 	    case TDef#typedef.typespec of 
@@ -6828,6 +6802,8 @@ asn1_error(#state{mname=Where}, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error(illegal_octet_string_value) ->
+    "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({missing_mandatory_fields,Fields,Obj}) ->

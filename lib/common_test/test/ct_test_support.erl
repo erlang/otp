@@ -40,6 +40,8 @@
 
 -export([ct_test_halt/1, ct_rpc/2]).
 
+-export([random_error/1]).
+
 -include_lib("kernel/include/file.hrl").
 
 %%%-----------------------------------------------------------------
@@ -110,7 +112,6 @@ start_slave(NodeName, Config, Level) ->
 		_ ->
 		    ok
 	    end,
-
 	    TraceFile = filename:join(DataDir, "ct.trace"),
 	    case file:read_file_info(TraceFile) of
 		{ok,_} -> 
@@ -393,6 +394,55 @@ ct_rpc({M,F,A}, Config) ->
 		       [M,F,A, CTNode]),
     rpc:call(CTNode, M, F, A).
 
+
+%%%-----------------------------------------------------------------
+%%% random_error/1
+random_error(Config) when is_list(Config) ->
+    random:seed(now()),
+    Gen = fun(0,_) -> ok; (N,Fun) -> Fun(N-1, Fun) end,
+    Gen(random:uniform(100), Gen),
+
+    ErrorTypes = ['BADMATCH','BADARG','CASE_CLAUSE','FUNCTION_CLAUSE',
+		  'EXIT','THROW','UNDEF'],
+    Type = lists:nth(random:uniform(length(ErrorTypes)), ErrorTypes),
+    Where = case random:uniform(2) of
+		1 ->
+		    io:format("ct_test_support *returning* error of type ~w",
+			      [Type]),
+		    tc;
+		2 ->
+		    io:format("ct_test_support *generating* error of type ~w",
+			      [Type]),
+		    lib
+	    end,
+    ErrorFun =
+	fun() ->
+		case Type of
+		    'BADMATCH' ->
+			ok = proplists:get_value(undefined, Config);
+		    'BADARG' ->
+			size(proplists:get_value(priv_dir, Config));
+		    'FUNCTION_CLAUSE' ->
+			random_error(x);
+		    'EXIT' ->
+			spawn_link(fun() ->
+					   undef_proc ! hello,
+					   ok
+				   end);
+		    'THROW' ->
+			PrivDir = proplists:get_value(priv_dir, Config),
+			if is_list(PrivDir) -> throw(generated_throw) end;
+		    'UNDEF' ->
+			apply(?MODULE, random_error, [])
+		end
+	end,
+    %% either call the fun here or return it to the caller (to be
+    %% executed in a test case instead)
+    case Where of
+	tc -> ErrorFun;
+	lib -> ErrorFun()
+    end.
+    
 
 %%%-----------------------------------------------------------------
 %%% EVENT HANDLING

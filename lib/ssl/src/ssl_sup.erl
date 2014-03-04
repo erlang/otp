@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,14 +89,14 @@ tls_connection_manager_child_spec() ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-dtls_connection_manager_child_spec() ->
-    Name = dtls_connection,  
-    StartFunc = {dtls_connection_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [dtls_connection, ssl_connection],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+%% dtls_connection_manager_child_spec() ->
+%%     Name = dtls_connection,  
+%%     StartFunc = {dtls_connection_sup, start_link, []},
+%%     Restart = permanent, 
+%%     Shutdown = 4000,
+%%     Modules = [dtls_connection, ssl_connection],
+%%     Type = supervisor,
+%%     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 session_cb_init_args() ->
     case application:get_env(ssl, session_cb_init_args) of

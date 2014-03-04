@@ -27,16 +27,20 @@
 run() ->
     roundtrip('Seq1', #'Seq1'{bool=true,int=asn1_NOVALUE,cho=asn1_NOVALUE}),
     roundtrip('Seq1', #'Seq1'{bool=true,int=233,cho=asn1_NOVALUE}),
-    roundtrip('Seq1', #'Seq1'{bool=true,int=asn1_NOVALUE,cho={vsCho,"Vs Str"}}),
-    roundtrip('Seq1', #'Seq1'{bool=true,int=asn1_NOVALUE,cho={ocStrCho,"Oct Str"}}),
+    roundtrip('Seq1', #'Seq1'{bool=true,int=asn1_NOVALUE,
+			      cho={vsCho,"Vs Str"}}),
+    roundtrip('Seq1', #'Seq1'{bool=true,int=asn1_NOVALUE,
+			      cho={ocStrCho,<<"Oct Str">>}}),
     roundtrip('Seq2', #'Seq2'{int=asn1_NOVALUE,cho=asn1_NOVALUE,bool=true}),
     roundtrip('Seq2', #'Seq2'{int=233,cho=asn1_NOVALUE,bool=true}),
     roundtrip('Seq2', #'Seq2'{int=asn1_NOVALUE,cho={vsCho,"Vs Str"},bool=true}),
-    roundtrip('Seq2', #'Seq2'{int=asn1_NOVALUE,cho={ocStrCho,"Oct Str"},bool=true}),
+    roundtrip('Seq2', #'Seq2'{int=asn1_NOVALUE,cho={ocStrCho,<<"Oct Str">>},
+			      bool=true}),
     roundtrip('Seq3', #'Seq3'{cho=asn1_NOVALUE,int=asn1_NOVALUE,bool=true}),
     roundtrip('Seq3', #'Seq3'{cho=asn1_NOVALUE,int=233,bool=true}),
     roundtrip('Seq3', #'Seq3'{cho={vsCho,"Vs Str"},int=asn1_NOVALUE,bool=true}),
-    roundtrip('Seq3', #'Seq3'{cho={ocStrCho,"Oct Str"},int=asn1_NOVALUE,bool=true}),
+    roundtrip('Seq3', #'Seq3'{cho={ocStrCho,<<"Oct Str">>},
+			      int=asn1_NOVALUE,bool=true}),
     ok.
 
 roundtrip(Type, Value) ->

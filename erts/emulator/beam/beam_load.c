@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -409,7 +409,7 @@ typedef struct LoaderState {
           __result = __result << 8 | *Stp->file_p++; \
        } \
        Dest = __result; \
-    } while (0)
+    }
 
 #define GetByte(Stp, Dest) \
     if ((Stp)->file_left < 1) { \
@@ -505,6 +505,9 @@ static GenOp* gen_select_literals(LoaderState* stp, GenOpArg S,
 				  GenOpArg* Rest);
 static GenOp* const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
+
+static GenOp* gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+                                  GenOpArg Size, GenOpArg* Rest);
 
 static int freeze_code(LoaderState* stp);
 
@@ -3783,6 +3786,8 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	op->a[1].val = (BeamInstr) (void *) erts_gc_bit_size_1;
     } else if (bf == byte_size_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_byte_size_1;
+    } else if (bf == map_size_1) {
+	op->a[1].val = (BeamInstr) (void *) erts_gc_map_size_1;
     } else if (bf == abs_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_abs_1;
     } else if (bf == float_1) {
@@ -3949,6 +3954,49 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
     return op;
 }
 
+/*
+ * Replace a get_map_elements with one key to an instruction with one
+ * element
+ */
+
+static GenOp*
+gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		    GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+
+    ASSERT(Size.type == TAG_u);
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    op->op = genop_get_map_element_4;
+    op->arity = 4;
+
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2] = Rest[0];
+    op->a[3] = Rest[1];
+    return op;
+}
+
+static GenOp*
+gen_has_map_field(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		    GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+
+    ASSERT(Size.type == TAG_u);
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    op->op = genop_has_map_field_3;
+    op->arity = 4;
+
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2] = Rest[0];
+    return op;
+}
 
 /*
  * Freeze the code in memory, move the string table into place,
@@ -4376,6 +4424,7 @@ transform_engine(LoaderState* st)
     Uint* restart;		/* Where to restart if current match fails. */
     GenOpArg def_vars[TE_MAX_VARS]; /* Default buffer for variables. */
     GenOpArg* var = def_vars;
+    int num_vars = 0;
     int i;			/* General index. */
     Uint mask;
     GenOp* instr;
@@ -4578,9 +4627,9 @@ transform_engine(LoaderState* st)
 	    {
 		int n = *pc++;
 		int formal_arity = gen_opc[instr->op].arity;
-		int num_vars = n + (instr->arity - formal_arity);
 		int j = formal_arity;
 
+		num_vars = n + (instr->arity - formal_arity);
 		var = erts_alloc(ERTS_ALC_T_LOADER_TMP,
 				 num_vars * sizeof(GenOpArg));
 		for (i = 0; i < n; i++) {
@@ -4592,7 +4641,6 @@ transform_engine(LoaderState* st)
 	    }
 	    break;
 #endif
-
 	case TOP_next_arg:
 	    ap++;
 	    break;
@@ -4680,6 +4728,20 @@ transform_engine(LoaderState* st)
 	    instr->a[ap].val = var[i].val;
 	    ap++;
 	    break;
+#if defined(TOP_store_rest_args)
+	case TOP_store_rest_args:
+	    {
+		int n = *pc++;
+		int num_extra = num_vars - n;
+
+		ASSERT(n <= num_vars);
+		GENOP_ARITY(instr, instr->arity+num_extra);
+		memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
+		memcpy(instr->a+ap, var+n, num_extra*sizeof(GenOpArg));
+		ap += num_extra;
+	    }
+	    break;
+#endif
 	case TOP_try_me_else:
 	    restart = pc + 1;
 	    restart += *pc++;
@@ -5808,7 +5870,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     Funcs = tp[1];
     Patchlist = tp[2];        
    
-    if ((n = list_length(Funcs)) < 0) {
+    if ((n = erts_list_length(Funcs)) < 0) {
 	goto error;
     }
     if ((bytes = erts_get_aligned_binary_bytes(Beam, &temp_alloc)) == NULL) {

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,11 +72,13 @@
 
 	  otp_5644/1, otp_5195/1, otp_6038_bug/1, otp_6359/1, otp_6562/1,
 	  otp_6590/1, otp_6673/1, otp_6964/1, otp_7114/1, otp_7238/1,
-	  otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1,
+	  otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1, otp_11758/1,
 
 	  manpage/1,
 
-	  backward/1, forward/1]).
+	  backward/1, forward/1,
+
+         eep37/1]).
 
 %% Internal exports.
 -export([bad_table_throw/1, bad_table_exit/1, default_table/1, bad_table/1,
@@ -132,7 +134,7 @@ groups() ->
        evaluator, string_to_handle, table, process_dies, sort,
        keysort, filesort, cache, cache_list, filter, info,
        nested_info, lookup1, lookup2, lookup_rec, indices,
-       pre_fun, skip_filters]},
+       pre_fun, skip_filters, eep37]},
      {table_impls, [], [ets, dets]},
      {join, [],
       [join_option, join_filter, join_lookup, join_merge,
@@ -140,7 +142,7 @@ groups() ->
      {tickets, [],
       [otp_5644, otp_5195, otp_6038_bug, otp_6359, otp_6562,
        otp_6590, otp_6673, otp_6964, otp_7114, otp_7232,
-       otp_7238, otp_7552, otp_6674, otp_7714]},
+       otp_7238, otp_7552, otp_6674, otp_7714, otp_11758]},
      {compat, [], [backward, forward]}].
 
 init_per_suite(Config) ->
@@ -2544,7 +2546,7 @@ info(Config) when is_list(Config) ->
           ets:delete(E)">>,
 
        <<"Q1 = qlc:q([W || W <- [a,b]]),
-          Q2 = qlc:q([Z || Z <- qlc:sort([1,2,300])], unique),
+          Q2 = qlc:q([Z || Z <- qlc:sort([55296,56296,57296])], unique),
           Q3 = qlc:q([{X,Y} || X <- qlc:keysort([2], [{1,a}]),
                                Y <- qlc:append([Q1, Q2]),
                                X > Y]),
@@ -2552,7 +2554,7 @@ info(Config) when is_list(Config) ->
            [{generate, P1, {list, [{1,a}]}},
             {generate, P2, {append, [{list, [a,b]},
                                     {qlc, T2, [{generate, P3,
-                                                {sort, {list,[1,2,300]},[]}}],
+                                                {sort, {list,[55296,56296,57296]},[]}}],
                                      [{cache,ets},{unique,true}]}]}},F],
            []} = i(Q3, cache_all),
           {tuple, _, [{var,_,'X'}, {var,_,'Y'}]} = binary_to_term(T1),
@@ -2562,7 +2564,7 @@ info(Config) when is_list(Config) ->
           {var, _, 'Z'} = binary_to_term(T2),
           {op, _, '>', {var, _, 'X'}, {var, _, 'Y'}} = binary_to_term(F),
           true = binary_to_list(<<
-           \"beginV1=qlc:q([Z||Z<-qlc:sort([1,2,300],[])],[{unique,true}]),\"
+           \"beginV1=qlc:q([Z||Z<-qlc:sort([55296,56296,57296],[])],[{unique,true}]),\"
            \"qlc:q([{X,Y}||X<-[{1,a}],Y<-qlc:append([[a,b],V1]),X>Y])end\"
               >>) == format_info(Q3, true)">>,
 
@@ -6607,12 +6609,12 @@ otp_7232(Config) when is_list(Config) ->
                 {nil,_}]} = 
               qlc:info(qlc:sort(L),{format,abstract_code})">>,
 
-          <<"Q1 = qlc:q([X || X <- [1000,2000]]),
+          <<"Q1 = qlc:q([X || X <- [55296,56296]]),
              Q = qlc:sort(Q1, {order, fun(A,B)-> A>B end}),
-             \"qlc:sort([1000,2000],[{order,fun'-function/0-fun-2-'/2}])\" = 
+             \"qlc:sort([55296,56296],[{order,fun'-function/0-fun-2-'/2}])\" =
                 format_info(Q, true),
              AC = qlc:info(Q, {format, abstract_code}),
-             \"qlc:sort([1000,2000], [{order,fun '-function/0-fun-2-'/2}])\" = 
+             \"qlc:sort([55296,56296], [{order,fun '-function/0-fun-2-'/2}])\" =
                 binary_to_list(iolist_to_binary(erl_pp:expr(AC)))">>,
 
          %% OTP-7234. erl_parse:abstract() handles bit strings
@@ -6667,6 +6669,19 @@ otp_7714(Config) when is_list(Config) ->
              ets:delete(E1),
              ets:delete(E2)">>],
     ?line run(Config, Ts).
+
+otp_11758(doc) ->
+    "OTP-11758. Bug.";
+otp_11758(suite) -> [];
+otp_11758(Config) when is_list(Config) ->
+    Ts = [<<"T = ets:new(r, [{keypos, 2}]),
+             L = [{rrr, xxx, aaa}, {rrr, yyy, bbb}],
+             true = ets:insert(T, L),
+             QH = qlc:q([{rrr, B, C} || {rrr, B, C} <- ets:table(T),
+                              (B =:= xxx) or (B =:= yyy) and (C =:= aaa)]),
+             [{rrr,xxx,aaa}] = qlc:e(QH),
+             ets:delete(T)">>],
+    run(Config, Ts).
 
 otp_6674(doc) ->
     "OTP-6674. match/comparison.";
@@ -7425,6 +7440,14 @@ forward(Config) when is_list(Config) ->
 
      ],
     ?line run(Config, Ts),
+    ok.
+
+eep37(Config) when is_list(Config) ->
+    Ts = [
+        <<"H = (fun _Handle() -> qlc:q([X || X <- []]) end)(),
+           [] = qlc:eval(H)">>
+    ],
+    run(Config, Ts),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

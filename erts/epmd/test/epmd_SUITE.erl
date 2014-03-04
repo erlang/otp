@@ -69,6 +69,8 @@
     returns_valid_empty_extra/1,
     returns_valid_populated_extra_with_nulls/1,
 
+    names_stdout/1,
+
     buffer_overrun_1/1,
     buffer_overrun_2/1,
     no_nonlocal_register/1,
@@ -118,6 +120,7 @@ all() ->
      too_large, alive_req_too_small_1, alive_req_too_small_2,
      alive_req_too_large, returns_valid_empty_extra,
      returns_valid_populated_extra_with_nulls,
+     names_stdout,
      {group, buffer_overrun}, no_nonlocal_register,
      no_nonlocal_kill, no_live_killing].
 
@@ -759,6 +762,24 @@ returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+names_stdout(doc) ->
+    ["Test that epmd -names prints registered nodes to stdout"];
+names_stdout(suite) ->
+    [];
+names_stdout(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,Sock} = register_node("foobar"),
+    ?line ok = epmdrun("-names"),
+    ?line {ok, Data} = receive {_Port, {data, D}} -> {ok, D}
+		       after 10000 -> {error, timeout}
+		       end,
+    ?line {match,_} = re:run(Data, "^epmd: up and running", [multiline]),
+    ?line {match,_} = re:run(Data, "^name foobar at port", [multiline]),
+    ?line ok = close(Sock),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 buffer_overrun_1(suite) ->
     [];
 buffer_overrun_1(doc) ->
@@ -968,7 +989,7 @@ epmdrun(Epmd,Args0) ->
 	       O ->
 		   " "++O
 	   end,
-  osrun("\"" ++ Epmd ++ "\"" ++ Args ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
+  osrun("\"" ++ Epmd ++ "\"" ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT) ++ Args).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

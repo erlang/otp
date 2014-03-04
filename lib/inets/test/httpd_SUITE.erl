@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,16 +42,17 @@ suite() ->
 
 all() ->
     [
-     {group, http}
-     %{group, https}
+     {group, http},
+     {group, http_limit}
+     %%{group, https}
     ].
 
 groups() ->
     [
      {http, [], all_groups()},
-     %{https, [], all_groups()},
-     {http_1_1, [], [host, chunked, expect, cgi, max_clients
-		    ] ++ http_head() ++ http_get()},
+     %%{https, [], all_groups()},
+     {http_limit, [], [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {http_1_1, [], [host, chunked, expect, cgi] ++ http_head() ++ http_get()},
      {http_1_0, [], [host, cgi] ++ http_head() ++ http_get()},
      {http_0_9, [], http_head() ++ http_get()}
     ].
@@ -95,7 +96,7 @@ init_per_group(https = Group, Config0) ->
 	    {skip, "Could not start https apps"}
     end;
 
-init_per_group(http = Group, Config0) ->
+init_per_group(Group, Config0)  when Group == http; Group == http_limit ->
     init_httpd(Group, [{type, ip_comm} | Config0]);
 init_per_group(http_1_1, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
@@ -106,10 +107,9 @@ init_per_group(http_0_9, Config) ->
 init_per_group(_, Config) ->
     Config.
 end_per_group(http, _Config) ->
-    inets:stop();
+    ok;
 end_per_group(https, _Config) ->
-    ssl:stop(),
-    inets:stop();
+    ssl:stop();
 end_per_group(_, _) ->
     ok.
 
@@ -119,7 +119,7 @@ init_httpd(Group, Config0) ->
     {Pid, Port} = server_start(Group, server_config(Group, Config)),
     [{server_pid, Pid}, {port, Port} | Config].
 %%--------------------------------------------------------------------
-init_per_testcase(host = Case, Config) ->
+init_per_testcase(host, Config) ->
     Prop = ?config(tc_group_properties, Config),
     Name = proplists:get_value(name, Prop),
     Cb = case Name of
@@ -128,45 +128,14 @@ init_per_testcase(host = Case, Config) ->
 	     http_1_1 ->
 		 httpd_1_1
 	 end,
-    common_init_per_test_case(Case, [{version_cb, Cb} | proplists:delete(version_cb, Config)]);
+    [{version_cb, Cb} | proplists:delete(version_cb, Config)];
+init_per_testcase(_, Config) ->
+    Config.
 
 %% init_per_testcase(basic_auth = Case, Config) ->
 %%     start_mnesia(?config(node, Config)),
 %%     common_init_per_test_case(Case, Config);
     
-init_per_testcase(max_clients, Config) ->
-    Pid = ?config(server_pid, Config),    
-    Prop = httpd:info(Pid),
-    Port = proplists:get_value(port, Prop),
-    TempProp = [{port, Port} | proplists:delete(port, server_config(http, Config))],
-    NewProp = [{max_clients, 1} | TempProp],
-    httpd:reload_config(NewProp, non_disturbing),
-    Config;
-
-init_per_testcase(_Case, Config) ->
-    common_init_per_test_case(_Case, Config).
-
-%%% Should be run by all test cases except max_clients, to make
-%%% sure failiure of max_clients does not affect other test cases
-common_init_per_test_case(_Case, Config) ->    
-    Pid = ?config(server_pid, Config),    
-    Prop = httpd:info(Pid),
-    case proplists:get_value(max_clients, Prop, 150) of
-    	150 ->
-	    Config;
-    	_ ->
-	    end_per_testcase(max_clients, Config)
-    end.
-
-end_per_testcase(max_clients, Config) ->
-    Pid = ?config(server_pid, Config),    
-    Prop = httpd:info(Pid),
-    Port = proplists:get_value(port, Prop),
-    TempProp = [{port, Port} | proplists:delete(port, server_config(http, Config))],
-    NewProp = proplists:delete(max_clients, TempProp),
-    httpd:reload_config(NewProp, non_disturbing),
-    Config;
-
 %% end_per_testcase(basic_auth, Config) ->
 %%     cleanup_mnesia();
 end_per_testcase(_Case, _Config) ->
@@ -270,35 +239,24 @@ expect(Config) when is_list(Config) ->
     httpd_1_1:expect(?config(type, Config), ?config(port, Config), 
 		     ?config(host, Config), ?config(node, Config)).
 
-max_clients() ->
+max_clients_1_1() ->
     [{doc, "Test max clients limit"}].
 
-max_clients(Config) when is_list(Config) -> 
-    Version = ?config(http_version, Config),
-    Host = ?config(host, Config),
-    Pid = ?config(server_pid, Config),
-    ct:pal("Configurartion: ~p~n", [httpd:info(Pid)]),
-    spawn(fun() -> httpd_test_lib:verify_request(?config(type, Config), Host, 
-						 ?config(port, Config),  ?config(node, Config),
-						 http_request("GET /eval?httpd_example:delay(1000) ", 
-							      Version, Host),
-						 [{statuscode, 200},
-						  {version, Version}])
-	  end),
-    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
-				       http_request("GET /index.html ", Version, Host),
-				       [{statuscode, 503},
-					{version, Version}]),
-    receive 
-    after 1000 ->
-	    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
-				       http_request("GET /index.html ", Version, Host),
-					       [{statuscode, 200},
-						{version, Version}])
-    end.
-	    
+max_clients_1_1(Config) when is_list(Config) -> 
+    do_max_clients([{http_version, "HTTP/1.1"} | Config]).
+
+max_clients_1_0() ->
+    [{doc, "Test max clients limit"}].
+
+max_clients_1_0(Config) when is_list(Config) -> 
+    do_max_clients([{http_version, "HTTP/1.0"} | Config]).
+
+max_clients_0_9() ->
+    [{doc, "Test max clients limit"}].
+
+max_clients_0_9(Config) when is_list(Config) -> 
+    do_max_clients([{http_version, "HTTP/0.9"} | Config]).
+
 esi() ->
     [{doc, "Test mod_esi"}].
 
@@ -590,6 +548,24 @@ alias(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
+do_max_clients(Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    start_blocker(Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+				       ?config(port, Config),  ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 503},
+					{version, Version}]),
+    receive 
+    after 2000 ->
+	    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+					       ?config(port, Config),  ?config(node, Config),
+					       http_request("GET /index.html ", Version, Host),
+					       [{statuscode, 200},
+						{version, Version}])
+    end.
+
 setup_server_dirs(ServerRoot, DocRoot, DataDir) ->   
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),
     AuthDir =  filename:join(ServerRoot, "auth"),
@@ -658,6 +634,10 @@ server_config(http, Config) ->
      {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
      {eval_script_alias, {"/eval", [httpd_example, io]}}
     ] ++  auth_conf(ServerRoot);
+
+server_config(http_limit, Config) ->
+    [{max_clients, 1}]  ++ server_config(http, Config);
+    
 server_config(_, _) ->
     [].
 
@@ -791,3 +771,24 @@ cleanup_mnesia() ->
     stopped = mnesia:stop(),
     mnesia:delete_schema([node()]),
     ok.
+
+start_blocker(Config) ->
+    spawn(httpd_SUITE, init_blocker, [self(), Config]),
+    receive
+	blocker_start ->
+	    ok
+    end.
+    
+init_blocker(From, Config) ->
+    From ! blocker_start,
+    block(Config).
+
+block(Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    httpd_test_lib:verify_request(?config(type, Config), Host, 
+				  ?config(port, Config),  ?config(node, Config),
+				  http_request("GET /eval?httpd_example:delay(1000) ", 
+					       Version, Host),
+				  [{statuscode, 200},
+				   {version, Version}]).

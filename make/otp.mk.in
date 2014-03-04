@@ -30,6 +30,13 @@
 include $(ERL_TOP)/make/output.mk
 
 # ----------------------------------------------------
+#       Version
+# ----------------------------------------------------
+
+OTP_VERSION = @OTP_VERSION@
+SYSTEM_VSN = @SYSTEM_VSN@
+
+# ----------------------------------------------------
 #	Cross Compiling
 # ----------------------------------------------------
 CROSS_COMPILING = @CROSS_COMPILING@

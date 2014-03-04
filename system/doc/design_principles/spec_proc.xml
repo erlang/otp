@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
     <p>The module <c>sys</c> contains some functions for simple debugging
       of processes implemented using behaviours. We use the
       <c>code_lock</c> example from
-      the <seealso marker="fsm#ex">gen_event</seealso> chapter to
+      the <seealso marker="fsm#ex">gen_fsm</seealso> chapter to
       illustrate this:</p>
     <pre>
 % <input>erl</input>

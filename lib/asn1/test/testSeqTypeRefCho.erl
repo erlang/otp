@@ -28,10 +28,10 @@
 
 main(_Rules) ->
     roundtrip('SeqTRcho',
-	      #'SeqTRcho'{'seqCho' = {choOs,"A string 1"},
-			  'seqChoE' = {choOs,"A string 3"},
-			  'seqCho-E' = {choOs,"A string 7"},
-			  'seqChoE-E' = {choOs,"A string 9"}}),
+	      #'SeqTRcho'{'seqCho' = {choOs,<<"A string 1">>},
+			  'seqChoE' = {choOs,<<"A string 3">>},
+			  'seqCho-E' = {choOs,<<"A string 7">>},
+			  'seqChoE-E' = {choOs,<<"A string 9">>}}),
     ok.
 
 roundtrip(T, V) ->

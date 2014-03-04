@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -334,7 +334,7 @@ make_dep_options(Config) ->
 
 run(Config, Cmd0, Name, Options, Expect) ->
     Cmd = Cmd0 ++ " " ++ Options ++ " " ++ Name,
-    io:format("~s", [Cmd]),
+    io:format("~ts", [Cmd]),
     Result = run_command(Config, Cmd),
     verify_result(Result, Expect).
 
@@ -356,7 +356,7 @@ split([], Current, Lines) ->
     split([], [], [lists:reverse(Current)|Lines]).
 
 match_messages([Msg|Rest1], [Regexp|Rest2]) ->
-    case re:run(Msg, Regexp, [{capture,none}]) of
+    case re:run(Msg, Regexp, [{capture,none}, unicode]) of
 	match ->
 	    ok;
 	nomatch ->
@@ -398,7 +398,7 @@ run_command(Config, Cmd) ->
     TmpDir = filename:join(?config(priv_dir, Config), "tmp"),
     file:make_dir(TmpDir),
     {RunFile, Run, Script} = run_command(TmpDir, os:type(), Cmd),
-    ok = file:write_file(filename:join(TmpDir, RunFile), Script),
+    ok = file:write_file(filename:join(TmpDir, RunFile), unicode:characters_to_binary(Script)),
     os:cmd(Run).
 
 run_command(Dir, {win32, _}, Cmd) ->

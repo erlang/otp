@@ -196,6 +196,11 @@ set_error(Efile_error* errInfo)
     return 0;
 }
 
+int
+efile_init() {
+   return 1;
+}
+
 /*
  * A writev with Unix semantics, but with Windows arguments 
  */
@@ -698,6 +703,7 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
     HANDLE fd;			/* Handle to open file. */
     DWORD access;		/* Access mode: GENERIC_READ, GENERIC_WRITE. */
     DWORD crFlags;
+    DWORD flagsAndAttrs = FILE_ATTRIBUTE_NORMAL;
     WCHAR *wname = (WCHAR *) name;
 
     switch (flags & (EFILE_MODE_READ|EFILE_MODE_WRITE)) {
@@ -719,6 +725,10 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
 	return 0;
     }
 
+    if (flags & EFILE_MODE_SYNC) {
+        flagsAndAttrs = FILE_FLAG_WRITE_THROUGH;
+    }
+
     if (flags & EFILE_MODE_APPEND) {
 	crFlags = OPEN_ALWAYS;
     }
@@ -727,7 +737,7 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
     }
     fd = CreateFileW(wname, access,
 		    FILE_SHARE_FLAGS,
-		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
+		    NULL, crFlags, flagsAndAttrs, NULL);
 
     /*
      * Check for errors.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,7 @@
 #include "bif.h"
 #include "beam_catches.h"
 #include "erl_debug.h"
+#include "erl_map.h"
 
 #define WITHIN(ptr, x, y) ((x) <= (ptr) && (ptr) < (y))
 
@@ -298,6 +299,9 @@ void erts_check_for_holes(Process* p)
 {
     ErlHeapFragment* hf;
     Eterm* start;
+
+    if (p->flags & F_DISABLE_GC)
+	return;
 
     start = p->last_htop ? p->last_htop : HEAP_START(p);
     check_memory(start, HEAP_TOP(p));

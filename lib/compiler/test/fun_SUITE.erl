@@ -21,7 +21,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
-	 external/1]).
+	 external/1,eep37/1,badarity/1]).
 
 %% Internal export.
 -export([call_me/1]).
@@ -32,7 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [test1,overwritten_fun,otp_7202,bif_fun,external].
+    [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,badarity].
 
 groups() -> 
     [].
@@ -196,6 +196,19 @@ external(Config) when is_list(Config) ->
 
 call_me(I) ->
     {ok,I}.
+
+eep37(Config) when is_list(Config) ->
+    F = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,
+    Add = fun _(N) -> N + 1 end,
+    UnusedName = fun BlackAdder(N) -> N + 42 end,
+    720 = F(6),
+    10 = Add(9),
+    50 = UnusedName(8),
+    ok.
+
+badarity(Config) when is_list(Config) ->
+    {'EXIT',{{badarity,{_,[]}},_}} = (catch (fun badarity/1)()),
+    ok.
 
 id(I) ->
     I.

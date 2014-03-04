@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -215,7 +215,7 @@
     <pre>-exit_status ignore_config</pre>
     
     <p>For more information about the <c>ct_run</c> program, see the
-      <seealso marker="ct_run#top">Reference Manual</seealso> and the
+      <seealso marker="ct_run">Reference Manual</seealso> and the
       <seealso marker="install_chapter#general">Installation</seealso> chapter.
     </p>
   </section>

@@ -209,8 +209,8 @@ int erts_is_allctr_wrapper_prelocked(void);
 void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size);
 
 #ifndef ERTS_CACHE_LINE_SIZE
-/* Assume a cache line size of 64 bytes */
-#  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
+/* Assumed cache line size */
+#  define ERTS_CACHE_LINE_SIZE ((UWord) ASSUMED_CACHE_LINE_SIZE)
 #  define ERTS_CACHE_LINE_MASK (ERTS_CACHE_LINE_SIZE - 1)
 #endif
 

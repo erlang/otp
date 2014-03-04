@@ -73,6 +73,8 @@
 ;;     M-x set-variable RET debug-on-error RET t RET
 ;;; Code:
 
+(eval-when-compile (require 'cl))
+
 ;; Variables:
 
 (defconst erlang-version "2.7"
@@ -620,7 +622,6 @@ resulting regexp is surrounded by \\_< and \\_>."
       "if"
       "let"
       "of"
-      "query"
       "receive"
       "try"
       "when")
@@ -663,6 +664,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "is_function"
       "is_integer"
       "is_list"
+      "is_map"
       "is_number"
       "is_pid"
       "is_port"
@@ -714,7 +716,8 @@ resulting regexp is surrounded by \\_< and \\_>."
       "pos_integer"
       "string"
       "term"
-      "timeout")
+      "timeout"
+      "map")
     "Erlang type specs types"))
 
 (eval-and-compile
@@ -771,6 +774,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "is_function"
       "is_integer"
       "is_list"
+      "is_map"
       "is_number"
       "is_pid"
       "is_port"
@@ -790,6 +794,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "list_to_tuple"
       "load_module"
       "make_ref"
+      "map_size"
       "max"
       "min"
       "module_loaded"
@@ -2565,9 +2570,9 @@ Value is list (stack token-start token-type in-what)."
 		 (erlang-pop stack))
 	       (if (and stack (memq (car (car stack)) '(icr begin fun try)))
 		   (erlang-pop stack))))
-	    ((looking-at "catch.*of")
+	    ((looking-at "catch\\b.*of")
 	     t)
-	    ((looking-at "catch\\s *\\($\\|%\\|.*->\\)")
+	    ((looking-at "catch\\b\\s *\\($\\|%\\|.*->\\)")
 	     ;; Must pop top icr layer, `catch' in try/catch
 	     ;;will push a new layer next.
 	     (progn
@@ -2600,18 +2605,24 @@ Value is list (stack token-start token-type in-what)."
 	     (if (save-excursion
 		   (goto-char (match-end 1))
 		   (erlang-skip-blank to)
+		   ;; Use erlang-variable-regexp here to look for an
+		   ;; optional variable name to match EEP37 named funs.
+		   (if (looking-at erlang-variable-regexp)
+		       (progn
+			 (goto-char (match-end 0))
+			 (erlang-skip-blank to)))
 		   (eq (following-char) ?\())
 		 (erlang-push (list 'fun token (current-column)) stack)))
-	    ((looking-at "\\(begin\\|query\\)[^_a-zA-Z0-9]")
+	    ((looking-at "\\(begin\\)[^_a-zA-Z0-9]")
 	     (erlang-push (list 'begin token (current-column)) stack))
 	    ;; Normal when case
 	    ;;((looking-at "when\\s ")
 	    ;;((looking-at "when\\s *\\($\\|%\\)")
 	    ((looking-at "when[^_a-zA-Z0-9]")
 	     (erlang-push (list 'when token (current-column)) stack))
-	    ((looking-at "catch.*of")
+	    ((looking-at "catch\\b.*of")
 	     t)
-	    ((looking-at "catch\\s *\\($\\|%\\|.*->\\)")
+	    ((looking-at "catch\\b\\s *\\($\\|%\\|.*->\\)")
 	     (erlang-push (list 'icr token (current-column)) stack))
 	    ;;(erlang-push (list '-> token (current-column)) stack))
 	    ;;((looking-at "^of$") 
@@ -2902,7 +2913,7 @@ Return nil if inside string, t if in a comment."
 			(if stack
 			    (erlang-caddr (car stack))
 			  0))
-		       ((looking-at "catch\\($\\|[^_a-zA-Z0-9]\\)")
+		       ((looking-at "catch\\b\\($\\|[^_a-zA-Z0-9]\\)")
 			;; Are we in a try
 			(let ((start (if (eq (car stack-top) '->)
 					 (car (cdr stack))
@@ -3038,7 +3049,7 @@ This assumes that the preceding expression is either simple
 \(i.e. an atom) or parenthesized."
   (save-excursion
     (or arg (setq arg 1))
-    (forward-sexp (- arg))
+    (ignore-errors (forward-sexp (- arg)))
     (let ((col (current-column)))
       (skip-chars-backward " \t")
       ;; Special hack to handle: (note line break)
@@ -3112,13 +3123,13 @@ This assumes that the preceding expression is either simple
 
 (defun erlang-at-keyword ()
   "Are we looking at an Erlang keyword which will increase indentation?"
-  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|query\\|"
-		      "of\\|receive\\|after\\|catch\\|try\\)[^_a-zA-Z0-9]")))
+  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|"
+		      "of\\|receive\\|after\\|catch\\|try\\)\\b")))
 
 (defun erlang-at-operator ()
   "Are we looking at an Erlang operator?"
   (looking-at
-   "\\(bnot\\|div\\|mod\\|band\\|bor\\|bxor\\|bsl\\|bsr\\)[^_a-zA-Z0-9]"))
+   "\\(bnot\\|div\\|mod\\|band\\|bor\\|bxor\\|bsl\\|bsr\\)\\b"))
 
 (defun erlang-comment-indent ()
   "Compute Erlang comment indentation.
@@ -3645,6 +3656,10 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
 			(setq cont nil))
 		       ((looking-at "\\s *\\($\\|%\\)")
 			(forward-line 1))
+		       ((looking-at "\\s *<<[^>]*?>>")
+			(when (zerop res)
+			  (setq res (+ 1 res)))
+			(goto-char (match-end 0)))
 		       ((looking-at "\\s *,")
 			(setq res (+ 1 res))
 			(goto-char (match-end 0)))
@@ -3926,7 +3941,7 @@ non-whitespace characters following the point on the current line."
   (self-insert-command arg)
 
   ;; Was this the second char in bit-syntax open (`<<')?
-  (unless (< (point) 2)
+  (unless (<= (point) 2)
     (save-excursion
       (backward-char 2)
       (when (and (eq (char-after (point)) ?<)
@@ -3947,7 +3962,7 @@ non-whitespace characters following the point on the current line."
 
 (defun erlang-after-bitsyntax-close ()
   "Return t if point is immediately after a bit-syntax close parenthesis (`>>')."
-  (and (>= (point) 2)
+  (and (>= (point) 3)
        (save-excursion
 	 (backward-char 2)
 	 (and (eq (char-after (point)) ?>)

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2012. All Rights Reserved.
+# Copyright Ericsson AB 2008-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -34,8 +34,9 @@ SO_EXT    = @SO_EXT@
 OBJC_CC=@OBJC_CC@
 OBJC_CFLAGS=@OBJC_CFLAGS@
 
-GENERAL     = wxe_driver wxe_ps_init wxe_impl wxePrintout wxe_return wxe_gl
-GENERAL_H   = wxe_driver.h wxe_impl.h wxe_return.h
+GENERAL     = wxe_driver wxe_ps_init wxe_main wxe_impl wxe_helpers wxe_callback_impl wxe_return wxe_gl
+GENERAL_H   = wxe_callback_impl.h  wxe_driver.h  wxe_events.h  wxe_gl.h \
+	wxe_helpers.h  wxe_impl.h  wxe_memory.h  wxe_return.h
 
 GENERATED_F = wxe_funcs wxe_events wxe_init
 GENERATED_H = gen/wxe_macros.h 
@@ -79,8 +80,8 @@ TARGET_DIR = ../priv/$(SYS_TYPE)
 COMMON_CFLAGS = @DEFS@ $(ERL_INCS) 
 
 CC		= @CC@
-CPP		= @CXX@
-LD		= $(CPP)
+CXX		= @CXX@
+LD		= $(CXX)
 LDFLAGS		= @LDFLAGS@
 RESCOMP		= @WX_RESCOMP@
 
@@ -110,7 +111,7 @@ GL_LIBS         = @GL_LIBS@
 
 CC_O		= $(V_CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
-CPP_O		= $(V_CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
+CXX_O		= $(V_CXX) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
 
 # Targets
 
@@ -140,7 +141,7 @@ $(WX_OBJECTS): $(GENERATED_H) $(GENERAL_H)
 
 $(SYS_TYPE)/%.o: %.cpp 
 	$(V_at)mkdir -p $(SYS_TYPE)
-	$(CPP_O) $< -o $@
+	$(CXX_O) $< -o $@
 
 $(SYS_TYPE)/%.o: %.c 
 	$(V_at)mkdir -p $(SYS_TYPE)
@@ -152,7 +153,7 @@ $(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c
 
 $(SYS_TYPE)/%.o: gen/%.cpp 
 	$(V_at)mkdir -p $(SYS_TYPE)
-	$(CPP_O) $< -o $@
+	$(CXX_O) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.c 
 	$(V_at)mkdir -p $(SYS_TYPE)

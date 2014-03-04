@@ -28,15 +28,15 @@
 
 main(_Rules) ->
     roundtrip('SetTR',
-	      #'SetTR'{'octStr' = "A string 1",
-		       'octStrI' = "A string 2",
-		       'octStrE' = "A string 3",
-		       'octStr-I' = "A string 4",
-		       'octStrI-I' = "A string 5",
-		       'octStrE-I' = "A string 6",
-		       'octStr-E' = "A string 7",
-		       'octStrI-E' = "A string 8",
-		       'octStrE-E' = "A string 9"}),
+	      #'SetTR'{'octStr' = <<"A string 1">>,
+		       'octStrI' = <<"A string 2">>,
+		       'octStrE' = <<"A string 3">>,
+		       'octStr-I' = <<"A string 4">>,
+		       'octStrI-I' = <<"A string 5">>,
+		       'octStrE-I' = <<"A string 6">>,
+		       'octStr-E' = <<"A string 7">>,
+		       'octStrI-E' = <<"A string 8">>,
+		       'octStrE-E' = <<"A string 9">>}),
     ok.
 
 roundtrip(T, V) ->

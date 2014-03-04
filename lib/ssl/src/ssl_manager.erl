@@ -167,27 +167,27 @@ clean_cert_db(Ref, File) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec register_session(inet:port_number(), #session{}) -> ok.
--spec register_session(host(), inet:port_number(), #session{}) -> ok.
 %%
 %% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
+-spec register_session(host(), inet:port_number(), #session{}) -> ok.
 register_session(Host, Port, Session) ->
     cast({register_session, Host, Port, Session}).
 
+-spec register_session(inet:port_number(), #session{}) -> ok.
 register_session(Port, Session) ->
     cast({register_session, Port, Session}).
 %%--------------------------------------------------------------------
--spec invalidate_session(inet:port_number(), #session{}) -> ok.
--spec invalidate_session(host(), inet:port_number(), #session{}) -> ok.
 %%
 %% Description: Make the session unavailable for reuse. After
 %% a the session has been marked "is_resumable = false" for some while
 %% it will be safe to remove the data from the session database.
 %%--------------------------------------------------------------------
+-spec invalidate_session(host(), inet:port_number(), #session{}) -> ok.
 invalidate_session(Host, Port, Session) ->
     cast({invalidate_session, Host, Port, Session}).
 
+-spec invalidate_session(inet:port_number(), #session{}) -> ok.
 invalidate_session(Port, Session) ->
     cast({invalidate_session, Port, Session}).
 

@@ -56,11 +56,29 @@
 	 pre_init_per_testcase/3,
 	 post_end_per_testcase/4]).
 
+%%----------------------------------------------------------------------
+%% Exported types
+%%----------------------------------------------------------------------
+-export_type([hook_options/0,
+	      log_type/0,
+	      conn_mod/0]).
+
+%%----------------------------------------------------------------------
+%% Type declarations
+%%----------------------------------------------------------------------
+-type hook_options() :: [hook_option()].
+%% Options that can be given to `cth_conn_log' in the `ct_hook' statement.
+-type hook_option() :: {log_type,log_type()} |
+		       {hosts,[ct_gen_conn:key_or_name()]}.
+-type log_type() :: raw | pretty | html | silent.
+-type conn_mod() :: ct_netconfc | ct_telnet.
+%%----------------------------------------------------------------------
+
 -spec init(Id, HookOpts) -> Result when
       Id :: term(),
-      HookOpts :: ct_netconfc:hook_options(),
-      Result :: {ok,[{ct_netconfc:conn_mod(),
-		      {ct_netconfc:log_type(),[ct_netconfc:key_or_name()]}}]}.
+      HookOpts :: hook_options(),
+      Result :: {ok,[{conn_mod(),
+		      {log_type(),[ct_gen_conn:key_or_name()]}}]}.
 init(_Id, HookOpts) ->
     ConfOpts = ct:get_config(ct_conn_log,[]),
     {ok,merge_log_info(ConfOpts,HookOpts)}.
@@ -86,7 +104,8 @@ get_log_opts(Opts) ->
 pre_init_per_testcase(TestCase,Config,CthState) ->
     Logs =
 	lists:map(
-	  fun({ConnMod,{LogType,Hosts}}) ->
+	  fun({ConnMod,{LogType,Hosts}}) ->		  
+		  ct_util:set_testdata({{?MODULE,ConnMod},LogType}),
 		  case LogType of
 		      LogType when LogType==raw; LogType==pretty ->
 			  Dir = ?config(priv_dir,Config),
@@ -117,9 +136,44 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
 		  end
 	  end,
 	  CthState),
-    error_logger:add_report_handler(ct_conn_log_h,{group_leader(),Logs}),
+
+    GL = group_leader(),
+    Update =
+	fun(Init) when Init == undefined; Init == [] ->
+		error_logger:add_report_handler(ct_conn_log_h,{GL,Logs}),
+		[TestCase];
+	   (PrevUsers) ->
+		error_logger:info_report(update,{GL,Logs}),
+		receive
+		    {updated,GL} ->
+			[TestCase|PrevUsers]
+		after
+		    5000 ->
+			{error,no_response}
+		end
+	end,
+    ct_util:update_testdata(?MODULE, Update, [create]),
     {Config,CthState}.
 
-post_end_per_testcase(_TestCase,_Config,Return,CthState) ->
-    error_logger:delete_report_handler(ct_conn_log_h),
+post_end_per_testcase(TestCase,_Config,Return,CthState) ->
+    Update =
+	fun(PrevUsers) ->
+		case lists:delete(TestCase, PrevUsers) of
+		    [] ->
+			'$delete';
+		    PrevUsers1 ->
+			PrevUsers1
+		end
+	end,
+    case ct_util:update_testdata(?MODULE, Update) of
+	deleted ->
+	    [ct_util:delete_testdata({?MODULE,ConnMod}) ||
+		{ConnMod,_} <- CthState],
+	    error_logger:delete_report_handler(ct_conn_log_h);
+	{error,no_response} ->
+	    exit({?MODULE,no_response_from_logger});
+	_PrevUsers ->
+	    ok
+    end,
     {Return,CthState}.
+

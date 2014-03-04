@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1509,7 +1509,7 @@ family_projection(SetFun, F) when ?IS_SET(F) ->
 %%%
 
 -spec(family_to_digraph(Family) -> Graph when
-      Graph :: digraph(),
+      Graph :: digraph:graph(),
       Family :: family()).
 family_to_digraph(F) when ?IS_SET(F) ->
     case ?TYPE(F) of
@@ -1519,7 +1519,7 @@ family_to_digraph(F) when ?IS_SET(F) ->
     end.
 
 -spec(family_to_digraph(Family, GraphType) -> Graph when
-      Graph :: digraph(),
+      Graph :: digraph:graph(),
       Family :: family(),
       GraphType :: [digraph:d_type()]).
 family_to_digraph(F, Type) when ?IS_SET(F) ->
@@ -1541,7 +1541,7 @@ family_to_digraph(F, Type) when ?IS_SET(F) ->
     end.
 
 -spec(digraph_to_family(Graph) -> Family when
-      Graph :: digraph(),
+      Graph :: digraph:graph(),
       Family :: family()).
 digraph_to_family(G) ->
     case catch digraph_family(G) of
@@ -1550,7 +1550,7 @@ digraph_to_family(G) ->
     end.
 
 -spec(digraph_to_family(Graph, Type) -> Family when
-      Graph :: digraph(),
+      Graph :: digraph:graph(),
       Family :: family(),
       Type :: type()).
 digraph_to_family(G, T) ->

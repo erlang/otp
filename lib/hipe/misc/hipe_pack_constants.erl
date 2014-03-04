@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -198,7 +198,7 @@ compact_dests([], Dest, AccofDest, Acc) ->
 slim_constmap(Map) ->
   slim_constmap(Map, gb_sets:new(), []).
 
--spec slim_constmap([#pcm_entry{}], gb_set(), [raw_data()]) -> [raw_data()].
+-spec slim_constmap([#pcm_entry{}], gb_sets:set(), [raw_data()]) -> [raw_data()].
 slim_constmap([#pcm_entry{const_num=ConstNo, start=Offset,
 			  type=Type, raw_data=Term}|Rest], Inserted, Acc) ->
   case gb_sets:is_member(ConstNo, Inserted) of

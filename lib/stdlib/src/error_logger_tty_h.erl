@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,7 @@ init([]) ->
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
 handle_event(Event, State) ->
-    write_event(tag_event(Event),io),
+    ok = write_event(tag_event(Event),io),
     {ok, State}.
 
 handle_info({'EXIT', User, _Reason}, {User, PrevHandler}) ->
@@ -66,10 +66,10 @@ handle_info({'EXIT', User, _Reason}, {User, PrevHandler}) ->
 	     PrevHandler, go_back}
     end;
 handle_info({emulator, GL, Chars}, State) when node(GL) == node() ->
-    write_event(tag_event({emulator, GL, Chars}),io),
+    ok = write_event(tag_event({emulator, GL, Chars}),io),
     {ok, State};
 handle_info({emulator, noproc, Chars}, State) ->
-    write_event(tag_event({emulator, noproc, Chars}),io),
+    ok = write_event(tag_event({emulator, noproc, Chars}),io),
     {ok, State};
 handle_info(_, State) ->
     {ok, State}.
@@ -99,10 +99,11 @@ set_group_leader() ->
 tag_event(Event) ->    
     {erlang:universaltime(), Event}.
 
+%% IOMOd is always 'io'
 write_events(Events,IOMod) -> write_events1(lists:reverse(Events),IOMod).
 
 write_events1([Event|Es],IOMod) ->
-    write_event(Event,IOMod),
+    ok = write_event(Event,IOMod),
     write_events1(Es,IOMod);
 write_events1([],_IOMod) ->
     ok.

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE cref SYSTEM "cref.dtd">
 
 <cref>
@@ -395,16 +395,17 @@
 	<c><![CDATA[<utilization>]]></c> is an integer in the range
 	<c>[0, 100]</c> representing utilization in percent. When a
 	utilization value larger than zero is used, allocator instances
-	are allowed to abandon multiblock carriers. Currently the default
-	is zero. If <c>de</c> (default enabled) is passed instead of a
-	<c><![CDATA[<utilization>]]></c>, a recomended non zero utilization
-	value will be used. The actual value chosen depend on allocator
-	type and may be changed between ERTS versions. Carriers will be
-	abandoned when memory utilization in the allocator instance falls
-	below the utilization value used. Once a carrier has been abandoned,
-	no new allocations will be made in it. When an allocator instance
-	gets an increased multiblock carrier need, it will first try to
-	fetch an abandoned carrier from an allocator instances of the same
+	are allowed to abandon multiblock carriers. If <c>de</c> (default
+	enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
+	a recomended non zero utilization value will be used. The actual
+	value chosen depend on allocator type and may be changed between
+	ERTS versions. Currently the default equals <c>de</c>, but this
+	may be changed in the future. Carriers will be abandoned when
+	memory utilization in the allocator instance falls below the
+	utilization value used. Once a carrier has been abandoned, no new
+	allocations will be made in it. When an allocator instance gets an
+	increased multiblock carrier need, it will first try to fetch an
+	abandoned carrier from an allocator instances of the same
 	allocator type. If no abandoned carrier could be fetched, it will
 	create a new empty carrier. When an abandoned carrier has been
 	fetched it will function as an ordinary carrier. This feature has

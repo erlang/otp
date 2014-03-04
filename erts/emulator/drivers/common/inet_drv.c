@@ -86,6 +86,13 @@
 #endif
 typedef unsigned long long llu_t;
 
+#ifndef INT16_MIN
+#define INT16_MIN (-32768)
+#endif
+#ifndef INT16_MAX
+#define INT16_MAX (32767)
+#endif
+
 #ifdef __WIN32__
 #define  STRNCASECMP strncasecmp
 
@@ -113,6 +120,10 @@ typedef unsigned long long llu_t;
 
 #undef WANT_NONBLOCKING
 #include "sys.h"
+
+#ifdef __OSE__
+#include "inet.h"
+#endif
 
 #undef EWOULDBLOCK
 #undef ETIMEDOUT
@@ -282,7 +293,111 @@ static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
 static unsigned long zero_value = 0;
 static unsigned long one_value = 1;
 
-#else /* #ifdef __WIN32__ */
+#elif defined (__OSE__)
+#include "sys/socket.h"
+#include "sys/uio.h"
+#include "sfk/sys/sfk_uio.h"
+#include "netinet/in.h"
+#include "netinet/tcp.h"
+#include "netdb.h"
+
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
+{
+   return 0;
+}
+
+#define INVALID_SOCKET -1
+#define INVALID_EVENT  -1
+#define SOCKET_ERROR   -1
+
+#define SOCKET int
+#define HANDLE long int
+#define FD_READ    ERL_DRV_READ
+#define FD_WRITE   ERL_DRV_WRITE
+#define FD_CLOSE   0
+#define FD_CONNECT ERL_DRV_WRITE
+#define FD_ACCEPT  ERL_DRV_READ
+
+#define sock_connect(s, addr, len)  connect((s), (addr), (len))
+#define sock_listen(s, b)           listen((s), (b))
+#define sock_bind(s, addr, len)     bind((s), (addr), (len))
+#define sock_getopt(s,t,n,v,l)      getsockopt((s),(t),(n),(v),(l))
+#define sock_setopt(s,t,n,v,l)      setsockopt((s),(t),(n),(v),(l))
+#define sock_name(s, addr, len)     getsockname((s), (addr), (len))
+#define sock_peer(s, addr, len)     getpeername((s), (addr), (len))
+#define sock_ntohs(x)               ntohs((x))
+#define sock_ntohl(x)               ntohl((x))
+#define sock_htons(x)               htons((x))
+#define sock_htonl(x)               htonl((x))
+
+#define sock_accept(s, addr, len)   accept((s), (addr), (len))
+#define sock_send(s,buf,len,flag)   inet_send((s),(buf),(len),(flag))
+#define sock_sendto(s,buf,blen,flag,addr,alen) \
+                sendto((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_sendv(s, vec, size, np, flag) \
+		(*(np) = writev((s), (struct iovec*)(vec), (size)))
+#define sock_sendmsg(s,msghdr,flag) sendmsg((s),(msghdr),(flag))
+
+#define sock_open(af, type, proto)  socket((af), (type), (proto))
+#define sock_close(s)               close((s))
+#define sock_shutdown(s, how)       shutdown((s), (how))
+
+#define sock_hostname(buf, len)     gethostname((buf), (len))
+#define sock_getservbyname(name,proto) getservbyname((name), (proto))
+#define sock_getservbyport(port,proto) getservbyport((port), (proto))
+
+#define sock_recv(s,buf,len,flag)   recv((s),(buf),(len),(flag))
+#define sock_recvfrom(s,buf,blen,flag,addr,alen) \
+                recvfrom((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_recvmsg(s,msghdr,flag) recvmsg((s),(msghdr),(flag))
+
+#define sock_errno()                errno
+#define sock_create_event(d)        ((d)->s) /* return file descriptor */
+#define sock_close_event(e)                  /* do nothing */
+
+#define inet_driver_select(port, e, mode, on) \
+                                    driver_select(port, e, mode | (on?ERL_DRV_USE:0), on)
+
+#define sock_select(d, flags, onoff) do { \
+        ASSERT(!(d)->is_ignored); \
+        (d)->event_mask = (onoff) ? \
+                 ((d)->event_mask | (flags)) : \
+                 ((d)->event_mask & ~(flags)); \
+        DEBUGF(("sock_select(%ld): flags=%02X, onoff=%d, event_mask=%02lX\r\n", \
+		(long) (d)->port, (flags), (onoff), (unsigned long) (d)->event_mask)); \
+        inet_driver_select((d)->port, (ErlDrvEvent)(long)(d)->event, (flags), (onoff)); \
+   } while(0)
+
+#ifndef WANT_NONBLOCKING
+#define WANT_NONBLOCKING
+#endif
+#include "sys.h"
+
+typedef unsigned long  u_long;
+#define  IN_CLASSA(a)      ((((in_addr_t)(a)) & 0x80000000) == 0)
+#define  IN_CLASSA_NET     0xff000000
+#define  IN_CLASSA_NSHIFT  24
+#define  IN_CLASSA_HOST    (0xffffffff & ~IN_CLASSA_NET)
+#define  IN_CLASSA_MAX     128
+
+#define  IN_CLASSB(a)      ((((in_addr_t)(a)) & 0xc0000000) == 0x80000000)
+#define  IN_CLASSB_NET     0xffff0000
+#define  IN_CLASSB_NSHIFT  16
+#define  IN_CLASSB_HOST    (0xffffffff & ~IN_CLASSB_NET)
+#define  IN_CLASSB_MAX     65536
+
+#define  IN_CLASSC(a)      ((((in_addr_t)(a)) & 0xe0000000) == 0xc0000000)
+#define  IN_CLASSC_NET     0xffffff00
+#define  IN_CLASSC_NSHIFT  8
+#define  IN_CLASSC_HOST    (0xffffffff & ~IN_CLASSC_NET)
+
+#define  IN_CLASSD(a)      ((((in_addr_t)(a)) & 0xf0000000) == 0xe0000000)
+#define  IN_MULTICAST(a)      IN_CLASSD(a)
+
+#define  IN_EXPERIMENTAL(a)   ((((in_addr_t)(a)) & 0xe0000000) == 0xe0000000)
+#define  IN_BADCLASS(a)    ((((in_addr_t)(a)) & 0xf0000000) == 0xf0000000)
+
+#else /* !__OSE__ && !__WIN32__ */
 
 #include <sys/time.h>
 #ifdef NETDB_H_NEEDS_IN_H
@@ -612,6 +727,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_PASSIVE        0  /* false */
 #define INET_ACTIVE         1  /* true */
 #define INET_ONCE           2  /* true; active once then passive */
+#define INET_MULTI          3  /* true; active N then passive */
 
 /* INET_REQ_GETSTATUS enumeration */
 #define INET_F_OPEN         0x0001
@@ -846,9 +962,10 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_IFNAMSIZ          16
 
 /* INET Ignore states */
-#define INET_IGNORE_NONE 0
-#define INET_IGNORE_READ 1
-#define INET_IGNORE_WRITE 1 << 1
+#define INET_IGNORE_NONE    0
+#define INET_IGNORE_READ    (1 << 0)
+#define INET_IGNORE_WRITE   (1 << 1)
+#define INET_IGNORE_PASSIVE (1 << 2)
 
 /* Max length of Erlang Term Buffer (for outputting structured terms):  */
 #ifdef  HAVE_SCTP
@@ -958,6 +1075,7 @@ typedef struct {
     inet_async_op  op_queue[INET_MAX_ASYNC];  /* call queue */
 
     int   active;               /* 0 = passive, 1 = active, 2 = active once */
+    Sint16 active_count;        /* counter for {active,N} */
     int   stype;                /* socket type:
 				    SOCK_STREAM/SOCK_DGRAM/SOCK_SEQPACKET   */
     int   sprotocol;            /* socket protocol:
@@ -1193,22 +1311,36 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event);
 static int async_ref = 0;          /* async reference id generator */
 #define NEW_ASYNC_ID() ((async_ref++) & 0xffff)
 
+/* check for transition from active to passive */
+#define INET_CHECK_ACTIVE_TO_PASSIVE(inet)                              \
+    do {                                                                \
+        if ((inet)->active == INET_ONCE)                                \
+            (inet)->active = INET_PASSIVE;                              \
+        else if ((inet)->active == INET_MULTI && --((inet)->active_count) == 0) { \
+            (inet)->active = INET_PASSIVE;                              \
+            packet_passive_message(inet);                               \
+        }                                                               \
+    } while (0)
 
 static ErlDrvTermData am_ok;
 static ErlDrvTermData am_tcp;
 static ErlDrvTermData am_udp;
 static ErlDrvTermData am_error;
+static ErlDrvTermData am_einval;
 static ErlDrvTermData am_inet_async;
 static ErlDrvTermData am_inet_reply;
 static ErlDrvTermData am_timeout;
 static ErlDrvTermData am_closed;
+static ErlDrvTermData am_tcp_passive;
 static ErlDrvTermData am_tcp_closed;
 static ErlDrvTermData am_tcp_error;
+static ErlDrvTermData am_udp_passive;
 static ErlDrvTermData am_udp_error;
 static ErlDrvTermData am_empty_out_q;
 static ErlDrvTermData am_ssl_tls;
 #ifdef HAVE_SCTP
 static ErlDrvTermData am_sctp;
+static ErlDrvTermData am_sctp_passive;
 static ErlDrvTermData am_sctp_error;
 static ErlDrvTermData am_true;
 static ErlDrvTermData am_false;
@@ -1218,6 +1350,7 @@ static ErlDrvTermData am_list;
 static ErlDrvTermData am_binary;
 static ErlDrvTermData am_active;
 static ErlDrvTermData am_once;
+static ErlDrvTermData am_multi;
 static ErlDrvTermData am_buffer;
 static ErlDrvTermData am_linger;
 static ErlDrvTermData am_recbuf;
@@ -1466,8 +1599,8 @@ static int load_ip_and_port
     unsigned int alen = len;
     char         abuf  [len];
     int res = inet_get_address(abuf, (inet_address*) addr, &alen);
-    ASSERT(res==0);
-    res = 0;
+    ASSERT(res==0); (void)res;
+
     /* Now "abuf" contains: Family(1b), Port(2b), IP(4|16b) */
 
     /* NB: the following functions are safe to use, as they create tuples
@@ -3368,6 +3501,34 @@ static int packet_binary_message
 }
 
 /*
+** active mode message: send active-to-passive transition message
+**        {tcp_passive, S} or
+**        {udp_passive, S} or
+**        {sctp_passive, S}
+*/
+ static int packet_passive_message(inet_descriptor* desc)
+ {
+     ErlDrvTermData spec[6];
+     int i = 0;
+
+     DEBUGF(("packet_passive_message(%ld):\r\n", (long)desc->port));
+
+     if (desc->sprotocol == IPPROTO_TCP)
+         i = LOAD_ATOM(spec, i, am_tcp_passive);
+     else {
+#ifdef HAVE_SCTP
+         i = LOAD_ATOM(spec, i, IS_SCTP(desc) ? am_sctp_passive : am_udp_passive);
+#else
+         i = LOAD_ATOM(spec, i, am_udp_passive);
+#endif
+     }
+     i = LOAD_PORT(spec, i, desc->dport);
+     i = LOAD_TUPLE(spec, i, 2);
+     ASSERT(i <= 6);
+     return erl_drv_output_term(desc->dport, spec, i);
+ }
+
+/*
 ** send active message {udp_error|sctp_error, S, Error}
 */
 static int packet_error_message(udp_descriptor* udesc, int err)
@@ -3409,7 +3570,7 @@ static int tcp_reply_data(tcp_descriptor* desc, char* buf, int len)
     int code;
     const char* body = buf;
     int bodylen = len;
-    
+
     packet_get_body(desc->inet.htype, &body, &bodylen);
 
     if (desc->inet.deliver == INET_DELIVER_PORT) {
@@ -3427,8 +3588,7 @@ static int tcp_reply_data(tcp_descriptor* desc, char* buf, int len)
 
     if (code < 0)
 	return code;
-    if (desc->inet.active == INET_ONCE)
-	desc->inet.active = INET_PASSIVE;
+    INET_CHECK_ACTIVE_TO_PASSIVE(INETP(desc));
     return code;
 }
 
@@ -3455,8 +3615,7 @@ tcp_reply_binary_data(tcp_descriptor* desc, ErlDrvBinary* bin, int offs, int len
     }
     if (code < 0)
 	return code;
-    if (desc->inet.active == INET_ONCE)
-	desc->inet.active = INET_PASSIVE;
+    INET_CHECK_ACTIVE_TO_PASSIVE(INETP(desc));
     return code;
 }
 
@@ -3479,8 +3638,7 @@ packet_reply_binary_data(inet_descriptor* desc, unsigned  int hsz,
 	    code = packet_binary_message(desc, bin, offs, len, extra);
 	if (code < 0)
 	    return code;
-	if (desc->active == INET_ONCE)
-	    desc->active = INET_PASSIVE;
+        INET_CHECK_ACTIVE_TO_PASSIVE(desc);
 	return code;
     }
 }
@@ -3525,6 +3683,7 @@ sock_init(void) /* May be called multiple times. */
 #ifdef HAVE_SCTP
 static void inet_init_sctp(void) {
     INIT_ATOM(sctp);
+    INIT_ATOM(sctp_passive);
     INIT_ATOM(sctp_error);
     INIT_ATOM(true);
     INIT_ATOM(false);
@@ -3534,6 +3693,7 @@ static void inet_init_sctp(void) {
     INIT_ATOM(binary);
     INIT_ATOM(active);
     INIT_ATOM(once);
+    INIT_ATOM(multi);
     INIT_ATOM(buffer);
     INIT_ATOM(linger);
     INIT_ATOM(recbuf);
@@ -3659,12 +3819,15 @@ static int inet_init()
     INIT_ATOM(tcp);
     INIT_ATOM(udp);
     INIT_ATOM(error);
+    INIT_ATOM(einval);
     INIT_ATOM(inet_async);
     INIT_ATOM(inet_reply);
     INIT_ATOM(timeout);
     INIT_ATOM(closed);
+    INIT_ATOM(tcp_passive);
     INIT_ATOM(tcp_closed);
     INIT_ATOM(tcp_error);
+    INIT_ATOM(udp_passive);
     INIT_ATOM(udp_error);
     INIT_ATOM(empty_out_q);
     INIT_ATOM(ssl_tls);
@@ -5652,8 +5815,25 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	case INET_LOPT_ACTIVE:
 	    DEBUGF(("inet_set_opts(%ld): s=%d, ACTIVE=%d\r\n",
-		    (long)desc->port, desc->s,ival));
+		    (long)desc->port, desc->s, ival));
 	    desc->active = ival;
+            if (desc->active == INET_MULTI) {
+                long ac = desc->active_count;
+                Sint16 nval = get_int16(ptr);
+                ptr += 2;
+                len -= 2;
+                ac += nval;
+                if (ac > INT16_MAX || ac < INT16_MIN)
+                    return -1;
+                desc->active_count += nval;
+                if (desc->active_count < 0)
+                    desc->active_count = 0;
+                if (desc->active_count == 0) {
+                    desc->active = INET_PASSIVE;
+                    packet_passive_message(desc);
+                }
+            } else
+                desc->active_count = 0;
 	    if ((desc->stype == SOCK_STREAM) && (desc->active != INET_PASSIVE) && 
 		(desc->state == INET_STATE_CLOSED)) {
 		tcp_closed_message((tcp_descriptor *) desc);
@@ -5964,7 +6144,8 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		/* XXX fprintf(stderr,"desc->htype == %d, old_htype == %d, 
 		   desc->active == %d, old_active == %d\r\n",(int)desc->htype, 
 		   (int) old_htype, (int) desc->active, (int) old_active );*/
-		return 1+(desc->htype == old_htype && desc->active == INET_ONCE);
+		return 1+(desc->htype == old_htype &&
+                          (desc->active == INET_ONCE || desc->active == INET_MULTI));
 	    }
 	    return 0;
 	}
@@ -6097,6 +6278,21 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	case INET_LOPT_ACTIVE:
 	    desc->active = get_int32(curr);		curr += 4;
+            if (desc->active == INET_MULTI) {
+                long ac = desc->active_count;
+                Sint16 nval = get_int16(curr);          curr += 2;
+		ac += nval;
+                if (ac > INT16_MAX || ac < INT16_MIN)
+                    return -1;
+                desc->active_count += nval;
+                if (desc->active_count < 0)
+                    desc->active_count = 0;
+                if (desc->active_count == 0) {
+                    desc->active = INET_PASSIVE;
+                    packet_passive_message(desc);
+                }
+            } else
+                desc->active_count = 0;
 	    res = 0;
 	    continue;
 
@@ -6619,6 +6815,11 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	case INET_LOPT_ACTIVE:
 	    *ptr++ = opt;
 	    put_int32(desc->active, ptr);
+            if (desc->active == INET_MULTI) {
+                PLACE_FOR(2,ptr);
+                put_int16(desc->active_count, ptr);
+                ptr += 2;
+            }
 	    continue;
 	case INET_LOPT_PACKET:
 	    *ptr++ = opt;
@@ -6991,7 +7192,10 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	}
 	case INET_LOPT_ACTIVE:
 	{
-	    PLACE_FOR(spec, i, 2*LOAD_ATOM_CNT + LOAD_TUPLE_CNT);
+            if (desc->active == INET_MULTI)
+                PLACE_FOR(spec, i, LOAD_ATOM_CNT + LOAD_INT_CNT + LOAD_TUPLE_CNT);
+            else
+                PLACE_FOR(spec, i, 2*LOAD_ATOM_CNT + LOAD_TUPLE_CNT);
 	    i = LOAD_ATOM (spec, i, am_active);
 	    switch (desc->active)
 	    {
@@ -7003,6 +7207,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 
 		case INET_ONCE   :
 		{ i = LOAD_ATOM (spec, i, am_once);  break; }
+
+                case INET_MULTI  :
+                { i = LOAD_INT(spec, i, desc->active_count); break; }
 
 		default: ASSERT (0);
 	    }
@@ -7800,6 +8007,7 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
 					  socket */
     desc->deliver = INET_DELIVER_TERM; /* standard term format */
     desc->active  = INET_PASSIVE;      /* start passive */
+    desc->active_count = 0;
     desc->oph = NULL;
     desc->opt = NULL;
 
@@ -8208,11 +8416,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
       if (*buf == 1 && !desc->is_ignored) {
 	  sock_select(desc, (FD_READ|FD_WRITE|FD_CLOSE|ERL_DRV_USE_NO_CALLBACK), 0);
-	  desc->is_ignored = INET_IGNORE_READ;
+	  if (desc->active)
+	    desc->is_ignored = INET_IGNORE_READ;
+	  else
+	    desc->is_ignored = INET_IGNORE_PASSIVE;
       } else if (*buf == 0 && desc->is_ignored) {
-	  int flags = (FD_READ|FD_CLOSE|((desc->is_ignored & INET_IGNORE_WRITE)?FD_WRITE:0));
+	  int flags = FD_CLOSE;
+	  if (desc->is_ignored & INET_IGNORE_READ)
+	    flags |= FD_READ;
+	  if (desc->is_ignored & INET_IGNORE_WRITE)
+	    flags |= FD_WRITE;
 	  desc->is_ignored = INET_IGNORE_NONE;
-	  sock_select(desc, flags, 1);
+	  if (flags != FD_CLOSE)
+	    sock_select(desc, flags, 1);
       } else
 	  return ctl_error(EINVAL, rbuf, rsize);
 
@@ -8889,6 +9105,8 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 		    driver_set_timer(desc->inet.port, timeout);
 		if (!INETP(desc)->is_ignored)
 		    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
+		else
+		  INETP(desc)->is_ignored |= INET_IGNORE_READ;
 	    }
 	}
 	return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);

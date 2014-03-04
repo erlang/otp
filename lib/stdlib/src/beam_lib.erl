@@ -904,7 +904,7 @@ call_crypto_server(Req) ->
     end.
 
 call_crypto_server_1(Req) ->
-    gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []),
+    {ok, _} = gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []),
     erlang:yield(),
     call_crypto_server(Req).
 

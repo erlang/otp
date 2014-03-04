@@ -1,7 +1,7 @@
 %% =====================================================================
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -182,7 +182,7 @@
 -type label()   :: integer() | 'external' | 'top'.
 -type ordset(X) :: [X].  % XXX: TAKE ME OUT
 
--spec annotate(cerl:cerl()) -> {cerl:cerl(), ordset(label()), dict()}.
+-spec annotate(cerl:cerl()) -> {cerl:cerl(), ordset(label()), dict:dict()}.
 
 annotate(Tree) ->
     {Esc0, Vars} = analyze(Tree),

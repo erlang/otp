@@ -73,7 +73,7 @@ to_atom(Str) ->
 	    error
     end.
 
-match(Prefix, Alts, Extra) ->
+match(Prefix, Alts, Extra0) ->
     Len = length(Prefix),
     Matches = lists:sort(
 		[{S, A} || {H, A} <- Alts,
@@ -89,7 +89,11 @@ match(Prefix, Alts, Extra) ->
  		    {yes, Remain, []}
  	    end;
  	{complete, Str} ->
- 	    {yes, nthtail(Len, Str) ++ Extra, []};
+	    Extra = case {Extra0,Matches} of
+			{"(",[{Str,0}]} -> "()";
+			{_,_} -> Extra0
+		    end,
+	    {yes, nthtail(Len, Str) ++ Extra, []};
  	no ->
  	    {no, [], []}
     end.

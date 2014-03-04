@@ -120,7 +120,17 @@
 	 update_c_bitstr/5, update_c_bitstr/6, ann_c_bitstr/5,
 	 ann_c_bitstr/6, is_c_bitstr/1, bitstr_val/1, bitstr_size/1,
 	 bitstr_bitsize/1, bitstr_unit/1, bitstr_type/1,
-	 bitstr_flags/1]).
+	 bitstr_flags/1,
+
+	 %% keep map exports here for now
+	 map_es/1,
+	 map_val/1,
+	 update_c_map/3,
+	 ann_c_map/3,
+	 map_pair_op/1,map_pair_key/1,map_pair_val/1,
+	 update_c_map_pair/4,
+	 ann_c_map_pair/4
+     ]).
 
 -export_type([c_binary/0, c_call/0, c_clause/0, c_cons/0, c_fun/0, c_literal/0,
               c_module/0, c_tuple/0, c_values/0, c_var/0, cerl/0, var_name/0]).
@@ -145,6 +155,8 @@
 -type c_let()     :: #c_let{}.
 -type c_letrec()  :: #c_letrec{}.
 -type c_literal() :: #c_literal{}.
+-type c_map()     :: #c_map{}.
+-type c_map_pair() :: #c_map_pair{}.
 -type c_module()  :: #c_module{}.
 -type c_primop()  :: #c_primop{}.
 -type c_receive() :: #c_receive{}.
@@ -155,9 +167,10 @@
 -type c_var()     :: #c_var{}.
 
 -type cerl() :: c_alias()  | c_apply()  | c_binary()  | c_bitstr()
-              | c_call()   | c_case()   | c_catch()   | c_clause() | c_cons()
+              | c_call()   | c_case()   | c_catch()   | c_clause()  | c_cons()
               | c_fun()    | c_let()    | c_letrec()  | c_literal()
-              | c_module() | c_primop() | c_receive() | c_seq()
+	      | c_map()    | c_map_pair()
+	      | c_module() | c_primop() | c_receive() | c_seq()
               | c_try()    | c_tuple()  | c_values()  | c_var().
 
 %% =====================================================================
@@ -250,8 +263,8 @@
 
 -type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst'  | 'call'  | 'case'
                | 'catch'   | 'clause' | 'cons'   | 'fun'     | 'let'  | 'letrec'
-               | 'literal' | 'module' | 'primop' | 'receive' | 'seq'   | 'try' 
-               | 'tuple'   | 'values' |  'var'.
+               | 'literal' | 'map'    | 'module' | 'primop'  | 'receive' | 'seq'
+	       | 'try'     | 'tuple'  | 'values' |  'var'.
 
 -spec type(cerl()) -> ctype().
 
@@ -268,6 +281,8 @@ type(#c_fun{}) -> 'fun';
 type(#c_let{}) -> 'let';
 type(#c_letrec{}) -> letrec;
 type(#c_literal{}) -> literal;
+type(#c_map{}) -> map;
+type(#c_map_pair{}) -> map_pair;
 type(#c_module{}) -> module;
 type(#c_primop{}) -> primop;
 type(#c_receive{}) -> 'receive';
@@ -1555,6 +1570,38 @@ ann_make_list(As, [], none) ->
     ann_c_nil(As);
 ann_make_list(_, [], Node) ->
     Node.
+
+
+%% ---------------------------------------------------------------------
+%% maps
+
+-spec map_es(c_map()) -> [cerl()].
+
+map_es(#c_map{es = Es}) ->
+    Es.
+
+-spec map_val(c_map()) -> cerl().
+map_val(#c_map{var = M}) ->
+    M.
+
+ann_c_map(As,M,Es) ->
+    #c_map{var=M,es = Es, anno = As }.
+
+update_c_map(Old,M,Es) ->
+    #c_map{var=M, es = Es, anno = get_ann(Old)}.
+
+map_pair_key(#c_map_pair{key=K}) -> K.
+map_pair_val(#c_map_pair{val=V}) -> V.
+map_pair_op(#c_map_pair{op=Op}) -> Op.
+
+-spec ann_c_map_pair([term()], cerl(), cerl(), cerl()) ->
+        c_map_pair().
+
+ann_c_map_pair(As,Op,K,V) ->
+    #c_map_pair{op=Op, key = K, val=V, anno = As}.
+
+update_c_map_pair(Old,Op,K,V) ->
+    #c_map_pair{op=Op, key=K, val=V, anno = get_ann(Old)}.
 
 
 %% ---------------------------------------------------------------------
@@ -2945,6 +2992,10 @@ pat_vars(Node, Vs) ->
 	    pat_vars(cons_hd(Node), pat_vars(cons_tl(Node), Vs));
 	tuple ->
 	    pat_list_vars(tuple_es(Node), Vs);
+	map ->
+	    pat_list_vars(map_es(Node), Vs);
+	map_pair ->
+	    pat_list_vars([map_pair_op(Node),map_pair_key(Node),map_pair_val(Node)],Vs);
 	binary ->
 	    pat_list_vars(binary_segments(Node), Vs);
 	bitstr ->
@@ -3803,7 +3854,6 @@ data_type(#c_cons{}) ->
 data_type(#c_tuple{}) ->
     tuple.
 
-
 %% @spec data_es(Node::cerl()) -> [cerl()]
 %%
 %% @doc Returns the list of subtrees of a data constructor node. If
@@ -3834,7 +3884,6 @@ data_es(#c_cons{hd = H, tl = T}) ->
     [H, T];
 data_es(#c_tuple{es = Es}) ->
     Es.
-
 
 %% @spec data_arity(Node::cerl()) -> integer()
 %%
@@ -3891,7 +3940,6 @@ make_data(CType, Es) ->
 ann_make_data(As, {atomic, V}, []) -> #c_literal{val = V, anno = As};
 ann_make_data(As, cons, [H, T]) -> ann_c_cons(As, H, T);
 ann_make_data(As, tuple, Es) -> ann_c_tuple(As, Es).
-
 
 %% @spec update_data(Old::cerl(), Type::dtype(),
 %%                   Elements::[cerl()]) -> cerl()
@@ -4022,6 +4070,10 @@ subtrees(T) ->
 		    [[cons_hd(T)], [cons_tl(T)]];
 		tuple ->
 		    [tuple_es(T)];
+		map ->
+		    [map_es(T)];
+		map_pair ->
+		    [[map_pair_op(T)],[map_pair_key(T)],[map_pair_val(T)]];
 		'let' ->
 		    [let_vars(T), [let_arg(T)], [let_body(T)]];
 		seq ->

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -69,12 +69,13 @@ filter()    See present/1, substrings/2,
       <fsummary>Open a connection to an LDAP server.</fsummary>
       <type>
 	<v>Handle = handle()</v>
-	<v>Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()} | {sslopts, list()}</v>
+	<v>Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()} | {sslopts, list()} | {tcpopts, list()}</v>
       </type>
       <desc>
         <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order.</p>
 	<p>The log function takes three arguments, <c>fun(Level, FormatString, [FormatArg]) end</c>.</p>
 	<p>Timeout set the maximum time in milliseconds that each server request may take.</p>
+        <p>Currently, the only TCP socket option accepted is <c>inet6</c>. Default is <c>inet</c>.</p>
       </desc>
     </func>
     <func>

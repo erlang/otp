@@ -39,6 +39,12 @@ int ZEXPORT erl_zlib_deflate_start(z_stream *streamp, const Bytef* source,
 int ZEXPORT erl_zlib_deflate_chunk(z_stream *streamp, Bytef* dest, uLongf* destLen);
 int ZEXPORT erl_zlib_deflate_finish(z_stream *streamp);
 
+int ZEXPORT erl_zlib_inflate_start(z_stream *streamp, const Bytef* source,
+                                   uLong sourceLen);
+int ZEXPORT erl_zlib_inflate_chunk(z_stream *streamp, Bytef* dest, uLongf* destLen);
+int ZEXPORT erl_zlib_inflate_finish(z_stream *streamp);
+
+
 /* Use instead of compress
 */
 #define erl_zlib_compress(dest,destLen,source,sourceLen) \

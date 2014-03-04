@@ -1266,6 +1266,8 @@ read_log_6035([]) ->
 %%--------------------------------------------------------------------
 do_user(Pid) ->
     {error, euser} = ftp:user(Pid, ?BAD_USER, ?FTP_PASS),
+    {error, euser} = ftp:user(Pid, ?FTP_USER++"\r\nPASS "++?FTP_PASS, ?FTP_PASS),
+    {error, euser} = ftp:user(Pid, ?FTP_USER, ?FTP_PASS++"\r\nCWD ."),
     ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS),
     ok.
 
@@ -1278,6 +1280,7 @@ do_pwd(Pid) ->
 do_cd(Pid) ->
     ok = ftp:cd(Pid, "/pub"),
     {error, epath} = ftp:cd(Pid, ?BAD_DIR),
+    {error, efnamena} = ftp:cd(Pid, "/pub\r\nCWD ."),
     ok.
 
 do_lcd(Pid, Dir) ->
@@ -1294,11 +1297,14 @@ do_ls(Pid) ->
     %% directory, but can also be a filename or a group 
     %% of files (including wildcards).
     {ok, _} = ftp:ls(Pid, "incom*"),
+    %% but \r\n can't be in the wildcard
+    {error, efnamena} = ftp:ls(Pid, "incoming\r\nCWD ."),
     ok.
 
 do_nlist(Pid, WildcardSupport) ->
     {ok, _} = ftp:nlist(Pid),
     {ok, _} = ftp:nlist(Pid, "incoming"),
+    {error, efnamena} = ftp:ls(Pid, "incoming\r\nCWD ."),
     %% neither nlist nor ls operates on a directory
     %% they operate on a pathname, which *can* be a 
     %% directory, but can also be a filename or a group 
@@ -1324,6 +1330,8 @@ do_rename(Pid, Config) ->
     ftp:delete(Pid, NewLFile),		% reset
     ok = ftp:send(Pid, LFile), 
     {error, epath} = ftp:rename(Pid, NewLFile, LFile),
+    {error, efnamena} = ftp:rename(Pid, NewLFile++"\r\nRNTO "++LFile++"\r\nRNFR "++NewLFile, LFile),
+    {error, efnamena} = ftp:rename(Pid, NewLFile, LFile++"\r\nCWD ."),
     ok = ftp:rename(Pid, LFile, NewLFile),
     ftp:delete(Pid, LFile),		% cleanup
     ftp:delete(Pid, NewLFile),		% cleanup
@@ -1338,6 +1346,7 @@ do_delete(Pid, Config) ->
     ok = ftp:cd(Pid, "incoming"),
     ok = ftp:lcd(Pid, PrivDir),
     ftp:delete(Pid,LFile),		% reset
+    {error, efnamena} = ftp:delete(Pid,LFile++"\r\nCWD ."),
     ok = ftp:send(Pid, LFile),
     ok = ftp:delete(Pid,LFile),
     ok.
@@ -1348,6 +1357,8 @@ do_mkdir(Pid) ->
 	integer_to_list(B) ++ "_" ++ integer_to_list(C),
     ok = ftp:cd(Pid, "incoming"),
     {ok, CurrDir} = ftp:pwd(Pid),
+    {error, efnamena} = ftp:mkdir(Pid, NewDir++"\r\nCWD ."),
+    {error, efnamena} = ftp:rmdir(Pid, NewDir++"\r\nCWD ."),
     ok = ftp:mkdir(Pid, NewDir),
     ok = ftp:cd(Pid, NewDir),
     ok = ftp:cd(Pid, CurrDir),
@@ -1363,6 +1374,7 @@ do_send(Pid, Config) ->
     ok = file:write_file(AbsLFile, list_to_binary(Contents)),
     ok = ftp:cd(Pid, "incoming"),
     ok = ftp:lcd(Pid, PrivDir),
+    {error, efnamena} = ftp:send(Pid, LFile, RFile++"1\r\nCWD ."),
     ok = ftp:send(Pid, LFile, RFile),
     {ok, RFilesString} = ftp:nlist(Pid),
     RFiles = split(RFilesString),
@@ -1392,6 +1404,7 @@ do_append(Pid, Config) ->
     ftp:delete(Pid, RFile),
     ftp:delete(Pid, LFile),
 
+    {error, efnamena} = ftp:append(Pid, LFile, RFile++"1\r\nCWD ."),
     ok = ftp:append(Pid, LFile, RFile),
     ok = ftp:append(Pid, LFile, RFile),
     ok = ftp:append(Pid, LFile),
@@ -1413,6 +1426,7 @@ do_send_bin(Pid, Config) ->
     Bin = list_to_binary(Contents),
     ok = ftp:cd(Pid, "incoming"),
     {error, enotbinary} = ftp:send_bin(Pid, Contents, File),
+    {error, efnamena} = ftp:send_bin(Pid, Bin, File++"1\r\nCWD ."),
     ok = ftp:send_bin(Pid, Bin, File),
     {ok, RFilesString} = ftp:nlist(Pid),
     RFiles = split(RFilesString),
@@ -1426,6 +1440,7 @@ do_append_bin(Pid, Config) ->
     Bin = list_to_binary(Contents),
     ok = ftp:cd(Pid, "incoming"),
     {error, enotbinary} = ftp:append_bin(Pid, Contents, File),
+    {error, efnamena} = ftp:append_bin(Pid, Bin, File++"1\r\nCWD ."),
     ok = ftp:append_bin(Pid, Bin, File),
     ok = ftp:append_bin(Pid, Bin, File),
     %% Control the contents of the file
@@ -1438,6 +1453,7 @@ do_send_chunk(Pid, Config) ->
     Contents = "ftp_SUITE test ...",
     Bin = list_to_binary(Contents),
     ok = ftp:cd(Pid, "incoming"),
+    {error, efnamena} = ftp:send_chunk_start(Pid, File++"1\r\nCWD ."),
     ok = ftp:send_chunk_start(Pid, File),
     {error, echunk} = ftp:cd(Pid, "incoming"),
     {error, enotbinary} = ftp:send_chunk(Pid, Contents),
@@ -1454,6 +1470,7 @@ do_append_chunk(Pid, Config) ->
     File = ?config(file, Config),
     Contents = ["ER","LE","RL"],
     ok = ftp:cd(Pid, "incoming"),
+    {error, efnamena} = ftp:append_chunk_start(Pid, File++"1\r\nCWD ."),
     ok = ftp:append_chunk_start(Pid, File),
     {error, enotbinary} = ftp:append_chunk(Pid, lists:nth(1,Contents)),
     ok = ftp:append_chunk(Pid,list_to_binary(lists:nth(1,Contents))),
@@ -1480,6 +1497,7 @@ do_recv(Pid, Config) ->
     ok = file:delete(AbsFile),		% cleanup
     test_server:sleep(100),
     ok = ftp:lcd(Pid, PrivDir),
+    {error, efnamena} = ftp:recv(Pid, File++"\r\nCWD ."),
     ok = ftp:recv(Pid, File),
     {ok, Files} = file:list_dir(PrivDir),
     true = lists:member(File, Files),
@@ -1495,6 +1513,7 @@ do_recv_bin(Pid, Config) ->
     ok = ftp:cd(Pid, "incoming"),
     ok = ftp:send_bin(Pid, Bin1, File),
     test_server:sleep(100),
+    {error, efnamena} = ftp:recv_bin(Pid, File++"\r\nCWD ."),
     {ok, Bin2}  = ftp:recv_bin(Pid, File),
     ok = ftp:delete(Pid, File),		% cleanup
     Contents2 = binary_to_list(Bin2),
@@ -1520,6 +1539,7 @@ do_recv_chunk(Pid, Config) ->
     ok = ftp:send_bin(Pid, Bin1, File),
     test_server:sleep(100),
     {error, "ftp:recv_chunk_start/2 not called"} = recv_chunk(Pid, <<>>),
+    {error, efnamena} = ftp:recv_chunk_start(Pid, File++"\r\nCWD ."),
     ok = ftp:recv_chunk_start(Pid, File),
     {ok, Contents2} = recv_chunk(Pid, <<>>),
     ok = ftp:delete(Pid, File),		% cleanup

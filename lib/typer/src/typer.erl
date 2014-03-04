@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -63,10 +63,10 @@
 	 %% Files in 'fms' are compilable with option 'to_pp'; we keep them
 	 %% as {FileName, ModuleName} in case the ModuleName is different
 	 fms        = []		 :: [{file:filename(), module()}],
-	 ex_func    = map__new()	 :: map(),
-	 record     = map__new()	 :: map(),
-	 func       = map__new()	 :: map(),
-	 inc_func   = map__new()	 :: map(),
+	 ex_func    = map__new()	 :: map_dict(),
+	 record     = map__new()	 :: map_dict(),
+	 func       = map__new()	 :: map_dict(),
+	 inc_func   = map__new()	 :: map_dict(),
 	 trust_plt  = dialyzer_plt:new() :: plt()}).
 -type analysis() :: #analysis{}.
 
@@ -220,11 +220,11 @@ get_external(Exts, Plt) ->
 -type fa()        :: {atom(), arity()}.
 -type func_info() :: {line(), atom(), arity()}.
 
--record(info, {records = map__new() :: map(),
+-record(info, {records = map__new() :: map_dict(),
 	       functions = []       :: [func_info()],
-	       types = map__new()   :: map(),
+	       types = map__new()   :: map_dict(),
 	       edoc = false	    :: boolean()}).
--record(inc, {map = map__new() :: map(), filter = [] :: files()}).
+-record(inc, {map = map__new() :: map_dict(), filter = [] :: files()}).
 -type inc() :: #inc{}.
 
 -spec show_or_annotate(analysis()) -> 'ok'.
@@ -1094,29 +1094,29 @@ rcv_ext_types(Self, ExtTypes) ->
 %% specialized for the uses in this module
 %%--------------------------------------------------------------------
 
--type map() :: dict().
+-type map_dict() :: dict:dict().
 
--spec map__new() -> map().
+-spec map__new() -> map_dict().
 map__new() ->
   dict:new().
 
--spec map__insert({term(), term()}, map()) -> map().
+-spec map__insert({term(), term()}, map_dict()) -> map_dict().
 map__insert(Object, Map) ->
   {Key, Value} = Object,
   dict:store(Key, Value, Map).
 
--spec map__lookup(term(), map()) -> term().
+-spec map__lookup(term(), map_dict()) -> term().
 map__lookup(Key, Map) ->
   try dict:fetch(Key, Map) catch error:_ -> none end.
 
--spec map__from_list([{fa(), term()}]) -> map().
+-spec map__from_list([{fa(), term()}]) -> map_dict().
 map__from_list(List) ->
   dict:from_list(List).
 
--spec map__remove(term(), map()) -> map().
+-spec map__remove(term(), map_dict()) -> map_dict().
 map__remove(Key, Dict) ->
   dict:erase(Key, Dict).
 
--spec map__fold(fun((term(), term(), term()) -> map()), map(), map()) -> map().
+-spec map__fold(fun((term(), term(), term()) -> map_dict()), map_dict(), map_dict()) -> map_dict().
 map__fold(Fun, Acc0, Dict) -> 
   dict:fold(Fun, Acc0, Dict).

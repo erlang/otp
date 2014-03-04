@@ -2675,7 +2675,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	i = list_length(BIF_ARG_1);
+	i = erts_list_length(BIF_ARG_1);
 	if (i > MAX_ATOM_CHARACTERS) {
 	    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	}
@@ -2953,7 +2953,7 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
     char *buf = NULL;
     int base;
 
-    i = list_length(BIF_ARG_1);
+    i = erts_list_length(BIF_ARG_1);
     if (i < 0)
       BIF_ERROR(BIF_P, BADARG);
     
@@ -3292,7 +3292,7 @@ BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
     Eterm res;
     char *buf = NULL;
 
-    i = list_length(BIF_ARG_1);
+    i = erts_list_length(BIF_ARG_1);
     if (i < 0)
       BIF_ERROR(BIF_P, BADARG);
     
@@ -3407,7 +3407,7 @@ BIF_RETTYPE list_to_tuple_1(BIF_ALIST_1)
     Eterm* hp;
     int len;
 
-    if ((len = list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
+    if ((len = erts_list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
     }
 
@@ -3763,45 +3763,6 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 }
 
 /**********************************************************************/
-
-BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
-{
-    int reds;
-    Process *rp;
-
-    if (is_not_pid(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
-    if (BIF_P->common.id == BIF_ARG_1)
-	rp = BIF_P;
-    else {
-#ifdef ERTS_SMP
-	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-	if (rp == ERTS_PROC_LOCK_BUSY)
-	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
-#else
-	rp = erts_proc_lookup(BIF_ARG_1);
-#endif
-	if (!rp)
-	    BIF_RET(am_false);
-    }
-
-    /* The GC cost is taken for the process executing this BIF. */
-
-    FLAGS(rp) |= F_NEED_FULLSWEEP;
-    reds = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-
-#ifdef ERTS_SMP
-    if (BIF_P != rp) {
-	erts_resume(rp, ERTS_PROC_LOCK_MAIN);
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
-    }
-#endif
-
-    BIF_RET2(am_true, reds);
-}
 
 BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {
@@ -4372,7 +4333,11 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	switch (erts_set_schedulers_online(BIF_P,
 					   ERTS_PROC_LOCK_MAIN,
 					   signed_val(BIF_ARG_2),
-					   &old_no)) {
+					   &old_no
+#ifdef ERTS_DIRTY_SCHEDULERS
+					   , 0
+#endif
+					   )) {
 	case ERTS_SCHDLR_SSPND_DONE:
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
@@ -4504,6 +4469,33 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 		      ref,
 		      old ? am_true : am_false);
 	}
+#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
+    } else if (BIF_ARG_1 == am_dirty_cpu_schedulers_online) {
+	Sint old_no;
+	if (!is_small(BIF_ARG_2))
+	    goto error;
+	switch (erts_set_schedulers_online(BIF_P,
+					   ERTS_PROC_LOCK_MAIN,
+					   signed_val(BIF_ARG_2),
+					   &old_no,
+					   1)) {
+	case ERTS_SCHDLR_SSPND_DONE:
+	    BIF_RET(make_small(old_no));
+	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
+	    ERTS_VBUMP_ALL_REDS(BIF_P);
+	    BIF_TRAP2(bif_export[BIF_system_flag_2],
+		      BIF_P, BIF_ARG_1, BIF_ARG_2);
+	case ERTS_SCHDLR_SSPND_YIELD_DONE:
+	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
+				    am_dirty_cpu_schedulers_online);
+	case ERTS_SCHDLR_SSPND_EINVAL:
+	    goto error;
+	default:
+	    ASSERT(0);
+	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+	    break;
+	}
+#endif
     } else if (ERTS_IS_ATOM_STR("scheduling_statistics", BIF_ARG_1)) {
 	int what;
 	if (ERTS_IS_ATOM_STR("disable", BIF_ARG_2))
@@ -4527,7 +4519,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_P->group_leader,
 	    "A call to erlang:system_flag(cpu_topology, _) was made.\n"
 	    "The cpu_topology argument is deprecated and scheduled\n"
-	    "for removal in erts-5.10/OTP-R16. For more information\n"
+	    "for removal in Erlang/OTP 18. For more information\n"
 	    "see the erlang:system_flag/2 documentation.\n");
 	BIF_TRAP1(set_cpu_topology_trap, BIF_P, BIF_ARG_2);
     } else if (ERTS_IS_ATOM_STR("scheduler_bind_type", BIF_ARG_1)) {
@@ -4535,7 +4527,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_P->group_leader,
 	    "A call to erlang:system_flag(scheduler_bind_type, _) was\n"
 	    "made. The scheduler_bind_type argument is deprecated and\n"
-	    "scheduled for removal in erts-5.10/OTP-R16. For more\n"
+	    "scheduled for removal in Erlang/OTP 18. For more\n"
 	    "information see the erlang:system_flag/2 documentation.\n");
 	return erts_bind_schedulers(BIF_P, BIF_ARG_2);
     }
@@ -4654,6 +4646,17 @@ BIF_RETTYPE bump_reductions_1(BIF_ALIST_1)
     BIF_RET2(am_true, reds);
 }
 
+BIF_RETTYPE erts_internal_cmp_term_2(BIF_ALIST_2) {
+    int res = CMP_TERM(BIF_ARG_1,BIF_ARG_2);
+
+    /* ensure -1, 0, 1 result */
+    if (res < 0) {
+	BIF_RET(make_small(-1));
+    } else if (res > 0) {
+	BIF_RET(make_small(1));
+    }
+    BIF_RET(make_small(0));
+}
 /*
  * Processes doing yield on return in a bif ends up in bif_return_trap().
  */

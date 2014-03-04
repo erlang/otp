@@ -35,6 +35,8 @@ i386-pc-solaris[0-9]*.[0-9]*
 i386-unknown-freebsd[0-9]*.[0-9]*
 tile-tilera-linux-gnu
 powerpc-unknown-linux-gnu
+i386-elf-ose
+powerpc-unknown-ose
 
 # Mac OS X
 a.out.dSYM/
@@ -97,6 +99,9 @@ lib/wx/priv/win32/
 lib/wx/win32/
 make/win32/
 
+# OSE
+*.d
+
 # Used by ic & orber & cos* applications.
 IDL-GENERATED
 
@@ -114,6 +119,8 @@ JAVADOC-GENERATED
 
 /bootstrap/lib/asn1
 /bootstrap/lib/common_test
+/bootstrap/lib/edoc
+/bootstrap/lib/erl_docgen
 /bootstrap/lib/hipe
 /bootstrap/lib/ic
 /bootstrap/lib/orber

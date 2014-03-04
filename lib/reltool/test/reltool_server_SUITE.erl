@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -144,7 +143,8 @@ all() ->
      mod_incl_cond_derived,
      use_selected_vsn,
      use_selected_vsn_relative_path,
-     non_standard_vsn_id].
+     non_standard_vsn_id,
+     undefined_regexp].
 
 groups() -> 
     [].
@@ -808,13 +808,14 @@ create_target_unicode(Config) ->
 
     %% If file name translation mode is unicode, then use unicode
     %% characters release name (which will be used as file name for
-    %% .rel, .script and .boot)
-    RelNamePrefix =
+    %% .rel, .script and .boot), and install the release under a path
+    %% which icludes unicode characters.
+    {RelNamePrefix,TargetDirName} =
 	case file:native_name_encoding() of
 	    utf8 ->
-		"Unicode test αβ";
+		{"Unicode test αβ","target_unicode_αβ"} ;
 	    latin1 ->
-		"Unicode test"
+		{"Unicode test","target_unicode"}
 	end,
 
     %% Configure the server
@@ -838,7 +839,7 @@ create_target_unicode(Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = filename:join([?WORK_DIR, "target_unicode"]),
+    TargetDir = filename:join([?WORK_DIR, TargetDirName]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
@@ -2506,6 +2507,12 @@ non_standard_vsn_id(Config) ->
 	  reltool_server:get_app(Pid2,b)),
    ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+undefined_regexp(_Config) ->
+    ?msym({ok,_},
+          reltool:get_config([{sys,[{app,asn1,[{excl_app_filters,
+                                                {add, ["^priv"]}}]}]}])),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions

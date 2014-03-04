@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,7 @@
 -record(moduleInfo, {module, menubtn}).
 -record(procInfo, {pid, row}).
 -record(breakInfo, {point, status, break}).
--record(break, {mb, smi, emi, dimi, demi}).  %% BUGBUG defined in dbg_ui_win
+-record(break, {mb, smi, emi, dimi, demi}).
 -record(winInfo, {window,       % gsobj()
 		  grid,         % gsobj()
 		  row,          % int() Last row in grid
@@ -75,13 +75,6 @@
 
 init() ->
     dbg_wx_win:init().
-
-%%--------------------------------------------------------------------
-%% create_win(GS, Title, Menus) -> #winInfo{}
-%%   GS = gsobj()
-%%   Title = string()
-%%   Menus = [menu()]  See dbg_ui_win.erl
-%%--------------------------------------------------------------------
 
 -define(GRID,1000).
 
@@ -624,8 +617,6 @@ handle_event(#wx{userData=Data,
 	     _WinInfo) ->
     Data;
 handle_event(_Event, _WinInfo) ->
-%% FIXME
-    io:format("Ev: ~p~n",[_Event]),
     ignore.
 
 %%====================================================================

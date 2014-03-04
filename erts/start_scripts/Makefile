@@ -52,7 +52,7 @@ endif
 ##############################################################################
 # Get version numbers from the VSN files
 
-# VSN & SYSTEM_VSN
+# VSN
 include ../vsn.mk
 include $(LIBPATH)/kernel/vsn.mk
 include $(LIBPATH)/stdlib/vsn.mk

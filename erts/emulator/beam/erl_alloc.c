@@ -75,9 +75,9 @@
 #define ERTS_ALC_DEFAULT_ENABLED_ACUL_EHEAP_ALLOC 45
 #define ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC 85
 
-#define ERTS_ALC_DEFAULT_ACUL 0
-#define ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC 0
-#define ERTS_ALC_DEFAULT_ACUL_LL_ALLOC 0
+#define ERTS_ALC_DEFAULT_ACUL ERTS_ALC_DEFAULT_ENABLED_ACUL
+#define ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_EHEAP_ALLOC
+#define ERTS_ALC_DEFAULT_ACUL_LL_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC
 
 #ifndef ERTS_SMP
 #  undef ERTS_ALC_DEFAULT_ACUL
@@ -242,32 +242,13 @@ do {									\
     sys_memcpy((void *) (IP), (void *) &aui__, sizeof(struct au_init));	\
 } while (0)
 
-#if ERTS_ALC_DEFAULT_ACUL \
-    || ERTS_ALC_DEFAULT_ACUL_LL_ALLOC \
-    || ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC
-
-static ERTS_INLINE void
-set_default_acul(struct au_init *ip, int acul)
-{
-    ip->thr_spec = 1;
-    ip->atype = AOFIRSTFIT;
-    ip->init.aoff.flavor = AOFF_BF;
-    ip->init.util.acul = acul;
-}
-
-#endif
-
 static void
 set_default_sl_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL);
-#else
     ip->thr_spec		= 1;
     ip->atype			= GOODFIT;
-#endif
     ip->init.util.name_prefix	= "sl_";
     ip->init.util.alloc_no	= ERTS_ALC_A_SHORT_LIVED;
 #ifndef SMALL_MEMORY
@@ -281,7 +262,7 @@ set_default_sl_alloc_opts(struct au_init *ip)
     ip->init.util.force         = 1;
     ip->init.util.low_mem       = 1;
 #endif
-
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
 static void
@@ -289,12 +270,8 @@ set_default_std_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL);
-#else
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
-#endif
     ip->init.util.name_prefix	= "std_";
     ip->init.util.alloc_no	= ERTS_ALC_A_STANDARD;
 #ifndef SMALL_MEMORY
@@ -303,6 +280,7 @@ set_default_std_alloc_opts(struct au_init *ip)
     ip->init.util.mmbcs 	= 32*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_STANDARD;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
 static void
@@ -310,13 +288,9 @@ set_default_ll_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL_LL_ALLOC
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL_LL_ALLOC);
-#else
     ip->thr_spec		= 0;
     ip->atype			= BESTFIT;
     ip->init.bf.ao		= 1;
-#endif
     ip->init.util.ramv		= 0;
     ip->init.util.mmsbc		= 0;
     ip->init.util.sbct		= ~((UWord) 0);
@@ -332,6 +306,7 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->init.util.rsbcst	= 0;
     ip->init.util.rsbcmt	= 0;
     ip->init.util.rmbcmt	= 0;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL_LL_ALLOC;
 }
 
 static void
@@ -363,12 +338,8 @@ set_default_eheap_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC);
-#else
     ip->thr_spec		= 1;
     ip->atype			= GOODFIT;
-#endif
     ip->init.util.name_prefix	= "eheap_";
     ip->init.util.alloc_no	= ERTS_ALC_A_EHEAP;
 #ifndef SMALL_MEMORY
@@ -382,6 +353,7 @@ set_default_eheap_alloc_opts(struct au_init *ip)
     ip->init.util.force         = 1;
     ip->init.util.low_mem       = 1;
 #endif
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC;
 }
 
 static void
@@ -389,12 +361,8 @@ set_default_binary_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL);
-#else
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
-#endif
     ip->init.util.name_prefix	= "binary_";
     ip->init.util.alloc_no	= ERTS_ALC_A_BINARY;
 #ifndef SMALL_MEMORY
@@ -403,6 +371,7 @@ set_default_binary_alloc_opts(struct au_init *ip)
     ip->init.util.mmbcs 	= 32*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_BINARY;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
 static void
@@ -410,12 +379,8 @@ set_default_ets_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL);
-#else
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
-#endif
     ip->init.util.name_prefix	= "ets_";
     ip->init.util.alloc_no	= ERTS_ALC_A_ETS;
 #ifndef SMALL_MEMORY
@@ -424,6 +389,7 @@ set_default_ets_alloc_opts(struct au_init *ip)
     ip->init.util.mmbcs 	= 32*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_ETS;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
 static void
@@ -431,12 +397,8 @@ set_default_driver_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL);
-#else
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
-#endif
     ip->init.util.name_prefix	= "driver_";
     ip->init.util.alloc_no	= ERTS_ALC_A_DRIVER;
 #ifndef SMALL_MEMORY
@@ -445,6 +407,7 @@ set_default_driver_alloc_opts(struct au_init *ip)
     ip->init.util.mmbcs 	= 32*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_DRIVER;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
 static void
@@ -453,12 +416,8 @@ set_default_fix_alloc_opts(struct au_init *ip,
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
-#if ERTS_ALC_DEFAULT_ACUL
-    set_default_acul(ip, ERTS_ALC_DEFAULT_ACUL);
-#else
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
-#endif
     ip->init.bf.ao = 1;
     ip->init.util.name_prefix	= "fix_";
     ip->init.util.fix_type_size	= fix_type_sizes;
@@ -469,6 +428,7 @@ set_default_fix_alloc_opts(struct au_init *ip,
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_FIXED_SIZE;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
 #ifdef ERTS_SMP
@@ -560,26 +520,25 @@ strategy_support_carrier_migration(struct au_init *auip)
 }
 
 static ERTS_INLINE void
-check_disable_carrier_migration(struct au_init *auip)
+adjust_carrier_migration_support(struct au_init *auip)
 {
-    if (!strategy_support_carrier_migration(auip) || !auip->thr_spec)
-	auip->init.util.acul = 0;
-}
+#ifdef ERTS_SMP
+    if (auip->init.util.acul) {
+	auip->thr_spec = -1; /* Need thread preferred */
 
-static ERTS_INLINE void
-ensure_carrier_migration_support(struct au_init *auip)
-{
-    auip->thr_spec = 1; /* Need thread preferred */
-
-    /*
-     * If strategy cannot handle carrier migration,
-     * default to a strategy that can...
-     */
-    if (!strategy_support_carrier_migration(auip)) {
-	/* Default to aoffcbf */
-	auip->atype = AOFIRSTFIT;
-	auip->init.aoff.flavor = AOFF_BF;
+	/*
+	 * If strategy cannot handle carrier migration,
+	 * default to a strategy that can...
+	 */
+	if (!strategy_support_carrier_migration(auip)) {
+	    /* Default to aoffcbf */
+	    auip->atype = AOFIRSTFIT;
+	    auip->init.aoff.flavor = AOFF_BF;
+	}
     }
+#else
+    auip->init.util.acul = 0;
+#endif
 }
 
 void
@@ -626,7 +585,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     if (ncpu < 1)
 	ncpu = 1;
 
-    erts_tsd_key_create(&erts_allctr_prelock_tsd_key);
+    erts_tsd_key_create(&erts_allctr_prelock_tsd_key,
+			"erts_allctr_prelock_tsd_key");
 
     erts_sys_alloc_init();
     erts_init_utils_mem();
@@ -670,8 +630,21 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.fix_alloc.thr_spec = 0;
 #endif
 
+    /* Make adjustments for carrier migration support */
+    init.temp_alloc.init.util.acul = 0;
+    adjust_carrier_migration_support(&init.sl_alloc);
+    adjust_carrier_migration_support(&init.std_alloc);
+    adjust_carrier_migration_support(&init.ll_alloc);
+    adjust_carrier_migration_support(&init.eheap_alloc);
+    adjust_carrier_migration_support(&init.binary_alloc);
+    adjust_carrier_migration_support(&init.ets_alloc);
+    adjust_carrier_migration_support(&init.driver_alloc);
+    adjust_carrier_migration_support(&init.fix_alloc);
+
     if (init.erts_alloc_config) {
 	/* Adjust flags that erts_alloc_config won't like */
+
+	/* No thread specific instances */
 	init.temp_alloc.thr_spec = 0;
 	init.sl_alloc.thr_spec = 0;
 	init.std_alloc.thr_spec = 0;
@@ -680,18 +653,19 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.binary_alloc.thr_spec = 0;
 	init.ets_alloc.thr_spec = 0;
 	init.driver_alloc.thr_spec = 0;
-	init.fix_alloc.thr_spec = 0;	
+	init.fix_alloc.thr_spec = 0;
+
+	/* No carrier migration */
+	init.temp_alloc.init.util.acul = 0;
+	init.sl_alloc.init.util.acul = 0;
+	init.std_alloc.init.util.acul = 0;
+	init.ll_alloc.init.util.acul = 0;
+	init.eheap_alloc.init.util.acul = 0;
+	init.binary_alloc.init.util.acul = 0;
+	init.ets_alloc.init.util.acul = 0;
+	init.driver_alloc.init.util.acul = 0;
+	init.fix_alloc.init.util.acul = 0;
     }
-
-    check_disable_carrier_migration(&init.sl_alloc);
-    check_disable_carrier_migration(&init.std_alloc);
-    check_disable_carrier_migration(&init.ll_alloc);
-    check_disable_carrier_migration(&init.eheap_alloc);
-    check_disable_carrier_migration(&init.binary_alloc);
-    check_disable_carrier_migration(&init.ets_alloc);
-    check_disable_carrier_migration(&init.driver_alloc);
-    check_disable_carrier_migration(&init.fix_alloc);
-
 
 #ifdef ERTS_SMP
     /* Only temp_alloc can use thread specific interface */
@@ -1290,8 +1264,6 @@ handle_au_arg(struct au_init *auip,
 		    break;
 		}
 	    }
-	    ensure_carrier_migration_support(auip);
-
 	    auip->init.util.acul = get_acul_value(auip, sub_param + 4, argv, ip);
 	}
 	else if(has_prefix("asbcst", sub_param)) {
@@ -1328,7 +1300,8 @@ handle_au_arg(struct au_init *auip,
 	    else {
 		bad_value(param, sub_param + 1, alg);
 	    }
-	    check_disable_carrier_migration(auip);
+	    if (!strategy_support_carrier_migration(auip))
+		auip->init.util.acul = 0;
 	}
 	else
 	    goto bad_switch;
@@ -1409,7 +1382,7 @@ handle_au_arg(struct au_init *auip,
 	}
 	else if (res == 0) {
 	    auip->thr_spec = 0;
-	    check_disable_carrier_migration(auip);
+	    auip->init.util.acul = 0;
 	    break;
 	}
 	goto bad_switch;
@@ -1607,7 +1580,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 
 			    for (a = 0; a < aui_sz; a++) {
 				aui[a]->thr_spec = 0;
-				check_disable_carrier_migration(aui[a]);
+				aui[a]->init.util.acul = 0;
 				aui[a]->init.util.ramv = 0;
 				aui[a]->init.util.lmbcs = 5*1024*1024;
 			    }
@@ -1754,6 +1727,9 @@ erts_alloc_register_scheduler(void *vesdp)
     int ix = (int) esdp->no;
     int aix;
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+#endif
     for (aix = ERTS_ALC_A_MIN; aix <= ERTS_ALC_A_MAX; aix++) {
 	ErtsAllocatorThrSpec_t *tspec = &erts_allctr_thr_spec[aix];
 	esdp->alloc_data.deallctr[aix] = NULL;

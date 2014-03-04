@@ -97,7 +97,7 @@ void LeaveCriticalSection(CRITICAL_SECTION *);
 #if 0
 #  define ETHR_MTX_Q_LOCK_SPINLOCK__
 #  define ETHR_MTX_QLOCK_TYPE__ ethr_spinlock_t
-#elif defined(ETHR_PTHREADS)
+#elif defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)
 #  define ETHR_MTX_Q_LOCK_PTHREAD_MUTEX__
 #  define ETHR_MTX_QLOCK_TYPE__ pthread_mutex_t
 #elif defined(ETHR_WIN32_THREADS)
@@ -210,7 +210,7 @@ struct ethr_cond_ {
 #endif
 };
 
-#elif defined(ETHR_PTHREADS) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
+#elif (defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
 
 typedef struct ethr_mutex_ ethr_mutex;
 struct ethr_mutex_ {
@@ -633,7 +633,7 @@ ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 
-#elif defined(ETHR_PTHREADS) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
+#elif (defined(ETHR_PTHREADS) || defined(ETHR_OSE_THREADS)) && !defined(ETHR_DBG_WIN_MTX_WITH_PTHREADS)
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_MUTEX_IMPL__)
 

@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
       <year>2003</year>
-      <year>2011</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,13 +31,14 @@
     <checked></checked>
     <date>2003-03-10</date>
     <rev>PA1</rev>
-    <file>crashdump.sgml</file>
+    <file>crashdump.xml</file>
   </header>
   <module>crashdump_viewer</module>
-  <modulesummary>A HTML based tool for browsing Erlang crashdumps.</modulesummary>
+  <modulesummary>A WxWidgets based tool for browsing Erlang
+  crashdumps.</modulesummary>
   <description>
-    <p>The Crashdump Viewer is an HTML based tool for browsing Erlang
-      crashdumps. Crashdump Viewer runs under the WebTool application.</p>
+    <p>The Crashdump Viewer is a WxWidgets based tool for browsing Erlang
+      crashdumps.</p>
 
     <p>See the <seealso marker="crashdump_ug">user's guide</seealso>
     for more information about how to get started with the Crashdump
@@ -46,16 +47,26 @@
   <funcs>
     <func>
       <name>start() -> ok</name>
+      <name>start(File) -> ok</name>
       <fsummary>Start the crashdump_viewer</fsummary>
+      <type>
+        <v>File = string()</v>
+	<d>The file name of the crashdump.</d>
+      </type>
       <desc>
-        <p>This function starts the <c>crashdump_viewer</c>.</p>
+        <p>This function starts the <c>crashdump_viewer</c> GUI and
+        loads the given crashdump.</p>
+
+	<p>If <c>File</c> is not given, a file dialog will be opened
+	where the crashdump can be selected.</p>
       </desc>
     </func>
     <func>
       <name>stop() -> ok</name>
       <fsummary>Stop the crashdump_viewer</fsummary>
       <desc>
-        <p>This function stops the <c>crashdump_viewer</c>.</p>
+        <p>This function stops the <c>crashdump_viewer</c> and closes
+        all GUI windows.</p>
       </desc>
     </func>
   </funcs>

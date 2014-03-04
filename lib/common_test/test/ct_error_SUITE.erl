@@ -66,7 +66,7 @@ all() ->
     [cfg_error, lib_error, no_compile, timetrap_end_conf,
      timetrap_normal, timetrap_extended, timetrap_parallel,
      timetrap_fun, timetrap_fun_group, misc_errors,
-     config_restored].
+     config_restored, config_func_errors].
 
 groups() -> 
     [].
@@ -310,6 +310,25 @@ config_restored(Config) when is_list(Config) ->
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
+%%%
+config_func_errors(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "error/test/config_func_error_1_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite}],
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+    
+    ct_test_support:log_events(config_func_errors,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+    
+    TestEvents = events_to_check(config_func_errors),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+   
+
+%%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
@@ -323,8 +342,6 @@ setup(Test, Config) ->
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
-						%reformat(Events, _EH) ->
-						%    Events.
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
@@ -1496,6 +1513,44 @@ test_events(config_restored) ->
       {?eh,tc_done,{config_restored_SUITE,{end_per_group,g1,[]},ok}}],
      {?eh,tc_start,{config_restored_SUITE,end_per_suite}},
      {?eh,tc_done,{config_restored_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(config_func_errors) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,4}},
+     {?eh,tc_start,{config_func_error_1_SUITE,init_per_suite}},
+     {?eh,tc_done,{config_func_error_1_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{config_func_error_1_SUITE,exit_in_iptc}},
+     {?eh,tc_done,{config_func_error_1_SUITE,exit_in_iptc,'_'}},
+     {?eh,test_stats,{0,1,{0,0}}},
+
+     {?eh,tc_start,{config_func_error_1_SUITE,exit_in_eptc}},
+     {?eh,tc_done,{config_func_error_1_SUITE,exit_in_eptc,'_'}},
+     {?eh,test_stats,{0,2,{0,0}}},
+
+     [{?eh,tc_start,{config_func_error_1_SUITE,{init_per_group,g1,[]}}},
+      {?eh,tc_done,{config_func_error_1_SUITE,{init_per_group,g1,[]},ok}},
+      {?eh,tc_start,{config_func_error_1_SUITE,exit_in_iptc}},
+      {?eh,tc_done,{config_func_error_1_SUITE,exit_in_iptc,'_'}},
+      {?eh,test_stats,{0,3,{0,0}}},
+      {?eh,tc_start,{config_func_error_1_SUITE,{end_per_group,g1,[]}}},
+      {?eh,tc_done,{config_func_error_1_SUITE,{end_per_group,g1,[]},ok}}],
+
+     [{?eh,tc_start,{config_func_error_1_SUITE,{init_per_group,g2,[]}}},
+      {?eh,tc_done,{config_func_error_1_SUITE,{init_per_group,g2,[]},ok}},
+      {?eh,tc_start,{config_func_error_1_SUITE,exit_in_eptc}},
+      {?eh,tc_done,{config_func_error_1_SUITE,exit_in_eptc,'_'}},
+      {?eh,test_stats,{0,4,{0,0}}},
+      {?eh,tc_start,{config_func_error_1_SUITE,{end_per_group,g2,[]}}},
+      {?eh,tc_done,{config_func_error_1_SUITE,{end_per_group,g2,[]},ok}}],
+
+     {?eh,tc_start,{config_func_error_1_SUITE,end_per_suite}},
+     {?eh,tc_done,{config_func_error_1_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

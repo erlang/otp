@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,9 +49,9 @@ coordinate(CG, Escaping, NonEscaping, Mod) ->
 
 -type mfalists() :: {[mfa()], [mfa()]}.
 
--spec coordinate(mfalists(), hipe_digraph:hdg(), gb_tree(),
-                 fun((mfalists(), gb_tree()) -> mfalists()),
-                 fun((gb_tree()) -> 'ok'), pid()) -> no_return().
+-spec coordinate(mfalists(), hipe_digraph:hdg(), gb_trees:tree(),
+                 fun((mfalists(), gb_trees:tree()) -> mfalists()),
+                 fun((gb_trees:tree()) -> 'ok'), pid()) -> no_return().
 
 coordinate(MFALists, CG, PM, Restart, LastAction, ServerPid) ->
   case MFALists of

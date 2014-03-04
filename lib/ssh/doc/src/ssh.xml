@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -38,6 +38,8 @@
       <item>Supported SSH version is 2.0 </item>
       <item>Supported MAC algorithms: hmac-sha1</item>
       <item>Supported encryption algorithms: aes128-cb and 3des-cbc</item>
+      <item>Supports unicode filenames if the emulator and the underlaying OS supports it. See the DESCRIPTION section in <seealso marker="kernel:file">file</seealso> for information about this subject</item>
+      <item>Supports unicode in shell and cli</item>
     </list>
  
   </section>
@@ -365,8 +367,11 @@
     </func>
 
     <func>
-      <name>stop() -> ok </name>
+      <name>stop() -> ok | {error, Reason}</name>
       <fsummary>Stops the SSH application.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
       <desc>
         <p>Stops the SSH application. See also
           <seealso marker="kernel:application">application(3)</seealso></p>

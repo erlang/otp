@@ -123,6 +123,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"schdlr_sspnd",				NULL			},
     {	"migration_info_update",		NULL			},
     {	"run_queue",				"address"		},
+#ifdef ERTS_DIRTY_SCHEDULERS
+    {   "dirty_run_queue_sleep_list",		"address"		},
+#endif
     {	"process_table",			NULL			},
     {	"cpu_info",				NULL			},
     {	"pollset",				"address"		},
@@ -238,6 +241,8 @@ struct erts_lc_locked_lock_t_ {
     erts_lc_locked_lock_t *prev;
     UWord extra;
     Sint16 id;
+    char *file;
+    unsigned int line;
     Uint16 flags;
 };
 
@@ -427,47 +432,51 @@ make_my_locked_locks(void)
 }
 
 static ERTS_INLINE erts_lc_locked_lock_t *
-new_locked_lock(erts_lc_lock_t *lck, Uint16 op_flags)
+new_locked_lock(erts_lc_lock_t *lck, Uint16 op_flags,
+		char *file, unsigned int line)
 {
     erts_lc_locked_lock_t *l_lck = (erts_lc_locked_lock_t *) lc_alloc();
     l_lck->next = NULL;
     l_lck->prev = NULL;
     l_lck->id = lck->id;
     l_lck->extra = lck->extra;
+    l_lck->file = file;
+    l_lck->line = line;
     l_lck->flags = lck->flags | op_flags;
     return l_lck;
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
+raw_print_lock(char *prefix, Sint16 id, Wterm extra, Uint16 flags,
+	       char* file, unsigned int line, char *suffix)
 {
     char *lname = (0 <= id && id < ERTS_LOCK_ORDER_SIZE
 		   ? erts_lock_order[id].name
 		   : "unknown");
+    erts_fprintf(stderr,"%s'%s:",prefix,lname);
+
     if (is_not_immed(extra))
-	erts_fprintf(stderr,
-		     "%s'%s:%p%s'%s%s",
-		     prefix,
-		     lname,
-		     _unchecked_boxed_val(extra),
-		     lock_type(flags),
-		     rw_op_str(flags),
-		     suffix);
+      erts_fprintf(stderr,"%p",_unchecked_boxed_val(extra));
     else
-	erts_fprintf(stderr,
-		     "%s'%s:%T%s'%s%s",
-		     prefix,
-		     lname,
-		     extra,
-		     lock_type(flags),
-		     rw_op_str(flags),
-		     suffix);
+      erts_fprintf(stderr,"%T",extra);
+    erts_fprintf(stderr,"%s",lock_type(flags));
+
+    if (file)
+      erts_fprintf(stderr,"(%s:%d)",file,line);
+
+    erts_fprintf(stderr,"'%s%s",rw_op_str(flags),suffix);
+}
+
+static void
+print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
+{
+  raw_print_lock(prefix, id, extra, flags, NULL, 0, suffix);
 }
 
 static void
 print_lock(char *prefix, erts_lc_lock_t *lck, char *suffix)
 {
-    print_lock2(prefix, lck->id, lck->extra, lck->flags, suffix);
+  raw_print_lock(prefix, lck->id, lck->extra, lck->flags, NULL, 0, suffix);
 }
 
 static void
@@ -483,7 +492,8 @@ print_curr_locks(erts_lc_locked_locks_t *l_lcks)
 		     "Currently these locks are locked by the %s thread:\n",
 		     l_lcks->thread_name);
 	for (l_lck = l_lcks->locked.first; l_lck; l_lck = l_lck->next)
-	    print_lock2("  ", l_lck->id, l_lck->extra, l_lck->flags, "\n");
+	  raw_print_lock("  ", l_lck->id, l_lck->extra, l_lck->flags,
+			 l_lck->file, l_lck->line, "\n");
     }
 }
 
@@ -999,7 +1009,8 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 #endif
 }
 
-void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags)
+void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, Uint16 op_flags,
+			   char *file, unsigned int line)
 {
     erts_lc_locked_locks_t *l_lcks;
     erts_lc_locked_lock_t *l_lck;
@@ -1011,7 +1022,7 @@ void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags)
 	return;
 
     l_lcks = make_my_locked_locks();
-    l_lck = locked ? new_locked_lock(lck, op_flags) : NULL;
+    l_lck = locked ? new_locked_lock(lck, op_flags, file, line) : NULL;
 
     if (!l_lcks->locked.last) {
 	ASSERT(!l_lcks->locked.first);
@@ -1052,13 +1063,14 @@ void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags)
 
 }
 
-void erts_lc_require_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
+void erts_lc_require_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags,
+			      char *file, unsigned int line)
 {
     erts_lc_locked_locks_t *l_lcks = make_my_locked_locks();
     erts_lc_locked_lock_t *l_lck = l_lcks->locked.first;
     if (!find_lock(&l_lck, lck))
 	required_not_locked(l_lcks, lck);
-    l_lck = new_locked_lock(lck, op_flags);
+    l_lck = new_locked_lock(lck, op_flags, file, line);
     if (!l_lcks->required.last) {
 	ASSERT(!l_lcks->required.first);
 	l_lck->next = l_lck->prev = NULL;
@@ -1126,7 +1138,8 @@ void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
     lc_free((void *) l_lck);
 }
 
-void erts_lc_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
+void erts_lc_lock_flg_x(erts_lc_lock_t *lck, Uint16 op_flags,
+			char *file, unsigned int line)
 {
     erts_lc_locked_locks_t *l_lcks;
     erts_lc_locked_lock_t *l_lck;
@@ -1138,7 +1151,7 @@ void erts_lc_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 	return;
 
     l_lcks = make_my_locked_locks();
-    l_lck = new_locked_lock(lck, op_flags);
+    l_lck = new_locked_lock(lck, op_flags, file, line);
 
     if (!l_lcks->locked.last) {
 	ASSERT(!l_lcks->locked.first);
@@ -1229,15 +1242,15 @@ erts_lc_trylock_force_busy(erts_lc_lock_t *lck)
 }
 
 void
-erts_lc_trylock(int locked, erts_lc_lock_t *lck)
+erts_lc_trylock_x(int locked, erts_lc_lock_t *lck, char *file, unsigned int line)
 {
-    erts_lc_trylock_flg(locked, lck, 0);
+    erts_lc_trylock_flg_x(locked, lck, 0, file, line);
 }
 
 void
-erts_lc_lock(erts_lc_lock_t *lck)
+erts_lc_lock_x(erts_lc_lock_t *lck, char *file, unsigned int line)
 {
-    erts_lc_lock_flg(lck, 0);
+    erts_lc_lock_flg_x(lck, 0, file, line);
 }
 
 void
@@ -1251,9 +1264,9 @@ void erts_lc_might_unlock(erts_lc_lock_t *lck)
     erts_lc_might_unlock_flg(lck, 0);
 }
 
-void erts_lc_require_lock(erts_lc_lock_t *lck)
+void erts_lc_require_lock(erts_lc_lock_t *lck, char *file, unsigned int line)
 {
-    erts_lc_require_lock_flg(lck, 0);
+    erts_lc_require_lock_flg(lck, 0, file, line);
 }
 
 void erts_lc_unrequire_lock(erts_lc_lock_t *lck)
@@ -1319,7 +1332,7 @@ erts_lc_init(void)
     if (ethr_spinlock_init(&free_blocks_lock) != 0)
 	lc_abort();
 
-    erts_tsd_key_create(&locks_key);
+    erts_tsd_key_create(&locks_key,"erts_lock_check_key");
 }
 
 void

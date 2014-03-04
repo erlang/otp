@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -69,17 +69,14 @@ static void async_read_file(struct async_io* aio, LPVOID buf, DWORD numToRead);
 static int async_write_file(struct async_io* aio, LPVOID buf, DWORD numToWrite);
 static int get_overlapped_result(struct async_io* aio,
 				 LPDWORD pBytesRead, BOOL wait);
-static BOOL create_child_process(char *, HANDLE, HANDLE,
+static BOOL create_child_process(wchar_t *, HANDLE, HANDLE,
 				 HANDLE, LPHANDLE, LPDWORD, BOOL,
-				 LPVOID, LPTSTR, unsigned,
-				 char **, int *);
+				 LPVOID, wchar_t*, unsigned,
+				 wchar_t **, int *);
 static int create_pipe(LPHANDLE, LPHANDLE, BOOL, BOOL);
-static int application_type(const char* originalName, char fullPath[MAX_PATH],
+static int application_type(const wchar_t* originalName, wchar_t fullPath[MAX_PATH],
 			   BOOL search_in_path, BOOL handle_quotes,
 			   int *error_return);
-static int application_type_w(const WCHAR *originalName, WCHAR fullPath[MAX_PATH],
-			      BOOL search_in_path, BOOL handle_quotes,
-			      int *error_return);
 
 HANDLE erts_service_event;
 
@@ -1173,7 +1170,7 @@ spawn_init(void)
 }
 
 static ErlDrvData
-spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
+spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 {
     HANDLE hToChild = INVALID_HANDLE_VALUE; /* Write handle to child. */
     HANDLE hFromChild = INVALID_HANDLE_VALUE; /* Read handle from child. */
@@ -1189,7 +1186,9 @@ spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
     SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
     char* envir = opts->envir;
     int errno_return = -1;
-    
+    wchar_t *name;
+    int len;
+
     if (opts->read_write & DO_READ)
 	neededSelects++;
     if (opts->read_write & DO_WRITE)
@@ -1247,26 +1246,40 @@ spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
      * Spawn the port program.
      */
 
-    DEBUGF(("Spawning \"%s\"\n", name));
+    if ((len = MultiByteToWideChar(CP_UTF8, 0, utf8_name, -1, NULL, 0)) > 0) {
+	name = erts_alloc(ERTS_ALC_T_TMP, len*sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, utf8_name, -1, name, len);
+    } else { /* Not valid utf-8, just convert byte to wchar */
+	int i;
+	len  = strlen(utf8_name);
+	name = erts_alloc(ERTS_ALC_T_TMP, (1+len)*sizeof(wchar_t));
+	for(i=0; i<len; i++) {
+	    name[i] = (wchar_t) utf8_name[i];
+	}
+	name[i] = L'\0';
+    }
+    DEBUGF(("Spawning \"%S\"\n", name));
     envir = win_build_environment(envir); /* Always a unicode environment */ 
-    ok = create_child_process(name, 
-			    hChildStdin, 
-			    hChildStdout,
-			    hChildStderr,
-			    &dp->port_pid,
-			    &pid,
-			    opts->hide_window,
-			    (LPVOID) envir,
-			    (LPTSTR) opts->wd,
-			    opts->spawn_type,
-			    opts->argv, 
-			    &errno_return);
+    ok = create_child_process(name,
+			      hChildStdin,
+			      hChildStdout,
+			      hChildStderr,
+			      &dp->port_pid,
+			      &pid,
+			      opts->hide_window,
+			      (LPVOID) envir,
+			      (wchar_t *) opts->wd,
+			      opts->spawn_type,
+			      (wchar_t **) opts->argv,
+			      &errno_return);
     CloseHandle(hChildStdin);
     CloseHandle(hChildStdout);
     if (close_child_stderr && hChildStderr != INVALID_HANDLE_VALUE &&
 	hChildStderr != 0) {
 	CloseHandle(hChildStderr);
     }
+    erts_free(ERTS_ALC_T_TMP, name);
+
     if (envir != NULL) {
 	erts_free(ERTS_ALC_T_ENVIRONMENT, envir);
     }
@@ -1344,9 +1357,9 @@ create_file_thread(AsyncIo* aio, int mode)
  *  Example: input = "\"Program Files\"\\erl arg1 arg2"
  *  gives 19 as result.
  *  The length returned is equivalent with length(argv[0]) if the
- *  comman line should have been prepared by _setargv for the main function
+ *  command line should have been prepared by _setargv for the main function
 */
-int parse_command(char* cmd){
+int parse_command(wchar_t* cmd){
 #define NORMAL 2
 #define STRING 1
 #define STOP 0
@@ -1354,17 +1367,17 @@ int parse_command(char* cmd){
     int state = NORMAL;
     while (cmd[i]) {
 	switch (cmd[i]) {
-	case '"':
+	case L'"':
 	    if (state == NORMAL) 
 		state = STRING;
 	    else
 		state = NORMAL;
 	    break;
-	case '\\':
-	    if ((state == STRING) && (cmd[i+1]=='"'))
+	case L'\\':
+	    if ((state == STRING) && (cmd[i+1]==L'"'))
 		i++;
 	    break;
-	case ' ':
+	case L' ':
 	    if (state == NORMAL)
 		state = STOP;
 	    break;
@@ -1379,7 +1392,7 @@ int parse_command(char* cmd){
     return i;
 }
 
-static BOOL need_quotes(WCHAR *str) 
+static BOOL need_quotes(wchar_t *str)
 {
     int in_quote = 0;
     int backslashed = 0;
@@ -1443,7 +1456,7 @@ static BOOL need_quotes(WCHAR *str)
 static BOOL
 create_child_process
 (
- char *origcmd,  /* Command line for child process (including
+ wchar_t *origcmd,  /* Command line for child process (including
 		  * name of executable). Or whole executable if st is
 		  * ERTS_SPAWN_EXECUTABLE
 		  */
@@ -1454,57 +1467,53 @@ create_child_process
  LPDWORD pdwID,   /* Pointer to variable to received Process ID */
  BOOL hide,      /* Hide the window unconditionally. */
  LPVOID env,     /* Environment for the child */
- LPTSTR wd,      /* Working dir for the child */
+ wchar_t *wd,      /* Working dir for the child */
  unsigned st,    /* Flags for spawn, tells us how to interpret origcmd */
- char **argv,     /* Argument vector if given. */
+ wchar_t **argv,     /* Argument vector if given. */
  int *errno_return /* Place to put an errno in in case of failure */
  )
-{ 
+{
     PROCESS_INFORMATION piProcInfo = {0};
     BOOL ok = FALSE;
     int applType;
     /* Not to be changed for different types of executables */
     int staticCreateFlags = GetPriorityClass(GetCurrentProcess()); 
     int createFlags = DETACHED_PROCESS;
-    char *newcmdline = NULL;
+    wchar_t *newcmdline = NULL;
     int cmdlength;
-    char* thecommand;
-    LPTSTR appname = NULL;
+    wchar_t* thecommand;
+    wchar_t* appname = NULL;
     HANDLE hProcess = GetCurrentProcess();
-    
-    *errno_return = -1;
+    STARTUPINFOW siStartInfo = {0};
+    wchar_t execPath[MAX_PATH];
 
+    *errno_return = -1;
+    siStartInfo.cb = sizeof(STARTUPINFOW);
+    siStartInfo.dwFlags = STARTF_USESTDHANDLES;
+    siStartInfo.hStdInput = hStdin;
+    siStartInfo.hStdOutput = hStdout;
+    siStartInfo.hStdError = hStderr;
 
     if (st != ERTS_SPAWN_EXECUTABLE) {
-	STARTUPINFO siStartInfo = {0};
-	char execPath[MAX_PATH];
-
-	siStartInfo.cb = sizeof(STARTUPINFO); 
-	siStartInfo.dwFlags = STARTF_USESTDHANDLES;
-	siStartInfo.hStdInput = hStdin;
-	siStartInfo.hStdOutput = hStdout;
-	siStartInfo.hStdError = hStderr;
-
 	/*
 	 * Parse out the program name from the command line (it can be quoted and
 	 * contain spaces).
 	 */
-	newcmdline = erts_alloc(ERTS_ALC_T_TMP, 2048);
+	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, 2048*sizeof(wchar_t));
 	cmdlength = parse_command(origcmd);
-	thecommand = (char *) erts_alloc(ERTS_ALC_T_TMP, cmdlength+1);
-	strncpy(thecommand, origcmd, cmdlength);
-	thecommand[cmdlength] = '\0';
-	DEBUGF(("spawn command: %s\n", thecommand));
-    
-	applType = application_type(thecommand, execPath, TRUE, 
-				   TRUE, errno_return);
-	DEBUGF(("application_type returned for (%s) is %d\n", thecommand, applType));
+	thecommand = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (cmdlength+1)*sizeof(wchar_t));
+	wcsncpy(thecommand, origcmd, cmdlength);
+	thecommand[cmdlength] = L'\0';
+	DEBUGF(("spawn command: %S\n", thecommand));
+
+	applType = application_type(thecommand, execPath, TRUE, TRUE, errno_return);
+	DEBUGF(("application_type returned for (%S) is %d\n", thecommand, applType));
 	erts_free(ERTS_ALC_T_TMP, (void *) thecommand);
 	if (applType == APPL_NONE) {
 	    erts_free(ERTS_ALC_T_TMP,newcmdline);
 	    return FALSE;
 	}
-	newcmdline[0] = '\0'; 
+	newcmdline[0] = L'\0';
 
 	if (applType == APPL_DOS) {
 	    /*
@@ -1513,11 +1522,11 @@ create_child_process
 	     * a normal process inside of a hidden console application,
 	     * and then run that hidden console as a detached process.
 	     */
-	    
+
 	    siStartInfo.wShowWindow = SW_HIDE;
 	    siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 	    createFlags = CREATE_NEW_CONSOLE;
-	    strcat(newcmdline, "cmd.exe /c ");
+	    wcscat(newcmdline, L"cmd.exe /c ");
 	} else if (hide) {
 	    DEBUGF(("hiding window\n"));
 	    siStartInfo.wShowWindow = SW_HIDE;
@@ -1525,35 +1534,25 @@ create_child_process
 	    createFlags = 0;
 	}
 
-	strcat(newcmdline, execPath);
-	strcat(newcmdline, origcmd+cmdlength);
-	DEBUGF(("Creating child process: %s, createFlags = %d\n", newcmdline, createFlags));
-	ok = CreateProcessA(appname, 
-			    newcmdline, 
-			    NULL, 
-			    NULL, 
-			    TRUE, 
-			    createFlags | staticCreateFlags | 
-			    CREATE_UNICODE_ENVIRONMENT, 
-			    env, 
-			    wd, 
-			    &siStartInfo, 
+	wcscat(newcmdline, execPath);
+	wcscat(newcmdline, origcmd+cmdlength);
+	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
+	ok = CreateProcessW(appname,
+			    newcmdline,
+			    NULL,
+			    NULL,
+			    TRUE,
+			    createFlags | staticCreateFlags |
+			    CREATE_UNICODE_ENVIRONMENT,
+			    env,
+			    wd,
+			    &siStartInfo,
 			    &piProcInfo);
 
     } else { /* ERTS_SPAWN_EXECUTABLE, filename and args are in unicode ({utf16,little}) */
 	int run_cmd = 0;
-	STARTUPINFOW siStartInfo = {0};
-	WCHAR execPath[MAX_PATH];
 
-
-	siStartInfo.cb = sizeof(STARTUPINFOW); 
-	siStartInfo.dwFlags = STARTF_USESTDHANDLES;
-	siStartInfo.hStdInput = hStdin;
-	siStartInfo.hStdOutput = hStdout;
-	siStartInfo.hStdError = hStderr;
-
-	applType = application_type_w((WCHAR *) origcmd, execPath, FALSE, FALSE, 
-				      errno_return);
+	applType = application_type(origcmd, execPath, FALSE, FALSE, errno_return);
 	if (applType == APPL_NONE) {
 	    return FALSE;
 	} 
@@ -1573,37 +1572,37 @@ create_child_process
 	    createFlags = 0;
 	}
 	if (run_cmd) {
-	    WCHAR cmdPath[MAX_PATH];
+	    wchar_t cmdPath[MAX_PATH];
 	    int cmdType;
-	    cmdType = application_type_w(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return);
+	    cmdType = application_type(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return);
 	    if (cmdType == APPL_NONE || cmdType == APPL_DOS) {
 		return FALSE;
 	    }
-	    appname = (char *) erts_alloc(ERTS_ALC_T_TMP, (wcslen(cmdPath)+1)*sizeof(WCHAR));
-	    wcscpy((WCHAR *) appname,cmdPath);
+	    appname = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (wcslen(cmdPath)+1)*sizeof(wchar_t));
+	    wcscpy(appname,cmdPath);
 	} else {
-	    appname = (char *) erts_alloc(ERTS_ALC_T_TMP, (wcslen(execPath)+1)*sizeof(WCHAR));
-	    wcscpy((WCHAR *) appname, execPath);
+	    appname = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (wcslen(execPath)+1)*sizeof(wchar_t));
+	    wcscpy(appname, execPath);
 	}
 	if (argv == NULL) { 
 	    BOOL orig_need_q = need_quotes(execPath);
-	    WCHAR *ptr;
+	    wchar_t *ptr;
 	    int ocl = wcslen(execPath);
 	    if (run_cmd) {
-		newcmdline = (char *) erts_alloc(ERTS_ALC_T_TMP, 
-						 (ocl + ((orig_need_q) ? 3 : 1)
-						  + 11)*sizeof(WCHAR));
-		memcpy(newcmdline,L"cmd.exe /c ",11*sizeof(WCHAR));
-		ptr = (WCHAR *) (newcmdline + (11*sizeof(WCHAR)));
+		newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP,
+						    (ocl + ((orig_need_q) ? 3 : 1)
+						     + 11)*sizeof(wchar_t));
+		memcpy(newcmdline,L"cmd.exe /c ",11*sizeof(wchar_t));
+		ptr = newcmdline + 11;
 	    } else {
-		newcmdline = (char *) erts_alloc(ERTS_ALC_T_TMP, 
-						 (ocl + ((orig_need_q) ? 3 : 1))*sizeof(WCHAR));
-		ptr = (WCHAR *) newcmdline;
+		newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP,
+						    (ocl + ((orig_need_q) ? 3 : 1))*sizeof(wchar_t));
+		ptr = (wchar_t *) newcmdline;
 	    }
 	    if (orig_need_q) {
 		*ptr++ = L'"';
 	    }
-	    memcpy(ptr,execPath,ocl*sizeof(WCHAR));
+	    memcpy(ptr,execPath,ocl*sizeof(wchar_t));
 	    ptr += ocl;
 	    if (orig_need_q) {
 		*ptr++ = L'"';
@@ -1611,12 +1610,12 @@ create_child_process
 	    *ptr = L'\0';
 	} else {
 	    int sum = 1; /* '\0' */
-	    WCHAR **ar = (WCHAR **) argv;
-	    WCHAR *n;
-	    char *save_arg0 = NULL;
-	    if (argv[0] == erts_default_arg0 || run_cmd) {
+	    wchar_t **ar = argv;
+	    wchar_t *n;
+	    wchar_t *save_arg0 = NULL;
+	    if (argv[0] == (wchar_t *) erts_default_arg0 || run_cmd) {
 		save_arg0 = argv[0];
-		argv[0] = (char *) execPath;
+		argv[0] = execPath;
 	    }
 	    if (run_cmd) {
 		sum += 11; /* cmd.exe /c */
@@ -1629,11 +1628,11 @@ create_child_process
 		sum++; /* space */
 		++ar;
 	    }
-	    ar = (WCHAR **) argv;
-	    newcmdline = erts_alloc(ERTS_ALC_T_TMP, sum*sizeof(WCHAR));
-	    n = (WCHAR *) newcmdline;
+	    ar = argv;
+	    newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, sum*sizeof(wchar_t));
+	    n = newcmdline;
 	    if (run_cmd) {
-		memcpy(n,L"cmd.exe /c ",11*sizeof(WCHAR));
+		memcpy(n,L"cmd.exe /c ",11*sizeof(wchar_t));
 		n += 11;
 	    }
 	    while (*ar != NULL) {
@@ -1642,7 +1641,7 @@ create_child_process
 		if (q) {
 		    *n++ = L'"';
 		}
-		memcpy(n,*ar,sum*sizeof(WCHAR));
+		memcpy(n,*ar,sum*sizeof(wchar_t));
 		n += sum;
 		if (q) {
 		    *n++ = L'"';
@@ -1657,16 +1656,16 @@ create_child_process
 	}	    
 	    
 	DEBUGF(("Creating child process: %s, createFlags = %d\n", newcmdline, createFlags));
-	ok = CreateProcessW((WCHAR *) appname, 
-			    (WCHAR *) newcmdline, 
-			    NULL, 
-			    NULL, 
-			    TRUE, 
-			    createFlags | staticCreateFlags | 
-			    CREATE_UNICODE_ENVIRONMENT, 
-			    env, 
-			    (WCHAR *) wd, 
-			    &siStartInfo, 
+	ok = CreateProcessW((wchar_t *) appname,
+			    (wchar_t *) newcmdline,
+			    NULL,
+			    NULL,
+			    TRUE,
+			    createFlags | staticCreateFlags |
+			    CREATE_UNICODE_ENVIRONMENT,
+			    env,
+			    wd,
+			    &siStartInfo,
 			    &piProcInfo);
 
     } /* end SPAWN_EXECUTABLE */
@@ -1775,180 +1774,23 @@ static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL o
     return TRUE;
 }
 
-
-
-
-static int application_type
-(
- const char *originalName, /* Name of the application to find. */ 
- char fullPath[MAX_PATH],  /* Filled with complete path to 
-			    * application. */
- BOOL search_in_path,      /* If we should search the system wide path */
- BOOL handle_quotes,       /* If we should handle quotes around executable */
- int *error_return         /* A place to put an error code */
- )
-{
-    int applType, i;
-    HANDLE hFile;
-    char *ext, *rest;
-    char buf[2];
-    DWORD read;
-    IMAGE_DOS_HEADER header;
-    static char extensions[][5] = {"", ".com", ".exe", ".bat"};
-    int is_quoted;
-    int len;
-
-    /* Look for the program as an external program.  First try the name
-     * as it is, then try adding .com, .exe, and .bat, in that order, to
-     * the name, looking for an executable.
-     * NOTE! that we does not support execution of .com programs on Windows NT
-     * 
-     *
-     * Using the raw SearchPath() procedure doesn't do quite what is 
-     * necessary.  If the name of the executable already contains a '.' 
-     * character, it will not try appending the specified extension when
-     * searching (in other words, SearchPath will not find the program 
-     * "a.b.exe" if the arguments specified "a.b" and ".exe").   
-     * So, first look for the file as it is named.  Then manually append 
-     * the extensions, looking for a match.  (')
-     */
-
-    len = strlen(originalName);
-    is_quoted = handle_quotes && len > 0 && originalName[0] == '"' && 
-	originalName[len-1] == '"';
-
-    applType = APPL_NONE;
-    *error_return = ENOENT;
-    for (i = 0; i < (int) (sizeof(extensions) / sizeof(extensions[0])); i++) {
-	if(is_quoted) {
-	   lstrcpyn(fullPath, originalName+1, MAX_PATH - 7); 
-	   len = strlen(fullPath);
-	   if(len > 0) {
-	       fullPath[len-1] = '\0';
-	   }
-	} else {
-	    lstrcpyn(fullPath, originalName, MAX_PATH - 5);
-	}
-	lstrcat(fullPath, extensions[i]);
-	SearchPath((search_in_path) ? NULL : ".", fullPath, NULL, MAX_PATH, fullPath, &rest);
-
-	/*
-	 * Ignore matches on directories or data files, return if identified
-	 * a known type.
-	 */
-
-	if (GetFileAttributes(fullPath) & FILE_ATTRIBUTE_DIRECTORY) {
-	    continue;
-	}
-
-	ext = strrchr(fullPath, '.');
-	if ((ext != NULL) && (strcmpi(ext, ".bat") == 0)) {
-	    *error_return = EACCES;
-	    applType = APPL_DOS;
-	    break;
-	}
-
-	hFile = CreateFile(fullPath, GENERIC_READ, FILE_SHARE_READ, NULL, 
-		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE) {
-	    continue;
-	}
-
-	*error_return = EACCES; /* If considered an error, 
-				    it's an access error */
-	header.e_magic = 0;
-	ReadFile(hFile, (void *) &header, sizeof(header), &read, NULL);
-	if (header.e_magic != IMAGE_DOS_SIGNATURE) {
-	    /* 
-	     * Doesn't have the magic number for relocatable executables.  If 
-	     * filename ends with .com, assume it's a DOS application anyhow.
-	     * Note that we didn't make this assumption at first, because some
-	     * supposed .com files are really 32-bit executables with all the
-	     * magic numbers and everything.  
-	     */
-
-	    CloseHandle(hFile);
-	    if ((ext != NULL) && (strcmpi(ext, ".com") == 0)) {
-		applType = APPL_DOS;
-		break;
-	    }
-	    continue;
-	}
-	if (header.e_lfarlc != sizeof(header)) {
-	    /* 
-	     * All Windows 3.X and Win32 and some DOS programs have this value
-	     * set here.  If it doesn't, assume that since it already had the 
-	     * other magic number it was a DOS application.
-	     */
-
-	    CloseHandle(hFile);
-	    applType = APPL_DOS;
-	    break;
-	}
-
-	/* 
-	 * The DWORD at header.e_lfanew points to yet another magic number.
-	 */
-
-	buf[0] = '\0';
-	SetFilePointer(hFile, header.e_lfanew, NULL, FILE_BEGIN);
-	ReadFile(hFile, (void *) buf, 2, &read, NULL);
-	CloseHandle(hFile);
-
-	if ((buf[0] == 'L') && (buf[1] == 'E')) {
-	    applType = APPL_DOS;
-	} else if ((buf[0] == 'N') && (buf[1] == 'E')) {
-	    applType = APPL_WIN3X;
-	} else if ((buf[0] == 'P') && (buf[1] == 'E')) {
-	    applType = APPL_WIN32;
-	} else {
-	    continue;
-	}
-	break;
-    }
-
-    if (applType == APPL_NONE) {
-	return APPL_NONE;
-    }
-
-    if ((applType == APPL_DOS) || (applType == APPL_WIN3X)) {
-	/* 
-	 * Replace long path name of executable with short path name for 
-	 * 16-bit applications.  Otherwise the application may not be able
-	 * to correctly parse its own command line to separate off the 
-	 * application name from the arguments.
-	 */
-
-	GetShortPathName(fullPath, fullPath, MAX_PATH);
-    }
-    if (is_quoted) {
-	/* restore quotes on quoted program name */
-	len = strlen(fullPath);
-	memmove(fullPath+1,fullPath,len);
-	fullPath[0]='"';
-	fullPath[len+1]='"';
-	fullPath[len+2]='\0';
-    }
-    return applType;
-}
-
-static int application_type_w (const WCHAR *originalName, /* Name of the application to find. */ 
-			       WCHAR wfullpath[MAX_PATH],/* Filled with complete path to 
+static int application_type (const wchar_t *originalName, /* Name of the application to find. */
+			     wchar_t wfullpath[MAX_PATH],/* Filled with complete path to
 							  * application. */
-			       BOOL search_in_path,      /* If we should search the system wide path */
-			       BOOL handle_quotes,       /* If we should handle quotes around executable */
-			       int *error_return)         /* A place to put an error code */
+			     BOOL search_in_path,      /* If we should search the system wide path */
+			     BOOL handle_quotes,       /* If we should handle quotes around executable */
+			     int *error_return)         /* A place to put an error code */
 {
     int applType, i;
     HANDLE hFile;
-    WCHAR *ext, *rest;
+    wchar_t *ext, *rest;
     char buf[2];
     DWORD read;
     IMAGE_DOS_HEADER header;
-    static WCHAR extensions[][5] = {L"", L".com", L".exe", L".bat"};
+    static wchar_t extensions[][5] = {L"", L".com", L".exe", L".bat"};
     int is_quoted;
     int len;
-    WCHAR xfullpath[MAX_PATH];
+    wchar_t xfullpath[MAX_PATH];
 
     len = wcslen(originalName);
     is_quoted = handle_quotes && len > 0 && originalName[0] == L'"' && 
@@ -2063,7 +1905,7 @@ static int application_type_w (const WCHAR *originalName, /* Name of the applica
     if (is_quoted) {
 	/* restore quotes on quoted program name */
 	len = wcslen(wfullpath);
-	memmove(wfullpath+1,wfullpath,len*sizeof(WCHAR));
+	memmove(wfullpath+1,wfullpath,len*sizeof(wchar_t));
 	wfullpath[0]=L'"';
 	wfullpath[len+1]=L'"';
 	wfullpath[len+2]=L'\0';
@@ -2915,7 +2757,7 @@ void erts_sys_free(ErtsAlcType_t t, void *x, void *p)
 void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 {
     void *ptr;
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     ptr = _aligned_malloc((size_t) size, (size_t) alignment);
     ASSERT(!ptr || (((UWord) ptr) & (alignment - 1)) == 0);
     return ptr;
@@ -2923,14 +2765,14 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 
 void erts_sys_aligned_free(UWord alignment, void *ptr)
 {
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     _aligned_free(ptr);
 }
 
 void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size)
 {
     void *new_ptr;
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     new_ptr = _aligned_realloc(ptr, (size_t) size, (size_t) alignment);
     ASSERT(!new_ptr || (((UWord) new_ptr) & (alignment - 1)) == 0);
     return new_ptr;
@@ -3355,7 +3197,7 @@ void erl_sys_init(void)
     noinherit_std_handle(STD_ERROR_HANDLE);
 
 #ifdef ERTS_SMP
-    erts_smp_tsd_key_create(&win32_errstr_key);
+    erts_smp_tsd_key_create(&win32_errstr_key,"win32_errstr_key");
     InitializeCriticalSection(&htbc_lock);
 #endif
     erts_smp_atomic_init_nob(&pipe_creation_counter,0);

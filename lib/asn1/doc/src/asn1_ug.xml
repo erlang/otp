@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -205,16 +205,13 @@ ok
         is saved in the <c>People.asn1db</c> file, the
         generated Erlang code is compiled using the Erlang compiler and
         loaded into  the Erlang runtime system. Now there is a user interface
-        of encode/2 and decode/2 in the module People, which is invoked by:
+        for <c>encode/2</c> and <c>decode/2</c> in the module People,
+	which is invoked by:
                 <br></br>
 <c><![CDATA['People':encode(<Type name>,<Value>),]]></c>        <br></br>
 
         or        <br></br>
-<c><![CDATA['People':decode(<Type name>,<Value>),]]></c>        <br></br>
-
-        Alternatively one can use the <c><![CDATA[asn1rt:encode(<Module name> ,<Type name>,<Value>)]]></c> and <c><![CDATA[asn1rt:decode(< Module name>,<Type name>,<Value>)]]></c> calls.
-        However, they are not as efficient as the previous methods since they
-        result in an additional <c>apply/3</c> call.</p>
+<c><![CDATA['People':decode(<Type name>,<Value>),]]></c></p>
       <p>Assume there is a network
         application which receives instances of the  ASN.1 defined
         type Person,  modifies and sends them back again:</p>
@@ -241,16 +238,14 @@ receive
         encoding-rules. 
                 <br></br>
 The encoder and the decoder can also be run from
-        the shell. The following  dialogue with the shell illustrates
-        how the functions   
-        <c>asn1rt:encode/3</c> and <c>asn1rt:decode/3</c> are used.</p>
+        the shell.</p>
       <pre>
 2> <input>Rockstar = {'Person',"Some Name",roving,50}.</input>
 {'Person',"Some Name",roving,50}
-3> <input>{ok,Bin} = asn1rt:encode('People','Person',Rockstar).</input>
+3> <input>{ok,Bin} = 'People':encode('Person',Rockstar).</input>
 {ok,&lt;&lt;243,17,19,9,83,111,109,101,32,78,97,109,101,2,1,2,
       2,1,50&gt;&gt;}
-4> <input>{ok,Person} = asn1rt:decode('People','Person',Bin).</input>
+4> <input>{ok,Person} = 'People':decode('Person',Bin).</input>
 {ok,{'Person',"Some Name",roving,50}}
 5>      </pre>
     </section>
@@ -279,11 +274,8 @@ The encoder and the decoder can also be run from
           (including the compiler).</p>
       </item>
       <item>
-        <p>The module <c>asn1rt</c> which provides the run-time functions. 
-          However, it is preferable to use the generated <c>encode/2</c> and 
-          <c>decode/2</c> functions in each module, ie. 
-          Module:encode(Type,Value), in favor of the <c>asn1rt</c> 
-          interface.</p>
+        <p>The module <c>asn1rt_nif</c> which provides the run-time functions
+	for the ASN.1 decoder for the BER back-end.</p>
       </item>
     </list>
     <p>The reason for the division  of the interface into  compile-time 
@@ -384,25 +376,9 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
 
     <section>
       <title>Run-time Functions</title>
-      <p>A brief description of the major functions is given here. For a
-        complete description of each function see
-        <seealso marker="asn1rt"> the Asn1 Reference Manual</seealso>, the <c>asn1rt</c> module.</p>
-      <p>The generic run-time encode and decode functions can be invoked as below:</p>
-      <pre>
-asn1rt:encode('H323-MESSAGES','SomeChoiceType',{call,"octetstring"}).
-asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
-      <p>Or, preferable like:</p>
-      <pre>
-'H323-MESSAGES':encode('SomeChoiceType',{call,"octetstring"}).
-'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
-      <p>The asn1 nif is enabled in two occasions: encoding of
-        asn1 values when the asn1 spec is compiled with <c>per</c> and
-        or decode of encoded asn1 values when the asn1 spec is
-        compiled with <c>ber</c>. In
-        those cases the nif will be loaded automatically at the first call
-        to <c>encode</c>/<c>decode</c>. If one doesn't want the performance
-        overhead of the nif being loaded at the first call it is possible
-        to load the nif separately by loading the <c>asn1rt_nif</c> module.</p>
+      <p>When an ASN.1 specification is compiled with the <c>ber</c>
+      option, the module <c>asn1rt_nif</c> module and the NIF library in
+      <c>asn1/priv_dir</c> will be needed at run-time.</p>
       <p>By invoking the function <c>info/0</c> in a generated module, one
         gets information about which compiler options were used.</p>
     </section>
@@ -414,8 +390,8 @@ asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
         a line number indicating where in the source file the error 
         was detected. If no errors are found, an Erlang ASN.1 module will
         be created as default.</p>
-      <p>The run-time encoders and decoders (in the <c>asn1rt</c> module) do
-        execute within a catch and returns <c>{ok, Data}</c> or
+      <p>The run-time encoders and decoders execute within a catch and
+      returns <c>{ok, Data}</c> or
         <c>{error, {asn1, Description}}</c> where
         <c>Description</c> is
         an Erlang term describing the error. </p>
@@ -653,7 +629,7 @@ Day1 = saturday,
 Bits1 ::= BIT STRING
 Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}
       </pre>
-      <p>There are five different notations available for representation of
+      <p>There are two notations available for representation of
         BIT STRING values in Erlang and as input to the encode functions.</p>
       <list type="ordered">
 	<item>A bitstring. By default, a BIT STRING with no
@@ -661,43 +637,10 @@ Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}
         <item>A list of atoms corresponding to atoms in the <c>NamedBitList</c> 
          in the BIT STRING definition. A BIT STRING with symbolic
 	 names will always be decoded to this format.</item>
-        <item>A list of binary digits (0 or 1). This format is always
-	  accepted as input to the encode functions. A BIT STRING will
-	  be decoded to this format if <em>legacy_bit_string</em> option
-	  has been given. <em>This format may be withdrawn in a future
-         release.</em>
-	</item>
-        <item>As <c>{Unused,Binary}</c> where <c>Unused</c> denotes how
-          many trailing zero-bits 0 to 7 that are unused in the least
-          significant byte in <c>Binary</c>. This format is always
-	  accepted as input to the encode functions. A BIT STRING will
-	  be decoded to this format if <em>compact_bit_string</em> has
-	  been given. <em>This format may be withdrawn in a future
-          release.</em>
-	</item>
-        <item>A hexadecimal number (or an integer). This format should be
-         avoided, since it is easy to misinterpret a <c>BIT STRING</c>
-         value in this format. <em>This format may be withdrawn in a future
-         release.</em>
-	</item>
       </list>
-      <note>
-        <p>It is recommended to either use the bitstring format (for
-	  BIT STRINGs with no symbolic names) or a list of symbolic
-	  names (for BIT STRINGs with symbolic names). The other formats
-	  should be avoided since they may be withdrawn in a future
-	  release.
-	</p>
-      </note>
+      <p>Example:</p>
       <pre>
 Bits1Val1 = &lt;&lt;0:1,1:1,0:1,1:1,1:1&gt;&gt;,
-Bits1Val2 = 16#1A,
-Bits1Val3 = {3,&lt;&lt;0:1,1:1,0:1,1:1,1:1,0:3&gt;&gt;},
-Bits1Val4 = [0,1,0,1,1]
-      </pre>
-      <p>Note that <c>Bits1Val1</c>, <c>Bits1Val2</c>, <c>Bits1Val3</c>,
-	and <c>Bits1Val1</c> denote the same value.</p>
-      <pre>
 Bits2Val1 = [gnu,punk],
 Bits2Val2 = &lt;&lt;2#1110:4&gt;&gt;,
 Bits2Val3 = [bar,gnu,gnome],
@@ -708,37 +651,60 @@ Bits2Val3 = [bar,gnu,gnome],
         2 and 14 are set to 1 and the rest set to 0. The symbolic values
         appear as a list of values. If a named value appears, which is not
         specified in the type definition, a run-time error will occur.</p>
-      <p>The compact notation equivalent to the empty BIT STRING is
-        <c><![CDATA[{0,<<>>}]]></c>, which in the other notations is
-	<c><![CDATA[<<>>]]></c>, <c>[]</c>, or
-        <c>0</c>.</p>
       <p>BIT STRINGS may also be sub-typed with, for example, a SIZE
         specification:</p>
       <pre>
 Bits3 ::= BIT STRING (SIZE(0..31))      </pre>
       <p>This means that no bit higher than 31 can ever be set.</p>
+
+      <section>
+	<title>Deprecated representations for BIT STRING</title>
+	<p>In addition to the representations described above, the
+	following deprecated representations are available if the
+	specification has been compiled with the
+	<c>legacy_erlang_types</c> option:</p>
+	<list type="ordered">
+	  <item>A list of binary digits (0 or 1). This format is
+	  accepted as input to the encode functions, and a BIT STRING
+	  will be decoded to this format if the
+	  <em>legacy_bit_string</em> option has been given.
+	  </item>
+	  <item>As <c>{Unused,Binary}</c> where <c>Unused</c> denotes
+	  how many trailing zero-bits 0 to 7 that are unused in the
+	  least significant byte in <c>Binary</c>. This format is
+	  accepted as input to the encode functions, and a <c>BIT
+	  STRING</c> will be decoded to this format if
+	  <em>compact_bit_string</em> has been given.
+	  </item>
+	  <item>A hexadecimal number (or an integer). This format
+	  should be avoided, since it is easy to misinterpret a BIT
+	  STRING value in this format.
+	  </item>
+	</list>
+      </section>
     </section>
 
     <section>
       <marker id="OCTET STRING"></marker>
       <title>OCTET STRING</title>
-      <p>The OCTET STRING is the simplest of all ASN.1 types The OCTET STRING
-        only moves or transfers e.g. binary files or other unstructured
-        information complying to two rules.
-        Firstly, the bytes consist of octets and secondly, encoding is 
-        not required.</p>
+      <p>The OCTET STRING is the simplest of all ASN.1 types. The
+      OCTET STRING only moves or transfers e.g. binary files or other
+      unstructured information complying to two rules.  Firstly, the
+      bytes consist of octets and secondly, encoding is not
+      required.</p>
       <p>It is possible to have the following ASN.1 type definitions:</p>
       <pre>
 O1 ::= OCTET STRING
 O2 ::= OCTET STRING (SIZE(28))      </pre>
       <p>With the following example assignments in Erlang:</p>
       <pre>
-O1Val = [17,13,19,20,0,0,255,254],
-O2Val = "must be exactly 28 chars....",      </pre>
-      <p>Observe that <c>O1Val</c> is assigned a series of numbers between 0 
-        and 255 i.e. octets.
-        <c>O2Val</c> is assigned using the string notation.
-        </p>
+O1Val = &lt;&lt;17,13,19,20,0,0,255,254&gt;&gt;,
+O2Val = &lt;&lt;"must be exactly 28 chars...."&gt;&gt;,</pre>
+       <p>By default, an OCTET STRING is always represented as
+       an Erlang binary. If the specification has been compiled with
+       the <c>legacy_erlang_types</c> option, the encode functions
+       will accept both lists and binaries, and the decode functions
+       will decode an OCTET STRING to a list.</p>
     </section>
 
     <section>

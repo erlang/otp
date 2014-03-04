@@ -121,9 +121,9 @@ main(_Rules) ->
 			     #'SetIn'{boolIn=false,intIn=125},
 			     #'SetIn'{boolIn=false,intIn=225}]}),
 
-    roundtrip('SetOs', ["First","Second","Third"]),
-    roundtrip('SetOsImp', ["First","Second","Third"]),
-    roundtrip('SetOsExp', ["First","Second","Third"]),
+    roundtrip('SetOs', [<<"First">>,<<"Second">>,<<"Third">>]),
+    roundtrip('SetOsImp', [<<"First">>,<<"Second">>,<<"Third">>]),
+    roundtrip('SetOsExp', [<<"First">>,<<"Second">>,<<"Third">>]),
     roundtrip('SetEmp', #'SetEmp'{set1=[#'Empty'{}]}),
 
     ok.

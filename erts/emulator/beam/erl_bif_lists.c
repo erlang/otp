@@ -43,7 +43,7 @@ static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
     Eterm* hp;
     int i;
 
-    if ((i = list_length(A)) < 0) {
+    if ((i = erts_list_length(A)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
     if (i == 0) {
@@ -102,10 +102,10 @@ static Eterm subtract(Process* p, Eterm A, Eterm B)
     int     n;
     int     m;
     
-    if ((n = list_length(A)) < 0) {
+    if ((n = erts_list_length(A)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
-    if ((m = list_length(B)) < 0) {
+    if ((m = erts_list_length(B)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
     

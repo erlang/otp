@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,7 @@
 -define(ID_PING, 1).
 -define(ID_CONNECT, 2).
 -define(ID_NOTEBOOK, 3).
+-define(ID_CDV,      4).
 
 -define(FIRST_NODES_MENU_ID, 1000).
 -define(LAST_NODES_MENU_ID,  2000).
@@ -131,6 +132,9 @@ setup(#state{frame = Frame} = State) ->
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
 
+    %% Freeze and thaw is buggy currently
+    DoFreeze = [?wxMAJOR_VERSION,?wxMINOR_VERSION] < [2,9],
+    DoFreeze andalso wxWindow:freeze(Panel),
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
@@ -154,9 +158,12 @@ setup(#state{frame = Frame} = State) ->
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
-
-    %% Force redraw (window needs it)
+    %% Force redraw (windows needs it)
     wxWindow:refresh(Panel),
+    DoFreeze andalso wxWindow:thaw(Panel),
+
+    wxFrame:raise(Frame),
+    wxFrame:setFocus(Frame),
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
@@ -205,6 +212,10 @@ handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
 
 handle_event(#wx{event = #wxClose{}}, State) ->
     {stop, normal, State};
+
+handle_event(#wx{id = ?ID_CDV, event = #wxCommand{type = command_menu_selected}}, State) ->
+    spawn(crashdump_viewer, start, []),
+    {noreply, State};
 
 handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->
     {stop, normal, State};
@@ -339,6 +350,22 @@ handle_info({nodedown, Node},
     Msg = ["Node down: " | atom_to_list(Node)],
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
+
+handle_info({open_link, Pid0}, State = #state{pro_panel=ProcViewer, frame=Frame}) ->
+    Pid = case Pid0 of
+	      [_|_] -> try list_to_pid(Pid0) catch _:_ -> Pid0 end;
+	      _ -> Pid0
+	  end,
+    %% Forward to process tab
+    case is_pid(Pid) of
+	true  -> wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
+	false ->
+	    Msg = io_lib:format("Information about ~p is not available or implemented",[Pid]),
+	    Info = wxMessageDialog:new(Frame, Msg),
+	    wxMessageDialog:showModal(Info),
+	    wxMessageDialog:destroy(Info)
+    end,
+    {noreply, State};
 
 handle_info({'EXIT', Pid, _Reason}, State) ->
     io:format("Child (~s) crashed exiting:  ~p ~p~n",
@@ -517,9 +544,11 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
     end.
 
 default_menus(NodesMenuItems) ->
+    CDV   = #create_menu{id = ?ID_CDV, text = "Examine Crashdump"},
     Quit  = #create_menu{id = ?wxID_EXIT, text = "Quit"},
     About = #create_menu{id = ?wxID_ABOUT, text = "About"},
     Help  = #create_menu{id = ?wxID_HELP},
+    FileMenu = {"File", [CDV, Quit]},
     NodeMenu = case erlang:is_alive() of
 		   true ->  {"Nodes", NodesMenuItems ++
 				 [#create_menu{id = ?ID_PING, text = "Connect Node"}]};
@@ -528,15 +557,15 @@ default_menus(NodesMenuItems) ->
 	       end,
     case os:type() =:= {unix, darwin} of
 	false ->
-	    FileMenu = {"File", [Quit]},
+	    FileMenu = {"File", [CDV, Quit]},
 	    HelpMenu = {"Help", [About,Help]},
 	    [FileMenu, NodeMenu, HelpMenu];
 	true ->
 	    %% On Mac quit and about will be moved to the "default' place
 	    %% automagicly, so just add them to a menu that always exist.
 	    %% But not to the help menu for some reason
-	    {Tag, Menus} = NodeMenu,
-	    [{Tag, Menus ++ [Quit,About]}, {"&Help", [Help]}]
+	    {Tag, Menus} = FileMenu,
+	    [{Tag, Menus ++ [About]}, NodeMenu, {"&Help", [Help]}]
     end.
 
 clean_menus(Menus, MenuBar) ->
@@ -550,13 +579,6 @@ remove_menu_items([{MenuStr = "File", Menus}|Rest], MenuBar) ->
 	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
 	    Items = [wxMenu:findItem(Menu, Tag) || #create_menu{text=Tag} <- Menus],
 	    [wxMenu:delete(Menu, MItem) || MItem <- Items],
-	    case os:type() =:= {unix, darwin} of
-	    	true ->
-	    	    wxMenuBar:remove(MenuBar, MenuId),
-	    	    wxMenu:destroy(Menu);
-	    	false ->
-	    	    ignore
-	    end,
 	    remove_menu_items(Rest, MenuBar)
     end;
 remove_menu_items([{"Nodes", _}|_], _MB) ->
