@@ -369,6 +369,14 @@ record_test_3(Config) when is_list(Config) ->
     ?line false = is_record(id(#barf{}), id(barf), id(42)),
     ?line false = is_record(id(#barf{}), id(foo), id(6)),
 
+    Rec = id(#barf{}),
+    Good = id(barf),
+    Bad = id(foo),
+    Size = id(6),
+
+    true = is_record(Rec, Good, Size) orelse error,
+    error = is_record(Rec, Bad, Size) orelse error,
+
     ok.
 
 record_access_in_guards(Config) when is_list(Config) ->
