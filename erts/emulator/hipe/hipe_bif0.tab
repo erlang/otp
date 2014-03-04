@@ -69,7 +69,8 @@ bif hipe_bifs:atom_to_word/1
 bif hipe_bifs:term_to_word/1
 
 #bif hipe_bifs:make_fun/3
-bif hipe_bifs:make_fe/3
+bif hipe_bifs:get_fe/2
+bif hipe_bifs:set_native_address_in_fe/2
 
 #bif hipe_bifs:make_native_stub/2
 bif hipe_bifs:find_na_or_make_stub/2
