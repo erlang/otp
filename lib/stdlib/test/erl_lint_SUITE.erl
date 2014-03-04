@@ -61,7 +61,8 @@
 	  on_load_successful/1, on_load_failing/1, 
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
-          predef/1
+          predef/1,
+          maps/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -88,7 +89,7 @@ all() ->
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
-     too_many_arguments, basic_errors, bin_syntax_errors, predef].
+     too_many_arguments, basic_errors, bin_syntax_errors, predef, maps].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3257,6 +3258,52 @@ predef(Config) when is_list(Config) ->
      {37,erl_lint,{deprecated_type,{queue,0},{queue,queue},"OTP 18.0"}},
      {42,erl_lint,{deprecated_type,{set,0},{sets,set},"OTP 18.0"}},
      {47,erl_lint,{deprecated_type,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
+    ok.
+
+maps(Config) ->
+    %% TODO: test key patterns, not done because map patterns are going to be
+    %% changed a lot.
+    Ts = [{illegal_map_construction,
+           <<"t() ->
+                  #{ a := b,
+                     c => d,
+                     e := f
+                  }#{ a := b,
+                      c => d,
+                      e := f };
+              t() when is_map(#{ a := b,
+                                 c => d
+                              }#{ a := b,
+                                  c => d,
+                                  e := f }) ->
+                  ok.
+            ">>,
+           [],
+           {errors,[{2,erl_lint,illegal_map_construction},
+                    {4,erl_lint,illegal_map_construction},
+                    {8,erl_lint,illegal_map_construction}],
+            []}},
+          {illegal_pattern,
+           <<"t(#{ a := A,
+                   c => d,
+                   e := F,
+                   g := 1 + 1,
+                   h := _,
+                   i := (_X = _Y),
+                   j := (x ! y) }) ->
+                  {A,F}.
+            ">>,
+           [],
+           {errors,[{2,erl_lint,illegal_pattern},
+                    {7,erl_lint,illegal_pattern}],
+            []}},
+          {error_in_illegal_map_construction,
+           <<"t() -> #{ a := X }.">>,
+           [],
+           {errors,[{1,erl_lint,illegal_map_construction},
+                    {1,erl_lint,{unbound_var,'X'}}],
+            []}}],
+    [] = run(Config, Ts),
     ok.
 
 run(Config, Tests) ->
