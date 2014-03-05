@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,7 +52,7 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1, otp_9282/1, otp_11245/1]).
+         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -109,7 +109,7 @@ all() ->
 	many_clients, otp_4906, otp_5402, simultaneous_open,
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
-	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245
+	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709
     ].
 
 groups() -> 
@@ -3917,6 +3917,23 @@ otp_11245(Config) when is_list(Config) ->
     N = dets:foldr(fun(_, N2) -> N2+1 end, 0, Tab),
     false = dets:info(Tab, safe_fixed),
     ok = dets:close(Tab),
+    file:delete(File),
+    ok.
+
+otp_11709(doc) ->
+    ["OTP-11709. Bugfixes."];
+otp_11709(suite) ->
+    [];
+otp_11709(Config) when is_list(Config) ->
+    Long = <<"a sufficiently long text">>,
+
+    %% Bug: leaking file descriptor
+    P0 = pps(),
+    File = filename(otp_11709, Config),
+    ok = file:write_file(File, Long),
+    false = dets:is_dets_file(File),
+    check_pps(P0),
+
     file:delete(File),
     ok.
 

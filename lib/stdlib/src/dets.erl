@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1785,6 +1785,7 @@ read_file_header(FileName, Access, RamFile) ->
         Version =:= 9 ->
             dets_v9:read_file_header(Fd, FileName);
         true ->
+            _ = file:close(Fd),
             throw({error, {not_a_dets_file, FileName}})
     end.
 
