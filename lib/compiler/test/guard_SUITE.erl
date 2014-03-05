@@ -1023,6 +1023,10 @@ is_function_2(Config) when is_list(Config) ->
     true = is_function(id(fun() -> ok end), 0),
     false = is_function(id(fun ?MODULE:all/1), 0),
     false = is_function(id(fun() -> ok end), 1),
+    {'EXIT',{badarg,_}} =
+        (catch is_function(id(fun() -> ok end), -1) orelse error),
+    {'EXIT',{badarg,_}} =
+        (catch is_function(id(fun() -> ok end), '') orelse error),
 
     F = fun(_) -> ok end,
     if
