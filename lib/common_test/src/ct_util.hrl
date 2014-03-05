@@ -48,6 +48,7 @@
 		   release_shell=false,
 		   include=[],
 		   auto_compile=[],
+		   abort_if_missing_suites=[],
 		   stylesheet=[],
 		   multiply_timetraps=[],
 		   scale_timetraps=[],

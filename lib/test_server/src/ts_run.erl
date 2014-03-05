@@ -398,8 +398,9 @@ make_common_test_args(Args0, Options0, _Vars) ->
 		end,
     ConfigFiles = [{config,[filename:join(ConfigPath,File)
 			    || File <- get_config_files()]}],
-    io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++
-				  ConfigFiles++Options++TimeTrap]).
+    io_lib:format("~100000p",[[{abort_if_missing_suites,true} | 
+			       Args0++Trace++Cover++Logdir++
+			       ConfigFiles++Options++TimeTrap]]).
 
 to_list(X) when is_atom(X) ->
     atom_to_list(X);
