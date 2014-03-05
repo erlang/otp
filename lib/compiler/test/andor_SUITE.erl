@@ -129,6 +129,10 @@ t_case_y(X, Y, Z) ->
 	    Y =:= 100
     end.
 
+-define(GUARD(E), if E -> true;
+             true -> false
+          end).
+
 t_and_or(Config) when is_list(Config) ->
     ?line true = true and true,
     ?line false = true and false,
@@ -160,11 +164,14 @@ t_and_or(Config) when is_list(Config) ->
     ?line true = false or id(true),
     ?line false = false or id(false),
 
-   ok.
+    True = id(true),
 
--define(GUARD(E), if E -> true;
-		     true -> false
-		  end).
+    false = ?GUARD(erlang:'and'(bar, True)),
+    false = ?GUARD(erlang:'or'(bar, True)),
+    false = ?GUARD(erlang:'not'(erlang:'and'(bar, True))),
+    false = ?GUARD(erlang:'not'(erlang:'not'(erlang:'and'(bar, True)))),
+
+   ok.
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
