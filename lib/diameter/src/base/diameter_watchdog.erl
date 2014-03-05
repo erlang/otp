@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -157,8 +157,7 @@ wait(Ref, Pid) ->
 
 config(Opts) ->
     Config = proplists:get_value(watchdog_config, Opts, []),
-    is_list(Config) orelse config_error({watchdog_config, Config}),
-    lists:foldl(fun config/2, #config{}, Config).      %% ^ added in old code
+    lists:foldl(fun config/2, #config{}, Config).
 
 config({suspect, N}, Rec)
   when ?IS_NATURAL(N) ->
@@ -166,10 +165,7 @@ config({suspect, N}, Rec)
 
 config({okay, N}, Rec)
   when ?IS_NATURAL(N) ->
-    Rec#config{okay = N};
-
-config(T, _) ->  %% added in old code
-    config_error(T).
+    Rec#config{okay = N}.
 
 %% start/5
 
@@ -252,17 +248,6 @@ handle_info(T, #watchdog{} = State) ->
             ?LOG(stop, T),
             event(T, State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
-    end;
-
-handle_info(T, State) ->  %% started in old code
-    handle_info(T, upgrade(State)).
-
-upgrade(State) ->
-    case erlang:append_element(State, #config{}) of
-        #watchdog{status = okay, config = #config{suspect = OS}} = S ->
-            S#watchdog{num_dwa = OS};
-        #watchdog{} = S ->
-            S
     end.
 
 close({'DOWN', _, process, TPid, {shutdown, Reason}},

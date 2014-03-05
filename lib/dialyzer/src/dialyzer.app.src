@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,17 +29,19 @@
 	     dialyzer_cl_parse,
 	     dialyzer_codeserver,
 	     dialyzer_contracts,
+	     dialyzer_coordinator,
 	     dialyzer_dataflow,
 	     dialyzer_dep,
 	     dialyzer_explanation,
-	     dialyzer_gui,
 	     dialyzer_gui_wx,
 	     dialyzer_options,
 	     dialyzer_plt,
 	     dialyzer_races,
 	     dialyzer_succ_typings,
 	     dialyzer_typesig,
-	     dialyzer_utils]},
+	     dialyzer_utils,
+             dialyzer_timing,
+             dialyzer_worker]},
   {registered, []},
   {applications, [compiler, gs, hipe, kernel, stdlib, wx]},
   {env, []}]}.

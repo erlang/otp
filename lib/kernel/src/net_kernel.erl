@@ -306,21 +306,21 @@ do_connect(Node, Type, WaitForBarred) -> %% Type = normal | hidden
     end.
 
 passive_connect_monitor(Parent, Node) ->
-    monitor_nodes(true,[{node_type,all}]),
+    ok = monitor_nodes(true,[{node_type,all}]),
     case lists:member(Node,nodes([connected])) of
 	true ->
-	    monitor_nodes(false,[{node_type,all}]),
+	    ok = monitor_nodes(false,[{node_type,all}]),
 	    Parent ! {self(),true};
 	_ ->
 	    Ref = make_ref(),
 	    Tref = erlang:send_after(connecttime(),self(),Ref),
 	    receive
 		Ref ->
-		    monitor_nodes(false,[{node_type,all}]),
+		    ok = monitor_nodes(false,[{node_type,all}]),
 		    Parent ! {self(), false};
 		{nodeup,Node,_} ->
-		    monitor_nodes(false,[{node_type,all}]),
-		    erlang:cancel_timer(Tref),
+		    ok = monitor_nodes(false,[{node_type,all}]),
+		    _ = erlang:cancel_timer(Tref),
 		    Parent ! {self(),true}
 	    end
     end.
@@ -734,7 +734,7 @@ handle_info(transition_period_end,
 				       how = How}} = State) ->
     ?tckr_dbg(transition_period_ended),
     case How of
-	shorter -> Tckr ! {new_ticktime, T};
+	shorter -> Tckr ! {new_ticktime, T}, done;
 	_       -> done
     end,
     {noreply,State#state{tick = #tick{ticker = Tckr, time = T}}};
@@ -1573,9 +1573,10 @@ async_gen_server_reply(From, Msg) ->
         ok ->
             ok;
         nosuspend ->
-            spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end);
+            _ = spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end),
+	    ok;
         noconnect ->
             ok; % The gen module takes care of this case.
-        {'EXIT', _}=EXIT ->
-            EXIT
+        {'EXIT', _} ->
+            ok
     end.

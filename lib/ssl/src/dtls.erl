@@ -31,25 +31,29 @@
 	 handshake/1, handshake/2, handshake/3]).
 
 %%--------------------------------------------------------------------
+%%
+%% Description: Connect to a DTLS server.
+%%--------------------------------------------------------------------
+
 -spec connect(host() | port(), [connect_option()]) -> {ok, #sslsocket{}} |
 					      {error, reason()}.
--spec connect(host() | port(), [connect_option()] | inet:port_number(),
-	      timeout() | list()) ->
-		     {ok, #sslsocket{}} | {error, reason()}.
--spec connect(host() | port(), inet:port_number(), list(), timeout()) ->
-		     {ok, #sslsocket{}} | {error, reason()}.
-
-%%
-%% Description: Connect to an DTLS server.
-%%--------------------------------------------------------------------
 
 connect(Socket, Options) when is_port(Socket) ->
     connect(Socket, Options, infinity).
+
+-spec connect(host() | port(), [connect_option()] | inet:port_number(),
+	      timeout() | list()) ->
+		     {ok, #sslsocket{}} | {error, reason()}.
+
 connect(Socket, SslOptions, Timeout)  when is_port(Socket) ->
     DTLSOpts = [{protocol, dtls} | SslOptions],
     ssl:connect(Socket, DTLSOpts, Timeout);
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
+
+-spec connect(host() | port(), inet:port_number(), list(), timeout()) ->
+		     {ok, #sslsocket{}} | {error, reason()}.
+
 connect(Host, Port, Options, Timeout) ->
     DTLSOpts = [{protocol, dtls} | Options],
     ssl:connect(Host, Port, DTLSOpts, Timeout).
@@ -65,38 +69,44 @@ listen(Port, Options) ->
     ssl:listen(Port, DTLSOpts).
 
 %%--------------------------------------------------------------------
--spec accept(#sslsocket{}) -> {ok, #sslsocket{}} |
-					{error, reason()}.
--spec accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} |
-						   {error, reason()}.
 %%
 %% Description: Performs transport accept on an ssl listen socket
 %%--------------------------------------------------------------------
+-spec accept(#sslsocket{}) -> {ok, #sslsocket{}} |
+					{error, reason()}.
 accept(ListenSocket) ->
     accept(ListenSocket, infinity).
+
+-spec accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} |
+						   {error, reason()}.
 accept(Socket, Timeout) ->
     ssl:transport_accept(Socket, Timeout).
 
 %%--------------------------------------------------------------------
--spec handshake(#sslsocket{}) -> ok | {error, reason()}.
--spec handshake(#sslsocket{} | port(), timeout()| [ssl_option()
-						    | transport_option()]) ->
-			ok | {ok, #sslsocket{}} | {error, reason()}.
--spec handshake(port(), [ssl_option()| transport_option()], timeout()) ->
-			{ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
 %%--------------------------------------------------------------------
 
+-spec handshake(#sslsocket{}) -> ok | {error, reason()}.
+
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
+
+
+-spec handshake(#sslsocket{} | port(), timeout()| [ssl_option()
+						    | transport_option()]) ->
+			ok | {ok, #sslsocket{}} | {error, reason()}.
 
 handshake(#sslsocket{} = Socket, Timeout) ->
     ssl:ssl_accept(Socket, Timeout);
 
 handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
     handshake(ListenSocket, SslOptions, infinity).
+
+
+-spec handshake(port(), [ssl_option()| transport_option()], timeout()) ->
+			{ok, #sslsocket{}} | {error, reason()}.
 
 handshake(Socket, SslOptions, Timeout) when is_port(Socket) ->
     ssl:ssl_accept(Socket, SslOptions, Timeout).

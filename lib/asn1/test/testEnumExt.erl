@@ -59,6 +59,10 @@ main(ber) ->
     common(ber).
 
 common(Erule) ->
+    roundtrip('SubExt1', blue),
+    roundtrip('SubExt1', orange),
+    roundtrip('SubExt1', black),
+
     roundtrip('Seq', {'Seq',blue,42}),
     roundtrip('Seq', {'Seq',red,42}),
     roundtrip('Seq', {'Seq',green,42}),

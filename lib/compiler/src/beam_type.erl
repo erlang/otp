@@ -142,6 +142,12 @@ simplify_float(Is0, Ts0) ->
 	throw:not_possible -> not_possible
     end.
 
+simplify_float_1([{set,[],[],fclearerror}|Is], Ts, Rs, Acc) ->
+    simplify_float_1(Is, Ts, Rs, clearerror(Acc));
+simplify_float_1([{set,[],[],fcheckerror}|Is], Ts, Rs, Acc) ->
+    simplify_float_1(Is, Ts, Rs, checkerror(Acc));
+simplify_float_1([{set,[{fr,_}],_,_}=I|Is], Ts, Rs, Acc) ->
+    simplify_float_1(Is, Ts, Rs, [I|Acc]);
 simplify_float_1([{set,[D0],[A0],{alloc,_,{gc_bif,'-',{f,0}}}}=I|Is]=Is0,
 		 Ts0, Rs0, Acc0) ->
     case tdb_find(A0, Ts0) of

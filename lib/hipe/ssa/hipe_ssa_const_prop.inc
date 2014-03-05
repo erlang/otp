@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,10 +72,10 @@ visit_expressions([Inst | Insts], Environment, FlowWork, SSAWork) ->
 %%-----------------------------------------------------------------------------
 
 -record(env, {cfg                                 :: #cfg{},
-	      executable_flags = gb_sets:empty()  :: gb_set(),
-	      handled_blocks   = gb_sets:empty()  :: gb_set(),
-	      lattice_values   = gb_trees:empty() :: gb_tree(),
-	      ssa_edges        = gb_trees:empty() :: gb_tree()
+	      executable_flags = gb_sets:empty()  :: gb_sets:set(),
+	      handled_blocks   = gb_sets:empty()  :: gb_sets:set(),
+	      lattice_values   = gb_trees:empty() :: gb_trees:tree(),
+	      ssa_edges        = gb_trees:empty() :: gb_trees:tree()
 	     }).
 
 create_env(CFG) ->

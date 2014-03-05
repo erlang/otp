@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 %%  Exported functions
 %%
 
--spec type(Form::syntaxTree(), TypeDocs::dict()) -> #tag{}.
+-spec type(Form::syntaxTree(), TypeDocs::dict:dict()) -> #tag{}.
 
 %% @doc Convert an Erlang type to EDoc representation.
 %% TypeDocs is a dict of {Name, Doc}.
@@ -88,7 +88,7 @@ dummy_spec(Form) ->
 
 -spec docs(Forms::[syntaxTree()],
            CommentFun :: fun( ([syntaxTree()], Line :: term()) -> #tag{} ))
-          -> dict().
+          -> dict:dict().
 
 %% @doc Find comments after -type/-opaque declarations.
 %% Postcomments "inside" the type are skipped.
@@ -358,6 +358,14 @@ d2e({type,_,tuple,any}) ->
 d2e({type,_,binary,[Base,Unit]}) ->
     #t_binary{base_size = element(3, Base),
               unit_size = element(3, Unit)};
+d2e({type,_,map,any}) ->
+    #t_map{ types = []};
+d2e({type,_,map,Es}) ->
+    #t_map{ types = d2e(Es) };
+d2e({type,_,map_field_assoc,K,V}) ->
+    #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
+d2e({type,_,map_field_exact,K,V}) ->
+    #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
 d2e({type,_,tuple,Ts0}) ->
     Ts = d2e(Ts0),
     typevar_anno(#t_tuple{types = Ts}, Ts);
@@ -476,6 +484,11 @@ xrecs(#t_fun{args = Args0, range = Range0}=T, P) ->
     Args = xrecs(Args0, P),
     Range = xrecs(Range0, P),
     T#t_fun{args = Args, range = Range};
+xrecs(#t_map{ types = Ts0 }=T,P) ->
+    Ts = xrecs(Ts0, P),
+    T#t_map{ types = Ts };
+xrecs(#t_map_field{ k_type=Kt, v_type=Vt}=T, P) ->
+    T#t_map_field{ k_type=xrecs(Kt,P), v_type=xrecs(Vt,P)};
 xrecs(#t_tuple{types = Types0}=T, P) ->
     Types = xrecs(Types0, P),
     T#t_tuple{types = Types};

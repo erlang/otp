@@ -34,6 +34,7 @@
 #endif
 #include "sys.h"
 #include "global.h"
+#include "erl_port.h"
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
@@ -77,6 +78,8 @@ typedef char EventStateFlags;
 #define ERTS_CIO_POLL_MAX_FDS	ERTS_POLL_EXPORT(erts_poll_max_fds)
 #define ERTS_CIO_POLL_INIT	ERTS_POLL_EXPORT(erts_poll_init)
 #define ERTS_CIO_POLL_INFO	ERTS_POLL_EXPORT(erts_poll_info)
+
+#define GET_FD(fd) fd
 
 static struct pollset_info
 {
@@ -894,7 +897,7 @@ print_driver_name(erts_dsprintf_buf_t *dsbufp, Eterm id)
 static void
 steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 {
-    erts_dsprintf(dsbufp, "stealing control of fd=%d from ", (int) state->fd);
+    erts_dsprintf(dsbufp, "stealing control of fd=%d from ", (int) GET_FD(state->fd));
     switch (state->type) {
     case ERTS_EV_TYPE_DRV_SEL: {
 	int deselect_mode = 0;
@@ -918,7 +921,7 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	if (deselect_mode)
 	    deselect(state, deselect_mode);
 	else {
-	    erts_dsprintf(dsbufp, "no one", (int) state->fd);
+	    erts_dsprintf(dsbufp, "no one", (int) GET_FD(state->fd));
 	    ASSERT(0);
 	}
 	erts_dsprintf(dsbufp, "\n");
@@ -946,7 +949,7 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	break;
     }
     default:
-	erts_dsprintf(dsbufp, "no one\n", (int) state->fd);
+	erts_dsprintf(dsbufp, "no one\n", (int) GET_FD(state->fd));
 	ASSERT(0);
     }
 }
@@ -957,10 +960,14 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp,
+#ifdef __OSE__
+		  "driver_select(%p, %d,%s%s%s%s | %d, %d) "
+#else
 		  "driver_select(%p, %d,%s%s%s%s, %d) "
+#endif
 		  "by ",
 		  ix,
-		  (int) fd,
+		  (int) GET_FD(fd),
 		  mode & ERL_DRV_READ ? " ERL_DRV_READ" : "",
 		  mode & ERL_DRV_WRITE ? " ERL_DRV_WRITE" : "",
 		  mode & ERL_DRV_USE ? " ERL_DRV_USE" : "",
@@ -1010,7 +1017,7 @@ steal_pending_stop_select(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
     ASSERT(state->type == ERTS_EV_TYPE_STOP_USE);
     erts_dsprintf(dsbufp, "failed: fd=%d (re)selected before stop_select "
 		          "was called for driver %s\n",
-		  (int) state->fd, state->driver.drv_ptr->name);
+		  (int) GET_FD(state->fd), state->driver.drv_ptr->name);
     erts_send_error_to_logger_nogl(dsbufp);
 
     if (on) {
@@ -1395,6 +1402,26 @@ stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 }
 
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
+
+#ifdef __OSE__
+static SafeHashValue drv_ev_state_hash(void *des)
+{
+    ErtsSysFdType fd = ((ErtsDrvEventState *) des)->fd;
+    /* We use hash on signo ^ id in order for steal to happen when the
+       same signo + fd is selected on by two different ports */
+    SafeHashValue val = (SafeHashValue)(fd->signo ^ fd->id);
+    return val ^ (val >> 8);
+}
+
+static int drv_ev_state_cmp(void *des1, void *des2)
+{
+    ErtsSysFdType fd1 = ((ErtsDrvEventState *) des1)->fd;
+    ErtsSysFdType fd2 = ((ErtsDrvEventState *) des2)->fd;
+    if (fd1->signo == fd2->signo && fd1->id == fd2->id)
+      return 0;
+    return 1;
+}
+#else /* !__OSE__ && !ERTS_SYS_CONTINOUS_FD_NUMBERS i.e. probably windows */
 static SafeHashValue drv_ev_state_hash(void *des)
 {
     SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
@@ -1406,6 +1433,7 @@ static int drv_ev_state_cmp(void *des1, void *des2)
     return ( ((ErtsDrvEventState *) des1)->fd == ((ErtsDrvEventState *) des2)->fd
 	    ? 0 : 1);
 }
+#endif
 
 static void *drv_ev_state_alloc(void *des_tmpl)
 {
@@ -1882,12 +1910,14 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(void)
     int fd, len;
 #endif
     IterDebugCounters counters;
+#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     ErtsDrvEventState null_des;
 
     null_des.driver.select = NULL;
     null_des.events = 0;
     null_des.remove_cnt = 0;
     null_des.type = ERTS_EV_TYPE_NONE;
+#endif
 
     erts_printf("--- fds in pollset --------------------------------------\n");
 

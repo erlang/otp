@@ -485,7 +485,7 @@ static int db_first_tree(Process *p, DbTable *tbl, Eterm *ret)
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
-    /* Walk down to the tree to the left */
+    /* Walk down the tree to the left */
     if ((stack = get_static_stack(tb)) != NULL) {
 	stack->pos = stack->slot = 0;
     }
@@ -531,7 +531,7 @@ static int db_last_tree(Process *p, DbTable *tbl, Eterm *ret)
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
-    /* Walk down to the tree to the left */
+    /* Walk down the tree to the right */
     if ((stack = get_static_stack(tb)) != NULL) {
 	stack->pos = stack->slot = 0;
     }    

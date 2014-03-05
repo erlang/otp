@@ -25,7 +25,7 @@
 #include "erlsrv_interactive.h"
 #include "erlsrv_service.h"
 
-int main(int argc, char **argv){
+int wmain(int argc, wchar_t **argv){
   if(argc > 1)
     return interactive_main(argc,argv);
   else

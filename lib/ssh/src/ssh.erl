@@ -32,8 +32,8 @@
 	 shell/1, shell/2, shell/3]).
 
 %%--------------------------------------------------------------------
--spec start() -> ok.
--spec start(permanent | transient | temporary) -> ok.
+-spec start() -> ok | {error, term()}.
+-spec start(permanent | transient | temporary) -> ok | {error, term()}.
 %%
 %% Description: Starts the ssh application. Default type
 %% is temporary. see application(3)
@@ -51,7 +51,7 @@ start(Type) ->
     application:start(ssh, Type).
 
 %%--------------------------------------------------------------------
--spec stop() -> ok.
+-spec stop() -> ok | {error, term()}.
 %%
 %% Description: Stops the ssh application.
 %%--------------------------------------------------------------------
@@ -59,8 +59,8 @@ stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
--spec connect(string(), integer(), proplists:proplists()) -> {ok, pid()} |  {error, term()}.
--spec connect(string(), integer(), proplists:proplists(), timeout()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}.
 %%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------

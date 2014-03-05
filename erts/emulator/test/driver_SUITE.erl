@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1945,6 +1945,14 @@ otp_9302(Config) when is_list(Config) ->
 	  end.
 
 thr_free_drv(Config) when is_list(Config) ->
+    case erlang:system_info(threads) of
+	false ->
+	    {skipped, "No thread support"};
+	true ->
+	    thr_free_drv_do(Config)
+    end.
+
+thr_free_drv_do(Config) ->
     ?line Path = ?config(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, thr_free_drv),
@@ -2075,6 +2083,21 @@ thr_msg_blast(Config) when is_list(Config) ->
 	    Res
     end.
 
+-define(IN_RANGE(LoW_, VaLuE_, HiGh_),
+	case in_range(LoW_, VaLuE_, HiGh_) of
+	    true -> ok;
+	    false ->
+		case erlang:system_info(lock_checking) of
+		    true ->
+			?t:format("~p:~p: Ignore bad sched count due to "
+				  "lock checking~n",
+				  [?MODULE,?LINE]);
+		    false ->
+			?t:fail({unexpected_sched_counts, VaLuE_})
+		end
+	end).
+
+
 consume_timeslice(Config) when is_list(Config) ->
     %%
     %% Verify that erl_drv_consume_timeslice() works.
@@ -2131,15 +2154,8 @@ consume_timeslice(Config) when is_list(Config) ->
     Proc1 ! Go,
     wait_command_msgs(Port, 10),
     [{Port, Sprt1}, {Proc1, Sproc1}] = count_pp_sched_stop([Port, Proc1]),
-    case Sprt1 of
-	10 ->
-	    true = in_range(5, Sproc1-10, 7);
-	_ ->
-	    case erlang:system_info(lock_checking) of
-		true -> ?t:format("Ignore bad sched count due to lock checking", []);
-		false -> ?t:fail({unexpected_sched_counts, Sprt1, Sproc1})
-	    end
-    end,
+    ?IN_RANGE(10, Sprt1, 10),
+    ?IN_RANGE(5, Sproc1-10, 7),
 
     "disabled" = port_control(Port, $D, ""),
     Proc2 = spawn_link(fun () ->
@@ -2160,15 +2176,8 @@ consume_timeslice(Config) when is_list(Config) ->
     Proc2 ! Go,
     wait_command_msgs(Port, 10),
     [{Port, Sprt2}, {Proc2, Sproc2}] = count_pp_sched_stop([Port, Proc2]),
-    case Sprt2 of
-	10 ->
-	    true = in_range(1, Sproc2-10, 2);
-	_ ->
-	    case erlang:system_info(lock_checking) of
-		true -> ?t:format("Ignore bad sched count due to lock checking", []);
-		false -> ?t:fail({unexpected_sched_counts, Sprt2, Sproc2})
-	    end
-    end,
+    ?IN_RANGE(10, Sprt2, 10),
+    ?IN_RANGE(1, Sproc2-10, 2),
 
     "enabled" = port_control(Port, $E, ""),
     Proc3 = spawn_link(fun () ->
@@ -2188,15 +2197,8 @@ consume_timeslice(Config) when is_list(Config) ->
     Proc3 ! Go,
     wait_command_msgs(Port, 10),
     [{Port, Sprt3}, {Proc3, Sproc3}] = count_pp_sched_stop([Port, Proc3]),
-    case Sprt3 of
-	10 ->
-	    true = in_range(5, Sproc3-10, 7);
-	_ ->
-	    case erlang:system_info(lock_checking) of
-		true -> ?t:format("Ignore bad sched count due to lock checking", []);
-		false -> ?t:fail({unexpected_sched_counts, Sprt3, Sproc3})
-	    end
-    end,
+    ?IN_RANGE(10, Sprt3, 10),
+    ?IN_RANGE(5, Sproc3-10, 7),
 
     "disabled" = port_control(Port, $D, ""),
     Proc4 = spawn_link(fun () ->
@@ -2216,15 +2218,8 @@ consume_timeslice(Config) when is_list(Config) ->
     Proc4 ! Go,
     wait_command_msgs(Port, 10),
     [{Port, Sprt4}, {Proc4, Sproc4}] = count_pp_sched_stop([Port, Proc4]),
-    case Sprt4 of
-	10 ->
-	    true = in_range(1, Sproc4-10, 2);
-	_ ->
-	    case erlang:system_info(lock_checking) of
-		true -> ?t:format("Ignore bad sched count due to lock checking", []);
-		false -> ?t:fail({unexpected_sched_counts, Sprt4, Sproc4})
-	    end
-    end,
+    ?IN_RANGE(10, Sprt4, 10),
+    ?IN_RANGE(1, Sproc4-10, 2),
 
     SOnl = erlang:system_info(schedulers_online),
     %% If only one scheduler use port with parallelism set to true,
@@ -2272,8 +2267,8 @@ consume_timeslice(Config) when is_list(Config) ->
     wait_procs_exit([W5, Proc5]),
     wait_command_msgs(Port2, 10),
     [{Port2, Sprt5}, {Proc5, Sproc5}] = count_pp_sched_stop([Port2, Proc5]),
-    true = in_range(2, Sproc5, 3),
-    true = in_range(7, Sprt5, 20),
+    ?IN_RANGE(2, Sproc5, 3),
+    ?IN_RANGE(6, Sprt5, 20),
 		  
     count_pp_sched_start(),
     "disabled" = port_control(Port2, $D, ""),
@@ -2307,14 +2302,15 @@ consume_timeslice(Config) when is_list(Config) ->
     wait_procs_exit([W6, Proc6]),
     wait_command_msgs(Port2, 10),
     [{Port2, Sprt6}, {Proc6, Sproc6}] = count_pp_sched_stop([Port2, Proc6]),
-    true = in_range(2, Sproc6, 3),
-    true = in_range(3, Sprt6, 6),
+    ?IN_RANGE(2, Sproc6, 3),
+    ?IN_RANGE(2, Sprt6, 6),
 
     process_flag(scheduler, 0),
 
     Port2 ! {self(), close},
     receive {Port2, closed} -> ok end,
     ok.
+
 
 wait_command_msgs(_, 0) ->
     ok;

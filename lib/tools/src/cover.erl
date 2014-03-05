@@ -89,8 +89,9 @@
 	 flush/1,
 	 stop/0, stop/1]).
 -export([remote_start/1,get_main_node/0]).
-%-export([bump/5]).
--export([transform/4]). % for test purposes
+
+%% Used internally to ensure we upgrade the code to the latest version.
+-export([main_process_loop/1,remote_process_loop/1]).
 
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
@@ -110,7 +111,6 @@
 -define(BUMP_REC_NAME,bump).
 
 -record(vars, {module,                      % atom() Module name
-	       vsn,                         % atom()
 	       
 	       init_info=[],                % [{M,F,A,C,L}]
 
@@ -230,25 +230,9 @@ compile_directory(Dir) when is_list(Dir) ->
 compile_directory(Dir, Options) when is_list(Dir), is_list(Options) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    
-	    %% Filter out all erl files (except cover.erl)
-	    ErlFileNames =
-		lists:filter(fun("cover.erl") ->
-				     false;
-				(File) ->
-				     case filename:extension(File) of
-					 ".erl" -> true;
-					 _ -> false
-				     end
-			     end,
-			     Files),
-
-	    %% Create a list of .erl file names (incl path) and call
-	    %% compile_modules/2 with the list of file names.
-	    ErlFiles = lists:map(fun(ErlFileName) ->
-					 filename:join(Dir, ErlFileName)
-				 end,
-				 ErlFileNames),
+	    ErlFiles = [filename:join(Dir, File) ||
+			   File <- Files,
+			   filename:extension(File) =:= ".erl"],
 	    compile_modules(ErlFiles, Options);
 	Error ->
 	    Error
@@ -262,7 +246,7 @@ compile_modules([File|Files], Options, Result) ->
     R = call({compile, File, Options}),
     compile_modules(Files,Options,[R|Result]);
 compile_modules([],_Opts,Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 filter_options(Options) ->
     lists:filter(fun(Option) ->
@@ -320,25 +304,9 @@ compile_beam_directory() ->
 compile_beam_directory(Dir) when is_list(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    
-	    %% Filter out all beam files (except cover.beam)
-	    BeamFileNames =
-		lists:filter(fun("cover.beam") ->
-				     false;
-				(File) ->
-				     case filename:extension(File) of
-					 ".beam" -> true;
-					 _ -> false
-				     end
-			     end,
-			     Files),
-
-	    %% Create a list of .beam file names (incl path) and call
-	    %% compile_beam/1 for each such file name
-	    BeamFiles = lists:map(fun(BeamFileName) ->
-					  filename:join(Dir, BeamFileName)
-				  end,
-				  BeamFileNames),
+	    BeamFiles =  [filename:join(Dir, File) ||
+			     File <- Files,
+			     filename:extension(File) =:= ".beam"],
 	    compile_beams(BeamFiles);
 	Error ->
 	    Error
@@ -350,7 +318,7 @@ compile_beams([File|Files],Result) ->
     R = compile_beam(File),
     compile_beams(Files,[R|Result]);
 compile_beams([],Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 
 %% analyse(Module) ->
@@ -613,8 +581,11 @@ main_process_loop(State) ->
 		    Compiled = add_compiled(Module, File,
 					    State#main_state.compiled),
 		    Imported = remove_imported(Module,State#main_state.imported),
-		    main_process_loop(State#main_state{compiled = Compiled,
-						       imported = Imported});
+		    NewState = State#main_state{compiled = Compiled,
+						imported = Imported},
+		    %% This module (cover) could have been reloaded. Make
+		    %% sure we run the new code.
+		    ?MODULE:main_process_loop(NewState);
 		error ->
 		    reply(From, {error, File}),
 		    main_process_loop(State)
@@ -639,8 +610,11 @@ main_process_loop(State) ->
 			end,
 		    reply(From,Reply),
 		    Imported = remove_imported(Module,State#main_state.imported),
-		    main_process_loop(State#main_state{compiled = Compiled,
-						       imported = Imported});
+		    NewState = State#main_state{compiled = Compiled,
+						imported = Imported},
+		    %% This module (cover) could have been reloaded. Make
+		    %% sure we run the new code.
+		    ?MODULE:main_process_loop(NewState);
 		{error,no_beam} ->
 		    %% The module has first been compiled from .erl, and now
 		    %% someone tries to compile it from .beam
@@ -857,7 +831,7 @@ remote_process_loop(State) ->
 	{remote,load_compiled,Compiled} ->
 	    Compiled1 = load_compiled(Compiled,State#remote_state.compiled),
 	    remote_reply(State#remote_state.main_node, ok),
-	    remote_process_loop(State#remote_state{compiled=Compiled1});
+	    ?MODULE:remote_process_loop(State#remote_state{compiled=Compiled1});
 
 	{remote,unload,UnloadedModules} ->
 	    unload(UnloadedModules),
@@ -1257,12 +1231,12 @@ add_imported(M, F1, ImportFile, [{M,_F2,ImportFiles}|Imported], Acc) ->
 	    dont_import;
 	false ->
 	    NewEntry = {M, F1, [ImportFile | ImportFiles]},
-	    {ok, reverse([NewEntry | Acc]) ++ Imported}
+	    {ok, lists:reverse([NewEntry | Acc]) ++ Imported}
     end;
 add_imported(M, F, ImportFile, [H|Imported], Acc) ->
     add_imported(M, F, ImportFile, Imported, [H|Acc]);
 add_imported(M, F, ImportFile, [], Acc) ->
-    {ok, reverse([{M, F, [ImportFile]} | Acc])}.
+    {ok, lists:reverse([{M, F, [ImportFile]} | Acc])}.
     
 %% Removes a module from the list of imported modules and writes a warning
 %% This is done when a module is compiled.
@@ -1383,9 +1357,9 @@ do_compile_beam(Module,Beam,UserOptions) ->
 	    {error,E};
 	encrypted_abstract_code=E ->
 	    {error,E};
-	{Vsn,Code} ->
+	{raw_abstract_v1,Code} ->
             Forms0 = epp:interpret_file_attribute(Code),
-	    {Forms,Vars} = transform(Vsn, Forms0, Module, Beam),
+	    {Forms,Vars} = transform(Forms0, Module),
 
 	    %% We need to recover the source from the compilation
 	    %% info otherwise the newly compiled module will have
@@ -1400,7 +1374,7 @@ do_compile_beam(Module,Beam,UserOptions) ->
 		{module, Module} ->
 		    
 		    %% Store info about all function clauses in database
-		    InitInfo = reverse(Vars#vars.init_info),
+		    InitInfo = lists:reverse(Vars#vars.init_info),
 		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
 		    
 		    %% Store binary code so it can be loaded on remote nodes
@@ -1411,7 +1385,11 @@ do_compile_beam(Module,Beam,UserOptions) ->
 		_Error ->
 		    do_clear(Module),
 		    error
-	    end
+	    end;
+	{_VSN,_Code} ->
+	    %% Wrong version of abstract code. Just report that there
+	    %% is no abstract code.
+	    {error,no_abstract_code}
     end.
 
 get_abstract_code(Module, Beam) ->
@@ -1445,28 +1423,9 @@ get_compile_info(Module, Beam) ->
 		[]
     end.
 
-transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
-    Vars0 = #vars{module=Module, vsn=Vsn},
+transform(Code, Module) ->
     MainFile=find_main_filename(Code),
-    {ok, MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
-    
-    %% Add module and export information to the munged forms
-    %% Information about module_info must be removed as this function
-    %% is added at compilation
-    {ok, {Module, [{exports,Exports1}]}} = beam_lib:chunks(Beam, [exports]),
-    Exports2 = lists:filter(fun(Export) ->
-				    case Export of
-					{module_info,_} -> false;
-					_ -> true
-				    end
-			    end,
-			    Exports1),
-    Forms = [{attribute,1,module,Module},
-	     {attribute,2,export,Exports2}]++ MungedForms,
-    {Forms,Vars};
-transform(Vsn=raw_abstract_v1, Code, Module, _Beam) ->
-    MainFile=find_main_filename(Code),
-    Vars0 = #vars{module=Module, vsn=Vsn},
+    Vars0 = #vars{module=Module},
     {ok,MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
     {MungedForms,Vars}.
     
@@ -1486,7 +1445,7 @@ transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
 	    transform_2(Forms,[MungedForm|MungedForms],Vars2,MainFile,NewSwitch)
     end;
 transform_2([],MungedForms,Vars,_,_) ->
-    {ok, reverse(MungedForms), Vars}.
+    {ok, lists:reverse(MungedForms), Vars}.
 
 %% Expand short-circuit Boolean expressions.
 expand(Expr) ->
@@ -1553,14 +1512,9 @@ aux_var(Vars, N) ->
     end.
 
 %% This code traverses the abstract code, stored as the abstract_code
-%% chunk in the BEAM file, as described in absform(3) for Erlang/OTP R8B
-%% (Vsn=abstract_v2).
-%% The abstract format after preprocessing differs slightly from the abstract
-%% format given eg using epp:parse_form, this has been noted in comments.
-%% The switch is turned off when we encounter other files then the main file.
+%% chunk in the BEAM file, as described in absform(3).
+%% The switch is turned off when we encounter other files than the main file.
 %% This way we will be able to exclude functions defined in include files.
-munge({function,0,module_info,_Arity,_Clauses},_Vars,_MainFile,_Switch) ->
-    ignore; % module_info will be added again when the forms are recompiled
 munge({function,Line,Function,Arity,Clauses},Vars,_MainFile,on) ->
     Vars2 = Vars#vars{function=Function,
 		      arity=Arity,
@@ -1618,7 +1572,7 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
 			   MClauses])
     end;
 munge_clauses([], Vars, Lines, MungedClauses) -> 
-    {reverse(MungedClauses), Vars#vars{lines = Lines}}.
+    {lists:reverse(MungedClauses), Vars#vars{lines = Lines}}.
 
 munge_body(Expr, Vars) ->
     munge_body(Expr, Vars, [], []).
@@ -1662,7 +1616,7 @@ munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
 	    munge_body(Body, Vars3, MungedExprs1, NewBumps)
     end;
 munge_body([], Vars, MungedBody, _LastExprBumpLines) ->
-    {reverse(MungedBody), Vars}.
+    {lists:reverse(MungedBody), Vars}.
 
 %%% Fix last expression (OTP-8188). A typical example:
 %%%
@@ -1800,16 +1754,35 @@ munge_expr({match,Line,ExprL,ExprR}, Vars) ->
 munge_expr({tuple,Line,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
     {{tuple,Line,MungedExprs}, Vars2};
-munge_expr({record,Line,Expr,Exprs}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
-    {MungedExprName, Vars2} = munge_expr(Expr, Vars),
+munge_expr({record,Line,Name,Exprs}, Vars) ->
+    {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
+    {{record,Line,Name,MungedExprFields}, Vars2};
+munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
     {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{record,Line,MungedExprName,MungedExprFields}, Vars3};
+    {{record,Line,MungedArg,Name,MungedExprFields}, Vars3};
 munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
-    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
-    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{record_field,Line,MungedExprL,MungedExprR}, Vars3};
+    {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
+    {{record_field,Line,ExprL,MungedExprR}, Vars2};
+munge_expr({map,Line,Fields}, Vars) ->
+    %% EEP 43
+    {MungedFields, Vars2} = munge_exprs(Fields, Vars, []),
+    {{map,Line,MungedFields}, Vars2};
+munge_expr({map,Line,Arg,Fields}, Vars) ->
+    %% EEP 43
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
+    {MungedFields, Vars3} = munge_exprs(Fields, Vars2, []),
+    {{map,Line,MungedArg,MungedFields}, Vars3};
+munge_expr({map_field_assoc,Line,Name,Value}, Vars) ->
+    %% EEP 43
+    {MungedName, Vars2} = munge_expr(Name, Vars),
+    {MungedValue, Vars3} = munge_expr(Value, Vars2),
+    {{map_field_assoc,Line,MungedName,MungedValue}, Vars3};
+munge_expr({map_field_exact,Line,Name,Value}, Vars) ->
+    %% EEP 43
+    {MungedName, Vars2} = munge_expr(Name, Vars),
+    {MungedValue, Vars3} = munge_expr(Value, Vars2),
+    {{map_field_exact,Line,MungedName,MungedValue}, Vars3};
 munge_expr({cons,Line,ExprH,ExprT}, Vars) ->
     {MungedExprH, Vars2} = munge_expr(ExprH, Vars),
     {MungedExprT, Vars3} = munge_expr(ExprT, Vars2),
@@ -1871,18 +1844,12 @@ munge_expr({'try',Line,Body,Clauses,CatchClauses,After}, Vars) ->
     {MungedAfter, Vars4} = munge_body(After, Vars3),
     {{'try',Line,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter}, 
      Vars4};
-%% Difference in abstract format after preprocessing: Funs get an extra
-%% element Extra.
-%% NOT NECESSARY FOR Vsn=raw_abstract_v1
-munge_expr({'fun',Line,{function,Name,Arity},_Extra}, Vars) ->
-    {{'fun',Line,{function,Name,Arity}}, Vars};
-munge_expr({'fun',Line,{clauses,Clauses},_Extra}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{'fun',Line,{clauses,MungedClauses}}, Vars2};
 munge_expr({'fun',Line,{clauses,Clauses}}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
     {{'fun',Line,{clauses,MungedClauses}}, Vars2};
+munge_expr({named_fun,Line,Name,Clauses}, Vars) ->
+    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
+    {{named_fun,Line,Name,MungedClauses}, Vars2};
 munge_expr({bin,Line,BinElements}, Vars) ->
     {MungedBinElements,Vars2} = munge_exprs(BinElements, Vars, []),
     {{bin,Line,MungedBinElements}, Vars2};
@@ -1901,7 +1868,7 @@ munge_exprs([Expr|Exprs], Vars, MungedExprs) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_exprs(Exprs, Vars2, [MungedExpr|MungedExprs]);
 munge_exprs([], Vars, MungedExprs) ->
-    {reverse(MungedExprs), Vars}.
+    {lists:reverse(MungedExprs), Vars}.
 
 %% Every qualifier is decorated with a counter.
 munge_qualifiers(Qualifiers, Vars) ->
@@ -1920,7 +1887,7 @@ munge_qs([Expr|Qs], Vars, MQs) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_qs1(Qs, L, MungedExpr, Vars, Vars2, MQs);
 munge_qs([], Vars, MQs) ->
-    {reverse(MQs), Vars}.
+    {lists:reverse(MQs), Vars}.
 
 munge_qs1(Qs, Line, NQ, Vars, Vars2, MQs) ->
     case new_bumps(Vars2, Vars) of
@@ -2113,7 +2080,7 @@ merge_clauses([{{M,F,A,_C1},R1},{{M,F,A,C2},R2}|Clauses], MFun, Result) ->
 merge_clauses([{{M,F,A,_C},R}|Clauses], MFun, Result) ->
     merge_clauses(Clauses, MFun, [{{M,F,A},R}|Result]);
 merge_clauses([], _Fun, Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 merge_functions([{_MFA,R}|Functions], MFun) ->
     merge_functions(Functions, MFun, R);
@@ -2433,14 +2400,6 @@ not_loaded(_Module,_Else, State) ->
 
 
 %%%--Div-----------------------------------------------------------------
-
-reverse(List) ->
-    reverse(List,[]).
-reverse([H|T],Acc) ->
-    reverse(T,[H|Acc]);
-reverse([],Acc) ->
-    Acc.
-
 
 escape_lt_and_gt(Rawline,HTML) when HTML =/= true ->
     Rawline;

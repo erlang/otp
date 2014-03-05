@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -132,7 +132,7 @@ ensure_all_started(Application, Type) ->
 	{ok, Started} ->
 	    {ok, lists:reverse(Started)};
 	{error, Reason, Started} ->
-	    [stop(App) || App <- Started],
+	    _ = [stop(App) || App <- Started],
 	    {error, Reason}
     end.
 
@@ -285,16 +285,18 @@ info() ->
 set_env(Application, Key, Val) -> 
     application_controller:set_env(Application, Key, Val).
 
--spec set_env(Application, Par, Val, Timeout) -> 'ok' when
+-spec set_env(Application, Par, Val, Opts) -> 'ok' when
       Application :: atom(),
       Par :: atom(),
       Val :: term(),
-      Timeout :: timeout().
+      Opts :: [{timeout, timeout()} | {persistent, boolean()}].
 
 set_env(Application, Key, Val, infinity) ->
-    application_controller:set_env(Application, Key, Val, infinity);
+    set_env(Application, Key, Val, [{timeout, infinity}]);
 set_env(Application, Key, Val, Timeout) when is_integer(Timeout), Timeout>=0 ->
-    application_controller:set_env(Application, Key, Val, Timeout).
+    set_env(Application, Key, Val, [{timeout, Timeout}]);
+set_env(Application, Key, Val, Opts) when is_list(Opts) ->
+    application_controller:set_env(Application, Key, Val, Opts).
 
 -spec unset_env(Application, Par) -> 'ok' when
       Application :: atom(),
@@ -303,15 +305,17 @@ set_env(Application, Key, Val, Timeout) when is_integer(Timeout), Timeout>=0 ->
 unset_env(Application, Key) -> 
     application_controller:unset_env(Application, Key).
 
--spec unset_env(Application, Par, Timeout) -> 'ok' when
+-spec unset_env(Application, Par, Opts) -> 'ok' when
       Application :: atom(),
       Par :: atom(),
-      Timeout :: timeout().
+      Opts :: [{timeout, timeout()} | {persistent, boolean()}].
 
 unset_env(Application, Key, infinity) ->
-    application_controller:unset_env(Application, Key, infinity);
+    unset_env(Application, Key, [{timeout, infinity}]);
 unset_env(Application, Key, Timeout) when is_integer(Timeout), Timeout>=0 ->
-    application_controller:unset_env(Application, Key, Timeout).
+    unset_env(Application, Key, [{timeout, Timeout}]);
+unset_env(Application, Key, Opts) when is_list(Opts) ->
+    application_controller:unset_env(Application, Key, Opts).
 
 -spec get_env(Par) -> 'undefined' | {'ok', Val} when
       Par :: atom(),

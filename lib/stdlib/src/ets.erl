@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,10 +53,8 @@
                       | {tab(),integer(),integer(),binary(),list(),integer()}
                       | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
 
-%% a similar definition is also in erl_types
 -opaque tid()      :: integer().
 
-%% these ones are also defined in erl_bif_types
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
 
@@ -507,7 +505,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                 Else ->
                     Else
             end;
-        false ->
+        _ ->
             exit({badarg,{?MODULE,fun2ms,
                           [function,called,with,real,'fun',
                            should,be,transformed,with,
@@ -719,7 +717,7 @@ tab2file(Tab, File) ->
 tab2file(Tab, File, Options) ->
     try
 	{ok, FtOptions} = parse_ft_options(Options),
-	file:delete(File),
+	_ = file:delete(File),
 	case file:read_file_info(File) of
 	    {error, enoent} -> ok;
 	    _ -> throw(eaccess)
@@ -750,14 +748,18 @@ tab2file(Tab, File, Options) ->
 		    {fun(Oldstate,Termlist) ->
 			     {NewState,BinList} = 
 				 md5terms(Oldstate,Termlist),
-			     disk_log:blog_terms(Name,BinList),
-			     NewState
+                             case disk_log:blog_terms(Name,BinList) of
+                                 ok -> NewState;
+                                 {error, Reason2} -> throw(Reason2)
+                             end
 		     end,
 		     erlang:md5_init()};
 		false ->
 		    {fun(_,Termlist) ->
-			     disk_log:log_terms(Name,Termlist),
-			     true
+                             case disk_log:log_terms(Name,Termlist) of
+                                 ok -> true;
+                                 {error, Reason2} -> throw(Reason2)
+                             end
 		     end, 
 		     true}
 	    end,
@@ -792,16 +794,16 @@ tab2file(Tab, File, Options) ->
 	    disk_log:close(Name)
 	catch
 	    throw:TReason ->
-		disk_log:close(Name),
-		file:delete(File),
+		_ = disk_log:close(Name),
+		_ = file:delete(File),
 		throw(TReason);
 	    exit:ExReason ->
-		disk_log:close(Name),
-		file:delete(File),
+		_ = disk_log:close(Name),
+		_ = file:delete(File),
 		exit(ExReason);
 	    error:ErReason ->
-		disk_log:close(Name),
-		file:delete(File),
+		_ = disk_log:close(Name),
+		_ = file:delete(File),
 	        erlang:raise(error,ErReason,erlang:get_stacktrace())
 	end
     catch
@@ -892,25 +894,32 @@ file2tab(File, Opts) ->
     try
 	{ok,Verify,TabArg} = parse_f2t_opts(Opts,false,[]),
 	Name = make_ref(),
-	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} = 
+        {ok, Name} =
 	    case disk_log:open([{name, Name}, 
 				{file, File}, 
 				{mode, read_only}]) of
 		{ok, Name} ->
-		    get_header_data(Name,Verify);
+                    {ok, Name};
 		{repaired, Name, _,_} -> %Uh? cannot happen?
 		    case Verify of
 			true ->
-			    disk_log:close(Name),
+			    _ = disk_log:close(Name),
 			    throw(badfile);
 			false ->
-			    get_header_data(Name,Verify)
+                            {ok, Name}
 		    end;
 		{error, Other1} ->
 		    throw({read_error, Other1});
 		Other2 ->
 		    throw(Other2)
 	    end,
+	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} =
+            try get_header_data(Name, Verify)
+            catch
+                badfile ->
+                    _ = disk_log:close(Name),
+                    throw(badfile)
+            end,
 	try
 	    if  
 		Major > ?MAJOR_F2T_VERSION -> 
@@ -974,7 +983,7 @@ file2tab(File, Opts) ->
 		    erlang:raise(error,ErReason,erlang:get_stacktrace())
 	    end
 	after
-	    disk_log:close(Name)
+	    _ = disk_log:close(Name)
 	end
     catch
 	throw:TReason2 ->
@@ -1293,20 +1302,30 @@ named_table(false) -> [].
 tabfile_info(File) when is_list(File) ; is_atom(File) ->
     try
 	Name = make_ref(),
-	{ok, Major, Minor, _FtOptions, _MD5State, FullHeader, _DLContext} = 
+        {ok, Name} =
 	    case disk_log:open([{name, Name}, 
 				{file, File}, 
 				{mode, read_only}]) of
 		{ok, Name} ->
-		    get_header_data(Name,false);
+                    {ok, Name};
 		{repaired, Name, _,_} -> %Uh? cannot happen?
-		    get_header_data(Name,false);
+		    {ok, Name};
 		{error, Other1} ->
 		    throw({read_error, Other1});
 		Other2 ->
 		    throw(Other2)
 	    end,
-	disk_log:close(Name),
+	{ok, Major, Minor, _FtOptions, _MD5State, FullHeader, _DLContext} =
+            try get_header_data(Name, false)
+            catch
+                badfile ->
+                    _ = disk_log:close(Name),
+                    throw(badfile)
+            end,
+        case disk_log:close(Name) of
+            ok -> ok;
+            {error, Reason} -> throw(Reason)
+        end,
 	{value, N} = lists:keysearch(name, 1, FullHeader),
 	{value, Type} = lists:keysearch(type, 1, FullHeader),
 	{value, P} = lists:keysearch(protection, 1, FullHeader),

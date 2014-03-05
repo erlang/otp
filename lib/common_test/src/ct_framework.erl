@@ -730,9 +730,14 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 		     (undefined) ->
 			  undefined;
 		     (Unexpected) ->
-			  exit({error,{reset_curr_tc,{Mod,Func},Unexpected}})
+			  {error,{reset_curr_tc,{Mod,Func},Unexpected}}
 		  end,
-    ct_util:update_testdata(curr_tc, ClearCurrTC),
+    case ct_util:update_testdata(curr_tc, ClearCurrTC) of
+	{error,_} = ClearError ->
+	    exit(ClearError);
+	_ ->
+	    ok
+    end,
 
     case FinalResult of
 	{auto_skip,{sequence_failed,_,_}} ->
@@ -1412,7 +1417,7 @@ warn(_What) ->
     true.
 
 %%%-----------------------------------------------------------------
-%%% @spec add_data_dir(File0) -> File1
+%%% @spec add_data_dir(File0, Config) -> File1
 add_data_dir(File,Config) when is_atom(File) ->
     add_data_dir(atom_to_list(File),Config);
 

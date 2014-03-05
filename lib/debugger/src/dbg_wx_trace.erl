@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -71,21 +71,10 @@ start(Pid, TraceWin, BackTrace) ->
     start(Pid, TraceWin, BackTrace, ?STRINGS).
 
 start(Pid, TraceWin, BackTrace, Strings) ->
-    case {whereis(dbg_wx_mon), whereis(dbg_ui_mon)} of
-	{undefined, undefined} ->
-	    case which_gui() of
-		gs ->
-		    dbg_ui_trace:start(Pid, TraceWin, BackTrace);
-		wx ->
-		    Parent = wx:new(),
-		    Env = wx:get_env(),
-		    start(Pid, Env, Parent, TraceWin, BackTrace, Strings)
-	    end;
-	{undefined, Monitor} when is_pid(Monitor) ->
-	    dbg_ui_trace:start(Pid, TraceWin, BackTrace);
-	{Monitor, _} when is_pid(Monitor) ->
+    case whereis(dbg_wx_mon) of
+	Monitor when is_pid(Monitor) ->
 	    Monitor ! {?MODULE, self(), get_env},
-	    receive 
+	    receive
 		{env, Monitor, Env, Parent} ->
 		    start(Pid, Env, Parent, TraceWin, BackTrace, Strings)
 	    end
@@ -108,15 +97,6 @@ start(Pid, Env, Parent, TraceWin, BackTrace, Strings) ->
 	    end;
 	error ->
 	    ignore
-    end.
-
-which_gui() ->
-    try
-	wx:new(),
-	wx:destroy(),
-	wx
-    catch _:_ ->
-	    gs
     end.
 
 %%--------------------------------------------------------------------
@@ -145,7 +125,7 @@ init(Pid, Parent, Meta, TraceWin, BackTrace, Strings) ->
     dbg_wx_winman:insert(Title, Window),
 
     %% Initial process state
-    State1 = #state{win=Win, coords={0,0}, pid=Pid, meta=Meta,
+    State1 = #state{win=Win, coords={-1,-1}, pid=Pid, meta=Meta,
 		    status={idle,null,null},
 		    stack={1,1}, strings=[str_on]},
 

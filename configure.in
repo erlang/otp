@@ -180,21 +180,32 @@ AC_PROG_LN_S
 AC_PROG_RANLIB
 
 #
-# Get erts version and otp release from erts/vsn.mk
+# Get erts version from erts/vsn.mk
 #
 AC_MSG_CHECKING([ERTS version])
 [ERTS_VSN=`sed -n "s/^VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
 AC_MSG_RESULT([$ERTS_VSN])
 AC_SUBST(ERTS_VSN)
 
+#
+# Get OTP release and OTP version from $ERL_TOP/OTP_VERSION
+#
 AC_MSG_CHECKING([OTP release])
-[OTP_REL=`sed -n "s/^SYSTEM_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
+[OTP_REL=`cat $ERL_TOP/OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`]
 AC_MSG_RESULT([$OTP_REL])
 AC_SUBST(OTP_REL)
+
+AC_MSG_CHECKING([OTP version])
+[OTP_VSN=`cat $ERL_TOP/OTP_VERSION`]
+AC_MSG_RESULT([$OTP_VSN])
+AC_SUBST(OTP_VSN)
 
 AC_ARG_ENABLE(threads,
 AS_HELP_STRING([--enable-threads], [enable async thread support])
 AS_HELP_STRING([--disable-threads], [disable async thread support]))
+
+AC_ARG_ENABLE(dirty-schedulers,
+AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
 
 AC_ARG_ENABLE(halfword-emulator,
 AS_HELP_STRING([--enable-halfword-emulator],
@@ -255,8 +266,9 @@ AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]))
 
-AC_ARG_ENABLE(shared-zlib,
-AS_HELP_STRING([--enable-shared-zlib], [enable using shared zlib library]))
+AC_ARG_ENABLE(builtin-zlib,
+AS_HELP_STRING([--enable-builtin-zlib],
+               [force use of our own built-in zlib]))
 
 dnl This functionality has been lost along the way... :(
 dnl It could perhaps be nice to reintroduce some day; therefore,
@@ -363,9 +375,9 @@ AS_HELP_STRING(
   [verbose build output (undo: "make V=0")])dnl
 ])
 
-DEFAULT_VERBOSITY=1
-if test X${enable_silent_rules} = Xyes; then
-  DEFAULT_VERBOSITY=0
+DEFAULT_VERBOSITY=0
+if test X${enable_silent_rules} = Xno; then
+  DEFAULT_VERBOSITY=1
 fi
 AC_SUBST(DEFAULT_VERBOSITY)
 

@@ -19,7 +19,7 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,enumerated/1,objects/1]).
+	 already_defined/1,enumerated/1,objects/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -29,9 +29,11 @@ all() ->
     [{group,p}].
 
 groups() ->
-    [{p,parallel(),[already_defined,
-		    enumerated,
-		    objects]}].
+    [{p,parallel(),
+      [already_defined,
+       enumerated,
+       objects,
+       values]}].
 
 parallel() ->
     case erlang:system_info(schedulers) > 1 of
@@ -138,6 +140,25 @@ objects(Config) ->
     } = run(P, Config),
     ok.
 
+values(Config) ->
+    M = 'Values',
+    P = {M,
+	 <<"Values DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  os1 OCTET STRING ::= \"abc\"\n"
+	   "  os2 OCTET STRING ::= 42\n"
+	   "  os3 OCTET STRING ::= { 1, 3 }\n"
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{M,2},asn1ct_check,
+       illegal_octet_string_value},
+      {structured_error,{M,3},asn1ct_check,
+       illegal_octet_string_value},
+      {structured_error,{M,4},asn1ct_check,
+       illegal_octet_string_value}
+     ]
+    } = run(P, Config),
+    ok.
 
 
 run({Mod,Spec}, Config) ->

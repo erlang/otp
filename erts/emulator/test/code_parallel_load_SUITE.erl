@@ -159,21 +159,33 @@ setup_checkers(_,0) -> [];
 setup_checkers(T,N) -> [spawn_link(fun() -> ?model:check(T) end) | setup_checkers(T, N-1)].
 
 check_and_purge_processes_code(Pids, M) ->
-    check_and_purge_processes_code(Pids, M, []).
-check_and_purge_processes_code([], M, []) ->
+    Tag = make_ref(),
+    N = request_cpc(Pids, M, Tag),
+    ok = handle_cpc_responses(N, Tag, M),
     erlang:purge_module(M),
-    ok;
-check_and_purge_processes_code([], M, Pending) ->
-    io:format("Processes ~w are still executing old code - retrying.~n", [Pending]),
-    check_and_purge_processes_code(Pending, M, []);
-check_and_purge_processes_code([Pid|Pids], M, Pending) ->
-    case erlang:check_process_code(Pid, M) of
-	false ->
-	    check_and_purge_processes_code(Pids, M, Pending);
-	true ->
-	    check_and_purge_processes_code(Pids, M, [Pid|Pending])
-    end.
+    ok.
 
+request_cpc(Pid, M, Tag) when is_pid(Pid) ->
+    erlang:check_process_code(Pid, M, [{async, {Tag, Pid}}]),
+    1;
+request_cpc(Pids, M, Tag) when is_list(Pids) ->
+    request_cpc(Pids, M, Tag, 0).
+
+request_cpc([], _M, _Tag, N) ->
+    N;
+request_cpc([Pid|Pids], M, Tag, N) ->
+    request_cpc(Pids, M, Tag, N + request_cpc(Pid, M, Tag)).
+
+handle_cpc_responses(0, _Tag, _Module) ->
+    ok;
+handle_cpc_responses(N, Tag, Module) ->
+    receive
+	{check_process_code, {Tag, _Pid}, false} ->
+	    handle_cpc_responses(N-1, Tag, Module);
+	{check_process_code, {Tag, Pid}, true} ->
+	    1 = request_cpc(Pid, Module, Tag),
+	    handle_cpc_responses(N, Tag, Module)
+    end.
 
 generate(Module, Attributes, FunStrings) ->
     FunForms = function_forms(FunStrings),

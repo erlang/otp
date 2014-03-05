@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -462,7 +462,7 @@ update_referred_labels(Table, LabelMap) ->
 tree_keys(T) ->
   dict:fetch_keys(T).
 
--spec tree_to_list(dict()) -> [{_, _}].
+-spec tree_to_list(dict:dict()) -> [{_, _}].
 tree_to_list(T) ->
   dict:to_list(T).
 
@@ -486,11 +486,11 @@ tree_lookup(Key, T) ->
       none
   end.
 
--spec tree_empty() -> dict().
+-spec tree_empty() -> dict:dict().
 tree_empty() ->
   dict:new().
 
--spec tree_lookup_key_for_value(ctdata(), dict()) -> 'none' | {'value', _}.
+-spec tree_lookup_key_for_value(ctdata(), dict:dict()) -> 'none' | {'value', _}.
 tree_lookup_key_for_value(Val, T) ->
   tree_lookup_key_for_value_1(tree_to_list(T), Val).
 

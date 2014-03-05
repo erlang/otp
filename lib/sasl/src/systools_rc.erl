@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -365,14 +365,22 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 			  case lists:keysearch(Appl, #application.name, Appls) of
 			      {value, PostApplication} ->
 				  PostMods = PostApplication#application.modules,
+				  Type = PostApplication#application.type,
+				  Apply =
+				      case Type of
+					  none -> [];
+					  load -> [{apply, {application, load,
+							    [Appl]}}];
+					  _ -> [{apply, {application, start,
+							 [Appl, Type]}}]
+				      end,
 
 				  [{apply, {application, stop, [Appl]}}] ++
 				      [{remove, {M, brutal_purge, brutal_purge}}
 				       || M <- PreMods] ++
 				      [{purge, PreMods}] ++
 				      [{add_module, M, []} || M <- PostMods] ++
-				      [{apply, {application, start,
-						[Appl, permanent]}}];
+				      Apply;
 			      false ->
 				  throw({error, {no_such_application, Appl}})
 			  end;

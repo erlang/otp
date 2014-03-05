@@ -182,7 +182,7 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
     Eterm name_term = BIF_ARG_2;
     Eterm options = BIF_ARG_3;
     char *path = NULL;
-    ErlDrvSizeT path_len;
+    Sint path_len;
     char *name = NULL;
     DE_Handle *dh;
     erts_driver_t *drv;
@@ -198,6 +198,7 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
     int kill_ports = 0;
     int do_build_load_error = 0;
     int build_this_load_error = 0;
+    int encoding;
 
     for(l = options; is_list(l); l =  CDR(list_val(l))) {
 	Eterm opt = CAR(list_val(l));
@@ -257,18 +258,23 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
 	goto error;
     }
 
-    if (erts_iolist_size(path_term, &path_len)) {
+    encoding = erts_get_native_filename_encoding();
+    if (encoding == ERL_FILENAME_WIN_WCHAR) {
+        /* Do not convert the lib name to utf-16le yet, do that in win32 specific code */
+        /* since lib_name is used in error messages */
+        encoding = ERL_FILENAME_UTF8;
+    }
+    path = erts_convert_filename_to_encoding(path_term, NULL, 0,
+					     ERTS_ALC_T_DDLL_TMP_BUF, 1, 0,
+					     encoding, &path_len,
+					     sys_strlen(name) + 2); /* might need path separator */
+    if (!path) {
 	goto error;
     }
-    path = erts_alloc(ERTS_ALC_T_DDLL_TMP_BUF, path_len + 1 /* might need path separator */ + sys_strlen(name) + 1);
-    if (erts_iolist_to_buf(path_term, path, path_len) != 0) {
-	goto error;
-    }
-    while (path_len > 0 && (path[path_len-1] == '\\' || path[path_len-1] == '/')) {
-	--path_len;
-    }
+    ASSERT(path_len > 0 && path[path_len-1] == 0);
+    while (--path_len > 0 && (path[path_len-1] == '\\' || path[path_len-1] == '/'))
+	;
     path[path_len++] = '/';
-    /*path[path_len] = '\0';*/
     sys_strcpy(path+path_len,name);
 
 #if DDLL_SMP
@@ -1524,7 +1530,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 
     assert_drv_list_rwlocked();
 
-    if ((res =  erts_sys_ddll_open(path, &(dh->handle))) != ERL_DE_NO_ERROR) {
+    if ((res =  erts_sys_ddll_open(path, &(dh->handle), NULL)) != ERL_DE_NO_ERROR) {
 	return res;
     }
     

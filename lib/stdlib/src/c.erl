@@ -330,12 +330,17 @@ choice(F) ->
     end.
 
 get_line(P, Default) ->
-    case io:get_line(P) of
+    case line_string(io:get_line(P)) of
 	"\n" ->
 	    Default;
 	L ->
 	    L
     end.
+
+%% If the standard input is set to binary mode
+%% convert it to a list so we can properly match.
+line_string(Binary) when is_binary(Binary) -> unicode:characters_to_list(Binary);
+line_string(Other) -> Other.
 
 mfa_string(Fun) when is_function(Fun) ->
     {module,M} = erlang:fun_info(Fun, module),
@@ -450,7 +455,7 @@ m() ->
     foreach(fun ({Mod,File}) -> mformat(Mod, File) end, sort(code:all_loaded())).
 
 mformat(A1, A2) ->
-    format("~-20s  ~s\n", [A1,A2]).
+    format("~-20s  ~ts\n", [A1,A2]).
 
 %% erlangrc(Home)
 %%  Try to run a ".erlang" file, first in the current directory
@@ -694,7 +699,7 @@ pwd() ->
       Dir :: file:name().
 
 cd(Dir) ->
-    file:set_cwd(Dir),
+    _ = file:set_cwd(Dir),
     pwd().
 
 %% ls()
@@ -716,7 +721,7 @@ ls(Dir) ->
 	{error, enotdir} ->
 	    ls_print([Dir]);
 	{error, Error} ->
-	    format("~s\n", [file:format_error(Error)])
+	    format("~ts\n", [file:format_error(Error)])
     end.
 
 ls_print([]) -> ok;

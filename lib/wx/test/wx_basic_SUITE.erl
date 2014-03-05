@@ -1,8 +1,7 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -99,8 +98,23 @@ several_apps(Config) ->
     Pids = [spawn_link(fun() -> several_apps(Parent, N, Config) end) 
 	    || N <- lists:seq(1,4)],
     process_flag(trap_exit,true),
-    ?m_multi_receive([{complete,Pid} || Pid <- Pids]),
+    Wait = fun(Pid,Acc) ->
+		   receive {complete, Pid} -> Acc
+		   after 20000 -> [Pid|Acc]
+		   end
+	   end,
+    Res = lists:foldl(Wait, [], Pids),
     [Pid ! quit || Pid <- Pids],
+
+    Dbg = fun(Pid) ->
+		  io:format("Stack ~p~n",[erlang:process_info(Pid, current_stacktrace)]),
+		  io:format("Stack ~p~n",[erlang:process_info(Pid)])
+	  end,
+    case Res of
+	[] -> ok;
+	Failed ->
+	    [Dbg(Pid)|| Pid <- Failed]
+    end,
     case wx_test_lib:user_available(Config) of
 	true ->
 	    receive {'EXIT',_,foo} -> ok end;
@@ -217,7 +231,7 @@ create_menus(Frame) ->
 
 %% Test the wx_misc.erl api functionality.
 wx_misc(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
-wx_misc(Config) ->    
+wx_misc(_Config) ->
     wx:new([{debug, trace}]),
     put(wx_test_verbose, true),
     ?m(ok, wx_misc:bell()),
@@ -241,21 +255,6 @@ wx_misc(Config) ->
 
     
     %% wx:shutdown()  %% How do you test this?
-
-    case os:type() of 
-	{win32, _} -> %% These hangs when running automatic tests
-	    skip;     %% through ssh on windows. Works otherwise
-	_ -> 
-	    wx_misc:shell([{command,"echo TESTING close the popup shell"}])
-    end,
-
-    case wx_test_lib:user_available(Config) of
-	true ->
-	    wx_misc:shell();
-	false ->
-	    %% Don't want to spawn a shell if no user	   
-	    skip %% is available
-    end,
 
     ?m(false, wx_misc:isBusy()),
     ?m(ok, wx_misc:beginBusyCursor([])),
@@ -357,6 +356,7 @@ wx_object(Config) ->
     %% Which it did in my buggy handling of the sync_callback
     wxWindow:refresh(Frame),
     ?m([{sync_event, #wx{event=#wxPaint{}}, _}], flush()),
+    timer:sleep(500),
     ?m([{cast, slept}], flush()),
 
     Monitor = erlang:monitor(process, FramePid),

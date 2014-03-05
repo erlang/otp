@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -133,7 +133,7 @@ es(L,Quote,EscSpace) ->
 
 cmd(Cmd) ->
     PortOpts = [{line,80},eof,exit_status,stderr_to_stdout],
-    io:format("cmd: ~s~n", [Cmd]),
+    io:format("cmd: ~ts~n", [Cmd]),
     case catch open_port({spawn,Cmd}, PortOpts) of
 	Port when is_port(Port) ->
 	    case erlang:port_info(Port,os_pid) of

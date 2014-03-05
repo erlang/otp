@@ -59,6 +59,9 @@ void hipe_empty_nstack(Process *p);
 void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free);
 Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s);
 
+void hipe_reserve_beam_trap_frame(Process*, Eterm reg[], unsigned arity);
+void hipe_unreserve_beam_trap_frame(Process*);
+
 extern Uint hipe_beam_pc_return[];
 extern Uint hipe_beam_pc_throw[];
 extern Uint hipe_beam_pc_resume[];

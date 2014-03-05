@@ -51,6 +51,7 @@ norm_block([], Acc) -> Acc.
     
 norm({set,[D],As,{bif,N,F}})      -> {bif,N,F,As,D};
 norm({set,[D],As,{alloc,R,{gc_bif,N,F}}}) -> {gc_bif,N,F,R,As,D};
+norm({set,[D],[],init})           -> {init,D};
 norm({set,[D],[S],move})          -> {move,S,D};
 norm({set,[D],[S],fmove})         -> {fmove,S,D};
 norm({set,[D],[S],fconv})         -> {fconv,S,D};
@@ -60,6 +61,10 @@ norm({set,[],[S],put})            -> {put,S};
 norm({set,[D],[S],{get_tuple_element,I}}) -> {get_tuple_element,S,I,D};
 norm({set,[],[S,D],{set_tuple_element,I}}) -> {set_tuple_element,S,D,I};
 norm({set,[D1,D2],[S],get_list})          -> {get_list,S,D1,D2};
+norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
+    {put_map,F,Op,S,D,R,{list,Puts}};
+norm({set,Gets,[S],{get_map_elements,F}}) ->
+    {get_map_elements,F,S,{list,Gets}};
 norm({set,[],[],remove_message})   -> remove_message;
 norm({set,[],[],fclearerror}) -> fclearerror;
 norm({set,[],[],fcheckerror}) -> {fcheckerror,{f,0}}.

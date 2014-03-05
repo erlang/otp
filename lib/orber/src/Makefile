@@ -21,9 +21,6 @@ include $(ERL_TOP)/make/target.mk
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-# To get hold of SYSTEM_VSN (e.g. R9C).
-#include $(ERL_TOP)/erts/vsn.mk
-
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------

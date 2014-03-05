@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2012. All Rights Reserved.
+# Copyright Ericsson AB 2002-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -52,6 +52,9 @@ usage ()
     echo "    release [-a] <target_dir> - creates full release to <target_dir>"
     echo "    smp [-a] - build an Erlang system, smp flavor only"
     echo "    tests <dir> - Build testsuites to <dir>"
+    echo "    patch_app <target_dir> <app1>... - build given apps to <target_dir>"
+    echo "         If core apps are patched, new start scripts will be created"
+    echo "         and 'Install' must be run again."
     echo ""
     echo "These are for cleaning up an open source distribution"
     echo "with prebuilt files, so that it resembles the clean developers"
@@ -170,6 +173,14 @@ determine_version_controller ()
 # Special static config flags for certain platforms are set here  
 set_config_flags ()
 {
+	#
+	# NOTE! Do not add special flags here without a *very good*
+	#       reason. We normally do not want "./otp_build configure"
+	#       and "./configure" to produce different results.
+	#       However, in the Windows case this does not matter, since
+	#       the only supported way to build on Windows is using
+	#       otp_build.
+	#
 	# * Extra flags to pass to configure are placed in `CONFIG_FLAGS'.
 	# * The command line is no longer added to `CONFIG_FLAGS' by
 	#   `set_config_flags'. It is instead passed directly to
@@ -179,16 +190,6 @@ set_config_flags ()
 	#   called. These flags should survive the call to `set_config_flags'
 	#   (in the cross compilation case the whole command line as well as
 	#   the cross configuration have been moved here). 
-
-	if target_contains linux; then 
-	        XX=`echo $* | grep -v able-fp-exceptions`
-		if [ "$*" = "$XX" ]; then 
-		    CONFIG_FLAGS="$CONFIG_FLAGS --disable-fp-exceptions"
-		fi
-	fi
-	if target_contains "univel-sysv4"; then
-		CONFIG_FLAGS="$CONFIG_FLAGS --x-libraries=/usr/lib/X11"
-	fi
 
 	if target_contains free_source; then
 		CONFIG_FLAGS="$CONFIG_FLAGS --host=$TARGET"
@@ -1191,6 +1192,129 @@ do_release ()
 	release || exit 1
 }
 
+do_patch_app ()
+{
+    # If target dir exists and has an installation of same major release, then
+    # build given apps.
+    # If patch includes erts, kernel, stdlib, sasl, then find latest
+    # erts, kernel, stdlib, sasl and create .rel files.
+    # Create .script/.boot
+
+    if [ $# -lt 2 ]; then
+	usage
+	exit 1
+    fi
+
+    setup_make
+    if [ X`$MAKE is_cross_configured` = Xyes ]; then
+       TARGET=`$MAKE target_configured`
+    fi
+    target_dir=$1
+    if [ ! -d $target_dir/releases/$otp_major_vsn ]; then
+	echo "No OTP $otp_major_vsn installation in $target_dir" 1>&2
+	exit 1
+    fi
+
+    shift
+
+    otp_version=`cat "$target_dir/OTP_VERSION"` || { echo "Not able to read $target_dir/OTP_VERSION" 1>&2; exit 1; }
+    { echo "$otp_version" | sed "s|^\([^\*]*\)\**|\1\*\*|g" > $target_dir/OTP_VERSION; } 2>/dev/null || { echo "Not able to update $target_dir/OTP_VERSION" 1>&2; exit 1; }
+
+    # Build all applications to target
+    for app in "$@"; do
+	if [ "$app" = "erts" ] && [ -d $ERL_TOP/$app ]; then
+	    (cd $ERL_TOP/$app && $MAKE MAKE="$MAKE" TARGET=$TARGET \
+		TESTROOT=$target_dir release) || exit 1
+	elif [ "$app" != "erts" ] && [ -d $ERL_TOP/lib/$app ]; then
+	    (cd $ERL_TOP/lib/$app && $MAKE MAKE="$MAKE" TARGET=$TARGET \
+		TESTROOT=$target_dir release) || exit 1
+	else
+	    echo "Invalid application $app" 1>&2
+	    exit 1
+	fi
+    done
+
+    # If erts, kernel, stdlib or sasl is included, find versions
+    for app in "$@"; do
+	if  [ "$app" = "erts" ]; then
+	    erts_vsn=`grep '^VSN' erts/vsn.mk | sed "s|^VSN.*=[^0-9]*\([0-9].*\)$|\1|g"`
+	    update_rel=true
+	elif [ "$app" = "kernel" ]; then
+	    kernel_vsn=`sed "s|^KERNEL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/kernel/vsn.mk`
+	    update_rel=true
+	elif [ "$app" = "stdlib" ]; then
+	    stdlib_vsn=`sed "s|^STDLIB_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/stdlib/vsn.mk`
+	    update_rel=true
+	elif [ "$app" = "sasl" ]; then
+	    sasl_vsn=`sed "s|^SASL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/sasl/vsn.mk`
+	    update_rel=true
+	fi
+    done
+
+    # and find the old versions for those not included
+    if [ "X$update_rel" != "X" ]; then
+	if [ "X$erts_vsn" = "X" ]; then
+	    erts_vsns=`ls -d $target_dir/erts-* | sed "s|$target_dir/erts-\([0-9\.].*\)|\1|g"`
+	    erts_vsn=`echo "$erts_vsns" | sort -t '.' -g | tail -n 1`
+	fi
+	if [ "X$kernel_vsn" = "X" ]; then
+	    kernel_vsns=`ls -d $target_dir/lib/kernel-* | sed "s|$target_dir/lib/kernel-\([0-9\.].*\)|\1|g"`
+	    kernel_vsn=`echo "$kernel_vsns" | sort -t '.' -g | tail -n 1`
+	fi
+	if [ "X$stdlib_vsn" = "X" ]; then
+	    stdlib_vsns=`ls -d $target_dir/lib/stdlib-* | sed "s|$target_dir/lib/stdlib-\([0-9\.].*\)|\1|g"`
+	    stdlib_vsn=`echo "$stdlib_vsns" | sort -t '.' -g | tail -n 1`
+	fi
+	if [ "X$sasl_vsn" = "X" ]; then
+	    sasl_vsns=`ls -d $target_dir/lib/sasl-* | sed "s|$target_dir/lib/sasl-\([0-9\.].*\)|\1|g"`
+	    sasl_vsn=`echo "$sasl_vsns" | sort -t '.' -g | tail -n 1`
+	fi
+
+        # Generate .rel, .script and .boot - to tmp dir
+	start_clean="{release, {\"OTP APN 181 01\",\"$otp_major_vsn\"}, {erts, \"$erts_vsn\"},\n [{kernel,\"$kernel_vsn\"},\n  {stdlib,\"$stdlib_vsn\"}]}.\n"
+	start_sasl="{release, {\"OTP APN 181 01\",\"$otp_major_vsn\"}, {erts, \"$erts_vsn\"},\n [{kernel,\"$kernel_vsn\"},\n  {stdlib,\"$stdlib_vsn\"},\n  {sasl,\"$sasl_vsn\"}]}.\n"
+
+	tmp_dir=$target_dir/tmp;
+	if [ ! -d $tmp_dir ]; then
+	    mkdir $tmp_dir
+	fi
+	echo $start_sasl > $tmp_dir/start_sasl.rel
+	echo $start_clean > $tmp_dir/start_clean.rel
+	echo $start_clean > $tmp_dir/no_dot_erlang.rel
+
+	erlc=$ERL_TOP/bootstrap/bin/erlc
+	if [ ! -x $erlc ]; then
+	    echo "erlc not found, can not create .script and .boot files" 1>&2
+	    exit 1
+	fi
+
+	$erlc -I$target_dir/lib/*/ebin -o$tmp_dir $tmp_dir/start_sasl.rel || exit 1
+	$erlc -I$target_dir/lib/*/ebin -o$tmp_dir +no_warn_sasl $tmp_dir/start_clean.rel || exit 1
+	$erlc -I$target_dir/lib/*/ebin -o$tmp_dir +no_warn_sasl +no_dot_erlang $tmp_dir/no_dot_erlang.rel || exit 1
+
+	# Generate RELEASES file
+	erl=$ERL_TOP/bootstrap/bin/erl
+	if [ ! -x $erl ]; then
+	    echo "erl not found, can not create RELEASES file" 1>&2
+	    exit 1
+	fi
+	$erl -noinput +B -eval "release_handler:create_RELEASES(\"%ERL_ROOT%\", \"$tmp_dir\", \"$tmp_dir/start_sasl.rel\", []), halt()" || exit 1
+
+        # If all good so far, move generated files into target area
+	mv $tmp_dir/RELEASES $target_dir/releases/RELEASES.src
+	mv $tmp_dir/* $target_dir/releases/$otp_major_vsn
+	rmdir $tmp_dir
+
+	# Remove old start scripts (forces a new run of Install)
+	rm -f $target_dir/releases/RELEASES
+	rm -f $target_dir/bin/*.script
+	rm -f $target_dir/bin/*.boot
+	rm -f $target_dir/bin/erl
+    fi
+
+}
+
+
 do_tests ()
 {
     setup_make
@@ -1308,12 +1432,12 @@ cd $ERL_TOP
 
 determine_version_controller
 
-# Unset ERL_FLAGS and ERL_<Release>_FLAGS during bootstrap to
+# Unset ERL_FLAGS and ERL_OTP<OTP Release>_FLAGS during bootstrap to
 # prevent potential problems
-sys_vsn=`awk '/SYSTEM_VSN = / {print $3}' < erts/vsn.mk`
-sys_erl_flags="ERL_${sys_vsn}_FLAGS"
+otp_major_vsn=`cat OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`
+erl_otp_flags="ERL_OTP${otp_major_vsn}_FLAGS"
 unset ERL_FLAGS
-#unset ${sys_erl_flags}
+unset ${erl_otp_flags}
 
 # Target first guess, won't necessarily hold, may be changed for 
 # certain parameters.
@@ -1451,6 +1575,9 @@ case "$1" in
 		    shift
 		fi;
 		do_release "$2";;
+        patch_app)
+	        shift;
+	        do_patch_app "$@";;
 	tests)
 		if [ $minus_a_flag = true ]; then 
 		    shift

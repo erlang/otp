@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %% =====================================================================
 %% This library is free software; you can redistribute it and/or modify
 %% it under the terms of the GNU Lesser General Public License as
@@ -1033,7 +1032,7 @@ run_plugin(Name, Key, Default, Fun, Opts) when is_atom(Name) ->
 	{ok, Value} ->
 	    Value;
 	R ->
-	    report("error in ~ts '~w': ~W.", [Name, Module, R, 20]),
+	    report("error in ~ts '~w': ~P.", [Name, Module, R, 20]),
 	    exit(error)
     end.
 

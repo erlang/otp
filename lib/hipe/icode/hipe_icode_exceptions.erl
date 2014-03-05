@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -397,9 +397,9 @@ get_renaming(C, Map) ->
 		succ					:: #cfg{},
 		pred					:: #cfg{},
 		start_labels				:: [icode_lbl(),...],
-		visited = hipe_icode_cfg:none_visited()	:: gb_set(),
-		out     = gb_trees:empty()		:: gb_tree(),
-		in      = gb_trees:empty()		:: gb_tree()
+		visited = hipe_icode_cfg:none_visited()	:: gb_sets:set(),
+		out     = gb_trees:empty()		:: gb_trees:tree(),
+		in      = gb_trees:empty()		:: gb_trees:tree()
 	       }).
 
 init_state(CFG) ->

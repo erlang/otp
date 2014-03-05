@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,8 @@
 
 %%-----------------------------------------------------------------------
 
--type literals()     :: 'none' | gb_tree().
+-type index()        :: non_neg_integer().
+-type literals()     :: 'none' | gb_trees:tree(index(), term()).
 -type symbolic_tag() :: 'a' | 'f' | 'h' | 'i' | 'u' | 'x' | 'y' | 'z'.
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
@@ -216,7 +217,8 @@ optional_chunk(F, ChunkTag) ->
 %%-----------------------------------------------------------------------
 
 -type l_info() :: {non_neg_integer(), {_,_,_,_,_,_}}.
--spec beam_disasm_lambdas('none' | binary(), gb_tree()) -> 'none' | [l_info()].
+-spec beam_disasm_lambdas('none' | binary(), gb_trees:tree(index(), _)) ->
+        'none' | [l_info()].
 
 beam_disasm_lambdas(none, _) -> none;
 beam_disasm_lambdas(<<_:32,Tab/binary>>, Atoms) ->
@@ -365,6 +367,14 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_select_inst(select_val, Bs, Atoms, Literals);
 	select_tuple_arity ->
 	    disasm_select_inst(select_tuple_arity, Bs, Atoms, Literals);
+	put_map_assoc ->
+	    disasm_map_inst(put_map_assoc, Arity, Bs, Atoms, Literals);
+	put_map_exact ->
+	    disasm_map_inst(put_map_exact, Arity, Bs, Atoms, Literals);
+	get_map_elements ->
+	    disasm_map_inst(get_map_elements, Arity, Bs, Atoms, Literals);
+	has_map_fields ->
+	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -395,6 +405,16 @@ disasm_select_inst(Inst, Bs, Atoms, Literals) ->
     {List, RestBs} = decode_n_args(Len, Bs4, Atoms, Literals),
     {{Inst, [X,F,{Z,U,List}]}, RestBs}.
 
+disasm_map_inst(Inst, Arity, Bs0, Atoms, Literals) ->
+    {Args0,Bs1} = decode_n_args(Arity, Bs0, Atoms, Literals),
+    %% no droplast ..
+    [Z|Args1]  = lists:reverse(Args0),
+    Args       = lists:reverse(Args1),
+    {U, Bs2}   = decode_arg(Bs1, Atoms, Literals),
+    {u, Len}   = U,
+    {List, RestBs} = decode_n_args(Len, Bs2, Atoms, Literals),
+    {{Inst, Args ++ [{Z,U,List}]}, RestBs}.
+
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
 %%
@@ -417,11 +437,12 @@ decode_arg([B|Bs]) ->
 	    decode_int(Tag, B, Bs)
     end.
 
--spec decode_arg([byte(),...], gb_tree(), literals()) -> {disasm_term(), [byte()]}.
+-spec decode_arg([byte(),...], gb_trees:tree(index(), _), literals()) ->
+        {disasm_term(), [byte()]}.
 
 decode_arg([B|Bs0], Atoms, Literals) ->
     Tag = decode_tag(B band 2#111),
-    ?NO_DEBUG('Tag = ~p, B = ~p, Bs = ~p~n', [Tag, B, Bs]),
+    ?NO_DEBUG('Tag = ~p, B = ~p, Bs = ~p~n', [Tag, B, Bs0]),
     case Tag of
 	z ->
 	    decode_z_tagged(Tag, B, Bs0, Literals);
@@ -1117,6 +1138,33 @@ resolve_inst({recv_set,[Lbl]},_,_,_) ->
 %%
 resolve_inst({line,[Index]},_,_,_) ->
     {line,resolve_arg(Index)};
+
+%%
+%% 17.0
+%%
+resolve_inst({put_map_assoc,Args},_,_,_) ->
+    [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
+    List = resolve_args(List0),
+    {put_map_assoc,FLbl,Src,Dst,N,{list,List}};
+
+resolve_inst({put_map_exact,Args},_,_,_) ->
+    [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
+    List = resolve_args(List0),
+    {put_map_exact,FLbl,Src,Dst,N,{list,List}};
+
+resolve_inst({is_map,Args0},_,_,_) ->
+    [FLbl|Args] = resolve_args(Args0),
+    {test, is_map, FLbl, Args};
+
+resolve_inst({has_map_fields,Args0},_,_,_) ->
+    [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
+    List = resolve_args(List0),
+    {test,has_map_fields,FLbl,Src,{list,List}};
+
+resolve_inst({get_map_elements,Args0},_,_,_) ->
+    [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
+    List = resolve_args(List0),
+    {get_map_elements,FLbl,Src,{list,List}};
 
 %%
 %% Catches instructions that are not yet handled.

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,6 @@
 -type ct_alignment()  :: 4 | 8.
 
 -type hipe_constlbl() :: non_neg_integer().
--type hipe_consttab() :: {dict(), [hipe_constlbl()], hipe_constlbl()}.
+-type hipe_consttab() :: {dict:dict(), [hipe_constlbl()], hipe_constlbl()}.
 
 %%-----------------------------------------------------------------------------

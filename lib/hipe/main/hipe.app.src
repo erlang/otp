@@ -192,7 +192,6 @@
 	     hipe_tagscheme,
 	     hipe_temp_map,
 	     hipe_timing,
-	     hipe_tool,
 	     hipe_vectors,
 	     hipe_x86,
 	     hipe_x86_assemble,

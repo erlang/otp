@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	ett \
+	et_SUITE \
 	et_wx_SUITE \
 	et_test_lib
 

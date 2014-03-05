@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,6 @@
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
 -type der_cert()          :: binary().
--type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{} | #'ECPrivateKey'{}.
 -type issuer()            :: tuple().
 -type serialnumber()      :: integer().
 -type cert_key()          :: {reference(), integer(), issuer()}.
@@ -83,13 +82,13 @@
 	  validate_extensions_fun, 
 	  depth                :: integer(),
 	  certfile             :: binary(),
-	  cert                 :: der_encoded(),
+	  cert                 :: public_key:der_encoded(),
 	  keyfile              :: binary(),
-	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', der_encoded()},
+	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', public_key:der_encoded()},
 	  password	       :: string(),
-	  cacerts              :: [der_encoded()],
+	  cacerts              :: [public_key:der_encoded()],
 	  cacertfile           :: binary(),
-	  dh                   :: der_encoded(),
+	  dh                   :: public_key:der_encoded(),
 	  dhfile               :: binary(),
 	  user_lookup_fun,  % server option, fun to lookup the user
 	  psk_identity         :: binary(),
@@ -114,7 +113,10 @@
 	  next_protocols_advertised = undefined, %% [binary()],
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
 	  log_alert             :: boolean(),
-	  server_name_indication = undefined
+	  server_name_indication = undefined,
+	  %% Should the server prefer its own cipher order over the one provided by
+	  %% the client?
+	  honor_cipher_order = false
 	  }).
 
 -record(config, {ssl,               %% SSL parameters

@@ -23,7 +23,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1,
 	 seq_in_guard/1,make_effect_seq/1,eval_is_boolean/1,
-	 unsafe_case/1,nomatch_shadow/1,reversed_annos/1]).
+	 unsafe_case/1,nomatch_shadow/1,reversed_annos/1,
+	 map_core_test/1,eval_case/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -48,7 +49,9 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [dehydrated_itracer,nested_tries,seq_in_guard,make_effect_seq,
-       eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos]}].
+       eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos,
+       map_core_test,eval_case
+   ]}].
 
 
 init_per_suite(Config) ->
@@ -72,6 +75,8 @@ end_per_group(_GroupName, Config) ->
 ?comp(unsafe_case).
 ?comp(nomatch_shadow).
 ?comp(reversed_annos).
+?comp(map_core_test).
+?comp(eval_case).
 
 try_it(Mod, Conf) ->
     Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),

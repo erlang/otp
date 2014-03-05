@@ -1202,6 +1202,7 @@ sub parse_transformation {
 
     my($from, $to) = split(/\s*=>\s*/);
     my(@op);
+    my $rest_var;
 
     # The source instructions.
 
@@ -1212,7 +1213,7 @@ sub parse_transformation {
 	    $_ = (&compile_transform_function($name, split(/\s*,\s*/, $arglist)));
 	} else {
 	    (@op) = split;
-	    $_ = &compile_transform(1, @op);
+	    ($rest_var,$_) = compile_transform(1, $rest_var, @op);
 	}
     }
 
@@ -1230,7 +1231,7 @@ sub parse_transformation {
 	@to = split(/\s*\|\s*/, $to);
 	foreach (@to) {
 	    (@op) = split;
-	    $_ = &compile_transform(0, @op);
+	    (undef,$_) = compile_transform(0, $rest_var, @op);
 	}
     }
     push(@transformations, [$., $orig, [@from], [reverse @to]]);
@@ -1243,12 +1244,18 @@ sub compile_transform_function {
 }
 
 sub compile_transform {
-    my($src, $name, @ops) = @_;
+    my($src, $rest_var, $name, @ops) = @_;
     my $arity = 0;
-    
+
     foreach (@ops) {
 	my(@list) = &tr_parse_op($src, $_);
-	$arity++ unless $list[1] eq '*';
+	if ($list[1] eq '*') {
+	    $rest_var = $list[0];
+	} elsif (defined $rest_var and $list[0] eq $rest_var) {
+	    $list[1] = '*';
+	} else {
+	    $arity++;
+	}
 	$_ = [ @list ];
     }
     
@@ -1260,7 +1267,7 @@ sub compile_transform {
 	$is_transformed{$name,$arity} = 1;
     }
     
-    [$name,$arity,@ops];
+    ($rest_var,[$name,$arity,@ops]);
 }
 
 sub tr_parse_op {
@@ -1681,7 +1688,9 @@ sub tr_gen_to {
 	foreach $op (@ops) {
 	    my($var, $type, $type_val) = @$op;
 
-	    if ($var ne '') {
+	    if ($type eq '*') {
+		push(@code, make_op($var, 'store_rest_args', $var{$var}));
+	    } elsif ($var ne '') {
 		&error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
 		push(@code, &make_op($var, 'store_var_next_arg', $var{$var}));

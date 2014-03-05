@@ -223,8 +223,11 @@ places. Appropriate attributes to the `X` tag will also be generated.
     \%CopyrightBegin\% and \%CopyrightEnd\% "tags" will be removed from
     the output.
 
-*   All occurrences of \%OTP-REL% will be replaced by current release number
-    (e.g. R14A).
+*   All occurrences of \%OTP-REL% will be replaced by current OTP release number
+    (e.g. 17).
+
+*   All occurrences of \%OTP-VSN% will be replaced by current OTP version
+    (e.g. 17.0).
 
 *   All occurrences of \%ERTS-VSN% will be replaced by current ERTS version
     (e.g. 5.8).

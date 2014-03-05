@@ -236,7 +236,7 @@ void erts_lcnt_init() {
     /* init tsd */    
     lcnt_n_thr = 0;
 
-    ethr_tsd_key_create(&lcnt_thr_data_key);
+    ethr_tsd_key_create(&lcnt_thr_data_key,"lcnt_data");
 
     lcnt_lock();
 

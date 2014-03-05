@@ -1,0 +1,34 @@
+module 'eval_case' ['eval_case'/0]
+    attributes []
+'eval_case'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      case apply 'do_case'/0() of
+		<'ok'> when 'true' ->
+		    'ok'
+		( <_cor0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_cor0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'eval_case',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'do_case'/0 =
+    fun () ->
+        case let <_cor0> =
+	     apply 'id'/1(42)
+                  in  let <_cor1> =
+		      call 'erlang':'+'
+			  (_cor0, 7)
+		  in {'x',_cor1} of
+	     <{'x',49}> when 'true' ->
+	          'ok'
+        end
+'id'/1 =
+    fun (_cor0) -> _cor0
+end

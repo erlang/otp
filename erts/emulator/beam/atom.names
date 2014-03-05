@@ -71,6 +71,7 @@ atom ac
 atom active
 atom all
 atom all_but_first
+atom all_names
 atom alloc_info
 atom alloc_sizes
 atom allocated
@@ -78,6 +79,7 @@ atom allocated_areas
 atom allocator
 atom allocator_sizes
 atom alloc_util_allocators
+atom allow_gc
 atom allow_passive_connect
 atom already_loaded
 atom amd64
@@ -114,6 +116,7 @@ atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
 atom binary_match_trap
 atom binary_matches_trap
+atom binary_to_term_trap
 atom block
 atom blocked
 atom bm
@@ -176,6 +179,7 @@ atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary
+atom dirty_cpu_schedulers_online
 atom disable_trace
 atom disabled
 atom display_items
@@ -322,6 +326,8 @@ atom low
 atom Lt='<'
 atom machine
 atom match
+atom match_limit
+atom match_limit_recursion
 atom match_spec
 atom max
 atom maximum
@@ -351,11 +357,13 @@ atom multi_scheduling
 atom multiline
 atom name
 atom named_table
+atom namelist
 atom native_addresses
 atom Neq='=/='
 atom Neqeq='/='
 atom net_kernel
 atom net_kernel_terminated
+atom never_utf
 atom new
 atom new_index
 atom new_uniq
@@ -381,6 +389,7 @@ atom nosuspend
 atom no_float
 atom no_integer
 atom no_network
+atom no_start_optimize
 atom not
 atom not_a_list
 atom not_loaded
@@ -391,6 +400,7 @@ atom notalive
 atom notbol
 atom noteol
 atom notempty
+atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
@@ -475,6 +485,7 @@ atom register
 atom registered_name
 atom reload
 atom rem
+atom report_errors
 atom reset
 atom restart
 atom return_from
@@ -557,6 +568,7 @@ atom true
 atom tuple
 atom type
 atom ucompile
+atom ucp
 atom undef
 atom ungreedy
 atom unicode

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE part SYSTEM "part.dtd">
 
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -31,6 +31,7 @@
   <description>
     <p>How to install Erlang/OTP on UNIX or Windows.</p>
   </description>
+  <xi:include href="otp_version.xml"/>
   <xi:include href="install-binary.xml"/>
   <xi:include href="verification.xml"/>
   <xi:include href="INSTALL.xml"/>

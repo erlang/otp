@@ -1,5 +1,6 @@
 -module(rh_test_lib).
 
+-export([cmd/3]).
 -export([erlsrv/3,
 	 erlsrv/4]).
 -export([get_service_args/3,
@@ -8,12 +9,26 @@
 	 get_start_erl_args/3,
 	 get_client_args/3,
 	 get_client_args/4]).
+-export([clean_dir/1,
+	 clean_dir/2]).
 
+-include_lib("kernel/include/file.hrl").
+
+cmd(Cmd,Args,Env) ->
+    case open_port({spawn_executable, Cmd}, [{args,Args},{env,Env}]) of
+        Port when is_port(Port) ->
+            unlink(Port),
+            erlang:port_close(Port),
+	    ok;
+        Error ->
+            Error
+    end.
 
 erlsrv(Erlsrv,Action,Name) ->
     erlsrv(Erlsrv,Action,Name,"").
 erlsrv(Erlsrv,Action,Name,Rest) ->
-    Cmd = Erlsrv ++ " " ++ atom_to_list(Action) ++ " " ++ Name ++ " " ++ Rest,
+    Cmd = "\"" ++ Erlsrv ++ "\" " ++ atom_to_list(Action) ++ " " ++
+	Name ++ " " ++ Rest,
     io:format("erlsrv cmd: ~p~n",[Cmd]),
     Port = open_port({spawn, Cmd}, [stream, {line, 100}, eof, in]),
     Res = recv_prog_output(Port),
@@ -98,3 +113,50 @@ single_quote() ->
 	_ ->
 	    "\\'"
     end.
+
+clean_dir(Dir) ->
+    clean_dir(Dir,false).
+clean_dir(Dir,Save) ->
+    test_server:format("========  current dir ~tp~n",[Dir]),
+    Dirs = filelib:wildcard(filename:join(Dir,"*")),
+    test_server:format("========  deleting  ~tp~n",[Dirs]),
+
+    ok = rm_rf(Dirs,Save),
+    Remaining = filelib:wildcard(filename:join(Dir,"*")),
+    test_server:format("========  remaining  ~tp~n",[Remaining]),
+
+    case Remaining of
+	[] ->
+	    ok;
+	_ ->
+	    rm_rf(Remaining,Save),
+	    Remaining2 = filelib:wildcard(filename:join(Dir,"*")),
+	    test_server:format("========  remaining after second try ~tp~n",
+			       [Remaining2])
+    end,
+
+    ok.
+
+
+rm_rf([File|Files],Save) ->
+    case Save andalso filename:basename(File)=="save" of
+	true ->
+	    rm_rf(Files,Save);
+	false ->
+	    case file:read_link_info(File) of
+		{ok,#file_info{type=directory}} ->
+		    MoreFiles = filelib:wildcard(filename:join(File,"*")),
+		    rm_rf(MoreFiles,Save),
+		    file:del_dir(File),
+		    rm_rf(Files,Save);
+		{ok,#file_info{}} ->
+		    file:delete(File),
+		    rm_rf(Files,Save);
+		Other ->
+		    test_server:format("========  could not delete file  ~p~n"
+				       "read_link_info -> ~p~n",[File,Other]),
+		    rm_rf(Files,Save)
+	    end
+    end;
+rm_rf([],_) ->
+    ok.

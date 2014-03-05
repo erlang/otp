@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,8 +46,8 @@
 	      istk=[],				%Ifdef stack
 	      sstk=[],				%State stack
 	      path=[],				%Include-path
-	      macs = dict:new()  :: dict(),	%Macros (don't care locations)
-	      uses = dict:new()  :: dict(),	%Macro use structure
+	      macs = dict:new()  :: dict:dict(),%Macros (don't care locations)
+	      uses = dict:new()  :: dict:dict(),%Macro use structure
 	      pre_opened = false :: boolean()
 	     }).
 
@@ -219,7 +219,7 @@ parse_file(Epp) ->
 	    [{eof,Location}]
     end.
 
--define(DEFAULT_ENCODING, latin1).
+-define(DEFAULT_ENCODING, utf8).
 
 -spec default_encoding() -> source_encoding().
 
@@ -640,11 +640,11 @@ leave_file(From, St) ->
 		    Ms = dict:store({atom,'FILE'},
 				    {none,[{string,CurrLoc,OldName2}]},
 				    St#epp.macs),
-                    NextSt = OldSt#epp{sstk=Sts,macs=Ms},
+                    NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses},
 		    enter_file_reply(From, OldName, CurrLoc, CurrLoc),
                     case OldName2 =:= OldName of
                         true ->
-                            From;
+                            ok;
                         false ->
                             NFrom = wait_request(NextSt),
                             enter_file_reply(NFrom, OldName2, OldLoc,
@@ -1247,6 +1247,8 @@ macro_arg([{'case',Lc}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'case',Lc}|Arg]);
 macro_arg([{'fun',Lc}|[{'(',_}|_]=Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'fun',Lc}|Arg]);
+macro_arg([{'fun',_}=Fun,{var,_,_}=Name|[{'(',_}|_]=Toks], E, Arg) ->
+    macro_arg(Toks, ['end'|E], [Name,Fun|Arg]);
 macro_arg([{'receive',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'receive',Lr}|Arg]);
 macro_arg([{'try',Lr}|Toks], E, Arg) ->

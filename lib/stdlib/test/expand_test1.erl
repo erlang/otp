@@ -23,7 +23,7 @@
 	 b_comes_after_a/1,
 	 'Quoted_fun_name'/0,
 	 'Quoted_fun_too'/0,
-	 '#weird-fun-name'/0]).
+	 '#weird-fun-name'/1]).
 
 a_fun_name(X) ->
     X.
@@ -40,5 +40,5 @@ b_comes_after_a(X) ->
 'Quoted_fun_too'() ->
     too.
 
-'#weird-fun-name'() ->
+'#weird-fun-name'(_) ->
     weird.

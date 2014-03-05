@@ -417,7 +417,8 @@ void
 erts_thr_progress_pre_init(void)
 {
     intrnl = NULL;
-    erts_tsd_key_create(&erts_thr_prgr_data_key__);
+    erts_tsd_key_create(&erts_thr_prgr_data_key__,
+			"erts_thr_prgr_data_key");
     init_nob(&erts_thr_prgr__.current, ERTS_THR_PRGR_VAL_FIRST);
 }
 

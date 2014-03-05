@@ -652,7 +652,7 @@ end
 define etp-ct-atom-1
 # Args: int
 #
-# Determines if integer is a atom first character
+# Determines if integer is an atom first character
 #
 # Non-reentrant
 # Returns: $etp_ct_atom
@@ -1278,6 +1278,250 @@ document etpf-stackdump
 %---------------------------------------------------------------------------
 end
 
+define etp-heapdump
+# Args: Process*
+#
+# Non-reentrant
+  etp-heapdump-1 ($arg0)->heap ($arg0)->htop
+end
+
+document etp-heapdump
+%---------------------------------------------------------------------------
+% etp-heapdump Process*
+%
+% Take an Process* and print a heapdump for the process heap.
+%---------------------------------------------------------------------------
+end
+
+define etp-heapdump-old
+# Args: Process*
+#
+# Non-reentrant
+  etp-heapdump-1 ($arg0)->old_heap ($arg0)->old_htop
+end
+
+document etp-heapdump
+%---------------------------------------------------------------------------
+% etp-heapdump-old Process*
+%
+% Take an Process* and print a heapdump for the process old heap (gen-heap).
+%---------------------------------------------------------------------------
+end
+
+
+define etp-heapdump-1
+# Args: Eterm* heap, Eterm* htop
+#
+# Non-reentrant
+  set $etp_heapdump_heap = (Eterm*)($arg0)
+  set $etp_heapdump_p = (Eterm*)($arg0)
+  set $etp_heapdump_end = (Eterm*)($arg1)
+  set $etp_heapdump_skips = 0
+  printf "%% heapdump (%u):\n", $etp_heapdump_end-$etp_heapdump_p
+  while $etp_heapdump_p < $etp_heapdump_end
+    set $etp_heapdump_ix = 0
+    printf " %p: ", $etp_heapdump_p
+    while $etp_heapdump_p < $etp_heapdump_end && $etp_heapdump_ix < 8
+	if ($etp_heapdump_skips > 0)
+	  printf "|   0x%08x ", ($etp_heapdump_p)
+	  set $etp_heapdump_skips--
+	else
+	  etp-term-dump $etp_heapdump_p[0]
+	end
+	set $etp_heapdump_p++
+	set $etp_heapdump_ix++
+    end
+    printf "\n"
+  end
+end
+
+
+define etp-term-dump
+# Args: Eterm
+  if (($arg0) & 0x3) == 0
+    etp-term-dump-header ($arg0)
+  else
+    if (($arg0) & 0x3) == 1
+      # Cons pointer
+      set $etp_term_dump_cons_p = ((Eterm*)(($arg0) & ~0x3))
+      if $etp_term_dump_cons_p > $etp_heapdump_heap &&  $etp_term_dump_cons_p < $etp_heapdump_end
+        printf "| C:0x%08x ", $etp_term_dump_cons_p
+        #printf "| C: --> %5d ", $etp_heapdump_p - $etp_term_dump_cons_p - 1
+      else
+        printf "| C:0x%08x ", $etp_term_dump_cons_p
+      end
+    else
+      if (($arg0) & 0x3) == 2
+        # Box pointer
+        printf "| B:0x%08x ", ($arg0)
+      else
+        if (($arg0) & 0x3) == 3
+          # immediate
+          etp-term-dump-immediate ($arg0)
+        else
+          printf "| U:0x%08x ", ($arg0)
+        end
+      end
+    end
+  end
+end
+
+define etp-term-dump-immediate
+# Args: immediate term
+  if (($arg0) & 0xF) == 0xf
+    # Fixnum
+    etp-ct-printable-1 ((long)((Sint)($arg0)>>4))
+      if $etp_ct_printable
+        if $etp_ct_printable < 0
+	  printf "| I:   %c (%3ld) ", (long)((Sint)($arg0)>>4), (long)((Sint)($arg0)>>4)
+        else
+	  printf "| I:  \\%c (%3ld) ", (long)((Sint)($arg0)>>4), (long)((Sint)($arg0)>>4)
+        end
+      else
+      printf "| I:%10ld ", (long)((Sint)($arg0)>>4)
+    end
+  else
+    if (($arg0) & 0xF) == 0x3
+      etp-term-dump-pid ($arg0)
+    else
+      if (($arg0) & 0xF) == 0x7
+        printf "| port:0x%05x ", ($arg0)
+       else
+         # Immediate2  - 0xB
+         if (($arg0) & 0x3f) == 0x0b
+	   etp-term-dump-atom ($arg0)
+         else
+           if (($arg0) & 0x3f) == 0x1b
+	     printf "| #Catch<%06d> ", ($arg0)>>6
+           else
+             if (($arg0) == $etp_nil)
+               printf "|    [] (NIL)  "
+             else
+               printf "| I:0x%08x ", ($arg0)
+             end
+	   end
+	 end
+      end
+    end
+  end
+end
+
+define etp-term-dump-atom
+# Args: atom term
+  set $etp_atom_1_ap = (Atom*)erts_atom_table.seg_table[(Eterm)($arg0)>>16][((Eterm)($arg0)>>6)&0x3FF]
+  set $etp_atom_1_i = ($etp_atom_1_ap)->len
+  set $etp_atom_1_p = ($etp_atom_1_ap)->name
+  set $etp_atom_1_quote = 1
+  set $etp_atom_indent = 13
+
+  if ($etp_atom_1_i < 11)
+    if ($etp_atom_1_i > 0)
+      etp-ct-atom-1 (*$etp_atom_1_p)
+      if $etp_ct_atom
+        set $etp_atom_indent = 13
+      else
+        set $etp_atom_indent = 11
+      end
+    end
+    # perform indentation
+    printf "|"
+    while ($etp_atom_1_i < $etp_atom_indent)
+	printf " "
+        set $etp_atom_1_i++
+    end
+    set $etp_atom_1_i = ($etp_atom_1_ap)->len
+    # Check if atom has to be quoted
+    if ($etp_atom_1_i > 0)
+      etp-ct-atom-1 (*$etp_atom_1_p)
+      if $etp_ct_atom
+        # Atom start character
+        set $etp_atom_1_p++
+        set $etp_atom_1_i--
+        set $etp_atom_1_quote = 0
+      else
+        set $etp_atom_1_i = 0
+      end
+    end
+    while $etp_atom_1_i > 0
+      etp-ct-name-1 (*$etp_atom_1_p)
+      if $etp_ct_name
+        # Name character
+        set $etp_atom_1_p++
+        set $etp_atom_1_i--
+      else
+        set $etp_atom_1_quote = 1
+        set $etp_atom_1_i = 0
+      end
+    end
+    # Print the atom
+    if $etp_atom_1_quote
+      printf "'"
+    end
+    set $etp_atom_1_i = ($etp_atom_1_ap)->len
+    set $etp_atom_1_p = ($etp_atom_1_ap)->name
+    while $etp_atom_1_i > 0
+        etp-char-1 (*$etp_atom_1_p) '\''
+        set $etp_atom_1_p++
+        set $etp_atom_1_i--
+    end
+    if $etp_atom_1_quote
+      printf "'"
+    end
+    printf " "
+  else
+    printf "| A:0x%08x ", ($arg0)
+  end
+end
+
+define etp-term-dump-pid
+# Args: Eterm pid
+#
+# Non-reentrant
+#
+  set $etp_pid_1 = (Eterm)($arg0)
+  if ($etp_pid_1 & 0xF) == 0x3
+    if (etp_arch_bits == 64 && etp_halfword == 0)
+      if (etp_big_endian)
+        set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
+      else
+        set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 4) & 0x0fffffff)
+      end
+   else
+      set $etp_pid_data = (unsigned) (((((Uint32) $etp_pid_1) >> 4) & ~erts_proc.r.o.pix_mask) | ((((Uint32) $etp_pid_1) >> (erts_proc.r.o.pix_cl_shift + 4)) & erts_proc.r.o.pix_cl_mask) | (((((Uint32) $etp_pid_1) >> 4) & erts_proc.r.o.pix_cli_mask) << erts_proc.r.o.pix_cli_shift))
+   end
+    # Internal pid
+    printf "| <0.%04u.%03u> ", $etp_pid_data & 0x7fff, ($etp_pid_data >> 15) & 0x1fff
+  else
+    printf "| #NotPid<%#x> ", ($arg0)
+  end
+end
+
+define etp-term-dump-header
+# Args: Header term
+  if (($arg0) & 0x3f) == 0
+    printf  "| H:%4d-tuple ", ($arg0) >> 6
+  else
+    set $etp_heapdump_skips = ($arg0) >> 6
+    if ((($arg0) & 0x3f) == 0x18)
+      printf  "| H: float %3d ", ($arg0) >> 6
+    else
+      if ((($arg0) & 0x3f) == 0x28)
+        # sub-binary
+        printf  "| H:   sub-bin "
+      else
+        if ((($arg0) & 0x3f) == 0x8)
+          # pos-bignum
+          printf  "| H:bignum %3u ", ($arg0) >> 6
+        else
+          printf  "| header %5d ", ($arg0) >> 6
+	end
+      end
+    end
+  end
+end
+
+
+
 define etp-pid2pix-1
 # Args: Eterm
 #
@@ -1316,49 +1560,102 @@ end
 define etp-proc-state-int
 # Args: int
 #
-  if ($arg0 & 0xfffff000)
+  if ($arg0 & 0xff000000)
     printf "GARBAGE | "
   end
-  if ($arg0 & 0x800)
+  if ($arg0 & 0x800000)
+    printf "delayed-sys | "
+  end
+  if ($arg0 & 0x400000)
+    printf "proxy | "
+    set $proxy_process = 1
+  else
+    set $proxy_process = 0
+  end
+  if ($arg0 & 0x200000)
+    printf "running-sys | "
+  end
+  if ($arg0 & 0x100000)
+    printf "active-sys | "
+  end
+  if ($arg0 & 0x80000)
     printf "trapping-exit | "
   end
-  if ($arg0 & 0x400)
+  if ($arg0 & 0x40000)
     printf "bound | "
   end
-  if ($arg0 & 0x200)
+  if ($arg0 & 0x20000)
     printf "garbage-collecting | "
   end
-  if ($arg0 & 0x100)
+  if ($arg0 & 0x10000)
     printf "suspended | "
   end
-  if ($arg0 & 0x80)
+  if ($arg0 & 0x8000)
     printf "running | "
   end
-  if ($arg0 & 0x40)
+  if ($arg0 & 0x4000)
     printf "in-run-queue | "
   end
-  if ($arg0 & 0x20)
+  if ($arg0 & 0x2000)
     printf "active | "
   end
-  if ($arg0 & 0x10)
+  if ($arg0 & 0x1000)
     printf "pending-exit | "
   end
-  if ($arg0 & 0x8)
+  if ($arg0 & 0x800)
     printf "exiting | "
   end
-  if ($arg0 & 0x4)
+  if ($arg0 & 0x400)
     printf "free | "
   end
-  if ($arg0 & 0x3) == 0
-    printf "prio-max\n"
+  if ($arg0 & 0x200)
+    printf "in-prq-low | "
+  end
+  if ($arg0 & 0x100)
+    printf "in-prq-normal | "
+  end
+  if ($arg0 & 0x80)
+    printf "in-prq-high | "
+  end
+  if ($arg0 & 0x40)
+    printf "in-prq-max | "
+  end
+  if ($arg0 & 0x30) == 0x0
+    printf "prq-prio-max | "
   else
-    if ($arg0 & 0x3) == 1
-    printf "prio-high\n"
+    if ($arg0 & 0x30) == 0x10
+      printf "prq-prio-high | "
     else
-      if ($arg0 & 0x3) == 2
-        printf "prio-normal\n"
+      if ($arg0 & 0x30) == 0x20
+        printf "prq-prio-normal | "
       else
-        printf "prio-low\n"
+        printf "prq-prio-low | "
+      end
+    end
+  end
+  if ($arg0 & 0xc) == 0x0
+    printf "usr-prio-max | "
+  else
+    if ($arg0 & 0xc) == 0x4
+      printf "usr-prio-high | "
+    else
+      if ($arg0 & 0xc) == 0x8
+        printf "usr-prio-normal | "
+      else
+        printf "usr-prio-low | "
+      end
+    end
+  end
+  if ($arg0 & 0x3) == 0x0
+    printf "act-prio-max\n"
+  else
+    if ($arg0 & 0x3) == 0x1
+      printf "act-prio-high\n"
+    else
+      if ($arg0 & 0x3) == 0x2
+        printf "act-prio-normal\n"
+      else
+        printf "act-prio-low\n"
       end
     end
   end
@@ -1392,9 +1689,15 @@ define etp-process-info
 # Args: Process*
 #
   printf "  Pid: "
-  etp-1 $arg0->common.id
+  etp-1 ($arg0)->common.id
   printf "\n  State: "
   etp-proc-state $arg0
+  if $proxy_process != 0
+    printf "  Pointer: (Process *) %p\n", $arg0
+    printf "  *** PROXY process struct *** refer to: \n"
+    etp-pid2proc-1 $arg0->common.id
+    etp-process-info $proc
+  else
   if (*(((Uint32 *) &(((Process *) $arg0)->state))) & 0x4) == 0
     if ($arg0->common.u.alive.reg)
       printf "  Registered name: "
@@ -1432,6 +1735,7 @@ define etp-process-info
   printf "  Parent: "
   etp-1 $arg0->parent
   printf "\n  Pointer: (Process *) %p\n", $arg0
+  end
 end
 
 document etp-process-info
@@ -1463,8 +1767,101 @@ end
 document etp-processes
 %---------------------------------------------------------------------------
 % etp-processes
-% 
+%
 % Print misc info about all processes
+%---------------------------------------------------------------------------
+end
+
+define etp-processes-memory
+  if (!erts_initialized)
+    printf "No processes, since system isn't initialized!\n"
+  else
+    set $proc_ix = 0
+    printf "--- (%ld processes in wheel)\n", erts_proc.r.o.max
+    while $proc_ix < erts_proc.r.o.max
+      set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$proc_ix])
+      if ($proc != ((Process *) 0) && $proc != &erts_invalid_process)
+        etp-process-memory-info $proc
+      end
+      set $proc_ix++
+    end
+    printf "---\n",
+  end
+end
+
+document etp-processes-memory
+%---------------------------------------------------------------------------
+% etp-processes-memory
+%
+% Print memory info about all processes
+%---------------------------------------------------------------------------
+end
+
+define etp-process-memory-info
+# Args: Process*
+#
+  if ((*(((Uint32 *) &(((Process *) $arg0)->state)))) & 0x400000)
+    set $proxy_process = 1
+  else
+    set $proxy_process = 0
+  end
+  printf "  "
+  etp-1 $arg0->common.id
+  printf ": (Process *) %p ", $arg0
+  if $proxy_process != 0
+    printf "(Process *) %p ", $arg0
+    printf "  *** PROXY process struct *** refer to next: \n"
+    etp-pid2proc-1 $arg0->common.id
+    printf " -"
+    etp-process-memory-info $proc
+  else
+    printf " [Heap: %5ld", $arg0->heap_sz
+    if ($arg0->old_heap)
+      printf " | %5ld", $arg0->old_hend - $arg0->old_heap
+    else
+      printf " | none "
+    end
+    printf "] [Mbuf: %5ld", $arg0->mbuf_sz
+    if (etp_smp_compiled)
+      printf " | %3ld (%3ld | %3ld)", ($arg0->msg.len + $arg0->msg_inq.len), $arg0->msg.len, $arg0->msg_inq.len
+    else
+      printf " | %3ld", $arg0->msg.len
+    end
+    printf "] "
+    if ($arg0->i)
+      printf " I: "
+      etp-cp-1 $arg0->i
+      printf " "
+    end
+
+    if ($arg0->current)
+      etp-1 $arg0->current[0]
+      printf ":"
+      etp-1 $arg0->current[1]
+      printf "/%d ", $arg0->current[2]
+    end
+
+    if (*(((Uint32 *) &(((Process *) $arg0)->state))) & 0x4) == 0
+      if ($arg0->common.u.alive.reg)
+        etp-1 $arg0->common.u.alive.reg->name
+        printf " "
+      end
+    end
+
+    if ($arg0->cp)
+      printf " CP: "
+      etp-cp-1 $arg0->cp
+      printf " "
+    end
+    printf "\n"
+  end
+end
+
+document etp-process-memory-info
+%---------------------------------------------------------------------------
+% etp-process-memory-info Process*
+%
+% Print memory info about process
 %---------------------------------------------------------------------------
 end
 
@@ -2735,6 +3132,24 @@ document etp-ets-tabledump
 % Dump an ETS table with a specified slot index.
 %---------------------------------------------------------------------------
 end
+
+
+############################################################################
+# OSE support
+#
+define etp-ose-attach
+  target ose $arg0:21768
+  attach block start_beam start_beam
+end
+
+document etp-ose-attach
+%---------------------------------------------------------------------------
+% etp-ose-attach Host
+%
+% Connect and attach to erlang vm at Host.
+%---------------------------------------------------------------------------
+end
+
 
 ############################################################################
 # Erlang support module handling

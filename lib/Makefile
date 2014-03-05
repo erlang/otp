@@ -25,16 +25,17 @@ ERTS_APPLICATIONS = stdlib sasl kernel compiler
 
 # Then these have to be build
 ERLANG_APPLICATIONS = tools test_server common_test runtime_tools \
-			inets xmerl edoc erl_docgen
+			inets parsetools
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = snmp otp_mibs appmon erl_interface asn1 jinterface \
+ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
+		  asn1 jinterface \
 	          wx debugger reltool gs \
-	          ic mnesia crypto orber os_mon parsetools syntax_tools \
-	          pman public_key ssl toolbar tv observer odbc diameter \
+	          ic mnesia crypto orber os_mon syntax_tools \
+	          public_key ssl observer odbc diameter \
 	          cosTransactions cosEvent cosTime cosNotification \
 	          cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-		  eunit ssh typer percept eldap dialyzer hipe
+		  eunit ssh typer percept eldap dialyzer hipe ose
 
 ifdef BUILD_ALL
   ERLANG_APPLICATIONS += $(ALL_ERLANG_APPLICATIONS)
@@ -47,19 +48,27 @@ ifdef BUILD_ALL
 				$(subst /,,$(wildcard */)))
 endif
 
-ifdef BOOTSTRAP
-  SUB_DIRECTORIES = \
-    kernel stdlib compiler
+ifdef BUILD_STATIC_LIBS
+  SUB_DIRECTORIES = asn1 crypto
 else
-  ifdef SECONDARY_BOOTSTRAP
-    SUB_DIRECTORIES = hipe parsetools asn1/src
+  ifdef BOOTSTRAP
+    SUB_DIRECTORIES = \
+      kernel stdlib compiler
   else
-    ifdef TERTIARY_BOOTSTRAP
-      SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
-    else # Not bootstrap build
-      SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
-			$(ERLANG_APPLICATIONS) \
-			$(EXTRA_APPLICATIONS)
+    ifdef SECONDARY_BOOTSTRAP
+      SUB_DIRECTORIES = hipe parsetools asn1/src
+    else
+      ifdef TERTIARY_BOOTSTRAP
+        SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
+      else
+        ifdef DOC_BOOTSTRAP
+          SUB_DIRECTORIES = xmerl edoc erl_docgen
+        else # Not bootstrap build
+          SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
+			    $(ERLANG_APPLICATIONS) \
+			    $(EXTRA_APPLICATIONS)
+        endif
+      endif
     endif
   endif
 endif

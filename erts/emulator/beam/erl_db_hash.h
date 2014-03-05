@@ -33,7 +33,12 @@ typedef struct hash_db_term {
     DbTerm dbterm;         /* The actual term */
 } HashDbTerm;
 
+#ifdef ERTS_DB_HASH_LOCK_CNT
+#define DB_HASH_LOCK_CNT ERTS_DB_HASH_LOCK_CNT
+#else
 #define DB_HASH_LOCK_CNT 64
+#endif
+
 typedef struct db_table_hash_fine_locks {
     union {
 	erts_smp_rwmtx_t lck;

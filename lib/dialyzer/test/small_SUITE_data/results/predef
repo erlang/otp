@@ -1,0 +1,8 @@
+
+predef.erl:19: Invalid type specification for function predef:array/1. The success typing is (array:array(_)) -> array:array(_)
+predef.erl:24: Invalid type specification for function predef:dict/1. The success typing is (dict:dict(_,_)) -> dict:dict(_,_)
+predef.erl:29: Invalid type specification for function predef:digraph/1. The success typing is (digraph:graph()) -> [any()]
+predef.erl:39: Invalid type specification for function predef:gb_set/1. The success typing is (gb_sets:set(_)) -> gb_sets:set(_)
+predef.erl:44: Invalid type specification for function predef:gb_tree/1. The success typing is (gb_trees:tree(_,_)) -> gb_trees:tree(_,_)
+predef.erl:49: Invalid type specification for function predef:queue/1. The success typing is (queue:queue(_)) -> queue:queue(_)
+predef.erl:54: Invalid type specification for function predef:set/1. The success typing is (sets:set(_)) -> sets:set(_)

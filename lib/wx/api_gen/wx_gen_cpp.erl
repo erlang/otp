@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -190,10 +190,14 @@ gen_funcs(Defs) ->
 %%     w("  case WXE_REMOVE_PORT:~n", []),
 %%     w("   { destroyMemEnv(Ecmd.port); } break;~n", []),
     w("  case DESTROY_OBJECT: {~n"),
-    w("     wxObject *This = (wxObject *) getPtr(bp,memenv); "),
-    w("     if(This) {"),
-    w("       ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
-    w("       delete This; }~n  } break;~n"),
+    w("     wxObject *This = (wxObject *) getPtr(bp,memenv);~n"),
+    w("     if(This) {~n"),
+    w("       if(recurse_level > 1) {~n"),
+    w("          delayed_delete->Append(Ecmd.Save());~n"),
+    w("       } else {~n"),
+    w("          ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
+    w("          delete This; }~n"),
+    w("  } } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"
       "     rt.addAtom(\"ok\");~n"
@@ -1186,15 +1190,6 @@ find_id(OtherClass) ->
 
 encode_events(Evs) ->
     ?WTC("encode_events"),
-    w("void wxeEvtListener::forward(wxEvent& event)~n"
-      "{~n"
-      "#ifdef DEBUG~n"
-      "  if(!sendevent(&event, port))~n"
-      "    fprintf(stderr, \"Couldn't send event!\\r\\n\");~n"
-      "#else~n"
-      "sendevent(&event, port);~n"
-      "#endif~n"
-      "}~n~n"),
     w("int getRef(void* ptr, wxeMemEnv* memenv)~n"
       "{~n"
       "  WxeApp * app = (WxeApp *) wxTheApp;~n"
@@ -1205,7 +1200,7 @@ encode_events(Evs) ->
       " char * evClass = NULL;~n"
       " wxMBConvUTF32 UTFconverter;~n"
       " wxeEtype *Etype = etmap[event->GetEventType()];~n"
-      " wxeCallbackData *cb = (wxeCallbackData *)event->m_callbackUserData;~n"
+      " wxeEvtListener *cb = (wxeEvtListener *)event->m_callbackUserData;~n"
       " WxeApp * app = (WxeApp *) wxTheApp;~n"
       " wxeMemEnv *memenv = app->getMemEnv(port);~n"
       " if(!memenv) return 0;~n~n"

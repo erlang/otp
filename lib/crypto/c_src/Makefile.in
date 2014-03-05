@@ -70,6 +70,10 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 NIF_MAKEFILE = $(PRIVDIR)/Makefile
+CRYPTO_STATIC_OBJS = $(OBJDIR)/crypto_static$(TYPEMARKER).o\
+	$(OBJDIR)/crypto_callback_static$(TYPEMARKER).o
+
+NIF_ARCHIVE = $(LIBDIR)/crypto$(TYPEMARKER).a
 
 ifeq ($(findstring win32,$(TARGET)), win32)
 NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).dll
@@ -97,7 +101,24 @@ CALLBACK_OBJS =
 CALLBACK_LIB =
 endif
 
+ifeq ($(USING_VC),yes)
+AR_OUT=-out:
+AR_FLAGS=
+else
+AR_OUT=
+ifeq ($(V),0)
+AR_FLAGS=rc
+else
+AR_FLAGS=rcv
+endif
+endif
+
+ifndef RANLIB
+RANLIB=true
+endif
+
 ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
+ALL_STATIC_CFLAGS = $(DED_STATIC_CFLAGS) $(INCLUDES)
 
 # ----------------------------------------------------
 # Targets
@@ -105,7 +126,14 @@ ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
+ifneq ($(findstring ose,$(TARGET)),ose)
 debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB)
+else
+# Do not build dynamic files on OSE
+debug opt valgrind:
+endif
+
+static_lib: $(NIF_ARCHIVE)
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
@@ -114,6 +142,14 @@ $(OBJDIR)/%$(TYPEMARKER).o: %.c
 $(LIBDIR)/crypto$(TYPEMARKER).so: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
 	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+
+$(OBJDIR)/%_static$(TYPEMARKER).o: %.c
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CC) -c -o $@ $(ALL_STATIC_CFLAGS) $<
+
+$(LIBDIR)/crypto$(TYPEMARKER).a: $(CRYPTO_STATIC_OBJS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(CRYPTO_STATIC_OBJS)
+	$(V_RANLIB) $@
 
 $(LIBDIR)/crypto$(TYPEMARKER).dll: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
@@ -145,8 +181,11 @@ else
 	rm -f $(LIBDIR)/crypto_callback.valgrind.so
 endif
 	rm -f $(OBJDIR)/crypto.o
+	rm -f $(OBJDIR)/crypto_static.o
 	rm -f $(OBJDIR)/crypto.debug.o
+	rm -f $(OBJDIR)/crypto_static.debug.o
 	rm -f $(OBJDIR)/crypto.valgrind.o
+	rm -f $(OBJDIR)/crypto_static.valgrind.o
 	rm -f $(OBJDIR)/crypto_callback.o
 	rm -f $(OBJDIR)/crypto_callback.debug.o
 	rm -f $(OBJDIR)/crypto_callback.valgrind.o
@@ -163,11 +202,13 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
 	$(INSTALL_DATA) $(NIF_MAKEFILE) "$(RELSYSDIR)/priv/obj"
+ifneq ($(findstring ose,$(TARGET)),ose)
 	$(INSTALL_PROGRAM) $(CRYPTO_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
+endif
 endif
 
 release_docs_spec:

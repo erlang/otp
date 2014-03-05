@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,7 +72,7 @@ init(GS, Env, Mod, Title) ->
 		    Win2,
 		    int:all_breaks(Mod)),
     
-    try loop(#state{gs=GS, win=Win3, coords={0,0}, mod=Mod}) 
+    try loop(#state{gs=GS, win=Win3, coords={-1,-1}, mod=Mod})
     catch _E:normal ->
 	    exit(normal);
 	  _E:_R ->

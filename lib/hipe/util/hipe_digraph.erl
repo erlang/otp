@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,10 +36,10 @@
 
 -type ordset(T) :: [T].      % XXX: temporarily
 
--record(hipe_digraph, {edges     = dict:new()    :: dict(),
-		       rev_edges = dict:new()    :: dict(),
+-record(hipe_digraph, {edges     = dict:new()    :: dict:dict(),
+		       rev_edges = dict:new()    :: dict:dict(),
 		       leaves    = ordsets:new() :: ordset(_), % ???
-		       nodes     = sets:new()    :: set()}).
+		       nodes     = sets:new()    :: sets:set()}).
 
 -opaque hdg() :: #hipe_digraph{}.
 

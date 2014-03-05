@@ -41,6 +41,13 @@ typedef struct {
     int suggested_stack_size;
 } ErlDrvThreadOpts;
 
+#if defined(ERL_DRV_DIRTY_SCHEDULER_SUPPORT) || defined(ERL_NIF_DIRTY_SCHEDULER_SUPPORT)
+typedef enum {
+    ERL_DRV_DIRTY_JOB_CPU_BOUND = 1,
+    ERL_DRV_DIRTY_JOB_IO_BOUND  = 2
+} ErlDrvDirtyJobFlags;
+#endif
+
 #endif  /* __ERL_DRV_NIF_H__ */
 
 

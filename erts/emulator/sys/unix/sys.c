@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -409,7 +409,9 @@ void sys_tty_reset(int exit_code)
 #ifdef __tile__
 /* Direct malloc to spread memory around the caches of multiple tiles. */
 #include <malloc.h>
+#if defined(MALLOC_USE_HASH)
 MALLOC_USE_HASH(1);
+#endif
 #endif
 
 #ifdef USE_THREADS
@@ -547,6 +549,25 @@ erts_sys_pre_init(void)
 #endif
 #endif /* USE_THREADS */
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
+
+    {
+      /*
+       * Unfortunately we depend on fd 0,1,2 in the old shell code.
+       * So if for some reason we do not have those open when we start
+       * we have to open them here. Not doing this can cause the emulator
+       * to deadlock when reaping the fd_driver ports :(
+       */
+      int fd;
+      /* Make sure fd 0 is open */
+      if ((fd = open("/dev/null", O_RDONLY)) != 0)
+	close(fd);
+      /* Make sure fds 1 and 2 are open */
+      while (fd < 3) {
+	fd = open("/dev/null", O_WRONLY);
+      }
+      close(fd);
+    }
+
 }
 
 void
@@ -2540,7 +2561,7 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 #ifdef HAVE_POSIX_MEMALIGN
     void *ptr = NULL;
     int error;
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     error = posix_memalign(&ptr, (size_t) alignment, (size_t) size);
 #if HAVE_ERTS_MSEG
     if (error || !ptr) {
@@ -2563,7 +2584,7 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 
 void erts_sys_aligned_free(UWord alignment, void *ptr)
 {
-    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     free(ptr);
 }
 

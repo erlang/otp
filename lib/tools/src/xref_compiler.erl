@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -885,7 +885,7 @@ evaluate([pop | P], T, [_ | S]) ->
 evaluate([], T, [R]) ->
     {T, R}.
 
-%% (PossibleGraph, 1 | -1, dict()) -> dict()
+%% (PossibleGraph, 1 | -1, dict:dict()) -> dict:dict()
 %% Use the same table for everything... Here: Reference counters for digraphs.
 update_graph_counter(Value, Inc, T) ->
     case catch digraph:info(Value) of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [connect, disconnect, connect_msg_20, connect_cb_20,
      mouse_on_grid, spin_event, connect_in_callback, recursive,
-     char_events, callback_clean
+     dialog, char_events, callback_clean
     ].
 
 groups() -> 
@@ -149,7 +149,7 @@ disconnect(Config) ->
     timer:sleep(1000),
     wx_test_lib:flush(),
 
-    ?m({'EXIT', {{badarg,_},_}}, wxEvtHandler:disconnect(Panel, non_existing_event_type)),
+    ?m(false, wxEvtHandler:disconnect(Panel, non_existing_event_type)),
     ?m(true, wxEvtHandler:disconnect(Panel, size)),
     ?m(ok, wxWindow:setSize(Panel, {200,102})),
     timer:sleep(1000),
@@ -402,6 +402,42 @@ recursive(Config) ->
     wx_test_lib:wx_destroy(Frame, Config).
 
 
+dialog(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+dialog(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Testing"),
+    wxFrame:show(Frame),
+    Env = wx:get_env(),
+    Tester = self(),
+    PD = wxProgressDialog:new("Dialog","Testing",
+			      [%%{parent, Frame},
+			       {maximum,101},
+			       {style, ?wxPD_SMOOTH bor ?wxPD_AUTO_HIDE}]),
+    Forward = fun(#wx{event=#wxInitDialog{}}, Ev) ->
+		      ?mt(wxInitDialogEvent, Ev),
+		      io:format("Heyhoo~n", []),
+		      wxEvent:skip(Ev),
+		      Tester ! {progress_dialog,PD}
+	      end,
+    wxDialog:connect(PD, init_dialog, [{callback, Forward}]),
+    Recurse = fun(Recurse, N) ->
+		      true = wxProgressDialog:update(PD, min(N,100)),
+		      timer:sleep(5),
+		      Recurse(Recurse,N+1)
+	      end,
+    Run = fun() ->
+		  wx:set_env(Env),
+		  Recurse(Recurse, 0)
+	  end,
+    Worker = spawn_link(Run),
+    timer:sleep(500),
+    io:format("Got ~p~n", [wx_test_lib:flush()]),
+    unlink(Worker),
+    wxProgressDialog:destroy(PD),
+    wx_test_lib:wx_destroy(Frame, Config).
+
+
+
 char_events(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 char_events(Config) ->
     Wx = wx:new(),
@@ -463,14 +499,14 @@ callback_clean(Config) ->
     			     end
     		     end),
     timer:sleep(500), %% Give it time to remove it
-    ?m({[{Pid,_,_}],[_],[_]}, white_box_check_event_handlers()),
+    ?m({[{Pid,_}],[_],[_]}, white_box_check_event_handlers()),
 
     Pid ! remove,
     timer:sleep(500), %% Give it time to remove it
     ?m({[],[],[]}, white_box_check_event_handlers()),
 
     SetupEventHandlers(),
-    ?m({[{_,_,_}],[_],[_]}, white_box_check_event_handlers()),
+    ?m({[{_,_}],[_],[_]}, white_box_check_event_handlers()),
 
     wxDialog:show(Dlg),
     wx_test_lib:wx_close(Dlg, Config),
@@ -490,9 +526,9 @@ white_box_check_event_handlers() ->
     {status, _, _, [Env, _, _, _, Data]} = sys:get_status(Server),
     [_H, _data, {data, [{_, Record}]}] = Data,
     {state, _Port1, _Port2, Users, [], CBs, _Next} = Record,
-    {[{Pid, Evs, Listener} ||
-	 {Pid, {user, Evs, Listener}} <- gb_trees:to_list(Users),
-	 (Evs =/= [] orelse Listener =/= undefined)], %% Ignore empty
+    {[{Pid, Evs} ||
+	 {Pid, {user, Evs}} <- gb_trees:to_list(Users),
+	 Evs =/= []], %% Ignore empty
      gb_trees:to_list(CBs),
      [Funs || Funs = {Id, {Fun,_}} <- Env, is_integer(Id), is_function(Fun)]
     }.

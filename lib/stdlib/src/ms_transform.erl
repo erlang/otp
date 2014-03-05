@@ -369,6 +369,13 @@ copy({var,_Line,Name} = VarDef,Bound) ->
 copy({'fun',Line,{clauses,Clauses}},Bound) -> % Dont export bindings from funs
     {NewClauses,_IgnoredBindings} = copy_list(Clauses,Bound),
     {{'fun',Line,{clauses,NewClauses}},Bound};
+copy({named_fun,Line,Name,Clauses},Bound) -> % Dont export bindings from funs
+    Bound1 = case Name of
+                 '_' -> Bound;
+                 Name -> gb_sets:add(Name,Bound)
+             end,
+    {NewClauses,_IgnoredBindings} = copy_list(Clauses,Bound1),
+    {{named_fun,Line,Name,NewClauses},Bound};
 copy({'case',Line,Of,ClausesList},Bound) -> % Dont export bindings from funs
     {NewOf,NewBind0} = copy(Of,Bound),
     {NewClausesList,NewBindings} = copy_case_clauses(ClausesList,NewBind0,[]),
@@ -903,6 +910,7 @@ bool_test(is_pid,1) -> true;
 bool_test(is_port,1) -> true;
 bool_test(is_reference,1) -> true;
 bool_test(is_tuple,1) -> true;
+bool_test(is_map,1) -> true;
 bool_test(is_binary,1) -> true;
 bool_test(is_function,1) -> true;
 bool_test(is_record,2) -> true;
@@ -917,6 +925,7 @@ real_guard_function(node,0) -> true;
 real_guard_function(node,1) -> true;
 real_guard_function(round,1) -> true;
 real_guard_function(size,1) -> true;
+real_guard_function(map_size,1) -> true;
 real_guard_function(tl,1) -> true;
 real_guard_function(trunc,1) -> true;
 real_guard_function(self,0) -> true;

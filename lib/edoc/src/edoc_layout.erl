@@ -829,6 +829,10 @@ t_type([#xmlElement{name = list, content = Es}]) ->
     t_list(Es);
 t_type([#xmlElement{name = nonempty_list, content = Es}]) ->
     t_nonempty_list(Es);
+t_type([#xmlElement{name = map, content = Es}]) ->
+    t_map(Es);
+t_type([#xmlElement{name = map_field, content=Es}]) ->
+    t_map_field(Es);
 t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
@@ -876,6 +880,12 @@ t_tuple(Es) ->
 t_fun(Es) ->
     ["("] ++ seq(fun t_utype_elem/1, get_content(argtypes, Es),
 		 [") -> "] ++ t_utype(get_elem(type, Es))).
+
+t_map(Es) ->
+    ["#{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
+
+t_map_field([K,V]) ->
+    [t_utype_elem(K) ++ " => " ++ t_utype_elem(V)].
 
 t_record(E, Es) ->
     Name = ["#"] ++ t_type(get_elem(atom, Es)),

@@ -91,7 +91,6 @@ types() ->
 
 gl_api(Fs) ->
     open_write("../src/gen/gl.erl", [{encoding,utf8}]),
-    w("%% -*- coding: utf-8 -*-~n~n", []),
     erl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -150,7 +149,6 @@ gl_api(Fs) ->
 
 glu_api(Fs) ->
     open_write("../src/gen/glu.erl", [{encoding,utf8}]),
-    w("%% -*- coding: utf-8 -*-~n~n", []),
     erl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),

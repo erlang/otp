@@ -25,18 +25,18 @@
 
 prim(_Rules) ->
     roundtrip('ChoTR', {bool,true}),
-    roundtrip('ChoTR', {octStr,[11,12,13,14,15,16,17]}),
+    roundtrip('ChoTR', {octStr,<<11,12,13,14,15,16,17>>}),
     roundtrip('ChoTR', {int,233}),
-    roundtrip('ChoTR', {octStr,"Stringing in the rain"}),
-    roundtrip('ChoTR2', {octStr,"A string"}),
-    roundtrip('ChoTR2', {octStrI,"A string"}),
-    roundtrip('ChoTR2', {octStrE,"A string"}),
-    roundtrip('ChoTR2', {'octStr-I',"A string"}),
-    roundtrip('ChoTR2', {'octStrI-I',"A string"}),
-    roundtrip('ChoTR2', {'octStrE-I',"A string"}),
-    roundtrip('ChoTR2', {'octStr-E',"A string"}),
-    roundtrip('ChoTR2', {'octStrI-E',"A string"}),
-    roundtrip('ChoTR2', {'octStrE-E',"A string"}),
+    roundtrip('ChoTR', {octStr,<<"Stringing in the rain">>}),
+    roundtrip('ChoTR2', {octStr,<<"A string">>}),
+    roundtrip('ChoTR2', {octStrI,<<"A string">>}),
+    roundtrip('ChoTR2', {octStrE,<<"A string">>}),
+    roundtrip('ChoTR2', {'octStr-I',<<"A string">>}),
+    roundtrip('ChoTR2', {'octStrI-I',<<"A string">>}),
+    roundtrip('ChoTR2', {'octStrE-I',<<"A string">>}),
+    roundtrip('ChoTR2', {'octStr-E',<<"A string">>}),
+    roundtrip('ChoTR2', {'octStrI-E',<<"A string">>}),
+    roundtrip('ChoTR2', {'octStrE-E',<<"A string">>}),
     ok.
 
 roundtrip(Type, Value) ->

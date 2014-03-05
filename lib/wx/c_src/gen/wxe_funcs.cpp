@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -45,9 +45,14 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
  switch (Ecmd.op)
 {
   case DESTROY_OBJECT: {
-     wxObject *This = (wxObject *) getPtr(bp,memenv);      if(This) {       ((WxeApp *) wxTheApp)->clearPtr((void *) This);
-       delete This; }
-  } break;
+     wxObject *This = (wxObject *) getPtr(bp,memenv);
+     if(This) {
+       if(recurse_level > 1) {
+          delayed_delete->Append(Ecmd.Save());
+       } else {
+          ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+          delete This; }
+  } } break;
   case WXE_REGISTER_OBJECT: {
      registerPid(bp, Ecmd.caller, memenv);
      rt.addAtom("ok");
@@ -62,20 +67,8 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
  case WXE_INIT_OPENGL:
   wxe_initOpenGL(rt, bp);
    break;
-case 98:  { // wxeEvtListener::wxeEvtListener
-  wxeEvtListener *Result = new wxeEvtListener(Ecmd.port);
-  rt.addRef(getRef((void *)Result,memenv), "wxeEvtListener");
-  break;
-}
-case 99:  { // wxeEvtListener::destroy
-  wxObject *This = (wxObject *) getPtr(bp,memenv); 
-  rt.addAtom("ok");
-  delete This; 
-  break;
-} 
 
-case 100: { // wxEvtHandler::Connect 
-  wxeEvtListener *Listener = (wxeEvtListener *) getPtr(bp,memenv); bp += 4;
+case 100: { // wxEvtHandler::Connect
   wxEvtHandler *This = (wxEvtHandler *) getPtr(bp, memenv); bp += 4;
   int * winid  = (int *) bp; bp += 4;
   int * lastId = (int *) bp; bp += 4;
@@ -86,20 +79,22 @@ case 100: { // wxEvtHandler::Connect
   int * eventTypeLen = (int *) bp; bp += 4;
   int * class_nameLen = (int *) bp; bp += 4;
 
-  if(*haveUserData) {    
+  if(*haveUserData) {
       userData = new wxeErlTerm(Ecmd.bin[0]);
   }
 
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   char *class_name = bp; bp+= *class_nameLen;
   if(eventType > 0 ) {
-    wxeCallbackData * Evt_cb = new wxeCallbackData(Ecmd.caller,getRef(This, memenv),
-    		    		       	      	   class_name,*fun_cb,
-		                                   *skip, userData, Listener);
+    wxeEvtListener * Evt_cb = new wxeEvtListener(Ecmd.caller,getRef(This, memenv),
+                                                 class_name,*fun_cb,
+                                                 *skip, userData, Ecmd.port);
     This->Connect((int) *winid,(int) *lastId,eventType,
 	          (wxObjectEventFunction)(wxEventFunction) &wxeEvtListener::forward,
-	          Evt_cb, Listener);
+	          Evt_cb, Evt_cb);
     rt.addAtom("ok");
+    rt.addRef(getRef((void *)Evt_cb,memenv), "wxeEvtListener");
+    rt.addTupleCount(2);
   } else {
     rt.addAtom("badarg");
     rt.addAtom("event_type");
@@ -107,7 +102,7 @@ case 100: { // wxEvtHandler::Connect
   }
   break;
 }
-case 101: { // wxEvtHandler::Disconnect 
+case 101: { // wxEvtHandler::Disconnect
   wxeEvtListener *Listener = (wxeEvtListener *) getPtr(bp,memenv); bp += 4;
   wxEvtHandler *This = (wxEvtHandler *) getPtr(bp, memenv); bp += 4;
   int * winid  = (int *) bp; bp += 4;
@@ -117,14 +112,14 @@ case 101: { // wxEvtHandler::Disconnect
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   if(eventType > 0) {
      bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
-  				    (wxObjectEventFunction)(wxEventFunction) 
-				    &wxeEvtListener::forward, 
-				    NULL, Listener);
+                                    (wxObjectEventFunction)(wxEventFunction)
+                                    &wxeEvtListener::forward,
+                                    NULL, Listener);
      rt.addBool(Result);
   } else {
     rt.addAtom("badarg");
     rt.addAtom("event_type");
-    rt.addTupleCount(2);    
+    rt.addTupleCount(2);
   }
   break;
 }

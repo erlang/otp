@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,11 +28,10 @@
 %% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
 %% {add_module,  snmpm_net_if_mt}
  [
+  {"4.25",   [{restart_application, snmp}]}, 
   {"4.24.2", [{restart_application, snmp}]}, 
   {"4.24.1", [{restart_application, snmp}]}, 
-  {"4.24",   [{restart_application, snmp}]}, 
-  {"4.23.1", [{restart_application, snmp}]}, 
-  {"4.23",   [{restart_application, snmp}]}
+  {"4.24",   [{restart_application, snmp}]}
  ], 
 
 %% ------D o w n g r a d e ---------------------------------------------------
@@ -41,11 +40,10 @@
 %% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
 
  [
+  {"4.25",   [{restart_application, snmp}]}, 
   {"4.24.2", [{restart_application, snmp}]}, 
   {"4.24.1", [{restart_application, snmp}]}, 
-  {"4.24",   [{restart_application, snmp}]}, 
-  {"4.23.1", [{restart_application, snmp}]}, 
-  {"4.23",   [{restart_application, snmp}]}
+  {"4.24",   [{restart_application, snmp}]}
  ]
 
 }.

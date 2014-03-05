@@ -144,6 +144,7 @@ Section "Development" SecErlangDev
 SectionIn 1 RO
 
   	SetOutPath "$INSTDIR"
+  	File "${TESTROOT}\OTP_VERSION"
   	File "${TESTROOT}\Install.ini"
   	File "${TESTROOT}\Install.exe"
 	SetOutPath "$INSTDIR\releases"

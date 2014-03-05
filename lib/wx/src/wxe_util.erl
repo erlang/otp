@@ -74,7 +74,7 @@ call(Op, Args) ->
 	true ->
 	    debug_call(Dbg band 15, Op, Args, Port)
     end.
-	    
+
 rec(Op) ->
     receive 
 	{'_wxe_result_', Res} -> Res;
@@ -108,21 +108,26 @@ send_bin(Bin) when is_binary(Bin) ->
 get_cbId(Fun) ->
     gen_server:call((wx:get_env())#wx_env.sv,{register_cb, Fun}, infinity).   
 
-connect_cb(Object,EvData) ->
-    handle_listener(connect_cb, Object, EvData).
-
-disconnect_cb(Object,EvData) ->
-    handle_listener(disconnect_cb, Object, EvData).
-
-handle_listener(Op,Object,EvData) ->
-    Listener = gen_server:call((wx:get_env())#wx_env.sv, {Op,Object,EvData}, infinity),
-    case Listener of
-	{call_impl, connect_cb, EvtList} ->
-	    wxEvtHandler:connect_impl(EvtList,Object,EvData);
-	Res ->
-	    Res
+connect_cb(Object,EvData0 = #evh{cb=Callback}) ->
+    Server = (wx:get_env())#wx_env.sv,
+    case Callback of
+	0 -> %% Message api connect from this process
+	    case wxEvtHandler:connect_impl(Object,EvData0) of
+		{ok, Listener} ->
+		    EvData = EvData0#evh{handler=Listener, userdata=undefined},
+		    gen_server:call(Server, {connect_cb,Object,EvData}, infinity);
+		Error ->
+		    Error
+	    end;
+	_ -> %% callback, fun or pid (pid for wx_object:sync_events masked callbacks)
+	    %% let the server do the connect
+	    gen_server:call(Server, {connect_cb,Object,EvData0}, infinity)
     end.
 
+disconnect_cb(Object,EvData) ->
+    Server = (wx:get_env())#wx_env.sv,
+    gen_server:call(Server, {disconnect_cb,Object,EvData}, infinity).
+	
 debug_cast(1, Op, _Args, _Port) ->
     check_previous(),
     case ets:lookup(wx_debug_info,Op) of

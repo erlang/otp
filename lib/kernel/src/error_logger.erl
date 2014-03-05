@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -245,16 +245,18 @@ notify(Msg) ->
 -spec swap_handler(Type :: swap_handler_type()) -> any().
 
 swap_handler(tty) ->
-    gen_event:swap_handler(error_logger, {error_logger, swap},
-			   {error_logger_tty_h, []}),
-    simple_logger();
+    R = gen_event:swap_handler(error_logger, {error_logger, swap},
+                               {error_logger_tty_h, []}),
+    ok = simple_logger(),
+    R;
 swap_handler({logfile, File}) ->
-    gen_event:swap_handler(error_logger, {error_logger, swap},
-			   {error_logger_file_h, File}),
-    simple_logger();
+    R = gen_event:swap_handler(error_logger, {error_logger, swap},
+                               {error_logger_file_h, File}),
+    ok = simple_logger(),
+    R;
 swap_handler(silent) ->
-    gen_event:delete_handler(error_logger, error_logger, delete),
-    simple_logger();
+    _ = gen_event:delete_handler(error_logger, error_logger, delete),
+    ok = simple_logger();
 swap_handler(false) ->
     ok. % keep primitive event handler as-is
 

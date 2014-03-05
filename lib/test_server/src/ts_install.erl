@@ -112,6 +112,12 @@ get_vars([], name, [], Result) ->
 get_vars(_, _, _, _) ->
     {error, fatal_bad_conf_vars}.
 
+config_flags() ->
+    case os:getenv("CONFIG_FLAGS") of
+	false -> [];
+	CF -> string:tokens(CF, " \t\n")
+    end.
+
 unix_autoconf(XConf) ->
     Configure = filename:absname("configure"),
     Flags = proplists:get_value(crossflags,XConf,[]),
@@ -122,11 +128,14 @@ unix_autoconf(XConf) ->
 		  erlang:system_info(threads) /= false],
     Debug = [" --enable-debug-mode" ||
 		string:str(erlang:system_info(system_version),"debug") > 0],
-    Args = Host ++ Build ++ Threads ++ Debug,
+    MXX_Build = [Y || Y <- config_flags(),
+		      Y == "--enable-m64-build"
+			  orelse Y == "--enable-m32-build"],
+    Args = Host ++ Build ++ Threads ++ Debug ++ " " ++ MXX_Build,
     case filelib:is_file(Configure) of
 	true ->
 	    OSXEnv = macosx_cflags(),
-	    io:format("Running ~sEnv: ~p~n",
+	    io:format("Running ~s~nEnv: ~p~n",
 		      [lists:flatten(Configure ++ Args),Env++OSXEnv]),
 	    Port = open_port({spawn, lists:flatten(["\"",Configure,"\"",Args])},
 			     [stream, eof, {env,Env++OSXEnv}]),
@@ -134,7 +143,6 @@ unix_autoconf(XConf) ->
 	false ->
 	    {error, no_configure_script}
     end.
-
 
 get_xcomp_flag(Flag, Flags) ->
     get_xcomp_flag(Flag, Flag, Flags).

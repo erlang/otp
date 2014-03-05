@@ -37,7 +37,8 @@
 
 #if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,	\
+					   __FILE__, __LINE__)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #else
@@ -184,19 +185,44 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
     bfun[-4] = (Uint)nfun;
 }
 
-static __inline__ void
-hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
+void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
     /* ensure that at least 2 words are available on the BEAM stack */
     if ((p->stop - 2) < p->htop) {
-	DPRINTF("calling gc to increase BEAM stack size");
+	DPRINTF("calling gc to reserve BEAM stack size");
 	p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
+	ASSERT(!((p->stop - 2) < p->htop));
     }
     p->stop -= 2;
+    p->stop[0] = NIL;
+    p->stop[1] = NIL;
+}
+
+static __inline__ void
+hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
+{
+    if (p->flags & F_DISABLE_GC) {
+	/* Trap frame already reserved */
+	ASSERT(p->stop[0] == NIL && p->stop[1] == NIL);
+    }
+    else {
+	if ((p->stop - 2) < p->htop) {
+	    DPRINTF("calling gc to increase BEAM stack size");
+	    p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
+	    ASSERT(!((p->stop - 2) < p->htop));
+	}
+	p->stop -= 2;
+    }
     p->stop[1] = hipe_beam_catch_throw;
     p->stop[0] = make_cp(p->cp);
     ++p->catches;
     p->cp = hipe_beam_pc_return;
+}
+
+void hipe_unreserve_beam_trap_frame(Process *p)
+{
+    ASSERT(p->stop[0] == NIL && p->stop[1] == NIL);
+    p->stop += 2;
 }
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)

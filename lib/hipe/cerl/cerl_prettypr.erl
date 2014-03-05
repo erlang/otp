@@ -62,7 +62,9 @@
 	       receive_action/1, receive_clauses/1, receive_timeout/1,
 	       seq_arg/1, seq_body/1, string_lit/1, try_arg/1,
 	       try_body/1, try_vars/1, try_evars/1, try_handler/1,
-	       tuple_es/1, type/1, values_es/1, var_name/1]).
+	       tuple_es/1, type/1, values_es/1, var_name/1,
+	       map_es/1, map_pair_key/1, map_pair_val/1, map_pair_op/1
+	   ]).
 
 -define(PAPER, 76).
 -define(RIBBON, 45).
@@ -424,6 +426,10 @@ lay_1(Node, Ctxt) ->
 	    lay_cons(Node, Ctxt);
 	tuple ->
 	    lay_tuple(Node, Ctxt);
+	map ->
+	    lay_map(Node, Ctxt);
+	map_pair ->
+	    lay_map_pair(Node, Ctxt);
 	'let' ->
 	    lay_let(Node, Ctxt);
 	seq ->
@@ -588,6 +594,23 @@ lay_tuple(Node, Ctxt) ->
 	   beside(par(seq(tuple_es(Node), floating(text(",")),
 			  Ctxt, fun lay/2)),
 		  floating(text("}")))).
+
+lay_map(Node, Ctxt) ->
+    beside(floating(text("~{")),
+	   beside(par(seq(map_es(Node), floating(text(",")),
+			  Ctxt, fun lay/2)),
+		  floating(text("}~")))).
+
+lay_map_pair(Node, Ctxt) ->
+    K = map_pair_key(Node),
+    V = map_pair_val(Node),
+    OpTxt = case concrete(map_pair_op(Node)) of
+	assoc -> "::<";
+	exact -> "~<"
+    end,
+    beside(floating(text(OpTxt)),
+	beside(lay(K,Ctxt),beside(floating(text(",")), beside(lay(V,Ctxt),
+		    floating(text(">")))))).
 
 lay_let(Node, Ctxt) ->
     V = lay_value_list(let_vars(Node), Ctxt),

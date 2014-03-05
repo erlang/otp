@@ -18,6 +18,7 @@
 %%
 %%
 -module(asn1ct_value).
+-compile([{nowarn_deprecated_function,{asn1rt,utf8_list_to_binary,1}}]).
 
 %%  Generate Erlang values for ASN.1 types.
 %%  The value is randomized within it's constraints
@@ -260,7 +261,11 @@ from_type_prim(M, D) ->
 	'BOOLEAN' ->
 	    true;
 	'OCTET STRING' ->
-	    adjust_list(size_random(C),c_string(C,"OCTET STRING"));
+	    S0 = adjust_list(size_random(C), c_string(C, "OCTET STRING")),
+	    case M:legacy_erlang_types() of
+		false -> list_to_binary(S0);
+		true -> S0
+	    end;
 	'NumericString' ->
 	    adjust_list(size_random(C),c_string(C,"0123456789"));
 	'TeletexString' ->
@@ -348,7 +353,7 @@ random_unnamed_bit_string(M, C) ->
 
 random(Upper) ->
     {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    _ = random:seed(A1, A2, A3),
     random:uniform(Upper).
 
 size_random(C) ->

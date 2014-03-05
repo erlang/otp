@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,13 +35,16 @@
 	 check = false
 	}).
 
--record(attrs, {even, odd, deleted, changed, searched}).
+-record(attrs, {even, odd, searched, deleted, changed_odd, changed_even, new_odd, new_even}).
 -define(EVEN(Row), ((Row rem 2) =:= 0)).
 -define(BG_EVEN,    {230,230,250}).
 -define(BG_ODD,     {255,255,255}).
 -define(BG_DELETED, {100,100,100}).
--define(FG_DELETED, {240,30,30}).
+-define(FG_DELETED, {230,230,230}).
 -define(BG_SEARCHED,{235,215,90}).
--define(BG_CHANGED, {230,230,250}).
+-define(BG_CHANGED, {184,207,184}).
+-define(BG_NEW,     {123,168,123}).
 
 -define(LCTRL_WDECR, 4). %% Remove some pixels in column width to avoid creating unnecessary scrollbar
+
+-define(SASH_STYLE, ?wxSP_LIVE_UPDATE bor ?wxSP_NOBORDER bor ?wxSP_3DSASH).

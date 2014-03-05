@@ -36,6 +36,7 @@
 #include "beam_load.h"
 #include "hipe_mode_switch.h"
 #include "hipe_debug.h"
+#include "erl_map.h"
 
 static const char dashes[2*sizeof(long)+5] = {
     [0 ... 2*sizeof(long)+3] = '-'

@@ -44,6 +44,7 @@
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
 			       | DFLAG_NEW_FUN_TAGS		\
+			       | DFLAG_NEW_FLOATS		\
 			       | DFLAG_EXTENDED_PIDS_PORTS	\
 			       | DFLAG_EXPORT_PTR_TAG		\
 			       | DFLAG_BIT_BINARIES)

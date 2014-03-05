@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -125,6 +125,7 @@ get_meta_main_tab_lock(unsigned slot)
 static erts_smp_spinlock_t meta_main_tab_main_lock;
 static Uint meta_main_tab_first_free;   /* Index of first free slot */
 static int meta_main_tab_cnt;		/* Number of active tables */
+static int meta_main_tab_top;           /* Highest ever used slot + 1 */
 static Uint meta_main_tab_slot_mask;    /* The slot index part of an unnamed table id */
 static Uint meta_main_tab_seq_incr;
 static Uint meta_main_tab_seq_cnt = 0;  /* To give unique(-ish) table identifiers */
@@ -1469,6 +1470,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     ASSERT(slot>=0 && slot<db_max_tabs);
     meta_main_tab_first_free = GET_NEXT_FREE_SLOT(slot);
     meta_main_tab_cnt++;
+    if (slot >= meta_main_tab_top) {
+	ASSERT(slot == meta_main_tab_top);
+	meta_main_tab_top = slot + 1;
+    }
 
     if (is_named) {
 	ret = BIF_ARG_1;
@@ -2058,27 +2063,31 @@ BIF_RETTYPE ets_all_0(BIF_ALIST_0)
 {
     DbTable* tb;
     Eterm previous;
-    int i, j;
+    int i;
     Eterm* hp;
     Eterm* hendp;
     int t_tabs_cnt;
-    int t_max_tabs;
+    int t_top;
 
     erts_smp_spin_lock(&meta_main_tab_main_lock);
     t_tabs_cnt = meta_main_tab_cnt;
-    t_max_tabs = db_max_tabs;
+    t_top = meta_main_tab_top;
     erts_smp_spin_unlock(&meta_main_tab_main_lock);
 
     hp = HAlloc(BIF_P, 2*t_tabs_cnt);
     hendp = hp + 2*t_tabs_cnt;
 
     previous = NIL;
-    j = 0;
-    for(i = 0; (i < t_max_tabs && j < t_tabs_cnt); i++) {
+    for(i = 0; i < t_top; i++) {
 	erts_smp_rwmtx_t *mmtl = get_meta_main_tab_lock(i);
 	erts_smp_rwmtx_rlock(mmtl);
 	if (IS_SLOT_ALIVE(i)) {
-	    j++;
+	    if (hp == hendp) {
+		/* Racing table creator, grab some more heap space */
+		t_tabs_cnt = 10;
+		hp = HAlloc(BIF_P, 2*t_tabs_cnt);
+		hendp = hp + 2*t_tabs_cnt;
+	    }
 	    tb = meta_main_tab[i].u.tb;
 	    previous = CONS(hp, tb->common.id, previous);
 	    hp += 2;
@@ -2849,6 +2858,7 @@ void init_db(void)
     ERTS_ETS_MISC_MEM_ADD(size);
 
     meta_main_tab_cnt = 0;
+    meta_main_tab_top = 0;
     for (i=1; i<db_max_tabs; i++) {
 	SET_NEXT_FREE_SLOT(i-1,i);
     }

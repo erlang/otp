@@ -29,10 +29,10 @@
 
 main(_Rules) ->
     roundtrip('SetTRcho',
-	      #'SetTRcho'{'setCho' = {choOs,"A string 1"},
-			  'setChoE' = {choOs,"A string 3"},
-			  'setCho-E' = {choOs,"A string 7"},
-			  'setChoE-E' = {choOs,"A string 9"}}),
+	      #'SetTRcho'{'setCho' = {choOs,<<"A string 1">>},
+			  'setChoE' = {choOs,<<"A string 3">>},
+			  'setCho-E' = {choOs,<<"A string 7">>},
+			  'setChoE-E' = {choOs,<<"A string 9">>}}),
     ok.
 
 roundtrip(T, V) ->

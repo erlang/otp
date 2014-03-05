@@ -24,7 +24,7 @@ ok3() ->
 ok4() ->
   dict:fetch(foo, dict:new()).
 
-ok5() ->  % this is OK since some_mod:new/0 might be returning a dict()
+ok5() ->  % this is OK since some_mod:new/0 might be returning a dict:dict()
   dict:fetch(foo, some_mod:new()).
 
 ok6() ->

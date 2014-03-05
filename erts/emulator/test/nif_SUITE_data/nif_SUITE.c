@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1477,7 +1477,6 @@ static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NI
 {
     int percent;
     char atom[10];
-    int do_repeat;
 
     if (!enif_get_int(env, argv[0], &percent) ||
 	!enif_get_atom(env, argv[1], atom, sizeof(atom), ERL_NIF_LATIN1)) {
@@ -1492,6 +1491,174 @@ static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NI
     else {
 	return enif_make_int(env, enif_consume_timeslice(env, percent));
     }
+}
+
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int n;
+    char s[10];
+    ErlNifBinary b;
+    ERL_NIF_TERM result;
+    if (enif_have_dirty_schedulers()) {
+	assert(enif_is_on_dirty_scheduler(env));
+    }
+    assert(argc == 3);
+    enif_get_int(env, argv[0], &n);
+    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1);
+    enif_inspect_binary(env, argv[2], &b);
+    result = enif_make_tuple3(env,
+			      enif_make_int(env, n),
+			      enif_make_string(env, s, ERL_NIF_LATIN1),
+			      enif_make_binary(env, &b));
+    return enif_schedule_dirty_nif_finalizer(env, result, enif_dirty_nif_finalizer);
+}
+
+static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int n;
+    char s[10];
+    ErlNifBinary b;
+    assert(!enif_is_on_dirty_scheduler(env));
+    if (argc != 3)
+	return enif_make_badarg(env);
+    if (enif_have_dirty_schedulers()) {
+	if (enif_get_int(env, argv[0], &n) &&
+	    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1) &&
+	    enif_inspect_binary(env, argv[2], &b))
+	    return enif_schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_CPU_BOUND, dirty_nif, argc, argv);
+	else
+	    return enif_make_badarg(env);
+    } else {
+	return dirty_nif(env, argc, argv);
+    }
+}
+#endif
+
+static ERL_NIF_TERM is_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_int(env, enif_is_map(env,argv[0]));
+}
+static ERL_NIF_TERM get_map_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    size_t size = (size_t)-123;
+    int ret = enif_get_map_size(env, argv[0], &size);
+    return enif_make_tuple2(env, enif_make_int(env, ret), enif_make_int(env, (int)size));
+}
+static ERL_NIF_TERM make_new_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_new_map(env);
+}
+static ERL_NIF_TERM make_map_put_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
+    int ret = enif_make_map_put(env, argv[0], argv[1], argv[2], &map_out);
+    return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
+}
+static ERL_NIF_TERM get_map_value_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM value = enif_make_atom(env, "undefined");
+    int ret = enif_get_map_value(env, argv[0], argv[1], &value);
+    return enif_make_tuple2(env, enif_make_int(env,ret), value);
+
+}
+static ERL_NIF_TERM make_map_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
+    int ret = enif_make_map_update(env, argv[0], argv[1], argv[2], &map_out);
+    return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
+}
+static ERL_NIF_TERM make_map_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
+    int ret = enif_make_map_remove(env, argv[0], argv[1], &map_out);
+    return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
+}
+
+/* maps */
+static ERL_NIF_TERM maps_from_list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM cell = argv[0];
+    ERL_NIF_TERM map  = enif_make_new_map(env);
+    ERL_NIF_TERM tuple;
+    const ERL_NIF_TERM *pair;
+    int arity = -1;
+
+    if (argc != 1 && !enif_is_list(env, cell)) return enif_make_badarg(env);
+
+    /* assume sorted keys */
+
+    while (!enif_is_empty_list(env,cell)) {
+	if (!enif_get_list_cell(env, cell, &tuple, &cell)) return enif_make_badarg(env);
+	if (enif_get_tuple(env,tuple,&arity,&pair)) {
+	    enif_make_map_put(env, map, pair[0], pair[1], &map);
+	}
+    }
+
+    return map;
+}
+
+static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+
+    ERL_NIF_TERM map = argv[0];
+    ERL_NIF_TERM list_f = enif_make_list(env, 0); /* NIL */
+    ERL_NIF_TERM list_b = enif_make_list(env, 0); /* NIL */
+    ERL_NIF_TERM key, value, k2, v2;
+    ErlNifMapIterator iter_f;
+    ErlNifMapIterator iter_b;
+    int cnt, next_ret, prev_ret;
+
+    if (argc != 1 && !enif_is_map(env, map))
+	return enif_make_int(env, __LINE__);
+
+    if(!enif_map_iterator_create(env, map, &iter_f, ERL_NIF_MAP_ITERATOR_HEAD))
+	return enif_make_int(env, __LINE__);
+
+    cnt = 0;
+    while(enif_map_iterator_get_pair(env,&iter_f,&key,&value)) {
+	if (cnt && !next_ret)
+	    return enif_make_int(env, __LINE__);
+	list_f = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_f);
+	next_ret = enif_map_iterator_next(env,&iter_f);
+	cnt++;
+    }
+    if (cnt && next_ret)
+	return enif_make_int(env, __LINE__);
+
+    if(!enif_map_iterator_create(env, map, &iter_b, ERL_NIF_MAP_ITERATOR_TAIL))
+	return enif_make_int(env, __LINE__);
+
+    cnt = 0;
+    while(enif_map_iterator_get_pair(env,&iter_b,&key,&value)) {
+	if (cnt && !prev_ret)
+	    return enif_make_int(env, __LINE__);
+
+	/* Test that iter_f can step "backwards" */
+	if (!enif_map_iterator_prev(env,&iter_f)
+	    || !enif_map_iterator_get_pair(env,&iter_f,&k2,&v2)
+	    || k2 != key || v2 != value) {
+	    return enif_make_int(env, __LINE__);
+	}
+
+	list_b = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_b);
+	prev_ret = enif_map_iterator_prev(env,&iter_b);
+    }
+
+    if (cnt) {
+	if (prev_ret || enif_map_iterator_prev(env,&iter_f))
+	    return enif_make_int(env, __LINE__);
+
+	/* Test that iter_b can step "backwards" one step */
+	if (!enif_map_iterator_next(env, &iter_b)
+	    || !enif_map_iterator_get_pair(env,&iter_b,&k2,&v2)
+	    || k2 != key || v2 != value)
+	    return enif_make_int(env, __LINE__);
+    }
+
+    enif_map_iterator_destroy(env, &iter_f);
+    enif_map_iterator_destroy(env, &iter_b);
+
+    return enif_make_tuple2(env, list_f, list_b);
 }
 
 static ErlNifFunc nif_funcs[] =
@@ -1543,7 +1710,19 @@ static ErlNifFunc nif_funcs[] =
     {"echo_int", 1, echo_int},
     {"type_sizes", 0, type_sizes},
     {"otp_9668_nif", 1, otp_9668_nif},
-    {"consume_timeslice_nif", 2, consume_timeslice_nif}
+    {"consume_timeslice_nif", 2, consume_timeslice_nif},
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+    {"call_dirty_nif", 3, call_dirty_nif},
+#endif
+    {"is_map_nif", 1, is_map_nif},
+    {"get_map_size_nif", 1, get_map_size_nif},
+    {"make_new_map_nif", 0, make_new_map_nif},
+    {"make_map_put_nif", 3, make_map_put_nif},
+    {"get_map_value_nif", 2, get_map_value_nif},
+    {"make_map_update_nif", 3, make_map_update_nif},
+    {"make_map_remove_nif", 2, make_map_remove_nif},
+    {"maps_from_list_nif", 1, maps_from_list_nif},
+    {"sorted_list_from_maps_nif", 1, sorted_list_from_maps_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

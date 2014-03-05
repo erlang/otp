@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -110,6 +110,10 @@
       <row>
         <cell align="left" valign="middle">tuple</cell>
         <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangTuple">OtpErlangTuple</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">map</cell>
+        <cell align="left" valign="middle"><seealso marker="java/com/ericsson/otp/erlang/OtpErlangMap">OtpErlangMap</seealso></cell>
       </row>
       <row>
         <cell align="left" valign="middle">term</cell>

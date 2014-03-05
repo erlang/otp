@@ -77,6 +77,8 @@
 -record(suite_data, {key,name,value}).
 
 %%%-----------------------------------------------------------------
+start() ->
+    start(normal, ".", ?default_verbosity).
 %%% @spec start(Mode) -> Pid | exit(Error)
 %%%       Mode = normal | interactive
 %%%       Pid = pid()
@@ -91,9 +93,6 @@
 %%% <code>ct_util_server</code>.</p>
 %%%
 %%% @see ct
-start() ->
-    start(normal, ".", ?default_verbosity).
-
 start(LogDir) when is_list(LogDir) ->
     start(normal, LogDir, ?default_verbosity);
 start(Mode) ->
@@ -382,9 +381,18 @@ loop(Mode,TestData,StartDir) ->
 	    TestData1 =
 		case lists:keysearch(Key,1,TestData) of
 		    {value,{Key,Val}} ->
-			NewVal = Fun(Val),
-			return(From,NewVal),
-			[{Key,NewVal}|lists:keydelete(Key,1,TestData)];
+			try Fun(Val) of
+			    '$delete' ->
+				return(From,deleted),
+				lists:keydelete(Key,1,TestData);
+			    NewVal ->
+				return(From,NewVal),
+				[{Key,NewVal}|lists:keydelete(Key,1,TestData)]
+			catch
+			    _:Error ->
+				return(From,{error,Error}),
+				TestData
+			end;
 		    _ ->
 			case lists:member(create,Opts) of
 			    true ->

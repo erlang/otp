@@ -288,7 +288,7 @@ mapfoldl(_, S, []) ->
 %%
 %% @see //stdlib/sets
 
--spec variables(erl_syntax:syntaxTree()) -> set().
+-spec variables(erl_syntax:syntaxTree()) -> sets:set(atom()).
 
 variables(Tree) ->
     variables(Tree, sets:new()).
@@ -343,7 +343,7 @@ default_variable_name(N) ->
 %%
 %% @see new_variable_name/2
 
--spec new_variable_name(set()) -> atom().
+-spec new_variable_name(sets:set(atom())) -> atom().
 
 new_variable_name(S) ->
     new_variable_name(fun default_variable_name/1, S).
@@ -369,7 +369,7 @@ new_variable_name(S) ->
 %% @see //stdlib/sets
 %% @see //stdlib/random
 
--spec new_variable_name(fun((integer()) -> atom()), set()) -> atom().
+-spec new_variable_name(fun((integer()) -> atom()), sets:set(atom())) -> atom().
 
 new_variable_name(F, S) ->
     R = start_range(S),
@@ -416,7 +416,7 @@ generate(_Key, Range) ->
 %% 
 %% @see new_variable_name/1
 
--spec new_variable_names(integer(), set()) -> [atom()].
+-spec new_variable_names(integer(), sets:set(atom())) -> [atom()].
 
 new_variable_names(N, S) ->
     new_variable_names(N, fun default_variable_name/1, S).
@@ -432,7 +432,7 @@ new_variable_names(N, S) ->
 %% 
 %% @see new_variable_name/2
 
--spec new_variable_names(integer(), fun((integer()) -> atom()), set()) ->
+-spec new_variable_names(integer(), fun((integer()) -> atom()), sets:set(atom())) ->
 	[atom()].
 
 new_variable_names(N, F, S) when is_integer(N) ->

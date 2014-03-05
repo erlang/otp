@@ -72,7 +72,7 @@ IMAGES=../priv/bitmap/fup.bm
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += +warn_obsolete_guard
+ERL_COMPILE_FLAGS += +warn_obsolete_guard -Werror
 
 # ----------------------------------------------------
 # Targets

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 -type dial_cl_parse_ret() :: {'check_init', #options{}}
                            | {'plt_info', #options{}}
                            | {'cl', #options{}}
-                           | {{'gui', 'gs' | 'wx'}, #options{}}
+                           | {'gui', #options{}}
                            | {'error', string()}.
 
 -type deep_string() :: string() | [deep_string()].
@@ -193,12 +193,9 @@ cl(["--dump_callgraph", File|T]) ->
   put(dialyzer_callgraph_file, File),
   cl(T);
 cl(["--gui"|T]) ->
-  put(dialyzer_options_mode, {gui, gs}),
+  put(dialyzer_options_mode, gui),
   cl(T);
-cl(["--wx"|T]) ->
-  put(dialyzer_options_mode, {gui, wx}),
-  cl(T);
-cl(["--solver",Solver|T]) -> % not documented
+cl(["--solver", Solver|T]) -> % not documented
   append_var(dialyzer_solvers, [list_to_atom(Solver)]),
   cl(T);
 cl([H|_] = L) ->
@@ -217,7 +214,7 @@ cl([]) ->
 	{plt_info, cl_options()};
       false ->
 	case get(dialyzer_options_mode) of
-	  {gui, _} = GUI -> {GUI, common_options()};
+	  gui -> {gui, common_options()};
 	  cl ->
 	    case get(dialyzer_options_analysis_type) =:= plt_check of
 	      true  -> {check_init, cl_options()};
@@ -361,7 +358,7 @@ help_message() ->
   S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[-pa dir]* [--plt plt] [--plts plt*] [-Ddefine]*
                 [-I include_dir]* [--output_plt file] [-Wwarn]*
-                [--src] [--gui | --wx] [files_or_dirs] [-r dirs]
+                [--src] [--gui] [files_or_dirs] [-r dirs]
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
@@ -473,9 +470,7 @@ Options:
   --fullpath
       Display the full path names of files for which warnings are emitted.
   --gui
-      Use the gs-based GUI.
-  --wx
-      Use the wx-based GUI.
+      Use the GUI.
 
 Note:
   * denotes that multiple occurrences of these options are possible.

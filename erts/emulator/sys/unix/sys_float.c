@@ -46,7 +46,7 @@ static void erts_init_fp_exception(void)
 {
     /* XXX: the wrappers prevent using a pthread destructor to
        deallocate the key's value; so when/where do we do that? */
-    erts_tsd_key_create(&fpe_key);
+    erts_tsd_key_create(&fpe_key,"fp_exception");
 }
 
 void erts_thread_init_fp_exception(void)

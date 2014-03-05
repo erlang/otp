@@ -103,6 +103,10 @@
 #define CreateAutoEvent(state) CreateEvent(NULL, FALSE, state, NULL)
 #define CreateManualEvent(state) CreateEvent(NULL, TRUE, state, NULL)
 
+/*
+ * Min number of async threads
+ */
+#define ERTS_MIN_NO_OF_ASYNC_THREADS 0
 
 /*
  * Our own type of "FD's"

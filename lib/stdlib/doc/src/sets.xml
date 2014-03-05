@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2011</year>
+      <year>2000</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,8 +45,14 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-dict">set()</marker></name>
+      <name name="set" n_vars="1"/>
       <desc><p>As returned by <c>new/0</c>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="set" n_vars="0"/>
+      <desc>
+        <p><c>set()</c> is equivalent to <c>set(term())</c>.</p>
+      </desc>
     </datatype>
   </datatypes>
   <funcs>

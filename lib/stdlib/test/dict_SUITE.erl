@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 
-%% This module tests the ordsets, sets, and gb_sets modules.
+%% This module tests the orddict, dict, and gb_trees modules.
 %%
 
 -module(dict_SUITE).
@@ -68,6 +68,7 @@ create_1(M) ->
     D0 = M(empty, []),
     [] = M(to_list, D0),
     0 = M(size, D0),
+    true = M(is_empty, D0),
     D0.
 
 store(Config) when is_list(Config) ->
@@ -81,6 +82,14 @@ store_1(List, M) ->
     D1 = foldl(fun({K,V}, Dict) -> M(enter, {K,V,Dict}) end,
 	       M(empty, []), List),
     true = M(equal, {D0,D1}),
+    case List of
+	[] ->
+	    true = M(is_empty, D0),
+	    true = M(is_empty, D1);
+	[_|_] ->
+	    false = M(is_empty, D0),
+	    false = M(is_empty, D1)
+    end,
     D0.
 
 %%%

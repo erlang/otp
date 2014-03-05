@@ -30,80 +30,88 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
--record(state, {group_leader,logs=[]}).
+-record(state, {logs=[], default_gl}).
 
 -define(WIDTH,80).
 
 %%%-----------------------------------------------------------------
 %%% Callbacks
-init({GL,Logs}) ->
-    open_files(Logs,#state{group_leader=GL}).
+init({GL,ConnLogs}) ->
+    open_files(GL,ConnLogs,#state{default_gl=GL}).
 
-open_files([{ConnMod,{LogType,Logs}}|T],State) ->
-    case do_open_files(Logs,[]) of
+open_files(GL,[{ConnMod,{LogType,LogFiles}}|T],State=#state{logs=Logs}) ->
+    case do_open_files(LogFiles,[]) of
 	{ok,Fds} ->
-	    open_files(T,State#state{logs=[{ConnMod,{LogType,Fds}} |
-					   State#state.logs]});
+	    ConnInfo = proplists:get_value(GL,Logs,[]),
+	    Logs1 = [{GL,[{ConnMod,{LogType,Fds}}|ConnInfo]} | 
+		     proplists:delete(GL,Logs)],
+	    open_files(GL,T,State#state{logs=Logs1});
 	Error ->
 	    Error
     end;
-open_files([],State) ->
+open_files(_GL,[],State) ->
     {ok,State}.
 
-
-do_open_files([{Tag,File}|Logs],Acc) ->
-    case file:open(File, [write,{encoding,utf8}]) of
+do_open_files([{Tag,File}|LogFiles],Acc) ->
+    case file:open(File, [write,append,{encoding,utf8}]) of
 	{ok,Fd} ->
-	    do_open_files(Logs,[{Tag,Fd}|Acc]);
+	    do_open_files(LogFiles,[{Tag,Fd}|Acc]);
 	{error,Reason} ->
 	    {error,{could_not_open_log,File,Reason}}
     end;
 do_open_files([],Acc) ->
     {ok,lists:reverse(Acc)}.
 
+handle_event({info_report,_,{From,update,{GL,ConnLogs}}},
+	     State) when node(GL) == node() ->
+    Result = open_files(GL,ConnLogs,State),
+    From ! {updated,GL},
+    Result;
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
-handle_event({_Type,_GL,{Pid,{ct_connection,Action,ConnName},Report}},State) ->
-    %% NOTE: if the format of this event is changed
-    %% ({ct_connection,Action,ConnName}) then remember to change
-    %% test_server_h:report_receiver as well!!!
-    Info = conn_info(Pid,#conn_log{name=ConnName,action=Action}),
-    write_report(now(),Info,Report,State),
+handle_event({_Type,GL,{Pid,{ct_connection,Mod,Action,ConnName},Report}},
+	     State) ->
+    Info = conn_info(Pid,#conn_log{name=ConnName,action=Action,module=Mod}),
+    write_report(now(),Info,Report,GL,State),
     {ok, State};
-handle_event({_Type,_GL,{Pid,Info=#conn_log{},Report}},State) ->
-    %% NOTE: if the format of this event is changed
-    %% (Info=#conn_log{}) then remember to change
-    %% test_server_h:report_receiver as well!!!
-    write_report(now(),conn_info(Pid,Info),Report,State),
+handle_event({_Type,GL,{Pid,Info=#conn_log{},Report}}, State) ->
+    write_report(now(),conn_info(Pid,Info),Report,GL,State),
     {ok, State};
-handle_event({error_report,_,{Pid,_,[{ct_connection,ConnName}|R]}},State) ->
+handle_event({error_report,GL,{Pid,_,[{ct_connection,ConnName}|R]}}, State) ->
     %% Error reports from connection
-    write_error(now(),conn_info(Pid,#conn_log{name=ConnName}),R,State),
+    write_error(now(),conn_info(Pid,#conn_log{name=ConnName}),R,GL,State),
     {ok, State};
-handle_event(_, State) ->
+handle_event(_What, State) ->
     {ok, State}.
 
-handle_info(_, State) ->
+handle_info(_What, State) ->
     {ok, State}.
 
 handle_call(_Query, State) ->
     {ok, {error, bad_query}, State}.
 
 terminate(_,#state{logs=Logs}) ->
-    [file:close(Fd) || {_,{_,Fds}} <- Logs, {_,Fd} <- Fds],
+    lists:foreach(
+      fun({_GL,ConnLogs}) ->
+	      [file:close(Fd) || {_,{_,Fds}} <- ConnLogs, {_,Fd} <- Fds]
+      end, Logs),
     ok.
 
 
 %%%-----------------------------------------------------------------
 %%% Writing reports
-write_report(Time,#conn_log{module=ConnMod}=Info,Data,State) ->
-    {LogType,Fd} = get_log(Info,State),
+write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
+    {LogType,Fd} = get_log(Info,GL,State),
+    io:format(Fd,"~n~ts",[format_data(ConnMod,LogType,Data)]);
+
+write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
+    {LogType,Fd} = get_log(Info,GL,State),
     io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
 				format_title(LogType,Info),
 				format_data(ConnMod,LogType,Data)]).
 
-write_error(Time,#conn_log{module=ConnMod}=Info,Report,State) ->
-    case get_log(Info,State) of
+write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->
+    case get_log(Info,GL,State) of
 	{html,_} ->
 	    %% The error will anyway be written in the html log by the
 	    %% sasl error handler, so don't write it again.
@@ -115,14 +123,19 @@ write_error(Time,#conn_log{module=ConnMod}=Info,Report,State) ->
 		       format_error(LogType,Report)])
     end.
 
-get_log(Info,State) ->
-    case proplists:get_value(Info#conn_log.module,State#state.logs) of
-	{html,_} ->
-	    {html,State#state.group_leader};
-	{LogType,Fds} ->
-	    {LogType,get_fd(Info,Fds)};
+get_log(Info,GL,State) ->
+    case proplists:get_value(GL,State#state.logs) of
 	undefined ->
-	    {html,State#state.group_leader}
+	    {html,State#state.default_gl};
+	ConnLogs ->
+	    case proplists:get_value(Info#conn_log.module,ConnLogs) of
+		{html,_} ->
+		    {html,GL};
+		{LogType,Fds} ->
+		    {LogType,get_fd(Info,Fds)};
+		undefined ->
+		    {html,GL}
+	    end
     end.
 
 get_fd(#conn_log{name=undefined},Fds) ->
@@ -191,17 +204,27 @@ pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS},ConnMod,Text0) ->
 		   micro2milli(MicroS)]).
 
 pretty_title(#conn_log{client=Client}=Info) ->
-    io_lib:format("= Client ~w  ~s  Server ~ts ",
-		  [Client,actionstr(Info),serverstr(Info)]).
+    case actionstr(Info) of
+	{no_server,Action} ->
+	    io_lib:format("= Client ~w ~s ",[Client,Action]);
+	Action ->
+	    io_lib:format("= Client ~w ~s ~ts ",[Client,Action,
+						 serverstr(Info)])
+    end.
 
 actionstr(#conn_log{action=send}) -> "----->";
+actionstr(#conn_log{action=cmd}) -> "----->";
 actionstr(#conn_log{action=recv}) -> "<-----";
 actionstr(#conn_log{action=open}) -> "opened session to";
 actionstr(#conn_log{action=close}) -> "closed session to";
 actionstr(_) -> "<---->".
 
+serverstr(#conn_log{name=undefined,address={undefined,_}}) ->
+    io_lib:format("server",[]);
 serverstr(#conn_log{name=undefined,address=Address}) ->
     io_lib:format("~p",[Address]);
+serverstr(#conn_log{name=Alias,address={undefined,_}}) ->
+    io_lib:format("~w",[Alias]);
 serverstr(#conn_log{name=Alias,address=Address}) ->
     io_lib:format("~w(~p)",[Alias,Address]).
 

@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,54 +37,48 @@
       the file operations. See the command line flag
       <c>+A</c> in <seealso marker="erts:erl">erl(1)</seealso>.</p>
 
-    <p>The Erlang VM supports file names in Unicode to a limited
-    extent.  Depending on how the VM is started (with the parameter
-    <c>+fnu</c> or <c>+fnl</c>), file names given can contain
-    characters > 255 and the VM system will convert file names
-    back and forth to the native file name encoding.</p>
+    <p>With regard to file name encoding, the Erlang VM can operate in
+    two modes. The current mode can be queried using the <seealso
+    marker="#native_name_encoding">native_name_encoding/0</seealso>
+    function.  It returns either <c>latin1</c> or <c>utf8</c>.</p>
 
-    <p>The default behavior for Unicode character translation depends
-    on to what extent the underlying OS/filesystem enforces consistent
-    naming. On OSes where all file names are ensured to be in one or
-    another encoding, Unicode is the default (currently this holds for
-    Windows and MacOSX). On OSes with completely transparent file
-    naming (i.e. all Unixes except MacOSX), ISO-latin-1 file naming is
-    the default. The reason for the ISO-latin-1 default is that
-    file names are not guaranteed to be possible to interpret according to
-    the Unicode encoding expected (i.e. UTF-8), and file names that
-    cannot be decoded will only be accessible by using &quot;raw
-    file names&quot;, in other word file names given as binaries.</p>
- 
-    <p>As file names are traditionally not binaries in Erlang,
-    applications that need to handle raw file names need to be
-    converted, why the Unicode mode for file names is not default on
-    systems having completely transparent file naming.</p>
+    <p>In the <c>latin1</c> mode, the Erlang VM does not change the
+    encoding of file names. In the <c>utf8</c> mode, file names can
+    contain Unicode characters greater than 255 and the VM will
+    convert file names back and forth to the native file name encoding
+    (usually UTF-8, but UTF-16 on Windows).</p>
 
-    <p>Raw file names is a new feature in OTP R14B01, which allows the
-    user to supply completely uninterpreted file names to the
-    underlying OS/filesystem. They are supplied as binaries, where it
-    is up to the user to supply a correct encoding for the
-    environment. The function <c>file:native_name_encoding()</c> can
-    be used to check what encoding the VM is working in. If the
-    function returns <c>latin1</c> file names are not in any way
-    converted to Unicode, if it is <c>utf8</c>, raw file names should
-    be encoded as UTF-8 if they are to follow the convention of the VM
-    (and usually the convention of the OS as well). Using raw
-    file names is useful if you have a filesystem with inconsistent
-    file naming, where some files are named in UTF-8 encoding while
-    others are not. A file:list_dir on such mixed file name systems
-    when the VM is in Unicode file name mode might return file names as
-    raw binaries as they cannot be interpreted as Unicode
-    file names. Raw file names can also be used to give UTF-8 encoded
-    file names even though the VM is not started in Unicode file name
-    translation mode.</p>
+    <p>The default mode depends on the operating system. Windows and
+    MacOS X enforce consistent file name encoding and therefore the
+    VM uses the <c>utf8</c> mode.</p>
 
-    <p>Note that on Windows, <c>file:native_name_encoding()</c>
-    returns <c>utf8</c> per default, which is the format for raw
-    file names even on Windows, although the underlying OS specific
-    code works in a limited version of little endian UTF16. As far as
-    the Erlang programmer is concerned, Windows native Unicode format
-    is UTF-8...</p>
+    <p>On operating systems with transparent naming (i.e. all Unix
+    systems except MacOS X), the default will be <c>utf8</c> if the
+    terminal supports UTF-8, otherwise <c>latin1</c>. The default may
+    be overridden using the <c>+fnl</c> (to force <c>latin1</c> mode)
+    or <c>+fnu</c> (to force <c>utf8</c> mode) when starting <seealso
+    marker="erts:erl">erl</seealso>.</p>
+
+    <p>On operating systems with transparent naming, files could be
+    inconsistently named, i.e. some files are encoded in UTF-8 while
+    others are encoded in (for example) iso-latin1. To be able to
+    handle file systems with inconsistent naming when running in the
+    <c>utf8</c> mode, the concept of "raw file names" has been
+    introduced.</p>
+
+    <p>A raw file name is a file name given as a binary. The Erlang VM
+    will perform no translation of a file name given as a binary on
+    systems with transparent naming.</p>
+
+    <p>When running in the <c>utf8</c> mode, the
+    <c>file:list_dir/1</c> and <c>file:read_link/1</c> functions will
+    never return raw file names. Use the <seealso
+    marker="#list_dir_all">list_dir_all/1</seealso> and <seealso
+    marker="#read_link_all">read_link_all/1</seealso> functions to
+    return all file names including raw file names.</p>
+
+    <p>Also see <seealso marker="stdlib:unicode_usage#notes-about-raw-filenames">Notes about raw file names</seealso>.</p>
+
   </description>
 
   <datatypes>
@@ -535,8 +529,8 @@
       <name name="list_dir_all" arity="1"/>
       <fsummary>List all files in a directory</fsummary>
       <desc>
-        <p>Lists all the files in a directory, including files with
-	"raw" names.
+        <p><marker id="list_dir_all"/>Lists all the files in a directory,
+	including files with "raw" names.
 	Returns <c>{ok, <anno>Filenames</anno>}</c> if successful.
           Otherwise, it returns <c>{error, <anno>Reason</anno>}</c>.
           <c><anno>Filenames</anno></c> is a list of
@@ -653,11 +647,14 @@
     </func>
     <func>
       <name name="native_name_encoding" arity="0"/>
-      <fsummary>Return the VM's configured filename encoding.</fsummary>
+      <fsummary>Return the VM's configured filename encoding</fsummary>
       <desc>
-        <p>This function returns the configured default file name encoding to use for raw file names. Generally an application supplying file names raw (as binaries), should obey the character encoding returned by this function.</p>
-	<p>By default, the VM uses ISO-latin-1 file name encoding on filesystems and/or OSes that use completely transparent file naming. This includes all Unix versions except MacOSX, where the vfs layer enforces UTF-8 file naming. By giving the experimental option <c>+fnu</c> when starting Erlang, UTF-8 translation of file names can be turned on even for those systems. If Unicode file name translation is in effect, the system behaves as usual as long as file names conform to the encoding, but will return file names that are not properly encoded in UTF-8 as raw file names (i.e. binaries).</p> 
-	<p>On Windows, this function also returns <c>utf8</c> by default. The OS uses a pure Unicode naming scheme and file names are always possible to interpret as valid Unicode. The fact that the underlying Windows OS actually encodes file names using little endian UTF-16 can be ignored by the Erlang programmer. Windows and MacOSX are the only operating systems where the VM operates in Unicode file name mode by default.</p>
+	<p><marker id="native_name_encoding"/>This function returns
+	the file name encoding mode.  If it is <c>latin1</c>, the
+	system does no translation of file names.  If it is
+	<c>utf8</c>, file names will be converted back and forth to
+	the native file name encoding (usually UTF-8, but UTF-16 on
+	Windows).</p>
       </desc>
     </func>
     <func>
@@ -825,6 +822,16 @@
           <tag><c>ram</c></tag>
           <item>
             <p><c>File</c> must be <c>iodata()</c>. Returns an <c>fd()</c> which lets the <c>file</c> module operate on the data in-memory as if it is a file.</p>
+          </item>
+          <tag><c>sync</c></tag>
+          <item>
+            <p>On platforms that support it, enables the POSIX <c>O_SYNC</c> synchronous I/O flag or its platform-dependent
+            equivalent (e.g., <c>FILE_FLAG_WRITE_THROUGH</c> on Windows) so that writes to the file block until the data has
+            been physically written to disk. Be aware, though, that the exact semantics of this flag differ from platform to
+            platform; for example, neither Linux nor Windows guarantees that all file metadata are also written before the call
+            returns. For precise semantics, check the details of your platform's documentation. On platforms with no
+            support for POSIX <c>O_SYNC</c> or equivalent, use of the <c>sync</c> flag causes <c>open</c> to return
+            <c>{error, enotsup}</c>.</p>
           </item>
         </taglist>
         <p>Returns:</p>
@@ -1440,7 +1447,8 @@
       <name name="read_link" arity="1"/>
       <fsummary>See what a link is pointing to</fsummary>
       <desc>
-        <p>This function returns <c>{ok, <anno>Filename</anno>}</c> if
+        <p><marker id="read_link_all"/>This function returns
+	<c>{ok, <anno>Filename</anno>}</c> if
           <c><anno>Name</anno></c> refers to a symbolic link that is
 	  not a "raw" file name, or <c>{error, <anno>Reason</anno>}</c>
 	  otherwise.
@@ -1736,16 +1744,16 @@
           <item>The chunk size used by the erlang fallback to send
 	  data. If using the fallback, this should be set to a value
 	  which comfortably fits in the systems memory. Default is 20 MB.</item>
+	  <tag><c>use_threads</c></tag>
+          <item>Instruct the emulator to use the async thread pool for the
+	  sendfile system call. This could be usefull if the OS you are running
+	  on does not properly support non-blocking sendfile calls. Do note that
+	  using async threads potentially makes your system volnerable to slow
+	  client attacks. If set to true and no async threads are available,
+	  the sendfile call will return <c>{error,einval}</c>.
+	  Introduced in Erlang/OTP 17.0. Default is false.</item>
 	</taglist>
 	</p>
-	<p>On operating systems with thread support, it is recommended to use
-	async threads. See the command line flag
-	<c>+A</c> in <seealso marker="erts:erl">erl(1)</seealso>. If it is not
-	possible to use async threads for sendfile, it is recommended to use
-	a relatively small value for the send buffer on the socket. Otherwise
-	the Erlang VM might loose some of its soft realtime guarantees.
-	Which size to use depends on the OS/hardware and the requirements
-	of the application.</p>
       </desc>
     </func>
     <func>

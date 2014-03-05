@@ -123,15 +123,24 @@ is_last_bool([], _) -> false.
 collect_block(Is) ->
     collect_block(Is, []).
 
+collect_block([{allocate,N,R}|Is0], Acc) ->
+    {Inits,Is} = lists:splitwith(fun ({init,{y,_}}) -> true;
+                                     (_) -> false
+                                 end, Is0),
+    collect_block(Is, [{set,[],[],{alloc,R,{nozero,N,0,Inits}}}|Acc]);
 collect_block([{allocate_zero,Ns,R},{test_heap,Nh,R}|Is], Acc) ->
-    collect_block(Is, [{set,[],[],{alloc,R,{no_opt,Ns,Nh,[]}}}|Acc]);
+    collect_block(Is, [{set,[],[],{alloc,R,{zero,Ns,Nh,[]}}}|Acc]);
 collect_block([I|Is]=Is0, Acc) ->
     case collect(I) of
 	error -> {reverse(Acc),Is0};
 	Instr -> collect_block(Is, [Instr|Acc])
     end.
 
+collect({allocate,N,R})      -> {set,[],[],{alloc,R,{nozero,N,0,[]}}};
 collect({allocate_zero,N,R}) -> {set,[],[],{alloc,R,{zero,N,0,[]}}};
+collect({allocate_heap,Ns,Nh,R}) -> {set,[],[],{alloc,R,{nozero,Ns,Nh,[]}}};
+collect({allocate_heap_zero,Ns,Nh,R}) -> {set,[],[],{alloc,R,{zero,Ns,Nh,[]}}};
+collect({init,D})            -> {set,[D],[],init};
 collect({test_heap,N,R})     -> {set,[],[],{alloc,R,{nozero,nostack,N,[]}}};
 collect({bif,N,F,As,D})      -> {set,[D],As,{bif,N,F}};
 collect({gc_bif,N,F,R,As,D}) -> {set,[D],As,{alloc,R,{gc_bif,N,F}}};
@@ -143,7 +152,15 @@ collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
+collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
+    {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
+collect({get_map_elements,F,S,{list,Gets}}) ->
+    {set,Gets,[S],{get_map_elements,F}};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
+collect(fclearerror)         -> {set,[],[],fclearerror};
+collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
+collect({fmove,S,D})         -> {set,[D],[S],fmove};
+collect({fconv,S,D})         -> {set,[D],[S],fconv};
 collect(_)                   -> error.
 
 %% embed_lines([Instruction]) -> [Instruction]
@@ -223,6 +240,7 @@ move_allocates_2(Alloc, [], Acc) ->
 
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
+alloc_may_pass({set,_,_,{get_map_elements,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
@@ -273,7 +291,11 @@ opt_moves([X0,Y0], Is0) ->
 	not_possible -> {[X,Y0],Is2};
 	{X,_} -> {[X,Y0],Is2};
 	{Y,Is} -> {[X,Y],Is}
-    end.
+    end;
+opt_moves(Ds, Is) ->
+    %% multiple destinations -> pass through
+    {Ds,Is}.
+
 
 %% opt_move(Dest, [Instruction]) -> {UpdatedDest,[Instruction]} | not_possible
 %%  If there is a {move,Dest,FinalDest} instruction
@@ -370,6 +392,7 @@ gen_init(Fs, Regs, Y, Acc) ->
 
 init_yreg([{set,_,_,{bif,_,_}}|_], Reg) -> Reg;
 init_yreg([{set,_,_,{alloc,_,{gc_bif,_,_}}}|_], Reg) -> Reg;
+init_yreg([{set,_,_,{alloc,_,{put_map,_,_}}}|_], Reg) -> Reg;
 init_yreg([{set,Ds,_,_}|Is], Reg) -> init_yreg(Is, add_yregs(Ds, Reg));
 init_yreg(_Is, Reg) -> Reg.
 

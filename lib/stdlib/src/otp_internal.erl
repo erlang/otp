@@ -577,6 +577,24 @@ obsolete_1(wxCursor, new, 3) ->
 obsolete_1(wxCursor, new, 4) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 
+%% Added in OTP 17.
+obsolete_1(asn1ct, decode,3) ->
+    {deprecated,"deprecated; use Mod:decode/2 instead"};
+obsolete_1(asn1ct, encode, 3) ->
+    {deprecated,"deprecated; use Mod:encode/2 instead"};
+obsolete_1(asn1rt, decode,3) ->
+    {deprecated,"deprecated; use Mod:decode/2 instead"};
+obsolete_1(asn1rt, encode, 2) ->
+    {deprecated,"deprecated; use Mod:encode/2 instead"};
+obsolete_1(asn1rt, encode, 3) ->
+    {deprecated,"deprecated; use Mod:encode/2 instead"};
+obsolete_1(asn1rt, info, 1) ->
+    {deprecated,"deprecated; use Mod:info/0 instead"};
+obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
+    {deprecated,{unicode,characters_to_list,1}};
+obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
+    {deprecated,{unicode,characters_to_binary,1}};
+
 obsolete_1(_, _, _) ->
     no.
 

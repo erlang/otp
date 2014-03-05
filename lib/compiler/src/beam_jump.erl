@@ -202,19 +202,19 @@ is_label(_) -> false.
 move(Is) ->
     move_1(Is, [], []).
 
-move_1([I|Is], End0, Acc0) ->
+move_1([I|Is], Ends, Acc0) ->
     case is_exit_instruction(I) of
 	false ->
-	    move_1(Is, End0, [I|Acc0]);
+	    move_1(Is, Ends, [I|Acc0]);
 	true ->
-	    case extract_seq(Acc0, [I|End0]) of
+	    case extract_seq(Acc0, [I]) of
 		no ->
-		    move_1(Is, End0, [I|Acc0]);
+		    move_1(Is, Ends, [I|Acc0]);
 		{yes,End,Acc} ->
-		    move_1(Is, End, Acc)
+		    move_1(Is, [End|Ends], Acc)
 	    end
     end;
-move_1([], End, Acc) -> reverse(Acc, End).
+move_1([], Ends, Acc) -> reverse(Acc, lists:append(reverse(Ends))).
 
 extract_seq([{line,_}=Line|Is], Acc) ->
     extract_seq(Is, [Line|Acc]);
@@ -526,6 +526,10 @@ ulbl({gc_bif,_Name,Lbl,_Live,_As,_R}, Used) ->
 ulbl({bs_init,Lbl,_,_,_,_}, Used) ->
     mark_used(Lbl, Used);
 ulbl({bs_put,Lbl,_,_}, Used) ->
+    mark_used(Lbl, Used);
+ulbl({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}, Used) ->
+    mark_used(Lbl, Used);
+ulbl({get_map_elements,Lbl,_Src,_List}, Used) ->
     mark_used(Lbl, Used);
 ulbl(_, Used) -> Used.
 

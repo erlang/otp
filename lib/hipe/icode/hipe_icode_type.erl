@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -97,9 +97,9 @@
 		    t_pid/0, t_port/0, t_reference/0, t_subtract/2, t_sup/2,
 		    t_to_tlist/1, t_tuple/0, t_tuple/1, t_tuple_sizes/1]).
 
--record(state, {info_map  = gb_trees:empty() :: gb_tree(),
+-record(state, {info_map  = gb_trees:empty() :: gb_trees:tree(),
 		cfg                          :: cfg(),
-		liveness  = gb_trees:empty() :: gb_tree(),
+		liveness  = gb_trees:empty() :: gb_trees:tree(),
 		arg_types                    :: [erl_types:erl_type()],
 		ret_type  = [t_none()]       :: [erl_types:erl_type()],
 		lookupfun                    :: call_fun(),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,6 +53,13 @@ sys_info() ->
 		  Mem -> Mem
 	      catch _:_ -> []
 	      end,
+
+    SchedulersOnline = erlang:system_info(schedulers_online),
+    SchedulersAvailable = case erlang:system_info(multi_scheduling) of
+			      enabled -> SchedulersOnline;
+			      _ -> 1
+			  end,
+
     {{_,Input},{_,Output}} = erlang:statistics(io),
     [{process_count, erlang:system_info(process_count)},
      {process_limit, erlang:system_info(process_limit)},
@@ -60,9 +67,13 @@ sys_info() ->
      {run_queue, erlang:statistics(run_queue)},
      {io_input, Input},
      {io_output,  Output},
+
      {logical_processors, erlang:system_info(logical_processors)},
-     {logical_processors_available, erlang:system_info(logical_processors_available)},
      {logical_processors_online, erlang:system_info(logical_processors_online)},
+     {logical_processors_available, erlang:system_info(logical_processors_available)},
+     {schedulers, erlang:system_info(schedulers)},
+     {schedulers_online, SchedulersOnline},
+     {schedulers_available, SchedulersAvailable},
 
      {otp_release, erlang:system_info(otp_release)},
      {version, erlang:system_info(version)},
@@ -216,12 +227,14 @@ fetch_stats(Parent, Time) ->
 fetch_stats_loop(Parent, Time) ->
     erlang:system_flag(scheduler_wall_time, true),
     receive
-	_Msg -> erlang:system_flag(scheduler_wall_time, false)
+	_Msg ->
+	    %% erlang:system_flag(scheduler_wall_time, false)
+	    ok
     after Time ->
 	    _M = Parent ! {stats, 1,
 			   erlang:statistics(scheduler_wall_time),
 			   erlang:statistics(io),
-			   erlang:memory()},
+			   try erlang:memory() catch _:_ -> [] end},
 	    fetch_stats_loop(Parent, Time)
     end.
 %%
@@ -233,17 +246,6 @@ etop_collect(Collector) ->
     %% utilization in etop). Next time the flag will be true and then
     %% there will be a measurement.
     SchedulerWallTime = erlang:statistics(scheduler_wall_time),
-
-    %% Turn off the flag while collecting data per process etc.
-    case erlang:system_flag(scheduler_wall_time,false) of
-	false ->
-	    %% First time and the flag was false - start a monitoring
-	    %% process to set the flag back to false when etop is stopped.
-	    spawn(fun() -> flag_holder_proc(Collector) end);
-	_ ->
-	    ok
-    end,
-
     ProcInfo = etop_collect(processes(), []),
 
     Collector ! {self(),#etop_info{now = now(),
@@ -253,13 +255,22 @@ etop_collect(Collector) ->
 				   memi = etop_memi(),
 				   procinfo = ProcInfo
 				  }},
+
+    case SchedulerWallTime of
+	undefined ->
+	    spawn(fun() -> flag_holder_proc(Collector) end);
+	_ ->
+	    ok
+    end,
+
     erlang:system_flag(scheduler_wall_time,true).
 
 flag_holder_proc(Collector) ->
     Ref = erlang:monitor(process,Collector),
     receive
 	{'DOWN',Ref,_,_,_} ->
-	    erlang:system_flag(scheduler_wall_time,false)
+	    %% erlang:system_flag(scheduler_wall_time,false)
+	    ok
     end.
 
 etop_memi() ->

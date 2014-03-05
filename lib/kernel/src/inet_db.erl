@@ -1117,7 +1117,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	{set_cache_refresh, Time} when is_integer(Time), Time > 0 ->
 	    Time1 = ((Time+999) div 1000)*1000, %% round up
 	    ets:insert(Db, {cache_refresh_interval, Time1}),
-	    stop_timer(State#state.cache_timer),
+	    _ = stop_timer(State#state.cache_timer),
 	    {reply, ok, State#state{cache_timer = init_timer()}};
 
 	clear_hosts ->
@@ -1131,7 +1131,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 
 	reset ->
 	    reset_db(Db),
-	    stop_timer(State#state.cache_timer),
+	    _ = stop_timer(State#state.cache_timer),
 	    {reply, ok, State#state{cache_timer = init_timer()}};
 
 	{add_rc_list, List} ->
@@ -1181,7 +1181,7 @@ handle_info(_Info, State) ->
 -spec terminate(term(), state()) -> 'ok'.
 
 terminate(_Reason, State) ->
-    stop_timer(State#state.cache_timer),
+    _ = stop_timer(State#state.cache_timer),
     ok.
 
 %%%----------------------------------------------------------------------
@@ -1240,8 +1240,9 @@ do_add_host(Byname, Byaddr, Names, Type, IP) ->
     ok.
 
 do_del_host(Byname, Byaddr, IP) ->
-    [ets:delete_object(Byname, {tolower(Name),Type,Addr}) ||
-	{Name,Type,Addr} <- ets:lookup(Byaddr, IP)],
+    _ =
+	[ets:delete_object(Byname, {tolower(Name),Type,Addr}) ||
+	    {Name,Type,Addr} <- ets:lookup(Byaddr, IP)],
     ets:delete(Byaddr, IP),
     ok.
 

@@ -14,7 +14,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% @copyright 1999-2006 Richard Carlsson
+%% @copyright 1999-2014 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @end
 %% =====================================================================
@@ -269,6 +269,13 @@ file(Name) ->
 %%       is typically most useful if the `verbose' flag is enabled, to
 %%       generate reports about the program files without affecting
 %%       them. The default value is `false'.</dd>
+%%
+%%   <dt>{stdout, boolean()}</dt>
+%%
+%%      <dd>If the value is `true', instead of the file being written
+%%      to disk it will be printed to stdout. The default value is
+%%      `false'.</dd>
+%%
 %% </dl>
 %%
 %% See the function `module/2' for further options.
@@ -309,9 +316,15 @@ file_2(Name, Opts) ->
         true ->
             ok;
         false ->
-            write_module(Tree, Name, Opts1),
-            ok
-    end.
+			case proplists:get_bool(stdout, Opts1) of
+				true ->
+					print_module(Tree, Opts1),
+					ok;
+				false ->
+					write_module(Tree, Name, Opts1),
+					ok
+			end
+	end.
 
 read_module(Name, Opts) ->
     verbose("reading module `~ts'.", [filename(Name)], Opts),
@@ -398,6 +411,10 @@ write_module(Tree, Name, Opts) ->
             error_write_file(File),
             throw(R)
     end.
+
+print_module(Tree, Opts) ->
+	Printer = proplists:get_value(printer, Opts),
+	io:format(Printer(Tree, Opts)).
 
 output(FD, Printer, Tree, Opts) ->
     io:put_chars(FD, Printer(Tree, Opts)),
@@ -941,7 +958,7 @@ hidden_uses_2(Tree, Used) ->
 -record(env, {file		       :: file:filename(),
               module                   :: atom(),
               current                  :: fa(),
-              imports = dict:new()     :: dict(),
+              imports = dict:new()     :: dict:dict(atom(), atom()),
               context = normal	       :: context(),
               verbosity = 1	       :: 0 | 1 | 2,
               quiet = false            :: boolean(),
@@ -953,12 +970,12 @@ hidden_uses_2(Tree, Used) ->
 	      old_guard_tests = false  :: boolean()}).
 
 -record(st, {varc              :: non_neg_integer(),
-	     used = sets:new() :: set(),
-	     imported          :: set(),
-	     vars              :: set(),
-	     functions         :: set(),
+	     used = sets:new() :: sets:set({atom(), arity()}),
+	     imported          :: sets:set({atom(), arity()}),
+	     vars              :: sets:set(atom()),
+	     functions         :: sets:set({atom(), arity()}),
 	     new_forms = []    :: [erl_syntax:syntaxTree()],
-	     rename            :: dict()}).
+	     rename            :: dict:dict(mfa(), {atom(), atom()})}).
 
 visit_used(Names, Defs, Roots, Imports, Module, Opts) ->
     File = proplists:get_value(file, Opts, ""),

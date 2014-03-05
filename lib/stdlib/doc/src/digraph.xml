@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -98,7 +98,7 @@
       <name name="d_protection"/>
     </datatype>
     <datatype>
-      <name><marker id="type-digraph">digraph()</marker></name>
+      <name name="graph"/>
       <desc><p>A digraph as returned by <c>new/0,1</c>.</p></desc>
     </datatype>
     <datatype>
