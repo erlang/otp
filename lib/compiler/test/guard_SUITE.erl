@@ -33,7 +33,7 @@
 	 tricky/1,rel_ops/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
-	 bad_constants/1]).
+	 bad_constants/1,bad_guards/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -50,7 +50,7 @@ groups() ->
        t_is_boolean,is_function_2,tricky,rel_ops,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants]}].
+       bad_constants,bad_guards]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1552,6 +1552,10 @@ bad_constants(Config) when is_list(Config) ->
     ?line ?FAILING(<<1>>),
     ?line ?FAILING(42),
     ?line ?FAILING(3.14),
+    ok.
+
+bad_guards(Config) when is_list(Config) ->
+    if erlang:float(self()); true -> ok end,
     ok.
 
 %% Call this function to turn off constant propagation.
