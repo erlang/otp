@@ -1864,6 +1864,10 @@ gexpr({op,Line,Op,A}, Vt, St0) ->
         true -> {Avt,St1};
         false -> {Avt,add_error(Line, illegal_guard_expr, St1)}
     end;
+gexpr({op,_,'andalso',L,R}, Vt, St) ->
+    gexpr_list([L,R], Vt, St);
+gexpr({op,_,'orelse',L,R}, Vt, St) ->
+    gexpr_list([L,R], Vt, St);
 gexpr({op,Line,Op,L,R}, Vt, St0) ->
     {Avt,St1} = gexpr_list([L,R], Vt, St0),
     case is_gexpr_op(Op, 2) of
@@ -1950,12 +1954,14 @@ is_gexpr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,F}]},As}, RDs) ->
     is_gexpr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,F}},As}, RDs);
 is_gexpr({op,_L,Op,A}, RDs) ->
     is_gexpr_op(Op, 1) andalso is_gexpr(A, RDs);
+is_gexpr({op,_L,'andalso',A1,A2}, RDs) ->
+    is_gexpr_list([A1,A2], RDs);
+is_gexpr({op,_L,'orelse',A1,A2}, RDs) ->
+    is_gexpr_list([A1,A2], RDs);
 is_gexpr({op,_L,Op,A1,A2}, RDs) ->
     is_gexpr_op(Op, 2) andalso is_gexpr_list([A1,A2], RDs);
 is_gexpr(_Other, _RDs) -> false.
 
-is_gexpr_op('andalso', 2) -> true;
-is_gexpr_op('orelse', 2) -> true;
 is_gexpr_op(Op, A) ->
     try erl_internal:op_type(Op, A) of
         arith -> true;
