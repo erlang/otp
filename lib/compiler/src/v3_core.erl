@@ -274,50 +274,66 @@ gexpr({op,L,'orelse',E1,E2}, Bools, St0) ->
     True = {atom,L,true},
     E = make_bool_switch_guard(L, E1, V, True, E2),
     gexpr(E, Bools, St);
-gexpr({op,Line,Op,L,R}=Call, Bools0, St0) ->
+gexpr({op,Line,Op,L,R}=E, Bools, St) ->
     case erl_internal:bool_op(Op, 2) of
-	true ->
-	    {Le,Lps,Bools1,St1} = gexpr(L, Bools0, St0),
-	    {Ll,Llps,St2} = force_safe(Le, St1),
-	    {Re,Rps,Bools,St3} = gexpr(R, Bools1, St2),
-	    {Rl,Rlps,St4} = force_safe(Re, St3),
-	    Anno = lineno_anno(Line, St4),
-	    {#icall{anno=#a{anno=Anno},	%Must have an #a{}
-		    module=#c_literal{anno=Anno,val=erlang},
-		    name=#c_literal{anno=Anno,val=Op},
-		    args=[Ll,Rl]},Lps ++ Llps ++ Rps ++ Rlps,Bools,St4};
-	false ->
-	    gexpr_test(Call, Bools0, St0)
+        true ->
+            gexpr_bool(Op, L, R, Bools, St, Line);
+        false ->
+            gexpr_test(E, Bools, St)
     end;
-gexpr({op,Line,Op,A}=Call, Bools0, St0) ->
-    case Op of
-	'not' ->
-	    {Ae0,Aps,Bools,St1} = gexpr(A, Bools0, St0),
-	    case Ae0 of
-		#icall{module=#c_literal{val=erlang},
-		       name=#c_literal{val='=:='},
-		       args=[E,#c_literal{val=true}]}=EqCall ->
-		    %%
-		    %% Doing the following transformation
-		    %%    not(Expr =:= true)  ==>  Expr =:= false
-		    %% will help eliminating redundant is_boolean/1 tests.
-		    %%
-		    Ae = EqCall#icall{args=[E,#c_literal{val=false}]},
-		    {Al,Alps,St2} = force_safe(Ae, St1),
-		    {Al,Aps ++ Alps,Bools,St2};
-		Ae ->
-		    {Al,Alps,St2} = force_safe(Ae, St1),
-		    Anno = lineno_anno(Line, St2),
-		    {#icall{anno=#a{anno=Anno},	%Must have an #a{}
-			    module=#c_literal{anno=Anno,val=erlang},
-			    name=#c_literal{anno=Anno,val=Op},
-			    args=[Al]},Aps ++ Alps,Bools,St2}
-	    end;
-	_ ->
-	    gexpr_test(Call, Bools0, St0)
+gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,Op}},[L,R]}=E, Bools, St) ->
+    case erl_internal:bool_op(Op, 2) of
+        true ->
+            gexpr_bool(Op, L, R, Bools, St, Line);
+        false ->
+            gexpr_test(E, Bools, St)
     end;
+gexpr({op,Line,'not',A}, Bools, St) ->
+    gexpr_not(A, Bools, St, Line);
+gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,'not'}},[A]}, Bools, St) ->
+    gexpr_not(A, Bools, St, Line);
 gexpr(E0, Bools, St0) ->
     gexpr_test(E0, Bools, St0).
+
+%% gexpr_not(L, R, Bools, State) -> {Cexpr,[PreExp],Bools,State}.
+%%  Generate a guard for boolean operators
+
+gexpr_bool(Op, L, R, Bools0, St0, Line) ->
+    {Le,Lps,Bools1,St1} = gexpr(L, Bools0, St0),
+    {Ll,Llps,St2} = force_safe(Le, St1),
+    {Re,Rps,Bools,St3} = gexpr(R, Bools1, St2),
+    {Rl,Rlps,St4} = force_safe(Re, St3),
+    Anno = lineno_anno(Line, St4),
+    {#icall{anno=#a{anno=Anno}, %Must have an #a{}
+            module=#c_literal{anno=Anno,val=erlang},
+            name=#c_literal{anno=Anno,val=Op},
+            args=[Ll,Rl]},Lps ++ Llps ++ Rps ++ Rlps,Bools,St4}.
+
+%% gexpr_not(Expr, Bools, State) -> {Cexpr,[PreExp],Bools,State}.
+%%  Generate an erlang:'not'/1 guard test.
+
+gexpr_not(A, Bools0, St0, Line) ->
+    {Ae0,Aps,Bools,St1} = gexpr(A, Bools0, St0),
+    case Ae0 of
+        #icall{module=#c_literal{val=erlang},
+               name=#c_literal{val='=:='},
+               args=[E,#c_literal{val=true}]}=EqCall ->
+            %%
+            %% Doing the following transformation
+            %%    not(Expr =:= true)  ==>  Expr =:= false
+            %% will help eliminating redundant is_boolean/1 tests.
+            %%
+            Ae = EqCall#icall{args=[E,#c_literal{val=false}]},
+            {Al,Alps,St2} = force_safe(Ae, St1),
+            {Al,Aps ++ Alps,Bools,St2};
+        Ae ->
+            {Al,Alps,St2} = force_safe(Ae, St1),
+            Anno = lineno_anno(Line, St2),
+            {#icall{anno=#a{anno=Anno}, %Must have an #a{}
+                    module=#c_literal{anno=Anno,val=erlang},
+                    name=#c_literal{anno=Anno,val='not'},
+                    args=[Al]},Aps ++ Alps,Bools,St2}
+    end.
 
 %% gexpr_test(Expr, Bools, State) -> {Cexpr,[PreExp],Bools,State}.
 %%  Generate a guard test.  At this stage we must be sure that we have
@@ -335,7 +351,8 @@ gexpr_test(E0, Bools0, St0) ->
 	#icall{anno=Anno,module=#c_literal{val=erlang},name=#c_literal{val=N},args=As} ->
 	    Ar = length(As),
 	    case erl_internal:type_test(N, Ar) orelse
-		erl_internal:comp_op(N, Ar) of
+                erl_internal:comp_op(N, Ar) orelse
+                erl_internal:bool_op(N, Ar) of
 		true -> {E1,Eps0,Bools0,St1};
 		false ->
 		    Lanno = Anno#a.anno,
