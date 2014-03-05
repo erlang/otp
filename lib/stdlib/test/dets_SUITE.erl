@@ -772,9 +772,9 @@ open_1(Config, V) ->
     crash(Fname, TypePos),
     {error, {invalid_type_code,Fname}} = dets:open_file(Fname),
     truncate(Fname, HeadSize - 10),
-    {error, {tooshort,Fname}} = dets:open_file(Fname),
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ok = dets:close(TabRef),
+    {error,{not_a_dets_file,Fname}} = dets:open_file(Fname),
+    {error,{not_a_dets_file,Fname}} =
+        dets:open_file(TabRef, [{file,Fname},{version,V}]),
     file:delete(Fname),
 
     {error,{file_error,{foo,bar},_}} = dets:is_dets_file({foo,bar}),
@@ -967,10 +967,12 @@ fast_init_table(Config) ->
     {'EXIT', _} =
 	(catch dets:init_table(TabRef, fun(foo) -> bar end, {format,bchunk})),
     dets:close(TabRef),
+    file:delete(Fname),
     {ok, _} = dets:open_file(TabRef, Args),
     {'EXIT', _} = (catch dets:init_table(TabRef, fun() -> foo end,
 					       {format,bchunk})),
     dets:close(TabRef),
+    file:delete(Fname),
     {ok, _} = dets:open_file(TabRef, Args),
     {'EXIT', {badarg, _}} =
 	(catch dets:init_table(TabRef, nofun, {format,bchunk})),
@@ -979,10 +981,12 @@ fast_init_table(Config) ->
     away = (catch dets:init_table(TabRef, fun(_) -> throw(away) end,
 					{format,bchunk})),
     dets:close(TabRef),
+    file:delete(Fname),
     {ok, _} = dets:open_file(TabRef, Args),
     {error, {init_fun, fopp}} =
 	dets:init_table(TabRef, fun(read) -> fopp end, {format,bchunk}),
     dets:close(TabRef),
+    file:delete(Fname),
     {ok, _} = dets:open_file(TabRef, Args),
     dets:safe_fixtable(TabRef, true),
     {error, {fixed_table, TabRef}} =
@@ -1388,23 +1392,6 @@ repair(Config, V) ->
     %% truncated file header
     {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
     ok = ins(TabRef, 100),
-    ok = dets:close(TabRef),
-    truncate(Fname, HeadSize - 10),
-    %% a new file is created ('tooshort')
-    {ok, TabRef} = dets:open_file(TabRef,
-                                  [{file,Fname},{version,V},
-                                   {min_no_slots,1000},
-                                   {max_no_slots,1000000}]),
-    case dets:info(TabRef, no_slots) of
-	undefined -> ok;
-	{Min1,Slot1,Max1} ->
-	    true = Min1 =< Slot1, true = Slot1 =< Max1,
-	    true = 1000 < Min1, true = 1000+256 > Min1,
-	    true = 1000000 < Max1, true = (1 bsl 20)+256 > Max1
-    end,
-    0 = dets:info(TabRef, size),
-    no_keys_test(TabRef),
-    _ = histogram(TabRef, silent),
     ok = dets:close(TabRef),
     file:delete(Fname),
 
@@ -3925,6 +3912,7 @@ otp_11709(doc) ->
 otp_11709(suite) ->
     [];
 otp_11709(Config) when is_list(Config) ->
+    Short = <<"foo">>,
     Long = <<"a sufficiently long text">>,
 
     %% Bug: leaking file descriptor
@@ -3934,7 +3922,31 @@ otp_11709(Config) when is_list(Config) ->
     false = dets:is_dets_file(File),
     check_pps(P0),
 
-    file:delete(File),
+    %% Bug: deleting file
+    Args = [[{access, A}, {repair, R}] ||
+               A <- [read, read_write],
+               R <- [true, false, force]],
+    Fun1 = fun(S, As) ->
+                   P1 = pps(),
+                   ok = file:write_file(File, S),
+                   {error,{not_a_dets_file,File}} = dets:open_file(File, As),
+                   {ok, S} = file:read_file(File),
+                   check_pps(P1)
+           end,
+    Fun2 = fun(S) ->
+                   _ = [Fun1(S, As) || As <- Args],
+                   ok
+           end,
+    ok = Fun2(Long),  % no change here
+    ok = Fun2(Short), % mimic the behaviour for longer files
+
+    %% open_file/1
+    ok = file:write_file(File, Long),
+    {error,{not_a_dets_file,File}} = dets:open_file(File), % no change
+    ok = file:write_file(File, Short),
+    {error,{not_a_dets_file,File}} = dets:open_file(File), % mimic
+
+    _ = file:delete(File),
     ok.
 
 %%
