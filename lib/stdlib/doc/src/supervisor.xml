@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -262,12 +262,12 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           locally as <c>Name</c> using <c>register/2</c>. If
           <c><anno>SupName</anno>={global,Name}</c> the supervisor is registered
           globally as <c>Name</c> using <c>global:register_name/2</c>. If
-          <c><anno>SupName</anno>={via,Module,Name}</c> the supervisor
+          <c><anno>SupName</anno>={via,<anno>Module</anno>,<anno>Name</anno>}</c> the supervisor
 	  is registered as <c>Name</c> using the registry represented by
 	  <c>Module</c>. The <c>Module</c> callback should export the functions
 	  <c>register_name/2</c>, <c>unregister_name/1</c> and <c>send/2</c>,
 	  which should behave like the corresponding functions in <c>global</c>.
-	  Thus, <c>{via,global,Name}</c> is a valid reference.</p>
+	  Thus, <c>{via,global,<anno>Name</anno>}</c> is a valid reference.</p>
           <p>If no name is provided, the supervisor is not registered.</p>
         <p><c><anno>Module</anno></c> is the name of the callback module.</p>
         <p><c><anno>Args</anno></c> is an arbitrary term which is passed as

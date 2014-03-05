@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,9 @@
 %%-----------------------------------------------------------------
 
 -type linkage()    :: 'link' | 'nolink'.
--type emgr_name()  :: {'local', atom()} | {'global', term()} | {via, atom(), term()}.
+-type emgr_name()  :: {'local', atom()}
+                    | {'global', term()}
+                    | {'via', Module :: module(), Name :: term()}.
 
 -type start_ret()  :: {'ok', pid()} | 'ignore' | {'error', term()}.
 
