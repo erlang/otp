@@ -32,9 +32,28 @@
 /*#define MESSAGE(FMT,A1,A2) message(FMT,A1,A2)*/
 #define MESSAGE(FMT,A1,A2)
 
-typedef int decodeFT(const char *buf, int *index, void*);
-typedef int encodeFT(char *buf, int *index, void*);
-typedef int x_encodeFT(ei_x_buff*, void*);
+
+typedef struct
+{
+    char name[MAXATOMLEN_UTF8];
+    erlang_char_encoding enc;
+}my_atom;
+
+union my_obj {
+    erlang_fun fun;
+    erlang_pid pid;
+    erlang_port port;
+    erlang_ref ref;
+    erlang_trace trace;
+    erlang_big big;
+    my_atom atom;
+
+    int arity;
+};
+
+typedef int decodeFT(const char *buf, int *index, union my_obj*);
+typedef int encodeFT(char *buf, int *index, union my_obj*);
+typedef int x_encodeFT(ei_x_buff*, union my_obj*);
 
 struct Type {
     char* name;
@@ -44,11 +63,36 @@ struct Type {
     x_encodeFT* ei_x_encode_fp;
 };
 
-typedef struct
-{
-    char name[MAXATOMLEN_UTF8];
-    erlang_char_encoding enc;
-}my_atom;
+
+struct Type fun_type = {
+    "fun", "erlang_fun", (decodeFT*)ei_decode_fun,
+    (encodeFT*)ei_encode_fun, (x_encodeFT*)ei_x_encode_fun
+};
+
+struct Type pid_type = {
+    "pid", "erlang_pid", (decodeFT*)ei_decode_pid,
+    (encodeFT*)ei_encode_pid, (x_encodeFT*)ei_x_encode_pid
+};
+
+struct Type port_type = {
+    "port", "erlang_port", (decodeFT*)ei_decode_port,
+    (encodeFT*)ei_encode_port, (x_encodeFT*)ei_x_encode_port
+};
+
+struct Type ref_type = {
+    "ref", "erlang_ref", (decodeFT*)ei_decode_ref,
+    (encodeFT*)ei_encode_ref, (x_encodeFT*)ei_x_encode_ref
+};
+
+struct Type trace_type = {
+    "trace", "erlang_trace", (decodeFT*)ei_decode_trace,
+    (encodeFT*)ei_encode_trace, (x_encodeFT*)ei_x_encode_trace
+};
+
+struct Type big_type = {
+    "big", "erlang_big", (decodeFT*)ei_decode_big,
+    (encodeFT*)ei_encode_big, (x_encodeFT*)ei_x_encode_big
+};
 
 int ei_decode_my_atom(const char *buf, int *index, my_atom* a)
 {
@@ -64,130 +108,163 @@ int ei_x_encode_my_atom(ei_x_buff* x, my_atom* a)
     return ei_x_encode_atom_as(x, a->name, ERLANG_UTF8, a->enc);
 }
 
-#define BUFSZ 2000
+struct Type my_atom_type = {
+    "atom", "my_atom", (decodeFT*)ei_decode_my_atom,
+    (encodeFT*)ei_encode_my_atom, (x_encodeFT*)ei_x_encode_my_atom
+};
 
-void decode_encode(struct Type* t, void* obj)
+
+int my_encode_tuple_header(char *buf, int *index, union my_obj* obj)
 {
-    char *buf;
-    char buf2[BUFSZ];
-    int size1 = 0;
-    int size2 = 0;
-    int size3 = 0;
-    int err;
-    ei_x_buff arg;
-    
-    MESSAGE("ei_decode_%s, arg is type %s", t->name, t->type);
-    buf = read_packet(NULL);
-    err = t->ei_decode_fp(buf+1, &size1, NULL);
-    if (err != 0) {
-	if (err != -1) {
-	    fail("decode returned non zero but not -1");
-	} else {
-	    fail("decode returned non zero");
-	}
-	return;
-    }
-    if (size1 < 1) {
-	fail("size is < 1");
-	return;
-    }
-
-    if (size1 > BUFSZ) {
-	fail("size is > BUFSZ");
-	return;
-    }
-
-    err = t->ei_decode_fp(buf+1, &size2, obj);
-    if (err != 0) {
-	if (err != -1) {
-	    fail("decode returned non zero but not -1");
-	} else {
-	    fail("decode returned non zero");
-	}
-	return;
-    }
-    if (size1 != size2) {
-	MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
-	fail("decode sizes differs");
-	return;
-    }
-
-    size2 = 0;
-    err = ei_skip_term(buf+1, &size2);
-    if (err != 0) {
-	fail("ei_skip_term returned non zero");
-	return;
-    }
-    if (size1 != size2) {
-	MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
-	fail("skip size differs");
-	return;
-    }
-
-    MESSAGE("ei_encode_%s buf is NULL, arg is type %s", t->name, t->type);
-    size2 = 0;
-    err = t->ei_encode_fp(NULL, &size2, obj);
-    if (err != 0) {
-	if (err != -1) {
-	    fail("size calculation returned non zero but not -1");
-	    return;
-	} else {
-	    fail("size calculation returned non zero");
-	    return;
-	}
-    }
-    if (size1 != size2) {
-	MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
-	fail("decode and encode size differs when buf is NULL");
-	return;
-    }
-    MESSAGE("ei_encode_%s, arg is type %s", t->name, t->type);
-    err = t->ei_encode_fp(buf2, &size3, obj);
-    if (err != 0) {
-	if (err != -1) {
-	    fail("returned non zero but not -1");
-	} else {
-	    fail("returned non zero");
-	}
-	return;
-    }
-    if (size1 != size3) {
-	MESSAGE("size1 = %d, size2 = %d\n",size1,size3);
-	fail("decode and encode size differs");
-	return;
-    }
-    send_buffer(buf2, size1);
-
-    MESSAGE("ei_x_encode_%s, arg is type %s", t->name, t->type);
-    ei_x_new(&arg);
-    err = t->ei_x_encode_fp(&arg, obj);
-    if (err != 0) {
-	if (err != -1) {
-	    fail("returned non zero but not -1");
-	} else {
-	    fail("returned non zero");
-	}
-	ei_x_free(&arg);
-	return;
-    }
-    if (arg.index < 1) {
-	fail("size is < 1");
-	ei_x_free(&arg);
-	return;
-    }
-    send_buffer(arg.buff, arg.index);
-    ei_x_free(&arg);
+    return ei_encode_tuple_header(buf, index, obj->arity);
+}
+int my_x_encode_tuple_header(ei_x_buff* x, union my_obj* obj)
+{
+    return ei_x_encode_tuple_header(x, (long)obj->arity);
 }
 
+struct Type tuple_type = {
+    "tuple_header", "arity", (decodeFT*)ei_decode_tuple_header,
+    my_encode_tuple_header, my_x_encode_tuple_header
+};
 
-#define EI_DECODE_ENCODE(TYPE, ERLANG_TYPE) {			\
-	struct Type type_struct = {#TYPE, #ERLANG_TYPE,		\
-				   (decodeFT*)ei_decode_##TYPE,		\
-				   (encodeFT*)ei_encode_##TYPE,		\
-				   (x_encodeFT*)ei_x_encode_##TYPE };	\
-	ERLANG_TYPE type_obj;						\
-	decode_encode(&type_struct, &type_obj);				\
+#define BUFSZ 2000
+
+void decode_encode(struct Type** tv, int nobj)
+{
+    union my_obj obj;
+    char* packet;
+    char* inp;
+    char* outp;
+    char out_buf[BUFSZ];
+    int size1, size2, size3;
+    int err, i;
+    ei_x_buff arg;
+    
+    packet = read_packet(NULL);
+    inp = packet+1;
+    outp = out_buf;
+    ei_x_new(&arg);
+    for (i=0; i<nobj; i++) {
+	struct Type* t = tv[i];
+
+	MESSAGE("ei_decode_%s, arg is type %s", t->name, t->type);
+
+	size1 = 0;
+	err = t->ei_decode_fp(inp, &size1, NULL);
+	if (err != 0) {
+	    if (err != -1) {
+		fail("decode returned non zero but not -1");
+	    } else {
+		fail("decode returned non zero");
+	    }
+	    return;
+	}
+	if (size1 < 1) {
+	    fail("size is < 1");
+	    return;
+	}
+
+	if (size1 > BUFSZ) {
+	    fail("size is > BUFSZ");
+	    return;
+	}
+
+	size2 = 0;
+	err = t->ei_decode_fp(inp, &size2, &obj);
+	if (err != 0) {
+	    if (err != -1) {
+		fail("decode returned non zero but not -1");
+	    } else {
+		fail("decode returned non zero");
+	    }
+	    return;
+	}
+	if (size1 != size2) {
+	    MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
+	    fail("decode sizes differs");
+	    return;
+	}
+
+	if (t != &tuple_type) {
+	    size2 = 0;
+	    err = ei_skip_term(inp, &size2);
+	    if (err != 0) {
+		fail("ei_skip_term returned non zero");
+		return;
+	    }
+	    if (size1 != size2) {
+		MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
+		fail("skip size differs");
+		return;
+	    }
+	}
+
+	MESSAGE("ei_encode_%s buf is NULL, arg is type %s", t->name, t->type);
+	size2 = 0;
+	err = t->ei_encode_fp(NULL, &size2, &obj);
+	if (err != 0) {
+	    if (err != -1) {
+		fail("size calculation returned non zero but not -1");
+		return;
+	    } else {
+		fail("size calculation returned non zero");
+		return;
+	    }
+	}
+	if (size1 != size2) {
+	    MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
+	    fail("decode and encode size differs when buf is NULL");
+	    return;
+	}
+	MESSAGE("ei_encode_%s, arg is type %s", t->name, t->type);
+	size3 = 0;
+	err = t->ei_encode_fp(outp, &size3, &obj);
+	if (err != 0) {
+	    if (err != -1) {
+		fail("returned non zero but not -1");
+	    } else {
+		fail("returned non zero");
+	    }
+	    return;
+	}
+	if (size1 != size3) {
+	    MESSAGE("size1 = %d, size2 = %d\n",size1,size3);
+	    fail("decode and encode size differs");
+	    return;
+	}
+
+	MESSAGE("ei_x_encode_%s, arg is type %s", t->name, t->type);
+	err = t->ei_x_encode_fp(&arg, &obj);
+	if (err != 0) {
+	    if (err != -1) {
+		fail("returned non zero but not -1");
+	    } else {
+		fail("returned non zero");
+	    }
+	    ei_x_free(&arg);
+	    return;
+	}
+	if (arg.index < 1) {
+	    fail("size is < 1");
+	    ei_x_free(&arg);
+	    return;
+	}
+
+	inp += size1;
+	outp += size1;
     }
+    send_buffer(out_buf, outp - out_buf);
+    send_buffer(arg.buff, arg.index);
+    ei_x_free(&arg);
+    free(packet);
+}
+
+void decode_encode_one(struct Type* t)
+{
+    decode_encode(&t, 1);
+}
+
 
 
 void decode_encode_big(struct Type* t)
@@ -274,14 +351,6 @@ void decode_encode_big(struct Type* t)
     ei_free_big(p);
 }
 
-#define EI_DECODE_ENCODE_BIG(TYPE, ERLANG_TYPE) {					\
-	struct Type type_struct = {#TYPE, #ERLANG_TYPE,		\
-				   (decodeFT*)ei_decode_##TYPE,	\
-				   (encodeFT*)ei_encode_##TYPE,		\
-				   (x_encodeFT*)ei_x_encode_##TYPE };	\
-	decode_encode_big(&type_struct);				\
-    }
-
 
 
 /* ******************************************************************** */
@@ -290,34 +359,34 @@ TESTCASE(test_ei_decode_encode)
 {
     int i;
 
-    EI_DECODE_ENCODE(fun  , erlang_fun);
-    EI_DECODE_ENCODE(pid  , erlang_pid);
-    EI_DECODE_ENCODE(port , erlang_port);
-    EI_DECODE_ENCODE(ref  , erlang_ref);
-    EI_DECODE_ENCODE(trace, erlang_trace);
+    decode_encode_one(&fun_type);
+    decode_encode_one(&pid_type);
+    decode_encode_one(&port_type);
+    decode_encode_one(&ref_type);
+    decode_encode_one(&trace_type);
 
-    EI_DECODE_ENCODE_BIG(big  , erlang_big);
-    EI_DECODE_ENCODE_BIG(big  , erlang_big);
-    EI_DECODE_ENCODE_BIG(big  , erlang_big);
+    decode_encode_big(&big_type);
+    decode_encode_big(&big_type);
+    decode_encode_big(&big_type);
 
-    EI_DECODE_ENCODE_BIG(big  , erlang_big);
-    EI_DECODE_ENCODE_BIG(big  , erlang_big);
-    EI_DECODE_ENCODE_BIG(big  , erlang_big);
+    decode_encode_big(&big_type);
+    decode_encode_big(&big_type);
+    decode_encode_big(&big_type);
 
     /* Test large node containers... */
-    EI_DECODE_ENCODE(pid  , erlang_pid);
-    EI_DECODE_ENCODE(port , erlang_port);
-    EI_DECODE_ENCODE(ref  , erlang_ref);
-    EI_DECODE_ENCODE(pid  , erlang_pid);
-    EI_DECODE_ENCODE(port , erlang_port);
-    EI_DECODE_ENCODE(ref  , erlang_ref);
+    decode_encode_one(&pid_type);
+    decode_encode_one(&port_type);
+    decode_encode_one(&ref_type);
+    decode_encode_one(&pid_type);
+    decode_encode_one(&port_type);
+    decode_encode_one(&ref_type);
 
     /* Unicode atoms */
     for (i=0; i<24; i++) {
-	EI_DECODE_ENCODE(my_atom, my_atom);
-	EI_DECODE_ENCODE(pid, erlang_pid);
-	EI_DECODE_ENCODE(port, erlang_port);
-	EI_DECODE_ENCODE(ref, erlang_ref);
+	decode_encode_one(&my_atom_type);
+	decode_encode_one(&pid_type);
+	decode_encode_one(&port_type);
+	decode_encode_one(&ref_type);
     }
 
     report(1);
