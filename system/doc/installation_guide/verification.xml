@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2013</year>
+      <year>2000</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,40 +32,7 @@
     <file>verification.xml</file>
   </header>
   <p>This chapter is about verifying your installation by performing
-    a few simple tests to see that your system is properly installed.</p>
-
-  <section>
-    <title>UNIX</title>
-    <list type="bulleted">
-      <item>
-        <p>Start Erlang/OTP from the command line,</p>
-        <pre>
-  unix> erl</pre>
-        <p>Expect the following output:</p>
-        <pre>
-  Erlang (BEAM) emulator version 5.0.1 [threads]
-
-  Eshell V5.0.1  (abort with ^G)
-  1></pre>
-      </item>
-      <item>
-        <p>Start the GS-based toolbar from the Erlang shell, </p>
-        <pre>
-  1> <input>toolbar:start().</input></pre>
-        <p>and check that the toolbar window pops up.
-          </p>
-        <p><em>Note:</em> The trailing full stop (<c>"."</c>) is an end marker
-          for all commands in the Erlang shell, and must be entered for a 
-          command to begin execution.</p>
-      </item>
-      <item>
-        <p>Exit by entering the command <c>halt()</c>,</p>
-        <pre>
-  2> <input>halt().</input></pre>
-        <p>which should end both the toolbar window and the command line window. </p>
-      </item>
-    </list>
-  </section>
+    a simple test to see that your system is properly installed.</p>
 
   <section>
     <title>Windows</title>
@@ -73,28 +40,18 @@
       <item>
         <p>Start Erlang/OTP by double-clicking on the Erlang shortcut icon on the
           desktop.</p>
-        <p>Expect a command line window to pop up with the following output,</p>
+        <p>Expect a command line window to pop up with an output looking something like this:</p>
         <pre>
-  Erlang (BEAM) emulator version 5.0.1 [threads]
+  Erlang/OTP 17 [erts-6.0] [64-bit] [smp:2:2]
 
-  Eshell V5.0.1  (abort with ^G)
+  Eshell V6.0  (abort with ^G)
   1></pre>
-      </item>
-      <item>
-        <p>Start the GS-based toolbar from the Erlang shell, </p>
-        <pre>
-  1> <input>toolbar:start().</input></pre>
-        <p>and check that the toolbar window pops up.
-          </p>
-        <p><em>Note:</em> The trailing full stop (<c>"."</c>) is an end marker
-          for all commands in the Erlang shell, and must be entered for a 
-          command to begin execution.</p>
       </item>
       <item>
         <p>Exit by entering the command <c>halt()</c>,</p>
         <pre>
   2> <input>halt().</input></pre>
-        <p>which should end both the toolbar window and the command line window. </p>
+        <p>which should close the command line window and stop Erlang/OTP. </p>
       </item>
     </list>
   </section>

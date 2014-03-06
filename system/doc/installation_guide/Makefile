@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2012. All Rights Reserved.
+# Copyright Ericsson AB 1996-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -58,8 +58,7 @@ XML_FILES = \
 GENERATED_XML_FILES = \
 	INSTALL.xml \
 	INSTALL-CROSS.xml \
-	INSTALL-WIN32.xml \
-	MARKDOWN.xml
+	INSTALL-WIN32.xml
 
 # ----------------------------------------------------
 
@@ -74,8 +73,7 @@ REDIRECT_HTML_DIR = $(HTMLDIR)/source
 REDIRECT_HTML_FILES = \
 	$(REDIRECT_HTML_DIR)/INSTALL.html \
 	$(REDIRECT_HTML_DIR)/INSTALL-CROSS.html \
-	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html \
-	$(REDIRECT_HTML_DIR)/MARKDOWN.html
+	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html
 
 # ----------------------------------------------------
 # FLAGS 
