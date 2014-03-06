@@ -354,6 +354,24 @@ match(P, E, Bs) ->
 			    {false, Bs}
 		    end
 	    end;
+    map ->
+        %% The most we can do is to say "definitely no match" if a
+        %% binary pattern is matched against non-binary data.
+        case E of
+            any ->
+                {false, Bs};
+            _ ->
+                case type(E) of
+                    literal ->
+                        none;
+                    cons ->
+                        none;
+                    tuple ->
+                        none;
+                    _ ->
+                        {false, Bs}
+                end
+        end;
 	_ ->
 	    match_1(P, E, Bs)
     end.
