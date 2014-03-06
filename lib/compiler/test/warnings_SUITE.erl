@@ -37,7 +37,8 @@
 
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
-         files/1,effect/1,bin_opt_info/1,bin_construction/1, comprehensions/1]).
+         files/1,effect/1,bin_opt_info/1,bin_construction/1, comprehensions/1,
+         maps/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -61,7 +62,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
-       bin_opt_info,bin_construction,comprehensions]}].
+       bin_opt_info,bin_construction,comprehensions,maps]}].
 
 init_per_suite(Config) ->
     Config.
@@ -549,6 +550,26 @@ comprehensions(Config) when is_list(Config) ->
              g() -> << <<1>> || true >>.
            ">>,
            [], []}],
+    run(Config, Ts),
+    ok.
+
+maps(Config) when is_list(Config) ->
+    Ts = [{bad_map,
+           <<"
+             t() ->
+                 case maybe_map of
+                     #{} -> ok;
+                     not_map -> error
+                 end.
+             x() ->
+                 case true of
+                     #{}  -> error;
+                     true -> ok
+                 end.
+           ">>,
+           [],
+           {warnings,[{3,sys_core_fold,no_clause_match},
+                      {9,sys_core_fold,nomatch_clause_type}]}}],
     run(Config, Ts),
     ok.
 
