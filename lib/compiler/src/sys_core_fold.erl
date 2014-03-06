@@ -72,7 +72,7 @@
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,all/2,any/2,
 		reverse/1,reverse/2,member/2,nth/2,flatten/1,unzip/1]).
 
--import(cerl, [ann_c_cons/3,ann_c_tuple/2,ann_c_map/3]).
+-import(cerl, [ann_c_cons/3,ann_c_map/3,ann_c_tuple/2]).
 
 -include("core_parse.hrl").
 
@@ -1378,6 +1378,7 @@ eval_is_record(Call, _, _, _, _) -> Call.
 is_not_integer(#c_literal{val=Val}) when not is_integer(Val) -> true;
 is_not_integer(#c_tuple{}) -> true;
 is_not_integer(#c_cons{}) -> true;
+is_not_integer(#c_map{}) -> true;
 is_not_integer(_) -> false.
 
 %% is_not_tuple(Core) -> true | false.
@@ -1385,6 +1386,7 @@ is_not_integer(_) -> false.
 
 is_not_tuple(#c_literal{val=Val}) when not is_tuple(Val) -> true;
 is_not_tuple(#c_cons{}) -> true;
+is_not_tuple(#c_map{}) -> true;
 is_not_tuple(_) -> false.
 
 %% eval_setelement(Call, Pos, Tuple, NewVal) -> Core.

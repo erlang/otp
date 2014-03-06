@@ -1588,7 +1588,7 @@ ann_c_map(As,Es) ->
     ann_c_map(As, #c_literal{val=#{}}, Es).
 
 ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 ->
-    Pairs = [[K,V]||#c_map_pair{key=K,val=V}<-Es],
+    Pairs = [[Ck,Cv]||#c_map_pair{key=Ck,val=Cv}<-Es],
     IsLit = lists:foldl(fun(Pair,Res) ->
 		Res andalso is_lit_list(Pair)
 	end, true, Pairs),
@@ -1599,8 +1599,36 @@ ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 
 	true ->
 	    #c_literal{anno=As, val=maps:from_list(lists:map(Fun, Pairs))}
 	end;
+ann_c_map(As,#c_literal{val=M},Es) when is_map(M) ->
+    fold_map_pairs(As,Es,M);
 ann_c_map(As,M,Es) ->
-    #c_map{var=M, es = Es, anno = As }.
+    #c_map{var=M, es=Es, anno=As }.
+
+fold_map_pairs(As,[],M) -> #c_literal{anno=As,val=M};
+%% M#{ K => V}
+fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}=E|Es],M) ->
+    case is_lit_list([Ck,Cv]) of
+	true ->
+	    [K,V] = lit_list_vals([Ck,Cv]),
+	    fold_map_pairs(As,Es,maps:put(K,V,M));
+	false ->
+	    #c_map{var=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+    end;
+%% M#{ K := V}
+fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}=E|Es],M) ->
+    case is_lit_list([Ck,Cv]) of
+	true ->
+	    [K,V] = lit_list_vals([Ck,Cv]),
+	    case maps:is_key(K,M) of
+		true -> fold_map_pairs(As,Es,maps:put(K,V,M));
+		false ->
+		    #c_map{var=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+	    end;
+	false ->
+	    #c_map{var=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+    end;
+fold_map_pairs(As,Es,M) ->
+    #c_map{var=#c_literal{val=M,anno=As}, es=Es, anno=As }.
 
 
 update_c_map(Old,M,Es) ->
