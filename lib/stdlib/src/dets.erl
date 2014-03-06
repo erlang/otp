@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1785,6 +1785,7 @@ read_file_header(FileName, Access, RamFile) ->
         Version =:= 9 ->
             dets_v9:read_file_header(Fd, FileName);
         true ->
+            _ = file:close(Fd),
             throw({error, {not_a_dets_file, FileName}})
     end.
 
@@ -2113,6 +2114,8 @@ test_bchunk_format(Head, Term) ->
 
 do_open_file([Fname, Verbose], Parent, Server, Ref) ->
     case catch fopen2(Fname, Ref) of
+	{error, {tooshort, _}} ->
+            err({error, {not_a_dets_file, Fname}});
 	{error, _Reason} = Error ->
 	    err(Error);
 	{ok, Head} ->
@@ -2126,11 +2129,10 @@ do_open_file([Fname, Verbose], Parent, Server, Ref) ->
 	       [Bad]),
 	    {error, {dets_bug, Fname, Bad}}
     end;
-do_open_file([Tab, OpenArgs, Verb], Parent, Server, Ref) ->
+do_open_file([Tab, OpenArgs, Verb], Parent, Server, _Ref) ->
     case catch fopen3(Tab, OpenArgs) of
 	{error, {tooshort, _}} ->
-	    _ = file:delete(OpenArgs#open_args.file),
-	    do_open_file([Tab, OpenArgs, Verb], Parent, Server, Ref);
+            err({error, {not_a_dets_file, OpenArgs#open_args.file}});
 	{error, _Reason} = Error ->
 	    err(Error);
 	{ok, Head} ->
@@ -2486,7 +2488,6 @@ fopen2(Fname, Tab) ->
 	{ok, _} ->
 	    Acc = read_write,
 	    Ram = false, 
-	    %% Fd is not always closed upon error, but exit is soon called.
 	    {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
             Mod = FH#fileheader.mod,
             Do = case Mod:check_file_header(FH, Fd) of
@@ -2542,7 +2543,6 @@ fopen_existing_file(Tab, OpenArgs) ->
                ram_file = Ram, delayed_write = CacheSz, auto_save =
                Auto, access = Acc, version = Version, debug = Debug} =
         OpenArgs,
-    %% Fd is not always closed upon error, but exit is soon called.
     {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
     V9 = (Version =:= 9) or (Version =:= default),
     MinF = (MinSlots =:= default) or (MinSlots =:= FH#fileheader.min_no_slots),
