@@ -189,7 +189,9 @@ loop_match_and_update_literals_x_q(#{q:=Q0,x:=X0} = Map, [{X,Q}|Vs]) ->
 
 t_update_map_expressions(Config) when is_list(Config) ->
     M = maps:new(),
-    #{ a := 1 } = M#{a => 1},
+    X = id(fondue),
+    M1 = #{ a := 1 } = M#{a => 1},
+    #{ b := {X} } = M1#{ a := 1, b => {X} },
 
     #{ b := 2 } = (maps:new())#{ b => 2 },
 

@@ -519,7 +519,7 @@ map_split_pairs(A, Var, Ces, Sub, St0) ->
 	    Kes1 = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
 	    {Mvar,Em,St2} = force_atomic(#k_map{anno=A,op=assoc,var=Var,es=Kes1},St1),
 	    Kes2 = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
-	    {#k_map{anno=A,op=exact,var=Mvar,es=Kes2},Em ++ Esp,St2}
+	    {#k_map{anno=A,op=exact,var=Mvar,es=Kes2},Esp ++ Em,St2}
 
     end.
 
