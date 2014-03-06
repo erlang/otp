@@ -1385,18 +1385,19 @@ pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
 pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
-    pattern_list(Ps, Vt, Old, Bvt, St);
-pattern({map_field_assoc,Line,_,_}, _, _, _, St) ->
-    {[],[],add_error(Line, illegal_pattern, St)};
-pattern({map_field_exact,Line,KP,VP}, Vt, Old, Bvt0, St0) ->
-    %% if the key pattern has variables we should fail
-    case expr(KP,[],St0) of
-	{[],_} ->
-	    pattern(VP, Vt, Old, Bvt0, St0);
-	{[Var|_],_} ->
-	    %% found variables in key expression
-	    {Vt,Old,add_error(Line,{illegal_map_key_variable,element(1,Var)},St0)}
-    end;
+    foldl(fun ({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
+                  {Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
+              ({map_field_exact,L,KP,VP}, {Psvt,Bvt0,St0}) ->
+                  case expr(KP, [], St0) of
+                        {[],_} ->
+                            {Pvt,Bvt1,St1} = pattern(VP, Vt, Old, Bvt, St0),
+                            {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt0, Bvt1),
+                             St1};
+                        {[Var|_],_} ->
+                            Error = {illegal_map_key_variable,element(1, Var)},
+                            {Psvt,Bvt0,add_error(L, Error, St0)}
+                  end
+          end, {[],[],St}, Ps);
 %%pattern({struct,_Line,_Tag,Ps}, Vt, Old, Bvt, St) ->
 %%    pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
@@ -1785,13 +1786,11 @@ gexpr({cons,_Line,H,T}, Vt, St) ->
 gexpr({tuple,_Line,Es}, Vt, St) ->
     gexpr_list(Es, Vt, St);
 gexpr({map,_Line,Es}, Vt, St) ->
-    gexpr_list(Es, Vt, St);
+    map_fields(Es, Vt, check_assoc_fields(Es, St), fun gexpr_list/3);
 gexpr({map,_Line,Src,Es}, Vt, St) ->
-    gexpr_list([Src|Es], Vt, St);
-gexpr({map_field_assoc,_Line,K,V}, Vt, St) ->
-    gexpr_list([K,V], Vt, St);
-gexpr({map_field_exact,_Line,K,V}, Vt, St) ->
-    gexpr_list([K,V], Vt, St);
+    {Svt,St1} = gexpr(Src, Vt, St),
+    {Fvt,St2} = map_fields(Es, Vt, St1, fun gexpr_list/3),
+    {vtmerge(Svt, Fvt),St2};
 gexpr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end );
@@ -2015,24 +2014,12 @@ expr({bc,_Line,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
 expr({tuple,_Line,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
-expr({map,Line,Es}, Vt, St) ->
-    {Rvt,St1} = expr_list(Es,Vt,St),
-    case is_valid_map_construction(Es) of
-	true  -> {Rvt,St1};
-	false -> {[],add_error(Line,illegal_map_construction,St1)}
-    end;
+expr({map,_Line,Es}, Vt, St) ->
+    map_fields(Es, Vt, check_assoc_fields(Es, St), fun expr_list/3);
 expr({map,_Line,Src,Es}, Vt, St) ->
-    expr_list([Src|Es], Vt, St);
-expr({map_field_assoc,Line,K,V}, Vt, St) ->
-    case is_valid_map_key(K,St) of
-	true  -> expr_list([K,V], Vt, St);
-	{false,Var} -> {[],add_error(Line,{illegal_map_key_variable,Var},St)}
-    end;
-expr({map_field_exact,Line,K,V}, Vt, St) ->
-    case is_valid_map_key(K,St) of
-	true  -> expr_list([K,V], Vt, St);
-	{false,Var} -> {[],add_error(Line,{illegal_map_key_variable,Var},St)}
-    end;
+    {Svt,St1} = expr(Src, Vt, St),
+    {Fvt,St2} = map_fields(Es, Vt, St1, fun expr_list/3),
+    {vtupdate(Svt, Fvt),St2};
 expr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end);
@@ -2240,6 +2227,25 @@ record_expr(Line, Rec, Vt, St0) ->
     St1 = warn_invalid_record(Line, Rec, St0),
     expr(Rec, Vt, St1).
 
+check_assoc_fields([{map_field_exact,Line,_,_}|Fs], St) ->
+    check_assoc_fields(Fs, add_error(Line, illegal_map_construction, St));
+check_assoc_fields([{map_field_assoc,_,_,_}|Fs], St) ->
+    check_assoc_fields(Fs, St);
+check_assoc_fields([], St) ->
+    St.
+
+map_fields([{Tag,Line,K,V}|Fs], Vt, St, F) when Tag =:= map_field_assoc;
+                                                Tag =:= map_field_exact ->
+    St1 = case is_valid_map_key(K, St) of
+              true -> St;
+              {false,Var} -> add_error(Line, {illegal_map_key_variable,Var}, St)
+          end,
+    {Pvt,St2} = F([K,V], Vt, St1),
+    {Vts,St3} = map_fields(Fs, Vt, St2, F),
+    {vtupdate(Pvt, Vts),St3};
+map_fields([], Vt, St, _) ->
+  {Vt,St}.
+
 %% warn_invalid_record(Line, Record, State0) -> State
 %% Adds warning if the record is invalid.
 
@@ -2291,13 +2297,6 @@ is_valid_call(Call) ->
         {tuple, _, Exprs} when length(Exprs) =/= 2 -> false;
         _ -> true
     end.
-
-%% check_map_construction
-%% Only #{ K => V }, i.e. assoc is a valid construction
-is_valid_map_construction([{map_field_assoc,_,_,_}|Es]) ->
-    is_valid_map_construction(Es);
-is_valid_map_construction([]) -> true;
-is_valid_map_construction(_)  -> false.
 
 is_valid_map_key(K,St) ->
     case expr(K,[],St) of
