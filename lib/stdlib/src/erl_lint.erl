@@ -2535,32 +2535,39 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
                 CheckType = {type, -1, product, [ProtoType|Args]},
                 check_type(CheckType, St#lint{types=NewDefs})
         end,
-    case (dict:is_key(TypePair, TypeDefs) orelse is_var_arity_type(TypeName)) of
-	true ->
-	    case is_default_type(TypePair) of
-		true  ->
-		    case is_newly_introduced_builtin_type(TypePair) of
-			%% allow some types just for bootstrapping
-			true ->
-			    Warn = {new_builtin_type, TypePair},
-			    St1 = add_warning(Line, Warn, St0),
+    case is_default_type(TypePair) of
+        true ->
+            case is_obsolete_builtin_type(TypePair) of
+                true -> StoreType(St0);
+                false ->
+                    case is_newly_introduced_builtin_type(TypePair) of
+                        %% allow some types just for bootstrapping
+                        true ->
+                            Warn = {new_builtin_type, TypePair},
+                            St1 = add_warning(Line, Warn, St0),
                             StoreType(St1);
-			false ->
-			    add_error(Line, {builtin_type, TypePair}, St0)
-		    end;
-	        false -> add_error(Line, {redefine_type, TypePair}, St0)
-	    end;
-	false ->
-            St1 = case
-                      Attr =:= opaque andalso
-                      is_underspecified(ProtoType, Arity)
-                  of
-                      true ->
-                          Warn = {underspecified_opaque, TypePair},
-                          add_warning(Line, Warn, St0);
-                      false -> St0
-                  end,
-            StoreType(St1)
+                        false ->
+                            add_error(Line, {builtin_type, TypePair}, St0)
+                    end
+            end;
+        false ->
+            case
+                dict:is_key(TypePair, TypeDefs)
+                orelse is_var_arity_type(TypeName)
+            of
+                true -> add_error(Line, {redefine_type, TypePair}, St0);
+                false ->
+                    St1 = case
+                              Attr =:= opaque andalso
+                              is_underspecified(ProtoType, Arity)
+                          of
+                              true ->
+                                  Warn = {underspecified_opaque, TypePair},
+                                  add_warning(Line, Warn, St0);
+                              false -> St0
+                          end,
+                    StoreType(St1)
+	    end
     end.
 
 is_underspecified({type,_,term,[]}, 0) -> true;
@@ -2785,18 +2792,14 @@ is_default_type(_) -> false.
 
 %% R13
 is_newly_introduced_builtin_type({arity, 0}) -> true;
-is_newly_introduced_builtin_type({array, 0}) -> true; % opaque
 is_newly_introduced_builtin_type({bitstring, 0}) -> true;
-is_newly_introduced_builtin_type({dict, 0}) -> true; % opaque
-is_newly_introduced_builtin_type({digraph, 0}) -> true; % opaque
-is_newly_introduced_builtin_type({gb_set, 0}) -> true; % opaque
-is_newly_introduced_builtin_type({gb_tree, 0}) -> true; % opaque
 is_newly_introduced_builtin_type({iodata, 0}) -> true;
-is_newly_introduced_builtin_type({queue, 0}) -> true; % opaque
-is_newly_introduced_builtin_type({set, 0}) -> true; % opaque
 %% R13B01
 is_newly_introduced_builtin_type({boolean, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
+
+is_obsolete_builtin_type(TypePair) ->
+    obsolete_builtin_type(TypePair) =/= no.
 
 %% Obsolete in OTP 17.0.
 obsolete_builtin_type({array, 0}) ->
@@ -2815,7 +2818,7 @@ obsolete_builtin_type({set, 0}) ->
     {deprecated, {sets, set, 1}, "OTP 18.0"};
 obsolete_builtin_type({tid, 0}) ->
     {deprecated, {ets, tid}, "OTP 18.0"};
-obsolete_builtin_type({Name, _}) when is_atom(Name) -> no.
+obsolete_builtin_type({Name, A}) when is_atom(Name), is_integer(A) -> no.
 
 %% spec_decl(Line, Fun, Types, State) -> State.
 
