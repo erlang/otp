@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -128,6 +128,45 @@ struct Type tuple_type = {
     my_encode_tuple_header, my_x_encode_tuple_header
 };
 
+int my_encode_list_header(char *buf, int *index, union my_obj* obj)
+{
+    return ei_encode_list_header(buf, index, obj->arity);
+}
+int my_x_encode_list_header(ei_x_buff* x, union my_obj* obj)
+{
+    return ei_x_encode_list_header(x, (long)obj->arity);
+}
+
+struct Type list_type = {
+    "list_header", "arity", (decodeFT*)ei_decode_list_header,
+    my_encode_list_header, my_x_encode_list_header
+};
+
+
+int my_decode_nil(const char *buf, int *index, union my_obj* dummy)
+{
+    int type, size, ret;
+    ret = ei_get_type(buf, index, &type, &size);
+    (*index)++;
+    return ret ?  ret : !(type == ERL_NIL_EXT);
+
+}
+int my_encode_nil(char *buf, int *index, union my_obj* dummy)
+{
+    return ei_encode_empty_list(buf, index);
+}
+
+int my_x_encode_nil(ei_x_buff* x, union my_obj* dummy)
+{
+    return ei_x_encode_empty_list(x);
+}
+
+struct Type nil_type = {
+    "empty_list", "nil", (decodeFT*)my_decode_nil,
+    my_encode_nil, my_x_encode_nil
+};
+
+
 #define BUFSZ 2000
 
 void decode_encode(struct Type** tv, int nobj)
@@ -186,7 +225,7 @@ void decode_encode(struct Type** tv, int nobj)
 	    return;
 	}
 
-	if (t != &tuple_type) {
+	if (t != &tuple_type && t != &list_type) {
 	    size2 = 0;
 	    err = ei_skip_term(inp, &size2);
 	    if (err != 0) {
@@ -388,6 +427,22 @@ TESTCASE(test_ei_decode_encode)
 	decode_encode_one(&port_type);
 	decode_encode_one(&ref_type);
     }
+
+    decode_encode_one(&tuple_type);  /* {} */
+    {
+	struct Type* tpl[] = { &tuple_type, &my_atom_type, &pid_type, &port_type, &ref_type };
+	decode_encode(tpl, 5);
+    }
+
+    {
+	struct Type* list[] = { &list_type, &my_atom_type, &pid_type, &port_type, &ref_type, &nil_type };
+	decode_encode(list, 6);
+    }
+    {
+	struct Type* list[] = { &list_type, &my_atom_type, &fun_type };
+	decode_encode(list, 3);
+    }
+
 
     report(1);
 }

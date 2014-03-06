@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -127,6 +127,11 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 	   send_rec(P, mk_ref({Atom,1}, [262143, 8723648, 24097245])),
 	   void
      end || Atom <- unicode_atom_data()],
+
+    send_rec(P, {}),
+    send_rec(P, {atom, Pid, Port, Ref}),
+    send_rec(P, [atom, Pid, Port, Ref]),
+    send_rec(P, [atom | Fun]),
     ?line runner:recv_eot(P),
     ok.
 
