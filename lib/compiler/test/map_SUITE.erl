@@ -298,6 +298,8 @@ t_guard_bifs(Config) when is_list(Config) ->
     false  = map_guard_body({}),
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
     false  = map_guard_pattern("list"),
+    true   = map_guard_tautology(),
+    true   = map_guard_ill_map_size(),
     ok.
 
 map_guard_empty() when is_map(#{}); false -> true.
@@ -309,6 +311,10 @@ map_guard_body(M) -> is_map(M).
 
 map_guard_pattern(#{}) -> true;
 map_guard_pattern(_)   -> false.
+
+map_guard_tautology() when #{} =:= #{}; true -> true.
+
+map_guard_ill_map_size() when true; map_size(0) -> true.
 
 t_guard_sequence(Config) when is_list(Config) ->
 	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
