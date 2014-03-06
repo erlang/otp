@@ -91,6 +91,7 @@ is_pure(erlang, is_float, 1) -> true;
 is_pure(erlang, is_function, 1) -> true;
 is_pure(erlang, is_integer, 1) -> true;
 is_pure(erlang, is_list, 1) -> true;
+is_pure(erlang, is_map, 1) -> true;
 is_pure(erlang, is_number, 1) -> true;
 is_pure(erlang, is_pid, 1) -> true;
 is_pure(erlang, is_port, 1) -> true;
