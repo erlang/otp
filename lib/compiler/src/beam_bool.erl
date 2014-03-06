@@ -531,7 +531,9 @@ bopt_cg({prot,Pre0,Tree}, Fail, Rs0, Acc, St0) ->
 bopt_cg({atom,true}, _Fail, _Rs, Acc, St) ->
     {Acc,St};
 bopt_cg({atom,false}, Fail, _Rs, Acc, St) ->
-    {[{jump,{f,Fail}}|Acc],St}.
+    {[{jump,{f,Fail}}|Acc],St};
+bopt_cg(_, _, _, _, _) ->
+    throw(not_boolean_expr).
 
 bopt_cg_not({'and',As0}) ->
     As = [bopt_cg_not(A) || A <- As0],
@@ -544,7 +546,9 @@ bopt_cg_not({'not',Arg}) ->
 bopt_cg_not({test,Test,Fail,As}) ->
     {inverted_test,Test,Fail,As};
 bopt_cg_not({atom,Bool}) when is_boolean(Bool) ->
-    {atom,not Bool}.
+    {atom,not Bool};
+bopt_cg_not(_) ->
+    throw(not_boolean_expr).
 
 bopt_cg_not_not({'and',As}) ->
     {'and',[bopt_cg_not_not(A) || A <- As]};
