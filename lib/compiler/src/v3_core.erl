@@ -1782,13 +1782,16 @@ uexpr(#iletrec{anno=A,defs=Fs0,body=B0}, Ks, St0) ->
     {B1,St2} = uexprs(B0, Ks, St1),
     Used = used_in_any(map(fun ({_,F}) -> F end, Fs1) ++ B1),
     {#iletrec{anno=A#a{us=Used,ns=[]},defs=Fs1,body=B1},St2};
-uexpr(#icase{anno=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
+uexpr(#icase{anno=#a{anno=Anno}=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
     %% As0 will never generate new variables.
     {As1,St1} = uexpr_list(As0, Ks, St0),
     {Cs1,St2} = uclauses(Cs0, Ks, St1),
     {Fc1,St3} = uclause(Fc0, Ks, St2),
     Used = union(used_in_any(As1), used_in_any(Cs1)),
-    New = new_in_all(Cs1),
+    New = case member(list_comprehension, Anno) of
+              true -> [];
+              false -> new_in_all(Cs1)
+          end,
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
 uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}, Ks0, St0) ->
     Avs = lit_list_vars(As),

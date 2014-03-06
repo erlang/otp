@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
-	 empty_generator/1]).
+	 empty_generator/1,no_export/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -31,7 +31,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [basic, deeply_nested, no_generator, empty_generator].
+    [basic, deeply_nested, no_generator, empty_generator, no_export].
 
 groups() -> 
     [].
@@ -175,6 +175,10 @@ no_gen_one_more(A, B) -> A + 1 =:= B.
 
 empty_generator(Config) when is_list(Config) ->
     ?line [] = [X || {X} <- [], (false or (X/0 > 3))],
+    ok.
+
+no_export(Config) when is_list(Config) ->
+    [] = [ _X = a || false ] ++ [ _X = a || false ],
     ok.
 
 id(I) -> I.
