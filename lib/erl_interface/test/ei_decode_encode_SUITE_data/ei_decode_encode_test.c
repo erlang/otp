@@ -166,6 +166,20 @@ struct Type nil_type = {
     my_encode_nil, my_x_encode_nil
 };
 
+int my_encode_map_header(char *buf, int *index, union my_obj* obj)
+{
+    return ei_encode_map_header(buf, index, obj->arity);
+}
+int my_x_encode_map_header(ei_x_buff* x, union my_obj* obj)
+{
+    return ei_x_encode_map_header(x, (long)obj->arity);
+}
+
+struct Type map_type = {
+    "map_header", "arity", (decodeFT*)ei_decode_map_header,
+    my_encode_map_header, my_x_encode_map_header
+};
+
 
 #define BUFSZ 2000
 
@@ -225,7 +239,7 @@ void decode_encode(struct Type** tv, int nobj)
 	    return;
 	}
 
-	if (t != &tuple_type && t != &list_type) {
+	if (t != &tuple_type && t != &list_type && t != &map_type) {
 	    size2 = 0;
 	    err = ei_skip_term(inp, &size2);
 	    if (err != 0) {
@@ -442,7 +456,19 @@ TESTCASE(test_ei_decode_encode)
 	struct Type* list[] = { &list_type, &my_atom_type, &fun_type };
 	decode_encode(list, 3);
     }
+    decode_encode_one(&map_type);  /* #{} */
+    { /* #{atom => atom}*/
+	struct Type* map[] = { &map_type, &my_atom_type, &my_atom_type };
+	decode_encode(map, 3);
+    }
 
+    { /* #{atom => atom, atom => pid, port => ref }*/
+	struct Type* map[] = { &map_type,
+	    &my_atom_type, &my_atom_type, &port_type,
+	    &my_atom_type, &pid_type, &ref_type
+	};
+	decode_encode(map, 7);
+    }
 
     report(1);
 }

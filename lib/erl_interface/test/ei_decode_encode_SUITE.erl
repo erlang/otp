@@ -132,6 +132,10 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     send_rec(P, {atom, Pid, Port, Ref}),
     send_rec(P, [atom, Pid, Port, Ref]),
     send_rec(P, [atom | Fun]),
+    send_rec(P, #{}),
+    send_rec(P, #{key => value}),
+    send_rec(P, maps:put(Port, Ref, #{key => value, key2 => Pid})),
+
     ?line runner:recv_eot(P),
     ok.
 
