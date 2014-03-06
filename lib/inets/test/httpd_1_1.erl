@@ -152,13 +152,13 @@ if_test(Type, Port, Host, Node, DocRoot)->
 	calendar:datetime_to_gregorian_seconds(FileInfo#file_info.mtime),
     
     Mod = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
-    				      CreatedSec-1)),
+				    CreatedSec-1)),
     
     %% Test that we get the data when the file is modified
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
     				       "GET / HTTP/1.1\r\nHost:" ++ Host ++
-    				       "\r\nIf-Modified-Since:" ++
-    				       Mod ++ "\r\n\r\n",
+					   "\r\nIf-Modified-Since:" ++
+					   Mod ++ "\r\n\r\n",
     				       [{statuscode, 200}]),
     Mod1 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec+100)),
@@ -168,64 +168,63 @@ if_test(Type, Port, Host, Node, DocRoot)->
     				       ++ Mod1 ++"\r\n\r\n",
     				       [{statuscode, 304}]),
     
-
+    
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET / HTTP/1.1\r\nHost:" ++ Host ++
-				       "\r\nIf-Modified-Since:" ++
-				       "AAA[...]AAAA" ++ "\r\n\r\n",
+					   "\r\nIf-Modified-Since:" ++
+					   "AAA[...]AAAA" ++ "\r\n\r\n",
 				       [{statuscode, 400}]),
-
-
-     Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    
+    Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				      CreatedSec+1)),
-     %% Control that the If-Unmodified-Header lmits the response
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ 
-    					  "\r\nIf-Unmodified-Since:" ++ Mod2 
-    					  ++ "\r\n\r\n",
-    					  [{statuscode, 200}]),
-     Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    %% Control that the If-Unmodified-Header lmits the response
+    ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+				       "GET / HTTP/1.1\r\nHost:"
+				       ++ Host ++ 
+					   "\r\nIf-Unmodified-Since:" ++ Mod2 
+				       ++ "\r\n\r\n",
+				       [{statuscode, 200}]),
+    Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec-1)),
     
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ 
-    					  "\r\nIf-Unmodified-Since:"++ Mod3 
+					"GET / HTTP/1.1\r\nHost:"
+					++ Host ++ 
+					    "\r\nIf-Unmodified-Since:"++ Mod3 
     					  ++"\r\n\r\n",
-    					  [{statuscode, 412}]),
+					[{statuscode, 412}]),
     
-     %% Control that we get the body when the etag match
+    %% Control that we get the body when the etag match
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:" ++ Host 
-    					  ++"\r\n"++
-    					  "If-Match:"++ 
-    					  httpd_util:create_etag(FileInfo)++
-    					  "\r\n\r\n",
-    					  [{statuscode, 200}]),
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:" ++ 
-    					  Host ++ "\r\n"++
-    					  "If-Match:NotEtag\r\n\r\n",
-    					  [{statuscode, 412}]),
+					"GET / HTTP/1.1\r\nHost:" ++ Host 
+					++"\r\n"++
+     					   "If-Match:"++ 
+					    httpd_util:create_etag(FileInfo)++
+					    "\r\n\r\n",
+					[{statuscode, 200}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "GET / HTTP/1.1\r\nHost:" ++ 
+					   Host ++ "\r\n"++
+					   "If-Match:NotEtag\r\n\r\n",
+				       [{statuscode, 412}]),
     
-     %% Control the response when the if-none-match header is there
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++"\r\n"++
-    					  "If-None-Match:NoTaag," ++ 
-    					  httpd_util:create_etag(FileInfo) ++
-    					  "\r\n\r\n",
-    					  [{statuscode, 304}]),
+    %% Control the response when the if-none-match header is there
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    				       "GET / HTTP/1.1\r\nHost:"
+     				       ++ Host ++"\r\n"++
+     					   "If-None-Match:NoTaag," ++ 
+     					   httpd_util:create_etag(FileInfo) ++
+     					   "\r\n\r\n",
+     				       [{statuscode, 304}]),
     
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
     					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ "\r\n"++
-    					  "If-None-Match:NotEtag,"
-    					  "NeihterEtag\r\n\r\n",
+				       ++ Host ++ "\r\n"++
+					   "If-None-Match:NotEtag,"
+				       "NeihterEtag\r\n\r\n",
     					  [{statuscode,200}]),
     ok.
-    
+
 trace(Type, Port, Host, Node)->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 					  "TRACE / HTTP/1.1\r\n" ++
