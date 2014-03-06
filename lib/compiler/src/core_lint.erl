@@ -267,10 +267,21 @@ gexpr(#c_let{vars=Vs,arg=Arg,body=B}, Def, Rt, St0) ->
     St1 = gbody(Arg, Def, let_varcount(Vs), St0), %This is a guard body
     {Lvs,St2} = variable_list(Vs, St1),
     gbody(B, union(Lvs, Def), Rt, St2);
-gexpr(#c_call{module=#c_literal{val=erlang},
-	      name=#c_literal{},
-	      args=As}, Def, 1, St) ->
-    gexpr_list(As, Def, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record},
+              args=[Arg,#c_literal{val=Tag},#c_literal{val=Size}]},
+      Def, 1, St) when is_atom(Tag), is_integer(Size) ->
+    gexpr(Arg, Def, 1, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record}},
+      _Def, 1, St) ->
+    add_error({illegal_guard,St#lint.func}, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
+      Def, 1, St) when is_atom(Name) ->
+    case is_guard_bif(Name, length(As)) of
+        true ->
+            gexpr_list(As, Def, St);
+        false ->
+            add_error({illegal_guard,St#lint.func}, St)
+    end;
 gexpr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
     gexpr_list(As, Def, St0);
 gexpr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
@@ -297,6 +308,14 @@ gbitstr_list(Es, Def, St0) ->
 
 gbitstr(#c_bitstr{val=V,size=S}, Def, St) ->
     gexpr_list([V,S], Def, St).
+
+%% is_guard_bif(Name, Arity) -> Boolean.
+
+is_guard_bif(Name, Arity) ->
+    erl_internal:guard_bif(Name, Arity)
+        orelse erl_internal:arith_op(Name, Arity)
+        orelse erl_internal:bool_op(Name, Arity)
+        orelse erl_internal:comp_op(Name, Arity).
 
 %% expr(Expr, Defined, RetCount, State) -> State.
 
