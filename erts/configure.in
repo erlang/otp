@@ -967,6 +967,8 @@ AC_CHECK_LIB(dl, dlopen)
 AC_CHECK_LIB(inet, main)
 AC_CHECK_LIB(util, openpty)
 
+AC_CHECK_LIB(systemd-daemon, sd_listen_fds)
+
 dnl Try to find a thread library.
 dnl
 dnl ETHR_LIB_NAME, ETHR_LIBS, ETHR_X_LIBS, ETHR_THR_LIB_BASE and ETHR_DEFS
@@ -1562,6 +1564,8 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 	 #endif
 	 #endif
 	])
+
+AC_CHECK_HEADERS(systemd/sd-daemon.h)
 
 dnl ----------------------------------------------------------------------
 dnl Check the availability for libdlpi

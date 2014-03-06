@@ -208,6 +208,39 @@ void run(EpmdVars *g)
   node_init(g);
   g->conn = conn_init(g);
 
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+  if (g->is_systemd)
+    {
+      int n;
+      
+      dbg_printf(g,2,"try to obtain sockets from systemd");
+
+      n = sd_listen_fds(0);
+      if (n < 0)
+        {
+          dbg_perror(g,"cannot obtain sockets from systemd");
+          epmd_cleanup_exit(g,1);
+        }
+      else if (n == 0)
+        {
+          dbg_tty_printf(g,0,"systemd provides no sockets");
+          epmd_cleanup_exit(g,1);
+      }
+      else if (n > MAX_LISTEN_SOCKETS)
+      {
+          dbg_tty_printf(g,0,"cannot listen on more than %d IP addresses", MAX_LISTEN_SOCKETS);
+          epmd_cleanup_exit(g,1);
+      } 
+      num_sockets = n;
+      for (i = 0; i < num_sockets; i++)
+        {
+          g->listenfd[i] = listensock[i] = SD_LISTEN_FDS_START + i;
+        }
+    }
+  else
+    {
+#endif
+
   dbg_printf(g,2,"try to initiate listening port %d", g->port);
 
   if (g->addresses != NULL && /* String contains non-separator characters if: */
@@ -272,6 +305,9 @@ void run(EpmdVars *g)
       SET_ADDR(iserv_addr[0],EPMD_ADDR_ANY,sport);
       num_sockets = 1;
     }
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+    }
+#endif
 
 #if !defined(__WIN32__)
   /* We ignore the SIGPIPE signal that is raised when we call write
@@ -289,6 +325,13 @@ void run(EpmdVars *g)
   FD_ZERO(&g->orig_read_mask);
   g->select_fd_top = 0;
 
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+  if (g->is_systemd)
+      for (i = 0; i < num_sockets; i++)
+          select_fd_set(g, listensock[i]);
+  else
+    {
+#endif
   for (i = 0; i < num_sockets; i++)
     {
       if ((listensock[i] = socket(FAMILY,SOCK_STREAM,0)) < 0)
@@ -351,6 +394,9 @@ void run(EpmdVars *g)
       }
       select_fd_set(g, listensock[i]);
     }
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H 
+    }
+#endif
 
   dbg_tty_printf(g,2,"entering the main select() loop");
 
