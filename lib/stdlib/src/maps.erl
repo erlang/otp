@@ -45,7 +45,6 @@
 
 -compile(no_native).
 
-%% Shadowed by erl_bif_types: maps:get/3
 -spec get(Key,Map) -> Value when
     Key :: term(),
     Map :: map(),
@@ -54,7 +53,6 @@
 get(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:find/3
 -spec find(Key,Map) -> {ok, Value} | error when
     Key :: term(),
     Map :: map(),
@@ -63,8 +61,8 @@ get(_,_) -> erlang:nif_error(undef).
 find(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:from_list/1
--spec from_list([{Key,Value}]) -> Map when
+-spec from_list(List) -> Map when
+    List :: [{Key,Value}],
     Key :: term(),
     Value :: term(),
     Map :: map().
@@ -72,7 +70,6 @@ find(_,_) -> erlang:nif_error(undef).
 from_list(_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:is_key/2
 -spec is_key(Key,Map) -> boolean() when
     Key :: term(),
     Map :: map().
@@ -80,7 +77,6 @@ from_list(_) -> erlang:nif_error(undef).
 is_key(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:keys/1
 -spec keys(Map) -> Keys when
     Map :: map(),
     Keys :: [Key],
@@ -89,7 +85,6 @@ is_key(_,_) -> erlang:nif_error(undef).
 keys(_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:merge/2
 -spec merge(Map1,Map2) -> Map3 when
     Map1 :: map(),
     Map2 :: map(),
@@ -99,14 +94,12 @@ merge(_,_) -> erlang:nif_error(undef).
 
 
 
-%% Shadowed by erl_bif_types: maps:new/0
 -spec new() -> Map when
     Map :: map().
 
 new() -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:put/3
 -spec put(Key,Value,Map1) -> Map2 when
     Key :: term(),
     Value :: term(),
@@ -116,7 +109,6 @@ new() -> erlang:nif_error(undef).
 put(_,_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:put/3
 -spec remove(Key,Map1) -> Map2 when
     Key :: term(),
     Map1 :: map(),
@@ -125,7 +117,6 @@ put(_,_,_) -> erlang:nif_error(undef).
 remove(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:to_list/1
 -spec to_list(Map) -> [{Key,Value}] when
     Map :: map(),
     Key :: term(),
@@ -134,7 +125,6 @@ remove(_,_) -> erlang:nif_error(undef).
 to_list(_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:update/3
 -spec update(Key,Value,Map1) -> Map2 when
     Key :: term(),
     Value :: term(),
@@ -144,7 +134,6 @@ to_list(_) -> erlang:nif_error(undef).
 update(_,_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: maps:values/1
 -spec values(Map) -> Keys when
     Map :: map(),
     Keys :: [Key],

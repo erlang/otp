@@ -68,6 +68,7 @@
   <xi:include href="lib.xml"/>
   <xi:include href="lists.xml"/>
   <xi:include href="log_mf_h.xml"/>
+  <xi:include href="maps.xml"/>
   <xi:include href="math.xml"/>
   <xi:include href="ms_transform.xml"/>
   <xi:include href="orddict.xml"/>

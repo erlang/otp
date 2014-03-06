@@ -433,7 +433,7 @@ t_tuple(Es) ->
     ["{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
 
 t_map() ->
-    ["#{}"].
+    ["map()"].
 
 t_fun(Es) ->
     ["("] ++ seq(fun t_utype_elem/1, get_content(argtypes, Es),
