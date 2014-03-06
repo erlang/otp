@@ -225,7 +225,9 @@ unix_cmd(Cmd) ->
 %% and the commands are read from standard input. We set the
 %% $1 parameter for easy identification of the resident shell.
 %%
--define(SHELL, "/bin/sh -s unix:cmd 2>&1").
+-define(ROOT,          "/").
+-define(ROOT_ANDROID,  "/system").
+-define(SHELL, "bin/sh -s unix:cmd 2>&1").
 -define(PORT_CREATOR_NAME, os_cmd_port_creator).
 
 %%
@@ -275,7 +277,12 @@ start_port_srv(Request) ->
     end.
 
 start_port_srv_handle({Ref,Client}) ->
-    Reply = try open_port({spawn, ?SHELL},[stream]) of
+    Path  = case lists:reverse(erlang:system_info(system_architecture)) of
+      % androideabi
+      "ibaediordna" ++ _ -> filename:join([?ROOT_ANDROID, ?SHELL]);
+      _ -> filename:join([?ROOT, ?SHELL])
+    end,
+    Reply = try open_port({spawn, Path},[stream]) of
 		Port when is_port(Port) ->
 		    (catch port_connect(Port, Client)),
 		    unlink(Port),
