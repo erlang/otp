@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -204,6 +204,16 @@ int ei_x_encode_tuple_header(ei_x_buff* x, long n)
     if (!x_fix_buff(x, i))
 	return -1;
     return ei_encode_tuple_header(x->buff, &x->index, n);
+}
+
+int ei_x_encode_map_header(ei_x_buff* x, long n)
+{
+    int i = x->index;
+    if (ei_encode_map_header(NULL, &i, n) == -1)
+      return -1;
+    if (!x_fix_buff(x, i))
+	return -1;
+    return ei_encode_map_header(x->buff, &x->index, n);
 }
 
 int ei_x_encode_atom(ei_x_buff* x, const char* s)
