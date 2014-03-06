@@ -1551,7 +1551,11 @@ map_pair_strip_and_termsort(Es) ->
     %%    [{map_pair,K,V}]
     %% where K is for example {integer, 1} and we want to sort on 1.
     Ls = [{K,V}||{_,K,V}<-Es],
-    lists:sort(fun({{_,A},_},{{_,B},_}) -> erts_internal:cmp_term(A,B) < 0 end, Ls).
+    lists:sort(fun ({{_,A},_}, {{_,B},_}) -> erts_internal:cmp_term(A,B) =< 0;
+                   ({nil,_},   {{_,B},_}) -> [] =< B;
+                   ({{_,A},_}, {nil,_})   -> A =< [];
+                   ({nil,_},   {nil,_})   -> true
+               end, Ls).
 
 %%%
 %%% Code generation for constructing binaries.
