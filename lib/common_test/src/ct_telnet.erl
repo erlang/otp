@@ -783,66 +783,66 @@ log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
 	       true              -> Name
 	    end,
     Silent = get(silent),
-    case ct_util:get_testdata({cth_conn_log,?MODULE}) of
-	Result when Result /= undefined, Result /= silent, Silent /= true ->
-	    {PrintHeader,PreBR} = if Action==undefined ->
-					  {false,""};
-				     true ->
-					  {true,"\n"}
-				  end,
-	    error_logger:info_report(#conn_log{header=PrintHeader,
-					       client=self(),
-					       conn_pid=TelnPid,
-					       address={Host,Port},
-					       name=Name1,
-					       action=Action,
-					       module=?MODULE},
-				     {PreBR++String,Args});
-	Result when Result /= undefined ->
-	    ok;
-	_ when Action == open; Action == close; Action == reconnect;
-	       Action == info; Action == error ->
-	    ct_gen_conn:log(heading(Action,Name1),String,Args);
-	_ when ForcePrint == false ->
-	    case ct_util:is_silenced(telnet) of
-		true  ->
-		    ok;
-		false ->
-		    ct_gen_conn:cont_log(String,Args)
+
+    if Action == general_io ->
+	    case ct_util:get_testdata({cth_conn_log,?MODULE}) of
+		HookMode when HookMode /= undefined, HookMode /= silent,
+			      Silent /= true ->
+		    {PrintHeader,PreBR} = if Action==undefined ->
+						  {false,""};
+					     true ->
+						  {true,"\n"}
+					  end,
+		    error_logger:info_report(#conn_log{header=PrintHeader,
+						       client=self(),
+						       conn_pid=TelnPid,
+						       address={Host,Port},
+						       name=Name1,
+						       action=Action,
+						       module=?MODULE},
+					     {PreBR++String,Args});
+		_ -> %% hook inactive or silence requested
+		    ok
 	    end;
-	_ when ForcePrint == true ->
-	    case ct_util:is_silenced(telnet) of
-		true ->
-		    %% call log/3 now instead of cont_log/2 since 
-		    %% start_gen_log/1 will not have been previously called
+
+       true ->	    
+	    if Action == open; Action == close; Action == reconnect;
+	       Action == info; Action == error ->
 		    ct_gen_conn:log(heading(Action,Name1),String,Args);
-		false ->
-		    ct_gen_conn:cont_log(String,Args)
+
+	       ForcePrint == false ->
+		    case ct_util:is_silenced(telnet) of
+			true  ->
+			    ok;
+			false ->
+			    ct_gen_conn:cont_log(String,Args)
+		    end;
+	       
+	       ForcePrint == true ->
+		    case ct_util:is_silenced(telnet) of
+			true ->
+			    %% call log/3 now instead of cont_log/2 since 
+			    %% start_gen_log/1 will not have been previously
+			    %% called
+			    ct_gen_conn:log(heading(Action,Name1),String,Args);
+			false ->
+			    ct_gen_conn:cont_log(String,Args)
+		    end
 	    end
     end.
 
 start_gen_log(Heading) ->
-    case ct_util:get_testdata({cth_conn_log,?MODULE}) of
-	undefined ->
-	    %% check if output is suppressed
-	    case ct_util:is_silenced(telnet) of
-		true  -> ok;
-		false -> ct_gen_conn:start_log(Heading)
-	    end;
-	_ ->
-	    ok
+    %% check if output is suppressed
+    case ct_util:is_silenced(telnet) of
+	true  -> ok;
+	false -> ct_gen_conn:start_log(Heading)
     end.
 
 end_gen_log() -> 
-    case ct_util:get_testdata({cth_conn_log,?MODULE}) of
-	undefined ->
-	    %% check if output is suppressed
-	    case ct_util:is_silenced(telnet) of
-		true  -> ok;
-		false -> ct_gen_conn:end_log()
-	    end;
-	_ ->
-	    ok
+    %% check if output is suppressed
+    case ct_util:is_silenced(telnet) of
+	true  -> ok;
+	false -> ct_gen_conn:end_log()
     end.
 
 %%% @hidden
