@@ -446,6 +446,7 @@ is_label_used_in_2({set,_,_,Info}, Lbl) ->
     case Info of
 	{bif,_,{f,F}} -> F =:= Lbl;
 	{alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
+        {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
 	{'catch',{f,F}} -> F =:= Lbl;
 	{alloc,_,_} -> false;
 	{put_tuple,_} -> false;
