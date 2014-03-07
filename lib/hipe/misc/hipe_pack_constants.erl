@@ -27,23 +27,31 @@
 
 %%-----------------------------------------------------------------------------
 
--type raw_data() :: binary() | number() | list() | tuple().
--type tbl_ref()  :: {hipe_constlbl(), non_neg_integer()}.
+-type const_num() :: non_neg_integer().
+-type raw_data()  :: binary() | number() | list() | tuple().
+
+-type addr()      :: non_neg_integer().
+-type ref_p()     :: {DataPos :: hipe_constlbl(), CodeOffset :: addr()}.
+-type ref()       :: ref_p() | {'sorted', Base :: addr(), [ref_p()]}.
+
+-type mfa_refs()  :: {mfa(), [ref()]}.
 
 -record(pcm_entry, {mfa       :: mfa(),
 		    label     :: hipe_constlbl(),
-		    const_num :: non_neg_integer(),
-		    start     :: non_neg_integer(),
+                   const_num :: const_num(),
+                   start     :: addr(),
 		    type      :: 0 | 1 | 2,
 		    raw_data  :: raw_data()}).
+-type pcm_entry() :: #pcm_entry{}.
+
+%% Some of the following types may possibly need to be exported
+-type packed_const_map() :: [pcm_entry()].
+-type mfa_refs_map()     :: [mfa_refs()].
 
 %%-----------------------------------------------------------------------------
 
 -spec pack_constants([{mfa(),[_],hipe_consttab()}], ct_alignment()) ->
-	{ct_alignment(),
-	 non_neg_integer(),
-	 [#pcm_entry{}],
-	 [{mfa(),[tbl_ref() | {'sorted',non_neg_integer(),[tbl_ref()]}]}]}.
+       {ct_alignment(), non_neg_integer(), packed_const_map(), mfa_refs_map()}.
 
 pack_constants(Data, Align) ->
   pack_constants(Data, 0, Align, 0, [], []).
@@ -194,13 +202,12 @@ compact_dests([], Dest, AccofDest, Acc) ->
 %% to the slimmed and flattened format ConstMap which is put in object
 %% files.
 %%
--spec slim_constmap([#pcm_entry{}]) -> [raw_data()].
+-spec slim_constmap(packed_const_map()) -> [raw_data()].
 slim_constmap(Map) ->
   slim_constmap(Map, gb_sets:new(), []).
 
--spec slim_constmap([#pcm_entry{}], gb_sets:set(), [raw_data()]) -> [raw_data()].
-slim_constmap([#pcm_entry{const_num=ConstNo, start=Offset,
-			  type=Type, raw_data=Term}|Rest], Inserted, Acc) ->
+slim_constmap([#pcm_entry{const_num = ConstNo, start = Offset,
+			  type = Type, raw_data = Term}|Rest], Inserted, Acc) ->
   case gb_sets:is_member(ConstNo, Inserted) of
     true ->
       slim_constmap(Rest, Inserted, Acc);
