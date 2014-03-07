@@ -60,7 +60,7 @@ run_server(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("ssl:listen(~p, ~p)~n", [Port, Options]),
+    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
     {ok, ListenSocket} = rpc:call(Node, Transport, listen, [Port, Options]),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
@@ -78,13 +78,13 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport = proplists:get_value(transport, Opts, ssl),
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
-    ct:log("Server: apply(~p,~p,~p)~n",
-		       [Module, Function, [AcceptSocket | Args]]),
+    ct:log("~p:~p~nServer: apply(~p,~p,~p)~n",
+		       [?MODULE,?LINE, Module, Function, [AcceptSocket | Args]]),
     case rpc:call(Node, Module, Function, [AcceptSocket | Args]) of
 	no_result_msg ->
 	    ok;
 	Msg ->
-	    ct:log("Server Msg: ~p ~n", [Msg]),
+	    ct:log("~p:~p~nServer Msg: ~p ~n", [?MODULE,?LINE, Msg]),
 	    Pid ! {self(), Msg}
     end,
     receive
@@ -93,10 +93,10 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 	{listen, MFA} ->
 	    run_server(ListenSocket, [MFA | proplists:delete(mfa, Opts)]);
 	close ->
-	    ct:log("Server closing  ~p ~n", [self()]),
+	    ct:log("~p:~p~nServer closing  ~p ~n", [?MODULE,?LINE, self()]),
 	    Result = rpc:call(Node, Transport, close, [AcceptSocket], 500),
 	    Result1 = rpc:call(Node, Transport, close, [ListenSocket], 500),
-	    ct:log("Result ~p : ~p ~n", [Result, Result1]);
+	    ct:log("~p:~p~nResult ~p : ~p ~n", [?MODULE,?LINE, Result, Result1]);
 	{ssl_closed, _} ->
 	    ok
     end.
@@ -116,7 +116,7 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
     end;
 connect(ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
-    ct:log("gen_tcp:accept(~p)~n", [ListenSocket]),
+    ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, 
 				  [ListenSocket]),
     AcceptSocket.
@@ -124,15 +124,17 @@ connect(ListenSocket, Opts) ->
 connect(_, _, 0, AcceptSocket, _) ->
     AcceptSocket;
 connect(ListenSocket, Node, N, _, Timeout) ->
-    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    ct:log("~p:~p~nssl:transport_accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
 				  [ListenSocket]),    
-    ct:log("ssl:ssl_accept(~p, ~p)~n", [AcceptSocket, Timeout]),
+    ct:log("~p:~p~nssl:ssl_accept(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
 
     case rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Timeout]) of
 	ok ->
+ct:log("~p:~p~nok from ssl:ssl_accept@~p",[?MODULE,?LINE, Node]),
 	    connect(ListenSocket, Node, N-1, AcceptSocket, Timeout);
 	Result ->
+ct:log("~p:~p~nssl:ssl_accept@~p ret ~p",[?MODULE,?LINE, Node,Result]),
 	    Result
     end.
 
@@ -148,11 +150,11 @@ remove_close_msg(ReconnectTimes) ->
 start_client(Args) ->
     Result = spawn_link(?MODULE, run_client_init, [lists:delete(return_socket, Args)]),
     receive 
-	{ connected, Socket } ->
-        case lists:member(return_socket, Args) of
-            true -> { Result, Socket };
-            false -> Result
-        end;
+	{connected, Socket} ->
+	    case lists:member(return_socket, Args) of
+		true -> {Result, Socket};
+		false -> Result
+	    end;
 	{connect_failed, Reason} ->
 	    {connect_failed, Reason}
     end.
@@ -168,27 +170,30 @@ run_client(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
-    ct:log("ssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
+    ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
+ct:log("~p:~p~nnet_adm:ping(~p)=~p",[?MODULE,?LINE, Node,net_adm:ping(Node)]),
+%%ct:log("~p:~p~n~p:connect(~p, ~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Options, Node]),
+ct:log("~p:~p~n~p:connect(~p, ~p, ...)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
     case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
-	    Pid ! { connected, Socket },
-	    ct:log("Client: connected~n", []),
+	    Pid ! {connected, Socket},
+	    ct:log("~p:~p~nClient: connected~n", [?MODULE,?LINE]),
 	    %% In special cases we want to know the client port, it will
 	    %% be indicated by sending {port, 0} in options list!
 	    send_selected_port(Pid,  proplists:get_value(port, Options), Socket),
 	    {Module, Function, Args} = proplists:get_value(mfa, Opts),
-	    ct:log("Client: apply(~p,~p,~p)~n",
-			       [Module, Function, [Socket | Args]]),
+	    ct:log("~p:~p~nClient: apply(~p,~p,~p)~n",
+			       [?MODULE,?LINE, Module, Function, [Socket | Args]]),
 	    case rpc:call(Node, Module, Function, [Socket | Args]) of
 		no_result_msg ->
 		    ok;
 		Msg ->
-		    ct:log("Client Msg: ~p ~n", [Msg]),
+		    ct:log("~p:~p~nClient Msg: ~p ~n", [?MODULE,?LINE, Msg]),
 		    Pid ! {self(), Msg}
 	    end,
 	    receive
 		close ->
-		    ct:log("Client closing~n", []),
+		    ct:log("~p:~p~nClient closing~n", [?MODULE,?LINE]),
 		    rpc:call(Node, Transport, close, [Socket]);
 		{ssl_closed, Socket} ->
 		    ok;
@@ -198,52 +203,42 @@ run_client(Opts) ->
 	{error, econnrefused = Reason} ->
 	    case get(retries) of
 		N when N < 5 ->
+		    ct:log("~p:~p~neconnrefused retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
 		    put(retries, N+1),
 		    ct:sleep(?SLEEP),
 		    run_client(Opts);
 	       _ ->
-		    ct:log("Client faild several times: connection failed: ~p ~n", [Reason]),
+		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
 		    Pid ! {self(), {error, Reason}}
 	    end;
 	{error, Reason} ->
-	    ct:log("Client: connection failed: ~p ~n", [Reason]),
-%%% FIXME: Which one of the two following???
-	    Pid ! {self(), {error, Reason}},
-	    Pid ! {connect_failed, Reason}
+	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+	    Pid ! {connect_failed, Reason};
+	{badrpc,BadRPC} ->
+            ct:log("~p:~p~nBad rpc: ~p",[?MODULE,?LINE, BadRPC]),
+            Pid ! {connect_failed, {badrpc,BadRPC}}
     end.
 
 close(Pid) ->
-    ct:log("Close ~p ~n", [Pid]),
+    ct:log("~p:~p~nClose ~p ~n", [?MODULE,?LINE, Pid]),
     Monitor = erlang:monitor(process, Pid),
     Pid ! close,
     receive
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
-	    ct:log("Pid: ~p down due to:~p ~n", [Pid, Reason])
+	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason])
     end.
 
 check_result(Server, ServerMsg, Client, ClientMsg) -> 
     receive 
-	{Server, ServerMsg} -> 
-	    receive 
-		{Client, ClientMsg} ->
-		    ok;
-		Unexpected ->
-		    Reason = {{expected, {Client, ClientMsg}}, 
-			      {got, Unexpected}},
-		    ct:fail(Reason)
-	    end;
-	{Client, ClientMsg} -> 
-	    receive 
-		{Server, ServerMsg} ->
-		    ok;
-		Unexpected ->
-		    Reason = {{expected, {Server, ClientMsg}}, 
-			      {got, Unexpected}},
-		    ct:fail(Reason)
-	    end;
+	{Server, ServerMsg} ->
+	    check_result(Client, ClientMsg);
+
+	{Client, ClientMsg} ->
+	    check_result(Server, ServerMsg);
+
 	{Port, {data,Debug}} when is_port(Port) ->
-	    io:format("openssl ~s~n",[Debug]),
+	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Server, ServerMsg, Client, ClientMsg);
 
 	Unexpected ->
@@ -257,7 +252,7 @@ check_result(Pid, Msg) ->
 	{Pid, Msg} -> 
 	    ok;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    io:format("openssl ~s~n",[Debug]),
+	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Pid,Msg);
 	Unexpected ->
 	    Reason = {{expected, {Pid, Msg}}, 
@@ -282,7 +277,7 @@ wait_for_result(Server, ServerMsg, Client, ClientMsg) ->
 		%%     Unexpected
 	    end;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    io:format("openssl ~s~n",[Debug]),
+	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    wait_for_result(Server, ServerMsg, Client, ClientMsg)
 	%% Unexpected ->
 	%%     Unexpected
@@ -294,7 +289,7 @@ wait_for_result(Pid, Msg) ->
 	{Pid, Msg} -> 
 	    ok;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    io:format("openssl ~s~n",[Debug]),
+	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    wait_for_result(Pid,Msg)
 	%% Unexpected ->
 	%%     Unexpected
@@ -519,33 +514,33 @@ run_upgrade_server(Opts) ->
     SslOptions = proplists:get_value(ssl_options, Opts),
     Pid = proplists:get_value(from, Opts),
 
-    ct:log("gen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
+    ct:log("~p:~p~ngen_tcp:listen(~p, ~p)~n", [?MODULE,?LINE, Port, TcpOptions]),
     {ok, ListenSocket} = rpc:call(Node, gen_tcp, listen, [Port, TcpOptions]),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
-    ct:log("gen_tcp:accept(~p)~n", [ListenSocket]),
+    ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, [ListenSocket]),
 
     try
 	{ok, SslAcceptSocket} = case TimeOut of
 				    infinity ->
-					ct:log("ssl:ssl_accept(~p, ~p)~n",
-							   [AcceptSocket, SslOptions]),
+					ct:log("~p:~p~nssl:ssl_accept(~p, ~p)~n",
+							   [?MODULE,?LINE, AcceptSocket, SslOptions]),
 					rpc:call(Node, ssl, ssl_accept,
 						 [AcceptSocket, SslOptions]);
 				    _ ->
-					ct:log("ssl:ssl_accept(~p, ~p, ~p)~n",
-							   [AcceptSocket, SslOptions, TimeOut]),
+					ct:log("~p:~p~nssl:ssl_accept(~p, ~p, ~p)~n",
+							   [?MODULE,?LINE, AcceptSocket, SslOptions, TimeOut]),
 					rpc:call(Node, ssl, ssl_accept,
 						 [AcceptSocket, SslOptions, TimeOut])
 				end,
 	{Module, Function, Args} = proplists:get_value(mfa, Opts),
 	Msg = rpc:call(Node, Module, Function, [SslAcceptSocket | Args]),
-	ct:log("Upgrade Server Msg: ~p ~n", [Msg]),
+	ct:log("~p:~p~nUpgrade Server Msg: ~p ~n", [?MODULE,?LINE, Msg]),
 	Pid ! {self(), Msg},
 	receive
 	    close ->
-		ct:log("Upgrade Server closing~n", []),
+		ct:log("~p:~p~nUpgrade Server closing~n", [?MODULE,?LINE]),
 		rpc:call(Node, ssl, close, [SslAcceptSocket])
 	end
     catch error:{badmatch, Error} ->
@@ -563,24 +558,24 @@ run_upgrade_client(Opts) ->
     TcpOptions = proplists:get_value(tcp_options, Opts),
     SslOptions = proplists:get_value(ssl_options, Opts),
     
-    ct:log("gen_tcp:connect(~p, ~p, ~p)~n",
-		       [Host, Port, TcpOptions]),
+    ct:log("~p:~p~ngen_tcp:connect(~p, ~p, ~p)~n",
+		       [?MODULE,?LINE, Host, Port, TcpOptions]),
     {ok, Socket} = rpc:call(Node, gen_tcp, connect, [Host, Port, TcpOptions]),
 
     send_selected_port(Pid, Port, Socket),
 
-    ct:log("ssl:connect(~p, ~p)~n", [Socket, SslOptions]),
+    ct:log("~p:~p~nssl:connect(~p, ~p)~n", [?MODULE,?LINE, Socket, SslOptions]),
     {ok, SslSocket} = rpc:call(Node, ssl, connect, [Socket, SslOptions]),
 
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
-    ct:log("apply(~p, ~p, ~p)~n",
-		       [Module, Function, [SslSocket | Args]]),
+    ct:log("~p:~p~napply(~p, ~p, ~p)~n",
+		       [?MODULE,?LINE, Module, Function, [SslSocket | Args]]),
     Msg = rpc:call(Node, Module, Function, [SslSocket | Args]),
-    ct:log("Upgrade Client Msg: ~p ~n", [Msg]),
+    ct:log("~p:~p~nUpgrade Client Msg: ~p ~n", [?MODULE,?LINE, Msg]),
     Pid ! {self(), Msg},
     receive 
 	close ->
-	    ct:log("Upgrade Client closing~n", []),
+	    ct:log("~p:~p~nUpgrade Client closing~n", [?MODULE,?LINE]),
 	    rpc:call(Node, ssl, close, [SslSocket])
     end.
 
@@ -599,21 +594,21 @@ run_upgrade_server_error(Opts) ->
     SslOptions = proplists:get_value(ssl_options, Opts),
     Pid = proplists:get_value(from, Opts),
 
-    ct:log("gen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
+    ct:log("~p:~p~ngen_tcp:listen(~p, ~p)~n", [?MODULE,?LINE, Port, TcpOptions]),
     {ok, ListenSocket} = rpc:call(Node, gen_tcp, listen, [Port, TcpOptions]),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
-    ct:log("gen_tcp:accept(~p)~n", [ListenSocket]),
+    ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, [ListenSocket]),
     Error = case TimeOut of
 		infinity ->
-		    ct:log("ssl:ssl_accept(~p, ~p)~n",
-				       [AcceptSocket, SslOptions]),
+		    ct:log("~p:~p~nssl:ssl_accept(~p, ~p)~n",
+				       [?MODULE,?LINE, AcceptSocket, SslOptions]),
 		    rpc:call(Node, ssl, ssl_accept,
 			     [AcceptSocket, SslOptions]);
 		_ ->
-		    ct:log("ssl:ssl_accept(~p, ~p, ~p)~n",
-				       [AcceptSocket, SslOptions, TimeOut]),
+		    ct:log("~p:~p~nssl:ssl_accept(~p, ~p, ~p)~n",
+				       [?MODULE,?LINE, AcceptSocket, SslOptions, TimeOut]),
 		    rpc:call(Node, ssl, ssl_accept,
 			     [AcceptSocket, SslOptions, TimeOut])
 	    end,
@@ -632,26 +627,26 @@ run_server_error(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("ssl:listen(~p, ~p)~n", [Port, Options]),
+    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
     case rpc:call(Node, Transport, listen, [Port, Options]) of
 	{ok, #sslsocket{} = ListenSocket} ->
 	    %% To make sure error_client will
 	    %% get {error, closed} and not {error, connection_refused}
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
-	    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+	    ct:log("~p:~p~nssl:transport_accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
 	    case rpc:call(Node, Transport, transport_accept, [ListenSocket]) of
 		{error, _} = Error ->
 		    Pid ! {self(), Error};
 		{ok, AcceptSocket} ->
-		    ct:log("ssl:ssl_accept(~p)~n", [AcceptSocket]),
+		    ct:log("~p:~p~nssl:ssl_accept(~p)~n", [?MODULE,?LINE, AcceptSocket]),
 		    Error = rpc:call(Node, ssl, ssl_accept, [AcceptSocket]),
 		    Pid ! {self(), Error}
 	    end;
 	{ok, ListenSocket} ->
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
-	    ct:log("~p:accept(~p)~n", [Transport, ListenSocket]),
+	    ct:log("~p:~p~n~p:accept(~p)~n", [?MODULE,?LINE, Transport, ListenSocket]),
 	     case rpc:call(Node, Transport, accept, [ListenSocket]) of
 		{error, _} = Error ->
 		     Pid ! {self(), Error}
@@ -673,7 +668,7 @@ run_client_error(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport = proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
-    ct:log("ssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
+    ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
     Error = rpc:call(Node, Transport, connect, [Host, Port, Options]),
     Pid ! {self(), Error}.
 
@@ -896,7 +891,7 @@ der_to_pem(File, Entries) ->
 
 cipher_result(Socket, Result) ->
     Result = ssl:connection_info(Socket),
-    ct:log("Successfull connect: ~p~n", [Result]),
+    ct:log("~p:~p~nSuccessfull connect: ~p~n", [?MODULE,?LINE, Result]),
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
     ssl:send(Socket, "Hello\n"),
@@ -1065,10 +1060,13 @@ check_sane_openssl_version(Version) ->
 	    true
     end.
 
+enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
+enough_openssl_crl_support(_) -> true.
+
 wait_for_openssl_server() ->
     receive
 	{Port, {data, Debug}} when is_port(Port) ->
-	    ct:log("openssl ~s~n",[Debug]),
+	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    %% openssl has started make sure
 	    %% it will be in accept. Parsing
 	    %% output is too error prone. (Even

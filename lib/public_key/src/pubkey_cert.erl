@@ -344,8 +344,11 @@ match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
 	incomplete ->
 	    false;
 	{_, _, Host, _, _} ->
-	    match_name(fun is_valid_host_or_domain/2, Host,
-		       PermittedName, Rest)
+	    PN = case split_uri(PermittedName) of
+		     {_, _, PNhost, _, _} -> PNhost;
+		     _X -> PermittedName
+		 end,
+	    match_name(fun is_valid_host_or_domain/2, Host, PN, Rest)
     end;
 
 match_name(emailAddress, Name, [PermittedName | Rest]) ->

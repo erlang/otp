@@ -393,31 +393,28 @@ verify_dp_name(asn1_NOVALUE, _) ->
     ok;
 
 verify_dp_name(IDPNames, DPorIssuerNames) ->
-    %% RFC 5280 section 5.2.5
-    %% Check that at least one IssuingDistributionPointName in the CRL lines up
-    %% with a DistributionPointName in the certificate.
-    Matches = [X || X <- IDPNames, Y <- DPorIssuerNames, X == Y],
-    case Matches of
-	[] ->
-	    throw({bad_crl, scope_error});
-	_ ->
-	    ok
+    case match_one(DPorIssuerNames, IDPNames) of
+	true ->
+	    ok;
+	false ->
+	    throw({bad_crl, scope_error})
     end.
 
 match_one([], _) ->
     false;
 match_one([{Type, Name} | Names], CandidateNames) ->
-    Candidates = [NameName || {NameType, NameName} <- CandidateNames, NameType == Type],
+    Candidates = [NameName || {NameType, NameName} <- CandidateNames, 
+			      NameType == Type],
     case Candidates of
 	[] ->
 	    false;
 	[_|_] ->
-	case pubkey_cert:match_name(Type, Name, Candidates) of
-		     true ->
-			 true;
-		 false ->
-			 match_one(Names, CandidateNames)
-		 end
+	    case pubkey_cert:match_name(Type, Name, Candidates) of
+		true ->
+		    true;
+		false ->
+		    match_one(Names, CandidateNames)
+	    end
     end.
 
 verify_dp_bools(TBSCert, IDP) ->
@@ -702,13 +699,3 @@ authority_key_identifier(Extensions) ->
     Enc = extension_value(?'id-ce-authorityKeyIdentifier',
 			  'AuthorityKeyIdentifier', Extensions),
     pubkey_cert_records:transform(Enc, decode).
-
-subject_alt_names(Extensions) ->
-    Enc = extension_value(?'id-ce-subjectAltName',
-			  'GeneralNames', Extensions),
-    case Enc of
-	undefined ->
-	    [];
-	_ ->
-	    pubkey_cert_records:transform(Enc, decode)
-    end.

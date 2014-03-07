@@ -61,96 +61,95 @@ v1_crl_tests() ->
 idp_crl_tests() ->
     [crl_verify_valid, crl_verify_revoked].
 
+%%%================================================================
+%%% Suite init/end
+
 init_per_suite(Config0) ->
-    ct:log("wtf~n"),
-    io:format("Config ~p~n", [Config0]),
     Dog = ct:timetrap(?LONG_TIMEOUT *2),
     case os:find_executable("openssl") of
 	false ->
 	    {skip, "Openssl not found"};
 	_ ->
-	    inets:start(),
-	    catch crypto:stop(),
-	    try crypto:start() of
-		ok ->
-		    ssl:start(),
-		    [{watchdog, Dog} | Config0]
-		catch _:_  ->
-		    {skip, "Crypto did not start"}
+	    TLSVersion = ?config(tls_version, Config0),
+	    OpenSSL_version = (catch os:cmd("openssl version")),
+	    ct:log("TLS version: ~p~nOpenSSL version: ~p~n~n~p:module_info(): ~p~n~nssh:module_info(): ~p~n",
+		   [TLSVersion, OpenSSL_version, ?MODULE, ?MODULE:module_info(), ssh:module_info()]),
+	    case ssl_test_lib:enough_openssl_crl_support(OpenSSL_version) of
+		false ->
+		    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
+		_ ->
+		    catch crypto:stop(),
+		    try crypto:start() of
+			ok ->
+			    ssl:start(),
+			    [{watchdog, Dog}, {openssl_version,OpenSSL_version} | Config0]
+		    catch _C:_E ->
+			    ct:log("crypto:start() caught ~p:~p",[_C,_E]),
+			    {skip, "Crypto did not start"}
+		    end
 	    end
     end.
 
 end_per_suite(_Config) ->
     ssl:stop(),
-    inets:stop(),
     application:stop(crypto).
 
-init_per_group(v1_crl, Config) ->
+%%%================================================================
+%%% Group init/end
+
+init_per_group(Group, Config) ->
+    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     ssl:start(),
-    CertDir = filename:join(?config(priv_dir, Config), "v1_crl"),
-    Result =
-	(catch make_certs:all(?config(data_dir, Config),
-			      CertDir,
-			      [{v2_crls, false}])),
-    ct:log("Make certs  ~p~n", [Result]),
+    inets:start(),
+    CertDir = filename:join(?config(priv_dir, Config), Group),
+    DataDir = ?config(data_dir, Config),
+    ServerRoot = make_dir_path([?config(priv_dir,Config), Group, tmp]),
+    Result =  make_certs:all(DataDir, CertDir, cert_opts(Group)),
+    ct:log("~p:~p~nmake_certs:all(~n DataDir=~p,~n CertDir=~p,~n ServerRoot=~p~n Opts=~p~n) returned ~p~n", [?MODULE,?LINE,DataDir, CertDir, ServerRoot, cert_opts(Group), Result]),
     %% start a HTTP server to serve the CRLs
-    {ok, Httpd} = inets:start(httpd, [{port, 8000}, {server_name, "localhost"},
-				      {server_root, "/tmp"},
+    {ok, Httpd} = inets:start(httpd, [{server_name, "localhost"}, {port, 8000},
+				      {server_root, ServerRoot},
 				      {document_root, CertDir},
-				      {modules, [mod_get]}]),
-    [{make_cert_result, Result}, {cert_dir, CertDir}, {httpd, Httpd} | Config];
-init_per_group(idp_crl, Config) ->
-    ssl:start(),
-    CertDir = filename:join(?config(priv_dir, Config), "idp_crl"),
-    Result =
-	(catch make_certs:all(?config(data_dir, Config),
-			      CertDir,
-			      [{issuing_distribution_point, true}])),
-    ct:log("Make certs  ~p~n", [Result]),
-    %% start a HTTP server to serve the CRLs
-    {ok, Httpd} = inets:start(httpd, [{port, 8000}, {server_name, "localhost"},
-				      {server_root, "/tmp"},
-				      {document_root, CertDir},
-				      {modules, [mod_get]}]),
-    [{make_cert_result, Result}, {cert_dir, CertDir}, {httpd, Httpd} | Config];
-init_per_group(_GroupName, Config) ->
-    ssl:start(),
-    CertDir = ?config(priv_dir, Config),
-    Result =
-	(catch make_certs:all(?config(data_dir, Config),
-			      CertDir)),
-    ct:log("Make certs  ~p~n", [Result]),
-    %% start a HTTP server to serve the CRLs
-    {ok, Httpd} = inets:start(httpd, [{port, 8000}, {server_name, "localhost"},
-				      {server_root, "/tmp"},
-				      {document_root, CertDir},
-				      {modules, [mod_get]}]),
+				      {modules, [mod_get]}
+				     ]),
+    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     [{make_cert_result, Result}, {cert_dir, CertDir}, {httpd, Httpd} | Config].
+
+cert_opts(v1_crl)  -> [{v2_crls, false}];
+cert_opts(idp_crl) -> [{issuing_distribution_point, true}];
+cert_opts(_) -> [].
+
+make_dir_path(PathComponents) ->
+    lists:foldl(fun(F,P0) -> file:make_dir(P=filename:join(P0,F)), P end,
+		"",
+		PathComponents).
+
 
 end_per_group(_GroupName, Config) ->
     case ?config(httpd, Config) of
 	undefined -> ok;
 	Pid -> 
+	    ct:log("Stop httpd ~p",[Pid]),
 	   ok = inets:stop(httpd, Pid)
+		,ct:log("Stopped",[])
     end,
+    inets:stop(),
+    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     Config.
+
+%%%================================================================
+%%% Test cases
 
 crl_verify_valid() ->
     [{doc,"Verify a simple valid CRL chain"}].
 crl_verify_valid(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    %ServerOpts = ?config(server_opts, Config),
-
-    ct:log("server opts ~p~n", [Config]),
-
     PrivDir = ?config(cert_dir, Config),
-
     ServerOpts = [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
 		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		  {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
     Data = "From openssl to erlang",
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -158,6 +157,7 @@ crl_verify_valid(Config) when is_list(Config) ->
 			   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
 			   %{mfa, {ssl_test_lib, no_result, []}},
 			   {options, ServerOpts}]),
+    ct:log("~p:~p~nreturn from ssl_test_lib:start_server:~n~p",[?MODULE,?LINE,Server]),
     Port = ssl_test_lib:inet_port(Server),
 
     CACerts = load_cert(filename:join([PrivDir, "erlangCA", "cacerts.pem"])),
@@ -167,6 +167,7 @@ crl_verify_valid(Config) when is_list(Config) ->
 		  {verify_fun, {fun validate_function/3, {CACerts, []}}}],
 
 
+    ct:log("~p:~p~ncalling ssl_test_lib:start_client",[?MODULE,?LINE]),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -174,9 +175,10 @@ crl_verify_valid(Config) when is_list(Config) ->
 					       erlang_ssl_send, [Data]}},
 					%{mfa, {ssl_test_lib, no_result, []}},
 					{options, ClientOpts}]),
-    ssl_test_lib:check_result(Client, ok),
-    ssl_test_lib:check_result(Server, ok),
-  
+    ct:log("~p:~p~nreturn from ssl_test_lib:start_client:~n~p",[?MODULE,?LINE,Client]),
+
+    ssl_test_lib:check_result(Client, ok,  Server, ok),
+
     %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
@@ -186,15 +188,11 @@ crl_verify_revoked() ->
     [{doc,"Verify a simple valid CRL chain"}].
 crl_verify_revoked(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    %ServerOpts = ?config(server_opts, Config),
-
-    ct:log("server opts ~p~n", [Config]),
-
     PrivDir = ?config(cert_dir, Config),
-
     ServerOpts = [{keyfile, filename:join([PrivDir, "revoked", "key.pem"])},
 		  {certfile, filename:join([PrivDir, "revoked", "cert.pem"])},
 		  {cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])}],
+    ct:log("~p:~p~nserver opts ~p~n", [?MODULE,?LINE, ServerOpts]),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -206,11 +204,9 @@ crl_verify_revoked(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     CACerts = load_cert(filename:join([PrivDir, "erlangCA", "cacerts.pem"])),
-
     ClientOpts = [{cacerts, CACerts},
 		  {verify, verify_peer},
 		  {verify_fun, {fun validate_function/3, {CACerts, []}}}],
-
 
     {connect_failed, _} = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -224,19 +220,22 @@ crl_verify_revoked(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     process_flag(trap_exit, false).
 
+%%%================================================================
+%%% Lib
+
 erlang_ssl_receive(Socket, Data) ->
-    ct:log("Connection info: ~p~n",
-		       [ssl:connection_info(Socket)]),
+    ct:log("~p:~p~nConnection info: ~p~n",
+		       [?MODULE,?LINE, ssl:connection_info(Socket)]),
     receive
 	{ssl, Socket, Data} ->
-	    io:format("Received ~p~n",[Data]),
+	    ct:log("~p:~p~nReceived ~p~n",[?MODULE,?LINE, Data]),
 	    %% open_ssl server sometimes hangs waiting in blocking read
 	    ssl:send(Socket, "Got it"), 
 	    ok;
 	{ssl, Socket, Byte} when length(Byte) == 1 ->
 	    erlang_ssl_receive(Socket, tl(Data));
 	{Port, {data,Debug}} when is_port(Port) ->
-	    io:format("openssl ~s~n",[Debug]),
+	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    erlang_ssl_receive(Socket,Data);
 	Other ->
 	    ct:fail({unexpected_message, Other})
@@ -246,8 +245,8 @@ erlang_ssl_receive(Socket, Data) ->
 
 
 erlang_ssl_send(Socket, Data) ->
-    ct:log("Connection info: ~p~n",
-		       [ssl:connection_info(Socket)]),
+    ct:log("~p:~p~nConnection info: ~p~n",
+		       [?MODULE,?LINE, ssl:connection_info(Socket)]),
     ssl:send(Socket, Data),
     ok.
 
@@ -263,14 +262,14 @@ load_certs(CertDir) ->
     end.
 
 load_certs([], Acc) ->
-    io:format("Successfully loaded ~p CA certificates~n", [length(Acc)]),
+    ct:log("~p:~p~nSuccessfully loaded ~p CA certificates~n", [?MODULE,?LINE, length(Acc)]),
     Acc;
 load_certs([Cert|Certs], Acc) ->
     case filelib:is_dir(Cert) of
         true ->
             load_certs(Certs, Acc);
         _ ->
-            %io:format("Loading certificate ~p~n", [Cert]),
+            %ct:log("~p:~p~nLoading certificate ~p~n", [?MODULE,?LINE, Cert]),
             load_certs(Certs, load_cert(Cert) ++ Acc)
     end.
 
@@ -289,30 +288,30 @@ load_cert(Cert) ->
 %% @doc Validator function for SSL negotiation.
 %%
 validate_function(Cert, valid_peer, State) ->
-    io:format("validing peer ~p with ~p intermediate certs~n",
-                [get_common_name(Cert), 
+    ct:log("~p:~p~nvaliding peer ~p with ~p intermediate certs~n",
+                [?MODULE,?LINE, get_common_name(Cert), 
                  length(element(2, State))]),
     %% peer certificate validated, now check the CRL
     Res = (catch check_crl(Cert, State)),
-    io:format("CRL validate result for ~p: ~p~n",
-                [get_common_name(Cert), Res]),
+    ct:log("~p:~p~nCRL validate result for ~p: ~p~n",
+                [?MODULE,?LINE, get_common_name(Cert), Res]),
     {Res, State};
 validate_function(Cert, valid, {TrustedCAs, IntermediateCerts}=State) ->
     case public_key:pkix_is_self_signed(Cert) of
         true ->
-            io:format("root certificate~n"),
+            ct:log("~p:~p~nroot certificate~n",[?MODULE,?LINE]),
             %% this is a root cert, no CRL
             {valid, {TrustedCAs, [Cert|IntermediateCerts]}};
         false ->
             %% check is valid CA certificate, add to the list of
             %% intermediates
             Res = (catch check_crl(Cert, State)),
-            io:format("CRL intermediate CA validate result for ~p: ~p~n",
-                        [get_common_name(Cert), Res]),
+            ct:log("~p:~p~nCRL intermediate CA validate result for ~p: ~p~n",
+                        [?MODULE,?LINE, get_common_name(Cert), Res]),
             {Res, {TrustedCAs, [Cert|IntermediateCerts]}}
     end;
 validate_function(_Cert, _Event, State) ->
-    %io:format("ignoring event ~p~n", [_Event]),
+    %ct:log("~p:~p~nignoring event ~p~n", [?MODULE,?LINE, _Event]),
     {valid, State}.
 
 %% @doc Given a certificate, find CRL distribution points for the given
@@ -321,22 +320,27 @@ validate_function(_Cert, _Event, State) ->
 %%
 check_crl(Cert, State) ->
     %% pull the CRL distribution point(s) out of the certificate, if any
-    case pubkey_cert:select_extension(?'id-ce-cRLDistributionPoints',
-                                      pubkey_cert:extensions_list(Cert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.extensions)) of
+    ct:log("~p:~p~ncheck_crl(~n Cert=~p,~nState=~p~n)",[?MODULE,?LINE,Cert,State]),
+    case pubkey_cert:select_extension(
+	   ?'id-ce-cRLDistributionPoints',
+	   pubkey_cert:extensions_list(Cert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.extensions)) of
         undefined ->
-            io:format("no CRL distribution points for ~p~n",
-                         [get_common_name(Cert)]),
+            ct:log("~p:~p~nno CRL distribution points for ~p~n",
+                         [?MODULE,?LINE, get_common_name(Cert)]),
             %% fail; we can't validate if there's no CRL
             no_crl;
         CRLExtension ->
+	    ct:log("~p:~p~nCRLExtension=~p)",[?MODULE,?LINE,CRLExtension]),
             CRLDistPoints = CRLExtension#'Extension'.extnValue,
             DPointsAndCRLs = lists:foldl(fun(Point, Acc) -> 
                             %% try to read the CRL over http or from a
                             %% local file
                             case fetch_point(Point) of
                                 not_available ->
+				    ct:log("~p:~p~nfetch_point returned~n~p~n)",[?MODULE,?LINE,not_available]),
                                     Acc;
                                 Res ->
+				    ct:log("~p:~p~nfetch_point returned~n~p~n)",[?MODULE,?LINE,Res]),
                                     [{Point, Res} | Acc]
                             end 
                     end, [], CRLDistPoints),
@@ -354,6 +358,7 @@ issuer_function(_DP, CRL, _Issuer, {TrustedCAs, IntermediateCerts}) ->
     %% XXX the 'Issuer' we get passed here is the AuthorityKeyIdentifier,
     %% which we are not currently smart enough to understand
     %% Read the CA certs out of the file
+    ct:log("~p:~p~nissuer_function(~nCRL=~p,~nLast param=~p)",[?MODULE,?LINE,CRL, {TrustedCAs, IntermediateCerts}]),
     Certs = [public_key:pkix_decode_cert(DER, otp) || DER <- TrustedCAs],
     %% get the real issuer out of the CRL
     Issuer = public_key:pkix_normalize_name(
@@ -362,10 +367,11 @@ issuer_function(_DP, CRL, _Issuer, {TrustedCAs, IntermediateCerts}) ->
     %% assume certificates are ordered from root to tip
     case find_issuer(Issuer, IntermediateCerts ++ Certs) of
         undefined ->
-            io:format("unable to find certificate matching CRL issuer ~p~n", 
-                        [Issuer]),
+            ct:log("~p:~p~nunable to find certificate matching CRL issuer ~p~n", 
+                        [?MODULE,?LINE, Issuer]),
             error;
         IssuerCert ->
+	    ct:log("~p:~p~nIssuerCert=~p~n)",[?MODULE,?LINE,IssuerCert]),
             case build_chain({public_key:pkix_encode('OTPCertificate', 
                                                      IssuerCert, 
                                                      otp), 
@@ -395,7 +401,7 @@ build_chain({DER, Cert}, IntCerts, TrustedCerts, Acc) ->
         true ->
             case find_issuer(Issuer, TrustedCerts) of
                 undefined ->
-                    io:format("self-signed certificate is NOT trusted~n"),
+                    ct:log("~p:~p~nself-signed certificate is NOT trusted~n",[?MODULE,?LINE]),
                     undefined;
                 TrustedCert ->
                     %% return the cert from the trusted list, to prevent
@@ -423,11 +429,11 @@ build_chain({DER, Cert}, IntCerts, TrustedCerts, Acc) ->
             case Match of
                 undefined when IntCerts /= TrustedCerts ->
                     %% continue the chain by using the trusted CAs
-                    io:format("Ran out of intermediate certs, switching to trusted certs~n"),
+                    ct:log("~p:~p~nRan out of intermediate certs, switching to trusted certs~n",[?MODULE,?LINE]),
                     build_chain({DER, Cert}, TrustedCerts, TrustedCerts, Acc);
                 undefined ->
-                    io:format("Can't construct chain of trust beyond ~p~n",
-                                [get_common_name(Cert)]),
+                    ct:log("Can't construct chain of trust beyond ~p~n",
+                                [?MODULE,?LINE, get_common_name(Cert)]),
                     %% can't find the current cert's issuer
                     undefined;
                 Match ->
@@ -461,6 +467,7 @@ fetch_point(#'DistributionPoint'{distributionPoint={fullName, Names}}) ->
     Decoded = [{NameType, 
                 pubkey_cert_records:transform(Name, decode)} 
                || {NameType, Name} <- Names],
+    ct:log("~p:~p~ncall fetch(~nDecoded=~p~n)",[?MODULE,?LINE,Decoded]),
     fetch(Decoded).
 
 %% @doc Given a list of locations to retrieve a CRL from, attempt to
@@ -473,29 +480,35 @@ fetch_point(#'DistributionPoint'{distributionPoint={fullName, Names}}) ->
 fetch([]) ->
     not_available;
 fetch([{uniformResourceIdentifier, "http"++_=URL}|Rest]) ->
-    io:format("getting CRL from ~p~n", [URL]),
-    _ = inets:start(),
+    ct:log("~p:~p~ngetting CRL from ~p~n", [?MODULE,?LINE, URL]),
+    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     case httpc:request(get, {URL, []}, [], [{body_format, binary}]) of
         {ok, {_Status, _Headers, Body}} ->
             case Body of
                 <<"-----BEGIN", _/binary>> ->
+		    ct:log("~p:~p~npublic_key:pem_decode,~nBody=~p~n)",[?MODULE,?LINE,Body]),
                     [{'CertificateList', 
                       DER, _}=CertList] = public_key:pem_decode(Body),
+		    ct:log("~p:~p~npublic_key:pem_entry_decode,~nCertList=~p~n)",[?MODULE,?LINE,CertList]),
                     {DER, public_key:pem_entry_decode(CertList)};
                 _ ->
+		    ct:log("~p:~p~npublic_key:pem_entry_decode,~nBody=~p~n)",[?MODULE,?LINE,{'CertificateList', Body, not_encrypted}]),
                     %% assume DER encoded
                     CertList = public_key:pem_entry_decode(
                             {'CertificateList', Body, not_encrypted}),
                     {Body, CertList}
             end;
         {error, _Reason} ->
-            io:format("failed to get CRL ~p~n", [_Reason]),
+            ct:log("~p:~p~nfailed to get CRL ~p~n", [?MODULE,?LINE, _Reason]),
+            fetch(Rest);
+	Other ->
+            ct:log("~p:~p~nreally failed to get CRL ~p~n", [?MODULE,?LINE, Other]),
             fetch(Rest)
     end;
 fetch([Loc|Rest]) ->
     %% unsupported CRL location
-    io:format("unable to fetch CRL from unsupported location ~p~n", 
-                [Loc]),
+    ct:log("~p:~p~nunable to fetch CRL from unsupported location ~p~n", 
+                [?MODULE,?LINE, Loc]),
     fetch(Rest).
 
 %% get the common name attribute out of an OTPCertificate record
