@@ -2790,12 +2790,6 @@ is_default_type({timeout, 0}) -> true;
 is_default_type({var, 1}) -> true;
 is_default_type(_) -> false.
 
-%% R13
-is_newly_introduced_builtin_type({arity, 0}) -> true;
-is_newly_introduced_builtin_type({bitstring, 0}) -> true;
-is_newly_introduced_builtin_type({iodata, 0}) -> true;
-%% R13B01
-is_newly_introduced_builtin_type({boolean, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->

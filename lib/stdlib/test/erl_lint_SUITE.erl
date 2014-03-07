@@ -52,7 +52,7 @@
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
 	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
-          otp_11772/1,
+          otp_11772/1, otp_11771/1,
           export_all/1,
 	  bif_clash/1,
 	  behaviour_basic/1, behaviour_multiple/1,
@@ -88,7 +88,7 @@ all() ->
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
-     otp_11772, export_all,
+     otp_11772, otp_11771, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef, maps].
@@ -2578,7 +2578,7 @@ otp_11254(Config) when is_list(Config) ->
     ok.
 
 otp_11772(doc) ->
-    "OTP-11772. Reintroduce warnings for redefined builtin types.";
+    "OTP-11772. Reintroduce errors for redefined builtin types.";
 otp_11772(suite) -> [];
 otp_11772(Config) when is_list(Config) ->
     Ts = <<"
@@ -2592,27 +2592,45 @@ otp_11772(Config) when is_list(Config) ->
             -type gb_tree() :: mfa(). % Allowed since Erlang/OTP 17.0
             -type digraph() :: [_].   % Allowed since Erlang/OTP 17.0
 
-            %% \"Newly\" introduced:
-            -type arity() :: atom().
-            -type bitstring() :: list().
-            -type iodata() :: integer().
-            -type boolean() :: iodata().
-
-            -type t() :: arity() | bitstring() | iodata() | boolean() | mfa()
-                       | digraph() | gb_tree() | node().
+            -type t() :: mfa() | digraph() | gb_tree() | node().
 
             -spec t() -> t().
 
             t() ->
                 1.
          ">>,
-    {error,[{7,erl_lint,{builtin_type,{node,0}}},
-                         {8,erl_lint,{builtin_type,{mfa,0}}}],
-                        [{13,erl_lint,{new_builtin_type,{arity,0}}},
-                         {14,erl_lint,{new_builtin_type,{bitstring,0}}},
-                         {15,erl_lint,{new_builtin_type,{iodata,0}}},
-                         {16,erl_lint,{new_builtin_type,{boolean,0}}}]} =
-        run_test2(Config, Ts, []),
+    {errors,[{7,erl_lint,{builtin_type,{node,0}}},
+             {8,erl_lint,{builtin_type,{mfa,0}}}],
+     []} = run_test2(Config, Ts, []),
+    ok.
+
+otp_11771(doc) ->
+    "OTP-11771. Do not allow redefinition of the types arity(_) &c..";
+otp_11771(suite) -> [];
+otp_11771(Config) when is_list(Config) ->
+    Ts = <<"
+            -module(newly).
+
+            -compile(export_all).
+
+            %% No longer allowed in 17.0:
+            -type arity() :: atom().
+            -type bitstring() :: list().
+            -type iodata() :: integer().
+            -type boolean() :: iodata().
+
+            -type t() :: arity() | bitstring() | iodata() | boolean().
+
+            -spec t() -> t().
+
+            t() ->
+                1.
+         ">>,
+    {errors,[{7,erl_lint,{builtin_type,{arity,0}}},
+             {8,erl_lint,{builtin_type,{bitstring,0}}},
+             {9,erl_lint,{builtin_type,{iodata,0}}},
+             {10,erl_lint,{builtin_type,{boolean,0}}}],
+     []} = run_test2(Config, Ts, []),
     ok.
 
 export_all(doc) ->
