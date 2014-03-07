@@ -263,6 +263,7 @@ format_error_reason(Reason) ->
 		  options=[]  :: [option()],	%Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
                   encoding=none :: none | epp:source_encoding(),
+                  default_encoding :: epp:source_encoding(),
 		  errors=[],
 		  warnings=[]}).
 
@@ -794,13 +795,18 @@ no_native_compilation(BeamFile, #compile{options=Opts0}) ->
 
 parse_module(St) ->
     Opts = St#compile.options,
-    Cwd = ".",
-    IncludePath = [Cwd, St#compile.dir|inc_paths(Opts)],
-    R =  epp:parse_file(St#compile.ifile, IncludePath, pre_defs(Opts)),
+    DefEncoding = proplists:get_value(default_encoding, Opts,
+                                      epp:default_encoding()),
+    R = epp:parse_file(St#compile.ifile,
+                       [{includes, [".", St#compile.dir | inc_paths(Opts)]},
+                        {macros, pre_defs(Opts)},
+                        {default_encoding, DefEncoding},
+                        extra]),
     case R of
-	{ok,Forms} ->
-            Encoding = epp:read_encoding(St#compile.ifile),
-	    {ok,St#compile{code=Forms,encoding=Encoding}};
+	{ok,Forms,Extra} ->
+            Encoding = proplists:get_value(encoding, Extra),
+	    {ok,St#compile{code=Forms, encoding=Encoding,
+                           default_encoding=DefEncoding}};
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
@@ -1557,8 +1563,8 @@ listing(LFun, Ext, St) ->
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
-output_encoding(F, #compile{encoding = none}) ->
-    ok = io:setopts(F, [{encoding, epp:default_encoding()}]);
+output_encoding(F, #compile{encoding = none, default_encoding=DefEncoding}) ->
+    ok = io:setopts(F, [{encoding, DefEncoding}]);
 output_encoding(F, #compile{encoding = Encoding}) ->
     ok = io:setopts(F, [{encoding, Encoding}]),
     ok = io:fwrite(F, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
