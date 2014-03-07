@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>rpc</title>
@@ -31,7 +31,7 @@
   <modulesummary>Remote Procedure Call Services</modulesummary>
   <description>
     <p>This module contains services which are similar to remote
-      procedure calls. It also contains broadcast facilities and 
+      procedure calls. It also contains broadcast facilities and
       parallel evaluators. A remote procedure call is a method to call
       a function on a remote node and collect the answer. It is used
       for collecting information on a remote node, or for running a
@@ -81,7 +81,7 @@
           not create a separate process to handle the call. Thus,
           this function can be used if the intention of the call is to
           block the RPC server from any other incoming requests until
-          the request has been handled. The function can also be used 
+          the request has been handled. The function can also be used
           for efficiency reasons when very small fast functions are
           evaluated, for example BIFs that are guaranteed not to
           suspend.</p>
@@ -99,7 +99,7 @@
       <name name="async_call" arity="4"/>
       <fsummary>Evaluate a function call on a node, asynchronous version</fsummary>
       <desc>
-        <p>Implements <em>call streams with promises</em>, a type of
+        <p>Implements <em>call streams with promises (futures),</em>, a type of
           RPC which does not suspend the caller until the result is
           finished. Instead, a key is returned which can be used at a
           later stage to collect the value. The key can be viewed as a
@@ -171,7 +171,7 @@
           is faster as all the requests are sent at the same time
           and are collected one by one as they come back.</p>
         <p>The function evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c>
-          on the specified nodes and collects the answers. It returns 
+          on the specified nodes and collects the answers. It returns
           <c>{<anno>ResL</anno>, <anno>BadNodes</anno>}</c>, where <c><anno>BadNodes</anno></c> is a list
           of the nodes that terminated or timed out during computation,
           and <c><anno>ResL</anno></c> is a list of the return values.
@@ -181,10 +181,10 @@
           be loaded on all nodes in the network, and also indicates
           some side effects RPCs may produce:</p>
         <code type="none">
-%% Find object code for module Mod 
-{Mod, Bin, File} = code:get_object_code(Mod), 
+%% Find object code for module Mod
+{Mod, Bin, File} = code:get_object_code(Mod),
 
-%% and load it on all nodes including this one 
+%% and load it on all nodes including this one
 {ResL, _} = rpc:multicall(code, load_binary, [Mod, File, Bin]),
 
 %% and then maybe check the ResL list.</code>
@@ -350,4 +350,3 @@
     </func>
   </funcs>
 </erlref>
-
