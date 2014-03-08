@@ -18,6 +18,9 @@
 %%
 -module(erl_eval).
 
+%% Guard is_map/1 is not yet supported in HiPE.
+-compile(no_native).
+
 %% An evaluator for Erlang abstract syntax.
 
 -export([exprs/2,exprs/3,exprs/4,expr/2,expr/3,expr/4,expr/5,
@@ -243,11 +246,18 @@ expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
 %% map
 expr({map,_, Binding,Es}, Bs0, Lf, Ef, RBs) ->
     {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, RBs),
-    {Vs,Bs} = eval_map_fields(Es, Bs1, Lf, Ef),
-    ret_expr(lists:foldl(fun
-		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
-		({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
-	end, Map0, Vs), Bs, RBs);
+    case Map0 of
+        #{} ->
+            {Vs,Bs} = eval_map_fields(Es, Bs1, Lf, Ef),
+            Map1 = lists:foldl(fun ({map_assoc,K,V}, Mi) ->
+                                       maps:put(K, V, Mi);
+                                   ({map_exact,K,V}, Mi) ->
+                                       maps:update(K, V, Mi)
+                               end, Map0, Vs),
+            ret_expr(Map1, Bs, RBs);
+        _ ->
+            erlang:raise(error, {badarg,Map0}, stacktrace())
+    end;
 expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = eval_map_fields(Es, Bs0, Lf, Ef),
     ret_expr(lists:foldl(fun
