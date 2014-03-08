@@ -38,7 +38,7 @@
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
          files/1,effect/1,bin_opt_info/1,bin_construction/1, comprehensions/1,
-         maps/1]).
+         maps/1,redundant_boolean_clauses/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -62,7 +62,8 @@ groups() ->
     [{p,test_lib:parallel(),
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
-       bin_opt_info,bin_construction,comprehensions,maps]}].
+       bin_opt_info,bin_construction,comprehensions,maps,
+       redundant_boolean_clauses]}].
 
 init_per_suite(Config) ->
     Config.
@@ -201,6 +202,8 @@ pattern4(Config) when is_list(Config) ->
 	   [nowarn_unused_vars],
 	   {warnings,
 	    [{9,sys_core_fold,no_clause_match},
+             {11,sys_core_fold,nomatch_shadow},
+             {15,sys_core_fold,nomatch_shadow},
 	     {18,sys_core_fold,no_clause_match},
 	     {23,sys_core_fold,no_clause_match},
 	     {33,sys_core_fold,no_clause_match}
@@ -570,6 +573,21 @@ maps(Config) when is_list(Config) ->
            [],
            {warnings,[{3,sys_core_fold,no_clause_match},
                       {9,sys_core_fold,nomatch_clause_type}]}}],
+    run(Config, Ts),
+    ok.
+
+redundant_boolean_clauses(Config) when is_list(Config) ->
+    Ts = [{redundant_boolean_clauses,
+           <<"
+             t(X) ->
+                 case X == 0 of
+                     false -> no;
+                     false -> no;
+                     true -> yes
+                 end.
+           ">>,
+           [],
+           {warnings,[{5,sys_core_fold,nomatch_shadow}]}}],
     run(Config, Ts),
     ok.
 
