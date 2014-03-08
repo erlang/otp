@@ -663,12 +663,16 @@ expr({map,Line,Fs0}, Bs0, Ieval) ->
 expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line,top=false},
     {value,E,Bs1} = expr(E0, Bs0, Ieval),
-    {Fs,Bs2} = eval_map_fields(Fs0, Bs1, Ieval),
-    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
-                            ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi) end,
-                        E, Fs),
-    {value,Value,Bs2};
-
+    case E of
+        #{} ->
+            {Fs,Bs2} = eval_map_fields(Fs0, Bs1, Ieval),
+            Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+                                    ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
+                                end, E, Fs),
+            {value,Value,Bs2};
+        _ ->
+            exception(error, {badarg,E}, Bs1, Ieval)
+    end;
 %% A block of statements
 expr({block,Line,Es},Bs,Ieval) ->
     seq(Es, Bs, Ieval#ieval{line=Line});
