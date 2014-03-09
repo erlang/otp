@@ -48,7 +48,8 @@
 	  temporary_shutdown/1,
           faulty_application_shutdown/1,
 	  permanent_abnormal/1, transient_abnormal/1,
-	  temporary_abnormal/1, temporary_bystander/1]).
+	  temporary_abnormal/1, temporary_bystander/1,
+	  temporary_change_code/1]).
 
 %% Restart strategy tests 
 -export([ one_for_one/1,
@@ -83,7 +84,7 @@ all() ->
      {group, shutdown_termination},
      {group, abnormal_termination}, child_unlink, tree,
      count_children_memory, do_not_save_start_parameters_for_temporary_children,
-     do_not_save_child_specs_for_temporary_children,
+     do_not_save_child_specs_for_temporary_children, temporary_change_code,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
      simple_global_supervisor, hanging_restart_loop, hanging_restart_loop_simple].
 
@@ -773,6 +774,41 @@ temporary_bystander(_Config) ->
     true = erlang:is_process_alive(SupPid1),
     true = erlang:is_process_alive(SupPid2),
     %% Child2 has not been restarted
+    [{child1, _, _, _}] = supervisor:which_children(SupPid1),
+    [{child1, _, _, _}] = supervisor:which_children(SupPid2).
+
+%%-------------------------------------------------------------------------
+%% Temporary processes are never restarted so should not be added to the list
+%% of children after a sys:change_code/4,5 call on the supervisor. Otherwise
+%% a temporary child will appear in supervisor:which_children/1 with undefined
+%% pid and may be restarted if the supervisor is rest_for_one or one_for_all.
+temporary_change_code(_Config) ->
+    Child1 = {child1, {supervisor_1, start_child, []}, permanent, 100,
+	      worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, temporary, 100,
+	      worker, []},
+    Children = [Child1, Child2],
+    {ok, SupPid1} = supervisor:start_link(?MODULE, {ok, {{one_for_all, 2, 300}, Children}}),
+    {ok, SupPid2} = supervisor:start_link(?MODULE, {ok, {{rest_for_one, 2, 300}, Children}}),
+    CPids1 = supervisor:which_children(SupPid1),
+    CPids2 = supervisor:which_children(SupPid2),
+    {child2, CPid1, _, _} = lists:keyfind(child2, 1, CPids1),
+    {child2, CPid2, _, _} = lists:keyfind(child2, 1, CPids2),
+    terminate(SupPid1, CPid1, child2, normal),
+    terminate(SupPid2, CPid2, child2, normal),
+    ok = sys:suspend(SupPid1),
+    ok = sys:suspend(SupPid2),
+    ok = sys:change_code(SupPid1, ?MODULE, undefined, undefined),
+    ok = sys:change_code(SupPid2, ?MODULE, undefined, undefined),
+    ok = sys:resume(SupPid1),
+    ok = sys:resume(SupPid2),
+    % Temporary children not (re-)added to the list of children
+    [{child1, CPid3, _, _}] = supervisor:which_children(SupPid1),
+    [{child1, CPid4, _, _}] = supervisor:which_children(SupPid2),
+    % Trigger restart of children
+    terminate(SupPid1, CPid3, child1, normal),
+    terminate(SupPid2, CPid4, child1, normal),
+    % Child2 has not been restarted
     [{child1, _, _, _}] = supervisor:which_children(SupPid1),
     [{child1, _, _, _}] = supervisor:which_children(SupPid2).
 

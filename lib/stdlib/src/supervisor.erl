@@ -655,8 +655,15 @@ update_childspec1([Child|OldC], Children, KeepOld) ->
 	    update_childspec1(OldC, Children, [Child|KeepOld])
     end;
 update_childspec1([], Children, KeepOld) ->
+    %% Temporary children are never restarted so any new are ignored.
+    NChildren = lists:foldl(fun(#child{pid=undefined,
+				       restart_type=temporary}, Acc) ->
+				    Acc;
+			       (Ch, Acc) ->
+				    [Ch|Acc]
+			    end, [], Children),
     %% Return them in (kept) reverse start order.
-    lists:reverse(Children ++ KeepOld).
+    lists:reverse(KeepOld, NChildren).
 
 update_chsp(OldCh, Children) ->
     case lists:map(fun(Ch) when OldCh#child.name =:= Ch#child.name ->
