@@ -34,6 +34,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> [decode_hello_handshake,
 	  decode_single_hello_extension_correctly,
+	  decode_supported_elliptic_curves_hello_extension_correctly,
 	  decode_unknown_hello_extension_correctly,
 	  encode_single_hello_sni_extension_correctly].
 
@@ -67,6 +68,17 @@ decode_single_hello_extension_correctly(_Config) ->
     #renegotiation_info{renegotiated_connection = <<0>>}
 	= Extensions#hello_extensions.renegotiation_info.
 
+decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
+    % List of supported and unsupported curves (RFC4492:S5.1.1)
+    ClientEllipticCurves = [0, tls_v1:oid_to_enum(?sect233k1), 37, tls_v1:oid_to_enum(?sect193r2), 16#badc],
+    % Construct extension binary - modified version of ssl_handshake:encode_hello_extensions([#elliptic_curves{}], _)
+    EllipticCurveList = << <<X:16>> || X <- ClientEllipticCurves>>,
+    ListLen = byte_size(EllipticCurveList),
+    Len = ListLen + 2,
+    Extension = <<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary>>,
+    % after decoding we should see only valid curves
+    #hello_extensions{elliptic_curves = DecodedCurves} = ssl_handshake:decode_hello_extensions(Extension),
+    #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]} = DecodedCurves.
 
 decode_unknown_hello_extension_correctly(_Config) ->
     FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
