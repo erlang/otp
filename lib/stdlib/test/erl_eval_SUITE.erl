@@ -1452,6 +1452,7 @@ eep43(Config) when is_list(Config) ->
           "end.",
           {#{a => b},#{a => c},#{a => b,d => e}}),
     error_check("[camembert]#{}.", {badarg,[camembert]}),
+    error_check("#{} = 1.", {badmatch,1}),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

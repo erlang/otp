@@ -1123,9 +1123,10 @@ match1({tuple,_,Elts}, Tuple, Bs, BBs)
     match_tuple(Elts, Tuple, 1, Bs, BBs);
 match1({tuple,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
-match1({map,_,Fs}, Map, Bs, BBs) ->
+match1({map,_,Fs}, #{}=Map, Bs, BBs) ->
     match_map(Fs, Map, Bs, BBs);
-
+match1({map,_,_}, _, _Bs, _BBs) ->
+    throw(nomatch);
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs) ->
     eval_bits:match_bits(Fs, B, Bs0, BBs,
 			 match_fun(BBs),
