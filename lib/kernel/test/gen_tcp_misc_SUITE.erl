@@ -40,7 +40,7 @@
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
 	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
-	 several_accepts_in_one_go/1, accept_system_limit/1,
+         several_accepts_in_one_go/1,accept_system_limit/1,accept_inherit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
 	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1, wrapping_oct/1,
          otp_9389/1]).
@@ -102,6 +102,7 @@ all() ->
      accept_timeouts_in_order3, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
      killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
+     accept_inherit,
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389].
@@ -2013,6 +2014,22 @@ open_ports(L) ->
 	    [port_close(Port) || Port <- L1],
 	    L2
     end.
+
+
+accept_inherit(Config) when is_list(Config) ->
+    %% Options 'priority' and 'tos' are handled separately in so_priority/1
+    Opts = [{active,true},{nodelay,true},{keepalive,true},{delay_send,true}],
+    Keys = [active,nodelay,keepalive,delay_send],
+    {ok,LS} = gen_tcp:listen(0, Opts),
+    {ok,{{0,0,0,0},PortNum}} = inet:sockname(LS),
+    {ok,S} = gen_tcp:connect("localhost", PortNum, []),
+    {ok,AS} = gen_tcp:accept(LS),
+    {ok,Opts} = inet:getopts(LS, Keys),
+    {ok,Opts} = inet:getopts(AS, Keys),
+    gen_tcp:close(AS),
+    gen_tcp:close(S),
+    gen_tcp:close(LS),
+    ok.
 
 
 active_once_closed(suite) ->
