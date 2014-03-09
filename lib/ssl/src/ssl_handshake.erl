@@ -1654,7 +1654,7 @@ dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
-    EllipticCurves = [tls_v1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
+    EllipticCurves = parse_elliptic_curve_list(EllipticCurveList),
     dec_hello_extensions(Rest, Acc#hello_extensions{elliptic_curves =
 							#elliptic_curves{elliptic_curve_list =
 									     EllipticCurves}});
@@ -1867,3 +1867,16 @@ handle_psk_identity(_PSKIdentity, LookupFun)
     error;
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
+
+
+% Safe elliptic curve list parser
+parse_elliptic_curve_list(<<X:16, Rest/binary>>) ->
+    try tls_v1:enum_to_oid(X) of
+	Curve -> % supported curve
+	    [Curve | parse_elliptic_curve_list(Rest)]
+    catch
+	error:function_clause -> % unsupported curve
+	    parse_elliptic_curve_list(Rest)
+    end;
+parse_elliptic_curve_list(<<_/binary>>) -> % Maybe just <<>> should be here
+    [].
