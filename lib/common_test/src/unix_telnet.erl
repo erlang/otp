@@ -109,7 +109,7 @@ connect(ConnName,Ip,Port,Timeout,KeepAlive,Extra) ->
 connect1(Name,Ip,Port,Timeout,KeepAlive,Username,Password) ->
     start_gen_log("unix_telnet connect"),
     Result = 
-	case ct_telnet_client:open(Ip,Port,Timeout,KeepAlive) of
+	case ct_telnet_client:open(Ip,Port,Timeout,KeepAlive,Name) of
 	    {ok,Pid} ->
 		case ct_telnet:silent_teln_expect(Name,Pid,[],
 						  [prompt],?prx,[]) of

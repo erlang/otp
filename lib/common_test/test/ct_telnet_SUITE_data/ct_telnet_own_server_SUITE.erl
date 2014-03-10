@@ -28,7 +28,8 @@ all() ->
      ignore_prompt,
      ignore_prompt_repeat,
      ignore_prompt_sequence,
-     ignore_prompt_timeout].
+     ignore_prompt_timeout,
+     server_speaks].
 
 groups() ->
     [].
@@ -188,3 +189,19 @@ no_prompt_check_timeout(_) ->
 							 {timeout,1000}]),
     ok = ct_telnet:close(Handle),
     ok.
+
+%% Let the server say things, to make sure it gets printed correctly
+%% in the general IO log
+server_speaks(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, "echo This is the first message"),
+    ok = ct_telnet:send(Handle, "echo This is the second message"),
+    %% let ct_telnet_client get an idle timeout
+    timer:sleep(15000),
+    ok = ct_telnet:send(Handle, "echo This is the third message"),
+    {ok,_} = ct_telnet:expect(Handle, ["the"], [no_prompt_check]),
+    {error,timeout} = ct_telnet:expect(Handle, ["the"], [no_prompt_check,
+							 {timeout,1000}]),
+    ok = ct_telnet:send(Handle, "echo This is the fourth message"),
+    ok = ct_telnet:close(Handle),
+    ok.  

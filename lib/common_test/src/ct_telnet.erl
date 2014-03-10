@@ -788,19 +788,14 @@ log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
 	    case ct_util:get_testdata({cth_conn_log,?MODULE}) of
 		HookMode when HookMode /= undefined, HookMode /= silent,
 			      Silent /= true ->
-		    {PrintHeader,PreBR} = if Action==undefined ->
-						  {false,""};
-					     true ->
-						  {true,"\n"}
-					  end,
-		    error_logger:info_report(#conn_log{header=PrintHeader,
+		    error_logger:info_report(#conn_log{header=false,
 						       client=self(),
 						       conn_pid=TelnPid,
 						       address={Host,Port},
 						       name=Name1,
 						       action=Action,
 						       module=?MODULE},
-					     {PreBR++String,Args});
+					     {String,Args});
 		_ -> %% hook inactive or silence requested
 		    ok
 	    end;
@@ -1027,19 +1022,25 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO) ->
 	NotFinished ->
 	    %% Get more data
 	    Fun = fun() -> get_data1(EO#eo.teln_pid) end,
-	    case ct_gen_conn:do_within_time(Fun, EO#eo.timeout) of
-		{error,Reason} -> 
+	    case timer:tc(ct_gen_conn, do_within_time, [Fun, EO#eo.timeout]) of
+		{_,{error,Reason}} -> 
 		    %% A timeout will occur when the telnet connection
 		    %% is idle for EO#eo.timeout milliseconds.
 		    {error,Reason};
-		{ok,Data1} ->
-		    case NotFinished of
-			{nomatch,Rest} ->
-			    %% One expect
-			    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO);
-			{continue,Patterns1,Acc1,Rest} ->
-			    %% Sequence
-			    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO)
+		{Elapsed,{ok,Data1}} ->
+		    TVal = trunc(EO#eo.timeout - (Elapsed/1000)),
+		    if TVal =< 0 ->
+			    {error,timeout};
+		       true ->
+			    EO1 = EO#eo{timeout = TVal},
+			    case NotFinished of
+				{nomatch,Rest} ->
+				    %% One expect
+				    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO1);
+				{continue,Patterns1,Acc1,Rest} ->
+				    %% Sequence
+				    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO1)
+			    end
 		    end
 	    end
     end.

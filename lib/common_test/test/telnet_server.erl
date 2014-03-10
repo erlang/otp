@@ -67,7 +67,7 @@ accept(#state{listen=LSock}=State) ->
 		    io:format("[telnet_server] telnet_server stopped\n"),
 		    ok;
 		R ->
-		    io:format("[telnet_server] connection to client" 
+		    io:format("[telnet_server] connection to client " 
 			      "closed with reason ~p~n",[R]),
 		    accept(State)
 	    end;
@@ -97,19 +97,19 @@ init_client(#state{client=Sock}=State) ->
     dbg("Server sending: ~p~n",["login: "]),
     R = case gen_tcp:send(Sock,"login: ") of
 	    ok ->
-		loop(State);
+		loop(State, 1);
 	    Error ->
 		Error
 	end,
     _ = gen_tcp:close(Sock),
     R.
 
-loop(State) ->
+loop(State, N) ->
     receive
 	{tcp,_,Data} ->
 	    try handle_data(Data,State) of
 		{ok,State1} ->
-		    loop(State1)
+		    loop(State1, N)
 	    catch 
 		throw:Error ->
 		    Error
@@ -120,6 +120,14 @@ loop(State) ->
 	    {error,tcp,Error};
 	stop ->
 	    stopped
+    after
+	500 ->
+	    Report = lists:flatten(
+		       io_lib:format("The CT Telnet Server says: "
+				     "Iteration no ~w\r\n", [N])),
+	    dbg("Server sending: ~s~n", [Report]),
+	    gen_tcp:send(State#state.client, Report),
+	    loop(State, N+1)
     end.
 
 handle_data([?IAC|Cmd],State) ->

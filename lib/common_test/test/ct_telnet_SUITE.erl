@@ -73,11 +73,13 @@ end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
 init_per_testcase(TestCase, Config) when TestCase=/=unix_telnet->
+    ct:pal("Testcase ~p starting!", [TestCase]),
     TS = telnet_server:start([{port,?erl_telnet_server_port},
 			      {users,[{?erl_telnet_server_user,
 				       ?erl_telnet_server_pwd}]}]),
     ct_test_support:init_per_testcase(TestCase, [{telnet_server,TS}|Config]);
 init_per_testcase(TestCase, Config) ->
+    ct:pal("Testcase ~p starting!", [TestCase]),
     ct_test_support:init_per_testcase(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
