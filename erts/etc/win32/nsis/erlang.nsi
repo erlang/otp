@@ -93,7 +93,6 @@ SectionIn 1 RO
 skip_silent_mode:
 
   	SetOutPath "$INSTDIR"
-  	File "${TESTROOT}\OTP_VERSION"
   	File "${TESTROOT}\Install.ini"
   	File "${TESTROOT}\Install.exe"
   	File /r "${TESTROOT}\releases"

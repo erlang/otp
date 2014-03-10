@@ -31,5 +31,6 @@
   <xi:include href="system_principles.xml"/>
   <xi:include href="error_logging.xml"/>
   <xi:include href="create_target.xml"/>
+  <xi:include href="versions.xml"/>
 </part>
 

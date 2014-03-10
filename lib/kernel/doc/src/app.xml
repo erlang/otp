@@ -90,6 +90,8 @@ RTDeps       [ApplicationVersion] []
       <c>description</c>, <c>vsn</c>, <c>modules</c>, <c>registered</c>
       and <c>applications</c>. The other keys are ignored by
       <c>systools</c>.</p>
+      <warning><p>The <c>RTDeps</c> type was introduced in OTP 17.0 and
+      might be subject to changes during the OTP 17 release.</p></warning>
     <taglist>
       <tag><c>description</c></tag>
       <item>
@@ -188,10 +190,10 @@ RTDeps       [ApplicationVersion] []
           start phases must be a subset of the set of phases defined
           for the primary application. Refer to <em>OTP Design Principles</em> for more information.</p>
       </item>
-      <tag><c>runtime_dependencies</c></tag>
-      <item>A list of application versions that the application
+      <tag><marker id="runtime_dependencies"><c>runtime_dependencies</c></marker></tag>
+      <item><p>A list of application versions that the application
       depends on. An example of such an application version is
-      "kernel-3.0". Application versions specified as runtime
+      <c>"kernel-3.0"</c>. Application versions specified as runtime
       dependencies are minimum requirements. That is, a larger
       application version than the one specified in the
       dependency satisfies the requirement. For information on
@@ -202,7 +204,18 @@ RTDeps       [ApplicationVersion] []
       specifies a source code version. An additional indirect
       requirement is that installed binary application of
       the specified version has been built so that it is
-      compatible with the rest of the system.
+      compatible with the rest of the system.</p>
+      <p>Some dependencies might only be required in specific runtime
+      scenarios. In the case such optional dependencies exist, these are
+      specified and documented in the corresponding "App" documentation
+      of the specific application.</p>
+      <warning><p>The <c>runtime_dependencies</c> key was introduced in
+      OTP 17.0. The type of its value might be subject to changes during
+      the OTP 17 release.</p></warning>
+      <warning><p>All runtime dependencies specified in OTP applications
+      during the OTP 17 release might not be completely correct. This
+      is actively worked on. Declared runtime dependencies in OTP
+      applications are expected to be correct in OTP 18.</p></warning>
       </item>
     </taglist>
   </section>

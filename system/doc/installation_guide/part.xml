@@ -31,7 +31,6 @@
   <description>
     <p>How to install Erlang/OTP on UNIX or Windows.</p>
   </description>
-  <xi:include href="otp_version.xml"/>
   <xi:include href="install-binary.xml"/>
   <xi:include href="verification.xml"/>
   <xi:include href="INSTALL.xml"/>

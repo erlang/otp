@@ -48,6 +48,7 @@ debug opt clean:
 			( cd $$d && $(MAKE) $@ FLAVOR=$(FLAVOR) ) || exit $$? ; \
 		fi ; \
 	done
+	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
 
 # ----------------------------------------------------------------------
 # These are "convenience targets", provided as shortcuts for developers
@@ -135,6 +136,10 @@ release:
 			( cd $$d && $(MAKE) $@ ) || exit $$? ; \
 		fi ; \
 	 done
+	( $(MAKE) -f "$(ERL_TOP)/make/otp_released_app.mk"	\
+		APP_PWD="$(ERL_TOP)/erts" APP_VSN=VSN APP=erts	\
+		TESTROOT="$(TESTROOT)" update)			\
+	 || exit $$?
 
 .PHONY: release_docs
 release_docs:

@@ -6121,8 +6121,8 @@ ok
 	    <c>erlang:system_info()</c> argument giving the exact OTP
 	    version. This since the exact OTP version in the general case
 	    is hard to determine.  For more information see 
-	    <seealso marker="doc/installation_guide:otp_version">the
-	    documentation of the OTP version in the installation
+	    <seealso marker="doc/system_principles:versions">the
+	    documentation of versions in the system principles
 	    guide</seealso>.</p>
           </item>
 	  <tag><marker id="system_info_port_parallelism"><c>port_parallelism</c></marker></tag>
