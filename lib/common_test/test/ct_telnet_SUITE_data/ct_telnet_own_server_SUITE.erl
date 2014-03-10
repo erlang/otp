@@ -29,7 +29,8 @@ all() ->
      ignore_prompt_repeat,
      ignore_prompt_sequence,
      ignore_prompt_timeout,
-     server_speaks].
+     server_speaks,
+     server_disconnects].
 
 groups() ->
     [].
@@ -190,18 +191,36 @@ no_prompt_check_timeout(_) ->
     ok = ct_telnet:close(Handle),
     ok.
 
-%% Let the server say things, to make sure it gets printed correctly
-%% in the general IO log
+%% The server says things. Manually check that it gets printed correctly
+%% in the general IO log.
 server_speaks(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
-    ok = ct_telnet:send(Handle, "echo This is the first message"),
-    ok = ct_telnet:send(Handle, "echo This is the second message"),
+    ok = ct_telnet:send(Handle, "echo_no_prompt This is the first message\r\n"),
+    ok = ct_telnet:send(Handle, "echo_no_prompt This is the second message\r\n"),
     %% let ct_telnet_client get an idle timeout
     timer:sleep(15000),
-    ok = ct_telnet:send(Handle, "echo This is the third message"),
+    ok = ct_telnet:send(Handle, "echo_no_prompt This is the third message\r\n"),
     {ok,_} = ct_telnet:expect(Handle, ["the"], [no_prompt_check]),
     {error,timeout} = ct_telnet:expect(Handle, ["the"], [no_prompt_check,
 							 {timeout,1000}]),
-    ok = ct_telnet:send(Handle, "echo This is the fourth message"),
+    ok = ct_telnet:send(Handle, "echo_no_prompt This is the fourth message\r\n"),
+    %% give the server time to respond
+    timer:sleep(2000),
+    %% closing the connection should print last message in log
     ok = ct_telnet:close(Handle),
     ok.  
+
+%% Let the server close the connection. Make sure buffered data gets printed
+%% to the general IO log.
+server_disconnects(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, "disconnect_after 1500"),
+    %% wait until the get_data operation (triggered by send/2) times out
+    %% before sending the msg
+    timer:sleep(500),
+    ok = ct_telnet:send(Handle, "echo_no_prompt This is the message\r\n"),
+    %% when the server closes the connection, the last message should be
+    %% printed in the log
+    timer:sleep(3000),
+    _ = ct_telnet:close(Handle),
+    ok.

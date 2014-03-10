@@ -32,11 +32,10 @@
 
 -module(ct_telnet_client).
 
+%% -define(debug, true).
+
 -export([open/2, open/3, open/4, open/5, close/1]).
 -export([send_data/2, get_data/1]).
-
-%%! --- Sun Mar  9 22:03:49 2014 --- peppe was here!
--define(debug, true).
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
@@ -105,7 +104,7 @@ get_data(Pid) ->
     Pid ! {get_data,self()},
     receive 
 	{data,Data} ->
-	    {ok, Data}
+	    {ok,Data}
     end.
 
 
@@ -116,7 +115,7 @@ init(Parent, Server, Port, Timeout, KeepAlive, ConnName) ->
 	{ok,Sock} ->
 	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
 		[ConnName,Server,Port,KeepAlive]),
-	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock),	      
+	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock, ConnName),	      
 	    Parent ! {open,self()},
 	    loop(#state{conn_name=ConnName, get_data=10, keep_alive=KeepAlive},
 		 Sock, []),
@@ -130,6 +129,7 @@ loop(State, Sock, Acc) ->
 	{tcp_closed,_} ->
 	    dbg("Connection closed\n", []),
 	    Data = lists:reverse(lists:append(Acc)),
+	    dbg("Printing queued messages: ~tp",[Data]),
 	    ct_telnet:log(State#state.conn_name,
 			  general_io, "~ts",
 			  [lists:sublist(Data,
@@ -142,11 +142,11 @@ loop(State, Sock, Acc) ->
 		    ok
 	    end;
 	{tcp,_,Msg0} ->
-	    dbg("tcp msg: ~p~n",[Msg0]),
+	    dbg("tcp msg: ~tp~n",[Msg0]),
 	    Msg = check_msg(Sock,Msg0,[]),
 	    loop(State, Sock, [Msg | Acc]);
 	{send_data,Data} ->
-	    send(Data, Sock),
+	    send(Data, Sock, State#state.conn_name),
 	    loop(State, Sock, Acc);
 	{get_data,Pid} ->
 	    NewState = 
@@ -162,7 +162,7 @@ loop(State, Sock, Acc) ->
 		    _ ->
 			Data = lists:reverse(lists:append(Acc)),
 			Len = length(Data),
-			dbg("get_data ~p\n",[Data]),
+			dbg("get_data ~tp\n",[Data]),
 			ct_telnet:log(State#state.conn_name,
 				      general_io, "~ts",
 				      [lists:sublist(Data,
@@ -176,7 +176,8 @@ loop(State, Sock, Acc) ->
 	    NewState =
 		case State of
 		    #state{keep_alive = true, get_data = 0} ->
-			if Acc == [] -> send([?IAC,?NOP], Sock);
+			if Acc == [] -> send([?IAC,?NOP], Sock, 
+					     State#state.conn_name);
 			   true -> ok
 			end,
 			State#state{get_data=10};
@@ -185,16 +186,20 @@ loop(State, Sock, Acc) ->
 		end,
 	    {NewAcc,Pos} = 
 		case erlang:is_process_alive(Pid) of
-		    true ->
+		    true when Acc /= [] ->
 			Data = lists:reverse(lists:append(Acc)),
 			Len = length(Data),
-			dbg("get_data_delayed ~p\n",[Data]),
+			dbg("get_data_delayed ~tp\n",[Data]),
 			ct_telnet:log(State#state.conn_name,
 				      general_io, "~ts",
 				      [lists:sublist(Data,
 						     State#state.log_pos,
 						     Len)]),
 			Pid ! {data,Data},
+			{[],1};
+		    true when Acc == [] ->
+			dbg("get_data_delayed nodata\n",[]),
+			Pid ! {data,[]},
 			{[],1};
 		    false ->
 			{Acc,NewState#state.log_pos}
@@ -206,6 +211,7 @@ loop(State, Sock, Acc) ->
 		    ok;
 	       true ->
 		    Data = lists:reverse(lists:append(Acc)),
+		    dbg("Printing queued messages: ~tp",[Data]),
 		    ct_telnet:log(State#state.conn_name,
 				  general_io, "~ts",
 				  [lists:sublist(Data,
@@ -218,11 +224,12 @@ loop(State, Sock, Acc) ->
 	    Data = lists:reverse(lists:append(Acc)),
 	    case Data of
 		[] ->
-		    send([?IAC,?NOP], Sock),
+		    send([?IAC,?NOP], Sock, State#state.conn_name),
 		    loop(State, Sock, Acc);
 		_ when State#state.log_pos == length(Data)+1 ->
 		    loop(State, Sock, Acc);
 		_ ->
+		    dbg("Idle timeout, printing ~tp\n",[Data]),
 		    Len = length(Data),
 		    ct_telnet:log(State#state.conn_name,
 				  general_io, "~ts",
@@ -236,12 +243,18 @@ loop(State, Sock, Acc) ->
 wait(true, Time) -> Time;
 wait(false, _) -> infinity.   
 
-send(Data, Sock) ->
+send(Data, Sock, ConnName) ->
     case Data of
 	[?IAC|_] = Cmd ->
 	    cmd_dbg(Cmd);
 	_ ->
-	    dbg("Sending: ~p\n", [Data])
+	    dbg("Sending: ~tp\n", [Data]),
+	    try io_lib:format("[~w] ~ts", [?MODULE,Data]) of
+		Str ->
+		    ct_telnet:log(ConnName, general_io, Str, [])
+	    catch
+		_:_ -> ok
+	    end
     end,
     gen_tcp:send(Sock, Data),
     ok.

@@ -344,7 +344,7 @@ loop(Opts) ->
 			    link(NewPid),
 			    put(conn_pid,NewPid),
 			    loop(Opts#gen_opts{conn_pid=NewPid,
-					       cb_state=NewState});
+					       cb_state=NewState});			
 			Error ->
 			    ct_util:unregister_connection(self()),
 			    log("Reconnect failed. Giving up!",

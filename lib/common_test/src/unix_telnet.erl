@@ -143,13 +143,13 @@ connect1(Name,Ip,Port,Timeout,KeepAlive,Username,Password) ->
 		    {ok,[{prompt,_OtherPrompt1},{prompt,_OtherPrompt2}],_} ->
 			{ok,Pid};
 		    Error ->
-			log(Name,error,
+			log(Name,conn_error,
 			    "Did not get expected prompt from ~p:~p\n~p\n",
 			    [Ip,Port,Error]),
 			{error,Error}
 		end;
 	    Error ->
-		log(Name,error,
+		log(Name,conn_error,
 		    "Could not open telnet connection to ~p:~p\n~p\n",
 		    [Ip,Port,Error]),
 		Error

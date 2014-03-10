@@ -281,8 +281,16 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 		end,
 	    log(undefined,open,"Connecting to ~p(~p)",
 		[KeyOrName,Addr1]),
-	    ct_gen_conn:start(KeyOrName,full_addr(Addr1,ConnType),
-			      {TargetMod,KeepAlive,Extra},?MODULE)
+	    Reconnect =
+		case ct:get_config({telnet_settings,reconnection_attempts}) of
+		    0 -> false;
+		    _ -> true
+		end,
+	    ct_gen_conn:start(full_addr(Addr1,ConnType),
+			      {TargetMod,KeepAlive,Extra},
+			      ?MODULE, [{name,KeyOrName},
+					{reconnect,Reconnect},
+					{old,true}])
     end.
 
 %%%-----------------------------------------------------------------
@@ -601,11 +609,9 @@ handle_msg({cmd,Cmd,Timeout},State) ->
     end_gen_log(),
     {Return,State#state{buffer=NewBuffer,prompt=Prompt}};
 handle_msg({send,Cmd},State) ->
-    log(State,send,"Cmd: ~p",[Cmd]),
-
+    log(State,send,"Sending: ~p",[Cmd]),
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
-
     case {State#state.type,State#state.prompt} of
 	{ts,_} -> 
 	    silent_teln_expect(State#state.name,

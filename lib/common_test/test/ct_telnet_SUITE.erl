@@ -72,21 +72,32 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
-init_per_testcase(TestCase, Config) when TestCase=/=unix_telnet->
+init_per_testcase(TestCase, Config) when TestCase /= unix_telnet ->
     ct:pal("Testcase ~p starting!", [TestCase]),
     TS = telnet_server:start([{port,?erl_telnet_server_port},
 			      {users,[{?erl_telnet_server_user,
 				       ?erl_telnet_server_pwd}]}]),
     ct_test_support:init_per_testcase(TestCase, [{telnet_server,TS}|Config]);
 init_per_testcase(TestCase, Config) ->
-    ct:pal("Testcase ~p starting!", [TestCase]),
-    ct_test_support:init_per_testcase(TestCase, Config).
+    ct:pal("Testcase ~p starting. Checking connection to telnet server...",
+	   [TestCase]),
+    ct:require(testconn, {unix,[telnet]}),
+    case {os:type(),ct_telnet:open(testconn)} of
+	{_,{ok,Handle}} ->
+	    ok = ct_telnet:close(Handle),
+	    ct:pal("Connection ok, starting tests!", []),
+	    ct_test_support:init_per_testcase(TestCase, Config);
+	{{unix,_},{error,Reason}} ->
+	    ct:fail("No connection to telnet server! Reason: ~tp", [Reason]);
+	{_,{error,Reason}} ->
+	    {skip,{no_access_to_telnet_server,Reason}}
+    end.		
 
+end_per_testcase(TestCase, Config) when TestCase /= unix_telnet ->
+    ct:pal("Stopping the telnet_server now!", []),
+    telnet_server:stop(?config(telnet_server,Config)),
+    ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
-    case ?config(telnet_server,Config) of
-	undefined -> ok;
-	TS -> telnet_server:stop(TS)
-    end,
     ct_test_support:end_per_testcase(TestCase, Config).
 
 
@@ -181,7 +192,12 @@ telnet_config(_, LogType) ->
 	    {port, ?erl_telnet_server_port},
 	    {username,?erl_telnet_server_user},
 	    {password,?erl_telnet_server_pwd},
-	    {keep_alive,true}]} |
+	    {keep_alive,true}]},
+     {telnet_settings, [{connect_timeout,10000},
+			{command_timeout,10000},
+			{reconnection_attempts,0},
+			{reconnection_interval,0},
+			{keep_alive,true}]} |
      if LogType == legacy -> 
 	     [{ct_conn_log,[]}];
 	true ->
