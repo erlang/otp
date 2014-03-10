@@ -2166,6 +2166,8 @@ lit_vars(Lit) -> lit_vars(Lit, []).
 
 lit_vars(#c_cons{hd=H,tl=T}, Vs) -> lit_vars(H, lit_vars(T, Vs));
 lit_vars(#c_tuple{es=Es}, Vs) -> lit_list_vars(Es, Vs);
+lit_vars(#c_map{var=V,es=Es}, Vs) -> lit_vars(V, lit_list_vars(Es, Vs));
+lit_vars(#c_map_pair{key=K,val=V}, Vs) -> lit_vars(K, lit_vars(V, Vs));
 lit_vars(#c_var{name=V}, Vs) -> add_element(V, Vs); 
 lit_vars(_, Vs) -> Vs.				%These are atomic
 
