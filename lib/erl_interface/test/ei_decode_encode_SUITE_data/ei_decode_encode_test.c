@@ -310,7 +310,7 @@ void decode_encode(struct Type** tv, int nobj)
     send_buffer(out_buf, outp - out_buf);
     send_buffer(arg.buff, arg.index);
     ei_x_free(&arg);
-    free(packet);
+    free_packet(packet);
 }
 
 void decode_encode_one(struct Type* t)
