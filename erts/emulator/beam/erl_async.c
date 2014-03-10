@@ -97,6 +97,9 @@ typedef union {
 typedef struct {
     ErtsThrQ_t thr_q;
     erts_tid_t thr_id;
+#ifdef USE_VM_PROBES
+    int len;
+#endif
 } ErtsAsyncQ;
 
 typedef union {
@@ -254,12 +257,28 @@ erts_get_async_ready_queue(Uint sched_id)
 
 #endif
 
-static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
+static ERTS_INLINE void
+erts_async_enqueue(ErtsAsyncQ* aq, ErtsAsync *a)
 {
 #ifdef USE_VM_PROBES
-    int len;
+    aq->len++;
 #endif
+    erts_thr_q_enqueue(&aq->thr_q, a);
+}
 
+static ERTS_INLINE ErtsAsync *
+erts_async_dequeue(ErtsAsyncQ* aq)
+{
+    ErtsAsync *a = erts_thr_q_dequeue(&aq->thr_q);
+#ifdef USE_VM_PROBES
+    if (a)
+        aq->len--;
+#endif
+    return a;
+}
+
+static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* aq)
+{
     if (is_internal_port(a->port)) {
 #if ERTS_USE_ASYNC_READY_Q
 	ErtsAsyncReadyQ *arq = async_ready_q(a->sched_id);
@@ -274,21 +293,19 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
     erts_fprintf(stderr, "-> %ld\n", a->async_id);
 #endif
 
-    erts_thr_q_enqueue(&q->thr_q, a);
+    erts_async_enqueue(aq, a);
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(aio_pool_add)) {
         DTRACE_CHARBUF(port_str, 16);
 
         erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
-        /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
-        len = -1;
-        DTRACE2(aio_pool_add, port_str, len);
+        DTRACE2(aio_pool_add, port_str, aq->len);
     }
     gcc_optimizer_hack++;
 #endif
 }
 
-static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
+static ERTS_INLINE ErtsAsync *async_get(ErtsAsyncQ *aq,
 					erts_tse_t *tse,
 					ErtsThrQPrepEnQ_t **prep_enq)
 {
@@ -296,12 +313,10 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
     int saved_fin_deq = 0;
     ErtsThrQFinDeQ_t fin_deq;
 #endif
-#ifdef USE_VM_PROBES
-    int len;
-#endif
 
     while (1) {
-	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
+        ErtsThrQ_t *q = &aq->thr_q;
+	ErtsAsync *a = erts_async_dequeue(aq);
 	if (a) {
 
 #if ERTS_USE_ASYNC_READY_Q
@@ -315,9 +330,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
                 DTRACE_CHARBUF(port_str, 16);
 
                 erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
-                /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
-                len = -1;
-                DTRACE2(aio_pool_get, port_str, len);
+                DTRACE2(aio_pool_get, port_str, aq->len);
             }
 #endif
 	    return a;
@@ -489,7 +502,7 @@ static void *async_main(void* arg)
 
     while (1) {
 	ErtsThrQPrepEnQ_t *prep_enq;
-	ErtsAsync *a = async_get(&aq->thr_q, tse, &prep_enq);
+	ErtsAsync *a = async_get(aq, tse, &prep_enq);
 	if (is_nil(a->port))
 	    break; /* Time to die */
 
