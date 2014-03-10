@@ -39,21 +39,26 @@ typedef struct
     erlang_char_encoding enc;
 }my_atom;
 
-union my_obj {
-    erlang_fun fun;
-    erlang_pid pid;
-    erlang_port port;
-    erlang_ref ref;
-    erlang_trace trace;
-    erlang_big big;
-    my_atom atom;
+struct my_obj {
+    union {
+	erlang_fun fun;
+	erlang_pid pid;
+	erlang_port port;
+	erlang_ref ref;
+	erlang_trace trace;
+	erlang_big big;
+	my_atom atom;
 
-    int arity;
+	int arity;
+    }u;
+
+    int nterms; /* 0 for non-containers */
+    char* startp; /* container start position in decode buffer */
 };
 
-typedef int decodeFT(const char *buf, int *index, union my_obj*);
-typedef int encodeFT(char *buf, int *index, union my_obj*);
-typedef int x_encodeFT(ei_x_buff*, union my_obj*);
+typedef int decodeFT(const char *buf, int *index, struct my_obj*);
+typedef int encodeFT(char *buf, int *index, struct my_obj*);
+typedef int x_encodeFT(ei_x_buff*, struct my_obj*);
 
 struct Type {
     char* name;
@@ -114,36 +119,53 @@ struct Type my_atom_type = {
 };
 
 
-int my_encode_tuple_header(char *buf, int *index, union my_obj* obj)
+int my_decode_tuple_header(const char *buf, int *index, struct my_obj* obj)
 {
-    return ei_encode_tuple_header(buf, index, obj->arity);
+    int ret = ei_decode_tuple_header(buf, index, &obj->u.arity);
+    if (ret == 0 && obj)
+	obj->nterms = obj->u.arity;
+    return ret;
 }
-int my_x_encode_tuple_header(ei_x_buff* x, union my_obj* obj)
+
+int my_encode_tuple_header(char *buf, int *index, struct my_obj* obj)
 {
-    return ei_x_encode_tuple_header(x, (long)obj->arity);
+    return ei_encode_tuple_header(buf, index, obj->u.arity);
+}
+int my_x_encode_tuple_header(ei_x_buff* x, struct my_obj* obj)
+{
+    return ei_x_encode_tuple_header(x, (long)obj->u.arity);
 }
 
 struct Type tuple_type = {
-    "tuple_header", "arity", (decodeFT*)ei_decode_tuple_header,
+    "tuple_header", "arity", my_decode_tuple_header,
     my_encode_tuple_header, my_x_encode_tuple_header
 };
 
-int my_encode_list_header(char *buf, int *index, union my_obj* obj)
+
+int my_decode_list_header(const char *buf, int *index, struct my_obj* obj)
 {
-    return ei_encode_list_header(buf, index, obj->arity);
+    int ret = ei_decode_list_header(buf, index, &obj->u.arity);
+    if (ret == 0 && obj) {
+	obj->nterms = obj->u.arity + 1;
+    }
+    return ret;
 }
-int my_x_encode_list_header(ei_x_buff* x, union my_obj* obj)
+int my_encode_list_header(char *buf, int *index, struct my_obj* obj)
 {
-    return ei_x_encode_list_header(x, (long)obj->arity);
+    return ei_encode_list_header(buf, index, obj->u.arity);
+}
+int my_x_encode_list_header(ei_x_buff* x, struct my_obj* obj)
+{
+    return ei_x_encode_list_header(x, (long)obj->u.arity);
 }
 
 struct Type list_type = {
-    "list_header", "arity", (decodeFT*)ei_decode_list_header,
+    "list_header", "arity", my_decode_list_header,
     my_encode_list_header, my_x_encode_list_header
 };
 
 
-int my_decode_nil(const char *buf, int *index, union my_obj* dummy)
+int my_decode_nil(const char *buf, int *index, struct my_obj* dummy)
 {
     int type, size, ret;
     ret = ei_get_type(buf, index, &type, &size);
@@ -151,32 +173,39 @@ int my_decode_nil(const char *buf, int *index, union my_obj* dummy)
     return ret ?  ret : !(type == ERL_NIL_EXT);
 
 }
-int my_encode_nil(char *buf, int *index, union my_obj* dummy)
+int my_encode_nil(char *buf, int *index, struct my_obj* dummy)
 {
     return ei_encode_empty_list(buf, index);
 }
 
-int my_x_encode_nil(ei_x_buff* x, union my_obj* dummy)
+int my_x_encode_nil(ei_x_buff* x, struct my_obj* dummy)
 {
     return ei_x_encode_empty_list(x);
 }
 
 struct Type nil_type = {
-    "empty_list", "nil", (decodeFT*)my_decode_nil,
+    "empty_list", "nil", my_decode_nil,
     my_encode_nil, my_x_encode_nil
 };
 
-int my_encode_map_header(char *buf, int *index, union my_obj* obj)
+int my_decode_map_header(const char *buf, int *index, struct my_obj* obj)
 {
-    return ei_encode_map_header(buf, index, obj->arity);
+    int ret = ei_decode_map_header(buf, index, &obj->u.arity);
+    if (ret == 0 && obj)
+	obj->nterms = obj->u.arity * 2;
+    return ret;
 }
-int my_x_encode_map_header(ei_x_buff* x, union my_obj* obj)
+int my_encode_map_header(char *buf, int *index, struct my_obj* obj)
 {
-    return ei_x_encode_map_header(x, (long)obj->arity);
+    return ei_encode_map_header(buf, index, obj->u.arity);
+}
+int my_x_encode_map_header(ei_x_buff* x, struct my_obj* obj)
+{
+    return ei_x_encode_map_header(x, (long)obj->u.arity);
 }
 
 struct Type map_type = {
-    "map_header", "arity", (decodeFT*)ei_decode_map_header,
+    "map_header", "arity", my_decode_map_header,
     my_encode_map_header, my_x_encode_map_header
 };
 
@@ -185,7 +214,8 @@ struct Type map_type = {
 
 void decode_encode(struct Type** tv, int nobj)
 {
-    union my_obj obj;
+    struct my_obj objv[10];
+    int oix = 0;
     char* packet;
     char* inp;
     char* outp;
@@ -224,7 +254,9 @@ void decode_encode(struct Type** tv, int nobj)
 	}
 
 	size2 = 0;
-	err = t->ei_decode_fp(inp, &size2, &obj);
+	objv[oix].nterms = 0;
+	objv[oix].startp = inp;
+	err = t->ei_decode_fp(inp, &size2, &objv[oix]);
 	if (err != 0) {
 	    if (err != -1) {
 		fail("decode returned non zero but not -1");
@@ -239,7 +271,7 @@ void decode_encode(struct Type** tv, int nobj)
 	    return;
 	}
 
-	if (t != &tuple_type && t != &list_type && t != &map_type) {
+	if (!objv[oix].nterms) {
 	    size2 = 0;
 	    err = ei_skip_term(inp, &size2);
 	    if (err != 0) {
@@ -255,7 +287,7 @@ void decode_encode(struct Type** tv, int nobj)
 
 	MESSAGE("ei_encode_%s buf is NULL, arg is type %s", t->name, t->type);
 	size2 = 0;
-	err = t->ei_encode_fp(NULL, &size2, &obj);
+	err = t->ei_encode_fp(NULL, &size2, &objv[oix]);
 	if (err != 0) {
 	    if (err != -1) {
 		fail("size calculation returned non zero but not -1");
@@ -272,7 +304,7 @@ void decode_encode(struct Type** tv, int nobj)
 	}
 	MESSAGE("ei_encode_%s, arg is type %s", t->name, t->type);
 	size3 = 0;
-	err = t->ei_encode_fp(outp, &size3, &obj);
+	err = t->ei_encode_fp(outp, &size3, &objv[oix]);
 	if (err != 0) {
 	    if (err != -1) {
 		fail("returned non zero but not -1");
@@ -288,7 +320,7 @@ void decode_encode(struct Type** tv, int nobj)
 	}
 
 	MESSAGE("ei_x_encode_%s, arg is type %s", t->name, t->type);
-	err = t->ei_x_encode_fp(&arg, &obj);
+	err = t->ei_x_encode_fp(&arg, &objv[oix]);
 	if (err != 0) {
 	    if (err != -1) {
 		fail("returned non zero but not -1");
@@ -306,6 +338,37 @@ void decode_encode(struct Type** tv, int nobj)
 
 	inp += size1;
 	outp += size1;
+
+	if (objv[oix].nterms) { /* container term */
+	    if (++oix >= sizeof(objv)/sizeof(*objv))
+		fail("Term too deep");
+	}
+	else { /* "leaf" term */
+	    while (oix > 0) {
+		if (--(objv[oix - 1].nterms) == 0) {
+		    /* last element in container */
+		    --oix;
+
+		    size2 = 0;
+		    err = ei_skip_term(objv[oix].startp, &size2);
+		    if (err != 0) {
+			fail("ei_skip_term returned non zero");
+			return;
+		    }
+		    if (objv[oix].startp + size2 != inp) {
+			MESSAGE("size1 = %d, size2 = %d\n", size1, size2);
+			fail("container skip size differs");
+			return;
+		    }
+		}
+		else
+		    break; /* more elements in container */
+	    }
+	}
+
+    }
+    if (oix > 0) {
+	fail("Container not complete");
     }
     send_buffer(out_buf, outp - out_buf);
     send_buffer(arg.buff, arg.index);
