@@ -164,7 +164,8 @@
           applications = []        :: [app_name()],
           env          = []        :: [{atom(), term()}],
           mod          = undefined :: {mod_name(), [term()]} | undefined,
-          start_phases = undefined :: [{atom(), term()}] | undefined
+          start_phases = undefined :: [{atom(), term()}] | undefined,
+          runtime_dependencies = [] :: [string()]
 	}).
 
 -record(regexp, {source, compiled}).

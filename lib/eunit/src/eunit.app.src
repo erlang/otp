@@ -18,4 +18,5 @@
 	     eunit_tty]},
   {registered,[]},
   {applications, [kernel,stdlib]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","erts-6.0"]}]}.

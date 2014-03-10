@@ -112,7 +112,10 @@
                 megaco_trans_sup, megaco_misc_sup, megaco_sup]},
   {applications, [stdlib, kernel]},
   {env, []},
-  {mod, {megaco_sup, []}}
+  {mod, {megaco_sup, []}},
+  {runtime_dependencies, ["stdlib-2.0","runtime_tools-1.8.14","kernel-3.0",
+			  "et-1.5","erts-6.0","debugger-4.0",
+			  "asn1-3.0"]}
  ]}.
 
 

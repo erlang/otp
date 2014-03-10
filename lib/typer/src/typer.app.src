@@ -6,4 +6,6 @@
   {modules, [typer]},
   {registered, []},
   {applications, [compiler, dialyzer, hipe, kernel, stdlib]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","hipe-3.10.3","erts-6.0",
+			  "dialyzer-2.7","compiler-5.0"]}]}.

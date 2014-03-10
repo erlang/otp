@@ -46,4 +46,6 @@
 	     int
 	    ]},
   {registered, [dbg_iserver, dbg_wx_mon, dbg_wx_winman]},
-  {applications, [kernel, stdlib]}]}.
+  {applications, [kernel, stdlib]},
+  {runtime_dependencies, ["wx-1.2","stdlib-2.0","kernel-3.0","erts-6.0",
+			  "compiler-5.0"]}]}.

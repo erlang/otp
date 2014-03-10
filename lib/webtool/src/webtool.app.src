@@ -21,5 +21,7 @@
 	{vsn,"%VSN%"},
 	{modules,[webtool,webtool_sup]},
 	{registered,[web_tool,websup]},
-	{applications,[kernel,stdlib]}]}.
+	{applications,[kernel,stdlib]},
+	{runtime_dependencies, ["stdlib-2.0","observer-2.0","kernel-3.0",
+				"inets-5.10","erts-6.0"]}]}.
 	

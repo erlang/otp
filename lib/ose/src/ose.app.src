@@ -23,4 +23,5 @@
   {modules, [ose]},
   {registered,[]},
   {applications, [stdlib,kernel]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies, ["stdlib-2.0","erts-6.0"]}]}.

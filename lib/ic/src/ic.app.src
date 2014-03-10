@@ -46,7 +46,8 @@
   {registered, []},
   {applications, [stdlib, kernel]},
   {env, []},
-  {mod, {ic, []}}
+  {mod, {ic, []}},
+  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","erts-6.0"]}
 ]}.
 
 

@@ -61,7 +61,8 @@
    {applications, Apps},
    {env,          Env},
    {mod,          Start},
-   {start_phases, Phases}]}.
+   {start_phases, Phases},
+   {runtime_dependencies, RTDeps}]}.
 
              Value                Default
              -----                -------
@@ -77,8 +78,10 @@ Apps         [App]                []
 Env          [{Par,Val}]          []
 Start        {Module,StartArgs}   []
 Phases       [{Phase,PhaseArgs}]  undefined
+RTDeps       [ApplicationVersion] []
   Module = Name = App = Par = Phase = atom()
-  Val = StartArgs = PhaseArgs = term()</code>
+  Val = StartArgs = PhaseArgs = term()
+  ApplicationVersion = string()</code>
     <p><c>Application</c> is the name of the application.</p>
     <p>For the application controller, all keys are optional.
       The respective default values are used for any omitted keys.</p>
@@ -184,6 +187,22 @@ Phases       [{Phase,PhaseArgs}]  undefined
         <p>This implies that for an included application, the set of
           start phases must be a subset of the set of phases defined
           for the primary application. Refer to <em>OTP Design Principles</em> for more information.</p>
+      </item>
+      <tag><c>runtime_dependencies</c></tag>
+      <item>A list of application versions that the application
+      depends on. An example of such an application version is
+      "kernel-3.0". Application versions specified as runtime
+      dependencies are minimum requirements. That is, a larger
+      application version than the one specified in the
+      dependency satisfies the requirement. For information on
+      how to compare application versions see
+      <seealso marker="doc/system_principles:versions">the
+      documentation of versions in the system principles
+      guide</seealso>. Note that that the application version
+      specifies a source code version. An additional indirect
+      requirement is that installed binary application of
+      the specified version has been built so that it is
+      compatible with the rest of the system.
       </item>
     </taglist>
   </section>

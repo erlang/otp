@@ -10,4 +10,5 @@
              gstk_window,tcl2erl,tool_file_dialog,tool_utils,
 	     gs_packer,gse]},
   {registered, [gs_frontend]},
-  {applications, [kernel, stdlib]}]}.
+  {applications, [kernel, stdlib]},
+  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","erts-6.0"]}]}.
