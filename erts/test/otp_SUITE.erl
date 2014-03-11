@@ -24,7 +24,7 @@
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
 	 obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,strong_components/1,
-	 erl_file_encoding/1,xml_file_encoding/1]).
+	 erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -36,7 +36,8 @@ all() ->
     [undefined_functions, deprecated_not_in_obsolete,
      obsolete_but_not_deprecated, call_to_deprecated,
      call_to_size_1, strong_components,
-     erl_file_encoding, xml_file_encoding].
+     erl_file_encoding, xml_file_encoding,
+     runtime_dependencies].
 
 groups() -> 
     [].
@@ -378,6 +379,63 @@ is_bad_encoding(File) ->
 	    false;
 	_ ->
 	    true
+    end.
+
+runtime_dependencies(Config) ->
+    %% Verify that (at least) OTP application runtime dependencies found
+    %% by xref are listed in the runtime_dependencies field of the .app file
+    %% of each application.
+    Server = ?config(xref_server, Config),
+    {ok, AE} = xref:q(Server, "AE"),
+    SAE = lists:keysort(1, AE),
+    {AppDep, AppDeps} = lists:foldl(fun ({App, App}, Acc) ->
+					    Acc;
+					({App, Dep}, {undefined, []}) ->
+					    {{App, [Dep]}, []};
+					({App, Dep}, {{App, Deps}, AppDeps}) ->
+					    {{App, [Dep|Deps]}, AppDeps};
+					({App, Dep}, {AppDep, AppDeps}) ->
+					    {{App, [Dep]}, [AppDep | AppDeps]}
+				    end,
+				    {undefined, []},
+				    SAE),
+    [] = check_apps_deps([AppDep|AppDeps]),
+    ok.
+
+have_rdep(_App, [], _Dep) ->
+    false;
+have_rdep(App, [RDep | RDeps], Dep) ->		    
+    [AppStr, _VsnStr] = string:tokens(RDep, "-"),
+    case Dep == list_to_atom(AppStr) of
+	true ->
+	    io:format("~p -> ~s~n", [App, RDep]),
+	    true;
+	false ->
+	    have_rdep(App, RDeps, Dep)
+    end.
+
+check_app_deps(_App, _AppFile, _AFDeps, []) ->
+    [];
+check_app_deps(App, AppFile, AFDeps, [XRDep | XRDeps]) ->
+    ResOtherDeps = check_app_deps(App, AppFile, AFDeps, XRDeps),
+    case have_rdep(App, AFDeps, XRDep) of
+	true ->
+	    ResOtherDeps;
+	false ->
+	    [{missing_runtime_dependency, AppFile, XRDep} | ResOtherDeps]
+    end.
+
+check_apps_deps([]) ->
+    [];
+check_apps_deps([{App, Deps}|AppDeps]) ->
+    ResOtherApps = check_apps_deps(AppDeps),
+    AppFile = code:where_is_file(atom_to_list(App) ++ ".app"),
+    {ok,[{application, App, Info}]} = file:consult(AppFile),
+    case lists:keyfind(runtime_dependencies, 1, Info) of
+	{runtime_dependencies, RDeps} ->
+	    check_app_deps(App, AppFile, RDeps, Deps) ++ ResOtherApps;
+	false ->
+	    [{missing_runtime_dependencies_key, AppFile} | ResOtherApps]
     end.
 
 %%%
