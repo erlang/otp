@@ -480,32 +480,40 @@ cur_dir_0(Config) when is_list(Config) ->
 				 atom_to_list(?MODULE)
 				 ++"_curdir"),
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
-    ?line io:format("cd to ~s",[NewDir]),
-    ?line ok = ?FILE_MODULE:set_cwd(NewDir),
+	case {os:type(), length(NewDir) >= 260} of
+		{{win32,_}, true} ->
+			io:format("Skip set_cwd for windows path longer than 260 (MAX_PATH):\n"),
+			io:format("\nNewDir = ~p\n", [NewDir]),
+			ok;
+		_ ->
+			io:format("cd to ~s",[NewDir]),
+			ok = ?FILE_MODULE:set_cwd(NewDir),
 
-    %% Create a file in the new current directory, and check that it
-    %% really is created there
-    ?line UncommonName = "uncommon.fil",
-    ?line {ok,Fd} = ?FILE_MODULE:open(UncommonName,read_write),
-    ?line ok = ?FILE_MODULE:close(Fd),
-    ?line {ok,NewDirFiles} = ?FILE_MODULE:list_dir("."),
-    ?line true = lists:member(UncommonName,NewDirFiles),
+			%% Create a file in the new current directory, and check that it
+			%% really is created there
+			UncommonName = "uncommon.fil",
+			{ok,Fd} = ?FILE_MODULE:open(UncommonName,read_write),
+			ok = ?FILE_MODULE:close(Fd),
+			{ok,NewDirFiles} = ?FILE_MODULE:list_dir("."),
+			true = lists:member(UncommonName,NewDirFiles),
 
-    %% Delete the directory and return to the old current directory
-    %% and check that the created file isn't there (too!)
-    ?line expect({error, einval}, {error, eacces}, 
-		 ?FILE_MODULE:del_dir(NewDir)),
-    ?line ?FILE_MODULE:delete(UncommonName),
-    ?line {ok,[]} = ?FILE_MODULE:list_dir("."),
-    ?line ok = ?FILE_MODULE:set_cwd(Dir1),
-    ?line io:format("cd back to ~s",[Dir1]),
-    ?line ok = ?FILE_MODULE:del_dir(NewDir),
-    ?line {error, enoent} = ?FILE_MODULE:set_cwd(NewDir),
-    ?line ok = ?FILE_MODULE:set_cwd(Dir1),
-    ?line io:format("cd back to ~s",[Dir1]),
-    ?line {ok,OldDirFiles} = ?FILE_MODULE:list_dir("."),
-    ?line false = lists:member(UncommonName,OldDirFiles),
+			%% Delete the directory and return to the old current directory
+			%% and check that the created file isn't there (too!)
+			expect({error, einval}, {error, eacces}, 
+				?FILE_MODULE:del_dir(NewDir)),
+			?FILE_MODULE:delete(UncommonName),
+			{ok,[]} = ?FILE_MODULE:list_dir("."),
+			ok = ?FILE_MODULE:set_cwd(Dir1),
+			io:format("cd back to ~s",[Dir1]),
 
+			ok = ?FILE_MODULE:del_dir(NewDir),
+			{error, enoent} = ?FILE_MODULE:set_cwd(NewDir),
+			ok = ?FILE_MODULE:set_cwd(Dir1),
+			io:format("cd back to ~s",[Dir1]),
+			{ok,OldDirFiles} = ?FILE_MODULE:list_dir("."),
+			false = lists:member(UncommonName,OldDirFiles)
+	end,
+	
     %% Try doing some bad things
     ?line {error, badarg} = ?FILE_MODULE:set_cwd({foo,bar}),
     ?line {error, enoent} = ?FILE_MODULE:set_cwd(""),
