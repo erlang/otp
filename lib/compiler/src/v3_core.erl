@@ -518,10 +518,18 @@ expr({map,L,Es0}, St0) ->
     A = lineno_anno(L, St1),
     {ann_c_map(A,Es1),Eps,St1};
 expr({map,L,M0,Es0}, St0) ->
-    {M1,Mps,St1} = safe(M0, St0),
-    {Es1,Eps,St2} = map_pair_list(Es0, St1),
-    A = lineno_anno(L, St2),
-    {ann_c_map(A,M1,Es1),Mps++Eps,St2};
+    try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
+	{_,_,_}=Res -> Res
+    catch
+	throw:bad_map ->
+	    St = add_warning(L, bad_map, St0),
+	    LineAnno = lineno_anno(L, St),
+	    As = [#c_literal{anno=LineAnno,val=badarg}],
+	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
+		    module=#c_literal{anno=LineAnno,val=erlang},
+		    name=#c_literal{anno=LineAnno,val=error},
+		    args=As},[],St}
+    end;
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -730,6 +738,20 @@ make_bool_switch_guard(L, E, V, T, F) ->
       {clause,NegL,[{atom,NegL,false}],[],[F]},
       {clause,NegL,[V],[],[V]}
      ]}.
+
+expr_map(M0,Es0,A,St0) ->
+    {M1,Mps,St1} = safe(M0, St0),
+    case is_valid_map_src(M1) of
+	true ->
+	    {Es1,Eps,St2} = map_pair_list(Es0, St1),
+	    {ann_c_map(A,M1,Es1),Mps++Eps,St2};
+	false -> throw(bad_map)
+    end.
+
+is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
+is_valid_map_src(#c_map{})  -> true;
+is_valid_map_src(#c_var{})  -> true;
+is_valid_map_src(_)         -> false.
 
 map_pair_list(Es, St) ->
     foldr(fun
@@ -2257,7 +2279,9 @@ is_simple_list(Es) -> lists:all(fun is_simple/1, Es).
 format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
-    "binary construction will fail because of a type mismatch".
+    "binary construction will fail because of a type mismatch";
+format_error(bad_map) ->
+    "map construction will fail because of a type mismatch".
 
 add_warning(Line, Term, #core{ws=Ws,file=[{file,File}]}=St) when Line >= 0 ->
     St#core{ws=[{File,[{location(Line),?MODULE,Term}]}|Ws]};

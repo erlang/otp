@@ -1585,9 +1585,9 @@ map_val(#c_map{var = M}) ->
     M.
 
 ann_c_map(As,Es) ->
-    ann_c_map(As, #c_literal{val=[]}, Es).
+    ann_c_map(As, #c_literal{val=#{}}, Es).
 
-ann_c_map(As,#c_literal{val=[]}=M,Es) ->
+ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 ->
     Pairs = [[K,V]||#c_map_pair{key=K,val=V}<-Es],
     IsLit = lists:foldl(fun(Pair,Res) ->
 		Res andalso is_lit_list(Pair)

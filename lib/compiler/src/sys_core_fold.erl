@@ -72,7 +72,7 @@
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,all/2,any/2,
 		reverse/1,reverse/2,member/2,nth/2,flatten/1,unzip/1]).
 
--import(cerl, [ann_c_cons/3,ann_c_tuple/2]).
+-import(cerl, [ann_c_cons/3,ann_c_tuple/2,ann_c_map/3]).
 
 -include("core_parse.hrl").
 
@@ -246,7 +246,7 @@ expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
 	value ->
 	    ann_c_tuple(Anno, Es)
     end;
-expr(#c_map{var=V0,es=Es0}=Map, Ctxt, Sub) ->
+expr(#c_map{anno=Anno,var=V0,es=Es0}=Map, Ctxt, Sub) ->
     Es = pair_list(Es0, Ctxt, Sub),
     case Ctxt of
 	effect ->
@@ -254,7 +254,7 @@ expr(#c_map{var=V0,es=Es0}=Map, Ctxt, Sub) ->
 	    expr(make_effect_seq(Es, Sub), Ctxt, Sub);
 	value ->
 	    V = expr(V0, Ctxt, Sub),
-	    Map#c_map{var=V,es=Es}
+	    ann_c_map(Anno,V,Es)
     end;
 expr(#c_binary{segments=Ss}=Bin0, Ctxt, Sub) ->
     %% Warn for useless building, but always build the binary

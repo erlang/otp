@@ -103,5 +103,5 @@
 		     val}).
 
 -record(c_map, {anno=[],
-		var=#c_literal{val=[]} :: #c_var{} | #c_literal{},
+		var=#c_literal{val=#{}} :: #c_var{} | #c_literal{},
 		es :: [#c_map_pair{}]}).
