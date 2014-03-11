@@ -80,13 +80,17 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -type fa()   :: {atom(), arity()}.   % function+arity
 -type ta()   :: {atom(), arity()}.   % type+arity
 
+-record(typeinfo, {attr, line}).
+
 %% Usage of records, functions, and imports. The variable table, which
 %% is passed on as an argument, holds the usage of variables.
 -record(usage, {
           calls = dict:new(),			%Who calls who
           imported = [],                        %Actually imported functions
-          used_records=sets:new() :: sets:set(),%Used record definitions
-	  used_types = dict:new() :: dict:dict()%Used type definitions
+          used_records = sets:new()             %Used record definitions
+              :: sets:set(atom()),
+	  used_types = dict:new()               %Used type definitions
+              :: dict:dict(ta(), line())
          }).
 
 %% Define the lint state record.
@@ -95,13 +99,17 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -record(lint, {state=start		:: 'start' | 'attribute' | 'function',
                module=[],                       %Module
                behaviour=[],                    %Behaviour
-               exports=gb_sets:empty()	:: gb_sets:set(),%Exports
-               imports=[],                      %Imports
+               exports=gb_sets:empty()	:: gb_sets:set(fa()),%Exports
+               imports=[] :: [fa()],            %Imports, an orddict()
                compile=[],                      %Compile flags
-               records=dict:new()	:: dict:dict(),	%Record definitions
-               locals=gb_sets:empty()	:: gb_sets:set(),%All defined functions (prescanned)
-	       no_auto=gb_sets:empty()	:: gb_sets:set() | 'all',%Functions explicitly not autoimported
-               defined=gb_sets:empty()	:: gb_sets:set(),%Defined fuctions
+               records=dict:new()               %Record definitions
+                   :: dict:dict(atom(), {line(),Fields :: term()}),
+               locals=gb_sets:empty()     %All defined functions (prescanned)
+                   :: gb_sets:set(fa()),
+               no_auto=gb_sets:empty() %Functions explicitly not autoimported
+                   :: gb_sets:set(fa()) | 'all',
+               defined=gb_sets:empty()          %Defined fuctions
+                   :: gb_sets:set(fa()),
 	       on_load=[] :: [fa()],		%On-load function
 	       on_load_line=0 :: line(),	%Line for on_load
 	       clashes=[],			%Exported functions named as BIFs
@@ -116,12 +124,16 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 						%outside any fun or lc
                xqlc= false :: boolean(),	%true if qlc.hrl included
                new = false :: boolean(),	%Has user-defined 'new/N'
-               called= [] :: [{fa(),line()}],		%Called functions
+               called= [] :: [{fa(),line()}],   %Called functions
                usage = #usage{}		:: #usage{},
-	       specs = dict:new()	:: dict:dict(),	%Type specifications
-	       callbacks = dict:new()   :: dict:dict(), %Callback types
-	       types = dict:new()	:: dict:dict(),	%Type definitions
-	       exp_types=gb_sets:empty():: gb_sets:set()%Exported types
+               specs = dict:new()               %Type specifications
+                   :: dict:dict(mfa(), line()),
+               callbacks = dict:new()           %Callback types
+                   :: dict:dict(mfa(), line()),
+               types = dict:new()               %Type definitions
+                   :: dict:dict(ta(), #typeinfo{}),
+               exp_types=gb_sets:empty()        %Exported types
+                   :: gb_sets:set(ta())
               }).
 
 -type lint_state() :: #lint{}.
@@ -1170,7 +1182,7 @@ export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
 	    add_error(Line, {bad_export_type, ETs}, St0)
     end.
 
--spec exports(lint_state()) -> gb_sets:set().
+-spec exports(lint_state()) -> gb_sets:set(fa()).
 
 exports(#lint{compile = Opts, defined = Defs, exports = Es}) ->
     case lists:member(export_all, Opts) of
@@ -2573,8 +2585,6 @@ find_field(_F, []) -> error.
 %% type_def(Attr, Line, TypeName, PatField, Args, State) -> State.
 %%    Attr :: 'type' | 'opaque'
 %% Checks that a type definition is valid.
-
--record(typeinfo, {attr, line}).
 
 type_def(_Attr, _Line, {record, _RecName}, Fields, [], St0) ->
     %% The record field names and such are checked in the record format.

@@ -55,8 +55,7 @@
 -define(exp_size, (?seg_size * ?expand_load)).
 -define(con_size, (?seg_size * ?contract_load)).
 
--type segs(K, V) :: tuple()
-                  | {K, V}. % dummy
+-type segs(_Key, _Value) :: tuple().
 
 %% Define a hashtable.  The default values are the standard ones.
 -record(dict,
