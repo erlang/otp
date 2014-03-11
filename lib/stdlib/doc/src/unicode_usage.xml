@@ -996,7 +996,8 @@ ok
   </pre>
 </section>
 <section>
-  <title><marker id="unicode_options_summary"/>Summary of Options</title>
+  <title>Summary of Options</title>
+  <marker id="unicode_options_summary"/>
   <p>The Unicode support is controlled by both command line switches,
   some standard environment variables and the version of OTP you are
   using. Most options affect mainly the way Unicode data is displayed,
