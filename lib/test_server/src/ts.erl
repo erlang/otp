@@ -24,7 +24,7 @@
 
 -module(ts).
 
--export([run/0, run/1, run/2, run/3, run/4,
+-export([run/0, run/1, run/2, run/3, run/4, run/5,
 	 tests/0, tests/1,
 	 install/0, install/1,
 	 bench/0, bench/1, bench/2, benchmarks/0,
@@ -389,6 +389,16 @@ run(Testspec, Mod, Grs={group,_Groups}, Config) when is_atom(Testspec),
     Args = [{suite,Mod},Grs],
     run_test(atom_to_list(Testspec), Args, Options).
 
+%% run/5
+%% Run one or more test cases in a group with Options.
+run(Testspec, Mod, Group, Cases, Config) when is_atom(Testspec), 
+					      is_atom(Mod),
+					      is_list(Config) ->
+    Group1 = if is_tuple(Group) -> Group; true -> {group,Group} end,
+    Cases1 = if is_tuple(Cases) -> Cases; true -> {testcase,Cases} end,
+    Options=check_test_get_opts(Testspec, Config),
+    Args = [{suite,Mod},Group1,Cases1],
+    run_test(atom_to_list(Testspec), Args, Options).
 
 is_list_of_suites(List) ->
     lists:all(fun(Suite) ->
