@@ -1000,7 +1000,7 @@ efile_openfile(Efile_error* errInfo, char* name, int flags, int* pfd, Sint64* pS
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, name);
+    SVERK_TRACE1(1, "openfile(%s)", name);
     call_state_init(&state, errInfo);
     ret = do_openfile(&state, name, flags, pfd, pSize);
     call_state_free(&state);
@@ -1132,7 +1132,7 @@ FILE* efile_wfopen(const WCHAR* name, const WCHAR* mode)
     Efile_error dummy;
     FILE* f;
     call_state_init(&state, &dummy);
-    ensure_wpath(&state, &name);
+    ensure_wpath(&state, (WCHAR**)&name);
     f = _wfopen(name, mode);
     call_state_free(&state);
     return f;
@@ -1973,7 +1973,7 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, old);
+    SVERK_TRACE2(1, "symlink(%s <- %s)", old, new);
     call_state_init(&state, errInfo);
     ret = do_symlink(&state, old, new);
     call_state_free(&state);
