@@ -1980,7 +1980,6 @@ names(Config) when is_list(Config) ->
     ?line Name1 = filename:join(RootDir, FileName),
     ?line Name2 = [RootDir,"/","foo1",".","fil"],
     ?line Name3 = [RootDir,"/",foo,$1,[[[],[],'.']],"f",il],
-    ?line Name4 = list_to_atom(Name1),
     ?line {ok,Fd0} = ?FILE_MODULE:open(Name1,write),
     ?line ok = ?FILE_MODULE:close(Fd0),
 
@@ -1993,23 +1992,33 @@ names(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd2),
     ?line {ok,Fd3} = ?FILE_MODULE:open(Name3,read),
     ?line ok = ?FILE_MODULE:close(Fd3),
-    ?line {ok,Fd4} = ?FILE_MODULE:open(Name4,read),
-    ?line ok = ?FILE_MODULE:close(Fd4),
+	case length(Name1) > 255 of
+		true ->
+			io:format("Path too long for an atom:\n\n~p\n", [Name1]);
+		false ->
+			Name4 = list_to_atom(Name1),
+			{ok,Fd4} = ?FILE_MODULE:open(Name4,read),
+			ok = ?FILE_MODULE:close(Fd4)
+	end,
 
     %% Try some path names
     ?line Path1 = RootDir,
     ?line Path2 = [RootDir],
     ?line Path3 = ['',[],[RootDir,[[]]]],
-    ?line Path4 = list_to_atom(Path1),
     ?line {ok,Fd11,_} = ?FILE_MODULE:path_open([Path1],FileName,read),
     ?line ok = ?FILE_MODULE:close(Fd11),
     ?line {ok,Fd12,_} = ?FILE_MODULE:path_open([Path2],FileName,read),
     ?line ok = ?FILE_MODULE:close(Fd12),
     ?line {ok,Fd13,_} = ?FILE_MODULE:path_open([Path3],FileName,read),
     ?line ok = ?FILE_MODULE:close(Fd13),
-    ?line {ok,Fd14,_} = ?FILE_MODULE:path_open([Path4],FileName,read),
-    ?line ok = ?FILE_MODULE:close(Fd14),
-
+	case length(Path1) > 255 of
+		true->
+			io:format("Path too long for an atom:\n\n~p\n", [Path1]);
+		false ->
+			Path4 = list_to_atom(Path1),
+			{ok,Fd14,_} = ?FILE_MODULE:path_open([Path4],FileName,read),
+			ok = ?FILE_MODULE:close(Fd14)
+	end,
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
     ok.
