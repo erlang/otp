@@ -1120,8 +1120,9 @@ should_be_added(Tag,Node,_Data,Spec) ->
 	%% list terms *without* possible duplicates here
 	Tag == logdir;       Tag == logopts;
 	Tag == basic_html;   Tag == label;
-	Tag == auto_compile; Tag == stylesheet;
-	Tag == verbosity;    Tag == silent_connections ->
+	Tag == auto_compile; Tag == abort_if_missing_suites;
+	Tag == stylesheet;   Tag == verbosity;
+	Tag == silent_connections ->
 	    lists:keymember(ref2node(Node,Spec#testspec.nodes),1,
 			    read_field(Spec,Tag)) == false;
 	%% for terms *with* possible duplicates
@@ -1496,6 +1497,8 @@ valid_terms() ->
      {include,3},
      {auto_compile,2},
      {auto_compile,3},
+     {abort_if_missing_suites,2},
+     {abort_if_missing_suites,3},     
      {stylesheet,2},
      {stylesheet,3},
      {suites,3},

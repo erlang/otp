@@ -71,6 +71,7 @@
 	       enable_builtin_hooks,
 	       include = [],
 	       auto_compile,
+	       abort_if_missing_suites,
 	       silent_connections = [],
 	       stylesheet,
 	       multiply_timetraps = 1,
@@ -246,9 +247,11 @@ script_start1(Parent, Args) ->
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
-    CoverStop = get_start_opt(cover_stop, fun([CS]) -> list_to_atom(CS) end, Args),
+    CoverStop = get_start_opt(cover_stop, 
+			      fun([CS]) -> list_to_atom(CS) end, Args),
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
-    LogOpts = get_start_opt(logopts, fun(Os) -> [list_to_atom(O) || O <- Os] end,
+    LogOpts = get_start_opt(logopts,
+			    fun(Os) -> [list_to_atom(O) || O <- Os] end,
 			    [], Args),
     Verbosity = verbosity_args2opts(Args),
     MultTT = get_start_opt(multiply_timetraps,
@@ -311,6 +314,12 @@ script_start1(Parent, Args) ->
 		application:set_env(common_test, auto_compile, false),
 		{false,[]}
 	end,
+
+    %% abort test run if some suites can't be compiled
+    AbortIfMissing = get_start_opt(abort_if_missing_suites,
+				   fun([]) -> true;
+				      ([Bool]) -> list_to_atom(Bool)
+				   end, false, Args),
     %% silent connections
     SilentConns =
 	get_start_opt(silent_connections,
@@ -347,6 +356,7 @@ script_start1(Parent, Args) ->
 		 ct_hooks = CTHooks,
 		 enable_builtin_hooks = EnableBuiltinHooks,
 		 auto_compile = AutoCompile,
+		 abort_if_missing_suites = AbortIfMissing,
 		 include = IncludeDirs,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
@@ -551,6 +561,9 @@ combine_test_opts(TS, Specs, Opts) ->
 		ACBool
 	end,
 
+    AbortIfMissing = choose_val(Opts#opts.abort_if_missing_suites,
+				TSOpts#opts.abort_if_missing_suites),
+
     BasicHtml =
 	case choose_val(Opts#opts.basic_html,
 			TSOpts#opts.basic_html) of
@@ -578,6 +591,7 @@ combine_test_opts(TS, Specs, Opts) ->
 	      enable_builtin_hooks = EnableBuiltinHooks,
 	      stylesheet = Stylesheet,
 	      auto_compile = AutoCompile,
+	      abort_if_missing_suites = AbortIfMissing,
 	      include = AllInclude,
 	      multiply_timetraps = MultTT,
 	      scale_timetraps = ScaleTT,
@@ -753,6 +767,7 @@ script_usage() ->
 	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
+	      "\n\t[-abort_if_missing_suites]"
 	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
@@ -775,6 +790,7 @@ script_usage() ->
 	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
+	      "\n\t[-abort_if_missing_suites]"
 	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
@@ -799,6 +815,7 @@ script_usage() ->
 	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
+	      "\n\t[-abort_if_missing_suites]"
 	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
@@ -1026,6 +1043,10 @@ run_test2(StartOpts) ->
 		{ACBool,[]}
 	end,
 
+    %% abort test run if some suites can't be compiled
+    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, false,
+				   StartOpts),
+
     %% decrypt config file
     case proplists:get_value(decrypt, StartOpts) of
 	undefined ->
@@ -1067,6 +1088,7 @@ run_test2(StartOpts) ->
 		 ct_hooks = CTHooks,
 		 enable_builtin_hooks = EnableBuiltinHooks,
 		 auto_compile = AutoCompile,
+		 abort_if_missing_suites = AbortIfMissing,
 		 include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
@@ -1401,6 +1423,7 @@ get_data_for_node(#testspec{label = Labels,
 			    ct_hooks = CTHooks,
 			    enable_builtin_hooks = EnableBuiltinHooks,
 			    auto_compile = ACs,
+			    abort_if_missing_suites = AiMSs,
 			    include = Incl,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs,
@@ -1435,6 +1458,7 @@ get_data_for_node(#testspec{label = Labels,
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
     FiltCTHooks = [Hook || {N,Hook} <- CTHooks, N==Node],
     AutoCompile = proplists:get_value(Node, ACs),
+    AbortIfMissing = proplists:get_value(Node, AiMSs),
     Include =  [I || {N,I} <- Incl, N==Node],
     #opts{label = Label,
 	  profile = Profile,
@@ -1451,6 +1475,7 @@ get_data_for_node(#testspec{label = Labels,
 	  ct_hooks = FiltCTHooks,
 	  enable_builtin_hooks = EnableBuiltinHooks,
 	  auto_compile = AutoCompile,
+	  abort_if_missing_suites = AbortIfMissing,
 	  include = Include,
 	  multiply_timetraps = MT,
 	  scale_timetraps = ST,
@@ -1722,8 +1747,8 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 		{SuiteErrs,HelpErrs} = auto_compile(TestSuites),
 		{TestSuites,SuiteErrs,SuiteErrs++HelpErrs}
 	end,
-    
-    case continue(AllMakeErrors) of
+
+    case continue(AllMakeErrors, Opts#opts.abort_if_missing_suites) of
 	true ->
 	    SavedErrors = save_make_errors(SuiteMakeErrors),
 	    ct_repeat:log_loop_info(Args),
@@ -2047,9 +2072,9 @@ final_skip([Skip|Skips], Final) ->
 final_skip([], Final) ->
     lists:reverse(Final).
 
-continue([]) ->
+continue([], _) ->
     true;
-continue(_MakeErrors) ->
+continue(_MakeErrors, AbortIfMissingSuites) ->
     io:nl(),
     OldGl = group_leader(),
     case set_group_leader_same_as_shell() of
@@ -2077,26 +2102,26 @@ continue(_MakeErrors) ->
 		    true
 	    end;
 	false ->				% no shell process to use
-	    true
+	    not AbortIfMissingSuites
     end.
 
 set_group_leader_same_as_shell() ->
     %%! Locate the shell process... UGLY!!!
     GS2or3 = fun(P) ->
-		     case process_info(P,initial_call) of
-			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->
-			     true;
-			 _ ->
-			     false
-		     end
-	     end,	
+    		     case process_info(P,initial_call) of
+    			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->
+    			     true;
+    			 _ ->
+    			     false
+    		     end
+    	     end,	
     case [P || P <- processes(), GS2or3(P),
-	       true == lists:keymember(shell,1,
-				       element(2,process_info(P,dictionary)))] of
-	[GL|_] ->
-	    group_leader(GL, self());
-	[] ->
-	    false
+    	       true == lists:keymember(shell,1,
+    				       element(2,process_info(P,dictionary)))] of
+    	[GL|_] ->
+    	    group_leader(GL, self());
+    	[] ->
+    	    false
     end.
 
 check_and_add([{TestDir0,M,_} | Tests], Added, PA) ->
