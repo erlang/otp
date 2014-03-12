@@ -225,6 +225,8 @@ format_error({too_many_arguments,Arity}) ->
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
 %% --- patterns and guards ---
 format_error(illegal_pattern) -> "illegal pattern";
+format_error(illegal_map_key) ->
+    "illegal map key";
 format_error({illegal_map_key_variable,K}) ->
     io_lib:format("illegal use of variable ~w in map",[K]);
 format_error(illegal_bin_pattern) ->
@@ -1385,19 +1387,20 @@ pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
 pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
-    foldl(fun ({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
-                  {Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
-              ({map_field_exact,L,KP,VP}, {Psvt,Bvt0,St0}) ->
-                  case expr(KP, [], St0) of
-                        {[],_} ->
-                            {Pvt,Bvt1,St1} = pattern(VP, Vt, Old, Bvt, St0),
-                            {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt0, Bvt1),
-                             St1};
-                        {[Var|_],_} ->
-                            Error = {illegal_map_key_variable,element(1, Var)},
-                            {Psvt,Bvt0,add_error(L, Error, St0)}
-                  end
-          end, {[],[],St}, Ps);
+    foldl(fun
+	    ({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
+		{Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
+	    ({map_field_exact,L,KP,VP}, {Psvt,Bvt0,St0}) ->
+		case is_valid_map_key(KP, St0) of
+		    true ->
+			{Pvt,Bvt1,St1} = pattern(VP, Vt, Old, Bvt, St0),
+			{vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt0, Bvt1), St1};
+		    false ->
+			{Psvt,Bvt0,add_error(L, illegal_map_key, St0)};
+		    {false,variable,Var} ->
+			{Psvt,Bvt0,add_error(L, {illegal_map_key_variable,Var}, St0)}
+		end
+	end, {[],[],St}, Ps);
 %%pattern({struct,_Line,_Tag,Ps}, Vt, Old, Bvt, St) ->
 %%    pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
@@ -2237,9 +2240,10 @@ check_assoc_fields([], St) ->
 map_fields([{Tag,Line,K,V}|Fs], Vt, St, F) when Tag =:= map_field_assoc;
                                                 Tag =:= map_field_exact ->
     St1 = case is_valid_map_key(K, St) of
-              true -> St;
-              {false,Var} -> add_error(Line, {illegal_map_key_variable,Var}, St)
-          end,
+	true -> St;
+	false -> add_error(Line, illegal_map_key, St);
+	{false,variable,Var} -> add_error(Line, {illegal_map_key_variable,Var}, St)
+    end,
     {Pvt,St2} = F([K,V], Vt, St1),
     {Vts,St3} = map_fields(Fs, Vt, St2, F),
     {vtupdate(Pvt, Vts),St3};
@@ -2298,11 +2302,41 @@ is_valid_call(Call) ->
         _ -> true
     end.
 
+%% is_valid_map_key(K,St) -> true | false | {false, Var::atom()}
+%%   check for value expression without variables
+
 is_valid_map_key(K,St) ->
     case expr(K,[],St) of
-	{[],_} -> true;
+	{[],_} ->
+	    is_valid_map_key_value(K);
 	{[Var|_],_} ->
-	    {false,element(1,Var)}
+	    {false,variable,element(1,Var)}
+    end.
+
+is_valid_map_key_value(K) ->
+    case K of
+	{char,_,_} -> true;
+	{integer,_,_} -> true;
+	{float,_,_} -> true;
+	{string,_,_} -> true;
+	{nil,_} -> true;
+	{atom,_,_} -> true;
+	{cons,_,H,T} ->
+	    is_valid_map_key_value(H) andalso
+	    is_valid_map_key_value(T);
+	{tuple,_,Es} ->
+	    foldl(fun(E,B) ->
+			B andalso is_valid_map_key_value(E)
+		end,true,Es);
+	{bin,_,Es} ->
+	    % only check for value expressions to be valid
+	    % invalid binary expressions are later checked in
+	    % core and kernel
+	    foldl(fun
+		    ({bin_element,_,E,_,_},B) ->
+			B andalso is_valid_map_key_value(E)
+		end,true,Es);
+	_ -> false
     end.
 
 %% record_def(Line, RecordName, [RecField], State) -> State.
