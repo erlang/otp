@@ -121,9 +121,11 @@ end_tc(_Mod, TC, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
 	'$ct_no_change').
 
+%% Case = TestCase | {TestCase,GroupName}
 on_tc_skip(How, {Suite, Case, Reason}) ->
     call(fun call_cleanup/3, {How, Reason}, [on_tc_skip, Suite, Case]).
 
+%% Case = TestCase | {TestCase,GroupName}
 on_tc_fail(_How, {Suite, Case, Reason}) ->
     call(fun call_cleanup/3, Reason, [on_tc_fail, Suite, Case]).
 
