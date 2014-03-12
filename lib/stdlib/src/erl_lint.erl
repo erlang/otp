@@ -2761,6 +2761,7 @@ check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
 is_var_arity_type(tuple) -> true;
+is_var_arity_type(map) -> true;
 is_var_arity_type(product) -> true;
 is_var_arity_type(union) -> true;
 is_var_arity_type(record) -> true;
@@ -2793,7 +2794,6 @@ is_default_type({iodata, 0}) -> true;
 is_default_type({iolist, 0}) -> true;
 is_default_type({list, 0}) -> true;
 is_default_type({list, 1}) -> true;
-is_default_type({map, 0}) -> true;
 is_default_type({maybe_improper_list, 0}) -> true;
 is_default_type({maybe_improper_list, 2}) -> true;
 is_default_type({mfa, 0}) -> true;
@@ -2824,6 +2824,7 @@ is_default_type({timeout, 0}) -> true;
 is_default_type({var, 1}) -> true;
 is_default_type(_) -> false.
 
+%% OTP 17.0
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->

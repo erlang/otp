@@ -63,7 +63,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1
+          maps/1,maps_type/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -91,7 +91,8 @@ all() ->
      otp_11772, otp_11771, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
-     too_many_arguments, basic_errors, bin_syntax_errors, predef, maps].
+     too_many_arguments, basic_errors, bin_syntax_errors, predef,
+     maps,maps_type].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3393,6 +3394,36 @@ maps(Config) ->
             []}}],
     [] = run(Config, Ts),
     ok.
+
+maps_type(Config) when is_list(Config) ->
+    Ts = [
+	{maps_type1,
+	 <<"
+	-type m() :: #{a => integer()}.
+	-spec t1(#{k=>term()}) -> {term(), map()}.
+
+	t1(#{k:=V}=M) -> {V,M}.
+
+	-spec t2(m()) -> integer().
+
+	t2(#{a:=V}) -> V.
+	">>,
+	[],
+	[]},
+	{maps_type2,
+	 <<"
+            %% Built-in var arity map type:
+	    -type map() :: tuple().
+	    -type a() :: map().
+
+	    -spec t(a()) -> a().
+	    t(M) -> M.
+	 ">>,
+	 [],
+	 {errors,[{3,erl_lint,{redefine_type,{map,0}}}],[]}}],
+    [] = run(Config, Ts),
+    ok.
+
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
