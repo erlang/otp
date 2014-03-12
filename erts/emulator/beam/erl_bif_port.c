@@ -917,7 +917,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, process_str);
-        erts_snprintf(port_str, sizeof(port_str), "%T", port->common.id);
+        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", port->common.id);
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
 #endif
