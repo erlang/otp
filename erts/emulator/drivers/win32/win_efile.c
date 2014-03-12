@@ -251,6 +251,8 @@ static int errno_map(DWORD last_error) {
 	return EAGAIN;
     case ERROR_CANT_RESOLVE_FILENAME:
 	return EMLINK;
+    case ERROR_PRIVILEGE_NOT_HELD:
+	return EPERM;
     case ERROR_ARENA_TRASHED:
     case ERROR_INVALID_BLOCK:
     case ERROR_BAD_ENVIRONMENT:

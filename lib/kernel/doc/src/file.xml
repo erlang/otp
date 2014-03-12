@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -641,6 +641,11 @@
           <tag><c>enotsup</c></tag>
           <item>
             <p>Symbolic links are not supported on this platform.</p>
+          </item>
+          <tag><c>eperm</c></tag>
+          <item>
+            <p>User does not have privileges to create symbolic links
+	    (<c>SeCreateSymbolicLinkPrivilege</c> on Windows).</p>
           </item>
         </taglist>
       </desc>

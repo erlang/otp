@@ -2670,6 +2670,9 @@ symlinks(Config) when is_list(Config) ->
 	case ?FILE_MODULE:make_symlink(Name, Alias) of
 	    {error, enotsup} ->
 		{skipped, "Links not supported on this platform"};
+	    {error, eperm} ->
+		{win32,_} = os:type(),
+		{skipped, "Windows user not privileged to create symlinks"};
 	    ok ->
 		?line {ok, Info1} = ?FILE_MODULE:read_file_info(Name),
 		?line {ok, Info1} = ?FILE_MODULE:read_file_info(Alias),
@@ -3596,7 +3599,11 @@ otp_10852(Config) when is_list(Config) ->
     ok = rpc_call(Node, list_dir_all, [B]),
     ok = rpc_call(Node, read_file, [B]),
     ok = rpc_call(Node, make_link, [B,B]),
-    ok = rpc_call(Node, make_symlink, [B,B]),
+    case rpc_call(Node, make_symlink, [B,B]) of
+		ok -> ok;
+		{error, E} when (E =:= enotsup) or (E =:= eperm) ->
+			{win32,_} = os:type()
+	end,
     ok = rpc_call(Node, delete, [B]),
     ok = rpc_call(Node, make_dir, [B]),
     ok = rpc_call(Node, del_dir, [B]),
