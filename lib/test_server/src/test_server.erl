@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1208,6 +1208,10 @@ do_init_per_testcase(Mod, Args) ->
 			      "a Config list.\n",[]},
 	    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
     catch
+	throw:{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
+	    {skip,Reason};
+	exit:{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
+	    {skip,Reason};
 	throw:Other ->
 	    set_loc(erlang:get_stacktrace()),
 	    Line = get_loc(),
@@ -1378,6 +1382,10 @@ ts_tc(M, F, A) ->
     Result = try
 		 apply(M, F, A)
 	     catch
+		 throw:{skip, Reason} -> {skip, Reason};
+		 throw:{skipped, Reason} -> {skip, Reason};
+		 exit:{skip, Reason} -> {skip, Reason};
+		 exit:{skipped, Reason} -> {skip, Reason};
 		 Type:Reason ->
 		     Stk = erlang:get_stacktrace(),
 		     set_loc(Stk),
