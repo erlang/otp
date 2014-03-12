@@ -5476,10 +5476,16 @@ write_html_file(File,Content) ->
 %% The 'major' log file, which is a pure text file is also written
 %% with utf8 encoding
 open_utf8_file(File) ->
-    file:open(File,[write,{encoding,utf8}]).
+    case file:open(File,AllOpts=[write,{encoding,utf8}]) of
+	{error,Reason} -> {error,{Reason,{File,AllOpts}}};
+	Result         -> Result
+    end.
 
 open_utf8_file(File,Opts) ->
-    file:open(File,[{encoding,utf8}|Opts]).
+    case file:open(File,AllOpts=[{encoding,utf8}|Opts]) of
+	{error,Reason} -> {error,{Reason,{File,AllOpts}}};
+	Result         -> Result
+    end.
 
 %% Write a file with specified encoding
 write_file(File,Content,latin1) ->
