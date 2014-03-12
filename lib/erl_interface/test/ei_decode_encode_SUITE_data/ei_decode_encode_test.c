@@ -527,8 +527,9 @@ TESTCASE(test_ei_decode_encode)
 
     { /* #{atom => atom, atom => pid, port => ref }*/
 	struct Type* map[] = { &map_type,
-	    &my_atom_type, &my_atom_type, &port_type,
-	    &my_atom_type, &pid_type, &ref_type
+	    &my_atom_type, &my_atom_type,
+	    &my_atom_type, &pid_type,
+	    &port_type, &ref_type
 	};
 	decode_encode(map, 7);
     }

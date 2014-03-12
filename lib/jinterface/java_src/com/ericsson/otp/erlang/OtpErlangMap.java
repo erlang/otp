@@ -125,8 +125,6 @@ public class OtpErlangMap extends OtpErlangObject implements Serializable,
 
 	    for (int i = 0; i < arity; i++) {
 		keys[i] = buf.read_any();
-	    }
-	    for (int i = 0; i < arity; i++) {
 		values[i] = buf.read_any();
 	    }
 	} else {
@@ -227,8 +225,6 @@ public class OtpErlangMap extends OtpErlangObject implements Serializable,
 
 	for (int i = 0; i < arity; i++) {
 	    buf.write_any(keys[i]);
-	}
-	for (int i = 0; i < arity; i++) {
 	    buf.write_any(values[i]);
 	}
     }

@@ -422,19 +422,18 @@ ei_x_encode_empty_list(&amp;x);
       <fsummary>Encode a map</fsummary>
       <desc>
         <p>This function encodes a map header, with a specified arity. The next
-	   <c>arity</c> terms encoded will be the keys of the map, and the next
-	   <c>arity</c> terms after that will be the corresponding values in
-	   same order.</p>
+	   <c>arity*2</c> terms encoded will be the keys and values of the map
+	   encoded in the following order: <c>K1, V1, K2, V2, ..., Kn, Vn</c>.
+	</p>
         <p>E.g. to encode the map <c>#{a => "Apple", b => "Banana"}</c>:</p>
         <pre>
 ei_x_encode_map_header(&amp;x, 2);
 ei_x_encode_atom(&amp;x, "a");
-ei_x_encode_atom(&amp;x, "b");
 ei_x_encode_string(&amp;x, "Apple");
+ei_x_encode_atom(&amp;x, "b");
 ei_x_encode_string(&amp;x, "Banana");
         </pre>
-	<p>A correctly encoded map can not have duplicate keys, but no check
-	for duplicate keys is done by this function.</p>
+	<p>A correctly encoded map can not have duplicate keys.</p>
       </desc>
     </func>
     <func>
@@ -664,10 +663,9 @@ ei_x_encode_string(&amp;x, "Banana");
       <desc>
         <p>This function decodes a map header from the binary
           format. The number of key-value pairs is returned in
-          <c>arity</c>. Keys and values follows, first all keys and then all values,
-	  which makes a total of <c>arity*2</c> terms.
-	  Keys and values are paired according to their order, the first key
-	  with the first value and so on. If <c>arity</c> is zero, it's an empty map.
+          <c>*arity</c>. Keys and values follow in the following order:
+	  <c>K1, V1, K2, V2, ..., Kn, Vn</c>. This makes a total of
+	  <c>arity*2</c> terms. If <c>arity</c> is zero, it's an empty map.
 	  A correctly encoded map does not have duplicate keys.</p>
       </desc>
     </func>

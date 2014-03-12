@@ -2562,29 +2562,25 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    {
 		map_t *mp = (map_t*)map_val(obj);
 		Uint size = map_get_size(mp);
-		Eterm *mptr;
 
 		*ep++ = MAP_EXT;
 		put_int32(size, ep); ep += 4;
 
-		/* Push values first */
 		if (size > 0) {
-		    mptr = map_get_values(mp);
+		    Eterm *kptr = map_get_keys(mp);
+		    Eterm *vptr = map_get_values(mp);
+
 		    for (i = size-1; i >= 1; i--) {
 			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) mptr[i]);
+			WSTACK_PUSH(s, (UWord) vptr[i]);
+			WSTACK_PUSH(s, ENC_TERM);
+			WSTACK_PUSH(s, (UWord) kptr[i]);
 		    }
 
 		    WSTACK_PUSH(s, ENC_TERM);
-		    WSTACK_PUSH(s, (UWord) mptr[0]);
+		    WSTACK_PUSH(s, (UWord) vptr[0]);
 
-		    mptr = map_get_keys(mp);
-		    for (i = size-1; i >= 1; i--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) mptr[i]);
-		    }
-
-		    obj = mptr[0];
+		    obj = kptr[0];
 		    goto L_jump_start;
 		}
 	    }
@@ -3518,16 +3514,16 @@ dec_term_atom_common:
 
 		keys  = make_tuple(hp);
 		*hp++ = make_arityval(size);
-		kptr  = hp;
 		hp   += size;
+		kptr = hp - 1;
 
 		mp    = (map_t*)hp;
 		hp   += MAP_HEADER_SIZE;
-		vptr  = hp;
 		hp   += size;
+		vptr = hp - 1;
 
-		/* kptr, first word for keys
-		 * vptr, first word for values
+		/* kptr, last word for keys
+		 * vptr, last word for values
 		 */
 
 		/*
@@ -3542,27 +3538,12 @@ dec_term_atom_common:
 		mp->keys       = keys;
 		*objp          = make_map(mp);
 
-		/* We assume the map is wellformed, meaning:
-		 * - ascending key order
-		 * - unique keys
-		 */
-
-		objp  = vptr + size - 1;
-		n     = size;
-
-		while (n-- > 0) {
-		    *objp = (Eterm) COMPRESS_POINTER(next);
-		    next  = objp;
-		    objp--;
-		}
-
-		objp  = kptr + size - 1;
-		n     = size;
-
-		while (n-- > 0) {
-		    *objp = (Eterm) COMPRESS_POINTER(next);
-		    next  = objp;
-		    objp--;
+		for (n = size; n; n--) {
+		    *vptr = (Eterm) COMPRESS_POINTER(next);
+		    *kptr = (Eterm) COMPRESS_POINTER(vptr);
+		    next  = kptr;
+		    vptr--;
+		    kptr--;
 		}
 	    }
 	    break;

@@ -581,23 +581,20 @@
 	    <cell align="center">1</cell>
 	    <cell align="center">4</cell>
 	    <cell align="center">N</cell>
-	    <cell align="center">M</cell>
 	  </row>
 	  <row>
 	    <cell align="center">116</cell>
 	    <cell align="center">Arity</cell>
-	    <cell align="center">Keys</cell>
-	    <cell align="center">Values</cell>
+	    <cell align="center">Pairs</cell>
 	  </row>
 	<tcaption></tcaption></table>
 	<p>
 	  <c>MAP_EXT</c> encodes a map. The <c>Arity</c> field is an unsigned
 	  4 byte integer in big endian format that determines the number of
-	  key-value pairs in the map. All key terms follow in the <c>Keys</c>
-	  section and then all value terms in the <c>Values</c> section. Keys
-	  and values are paired according to order; first key with first value
-	  and so on. Duplicate keys are <em>not allowed</em> within the same
-	  map.
+	  key-value pairs in the map. Key and value pairs (<c>Ki => Vi</c>)
+	  are encoded in the <c>Pairs</c> section in the following order:
+	  <c>K1, V1, K2, V2,..., Kn, Vn</c>.
+	  Duplicate keys are <em>not allowed</em> within the same map.
 	</p>
 	<p><em>Since: </em>OTP 17.0</p>
     </section>
