@@ -1394,16 +1394,15 @@ static void ready_output(ErlDrvData drv_data, ErlDrvEvent ready_fd)
          driver_failure_posix(data->port_num, status);
       }
       else { /* written bytes > 0 */
-          iov = driver_peekq(data->port_num, &vlen);
-          if (vlen > 0) {
-             DISPATCH_AIO(sig);
-             FREE_AIO(sig->fm_write_reply.buffer);
-             res = driver_deq(data->port_num, iov[0].iov_len);
-             if (res > 0) {
-                iov = driver_peekq(data->port_num, &vlen);
-                WRITE_AIO(data->ofd, iov[0].iov_len, iov[0].iov_base);
-             }
-         }
+	DISPATCH_AIO(sig);
+	res = driver_deq(data->port_num, sig->fm_write_reply.actual);
+	FREE_AIO(sig->fm_write_reply.buffer);
+	if (res == 0)
+	  set_busy_port(data->port_num, 0);
+	else {
+	  iov = driver_peekq(data->port_num, &vlen);
+	  WRITE_AIO(data->ofd, iov[0].iov_len, iov[0].iov_base);
+	}
       }
       sig = erl_drv_ose_get_signal(ready_fd);
    }
