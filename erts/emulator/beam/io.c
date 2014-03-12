@@ -2468,7 +2468,7 @@ set_port_connected(int bang_op,
 	    DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
 
 	    dtrace_pid_str(connect, process_str);
-	    erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
+	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
 	    dtrace_proc_str(rp, newprocess_str);
 	    DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
 	}
@@ -3581,9 +3581,9 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
        DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
        DTRACE_CHARBUF(rreason_str, 64);
 
-       erts_snprintf(from_str, sizeof(from_str), "%T", from);
+       erts_snprintf(from_str, sizeof(DTRACE_CHARBUF_NAME(from_str)), "%T", from);
        dtrace_port_str(p, port_str);
-       erts_snprintf(rreason_str, sizeof(rreason_str), "%T", rreason);
+       erts_snprintf(rreason_str, sizeof(DTRACE_CHARBUF_NAME(rreason_str)), "%T", rreason);
        DTRACE4(port_exit, from_str, port_str, p->name, rreason_str);
    }
 #endif
@@ -4650,7 +4650,7 @@ set_busy_port(ErlDrvPort dprt, int on)
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(port_busy)) {
-            erts_snprintf(port_str, sizeof(port_str),
+            erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                           "%T", prt->common.id);
             DTRACE1(port_busy, port_str);
         }
@@ -4663,7 +4663,7 @@ set_busy_port(ErlDrvPort dprt, int on)
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(port_not_busy)) {
-            erts_snprintf(port_str, sizeof(port_str),
+            erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                           "%T", prt->common.id);
             DTRACE1(port_not_busy, port_str);
         }
@@ -4715,9 +4715,9 @@ erts_port_resume_procs(Port *prt)
 	    DTRACE_CHARBUF(pid_str, 16);
 	    ErtsProcList* plp2 = plp;
 
-	    erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
+	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
 	    while (plp2 != NULL) {
-		erts_snprintf(pid_str, sizeof(pid_str), "%T", plp2->pid);
+        erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->pid);
 		DTRACE2(process_port_unblocked, pid_str, port_str);
 	    }
 	}
