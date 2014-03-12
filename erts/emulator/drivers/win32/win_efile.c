@@ -370,8 +370,16 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
 	    *pathp = wpath_tmp_alloc(state, 4+len+1);
 	    dst = *pathp;
 	    wcscpy(dst, L"\\\\?\\");
-	    for (src=path,dst+=4; *src; src++,dst++)
-		*dst = (*src == L'/') ? L'\\' : *src;
+	    for (src=path,dst+=4; *src; src++) {
+		if (*src == L'/') {
+		    if (dst[-1] != L'\\') {
+			*dst++ =  L'\\';
+		    }
+		    /*else ignore redundant slashes */
+		}
+		else
+		    *dst++ = *src;
+	    }
 	    *dst = 0;
 	    unc_fixup = 1;
 	}
