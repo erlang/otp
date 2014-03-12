@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,18 +42,21 @@
 
 load_mod(Mod, File, Binary, Db) ->
     Flag = process_flag(trap_exit, true),
-    Pid = spawn_link(fun () -> load_mod1(Mod, File, Binary, Db) end),
+    Pid = spawn_link(load_mod1(Mod, File, Binary, Db)),
     receive
 	{'EXIT', Pid, What} ->
 	    process_flag(trap_exit, Flag),
 	    What
     end.
 
--spec load_mod1(atom(), file:filename(), binary(), ets:tid()) -> no_return().
+-spec load_mod1(atom(), file:filename(), binary(), ets:tid()) ->
+                       fun(() -> no_return()).
 
 load_mod1(Mod, File, Binary, Db) ->
-    store_module(Mod, File, Binary, Db),
-    exit({ok, Mod}).
+    fun() ->
+            store_module(Mod, File, Binary, Db),
+            exit({ok, Mod})
+    end.
 
 %%====================================================================
 %% Internal functions
