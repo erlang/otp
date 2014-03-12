@@ -871,23 +871,14 @@ int
 efile_chdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to make current. */
 {
-    Efile_call_state state;
-    WCHAR* wname = (WCHAR*)name;
-    int success;
-    SVERK_TRACE(1, name);
-
-    call_state_init(&state, errInfo);
-    ensure_wpath(&state, &wname);
-    success = (int) SetCurrentDirectoryW(wname);
-    if (!success) {
-	set_error(state.errInfo);
-	if (state.errInfo->posix_errno == EINVAL) {
-	    /* POSIXification of errno */
-	    errInfo->posix_errno = ENOENT;
-	}
-    }
-
-    call_state_free(&state);
+    /* We don't even try to handle long paths here
+     * as current working directory is always limited to MAX_PATH
+     * even if we use UNC paths and SetCurrentDirectoryW()
+     */
+    int success = check_error(_wchdir((WCHAR *) name), errInfo);
+    if (!success && errInfo->posix_errno == EINVAL)
+	/* POSIXification of errno */
+	errInfo->posix_errno = ENOENT;
     return success;
 }
 
