@@ -126,7 +126,8 @@ static int version_handshake(char* buf, int len, int wfd);
 #define READ_AIO(REQ,FD,SIZE,BUFF)					\
   SET_AIO(REQ,FD,SIZE,BUFF);						\
   if (aio_read(&(REQ)) != 0)						\
-    fprintf(stderr,"aio_read of child_read_req(%d) failed\n",FD)
+    fprintf(stderr,"aio_read of child_read_req(%d) failed"		\
+	    "with error %d\n",FD,errno)
 
 union SIGNAL {
   SIGSELECT signo;
