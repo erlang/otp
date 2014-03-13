@@ -1416,10 +1416,9 @@ Other commands:
       (run-hooks 'after-change-major-mode-hook)))
 
 ;;;###autoload
-(add-to-list 'auto-mode-alist '("\\.erl$" . erlang-mode))
-
-;;;###autoload
-(add-to-list 'auto-mode-alist '("\\.app\\.src$" . erlang-mode))
+(dolist (r '("\\.erl$" "\\.app\\.src$" "\\.escript"
+             "\\.hrl$" "\\.xrl$" "\\.yrl" ))
+  (add-to-list 'auto-mode-alist (cons r 'erlang-mode)))
 
 (defun erlang-syntax-table-init ()
   (if (null erlang-mode-syntax-table)
