@@ -1415,6 +1415,11 @@ Other commands:
   (if (boundp 'after-change-major-mode-hook)
       (run-hooks 'after-change-major-mode-hook)))
 
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.erl$" . erlang-mode))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.app\\.src$" . erlang-mode))
 
 (defun erlang-syntax-table-init ()
   (if (null erlang-mode-syntax-table)
