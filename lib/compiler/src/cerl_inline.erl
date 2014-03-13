@@ -51,7 +51,7 @@
 	       catch_body/1, clause_body/1, clause_guard/1,
 	       clause_pats/1, clause_vars/1, concrete/1, cons_hd/1,
 	       cons_tl/1, data_arity/1, data_es/1, data_type/1,
-	       fun_body/1, fun_vars/1, get_ann/1, int_val/1,
+	       fname_arity/1, fun_body/1, fun_vars/1, get_ann/1, int_val/1,
 	       is_c_atom/1, is_c_cons/1, is_c_fname/1, is_c_int/1,
 	       is_c_list/1, is_c_seq/1, is_c_tuple/1, is_c_var/1,
 	       is_data/1, is_literal/1, is_literal_term/1, let_arg/1,
@@ -1030,8 +1030,16 @@ i_apply(E, Ctxt, Ren, Env, S) ->
 					visit_and_count_size(Opnd, S)
 				end,
 				S3, Opnds),
-	    N = apply_size(length(Es)),
-            {update_c_apply(E, E1, Es), count_size(N, S4)}
+            Arity = length(Es),
+            E2 = case is_c_fname(E1) andalso length(Es) =/= fname_arity(E1) of
+                     true ->
+                         V = new_var(Env),
+                         update_c_let(E, [V], E1, update_c_apply(E, V, Es));
+                     false ->
+                         update_c_apply(E, E1, Es)
+                 end,
+            N = apply_size(Arity),
+            {E2, count_size(N, S4)}
     end.
 
 apply_size(A) ->
