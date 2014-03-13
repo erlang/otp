@@ -2328,6 +2328,23 @@ is_valid_map_key_value(K) ->
 	    foldl(fun(E,B) ->
 			B andalso is_valid_map_key_value(E)
 		end,true,Es);
+	{map,_,Arg,Ps} ->
+	    % only check for value expressions to be valid
+	    % invalid map expressions are later checked in
+	    % core and kernel
+	    is_valid_map_key_value(Arg) andalso foldl(fun
+		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
+					   Tag =:= map_field_exact ->
+		    B andalso is_valid_map_key_value(Ke)
+		      andalso is_valid_map_key_value(Ve)
+	    end, true, Ps);
+	{map,_,Ps} ->
+	    foldl(fun
+		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
+					   Tag =:= map_field_exact ->
+		    B andalso is_valid_map_key_value(Ke)
+		      andalso is_valid_map_key_value(Ve)
+	    end, true, Ps);
 	{bin,_,Es} ->
 	    % only check for value expressions to be valid
 	    % invalid binary expressions are later checked in
