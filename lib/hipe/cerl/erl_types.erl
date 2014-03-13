@@ -218,6 +218,10 @@
 %%-define(DO_ERL_TYPES_TEST, true).
 -compile({no_auto_import,[min/2,max/2]}).
 
+%% HiPE does not understand Maps
+%% (guard function is_map/1 in t_from_term/1)
+-compile(no_native).
+
 -ifdef(DO_ERL_TYPES_TEST).
 -export([test/0]).
 -else.
@@ -2156,6 +2160,7 @@ t_from_term(T) when is_integer(T) ->   t_integer(T);
 t_from_term(T) when is_pid(T) ->       t_pid();
 t_from_term(T) when is_port(T) ->      t_port();
 t_from_term(T) when is_reference(T) -> t_reference();
+t_from_term(T) when is_map(T) ->       t_map();
 t_from_term(T) when is_tuple(T) ->
   t_tuple([t_from_term(E) || E <- tuple_to_list(T)]).
 
