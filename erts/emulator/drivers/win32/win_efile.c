@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -29,12 +29,27 @@
 #include <wchar.h>
 #include "erl_efile.h"
 
+// 1 = file name ops
+// 2 = file descr ops
+// 4 = errors
+// 8 = path name conversion
+#define SVERK_TRACE_MASK 0
+
+#if !SVERK_TRACE_MASK
+#  define SVERK_TRACE(M,S)
+#  define SVERK_TRACE1(M,FMT,A)
+#  define SVERK_TRACE2(M,FMT,A,B)
+#else
+#  define SVERK_TRACE(M,S) do { if ((M)&SVERK_TRACE_MASK) fwprintf(stderr, L"SVERK TRACE %d: %s\r\n", __LINE__, (WCHAR*)(S)); }while(0)
+#  define SVERK_TRACE1(M,FMT,A) do { if ((M)&SVERK_TRACE_MASK) fwprintf(stderr, L"SVERK TRACE %d: " L##FMT L"\r\n", __LINE__, (A)); }while(0)
+#  define SVERK_TRACE2(M,FMT,A,B) do { if ((M)&SVERK_TRACE_MASK) fwprintf(stderr, L"SVERK TRACE %d: " L##FMT L"\r\n", __LINE__, (A), (B)); }while(0)
+#endif
+
 /*
  * Microsoft-specific function to map a WIN32 error code to a Posix errno.
  */
 
 #define ISSLASH(a)  ((a) == L'\\' || (a) == L'/')
-
 #define ISDIR(st) (((st).st_mode&S_IFMT) == S_IFDIR)
 #define ISREG(st) (((st).st_mode&S_IFMT) == S_IFREG)
 
@@ -69,9 +84,91 @@
 
 static int check_error(int result, Efile_error* errInfo);
 static int set_error(Efile_error* errInfo);
+static int set_os_errno(Efile_error* errInfo, DWORD os_errno);
 static int is_root_unc_name(const WCHAR *path);
 static int extract_root(WCHAR *name);
 static unsigned short dos_to_posix_mode(int attr, const WCHAR *name);
+
+
+struct wpath_tmp_buffer {
+    struct wpath_tmp_buffer* next;
+    WCHAR buffer[1];
+};
+
+typedef struct {
+    Efile_error* errInfo;
+    struct wpath_tmp_buffer* buf_list;
+}Efile_call_state;
+
+static void call_state_init(Efile_call_state* state, Efile_error* errInfo)
+{
+    state->errInfo = errInfo;
+    state->buf_list = NULL;
+}
+static WCHAR* wpath_tmp_alloc(Efile_call_state* state, size_t len)
+{
+    size_t sz = offsetof(struct wpath_tmp_buffer, buffer)
+	+ (len+1)*sizeof(WCHAR);
+    struct wpath_tmp_buffer* p = driver_alloc(sz);
+    p->next = state->buf_list;
+    state->buf_list = p;
+    return p->buffer;
+}
+static void call_state_free(Efile_call_state* state)
+{
+    while(state->buf_list) {
+	struct wpath_tmp_buffer* next = state->buf_list->next;
+	driver_free(state->buf_list);
+	state->buf_list = next;
+    }
+}
+static WCHAR* get_cwd_wpath_tmp(Efile_call_state* state)
+{
+    WCHAR dummy;
+    DWORD size = GetCurrentDirectoryW(0, &dummy);
+    WCHAR* ret = NULL;
+
+    if (size) {
+	ret = wpath_tmp_alloc(state, size);
+	if (!GetCurrentDirectoryW(size, ret)) {
+	    ret = NULL;
+	}
+    }
+    return ret;
+}
+static WCHAR* get_full_wpath_tmp(Efile_call_state* state,
+                                 const WCHAR* file,
+				 WCHAR** file_part,
+				 DWORD extra)
+{
+    WCHAR dummy;
+    DWORD size = GetFullPathNameW(file, 0, &dummy, NULL);
+    WCHAR* ret = NULL;
+
+    if (size) {
+	int ok;
+	ret = wpath_tmp_alloc(state, size + extra);
+	if (file_part) {
+	    ok = (GetFullPathNameW(file, size, ret, file_part) != 0);
+	}
+	else {
+	    ok = (_wfullpath(ret, file, size) != NULL);
+	}
+	if (!ok) {
+	    ret = NULL;
+	}
+    }
+    return ret;
+}
+
+static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max);
+static int do_rmdir(Efile_call_state*, char* name);
+static int do_rename(Efile_call_state*, char* src, char* dst);
+static int do_readdir(Efile_call_state*, char* name, EFILE_DIR_HANDLE*, char* buffer, size_t *size);
+static int do_fileinfo(Efile_call_state*, Efile_info*, char* orig_name, int info_for_link);
+static char* do_readlink(Efile_call_state*, char* name, char* buffer, size_t size);
+static int do_altname(Efile_call_state*, char* orig_name, char* buffer, size_t size);
+
 
 static int errno_map(DWORD last_error) {
 
@@ -176,10 +273,22 @@ check_error(int result, Efile_error* errInfo)
     if (result < 0) {
 	errInfo->posix_errno = errno;
 	errInfo->os_errno = GetLastError();
+	SVERK_TRACE2(4, "ERROR os_error=%d errno=%d @@@@@@@@@@@@@@@@@@@@@@@@@@@@",
+	        errInfo->os_errno, errInfo->posix_errno);
 	return 0;
     }
     return 1;
 }
+
+static void
+save_last_error(Efile_error* errInfo)
+{
+    errInfo->posix_errno = errno;
+    errInfo->os_errno = GetLastError();
+    SVERK_TRACE2(4, "ERROR os_error=%d errno=%d $$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
+	errInfo->os_errno, errInfo->posix_errno);
+}
+
 
 /*
  * Fills the provided error information structure with information
@@ -192,9 +301,20 @@ check_error(int result, Efile_error* errInfo)
 static int
 set_error(Efile_error* errInfo)
 {
-    errInfo->posix_errno = errno_map(errInfo->os_errno = GetLastError());
+    set_os_errno(errInfo, GetLastError());
     return 0;
 }
+
+static int
+set_os_errno(Efile_error* errInfo, DWORD os_errno)
+{
+    errInfo->os_errno = os_errno;
+    errInfo->posix_errno = errno_map(os_errno);
+    SVERK_TRACE2(4, "ERROR os_error=%d errno=%d ############################",
+	    errInfo->os_errno, errInfo->posix_errno);
+    return 0;
+}
+
 
 /*
  * A writev with Unix semantics, but with Windows arguments 
@@ -221,21 +341,143 @@ win_writev(Efile_error* errInfo,
 }
 
 
+/* Check '*pathp' and convert it if needed to something that windows will accept.
+ * Typically use UNC path with \\?\ prefix if absolute path is longer than 260.
+ */
+static void ensure_wpath(Efile_call_state* state, WCHAR** pathp)
+{
+    ensure_wpath_max(state, pathp, MAX_PATH);
+}
+
+static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
+{
+    WCHAR* path = *pathp;
+    WCHAR* p;
+    size_t len = wcslen(path);
+    int unc_fixup = 0;
+
+    if (path[0] == 0) {
+	SVERK_TRACE(8,"Let empty path pass through");
+	return;
+    }
+
+    if (path[1] == L':' && ISSLASH(path[2])) { /* absolute path */
+	if (len >= max) {
+	    WCHAR *src, *dst;
+
+	    *pathp = wpath_tmp_alloc(state, 4+len+1);
+	    dst = *pathp;
+	    wcscpy(dst, L"\\\\?\\");
+	    for (src=path,dst+=4; *src; src++,dst++)
+		*dst = (*src == L'/') ? L'\\' : *src;
+	    *dst = 0;
+	    unc_fixup = 1;
+	}
+    }
+    else if (!(ISSLASH(path[0]) && ISSLASH(path[1]))) { /* relative path */
+	DWORD cwdLen = GetCurrentDirectoryW(0, NULL);
+	DWORD absLen = cwdLen + 1 + len;
+	if (absLen >= max) {
+	    WCHAR *cwd;
+
+	    cwd = wpath_tmp_alloc(state, 4+absLen);
+	    wcscpy(cwd, L"\\\\?\\");
+	    cwdLen = GetCurrentDirectoryW(cwdLen, cwd+4);
+	    if (wcsncmp(cwd+4, L"\\\\?\\", 4) == 0) {
+		cwd += 4;
+		cwdLen -= 4;
+	    }
+	    p = cwd + 4 + cwdLen;
+	    if (!ISSLASH(p[-1]))
+		*p++ = L'\\';
+	    wcscpy(p, path);
+
+	    for (p=cwd; *p; p++)
+		if (*p == L'/')
+		    *p = L'\\';
+	    *pathp = cwd;
+	    unc_fixup = 1;
+	}
+    }
+
+    if (unc_fixup) {
+	WCHAR* endp;
+
+	SVERK_TRACE1(8,"IN: %s", path);
+
+	p = *pathp;
+	len = wcslen(p);
+	endp = p + len;
+	if (len > 4) {
+	    p += 4;
+	    while (*p) {
+		if (p[0] == L'\\' && p[1] == L'.') {
+		    if (p[2] == L'\\' || !p[2]) { /* single dot */
+			wmemmove(p, p+2, (&endp[1] - &p[2]));
+			endp -= 2;
+		    }
+		    else if (p[2] == L'.' && (p[3] == L'\\' || !p[3])) { /* double dot */
+			WCHAR* r;
+			for (r=p-1; *r == L'\\'; --r)
+			    /*skip redundant slashes*/;
+			for (; *r != L'\\'; --r)
+			    /*find start of prev directory*/;
+			if (r < *pathp + 6)
+			    break;
+			wmemmove(r, p+3, (&endp[1] - &p[3]));
+			p = r;
+		    }
+		    else p += 3;
+		}
+		else ++p;
+	    }
+	}
+	SVERK_TRACE1(8,"OUT: %s", *pathp);
+    }
+}
 
 int
 efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to create. */
 {
-    return check_error(_wmkdir((WCHAR *) name), errInfo);
+    Efile_call_state state;
+    WCHAR* wname = (WCHAR*)name;
+    int ret;
+
+    SVERK_TRACE(1, name);
+    call_state_init(&state, errInfo);
+    ensure_wpath_max(&state, &wname, 248); /* Yes, 248 limit for normal paths */
+
+    ret = (int) CreateDirectoryW(wname, NULL);
+    if (!ret)
+	set_error(errInfo);
+
+    call_state_free(&state);
+    return ret;
 }
 
 int
 efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to delete. */
 {
+    Efile_call_state state;
+    int ret;
+
+    SVERK_TRACE(1, name);
+    call_state_init(&state, errInfo);
+    ret = do_rmdir(&state, name);
+    call_state_free(&state);
+    return ret;
+}
+
+static int do_rmdir(Efile_call_state* state, char* name)
+{
     OSVERSIONINFO os;
     DWORD attr;
     WCHAR *wname = (WCHAR *) name;
+    WCHAR *buffer = NULL;
+
+    ensure_wpath(state, &wname);
 
     if (RemoveDirectoryW(wname) != FALSE) {
 	return 1;
@@ -265,10 +507,9 @@ efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    if (os.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
 		HANDLE handle;
 		WIN32_FIND_DATAW data;
-		WCHAR buffer[2*MAX_PATH];
-		int len;
+		int len = wcslen(wname);
 
-		len = wcslen(wname);
+		buffer = wpath_tmp_alloc(state, len + 4);
 		wcscpy(buffer, wname);
 		if (buffer[0] && buffer[len-1] != L'\\' && buffer[len-1] != L'/') {
 		    wcscat(buffer, L"\\");
@@ -306,15 +547,29 @@ efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
     }
 
  end:
-    return check_error(-1, errInfo);
+    save_last_error(state->errInfo);
+    return 0;
 }
 
 int
 efile_delete_file(Efile_error* errInfo,		/* Where to return error codes. */
 		  char* name)			/* Name of file to delete. */
 {
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, name);
+    call_state_init(&state, errInfo);
+    ret = do_delete_file(&state, name);
+    call_state_free(&state);
+    return ret;
+}
+
+static int do_delete_file(Efile_call_state* state, char* name)
+{
     DWORD attr;
     WCHAR *wname = (WCHAR *) name;
+
+    ensure_wpath(state, &wname);
 
     if (DeleteFileW(wname) != FALSE) {
 	return 1;
@@ -354,7 +609,7 @@ efile_delete_file(Efile_error* errInfo,		/* Where to return error codes. */
 	errno = EACCES;
     }
 
-    return check_error(-1, errInfo);
+    return check_error(-1, state->errInfo);
 }
 
 /*
@@ -388,14 +643,29 @@ efile_delete_file(Efile_error* errInfo,		/* Where to return error codes. */
  */
 
 int
-efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
-	     char* src,			/* Original name. */
-	     char* dst)			/* New name. */
+efile_rename(Efile_error* errInfo, char* src, char* dst)
+{
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, src);
+    call_state_init(&state, errInfo);
+    ret = do_rename(&state, src, dst);
+    call_state_free(&state);
+    return ret;
+}
+
+static int
+do_rename(Efile_call_state* state,
+	  char* src,			/* Original name. */
+	  char* dst)			/* New name. */
 {
     DWORD srcAttr, dstAttr;
     WCHAR *wsrc = (WCHAR *) src;
     WCHAR *wdst = (WCHAR *) dst;
-    
+
+    ensure_wpath(state, &wsrc);
+    ensure_wpath(state, &wdst);
+
     if (MoveFileW(wsrc, wdst) != FALSE) {
 	return 1;
     }
@@ -412,23 +682,27 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 
     if (errno == EBADF) {
 	errno = EACCES;
-	return check_error(-1, errInfo);
+	return check_error(-1, state->errInfo);
     }
     if (errno == EACCES) {
 	decode:
 	if (srcAttr & FILE_ATTRIBUTE_DIRECTORY) {
-	    WCHAR srcPath[MAX_PATH], dstPath[MAX_PATH];
+	    WCHAR *srcPath, *dstPath;
 	    WCHAR *srcRest, *dstRest;
 	    int size;
 
-	    size = GetFullPathNameW(wsrc, MAX_PATH, srcPath, &srcRest);
-	    if ((size == 0) || (size > MAX_PATH)) {
-		return check_error(-1, errInfo);
+	    srcPath = get_full_wpath_tmp(state, wsrc, &srcRest, 0);
+	    if (!srcPath) {
+		save_last_error(state->errInfo);
+		return 0;
 	    }
-	    size = GetFullPathNameW(wdst, MAX_PATH, dstPath, &dstRest);
-	    if ((size == 0) || (size > MAX_PATH)) {
-		return check_error(-1, errInfo);
+
+	    dstPath = get_full_wpath_tmp(state, wdst, &dstRest, 0);
+	    if (!dstPath) {
+		save_last_error(state->errInfo);
+		return 0;
 	    }
+
 	    if (srcRest == NULL) {
 		srcRest = srcPath + wcslen(srcPath);
 	    }
@@ -533,14 +807,16 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 		 *    put temp file back to old name.
 		 */
 
-		WCHAR tempName[MAX_PATH];
-		int result, size;
+		WCHAR *tempName;
+		int result;
 		WCHAR *rest;
 		
-		size = GetFullPathNameW(wdst, MAX_PATH, tempName, &rest);
-		if ((size == 0) || (size > MAX_PATH) || (rest == NULL)) {
-		    return check_error(-1, errInfo);
+		tempName = get_full_wpath_tmp(state, wdst, &rest, 14);
+		if (!tempName || !rest) {
+		    save_last_error(state->errInfo);
+		    return 0;
 		}
+
 		*rest = L'\0';
 		result = -1;
 		if (GetTempFileNameW(tempName, L"erlr", 0, tempName) != 0) {
@@ -573,7 +849,6 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 			/*
 			 * Decode the EACCES to a more meaningful error.
 			 */
-
 			goto decode;
 		    }
 		}
@@ -581,17 +856,30 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 	    }
 	}
     }
-    return check_error(-1, errInfo);
+    return check_error(-1, state->errInfo);
 }
 
 int
 efile_chdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to make current. */
 {
-    int success = check_error(_wchdir((WCHAR *) name), errInfo);
-    if (!success && errInfo->posix_errno == EINVAL)
-	/* POSIXification of errno */
-	errInfo->posix_errno = ENOENT;
+    Efile_call_state state;
+    WCHAR* wname = (WCHAR*)name;
+    int success;
+    SVERK_TRACE(1, name);
+
+    call_state_init(&state, errInfo);
+    ensure_wpath(&state, &wname);
+    success = (int) SetCurrentDirectoryW(wname);
+    if (!success) {
+	set_error(state.errInfo);
+	if (state.errInfo->posix_errno == EINVAL) {
+	    /* POSIXification of errno */
+	    errInfo->posix_errno = ENOENT;
+	}
+    }
+
+    call_state_free(&state);
     return success;
 }
 
@@ -603,28 +891,45 @@ efile_getdcwd(Efile_error* errInfo,		/* Where to return error codes. */
 {
     WCHAR *wbuffer = (WCHAR *) buffer;
     size_t wbuffer_size = size / 2; 
-    if (_wgetdcwd(drive, wbuffer, wbuffer_size) == NULL)
+    SVERK_TRACE(1, L"#getdcwd#");
+    if (_wgetdcwd(drive, wbuffer, wbuffer_size) == NULL) {
 	return check_error(-1, errInfo);
+    }
+    SVERK_TRACE1(8, "getdcwd OS=%s", wbuffer);
+    if (wcsncmp(wbuffer, L"\\\\?\\", 4) == 0) {
+	wmemmove(wbuffer, wbuffer+4, wcslen(wbuffer+4)+1);
+    }
     for ( ; *wbuffer; wbuffer++) 
 	if (*wbuffer == L'\\')
 	    *wbuffer = L'/';
+    SVERK_TRACE1(8, "getdcwd ERLANG=%s", (WCHAR*)buffer);
     return 1;
 }
 
 int
-efile_readdir(Efile_error* errInfo, /* Where to return error codes. */
-	      char* name,           /* Name of directory to list */
-	      EFILE_DIR_HANDLE* dir_handle, /* Handle of opened directory or NULL */
-	      char* buffer,                 /* Buffer to put one filename in */ 
-	      size_t *size)                 /* in-out size of buffer/size of filename excluding zero
-					       termination in bytes*/
+efile_readdir(Efile_error* errInfo, char* name, EFILE_DIR_HANDLE* dir_handle,
+	      char* buffer, size_t *size)
+{
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(dir_handle?2:1, name);
+    call_state_init(&state, errInfo);
+    ret = do_readdir(&state, name, dir_handle, buffer, size);
+    call_state_free(&state);
+    return ret;
+}
+
+static int do_readdir(Efile_call_state* state,
+                      char* name,                   /* Name of directory to list */
+		      EFILE_DIR_HANDLE* dir_handle, /* Handle of opened directory or NULL */
+		      char* buffer,                 /* Buffer to put one filename in */
+		      size_t *size)                 /* in-out size of buffer/size of filename excluding zero
+					               termination in bytes*/
 {
     HANDLE dir;			/* Handle to directory. */
-    WCHAR wildcard[MAX_PATH];	/* Wildcard to search for. */
     WIN32_FIND_DATAW findData;	/* Data found by FindFirstFile() or FindNext(). */
     /* Alignment is not honored, this works on x86 because of alignment fixup by processor.
        Not perfect, but faster than alinging by hand (really) */
-    WCHAR *wname = (WCHAR *) name;
     WCHAR *wbuffer = (WCHAR *) buffer;
 
     /*
@@ -632,13 +937,15 @@ efile_readdir(Efile_error* errInfo, /* Where to return error codes. */
      */
 
     if (*dir_handle == NULL) {
-	int length = wcslen(wname);
+	WCHAR *wname = (WCHAR *) name;
+	WCHAR* wildcard;
+	int length;
 	WCHAR* s;
 
-	if (length+3 >= MAX_PATH) {
-	    errno = ENAMETOOLONG;
-	    return check_error(-1, errInfo);
-	}
+	ensure_wpath(state, &wname);
+	length = wcslen(wname);
+
+	wildcard = wpath_tmp_alloc(state, length+3);
 
 	wcscpy(wildcard, wname);
 	s = wildcard+length-1;
@@ -648,8 +955,10 @@ efile_readdir(Efile_error* errInfo, /* Where to return error codes. */
 	*++s = L'\0';
 	DEBUGF(("Reading %ws\n", wildcard));
 	dir = FindFirstFileW(wildcard, &findData);
-	if (dir == INVALID_HANDLE_VALUE)
-	    return set_error(errInfo);
+	if (dir == INVALID_HANDLE_VALUE) {
+	    set_error(state->errInfo);
+	    return 0;
+	}
 	*dir_handle = (EFILE_DIR_HANDLE) dir;
 
 	if (!IS_DOT_OR_DOTDOT(findData.cFileName)) {
@@ -658,7 +967,6 @@ efile_readdir(Efile_error* errInfo, /* Where to return error codes. */
 	    return 1;
 	}
     }
-
 
     /*
      * Retrieve the name of the next file using the directory handle.
@@ -676,24 +984,36 @@ efile_readdir(Efile_error* errInfo, /* Where to return error codes. */
 	}
 
 	if (GetLastError() == ERROR_NO_MORE_FILES) {
-	    FindClose(dir);
-	    errInfo->posix_errno = errInfo->os_errno = 0;
-	    return 0;
+	    state->errInfo->posix_errno = state->errInfo->os_errno = 0;
 	}
-
-	set_error(errInfo);
+	else {
+	    set_error(state->errInfo);
+	}
 	FindClose(dir);
 	return 0;
     }
 }
 
 int
-efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
-	       char* name,			/* Name of directory to open. */
-	       int flags,			/* Flags to use for opening. */
-	       int* pfd,			/* Where to store the file descriptor. */
-	       Sint64* pSize)			/* Where to store the size of the file. */
+efile_openfile(Efile_error* errInfo, char* name, int flags, int* pfd, Sint64* pSize)
 {
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, name);
+    call_state_init(&state, errInfo);
+    ret = do_openfile(&state, name, flags, pfd, pSize);
+    call_state_free(&state);
+    return ret;
+}
+
+static
+int do_openfile(Efile_call_state* state,        /* Where to return error codes. */
+	        char* name,			/* Name of directory to open. */
+	        int flags,			/* Flags to use for opening. */
+	        int* pfd,			/* Where to store the file descriptor. */
+	        Sint64* pSize)			/* Where to store the size of the file. */
+{
+    Efile_error* errInfo = state->errInfo;
     BY_HANDLE_FILE_INFORMATION fileInfo; /* File information from a handle. */
     HANDLE fd;			/* Handle to open file. */
     DWORD access;		/* Access mode: GENERIC_READ, GENERIC_WRITE. */
@@ -730,6 +1050,7 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
     if (flags & EFILE_MODE_EXCL) {
 	crFlags = CREATE_NEW;
     }
+    ensure_wpath(state, &wname);
     fd = CreateFileW(wname, access,
 		    FILE_SHARE_FLAGS,
 		    NULL, crFlags, flagsAndAttrs, NULL);
@@ -772,26 +1093,35 @@ efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
 }
 
 int 
-efile_may_openfile(Efile_error* errInfo, char *name) {
+efile_may_openfile(Efile_error* errInfo, char *name)
+{
+    Efile_call_state state;
     WCHAR *wname = (WCHAR *) name;
     DWORD attr;
+    int ret;
 
+    SVERK_TRACE(1, name);
+    call_state_init(&state, errInfo);
+    ensure_wpath(&state, &wname);
     if ((attr = GetFileAttributesW(wname)) == INVALID_FILE_ATTRIBUTES) {
 	errno = ENOENT;
-	return check_error(-1, errInfo);
+	ret = check_error(-1, errInfo);
     }
-
-    if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+    else if (attr & FILE_ATTRIBUTE_DIRECTORY) {
 	errno = EISDIR;
-	return check_error(-1, errInfo);
+	ret = check_error(-1, errInfo);
     }
-    return 1;
+    else ret = 1;
+
+    call_state_free(&state);
+    return ret;
 }
 
 void
 efile_closefile(fd)
 int fd;				/* File descriptor for file to close. */
 {
+    SVERK_TRACE(2, L"");
     CloseHandle((HANDLE) fd);
 }
 
@@ -800,6 +1130,7 @@ efile_fdatasync(errInfo, fd)
 Efile_error* errInfo;		/* Where to return error codes. */
 int fd;				/* File descriptor for file to sync. */
 {
+    SVERK_TRACE(2, L"");
     /* Not available in Windows, just call regular fsync */
     return efile_fsync(errInfo, fd);
 }
@@ -809,6 +1140,7 @@ efile_fsync(errInfo, fd)
 Efile_error* errInfo;		/* Where to return error codes. */
 int fd;				/* File descriptor for file to sync. */
 {
+    SVERK_TRACE(2, L"");
     if (!FlushFileBuffers((HANDLE) fd)) {
 	return check_error(-1, errInfo);
     }
@@ -819,64 +1151,87 @@ int
 efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	       char* orig_name, int info_for_link)
 {
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, L"");
+    call_state_init(&state, errInfo);
+    ret = do_fileinfo(&state, pInfo, orig_name, info_for_link);
+    call_state_free(&state);
+    return ret;
+}
+
+static int
+do_fileinfo(Efile_call_state* state, Efile_info* pInfo,
+	    char* orig_name, int info_for_link)
+{
+    Efile_error* errInfo = state->errInfo;
     HANDLE findhandle;		/* Handle returned by FindFirstFile(). */
     WIN32_FIND_DATAW findbuf;	/* Data return by FindFirstFile(). */
-    WCHAR name[_MAX_PATH];
+    WCHAR* name = NULL;
+    WCHAR* win_path;
     int name_len;
-    WCHAR *path;
-    WCHAR pathbuf[_MAX_PATH];
     int drive;			/* Drive for filename (1 = A:, 2 = B: etc). */
-    WCHAR *worig_name = (WCHAR *) orig_name; 
+    WCHAR *worig_name = (WCHAR *) orig_name;
 
+    ensure_wpath(state, &worig_name);
     /* Don't allow wildcards to be interpreted by system */
 
-    if (wcspbrk(worig_name, L"?*")) {
-    enoent:
-	errInfo->posix_errno = ENOENT;
-	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
-        return 0;
-    }
 
     /*
      * Move the name to a buffer and make sure to remove a trailing
      * slash, because it causes FindFirstFile() to fail on Win95.
      */
 
-    if ((name_len = wcslen(worig_name)) >= _MAX_PATH) {
-	goto enoent;
-    } else {
-	wcscpy(name, worig_name);
-	if (name_len > 2 && ISSLASH(name[name_len-1]) &&
-	    name[name_len-2] != L':') {
-	    name[name_len-1] = L'\0';
-	}
+    name_len = wcslen(worig_name);
+
+    name = wpath_tmp_alloc(state, name_len+1);
+    wcscpy(name, worig_name);
+    if (name_len > 2 && ISSLASH(name[name_len-1]) &&
+	name[name_len-2] != L':') {
+	name[name_len-1] = L'\0';
     }
-    
+
+    win_path = name;
+    if (wcsncmp(name, L"\\\\?\\", 4) == 0) {
+	win_path += 4;
+    }
+
+    if (wcspbrk(win_path, L"?*")) {
+    enoent:
+	errInfo->posix_errno = ENOENT;
+	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
+        return 0;
+    }
+
     /* Try to get disk from name.  If none, get current disk.  */
 
-    if (name[1] != L':') {
+    if (win_path[1] != L':') {
+	WCHAR* cwd_path = get_cwd_wpath_tmp(state);
         drive = 0;
-        if (GetCurrentDirectoryW(_MAX_PATH, pathbuf) &&
-	    pathbuf[1] == L':') {
-	    drive = towlower(pathbuf[0]) - L'a' + 1;
+	if (cwd_path[1] == L':') {
+	    drive = towlower(cwd_path[0]) - L'a' + 1;
 	}
-    } else if (*name && name[2] == L'\0') {
+    } else if (*win_path && win_path[2] == L'\0') {
 	/*
 	 * X: and nothing more is an error.
 	 */
 	errInfo->posix_errno = ENOENT;
 	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
 	return 0;
-    } else
-        drive = towlower(*name) - L'a' + 1;
+    } else {
+        drive = towlower(*win_path) - L'a' + 1;
+    }
 
     findhandle = FindFirstFileW(name, &findbuf);
     if (findhandle == INVALID_HANDLE_VALUE) {
+	WCHAR* path = NULL;
+
         if (!(wcspbrk(name, L"./\\") &&
-	      (path = _wfullpath(pathbuf, name, _MAX_PATH)) &&
+	      (path = get_full_wpath_tmp(state, name, NULL, 0)) &&
 	      /* root dir. ('C:\') or UNC root dir. ('\\server\share\') */
 	      ((wcslen(path) == 3) || is_root_unc_name(path)) &&
 	      (GetDriveTypeW(path) > 1)   ) ) {
+
 	    errInfo->posix_errno = ENOENT;
 	    errInfo->os_errno = ERROR_FILE_NOT_FOUND;
 	    return 0;
@@ -903,13 +1258,11 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	    /*
 	     * given that we know this is a symlink,
 	     we should be able to find its target */
-	    WCHAR target_name[_MAX_PATH];
-	    if (efile_readlink(errInfo, (char *) name, 
-			       (char *) target_name, 
-			       _MAX_PATH * sizeof(WCHAR)) == 1) {
+	    WCHAR* target_name = (WCHAR*) do_readlink(state, (char *) name, NULL, 0);
+	    if (target_name) {
 		FindClose(findhandle);
-		return efile_fileinfo(errInfo, pInfo,
-				      (char *) target_name, info_for_link);
+		return do_fileinfo(state, pInfo,
+				   (char *) target_name, info_for_link);
 	    }
 	}
 
@@ -976,6 +1329,20 @@ efile_write_info(Efile_error* errInfo,
 		 Efile_info* pInfo,
 		 char* name)
 {
+    Efile_call_state state;
+    int ret;
+    call_state_init(&state, errInfo);
+    ret = do_write_info(&state, pInfo, name);
+    call_state_free(&state);
+    return ret;
+}
+
+static int
+do_write_info(Efile_call_state* state,
+              Efile_info* pInfo,
+	      char* name)
+{
+    Efile_error* errInfo = state->errInfo;
     SYSTEMTIME timebuf;
     FILETIME ModifyFileTime;
     FILETIME AccessFileTime;
@@ -984,6 +1351,10 @@ efile_write_info(Efile_error* errInfo,
     DWORD attr;
     DWORD tempAttr;
     WCHAR *wname = (WCHAR *) name;
+
+    SVERK_TRACE(1, name);
+
+    ensure_wpath(state, &wname);
 
     /*
      * Get the attributes for the file.
@@ -1061,7 +1432,9 @@ char* buf;			/* Buffer to write. */
 size_t count;			/* Number of bytes to write. */
 Sint64 offset;			/* where to write it */
 {
-    int res  = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
+    int res;
+    SVERK_TRACE(2, L"");
+    res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
     if (res) {
 	return efile_write(errInfo, EFILE_MODE_WRITE, fd, buf, count);
     } else {
@@ -1079,7 +1452,9 @@ char* buf;			/* Buffer to read into. */
 size_t count;			/* Number of bytes to read. */
 size_t* pBytesRead;		/* Where to return number of bytes read. */
 {
-    int res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
+    int res;
+    SVERK_TRACE(2, L"");
+    res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
     if (res) {
 	return efile_read(errInfo, EFILE_MODE_READ, fd, buf, count, pBytesRead);
     } else {
@@ -1101,6 +1476,7 @@ size_t count;			/* Number of bytes to write. */
     OVERLAPPED overlapped;
     OVERLAPPED* pOverlapped = NULL;
 
+    SVERK_TRACE(2, L"");
     if (flags & EFILE_MODE_APPEND) {
 	memset(&overlapped, 0, sizeof(overlapped));
 	overlapped.Offset = 0xffffffff;
@@ -1130,6 +1506,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
     OVERLAPPED overlapped;
     OVERLAPPED* pOverlapped = NULL;
 
+    SVERK_TRACE(2, L"");
     ASSERT(iovcnt >= 0);
     
     if (flags & EFILE_MODE_APPEND) {
@@ -1166,6 +1543,8 @@ size_t count;			/* Number of bytes to read. */
 size_t* pBytesRead;		/* Where to return number of bytes read. */
 {
     DWORD nbytes = 0;
+
+    SVERK_TRACE(2, L"");
     if (!ReadFile((HANDLE) fd, buf, count, &nbytes, NULL))
 	return set_error(errInfo);
 
@@ -1185,6 +1564,7 @@ Sint64* new_location;		/* Resulting new location in file. */
 {
     LARGE_INTEGER off, new_loc;
     
+    SVERK_TRACE(2, L"");
     switch (origin) {
     case EFILE_SEEK_SET: origin = FILE_BEGIN; break;
     case EFILE_SEEK_CUR: origin = FILE_CURRENT; break;
@@ -1216,6 +1596,7 @@ Efile_error* errInfo;		/* Where to return error codes. */
 int *fd;				/* File descriptor for file to truncate. */
 int flags;
 {
+    SVERK_TRACE(2, L"");
     if (!SetEndOfFile((HANDLE) (*fd)))
 	return set_error(errInfo);
     return 1;
@@ -1368,8 +1749,23 @@ dos_to_posix_mode(int attr, const WCHAR *name)
     return uxmode;
 }
 
+
 int
 efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
+{
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, name);
+    call_state_init(&state, errInfo);
+    ret = !!do_readlink(&state, name, buffer, size);
+    call_state_free(&state);
+    return ret;
+}
+
+/* If buffer==0, return buffer allocated by wpath_tmp_allocate
+*/
+static char*
+do_readlink(Efile_call_state* state, char* name, char* buffer, size_t size)
 {
     /*
      * load dll and see if we have CreateSymbolicLink at runtime:
@@ -1378,6 +1774,9 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
     HINSTANCE hModule = NULL;
     WCHAR *wname = (WCHAR *) name;
     WCHAR *wbuffer = (WCHAR *) buffer;
+    DWORD wsize = size / sizeof(WCHAR) - 1;
+    char* ret = NULL;
+
     if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
 	typedef DWORD (WINAPI * GETFINALPATHNAMEBYHANDLEPTR)(
 							     HANDLE hFile,
@@ -1388,58 +1787,84 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 	GETFINALPATHNAMEBYHANDLEPTR pGetFinalPathNameByHandle =
 	    (GETFINALPATHNAMEBYHANDLEPTR)GetProcAddress(hModule, "GetFinalPathNameByHandleW");
 
-	if (pGetFinalPathNameByHandle == NULL) {
-	    FreeLibrary(hModule);
-	} else {
+	if (pGetFinalPathNameByHandle != NULL) {
+	    DWORD fileAttributes;
+	    ensure_wpath(state, &wname);
 	    /* first check if file is a symlink; {error, einval} otherwise */
-	    DWORD fileAttributes =  GetFileAttributesW(wname);
+	    fileAttributes = GetFileAttributesW(wname);
 	    if ((fileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
-		BOOLEAN success = 0;
+		DWORD success = 0;
 		HANDLE h = CreateFileW(wname, GENERIC_READ, FILE_SHARE_FLAGS, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 		int len;
 		if(h != INVALID_HANDLE_VALUE) {
-		    success = pGetFinalPathNameByHandle(h, wbuffer, size / sizeof(WCHAR),0);
-		    /* GetFinalPathNameByHandle prepends path with "\\?\": */
-		    len = wcslen(wbuffer);
-		    wmemmove(wbuffer,wbuffer+4,len-3);
-		    if (len - 4 >= 2 && wbuffer[1] == L':' && wbuffer[0] >= L'A' &&
-			wbuffer[0] <= L'Z') {
-			wbuffer[0] = wbuffer[0] + L'a' - L'A';
+		    if (!wbuffer) { /* dynamic allocation */
+			WCHAR dummy;
+			wsize = pGetFinalPathNameByHandle(h, &dummy, 0, 0);
+			if (wsize) {
+			    wbuffer = wpath_tmp_alloc(state, wsize);
+			    wsize--;
+			}
 		    }
+		    if (wbuffer
+			&& (success = pGetFinalPathNameByHandle(h, wbuffer, wsize, 0))
+			&& success <= wsize) {
+
+			/* GetFinalPathNameByHandle prepends path with "\\?\": */
+			len = wcslen(wbuffer);
+			wmemmove(wbuffer,wbuffer+4,len-3);
+			if (len - 4 >= 2 && wbuffer[1] == L':' && wbuffer[0] >= L'A' &&
+			    wbuffer[0] <= L'Z') {
+			    wbuffer[0] = wbuffer[0] + L'a' - L'A';
+			}
 			
-		    for ( ; *wbuffer; wbuffer++) 
-			if (*wbuffer == L'\\')
-			    *wbuffer = L'/';
+			for ( ; *wbuffer; wbuffer++)
+			    if (*wbuffer == L'\\')
+				*wbuffer = L'/';
+		    }
 		    CloseHandle(h);
-		} 
-		FreeLibrary(hModule);
+		}
 		if (success) {
-		    return 1;
+		    ret = (char*) wbuffer;
 		} else {
-		    return set_error(errInfo);
+		    set_error(state->errInfo);
 		}
 	    } else {
-		FreeLibrary(hModule);
 		errno = EINVAL;
-		return check_error(-1, errInfo);
+		save_last_error(state->errInfo);
 	    }
+	    goto done;
 	}
     }
     errno = ENOTSUP;
-    return check_error(-1, errInfo);
+    save_last_error(state->errInfo);
+
+done:
+    if (hModule)
+	FreeLibrary(hModule);
+    return ret;
 }
 
 
 int
 efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
 {
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, orig_name);
+    call_state_init(&state, errInfo);
+    ret = do_altname(&state, orig_name, buffer, size);
+    call_state_free(&state);
+    return ret;
+}
+
+static int
+do_altname(Efile_call_state* state, char* orig_name, char* buffer, size_t size)
+{
     WIN32_FIND_DATAW wfd;
     HANDLE fh;
-    WCHAR name[_MAX_PATH+1];
+    WCHAR* name;
     int name_len;
-    WCHAR* path;
-    WCHAR pathbuf[_MAX_PATH+1]; /* Unclear weather GetCurrentDirectory will access one char after
-				   _MAX_PATH */
+    WCHAR* full_path = NULL;
     WCHAR *worig_name = (WCHAR *) orig_name;
     WCHAR *wbuffer = (WCHAR *) buffer;
     int drive;			/* Drive for filename (1 = A:, 2 = B: etc). */
@@ -1448,8 +1873,8 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
 
     if (wcspbrk(worig_name, L"?*")) {
     enoent:
-	errInfo->posix_errno = ENOENT;
-	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
+	state->errInfo->posix_errno = ENOENT;
+	state->errInfo->os_errno = ERROR_FILE_NOT_FOUND;
         return 0;
     }
 
@@ -1457,24 +1882,23 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
      * Move the name to a buffer and make sure to remove a trailing
      * slash, because it causes FindFirstFile() to fail on Win95.
      */
+    ensure_wpath(state, &worig_name);
+    name_len = wcslen(worig_name);
 
-    if ((name_len = wcslen(worig_name)) >= _MAX_PATH) {
-	goto enoent;
-    } else {
-	wcscpy(name, worig_name);
-	if (name_len > 2 && ISSLASH(name[name_len-1]) &&
-	    name[name_len-2] != L':') {
-	    name[name_len-1] = L'\0';
-	}
+    name = wpath_tmp_alloc(state, name_len + 1);
+    wcscpy(name, worig_name);
+    if (name_len > 2 && ISSLASH(name[name_len-1]) &&
+	name[name_len-2] != L':') {
+	name[name_len-1] = L'\0';
     }
     
     /* Try to get disk from name.  If none, get current disk.  */
 
     if (name[1] != L':') {
+	WCHAR* cwd_path = get_cwd_wpath_tmp(state);
         drive = 0;
-        if (GetCurrentDirectoryW(_MAX_PATH, pathbuf) &&
-	    pathbuf[1] == L':') {
-	    drive = towlower(pathbuf[0]) - L'a' + 1;
+        if (cwd_path[1] == L':') {
+	    drive = towlower(cwd_path[0]) - L'a' + 1;
 	}
     } else if (*name && name[2] == L'\0') {
 	/*
@@ -1486,13 +1910,15 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
     }
     fh = FindFirstFileW(name,&wfd);
     if (fh == INVALID_HANDLE_VALUE) {
+	DWORD fff_error = GetLastError();
         if (!(wcspbrk(name, L"./\\") &&
-	      (path = _wfullpath(pathbuf, name, _MAX_PATH)) &&
+	      (full_path = get_full_wpath_tmp(state, name, NULL, 0)) &&
 	      /* root dir. ('C:\') or UNC root dir. ('\\server\share\') */
-	      ((wcslen(path) == 3) || is_root_unc_name(path)) &&
-	      (GetDriveTypeW(path) > 1)   ) ) {
-	    errno = errno_map(GetLastError());
-	    return check_error(-1, errInfo);
+	      ((wcslen(full_path) == 3) || is_root_unc_name(full_path)) &&
+	      (GetDriveTypeW(full_path) > 1)   ) ) {
+
+	    set_os_errno(state->errInfo, fff_error);
+	    return 0;
 	}
         /*
          * Root directories (such as C:\ or \\server\share\ are fabricated.
@@ -1513,16 +1939,36 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
 int
 efile_link(Efile_error* errInfo, char* old, char* new)
 {
+    Efile_call_state state;
     WCHAR *wold = (WCHAR *) old;
     WCHAR *wnew = (WCHAR *) new;
+    int ret;
+    SVERK_TRACE(1, old);
+    call_state_init(&state, errInfo);
+    ensure_wpath(&state, &wold);
+    ensure_wpath(&state, &wnew);
     if(!CreateHardLinkW(wnew, wold, NULL)) {
-	return set_error(errInfo);
+	ret = set_error(errInfo);
     }
-    return 1;
+    else ret =1;
+    call_state_free(&state);
+    return ret;
 }
 
 int
 efile_symlink(Efile_error* errInfo, char* old, char* new)
+{
+    Efile_call_state state;
+    int ret;
+    SVERK_TRACE(1, old);
+    call_state_init(&state, errInfo);
+    ret = do_symlink(&state, old, new);
+    call_state_free(&state);
+    return ret;
+}
+
+static int
+do_symlink(Efile_call_state* state, char* old, char* new)
 {
     /*
      * Load dll and see if we have CreateSymbolicLink at runtime:
@@ -1531,6 +1977,8 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
     HINSTANCE hModule = NULL;
     WCHAR *wold = (WCHAR *) old;
     WCHAR *wnew = (WCHAR *) new;
+
+    SVERK_TRACE(1, old);
     if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
 	typedef BOOLEAN (WINAPI  * CREATESYMBOLICLINKFUNCPTR) (
 	     LPCWSTR lpSymlinkFileName,
@@ -1542,6 +1990,9 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
 						       "CreateSymbolicLinkW");
 	/* A for MBCS, W for UNICODE... char* above implies 'W'! */
 	if (pCreateSymbolicLink != NULL) {
+	  ensure_wpath(state, &wold);
+	  ensure_wpath(state, &wnew);
+	  {
 	    DWORD attr = GetFileAttributesW(wold);
 	    int flag = (attr != INVALID_FILE_ATTRIBUTES &&
 			attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
@@ -1552,19 +2003,21 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
 	    if (success) {
 		return 1;
 	    } else {
-		return set_error(errInfo);
+		return set_error(state->errInfo);
 	    }
+	  }
 	} else
 	    FreeLibrary(hModule);
     }
     errno = ENOTSUP;
-    return check_error(-1, errInfo);
+    return check_error(-1, state->errInfo);
 }
 
 int
 efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 	    Sint64 length, int advise)
 {
+    SVERK_TRACE(2, L"");
     /* posix_fadvise is not available on Windows, do nothing */
     errno = ERROR_SUCCESS;
     return check_error(0, errInfo);
@@ -1573,6 +2026,7 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 int
 efile_fallocate(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length)
 {
+    SVERK_TRACE(2, L"");
     /* No file preallocation method available in Windows. */
     errno = errno_map(ERROR_NOT_SUPPORTED);
     SetLastError(ERROR_NOT_SUPPORTED);
