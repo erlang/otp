@@ -1810,9 +1810,14 @@ opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
 	true ->
 	    %% This clause will match.
 	    C = C0#c_clause{body=opt_bool_case(B)},
-	    case Lit of
-		false -> [C|opt_bool_clauses(Cs, SeenT, true)];
-		true -> [C|opt_bool_clauses(Cs, true, SeenF)]
+	    case {Lit,SeenT,SeenF} of
+                {false,_,false} ->
+                    [C|opt_bool_clauses(Cs, SeenT, true)];
+                {true,false,_} ->
+                    [C|opt_bool_clauses(Cs, true, SeenF)];
+                _ ->
+                    add_warning(C, nomatch_shadow),
+                    opt_bool_clauses(Cs, SeenT, SeenF)
 	    end
     end;
 opt_bool_clauses([#c_clause{pats=Ps,guard=#c_literal{val=true}}=C|Cs], SeenT, SeenF) ->
