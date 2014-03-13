@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -469,7 +469,7 @@ check_instruction(_, {add_application, Application, Type}, _, _) ->
 check_instruction(_, Instr, _, _) ->
     throw({error, {low_level_or_invalid_instruction, Instr}}).
 
-check_module(Module, Modules) when is_atom(Module) ->
+check_module(Module, Modules) ->
     case {is_atom(Module), lists:member(Module, Modules)} of
         {true, true}  -> ok;
         {true, false} -> throw({error, {unknown_module, Module}});
