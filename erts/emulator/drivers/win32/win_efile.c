@@ -361,6 +361,8 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
 	return;
     }
 
+    SVERK_TRACE1(8,"IN: %s", path);
+
     if (path[1] == L':' && ISSLASH(path[2])) { /* absolute path */
 	if (len >= max) {
 	    WCHAR *src, *dst;
@@ -378,32 +380,30 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
 	DWORD cwdLen = GetCurrentDirectoryW(0, NULL);
 	DWORD absLen = cwdLen + 1 + len;
 	if (absLen >= max) {
-	    WCHAR *cwd;
+	    WCHAR *fullPath = wpath_tmp_alloc(state, 4+4+absLen);
+	    DWORD fullLen;
 
-	    cwd = wpath_tmp_alloc(state, 4+absLen);
-	    wcscpy(cwd, L"\\\\?\\");
-	    cwdLen = GetCurrentDirectoryW(cwdLen, cwd+4);
-	    if (wcsncmp(cwd+4, L"\\\\?\\", 4) == 0) {
-		cwd += 4;
-		cwdLen -= 4;
+	    fullLen = GetFullPathNameW(path, 4 + absLen, fullPath+4, NULL);
+	    if (fullLen >= 4+absLen) {
+		*pathp = path;
+		SVERK_TRACE2(8,"ensure_wpath FAILED absLen=%u %s", (int)absLen, path);
+		return;
 	    }
-	    p = cwd + 4 + cwdLen;
-	    if (!ISSLASH(p[-1]))
-		*p++ = L'\\';
-	    wcscpy(p, path);
-
-	    for (p=cwd; *p; p++)
-		if (*p == L'/')
-		    *p = L'\\';
-	    *pathp = cwd;
-	    unc_fixup = 1;
+	    /* GetFullPathNameW can return paths longer than MAX_PATH without the \\?\ prefix.
+	     * At least seen on Windows 7. Go figure...
+	     */
+	    if (fullLen >= max && wcsncmp(fullPath+4, L"\\\\?\\", 4) != 0) {
+		wcsncpy(fullPath, L"\\\\?\\", 4);
+		*pathp = fullPath;
+	    }
+	    else {
+		*pathp = fullPath + 4;
+	    }
 	}
     }
 
     if (unc_fixup) {
 	WCHAR* endp;
-
-	SVERK_TRACE1(8,"IN: %s", path);
 
 	p = *pathp;
 	len = wcslen(p);
@@ -432,8 +432,8 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
 		else ++p;
 	    }
 	}
-	SVERK_TRACE1(8,"OUT: %s", *pathp);
     }
+    SVERK_TRACE1(8,"OUT: %s", *pathp);
 }
 
 int
