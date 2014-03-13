@@ -217,7 +217,8 @@ static int upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF_TE
 
     *priv = *old_priv_data;    
     do_load_info(env, load_info, &retval);
-    
+    if (retval)
+	NifModPrivData_release(data);
     return retval;
 }
 
