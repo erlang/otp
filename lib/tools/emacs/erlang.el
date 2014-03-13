@@ -1417,7 +1417,7 @@ Other commands:
 
 ;;;###autoload
 (dolist (r '("\\.erl$" "\\.app\\.src$" "\\.escript"
-             "\\.hrl$" "\\.xrl$" "\\.yrl" ))
+             "\\.hrl$" "\\.xrl$" "\\.yrl" "/ebin/.+\\.app"))
   (add-to-list 'auto-mode-alist (cons r 'erlang-mode)))
 
 (defun erlang-syntax-table-init ()
