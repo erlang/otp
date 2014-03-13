@@ -416,7 +416,14 @@ make_del_dir(Config) when is_list(Config) ->
     % because there are processes having that directory as current.
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
     ?line {ok,CurrentDir} = file:get_cwd(),
-    ?line ok = ?FILE_MODULE:set_cwd(NewDir),
+	case {os:type(), length(NewDir) >= 260 } of
+		{{win32,_}, true} ->
+			io:format("Skip set_cwd for windows path longer than 260 (MAX_PATH)\n", []),
+			io:format("\nNewDir = ~p\n", [NewDir]),
+			ok;
+		_ ->
+			?line ok = ?FILE_MODULE:set_cwd(NewDir)
+	end,
     try
 	%% Check that we get an error when trying to create...
 	%% a deep directory
