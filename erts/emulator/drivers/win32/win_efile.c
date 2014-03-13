@@ -1125,6 +1125,18 @@ int fd;				/* File descriptor for file to close. */
     CloseHandle((HANDLE) fd);
 }
 
+FILE* efile_wfopen(const WCHAR* name, const WCHAR* mode)
+{
+    Efile_call_state state;
+    Efile_error dummy;
+    FILE* f;
+    call_state_init(&state, &dummy);
+    ensure_wpath(&state, &name);
+    f = _wfopen(name, mode);
+    call_state_free(&state);
+    return f;
+}
+
 int
 efile_fdatasync(errInfo, fd)
 Efile_error* errInfo;		/* Where to return error codes. */
