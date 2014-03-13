@@ -19,10 +19,6 @@
 
 -module(snmp_agent_test).
 
-%% TODO
-%% * Test fault-tolerance (kill master etc)
-%%
-
 -export([
 	 all/0, 
 	 groups/0, 
@@ -41,7 +37,7 @@
 	 v1_processing/1, 
 	 big/1, 
 	 big2/1,
-	 loop_mib/1, 
+	 loop_mib_1/1, 
 	 api/1, 
 	 subagent/1, 
 	 mnesia/1, 
@@ -394,8 +390,9 @@
 	 usm_read/0, 
 	 usm_del_user/0, 
 	 usm_bad/0, 
-	 loop_mib_1/0, 
-	 loop_mib_2/0, 
+	 loop_mib_1_test/0, 
+	 loop_mib_2_test/0, 
+	 loop_mib_3_test/0, 
 	 otp_1129_i/1, 
 	 otp_1162_test/0, 
 	 otp_1131_test/0, 
@@ -1173,7 +1170,7 @@ mse_simple(X)         -> ?P(mse_simple), simple(X).
 mse_v1_processing(X)  -> ?P(mse_v1_processing), v1_processing(X).
 mse_big(X)            -> ?P(mse_big), big(X).
 mse_big2(X)           -> ?P(mse_big2), big2(X).
-mse_loop_mib(X)       -> ?P(mse_loop_mib), loop_mib(X).
+mse_loop_mib(X)       -> ?P(mse_loop_mib), loop_mib_1(X).
 mse_api(X)            -> ?P(mse_api), api(X).
 mse_sa_register(X)    -> ?P(mse_sa_register), sa_register(X).
 mse_v1_trap(X)        -> ?P(mse_v1_trap), v1_trap(X).
@@ -1194,7 +1191,7 @@ msd_simple(X)         -> ?P(msd_simple), simple(X).
 msd_v1_processing(X)  -> ?P(msd_v1_processing), v1_processing(X).
 msd_big(X)            -> ?P(msd_big), big(X).
 msd_big2(X)           -> ?P(msd_big2), big2(X).
-msd_loop_mib(X)       -> ?P(msd_loop_mib), loop_mib(X).
+msd_loop_mib(X)       -> ?P(msd_loop_mib), loop_mib_1(X).
 msd_api(X)            -> ?P(msd_api), api(X).
 msd_sa_register(X)    -> ?P(msd_sa_register), sa_register(X).
 msd_v1_trap(X)        -> ?P(msd_v1_trap), v1_trap(X).
@@ -1215,7 +1212,7 @@ msm_simple(X)         -> ?P(msm_simple), simple(X).
 msm_v1_processing(X)  -> ?P(msm_v1_processing), v1_processing(X).
 msm_big(X)            -> ?P(msm_big2), big(X).
 msm_big2(X)           -> ?P(msm_loop_mib), big2(X).
-msm_loop_mib(X)       -> ?P(msm_loop_mib), loop_mib(X).
+msm_loop_mib(X)       -> ?P(msm_loop_mib), loop_mib_1(X).
 msm_api(X)            -> ?P(msm_api), api(X).
 msm_sa_register(X)    -> ?P(msm_sa_register), sa_register(X).
 msm_v1_trap(X)        -> ?P(msm_v1_trap), v1_trap(X).
@@ -1618,7 +1615,7 @@ v1_cases() ->
      v1_processing, 
      big, 
      big2,
-     loop_mib, 
+     loop_mib_1, 
      api, 
      subagent, 
      mnesia, 
@@ -5516,46 +5513,48 @@ usm_bad() ->
 %% works.
 %% Load all std mibs that are not loaded by default.
 %%-----------------------------------------------------------------
-loop_mib(suite) -> [];
-loop_mib(Config) when is_list(Config) ->
-    ?P(loop_mib), 
-    ?LOG("loop_mib -> initiate case",[]),
+loop_mib_1(suite) -> [];
+loop_mib_1(Config) when is_list(Config) ->
+    ?P(loop_mib_1), 
+    ?LOG("loop_mib_1 -> initiate case",[]),
     %% snmpa:verbosity(master_agent,debug),
     %% snmpa:verbosity(mib_server,info),
     {SaNode, MgrNode, MibDir} = init_case(Config),
-    ?DBG("loop_mib -> ~n"
+    ?DBG("loop_mib_1 -> ~n"
 	   "\tSaNode:  ~p~n"
 	   "\tMgrNode: ~p~n"
 	   "\tMibDir:  ~p",[SaNode, MgrNode, MibDir]),
-    ?DBG("loop_mib -> load mib SNMP-COMMUNITY-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-COMMUNITY-MIB",[]),
     ?line load_master_std("SNMP-COMMUNITY-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-MPD-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-MPD-MIB",[]),
     ?line load_master_std("SNMP-MPD-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-TARGET-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-TARGET-MIB",[]),
     ?line load_master_std("SNMP-TARGET-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-NOTIFICATION-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-NOTIFICATION-MIB",[]),
     ?line load_master_std("SNMP-NOTIFICATION-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-FRAMEWORK-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-FRAMEWORK-MIB",[]),
     ?line load_master_std("SNMP-FRAMEWORK-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-VIEW-BASED-ACM-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-VIEW-BASED-ACM-MIB",[]),
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
-    ?DBG("loop_mib -> try",[]),
-    try_test(loop_mib_1),
-    ?DBG("loop_mib -> unload mib SNMP-COMMUNITY-MIB",[]),
+    ?DBG("loop_mib_1 -> try",[]),
+
+    try_test(loop_mib_1_test),
+
+    ?DBG("loop_mib_1 -> unload mib SNMP-COMMUNITY-MIB",[]),
     ?line unload_master("SNMP-COMMUNITY-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-MPD-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-MPD-MIB",[]),
     ?line unload_master("SNMP-MPD-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-TARGET-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-TARGET-MIB",[]),
     ?line unload_master("SNMP-TARGET-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-NOTIFICATION-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-NOTIFICATION-MIB",[]),
     ?line unload_master("SNMP-NOTIFICATION-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-FRAMEWORK-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-FRAMEWORK-MIB",[]),
     ?line unload_master("SNMP-FRAMEWORK-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-VIEW-BASED-ACM-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-VIEW-BASED-ACM-MIB",[]),
     ?line unload_master("SNMP-VIEW-BASED-ACM-MIB"),
     %% snmpa:verbosity(master_agent,log),
     %% snmpa:verbosity(mib_server,silence),
-    ?LOG("loop_mib -> done",[]).
+    ?LOG("loop_mib_1 -> done",[]).
     
 
 loop_mib_2(suite) -> [];
@@ -5563,7 +5562,7 @@ loop_mib_2(Config) when is_list(Config) ->
     ?P(loop_mib_2), 
     ?LOG("loop_mib_2 -> initiate case",[]),
     {SaNode, MgrNode, MibDir} = init_case(Config),
-    ?DBG("loop_mib_2 -> ~n"
+    ?DBG("do_loop_mib_2 -> ~n"
 	   "\tSaNode:  ~p~n"
 	   "\tMgrNode: ~p~n"
 	   "\tMibDir:  ~p",[SaNode, MgrNode, MibDir]),
@@ -5574,7 +5573,9 @@ loop_mib_2(Config) when is_list(Config) ->
     ?line load_master_std("SNMP-NOTIFICATION-MIB"),
     ?line load_master_std("SNMP-FRAMEWORK-MIB"),
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
-    try_test(loop_mib_2),
+
+    try_test(loop_mib_2_test),
+
     ?DBG("loop_mib_2 -> unload mibs",[]),
     ?line unload_master("SNMP-COMMUNITY-MIB"),
     ?line unload_master("SNMP-MPD-MIB"),
@@ -5600,7 +5601,7 @@ loop_mib_3(Config) when is_list(Config) ->
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
     ?line load_master_std("SNMP-USER-BASED-SM-MIB"),
 
-    try_test(loop_mib_2),
+    try_test(loop_mib_3_test),
 
     ?DBG("loop_mib_3 -> unload mibs",[]),
     ?line unload_master("SNMP-TARGET-MIB"),
@@ -5611,17 +5612,16 @@ loop_mib_3(Config) when is_list(Config) ->
 
 
 %% Req. As many mibs all possible
-loop_mib_1() ->
-    ?DBG("loop_mib_1 -> entry",[]),
+loop_mib_1_test() ->
+    ?DBG("loop_mib_1_test -> entry",[]),
     N = loop_it_1([1,1], 0),
     io:format(user, "found ~w varibles\n", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
-	    
 
 loop_it_1(Oid, N) ->
-    ?DBG("loop_it_1 -> entry with~n"
+    ?DBG("loop_it_1_test -> entry with~n"
 	   "\tOid: ~p~n"
 	   "\tN:   ~p",[Oid,N]),
     case get_next_req([Oid]) of
@@ -5630,11 +5630,11 @@ loop_it_1(Oid, N) ->
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
 				      value = Value}]} when NOid > Oid ->
-	    ?DBG("loop_it_1 -> "
+	    ?DBG("loop_it_1_test -> "
 		   "~n   NOid:  ~p"
 		   "~n   Value: ~p",[NOid, Value]),
 	    ?line [Value2] = get_req(1, [NOid]), % must not be same
-	    ?DBG("loop_it_1 -> "
+	    ?DBG("loop_it_1_test -> "
 		   "~n   Value2: ~p",[Value2]),
 	    loop_it_1(NOid, N+1);
 
@@ -5648,7 +5648,7 @@ loop_it_1(Oid, N) ->
 	     error_status = noSuchName, 
 	     error_index = 1,
 	     varbinds    = [_]} ->
-	    ?DBG("loop_it_1 -> done: ~p",[N]),
+	    ?DBG("loop_it_1_test -> done: ~p",[N]),
 	    N;
 
 	#pdu{type         = 'get-response', 
@@ -5669,14 +5669,13 @@ loop_it_1(Oid, N) ->
 	    
 
 %% Req. As many mibs all possible
-loop_mib_2() ->
-    ?DBG("loop_mib_1 -> entry",[]),
+loop_mib_2_test() ->
+    ?DBG("loop_mib_2_test -> entry",[]),
     N = loop_it_2([1,1], 0),
     io:format(user, "found ~w varibles\n", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
-    
 
 loop_it_2(Oid, N) ->
     ?DBG("loop_it_2 -> entry with"
@@ -5744,6 +5743,10 @@ loop_it_2(Oid, N) ->
 
     end.
 	    
+loop_mib_3_test() ->
+    ?DBG("loop_mib_3_test -> entry",[]),
+    loop_mib_2_test().
+
 
 %%%-----------------------------------------------------------------
 %%% Testing of reported bugs and other tickets.
