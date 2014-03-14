@@ -35,7 +35,7 @@
          dump_monitors/1, dump_links/1, flat_size/1,
          get_internal_state/1, instructions/0, lock_counters/1,
          map_info/1, same/2, set_internal_state/2,
-         size_shared/1]).
+         size_shared/1, copy_shared/1]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -91,6 +91,12 @@ flat_size(_) ->
       Term :: term().
 
 size_shared(_) ->
+    erlang:nif_error(undef).
+
+-spec copy_shared(Term) -> term() when
+      Term :: term().
+
+copy_shared(_) ->
     erlang:nif_error(undef).
 
 -spec get_internal_state(W) -> term() when
