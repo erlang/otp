@@ -42,7 +42,7 @@
 	       bitstr_flags/1, binary_segments/1, update_c_alias/3,
 	       update_c_apply/3, update_c_binary/2, update_c_bitstr/6,
 	       update_c_call/4, update_c_case/3, update_c_catch/2,
-	       update_c_clause/4, c_fun/2, c_int/1, c_let/3,
+	       update_c_clause/4, c_fun/2, c_int/1, c_let/3, ann_c_let/4,
 	       update_c_let/4, update_c_letrec/3, update_c_module/5,
 	       update_c_primop/3, update_c_receive/4, update_c_seq/3,
 	       c_seq/2, update_c_try/6, c_tuple/1, update_c_values/2,
@@ -1034,7 +1034,8 @@ i_apply(E, Ctxt, Ren, Env, S) ->
             E2 = case is_c_fname(E1) andalso length(Es) =/= fname_arity(E1) of
                      true ->
                          V = new_var(Env),
-                         update_c_let(E, [V], E1, update_c_apply(E, V, Es));
+                         ann_c_let(get_ann(E), [V], E1,
+				   update_c_apply(E, V, Es));
                      false ->
                          update_c_apply(E, E1, Es)
                  end,
