@@ -31,7 +31,7 @@
 	 run_queue_one/1,
 	 scheduler_wall_time/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
-	 badarg/1]).
+	 async_queue/1, badarg/1]).
 
 %% Internal exports.
 
@@ -53,7 +53,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [{group, wall_clock}, {group, runtime}, reductions,
      reductions_big, {group, run_queue}, scheduler_wall_time,
-     garbage_collection, io, badarg].
+     garbage_collection, io, async_queue, badarg].
 
 groups() -> 
     [{wall_clock, [],
@@ -398,6 +398,11 @@ io(Config) when is_list(Config) ->
     ?line case statistics(io) of
 	      {{input,In},{output,Out}} when is_integer(In), is_integer(Out) -> ok
 	  end.
+
+async_queue(Config) when is_list(Config) ->
+    case statistics(async_queue) of
+	N when N >= 0 -> ok
+    end.
 
 badarg(doc) ->
     "Tests that some illegal arguments to statistics fails.";
