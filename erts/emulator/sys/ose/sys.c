@@ -370,6 +370,63 @@ thr_create_prepare_child(void *vtcdp)
 
 #endif /* #ifdef USE_THREADS */
 
+/* The two functions below are stolen from win_con.c
+   They have to use malloc/free/realloc directly becasue
+   we want to do able to do erts_printf very early on.
+ */
+#define VPRINTF_BUF_INC_SIZE 128
+static erts_dsprintf_buf_t *
+grow_vprintf_buf(erts_dsprintf_buf_t *dsbufp, size_t need)
+{
+    char *buf;
+    size_t size;
+
+    ASSERT(dsbufp);
+
+    if (!dsbufp->str) {
+	size = (((need + VPRINTF_BUF_INC_SIZE - 1)
+		 / VPRINTF_BUF_INC_SIZE)
+		* VPRINTF_BUF_INC_SIZE);
+	buf = (char *) malloc(size * sizeof(char));
+    }
+    else {
+	size_t free_size = dsbufp->size - dsbufp->str_len;
+
+	if (need <= free_size)
+	    return dsbufp;
+
+	size = need - free_size + VPRINTF_BUF_INC_SIZE;
+	size = (((size + VPRINTF_BUF_INC_SIZE - 1)
+		 / VPRINTF_BUF_INC_SIZE)
+		* VPRINTF_BUF_INC_SIZE);
+	size += dsbufp->size;
+        buf = (char *) realloc((void *) dsbufp->str,
+			       size * sizeof(char));
+    }
+    if (!buf)
+	return NULL;
+    if (buf != dsbufp->str)
+	dsbufp->str = buf;
+    dsbufp->size = size;
+    return dsbufp;
+}
+
+static int erts_sys_ramlog_printf(char *format, va_list arg_list)
+{
+    int res,i;
+    erts_dsprintf_buf_t dsbuf = ERTS_DSPRINTF_BUF_INITER(grow_vprintf_buf);
+    res = erts_vdsprintf(&dsbuf, format, arg_list);
+    if (res >= 0) {
+      for (i = 0; i < dsbuf.str_len; i+= 50)
+	/* We print 50 characters at a time because otherwise
+	   the ramlog looks broken */
+        ramlog_printf("%.*s",dsbuf.str_len-50 < 0?dsbuf.str_len:50,dsbuf.str+i);
+    }
+    if (dsbuf.str)
+      free((void *) dsbuf.str);
+    return res;
+}
+
 void
 erts_sys_pre_init(void)
 {
@@ -408,6 +465,9 @@ erts_sys_pre_init(void)
     children_died = 0;
 #endif
 #endif /* USE_THREADS */
+
+    erts_printf_stdout_func = erts_sys_ramlog_printf;
+
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
 }
 
