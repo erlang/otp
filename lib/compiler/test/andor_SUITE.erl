@@ -171,6 +171,8 @@ t_and_or(Config) when is_list(Config) ->
     false = ?GUARD(erlang:'not'(erlang:'and'(bar, True))),
     false = ?GUARD(erlang:'not'(erlang:'not'(erlang:'and'(bar, True)))),
 
+    true = (fun (X = true) when X or true or X -> true end)(True),
+
    ok.
 
 t_andalso(Config) when is_list(Config) ->

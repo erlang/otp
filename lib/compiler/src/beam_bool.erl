@@ -438,9 +438,10 @@ bopt_bool_args(As, Forest) ->
     mapfoldl(fun bopt_bool_arg/2, Forest, As).
 
 bopt_bool_arg({T,_}=R, Forest) when T =:= x; T =:= y; T =:= tmp ->
-    Val = case gb_trees:get(R, Forest) of
-	      any -> {test,is_eq_exact,fail,[R,{atom,true}]};
-	      Val0 -> Val0
+    Val = case gb_trees:lookup(R, Forest) of
+	      {value,any} -> {test,is_eq_exact,fail,[R,{atom,true}]};
+	      {value,Val0} -> Val0;
+              none -> throw(mixed)
 	  end,
     {Val,gb_trees:delete(R, Forest)};
 bopt_bool_arg(Term, Forest) ->
