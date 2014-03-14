@@ -23,7 +23,7 @@
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
 	 unused_multiple_values_error/1,unused_multiple_values/1,
-	 multiple_aliases/1]).
+	 multiple_aliases/1,redundant_boolean_clauses/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -40,7 +40,7 @@ groups() ->
       [t_element,setelement,t_length,append,t_apply,bifs,
        eq,nested_call_in_case,guard_try_catch,coverage,
        unused_multiple_values_error,unused_multiple_values,
-       multiple_aliases]}].
+       multiple_aliases,redundant_boolean_clauses]}].
 
 
 init_per_suite(Config) ->
@@ -363,6 +363,15 @@ do_ma(Fun, Expected) when is_function(Fun, 0) ->
 run_once() ->
     undefined = put(run_once, ran_once),
     ok.
+
+
+redundant_boolean_clauses(Config) when is_list(Config) ->
+  X = id(0),
+  yes = case X == 0 of
+            false -> no;
+            false -> no;
+            true -> yes
+        end.
 
 
 id(I) -> I.
