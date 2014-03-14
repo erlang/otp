@@ -657,7 +657,8 @@ make_vb(Oid) ->
     #varbind{oid = Oid, variabletype = 'NULL', value = 'NULL'}.
 
 make_request_id() ->
-    random:uniform(16#FFFFFFF-1).
+    %% random:uniform(16#FFFFFFF-1).
+    snmp_test_mgr_counter_server:increment(mgr_request_id, 1, 1, 2147483647).
 
 echo_pdu(PDU, MiniMIB) ->
     io:format("~s", [snmp_misc:format_pdu(PDU, MiniMIB)]).

@@ -555,6 +555,8 @@ init_per_suite(Config0) when is_list(Config0) ->
 
     Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
 
+    snmp_test_mgr_counter_server:start(), 
+
     ?DBG("init_per_suite -> end with"
 	 "~n   Config3: ~p", [Config3]),
 
@@ -565,6 +567,17 @@ end_per_suite(Config) when is_list(Config) ->
     ?DBG("end_per_suite -> entry with"
 	 "~n   Config: ~p", [Config]),
 
+    case snmp_test_mgr_counter_server:stop() of
+    	{ok, Counters} ->
+    	    ?DBG("end_per_suite -> sucessfully stopped counter server"
+    		 "~n   Counters: ~p", [Counters]);
+    
+    	{error, Reason} ->
+    	    ?DBG("end_per_suite -> failed stopping counter server"
+    		 "~n   Reason: ~p", [Reason])
+    end,
+
+    ?DBG("end_per_suite -> end", []),
     Config.
 
 
