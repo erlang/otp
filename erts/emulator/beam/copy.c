@@ -879,6 +879,10 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
  *  Using an ESTACK but not very transparently; consider refactoring
  */
 
+#ifdef SHCOPY_DISABLE
+int disable_copy_shared = ERTS_SHCOPY_FLG_NONE;
+#endif
+
 #define DECLARE_SHTABLE(s)					\
     DECLARE_ESTACK(s);						\
     Uint ESTK_CONCAT(s,_offset) = 0
@@ -1005,6 +1009,10 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 
     if (IS_CONST(obj))
 	return 0;
+
+#ifdef SHCOPY_DISABLE
+    flags |= disable_copy_shared;
+#endif
 
     myself = erts_get_current_process();
     if (myself == NULL || (flags & ERTS_SHCOPY_FLG_NONE))
@@ -1253,6 +1261,10 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 
     if (IS_CONST(obj))
 	return obj;
+
+#ifdef SHCOPY_DISABLE
+    flags |= disable_copy_shared;
+#endif
 
     myself = erts_get_current_process();
     if (myself == NULL || (flags & ERTS_SHCOPY_FLG_NONE))

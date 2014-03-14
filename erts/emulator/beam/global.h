@@ -801,6 +801,8 @@ void erl_error(char*, va_list);
 #if defined(SHCOPY_SEND) \
  || defined(SHCOPY_SPAWN)
 #define SHCOPY
+/* Use this if you want sharing-preserving copy to be initially disabled */
+#undef SHCOPY_DISABLE
 /* Use this with care, it is *very* verbose! */
 #undef SHCOPY_DEBUG
 #endif

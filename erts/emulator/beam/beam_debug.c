@@ -88,6 +88,32 @@ erts_debug_size_shared_1(BIF_ALIST_1)
 }
 
 BIF_RETTYPE
+erts_debug_copy_shared_1(BIF_ALIST_1)
+{
+    Process* p = BIF_P;
+    Eterm term = BIF_ARG_1;
+    Uint size;
+    Eterm* hp;
+    Eterm copy;
+    shcopy_info info;
+#ifdef SHCOPY_DISABLE
+    extern int disable_copy_shared;
+#endif
+    INITIALIZE_INFO(info);
+
+    size = copy_shared_calculate(term, &info, 0);
+    if (size > 0) {
+      hp = HAlloc(p, size);
+    }
+    copy = copy_shared_perform(term, size, &info, &hp, &p->off_heap, 0);
+    DESTROY_INFO(info);
+#ifdef SHCOPY_DISABLE
+    disable_copy_shared = 0;
+#endif
+    BIF_RET(copy);
+}
+
+BIF_RETTYPE
 erts_debug_breakpoint_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;

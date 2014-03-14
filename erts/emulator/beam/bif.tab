@@ -622,3 +622,8 @@ bif erlang:hash/2
 #
 bif erts_debug:size_shared/1
 bif 'erl.system.debug':size_shared/1	ebif_erts_debug_size_shared_1
+#
+# Sharing-aware copying
+#
+bif erts_debug:copy_shared/1
+bif 'erl.system.debug':copy_shared/1    ebif_erts_debug_copy_shared_1
