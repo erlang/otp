@@ -790,16 +790,16 @@ t_map_encode_decode(Config) when is_list(Config) ->
 
     %% literally #{ b=>2, a=>1 } in the internal order
     #{ a:=1, b:=2 } =
-	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,98,100,0,1,97,97,2,97,1>>),
+	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,98,97,2,100,0,1,97,97,1>>),
 
 
     %% literally #{ "hi" => "value", a=>33, b=>55 } in the internal order
     #{ a:=33, b:=55, "hi" := "value"} = erlang:binary_to_term(<<131,116,0,0,0,3,
 	107,0,2,104,105, % "hi" :: list()
-	100,0,1,97, % a :: atom()
-	100,0,1,98, % b :: atom()
 	107,0,5,118,97,108,117,101, % "value" :: list()
+	100,0,1,97, % a :: atom()
 	97,33, % 33 :: integer()
+	100,0,1,98, % b :: atom()
 	97,55  % 55 :: integer()
 	>>),
 
@@ -829,7 +829,8 @@ map_encode_decode_and_match([{K,V}|Pairs], EncodedPairs, M0) ->
     B0 = erlang:term_to_binary(M1),
     Ls = lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, [{K, erlang:term_to_binary(K), erlang:term_to_binary(V)}|EncodedPairs]),
     %% sort Ks and Vs according to term spec, then match it
-    ok = match_encoded_map(B0, length(Ls), [Kbin||{_,Kbin,_}<-Ls] ++ [Vbin||{_,_,Vbin}<-Ls]),
+    KVbins = lists:foldr(fun({_,Kbin,Vbin}, Acc) -> [Kbin,Vbin | Acc] end, [], Ls),
+    ok = match_encoded_map(B0, length(Ls), KVbins),
     %% decode and match it
     M1 = erlang:binary_to_term(B0),
     map_encode_decode_and_match(Pairs,Ls,M1);

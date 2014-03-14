@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1336,7 +1336,8 @@ static int send_name_or_challenge(int fd, char *nodename,
 		| DFLAG_NEW_FUN_TAGS
                 | DFLAG_NEW_FLOATS
 		| DFLAG_SMALL_ATOM_TAGS
-		| DFLAG_UTF8_ATOMS));
+		| DFLAG_UTF8_ATOMS
+		| DFLAG_MAP_TAG));
     if (f_chall)
 	put32be(s, challenge);
     memcpy(s, nodename, strlen(nodename));

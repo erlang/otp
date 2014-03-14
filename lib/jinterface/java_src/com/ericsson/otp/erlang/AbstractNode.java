@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -92,6 +92,7 @@ public class AbstractNode {
     static final int dFlagNewFloats = 0x800;
     static final int dFlagUnicodeIo = 0x1000;
     static final int dFlagUtf8Atoms = 0x10000;
+    static final int dFlagMapTag = 0x20000;
 
     int ntype = NTYPE_R6;
     int proto = 0; // tcp/ip
@@ -100,7 +101,7 @@ public class AbstractNode {
     int creation = 0;
     int flags = dFlagExtendedReferences | dFlagExtendedPidsPorts
 	    | dFlagBitBinaries | dFlagNewFloats | dFlagFunTags
-	    | dflagNewFunTags | dFlagUtf8Atoms;
+	    | dflagNewFunTags | dFlagUtf8Atoms | dFlagMapTag;
 
     /* initialize hostname and default cookie */
     static {

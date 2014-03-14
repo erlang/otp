@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -570,6 +570,33 @@
 	  with the exception that <c>Arity</c> is an 
 	  unsigned 4 byte integer in big endian format.
 	</p>
+    </section>
+
+    <section>
+      <marker id="MAP_EXT"/>
+      <title>MAP_EXT</title>
+
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N</cell>
+	  </row>
+	  <row>
+	    <cell align="center">116</cell>
+	    <cell align="center">Arity</cell>
+	    <cell align="center">Pairs</cell>
+	  </row>
+	<tcaption></tcaption></table>
+	<p>
+	  <c>MAP_EXT</c> encodes a map. The <c>Arity</c> field is an unsigned
+	  4 byte integer in big endian format that determines the number of
+	  key-value pairs in the map. Key and value pairs (<c>Ki => Vi</c>)
+	  are encoded in the <c>Pairs</c> section in the following order:
+	  <c>K1, V1, K2, V2,..., Kn, Vn</c>.
+	  Duplicate keys are <em>not allowed</em> within the same map.
+	</p>
+	<p><em>Since: </em>OTP 17.0</p>
     </section>
 
     <section>

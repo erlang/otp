@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -131,6 +131,7 @@
 #define ERL_SMALL_BIG_EXT     'n'
 #define ERL_LARGE_BIG_EXT     'o'
 #define ERL_NEW_FUN_EXT	      'p'
+#define ERL_MAP_EXT           't'
 #define ERL_FUN_EXT	      'u'
  
 #define ERL_NEW_CACHE         'N' /* c nodes don't know these two */
@@ -467,6 +468,8 @@ int ei_encode_list_header(char *buf, int *index, int arity);
 int ei_x_encode_list_header(ei_x_buff* x, long n);
 #define ei_encode_empty_list(buf,i) ei_encode_list_header(buf,i,0)
 int ei_x_encode_empty_list(ei_x_buff* x);
+int ei_encode_map_header(char *buf, int *index, int arity);
+int ei_x_encode_map_header(ei_x_buff* x, long n);
 
 /* 
  * ei_get_type() returns the type and "size" of the item at
@@ -507,6 +510,7 @@ int ei_decode_term(const char *buf, int *index, void *t); /* ETERM** actually */
 int ei_decode_trace(const char *buf, int *index, erlang_trace *p);
 int ei_decode_tuple_header(const char *buf, int *index, int *arity);
 int ei_decode_list_header(const char *buf, int *index, int *arity);
+int ei_decode_map_header(const char *buf, int *index, int *arity);
 
 /* 
  * ei_decode_ei_term() returns 1 if term is decoded, 0 if term is OK,
