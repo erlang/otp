@@ -1942,7 +1942,11 @@ spawn_opt(_Tuple) ->
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),
-      Wallclock_Time_Since_Last_Call :: non_neg_integer().
+      Wallclock_Time_Since_Last_Call :: non_neg_integer();
+                (async_queue) -> non_neg_integer();
+                ({async_queue, AsyncId}) -> non_neg_integer() when
+      AsyncId :: non_neg_integer().
+
 statistics(_Item) ->
     erlang:nif_error(undefined).
 
