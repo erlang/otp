@@ -34,7 +34,8 @@
 
 -module(hipe_rtl_liveness).
 
-%% -define(LIVEOUT_NEEDED,true).	% needed for liveness.inc below.
+%% -define(DEBUG_LIVENESS,true).
+-define(LIVEOUT_NEEDED,true).	% needed for liveness.inc below.
 -define(PRETTY_PRINT,false).
 
 -include("hipe_rtl.hrl").
