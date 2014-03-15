@@ -226,8 +226,8 @@ t_update_map_expressions(Config) when is_list(Config) ->
     #{ "a" :=1, "b":=42, "c":=42 } = (maps:from_list([{"a",1},{"b",2}]))#{ "b" := 42, "c" => 42 },
 
     %% Error cases, FIXME: should be 'badmap'?
-    {'EXIT',{badarg,_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
-    {'EXIT',{badarg,_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    {'EXIT',{{badarg,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
+    {'EXIT',{{badarg,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
     ok.
 
 
@@ -244,7 +244,7 @@ t_update_assoc(Config) when is_list(Config) ->
 
     %% Errors cases.
     BadMap = id(badmap),
-    {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{{badarg,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
 
     ok.
 

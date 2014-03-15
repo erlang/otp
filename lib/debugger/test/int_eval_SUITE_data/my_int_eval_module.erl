@@ -29,6 +29,7 @@
 -export([more_catch/1,more_nocatch/1,exit_me/0]).
 -export([f/1, f_try/1, f_catch/1]).
 -export([otp_5837/1, otp_8310/0]).
+-export([empty_map_update/1]).
 
 %% Internal exports.
 -export([echo/2,my_subtract/2,catch_a_ball/0,throw_a_ball/0]).
@@ -241,3 +242,5 @@ otp_8310() ->
     true = begin (X3 = true) orelse X3, X3 end,
     false = begin (X4 = false) orelse X4, X4 end,
     ok.
+
+empty_map_update(Map) -> Map#{}.
