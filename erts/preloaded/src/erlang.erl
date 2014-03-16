@@ -1745,9 +1745,9 @@ is_pid(_Term) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:is_map/1
--spec is_map(Map) -> boolean() when
-      Map :: map().
-is_map(_Map) ->
+-spec is_map(Term) -> boolean() when
+      Term :: term().
+is_map(_Term) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:is_port/1
