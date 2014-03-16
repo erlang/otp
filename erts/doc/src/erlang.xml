@@ -1784,6 +1784,15 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
+      <name name="is_map" arity="1"/>
+      <fsummary>Check whether a term is a map</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a map;
+          otherwise returns <c>false</c>.</p>
+        <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+    <func>
       <name name="is_number" arity="1"/>
       <fsummary>Check whether a term is a number</fsummary>
       <desc>
@@ -2217,6 +2226,17 @@ os_prompt% </pre>
         <pre>
 > <input>erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).</input>
 {{[],aa,[],[],zz}</pre>
+      </desc>
+    </func>
+    <func>
+      <name name="map_size" arity="1"/>
+      <fsummary>Return the size of a map</fsummary>
+      <desc>
+        <p>Returns an integer which is the number of key-value pairs in <c><anno>Map</anno></c>.</p>
+        <pre>
+> <input>map_size(#{a=>1, b=>2, c=>3}).</input>
+3</pre>
+        <p>Allowed in guard tests.</p>
       </desc>
     </func>
     <func>
