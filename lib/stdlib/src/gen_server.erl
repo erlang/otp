@@ -98,6 +98,8 @@
 -export([system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
+	 system_get_state/1,
+	 system_replace_state/2,
 	 format_status/2]).
 
 %% Internal exports
@@ -372,13 +374,6 @@ wake_hib(Parent, Name, State, Mod, Debug) ->
 
 decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
     case Msg of
-	{system, From, get_state} ->
-	    sys:handle_system_msg(get_state, From, Parent, ?MODULE, Debug,
-				  {State, [Name, State, Mod, Time]}, Hib);
-	{system, From, {replace_state, StateFun}} ->
-	    NState = try StateFun(State) catch _:_ -> State end,
-	    sys:handle_system_msg(replace_state, From, Parent, ?MODULE, Debug,
-				  {NState, [Name, NState, Mod, Time]}, Hib);
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [Name, State, Mod, Time], Hib);
@@ -685,6 +680,18 @@ system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
 	{ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
 	Else -> Else
+    end.
+
+system_get_state([_Name, State, _Mod, _Time] = GenState) ->
+    {ok, State, GenState}.
+
+system_replace_state(StateFun, [Name, State, Mod, Time] = GenState) ->
+    try StateFun(State) of
+	NState ->
+	    {ok, NState, [Name, NState, Mod, Time]}
+    catch
+	_:_ ->
+	    {ok, State, GenState}
     end.
 
 %%-----------------------------------------------------------------

@@ -246,6 +246,7 @@
           <c>{Module, Id, HandlerState}</c>, where <c>Module</c> is the event handler's module name,
           <c>Id</c> is the handler's ID (which is the value <c>false</c> if it was registered without
           an ID), and <c>HandlerState</c> is the handler's state.</p>
+        <p><c>Mod:system_get_state/1</c> will be called in the target process to get the <c>State</c>.</p>
         <p>To obtain more information about a process, including its state, see
           <seealso marker="#get_status-1">get_status/1</seealso> and
           <seealso marker="#get_status-2">get_status/2</seealso>.</p>
@@ -289,6 +290,8 @@
           function means that only the state of the particular event handler it was working on when it
           failed or crashed is unchanged; it can still succeed in changing the states of other event
           handlers registered in the same <c>gen_event</c> process.</p>
+      <p><c>Mod:system_replace_state/2</c> will be called in the target process to replace the
+        <c>State</c> using <c>StateFun</c>.</p>
       </desc>
     </func>
     <func>
@@ -375,8 +378,9 @@
           process continues the execution, or
           <c><anno>Module</anno>:system_terminate(Reason, <anno>Parent</anno>, <anno>Debug</anno>, <anno>Misc</anno>)</c> if
           the process should terminate. The <c><anno>Module</anno></c> must export
-          <c>system_continue/3</c>, <c>system_terminate/4</c>, and
-          <c>system_code_change/4</c> (see below).
+          <c>system_continue/3</c>, <c>system_terminate/4</c>,
+          <c>system_code_change/4</c>, <c>system_get_state/1</c> and
+          <c>system_replace_state/2</c> (see below).
           </p>
         <p>The <c><anno>Misc</anno></c> argument can be used to save internal data
           in a process, for example its state. It is sent to
@@ -442,6 +446,36 @@
           structure. <c>OldVsn</c> is the <em>vsn</em> attribute of the
           old version of the <c>Module</c>. If no such attribute was
           defined, the atom <c>undefined</c> is sent.</p>
+      </desc>
+    </func>
+    <func>
+      <name>Mod:system_get_state(Misc) -> {ok, State, NMisc}</name>
+      <fsummary>Called when the process should return its current state</fsummary>
+      <type>
+        <v>Misc = term()</v>
+        <v>State = term()</v>
+        <v>NMisc = term()</v>
+    </type>
+      <desc>
+        <p>This function is called from <c>sys:handle_system_msg/6</c> when the process
+          should return a term that reflects its current state. <c>State</c> is the
+          value returned by <c>sys:get_state/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>Mod:system_replace_state(StateFun, Misc) -> {ok, NState, NMisc}</name>
+      <fsummary>Called when the process should replace is state</fsummary>
+      <type>
+        <v>StateFun = fun((State :: term()) -> NState)</v>
+        <v>Misc = term()</v>
+        <v>NState = term()</v>
+        <v>NMisc = term()</v>
+    </type>
+      <desc>
+        <p>This function is called from <c>sys:handle_system_msg/6</c> when the process
+         should replace its current state. If the <c>StateFun</c> throws an exception
+         it should be caught and the current state returned. <c>NState</c> is the value
+         returned by <c>sys:replace_state/3</c>.</p>
       </desc>
     </func>
   </funcs>

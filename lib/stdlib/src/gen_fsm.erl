@@ -118,6 +118,8 @@
 	 system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
+	 system_get_state/1,
+	 system_replace_state/2,
 	 format_status/2]).
 
 -import(error_logger, [format/2]).
@@ -422,17 +424,6 @@ wake_hib(Parent, Name, StateName, StateData, Mod, Debug) ->
 
 decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug, Hib) ->
     case Msg of
-	{system, From, get_state} ->
-	    Misc = [Name, StateName, StateData, Mod, Time],
-	    sys:handle_system_msg(get_state, From, Parent, ?MODULE, Debug,
-				  {{StateName, StateData}, Misc}, Hib);
-	{system, From, {replace_state, StateFun}} ->
-	    State = {StateName, StateData},
-	    NState = {NStateName, NStateData} = try StateFun(State)
-						catch _:_ -> State end,
-	    NMisc = [Name, NStateName, NStateData, Mod, Time],
-	    sys:handle_system_msg(replace_state, From, Parent, ?MODULE, Debug,
-				  {NState, NMisc}, Hib);
         {system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [Name, StateName, StateData, Mod, Time], Hib);
@@ -465,6 +456,19 @@ system_code_change([Name, StateName, StateData, Mod, Time],
 	{ok, NewStateName, NewStateData} ->
 	    {ok, [Name, NewStateName, NewStateData, Mod, Time]};
 	Else -> Else
+    end.
+
+system_get_state([_Name, StateName, StateData, _Mod, _Time] = GenState) ->
+    {ok, {StateName, StateData}, GenState}.
+
+system_replace_state(StateFun,
+		     [Name, StateName, StateData, Mod, Time] = GenState) ->
+    try StateFun({StateName, StateData}) of
+	{NStateName, NStateData} = Result ->
+	    {ok, Result, [Name, NStateName, NStateData, Mod, Time]}
+    catch
+	_:_ ->
+	    {ok, {StateName, StateData}, GenState}
     end.
 
 %%-----------------------------------------------------------------
