@@ -537,7 +537,11 @@ When a variable has been set, no warning will be issued.
 
 *   `erl_xcomp_ose_LM_LCF` - OSE load module linker configuration file
 
-*   `erl_xcomp_ose_LM_CONF` - OSE load module default configuration file
+*   `erl_xcomp_ose_BEAM_LM_CONF` - Beam OSE load module configuration file
+
+*   `erl_xcomp_ose_EPMD_LM_CONF` - EPMD OSE load module configuration file
+
+*   `erl_xcomp_ose_RUN_ERL_LM_CONF` - run_erl_lm OSE load module configuration file
 
 Copyright and License
 ---------------------

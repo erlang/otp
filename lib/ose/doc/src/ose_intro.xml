@@ -78,7 +78,7 @@ rtose@acp3400> pm_start 0x110059</code>
       seperate machine the paths have to be updated. In the example above
       <c>/usr/local/lib/erlang</c> was replaced by <c>/mst/erlang/</c>. The
       goal is to in future releases not have to do the special argument handling
-      but for now (17.0-rc2) you have to do it.
+      but for now (OTP 17.0) you have to do it.
     </p>
     <note>
       Because of a limitation in the way the OSE handles stdio when starting
@@ -146,7 +146,7 @@ os:type().
       It is possible to set the priorities you want for the OSE processes that
       thr emulator creates in the lmconf. An example of how to do it can be
       found in the default lmconf file in
-      $ERL_TOP/erts/emulator/sys/ose/default.lmconf.
+      $ERL_TOP/erts/emulator/sys/ose/beam.lmconf.
     </p>
   </section>
 

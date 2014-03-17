@@ -148,7 +148,7 @@ endif
 
 ifeq ($(findstring ose,$(TARGET)),ose)
 $(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB) $(OSE_LM_OBJS)
-	$(call build-ose-load-module, $@, $(EPMD_OBJS) $(OSE_LM_OBJS), $(LIBS), $(LMCONF))
+	$(call build-ose-load-module, $@, $(EPMD_OBJS) $(OSE_LM_OBJS), $(LIBS), $(EPMD_LMCONF))
 else
 $(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)

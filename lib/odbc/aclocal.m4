@@ -83,8 +83,10 @@ AC_ARG_VAR(erl_xcomp_ose_LM_POST_LINK, [OSE postlink tool (only used when cross 
 AC_ARG_VAR(erl_xcomp_ose_LM_SET_CONF, [Sets the configuration for an OSE load module (only used when cross compiling for OSE)])
 AC_ARG_VAR(erl_xcomp_ose_LM_ELF_SIZE, [Prints the section size information for an OSE load module (only used when cross compiling for OSE)])
 AC_ARG_VAR(erl_xcomp_ose_LM_LCF, [OSE load module linker configuration file (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_LM_CONF, [OSE load module default configuration file (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_CONFD, [OSE OSE confd source file])
+AC_ARG_VAR(erl_xcomp_ose_BEAM_LM_CONF, [BEAM OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_EPMD_LM_CONF, [EPMD OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_RUN_ERL_LM_CONF, [run_erl_lm OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_CONFD, [OSE confd source file])
 AC_ARG_VAR(erl_xcomp_ose_CRT0_LM, [OSE crt0 lm source file])
 
 ])
