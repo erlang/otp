@@ -89,8 +89,12 @@ main(int argc, char *argv[])
 
     if (sscanf(argv[CS_ARGV_FD_CR_IX], "%d:%d", &from, &to) != 2)
 	return 1;
+#if defined(HAVE_CLOSEFROM)
+    closefrom(from);
+#else
     for (i = from; i <= to; i++)
 	(void) close(i);
+#endif
 
     if (!(argv[CS_ARGV_WD_IX][0] == '.' && argv[CS_ARGV_WD_IX][1] == '\0')
 	&& chdir(argv[CS_ARGV_WD_IX]) < 0)
