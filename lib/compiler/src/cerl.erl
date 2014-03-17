@@ -124,7 +124,7 @@
 
 	 %% keep map exports here for now
 	 map_es/1,
-	 map_val/1,
+	 map_arg/1,
 	 update_c_map/3,
 	 ann_c_map/2, ann_c_map/3,
 	 map_pair_op/1,map_pair_key/1,map_pair_val/1,
@@ -135,6 +135,9 @@
 -export_type([c_binary/0, c_call/0, c_clause/0, c_cons/0, c_fun/0, c_literal/0,
               c_module/0, c_tuple/0, c_values/0, c_var/0, cerl/0, var_name/0]).
 
+%% HiPE does not understand Maps
+%% (guard functions is_map/1 and map_size/1 in ann_c_map/3)
+-compile(no_native).
 %%
 %% needed by the include file below -- do not move
 %%
@@ -1575,17 +1578,22 @@ ann_make_list(_, [], Node) ->
 %% ---------------------------------------------------------------------
 %% maps
 
--spec map_es(c_map()) -> [cerl()].
+-spec map_es(c_map()) -> [c_map_pair()].
 
 map_es(#c_map{es = Es}) ->
     Es.
 
--spec map_val(c_map()) -> cerl().
-map_val(#c_map{var = M}) ->
+-spec map_arg(c_map()) -> c_map() | c_literal().
+
+map_arg(#c_map{arg = M}) ->
     M.
+
+-spec ann_c_map([term()], [cerl()]) -> c_map() | c_literal().
 
 ann_c_map(As,Es) ->
     ann_c_map(As, #c_literal{val=#{}}, Es).
+
+-spec ann_c_map([term()], c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
 
 ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 ->
     Pairs = [[Ck,Cv]||#c_map_pair{key=Ck,val=Cv}<-Es],
@@ -1595,14 +1603,14 @@ ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 
     Fun = fun(Pair) -> [K,V] = lit_list_vals(Pair), {K,V} end,
     case IsLit of
 	false ->
-	    #c_map{var=M, es=Es, anno=As };
+	    #c_map{arg=M, es=Es, anno=As };
 	true ->
 	    #c_literal{anno=As, val=maps:from_list(lists:map(Fun, Pairs))}
 	end;
 ann_c_map(As,#c_literal{val=M},Es) when is_map(M) ->
     fold_map_pairs(As,Es,M);
 ann_c_map(As,M,Es) ->
-    #c_map{var=M, es=Es, anno=As }.
+    #c_map{arg=M, es=Es, anno=As }.
 
 fold_map_pairs(As,[],M) -> #c_literal{anno=As,val=M};
 %% M#{ K => V}
@@ -1612,7 +1620,7 @@ fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}=E|Es],M) 
 	    [K,V] = lit_list_vals([Ck,Cv]),
 	    fold_map_pairs(As,Es,maps:put(K,V,M));
 	false ->
-	    #c_map{var=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+	    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
     end;
 %% M#{ K := V}
 fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}=E|Es],M) ->
@@ -1622,17 +1630,18 @@ fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}=E|Es],M) 
 	    case maps:is_key(K,M) of
 		true -> fold_map_pairs(As,Es,maps:put(K,V,M));
 		false ->
-		    #c_map{var=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+		    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
 	    end;
 	false ->
-	    #c_map{var=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+	    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
     end;
 fold_map_pairs(As,Es,M) ->
-    #c_map{var=#c_literal{val=M,anno=As}, es=Es, anno=As }.
+    #c_map{arg=#c_literal{val=M,anno=As}, es=Es, anno=As }.
 
+%-spec update_c_map(c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
 
 update_c_map(Old,M,Es) ->
-    #c_map{var=M, es = Es, anno = get_ann(Old)}.
+    #c_map{arg=M, es = Es, anno = get_ann(Old)}.
 
 map_pair_key(#c_map_pair{key=K}) -> K.
 map_pair_val(#c_map_pair{val=V}) -> V.

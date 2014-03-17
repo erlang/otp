@@ -246,7 +246,7 @@ expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
 	value ->
 	    ann_c_tuple(Anno, Es)
     end;
-expr(#c_map{anno=Anno,var=V0,es=Es0}=Map, Ctxt, Sub) ->
+expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
     Es = pair_list(Es0, Ctxt, Sub),
     case Ctxt of
 	effect ->

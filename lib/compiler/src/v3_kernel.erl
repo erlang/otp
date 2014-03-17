@@ -272,7 +272,7 @@ expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
 expr(#c_tuple{anno=A,es=Ces}, Sub, St0) ->
     {Kes,Ep,St1} = atomic_list(Ces, Sub, St0),
     {#k_tuple{anno=A,es=Kes},Ep,St1};
-expr(#c_map{anno=A,var=Var,es=Ces}, Sub, St0) ->
+expr(#c_map{anno=A,arg=Var,es=Ces}, Sub, St0) ->
     try expr_map(A,Var,Ces,Sub,St0) of
 	{_,_,_}=Res -> Res
     catch

@@ -123,7 +123,7 @@ format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
     Cpairs = [#c_map_pair{op=#c_literal{val=assoc},
 			  key=#c_literal{val=V},
 			  val=#c_literal{val=K}} || {K,V} <- Pairs],
-	format_1(#c_map{anno=A,var=#c_literal{val=#{}},es=Cpairs},Ctxt);
+	format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];
 format_1(#c_var{name=V}, _) ->
@@ -167,12 +167,12 @@ format_1(#c_tuple{es=Es}, Ctxt) ->
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      $}
     ];
-format_1(#c_map{var=#c_literal{val=M},es=Es}, Ctxt) when is_map(M),map_size(M)=:=0 ->
+format_1(#c_map{arg=#c_literal{val=M},es=Es}, Ctxt) when is_map(M),map_size(M)=:=0 ->
     ["~{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}~"
     ];
-format_1(#c_map{var=Var,es=Es}, Ctxt) ->
+format_1(#c_map{arg=Var,es=Es}, Ctxt) ->
     ["~{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "|",format(Var, add_indent(Ctxt, 1)),
