@@ -301,9 +301,11 @@ wait_for_progress_done() ->
 %%%-----------------------------------------------------------------
 %%% General check of what is displayed for a dump
 browse_file(File) ->
-    io:format("Browsing file: ~s~n",[File]),
+    io:format("~nBrowsing file: ~s",[File]),
 
     ok = start_backend(File),
+
+    io:format("  backend started",[]),
 
     {ok,_GI=#general_info{},_GenTW} = crashdump_viewer:general_info(),
     {ok,Procs,_ProcsTW} = crashdump_viewer:processes(),
@@ -321,10 +323,16 @@ browse_file(File) ->
     {ok,_HashTabs,_HashTabsTW} = crashdump_viewer:hash_tables(),
     {ok,_IndexTabs,_IndexTabsTW} = crashdump_viewer:index_tables(),
 
+    io:format("  info read",[]),
+
     lookat_all_pids(Procs),
+    io:format("  pids ok",[]),
     lookat_all_ports(Ports),
+    io:format("  ports ok",[]),
     lookat_all_mods(Mods),
+    io:format("  mods ok",[]),
     lookat_all_nodes(Nodes),
+    io:format("  nodes ok",[]),
 
     Procs. % used as second arg to special/2
 
@@ -339,6 +347,7 @@ special(File,Procs) ->
 	    [#proc{pid=Pid0}|_Rest] = lists:keysort(#proc.name,Procs),
 	    Pid = pid_to_list(Pid0),
 	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
 
 	    #proc{dict=Dict} = ProcDetails,
 
@@ -350,6 +359,7 @@ special(File,Procs) ->
 	    ['#CDVBin',SOffset,SSize,SPos] = proplists:get_value(sub_bin,Dict),
 	    {ok,<<_:SSize/binary>>} =
 		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
+	    io:format("  expand binary ok",[]),
 
 	    ['#CDVPid',X1,Y1,Z1] = proplists:get_value(ext_pid,Dict),
 	    ChannelStr1 = integer_to_list(X1),
@@ -359,22 +369,28 @@ special(File,Procs) ->
 		integer_to_list(Z1) ++ ">",
 	    {error,{other_node,ChannelStr1}} =
 		crashdump_viewer:proc_details(ExtPid),
+	    io:format("  process details external ok",[]),
 
 	    ['#CDVPort',X2,Y2] = proplists:get_value(port,Dict),
 	    ChannelStr2 = integer_to_list(X2),
 	    Port = "#Port<"++ChannelStr2++"."++integer_to_list(Y2)++">",
 	    {ok,_PortDetails=#port{},[]} = crashdump_viewer:port(Port),
+	    io:format("  port details ok",[]),
 
 	    ['#CDVPort',X3,Y3] = proplists:get_value(ext_port,Dict),
 	    ChannelStr3 = integer_to_list(X3),
 	    ExtPort = "#Port<"++ChannelStr3++"."++integer_to_list(Y3)++">",
 	    {error,{other_node,ChannelStr3}} = crashdump_viewer:port(ExtPort),
+	    io:format("  port details external ok",[]),
 
 	    {ok,[_Ets=#ets_table{}],[]} = crashdump_viewer:ets_tables(Pid),
+	    io:format("  ets tables ok",[]),
 	    {ok,[_Timer=#timer{}],[]} = crashdump_viewer:timers(Pid),
+	    io:format("  timers ok",[]),
 
 	    {ok,Mod1=#loaded_mod{},[]} =
 		crashdump_viewer:loaded_mod_details(atom_to_list(?helper_mod)),
+	    io:format("  modules ok",[]),
 	    #loaded_mod{current_size=CS, old_size=OS,
 			old_attrib=A,old_comp_info=C}=Mod1,
 	    true = is_integer(CS),
@@ -383,6 +399,7 @@ special(File,Procs) ->
 	    true = (C=/=undefined),
 	    {ok,Mod2=#loaded_mod{},[]} =
 		crashdump_viewer:loaded_mod_details("application"),
+	    io:format("  module details ok",[]),
 	    #loaded_mod{old_size="No old code exists",
 			old_attrib=undefined,
 			old_comp_info=undefined}=Mod2,
