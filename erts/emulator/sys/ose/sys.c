@@ -195,7 +195,9 @@ static volatile int children_died;
       write_buff += sizeof(struct aiocb *);                             \
       memcpy(write_buff,BUFF,SIZE+1);                                   \
       SET_AIO(*write_req,FD,SIZE,write_buff);                           \
-      aio_write(write_req);                                             \
+      if (aio_write(write_req))						\
+	ramlog_printf("%s:%d: write failed with %d\n",			\
+		      __FILE__,__LINE__,errno);				\
    }                                                                    \
 } while(0)
 
@@ -213,7 +215,9 @@ static volatile int children_died;
 /* When we have several schedulers, we need to make sure
  * that scheduler issuing aio_dispatch() is the owner on the signal */
 #define DISPATCH_AIO(sig) do {                                          \
-   aio_dispatch(sig);                                                   \
+   if (aio_dispatch(sig))						\
+     ramlog_printf("%s:%d: dispatch failed with %d\n",			\
+		   __FILE__,__LINE__,errno);				\
    } while(0)
 
 
@@ -843,7 +847,11 @@ set_driver_data(ErlDrvPort port_num,
 
     /* READ */
     if (read_write & DO_READ) {
-       efs_examine_fd(ifd, FLIB_FD_HANDLE, &driver_data[ifd].handle, 0);
+       EfsStatus res = efs_examine_fd(ifd, FLIB_FD_HANDLE,
+				      &driver_data[ifd].handle, 0);
+       if (res != EFS_SUCCESS)
+	 ramlog_printf("%s:%d: efs_examine_fd(%d) failed with %d\n",
+		       __FILE__,__LINE__,ifd,errno);
        driver_data[ifd].ifd = ifd;
        driver_data[ifd].packet_bytes = packet_bytes;
        driver_data[ifd].port_num = port_num;
@@ -885,7 +893,9 @@ set_driver_data(ErlDrvPort port_num,
        (void) driver_select(port_num, driver_data[ifd].input_event,
 			     (ERL_DRV_READ | ERL_DRV_USE), 1);
 
-       aio_read(&driver_data[ifd].aiocb);
+       if (aio_read(&driver_data[ifd].aiocb))
+	 ramlog_printf("%s:%d: aio_read(%d) failed with %d\n",
+		       __FILE__,__LINE__,ifd,errno);
     }
     else { /* WRITE ONLY */
        efs_examine_fd(ofd, FLIB_FD_HANDLE, &driver_data[ofd].handle, 0);
@@ -1420,7 +1430,9 @@ static void ready_input(ErlDrvData drv_data, ErlDrvEvent ready_fd)
           memset((void *)data->aiocb.aio_buf, 0, 255);
 
           if (res > 0) {
-             aio_read(&data->aiocb);
+	    if (aio_read(&data->aiocb))
+	      ramlog_printf("%s:%d: aio_read(%d) failed with %d\n",
+			    __FILE__,__LINE__,data->ifd,errno);
           }
        }
        sig = erl_drv_ose_get_signal(ready_fd);
