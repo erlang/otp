@@ -20,6 +20,8 @@
 
 -module(dialyzer_contracts).
 
+-compile(export_all).
+
 -export([check_contract/2,
 	 check_contracts/4,
 	 contracts_without_fun/3,
@@ -439,7 +441,8 @@ contract_from_form([], _RecDict, _FileLine, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
 process_constraints(Constrs, RecDict, ExpTypes, AllRecords) ->
-  Init = initialize_constraints(Constrs, RecDict, ExpTypes, AllRecords),
+  Init0 = initialize_constraints(Constrs, RecDict, ExpTypes, AllRecords),
+  Init = remove_cycles(Init0),
   constraints_fixpoint(Init, RecDict, ExpTypes, AllRecords).
 
 initialize_constraints(Constrs, RecDict, ExpTypes, AllRecords) ->
@@ -479,12 +482,9 @@ constraints_fixpoint(OldVarDict, Constrs, RecDict, ExpTypes, AllRecords) ->
       constraints_fixpoint(NewVarDict, Constrs, RecDict, ExpTypes, AllRecords)
   end.
 
--define(TYPE_LIMIT, 4).
-
 final_form(Form, RecDict, ExpTypes, AllRecords, VarDict) ->
   T1 = erl_types:t_from_form(Form, RecDict, VarDict),
-  T2 = erl_types:t_solve_remote(T1, ExpTypes, AllRecords),
-  erl_types:t_limit(T2, ?TYPE_LIMIT).
+  erl_types:t_solve_remote(T1, ExpTypes, AllRecords).
 
 constraints_to_dict(Constrs, RecDict, ExpTypes, AllRecords, VarDict) ->
   Subtypes =
@@ -498,6 +498,74 @@ constraints_to_subs([C|Rest], RecDict, ExpTypes, AllRecords, VarDict, Acc) ->
   T2 = final_form(Form2, RecDict, ExpTypes, AllRecords, VarDict),
   NewAcc = [{subtype, T1, T2}|Acc],
   constraints_to_subs(Rest, RecDict, ExpTypes, AllRecords, VarDict, NewAcc).
+
+%% Replaces variables with '_' when necessary to break up cycles among
+%% the constraints.
+
+remove_cycles(Constrs0) ->
+  Uses = find_uses(Constrs0),
+  G = digraph:new(),
+  Vs0 = [V || {V, _} <- Uses] ++ [V || {_, V} <- Uses],
+  Vs = lists:usort(Vs0),
+  lists:foreach(fun(V) -> _ = digraph:add_vertex(G, V) end, Vs),
+  lists:foreach(fun({From, To}) ->
+                    _ = digraph:add_edge(G, {From, To}, From, To, [])
+                end, Uses),
+  ok = remove_cycles(G, Vs),
+  ToRemove = ordsets:subtract(ordsets:from_list(Uses),
+                              ordsets:from_list(digraph:edges(G))),
+  Constrs = remove_uses(ToRemove, Constrs0),
+  digraph:delete(G),
+  Constrs.
+
+find_uses([{Var, Form}|Constrs]) ->
+  UsedVars = form_vars(Form, []),
+  VarName = erl_types:t_var_name(Var),
+  [{VarName, UsedVar} || UsedVar <- UsedVars] ++ find_uses(Constrs);
+find_uses([]) ->
+  [].
+
+form_vars({var, _, '_'}, Vs) -> Vs;
+form_vars({var, _, V}, Vs) -> [V|Vs];
+form_vars(T, Vs) when is_tuple(T) ->
+  form_vars(tuple_to_list(T), Vs);
+form_vars([E|Es], Vs) ->
+  form_vars(Es, form_vars(E, Vs));
+form_vars(_, Vs) -> Vs.
+
+remove_cycles(G, Vs) ->
+  NumberOfEdges = digraph:no_edges(G),
+  lists:foreach(fun(V) ->
+                        case digraph:get_cycle(G, V) of
+                          false -> true;
+                          [V] -> digraph:del_edge(G, {V, V});
+                          [V, V1|_] -> digraph:del_edge(G, {V, V1})
+                        end
+                    end, Vs),
+  case digraph:no_edges(G) =:= NumberOfEdges of
+    true -> ok;
+    false -> remove_cycles(G, Vs)
+  end.
+
+remove_uses([], Constrs) -> Constrs;
+remove_uses([{Var, Use}|ToRemove], Constrs0) ->
+  Constrs = remove_uses(Var, Use, Constrs0),
+  remove_uses(ToRemove, Constrs).
+
+remove_uses(_Var, _Use, []) -> [];
+remove_uses(Var, Use, [Constr|Constrs]) ->
+  {V, Form} = Constr,
+  case erl_types:t_var_name(V) =:= Var of
+    true -> [{V, remove_use(Form, Use)}|Constrs];
+    false -> [Constr|remove_uses(Var, Use, Constrs)]
+  end.
+
+remove_use({var, L, V}, V) -> {var, L, '_'};
+remove_use(T, V) when is_tuple(T) ->
+  list_to_tuple(remove_use(tuple_to_list(T), V));
+remove_use([E|Es], V) ->
+  [remove_use(E, V)|remove_use(Es, V)];
+remove_use(T, _V) -> T.
 
 %% Gets the most general domain of a list of domains of all
 %% the overloaded contracts
