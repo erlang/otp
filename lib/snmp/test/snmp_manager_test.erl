@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -5328,9 +5328,14 @@ init_manager(AutoInform, Config) ->
     
 fin_manager(Config) ->
     Node = ?config(manager_node, Config),
-    stop_manager(Node, Config),
-    fin_crypto(Node),
-    stop_node(Node),
+    StopMgrRes    = stop_manager(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopNode      = stop_node(Node),
+    p("fin_agent -> stop apps and (mgr node ~p) node results: "
+      "~n      SNMP Mgr: ~p"
+      "~n      Crypto:   ~p"
+      "~n      Node:     ~p", 
+      [Node, StopMgrRes, StopCryptoRes, StopNode]),
     Config.
     
 
@@ -5385,10 +5390,16 @@ init_agent(Config) ->
 
 fin_agent(Config) ->
     Node = ?config(agent_node, Config),
-    stop_agent(Node, Config),
-    fin_crypto(Node),
-    fin_mnesia(Node),
-    stop_node(Node),
+    StopAgentRes  = stop_agent(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopMnesiaRes = fin_mnesia(Node),
+    StopNode      = stop_node(Node),
+    p("fin_agent -> stop apps and (agent node ~p) node results: "
+      "~n      SNMP Agent: ~p"
+      "~n      Crypto:     ~p"
+      "~n      Mnesia:     ~p"
+      "~n      Node:       ~p", 
+      [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
 init_mnesia(Node, Dir) ->
@@ -5434,25 +5445,89 @@ fin_crypto(Node) ->
 
 %% -- Misc application wrapper functions --
 
-load_app(Node, App) when (Node =:= node()) andalso is_atom(App) ->
-    application:load(App);
-load_app(Node, App) when is_atom(App) ->
-    rcall(Node, application, load, [App]).
-    
-start_app(Node, App) when (Node =:= node()) andalso is_atom(App) ->
-    application:start(App);
+load_app(Node, App) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {already_loaded, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed loading app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_load, Node, App, Reason})
+		    end,
+    do_load_app(Node, App, VerifySuccess).
+
+do_load_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    %% Local app
+    exec(fun() -> application:load(App) end, VerifySuccess);
+do_load_app(Node, App, VerifySuccess) ->
+    %% Remote app
+    exec(fun() -> rcall(Node, application, load, [App]) end, VerifySuccess).
+
+
 start_app(Node, App) ->
-    rcall(Node, application, start, [App]).
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {already_started, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed starting app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_start, Node, App, Reason})
+		    end,
+    start_app(Node, App, VerifySuccess).
 
-stop_app(Node, App) when (Node =:= node()) andalso is_atom(App)  ->
-    application:stop(App);
-stop_app(Node, App) when is_atom(App) ->
-    rcall(Node, application, stop, [App]).
+start_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    exec(fun() -> application:start(App) end, VerifySuccess);
+start_app(Node, App, VerifySuccess) ->
+    exec(fun() -> rcall(Node, application, start, [App]) end, VerifySuccess).
 
-set_app_env(Node, App, Key, Val) when (Node =:= node()) andalso is_atom(App) ->
-    application:set_env(App, Key, Val);
-set_app_env(Node, App, Key, Val) when is_atom(App) ->
-    rcall(Node, application, set_env, [App, Key, Val]).
+
+stop_app(Node, App) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {not_started, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed stopping app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_stop, Node, App, Reason})
+		    end,
+    stop_app(Node, App, VerifySuccess).
+    
+stop_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App)  ->
+    exec(fun() -> application:stop(App) end, VerifySuccess);
+stop_app(Node, App, VerifySuccess) when is_atom(App) ->
+    exec(fun() -> rcall(Node, application, stop, [App]) end, VerifySuccess).
+
+
+set_app_env(Node, App, Key, Val) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed setting app ~w env on ~p"
+			      "~n      Key:    ~p"
+			      "~n      Val:    ~p"
+			      "~n      Reason: ~p"
+			      "~n      ~p", [App, Node, Key, Val, Reason]),
+			    ?FAIL({failed_set_app_env, 
+				   Node, App, Key, Val, Reason})
+		    end,
+    set_app_env(Node, App, Key, Val, VerifySuccess).
+
+set_app_env(Node, App, Key, Val, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    exec(fun() -> application:set_env(App, Key, Val) end, VerifySuccess);
+set_app_env(Node, App, Key, Val, VerifySuccess) when is_atom(App) ->
+    exec(fun() -> rcall(Node, application, set_env, [App, Key, Val]) end, 
+	 VerifySuccess).
+
+
+exec(Cmd, VerifySuccess) ->
+    VerifySuccess(Cmd()).
 
 
 %% -- Misc snmp wrapper functions --
@@ -5900,9 +5975,9 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
     
     Conf0.
 
-stop_manager(Node, Conf) ->
-    stop_snmp(Node),
-    Conf.
+stop_manager(Node) ->
+    stop_snmp(Node).
+
 
 %% -- Misc agent wrapper functions --
 
@@ -5951,9 +6026,8 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
     ?line ok = start_snmp(Node),
     Conf0.
 
-stop_agent(Node, Conf) ->
-    stop_snmp(Node),
-    Conf.
+stop_agent(Node) ->
+    stop_snmp(Node).
 
 agent_load_mib(Node, Mib) ->
     rcall(Node, snmpa, load_mibs, [[Mib]]).
@@ -6015,17 +6089,18 @@ stop_node(Node) ->
     rpc:cast(Node, erlang, halt, []),
     await_stopped(Node, 5).
 
-await_stopped(_, 0) ->
+await_stopped(Node, 0) ->
+    p("await_stopped -> ~p still exist: giving up", [Node]),
     ok;
 await_stopped(Node, N) ->
     Nodes = erlang:nodes(),
     case lists:member(Node, Nodes) of
 	true ->
-	    ?DBG("[~w] ~p still exist", [N, Node]),
+	    p("await_stopped -> ~p still exist: ~w", [Node, N]),
 	    ?SLEEP(1000),
 	    await_stopped(Node, N-1);
 	false ->
-	    ?DBG("[~w] ~p gone", [N, Node]),
+	    p("await_stopped -> ~p gone: ~w", [Node, N]),
 	    ok
     end.
     
@@ -6271,7 +6346,7 @@ p(F, A) ->
  
 p(TName, F, A) ->
     io:format("*** [~w][~s] ***"
-              "~n" ++ F ++ "~n", [TName, formated_timestamp()|A]).
+              "~n   " ++ F ++ "~n", [TName, formated_timestamp()|A]).
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().
