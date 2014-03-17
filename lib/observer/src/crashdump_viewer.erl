@@ -1576,7 +1576,13 @@ get_nodeinfo(Fd,Nod) ->
 	"Controller" ->
 	    get_nodeinfo(Fd,Nod#nod{controller=val(Fd)});
 	"Creation" ->
-	    get_nodeinfo(Fd,Nod#nod{creation=list_to_integer(val(Fd))});
+	    %% Throwing away elements like "(refc=1)", which might be
+	    %% printed from a debug compiled emulator.
+	    Creations = lists:flatmap(fun(C) -> try [list_to_integer(C)]
+						catch error:badarg -> []
+						end
+				      end, string:tokens(val(Fd)," ")),
+	    get_nodeinfo(Fd,Nod#nod{creation={creations,Creations}});
 	"Remote link" ->
 	    Procs = val(Fd), % e.g. "<0.31.0> <4322.54.0>"
 	    {Local,Remote} = split(Procs),

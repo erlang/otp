@@ -249,6 +249,8 @@ to_str({func, {F,A}}) when is_atom(F), is_integer(A) ->
     lists:concat([F, "/", A]);
 to_str({func, {F,'_'}}) when is_atom(F) ->
     atom_to_list(F);
+to_str({{format,Fun},Value}) when is_function(Fun) ->
+    Fun(Value);
 to_str({A, B}) when is_atom(A), is_atom(B) ->
     lists:concat([A, ":", B]);
 to_str({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) ->

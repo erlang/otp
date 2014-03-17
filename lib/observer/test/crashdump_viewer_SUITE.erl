@@ -428,8 +428,10 @@ do_create_dumps(DataDir,Rel) ->
     end.
 
 
-%% Create a dump which has two visible nodes, one hidden and one
+%% Create a dump which has three visible nodes, one hidden and one
 %% not connected node, and with monitors and links between nodes.
+%% One of the visible nodes is stopped and started again in order to
+%% get multiple creations.
 full_dist_dump(DataDir,Rel) ->
     Opt = rel_opt(Rel),
     Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
@@ -450,6 +452,15 @@ full_dist_dump(DataDir,Rel) ->
     get_response(P4),
     get_response(P1),
 
+    %% start, stop and start a node in order to get multiple 'creations'
+    {ok,N5} = ?t:start_node(n5,peer,Opt ++ PzOpt),
+    P51 = rpc:call(N5,?helper_mod,remote_proc,[P1,Creator]),
+    get_response(P51),
+    ?t:stop_node(N5),
+    {ok,N5} = ?t:start_node(n5,peer,Opt ++ PzOpt),
+    P52 = rpc:call(N5,?helper_mod,remote_proc,[P1,Creator]),
+    get_response(P52),
+
     {aaaaaaaa,N1} ! {hello,from,other,node}, % distribution message
     
     ?t:stop_node(N3),
@@ -458,6 +469,7 @@ full_dist_dump(DataDir,Rel) ->
 
     ?t:stop_node(N2),
     ?t:stop_node(N4),
+    ?t:stop_node(N5),
     CD.
 
 get_response(P) ->
