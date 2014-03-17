@@ -743,8 +743,25 @@ expr_map(M0,Es0,A,St0) ->
     {M1,Mps,St1} = safe(M0, St0),
     case is_valid_map_src(M1) of
 	true ->
-	    {Es1,Eps,St2} = map_pair_list(Es0, St1),
-	    {ann_c_map(A,M1,Es1),Mps++Eps,St2};
+	    case {M1,Es0} of
+		{#c_var{}, []} ->
+		    %% transform M#{} to is_map(M)
+		    {Vpat,St2} = new_var(St1),
+		    {Fpat,St3} = new_var(St2),
+		    Cs = [#iclause{
+			   anno=A,
+			   pats=[Vpat],
+			   guard=[#icall{anno=#a{anno=A},
+				   module=#c_literal{anno=A,val=erlang},
+			           name=#c_literal{anno=A,val=is_map},
+				   args=[Vpat]}],
+			   body=[Vpat]}],
+		    Fc = fail_clause([Fpat], A, #c_literal{val=badarg}),
+		    {#icase{anno=#a{anno=A},args=[M1],clauses=Cs,fc=Fc},Mps,St3};
+		{_,_} ->
+		    {Es1,Eps,St2} = map_pair_list(Es0, St1),
+		    {ann_c_map(A,M1,Es1),Mps++Eps,St2}
+	    end;
 	false -> throw(bad_map)
     end.
 
