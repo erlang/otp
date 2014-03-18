@@ -67,7 +67,7 @@ module 'map_core_test' ['map_core_test'/0,
 			      (Val, V)
 		      in  let <_cor5> =
 			      %% Line 21
-			      M~{~<1337,_cor4>,~<'val',_cor2>}~
+			      ~{~<1337,_cor4>,~<'val',_cor2>|M}~
 			  in  %% Line 21
 			      apply 'call'/2
 				  (_cor5, Vs)

@@ -504,7 +504,9 @@ hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
 	_ ->
 	  Mods = [lists, dict, digraph, digraph_utils, ets,
 		  gb_sets, gb_trees, ordsets, sets, sofs,
-		  cerl, cerl_trees, erl_types, erl_bif_types,
+		  %cerl,      % uses maps instructions
+		  %erl_types, % uses maps instructions
+		  cerl_trees, erl_bif_types,
 		  dialyzer_analysis_callgraph, dialyzer, dialyzer_behaviours,
 		  dialyzer_codeserver, dialyzer_contracts,
 		  dialyzer_coordinator, dialyzer_dataflow, dialyzer_dep,
@@ -533,7 +535,7 @@ hc(Mod) ->
   case code:is_module_native(Mod) of
     true -> ok;
     false ->
-      %% io:format(" ~s", [Mod]),
+      %% io:format(" ~w", [Mod]),
       {ok, Mod} = hipe:c(Mod),
       ok
   end.

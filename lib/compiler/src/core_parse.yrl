@@ -21,7 +21,7 @@
 %% Have explicit productions for annotated phrases named anno_XXX.
 %% This just does an XXX and adds the annotation.
 
-Expect 1.
+Expect 0.
 
 Nonterminals
 
@@ -285,9 +285,9 @@ tuple -> '{' '}' : c_tuple([]).
 tuple -> '{' anno_expressions '}' : c_tuple('$2').
 
 map_expr -> '~' '{' '}' '~' : #c_map{es=[]}.
-map_expr -> '~' '{' map_pairs  '}' '~' : #c_map{es='$3'}.
-map_expr -> variable '~' '{' '}' '~' : #c_map{var='$1',es=[]}.
-map_expr -> variable '~' '{' map_pairs  '}' '~' : #c_map{var='$1',es='$4'}.
+map_expr -> '~' '{' map_pairs '}' '~' : #c_map{es='$3'}.
+map_expr -> '~' '{' map_pairs '|' variable '}' '~' : #c_map{arg='$5',es='$3'}.
+map_expr -> '~' '{' map_pairs '|' map_expr '}' '~' : #c_map{arg='$5',es='$3'}.
 
 map_pairs -> map_pair : ['$1'].
 map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
