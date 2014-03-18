@@ -419,6 +419,129 @@ list_length([First | Rest]) ->
   </section>
 
   <section>
+    <title>Maps</title>
+	<p>Maps are a set of key to value associations. These associations
+		are encapsulated with "#{" and "}". To create an association from
+		"key" to value 42, we write:</p>
+<code type="none">
+> #{ "key" => 42 }.
+#{"key" => 42}</code>
+    <p>We will jump straight into the deep end with an example using some
+		interesting features.</p>
+	<p>The following example shows how we calculate alpha blending using
+		maps to reference color and alpha channels:</p>
+    <code type="none">
+-module(color).
+
+-export([new/4, blend/2]).
+
+-define(is_channel(V), (is_float(V) andalso V &gt;= 0.0 andalso V =&lt; 1.0)).
+
+new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
+                  ?is_channel(B), ?is_channel(A) ->
+    #{red =&gt; R, green =&gt; G, blue =&gt; B, alpha =&gt; A}.
+
+blend(Src,Dst) ->
+    blend(Src,Dst,alpha(Src,Dst)).
+
+blend(Src,Dst,Alpha) when Alpha > 0.0 ->
+    Dst#{
+        red   := red(Src,Dst) / Alpha,
+        green := green(Src,Dst) / Alpha,
+        blue  := blue(Src,Dst) / Alpha,
+        alpha := Alpha
+    };
+blend(_,Dst,_) ->
+    Dst#{
+        red   := 0.0,
+        green := 0.0,
+        blue  := 0.0,
+        alpha := 0.0
+    }.
+
+alpha(#{alpha := SA}, #{alpha := DA}) ->
+    SA + DA*(1.0 - SA).
+
+red(#{red := SV, alpha := SA}, #{red := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).
+green(#{green := SV, alpha := SA}, #{green := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).
+blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).</code>
+    <p>Compile (file <c>color.erl</c>) and test:</p>
+    <pre>
+> <input>c(color).</input>
+{ok,color}
+> <input>C1 = color:new(0.3,0.4,0.5,1.0).</input>
+#{alpha => 1.0,blue => 0.5,green => 0.4,red => 0.3}
+> <input>C2 = color:new(1.0,0.8,0.1,0.3).</input>
+#{alpha => 0.3,blue => 0.1,green => 0.8,red => 1.0}
+> <input>color:blend(C1,C2).</input>
+#{alpha => 1.0,blue => 0.5,green => 0.4,red => 0.3}
+> <input>color:blend(C2,C1).</input>
+#{alpha => 1.0,blue => 0.38,green => 0.52,red => 0.51}
+</pre>
+    <p>This example warrant some explanation:</p>
+    <code type="none">
+-define(is_channel(V), (is_float(V) andalso V &gt;= 0.0 andalso V =&lt; 1.0)).</code>
+    <p>
+		First we define a macro <c>is_channel</c> to help with our guard tests.
+		This is only here for convenience and to reduce syntax cluttering.
+
+		You can read more about <seealso marker="doc/reference_manual:macros">Macros</seealso>
+		in the Erlang Reference Manual.
+	</p>
+    <code type="none">
+new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
+                  ?is_channel(B), ?is_channel(A) ->
+    #{red =&gt; R, green =&gt; G, blue =&gt; B, alpha =&gt; A}.</code>
+    <p>
+		The function <c>new/4</c> creates a new map term with and lets the keys
+		<c>red</c>, <c>green</c>, <c>blue</c> and <c>alpha</c> be associated
+		with an initial value. In this case we only allow for float
+		values between and including 0.0 and 1.0 as ensured by the <c>?is_channel/1</c> macro
+		for each argument. Only the <c>=></c> operator is allowed when creating a new map.
+    </p>
+	<p>
+		By calling <c>blend/2</c> on any color term created by <c>new/4</c> we can calculate
+		the resulting color as determined by the two maps terms.
+	</p>
+	<p>
+		The first thing <c>blend/2</c> does is to calculate the resulting alpha channel.
+	</p>
+    <code type="none">
+alpha(#{alpha := SA}, #{alpha := DA}) ->
+    SA + DA*(1.0 - SA).</code>
+    <p>
+		We fetch the value associated with key <c>alpha</c> for both arguments using
+		the <c>:=</c> operator. Any other keys
+		in the map are ignored, only the key <c>alpha</c> is required and checked for.
+	</p>
+	<p>This is also the case for functions <c>red/2</c>, <c>blue/2</c> and <c>green/2</c>.</p>
+    <code type="none">
+red(#{red := SV, alpha := SA}, #{red := DV, alpha := DA}) ->
+    SV*SA + DV*DA*(1.0 - SA).</code>
+    <p>
+		The difference here is that we check for two keys in each map argument. The other keys
+		are ignored.
+	</p>
+    <p>
+		Finally we return the resulting color in <c>blend/3</c>.
+	</p>
+    <code type="none">
+blend(Src,Dst,Alpha) when Alpha > 0.0 ->
+    Dst#{
+        red   := red(Src,Dst) / Alpha,
+        green := green(Src,Dst) / Alpha,
+        blue  := blue(Src,Dst) / Alpha,
+        alpha := Alpha
+    };</code>
+    <p>
+		We update the <c>Dst</c> map with new channel values. The syntax for updating an existing key with a new value is done with <c>:=</c> operator.
+	</p>
+  </section>
+
+  <section>
     <title>Standard Modules and Manual Pages</title>
     <p>Erlang has a lot of standard modules to help you do things. For
       example, the module <c>io</c> contains a lot of functions to help
