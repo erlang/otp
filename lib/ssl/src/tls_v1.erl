@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -439,7 +439,9 @@ enum_to_oid(24) -> ?secp384r1;
 enum_to_oid(25) -> ?secp521r1;
 enum_to_oid(26) -> ?brainpoolP256r1;
 enum_to_oid(27) -> ?brainpoolP384r1;
-enum_to_oid(28) -> ?brainpoolP512r1.
+enum_to_oid(28) -> ?brainpoolP512r1;
+enum_to_oid(_) ->
+    undefined.
 
 sufficent_ec_support() ->
     CryptoSupport = crypto:supports(),
