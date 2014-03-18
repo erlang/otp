@@ -66,6 +66,7 @@ is_new_predefined(boolean, 0) -> true;
 is_new_predefined(byte, 0) -> true;
 is_new_predefined(iodata, 0) -> true;
 is_new_predefined(iolist, 0) -> true;
+is_new_predefined(map, 0) -> true;
 is_new_predefined(maybe_improper_list, 0) -> true;
 is_new_predefined(maybe_improper_list, 2) -> true;
 is_new_predefined(mfa, 0) -> true;
