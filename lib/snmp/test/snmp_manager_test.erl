@@ -139,6 +139,8 @@
 
 -define(NS_TIMEOUT,     10000).
 
+-define(DEFAULT_MNESIA_DEBUG, none).
+
 
 %%----------------------------------------------------------------------
 %% Records
@@ -173,7 +175,9 @@ end_per_suite(Config) when is_list(Config) ->
 
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
+    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
+    p(Case, "init_per_testcase begin when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     %% This version of the API, based on Addr and Port, has been deprecated
     DeprecatedApiCases = 
 	[
@@ -187,16 +191,25 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 	 simple_async_get_bulk1,
 	 misc_async1
 	],
-    case lists:member(Case, DeprecatedApiCases) of
-	true ->
-	    %% ?SKIP(api_no_longer_supported);
-	    {skip, api_no_longer_supported};
-	false ->
-	    init_per_testcase2(Case, Config)
-    end.
+    Result = 
+	case lists:member(Case, DeprecatedApiCases) of
+	    true ->
+		%% ?SKIP(api_no_longer_supported);
+		{skip, api_no_longer_supported};
+	    false ->
+		init_per_testcase2(Case, Config)
+	end,
+    p(Case, "init_per_testcase end when"
+      "~n      Nodes:  ~p"
+      "~n      Result: ~p"
+      "~n~n", [Result, erlang:nodes()]),
+    Result.
 
 init_per_testcase2(Case, Config) ->
-    ?DBG("init_per_testcase2 -> ~p", [erlang:nodes()]),
+    ?DBG("init_per_testcase2 -> "
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p"
+	 "~n   Nodes:  ~p", [Case, Config, erlang:nodes()]),
 
     CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
@@ -314,6 +327,8 @@ init_per_testcase3(Case, Config) ->
     end.
 
 end_per_testcase(Case, Config) when is_list(Config) ->
+    p(Case, "end_per_testcase begin when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
     Dog    = ?config(watchdog, Config),
     ?WD_STOP(Dog),
@@ -322,6 +337,8 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     %%     TopDir = ?config(top_dir, Conf2),
     %%     ?DEL_DIR(TopDir),
+    p(Case, "end_per_testcase end when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     Conf2.
 
 end_per_testcase2(Case, Config) ->
@@ -428,10 +445,10 @@ groups() ->
      {request_tests, [],
       [
        {group, get_tests}, 
-       {group, get_next_tests},
+       {group, get_next_tests}, 
        {group, set_tests}, 
-       {group, bulk_tests},
-       {group, misc_request_tests}
+       {group, bulk_tests}, 
+       {group, misc_request_tests} 
       ]
      },
      {request_tests_mt, [],
@@ -5303,29 +5320,49 @@ init_manager(AutoInform, Config) ->
 
     ?line Node = start_manager_node(),
 
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
 
-    %% -- 
-    %% Start and initiate crypto on manager node
-    %% 
+    try
+	begin
 
-    ?line ok = init_crypto(Node),
+	    %% -- 
+	    %% Start and initiate crypto on manager node
+	    %% 
+	    
+	    ?line ok = init_crypto(Node),
+	    
+	    %% 
+	    %% Write manager config
+	    %% 
+	    
+	    ?line ok = write_manager_config(Config),
+	    
+	    IRB  = case AutoInform of
+		       true ->
+			   auto;
+		       _ ->
+			   user
+		   end,
+	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
+	    Vsns = [v1,v2,v3], 
+	    start_manager(Node, Vsns, Conf)
+	end
+    catch
+	T:E ->
+	    StackTrace = ?STACK(), 
+	    p("Failure during manager start: "
+	      "~n      Error Type: ~p"
+	      "~n      Error:      ~p"
+	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_manager, T, E, StackTrace})
+    end.
 
-    %% 
-    %% Write manager config
-    %% 
-
-    ?line ok = write_manager_config(Config),
-    
-    IRB  = case AutoInform of
-	       true ->
-		   auto;
-	       _ ->
-		   user
-	   end,
-    Conf = [{manager_node, Node}, {irb, IRB} | Config],
-    Vsns = [v1,v2,v3], 
-    start_manager(Node, Vsns, Conf).
-    
 fin_manager(Config) ->
     Node = ?config(manager_node, Config),
     StopMgrRes    = stop_manager(Node),
@@ -5357,36 +5394,57 @@ init_agent(Config) ->
 
     ?line Node = start_agent_node(),
 
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
 
-    %% -- 
-    %% Start and initiate mnesia on agent node
-    %% 
-
-    ?line ok = init_mnesia(Node, Dir),
+    try
+	begin
+	    
+	    %% -- 
+	    %% Start and initiate mnesia on agent node
+	    %% 
+	    
+	    ?line ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
+	    
+	    
+	    %% -- 
+	    %% Start and initiate crypto on agent node
+	    %% 
+	    
+	    ?line ok = init_crypto(Node),
+	    
+	    
+	    %% 
+	    %% Write agent config
+	    %% 
+	    
+	    Vsns = [v1,v2], 
+	    ?line ok = write_agent_config(Vsns, Config),
+	    
+	    Conf = [{agent_node, Node},
+		    {mib_dir,    MibDir} | Config],
     
-
-    %% -- 
-    %% Start and initiate crypto on agent node
-    %% 
-
-    ?line ok = init_crypto(Node),
-    
-
-    %% 
-    %% Write agent config
-    %% 
-
-    Vsns = [v1,v2], 
-    ?line ok = write_agent_config(Vsns, Config),
-
-    Conf = [{agent_node, Node},
-	    {mib_dir,    MibDir} | Config],
-    
-    %% 
-    %% Start the agent 
-    %% 
-
-    start_agent(Node, Vsns, Conf).
+	    %% 
+	    %% Start the agent 
+	    %% 
+	    
+	    start_agent(Node, Vsns, Conf)
+	end
+    catch
+	T:E ->
+	    StackTrace = ?STACK(), 
+	    p("Failure during agent start: "
+	      "~n      Error Type: ~p"
+	      "~n      Error:      ~p"
+	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_agent, T, E, StackTrace})
+    end.
+	      
 
 fin_agent(Config) ->
     Node = ?config(agent_node, Config),
@@ -5402,12 +5460,26 @@ fin_agent(Config) ->
       [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
-init_mnesia(Node, Dir) ->
+init_mnesia(Node, Dir, MnesiaDebug) 
+  when ((MnesiaDebug =/= none) andalso 
+	(MnesiaDebug =/= debug) andalso (MnesiaDebug =/= trace)) ->
+    init_mnesia(Node, Dir, ?DEFAULT_MNESIA_DEBUG);
+init_mnesia(Node, Dir, MnesiaDebug) ->
     ?DBG("init_mnesia -> load application mnesia", []),
     ?line ok = load_mnesia(Node),
 
     ?DBG("init_mnesia -> application mnesia: set_env dir: ~n~p",[Dir]),
     ?line ok = set_mnesia_env(Node, dir, filename:join(Dir, "mnesia")),
+
+    %% Just in case, only set (known to be) valid values for debug
+    if
+	((MnesiaDebug =:= debug) orelse (MnesiaDebug =:= trace)) ->
+	    ?DBG("init_mnesia -> application mnesia: set_env debug: ~w", 
+		 [MnesiaDebug]),
+	    ?line ok = set_mnesia_env(Node, debug, MnesiaDebug);
+	true ->
+	    ok
+    end,
 
     ?DBG("init_mnesia -> create mnesia schema",[]),
     ?line case create_schema(Node) of
