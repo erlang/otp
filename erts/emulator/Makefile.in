@@ -414,13 +414,6 @@ else
 UNIX_ONLY_BUILDS =
 endif
 
-ifeq ($(TARGET), win32)
-TMPVAR := $(shell LANG=C $(PERL) utils/make_compiler_flags -o $(TTF_DIR)/erl_compile_flags.h -v CONFIG_H "N/A" -v CFLAGS "$(CFLAGS)" -v LDFLAGS "$(LDFLAGS)")
-else
-# We force this to be run every time this makefile is executed
-TMPVAR := $(shell LANG=C $(PERL) utils/make_compiler_flags -o $(TTF_DIR)/erl_compile_flags.h -f CONFIG_H "$(ERL_TOP)/erts/$(TARGET)/config.h" -v CFLAGS "$(CFLAGS)" -v LDFLAGS "$(LDFLAGS)")
-endif
-
 .PHONY: all
 ifdef VOID_EMULATOR
 all:
@@ -498,6 +491,15 @@ release_docs_spec:
 #
 
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+
+
+# has to be run after _create_dirs
+ifeq ($(TARGET), win32)
+TMPVAR := $(shell LANG=C $(PERL) utils/make_compiler_flags -o $(TTF_DIR)/erl_compile_flags.h -v CONFIG_H "N/A" -v CFLAGS "$(CFLAGS)" -v LDFLAGS "$(LDFLAGS)")
+else
+# We force this to be run every time this makefile is executed
+TMPVAR := $(shell LANG=C $(PERL) utils/make_compiler_flags -o $(TTF_DIR)/erl_compile_flags.h -f CONFIG_H "$(ERL_TOP)/erts/$(TARGET)/config.h" -v CFLAGS "$(CFLAGS)" -v LDFLAGS "$(LDFLAGS)")
+endif
 
 GENERATE =
 HIPE_ASM =
@@ -1087,7 +1089,9 @@ BEAM_SRC=$(wildcard beam/*.c)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
-TARGET_SRC=$(wildcard $(TARGET)/*.c) $(wildcard $(TTF_DIR)/*.c)
+# We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at
+# loadtime of the makefile and at that time these files are not generated yet.
+TARGET_SRC=$(shell ls $(TARGET)/*.c) $(shell ls $(TTF_DIR)/*.c)
 
 # I do not want the -MG flag on windows, it does not work properly for a 
 # windows build.
