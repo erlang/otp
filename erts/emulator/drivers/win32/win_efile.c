@@ -1787,7 +1787,7 @@ do_readlink(Efile_call_state* state, char* name, char* buffer, size_t size)
     HINSTANCE hModule = NULL;
     WCHAR *wname = (WCHAR *) name;
     WCHAR *wbuffer = (WCHAR *) buffer;
-    DWORD wsize = size / sizeof(WCHAR) - 1;
+    DWORD wsize = size / sizeof(WCHAR);
     char* ret = NULL;
 
     if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
@@ -1815,12 +1815,12 @@ do_readlink(Efile_call_state* state, char* name, char* buffer, size_t size)
 			wsize = pGetFinalPathNameByHandle(h, &dummy, 0, 0);
 			if (wsize) {
 			    wbuffer = wpath_tmp_alloc(state, wsize);
-			    wsize--;
 			}
 		    }
 		    if (wbuffer
 			&& (success = pGetFinalPathNameByHandle(h, wbuffer, wsize, 0))
-			&& success <= wsize) {
+			&& success < wsize) {
+			WCHAR* wp;
 
 			/* GetFinalPathNameByHandle prepends path with "\\?\": */
 			len = wcslen(wbuffer);
@@ -1830,9 +1830,9 @@ do_readlink(Efile_call_state* state, char* name, char* buffer, size_t size)
 			    wbuffer[0] = wbuffer[0] + L'a' - L'A';
 			}
 			
-			for ( ; *wbuffer; wbuffer++)
-			    if (*wbuffer == L'\\')
-				*wbuffer = L'/';
+			for (wp=wbuffer ; *wp; wp++)
+			    if (*wp == L'\\')
+				*wp = L'/';
 		    }
 		    CloseHandle(h);
 		}
