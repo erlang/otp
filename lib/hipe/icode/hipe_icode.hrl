@@ -178,5 +178,6 @@
 		var_range	:: {non_neg_integer(), non_neg_integer()},
 		label_range	:: {icode_lbl(), icode_lbl()},
 		info = []       :: icode_info()}).
+-type icode() :: #icode{}.
 
 %%---------------------------------------------------------------------

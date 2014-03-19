@@ -722,7 +722,7 @@ is_free(R, Free) ->
   is_free(R, Free, []).
 
 is_free(R, [{R,_}|Rest], Acc) ->
-  {true,lists:reverse(Acc)++Rest};
+  {true, lists:reverse(Acc, Rest)};
 is_free(R, [X|Rs],Acc) ->
   is_free(R, Rs, [X|Acc]);
 is_free(_, [], _) ->
@@ -733,7 +733,7 @@ exists_free_register(Start, Regs) ->
 
 exists_free_register(Start, [{Phys, Start0}|Rest], Acc) 
   when Start > Start0 ->
-  {true, Phys, lists:reverse(Acc)++Rest};
+  {true, Phys, lists:reverse(Acc, Rest)};
 exists_free_register(Start, [Free|Rest], Acc) ->
   exists_free_register(Start, Rest, [Free|Acc]);
 exists_free_register(_, [], _) ->

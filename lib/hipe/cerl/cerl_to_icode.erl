@@ -29,9 +29,9 @@
 
 -define(NO_UNUSED, true).
 
--export([module/2]).
+-export([module/1, module/2]).
 -ifndef(NO_UNUSED).
--export([function/3, function/4, module/1]).
+-export([function/3, function/4]).
 -endif.
 
 %% Added in an attempt to suppress message by Dialyzer, but I run into
@@ -102,36 +102,32 @@
 
 %% Record definitions
 
--record(ctxt, {final = false :: boolean(),
-	       effect = false,
-	       fail = [],		% [] or fail-to label
-	       class = expr,		% expr | guard
-	       line = 0,		% current line number
-	       'receive'		% undefined | #receive{}
-	      }).		
-
 -record('receive', {loop}).
 -record(cerl_to_icode__var, {name}).
 -record('fun', {label, vars}).
 
+-record(ctxt, {final  = false :: boolean(),
+	       effect = false :: boolean(),
+	       fail   = [],		% [] or fail-to label
+	       class  = expr  :: 'expr' | 'guard',
+	       line   = 0     :: erl_scan:line(),	% current line number
+	       'receive'      :: 'undefined' | #'receive'{}
+	      }).
 
 %% ---------------------------------------------------------------------
 %% Code
 
-
-%% @spec module(Module::cerl()) -> [icode()]
+%% @spec module(Module::cerl()) -> [{mfa(), icode()}]
 %% @equiv module(Module, [])
 
--ifndef(NO_UNUSED).
+-spec module(cerl:c_module()) -> [{mfa(), hipe_icode:icode()}].
+
 module(E) ->
     module(E, []).
--endif.
-%% @clear
 
-
-%% @spec module(Module::cerl(), Options::[term()]) -> [icode()]
+%% @spec module(Module::cerl(), Options::[term()]) -> [{mfa(), icode()}]
 %%
-%%	    cerl() = cerl:cerl()
+%%	    cerl() = cerl:c_module()
 %%	    icode() = hipe_icode:icode()
 %%
 %% @doc Transforms a Core Erlang module to linear HiPE Icode. The result
@@ -149,7 +145,7 @@ module(E) ->
 %% @see function/4
 %% @see cerl_hipeify:transform/1
 
-%% -spec module(cerl:c_module(), [term()]) -> [{mfa(), hipe_icode:icode()}].
+-spec module(cerl:c_module(), [term()]) -> [{mfa(), hipe_icode:icode()}].
 
 module(E, Options) ->
     module_1(cerl_hipeify:transform(E, Options), Options).
@@ -163,8 +159,8 @@ module_1(E, Options) ->
 	    throw(error)
     end,
     S0 = init(M),
-    S1 =  s__set_pmatch(proplists:get_value(pmatch, Options), S0),
-    S2 =  s__set_bitlevel_binaries(proplists:get_value(
+    S1 = s__set_pmatch(proplists:get_value(pmatch, Options), S0),
+    S2 = s__set_bitlevel_binaries(proplists:get_value(
 				      bitlevel_binaries, Options), S1),
     {Icode, _} = lists:mapfoldl(fun function_definition/2,
 				S2, cerl:module_defs(E)),
