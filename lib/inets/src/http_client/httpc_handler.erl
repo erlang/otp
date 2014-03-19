@@ -1829,7 +1829,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                                    [ProfileName, SessionId, Pos, Value, 
                                     (catch httpc_manager:which_session_info(ProfileName)), 
                                     Session, 
-                                    (catch httpc_manager:lookup_session(ProfileName, SessionId)), 
+                                    (catch httpc_manager:lookup_session(SessionId, ProfileName)),
                                     T, E]),
             exit({failed_updating_session, 
                   [{profile,    ProfileName}, 
