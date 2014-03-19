@@ -81,7 +81,8 @@ end_per_testcase(TestCase, Config) ->
     
     ct_test_support:end_per_testcase(TestCase, Config).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{timetrap,{seconds,60}},
+	    {ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [ct_master_test].
