@@ -217,7 +217,7 @@ Step 4: Run the following commands to configure the build:
 
     $ ./configure  [ options ]
 
-If you are building it from git you will need to run `autoconf` to generate configure file.
+If you are building it from git you will need to run `./otp_build autoconf` to generate configure file.
 By default, Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang}`.
 To instead install in `<BaseDir>/{bin,lib/erlang}`, use the
 `--prefix=<BaseDir>` option.
