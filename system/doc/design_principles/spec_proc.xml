@@ -130,7 +130,8 @@ ok
 -export([alloc/0, free/1]).
 -export([init/1]).
 -export([system_continue/3, system_terminate/4,
-         write_debug/3]).
+         write_debug/3,
+         system_get_state/1, system_replace_state/2]).
 
 start_link() ->
     proc_lib:start_link(ch4, init, [self()]).
@@ -177,8 +178,20 @@ loop(Chs, Parent, Deb) ->
 system_continue(Parent, Deb, Chs) ->
     loop(Chs, Parent, Deb).
 
-system_terminate(Reason, Parent, Deb, Chs) ->
+system_terminate(Reason, _Parent, _Deb, _Chs) ->
     exit(Reason).
+
+system_get_state(Chs) ->
+    {ok, Chs}.
+
+system_replace_state(StateFun, Chs) ->
+    try
+        NChs = StateFun(Chs),
+        {ok, NChs, NChs}
+    catch
+        _:_ ->
+            {ok, Chs, Chs}
+    end.
 
 write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).</pre>
@@ -366,8 +379,15 @@ Module:system_terminate(Reason, Parent, Deb, State)</code>
         <item><c>Module</c> is the name of the module.</item>
         <item><c>Deb</c> is the debug structure.</item>
         <item><c>State</c> is a term describing the internal state and
-         is passed to <c>system_continue</c>/<c>system_terminate</c>.</item>
+         is passed to <c>system_continue</c>/<c>system_terminate</c>/
+         <c>system_get_state</c>/<c>system_replace_state</c>.</item>
       </list>
+      <p>If the process should return its state <c>handle_system_msg</c> will call:</p>
+      <code type="none">
+Module:system_get_state(State)</code>
+      <p>or if the process should replace its state using the fun <c>StateFun</c>:</p>
+      <code type="none">
+Module:system_replace_state(StateFun, State)</code>
       <p>In the example:</p>
       <code type="none">
 loop(Chs, Parent, Deb) ->
@@ -383,7 +403,19 @@ system_continue(Parent, Deb, Chs) ->
     loop(Chs, Parent, Deb).
 
 system_terminate(Reason, Parent, Deb, Chs) ->
-    exit(Reason).</code>
+    exit(Reason).
+
+system_get_state(Chs) ->
+    {ok, Chs, Chs}.
+
+system_replace_state(StateFun, Chs) ->
+    try
+        NChs = StateFun(Chs),
+        {ok, NChs, NChs}
+    catch
+        _:_ ->
+            {ok, Chs, Chs}
+    end.</code>
       <p>If the special process is set to trap exits, note that if
         the parent process terminates, the expected behavior is to
         terminate with the same reason:</p>
