@@ -132,16 +132,13 @@
 	 ann_c_map_pair/4
      ]).
 
--export_type([c_binary/0, c_call/0, c_clause/0, c_cons/0, c_fun/0, c_literal/0,
-              c_module/0, c_tuple/0, c_values/0, c_var/0, cerl/0, var_name/0]).
+-export_type([c_binary/0, c_bitstr/0, c_call/0, c_clause/0, c_cons/0, c_fun/0,
+	      c_literal/0, c_map_pair/0, c_module/0, c_tuple/0,
+	      c_values/0, c_var/0, cerl/0, var_name/0]).
 
 %% HiPE does not understand Maps
 %% (guard functions is_map/1 and map_size/1 in ann_c_map/3)
 -compile(no_native).
-%%
-%% needed by the include file below -- do not move
-%%
--type var_name() :: integer() | atom() | {atom(), integer()}.
 
 -include("core_parse.hrl").
 
@@ -176,6 +173,8 @@
 	      | c_module() | c_primop() | c_receive() | c_seq()
               | c_try()    | c_tuple()  | c_values()  | c_var().
 
+-type var_name() :: integer() | atom() | {atom(), integer()}.
+
 %% =====================================================================
 %% Representation (general)
 %%
@@ -207,13 +206,15 @@
 %%    <td>call</td>
 %%    <td>case</td>
 %%    <td>catch</td>
-%%  </tr><tr>
 %%    <td>clause</td>
+%%  </tr><tr>
 %%    <td>cons</td>
 %%    <td>fun</td>
 %%    <td>let</td>
 %%    <td>letrec</td>
 %%    <td>literal</td>
+%%    <td>map</td>
+%%    <td>map_pair</td>
 %%    <td>module</td>
 %%  </tr><tr>
 %%    <td>primop</td>
@@ -264,10 +265,10 @@
 %% @see subtrees/1
 %% @see meta/1
 
--type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst'  | 'call'  | 'case'
-               | 'catch'   | 'clause' | 'cons'   | 'fun'     | 'let'  | 'letrec'
-               | 'literal' | 'map'    | 'module' | 'primop'  | 'receive' | 'seq'
-	       | 'try'     | 'tuple'  | 'values' |  'var'.
+-type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst' | 'call' | 'case'
+               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
+               | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
+               | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
 
 -spec type(cerl()) -> ctype().
 
@@ -4377,12 +4378,8 @@ meta_1(cons, Node) ->
     %% we get exactly one element, we generate a 'c_cons' call
     %% instead of 'make_list' to reconstruct the node.
     case split_list(Node) of
-	{[H], none} ->
-	    meta_call(c_cons, [meta(H), meta(c_nil())]);
 	{[H], Node1} ->
 	    meta_call(c_cons, [meta(H), meta(Node1)]);
-	{L, none} ->
-	    meta_call(make_list, [make_list(meta_list(L))]);
 	{L, Node1} ->
 	    meta_call(make_list,
 		      [make_list(meta_list(L)), meta(Node1)])
@@ -4469,8 +4466,6 @@ split_list(Node, L) ->
     case type(Node) of
 	cons when A =:= [] ->
 	    split_list(cons_tl(Node), [cons_hd(Node) | L]);
-	nil when A =:= [] ->
-	    {lists:reverse(L), none};
 	_ ->
 	    {lists:reverse(L), Node}
     end.
