@@ -91,6 +91,7 @@ only_simulated() ->
     [
      cookie,
      cookie_profile,
+     empty_set_cookie,
      trace,
      stream_once,
      no_content_204,
@@ -528,6 +529,19 @@ cookie_profile(Config) when is_list(Config) ->
 
     ets:delete(cookie),
     inets:stop(httpc, cookie_test).
+
+%%-------------------------------------------------------------------------
+empty_set_cookie() ->
+    [{doc, "Test empty Set-Cookie header."}].
+empty_set_cookie(Config) when is_list(Config) ->
+    ok = httpc:set_options([{cookies, enabled}]),
+
+    Request0 = {url(group_name(Config), "/empty_set_cookie.html", Config), []},
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request0, [], []),
+
+    ok = httpc:set_options([{cookies, disabled}]).
 
 %%-------------------------------------------------------------------------
 headers_as_is(doc) ->
@@ -1613,6 +1627,12 @@ handle_uri(_,"/cookie.html",_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"set-cookie:" ++ "test_cookie=true; path=/;" ++
 	"max-age=60000\r\n" ++
+	"Content-Length:32\r\n\r\n"++
+	"<HTML><BODY>foobar</BODY></HTML>";
+
+handle_uri(_,"/empty_set_cookie.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"set-cookie: \r\n" ++
 	"Content-Length:32\r\n\r\n"++
 	"<HTML><BODY>foobar</BODY></HTML>";
 
