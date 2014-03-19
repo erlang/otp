@@ -42,8 +42,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES = cerl_cconv cerl_closurean cerl_hipeify \
-	  cerl_lib cerl_messagean cerl_pmatch cerl_prettypr cerl_to_icode \
+MODULES = cerl_cconv cerl_closurean cerl_hipeify cerl_lib \
+	  cerl_messagean cerl_pmatch cerl_prettypr cerl_to_icode \
 	  cerl_typean erl_bif_types erl_types 
 
 HRL_FILES= cerl_hipe_primops.hrl
@@ -65,7 +65,7 @@ DOC_FILES= $(MODULES:%=$(DOCS)/%.html)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +inline +warn_exported_vars +warn_unused_import +warn_missing_spec# +warn_untyped_record
+ERL_COMPILE_FLAGS += -Werror +inline +warn_exported_vars +warn_unused_import +warn_missing_spec #+warn_untyped_record
 
 # ----------------------------------------------------
 # Targets
@@ -107,7 +107,6 @@ release_spec: opt
 
 release_docs_spec:
 
-$(EBIN)/cerl_to_icode.beam: cerl_hipe_primops.hrl ../icode/hipe_icode_primops.hrl
+$(EBIN)/cerl_cconv.beam: cerl_hipe_primops.hrl
 $(EBIN)/cerl_hipeify.beam: cerl_hipe_primops.hrl
-$(EBIN)/cerl_lambdalift.beam: cerl_hipe_primops.hrl
-$(EBIN)/erl_bif_types.beam: ../icode/hipe_icode_primops.hrl
+$(EBIN)/cerl_to_icode.beam: cerl_hipe_primops.hrl ../icode/hipe_icode_primops.hrl

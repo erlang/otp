@@ -424,7 +424,7 @@ redirect_phis([I|Is] = Code, OldFrom, NewFrom, Acc) ->
       NewI = hipe_icode:phi_redirect_pred(I, OldFrom, NewFrom),
       redirect_phis(Is, OldFrom, NewFrom, [NewI|Acc]);
     _ ->
-      lists:reverse(Acc) ++ Code
+      lists:reverse(Acc, Code)
   end;
 redirect_phis([], _OldFrom, _NewFrom, Acc) ->
   lists:reverse(Acc).
