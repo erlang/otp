@@ -1420,6 +1420,10 @@ Other commands:
   (if (boundp 'after-change-major-mode-hook)
       (run-hooks 'after-change-major-mode-hook)))
 
+;;;###autoload
+(dolist (r '("\\.erl$" "\\.app\\.src$" "\\.escript"
+             "\\.hrl$" "\\.xrl$" "\\.yrl" "/ebin/.+\\.app"))
+  (add-to-list 'auto-mode-alist (cons r 'erlang-mode)))
 
 (defun erlang-syntax-table-init ()
   (if (null erlang-mode-syntax-table)
