@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1390,6 +1390,8 @@ pick_peer(Local, Remote, Pid, _SvcName, #diameter_app{mutable = true} = App)
     case call_service(Pid, {pick_peer, Local, Remote, App}) of
         {TPid, _} = T when is_pid(TPid) ->
             T;
+        false = No ->
+            No;
         {error, _} ->
             false
     end;
