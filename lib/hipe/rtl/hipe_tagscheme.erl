@@ -40,13 +40,12 @@
 	 test_any_pid/4, test_any_port/4,
 	 test_ref/4, test_fun/4, test_fun2/5, test_matchstate/4,
 	 test_binary/4, test_bitstr/4, test_list/4,
-	 test_integer/4, test_number/4, test_constant/4, test_tuple_N/5]).
+	 test_integer/4, test_number/4, test_tuple_N/5]).
 -export([realtag_fixnum/2, tag_fixnum/2, realuntag_fixnum/2, untag_fixnum/2]).
 -export([test_two_fixnums/3, test_fixnums/4, unsafe_fixnum_add/3,
 	 unsafe_fixnum_sub/3,
 	 fixnum_gt/5, fixnum_lt/5, fixnum_ge/5, fixnum_le/5, fixnum_val/1,
-	 fixnum_mul/4,
-	 fixnum_addsub/5, fixnum_andorxor/4, fixnum_not/2,
+	 fixnum_mul/4, fixnum_addsub/5, fixnum_andorxor/4, fixnum_not/2,
 	 fixnum_bsr/3, fixnum_bsl/3]).
 -export([unsafe_car/2, unsafe_cdr/2,
 	 unsafe_constant_element/3, unsafe_update_element/3, element/6]).
@@ -404,17 +403,6 @@ test_number(X, TrueLab, FalseLab, Pred) ->
    Lab3,
    hipe_rtl:mk_branch(Tmp, 'eq', hipe_rtl:mk_imm(HeaderFlonum),
 		      TrueLab, FalseLab, Pred)].
-
-%% CONS, NIL, and TUPLE are not constants, everything else is
-test_constant(X, TrueLab, FalseLab, Pred) ->
-  Lab1 = hipe_rtl:mk_new_label(),
-  Lab2 = hipe_rtl:mk_new_label(),
-  Pred1 = 1-Pred,
-  [test_cons(X, FalseLab, hipe_rtl:label_name(Lab1), Pred1),
-   Lab1,
-   test_nil(X, FalseLab, hipe_rtl:label_name(Lab2), Pred1),
-   Lab2,
-   test_tuple(X, FalseLab, TrueLab, Pred1)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

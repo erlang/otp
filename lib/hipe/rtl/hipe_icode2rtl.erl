@@ -427,8 +427,6 @@ gen_type_test([X], Type, TrueLbl, FalseLbl, Pred, ConstTab) ->
         hipe_rtl:mk_branch(X, eq, TmpF, TrueLbl, FalseLbl, Pred)], ConstTab};
     cons ->
       {hipe_tagscheme:test_cons(X, TrueLbl, FalseLbl, Pred), ConstTab};
-    constant ->
-      {hipe_tagscheme:test_constant(X, TrueLbl, FalseLbl, Pred), ConstTab};
     fixnum ->
       {hipe_tagscheme:test_fixnum(X, TrueLbl, FalseLbl, Pred), ConstTab};
     float ->
