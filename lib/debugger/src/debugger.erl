@@ -51,12 +51,6 @@
 %% ------------------------------
 %% Help window for creating new breakpoints.
 %%
-%% dbg_wx_edit, dbg_wx_edit_win
-%% --------------------------------------
-%% Help window for editing terms, used for setting backtrace size
-%% (i.e. how many stack frames to display in the attach process window)
-%% and changing variable values.
-%%
 %% dbg_wx_interpret, dbg_wx_filedialog_win
 %% --------------------------------------
 %% Help window for selecting modules to interpret.
