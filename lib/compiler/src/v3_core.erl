@@ -1173,7 +1173,7 @@ preprocess_quals(Line, [Q|Qs0], St0, Acc) ->
             {Gen,St} = generator(Line, Q, Gs, St0),
             preprocess_quals(Line, Qs, St, [Gen|Acc]);
         false ->
-            LAnno = #a{anno=lineno_anno(get_anno(Q), St0)},
+            LAnno = #a{anno=lineno_anno(get_qual_anno(Q), St0)},
             case is_guard_test(Q) of
                 true ->
                     %% When a filter is a guard test, its argument in the
@@ -1197,6 +1197,11 @@ preprocess_quals(_, [], St, Acc) ->
 is_generator({generate,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
 is_generator(_) -> false.
+
+%% Retrieve the annotation from an Erlang AST form.
+%% (Use get_anno/1 to retrieve the annotation from Core Erlang forms).
+
+get_qual_anno(Abstract) -> element(2, Abstract).
 
 %%
 %% Generators are abstracted as sextuplets:
