@@ -32,7 +32,9 @@
 
 -module(ct_telnet_client).
 
--export([open/1, open/2, open/3, open/4, close/1]).
+%% -define(debug, true).
+
+-export([open/2, open/3, open/4, open/5, close/1]).
 -export([send_data/2, get_data/1]).
 
 -define(TELNET_PORT, 23).
@@ -64,20 +66,23 @@
 -define(TERMINAL_TYPE,     24).  
 -define(WINDOW_SIZE,       31).
 
--record(state,{get_data, keep_alive=true}).
+-record(state,{conn_name, get_data, keep_alive=true, log_pos=1}).
 
-open(Server) ->
-    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true).
+open(Server, ConnName) ->
+    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true, ConnName).
 
-open(Server, Port) ->
-    open(Server, Port, ?OPEN_TIMEOUT, true).
+open(Server, Port, ConnName) ->
+    open(Server, Port, ?OPEN_TIMEOUT, true, ConnName).
 
-open(Server, Port, Timeout) ->
-    open(Server, Port, Timeout, true).
+open(Server, Port, Timeout, ConnName) ->
+    open(Server, Port, Timeout, true, ConnName).
 
-open(Server, Port, Timeout, KeepAlive) ->
+open(Server, Port, Timeout, KeepAlive, ConnName) ->
     Self = self(),
-    Pid = spawn(fun() -> init(Self, Server, Port, Timeout, KeepAlive) end),
+    Pid = spawn(fun() ->
+			init(Self, Server, Port, Timeout,
+			     KeepAlive, ConnName)
+		end),
     receive 
 	{open,Pid} ->
 	    {ok,Pid};
@@ -86,29 +91,34 @@ open(Server, Port, Timeout, KeepAlive) ->
     end.
 
 close(Pid) ->
-    Pid ! close.
+    Pid ! {close,self()},
+    receive closed -> ok 
+    after 5000 -> ok
+    end.	    
 
 send_data(Pid, Data) ->
     Pid ! {send_data, Data++"\n"},
     ok.
 
 get_data(Pid) ->
-    Pid ! {get_data, self()},
+    Pid ! {get_data,self()},
     receive 
 	{data,Data} ->
-	    {ok, Data}
+	    {ok,Data}
     end.
 
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
-init(Parent, Server, Port, Timeout, KeepAlive) ->
+init(Parent, Server, Port, Timeout, KeepAlive, ConnName) ->
     case gen_tcp:connect(Server, Port, [list,{packet,0}], Timeout) of
 	{ok,Sock} ->
-	    dbg("Connected to: ~p (port: ~w, keep_alive: ~w)\n", [Server,Port,KeepAlive]),
-	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock),	      
+	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
+		[ConnName,Server,Port,KeepAlive]),
+	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock, ConnName),	      
 	    Parent ! {open,self()},
-	    loop(#state{get_data=10, keep_alive=KeepAlive}, Sock, []),
+	    loop(#state{conn_name=ConnName, get_data=10, keep_alive=KeepAlive},
+		 Sock, []),
 	    gen_tcp:close(Sock);
         Error ->
 	    Parent ! {Error,self()}
@@ -118,6 +128,13 @@ loop(State, Sock, Acc) ->
     receive
 	{tcp_closed,_} ->
 	    dbg("Connection closed\n", []),
+	    Data = lists:reverse(lists:append(Acc)),
+	    dbg("Printing queued messages: ~tp",[Data]),
+	    ct_telnet:log(State#state.conn_name,
+			  general_io, "~ts",
+			  [lists:sublist(Data,
+					 State#state.log_pos,
+					 length(Data))]),
 	    receive
 		{get_data,Pid} ->
 		    Pid ! closed
@@ -125,11 +142,11 @@ loop(State, Sock, Acc) ->
 		    ok
 	    end;
 	{tcp,_,Msg0} ->
-	    dbg("tcp msg: ~p~n",[Msg0]),
+	    dbg("tcp msg: ~tp~n",[Msg0]),
 	    Msg = check_msg(Sock,Msg0,[]),
 	    loop(State, Sock, [Msg | Acc]);
 	{send_data,Data} ->
-	    send(Data, Sock),
+	    send(Data, Sock, State#state.conn_name),
 	    loop(State, Sock, Acc);
 	{get_data,Pid} ->
 	    NewState = 
@@ -144,54 +161,100 @@ loop(State, Sock, Acc) ->
 			end;
 		    _ ->
 			Data = lists:reverse(lists:append(Acc)),
-			dbg("get_data ~p\n",[Data]),
+			Len = length(Data),
+			dbg("get_data ~tp\n",[Data]),
+			ct_telnet:log(State#state.conn_name,
+				      general_io, "~ts",
+				      [lists:sublist(Data,
+						     State#state.log_pos,
+						     Len)]),
 			Pid ! {data,Data},
-			State
+			State#state{log_pos = 1}
 		end,
 	    loop(NewState, Sock, []);
 	{get_data_delayed,Pid} ->
 	    NewState =
 		case State of
 		    #state{keep_alive = true, get_data = 0} ->
-			if Acc == [] -> send([?IAC,?NOP], Sock);
+			if Acc == [] -> send([?IAC,?NOP], Sock, 
+					     State#state.conn_name);
 			   true -> ok
 			end,
 			State#state{get_data=10};
 		    _ ->
 			State
 		end,
-	    NewAcc = 
+	    {NewAcc,Pos} = 
 		case erlang:is_process_alive(Pid) of
-		    true ->
+		    true when Acc /= [] ->
 			Data = lists:reverse(lists:append(Acc)),
-			dbg("get_data_delayed ~p\n",[Data]),
+			Len = length(Data),
+			dbg("get_data_delayed ~tp\n",[Data]),
+			ct_telnet:log(State#state.conn_name,
+				      general_io, "~ts",
+				      [lists:sublist(Data,
+						     State#state.log_pos,
+						     Len)]),
 			Pid ! {data,Data},
-			[];
+			{[],1};
+		    true when Acc == [] ->
+			dbg("get_data_delayed nodata\n",[]),
+			Pid ! {data,[]},
+			{[],1};
 		    false ->
-			Acc
+			{Acc,NewState#state.log_pos}
 		end,
-	    loop(NewState, Sock, NewAcc);			       
-	close ->
+	    loop(NewState#state{log_pos=Pos}, Sock, NewAcc);			       
+	{close,Pid} ->
 	    dbg("Closing connection\n", []),
-	    gen_tcp:close(Sock),
-	    ok
-    after wait(State#state.keep_alive,?IDLE_TIMEOUT) ->
-	    if 
-		Acc == [] -> send([?IAC,?NOP], Sock);
-		true -> ok
+	    if Acc == [] ->
+		    ok;
+	       true ->
+		    Data = lists:reverse(lists:append(Acc)),
+		    dbg("Printing queued messages: ~tp",[Data]),
+		    ct_telnet:log(State#state.conn_name,
+				  general_io, "~ts",
+				  [lists:sublist(Data,
+						 State#state.log_pos,
+						 length(Data))])
 	    end,
-	    loop(State, Sock, Acc)
+	    gen_tcp:close(Sock),
+	    Pid ! closed
+    after wait(State#state.keep_alive,?IDLE_TIMEOUT) ->
+	    Data = lists:reverse(lists:append(Acc)),
+	    case Data of
+		[] ->
+		    send([?IAC,?NOP], Sock, State#state.conn_name),
+		    loop(State, Sock, Acc);
+		_ when State#state.log_pos == length(Data)+1 ->
+		    loop(State, Sock, Acc);
+		_ ->
+		    dbg("Idle timeout, printing ~tp\n",[Data]),
+		    Len = length(Data),
+		    ct_telnet:log(State#state.conn_name,
+				  general_io, "~ts",
+				  [lists:sublist(Data,
+						 State#state.log_pos,
+						 Len)]),
+		    loop(State#state{log_pos = Len+1}, Sock, Acc)
+	    end
     end.
 
 wait(true, Time) -> Time;
 wait(false, _) -> infinity.   
 
-send(Data, Sock) ->
+send(Data, Sock, ConnName) ->
     case Data of
 	[?IAC|_] = Cmd ->
 	    cmd_dbg(Cmd);
 	_ ->
-	    dbg("Sending: ~p\n", [Data])
+	    dbg("Sending: ~tp\n", [Data]),
+	    try io_lib:format("[~w] ~ts", [?MODULE,Data]) of
+		Str ->
+		    ct_telnet:log(ConnName, general_io, Str, [])
+	    catch
+		_:_ -> ok
+	    end
     end,
     gen_tcp:send(Sock, Data),
     ok.
