@@ -11,7 +11,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2013</year>
+<year>2014</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -72,12 +72,6 @@ first.</p>
 	    dictionaries for application id 0.</p>
           <p>
 	    Own Id: OTP-11361</p>
-        </item>
-        <item>
-          <p>
-	    Fix silent make rules (Thanks to Anthony Ramine)</p>
-          <p>
-	    Own Id: OTP-11514</p>
         </item>
       </list>
     </section>
