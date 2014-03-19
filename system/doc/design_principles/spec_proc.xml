@@ -157,15 +157,15 @@ init(Parent) ->
 loop(Chs, Parent, Deb) ->
     receive
         {From, alloc} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, alloc, From}),
             {Ch, Chs2} = alloc(Chs),
             From ! {ch4, Ch},
-            Deb3 = sys:handle_debug(Deb2, {ch4, write_debug},
+            Deb3 = sys:handle_debug(Deb2, fun ch4:write_debug/3,
                                     ch4, {out, {ch4, Ch}, From}),
             loop(Chs2, Parent, Deb3);
         {free, Ch} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, {free, Ch}}),
             Chs2 = free(Ch, Chs),
             loop(Chs2, Parent, Deb2);
@@ -185,13 +185,8 @@ system_get_state(Chs) ->
     {ok, Chs}.
 
 system_replace_state(StateFun, Chs) ->
-    try
-        NChs = StateFun(Chs),
-        {ok, NChs, NChs}
-    catch
-        _:_ ->
-            {ok, Chs, Chs}
-    end.
+    NChs = StateFun(Chs),
+    {ok, NChs, NChs}.
 
 write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).</pre>
@@ -294,10 +289,10 @@ sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
           <p><c>Deb</c> is the debug structure.</p>
         </item>
         <item>
-          <p><c>Func</c> is a tuple <c>{Module, Name}</c> (or a fun) and
-            should specify a (user defined) function used to format
+          <p><c>Func</c> is a fun specifying
+            a (user defined) function used to format
             trace output. For each system event, the format function is
-            called as <c>Module:Name(Dev, Event, Info)</c>, where:</p>
+            called as <c>Func(Dev, Event, Info)</c>, where:</p>
           <list type="bulleted">
             <item>
               <p><c>Dev</c> is the IO device to which the output should
@@ -332,15 +327,15 @@ sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
 loop(Chs, Parent, Deb) ->
     receive
         {From, alloc} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, alloc, From}),
             {Ch, Chs2} = alloc(Chs),
             From ! {ch4, Ch},
-            Deb3 = sys:handle_debug(Deb2, {ch4, write_debug},
+            Deb3 = sys:handle_debug(Deb2, fun ch4:write_debug/3,
                                     ch4, {out, {ch4, Ch}, From}),
             loop(Chs2, Parent, Deb3);
         {free, Ch} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, {free, Ch}}),
             Chs2 = free(Ch, Chs),
             loop(Chs2, Parent, Deb2);
@@ -409,13 +404,9 @@ system_get_state(Chs) ->
     {ok, Chs, Chs}.
 
 system_replace_state(StateFun, Chs) ->
-    try
-        NChs = StateFun(Chs),
-        {ok, NChs, NChs}
-    catch
-        _:_ ->
-            {ok, Chs, Chs}
-    end.</code>
+    NChs = StateFun(Chs),
+    {ok, NChs, NChs}.
+</code>
       <p>If the special process is set to trap exits, note that if
         the parent process terminates, the expected behavior is to
         terminate with the same reason:</p>
