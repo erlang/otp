@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,8 +46,10 @@
       valid encodings are <c>Latin-1</c> and <c>UTF-8</c> where the
       case of the characters can be chosen freely. Examples:</p>
       <pre>
-%% coding: utf-8
-%% For this file we have chosen encoding = Latin-1
+%% coding: utf-8</pre>
+      <pre>
+%% For this file we have chosen encoding = Latin-1</pre>
+      <pre>
 %% -*- coding: latin-1 -*-</pre>
   </description>
   <datatypes>

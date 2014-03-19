@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -79,88 +79,5 @@
       when xor</p>
   </section>
 
-  <section>
-    <title>Character Set</title>
-    <p>In Erlang 4.8/OTP R5A the syntax of Erlang tokens was extended to
-      allow the use of the full ISO-8859-1 (Latin-1) character set. This
-      is noticeable in the following ways:</p>
-    <list type="bulleted">
-      <item>
-        <p>All the Latin-1 printable characters can be used and are
-          shown without the escape backslash convention.</p>
-      </item>
-      <item>
-        <p>Atoms and variables can use all Latin-1 letters.</p>
-      </item>
-    </list>
-    <table>
-      <row>
-        <cell align="left" valign="middle"><em>Octal</em></cell>
-        <cell align="left" valign="middle"><em>Decimal</em></cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
-        <cell align="left" valign="middle"><em>Class</em></cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">200 - 237</cell>
-        <cell align="left" valign="middle">128 - 159</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
-        <cell align="left" valign="middle">Control characters</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">240 - 277</cell>
-        <cell align="left" valign="middle">160 - 191</cell>
-        <cell align="right" valign="middle">- &iquest;</cell>
-        <cell align="left" valign="middle">Punctuation characters</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">300 - 326</cell>
-        <cell align="left" valign="middle">192 - 214</cell>
-        <cell align="center" valign="middle">&Agrave; - &Ouml;</cell>
-        <cell align="left" valign="middle">Uppercase letters</cell>
-      </row>
-      <row>
-        <cell align="center" valign="middle">327</cell>
-        <cell align="center" valign="middle">215</cell>
-        <cell align="center" valign="middle">&times;</cell>
-        <cell align="left" valign="middle">Punctuation character</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">330 - 336</cell>
-        <cell align="left" valign="middle">216 - 222</cell>
-        <cell align="center" valign="middle">&Oslash; - &THORN;</cell>
-        <cell align="left" valign="middle">Uppercase letters</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">337 - 366</cell>
-        <cell align="left" valign="middle">223 - 246</cell>
-        <cell align="center" valign="middle">&szlig; - &ouml;</cell>
-        <cell align="left" valign="middle">Lowercase letters</cell>
-      </row>
-      <row>
-        <cell align="center" valign="middle">367</cell>
-        <cell align="center" valign="middle">247</cell>
-        <cell align="center" valign="middle">&divide;</cell>
-        <cell align="left" valign="middle">Punctuation character</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">370 - 377</cell>
-        <cell align="left" valign="middle">248 - 255</cell>
-        <cell align="center" valign="middle">&oslash; - &yuml;</cell>
-        <cell align="left" valign="middle">Lowercase letters</cell>
-      </row>
-      <tcaption>Character Classes.</tcaption>
-    </table>
-    <p>In Erlang/OTP R16 the syntax of Erlang tokens was extended to
-       handle Unicode. To begin with the support is limited to strings,
-       but Erlang/OTP R18 is expected to handle Unicode atoms as well.
-       More about the usage of Unicode in Erlang source files can be
-       found in <seealso
-       marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User'S
-       Guide</seealso>. The default encoding for Erlang source files
-       is still Latin-1, but in Erlang/OTP R17 the default encoding
-       will be UTF-8. The details on how to state the encoding of an
-       Erlang source file can be found in <seealso
-       marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
-  </section>
 </chapter>
 
