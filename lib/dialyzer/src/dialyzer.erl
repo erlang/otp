@@ -447,7 +447,6 @@ message_to_string({opaque_size, [SizeType, Size]}) ->
 message_to_string({opaque_call, [M, F, Args, Culprit, OpaqueType]}) ->
   io_lib:format("The call ~s:~s~s breaks the opaqueness of the term ~s :: ~s\n",
                 [M, F, Args, Culprit, OpaqueType]);
-
 %%----- Warnings for concurrency errors --------------------
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
   io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]);
@@ -564,4 +563,4 @@ form_position_string(ArgNs) ->
 ordinal(1) -> "1st";
 ordinal(2) -> "2nd";
 ordinal(3) -> "3rd";
-ordinal(N) when is_integer(N) -> io_lib:format("~wth",[N]).
+ordinal(N) when is_integer(N) -> io_lib:format("~wth", [N]).
