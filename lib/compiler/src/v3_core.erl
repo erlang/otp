@@ -1148,6 +1148,7 @@ get_qual_line({'case',Line,_,_}) -> Line;
 get_qual_line({'if',Line,_}) -> Line;
 get_qual_line({block,Line,_}) -> Line;
 get_qual_line({match,Line,_}) -> Line;
+get_qual_line({atom,Line,_}) -> Line;
 get_qual_line({var,Line,_}) -> Line.
 
 %%
