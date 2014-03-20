@@ -29,20 +29,20 @@
 #include <wchar.h>
 #include "erl_efile.h"
 
-// 1 = file name ops
-// 2 = file descr ops
-// 4 = errors
-// 8 = path name conversion
-#define SVERK_TRACE_MASK 0
-
-#if !SVERK_TRACE_MASK
-#  define SVERK_TRACE(M,S)
-#  define SVERK_TRACE1(M,FMT,A)
-#  define SVERK_TRACE2(M,FMT,A,B)
+#define DBG_TRACE_MASK 0
+/* 1 = file name ops
+ * 2 = file descr ops
+ * 4 = errors
+ * 8 = path name conversion
+ */
+#if !DBG_TRACE_MASK
+#  define DBG_TRACE(M,S)
+#  define DBG_TRACE1(M,FMT,A)
+#  define DBG_TRACE2(M,FMT,A,B)
 #else
-#  define SVERK_TRACE(M,S) do { if ((M)&SVERK_TRACE_MASK) fwprintf(stderr, L"SVERK TRACE %d: %s\r\n", __LINE__, (WCHAR*)(S)); }while(0)
-#  define SVERK_TRACE1(M,FMT,A) do { if ((M)&SVERK_TRACE_MASK) fwprintf(stderr, L"SVERK TRACE %d: " L##FMT L"\r\n", __LINE__, (A)); }while(0)
-#  define SVERK_TRACE2(M,FMT,A,B) do { if ((M)&SVERK_TRACE_MASK) fwprintf(stderr, L"SVERK TRACE %d: " L##FMT L"\r\n", __LINE__, (A), (B)); }while(0)
+#  define DBG_TRACE(M,S) do { if ((M)&DBG_TRACE_MASK) fwprintf(stderr, L"DBG_TRACE %d: %s\r\n", __LINE__, (WCHAR*)(S)); }while(0)
+#  define DBG_TRACE1(M,FMT,A) do { if ((M)&DBG_TRACE_MASK) fwprintf(stderr, L"DBG_TRACE %d: " L##FMT L"\r\n", __LINE__, (A)); }while(0)
+#  define DBG_TRACE2(M,FMT,A,B) do { if ((M)&DBG_TRACE_MASK) fwprintf(stderr, L"DBG_TRACE %d: " L##FMT L"\r\n", __LINE__, (A), (B)); }while(0)
 #endif
 
 /*
@@ -275,7 +275,7 @@ check_error(int result, Efile_error* errInfo)
     if (result < 0) {
 	errInfo->posix_errno = errno;
 	errInfo->os_errno = GetLastError();
-	SVERK_TRACE2(4, "ERROR os_error=%d errno=%d @@@@@@@@@@@@@@@@@@@@@@@@@@@@",
+	DBG_TRACE2(4, "ERROR os_error=%d errno=%d @@@@@@@@@@@@@@@@@@@@@@@@@@@@",
 	        errInfo->os_errno, errInfo->posix_errno);
 	return 0;
     }
@@ -287,7 +287,7 @@ save_last_error(Efile_error* errInfo)
 {
     errInfo->posix_errno = errno;
     errInfo->os_errno = GetLastError();
-    SVERK_TRACE2(4, "ERROR os_error=%d errno=%d $$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
+    DBG_TRACE2(4, "ERROR os_error=%d errno=%d $$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
 	errInfo->os_errno, errInfo->posix_errno);
 }
 
@@ -312,7 +312,7 @@ set_os_errno(Efile_error* errInfo, DWORD os_errno)
 {
     errInfo->os_errno = os_errno;
     errInfo->posix_errno = errno_map(os_errno);
-    SVERK_TRACE2(4, "ERROR os_error=%d errno=%d ############################",
+    DBG_TRACE2(4, "ERROR os_error=%d errno=%d ############################",
 	    errInfo->os_errno, errInfo->posix_errno);
     return 0;
 }
@@ -359,11 +359,11 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
     int unc_fixup = 0;
 
     if (path[0] == 0) {
-	SVERK_TRACE(8,"Let empty path pass through");
+	DBG_TRACE(8, L"Let empty path pass through");
 	return;
     }
 
-    SVERK_TRACE1(8,"IN: %s", path);
+    DBG_TRACE1(8,"IN: %s", path);
 
     if (path[1] == L':' && ISSLASH(path[2])) { /* absolute path */
 	if (len >= max) {
@@ -396,7 +396,7 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
 	    fullLen = GetFullPathNameW(path, 4 + absLen, fullPath+4, NULL);
 	    if (fullLen >= 4+absLen) {
 		*pathp = path;
-		SVERK_TRACE2(8,"ensure_wpath FAILED absLen=%u %s", (int)absLen, path);
+		DBG_TRACE2(8,"ensure_wpath FAILED absLen=%u %s", (int)absLen, path);
 		return;
 	    }
 	    /* GetFullPathNameW can return paths longer than MAX_PATH without the \\?\ prefix.
@@ -443,7 +443,7 @@ static void ensure_wpath_max(Efile_call_state* state, WCHAR** pathp, size_t max)
 	    }
 	}
     }
-    SVERK_TRACE1(8,"OUT: %s", *pathp);
+    DBG_TRACE1(8,"OUT: %s", *pathp);
 }
 
 int
@@ -454,7 +454,7 @@ efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
     WCHAR* wname = (WCHAR*)name;
     int ret;
 
-    SVERK_TRACE(1, name);
+    DBG_TRACE(1, name);
     call_state_init(&state, errInfo);
     ensure_wpath_max(&state, &wname, 248); /* Yes, 248 limit for normal paths */
 
@@ -473,7 +473,7 @@ efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
     Efile_call_state state;
     int ret;
 
-    SVERK_TRACE(1, name);
+    DBG_TRACE(1, name);
     call_state_init(&state, errInfo);
     ret = do_rmdir(&state, name);
     call_state_free(&state);
@@ -567,7 +567,7 @@ efile_delete_file(Efile_error* errInfo,		/* Where to return error codes. */
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, name);
+    DBG_TRACE(1, name);
     call_state_init(&state, errInfo);
     ret = do_delete_file(&state, name);
     call_state_free(&state);
@@ -657,7 +657,7 @@ efile_rename(Efile_error* errInfo, char* src, char* dst)
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, src);
+    DBG_TRACE(1, src);
     call_state_init(&state, errInfo);
     ret = do_rename(&state, src, dst);
     call_state_free(&state);
@@ -892,18 +892,18 @@ efile_getdcwd(Efile_error* errInfo,		/* Where to return error codes. */
 {
     WCHAR *wbuffer = (WCHAR *) buffer;
     size_t wbuffer_size = size / 2; 
-    SVERK_TRACE(1, L"#getdcwd#");
+    DBG_TRACE(1, L"#getdcwd#");
     if (_wgetdcwd(drive, wbuffer, wbuffer_size) == NULL) {
 	return check_error(-1, errInfo);
     }
-    SVERK_TRACE1(8, "getdcwd OS=%s", wbuffer);
+    DBG_TRACE1(8, "getdcwd OS=%s", wbuffer);
     if (wcsncmp(wbuffer, L"\\\\?\\", 4) == 0) {
 	wmemmove(wbuffer, wbuffer+4, wcslen(wbuffer+4)+1);
     }
     for ( ; *wbuffer; wbuffer++) 
 	if (*wbuffer == L'\\')
 	    *wbuffer = L'/';
-    SVERK_TRACE1(8, "getdcwd ERLANG=%s", (WCHAR*)buffer);
+    DBG_TRACE1(8, "getdcwd ERLANG=%s", (WCHAR*)buffer);
     return 1;
 }
 
@@ -913,7 +913,7 @@ efile_readdir(Efile_error* errInfo, char* name, EFILE_DIR_HANDLE* dir_handle,
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(dir_handle?2:1, name);
+    DBG_TRACE(dir_handle?2:1, name);
     call_state_init(&state, errInfo);
     ret = do_readdir(&state, name, dir_handle, buffer, size);
     call_state_free(&state);
@@ -1000,7 +1000,7 @@ efile_openfile(Efile_error* errInfo, char* name, int flags, int* pfd, Sint64* pS
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE1(1, "openfile(%s)", name);
+    DBG_TRACE1(1, "openfile(%s)", name);
     call_state_init(&state, errInfo);
     ret = do_openfile(&state, name, flags, pfd, pSize);
     call_state_free(&state);
@@ -1101,7 +1101,7 @@ efile_may_openfile(Efile_error* errInfo, char *name)
     DWORD attr;
     int ret;
 
-    SVERK_TRACE(1, name);
+    DBG_TRACE(1, name);
     call_state_init(&state, errInfo);
     ensure_wpath(&state, &wname);
     if ((attr = GetFileAttributesW(wname)) == INVALID_FILE_ATTRIBUTES) {
@@ -1122,7 +1122,7 @@ void
 efile_closefile(fd)
 int fd;				/* File descriptor for file to close. */
 {
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     CloseHandle((HANDLE) fd);
 }
 
@@ -1143,7 +1143,7 @@ efile_fdatasync(errInfo, fd)
 Efile_error* errInfo;		/* Where to return error codes. */
 int fd;				/* File descriptor for file to sync. */
 {
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     /* Not available in Windows, just call regular fsync */
     return efile_fsync(errInfo, fd);
 }
@@ -1153,7 +1153,7 @@ efile_fsync(errInfo, fd)
 Efile_error* errInfo;		/* Where to return error codes. */
 int fd;				/* File descriptor for file to sync. */
 {
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     if (!FlushFileBuffers((HANDLE) fd)) {
 	return check_error(-1, errInfo);
     }
@@ -1166,7 +1166,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, L"");
+    DBG_TRACE(1, L"");
     call_state_init(&state, errInfo);
     ret = do_fileinfo(&state, pInfo, orig_name, info_for_link);
     call_state_free(&state);
@@ -1365,7 +1365,7 @@ do_write_info(Efile_call_state* state,
     DWORD tempAttr;
     WCHAR *wname = (WCHAR *) name;
 
-    SVERK_TRACE(1, name);
+    DBG_TRACE(1, name);
 
     ensure_wpath(state, &wname);
 
@@ -1446,7 +1446,7 @@ size_t count;			/* Number of bytes to write. */
 Sint64 offset;			/* where to write it */
 {
     int res;
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
     if (res) {
 	return efile_write(errInfo, EFILE_MODE_WRITE, fd, buf, count);
@@ -1466,7 +1466,7 @@ size_t count;			/* Number of bytes to read. */
 size_t* pBytesRead;		/* Where to return number of bytes read. */
 {
     int res;
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
     if (res) {
 	return efile_read(errInfo, EFILE_MODE_READ, fd, buf, count, pBytesRead);
@@ -1489,7 +1489,7 @@ size_t count;			/* Number of bytes to write. */
     OVERLAPPED overlapped;
     OVERLAPPED* pOverlapped = NULL;
 
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     if (flags & EFILE_MODE_APPEND) {
 	memset(&overlapped, 0, sizeof(overlapped));
 	overlapped.Offset = 0xffffffff;
@@ -1519,7 +1519,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
     OVERLAPPED overlapped;
     OVERLAPPED* pOverlapped = NULL;
 
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     ASSERT(iovcnt >= 0);
     
     if (flags & EFILE_MODE_APPEND) {
@@ -1557,7 +1557,7 @@ size_t* pBytesRead;		/* Where to return number of bytes read. */
 {
     DWORD nbytes = 0;
 
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     if (!ReadFile((HANDLE) fd, buf, count, &nbytes, NULL))
 	return set_error(errInfo);
 
@@ -1577,7 +1577,7 @@ Sint64* new_location;		/* Resulting new location in file. */
 {
     LARGE_INTEGER off, new_loc;
     
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     switch (origin) {
     case EFILE_SEEK_SET: origin = FILE_BEGIN; break;
     case EFILE_SEEK_CUR: origin = FILE_CURRENT; break;
@@ -1609,7 +1609,7 @@ Efile_error* errInfo;		/* Where to return error codes. */
 int *fd;				/* File descriptor for file to truncate. */
 int flags;
 {
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     if (!SetEndOfFile((HANDLE) (*fd)))
 	return set_error(errInfo);
     return 1;
@@ -1768,7 +1768,7 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, name);
+    DBG_TRACE(1, name);
     call_state_init(&state, errInfo);
     ret = !!do_readlink(&state, name, buffer, size);
     call_state_free(&state);
@@ -1863,7 +1863,7 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE(1, orig_name);
+    DBG_TRACE(1, orig_name);
     call_state_init(&state, errInfo);
     ret = do_altname(&state, orig_name, buffer, size);
     call_state_free(&state);
@@ -1956,7 +1956,7 @@ efile_link(Efile_error* errInfo, char* old, char* new)
     WCHAR *wold = (WCHAR *) old;
     WCHAR *wnew = (WCHAR *) new;
     int ret;
-    SVERK_TRACE(1, old);
+    DBG_TRACE(1, old);
     call_state_init(&state, errInfo);
     ensure_wpath(&state, &wold);
     ensure_wpath(&state, &wnew);
@@ -1973,7 +1973,7 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
 {
     Efile_call_state state;
     int ret;
-    SVERK_TRACE2(1, "symlink(%s <- %s)", old, new);
+    DBG_TRACE2(1, "symlink(%s <- %s)", old, new);
     call_state_init(&state, errInfo);
     ret = do_symlink(&state, old, new);
     call_state_free(&state);
@@ -1991,7 +1991,7 @@ do_symlink(Efile_call_state* state, char* old, char* new)
     WCHAR *wold = (WCHAR *) old;
     WCHAR *wnew = (WCHAR *) new;
 
-    SVERK_TRACE(1, old);
+    DBG_TRACE(1, old);
     if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
 	typedef BOOLEAN (WINAPI  * CREATESYMBOLICLINKFUNCPTR) (
 	     LPCWSTR lpSymlinkFileName,
@@ -2030,7 +2030,7 @@ int
 efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 	    Sint64 length, int advise)
 {
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     /* posix_fadvise is not available on Windows, do nothing */
     errno = ERROR_SUCCESS;
     return check_error(0, errInfo);
@@ -2039,7 +2039,7 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 int
 efile_fallocate(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length)
 {
-    SVERK_TRACE(2, L"");
+    DBG_TRACE(2, L"");
     /* No file preallocation method available in Windows. */
     errno = errno_map(ERROR_NOT_SUPPORTED);
     SetLastError(ERROR_NOT_SUPPORTED);
