@@ -1533,6 +1533,37 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	return dirty_nif(env, argc, argv);
     }
 }
+
+static ERL_NIF_TERM dirty_sender(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result;
+    ErlNifPid pid;
+    ErlNifEnv* menv;
+    int res;
+
+    enif_get_local_pid(env, argv[0], &pid);
+    result = enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_pid(env, &pid));
+    menv = enif_alloc_env();
+    res = enif_send(env, &pid, menv, result);
+    enif_free_env(menv);
+    if (!res)
+	/* Note the next line will crash, since dirty nifs can't return exceptions.
+	 * This is intentional, since enif_send should not fail if the test succeeds.
+	 */
+	return enif_schedule_dirty_nif_finalizer(env, enif_make_badarg(env), enif_dirty_nif_finalizer);
+    else
+	return enif_schedule_dirty_nif_finalizer(env, result, enif_dirty_nif_finalizer);
+}
+
+static ERL_NIF_TERM send_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result;
+    ErlNifPid pid;
+
+    if (!enif_get_local_pid(env, argv[0], &pid))
+	return enif_make_badarg(env);
+    return enif_schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_CPU_BOUND, dirty_sender, argc, argv);
+}
 #endif
 
 static ERL_NIF_TERM is_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1713,6 +1744,7 @@ static ErlNifFunc nif_funcs[] =
     {"consume_timeslice_nif", 2, consume_timeslice_nif},
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
     {"call_dirty_nif", 3, call_dirty_nif},
+    {"send_from_dirty_nif", 1, send_from_dirty_nif},
 #endif
     {"is_map_nif", 1, is_map_nif},
     {"get_map_size_nif", 1, get_map_size_nif},
