@@ -1,2 +1,2 @@
-{dialyzer_options, []}.
+{dialyzer_options, [{warnings, [no_unknown]}]}.
 {time_limit, 3}.
