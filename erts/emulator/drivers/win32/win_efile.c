@@ -943,7 +943,7 @@ static int do_readdir(Efile_call_state* state,
 	int length;
 	WCHAR* s;
 
-	ensure_wpath(state, &wname);
+	ensure_wpath_max(state, &wname, MAX_PATH-2);
 	length = wcslen(wname);
 
 	wildcard = wpath_tmp_alloc(state, length+3);
