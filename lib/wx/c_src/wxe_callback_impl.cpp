@@ -284,7 +284,7 @@ EwxListCtrl::~EwxListCtrl() {
  * wxListCtrlCompare wrapper
  * ****************************************************************************/
 
-int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
+int wxCALLBACK wxEListCtrlCompare(wxeIntPtr item1, wxeIntPtr item2, wxeIntPtr callbackInfoPtr)
 {
   callbackInfo * cb = (callbackInfo *)callbackInfoPtr;
   wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(cb->port);

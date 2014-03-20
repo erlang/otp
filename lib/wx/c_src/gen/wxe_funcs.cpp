@@ -15875,7 +15875,7 @@ case wxListCtrl_SortItems: { // wxListCtrl::SortItems taylormade
   callbackInfo* cb = new callbackInfo();
   cb->port = Ecmd.port;
   cb->callbackID = sortCallback;
-  bool Result = This->SortItems(wxEListCtrlCompare, (long)cb);
+  bool Result = This->SortItems(wxEListCtrlCompare, (wxeIntPtr)cb);
   delete cb;
 
   /* Destroy the callback, see wxEPrintout::clear_cb */

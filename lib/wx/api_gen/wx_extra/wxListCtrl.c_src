@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -165,7 +165,7 @@ case ~s: { // wxListCtrl::SortItems taylormade
   callbackInfo* cb = new callbackInfo();
   cb->port = Ecmd.port;
   cb->callbackID = sortCallback;
-  bool Result = This->SortItems(wxEListCtrlCompare, (long)cb);
+  bool Result = This->SortItems(wxEListCtrlCompare, (wxeIntPtr)cb);
   delete cb;
 
   /* Destroy the callback, see wxEPrintout::clear_cb */

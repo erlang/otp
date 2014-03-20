@@ -23,6 +23,13 @@
 void pre_callback();
 void handle_event_callback(ErlDrvPort port, ErlDrvTermData process);
 
+#if wxCHECK_VERSION(2,9,0)
+    #define wxeIntPtr wxIntPtr
+#else
+    // This is bad but how it was in wx-2.8
+    #define wxeIntPtr long
+#endif
+
 /* Fun Callback id */ 
 class wxeEvtListener : public wxEvtHandler
 {
@@ -88,6 +95,6 @@ struct callbackInfo {
     int callbackID;
 };
 
-int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr);
+int wxCALLBACK wxEListCtrlCompare(wxeIntPtr item1, wxeIntPtr item2, wxeIntPtr callbackInfoPtr);
 
 #endif
