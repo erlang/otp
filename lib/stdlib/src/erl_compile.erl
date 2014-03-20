@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,7 +66,7 @@ my_halt(Reason) ->
 
 compile(List) ->
     process_flag(trap_exit, true),
-    Pid = spawn_link(fun() -> compiler_runner(List) end),
+    Pid = spawn_link(compiler_runner(List)),
     receive
 	{'EXIT', Pid, {compiler_result, Result}} ->
 	    Result;
@@ -79,14 +79,16 @@ compile(List) ->
 	    error
     end.
 
--spec compiler_runner([cmd_line_arg()]) -> no_return().
+-spec compiler_runner([cmd_line_arg()]) -> fun(() -> no_return()).
 
 compiler_runner(List) ->
-    %% We don't want the current directory in the code path.
-    %% Remove it.
-    Path = [D || D <- code:get_path(), D =/= "."],
-    true = code:set_path(Path),
-    exit({compiler_result, compile1(List)}).
+    fun() ->
+            %% We don't want the current directory in the code path.
+            %% Remove it.
+            Path = [D || D <- code:get_path(), D =/= "."],
+            true = code:set_path(Path),
+            exit({compiler_result, compile1(List)})
+    end.
 
 %% Parses the first part of the option list.
 

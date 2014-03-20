@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -288,6 +288,8 @@ start(EscriptOptions) ->
             io:format("~p\n", [erlang:get_stacktrace()]),
             my_halt(127)
     end.
+
+-spec parse_and_run(_, _, _) -> no_return().
 
 parse_and_run(File, Args, Options) ->
     CheckOnly = lists:member("s", Options),
@@ -727,6 +729,8 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
 %% Evaluate script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec debug(_, _, _) -> no_return().
+
 debug(Module, AbsMod, Args) ->
     case hidden_apply(debugger, debugger, start, []) of
 	{ok, _} ->
@@ -742,6 +746,8 @@ debug(Module, AbsMod, Args) ->
 	    fatal("Cannot start the debugger")
     end.
 
+-spec run(_, _) -> no_return().
+
 run(Module, Args) ->
     try
         Module:main(Args),
@@ -750,6 +756,8 @@ run(Module, Args) ->
         Class:Reason ->
             fatal(format_exception(Class, Reason))
     end.
+
+-spec interpret(_, _, _, _) -> no_return().
 
 interpret(Forms, HasRecs,  File, Args) ->
     %% Basic validation before execution
