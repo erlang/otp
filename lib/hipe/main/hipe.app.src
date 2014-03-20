@@ -216,4 +216,6 @@
 	     hipe_x86_x87]},
   {registered,[]},
   {applications, [kernel,stdlib]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies, ["syntax_tools-1.6.14","stdlib-2.0","kernel-3.0",
+			  "erts-6.0","compiler-5.0"]}]}.

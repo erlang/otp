@@ -47,6 +47,7 @@
 		mnesia_tm
 	       ]},
   {applications, [kernel, stdlib]},
-  {mod, {mnesia_sup, []}}]}.
+  {mod, {mnesia_sup, []}},
+  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","erts-6.0"]}]}.
 
 

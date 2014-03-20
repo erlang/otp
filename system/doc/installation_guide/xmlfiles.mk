@@ -17,7 +17,6 @@
 # %CopyrightEnd%
 #
 INST_GUIDE_CHAPTER_FILES = \
-	otp_version.xml	\
 	install-binary.xml \
 	verification.xml \
 	INSTALL.xml \

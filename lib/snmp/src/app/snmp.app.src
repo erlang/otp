@@ -136,4 +136,6 @@
   %% configuration and use), and in that case mnesia must also be started,
   %% before snmp.
   {applications, [kernel, stdlib]},
-  {mod, {snmp_app, []}}]}.
+  {mod, {snmp_app, []}},
+  {runtime_dependencies, ["stdlib-2.0","runtime_tools-1.8.14","mnesia-4.12",
+			  "kernel-3.0","erts-6.0","crypto-3.3"]}]}.

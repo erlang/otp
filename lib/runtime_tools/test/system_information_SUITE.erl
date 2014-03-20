@@ -33,6 +33,7 @@
 	api_report/1,
 	api_to_file/1,
 	api_from_file/1,
+	sanity_check/1,
 	%% server
 	api_start_stop/1,
 	validate_server_interface/1
@@ -84,7 +85,8 @@ all() -> [
 	api_to_file,
 	api_from_file,
 	api_start_stop,
-	validate_server_interface
+	validate_server_interface,
+	sanity_check
     ].
 
 
@@ -262,6 +264,9 @@ validate_server_interface(Config) ->
     ok = system_information:stop(),
     ok.
 
+sanity_check(Config) when is_list(Config) ->
+    ok = system_information:sanity_check().
+
 
 %% aux
 
@@ -288,7 +293,8 @@ validate_report(Report) ->
 	    erts_compile_info,
 	    beam_dynamic_libraries,
 	    environment_erts,
-	    environment
+	    environment,
+	    sanity_check
 	], Report).
 
 ensure_report_keys([], _) -> ok;

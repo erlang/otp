@@ -397,9 +397,9 @@ endif
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
 ifeq ($(RELEASE_ROOT),)
-	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)"
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
 else
-	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(RELEASE_ROOT)"
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(RELEASE_ROOT)/releases/@OTP_REL@"
 endif
 
 # ---------------------------------------------------------------
@@ -1038,9 +1038,9 @@ install.Install:
 
 install.otp_version:
 ifeq ($(ERLANG_LIBDIR),)
-	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)"
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
 else
-	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(ERLANG_LIBDIR)"
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(ERLANG_LIBDIR)/releases/@OTP_REL@"
 endif
 
 #

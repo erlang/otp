@@ -22,4 +22,6 @@
 	     otpsgml_layout]},
   {registered,[]},
   {applications, [compiler,kernel,stdlib,syntax_tools]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies, ["xmerl-1.3.7","syntax_tools-1.6.14","stdlib-2.0",
+			  "kernel-3.0","inets-5.10","erts-6.0"]}]}.

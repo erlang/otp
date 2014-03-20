@@ -62,5 +62,10 @@
 		ct_master,
 		ct_master_logs]},
   {applications, [kernel,stdlib]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies,["xmerl-1.3.7","webtool-0.8.10","tools-2.6.14",
+			 "test_server-3.7","stdlib-2.0","ssh-3.0.1",
+			 "snmp-4.25.1","sasl-2.4","runtime_tools-1.8.14",
+			 "kernel-3.0","inets-5.10","erts-6.0",
+			 "debugger-4.0","crypto-3.3","compiler-5.0"]}]}.
 

@@ -60,6 +60,9 @@
 	       ttb_et]},
     {registered, []},
     {applications, [kernel, stdlib]},
-    {env, []}]}.
+    {env, []},
+    {runtime_dependencies, ["wx-1.2","stdlib-2.0","runtime_tools-1.8.14",
+			    "kernel-3.0","inets-5.10","et-1.5",
+			    "erts-6.0"]}]}.
 
 

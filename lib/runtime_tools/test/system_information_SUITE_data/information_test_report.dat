@@ -9870,4 +9870,5 @@
                  {"MANPATH",
                   "/usr/local/man:/usr/share/man:/usr/X11R6/man:/opt/gnome/share/man"},
                  {"LESSKEY","/etc/lesskey.bin"},
-                 {"LC_PAPER","sv_SE.UTF-8"}]}]}.
+                 {"LC_PAPER","sv_SE.UTF-8"}]},
+		{sanity_check,ok}]}.
