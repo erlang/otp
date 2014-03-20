@@ -151,6 +151,11 @@ do { \
     message dispatcher thread takes care of that). */
 #define ERTS_GET_TRACER_REF(RES, TPID, TRACEE_FLGS) \
 do { (RES) = (TPID); } while(0)
+int
+erts_is_tracer_proc_valid(Process* p)
+{
+    return 1;
+}
 #else
 #define ERTS_NULL_TRACER_REF NULL
 #define ERTS_TRACER_REF_TYPE Process *
@@ -163,6 +168,20 @@ do { \
 	return; \
     } \
 } while (0)
+int
+erts_is_tracer_proc_valid(Process* p)
+{
+    Process* tracer;
+
+    tracer = erts_proc_lookup(ERTS_TRACER_PROC(p));
+    if (tracer && ERTS_TRACE_FLAGS(tracer) & F_TRACER) {
+	return 1;
+    } else {
+	ERTS_TRACER_PROC(p) = NIL;
+	ERTS_TRACE_FLAGS(p) = ~TRACEE_FLAGS;
+	return 0;
+    }
+}
 #endif
 
 static Uint active_sched;

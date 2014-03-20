@@ -39,6 +39,7 @@ void erts_change_default_tracing(int setflags, Uint *flagsp, Eterm *tracerp);
 void erts_get_default_tracing(Uint *flagsp, Eterm *tracerp);
 void erts_set_system_monitor(Eterm monitor);
 Eterm erts_get_system_monitor(void);
+int erts_is_tracer_proc_valid(Process* p);
 
 #ifdef ERTS_SMP
 void erts_check_my_tracer_proc(Process *);
