@@ -123,6 +123,32 @@
         </taglist>
       </desc>
     </datatype>
+    <datatype>
+      <name name="filename"/>
+      <desc>
+        <p>Zip file name as in <seealso marker="kernel:file#name/0">file:name/0</seealso></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="create_option"/>
+      <desc>
+        <p>The type <c>create_option</c></p>
+        <taglist>
+          <tag><c>memory</c></tag>
+          <item>
+            <p> TODO </p>
+          </item>
+          <tag><c>cooked</c></tag>
+          <item>
+            <p> TODO </p>
+          </item>
+          <tag><c>verbose</c></tag>
+          <item>
+            <p> TODO </p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
