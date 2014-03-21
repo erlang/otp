@@ -1119,15 +1119,8 @@ handle_http_body(Body, #state{headers       = Headers,
 		    handle_response(State#state{headers = NewHeaders, 
 						body    = NewBody})
 	    end;
-        Encoding when is_list(Encoding) ->
-	    ?hcrt("handle_http_body - encoding", [{encoding, Encoding}]),
-	    NewState = answer_request(Request, 
-				      httpc_response:error(Request, 
-							   unknown_encoding),
-				      State),
-	    {stop, normal, NewState};
-        _ ->
-	    ?hcrt("handle_http_body - other", []),
+        Enc when Enc =:= "identity"; Enc =:= undefined ->
+            ?hcrt("handle_http_body - identity", []),
             Length =
                 list_to_integer(Headers#http_response_h.'content-length'),
             case ((Length =< MaxBodySize) orelse (MaxBodySize =:= nolimit)) of
@@ -1149,7 +1142,14 @@ handle_http_body(Body, #state{headers       = Headers,
 							    body_too_big),
 				       State),
                     {stop, normal, NewState}
-            end
+            end;
+        Encoding when is_list(Encoding) ->
+            ?hcrt("handle_http_body - other", [{encoding, Encoding}]),
+            NewState = answer_request(Request,
+                                      httpc_response:error(Request,
+                                                           unknown_encoding),
+                                      State),
+            {stop, normal, NewState}
     end.
 
 handle_response(#state{status = new} = State) ->
