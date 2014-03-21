@@ -111,6 +111,13 @@ main(int argc, char *argv[])
 	(void) close(i);
 #endif /* __ANDROID__ */
 
+#if defined(HAVE_CLOSEFROM)
+    closefrom(from);
+#else
+    for (i = from; i <= to; i++)
+	(void) close(i);
+#endif
+
     if (!(argv[CS_ARGV_WD_IX][0] == '.' && argv[CS_ARGV_WD_IX][1] == '\0')
 	&& chdir(argv[CS_ARGV_WD_IX]) < 0)
 	return 1;
