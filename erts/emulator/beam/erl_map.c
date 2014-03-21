@@ -647,22 +647,24 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     *mhp++ = tup;
 
     if (is_immed(key)) {
-	while(n--) {
+	while (1) {
 	    if (*ks == key) {
 		goto found_key;
-	    } else {
+	    } else if (--n) {
 		*mhp++ = *vs++;
 		*thp++ = *ks++;
-	    }
+	    } else
+		break;
 	}
     } else {
-	while(n--) {
+	while(1) {
 	    if (EQ(*ks, key)) {
 		goto found_key;
-	    } else {
+	    } else if (--n) {
 		*mhp++ = *vs++;
 		*thp++ = *ks++;
-	    }
+	    } else
+		break;
 	}
     }
 
@@ -676,7 +678,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 
 found_key:
     /* Copy rest of keys and values */
-    if (n) {
+    if (--n) {
 	sys_memcpy(mhp, vs+1, n*sizeof(Eterm));
 	sys_memcpy(thp, ks+1, n*sizeof(Eterm));
     }
