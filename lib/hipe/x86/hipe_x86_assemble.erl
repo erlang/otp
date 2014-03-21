@@ -21,7 +21,6 @@
 %%%
 %%% TODO:
 %%% - Simplify combine_label_maps and mk_data_relocs.
-%%% - Move find_const to hipe_pack_constants?
 
 -ifdef(HIPE_AMD64).
 -define(HIPE_X86_ASSEMBLE,  hipe_amd64_assemble).
@@ -80,8 +79,8 @@ assemble(CompiledCode, Closures, Exports, Options) ->
   %%	       ?debug_msg("Constants are ~w bytes\n",[ConstSize])),
   %%
   SC = hipe_pack_constants:slim_constmap(ConstMap),
-  DataRelocs = mk_data_relocs(RefsFromConsts, LabelMap),
-  SSE = slim_sorted_exportmap(ExportMap,Closures,Exports),
+  DataRelocs = hipe_pack_constants:mk_data_relocs(RefsFromConsts, LabelMap),
+  SSE = hipe_pack_constants:slim_sorted_exportmap(ExportMap,Closures,Exports),
   SlimRefs = hipe_pack_constants:slim_refs(AccRefs),
   Bin = term_to_binary([{?VERSION_STRING(),?HIPE_SYSTEM_CRC},
 			ConstAlign, ConstSize,
@@ -442,7 +441,7 @@ translate_imm(#x86_imm{value=Imm}, Context, MayTrunc8) ->
 	case Imm of
 	  {Label,constant} ->
 	    {MFA,ConstMap} = Context,
-	    ConstNo = find_const({MFA,Label}, ConstMap),
+	    ConstNo = hipe_pack_constants:find_const({MFA,Label}, ConstMap),
 	    {constant,ConstNo};
 	  {Label,closure} ->
 	    {closure,Label};
@@ -712,7 +711,7 @@ resolve_jmp_switch_arg(I, _Context) ->
   {rm64,hipe_amd64_encode:rm_mem(EA)}.
 -else.
 resolve_jmp_switch_arg(I, {MFA,ConstMap}) ->
-  ConstNo = find_const({MFA,hipe_x86:jmp_switch_jtab(I)}, ConstMap),
+  ConstNo = hipe_pack_constants:find_const({MFA,hipe_x86:jmp_switch_jtab(I)}, ConstMap),
   Disp32 = {?LOAD_ADDRESS,{constant,ConstNo}},
   SINDEX = ?HIPE_X86_ENCODE:sindex(2, hipe_x86:temp_reg(hipe_x86:jmp_switch_temp(I))),
   EA = ?HIPE_X86_ENCODE:ea_disp32_sindex(Disp32, SINDEX), % this creates a SIB implicitly
@@ -932,37 +931,6 @@ resolve_x87_binop_args(Src=#x86_fpreg{}, Dst=#x86_fpreg{})->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mk_data_relocs(RefsFromConsts, LabelMap) ->
-  lists:flatten(mk_data_relocs(RefsFromConsts, LabelMap, [])).
-
-mk_data_relocs([{MFA,Labels} | Rest], LabelMap, Acc) ->
-  Map = [case Label of
-	   {L,Pos} ->
-	     Offset = find({MFA,L}, LabelMap),
-	     {Pos,Offset};
-	   {sorted,Base,OrderedLabels} ->
-	     {sorted, Base, [begin
-			       Offset = find({MFA,L}, LabelMap),
-			       {Order, Offset}
-			     end
-			     || {L,Order} <- OrderedLabels]}
-	 end
-	 || Label <- Labels],
-  %% msg("Map: ~w Map\n",[Map]),
-  mk_data_relocs(Rest, LabelMap, [Map,Acc]);
-mk_data_relocs([],_,Acc) -> Acc.
-
-find({MFA,L},LabelMap) ->
-  gb_trees:get({MFA,L}, LabelMap).
-
-slim_sorted_exportmap([{Addr,M,F,A}|Rest], Closures, Exports) ->
-  IsClosure = lists:member({M,F,A}, Closures),
-  IsExported = is_exported(F, A, Exports),
-  [Addr,M,F,A,IsClosure,IsExported | slim_sorted_exportmap(Rest, Closures, Exports)];
-slim_sorted_exportmap([],_,_) -> [].
-
-is_exported(F, A, Exports) -> lists:member({F,A}, Exports).
-
 %%%
 %%% Assembly listing support (pp_asm option).
 %%%
@@ -1001,14 +969,3 @@ fill_spaces(N) when N > 0 ->
   fill_spaces(N-1);
 fill_spaces(0) ->
   [].
-
-%%%
-%%% Lookup a constant in a ConstMap.
-%%%
-
-find_const({MFA,Label},[{pcm_entry,MFA,Label,ConstNo,_,_,_}|_]) ->
-  ConstNo;
-find_const(N,[_|R]) ->
-  find_const(N,R);
-find_const(C,[]) ->
-  ?EXIT({constant_not_found,C}).

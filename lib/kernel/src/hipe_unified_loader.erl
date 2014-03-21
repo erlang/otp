@@ -194,6 +194,13 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
    CodeSize,  CodeBinary,  Refs,
    0,[] % ColdSize, CRrefs
   ] = binary_to_term(Bin),
+  ?debug_msg("***** ErLLVM *****~nVersion: ~s~nCheckSum: ~w~nConstAlign: ~w~n" ++
+    "ConstSize: ~w~nConstMap: ~w~nLabelMap: ~w~nExportMap ~w~nRefs ~w~n",
+    [Version, CheckSum, ConstAlign, ConstSize, ConstMap, LabelMap, ExportMap,
+      Refs]),
+  %% Write HiPE binary code to a file in the current directory in order to
+  %% debug by disassembling.
+  %% file:write_file("erl.o", CodeBinary, [binary]),
   %% Check that we are loading up-to-date code.
   version_check(Version, Mod),
   case hipe_bifs:check_crc(CheckSum) of
@@ -221,6 +228,7 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       {MFAs,Addresses} = exports(ExportMap, CodeAddress),
       %% Remove references to old versions of the module.
       ReferencesToPatch = get_refs_from(MFAs, []),
+      %% io:format("References to patch: ~w~n", [ReferencesToPatch]),
       ok = remove_refs_from(MFAs),
       %% Patch all dynamic references in the code.
       %%  Function calls, Atoms, Constants, System calls
@@ -246,8 +254,7 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
 	  AddressesOfClosuresToPatch =
 	    calculate_addresses(ClosurePatches, CodeAddress, Addresses),
 	  export_funs(Addresses),
-	  export_funs(Mod, BeamBinary, Addresses, AddressesOfClosuresToPatch),
-	  ok
+	  export_funs(Mod, BeamBinary, Addresses, AddressesOfClosuresToPatch)
       end,
       %% Redirect references to the old module to the new module's BEAM stub.
       patch_to_emu_step2(OldReferencesToPatch),
