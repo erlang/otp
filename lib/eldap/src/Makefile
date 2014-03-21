@@ -88,7 +88,7 @@ $(TARGET_FILES): $(HRL_FILES)
 # Special Build Targets
 # ----------------------------------------------------
 $(ASN1_HRL): ../asn1/$(ASN1_FILES)
-	$(asn_verbose)$(ERLC) -o $(EBIN) -bber $(ERL_COMPILE_FLAGS) ../asn1/ELDAPv3.asn1
+	$(asn_verbose)$(ERLC) -o $(EBIN) +legacy_erlang_types -bber $(ERL_COMPILE_FLAGS) ../asn1/ELDAPv3.asn1
 
 # ----------------------------------------------------
 # Release Target
