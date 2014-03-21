@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -919,29 +919,38 @@ normalise_list([]) ->
       Data :: term(),
       AbsTerm :: abstract_expr().
 abstract(T) ->
-    abstract(T, 0, epp:default_encoding()).
+    abstract(T, 0, enc_func(epp:default_encoding())).
+
+-type encoding_func() :: fun((non_neg_integer()) -> boolean()).
 
 %%% abstract/2 takes line and encoding options
 -spec abstract(Data, Options) -> AbsTerm when
       Data :: term(),
       Options :: Line | [Option],
       Option :: {line, Line} | {encoding, Encoding},
-      Encoding :: latin1 | unicode | utf8,
+      Encoding :: 'latin1' | 'unicode' | 'utf8' | 'none' | encoding_func(),
       Line :: erl_scan:line(),
       AbsTerm :: abstract_expr().
 
 abstract(T, Line) when is_integer(Line) ->
-    abstract(T, Line, epp:default_encoding());
+    abstract(T, Line, enc_func(epp:default_encoding()));
 abstract(T, Options) when is_list(Options) ->
     Line = proplists:get_value(line, Options, 0),
     Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
-    abstract(T, Line, Encoding).
+    EncFunc = enc_func(Encoding),
+    abstract(T, Line, EncFunc).
 
 -define(UNICODE(C),
-        is_integer(C) andalso
-         (C >= 0 andalso C < 16#D800 orelse
+         (C < 16#D800 orelse
           C > 16#DFFF andalso C < 16#FFFE orelse
           C > 16#FFFF andalso C =< 16#10FFFF)).
+
+enc_func(latin1) -> fun(C) -> C < 256 end;
+enc_func(unicode) -> fun(C) -> ?UNICODE(C) end;
+enc_func(utf8) -> fun(C) -> ?UNICODE(C) end;
+enc_func(none) -> none;
+enc_func(Fun) when is_function(Fun, 1) -> Fun;
+enc_func(Term) -> erlang:error({badarg, Term}).
 
 abstract(T, L, _E) when is_integer(T) -> {integer,L,T};
 abstract(T, L, _E) when is_float(T) -> {float,L,T};
@@ -949,29 +958,24 @@ abstract(T, L, _E) when is_atom(T) -> {atom,L,T};
 abstract([], L, _E) -> {nil,L};
 abstract(B, L, _E) when is_bitstring(B) ->
     {bin, L, [abstract_byte(Byte, L) || Byte <- bitstring_to_list(B)]};
-abstract([C|T], L, unicode=E) when ?UNICODE(C) ->
-    abstract_unicode_string(T, [C], L, E);
-abstract([C|T], L, utf8=E) when ?UNICODE(C) ->
-    abstract_unicode_string(T, [C], L, E);
-abstract([C|T], L, latin1=E) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C], L, E);
-abstract([H|T], L, E) ->
+abstract([H|T], L, none=E) ->
     {cons,L,abstract(H, L, E),abstract(T, L, E)};
+abstract(List, L, E) when is_list(List) ->
+    abstract_list(List, [], L, E);
 abstract(Tuple, L, E) when is_tuple(Tuple) ->
-    {tuple,L,abstract_list(tuple_to_list(Tuple), L, E)}.
+    {tuple,L,abstract_tuple_list(tuple_to_list(Tuple), L, E)}.
 
-abstract_string([C|T], String, L, E) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C|String], L, E);
-abstract_string([], String, L, _E) ->
+abstract_list([H|T], String, L, E) ->
+    case is_integer(H) andalso H >= 0 andalso E(H) of
+        true ->
+            abstract_list(T, [H|String], L, E);
+        false ->
+            AbstrList = {cons,L,abstract(H, L, E),abstract(T, L, E)},
+            not_string(String, AbstrList, L, E)
+    end;
+abstract_list([], String, L, _E) ->
     {string, L, lists:reverse(String)};
-abstract_string(T, String, L, E) ->
-    not_string(String, abstract(T, L, E), L, E).
-
-abstract_unicode_string([C|T], String, L, E) when ?UNICODE(C) ->
-    abstract_unicode_string(T, [C|String], L, E);
-abstract_unicode_string([], String, L, _E) ->
-    {string, L, lists:reverse(String)};
-abstract_unicode_string(T, String, L, E) ->
+abstract_list(T, String, L, E) ->
     not_string(String, abstract(T, L, E), L, E).
 
 not_string([C|T], Result, L, E) ->
@@ -979,9 +983,9 @@ not_string([C|T], Result, L, E) ->
 not_string([], Result, _L, _E) ->
     Result.
 
-abstract_list([H|T], L, E) ->
-    [abstract(H, L, E)|abstract_list(T, L, E)];
-abstract_list([], _L, _E) ->
+abstract_tuple_list([H|T], L, E) ->
+    [abstract(H, L, E)|abstract_tuple_list(T, L, E)];
+abstract_tuple_list([], _L, _E) ->
     [].
 
 abstract_byte(Byte, L) when is_integer(Byte) ->
