@@ -52,7 +52,7 @@ static int epmd_main(int, char **, int);
 
 int epmd_dbg(int level,int port) /* Utility to debug epmd... */
 {
-  char* argv[MAX_DEBUG+2];
+  char* argv[MAX_DEBUG+4];
   char  ibuff[100];
   int   argc = 0;
   
