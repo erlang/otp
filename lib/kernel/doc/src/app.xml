@@ -213,8 +213,8 @@ RTDeps       [ApplicationVersion] []
       OTP 17.0. The type of its value might be subject to changes during
       the OTP 17 release.</p></warning>
       <warning><p>All runtime dependencies specified in OTP applications
-      during the OTP 17 release might not be completely correct. This
-      is actively worked on. Declared runtime dependencies in OTP
+      during the OTP 17 release may not be completely correct. This
+      is actively being worked on. Declared runtime dependencies in OTP
       applications are expected to be correct in OTP 18.</p></warning>
       </item>
     </taglist>

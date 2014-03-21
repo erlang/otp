@@ -79,18 +79,18 @@
     </section>
 
     <section><title>OTP Versions Table</title>
-    <p>The text file <c>&lt;OTP source root&gt;/otp_versions.table</c>
-    part of the source code contains information about all OTP versions
+    <p>The text file <c>&lt;OTP source root&gt;/otp_versions.table</c> that
+    is part of the source code contains information about all OTP versions
     from OTP 17.0 up to current OTP version. Each line contains information
-    about application versions part of a specific OTP version, and is on
-    the format:</p>
+    about application versions that are part of a specific OTP version, and
+    is on the format:</p>
 <pre>
-&lt;OtpVersion&gt; : &lt;ChangedAppVersions&gt; # &lt;UnchangedAppVersions&gt;
+&lt;OtpVersion&gt; : &lt;ChangedAppVersions&gt; # &lt;UnchangedAppVersions&gt; :
 </pre>
     <p><c>&lt;OtpVersion&gt;</c> is on the format <c>OTP-&lt;VSN&gt;</c>, i.e.,
     the same as the git tag used to identify the source.
     <c>&lt;ChangedAppVersions&gt;</c> and <c>&lt;UnchangedAppVersions&gt;</c>
-    are white space separated lists of application versions on the
+    are space separated lists of application versions on the
     format <c>&lt;application&gt;-&lt;vsn&gt;</c>. 
     <c>&lt;ChangedAppVersions&gt;</c> corresponds to changed applications
     with new version numbers in this OTP version, and
@@ -99,14 +99,15 @@
     not at the same time. If &lt;ChangedAppVersions&gt; is empty, no changes
     has been made that change the build result of any application. This could
     for example be a pure bug fix of the build system. The order of lines
-    is undefined.</p>
+    is undefined. All white space characters in this file are either space
+    (character 32) or line-break (character 10).</p>
     <p>Using ordinary UNIX tools like <c>sed</c> and <c>grep</c> one
     can easily find answers to various questions like:</p>
     <taglist>
       <tag>Which OTP versions are <c>kernel-3.0</c> part of?</tag>
-      <item><p><c> $ grep 'kernel-3\.0' otp_versions.table</c></p></item>
+      <item><p><c> $ grep ' kernel-3\.0 ' otp_versions.table</c></p></item>
       <tag>In which OTP version was <c>kernel-3.0</c> introduced?</tag>
-      <item><p><c> $ sed 's/#.*//;/kernel-3\.0/!d' otp_versions.table</c></p></item>
+      <item><p><c> $ sed 's/#.*//;/ kernel-3\.0 /!d' otp_versions.table</c></p></item>
     </taglist>
     <p>The above commands give a bit more information than the exact answers,
     but adequate information when manually searching for answers to these
