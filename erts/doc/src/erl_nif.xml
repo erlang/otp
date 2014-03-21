@@ -316,6 +316,32 @@ ok
       <p>The library initialization callbacks <c>load</c>, <c>reload</c> and
       <c>upgrade</c> are all thread-safe even for shared state data.</p>
       </item>
+
+      <tag><marker id="version_management"/>Version Management</tag>
+      <item><p>
+      When a NIF library is built, information about NIF API version
+      is compiled into the library. When a NIF library is loaded the
+      runtime system verifies that the library is of a compatible version.
+      <c>erl_nif.h</c> defines <c>ERL_NIF_MAJOR_VERSION</c>, and
+      <c>ERL_NIF_MINOR_VERSION</c>. <c>ERL_NIF_MAJOR_VERSION</c> will be
+      incremented when NIF library incompatible changes are made to the
+      Erlang runtime system. Normally it will suffice to recompile the NIF
+      library when the <c>ERL_NIF_MAJOR_VERSION</c> has changed, but it
+      could, under rare circumstances, mean that NIF libraries have to
+      be slightly modified. If so, this will of course be documented.
+      <c>ERL_NIF_MINOR_VERSION</c> will be incremented when
+      new features are added. The runtime system uses the minor version
+      to determine what features to use.
+      </p><p>
+      The runtime system will normally refuse to load a NIF library if
+      the major versions differ, or if the major versions are equal and
+      the minor version used by the NIF library is greater than the one
+      used by the runtime system. Old NIF libraries with lower major
+      versions will however be allowed after a bump of the major version
+      during a transition period of two major releases. Such old NIF
+      libraries might however fail if deprecated features are used.
+      </p></item>
+
       <tag>Dirty NIFs</tag>
       <item><p><marker id="dirty_nifs"/><em>Note that the dirty NIF functionality
       is experimental</em> and that you have to enable support for dirty

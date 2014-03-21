@@ -315,10 +315,13 @@
           <c>ERL_DRV_EXTENDED_MINOR_VERSION</c> will be incremented when
           new features are added. The runtime system uses the minor version
           of the driver to determine what features to use.
-          The runtime system will refuse to load a driver if the major
+          The runtime system will normally refuse to load a driver if the major
           versions differ, or if the major versions are equal and the
           minor version used by the driver is greater than the one used
-          by the runtime system.</p>
+          by the runtime system. Old drivers with lower major versions
+	  will however be allowed after a bump of the major version during
+	  a transition period of two major releases. Such old drivers might
+	  however fail if deprecated features are used.</p>
 	<p>The emulator will refuse to load a driver that does not use
 	  the extended driver interface,
 	  to allow for 64-bit capable drivers,
