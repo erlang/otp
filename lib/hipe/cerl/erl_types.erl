@@ -618,7 +618,7 @@ t_decorate_with_opaque(T1, T2, Opaques) ->
       end
   end.
 
-decorate(?none=Type, _, _Opaques) -> Type;
+decorate(Type, ?none, _Opaques) -> Type;
 decorate(?function(Domain, Range), ?function(D, R), Opaques) ->
   ?function(decorate(Domain, D, Opaques), decorate(Range, R, Opaques));
 decorate(?list(Types, Tail, Size), ?list(Ts, Tl, _Sz), Opaques) ->
@@ -684,6 +684,7 @@ union_decorate(U1, U2, Opaques) ->
   List = [A,B,F,I,L,N,T,M,Map],
   DecList = [Dec ||
               E <- List,
+              not t_is_none(E),
               not t_is_none(Dec = decorate(E, Opaque, Opaques))],
   t_sup([Union|DecList]).
 
