@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
--export([host/4, chunked/4, expect/4, range/4, if_test/5, http_trace/4,
+-export([host/4, chunked/4, expect/4, range/4, if_test/5, trace/4,
 	 head/4, mod_cgi_chunked_encoding_test/5]).
 
 %% -define(all_keys_lower_case,true).
@@ -152,13 +152,13 @@ if_test(Type, Port, Host, Node, DocRoot)->
 	calendar:datetime_to_gregorian_seconds(FileInfo#file_info.mtime),
     
     Mod = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
-    				      CreatedSec-1)),
+				    CreatedSec-1)),
     
     %% Test that we get the data when the file is modified
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
     				       "GET / HTTP/1.1\r\nHost:" ++ Host ++
-    				       "\r\nIf-Modified-Since:" ++
-    				       Mod ++ "\r\n\r\n",
+					   "\r\nIf-Modified-Since:" ++
+					   Mod ++ "\r\n\r\n",
     				       [{statuscode, 200}]),
     Mod1 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec+100)),
@@ -168,74 +168,69 @@ if_test(Type, Port, Host, Node, DocRoot)->
     				       ++ Mod1 ++"\r\n\r\n",
     				       [{statuscode, 304}]),
     
-
+    
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET / HTTP/1.1\r\nHost:" ++ Host ++
-				       "\r\nIf-Modified-Since:" ++
-				       "AAA[...]AAAA" ++ "\r\n\r\n",
+					   "\r\nIf-Modified-Since:" ++
+					   "AAA[...]AAAA" ++ "\r\n\r\n",
 				       [{statuscode, 400}]),
-
-
-     Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    
+    Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				      CreatedSec+1)),
-     %% Control that the If-Unmodified-Header lmits the response
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ 
-    					  "\r\nIf-Unmodified-Since:" ++ Mod2 
-    					  ++ "\r\n\r\n",
-    					  [{statuscode, 200}]),
-     Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    %% Control that the If-Unmodified-Header lmits the response
+    ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+				       "GET / HTTP/1.1\r\nHost:"
+				       ++ Host ++ 
+					   "\r\nIf-Unmodified-Since:" ++ Mod2 
+				       ++ "\r\n\r\n",
+				       [{statuscode, 200}]),
+    Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec-1)),
     
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ 
-    					  "\r\nIf-Unmodified-Since:"++ Mod3 
+					"GET / HTTP/1.1\r\nHost:"
+					++ Host ++ 
+					    "\r\nIf-Unmodified-Since:"++ Mod3 
     					  ++"\r\n\r\n",
-    					  [{statuscode, 412}]),
+					[{statuscode, 412}]),
     
-     %% Control that we get the body when the etag match
+    %% Control that we get the body when the etag match
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:" ++ Host 
-    					  ++"\r\n"++
-    					  "If-Match:"++ 
-    					  httpd_util:create_etag(FileInfo)++
-    					  "\r\n\r\n",
-    					  [{statuscode, 200}]),
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:" ++ 
-    					  Host ++ "\r\n"++
-    					  "If-Match:NotEtag\r\n\r\n",
-    					  [{statuscode, 412}]),
+					"GET / HTTP/1.1\r\nHost:" ++ Host 
+					++"\r\n"++
+     					   "If-Match:"++ 
+					    httpd_util:create_etag(FileInfo)++
+					    "\r\n\r\n",
+					[{statuscode, 200}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "GET / HTTP/1.1\r\nHost:" ++ 
+					   Host ++ "\r\n"++
+					   "If-Match:NotEtag\r\n\r\n",
+				       [{statuscode, 412}]),
     
-     %% Control the response when the if-none-match header is there
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++"\r\n"++
-    					  "If-None-Match:NoTaag," ++ 
-    					  httpd_util:create_etag(FileInfo) ++
-    					  "\r\n\r\n",
-    					  [{statuscode, 304}]),
+    %% Control the response when the if-none-match header is there
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    				       "GET / HTTP/1.1\r\nHost:"
+     				       ++ Host ++"\r\n"++
+     					   "If-None-Match:NoTaag," ++ 
+     					   httpd_util:create_etag(FileInfo) ++
+     					   "\r\n\r\n",
+     				       [{statuscode, 304}]),
     
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
     					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ "\r\n"++
-    					  "If-None-Match:NotEtag,"
-    					  "NeihterEtag\r\n\r\n",
+				       ++ Host ++ "\r\n"++
+					   "If-None-Match:NotEtag,"
+				       "NeihterEtag\r\n\r\n",
     					  [{statuscode,200}]),
     ok.
-    
-http_trace(Type, Port, Host, Node)->
+
+trace(Type, Port, Host, Node)->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 					  "TRACE / HTTP/1.1\r\n" ++
 					  "Host:" ++ Host ++ "\r\n" ++
 					  "Max-Forwards:2\r\n\r\n",
-					  [{statuscode, 200}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				       "TRACE / HTTP/1.0\r\n\r\n",
-				       [{statuscode, 501}, 
-					{version, "HTTP/1.0"}]).
+					  [{statuscode, 200}]).
 head(Type, Port, Host, Node)->
     %% mod_include 
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
@@ -283,7 +278,7 @@ mod_cgi_chunked_encoding_test(Type, Port, Host, Node, [Request| Rest])->
 %%--------------------------------------------------------------------
 validateRangeRequest(Socket,Response,ValidBody,C,O,DE)->
     receive
-	{tcp,Socket,Data} ->
+	{_,Socket,Data} ->
 	    case string:str(Data,"\r\n") of
 		0->
 		    validateRangeRequest(Socket,
@@ -312,7 +307,7 @@ validateRangeRequest1(Socket, Response, ValidBody) ->
     case end_of_header(Response) of
 	false ->
 	    receive
-		{tcp,Socket,Data} ->
+		{_,Socket,Data} ->
 		    validateRangeRequest1(Socket, Response ++ Data, 
 					  ValidBody);
 		_->
@@ -331,10 +326,10 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, {multiPart,Boundary})->
 	    validateMultiPartRangeRequest(Body, ValidBody, Boundary);
 	false->
 	    receive
-		{tcp, Socket, Data} ->
+		{_, Socket, Data} ->
 		    validateRangeRequest2(Socket, Head, Body ++ Data,
 					  ValidBody, {multiPart, Boundary});
-		{tcp_closed, Socket} ->
+		{_, Socket} ->
 		    error;
 		_ ->
 		    error
@@ -353,7 +348,7 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, BodySize)
 	    end;	
 	Size when Size < BodySize ->
 	    receive
-		{tcp, Socket, Data} ->
+		{_, Socket, Data} ->
 		    validateRangeRequest2(Socket, Head,
 					  Body ++ Data, ValidBody, BodySize);
 		_ ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -296,6 +296,9 @@ trace(Config) when is_list(Config) ->
 pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
+
+    %% Make sure pipeline session is registerd
+    test_server:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
 %%--------------------------------------------------------------------
@@ -303,6 +306,9 @@ pipeline(Config) when is_list(Config) ->
 persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], persistent),
+
+    %% Make sure pipeline session is registerd
+    test_server:sleep(4000),
     keep_alive_requests(Request, persistent).
 
 %%-------------------------------------------------------------------------

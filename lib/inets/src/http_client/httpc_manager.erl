@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -451,7 +451,7 @@ do_init(ProfileName, CookiesDir) ->
 %%--------------------------------------------------------------------
 handle_call({request, Request}, _, State) ->
     ?hcri("request", [{request, Request}]),
-    case (catch handle_request(Request, State, false)) of
+    case (catch handle_request(Request, State)) of
 	{reply, Msg, NewState} ->
 	    {reply, Msg, NewState};
 	Error ->
@@ -511,7 +511,7 @@ handle_cast({retry_or_redirect_request, {Time, Request}},
     {noreply, State};
 
 handle_cast({retry_or_redirect_request, Request}, State) ->
-    case (catch handle_request(Request, State, true)) of
+    case (catch handle_request(Request, State)) of
 	{reply, {ok, _}, NewState} ->
 	    {noreply, NewState};
 	Error  ->
@@ -724,7 +724,7 @@ get_handler_info(Tab) ->
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/0.9"}} = Request,
-	       State, _) ->
+	       State) ->
     %% Act as an HTTP/0.9 client that does not know anything
     %% about persistent connections
 
@@ -737,7 +737,7 @@ handle_request(#request{settings =
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/1.0"}} = Request,
-	       State, _) ->
+	       State) ->
     %% Act as an HTTP/1.0 client that does not
     %% use persistent connections
 
@@ -748,13 +748,13 @@ handle_request(#request{settings =
     start_handler(NewRequest#request{headers = NewHeaders}, State),
     {reply, {ok, NewRequest#request.id}, State};
 
-handle_request(Request, State = #state{options = Options}, Retry) ->
+handle_request(Request, State = #state{options = Options}) ->
 
     NewRequest = handle_cookies(generate_request_id(Request), State),
     SessionType = session_type(Options),
     case select_session(Request#request.method,
 			Request#request.address,
-			Request#request.scheme, SessionType, State, Retry) of
+			Request#request.scheme, SessionType, State) of
 	{ok, HandlerPid} ->
 	    pipeline_or_keep_alive(NewRequest, HandlerPid, State);
 	no_connection ->
@@ -778,7 +778,6 @@ start_handler(#request{id   = Id,
 	      #state{profile_name = ProfileName, 
 		     handler_db   = HandlerDb, 
 		     options      = Options}) ->
-    ClientClose = httpc_request:is_client_closing(Request#request.headers),
     {ok, Pid} =
 	case is_inets_manager() of
 	    true ->
@@ -789,18 +788,13 @@ start_handler(#request{id   = Id,
 	end,
     HandlerInfo = {Id, Pid, From}, 
     ets:insert(HandlerDb, HandlerInfo), 
-    insert_session(#session{id = {Request#request.address, Pid},
-			    scheme = Request#request.scheme,
-			    client_close = ClientClose,
-			    type = session_type(Options)
-			   }, ProfileName),
     erlang:monitor(process, Pid).
 
 
 select_session(Method, HostPort, Scheme, SessionType, 
 	       #state{options = #options{max_pipeline_length   = MaxPipe,
 					 max_keep_alive_length = MaxKeepAlive},
-		      session_db = SessionDb}, Retry) ->
+		      session_db = SessionDb}) ->
     ?hcrd("select session", [{session_type,          SessionType},
 			     {max_pipeline_length,   MaxPipe},
 			     {max_keep_alive_length, MaxKeepAlive}]),
@@ -813,23 +807,13 @@ select_session(Method, HostPort, Scheme, SessionType,
 	    %% client_close, scheme and type specified. 
 	    %% The fields id (part of: HandlerPid) and queue_length
 	    %% specified.
-	    Pattern = case (Retry andalso SessionType == pipeline) of
-			  true ->
-			      #session{id           = {HostPort, '$1'},
-				       client_close = false,
-				       scheme       = Scheme,
-				       queue_length = '$2',
-				       type         = SessionType,
-				       persistent   = true,
-				       _            = '_'};
-			  false ->
-			      #session{id           = {HostPort, '$1'},
-				       client_close = false,
-				       scheme       = Scheme,
-				       queue_length = '$2',
-				       type         = SessionType,
-				       _            = '_'}
-		      end,
+	    Pattern = #session{id           = {HostPort, '$1'},
+			       client_close = false,
+			       scheme       = Scheme,
+			       queue_length = '$2',
+			       type         = SessionType,
+			       available    = true, 
+			       _            = '_'},
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
 	    ?hcrd("select session", [{host_port,  HostPort}, 
