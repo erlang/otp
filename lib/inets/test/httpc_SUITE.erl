@@ -104,6 +104,7 @@ only_simulated() ->
      remote_socket_close,
      remote_socket_close_async,
      transfer_encoding,
+     transfer_encoding_identity,
      redirect_loop,
      redirect_moved_permanently,
      redirect_multiple_choises,
@@ -627,6 +628,12 @@ transfer_encoding() ->
 transfer_encoding(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/capital_transfer_encoding.html", Config),
     {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(URL).
+
+%%-------------------------------------------------------------------------
+
+transfer_encoding_identity(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/identity_transfer_encoding.html", Config),
+    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(URL).
 
 %%-------------------------------------------------------------------------
 
@@ -1614,6 +1621,13 @@ handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("<HTML><BODY>fo")),
     send(Socket, http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
+
+handle_uri(_,"/identity_transfer_encoding.html",_,_,_,_) ->
+    "HTTP/1.0 200 OK\r\n"
+    "Transfer-Encoding:identity\r\n"
+    "Content-Length:8\r\n"
+    "\r\n"
+    "IDENTITY";
 
 handle_uri(_,"/cookie.html",_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
