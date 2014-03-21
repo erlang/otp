@@ -502,9 +502,10 @@ t_contains_opaque(?int_range(_From, _To), _Opaques) -> false;
 t_contains_opaque(?int_set(_Set), _Opaques) -> false;
 t_contains_opaque(?list(Type, Tail, _), Opaques) ->
   t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
-t_contains_opaque(?map(Pairs), Opaques) ->
-  list_contains_opaque([V||{_,V}<-Pairs], Opaques) orelse
-  list_contains_opaque([K||{K,_}<-Pairs], Opaques);
+t_contains_opaque(?map(_) = Map, Opaques) ->
+erlang:display({?LINE,map,contains,Map}),
+  list_contains_opaque(map_values(Map), Opaques) orelse
+  list_contains_opaque(map_keys(Map), Opaques);
 t_contains_opaque(?matchstate(_P, _Slots), _Opaques) -> false;
 t_contains_opaque(?nil, _Opaques) -> false;
 t_contains_opaque(?number(_Set, _Tag), _Opaques) -> false;
@@ -2093,6 +2094,9 @@ t_has_var(?tuple(Elements, _, _)) ->
   t_has_var_list(Elements);
 t_has_var(?tuple_set(_) = T) ->
   t_has_var_list(t_tuple_subtypes(T));
+t_has_var(?map(_)= Map) ->
+erlang:display({?LINE,map,has_var,Map}),
+  t_has_var_list(map_keys(Map)) orelse t_has_var_list(map_values(Map));
 t_has_var(?opaque(Set)) ->
   %% Assume variables in 'args' are also present i 'struct'
   t_has_var_list([O#opaque.struct || O <- set_to_list(Set)]);
@@ -2120,21 +2124,29 @@ t_collect_vars(?function(Domain, Range), Acc) ->
 t_collect_vars(?list(Contents, Termination, _), Acc) ->
   ordsets:union(t_collect_vars(Contents, Acc), t_collect_vars(Termination, []));
 t_collect_vars(?product(Types), Acc) ->
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, Types);
+  t_collect_vars_list(Types, Acc);
 t_collect_vars(?tuple(?any, ?any, ?any), Acc) ->
   Acc;
 t_collect_vars(?tuple(Types, _, _), Acc) ->
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, Types);
+  t_collect_vars_list(Types, Acc);
 t_collect_vars(?tuple_set(_) = TS, Acc) ->
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, 
-	      t_tuple_subtypes(TS));
+  t_collect_vars_list(t_tuple_subtypes(TS), Acc);
+t_collect_vars(?map(_) = Map, Acc0) ->
+erlang:display({?LINE,map,collect_vars,Map}),
+  Acc = t_collect_vars_list(map_keys(Map), Acc0),
+  t_collect_vars_list(map_values(Map), Acc);
 t_collect_vars(?opaque(Set), Acc) ->
   %% Assume variables in 'args' are also present i 'struct'
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc,
-	      [O#opaque.struct || O <- set_to_list(Set)]);
+  t_collect_vars_list([O#opaque.struct || O <- set_to_list(Set)], Acc);
+t_collect_vars(?union(List), Acc) ->
+  t_collect_vars_list(List, Acc);
 t_collect_vars(_, Acc) ->
   Acc.
 
+t_collect_vars_list([T|Ts], Acc0) ->
+  Acc = t_collect_vars(T, Acc0),
+  t_collect_vars_list(Ts, Acc);
+t_collect_vars_list([], Acc) -> Acc.
 
 %%=============================================================================
 %%
@@ -3081,6 +3093,10 @@ t_subst_dict(?tuple(Elements, _Arity, _Tag), Dict) ->
   t_tuple([t_subst_dict(E, Dict) || E <- Elements]);
 t_subst_dict(?tuple_set(_) = TS, Dict) ->
   t_sup([t_subst_dict(T, Dict) || T <- t_tuple_subtypes(TS)]);
+t_subst_dict(?map(Pairs), Dict) ->
+erlang:display({?LINE,map,subst_dict,Pairs}),
+  ?map([{t_subst_dict(K, Dict), t_subst_dict(V, Dict)} ||
+         {K, V} <- Pairs]);
 t_subst_dict(?opaque(Es), Dict) ->
   List = [Opaque#opaque{args = [t_subst_dict(Arg, Dict) || Arg <- Args],
                         struct = t_subst_dict(S, Dict)} ||
@@ -3130,6 +3146,10 @@ t_subst_aux(?tuple(Elements, _Arity, _Tag), VarMap) ->
   t_tuple([t_subst_aux(E, VarMap) || E <- Elements]);
 t_subst_aux(?tuple_set(_) = TS, VarMap) ->
   t_sup([t_subst_aux(T, VarMap) || T <- t_tuple_subtypes(TS)]);
+t_subst_aux(?map(Pairs), VarMap) ->
+erlang:display({?LINE,map,subst_aux,Pairs}),
+  ?map([{t_subst_aux(K, VarMap), t_subst_aux(V, VarMap)} ||
+         {K, V} <- Pairs]);
 t_subst_aux(?opaque(Es), VarMap) ->
    List = [Opaque#opaque{args = [t_subst_aux(Arg, VarMap) || Arg <- Args],
                          struct = t_subst_aux(S, VarMap)} ||
@@ -3705,7 +3725,7 @@ t_unopaque(T) ->
 t_unopaque(?opaque(_) = T, Opaques) ->
   case Opaques =:= 'universe' orelse is_opaque_type(T, Opaques) of
     true -> t_unopaque(t_opaque_structure(T), Opaques);
-    false -> T  % XXX: needs revision for parametric opaque data types
+    false -> T
   end;
 t_unopaque(?list(ElemT, Termination, Sz), Opaques) ->
   ?list(t_unopaque(ElemT, Opaques), t_unopaque(Termination, Opaques), Sz);
@@ -3725,11 +3745,12 @@ t_unopaque(?union([A,B,F,I,L,N,T,M,O,R,Map]), Opaques) ->
   UL = t_unopaque(L, Opaques),
   UT = t_unopaque(T, Opaques),
   UF = t_unopaque(F, Opaques),
+  UMap = t_unopaque(Map, Opaques),
   {OF,UO} = case t_unopaque(O, Opaques) of
               ?opaque(_) = O1 -> {O1, []};
               Type -> {?none, [Type]}
             end,
-  t_sup([?union([A,B,UF,I,UL,N,UT,M,OF,R,Map])|UO]);
+  t_sup([?union([A,B,UF,I,UL,N,UT,M,OF,R,UMap])|UO]);
 t_unopaque(T, _) ->
   T.
 
@@ -4699,6 +4720,12 @@ is_same_type_name2(gb_sets,  set, [_], gb_sets,  gb_set, [])  -> true;
 is_same_type_name2(gb_trees, gb_tree, [], gb_trees, tree, [_, _]) -> true;
 is_same_type_name2(gb_trees, tree, [_, _], gb_trees, gb_tree, []) -> true;
 is_same_type_name2(_, _, _, _, _, _) -> false.
+
+map_keys(?map(Pairs)) ->
+  [K || {K, _} <- Pairs].
+
+map_values(?map(Pairs)) ->
+  [V || {_, V} <- Pairs].
 
 %% -----------------------------------
 %% Set
