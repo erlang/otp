@@ -396,6 +396,18 @@ extern ethr_runtime_t ethr_runtime__;
 
 #include "ethr_atomics.h" /* The atomics API */
 
+#if defined (ETHR_OSE_THREADS)
+static ETHR_INLINE void
+ose_yield(void)
+{
+    if (get_ptype(current_process()) == OS_PRI_PROC) {
+        set_pri(get_pri(current_process()));
+    } else {
+        delay(1);
+    }
+}
+#endif
+
 #if defined(__GNUC__) && !defined(ETHR_OSE_THREADS)
 #  ifndef ETHR_SPIN_BODY
 #    if defined(__i386__) || defined(__x86_64__)
@@ -414,9 +426,9 @@ extern ethr_runtime_t ethr_runtime__;
 #  endif
 #elif defined(ETHR_OSE_THREADS)
 #  ifndef ETHR_SPIN_BODY
-#    define ETHR_SPIN_BODY set_pri(get_pri(current_process()))
+#    define ETHR_SPIN_BODY ose_yield()
 #  else
-#    error "OSE should use set_pri(get_pri(current_process()))"
+#    error "OSE should use ose_yield()"
 #  endif
 #endif
 
@@ -449,7 +461,7 @@ extern ethr_runtime_t ethr_runtime__;
 #      define ETHR_YIELD() (pthread_yield(), 0)
 #    endif
 #  elif defined(ETHR_OSE_THREADS)
-#    define ETHR_YIELD() (set_pri(get_pri(current_process())), 0)
+#    define ETHR_YIELD() (ose_yield(), 0)
 #  else
 #    define ETHR_YIELD() (ethr_compiler_barrier(), 0)
 #  endif
