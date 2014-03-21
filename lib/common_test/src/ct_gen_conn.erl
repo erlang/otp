@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -307,7 +307,8 @@ call(Pid, Msg, Timeout) ->
     end.
 
 return({To,Ref},Result) ->
-    To ! {Ref, Result}.
+    To ! {Ref, Result},
+    ok.
 
 init_gen(Parent,Opts) ->
     process_flag(trap_exit,true),
