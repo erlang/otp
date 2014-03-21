@@ -30,8 +30,6 @@
 -type from()              :: term().
 -type host()		  :: inet:ip_address() | inet:hostname().
 -type session_id()        :: 0 | binary().
--type tls_version()       :: {integer(), integer()}.
--type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'.
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
 -type der_cert()          :: binary().
@@ -73,7 +71,7 @@
 
 -record(ssl_options, {
 	  protocol    :: tls | dtls,
-	  versions    :: ['tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3] | ['dtlsv1.2' | dtlsv1],
+	  versions    :: [ssl_record:ssl_version()], %% ssl_record:atom_version() in API
 	  verify      :: verify_none | verify_peer,
 	  verify_fun,  %%:: fun(CertVerifyErrors::term()) -> boolean(),
 	  fail_if_no_peer_cert ::  boolean(),

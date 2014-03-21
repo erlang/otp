@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec encode(#alert{}, tls_version(), #connection_states{}) -> 
+-spec encode(#alert{}, ssl_record:ssl_version(), #connection_states{}) -> 
 		    {iolist(), #connection_states{}}.
 %%
 %% Description: 

@@ -276,7 +276,7 @@ controlling_process(#sslsocket{pid = {Listen,
     Transport:controlling_process(Listen, NewOwner).
 
 %%--------------------------------------------------------------------
--spec connection_info(#sslsocket{}) -> 	{ok, {tls_atom_version(), erl_cipher_suite()}} |
+-spec connection_info(#sslsocket{}) -> 	{ok, {tls_record:tls_atom_version(), ssl_cipher:erl_cipher_suite()}} |
 					{error, reason()}.
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
@@ -312,7 +312,7 @@ peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--spec suite_definition(cipher_suite()) -> erl_cipher_suite().
+-spec suite_definition(ssl_cipher:cipher_suite()) -> ssl_cipher:erl_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
 %%--------------------------------------------------------------------
@@ -330,8 +330,8 @@ negotiated_next_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_next_protocol(Pid).
 
 %%--------------------------------------------------------------------
--spec cipher_suites() -> [erl_cipher_suite()].
--spec cipher_suites(erlang | openssl | all) -> [erl_cipher_suite()] | [string()].
+-spec cipher_suites() -> [ssl_cipher:erl_cipher_suite()].
+-spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:erl_cipher_suite()] | [string()].
 			   
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
@@ -437,8 +437,8 @@ session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
 %%---------------------------------------------------------------
--spec versions() -> [{ssl_app, string()} | {supported, [tls_atom_version()]} |
-		     {available, [tls_atom_version()]}].
+-spec versions() -> [{ssl_app, string()} | {supported, [tls_record:tls_atom_version()]} |
+		     {available, [tls_record:tls_atom_version()]}].
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
