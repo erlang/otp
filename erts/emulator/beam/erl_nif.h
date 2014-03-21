@@ -46,6 +46,18 @@
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 6
 
+/*
+ * The emulator will refuse to load a nif-lib with a major version
+ * lower than ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD. The load
+ * may however fail if user have not removed use of deprecated
+ * symbols.
+ *
+ * The ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD have to allow
+ * loading of nif-libs built at least two major OTP releases
+ * ago.
+ */
+#define ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
+
 #include <stdlib.h>
 
 #ifdef SIZEOF_CHAR

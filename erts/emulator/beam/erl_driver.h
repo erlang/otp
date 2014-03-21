@@ -136,6 +136,22 @@ typedef struct {
 #define ERL_DRV_EXTENDED_MINOR_VERSION	0
 
 /*
+ * The emulator will refuse to load a driver with a major version
+ * lower than ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD. The load
+ * may however fail if user have not removed use of deprecated
+ * symbols.
+ *
+ * The ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD have to allow
+ * loading of drivers built at least two major OTP releases
+ * ago.
+ *
+ * Bump of major version to 3 happened in OTP 17. That is, in
+ * OTP 19 we can increase ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
+ * to 3.
+ */
+#define ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
+
+/*
  * The emulator will refuse to load a driver with different major
  * version than the one used by the emulator.
  */
