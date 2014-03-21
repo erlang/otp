@@ -211,6 +211,11 @@ do_handle_data("echo_ml_no_prompt " ++ Data,State) ->
     ReturnData = string:join(Lines,"\n"),
     send(ReturnData,State),
     {ok,State};
+do_handle_data("echo_loop " ++ Data,State) ->
+    [TStr|Lines] = string:tokens(Data," "),
+    ReturnData = string:join(Lines,"\n"),
+    send_loop(list_to_integer(TStr),ReturnData,State),
+    {ok,State};
 do_handle_data("disconnect_after " ++WaitStr,State) ->
     Wait = list_to_integer(string:strip(WaitStr,right,$\n)),
     dbg("Server will close connection in ~w ms...", [Wait]),
@@ -251,6 +256,20 @@ send(Data,State) ->
 	    throw({error,send,Error})
     end.
     
+send_loop(T,Data,State) ->
+    dbg("Server sending ~p in loop for ~w ms...~n",[Data,T]),
+    send_loop(now(),T,Data,State).
+
+send_loop(T0,T,Data,State) ->
+    ElapsedMS = trunc(timer:now_diff(now(),T0)/1000),
+    if ElapsedMS >= T ->
+	    ok;
+       true ->
+	    send(Data,State),
+	    timer:sleep(500),
+	    send_loop(T0,T,Data,State)
+    end.
+
 get_line([$\r,$\n|Rest],Acc) ->
     {lists:reverse(Acc),Rest};
 get_line([$\r,0|Rest],Acc) ->
