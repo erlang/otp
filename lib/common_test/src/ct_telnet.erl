@@ -413,9 +413,11 @@ expect(Connection,Patterns) ->
 %%%      Prompt = string()
 %%%      Tag = term()
 %%%      Opts = [Opt]
-%%%      Opt = {timeout,Timeout} | repeat | {repeat,N} | sequence |
-%%%            {halt,HaltPatterns} | ignore_prompt | no_prompt_check
-%%%      Timeout = integer()
+%%%      Opt = {idle_timeout,IdleTimeout} | {total_timeout,TotalTimeout} |
+%%%            repeat | {repeat,N} | sequence | {halt,HaltPatterns} |
+%%%            ignore_prompt | no_prompt_check
+%%%      IdleTimeout = infinity | integer()
+%%%      TotalTimeout = infinity | integer()
 %%%      N = integer()
 %%%      HaltPatterns = Patterns
 %%%      MatchList = [Match]
@@ -441,10 +443,15 @@ expect(Connection,Patterns) ->
 %%% will also include the matched <code>Tag</code>. Else, only
 %%% <code>RxMatch</code> is returned.</p>
 %%%
-%%% <p>The <code>timeout</code> option indicates that the function
+%%% <p>The <code>idle_timeout</code> option indicates that the function
 %%% shall return if the telnet client is idle (i.e. if no data is
-%%% received) for more than <code>Timeout</code> milliseconds. Default
+%%% received) for more than <code>IdleTimeout</code> milliseconds. Default
 %%% timeout is 10 seconds.</p>
+%%%
+%%% <p>The <code>total_timeout</code> option sets a time limit for
+%%% the complete expect operation. After <code>TotalTimeout</code>
+%%% milliseconds, <code>{error,timeout}</code> is returned. The default
+%%% value is <code>infinity</code> (i.e. no time limit).</p>
 %%%
 %%% <p>The function will always return when a prompt is found, unless
 %%% any of the <code>ignore_prompt</code> or
@@ -578,14 +585,14 @@ handle_msg({cmd,Cmd,Timeout},State) ->
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,2000}]);
+			       [{idle_timeout,2000}]);
 	{ip,false} -> 
 	    silent_teln_expect(State#state.name,
 			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,200}]);
+			       [{idle_timeout,200}]);
 	{ip,true} ->
 	    ok
     end,
@@ -619,14 +626,14 @@ handle_msg({send,Cmd},State) ->
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,2000}]);
+			       [{idle_timeout,2000}]);
 	{ip,false} -> 
 	    silent_teln_expect(State#state.name,
 			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,200}]);
+			       [{idle_timeout,200}]);
 	{ip,true} ->
 	    ok
     end,
@@ -880,7 +887,8 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 %% Expect options record
 -record(eo,{teln_pid,
 	    prx,
-	    timeout,
+	    idle_timeout,
+	    total_timeout,
 	    haltpatterns=[],
 	    seq=false,
 	    repeat=false,
@@ -922,11 +930,12 @@ teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
     Seq = get_seq(Opts),
     Pattern = convert_pattern(Pattern0,Seq),
 
-    Timeout = get_timeout(Opts),
+    {IdleTimeout,TotalTimeout} = get_timeouts(Opts),
 
     EO = #eo{teln_pid=Pid,
 	     prx=Prx,
-	     timeout=Timeout,
+	     idle_timeout=IdleTimeout,
+	     total_timeout=TotalTimeout,
 	     seq=Seq,
 	     haltpatterns=HaltPatterns,
 	     prompt_check=PromptCheck},
@@ -965,11 +974,22 @@ rm_dupl([P|Ps],Acc) ->
 rm_dupl([],Acc) ->
     lists:reverse(Acc).
 
-get_timeout(Opts) ->
-    case lists:keysearch(timeout,1,Opts) of
-	{value,{timeout,T}} -> T;
-	false -> ?DEFAULT_TIMEOUT
-    end.
+get_timeouts(Opts) ->
+    {case lists:keysearch(idle_timeout,1,Opts) of
+	 {value,{_,T}} ->
+	     T;
+	 false ->
+	     %% this check is for backwards compatibility (pre CT v1.8)
+	     case lists:keysearch(timeout,1,Opts) of
+		 {value,{_,T}} -> T;
+		 false -> ?DEFAULT_TIMEOUT
+	     end
+     end,
+     case lists:keysearch(total_timeout,1,Opts) of
+	 {value,{_,T}} -> T;
+	 false -> infinity
+     end}.
+
 get_repeat(Opts) ->
     case lists:keysearch(repeat,1,Opts) of
 	{value,{repeat,N}} when is_integer(N) ->
@@ -1011,7 +1031,8 @@ repeat_expect(Name,Pid,Data,Pattern,Acc,EO) ->
 	    {error,Reason}
     end.
 
-teln_expect1(Name,Pid,Data,Pattern,Acc,EO) ->
+teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
+					      total_timeout=TotalTO}) ->
     ExpectFun = case EO#eo.seq of
 		    true -> fun() ->
 				    seq_expect(Name,Pid,Data,Pattern,Acc,EO)
@@ -1028,17 +1049,26 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO) ->
 	NotFinished ->
 	    %% Get more data
 	    Fun = fun() -> get_data1(EO#eo.teln_pid) end,
-	    case timer:tc(ct_gen_conn, do_within_time, [Fun, EO#eo.timeout]) of
+	    case timer:tc(ct_gen_conn, do_within_time, [Fun, IdleTO]) of
 		{_,{error,Reason}} -> 
 		    %% A timeout will occur when the telnet connection
-		    %% is idle for EO#eo.timeout milliseconds.
+		    %% is idle for EO#eo.idle_timeout milliseconds.
 		    {error,Reason};
+		{_,{ok,Data1}} when TotalTO == infinity ->
+		    case NotFinished of
+			{nomatch,Rest} ->
+			    %% One expect
+			    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO);
+			{continue,Patterns1,Acc1,Rest} ->
+			    %% Sequence
+			    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO)
+		    end;
 		{Elapsed,{ok,Data1}} ->
-		    TVal = trunc(EO#eo.timeout - (Elapsed/1000)),
+		    TVal = trunc(TotalTO - (Elapsed/1000)),
 		    if TVal =< 0 ->
 			    {error,timeout};
 		       true ->
-			    EO1 = EO#eo{timeout = TVal},
+			    EO1 = EO#eo{total_timeout = TVal},
 			    case NotFinished of
 				{nomatch,Rest} ->
 				    %% One expect
