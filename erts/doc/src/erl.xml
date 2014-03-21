@@ -536,7 +536,9 @@
       <tag><marker id="file_name_encoding"></marker><c><![CDATA[+fnl]]></c></tag>
       <item>
         <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255.</p>
-	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.
+	Note that this value also applies to command-line parameters and environment variables 
+	(see <seealso marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">STDLIB User's Guide</seealso>).</p>
       </item>
       <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
       <item>
@@ -555,7 +557,9 @@
 	encountered. <c>w</c> is the default. Note that
 	<c>file:read_link/1</c> will always return an error if the
 	link points to an invalid file name.</p>
-	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names. 
+	Note that this value also applies to command-line parameters and environment variables 
+	(see <seealso marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">STDLIB User's Guide</seealso>).</p>
       </item>
       <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
       <item>
@@ -572,7 +576,9 @@
 	settings cause the behavior of <c>+fnl</c> to be selected,
 	then <c>w</c>, <c>i</c>, or <c>e</c> will not have any
 	effect.</p>
-	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names. 
+	Note that this value also applies to command-line parameters and environment variables 
+	(see <seealso marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">STDLIB User's Guide</seealso>).</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
