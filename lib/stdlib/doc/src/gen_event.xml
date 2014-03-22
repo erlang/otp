@@ -305,7 +305,7 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
         <v>Request = term()</v>
-        <v>Timeout = int()>0 | infinity</v>
+        <v>Timeout = int()>0 | infinity | reference()</v>
         <v>Result = Reply | {error,Error}</v>
         <v>&nbsp;Reply = term()</v>
         <v>&nbsp;Error = bad_module | {'EXIT',Reason} | term()</v>
@@ -322,10 +322,12 @@ gen_event:stop             ----->  Module:terminate/2
         <p><c>Request</c> is an arbitrary term which is passed as one of
           the arguments to <c>Module:handle_call/2</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero which specifies
-          how many milliseconds to wait for a reply, or the atom
-          <c>infinity</c> to wait indefinitely. Default value is 5000.
-          If no reply is received within the specified time, the function
-          call fails.</p>
+          how many milliseconds to wait for a reply, the atom
+          <c>infinity</c> to wait indefinitely, or a timer reference created
+          by <c>erlang:start_timer/3</c>. Default value is 5000.
+          If no reply is received within the specified time (or before the
+          timeout message is received in the case of a timer reference), the
+          function call fails.</p>
         <p>The return value <c>Reply</c> is defined in the return value of
           <c>Module:handle_call/2</c>. If the specified event handler is not
           installed, the function returns <c>{error,bad_module}</c>. If

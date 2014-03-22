@@ -25,7 +25,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([start/1, crash/1, call/1, cast/1, cast_fast/1,
+-export([start/1, crash/1, call/1, call_timer/1, cast/1, cast_fast/1,
 	 info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
@@ -50,7 +50,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start, crash, call, cast, cast_fast, info, abcast,
+    [start, crash, call, call_timer, cast, cast_fast, info, abcast,
      multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
@@ -331,6 +331,32 @@ call(Config) when is_list(Config) ->
     %% bad return value in the gen_server loop from handle_call.
     ?line {'EXIT',{{bad_return_value, badreturn},_}} =
 	(catch gen_server:call(my_test_name, badreturn)),
+
+    process_flag(trap_exit, OldFl),
+    ok.
+
+%% --------------------------------------
+%% Test timer reference timeouts
+%% --------------------------------------
+call_timer(suite) -> [];
+call_timer(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, _Pid} =
+    gen_server:start_link({local, call_timer},
+                  gen_server_SUITE, [], []),
+    ?line TRef1 = erlang:start_timer(30, self(), timeout),
+    ?line delayed =
+    gen_server:call(call_timer, {delayed_answer, 1}, TRef1),
+    ?line erlang:cancel_timer(TRef1),
+
+    ?line TRef2 =
+    erlang:start_timer(1, self(), timeout),
+    ?line {'EXIT',{timeout,_}} =
+    (catch gen_server:call(call_timer, {delayed_answer, 30}, TRef2)),
+
+    ?line ok =
+    gen_server:call(call_timer, stop),
 
     process_flag(trap_exit, OldFl),
     ok.
