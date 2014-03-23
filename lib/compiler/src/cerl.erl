@@ -3855,7 +3855,7 @@ from_records(Node) ->
 
 -spec is_data(cerl()) -> boolean().
 
-is_data(#c_literal{}) ->
+is_data(#c_literal{val=V}) when not is_map(V) ->
     true;
 is_data(#c_cons{}) ->
     true;
