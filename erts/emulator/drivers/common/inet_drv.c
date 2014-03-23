@@ -200,6 +200,7 @@ typedef unsigned long long llu_t;
 
 
 #define HAVE_MULTICAST_SUPPORT
+#define HAVE_UDP
 
 #define ERRNO_BLOCK             WSAEWOULDBLOCK
 
@@ -437,6 +438,8 @@ typedef unsigned long  u_long;
 #ifdef HAVE_SETNS_H
 #include <setns.h>
 #endif
+
+#define HAVE_UDP
 
 /* SCTP support -- currently for UNIX platforms only: */
 #undef HAVE_SCTP
@@ -1181,6 +1184,7 @@ static struct erl_drv_entry tcp_inet_driver_entry =
 
 
 
+#ifdef HAVE_UDP
 static int        packet_inet_init(void);
 static void       packet_inet_stop(ErlDrvData);
 static void       packet_inet_command(ErlDrvData, char*, ErlDrvSizeT);
@@ -1230,6 +1234,7 @@ static struct erl_drv_entry udp_inet_driver_entry =
     NULL,
     inet_stop_select
 };
+#endif
 
 #ifdef HAVE_SCTP
 static struct erl_drv_entry sctp_inet_driver_entry = 
@@ -1293,6 +1298,7 @@ static int tcp_deliver(tcp_descriptor* desc, int len);
 static int tcp_inet_output(tcp_descriptor* desc, HANDLE event);
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event);
 
+#ifdef HAVE_UDP
 typedef struct {
     inet_descriptor inet;   /* common data structure (DON'T MOVE) */
     int read_packets;       /* Number of packets to read per invocation */
@@ -1304,6 +1310,7 @@ typedef struct {
 
 static int packet_inet_input(udp_descriptor* udesc, HANDLE event);
 static int packet_inet_output(udp_descriptor* udesc, HANDLE event);
+#endif
 
 /* convert descriptor poiner to inet_descriptor pointer */
 #define INETP(d) (&(d)->inet)
@@ -1324,7 +1331,6 @@ static int async_ref = 0;          /* async reference id generator */
 
 static ErlDrvTermData am_ok;
 static ErlDrvTermData am_tcp;
-static ErlDrvTermData am_udp;
 static ErlDrvTermData am_error;
 static ErlDrvTermData am_einval;
 static ErlDrvTermData am_inet_async;
@@ -1334,10 +1340,13 @@ static ErlDrvTermData am_closed;
 static ErlDrvTermData am_tcp_passive;
 static ErlDrvTermData am_tcp_closed;
 static ErlDrvTermData am_tcp_error;
-static ErlDrvTermData am_udp_passive;
-static ErlDrvTermData am_udp_error;
 static ErlDrvTermData am_empty_out_q;
 static ErlDrvTermData am_ssl_tls;
+#ifdef HAVE_UDP
+static ErlDrvTermData am_udp;
+static ErlDrvTermData am_udp_passive;
+static ErlDrvTermData am_udp_error;
+#endif
 #ifdef HAVE_SCTP
 static ErlDrvTermData am_sctp;
 static ErlDrvTermData am_sctp_passive;
@@ -1545,6 +1554,7 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
 #   define SCTP_ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
 #endif
 
+#ifdef HAVE_UDP
 static int load_ip_port(ErlDrvTermData* spec, int i, char* buf)
 {
     spec[i++] = ERL_DRV_INT;
@@ -1579,6 +1589,7 @@ static int load_ip_address(ErlDrvTermData* spec, int i, int family, char* buf)
     }
     return i;
 }
+#endif
 
 
 #ifdef HAVE_SCTP
@@ -1745,10 +1756,12 @@ static void release_buffer(ErlDrvBinary* buf)
     }
 }
 
+#ifdef HAVE_UDP
 static ErlDrvBinary* realloc_buffer(ErlDrvBinary* buf, ErlDrvSizeT newsz)
 {
     return driver_realloc_binary(buf, newsz);
 }
+#endif
 
 /* use a TRICK, access the refc field to see if any one else has
  * a ref to this buffer then call driver_free_binary else 
@@ -3409,6 +3422,7 @@ static int tcp_error_message(tcp_descriptor* desc, int err)
     return erl_drv_output_term(desc->inet.dport, spec, i);
 }
 
+#ifdef HAVE_UDP
 /* 
 ** active mode message:
 **        {udp,  S, IP, Port, [H1,...Hsz | Data]} or
@@ -3499,6 +3513,7 @@ static int packet_binary_message
     ASSERT(i <= PACKET_ERL_DRV_TERM_DATA_LEN);
     return erl_drv_output_term(desc->dport, spec, i);
 }
+#endif
 
 /*
 ** active mode message: send active-to-passive transition message
@@ -3528,6 +3543,7 @@ static int packet_binary_message
      return erl_drv_output_term(desc->dport, spec, i);
  }
 
+#ifdef HAVE_UDP
 /*
 ** send active message {udp_error|sctp_error, S, Error}
 */
@@ -3554,7 +3570,7 @@ static int packet_error_message(udp_descriptor* udesc, int err)
     ASSERT(i == sizeof(spec)/sizeof(*spec));
     return erl_drv_output_term(desc->dport, spec, i);
 }
-
+#endif
 
 /* 
 ** active=TRUE:
@@ -3619,7 +3635,7 @@ tcp_reply_binary_data(tcp_descriptor* desc, ErlDrvBinary* bin, int offs, int len
     return code;
 }
 
-
+#ifdef HAVE_UDP
 static int
 packet_reply_binary_data(inet_descriptor* desc, unsigned  int hsz,
 			 ErlDrvBinary   * bin,  int offs, int len,
@@ -3642,6 +3658,7 @@ packet_reply_binary_data(inet_descriptor* desc, unsigned  int hsz,
 	return code;
     }
 }
+#endif
 
 /* ----------------------------------------------------------------------------
 
@@ -3817,7 +3834,9 @@ static int inet_init()
 
     INIT_ATOM(ok);
     INIT_ATOM(tcp);
+#ifdef HAVE_UDP
     INIT_ATOM(udp);
+#endif
     INIT_ATOM(error);
     INIT_ATOM(einval);
     INIT_ATOM(inet_async);
@@ -3827,8 +3846,10 @@ static int inet_init()
     INIT_ATOM(tcp_passive);
     INIT_ATOM(tcp_closed);
     INIT_ATOM(tcp_error);
+#ifdef HAVE_UDP
     INIT_ATOM(udp_passive);
     INIT_ATOM(udp_error);
+#endif
     INIT_ATOM(empty_out_q);
     INIT_ATOM(ssl_tls);
 
@@ -3847,7 +3868,10 @@ static int inet_init()
 
     /* add TCP, UDP and SCTP drivers */
     add_driver_entry(&tcp_inet_driver_entry);
+#ifdef HAVE_UDP
     add_driver_entry(&udp_inet_driver_entry);
+#endif
+
 #ifdef HAVE_SCTP
     /* Check the size of SCTP AssocID -- currently both this driver and the
        Erlang part require 32 bit: */
@@ -5929,6 +5953,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    }
 	    continue;
 
+#ifdef HAVE_UDP
 	case INET_LOPT_UDP_READ_PACKETS:
 	    if (desc->stype == SOCK_DGRAM) {
 		udp_descriptor* udesc = (udp_descriptor*) desc;
@@ -5936,6 +5961,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		udesc->read_packets = ival;
 	    }
 	    continue;
+#endif
 
 #ifdef HAVE_SETNS
 	case INET_LOPT_NETNS:
@@ -6902,6 +6928,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    }
 	    continue;
 
+#ifdef HAVE_UDP
 	case INET_LOPT_UDP_READ_PACKETS:
 	    if (desc->stype == SOCK_DGRAM) {
 		*ptr++ = opt;
@@ -6911,6 +6938,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 		TRUNCATE_TO(0,ptr);
 	    }
 	    continue;
+#endif
 
 #ifdef HAVE_SETNS
 	case INET_LOPT_NETNS:
@@ -10499,6 +10527,7 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 
 
 
+#ifdef HAVE_UDP
 static int packet_inet_init()
 {
     return 0;
@@ -10529,6 +10558,7 @@ static ErlDrvData udp_inet_start(ErlDrvPort port, char *args)
     set_default_msgq_limits(port);
     return data;
 }
+#endif
 
 #ifdef HAVE_SCTP
 static ErlDrvData sctp_inet_start(ErlDrvPort port, char *args)
@@ -10539,6 +10569,7 @@ static ErlDrvData sctp_inet_start(ErlDrvPort port, char *args)
 }
 #endif
 
+#ifdef HAVE_UDP
 static void packet_inet_stop(ErlDrvData e)
 {
     /* There should *never* be any "empty out q" subscribers on
@@ -11049,7 +11080,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     else
 	inet_reply_ok(desc);
 }
-
+#endif
 
 #ifdef __WIN32__
 static void packet_inet_event(ErlDrvData e, ErlDrvEvent event)
@@ -11071,6 +11102,7 @@ static void packet_inet_event(ErlDrvData e, ErlDrvEvent event)
 
 #endif
 
+#ifdef HAVE_UDP
 static void packet_inet_drv_input(ErlDrvData e, ErlDrvEvent event)
 {
     (void)  packet_inet_input((udp_descriptor*)e, (HANDLE)event);
@@ -11327,6 +11359,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
     DEBUGF(("packet_inet_output(%ld) }\r\n", (long)desc->port));
     return ret;
 }
+#endif
 
 /*---------------------------------------------------------------------------*/
 
