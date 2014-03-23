@@ -713,7 +713,7 @@ static void stop_select(ErlDrvEvent, void*);
 static PROCESS
 get_signal_proxy_pid(void) {
    union SIGNAL *sig;
-   SIGSELECT any_sig[] = {0};
+   SIGSELECT any_sig[] = {1,ERTS_SIGNAL_OSE_DRV_ATTACH};
 
    if (!sig_proxy_pid) {
       sig = alloc(sizeof(union SIGNAL), ERTS_SIGNAL_OSE_DRV_ATTACH);
