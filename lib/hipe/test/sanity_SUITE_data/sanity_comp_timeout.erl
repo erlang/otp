@@ -10,7 +10,7 @@
 
 -module(sanity_comp_timeout).
 
--export([test/0]).
+-export([test/0, to_llvm/0]).
 
 test() ->
   ok = write_dummy_mod(),
@@ -19,6 +19,8 @@ test() ->
   c:c(dummy_mod, [native, {hipe, [{timeout, 1}]}]), % This will kill the process
   Self = self(),           % make sure the parent process stays the same
   ok.
+
+to_llvm() -> false.
 
 write_dummy_mod() ->
   Prog = <<"-module(dummy_mod).\n-export([test/0]).\ntest() -> ok.\n">>,
