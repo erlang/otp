@@ -85,7 +85,7 @@ list_testcases(Dirname) ->
 
 list_dir(Dir, Extension, Dirs) ->
     case file:list_dir(Dir) of
-        {error, _} = Error-> Error;
+        {error, _} = Error -> Error;
         {ok, Filenames} ->
             FullFilenames = [filename:join(Dir, F) || F <- Filenames],
             Matches1 = case Dirs of
@@ -173,10 +173,29 @@ run(TestCase, Dir, _OutDir) ->
     %% 		  end, DataFiles),
     %% try
     ok = TestCase:test(),
-    HiPEOpts = try TestCase:hipe_options() catch _:_ -> [] end,
+    HiPEOpts = try TestCase:hipe_options() catch error:undef -> [] end,
     {ok, TestCase} = hipe:c(TestCase, HiPEOpts),
-    ok = TestCase:test().
+    ok = TestCase:test(),
+    case is_llvm_opt_available() of
+	true ->
+	    {ok, TestCase} = hipe:c(TestCase, [to_llvm|HiPEOpts]),
+	    ok = TestCase:test();
+	false -> ok
+    end.
     %% after
     %% 	lists:foreach(fun (DF) -> ok end, % = file:delete(DF) end,
     %% 		      [filename:join(OutDir, D) || D <- DataFiles])
     %% end.
+
+
+%% This function, which is supposed to check whether the right LLVM
+%% infrastructure is available, should be probably written in a better
+%% and more portable way and moved to the hipe application.
+
+is_llvm_opt_available() ->
+    OptStr = os:cmd("opt -version"),
+    SubStr = "LLVM version ", N = length(SubStr),
+    case string:str(OptStr, SubStr) of
+	0 -> false;
+	S -> P = S + N, string:sub_string(OptStr, P, P + 2) >= "3.4"
+    end.
