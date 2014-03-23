@@ -8,6 +8,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	hipe_SUITE
 
+# .erl files for these modules are automatically generated
+GEN_MODULES= \
+	bs_SUITE
+
 ERL_FILES= $(MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
@@ -40,6 +44,8 @@ EBIN = .
 make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(GEN_MODULES) \
+	>> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' \
 	>> $(EMAKEFILE)
 
