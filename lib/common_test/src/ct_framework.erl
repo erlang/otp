@@ -660,10 +660,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     ct_util:delete_testdata(comment),
     ct_util:delete_suite_data(last_saved_config),
 
-    FuncSpec = case group_or_func(Func,Args) of
-		   {_,_GroupName,_} = Group -> Group;
-		   _ -> Func
-	       end,
+    FuncSpec = group_or_func(Func,Args),
 
     {Result1,FinalNotify} =
 	case ct_hooks:end_tc(
