@@ -366,23 +366,6 @@ obsolete_1(auth, node_cookie, 1) ->
 obsolete_1(auth, node_cookie, 2) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 
-obsolete_1(erlang, is_constant, 1) ->
-    {removed, "Removed in R13B"};
-
-%% Added in R12B-0.
-obsolete_1(ssl, port, 1) ->
-    {removed, {ssl, sockname, 1}, "R13B"};
-obsolete_1(ssl, accept, A) when A =:= 1; A =:= 2 ->
-    {removed, "deprecated; use ssl:transport_accept/1,2 and ssl:ssl_accept/1,2"};
-obsolete_1(erlang, fault, 1) ->
-    {removed, {erlang,error,1}, "R13B"};
-obsolete_1(erlang, fault, 2) ->
-    {removed, {erlang,error,2}, "R13B"};
-
-%% Added in R12B-2.
-obsolete_1(file, rawopen, 2) ->
-    {removed, "deprecated (will be removed in R13B); use file:open/2 with the raw option"};
-
 obsolete_1(http, request, 1) 	      -> {removed,{httpc,request,1},"R15B"};
 obsolete_1(http, request, 2) 	      -> {removed,{httpc,request,2},"R15B"};
 obsolete_1(http, request, 4) 	      -> {removed,{httpc,request,4},"R15B"};
