@@ -79,6 +79,10 @@ init(Path, Opts) ->
 	    url_base = proplists:get_value(url_base,Opts),
 	    timer = now() }.
 
+pre_init_per_suite(Suite,SkipOrFail,State) when is_tuple(SkipOrFail) ->
+    {SkipOrFail, init_tc(State#state{curr_suite = Suite,
+				     curr_suite_ts = now()},
+			 SkipOrFail) };
 pre_init_per_suite(Suite,Config,#state{ test_cases = [] } = State) ->
     TcLog = proplists:get_value(tc_logfile,Config),
     CurrLogDir = filename:dirname(TcLog),
