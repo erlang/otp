@@ -35,6 +35,7 @@
   <xi:include href="typespec.xml"/>
   <xi:include href="expressions.xml"/>
   <xi:include href="macros.xml"/>
+  <xi:include href="maps.xml"/>
   <xi:include href="records.xml"/>
   <xi:include href="errors.xml"/>
   <xi:include href="processes.xml"/>
