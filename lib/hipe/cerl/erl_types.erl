@@ -503,7 +503,6 @@ t_contains_opaque(?int_set(_Set), _Opaques) -> false;
 t_contains_opaque(?list(Type, Tail, _), Opaques) ->
   t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
 t_contains_opaque(?map(_) = Map, Opaques) ->
-erlang:display({?LINE,map,contains,Map}),
   list_contains_opaque(map_values(Map), Opaques) orelse
   list_contains_opaque(map_keys(Map), Opaques);
 t_contains_opaque(?matchstate(_P, _Slots), _Opaques) -> false;
@@ -2095,7 +2094,6 @@ t_has_var(?tuple(Elements, _, _)) ->
 t_has_var(?tuple_set(_) = T) ->
   t_has_var_list(t_tuple_subtypes(T));
 t_has_var(?map(_)= Map) ->
-erlang:display({?LINE,map,has_var,Map}),
   t_has_var_list(map_keys(Map)) orelse t_has_var_list(map_values(Map));
 t_has_var(?opaque(Set)) ->
   %% Assume variables in 'args' are also present i 'struct'
@@ -2132,7 +2130,6 @@ t_collect_vars(?tuple(Types, _, _), Acc) ->
 t_collect_vars(?tuple_set(_) = TS, Acc) ->
   t_collect_vars_list(t_tuple_subtypes(TS), Acc);
 t_collect_vars(?map(_) = Map, Acc0) ->
-erlang:display({?LINE,map,collect_vars,Map}),
   Acc = t_collect_vars_list(map_keys(Map), Acc0),
   t_collect_vars_list(map_values(Map), Acc);
 t_collect_vars(?opaque(Set), Acc) ->
@@ -3094,7 +3091,6 @@ t_subst_dict(?tuple(Elements, _Arity, _Tag), Dict) ->
 t_subst_dict(?tuple_set(_) = TS, Dict) ->
   t_sup([t_subst_dict(T, Dict) || T <- t_tuple_subtypes(TS)]);
 t_subst_dict(?map(Pairs), Dict) ->
-erlang:display({?LINE,map,subst_dict,Pairs}),
   ?map([{t_subst_dict(K, Dict), t_subst_dict(V, Dict)} ||
          {K, V} <- Pairs]);
 t_subst_dict(?opaque(Es), Dict) ->
@@ -3147,7 +3143,6 @@ t_subst_aux(?tuple(Elements, _Arity, _Tag), VarMap) ->
 t_subst_aux(?tuple_set(_) = TS, VarMap) ->
   t_sup([t_subst_aux(T, VarMap) || T <- t_tuple_subtypes(TS)]);
 t_subst_aux(?map(Pairs), VarMap) ->
-erlang:display({?LINE,map,subst_aux,Pairs}),
   ?map([{t_subst_aux(K, VarMap), t_subst_aux(V, VarMap)} ||
          {K, V} <- Pairs]);
 t_subst_aux(?opaque(Es), VarMap) ->
