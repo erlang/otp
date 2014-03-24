@@ -341,8 +341,10 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
-    {Handshake, FragmentedHandshake} = dtls_handshake:encode_handshake(Handshake, Version),
-    Hist = ssl_handshake:update_handshake_history(Hist0, Handshake),
+    Seq = sequence(ConnectionStates0),
+    {EncHandshake, FragmentedHandshake} = dtls_handshake:encode_handshake(Handshake, Version,
+								      Seq),
+    Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake),
     {Encoded, ConnectionStates} =
         dtls_record:encode_handshake(FragmentedHandshake, 
 				     Version, ConnectionStates0),
@@ -526,3 +528,6 @@ get_timeout(_) -> %% Place holder
 next_state_connection(_, State) -> %% Place holder
     {next_state, connection, State, get_timeout(State)}.
 
+sequence(_) -> 
+    %%TODO real imp
+    1.

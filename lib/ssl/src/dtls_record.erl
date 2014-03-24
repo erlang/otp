@@ -46,6 +46,11 @@
 -export([init_connection_state_seq/2, current_connection_state_epoch/2,
 	 set_connection_state_by_epoch/3, connection_state_by_epoch/3]).
 
+-export_type([dtls_version/0, dtls_atom_version/0]).
+
+-type dtls_version()       :: ssl_record:ssl_version().
+-type dtls_atom_version()  :: dtlsv1 | 'dtlsv1.2'.
+
 -compile(inline).
 
 %%====================================================================
@@ -155,7 +160,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
 %%--------------------------------------------------------------------
--spec encode_handshake(iolist(), tls_version(), #connection_states{}) ->
+-spec encode_handshake(iolist(), dtls_version(), #connection_states{}) ->
 			      {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes a handshake message to send on the ssl-socket.
@@ -164,7 +169,7 @@ encode_handshake(Frag, Version, ConnectionStates) ->
     encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_change_cipher_spec(tls_version(), #connection_states{}) ->
+-spec encode_change_cipher_spec(dtls_version(), #connection_states{}) ->
 				       {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
@@ -173,8 +178,8 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
     encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec protocol_version(tls_atom_version() | tls_version()) ->
-			      tls_version() | tls_atom_version().
+-spec protocol_version(dtls_atom_version() | dtls_version()) ->
+			      dtls_version() | dtls_atom_version().
 %%
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
@@ -188,7 +193,7 @@ protocol_version({254, 253}) ->
 protocol_version({254, 255}) ->
     dtlsv1.
 %%--------------------------------------------------------------------
--spec lowest_protocol_version(tls_version(), tls_version()) -> tls_version().
+-spec lowest_protocol_version(dtls_version(), dtls_version()) -> dtls_version().
 %%
 %% Description: Lowes protocol version of two given versions
 %%--------------------------------------------------------------------
@@ -201,7 +206,7 @@ lowest_protocol_version(Version = {M,_}, {N, _}) when M > N ->
 lowest_protocol_version(_,Version) ->
     Version.
 %%--------------------------------------------------------------------
--spec highest_protocol_version([tls_version()]) -> tls_version().
+-spec highest_protocol_version([dtls_version()]) -> dtls_version().
 %%
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
@@ -221,7 +226,7 @@ highest_protocol_version(_, [Version | Rest]) ->
 
 
 %%--------------------------------------------------------------------
--spec supported_protocol_versions() -> [tls_version()].
+-spec supported_protocol_versions() -> [dtls_version()].
 %%
 %% Description: Protocol versions supported
 %%--------------------------------------------------------------------
@@ -252,7 +257,7 @@ supported_connection_protocol_versions([]) ->
     ?ALL_DATAGRAM_SUPPORTED_VERSIONS.
 
 %%--------------------------------------------------------------------
--spec is_acceptable_version(tls_version(), Supported :: [tls_version()]) -> boolean().
+-spec is_acceptable_version(dtls_version(), Supported :: [dtls_version()]) -> boolean().
 %%
 %% Description: ssl version 2 is not acceptable security risks are too big.
 %%
@@ -262,7 +267,7 @@ is_acceptable_version(Version, Versions) ->
 
 
 %%--------------------------------------------------------------------
--spec init_connection_state_seq(tls_version(), #connection_states{}) ->
+-spec init_connection_state_seq(dtls_version(), #connection_states{}) ->
 				       #connection_state{}.
 %%
 %% Description: Copy the read sequence number to the write sequence number
