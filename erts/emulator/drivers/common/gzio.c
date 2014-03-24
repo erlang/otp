@@ -230,6 +230,7 @@ local ErtsGzFile gz_open (path, mode)
     errno = 0;
 #if defined(FILENAMES_16BIT)
     {
+	FILE* efile_wfopen(const WCHAR* name, const WCHAR* mode);
 	WCHAR wfmode[80];
 	int i = 0;
 	int j;
@@ -237,7 +238,7 @@ local ErtsGzFile gz_open (path, mode)
 	    wfmode[i++] = (WCHAR) fmode[j];
 	}
 	wfmode[i++] = L'\0';
-	s->file = _wfopen((WCHAR *)path, wfmode);
+	s->file = efile_wfopen((WCHAR *)path, wfmode);
 	if (s->file == NULL) {
 	    return s->destroy(s), (ErtsGzFile)Z_NULL;
 	}

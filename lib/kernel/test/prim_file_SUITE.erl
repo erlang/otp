@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -266,7 +266,13 @@ make_del_dir(Config, Handle, Suffix) ->
     % because there are processes having that directory as current.
     ?line ok = ?PRIM_FILE_call(make_dir, Handle, [NewDir]),
     ?line {ok, CurrentDir} = ?PRIM_FILE_call(get_cwd, Handle, []),
-    ?line ok = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
+    case {os:type(), length(NewDir) >= 260 } of
+	{{win32,_}, true} ->
+	    io:format("Skip set_cwd for windows path longer than 260 (MAX_PATH)\n", []),
+	    io:format("\nNewDir = ~p\n", [NewDir]);
+	_ ->
+	    ok = ?PRIM_FILE_call(set_cwd, Handle, [NewDir])
+    end,
     try
 	%% Check that we get an error when trying to create...
 	%% a deep directory
@@ -335,31 +341,37 @@ cur_dir_0(Config, Handle) ->
     ?line RootDir = ?config(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, DirName),
     ?line ok = ?PRIM_FILE_call(make_dir, Handle, [NewDir]),
-    ?line io:format("cd to ~s",[NewDir]),
-    ?line ok = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
+    case {os:type(), length(NewDir) >= 260} of
+	{{win32,_}, true} ->
+	    io:format("Skip set_cwd for windows path longer than 260 (MAX_PATH):\n"),
+	    io:format("\nNewDir = ~p\n", [NewDir]);
+	_ ->
+	    io:format("cd to ~s",[NewDir]),
+	    ok = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
 
-    %% Create a file in the new current directory, and check that it
-    %% really is created there
-    ?line UncommonName = "uncommon.fil",
-    ?line {ok,Fd} = ?PRIM_FILE:open(UncommonName, [read, write]),
-    ?line ok = ?PRIM_FILE:close(Fd),
-    ?line {ok,NewDirFiles} = ?PRIM_FILE_call(list_dir, Handle, ["."]),
-    ?line true = lists:member(UncommonName,NewDirFiles),
+	    %% Create a file in the new current directory, and check that it
+	    %% really is created there
+	    UncommonName = "uncommon.fil",
+	    {ok,Fd} = ?PRIM_FILE:open(UncommonName, [read, write]),
+	    ok = ?PRIM_FILE:close(Fd),
+	    {ok,NewDirFiles} = ?PRIM_FILE_call(list_dir, Handle, ["."]),
+	    true = lists:member(UncommonName,NewDirFiles),
 
-    %% Delete the directory and return to the old current directory
-    %% and check that the created file isn't there (too!)
-    ?line expect({error, einval}, {error, eacces}, {error, eexist}, 
+	    %% Delete the directory and return to the old current directory
+	    %% and check that the created file isn't there (too!)
+	    expect({error, einval}, {error, eacces}, {error, eexist},
 		 ?PRIM_FILE_call(del_dir, Handle, [NewDir])),
-    ?line ?PRIM_FILE_call(delete, Handle, [UncommonName]),
-    ?line {ok,[]} = ?PRIM_FILE_call(list_dir, Handle, ["."]),
-    ?line ok = ?PRIM_FILE_call(set_cwd, Handle, [Dir1]),
-    ?line io:format("cd back to ~s",[Dir1]),
-    ?line ok = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
-    ?line {error, enoent} = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
-    ?line ok = ?PRIM_FILE_call(set_cwd, Handle, [Dir1]),
-    ?line io:format("cd back to ~s",[Dir1]),
-    ?line {ok,OldDirFiles} = ?PRIM_FILE_call(list_dir, Handle, ["."]),
-    ?line false = lists:member(UncommonName,OldDirFiles),
+	    ?PRIM_FILE_call(delete, Handle, [UncommonName]),
+	    {ok,[]} = ?PRIM_FILE_call(list_dir, Handle, ["."]),
+	    ok = ?PRIM_FILE_call(set_cwd, Handle, [Dir1]),
+	    io:format("cd back to ~s",[Dir1]),
+	    ok = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
+	    {error, enoent} = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
+	    ok = ?PRIM_FILE_call(set_cwd, Handle, [Dir1]),
+	    io:format("cd back to ~s",[Dir1]),
+	    {ok,OldDirFiles} = ?PRIM_FILE_call(list_dir, Handle, ["."]),
+	    false = lists:member(UncommonName,OldDirFiles)
+    end,
 
     %% Try doing some bad things
     ?line {error, badarg} = 
@@ -1981,6 +1993,9 @@ symlinks(Config, Handle, Suffix) ->
 	case ?PRIM_FILE_call(make_symlink, Handle, [Name, Alias]) of
 	    {error, enotsup} ->
 		{skipped, "Links not supported on this platform"};
+	    {error, eperm} ->
+		{win32,_} = os:type(),
+		{skipped, "Windows user not privileged to create links"};
 	    ok ->
 		?line {ok, Info1} = 
 		    ?PRIM_FILE_call(read_file_info, Handle, [Name]),

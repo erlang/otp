@@ -642,6 +642,11 @@
           <item>
             <p>Symbolic links are not supported on this platform.</p>
           </item>
+          <tag><c>eperm</c></tag>
+          <item>
+            <p>User does not have privileges to create symbolic links
+	    (<c>SeCreateSymbolicLinkPrivilege</c> on Windows).</p>
+          </item>
         </taglist>
       </desc>
     </func>
