@@ -57,4 +57,6 @@
 -define(FIELDS(Fs),   [{?record_field, ?ATOM(F), V} || {F,V} <- Fs]).
 
 %% Literal term.
--define(TERM(T), erl_parse:abstract(T, [{line, ?LINE}, {encoding, latin1}])).
+-define(TERM(T), erl_parse:abstract(T, [
+                     {line, ?LINE},
+                     {encoding, fun diameter_codegen:is_printable_ascii/1}])).

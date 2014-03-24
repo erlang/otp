@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,8 @@
 %% on the beam file of another dictionary.
 %%
 
--export([from_dict/4]).
+-export([from_dict/4,
+         is_printable_ascii/1]). %% used by ?TERM/1 in diameter_forms.hrl
 
 -include("diameter_forms.hrl").
 -include("diameter_vsn.hrl").
@@ -120,6 +121,9 @@ eraser(Key) ->
 
 %% ===========================================================================
 %% ===========================================================================
+
+is_printable_ascii(C) ->
+    16#20 =< C andalso C =< 16#7F.
 
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
