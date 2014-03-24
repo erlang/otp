@@ -40,6 +40,7 @@
 	t_build_and_match_over_alloc/1,
 	t_build_and_match_empty_val/1,
 	t_build_and_match_val/1,
+	t_build_and_match_nil/1,
 
 	%% errors in 17.0-rc1
 	t_update_values/1,
@@ -68,6 +69,7 @@ all() -> [
 	t_build_and_match_over_alloc,
 	t_build_and_match_empty_val,
 	t_build_and_match_val,
+	t_build_and_match_nil,
 
 	%% errors in 17.0-rc1
 	t_update_values,
@@ -560,6 +562,20 @@ t_build_and_match_val(Config) when is_list(Config) ->
 	Other ->
 	    test_server:fail({no_match, Other})
     end.
+
+t_build_and_match_nil(Config) when is_list(Config) ->
+    %% literals removed the coverage
+    V1 = id(cookie),
+    V2 = id(cake),
+    V3 = id(crisps),
+
+    #{ [] := V1, "treat" := V2, {your,treat} := V3 } = id(#{
+	    {your,treat} => V3,
+	    "treat" => V2, 
+	    [] => V1 }),
+    #{ [] := V3, [] := V3 } = id(#{ [] => V1, [] => V3 }),
+ 
+    ok.
 
 
 %% Use this function to avoid compile-time evaluation of an expression.
