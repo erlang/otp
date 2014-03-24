@@ -331,10 +331,14 @@ format_error({undefined_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s undefined", [TypeName, gen_type_paren(Arity)]);
 format_error({unused_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is unused", [TypeName, gen_type_paren(Arity)]);
-format_error({new_builtin_type, {TypeName, Arity}}) ->
-    io_lib:format("type ~w~s is a new builtin type; "
+%% format_error({new_builtin_type, {TypeName, Arity}}) ->
+%%     io_lib:format("type ~w~s is a new builtin type; "
+%% 		  "its (re)definition is allowed only until the next release",
+%% 		  [TypeName, gen_type_paren(Arity)]);
+format_error({new_var_arity_type, TypeName}) ->
+    io_lib:format("type ~w is a new builtin type; "
 		  "its (re)definition is allowed only until the next release",
-		  [TypeName, gen_type_paren(Arity)]);
+		  [TypeName]);
 format_error({builtin_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is a builtin type; it cannot be redefined",
 		  [TypeName, gen_type_paren(Arity)]);
@@ -2606,23 +2610,30 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
         true ->
             case is_obsolete_builtin_type(TypePair) of
                 true -> StoreType(St0);
-                false ->
-                    case is_newly_introduced_builtin_type(TypePair) of
-                        %% allow some types just for bootstrapping
-                        true ->
-                            Warn = {new_builtin_type, TypePair},
-                            St1 = add_warning(Line, Warn, St0),
-                            StoreType(St1);
-                        false ->
-                            add_error(Line, {builtin_type, TypePair}, St0)
-                    end
+                false -> add_error(Line, {builtin_type, TypePair}, St0)
+%%                     case is_newly_introduced_builtin_type(TypePair) of
+%%                         %% allow some types just for bootstrapping
+%%                         true ->
+%%                             Warn = {new_builtin_type, TypePair},
+%%                             St1 = add_warning(Line, Warn, St0),
+%%                             StoreType(St1);
+%%                         false ->
+%%                             add_error(Line, {builtin_type, TypePair}, St0)
+%%                     end
             end;
         false ->
             case
-                dict:is_key(TypePair, TypeDefs)
-                orelse is_var_arity_type(TypeName)
+                dict:is_key(TypePair, TypeDefs) orelse
+                is_var_arity_type(TypeName)
             of
-                true -> add_error(Line, {redefine_type, TypePair}, St0);
+                true ->
+                    case is_newly_introduced_var_arity_type(TypeName) of
+                        true ->
+                            Warn = {new_var_arity_type, TypeName},
+                            add_warning(Line, Warn, St0);
+                        false ->
+                            add_error(Line, {redefine_type, TypePair}, St0)
+                    end;
                 false ->
                     St1 = case
                               Attr =:= opaque andalso
@@ -2857,8 +2868,10 @@ is_default_type({timeout, 0}) -> true;
 is_default_type({var, 1}) -> true;
 is_default_type(_) -> false.
 
-%% OTP 17.0
-is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
+is_newly_introduced_var_arity_type(map) -> true;
+is_newly_introduced_var_arity_type(_) -> false.
+
+%% is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
     obsolete_builtin_type(TypePair) =/= no.

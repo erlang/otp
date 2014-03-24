@@ -92,7 +92,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps,maps_type].
+     maps, maps_type].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3439,10 +3439,9 @@ maps_type(Config) when is_list(Config) ->
 	    t(M) -> M.
 	 ">>,
 	 [],
-	 {errors,[{3,erl_lint,{redefine_type,{map,0}}}],[]}}],
+	 {warnings,[{3,erl_lint,{new_var_arity_type,map}}]}}],
     [] = run(Config, Ts),
     ok.
-
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->

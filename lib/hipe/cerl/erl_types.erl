@@ -4257,8 +4257,8 @@ t_from_form({type, _L, list, []}, _TypeNames, _RecDict, _VarDict) ->
 t_from_form({type, _L, list, [Type]}, TypeNames, RecDict,  VarDict) ->
   {T, R} = t_from_form(Type, TypeNames, RecDict, VarDict),
   {t_list(T), R};
-t_from_form({type, _L, map, _}, _TypeNames, _RecDict, _VarDict) ->
-  {t_map([]), []};
+t_from_form({type, _L, map, _}, TypeNames, RecDict, VarDict) ->
+  builtin_type(map, t_map([]), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, mfa, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_mfa(), []};
 t_from_form({type, _L, module, []}, _TypeNames, _RecDict, _VarDict) ->
