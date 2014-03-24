@@ -55,9 +55,8 @@
 
 %%------------------------------------------------------------------------------
 
--type seg()  :: tuple().
--type segs(E) :: tuple()
-               | E. % dummy
+-type seg()          :: tuple().
+-type segs(_Element) :: tuple().
 
 %% Define a hash set.  The default values are the standard ones.
 -record(set,

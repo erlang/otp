@@ -33,23 +33,33 @@
 
 -export_type([source_encoding/0]).
 
--type macros() :: [{atom(), term()}].
+-type macros() :: [atom() | {atom(), term()}].
 -type epp_handle() :: pid().
 -type source_encoding() :: latin1 | utf8.
+
+-type ifdef() :: 'ifdef' | 'ifndef' | 'else'.
+
+-type name() :: {'atom', atom()}.
+-type argspec() :: 'none'                       %No arguments
+                 | non_neg_integer().           %Number of arguments
+-type tokens() :: [erl_scan:token()].
+-type used() :: {name(), argspec()}.
 
 -define(DEFAULT_ENCODING, utf8).
 
 %% Epp state record.
--record(epp, {file,				%Current file
+-record(epp, {file :: file:io_device(),         %Current file
 	      location=1,         		%Current location
-              delta,                            %Offset from Location (-file)
-	      name="",				%Current file name
-              name2="",                         %-"-, modified by -file
-	      istk=[],				%Ifdef stack
-	      sstk=[],				%State stack
-	      path=[],				%Include-path
-	      macs = dict:new()  :: dict:dict(),%Macros (don't care locations)
-	      uses = dict:new()  :: dict:dict(),%Macro use structure
+              delta=0 :: non_neg_integer(),     %Offset from Location (-file)
+              name="" :: file:name(),           %Current file name
+              name2="" :: file:name(),          %-"-, modified by -file
+              istk=[] :: [ifdef()],             %Ifdef stack
+              sstk=[] :: [#epp{}],              %State stack
+              path=[] :: [file:name()],         %Include-path
+              macs = dict:new()                 %Macros (don't care locations)
+                  :: dict:dict(name(), {argspec(), tokens()}),
+              uses = dict:new()                 %Macro use structure
+                  :: dict:dict(name(), [{argspec(), [used()]}]),
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
 	      pre_opened = false :: boolean()
 	     }).
