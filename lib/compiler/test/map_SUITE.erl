@@ -41,6 +41,7 @@
 	t_build_and_match_empty_val/1,
 	t_build_and_match_val/1,
 	t_build_and_match_nil/1,
+	t_build_and_match_structure/1,
 
 	%% errors in 17.0-rc1
 	t_update_values/1,
@@ -70,6 +71,7 @@ all() -> [
 	t_build_and_match_empty_val,
 	t_build_and_match_val,
 	t_build_and_match_nil,
+	t_build_and_match_structure,
 
 	%% errors in 17.0-rc1
 	t_update_values,
@@ -574,9 +576,21 @@ t_build_and_match_nil(Config) when is_list(Config) ->
 	    "treat" => V2, 
 	    [] => V1 }),
     #{ [] := V3, [] := V3 } = id(#{ [] => V1, [] => V3 }),
- 
     ok.
 
+t_build_and_match_structure(Config) when is_list(Config) ->
+    V2 = id("it"),
+    S = id([42,{"hi", "=)", #{ "a" => 42, any => any, val => "get_" ++ V2}}]),
+
+    %% match deep map values
+    V2 = case S of
+	[42,{"hi",_, #{ "a" := 42, val := "get_" ++ V1, any := _ }}] -> V1
+    end,
+    %% match deep map
+    ok = case S of
+	[42,{"hi",_, #{ }}] -> ok
+    end,
+    ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
