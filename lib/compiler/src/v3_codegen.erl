@@ -960,7 +960,6 @@ select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
 	end, {{[],[]},Bef}, Vs),
 
     Code = case {HasKs,GetVs} of
-	{[],[]} -> {[],Aft,St};
 	{HasKs,[]} ->
 	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}}];
 	{[],GetVs} ->
