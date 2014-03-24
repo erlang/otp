@@ -418,6 +418,13 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
   wxWindow *parent = NULL;
   wxeMemEnv * memenv = refmap[Ecmd.port];
 
+  if(!memenv) {
+    wxString msg;
+    msg.Printf(wxT("MemEnv already deleted"));
+    send_msg("debug", &msg);
+    return;
+  }
+
   if(wxe_debug) {
     wxString msg;
     msg.Printf(wxT("Destroying all memory "));
@@ -446,7 +453,6 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 	  }
 	  if(recurse_level > 0) {
 	    // Delay delete until we are out of dispatch*
-	    delayed_cleanup->Append(Ecmd.Clone());
 	  } else {
 	    delete win;
 	  }
@@ -455,9 +461,10 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
     }
   }
 
-  if(recurse_level > 0)
+  if(recurse_level > 0) {
+    delayed_cleanup->Append(Ecmd.Clone());
     return;
-
+  }
   // First pass, delete all top parents/windows of all linked objects
   //   fprintf(stderr, "close port %x\r\n", Ecmd.port);fflush(stderr);
 
