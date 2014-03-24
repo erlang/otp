@@ -249,8 +249,8 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	    end
     end.
 
-ct_suite_init(Suite, Func, PostInitHook, Config) when is_list(Config) ->
-    case ct_hooks:init_tc(Suite, Func, Config) of
+ct_suite_init(Suite, FuncSpec, PostInitHook, Config) when is_list(Config) ->
+    case ct_hooks:init_tc(Suite, FuncSpec, Config) of
 	NewConfig when is_list(NewConfig) ->
 	    PostInitHookResult = do_post_init_hook(PostInitHook, NewConfig),
 	    {ok, [PostInitHookResult ++ NewConfig]};
