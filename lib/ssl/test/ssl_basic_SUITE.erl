@@ -309,7 +309,11 @@ alerts(Config) when is_list(Config) ->
 		    ?ILLEGAL_PARAMETER, ?UNKNOWN_CA, ?ACCESS_DENIED, ?DECODE_ERROR,
 		    ?DECRYPT_ERROR, ?EXPORT_RESTRICTION, ?PROTOCOL_VERSION, 
 		    ?INSUFFICIENT_SECURITY, ?INTERNAL_ERROR, ?USER_CANCELED,
-		    ?NO_RENEGOTIATION],
+		    ?NO_RENEGOTIATION, ?UNSUPPORTED_EXTENSION, ?CERTIFICATE_UNOBTAINABLE,
+		    ?UNRECOGNISED_NAME, ?BAD_CERTIFICATE_STATUS_RESPONSE,
+		    ?BAD_CERTIFICATE_HASH_VALUE, ?UNKNOWN_PSK_IDENTITY, 
+		    255 %% Unsupported/unknow alert will result in a description too
+		   ],
     Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
 	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],
     lists:foreach(fun(Alert) ->
