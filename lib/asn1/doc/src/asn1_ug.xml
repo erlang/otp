@@ -748,51 +748,58 @@ ok
 {ok,&lt;&lt;30,20,0,66,0,77,0,80,0,32,0,115,0,116,0,114,0,105,0,110,0,103>>}
 7> <input>'PrimStrings':decode('BMP', Bytes3).</input>
 {ok,"BMP string"}      </pre>
-      <p>The UTF8String is represented in Erlang as a list of integers,
-        where each integer represents the unicode value of one
-        character. When a value shall be encoded one first has to
-        transform it to a UTF8 encoded binary, then it can be encoded by
-        asn1. When decoding the result is a UTF8 encoded binary, which
-        may be transformed to an integer list. The transformation
-        functions, <c>utf8_binary_to_list</c> and
-        <c>utf8_list_to_binary</c>, are in the <c>asn1rt</c> module. In
-        the example below we assume an asn1 definition <c>UTF ::= UTF8String</c> in a module <c>UTF.asn</c>:</p>
+
+      <p>The UTF8String type is represented as a UTF-8 encoded binary in
+      Erlang. Such binaries can be created directly using the binary syntax
+      or by converting from a list of Unicode code points using the
+      <c>unicode:characters_to_binary/1</c> function.</p>
+
+      <p>Here are some examples showing how UTF-8 encoded binaries can
+      be created and manipulated:</p>
+
       <pre>
-1> <input>asn1ct:compile('UTF',[ber]).</input>
-Erlang ASN.1 version "1.4.3.3" compiling "UTF.asn" 
-Compiler Options: [ber]
---{generated,"UTF.asn1db"}--
---{generated,"UTF.erl"}--
+1> <input>Gs = "Мой маленький Гном".</input>
+[1052,1086,1081,32,1084,1072,1083,1077,1085,1100,1082,1080,
+ 1081,32,1043,1085,1086,1084]
+2> <input>Gbin = unicode:characters_to_binary(Gs).</input>
+&lt;&lt;208,156,208,190,208,185,32,208,188,208,176,208,187,208,
+  181,208,189,209,140,208,186,208,184,208,185,32,208,147,
+  208,...>>
+3> <input>Gbin = &lt;&lt;"Мой маленький Гном"/utf8>>.</input>
+&lt;&lt;208,156,208,190,208,185,32,208,188,208,176,208,187,208,
+  181,208,189,209,140,208,186,208,184,208,185,32,208,147,
+  208,...>>
+4> <input>Gs = unicode:characters_to_list(Gbin).</input>
+[1052,1086,1081,32,1084,1072,1083,1077,1085,1100,1082,1080,
+ 1081,32,1043,1085,1086,1084]
+      </pre>
+
+      <p>See the <seealso marker="stdlib:unicode">unicode</seealso> module
+      for more details.</p>
+
+      <p>In the following example we will use this ASN.1 specification:</p>
+      <pre>
+UTF DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+   UTF ::= UTF8String
+END
+      </pre>
+
+      <p>Encoding and decoding a string with Unicode characters:</p>
+
+      <pre>
+5> <input>asn1ct:compile('UTF', [ber]).</input>
 ok
-2> <input>UTF8Val1 = "hello".</input>
-"hello"
-3> <input>{ok,UTF8bin1} = asn1rt:utf8_list_to_binary(UTF8Val1).</input>
-{ok,&lt;&lt;104,101,108,108,111&gt;&gt;}
-4> <input>{ok,B}='UTF':encode('UTF',UTF8bin1).</input>
-{ok,[12,
-     5,
-     &lt;&lt;104,101,108,108,111&gt;&gt;]}
-5> <input>Bin = list_to_binary(B).</input>
-&lt;&lt;12,5,104,101,108,108,111&gt;&gt;
-6> <input>{ok,UTF8bin1}='UTF':decode('UTF',Bin).</input>
-{ok,&lt;&lt;104,101,108,108,111&gt;&gt;}
-7> <input>asn1rt:utf8_binary_to_list(UTF8bin1).</input>
-{ok,"hello"}           
-8> <input>UTF8Val2 = [16#00,16#100,16#ffff,16#ffffff].</input>
-[0,256,65535,16777215]
-9> <input>{ok,UTF8bin2} = asn1rt:utf8_list_to_binary(UTF8Val2).</input>
-{ok,&lt;&lt;0,196,128,239,191,191,248,191,191,191,191&gt;&gt;}
-10> <input>{ok,B2} = 'UTF':encode('UTF',UTF8bin2).</input>
-{ok,[12,
-     11,
-     &lt;&lt;0,196,128,239,191,191,248,191,191,191,191&gt;&gt;]}
-11> <input>Bin2 = list_to_binary(B2).</input>
-&lt;&lt;12,11,0,196,128,239,191,191,248,191,191,191,191&gt;&gt;
-12> <input>{ok,UTF8bin2} = 'UTF':decode('UTF',Bin2).</input>
-{ok,&lt;&lt;0,196,128,239,191,191,248,191,191,191,191&gt;&gt;}
-13> <input>asn1rt:utf8_binary_to_list(UTF8bin2).</input>
-{ok,[0,256,65535,16777215]}
-14>       </pre>
+6> <input>{ok,Bytes1} = 'UTF':encode('UTF', &lt;&lt;"Гном"/utf8>>).</input>
+{ok,&lt;&lt;12,8,208,147,208,189,208,190,208,188>>}
+7> <input>{ok,Bin1} = 'UTF':decode('UTF', Bytes1).</input>
+{ok,&lt;&lt;208,147,208,189,208,190,208,188>>}
+8> <input>io:format("~ts\n", [Bin1]).</input>
+Гном
+ok
+9> <input>unicode:characters_to_list(Bin1).</input>
+[1043,1085,1086,1084]
+      </pre>
     </section>
 
     <section>
