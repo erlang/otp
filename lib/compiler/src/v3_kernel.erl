@@ -581,8 +581,7 @@ map_key_clean(#k_literal{val=V}) -> {k_literal,V};
 map_key_clean(#k_int{val=V})     -> {k_int,V};
 map_key_clean(#k_float{val=V})   -> {k_float,V};
 map_key_clean(#k_atom{val=V})    -> {k_atom,V};
-map_key_clean(#k_nil{})          -> k_nil;
-map_key_clean(#k_var{name=V})    -> {k_var,V}.
+map_key_clean(#k_nil{})          -> k_nil.
 
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
