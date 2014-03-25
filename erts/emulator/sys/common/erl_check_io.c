@@ -527,7 +527,8 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 	    /* fast track to stop_select callback */
 	    stop_select_fn = prt->drv_ptr->stop_select;
 #ifdef USE_VM_PROBES
-	    strncpy(name, prt->drv_ptr->name, sizeof(name)-1);
+	    strncpy(name, prt->drv_ptr->name,
+		    sizeof(DTRACE_CHARBUF_NAME(name))-1);
 	    name[sizeof(name)-1] = '\0';
 #endif
 	    ret = 0;
