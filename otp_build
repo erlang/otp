@@ -1283,8 +1283,8 @@ do_patch_app ()
 	fi
 
         # Generate .rel, .script and .boot - to tmp dir
-	start_clean="{release, {\"OTP APN 181 01\",\"$otp_major_vsn\"}, {erts, \"$erts_vsn\"},\n [{kernel,\"$kernel_vsn\"},\n  {stdlib,\"$stdlib_vsn\"}]}.\n"
-	start_sasl="{release, {\"OTP APN 181 01\",\"$otp_major_vsn\"}, {erts, \"$erts_vsn\"},\n [{kernel,\"$kernel_vsn\"},\n  {stdlib,\"$stdlib_vsn\"},\n  {sasl,\"$sasl_vsn\"}]}.\n"
+	start_clean="{release, {\"Erlang/OTP\",\"$otp_major_vsn\"}, {erts, \"$erts_vsn\"},\n [{kernel,\"$kernel_vsn\"},\n  {stdlib,\"$stdlib_vsn\"}]}.\n"
+	start_sasl="{release, {\"Erlang/OTP\",\"$otp_major_vsn\"}, {erts, \"$erts_vsn\"},\n [{kernel,\"$kernel_vsn\"},\n  {stdlib,\"$stdlib_vsn\"},\n  {sasl,\"$sasl_vsn\"}]}.\n"
 
 	tmp_dir="$target_dir/tmp";
 	if [ ! -d "$tmp_dir" ]; then
