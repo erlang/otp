@@ -17,6 +17,10 @@
 %% %CopyrightEnd%
 %%
 
+%%
+%% Information and debug functions.
+%%
+
 -module(diameter_dbg).
 
 -export([table/1,
