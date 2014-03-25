@@ -292,7 +292,8 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
     if (DTRACE_ENABLED(aio_pool_add)) {
         DTRACE_CHARBUF(port_str, 16);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                      "%T", a->port);
         /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
         len = -1;
         DTRACE2(aio_pool_add, port_str, len);
@@ -327,7 +328,8 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
             if (DTRACE_ENABLED(aio_pool_get)) {
                 DTRACE_CHARBUF(port_str, 16);
 
-                erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+                erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                              "%T", a->port);
                 /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
                 len = -1;
                 DTRACE2(aio_pool_get, port_str, len);

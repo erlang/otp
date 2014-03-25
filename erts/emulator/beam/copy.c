@@ -48,7 +48,8 @@ copy_object(Eterm obj, Process* to)
     if (DTRACE_ENABLED(copy_object)) {
         DTRACE_CHARBUF(proc_name, 64);
 
-        erts_snprintf(proc_name, sizeof(proc_name), "%T", to->common.id);
+        erts_snprintf(proc_name, sizeof(DTRACE_CHARBUF_NAME(proc_name)),
+                      "%T", to->common.id);
         DTRACE2(copy_object, proc_name, size);
     }
 #endif

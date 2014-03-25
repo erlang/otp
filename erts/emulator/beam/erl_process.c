@@ -11313,7 +11313,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
         dtrace_pid_str(from, sender_str);
         dtrace_proc_str(rp, receiver_str);
-        erts_snprintf(reason_buf, sizeof(reason_buf) - 1, "%T", reason);
+        erts_snprintf(reason_buf, sizeof(DTRACE_CHARBUF_NAME(reason_buf)) - 1, "%T", reason);
         DTRACE3(process_exit_signal, sender_str, receiver_str, reason_buf);
     }
 #endif
