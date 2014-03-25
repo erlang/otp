@@ -238,6 +238,7 @@ t_update_assoc(Config) when is_list(Config) ->
     %% Errors cases.
     BadMap = id(badmap),
     {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting=>val}),
 
     ok.
 
@@ -266,6 +267,7 @@ t_update_exact(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting:=val}),
     ok.
 
 t_update_values(Config) when is_list(Config) ->
