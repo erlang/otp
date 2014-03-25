@@ -335,10 +335,6 @@ asn1ct:compile("H323-MESSAGES.asn1",[ber]).      </pre>
 asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre>
       <p>The generic encode and decode functions can be invoked like this:</p>
       <pre>
-asn1ct:encode('H323-MESSAGES','SomeChoiceType',{call,"octetstring"}).
-asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
-      <p>Or, preferable like:</p>
-      <pre>
 'H323-MESSAGES':encode('SomeChoiceType',{call,"octetstring"}).
 'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
     </section>
@@ -466,7 +462,7 @@ Operational ::= BOOLEAN --ASN.1 definition    </pre>
     <p>In Erlang code it may look like:</p>
     <pre>
 Val = true,
-{ok,Bytes}=asn1rt:encode(MyModule,'Operational',Val),    </pre>
+{ok,Bytes} = MyModule:encode('Operational', Val),    </pre>
     <p>Below follows a description of how
       values of each type can be represented in Erlang. 
       </p>
@@ -731,17 +727,17 @@ TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]    
 <c>BMP ::= BMPString</c> then using BER encoding (<c>ber</c>
         option)the input/output format will be:</p>
       <pre>
-1> <input>{ok,Bytes1} = asn1rt:encode('PrimStrings','BMP',[{0,0,53,53},{0,0,45,56}]).</input>
+1> <input>{ok,Bytes1} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,45,56}]).</input>
 {ok,[30,4,"55-8"]}
-2> <input>asn1rt:decode('PrimStrings','BMP',list_to_binary(Bytes1)).</input>
+2> <input>'PrimStrings':decode('BMP', list_to_binary(Bytes1)).</input>
 {ok,[{0,0,53,53},{0,0,45,56}]}
-3> <input>{ok,Bytes2} = asn1rt:encode('PrimStrings','BMP',[{0,0,53,53},{0,0,0,65}]).</input>
+3> <input>{ok,Bytes2} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,0,65}]).</input>
 {ok,[30,4,[53,53,0,65]]}
-4> <input>asn1rt:decode('PrimStrings','BMP',list_to_binary(Bytes2)).</input>
+4> <input>'PrimStrings':decode('BMP', list_to_binary(Bytes2)).</input>
 {ok,[{0,0,53,53},65]}
-5> <input>{ok,Bytes3} = asn1rt:encode('PrimStrings','BMP',"BMP string").</input>
+5> <input>{ok,Bytes3} = 'PrimStrings':encode('BMP', "BMP string").</input>
 {ok,[30,20,[0,66,0,77,0,80,0,32,0,115,0,116,0,114,0,105,0,110,0,103]]}
-6> <input>asn1rt:decode('PrimStrings','BMP',list_to_binary(Bytes3)).</input>
+6> <input>'PrimStrings':decode('BMP', list_to_binary(Bytes3)).</input>
 {ok,"BMP string"}      </pre>
       <p>The UTF8String is represented in Erlang as a list of integers,
         where each integer represents the unicode value of one
