@@ -1274,6 +1274,7 @@ parse_enums([File|Files], Parsed) ->
 	    %%io:format("Parse Enums in ~s ~n", [FileName]),
 	    case xmerl_scan:file(FileName, [{space, normalize}]) of 
 		{error, enoent} ->
+		    %% io:format("Ignore ~p~n", [FileName]),
 		    parse_enums(Files, gb_sets:add(File,Parsed));
 		{Doc, _} ->		    
 		    ES = "./compounddef/sectiondef/memberdef[@kind=\"enum\"]",

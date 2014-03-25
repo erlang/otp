@@ -26730,6 +26730,20 @@ case utils_wxIsPlatform64Bit: { // utils::wxIsPlatform64Bit
  rt.addBool(Result);
  break;
 }
+case gdicmn_wxDisplaySize: { // gdicmn::wxDisplaySize
+ int width;
+ int height;
+ ::wxDisplaySize(&width,&height);
+ rt.addInt(width);
+ rt.addInt(height);
+ rt.addTupleCount(2);
+ break;
+}
+case gdicmn_wxSetCursor: { // gdicmn::wxSetCursor
+ wxCursor *cursor = (wxCursor *) getPtr(bp,memenv); bp += 4;
+ ::wxSetCursor(*cursor);
+ break;
+}
 
 case wxPrintout_new: { // wxPrintout::wxPrintout taylormade
   int onPreparePrinting=0,onBeginPrinting=0,onEndPrinting=0,onBeginDocument=0,
@@ -30442,7 +30456,7 @@ case wxNotebookEvent_SetSelection: { // wxNotebookEvent::SetSelection
 }
 case wxFileDataObject_new: { // wxFileDataObject::wxFileDataObject
  wxFileDataObject * Result = new wxFileDataObject();
- newPtr((void *) Result, 211, memenv);
+ newPtr((void *) Result, 212, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxFileDataObject");
  break;
 }
@@ -30478,7 +30492,7 @@ case wxTextDataObject_new: { // wxTextDataObject::wxTextDataObject
   } break;
  }};
  wxTextDataObject * Result = new wxTextDataObject(text);
- newPtr((void *) Result, 212, memenv);
+ newPtr((void *) Result, 213, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextDataObject");
  break;
 }
@@ -30514,7 +30528,7 @@ case wxTextDataObject_destroy: { // wxTextDataObject::destroy
 case wxBitmapDataObject_new_1_1: { // wxBitmapDataObject::wxBitmapDataObject
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -30526,7 +30540,7 @@ bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -31359,7 +31373,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 225, memenv);
+ newPtr((void *) Result, 226, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31446,10 +31460,10 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 101: delete (wxListItemAttr *) ptr; break;
   case 103: delete (wxTextAttr *) ptr; break;
   case 155: delete (wxAuiPaneInfo *) ptr; break;
-  case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 225: delete (wxLogNull *) ptr; break;
+  case 212: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 213: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 214: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 226: delete (wxLogNull *) ptr; break;
   default: delete (wxObject *) ptr;
 }}
 
