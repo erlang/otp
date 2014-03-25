@@ -1435,7 +1435,7 @@ StartMessage  ::= SEQUENCE {
     <p><c>StartMessage</c> can in the <c>content</c> field be
       encoded with a value of any type that an object in the
       <c>GENERAL-PROCEDURES</c> object set has in its <c>NEW MESSAGE</c> field. This field refers to a type field
-      <c><![CDATA[&amp;Message]]></c> in the class. The <c>msgId</c> field is always
+      <c>&amp;Message</c> in the class. The <c>msgId</c> field is always
       encoded as a PrintableString, since the field refers to a fixed type
       in the class.</p>
     <p>In practice, object sets are usually declared to be extensible so
