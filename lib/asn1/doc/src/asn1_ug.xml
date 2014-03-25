@@ -879,19 +879,31 @@ Pdu ::= SEQUENCE {
       <pre>
 MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre>
       <p>The decode functions will return a record as result when decoding 
-        a <c>SEQUENCE</c> or a <c>SET</c>.
-                <marker id="DEFAULT"></marker>
-</p>
-      <p>A <c>SEQUENCE</c> and a <c>SET</c> may contain a component with a
-        <c>DEFAULT</c> key word followed by the actual value that is the
-        default value. In case of BER encoding it is optional to encode the
-        value if it equals the default value. If the application uses the
-        atom asn1_DEFAULT as value or if the value is a primitive value 
-        that equals the default value the encoding omits the bytes for
-        this value, which is more efficient and it results in fever 
-        bytes to send to the receiving application.</p>
-      <p>For instance, if the following types exists in a file "File.asn":</p>
+      a <c>SEQUENCE</c> or a <c>SET</c>.</p>
+
+      <p>A <c>SEQUENCE</c> and a <c>SET</c> may contain a component
+      with a <c>DEFAULT</c> key word followed by the actual value that
+      is the default value. The <c>DEFAULT</c> keyword means that the
+      application doing the encoding can omit encoding of the value,
+      thus resulting in fewer bytes to send to the receiving
+      application.</p>
+
+      <p>An application can use the atom <c>asn1_DEFAULT</c> to indicate
+      that the encoding should be omitted for that position in
+      the SEQUENCE.</p>
+
+      <p>Depending on the encoding rules, the encoder may also compare
+      the given value to the default value and automatically omit the
+      encoding if they are equal. How much effort the encoder makes to
+      to compare the values depends on the encoding rules. The DER
+      encoding rules forbids encoding a value equal to the default value,
+      so it has a more thorough and time-consuming comparison than the
+      encoders for the other encoding rules.</p>
+
+      <p>In the following example we will use this ASN.1 specification:</p>
       <pre>
+File DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
 Seq1 ::= SEQUENCE {
     a INTEGER DEFAULT 1,
     b Seq2 DEFAULT {aa TRUE, bb 15}
@@ -901,60 +913,37 @@ Seq2 ::= SEQUENCE {
     aa BOOLEAN,
     bb INTEGER
 }
-      </pre>
-      <p>Some values and the corresponding encoding in an Erlang terminal
-        is shown below:</p>
+
+Seq3 ::= SEQUENCE {
+    bs BIT STRING {a(0), b(1), c(2)} DEFAULT {a, c}
+}
+END </pre>
+      <p>Here is an example where the BER encoder is able to omit encoding
+      of the default values:</p>
       <pre>
-1> <input>asn1ct:compile('File').</input>
-Erlang ASN.1 version "1.3.2" compiling "File.asn1" 
-Compiler Options: []
---{generated,"File.asn1db"}--
---{generated,"File.hrl"}--
---{generated,"File.erl"}--
+1> <input>asn1ct:compile('File', [ber]).</input>
 ok
-2> <input>'File':encode('Seq1',{'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</input>
-{ok,["0",[0],[[],[]]]}
-3> <input>lists:flatten(["0",[0],[[],[]]]).</input>
-[48,0]
-4> <input>'File':encode('Seq1',{'Seq1',1,{'Seq2',true,15}}).</input>
-{ok,["0","\\b",[[],["\\241",[6],[[[128],[1],"\\377"],[[129],[1],[15]]]]]]}
-5> <input>lists:flatten(["0","\\b",[[],["\\241",[6],[[[128],[1],"\\377"],[[129],[1],[15]]]]]]).</input>
-[48,8,161,6,128,1,255,129,1,15]
-6>      </pre>
-      <p>The result after command line 3, in the example above,shows that the
-        encoder omits the encoding of default values when they are specific 
-        by asn1_DEFAULT. Line 5 shows that even primitive values that equals
-        the default value are detected and not encoded. But the constructed
-        value of component <c>b</c> in <c>Seq1</c> is not recognized as the
-        default value. Checking of default values in <c>BER</c> is not done
-        in case of complex values, because it would be to expensive.
-                <marker id="DEFAULT DER"></marker>
-</p>
-      <p>But, the DER encoding format has stronger requirements regarding 
-        default values both for SET and SEQUENCE. A more elaborate and time 
-        expensive check of default values will take place. The following is
-        an example with the same types and values as above but with der 
-        encoding format.</p>
-      <pre>
-1> <input>asn1ct:compile('File',[der]).</input>
-Erlang ASN.1 version "1.3.2" compiling "File.asn1" 
-Compiler Options: [der]
---{generated,"File.asn1db"}--
---{generated,"File.hrl"}--
---{generated,"File.erl"}--
+2> <input>'File':encode('Seq1', {'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</input>
+{ok,&lt;&lt;48,0>>}
+3> <input>'File':encode('Seq1', {'Seq1',1,{'Seq2',true,15}}).</input>
+{ok,&lt;&lt;48,0>>}   </pre>
+
+     <p>And here is an example with a named BIT STRING where the BER
+     encoder will not omit the encoding:</p>
+     <pre>
+4> <input>'File':encode('Seq3', {'Seq3',asn1_DEFAULT).</input>
+{ok,&lt;&lt;48,0>>}
+5> <input>'File':encode('Seq3', {'Seq3',&lt;&lt;16#101:3>>).</input>
+{ok,&lt;&lt;48,4,128,2,5,160>>}     </pre>
+
+     <p>The DER encoder will omit the encoding for the same BIT STRING:</p>
+     <pre>
+6> <input>asn1ct:compile('File', [ber,der]).</input>
 ok
-2> <input>'File':encode('Seq1',{'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</input>
-{ok,["0",[0],[[],[]]]}
-3> <input>lists:flatten(["0",[0],[[],[]]]).</input>
-[48,0]
-4> <input>'File':encode('Seq1',{'Seq1',1,{'Seq2',true,15}}).</input>
-{ok,["0",[0],[[],[]]]}
-5> <input>lists:flatten(["0",[0],[[],[]]]).</input>
-[48,0]
-6> 
-      </pre>
-      <p>Line 5 shows that even values of constructed types is checked and if 
-        it equals the default value it will not be encoded.</p>
+7> <input>'File':encode('Seq3', {'Seq3',asn1_DEFAULT).</input>
+{ok,&lt;&lt;48,0>>}
+8> <input>'File':encode('Seq3', {'Seq3',&lt;&lt;16#101:3>>).</input>
+{ok,&lt;&lt;48,0>>}     </pre>
     </section>
 
     <section>
@@ -1005,9 +994,9 @@ Bad ::= SET {i INTEGER,
         [<cite id="X.680"></cite>].
         </p>
       <p>Encoding of a SET with components with DEFAULT values behaves
-        similar as a SEQUENCE, <seealso marker="#DEFAULT">see above</seealso>. The DER encoding format restrictions on DEFAULT 
+        similar as a SEQUENCE. The DER encoding format restrictions on DEFAULT
         values is the same for SET as for SEQUENCE, and is supported by 
-        the compiler, <seealso marker="#DEFAULT DER">see above</seealso>.</p>
+        the compiler.</p>
       <p>Moreover, in DER the elements of a SET will be sorted. If a 
         component is an un-tagged choice the sorting have to take place
         in run-time. This fact emphasizes the following recommendation
