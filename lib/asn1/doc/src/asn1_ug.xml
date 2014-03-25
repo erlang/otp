@@ -134,19 +134,17 @@
       <title>A First Example</title>
       <p>The following example demonstrates the basic functionality used to run 
         the Erlang ASN.1 compiler.</p>
-      <p>First, create a file called <c>People.asn</c> containing the following:</p>
+      <p>Create a file called <c>People.asn</c> containing the following:</p>
       <pre>
-People DEFINITIONS IMPLICIT TAGS ::=
-
+People DEFINITIONS AUTOMATIC TAGS ::=
 BEGIN
-EXPORTS Person;
-
-Person ::= [PRIVATE 19] SEQUENCE {
-        name PrintableString,
-        location INTEGER {home(0),field(1),roving(2)},
-        age INTEGER OPTIONAL }
+  Person ::= SEQUENCE {
+    name PrintableString,
+    location INTEGER {home(0),field(1),roving(2)},
+    age INTEGER OPTIONAL
+  }
 END      </pre>
-      <p>This file (<c>people.asn</c>) must be compiled before it can  be 
+      <p>This file (<c>People.asn</c>) must be compiled before it can be
         used. 
         The ASN.1 compiler checks that the syntax is correct and that the 
         text represents proper ASN.1 code before generating an abstract
@@ -158,14 +156,14 @@ END      </pre>
         The following shows how the compiler
         can be called from the  Erlang shell:</p>
       <pre>
-1><input>asn1ct:compile("People", [ber]).</input>
+1><input> asn1ct:compile("People", [ber]).</input>
 ok
 2>      </pre>
 
       <p>The <c>verbose</c> option can be given to have information
       about the generated files printed:</p>
       <pre>
-2><input>asn1ct:compile("People", [ber,verbose]).</input>
+2><input> asn1ct:compile("People", [ber,verbose]).</input>
 Erlang ASN.1 compiling "People.asn" 
 --{generated,"People.asn1db"}--
 --{generated,"People.hrl"}--
@@ -173,17 +171,17 @@ Erlang ASN.1 compiling "People.asn"
 ok
 3>      </pre>
 
-      <p>The ASN.1 module People is now accepted and the abstract syntax tree
-        is saved in the <c>People.asn1db</c> file, the
-        generated Erlang code is compiled using the Erlang compiler and
-        loaded into  the Erlang runtime system. Now there is a user interface
-        for <c>encode/2</c> and <c>decode/2</c> in the module People,
-	which is invoked by:
-                <br></br>
-<c><![CDATA['People':encode(<Type name>,<Value>),]]></c>        <br></br>
-
+      <p>The ASN.1 module <c>People</c> is now accepted and the
+      abstract syntax tree is saved in the <c>People.asn1db</c> file;
+      the generated Erlang code is compiled using the Erlang compiler
+      and loaded into the Erlang runtime system. Now there is an API
+      for <c>encode/2</c> and <c>decode/2</c> in the module
+      <c>People</c>, which is invoked by: <br></br>
+      <c><![CDATA['People':encode(<Type name>, <Value>)]]></c>
+      <br></br>
         or        <br></br>
-<c><![CDATA['People':decode(<Type name>,<Value>),]]></c></p>
+<c><![CDATA['People':decode(<Type name>, <Value>)]]></c></p>
+
       <p>Assume there is a network
         application which receives instances of the  ASN.1 defined
         type Person,  modifies and sends them back again:</p>
@@ -206,8 +204,7 @@ receive
         constructed  and encoded using
         <c>'People':encode('Person',Answer)</c> which takes an
         instance of a defined ASN.1 type and transforms it to a
-        binary according to the BER or PER
-        encoding-rules. 
+        binary according to the BER or PER encoding rules.
                 <br></br>
 The encoder and the decoder can also be run from
         the shell.</p>
