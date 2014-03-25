@@ -206,7 +206,7 @@ global_request(ConnectionHandler, Type, false = Reply, Data) ->
     send_all_state_event(ConnectionHandler, {global_request, self(), Type, Reply, Data}).
 
 %%--------------------------------------------------------------------
--spec send(pid(), channel_id(), integer(), iolist(), timeout()) ->
+-spec send(pid(), channel_id(), integer(), iodata(), timeout()) ->
 		  ok | {error, timeout} | {error, closed}.
 %%--------------------------------------------------------------------
 send(ConnectionHandler, ChannelId, Type, Data, Timeout) ->
