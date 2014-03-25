@@ -104,7 +104,7 @@ void meta_command(int what, wxe_data *sd) {
   }
 }
 
-void send_msg(const char * type, wxString * msg) {
+void send_msg(const char * type, const wxString * msg) {
   wxeReturn rt = wxeReturn(WXE_DRV_PORT, init_caller);
   rt.addAtom((char *) "wxe_driver");
   rt.addAtom((char *) type);
@@ -159,6 +159,13 @@ bool WxeApp::OnInit()
   erl_drv_mutex_unlock(wxe_status_m);
   return TRUE;
 }
+
+
+#ifdef  _MACOSX
+void WxeApp::MacOpenFile(const wxString &filename) {
+  send_msg("open_file", &filename);
+}
+#endif
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
   ExitMainLoop();
@@ -491,7 +498,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
 	  wxString msg;
-	  if((refd->type == 0)) { // Maybe also class 1
+	  if(refd->type == 0) { // Maybe also class 1
 	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
 	    msg.Printf(wxT("Memory leak: {wx_ref, %d, %s}"),
 		       refd->ref, cinfo->GetClassName());

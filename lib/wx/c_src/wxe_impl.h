@@ -41,12 +41,15 @@ extern "C" {
 #define WXE_EXITED        2
 #define WXE_ERROR        -1
 
-void send_msg(const char *, wxString *);   // For debugging and error msgs
+void send_msg(const char *, const wxString *);   // For debugging and error msgs
 
 class WxeApp : public wxApp
 {
 public:
-  virtual bool OnInit();
+   virtual bool OnInit();
+#ifdef  _MACOSX
+  virtual void MacOpenFile(const wxString &filename);
+#endif
   void shutdown(wxeMetaCommand& event);
 
   int dispatch(wxList *, int, int);
