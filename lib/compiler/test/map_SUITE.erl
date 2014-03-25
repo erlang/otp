@@ -122,6 +122,7 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id({a,b,c}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{y=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
+    {'EXIT',{badarg,_}} = (catch id(#{<<0:258>> =>"three"})),
     ok.
 
 t_build_and_match_aliasing(Config) when is_list(Config) ->
@@ -239,7 +240,7 @@ t_update_assoc(Config) when is_list(Config) ->
     BadMap = id(badmap),
     {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
     {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting=>val}),
-
+    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> => val}), %% limitation
     ok.
 
 t_update_exact(Config) when is_list(Config) ->
@@ -268,6 +269,7 @@ t_update_exact(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
     {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting:=val}),
+    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
     ok.
 
 t_update_values(Config) when is_list(Config) ->

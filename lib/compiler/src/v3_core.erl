@@ -514,15 +514,26 @@ expr({tuple,L,Es0}, St0) ->
 expr({map,L,Es0}, St0) ->
     % erl_lint should make sure only #{ K => V } are allowed
     % in map construction.
-    {Es1,Eps,St1} = map_pair_list(Es0, St0),
-    A = lineno_anno(L, St1),
-    {ann_c_map(A,Es1),Eps,St1};
+    try map_pair_list(Es0, St0) of
+	{Es1,Eps,St1} ->
+	    A = lineno_anno(L, St1),
+	    {ann_c_map(A,Es1),Eps,St1}
+    catch
+	throw:{bad_map,Warning} ->
+	    St = add_warning(L, Warning, St0),
+	    LineAnno = lineno_anno(L, St),
+	    As = [#c_literal{anno=LineAnno,val=badarg}],
+	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
+		    module=#c_literal{anno=LineAnno,val=erlang},
+		    name=#c_literal{anno=LineAnno,val=error},
+		    args=As},[],St}
+    end;
 expr({map,L,M0,Es0}, St0) ->
     try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
 	{_,_,_}=Res -> Res
     catch
-	throw:bad_map ->
-	    St = add_warning(L, bad_map, St0),
+	throw:{bad_map,Warning} ->
+	    St = add_warning(L, Warning, St0),
 	    LineAnno = lineno_anno(L, St),
 	    As = [#c_literal{anno=LineAnno,val=badarg}],
 	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
@@ -762,7 +773,7 @@ expr_map(M0,Es0,A,St0) ->
 		    {Es1,Eps,St2} = map_pair_list(Es0, St1),
 		    {ann_c_map(A,M1,Es1),Mps++Eps,St2}
 	    end;
-	false -> throw(bad_map)
+	false -> throw({bad_map,bad_map})
     end.
 
 is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
@@ -774,17 +785,22 @@ map_pair_list(Es, St) ->
     foldr(fun
 	    ({map_field_assoc,L,K0,V0}, {Ces,Esp,St0}) ->
 		{K,Ep0,St1} = safe(K0, St0),
+		ok = ensure_valid_map_key(K),
 		{V,Ep1,St2} = safe(V0, St1),
 		A = lineno_anno(L, St2),
 		Pair = #c_map_pair{op=#c_literal{val=assoc},anno=A,key=K,val=V},
 		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2};
 	    ({map_field_exact,L,K0,V0}, {Ces,Esp,St0}) ->
 		{K,Ep0,St1} = safe(K0, St0),
+		ok = ensure_valid_map_key(K),
 		{V,Ep1,St2} = safe(V0, St1),
 		A = lineno_anno(L, St2),
 		Pair = #c_map_pair{op=#c_literal{val=exact},anno=A,key=K,val=V},
 		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2}
 	end, {[],[],St}, Es).
+
+ensure_valid_map_key(#c_literal{}) -> ok;
+ensure_valid_map_key(_) -> throw({bad_map,bad_map_key}).
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -2301,6 +2317,8 @@ format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
+format_error(bad_map_key) ->
+    "map construction will fail because of none literal key (large binaries are not literals)";
 format_error(bad_map) ->
     "map construction will fail because of a type mismatch".
 
