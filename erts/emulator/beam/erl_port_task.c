@@ -2035,9 +2035,9 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 	    DTRACE_CHARBUF(pid_str, 16);
 	    ErtsProcList* plp2 = plp;
 
-	    erts_snprintf(port_str, sizeof(port_str), "%T", pp->common.id);
+	    erts_snprintf(port_str, DTRACE_CHARBUF_SIZEOF(port_str), "%T", pp->common.id);
 	    while (plp2 != NULL) {
-		erts_snprintf(pid_str, sizeof(pid_str), "%T", plp2->pid);
+		erts_snprintf(pid_str, DTRACE_CHARBUF_SIZEOF(pid_str), "%T", plp2->pid);
 		DTRACE2(process_port_unblocked, pid_str, port_str);
 	    }
 	}
