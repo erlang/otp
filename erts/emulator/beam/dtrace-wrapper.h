@@ -42,7 +42,7 @@
 #define DTRACE_CHARBUF(name, size) \
     char name##_BUFFER[size], *name = name##_BUFFER
 
-#define DTRACE_CHARBUF_NAME(name) name##_BUFFER
+#define DTRACE_CHARBUF_SIZEOF(name) sizeof(name##_BUFFER)
 
 #if defined(USE_DYNAMIC_TRACE) && defined(USE_VM_PROBES) 
 

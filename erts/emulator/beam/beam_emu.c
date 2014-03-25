@@ -1301,7 +1301,7 @@ void process_main(void)
                                       (Eterm)fptr[1], (Uint)fptr[2],
                                       NULL, fun_buf);
                 } else {
-                    erts_snprintf(fun_buf, sizeof(fun_buf),
+                    erts_snprintf(fun_buf, DTRACE_CHARBUF_SIZEOF(fun_buf),
                                   "<unknown/%p>", next);
                 }
             }

@@ -851,9 +851,9 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
 #ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
-        erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
-        erts_snprintf(receiver_name, sizeof(receiver_name), "%T", remote);
+        erts_snprintf(node_name, DTRACE_CHARBUF_SIZEOF(node_name), "%T", dsdp->dep->sysname);
+        erts_snprintf(sender_name, DTRACE_CHARBUF_SIZEOF(sender_name), "%T", sender->common.id);
+        erts_snprintf(receiver_name, DTRACE_CHARBUF_SIZEOF(receiver_name), "%T", remote);
         msize = size_object(message);
         if (token != NIL && token != am_have_dt_utag) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
@@ -908,9 +908,9 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 #ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
-        erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
-        erts_snprintf(receiver_name, sizeof(receiver_name),
+        erts_snprintf(node_name, DTRACE_CHARBUF_SIZEOF(node_name), "%T", dsdp->dep->sysname);
+        erts_snprintf(sender_name, DTRACE_CHARBUF_SIZEOF(sender_name), "%T", sender->common.id);
+        erts_snprintf(receiver_name, DTRACE_CHARBUF_SIZEOF(receiver_name),
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
         if (token != NIL && token != am_have_dt_utag) {
@@ -971,11 +971,11 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
 #ifdef USE_VM_PROBES
     *node_name = *sender_name = *remote_name = '\0';
     if (DTRACE_ENABLED(process_exit_signal_remote)) {
-        erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
-        erts_snprintf(remote_name, sizeof(remote_name),
+        erts_snprintf(node_name, DTRACE_CHARBUF_SIZEOF(node_name), "%T", dsdp->dep->sysname);
+        erts_snprintf(sender_name, DTRACE_CHARBUF_SIZEOF(sender_name), "%T", sender->common.id);
+        erts_snprintf(remote_name, DTRACE_CHARBUF_SIZEOF(remote_name),
                       "{%T,%s}", remote, node_name);
-        erts_snprintf(reason_str, sizeof(reason), "%T", reason);
+        erts_snprintf(reason_str, DTRACE_CHARBUF_SIZEOF(reason_str), "%T", reason);
         if (token != NIL && token != am_have_dt_utag) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
@@ -1797,8 +1797,8 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
                     DTRACE_CHARBUF(port_str, 64);
                     DTRACE_CHARBUF(remote_str, 64);
 
-                    erts_snprintf(port_str, sizeof(port_str), "%T", cid);
-                    erts_snprintf(remote_str, sizeof(remote_str),
+                    erts_snprintf(port_str, DTRACE_CHARBUF_SIZEOF(port_str), "%T", cid);
+                    erts_snprintf(remote_str, DTRACE_CHARBUF_SIZEOF(remote_str),
                                   "%T", dep->sysname);
                     DTRACE3(dist_port_not_busy, erts_this_node_sysname,
                             port_str, remote_str);
@@ -1855,9 +1855,9 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
             DTRACE_CHARBUF(remote_str, 64);
             DTRACE_CHARBUF(pid_str, 16);
 
-            erts_snprintf(port_str, sizeof(port_str), "%T", cid);
-            erts_snprintf(remote_str, sizeof(remote_str), "%T", dep->sysname);
-            erts_snprintf(pid_str, sizeof(pid_str), "%T", c_p->common.id);
+            erts_snprintf(port_str, DTRACE_CHARBUF_SIZEOF(port_str), "%T", cid);
+            erts_snprintf(remote_str, DTRACE_CHARBUF_SIZEOF(remote_str), "%T", dep->sysname);
+            erts_snprintf(pid_str, DTRACE_CHARBUF_SIZEOF(pid_str), "%T", c_p->common.id);
             DTRACE4(dist_port_busy, erts_this_node_sysname,
                     port_str, remote_str, pid_str);
         }
@@ -1890,8 +1890,8 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
-        erts_snprintf(remote_str, sizeof(remote_str),
+        erts_snprintf(port_str, DTRACE_CHARBUF_SIZEOF(port_str), "%T", prt->common.id);
+        erts_snprintf(remote_str, DTRACE_CHARBUF_SIZEOF(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE4(dist_output, erts_this_node_sysname, port_str,
                 remote_str, size);
@@ -1944,8 +1944,8 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
-        erts_snprintf(remote_str, sizeof(remote_str),
+        erts_snprintf(port_str, DTRACE_CHARBUF_SIZEOF(port_str), "%T", prt->common.id);
+        erts_snprintf(remote_str, DTRACE_CHARBUF_SIZEOF(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
                 remote_str, size);
@@ -2280,8 +2280,8 @@ erts_dist_port_not_busy(Port *prt)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
-        erts_snprintf(remote_str, sizeof(remote_str),
+        erts_snprintf(port_str, DTRACE_CHARBUF_SIZEOF(port_str), "%T", prt->common.id);
+        erts_snprintf(remote_str, DTRACE_CHARBUF_SIZEOF(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE3(dist_port_not_busy, erts_this_node_sysname,
                 port_str, remote_str);
@@ -3246,10 +3246,10 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
         DTRACE_CHARBUF(type_str, 12);
         DTRACE_CHARBUF(reason_str, 64);
 
-        erts_snprintf(what_str, sizeof(what_str), "%T", what);
-        erts_snprintf(node_str, sizeof(node_str), "%T", node);
-        erts_snprintf(type_str, sizeof(type_str), "%T", type);
-        erts_snprintf(reason_str, sizeof(reason_str), "%T", reason);
+        erts_snprintf(what_str, DTRACE_CHARBUF_SIZEOF(what_str), "%T", what);
+        erts_snprintf(node_str, DTRACE_CHARBUF_SIZEOF(node_str), "%T", node);
+        erts_snprintf(type_str, DTRACE_CHARBUF_SIZEOF(type_str), "%T", type);
+        erts_snprintf(reason_str, DTRACE_CHARBUF_SIZEOF(reason_str), "%T", reason);
         DTRACE5(dist_monitor, erts_this_node_sysname,
                 what_str, node_str, type_str, reason_str);
     }
