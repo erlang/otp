@@ -720,24 +720,33 @@ TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]    
         characters are all represented by quadruples beginning with
         three zeros like {0,0,0,65} for the 'A' character. When
         decoding a value for these strings the result is a list of
-        quadruples, or integers when the value is an ASCII character.
-        The following example shows how it works:</p>
-      <p>In a file <c>PrimStrings.asn1</c> the type <c>BMP</c> is defined as
-                <br></br>
-<c>BMP ::= BMPString</c> then using BER encoding (<c>ber</c>
-        option)the input/output format will be:</p>
+        quadruples, or integers when the value is an ASCII character.</p>
+
+        <p>The following example shows how it works. We have the following
+	specification in the file <c>PrimStrings.asn1</c>.</p>
+       <pre>
+PrimStrings DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+   BMP ::= BMPString
+END
+       </pre>
+
+       <p>Encoding and decoding some strings:</p>
+
       <pre>
-1> <input>{ok,Bytes1} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,45,56}]).</input>
-{ok,[30,4,"55-8"]}
-2> <input>'PrimStrings':decode('BMP', list_to_binary(Bytes1)).</input>
+1> <input>asn1ct:compile('PrimStrings', [ber]).</input>
+ok
+2> <input>{ok,Bytes1} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,45,56}]).</input>
+{ok,&lt;&lt;30,4,53,54,45,56>>}
+3> <input>'PrimStrings':decode('BMP', Bytes1).</input>
 {ok,[{0,0,53,53},{0,0,45,56}]}
-3> <input>{ok,Bytes2} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,0,65}]).</input>
-{ok,[30,4,[53,53,0,65]]}
-4> <input>'PrimStrings':decode('BMP', list_to_binary(Bytes2)).</input>
+4> <input>{ok,Bytes2} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,0,65}]).</input>
+{ok,&lt;&lt;30,4,53,53,0,65>>}
+5> <input>'PrimStrings':decode('BMP', Bytes2).</input>
 {ok,[{0,0,53,53},65]}
-5> <input>{ok,Bytes3} = 'PrimStrings':encode('BMP', "BMP string").</input>
-{ok,[30,20,[0,66,0,77,0,80,0,32,0,115,0,116,0,114,0,105,0,110,0,103]]}
-6> <input>'PrimStrings':decode('BMP', list_to_binary(Bytes3)).</input>
+6> <input>{ok,Bytes3} = 'PrimStrings':encode('BMP', "BMP string").</input>
+{ok,&lt;&lt;30,20,0,66,0,77,0,80,0,32,0,115,0,116,0,114,0,105,0,110,0,103>>}
+7> <input>'PrimStrings':decode('BMP', Bytes3).</input>
 {ok,"BMP string"}      </pre>
       <p>The UTF8String is represented in Erlang as a list of integers,
         where each integer represents the unicode value of one
