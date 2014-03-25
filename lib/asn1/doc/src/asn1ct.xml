@@ -45,10 +45,11 @@
 	<p>By default in OTP 17, the representation of the BIT STRING
 	and OCTET STRING types as Erlang terms have changed. BIT
 	STRING values are now Erlang bitstrings and OCTET STRING values
-	are binaries.  For details see <seealso
-	marker="asn1_ug#BIT STRING">BIT STRING</seealso> and <seealso
-	marker="asn1_ug#OCTET STRING">OCTET STRING</seealso> in User's
-	Guide.</p>
+	are binaries.  Also, an undecoded open type will now be wrapped in
+	a <c>asn1_OPENTYPE</c> tuple. For details see <seealso
+	marker="asn1_ug#BIT STRING">BIT STRING</seealso>, <seealso
+	marker="asn1_ug#OCTET STRING">OCTET STRING</seealso>, and
+	<seealso marker="asn1_ug#Information%20Object">ASN.1 Information Objects</seealso> in User's Guide.</p>
 	<p>To revert to the old representation of the types, use the
 	<c>legacy_erlang_types</c> option.</p>
       </note>

@@ -1438,6 +1438,23 @@ StartMessage  ::= SEQUENCE {
       <c><![CDATA[&amp;Message]]></c> in the class. The <c>msgId</c> field is always
       encoded as a PrintableString, since the field refers to a fixed type
       in the class.</p>
+    <p>In practice, object sets are usually declared to be extensible so
+    so that more objects can be added to the set later. Extensibility is
+    indicated like this:</p>
+    <pre>
+GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
+    object1 | object2, ...}    </pre>
+     <p>When decoding a type that uses an extensible set constraint,
+     there is always the possibility that the value in the UNIQUE
+     field is unknown (i.e. the type has been encoded with a later
+     version of the ASN.1 specification). When that happens, the
+     unencoded data will be returned wrapped in a tuple like this:</p>
+
+     <pre>
+{asn1_OPENTYPE,Binary}</pre>
+     <p>where <c>Binary</c> is an Erlang binary that contains the encoded
+     data. (If the option <c>legacy_erlang_types</c> has been given,
+     just the binary will be returned.)</p>
   </section>
 
   <section>
