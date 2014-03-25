@@ -1125,7 +1125,22 @@ pgen_info() ->
 open_hrl(OutFile,Module) ->
     File = lists:concat([OutFile,".hrl"]),
     _ = open_output_file(File),
-    gen_hrlhead(Module).
+    gen_hrlhead(Module),
+    Protector = hrl_protector(OutFile),
+    emit(["-ifndef(",Protector,").\n",
+	  "-define(",Protector,", true).\n"
+	  "\n"]).
+
+hrl_protector(OutFile) ->
+    BaseName = filename:basename(OutFile),
+    P = "_" ++ string:to_upper(BaseName) ++ "_HRL_",
+    [if
+	 $A =< C, C =< $Z -> C;
+	 $a =< C, C =< $a -> C;
+	 $0 =< C, C =< $9 -> C;
+	 true -> $_
+     end || C <- P].
+
 
 %% EMIT functions ************************
 %% ***************************************
@@ -1232,6 +1247,8 @@ pgen_hrl(Erules,Module,TypeOrVal,Options,_Indent) ->
 	0 ->
 	    0;
 	Y ->
+	    Protector = hrl_protector(get(outfile)),
+	    emit(["-endif. %% ",Protector,"\n"]),
 	    close_output_file(),
 	    asn1ct:verbose("--~p--~n",
 			   [{generated,lists:concat([get(outfile),".hrl"])}],
