@@ -354,7 +354,7 @@ void ethr_rwmutex_rwunlock(ethr_rwmutex *);
 
 #ifdef ETHR_MTX_HARD_DEBUG
 #define ETHR_MTX_HARD_ASSERT(A) \
-  ((void) ((A) ? 1 : ethr_assert_failed(__FILE__, __LINE__, #A)))
+  ((void) ((A) ? 1 : ethr_assert_failed(__FILE__, __LINE__, __func__,#A)))
 #else
 #define ETHR_MTX_HARD_ASSERT(A) ((void) 1)
 #endif

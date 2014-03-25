@@ -1741,10 +1741,10 @@ erl_assert_error(const char* expr, const char* func,
 {
     fflush(stdout);
     fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
-	    file, func, line, expr);
+	    file, line, func, expr);
     fflush(stderr);
     ramlog_printf("%s:%d:%s() Assertion failed: %s\n",
-		  file, func, line, expr);
+		  file, line, func, expr);
 
     abort();
 }
