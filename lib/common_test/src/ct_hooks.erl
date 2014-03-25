@@ -64,11 +64,16 @@ terminate(Hooks) ->
 
 %% @doc Called as each test case is started. This includes all configuration
 %% tests.
--spec init_tc(Mod :: atom(), Func :: atom(), Args :: list()) ->
+-spec init_tc(Mod :: atom(),
+	      FuncSpec :: atom() | 
+			  {ConfigFunc :: init_per_group | end_per_group,
+			   GroupName :: atom(),
+			   Properties :: list()},
+	      Args :: list()) ->
     NewConfig :: proplists:proplist() |
-    {skip, Reason :: term()} |
-    {auto_skip, Reason :: term()} |
-    {fail, Reason :: term()}.
+		 {skip, Reason :: term()} |
+		 {auto_skip, Reason :: term()} |
+		 {fail, Reason :: term()}.
 
 init_tc(Mod, init_per_suite, Config) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(),[]) of
@@ -82,8 +87,8 @@ init_tc(Mod, init_per_suite, Config) ->
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_suite, Mod]);
-init_tc(Mod, {init_per_group, GroupName, Opts}, Config) ->
-    maybe_start_locker(Mod, GroupName, Opts),
+init_tc(Mod, {init_per_group, GroupName, Properties}, Config) ->
+    maybe_start_locker(Mod, GroupName, Properties),
     call(fun call_generic/3, Config, [pre_init_per_group, GroupName]);
 init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_group, GroupName]);
@@ -93,15 +98,18 @@ init_tc(_Mod, TC, Config) ->
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
 -spec end_tc(Mod :: atom(),
-	     Func :: atom(),
+	     FuncSpec :: atom() | 
+			 {ConfigFunc :: init_per_group | end_per_group,
+			  GroupName :: atom(),
+			  Properties :: list()},
 	     Args :: list(),
 	     Result :: term(),
-	     Resturn :: term()) ->
+	     Return :: term()) ->
     NewConfig :: proplists:proplist() |
-    {skip, Reason :: term()} |
-    {auto_skip, Reason :: term()} |
-    {fail, Reason :: term()} |
-    ok | '$ct_no_change'.
+		 {skip, Reason :: term()} |
+		 {auto_skip, Reason :: term()} |
+		 {fail, Reason :: term()} |
+		 ok | '$ct_no_change'.
 
 end_tc(Mod, init_per_suite, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config],
@@ -112,10 +120,10 @@ end_tc(Mod, end_per_suite, Config, Result, _Return) ->
 end_tc(_Mod, {init_per_group, GroupName, _}, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config],
 	 '$ct_no_change');
-end_tc(Mod, {end_per_group, GroupName, Opts}, Config, Result, _Return) ->
+end_tc(Mod, {end_per_group, GroupName, Properties}, Config, Result, _Return) ->
     Res = call(fun call_generic/3, Result,
 	       [post_end_per_group, GroupName, Config], '$ct_no_change'),
-    maybe_stop_locker(Mod, GroupName,Opts),
+    maybe_stop_locker(Mod, GroupName, Properties),
     Res;
 end_tc(_Mod, TC, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],

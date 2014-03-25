@@ -249,8 +249,8 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	    end
     end.
 
-ct_suite_init(Suite, Func, PostInitHook, Config) when is_list(Config) ->
-    case ct_hooks:init_tc(Suite, Func, Config) of
+ct_suite_init(Suite, FuncSpec, PostInitHook, Config) when is_list(Config) ->
+    case ct_hooks:init_tc(Suite, FuncSpec, Config) of
 	NewConfig when is_list(NewConfig) ->
 	    PostInitHookResult = do_post_init_hook(PostInitHook, NewConfig),
 	    {ok, [PostInitHookResult ++ NewConfig]};
@@ -660,10 +660,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     ct_util:delete_testdata(comment),
     ct_util:delete_suite_data(last_saved_config),
 
-    FuncSpec = case group_or_func(Func,Args) of
-		   {_,_GroupName,_} = Group -> Group;
-		   _ -> Func
-	       end,
+    FuncSpec = group_or_func(Func,Args),
 
     {Result1,FinalNotify} =
 	case ct_hooks:end_tc(
