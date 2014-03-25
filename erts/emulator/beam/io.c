@@ -914,8 +914,8 @@ int erts_port_handle_xports(Port *prt)
    (iov)->iov_base = (ptr);				\
    (iov)->iov_len = (len);				\
    if (sizeof((iov)->iov_len) < sizeof(len)				\
-       /* Check if (len) overflowed (iov)->iov_len */			\
-       && ((len) >> (sizeof((iov)->iov_len)*CHAR_BIT)) != 0) {		\
+       /* Check if (len) overflowed (iov)->iov_len */                   \
+       && (iov)->iov_len != (len)) {		                        \
        goto L_overflow;							\
    }									\
    *(bv)++ = (bin);					\
