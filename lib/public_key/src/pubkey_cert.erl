@@ -511,10 +511,10 @@ is_dir_name2(Value, Value) -> true;
 is_dir_name2({printableString, Value1}, {printableString, Value2}) ->
     string:to_lower(strip_spaces(Value1)) =:= 
 	string:to_lower(strip_spaces(Value2));
-is_dir_name2({utf8String, Value1}, String) ->  %% BUGBUG FIX UTF8 conv
-    is_dir_name2({printableString, binary_to_list(Value1)}, String);
-is_dir_name2(String, {utf8String, Value1}) ->  %% BUGBUG FIX UTF8 conv
-    is_dir_name2(String, {printableString, binary_to_list(Value1)});
+is_dir_name2({utf8String, Value1}, String) ->
+    is_dir_name2({printableString, unicode:characters_to_list(Value1)}, String);
+is_dir_name2(String, {utf8String, Value1}) ->
+    is_dir_name2(String, {printableString, unicode:characters_to_list(Value1)});
 is_dir_name2(_, _) ->
     false.
 
