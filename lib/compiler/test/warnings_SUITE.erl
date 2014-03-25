@@ -600,7 +600,21 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{3,v3_core,bad_map}]}}],
+	   {warnings,[{3,v3_core,bad_map}]}},
+	   {bad_map_literal_key,
+           <<"
+             t() ->
+		 V = id(1),
+		 M = id(#{ <<$h,$i>> => V }),
+		 V = case M of
+		    #{ <<0:257>> := Val } -> Val;
+		    #{ <<$h,$i>> := Val } -> Val
+		 end,
+		 ok.
+	     id(I) -> I.
+           ">>,
+           [],
+	   {warnings,[{6,v3_core,nomatch}]}}],
     run(Config, Ts),
     ok.
 

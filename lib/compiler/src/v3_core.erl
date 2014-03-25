@@ -1595,7 +1595,9 @@ pattern_map_pair({map_field_exact,L,K,V}, St) ->
 	{bin,L,Es0} ->
 	    case constant_bin(Es0) of
 		error ->
-		    throw(badmatch);
+		    %% this will throw a cryptic error message
+		    %% but it is better than nothing
+		    throw(nomatch);
 		Bin ->
 		    #c_literal{anno=lineno_anno(L,St),val=Bin}
 	    end;
