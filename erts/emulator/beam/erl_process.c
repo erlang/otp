@@ -2672,6 +2672,13 @@ aux_thread(void *unused)
     ErtsThrPrgrCallbacks callbacks;
     int thr_prgr_active = 1;
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    {
+	char buf[] = "aux_thread";
+	erts_lc_set_thread_name(buf);
+    }
+#endif
+
     ssi->event = erts_tse_fetch();
 
     callbacks.arg = (void *) ssi;
