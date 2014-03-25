@@ -2031,9 +2031,9 @@ case_opt(Arg, Cs0, Sub) ->
 
 case_opt_args([A0|As0], Cs0, Sub, LitExpr, Acc) ->
     case case_opt_arg(A0, Sub, Cs0, LitExpr) of
-	error ->
+        {error,Cs1} ->
 	    %% Nothing to be done. Move on to the next argument.
-	    Cs = [{Ps,C,[P|PsAcc],Bs} || {[P|Ps],C,PsAcc,Bs} <- Cs0],
+            Cs = [{Ps,C,[P|PsAcc],Bs} || {[P|Ps],C,PsAcc,Bs} <- Cs1],
 	    case_opt_args(As0, Cs, Sub, LitExpr, [A0|Acc]);
 	{ok,As1,Cs} ->
 	    %% The argument was either expanded (from tuple/list) or
@@ -2052,7 +2052,7 @@ case_opt_arg(E0, Sub, Cs, LitExpr) ->
     E = maybe_replace_var(E0, Sub),
     case cerl:is_data(E) of
 	false ->
-	    error;
+            {error,Cs};
 	true ->
 	    case cerl:data_type(E) of
 		{atomic,_} ->
@@ -2102,35 +2102,44 @@ maybe_replace_var_1(E, #sub{t=Tdb}) ->
 %%  pattern matching is tricky, so we will give up in that case.
 
 case_opt_lit(Lit, Cs0, LitExpr) ->
-    try case_opt_lit_1(Cs0, Lit, LitExpr) of
+    Cs1 = case_opt_lit_1(Lit, Cs0, LitExpr),
+    try case_opt_lit_2(Lit, Cs1) of
 	Cs ->
 	    {ok,[],Cs}
     catch
 	throw:impossible ->
-	    error
+            {error,Cs1}
     end.
 
-case_opt_lit_1([{[P|Ps],C,PsAcc,Bs0}|Cs], E, LitExpr) ->
+case_opt_lit_1(E, [{[P|_],C,_,_}=Current|Cs], LitExpr) ->
     case cerl_clauses:match(P, E) of
-	none ->
-	    %% The pattern will not match the literal. Remove the clause.
-	    %% Unless the entire case expression is a literal, also
-	    %% emit a warning.
-	    case LitExpr of
-		false -> add_warning(C, nomatch_clause_type);
-		true -> ok
-	    end,
-	    case_opt_lit_1(Cs, E, LitExpr);
+        none ->
+            %% The pattern will not match the literal. Remove the clause.
+            %% Unless the entire case expression is a literal, also
+            %% emit a warning.
+            case LitExpr of
+                false -> add_warning(C, nomatch_clause_type);
+                true -> ok
+            end,
+            case_opt_lit_1(E, Cs, LitExpr);
+        _ ->
+            [Current|case_opt_lit_1(E, Cs, LitExpr)]
+    end;
+case_opt_lit_1(_, [], _) -> [].
+
+case_opt_lit_2(E, [{[P|Ps],C,PsAcc,Bs0}|Cs]) ->
+    %% Non-matching clauses have already been removed in case_opt_lit_1/3.
+    case cerl_clauses:match(P, E) of
 	{true,Bs} ->
 	    %% The pattern matches the literal. Remove the pattern
 	    %% and update the bindings.
-	    [{Ps,C,PsAcc,Bs++Bs0}|case_opt_lit_1(Cs, E, LitExpr)];
+            [{Ps,C,PsAcc,Bs++Bs0}|case_opt_lit_2(E, Cs)];
 	{false,_} ->
 	    %% Binary literal and pattern. We are not sure whether
 	    %% the pattern will match.
 	    throw(impossible)
     end;
-case_opt_lit_1([], _, _) -> [].
+case_opt_lit_2(_, []) -> [].
 
 %% case_opt_data(Expr, Clauses0, LitExpr) -> {ok,Exprs,Clauses}
 
