@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -134,8 +134,21 @@ fact(0) ->           %  |
         standard behaviours <c>gen_server</c>, <c>gen_fsm</c>,
         <c>gen_event</c> or <c>supervisor</c>.</p>
       <p>The spelling <c>behavior</c> is also accepted.</p>
-      <p>Read more about behaviours and callback modules in OTP Design
-        Principles.</p>
+      <p>The callback functions of the module can be specified either
+        directly by the exported function <c>behaviour_info/1</c>:</p>
+        <pre>
+behaviour_info(callbacks) -> Callbacks.</pre>
+      <p>or by a <c>-callback</c> attribute for each callback
+        function:</p>
+      <pre>
+-callback Name(Arguments) -> Result.</pre>
+      <p>where <c>Arguments</c> is a list of zero or more arguments.
+       The <c>-callback</c> attribute is to be preferred since the
+       extra type information can be used by tools to produce
+       documentation or find discrepancies.</p>
+      <p>Read more about behaviours and callback modules in
+        <seealso marker="doc/design_principles:spec_proc#behaviours">
+        OTP Design Principles</seealso>.</p>
     </section>
 
     <section>
