@@ -100,7 +100,6 @@ get_log_opts(Opts) ->
     Hosts = proplists:get_value(hosts,Opts,[]),
     {LogType,Hosts}.
 
-
 pre_init_per_testcase(TestCase,Config,CthState) ->
     Logs =
 	lists:map(
