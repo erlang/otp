@@ -505,15 +505,16 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
 	  wxString msg;
+	  bool cleanup_ref=true;
 	  if(refd->type == 0) { // Maybe also class 1
 	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
 	    msg.Printf(wxT("Memory leak: {wx_ref, %d, %s}"),
 		       refd->ref, cinfo->GetClassName());
 	    send_msg("error", &msg);
 	  } else {
-	    delete_object(ptr, refd);
+	    cleanup_ref = delete_object(ptr, refd);
 	  }
-	  if(type == 0 || type > 2) {
+	  if(cleanup_ref) {
 	    // Delete refs for leaks and non overridden allocs
 	    delete refd;
 	    ptr2ref.erase(it);

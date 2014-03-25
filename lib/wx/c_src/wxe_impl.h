@@ -36,6 +36,14 @@ extern "C" {
 #include "wxe_callback_impl.h"
 #include "wxe_memory.h"
 
+#if !wxCHECK_VERSION(2,9,0)
+#define wxeLocaleC wxChar *
+#define wxeLocaleC2String(Str) wxString(Str)
+#else
+typedef wxString wxeLocaleC;
+#define wxeLocaleC2String(Str) Str
+#endif
+
 #define WXE_NOT_INITIATED 0
 #define WXE_INITIATED     1
 #define WXE_EXITED        2
@@ -76,7 +84,7 @@ public:
   void init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller);
 
   // Code found in gen/wxe_derived_dest.h
-  void delete_object(void *ptr, wxeRefData *refd);
+  bool delete_object(void *ptr, wxeRefData *refd);
 
   wxeMemMap refmap;
   ptrMap   ptr2ref;
