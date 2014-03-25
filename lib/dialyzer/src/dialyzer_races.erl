@@ -85,6 +85,12 @@
 -type race_tag()   :: 'whereis_register' | 'whereis_unregister'
                     | 'ets_lookup_insert' | 'mnesia_dirty_read_write'.
 
+%% The following type is similar to the dial_warning() type but has a
+%% tag which is local to this module and is not propagated to outside
+-type dial_race_warning() :: {race_warn_tag(), file_line(), {atom(), [term()]}}.
+-type race_warn_tag() :: ?WARN_WHEREIS_REGISTER | ?WARN_WHEREIS_UNREGISTER
+                      | ?WARN_ETS_LOOKUP_INSERT | ?WARN_MNESIA_DIRTY_READ_WRITE.
+
 -record(beg_clause, {arg        :: var_to_map1(),
                      pats       :: var_to_map1(),
                      guard      :: cerl:cerl()}).
@@ -103,7 +109,7 @@
                      args       :: args(),
                      arg_types  :: [erl_types:erl_type()],
                      vars       :: [core_vars()],
-                     state      :: _, %% XXX: recursive
+                     state      :: dialyzer_dataflow:state(),
                      file_line  :: file_line(),
                      var_map    :: dict:dict()}).
 -record(fun_call,   {caller     :: dialyzer_callgraph:mfa_or_funlbl(),
@@ -141,7 +147,7 @@
                 race_tags = []          :: [#race_fun{}],
                 %% true for fun types and warning mode
                 race_analysis = false   :: boolean(),
-                race_warnings = []      :: [dial_warning()]}).
+                race_warnings = []      :: [dial_race_warning()]}).
 
 %%% ===========================================================================
 %%%
@@ -1763,7 +1769,7 @@ ets_list_args(MaybeList) ->
       catch _:_ -> [?no_label]
       end;
     false -> [ets_tuple_args(MaybeList)]
- end.
+  end.
 
 ets_list_argtypes(ListStr) ->
   ListStr1 = string:strip(ListStr, left, $[),

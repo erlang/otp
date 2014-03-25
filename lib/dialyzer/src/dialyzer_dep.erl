@@ -55,11 +55,11 @@
 %%
 %% Letrecs = a dict mapping var labels to their recursive definition.
 %%           top-level letrecs are not included as they are handled
-%%           separatedly.
+%%           separately.
 %%
 
 -spec analyze(cerl:c_module()) ->
-        {dict:dict(), ordset('external' | label()), dict:dict(), dict:dict()}.
+        {dict:dict(), ordsets:ordset('external' | label()), dict:dict(), dict:dict()}.
 
 analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
