@@ -34,23 +34,25 @@
 
     <section>
       <title>Features</title>
-      <p>The Asn1 application provides:
-        </p>
+      <p>The Asn1 application provides:</p>
       <list type="bulleted">
         <item>An ASN.1 compiler for Erlang, which generates encode and
          decode functions to be used by Erlang programs sending and
          receiving ASN.1 specified data.</item>
         <item>Run-time functions used by the generated code.</item>
-        <item>The supported encoding rules are: 
+        <item>Support for the following encoding rules:
 	<list>
 	  <item>
 	    Basic Encoding Rules (<em>BER</em>)
 	  </item>
 	  <item>
-	    Distinguished Encoding Rules (<em>DER</em>), a specialized form of BER that is used in security-conscious applications.
+	    Distinguished Encoding Rules (<em>DER</em>), a specialized
+	    form of BER that is used in security-conscious
+	    applications.
 	  </item>
 	  <item>
-	    Packed Encoding Rules (<em>PER</em>) both the aligned and unaligned variant.
+	    Packed Encoding Rules (<em>PER</em>); both the aligned and
+	    unaligned variant.
 	  </item>
 	  </list>
 	</item>
@@ -59,71 +61,41 @@
 
     <section>
       <title>Overview</title>
-      <p>ASN.1 (Abstract Syntax Notation 1) is a formal language for describing data structures to be exchanged between distributed computer systems.
-        The purpose of ASN.1 is to have
-        a platform and programming language independent notation to express 
-	types   using a
-        standardized set of rules  for the transformation of values of
-        a defined type, into a stream of bytes. This stream of bytes
-        can then be sent on a communication channel set  up by the
-        lower layers in the stack of communication protocols e.g.
-        TCP/IP or encapsulated within UDP packets. This way, two
-        different applications written in two completely different
-        programming languages running on different computers with
-        different internal representation of data can exchange
-        instances of structured data types  (instead of exchanging
-        bytes or bits). This makes programming faster and easier since no code
-        has to be written to process  the transport format of the
-        data. 
-        </p>
-      <p>To write a network application which processes ASN.1 encoded
-        messages, it is prudent and sometimes essential to have a set
-        of off-line development tools such as an ASN.1 compiler which
-        can generate the encode and decode logic for the specific ASN.1
-        data types. It is also necessary to combine this with some
-        general language-specific runtime support for ASN.1 encoding and
-        decoding. 
-        </p>
-      <p>The ASN.1 compiler must be directed towards a target language
-        or a set  of closely related languages. This manual describes a
-        compiler which is directed towards the functional language
-        Erlang. In order to use this  compiler, familiarity with the
-        language Erlang is essential. Therefore, the runtime support for ASN.1 is
-        also closely related to the language Erlang and
-        consist of a number of functions, which the
-        compiler uses. The types in ASN.1 and how to represent
-        values of those types in Erlang are described in this manual.
-        </p>
-      <p>The following document is structured so that the first part describes 
-        how to use ASN.1 compiler, and then there are descriptions of all
-        the primitive and constructed ASN.1 types and their representation
-        in Erlang,
-        </p>
+      <p>ASN.1 (Abstract Syntax Notation One) is a formal language for
+      describing data structures to be exchanged between distributed
+      computer systems. The purpose of ASN.1 is to have a platform
+      and programming language independent notation to express types
+      using a standardized set of rules for the transformation of
+      values of a defined type into a stream of bytes. This stream of
+      bytes can then be sent on any type of communication
+      channel. This way, two applications written in different
+      programming languages running on different computers with
+      different internal representation of data can exchange instances
+      of structured data types.</p>
     </section>
 
     <section>
       <title>Prerequisites</title>
-      <p>It is assumed that the reader is familiar with the ASN.1 notation
-        as documented in the standard definition [<cite id="X.680"></cite>] which is
-        the primary text. It may also be helpful, but not necessary,
-        to read the standard definitions 
-        [<cite id="X.681"></cite>] [<cite id="X.682"></cite>]  [<cite id="X.683"></cite>]
-        [<cite id="X.690"></cite>] [<cite id="X.691"></cite>]. </p>
-      <p>A very good book explaining those reference texts is 
-        [<cite id="DUBUISSON"></cite>], free to download at 
-        <url href="http://www.oss.com/asn1/dubuisson.html">http://www.oss.com/asn1/dubuisson.html </url>.
+      <p>It is assumed that the reader is familiar with the ASN.1
+      notation as documented in the standard definition [<cite
+      id="X.680"></cite>] which is the primary text. It may also be
+      helpful, but not necessary, to read the standard definitions
+      [<cite id="X.681"></cite>] [<cite id="X.682"></cite>] [<cite
+      id="X.683"></cite>] [<cite id="X.690"></cite>] [<cite
+      id="X.691"></cite>]. </p>
+      <p>A good book explaining those reference texts is
+        [<cite id="DUBUISSON"></cite>], which is free to download at
+        <url href="http://www.oss.com/asn1/dubuisson.html">http://www.oss.com/asn1/dubuisson.html</url>.
         </p>
     </section>
 
     <section>
-      <title>Capability</title>
+      <title>Capabilities</title>
       <p>This application covers all features of ASN.1 up to the 1997
-      edition of the specification. In the 2002 edition of ASN.1 a number of
-      new features where introduced of which some are supported while
-      others are not. For example the
-      ECN (Encoding Control Notation) and XML notation are still
-      unsupported. Though, the other features of the 2002 edition are
-      fully or partly supported as shown below:</p>
+      edition of the specification. In the 2002 edition of ASN.1 a
+      number of new features were introduced.  The following features
+      of the 2002 edition are fully or partly supported as shown
+      below:</p>
       <list type="bulleted">
 	<item>
 	  <p>Decimal notation (e.g., "1.5e3") for REAL values. The
@@ -131,7 +103,7 @@
 	  supported.</p>
 	</item>
 	<item>
-	  <p>The RELATIVE-OID type for relative object identifiers are
+	  <p>The RELATIVE-OID type for relative object identifiers is
 	  fully supported.</p>
 	</item>
 	<item>
@@ -141,16 +113,16 @@
 	  constraint is not a PER-visible constraint.</p>
 	</item>
 	<item>
-	  <p>The subtype constraint by regular expressions (PATTERN) for character string types is parsed when compiling, but no further action is taken. This constraint is not a PER-visible constraint.</p>
+	  <p>The subtype constraint by regular expressions (PATTERN)
+	  for character string types is parsed when compiling, but no
+	  further action is taken. This constraint is not a
+	  PER-visible constraint.</p>
 	</item>
 	<item>
 	  <p>Multiple-line comments as in C, <c>/* ... */</c>, are
 	  supported.</p>
 	</item>
       </list>
-      <p>It should also be added here that the encoding formats
-      supported are <em>BER</em>, <em>DER</em>, <em>PER aligned
-      basic</em> variant and <em>PER unaligned basic</em> variant.</p>
     </section>
 
   </section>
