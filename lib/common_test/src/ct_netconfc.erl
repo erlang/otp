@@ -1,7 +1,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1334,7 +1334,7 @@ handle_data(NewData,#state{connection=Connection,buff=Buff} = State) ->
 				%% first answer
 				P=#pending{tref=TRef,caller=Caller} =
 				    lists:last(Pending),
-				timer:cancel(TRef),
+				_ = timer:cancel(TRef),
 				Reason1 = {failed_to_parse_received_data,Reason},
 				ct_gen_conn:return(Caller,{error,Reason1}),
 				lists:delete(P,Pending)
@@ -1454,7 +1454,7 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 			    {noreply,State#state{hello_status = {error,Reason}}}
 		    end;
 		#pending{tref=TRef,caller=Caller} ->
-		    timer:cancel(TRef),
+		    _ = timer:cancel(TRef),
 		    case decode_hello(E) of
 			{ok,SessionId,Capabilities} ->
 			    ct_gen_conn:return(Caller,ok),
@@ -1482,7 +1482,7 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
 		[#pending{tref=TRef,
 			  caller=Caller}] ->
-		    timer:cancel(TRef),
+		    _ = timer:cancel(TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1504,7 +1504,7 @@ get_msg_id(Attrs) ->
 decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
     case lists:keytake(MsgId,#pending.msg_id,Pending) of
 	{value, #pending{tref=TRef,op=Op,caller=Caller}, Pending1} ->
-	    timer:cancel(TRef),
+	    _ = timer:cancel(TRef),
 	    Content = forward_xmlns_attr(Attrs,Content0),
 	    {CallerReply,{ServerReply,State2}} =
 		do_decode_rpc_reply(Op,Content,State#state{pending=Pending1}),
@@ -1519,7 +1519,7 @@ decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
 			  msg_id=undefined,
 			  op=undefined,
 			  caller=Caller}] ->
-		    timer:cancel(TRef),
+		    _ = timer:cancel(TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1862,10 +1862,7 @@ ssh_open(#options{host=Host,timeout=Timeout,port=Port,ssh=SshOpts,name=Name}) ->
 		    end;
 		{error, Reason} ->
 		    ssh:close(CM),
-		    {error,{ssh,could_not_open_channel,Reason}};
-		Other ->
-		    %% Bug in ssh?? got {closed,0} here once...
-		    {error,{ssh,unexpected_from_session_channel,Other}}
+		    {error,{ssh,could_not_open_channel,Reason}}
 	    end;
 	{error,Reason} ->
 	    {error,{ssh,could_not_connect_to_server,Reason}}
