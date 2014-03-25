@@ -20,7 +20,9 @@ all() ->
      expect_repeat,
      expect_sequence,
      expect_error_prompt,
-     expect_error_timeout,
+     expect_error_timeout1,
+     expect_error_timeout2,
+     expect_error_timeout3,
      no_prompt_check,
      no_prompt_check_repeat,
      no_prompt_check_sequence,
@@ -87,10 +89,31 @@ expect_error_prompt(_) ->
 %% Check that expect returns after idle timeout, and even if the
 %% expected pattern is received - as long as not newline or prompt is
 %% received it will not match.
-expect_error_timeout(_) ->
+expect_error_timeout1(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
     ok = ct_telnet:send(Handle, "echo_no_prompt xxx"),
     {error,timeout} = ct_telnet:expect(Handle, ["xxx"], [{timeout,1000}]),
+    ok = ct_telnet:close(Handle),
+    ok.
+
+expect_error_timeout2(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, "echo_no_prompt xxx"),
+    {error,timeout} = ct_telnet:expect(Handle, ["xxx"], [{idle_timeout,1000},
+							 {total_timeout,infinity}]),
+    ok = ct_telnet:close(Handle),
+    ok.
+
+%% Check that if server loops and pattern not matching, the operation
+%% can be aborted
+expect_error_timeout3(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, "echo_loop 5000 xxx"),
+    {error,timeout} = ct_telnet:expect(Handle, ["yyy"],
+				       [{idle_timeout,infinity},
+					{total_timeout,3000}]),
+    ok = ct_telnet:send(Handle, "echo ayt"),
+    {ok,["ayt"]} = ct_telnet:expect(Handle, ["ayt"]),
     ok = ct_telnet:close(Handle),
     ok.
 
