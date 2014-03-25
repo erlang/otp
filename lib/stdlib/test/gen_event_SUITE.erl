@@ -974,6 +974,10 @@ get_state(Config) when is_list(Config) ->
     [{dummy1_h,false,State1},{dummy1_h,id,State2}] = lists:sort(Result1),
     Result2 = sys:get_state(Pid, 5000),
     [{dummy1_h,false,State1},{dummy1_h,id,State2}] = lists:sort(Result2),
+    ok = sys:suspend(Pid),
+    Result3 = sys:get_state(Pid),
+    [{dummy1_h,false,State1},{dummy1_h,id,State2}] = lists:sort(Result3),
+    ok = sys:resume(Pid),
     ok = gen_event:stop(Pid),
     ok.
 
@@ -998,4 +1002,11 @@ replace_state(Config) when is_list(Config) ->
     Replace3 = fun(_) -> exit(fail) end,
     [{dummy1_h,false,NState2}] = sys:replace_state(Pid, Replace3),
     [{dummy1_h,false,NState2}] = sys:get_state(Pid),
+    %% verify state replaced if process sys suspended
+    NState3 = "replaced again and again",
+    Replace4 = fun({dummy1_h,false,_}=S) -> setelement(3,S,NState3) end,
+    ok = sys:suspend(Pid),
+    [{dummy1_h,false,NState3}] = sys:replace_state(Pid, Replace4),
+    ok = sys:resume(Pid),
+    [{dummy1_h,false,NState3}] = sys:get_state(Pid),
     ok.

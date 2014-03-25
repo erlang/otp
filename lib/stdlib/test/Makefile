@@ -73,6 +73,8 @@ MODULES= \
 	supervisor_SUITE \
 	supervisor_bridge_SUITE \
 	sys_SUITE \
+	sys_sp1 \
+	sys_sp2 \
 	tar_SUITE \
 	timer_SUITE \
 	timer_simple_SUITE \

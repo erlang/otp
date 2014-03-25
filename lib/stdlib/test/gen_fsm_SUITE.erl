@@ -426,6 +426,14 @@ get_state(Config) when is_list(Config) ->
     {idle, State} = sys:get_state(gfsm),
     {idle, State} = sys:get_state(gfsm, 5000),
     stop_it(Pid2),
+
+    %% check that get_state works when pid is sys suspended
+    {ok, Pid3} = gen_fsm:start(gen_fsm_SUITE, {state_data, State}, []),
+    {idle, State} = sys:get_state(Pid3),
+    ok = sys:suspend(Pid3),
+    {idle, State} = sys:get_state(Pid3, 5000),
+    ok = sys:resume(Pid3),
+    stop_it(Pid3),
     ok.
 
 replace_state(Config) when is_list(Config) ->
@@ -442,8 +450,18 @@ replace_state(Config) when is_list(Config) ->
     {state0, NState2} = sys:get_state(Pid),
     %% verify no change in state if replace function crashes
     Replace3 = fun(_) -> error(fail) end,
-    {state0, NState2} = sys:replace_state(Pid, Replace3),
+    {'EXIT',{{callback_failed,
+	      {gen_fsm,system_replace_state},{error,fail}},_}} =
+	(catch sys:replace_state(Pid, Replace3)),
     {state0, NState2} = sys:get_state(Pid),
+    %% verify state replaced if process sys suspended
+    ok = sys:suspend(Pid),
+    Suffix2 = " and again",
+    NState3 = NState2 ++ Suffix2,
+    Replace4 = fun({StateName, _}) -> {StateName, NState3} end,
+    {state0, NState3} = sys:replace_state(Pid, Replace4),
+    ok = sys:resume(Pid),
+    {state0, NState3} = sys:get_state(Pid, 5000),
     stop_it(Pid),
     ok.
 
