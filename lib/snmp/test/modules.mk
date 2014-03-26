@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2012. All Rights Reserved.
+# Copyright Ericsson AB 2004-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -42,6 +42,7 @@ TEST_UTIL_MODULES = \
 	snmp_test_manager \
 	snmp_test_mgr \
 	snmp_test_mgr_misc \
+	snmp_test_mgr_counter_server \
 	sa \
 	klas3 \
 	test1 \

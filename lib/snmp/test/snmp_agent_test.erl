@@ -19,10 +19,6 @@
 
 -module(snmp_agent_test).
 
-%% TODO
-%% * Test fault-tolerance (kill master etc)
-%%
-
 -export([
 	 all/0, 
 	 groups/0, 
@@ -41,7 +37,7 @@
 	 v1_processing/1, 
 	 big/1, 
 	 big2/1,
-	 loop_mib/1, 
+	 loop_mib_1/1, 
 	 api/1, 
 	 subagent/1, 
 	 mnesia/1, 
@@ -394,8 +390,9 @@
 	 usm_read/0, 
 	 usm_del_user/0, 
 	 usm_bad/0, 
-	 loop_mib_1/0, 
-	 loop_mib_2/0, 
+	 loop_mib_1_test/0, 
+	 loop_mib_2_test/0, 
+	 loop_mib_3_test/0, 
 	 otp_1129_i/1, 
 	 otp_1162_test/0, 
 	 otp_1131_test/0, 
@@ -546,8 +543,9 @@ groups() ->
 
 init_per_suite(Config0) when is_list(Config0) ->
 
-    ?DBG("init_per_suite -> entry with"
-	 "~n   Config0: ~p", [Config0]),
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
     Config2   = snmp_test_lib:fix_data_dir(Config1),
@@ -558,16 +556,32 @@ init_per_suite(Config0) when is_list(Config0) ->
 
     Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
 
-    ?DBG("init_per_suite -> end with"
-	 "~n   Config3: ~p", [Config3]),
+    snmp_test_mgr_counter_server:start(), 
+
+    p("init_per_suite -> end when"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config3, erlang:nodes()]),
 
     Config3.
 
 end_per_suite(Config) when is_list(Config) ->
 
-    ?DBG("end_per_suite -> entry with"
-	 "~n   Config: ~p", [Config]),
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
 
+    case snmp_test_mgr_counter_server:stop() of
+    	{ok, _Counters} ->
+    	    p("end_per_suite -> sucessfully stopped counter server"
+	      "~n      Counters: ~p", [_Counters]);
+    
+    	{error, Reason} ->
+    	    p("end_per_suite -> failed stopping counter server"
+	      "~n      Reason: ~p", [Reason])
+    end,
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
     Config.
 
 
@@ -675,10 +689,16 @@ end_per_group(_GroupName, Config) ->
 %% ---- Init Per TestCase ---- 
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    ?DBG("init_per_testcase -> entry with"
-	 "~n   Config: ~p", [Config]),
+    p("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
-    init_per_testcase1(Case, Config).
+    Result = init_per_testcase1(Case, Config),
+
+    p("init_per_testcase -> done when"
+      "~n      Result: ~p"
+      "~n      Nodes:  ~p", [Result, erlang:nodes()]),
+    Result.
 
 init_per_testcase1(otp8395 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
@@ -719,12 +739,18 @@ init_per_testcase1(_Case, Config) when is_list(Config) ->
 %% ---- End Per TestCase ---- 
 
 end_per_testcase(Case, Config) when is_list(Config) ->
-    ?DBG("end_per_testcase -> entry with"
-	 "~n   Config: ~p", [Config]),
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
     display_log(Config),
     
-    end_per_testcase1(Case, Config).
+    Result = end_per_testcase1(Case, Config),
+
+    p("end_per_testcase -> done with"
+      "~n   Result: ~p"
+      "~n   Nodes:  ~p", [Result, erlang:nodes()]),
+    Result.
 
 end_per_testcase1(otp8395, Config) when is_list(Config) ->
     otp8395({fin, Config});
@@ -1173,7 +1199,7 @@ mse_simple(X)         -> ?P(mse_simple), simple(X).
 mse_v1_processing(X)  -> ?P(mse_v1_processing), v1_processing(X).
 mse_big(X)            -> ?P(mse_big), big(X).
 mse_big2(X)           -> ?P(mse_big2), big2(X).
-mse_loop_mib(X)       -> ?P(mse_loop_mib), loop_mib(X).
+mse_loop_mib(X)       -> ?P(mse_loop_mib), loop_mib_1(X).
 mse_api(X)            -> ?P(mse_api), api(X).
 mse_sa_register(X)    -> ?P(mse_sa_register), sa_register(X).
 mse_v1_trap(X)        -> ?P(mse_v1_trap), v1_trap(X).
@@ -1194,7 +1220,7 @@ msd_simple(X)         -> ?P(msd_simple), simple(X).
 msd_v1_processing(X)  -> ?P(msd_v1_processing), v1_processing(X).
 msd_big(X)            -> ?P(msd_big), big(X).
 msd_big2(X)           -> ?P(msd_big2), big2(X).
-msd_loop_mib(X)       -> ?P(msd_loop_mib), loop_mib(X).
+msd_loop_mib(X)       -> ?P(msd_loop_mib), loop_mib_1(X).
 msd_api(X)            -> ?P(msd_api), api(X).
 msd_sa_register(X)    -> ?P(msd_sa_register), sa_register(X).
 msd_v1_trap(X)        -> ?P(msd_v1_trap), v1_trap(X).
@@ -1215,7 +1241,7 @@ msm_simple(X)         -> ?P(msm_simple), simple(X).
 msm_v1_processing(X)  -> ?P(msm_v1_processing), v1_processing(X).
 msm_big(X)            -> ?P(msm_big2), big(X).
 msm_big2(X)           -> ?P(msm_loop_mib), big2(X).
-msm_loop_mib(X)       -> ?P(msm_loop_mib), loop_mib(X).
+msm_loop_mib(X)       -> ?P(msm_loop_mib), loop_mib_1(X).
 msm_api(X)            -> ?P(msm_api), api(X).
 msm_sa_register(X)    -> ?P(msm_sa_register), sa_register(X).
 msm_v1_trap(X)        -> ?P(msm_v1_trap), v1_trap(X).
@@ -1618,7 +1644,7 @@ v1_cases() ->
      v1_processing, 
      big, 
      big2,
-     loop_mib, 
+     loop_mib_1, 
      api, 
      subagent, 
      mnesia, 
@@ -2095,9 +2121,9 @@ await_dummy_manager_started(Pid) ->
 	    {ok,Pid,Port};
 	{'EXIT', Pid, Reason} ->
 	    {error, Pid, Reason};
-	O ->
+	_O ->
 	    ?LOG("dummy_manager_start -> received unknown message:"
-		 "~n   ~p",[O]),
+		 "~n   ~p",[_O]),
 	    await_dummy_manager_started(Pid)
     end.
 
@@ -2120,16 +2146,16 @@ dummy_manager_send_trap2(Pid) ->
 dummy_manager_await_trap2_ack() ->
     ?DBG("dummy_manager_await_trap2 -> entry",[]),
     receive
-	{received_trap,Trap} ->
-	    ?LOG("dummy_manager_await_trap2 -> received trap: ~p",[Trap]),
+	{received_trap, _Trap} ->
+	    ?LOG("dummy_manager_await_trap2 -> received trap: ~p", [_Trap]),
 	    %% Note: 
 	    %% Without this sleep the v2_inform_i testcase failes! There
 	    %% is no relation between these two test cases as far as I
 	    %% able to figure out...
 	    ?SLEEP(60000),
 	    ok;
-	O ->
-	    ?ERR("dummy_manager_await_trap2 -> unexpected message: ~p",[O]),
+	_O ->
+	    ?ERR("dummy_manager_await_trap2 -> unexpected message: ~p",[_O]),
 	    ok
     after 10000 ->
 	    ?ERR("dummy_manager_await_trap2 -> timeout",[]),
@@ -2155,32 +2181,34 @@ dummy_manager_loop(P,S,MA) ->
 		 "~n   Trap: ~p",[Trap]),
 	    snmpa:send_trap(MA, Trap, "standard trap"),
 	    dummy_manager_loop(P,S,MA);
-	{udp, _UdpId, Ip, UdpPort, Bytes} ->
+	{udp, _UdpId, _Ip, _UdpPort, Bytes} ->
 	    ?LOG("dummy_manager_loop -> received upd message"
 		 "~n   from: ~p:~p"
 		 "~n   size: ~p",
-		 [Ip, UdpPort, dummy_manager_message_sz(Bytes)]),
+		 [_Ip, _UdpPort, dummy_manager_message_sz(Bytes)]),
 	    R = dummy_manager_handle_message(Bytes),
-	    ?DBG("dummy_manager_loop -> R: ~p",[R]),
+	    ?DBG("dummy_manager_loop -> R: ~p", [R]),
 	    P ! R,
-	    dummy_manager_loop(P,S,MA);
+	    dummy_manager_loop(P, S, MA);
 	stop ->
 	    ?DBG("dummy_manager_loop -> received stop request",[]),
 	    P ! {dummy_manager_stopping, self()},
 	    gen_udp:close(S),
 	    exit(normal);
-	O ->
+	_O ->
 	    ?LOG("dummy_manager_loop -> received unknown message:"
-		 "~n   ~p",[O]),
-	    dummy_manager_loop(P,S,MA)
+		 "~n   ~p", [_O]),
+	    dummy_manager_loop(P, S, MA)
     end.
 
+-ifdef(snmp_log).
 dummy_manager_message_sz(B) when is_binary(B) ->
     size(B);
 dummy_manager_message_sz(L) when is_list(L) ->
     length(L);
 dummy_manager_message_sz(_) ->
     undefined.
+-endif.
 
 dummy_manager_handle_message(Bytes) ->
     case (catch snmp_pdus:dec_message(Bytes)) of
@@ -3398,11 +3426,11 @@ simple_standard_test() ->
 db_notify_client(suite) -> [];
 db_notify_client(Config) when is_list(Config) ->
     ?P(db_notify_client), 
-    {SaNode, MgrNode, MibDir} = init_case(Config),
+    {_SaNode, _MgrNode, _MibDir} = init_case(Config),
     ?DBG("db_notify_client -> case initiated: "
 	 "~n   SaNode:  ~p"
 	 "~n   MgrNode: ~p"
-	 "~n   MibDir:  ~p", [SaNode, MgrNode, MibDir]),
+	 "~n   MibDir:  ~p", [_SaNode, _MgrNode, _MibDir]),
     ?DBG("db_notify_client -> maximize verbosity", []),
     snmpa_local_db:verbosity(trace),
     Self = self(), 
@@ -4153,8 +4181,8 @@ ma_v2_inform1(MA) ->
     CmdExp = 
 	fun(ok) -> 
 		ok;
-	   ({ok, Val}) ->
-		?DBG("ma_v2_inform -> [cmd2] Val: ~p", [Val]),
+	   ({ok, _Val}) ->
+		?DBG("ma_v2_inform -> [cmd2] Val: ~p", [_Val]),
 		ok;
 	   ({error, Id, Extra}) ->
 		{error, {unexpected, Id, Extra}};
@@ -4189,10 +4217,10 @@ ma_v2_inform1(MA) ->
     CmdSnmpTargets = 
 	fun(T) ->
 		receive
-		    {snmp_targets, T, [Addr]} ->
+		    {snmp_targets, T, [_Addr]} ->
 			?DBG("ma_v2_inform1 -> "
 			     "received expected snmp_targets "
-			     "~n   with receiver: ~p",[Addr]),
+			     "~n   with receiver: ~p", [_Addr]),
 			ok;
 		    {snmp_targets, T, Addrs} ->
 			?ERR("ma_v2_inform1 -> "
@@ -4210,16 +4238,16 @@ ma_v2_inform1(MA) ->
     Cmd06 = 
 	fun() ->
 		receive
-		    {snmp_notification, Tag03, {got_response, Addr}} ->
+		    {snmp_notification, Tag03, {got_response, _Addr}} ->
 			?DBG("ma_v2_inform1 -> "
 			     "received expected snmp_notification "
-			     "[with manager response] from: ~n   ~p",[Addr]),
+			     "[with manager response] from: ~n   ~p", [_Addr]),
 			ok;
-		    {snmp_notification, Tag03, {no_response, Addr}} ->
+		    {snmp_notification, Tag03, {no_response, _Addr}} ->
 			?ERR("ma_v2_inform1 -> "
 			     "received unexpected snmp_notification "
 			     "[without manager response] from: ~n   ~p",
-			     [Addr]),
+			     [_Addr]),
 			{error, no_response}
 		after
 		    20000 ->
@@ -4249,16 +4277,16 @@ ma_v2_inform1(MA) ->
     Cmd10 = 
 	fun() ->
 		receive
-		    {snmp_notification, Tag07, {got_response, Addr}} ->
+		    {snmp_notification, Tag07, {got_response, _Addr}} ->
 			?ERR("ma_v2_inform1 -> "
 			     "received unexpected snmp_notification "
-			     "[with manager response] from: ~n   ~p", [Addr]),
+			     "[with manager response] from: ~n   ~p", [_Addr]),
 			{error, got_response};
-		    {snmp_notification, Tag07, {no_response, Addr}} ->
+		    {snmp_notification, Tag07, {no_response, _Addr}} ->
 			?DBG("ma_v2_inform1 -> "
 			     "received expected snmp_notification "
 			     "[without manager response] from: ~n   ~p",
-			     [Addr]),
+			     [_Addr]),
 			ok
 		after
 		    240000 ->
@@ -4302,8 +4330,8 @@ ma_v2_inform2(MA) ->
     CmdExp = 
 	fun(ok) -> 
 		ok;
-	   ({ok, Val}) ->
-		?DBG("ma_v2_inform -> [cmd2] Val: ~p", [Val]),
+	   ({ok, _Val}) ->
+		?DBG("ma_v2_inform -> [cmd2] Val: ~p", [_Val]),
 		ok;
 	   ({error, Id, Extra}) ->
 		{error, {unexpected, Id, Extra}};
@@ -4383,8 +4411,8 @@ ma_v2_inform3(MA) ->
 	 "~n   send notification: testTrapv22", [MA]),
 
     CmdExpectInform = 
-	fun(No, Response) ->
-		?DBG("CmdExpectInform -> ~p: ~n~p", [No, Response]),
+	fun(_No, Response) ->
+		?DBG("CmdExpectInform -> ~p: ~n~p", [_No, Response]),
 		?expect2({inform, Response},
 			 [{[sysUpTime, 0], any}, 
 			  {[snmpTrapOID, 0], ?system ++ [0,1]}])
@@ -4393,8 +4421,8 @@ ma_v2_inform3(MA) ->
     CmdExp = 
 	fun(ok) -> 
 		ok;
-	   ({ok, Val}) ->
-		?DBG("CmdExp -> Val: ~p", [Val]),
+	   ({ok, _Val}) ->
+		?DBG("CmdExp -> Val: ~p", [_Val]),
 		ok;
 	   ({error, Id, Extra}) ->
 		{error, {unexpected, Id, Extra}};
@@ -4505,17 +4533,17 @@ delivery_info(Tag, Address, DeliveryResult, Extra) ->
 
 command_handler([]) ->    
     ok;
-command_handler([{No, Desc, Cmd}|Rest]) ->
-    ?LOG("command_handler -> command ~w: ~n   ~s", [No, Desc]),
+command_handler([{_No, _Desc, Cmd}|Rest]) ->
+    ?LOG("command_handler -> command ~w: ~n   ~s", [_No, _Desc]),
     case (catch Cmd()) of
 	ok ->
-	    ?LOG("command_handler -> ~w: ok",[No]),
+	    ?LOG("command_handler -> ~w: ok", [_No]),
 	    command_handler(Rest);
 	{error, Reason} ->
-	    ?ERR("command_handler -> ~w error: ~n~p",[No, Reason]),
+	    ?ERR("command_handler -> ~w error: ~n~p", [_No, Reason]),
 	    ?line ?FAIL(Reason);
 	Error ->
-	    ?ERR("command_handler -> ~w unexpected: ~n~p",[No, Error]),
+	    ?ERR("command_handler -> ~w unexpected: ~n~p", [_No, Error]),
 	    ?line ?FAIL({unexpected_command_result, Error})
     end.
     
@@ -5516,57 +5544,59 @@ usm_bad() ->
 %% works.
 %% Load all std mibs that are not loaded by default.
 %%-----------------------------------------------------------------
-loop_mib(suite) -> [];
-loop_mib(Config) when is_list(Config) ->
-    ?P(loop_mib), 
-    ?LOG("loop_mib -> initiate case",[]),
+loop_mib_1(suite) -> [];
+loop_mib_1(Config) when is_list(Config) ->
+    ?P(loop_mib_1), 
+    ?LOG("loop_mib_1 -> initiate case",[]),
     %% snmpa:verbosity(master_agent,debug),
     %% snmpa:verbosity(mib_server,info),
-    {SaNode, MgrNode, MibDir} = init_case(Config),
-    ?DBG("loop_mib -> ~n"
+    {_SaNode, _MgrNode, _MibDir} = init_case(Config),
+    ?DBG("loop_mib_1 -> ~n"
 	   "\tSaNode:  ~p~n"
 	   "\tMgrNode: ~p~n"
-	   "\tMibDir:  ~p",[SaNode, MgrNode, MibDir]),
-    ?DBG("loop_mib -> load mib SNMP-COMMUNITY-MIB",[]),
+	   "\tMibDir:  ~p", [_SaNode, _MgrNode, _MibDir]),
+    ?DBG("loop_mib_1 -> load mib SNMP-COMMUNITY-MIB",[]),
     ?line load_master_std("SNMP-COMMUNITY-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-MPD-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-MPD-MIB",[]),
     ?line load_master_std("SNMP-MPD-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-TARGET-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-TARGET-MIB",[]),
     ?line load_master_std("SNMP-TARGET-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-NOTIFICATION-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-NOTIFICATION-MIB",[]),
     ?line load_master_std("SNMP-NOTIFICATION-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-FRAMEWORK-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-FRAMEWORK-MIB",[]),
     ?line load_master_std("SNMP-FRAMEWORK-MIB"),
-    ?DBG("loop_mib -> load mib SNMP-VIEW-BASED-ACM-MIB",[]),
+    ?DBG("loop_mib_1 -> load mib SNMP-VIEW-BASED-ACM-MIB",[]),
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
-    ?DBG("loop_mib -> try",[]),
-    try_test(loop_mib_1),
-    ?DBG("loop_mib -> unload mib SNMP-COMMUNITY-MIB",[]),
+    ?DBG("loop_mib_1 -> try",[]),
+
+    try_test(loop_mib_1_test),
+
+    ?DBG("loop_mib_1 -> unload mib SNMP-COMMUNITY-MIB",[]),
     ?line unload_master("SNMP-COMMUNITY-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-MPD-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-MPD-MIB",[]),
     ?line unload_master("SNMP-MPD-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-TARGET-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-TARGET-MIB",[]),
     ?line unload_master("SNMP-TARGET-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-NOTIFICATION-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-NOTIFICATION-MIB",[]),
     ?line unload_master("SNMP-NOTIFICATION-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-FRAMEWORK-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-FRAMEWORK-MIB",[]),
     ?line unload_master("SNMP-FRAMEWORK-MIB"),
-    ?DBG("loop_mib -> unload mib SNMP-VIEW-BASED-ACM-MIB",[]),
+    ?DBG("loop_mib_1 -> unload mib SNMP-VIEW-BASED-ACM-MIB",[]),
     ?line unload_master("SNMP-VIEW-BASED-ACM-MIB"),
     %% snmpa:verbosity(master_agent,log),
     %% snmpa:verbosity(mib_server,silence),
-    ?LOG("loop_mib -> done",[]).
+    ?LOG("loop_mib_1 -> done",[]).
     
 
 loop_mib_2(suite) -> [];
 loop_mib_2(Config) when is_list(Config) ->
     ?P(loop_mib_2), 
     ?LOG("loop_mib_2 -> initiate case",[]),
-    {SaNode, MgrNode, MibDir} = init_case(Config),
-    ?DBG("loop_mib_2 -> ~n"
+    {_SaNode, _MgrNode, _MibDir} = init_case(Config),
+    ?DBG("do_loop_mib_2 -> ~n"
 	   "\tSaNode:  ~p~n"
 	   "\tMgrNode: ~p~n"
-	   "\tMibDir:  ~p",[SaNode, MgrNode, MibDir]),
+	   "\tMibDir:  ~p", [_SaNode, _MgrNode, _MibDir]),
     ?DBG("loop_mib_2 -> load mibs",[]),
     ?line load_master_std("SNMP-COMMUNITY-MIB"),
     ?line load_master_std("SNMP-MPD-MIB"),
@@ -5574,7 +5604,9 @@ loop_mib_2(Config) when is_list(Config) ->
     ?line load_master_std("SNMP-NOTIFICATION-MIB"),
     ?line load_master_std("SNMP-FRAMEWORK-MIB"),
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
-    try_test(loop_mib_2),
+
+    try_test(loop_mib_2_test),
+
     ?DBG("loop_mib_2 -> unload mibs",[]),
     ?line unload_master("SNMP-COMMUNITY-MIB"),
     ?line unload_master("SNMP-MPD-MIB"),
@@ -5589,18 +5621,18 @@ loop_mib_3(suite) -> [];
 loop_mib_3(Config) when is_list(Config) ->
     ?P(loop_mib_3), 
     ?LOG("loop_mib_3 -> initiate case",[]),
-    {SaNode, MgrNode, MibDir} = init_case(Config),
+    {_SaNode, _MgrNode, _MibDir} = init_case(Config),
     ?DBG("loop_mib_3 -> ~n"
 	   "\tSaNode:  ~p~n"
 	   "\tMgrNode: ~p~n"
-	   "\tMibDir:  ~p",[SaNode, MgrNode, MibDir]),
+	   "\tMibDir:  ~p", [_SaNode, _MgrNode, _MibDir]),
     ?DBG("loop_mib_3 -> load mibs",[]),
     ?line load_master_std("SNMP-TARGET-MIB"),
     ?line load_master_std("SNMP-NOTIFICATION-MIB"),
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
     ?line load_master_std("SNMP-USER-BASED-SM-MIB"),
 
-    try_test(loop_mib_2),
+    try_test(loop_mib_3_test),
 
     ?DBG("loop_mib_3 -> unload mibs",[]),
     ?line unload_master("SNMP-TARGET-MIB"),
@@ -5611,17 +5643,16 @@ loop_mib_3(Config) when is_list(Config) ->
 
 
 %% Req. As many mibs all possible
-loop_mib_1() ->
-    ?DBG("loop_mib_1 -> entry",[]),
+loop_mib_1_test() ->
+    ?DBG("loop_mib_1_test -> entry",[]),
     N = loop_it_1([1,1], 0),
     io:format(user, "found ~w varibles\n", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
-	    
 
 loop_it_1(Oid, N) ->
-    ?DBG("loop_it_1 -> entry with~n"
+    ?DBG("loop_it_1_test -> entry with~n"
 	   "\tOid: ~p~n"
 	   "\tN:   ~p",[Oid,N]),
     case get_next_req([Oid]) of
@@ -5629,13 +5660,13 @@ loop_it_1(Oid, N) ->
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
-				      value = Value}]} when NOid > Oid ->
-	    ?DBG("loop_it_1 -> "
+				      value = _Value}]} when NOid > Oid ->
+	    ?DBG("loop_it_1_test -> "
 		   "~n   NOid:  ~p"
-		   "~n   Value: ~p",[NOid, Value]),
-	    ?line [Value2] = get_req(1, [NOid]), % must not be same
-	    ?DBG("loop_it_1 -> "
-		   "~n   Value2: ~p",[Value2]),
+		   "~n   Value: ~p", [NOid, _Value]),
+	    ?line [_Value2] = get_req(1, [NOid]), % must not be same
+	    ?DBG("loop_it_1_test -> "
+		   "~n   Value2: ~p", [_Value2]),
 	    loop_it_1(NOid, N+1);
 
 	#pdu{type         = 'get-response', 
@@ -5648,7 +5679,7 @@ loop_it_1(Oid, N) ->
 	     error_status = noSuchName, 
 	     error_index = 1,
 	     varbinds    = [_]} ->
-	    ?DBG("loop_it_1 -> done: ~p",[N]),
+	    ?DBG("loop_it_1_test -> done: ~p",[N]),
 	    N;
 
 	#pdu{type         = 'get-response', 
@@ -5669,14 +5700,13 @@ loop_it_1(Oid, N) ->
 	    
 
 %% Req. As many mibs all possible
-loop_mib_2() ->
-    ?DBG("loop_mib_1 -> entry",[]),
+loop_mib_2_test() ->
+    ?DBG("loop_mib_2_test -> entry",[]),
     N = loop_it_2([1,1], 0),
     io:format(user, "found ~w varibles\n", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
-    
 
 loop_it_2(Oid, N) ->
     ?DBG("loop_it_2 -> entry with"
@@ -5686,22 +5716,22 @@ loop_it_2(Oid, N) ->
 	#pdu{type         = 'get-response', 
 	     error_status = noError, 
 	     error_index  = 0,
-	     varbinds     = [#varbind{oid = NOid, value = endOfMibView}]} ->
+	     varbinds     = [#varbind{oid = _NOid, value = endOfMibView}]} ->
 	    ?DBG("loop_it_2 -> "
-		 "~n   NOid: ~p",[NOid]),
+		 "~n   NOid: ~p", [_NOid]),
 	    N;
 
 	#pdu{type         = 'get-response', 
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
-				      value = Value}]} when NOid > Oid ->
+				      value = _Value}]} when NOid > Oid ->
 	    ?DBG("loop_it_2 -> "
 		 "~n   NOid:  ~p"
-		 "~n   Value: ~p",[NOid, Value]),
-	    ?line [Value2] = get_req(1, [NOid]), % must not be same
+		 "~n   Value: ~p", [NOid, _Value]),
+	    ?line [_Value2] = get_req(1, [NOid]), % must not be same
 	    ?DBG("loop_it_2 -> "
-		 "~n   Value2: ~p",[Value2]),
+		 "~n   Value2: ~p", [_Value2]),
 	    loop_it_2(NOid, N+1);
 
 	#pdu{type         = 'get-response', 
@@ -5744,6 +5774,10 @@ loop_it_2(Oid, N) ->
 
     end.
 	    
+loop_mib_3_test() ->
+    ?DBG("loop_mib_3_test -> entry",[]),
+    loop_mib_2_test().
+
 
 %%%-----------------------------------------------------------------
 %%% Testing of reported bugs and other tickets.
@@ -6611,16 +6645,16 @@ otp8395(Config) when is_list(Config) ->
     AgentNode   = ?config(agent_node, Config),
     AgentLogDir = ?config(agent_log_dir, Config),
     OutFile     = join([AgentLogDir, "otp8395.txt"]),
-    {ok, LogInfo} = rpc:call(AgentNode, snmpa, log_info, []),
-    ?DBG("otp8395 -> LogInfo: ~p", [LogInfo]), 
+    {ok, _LogInfo} = rpc:call(AgentNode, snmpa, log_info, []),
+    ?DBG("otp8395 -> LogInfo: ~p", [_LogInfo]), 
 
     %% SyncRes = rpc:call(AgentNode, snmp, log_sync, [?audit_trail_log_name]),
     %% ?DBG("otp8395 -> SyncRes: ~p", [SyncRes]), 
 
     ok = agent_log_validation(AgentNode),
-    LTTRes = 
+    _LTTRes = 
 	rpc:call(AgentNode, snmpa, log_to_txt, [AgentLogDir, [], OutFile]), 
-    ?DBG("otp8395 -> LTTRes: ~p", [LTTRes]), 
+    ?DBG("otp8395 -> LTTRes: ~p", [_LTTRes]), 
 
     ?SLEEP(1000),
     ?DBG("otp8395 -> done", []),
@@ -6941,10 +6975,10 @@ stop_stdalone_agent(Pid) when (node(Pid) =/= node()) ->
     MRef = erlang:monitor(process, Pid),
     rpc:call(node(Pid), ?MODULE, stop_stdalone_agent, [Pid]),
     receive
-	{'DOWN', MRef, process, Pid, Info} ->
+	{'DOWN', MRef, process, Pid, _Info} ->
 	    ?DBG("received expected DOWN message "
 		 "regarding snmp agent supervisor: "
-		 "~n   Info: ~p", [Info]),
+		 "~n   Info: ~p", [_Info]),
 	    ok
     after 5000 ->
 	    ?DBG("no DOWN message "
@@ -7003,9 +7037,9 @@ do_info(MaNode) ->
 			  tree_size_bytes, 
 			  db_memory]}], 
     verify_info(Info, Keys),
-    OldInfo = snmpa:old_info_format(Info),
-    ?DBG("info_test1 -> OldInfo: ~n~p", [OldInfo]),
-    verify_old_info(OldInfo),
+    %% OldInfo = snmpa:old_info_format(Info),
+    %% ?DBG("info_test1 -> OldInfo: ~n~p", [OldInfo]),
+    %% verify_old_info(OldInfo),
     ok.
 
 verify_info([], []) ->
@@ -7048,20 +7082,20 @@ verify_subinfo(Info0, [Key|Keys]) ->
 	    verify_subinfo(Info, Keys)
     end.
 
-verify_old_info(Info) ->
-    Keys = [vsns, subagents, loaded_mibs, 
-	    tree_size_bytes, process_memory, db_memory],
-    verify_old_info(Keys, Info).
+%% verify_old_info(Info) ->
+%%     Keys = [vsns, subagents, loaded_mibs, 
+%% 	    tree_size_bytes, process_memory, db_memory],
+%%     verify_old_info(Keys, Info).
 
-verify_old_info([], _) ->
-    ok;
-verify_old_info([Key|Keys], Info) ->
-    case lists:keymember(Key, 1, Info) of
-	true ->
-	    verify_old_info(Keys, Info);
-	false ->
-	    ?FAIL({missing_old_info, Key})
-    end.
+%% verify_old_info([], _) ->
+%%     ok;
+%% verify_old_info([Key|Keys], Info) ->
+%%     case lists:keymember(Key, 1, Info) of
+%% 	true ->
+%% 	    verify_old_info(Keys, Info);
+%% 	false ->
+%% 	    ?FAIL({missing_old_info, Key})
+%%     end.
    
 %% Index String - string used in index
 is(S) -> [length(S) | S].
