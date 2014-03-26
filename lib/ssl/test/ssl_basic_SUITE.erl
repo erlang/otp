@@ -119,7 +119,8 @@ options_tests() ->
 ].
 
 api_tests() ->
-    [connection_info,
+    [new_options_in_accept,
+     connection_info,
      peername,
      peercert,
      peercert_with_client_cert,
@@ -325,6 +326,37 @@ alerts(Config) when is_list(Config) ->
 			end 
 		  end, Alerts).
 %%--------------------------------------------------------------------
+new_options_in_accept() ->
+    [{doc,"Test that you can set ssl options in ssl_accept/3 and not tcp upgrade"}].
+new_options_in_accept(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{ssl_opts, [{versions, [sslv3]},
+						    {ciphers,[{rsa,rc4_128,sha}]}]}, %% To be set in ssl_accept/3
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{versions, [sslv3]} | ClientOpts]}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ServerMsg = ClientMsg = {ok, {sslv3, {rsa, rc4_128, sha}}},
+   
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+%%--------------------------------------------------------------------
+
 connection_info() ->
     [{doc,"Test the API function ssl:connection_info/1"}].
 connection_info(Config) when is_list(Config) -> 

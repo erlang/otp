@@ -106,7 +106,8 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
     Timeout = proplists:get_value(timeout, Opts, infinity),
-    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy, Timeout),
+    SslOpts = proplists:get_value(ssl_opts, Opts, []),
+    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy, Timeout, SslOpts),
     case ReconnectTimes of
 	0 ->
 	    AcceptSocket;
@@ -121,24 +122,30 @@ connect(ListenSocket, Opts) ->
 				  [ListenSocket]),
     AcceptSocket.
 
-connect(_, _, 0, AcceptSocket, _) ->
+connect(_, _, 0, AcceptSocket, _, _) ->
     AcceptSocket;
-connect(ListenSocket, Node, N, _, Timeout) ->
-    ct:log("~p:~p~nssl:transport_accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
+
+connect(ListenSocket, Node, N, _, Timeout, []) ->
+    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
 				  [ListenSocket]),    
     ct:log("~p:~p~nssl:ssl_accept(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
 
     case rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Timeout]) of
 	ok ->
-ct:log("~p:~p~nok from ssl:ssl_accept@~p",[?MODULE,?LINE, Node]),
-	    connect(ListenSocket, Node, N-1, AcceptSocket, Timeout);
+	    connect(ListenSocket, Node, N-1, AcceptSocket, Timeout, []);
 	Result ->
-ct:log("~p:~p~nssl:ssl_accept@~p ret ~p",[?MODULE,?LINE, Node,Result]),
+	    ct:log("~p:~p~nssl:ssl_accept@~p ret ~p",[?MODULE,?LINE, Node,Result]),
 	    Result
-    end.
+    end;
+connect(ListenSocket, Node, _, _, Timeout, Opts) ->
+    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
+				  [ListenSocket]),    
+    ct:log("ssl:ssl_accept(~p,~p, ~p)~n", [AcceptSocket, Opts, Timeout]),
+    rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Opts, Timeout]),
+    AcceptSocket.
 
-  
 remove_close_msg(0) ->
     ok;
 remove_close_msg(ReconnectTimes) ->

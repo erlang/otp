@@ -195,7 +195,8 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 -spec ssl_accept(#sslsocket{} | port(), timeout()| [ssl_option()
 						    | transport_option()]) ->
 			ok | {ok, #sslsocket{}} | {error, reason()}.
--spec ssl_accept(port(), [ssl_option()| transport_option()], timeout()) ->
+
+-spec ssl_accept(#sslsocket{} | port(), [ssl_option()] | [ssl_option()| transport_option()], timeout()) ->
 			{ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on an ssl listen socket. e.i. performs
@@ -210,6 +211,15 @@ ssl_accept(#sslsocket{} = Socket, Timeout) ->
 ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) -> 
     ssl_accept(ListenSocket, SslOptions, infinity).
 
+ssl_accept(#sslsocket{} = Socket, [], Timeout) ->
+    ssl_accept(#sslsocket{} = Socket, Timeout);
+ssl_accept(#sslsocket{} = Socket, SslOptions, Timeout) ->
+    try 
+	{ok, #config{ssl = SSL}} = handle_options(SslOptions, server),
+	 ssl_connection:handshake(Socket, SSL, Timeout)
+    catch
+	Error = {error, _Reason} -> Error
+    end;
 ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) -> 
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),

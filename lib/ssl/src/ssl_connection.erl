@@ -36,7 +36,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 %% Setup
--export([connect/8, ssl_accept/7, handshake/2,
+-export([connect/8, ssl_accept/7, handshake/2, handshake/3,
 	 socket_control/4]).
 
 %% User Events 
@@ -100,6 +100,20 @@ handshake(#sslsocket{pid = Pid}, Timeout) ->
  	Error ->
 	    Error
     end.
+
+%%--------------------------------------------------------------------
+-spec handshake(#sslsocket{}, #ssl_options{}, timeout()) ->  ok | {error, reason()}.
+%%
+%% Description: Starts ssl handshake with some new options 
+%%--------------------------------------------------------------------
+handshake(#sslsocket{pid = Pid}, SslOptions, Timeout) ->  
+    case sync_send_all_state_event(Pid, {start, SslOptions, Timeout}) of
+	connected ->
+	    ok;
+ 	Error ->
+	    Error
+    end.
+
 %--------------------------------------------------------------------
 -spec socket_control(tls_connection | dtls_connection, port(), pid(), atom()) -> 
     {ok, #sslsocket{}} | {error, reason()}.  
@@ -649,6 +663,10 @@ handle_sync_event({start, Timeout}, StartFrom, StateName, State) ->
     Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
     {next_state, StateName, State#state{start_or_recv_from = StartFrom,
 					timer = Timer}, get_timeout(State)};
+
+handle_sync_event({start, Opts, Timeout}, From, StateName, #state{ssl_options = SslOpts} = State) ->
+    NewOpts = new_ssl_options(Opts, SslOpts),
+    handle_sync_event({start, Timeout}, From, StateName, State#state{ssl_options = NewOpts});
 
 handle_sync_event(close, _, StateName, #state{protocol_cb = Connection} = State) ->
     %% Run terminate before returning
@@ -1855,3 +1873,14 @@ make_premaster_secret({MajVer, MinVer}, rsa) ->
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
+
+%% One day this can be maps instead, but we have to be backwards compatible for now		     
+new_ssl_options(New, Old) ->
+    new_ssl_options(tuple_to_list(New), tuple_to_list(Old), []).
+
+new_ssl_options([], [], Acc) ->
+    list_to_tuple(lists:reverse(Acc));
+new_ssl_options([undefined | Rest0], [Head1| Rest1], Acc) ->
+    new_ssl_options(Rest0, Rest1, [Head1 | Acc]);
+new_ssl_options([Head0 | Rest0], [_| Rest1], Acc) ->
+    new_ssl_options(Rest0, Rest1, [Head0 | Acc]).

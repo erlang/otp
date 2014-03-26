@@ -101,7 +101,6 @@
 	  reuse_sessions       :: boolean(),
 	  renegotiate_at,
 	  secure_renegotiate,
-	  debug,
 	  %% undefined if not hibernating, or number of ms of
 	  %% inactivity after which ssl_connection will go into
 	  %% hibernation
