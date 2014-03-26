@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 %%       unsupported_certificate(43),
 %%       certificate_revoked(44),
 %%       certificate_expired(45),
-   %%       certificate_unknown(46),
+%%       certificate_unknown(46),
 %%       illegal_parameter(47),
 %%       unknown_ca(48),
 %%       access_denied(49),
@@ -60,6 +60,13 @@
 %%       internal_error(80),
 %%       user_canceled(90),
 %%       no_renegotiation(100),
+%% RFC 4366
+%%         unsupported_extension(110),           
+%%         certificate_unobtainable(111),        
+%%         unrecognized_name(112),               
+%%         bad_certificate_status_response(113), 
+%%         bad_certificate_hash_value(114),      
+%% RFC 4366
 %%       unknown_psk_identity(115),
 %%           (255)
 %%       } AlertDescription;
@@ -88,6 +95,11 @@
 -define(INTERNAL_ERROR, 80).
 -define(USER_CANCELED, 90).
 -define(NO_RENEGOTIATION, 100).
+-define(UNSUPPORTED_EXTENSION, 110).
+-define(CERTIFICATE_UNOBTAINABLE, 111).
+-define(UNRECOGNISED_NAME, 112).
+-define(BAD_CERTIFICATE_STATUS_RESPONSE, 113).
+-define(BAD_CERTIFICATE_HASH_VALUE, 114).
 -define(UNKNOWN_PSK_IDENTITY, 115).
 
 -define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).

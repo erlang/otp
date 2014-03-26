@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -124,5 +124,17 @@ description_txt(?USER_CANCELED) ->
     "user canceled";
 description_txt(?NO_RENEGOTIATION) ->
     "no renegotiation";
+description_txt(?UNSUPPORTED_EXTENSION) ->
+    "unsupported extension";
+description_txt(?CERTIFICATE_UNOBTAINABLE) ->
+    "certificate unobtainable";
+description_txt(?UNRECOGNISED_NAME) ->
+    "unrecognised name";
+description_txt(?BAD_CERTIFICATE_STATUS_RESPONSE) ->
+    "bad certificate status response";
+description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
+    "bad certificate hash value";
 description_txt(?UNKNOWN_PSK_IDENTITY) ->
-    "unknown psk identity".
+    "unknown psk identity";
+description_txt(Enum) ->
+    lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).
