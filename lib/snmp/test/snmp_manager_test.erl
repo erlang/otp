@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -139,6 +139,8 @@
 
 -define(NS_TIMEOUT,     10000).
 
+-define(DEFAULT_MNESIA_DEBUG, none).
+
 
 %%----------------------------------------------------------------------
 %% Records
@@ -173,7 +175,9 @@ end_per_suite(Config) when is_list(Config) ->
 
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
+    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
+    p(Case, "init_per_testcase begin when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     %% This version of the API, based on Addr and Port, has been deprecated
     DeprecatedApiCases = 
 	[
@@ -187,16 +191,25 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 	 simple_async_get_bulk1,
 	 misc_async1
 	],
-    case lists:member(Case, DeprecatedApiCases) of
-	true ->
-	    %% ?SKIP(api_no_longer_supported);
-	    {skip, api_no_longer_supported};
-	false ->
-	    init_per_testcase2(Case, Config)
-    end.
+    Result = 
+	case lists:member(Case, DeprecatedApiCases) of
+	    true ->
+		%% ?SKIP(api_no_longer_supported);
+		{skip, api_no_longer_supported};
+	    false ->
+		init_per_testcase2(Case, Config)
+	end,
+    p(Case, "init_per_testcase end when"
+      "~n      Nodes:  ~p"
+      "~n      Result: ~p"
+      "~n~n", [Result, erlang:nodes()]),
+    Result.
 
 init_per_testcase2(Case, Config) ->
-    ?DBG("init_per_testcase2 -> ~p", [erlang:nodes()]),
+    ?DBG("init_per_testcase2 -> "
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p"
+	 "~n   Nodes:  ~p", [Case, Config, erlang:nodes()]),
 
     CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
@@ -314,6 +327,8 @@ init_per_testcase3(Case, Config) ->
     end.
 
 end_per_testcase(Case, Config) when is_list(Config) ->
+    p(Case, "end_per_testcase begin when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
     Dog    = ?config(watchdog, Config),
     ?WD_STOP(Dog),
@@ -322,6 +337,8 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     %%     TopDir = ?config(top_dir, Conf2),
     %%     ?DEL_DIR(TopDir),
+    p(Case, "end_per_testcase end when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     Conf2.
 
 end_per_testcase2(Case, Config) ->
@@ -428,10 +445,10 @@ groups() ->
      {request_tests, [],
       [
        {group, get_tests}, 
-       {group, get_next_tests},
+       {group, get_next_tests}, 
        {group, set_tests}, 
-       {group, bulk_tests},
-       {group, misc_request_tests}
+       {group, bulk_tests}, 
+       {group, misc_request_tests} 
       ]
      },
      {request_tests_mt, [],
@@ -5303,34 +5320,59 @@ init_manager(AutoInform, Config) ->
 
     ?line Node = start_manager_node(),
 
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
 
-    %% -- 
-    %% Start and initiate crypto on manager node
-    %% 
+    try
+	begin
 
-    ?line ok = init_crypto(Node),
+	    %% -- 
+	    %% Start and initiate crypto on manager node
+	    %% 
+	    
+	    ?line ok = init_crypto(Node),
+	    
+	    %% 
+	    %% Write manager config
+	    %% 
+	    
+	    ?line ok = write_manager_config(Config),
+	    
+	    IRB  = case AutoInform of
+		       true ->
+			   auto;
+		       _ ->
+			   user
+		   end,
+	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
+	    Vsns = [v1,v2,v3], 
+	    start_manager(Node, Vsns, Conf)
+	end
+    catch
+	T:E ->
+	    StackTrace = ?STACK(), 
+	    p("Failure during manager start: "
+	      "~n      Error Type: ~p"
+	      "~n      Error:      ~p"
+	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_manager, T, E, StackTrace})
+    end.
 
-    %% 
-    %% Write manager config
-    %% 
-
-    ?line ok = write_manager_config(Config),
-    
-    IRB  = case AutoInform of
-	       true ->
-		   auto;
-	       _ ->
-		   user
-	   end,
-    Conf = [{manager_node, Node}, {irb, IRB} | Config],
-    Vsns = [v1,v2,v3], 
-    start_manager(Node, Vsns, Conf).
-    
 fin_manager(Config) ->
     Node = ?config(manager_node, Config),
-    stop_manager(Node, Config),
-    fin_crypto(Node),
-    stop_node(Node),
+    StopMgrRes    = stop_manager(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopNode      = stop_node(Node),
+    p("fin_agent -> stop apps and (mgr node ~p) node results: "
+      "~n      SNMP Mgr: ~p"
+      "~n      Crypto:   ~p"
+      "~n      Node:     ~p", 
+      [Node, StopMgrRes, StopCryptoRes, StopNode]),
     Config.
     
 
@@ -5352,51 +5394,92 @@ init_agent(Config) ->
 
     ?line Node = start_agent_node(),
 
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
 
-    %% -- 
-    %% Start and initiate mnesia on agent node
-    %% 
-
-    ?line ok = init_mnesia(Node, Dir),
+    try
+	begin
+	    
+	    %% -- 
+	    %% Start and initiate mnesia on agent node
+	    %% 
+	    
+	    ?line ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
+	    
+	    
+	    %% -- 
+	    %% Start and initiate crypto on agent node
+	    %% 
+	    
+	    ?line ok = init_crypto(Node),
+	    
+	    
+	    %% 
+	    %% Write agent config
+	    %% 
+	    
+	    Vsns = [v1,v2], 
+	    ?line ok = write_agent_config(Vsns, Config),
+	    
+	    Conf = [{agent_node, Node},
+		    {mib_dir,    MibDir} | Config],
     
-
-    %% -- 
-    %% Start and initiate crypto on agent node
-    %% 
-
-    ?line ok = init_crypto(Node),
-    
-
-    %% 
-    %% Write agent config
-    %% 
-
-    Vsns = [v1,v2], 
-    ?line ok = write_agent_config(Vsns, Config),
-
-    Conf = [{agent_node, Node},
-	    {mib_dir,    MibDir} | Config],
-    
-    %% 
-    %% Start the agent 
-    %% 
-
-    start_agent(Node, Vsns, Conf).
+	    %% 
+	    %% Start the agent 
+	    %% 
+	    
+	    start_agent(Node, Vsns, Conf)
+	end
+    catch
+	T:E ->
+	    StackTrace = ?STACK(), 
+	    p("Failure during agent start: "
+	      "~n      Error Type: ~p"
+	      "~n      Error:      ~p"
+	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_agent, T, E, StackTrace})
+    end.
+	      
 
 fin_agent(Config) ->
     Node = ?config(agent_node, Config),
-    stop_agent(Node, Config),
-    fin_crypto(Node),
-    fin_mnesia(Node),
-    stop_node(Node),
+    StopAgentRes  = stop_agent(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopMnesiaRes = fin_mnesia(Node),
+    StopNode      = stop_node(Node),
+    p("fin_agent -> stop apps and (agent node ~p) node results: "
+      "~n      SNMP Agent: ~p"
+      "~n      Crypto:     ~p"
+      "~n      Mnesia:     ~p"
+      "~n      Node:       ~p", 
+      [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
-init_mnesia(Node, Dir) ->
+init_mnesia(Node, Dir, MnesiaDebug) 
+  when ((MnesiaDebug =/= none) andalso 
+	(MnesiaDebug =/= debug) andalso (MnesiaDebug =/= trace)) ->
+    init_mnesia(Node, Dir, ?DEFAULT_MNESIA_DEBUG);
+init_mnesia(Node, Dir, MnesiaDebug) ->
     ?DBG("init_mnesia -> load application mnesia", []),
     ?line ok = load_mnesia(Node),
 
     ?DBG("init_mnesia -> application mnesia: set_env dir: ~n~p",[Dir]),
     ?line ok = set_mnesia_env(Node, dir, filename:join(Dir, "mnesia")),
+
+    %% Just in case, only set (known to be) valid values for debug
+    if
+	((MnesiaDebug =:= debug) orelse (MnesiaDebug =:= trace)) ->
+	    ?DBG("init_mnesia -> application mnesia: set_env debug: ~w", 
+		 [MnesiaDebug]),
+	    ?line ok = set_mnesia_env(Node, debug, MnesiaDebug);
+	true ->
+	    ok
+    end,
 
     ?DBG("init_mnesia -> create mnesia schema",[]),
     ?line case create_schema(Node) of
@@ -5434,25 +5517,89 @@ fin_crypto(Node) ->
 
 %% -- Misc application wrapper functions --
 
-load_app(Node, App) when (Node =:= node()) andalso is_atom(App) ->
-    application:load(App);
-load_app(Node, App) when is_atom(App) ->
-    rcall(Node, application, load, [App]).
-    
-start_app(Node, App) when (Node =:= node()) andalso is_atom(App) ->
-    application:start(App);
+load_app(Node, App) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {already_loaded, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed loading app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_load, Node, App, Reason})
+		    end,
+    do_load_app(Node, App, VerifySuccess).
+
+do_load_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    %% Local app
+    exec(fun() -> application:load(App) end, VerifySuccess);
+do_load_app(Node, App, VerifySuccess) ->
+    %% Remote app
+    exec(fun() -> rcall(Node, application, load, [App]) end, VerifySuccess).
+
+
 start_app(Node, App) ->
-    rcall(Node, application, start, [App]).
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {already_started, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed starting app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_start, Node, App, Reason})
+		    end,
+    start_app(Node, App, VerifySuccess).
 
-stop_app(Node, App) when (Node =:= node()) andalso is_atom(App)  ->
-    application:stop(App);
-stop_app(Node, App) when is_atom(App) ->
-    rcall(Node, application, stop, [App]).
+start_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    exec(fun() -> application:start(App) end, VerifySuccess);
+start_app(Node, App, VerifySuccess) ->
+    exec(fun() -> rcall(Node, application, start, [App]) end, VerifySuccess).
 
-set_app_env(Node, App, Key, Val) when (Node =:= node()) andalso is_atom(App) ->
-    application:set_env(App, Key, Val);
-set_app_env(Node, App, Key, Val) when is_atom(App) ->
-    rcall(Node, application, set_env, [App, Key, Val]).
+
+stop_app(Node, App) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {not_started, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed stopping app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_stop, Node, App, Reason})
+		    end,
+    stop_app(Node, App, VerifySuccess).
+    
+stop_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App)  ->
+    exec(fun() -> application:stop(App) end, VerifySuccess);
+stop_app(Node, App, VerifySuccess) when is_atom(App) ->
+    exec(fun() -> rcall(Node, application, stop, [App]) end, VerifySuccess).
+
+
+set_app_env(Node, App, Key, Val) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed setting app ~w env on ~p"
+			      "~n      Key:    ~p"
+			      "~n      Val:    ~p"
+			      "~n      Reason: ~p"
+			      "~n      ~p", [App, Node, Key, Val, Reason]),
+			    ?FAIL({failed_set_app_env, 
+				   Node, App, Key, Val, Reason})
+		    end,
+    set_app_env(Node, App, Key, Val, VerifySuccess).
+
+set_app_env(Node, App, Key, Val, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    exec(fun() -> application:set_env(App, Key, Val) end, VerifySuccess);
+set_app_env(Node, App, Key, Val, VerifySuccess) when is_atom(App) ->
+    exec(fun() -> rcall(Node, application, set_env, [App, Key, Val]) end, 
+	 VerifySuccess).
+
+
+exec(Cmd, VerifySuccess) ->
+    VerifySuccess(Cmd()).
 
 
 %% -- Misc snmp wrapper functions --
@@ -5900,9 +6047,9 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
     
     Conf0.
 
-stop_manager(Node, Conf) ->
-    stop_snmp(Node),
-    Conf.
+stop_manager(Node) ->
+    stop_snmp(Node).
+
 
 %% -- Misc agent wrapper functions --
 
@@ -5951,9 +6098,8 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
     ?line ok = start_snmp(Node),
     Conf0.
 
-stop_agent(Node, Conf) ->
-    stop_snmp(Node),
-    Conf.
+stop_agent(Node) ->
+    stop_snmp(Node).
 
 agent_load_mib(Node, Mib) ->
     rcall(Node, snmpa, load_mibs, [[Mib]]).
@@ -6015,17 +6161,18 @@ stop_node(Node) ->
     rpc:cast(Node, erlang, halt, []),
     await_stopped(Node, 5).
 
-await_stopped(_, 0) ->
+await_stopped(Node, 0) ->
+    p("await_stopped -> ~p still exist: giving up", [Node]),
     ok;
 await_stopped(Node, N) ->
     Nodes = erlang:nodes(),
     case lists:member(Node, Nodes) of
 	true ->
-	    ?DBG("[~w] ~p still exist", [N, Node]),
+	    p("await_stopped -> ~p still exist: ~w", [Node, N]),
 	    ?SLEEP(1000),
 	    await_stopped(Node, N-1);
 	false ->
-	    ?DBG("[~w] ~p gone", [N, Node]),
+	    p("await_stopped -> ~p gone: ~w", [Node, N]),
 	    ok
     end.
     
@@ -6271,7 +6418,7 @@ p(F, A) ->
  
 p(TName, F, A) ->
     io:format("*** [~w][~s] ***"
-              "~n" ++ F ++ "~n", [TName, formated_timestamp()|A]).
+              "~n   " ++ F ++ "~n", [TName, formated_timestamp()|A]).
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().
