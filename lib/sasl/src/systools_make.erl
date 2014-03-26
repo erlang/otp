@@ -2233,7 +2233,7 @@ format_error({undefined_applications,Apps}) ->
     io_lib:format("Undefined applications: ~p~n",[Apps]);
 format_error({duplicate_modules,Dups}) ->
     io_lib:format("Duplicated modules: ~n~ts",
-		  [map(fun({{Mod,_,App1,_,_},{Mod,_,App2,_,_}}) ->
+		  [map(fun({{Mod,App1,_},{Mod,App2,_}}) ->
 			       io_lib:format("\t~w specified in ~w and ~w~n",
 					     [Mod,App1,App2])
 		       end, Dups)]);
