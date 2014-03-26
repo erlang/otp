@@ -960,7 +960,6 @@ select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
 	end, {{[],[]},Bef}, Vs),
 
     Code = case {HasKs,GetVs} of
-	{[],[]} -> {[],Aft,St};
 	{HasKs,[]} ->
 	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}}];
 	{[],GetVs} ->
@@ -1553,8 +1552,7 @@ map_pair_strip_and_termsort(Es) ->
     Ls = [{K,V}||{_,K,V}<-Es],
     lists:sort(fun ({{_,A},_}, {{_,B},_}) -> erts_internal:cmp_term(A,B) =< 0;
                    ({nil,_},   {{_,B},_}) -> [] =< B;
-                   ({{_,A},_}, {nil,_})   -> A =< [];
-                   ({nil,_},   {nil,_})   -> true
+                   ({{_,A},_}, {nil,_})   -> A =< []
                end, Ls).
 
 %%%

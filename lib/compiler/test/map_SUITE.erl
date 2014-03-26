@@ -40,6 +40,8 @@
 	t_build_and_match_over_alloc/1,
 	t_build_and_match_empty_val/1,
 	t_build_and_match_val/1,
+	t_build_and_match_nil/1,
+	t_build_and_match_structure/1,
 
 	%% errors in 17.0-rc1
 	t_update_values/1,
@@ -68,6 +70,8 @@ all() -> [
 	t_build_and_match_over_alloc,
 	t_build_and_match_empty_val,
 	t_build_and_match_val,
+	t_build_and_match_nil,
+	t_build_and_match_structure,
 
 	%% errors in 17.0-rc1
 	t_update_values,
@@ -118,6 +122,7 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id({a,b,c}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{y=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
+    {'EXIT',{badarg,_}} = (catch id(#{<<0:258>> =>"three"})),
     ok.
 
 t_build_and_match_aliasing(Config) when is_list(Config) ->
@@ -234,7 +239,8 @@ t_update_assoc(Config) when is_list(Config) ->
     %% Errors cases.
     BadMap = id(badmap),
     {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
-
+    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting=>val}),
+    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> => val}), %% limitation
     ok.
 
 t_update_exact(Config) when is_list(Config) ->
@@ -262,6 +268,8 @@ t_update_exact(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
     {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting:=val}),
+    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
     ok.
 
 t_update_values(Config) when is_list(Config) ->
@@ -561,6 +569,32 @@ t_build_and_match_val(Config) when is_list(Config) ->
 	    test_server:fail({no_match, Other})
     end.
 
+t_build_and_match_nil(Config) when is_list(Config) ->
+    %% literals removed the coverage
+    V1 = id(cookie),
+    V2 = id(cake),
+    V3 = id(crisps),
+
+    #{ [] := V1, "treat" := V2, {your,treat} := V3 } = id(#{
+	    {your,treat} => V3,
+	    "treat" => V2, 
+	    [] => V1 }),
+    #{ [] := V3, [] := V3 } = id(#{ [] => V1, [] => V3 }),
+    ok.
+
+t_build_and_match_structure(Config) when is_list(Config) ->
+    V2 = id("it"),
+    S = id([42,{"hi", "=)", #{ "a" => 42, any => any, val => "get_" ++ V2}}]),
+
+    %% match deep map values
+    V2 = case S of
+	[42,{"hi",_, #{ "a" := 42, val := "get_" ++ V1, any := _ }}] -> V1
+    end,
+    %% match deep map
+    ok = case S of
+	[42,{"hi",_, #{ }}] -> ok
+    end,
+    ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.

@@ -324,8 +324,7 @@ type(k_binary) -> binary;
 type(k_bin_seg) -> bin_seg;
 type(k_bin_int) -> bin_int;
 type(k_bin_end) -> bin_end;
-type(k_map) -> map;
-type(k_map_pair) -> map_pair.
+type(k_map) -> map.
 
 %% variable(Klit) -> Lit.
 %% var_list([Klit]) -> [Lit].

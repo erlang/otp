@@ -573,7 +573,48 @@ maps(Config) when is_list(Config) ->
            ">>,
            [],
            {warnings,[{3,sys_core_fold,no_clause_match},
-                      {9,sys_core_fold,nomatch_clause_type}]}}],
+                      {9,sys_core_fold,nomatch_clause_type}]}},
+	   {bad_map_src1,
+           <<"
+             t() ->
+		 M = {a,[]},
+		 {'EXIT',{badarg,_}} = (catch(M#{ a => 1})),
+		 ok.
+           ">>,
+           [],
+	   {warnings,[{4,v3_kernel,bad_map}]}},
+	   {bad_map_src2,
+           <<"
+             t() ->
+		 M = id({a,[]}),
+		 {'EXIT',{badarg,_}} = (catch(M#{ a => 1})),
+		 ok.
+	     id(I) -> I.
+           ">>,
+	   [inline],
+	   {warnings,[{4,v3_kernel,bad_map}]}},
+	   {bad_map_src3,
+           <<"
+             t() ->
+		 {'EXIT',{badarg,_}} = (catch <<>>#{ a := 1}),
+		 ok.
+           ">>,
+           [],
+	   {warnings,[{3,v3_core,bad_map}]}},
+	   {bad_map_literal_key,
+           <<"
+             t() ->
+		 V = id(1),
+		 M = id(#{ <<$h,$i>> => V }),
+		 V = case M of
+		    #{ <<0:257>> := Val } -> Val;
+		    #{ <<$h,$i>> := Val } -> Val
+		 end,
+		 ok.
+	     id(I) -> I.
+           ">>,
+           [],
+	   {warnings,[{6,v3_core,nomatch}]}}],
     run(Config, Ts),
     ok.
 
