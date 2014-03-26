@@ -250,12 +250,12 @@ obsolete_1(snmp, N, A) ->
 	false ->
 	    no;
 	true ->
-	    {deprecated, "Deprecated (will be removed in R17B); use snmpa:"++atom_to_list(N)++"/"++
+	    {deprecated, "Deprecated (will be removed in OTP 18); use snmpa:"++atom_to_list(N)++"/"++
 	     integer_to_list(A)++" instead"}
     end;
 
 obsolete_1(snmpa, old_info_format, 1) ->
-    {deprecated, "Deprecated; (will be removed in R17B); use \"new\" format instead"};
+    {deprecated, "Deprecated; (will be removed in OTP 18); use \"new\" format instead"};
 obsolete_1(snmpm, agent_info, 3) ->
     {removed, {snmpm, agent_info, 2}, "R16B"};
 obsolete_1(snmpm, update_agent_info, 5) ->
@@ -365,23 +365,6 @@ obsolete_1(auth, node_cookie, 1) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete_1(auth, node_cookie, 2) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
-
-obsolete_1(erlang, is_constant, 1) ->
-    {removed, "Removed in R13B"};
-
-%% Added in R12B-0.
-obsolete_1(ssl, port, 1) ->
-    {removed, {ssl, sockname, 1}, "R13B"};
-obsolete_1(ssl, accept, A) when A =:= 1; A =:= 2 ->
-    {removed, "deprecated; use ssl:transport_accept/1,2 and ssl:ssl_accept/1,2"};
-obsolete_1(erlang, fault, 1) ->
-    {removed, {erlang,error,1}, "R13B"};
-obsolete_1(erlang, fault, 2) ->
-    {removed, {erlang,error,2}, "R13B"};
-
-%% Added in R12B-2.
-obsolete_1(file, rawopen, 2) ->
-    {removed, "deprecated (will be removed in R13B); use file:open/2 with the raw option"};
 
 obsolete_1(http, request, 1) 	      -> {removed,{httpc,request,1},"R15B"};
 obsolete_1(http, request, 2) 	      -> {removed,{httpc,request,2},"R15B"};
@@ -524,7 +507,7 @@ obsolete_1(docb_xml_check, _, _) ->
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
-    {deprecated,"deprecated (will be removed in R16A); has no effect as drivers are no longer used."};
+    {deprecated,"deprecated (will be removed in OTP 18); has no effect as drivers are no longer used"};
 obsolete_1(ssl, pid, 1) ->
     {removed,"was removed in R16; is no longer needed"};
 obsolete_1(inviso, _, _) ->
@@ -532,7 +515,7 @@ obsolete_1(inviso, _, _) ->
 
 %% Added in R15B01.
 obsolete_1(gs, _, _) ->
-    {deprecated,"the gs application has been deprecated and will be removed in R17; use the wx application instead"};
+    {deprecated,"the gs application has been deprecated and will be removed in OTP 18; use the wx application instead"};
 obsolete_1(ssh, sign_data, 2) ->
     {deprecated,"deprecated (will be removed in R16A); use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
      "and public_key:sign/3 instead"};

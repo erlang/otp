@@ -1279,10 +1279,9 @@ guard(Config) when is_list(Config) ->
                   tuple.
            ">>,
            [nowarn_obsolete_guard],
-           {error,
+           {errors,
 	    [{6,erl_lint,illegal_guard_expr},{18,erl_lint,illegal_guard_expr}],
-	    [{18,erl_lint,{removed,{erlang,is_constant,1},
-			   "Removed in R13B"}}]}},
+	    []}},
           {guard2,
            <<"-record(apa,{}).
               t1(A) when atom(A), atom(A) ->
@@ -1341,14 +1340,11 @@ guard(Config) when is_list(Config) ->
                   tuple.
            ">>,
            [nowarn_obsolete_guard],
-	   {error,[{6,erl_lint,illegal_guard_expr},
-		   {6,erl_lint,illegal_guard_expr},
-		   {18,erl_lint,illegal_guard_expr},
-		   {18,erl_lint,illegal_guard_expr}],
-	    [{18,erl_lint,{removed,{erlang,is_constant,1},
-			   "Removed in R13B"}},
-             {18,erl_lint,{removed,{erlang,is_constant,1},
-			   "Removed in R13B"}}]}},
+	   {errors,[{6,erl_lint,illegal_guard_expr},
+		    {6,erl_lint,illegal_guard_expr},
+		    {18,erl_lint,illegal_guard_expr},
+		    {18,erl_lint,illegal_guard_expr}],
+	    []}},
           {guard3,
            <<"-record(apa,{}).
               t2(A) when atom(A); atom(A) ->
