@@ -84,11 +84,14 @@ handle_connection(_Callback, Address, Port, Options, Socket) ->
     SystemSup = ssh_system_sup:system_supervisor(Address, Port),
     {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
     ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
+    Timeout = proplists:get_value(negotiation_timeout, 
+				  proplists:get_value(ssh_opts, Options, []),
+				  2*60*1000),
     ssh_connection_handler:start_connection(server, Socket,
 					    [{supervisors, [{system_sup, SystemSup},
 							    {subsystem_sup, SubSysSup},
 							    {connection_sup, ConnectionSup}]}
-					     | Options], infinity).
+					     | Options], Timeout).
 handle_error(timeout) ->
     ok;
 

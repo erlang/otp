@@ -304,6 +304,13 @@
 	      <c><![CDATA[true]]></c> if the password is valid and
 	      <c><![CDATA[false]]></c> otherwise.</p>
 	  </item>
+
+	  <tag><c><![CDATA[{negotiation_timeout, integer()}]]></c></tag>
+	  <item>
+	    <p>Max time in milliseconds for the authentication negotiation.  The default value is 2 minutes.
+	    </p>
+	  </item>
+
 	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
