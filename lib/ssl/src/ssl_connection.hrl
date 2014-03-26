@@ -48,17 +48,17 @@
           socket_options        :: #socket_options{},
           connection_states     :: #connection_states{},
 	  protocol_buffers      :: term(), %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
-          tls_handshake_history ::tls_handshake_history(),
+          tls_handshake_history :: ssl_handshake:ssl_handshake_history(),
 	  cert_db               :: reference(),
           session               :: #session{},
 	  session_cache         :: db_handle(),
 	  session_cache_cb      :: atom(),
-          negotiated_version    :: tls_version(),
+          negotiated_version    :: ssl_record:ssl_version(),
           client_certificate_requested = false :: boolean(),
-	  key_algorithm         :: key_algo(),
+	  key_algorithm         :: ssl_cipher:key_algo(),
 	  hashsign_algorithm = {undefined, undefined},
 	  cert_hashsign_algorithm,
-          public_key_info      ::public_key_info(),
+          public_key_info      ::ssl_handshake:public_key_info(),
           private_key          ::public_key:private_key(),
 	  diffie_hellman_params, % PKIX: #'DHParameter'{} relevant for server side
 	  diffie_hellman_keys, % {PublicKey, PrivateKey}

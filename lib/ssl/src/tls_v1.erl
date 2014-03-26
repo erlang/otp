@@ -166,7 +166,7 @@ setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
 
--spec mac_hash(integer(), binary(), integer(), integer(), tls_version(),
+-spec mac_hash(integer(), binary(), integer(), integer(), tls_record:tls_version(),
 	       integer(), binary()) -> binary().
 
 mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
@@ -181,7 +181,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 		     Fragment]),
     Mac.
 
--spec suites(1|2|3) -> [cipher_suite()].
+-spec suites(1|2|3) -> [ssl_cipher:cipher_suite()].
 
 suites(Minor) when Minor == 1; Minor == 2->
     case sufficent_ec_support() of

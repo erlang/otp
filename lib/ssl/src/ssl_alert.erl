@@ -38,7 +38,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec encode(#alert{}, tls_version(), #connection_states{}) -> 
+-spec encode(#alert{}, ssl_record:ssl_version(), #connection_states{}) -> 
 		    {iolist(), #connection_states{}}.
 %%
 %% Description: 

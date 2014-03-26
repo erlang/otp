@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,8 +24,6 @@
 
 %% Visible in API
 -export_type([connect_option/0, listen_option/0, ssl_option/0, transport_option/0,
-	      erl_cipher_suite/0, %% From ssl_cipher.hrl
-	      tls_atom_version/0, %% From ssl_internal.hrl
 	      prf_random/0, sslsocket/0]).
 
 
@@ -39,23 +37,24 @@
 -type listen_option()            :: socket_listen_option() | ssl_option() | transport_option().
 -type socket_listen_option()     :: gen_tcp:listen_option().
 
--type ssl_option()    :: {verify, verify_type()} |
-			{verify_fun, {fun(), InitialUserState::term()}} |
-                        {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
-                        {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
-                        {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
-                        {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
-                        {user_lookup_fun, {fun(), InitialUserState::term()}} |
-                        {psk_identity, string()} |
-                        {srp_identity, {string(), string()}} |
-                        {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
-                        {reuse_session, fun()} | {hibernate_after, integer()|undefined} |
-                        {next_protocols_advertised, list(binary())} |
-                        {client_preferred_next_protocols, binary(), client | server, list(binary())}.
+-type ssl_option()    :: {versions, ssl_record:ssl_atom_version()} |
+			 {verify, verify_type()} |
+			 {verify_fun, {fun(), InitialUserState::term()}} |
+                         {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
+                         {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
+                         {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
+                         {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
+                         {user_lookup_fun, {fun(), InitialUserState::term()}} |
+                         {psk_identity, string()} |
+                         {srp_identity, {string(), string()}} |
+                         {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
+                         {reuse_session, fun()} | {hibernate_after, integer()|undefined} |
+                         {next_protocols_advertised, list(binary())} |
+                         {client_preferred_next_protocols, binary(), client | server, list(binary())}.
 
 -type verify_type()  :: verify_none | verify_peer.
 -type path()         :: string().
--type ciphers()      :: [erl_cipher_suite()] |
+-type ciphers()      :: [ssl_cipher:erl_cipher_suite()] |
 			string(). % (according to old API)
 -type ssl_imp()      :: new | old.
 

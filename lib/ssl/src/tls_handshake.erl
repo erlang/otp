@@ -33,6 +33,8 @@
 -export([client_hello/8, hello/4,
 	 get_tls_handshake/3, encode_handshake/2, decode_handshake/3]).
 
+-type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
+
 %%====================================================================
 %% Internal application API
 %%====================================================================
@@ -71,11 +73,11 @@ client_hello(Host, Port, ConnectionStates,
 	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
 				    atom(), #connection_states{}, binary() | undefined},
 	    boolean()) ->
-			  {tls_version(), session_id(), #connection_states{}, binary() | undefined}|
-			  {tls_version(), {resumed | new, #session{}}, #connection_states{},
-			   [binary()] | undefined,
-			  [oid()] | undefined, [oid()] | undefined} |
-			  #alert{}.
+		   {tls_record:tls_version(), session_id(), #connection_states{}, binary() | undefined}|
+		   {tls_record:tls_version(), {resumed | new, #session{}}, #connection_states{},
+		    [binary()] | undefined,
+		    [ssl_handshake:oid()] | undefined, [ssl_handshake:oid()] | undefined} |
+		   #alert{}.
 %%
 %% Description: Handles a recieved hello message
 %%--------------------------------------------------------------------
@@ -122,7 +124,7 @@ hello(#client_hello{client_version = ClientVersion,
     end.
 
 %%--------------------------------------------------------------------
--spec encode_handshake(tls_handshake(), tls_version()) -> iolist().
+-spec encode_handshake(tls_handshake(), tls_record:tls_version()) -> iolist().
 %%     
 %% Description: Encode a handshake packet
 %%--------------------------------------------------------------------x
@@ -132,7 +134,7 @@ encode_handshake(Package, Version) ->
     [MsgType, ?uint24(Len), Bin].
 
 %%--------------------------------------------------------------------
--spec get_tls_handshake(tls_version(), binary(), binary() | iolist()) ->
+-spec get_tls_handshake(tls_record:tls_version(), binary(), binary() | iolist()) ->
      {[tls_handshake()], binary()}.
 %%
 %% Description: Given buffered and new data from ssl_record, collects

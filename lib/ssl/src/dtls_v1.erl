@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -export([suites/1, mac_hash/7, ecc_curves/1, corresponding_tls_version/1]).
 
--spec suites(Minor:: 253|255) -> [cipher_suite()].
+-spec suites(Minor:: 253|255) -> [ssl_cipher:cipher_suite()].
 
 suites(Minor) ->
    tls_v1:suites(corresponding_minor_tls_version(Minor)).

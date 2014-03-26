@@ -276,7 +276,7 @@ controlling_process(#sslsocket{pid = {Listen,
     Transport:controlling_process(Listen, NewOwner).
 
 %%--------------------------------------------------------------------
--spec connection_info(#sslsocket{}) -> 	{ok, {tls_atom_version(), erl_cipher_suite()}} |
+-spec connection_info(#sslsocket{}) -> 	{ok, {tls_record:tls_atom_version(), ssl_cipher:erl_cipher_suite()}} |
 					{error, reason()}.
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
@@ -312,7 +312,7 @@ peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--spec suite_definition(cipher_suite()) -> erl_cipher_suite().
+-spec suite_definition(ssl_cipher:cipher_suite()) -> ssl_cipher:erl_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
 %%--------------------------------------------------------------------
@@ -330,8 +330,8 @@ negotiated_next_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_next_protocol(Pid).
 
 %%--------------------------------------------------------------------
--spec cipher_suites() -> [erl_cipher_suite()].
--spec cipher_suites(erlang | openssl | all) -> [erl_cipher_suite()] | [string()].
+-spec cipher_suites() -> [ssl_cipher:erl_cipher_suite()].
+-spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:erl_cipher_suite()] | [string()].
 			   
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
@@ -437,8 +437,8 @@ session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
 %%---------------------------------------------------------------
--spec versions() -> [{ssl_app, string()} | {supported, [tls_atom_version()]} |
-		     {available, [tls_atom_version()]}].
+-spec versions() -> [{ssl_app, string()} | {supported, [tls_record:tls_atom_version()]} |
+		     {available, [tls_record:tls_atom_version()]}].
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
@@ -558,6 +558,8 @@ handle_options(Opts0, _Role) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
     assert_proplist(Opts),
+    RecordCb = record_cb(Opts),
+
     ReuseSessionFun = fun(_, _, _, _) -> true end,
 
     DefaultVerifyNoneFun =
@@ -600,12 +602,14 @@ handle_options(Opts0, _Role) ->
 	end,
 
     CertFile = handle_option(certfile, Opts, <<>>),
-
+    
+    RecordCb = record_cb(Opts),
+    
     Versions = case handle_option(versions, Opts, []) of
 		   [] ->
-		       tls_record:supported_protocol_versions();
+		       RecordCb:supported_protocol_versions();
 		   Vsns  ->
-		       [tls_record:protocol_version(Vsn) || Vsn <- Vsns]
+		       [RecordCb:protocol_version(Vsn) || Vsn <- Vsns]
 	       end,
 
     SSLOptions = #ssl_options{
@@ -1034,6 +1038,13 @@ connection_cb(dtls) ->
     dtls_connection;
 connection_cb(Opts) ->
    connection_cb(proplists:get_value(protocol, Opts, tls)).
+
+record_cb(tls) ->
+    tls_record;
+record_cb(dtls) ->
+    dtls_record;
+record_cb(Opts) ->
+   record_cb(proplists:get_value(protocol, Opts, tls)).
 
 connection_sup(tls_connection) ->
     tls_connection_sup;
