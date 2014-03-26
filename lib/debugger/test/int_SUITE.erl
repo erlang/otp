@@ -27,7 +27,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([interpret/1, guards/1, interpretable/1]).
+-export([interpret/1, interpret1/1, guards/1, interpretable/1]).
 -export([ append_1/1, append_2/1, member/1, reverse/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
@@ -63,7 +63,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [interpret, guards, {group, list_suite}, interpretable].
+    [interpret, interpret1, guards, {group, list_suite}, interpretable].
 
 groups() -> 
     [{list_suite, [], [{group, append}, reverse, member]},
@@ -106,6 +106,19 @@ interpret(Config) when is_list(Config) ->
     ?line [ordsets1] = int:interpreted(),
     ?line ok = int:n("ordsets1"),
     ?line [] = int:interpreted(),
+
+    ok.
+
+interpret1(suite) ->
+    [];
+interpret1(doc) ->
+    ["Interpreting multiple modules"];
+interpret1(Config) when is_list(Config) ->
+    ?line int:n(int:interpreted()),
+
+    %% Interpret some existing and non-existing modules
+    ?line DataDir = ?config(data_dir, Config),
+    ?line error = int:i([filename:join([DataDir,lists1]), non_existent_module, filename:join([DataDir,ordsets1])]),
 
     ok.
 
