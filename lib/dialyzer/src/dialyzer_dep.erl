@@ -124,8 +124,10 @@ traverse(Tree, Out, State, CurrentFun) ->
 	    TmpState = state__add_deps(Label, O1, State),
 	    state__add_deps(CurrentFun, O2,TmpState)
 	end,
-      {BodyFuns, State2} = traverse(Body, Out, State1, 
-				    cerl_trees:get_label(Tree)),
+      Vars = cerl:fun_vars(Tree),
+      Out1 = bind_single(Vars, output(set__singleton(external)), Out),
+      {BodyFuns, State2} =
+        traverse(Body, Out1, State1, cerl_trees:get_label(Tree)),
       {output(set__singleton(Label)), state__add_esc(BodyFuns, State2)};
     'let' ->
       Vars = cerl:let_vars(Tree),
