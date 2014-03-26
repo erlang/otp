@@ -39,7 +39,13 @@ validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 		CertIssuer = TBSCert#'OTPTBSCertificate'.issuer,
 		TBSCRL = CRL#'CertificateList'.tbsCertList,
 		CRLIssuer =  TBSCRL#'TBSCertList'.issuer,
-		AltNames = subject_alt_names(TBSCert#'OTPTBSCertificate'.extensions),
+		AltNames = case pubkey_cert:select_extension(?'id-ce-subjectAltName',
+							     TBSCert#'OTPTBSCertificate'.extensions) of
+			     undefined ->
+				[];
+			     Ext ->
+				Ext#'Extension'.extnValue
+			   end,
 		revoked_status(DP, IDP, {directoryName, CRLIssuer},
 			       [ {directoryName, CertIssuer} | AltNames], SerialNumber, Revoked,
 			       DeltaRevoked, RevokedState1);
@@ -397,16 +403,18 @@ verify_dp_name(IDPNames, DPorIssuerNames) ->
 match_one([], _) ->
     false;
 match_one([{Type, Name} | Names], CandidateNames) ->
-    Candidates = [NameName || {NameType, NameName} <- CandidateNames, NameType == Type],
+    Candidates = [NameName || {NameType, NameName} <- CandidateNames, 
+			      NameType == Type],
     case Candidates of
 	[] ->
 	    false;
-	[_|_] -> case pubkey_cert:match_name(Type, Name, Candidates) of
-		     true ->
-			 true;
-		 false ->
-			 match_one(Names, CandidateNames)
-		 end
+	[_|_] ->
+	    case pubkey_cert:match_name(Type, Name, Candidates) of
+		true ->
+		    true;
+		false ->
+		    match_one(Names, CandidateNames)
+	    end
     end.
 
 verify_dp_bools(TBSCert, IDP) ->
@@ -664,6 +672,8 @@ verify_extensions([#'TBSCertList_revokedCertificates_SEQOF'{crlEntryExtensions =
     verify_extensions(pubkey_cert:extensions_list(Ext)) and verify_extensions(Rest);
 verify_extensions([]) ->
     true;
+verify_extensions(asn1_NOVALUE) ->
+    true;
 verify_extensions([#'Extension'{critical = true, extnID = Id} | Rest]) ->
     case lists:member(Id, [?'id-ce-authorityKeyIdentifier',
 			   ?'id-ce-issuerAltName',
@@ -689,13 +699,3 @@ authority_key_identifier(Extensions) ->
     Enc = extension_value(?'id-ce-authorityKeyIdentifier',
 			  'AuthorityKeyIdentifier', Extensions),
     pubkey_cert_records:transform(Enc, decode).
-
-subject_alt_names(Extensions) ->
-    Enc = extension_value(?'id-ce-subjectAltName',
-			  'GeneralNames', Extensions),
-    case Enc of
-	undefined ->
-	    [];
-	_ ->
-	    pubkey_cert_records:transform(Enc, decode)
-    end.
