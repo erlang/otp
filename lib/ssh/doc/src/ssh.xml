@@ -311,6 +311,16 @@
 	    </p>
 	  </item>
 
+	  <tag><c><![CDATA[{parallel_login, boolean()}]]></c></tag>
+	  <item>
+	    <p>If set to false (the default value), only one login is handled a time.  If set to true, an unlimited logins will be allowed simultanously. Note that this affects only the connections with authentication in progress, not the already authenticated connections.
+	    </p>
+	    <warning>
+	      <p>Do not enable parallel_logins without protecting the server by other means like a firewall. If set to true, there is no protection against dos attacs.</p>
+	    </warning>
+
+	  </item>
+
 	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.

@@ -334,6 +334,10 @@ handle_option([{rekey_limit, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{negotiation_timeout, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{parallel_login, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([parallel_login|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({parallel_login,true}) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -363,6 +367,8 @@ handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), leng
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({negotiation_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
+    Opt;
+handle_ssh_option({parallel_login, Value} = Opt) when Value==true ; Value==false ->
     Opt;
 handle_ssh_option({user, Value} = Opt) when is_list(Value) ->
     Opt;
