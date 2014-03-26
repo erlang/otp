@@ -114,6 +114,7 @@
                 pg2]},
   {applications, []},
   {env, [{error_logger, tty}]},
-  {mod, {kernel, []}}
+  {mod, {kernel, []}},
+  {runtime_dependencies, ["erts-6.0", "stdlib-2.0", "sasl-2.4"]}
  ]
 }.
