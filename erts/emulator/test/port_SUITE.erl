@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2318,7 +2318,7 @@ close_deaf_port(Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog),
     Res.
 
-close_deaf_port_1(1000, _) ->
+close_deaf_port_1(200, _) ->
     ok;
 close_deaf_port_1(N, Cmd) ->
     Timeout = integer_to_list(random:uniform(5*1000)),
