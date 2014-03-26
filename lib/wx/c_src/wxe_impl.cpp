@@ -500,7 +500,6 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
 	if(refd->alloc_in_erl) {
-	  int type = refd->type;
 	  if((refd->type == 1) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
@@ -622,7 +621,7 @@ void WxeApp::clearPtr(void * ptr) {
 
     if(((int) refd->pid) != -1) {
       // Send terminate pid to owner
-      wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->memenv->owner, false);
+      wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->pid, false);
       rt.addAtom("_wxe_destroy_");
       rt.add(ERL_DRV_PID, refd->pid);
       rt.addTupleCount(2);
