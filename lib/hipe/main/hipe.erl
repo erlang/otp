@@ -200,6 +200,7 @@
 	 compile_core/4,
  	 file/1,
  	 file/2,
+        llvm_support_available/0,
 	 load/1,
 	 help/0,
 	 help_hiper/0,
@@ -648,7 +649,18 @@ run_compiler_1(DisasmFun, IcodeFun, Options) ->
 			    %% The full option expansion is not done
 			    %% until the DisasmFun returns.
 			    {Code, CompOpts} = DisasmFun(Options),
-			    Opts = expand_options(Options ++ CompOpts),
+			    Opts0 = expand_options(Options ++ CompOpts),
+                           Opts =
+                             case proplists:get_bool(to_llvm, Opts0) andalso
+                                 not llvm_support_available() of
+                               true ->
+                                 ?error_msg("No LLVM version 3.4 or greater "
+                                            "found in $PATH; aborting "
+                                            "native code compilation.\n", []),
+                                 ?EXIT(cant_find_required_llvm_version);
+                               false ->
+                                 Opts0
+                             end,
 			    check_options(Opts),
 			    ?when_option(verbose, Options,
 					 ?debug_msg("Options: ~p.\n",[Opts])),
@@ -1535,6 +1547,24 @@ check_options(Opts) ->
     L ->
       ?WARNING_MSG("Unknown options: ~p.\n", [L]),
       ok
+  end.
+
+-spec llvm_support_available() -> boolean().
+
+llvm_support_available() ->
+  get_llvm_version() >= 3.4.
+
+get_llvm_version() ->
+  OptStr = os:cmd("opt -version"),
+  SubStr = "LLVM version ", N = length(SubStr),
+  case string:str(OptStr, SubStr) of
+     0 -> % No opt available
+       0.0;
+     S ->
+       case string:to_float(string:sub_string(OptStr, S + N)) of
+         {error, _} -> 0.0; %XXX: Assumes no revision numbers in versioning
+         {Float, _} -> Float
+       end
   end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
