@@ -110,8 +110,16 @@ start_connection(server = Role, Socket, Options, Timeout) ->
 	{ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Opts]),
 	{_, Callback, _} =  proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
 	socket_control(Socket, Pid, Callback),
-	Ref = erlang:monitor(process, Pid),
-	handshake(Pid, Ref, Timeout)
+	case proplists:get_value(parallel_login, Opts, false) of
+	    true ->
+		spawn(fun() -> 
+			      Ref = erlang:monitor(process, Pid),
+			      handshake(Pid, Ref, Timeout) 
+		      end);
+	    false ->
+		Ref = erlang:monitor(process, Pid),
+		handshake(Pid, Ref, Timeout)
+	end
     catch
 	exit:{noproc, _} ->
 	    {error, ssh_not_started};
