@@ -551,7 +551,12 @@ int erts_poll_wait(ErtsPollSet ps,
                 fd.id, fd.signo, current_process());
              erts_send_error_to_logger_nogl(dsbufp);
 	     timeout = 0;
-	     ASSERT(0);
+             /* Under normal circumstances the signal is deallocated by the
+              * driver that issued the select operation. But in this case
+              * there's no driver waiting for such signal so we have to
+              * deallocate it here */
+             if (sig)
+                 free_buf(&sig);
 	  } else {
 	    int i;
 	    struct erts_sys_fd_type *fd = NULL;
@@ -737,6 +742,7 @@ union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent drv_ev) {
       ev->msgs = msg->next;
       ethr_mutex_unlock(&ev->mtx);
       erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
+      restore(sig);
       return sig;
     }
 }

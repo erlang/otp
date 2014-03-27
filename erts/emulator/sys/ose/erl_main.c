@@ -30,6 +30,8 @@
 int
 main(int argc, char **argv) {
 
+  (void)stdin;(void)stdout;(void)stderr;
+
   /* When starting using pm_create -c ARGV="-- -root ..", argv[0] is the first
      part of ARGV and not the name of the executable. So we shuffle some
      pointers here to make erl_start happy. */

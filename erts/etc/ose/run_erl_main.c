@@ -45,6 +45,8 @@ int main(int argc, char **argv)
   char run_erl_usage[320],
     to_erl_usage[120];
 
+  (void)stdin;(void)stdout;(void)stderr;
+
   sprintf(run_erl_usage,RUN_ERL_USAGE,"run_erl [-daemon] [-block blockname]");
   sprintf(to_erl_usage,TO_ERL_USAGE,"pipename");
 

@@ -1035,7 +1035,7 @@ else
 ifeq ($(findstring ose,$(TARGET)),ose)
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS) $(LCF)
 	$(call build-ose-load-module, $@, $(INIT_OBJS) $(OBJS), $(STATIC_NIF_LIBS) \
-	$(STATIC_DRIVER_LIBS) $(LIBS), $(LMCONF))
+	$(STATIC_DRIVER_LIBS) $(LIBS), $(BEAM_LMCONF))
 
 else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)

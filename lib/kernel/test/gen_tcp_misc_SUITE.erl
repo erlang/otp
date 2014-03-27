@@ -50,6 +50,14 @@
 	 oct_acceptor/1,
 	 otp_7731_server/1, zombie_server/2, do_iter_max_socks/2]).
 
+init_per_testcase(wrapping_oct, Config) when is_list(Config) ->
+    Dog = case os:type() of
+	      {ose,_} ->
+		  test_server:timetrap(test_server:minutes(20));
+	      _Else ->
+		  test_server:timetrap(test_server:seconds(600))
+	  end,
+    [{watchdog, Dog}|Config];
 init_per_testcase(iter_max_socks, Config) when is_list(Config) ->
     Dog = case os:type() of
 	      {win32,_} ->
@@ -58,6 +66,14 @@ init_per_testcase(iter_max_socks, Config) when is_list(Config) ->
 		  test_server:timetrap(test_server:seconds(240))
 	  end,
     [{watchdog, Dog}|Config];
+init_per_testcase(accept_system_limit, Config) when is_list(Config) ->
+    case os:type() of
+      {ose,_} -> 
+          {skip,"Skip in OSE"};
+      _ -> 
+          Dog = test_server:timetrap(test_server:seconds(240)),
+          [{watchdog,Dog}|Config]
+    end;
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
     [{watchdog, Dog}|Config].
@@ -2705,13 +2721,11 @@ wrapping_oct(doc) ->
 wrapping_oct(suite) ->
     [];
 wrapping_oct(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(600)),
     {ok,Sock} = gen_tcp:listen(0,[{active,false},{mode,binary}]),
     {ok,Port} = inet:port(Sock),
     spawn_link(?MODULE,oct_acceptor,[Sock]),
     Res = oct_datapump(Port,16#1FFFFFFFF),
     gen_tcp:close(Sock),
-    test_server:timetrap_cancel(Dog),
     ok = Res,
     ok.
 
