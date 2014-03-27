@@ -893,7 +893,8 @@ typedef struct external_thing_ {
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_REF)
 
 #define is_external_header(x) \
-  (((x) & (_TAG_HEADER_MASK-_BINARY_XXX_MASK)) == _TAG_HEADER_EXTERNAL_PID)
+  (((x) & (_TAG_HEADER_MASK-_BINARY_XXX_MASK)) == _TAG_HEADER_EXTERNAL_PID \
+   && ((x) & _TAG_HEADER_MASK) != _TAG_HEADER_MAP)
 
 #define is_external(x) (is_boxed((x)) && is_external_header(*boxed_val((x))))
 
