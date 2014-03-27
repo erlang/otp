@@ -993,6 +993,16 @@ maps_syntax(Config) when is_list(Config) ->
     ok = pp_expr(<<"#{ a => 1, <<\"hi\">> => \"world\", 33 => 1.0 }">>),
     ok = pp_expr(<<"#{ a := V1, <<\"hi\">> := V2 } = M">>),
     ok = pp_expr(<<"M#{ a => V1, <<\"hi\">> := V2 }">>),
+    F = <<"-module(maps_type_syntax).\n"
+          "-compile(export_all).\n"
+          "-type t1() :: map().\n"
+          "-type t2() :: #{ atom() => integer(), atom() => float() }.\n"
+          "-spec f1(t1()) -> 'true'.\n"
+          "f1(M) when is_map(M) -> true.\n"
+          "-spec f2(t2()) -> integer().\n"
+          "f2(#{a := V1,b := V2}) -> V1 + V2.\n"
+          "\n">>,
+    ok = pp_forms(F),
     ok.
 
 

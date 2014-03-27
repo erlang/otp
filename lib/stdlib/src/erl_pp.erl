@@ -256,6 +256,10 @@ ltype({type,_Line,nonempty_list,[T]}) ->
     {seq,$[,$],[$,],[ltype(T),leaf("...")]};
 ltype({type,Line,nil,[]}) ->
     lexpr({nil,Line}, 0, options(none));
+ltype({type,Line,map,any}) ->
+    simple_type({atom,Line,map}, []);
+ltype({type,_Line,map,Pairs}) ->
+    map_type(Pairs);
 ltype({type,Line,tuple,any}) ->
     simple_type({atom,Line,tuple}, []);
 ltype({type,_Line,tuple,Ts}) ->
@@ -288,6 +292,15 @@ binary_type(I1, I2) ->
     E1 = [[leaf("_:"),lexpr(I1, P, options(none))] || B],
     E2 = [[leaf("_:_*"),lexpr(I2, P, options(none))] || U],
     {seq,'<<','>>',[$,],E1++E2}.
+
+map_type(Fs) ->
+    {first,[$#],map_pair_types(Fs)}.
+
+map_pair_types(Fs) ->
+    tuple_type(Fs, fun map_pair_type/1).
+
+map_pair_type({type,_Line,map_field_assoc,Ktype,Vtype}) ->
+    {seq,[],[]," =>",[ltype(Ktype),ltype(Vtype)]}.
 
 record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
