@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1576,7 +1576,13 @@ get_nodeinfo(Fd,Nod) ->
 	"Controller" ->
 	    get_nodeinfo(Fd,Nod#nod{controller=val(Fd)});
 	"Creation" ->
-	    get_nodeinfo(Fd,Nod#nod{creation=list_to_integer(val(Fd))});
+	    %% Throwing away elements like "(refc=1)", which might be
+	    %% printed from a debug compiled emulator.
+	    Creations = lists:flatmap(fun(C) -> try [list_to_integer(C)]
+						catch error:badarg -> []
+						end
+				      end, string:tokens(val(Fd)," ")),
+	    get_nodeinfo(Fd,Nod#nod{creation={creations,Creations}});
 	"Remote link" ->
 	    Procs = val(Fd), % e.g. "<0.31.0> <4322.54.0>"
 	    {Local,Remote} = split(Procs),
@@ -2559,11 +2565,11 @@ progress_pmap(Report,File,Fun,List) ->
 		  {L1,L2} = if length(L)>=NPerProc -> lists:split(NPerProc,L);
 			       true -> {L,[]} % last chunk
 			    end,
-		  P = spawn(
+		  {P,_Ref} =
+		      spawn_monitor(
 			fun() ->
 				progress_map(Collector,ReportInterval,File,Fun,L1)
 			end),
-		  erlang:monitor(process,P),
 		  {L2,[P|Ps]}
 	  end,
 	  {List,[]},

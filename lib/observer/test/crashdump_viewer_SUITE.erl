@@ -120,26 +120,62 @@ start_stop(Config) when is_list(Config) ->
     Dump = hd(?config(dumps,Config)),
     timer:sleep(1000),
 
-    ProcsBefore = length(processes()),
+    ProcsBefore = processes(),
+    NumProcsBefore = length(ProcsBefore),
     ok = crashdump_viewer:start(Dump),
-    true = is_pid(whereis(crashdump_viewer_server)),
-    true = is_pid(whereis(cdv_wx)),
-    true = is_pid(whereis(cdv_proc_cb)),
-    true = is_pid(whereis(cdv_port_cb)),
-    true = is_pid(whereis(cdv_ets_cb)),
-    true = is_pid(whereis(cdv_timer_cb)),
-    true = is_pid(whereis(cdv_fun_cb)),
-    true = is_pid(whereis(cdv_atom_cb)),
-    true = is_pid(whereis(cdv_dist_cb)),
-    true = is_pid(whereis(cdv_mod_cb)),
+    ExpectedRegistered = [crashdump_viewer_server,
+			  cdv_wx,
+			  cdv_proc_cb,
+			  cdv_proc_cb__holder,
+			  cdv_port_cb,
+			  cdv_port_cb__holder,
+			  cdv_ets_cb,
+			  cdv_ets_cb__holder,
+			  cdv_timer_cb,
+			  cdv_timer_cb__holder,
+			  cdv_fun_cb,
+			  cdv_fun_cb__holder,
+			  cdv_atom_cb,
+			  cdv_atom_cb__holder,
+			  cdv_dist_cb,
+			  cdv_dist_cb__holder,
+			  cdv_mod_cb,
+			  cdv_mod_cb__holder],
+    Regs=[begin
+	      P=whereis(N),
+	      {P,N,erlang:monitor(process,P)}
+	  end || N <- ExpectedRegistered],
+    ct:log("CDV procs: ~n~p~n",[Regs]),
+    [true=is_pid(P) || {P,_,_} <- Regs],
     timer:sleep(5000), % give some time to live
     ok = crashdump_viewer:stop(),
-    timer:sleep(1000), % give some time to stop
-    undefined = whereis(crashdump_viewer_server),
-    undefined = whereis(cdv_wx),
-    ProcsAfter=length(processes()),
-    ProcsAfter=ProcsBefore,
+    recv_downs(Regs),
+    timer:sleep(2000),
+    ProcsAfter = processes(),
+    NumProcsAfter = length(ProcsAfter),
+    if NumProcsAfter=/=NumProcsBefore ->
+	    ct:log("Before but not after:~n~p~n",
+		   [[{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter]]),
+	    ct:log("After but not before:~n~p~n",
+		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
+	    ct:fail("leaking processes");
+       true ->
+	    ok
+    end,
     ok.
+
+recv_downs([]) ->
+    ok;
+recv_downs(Regs) ->
+    receive
+	{'DOWN',Ref,process,_Pid,_} ->
+	    ct:log("Got 'DOWN' for process ~n~p~n",[_Pid]),
+	    recv_downs(lists:keydelete(Ref,3,Regs))
+    after 30000 ->
+	    ct:log("Timeout waiting for down:~n~p~n",
+		   [[{Reg,process_info(P)} || {P,_,_}=Reg <- Regs]]),
+	    ct:log("Message queue:~n~p~n",[process_info(self(),messages)])
+    end.
 
 %% Try to load nonexisting file
 non_existing(Config) when is_list(Config) ->
@@ -428,8 +464,10 @@ do_create_dumps(DataDir,Rel) ->
     end.
 
 
-%% Create a dump which has two visible nodes, one hidden and one
+%% Create a dump which has three visible nodes, one hidden and one
 %% not connected node, and with monitors and links between nodes.
+%% One of the visible nodes is stopped and started again in order to
+%% get multiple creations.
 full_dist_dump(DataDir,Rel) ->
     Opt = rel_opt(Rel),
     Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
@@ -450,6 +488,15 @@ full_dist_dump(DataDir,Rel) ->
     get_response(P4),
     get_response(P1),
 
+    %% start, stop and start a node in order to get multiple 'creations'
+    {ok,N5} = ?t:start_node(n5,peer,Opt ++ PzOpt),
+    P51 = rpc:call(N5,?helper_mod,remote_proc,[P1,Creator]),
+    get_response(P51),
+    ?t:stop_node(N5),
+    {ok,N5} = ?t:start_node(n5,peer,Opt ++ PzOpt),
+    P52 = rpc:call(N5,?helper_mod,remote_proc,[P1,Creator]),
+    get_response(P52),
+
     {aaaaaaaa,N1} ! {hello,from,other,node}, % distribution message
     
     ?t:stop_node(N3),
@@ -458,6 +505,7 @@ full_dist_dump(DataDir,Rel) ->
 
     ?t:stop_node(N2),
     ?t:stop_node(N4),
+    ?t:stop_node(N5),
     CD.
 
 get_response(P) ->

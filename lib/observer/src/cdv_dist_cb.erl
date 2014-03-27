@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,8 @@
 	 get_info/1,
 	 get_detail_cols/1,
 	 get_details/1,
-	 detail_pages/0]).
+	 detail_pages/0,
+	 format/1]).
 
 -include_lib("wx/include/wx.hrl").
 -include("crashdump_viewer.hrl").
@@ -75,6 +76,11 @@ init_gen_page(Parent, Info) ->
     Fields = info_fields(),
     cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
+format({creations,Creations}) ->
+    string:join([integer_to_list(C) || C <- Creations],",");
+format(D) ->
+    D.
+
 %%%-----------------------------------------------------------------
 %%% Internal
 info_fields() ->
@@ -83,7 +89,7 @@ info_fields() ->
        {"Type",               conn_type},
        {"Channel",            channel},
        {"Controller",         {click,controller}},
-       {"Creation",           creation},
+       {"Creation",           {{format,fun format/1},creation}},
        {"Extra Info",         error}]},
     {scroll_boxes,
      [{"Remote Links",1,{click,remote_links}},
