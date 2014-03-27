@@ -2417,8 +2417,27 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced) ->
 	    ?t:format("~ncheck_gg_info failed for ~p: ~p~nwhen GGI was: ~p~n"
 		      "and GI was: ~p~n",
 		      [Node,E,GGI,GI]),
+	    %% An attempt to find out if it is only a timing issue
+	    %% that makes this fail every now and then:
+	    try_again_check(Node,GGI,GI,1),
 	    ?t:fail("check_gg_info failed")
     end.
+
+try_again_check(_Node,_GGI,_GI,6) ->
+    ok;
+try_again_check(Node,GGI,GI,N) ->
+    timer:sleep(1000),
+    case {rpc:call(Node,global_group,info,[]),
+	  rpc:call(Node,global,info,[])} of
+	{GGI,GI} ->
+	    ?t:format("~nAfter one more sek, GGI and GI are still the same"),
+	    try_again_check(Node,GGI,GI,N+1);
+	{NewGGI,NewGI} ->
+	    ?t:format("~nAfter one more sek:~nNew GGI: ~p~nNew GI: ~p~n",
+		      [NewGGI,NewGI]),
+	    try_again_check(Node,NewGGI,NewGI,N+1)
+    end.
+
 
 do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) ->
     {_,gg1} = lists:keyfind(own_group_name,1,GGI),
