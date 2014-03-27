@@ -56,7 +56,7 @@ Expr1 + Expr2</code>
     <marker id="term"></marker>
     <title>Terms</title>
     <p>The simplest form of expression is a term, that is an integer,
-      float, atom, string, list or tuple.
+      float, atom, string, list, map or tuple.
       The return value is the term itself.</p>
   </section>
 
@@ -1348,6 +1348,9 @@ end</pre>
         <cell align="left" valign="middle"><c>is_list/1</c></cell>
       </row>
       <row>
+        <cell align="left" valign="middle"><c>is_map/1</c></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>is_number/1</c></cell>
       </row>
       <row>
@@ -1396,6 +1399,9 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>map_size(Map)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>node()</c></cell>
