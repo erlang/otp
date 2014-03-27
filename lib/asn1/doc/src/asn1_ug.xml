@@ -392,6 +392,40 @@ File3.asn    </pre>
   </section>
 
   <section>
+    <title>A quick note about tags</title>
+
+    <p>Tags used to be important for all users of ASN.1, because it
+    was necessary to manually add tags to certain constructs in order
+    for the ASN.1 specification to be valid. Here is an example of
+    an old-style specification:</p>
+
+    <pre>
+Tags DEFINITIONS ::=
+BEGIN
+  Afters ::= CHOICE { cheese [0] IA5String,
+                      dessert [1] IA5String }
+END </pre>
+
+    <p>Without the tags (the numbers in square brackets) the ASN.1
+    compiler would refuse to compile the file.</p>
+
+    <p>In 1994 the global tagging mode AUTOMATIC TAGS was introduced.
+    By putting AUTOMATIC TAGS in the module header, the ASN.1 compiler
+    will automatically add tags when needed. Here is the same
+    specification in AUTOMATIC TAGS mode:</p>
+
+    <pre>
+Tags DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+  Afters ::= CHOICE { cheese IA5String,
+                      dessert IA5String }
+END
+</pre>
+
+    <p>Tags will not be mentioned any more in this manual.</p>
+  </section>
+
+  <section>
     <marker id="ASN1Types"></marker>
     <title>The ASN.1 Types</title>
     <p>This section describes the ASN.1 types including their
@@ -983,47 +1017,24 @@ SExt ::= SEQUENCE {
       <marker id="CHOICE"></marker>
       <title>CHOICE</title>
       <p>The CHOICE type is a space saver and is similar to the concept of a
-        'union' in the C-language. As with the previous SET-type, the
-        tags of all components  of a CHOICE need to be distinct. If
-        AUTOMATIC TAGS are defined for the module  (which is
-        preferable) the tags can be omitted completely in the ASN.1
-        specification of a CHOICE.
-        </p>
+        'union' in the C language.</p>
       <p>Assume:</p>
       <pre>
+SomeModuleName DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
 T ::= CHOICE {
-        x [0] REAL,
-        y [1] INTEGER,
-        z [2] OBJECT IDENTIFIER }
-      </pre>
+        x REAL,
+        y INTEGER,
+        z OBJECT IDENTIFIER }
+END </pre>
       <p>It is then possible to assign values:</p>
       <pre>
 TVal1 = {y,17},
 TVal2 = {z,{0,1,2}},
       </pre>
-      <p>A CHOICE value is  always represented as the tuple
+      <p>A CHOICE value is always represented as the tuple
         <c>{ChoiceAlternative, Val}</c> where <c>ChoiceAlternative</c>
-        is an atom denoting the selected choice
-        alternative.
-        </p>
-      <p>It is also allowed to have a CHOICE type tagged as follow:</p>
-      <p></p>
-      <pre>
-C ::= [PRIVATE 111] CHOICE {
-        C1,
-        C2 }
-
-C1 ::= CHOICE { 
-         a [0] INTEGER,
-         b [1] BOOLEAN }
-
-C2 ::= CHOICE {
-         c [2] INTEGER,
-         d [3] OCTET STRING }      </pre>
-      <p>In this case, the top type C appears to have no tags at all in
-        its components, however, both C1 and C2 are also defined as
-        CHOICE types and they have distinct tags among themselves.
-        Hence, the above type C is both legal and allowed.
+        is an atom denoting the selected choice alternative.
         </p>
 
       <section>
@@ -1104,20 +1115,23 @@ Arr2Val = ["abc",[14,34,54],"Octets"],      </pre>
         Where <c>Value</c> may be a value of yet another type T2.</p>
       <p>For example:</p>
       <pre>
+EmbeddedExample DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
 B ::= SEQUENCE {
         a Arr1,
-        b [0] T }
+        b T }
 
 Arr1 ::= SET SIZE (5) OF INTEGER (4..9) 
 
 T ::= CHOICE {
-        x [0] REAL,
-        y [1] INTEGER,
-        z [2] OBJECT IDENTIFIER }      </pre>
-      <p>The above example can be assigned like this in Erlang:</p>
+        x REAL,
+        y INTEGER,
+        z OBJECT IDENTIFIER }
+        END      </pre>
+      <p>The SEQUENCE b can be encoded like this in Erlang:</p>
       <pre>
-V2 = #'B'{a=[4,5,6,7,8], b={x,7.77}}.
-      </pre>
+1> 'EmbeddedExample':encode('B', {'B',[4,5,6,7,8],{x,"7.77"}}).
+{ok,&lt;&lt;5,56,0,8,3,55,55,55,46,69,45,50>>} </pre>
     </section>
   </section>
 
@@ -1139,8 +1153,8 @@ V2 = #'B'{a=[4,5,6,7,8], b={x,7.77}}.
 Emb ::= SEQUENCE {
     a SEQUENCE OF OCTET STRING,
     b SET {
-       a [0] INTEGER,
-       b [1] INTEGER DEFAULT 66},
+       a INTEGER,
+       b INTEGER DEFAULT 66},
     c CHOICE {
        a INTEGER,
        b FooType } }
@@ -1211,7 +1225,7 @@ PType{T} ::= SEQUENCE{
       <p>Types may refer to themselves. Suppose:</p>
       <pre>
 Rec ::= CHOICE {
-     nothing [0] NULL,
+     nothing NULL,
      something SEQUENCE {
           a INTEGER,
           b OCTET STRING,
@@ -1243,7 +1257,7 @@ tt TT ::= {a 77,b {"kalle","kula"}}    </pre>
       Firstly, it could be used as the value in some DEFAULT component:</p>
     <pre>
 SS ::= SET {
-    s [0] OBJECT IDENTIFIER,
+    s OBJECT IDENTIFIER,
     val TT DEFAULT tt }    </pre>
     <p>It could also be used from inside an Erlang program. If the above ASN.1
       code was defined in ASN.1 module <c>Values</c>, then the ASN.1 value
@@ -1400,70 +1414,6 @@ T2 ::= General{BIT STRING}
       types. So, if a file contains the types General{}, T1 and T2 above,
       encode/decode functions will only be generated for T1 and T2.
       </p>
-  </section>
-
-  <section>
-    <title>Tags</title>
-    <p>Every built-in ASN.1 type, except CHOICE and ANY have a universal tag.
-      This is a unique number that clearly identifies the type.      <br></br>
- 
-      It is essential for all users of ASN.1  to
-      understand  all the details about tags.</p>
-    <p>Tags are implicitly encoded in the BER encoding as shown below, but 
-      are hardly not accounted for in the PER encoding. In PER tags are
-      used for instance to sort the components of a SET.</p>
-    <p>There are four different types of tags.</p>
-    <taglist>
-      <tag><em>universal</em></tag>
-      <item>
-        <p>For types whose meaning is the same in all 
-          applications. Such as integers, sequences and so on; that is, all the built in
-          types.</p>
-      </item>
-      <tag><em>application</em></tag>
-      <item>
-        <p>For application specific types for example, the types in
-          X.400 Message handling service have this sort of tag.</p>
-      </item>
-      <tag><em>private</em></tag>
-      <item>
-        <p>For your own private types.</p>
-      </item>
-      <tag><em>context</em></tag>
-      <item>
-        <p>This is used to distinguish otherwise indistinguishable
-          types in a specific context. For example, if we have two
-          components of a 
-          CHOICE type that are both <c>INTEGER</c> values, there is no
-          way for the decoder to 
-          decipher which component was actually chosen, since both
-          components will be
-          tagged as <c>INTEGER</c>. When this or similar situations occur,  
-          one or both of the components should be given a  context specific
-          to resolve the ambiguity.</p>
-      </item>
-    </taglist>
-    <p>The tag in the case of the 'Apdu' type [PRIVATE 1] is encoded to a
-      sequence of bytes  making it possible for  a
-      decoder to  look at the (initial) bytes that arrive and determine
-      whether the rest of the bytes  must be of the type associated
-      with that particular sequence of bytes.  This means that each
-      tag must be uniquely associated with <em>only</em> one  ASN.1
-      type.
-      </p>
-    <p>Immediately following the tag is a sequence of bytes
-      informing the  decoder of the length of the instance. This is
-      sometimes referred to  as TLV  (Tag length value) encoding.
-      Hence, the structure of a BER encoded series of bytes is as shown in the table below.</p>
-    <p></p>
-    <table>
-      <row>
-        <cell align="left" valign="middle">Tag</cell>
-        <cell align="left" valign="middle">Len</cell>
-        <cell align="left" valign="middle">Value</cell>
-      </row>
-      <tcaption>Structure of a BER encoded series of bytes</tcaption>
-    </table>
   </section>
 
   <section>
