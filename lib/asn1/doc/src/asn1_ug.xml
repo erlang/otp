@@ -949,68 +949,10 @@ ok
     <section>
       <marker id="SET"></marker>
       <title>SET</title>
-      <p>The SET type is an unusual construct and normally the SEQUENCE 
-        type is more appropriate to use. Set is also inefficient compared with SEQUENCE, as the components can be in any order. Hence, it must be possible
-        to distinguish every component in 'SET', both when
-        encoding and decoding a value of a type defined to be a SET.
-        The tags of all components must be different from each other
-        in order to  be easily recognizable.</p>
-      <p>A SET may be defined as:</p>
-      <pre>
-Pdu2 ::= SET {
-    a INTEGER,
-    b BOOLEAN,
-    c ENUMERATED {on(0),off(1)} }      </pre>
-      <p>A SET is represented as an Erlang record.
-        For each SEQUENCE and <c>SET</c> in
-        an ASN.1 module an Erlang record declaration is generated. For
-        <c>Pdu2</c> above a record is defined like this:</p>
-      <pre>
--record('Pdu2',{a, b, c}).      </pre>
-      <p>The record declarations for a module <c>M</c> are placed in a 
-        separate <c>M.hrl</c> file.</p>
-      <p>Values can be assigned in Erlang as demonstrated below:</p>
-      <pre>
-V = #'Pdu2'{a=44,b=false,c=off}.      </pre>
-      <p>The decode functions will return a record as result when decoding 
-        a SET.
-        </p>
-      <p>The difference between SET and SEQUENCE is that the order of
-        the components (in the BER encoded format) is undefined for SET
-        and defined as the lexical order from the ASN.1 definition for
-        SEQUENCE. The ASN.1 compiler for Erlang will always encode a
-        SET in the lexical order. The decode routines can handle SET
-        components encoded in any order but will always return the
-        result as a record. Since all components of the SET must be
-        distinguishable both in the encoding phase as well as the
-        decoding phase the following type is not allowed in a module
-        with EXPLICIT or IMPLICIT as tag-default :</p>
-      <p></p>
-      <pre>
-Bad ::= SET {i INTEGER,
-             j INTEGER }      </pre>
-      <p>The  ASN.1 to Erlang compiler  rejects the above type. We
-        shall not explain the concept of tag further here, we refer to
-        [<cite id="X.680"></cite>].
-        </p>
-      <p>Encoding of a SET with components with DEFAULT values behaves
-        similar as a SEQUENCE. The DER encoding format restrictions on DEFAULT
-        values is the same for SET as for SEQUENCE, and is supported by 
-        the compiler.</p>
-      <p>Moreover, in DER the elements of a SET will be sorted. If a 
-        component is an un-tagged choice the sorting have to take place
-        in run-time. This fact emphasizes the following recommendation
-        if DER encoding format is used.</p>
-      <p>The concept of SET is an unusual
-        construct and one  cannot think of one single application
-        where the set type is essential. (Imagine if someone
-        "invented'' the shuffled array in 'C') People tend to think
-        that 'SET' sounds nicer and more mathematical than 'SEQUENCE'
-        and hence use it when  'SEQUENCE' would have been more
-        appropriate. It is also most inefficient, since every correct
-        implementation of SET must always be prepared to accept the
-        components in any order. So, if possible use SEQUENCE instead
-        of SET.</p>
+      <p>In Erlang, the SET type is used exactly as SEQUENCE. Note
+      that if the BER or DER encoding rules are used, decoding a
+      SET is slower than decoding a SEQUENCE because the components
+      must be sorted.</p>
     </section>
 
     <section>
