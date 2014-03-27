@@ -2563,7 +2563,7 @@ start_nodes(Conf,Snames,Tag) ->
     
 start_node_unix(Sname,NodeDir) ->
     Script = filename:join([NodeDir,"bin","start"]),
-    ?t:format("Starting ~p: ~tp~n", [Sname,Script]),
+    ?t:format("Starting ~p: ~ts~n", [Sname,Script]),
     case rh_test_lib:cmd(Script,[],[{"NODENAME",atom_to_list(Sname)}]) of
 	ok ->
 	    {ok,node_name(Sname)};
