@@ -123,6 +123,18 @@
         </taglist>
       </desc>
     </datatype>
+    <datatype>
+      <name name="filename"/>
+      <p>The name of a zip file.</p>
+    </datatype>
+    <datatype><name name="extension"/></datatype>
+    <datatype><name name="extension_spec"/></datatype>
+    <datatype>
+      <name name="create_option"/>
+      <desc>
+        <p>These options are described in <seealso marker="#zip_options">create/3</seealso>.</p>
+      </desc>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
@@ -160,6 +172,7 @@
         set to <c>["gif", "jpg"]</c> and <c>uncompress</c> is set to
         <c>["jpg"]</c>, only files with <c>"gif"</c> as extension will
         be compressed. No other files will be compressed.</p>
+	<marker id="zip_options"></marker>
         <p>The following options are available:</p>
         <taglist>
           <tag><c>cooked</c></tag>

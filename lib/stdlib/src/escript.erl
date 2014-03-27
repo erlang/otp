@@ -59,7 +59,6 @@
 	  file:filename()
 	| {file:filename(), binary()}
 	| {file:filename(), binary(), file:file_info()}.
--type zip_create_option() :: term().
 -type section() ::
 	  shebang
 	| {shebang, shebang() | default | undefined}
@@ -68,8 +67,8 @@
 	| {emu_args, emu_args() | undefined}
 	| {source, file:filename() | binary()}
 	| {beam, file:filename() | binary()}
-	| {archive, file:filename() | binary()}
-	| {archive, [zip_file()], [zip_create_option()]}.
+	| {archive, zip:filename() | binary()}
+	| {archive, [zip_file()], [zip:create_option()]}.
 
 %%-----------------------------------------------------------------------
 
