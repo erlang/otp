@@ -39,7 +39,13 @@ validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 		CertIssuer = TBSCert#'OTPTBSCertificate'.issuer,
 		TBSCRL = CRL#'CertificateList'.tbsCertList,
 		CRLIssuer =  TBSCRL#'TBSCertList'.issuer,
-		AltNames = subject_alt_names(TBSCert#'OTPTBSCertificate'.extensions),
+		AltNames = case pubkey_cert:select_extension(?'id-ce-subjectAltName',
+							     TBSCert#'OTPTBSCertificate'.extensions) of
+			     undefined ->
+				[];
+			     Ext ->
+				Ext#'Extension'.extnValue
+			   end,
 		revoked_status(DP, IDP, {directoryName, CRLIssuer},
 			       [ {directoryName, CertIssuer} | AltNames], SerialNumber, Revoked,
 			       DeltaRevoked, RevokedState1);
@@ -387,11 +393,15 @@ verify_dp_name(asn1_NOVALUE, _) ->
     ok;
 
 verify_dp_name(IDPNames, DPorIssuerNames) ->
-    case match_one(DPorIssuerNames, IDPNames) of
-	true ->
-	    ok;
-	false ->
-	    throw({bad_crl, scope_error})
+    %% RFC 5280 section 5.2.5
+    %% Check that at least one IssuingDistributionPointName in the CRL lines up
+    %% with a DistributionPointName in the certificate.
+    Matches = [X || X <- IDPNames, Y <- DPorIssuerNames, X == Y],
+    case Matches of
+	[] ->
+	    throw({bad_crl, scope_error});
+	_ ->
+	    ok
     end.
 
 match_one([], _) ->
@@ -401,7 +411,8 @@ match_one([{Type, Name} | Names], CandidateNames) ->
     case Candidates of
 	[] ->
 	    false;
-	[_|_] -> case pubkey_cert:match_name(Type, Name, Candidates) of
+	[_|_] ->
+	case pubkey_cert:match_name(Type, Name, Candidates) of
 		     true ->
 			 true;
 		 false ->
@@ -663,6 +674,8 @@ status(Reason) ->
 verify_extensions([#'TBSCertList_revokedCertificates_SEQOF'{crlEntryExtensions = Ext} | Rest]) ->
     verify_extensions(pubkey_cert:extensions_list(Ext)) and verify_extensions(Rest);
 verify_extensions([]) ->
+    true;
+verify_extensions(asn1_NOVALUE) ->
     true;
 verify_extensions([#'Extension'{critical = true, extnID = Id} | Rest]) ->
     case lists:member(Id, [?'id-ce-authorityKeyIdentifier',
