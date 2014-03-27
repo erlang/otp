@@ -1104,7 +1104,7 @@ do_max_clients(Config) ->
     BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
-    ct:sleep(100),
+    ct:sleep(100), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -1117,6 +1117,7 @@ do_max_clients(Config) ->
 	    ok
     end,
     inets_test_lib:close(Type, Socket),
+    ct:sleep(100), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
