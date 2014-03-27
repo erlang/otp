@@ -494,9 +494,15 @@ fetch([{uniformResourceIdentifier, "http"++_=URL}|Rest]) ->
                 _ ->
 		    ct:log("~p:~p~npublic_key:pem_entry_decode,~nBody=~p~n)",[?MODULE,?LINE,{'CertificateList', Body, not_encrypted}]),
                     %% assume DER encoded
-                    CertList = public_key:pem_entry_decode(
-                            {'CertificateList', Body, not_encrypted}),
-                    {Body, CertList}
+		    try 
+			public_key:pem_entry_decode({'CertificateList', Body, not_encrypted})
+		    of 
+			CertList -> {Body, CertList}
+		    catch
+			_C:_E ->
+			    ct:log("~p:~p~nfailed DER assumption~nRest=~p", [?MODULE,?LINE,Rest]),
+			    fetch(Rest)
+		    end
             end;
         {error, _Reason} ->
             ct:log("~p:~p~nfailed to get CRL ~p~n", [?MODULE,?LINE, _Reason]),
