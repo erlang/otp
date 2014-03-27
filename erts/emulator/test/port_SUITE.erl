@@ -1698,12 +1698,13 @@ otp_5119(Config) when is_list(Config) ->
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
     PI1 = port_ix(otp_5119_fill_empty_port_tab([])),
-    PI2 = port_ix(erlang:open_port({spawn, "exit_drv"}, [])),
+    Port2 = erlang:open_port({spawn, "exit_drv"}, []),
+    PI2 = port_ix(Port2),
     {PortIx1, PortIx2} = case PI2 > PI1 of
 	true ->
 	    {PI1, PI2};
 	false ->
-	    {port_ix(otp_5119_fill_empty_port_tab([PI2])),
+	    {port_ix(otp_5119_fill_empty_port_tab([Port2])),
 		port_ix(erlang:open_port({spawn, "exit_drv"}, []))}
     end,
     MaxPorts = max_ports(),
