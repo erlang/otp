@@ -308,7 +308,7 @@ close(Connection) ->
 	{ok,Pid} ->
 	    log(undefined,close,"Connection closed, handle: ~w",[Pid]),
 	    case ct_gen_conn:stop(Pid) of
-		{error,{process_down,Pid,noproc}} ->
+		{error,{process_down,Pid,_}} ->
 		    {error,already_closed};
 		Result ->
 		    Result
