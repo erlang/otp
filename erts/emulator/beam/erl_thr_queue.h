@@ -188,6 +188,7 @@ void erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *,
 					     ErtsThrQFinDeQ_t *);
 int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *);
 void erts_thr_q_finalize_dequeue_state_init(ErtsThrQFinDeQ_t *);
+int erts_thr_q_queue_len(ErtsThrQ_t *);
 
 #ifdef ERTS_SMP
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_q_need_thr_progress(ErtsThrQ_t *q);

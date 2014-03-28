@@ -779,3 +779,35 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
     return res;
 #endif
 }
+
+int
+erts_thr_q_queue_len(ErtsThrQ_t *q)
+{
+    int len = 0;
+#ifndef USE_THREADS
+    ErtsThrQElement_t *tmp;
+
+    tmp = q->first;
+    if (!tmp)
+	return 0;
+    while (tmp->next != NULL) {
+	len++;
+	tmp = tmp->next;
+    }   
+
+    return len;
+#else
+    ErtsThrQElement_t *tmp;
+    erts_aint_t inext;
+
+    tmp = ErtsThrQDirtyReadEl(&q->head.head);
+    inext = erts_atomic_read_acqb(&tmp->next);
+    while (inext != ERTS_AINT_NULL) {
+	len++;
+	tmp = (ErtsThrQElement_t *) inext;
+	inext = erts_atomic_read_acqb(&tmp->next);
+    }
+
+    return len;
+#endif
+}
