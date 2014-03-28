@@ -363,20 +363,24 @@ traverse_list([], Map, State, Acc) ->
 handle_apply(Tree, Map, State) ->
   Args = cerl:apply_args(Tree),
   Op = cerl:apply_op(Tree),
-  {State1, Map1, ArgTypes} = traverse_list(Args, Map, State),
-  {State2, Map2, OpType} = traverse(Op, Map1, State1),
+  {State0, Map1, ArgTypes} = traverse_list(Args, Map, State),
+  {State1, Map2, OpType} = traverse(Op, Map1, State0),
   case any_none(ArgTypes) of
     true ->
-      {State2, Map2, t_none()};
+      {State1, Map2, t_none()};
     false ->
-      {CallSitesKnown, FunList} =
-	case state__lookup_call_site(Tree, State2) of
-	  error -> {false, []};
-	  {ok, [external]} -> {false, []};
-	  {ok, List} -> {true, List}
+      FunList =
+	case state__lookup_call_site(Tree, State) of
+	  error -> [external]; %% so that we go directly in the fallback
+	  {ok, List} -> List
 	end,
-      case CallSitesKnown of
-	false ->
+      FunInfoList = [{local, state__fun_info(Fun, State)} || Fun <- FunList],
+      case
+        handle_apply_or_call(FunInfoList, Args, ArgTypes, Map2, Tree, State1)
+      of
+	{had_external, State2} ->
+	  %% Fallback: use whatever info we collected from traversing the op
+	  %% instead of the result that has been generalized to t_any().
 	  Arity = length(Args),
 	  OpType1 = t_inf(OpType, t_fun(Arity, t_any())),
 	  case t_is_none(OpType1) of
@@ -408,25 +412,23 @@ handle_apply(Tree, Map, State) ->
 		  {State2, enter_type(Op, OpType1, Map3), Range}
 	      end
 	  end;
-	true ->
-	  FunInfoList = [{local, state__fun_info(Fun, State)}
-			 || Fun <- FunList],
-	  handle_apply_or_call(FunInfoList, Args, ArgTypes, Map2, Tree, State1)
+	Normal -> Normal
       end
   end.
 
 handle_apply_or_call(FunInfoList, Args, ArgTypes, Map, Tree, State) ->
   None = t_none(),
   handle_apply_or_call(FunInfoList, Args, ArgTypes, Map, Tree, State,
-		       [None || _ <- ArgTypes], None).
+		       [None || _ <- ArgTypes], None, false).
 
 handle_apply_or_call([{local, external}|Left], Args, ArgTypes, Map, Tree, State,
-		     _AccArgTypes, _AccRet) ->
+		     _AccArgTypes, _AccRet, _HadExternal) ->
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree, State,
-		       ArgTypes, t_any());
+		       ArgTypes, t_any(), true);
 handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 		     Args, ArgTypes, Map, Tree,
-                     #state{opaques = Opaques} = State, AccArgTypes, AccRet) ->
+                     #state{opaques = Opaques} = State,
+                     AccArgTypes, AccRet, HadExternal) ->
   Any = t_any(),
   AnyArgs = [Any || _ <- Args],
   GenSig = {AnyArgs, fun(_) -> t_any() end},
@@ -573,11 +575,16 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   NewAccRet = t_sup(AccRet, TotalRet),
   ?debug("NewAccRet: ~s\n", [t_to_string(NewAccRet)]),
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree,
-		       State3, NewAccArgTypes, NewAccRet);
+		       State3, NewAccArgTypes, NewAccRet, HadExternal);
 handle_apply_or_call([], Args, _ArgTypes, Map, _Tree, State,
-		     AccArgTypes, AccRet) ->
-  NewMap = enter_type_lists(Args, AccArgTypes, Map),
-  {State, NewMap, AccRet}.
+		     AccArgTypes, AccRet, HadExternal) ->
+  case HadExternal of
+    false ->
+      NewMap = enter_type_lists(Args, AccArgTypes, Map),
+      {State, NewMap, AccRet};
+    true ->
+      {had_external, State}
+  end.
 
 apply_fail_reason(FailedSig, FailedBif, FailedContract) ->
   if
