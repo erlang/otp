@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -459,8 +459,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <name>Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
       <fsummary>Start an application</fsummary>
       <type>
-        <v>StartType = normal | {takeover,Node} | {failover,Node}</v>
-        <v>&nbsp;Node = node()</v>
+        <v>StartType = <seealso marker="#type-start_type">start_type()</seealso></v>
         <v>StartArgs = term()</v>
         <v>Pid = pid()</v>
         <v>State = term()</v>
