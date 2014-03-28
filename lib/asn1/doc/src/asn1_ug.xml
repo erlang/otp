@@ -562,20 +562,18 @@ T6value3 = white
     <section>
       <marker id="REAL"></marker>
       <title>REAL</title>
-      <p>In this version reals are not implemented. When they are, 
-        the following
-        ASN.1 type is used:</p>
+      <p>The following ASN.1 type is used for real numbers:</p>
       <pre>
 R1 ::= REAL
       </pre>
-      <p>Can be assigned a value in Erlang as:</p>
+      <p>It can be assigned a value in Erlang as:</p>
       <pre>
-R1value1 = 2.14,
+R1value1 = "2.14",
 R1value2 = {256,10,-2},
       </pre>
       <p>In the last line note that the tuple {256,10,-2} is the real number
         2.56 in a special notation, which will encode faster than simply 
-        stating the number as 2.56. The arity three tuple is 
+        stating the number as <c>"2.56"</c>. The arity three tuple is
         <c>{Mantissa,Base,Exponent}</c> i.e. Mantissa * Base^Exponent.</p>
     </section>
 
