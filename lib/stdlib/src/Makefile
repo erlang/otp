@@ -97,7 +97,6 @@ MODULES= \
 	otp_internal \
 	orddict \
 	ordsets \
-	pg \
 	re \
 	pool \
 	proc_lib \

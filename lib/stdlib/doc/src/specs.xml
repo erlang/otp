@@ -39,7 +39,6 @@
   <xi:include href="../specs/specs_ms_transform.xml"/>
   <xi:include href="../specs/specs_orddict.xml"/>
   <xi:include href="../specs/specs_ordsets.xml"/>
-  <xi:include href="../specs/specs_pg.xml"/>
   <xi:include href="../specs/specs_pool.xml"/>
   <xi:include href="../specs/specs_proc_lib.xml"/>
   <xi:include href="../specs/specs_proplists.xml"/>

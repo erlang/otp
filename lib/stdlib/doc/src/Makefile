@@ -76,7 +76,6 @@ XML_REF3_FILES = \
 	ms_transform.xml \
 	orddict.xml \
 	ordsets.xml \
-	pg.xml \
 	pool.xml \
 	proc_lib.xml \
 	proplists.xml \
