@@ -196,7 +196,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	    {authorized, User,
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
 	false  ->
-	    {not_authorized, {User, {passwd, Password}}, 
+	    {not_authorized, {User, {error,"Bad user or password"}}, 
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 		     authentications = "",
 		     partial_success = false}, Ssh)}
@@ -228,7 +228,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 		     ssh_transport:ssh_packet(
 		       #ssh_msg_userauth_success{}, Ssh)};
 		false ->
-		    {not_authorized, {User, {error, "Invalid signature"}}, 
+		    {not_authorized, {User, undefined}, 
 		     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 			     authentications="publickey,password",
 			     partial_success = false}, Ssh)}
