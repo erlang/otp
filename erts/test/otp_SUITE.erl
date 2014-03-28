@@ -328,7 +328,9 @@ erl_file_encoding(_Config) ->
     Wc = filename:join([Root,"**","*.erl"]),
     ErlFiles = ordsets:subtract(ordsets:from_list(filelib:wildcard(Wc)),
 				release_files(Root, "*.erl")),
+    {ok, MP} = re:compile(".*lib/(ic)|(orber)|(cos).*", [unicode]),
     Fs = [F || F <- ErlFiles,
+	       filter_use_latin1_coding(F, MP),
 	       case epp:read_encoding(F) of
 		   none -> false;
 		   _ -> true
@@ -340,6 +342,14 @@ erl_file_encoding(_Config) ->
 	    io:put_chars("Files with \"coding:\":\n"),
 	    [io:put_chars(F) || F <- Fs],
 	    ?t:fail()
+    end.
+
+filter_use_latin1_coding(F, MP) ->
+    case re:run(F, MP) of
+	nomatch ->
+	    true;
+        {match, _} ->
+	    false
     end.
 
 xml_file_encoding(_Config) ->

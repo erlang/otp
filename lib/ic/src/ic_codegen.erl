@@ -216,12 +216,14 @@ exp_to_string({F,N}) -> io_lib:format("~p/~p", [ic_util:to_atom(F), N]).
 %%--------------------------------------------------------------------
 emit_stub_head(_G, ignore, _Name, _) -> ignore;
 emit_stub_head(G, F1, Name, erlang) ->
+    comment(F1, " coding: latin-1", []),
     mcomment(F1, stub_header(G, Name)),
     nl(F1),
     emit(F1, "-module(~p).\n", [list_to_atom(Name)]),
     emit(F1, "-ic_compiled(~p).\n", [compiler_vsn(?COMPILERVSN)]),
     emit(F1, "\n\n"), F1;
 emit_stub_head(G, F1, Name, erlang_template) ->
+    comment(F1, " coding: latin-1", []),
     ic_erl_template:emit_header(G, F1, Name),
     F1;
 emit_stub_head(_G, F1, _Name, erlang_template_no_gen) ->
@@ -259,6 +261,7 @@ compiler_vsn(Vsn) ->
 %% Name is Fully scoped (undescore) name of interface or module    
 emit_hrl_head(_G, ignore, _Name, _) -> ignore;
 emit_hrl_head(G, Fd, Name, erlang) ->
+    comment(Fd, " coding: latin-1", []),
     mcomment(Fd, ["Erlang header file" |
 		  hrl_header(G, Name)]),
     nl(Fd),
