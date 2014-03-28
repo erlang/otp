@@ -1515,19 +1515,28 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 
+/* NIFs exports need one more item than the Export struct provides, the
+ * erl_module_nif*, so the DirtyNifExport below adds that. The Export
+ * member must be first in the struct.
+ */
+typedef struct {
+    Export exp;
+    struct erl_module_nif* m;
+} DirtyNifExport;
+
 static void
-alloc_proc_psd(Process* proc, Export **ep)
+alloc_proc_psd(Process* proc, DirtyNifExport **ep)
 {
     int i;
     if (!*ep) {
-	*ep = erts_alloc(ERTS_ALC_T_PSD, sizeof(Export));
-	sys_memset((void*) *ep, 0, sizeof(Export));
+	*ep = erts_alloc(ERTS_ALC_T_PSD, sizeof(DirtyNifExport));
+	sys_memset((void*) *ep, 0, sizeof(DirtyNifExport));
 	for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	    (*ep)->addressv[i] = &(*ep)->code[3];
+	    (*ep)->exp.addressv[i] = &(*ep)->exp.code[3];
 	}
-	(*ep)->code[3] = (BeamInstr) em_call_nif;
+	(*ep)->exp.code[3] = (BeamInstr) em_call_nif;
     }
-    (void) ERTS_PROC_SET_DIRTY_SCHED_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, *ep);
+    (void) ERTS_PROC_SET_DIRTY_SCHED_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, &(*ep)->exp);
 }
 
 static ERL_NIF_TERM
@@ -1560,7 +1569,7 @@ enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
     erts_aint32_t state, n, a;
     Process* proc = env->proc;
     Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
-    Export* ep = NULL;
+    DirtyNifExport* ep = NULL;
     int i;
 
     int chkflgs = (flags & (ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND));
@@ -1585,15 +1594,16 @@ enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
 	if (a == state)
 	    break;
     }
-    if (!(ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
+    if (!(ep = (DirtyNifExport*) ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
 	alloc_proc_psd(proc, &ep);
     ERTS_VBUMP_ALL_REDS(proc);
-    ep->code[2] = argc;
+    ep->exp.code[2] = argc;
     for (i = 0; i < argc; i++) {
 	reg[i] = (Eterm) argv[i];
     }
-    proc->i = (BeamInstr*) ep->addressv[0];
-    ep->code[4] = (BeamInstr) fp;
+    proc->i = (BeamInstr*) ep->exp.addressv[0];
+    ep->exp.code[4] = (BeamInstr) fp;
+    ep->m = env->mod_nif;
     proc->freason = TRAP;
 
     return THE_NON_VALUE;
@@ -1609,17 +1619,17 @@ enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result,
 #ifdef USE_THREADS
     Process* proc = env->proc;
     Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
-    Export* ep;
+    DirtyNifExport* ep;
 
     erts_smp_atomic32_read_band_mb(&proc->state,
 				   ~(ERTS_PSFLG_DIRTY_CPU_PROC
 				     |ERTS_PSFLG_DIRTY_IO_PROC
 				     |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q
 				     |ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
-    if (!(ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
+    if (!(ep = (DirtyNifExport*) ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
 	alloc_proc_psd(proc, &ep);
     ERTS_VBUMP_ALL_REDS(proc);
-    ep->code[2] = 2;
+    ep->exp.code[2] = 2;
     reg[0] = (Eterm) result;
 #if HAVE_INT64 && SIZEOF_LONG != 8
     ASSERT(sizeof(fp) <= sizeof(ErlNifUInt64));
@@ -1628,8 +1638,8 @@ enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result,
     ASSERT(sizeof(fp) <= sizeof(unsigned long));
     reg[1] = (Eterm) enif_make_ulong(env, (unsigned long) fp);
 #endif
-    proc->i = (BeamInstr*) ep->addressv[0];
-    ep->code[4] = (BeamInstr) execute_dirty_nif_finalizer;
+    proc->i = (BeamInstr*) ep->exp.addressv[0];
+    ep->exp.code[4] = (BeamInstr) execute_dirty_nif_finalizer;
     proc->freason = TRAP;
 
     return THE_NON_VALUE;
