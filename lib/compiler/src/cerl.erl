@@ -136,10 +136,6 @@
 	      c_literal/0, c_map_pair/0, c_module/0, c_tuple/0,
 	      c_values/0, c_var/0, cerl/0, var_name/0]).
 
-%% HiPE does not understand Maps
-%% (guard functions is_map/1 and map_size/1 in ann_c_map/3)
--compile(no_native).
-
 -include("core_parse.hrl").
 
 -type c_alias()   :: #c_alias{}.

@@ -43,8 +43,6 @@
 	values/1
     ]).
 
--compile(no_native).
-
 -spec get(Key,Map) -> Value when
     Key :: term(),
     Map :: map(),

@@ -509,6 +509,10 @@ trans_fun([{test,test_arity,{f,Lbl},[Reg,N]}|Instructions], Env) ->
   I = hipe_icode:mk_type([trans_arg(Reg)],{tuple,N}, 
 			 hipe_icode:label_name(True),map_label(Lbl)),
   [I,True | trans_fun(Instructions,Env)];
+%%--- is_map ---
+trans_fun([{test,is_map,{f,Lbl},[Arg]}|Instructions], Env) ->
+  {Code,Env1} = trans_type_test(map,Lbl,Arg,Env),
+  [Code | trans_fun(Instructions,Env1)];
 %%--------------------------------------------------------------------
 %%--- select_val ---
 trans_fun([{select_val,Reg,{f,Lbl},{list,Cases}}|Instructions], Env) ->
