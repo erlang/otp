@@ -174,7 +174,7 @@ ok
       <p>The ASN.1 module <c>People</c> is now accepted and the
       abstract syntax tree is saved in the <c>People.asn1db</c> file;
       the generated Erlang code is compiled using the Erlang compiler
-      and loaded into the Erlang runtime system. Now there is an API
+      and loaded into the Erlang run-time system. Now there is an API
       for <c>encode/2</c> and <c>decode/2</c> in the module
       <c>People</c>, which is invoked by: <br></br>
       <c><![CDATA['People':encode(<Type name>, <Value>)]]></c>
@@ -227,7 +227,7 @@ The encoder and the decoder can also be run from
         were imported from had to be compiled before the module that
         imported. This caused problems when asn1 modules had circular
         dependencies.</p>
-      <p>Now are referenced modules parsed when the compiler finds an
+      <p>Referenced modules are now parsed when the compiler finds an
         entity that is imported. There will not be any code generated for
         the referenced module. However, the compiled module rely on
         that the referenced modules also will be compiled.</p>
@@ -291,8 +291,8 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         </item>
         <tag><c>+asn1config</c></tag>
         <item>
-          <p>This functionality works together with the flags
-            <c>ber</c>. It enables the
+          <p>This functionality works together with the
+            <c>ber</c> option. It enables the
             specialized decodes, see the <seealso marker="asn1_spec">Specialized Decode</seealso> chapter.
             </p>
         </item>
@@ -310,7 +310,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         <item>
           <p>You may add any option to the Erlang compiler when
             compiling the generated Erlang files. Any option
-            unrecognised by the asn1 compiler will be passed to the
+            unrecognized by the asn1 compiler will be passed to the
             Erlang compiler.</p>
         </item>
       </taglist>
@@ -354,7 +354,7 @@ asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre>
         compile time appear on the screen together with
         a line number indicating where in the source file the error 
         was detected. If no errors are found, an Erlang ASN.1 module will
-        be created as default.</p>
+        be created.</p>
       <p>The run-time encoders and decoders execute within a catch and
       returns <c>{ok, Data}</c> or
         <c>{error, {asn1, Description}}</c> where
@@ -365,12 +365,12 @@ asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre>
 
   <section>
     <marker id="inlineExamples"></marker>
-    <title>Multi File Compilation</title>
-    <p>There are various reasons for using a multi file compilation:</p>
+    <title>Multi-file Compilation</title>
+    <p>There are various reasons for using multi-file compilation:</p>
     <list type="bulleted">
-      <item>You want to choose name for the generated module by
-       any reason. Maybe you need to compile the same specs for
-       different encoding/decoding standards.</item>
+      <item>You want to choose the name for the generated module,
+      perhaps because you need to compile the same specs for
+      different encoding rules.</item>
       <item>You want only one resulting module.</item>
     </list>
     <p>You need to specify which asn1 specs you will
@@ -733,13 +733,11 @@ O2Val = &lt;&lt;"must be exactly 28 chars...."&gt;&gt;,</pre>
         specified for a type are especially important for PER, where
         they affect the encoding.
         </p>
-      <p>Please note that <em>all</em> the Character strings are 
-        supported and it is possible to use the following ASN.1 type 
-        definitions:</p>
+      <p>Here are some examples:</p>
       <pre>
 Digs ::= NumericString (SIZE(1..3))
 TextFile ::= IA5String (SIZE(0..64000))      </pre>
-      <p>and the following Erlang assignments:</p>
+      <p>with corresponding Erlang assignments:</p>
       <pre>
 DigsVal1 = "456",
 DigsVal2 = "123",
@@ -866,9 +864,11 @@ OidVal1 = {1,2,55},
     <section>
       <marker id="Object Descriptor"></marker>
       <title>Object Descriptor</title>
-      <p>Values of this type can be assigned a value as an ordinary string i.e.        <br></br>
+      <p>Values of this type can be assigned a value as an ordinary string
+      like this:</p>
 
-        "This is the value of an Object descriptor"</p>
+      <pre>
+      "This is the value of an Object descriptor"</pre>
     </section>
 
     <section>
@@ -1289,8 +1289,8 @@ SS ::= SET {
     <marker id="Information Object"></marker>
     <title>ASN.1 Information Objects (X.681)</title>
     <p>Information Object Classes, Information Objects and Information
-      Object Sets, (in the following called classes, objects and
-      object sets respectively), are defined in the standard
+      Object Sets (in the following called classes, objects and
+      object sets respectively) are defined in the standard
       definition [<cite id="X.681"></cite>]. In the following only a brief
       explanation is given. </p>
     <p>These constructs makes it possible to define open types,
@@ -1407,9 +1407,9 @@ T1 ::= General{PrintableString}
 T2 ::= General{BIT STRING}
     </pre>
     <p>An example of a value that can be encoded as type T1 is {12,"hello"}.</p>
-    <p>Observe that the compiler not generates encode/decode functions for
-      parameterized types, only for the instances of the parameterized 
-      types. So, if a file contains the types General{}, T1 and T2 above,
+    <p>Note that the compiler does not generate encode/decode functions for
+      parameterized types, but only for the instances of the parameterized
+      types. Therefore, if a file contains the types General{}, T1 and T2 above,
       encode/decode functions will only be generated for T1 and T2.
       </p>
   </section>
