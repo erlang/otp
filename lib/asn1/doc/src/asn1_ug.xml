@@ -221,11 +221,11 @@ The encoder and the decoder can also be run from
 
     <section>
       <title>Module dependencies</title>
-      <p>It is common that asn1 modules import defined types, values and
-        other entities from another asn1 module.</p>
-      <p>Earlier versions of the asn1 compiler required that modules that
+      <p>It is common that ASN.1 modules import defined types, values and
+        other entities from another ASN.1 module.</p>
+      <p>Earlier versions of the ASN.1 compiler required that modules that
         were imported from had to be compiled before the module that
-        imported. This caused problems when asn1 modules had circular
+        imported. This caused problems when ASN.1 modules had circular
         dependencies.</p>
       <p>Referenced modules are now parsed when the compiler finds an
         entity that is imported. There will not be any code generated for
@@ -279,7 +279,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         </item>
         <tag><c>-I IncludeDir</c></tag>
         <item>
-          <p>Where to search for <c>.asn1db</c> files and asn1
+          <p>Where to search for <c>.asn1db</c> files and ASN.1
             source specs in order to resolve references to other
             modules. This option can be repeated many times if there
             are several places to search in.  The compiler will always
@@ -310,7 +310,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         <item>
           <p>You may add any option to the Erlang compiler when
             compiling the generated Erlang files. Any option
-            unrecognized by the asn1 compiler will be passed to the
+            unrecognized by the ASN.1 compiler will be passed to the
             Erlang compiler.</p>
         </item>
       </taglist>
@@ -373,10 +373,10 @@ asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre>
       different encoding rules.</item>
       <item>You want only one resulting module.</item>
     </list>
-    <p>You need to specify which asn1 specs you will
+    <p>You need to specify which ASN.1 specs you will
       compile in a module that must have the extension
       <c>.set.asn</c>. You chose name of the module and provide the
-      names of the asn1 specs. For instance, if you have the specs
+      names of the ASN.1 specs. For instance, if you have the specs
       <c>File1.asn</c>, <c>File2.asn</c> and <c>File3.asn</c> your
       module <c>MyModule.set.asn</c> will look like:</p>
     <pre>
@@ -387,7 +387,7 @@ File3.asn    </pre>
     <code type="none">
 ~> erlc MyModule.set.asn    </code>
     <p>the result will be one merged module <c>MyModule.erl</c> with
-      the generated code from the three asn1 specs.
+      the generated code from the three ASN.1 specs.
       </p>
   </section>
 
@@ -1135,7 +1135,7 @@ T ::= CHOICE {
 
   <section>
     <title>Naming of Records in .hrl Files</title>
-    <p>When an asn1 specification is compiled all defined types of
+    <p>When an ASN.1 specification is compiled all defined types of
       type SET or SEQUENCE will result in a corresponding record in the
       generated hrl file. This is because the values for SET/SEQUENCE
       as mentioned in sections above are represented as records.</p>
