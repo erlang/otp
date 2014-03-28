@@ -61,6 +61,6 @@ void *erts_get_async_ready_queue(Uint sched_id);
 
 void erts_init_async(void);
 void erts_exit_flush_async(void);
-
+Uint erts_async_queue_len(Uint qix);
 
 #endif /* ERL_ASYNC_H__ */

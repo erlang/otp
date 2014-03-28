@@ -61,6 +61,7 @@ static Export* alloc_sizes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
 static Export *gather_gc_info_res_trap;
+static Export *gather_async_queue_len_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -3067,6 +3068,30 @@ BIF_RETTYPE process_display_2(BIF_ALIST_2)
    BIF_RET(am_true);
 }
 
+/*
+ * This function takes care of calls to erlang:statistics/1 when the argument
+ * is a tuple.
+ */
+static BIF_RETTYPE
+statistics_1_tuple(Process* BIF_P,	/* Pointer to current process. */
+	     Eterm* tp,		/* Pointer to first element in tuple */
+	     int arity)		/* Arity of tuple (untagged). */
+{
+    Eterm ret;
+    Eterm sel;
+
+    sel = *tp++;
+    if (sel == am_async_queue && arity == 2) {
+	Uint qix;
+	qix = unsigned_val(*tp);
+	ret = erts_async_queue_len(qix);
+	BUMP_REDS(BIF_P, ret);
+	BIF_RET(make_small(ret));
+    }
+
+    ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+    return ret;
+}
 
 /* this is a general call which return some possibly useful information */
 
@@ -3075,7 +3100,11 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     Eterm res;
     Eterm* hp;
 
-    if (BIF_ARG_1 == am_scheduler_wall_time) {
+    if (is_tuple(BIF_ARG_1)) {
+	Eterm* tp = tuple_val(BIF_ARG_1);
+	Uint arity = *tp++;
+	return statistics_1_tuple(BIF_P, tp, arityval(arity));
+    } else if (BIF_ARG_1 == am_scheduler_wall_time) {
 	res = erts_sched_wall_time_request(BIF_P, 0, 0);
 	if (is_non_value(res))
 	    BIF_RET(am_undefined);
@@ -3130,6 +3159,8 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     } else if (BIF_ARG_1 ==  am_run_queue) {
 	res = erts_run_queues_len(NULL);
 	BIF_RET(make_small(res));
+    } else if (BIF_ARG_1 ==  am_async_queue) {
+	BIF_TRAP1(gather_async_queue_len_trap, BIF_P, am_async_queue);
     } else if (BIF_ARG_1 == am_wall_clock) {
 	UWord w1, w2;
 	Eterm b1, b2;
@@ -4062,6 +4093,8 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_sched_wall_time_result, 1);
     gather_gc_info_res_trap
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
+    gather_async_queue_len_trap
+	= erts_export_put(am_erts_internal, am_statistics, 1);
     process_info_init();
     os_info_init();
 }
