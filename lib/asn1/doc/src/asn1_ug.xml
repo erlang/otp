@@ -298,13 +298,13 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         </item>
         <tag><c>+undec_rest</c></tag>
         <item>
-          <p>A buffer that holds a message, being decoded may
-            also have some following bytes. Now it is possible to get
-            those following bytes returned together with the decoded
-            value. If an asn1 spec is compiled with this option a tuple
-            <c>{ok,Value,Rest}</c> is returned. <c>Rest</c> may be a
-            list or a binary. Earlier versions of the compiler ignored
-            those following bytes.</p>
+          <p>A buffer that holds a message being decoded may also have
+          trailing bytes. If those trailing bytes are important they
+          can be returned along with the decoded value by compiling
+          the ASN.1 specification with the <c>+undec_rest</c> option.
+          The return value from the decoder will be
+          <c>{ok,Value,Rest}</c> where <c>Rest</c> is a binary
+          containing the trailing bytes.</p>
         </item>
         <tag><c>+'Any Erlc Option'</c></tag>
         <item>
