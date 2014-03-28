@@ -270,7 +270,8 @@ try_sticky_lock(Tid, Op, Pid, {Tab, _} = Oid) ->
 	    try_lock(Tid, Op, Pid, Oid);
 	[{_,N}] ->
 	    Req = {Pid, {Op, Tid, Oid}},
-	    Pid ! {?MODULE, node(), {switch, N, Req}}
+	    Pid ! {?MODULE, node(), {switch, N, Req}},
+	    true
     end.
 
 try_lock(Tid, read_write, Pid, Oid) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -257,8 +257,8 @@ port(Config) when is_list(Config) ->
 terminate(suite) ->
     [];
 terminate(Config) when is_list(Config) ->
-    ?line ok = application:set_env(os_mon, start_cpu_sup, false),
-    ?line ok = supervisor:terminate_child(os_mon_sup, cpu_sup),
+    ok = application:set_env(os_mon, start_cpu_sup, false),
+    _ = supervisor:terminate_child(os_mon_sup, cpu_sup),
     ok.
 
 unavailable(suite) ->

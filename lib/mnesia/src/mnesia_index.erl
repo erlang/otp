@@ -52,7 +52,11 @@
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
+	{'EXIT', _ReASoN_} ->
+            case mnesia_lib:other_val(Var) of
+                error -> mnesia_lib:pr_other(Var, _ReASoN_);
+                Val -> Val
+            end;
 	_VaLuE_ -> _VaLuE_ 
     end.
 

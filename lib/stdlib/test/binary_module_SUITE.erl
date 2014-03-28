@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 % Some of these testcases are really heavy...
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, ?t:minutes(30)).
 
 -endif.
 

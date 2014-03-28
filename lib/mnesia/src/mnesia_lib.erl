@@ -115,6 +115,8 @@
 	 mkcore/1,
 	 not_active_here/1,
 	 other_val/2,
+         other_val/1,
+         pr_other/2,
          overload_read/0,
          overload_read/1,
          overload_set/2,
@@ -389,15 +391,18 @@ unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
 other_val(Var, Other) ->
+    case other_val(Var) of
+        error -> pr_other(Var, Other);
+        Val -> Val
+    end.
+
+other_val(Var) ->
     case Var of
 	{_, where_to_read} -> nowhere;
 	{_, where_to_write} -> [];
 	{_, active_replicas} -> [];
-	_ ->
-	    pr_other(Var, Other)
+	_ -> error
     end.
-
--spec pr_other(_,_) -> no_return().
 
 pr_other(Var, Other) ->
     Why = 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -350,15 +350,16 @@ otp_5910(doc) ->
 otp_5910(Config) when is_list(Config) ->
 
     %% Make sure disksup sets at least one alarm
-    Data = disksup:get_disk_data(),
+    Data = lists:sort(disksup:get_disk_data()),
     Threshold0 = disksup:get_almost_full_threshold(),
     Threshold  = case over_threshold(Data, Threshold0) of
-	0 ->
-	    [{_Id,_Kbyte,Cap}|_] = Data,
-	    ok = disksup:set_almost_full_threshold((Cap-1)/100),
-	    Cap-1;
-	_N -> Threshold0
-    end,
+		     0 ->
+			 [{_Id,_Kbyte,Cap}|_] = Data,
+			 io:format("Data ~p Threshold ~p ~n",[Data, Cap-1]),
+			 ok = disksup:set_almost_full_threshold((Cap-1)/100),
+			 Cap-1;
+		     _N -> Threshold0
+		 end,
     ok = application:set_env(os_mon, disk_almost_full_threshold, Threshold/100),
     disksup ! timeout, % force a disk check
     Data2 = disksup:get_disk_data(),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 -define(ets_last(Tab), ets:last(Tab)).
 -define(ets_prev(Tab, Key), ets:prev(Tab, Key)).
 -define(ets_slot(Tab, Pos), ets:slot(Tab, Pos)).
--define(ets_new_table(Tab, Props), ets:new(Tab, Props)).
+-define(ets_new_table(Tab, Props), _ = ets:new(Tab, Props)).
 -define(ets_delete_table(Tab), ets:delete(Tab)).
 -define(ets_fixtable(Tab, Bool), ets:fixtable(Tab, Bool)).
 
