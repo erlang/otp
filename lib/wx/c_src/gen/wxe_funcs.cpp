@@ -15875,7 +15875,7 @@ case wxListCtrl_SortItems: { // wxListCtrl::SortItems taylormade
   callbackInfo* cb = new callbackInfo();
   cb->port = Ecmd.port;
   cb->callbackID = sortCallback;
-  bool Result = This->SortItems(wxEListCtrlCompare, (long)cb);
+  bool Result = This->SortItems(wxEListCtrlCompare, (wxeIntPtr)cb);
   delete cb;
 
   /* Destroy the callback, see wxEPrintout::clear_cb */
@@ -26730,6 +26730,20 @@ case utils_wxIsPlatform64Bit: { // utils::wxIsPlatform64Bit
  rt.addBool(Result);
  break;
 }
+case gdicmn_wxDisplaySize: { // gdicmn::wxDisplaySize
+ int width;
+ int height;
+ ::wxDisplaySize(&width,&height);
+ rt.addInt(width);
+ rt.addInt(height);
+ rt.addTupleCount(2);
+ break;
+}
+case gdicmn_wxSetCursor: { // gdicmn::wxSetCursor
+ wxCursor *cursor = (wxCursor *) getPtr(bp,memenv); bp += 4;
+ ::wxSetCursor(*cursor);
+ break;
+}
 
 case wxPrintout_new: { // wxPrintout::wxPrintout taylormade
   int onPreparePrinting=0,onBeginPrinting=0,onEndPrinting=0,onBeginDocument=0,
@@ -30442,7 +30456,7 @@ case wxNotebookEvent_SetSelection: { // wxNotebookEvent::SetSelection
 }
 case wxFileDataObject_new: { // wxFileDataObject::wxFileDataObject
  wxFileDataObject * Result = new wxFileDataObject();
- newPtr((void *) Result, 211, memenv);
+ newPtr((void *) Result, 212, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxFileDataObject");
  break;
 }
@@ -30478,7 +30492,7 @@ case wxTextDataObject_new: { // wxTextDataObject::wxTextDataObject
   } break;
  }};
  wxTextDataObject * Result = new wxTextDataObject(text);
- newPtr((void *) Result, 212, memenv);
+ newPtr((void *) Result, 213, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextDataObject");
  break;
 }
@@ -30514,7 +30528,7 @@ case wxTextDataObject_destroy: { // wxTextDataObject::destroy
 case wxBitmapDataObject_new_1_1: { // wxBitmapDataObject::wxBitmapDataObject
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -30526,7 +30540,7 @@ bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -31359,7 +31373,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 225, memenv);
+ newPtr((void *) Result, 226, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31406,6 +31420,213 @@ case wxTaskBarIcon_SetIcon: { // wxTaskBarIcon::SetIcon
  rt.addBool(Result);
  break;
 }
+case wxLocale_new_0: { // wxLocale::wxLocale
+ wxLocale * Result = new EwxLocale();
+ newPtr((void *) Result, 230, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxLocale");
+ break;
+}
+case wxLocale_new_2: { // wxLocale::wxLocale
+ int flags=wxLOCALE_LOAD_DEFAULT|wxLOCALE_CONV_ENCODING;
+ int * language = (int *) bp; bp += 4;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ flags = (int)*(int *) bp; bp += 4;
+  } break;
+ }};
+ wxLocale * Result = new EwxLocale(*language,flags);
+ newPtr((void *) Result, 230, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxLocale");
+ break;
+}
+case wxLocale_destruct: { // wxLocale::~wxLocale
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
+case wxLocale_Init: { // wxLocale::Init
+ int language=wxLANGUAGE_DEFAULT;
+ int flags=wxLOCALE_LOAD_DEFAULT|wxLOCALE_CONV_ENCODING;
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ language = (int)*(int *) bp; bp += 4;
+  } break;
+  case 2: {bp += 4;
+ flags = (int)*(int *) bp; bp += 4;
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->Init(language,flags);
+ rt.addBool(Result);
+ break;
+}
+case wxLocale_AddCatalog_1: { // wxLocale::AddCatalog
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ int * szDomainLen = (int *) bp; bp += 4;
+ wxString szDomain = wxString(bp, wxConvUTF8);
+ bp += *szDomainLen+((8-((0+ *szDomainLen) & 7)) & 7);
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->AddCatalog(szDomain);
+ rt.addBool(Result);
+ break;
+}
+case wxLocale_AddCatalog_3: { // wxLocale::AddCatalog
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ int * szDomainLen = (int *) bp; bp += 4;
+ wxString szDomain = wxString(bp, wxConvUTF8);
+ bp += *szDomainLen+((8-((0+ *szDomainLen) & 7)) & 7);
+ wxLanguage msgIdLanguage = *(wxLanguage *) bp; bp += 4;;
+ int * msgIdCharsetLen = (int *) bp; bp += 4;
+ wxString msgIdCharset = wxString(bp, wxConvUTF8);
+ bp += *msgIdCharsetLen+((8-((0+ *msgIdCharsetLen) & 7)) & 7);
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->AddCatalog(szDomain,msgIdLanguage,msgIdCharset);
+ rt.addBool(Result);
+ break;
+}
+case wxLocale_AddCatalogLookupPathPrefix: { // wxLocale::AddCatalogLookupPathPrefix
+ int * prefixLen = (int *) bp; bp += 4;
+ wxString prefix = wxString(bp, wxConvUTF8);
+ bp += *prefixLen+((8-((4+ *prefixLen) & 7)) & 7);
+ wxLocale::AddCatalogLookupPathPrefix(prefix);
+ break;
+}
+case wxLocale_GetCanonicalName: { // wxLocale::GetCanonicalName
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxString Result = This->GetCanonicalName();
+ rt.add(Result);
+ break;
+}
+case wxLocale_GetLanguage: { // wxLocale::GetLanguage
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetLanguage();
+ rt.addInt(Result);
+ break;
+}
+case wxLocale_GetLanguageName: { // wxLocale::GetLanguageName
+ int * lang = (int *) bp; bp += 4;
+ wxString Result = wxLocale::GetLanguageName(*lang);
+ rt.add(Result);
+ break;
+}
+case wxLocale_GetLocale: { // wxLocale::GetLocale
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ const wxeLocaleC Result = This->GetLocale();
+ rt.add(wxeLocaleC2String(Result));
+ break;
+}
+case wxLocale_GetName: { // wxLocale::GetName
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ const wxString * Result = &This->GetName();
+ rt.add(Result);
+ break;
+}
+case wxLocale_GetString_2: { // wxLocale::GetString
+ wxString szDomain= wxEmptyString;
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ int * szOrigStringLen = (int *) bp; bp += 4;
+ wxString szOrigString = wxString(bp, wxConvUTF8);
+ bp += *szOrigStringLen+((8-((0+ *szOrigStringLen) & 7)) & 7);
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ int * szDomainLen = (int *) bp; bp += 4;
+ szDomain = wxString(bp, wxConvUTF8);
+ bp += *szDomainLen+((8-((0+ *szDomainLen) & 7)) & 7);
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ const wxeLocaleC Result = This->GetString(szOrigString,szDomain);
+ rt.add(wxeLocaleC2String(Result));
+ break;
+}
+case wxLocale_GetString_4: { // wxLocale::GetString
+ wxString szDomain= wxEmptyString;
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ int * szOrigStringLen = (int *) bp; bp += 4;
+ wxString szOrigString = wxString(bp, wxConvUTF8);
+ bp += *szOrigStringLen+((8-((0+ *szOrigStringLen) & 7)) & 7);
+ int * szOrigString2Len = (int *) bp; bp += 4;
+ wxString szOrigString2 = wxString(bp, wxConvUTF8);
+ bp += *szOrigString2Len+((8-((4+ *szOrigString2Len) & 7)) & 7);
+ int * n = (int *) bp; bp += 4;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ int * szDomainLen = (int *) bp; bp += 4;
+ szDomain = wxString(bp, wxConvUTF8);
+ bp += *szDomainLen+((8-((0+ *szDomainLen) & 7)) & 7);
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ const wxeLocaleC Result = This->GetString(szOrigString,szOrigString2,*n,szDomain);
+ rt.add(wxeLocaleC2String(Result));
+ break;
+}
+case wxLocale_GetHeaderValue: { // wxLocale::GetHeaderValue
+ wxString szDomain= wxEmptyString;
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ int * szHeaderLen = (int *) bp; bp += 4;
+ wxString szHeader = wxString(bp, wxConvUTF8);
+ bp += *szHeaderLen+((8-((0+ *szHeaderLen) & 7)) & 7);
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ int * szDomainLen = (int *) bp; bp += 4;
+ szDomain = wxString(bp, wxConvUTF8);
+ bp += *szDomainLen+((8-((0+ *szDomainLen) & 7)) & 7);
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ wxString Result = This->GetHeaderValue(szHeader,szDomain);
+ rt.add(Result);
+ break;
+}
+case wxLocale_GetSysName: { // wxLocale::GetSysName
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxString Result = This->GetSysName();
+ rt.add(Result);
+ break;
+}
+case wxLocale_GetSystemEncoding: { // wxLocale::GetSystemEncoding
+ int Result = wxLocale::GetSystemEncoding();
+ rt.addInt(Result);
+ break;
+}
+case wxLocale_GetSystemEncodingName: { // wxLocale::GetSystemEncodingName
+ wxString Result = wxLocale::GetSystemEncodingName();
+ rt.add(Result);
+ break;
+}
+case wxLocale_GetSystemLanguage: { // wxLocale::GetSystemLanguage
+ int Result = wxLocale::GetSystemLanguage();
+ rt.addInt(Result);
+ break;
+}
+case wxLocale_IsLoaded: { // wxLocale::IsLoaded
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ int * szDomainLen = (int *) bp; bp += 4;
+ wxString szDomain = wxString(bp, wxConvUTF8);
+ bp += *szDomainLen+((8-((0+ *szDomainLen) & 7)) & 7);
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->IsLoaded(szDomain);
+ rt.addBool(Result);
+ break;
+}
+case wxLocale_IsOk: { // wxLocale::IsOk
+ wxLocale *This = (wxLocale *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->IsOk();
+ rt.addBool(Result);
+ break;
+}
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) Ecmd.op);
@@ -31427,7 +31648,7 @@ case wxTaskBarIcon_SetIcon: { // wxTaskBarIcon::SetIcon
 }} /* The End */
 
 
-void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
+bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {
  switch(refd->type) {
   case 24: delete (wxGridCellBoolRenderer *) ptr; break;
   case 25: delete (wxGridCellBoolEditor *) ptr; break;
@@ -31446,10 +31667,13 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 101: delete (wxListItemAttr *) ptr; break;
   case 103: delete (wxTextAttr *) ptr; break;
   case 155: delete (wxAuiPaneInfo *) ptr; break;
-  case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 225: delete (wxLogNull *) ptr; break;
-  default: delete (wxObject *) ptr;
-}}
+  case 212: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 213: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 214: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 226: delete (wxLogNull *) ptr; break;
+  case 230: delete (EwxLocale *) ptr; return false;
+  default: delete (wxObject *) ptr; return false;
+  }
+  return true;
+}
 

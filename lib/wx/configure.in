@@ -441,12 +441,12 @@ else
     else
 	CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
     fi
-    CWXWIN3=$CWXWIN_PROG/wxWidgets-2.*.*
-    CWXWIN4=$CWXWIN_PROG/wxMSW-2.*.*
-    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-2.*.* /opt/local/pgm/wxWidgets-2.*.*"
+    CWXWIN3=$CWXWIN_PROG/wxWidgets-?.*.*
+    CWXWIN4=$CWXWIN_PROG/wxMSW-?.*.*
+    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-?.*.* /opt/local/pgm/wxWidgets-?.*.*"
     case $ac_cv_sizeof_void_p in
     	 8)
-		CWX_DOCUMENTED="/opt/local64/pgm/wxMSW-2.*.* /opt/local64/pgm/wxWidgets-2.*.* $CWX_DOCUMENTED"
+		CWX_DOCUMENTED="/opt/local64/pgm/wxMSW-?.*.* /opt/local64/pgm/wxWidgets-?.*.* $CWX_DOCUMENTED"
 		;;
          *)
 		true
@@ -464,12 +464,14 @@ else
 	    WX_CFLAGS="-EHsc -D_UNICODE -DUNICODE -I$WXINCLUDE_MSVC -I$WXINCLUDE_PLAIN -I$WXINCLUDE_CONTRIB -D__WXMSW__"
 	    WX_CXXFLAGS="-TP $WX_CFLAGS"
 	    WX_LIBDIR=$dir/lib/vc_lib
+	    WX_LIBDIR64=$dir/lib/vc_x64_lib
 	    WX_RESCOMP="rc.sh -I$WXINCLUDE_PLAIN -D __WIN32__"
 	    RC_FILE_TYPE=res
-	    for lib in $WX_LIBDIR/wxbase*.lib $WX_LIBDIR2/wxbase*.lib; do
-		maybe=`echo $lib | egrep 'wxbase[[0-9]]*u\.lib'`
+	    for lib in $WX_LIBDIR $WX_LIBDIR64; do
+		maybe=`ls $lib/wxbase*.lib | egrep 'wxbase[[0-9]]*u\.lib'`
 		if test '!' -z "$maybe"; then
 		   corelib_number=`echo $maybe | sed 's,.*\([[0-9]].\)u\.lib,\1,'`
+		   WX_LIBDIR=$lib
 		   break
 		fi
 	    done

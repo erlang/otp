@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -743,7 +743,14 @@ parse_type2([N="wxTreeItemData"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name="wxETreeItemData",base={term,N}});
 parse_type2([N="wxClientData"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name="wxeErlTerm",base={term,N}});
-parse_type2([N="wxChar"|R],Info,Opts,T) -> 
+parse_type2([N="wxChar",{by_ref,_}|R],Info,Opts,T = #type{mod=[const]}) ->
+    case get(current_class) of
+	"wxLocale" -> %% Special since changed between 2.8 and 3.0
+	    parse_type2(R,Info,Opts,T#type{name="wxeLocaleC",base=string});
+	_ ->
+	    parse_type2(R,Info,Opts,T#type{name=N,base=int,single=false})
+    end;
+parse_type2([N="wxChar"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base=int});
 parse_type2(["wxUint32"|R],Info,Opts,T=#type{mod=Mod}) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int,mod=[unsigned|Mod]});
@@ -1274,6 +1281,7 @@ parse_enums([File|Files], Parsed) ->
 	    %%io:format("Parse Enums in ~s ~n", [FileName]),
 	    case xmerl_scan:file(FileName, [{space, normalize}]) of 
 		{error, enoent} ->
+		    %% io:format("Ignore ~p~n", [FileName]),
 		    parse_enums(Files, gb_sets:add(File,Parsed));
 		{Doc, _} ->		    
 		    ES = "./compounddef/sectiondef/memberdef[@kind=\"enum\"]",

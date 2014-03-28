@@ -28,7 +28,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start/1, init_port/1, init_opengl/0]).
+-export([start/1, init_port/1, init_opengl/0, fetch_msgs/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -36,7 +36,9 @@
 
 -record(state, {cb_port,  %% Callback port and to erlang messages goes via it.
 		users,    %% List of wx servers, needed ??
-		driver}). %% Driver name so wx_server can create it's own port
+		driver,   %% Driver name so wx_server can create it's own port
+		msgs=[]   %% Early messages (such as openfiles on OSX)
+	       }).
 
 -include("wxe.hrl").
 -include("gen/wxe_debug.hrl").
@@ -76,11 +78,17 @@ init_port(SilentStart) ->
 
 
 %%--------------------------------------------------------------------
-%% Initlizes the opengl library
+%% Initalizes the opengl library
 %%--------------------------------------------------------------------
 init_opengl() ->
     GLLib = wxe_util:wxgl_dl(),
     wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>).
+
+%%--------------------------------------------------------------------
+%% Fetch early messages, hack to get start up args on mac
+%%--------------------------------------------------------------------
+fetch_msgs() ->
+    gen_server:call(?MODULE, fetch_msgs, infinity).
 
 %%====================================================================
 %% gen_server callbacks
@@ -152,6 +160,8 @@ init([SilentStart]) ->
 %%--------------------------------------------------------------------
 handle_call(init_port, From, State=#state{driver=Driver,cb_port=CBPort, users=Users}) ->
     {reply, {Driver,CBPort}, State#state{users=gb_sets:add(From,Users)}};
+handle_call(fetch_msgs, _From, State=#state{msgs=Msgs}) ->
+    {reply, lists:reverse(Msgs), State#state{msgs=[]}};
 handle_call(_Request, _From, State) ->
     %%io:format("Unknown request ~p sent to ~p from ~p ~n",[_Request, ?MODULE, _From]),
     Reply = ok,
@@ -182,6 +192,8 @@ handle_info({wxe_driver, internal_error, Msg}, State) ->
 handle_info({wxe_driver, debug, Msg}, State) ->
     io:format("WX DBG: ~s~n", [Msg]),
     {noreply, State};
+handle_info({wxe_driver, open_file, File}, State=#state{msgs=Msgs}) ->
+    {noreply, State#state{msgs=[File|Msgs]}};
 handle_info(_Info, State) ->
     io:format("Unknown message ~p sent to ~p~n",[_Info, ?MODULE]),
     {noreply, State}.

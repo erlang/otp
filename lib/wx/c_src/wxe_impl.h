@@ -36,17 +36,28 @@ extern "C" {
 #include "wxe_callback_impl.h"
 #include "wxe_memory.h"
 
+#if !wxCHECK_VERSION(2,9,0)
+#define wxeLocaleC wxChar *
+#define wxeLocaleC2String(Str) wxString(Str)
+#else
+typedef wxString wxeLocaleC;
+#define wxeLocaleC2String(Str) Str
+#endif
+
 #define WXE_NOT_INITIATED 0
 #define WXE_INITIATED     1
 #define WXE_EXITED        2
 #define WXE_ERROR        -1
 
-void send_msg(const char *, wxString *);   // For debugging and error msgs
+void send_msg(const char *, const wxString *);   // For debugging and error msgs
 
 class WxeApp : public wxApp
 {
 public:
-  virtual bool OnInit();
+   virtual bool OnInit();
+#ifdef  _MACOSX
+  virtual void MacOpenFile(const wxString &filename);
+#endif
   void shutdown(wxeMetaCommand& event);
 
   int dispatch(wxList *, int, int);
@@ -73,7 +84,7 @@ public:
   void init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller);
 
   // Code found in gen/wxe_derived_dest.h
-  void delete_object(void *ptr, wxeRefData *refd);
+  bool delete_object(void *ptr, wxeRefData *refd);
 
   wxeMemMap refmap;
   ptrMap   ptr2ref;

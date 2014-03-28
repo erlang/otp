@@ -44,7 +44,11 @@ gen(Defs) ->
     gen_unique_names(Defs),
     gen_event_recs(),
     gen_enums_ints(),
-    [gen_class(Class) || Class <- Defs],
+    Static = gen_static([C || C=#class{parent="static"} <- Defs]),
+    Replace = fun(C=#class{name=Name}, Dfs) ->
+		      lists:keyreplace(Name, #class.name, Dfs, C)
+	      end,
+    [gen_class(Class) || Class <- lists:foldl(Replace, Defs, Static)],
     gen_funcnames().
 
 gen_class(Class) ->
@@ -54,9 +58,8 @@ gen_class(Class) ->
 	    Class
     end.
 
-gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
+gen_static(Files) ->
     open_write("../src/gen/wx_misc.erl"),
-    put(current_class, Name),
     erl_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -67,17 +70,27 @@ gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
     w("-module(wx_misc).~n", []),
     w("-include(\"wxe.hrl\").~n",[]),
     %% w("-compile(export_all).~n~n", []),            %% XXXX remove ???
+    [gen_static_exports(C) || C <- Files],
+    Classes = [gen_static_methods(C) || C <- Files],
+    close(),
+    Classes.
 
+
+gen_static_exports(C=#class{parent="static",methods=Ms}) ->
     Exp = fun(M) -> gen_export(C,M) end,
     ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
     w("-export([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", ExportList, 60)]),
+    ok.
 
+gen_static_methods(C=#class{name=Name, parent="static",methods=Ms}) ->
+    put(current_class, Name),
     Gen = fun(M) -> gen_method(Name,M) end,
     NewMs = lists:map(Gen,reverse(Ms)),
-    close(),
     erase(current_class),
-    C#class{methods=NewMs};
+    C#class{methods=NewMs}.
 
+gen_class1(C=#class{parent="static"}) ->
+    C;
 gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
     case Opts of
 	["ignore"] -> throw(skipped);
@@ -755,7 +768,7 @@ write_spec(Args, Optional, {complex, Res}, Eol) ->
 
 optional_type(Opts, Eol) ->
     "Option :: " ++ args(fun optional_type2/1, Eol++"\t\t | ", Opts).
-optional_type2(#param{name=Name, def=Def, type=T}) ->
+optional_type2(#param{name=Name, def=_Def, type=T}) ->
     "{" ++ erl_option_name(Name) ++ ", " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
 
 doc_link("utils", Func) ->
@@ -1356,5 +1369,4 @@ split_list(F, Keep, [M|Ms], Acc) ->
     end;
 split_list(_, _, [], []) -> [];
 split_list(_, _, [], Acc) -> [lists:reverse(Acc)].
-
 

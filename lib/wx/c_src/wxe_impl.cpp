@@ -104,7 +104,7 @@ void meta_command(int what, wxe_data *sd) {
   }
 }
 
-void send_msg(const char * type, wxString * msg) {
+void send_msg(const char * type, const wxString * msg) {
   wxeReturn rt = wxeReturn(WXE_DRV_PORT, init_caller);
   rt.addAtom((char *) "wxe_driver");
   rt.addAtom((char *) type);
@@ -159,6 +159,13 @@ bool WxeApp::OnInit()
   erl_drv_mutex_unlock(wxe_status_m);
   return TRUE;
 }
+
+
+#ifdef  _MACOSX
+void WxeApp::MacOpenFile(const wxString &filename) {
+  send_msg("open_file", &filename);
+}
+#endif
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
   ExitMainLoop();
@@ -411,6 +418,13 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
   wxWindow *parent = NULL;
   wxeMemEnv * memenv = refmap[Ecmd.port];
 
+  if(!memenv) {
+    wxString msg;
+    msg.Printf(wxT("MemEnv already deleted"));
+    send_msg("debug", &msg);
+    return;
+  }
+
   if(wxe_debug) {
     wxString msg;
     msg.Printf(wxT("Destroying all memory "));
@@ -439,7 +453,6 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 	  }
 	  if(recurse_level > 0) {
 	    // Delay delete until we are out of dispatch*
-	    delayed_cleanup->Append(Ecmd.Clone());
 	  } else {
 	    delete win;
 	  }
@@ -448,9 +461,10 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
     }
   }
 
-  if(recurse_level > 0)
+  if(recurse_level > 0) {
+    delayed_cleanup->Append(Ecmd.Clone());
     return;
-
+  }
   // First pass, delete all top parents/windows of all linked objects
   //   fprintf(stderr, "close port %x\r\n", Ecmd.port);fflush(stderr);
 
@@ -486,20 +500,20 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
 	if(refd->alloc_in_erl) {
-	  int type = refd->type;
 	  if((refd->type == 1) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
 	  wxString msg;
-	  if((refd->type == 0)) { // Maybe also class 1
+	  bool cleanup_ref=true;
+	  if(refd->type == 0) { // Maybe also class 1
 	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
 	    msg.Printf(wxT("Memory leak: {wx_ref, %d, %s}"),
 		       refd->ref, cinfo->GetClassName());
 	    send_msg("error", &msg);
 	  } else {
-	    delete_object(ptr, refd);
+	    cleanup_ref = delete_object(ptr, refd);
 	  }
-	  if(type == 0 || type > 2) {
+	  if(cleanup_ref) {
 	    // Delete refs for leaks and non overridden allocs
 	    delete refd;
 	    ptr2ref.erase(it);
@@ -607,7 +621,7 @@ void WxeApp::clearPtr(void * ptr) {
 
     if(((int) refd->pid) != -1) {
       // Send terminate pid to owner
-      wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->memenv->owner, false);
+      wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->pid, false);
       rt.addAtom("_wxe_destroy_");
       rt.add(ERL_DRV_PID, refd->pid);
       rt.addTupleCount(2);

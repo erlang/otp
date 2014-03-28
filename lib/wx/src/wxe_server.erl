@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -191,17 +191,6 @@ handle_info({'DOWN',_,process,Pid,_}, State=#state{users=Users0,cleaners=Cs}) ->
 	    %% ?log("Error: ~p ~p", [_E,_R]),
 	    {noreply, State}
     end;
-
-handle_info(Msg = {'_wxe_destroy_', Pid}, State)
-  when is_pid(Pid) ->
-    case erlang:is_process_alive(Pid) of
-	true ->
-	    Pid ! Msg,
-	    ok;
-	false ->
-	    ok
-    end,
-    {noreply, State};
 
 handle_info(_Info, State) ->
     ?log("Unknown message ~p sent to ~p~n",[_Info, ?MODULE]),
