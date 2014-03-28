@@ -19,7 +19,7 @@
 
 -behaviour(wx_object).
 
--export([start/0]).
+-export([start/0, stop/0]).
 -export([create_menus/2, get_attrib/1, get_tracer/0, set_status/1,
 	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
@@ -68,6 +68,9 @@ start() ->
 	Err = {error, _} -> Err;
 	_Obj -> ok
     end.
+
+stop() ->
+    wx_object:call(observer, stop).
 
 create_menus(Object, Menus) when is_list(Menus) ->
     wx_object:call(Object, {create_menus, Menus}).
@@ -331,6 +334,10 @@ handle_call({get_attrib, Attrib}, _From, State) ->
 handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
     {reply, TraceP, State};
 
+handle_call(stop, _, State = #state{frame = Frame}) ->
+    wxFrame:destroy(Frame),
+    {stop, normal, ok, State};
+
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
@@ -365,6 +372,10 @@ handle_info({open_link, Pid0}, State = #state{pro_panel=ProcViewer, frame=Frame}
 	    wxMessageDialog:showModal(Info),
 	    wxMessageDialog:destroy(Info)
     end,
+    {noreply, State};
+
+handle_info({get_debug_info, From}, State = #state{notebook=Notebook, active_tab=Pid}) ->
+    From ! {observer_debug, wx:get_env(), Notebook, Pid},
     {noreply, State};
 
 handle_info({'EXIT', Pid, _Reason}, State) ->

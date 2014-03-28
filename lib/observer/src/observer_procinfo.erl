@@ -34,6 +34,7 @@
 
 -record(state, {parent,
 		frame,
+		notebook,
 		pid,
 		pages=[],
 		expand_table,
@@ -76,6 +77,7 @@ init([Pid, ParentFrame, Parent]) ->
 	{Frame, #state{parent=Parent,
 		       pid=Pid,
 		       frame=Frame,
+		       notebook=Notebook,
 		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage],
 		       expand_table=Table
 		      }}
@@ -158,6 +160,9 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Info}}}, State)
 handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
+handle_info({get_debug_info, From}, State = #state{notebook=Notebook}) ->
+    From ! {procinfo_debug, Notebook},
+    {noreply, State};
 handle_info(_Info, State) ->
     %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
