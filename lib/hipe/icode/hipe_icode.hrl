@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,8 +61,8 @@
                       | 'op_exact_eqeq_2' | 'suspend_msg_timeout'.
 
 -type icode_type_test()	:: 'atom' | 'bignum' | 'binary' | 'bitstr' | 'boolean'
-                         | 'cons' | 'fixnum' | 'float'
-                         | 'function' | 'function2' | 'integer' | 'list' | 'nil'
+                         | 'cons' | 'fixnum' | 'float'  | 'function'
+                         | 'function2' | 'integer' | 'list' | 'map' | 'nil'
                          | 'number' | 'pid' | 'port' | 'reference' | 'tuple'
                          | {'atom', atom()} | {'integer', integer()}
                          | {'record', atom(), non_neg_integer()}
@@ -107,7 +107,6 @@
 				   fail_label :: icode_lbl(),
 				   length     :: non_neg_integer(),
 				   cases      :: [icode_switch_case()]}).
-
 
 -record(icode_type, {test        :: icode_type_test(),
 		     args        :: [icode_term_arg()],
