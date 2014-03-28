@@ -126,6 +126,8 @@
 	 t_is_instance/2,
 	 t_is_integer/1, t_is_integer/2,
 	 t_is_list/1,
+	 t_is_map/1,
+	 t_is_map/2,
 	 t_is_matchstate/1,
 	 t_is_nil/1, t_is_nil/2,
 	 t_is_non_neg_integer/1,
@@ -148,6 +150,8 @@
 	 t_list/1,
 	 t_list_elements/1, t_list_elements/2,
 	 t_list_termination/1,
+	 t_map/0,
+	 t_map/1,
 	 t_matchstate/0,
 	 t_matchstate/2,
 	 t_matchstate_present/1,
@@ -208,19 +212,11 @@
 	 lift_list_to_pos_empty/1,
          is_opaque_type/2,
 	 is_erl_type/1,
-	 atom_to_string/1,
-
-	 t_is_map/2,
-	 t_map/1,
-	 t_map/0
+	 atom_to_string/1
 	]).
 
 %%-define(DO_ERL_TYPES_TEST, true).
 -compile({no_auto_import,[min/2,max/2]}).
-
-%% HiPE does not understand Maps
-%% (guard function is_map/1 in t_from_term/1)
--compile(no_native).
 
 -ifdef(DO_ERL_TYPES_TEST).
 -export([test/0]).
@@ -1733,10 +1729,15 @@ lift_list_to_pos_empty(?list(Content, Termination, _)) ->
 t_map() ->
   ?map([]).
 
--spec t_map([{erl_type(),erl_type()}]) -> erl_type().
+-spec t_map([{erl_type(), erl_type()}]) -> erl_type().
 
 t_map(_) ->
   ?map([]).
+
+-spec t_is_map(erl_type()) -> boolean().
+
+t_is_map(Type) ->
+  t_is_map(Type, 'universe').
 
 -spec t_is_map(erl_type(), opaques()) -> boolean().
 
@@ -1745,7 +1746,6 @@ t_is_map(Type, Opaques) ->
 
 is_map1(?map(_)) -> true;
 is_map1(_) -> false.
-
 
 %%-----------------------------------------------------------------------------
 %% Tuples
@@ -2167,10 +2167,10 @@ t_from_term(T) when is_function(T) ->
   {arity, Arity} = erlang:fun_info(T, arity),
   t_fun(Arity, t_any());
 t_from_term(T) when is_integer(T) ->   t_integer(T);
+t_from_term(T) when is_map(T) ->       t_map();
 t_from_term(T) when is_pid(T) ->       t_pid();
 t_from_term(T) when is_port(T) ->      t_port();
 t_from_term(T) when is_reference(T) -> t_reference();
-t_from_term(T) when is_map(T) ->       t_map();
 t_from_term(T) when is_tuple(T) ->
   t_tuple([t_from_term(E) || E <- tuple_to_list(T)]).
 
@@ -2570,7 +2570,7 @@ force_union(T = ?function(_, _)) ->   ?function_union(T);
 force_union(T = ?identifier(_)) ->    ?identifier_union(T);
 force_union(T = ?list(_, _, _)) ->    ?list_union(T);
 force_union(T = ?nil) ->              ?list_union(T);
-force_union(T = ?number(_,_)) ->      ?number_union(T);
+force_union(T = ?number(_, _)) ->     ?number_union(T);
 force_union(T = ?opaque(_)) ->        ?opaque_union(T);
 force_union(T = ?remote(_)) ->        ?remote_union(T);
 force_union(T = ?map(_)) ->           ?map_union(T);
@@ -3581,6 +3581,8 @@ t_subtract(?product(Elements1) = T1, ?product(Elements2)) ->
 	_ -> T1
       end
   end;
+t_subtract(?map(_) = T, _) ->  % XXX: very crude; will probably need refinement
+  T;
 t_subtract(?product(P1), _) ->
   ?product(P1);
 t_subtract(T, ?product(_)) ->

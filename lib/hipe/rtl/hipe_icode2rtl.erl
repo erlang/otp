@@ -437,6 +437,8 @@ gen_type_test([X], Type, TrueLbl, FalseLbl, Pred, ConstTab) ->
       {hipe_tagscheme:test_integer(X, TrueLbl, FalseLbl, Pred), ConstTab};
     list ->
       {hipe_tagscheme:test_list(X, TrueLbl, FalseLbl, Pred), ConstTab};
+    map ->
+      {hipe_tagscheme:test_map(X, TrueLbl, FalseLbl, Pred), ConstTab};
     nil ->
       {hipe_tagscheme:test_nil(X, TrueLbl, FalseLbl, Pred), ConstTab};
     number ->
