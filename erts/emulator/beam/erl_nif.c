@@ -1543,7 +1543,7 @@ static ERL_NIF_TERM
 execute_dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     Eterm* reg = ERTS_PROC_GET_SCHDATA(env->proc)->x_reg_array;
-    ERL_NIF_TERM result = (ERL_NIF_TERM) reg[0];
+    ERL_NIF_TERM result, dirty_result = (ERL_NIF_TERM) reg[0];
     typedef ERL_NIF_TERM (*FinalizerFP)(ErlNifEnv*, ERL_NIF_TERM);
     FinalizerFP fp;
 #if HAVE_INT64 && SIZEOF_LONG != 8
@@ -1553,7 +1553,11 @@ execute_dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(sizeof(fp) <= sizeof(unsigned long));
     enif_get_ulong(env, reg[1], (unsigned long *) &fp);
 #endif
-    return (*fp)(env, result);
+    result = (*fp)(env, dirty_result);
+    if (erts_refc_dectest(&env->mod_nif->rt_dtor_cnt, 0) == 0
+	&& env->mod_nif->mod == NULL)
+	close_lib(env->mod_nif);
+    return result;
 }
 
 #endif /* ERTS_DIRTY_SCHEDULERS */
@@ -1605,6 +1609,8 @@ enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
     ep->exp.code[4] = (BeamInstr) fp;
     ep->m = env->mod_nif;
     proc->freason = TRAP;
+
+    erts_refc_inc(&env->mod_nif->rt_dtor_cnt, 1);
 
     return THE_NON_VALUE;
 #else
