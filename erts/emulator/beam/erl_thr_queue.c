@@ -156,6 +156,7 @@ erts_thr_q_initialize(ErtsThrQ_t *q, ErtsThrQInit_t *qi)
 	q->tail.data.notify = noop_callback;
 
     erts_atomic_init_nob(&q->head.head, (erts_aint_t) &q->tail.data.marker);
+    erts_atomic_init_nob(&q->head.refc, 0);
     q->head.live = qi->live.objects;
     q->head.first = &q->tail.data.marker;
     q->head.unref_end = &q->tail.data.marker;
@@ -668,6 +669,11 @@ erts_thr_q_get_finalize_dequeue_data(ErtsThrQ_t *q, ErtsThrQFinDeQ_t *fdp)
 	ErtsThrQDirtySetEl(&fdp->end->next, NULL);
     q->head.deq_fini.start = NULL;
     q->head.deq_fini.end = NULL;
+    if (erts_atomic_read_nob(&q->head.refc) > 0) {
+	fdp->max_ops = 0;
+    } else {
+	fdp->max_ops = ERTS_THR_Q_MAX_FINI_DEQ_OPS;
+    }
     return fdp->start != NULL;
 #endif
 }
@@ -683,6 +689,7 @@ erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *fdp0,
 	else
 	    fdp0->start = fdp1->start;
 	fdp0->end = fdp1->end;
+	fdp0->max_ops = fdp1->max_ops;
     }
 #endif
 }
@@ -692,10 +699,11 @@ int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *state)
 {
 #ifdef USE_THREADS
     ErtsThrQElement_t *start = state->start;
+    int max_ops = state->max_ops;
     if (start) {
 	ErtsThrQLive_t live;
 	int i;
-	for (i = 0; i < ERTS_THR_Q_MAX_FINI_DEQ_OPS; i++) {
+	for (i = 0; i < max_ops; i++) {
 	    ErtsThrQElement_t *tmp;
 	    if (!start)
 		break;
@@ -719,6 +727,7 @@ erts_thr_q_finalize_dequeue_state_init(ErtsThrQFinDeQ_t *state)
 #ifdef USE_THREADS
     state->start = NULL;
     state->end = NULL;
+    state->max_ops = ERTS_THR_Q_MAX_FINI_DEQ_OPS;
 #endif
 }
 
@@ -777,5 +786,39 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
 	   ? ERTS_THR_Q_MAX_DEQUEUE_CLEAN_OPS
 	   : ERTS_THR_Q_MAX_SCHED_CLEAN_OPS), 1);
     return res;
+#endif
+}
+
+int
+erts_thr_q_queue_len(ErtsThrQ_t *q)
+{
+    int len = 0;
+#ifndef USE_THREADS
+    ErtsThrQElement_t *tmp;
+
+    tmp = q->first;
+    if (!tmp)
+	return 0;
+    while (tmp->next != NULL) {
+	len++;
+	tmp = tmp->next;
+    }   
+
+    return len;
+#else
+    ErtsThrQElement_t *tmp;
+    erts_aint_t inext;
+
+    erts_atomic_inc_acqb(&q->head.refc);
+    tmp = ErtsThrQDirtyReadEl(&q->head.head);
+    inext = erts_atomic_read_acqb(&tmp->next);
+    while (inext != ERTS_AINT_NULL) {
+	len++;
+	tmp = (ErtsThrQElement_t *) inext;
+	inext = erts_atomic_read_acqb(&tmp->next);
+    }
+    erts_atomic_dec_relb(&q->head.refc);
+
+    return len;
 #endif
 }

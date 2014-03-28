@@ -702,3 +702,13 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
 
     return id;
 }
+
+Uint erts_async_queue_len(Uint qix)
+{
+#ifndef USE_THREADS
+    return 0;
+#else
+    ErtsAsyncQ *aq = async_q(qix - 1);
+    return (Uint) erts_thr_q_queue_len(&aq->thr_q);
+#endif
+}
