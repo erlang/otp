@@ -990,7 +990,7 @@ ok
     </section>
 
     <section>
-      <title>Notes about Extend-ability for SEQUENCE and SET</title>
+      <title>Notes about extensibility for SEQUENCE and SET</title>
       <p>When a SEQUENCE or SET contains an extension marker and 
         extension components like this:</p>
       <pre>
@@ -1038,7 +1038,7 @@ TVal2 = {z,{0,1,2}},
         </p>
 
       <section>
-        <title>Extendable CHOICE</title>
+        <title>Extensible CHOICE</title>
         <p>When a CHOICE contains an extension marker and the decoder detects
           an unknown alternative of the CHOICE the value is represented as:</p>
         <pre>
