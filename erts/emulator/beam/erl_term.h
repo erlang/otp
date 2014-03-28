@@ -112,11 +112,11 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  *	1000	REFC_BINARY	|		|
  *	1001	HEAP_BINARY	| BINARIES	|
  *	1010	SUB_BINARY	|		|
- *      1011    Not used
+ *      1011    Not used; see comment below
  *      1100    EXTERNAL_PID  |                 |
  *      1101    EXTERNAL_PORT | EXTERNAL THINGS |
  *      1110    EXTERNAL_REF  |                 |
- *      1111    Not used
+ *      1111    MAP
  *
  * COMMENTS:
  *
@@ -140,10 +140,11 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define REFC_BINARY_SUBTAG	(0x8 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define SUB_BINARY_SUBTAG	(0xA << _TAG_PRIMARY_SIZE) /* BINARY */
-#define MAP_SUBTAG		(0xB << _TAG_PRIMARY_SIZE) /* MAP */
+/*   _BINARY_XXX_MASK depends on 0xB being unused */
 #define EXTERNAL_PID_SUBTAG	(0xC << _TAG_PRIMARY_SIZE) /* EXTERNAL_PID */
 #define EXTERNAL_PORT_SUBTAG	(0xD << _TAG_PRIMARY_SIZE) /* EXTERNAL_PORT */
 #define EXTERNAL_REF_SUBTAG	(0xE << _TAG_PRIMARY_SIZE) /* EXTERNAL_REF */
+#define MAP_SUBTAG		(0xF << _TAG_PRIMARY_SIZE) /* MAP */
 
 
 #define _TAG_HEADER_ARITYVAL	(TAG_PRIMARY_HEADER|ARITYVAL_SUBTAG)
@@ -156,11 +157,11 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_REFC_BIN	(TAG_PRIMARY_HEADER|REFC_BINARY_SUBTAG)
 #define _TAG_HEADER_HEAP_BIN	(TAG_PRIMARY_HEADER|HEAP_BINARY_SUBTAG)
 #define _TAG_HEADER_SUB_BIN	(TAG_PRIMARY_HEADER|SUB_BINARY_SUBTAG)
-#define _TAG_HEADER_MAP	 	(TAG_PRIMARY_HEADER|MAP_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PID  (TAG_PRIMARY_HEADER|EXTERNAL_PID_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PORT (TAG_PRIMARY_HEADER|EXTERNAL_PORT_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_REF  (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
 #define _TAG_HEADER_BIN_MATCHSTATE (TAG_PRIMARY_HEADER|BIN_MATCHSTATE_SUBTAG)
+#define _TAG_HEADER_MAP	 	(TAG_PRIMARY_HEADER|MAP_SUBTAG)
 
 
 #define _TAG_HEADER_MASK	0x3F
@@ -892,7 +893,8 @@ typedef struct external_thing_ {
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_REF)
 
 #define is_external_header(x) \
-  (((x) & (_TAG_HEADER_MASK-_BINARY_XXX_MASK)) == _TAG_HEADER_EXTERNAL_PID)
+  (((x) & (_TAG_HEADER_MASK-_BINARY_XXX_MASK)) == _TAG_HEADER_EXTERNAL_PID \
+   && ((x) & _TAG_HEADER_MASK) != _TAG_HEADER_MAP)
 
 #define is_external(x) (is_boxed((x)) && is_external_header(*boxed_val((x))))
 
