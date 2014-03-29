@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2010-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -55,13 +55,13 @@ DICT_ERLS    = $(DICT_MODULES:%=%.erl)
 DICT_HRLS    = $(DICT_MODULES:%=%.hrl)
 
 # Modules to build before compiling dictionaries.
-COMPILER_MODULES = $(notdir $(filter compiler/%, $(CT_MODULES))) \
-                   $(DICT_YRL)
+COMPILER_MODULES = $(notdir $(CT_MODULES)) $(DICT_YRL)
 
 # All handwritten modules from which a depend.mk is generated.
 MODULES = \
 	$(RT_MODULES) \
-	$(CT_MODULES)
+	$(CT_MODULES) \
+	$(INFO_MODULES)
 
 # Modules whose names are inserted into the app file.
 APP_MODULES = \
@@ -72,6 +72,7 @@ APP_MODULES = \
 TARGET_MODULES = \
 	$(APP_MODULES) \
 	$(CT_MODULES) \
+	$(INFO_MODULES) \
 	$(DICT_YRL:%=gen/%)
 
 # What to build for the 'opt' target.
@@ -150,9 +151,13 @@ gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
 $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
 	$(gen_verbose) \
 	M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
+	C=`echo $(COMPILER_MODULES) | tr ' ' ,`; \
+	I=`echo $(notdir $(INFO_MODULES)) | tr ' ' ,`; \
 	R=`echo $(REGISTERED) | tr ' ' ,`; \
 	sed -e 's;%VSN%;$(VSN);' \
 	    -e "s;%MODULES%;$$M;" \
+	    -e "s;%COMPILER%;$$C;" \
+	    -e "s;%INFO%;$$I;" \
 	    -e "s;%REGISTERED%;$$R;" \
 	  $< > $@
 
@@ -176,6 +181,8 @@ info:
 	@$(call list,RT_MODULES)
 	@echo
 	@$(call list,CT_MODULES)
+	@echo
+	@$(call list,INFO_MODULES)
 	@echo
 	@$(call list,TARGET_MODULES)
 	@echo
@@ -216,7 +223,7 @@ dialyze: opt $(PLT)
 	         -Wno_improper_lists \
 	         $(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR) \
 	         $(patsubst %, $(EBIN)/%.$(EMULATOR), \
-                          $(notdir $(RT_MODULES) $(CT_MODULES)))
+	                $(notdir $(RT_MODULES) $(CT_MODULES) $(INFO_MODULES)))
 # Omit all but the common dictionary module since these
 # (diameter_gen_relay in particular) generate warning depending on how
 # much of the included diameter_gen.hrl they use.
