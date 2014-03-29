@@ -73,8 +73,8 @@ CT_MODULES = \
 
 # Info/debug modules, also not included in the app file.
 INFO_MODULES = \
-	base/diameter_dbg \
-	base/diameter_info
+	info/diameter_dbg \
+	info/diameter_info
 
 # Released hrl files in ../include intended for public consumption.
 EXTERNAL_HRLS = \

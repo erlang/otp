@@ -55,9 +55,8 @@
          tp/1]).
 
 -include_lib("diameter/include/diameter.hrl").
--include("diameter_internal.hrl").
 
-
+-define(APPLICATION, diameter).
 -define(INFO,  diameter_info).
 -define(SEP(), ?INFO:sep()).
 

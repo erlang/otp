@@ -41,7 +41,7 @@ INCDIR = ../include
 ABS_EBIN := $(shell cd $(EBIN) && pwd)
 
 # Where make should look for dependencies.
-VPATH = .:base:compiler:transport:gen
+VPATH = .:base:compiler:transport:gen:info
 
 # ----------------------------------------------------
 # Target specs
