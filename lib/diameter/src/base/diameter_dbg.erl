@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,8 +33,7 @@
          compiled/0,
          procs/0,
          latest/0,
-         nl/0,
-         log/4]).
+         nl/0]).
 
 -export([diameter_config/0,
          diameter_peer/0,
@@ -71,9 +70,6 @@
                 diameter_stats]).
 
 -define(VALUES(Rec), tl(tuple_to_list(Rec))).
-
-log(_Slogan, _Mod, _Line, _Details) ->
-    ok.
 
 %%% ----------------------------------------------------------
 %%% # help()
