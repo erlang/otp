@@ -249,7 +249,7 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
 					 timing_server = Timing,
 					 parent = Parent} = State) ->
   send_log(Parent, "Reading files and computing callgraph... "),
-  {T1, _} = statistics(runtime),
+  {T1, _} = statistics(wall_clock),
   Callgraph = dialyzer_callgraph:new(),
   CompileInit = make_compile_init(State, Callgraph),
   {{Failed, NoWarn, Modules}, NextLabel} =
@@ -272,13 +272,13 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
       			  [[Reason || {_Filename, Reason} <- Failed]]),
       exit({error, Msg})
   end,
-  {T2, _} = statistics(runtime),
+  {T2, _} = statistics(wall_clock),
   Msg1 = io_lib:format("done in ~.2f secs\nRemoving edges... ", [(T2-T1)/1000]),
   send_log(Parent, Msg1),
   Callgraph =
     ?timing(Timing, "clean", _C2,
 	    cleanup_callgraph(State, CServer2, Callgraph, Modules)),
-  {T3, _} = statistics(runtime),
+  {T3, _} = statistics(wall_clock),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),
   send_log(Parent, Msg2),
   {Callgraph, sets:from_list(NoWarn), CServer2}.
@@ -620,9 +620,9 @@ dump_callgraph(CallGraph, State, #analysis{callgraph_file = File} = Analysis) ->
   Extension = filename:extension(File),
   Start_Msg = io_lib:format("Dumping the callgraph... ", []),
   send_log(State#analysis_state.parent, Start_Msg),
-  {T1, _} = statistics(runtime),
+  {T1, _} = statistics(wall_clock),
   dump_callgraph(CallGraph, State, Analysis, Extension),
-  {T2, _} = statistics(runtime),
+  {T2, _} = statistics(wall_clock),
   Finish_Msg = io_lib:format("done in ~2f secs\n", [(T2-T1)/1000]),
   send_log(State#analysis_state.parent, Finish_Msg),
   ok.
