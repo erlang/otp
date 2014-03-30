@@ -30,6 +30,8 @@
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
 
+-export_type([start_type/0]).
+
 %%%-----------------------------------------------------------------
 
 -type start_type() :: 'normal'
@@ -58,8 +60,7 @@
 
 %%------------------------------------------------------------------
 
--callback start(StartType :: normal | {takeover, node()} | {failover, node()},
-		StartArgs :: term()) ->
+-callback start(StartType :: start_type(), StartArgs :: term()) ->
     {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
 
 -callback stop(State :: term()) ->
