@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,15 +40,17 @@
 
 -type behaviour() :: atom().
 
+-type rectab() :: erl_types:type_table().
+
 -record(state, {plt        :: dialyzer_plt:plt(),
 		codeserver :: dialyzer_codeserver:codeserver(),
 		filename   :: file:filename(),
 		behlines   :: [{behaviour(), non_neg_integer()}],
-		records    :: dict()}).
+		records    :: rectab()}).
 
 %%--------------------------------------------------------------------
 
--spec check_callbacks(module(), [{cerl:cerl(), cerl:cerl()}], dict(),
+-spec check_callbacks(module(), [{cerl:cerl(), cerl:cerl()}], rectab(),
 		      dialyzer_plt:plt(),
 		      dialyzer_codeserver:codeserver()) -> [dial_warning()].
 

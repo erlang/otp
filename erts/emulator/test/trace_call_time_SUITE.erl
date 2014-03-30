@@ -33,7 +33,7 @@
 %% Exported end user tests
 
 -export([seq/3, seq_r/3]).
--export([loaded/1, a_function/1, a_called_function/1, dec/1, nif_dec/1]).
+-export([loaded/1, a_function/1, a_called_function/1, dec/1, nif_dec/1, dead_tracer/1]).
 
 -define(US_ERROR, 10000).
 -define(R_ERROR, 0.8).
@@ -89,7 +89,7 @@ all() ->
 	true -> [not_run];
 	false ->
 	    [basic, on_and_off, info, pause_and_restart, scheduling,
-	     combo, bif, nif, called_function]
+	     combo, bif, nif, called_function, dead_tracer]
     end.
 
 groups() -> 
@@ -470,6 +470,92 @@ called_function(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ok.
 
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+dead_tracer(Config) when is_list(Config) ->
+    Self = self(),
+    FirstTracer = tracer(),
+    StartTracing = fun() -> turn_on_tracing(Self) end,
+    tell_tracer(FirstTracer, StartTracing),
+    [1,2,3,4,5,6,7,8] = seq(1, 8, fun(I) -> I + 1 end),
+    Ref = erlang:monitor(process, FirstTracer),
+    FirstTracer ! quit,
+    receive
+	{'DOWN',Ref,process,FirstTracer,normal} ->
+	    ok
+    end,
+    erlang:yield(),
+
+    %% Collect and check that we only get call_time info for the current process.
+    Info1 = collect_all_info(),
+    [] = other_than_self(Info1),
+    io:format("~p\n", [Info1]),
+
+    %% Note that we have not turned off tracing for the current process,
+    %% but that the tracer has terminated. No more call_time information should be recorded.
+    [1,2,3] = seq(1, 3, fun(I) -> I + 1 end),
+    [] = collect_all_info(),
+
+    %% When we start a second tracer process, that tracer process must
+    %% not inherit the tracing flags and the dead tracer (even though
+    %% we used set_on_spawn).
+    SecondTracer = tracer(),
+    tell_tracer(SecondTracer, StartTracing),
+    Seq20 = lists:seq(1, 20),
+    Seq20 = seq(1, 20, fun(I) -> I + 1 end),
+    Info2 = collect_all_info(),
+    io:format("~p\n", [Info2]),
+    [] = other_than_self(Info2),
+    SecondTracer ! quit,
+
+    ok.
+
+other_than_self(Info) ->
+    [{Pid,MFA} || {MFA,[{Pid,_,_,_}]} <- Info,
+		  Pid =/= self()].
+
+tell_tracer(Tracer, Fun) ->
+    Tracer ! {execute,self(),Fun},
+    receive
+	{Tracer,executed} ->
+	    ok
+    end.
+
+tracer() ->
+    spawn_link(fun Loop() ->
+		      receive
+			  quit ->
+			      ok;
+			  {execute,From,Fun} ->
+			      Fun(),
+			      From ! {self(),executed},
+			      Loop()
+		      end
+	      end).
+
+turn_on_tracing(Pid) ->
+    _ = erlang:trace(Pid, true, [call,set_on_spawn]),
+    _ = erlang:trace_pattern({?MODULE,'_','_'}, true, [call_time]),
+    _ = now(),
+    ok.
+
+collect_all_info() ->
+    collect_all_info([{?MODULE,F,A} || {F,A} <- module_info(functions)] ++
+			 erlang:system_info(snifs)).
+
+collect_all_info([MFA|T]) ->
+    CallTime = erlang:trace_info(MFA, call_time),
+    erlang:trace_pattern(MFA, restart, [call_time]),
+    case CallTime of
+	{call_time,false} ->
+	    collect_all_info(T);
+	{call_time,[]} ->
+	    collect_all_info(T);
+	{call_time,[_|_]=List} ->
+	    [{MFA,List}|collect_all_info(T)]
+    end;
+collect_all_info([]) -> [].
+
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% The Tests
 %%%
@@ -477,7 +563,6 @@ called_function(Config) when is_list(Config) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Local helpers
-
 
 load_nif(Config) ->
     ?line Path = ?config(data_dir, Config),
@@ -602,8 +687,11 @@ collect(A, Ref) ->
     end.
 
 setup() ->
+    setup([]).
+
+setup(Opts) ->
     Pid = spawn_link(fun() -> loop() end),
-    ?line 1 = erlang:trace(Pid, true, [call]),
+    1 = erlang:trace(Pid, true, [call|Opts]),
     Pid.
 
 execute(Pids, Mfa) when is_list(Pids) ->

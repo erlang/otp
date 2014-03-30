@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,7 +81,7 @@ init([Notebook, Parent]) ->
 				  ]),
     Main = wxBoxSizer:new(?wxHORIZONTAL),
     Splitter = wxSplitterWindow:new(Panel, [{size, wxWindow:getClientSize(Panel)},
-					    {style, ?wxSP_LIVE_UPDATE},
+					    {style, ?SASH_STYLE},
 					    {id, 2}
 					   ]),
     Apps = wxListBox:new(Splitter, 3, []),
@@ -178,11 +178,16 @@ handle_event(#wx{id=Id, event=_Sz=#wxSize{size=Size}},
     {noreply, State};
 
 handle_event(#wx{event=#wxMouse{type=Type, x=X0, y=Y0}},
-	     S0=#state{app=#app{ptree=Tree}, app_w=AppWin}) ->
-    {X,Y} = wxScrolledWindow:calcUnscrolledPosition(AppWin, X0, Y0),
-    Hit   = locate_node(X,Y, [Tree]),
-    State = handle_mouse_click(Hit, Type, S0),
-    {noreply, State};
+	     S0=#state{app=App, app_w=AppWin}) ->
+    case App of
+	#app{ptree=Tree} ->
+	    {X,Y} = wxScrolledWindow:calcUnscrolledPosition(AppWin, X0, Y0),
+	    Hit   = locate_node(X,Y, [Tree]),
+	    State = handle_mouse_click(Hit, Type, S0),
+	    {noreply, State};
+	_ ->
+	    {noreply, S0}
+    end;
 
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{sel=undefined}) ->
@@ -190,8 +195,8 @@ handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
     {noreply, State};
 
 handle_event(#wx{id=?ID_PROC_INFO, event=#wxCommand{type=command_menu_selected}},
-	     State = #state{panel=Panel, sel={#box{s1=#str{pid=Pid}},_}}) ->
-    observer_procinfo:start(Pid, Panel, self()),
+	     State = #state{sel={#box{s1=#str{pid=Pid}},_}}) ->
+    observer ! {open_link, Pid},
     {noreply, State};
 
 handle_event(#wx{id=?ID_PROC_MSG, event=#wxCommand{type=command_menu_selected}},
@@ -337,8 +342,8 @@ code_change(_, _, State) ->
 handle_mouse_click(Node = {#box{s1=#str{pid=Pid}},_}, Type,
 		   State=#state{app_w=AppWin,panel=Panel}) ->
     case Type of
-	left_dclick -> observer_procinfo:start(Pid, Panel, self());
-	right_down ->    popup_menu(Panel);
+	left_dclick -> observer ! {open_link, Pid};
+	right_down  -> popup_menu(Panel);
 	_ ->           ok
     end,
     observer_wx:set_status(io_lib:format("Pid: ~p", [Pid])),

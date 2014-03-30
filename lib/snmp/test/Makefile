@@ -93,10 +93,10 @@ ifeq ($(SNMP_DEBUG),e)
   SNMP_FLAGS += -Dsnmp_error
 endif
 ifeq ($(SNMP_DEBUG),l)
-  SNMP_FLAGS += -Dsnmp_log
+  SNMP_FLAGS += -Dsnmp_error -Dsnmp_log
 endif
 ifeq ($(SNMP_DEBUG),d)
-  SNMP_FLAGS += -Dsnmp_debug
+  SNMP_FLAGS += -Dsnmp_error -Dsnmp_log -Dsnmp_debug
 endif
 
 ifeq ($(DONT_USE_TS),true)

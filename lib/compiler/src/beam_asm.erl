@@ -324,6 +324,8 @@ make_op({gc_bif,Bif,Fail,Live,Args,Dest}, Dict) ->
     encode_op(BifOp, [Fail,Live,{extfunc,erlang,Bif,Arity}|Args++[Dest]],Dict);
 make_op({bs_add=Op,Fail,[Src1,Src2,Unit],Dest}, Dict) ->
     encode_op(Op, [Fail,Src1,Src2,Unit,Dest], Dict);
+make_op({test,Cond,Fail,Src,{list,_}=Ops}, Dict) ->
+    encode_op(Cond, [Fail,Src,Ops], Dict);
 make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->

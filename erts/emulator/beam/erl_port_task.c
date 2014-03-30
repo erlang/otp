@@ -877,6 +877,11 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
     ASSERT(runq->ports.start && runq->ports.end);
 
     erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
+
+#ifdef ERTS_SMP
+    if (runq->halt_in_progress)
+	erts_non_empty_runq(runq);
+#endif
 }
 
 static ERTS_INLINE Port *
@@ -1676,7 +1681,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_INPUT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_input, pp);
-	    /* NOTE some windows drivers use ->ready_input for input and output */
+	    /* NOTE some windows/ose drivers use ->ready_input
+	       for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
 					ptp->u.alive.td.io.event);
 	    io_tasks_executed++;
@@ -2029,9 +2035,9 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 	    DTRACE_CHARBUF(pid_str, 16);
 	    ErtsProcList* plp2 = plp;
 
-	    erts_snprintf(port_str, sizeof(port_str), "%T", pp->common.id);
+	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", pp->common.id);
 	    while (plp2 != NULL) {
-		erts_snprintf(pid_str, sizeof(pid_str), "%T", plp2->pid);
+		erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->pid);
 		DTRACE2(process_port_unblocked, pid_str, port_str);
 	    }
 	}

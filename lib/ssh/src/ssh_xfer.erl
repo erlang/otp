@@ -72,7 +72,6 @@ protocol_version_request(XF) ->
 
 open(XF, ReqID, FileName, Access, Flags, Attrs) -> 
     Vsn = XF#ssh_xfer.vsn,
-    FileName1 = unicode:characters_to_binary(FileName),
     MBits = if Vsn >= 5 -> 
 		    M = encode_ace_mask(Access),
 		    ?uint32(M);
@@ -82,7 +81,7 @@ open(XF, ReqID, FileName, Access, Flags, Attrs) ->
     F = encode_open_flags(Flags),
     xf_request(XF,?SSH_FXP_OPEN, 
 	       [?uint32(ReqID),
-		?binary(FileName1),
+		?string_utf8(FileName),
 		MBits,
 		?uint32(F),
 		encode_ATTR(Vsn,Attrs)]).    
@@ -90,7 +89,7 @@ open(XF, ReqID, FileName, Access, Flags, Attrs) ->
 opendir(XF, ReqID, DirName) ->
     xf_request(XF, ?SSH_FXP_OPENDIR, 
 	       [?uint32(ReqID),
-		?string(DirName)]).
+		?string_utf8(DirName)]).
 
 
 close(XF, ReqID, Handle) ->
@@ -127,13 +126,11 @@ write(XF,ReqID, Handle, Offset, Data) ->
 remove(XF, ReqID, File) ->
     xf_request(XF, ?SSH_FXP_REMOVE, 
 	       [?uint32(ReqID),
-		?string(File)]).
+		?string_utf8(File)]).
 
 %% Rename a file/directory
-rename(XF, ReqID, Old, New, Flags) ->
+rename(XF, ReqID, OldPath, NewPath, Flags) ->
     Vsn = XF#ssh_xfer.vsn,
-    OldPath = unicode:characters_to_binary(Old),
-    NewPath = unicode:characters_to_binary(New),
     FlagBits
 	= if Vsn >= 5 ->
 		  F0 = encode_rename_flags(Flags),
@@ -143,30 +140,27 @@ rename(XF, ReqID, Old, New, Flags) ->
 	  end,
     xf_request(XF, ?SSH_FXP_RENAME, 
 	       [?uint32(ReqID),
-		?binary(OldPath),
-		?binary(NewPath),
+		?string_utf8(OldPath),
+		?string_utf8(NewPath),
 		FlagBits]).
 
 
 
 %% Create directory
 mkdir(XF, ReqID, Path, Attrs) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_MKDIR, 
 	       [?uint32(ReqID),
-		?binary(Path1),
+		?string_utf8(Path),
 		encode_ATTR(XF#ssh_xfer.vsn, Attrs)]).
 
 %% Remove a directory
 rmdir(XF, ReqID, Dir) ->
-    Dir1 = unicode:characters_to_binary(Dir),
     xf_request(XF, ?SSH_FXP_RMDIR,
 	       [?uint32(ReqID),
-		?binary(Dir1)]).
+		?string_utf8(Dir)]).
 
 %% Stat file
 stat(XF, ReqID, Path, Flags) ->
-    Path1 = unicode:characters_to_binary(Path),
     Vsn = XF#ssh_xfer.vsn,
     AttrFlags = if Vsn >= 5 ->
 			F = encode_attr_flags(Vsn, Flags),
@@ -176,13 +170,12 @@ stat(XF, ReqID, Path, Flags) ->
 		end,
     xf_request(XF, ?SSH_FXP_STAT, 
 	       [?uint32(ReqID),
-		?binary(Path1),
+		?string_utf8(Path),
 		AttrFlags]).
 
 
 %% Stat file - follow symbolic links
 lstat(XF, ReqID, Path, Flags) ->
-    Path1 = unicode:characters_to_binary(Path),
     Vsn = XF#ssh_xfer.vsn,
     AttrFlags = if Vsn >= 5 ->
 			F = encode_attr_flags(Vsn, Flags),
@@ -192,7 +185,7 @@ lstat(XF, ReqID, Path, Flags) ->
 		end,
     xf_request(XF, ?SSH_FXP_LSTAT, 
 	     [?uint32(ReqID),
-	      ?binary(Path1),
+	      ?string_utf8(Path),
 	      AttrFlags]).
 
 %% Stat open file
@@ -211,10 +204,9 @@ fstat(XF, ReqID, Handle, Flags) ->
 
 %% Modify file attributes
 setstat(XF, ReqID, Path, Attrs) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_SETSTAT, 
 	       [?uint32(ReqID),
-		?binary(Path1),
+		?string_utf8(Path),
 		encode_ATTR(XF#ssh_xfer.vsn, Attrs)]).
 
 
@@ -227,10 +219,9 @@ fsetstat(XF, ReqID, Handle, Attrs) ->
     
 %% Read a symbolic link
 readlink(XF, ReqID, Path) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_READLINK, 
 	       [?uint32(ReqID),
-		?binary(Path1)]).
+		?string_utf8(Path)]).
 
 
 %% Create a symbolic link    
@@ -244,10 +235,9 @@ symlink(XF, ReqID, LinkPath, TargetPath) ->
 
 %% Convert a path into a 'canonical' form
 realpath(XF, ReqID, Path) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_REALPATH,     
 	       [?uint32(ReqID),
-		?binary(Path1)]).
+		?string_utf8(Path)]).
 
 extended(XF, ReqID, Request, Data) ->
     xf_request(XF, ?SSH_FXP_EXTENDED,
@@ -296,7 +286,10 @@ xf_send_names(#ssh_xfer{cm = CM, channel = Channel, vsn = Vsn},
     Count = length(NamesAndAttrs),
     {Data, Len} = encode_names(Vsn, NamesAndAttrs),
     Size = 1 + 4 + 4 + Len,
-    ToSend = [<<?UINT32(Size), ?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(Count)>>,
+    ToSend = [<<?UINT32(Size), 
+		?SSH_FXP_NAME, 
+		?UINT32(ReqId),
+		?UINT32(Count)>>,
 	      Data],
     ssh_connection:send(CM, Channel, ToSend).
 
@@ -818,25 +811,27 @@ decode_names(_Vsn, 0, _Data) ->
 decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary, 
 		      ?UINT32(LLen), _LongName:LLen/binary,
 		      Tail/binary>>) when Vsn =< 3 ->
-    Name = binary_to_list(FileName),
+    Name = unicode:characters_to_list(FileName),
     {A, Tail2} = decode_ATTR(Vsn, Tail),
     [{Name, A} | decode_names(Vsn, I-1, Tail2)];
 decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary, 
 		      Tail/binary>>) when Vsn >= 4 ->
-    Name = binary_to_list(FileName),
+    Name = unicode:characters_to_list(FileName),
     {A, Tail2} = decode_ATTR(Vsn, Tail),
     [{Name, A} | decode_names(Vsn, I-1, Tail2)].
 
 encode_names(Vsn, NamesAndAttrs) ->
     lists:mapfoldl(fun(N, L) -> encode_name(Vsn, N, L) end, 0, NamesAndAttrs).
 
-encode_name(Vsn, {Name,Attr}, Len) when Vsn =< 3 ->
+encode_name(Vsn, {NameUC,Attr}, Len) when Vsn =< 3 ->
+    Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
     EncAttr = encode_ATTR(Vsn, Attr),
     ALen = size(EncAttr),
     NewLen = Len + NLen*2 + 4 + 4 + ALen,
     {[<<?UINT32(NLen)>>, Name, <<?UINT32(NLen)>>, Name, EncAttr], NewLen};
-encode_name(Vsn, {Name,Attr}, Len) when Vsn >= 4 ->
+encode_name(Vsn, {NameUC,Attr}, Len) when Vsn >= 4 ->
+    Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
     EncAttr = encode_ATTR(Vsn, Attr),
     ALen = size(EncAttr),
@@ -851,9 +846,9 @@ encode_acl_items([ACE|As]) ->
     Type = encode_ace_type(ACE#ssh_xfer_ace.type),
     Flag = encode_ace_flag(ACE#ssh_xfer_ace.flag), 
     Mask = encode_ace_mask(ACE#ssh_xfer_ace.mask), 
-    Who = list_to_binary(ACE#ssh_xfer_ace.who),
+    Who = ACE#ssh_xfer_ace.who,
     [?uint32(Type), ?uint32(Flag), ?uint32(Mask), 
-     ?binary(Who) | encode_acl_items(As)];
+     ?string_utf8(Who) | encode_acl_items(As)];
 encode_acl_items([]) ->
     [].
 
@@ -872,7 +867,7 @@ decode_acl_items(I, <<?UINT32(Type),
 		     [#ssh_xfer_ace { type = decode_ace_type(Type),
 				      flag = decode_ace_flag(Flag),
 				      mask = decode_ace_mask(Mask),
-				      who = binary_to_list(BWho)} | Acc]).
+				      who = unicode:characters_to_list(BWho)} | Acc]).
 
 encode_extensions(Exts) ->
     Count = length(Exts),

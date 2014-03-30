@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,18 +42,21 @@
 
 load_mod(Mod, File, Binary, Db) ->
     Flag = process_flag(trap_exit, true),
-    Pid = spawn_link(fun () -> load_mod1(Mod, File, Binary, Db) end),
+    Pid = spawn_link(load_mod1(Mod, File, Binary, Db)),
     receive
 	{'EXIT', Pid, What} ->
 	    process_flag(trap_exit, Flag),
 	    What
     end.
 
--spec load_mod1(atom(), file:filename(), binary(), ets:tid()) -> no_return().
+-spec load_mod1(atom(), file:filename(), binary(), ets:tid()) ->
+                       fun(() -> no_return()).
 
 load_mod1(Mod, File, Binary, Db) ->
-    store_module(Mod, File, Binary, Db),
-    exit({ok, Mod}).
+    fun() ->
+            store_module(Mod, File, Binary, Db),
+            exit({ok, Mod})
+    end.
 
 %%====================================================================
 %% Internal functions
@@ -194,6 +197,11 @@ pattern({cons,Line,H0,T0}) ->
 pattern({tuple,Line,Ps0}) ->
     Ps1 = pattern_list(Ps0),
     {tuple,Line,Ps1};
+pattern({map,Line,Fs0}) ->
+    Fs1 = lists:map(fun ({map_field_exact,L,K,V}) ->
+                            {map_field_exact,L,expr(K, false),pattern(V)}
+                    end, Fs0),
+    {map,Line,Fs1};
 pattern({op,_,'-',{integer,Line,I}}) ->
     {value,Line,-I};
 pattern({op,_,'+',{integer,Line,I}}) ->
@@ -262,6 +270,8 @@ guard_test({string,Line,_}) -> {value,Line,false};
 guard_test({nil,Line}) -> {value,Line,false};
 guard_test({cons,Line,_,_}) -> {value,Line,false};
 guard_test({tuple,Line,_}) -> {value,Line,false};
+guard_test({map,Line,_}) -> {value,Line,false};
+guard_test({map,Line,_,_}) -> {value,Line,false};
 guard_test({bin,Line,_}) ->  {value,Line,false}.
 
 gexpr({var,Line,V}) -> {var,Line,V};
@@ -279,6 +289,13 @@ gexpr({cons,Line,H0,T0}) ->
 gexpr({tuple,Line,Es0}) ->
     Es1 = gexpr_list(Es0),
     {tuple,Line,Es1};
+gexpr({map,Line,Fs0}) ->
+    Fs1 = map_fields(Fs0, fun gexpr/1),
+    {map,Line,Fs1};
+gexpr({map,Line,E0,Fs0}) ->
+    E1 = gexpr(E0),
+    Fs1 = map_fields(Fs0, fun gexpr/1),
+    {map,Line,E1,Fs1};
 gexpr({bin,Line,Flds0}) ->
     Flds = gexpr_list(Flds0),
     {bin,Line,Flds};
@@ -341,6 +358,13 @@ expr({cons,Line,H0,T0}, _Lc) ->
 expr({tuple,Line,Es0}, _Lc) ->
     Es1 = expr_list(Es0),
     {tuple,Line,Es1};
+expr({map,Line,Fs0}, _Lc) ->
+    Fs1 = map_fields(Fs0),
+    {map,Line,Fs1};
+expr({map,Line,E0,Fs0}, _Lc) ->
+    E1 = expr(E0, false),
+    Fs1 = map_fields(Fs0),
+    {map,Line,E1,Fs1};
 expr({block,Line,Es0}, Lc) ->
     %% Unfold block into a sequence.
     Es1 = exprs(Es0, Lc),
@@ -369,6 +393,9 @@ expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
     As = new_vars(A, Line),
     Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
+expr({named_fun,Line,FName,Cs0,{_,_,Name}}, _Lc) when is_atom(Name) ->
+    Cs = fun_clauses(Cs0),
+    {make_named_fun,Line,Name,FName,Cs};
 expr({'fun',Line,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Lc)
   when 0 =< A, A =< 255 ->
     %% New format in R15 for fun M:F/A (literal values).
@@ -433,7 +460,7 @@ expr({lc,Line,E0,Gs0}, _Lc) ->			%R8.
 		       ({b_generate,L,P0,Qs}) -> %R12.
 			   {b_generate,L,expr(P0, false),expr(Qs, false)};
 		       (Expr) ->
-			   case is_guard(Expr) of
+			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr, false)
 			   end
@@ -445,7 +472,7 @@ expr({bc,Line,E0,Gs0}, _Lc) ->			%R12.
 		       ({b_generate,L,P0,Qs}) -> %R12.
 			   {b_generate,L,expr(P0, false),expr(Qs, false)};
 		       (Expr) ->
-			   case is_guard(Expr) of
+			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr, false)
 			   end
@@ -488,42 +515,6 @@ expr({bin_element,Line,Expr,Size,Type}, _Lc) ->
 expr(Other, _Lc) ->
     exit({?MODULE,{unknown_expr,Other}}).
 
-%% is_guard(Expression) -> true | false.
-%%  Test if a general expression is a guard test or guard BIF.
-%%  Cannot use erl_lint here as sys_pre_expand has transformed source.
-
-is_guard({op,_,Op,L,R}) ->
-    erl_internal:comp_op(Op, 2) andalso is_gexpr_list([L,R]);
-is_guard({call,_,{remote,_,{atom,_,erlang},{atom,_,Test}},As}) ->
-    Arity = length(As),
-    (erl_internal:guard_bif(Test, Arity) orelse
-     erl_internal:old_type_test(Test, Arity)) andalso is_gexpr_list(As);
-is_guard({atom,_,true}) -> true;
-is_guard(_) -> false.
-
-is_gexpr({var,_,_}) -> true;
-is_gexpr({atom,_,_}) -> true;
-is_gexpr({integer,_,_}) -> true;
-is_gexpr({char,_,_}) -> true;
-is_gexpr({float,_,_}) -> true;
-is_gexpr({string,_,_}) -> true;
-is_gexpr({nil,_}) -> true;
-is_gexpr({cons,_,H,T}) -> is_gexpr_list([H,T]);
-is_gexpr({tuple,_,Es}) -> is_gexpr_list(Es);
-is_gexpr({call,_,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
-    Ar = length(As),
-    case erl_internal:guard_bif(F, Ar) of
-	true -> is_gexpr_list(As);
-	false -> erl_internal:arith_op(F, Ar) andalso is_gexpr_list(As)
-    end;
-is_gexpr({op,_,Op,A}) ->
-    erl_internal:arith_op(Op, 1) andalso is_gexpr(A);
-is_gexpr({op,_,Op,A1,A2}) ->
-    erl_internal:arith_op(Op, 2) andalso is_gexpr_list([A1,A2]);
-is_gexpr(_) -> false.
-
-is_gexpr_list(Es) -> lists:all(fun (E) -> is_gexpr(E) end, Es).
-
 consify([A|As]) -> 
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
@@ -546,6 +537,15 @@ icr_clauses([], _) -> [].
 fun_clauses([{clause,L,H,G,B}|Cs]) ->
     [{clause,L,head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];
 fun_clauses([]) -> [].
+
+map_fields(Fs) ->
+    map_fields(Fs, fun (E) -> expr(E, false) end).
+
+map_fields([{map_field_assoc,L,N,V}|Fs], F) ->
+    [{map_field_assoc,L,F(N),F(V)}|map_fields(Fs)];
+map_fields([{map_field_exact,L,N,V}|Fs], F) ->
+    [{map_field_exact,L,F(N),F(V)}|map_fields(Fs)];
+map_fields([], _) -> [].
 
 %% new_var_name() -> VarName.
 

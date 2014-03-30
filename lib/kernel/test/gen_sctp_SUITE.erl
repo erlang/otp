@@ -35,8 +35,9 @@
     open_unihoming_ipv6_socket/1,
     open_multihoming_ipv6_socket/1,
     open_multihoming_ipv4_and_ipv6_socket/1,
-    basic_stream/1, xfer_stream_min/1, peeloff_active_once/1,
-    peeloff_active_true/1, buffers/1,
+    basic_stream/1, xfer_stream_min/1, active_n/1,
+    peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
+    buffers/1,
     names_unihoming_ipv4/1, names_unihoming_ipv6/1,
     names_multihoming_ipv4/1, names_multihoming_ipv6/1]).
 
@@ -48,9 +49,9 @@ all() ->
      open_multihoming_ipv4_socket,
      open_unihoming_ipv6_socket,
      open_multihoming_ipv6_socket,
-     open_multihoming_ipv4_and_ipv6_socket,
+     open_multihoming_ipv4_and_ipv6_socket, active_n,
      basic_stream, xfer_stream_min, peeloff_active_once,
-     peeloff_active_true, buffers,
+     peeloff_active_true, peeloff_active_n, buffers,
      names_unihoming_ipv4, names_unihoming_ipv6,
      names_multihoming_ipv4, names_multihoming_ipv6].
 
@@ -785,6 +786,106 @@ implicit_inet6(S1, Addr) ->
 	  end,
     ?line ok = gen_sctp:close(S2).
 
+active_n(doc) ->
+    "Verify {active,N} socket management";
+active_n(suite) ->
+    [];
+active_n(Config) when is_list(Config) ->
+    N = 3,
+    S1 = ok(gen_sctp:open([{active,N}])),
+    [{active,N}] = ok(inet:getopts(S1, [active])),
+    ok = inet:setopts(S1, [{active,-N}]),
+    receive
+        {sctp_passive, S1} -> ok
+    after
+        5000 ->
+            exit({error,sctp_passive_failure})
+    end,
+    [{active,false}] = ok(inet:getopts(S1, [active])),
+    ok = inet:setopts(S1, [{active,0}]),
+    receive
+        {sctp_passive, S1} -> ok
+    after
+        5000 ->
+            exit({error,sctp_passive_failure})
+    end,
+    ok = inet:setopts(S1, [{active,32767}]),
+    {error,einval} = inet:setopts(S1, [{active,1}]),
+    {error,einval} = inet:setopts(S1, [{active,-32769}]),
+    ok = inet:setopts(S1, [{active,-32768}]),
+    receive
+        {sctp_passive, S1} -> ok
+    after
+        5000 ->
+            exit({error,sctp_passive_failure})
+    end,
+    [{active,false}] = ok(inet:getopts(S1, [active])),
+    ok = inet:setopts(S1, [{active,N}]),
+    ok = inet:setopts(S1, [{active,true}]),
+    [{active,true}] = ok(inet:getopts(S1, [active])),
+    receive
+        _ -> exit({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    ok = inet:setopts(S1, [{active,N}]),
+    ok = inet:setopts(S1, [{active,once}]),
+    [{active,once}] = ok(inet:getopts(S1, [active])),
+    receive
+        _ -> exit({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    {error,einval} = inet:setopts(S1, [{active,32768}]),
+    ok = inet:setopts(S1, [{active,false}]),
+    [{active,false}] = ok(inet:getopts(S1, [active])),
+    ok = gen_sctp:listen(S1, true),
+    S1Port = ok(inet:port(S1)),
+    S2 = ok(gen_sctp:open(0, [{active,false}])),
+    Assoc = ok(gen_sctp:connect(S2, "localhost", S1Port, [])),
+    ok = inet:setopts(S1, [{active,N}]),
+    [{active,N}] = ok(inet:getopts(S1, [active])),
+    LoopFun = fun(Count, Count, _Fn) ->
+		      receive
+			  {sctp_passive,S1} ->
+			      ok
+		      after
+			  5000 ->
+			      exit({error,timeout})
+		      end;
+		 (I, Count, Fn) ->
+		      Msg = list_to_binary("message "++integer_to_list(I)),
+		      ok = gen_sctp:send(S2, Assoc, 0, Msg),
+		      receive
+			  {sctp,S1,_,_,{[SR],Msg}} when is_record(SR, sctp_sndrcvinfo) ->
+			      Fn(I+1, Count, Fn);
+			  {sctp,S1,_,_,_} ->
+			      %% ignore non-data messages
+			      ok = inet:setopts(S1, [{active,1}]),
+			      Fn(I, Count, Fn);
+			  Other ->
+			      exit({unexpected, Other})
+		      after
+			  5000 ->
+			      exit({error,timeout})
+		      end
+	      end,
+    ok = LoopFun(1, N, LoopFun),
+    S3 = ok(gen_sctp:open([{active,0}])),
+    receive
+        {sctp_passive,S3} ->
+            [{active,false}] = ok(inet:getopts(S3, [active]))
+    after
+        5000 ->
+            exit({error,udp_passive})
+    end,
+    ok = gen_sctp:close(S3),
+    ok = gen_sctp:close(S2),
+    ok = gen_sctp:close(S1),
+    ok.
+
 basic_stream(doc) ->
     "Hello world stream socket";
 basic_stream(suite) ->
@@ -971,6 +1072,14 @@ peeloff_active_true(suite) ->
 
 peeloff_active_true(Config) ->
     peeloff(Config, [{active,true}]).
+
+peeloff_active_n(doc) ->
+    "Peel off an SCTP stream socket ({active,N})";
+peeloff_active_n(suite) ->
+    [];
+
+peeloff_active_n(Config) ->
+    peeloff(Config, [{active,1}]).
 
 peeloff(Config, SockOpts) when is_list(Config) ->
     ?line Addr = {127,0,0,1},
@@ -1656,7 +1765,13 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
     end.
 
 again(Socket) ->
-    inet:setopts(Socket, [{active,once}]).
+    receive
+	{sctp_passive,Socket} ->
+	    [{active, false}] = ok(inet:getopts(Socket, [active])),
+	    ok = inet:setopts(Socket,[{active,1}])
+    after 0 ->
+	    ok = inet:setopts(Socket, [{active,once}])
+    end.
 
 gb_push(Key, Val, GBT) ->
     case gb_trees:lookup(Key, GBT) of

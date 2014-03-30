@@ -46,6 +46,7 @@
 	  import_export/1, misc_attrs/1, dialyzer_attrs/1,
 	  hook/1,
 	  neg_indent/1,
+	  maps_syntax/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -76,7 +77,8 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, old_mnemosyne_syntax]},
+       messages, old_mnemosyne_syntax, maps_syntax
+    ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
@@ -130,7 +132,27 @@ func(Config) when is_list(Config) ->
                            true
                    end)().">>},
 	  {func_7,
-           <<"t(M, F, A) -> fun M:F/A.">>}
+           <<"t(M, F, A) -> fun M:F/A.">>},
+          {func_8,
+           <<"-record(r1, {a,b}).
+              -record(r3, {a = fun Id(_) -> #r1{} end(1), b}).
+
+              t() ->
+                  fun Id(A) when record(A#r3.a, r1) -> 7 end(#r3{}).
+             ">>},
+          {func_9,
+           <<"-record(r1, {a,b}).
+              -record(r3, {a = fun Id(_) -> #r1{} end(1), b}).
+
+              t() ->
+                  fsdfsdfjsdfjkljf:sdlfjdsfjlf(
+                      fun Id(sdfsd) -> {sdkjsdf,sdfjsdkljfsdl,sdfkjdklf} end).
+             ">>},
+          {func_10,
+           <<"t() ->
+                  (fun True() ->
+                           true
+                   end)().">>}
           ],
     ?line compile(Config, Ts),
     ok.
@@ -158,6 +180,7 @@ recs(Config) when is_list(Config) ->
               -record(r1, {a,b}).
               -record(r2, {a = #r1{},b,c=length([1,2,3])}).
               -record(r3, {a = fun(_) -> #r1{} end(1), b}).
+              -record(r4, {a = fun R1(_) -> #r1{} end(1), b}).
 
               t() ->
                   foo = fun(A) when A#r1.a > A#r1.b -> foo end(#r1{b = 2}),
@@ -741,6 +764,7 @@ neg_indent(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"{[a,b,c],[d,e|f]}">>),
     ?line ok = pp_expr(<<"f(a,b,c)">>),
     ?line ok = pp_expr(<<"fun() when a,b;c,d -> a end">>),
+    ?line ok = pp_expr(<<"fun A() when a,b;c,d -> a end">>),
     ?line ok = pp_expr(<<"<<34:32,17:32>>">>),
     ?line ok = pp_expr(<<"if a,b,c -> d; e,f,g -> h,i end">>),
     ?line ok = pp_expr(<<"if a -> d; c -> d end">>),
@@ -763,6 +787,9 @@ neg_indent(Config) when is_list(Config) ->
     Fun2 = {'fun',2,{clauses,[{clause,2,[],[],[{atom,3,true}]}]},
             {0,108059557,'-t/0-fun-0-'}},
     ?line "fun() -> true end" = flat_expr(Fun2),
+    Fun3 = {named_fun,3,'True',[{clause,3,[],[],[{atom,3,true}]}],
+            {0,424242424,'-t/0-True-0-'}},
+    ?line "fun True() -> true end" = flat_expr(Fun3),
 
     ok.
 
@@ -950,6 +977,35 @@ count_atom(L, A) when is_list(L) ->
 count_atom(_, _) ->
     0.
 
+maps_syntax(doc) -> "Maps syntax";
+maps_syntax(suite) -> [];
+maps_syntax(Config) when is_list(Config) ->
+    Ts = [{map_fun_1,
+            <<"t() ->\n"
+              "    M0 = #{ 1 => hi, hi => 42, 1.0 => {hi,world}},\n"
+              "    M1 = M0#{ 1 := hello, new_val => 1337 },\n"
+              "    map_fun_2:val(M1).\n">>},
+          {map_fun_2,
+            <<"val(#{ 1 := V1, hi := V2, new_val := V3}) -> {V1,V2,V3}.\n">>}],
+    compile(Config, Ts),
+
+    ok = pp_expr(<<"#{}">>),
+    ok = pp_expr(<<"#{ a => 1, <<\"hi\">> => \"world\", 33 => 1.0 }">>),
+    ok = pp_expr(<<"#{ a := V1, <<\"hi\">> := V2 } = M">>),
+    ok = pp_expr(<<"M#{ a => V1, <<\"hi\">> := V2 }">>),
+    F = <<"-module(maps_type_syntax).\n"
+          "-compile(export_all).\n"
+          "-type t1() :: map().\n"
+          "-type t2() :: #{ atom() => integer(), atom() => float() }.\n"
+          "-spec f1(t1()) -> 'true'.\n"
+          "f1(M) when is_map(M) -> true.\n"
+          "-spec f2(t2()) -> integer().\n"
+          "f2(#{a := V1,b := V2}) -> V1 + V2.\n"
+          "\n">>,
+    ok = pp_forms(F),
+    ok.
+
+
 otp_8567(doc) ->
     "OTP_8567. Avoid duplicated 'undefined' in record field types.";
 otp_8567(suite) -> [];
@@ -1091,7 +1147,7 @@ otp_10820(Config) when is_list(Config) ->
     C1 = <<"%% coding: utf-8\n -module(any).">>,
     ok = do_otp_10820(Config, C1, "+pc latin1"),
     ok = do_otp_10820(Config, C1, "+pc unicode"),
-    C2 = <<"-module(any).">>,
+    C2 = <<"%% coding: latin-1\n -module(any).">>,
     ok = do_otp_10820(Config, C2, "+pc latin1"),
     ok = do_otp_10820(Config, C2, "+pc unicode").
 

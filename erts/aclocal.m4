@@ -74,6 +74,21 @@ AC_ARG_VAR(erl_xcomp_clock_gettime_cpu_time, [clock_gettime() can be used for re
 AC_ARG_VAR(erl_xcomp_after_morecore_hook, [__after_morecore_hook can track malloc()s core memory usage: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_dlsym_brk_wrappers, [dlsym(RTLD_NEXT, _) brk wrappers can track malloc()s core memory usage: yes|no (only used when cross compiling)])
 
+dnl Cross compilation variables for OSE
+AC_ARG_VAR(erl_xcomp_ose_ldflags_pass1, [Linker flags for the OSE module (pass 1) (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_ldflags_pass2, [Linker flags for the OSE module (pass 2) (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_OSEROOT, [OSE installation root directory (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_STRIP, [Strip utility shipped with the OSE distribution(only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_LM_POST_LINK, [OSE postlink tool (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_LM_SET_CONF, [Sets the configuration for an OSE load module (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_LM_ELF_SIZE, [Prints the section size information for an OSE load module (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_LM_LCF, [OSE load module linker configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_BEAM_LM_CONF, [BEAM OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_EPMD_LM_CONF, [EPMD OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_RUN_ERL_LM_CONF, [run_erl_lm OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_CONFD, [OSE confd source file])
+AC_ARG_VAR(erl_xcomp_ose_CRT0_LM, [OSE crt0 lm source file])
+
 ])
 
 AC_DEFUN(ERL_XCOMP_SYSROOT_INIT,
@@ -488,6 +503,8 @@ AC_CACHE_VAL(ac_cv_sys_ipv6_support,
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#elif __OSE__
+#error "no ipv6"
 #else
 #include <netinet/in.h>
 #endif],
@@ -500,6 +517,8 @@ else
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#elif __OSE__
+#error "no ipv6"
 #else
 #include <netinet/in.h>
 #endif],
@@ -728,6 +747,12 @@ if test "X$host_os" = "Xwin32"; then
     THR_LIBS=
     THR_LIB_NAME=win32_threads
     THR_LIB_TYPE=win32_threads
+elif test "X$host_os" = "Xose"; then
+    AC_MSG_RESULT(yes)
+    THR_DEFS="-DOSE_THREADS"
+    THR_LIBS=
+    THR_LIB_NAME=ose_threads
+    THR_LIB_TYPE=ose_threads
 else
     AC_MSG_RESULT(no)
     THR_DEFS=
@@ -1078,9 +1103,22 @@ case "$THR_LIB_NAME" in
 	test "$ethr_have_native_atomics" = "yes" && ethr_have_native_spinlock=yes
 	;;
 
-    pthread)
-	ETHR_THR_LIB_BASE_DIR=pthread
-    	AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
+    pthread|ose_threads)
+        case "$THR_LIB_NAME" in
+	     pthread)
+		ETHR_THR_LIB_BASE_DIR=pthread
+		AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
+		;;
+	     ose_threads)
+		AC_DEFINE(ETHR_OSE_THREADS, 1,
+		   [Define if you have OSE style threads])
+		ETHR_THR_LIB_BASE_DIR=ose
+		AC_CHECK_HEADER(ose_spi/ose_spi.h,
+		  AC_DEFINE(HAVE_OSE_SPI_H, 1,
+		    [Define if you have the "ose_spi/ose_spi.h" header file.]))
+		;;
+	esac
+	if test "x$THR_LIB_NAME" == "xpthread"; then
 	case $host_os in
 	    openbsd*)
 		# The default stack size is insufficient for our needs
@@ -1139,6 +1177,7 @@ case "$THR_LIB_NAME" in
 	    *) ;;
 	esac
 
+	fi
 	dnl We sometimes need ETHR_DEFS in order to find certain headers
 	dnl (at least for pthread.h on osf1).
 	saved_cppflags="$CPPFLAGS"
@@ -1151,7 +1190,6 @@ case "$THR_LIB_NAME" in
 	dnl
 	dnl Check for headers
 	dnl
-
 	AC_CHECK_HEADER(pthread.h, \
 			AC_DEFINE(ETHR_HAVE_PTHREAD_H, 1, \
 [Define if you have the <pthread.h> header file.]))
@@ -1184,7 +1222,7 @@ case "$THR_LIB_NAME" in
 	dnl
 	dnl Check for functions
 	dnl
-
+	if test "x$THR_LIB_NAME" == "xpthread"; then
 	AC_CHECK_FUNC(pthread_spin_lock, \
 			[ethr_have_native_spinlock=yes \
 			 AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
@@ -1310,6 +1348,8 @@ case "$THR_LIB_NAME" in
 		    linux_futex=yes)
 	AC_MSG_RESULT([$linux_futex])
 	test $linux_futex = yes && AC_DEFINE(ETHR_HAVE_LINUX_FUTEX, 1, [Define if you have a linux futex implementation.])
+
+	fi
 
 	AC_CHECK_SIZEOF(int)
 	AC_CHECK_SIZEOF(long)

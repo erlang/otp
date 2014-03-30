@@ -116,6 +116,10 @@ enc(Xs, [string|Ts], Offset) ->
     X0 = hd(Xs),
     Y = ?string(X0),
     [Y | enc(tl(Xs),Ts,Offset+size(Y))];
+enc(Xs, [string_utf8|Ts], Offset) ->
+    X0 = hd(Xs),
+    Y = ?string_utf8(X0),
+    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
 enc(Xs, [binary|Ts], Offset) ->
      X0 = hd(Xs),
     Y = ?binary(X0),

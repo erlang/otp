@@ -230,12 +230,27 @@ format_error({undef_parse_transform,M}) ->
 format_error({core_transform,M,R}) ->
     io_lib:format("error in core transform '~s': ~tp", [M, R]);
 format_error({crash,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\ncrash reason: ~tp", [Pass,Reason]);
+    io_lib:format("internal error in ~p;\ncrash reason: ~ts", [Pass,format_error_reason(Reason)]);
 format_error({bad_return,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\nbad return value: ~tp", [Pass,Reason]);
+    io_lib:format("internal error in ~p;\nbad return value: ~ts", [Pass,format_error_reason(Reason)]);
 format_error({module_name,Mod,Filename}) ->
-    io_lib:format("Module name '~s' does not match file name '~ts'",
-		  [Mod,Filename]).
+    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]);
+format_error(reparsing_invalid_unicode) ->
+    "Non-UTF-8 character(s) detected, but no encoding declared. Encode the file in UTF-8 or add \"%% coding: latin-1\" at the beginning of the file. Retrying with latin-1 encoding.".
+
+format_error_reason({Reason, Stack}) when is_list(Stack) ->
+    StackFun = fun
+	(escript, run,      2) -> true;
+	(escript, start,    1) -> true;
+	(init,    start_it, 1) -> true;
+	(init,    start_em, 1) -> true;
+	(_Mod, _Fun, _Arity)   -> false
+    end,
+    FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
+    [io_lib:format("~tp", [Reason]),"\n\n",
+     lib:format_stacktrace(1, Stack, StackFun, FormatFun)];
+format_error_reason(Reason) ->
+    io_lib:format("~tp", [Reason]).
 
 %% The compile state record.
 -record(compile, {filename="" :: file:filename(),
@@ -417,6 +432,9 @@ pass(from_core) ->
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
 pass(asm) ->
+    %% TODO: remove 'asm' in 18.0
+    io:format("compile:file/2 option 'asm' has been deprecated and will be~n"
+	      "removed in the 18.0 release. Use 'from_asm' instead.~n"),
     pass(from_asm);
 pass(from_beam) ->
     {".beam",[?pass(read_beam_file)|binary_passes()]};
@@ -606,9 +624,11 @@ core_passes() ->
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/1},
 	{iff,doldinline,{listing,"oldinline"}},
 	?pass(core_fold_module),
+	{iff,dcorefold,{listing,"corefold"}},
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
-	{core_fold_after_inline,fun test_core_inliner/1,fun core_fold_module/1},
+        {core_fold_after_inlining,fun test_any_inliner/1,
+         fun core_fold_module_after_inlining/1},
 	?pass(core_transforms)]},
        {iff,dcopt,{listing,"copt"}},
        {iff,'to_core',{done,"core"}}]}
@@ -774,19 +794,58 @@ no_native_compilation(BeamFile, #compile{options=Opts0}) ->
 	_ -> false
     end.
 
-parse_module(St) ->
-    Opts = St#compile.options,
-    Cwd = ".",
-    IncludePath = [Cwd, St#compile.dir|inc_paths(Opts)],
-    R =  epp:parse_file(St#compile.ifile, IncludePath, pre_defs(Opts)),
+parse_module(St0) ->
+    case do_parse_module(utf8, St0) of
+	{ok,_}=Ret ->
+	    Ret;
+	{error,_}=Ret ->
+	    Ret;
+	{invalid_unicode,File,Line} ->
+	    case do_parse_module(latin1, St0) of
+		{ok,St} ->
+		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
+		    {ok,St#compile{warnings=Es++St#compile.warnings}};
+		{error,St} ->
+		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
+		    {error,St#compile{errors=Es++St#compile.errors}}
+	    end
+    end.
+
+do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
+    R = epp:parse_file(File,
+		       [{includes,[".",Dir|inc_paths(Opts)]},
+			{macros,pre_defs(Opts)},
+			{default_encoding,DefEncoding},
+			extra]),
     case R of
-	{ok,Forms} ->
-            Encoding = epp:read_encoding(St#compile.ifile),
-	    {ok,St#compile{code=Forms,encoding=Encoding}};
+	{ok,Forms,Extra} ->
+	    Encoding = proplists:get_value(encoding, Extra),
+	    case find_invalid_unicode(Forms, File) of
+		none ->
+		    {ok,St#compile{code=Forms,encoding=Encoding}};
+		{invalid_unicode,_,_}=Ret ->
+		    case Encoding of
+			none ->
+			    Ret;
+			_ ->
+			    {ok,St#compile{code=Forms,encoding=Encoding}}
+		    end
+	    end;
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+find_invalid_unicode([H|T], File0) ->
+    case H of
+	{attribute,_,file,{File,_}} ->
+	    find_invalid_unicode(T, File);
+	{error,{Line,file_io_server,invalid_unicode}} ->
+	    {invalid_unicode,File0,Line};
+	_Other ->
+	    find_invalid_unicode(T, File0)
+    end;
+find_invalid_unicode([], _) -> none.
 
 parse_core(St) ->
     case file:read_file(St#compile.ifile) of
@@ -1130,6 +1189,12 @@ core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
     {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),
     {ok,St#compile{code=Code,warnings=Warns ++ Ws}}.
 
+core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
+    %% Inlining may produce code that generates spurious warnings.
+    %% Ignore all warnings.
+    {ok,Code,_Ws} = sys_core_fold:module(Code0, Opts),
+    {ok,St#compile{code=Code}}.
+
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
     %% if we know that it will not be used.
@@ -1147,6 +1212,9 @@ test_core_inliner(#compile{options=Opts}) ->
 		   (_) -> false
 		end, Opts)
     end.
+
+test_any_inliner(St) ->
+    test_old_inliner(St) orelse test_core_inliner(St).
 
 core_old_inliner(#compile{code=Code0,options=Opts}=St) ->
     {ok,Code} = sys_core_inline:module(Code0, Opts),
@@ -1613,7 +1681,7 @@ compile_beam(File0, _OutFile, Opts) ->
 
 compile_asm(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
-    case file(File, [asm|make_erl_options(Opts)]) of
+    case file(File, [from_asm|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.

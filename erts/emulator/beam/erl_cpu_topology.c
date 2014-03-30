@@ -1699,7 +1699,7 @@ erts_early_init_cpu_topology(int no_schedulers,
     }
 
     max_main_threads = erts_get_cpu_configured(cpuinfo);
-    if (max_main_threads > no_schedulers)
+    if (max_main_threads > no_schedulers || max_main_threads < 0)
 	max_main_threads = no_schedulers;
     *max_main_threads_p = max_main_threads;
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,7 +78,8 @@
 %%	function; see `analyze' for details.
 
 -spec annotate(cerl:cerl()) ->
-        {cerl:cerl(), outlist(), dict(), escapes(), dict(), dict()}.
+        {cerl:cerl(), outlist(), dict:dict(),
+         escapes(), dict:dict(), dict:dict()}.
 
 annotate(Tree) ->
     {Xs, Out, Esc, Deps, Par} = analyze(Tree),
@@ -206,7 +207,8 @@ append_ann(Tag, Val, []) ->
 %% variable labeled `escape', which will hold the set of escaped labels.
 %% initially it contains `top' and `external'.
 
--spec analyze(cerl:cerl()) -> {outlist(), dict(), escapes(), dict(), dict()}.
+-spec analyze(cerl:cerl()) ->
+        {outlist(), dict:dict(), escapes(), dict:dict(), dict:dict()}.
 
 analyze(Tree) ->
     %% Note that we use different name spaces for variable labels and

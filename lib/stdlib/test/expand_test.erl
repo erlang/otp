@@ -20,7 +20,8 @@
 
 -export([a_fun_name/1,
 	 a_less_fun_name/1,
-	 b_comes_after_a/1]).
+	 b_comes_after_a/1,
+         expand0arity_entirely/0]).
 
 a_fun_name(X) ->
     X.
@@ -30,3 +31,6 @@ a_less_fun_name(X) ->
 
 b_comes_after_a(X) ->
     X.
+
+expand0arity_entirely () ->
+    ok.

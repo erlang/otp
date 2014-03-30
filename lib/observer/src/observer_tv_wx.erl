@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -132,8 +132,8 @@ handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
-handle_event(#wx{obj=Grid, event=#wxList{type=command_list_item_activated,
-					 itemIndex=Index}},
+handle_event(#wx{event=#wxList{type=command_list_item_activated,
+			       itemIndex=Index}},
 	     State=#state{grid=Grid, node=Node, opt=#opt{type=Type}, tabs=Tabs}) ->
     Table = lists:nth(Index+1, Tabs),
     case Table#tab.protection of

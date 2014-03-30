@@ -256,6 +256,10 @@ ltype({type,_Line,nonempty_list,[T]}) ->
     {seq,$[,$],[$,],[ltype(T),leaf("...")]};
 ltype({type,Line,nil,[]}) ->
     lexpr({nil,Line}, 0, options(none));
+ltype({type,Line,map,any}) ->
+    simple_type({atom,Line,map}, []);
+ltype({type,_Line,map,Pairs}) ->
+    map_type(Pairs);
 ltype({type,Line,tuple,any}) ->
     simple_type({atom,Line,tuple}, []);
 ltype({type,_Line,tuple,Ts}) ->
@@ -288,6 +292,15 @@ binary_type(I1, I2) ->
     E1 = [[leaf("_:"),lexpr(I1, P, options(none))] || B],
     E2 = [[leaf("_:_*"),lexpr(I2, P, options(none))] || U],
     {seq,'<<','>>',[$,],E1++E2}.
+
+map_type(Fs) ->
+    {first,[$#],map_pair_types(Fs)}.
+
+map_pair_types(Fs) ->
+    tuple_type(Fs, fun map_pair_type/1).
+
+map_pair_type({type,_Line,map_field_assoc,Ktype,Vtype}) ->
+    {seq,[],[]," =>",[ltype(Ktype),ltype(Vtype)]}.
 
 record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
@@ -479,6 +492,15 @@ lexpr({record_field, _, Rec, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('.'),
     El = [lexpr(Rec, L, Opts),$.,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
+lexpr({map, _, Fs}, Prec, Opts) ->
+    {P,_R} = preop_prec('#'),
+    El = {first,leaf("#"),map_fields(Fs, Opts)},
+    maybe_paren(P, Prec, El);
+lexpr({map, _, Map, Fs}, Prec, Opts) ->
+    {L,P,_R} = inop_prec('#'),
+    Rl = lexpr(Map, L, Opts),
+    El = {first,[Rl,leaf("#")],map_fields(Fs, Opts)},
+    maybe_paren(P, Prec, El);
 lexpr({block,_,Es}, _, Opts) ->
     {list,[{step,'begin',body(Es, Opts)},'end']};
 lexpr({'if',_,Cs}, _, Opts) ->
@@ -511,10 +533,17 @@ lexpr({'fun',_,{function,M,F,A}}, _Prec, Opts) ->
     ArityItem = lexpr(A, Opts),
     ["fun ",NameItem,$:,CallItem,$/,ArityItem];
 lexpr({'fun',_,{clauses,Cs}}, _Prec, Opts) ->
-    {list,[{first,'fun',fun_clauses(Cs, Opts)},'end']};
+    {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},'end']};
+lexpr({named_fun,_,Name,Cs}, _Prec, Opts) ->
+    {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},'end']};
 lexpr({'fun',_,{clauses,Cs},Extra}, _Prec, Opts) ->
     {force_nl,fun_info(Extra),
-     {list,[{first,'fun',fun_clauses(Cs, Opts)},'end']}};
+     {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},'end']}};
+lexpr({named_fun,_,Name,Cs,Extra}, _Prec, Opts) ->
+    {force_nl,fun_info(Extra),
+     {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},'end']}};
+lexpr({'query',_,Lc}, _Prec, Opts) ->
+    {list,[{step,leaf("query"),lexpr(Lc, 0, Opts)},'end']};
 lexpr({call,_,{remote,_,{atom,_,M},{atom,_,F}=N}=Name,Args}, Prec, Opts) ->
     case erl_internal:bif(M, F, length(Args)) of
         true ->
@@ -664,6 +693,16 @@ record_field({typed_record_field,Field,Type}, Opts) ->
 record_field({record_field,_,F}, Opts) ->
     lexpr(F, 0, Opts).
 
+map_fields(Fs, Opts) ->
+    tuple(Fs, fun map_field/2, Opts).
+
+map_field({map_field_assoc,_,K,V}, Opts) ->
+    Pl = lexpr(K, 0, Opts),
+    {list,[{step,[Pl,leaf(" =>")],lexpr(V, 0, Opts)}]};
+map_field({map_field_exact,_,K,V}, Opts) ->
+    Pl = lexpr(K, 0, Opts),
+    {list,[{step,[Pl,leaf(" :=")],lexpr(V, 0, Opts)}]}.
+
 list({cons,_,H,T}, Es, Opts) ->
     list(T, [H|Es], Opts);
 list({nil,_}, Es, Opts) ->
@@ -729,8 +768,13 @@ stack_backtrace(S, El, Opts) ->
 %% fun_clauses(Clauses, Opts) -> [Char].
 %%  Print 'fun' clauses.
 
-fun_clauses(Cs, Opts) ->
-    nl_clauses(fun fun_clause/2, [$;], Opts, Cs).
+fun_clauses(Cs, Opts, unnamed) ->
+    nl_clauses(fun fun_clause/2, [$;], Opts, Cs);
+fun_clauses(Cs, Opts, {named, Name}) ->
+    nl_clauses(fun (C, H) ->
+                       {step,Gl,Bl} = fun_clause(C, H),
+                       {step,[atom_to_list(Name),Gl],Bl}
+               end, [$;], Opts, Cs).
 
 fun_clause({clause,_,A,G,B}, Opts) ->
     El = args(A, Opts),

@@ -796,43 +796,29 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    goto badarg;
 	}
     
-	if (*tp == am_spawn || *tp == am_spawn_driver) {	/* A process port */
+	if (*tp == am_spawn || *tp == am_spawn_driver || *tp == am_spawn_executable) {	/* A process port */
+	    int encoding;
 	    if (arity != make_arityval(2)) {
 		goto badarg;
 	    }
 	    name = tp[1];
-	    if (is_atom(name)) {
-		name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP,
-					       atom_tab(atom_val(name))->len+1);
-		sys_memcpy((void *) name_buf,
-			   (void *) atom_tab(atom_val(name))->name, 
-			   atom_tab(atom_val(name))->len);
-		name_buf[atom_tab(atom_val(name))->len] = '\0';
-	    } else if ((i = is_string(name))) {
-		name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-		if (intlist_to_buf(name, name_buf, i) != i)
-		    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-		name_buf[i] = '\0';
-	    } else {
+	    encoding = erts_get_native_filename_encoding();
+	    /* Do not convert the command to utf-16le yet, do that in win32 specific code */
+	    /* since the cmd is used for comparsion with drivers names and copied to port info */
+	    if (encoding == ERL_FILENAME_WIN_WCHAR) {
+		encoding = ERL_FILENAME_UTF8;
+	    }
+	    if ((name_buf = erts_convert_filename_to_encoding(name, NULL, 0, ERTS_ALC_T_TMP,0,1, encoding, NULL, 0))
+		== NULL) {
 		goto badarg;
 	    }
+
 	    if (*tp == am_spawn_driver) {
 		opts.spawn_type = ERTS_SPAWN_DRIVER;
+	    } else if (*tp == am_spawn_executable) {
+		opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
 	    }
-	    driver = &spawn_driver;
-	} else if (*tp == am_spawn_executable) {	/* A program */
-	    /*
-	     * {spawn_executable,Progname}
-	     */
-	    
-	    if (arity != make_arityval(2)) {
-		goto badarg;
-	    }
-	    name = tp[1];
-	    if ((name_buf = erts_convert_filename_to_native(name, NULL, 0, ERTS_ALC_T_TMP,0,1, NULL)) == NULL) {
-		goto badarg;
-	    }
-	    opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
+
 	    driver = &spawn_driver;
 	} else if (*tp == am_fd) { /* An fd port */
 	    int n;
@@ -873,29 +859,8 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     }
 
     if (edir != NIL) {
-	/* A working directory is expressed differently if spawn_executable, i.e. Unicode is handles 
-	   for spawn_executable... */
-	if (opts.spawn_type != ERTS_SPAWN_EXECUTABLE) {
-	    Eterm iolist;
-	    DeclareTmpHeap(heap,4,p);
-	    int r;
-	    
-	    UseTmpHeap(4,p);
-	    heap[0] = edir;
-	    heap[1] = make_list(heap+2);
-	    heap[2] = make_small(0);
-	    heap[3] = NIL;
-	    iolist = make_list(heap);
-	    r = erts_iolist_to_buf(iolist, (char*) dir, MAXPATHLEN);
-	    UnUseTmpHeap(4,p);
-	    if (ERTS_IOLIST_TO_BUF_FAILED(r)) {
-		goto badarg;
-	    }
-	    opts.wd = (char *) dir;
-	} else {
-	    if ((opts.wd = erts_convert_filename_to_native(edir, NULL, 0, ERTS_ALC_T_TMP,0,1,NULL)) == NULL) {
-		goto badarg;
-	    }
+	if ((opts.wd = erts_convert_filename_to_native(edir, NULL, 0, ERTS_ALC_T_TMP,0,1,NULL)) == NULL) {
+	    goto badarg;
 	}
     }
 
@@ -917,7 +882,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, process_str);
-        erts_snprintf(port_str, sizeof(port_str), "%T", port->common.id);
+        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", port->common.id);
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
 #endif
@@ -973,11 +938,12 @@ static char **convert_args(Eterm l)
     int n;
     int i = 0;
     Eterm str;
-    /* We require at least one element in list (argv[0]) */
     if (is_not_list(l) && is_not_nil(l)) {
 	return NULL;
     }
-    n = list_length(l);
+
+    n = erts_list_length(l);
+    /* We require at least one element in argv[0] + NULL at end */
     pp = erts_alloc(ERTS_ALC_T_TMP, (n + 2) * sizeof(char **));
     pp[i++] = erts_default_arg0;
     while (is_list(l)) {
@@ -1021,7 +987,7 @@ static byte* convert_environment(Process* p, Eterm env)
     byte* bytes;
     int encoding = erts_get_native_filename_encoding();
 
-    if ((n = list_length(env)) < 0) {
+    if ((n = erts_list_length(env)) < 0) {
 	return NULL;
     }
     heap_size = 2*(5*n+1);

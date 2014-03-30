@@ -101,7 +101,7 @@ void erl_sys_ddll_init(void) {
 /* 
  * Open a shared object
  */
-int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* err)
 {
 #if defined(HAVE_DLOPEN)
     char* dlname; 
@@ -123,6 +123,7 @@ int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* 
 
 int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 {
+#if defined(HAVE_DLOPEN)   
     int ret = ERL_DE_NO_ERROR;
     char *str;
     dlerror();
@@ -148,6 +149,9 @@ int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 	ret = ERL_DE_DYNAMIC_ERROR_OFFSET - find_errcode(str, err);
     }
     return ret;
+#else
+    return ERL_DE_ERROR_NO_DDLL_FUNCTIONALITY;
+#endif
 }
 
 /* 

@@ -38,7 +38,7 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, otp_7101/1]).
+	 otp_7078/1, otp_7101/1, maps/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -56,7 +56,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [attributes, expr, guard, init,
-     pattern, strict, update, {group, tickets}].
+     pattern, strict, update, maps, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
@@ -402,7 +402,22 @@ update(Config) when is_list(Config) ->
       ],
     ?line run(Config, Ts),
     ok.
-    
+
+maps(Config) when is_list(Config) ->
+    Ts = [<<"-record(rr, {a,b,c}).
+             t() ->
+                 R0 = id(#rr{a=1,b=2,c=3}),
+                 R1 = id(#rr{a=4,b=5,c=6}),
+                 [{R0,R1}] =
+                     maps:to_list(#{#rr{a=1,b=2,c=3} => #rr{a=4,b=5,c=6}}),
+                 #{#rr{a=1,b=2,c=3} := #rr{a=1,b=2,c=3}} =
+                     #{#rr{a=1,b=2,c=3} => R1}#{#rr{a=1,b=2,c=3} := R0},
+                 ok.
+
+             id(X) -> X.
+            ">>],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
 
 otp_5915(doc) ->
     "Strict record tests in guards.";

@@ -22,7 +22,8 @@
 	 init_per_group/2,end_per_group/2,
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
-	 unused_multiple_values_error/1,unused_multiple_values/1]).
+	 unused_multiple_values_error/1,unused_multiple_values/1,
+	 multiple_aliases/1,redundant_boolean_clauses/1,mixed_matching_clauses/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -38,7 +39,8 @@ groups() ->
     [{p,test_lib:parallel(),
       [t_element,setelement,t_length,append,t_apply,bifs,
        eq,nested_call_in_case,guard_try_catch,coverage,
-       unused_multiple_values_error,unused_multiple_values]}].
+       unused_multiple_values_error,unused_multiple_values,
+       multiple_aliases,redundant_boolean_clauses,mixed_matching_clauses]}].
 
 
 init_per_suite(Config) ->
@@ -249,6 +251,12 @@ coverage(Config) when is_list(Config) ->
     case list_to_pid("<0.42.0>") of
 	Pid when is_pid(Pid) -> ok
     end,
+
+    %% Cover the non-variable case in bsm_do_an/4.
+    ok = bsm_an_inlined(<<1>>, Config),
+    error = bsm_an_inlined(<<1,2,3>>, Config),
+    error = bsm_an_inlined([], Config),
+
     ok.
 
 cover_will_match_list_type(A) ->
@@ -290,7 +298,8 @@ cover_is_safe_bool_expr(X) ->
 	    false
     end.
 
-id(I) -> I.
+bsm_an_inlined(<<_:8>>, _) -> ok;
+bsm_an_inlined(_, _) -> error.
 
 unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -329,3 +338,50 @@ do_something(I) ->
     put(unused_multiple_values,
 	[I|get(unused_multiple_values)]),
     I.
+
+
+%% Make sure that multiple aliases does not cause
+%% the case expression to be evaluated twice.
+multiple_aliases(Config) when is_list(Config) ->
+    do_ma(fun() ->
+		  X = Y = run_once(),
+		  {X,Y}
+	  end, {ok,ok}),
+    do_ma(fun() ->
+		  case {true,run_once()} of
+		      {true=A=B,ok=X=Y} ->
+			  {A,B,X,Y}
+		  end
+	  end, {true,true,ok,ok}),
+    ok.
+
+do_ma(Fun, Expected) when is_function(Fun, 0) ->
+    Expected = Fun(),
+    ran_once = erase(run_once),
+    ok.
+
+run_once() ->
+    undefined = put(run_once, ran_once),
+    ok.
+
+
+redundant_boolean_clauses(Config) when is_list(Config) ->
+  X = id(0),
+  yes = case X == 0 of
+            false -> no;
+            false -> no;
+            true -> yes
+        end.
+
+mixed_matching_clauses(Config) when is_list(Config) ->
+  0 = case #{} of
+          #{} -> 0;
+          a -> 1
+      end,
+  0 = case <<>> of
+          <<>> -> 0;
+          a -> 1
+      end,
+  ok.
+
+id(I) -> I.

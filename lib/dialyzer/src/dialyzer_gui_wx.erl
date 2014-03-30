@@ -61,7 +61,7 @@
 		    init_plt          :: dialyzer_plt:plt(),
 		    dir_entry         :: wx:wx_object(),
 		    file_box          :: wx:wx_object(),
-		    files_to_analyze  :: ordset(string()),
+		    files_to_analyze  :: ordsets:ordset(string()),
 		    gui               :: wx:wx_object(),
 		    log               :: wx:wx_object(),
 		    menu              :: menu(),

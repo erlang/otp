@@ -47,6 +47,7 @@
 	 abnormal_script/1, src_tests_script/1, crazy_script/1,
 	 included_script/1, included_override_script/1,
 	 included_fail_script/1, included_bug_script/1, exref_script/1,
+	 duplicate_modules_script/1,
 	 otp_3065_circular_dependenies/1, included_and_used_sort_script/1]).
 -export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, system_files_tar/1,
 	 system_files_tar/2, invalid_system_files_tar/1,
@@ -84,6 +85,7 @@ groups() ->
        src_tests_script, crazy_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
+       duplicate_modules_script,
        otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
@@ -140,9 +142,9 @@ compile_source(File) ->
     ok = file:write_file(OutFileTemp, Code),
     file:rename(OutFileTemp, OutFile).
 
-end_per_suite(Conf) when is_list(Conf) ->
-    %% Nothing.
-    Conf.
+end_per_suite(Config) when is_list(Config) ->
+    rh_test_lib:clean_dir(?privdir),
+    Config.
 
 init_per_testcase(link_tar, Config) ->
     case os:type() of
@@ -821,6 +823,33 @@ no_hipe({ok, Value}) ->
 	_Arch ->
 	    {ok, Value}
     end.
+
+%% duplicate_modules_script: Check that make_script rejects two
+%% applications providing the same module.
+duplicate_modules_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(duplicate_modules,Config),
+
+    DataDir = filename:absname(?copydir),
+
+    ok = file:set_cwd(LatestDir),
+    LibDir = fname([DataDir, d_duplicate_modules, lib]),
+    P = [fname([LibDir, 'app1-1.0', ebin]),
+	 fname([LibDir, 'app2-1.0', ebin])],
+
+    %% Check wrong app vsn
+    error = systools:make_script(LatestName, [{path, P}]),
+    {error,
+      systools_make,
+      {duplicate_modules, [
+          {{myapp,app1,_}, {myapp,app2,_}}
+        ]
+      }
+    } = systools:make_script(LatestName, [silent, {path, P}]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
 
 %% tar_options: Check illegal tar options.
 tar_options(Config) when is_list(Config) ->
@@ -1960,12 +1989,12 @@ otp_6226_outdir(Config) when is_list(Config) ->
     ok = file:delete(Relup),
 
     %% d) absolute but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,Outdir2},{path,P},silent]),
 
     %% e) relative but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,"./outdir2"},{path,P},silent]),
 
@@ -2186,7 +2215,10 @@ create_script(current_all_future_sasl,Config) ->
     do_create_script(current_all_future_sasl,Config,current,Apps);
 create_script({unicode,RelVsn},Config) ->
     Apps = core_apps(current) ++ [{ua,"1.0"}],
-    do_create_script(unicode,RelVsn,Config,current,Apps).
+    do_create_script(unicode,RelVsn,Config,current,Apps);
+create_script(duplicate_modules,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
+    do_create_script(duplicate_modules,Config,current,Apps).
 
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->

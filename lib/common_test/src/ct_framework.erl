@@ -249,8 +249,8 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	    end
     end.
 
-ct_suite_init(Suite, Func, PostInitHook, Config) when is_list(Config) ->
-    case ct_hooks:init_tc(Suite, Func, Config) of
+ct_suite_init(Suite, FuncSpec, PostInitHook, Config) when is_list(Config) ->
+    case ct_hooks:init_tc(Suite, FuncSpec, Config) of
 	NewConfig when is_list(NewConfig) ->
 	    PostInitHookResult = do_post_init_hook(PostInitHook, NewConfig),
 	    {ok, [PostInitHookResult ++ NewConfig]};
@@ -660,10 +660,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     ct_util:delete_testdata(comment),
     ct_util:delete_suite_data(last_saved_config),
 
-    FuncSpec = case group_or_func(Func,Args) of
-		   {_,_GroupName,_} = Group -> Group;
-		   _ -> Func
-	       end,
+    FuncSpec = group_or_func(Func,Args),
 
     {Result1,FinalNotify} =
 	case ct_hooks:end_tc(
@@ -730,9 +727,14 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 		     (undefined) ->
 			  undefined;
 		     (Unexpected) ->
-			  exit({error,{reset_curr_tc,{Mod,Func},Unexpected}})
+			  {error,{reset_curr_tc,{Mod,Func},Unexpected}}
 		  end,
-    ct_util:update_testdata(curr_tc, ClearCurrTC),
+    case ct_util:update_testdata(curr_tc, ClearCurrTC) of
+	{error,_} = ClearError ->
+	    exit(ClearError);
+	_ ->
+	    ok
+    end,
 
     case FinalResult of
 	{auto_skip,{sequence_failed,_,_}} ->
@@ -1272,28 +1274,35 @@ report(What,Data) ->
 	    ct_util:set_testdata({What,Data}),
 	    ok;
 	tc_start ->
-	    %% Data = {{Suite,Func},LogFileName}
+	    %% Data = {Suite,{Func,GroupName}},LogFileName}
+	    Data1 = case Data of
+			{{Suite,{Func,undefined}},LFN} -> {{Suite,Func},LFN};
+			_ -> Data
+		    end,
 	    ct_event:sync_notify(#event{name=tc_logfile,
 					node=node(),
-					data=Data}),
+					data=Data1}),
 	    ok;
 	tc_done ->
-	    {_Suite,Case,Result} = Data,
+	    {Suite,{Func,GrName},Result} = Data,
+	    Data1 = if GrName == undefined -> {Suite,Func,Result};
+		       true                -> Data
+	    end,
 	    case Result of
 		{failed, _} ->
-		    ct_hooks:on_tc_fail(What, Data);
+		    ct_hooks:on_tc_fail(What, Data1);
 		{skipped,{failed,{_,init_per_testcase,_}}} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
+		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
 		{skipped,{require_failed,_}} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
+		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
 		{skipped,_} ->
-		    ct_hooks:on_tc_skip(tc_user_skip, Data);
+		    ct_hooks:on_tc_skip(tc_user_skip, Data1);
 		{auto_skipped,_} ->
-		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
+		    ct_hooks:on_tc_skip(tc_auto_skip, Data1);
 		_Else ->
 		    ok
 	    end,
-	    case {Case,Result} of
+	    case {Func,Result} of
 		{init_per_suite,_} ->
 		    ok;
 		{end_per_suite,_} ->
@@ -1322,20 +1331,17 @@ report(What,Data) ->
 	tc_user_skip ->
 	    %% test case or config function specified as skipped in testspec,
 	    %% or init config func for suite/group has returned {skip,Reason}
-	    %% Data = {Suite,Case,Comment} | 
-	    %%        {Suite,{GroupConfigFunc,GroupName},Comment} 
+	    %% Data = {Suite,{Func,GroupName},Comment}
 	    {Func,Data1} = case Data of
-			       {Suite,{ConfigFunc,undefined},Cmt} ->
-				   {ConfigFunc,{Suite,ConfigFunc,Cmt}};
-			       {_,{ConfigFunc,_},_} -> {ConfigFunc,Data};
-			       {_,Case,_} -> {Case,Data}
+			       {Suite,{F,undefined},Comment} ->
+				   {F,{Suite,F,Comment}};
+			       D = {_,{F,_},_} ->
+				   {F,D}
 			   end,
-
 	    ct_event:sync_notify(#event{name=tc_user_skip,
 					node=node(),
 					data=Data1}),
 	    ct_hooks:on_tc_skip(What, Data1),
-
 	    if Func /= init_per_suite, Func /= init_per_group,
 	       Func /= end_per_suite, Func /= end_per_group ->
 		    add_to_stats(user_skipped);
@@ -1345,13 +1351,12 @@ report(What,Data) ->
 	tc_auto_skip ->
 	    %% test case skipped because of error in config function, or
 	    %% config function skipped because of error in info function
-	    %% Data = {Suite,Case,Comment} |
-	    %%        {Suite,{GroupConfigFunc,GroupName},Comment} 
+	    %% Data = {Suite,{Func,GroupName},Comment}
 	    {Func,Data1} = case Data of
-			       {Suite,{ConfigFunc,undefined},Cmt} ->
-				   {ConfigFunc,{Suite,ConfigFunc,Cmt}};
-			       {_,{ConfigFunc,_},_} -> {ConfigFunc,Data};
-			       {_,Case,_} -> {Case,Data}
+			       {Suite,{F,undefined},Comment} ->
+				   {F,{Suite,F,Comment}};
+			       D = {_,{F,_},_} ->
+				   {F,D}
 			   end,
 	    %% this test case does not have a log, so printouts
 	    %% from event handlers should end up in the main log
@@ -1359,7 +1364,6 @@ report(What,Data) ->
 					node=node(),
 					data=Data1}),
 	    ct_hooks:on_tc_skip(What, Data1),
-
 	    if Func /= end_per_suite, 
 	       Func /= end_per_group ->
 		    add_to_stats(auto_skipped);
@@ -1412,7 +1416,7 @@ warn(_What) ->
     true.
 
 %%%-----------------------------------------------------------------
-%%% @spec add_data_dir(File0) -> File1
+%%% @spec add_data_dir(File0, Config) -> File1
 add_data_dir(File,Config) when is_atom(File) ->
     add_data_dir(atom_to_list(File),Config);
 

@@ -110,8 +110,16 @@ start_connection(server = Role, Socket, Options, Timeout) ->
 	{ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Opts]),
 	{_, Callback, _} =  proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
 	socket_control(Socket, Pid, Callback),
-	Ref = erlang:monitor(process, Pid),
-	handshake(Pid, Ref, Timeout)
+	case proplists:get_value(parallel_login, Opts, false) of
+	    true ->
+		spawn(fun() -> 
+			      Ref = erlang:monitor(process, Pid),
+			      handshake(Pid, Ref, Timeout) 
+		      end);
+	    false ->
+		Ref = erlang:monitor(process, Pid),
+		handshake(Pid, Ref, Timeout)
+	end
     catch
 	exit:{noproc, _} ->
 	    {error, ssh_not_started};
@@ -157,7 +165,7 @@ init([Role, Socket, SshOpts]) ->
 
 %%--------------------------------------------------------------------
 -spec open_channel(pid(), string(), iodata(), integer(), integer(),
-		   timeout()) -> {open, channel_id()} | {open_error, term(), string(), string()}.
+		   timeout()) -> {open, channel_id()} | {error, term()}.
 %%--------------------------------------------------------------------
 open_channel(ConnectionHandler, ChannelType, ChannelSpecificData,
 					InitialWindowSize,
@@ -206,7 +214,7 @@ global_request(ConnectionHandler, Type, false = Reply, Data) ->
     send_all_state_event(ConnectionHandler, {global_request, self(), Type, Reply, Data}).
 
 %%--------------------------------------------------------------------
--spec send(pid(), channel_id(), integer(), iolist(), timeout()) ->
+-spec send(pid(), channel_id(), integer(), iodata(), timeout()) ->
 		  ok | {error, timeout} | {error, closed}.
 %%--------------------------------------------------------------------
 send(ConnectionHandler, ChannelId, Type, Data, Timeout) ->

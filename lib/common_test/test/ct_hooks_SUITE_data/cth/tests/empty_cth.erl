@@ -229,9 +229,9 @@ post_end_per_testcase(TC,Config,Return,State) ->
 %% This function should be used for extra cleanup which might be needed.
 %% It is not possible to modify the config or the status of the test run.
 -spec on_tc_fail(TC :: init_per_suite | end_per_suite |
-		 init_per_group | end_per_group | atom(),
-		 Reason :: term(), State :: #state{}) ->
-    NewState :: #state{}.
+		       init_per_group | end_per_group | atom() |
+		       {Function :: atom(), GroupName :: atom()},
+		 Reason :: term(), State :: #state{}) -> NewState :: #state{}.
 on_tc_fail(TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
@@ -243,11 +243,11 @@ on_tc_fail(TC, Reason, State) ->
 %% or due to an init function failing. Test case can be
 %% end_per_suite, init_per_group, end_per_group and the actual test cases. 
 -spec on_tc_skip(TC :: end_per_suite |
-		 init_per_group | end_per_group | atom(),
+		       init_per_group | end_per_group | atom() |
+		       {Function :: atom(), GroupName :: atom()},
 		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(), Reason :: term()}}} |
-         {tc_user_skip, {skipped, Reason :: term()}},
-          State :: #state{}) ->
-    NewState :: #state{}.
+		 {tc_user_skip, {skipped, Reason :: term()}},
+		 State :: #state{}) -> NewState :: #state{}.
 on_tc_skip(TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),

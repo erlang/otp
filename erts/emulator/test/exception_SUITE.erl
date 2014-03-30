@@ -589,6 +589,13 @@ line_numbers(Config) when is_list(Config) ->
 	       [{file,ModFile},{line,_}]}|_]}} =
 	(catch build_binary2(8, bad_binary)),
 
+    <<"abc",357:16>> = build_binary3(<<"abc">>),
+    {'EXIT',{badarg,[{?MODULE,build_binary3,1,
+		      [{file,"bit_syntax.erl"},{line,72511}]},
+		     {?MODULE,line_numbers,1,
+		      [{file,ModFile},{line,_}]}|_]}} =
+	(catch build_binary3(no_binary)),
+
     {'EXIT',{function_clause,
 	     [{?MODULE,do_call_abs,[y,y],
 	       [{file,"gc_bif.erl"},{line,18}]},
@@ -690,6 +697,10 @@ build_binary1(Size) ->				%Line 72501
 build_binary2(Size, Bin) ->			%Line 72505
     id(0),					%Line 72506
     <<7:Size,Bin/binary>>.			%Line 72507
+
+build_binary3(Bin) ->			        %Line 72509
+    id(0),					%Line 72510
+    <<Bin/binary,357:16>>.			%Line 72511
 
 -file("gc_bif.erl", 17).
 do_call_abs(x, Arg) ->				%Line 18

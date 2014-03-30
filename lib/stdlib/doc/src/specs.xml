@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <specs xmlns:xi="http://www.w3.org/2001/XInclude">
   <xi:include href="../specs/specs_array.xml"/>
   <xi:include href="../specs/specs_base64.xml"/>
@@ -34,6 +34,7 @@
   <xi:include href="../specs/specs_lib.xml"/>
   <xi:include href="../specs/specs_lists.xml"/>
   <xi:include href="../specs/specs_log_mf_h.xml"/>
+  <xi:include href="../specs/specs_maps.xml"/>
   <xi:include href="../specs/specs_math.xml"/>
   <xi:include href="../specs/specs_ms_transform.xml"/>
   <xi:include href="../specs/specs_orddict.xml"/>

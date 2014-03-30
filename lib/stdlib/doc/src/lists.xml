@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -120,6 +120,14 @@
         <p>Returns a copy of <c><anno>List1</anno></c> where the first element
           matching <c><anno>Elem</anno></c> is deleted, if there is such an
           element.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="droplast" arity="1"/>
+      <fsummary>Drop the last element of a list</fsummary>
+      <desc>
+        <p>Drops the last element of a <c><anno>List</anno></c>. The list should
+           be non-empty, otherwise the function will crash with a <c>function_clause</c></p>
       </desc>
     </func>
     <func>

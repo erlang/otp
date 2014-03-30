@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -61,7 +61,13 @@ int ei_skip_term(const char* buf, int* index)
 	break;
     case ERL_SMALL_TUPLE_EXT:
     case ERL_LARGE_TUPLE_EXT:
-	if (ei_decode_tuple_header(buf, index, &n) < 0) return -1;	
+	if (ei_decode_tuple_header(buf, index, &n) < 0) return -1;
+	for (i = 0; i < n; ++i)
+	    ei_skip_term(buf, index);
+	break;
+    case ERL_MAP_EXT:
+	if (ei_decode_map_header(buf, index, &n) < 0) return -1;
+	n *= 2;
 	for (i = 0; i < n; ++i)
 	    ei_skip_term(buf, index);
 	break;

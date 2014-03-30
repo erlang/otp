@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -178,7 +178,11 @@ log_decision(D) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason); 
+	{'EXIT', Reason} ->
+            case mnesia_lib:other_val(Var) of
+                error -> mnesia_lib:pr_other(Var, Reason);
+                Val -> Val
+            end;
 	Value -> Value
     end.
 

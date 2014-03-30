@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,11 @@
 
 -define(THROW(T), throw({?MODULE, T})).
 
+%% Key to a value in the process dictionary that determines whether or
+%% not an unrecognized AVP setting the M-bit should be regarded as an
+%% error or not. See is_strict/0.
+-define(STRICT_KEY, strict).
+
 -type parent_name()   :: atom().  %% parent = Message or AVP
 -type parent_record() :: tuple(). %%
 -type avp_name()   :: atom().
@@ -34,6 +39,18 @@
 -type non_grouped_avp() :: #diameter_avp{}.
 -type grouped_avp() :: nonempty_improper_list(#diameter_avp{}, [avp()]).
 -type avp() :: non_grouped_avp() | grouped_avp().
+
+%% Use a (hopefully) unique key when manipulating the process
+%% dictionary.
+
+putr(K,V) ->
+    put({?MODULE, K}, V).
+
+getr(K) ->
+    get({?MODULE, K}).
+
+eraser(K) ->
+    erase({?MODULE, K}).
 
 %% ---------------------------------------------------------------------------
 %% # encode_avps/2
@@ -212,11 +229,60 @@ decode(Name, #diameter_avp{code = Code, vendor_id = Vid} = Avp, Acc) ->
 
 %% decode/4
 
+%% AVP is defined in the dictionary ...
 decode(Name, {AvpName, Type}, Avp, Acc) ->
     d(Name, Avp#diameter_avp{name = AvpName, type = Type}, Acc);
 
+%% ... or not.
 decode(Name, 'AVP', Avp, Acc) ->
     decode_AVP(Name, Avp, Acc).
+
+%% 6733, 4.4:
+%%
+%%   Receivers of a Grouped AVP that does not have the 'M' (mandatory)
+%%   bit set and one or more of the encapsulated AVPs within the group
+%%   has the 'M' (mandatory) bit set MAY simply be ignored if the
+%%   Grouped AVP itself is unrecognized. The rule applies even if the
+%%   encapsulated AVP with its 'M' (mandatory) bit set is further
+%%   encapsulated within other sub-groups, i.e., other Grouped AVPs
+%%   embedded within the Grouped AVP.
+%%
+%% The first sentence is slightly mangled, but take it to mean this:
+%%
+%%   An unrecognized AVP of type Grouped that does not set the 'M' bit
+%%   MAY be ignored even if one of its encapsulated AVPs sets the 'M'
+%%   bit.
+%%
+%% The text above is a change from RFC 3588, which instead says this:
+%%
+%%   Further, if any of the AVPs encapsulated within a Grouped AVP has
+%%   the 'M' (mandatory) bit set, the Grouped AVP itself MUST also
+%%   include the 'M' bit set.
+%%
+%% Both of these texts have problems. If the AVP is unknown then its
+%% type is unknown since the type isn't sent over the wire, so the
+%% 6733 text becomes a non-statement: don't know that the AVP not
+%% setting the M-bit is of type Grouped, therefore can't know that its
+%% data consists of encapsulated AVPs, therefore can't but ignore that
+%% one of these might set the M-bit. It should be no worse if we know
+%% the AVP to have type Grouped.
+%%
+%% Similarly, for the 3588 text: if we receive an AVP that doesn't set
+%% the M-bit and don't know that the AVP has type Grouped then we
+%% can't realize that its data contains an AVP that sets the M-bit, so
+%% can't regard the AVP as erroneous on this account. Again, it should
+%% be no worse if the type is known to be Grouped, but in this case
+%% the RFC forces us to regard the AVP as erroneous. This is
+%% inconsistent, and the 3588 text has never been enforced.
+%%
+%% So, if an AVP doesn't set the M-bit then we're free to ignore it,
+%% regardless of the AVP's type. If we know the type to be Grouped
+%% then we must ignore the M-bit on an encapsulated AVP. That means
+%% packing such an encapsulated AVP into an 'AVP' field if need be,
+%% not regarding the lack of a specific field as an error as is
+%% otherwise the case. (The lack of an AVP-specific field being how we
+%% defined the RFC's "unrecognized", which is slightly stronger than
+%% "not defined".)
 
 %% d/3
 
@@ -230,8 +296,18 @@ d('Failed-AVP' = Name, Avp, Acc) ->
 %% Or try to decode.
 d(Name, Avp, {Avps, Acc}) ->
     #diameter_avp{name = AvpName,
-                  data = Data}
+                  data = Data,
+                  type = Type,
+                  is_mandatory = M}
         = Avp,
+
+    %% Use the process dictionary is to keep track of whether or not
+    %% to ignore an M-bit on an encapsulated AVP. Not ideal, but the
+    %% alternative requires widespread changes to be able to pass the
+    %% value around through the entire decode. The solution here is
+    %% simple in comparison, both to implement and to understand.
+
+    Reset = relax(Type, M),
 
     try avp(decode, Data, AvpName) of
         V ->
@@ -250,7 +326,31 @@ d(Name, Avp, {Avps, Acc}) ->
                              {Reason, Avp, erlang:get_stacktrace()}),
             {Rec, Failed} = Acc,
             {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}
+    after
+        relax(Reset)
     end.
+
+%% Set false in the process dictionary as soon as we see a Grouped AVP
+%% that doesn't set the M-bit, so that is_strict() can say whether or
+%% not to ignore the M-bit on an encapsulated AVP.
+relax('Grouped', M) ->
+    V = getr(?STRICT_KEY),
+    if V == undefined andalso not M ->
+            putr(?STRICT_KEY, M);
+       true ->
+            false
+    end;
+relax(_, _) ->
+    false.
+
+%% Reset strictness.
+relax(undefined) ->
+    eraser(?STRICT_KEY);
+relax(false) ->
+    ok.
+
+is_strict() ->
+    false /= getr(?STRICT_KEY).
 
 %% decode_AVP/3
 %%
@@ -310,20 +410,23 @@ pack_avp(_, Arity, Avp, Acc) ->
 
 %% pack_AVP/3
 
-%% Give Failed-AVP special treatment since it'll contain any
-%% unrecognized mandatory AVP's.
-pack_AVP(Name, #diameter_avp{is_mandatory = true} = Avp, Acc)
-  when Name /= 'Failed-AVP' ->
-    {Rec, Failed} = Acc,
-    {Rec, [{5001, Avp} | Failed]};
-
 pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
-    case avp_arity(Name, 'AVP') of
+    case pack_arity(Name, M) of
         0 ->
             {Rec, Failed} = Acc,
             {Rec, [{if M -> 5001; true -> 5008 end, Avp} | Failed]};
         Arity ->
             pack(Arity, 'AVP', Avp, Acc)
+    end.
+
+%% Give Failed-AVP special treatment since it'll contain any
+%% unrecognized mandatory AVP's.
+pack_arity(Name, M) ->
+    case Name /= 'Failed-AVP' andalso M andalso is_strict() of
+        true ->
+            0;
+        false ->
+            avp_arity(Name, 'AVP')
     end.
 
 %% 3588:

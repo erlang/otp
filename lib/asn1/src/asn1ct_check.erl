@@ -270,46 +270,30 @@ check_exports(S,Module = #module{}) ->
 	    end
     end.
 
-check_imports(S,Module = #module{ }) ->
-    case Module#module.imports of
-	{imports,[]} ->
-	    [];
-	{imports,ImportList} when is_list(ImportList) ->
-	    check_imports2(S,ImportList,[]);
-	_ ->
-	    []
-    end.
-check_imports2(_S,[],Acc) ->
+check_imports(S, #module{imports={imports,Imports}}) ->
+    check_imports_1(S, Imports, []).
+
+check_imports_1(_S, [], Acc) ->
     Acc;
-check_imports2(S,[#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs],Acc) ->
-    NameOfDef =
-	fun(#'Externaltypereference'{type=N}) -> N;
-	   (#'Externalvaluereference'{value=N}) -> N
-	end,
-    Module = NameOfDef(ModuleRef),
-    Refs = [{M,R}||{{M,_},R} <- [{catch get_referenced_type(S,Ref),Ref}||Ref <- Imports]],
-    {Illegal,Other} = lists:splitwith(fun({error,_}) -> true;(_) -> false end,
-				      Refs),
-    ChainedRefs = [R||{M,R} <- Other, M =/= Module],
-    IllegalRefs = [R||{error,R} <- Illegal] ++ 
-	[R||{M,R} <- ChainedRefs, 
-	    ok =/= chained_import(S,Module,M,NameOfDef(R))],
-    ReportError =
-	fun(Ref) ->
-		NewS=S#state{type=Ref,tname=NameOfDef(Ref)},
-		error({import,"imported undefined entity",NewS})
-	end,
-    check_imports2(S,SFMs,[ReportError(Err)||Err <- IllegalRefs]++Acc).
+check_imports_1(S, [#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs], Acc0) ->
+    Module = name_of_def(ModuleRef),
+    Refs0 = [{catch get_referenced_type(S, Ref),Ref} || Ref <- Imports],
+    Refs = [{M,R} || {{M,_},R} <- Refs0],
+    {Illegal,Other} = lists:splitwith(fun({error,_}) -> true;
+					 (_) -> false
+				      end, Refs),
+    ChainedRefs = [R || {M,R} <- Other, M =/= Module],
+    IllegalRefs = [R || {error,R} <- Illegal] ++
+	[R || {M,R} <- ChainedRefs,
+	      ok =/= chained_import(S, Module, M, name_of_def(R))],
+    Acc = [return_asn1_error(S, Ref, {undefined_import,name_of_def(Ref),Module}) ||
+	      Ref <- IllegalRefs] ++ Acc0,
+    check_imports_1(S, SFMs, Acc).
 
 chained_import(S,ImpMod,DefMod,Name) ->
     %% Name is a referenced structure that is not defined in ImpMod,
     %% but must be present in the Imports list of ImpMod. The chain of
     %% imports of Name must end in DefMod.
-    NameOfDef =
-	fun(#'Externaltypereference'{type=N}) -> N;
-	   (#'Externalvaluereference'{value=N}) -> N;
-	   (Other) -> Other
-	end,
     GetImports =
 	fun(_M_) ->
 		case asn1_db:dbget(_M_,'MODULE') of
@@ -321,9 +305,9 @@ chained_import(S,ImpMod,DefMod,Name) ->
     FindNameInImports =
 	fun([],N,_) -> {no_mod,N};
 	   ([#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs],N,F) ->
-		case [NameOfDef(X)||X <- Imports, NameOfDef(X) =:= N] of
+		case [name_of_def(X) || X <- Imports, name_of_def(X) =:= N] of
 		    [] -> F(SFMs,N,F);
-		    [N] -> {NameOfDef(ModuleRef),N}
+		    [N] -> {name_of_def(ModuleRef),N}
 		end
 	end,
     case GetImports(ImpMod) of
@@ -1567,13 +1551,13 @@ check_defaultfields(S, Fields, ClassFields) ->
 	[] ->
 	    ok;
 	[_|_]=Invalid ->
-	    throw(asn1_error(S, T, {invalid_fields,Invalid,Obj}))
+	    asn1_error(S, T, {invalid_fields,Invalid,Obj})
     end,
     case ordsets:subtract(Mandatory, Present) of
 	[] ->
 	    check_defaultfields_1(S, Fields, ClassFields, []);
 	[_|_]=Missing ->
-	    throw(asn1_error(S, T, {missing_mandatory_fields,Missing,Obj}))
+	    asn1_error(S, T, {missing_mandatory_fields,Missing,Obj})
     end.
 
 check_defaultfields_1(_S, [], _ClassFields, Acc) ->
@@ -2464,7 +2448,7 @@ normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
 	{'BIT STRING',CType,_} ->
 	    normalize_bitstring(S,Value,CType);
 	{'OCTET STRING',CType,_} ->
-	    normalize_octetstring(S,Value,CType);
+	    normalize_octetstring(S0, Value, CType);
 	{'NULL',_CType,_} ->
 	    %%normalize_null(Value);
 	    'NULL';
@@ -2574,6 +2558,18 @@ normalize_bitstring(S, Value, Type)->
 	    Bs
     end.
 
+hstring_to_binary(L) ->
+    byte_align(hstring_to_bitstring(L)).
+
+bstring_to_binary(L) ->
+    byte_align(bstring_to_bitstring(L)).
+
+byte_align(Bs) ->
+    case bit_size(Bs) rem 8 of
+	0 -> Bs;
+	N -> <<Bs/bitstring,0:(8-N)>>
+    end.
+
 hstring_to_bitstring(L) ->
     << <<(hex_to_int(D)):4>> || D <- L >>.
 
@@ -2592,58 +2588,18 @@ hex_to_int(D) when $A =< D, D =< $F -> D - ($A - 10).
 normalize_octetstring(S,Value,CType) ->
     case Value of
 	{bstring,String} ->
-	    bstring_to_octetlist(String);
+	    bstring_to_binary(String);
 	{hstring,String} ->
-	    hstring_to_octetlist(String);
+	    hstring_to_binary(String);
 	Rec when is_record(Rec,'Externalvaluereference') ->
 	    get_normalized_value(S,Value,CType,
 				 fun normalize_octetstring/3,[]);
 	{Name,String} when is_atom(Name) ->
 	    normalize_octetstring(S,String,CType);
-	List when is_list(List) ->
-	    %% check if list elements are valid octet values
-	    lists:map(fun([])-> ok;
-			 (H)when H > 255->
-			      asn1ct:warning("not legal octet value ~p in OCTET STRING, ~p~n",
-					     [H,List],S,
-					     "not legal octet value ~p in OCTET STRING");
-			 (_)-> ok
-		      end, List),
-	    List;
-	Other ->
-	    asn1ct:warning("unknown default value ~p~n",[Other],S,
-			   "unknown default value"),
-	    Value
+	_ ->
+	    Item = S#state.value,
+	    asn1_error(S, Item, illegal_octet_string_value)
     end.
-
-
-bstring_to_octetlist([]) ->
-    [];
-bstring_to_octetlist([H|T]) when H == $0 ; H == $1 ->
-    bstring_to_octetlist(T,6,[(H - $0) bsl 7]).
-bstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H == $0; H == $1 ->
-    bstring_to_octetlist(T, 7, [0,Hacc + (H -$0)| Tacc]);
-bstring_to_octetlist([H|T],BSL,[Hacc|Tacc]) when H == $0; H == $1 ->
-    bstring_to_octetlist(T, BSL-1, [Hacc + ((H - $0) bsl BSL)| Tacc]);
-bstring_to_octetlist([],7,[0|Acc]) ->
-    lists:reverse(Acc);
-bstring_to_octetlist([],_,Acc) ->
-    lists:reverse(Acc).
-
-hstring_to_octetlist([]) ->
-    [];
-hstring_to_octetlist(L) ->
-    hstring_to_octetlist(L,4,[]).
-hstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H >= $A, H =< $F ->
-    hstring_to_octetlist(T,4,[Hacc + (H - $A + 10)|Tacc]);
-hstring_to_octetlist([H|T],BSL,Acc) when H >= $A, H =< $F ->
-    hstring_to_octetlist(T,0,[(H - $A + 10) bsl BSL|Acc]);
-hstring_to_octetlist([H|T],0,[Hacc|Tacc]) when H >= $0; H =< $9 ->
-    hstring_to_octetlist(T,4,[Hacc + (H - $0)|Tacc]);
-hstring_to_octetlist([H|T],BSL,Acc) when H >= $0; H =< $9 ->
-    hstring_to_octetlist(T,0,[(H - $0) bsl BSL|Acc]);
-hstring_to_octetlist([],_,Acc) ->
-    lists:reverse(Acc).
 
 normalize_objectidentifier(S, Value) ->
     {ok,Val} = validate_objectidentifier(S, o_id, Value, []),
@@ -2659,18 +2615,21 @@ normalize_objectdescriptor(Value) ->
 normalize_real(Value) ->
     Value.
 
-normalize_enumerated(S, Id, {Base,Ext}) ->
+normalize_enumerated(S, Id0, NNL) ->
+    {Id,_} = lookup_enum_value(S, Id0, NNL),
+    Id.
+
+lookup_enum_value(S, Id, {Base,Ext}) ->
     %% Extensible ENUMERATED.
-    normalize_enumerated(S, Id, Base++Ext);
-normalize_enumerated(S, #'Externalvaluereference'{value=Id},
-		    NamedNumberList) ->
-    normalize_enumerated(S, Id, NamedNumberList);
-normalize_enumerated(S, Id, NamedNumberList) when is_atom(Id) ->
-    case lists:keymember(Id, 1, NamedNumberList) of
-	true ->
-	    Id;
+    lookup_enum_value(S, Id, Base++Ext);
+lookup_enum_value(S, #'Externalvaluereference'{value=Id}, NNL) ->
+    lookup_enum_value(S, Id, NNL);
+lookup_enum_value(S, Id, NNL) when is_atom(Id) ->
+    case lists:keyfind(Id, 1, NNL) of
+	{_,_}=Ret ->
+	    Ret;
 	false ->
-	    throw(asn1_error(S, S#state.value, {undefined,Id}))
+	    asn1_error(S, S#state.value, {undefined,Id})
     end.
 
 normalize_choice(S,{'CHOICE',{C,V}},CType,NameList) when is_atom(C) ->
@@ -3105,12 +3064,11 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		Ct=maybe_illicit_implicit_tag(open_type,Tag),
 		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
 	    'INTEGER' ->
-		check_integer(S,[],Constr),
 		TempNewDef#newt{tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 
 	    {'INTEGER',NamedNumberList} ->
-		TempNewDef#newt{type={'INTEGER',check_integer(S,NamedNumberList,Constr)},
+		TempNewDef#newt{type={'INTEGER',check_integer(S,NamedNumberList)},
 				tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 	    'REAL' ->
@@ -3118,8 +3076,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 
 		TempNewDef#newt{tag=merge_tags(Tag,?TAG_PRIMITIVE(?N_REAL))};
 	    {'BIT STRING',NamedNumberList} ->
-		NewL = check_bitstring(S,NamedNumberList,Constr),
-%%		erlang:display({asn1ct_check,NamedNumberList,NewL}),
+		NewL = check_bitstring(S, NamedNumberList),
 		TempNewDef#newt{type={'BIT STRING',NewL},
 				tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_BIT_STRING))};
@@ -3803,8 +3760,9 @@ resolv_value(S,Val) ->
     resolv_value1(S,Id).
 
 resolv_value1(S, ERef = #'Externalvaluereference'{value=Name}) ->
-    case catch resolve_namednumber(S,S#state.type,Name) of
-	V when is_integer(V) -> V;
+    case catch resolve_namednumber(S, S#state.type, Name) of
+	V when is_integer(V) ->
+	    V;
 	_ ->
 	    case get_referenced_type(S,ERef) of
 		{Err,_Reason} when Err == error; Err == 'EXIT' ->
@@ -3857,21 +3815,20 @@ resolve_value_from_object(S,Object,FieldName) ->
     end.
 
 
-
 resolve_namednumber(S,#typedef{typespec=Type},Name) ->
     case Type#type.def of
 	{'ENUMERATED',NameList} ->
-	    NamedNumberList=check_enumerated(S,NameList,Type#type.constraint),
-	    N = normalize_enumerated(S,Name,NamedNumberList),
-	    {value,{_,V}} = lists:keysearch(N,1,NamedNumberList),
-	    V;
+	    resolve_namednumber_1(S, Name, NameList, Type);
 	{'INTEGER',NameList} ->
-	    NamedNumberList = check_enumerated(S,NameList,Type#type.constraint),
-	    {value,{_,V}} = lists:keysearch(Name,1,NamedNumberList),
-	    V;
+	    resolve_namednumber_1(S, Name, NameList, Type);
 	_ ->
 	    not_enumerated
     end.
+
+resolve_namednumber_1(S, Name, NameList, Type) ->
+    NamedNumberList = check_enumerated(S, NameList, Type#type.constraint),
+    {_,N} = lookup_enum_value(S, Name, NamedNumberList),
+    N.
     
 check_constraints(S,[{'ContainedSubtype',Type} | Rest], Acc) ->
     {RefMod,CTDef} = get_referenced_type(S,Type#type.def),
@@ -3952,9 +3909,9 @@ check_constraint(S,{simpletable,Type}) ->
 	#'Externaltypereference'{} ->
 	    ERef = check_externaltypereference(S,C),
 	    {simpletable,ERef#'Externaltypereference'.type};
-	#type{def=#'Externaltypereference'{type=T}} ->
-	    check_externaltypereference(S,C#type.def),
-	    {simpletable,T};
+	#type{def=#'Externaltypereference'{}=ExtTypeRef} ->
+	    ERef = check_externaltypereference(S, ExtTypeRef),
+	    {simpletable,ERef#'Externaltypereference'.type};
 	{valueset,#type{def=ERef=#'Externaltypereference'{}}} -> % this is an object set
 	    {_,TDef} = get_referenced_type(S,ERef),
 	    case TDef#typedef.typespec of 
@@ -4936,73 +4893,46 @@ imported1(Name,
     end;
 imported1(_Name,[]) ->
     false.
-	
 
-check_integer(_S,[],_C) ->
+%% Check the named number list for an INTEGER or a BIT STRING.
+check_named_number_list(_S, []) ->
     [];
-check_integer(S,NamedNumberList,_C) ->
-    case [X || X <- NamedNumberList, tuple_size(X) =:= 2] of
-	NamedNumberList ->
-	    %% An already checked integer with NamedNumberList
-	    NamedNumberList;
-	_ ->
-	    case check_unique(NamedNumberList,2) of
-		[] -> 
-		    check_int(S,NamedNumberList,[]);
-		L when is_list(L) ->
-		    error({type,{duplicates,L},S}),
-		    unchanged
-	    end
+check_named_number_list(_S, [{_,_}|_]=NNL) ->
+    %% The named number list has already been checked.
+    NNL;
+check_named_number_list(S, NNL0) ->
+    %% Check that the names are unique.
+    T = S#state.type,
+    case check_unique(NNL0, 2) of
+	[] ->
+	    NNL1 = [{Id,resolve_valueref(S, Val)} || {'NamedNumber',Id,Val} <- NNL0],
+	    NNL = lists:keysort(2, NNL1),
+	    case check_unique(NNL, 2) of
+		[] ->
+		    NNL;
+		[Val|_] ->
+		    asn1_error(S, T, {value_reused,Val})
+	    end;
+	[H|_] ->
+	    asn1_error(S, T, {namelist_redefinition,H})
     end.
 
-    
-check_int(S,[{'NamedNumber',Id,Num}|T],Acc) when is_integer(Num) ->
-    check_int(S,T,[{Id,Num}|Acc]);
-check_int(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc) ->
-    Val = dbget_ex(S,S#state.mname,Name),
-    check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
-check_int(S,[{'NamedNumber',Id,{'Externalvaluereference',_,Mod,Name}}|T],Acc) ->
-    Val = dbget_ex(S,Mod,Name),
-    check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
-check_int(_S,[],Acc) ->
-    lists:keysort(2,Acc).
+resolve_valueref(S, #'Externalvaluereference'{module=Mod,value=Name}) ->
+    dbget_ex(S, Mod, Name);
+resolve_valueref(_, Val) when is_integer(Val) ->
+    Val.
+
+check_integer(S, NNL) ->
+    check_named_number_list(S, NNL).
+
+check_bitstring(S, NNL0) ->
+    NNL = check_named_number_list(S, NNL0),
+    _ = [asn1_error(S, S#state.type, {invalid_bit_number,Bit}) ||
+	    {_,Bit} <- NNL, Bit < 0],
+    NNL.
 
 check_real(_S,_Constr) ->
     ok.
-
-check_bitstring(_S,[],_Constr) ->
-    [];
-check_bitstring(S,NamedNumberList,_Constr) ->
-    case check_unique(NamedNumberList,2) of
-	[] ->
-	    check_bitstr(S,NamedNumberList,[]);
-	L when is_list(L) ->
-	    error({type,{duplicates,L},S}),
-	    unchanged
-    end.
-
-check_bitstr(S,[{'NamedNumber',Id,Num}|T],Acc)when is_integer(Num) ->
-    check_bitstr(S,T,[{Id,Num}|Acc]);
-check_bitstr(S,[{'NamedNumber',Id,Name}|T],Acc) when is_atom(Name) ->
-%%check_bitstr(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc) -> 
-%%    io:format("asn1ct_check:check_bitstr/3 hej hop ~w~n",[Name]),
-    Val = dbget_ex(S,S#state.mname,Name),
-%%    io:format("asn1ct_check:check_bitstr/3: ~w~n",[Val]),
-    check_bitstr(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
-check_bitstr(S,[],Acc) ->
-    case check_unique(Acc,2) of
-	[] ->
-	    lists:keysort(2,Acc);
-	L when is_list(L) ->
-	    error({type,{duplicate_values,L},S}),
-	    unchanged
-    end;
-%% When a BIT STRING already is checked, for instance a COMPONENTS OF S
-%% where S is a sequence that has a component that is a checked BS, the
-%% NamedNumber list is a list of {atom(),integer()} elements.
-check_bitstr(S,[El={Id,Num}|Rest],Acc) when is_atom(Id),is_integer(Num) ->
-    check_bitstr(S,Rest,[El|Acc]).
-    
     
 %% Check INSTANCE OF
 %% check that DefinedObjectClass is of TYPE-IDENTIFIER class
@@ -5013,20 +4943,16 @@ check_instance_of(S,DefinedObjectClass,Constraint) ->
     check_type_identifier(S,DefinedObjectClass),
     iof_associated_type(S,Constraint).
     
-
-check_type_identifier(_S,'TYPE-IDENTIFIER') ->
-    ok;
-check_type_identifier(S,Eref=#'Externaltypereference'{}) ->
-    case get_referenced_type(S,Eref) of
-	{_,#classdef{name='TYPE-IDENTIFIER'}} -> ok;
-	{_,#classdef{typespec=NextEref}} 
-	when is_record(NextEref,'Externaltypereference') ->
-	    check_type_identifier(S,NextEref);
+check_type_identifier(S, Eref=#'Externaltypereference'{type=Class}) ->
+    case get_referenced_type(S, Eref) of
+	{_,#classdef{name='TYPE-IDENTIFIER'}} ->
+	    ok;
+	{_,#classdef{typespec=#'Externaltypereference'{}=NextEref}} ->
+	    check_type_identifier(S, NextEref);
 	{_,TD=#typedef{typespec=#type{def=#'Externaltypereference'{}}}} ->
-	    check_type_identifier(S,(TD#typedef.typespec)#type.def);
-	Err ->
-	    error({type,{"object set in type INSTANCE OF "
-			 "not of class TYPE-IDENTIFIER",Eref,Err},S})
+	    check_type_identifier(S, (TD#typedef.typespec)#type.def);
+	_ ->
+	    asn1_error(S, S#state.type, {illegal_instance_of,Class})
     end.
 
 iof_associated_type(S,[]) ->
@@ -5156,9 +5082,6 @@ check_enumerated(S,NamedNumberList,_Constr) ->
 %% the latter is returned if the ENUMERATION contains EXTENSIONMARK
 check_enum(S,[{'NamedNumber',Id,Num}|T],Acc1,Acc2,Root) when is_integer(Num) ->
     check_enum(S,T,[{Id,Num}|Acc1],Acc2,Root);
-check_enum(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc1,Acc2,Root) ->
-    Val = dbget_ex(S,S#state.mname,Name),
-    check_enum(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc1,Acc2,Root);
 check_enum(S,['EXTENSIONMARK'|T],Acc1,Acc2,_Root) ->
     NewAcc2 = lists:keysort(2,Acc1),
     NewList = enum_number(lists:reverse(Acc2),NewAcc2,0,[],[]),
@@ -6774,7 +6697,7 @@ storeindb(#state{mname=Module}=S, [H|T], Errors) ->
 	    storeindb(S, T, Errors);
 	Prev ->
 	    PrevLine = asn1ct:get_pos_of_def(Prev),
-	    {error,Error} = asn1_error(S, H, {already_defined,Name,PrevLine}),
+	    Error = return_asn1_error(S, H, {already_defined,Name,PrevLine}),
 	    storeindb(S, T, [Error|Errors])
     end;
 storeindb(_, [], []) ->
@@ -6821,20 +6744,37 @@ findtypes_and_values([],Tacc,Vacc,Pacc,Cacc,Oacc,OSacc) ->
     {lists:reverse(Tacc),lists:reverse(Vacc),lists:reverse(Pacc),
      lists:reverse(Cacc),lists:reverse(Oacc),lists:reverse(OSacc)}.
     
-asn1_error(#state{mname=Where}, Item, Error) ->
+return_asn1_error(#state{mname=Where}, Item, Error) ->
     Pos = asn1ct:get_pos_of_def(Item),
-    {error,{structured_error,{Where,Pos},?MODULE,Error}}.
+    {structured_error,{Where,Pos},?MODULE,Error}.
+
+asn1_error(S, Item, Error) ->
+    throw({error,return_asn1_error(S, Item, Error)}).
 
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({illegal_instance_of,Class}) ->
+    io_lib:format("using INSTANCE OF on class '~s' is illegal, "
+		  "because INSTANCE OF may only be used on the class TYPE-IDENTFIER",
+		  [Class]);
+format_error(illegal_octet_string_value) ->
+    "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
+format_error({invalid_bit_number,Bit}) ->
+    io_lib:format("the bit number '~p' is invalid", [Bit]);
 format_error({missing_mandatory_fields,Fields,Obj}) ->
     io_lib:format("missing mandatory ~s in ~p",
 		  [format_fields(Fields),Obj]);
+format_error({namelist_redefinition,Name}) ->
+    io_lib:format("the name '~s' can not be redefined", [Name]);
 format_error({undefined,Name}) ->
     io_lib:format("'~s' is referenced, but is not defined", [Name]);
+format_error({undefined_import,Ref,Module}) ->
+    io_lib:format("'~s' is not exported from ~s", [Ref,Module]);
+format_error({value_reused,Val}) ->
+    io_lib:format("the value '~p' is used more than once", [Val]);
 format_error(Other) ->
     io_lib:format("~p", [Other]).
 
@@ -6850,14 +6790,6 @@ error({export,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
     Pos = Ref#'Externaltypereference'.pos,
     io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
     {error,{export,Pos,Mname,Typename,Msg}};
-error({import,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
-    PosOfDef =
-	fun(#'Externaltypereference'{pos=P}) -> P;
-	   (#'Externalvaluereference'{pos=P}) -> P
-	end,
-    Pos = PosOfDef(Ref),
-    io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
-    {error,{import,Pos,Mname,Typename,Msg}};
 % error({type,{Msg1,Msg2},#state{mname=Mname,type=Type,tname=Typename}}) 
 %   when is_record(Type,typedef) ->
 %     io:format("asn1error:~p:~p:~p ~p~n",
@@ -7158,3 +7090,6 @@ check_fold(S, [H|T], Check) ->
 	    [Error|check_fold(S, T, Check)]
     end;
 check_fold(_, [], Check) when is_function(Check, 3) -> [].
+
+name_of_def(#'Externaltypereference'{type=N}) -> N;
+name_of_def(#'Externalvaluereference'{value=N}) -> N.

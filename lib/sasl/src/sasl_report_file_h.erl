@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@ init({File, Type}) ->
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
 handle_event(Event, {Fd, File, Type}) ->
-    sasl_report:write_report(Fd, Type, tag_event(Event)),
+    _ = sasl_report:write_report(Fd, Type, tag_event(Event)),
     {ok, {Fd, File, Type}};
 handle_event(_, State) ->
     {ok, State}.
@@ -53,7 +53,7 @@ handle_info(_, State) ->
 handle_call(_Query, _State) -> {error, bad_query}.
 
 terminate(_, {Fd, _File, _Type}) ->
-    file:close(Fd),
+    _ = file:close(Fd),
     [].
 
 tag_event(Event) ->    

@@ -114,7 +114,7 @@ $(INDEX_SCRIPT): $(INDEX_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
 # We don't list toc_*.html as targets because we don't know
-$(HTMLDIR)/index.html + $(HTMLDIR)/applications.html: $(INDEX_SCRIPT)
+$(HTMLDIR)/index.html + $(HTMLDIR)/applications.html: $(INDEX_SCRIPT) $(TEMPLATES)
 	echo "Generating index $@"
 # Check if we are building the index from source or an installed release
 	if test "$$RELEASE_ROOT" = "" ; then \
@@ -198,7 +198,7 @@ $(GLOSSARY): $(GLOSSARY_SCRIPT)
 
 #--------------------------------------------------------------------------
 
-PR.template: PR.template.src $(ERL_TOP)/erts/vsn.mk
+PR.template: PR.template.src $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%VSN%;$(VSN);' \
 	    -e 's;%SYSTEM_VSN%;$(SYSTEM_VSN);' \
 	    $< > $@

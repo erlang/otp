@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,7 @@
 -include("../ssa/hipe_ssa.inc").
 
 %% Declarations for exported functions which are Icode-specific.
--spec ssa_liveness__analyze(#cfg{}) -> gb_tree().
+-spec ssa_liveness__analyze(#cfg{}) -> gb_trees:tree().
 -spec ssa_liveness__livein(_, icode_lbl()) -> [#icode_variable{}].
 %% -spec ssa_liveness__livein(_, icode_lbl(), _) -> [#icode_var{}].
 

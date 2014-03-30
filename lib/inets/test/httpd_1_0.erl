@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 
 -module(httpd_1_0).
 
--export([host/4]).
+-export([host/4, trace/4]).
 
 %%-------------------------------------------------------------------------
 %% Test cases 
@@ -30,4 +30,9 @@ host(Type, Port, Host, Node) ->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET / HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
+					{version, "HTTP/1.0"}]).
+trace(Type, Port, Host, Node)->
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "TRACE / HTTP/1.0\r\n\r\n",
+				       [{statuscode, 501}, 
 					{version, "HTTP/1.0"}]).

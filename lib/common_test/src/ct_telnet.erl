@@ -17,51 +17,147 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test specific layer on top of telnet client ct_telnet_client.erl
-%%%
-%%% <p>Use this module to set up telnet connections, send commands and
-%%% perform string matching on the result.
-%%% See the <c>unix_telnet</c> manual page for information about how to use 
-%%% ct_telnet, and configure connections, specifically for unix hosts.</p>
-%%% <p>The following default values are defined in ct_telnet:</p>
-%%% <pre>
-%%% Connection timeout = 10 sec (time to wait for connection)
-%%% Command timeout = 10 sec (time to wait for a command to return)
-%%% Max no of reconnection attempts = 3
-%%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
-%%% <p>These parameters can be altered by the user with the following
-%%% configuration term:</p>
-%%% <pre>
-%%% {telnet_settings, [{connect_timeout,Millisec},
-%%%                    {command_timeout,Millisec},
-%%%                    {reconnection_attempts,N},
-%%%                    {reconnection_interval,Millisec},
-%%%                    {keep_alive,Bool}]}.</pre>
-%%% <p><code>Millisec = integer(), N = integer()</code></p>
-%%% <p>Enter the <code>telnet_settings</code> term in a configuration 
-%%% file included in the test and ct_telnet will retrieve the information
-%%% automatically. Note that <c>keep_alive</c> may be specified per connection if
-%%% required. See <c>unix_telnet</c> for details.</p></doc>
+%% @doc Common Test specific layer on top of telnet client `ct_telnet_client.erl'
+%%
+%% <p>Use this module to set up telnet connections, send commands and
+%% perform string matching on the result.
+%% See the `unix_telnet' manual page for information about how to use 
+%% `ct_telnet', and configure connections, specifically for unix hosts.</p>
+%% <p>The following default values are defined in `ct_telnet':</p>
+%% <pre>
+%% Connection timeout = 10 sec (time to wait for connection)
+%% Command timeout = 10 sec (time to wait for a command to return)
+%% Max no of reconnection attempts = 3
+%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
+%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
+%% <p>These parameters can be altered by the user with the following
+%% configuration term:</p>
+%% <pre>
+%% {telnet_settings, [{connect_timeout,Millisec},
+%%                    {command_timeout,Millisec},
+%%                    {reconnection_attempts,N},
+%%                    {reconnection_interval,Millisec},
+%%                    {keep_alive,Bool}]}.</pre>
+%% <p><code>Millisec = integer(), N = integer()</code></p>
+%% <p>Enter the <code>telnet_settings</code> term in a configuration 
+%% file included in the test and ct_telnet will retrieve the information
+%% automatically. Note that `keep_alive' may be specified per connection if
+%% required. See `unix_telnet' for details.</p>
+%%
+%% == Logging ==
+%%
+%% `ct_telnet' can be configured to uses the `error_logger' for logging telnet
+%% traffic. A special purpose error handler is implemented in
+%% `ct_conn_log_h'. To use this error handler, add the `cth_conn_log'
+%% hook in your test suite, e.g:
+%%
+%%
+%% ```
+%% suite() ->
+%%    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
+%%'''
+%%
+%% `conn_mod()' is the name of the common_test module implementing
+%% the connection protocol, i.e. `ct_telnet'.
+%%
+%% The hook option `log_type' specifies the type of logging:
+%%
+%% <dl>
+%%   <dt>`raw'</dt>
+%%   <dd>The sent and received telnet data is logged to a separate
+%%   text file as is, without any formatting. A link to the file is
+%%   added to the test case HTML log.</dd>
+%%
+%%   <dt>`html (default)'</dt>
+%%   <dd>The sent and received telnet traffic is pretty printed
+%%   directly in the test case HTML log.</dd>
+%%
+%%   <dt>`silent'</dt>
+%%   <dd>Telnet traffic is not logged.</dd>
+%% </dl>
+%%
+%% By default, all telnet traffic is logged in one single log
+%% file. However, it is possible to have different connections logged
+%% in separate files. To do this, use the hook option `hosts' and
+%% list the names of the servers/connections that will be used in the
+%% suite. Note that the connections must be named for this to work
+%% (see the `open' function below).
+%%
+%% The `hosts' option has no effect if `log_type' is set to `html' or
+%% `silent'.
+%%
+%% The hook options can also be specified in a configuration file with
+%% the configuration variable `ct_conn_log':
+%%
+%% ```
+%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
+%% '''
+%%
+%% For example:
+%%
+%% ```
+%% {ct_conn_log,[{ct_telnet,[{log_type,raw},
+%%                           {hosts,[key_or_name()]}]}]}
+%% '''
+%%
+%% <b>Note</b> that hook options specified in a configuration file
+%% will overwrite any hardcoded hook options in the test suite.
+%%
+%% === Logging example 1 ===
+%%
+%% The following `ct_hooks' statement will cause raw printing of
+%% telnet traffic to separate logs for the connections named
+%% `server1' and `server2'. Any other connections will be logged
+%% to default telnet log.
+%%
+%% ```
+%% suite() ->
+%%    [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
+%%                                             {hosts,[server1,server2]}]}
+%%                                ]}]}].
+%%'''
+%%
+%% === Logging example 2 ===
+%%
+%% The following configuration file will cause raw logging of all
+%% telnet traffic into one single text file.
+%%
+%% ```
+%% {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.
+%% '''
+%%
+%% The `ct_hooks' statement must look like this:
+%%
+%% ```
+%% suite() ->
+%%    [{ct_hooks, [{cth_conn_log, []}]}].
+%% '''
+%%
+%% The same `ct_hooks' statement without the configuration file would
+%% cause HTML logging of all telnet connections into the test case
+%% HTML log.
+%%
+%% <b>Note</b> that if the `cth_conn_log' hook is not added, telnet
+%% traffic is still logged in the test case HTML log file (on the legacy
+%% `ct_telnet' format).
+%% @end
 
-%%% @type connection_type() = telnet | ts1 | ts2
+%% @type connection_type() = telnet | ts1 | ts2
 
-%%% @type connection() = handle() |
-%%% {ct:target_name(),connection_type()} | ct:target_name()
+%% @type connection() = handle() |
+%% {ct:target_name(),connection_type()} | ct:target_name()
 
-%%% @type handle() = ct_gen_conn:handle(). Handle for a
-%%% specific telnet connection.
+%% @type handle() = ct_gen_conn:handle(). Handle for a
+%% specific telnet connection.
 
-%%% @type prompt_regexp() = string(). A regular expression which
-%%% matches all possible prompts for a specific type of target. The
-%%% regexp must not have any groups i.e. when matching, re:run/3 shall
-%%% return a list with one single element.
-%%%
-%%% @see unix_telnet
+%% @type prompt_regexp() = string(). A regular expression which
+%% matches all possible prompts for a specific type of target. The
+%% regexp must not have any groups i.e. when matching, re:run/3 shall
+%% return a list with one single element.
+%%
+%% @see unix_telnet
 
 -module(ct_telnet).
-
--compile(export_all).
 
 -export([open/1, open/2, open/3, open/4, close/1]).
 -export([cmd/2, cmd/3, cmdf/3, cmdf/4, get_data/1, 
@@ -71,10 +167,9 @@
 -export([init/3,handle_msg/2,reconnect/2,terminate/2]).
 
 %% Tool internals
--export([silent_teln_expect/5, teln_receive_until_prompt/3,
-	 start_log/1, log/3, cont_log/2, end_log/0,
-	 try_start_log/1, try_log/3, try_cont_log/2, try_end_log/0]).
-
+-export([silent_teln_expect/6, teln_receive_until_prompt/3,
+	 format_data/2]).
+-export([start_gen_log/1, end_gen_log/0, log/3, log/4]).
 
 -define(RECONNS,3).
 -define(RECONN_TIMEOUT,5000).
@@ -83,12 +178,14 @@
 
 -include("ct_util.hrl").
 
--record(state,{teln_pid,
+-record(state,{host,
+	       port,
+	       teln_pid,
 	       prx,
-	       type,
 	       buffer=[],
 	       prompt=false,
 	       name,
+	       type,
 	       target_mod,
 	       keep_alive,
 	       extra,
@@ -160,8 +257,7 @@ open(KeyOrName,ConnType,TargetMod) ->
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
 	undefined ->
-	    log(heading(open,{KeyOrName,ConnType}),"Failed: ~p",
-		[{not_available,KeyOrName}]),
+	    log(undefined,open,"Failed: ~p",[{not_available,KeyOrName}]),
 	    {error,{not_available,KeyOrName,ConnType}};
 	Addr ->
 	    Addr1 =
@@ -183,10 +279,18 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 			end;
 		    Bool -> Bool
 		end,
-	    log(heading(open,{KeyOrName,ConnType}),
-		"Opening connection to: ~p",[Addr1]),
-	    ct_gen_conn:start(KeyOrName,full_addr(Addr1,ConnType),
-			      {TargetMod,KeepAlive,Extra},?MODULE)
+	    log(undefined,open,"Connecting to ~p(~p)",
+		[KeyOrName,Addr1]),
+	    Reconnect =
+		case ct:get_config({telnet_settings,reconnection_attempts}) of
+		    0 -> false;
+		    _ -> true
+		end,
+	    ct_gen_conn:start(full_addr(Addr1,ConnType),
+			      {TargetMod,KeepAlive,Extra},
+			      ?MODULE, [{name,KeyOrName},
+					{reconnect,Reconnect},
+					{old,true}])
     end.
 
 %%%-----------------------------------------------------------------
@@ -202,9 +306,9 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
-	    log("ct_telnet:close","Handle: ~w",[Pid]),
+	    log(undefined,close,"Connection closed, handle: ~w",[Pid]),
 	    case ct_gen_conn:stop(Pid) of
-		{error,{process_down,Pid,noproc}} ->
+		{error,{process_down,Pid,_}} ->
 		    {error,already_closed};
 		Result ->
 		    Result
@@ -309,9 +413,11 @@ expect(Connection,Patterns) ->
 %%%      Prompt = string()
 %%%      Tag = term()
 %%%      Opts = [Opt]
-%%%      Opt = {timeout,Timeout} | repeat | {repeat,N} | sequence |
-%%%            {halt,HaltPatterns} | ignore_prompt | no_prompt_check
-%%%      Timeout = integer()
+%%%      Opt = {idle_timeout,IdleTimeout} | {total_timeout,TotalTimeout} |
+%%%            repeat | {repeat,N} | sequence | {halt,HaltPatterns} |
+%%%            ignore_prompt | no_prompt_check
+%%%      IdleTimeout = infinity | integer()
+%%%      TotalTimeout = infinity | integer()
 %%%      N = integer()
 %%%      HaltPatterns = Patterns
 %%%      MatchList = [Match]
@@ -337,10 +443,15 @@ expect(Connection,Patterns) ->
 %%% will also include the matched <code>Tag</code>. Else, only
 %%% <code>RxMatch</code> is returned.</p>
 %%%
-%%% <p>The <code>timeout</code> option indicates that the function
+%%% <p>The <code>idle_timeout</code> option indicates that the function
 %%% shall return if the telnet client is idle (i.e. if no data is
-%%% received) for more than <code>Timeout</code> milliseconds. Default
+%%% received) for more than <code>IdleTimeout</code> milliseconds. Default
 %%% timeout is 10 seconds.</p>
+%%%
+%%% <p>The <code>total_timeout</code> option sets a time limit for
+%%% the complete expect operation. After <code>TotalTimeout</code>
+%%% milliseconds, <code>{error,timeout}</code> is returned. The default
+%%% value is <code>infinity</code> (i.e. no time limit).</p>
 %%%
 %%% <p>The function will always return when a prompt is found, unless
 %%% any of the <code>ignore_prompt</code> or
@@ -408,9 +519,20 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 	     Settings ->
 		 set_telnet_defaults(Settings,#state{})				    
 	 end,
-    case catch TargetMod:connect(Ip,Port,S0#state.conn_to,KeepAlive,Extra) of
+    case catch TargetMod:connect(Name,Ip,Port,S0#state.conn_to,
+				 KeepAlive,Extra) of
 	{ok,TelnPid} ->
-	    log(heading(init,{Name,Type}), 
+	    put({ct_telnet_pid2name,TelnPid},Name),
+	    S1 = S0#state{host=Ip,
+			  port=Port,
+			  teln_pid=TelnPid,
+			  name=Name,
+			  type=type(Type),
+			  target_mod=TargetMod,
+			  keep_alive=KeepAlive,
+			  extra=Extra,
+			  prx=TargetMod:get_prompt_regexp()},
+	    log(S1,open,
 		"Opened telnet connection\n"
 		"IP: ~p\n"
 		"Port: ~p\n"
@@ -419,15 +541,9 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 		"Reconnection interval: ~p\n"
 		"Connection timeout: ~p\n"
 		"Keep alive: ~w",
-		[Ip,Port,S0#state.com_to,S0#state.reconns,
-		 S0#state.reconn_int,S0#state.conn_to,KeepAlive]),
-	    {ok,TelnPid,S0#state{teln_pid=TelnPid,
-				 type=type(Type),
-				 name={Name,Type},
-				 target_mod=TargetMod,
-				 keep_alive=KeepAlive,
-				 extra=Extra,
-				 prx=TargetMod:get_prompt_regexp()}};
+		[Ip,Port,S1#state.com_to,S1#state.reconns,
+		 S1#state.reconn_int,S1#state.conn_to,KeepAlive]),
+	    {ok,TelnPid,S1};
 	{'EXIT',Reason} ->
 	    {error,Reason};
 	Error ->
@@ -448,31 +564,35 @@ set_telnet_defaults([{reconnection_interval,RInt}|Ss],S) ->
 set_telnet_defaults([{keep_alive,_}|Ss],S) ->
     set_telnet_defaults(Ss,S);
 set_telnet_defaults([Unknown|Ss],S) ->
-    log(heading(set_telnet_defaults,{telnet_settings,Unknown}),
-	"Bad element in telnet_settings: ~p",[Unknown]),
+    force_log(S,error,
+	      "Bad element in telnet_settings: ~p",[Unknown]),
     set_telnet_defaults(Ss,S);
 set_telnet_defaults([],S) ->
     S.
 
 %% @hidden
 handle_msg({cmd,Cmd,Timeout},State) ->
-    try_start_log(heading(cmd,State#state.name)),
-    try_cont_log("Cmd: ~p", [Cmd]),
-    debug_cont_log("Throwing Buffer:",[]),
+    start_gen_log(heading(cmd,State#state.name)),
+    log(State,cmd,"Cmd: ~p",[Cmd]),
+
+    debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
+
     case {State#state.type,State#state.prompt} of
 	{ts,_} -> 
-	    silent_teln_expect(State#state.teln_pid,
+	    silent_teln_expect(State#state.name,
+			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,2000}]);
+			       [{idle_timeout,2000}]);
 	{ip,false} -> 
-	    silent_teln_expect(State#state.teln_pid,
+	    silent_teln_expect(State#state.name,
+			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,200}]);
+			       [{idle_timeout,200}]);
 	{ip,true} ->
 	    ok
     end,
@@ -482,52 +602,59 @@ handle_msg({cmd,Cmd,Timeout},State) ->
     {Return,NewBuffer,Prompt} = 
 	case teln_cmd(State#state.teln_pid, Cmd, State#state.prx, TO) of
 	    {ok,Data,_PromptType,Rest} ->
-		try_cont_log("Return: ~p", [{ok,Data}]),
+		log(State,recv,"Return: ~p",[{ok,Data}]),
 		{{ok,Data},Rest,true};
 	    Error ->
-		Retry = {retry,{Error,State#state.name,State#state.teln_pid,
+		Retry = {retry,{Error,
+				{State#state.name,
+				 State#state.type},
+				State#state.teln_pid,
 				{cmd,Cmd,TO}}},
-		try_cont_log("Return: ~p", [Error]),
+		log(State,recv,"Return: ~p",[Error]),
 		{Retry,[],false}
 	end,
-    try_end_log(),
+    end_gen_log(),
     {Return,State#state{buffer=NewBuffer,prompt=Prompt}};
 handle_msg({send,Cmd},State) ->
-    try_log(heading(send,State#state.name),"Cmd: ~p",[Cmd]),
-    debug_cont_log("Throwing Buffer:",[]),
+    log(State,send,"Sending: ~p",[Cmd]),
+    debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
     case {State#state.type,State#state.prompt} of
 	{ts,_} -> 
-	    silent_teln_expect(State#state.teln_pid,
+	    silent_teln_expect(State#state.name,
+			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,2000}]);
+			       [{idle_timeout,2000}]);
 	{ip,false} -> 
-	    silent_teln_expect(State#state.teln_pid,
+	    silent_teln_expect(State#state.name,
+			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
-			       [{timeout,200}]);
+			       [{idle_timeout,200}]);
 	{ip,true} ->
 	    ok
     end,
     ct_telnet_client:send_data(State#state.teln_pid,Cmd),
     {ok,State#state{buffer=[],prompt=false}};
 handle_msg(get_data,State) ->
-    try_start_log(heading(get_data,State#state.name)),
+    start_gen_log(heading(get_data,State#state.name)),
+    log(State,cmd,"Reading data...",[]),
     {ok,Data,Buffer} = teln_get_all_data(State#state.teln_pid,
 					 State#state.prx,
 					 State#state.buffer,
 					 [],[]),
-    try_cont_log("Return: ~p",[{ok,Data}]),
-    try_end_log(),
+    log(State,recv,"Return: ~p",[{ok,Data}]),
+    end_gen_log(),
     {{ok,Data},State#state{buffer=Buffer}};
 handle_msg({expect,Pattern,Opts},State) ->
-    try_start_log(heading(expect,State#state.name)),
-    try_cont_log("Expect: ~p\nOpts=~p\n",[Pattern,Opts]),
+    start_gen_log(heading(expect,State#state.name)),
+    log(State,expect,"Expect: ~p\nOpts = ~p\n",[Pattern,Opts]),
     {Return,NewBuffer,Prompt} = 
-	case teln_expect(State#state.teln_pid,
+	case teln_expect(State#state.name,
+			 State#state.teln_pid,
 			 State#state.buffer,
 			 Pattern,
 			 State#state.prx,
@@ -536,22 +663,23 @@ handle_msg({expect,Pattern,Opts},State) ->
 		P = check_if_prompt_was_reached(Data,[]),
 		{{ok,Data},Rest,P};
 	    {ok,Data,HaltReason,Rest} ->
-		force_cont_log("HaltReason: ~p",
-			       [HaltReason]),
+		force_log(State,expect,"HaltReason: ~p",[HaltReason]),
 		P = check_if_prompt_was_reached(Data,HaltReason),
 		{{ok,Data,HaltReason},Rest,P};
 	    {error,Reason,Rest} ->
-		force_cont_log("Expect failed\n~p",[{error,Reason}]),
+		force_log(State,expect,"Expect failed\n~p",[{error,Reason}]),
 		P = check_if_prompt_was_reached([],Reason),
 		{{error,Reason},Rest,P};
 	    {error,Reason} ->
-		force_cont_log("Expect failed\n~p",[{error,Reason}]),
+		force_log(State,expect,"Expect failed\n~p",[{error,Reason}]),
 		P = check_if_prompt_was_reached([],Reason),
 		{{error,Reason},[],P}
 	end,
-    try_end_log(),
+    end_gen_log(),
     Return1 = case Return of
-		  {error,_} -> {retry,{Return,State#state.name,
+		  {error,_} -> {retry,{Return,
+				       {State#state.name,
+					State#state.type},
 				       State#state.teln_pid,
 				       {expect,Pattern,Opts}}};
 		  _ -> Return
@@ -562,18 +690,20 @@ handle_msg({expect,Pattern,Opts},State) ->
 %% @hidden
 reconnect({Ip,Port,_Type},State) ->
     reconnect(Ip,Port,State#state.reconns,State).
-reconnect(Ip,Port,N,State=#state{target_mod=TargetMod,
+reconnect(Ip,Port,N,State=#state{name=Name,
+				 target_mod=TargetMod,
 				 keep_alive=KeepAlive,
 				 extra=Extra,
 				 conn_to=ConnTo,
 				 reconn_int=ReconnInt}) ->
-    case TargetMod:connect(Ip,Port,ConnTo,KeepAlive,Extra) of
-	{ok, NewPid} ->
+    case TargetMod:connect(Name,Ip,Port,ConnTo,KeepAlive,Extra) of
+	{ok,NewPid} ->
+	    put({ct_telnet_pid2name,NewPid},Name),
 	    {ok, NewPid, State#state{teln_pid=NewPid}};
 	Error when N==0 ->
 	    Error;
 	_Error ->
-	    log("Reconnect failed!","Retries left: ~w",[N]),
+	    log(State,reconnect,"Reconnect failed!","Retries left: ~w",[N]),
 	    timer:sleep(ReconnInt),
 	    reconnect(Ip,Port,N-1,State)
     end.
@@ -581,11 +711,9 @@ reconnect(Ip,Port,N,State=#state{target_mod=TargetMod,
 
 %% @hidden
 terminate(TelnPid,State) ->
-    log(heading(terminate,State#state.name),
-	"Closing telnet connection.\nId: ~w",
-	[TelnPid]),
-    ct_telnet_client:close(TelnPid).
-
+    Result = ct_telnet_client:close(TelnPid),
+    log(State,close,"Telnet connection for ~w closed.",[TelnPid]),
+    Result.
 
 %%%=================================================================
 %%% Internal function
@@ -637,86 +765,110 @@ check_if_prompt_was_reached(Data,_) when is_list(Data) ->
 check_if_prompt_was_reached(_,_) ->
     false.
 
-%tc(Fun) ->
-%    Before = erlang:now(),
-%    Val = Fun(),
-%    After = erlang:now(),
-%    {now_diff(After, Before), Val}.
-%now_diff({A2, B2, C2}, {A1, B1, C1}) ->
-%    ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.
+%%% @hidden
+%% Functions for logging ct_telnet reports and telnet data 
 
-heading(Function,Name) ->
-    io_lib:format("~w:~w ~p",[?MODULE,Function,Name]).
+heading(Action,undefined) ->
+    io_lib:format("~w ~w",[?MODULE,Action]);
+heading(Action,Name) ->
+    io_lib:format("~w ~w for ~p",[?MODULE,Action,Name]).
 
-%%% @hidden
-%% Functions for regular (unconditional) logging, to be
-%% used during connect, reconnect, disconnect etc.
-log(Heading,Str,Args) ->
-    ct_gen_conn:log(Heading,Str,Args).
-%%% @hidden
-start_log(Heading) -> 
-    ct_gen_conn:start_log(Heading).
-cont_log(Str,Args) -> 
-    ct_gen_conn:cont_log(Str,Args).
-end_log() -> 
-    ct_gen_conn:end_log().
+force_log(State,Action,String,Args) ->
+    log(State,Action,String,Args,true).
 
-%%% @hidden
-%% Functions for conditional logging, to be used by
-%% cmd, send, receive, expect etc (this output may be 
-%% silenced by user).
-try_start_log(Heading) -> 
-    do_try_log(start_log,[Heading]).
-%%% @hidden
-try_end_log() -> 
-    do_try_log(end_log,[]).
+log(State,Action,String,Args) when is_record(State, state) ->
+    log(State,Action,String,Args,false);
+log(Name,Action,String,Args) when is_atom(Name) ->
+    log(#state{name=Name},Action,String,Args,false);
+log(TelnPid,Action,String,Args) when is_pid(TelnPid) ->
+    log(#state{teln_pid=TelnPid},Action,String,Args,false).
 
-%%% @hidden
-try_log(Heading,Str,Args) ->
-    do_try_log(log,[Heading,Str,Args]).
+log(undefined,String,Args) ->
+    log(#state{},undefined,String,Args,false);
+log(Name,String,Args) when is_atom(Name) ->
+    log(#state{name=Name},undefined,String,Args,false);
+log(TelnPid,String,Args) when is_pid(TelnPid) ->
+    log(#state{teln_pid=TelnPid},undefined,String,Args).
 
-%%% @hidden
-try_cont_log(Str,Args) -> 
-    do_try_log(cont_log,[Str,Args]).
+log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
+    Action,String,Args,ForcePrint) ->
+    Name1 = if Name == undefined -> get({ct_telnet_pid2name,TelnPid});
+	       true              -> Name
+	    end,
+    Silent = get(silent),
 
-%%% @hidden
-do_try_log(Func,Args) ->
-    %% check if output is suppressed
-    case ct_util:is_silenced(telnet) of
-	true ->
-	    ok;
-	false ->
-	    apply(ct_gen_conn,Func,Args)
+    if Action == general_io ->
+	    case ct_util:get_testdata({cth_conn_log,?MODULE}) of
+		HookMode when HookMode /= undefined, HookMode /= silent,
+			      Silent /= true ->
+		    error_logger:info_report(#conn_log{header=false,
+						       client=self(),
+						       conn_pid=TelnPid,
+						       address={Host,Port},
+						       name=Name1,
+						       action=Action,
+						       module=?MODULE},
+					     {String,Args});
+		_ -> %% hook inactive or silence requested
+		    ok
+	    end;
+
+       true ->	    
+	    if Action == open; Action == close; Action == reconnect;
+	       Action == info; Action == error ->
+		    ct_gen_conn:log(heading(Action,Name1),String,Args);
+
+	       ForcePrint == false ->
+		    case ct_util:is_silenced(telnet) of
+			true  ->
+			    ok;
+			false ->
+			    ct_gen_conn:cont_log(String,Args)
+		    end;
+	       
+	       ForcePrint == true ->
+		    case ct_util:is_silenced(telnet) of
+			true ->
+			    %% call log/3 now instead of cont_log/2 since 
+			    %% start_gen_log/1 will not have been previously
+			    %% called
+			    ct_gen_conn:log(heading(Action,Name1),String,Args);
+			false ->
+			    ct_gen_conn:cont_log(String,Args)
+		    end
+	    end
     end.
 
-%%% @hidden
-%% Functions that will force printout even if ct_telnet
-%% output has been silenced, to be used for error printouts.
-force_cont_log(Str,Args) ->
+start_gen_log(Heading) ->
+    %% check if output is suppressed
     case ct_util:is_silenced(telnet) of
-	true ->
-	    %% call log/3 now instead of cont_log/2 since 
-	    %% start_log/1 will not have been previously called
-	    log("ct_telnet info",Str,Args);
-	false ->
-	    cont_log(Str,Args)
+	true  -> ok;
+	false -> ct_gen_conn:start_log(Heading)
+    end.
+
+end_gen_log() -> 
+    %% check if output is suppressed
+    case ct_util:is_silenced(telnet) of
+	true  -> ok;
+	false -> ct_gen_conn:end_log()
     end.
 
 %%% @hidden
 %% Debug printouts.
-debug_cont_log(Str,Args) ->
+debug_cont_gen_log(Str,Args) ->
     Old = put(silent,true),
-    cont_log(Str,Args),
+    ct_gen_conn:cont_log(Str,Args),
     put(silent,Old).
 
-
+%% Log callback - called from the error handler process
+format_data(_How,{String,Args}) ->
+    io_lib:format(String,Args).
 
 %%%=================================================================
 %%% Abstraction layer on top of ct_telnet_client.erl
 teln_cmd(Pid,Cmd,Prx,Timeout) ->
     ct_telnet_client:send_data(Pid,Cmd),
     teln_receive_until_prompt(Pid,Prx,Timeout).
-
 
 teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
     case check_for_prompt(Prx,lists:reverse(LastLine) ++ Data) of
@@ -735,7 +887,8 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 %% Expect options record
 -record(eo,{teln_pid,
 	    prx,
-	    timeout,
+	    idle_timeout,
+	    total_timeout,
 	    haltpatterns=[],
 	    seq=false,
 	    repeat=false,
@@ -746,11 +899,9 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 %% @doc Externally the silent_teln_expect function shall only be used
 %% by the TargetModule, i.e. the target specific module which
 %% implements connect/2 and get_prompt_regexp/0.
-silent_teln_expect(Pid,Data,Pattern,Prx,Opts) ->
+silent_teln_expect(Name,Pid,Data,Pattern,Prx,Opts) ->
     Old = put(silent,true),
-    try_cont_log("silent_teln_expect/5, Pattern = ~p",[Pattern]),
-    Result = teln_expect(Pid,Data,Pattern,Prx,Opts),
-    try_cont_log("silent_teln_expect -> ~p\n",[Result]),
+    Result = teln_expect(Name,Pid,Data,Pattern,Prx,Opts),
     put(silent,Old),
     Result.
 
@@ -766,7 +917,7 @@ silent_teln_expect(Pid,Data,Pattern,Prx,Opts) ->
 %% condition is fullfilled.
 %% 3b) Repeat (sequence): 2) is repeated either N times or until a
 %% halt condition is fullfilled.
-teln_expect(Pid,Data,Pattern0,Prx,Opts) ->
+teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
     HaltPatterns =
 	case get_ignore_prompt(Opts) of
 	    true ->
@@ -779,18 +930,19 @@ teln_expect(Pid,Data,Pattern0,Prx,Opts) ->
     Seq = get_seq(Opts),
     Pattern = convert_pattern(Pattern0,Seq),
 
-    Timeout = get_timeout(Opts),
+    {IdleTimeout,TotalTimeout} = get_timeouts(Opts),
 
     EO = #eo{teln_pid=Pid,
 	     prx=Prx,
-	     timeout=Timeout,
+	     idle_timeout=IdleTimeout,
+	     total_timeout=TotalTimeout,
 	     seq=Seq,
 	     haltpatterns=HaltPatterns,
 	     prompt_check=PromptCheck},
     
     case get_repeat(Opts) of
 	false ->
-	    case teln_expect1(Data,Pattern,[],EO) of
+	    case teln_expect1(Name,Pid,Data,Pattern,[],EO) of
 		{ok,Matched,Rest} ->
 		    {ok,Matched,Rest};
 		{halt,Why,Rest} ->
@@ -800,7 +952,7 @@ teln_expect(Pid,Data,Pattern0,Prx,Opts) ->
 	    end;
 	N ->
 	    EO1 = EO#eo{repeat=N},
-	    repeat_expect(Data,Pattern,[],EO1)
+	    repeat_expect(Name,Pid,Data,Pattern,[],EO1)
     end.
 
 convert_pattern(Pattern,Seq) 
@@ -822,11 +974,22 @@ rm_dupl([P|Ps],Acc) ->
 rm_dupl([],Acc) ->
     lists:reverse(Acc).
 
-get_timeout(Opts) ->
-    case lists:keysearch(timeout,1,Opts) of
-	{value,{timeout,T}} -> T;
-	false -> ?DEFAULT_TIMEOUT
-    end.
+get_timeouts(Opts) ->
+    {case lists:keysearch(idle_timeout,1,Opts) of
+	 {value,{_,T}} ->
+	     T;
+	 false ->
+	     %% this check is for backwards compatibility (pre CT v1.8)
+	     case lists:keysearch(timeout,1,Opts) of
+		 {value,{_,T}} -> T;
+		 false -> ?DEFAULT_TIMEOUT
+	     end
+     end,
+     case lists:keysearch(total_timeout,1,Opts) of
+	 {value,{_,T}} -> T;
+	 false -> infinity
+     end}.
+
 get_repeat(Opts) ->
     case lists:keysearch(repeat,1,Opts) of
 	{value,{repeat,N}} when is_integer(N) ->
@@ -855,23 +1018,28 @@ get_prompt_check(Opts) ->
 
 %% Repeat either single or sequence. All match results are accumulated
 %% and returned when a halt condition is fulllfilled.
-repeat_expect(Rest,_Pattern,Acc,#eo{repeat=0}) ->
+repeat_expect(_Name,_Pid,Rest,_Pattern,Acc,#eo{repeat=0}) ->
     {ok,lists:reverse(Acc),done,Rest};
-repeat_expect(Data,Pattern,Acc,EO) ->
-    case teln_expect1(Data,Pattern,[],EO) of
+repeat_expect(Name,Pid,Data,Pattern,Acc,EO) ->
+    case teln_expect1(Name,Pid,Data,Pattern,[],EO) of
 	{ok,Matched,Rest} ->
 	    EO1 = EO#eo{repeat=EO#eo.repeat-1},
-	    repeat_expect(Rest,Pattern,[Matched|Acc],EO1);
+	    repeat_expect(Name,Pid,Rest,Pattern,[Matched|Acc],EO1);
 	{halt,Why,Rest} ->
 	    {ok,lists:reverse(Acc),Why,Rest};
 	{error,Reason} ->
 	    {error,Reason}
     end.
 
-teln_expect1(Data,Pattern,Acc,EO) ->
+teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
+					      total_timeout=TotalTO}) ->
     ExpectFun = case EO#eo.seq of
-		    true -> fun() -> seq_expect(Data,Pattern,Acc,EO) end;
-		    false -> fun() -> one_expect(Data,Pattern,EO) end
+		    true -> fun() ->
+				    seq_expect(Name,Pid,Data,Pattern,Acc,EO)
+			    end;
+		    false -> fun() ->
+				     one_expect(Name,Pid,Data,Pattern,EO)
+			     end
 		end,
     case ExpectFun() of
 	{match,Match,Rest} ->
@@ -881,19 +1049,34 @@ teln_expect1(Data,Pattern,Acc,EO) ->
 	NotFinished ->
 	    %% Get more data
 	    Fun = fun() -> get_data1(EO#eo.teln_pid) end,
-	    case ct_gen_conn:do_within_time(Fun, EO#eo.timeout) of
-		{error,Reason} -> 
+	    case timer:tc(ct_gen_conn, do_within_time, [Fun, IdleTO]) of
+		{_,{error,Reason}} -> 
 		    %% A timeout will occur when the telnet connection
-		    %% is idle for EO#eo.timeout milliseconds.
+		    %% is idle for EO#eo.idle_timeout milliseconds.
 		    {error,Reason};
-		{ok,Data1} ->
+		{_,{ok,Data1}} when TotalTO == infinity ->
 		    case NotFinished of
 			{nomatch,Rest} ->
 			    %% One expect
-			    teln_expect1(Rest++Data1,Pattern,[],EO);
+			    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO);
 			{continue,Patterns1,Acc1,Rest} ->
 			    %% Sequence
-			    teln_expect1(Rest++Data1,Patterns1,Acc1,EO)
+			    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO)
+		    end;
+		{Elapsed,{ok,Data1}} ->
+		    TVal = trunc(TotalTO - (Elapsed/1000)),
+		    if TVal =< 0 ->
+			    {error,timeout};
+		       true ->
+			    EO1 = EO#eo{total_timeout = TVal},
+			    case NotFinished of
+				{nomatch,Rest} ->
+				    %% One expect
+				    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO1);
+				{continue,Patterns1,Acc1,Rest} ->
+				    %% Sequence
+				    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO1)
+			    end
 		    end
 	    end
     end.
@@ -913,47 +1096,45 @@ get_data1(Pid) ->
 %% lines and each line is matched against each pattern.
 
 %% one_expect: split data chunk at prompts
-one_expect(Data,Pattern,EO) when EO#eo.prompt_check==false ->
+one_expect(Name,Pid,Data,Pattern,EO) when EO#eo.prompt_check==false ->
 %    io:format("Raw Data ~p Pattern ~p EO ~p ",[Data,Pattern,EO]),
-    one_expect1(Data,Pattern,[],EO#eo{found_prompt=false});
-one_expect(Data,Pattern,EO) ->
+    one_expect1(Name,Pid,Data,Pattern,[],EO#eo{found_prompt=false});
+one_expect(Name,Pid,Data,Pattern,EO) ->
     case match_prompt(Data,EO#eo.prx) of
 	{prompt,UptoPrompt,PromptType,Rest} ->
 	    case Pattern of 
 		[Prompt] when Prompt==prompt; Prompt=={prompt,PromptType} ->
 		    %% Only searching for prompt
-		    log_lines(UptoPrompt),
-		    try_cont_log("<b>PROMPT:</b> ~ts", [PromptType]),
+		    log_lines(Name,Pid,UptoPrompt),
+		    log(name_or_pid(Name,Pid),"PROMPT: ~ts",[PromptType]),
 		    {match,{prompt,PromptType},Rest};
 		[{prompt,_OtherPromptType}] ->
 		    %% Only searching for one specific prompt, not thisone
-		    log_lines(UptoPrompt),
+		    log_lines(Name,Pid,UptoPrompt),
 		    {nomatch,Rest};
 		_ ->
-		    one_expect1(UptoPrompt,Pattern,Rest,
+		    one_expect1(Name,Pid,UptoPrompt,Pattern,Rest,
 				EO#eo{found_prompt=PromptType})
 	    end;
 	noprompt ->
 	    case Pattern of
 		[Prompt] when Prompt==prompt; element(1,Prompt)==prompt ->
 		    %% Only searching for prompt
-		    LastLine = log_lines_not_last(Data),
+		    LastLine = log_lines_not_last(Name,Pid,Data),
 		    {nomatch,LastLine};
 		_ ->
-		    one_expect1(Data,Pattern,[],EO#eo{found_prompt=false})
+		    one_expect1(Name,Pid,Data,Pattern,[],
+				EO#eo{found_prompt=false})
 	    end
     end.
 
-remove_zero(List) ->
-    [Ch || Ch <- List, Ch=/=0, Ch=/=13].
-
 %% one_expect1: split data chunk at lines
-one_expect1(Data,Pattern,Rest,EO) ->
-    case match_lines(Data,Pattern,EO) of
+one_expect1(Name,Pid,Data,Pattern,Rest,EO) ->
+    case match_lines(Name,Pid,Data,Pattern,EO) of
 	{match,Match,MatchRest} ->
 	    {match,Match,MatchRest++Rest};
 	{nomatch,prompt} ->
-	    one_expect(Rest,Pattern,EO);
+	    one_expect(Name,Pid,Rest,Pattern,EO);
 	{nomatch,NoMatchRest} ->
 	    {nomatch,NoMatchRest++Rest};
 	{halt,Why,HaltRest} ->
@@ -970,77 +1151,77 @@ one_expect1(Data,Pattern,Rest,EO) ->
 %% searching for the next pattern in the list.
 
 %% seq_expect: Split data chunk at prompts
-seq_expect(Data,[],Acc,_EO) ->
+seq_expect(_Name,_Pid,Data,[],Acc,_EO) ->
     {match,lists:reverse(Acc),Data};
-seq_expect([],Patterns,Acc,_EO) ->
+seq_expect(_Name,_Pid,[],Patterns,Acc,_EO) ->
     {continue,Patterns,lists:reverse(Acc),[]};
-seq_expect(Data,Patterns,Acc,EO) when EO#eo.prompt_check==false ->
-    seq_expect1(Data,Patterns,Acc,[],EO#eo{found_prompt=false});
-seq_expect(Data,Patterns,Acc,EO) ->
+seq_expect(Name,Pid,Data,Patterns,Acc,EO) when EO#eo.prompt_check==false ->
+    seq_expect1(Name,Pid,Data,Patterns,Acc,[],EO#eo{found_prompt=false});
+seq_expect(Name,Pid,Data,Patterns,Acc,EO) ->
     case match_prompt(Data,EO#eo.prx) of
 	{prompt,UptoPrompt,PromptType,Rest} ->
-	    seq_expect1(UptoPrompt,Patterns,Acc,Rest,
+	    seq_expect1(Name,Pid,UptoPrompt,Patterns,Acc,Rest,
 			EO#eo{found_prompt=PromptType});
 	noprompt ->
-	    seq_expect1(Data,Patterns,Acc,[],EO#eo{found_prompt=false})
+	    seq_expect1(Name,Pid,Data,Patterns,Acc,[],EO#eo{found_prompt=false})
     end.
 
 %% seq_expect1: For one prompt-chunk, match each pattern - line by
 %% line if it is other than the prompt we are seaching for.
-seq_expect1(Data,[prompt|Patterns],Acc,Rest,EO) ->
+seq_expect1(Name,Pid,Data,[prompt|Patterns],Acc,Rest,EO) ->
     case EO#eo.found_prompt of
 	false ->
-	    LastLine = log_lines_not_last(Data),
+	    LastLine = log_lines_not_last(Name,Pid,Data),
 	    %% Rest==[] because no prompt is found
 	    {continue,[prompt|Patterns],Acc,LastLine};
 	PromptType ->
-	    log_lines(Data),
-	    try_cont_log("<b>PROMPT:</b> ~ts", [PromptType]),
-	    seq_expect(Rest,Patterns,[{prompt,PromptType}|Acc],EO)
+	    log_lines(Name,Pid,Data),
+	    log(name_or_pid(Name,Pid),"PROMPT: ~ts",[PromptType]),
+	    seq_expect(Name,Pid,Rest,Patterns,[{prompt,PromptType}|Acc],EO)
     end;
-seq_expect1(Data,[{prompt,PromptType}|Patterns],Acc,Rest,EO) ->
+seq_expect1(Name,Pid,Data,[{prompt,PromptType}|Patterns],Acc,Rest,EO) ->
     case EO#eo.found_prompt of
 	false ->
-	    LastLine = log_lines_not_last(Data),
+	    LastLine = log_lines_not_last(Name,Pid,Data),
 	    %% Rest==[] because no prompt is found
 	    {continue,[{prompt,PromptType}|Patterns],Acc,LastLine};
 	PromptType ->
-	    log_lines(Data),
-	    try_cont_log("<b>PROMPT:</b> ~ts", [PromptType]),
-	    seq_expect(Rest,Patterns,[{prompt,PromptType}|Acc],EO);
+	    log_lines(Name,Pid,Data),
+	    log(name_or_pid(Name,Pid),"PROMPT: ~ts", [PromptType]),
+	    seq_expect(Name,Pid,Rest,Patterns,[{prompt,PromptType}|Acc],EO);
 	_OtherPromptType ->
-	    log_lines(Data),
-	    seq_expect(Rest,[{prompt,PromptType}|Patterns],Acc,EO)
+	    log_lines(Name,Pid,Data),
+	    seq_expect(Name,Pid,Rest,[{prompt,PromptType}|Patterns],Acc,EO)
     end;
-seq_expect1(Data,[Pattern|Patterns],Acc,Rest,EO) ->
-    case match_lines(Data,[Pattern],EO) of
+seq_expect1(Name,Pid,Data,[Pattern|Patterns],Acc,Rest,EO) ->
+    case match_lines(Name,Pid,Data,[Pattern],EO) of
 	{match,Match,MatchRest} ->
-	    seq_expect1(MatchRest,Patterns,[Match|Acc],Rest,EO);
+	    seq_expect1(Name,Pid,MatchRest,Patterns,[Match|Acc],Rest,EO);
 	{nomatch,prompt} ->
-	    seq_expect(Rest,[Pattern|Patterns],Acc,EO);
+	    seq_expect(Name,Pid,Rest,[Pattern|Patterns],Acc,EO);
 	{nomatch,NoMatchRest} when Rest==[] ->
 	    %% The data did not end with a prompt
 	    {continue,[Pattern|Patterns],Acc,NoMatchRest};
 	{halt,Why,HaltRest} ->
 	    {halt,Why,HaltRest++Rest}
     end;
-seq_expect1(Data,[],Acc,Rest,_EO) ->
+seq_expect1(_Name,_Pid,Data,[],Acc,Rest,_EO) ->
     {match,lists:reverse(Acc),Data++Rest}.
 
 %% Split prompt-chunk at lines
-match_lines(Data,Patterns,EO) ->
+match_lines(Name,Pid,Data,Patterns,EO) ->
     FoundPrompt = EO#eo.found_prompt,
     case one_line(Data,[]) of
 	{noline,Rest} when FoundPrompt=/=false ->
 	    %% This is the line including the prompt
-	    case match_line(Rest,Patterns,FoundPrompt,EO) of
+	    case match_line(Name,Pid,Rest,Patterns,FoundPrompt,EO) of
 		nomatch ->
 		    {nomatch,prompt};
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
 	{noline,Rest} when EO#eo.prompt_check==false ->
-	    case match_line(Rest,Patterns,false,EO) of
+	    case match_line(Name,Pid,Rest,Patterns,false,EO) of
 		nomatch ->
 		    {nomatch,Rest};
 		{Tag,Match} ->
@@ -1049,9 +1230,9 @@ match_lines(Data,Patterns,EO) ->
 	{noline,Rest} ->
 	    {nomatch,Rest};
 	{Line,Rest} ->
-	    case match_line(Line,Patterns,false,EO) of
+	    case match_line(Name,Pid,Line,Patterns,false,EO) of
 		nomatch ->
-		    match_lines(Rest,Patterns,EO);
+		    match_lines(Name,Pid,Rest,Patterns,EO);
 		{Tag,Match} ->
 		    {Tag,Match,Rest}
 	    end
@@ -1059,43 +1240,43 @@ match_lines(Data,Patterns,EO) ->
     
 
 %% For one line, match each pattern
-match_line(Line,Patterns,FoundPrompt,EO) ->
-    match_line(Line,Patterns,FoundPrompt,EO,match).
+match_line(Name,Pid,Line,Patterns,FoundPrompt,EO) ->
+    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,match).
 
-match_line(Line,[prompt|Patterns],false,EO,RetTag) ->
-    match_line(Line,Patterns,false,EO,RetTag);
-match_line(Line,[prompt|_Patterns],FoundPrompt,_EO,RetTag) ->
-    try_cont_log("       ~ts", [Line]),
-    try_cont_log("<b>PROMPT:</b> ~ts", [FoundPrompt]),
+match_line(Name,Pid,Line,[prompt|Patterns],false,EO,RetTag) ->
+    match_line(Name,Pid,Line,Patterns,false,EO,RetTag);
+match_line(Name,Pid,Line,[prompt|_Patterns],FoundPrompt,_EO,RetTag) ->
+    log(name_or_pid(Name,Pid),"       ~ts",[Line]),
+    log(name_or_pid(Name,Pid),"PROMPT: ~ts",[FoundPrompt]),
     {RetTag,{prompt,FoundPrompt}};
-match_line(Line,[{prompt,PromptType}|_Patterns],FoundPrompt,_EO,RetTag) 
+match_line(Name,Pid,Line,[{prompt,PromptType}|_Patterns],FoundPrompt,_EO,RetTag) 
   when PromptType==FoundPrompt ->
-    try_cont_log("       ~ts", [Line]),
-    try_cont_log("<b>PROMPT:</b> ~ts", [FoundPrompt]),
+    log(name_or_pid(Name,Pid),"       ~ts",[Line]),
+    log(name_or_pid(Name,Pid),"PROMPT: ~ts",[FoundPrompt]),
     {RetTag,{prompt,FoundPrompt}};
-match_line(Line,[{prompt,PromptType}|Patterns],FoundPrompt,EO,RetTag) 
+match_line(Name,Pid,Line,[{prompt,PromptType}|Patterns],FoundPrompt,EO,RetTag) 
   when PromptType=/=FoundPrompt ->
-    match_line(Line,Patterns,FoundPrompt,EO,RetTag);
-match_line(Line,[{Tag,Pattern}|Patterns],FoundPrompt,EO,RetTag) ->
+    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,RetTag);
+match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,EO,RetTag) ->
     case re:run(Line,Pattern,[{capture,all,list}]) of
 	nomatch ->
-	    match_line(Line,Patterns,FoundPrompt,EO,RetTag);
+	    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,RetTag);
 	{match,Match} ->
-	    try_cont_log("<b>MATCH:</b> ~ts", [Line]),
+	    log(name_or_pid(Name,Pid),"MATCH: ~ts",[Line]),
 	    {RetTag,{Tag,Match}}
     end;
-match_line(Line,[Pattern|Patterns],FoundPrompt,EO,RetTag) ->
+match_line(Name,Pid,Line,[Pattern|Patterns],FoundPrompt,EO,RetTag) ->
     case re:run(Line,Pattern,[{capture,all,list}]) of
 	nomatch ->
-	    match_line(Line,Patterns,FoundPrompt,EO,RetTag);
+	    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,RetTag);
 	{match,Match} ->
-	    try_cont_log("<b>MATCH:</b> ~ts", [Line]),
+	    log(name_or_pid(Name,Pid),"MATCH: ~ts",[Line]),
 	    {RetTag,Match}
     end;
-match_line(Line,[],FoundPrompt,EO,match) ->
-    match_line(Line,EO#eo.haltpatterns,FoundPrompt,EO,halt);
-match_line(Line,[],_FoundPrompt,_EO,halt) ->
-    try_cont_log("       ~ts", [Line]),
+match_line(Name,Pid,Line,[],FoundPrompt,EO,match) ->
+    match_line(Name,Pid,Line,EO#eo.haltpatterns,FoundPrompt,EO,halt);
+match_line(Name,Pid,Line,[],_FoundPrompt,_EO,halt) ->
+    log(name_or_pid(Name,Pid),"       ~ts",[Line]),
     nomatch.
 
 one_line([$\n|Rest],Line) ->
@@ -1111,25 +1292,28 @@ one_line([],Line) ->
 
 debug_log_lines(String) ->
     Old = put(silent,true),
-    log_lines(String),
+    log_lines(undefined,undefined,String),
     put(silent,Old).
 
-log_lines(String) ->
-    case log_lines_not_last(String) of
+log_lines(Name,Pid,String) ->
+    case log_lines_not_last(Name,Pid,String) of
 	[] ->
 	    ok;
 	LastLine ->
-	    try_cont_log("       ~ts", [LastLine])
+	    log(name_or_pid(Name,Pid),"       ~ts",[LastLine])
     end.
 
-log_lines_not_last(String) ->
+log_lines_not_last(Name,Pid,String) ->
     case add_tabs(String,[],[]) of
 	{[],LastLine} ->
 	    LastLine;
 	{String1,LastLine} ->
-	    try_cont_log("~ts",[String1]),
+	    log(name_or_pid(Name,Pid),"~ts",[String1]),
 	    LastLine
     end.
+
+name_or_pid(undefined,Pid) -> Pid;
+name_or_pid(Name,_) -> Name.
 
 add_tabs([0|Rest],Acc,LastLine) ->
     add_tabs(Rest,Acc,LastLine);
@@ -1143,8 +1327,6 @@ add_tabs([],[$\n|Acc],LastLine) ->
     {lists:reverse(Acc),lists:reverse(LastLine)};
 add_tabs([],[],LastLine) ->
     {[],lists:reverse(LastLine)}.
-
-
 
 
 %%% @hidden

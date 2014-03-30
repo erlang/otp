@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,7 +89,7 @@ do_open(FilterFun, FilterAcc, F) ->
 	{ok, PrimZip2, FilterAcc2}
     catch
 	Class:Reason ->
-	    close(PrimZip),
+	    _ = close(PrimZip),
 	    erlang:error(erlang:raise(Class, Reason, erlang:get_stacktrace()))
     end.
 

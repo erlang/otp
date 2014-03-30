@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 controlling_process/1, controlling_process_self/1,
-	 no_accept/1, close_with_pending_output/1,
+	 no_accept/1, close_with_pending_output/1, active_n/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -50,6 +50,14 @@
 	 oct_acceptor/1,
 	 otp_7731_server/1, zombie_server/2, do_iter_max_socks/2]).
 
+init_per_testcase(wrapping_oct, Config) when is_list(Config) ->
+    Dog = case os:type() of
+	      {ose,_} ->
+		  test_server:timetrap(test_server:minutes(20));
+	      _Else ->
+		  test_server:timetrap(test_server:seconds(600))
+	  end,
+    [{watchdog, Dog}|Config];
 init_per_testcase(iter_max_socks, Config) when is_list(Config) ->
     Dog = case os:type() of
 	      {win32,_} ->
@@ -57,6 +65,17 @@ init_per_testcase(iter_max_socks, Config) when is_list(Config) ->
 	      _Else ->
 		  test_server:timetrap(test_server:seconds(240))
 	  end,
+    [{watchdog, Dog}|Config];
+init_per_testcase(accept_system_limit, Config) when is_list(Config) ->
+    case os:type() of
+      {ose,_} -> 
+          {skip,"Skip in OSE"};
+      _ -> 
+          Dog = test_server:timetrap(test_server:seconds(240)),
+          [{watchdog,Dog}|Config]
+    end;
+init_per_testcase(wrapping_oct, Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:seconds(600)),
     [{watchdog, Dog}|Config];
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
@@ -70,7 +89,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [controlling_process, controlling_process_self, no_accept,
      close_with_pending_output, data_before_close,
-     iter_max_socks, passive_sockets,
+     iter_max_socks, passive_sockets, active_n,
      accept_closed_by_other_process, otp_3924, closed_socket,
      shutdown_active, shutdown_passive, shutdown_pending,
      default_options, http_bad_packet, busy_send,
@@ -407,6 +426,114 @@ send_loop(Sock, Data, Left) ->
     ok = gen_tcp:send(Sock, Data),
     send_loop(Sock, Data, Left-1).
 
+%% Test {active,N} option
+active_n(doc) ->
+    ["Verify operation of the {active,N} option."];
+active_n(suite) -> [];
+active_n(Config) when is_list(Config) ->
+    N = 3,
+    LS = ok(gen_tcp:listen(0, [{active,N}])),
+    [{active,N}] = ok(inet:getopts(LS, [active])),
+    ok = inet:setopts(LS, [{active,-N}]),
+    receive
+        {tcp_passive, LS} -> ok
+    after
+        5000 ->
+            exit({error,tcp_passive_failure})
+    end,
+    [{active,false}] = ok(inet:getopts(LS, [active])),
+    ok = inet:setopts(LS, [{active,0}]),
+    receive
+        {tcp_passive, LS} -> ok
+    after
+        5000 ->
+            exit({error,tcp_passive_failure})
+    end,
+    ok = inet:setopts(LS, [{active,32767}]),
+    {error,einval} = inet:setopts(LS, [{active,1}]),
+    {error,einval} = inet:setopts(LS, [{active,-32769}]),
+    ok = inet:setopts(LS, [{active,-32768}]),
+    receive
+        {tcp_passive, LS} -> ok
+    after
+        5000 ->
+            exit({error,tcp_passive_failure})
+    end,
+    [{active,false}] = ok(inet:getopts(LS, [active])),
+    ok = inet:setopts(LS, [{active,N}]),
+    ok = inet:setopts(LS, [{active,true}]),
+    [{active,true}] = ok(inet:getopts(LS, [active])),
+    receive
+        _ -> exit({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    ok = inet:setopts(LS, [{active,N}]),
+    ok = inet:setopts(LS, [{active,once}]),
+    [{active,once}] = ok(inet:getopts(LS, [active])),
+    receive
+        _ -> exit({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    {error,einval} = inet:setopts(LS, [{active,32768}]),
+    ok = inet:setopts(LS, [{active,false}]),
+    [{active,false}] = ok(inet:getopts(LS, [active])),
+    Port = ok(inet:port(LS)),
+    C = ok(gen_tcp:connect("localhost", Port, [{active,N}])),
+    [{active,N}] = ok(inet:getopts(C, [active])),
+    S = ok(gen_tcp:accept(LS)),
+    ok = inet:setopts(S, [{active,N}]),
+    [{active,N}] = ok(inet:getopts(S, [active])),
+    repeat(3,
+           fun(I) ->
+                   Msg = "message "++integer_to_list(I),
+                   ok = gen_tcp:send(C, Msg),
+                   receive
+                       {tcp,S,Msg} ->
+                           ok = gen_tcp:send(S, Msg)
+                   after
+                       5000 ->
+                           exit({error,timeout})
+                   end,
+                   receive
+                       {tcp,C,Msg} ->
+                           ok
+                   after
+                       5000 ->
+                           exit({error,timeout})
+                   end
+           end),
+    receive
+        {tcp_passive,S} ->
+            [{active,false}] = ok(inet:getopts(S, [active]))
+    after
+        5000 ->
+            exit({error,tcp_passive})
+    end,
+    receive
+        {tcp_passive,C} ->
+            [{active,false}] = ok(inet:getopts(C, [active]))
+    after
+        5000 ->
+            exit({error,tcp_passive})
+    end,
+    LS2 = ok(gen_tcp:listen(0, [{active,0}])),
+    receive
+        {tcp_passive,LS2} ->
+            [{active,false}] = ok(inet:getopts(LS2, [active]))
+    after
+        5000 ->
+            exit({error,tcp_passive})
+    end,
+    ok = gen_tcp:close(LS2),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(LS),
+    ok.
+
 -define(OTP_3924_MAX_DELAY, 100).
 %% Taken out of the blue, but on intra host connections
 %% I expect propagation of a close to be quite fast
@@ -429,7 +556,6 @@ otp_3924(Config) when is_list(Config) ->
     otp_3924_1(MaxDelay).
 
 otp_3924_1(MaxDelay) ->
-    Dog = test_server:timetrap(test_server:seconds(240)),
     ?line {ok, Node} = start_node(otp_3924),
     ?line DataLen = 100*1024,
     ?line Data = otp_3924_data(DataLen),
@@ -440,7 +566,6 @@ otp_3924_1(MaxDelay) ->
 		   ?line ok = otp_3924(MaxDelay, Node, Data, DataLen, N)
 	   end),
     ?line test_server:stop_node(Node),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 otp_3924(MaxDelay, Node, Data, DataLen, N) ->
@@ -1845,7 +1970,9 @@ accept_system_limit(doc) ->
 accept_system_limit(Config) when is_list(Config) ->
     ?line {ok, LS} = gen_tcp:listen(0, []),
     ?line {ok, TcpPort} = inet:port(LS),
-    ?line Connector = spawn_link(fun () -> connector(TcpPort) end),
+    Me = self(),
+    ?line Connector = spawn_link(fun () -> connector(TcpPort, Me) end),
+    receive {Connector, sync} -> Connector ! {self(), continue} end,
     ?line ok = acceptor(LS, false, []),
     ?line Connector ! stop,
     ok.
@@ -1862,8 +1989,10 @@ acceptor(LS, GotSL, A) ->
 	    error
     end.
 
-connector(TcpPort) ->
+connector(TcpPort, Tester) ->
     ManyPorts = open_ports([]),
+    Tester ! {self(), sync},
+    receive {Tester, continue} -> timer:sleep(100) end,
     ConnF = fun (Port) ->
 		    case catch gen_tcp:connect({127,0,0,1}, TcpPort, []) of
 			{ok, Sock} ->
@@ -2597,13 +2726,11 @@ wrapping_oct(doc) ->
 wrapping_oct(suite) ->
     [];
 wrapping_oct(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(600)),
     {ok,Sock} = gen_tcp:listen(0,[{active,false},{mode,binary}]),
     {ok,Port} = inet:port(Sock),
     spawn_link(?MODULE,oct_acceptor,[Sock]),
     Res = oct_datapump(Port,16#1FFFFFFFF),
     gen_tcp:close(Sock),
-    test_server:timetrap_cancel(Dog),
     ok = Res,
     ok.
 
@@ -2659,3 +2786,5 @@ oct_aloop(S,X,Times) ->
 	    gen_tcp:close(S),
 	    closed
     end.
+
+ok({ok,V}) -> V.

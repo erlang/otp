@@ -27,7 +27,7 @@
 %% Generic file contents operations
 -export([open/2, close/1, datasync/1, sync/1, advise/4, position/2, truncate/1,
 	 write/2, pwrite/2, pwrite/3, read/2, read_line/1, pread/2, pread/3,
-	 copy/3, sendfile/10, allocate/3]).
+	 copy/3, sendfile/8, allocate/3]).
 
 %% Specialized file operations
 -export([open/1, open/3]).
@@ -123,9 +123,11 @@
 -define(EFILE_MODE_APPEND,     4).
 -define(EFILE_COMPRESSED,      8).
 -define(EFILE_MODE_EXCL,       16).
+%% Note: bit 5 (32) is used internally for VxWorks
+-define(EFILE_MODE_SYNC,       64).
 
 %% Use this mask to get just the mode bits to be passed to the driver.
--define(EFILE_MODE_MASK, 31).
+-define(EFILE_MODE_MASK, 127).
 
 %% Seek modes for the driver's seek function.
 -define(EFILE_SEEK_SET, 0).
@@ -146,6 +148,9 @@
 -define(POSIX_FADV_WILLNEED,   3).
 -define(POSIX_FADV_DONTNEED,   4).
 -define(POSIX_FADV_NOREUSE,    5).
+
+%% Sendfile flags
+-define(EFILE_SENDFILE_USE_THREADS, 1).
 
 
 %%% BIFs
@@ -580,13 +585,14 @@ write_file(_, _) ->
 %    {error, enotsup};
 sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 	 Dest, Offset, Bytes, _ChunkSize, Headers, Trailers,
-	 _Nodiskio, _MNowait, _Sync) ->
+	 Flags) ->
     case erlang:port_get_data(Dest) of
 	Data when Data == inet_tcp; Data == inet6_tcp ->
 	    ok = inet:lock_socket(Dest,true),
 	    {ok, DestFD} = prim_inet:getfd(Dest),
+	    IntFlags = translate_sendfile_flags(Flags),
 	    try drv_command(Port, [<<?FILE_SENDFILE, DestFD:32,
-				     0:8,
+				     IntFlags:8,
 				     Offset:64/unsigned,
 				     Bytes:64/unsigned,
 				     (iolist_size(Headers)):32/unsigned,
@@ -598,6 +604,13 @@ sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 	_Else ->
 	    {error,badarg}
     end.
+
+translate_sendfile_flags([{use_threads,true}|T]) ->
+    ?EFILE_SENDFILE_USE_THREADS bor translate_sendfile_flags(T);
+translate_sendfile_flags([_|T]) ->
+    translate_sendfile_flags(T);
+translate_sendfile_flags([]) ->
+    0.
 
 
 %%%-----------------------------------------------------------------
@@ -1197,6 +1210,8 @@ open_mode([append|Rest], Mode, Portopts, Setopts) ->
 	      Portopts, Setopts);
 open_mode([exclusive|Rest], Mode, Portopts, Setopts) ->
     open_mode(Rest, Mode bor ?EFILE_MODE_EXCL, Portopts, Setopts);
+open_mode([sync|Rest], Mode, Portopts, Setopts) ->
+    open_mode(Rest, Mode bor ?EFILE_MODE_SYNC, Portopts, Setopts);
 open_mode([delayed_write|Rest], Mode, Portopts, Setopts) ->
     open_mode([{delayed_write, 64*1024, 2000}|Rest], Mode,
 	      Portopts, Setopts);

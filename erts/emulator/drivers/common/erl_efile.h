@@ -34,6 +34,7 @@
 #define EFILE_COMPRESSED 	8
 #define EFILE_MODE_EXCL        16
 #define EFILE_NO_TRUNCATE      32 /* Special for reopening on VxWorks */
+#define EFILE_MODE_SYNC        64
 
 /*
  * Seek modes for efile_seek().
@@ -126,7 +127,7 @@ struct t_sendfile_hdtl {
 /*
  * Functions.
  */
-
+int efile_init(void);
 int efile_mkdir(Efile_error* errInfo, char* name);
 int efile_rmdir(Efile_error* errInfo, char* name);
 int efile_delete_file(Efile_error* errInfo, char* name);

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -40,13 +40,16 @@
 #define DFLAG_SMALL_ATOM_TAGS     0x4000
 #define DFLAG_INTERNAL_TAGS       0x8000
 #define DFLAG_UTF8_ATOMS          0x10000
+#define DFLAG_MAP_TAG             0x20000
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
 			       | DFLAG_NEW_FUN_TAGS		\
+			       | DFLAG_NEW_FLOATS		\
 			       | DFLAG_EXTENDED_PIDS_PORTS	\
 			       | DFLAG_EXPORT_PTR_TAG		\
-			       | DFLAG_BIT_BINARIES)
+			       | DFLAG_BIT_BINARIES             \
+			       | DFLAG_MAP_TAG)
 
 /* opcodes used in distribution messages */
 #define DOP_LINK		1

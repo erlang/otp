@@ -51,31 +51,51 @@ stop(Pid) ->
 init(Opts) ->
     Port = proplists:get_value(port,Opts),
     Users = proplists:get_value(users,Opts,[]),
-    {ok, LSock} = gen_tcp:listen(Port, [list, {packet, 0}, 
-                                        {active, true}]),
+    {ok, LSock} = listen(5, Port, [list, {packet, 0}, 
+				   {active, true},
+				   {reuseaddr,true}]),
     State = #state{listen=LSock,users=Users},
     accept(State),
-    ok = gen_tcp:close(LSock).
+    ok = gen_tcp:close(LSock),
+    dbg("telnet_server closed the listen socket ~p\n", [LSock]),
+    timer:sleep(1000),
+    ok.
+
+listen(0, _Port, _Opts) ->
+    {error,eaddrinuse};
+listen(Retries, Port, Opts) ->
+    case gen_tcp:listen(Port, Opts) of
+	{error,eaddrinuse} ->
+	    dbg("Listen port not released, trying again..."),
+	    timer:sleep(5000),
+	    listen(Retries-1, Port, Opts);
+	Ok = {ok,_LSock} ->
+	    Ok;
+	Error ->
+	    exit(Error)
+    end.
 
 accept(#state{listen=LSock}=State) ->
     Server = self(),
     Acceptor = spawn_link(fun() -> do_accept(LSock,Server) end),
     receive 
 	{Acceptor,Sock} when is_port(Sock) ->
+	    dbg("Connected to client on socket ~p\n", [Sock]),
 	    case init_client(State#state{client=Sock}) of
 		stopped ->
-		    io:format("telnet_server stopped\n"),
+		    dbg("telnet_server stopped\n"),
 		    ok;
 		R ->
-		    io:format("connection to client closed with reason ~p~n",[R]),
+		    dbg("Connection to client " 
+			"closed with reason ~p~n",[R]),
 		    accept(State)
 	    end;
 	{Acceptor,closed} ->
-	    io:format("listen socket closed unexpectedly, "
-		      "terminating telnet_server\n"),
+	    dbg("Listen socket closed unexpectedly, "
+		"terminating telnet_server\n"),
 	    ok;
 	stop  ->
-	    io:format("telnet_server stopped\n"),
+	    dbg("telnet_server stopped\n"),
 	    ok
     end.
 
@@ -96,19 +116,21 @@ init_client(#state{client=Sock}=State) ->
     dbg("Server sending: ~p~n",["login: "]),
     R = case gen_tcp:send(Sock,"login: ") of
 	    ok ->
-		loop(State);
+		loop(State, 1);
 	    Error ->
 		Error
 	end,
     _ = gen_tcp:close(Sock),
     R.
 
-loop(State) ->
+loop(State, N) ->
     receive
 	{tcp,_,Data} ->
 	    try handle_data(Data,State) of
 		{ok,State1} ->
-		    loop(State1)
+		    loop(State1, N);
+		closed ->
+		    closed
 	    catch 
 		throw:Error ->
 		    Error
@@ -117,6 +139,11 @@ loop(State) ->
             closed;
 	{tcp_error,_,Error} ->
 	    {error,tcp,Error};
+	disconnect ->
+	    Sock = State#state.client,
+	    dbg("Server closing connection on socket ~p~n", [Sock]),
+	    ok = gen_tcp:close(Sock),
+	    closed;
 	stop ->
 	    stopped
     end.
@@ -129,10 +156,16 @@ handle_data(Data,State) ->
     case get_line(Data,[]) of
 	{Line,Rest} ->
 	    WholeLine = lists:flatten(lists:reverse(State#state.buffer,Line)),
-	    {ok,State1} = do_handle_data(WholeLine,State),
-	    case Rest of
-		[] -> {ok,State1};
-		_ -> handle_data(Rest,State1)
+	    case do_handle_data(WholeLine,State) of
+		{ok,State1} ->
+		    case Rest of
+			[] -> {ok,State1};
+			_ -> handle_data(Rest,State1)
+		    end;
+		{close,State1} ->
+		    dbg("Server closing connection~n",[]),
+		    gen_tcp:close(State1#state.client),
+		    closed
 	    end;
 	false ->
 	    {ok,State#state{buffer=[Data|State#state.buffer]}}
@@ -162,22 +195,34 @@ do_handle_data(Data,#state{authorized=false}=State) ->
     check_user(Data,State);
 do_handle_data(Data,#state{authorized={user,_}}=State) ->
     check_pwd(Data,State);
-do_handle_data("echo "++ Data,State) ->
+do_handle_data("echo " ++ Data,State) ->
     send(Data++"\r\n> ",State),
     {ok,State};
-do_handle_data("echo_no_prompt "++ Data,State) ->
+do_handle_data("echo_no_prompt " ++ Data,State) ->
     send(Data,State),
     {ok,State};
-do_handle_data("echo_ml "++ Data,State) ->
+do_handle_data("echo_ml " ++ Data,State) ->
     Lines = string:tokens(Data," "),
     ReturnData = string:join(Lines,"\n"),
     send(ReturnData++"\r\n> ",State),
     {ok,State};
-do_handle_data("echo_ml_no_prompt "++ Data,State) ->
+do_handle_data("echo_ml_no_prompt " ++ Data,State) ->
     Lines = string:tokens(Data," "),
     ReturnData = string:join(Lines,"\n"),
     send(ReturnData,State),
     {ok,State};
+do_handle_data("echo_loop " ++ Data,State) ->
+    [TStr|Lines] = string:tokens(Data," "),
+    ReturnData = string:join(Lines,"\n"),
+    send_loop(list_to_integer(TStr),ReturnData,State),
+    {ok,State};
+do_handle_data("disconnect_after " ++WaitStr,State) ->
+    Wait = list_to_integer(string:strip(WaitStr,right,$\n)),
+    dbg("Server will close connection in ~w ms...", [Wait]),
+    erlang:send_after(Wait,self(),disconnect),
+    {ok,State};
+do_handle_data("disconnect" ++_,State) ->
+    {close,State};
 do_handle_data([],State) ->
     send("> ",State),
     {ok,State};
@@ -188,7 +233,7 @@ do_handle_data(_Data,State) ->
 check_user(User,State) ->
     case lists:keyfind(User,1,State#state.users) of
 	{User,Pwd} ->
-	   dbg("user ok\n"),
+	    dbg("user ok\n"),
 	    send("Password: ",State),
 	    {ok,State#state{authorized={user,Pwd}}};
 	false ->
@@ -211,6 +256,20 @@ send(Data,State) ->
 	    throw({error,send,Error})
     end.
     
+send_loop(T,Data,State) ->
+    dbg("Server sending ~p in loop for ~w ms...~n",[Data,T]),
+    send_loop(now(),T,Data,State).
+
+send_loop(T0,T,Data,State) ->
+    ElapsedMS = trunc(timer:now_diff(now(),T0)/1000),
+    if ElapsedMS >= T ->
+	    ok;
+       true ->
+	    send(Data,State),
+	    timer:sleep(500),
+	    send_loop(T0,T,Data,State)
+    end.
+
 get_line([$\r,$\n|Rest],Acc) ->
     {lists:reverse(Acc),Rest};
 get_line([$\r,0|Rest],Acc) ->
@@ -223,6 +282,6 @@ get_line([],_) ->
     false.
 
 dbg(_F) ->
-    io:format(_F).
+    dbg(_F,[]).
 dbg(_F,_A) ->
-    io:format(_F,_A).
+    io:format("[telnet_server] " ++ _F,_A).

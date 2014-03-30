@@ -289,7 +289,11 @@ register_unique_name(Number) ->
 %% If the node should run on the local host, there is
 %% no need to use rsh.
 
-mk_cmd(Host, Name, Args, Waiter, Prog) ->
+mk_cmd(Host, Name, Args, Waiter, Prog0) ->
+    Prog = case os:type() of
+	       {ose,_} -> mk_ose_prog(Prog0);
+	       _ -> quote_progname(Prog0)
+	   end,
     BasicCmd = lists:concat([Prog,
 			     " -detached -noinput -master ", node(),
 			     " ", long_or_short(), Name, "@", Host,
@@ -307,6 +311,49 @@ mk_cmd(Host, Name, Args, Waiter, Prog) ->
 		Other ->
 		    Other
 	    end
+    end.
+
+%% On OSE we have to pass the beam arguments directory to the slave
+%% process. To find out what arguments that should be passed on we
+%% make an assumption. All arguments after the last "--" should be
+%% skipped. So given these arguments:
+%%     -Muycs256 -A 1 -- -root /mst/ -progname beam.debug.smp -- -home /mst/ -- -kernel inetrc '"/mst/inetrc.conf"' -- -name test@localhost
+%% we send
+%%     -Muycs256 -A 1 -- -root /mst/ -progname beam.debug.smp -- -home /mst/ -- -kernel inetrc '"/mst/inetrc.conf"' --
+%% to the slave with whatever other args that are added in mk_cmd.
+mk_ose_prog(Prog) ->
+    SkipTail = fun("--",[]) ->
+		       ["--"];
+		  (_,[]) ->
+		       [];
+		  (Arg,Args) ->
+		       [Arg," "|Args]
+	       end,
+    [Prog,tl(lists:foldr(SkipTail,[],erlang:system_info(emu_args)))].
+
+%% This is an attempt to distinguish between spaces in the program
+%% path and spaces that separate arguments. The program is quoted to
+%% allow spaces in the path.
+%%
+%% Arguments could exist either if the executable is excplicitly given
+%% (through start/5) or if the -program switch to beam is used and
+%% includes arguments (typically done by cerl in OTP test environment
+%% in order to ensure that slave/peer nodes are started with the same
+%% emulator and flags as the test node. The return from lib:progname()
+%% could then typically be '/<full_path_to>/cerl -gcov').
+quote_progname(Progname) ->
+    do_quote_progname(string:tokens(to_list(Progname)," ")).
+
+do_quote_progname([Prog]) ->
+    "\""++Prog++"\"";
+do_quote_progname([Prog,Arg|Args]) ->
+    case os:find_executable(Prog) of
+	false ->
+	    do_quote_progname([Prog++" "++Arg | Args]);
+	_ ->
+	    %% this one has an executable - we assume the rest are arguments
+	    "\""++Prog++"\""++
+		lists:flatten(lists:map(fun(X) -> [" ",X] end, [Arg|Args]))
     end.
 
 %% Give the user an opportunity to run another program,

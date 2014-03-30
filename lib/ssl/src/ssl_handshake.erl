@@ -31,6 +31,18 @@
 -include("ssl_srp.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-export_type([ssl_handshake/0, ssl_handshake_history/0,
+	      public_key_info/0, oid/0]).
+
+-type oid()               :: tuple().
+-type public_key_params() :: #'Dss-Parms'{} |  {namedCurve, oid()} | #'ECParameters'{} | term().
+-type public_key_info()   :: {oid(), #'RSAPublicKey'{} | integer() | #'ECPoint'{}, public_key_params()}.
+-type ssl_handshake_history() :: {[binary()], [binary()]}.
+
+-type ssl_handshake() :: #server_hello{} | #server_hello_done{} | #certificate{} | #certificate_request{} |
+			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
+			 #hello_request{} | #next_protocol{}.
+
 %% Handshake messages
 -export([hello_request/0, server_hello/4, server_hello_done/0,
 	 certificate/4, certificate_request/4, key_exchange/3,
@@ -80,7 +92,7 @@ hello_request() ->
     #hello_request{}.
 
 %%--------------------------------------------------------------------
--spec server_hello(#session{}, tls_version(), #connection_states{},
+-spec server_hello(#session{}, ssl_record:ssl_version(), #connection_states{},
 		   #hello_extensions{}) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
@@ -164,8 +176,8 @@ next_protocol(SelectedProtocol) ->
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
-				tls_version(), term(), private_key(),
-				tls_handshake_history()) ->
+				ssl_record:ssl_version(), term(), public_key:private_key(),
+				ssl_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
@@ -188,7 +200,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_request(erl_cipher_suite(), db_handle(), certdb_ref(), tls_version()) ->
+-spec certificate_request(ssl_cipher:erl_cipher_suite(), db_handle(), certdb_ref(), ssl_record:ssl_version()) ->
     #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
@@ -203,16 +215,16 @@ certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version) ->
 		    certificate_authorities = Authorities
 		   }.
 %%--------------------------------------------------------------------
--spec key_exchange(client | server, tls_version(),
+-spec key_exchange(client | server, ssl_record:ssl_version(),
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()} |
+		   binary(), binary(), public_key:private_key()} |
 		   {ecdh, #'ECPrivateKey'{}} |
 		   {psk, binary()} |
 		   {dhe_psk, binary(), binary()} |
 		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()}) ->
+		   binary(), binary(), public_key:private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 
 %%
@@ -304,7 +316,7 @@ key_exchange(server, Version, {srp, {PublicKey, _},
 			    ClientRandom, ServerRandom, PrivateKey).
 
 %%--------------------------------------------------------------------
--spec finished(tls_version(), client | server, integer(), binary(), tls_handshake_history()) ->
+-spec finished(ssl_record:ssl_version(), client | server, integer(), binary(), ssl_handshake_history()) ->
     #finished{}.
 %%
 %% Description: Creates a handshake finished message
@@ -315,8 +327,7 @@ finished(Version, Role, PrfAlgo, MasterSecret, {Handshake, _}) -> % use the curr
 
 %% ---------- Handle handshake messages  ----------
 
-verify_server_key(#server_key_params{params = Params,
-				     params_bin = EncParams,
+verify_server_key(#server_key_params{params_bin = EncParams,
 				     signature = Signature},
 		  HashSign = {HashAlgo, _},
 		  ConnectionStates, Version, PubKeyInfo) ->
@@ -332,8 +343,8 @@ verify_server_key(#server_key_params{params = Params,
     verify_signature(Version, Hash, HashSign, Signature, PubKeyInfo).
 
 %%--------------------------------------------------------------------
--spec certificate_verify(binary(), public_key_info(), tls_version(), term(),
-			 binary(), tls_handshake_history()) -> valid | #alert{}.
+-spec certificate_verify(binary(), public_key_info(), ssl_record:ssl_version(), term(),
+			 binary(), ssl_handshake_history()) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
@@ -347,7 +358,7 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end.
 %%--------------------------------------------------------------------
--spec verify_signature(tls_version(), binary(), {term(), term()}, binary(),
+-spec verify_signature(ssl_record:ssl_version(), binary(), {term(), term()}, binary(),
 				   public_key_info()) -> true | false.
 %%
 %% Description: Checks that a public_key signature is valid.
@@ -427,8 +438,8 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
     end.
 
 %%--------------------------------------------------------------------
--spec verify_connection(tls_version(), #finished{}, client | server, integer(), binary(),
-			tls_handshake_history()) -> verified | #alert{}.
+-spec verify_connection(ssl_record:ssl_version(), #finished{}, client | server, integer(), binary(),
+			ssl_handshake_history()) -> verified | #alert{}.
 %%
 %% Description: Checks the ssl handshake finished message to verify
 %%              the connection.
@@ -444,7 +455,7 @@ verify_connection(Version, #finished{verify_data = Data},
     end.
 
 %%--------------------------------------------------------------------
--spec init_handshake_history() -> tls_handshake_history().
+-spec init_handshake_history() -> ssl_handshake_history().
 
 %%
 %% Description: Initialize the empty handshake history buffer.
@@ -453,8 +464,8 @@ init_handshake_history() ->
     {[], []}.
 
 %%--------------------------------------------------------------------
--spec update_handshake_history(tls_handshake_history(), Data ::term()) ->
-				      tls_handshake_history().
+-spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term()) ->
+				      ssl_handshake:ssl_handshake_history().
 %%
 %% Description: Update the handshake history buffer with Data.
 %%--------------------------------------------------------------------
@@ -568,7 +579,7 @@ server_key_exchange_hash(md5sha, Value) ->
 server_key_exchange_hash(Hash, Value) ->
     crypto:hash(Hash, Value).
 %%--------------------------------------------------------------------
--spec prf(tls_version(), binary(), binary(), [binary()], non_neg_integer()) ->
+-spec prf(ssl_record:ssl_version(), binary(), binary(), [binary()], non_neg_integer()) ->
 		 {ok, binary()} | {error, undefined}.
 %%
 %% Description: use the TLS PRF to generate key material
@@ -612,7 +623,7 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 	    HashSign
     end.
 %%--------------------------------------------------------------------
--spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), tls_version() | {undefined, undefined}) ->
+-spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version() | {undefined, undefined}) ->
 				  {atom(), atom()}.
 
 %%
@@ -632,7 +643,7 @@ select_cert_hashsign(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
 
 %%--------------------------------------------------------------------
--spec master_secret(atom(), tls_version(), #session{} | binary(), #connection_states{},
+-spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
 		   client | server) -> {binary(), #connection_states{}} | #alert{}.
 %%
 %% Description: Sets or calculates the master secret and calculate keys,
@@ -817,7 +828,7 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
     end.
 
 %%--------------------------------------------------------------------
--spec decode_client_key(binary(), key_algo(), tls_version()) ->
+-spec decode_client_key(binary(), ssl_cipher:key_algo(), ssl_record:ssl_version()) ->
 			    #encrypted_premaster_secret{}
 			    | #client_diffie_hellman_public{}
 			    | #client_ec_diffie_hellman_public{}
@@ -832,7 +843,7 @@ decode_client_key(ClientKey, Type, Version) ->
     dec_client_key(ClientKey, key_exchange_alg(Type), Version).
 
 %%--------------------------------------------------------------------
--spec decode_server_key(binary(), key_algo(), tls_version()) ->
+-spec decode_server_key(binary(), ssl_cipher:key_algo(), ssl_record:ssl_version()) ->
 			       #server_key_params{}.
 %%
 %% Description: Decode server_key data and return appropriate type
@@ -1029,14 +1040,15 @@ cipher_suites(Suites, true) ->
 
 select_session(SuggestedSessionId, CipherSuites, Compressions, Port, #session{ecc = ECCCurve} = 
 		   Session, Version,
-	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
+	       #ssl_options{ciphers = UserSuites, honor_cipher_order = HCO} = SslOpts,
+	       Cache, CacheCb, Cert) ->
     {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
 						 SslOpts, Cert,
 						 Cache, CacheCb),
     case Resumed of
         undefined ->
 	    Suites = available_suites(Cert, UserSuites, Version, ECCCurve),
-	    CipherSuite = select_cipher_suite(CipherSuites, Suites),
+	    CipherSuite = select_cipher_suite(CipherSuites, Suites, HCO),
 	    Compression = select_compression(Compressions),
 	    {new, Session#session{session_id = SessionId,
 				  cipher_suite = CipherSuite,
@@ -1654,7 +1666,16 @@ dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
-    EllipticCurves = [tls_v1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
+    %% Ignore unknown curves
+    Pick = fun(Enum) ->
+		   case tls_v1:enum_to_oid(Enum) of
+		       undefined ->
+			   false;
+		       Oid ->
+			   {true, Oid}
+		   end
+	   end,
+    EllipticCurves = lists:filtermap(Pick, [ECC || <<ECC:16>> <= EllipticCurveList]),
     dec_hello_extensions(Rest, Acc#hello_extensions{elliptic_curves =
 							#elliptic_curves{elliptic_curve_list =
 									     EllipticCurves}});
@@ -1795,6 +1816,11 @@ handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
 
 %%-------------Misc --------------------------------
+
+select_cipher_suite(CipherSuites, Suites, false) ->
+    select_cipher_suite(CipherSuites, Suites);
+select_cipher_suite(CipherSuites, Suites, true) ->
+    select_cipher_suite(Suites, CipherSuites).
 
 select_cipher_suite([], _) ->
    no_suite;

@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>2007</year>
-      <year>2011</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -24,7 +24,7 @@
     </legalnotice>
 
     <title>Percept</title>
-    <prepared>Björn-Egil Dahlberg</prepared>
+    <prepared>BjÃ¶rn-Egil Dahlberg</prepared>
     <docno></docno>
     <date>2007-11-02</date>
     <rev>A</rev>

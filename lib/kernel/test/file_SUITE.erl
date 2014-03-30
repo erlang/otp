@@ -161,7 +161,13 @@ init_per_suite(Config) when is_list(Config) ->
 		     ok ->
 			 [{sasl,started}]
 		 end,
-    ok = application:start(os_mon),
+    ok = case os:type() of
+	     {ose,_} ->
+		 ok;
+	     _ ->
+		 application:start(os_mon)
+	 end,
+
     case os:type() of
 	{win32, _} ->
 	    Priv = ?config(priv_dir, Config),
@@ -185,7 +191,13 @@ end_per_suite(Config) when is_list(Config) ->
 	_ ->
 	    ok
     end,
-    application:stop(os_mon),
+
+    case os:type() of
+	{ose,_} ->
+	    ok;
+	_ ->
+	    application:stop(os_mon)
+    end,
     case proplists:get_value(sasl, Config) of
 	started ->
 	    application:stop(sasl);
@@ -416,7 +428,13 @@ make_del_dir(Config) when is_list(Config) ->
     % because there are processes having that directory as current.
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
     ?line {ok,CurrentDir} = file:get_cwd(),
-    ?line ok = ?FILE_MODULE:set_cwd(NewDir),
+    case {os:type(), length(NewDir) >= 260 } of
+	{{win32,_}, true} ->
+	    io:format("Skip set_cwd for windows path longer than 260 (MAX_PATH)\n", []),
+	    io:format("\nNewDir = ~p\n", [NewDir]);
+    	_ ->
+	    ?line ok = ?FILE_MODULE:set_cwd(NewDir)
+    end,
     try
 	%% Check that we get an error when trying to create...
 	%% a deep directory
@@ -473,32 +491,39 @@ cur_dir_0(Config) when is_list(Config) ->
 				 atom_to_list(?MODULE)
 				 ++"_curdir"),
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
-    ?line io:format("cd to ~s",[NewDir]),
-    ?line ok = ?FILE_MODULE:set_cwd(NewDir),
+    case {os:type(), length(NewDir) >= 260} of
+	{{win32,_}, true} ->
+	    io:format("Skip set_cwd for windows path longer than 260 (MAX_PATH):\n"),
+	    io:format("\nNewDir = ~p\n", [NewDir]);
+	_ ->
+	    io:format("cd to ~s",[NewDir]),
+    	    ok = ?FILE_MODULE:set_cwd(NewDir),
 
-    %% Create a file in the new current directory, and check that it
-    %% really is created there
-    ?line UncommonName = "uncommon.fil",
-    ?line {ok,Fd} = ?FILE_MODULE:open(UncommonName,read_write),
-    ?line ok = ?FILE_MODULE:close(Fd),
-    ?line {ok,NewDirFiles} = ?FILE_MODULE:list_dir("."),
-    ?line true = lists:member(UncommonName,NewDirFiles),
+	    %% Create a file in the new current directory, and check that it
+	    %% really is created there
+	    UncommonName = "uncommon.fil",
+	    {ok,Fd} = ?FILE_MODULE:open(UncommonName,read_write),
+	    ok = ?FILE_MODULE:close(Fd),
+	    {ok,NewDirFiles} = ?FILE_MODULE:list_dir("."),
+	    true = lists:member(UncommonName,NewDirFiles),
 
-    %% Delete the directory and return to the old current directory
-    %% and check that the created file isn't there (too!)
-    ?line expect({error, einval}, {error, eacces}, 
-		 ?FILE_MODULE:del_dir(NewDir)),
-    ?line ?FILE_MODULE:delete(UncommonName),
-    ?line {ok,[]} = ?FILE_MODULE:list_dir("."),
-    ?line ok = ?FILE_MODULE:set_cwd(Dir1),
-    ?line io:format("cd back to ~s",[Dir1]),
-    ?line ok = ?FILE_MODULE:del_dir(NewDir),
-    ?line {error, enoent} = ?FILE_MODULE:set_cwd(NewDir),
-    ?line ok = ?FILE_MODULE:set_cwd(Dir1),
-    ?line io:format("cd back to ~s",[Dir1]),
-    ?line {ok,OldDirFiles} = ?FILE_MODULE:list_dir("."),
-    ?line false = lists:member(UncommonName,OldDirFiles),
+	    %% Delete the directory and return to the old current directory
+	    %% and check that the created file isn't there (too!)
+	    expect({error, einval}, {error, eacces}, 
+	    	   ?FILE_MODULE:del_dir(NewDir)),
+	    ?FILE_MODULE:delete(UncommonName),
+	    {ok,[]} = ?FILE_MODULE:list_dir("."),
+	    ok = ?FILE_MODULE:set_cwd(Dir1),
+	    io:format("cd back to ~s",[Dir1]),
 
+	    ok = ?FILE_MODULE:del_dir(NewDir),
+	    {error, enoent} = ?FILE_MODULE:set_cwd(NewDir),
+	    ok = ?FILE_MODULE:set_cwd(Dir1),
+	    io:format("cd back to ~s",[Dir1]),
+	    {ok,OldDirFiles} = ?FILE_MODULE:list_dir("."),
+	    false = lists:member(UncommonName,OldDirFiles)
+    end,
+	
     %% Try doing some bad things
     ?line {error, badarg} = ?FILE_MODULE:set_cwd({foo,bar}),
     ?line {error, enoent} = ?FILE_MODULE:set_cwd(""),
@@ -525,11 +550,11 @@ cur_dir_1(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(5)),
 
     ?line case os:type() of
-	      {unix, _} ->
-		  ?line {error, enotsup} = ?FILE_MODULE:get_cwd("d:");
-	      {win32, _} ->
-		  win_cur_dir_1(Config)
-	  end,
+	   {win32, _} ->
+		  win_cur_dir_1(Config);
+	    _ ->
+		  ?line {error, enotsup} = ?FILE_MODULE:get_cwd("d:")
+      end,
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -712,7 +737,10 @@ open1(Config) when is_list(Config) ->
     ?line io:format(Fd1,Str,[]),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line Str = io:get_line(Fd1,''),
-    ?line Str = io:get_line(Fd2,''),
+    ?line case io:get_line(Fd2,'') of
+	      Str -> Str;
+	      eof -> Str
+	  end,
     ?line ok = ?FILE_MODULE:close(Fd2),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line ok = ?FILE_MODULE:truncate(Fd1),
@@ -804,6 +832,20 @@ new_modes(Config) when is_list(Config) ->
     ?line {ok, Fd6} = ?FILE_MODULE:open(Name1, [read, raw]),
     ?line {ok, [$\[]} = ?FILE_MODULE:read(Fd6, 1),
     ?line ok = ?FILE_MODULE:close(Fd6),
+
+    %% write and sync
+    case ?FILE_MODULE:open(Name1, [write, sync]) of
+	{ok, Fd7} ->
+	    ok = io:write(Fd7, Marker),
+	    ok = io:put_chars(Fd7, ".\n"),
+	    ok = ?FILE_MODULE:close(Fd7),
+	    {ok, Fd8} = ?FILE_MODULE:open(Name1, [read]),
+	    {ok, Marker} = io:read(Fd8, prompt),
+	    ok = ?FILE_MODULE:close(Fd8);
+	{error, enotsup} ->
+	    %% for platforms that don't support the sync option
+	    ok
+    end,
 
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
@@ -1232,7 +1274,7 @@ file_info_basic_directory(Config) when is_list(Config) ->
             ?line test_directory("/", read_write),
             ?line test_directory("c:/", read_write),
             ?line test_directory("c:\\", read_write);
-        {unix, _} ->
+        _ ->
             ?line test_directory("/", read)
     end,
     test_server:timetrap_cancel(Dog).
@@ -1953,7 +1995,6 @@ names(Config) when is_list(Config) ->
     ?line Name1 = filename:join(RootDir, FileName),
     ?line Name2 = [RootDir,"/","foo1",".","fil"],
     ?line Name3 = [RootDir,"/",foo,$1,[[[],[],'.']],"f",il],
-    ?line Name4 = list_to_atom(Name1),
     ?line {ok,Fd0} = ?FILE_MODULE:open(Name1,write),
     ?line ok = ?FILE_MODULE:close(Fd0),
 
@@ -1966,23 +2007,33 @@ names(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd2),
     ?line {ok,Fd3} = ?FILE_MODULE:open(Name3,read),
     ?line ok = ?FILE_MODULE:close(Fd3),
-    ?line {ok,Fd4} = ?FILE_MODULE:open(Name4,read),
-    ?line ok = ?FILE_MODULE:close(Fd4),
+	case length(Name1) > 255 of
+		true ->
+			io:format("Path too long for an atom:\n\n~p\n", [Name1]);
+		false ->
+			Name4 = list_to_atom(Name1),
+			{ok,Fd4} = ?FILE_MODULE:open(Name4,read),
+			ok = ?FILE_MODULE:close(Fd4)
+	end,
 
     %% Try some path names
     ?line Path1 = RootDir,
     ?line Path2 = [RootDir],
     ?line Path3 = ['',[],[RootDir,[[]]]],
-    ?line Path4 = list_to_atom(Path1),
     ?line {ok,Fd11,_} = ?FILE_MODULE:path_open([Path1],FileName,read),
     ?line ok = ?FILE_MODULE:close(Fd11),
     ?line {ok,Fd12,_} = ?FILE_MODULE:path_open([Path2],FileName,read),
     ?line ok = ?FILE_MODULE:close(Fd12),
     ?line {ok,Fd13,_} = ?FILE_MODULE:path_open([Path3],FileName,read),
     ?line ok = ?FILE_MODULE:close(Fd13),
-    ?line {ok,Fd14,_} = ?FILE_MODULE:path_open([Path4],FileName,read),
-    ?line ok = ?FILE_MODULE:close(Fd14),
-
+	case length(Path1) > 255 of
+		true->
+			io:format("Path too long for an atom:\n\n~p\n", [Path1]);
+		false ->
+			Path4 = list_to_atom(Path1),
+			{ok,Fd14,_} = ?FILE_MODULE:path_open([Path4],FileName,read),
+			ok = ?FILE_MODULE:close(Fd14)
+	end,
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -2016,15 +2067,15 @@ e_delete(Config) when is_list(Config) ->
 
     %% No permission.
     ?line case os:type() of
-	      {unix, _} ->
+		{win32, _} ->
+		  %% Remove a character device.
+		  ?line {error, eacces} = ?FILE_MODULE:delete("nul");
+		_ ->
 		  ?line ?FILE_MODULE:write_file_info(
 			   Base, #file_info {mode=0}),
 		  ?line {error, eacces} = ?FILE_MODULE:delete(Afile),
 		  ?line ?FILE_MODULE:write_file_info(
-			   Base, #file_info {mode=8#600});
-	      {win32, _} ->
-		  %% Remove a character device.
-		  ?line {error, eacces} = ?FILE_MODULE:delete("nul")
+			   Base, #file_info {mode=8#600})
 	  end,
 
     ?line [] = flush(),
@@ -2126,6 +2177,9 @@ e_rename(Config) when is_list(Config) ->
 	    %% At least Windows NT can 
 	    %% successfully move a file to
 	    %% another drive.
+	    ok;
+	{ose, _} ->
+	    %% disabled for now
 	    ok
     end,
     [] = flush(),
@@ -2157,13 +2211,13 @@ e_make_dir(Config) when is_list(Config) ->
 
     %% No permission (on Unix only).
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    ok;
+	_ ->
 	    ?FILE_MODULE:write_file_info(Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:make_dir(filename:join(Base, "xxxx")),
 	    ?FILE_MODULE:write_file_info(
-		     Base, #file_info {mode=8#600});
-	{win32, _} ->
-	    ok
+		     Base, #file_info {mode=8#600})
     end,
     test_server:timetrap_cancel(Dog),
     ok.
@@ -2206,14 +2260,14 @@ e_del_dir(Config) when is_list(Config) ->
 
     %% No permission.
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    ok;
+	_ ->
 	    ADirectory = filename:join(Base, "no_perm"),
 	    ok = ?FILE_MODULE:make_dir(ADirectory),
 	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:del_dir(ADirectory),
-	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#600});
-	{win32, _} ->
-	    ok
+	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#600})
     end,
     [] = flush(),
     test_server:timetrap_cancel(Dog),
@@ -2641,6 +2695,9 @@ symlinks(Config) when is_list(Config) ->
 	case ?FILE_MODULE:make_symlink(Name, Alias) of
 	    {error, enotsup} ->
 		{skipped, "Links not supported on this platform"};
+	    {error, eperm} ->
+		{win32,_} = os:type(),
+		{skipped, "Windows user not privileged to create symlinks"};
 	    ok ->
 		?line {ok, Info1} = ?FILE_MODULE:read_file_info(Name),
 		?line {ok, Info1} = ?FILE_MODULE:read_file_info(Alias),
@@ -3567,7 +3624,11 @@ otp_10852(Config) when is_list(Config) ->
     ok = rpc_call(Node, list_dir_all, [B]),
     ok = rpc_call(Node, read_file, [B]),
     ok = rpc_call(Node, make_link, [B,B]),
-    ok = rpc_call(Node, make_symlink, [B,B]),
+    case rpc_call(Node, make_symlink, [B,B]) of
+		ok -> ok;
+		{error, E} when (E =:= enotsup) or (E =:= eperm) ->
+			{win32,_} = os:type()
+	end,
     ok = rpc_call(Node, delete, [B]),
     ok = rpc_call(Node, make_dir, [B]),
     ok = rpc_call(Node, del_dir, [B]),

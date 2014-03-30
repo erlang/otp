@@ -20,6 +20,7 @@
 #endif
 #include <ctype.h>
 #include "erl_driver.h"
+#include "erl_efile.h"
 #include "sys.h"
 
 #ifdef __WIN32__
@@ -73,15 +74,15 @@ typedef struct gz_stream {
     int      transparent; /* 1 if input file is not a .gz file */
     char     mode;    /* 'w' or 'r' */
     int      position; /* Position (for seek) */
-    int (*destroy)OF((struct gz_stream*)); /* Function to destroy
+    int (*destroy)(struct gz_stream*); /* Function to destroy
 					    *  this structure. */
 } gz_stream;
 
-local gzFile gz_open      OF((const char *path, const char *mode));
-local int    get_byte     OF((gz_stream *s));
-local void   check_header OF((gz_stream *s));
-local int    destroy      OF((gz_stream *s));
-local uLong  getLong      OF((gz_stream *s));
+local ErtsGzFile gz_open      (const char *path, const char *mode);
+local int    get_byte     (gz_stream *s);
+local void   check_header (gz_stream *s);
+local int    destroy      (gz_stream *s);
+local uLong  getLong      (gz_stream *s);
 
 #ifdef UNIX
 /*
@@ -144,7 +145,7 @@ local uLong  getLong      OF((gz_stream *s));
    can be checked to distinguish the two cases (if errno is zero, the
    zlib error is Z_MEM_ERROR).
 */
-local gzFile gz_open (path, mode)
+local ErtsGzFile gz_open (path, mode)
     const char *path;
     const char *mode;
 {
@@ -179,7 +180,7 @@ local gzFile gz_open (path, mode)
 
     s->path = (char*)ALLOC(FILENAME_BYTELEN(path)+FILENAME_CHARSIZE);
     if (s->path == NULL) {
-        return s->destroy(s), (gzFile)Z_NULL;
+        return s->destroy(s), (ErtsGzFile)Z_NULL;
     }
     FILENAME_COPY(s->path, path); /* do this early for debugging */
 
@@ -197,7 +198,7 @@ local gzFile gz_open (path, mode)
     } while (*p++ && m < fmode + sizeof(fmode) - 1);
     *m = '\0';
     if (s->mode == '\0')
-	return s->destroy(s), (gzFile)Z_NULL;
+	return s->destroy(s), (ErtsGzFile)Z_NULL;
     
     if (s->mode == 'w') {
         err = deflateInit2(&(s->stream), level,
@@ -207,7 +208,7 @@ local gzFile gz_open (path, mode)
         s->stream.next_out = s->outbuf = (Byte*)ALLOC(Z_BUFSIZE);
 
         if (err != Z_OK || s->outbuf == Z_NULL) {
-            return s->destroy(s), (gzFile)Z_NULL;
+            return s->destroy(s), (ErtsGzFile)Z_NULL;
         }
     } else {
 	/*
@@ -221,7 +222,7 @@ local gzFile gz_open (path, mode)
         s->stream.next_in  = s->inbuf = (Byte*)ALLOC(Z_BUFSIZE);
 
         if (err != Z_OK || s->inbuf == Z_NULL) {
-            return s->destroy(s), (gzFile)Z_NULL;
+            return s->destroy(s), (ErtsGzFile)Z_NULL;
         }
     }
     s->stream.avail_out = Z_BUFSIZE;
@@ -229,17 +230,17 @@ local gzFile gz_open (path, mode)
     errno = 0;
 #if defined(FILENAMES_16BIT)
     {
-	char wfmode[160];
-	int i=0,j;
-	for(j=0;fmode[j] != '\0';++j) {
-	    wfmode[i++]=fmode[j];
-	    wfmode[i++]='\0';
+	FILE* efile_wfopen(const WCHAR* name, const WCHAR* mode);
+	WCHAR wfmode[80];
+	int i = 0;
+	int j;
+	for(j = 0; fmode[j] != '\0'; ++j) {
+	    wfmode[i++] = (WCHAR) fmode[j];
 	}
-	wfmode[i++] = '\0';
-	wfmode[i++] = '\0';
-	s->file = F_OPEN(path, wfmode);
+	wfmode[i++] = L'\0';
+	s->file = efile_wfopen((WCHAR *)path, wfmode);
 	if (s->file == NULL) {
-	    return s->destroy(s), (gzFile)Z_NULL;
+	    return s->destroy(s), (ErtsGzFile)Z_NULL;
 	}
     }
 #elif defined(UNIX)
@@ -249,18 +250,18 @@ local gzFile gz_open (path, mode)
 	s->file = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     }
     if (s->file == -1) {
-        return s->destroy(s), (gzFile)Z_NULL;
+        return s->destroy(s), (ErtsGzFile)Z_NULL;
     }
 #else
-    s->file = F_OPEN(path, fmode);
+    s->file = fopen(path, fmode);
     if (s->file == NULL) {
-        return s->destroy(s), (gzFile)Z_NULL;
+        return s->destroy(s), (ErtsGzFile)Z_NULL;
     }
 #endif
     if (s->mode == 'r') {
 	check_header(s); /* skip the .gz header */
     }
-    return (gzFile)s;
+    return (ErtsGzFile)s;
 }
 
 /* ===========================================================================
@@ -296,7 +297,7 @@ local int gz_rewind (gz_stream *s)
 /* ===========================================================================
      Opens a gzip (.gz) file for reading or writing.
 */
-gzFile erts_gzopen (path, mode)
+ErtsGzFile erts_gzopen (path, mode)
     const char *path;
     const char *mode;
 {
@@ -447,7 +448,7 @@ local int destroy (s)
    gzread returns the number of bytes actually read (0 for end of file).
 */
 int
-erts_gzread(gzFile file, voidp buf, unsigned len)
+erts_gzread(ErtsGzFile file, voidp buf, unsigned len)
 {
     gz_stream *s = (gz_stream*)file;
     Bytef *start = buf; /* starting point for crc computation */
@@ -557,7 +558,7 @@ erts_gzread(gzFile file, voidp buf, unsigned len)
    gzwrite returns the number of bytes actually written (0 in case of error).
 */
 int
-erts_gzwrite(gzFile file, voidp buf, unsigned len)
+erts_gzwrite(ErtsGzFile file, voidp buf, unsigned len)
 {
     gz_stream *s = (gz_stream*)file;
 
@@ -593,10 +594,19 @@ erts_gzwrite(gzFile file, voidp buf, unsigned len)
  */
 
 int
-erts_gzseek(gzFile file, int offset, int whence)
+erts_gzseek(ErtsGzFile file, int offset, int whence)
 {
     int pos;
     gz_stream* s = (gz_stream *) file;
+
+    switch (whence) {
+    case EFILE_SEEK_SET: whence = SEEK_SET; break;
+    case EFILE_SEEK_CUR: whence = SEEK_CUR; break;
+    case EFILE_SEEK_END: whence = SEEK_END; break;
+    default:
+	errno = EINVAL;
+	return -1;
+    }
 
     if (s == NULL) {
 	errno = EINVAL;
@@ -655,7 +665,7 @@ erts_gzseek(gzFile file, int offset, int whence)
    degrade compression.
 */
 int
-erts_gzflush(gzFile file, int flush)
+erts_gzflush(ErtsGzFile file, int flush)
 {
     uInt len;
     int done = 0;
@@ -714,7 +724,7 @@ local uLong getLong (s)
    and deallocates all the (de)compression state.
 */
 int
-erts_gzclose(gzFile file)
+erts_gzclose(ErtsGzFile file)
 {
     int err;
     gz_stream *s = (gz_stream*)file;
@@ -723,9 +733,9 @@ erts_gzclose(gzFile file)
 
     if (s->mode == 'w') {
         err = erts_gzflush (file, Z_FINISH);
-        if (err != Z_OK) return s->destroy(file);
+        if (err != Z_OK) return s->destroy(s);
     }
-    return s->destroy(file);
+    return s->destroy(s);
 }
 
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -155,65 +155,103 @@ all() ->
     [
      {group, ip}, 
      {group, ssl}, 
-     {group, http_1_1_ip},
-     {group, http_1_0_ip}, 
-     {group, http_0_9_ip},
-     {group, ipv6}, 
+     %%{group, http_1_1_ip},
+     %%{group, http_1_0_ip}, 
+     %%{group, http_0_9_ip},
+     %%{group, ipv6}, 
      {group, tickets}
     ].
 
 groups() -> 
     [
      {ip, [],
-      [ip_mod_alias, ip_mod_actions, ip_mod_security,
-       ip_mod_auth, ip_mod_auth_api, ip_mod_auth_mnesia_api,
-       ip_mod_htaccess, ip_mod_cgi, ip_mod_esi, ip_mod_get,
-       ip_mod_head, ip_mod_all, ip_load_light, ip_load_medium,
-       ip_load_heavy, ip_dos_hostname, ip_time_test,
-       ip_restart_no_block, ip_restart_disturbing_block,
-       ip_restart_non_disturbing_block,
-       ip_block_disturbing_idle, ip_block_non_disturbing_idle,
-       ip_block_503, ip_block_disturbing_active,
-       ip_block_non_disturbing_active,
-       ip_block_disturbing_active_timeout_not_released,
-       ip_block_disturbing_active_timeout_released,
-       ip_block_non_disturbing_active_timeout_not_released,
-       ip_block_non_disturbing_active_timeout_released,
-       ip_block_disturbing_blocker_dies,
-       ip_block_non_disturbing_blocker_dies]},
+      [
+       %%ip_mod_alias, 
+       ip_mod_actions, 
+       %%ip_mod_security,
+       %% ip_mod_auth, 
+       %% ip_mod_auth_api, 
+       ip_mod_auth_mnesia_api,
+       %%ip_mod_htaccess, 
+       %%ip_mod_cgi, 
+       %%ip_mod_esi, 
+       %%ip_mod_get,
+       %%ip_mod_head, 
+       %%ip_mod_all, 
+       %% ip_load_light, 
+       %% ip_load_medium,
+       %% ip_load_heavy, 
+       %%ip_dos_hostname, 
+       ip_time_test
+       %% Replaced by load_config
+       %% ip_restart_no_block, 
+       %% ip_restart_disturbing_block,
+       %% ip_restart_non_disturbing_block,
+       %% ip_block_disturbing_idle, 
+       %% ip_block_non_disturbing_idle,
+       %% ip_block_503, 
+       %% ip_block_disturbing_active,
+       %% ip_block_non_disturbing_active,
+       %% ip_block_disturbing_active_timeout_not_released,
+       %% ip_block_disturbing_active_timeout_released,
+       %% ip_block_non_disturbing_active_timeout_not_released,
+       %% ip_block_non_disturbing_active_timeout_released,
+       %% ip_block_disturbing_blocker_dies,
+       %% ip_block_non_disturbing_blocker_dies
+      ]},
      {ssl, [], [{group, essl}]},
      {essl, [],
-      [essl_mod_alias, essl_mod_actions, essl_mod_security,
-       essl_mod_auth, essl_mod_auth_api,
-       essl_mod_auth_mnesia_api, essl_mod_htaccess,
-       essl_mod_cgi, essl_mod_esi, essl_mod_get, essl_mod_head,
-       essl_mod_all, essl_load_light, essl_load_medium,
-       essl_load_heavy, essl_dos_hostname, essl_time_test,
-       essl_restart_no_block, essl_restart_disturbing_block,
-       essl_restart_non_disturbing_block,
-       essl_block_disturbing_idle,
-       essl_block_non_disturbing_idle, essl_block_503,
-       essl_block_disturbing_active,
-       essl_block_non_disturbing_active,
-       essl_block_disturbing_active_timeout_not_released,
-       essl_block_disturbing_active_timeout_released,
-       essl_block_non_disturbing_active_timeout_not_released,
-       essl_block_non_disturbing_active_timeout_released,
-       essl_block_disturbing_blocker_dies,
-       essl_block_non_disturbing_blocker_dies]},
-     {http_1_1_ip, [],
-      [ip_host, ip_chunked, ip_expect, ip_range, ip_if_test,
-       ip_http_trace, ip_http1_1_head,
-       ip_mod_cgi_chunked_encoding_test]},
-     {http_1_0_ip, [],
-      [ip_head_1_0, ip_get_1_0, ip_post_1_0]},
-     {http_0_9_ip, [], [ip_get_0_9]},
-     {ipv6, [], [ipv6_hostname_ipcomm, ipv6_address_ipcomm, 
-		 ipv6_hostname_essl,   ipv6_address_essl]},
+      [
+       %%essl_mod_alias, 
+       essl_mod_actions, 
+       %% essl_mod_security,
+       %% essl_mod_auth, 
+       %% essl_mod_auth_api,
+       essl_mod_auth_mnesia_api, 
+       %%essl_mod_htaccess,
+       %%essl_mod_cgi, 
+       %%essl_mod_esi, 
+       %%essl_mod_get, 
+       %%essl_mod_head,
+       %% essl_mod_all, 
+       %% essl_load_light, 
+       %% essl_load_medium,
+       %% essl_load_heavy, 
+       %%essl_dos_hostname, 
+       essl_time_test
+       %% Replaced by load_config
+       %% essl_restart_no_block, 
+       %% essl_restart_disturbing_block,
+       %% essl_restart_non_disturbing_block,
+       %% essl_block_disturbing_idle,
+       %% essl_block_non_disturbing_idle, essl_block_503,
+       %% essl_block_disturbing_active,
+       %% essl_block_non_disturbing_active,
+       %% essl_block_disturbing_active_timeout_not_released,
+       %% essl_block_disturbing_active_timeout_released,
+       %% essl_block_non_disturbing_active_timeout_not_released,
+       %% essl_block_non_disturbing_active_timeout_released,
+       %% essl_block_disturbing_blocker_dies,
+       %%  essl_block_non_disturbing_blocker_dies
+      ]},
+     %% {http_1_1_ip, [],
+     %%  [
+     %%   %%ip_host, ip_chunked, ip_expect, 
+     %%   %%ip_range, 
+     %%   %%ip_if_test
+     %%   %%ip_http_trace, ip_http1_1_head,
+     %%   %%ip_mod_cgi_chunked_encoding_test
+     %%  ]},
+     %%{http_1_0_ip, [],
+      %%[ip_head_1_0, ip_get_1_0, ip_post_1_0]},
+     %%{http_0_9_ip, [], [ip_get_0_9]},
+     %% {ipv6, [], [ipv6_hostname_ipcomm, ipv6_address_ipcomm, 
+     %% 		 ipv6_hostname_essl,   ipv6_address_essl]},
      {tickets, [],
-      [ticket_5775, ticket_5865, ticket_5913, ticket_6003,
-       ticket_7304]}].
-
+      [%%ticket_5775, ticket_5865, 
+       ticket_5913%%, ticket_6003,
+       %%ticket_7304
+      ]}].
 
 init_per_group(ipv6 = _GroupName, Config) ->
     case inets_test_lib:has_ipv6_support() of

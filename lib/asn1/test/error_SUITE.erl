@@ -19,7 +19,8 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,enumerated/1,objects/1]).
+	 already_defined/1,bitstrings/1,enumerated/1,
+	 imports/1,instance_of/1,integers/1,objects/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -29,9 +30,15 @@ all() ->
     [{group,p}].
 
 groups() ->
-    [{p,parallel(),[already_defined,
-		    enumerated,
-		    objects]}].
+    [{p,parallel(),
+      [already_defined,
+       bitstrings,
+       enumerated,
+       imports,
+       instance_of,
+       integers,
+       objects,
+       values]}].
 
 parallel() ->
     case erlang:system_info(schedulers) > 1 of
@@ -68,6 +75,23 @@ already_defined(Config) ->
     } = run(P, Config),
     ok.
 
+bitstrings(Config) ->
+    M = 'Bitstrings',
+    P = {M,
+	 <<"Bitstrings DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Bs1 ::= BIT STRING {a(1), a(1)}\n"
+	   "  Bs2 ::= BIT STRING {a(1), b(2), a(3)}\n"
+	   "  Bs3 ::= BIT STRING {x(1), y(1)}\n"
+	   "  Bs4 ::= BIT STRING {x(-1), y(0)}\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,3},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,4},asn1ct_check,{value_reused,1}},
+      {structured_error,{M,5},asn1ct_check,{invalid_bit_number,-1}}
+     ]} = run(P, Config),
+    ok.
+
 enumerated(Config) ->
     M = 'Enumerated',
     P = {M,
@@ -95,6 +119,63 @@ enumerated(Config) ->
      ]
     } = run(P, Config),
     ok.
+
+imports(Config) ->
+    Ext = 'ExternalModule',
+    ExtP = {Ext,
+	    <<"ExternalModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	      "END\n">>},
+    ok = run(ExtP, Config),
+
+    M = 'Imports',
+    P = {M,
+	 <<"Imports DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "IMPORTS NotDefined FROM ExternalModule\n"
+	   "X FROM UndefinedModule objid\n"
+	   "Y, Z FROM UndefinedModule2;\n"
+	   "objid OBJECT IDENTIFIER ::= {joint-iso-ccitt(2) remote-operations(4)\n"
+	   "    notation(0)}\n"
+	   "END\n">>},
+    {error,[{structured_error,{M,2},asn1ct_check,
+	     {undefined_import,'NotDefined','ExternalModule'}},
+	    {structured_error,{M,3},asn1ct_check,{undefined_import,'X','UndefinedModule'}},
+	    {structured_error,{M,4},asn1ct_check,{undefined_import,'Y','UndefinedModule2'}},
+	    {structured_error,{M,4},asn1ct_check,{undefined_import,'Z','UndefinedModule2'}}
+	   ]} = run(P, Config),
+    ok.
+
+instance_of(Config) ->
+    M = 'InstanceOf',
+    P = {M,
+	 <<"InstanceOf DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "XX ::= INSTANCE OF CL ({TI})\n"
+	   "CL ::= CLASS {\n"
+           "&id INTEGER,\n"
+           "&Type\n"
+	   "}\n"
+	   "o1 CL ::= {&id 1, &Type OCTET STRING}\n"
+	   "TI CL ::= { o1 }\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{illegal_instance_of,'CL'}}
+     ]} = run(P, Config),
+    ok.
+
+integers(Config) ->
+    M = 'Integers',
+    P = {M,
+	 <<"Integers DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Int1 ::= INTEGER {a(1), a(1)}\n"
+	   "  Int2 ::= INTEGER {a(1), b(2), a(3)}\n"
+	   "  Int3 ::= INTEGER {x(1), y(1)}\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,3},asn1ct_check,{namelist_redefinition,a}},
+      {structured_error,{M,4},asn1ct_check,{value_reused,1}}
+     ]} = run(P, Config),
+    ok.
+
 
 objects(Config) ->
     M = 'Objects',
@@ -138,6 +219,25 @@ objects(Config) ->
     } = run(P, Config),
     ok.
 
+values(Config) ->
+    M = 'Values',
+    P = {M,
+	 <<"Values DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  os1 OCTET STRING ::= \"abc\"\n"
+	   "  os2 OCTET STRING ::= 42\n"
+	   "  os3 OCTET STRING ::= { 1, 3 }\n"
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{M,2},asn1ct_check,
+       illegal_octet_string_value},
+      {structured_error,{M,3},asn1ct_check,
+       illegal_octet_string_value},
+      {structured_error,{M,4},asn1ct_check,
+       illegal_octet_string_value}
+     ]
+    } = run(P, Config),
+    ok.
 
 
 run({Mod,Spec}, Config) ->

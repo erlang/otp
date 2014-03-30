@@ -1125,6 +1125,9 @@ parse_app_info(File, [{Key, Val} | KeyVals], AI, Status) ->
         start_phases ->
 	    parse_app_info(File, KeyVals, AI#app_info{start_phases = Val},
 			   Status);
+	runtime_dependencies ->
+	    parse_app_info(File, KeyVals, AI#app_info{runtime_dependencies = Val},
+			   Status);
         _ ->
 	    Status2 =
 		reltool_utils:add_warning("Unexpected item ~p in app file ~tp.",

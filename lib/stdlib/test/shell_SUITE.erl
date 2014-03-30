@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -55,7 +54,7 @@ config(priv_dir,_) ->
 -include_lib("test_server/include/test_server.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(2)).
+-define(default_timeout, ?t:minutes(10)).
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     ?line OrigPath = code:get_path(),
@@ -147,7 +146,7 @@ start_restricted_from_shell(Config) when is_list(Config) ->
 			 "test_restricted) end.">>),
     ?line {ok, test_restricted} = 
 	application:get_env(stdlib, restricted_shell),
-    ?line "Module" ++ _ = t(<<"begin m() end.">>),
+    ?line "Module" ++ _ = t({<<"begin m() end.">>, utf8}),
     ?line "exception exit: restricted shell does not allow c(foo)" = 
 	comm_err(<<"begin c(foo) end.">>),
     ?line "exception exit: restricted shell does not allow init:stop()" = 
@@ -226,7 +225,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
     ?line {ok,Node2} = start_node(shell_suite_helper_2,
 				 "-pa "++?config(priv_dir,Config)++ 
 				 " -stdlib restricted_shell test_restricted2"),
-    ?line "Module" ++ _ = t({Node2,<<"begin m() end.">>}),
+    ?line "Module" ++ _ = t({Node2,<<"begin m() end.">>, utf8}),
     ?line "exception exit: restricted shell does not allow c(foo)" = 
 	comm_err({Node2,<<"begin c(foo) end.">>}),
     ?line "exception exit: restricted shell does not allow init:stop()" = 
@@ -2601,9 +2600,9 @@ otp_7232(doc) ->
     "OTP-7232. qlc:info() bug.";
 otp_7232(suite) -> [];
 otp_7232(Config) when is_list(Config) ->
-    Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [1000,2000]]), "
+    Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
-    "qlc:sort([1000,2000],\n"
+    "qlc:sort([55296,56296],\n"
     "         [{order,\n"
     "           fun(A, B) ->\n"
     "                  A > B\n"
@@ -2928,14 +2927,14 @@ t1(Parent, {Bin,Enc}, F) ->
         server_loop(S)
     catch exit:R -> Parent ! {self(), R};
           throw:{?MODULE,LoopReply,latin1} ->
-                   L0 = binary_to_list(list_to_binary(LoopReply)),
-                   [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
-                   Parent ! {self(), dotify(L1)};
+	    L0 = binary_to_list(list_to_binary(LoopReply)),
+	    [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
+	    Parent ! {self(), dotify(L1)};
           throw:{?MODULE,LoopReply,_Uni} ->
-                   Tmp = unicode:characters_to_binary(LoopReply),
-                   L0 = unicode:characters_to_list(Tmp),
-                   [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
-                   Parent ! {self(), dotify(L1)}
+	    Tmp = unicode:characters_to_binary(LoopReply),
+	    L0 = unicode:characters_to_list(Tmp),
+	    [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
+	    Parent ! {self(), dotify(L1)}
     after group_leader(S#state.leader, self())
     end.
 

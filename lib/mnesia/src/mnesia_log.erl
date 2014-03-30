@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -393,13 +393,15 @@ unsafe_close_log(Log) ->
 
 purge_some_logs() ->
     mnesia_monitor:unsafe_close_log(latest_log),
-    file:delete(latest_log_file()),
-    file:delete(decision_tab_file()).
+    _ = file:delete(latest_log_file()),
+    _ = file:delete(decision_tab_file()),
+    ok.
 
 purge_all_logs() ->
-    file:delete(previous_log_file()),
-    file:delete(latest_log_file()),
-    file:delete(decision_tab_file()).
+    _ = file:delete(previous_log_file()),
+    _ = file:delete(latest_log_file()),
+    _ = file:delete(decision_tab_file()),
+    ok.
 
 %% Prepare dump by renaming the open logfile if possible
 %% Returns a tuple on the following format: {Res, OpenLog}

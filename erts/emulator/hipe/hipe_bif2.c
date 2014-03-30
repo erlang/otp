@@ -31,6 +31,7 @@
 #include "erl_process.h"
 #include "bif.h"
 #include "big.h"
+#include "erl_map.h"
 #include "hipe_debug.h"
 #include "hipe_mode_switch.h"
 #include "hipe_arch.h"
@@ -156,7 +157,8 @@ BIF_RETTYPE hipe_bifs_modeswitch_debug_off_0(BIF_ALIST_0)
 BIF_RETTYPE hipe_debug_bif_wrapper(BIF_ALIST_1);
 
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+       if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
+					  __FILE__, __LINE__)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 
@@ -180,3 +182,10 @@ BIF_RETTYPE hipe_bifs_debug_native_called_2(BIF_ALIST_2)
     BIF_RET(am_ok);
 }
 
+/* Stub-BIF for LLVM:
+ * Reloads BP, SP (in llvm unwind label) */
+
+BIF_RETTYPE hipe_bifs_llvm_fix_pinned_regs_0(BIF_ALIST_0)
+{
+    BIF_RET(am_ok);
+}

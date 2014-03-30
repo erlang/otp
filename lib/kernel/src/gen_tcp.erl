@@ -30,7 +30,7 @@
 -include("file.hrl").
 
 -type option() ::
-        {active,          true | false | once} |
+        {active,          true | false | once | -32768..32767} |
         {buffer,          non_neg_integer()} |
         {delay_send,      boolean()} |
         {deliver,         port | term} |
@@ -139,7 +139,7 @@ connect(Address, Port, Opts) ->
 connect(Address, Port, Opts, Time) ->
     Timer = inet:start_timer(Time),
     Res = (catch connect1(Address,Port,Opts,Timer)),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     case Res of
 	{ok,S} -> {ok,S};
 	{error, einval} -> exit(badarg);

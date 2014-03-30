@@ -472,7 +472,7 @@ ethr_leave_ts_event(ethr_ts_event *tsep)
  */
 
 int
-ethr_tsd_key_create(ethr_tsd_key *keyp)
+ethr_tsd_key_create(ethr_tsd_key *keyp, char *keyname)
 {
 #if ETHR_XCHK
     if (ethr_not_inited__) {
@@ -541,7 +541,11 @@ int ethr_sigmask(int how, const sigset_t *set, sigset_t *oset)
 	return EINVAL;
     }
 #endif
-  return pthread_sigmask(how, set, oset);
+#if defined(__ANDROID__)
+   return sigprocmask(how, set, oset);
+#else 
+   return pthread_sigmask(how, set, oset);
+#endif    
 }
 
 int ethr_sigwait(const sigset_t *set, int *sig)

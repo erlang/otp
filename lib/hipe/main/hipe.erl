@@ -200,6 +200,7 @@
 	 compile_core/4,
  	 file/1,
  	 file/2,
+        llvm_support_available/0,
 	 load/1,
 	 help/0,
 	 help_hiper/0,
@@ -648,7 +649,18 @@ run_compiler_1(DisasmFun, IcodeFun, Options) ->
 			    %% The full option expansion is not done
 			    %% until the DisasmFun returns.
 			    {Code, CompOpts} = DisasmFun(Options),
-			    Opts = expand_options(Options ++ CompOpts),
+			    Opts0 = expand_options(Options ++ CompOpts),
+                           Opts =
+                             case proplists:get_bool(to_llvm, Opts0) andalso
+                                 not llvm_support_available() of
+                               true ->
+                                 ?error_msg("No LLVM version 3.4 or greater "
+                                            "found in $PATH; aborting "
+                                            "native code compilation.\n", []),
+                                 ?EXIT(cant_find_required_llvm_version);
+                               false ->
+                                 Opts0
+                             end,
 			    check_options(Opts),
 			    ?when_option(verbose, Options,
 					 ?debug_msg("Options: ~p.\n",[Opts])),
@@ -821,7 +833,9 @@ finalize_fun_sequential({MFA, Icode}, Opts, Servers) ->
 		   ?debug_msg("Compiled ~w in ~.2f s\n", [MFA,(T2-T1)/1000])),
       {MFA, Code};
     {rtl, LinearRtl} ->
-      {MFA, LinearRtl}
+      {MFA, LinearRtl};
+    {llvm_binary, Binary} ->
+      {MFA, Binary}
   catch
     error:Error ->
       ?when_option(verbose, Opts, ?debug_untagged_msg("\n", [])),
@@ -890,21 +904,27 @@ do_load(Mod, Bin, BeamBinOrPath) when is_binary(BeamBinOrPath);
   end.
 
 assemble(CompiledCode, Closures, Exports, Options) ->
-  case get(hipe_target_arch) of
-    ultrasparc ->
-      hipe_sparc_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    powerpc ->
-      hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    ppc64 ->
-      hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    arm ->
-      hipe_arm_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    x86 ->
-      hipe_x86_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    amd64 ->
-      hipe_amd64_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    Arch ->
-      ?EXIT({executing_on_an_unsupported_architecture, Arch})
+  case proplists:get_bool(to_llvm, Options) of
+    false ->
+      case get(hipe_target_arch) of
+        ultrasparc ->
+          hipe_sparc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        powerpc ->
+          hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        ppc64 ->
+          hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        arm ->
+          hipe_arm_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        x86 ->
+          hipe_x86_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        amd64 ->
+          hipe_amd64_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        Arch ->
+          ?EXIT({executing_on_an_unsupported_architecture, Arch})
+      end;
+    true ->
+      %% Merge already compiled code (per MFA) to a single binary.
+      hipe_llvm_merge:finalize(CompiledCode, Closures, Exports)
   end.
 
 %% --------------------------------------------------------------------
@@ -1330,6 +1350,11 @@ opt_keys() ->
      timeregalloc,
      timers,
      to_rtl,
+     to_llvm, % Use the LLVM backend for compilation.
+     llvm_save_temps, % Save the LLVM intermediate files in the current
+                      % directory; useful for debugging.
+     llvm_llc, % Specify llc optimization-level: o1, o2, o3, undefined.
+     llvm_opt, % Specify opt optimization-level: o1, o2, o3, undefined.
      use_indexing,
      use_inline_atom_search,
      use_callgraph,
@@ -1468,10 +1493,18 @@ opt_expansions() ->
   [{o1, o1_opts()},
    {o2, o2_opts()},
    {o3, o3_opts()},
+   {to_llvm, llvm_opts(o3)},
+   {{to_llvm, o0}, llvm_opts(o0)},
+   {{to_llvm, o1}, llvm_opts(o1)},
+   {{to_llvm, o2}, llvm_opts(o2)},
+   {{to_llvm, o3}, llvm_opts(o3)},
    {x87, [x87, inline_fp]},
    {inline_fp, case get(hipe_target_arch) of %% XXX: Temporary until x86
 		 x86 -> [x87, inline_fp];    %%       has sse2
 		 _ -> [inline_fp] end}].
+
+llvm_opts(O) ->
+  [to_llvm, {llvm_opt, O}, {llvm_llc, O}].
 
 %% This expands "basic" options, which may be tested early and cannot be
 %% in conflict with options found in the source code.
@@ -1514,6 +1547,24 @@ check_options(Opts) ->
     L ->
       ?WARNING_MSG("Unknown options: ~p.\n", [L]),
       ok
+  end.
+
+-spec llvm_support_available() -> boolean().
+
+llvm_support_available() ->
+  get_llvm_version() >= 3.4.
+
+get_llvm_version() ->
+  OptStr = os:cmd("opt -version"),
+  SubStr = "LLVM version ", N = length(SubStr),
+  case string:str(OptStr, SubStr) of
+     0 -> % No opt available
+       0.0;
+     S ->
+       case string:to_float(string:sub_string(OptStr, S + N)) of
+         {error, _} -> 0.0; %XXX: Assumes no revision numbers in versioning
+         {Float, _} -> Float
+       end
   end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

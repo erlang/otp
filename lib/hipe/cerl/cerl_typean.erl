@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -242,7 +242,7 @@ delete_ann(_, []) ->
 -type labelset() :: ordset(label()).
 -type outlist()  :: [labelset()] | 'none'.
 
--spec analyze(cerl:cerl()) -> {outlist(), dict(), dict()}.
+-spec analyze(cerl:cerl()) -> {outlist(), dict:dict(), dict:dict()}.
 
 analyze(Tree) ->
     analyze(Tree, ?DEF_LIMIT).

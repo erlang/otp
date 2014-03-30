@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -46,9 +46,12 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 #include "dtrace-wrapper.h"
+#include "erl_map.h"
 
 extern ErlDrvEntry fd_driver_entry;
+#ifndef __OSE__
 extern ErlDrvEntry vanilla_driver_entry;
+#endif
 extern ErlDrvEntry spawn_driver_entry;
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
@@ -244,11 +247,13 @@ static ERTS_INLINE void port_init_instr(Port *prt
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
 	char *lock_str = "port_lock";
+	erts_mtx_init_locked_x(prt->lock, lock_str, id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-	if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
-	    lock_str = NULL;
+			       (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+#else
+			       0
 #endif
-	erts_mtx_init_locked_x(prt->lock, lock_str, id);
+			       );
     }
 #endif
     erts_port_task_init_sched(&prt->sched, id);
@@ -909,8 +914,8 @@ int erts_port_handle_xports(Port *prt)
    (iov)->iov_base = (ptr);				\
    (iov)->iov_len = (len);				\
    if (sizeof((iov)->iov_len) < sizeof(len)				\
-       /* Check if (len) overflowed (iov)->iov_len */			\
-       && ((len) >> (sizeof((iov)->iov_len)*CHAR_BIT)) != 0) {		\
+       /* Check if (len) overflowed (iov)->iov_len */                   \
+       && (iov)->iov_len != (len)) {		                        \
        goto L_overflow;							\
    }									\
    *(bv)++ = (bin);					\
@@ -2468,7 +2473,7 @@ set_port_connected(int bang_op,
 	    DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
 
 	    dtrace_pid_str(connect, process_str);
-	    erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
+	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
 	    dtrace_proc_str(rp, newprocess_str);
 	    DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
 	}
@@ -2742,8 +2747,10 @@ void erts_init_io(int port_tab_size,
 			    &drv_list_rwmtx_opts,
 			    "driver_list");
     driver_list = NULL;
-    erts_smp_tsd_key_create(&driver_list_lock_status_key);
-    erts_smp_tsd_key_create(&driver_list_last_error_key);
+    erts_smp_tsd_key_create(&driver_list_lock_status_key,
+			    "erts_driver_list_lock_status_key");
+    erts_smp_tsd_key_create(&driver_list_last_error_key,
+			    "erts_driver_list_last_error_key");
 
     erts_ptab_init_table(&erts_port,
 			 ERTS_ALC_T_PORT_TABLE,
@@ -2763,8 +2770,11 @@ void erts_init_io(int port_tab_size,
     erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
+#ifndef __OSE__
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
+#endif
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
+    erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
 	erts_add_driver_entry(*dp, NULL, 1);
 
@@ -3581,9 +3591,9 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
        DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
        DTRACE_CHARBUF(rreason_str, 64);
 
-       erts_snprintf(from_str, sizeof(from_str), "%T", from);
+       erts_snprintf(from_str, sizeof(DTRACE_CHARBUF_NAME(from_str)), "%T", from);
        dtrace_port_str(p, port_str);
-       erts_snprintf(rreason_str, sizeof(rreason_str), "%T", rreason);
+       erts_snprintf(rreason_str, sizeof(DTRACE_CHARBUF_NAME(rreason_str)), "%T", rreason);
        DTRACE4(port_exit, from_str, port_str, p->name, rreason_str);
    }
 #endif
@@ -4650,7 +4660,7 @@ set_busy_port(ErlDrvPort dprt, int on)
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(port_busy)) {
-            erts_snprintf(port_str, sizeof(port_str),
+            erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                           "%T", prt->common.id);
             DTRACE1(port_busy, port_str);
         }
@@ -4663,7 +4673,7 @@ set_busy_port(ErlDrvPort dprt, int on)
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(port_not_busy)) {
-            erts_snprintf(port_str, sizeof(port_str),
+            erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                           "%T", prt->common.id);
             DTRACE1(port_not_busy, port_str);
         }
@@ -4715,9 +4725,9 @@ erts_port_resume_procs(Port *prt)
 	    DTRACE_CHARBUF(pid_str, 16);
 	    ErtsProcList* plp2 = plp;
 
-	    erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
+	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
 	    while (plp2 != NULL) {
-		erts_snprintf(pid_str, sizeof(pid_str), "%T", plp2->pid);
+		erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->pid);
 		DTRACE2(process_port_unblocked, pid_str, port_str);
 	    }
 	}
@@ -5292,6 +5302,17 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    depth++;
 	    break;
 	}
+	case ERL_DRV_MAP: { /* int */
+	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
+	    if ((int) ptr[0] < 0) ERTS_DDT_FAIL;
+	    need += MAP_HEADER_SIZE + 1 + 2*ptr[0];
+	    depth -= 2*ptr[0];
+	    if (depth < 0) ERTS_DDT_FAIL;
+	    ptr++;
+	    depth++;
+	    break;
+	}
+
 	default:
 	    ERTS_DDT_FAIL;
 	}
@@ -5527,6 +5548,36 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		ERTS_DDT_FAIL;
 	    ptr += 2;
 	    break;
+
+	case ERL_DRV_MAP: { /* int */
+	    int size = (int)ptr[0];
+	    Eterm* tp = hp;
+	    Eterm* vp;
+	    map_t *mp;
+
+	    *tp = make_arityval(size);
+
+	    hp += 1 + size;
+	    mp = (map_t*)hp;
+	    mp->thing_word = MAP_HEADER;
+	    mp->size = size;
+	    mp->keys = make_tuple(tp);
+	    mess = make_map(mp);
+
+	    hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
+
+	    tp += size;    /* point at last key */
+	    vp = hp - 1;   /* point at last value */
+
+	    while(size--) {
+		*vp-- = ESTACK_POP(stack);
+		*tp-- = ESTACK_POP(stack);
+	    }
+	    if (!erts_validate_and_sort_map(mp))
+		ERTS_DDT_FAIL;
+	    ptr++;
+	    break;
+	}
 
 	}
 	ESTACK_PUSH(stack, mess);
@@ -7060,7 +7111,7 @@ void *driver_dl_open(char * path)
     int res;
     int *last_error_p = erts_smp_tsd_get(driver_list_last_error_key);
     int locked = maybe_lock_driver_list();
-    if ((res = erts_sys_ddll_open(path, &ptr)) == 0) {
+    if ((res = erts_sys_ddll_open(path, &ptr, NULL)) == 0) {
 	maybe_unlock_driver_list(locked);
 	return ptr;
     } else {
@@ -7263,10 +7314,11 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 			    erts_atom_put((byte *) drv->name,
 					  sys_strlen(drv->name),
 					  ERTS_ATOM_ENC_LATIN1,
-					  1)
+					  1),
 #else
-			NIL
+			NIL,
 #endif
+			1
 	    );
     }
 #endif

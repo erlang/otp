@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1218,13 +1218,14 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
                  %% column, the filter will not be skipped.
                  %% (an example: {X=1} <- ..., X =:= 1).
                  length(D = Cols -- PatternColumns) =:= 1,
-                 Frame <- SFs,
-                 begin
+                 {{_,Col} = Column, Constants} <- D,
+                 %% Check that the following holds for all frames.
+                 lists:all(
+                   fun(Frame) ->
                      %% The column is compared/matched against a constant.
                      %% If there are no more comparisons/matches then
                      %% the filter can be replaced by the lookup of
                      %% the constant.
-                     [{{_,Col} = Column, Constants}] = D,
                      {VarI, FrameI} = unify_column(Frame, PV, Col, BindFun,
                                                    Imported),
                      VarValues = deref_skip(VarI, FrameI, LookupOp, Imported),
@@ -1253,7 +1254,7 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
                      length(VarValues) =< 1 andalso
                      (Constants -- LookedUpConstants =:= []) andalso
                      bindings_is_subset(Frame, F2, Imported)
-                 end],
+                   end, SFs)],
     ColFils = family_list(ColFil),
     %% The skip tag 'all' means that all filters are covered by the lookup.
     %% It does not imply that there is only one generator as is the case
@@ -2540,6 +2541,19 @@ nos({'fun',L,{clauses,Cs}}, S) ->
                {clause,Ln,H,G,B}
            end || {clause,Ln,H0,G0,B0} <- Cs],
     {{'fun',L,{clauses,NCs}}, S};
+nos({named_fun,Loc,Name,Cs}, S) ->
+    {{var,NLoc,NName}, S1} = case Name of
+                                 '_' ->
+                                     S;
+                                 Name ->
+                                     nos_pattern({var,Loc,Name}, S)
+                               end,
+    NCs = [begin
+               {H, S2} = nos_pattern(H0, S1),
+               {[G, B], _} = nos([G0, B0], S2),
+               {clause,CLoc,H,G,B}
+           end || {clause,CLoc,H0,G0,B0} <- Cs],
+    {{named_fun,NLoc,NName,NCs}, S};
 nos({lc,L,E0,Qs0}, S) ->
     %% QLCs as well as LCs. It is OK to modify LCs as long as they
     %% occur within QLCs--the warning messages have already been found
@@ -2713,6 +2727,9 @@ var2const(E) ->
 
 var_map(F, {var, _, _}=V) ->
     F(V);
+var_map(F, {named_fun,NLoc,NName,Cs}) ->
+    {var,Loc,Name} = F({var,NLoc,NName}),
+    {named_fun,Loc,Name,var_map(F, Cs)};
 var_map(F, T) when is_tuple(T) ->
     list_to_tuple(var_map(F, tuple_to_list(T)));
 var_map(F, [E | Es]) ->

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,80 @@
     <rev></rev>
     <file>notes.xml</file>
   </header>
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.25.0.1</title>
+    <p>Version 4.25.0.1 supports code replacement in runtime from/to
+    version 4.25, 4.24.2, 4.24.1 and 4.24. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Updated doc files to utf8. </p>
+          <p>Own Id: OTP-10907</p>
+        </item>
+
+        <item>
+          <p>Fixed test suite to support UTF-8 paths. </p>
+          <p>Own Id: OTP-10877</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Wrong block cypher type used for AES ('aes_cbf128' 
+	  instead of 'aes_cfb128') when performing AES block 
+	  encrypt/decrypt which breaks SNMP usmAesCfb128Protocol 
+	  in agent and manager. </p>
+          <p>Own Id: OTP-11412</p>
+        </item>
+
+        <item>
+          <p>[manager] When performing the AES encryption, invalid values for 
+	  the EngineBoots and EngineTime was used. </p>
+	  <p>The values of the local agent was used, which would have produced 
+	  "some" values if an agent was actually running. 
+	  If not it would have caused a crash. </p>
+	  <p>Own Id: OTP-11413</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.25.0.1 -->
 
 
   <section>

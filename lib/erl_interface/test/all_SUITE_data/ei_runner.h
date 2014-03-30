@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -44,6 +44,7 @@ void run_tests(char* argv0, TestCase cases[], unsigned number);
 
 int get_bin_term(ei_x_buff* x, ei_term* term);
 char *read_packet(int *len);
+void free_packet(char*);
 
 /*
  * Sending replies.

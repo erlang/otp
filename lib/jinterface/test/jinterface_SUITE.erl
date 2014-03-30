@@ -37,7 +37,9 @@
 	 erl_exit_with_reason_any_term/1,
 	 java_exit_with_reason_any_term/1,
 	 status_handler_localStatus/1, status_handler_remoteStatus/1,
-	 status_handler_connAttempt/1]).
+	 status_handler_connAttempt/1,
+	 maps/1
+     ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
@@ -103,7 +105,8 @@ fundamental() ->
      nodename,             % Nodename.java
      register_and_whereis, % RegisterAndWhereis.java
      get_names,            % GetNames.java
-     boolean_atom          % BooleanAtom.java
+     boolean_atom,         % BooleanAtom.java
+     maps                  % Maps.java
     ].
 
 ping() ->
@@ -675,6 +678,17 @@ status_handler_connAttempt(Config) when is_list(Config) ->
 		   "NodeStatusHandler",
 		   [erlang:get_cookie(),node(),?status_handler_connAttempt]).
 
+%%%-----------------------------------------------------------------
+maps(doc) ->
+    ["Maps.java: "
+     "Tests OtpErlangMap encoding, decoding, toString, get"];
+maps(suite) ->
+    [];
+maps(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+           ?config(data_dir, Config),
+           "Maps",
+           []).
 
 %%%-----------------------------------------------------------------
 %%% INTERNAL FUNCTIONS

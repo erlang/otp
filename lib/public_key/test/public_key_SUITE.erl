@@ -36,7 +36,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app,
+    [app, appup,
      {group, pem_decode_encode},
      {group, ssh_public_key_decode_encode},
      encrypt_decrypt,
@@ -92,6 +92,13 @@ app() ->
     [{doc, "Test that the public_key app file is ok"}].
 app(Config) when is_list(Config) ->
     ok = ?t:app_test(public_key).
+
+%%--------------------------------------------------------------------
+
+appup() ->
+    [{doc, "Test that the public_key appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(public_key).
 
 %%--------------------------------------------------------------------
 

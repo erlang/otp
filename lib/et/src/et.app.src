@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,8 +24,6 @@
    [
     et,
     et_collector,
-    et_gs_contents_viewer,
-    et_gs_viewer,
     et_selector,
     et_viewer,
     et_wx_contents_viewer,
@@ -33,5 +31,7 @@
    ]},
   {registered, [et_collector]},
   {applications, [stdlib, kernel]},
-  {env, []}
+  {env, []},
+  {runtime_dependencies, ["wx-1.2","stdlib-2.0","runtime_tools-1.8.14",
+			  "kernel-3.0","erts-6.0"]}
  ]}.

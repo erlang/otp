@@ -102,6 +102,11 @@ check_error(int result, Efile_error *errInfo)
 }
 
 int
+efile_init() {
+   return 1;
+}
+
+int
 efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to create. */
 {
@@ -405,6 +410,15 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 	mode |= O_EXCL;
     }
 
+    if (flags & EFILE_MODE_SYNC) {
+#ifdef O_SYNC
+	mode |= O_SYNC;
+#else
+	errno = ENOTSUP;
+	return check_error(-1, errInfo);
+#endif
+    }
+
     fd = open(name, mode, FILE_MODE);
 
     if (!check_error(fd, errInfo))
@@ -620,7 +634,8 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 		    do {
 			w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
 		    } while (w < 0 && errno == EINTR);
-		    ASSERT(w <= iov[cnt].iov_len);
+		    ASSERT(w <= iov[cnt].iov_len ||
+			   (w == -1 && errno != EINTR));
 		}
 	    if (w < 0) return check_error(-1, errInfo);
 	    /* Move forward to next buffer to write */

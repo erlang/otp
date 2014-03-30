@@ -19,12 +19,12 @@
 # Make include file for otp
 
 .PHONY: debug opt release docs release_docs tests release_tests \
-	clean depend valgrind
+	clean depend valgrind static_lib
 
 #
 # Targets that don't affect documentation directories
 #
-opt debug release docs release_docs tests release_tests clean depend valgrind:
+opt debug release docs release_docs tests release_tests clean depend valgrind static_lib:
 	@set -e ;							\
 	app_pwd=`pwd` ;							\
 	if test -f vsn.mk; then						\
@@ -44,5 +44,14 @@ opt debug release docs release_docs tests release_tests clean depend valgrind:
 	    fi ;							\
 	done ;								\
 	if test -f vsn.mk; then						\
+	    if test release = $@ && test ! -f SKIP; then		\
+		app=`basename $$app_pwd` ;				\
+		app_vsn=`echo $$app | sed "y|abcdefghijklmnopqrstuvwxyz|ABCDEFGHIJKLMNOPQRSTUVWXYZ|"` ; \
+		app_vsn=$${app_vsn}_VSN ;				\
+		( $(MAKE) -f "$(ERL_TOP)/make/otp_released_app.mk"	\
+			APP_PWD="$$app_pwd" APP_VSN=$$app_vsn APP=$$app	\
+			TESTROOT="$(TESTROOT)" update)			\
+		|| exit $$?  ;						\
+	    fi	;							\
 	    echo "=== Leaving application" `basename $$app_pwd` ;	\
 	fi

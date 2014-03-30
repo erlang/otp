@@ -224,7 +224,7 @@ make_command(Vars, Spec, State) ->
     CrashFile = filename:join(Cwd,State#state.file ++ "_erl_crash.dump"),
     case filelib:is_file(CrashFile) of
 	true -> 
-	    io:format("ts_run: Deleting dump: ~s\n",[CrashFile]),
+	    io:format("ts_run: Deleting dump: ~ts\n",[CrashFile]),
 	    file:delete(CrashFile);
 	false -> 
 	    ok
@@ -258,8 +258,8 @@ make_command(Vars, Spec, State) ->
 run_batch(Vars, _Spec, State) ->
     process_flag(trap_exit, true),
     Command = State#state.command ++ " -noinput -s erlang halt",
-    ts_lib:progress(Vars, 1, "Command: ~s~n", [Command]),
-    io:format(user, "Command: ~s~n",[Command]),
+    ts_lib:progress(Vars, 1, "Command: ~ts~n", [Command]),
+    io:format(user, "Command: ~ts~n",[Command]),
     Port = open_port({spawn, Command}, [stream, in, eof]),
     Timeout = 30000 * case os:getenv("TS_RUN_VALGRIND") of
 			  false -> 1;
@@ -398,8 +398,9 @@ make_common_test_args(Args0, Options0, _Vars) ->
 		end,
     ConfigFiles = [{config,[filename:join(ConfigPath,File)
 			    || File <- get_config_files()]}],
-    io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++
-				  ConfigFiles++Options++TimeTrap]).
+    io_lib:format("~100000p",[[{abort_if_missing_suites,true} | 
+			       Args0++Trace++Cover++Logdir++
+			       ConfigFiles++Options++TimeTrap]]).
 
 to_list(X) when is_atom(X) ->
     atom_to_list(X);

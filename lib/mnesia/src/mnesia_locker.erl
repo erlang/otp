@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -103,7 +103,8 @@ val(Var) ->
     end.
 
 reply(From, R) ->
-    From ! {?MODULE, node(), R}.
+    From ! {?MODULE, node(), R},
+    true. %% Quiets dialyzer
 
 l_request(Node, X, Store) ->
     {?MODULE, Node} ! {self(), X},
@@ -269,7 +270,8 @@ try_sticky_lock(Tid, Op, Pid, {Tab, _} = Oid) ->
 	    try_lock(Tid, Op, Pid, Oid);
 	[{_,N}] ->
 	    Req = {Pid, {Op, Tid, Oid}},
-	    Pid ! {?MODULE, node(), {switch, N, Req}}
+	    Pid ! {?MODULE, node(), {switch, N, Req}},
+	    true
     end.
 
 try_lock(Tid, read_write, Pid, Oid) ->

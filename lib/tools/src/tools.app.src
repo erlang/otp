@@ -39,23 +39,9 @@
   {applications, [kernel, stdlib]},
   {env, [{file_util_search_methods,[{"", ""}, {"ebin", "esrc"}, {"ebin", "src"}]}
 	]
-  }
+  },
+  {runtime_dependencies, ["webtool-0.8.10","stdlib-2.0","runtime_tools-1.8.14",
+			  "kernel-3.0","inets-5.10","erts-6.0",
+			  "compiler-5.0"]}
  ]
 }. 
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

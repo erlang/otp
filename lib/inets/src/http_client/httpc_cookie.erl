@@ -335,7 +335,8 @@ add_domain(Str, #http_cookie{domain = Domain}) ->
     Str ++ "; $Domain=" ++  Domain.
 
 parse_set_cookies(CookieHeaders, DefaultPathDomain) ->
-    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders], 
+    %% empty Set-Cookie header is invalid according to RFC but some sites violate it
+    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders, Value /= ""],
     Cookies = [parse_set_cookie(SetCookieHeader, DefaultPathDomain) || 
 		  SetCookieHeader <- SetCookieHeaders],
     %% print_cookies("Parsed Cookies", Cookies),

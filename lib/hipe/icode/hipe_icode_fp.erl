@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,8 +33,8 @@
 -include("hipe_icode.hrl").
 -include("../flow/cfg.hrl").
 
--record(state, {edge_map   = gb_trees:empty() :: gb_tree(),
-		fp_ebb_map = gb_trees:empty() :: gb_tree(),
+-record(state, {edge_map   = gb_trees:empty() :: gb_trees:tree(),
+		fp_ebb_map = gb_trees:empty() :: gb_trees:tree(),
 		cfg	                      :: #cfg{}}).
 
 %%--------------------------------------------------------------------
@@ -424,7 +424,7 @@ redirect_phis([I|Is] = Code, OldFrom, NewFrom, Acc) ->
       NewI = hipe_icode:phi_redirect_pred(I, OldFrom, NewFrom),
       redirect_phis(Is, OldFrom, NewFrom, [NewI|Acc]);
     _ ->
-      lists:reverse(Acc) ++ Code
+      lists:reverse(Acc, Code)
   end;
 redirect_phis([], _OldFrom, _NewFrom, Acc) ->
   lists:reverse(Acc).

@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%%
-%%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%%
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -58,6 +58,7 @@
 -define(WARN_RACE_CONDITION, warn_race_condition).
 -define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
+-define(WARN_UNKNOWN, warn_unknown).
 
 %%
 %% The following type has double role:
@@ -73,7 +74,7 @@
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CALLGRAPH
                        | ?WARN_UNMATCHED_RETURN | ?WARN_RACE_CONDITION
                        | ?WARN_BEHAVIOUR | ?WARN_CONTRACT_RANGE
-		       | ?WARN_UNDEFINED_CALLBACK.
+		       | ?WARN_UNDEFINED_CALLBACK | ?WARN_UNKNOWN.
 
 %%
 %% This is the representation of each warning as they will be returned
@@ -86,12 +87,6 @@
 %% This is the representation of dialyzer's internal errors
 %%
 -type dial_error()   :: any().    %% XXX: underspecified
-
-%%--------------------------------------------------------------------
-%% THIS TYPE SHOULD ONE DAY DISAPPEAR -- IT DOES NOT BELONG HERE
-%%--------------------------------------------------------------------
-
--type ordset(T)      :: [T] .      %% XXX: temporarily
 
 %%--------------------------------------------------------------------
 %% Basic types used either in the record definitions below or in other
@@ -143,7 +138,7 @@
 		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
-		  legal_warnings  = ordsets:new()  :: ordset(dial_warn_tag()),
+		  legal_warnings  = ordsets:new()  :: ordsets:ordset(dial_warn_tag()),
 		  report_mode     = normal	   :: rep_mode(),
 		  erlang_mode     = false	   :: boolean(),
 		  use_contracts   = true           :: boolean(),
@@ -167,4 +162,4 @@
 	    dialyzer_timing:end_stamp(Server),
 	    Var
 	end).
--define(timing(Server, Msg, Expr),?timing(Server, Msg, _T, Expr)).
+-define(timing(Server, Msg, Expr), ?timing(Server, Msg, _T, Expr)).

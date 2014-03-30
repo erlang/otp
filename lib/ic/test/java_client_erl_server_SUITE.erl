@@ -288,7 +288,7 @@ classpath(Dir) ->
 
 cmd(Cmd) ->
     PortOpts = [{line,80},eof,exit_status,stderr_to_stdout],
-    io:format("<cmd> ~s~n", [Cmd]),
+    io:format("<cmd> ~ts~n", [Cmd]),
     case catch open_port({spawn,Cmd}, PortOpts) of
 	Port when is_port(Port) ->
 	    Result = cmd_loop(Port, []),

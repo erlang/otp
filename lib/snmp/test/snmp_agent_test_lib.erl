@@ -299,10 +299,10 @@ call(N,M,F,A) ->
 		 "~n   Loc: ~p", [Rn, Loc]),
 	    put(test_server_loc, Loc),
 	    exit(Rn);
-	{done, Ret, Zed} -> 
+	{done, Ret, _Zed} -> 
 	    ?DBG("call -> done:"
 		 "~n   Ret: ~p"
-		 "~n   Zed: ~p", [Ret, Zed]),
+		 "~n   Zed: ~p", [Ret, _Zed]),
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
@@ -338,8 +338,8 @@ run(Mod, Func, Args, Opts) ->
     CtxEngineID = snmp_misc:get_option(context_engine_id, Opts, EngineID),
     Community = snmp_misc:get_option(community, Opts, "all-rights"),
     ?DBG("run -> start crypto app",[]),
-    Crypto = ?CRYPTO_START(),
-    ?DBG("run -> Crypto: ~p", [Crypto]),
+    _CryptoRes = ?CRYPTO_START(),
+    ?DBG("run -> Crypto: ~p", [_CryptoRes]),
     catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
     StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
     Vsn = get(vsn), 
@@ -676,9 +676,9 @@ stop_agent(Config) when is_list(Config) ->
 	(catch process_info(Sup)),
 	(catch process_info(Par))]),
     
-    Info = agent_info(Sup),
+    _Info = agent_info(Sup),
     ?DBG("stop_agent -> Agent info: "
-	 "~n   ~p", [Info]),
+	 "~n   ~p", [_Info]),
     
     stop_sup(Sup, Par),
 
@@ -1303,10 +1303,10 @@ get_req(Id, Vars) ->
 	{ok, Val} ->
 	    ?DBG("get_req -> response: ~p",[Val]),
 	    Val;
-	{error, _, {ExpFmt, ExpArg}, {ActFmt, ActArg}} ->
+	{error, _, {_ExpFmt, ExpArg}, {_ActFmt, ActArg}} ->
 	    ?DBG("get_req -> error for ~p: "
-		 "~n   " ++ ExpFmt ++ 
-		 "~n   " ++ ActFmt, 
+		 "~n   " ++ _ExpFmt ++ 
+		 "~n   " ++ _ActFmt, 
 		 [Id] ++ ExpArg ++ ActArg),
 	    exit({unexpected_response, ExpArg, ActArg});
 	Error ->
@@ -1527,9 +1527,9 @@ rewrite_target_addr_conf(Dir, NewPort) ->
     case file:read_file_info(TAFile) of
 	{ok, _} -> 
 	    ok;
-	{error, R} -> 
+	{error, _R} -> 
 	    ?ERR("failure reading file info of "
-		 "target address config file: ~p",[R]),
+		 "target address config file: ~p", [_R]),
 	    ok  
     end,
 

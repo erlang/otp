@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,7 +44,11 @@ gen(Defs) ->
     gen_unique_names(Defs),
     gen_event_recs(),
     gen_enums_ints(),
-    [gen_class(Class) || Class <- Defs],
+    Static = gen_static([C || C=#class{parent="static"} <- Defs]),
+    Replace = fun(C=#class{name=Name}, Dfs) ->
+		      lists:keyreplace(Name, #class.name, Dfs, C)
+	      end,
+    [gen_class(Class) || Class <- lists:foldl(Replace, Defs, Static)],
     gen_funcnames().
 
 gen_class(Class) ->
@@ -54,9 +58,8 @@ gen_class(Class) ->
 	    Class
     end.
 
-gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
+gen_static(Files) ->
     open_write("../src/gen/wx_misc.erl"),
-    put(current_class, Name),
     erl_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -67,17 +70,27 @@ gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
     w("-module(wx_misc).~n", []),
     w("-include(\"wxe.hrl\").~n",[]),
     %% w("-compile(export_all).~n~n", []),            %% XXXX remove ???
+    [gen_static_exports(C) || C <- Files],
+    Classes = [gen_static_methods(C) || C <- Files],
+    close(),
+    Classes.
 
+
+gen_static_exports(C=#class{parent="static",methods=Ms}) ->
     Exp = fun(M) -> gen_export(C,M) end,
     ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
     w("-export([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", ExportList, 60)]),
+    ok.
 
+gen_static_methods(C=#class{name=Name, parent="static",methods=Ms}) ->
+    put(current_class, Name),
     Gen = fun(M) -> gen_method(Name,M) end,
     NewMs = lists:map(Gen,reverse(Ms)),
-    close(),
     erase(current_class),
-    C#class{methods=NewMs};
+    C#class{methods=NewMs}.
 
+gen_class1(C=#class{parent="static"}) ->
+    C;
 gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
     case Opts of
 	["ignore"] -> throw(skipped);
@@ -137,15 +150,27 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("%% inherited exports~n",[]),
 	    Done0 = ["Destroy", "New", "Create", "destroy", "new", "create"],
 	    Done  = gb_sets:from_list(Done0 ++ [M|| #method{name=M} <- lists:append(Ms)]),
-	    {_, InExported} = gen_inherited(Parents, Done, []),
-	    w("-export([~s]).~n~n", [args(fun(EF) -> EF end, ",",
-					  lists:usort(["parent_class/1"|InExported]),
+	    {_, InExported0} = gen_inherited(Parents, Done, []),
+	    InExported = lists:ukeysort(2, [{?MODULE,{"parent_class","1"},false}|InExported0]),
+	    w("-export([~s]).~n~n", [args(fun({_M,{F,A},_Dep}) -> F ++ "/" ++ A end, ",",
+					  InExported,
 					  60)]),
 	    w("-export_type([~s/0]).~n", [Name]),
 	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
 		[] -> ok;
 		Depr -> w("-deprecated([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", Depr, 60)])
 	    end,
+	    case lists:filter(fun({_,_,Depr}) -> Depr end, InExported) of
+		[] -> ok;
+		NoWDepr -> w("-compile([~s]).~n~n",
+			  [args(fun({M,{F,A},_}) ->
+					DStr=io_lib:format("{nowarn_deprecated_function, {~s,~s,~s}}",
+							  [M,F,A]),
+					lists:flatten(DStr)
+				end, ",", NoWDepr, 60)])
+	    end,
+
+
 	    w("%% @hidden~n", []),
 	    parents_check(Parents),
 	    w("-type ~s() :: wx:wx_object().~n", [Name]),
@@ -375,7 +400,7 @@ gen_inherited([Parent|Ps], Done0, Exported0) ->
     {Done,Exported} = gen_inherited_ms(Ms, Class, Done0, gb_sets:empty(), Exported0),
     gen_inherited(Ps, gb_sets:union(Done,Done0), Exported).
 
-gen_inherited_ms([[#method{name=Name,alias=A,params=Ps0,where=W,method_type=MT}|_]|R],
+gen_inherited_ms([[M=#method{name=Name,alias=A,params=Ps0,where=W,method_type=MT}|_]|R],
 		 Class,Skip,Done, Exported)
   when W =/= merged_c ->
     case gb_sets:is_member(Name,Skip) of
@@ -399,8 +424,10 @@ gen_inherited_ms([[#method{name=Name,alias=A,params=Ps0,where=W,method_type=MT}|
 			 _ when W =:= erl_no_opt -> 0;
 			 _ -> 1
 		     end,
-	    Export = erl_func_name(Name,A) ++ "/" ++ integer_to_list(length(Args) + OptLen),
-	    gen_inherited_ms(R,Class,Skip, gb_sets:add(Name,Done), [Export|Exported]);
+	    {_, Depr} = deprecated(M,ignore),
+	    Export = {Class,{erl_func_name(Name,A),integer_to_list(length(Args) + OptLen)}, Depr},
+	    gen_inherited_ms(R,Class,Skip, gb_sets:add(Name,Done),
+			     [Export|Exported]);
 	_ ->
 	    gen_inherited_ms(R,Class, Skip, Done, Exported)
     end;
@@ -741,7 +768,7 @@ write_spec(Args, Optional, {complex, Res}, Eol) ->
 
 optional_type(Opts, Eol) ->
     "Option :: " ++ args(fun optional_type2/1, Eol++"\t\t | ", Opts).
-optional_type2(#param{name=Name, def=Def, type=T}) ->
+optional_type2(#param{name=Name, def=_Def, type=T}) ->
     "{" ++ erl_option_name(Name) ++ ", " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
 
 doc_link("utils", Func) ->
@@ -1342,5 +1369,4 @@ split_list(F, Keep, [M|Ms], Acc) ->
     end;
 split_list(_, _, [], []) -> [];
 split_list(_, _, [], Acc) -> [lists:reverse(Acc)].
-
 

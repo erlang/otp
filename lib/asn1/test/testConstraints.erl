@@ -208,14 +208,14 @@ int_constraints(Rules) ->
     %%  More SIZE Constraints
     %%==========================================================
 
-    roundtrip('FixedSize', "0123456789"),
-    roundtrip('FixedSize2', "0123456789"),
-    roundtrip('FixedSize2', "0123456789abcdefghij"),
+    roundtrip('FixedSize', <<"0123456789">>),
+    roundtrip('FixedSize2', <<"0123456789">>),
+    roundtrip('FixedSize2', <<"0123456789abcdefghij">>),
 
     range_error(Rules, 'FixedSize', "short"),
     range_error(Rules, 'FixedSize2', "short"),
 
-    [roundtrip('VariableSize', lists:seq($A, $A+L-1)) ||
+    [roundtrip('VariableSize', list_to_binary(lists:seq($A, $A+L-1))) ||
 	L <- lists:seq(1, 10)],
 
     roundtrip_enc('ShorterExt', "a", shorter_ext(Rules, "a")),

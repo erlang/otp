@@ -49,7 +49,7 @@ main(_Erule) ->
     roundtrip('RANAPextract1', 'InitiatingMessage2', Val3),
 
     roundtrip('InfObj', 'MyPdu', {'MyPdu',42,12,false,"string"}),
-    roundtrip('InfObj', 'MyPdu', {'MyPdu',{'Seq',1023,"hello"},
+    roundtrip('InfObj', 'MyPdu', {'MyPdu',{'Seq',1023,<<"hello">>},
 				  42,true,"longer string"}),
     roundtrip('InfObj', 'MyPdu', {'MyPdu',"75712346",43,true,"string"}),
 
@@ -110,11 +110,11 @@ main(_Erule) ->
 	enc_dec('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,asn1_DEFAULT}),
 
     roundtrip('InfObj', 'Multiple-Optionals',
-	      {'Multiple-Optionals',1,42,true,"abc"}),
+	      {'Multiple-Optionals',1,42,true,<<"abc">>}),
     roundtrip('InfObj', 'Multiple-Optionals',
-	      {'Multiple-Optionals',1,asn1_NOVALUE,true,"abc"}),
+	      {'Multiple-Optionals',1,asn1_NOVALUE,true,<<"abc">>}),
     roundtrip('InfObj', 'Multiple-Optionals',
-	      {'Multiple-Optionals',1,42,asn1_NOVALUE,"abc"}),
+	      {'Multiple-Optionals',1,42,asn1_NOVALUE,<<"abc">>}),
     roundtrip('InfObj', 'Multiple-Optionals',
 	      {'Multiple-Optionals',1,42,true,asn1_NOVALUE}),
     roundtrip('InfObj', 'Multiple-Optionals',

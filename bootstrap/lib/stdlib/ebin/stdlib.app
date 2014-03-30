@@ -19,7 +19,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "1.19.4"},
+  {vsn, "2.0"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -71,6 +71,7 @@
 	     lib,
 	     lists,
 	     log_mf_h,
+	     maps,
 	     math,
 	     ms_transform,
 	     orddict,
@@ -101,5 +102,8 @@
   {registered,[timer_server,rsh_starter,take_over_monitor,pool_master,
                dets]},
   {applications, [kernel]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies, ["sasl-2.4","kernel-3.0","erts-6.0","crypto-3.3",
+			  "compiler-5.0"]}
+]}.
 

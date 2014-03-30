@@ -152,6 +152,7 @@ bif_to_test(is_function, [_]=Ops, Fail) -> {test,is_function,Fail,Ops};
 bif_to_test(is_function, [_,_]=Ops, Fail) -> {test,is_function2,Fail,Ops};
 bif_to_test(is_integer,  [_]=Ops, Fail) -> {test,is_integer,Fail,Ops};
 bif_to_test(is_list,     [_]=Ops, Fail) -> {test,is_list,Fail,Ops};
+bif_to_test(is_map,      [_]=Ops, Fail) -> {test,is_map,Fail,Ops};
 bif_to_test(is_number,   [_]=Ops, Fail) -> {test,is_number,Fail,Ops};
 bif_to_test(is_pid,      [_]=Ops, Fail) -> {test,is_pid,Fail,Ops};
 bif_to_test(is_port,     [_]=Ops, Fail) -> {test,is_port,Fail,Ops};
@@ -184,6 +185,7 @@ is_pure_test({test,is_lt,_,[_,_]}) -> true;
 is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
+is_pure_test({test,has_map_fields,_,[_,{list,_}]}) -> true;
 is_pure_test({test,Op,_,Ops}) -> 
     erl_internal:new_type_test(Op, length(Ops)).
 
@@ -746,6 +748,8 @@ live_opt([{try_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{loop_rec_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{wait_timeout,_,nil}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{wait_timeout,_,{Tag,_}}=I|Is], Regs, D, Acc) when Tag =/= x ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{line,_}=I|Is], Regs, D, Acc) ->
@@ -759,6 +763,12 @@ live_opt([{allocate,_,Live}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Live), D, [I|Acc]);
 live_opt([{allocate_heap,_,_,Live}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Live), D, [I|Acc]);
+live_opt([{'%',_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{recv_set,_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{recv_mark,_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
 
 live_opt([], _, _, Acc) -> Acc.
 

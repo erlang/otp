@@ -166,6 +166,7 @@ async_ready_q(Uint sched_id)
 
 #endif
 
+
 void
 erts_init_async(void)
 {
@@ -226,11 +227,23 @@ erts_init_async(void)
 	thr_opts.suggested_stack_size
 	    = erts_async_thread_suggested_stack_size;
 
+#ifdef ETHR_HAVE_THREAD_NAMES
+	thr_opts.name = malloc(sizeof(char)*(strlen("async_XXXX")+1));
+#endif
+
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
+
+#ifdef ETHR_HAVE_THREAD_NAMES
+            sprintf(thr_opts.name, "async_%d", i+1);
+#endif
+
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
 
+#ifdef ETHR_HAVE_THREAD_NAMES
+	free(thr_opts.name);
+#endif
 	/* Wait for async threads to initialize... */
 
 	erts_mtx_lock(&async->init.data.mtx);
@@ -279,7 +292,8 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
     if (DTRACE_ENABLED(aio_pool_add)) {
         DTRACE_CHARBUF(port_str, 16);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                      "%T", a->port);
         /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
         len = -1;
         DTRACE2(aio_pool_add, port_str, len);
@@ -314,7 +328,8 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
             if (DTRACE_ENABLED(aio_pool_get)) {
                 DTRACE_CHARBUF(port_str, 16);
 
-                erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+                erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                              "%T", a->port);
                 /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
                 len = -1;
                 DTRACE2(aio_pool_get, port_str, len);
@@ -602,7 +617,7 @@ unsigned int driver_async_port_key(ErlDrvPort port)
 ** return values:
 **  0  completed 
 **  -1 error
-**  N  handle value (used with async_cancel)
+**  N  handle value
 **  arguments:
 **      ix             driver index 
 **      key            pointer to secedule queue (NULL means round robin)
@@ -687,23 +702,3 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
 
     return id;
 }
-
-int driver_async_cancel(unsigned int id)
-{
-    /*
-     * Not supported anymore. Always fail (which is backward
-     * compatible).
-     *
-     * This functionality could be implemented again. However,
-     * it is (and always has been) completely useless since
-     * it doesn't give you any guarantees whatsoever. The user
-     * needs to (and always have had to) synchronize in his/her
-     * own code in order to get any guarantees.
-     */
-    return 0;
-}
-
-
-
-
-

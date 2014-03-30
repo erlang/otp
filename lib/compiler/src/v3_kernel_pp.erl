@@ -104,6 +104,30 @@ format_1(#k_tuple{es=Es}, Ctxt) ->
      format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
      $}
     ];
+format_1(#k_map{var=#k_literal{val=M},op=assoc,es=Es}, Ctxt) when is_map(M), map_size(M) =:= 0 ->
+    ["~{",
+     format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
+     "}~"
+    ];
+format_1(#k_map{var=#k_literal{val=M},op=exact,es=Es}, Ctxt) when is_map(M), map_size(M) =:= 0 ->
+    ["::{",
+     format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
+     "}::"
+    ];
+format_1(#k_map{var=Var,op=assoc,es=Es}, Ctxt) ->
+    ["~{",
+     format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
+     " | ",format_1(Var, Ctxt),
+     "}~"
+    ];
+format_1(#k_map{var=Var,op=exact,es=Es}, Ctxt) ->
+    ["::{",
+     format_hseq(Es, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),
+     " | ",format_1(Var, Ctxt),
+     "}::"
+    ];
+format_1(#k_map_pair{key=K,val=V}, Ctxt) ->
+    ["<",format(K, Ctxt),",",format(V, Ctxt),">"];
 format_1(#k_binary{segs=S}, Ctxt) ->
     ["#<",format(S, ctxt_bump_indent(Ctxt, 2)),">#"];
 format_1(#k_bin_seg{next=Next}=S, Ctxt) ->

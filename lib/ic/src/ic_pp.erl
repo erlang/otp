@@ -257,15 +257,15 @@ run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir, 
 
 tokenise(File, FileName) ->
     {Result, _L} = token(File, 2, [], not_set, 0),
-    FI_start = lists:reverse(lists:flatten(io_lib:format("# 1 ~p~n",[FileName]))),
+    FI_start = lists:reverse(lists:flatten(io_lib:format("# 1 \"~ts\"~n",[FileName]))),
     FileInfoStart = {file_info, FI_start},
     [FileInfoStart | Result].
 
 tokenise(File, FileName, IncLine, PrevFile) ->
     {Result, _L} = token(File, 2, [], not_set, 0),
-    FI_start = lists:reverse(lists:flatten(io_lib:format("# 1 ~p 1~n",[FileName]))),
+    FI_start = lists:reverse(lists:flatten(io_lib:format("# 1 \"~ts\" 1~n",[FileName]))),
     FileInfoStart = {file_info, FI_start},
-    FI_end = lists:reverse(lists:flatten(io_lib:format("# ~p ~p 2~n~n",[IncLine-1,PrevFile]))),
+    FI_end = lists:reverse(lists:flatten(io_lib:format("# ~p \"~ts\" 2~n~n",[IncLine-1,PrevFile]))),
     FileInfoEnd = [{file_info, FI_end}],
     {Result,  FileInfoStart, FileInfoEnd}.
 %    [FileInfoStart | Result] ++ FileInfoEnd.
@@ -1942,7 +1942,7 @@ read_inc_file(FileName, IncDir, Mio) ->
                             FileList = binary_to_list(Bin),
                             {ok, AbsFile, FileList};
                         {error, Text} ->
-                            {error, Text}
+			    {error, Text}
                     end;
                 true ->
                     skip

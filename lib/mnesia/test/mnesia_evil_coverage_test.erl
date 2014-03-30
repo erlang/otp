@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -671,13 +671,16 @@ add_copy_when_going_down(Config) ->
 	?acquire_nodes(2, Config ++ [{tc_timeout, timer:minutes(2)}]),
     ?match({atomic, ok}, mnesia:create_table(a, [{ram_copies, [Node1]}])),
     %% Grab a write lock 
+    Tester = self(),
     WriteAndWait = fun() -> 
 			   mnesia:write({a,1,1}),
-			   receive continue -> ok 
+			   Tester ! {self(), got_lock},
+			   receive continue -> ok
 			   end
 		   end,
-    _Lock = spawn(fun() -> mnesia:transaction(WriteAndWait) end),
-    Tester = self(),
+    Locker = spawn(fun() -> mnesia:transaction(WriteAndWait) end),
+    receive {Locker, got_lock} -> ok end,
+
     spawn_link(fun() -> Res = rpc:call(Node2, mnesia, add_table_copy,
 				       [a, Node2, ram_copies]),
 			Tester ! {test, Res}

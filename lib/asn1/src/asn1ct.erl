@@ -19,6 +19,10 @@
 %%
 %%
 -module(asn1ct).
+-deprecated([decode/3,encode/3]).
+-compile([{nowarn_deprecated_function,{asn1rt,decode,3}},
+	  {nowarn_deprecated_function,{asn1rt,encode,2}},
+	  {nowarn_deprecated_function,{asn1rt,encode,3}}]).
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
@@ -40,7 +44,7 @@
 	 maybe_rename_function/3,current_sindex/0,
 	 set_current_sindex/1,maybe_saved_sindex/2,
 	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3]).
--export([get_bit_string_format/0]).
+-export([get_bit_string_format/0,use_legacy_types/0]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
@@ -333,8 +337,7 @@ print_structured_errors([_|_]=Errors) ->
 print_structured_errors(_) -> ok.
 
 compile1(File, #st{opts=Opts}=St0) ->
-    verbose("Erlang ASN.1 version ~p, compiling ~p~n", [?vsn,File], Opts),
-    verbose("Compiler Options: ~p~n", [Opts], Opts),
+    compiler_verbose(File, Opts),
     Passes = single_passes(),
     Base = filename:rootname(filename:basename(File)),
     OutFile = outfile(Base, "", Opts),
@@ -349,8 +352,7 @@ compile1(File, #st{opts=Opts}=St0) ->
 %% compile_set/3 merges and compiles a number of asn1 modules
 %% specified in a .set.asn file to one .erl file.
 compile_set(SetBase, Files, #st{opts=Opts}=St0) ->
-    verbose("Erlang ASN.1 version ~p compiling ~p ~n", [?vsn,Files], Opts),
-    verbose("Compiler Options: ~p~n",[Opts], Opts),
+    compiler_verbose(Files, Opts),
     OutFile = outfile(SetBase, "", Opts),
     DbFile = outfile(SetBase, "asn1db", Opts),
     InputModules = [begin
@@ -362,6 +364,11 @@ compile_set(SetBase, Files, #st{opts=Opts}=St0) ->
 		dbfile=DbFile,inputmodules=InputModules},
     Passes = set_passes(),
     run_passes(Passes, St).
+
+compiler_verbose(What, Opts) ->
+    verbose("Erlang ASN.1 compiler ~s\n", [?vsn], Opts),
+    verbose("Compiling: ~p\n", [What], Opts),
+    verbose("Options: ~p\n", [Opts], Opts).
 
 %% merge_modules/2 -> returns a module record where the typeorval lists are merged,
 %% the exports lists are merged, the imports lists are merged when the 
@@ -558,6 +565,8 @@ get_pos_of_def(#pvaluesetdef{pos=Pos}) ->
 get_pos_of_def(#pobjectdef{pos=Pos}) ->
     Pos;
 get_pos_of_def(#pobjectsetdef{pos=Pos}) ->
+    Pos;
+get_pos_of_def(#'Externaltypereference'{pos=Pos}) ->
     Pos;
 get_pos_of_def(#'Externalvaluereference'{pos=Pos}) ->
     Pos;
@@ -838,6 +847,7 @@ delete_double_of_symbol1([],Acc) ->
 generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
     debug_on(Options),
     setup_bit_string_format(Options),
+    setup_legacy_erlang_types(Options),
     put(encoding_options,Options),
     asn1ct_table:new(check_functions),
 
@@ -865,6 +875,31 @@ generate({M,GenTOrV}, OutFile, EncodingRule, Options) ->
     erase(class_default_type),% used in ber
     asn1ct_table:delete(check_functions),
     Result.
+
+setup_legacy_erlang_types(Opts) ->
+    F = case lists:member(legacy_erlang_types, Opts) of
+	    false ->
+		case get_bit_string_format() of
+		    bitstring ->
+			false;
+		    compact ->
+			legacy_forced_info(compact_bit_string),
+			true;
+		    legacy ->
+			legacy_forced_info(legacy_bit_string),
+			true
+		end;
+	    true ->
+		true
+	end,
+    put(use_legacy_erlang_types, F).
+
+legacy_forced_info(Opt) ->
+    io:format("Info: The option 'legacy_erlang_types' "
+	      "is implied by the '~s' option.\n", [Opt]).
+
+use_legacy_types() ->
+    get(use_legacy_erlang_types).
 
 setup_bit_string_format(Opts) ->
     Format = case {lists:member(compact_bit_string, Opts),
@@ -1011,7 +1046,7 @@ get_file_list1(Stream,Dir,Includes,Acc) ->
     Ret = io:get_line(Stream,''),
     case Ret of
 	eof ->
-	    file:close(Stream),
+	    ok = file:close(Stream),
 	    lists:reverse(Acc);
 	FileName ->
 	    SuffixedNameList =
@@ -1072,6 +1107,7 @@ remove_asn_flags(Options) ->
 	  X /= optimize,
 	  X /= compact_bit_string,
 	  X /= legacy_bit_string,
+	  X /= legacy_erlang_types,
 	  X /= debug,
 	  X /= asn1config,
 	  X /= record_name_prefix].
@@ -1896,8 +1932,9 @@ read_config_file(ModuleName) ->
 	    Includes = [I || {i,I} <- Options],
 	    read_config_file1(ModuleName,Includes);
 	{error,Reason} ->
-	    file:format_error(Reason),
-	    throw({error,{"error reading asn1 config file",Reason}})
+	    Error = "error reading asn1 config file: " ++
+		file:format_error(Reason),
+	    throw({error,Error})
     end.
 read_config_file1(ModuleName,[]) ->
     case filename:extension(ModuleName) of
@@ -1915,8 +1952,9 @@ read_config_file1(ModuleName,[H|T]) ->
 	{error,enoent} ->
 	    read_config_file1(ModuleName,T);
 	{error,Reason} ->
-	    file:format_error(Reason),
-	    throw({error,{"error reading asn1 config file",Reason}})
+	    Error = "error reading asn1 config file: " ++
+		file:format_error(Reason),
+	    throw({error,Error})
     end.
     
 get_config_info(CfgList,InfoType) ->

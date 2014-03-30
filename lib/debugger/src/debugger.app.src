@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,20 +27,6 @@
 	     dbg_iload,
 	     dbg_iserver,
 	     dbg_istk,
-	     dbg_ui_break,
-	     dbg_ui_break_win,
-	     dbg_ui_edit,
-	     dbg_ui_edit_win,
-	     dbg_ui_filedialog_win,
-	     dbg_ui_interpret,
-	     dbg_ui_mon,
-	     dbg_ui_mon_win,
-	     dbg_ui_settings,
-	     dbg_ui_trace,
-	     dbg_ui_trace_win,
-	     dbg_ui_view,
-	     dbg_ui_win,
-	     dbg_ui_winman,
 	     dbg_wx_break,
 	     dbg_wx_break_win,
 	     dbg_wx_code,
@@ -59,5 +45,7 @@
 	     i,
 	     int
 	    ]},
-  {registered, [dbg_iserver, dbg_ui_mon, dbg_ui_winman]},
-  {applications, [kernel, stdlib, gs]}]}.
+  {registered, [dbg_iserver, dbg_wx_mon, dbg_wx_winman]},
+  {applications, [kernel, stdlib]},
+  {runtime_dependencies, ["wx-1.2","stdlib-2.0","kernel-3.0","erts-6.0",
+			  "compiler-5.0"]}]}.

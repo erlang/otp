@@ -1101,9 +1101,9 @@ BIF_RETTYPE hipe_bifs_make_fun_3(BIF_ALIST_3)
 #endif
 
 /*
- * args: Nativecodeaddress, Module, {Uniq, Index, BeamAddress}
+ * args: Module, {Uniq, Index, BeamAddress}
  */
-BIF_RETTYPE hipe_bifs_make_fe_3(BIF_ALIST_3)
+BIF_RETTYPE hipe_bifs_get_fe_2(BIF_ALIST_2)
 {
     Eterm mod;
     Uint index;
@@ -1111,20 +1111,15 @@ BIF_RETTYPE hipe_bifs_make_fe_3(BIF_ALIST_3)
     void *beam_address;
     ErlFunEntry *fe;
     Eterm *tp;
-    void *native_address;
 
-    native_address = term_to_address(BIF_ARG_1);
-    if (!native_address)
+    if (is_not_atom(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
+    mod = BIF_ARG_1;
 
-    if (is_not_atom(BIF_ARG_2))
+    if (is_not_tuple(BIF_ARG_2) ||
+	(arityval(*tuple_val(BIF_ARG_2)) != 3))
 	BIF_ERROR(BIF_P, BADARG);
-    mod = BIF_ARG_2;
-
-    if (is_not_tuple(BIF_ARG_3) ||
-	(arityval(*tuple_val(BIF_ARG_3)) != 3))
-	BIF_ERROR(BIF_P, BADARG);
-    tp = tuple_val(BIF_ARG_3);
+    tp = tuple_val(BIF_ARG_2);
     if (term_to_Uint(tp[1], &uniq) == 0)
 	BIF_ERROR(BIF_P, BADARG);
     if (term_to_Uint(tp[2], &index) == 0)
@@ -1144,10 +1139,28 @@ BIF_RETTYPE hipe_bifs_make_fe_3(BIF_ALIST_3)
 	printf("no fun entry for %s %ld:%ld\n", atom_buf, uniq, index);
 	BIF_ERROR(BIF_P, BADARG);
     }
+    BIF_RET(address_to_term((void *)fe, BIF_P));
+}
+
+/*
+ * args: FE, Nativecodeaddress
+ */
+BIF_RETTYPE hipe_bifs_set_native_address_in_fe_2(BIF_ALIST_2)
+{
+    ErlFunEntry *fe;
+    void *native_address;
+
+    fe = (ErlFunEntry *)term_to_address(BIF_ARG_1);
+    if (!fe)
+	BIF_ERROR(BIF_P, BADARG);
+    native_address = term_to_address(BIF_ARG_2);
+    if (!native_address)
+	BIF_ERROR(BIF_P, BADARG);
+
     fe->native_address = native_address;
     if (erts_refc_dectest(&fe->refc, 0) == 0)
 	erts_erase_fun_entry(fe);
-    BIF_RET(address_to_term((void *)fe, BIF_P));
+    BIF_RET(am_true);
 }
 
 #if 0 /* XXX: unused */

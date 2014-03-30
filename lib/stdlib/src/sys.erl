@@ -102,20 +102,31 @@ get_status(Name, Timeout) -> send_system_msg(Name, get_status, Timeout).
 -spec get_state(Name) -> State when
       Name :: name(),
       State :: term().
-get_state(Name) -> send_system_msg(Name, get_state).
+get_state(Name) ->
+    case send_system_msg(Name, get_state) of
+	{error, Reason} -> error(Reason);
+	State -> State
+    end.
 
 -spec get_state(Name, Timeout) -> State when
       Name :: name(),
       Timeout :: timeout(),
       State :: term().
-get_state(Name, Timeout) -> send_system_msg(Name, get_state, Timeout).
+get_state(Name, Timeout) ->
+    case send_system_msg(Name, get_state, Timeout) of
+	{error, Reason} -> error(Reason);
+	State -> State
+    end.
 
 -spec replace_state(Name, StateFun) -> NewState when
       Name :: name(),
       StateFun :: fun((State :: term()) -> NewState :: term()),
       NewState :: term().
 replace_state(Name, StateFun) ->
-    send_system_msg(Name, {replace_state, StateFun}).
+    case send_system_msg(Name, {replace_state, StateFun}) of
+	{error, Reason} -> error(Reason);
+	State -> State
+    end.
 
 -spec replace_state(Name, StateFun, Timeout) -> NewState when
       Name :: name(),
@@ -123,7 +134,10 @@ replace_state(Name, StateFun) ->
       Timeout :: timeout(),
       NewState :: term().
 replace_state(Name, StateFun, Timeout) ->
-    send_system_msg(Name, {replace_state, StateFun}, Timeout).
+    case send_system_msg(Name, {replace_state, StateFun}, Timeout) of
+	{error, Reason} -> error(Reason);
+	State -> State
+    end.
 
 -spec change_code(Name, Module, OldVsn, Extra) -> 'ok' | {error, Reason} when
       Name :: name(),
@@ -317,10 +331,10 @@ handle_system_msg(Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
     case do_cmd(SysState, Msg, Parent, Mod, Debug, Misc) of
 	{suspended, Reply, NDebug, NMisc} ->
-	    gen:reply(From, Reply),
+	    _ = gen:reply(From, Reply),
 	    suspend_loop(suspended, Parent, Mod, NDebug, NMisc, Hib);
 	{running, Reply, NDebug, NMisc} ->
-	    gen:reply(From, Reply),
+	    _ = gen:reply(From, Reply),
             Mod:system_continue(Parent, NDebug, NMisc)
     end.
 
@@ -390,10 +404,11 @@ do_cmd(_, suspend, _Parent, _Mod, Debug, Misc) ->
     {suspended, ok, Debug, Misc};
 do_cmd(_, resume, _Parent, _Mod, Debug, Misc) ->
     {running, ok, Debug, Misc};
-do_cmd(SysState, get_state, _Parent, _Mod, Debug, {State, Misc}) ->
-    {SysState, State, Debug, Misc};
-do_cmd(SysState, replace_state, _Parent, _Mod, Debug, {State, Misc}) ->
-    {SysState, State, Debug, Misc};
+do_cmd(SysState, get_state, _Parent, Mod, Debug, Misc) ->
+    {SysState, do_get_state(Mod, Misc), Debug, Misc};
+do_cmd(SysState, {replace_state, StateFun},  _Parent, Mod, Debug, Misc) ->
+    {Res, NMisc} = do_replace_state(StateFun, Mod, Misc),
+    {SysState, Res, Debug, NMisc};
 do_cmd(SysState, get_status, Parent, Mod, Debug, Misc) ->
     Res = get_status(SysState, Parent, Mod, Debug, Misc),
     {SysState, Res, Debug, Misc};
@@ -406,6 +421,40 @@ do_cmd(suspended, {change_code, Module, Vsn, Extra}, _Parent,
     {suspended, Res, Debug, NMisc};
 do_cmd(SysState, Other, _Parent, _Mod, Debug, Misc) ->
     {SysState, {error, {unknown_system_msg, Other}}, Debug, Misc}.
+
+do_get_state(Mod, Misc) ->
+    case erlang:function_exported(Mod, system_get_state, 1) of
+	true ->
+	    try
+		{ok, State} = Mod:system_get_state(Misc),
+		State
+	    catch
+		Cl:Exc ->
+		    {error, {callback_failed,{Mod,system_get_state},{Cl,Exc}}}
+	    end;
+	false ->
+	    Misc
+    end.
+
+do_replace_state(StateFun, Mod, Misc) ->
+    case erlang:function_exported(Mod, system_replace_state, 2) of
+	true ->
+	    try
+		{ok, State, NMisc} = Mod:system_replace_state(StateFun, Misc),
+		{State, NMisc}
+	    catch
+		Cl:Exc ->
+		    {{error, {callback_failed,{Mod,system_replace_state},{Cl,Exc}}}, Misc}
+	    end;
+	false ->
+	    try
+		NMisc = StateFun(Misc),
+		{NMisc, NMisc}
+	    catch
+		Cl:Exc ->
+		    {{error, {callback_failed,StateFun,{Cl,Exc}}}, Misc}
+	    end
+    end.
 
 get_status(SysState, Parent, Mod, Debug, Misc) ->
     PDict = get(),

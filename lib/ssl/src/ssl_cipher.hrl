@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,16 +25,6 @@
 
 -ifndef(ssl_cipher).
 -define(ssl_cipher, true).
-
--type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
-			   | aes_128_cbc |  aes_256_cbc.
--type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
--type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
--type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash() | default_prf}.
--type cipher_suite()      :: binary().
--type cipher_enum()        :: integer().
--type openssl_cipher_suite()  :: string().
 
 %%% SSL cipher protocol  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(CHANGE_CIPHER_SPEC_PROTO, 1).           % _PROTO to not clash with 

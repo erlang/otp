@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
       <year>2000</year>
-      <year>2012</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -39,7 +39,7 @@
 	graphical user interface.
       </p>
       <p>
-	GS is deprecated and will be removed in the R16 release.
+	GS is deprecated and will be removed in the 18.0 release.
       </p>
     </warning>
     <p>The Graphics System, GS, is easy to learn and

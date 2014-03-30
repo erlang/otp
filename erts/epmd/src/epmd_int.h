@@ -36,6 +36,13 @@
 #define DONT_USE_MAIN
 #endif
 
+#ifdef __OSE__
+#  define NO_DAEMON
+#  define NO_SYSLOG
+#  define NO_SYSCONF
+#  define NO_FCNTL
+#endif
+
 /* ************************************************************************ */
 /* Standard includes                                                        */
 
@@ -92,7 +99,11 @@
 #endif /* ! WIN32 */
 
 #include <ctype.h>
-#include <signal.h>
+
+#if !defined(__OSE__)
+#  include <signal.h>
+#endif
+
 
 #include <errno.h>
 
@@ -109,6 +120,14 @@
 #endif
 
 #include <stdarg.h>
+
+#ifdef __OSE__
+#  include "sys/select.h"
+#endif
+
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#  include <systemd/sd-daemon.h>
+#endif
 
 /* ************************************************************************ */
 /* Replace some functions by others by making the function name a macro */
@@ -321,6 +340,9 @@ typedef struct {
   int listenfd[MAX_LISTEN_SOCKETS];
   char *addresses;
   char **argv;
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+  int is_systemd;
+#endif
 } EpmdVars;
 
 void dbg_printf(EpmdVars*,int,const char*,...);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,9 +48,11 @@
 	  unused_function/1,
 	  unsafe_vars/1,unsafe_vars2/1,
 	  unsafe_vars_try/1,
+	  unsized_binary_in_bin_gen_pattern/1,
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
 	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
+          otp_11772/1, otp_11771/1,
           export_all/1,
 	  bif_clash/1,
 	  behaviour_basic/1, behaviour_multiple/1,
@@ -59,7 +61,9 @@
 	  format_warn/1,
 	  on_load_successful/1, on_load_failing/1, 
 	  too_many_arguments/1,
-	  basic_errors/1,bin_syntax_errors/1
+	  basic_errors/1,bin_syntax_errors/1,
+          predef/1,
+          maps/1,maps_type/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -80,12 +84,15 @@ all() ->
     [{group, unused_vars_warn}, export_vars_warn,
      shadow_vars, unused_import, unused_function,
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+     unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
-     otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,export_all,
+     otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
+     otp_11772, otp_11771, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
-     too_many_arguments, basic_errors, bin_syntax_errors].
+     too_many_arguments, basic_errors, bin_syntax_errors, predef,
+     maps, maps_type].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -573,7 +580,7 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
     ok.
 
 unused_vars_warn_fun(doc) ->
-    "Warnings for unused variables in records.";
+    "Warnings for unused variables in funs.";
 unused_vars_warn_fun(suite) -> [];
 unused_vars_warn_fun(Config) when is_list(Config) ->
     Ts = [{fun1,
@@ -641,7 +648,60 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                {22,erl_lint,{unused_var,'U'}},
                {24,erl_lint,{unused_var,'U'}},
                {26,erl_lint,{unused_var,'U'}},
-               {26,erl_lint,{shadowed_var,'U','fun'}}]}}
+               {26,erl_lint,{shadowed_var,'U','fun'}}]}},
+          {named_fun,
+           <<"u() ->
+                  fun U() -> foo end, % U unused.
+                  U; % U unbound.
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2;
+                      false ->
+                          true
+                  end,
+                  fun U() -> foo end, % U unused.
+                  U; % U unsafe.
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2;
+                      false ->
+                          U = 3
+                  end,
+                  fun U() -> foo end, % U shadowed. U unused.
+                  U;
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2; % U unused.
+                      false ->
+                          U = 3 % U unused.
+                  end,
+                  fun U() -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun U(U) -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun U(1) -> U; U(U) -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun _(N) -> N + 1 end.  % Cover handling of '_' name.
+           ">>,
+           [warn_unused_vars],
+           {error,[{3,erl_lint,{unbound_var,'U'}},
+                   {12,erl_lint,{unsafe_var,'U',{'case',5}}}],
+                  [{2,erl_lint,{unused_var,'U'}},
+                   {11,erl_lint,{unused_var,'U'}},
+                   {20,erl_lint,{unused_var,'U'}},
+                   {20,erl_lint,{shadowed_var,'U','named fun'}},
+                   {25,erl_lint,{unused_var,'U'}},
+                   {27,erl_lint,{unused_var,'U'}},
+                   {29,erl_lint,{unused_var,'U'}},
+                   {29,erl_lint,{shadowed_var,'U','named fun'}},
+                   {31,erl_lint,{unused_var,'U'}},
+                   {31,erl_lint,{unused_var,'U'}},
+                   {31,erl_lint,{shadowed_var,'U','fun'}},
+                   {33,erl_lint,{unused_var,'U'}},
+                   {33,erl_lint,{shadowed_var,'U','fun'}}]}}
           ],
     ?line [] = run(Config, Ts),
     ok.
@@ -1127,6 +1187,35 @@ unsafe_vars_try(Config) when is_list(Config) ->
         ?line [] = run(Config, Ts),
     ok.
 
+unsized_binary_in_bin_gen_pattern(doc) ->
+    "Unsized binary fields are forbidden in patterns of bit string generators";
+unsized_binary_in_bin_gen_pattern(suite) -> [];
+unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
+    Ts = [{unsized_binary_in_bin_gen_pattern,
+	   <<"t({bc,binary,Bin}) ->
+		  << <<X,Tail/binary>> || <<X,Tail/binary>> <= Bin >>;
+	      t({bc,bits,Bin}) ->
+		  << <<X,Tail/bits>> || <<X,Tail/bits>> <= Bin >>;
+	      t({bc,bitstring,Bin}) ->
+		  << <<X,Tail/bits>> || <<X,Tail/bitstring>> <= Bin >>;
+	      t({lc,binary,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/binary>> <= Bin ];
+	      t({lc,bits,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bits>> <= Bin ];
+	      t({lc,bitstring,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bitstring>> <= Bin ].">>,
+	   [],
+	   {errors,
+	    [{2,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {4,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {6,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {8,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {10,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {12,erl_lint,unsized_binary_in_bin_gen_pattern}],
+	     []}}],
+    [] = run(Config, Ts),
+    ok.
+
 guard(doc) ->
     "OTP-4670. Guards, is_record in particular.";
 guard(suite) -> [];
@@ -1190,10 +1279,9 @@ guard(Config) when is_list(Config) ->
                   tuple.
            ">>,
            [nowarn_obsolete_guard],
-           {error,
+           {errors,
 	    [{6,erl_lint,illegal_guard_expr},{18,erl_lint,illegal_guard_expr}],
-	    [{18,erl_lint,{removed,{erlang,is_constant,1},
-			   "Removed in R13B"}}]}},
+	    []}},
           {guard2,
            <<"-record(apa,{}).
               t1(A) when atom(A), atom(A) ->
@@ -1252,14 +1340,11 @@ guard(Config) when is_list(Config) ->
                   tuple.
            ">>,
            [nowarn_obsolete_guard],
-	   {error,[{6,erl_lint,illegal_guard_expr},
-		   {6,erl_lint,illegal_guard_expr},
-		   {18,erl_lint,illegal_guard_expr},
-		   {18,erl_lint,illegal_guard_expr}],
-	    [{18,erl_lint,{removed,{erlang,is_constant,1},
-			   "Removed in R13B"}},
-             {18,erl_lint,{removed,{erlang,is_constant,1},
-			   "Removed in R13B"}}]}},
+	   {errors,[{6,erl_lint,illegal_guard_expr},
+		    {6,erl_lint,illegal_guard_expr},
+		    {18,erl_lint,illegal_guard_expr},
+		    {18,erl_lint,illegal_guard_expr}],
+	    []}},
           {guard3,
            <<"-record(apa,{}).
               t2(A) when atom(A); atom(A) ->
@@ -1409,7 +1494,15 @@ guard(Config) when is_list(Config) ->
 	    [],
 	    {errors,[{1,erl_lint,illegal_guard_expr},
 		     {2,erl_lint,illegal_guard_expr},
-		     {3,erl_lint,illegal_guard_expr}],[]}}
+		     {3,erl_lint,illegal_guard_expr}],[]}},
+           {guard9,
+            <<"t(X, Y) when erlang:'andalso'(X, Y) -> ok;
+               t(X, Y) when erlang:'orelse'(X, Y) -> ok.
+            ">>,
+            [],
+            {errors,[{1,erl_lint,illegal_guard_expr},
+                     {2,erl_lint,illegal_guard_expr}],
+             []}}
 	  ],
     ?line [] = run(Config, Ts1),
     ok.
@@ -2170,7 +2263,8 @@ otp_5878(Config) when is_list(Config) ->
            <<"-record(r1, {t = case foo of _ -> 3 end}).
               -record(r2, {a = case foo of A -> A; _ -> 3 end}).
               -record(r3, {a = case foo of A -> A end}).
-              t() -> {#r1{},#r2{},#r3{}}.
+              -record(r4, {a = fun _AllowedFunName() -> allowed end}).
+              t() -> {#r1{},#r2{},#r3{},#r4{}}.
              ">>,
            [warn_unused_record],
            {errors,[{2,erl_lint,{variable_in_record_def,'A'}},
@@ -2467,7 +2561,7 @@ otp_10436(Config) when is_list(Config) ->
     ok.
 
 otp_11254(doc) ->
-    "OTP-11254. Warnings for opaque types.";
+    "OTP-11254. M:F/A could crash the linter.";
 otp_11254(suite) -> [];
 otp_11254(Config) when is_list(Config) ->
     Ts = <<"-module(p2).
@@ -2478,6 +2572,62 @@ otp_11254(Config) when is_list(Config) ->
     {error,[{4,erl_lint,{unbound_var,'Nine'}}],
      [{3,erl_lint,{unused_var,'Name'}}]} =
         run_test2(Config, Ts, []),
+    ok.
+
+otp_11772(doc) ->
+    "OTP-11772. Reintroduce errors for redefined builtin types.";
+otp_11772(suite) -> [];
+otp_11772(Config) when is_list(Config) ->
+    Ts = <<"
+            -module(newly).
+
+            -compile(export_all).
+
+            %% Built-in:
+            -type node() :: node().
+            -type mfa() :: tuple().
+            -type gb_tree() :: mfa(). % Allowed since Erlang/OTP 17.0
+            -type digraph() :: [_].   % Allowed since Erlang/OTP 17.0
+
+            -type t() :: mfa() | digraph() | gb_tree() | node().
+
+            -spec t() -> t().
+
+            t() ->
+                1.
+         ">>,
+    {errors,[{7,erl_lint,{builtin_type,{node,0}}},
+             {8,erl_lint,{builtin_type,{mfa,0}}}],
+     []} = run_test2(Config, Ts, []),
+    ok.
+
+otp_11771(doc) ->
+    "OTP-11771. Do not allow redefinition of the types arity(_) &c..";
+otp_11771(suite) -> [];
+otp_11771(Config) when is_list(Config) ->
+    Ts = <<"
+            -module(newly).
+
+            -compile(export_all).
+
+            %% No longer allowed in 17.0:
+            -type arity() :: atom().
+            -type bitstring() :: list().
+            -type iodata() :: integer().
+            -type boolean() :: iodata().
+
+            -type t() :: arity() | bitstring() | iodata() | boolean().
+
+            -spec t() -> t().
+
+            t() ->
+                1.
+         ">>,
+    {errors,[{7,erl_lint,{builtin_type,{arity,0}}},
+             {8,erl_lint,{builtin_type,{bitstring,0}}},
+             {9,erl_lint,{builtin_type,{iodata,0}}},
+             {10,erl_lint,{builtin_type,{boolean,0}}}],
+     []} = run_test2(Config, Ts, []),
     ok.
 
 export_all(doc) ->
@@ -2742,7 +2892,24 @@ bif_clash(Config) when is_list(Config) ->
 		    {6,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
 		    {7,erl_lint,{illegal_guard_local_call,{is_list,1}}},
 		    {8,erl_lint,{illegal_guard_local_call,{is_record,3}}},
-		    {9,erl_lint,{illegal_guard_local_call,{is_record,3}}}],[]}}
+		    {9,erl_lint,{illegal_guard_local_call,{is_record,3}}}],[]}},
+	  %% We can also suppress all auto imports at once
+	  {clash22,
+          <<"-export([size/1, binary_part/2]).
+             -compile(no_auto_import).
+             size([]) ->
+               0;
+             size({N,_}) ->
+               N;
+             size([_|T]) ->
+               1+size(T).
+             binary_part({B,_},{X,Y}) ->
+               binary_part(B,{X,Y});
+             binary_part(B,{X,Y}) ->
+               binary:part(B,X,Y).
+            ">>,
+	   [],
+	   []}
 	 ],
 
     ?line [] = run(Config, Ts),
@@ -2774,7 +2941,15 @@ behaviour_basic(Config) when is_list(Config) ->
               stop(_) -> ok.
              ">>,
            [],
-	   []}
+           []},
+
+          {behaviour4,
+           <<"-behavior(application).  %% Test callbacks with export_all
+              -compile(export_all).
+              stop(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{1,erl_lint,{undefined_behaviour_func,{start,2},application}}]}}
 	 ],
     ?line [] = run(Config, Ts),
     ok.
@@ -3131,6 +3306,139 @@ bin_syntax_errors(Config) ->
     [] = run(Config, Ts),
     ok.
 
+predef(doc) ->
+    "OTP-10342: Predefined types: array(), digraph(), and so on";
+predef(suite) -> [];
+predef(Config) when is_list(Config) ->
+    W = get_compilation_warnings(Config, "predef", []),
+    [] = W,
+    W2 = get_compilation_warnings(Config, "predef2", []),
+    Tag = deprecated_builtin_type,
+    [{7,erl_lint,{Tag,{array,0},{array,array,1},"OTP 18.0"}},
+     {12,erl_lint,{Tag,{dict,0},{dict,dict,2},"OTP 18.0"}},
+     {17,erl_lint,{Tag,{digraph,0},{digraph,graph},"OTP 18.0"}},
+     {27,erl_lint,{Tag,{gb_set,0},{gb_sets,set,1},"OTP 18.0"}},
+     {32,erl_lint,{Tag,{gb_tree,0},{gb_trees,tree,2},"OTP 18.0"}},
+     {37,erl_lint,{Tag,{queue,0},{queue,queue,1},"OTP 18.0"}},
+     {42,erl_lint,{Tag,{set,0},{sets,set,1},"OTP 18.0"}},
+     {47,erl_lint,{Tag,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
+    Ts = [{otp_10342_1,
+           <<"-compile(nowarn_deprecated_type).
+
+              -spec t(dict()) -> non_neg_integer().
+
+              t(D) ->
+                  erlang:phash2(D, 3000).
+             ">>,
+           {[nowarn_unused_function]},
+           []},
+         {otp_10342_2,
+           <<"-spec t(dict()) -> non_neg_integer().
+
+              t(D) ->
+                  erlang:phash2(D, 3000).
+             ">>,
+           {[nowarn_unused_function]},
+           {warnings,[{1,erl_lint,
+                       {deprecated_builtin_type,{dict,0},{dict,dict,2},
+                        "OTP 18.0"}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
+maps(Config) ->
+    %% TODO: test key patterns, not done because map patterns are going to be
+    %% changed a lot.
+    Ts = [{illegal_map_construction,
+           <<"t() ->
+                  #{ a := b,
+                     c => d,
+                     e := f
+                  }#{ a := b,
+                      c => d,
+                      e := f };
+              t() when is_map(#{ a := b,
+                                 c => d
+                              }#{ a := b,
+                                  c => d,
+                                  e := f }) ->
+                  ok.
+            ">>,
+           [],
+           {errors,[{2,erl_lint,illegal_map_construction},
+                    {4,erl_lint,illegal_map_construction},
+                    {8,erl_lint,illegal_map_construction}],
+            []}},
+          {illegal_pattern,
+           <<"t(#{ a := A,
+                   c => d,
+                   e := F,
+                   g := 1 + 1,
+                   h := _,
+                   i := (_X = _Y),
+                   j := (x ! y) }) ->
+                  {A,F}.
+            ">>,
+           [],
+           {errors,[{2,erl_lint,illegal_pattern},
+                    {7,erl_lint,illegal_pattern}],
+            []}},
+          {error_in_illegal_map_construction,
+           <<"t() -> #{ a := X }.">>,
+           [],
+	   {errors,[{1,erl_lint,illegal_map_construction},
+                    {1,erl_lint,{unbound_var,'X'}}],
+            []}},
+	  {errors_in_map_keys,
+	   <<"t(V) -> #{ a => 1,
+			#{a=>V} => 2,
+			#{ \"hi\" => wazzup, hi => ho } => yep,
+			[try a catch _:_ -> b end] => nope,
+			ok => 1.0,
+			[3+3] => nope,
+			1.0 => yep,
+			{3.0+3} => nope,
+			{yep} => yep,
+			[case a of a -> a end] => nope
+		      }.
+	   ">>,
+	   [],
+	   {errors,[{2,erl_lint,{illegal_map_key_variable,'V'}},
+		    {4,erl_lint,illegal_map_key},
+		    {6,erl_lint,illegal_map_key},
+		    {8,erl_lint,illegal_map_key},
+		    {10,erl_lint,illegal_map_key}],[]}}],
+    [] = run(Config, Ts),
+    ok.
+
+maps_type(Config) when is_list(Config) ->
+    Ts = [
+	{maps_type1,
+	 <<"
+	-type m() :: #{a => integer()}.
+	-spec t1(#{k=>term()}) -> {term(), map()}.
+
+	t1(#{k:=V}=M) -> {V,M}.
+
+	-spec t2(m()) -> integer().
+
+	t2(#{a:=V}) -> V.
+	">>,
+	[],
+	[]},
+	{maps_type2,
+	 <<"
+            %% Built-in var arity map type:
+	    -type map() :: tuple().
+	    -type a() :: map().
+
+	    -spec t(a()) -> a().
+	    t(M) -> M.
+	 ">>,
+	 [],
+	 {warnings,[{3,erl_lint,{new_var_arity_type,map}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
                 case catch run_test(Config, P, Ws) of
@@ -3153,8 +3461,10 @@ get_compilation_warnings(Conf, Filename, Warnings) ->
     FileS = binary_to_list(Bin),
     {match,[{Start,Length}|_]} = re:run(FileS, "-module.*\\n"),
     Test = lists:nthtail(Start+Length, FileS),
-    {warnings, Ws} = run_test(Conf, Test, Warnings),
-    Ws.
+    case run_test(Conf, Test, Warnings) of
+        {warnings, Ws} -> Ws;
+        [] -> []
+    end.
 
 %% Compiles a test module and returns the list of errors and warnings.
 

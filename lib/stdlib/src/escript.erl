@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,7 +59,6 @@
 	  file:filename()
 	| {file:filename(), binary()}
 	| {file:filename(), binary(), file:file_info()}.
--type zip_create_option() :: term().
 -type section() ::
 	  shebang
 	| {shebang, shebang() | default | undefined}
@@ -68,8 +67,8 @@
 	| {emu_args, emu_args() | undefined}
 	| {source, file:filename() | binary()}
 	| {beam, file:filename() | binary()}
-	| {archive, file:filename() | binary()}
-	| {archive, [zip_file()], [zip_create_option()]}.
+	| {archive, zip:filename() | binary()}
+	| {archive, [zip_file()], [zip:create_option()]}.
 
 %%-----------------------------------------------------------------------
 
@@ -288,6 +287,8 @@ start(EscriptOptions) ->
             io:format("~p\n", [erlang:get_stacktrace()]),
             my_halt(127)
     end.
+
+-spec parse_and_run(_, _, _) -> no_return().
 
 parse_and_run(File, Args, Options) ->
     CheckOnly = lists:member("s", Options),
@@ -727,6 +728,8 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
 %% Evaluate script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec debug(_, _, _) -> no_return().
+
 debug(Module, AbsMod, Args) ->
     case hidden_apply(debugger, debugger, start, []) of
 	{ok, _} ->
@@ -742,6 +745,8 @@ debug(Module, AbsMod, Args) ->
 	    fatal("Cannot start the debugger")
     end.
 
+-spec run(_, _) -> no_return().
+
 run(Module, Args) ->
     try
         Module:main(Args),
@@ -750,6 +755,8 @@ run(Module, Args) ->
         Class:Reason ->
             fatal(format_exception(Class, Reason))
     end.
+
+-spec interpret(_, _, _, _) -> no_return().
 
 interpret(Forms, HasRecs,  File, Args) ->
     %% Basic validation before execution
@@ -771,9 +778,11 @@ interpret(Forms, HasRecs,  File, Args) ->
     ArgsA = erl_parse:abstract(Args, 0),
     Call = {call,0,{atom,0,main},[ArgsA]},
     try
-        erl_eval:expr(Call,
-                      erl_eval:new_bindings(),
-                      {value,fun(I, J) -> code_handler(I, J, Dict, File) end}),
+        _ = erl_eval:expr(Call,
+                          erl_eval:new_bindings(),
+                          {value,fun(I, J) ->
+                                         code_handler(I, J, Dict, File)
+                                 end}),
         my_halt(0)
     catch
         Class:Reason ->

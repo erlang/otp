@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -344,21 +344,21 @@ listCtrlSort(Config) ->
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
 
-    LC = wxListCtrl:new(Frame, [{style, ?wxLC_REPORT bor ?wxLC_SORT_ASCENDING}]),
+    LC = wxListCtrl:new(Frame, [{style, ?wxLC_REPORT}]),
 
     %% must be done crashes in wxwidgets otherwise.
     wxListCtrl:insertColumn(LC, 0, "Column"),
 
     Add = fun(Int) ->
-		  wxListCtrl:insertItem(LC, Int, integer_to_list(Int)),
+		  wxListCtrl:insertItem(LC, Int, "ABC " ++ integer_to_list(Int)),
 		  %% ItemData Can only be integers currently
-		  wxListCtrl:setItemData(LC, Int, abs(2500-Int))
+		  wxListCtrl:setItemData(LC, Int, abs(50-Int))
 	  end,
 
-    wx:foreach(Add, lists:seq(0,5000)),
+    wx:foreach(Add, lists:seq(0,50)),
     wxWindow:show(Frame),
 
-    timer:sleep(200),
+    timer:sleep(2000),
 
     Sort = fun() ->
 		   wxListCtrl:sortItems(LC, fun(A, B) ->
@@ -374,11 +374,12 @@ listCtrlSort(Config) ->
     io:format("Sorted ~p ~n",[Time]),
 
     Item = wxListItem:new(),
+    wxListItem:setMask(Item, ?wxLIST_MASK_TEXT),
     _List = wx:map(fun(Int) ->
 			   wxListItem:setId(Item, Int),
 			   ?m(true, wxListCtrl:getItem(LC, Item)),
-			   io:format("~s~n",[wxListItem:getText(Item)])
-		   end, lists:seq(0,100)),
+			   io:format("~p: ~s~n",[Int, wxListItem:getText(Item)])
+		   end, lists:seq(0,10)),
     wxListItem:destroy(Item),
 
     wx_test_lib:wx_destroy(Frame,Config).

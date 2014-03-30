@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -100,6 +100,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	term->size = get16be(s);
 	return 0;
     case ERL_LIST_EXT:
+    case ERL_MAP_EXT:
 	term->arity = get32be(s);
 	break;
     case ERL_BINARY_EXT:

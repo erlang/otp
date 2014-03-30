@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,6 +91,7 @@ only_simulated() ->
     [
      cookie,
      cookie_profile,
+     empty_set_cookie,
      trace,
      stream_once,
      no_content_204,
@@ -104,6 +105,7 @@ only_simulated() ->
      remote_socket_close,
      remote_socket_close_async,
      transfer_encoding,
+     transfer_encoding_identity,
      redirect_loop,
      redirect_moved_permanently,
      redirect_multiple_choises,
@@ -296,6 +298,9 @@ trace(Config) when is_list(Config) ->
 pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
+
+    %% Make sure pipeline session is registerd
+    test_server:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
 %%--------------------------------------------------------------------
@@ -303,6 +308,9 @@ pipeline(Config) when is_list(Config) ->
 persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], persistent),
+
+    %% Make sure pipeline session is registerd
+    test_server:sleep(4000),
     keep_alive_requests(Request, persistent).
 
 %%-------------------------------------------------------------------------
@@ -530,6 +538,19 @@ cookie_profile(Config) when is_list(Config) ->
     inets:stop(httpc, cookie_test).
 
 %%-------------------------------------------------------------------------
+empty_set_cookie() ->
+    [{doc, "Test empty Set-Cookie header."}].
+empty_set_cookie(Config) when is_list(Config) ->
+    ok = httpc:set_options([{cookies, enabled}]),
+
+    Request0 = {url(group_name(Config), "/empty_set_cookie.html", Config), []},
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request0, [], []),
+
+    ok = httpc:set_options([{cookies, disabled}]).
+
+%%-------------------------------------------------------------------------
 headers_as_is(doc) ->
     ["Test the option headers_as_is"];
 headers_as_is(Config) when is_list(Config) ->
@@ -621,6 +642,12 @@ transfer_encoding() ->
 transfer_encoding(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/capital_transfer_encoding.html", Config),
     {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(URL).
+
+%%-------------------------------------------------------------------------
+
+transfer_encoding_identity(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/identity_transfer_encoding.html", Config),
+    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(URL).
 
 %%-------------------------------------------------------------------------
 
@@ -1609,10 +1636,23 @@ handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
 
+handle_uri(_,"/identity_transfer_encoding.html",_,_,_,_) ->
+    "HTTP/1.0 200 OK\r\n"
+    "Transfer-Encoding:identity\r\n"
+    "Content-Length:8\r\n"
+    "\r\n"
+    "IDENTITY";
+
 handle_uri(_,"/cookie.html",_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"set-cookie:" ++ "test_cookie=true; path=/;" ++
 	"max-age=60000\r\n" ++
+	"Content-Length:32\r\n\r\n"++
+	"<HTML><BODY>foobar</BODY></HTML>";
+
+handle_uri(_,"/empty_set_cookie.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"set-cookie: \r\n" ++
 	"Content-Length:32\r\n\r\n"++
 	"<HTML><BODY>foobar</BODY></HTML>";
 

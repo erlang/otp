@@ -318,6 +318,8 @@ split_block_label_used([{set,[_],_,{bif,_,{f,Fail}}}|_], Fail) ->
     true;
 split_block_label_used([{set,[_],_,{alloc,_,{gc_bif,_,{f,Fail}}}}|_], Fail) ->
     true;
+split_block_label_used([{set,[_],_,{alloc,_,{put_map,_,{f,Fail}}}}|_], Fail) ->
+    true;
 split_block_label_used([_|Is], Fail) ->
     split_block_label_used(Is, Fail);
 split_block_label_used([], _) -> false.
@@ -391,10 +393,14 @@ bopt_tree([{set,_,_,{bif,'xor',_}}|_], _, _) ->
     throw('xor');
 bopt_tree([{protected,[Dst],Code,_}|Is], Forest0, Pre) ->
     ProtForest0 = gb_trees:from_orddict([P || {_,any}=P <- gb_trees:to_list(Forest0)]),
-    {ProtPre,[{_,ProtTree}]} = bopt_tree(Code, ProtForest0, []),
-    Prot = {prot,ProtPre,ProtTree},
-    Forest = gb_trees:enter(Dst, Prot, Forest0),
-    bopt_tree(Is, Forest, Pre);    
+    case bopt_tree(Code, ProtForest0, []) of
+        {ProtPre,[{_,ProtTree}]} ->
+            Prot = {prot,ProtPre,ProtTree},
+            Forest = gb_trees:enter(Dst, Prot, Forest0),
+            bopt_tree(Is, Forest, Pre);
+        _Res ->
+            throw(not_boolean_expr)
+    end;
 bopt_tree([{set,[Dst],[Src],move}=Move|Is], Forest, Pre) ->
     case {Src,Dst} of
 	{{tmp,_},_} -> throw(move);
@@ -432,9 +438,10 @@ bopt_bool_args(As, Forest) ->
     mapfoldl(fun bopt_bool_arg/2, Forest, As).
 
 bopt_bool_arg({T,_}=R, Forest) when T =:= x; T =:= y; T =:= tmp ->
-    Val = case gb_trees:get(R, Forest) of
-	      any -> {test,is_eq_exact,fail,[R,{atom,true}]};
-	      Val0 -> Val0
+    Val = case gb_trees:lookup(R, Forest) of
+	      {value,any} -> {test,is_eq_exact,fail,[R,{atom,true}]};
+	      {value,Val0} -> Val0;
+              none -> throw(mixed)
 	  end,
     {Val,gb_trees:delete(R, Forest)};
 bopt_bool_arg(Term, Forest) ->
@@ -525,7 +532,9 @@ bopt_cg({prot,Pre0,Tree}, Fail, Rs0, Acc, St0) ->
 bopt_cg({atom,true}, _Fail, _Rs, Acc, St) ->
     {Acc,St};
 bopt_cg({atom,false}, Fail, _Rs, Acc, St) ->
-    {[{jump,{f,Fail}}|Acc],St}.
+    {[{jump,{f,Fail}}|Acc],St};
+bopt_cg(_, _, _, _, _) ->
+    throw(not_boolean_expr).
 
 bopt_cg_not({'and',As0}) ->
     As = [bopt_cg_not(A) || A <- As0],
@@ -538,7 +547,9 @@ bopt_cg_not({'not',Arg}) ->
 bopt_cg_not({test,Test,Fail,As}) ->
     {inverted_test,Test,Fail,As};
 bopt_cg_not({atom,Bool}) when is_boolean(Bool) ->
-    {atom,not Bool}.
+    {atom,not Bool};
+bopt_cg_not(_) ->
+    throw(not_boolean_expr).
 
 bopt_cg_not_not({'and',As}) ->
     {'and',[bopt_cg_not_not(A) || A <- As]};

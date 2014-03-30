@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE comref SYSTEM "comref.dtd">
 
 <comref>
@@ -535,12 +535,15 @@
       </item>
       <tag><marker id="file_name_encoding"></marker><c><![CDATA[+fnl]]></c></tag>
       <item>
-        <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255. This is default on operating systems that have transparent file naming, i.e. all Unixes except MacOSX.</p>
-	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
+        <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names. Note that this value also applies to command-line parameters and environment variables (see <seealso marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">STDLIB User's Guide</seealso>).</p>
       </item>
       <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
       <item>
-        <p>The VM works with file names as if they are encoded using UTF-8 (or some other system specific Unicode encoding). This is the default on operating systems that enforce Unicode encoding, i.e. Windows and MacOSX.</p>
+        <p>The VM works with file names as if they are encoded using
+        UTF-8 (or some other system specific Unicode encoding). This
+        is the default on operating systems that enforce Unicode
+        encoding, i.e. Windows and MacOS X.</p>
 	<p>The <c>+fnu</c> switch can be followed by <c>w</c>,
 	<c>i</c>, or <c>e</c> to control the way wrongly encoded file
 	names are to be reported. <c>w</c> means that a warning is
@@ -552,11 +555,16 @@
 	encountered. <c>w</c> is the default. Note that
 	<c>file:read_link/1</c> will always return an error if the
 	link points to an invalid file name.</p>
-	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names. Note that this value also applies to command-line parameters and environment variables (see <seealso marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">STDLIB User's Guide</seealso>).</p>
       </item>
       <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
       <item>
-        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based on the current locale settings in the OS, meaning that if you have set your terminal for UTF-8 encoding, the filesystem is expected to use the same encoding for file names (use with care).</p>
+        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based
+        on the current locale settings in the OS, meaning that if you
+        have set your terminal for UTF-8 encoding, the filesystem is
+        expected to use the same encoding for file names. This is
+        default on all operating systems except MacOS X and
+        Windows.</p>
 	<p>The <c>+fna</c> switch can be followed by <c>w</c>,
 	<c>i</c>, or <c>e</c>. This will have effect if the locale
 	settings cause the behavior of <c>+fnu</c> to be selected.
@@ -564,7 +572,7 @@
 	settings cause the behavior of <c>+fnl</c> to be selected,
 	then <c>w</c>, <c>i</c>, or <c>e</c> will not have any
 	effect.</p>
-	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names. Note that this value also applies to command-line parameters and environment variables (see <seealso marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">STDLIB User's Guide</seealso>).</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
@@ -792,6 +800,54 @@
           SMP support enabled (see the <seealso marker="#smp">-smp</seealso>
           flag).</p>
       </item>
+      <tag><marker id="+SDcpu"><c><![CDATA[+SDcpu DirtyCPUSchedulers:DirtyCPUSchedulersOnline]]></c></marker></tag>
+      <item>
+          <p>Sets the number of dirty CPU scheduler threads to create and dirty
+            CPU scheduler threads to set online when threading support has been
+            enabled. The maximum for both values is 1024, and each value is further
+            limited by the settings for normal schedulers: the number of dirty CPU
+            scheduler threads created cannot exceed the number of normal scheduler
+            threads created, and the number of dirty CPU scheduler threads online
+            cannot exceed the number of normal scheduler threads online (see the
+            <seealso marker="#+S">+S</seealso> and <seealso marker="#+SP">+SP</seealso>
+            flags for more details). By default, the number of dirty CPU scheduler
+            threads created equals the number of normal scheduler threads created,
+            and the number of dirty CPU scheduler threads online equals the number
+            of normal scheduler threads online. <c>DirtyCPUSchedulers</c> may be
+            omitted if <c>:DirtyCPUSchedulersOnline</c> is not and vice versa. The
+            number of dirty CPU schedulers online can be changed at run time via
+            <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
+          </p>
+          <p>This option is ignored if the emulator doesn't have threading support
+            enabled. Currently, <em>this option is experimental</em> and is supported only
+            if the emulator was configured and built with support for dirty schedulers
+            enabled (it's disabled by default).
+          </p>
+      </item>
+      <tag><marker id="+SDPcpu"><c><![CDATA[+SDPcpu DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></marker></tag>
+      <item>
+          <p>Similar to <seealso marker="#+SDcpu">+SDcpu</seealso> but uses percentages to set the
+            number of dirty CPU scheduler threads to create and number of dirty CPU scheduler threads
+            to set online when threading support has been enabled. Specified values must be greater
+            than 0. For example, <c>+SDPcpu 50:25</c> sets the number of dirty CPU scheduler threads
+            to 50% of the logical processors configured and the number of dirty CPU scheduler threads
+            online to 25% of the logical processors available. <c>DirtyCPUSchedulersPercentage</c> may
+            be omitted if <c>:DirtyCPUSchedulersOnlinePercentage</c> is not and vice versa. The
+            number of dirty CPU schedulers online can be changed at run time via
+            <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
+          </p>
+          <p>This option interacts with <seealso marker="#+SDcpu">+SDcpu</seealso> settings.
+            For example, on a system with 8 logical cores configured and 8 logical cores available,
+            the combination of the options <c>+SDcpu 4:4 +SDPcpu 50:25</c> (in either order) results
+            in 2 dirty CPU scheduler threads (50% of 4) and 1 dirty CPU scheduler thread online (25% of 4).
+          </p>
+          <p>This option is ignored if the emulator doesn't have threading support
+            enabled. Currently, <em>this option is experimental</em> and is supported only
+            if the emulator was configured and built with support for dirty schedulers
+            enabled (it's disabled by default).
+          </p>
+      </item>
+      <tag><marker id="+SDio"><c><![CDATA[+SDio IOSchedulers]]></c></marker></tag>
       <tag><c><![CDATA[+sFlag Value]]></c></tag>
       <item>
         <p>Scheduling specific flags.</p>
@@ -941,6 +997,10 @@
 	    when schedulers frequently run out of work. When disabled,
 	    the frequency with which schedulers run out of work will
 	    not be taken into account by the load balancing logic.
+	    <br/>&nbsp;&nbsp;<c>+scl false</c> is similar to
+	    <seealso marker="#+sub">+sub true</seealso> with the difference
+	    that <c>+sub true</c> also will balance scheduler utilization
+	    between schedulers.
 	    </p>
           </item>
           <tag><marker id="+sct"><c>+sct CpuTopology</c></marker></tag>
@@ -1087,6 +1147,29 @@
 	    documentation of the <seealso marker="#+sbt">+sbt</seealso> flag.
 	    </p>
 	  </item>
+          <tag><marker id="+sub"><c>+sub true|false</c></marker></tag>
+          <item>
+	    <p>Enable or disable
+	    <seealso marker="erts:erlang#statistics_scheduler_wall_time">scheduler
+	    utilization</seealso> balancing of load. By default scheduler
+	    utilization balancing is disabled and instead scheduler
+	    compaction of load is enabled which will strive for a load
+	    distribution which causes as many scheduler threads as possible
+	    to be fully loaded (i.e., not run out of work). When scheduler
+	    utilization balancing is enabled the system will instead try to
+	    balance scheduler utilization between schedulers. That is,
+	    strive for equal scheduler utilization on all schedulers.
+	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> is only supported on
+	    systems where the runtime system detects and use a monotonically
+	    increasing high resolution clock. On other systems, the runtime
+	    system will fail to start.
+	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> implies
+	    <seealso marker="#+scl">+scl false</seealso>. The difference
+	    between <c>+sub true</c> and <c>+scl false</c> is that
+	    <c>+scl false</c> will not try to balance the scheduler
+	    utilization.
+	    </p>
+          </item>
 	  <tag><marker id="+swct"><c>+sws very_eager|eager|medium|lazy|very_lazy</c></marker></tag>
 	  <item>
              <p>
@@ -1126,18 +1209,18 @@
           <tag><marker id="+spp"><c>+spp Bool</c></marker></tag>
           <item>
 	    <p>Set default scheduler hint for port parallelism. If set to
-	    <c>true</c>, the VM will schedule port tasks when it by this can
-	    improve the parallelism in the system. If set to <c>false</c>,
-	    the VM will try to perform port tasks immediately and by this
-	    improve latency at the expense of parallelism. If this
-	    flag has not been passed, the default scheduler hint for port
-	    parallelism is currently <c>false</c>. The default used can be
-	    inspected in runtime by calling
-	    <seealso marker="erlang#system_info_port_parallelism">erlang:system_info(port_parallelism)</seealso>.
+	    <c>true</c>, the VM will schedule port tasks when doing so will
+	    improve parallelism in the system. If set to <c>false</c>, the VM
+	    will try to perform port tasks immediately, improving latency at the
+	    expense of parallelism. If this flag has not been passed, the
+	    default scheduler hint for port parallelism is currently
+	    <c>false</c>. The default used can be inspected in runtime by
+	    calling <seealso
+	    marker="erlang#system_info_port_parallelism">erlang:system_info(port_parallelism)</seealso>.
 	    The default can be overriden on port creation by passing the
 	    <seealso marker="erlang#open_port_parallelism">parallelism</seealso>
-	    option to
-	    <seealso marker="erlang#open_port/2">open_port/2</seealso></p>.
+	    option to <seealso
+	    marker="erlang#open_port/2">open_port/2</seealso></p>.
 	  </item>
 	  <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
 	  <item>

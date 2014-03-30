@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 
--import(lists, [foldl/3,foldr/3,reverse/1, keysearch/3, map/2, filter/2]).
+-import(lists, [foldl/3,foldr/3,reverse/1,keysearch/3,map/2,filter/2,droplast/1]).
 -import(proplists, [get_value/2,get_value/3]).
 
 -compile(export_all).
@@ -69,7 +69,7 @@ gen_code() ->
 gen_xml() ->
 %%     {ok, Defs} = file:consult("wxapi.conf"),
     
-%%     Rel = reverse(tl(reverse(os:cmd("wx-config --release")))),
+%%     Rel = droplast(os:cmd("wx-config --release")),
 %%     Dir = " /usr/include/wx-" ++ Rel ++ "/wx/",
 %%     Files0 = [Dir ++ File || {class, File, _, _, _} <- Defs],
 %%     Files1 = [Dir ++ File || {doxygen, File} <- Defs],
@@ -172,7 +172,7 @@ parse_defs([], Acc) -> reverse(Acc).
 meta_info(C=#class{name=CName,methods=Ms0}) ->
     Ms = lists:append(Ms0),
     HaveConstructor = lists:keymember(constructor, #method.method_type, Ms),
-    case lists:keysearch(destructor, #method.method_type, Ms) of
+    case keysearch(destructor, #method.method_type, Ms) of
 	false when HaveConstructor -> 
 	    Dest = #method{name = "destroy", id = next_id(func_id),
 			   method_type = destructor, params = [this(CName)]},
@@ -288,7 +288,7 @@ parse_attr1([{{attr,_}, #xmlElement{content=C, attributes=Attrs}}|R], AttrList0,
 parse_attr1([{_Id,_}|R],AttrList,Info, Res) ->
     parse_attr1(R,AttrList,Info, Res);
 parse_attr1([],Left,_, Res) ->
-    {lists:reverse(Res), Left}.
+    {reverse(Res), Left}.
 
 attr_acc(#param{name=N}, List) ->
     Name = list_to_atom(N),
@@ -743,7 +743,14 @@ parse_type2([N="wxTreeItemData"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name="wxETreeItemData",base={term,N}});
 parse_type2([N="wxClientData"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name="wxeErlTerm",base={term,N}});
-parse_type2([N="wxChar"|R],Info,Opts,T) -> 
+parse_type2([N="wxChar",{by_ref,_}|R],Info,Opts,T = #type{mod=[const]}) ->
+    case get(current_class) of
+	"wxLocale" -> %% Special since changed between 2.8 and 3.0
+	    parse_type2(R,Info,Opts,T#type{name="wxeLocaleC",base=string});
+	_ ->
+	    parse_type2(R,Info,Opts,T#type{name=N,base=int,single=false})
+    end;
+parse_type2([N="wxChar"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base=int});
 parse_type2(["wxUint32"|R],Info,Opts,T=#type{mod=Mod}) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int,mod=[unsigned|Mod]});
@@ -994,7 +1001,7 @@ erl_skip_opt2([F={_,{N,In,_},M=#method{where=Where}}|Ms],Acc1,Acc2,Check) ->
 		[] ->
 		    erl_skip_opt2(Ms,[F|Acc1],[M#method{where=erl_no_opt}|Acc2],[]);
 		_  ->
-		    Skipped = reverse(tl(reverse(In))),
+		    Skipped = droplast(In),
 		    T = fun({_,{_,Args,_},_}) -> true =:= types_differ(Skipped,Args) end,
 		    case lists:all(T, Check) of
 			true ->
@@ -1274,6 +1281,7 @@ parse_enums([File|Files], Parsed) ->
 	    %%io:format("Parse Enums in ~s ~n", [FileName]),
 	    case xmerl_scan:file(FileName, [{space, normalize}]) of 
 		{error, enoent} ->
+		    %% io:format("Ignore ~p~n", [FileName]),
 		    parse_enums(Files, gb_sets:add(File,Parsed));
 		{Doc, _} ->		    
 		    ES = "./compounddef/sectiondef/memberdef[@kind=\"enum\"]",

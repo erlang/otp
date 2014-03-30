@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,16 +29,24 @@
 
 -type label() :: non_neg_integer().
 
+-type index() :: non_neg_integer().
+
+-type atom_tab()   :: gb_trees:tree(atom(), index()).
+-type import_tab() :: gb_trees:tree(mfa(), index()).
+-type fname_tab()  :: gb_trees:tree(Name :: term(), index()).
+-type line_tab()   :: gb_trees:tree({Fname :: index(), Line :: term()}, index()).
+-type literal_tab() :: dict:dict(Literal :: term(), index()).
+
 -record(asm,
-	{atoms = gb_trees:empty()   :: gb_tree(),      	%{Atom,Index}
+	{atoms = gb_trees:empty()   :: atom_tab(),
 	 exports = []		    :: [{label(), arity(), label()}],
 	 locals = []		    :: [{label(), arity(), label()}],
-	 imports = gb_trees:empty() :: gb_tree(),      	%{{M,F,A},Index}
+	 imports = gb_trees:empty() :: import_tab(),
 	 strings = <<>>		    :: binary(),	%String pool
 	 lambdas = [],				%[{...}]
-	 literals = dict:new()	    :: dict(),	%Format: {Literal,Number}
-	 fnames = gb_trees:empty()  :: gb_tree(),       %{Name,Index}
-	 lines = gb_trees:empty()   :: gb_tree(),	%{{Fname,Line},Index}
+	 literals = dict:new()	    :: literal_tab(),
+	 fnames = gb_trees:empty()  :: fname_tab(),
+	 lines = gb_trees:empty()   :: line_tab(),
 	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
 	 next_import = 0	    :: non_neg_integer(),
 	 string_offset = 0	    :: non_neg_integer(),

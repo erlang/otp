@@ -16,7 +16,7 @@
 %% 
 %% %CopyrightEnd%
 %%
--define(space, "&nbsp;").
+-define(space, undefined).
 -define(unknown, "unknown").
 -define(r16b01_dump_vsn, [0,2]). % =erl_crash_dump:0.2
 
@@ -24,28 +24,28 @@
 
 -record(general_info,
 	{created,
-	 slogan=?space,
-	 system_vsn=?space,
-	 compile_time=?space,
-	 taints=?space,
-	 node_name=?space,
-	 num_atoms=?space,
-	 num_procs=?space,
-	 num_ets=?space,
-	 num_timers=?space,
-	 num_fun=?space,
-	 mem_tot=?space,
-	 mem_max=?space,
-	 instr_info=?space}).
+	 slogan,
+	 system_vsn,
+	 compile_time,
+	 taints,
+	 node_name,
+	 num_atoms,
+	 num_procs,
+	 num_ets,
+	 num_timers,
+	 num_fun,
+	 mem_tot,
+	 mem_max,
+	 instr_info}).
 
 -record(proc,
 	%% Initial data according to the follwoing:
 	%% 
-	%% msg_q_len, reds and stack_heap are integers because it must 
+	%% msg_q_len, reds, memory and stack_heap are integers because it must
 	%% be possible to sort on them. All other fields are strings
 	%%
-	%% for old dumps start_time, parent and number of heap frament
-	%% does not exist
+	%% for old dumps start_time, parent and number of heap framents
+	%% do not exist
 	%%
 	%% current_func can be both "current function" and
 	%% "last scheduled in for"
@@ -54,100 +54,102 @@
 	%% displayed as a link to "Expand" (if dump is from OTP R9B 
 	%% or newer)
 	{pid,
-	 name=?space,
-	 init_func=?space,
+	 name,
+	 init_func,
 	 parent=?unknown,
 	 start_time=?unknown,
-	 state=?space,
-	 current_func={"Current Function",?space},
+	 state,
+	 current_func,
 	 msg_q_len=0,
-	 msg_q=?space,
-	 last_calls=?space,
-	 links=?space,
-	 prog_count=?space,
-	 cp=?space,
-	 arity=?space,
-	 dict=?space,
-	 debug_dict=?space,
+	 msg_q,
+	 last_calls,
+	 links,
+	 monitors,
+	 mon_by,
+	 prog_count,
+	 cp,
+	 arity,
+	 dict,
 	 reds=0,
 	 num_heap_frag=?unknown,
-	 heap_frag_data=?space,
+	 heap_frag_data,
 	 stack_heap=0,
-	 old_heap=?space,
-	 heap_unused=?space,
-	 old_heap_unused=?space,
-	 new_heap_start=?space,
-	 new_heap_top=?space,
-	 stack_top=?space,
-	 stack_end=?space,
-	 old_heap_start=?space,
-	 old_heap_top=?space,
-	 old_heap_end=?space,
+	 old_heap,
+	 heap_unused,
+	 old_heap_unused,
+	 new_heap_start,
+	 new_heap_top,
+	 stack_top,
+	 stack_end,
+	 old_heap_start,
+	 old_heap_top,
+	 old_heap_end,
 	 memory,
-	 stack_dump=?space}).
+	 stack_dump}).
 
 -record(port,
 	{id,
-	 slot=?space,
-	 connected=?space,
-	 links=?space,
-	 name=?space,
-	 monitors=?space,
-	 controls=?space}).
+	 slot,
+	 connected,
+	 links,
+	 name,
+	 monitors,
+	 controls}).
 
 -record(ets_table,
 	{pid,
-	 slot=?space,
-	 id=?space,
-	 name=?space,
+	 slot,
+	 id,
+	 name,
 	 type="hash",
-	 buckets=?space,
-	 size=?space,
-	 memory=?space}).
+	 buckets,
+	 size,
+	 memory}).
 
 -record(timer,
 	{pid,
-	 msg=?space,
-	 time=?space}).
+	 msg,
+	 time}).
 
 -record(fu,
-	{module=?space,
-	 uniq=?space,
-	 index=?space,
-	 address=?space,
-	 native_address=?space,
-	 refc=?space}).
+	{module,
+	 uniq,
+	 index,
+	 address,
+	 native_address,
+	 refc}).
 
 -record(nod,
-	{name=?space,
+	{name,
 	 channel,
-	 controller=?space,
-	 creation=?space,
-	 remote_links=?space,
-	 remote_mon=?space,
-	 remote_mon_by=?space,
-	 error=?space}).
+	 conn_type,
+	 controller,
+	 creation,
+	 remote_links=[],
+	 remote_mon=[],
+	 remote_mon_by=[],
+	 error}).
 
 -record(loaded_mod,
 	{mod,
-	 current_size=?space,
-	 current_attrib=?space,
-	 current_comp_info=?space,
-	 old_size=?space,
-	 old_attrib=?space,
-	 old_comp_info=?space}).
+	 current_size,
+	 current_attrib,
+	 current_comp_info,
+	 old_size,
+	 old_attrib,
+	 old_comp_info}).
 
 -record(hash_table,
 	{name,
-	 size=?space,
-	 used=?space,
-	 objs=?space,
-	 depth=?space}).
+	 size,
+	 used,
+	 objs,
+	 depth}).
 
 -record(index_table,
 	{name,
-	 size=?space,
-	 used=?space,
-	 limit=?space,
-	 rate=?space,
-	 entries=?space}).
+	 size,
+	 limit,
+	 used,
+	 rate,
+	 entries}).

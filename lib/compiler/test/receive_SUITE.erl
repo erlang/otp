@@ -257,6 +257,7 @@ wait(Config) when is_list(Config) ->
     self() ! <<42>>,
     <<42>> = wait_1(r, 1, 2),
     {1,2,3} = wait_1(1, 2, 3),
+    {'EXIT',{timeout_value,_}} = (catch receive after [] -> timeout end),
     ok.
 
 wait_1(r, _, _) ->

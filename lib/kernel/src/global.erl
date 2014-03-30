@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1513,14 +1513,18 @@ delete_global_name(_Name, _Pid) ->
 -record(him, {node, locker, vsn, my_tag}).
 
 start_the_locker(DoTrace) ->
-    spawn_link(fun() -> init_the_locker(DoTrace) end).
+    spawn_link(init_the_locker_fun(DoTrace)).
 
-init_the_locker(DoTrace) ->
-    process_flag(trap_exit, true),    % needed?
-    S0 = #multi{do_trace = DoTrace},
-    S1 = update_locker_known({add, get_known()}, S0),
-    loop_the_locker(S1),
-    erlang:error(locker_exited).
+-spec init_the_locker_fun(boolean()) -> fun(() -> no_return()).
+
+init_the_locker_fun(DoTrace) ->
+    fun() ->
+            process_flag(trap_exit, true),    % needed?
+            S0 = #multi{do_trace = DoTrace},
+            S1 = update_locker_known({add, get_known()}, S0),
+            loop_the_locker(S1),
+            erlang:error(locker_exited)
+    end.
 
 loop_the_locker(S) ->
     ?trace({loop_the_locker,S}),
@@ -2069,7 +2073,8 @@ random_sleep(Times) ->
     case get(random_seed) of
 	undefined ->
 	    {A1, A2, A3} = now(),
-	    random:seed(A1, A2, A3 + erlang:phash(node(), 100000));
+	    _ = random:seed(A1, A2, A3 + erlang:phash(node(), 100000)),
+            ok;
 	_ -> ok
     end,
     %% First time 1/4 seconds, then doubling each time up to 8 seconds max.

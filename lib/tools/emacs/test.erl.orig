@@ -483,6 +483,19 @@ Var = spawn(fun(X)
   Y = true andalso
 	  kalle
  end),
+%% check EEP37 named funs
+Fn1 = fun Fact(N) when N > 0 ->
+   F = Fact(N-1),
+          N * F;
+Fact(0) ->
+                 1
+  end,
+%% check anonymous funs too
+   Fn2 = fun(0) ->
+1;
+   (N) ->
+   N
+ end,
   ok.
 
 indent_try_catch() ->
@@ -731,3 +744,19 @@ commas_first() ->
             ] }
 ]
 }.
+
+
+%% this used to result in a scan-sexp error
+[{
+}].
+
+%% this used to result in 2x the correct indentation within the function
+%% body, due to the function name being mistaken for a keyword
+catcher(N) ->
+try generate_exception(N) of
+Val -> {N, normal, Val}
+catch
+throw:X -> {N, caught, thrown, X};
+exit:X -> {N, caught, exited, X};
+error:X -> {N, caught, error, X}
+end.

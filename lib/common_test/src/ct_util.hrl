@@ -48,6 +48,7 @@
 		   release_shell=false,
 		   include=[],
 		   auto_compile=[],
+		   abort_if_missing_suites=[],
 		   stylesheet=[],
 		   multiply_timetraps=[],
 		   scale_timetraps=[],
@@ -79,4 +80,10 @@
 -define(tablesorter_script, "jquery.tablesorter.min.js").
 
 %% Logging information for error handler
--record(conn_log, {client, name, address, action, module}).
+-record(conn_log, {header=true,
+		   client,
+		   name,
+		   address,
+		   conn_pid,
+		   action,
+		   module}).

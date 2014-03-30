@@ -87,6 +87,46 @@ int ZEXPORT erl_zlib_deflate_finish(z_stream *streamp)
     return deflateEnd(streamp);
 }
 
+int ZEXPORT erl_zlib_inflate_start(z_stream *streamp, const Bytef* source,
+                                   uLong sourceLen)
+{
+    streamp->next_in = (Bytef*)source;
+    streamp->avail_in = (uInt)sourceLen;
+    streamp->total_out = streamp->avail_out = 0;
+    streamp->next_out = NULL;
+    erl_zlib_alloc_init(streamp);
+    return inflateInit(streamp);
+}
+/*
+ * Inflate a chunk, The destination length is the limit.
+ * Returns Z_OK if more to process, Z_STREAM_END if we are done.
+ */
+int ZEXPORT erl_zlib_inflate_chunk(z_stream *streamp, Bytef* dest, uLongf* destLen)
+{
+    int err;
+    uLongf last_tot = streamp->total_out;
+
+    streamp->next_out = dest;
+    streamp->avail_out = (uInt)*destLen;
+
+    if ((uLong)streamp->avail_out != *destLen) return Z_BUF_ERROR;
+
+    err = inflate(streamp, Z_NO_FLUSH);
+    ASSERT(err != Z_STREAM_ERROR);
+    *destLen = streamp->total_out - last_tot;
+    return err;
+}
+
+/*
+ * When we are done, free up the inflate structure
+ * Retyurns Z_OK or Error
+ */
+int ZEXPORT erl_zlib_inflate_finish(z_stream *streamp)
+{
+    return inflateEnd(streamp);
+}
+
+
 int ZEXPORT erl_zlib_compress2 (Bytef* dest, uLongf* destLen,
 				const Bytef* source, uLong sourceLen,
 				int level)

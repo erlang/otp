@@ -178,7 +178,7 @@ api_deflateInit(Config) when is_list(Config) ->
 			  ?m(ok,zlib:close(Z))
 		  end, lists:seq(1,8)),
     
-    Strategies = [filtered,huffman_only,default],
+    Strategies = [filtered,huffman_only,rle,default],
     lists:foreach(fun(Strategy) ->
 			  ?line Z = zlib:open(),
 			  ?m(ok, zlib:deflateInit(Z,best_speed,deflated,-15,8,Strategy)),
@@ -220,7 +220,6 @@ api_deflateParams(Config) when is_list(Config) ->
     ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
     ?m(ok, zlib:deflateParams(Z1, best_compression, huffman_only)),
     ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, sync)),
-    ?m({'EXIT',_}, zlib:deflateParams(Z1,best_speed, filtered)),
     ?m(ok, zlib:close(Z1)).
 
 api_deflate(doc) -> "Test deflate";

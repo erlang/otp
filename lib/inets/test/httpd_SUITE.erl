@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,7 @@
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("public_key/include/public_key.hrl").
 -include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
@@ -33,6 +34,11 @@
 
 -record(httpd_user,  {user_name, password, user_data}).
 -record(httpd_group, {group_name, userlist}).
+-define(MAX_HEADER_SIZE, 256).
+%% Minutes before failed auths timeout.
+-define(FAIL_EXPIRE_TIME,1). 
+%% Seconds before successful auths timeout.
+-define(AUTH_TIMEOUT,5).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -42,21 +48,59 @@ suite() ->
 
 all() ->
     [
-     {group, http}
-     %{group, https}
+     {group, http_basic},
+     {group, https_basic},
+     {group, http_limit},
+     {group, https_limit},
+     {group, http_basic_auth},
+     {group, https_basic_auth},
+     {group, http_auth_api},
+     {group, https_auth_api},
+     {group, http_auth_api_dets},
+     {group, https_auth_api_dets},
+     {group, http_auth_api_mnesia},
+     {group, https_auth_api_mnesia},
+     {group, http_htaccess}, 
+     {group, https_htaccess},
+     {group, http_security}, 
+     {group, https_security}
     ].
 
 groups() ->
     [
-     {http, [], all_groups()},
-     %{https, [], all_groups()},
-     {http_1_1, [], [host, chunked, expect, cgi, max_clients
-		    ] ++ http_head() ++ http_get()},
-     {http_1_0, [], [host, cgi] ++ http_head() ++ http_get()},
-     {http_0_9, [], http_head() ++ http_get()}
+     {http_basic, [], basic_groups()},
+     {https_basic, [], basic_groups()},
+     {http_limit, [], [{group, limit}]},
+     {https_limit, [], [{group, limit}]},
+     {http_basic_auth, [], [{group, basic_auth}]},
+     {https_basic_auth, [], [{group, basic_auth}]},
+     {http_auth_api, [], [{group, auth_api}]},
+     {https_auth_api, [], [{group, auth_api}]},
+     {http_auth_api_dets, [], [{group, auth_api_dets}]},
+     {https_auth_api_dets, [], [{group, auth_api_dets}]},
+     {http_auth_api_mnesia, [], [{group, auth_api_mnesia}]}, 
+     {https_auth_api_mnesia, [], [{group, auth_api_mnesia}]},
+     {http_htaccess, [], [{group, htaccess}]},
+     {https_htaccess, [], [{group, htaccess}]},
+     {http_security, [], [{group, security}]},
+     {https_security, [], [{group, security}]},
+     {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
+     {auth_api, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
+		    ]},
+     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
+			 ]},
+     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
+			   ]},
+     {htaccess, [], [htaccess_1_1, htaccess_1_0, htaccess_0_9]},
+     {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
+     {http_1_1, [], [host, chunked, expect, cgi, cgi_chunked_encoding_test,
+		     trace, range, if_modified_since] ++ http_head() ++ http_get() ++ load()},
+     {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
+     {http_0_9, [], http_head() ++ http_get() ++ load()}
     ].
 
-all_groups ()->
+basic_groups ()->
     [{group, http_1_1},
      {group, http_1_0},
      {group, http_0_9}
@@ -65,15 +109,27 @@ all_groups ()->
 http_head() ->
     [head].
 http_get() ->
-    [alias, get, 
-     basic_auth, 
-     esi, ssi].
+    [alias, 
+     get, 
+     %%actions, Add configuration so that this test mod_action
+     esi, 
+     ssi, 
+     content_length, 
+     bad_hex, 
+     missing_CR,
+     max_header,
+     ipv6
+    ].
 
+load() ->
+    [light, medium 
+     %%,heavy
+    ]. 
+    
 init_per_suite(Config) ->
     PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config),
     inets_test_lib:stop_apps([inets]),
-    inets_test_lib:start_apps([inets]),
     ServerRoot = filename:join(PrivDir, "server_root"),
     inets_test_lib:del_dirs(ServerRoot),
     DocRoot = filename:join(ServerRoot, "htdocs"),
@@ -81,21 +137,31 @@ init_per_suite(Config) ->
     [{server_root, ServerRoot}, 
      {doc_root, DocRoot},
      {node,             node()},
-     {host,             inets_test_lib:hostname()} | Config].
+     {host,             inets_test_lib:hostname()}, 
+     {address,          getaddr()} | Config].
 
 end_per_suite(_Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-init_per_group(https = Group, Config0) ->
-    case start_apps(Group) of
-	ok ->
-	    init_httpd(Group, [{type, ssl} | Config0]);
-	_ ->
-	    {skip, "Could not start https apps"}
-    end;
-
-init_per_group(http = Group, Config0) ->
+init_per_group(Group, Config0) when Group == https_basic;
+				    Group == https_limit;
+				    Group == https_basic_auth;
+				    Group == https_auth_api;
+				    Group == https_auth_api_dets;
+				    Group == https_auth_api_mnesia;
+				    Group == https_security
+				    ->
+    init_ssl(Group, Config0);
+init_per_group(Group, Config0)  when  Group == http_basic;
+				      Group == http_limit;
+				      Group == http_basic_auth;
+				      Group == http_auth_api;
+				      Group == http_auth_api_dets;
+				      Group == http_auth_api_mnesia;
+				      Group == http_security
+				      ->
+    ok = start_apps(Group),
     init_httpd(Group, [{type, ip_comm} | Config0]);
 init_per_group(http_1_1, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
@@ -103,23 +169,57 @@ init_per_group(http_1_0, Config) ->
     [{http_version, "HTTP/1.0"} | Config];
 init_per_group(http_0_9, Config) ->
     [{http_version, "HTTP/0.9"} | Config];
+init_per_group(http_htaccess = Group, Config) ->
+    Path = ?config(doc_root, Config),
+    catch remove_htaccess(Path),
+    create_htaccess_data(Path, ?config(address, Config)),
+    ok = start_apps(Group),
+    init_httpd(Group, [{type, ip_comm} | Config]);
+init_per_group(https_htaccess = Group, Config) ->
+    Path = ?config(doc_root, Config),
+    catch remove_htaccess(Path),
+    create_htaccess_data(Path, ?config(address, Config)),
+    init_ssl(Group, Config); 
+init_per_group(auth_api, Config) -> 
+    [{auth_prefix, ""} | Config];
+init_per_group(auth_api_dets, Config) -> 
+    [{auth_prefix, "dets_"} | Config];
+init_per_group(auth_api_mnesia, Config) ->
+    start_mnesia(?config(node, Config)),
+    [{auth_prefix, "mnesia_"} | Config];
 init_per_group(_, Config) ->
     Config.
-end_per_group(http, _Config) ->
+
+end_per_group(Group, _Config)  when  Group == http_basic;
+				     Group == http_limit;
+				     Group == http_basic_auth;
+				     Group == http_auth_api;
+				     Group == http_auth_api_dets;
+				     Group == http_auth_api_mnesia;
+				     Group == http_htaccess;
+				     Group == http_security
+				     ->
     inets:stop();
-end_per_group(https, _Config) ->
+end_per_group(Group, _Config) when  Group == https_basic;
+				    Group == https_limit;
+				    Group == https_basic_auth;
+				    Group == https_auth_api;
+				    Group == http_auth_api_dets;
+				    Group == http_auth_api_mnesia;
+				    Group == https_htaccess;
+				    Group == http_security
+				    ->
     ssl:stop(),
     inets:stop();
+
+end_per_group(auth_api_mnesia, _) ->
+    cleanup_mnesia();
+
 end_per_group(_, _) ->
     ok.
 
-init_httpd(Group, Config0) ->
-    Config1 = proplists:delete(port, Config0),
-    Config = proplists:delete(server_pid, Config1),
-    {Pid, Port} = server_start(Group, server_config(Group, Config)),
-    [{server_pid, Pid}, {port, Port} | Config].
 %%--------------------------------------------------------------------
-init_per_testcase(host = Case, Config) ->
+init_per_testcase(Case, Config) when Case == host; Case == trace ->
     Prop = ?config(tc_group_properties, Config),
     Name = proplists:get_value(name, Prop),
     Cb = case Name of
@@ -128,47 +228,16 @@ init_per_testcase(host = Case, Config) ->
 	     http_1_1 ->
 		 httpd_1_1
 	 end,
-    common_init_per_test_case(Case, [{version_cb, Cb} | proplists:delete(version_cb, Config)]);
+    [{version_cb, Cb} | proplists:delete(version_cb, Config)];
 
-%% init_per_testcase(basic_auth = Case, Config) ->
-%%     start_mnesia(?config(node, Config)),
-%%     common_init_per_test_case(Case, Config);
-    
-init_per_testcase(max_clients, Config) ->
-    Pid = ?config(server_pid, Config),    
-    Prop = httpd:info(Pid),
-    Port = proplists:get_value(port, Prop),
-    TempProp = [{port, Port} | proplists:delete(port, server_config(http, Config))],
-    NewProp = [{max_clients, 1} | TempProp],
-    httpd:reload_config(NewProp, non_disturbing),
+init_per_testcase(range, Config) ->
+    DocRoot = ?config(doc_root, Config),
+    create_range_data(DocRoot),
     Config;
 
-init_per_testcase(_Case, Config) ->
-    common_init_per_test_case(_Case, Config).
+init_per_testcase(_, Config) ->
+    Config.
 
-%%% Should be run by all test cases except max_clients, to make
-%%% sure failiure of max_clients does not affect other test cases
-common_init_per_test_case(_Case, Config) ->    
-    Pid = ?config(server_pid, Config),    
-    Prop = httpd:info(Pid),
-    case proplists:get_value(max_clients, Prop, 150) of
-    	150 ->
-	    Config;
-    	_ ->
-	    end_per_testcase(max_clients, Config)
-    end.
-
-end_per_testcase(max_clients, Config) ->
-    Pid = ?config(server_pid, Config),    
-    Prop = httpd:info(Pid),
-    Port = proplists:get_value(port, Prop),
-    TempProp = [{port, Port} | proplists:delete(port, server_config(http, Config))],
-    NewProp = proplists:delete(max_clients, TempProp),
-    httpd:reload_config(NewProp, non_disturbing),
-    Config;
-
-%% end_per_testcase(basic_auth, Config) ->
-%%     cleanup_mnesia();
 end_per_testcase(_Case, _Config) ->
     ok.
 
@@ -194,14 +263,26 @@ get() ->
 get(Config) when is_list(Config) -> 
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),
+    Type = ?config(type, Config),
     ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
 				       http_request("GET /index.html ", Version, Host),
 				       [{statuscode, 200},
 					{header, "Content-Type", "text/html"},
 					{header, "Date"},
 					{header, "Server"},
 					{version, Version}]).
+
+basic_auth_1_1(Config) when is_list(Config) -> 
+    basic_auth([{http_version, "HTTP/1.1"} | Config]).
+
+basic_auth_1_0(Config) when is_list(Config) -> 
+    basic_auth([{http_version, "HTTP/1.0"} | Config]).
+
+basic_auth_0_9(Config) when is_list(Config) -> 
+    basic_auth([{http_version, "HTTP/0.9"} | Config]).
 
 basic_auth() ->
     [{doc, "Test Basic authentication with WWW-Authenticate header"}].
@@ -234,13 +315,211 @@ basic_auth(Config) ->
 		     Config, [{statuscode, 200}]),
     %% Authentication still required!
     basic_auth_requiered(Config).
-   
+
+auth_api_1_1(Config) when is_list(Config) -> 
+    auth_api([{http_version, "HTTP/1.1"} | Config]).
+
+auth_api_1_0(Config) when is_list(Config) -> 
+    auth_api([{http_version, "HTTP/1.0"} | Config]).
+
+auth_api_0_9(Config) when is_list(Config) -> 
+    auth_api([{http_version, "HTTP/0.9"} | Config]).
+
+auth_api() ->
+    [{doc, "Test mod_auth API"}].
+
+auth_api(Config) when is_list(Config) -> 
+    Prefix = ?config(auth_prefix, Config),
+    do_auth_api(Prefix, Config).
+
+do_auth_api(AuthPrefix, Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Port =  ?config(port, Config),
+    Node = ?config(node, Config),
+    ServerRoot = ?config(server_root, Config),
+    ok = http_status("GET / ", Config,
+ 		     [{statuscode, 200}]),
+    ok = auth_status(auth_request("/", "one", "WrongPassword", Version, Host), Config,
+ 		     [{statuscode, 200}]),
+
+    %% Make sure Authenticate header is received even the second time
+    %% we try a incorrect password! Otherwise a browser client will hang!
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/",
+ 				  "dummy", "WrongPassword", Version, Host), Config, 
+ 		     [{statuscode, 401},
+ 		      {header, "WWW-Authenticate"}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/", "dummy", "WrongPassword", 
+ 				  Version, Host), Config, [{statuscode, 401},	
+ 						  {header, "WWW-Authenticate"}]),
+    
+    %% Change the password to DummyPassword then try to add a user 
+    %% Get an error and set it to NoPassword
+    ok = update_password(Node, ServerRoot, Host, Port, AuthPrefix, 
+			     "open", "NoPassword", "DummyPassword"),
+    {error,bad_password} = 
+ 	add_user(Node, ServerRoot, Port, AuthPrefix, "open", "one", 
+ 		 "onePassword", []),
+     ok = update_password(Node, ServerRoot, Host, Port, AuthPrefix, "open",
+			  "DummyPassword", "NoPassword"),
+  
+    %% Test /*open, require user one Aladdin
+    remove_users(Node, ServerRoot, Host, Port, AuthPrefix, "open"),
+    
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/",
+     				  "one", "onePassword", Version, Host), Config,
+		     [{statuscode, 401}]),
+    
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/",
+				  "two", "twoPassword", Version, Host), Config, 
+		     [{statuscode, 401}]),
+ 
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/", 
+				  "Aladdin", "onePassword", Version, Host),
+		     Config, [{statuscode, 401}]),
+    
+    true = add_user(Node, ServerRoot, Port, AuthPrefix, "open", "one", 
+		    "onePassword", []),
+    true = add_user(Node, ServerRoot, Port, AuthPrefix, "open", "two", 
+     		    "twoPassword", []),
+    true = add_user(Node, ServerRoot, Port, AuthPrefix, "open", "Aladdin", 
+		    "AladdinPassword", []),
+    {ok, [_|_]} = list_users(Node, ServerRoot, Host, Port, 
+      			     AuthPrefix, "open"),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/",
+      				  "one", "WrongPassword", Version, Host), 
+      		     Config, [{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/", 
+      				  "one", "onePassword", Version, Host), 
+      		     Config, [{statuscode, 200}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/", 
+      				  "two", "twoPassword",  Version, Host), 
+      		     Config,[{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/", 
+      				  "Aladdin", "WrongPassword",  Version, Host), 
+      		     Config,[{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "open/",  
+				  "Aladdin", "AladdinPassword", Version, Host), 
+		     Config, [{statuscode, 200}]),
+    
+    remove_users(Node, ServerRoot, Host, Port, AuthPrefix, "open"),
+    {ok, []} = list_users(Node, ServerRoot, Host, Port, 
+			  AuthPrefix, "open"),
+    
+    %% Phase 2
+      remove_users(Node, ServerRoot, Host, Port, AuthPrefix, "secret"),
+    {ok, []} = list_users(Node, ServerRoot, Host, Port, AuthPrefix,
+			  "secret"),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/",
+       				  "one", "onePassword", Version, Host), 
+       		     Config, [{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/", 
+				    "two", "twoPassword", Version, Host), 
+		       Config, [{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/", 
+      				  "three", "threePassword", Version, Host),
+       		     Config, [{statuscode, 401}]),
+    add_user(Node, ServerRoot, Port, AuthPrefix, "secret", "one",
+      	     "onePassword", 
+      	     []),
+    add_user(Node, ServerRoot, Port, AuthPrefix, "secret", 
+      	     "two", "twoPassword", []),
+    add_user(Node, ServerRoot, Port, AuthPrefix, "secret", "Aladdin", 
+	     "AladdinPassword",[]),
+    add_group_member(Node, ServerRoot, Port, AuthPrefix, "secret", 
+      		     "one", "group1"),
+    add_group_member(Node, ServerRoot, Port, AuthPrefix, "secret", 
+      		     "two", "group1"),
+    add_group_member(Node, ServerRoot, Port, AuthPrefix,  
+      			 "secret", "Aladdin", "group2"),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/",
+      				  "one", "onePassword", Version, Host),
+      		     Config, [{statuscode, 200}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/", 
+				  "two", "twoPassword", Version, Host),
+		       Config,[{statuscode, 200}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/",
+       				  "Aladdin", "AladdinPassword", Version, Host),
+       		     Config, [{statuscode, 200}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ "secret/",
+       				  "three", "threePassword", Version, Host), 
+       		     Config, [{statuscode, 401}]),
+    remove_users(Node, ServerRoot, Host, Port, AuthPrefix, "secret"),
+    {ok, []} = list_users(Node, ServerRoot, Host, Port, 
+       			  AuthPrefix, "secret"),
+    remove_groups(Node, ServerRoot, Host, Port, AuthPrefix, "secret"),
+    
+    {ok, []} = list_groups(Node, ServerRoot, Host, Port, AuthPrefix, "secret"),
+    
+    %% Phase 3
+    remove_users(Node, ServerRoot, Host, Port, AuthPrefix, "secret/top_secret"),
+    remove_groups(Node, ServerRoot, Host, Port, AuthPrefix, "secret/top_secret"),
+    
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+      				      "secret/top_secret/",
+      				  "three", "threePassword", Version, Host),
+      		     Config, [{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+      				      "secret/top_secret/", "two", "twoPassword", Version, Host),
+      		     Config, [{statuscode, 401}]),
+     add_user(Node, ServerRoot, Port, AuthPrefix,
+	      "secret/top_secret","three",
+	      "threePassword",[]),
+    add_user(Node, ServerRoot, Port, AuthPrefix, "secret/top_secret",
+      	     "two","twoPassword", []),
+    add_group_member(Node, ServerRoot, Port, AuthPrefix, "secret/top_secret", "three", "group3"),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+     				      "secret/top_secret/", "three", "threePassword",
+     				  Version, Host), 
+		     Config, [{statuscode, 200}]),
+     ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+				       "secret/top_secret/", "two", "twoPassword", Version, Host),
+		      Config, [{statuscode, 401}]),
+    add_group_member(Node, ServerRoot, Port, AuthPrefix, "secret/top_secret", "two", "group3"),
+     ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+				       "secret/top_secret/",
+				   "two", "twoPassword", Version, Host),
+		      Config, [{statuscode, 200}]),
+     remove_users(Node, ServerRoot, Host, Port, AuthPrefix, "secret/top_secret"),
+    {ok, []} = list_users(Node, ServerRoot, Host, Port, 
+     			  AuthPrefix, "secret/top_secret"),
+    remove_groups(Node, ServerRoot, Host, Port, AuthPrefix, "secret/top_secret"),
+     {ok, []} = list_groups(Node, ServerRoot, Host, Port, AuthPrefix,  "secret/top_secret"),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+       				      "secret/top_secret/", "two", "twoPassword", Version, Host), 
+		     Config, [{statuscode, 401}]),
+    ok = auth_status(auth_request("/" ++ AuthPrefix ++ 
+       				      "secret/top_secret/","three", "threePassword", Version, Host),
+       		     Config, [{statuscde, 401}]).
+%%-------------------------------------------------------------------------
+ipv6() ->
+    [{require, ipv6_hosts},
+     {doc,"Test ipv6."}].
+ipv6(Config) when is_list(Config) ->
+    {ok, Hostname0} = inet:gethostname(),
+     case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+	 true ->
+	     Version = ?config(http_version, Config),
+	     Host = ?config(host, Config),
+	     URI = http_request("GET /", Version, Host),
+	     httpd_test_lib:verify_request(?config(type, Config), Host,
+ 					  ?config(port, Config), [inet6], 
+					   ?config(code, Config), 
+					   URI, 
+					   [{statuscode, 200}, {version, Version}]);
+	 false ->
+	     {skip, "Host does not support IPv6"}
+     end.
+
+%%-------------------------------------------------------------------------
 ssi() ->
     [{doc, "HTTP GET server side include test"}].
 ssi(Config) when is_list(Config) -> 
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),
+    Type = ?config(type, Config),
     ok = httpd_test_lib:verify_request(?config(type, Config), Host, ?config(port, Config),  
+				       transport_opts(Type, Config),
 				       ?config(node, Config),
 				       http_request("GET /fsize.shtml ", Version, Host),
 				       [{statuscode, 200},
@@ -248,6 +527,131 @@ ssi(Config) when is_list(Config) ->
 					{header, "Date"},
 					{header, "Server"},
 				       	{version, Version}]).
+%%-------------------------------------------------------------------------
+htaccess_1_1(Config) when is_list(Config) -> 
+    htaccess([{http_version, "HTTP/1.1"} | Config]).
+
+htaccess_1_0(Config) when is_list(Config) -> 
+    htaccess([{http_version, "HTTP/1.0"} | Config]).
+
+htaccess_0_9(Config) when is_list(Config) -> 
+    htaccess([{http_version, "HTTP/0.9"} | Config]).
+
+htaccess() ->
+    [{doc, "Test mod_auth API"}].
+
+htaccess(Config) when is_list(Config) -> 
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
+    Port = ?config(port, Config),
+    Node = ?config(node, Config),
+    %% Control that authentication required!
+    %% Control that the pages that shall be 
+    %% authenticated really need authenticatin
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
+				       http_request("GET /ht/open/ ", Version, Host),
+				       [{statuscode, 401},
+					{version, Version}, 
+					{header, "WWW-Authenticate"}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
+				       http_request("GET /ht/secret/ ", Version, Host),
+				       [{statuscode, 401},
+					{version, Version}, 
+					{header, "WWW-Authenticate"}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
+				         http_request("GET /ht/secret/top_secret/ ",
+						      Version, Host),
+				       [{statuscode, 401},
+					{version, Version}, 
+					{header, "WWW-Authenticate"}]),
+
+    %% Make sure Authenticate header is received even the second time
+    %% we try a incorrect password! Otherwise a browser client will hang!
+    ok = auth_status(auth_request("/ht/open/",
+				  "dummy", "WrongPassword", Version, Host), Config,
+		     [{statuscode, 401},
+		      {header, "WWW-Authenticate"}]),
+    ok = auth_status(auth_request("/ht/open/",
+				  "dummy", "WrongPassword", Version, Host), Config,
+		     [{statuscode, 401},		
+		      {header, "WWW-Authenticate"}]),
+    
+    %% Control that not just the first user in the list is valid
+    %% Control the first user
+    %% Authennticating ["one:OnePassword" user first in user list]
+    ok = auth_status(auth_request("/ht/open/dummy.html", "one",  "OnePassword",
+				  Version, Host), Config, 
+		     [{statuscode, 200}]),
+    
+    %% Control the second user
+    %% Authentication OK and a directory listing is supplied! 
+    %% ["Aladdin:open sesame" user second in user list]
+    ok = auth_status(auth_request("/ht/open/","Aladdin", 
+				  "AladdinPassword", Version, Host), Config, 
+		     [{statuscode, 200}]),
+    
+    %% Contro that bad passwords and userids get a good denial
+    %% User correct but wrong password! ["one:one" user first in user list]
+    ok = auth_status(auth_request("/ht/open/", "one", "one", Version, Host), Config, 
+		     [{statuscode, 401}]),
+    %% Neither user or password correct! ["dummy:dummy"]
+    ok = auth_status(auth_request("/ht/open/", "dummy", "dummy", Version, Host), Config,
+		     [{statuscode, 401}]),
+    
+    %% Control that authetication still works, even if its a member in a group
+    %% Authentication OK! ["two:TwoPassword" user in first group]
+    ok = auth_status(auth_request("/ht/secret/dummy.html", "two", 
+				  "TwoPassword",  Version, Host), Config, 
+		     [{statuscode, 200}]),
+    
+    %% Authentication OK and a directory listing is supplied! 
+    %% ["three:ThreePassword" user in second group]
+    ok = auth_status(auth_request("/ht/secret/", "three",
+				  "ThreePassword", Version, Host), Config, 
+		     [{statuscode, 200}]),
+    
+    %% Deny users with bad passwords even if the user is a group member
+    %% User correct but wrong password! ["two:two" user in first group]
+    ok = auth_status(auth_request("/ht/secret/", "two", "two", Version, Host), Config, 
+		     [{statuscode, 401}]),
+    %% Neither user or password correct! ["dummy:dummy"]
+    ok = auth_status(auth_request("/ht/secret/", "dummy", "dummy", Version, Host), Config, 
+		     [{statuscode, 401}]),
+    
+    %% control that we deny the users that are in subnet above the allowed
+     ok = auth_status(auth_request("/ht/blocknet/dummy.html", "four",
+				   "FourPassword", Version, Host), Config, 
+		      [{statuscode, 403}]),
+    %% Control that we only applies the rules to the right methods
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+      				       http_request("HEAD /ht/blocknet/dummy.html ", Version, Host),
+      				       [{statuscode, head_status(Version)},
+      					{version, Version}]),
+    
+    %% Control that the rerquire directive can be overrideen
+    ok = auth_status(auth_request("/ht/secret/top_secret/ ", "Aladdin", "AladdinPassword", 
+				  Version, Host), Config, 
+		     [{statuscode, 401}]),
+    
+    %% Authentication still required!
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       http_request("GET /ht/open/ ", Version, Host),
+				       [{statuscode, 401},
+					{version, Version}, 
+					{header, "WWW-Authenticate"}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				        http_request("GET /ht/secret/ ", Version, Host),
+				       [{statuscode, 401},
+					{version, Version},    
+					{header, "WWW-Authenticate"}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				        http_request("GET /ht/secret/top_secret/ ", Version, Host),
+				       [{statuscode, 401},
+					{version, Version}, 
+					{header, "WWW-Authenticate"}]).
+
+%%-------------------------------------------------------------------------
 host() ->
     [{doc, "Test host header"}].
 
@@ -255,50 +659,39 @@ host(Config) when is_list(Config) ->
     Cb = ?config(version_cb, Config),
     Cb:host(?config(type, Config), ?config(port, Config), 
 	    ?config(host, Config), ?config(node, Config)).
-
+%%-------------------------------------------------------------------------
 chunked() ->
     [{doc, "Check that the server accepts chunked requests."}].
 
 chunked(Config) when is_list(Config) ->
     httpd_1_1:chunked(?config(type, Config), ?config(port, Config), 
 		      ?config(host, Config), ?config(node, Config)).
-
+%%-------------------------------------------------------------------------
 expect() ->   
     ["Check that the server handles request with the expect header "
      "field appropiate"].
 expect(Config) when is_list(Config) ->
     httpd_1_1:expect(?config(type, Config), ?config(port, Config), 
 		     ?config(host, Config), ?config(node, Config)).
-
-max_clients() ->
+%%-------------------------------------------------------------------------
+max_clients_1_1() ->
     [{doc, "Test max clients limit"}].
 
-max_clients(Config) when is_list(Config) -> 
-    Version = ?config(http_version, Config),
-    Host = ?config(host, Config),
-    Pid = ?config(server_pid, Config),
-    ct:pal("Configurartion: ~p~n", [httpd:info(Pid)]),
-    spawn(fun() -> httpd_test_lib:verify_request(?config(type, Config), Host, 
-						 ?config(port, Config),  ?config(node, Config),
-						 http_request("GET /eval?httpd_example:delay(1000) ", 
-							      Version, Host),
-						 [{statuscode, 200},
-						  {version, Version}])
-	  end),
-    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
-				       http_request("GET /index.html ", Version, Host),
-				       [{statuscode, 503},
-					{version, Version}]),
-    receive 
-    after 1000 ->
-	    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
-				       ?config(port, Config),  ?config(node, Config),
-				       http_request("GET /index.html ", Version, Host),
-					       [{statuscode, 200},
-						{version, Version}])
-    end.
-	    
+max_clients_1_1(Config) when is_list(Config) -> 
+    do_max_clients([{http_version, "HTTP/1.1"} | Config]).
+
+max_clients_1_0() ->
+    [{doc, "Test max clients limit"}].
+
+max_clients_1_0(Config) when is_list(Config) -> 
+    do_max_clients([{http_version, "HTTP/1.0"} | Config]).
+
+max_clients_0_9() ->
+    [{doc, "Test max clients limit"}].
+
+max_clients_0_9(Config) when is_list(Config) -> 
+    do_max_clients([{http_version, "HTTP/0.9"} | Config]).
+%%-------------------------------------------------------------------------
 esi() ->
     [{doc, "Test mod_esi"}].
 
@@ -328,7 +721,7 @@ esi(Config) when is_list(Config) ->
     ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
 		     Config, [{statuscode, 200},
 		      {no_header, "cache-control"}]).
-
+%%-------------------------------------------------------------------------
 cgi() ->
     [{doc, "Test mod_cgi"}].
 
@@ -403,7 +796,27 @@ cgi(Config) when is_list(Config) ->
     ok = http_status("GET /cgi-bin/" ++ Script ++ " ", Config,
 		     [{statuscode, 200},
 		      {no_header, "cache-control"}]).
-
+%%-------------------------------------------------------------------------
+cgi_chunked_encoding_test() ->  
+    [{doc, "Test chunked encoding together with mod_cgi "}].
+cgi_chunked_encoding_test(Config) when is_list(Config) ->
+    Host = ?config(host, Config),
+    Script =
+	case test_server:os_type() of
+	    {win32, _} ->
+		"/cgi-bin/printenv.bat";
+	    _ ->
+		"/cgi-bin/printenv.sh"
+	end,
+    Requests = 
+	["GET " ++ Script ++ " HTTP/1.1\r\nHost:"++ Host ++"\r\n\r\n",
+	 "GET /cgi-bin/erl/httpd_example/newformat  HTTP/1.1\r\nHost:"
+	 ++ Host ++"\r\n\r\n"],
+    httpd_1_1:mod_cgi_chunked_encoding_test(?config(type, Config), ?config(port, Config),
+					    Host,
+					    ?config(node, Config),
+					    Requests).
+%%-------------------------------------------------------------------------
 alias() ->
     [{doc, "Test mod_alias"}].
 
@@ -431,165 +844,282 @@ alias(Config) when is_list(Config) ->
 		     [{statuscode, 301},
 		      {header, "Location"},
 		      {header, "Content-Type","text/html"}]).
+%%-------------------------------------------------------------------------
+actions() ->
+    [{doc, "Test mod_actions"}].
 
+actions(Config) when is_list(Config) -> 
+    ok = http_status("GET /", Config, [{statuscode, 200}]).
 
-%% auth_api() ->
-%%     [{doc, "Test mod_auth API"}].
+%%-------------------------------------------------------------------------
+range() ->
+    [{doc, "Test Range header"}].
 
-%% auth_api(Config) when is_list(Config) -> 
-%%     Version = ?config(http_version, Config),
-%%     Host = ?config(host, Config),
-%%     ok = http_status("GET / ", Config,
-%% 		     [{statuscode, 200}]),
-%%     ok = auth_status(auth_request("/", "one", "WrongPassword", Version, Host), Config,
-%% 		     [{statuscode, 200}]),
+range(Config) when is_list(Config) -> 
+    httpd_1_1:range(?config(type, Config), ?config(port, Config), 
+		    ?config(host, Config), ?config(node, Config)).
 
-%%     %% Make sure Authenticate header is received even the second time
-%%     %% we try a incorrect password! Otherwise a browser client will hang!
-%%     ok = auth_status(auth_request("/" ++ AuthStoreType ++ "open/",
-%% 				  "dummy", "WrongPassword", Host), Config, 
-%% 		     [{statuscode, 401},
-%% 		      {header, "WWW-Authenticate"}]),
-%%     ok = auth_status(auth_request("/" ++ AuthStoreType ++ "open/", "dummy", "WrongPassword", 
-%% 				  Host), Config, [{statuscode, 401},	
-%% 						  {header, "WWW-Authenticate"}]),
+%%-------------------------------------------------------------------------
+if_modified_since() ->
+    [{doc, "Test If-Modified-Since header"}].
+
+if_modified_since(Config) when is_list(Config) -> 
+    httpd_1_1:if_test(?config(type, Config), ?config(port, Config), 
+		      ?config(host, Config), ?config(node, Config),
+		      ?config(doc_root, Config)).
+%%-------------------------------------------------------------------------
+trace() ->
+    [{doc, "Test TRACE method"}].
+
+trace(Config) when is_list(Config) ->
+    Cb = ?config(version_cb, Config),
+    Cb:trace(?config(type, Config), ?config(port, Config), 
+	     ?config(host, Config), ?config(node, Config)).
+
+%%-------------------------------------------------------------------------
+light() ->
+    ["Test light load"].
+light(Config) when is_list(Config) ->
+    httpd_load:load_test(?config(type, Config), ?config(port, Config), ?config(host, Config), 
+			 ?config(node, Config), 10).
+%%-------------------------------------------------------------------------
+medium() ->
+    ["Test  medium load"].
+medium(Config) when is_list(Config) ->
+    httpd_load:load_test(?config(type, Config), ?config(port, Config), ?config(host, Config), 
+			 ?config(node, Config), 100).
+%%-------------------------------------------------------------------------
+heavy() ->
+    ["Test heavy load"].
+heavy(Config) when is_list(Config) ->
+    httpd_load:load_test(?config(type, Config), ?config(port, Config), ?config(host, Config), 
+			 ?config(node, Config),
+			 1000).
+%%-------------------------------------------------------------------------
+content_length() ->
+    ["Tests that content-length is correct OTP-5775"].
+content_length(Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host,
+				       ?config(port, Config), ?config(node, Config),
+				       http_request("GET /cgi-bin/erl/httpd_example:get_bin ", 
+						    Version, Host), 
+				       [{statuscode, 200},
+					{content_length, 274},
+					{version, Version}]).
+%%-------------------------------------------------------------------------
+bad_hex() ->
+    ["Tests that a URI with a bad hexadecimal code is handled OTP-6003"].
+bad_hex(Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host,
+				       ?config(port, Config), ?config(node, Config),
+				       http_request("GET http://www.erlang.org/%skalle ",
+						    Version, Host),
+				       [{statuscode, 400},
+					{version, Version}]).
+%%-------------------------------------------------------------------------
+missing_CR() ->
+     ["Tests missing CR in delimiter OTP-7304"].
+missing_CR(Config) ->
+    Version = ?config(http_version, Config),
+    Host =  ?config(host, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host,
+				       ?config(port, Config), ?config(node, Config),
+				       http_request_missing_CR("GET /index.html ", Version, Host),
+				       [{statuscode, 200},
+					{version, Version}]).
+
+%%-------------------------------------------------------------------------
+max_header() ->
+    ["Denial Of Service (DOS) attack, prevented by max_header"].
+max_header(Config) when is_list(Config) ->
+    Version = ?config(http_version, Config),
+    Host =  ?config(host, Config),
+    case Version of
+ 	"HTTP/0.9" ->
+ 	    {skip, no_implemented};
+ 	_ ->
+ 	    dos_hostname(?config(type, Config), ?config(port, Config), Host, 
+ 			 ?config(node, Config), Version, ?MAX_HEADER_SIZE)
+    end.
+
+%%-------------------------------------------------------------------------
+security_1_1(Config) when is_list(Config) -> 
+    security([{http_version, "HTTP/1.1"} | Config]).
+
+security_1_0(Config) when is_list(Config) -> 
+    security([{http_version, "HTTP/1.0"} | Config]).
+
+security() ->
+    ["Test mod_security"].
+security(Config) ->
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Port =  ?config(port, Config),
+    Node = ?config(node, Config),
+    ServerRoot = ?config(server_root, Config),
+
+    global:register_name(mod_security_test, self()),   % Receive events
+
+    test_server:sleep(5000),
+
+    OpenDir = filename:join([ServerRoot, "htdocs", "open"]),
+
+    %% Test blocking / unblocking of users.
+
+    %% /open, require user one Aladdin
+    remove_users(Node, ServerRoot, Host, Port, "", "open"),
+
+    ok = auth_status(auth_request("/open/",
+     				  "one", "onePassword", Version, Host), Config,
+		     [{statuscode, 401}]),
     
-%%     %% Change the password to DummyPassword then try to add a user 
-%%     %% Get an error and set it to NoPassword
-%%     ok = update_password(Node, ServerRoot, Host, Port, AuthStoreType ++ 
-%% 			 "open", "NoPassword", "DummyPassword"),
-%%     {error,bad_password} = 
-%% 	add_user(Node, ServerRoot, Port, AuthStoreType ++ "open", "one", 
-%% 		 "onePassword", []),
-%%     ok = update_password(Node, ServerRoot, Host, Port, AuthStoreType ++"open",
-%% 			 "DummyPassword", "NoPassword"),
-  
-%%     %% Test /*open, require user one Aladdin
-%%     remove_users(Node, ServerRoot, Host, Port, AuthStoreType ++ "open"),
-
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "open/",
-%% 		 "one", "onePassword", [{statuscode, 401}]),
+    receive_security_event({event, auth_fail, Port, OpenDir,
+			    [{user, "one"}, {password, "onePassword"}]},
+			   Node, Port),
     
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "open/",
-%% 		 "two", "twoPassword", [{statuscode, 401}]),
+     ok = auth_status(auth_request("/open/",
+				  "two", "twoPassword", Version, Host), Config, 
+		     [{statuscode, 401}]),
  
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "open/", 
-%% 		 "Aladdin", "onePassword", [{statuscode, 401}]),
+    receive_security_event({event, auth_fail, Port, OpenDir,
+			    [{user, "two"}, {password, "twoPassword"}]},
+			   Node, Port),
 
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ "open", "one", 
-%% 	     "onePassword", []),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ "open", "two", 
-%% 	     "twoPassword", []),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ "open", "Aladdin", 
-%% 	     "AladdinPassword", []),
+    ok = auth_status(auth_request("/open/", 
+				  "Aladdin", "AladdinPassword", Version, Host),
+		     Config, [{statuscode, 401}]),
+    
+    receive_security_event({event, auth_fail, Port, OpenDir,
+			    [{user, "Aladdin"},
+			     {password, "AladdinPassword"}]},
+			   Node, Port),
+
+    add_user(Node, ServerRoot, Port, "", "open", "one", "onePassword", []),
+    add_user(Node, ServerRoot, Port, "", "open", "two", "twoPassword", []),
+
+    ok = auth_status(auth_request("/open/", "one", "WrongPassword",  Version, Host), Config, 
+		     [{statuscode, 401}]),
+    
+    receive_security_event({event, auth_fail, Port, OpenDir,
+			    [{user, "one"}, {password, "WrongPassword"}]},
+			   Node, Port),
+
+    ok = auth_status(auth_request("/open/", "one", "WrongPassword",  Version, Host), Config, 
+				  [{statuscode, 401}]),
+    
+    receive_security_event({event, auth_fail, Port, OpenDir,
+			    [{user, "one"}, {password, "WrongPassword"}]},
+			   Node, Port),
+    receive_security_event({event, user_block, Port, OpenDir,
+			    [{user, "one"}]}, Node, Port),
+    
+    global:unregister_name(mod_security_test),   % No more events.
+    
+    ok = auth_status(auth_request("/open/", "one", "WrongPassword",  Version, Host), Config, 
+				  [{statuscode, 401}]),
+    
+    %% User "one" should be blocked now..    
+    case list_blocked_users(Node, Port) of
+	[{"one",_, Port, OpenDir,_}] ->
+	    ok;
+	Blocked ->
+	    ct:fail({unexpected_blocked, Blocked})
+    end,
+
+    [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node, Port, OpenDir),
+
+    true = unblock_user(Node, "one", Port, OpenDir),
+    %% User "one" should not be blocked any more.
+
+    [] = list_blocked_users(Node, Port),
+
+    ok = auth_status(auth_request("/open/", "one", "onePassword", Version, Host), Config, 
+		     [{statuscode, 200}]),
+
+    %% Test list_auth_users & auth_timeout
+
+    ["one"] = list_auth_users(Node, Port),
+
+    ok = auth_status(auth_request("/open/", "two", "onePassword", Version, Host), Config, 
+		     [{statuscode, 401}]),
+
+    ["one"] = list_auth_users(Node, Port),
+
    
-%%     {ok, [_|_]} = list_users(Node, ServerRoot, Host, Port, 
-%% 			  AuthStoreType++"open"),
-%%     auth_request(Type, Host, Port, Node, "/" ++ AuthStoreType ++ "open/",
-%% 		 "one", "WrongPassword", [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port, Node, "/" ++ AuthStoreType ++ "open/", 
-%% 		 "one", "onePassword", [{statuscode, 200}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "open/", 
-%% 		 "two", "twoPassword", [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port, Node, "/" ++ AuthStoreType ++ "open/", 
-%% 		 "Aladdin", "WrongPassword", [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "open/", 
-%% 		 "Aladdin", "AladdinPassword", [{statuscode, 200}]),
+    ["one"] = list_auth_users(Node, Port, OpenDir),
+
    
-%%     remove_users(Node, ServerRoot, Host, Port, AuthStoreType++"open"),
-%%     {ok, []} = list_users(Node, ServerRoot, Host, Port, 
-%% 			  AuthStoreType++"open"),
+    ok = auth_status(auth_request("/open/", "two", "twoPassword",  Version, Host), Config, 
+				  [{statuscode, 401}]),
 
-%%     %% Phase 2
-%%     remove_users(Node, ServerRoot, Host, Port, AuthStoreType++"secret"),
-%%     {ok, []} = list_users(Node, ServerRoot, Host, Port, AuthStoreType ++
-%% 			  "secret"),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "secret/",
-%% 		 "one", "onePassword", [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "secret/", 
-%% 		 "two", "twoPassword", [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port,  Node, "/" ++ AuthStoreType ++ "secret/", 
-%% 		 "three", "threePassword", [{statuscode, 401}]),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ "secret", "one",
-%% 	     "onePassword", 
-%% 	     []),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ "secret", 
-%% 	     "two", "twoPassword", []),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType++"secret", "Aladdin", 
-%% 	     "AladdinPassword",[]),
-%%     add_group_member(Node, ServerRoot, Port, AuthStoreType ++ "secret", 
-%% 		     "one", "group1"),
-%%     add_group_member(Node, ServerRoot, Port, AuthStoreType ++ "secret", 
-%% 		     "two", "group1"),
-%%     add_group_member(Node, ServerRoot, Port, AuthStoreType ++ 
-%% 		     "secret", "Aladdin", "group2"),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "secret/",
-%% 		 "one", "onePassword", [{statuscode, 200}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "secret/", 
-%% 		 "two", "twoPassword", [{statuscode, 200}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "secret/",
-%% 		 "Aladdin", "AladdinPassword", [{statuscode, 200}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ "secret/",
-%% 		 "three", "threePassword", [{statuscode, 401}]),
-%%     remove_users(Node, ServerRoot, Host, Port, AuthStoreType ++ "secret"),
-%%     {ok, []} = list_users(Node, ServerRoot, Host, Port, 
-%% 			  AuthStoreType ++ "secret"),
-%%     remove_groups(Node, ServerRoot, Host, Port, AuthStoreType ++ "secret"),
-%%     Directory = filename:join([ServerRoot, "htdocs", AuthStoreType ++ 
-%% 			       "secret"]),
-%%     {ok, []} = list_groups(Node, ServerRoot, Host, Port, Directory),
+    ["one"] = list_auth_users(Node, Port),
 
-%%     %% Phase 3
-%%     remove_users(Node, ServerRoot, Host, Port, AuthStoreType ++ 
-%% 		 "secret/top_secret"),
-%%     remove_groups(Node, ServerRoot, Host, Port, AuthStoreType ++ 
-%% 		  "secret/top_secret"),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/",
-%% 		 "three", "threePassword", [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/", "two", "twoPassword", 
-%% 		 [{statuscode, 401}]),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ 
-%% 	     "secret/top_secret","three",
-%% 	     "threePassword",[]),
-%%     add_user(Node, ServerRoot, Port, AuthStoreType ++ "secret/top_secret",
-%% 	     "two","twoPassword", []),
-%%     add_group_member(Node, ServerRoot, Port, AuthStoreType ++ 
-%% 		     "secret/top_secret",
-%% 		     "three", "group3"),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/", "three", "threePassword", 
-%% 		 [{statuscode, 200}]),
-%%     auth_request(Type, Host, Port, Node,"/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/", "two", "twoPassword", 
-%% 		 [{statuscode, 401}]),
-%%     add_group_member(Node, ServerRoot, Port, AuthStoreType ++ 
-%% 		     "secret/top_secret",
-%% 		     "two", "group3"),
-%%     auth_request(Type,Host,Port,Node,"/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/",
-%% 		 "two", "twoPassword", [{statuscode, 200}]),
-%%     remove_users(Node, ServerRoot, Host, Port, AuthStoreType ++ 
-%% 		 "secret/top_secret"),
-%%     {ok, []} = list_users(Node, ServerRoot, Host, Port, 
-%% 			  AuthStoreType ++ "secret/top_secret"),
-%%     remove_groups(Node, ServerRoot, Host, Port, AuthStoreType ++ 
-%% 		  "secret/top_secret"),
-%%     Directory2 = filename:join([ServerRoot, "htdocs", 
-%% 				AuthStoreType ++ "secret/top_secret"]),
-%%     {ok, []} = list_groups(Node, ServerRoot, Host, Port, Directory2),
-%%     auth_request(Type, Host, Port, Node, "/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/", "two", "twoPassword", 
-%% 		 [{statuscode, 401}]),
-%%     auth_request(Type, Host, Port, Node, "/" ++ AuthStoreType ++ 
-%% 		 "secret/top_secret/","three", "threePassword",
-%% 		 [{statuscode, 401}]).
+  
+    ["one"] = list_auth_users(Node, Port, OpenDir),
+
+    %% Wait for successful auth to timeout.
+    test_server:sleep(?AUTH_TIMEOUT*1001),  
+
+    [] = list_auth_users(Node, Port),
+
+    [] = list_auth_users(Node, Port, OpenDir),
+
+    %% "two" is blocked.
+
+    true = unblock_user(Node, "two", Port, OpenDir),
+
+
+    %% Test explicit blocking. Block user 'two'.
+
+    [] = list_blocked_users(Node,Port,OpenDir),
+
+    true = block_user(Node, "two", Port, OpenDir, 10),
+
+    ok = auth_status(auth_request("/open/", "two", "twoPassword",  Version, Host), Config, 
+		     [{statuscode, 401}]),
+    
+    true = unblock_user(Node, "two", Port, OpenDir).
+    
 
 
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
+do_max_clients(Config) ->
+    Version = ?config(http_version, Config),
+    Host    = ?config(host, Config),
+    Port    = ?config(port, Config), 
+    Type    = ?config(type, Config),
+    
+    Request = http_request("GET /index.html ", Version, Host),
+    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
+    inets_test_lib:send(Type, Socket, BlockRequest),
+    ct:sleep(100),
+    ok = httpd_test_lib:verify_request(Type, Host, 
+				       Port,
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       Request,
+				       [{statuscode, 503},
+					{version, Version}]),
+    receive 
+	{_, Socket, _Msg} ->
+	    ok
+    end,
+    inets_test_lib:close(Type, Socket),
+    ok = httpd_test_lib:verify_request(Type, Host, 
+				       Port,
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       Request,
+				       [{statuscode, 200},
+					{version, Version}]).
+
 setup_server_dirs(ServerRoot, DocRoot, DataDir) ->   
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),
     AuthDir =  filename:join(ServerRoot, "auth"),
@@ -628,16 +1158,104 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     ok = file:write_file_info(EnvCGI, 
 			      FileInfo1#file_info{mode = 8#00755}).
     
-start_apps(https) ->
-    inets_test_lib:start_apps([crypto, public_key, ssl]);
-start_apps(_) ->
-    ok.
+start_apps(Group) when  Group == https_basic;
+			Group == https_limit;
+			Group == https_basic_auth;
+			Group == https_auth_api;
+			Group == https_auth_api_dets;
+			Group == https_auth_api_mnesia;
+			Group == http_htaccess;
+			Group == http_security ->
+    inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
+start_apps(Group) when  Group == http_basic;
+			Group == http_limit;
+			Group == http_basic_auth;
+			Group == http_auth_api;
+			Group == http_auth_api_dets;
+			Group == http_auth_api_mnesia;			
+			Group == https_htaccess;
+			Group == https_security ->
+    inets_test_lib:start_apps([inets]).
 
 server_start(_, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
     {value, {_, _, Info}} = lists:keysearch(Pid, 2, Serv),
     {Pid, proplists:get_value(port, Info)}.
+
+init_ssl(Group, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    CaKey = {_Trusted,_} = 
+	erl_make_certs:make_cert([{key, dsa},
+				  {subject, 
+				   [{name, "Public Key"},
+				    {?'id-at-name', 
+				     {printableString, "public_key"}},
+				    {?'id-at-pseudonym', 
+				     {printableString, "pubkey"}},
+				    {city, "Stockholm"},
+				    {country, "SE"},
+				    {org, "erlang"},
+				    {org_unit, "testing dep"}
+				   ]}
+				 ]),
+    ok = erl_make_certs:write_pem(PrivDir, "public_key_cacert", CaKey),
+    
+    CertK1 = {_Cert1, _} = erl_make_certs:make_cert([{issuer, CaKey}]),
+    CertK2 = {_Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
+						   {digest, md5}, 
+						   {extensions, false}]),
+    ok = erl_make_certs:write_pem(PrivDir, "public_key_cert", CertK2),
+
+    case start_apps(Group) of
+	ok ->
+	    init_httpd(Group, [{type, ssl} | Config]);
+	_ ->
+	    {skip, "Could not start https apps"}
+    end.
+
+server_config(http_basic, Config) ->
+    basic_conf() ++ server_config(http, Config);
+server_config(https_basic, Config) ->
+    basic_conf() ++ server_config(https, Config);
+server_config(http_limit, Config) ->
+    [{max_clients, 1}]  ++ server_config(http, Config);
+server_config(https_limit, Config) ->
+    [{max_clients, 1}]  ++ server_config(https, Config);
+server_config(http_basic_auth, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_conf(ServerRoot)  ++  server_config(http, Config);
+server_config(https_basic_auth, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_conf(ServerRoot)  ++  server_config(https, Config);
+server_config(http_auth_api, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_api_conf(ServerRoot, plain)  ++  server_config(http, Config);
+server_config(https_auth_api, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_api_conf(ServerRoot, plain)  ++  server_config(https, Config);
+server_config(http_auth_api_dets, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_api_conf(ServerRoot, dets)  ++  server_config(http, Config);
+server_config(https_auth_api_dets, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_api_conf(ServerRoot, dets)  ++  server_config(https, Config);
+server_config(http_auth_api_mnesia, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_api_conf(ServerRoot, mnesia)  ++  server_config(http, Config);
+server_config(https_auth_api_mnesia, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    auth_api_conf(ServerRoot, mnesia)  ++  server_config(https, Config);
+server_config(http_htaccess, Config) ->
+    auth_access_conf() ++ server_config(http, Config);
+server_config(https_htaccess, Config) ->
+    auth_access_conf() ++ server_config(https, Config);
+server_config(http_security, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    tl(auth_conf(ServerRoot)) ++ security_conf(ServerRoot) ++ server_config(http, Config);
+server_config(https_security, Config) ->
+    ServerRoot = ?config(server_root, Config),
+    tl(auth_conf(ServerRoot)) ++ security_conf(ServerRoot) ++ server_config(https, Config);
 
 server_config(http, Config) ->
     ServerRoot = ?config(server_root, Config),
@@ -649,6 +1267,7 @@ server_config(http, Config) ->
      {ipfamily, inet},
      {max_header_size, 256},
      {max_header_action, close},
+     {directory_index, ["index.html", "welcome.html"]},
      {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
 		   {"gif", "image/gif"}]},
      {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
@@ -657,9 +1276,24 @@ server_config(http, Config) ->
      {script_alias, {"/htbin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
      {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
      {eval_script_alias, {"/eval", [httpd_example, io]}}
-    ] ++  auth_conf(ServerRoot);
-server_config(_, _) ->
-    [].
+    ];
+
+server_config(https, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    [{socket_type, {essl,
+		  [{cacertfile, 
+		    filename:join(PrivDir, "public_key_cacert.pem")},
+		   {certfile, 
+		    filename:join(PrivDir, "public_key_cert.pem")},
+		   {keyfile,
+		    filename:join(PrivDir, "public_key_cert_key.pem")}
+		  ]}}] ++ server_config(http, Config).
+
+init_httpd(Group, Config0) ->
+    Config1 = proplists:delete(port, Config0),
+    Config = proplists:delete(server_pid, Config1),
+    {Pid, Port} = server_start(Group, server_config(Group, Config)),
+    [{server_pid, Pid}, {port, Port} | Config].
 
 http_request(Request, "HTTP/1.1" = Version, Host, {Headers, Body}) ->
     Request ++ Version ++ "\r\nhost:" ++ Host ++ "\r\n" ++ Headers ++ "\r\n" ++ Body;
@@ -682,19 +1316,33 @@ auth_request(Path, User, Passwd, Version, _Host) ->
 	base64:encode_to_string(User++":"++Passwd) ++
 	"\r\n\r\n".
 
+http_request_missing_CR(Request, "HTTP/1.1" = Version, Host) ->
+    Request ++ Version ++ "\r\nhost:" ++ Host  ++ "\r\n\r\n\n";
+http_request_missing_CR(Request, Version, _) ->
+    Request ++ Version ++ "\r\n\n".
+
 head_status("HTTP/0.9") ->
     501; %% Not implemented in HTTP/0.9
 head_status(_) ->
     200.
 
+basic_conf() ->
+    [{modules, [mod_alias, mod_range, mod_responsecontrol,
+		mod_trace, mod_esi, mod_cgi, mod_dir, mod_get, mod_head]}].
+
+auth_access_conf() ->
+    [{modules, [mod_alias, mod_htaccess, mod_dir, mod_get, mod_head]},
+     {access_files, [".htaccess"]}].
+
 auth_conf(Root) ->
-    [{directory, {filename:join(Root, "htdocs/open"), 
+    [{modules, [mod_alias, mod_auth, mod_dir, mod_get, mod_head]},
+     {directory, {filename:join(Root, "htdocs/open"), 
 		  [{auth_type, plain},
 		   {auth_name, "Open Area"},
 		   {auth_user_file, filename:join(Root, "auth/passwd")},
 		   {auth_group_file, filename:join(Root, "auth/group")},
 		   {require_user, ["one", "Aladdin"]}]}},
-    {directory, {filename:join(Root, "htdocs/secret"), 
+     {directory, {filename:join(Root, "htdocs/secret"), 
 		  [{auth_type, plain},
 		   {auth_name, "Secret Area"},
 		   {auth_user_file, filename:join(Root, "auth/passwd")},
@@ -705,43 +1353,134 @@ auth_conf(Root) ->
 		   {auth_name, "Top Secret Area"},
 		   {auth_user_file, filename:join(Root, "auth/passwd")},
 		   {auth_group_file, filename:join(Root, "auth/group")},
-		   {require_group, ["group3"]}]}},
+		   {require_group, ["group3"]}]}}].     
+
+auth_api_conf(Root, plain) ->
+    [{modules, [mod_alias, mod_auth, mod_dir, mod_get, mod_head]},
      {directory, {filename:join(Root, "htdocs/open"), 
-		  [{auth_type, mnesia},
+		  [{auth_type, plain},
 		   {auth_name, "Open Area"},
 		   {auth_user_file, filename:join(Root, "auth/passwd")},
 		   {auth_group_file, filename:join(Root, "auth/group")},
 		   {require_user, ["one", "Aladdin"]}]}},
      {directory, {filename:join(Root, "htdocs/secret"), 
-		  [{auth_type, mnesia},
+		  [{auth_type, plain},
 		   {auth_name, "Secret Area"},
 		   {auth_user_file, filename:join(Root, "auth/passwd")},
 		   {auth_group_file, filename:join(Root, "auth/group")},
-		   {require_group, ["group1", "group2"]}]}}
-    ]. 
+		   {require_group, ["group1", "group2"]}]}},
+     {directory, {filename:join(Root, "htdocs/secret/top_secret"), 
+		  [{auth_type, plain},
+		   {auth_name, "Top Secret Area"},
+		   {auth_user_file, filename:join(Root, "auth/passwd")},
+		   {auth_group_file, filename:join(Root, "auth/group")},
+		   {require_group, ["group3"]}]}}];
 
+auth_api_conf(Root, dets) ->
+    [
+     {modules, [mod_alias, mod_auth, mod_dir, mod_get, mod_head]},
+     {directory, {filename:join(Root, "htdocs/dets_open"), 
+		  [{auth_type, dets},
+		   {auth_name, "Dets Open Area"},
+		   {auth_user_file, filename:join(Root, "passwd")},
+		   {auth_group_file, filename:join(Root, "group")},
+		   {require_user, ["one", "Aladdin"]}]}},
+     {directory, {filename:join(Root, "htdocs/dets_secret"), 
+		  [{auth_type, dets},
+		   {auth_name, "Dests Secret Area"},
+		   {auth_user_file, filename:join(Root, "passwd")},
+		   {auth_group_file, filename:join(Root, "group")},
+		  {require_group, ["group1", "group2"]}]}},
+     {directory, {filename:join(Root, "htdocs/dets_secret/top_secret"), 
+		  [{auth_type, dets},
+		   {auth_name, "Dets Top Secret Area"},
+		   {auth_user_file, filename:join(Root, "passwd")},
+		   {auth_group_file, filename:join(Root, "group")},
+		   {require_group, ["group3"]}]}} 
+    ];
+
+auth_api_conf(Root, mnesia) ->
+    [{modules, [mod_alias, mod_auth, mod_dir, mod_get, mod_head]},
+     {directory, {filename:join(Root, "htdocs/mnesia_open"), 
+		  [{auth_type, mnesia},
+		   {auth_name, "Mnesia Open Area"},
+		   {require_user, ["one", "Aladdin"]}]}},
+     {directory, {filename:join(Root, "htdocs/mnesia_secret"), 
+		  [{auth_type, mnesia},
+		   {auth_name, "Mnesia Secret Area"},
+		   {require_group, ["group1", "group2"]}]}},
+     {directory, {filename:join(Root, "htdocs/mnesia_secret/top_secret"), 
+		  [{auth_type, mnesia},
+		   {auth_name, "Mnesia Top Secret Area"},
+		   {require_group, ["group3"]}]}}].
+
+security_conf(Root) ->
+    SecFile = filename:join(Root, "security_data"),
+    Open = filename:join(Root, "htdocs/open"),
+    Secret = filename:join(Root, "htdocs/secret"),
+    TopSecret = filename:join(Root, "htdocs/secret/top_secret"), 
+	
+    [{modules, [mod_alias, mod_auth, mod_security, mod_dir, mod_get, mod_head]},
+     {security_directory, {Open, 
+			   [{auth_name, "Open Area"},
+			    {auth_user_file, filename:join(Root, "auth/passwd")},
+			    {auth_group_file, filename:join(Root, "auth/group")},
+			    {require_user, ["one", "Aladdin"]} | 
+			    mod_security_conf(SecFile, Open)]}},
+     {security_directory, {Secret, 
+			   [{auth_name, "Secret Area"},
+			    {auth_user_file, filename:join(Root, "auth/passwd")},
+			    {auth_group_file, filename:join(Root, "auth/group")},
+			    {require_group, ["group1", "group2"]} |
+			    mod_security_conf(SecFile, Secret)]}},
+     {security_directory, {TopSecret,
+			   [{auth_name, "Top Secret Area"},
+			    {auth_user_file, filename:join(Root, "auth/passwd")},
+			    {auth_group_file, filename:join(Root, "auth/group")},
+			    {require_group, ["group3"]} |
+			    mod_security_conf(SecFile, TopSecret)]}}].     
+
+mod_security_conf(SecFile, Dir) ->
+    [{data_file, SecFile},
+     {max_retries, 3},
+     {fail_expire_time, ?FAIL_EXPIRE_TIME},
+     {block_time, 1},
+     {auth_timeout, ?AUTH_TIMEOUT},
+     {callback_module, ?MODULE},
+     {path, Dir} %% This is should not be needed, but is atm, awful design! 
+    ].
+    
 
 http_status(Request, Config, Expected) ->
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),    
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  http_request(Request, Version, Host),
 				  Expected ++ [{version, Version}]).
 
 http_status(Request, HeadersAndBody, Config, Expected) ->
     Version = ?config(http_version, Config),
-    Host = ?config(host, Config),    
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  http_request(Request, Version, Host, HeadersAndBody),
 				  Expected ++ [{version, Version}]).
 
 auth_status(AuthRequest, Config, Expected) ->
     Version = ?config(http_version, Config),
     Host = ?config(host, Config),    
+    Type = ?config(type, Config),
     httpd_test_lib:verify_request(?config(type, Config), Host, 
-				  ?config(port, Config),  ?config(node, Config),
+				  ?config(port, Config),  
+				  transport_opts(Type, Config),
+				  ?config(node, Config),
 				  AuthRequest,
 				  Expected ++ [{version, Version}]).
 
@@ -791,3 +1530,259 @@ cleanup_mnesia() ->
     stopped = mnesia:stop(),
     mnesia:delete_schema([node()]),
     ok.
+
+transport_opts(ssl, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    [{cacertfile, filename:join(PrivDir, "public_key_cacert.pem")}];
+transport_opts(_, _) ->
+    [].
+
+
+%%% mod_range
+create_range_data(Path) ->
+    PathAndFileName=filename:join([Path,"range.txt"]),
+    case file:read_file(PathAndFileName) of
+	{error, enoent} ->
+	    file:write_file(PathAndFileName,list_to_binary(["12345678901234567890",
+							    "12345678901234567890",
+							    "12345678901234567890",
+							    "12345678901234567890",
+							    "12345678901234567890"]));
+	_ ->
+	    ok
+    end.
+
+%%% mod_htaccess
+create_htaccess_data(Path, IpAddress)->
+    create_htaccess_dirs(Path),
+    
+    create_html_file(filename:join([Path,"ht/open/dummy.html"])),
+    create_html_file(filename:join([Path,"ht/blocknet/dummy.html"])),
+    create_html_file(filename:join([Path,"ht/secret/dummy.html"])),
+    create_html_file(filename:join([Path,"ht/secret/top_secret/dummy.html"])),
+    
+    create_htaccess_file(filename:join([Path,"ht/open/.htaccess"]),
+			 Path, "user one Aladdin"),
+    create_htaccess_file(filename:join([Path,"ht/secret/.htaccess"]),
+			 Path, "group group1 group2"),
+    create_htaccess_file(filename:join([Path,
+				       "ht/secret/top_secret/.htaccess"]),
+			Path, "user four"),
+    create_htaccess_file(filename:join([Path,"ht/blocknet/.htaccess"]),
+			Path, nouser, IpAddress),
+   
+    create_user_group_file(filename:join([Path,"ht","users.file"]),
+			   "one:OnePassword\ntwo:TwoPassword\nthree:"
+			   "ThreePassword\nfour:FourPassword\nAladdin:"
+			   "AladdinPassword"),
+    create_user_group_file(filename:join([Path,"ht","groups.file"]),
+			   "group1: two one\ngroup2: two three").
+
+create_html_file(PathAndFileName)->
+    file:write_file(PathAndFileName,list_to_binary(
+	 "<html><head><title>test</title></head>
+         <body>testar</body></html>")).
+
+create_htaccess_file(PathAndFileName, BaseDir, RequireData)->
+    file:write_file(PathAndFileName,
+		    list_to_binary(
+		      "AuthUserFile "++ BaseDir ++
+		      "/ht/users.file\nAuthGroupFile "++ BaseDir
+		      ++ "/ht/groups.file\nAuthName Test\nAuthType"
+		      " Basic\n<Limit>\nrequire " ++ RequireData ++
+		      "\n</Limit>")).
+
+create_htaccess_file(PathAndFileName, BaseDir, nouser, IpAddress)->
+    file:write_file(PathAndFileName,list_to_binary(
+				      "AuthUserFile "++ BaseDir ++
+				      "/ht/users.file\nAuthGroupFile " ++ 
+				      BaseDir ++ "/ht/groups.file\nAuthName"
+				      " Test\nAuthType"
+				      " Basic\n<Limit GET>\n\tallow from " ++ 
+				      format_ip(IpAddress,
+						string:rchr(IpAddress,$.)) ++ 
+				      "\n</Limit>")).
+
+create_user_group_file(PathAndFileName, Data)->
+    file:write_file(PathAndFileName, list_to_binary(Data)).
+
+create_htaccess_dirs(Path)->
+    ok = file:make_dir(filename:join([Path,"ht"])),
+    ok = file:make_dir(filename:join([Path,"ht/open"])),
+    ok = file:make_dir(filename:join([Path,"ht/blocknet"])),
+    ok = file:make_dir(filename:join([Path,"ht/secret"])),
+    ok = file:make_dir(filename:join([Path,"ht/secret/top_secret"])).
+
+remove_htaccess_dirs(Path)->
+    file:del_dir(filename:join([Path,"ht/secret/top_secret"])),
+    file:del_dir(filename:join([Path,"ht/secret"])),
+    file:del_dir(filename:join([Path,"ht/blocknet"])),
+    file:del_dir(filename:join([Path,"ht/open"])),
+    file:del_dir(filename:join([Path,"ht"])).
+
+format_ip(IpAddress,Pos)when Pos > 0->
+    case lists:nth(Pos,IpAddress) of
+	$.->
+	    case lists:nth(Pos-2,IpAddress) of
+		$.->
+		   format_ip(IpAddress,Pos-3);
+		_->
+		    lists:sublist(IpAddress,Pos-2) ++ "."
+	    end;
+	_ ->
+	    format_ip(IpAddress,Pos-1)
+    end;
+
+format_ip(IpAddress, _Pos)->
+    "1" ++ IpAddress.
+
+remove_htaccess(Path)->
+    file:delete(filename:join([Path,"ht/open/dummy.html"])),
+    file:delete(filename:join([Path,"ht/secret/dummy.html"])),
+    file:delete(filename:join([Path,"ht/secret/top_secret/dummy.html"])),
+    file:delete(filename:join([Path,"ht/blocknet/dummy.html"])),
+    file:delete(filename:join([Path,"ht/blocknet/.htaccess"])),
+    file:delete(filename:join([Path,"ht/open/.htaccess"])),
+    file:delete(filename:join([Path,"ht/secret/.htaccess"])),
+    file:delete(filename:join([Path,"ht/secret/top_secret/.htaccess"])),
+    file:delete(filename:join([Path,"ht","users.file"])),
+    file:delete(filename:join([Path,"ht","groups.file"])),
+    remove_htaccess_dirs(Path).
+
+dos_hostname(Type, Port, Host, Node, Version, Max) ->    
+    TooLongHeader = lists:append(lists:duplicate(Max + 1, "a")),
+    
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+ 				       dos_hostname_request("", Version),
+ 				       [{statuscode, 200},
+ 					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+ 				       dos_hostname_request("dummy-host.ericsson.se", Version),
+ 				       [{statuscode, 200},
+ 					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+ 				       dos_hostname_request(TooLongHeader, Version),
+ 				       [{statuscode, dos_code(Version)},
+ 					{version, Version}]).
+dos_hostname_request(Host, Version) ->
+    dos_http_request("GET / ", Version, Host).
+
+dos_http_request(Request,  "HTTP/1.1" = Version, Host) ->
+    http_request(Request, Version, Host);
+dos_http_request(Request, Version, Host) ->
+    Request ++ Version ++ "\r\nhost:" ++ Host  ++ "\r\n\r\n".
+
+dos_code("HTTP/1.0") ->
+    403; %% 413 not defined in HTTP/1.0
+dos_code(_) ->
+    413.
+
+update_password(Node, ServerRoot, _Address, Port, AuthPrefix, Dir, Old, New)->
+    Directory = filename:join([ServerRoot, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, update_password, 
+	     [undefined, Port, Directory, Old, New, New]).
+
+add_user(Node, Root, Port, AuthPrefix, Dir, User, Password, UserData) ->
+    Addr = undefined, 
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, add_user, 
+	     [User, Password, UserData, Addr, Port, Directory]).
+
+
+delete_user(Node, Root, _Host, Port, AuthPrefix, Dir, User) ->
+    Addr = undefined, 
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, delete_user, [User, Addr, Port, Directory]).
+remove_users(Node, ServerRoot, Host, Port, AuthPrefix, Dir) ->
+    %% List users, delete them, and make sure they are gone.
+    case list_users(Node, ServerRoot, Host, Port, AuthPrefix, Dir) of
+	{ok, Users} ->
+	    lists:foreach(fun(User) -> 
+				  delete_user(Node, ServerRoot, Host, 
+					      Port, AuthPrefix, Dir, User)
+			  end,
+			  Users),
+		  {ok, []} = list_users(Node, ServerRoot, Host, Port, AuthPrefix, Dir);
+	_ ->
+	    ok
+    end.
+
+list_users(Node, Root, _Host, Port, AuthPrefix, Dir) ->
+    Addr = undefined, 
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, list_users, [Addr, Port, Directory]).
+
+remove_groups(Node, ServerRoot, Host, Port,  AuthPrefix, Dir) ->
+    {ok, Groups} = list_groups(Node, ServerRoot, Host, Port, AuthPrefix, Dir),
+    lists:foreach(fun(Group) ->
+			  delete_group(Node, Group, Port, ServerRoot, AuthPrefix, Dir)
+		  end,
+		  Groups),
+    {ok, []} = list_groups(Node, ServerRoot, Host, Port, AuthPrefix, Dir).
+
+delete_group(Node, Group, Port, Root, AuthPrefix, Dir) ->
+    Addr = undefined, 
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, delete_group, [Group, Addr, Port, Directory]).
+
+list_groups(Node, Root, _, Port, AuthPrefix, Dir) ->
+    Addr = undefined, 
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, list_groups, [Addr, Port, Directory]).
+
+add_group_member(Node, Root, Port, AuthPrefix, Dir, User, Group) ->
+    Addr = undefined, 
+    Directory = filename:join([Root, "htdocs", AuthPrefix ++ Dir]),
+    rpc:call(Node, mod_auth, add_group_member, [Group, User, Addr, Port, 
+					  Directory]).
+getaddr() ->
+    {ok,HostName} = inet:gethostname(),
+    {ok,{A1,A2,A3,A4}} = inet:getaddr(HostName,inet),
+    lists:flatten(io_lib:format("~p.~p.~p.~p",[A1,A2,A3,A4])).
+
+receive_security_event(Event, Node, Port) ->
+    receive 
+	Event ->
+	    ok;
+	{'EXIT', _, _} ->
+	    receive_security_event(Event, Node, Port)
+    after 5000 ->
+	    %% Flush the message queue, to see if we got something...
+	    inets_test_lib:flush()
+    end.
+
+list_blocked_users(Node,Port) ->
+    Addr = undefined, % Assumed to be on the same host
+    rpc:call(Node, mod_security, list_blocked_users, [Addr,Port]).
+
+list_blocked_users(Node,Port,Dir) ->
+    Addr = undefined, % Assumed to be on the same host
+    rpc:call(Node, mod_security, list_blocked_users, [Addr,Port,Dir]).
+
+block_user(Node,User,Port,Dir,Sec) ->
+    Addr = undefined, % Assumed to be on the same host
+    rpc:call(Node, mod_security, block_user, [User, Addr, Port, Dir, Sec]).
+
+unblock_user(Node,User,Port,Dir) ->
+    Addr = undefined, % Assumed to be on the same host
+    rpc:call(Node, mod_security, unblock_user, [User, Addr, Port, Dir]).
+
+list_auth_users(Node,Port) ->
+    Addr = undefined, % Assumed to be on the same host
+    rpc:call(Node, mod_security, list_auth_users, [Addr,Port]).
+
+list_auth_users(Node,Port,Dir) ->
+    Addr = undefined, % Assumed to be on the same host
+    rpc:call(Node, mod_security, list_auth_users, [Addr,Port,Dir]).
+
+event(What, Port, Dir, Data) ->
+    Msg = {event, What, Port, Dir, Data},
+    case global:whereis_name(mod_security_test) of
+	undefined ->
+	    ok;
+	_Pid ->
+	    global:send(mod_security_test, Msg)
+    end.
+

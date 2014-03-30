@@ -260,10 +260,10 @@ tftpd_worker(suite) ->
     [];
 tftpd_worker(Config) when is_list(Config) ->
     [] = supervisor:which_children(tftp_sup),   
-    {ok, Pid0} = inets:start(tftpd, [{host, "localhost"}, 
-				     {port, inet_port()}]),
-    {ok, _Pid1} = inets:start(tftpd, [{host, "localhost"}, 
-				      {port, inet_port()}], stand_alone),
+    {ok, Pid0} = inets:start(tftpd, [{host, inets_test_lib:hostname()}, 
+				     {port, 0}]),
+    {ok, _Pid1} = inets:start(tftpd, [{host, inets_test_lib:hostname()}, 
+				      {port, 0}], stand_alone),
     
     [{_,Pid0, worker, _}] = supervisor:which_children(tftp_sup),
     inets:stop(tftpd, Pid0),
@@ -396,13 +396,6 @@ httpc_subtree(Config) when is_list(Config) ->
 
     tsp("httpc_subtree -> done"),
     ok.
-
-inet_port() ->
-    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.
-
 
 tsp(F) ->
     tsp(F, []).

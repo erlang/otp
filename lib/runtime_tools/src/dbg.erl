@@ -1786,12 +1786,12 @@ h(get_tracer) ->
        " - Returns the process or port to which all trace messages are sent."]);
 h(stop) ->
     help_display(
-      ["stop() -> stopped",
+      ["stop() -> ok",
        " - Stops the dbg server and the tracing of all processes.",
        "   Does not clear any trace patterns."]);
 h(stop_clear) ->
     help_display(
-      ["stop_clear() -> stopped",
+      ["stop_clear() -> ok",
        " - Stops the dbg server and the tracing of all processes,",
        "   and clears all trace patterns."]).
 

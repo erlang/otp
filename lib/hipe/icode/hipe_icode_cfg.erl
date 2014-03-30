@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,8 +54,8 @@
 -spec postorder(cfg()) -> [icode_lbl()].
 -spec reverse_postorder(cfg()) -> [icode_lbl()].
 
--spec is_visited(icode_lbl(), gb_set()) -> boolean().
--spec visit(icode_lbl(), gb_set()) -> gb_set().
+-spec is_visited(icode_lbl(), gb_sets:set()) -> boolean().
+-spec visit(icode_lbl(), gb_sets:set()) -> gb_sets:set().
 
 -spec bb(cfg(), icode_lbl()) -> 'not_found' | bb().
 -spec bb_add(cfg(), icode_lbl(), bb()) -> cfg().

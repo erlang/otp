@@ -27,6 +27,8 @@
 
 %% Test cases
 -export([
+	app/1,
+	appup/1,
 	profile/1,
 	analyze/1,
 	analyze_dist/1,
@@ -54,7 +56,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [webserver, profile, analyze, analyze_dist].
+    [app, appup, webserver, profile, analyze, analyze_dist].
 
 groups() -> 
     [].
@@ -69,6 +71,14 @@ end_per_group(_GroupName, Config) ->
 %%----------------------------------------------------------------------
 %% Tests
 %%----------------------------------------------------------------------
+
+%% Test that the percept app file is ok
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(percept).
+
+%% Test that the percept appup file is ok
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(percept).
 
 webserver(suite) ->
     [];

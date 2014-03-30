@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -639,10 +639,10 @@ send_compressed(Config) ->
 	     end,
     
     ?match([], mnesia_test_lib:kill_mnesia([N2])),
-    
+    sys:get_status(mnesia_monitor), %% sync N1
     ?match([], mnesia_test_lib:kill_mnesia([N1])),
     ?match(ok, mnesia:start([{send_compressed, 9}])),
-    ?match(ok, mnesia:wait_for_tables([t0,t1,t2], 5000)),
+    ?match(ok, mnesia:wait_for_tables([t0,t1,t2], 25000)),
 
     ?match({atomic, ok}, mnesia:transaction(Create, [t0])),
     ?match({atomic, ok}, mnesia:transaction(Create, [t1])),
@@ -1158,6 +1158,7 @@ dynamic_basic(Config) when is_list(Config) ->
 
     %%% SYNC!!!
     timer:sleep(1000),
+    sys:get_status(mnesia_monitor),
 
     ?match([N3,N1], sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
     ?match([N3,N1], sort(rpc:call(N3, mnesia, system_info, [running_db_nodes]))),

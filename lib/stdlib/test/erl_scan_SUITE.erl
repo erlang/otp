@@ -1,8 +1,7 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +21,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([ error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
-          otp_10990/1, otp_10992/1]).
+          otp_10990/1, otp_10992/1, otp_11807/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -61,7 +60,8 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992].
+    [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
+     otp_11807].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -225,8 +225,8 @@ atoms() ->
 
 punctuations() ->
     L = ["<<", "<-", "<=", "<", ">>", ">=", ">", "->", "--",
-         "-", "++", "+", "=:=", "=/=", "=<", "==", "=", "/=",
-         "/", "||", "|", ":-", "::", ":"],
+         "-", "++", "+", "=:=", "=/=", "=<", "=>", "==", "=", "/=",
+         "/", "||", "|", ":=", ":-", "::", ":"],
     %% One token at a time:
     [begin
          W = list_to_atom(S),
@@ -1065,8 +1065,8 @@ otp_10302(Config) when is_list(Config) ->
     {string,0,"str"} = erl_parse:abstract("str"),
     {cons,0,
      {integer,0,$a},
-     {cons,0,{integer,0,1024},{string,0,"c"}}} =
-        erl_parse:abstract("a"++[1024]++"c"),
+     {cons,0,{integer,0,55296},{string,0,"c"}}} =
+        erl_parse:abstract("a"++[55296]++"c"),
 
     Line = 17,
     {integer,Line,1} = erl_parse:abstract(1, Line),
@@ -1081,8 +1081,8 @@ otp_10302(Config) when is_list(Config) ->
     {string,Line,"str"} = erl_parse:abstract("str", Line),
     {cons,Line,
      {integer,Line,$a},
-     {cons,Line,{integer,Line,1024},{string,Line,"c"}}} =
-        erl_parse:abstract("a"++[1024]++"c", Line),
+     {cons,Line,{integer,Line,55296},{string,Line,"c"}}} =
+        erl_parse:abstract("a"++[55296]++"c", Line),
 
     Opts1 = [{line,17}],
     {integer,Line,1} = erl_parse:abstract(1, Opts1),
@@ -1097,8 +1097,8 @@ otp_10302(Config) when is_list(Config) ->
     {string,Line,"str"} = erl_parse:abstract("str", Opts1),
     {cons,Line,
      {integer,Line,$a},
-     {cons,Line,{integer,Line,1024},{string,Line,"c"}}} =
-        erl_parse:abstract("a"++[1024]++"c", Opts1),
+     {cons,Line,{integer,Line,55296},{string,Line,"c"}}} =
+        erl_parse:abstract("a"++[55296]++"c", Opts1),
 
     [begin
          {integer,Line,1} = erl_parse:abstract(1, Opts2),
@@ -1144,6 +1144,25 @@ otp_10992(Config) when is_list(Config) ->
     {cons,0,{integer,0,65},{cons,0,{float,0,42.0},{nil,0}}} =
         erl_parse:abstract([$A,42.0], [{encoding,utf8}]),
     ok.
+
+otp_11807(doc) ->
+    "OTP-11807. Generalize erl_parse:abstract/2.";
+otp_11807(suite) ->
+    [];
+otp_11807(Config) when is_list(Config) ->
+    {cons,0,{integer,0,97},{cons,0,{integer,0,98},{nil,0}}} =
+        erl_parse:abstract("ab", [{encoding,none}]),
+    {cons,0,{integer,0,-1},{nil,0}} =
+        erl_parse:abstract([-1], [{encoding,latin1}]),
+    ASCII = fun(I) -> I >= 0 andalso I < 128 end,
+    {string,0,"xyz"} = erl_parse:abstract("xyz", [{encoding,ASCII}]),
+    {cons,0,{integer,0,228},{nil,0}} =
+        erl_parse:abstract([228], [{encoding,ASCII}]),
+    {cons,0,{integer,0,97},{atom,0,a}} =
+        erl_parse:abstract("a"++a, [{encoding,latin1}]),
+    {'EXIT', {{badarg,bad},_}} = % minor backward incompatibility
+         (catch erl_parse:abstract("string", [{encoding,bad}])),
+   ok.
 
 test_string(String, Expected) ->
     {ok, Expected, _End} = erl_scan:string(String),

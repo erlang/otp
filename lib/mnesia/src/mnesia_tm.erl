@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -183,7 +183,8 @@ mnesia_down(Node) ->
 	undefined ->
 	    mnesia_monitor:mnesia_down(?MODULE, Node);
 	Pid ->
-	    Pid ! {mnesia_down, Node}
+	    Pid ! {mnesia_down, Node},
+	    ok
     end.
 
 prepare_checkpoint(Nodes, Cp) ->

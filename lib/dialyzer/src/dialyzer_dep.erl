@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% analyze(CoreTree) -> {Deps, Esc, Calls}.
+%% analyze(CoreTree) -> {Deps, Esc, Calls, Letrecs}.
 %%
 %% Deps =  a dict mapping labels of functions to an ordset of functions
 %%         it calls.
@@ -53,18 +53,24 @@
 %%         which the operation can refer to. If 'external' is part of
 %%         the set the operation can be externally defined.
 %%
+%% Letrecs = a dict mapping var labels to their recursive definition.
+%%           top-level letrecs are not included as they are handled
+%%           separately.
+%%
 
--spec analyze(cerl:c_module()) -> {dict(), ordset('external' | label()), dict()}.
+-spec analyze(cerl:c_module()) ->
+        {dict:dict(), ordsets:ordset('external' | label()), dict:dict(), dict:dict()}.
 
 analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
   {_, State} = traverse(Tree, map__new(), state__new(Tree), top),
   Esc = state__esc(State), 
-  %% Add dependency from 'external' to all escaping function
+  %% Add dependency from 'external' to all escaping functions
   State1 = state__add_deps(external, output(Esc), State),
   Deps = state__deps(State1),
   Calls = state__calls(State1),
-  {map__finalize(Deps), set__to_ordsets(Esc), map__finalize(Calls)}.
+  Letrecs = state__letrecs(State1),
+  {map__finalize(Deps), set__to_ordsets(Esc), map__finalize(Calls), Letrecs}.
 
 traverse(Tree, Out, State, CurrentFun) ->
   %% io:format("Type: ~w\n", [cerl:type(Tree)]),
@@ -118,8 +124,10 @@ traverse(Tree, Out, State, CurrentFun) ->
 	    TmpState = state__add_deps(Label, O1, State),
 	    state__add_deps(CurrentFun, O2,TmpState)
 	end,
-      {BodyFuns, State2} = traverse(Body, Out, State1, 
-				    cerl_trees:get_label(Tree)),
+      Vars = cerl:fun_vars(Tree),
+      Out1 = bind_single(Vars, output(set__singleton(external)), Out),
+      {BodyFuns, State2} =
+        traverse(Body, Out1, State1, cerl_trees:get_label(Tree)),
       {output(set__singleton(Label)), state__add_esc(BodyFuns, State2)};
     'let' ->
       Vars = cerl:let_vars(Tree),
@@ -131,9 +139,12 @@ traverse(Tree, Out, State, CurrentFun) ->
     letrec ->
       Defs = cerl:letrec_defs(Tree),
       Body = cerl:letrec_body(Tree),
+      State1 = lists:foldl(fun({ Var, Fun }, Acc) ->
+	state__add_letrecs(cerl_trees:get_label(Var), cerl_trees:get_label(Fun), Acc)
+      end, State, Defs),
       Out1 = bind_defs(Defs, Out),
-      State1 = traverse_defs(Defs, Out1, State, CurrentFun),
-      traverse(Body, Out1, State1, CurrentFun);
+      State2 = traverse_defs(Defs, Out1, State1, CurrentFun),
+      traverse(Body, Out1, State2, CurrentFun);
     literal ->
       {output(none), State};
     module ->
@@ -172,6 +183,15 @@ traverse(Tree, Out, State, CurrentFun) ->
     tuple ->
       Args = cerl:tuple_es(Tree),
       {List, State1} = traverse_list(Args, Out, State, CurrentFun),
+      {merge_outs(List), State1};
+    map ->
+      Args = cerl:map_es(Tree),
+      {List, State1} = traverse_list(Args, Out, State, CurrentFun),
+      {merge_outs(List), State1};
+    map_pair ->
+      Key = cerl:map_pair_key(Tree),
+      Val = cerl:map_pair_val(Tree),
+      {List, State1} = traverse_list([Key,Val], Out, State, CurrentFun),
       {merge_outs(List), State1};
     values ->      
       traverse_list(cerl:values_es(Tree), Out, State, CurrentFun);
@@ -291,7 +311,7 @@ primop(Tree, ArgFuns, State) ->
 %% Set
 %%
 
--record(set, {set :: set()}).
+-record(set, {set :: sets:set()}).
 
 set__singleton(Val) ->
   #set{set = sets:add_element(Val, sets:new())}.
@@ -460,18 +480,30 @@ all_vars(Tree, AccIn) ->
 
 -type local_set() :: 'none' | #set{}.
 
--record(state, {deps    :: dict(), 
+-record(state, {deps    :: dict:dict(),
 		esc     :: local_set(), 
-		call    :: dict(), 
-		arities :: dict()}).
+		call    :: dict:dict(),
+		arities :: dict:dict(),
+		letrecs :: dict:dict()}).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
-  InitEsc = set__from_list([cerl_trees:get_label(Fun) 
-			    || {Var, Fun} <- cerl:module_defs(Tree),
-			       set__is_element(Var, Exports)]),
+  %% get the labels of all exported functions
+  ExpLs = [cerl_trees:get_label(Fun) || {Var, Fun} <- cerl:module_defs(Tree),
+					set__is_element(Var, Exports)],
+  %% make sure to also initiate an analysis from all functions called
+  %% from on_load attributes; in Core these exist as a list of {F,A} pairs
+  OnLoadFAs = lists:flatten([cerl:atom_val(Args)
+			     || {Attr, Args} <- cerl:module_attrs(Tree),
+				cerl:atom_val(Attr) =:= on_load]),
+  OnLoadLs = [cerl_trees:get_label(Fun)
+	      || {Var, Fun} <- cerl:module_defs(Tree),
+		 lists:member(cerl:var_name(Var), OnLoadFAs)],
+  %% init the escaping function labels to exported + called from on_load
+  InitEsc = set__from_list(OnLoadLs ++ ExpLs),
   Arities = cerl_trees:fold(fun find_arities/2, dict:new(), Tree),
-  #state{deps = map__new(), esc = InitEsc, call = map__new(), arities = Arities}.
+  #state{deps = map__new(), esc = InitEsc, call = map__new(),
+	 arities = Arities, letrecs = map__new()}.
 
 find_arities(Tree, AccMap) ->
   case cerl:is_c_fun(Tree) of
@@ -490,8 +522,14 @@ state__add_deps(From, #output{type = single, content=To},
   %% io:format("Adding deps from ~w to ~w\n", [From, set__to_ordsets(To)]),
   State#state{deps = map__add(From, To, Map)}.
 
+state__add_letrecs(Var, Fun, #state{letrecs = Map} = State) ->
+  State#state{letrecs = map__store(Var, Fun, Map)}.
+
 state__deps(#state{deps = Deps}) ->
   Deps.
+
+state__letrecs(#state{letrecs = Letrecs}) ->
+  Letrecs.
 
 state__add_esc(#output{content = none}, State) ->
   State;

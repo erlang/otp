@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,7 @@
 #include "big.h"
 #include "beam_load.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #include "erl_bits.h"
 #include "dist.h"
 #include "beam_bp.h"
@@ -48,7 +49,7 @@
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
 #  define OpCode(OpCode)    ((Uint*)op_##OpCode)
-#  define Goto(Rel) {Go = (int)(Rel); goto emulator_loop;}
+#  define Goto(Rel) {Go = (int)(UWord)(Rel); goto emulator_loop;}
 #  define LabelAddr(Addr) &&##Addr
 #else
 #  define OpCase(OpCode)    lb_##OpCode
@@ -70,7 +71,8 @@ do {									\
     	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
 } while (0)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
+					   __FILE__, __LINE__)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #  else
@@ -133,7 +135,7 @@ do {                                     \
 
 /* We don't check the range if an ordinary switch is used */
 #ifdef NO_JUMP_TABLE
-#define VALID_INSTR(IP) (0 <= (int)(IP) && ((int)(IP) < (NUMBER_OF_OPCODES*2+10)))
+#define VALID_INSTR(IP) ((UWord)(IP) < (NUMBER_OF_OPCODES*2+10))
 #else
 #define VALID_INSTR(IP) \
    ((SWord)LabelAddr(emulator_loop) <= (SWord)(IP) && \
@@ -217,6 +219,7 @@ BeamInstr beam_continue_exit[1];
 
 BeamInstr* em_call_error_handler;
 BeamInstr* em_apply_bif;
+BeamInstr* em_call_nif;
 
 
 /* NOTE These should be the only variables containing trace instructions.
@@ -700,6 +703,19 @@ extern int count_instructions;
         Fail; 								  \
     }
 
+#define IsMap(Src, Fail) if (is_not_map(Src)) { Fail; }
+
+#define HasMapField(Src, Key, Fail) if (has_not_map_field(Src, Key)) { Fail; }
+
+#define GetMapElement(Src, Key, Dst, Fail)	\
+  do {						\
+     Eterm _res = get_map_element(Src, Key);	\
+     if (is_non_value(_res)) {			\
+        Fail;					\
+     }						\
+     Dst = _res;				\
+  } while (0)
+
 #define IsFunction(X, Action)			\
   do {						\
      if ( !(is_any_fun(X)) ) {			\
@@ -943,7 +959,13 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
-
+static Eterm new_map(Process* p, Eterm* reg, BeamInstr* I) NOINLINE;
+static Eterm update_map_assoc(Process* p, Eterm* reg,
+			      Eterm map, BeamInstr* I) NOINLINE;
+static Eterm update_map_exact(Process* p, Eterm* reg,
+			      Eterm map, BeamInstr* I) NOINLINE;
+static int has_not_map_field(Eterm map, Eterm key);
+static Eterm get_map_element(Eterm map, Eterm key);
 
 /*
  * Functions not directly called by process_main(). OK to inline.
@@ -1169,11 +1191,16 @@ void process_main(void)
      * c_p->arg_reg before calling the scheduler.
      */
     if (!init_done) {
+       /* This should only be reached during the init phase when only the main
+        * process is running. I.e. there is no race for init_done.
+        */
 	init_done = 1;
 	goto init_emulator;
     }
+
     c_p = NULL;
     reds_used = 0;
+
     goto do_schedule1;
 
  do_schedule:
@@ -1182,7 +1209,11 @@ void process_main(void)
 
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
-	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
+	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    && !ERTS_SCHEDULER_IS_DIRTY(c_p->scheduler_data)
+#endif
+	    ) {
 	    BeamInstr *inptr = find_function_from_pc(start_time_i);
 	    BeamInstr *outptr = find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
@@ -1270,7 +1301,7 @@ void process_main(void)
                                       (Eterm)fptr[1], (Uint)fptr[2],
                                       NULL, fun_buf);
                 } else {
-                    erts_snprintf(fun_buf, sizeof(fun_buf),
+                    erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
                                   "<unknown/%p>", next);
                 }
             }
@@ -2322,6 +2353,175 @@ void process_main(void)
      Goto(*I);
  }
 
+ OpCase(new_map_jdII): {
+     Eterm res;
+
+     x(0) = r(0);
+     SWAPOUT;
+     res = new_map(c_p, reg, I);
+     SWAPIN;
+     r(0) = x(0);
+     StoreResult(res, Arg(1));
+     Next(4+Arg(3));
+ }
+
+ OpCase(i_has_map_fields_fsI): {
+    map_t* mp;
+    Eterm map;
+    Eterm field;
+    Eterm *ks;
+    BeamInstr* fs;
+    Uint sz,n;
+
+    GetArg1(1, map);
+
+    /* this instruction assumes Arg1 is a map,
+     * i.e. that it follows a test is_map if needed.
+     */
+
+    mp = (map_t *)map_val(map);
+    sz = map_get_size(mp);
+
+    if (sz == 0) {
+	SET_I((BeamInstr *) Arg(0));
+	goto has_map_fields_fail;
+    }
+
+    ks = map_get_keys(mp);
+    n  = (Uint)Arg(2);
+    fs = &Arg(3); /* pattern fields */
+
+    ASSERT(n>0);
+
+    while(sz) {
+	field = (Eterm)*fs;
+	if (EQ(field,*ks)) {
+	    n--;
+	    fs++;
+	    if (n == 0) break;
+	}
+	ks++; sz--;
+    }
+
+    if (n) {
+	SET_I((BeamInstr *) Arg(0));
+	goto has_map_fields_fail;
+    }
+
+    I += 4 + Arg(2);
+has_map_fields_fail:
+    ASSERT(VALID_INSTR(*I));
+    Goto(*I);
+ }
+
+#define PUT_TERM_REG(term, desc)				\
+do {								\
+    switch ((desc) & _TAG_IMMED1_MASK) {			\
+    case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	r(0) = (term);						\
+	break;							\
+    case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	x((desc) >> _TAG_IMMED1_SIZE) = (term);			\
+	break;							\
+    case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	y((desc) >> _TAG_IMMED1_SIZE) = (term);			\
+	break;							\
+    default:							\
+	ASSERT(0);						\
+	break;							\
+    }								\
+} while(0)
+
+ OpCase(i_get_map_elements_fsI): {
+    Eterm map;
+    map_t *mp;
+    Eterm field;
+    Eterm *ks;
+    Eterm *vs;
+    BeamInstr *fs;
+    Uint sz,n;
+
+    GetArg1(1, map);
+
+    /* this instruction assumes Arg1 is a map,
+     * i.e. that it follows a test is_map if needed.
+     */
+
+    mp = (map_t *)map_val(map);
+    sz = map_get_size(mp);
+
+    if (sz == 0) {
+	SET_I((BeamInstr *) Arg(0));
+	goto get_map_elements_fail;
+    }
+
+    n  = (Uint)Arg(2) / 2;
+    fs = &Arg(3); /* pattern fields and target registers */
+    ks = map_get_keys(mp);
+    vs = map_get_values(mp);
+
+    while(sz) {
+	field = (Eterm)*fs;
+	if (EQ(field,*ks)) {
+	    PUT_TERM_REG(*vs, fs[1]);
+	    n--;
+	    fs += 2;
+	    /* no more values to fetch, we are done */
+	    if (n == 0) break;
+	}
+	ks++; sz--;
+	vs++;
+    }
+
+    if (n) {
+	SET_I((BeamInstr *) Arg(0));
+	goto get_map_elements_fail;
+    }
+
+    I += 4 + Arg(2);
+get_map_elements_fail:
+    ASSERT(VALID_INSTR(*I));
+    Goto(*I);
+ }
+#undef PUT_TERM_REG
+
+ OpCase(update_map_assoc_jsdII): {
+     Eterm res;
+     Eterm map;
+
+     GetArg1(1, map);
+     x(0) = r(0);
+     SWAPOUT;
+     res = update_map_assoc(c_p, reg, map, I);
+     SWAPIN;
+     if (is_value(res)) {
+	 r(0) = x(0);
+	 StoreResult(res, Arg(2));
+	 Next(5+Arg(4));
+     } else {
+	 goto badarg;
+     }
+ }
+
+ OpCase(update_map_exact_jsdII): {
+     Eterm res;
+     Eterm map;
+
+     GetArg1(1, map);
+     x(0) = r(0);
+     SWAPOUT;
+     res = update_map_exact(c_p, reg, map, I);
+     SWAPIN;
+     if (is_value(res)) {
+	 r(0) = x(0);
+	 StoreResult(res, Arg(2));
+	 Next(5+Arg(4));
+     } else {
+	 goto badarg;
+     }
+ }
+
+
     /*
      * All guards with zero arguments have special instructions:
      * 	self/0
@@ -3323,6 +3523,13 @@ void process_main(void)
 		reg[0] = r(0);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		erts_post_nif(&env);
+#ifdef ERTS_DIRTY_SCHEDULERS
+		if (is_non_value(nif_bif_result) && c_p->freason == TRAP) {
+		    Export* ep = (Export*) c_p->psd->data[ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT];
+		    ep->code[0] = I[-3];
+		    ep->code[1] = I[-2];
+		}
+#endif
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -4326,7 +4533,19 @@ void process_main(void)
      flags = Arg(2);
      BsGetFieldSize(tmp_arg2, (flags >> 3), ClauseFail(), size);
      if (size >= SMALL_BITS) {
-	 Uint wordsneeded = 1+WSIZE(NBYTES((Uint) size));
+	 Uint wordsneeded;
+	 /* check bits size before potential gc.
+	  * We do not want a gc and then realize we don't need
+	  * the allocated space (i.e. if the op fails)
+	  *
+	  * remember to reacquire the matchbuffer after gc.
+	  */
+
+	 mb = ms_matchbuffer(tmp_arg1);
+	 if (mb->size - mb->offset < size) {
+	     ClauseFail();
+	 }
+	 wordsneeded = 1+WSIZE(NBYTES((Uint) size));
 	 TestHeapPreserve(wordsneeded, Arg(1), tmp_arg1);
      }
      mb = ms_matchbuffer(tmp_arg1);
@@ -4952,6 +5171,7 @@ void process_main(void)
      
      em_call_error_handler = OpCode(call_error_handler);
      em_apply_bif = OpCode(apply_bif);
+     em_call_nif = OpCode(call_nif);
 
      beam_apply[0]             = (BeamInstr) OpCode(i_apply);
      beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
@@ -5010,6 +5230,8 @@ translate_gc_bif(void* gcf)
 	return bit_size_1;
     } else if (gcf == erts_gc_byte_size_1) {
 	return byte_size_1;
+    } else if (gcf == erts_gc_map_size_1) {
+	return map_size_1;
     } else if (gcf == erts_gc_abs_1) {
 	return abs_1;
     } else if (gcf == erts_gc_float_1) {
@@ -6206,6 +6428,397 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     return make_fun(funp);
 }
 
+static int has_not_map_field(Eterm map, Eterm key)
+{
+    map_t* mp;
+    Eterm* keys;
+    Uint i;
+    Uint n;
+
+    mp   = (map_t *)map_val(map);
+    keys = map_get_keys(mp);
+    n    = map_get_size(mp);
+    if (is_immed(key)) {
+	for (i = 0; i < n; i++) {
+	    if (keys[i] == key) {
+		return 0;
+	    }
+	}
+    } else {
+	for (i = 0; i <  n; i++) {
+	    if (EQ(keys[i], key)) {
+		return 0;
+	    }
+	}
+    }
+    return 1;
+}
+
+static Eterm get_map_element(Eterm map, Eterm key)
+{
+    map_t *mp;
+    Eterm* ks, *vs;
+    Uint i;
+    Uint n;
+
+    mp = (map_t *)map_val(map);
+    ks = map_get_keys(mp);
+    vs = map_get_values(mp);
+    n  = map_get_size(mp);
+    if (is_immed(key)) {
+	for (i = 0; i < n; i++) {
+	    if (ks[i] == key) {
+		return vs[i];
+	    }
+	}
+    } else {
+	for (i = 0; i < n; i++) {
+	    if (EQ(ks[i], key)) {
+		return vs[i];
+	    }
+	}
+    }
+    return THE_NON_VALUE;
+}
+
+#define GET_TERM(term, dest)					\
+do {								\
+    Eterm src = (Eterm)(term);					\
+    switch (src & _TAG_IMMED1_MASK) {				\
+    case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	dest = x(0);						\
+	break;							\
+    case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	dest = x(src >> _TAG_IMMED1_SIZE);			\
+	break;							\
+    case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
+	dest = y(src >> _TAG_IMMED1_SIZE);			\
+	break;							\
+    default:							\
+	dest = src;						\
+	break;							\
+    }								\
+} while(0)
+
+
+static Eterm
+new_map(Process* p, Eterm* reg, BeamInstr* I)
+{
+    Uint n = Arg(3);
+    Uint i;
+    Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
+    Eterm keys;
+    Eterm *mhp,*thp;
+    Eterm *E;
+    BeamInstr *ptr;
+    map_t *mp;
+
+    if (HeapWordsLeft(p) < need) {
+	erts_garbage_collect(p, need, reg, Arg(2));
+    }
+
+    thp    = p->htop;
+    mhp    = thp + 1 + n/2;
+    E      = p->stop;
+    ptr    = &Arg(4);
+    keys   = make_tuple(thp);
+    *thp++ = make_arityval(n/2);
+
+    mp = (map_t *)mhp; mhp += MAP_HEADER_SIZE;
+    mp->thing_word = MAP_HEADER;
+    mp->size = n/2;
+    mp->keys = keys;
+
+    for (i = 0; i < n/2; i++) {
+	GET_TERM(*ptr++, *thp++);
+	GET_TERM(*ptr++, *mhp++);
+    }
+    p->htop = mhp;
+    return make_map(mp);
+}
+
+static Eterm
+update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
+{
+    Uint n;
+    Uint num_old;
+    Uint num_updates;
+    Uint need;
+    map_t *old_mp, *mp;
+    Eterm res;
+    Eterm* hp;
+    Eterm* E;
+    Eterm* old_keys;
+    Eterm* old_vals;
+    BeamInstr* new_p;
+    Eterm new_key;
+    Eterm* kp;
+
+    if (is_not_map(map)) {
+	return THE_NON_VALUE;
+    }
+
+    old_mp = (map_t *) map_val(map);
+    num_old = map_get_size(old_mp);
+
+    /*
+     * If the old map is empty, create a new map.
+     */
+
+    if (num_old == 0) {
+	return new_map(p, reg, I+1);
+    }
+
+    /*
+     * Allocate heap space for the worst case (i.e. all keys in the
+     * update list are new).
+     */
+
+    num_updates = Arg(4) / 2;
+    need = 2*(num_old+num_updates) + 1 + MAP_HEADER_SIZE;
+    if (HeapWordsLeft(p) < need) {
+	Uint live = Arg(3);
+	reg[live] = map;
+	erts_garbage_collect(p, need, reg, live+1);
+	map      = reg[live];
+	old_mp   = (map_t *)map_val(map);
+    }
+
+    /*
+     * Build the skeleton for the map, ready to be filled in.
+     *
+     * +-----------------------------------+
+     * | (Space for aritvyal for keys)     | <-----------+
+     * +-----------------------------------+		 |
+     * | (Space for key 1)		   |		 |    <-- kp
+     * +-----------------------------------+		 |
+     *        .				    		 |
+     *        .				    		 |
+     *        .				    		 |
+     * +-----------------------------------+		 |
+     * | (Space for last key)		   |		 |
+     * +-----------------------------------+		 |
+     * | MAP_HEADER			   |		 |
+     * +-----------------------------------+		 |
+     * | (Space for number of keys/values) |		 |
+     * +-----------------------------------+		 |
+     * | Boxed tuple pointer            >----------------+
+     * +-----------------------------------+
+     * | (Space for value 1)		   |                  <-- hp
+     * +-----------------------------------+
+     */
+
+    E = p->stop;
+    kp = p->htop + 1;		/* Point to first key */
+    hp = kp + num_old + num_updates;
+
+    res = make_map(hp);
+    mp = (map_t *)hp;
+    hp += MAP_HEADER_SIZE;
+    mp->thing_word = MAP_HEADER;
+    mp->keys = make_tuple(kp-1);
+
+    old_vals = map_get_values(old_mp);
+    old_keys = map_get_keys(old_mp);
+
+    new_p = &Arg(5);
+    GET_TERM(*new_p, new_key);
+    n = num_updates;
+
+    /*
+     * Fill in keys and values, until we run out of either updates
+     * or old values and keys.
+     */
+
+    for (;;) {
+	Eterm key;
+	Sint c;
+
+	ASSERT(kp < (Eterm *)mp);
+	key = *old_keys;
+	if ((c = CMP_TERM(key, new_key)) < 0) {
+	    /* Copy old key and value */
+	    *kp++ = key;
+	    *hp++ = *old_vals;
+	    old_keys++, old_vals++, num_old--;
+	} else {		/* Replace or insert new */
+	    GET_TERM(new_p[1], *hp++);
+	    if (c > 0) {	/* If new new key */
+		*kp++ = new_key;
+	    } else {		/* If replacement */
+		*kp++ = key;
+		old_keys++, old_vals++, num_old--;
+	    }
+	    n--;
+	    if (n == 0) {
+		break;
+	    } else {
+		new_p += 2;
+		GET_TERM(*new_p, new_key);
+	    }
+	}
+	if (num_old == 0) {
+	    break;
+	}
+    }
+
+    /*
+     * At this point, we have run out of either old keys and values,
+     * or the update list. In other words, at least of one n and
+     * num_old must be zero.
+     */
+
+    if (n > 0) {
+	/*
+	 * All old keys and values have been copied, but there
+	 * are still new keys and values in the update list that
+	 * must be copied.
+	 */
+	ASSERT(num_old == 0);
+	while (n-- > 0) {
+	    GET_TERM(new_p[0], *kp++);
+	    GET_TERM(new_p[1], *hp++);
+	    new_p += 2;
+	}
+    } else {
+	/*
+	 * All updates are now done. We may still have old
+	 * keys and values that we must copy.
+	 */
+	ASSERT(n == 0);
+	while (num_old-- > 0) {
+	    ASSERT(kp < (Eterm *)mp);
+	    *kp++ = *old_keys++;
+	    *hp++ = *old_vals++;
+	}
+    }
+
+    /*
+     * Calculate how many values that are unused at the end of the
+     * key tuple and fill it out with a bignum header.
+     */
+    if ((n = (Eterm *)mp - kp) > 0) {
+	*kp = make_pos_bignum_header(n-1);
+    }
+
+    /*
+     * Fill in the size of the map in both the key tuple and in the map.
+     */
+
+    n = kp - p->htop - 1;	/* Actual number of keys/values */
+    *p->htop = make_arityval(n);
+    mp->size = n;
+    p->htop = hp;
+    return res;
+}
+
+/*
+ * Update values for keys that already exist in the map.
+ */
+
+static Eterm
+update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
+{
+    Uint n;
+    Uint i;
+    Uint num_old;
+    Uint need;
+    map_t *old_mp, *mp;
+    Eterm res;
+    Eterm* hp;
+    Eterm* E;
+    Eterm* old_keys;
+    Eterm* old_vals;
+    BeamInstr* new_p;
+    Eterm new_key;
+
+    if (is_not_map(map)) {
+	return THE_NON_VALUE;
+    }
+
+    old_mp = (map_t *) map_val(map);
+    num_old = map_get_size(old_mp);
+
+    /*
+     * If the old map is empty, create a new map.
+     */
+
+    if (num_old == 0) {
+	return THE_NON_VALUE;
+    }
+
+    /*
+     * Allocate the exact heap space needed.
+     */
+
+    need = num_old + MAP_HEADER_SIZE;
+    if (HeapWordsLeft(p) < need) {
+	Uint live = Arg(3);
+	reg[live] = map;
+	erts_garbage_collect(p, need, reg, live+1);
+	map      = reg[live];
+	old_mp   = (map_t *)map_val(map);
+    }
+
+    /*
+     * Update map, keeping the old key tuple.
+     */
+
+    hp = p->htop;
+    E = p->stop;
+
+    old_vals = map_get_values(old_mp);
+    old_keys = map_get_keys(old_mp);
+
+    res = make_map(hp);
+    mp = (map_t *)hp;
+    hp += MAP_HEADER_SIZE;
+    mp->thing_word = MAP_HEADER;
+    mp->size = num_old;
+    mp->keys = old_mp->keys;
+
+    /* Get array of key/value pairs to be updated */
+    new_p = &Arg(5);
+    GET_TERM(*new_p, new_key);
+
+    /* Update all values */
+    n = Arg(4) / 2;		/* Number of values to be updated */
+    ASSERT(n > 0);
+    for (i = 0; i < num_old; i++) {
+	if (!EQ(*old_keys, new_key)) {
+	    /* Not same keys */
+	    *hp++ = *old_vals;
+	} else {
+	    GET_TERM(new_p[1], *hp);
+	    hp++;
+	    n--;
+	    if (n == 0) {
+		/*
+		 * All updates done. Copy remaining values
+		 * and return the result.
+		 */
+		for (i++, old_vals++; i < num_old; i++) {
+		    *hp++ = *old_vals++;
+		}
+		ASSERT(hp == p->htop + need);
+		p->htop = hp;
+		return res;
+	    } else {
+		new_p += 2;
+		GET_TERM(*new_p, new_key);
+	    }
+	}
+	old_vals++, old_keys++;
+    }
+
+    /*
+     * Updates left. That means that at least one the keys in the
+     * update list did not previously exist.
+     */
+    ASSERT(hp == p->htop + need);
+    return THE_NON_VALUE;
+}
+#undef GET_TERM
 
 int catchlevel(Process *p)
 {

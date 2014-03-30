@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -132,8 +132,24 @@ typedef struct {
 #define DO_WRITE ERL_DRV_WRITE
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
-#define ERL_DRV_EXTENDED_MAJOR_VERSION	2
-#define ERL_DRV_EXTENDED_MINOR_VERSION	2
+#define ERL_DRV_EXTENDED_MAJOR_VERSION	3
+#define ERL_DRV_EXTENDED_MINOR_VERSION	0
+
+/*
+ * The emulator will refuse to load a driver with a major version
+ * lower than ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD. The load
+ * may however fail if user have not removed use of deprecated
+ * symbols.
+ *
+ * The ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD have to allow
+ * loading of drivers built at least two major OTP releases
+ * ago.
+ *
+ * Bump of major version to 3 happened in OTP 17. That is, in
+ * OTP 19 we can increase ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
+ * to 3.
+ */
+#define ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
 
 /*
  * The emulator will refuse to load a driver with different major
@@ -271,7 +287,6 @@ typedef struct ErlDrvCond_ ErlDrvCond;
 typedef struct ErlDrvRWLock_ ErlDrvRWLock;
 typedef int ErlDrvTSDKey;
 
-
 /*
  * 
  */
@@ -365,17 +380,23 @@ typedef struct erl_drv_entry {
  * It must initialize a ErlDrvEntry structure and return a pointer to it.
  */
 
+#ifdef STATIC_ERLANG_DRIVER
+#  define ERLANG_DRIVER_NAME(NAME) NAME ## _driver_init
+#else
+#  define ERLANG_DRIVER_NAME(NAME) driver_init
+#endif
+
 /* For windows dynamic drivers */
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 #if defined(__WIN32__)
 #  define DRIVER_INIT(DRIVER_NAME) \
-    __declspec(dllexport) ErlDrvEntry* driver_init(void); \
-    __declspec(dllexport) ErlDrvEntry* driver_init(void)
+  __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void);	\
+    __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 #else 
 #  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* driver_init(void); \
-    ErlDrvEntry* driver_init(void)
+    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
+    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 #endif
 
 #define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
@@ -599,6 +620,8 @@ EXTERN int null_func(void);
 #define ERL_DRV_INT64       ((ErlDrvTermData) 15) /* ErlDrvSInt64 * */
 #define ERL_DRV_UINT64      ((ErlDrvTermData) 16) /* ErlDrvUInt64 * */
 
+#define ERL_DRV_MAP         ((ErlDrvTermData) 17) /* ErlDrvUInt */
+
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 /* make terms for driver_output_term and driver_send_term */
@@ -651,12 +674,6 @@ EXTERN long driver_async(ErlDrvPort ix,
 			 void* async_data,
 			 void (*async_free)(void*));
 
-/*
- * driver_async_cancel() is deprecated. It is scheduled for removal
- * in OTP-R16. For more information see the erl_driver(3) documentation.
- */
-EXTERN int driver_async_cancel(unsigned int key) ERL_DRV_DEPRECATED_FUNC;
-
 /* Locks the driver in the machine "forever", there is
    no unlock function. Note that this is almost never useful, as an open
    port towards the driver locks it until the port is closed, why unexpected
@@ -677,6 +694,16 @@ EXTERN char *driver_dl_error(void);
 /* environment */
 EXTERN int erl_drv_putenv(char *key, char *value);
 EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+
+#ifdef __OSE__
+typedef ErlDrvUInt ErlDrvOseEventId;
+EXTERN union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent ev);
+EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig, ErlDrvOseEventId handle,
+					   ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig), void *extra);
+EXTERN void erl_drv_ose_event_free(ErlDrvEvent ev);
+EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,
+                  ErlDrvOseEventId *handle, void **extra);
+#endif
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 

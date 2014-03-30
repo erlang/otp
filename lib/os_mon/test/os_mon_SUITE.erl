@@ -25,7 +25,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([app_file/1, config/1]).
+-export([app_file/1, appup_file/1, config/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(1)).
@@ -43,8 +43,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case test_server:os_type() of
-	{unix, sunos} -> [app_file, config];
-	_OS -> [app_file]
+	{unix, sunos} -> [app_file, appup_file, config];
+	_OS -> [app_file, appup_file]
     end.
 
 groups() -> 
@@ -70,6 +70,9 @@ app_file(doc) ->
 app_file(Config) when is_list(Config) ->
     ?line ok = test_server:app_test(os_mon),
     ok.
+
+appup_file(Config) when is_list(Config) ->
+    ok = test_server:appup_test(os_mon).
 
 config(suite) ->
     [];

@@ -324,7 +324,7 @@ read_cookie(Name, Size) ->
 	{ok, File} ->
 	    case file:read(File, Size) of
 		{ok, List} ->
-		    file:close(File),
+		    ok = file:close(File),
 		    check_cookie(List, []);
 		{error, Reason} ->
 		    make_error(Name, Reason)
@@ -376,7 +376,7 @@ create_cookie(Name) ->
     case file:open(Name, [write, raw]) of
 	{ok, File} ->
 	    R1 = file:write(File, Cookie),
-	    file:close(File),
+	    ok = file:close(File),
 	    R2 = file:raw_write_file_info(Name, make_info(Name)),
 	    case {R1, R2} of
 		{ok, ok} ->

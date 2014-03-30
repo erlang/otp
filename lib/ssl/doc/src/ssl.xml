@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -184,12 +184,6 @@
       <item> The DER encoded trusted certificates. If this option
       is supplied it will override the cacertfile option.</item>
 
-      <tag>{cacertfile, path()}</tag>
-      <item>Path to file containing PEM encoded
-      CA certificates (trusted certificates used for verifying a peer
-      certificate). May be omitted if you do not want to verify
-      the peer.</item>
-
       <tag>{ciphers, ciphers()}</tag>
       <item>The cipher suites that should be supported. The function
       <c>cipher_suites/0</c> can be used to find all ciphers that are
@@ -354,7 +348,13 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <item>Specifies if client should try to reuse sessions
       when possible.
       </item>
-
+      
+      <tag>{cacertfile, path()}</tag>
+      <item>The path to a file containing PEM encoded CA certificates. The CA 
+      certificates are used during server authentication and when building the
+      client certificate chain.
+     </item>
+  
       <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</tag>
       <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</tag>
 	   <item>
@@ -403,7 +403,17 @@ fun(srp, Username :: string(), UserState :: term()) ->
     meaning in the server than in the client.</p>
 
     <taglist>
-
+      
+      <tag>{cacertfile, path()}</tag>
+      <item>The path to a file containing PEM encoded CA
+      certificates. The CA certificates are used to build the server
+      certificate chain, and for client authentication.  Also the CAs
+      are used in the list of acceptable client CAs passed to the
+      client when a certificate is requested. May be omitted if there
+      is no need to verify the client and if there are not any
+      intermediate CAs for the server certificate.
+      </item>
+  
       <tag>{dh, der_encoded()}</tag>
       <item>The DER encoded Diffie Hellman parameters. If this option
       is supplied it will override the dhfile option.
@@ -460,6 +470,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </item>
       <tag>{log_alert, boolean()}</tag>
       <item>If false, error reports will not be displayed.</item>
+      <tag>{honor_cipher_order, boolean()}</tag>
+      <item>If true, use the server's preference for cipher selection. If false
+      (the default), use the client's preference.
+      </item>
     </taglist>
   </section>
   

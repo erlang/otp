@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,24 +41,24 @@
           data_tag              :: atom(),   % ex tcp.
 	  close_tag             :: atom(),   % ex tcp_closed
 	  error_tag             :: atom(),   % ex tcp_error
-          host                  :: string() | inet:ipaddress(),
+          host                  :: string() | inet:ip_address(),
           port                  :: integer(),
           socket                :: port(),
           ssl_options           :: #ssl_options{},
           socket_options        :: #socket_options{},
           connection_states     :: #connection_states{},
 	  protocol_buffers      :: term(), %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
-          tls_handshake_history ::tls_handshake_history(),
+          tls_handshake_history :: ssl_handshake:ssl_handshake_history(),
 	  cert_db               :: reference(),
           session               :: #session{},
 	  session_cache         :: db_handle(),
 	  session_cache_cb      :: atom(),
-          negotiated_version    :: tls_version(),
+          negotiated_version    :: ssl_record:ssl_version(),
           client_certificate_requested = false :: boolean(),
-	  key_algorithm         :: key_algo(),
+	  key_algorithm         :: ssl_cipher:key_algo(),
 	  hashsign_algorithm = {undefined, undefined},
 	  cert_hashsign_algorithm,
-          public_key_info      ::public_key_info(),
+          public_key_info      ::ssl_handshake:public_key_info(),
           private_key          ::public_key:private_key(),
 	  diffie_hellman_params, % PKIX: #'DHParameter'{} relevant for server side
 	  diffie_hellman_keys, % {PublicKey, PrivateKey}
@@ -73,7 +73,7 @@
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
 	  start_or_recv_from   :: term(),
 	  timer                :: undefined | reference(), % start_or_recive_timer
-	  send_queue           :: queue(),
+	  send_queue           :: queue:queue(),
 	  terminated = false                          ::boolean(),
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),

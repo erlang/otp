@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,6 +34,7 @@ binary_comprehension
 tuple
 %struct
 record_expr record_tuple record_field record_fields
+map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses
@@ -47,6 +48,7 @@ opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
+map_pair_types map_pair_type
 bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
 
 Terminals
@@ -59,7 +61,7 @@ char integer float atom string var
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
 '++' '--'
-'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
+'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>' ':='
 '<<' '>>'
 '!' '=' '::' '..' '...'
 'spec' 'callback' % helper
@@ -154,6 +156,8 @@ type -> '[' ']'                           : {type, ?line('$1'), nil, []}.
 type -> '[' top_type ']'                  : {type, ?line('$1'), list, ['$2']}.
 type -> '[' top_type ',' '...' ']'        : {type, ?line('$1'),
                                              nonempty_list, ['$2']}.
+type -> '#' '{' '}'                       : {type, ?line('$1'), map, []}.
+type -> '#' '{' map_pair_types '}'        : {type, ?line('$1'), map, '$3'}.
 type -> '{' '}'                           : {type, ?line('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?line('$1'), tuple, '$2'}.
 type -> '#' atom '{' '}'                  : {type, ?line('$1'), record, ['$2']}.
@@ -174,6 +178,10 @@ fun_type -> '(' ')' '->' top_type  : {type, ?line('$1'), 'fun',
 fun_type -> '(' top_types ')' '->' top_type
                                    : {type, ?line('$1'), 'fun',
                                       [{type, ?line('$1'), product, '$2'},'$5']}.
+
+map_pair_types -> map_pair_type                    : ['$1'].
+map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
+map_pair_type  -> top_type '=>' top_type           : {type, ?line('$2'), map_field_assoc,'$1','$3'}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
@@ -247,6 +255,7 @@ expr_500 -> expr_600 : '$1'.
 
 expr_600 -> prefix_op expr_700 :
 	?mkop1('$1', '$2').
+expr_600 -> map_expr : '$1'.
 expr_600 -> expr_700 : '$1'.
 
 expr_700 -> function_call : '$1'.
@@ -327,6 +336,30 @@ tuple -> '{' exprs '}' : {tuple,?line('$1'),'$2'}.
 %%struct -> atom tuple :
 %%	{struct,?line('$1'),element(3, '$1'),element(3, '$2')}.
 
+map_expr -> '#' map_tuple :
+	{map, ?line('$1'),'$2'}.
+map_expr -> expr_max '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+map_expr -> map_expr '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+
+map_tuple -> '{' '}' : [].
+map_tuple -> '{' map_fields '}' : '$2'.
+
+map_fields -> map_field : ['$1'].
+map_fields -> map_field ',' map_fields : ['$1' | '$3'].
+
+map_field -> map_field_assoc : '$1'.
+map_field -> map_field_exact : '$1'.
+
+map_field_assoc -> map_key '=>' expr :
+	{map_field_assoc,?line('$1'),'$1','$3'}.
+
+map_field_exact -> map_key ':=' expr :
+	{map_field_exact,?line('$1'),'$1','$3'}.
+
+map_key -> expr : '$1'.
+
 
 %% N.B. This is called from expr_700.
 %% N.B. Field names are returned as the complete object, even if they are
@@ -405,6 +438,9 @@ fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].
 fun_clause -> argument_list clause_guard clause_body :
 	{Args,Pos} = '$1',
 	{clause,Pos,'fun',Args,'$2','$3'}.
+
+fun_clause -> var argument_list clause_guard clause_body :
+	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
 	build_try(?line('$1'),'$2','$4','$5').
@@ -645,6 +681,8 @@ skip_paren(Type) ->
 
 build_gen_type({atom, La, tuple}) ->
     {type, La, tuple, any};
+build_gen_type({atom, La, map}) ->
+    {type, La, map, any};
 build_gen_type({atom, La, Name}) ->
     {type, La, Name, []}.
 
@@ -799,8 +837,15 @@ build_rule(Cs) ->
 %% build_fun(Line, [Clause]) -> {'fun',Line,{clauses,[Clause]}}.
 
 build_fun(Line, Cs) ->
+    Name = element(3, hd(Cs)),
     Arity = length(element(4, hd(Cs))),
-    {'fun',Line,{clauses,check_clauses(Cs, 'fun', Arity)}}.
+    CheckedCs = check_clauses(Cs, Name, Arity),
+    case Name of
+        'fun' ->
+            {'fun',Line,{clauses,CheckedCs}};
+        Name ->
+            {named_fun,Line,Name,CheckedCs}
+    end.
 
 check_clauses(Cs, Name, Arity) ->
      mapl(fun ({clause,L,N,As,G,B}) when N =:= Name, length(As) =:= Arity ->
@@ -850,6 +895,12 @@ normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
+normalise({map,_,Pairs}=M) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)};
+		(_) -> erlang:error({badarg,M})
+	    end, Pairs));
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
@@ -868,29 +919,38 @@ normalise_list([]) ->
       Data :: term(),
       AbsTerm :: abstract_expr().
 abstract(T) ->
-    abstract(T, 0, epp:default_encoding()).
+    abstract(T, 0, enc_func(epp:default_encoding())).
+
+-type encoding_func() :: fun((non_neg_integer()) -> boolean()).
 
 %%% abstract/2 takes line and encoding options
 -spec abstract(Data, Options) -> AbsTerm when
       Data :: term(),
       Options :: Line | [Option],
       Option :: {line, Line} | {encoding, Encoding},
-      Encoding :: latin1 | unicode | utf8,
+      Encoding :: 'latin1' | 'unicode' | 'utf8' | 'none' | encoding_func(),
       Line :: erl_scan:line(),
       AbsTerm :: abstract_expr().
 
 abstract(T, Line) when is_integer(Line) ->
-    abstract(T, Line, epp:default_encoding());
+    abstract(T, Line, enc_func(epp:default_encoding()));
 abstract(T, Options) when is_list(Options) ->
     Line = proplists:get_value(line, Options, 0),
     Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
-    abstract(T, Line, Encoding).
+    EncFunc = enc_func(Encoding),
+    abstract(T, Line, EncFunc).
 
 -define(UNICODE(C),
-        is_integer(C) andalso
-         (C >= 0 andalso C < 16#D800 orelse
+         (C < 16#D800 orelse
           C > 16#DFFF andalso C < 16#FFFE orelse
           C > 16#FFFF andalso C =< 16#10FFFF)).
+
+enc_func(latin1) -> fun(C) -> C < 256 end;
+enc_func(unicode) -> fun(C) -> ?UNICODE(C) end;
+enc_func(utf8) -> fun(C) -> ?UNICODE(C) end;
+enc_func(none) -> none;
+enc_func(Fun) when is_function(Fun, 1) -> Fun;
+enc_func(Term) -> erlang:error({badarg, Term}).
 
 abstract(T, L, _E) when is_integer(T) -> {integer,L,T};
 abstract(T, L, _E) when is_float(T) -> {float,L,T};
@@ -898,29 +958,24 @@ abstract(T, L, _E) when is_atom(T) -> {atom,L,T};
 abstract([], L, _E) -> {nil,L};
 abstract(B, L, _E) when is_bitstring(B) ->
     {bin, L, [abstract_byte(Byte, L) || Byte <- bitstring_to_list(B)]};
-abstract([C|T], L, unicode=E) when ?UNICODE(C) ->
-    abstract_unicode_string(T, [C], L, E);
-abstract([C|T], L, utf8=E) when ?UNICODE(C) ->
-    abstract_unicode_string(T, [C], L, E);
-abstract([C|T], L, latin1=E) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C], L, E);
-abstract([H|T], L, E) ->
+abstract([H|T], L, none=E) ->
     {cons,L,abstract(H, L, E),abstract(T, L, E)};
+abstract(List, L, E) when is_list(List) ->
+    abstract_list(List, [], L, E);
 abstract(Tuple, L, E) when is_tuple(Tuple) ->
-    {tuple,L,abstract_list(tuple_to_list(Tuple), L, E)}.
+    {tuple,L,abstract_tuple_list(tuple_to_list(Tuple), L, E)}.
 
-abstract_string([C|T], String, L, E) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C|String], L, E);
-abstract_string([], String, L, _E) ->
+abstract_list([H|T], String, L, E) ->
+    case is_integer(H) andalso H >= 0 andalso E(H) of
+        true ->
+            abstract_list(T, [H|String], L, E);
+        false ->
+            AbstrList = {cons,L,abstract(H, L, E),abstract(T, L, E)},
+            not_string(String, AbstrList, L, E)
+    end;
+abstract_list([], String, L, _E) ->
     {string, L, lists:reverse(String)};
-abstract_string(T, String, L, E) ->
-    not_string(String, abstract(T, L, E), L, E).
-
-abstract_unicode_string([C|T], String, L, E) when ?UNICODE(C) ->
-    abstract_unicode_string(T, [C|String], L, E);
-abstract_unicode_string([], String, L, _E) ->
-    {string, L, lists:reverse(String)};
-abstract_unicode_string(T, String, L, E) ->
+abstract_list(T, String, L, E) ->
     not_string(String, abstract(T, L, E), L, E).
 
 not_string([C|T], Result, L, E) ->
@@ -928,9 +983,9 @@ not_string([C|T], Result, L, E) ->
 not_string([], Result, _L, _E) ->
     Result.
 
-abstract_list([H|T], L, E) ->
-    [abstract(H, L, E)|abstract_list(T, L, E)];
-abstract_list([], _L, _E) ->
+abstract_tuple_list([H|T], L, E) ->
+    [abstract(H, L, E)|abstract_tuple_list(T, L, E)];
+abstract_tuple_list([], _L, _E) ->
     [].
 
 abstract_byte(Byte, L) when is_integer(Byte) ->
@@ -1050,3 +1105,5 @@ get_attribute(L, Name) ->
 
 get_attributes(L) ->
     erl_scan:attributes_info(L).
+
+%% vim: ft=erlang

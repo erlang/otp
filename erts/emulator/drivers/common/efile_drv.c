@@ -99,7 +99,16 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+
+#ifndef __OSE__
+#include <ctype.h>
+#include <sys/types.h>
 #include <stdlib.h>
+#else
+#include "ctype.h"
+#include "sys/types.h"
+#include "stdlib.h"
+#endif
 
 /* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
@@ -111,11 +120,9 @@
 #include "erl_driver.h"
 #include "erl_efile.h"
 #include "erl_threads.h"
-#include "zlib.h"
 #include "gzio.h"
 #include "dtrace-wrapper.h" 
-#include <ctype.h>
-#include <sys/types.h>
+
 
 void erl_exit(int n, char *fmt, ...);
 
@@ -168,7 +175,7 @@ dt_private *get_dt_private(int);
 
 
 #ifdef USE_THREADS
-#define IF_THRDS if (sys_info.async_threads > 0)
+#define THRDS_AVAILABLE (sys_info.async_threads > 0)
 #ifdef HARDDEBUG /* HARDDEBUG in io.c is expected too */
 #define TRACE_DRIVER fprintf(stderr, "Efile: ")
 #else
@@ -178,24 +185,26 @@ dt_private *get_dt_private(int);
 #define MUTEX_LOCK(m)    do { IF_THRDS { TRACE_DRIVER; driver_pdl_lock(m);   } } while (0)
 #define MUTEX_UNLOCK(m)  do { IF_THRDS { TRACE_DRIVER; driver_pdl_unlock(m); } } while (0)
 #else
-#define IF_THRDS if (0)
+#define THRDS_AVAILABLE (0)
 #define MUTEX_INIT(m, p)
 #define MUTEX_LOCK(m)
 #define MUTEX_UNLOCK(m)
 #endif
+#define IF_THRDS if (THRDS_AVAILABLE)
 
 
+#define SENDFILE_FLGS_USE_THREADS (1 << 0)
 /**
  * On DARWIN sendfile can deadlock with close if called in
  * different threads. So until Apple fixes so that sendfile
  * is not buggy we disable usage of the async pool for
  * DARWIN. The testcase t_sendfile_crashduring reproduces
- * this error when using +A 10.
+ * this error when using +A 10 and enabling SENDFILE_FLGS_USE_THREADS.
  */
 #if defined(__APPLE__) && defined(__MACH__)
-#define USE_THRDS_FOR_SENDFILE 0
+#define USE_THRDS_FOR_SENDFILE(DATA) 0
 #else
-#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
+#define USE_THRDS_FOR_SENDFILE(DATA) (DATA->flags & SENDFILE_FLGS_USE_THREADS)
 #endif /* defined(__APPLE__) && defined(__MACH__) */
 
 
@@ -301,7 +310,7 @@ static void file_stop_select(ErlDrvEvent event, void* _);
 enum e_timer {timer_idle, timer_again, timer_write};
 #ifdef HAVE_SENDFILE
 enum e_sendfile {sending, not_sending};
-static void free_sendfile(void *data);
+#define SENDFILE_USE_THREADS (1 << 0)
 #endif /* HAVE_SENDFILE */
 
 struct t_data;
@@ -764,6 +773,9 @@ file_init(void)
 			    : 0);
     driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
 
+    /* run initiation of efile_driver if needed */
+    efile_init();
+
 #ifdef  USE_VM_PROBES
     erts_mtx_init(&dt_driver_mutex, "efile_drv dtrace mutex");
     pthread_key_create(&dt_driver_key, NULL);
@@ -818,7 +830,7 @@ file_start(ErlDrvPort port, char* command)
 
 static void do_close(int flags, SWord fd) {
     if (flags & EFILE_COMPRESSED) {
-	erts_gzclose((gzFile)(fd));
+	erts_gzclose((ErtsGzFile)(fd));
     } else {
 	efile_closefile((int) fd);
     }
@@ -910,6 +922,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
 
+#ifdef HAVE_SENDFILE
 static void reply_string_error(file_descriptor *desc, char* str) {
     char response[256];		/* Response buffer. */
     char* s;
@@ -920,6 +933,7 @@ static void reply_string_error(file_descriptor *desc, char* str) {
 	*t = tolower(*s);
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
+#endif
 
 static int reply_error(file_descriptor *desc, 
 		       Efile_error *errInfo) /* The error codes. */
@@ -1136,7 +1150,7 @@ static void invoke_read(void *data)
     }
     read_size = size;
     if (d->flags & EFILE_COMPRESSED) {
-	read_size = erts_gzread((gzFile)d->fd, 
+	read_size = erts_gzread((ErtsGzFile)d->fd,
 				d->c.read.binp->orig_bytes + d->c.read.bin_offset,
 				size);
 	status = (read_size != (size_t) -1);
@@ -1209,7 +1223,7 @@ static void invoke_read_line(void *data)
 	    size = need - d->c.read_line.read_size;
 	}
 	if (d->flags & EFILE_COMPRESSED) {
-	    read_size = erts_gzread((gzFile)d->fd, 
+	    read_size = erts_gzread((ErtsGzFile)d->fd,
 				    d->c.read_line.binp->orig_bytes + 
 				    d->c.read_line.read_offset + d->c.read_line.read_size,
 				    size);
@@ -1250,7 +1264,7 @@ static void invoke_read_line(void *data)
 		    d->c.read_line.read_size -= too_much;
 		    ASSERT(d->c.read_line.read_size >= 0);
 		    if (d->flags & EFILE_COMPRESSED) {
-			Sint64 location = erts_gzseek((gzFile)d->fd, 
+			Sint64 location = erts_gzseek((ErtsGzFile)d->fd,
 						      -((Sint64) too_much), EFILE_SEEK_CUR);
 			if (location == -1) {
 			    d->result_ok = 0;
@@ -1535,7 +1549,7 @@ static void invoke_writev(void *data) {
 		     */
 		    errno = EINVAL; 
 		    if (! (status = 
-			   erts_gzwrite((gzFile)d->fd, 
+			   erts_gzwrite((ErtsGzFile)d->fd,
 					iov[i].iov_base,
 					iov[i].iov_len)) == iov[i].iov_len) {
 			d->errInfo.posix_errno =
@@ -1797,7 +1811,7 @@ static void invoke_lseek(void *data)
 	    d->errInfo.posix_errno = EINVAL;
 	    status = 0;
 	} else {
-	    d->c.lseek.location = erts_gzseek((gzFile)d->fd, 
+	    d->c.lseek.location = erts_gzseek((ErtsGzFile)d->fd,
 					      offset, d->c.lseek.origin);
 	    if (d->c.lseek.location == -1) {
 		d->errInfo.posix_errno = errno;
@@ -1885,7 +1899,7 @@ static void invoke_open(void *data)
 	    if (status || (d->errInfo.posix_errno != EISDIR)) {
 		mode = (d->flags & EFILE_MODE_READ) ? "rb" : "wb";
 		d->fd = (SWord) erts_gzopen(d->b, mode);
-		if ((gzFile)d->fd) {
+		if ((ErtsGzFile)d->fd) {
 		    status = 1;
 		} else {
 		    if (errno == 0) {
@@ -1933,7 +1947,7 @@ static void invoke_sendfile(void *data)
 
     d->c.sendfile.written += nbytes;
 
- if (result == 1 || (result == 0 && USE_THRDS_FOR_SENDFILE)) {
+    if (result == 1 || (result == 0 && USE_THRDS_FOR_SENDFILE(d))) {
       d->result_ok = 0;
     } else if (result == 0 && (d->errInfo.posix_errno == EAGAIN
 				 || d->errInfo.posix_errno == EINTR)) {
@@ -1950,7 +1964,7 @@ static void invoke_sendfile(void *data)
 
 static void free_sendfile(void *data) {
     struct t_data *d = (struct t_data *)data;
-    if (USE_THRDS_FOR_SENDFILE) {
+    if (USE_THRDS_FOR_SENDFILE(d)) {
 	SET_NONBLOCKING(d->c.sendfile.out_fd);
     } else {
 	MUTEX_LOCK(d->c.sendfile.q_mtx);
@@ -4123,8 +4137,16 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 
-	if (hd_len != 0 || tl_len != 0 || flags != 0) {
-	    /* We do not allow header, trailers and/or flags right now */
+	if (hd_len != 0 || tl_len != 0) {
+	    /* We do not allow header, trailers */
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+
+	
+	if (flags & SENDFILE_FLGS_USE_THREADS && !THRDS_AVAILABLE) {
+	    /* We do not allow use_threads flag on a system where
+	       no threads are available. */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
@@ -4134,6 +4156,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->invoke = invoke_sendfile;
 	d->free = free_sendfile;
+	d->flags = flags;
 	d->level = 2;
 
 	d->c.sendfile.out_fd = (int) out_fd;
@@ -4153,7 +4176,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	d->c.sendfile.nbytes = nbytes;
 
-	if (USE_THRDS_FOR_SENDFILE) {
+	if (USE_THRDS_FOR_SENDFILE(d)) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
 	} else {
 	    /**

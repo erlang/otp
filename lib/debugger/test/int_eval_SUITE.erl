@@ -28,7 +28,7 @@
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
-	 interpreted_exit/1, otp_8310/1, stacktrace/1]).
+	 interpreted_exit/1, otp_8310/1, stacktrace/1, maps/1]).
 
 %% Helpers.
 -export([applier/3]).
@@ -44,7 +44,7 @@ all() ->
     [bifs_outside_erlang, spawning, applying,
      catch_and_throw, external_call, test_module_info,
      apply_interpreted_fun, apply_uninterpreted_fun,
-     interpreted_exit, otp_8310, stacktrace].
+     interpreted_exit, otp_8310, stacktrace, maps].
 
 groups() -> 
     [].
@@ -289,6 +289,11 @@ stacktrace(Config) when is_list(Config) ->
 	after
 	    ?line int:stack_trace(OldStackTraceFlag)
 	end,
+    ok.
+
+maps(Config) when is_list(Config) ->
+    Fun = fun () -> ?IM:empty_map_update([camembert]) end,
+    {'EXIT',{{badarg,[camembert]},_}} = spawn_eval(Fun),
     ok.
 
 

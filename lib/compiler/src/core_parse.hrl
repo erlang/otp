@@ -34,7 +34,7 @@
 -record(c_apply, {anno=[], op,		% op :: Tree,
 		  args}).		% args :: [Tree]
 
--record(c_binary, {anno=[], segments}).	% segments :: [#c_bitstr{}]
+-record(c_binary, {anno=[], segments :: [cerl:c_bitstr()]}).
 
 -record(c_bitstr, {anno=[], val,        % val :: Tree,
 		   size,		% size :: Tree,
@@ -69,6 +69,15 @@
 		   body}).		% body :: Tree
 
 -record(c_literal, {anno=[], val}).	% val :: literal()
+
+-record(c_map, {anno=[],
+		arg=#c_literal{val=#{}} :: cerl:c_var() | cerl:c_literal(),
+		es :: [cerl:c_map_pair()]}).
+
+-record(c_map_pair, {anno=[],
+	             op :: #c_literal{val::'assoc'} | #c_literal{val::'exact'},
+		     key,
+		     val}).
 
 -record(c_module, {anno=[], name,	% name :: Tree,
 		   exports,		% exports :: [Tree],

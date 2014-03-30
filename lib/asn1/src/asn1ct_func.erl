@@ -48,7 +48,7 @@ need(MFA) ->
 
 call_gen(Prefix, Key, Gen, Args) when is_function(Gen, 2) ->
     F = req({gen_func,Prefix,Key,Gen}),
-    asn1ct_gen:emit([F,"(",call_args(Args, ""),")"]).
+    asn1ct_gen:emit([{asis,F},"(",call_args(Args, ""),")"]).
 
 call_gen(Prefix, Key, Gen) when is_function(Gen, 2) ->
     req({gen_func,Prefix,Key,Gen}).

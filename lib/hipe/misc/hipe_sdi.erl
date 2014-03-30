@@ -3,7 +3,7 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%% 
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@
 
 -record(pass1, {prevSdi			    :: integer(),
 		preS	 = []		    :: [#pre_sdi_data{}],
-		labelMap = gb_trees:empty() :: gb_tree()}).
+		labelMap = gb_trees:empty() :: gb_trees:tree()}).
 
 -record(sdi_data, {address       :: address(),
 		   label_address :: address(),
@@ -105,11 +105,11 @@ pass1_add_sdi(Pass1, Address, Label, SdiInfo) ->
   PreSdiData = #pre_sdi_data{address=Address, label=Label, si=SdiInfo},
   Pass1#pass1{prevSdi=PrevSdi+1, preS=[PreSdiData|PreS]}.
 
--spec pass1_finalise(#pass1{}) -> {non_neg_integer(),tuple(),gb_tree()}.
+-spec pass1_finalise(#pass1{}) -> {non_neg_integer(),tuple(),gb_trees:tree()}.
 pass1_finalise(#pass1{prevSdi=PrevSdi, preS=PreS, labelMap=LabelMap}) ->
   {PrevSdi+1, pass1_finalise_preS(PreS, LabelMap, []), LabelMap}.
 
--spec pass1_finalise_preS([#pre_sdi_data{}], gb_tree(), [#sdi_data{}]) ->
+-spec pass1_finalise_preS([#pre_sdi_data{}], gb_trees:tree(), [#sdi_data{}]) ->
 	tuple().
 pass1_finalise_preS([], _LabelMap, S) -> vector_from_list(S);
 pass1_finalise_preS([PreSdiData|PreS], LabelMap, S) ->
@@ -122,7 +122,7 @@ pass1_finalise_preS([PreSdiData|PreS], LabelMap, S) ->
 
 %%% Pass2.
 
--spec pass2(#pass1{}) -> {gb_tree(), non_neg_integer()}.
+-spec pass2(#pass1{}) -> {gb_trees:tree(), non_neg_integer()}.
 pass2(Pass1) ->
   {N,SDIS,LabelMap} = pass1_finalise(Pass1),
   LONG = mk_long(N),
@@ -339,13 +339,14 @@ initINCR(SdiNr, PrevIncr, N, LONG, INCREMENT) ->
 %%%   a and previous sdi i is remapped to a+incr(i), where
 %%%   incr(i) = if i < 0 then 0 else INCREMENT[i].
 
--spec adjust_label_map(gb_tree(), hipe_array()) -> gb_tree().
+-spec adjust_label_map(gb_trees:tree(), hipe_array()) -> gb_trees:tree().
 adjust_label_map(LabelMap, INCREMENT) ->
   applyIncr(gb_trees:to_list(LabelMap), INCREMENT, gb_trees:empty()).
 
 -type label_pair() :: {label(), #label_data{}}.
 
--spec applyIncr([label_pair()], hipe_array(), gb_tree()) -> gb_tree().
+-spec applyIncr([label_pair()], hipe_array(), gb_trees:tree()) ->
+                   gb_trees:tree().
 applyIncr([], _INCREMENT, LabelMap) -> LabelMap;
 applyIncr([{Label,LabelData}|List], INCREMENT, LabelMap) ->
   #label_data{address=Address, prevSdi=PrevSdi} = LabelData,

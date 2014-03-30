@@ -121,7 +121,7 @@ send_timeout(Timeout, Pid) ->
     end.
 
 wait_nodes(Mandatory, Optional) ->
-    net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true),
     lists:foreach(fun(Node) -> 
 		     case net_adm:ping(Node) of
 			 pong -> self() ! {nodeup, Node};
@@ -129,7 +129,9 @@ wait_nodes(Mandatory, Optional) ->
 		     end
 		  end,
 		  Mandatory ++ Optional),
-    rec_nodes(Mandatory, Optional).
+    R = rec_nodes(Mandatory, Optional),
+    ok = net_kernel:monitor_nodes(false),
+    R.
 
 rec_nodes([], []) -> ok;
 rec_nodes(Mandatory, Optional) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,6 +66,7 @@
 
 -record(holder, {parent,
 		 info,
+		 etop,
 		 sort=#sort{},
 		 accum=[],
 		 attrs,
@@ -191,20 +192,16 @@ dump_to_file(Parent, FileName, Holder) ->
 start_procinfo(undefined, _Frame, Opened) ->
     Opened;
 start_procinfo(Pid, Frame, Opened) ->
-    %% This code doesn't work until we collect which windows have been
-    %% closed maybe it should moved to observer_wx.erl
-    %% and add a global menu which remembers windows.
-    %% case lists:keyfind(Pid, 1, Opened) of
-    %% 	false ->
-    case observer_procinfo:start(Pid, Frame, self()) of
-	{error, _} -> Opened;
-	PI -> [{Pid, PI} | Opened]
+    case lists:keyfind(Pid, 1, Opened) of
+	false ->
+	    case observer_procinfo:start(Pid, Frame, self()) of
+		{error, _} -> Opened;
+		PI -> [{Pid, PI} | Opened]
+	    end;
+	{_, PI} ->
+	    wxFrame:raise(PI),
+	    Opened
     end.
-    %%;
-    %% 	{_, PI} ->
-    %% 	    wxFrame:raise(PI),
-    %% 	    Opened
-    %% end.
 
 call(Holder, What) ->
     Ref = erlang:monitor(process, Holder),
@@ -235,8 +232,13 @@ handle_info(refresh_interval, #state{holder=Holder}=State) ->
 
 handle_info({procinfo_menu_closed, Pid},
 	    #state{procinfo_menu_pids=Opened}=State) ->
-    NewPids = lists:delete(Pid, Opened),
+    NewPids = lists:keydelete(Pid, 1, Opened),
     {noreply, State#state{procinfo_menu_pids=NewPids}};
+
+handle_info({procinfo_open, Pid},
+	    #state{panel=Panel, procinfo_menu_pids=Opened}=State) ->
+    Opened2 = start_procinfo(Pid, Panel, Opened),
+    {noreply, State#state{procinfo_menu_pids=Opened2}};
 
 handle_info({active, Node},
 	    #state{holder=Holder, timer=Timer, parent=Parent}=State) ->
@@ -378,8 +380,7 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 
 handle_event(#wx{event=#wxList{type=command_list_item_activated}},
 	     #state{panel=Panel, procinfo_menu_pids=Opened,
-		    sel={_, [Pid|_]}}=State)
-  when Pid =/= undefined ->
+		    sel={_, [Pid|_]}}=State) ->
     Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
@@ -435,13 +436,14 @@ set_focus([Old|_], [New|_], Grid) ->
 init_table_holder(Parent, Attrs) ->
     Backend = spawn_link(node(), observer_backend,etop_collect,[self()]),
     table_holder(#holder{parent=Parent,
-			 info=#etop_info{procinfo=[]},
+			 etop=#etop_info{},
+			 info=array:new(),
 			 node=node(),
 			 backend_pid=Backend,
 			 attrs=Attrs
 			}).
 
-table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
+table_holder(#holder{info=Info, attrs=Attrs,
 		     node=Node, backend_pid=Backend}=S0) ->
     receive
 	{get_row, From, Row, Col} ->
@@ -488,7 +490,8 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	    From ! {self(), S0#holder.accum == true},
 	    table_holder(S0);
 	{dump, Fd} ->
-	    etop_txt:do_update(Fd, S0#holder.info, #opts{node=Node}),
+	    EtopInfo = (S0#holder.etop)#etop_info{procinfo=array:to_list(Info)},
+	    etop_txt:do_update(Fd, EtopInfo, #opts{node=Node}),
 	    file:close(Fd),
 	    table_holder(S0);
 	stop ->
@@ -498,23 +501,23 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	    table_holder(S0)
     end.
 
-change_sort(Col, S0=#holder{parent=Parent, info=EI=#etop_info{procinfo=Data}, sort=Sort0}) ->
+change_sort(Col, S0=#holder{parent=Parent, info=Data, sort=Sort0}) ->
     {Sort, ProcInfo}=sort(Col, Sort0, Data),
-    Parent ! {holder_updated, length(Data)},
-    S0#holder{info=EI#etop_info{procinfo=ProcInfo}, sort=Sort}.
+    Parent ! {holder_updated, array:size(Data)},
+    S0#holder{info=ProcInfo, sort=Sort}.
 
 change_accum(true, S0) ->
     S0#holder{accum=true};
-change_accum(false, S0=#holder{info=#etop_info{procinfo=Info}}) ->
+change_accum(false, S0=#holder{info=Info}) ->
     self() ! refresh,
-    S0#holder{accum=lists:sort(Info)}.
+    S0#holder{accum=lists:sort(array:to_list(Info))}.
 
 handle_update(EI=#etop_info{procinfo=ProcInfo0},
 	      S0=#holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
     {ProcInfo1, S1} = accum(ProcInfo0, S0),
     {_SO, ProcInfo} = sort(KeyField, Sort#sort{sort_key=undefined}, ProcInfo1),
-    Parent ! {holder_updated, length(ProcInfo)},
-    S1#holder{info=EI#etop_info{procinfo=ProcInfo}}.
+    Parent ! {holder_updated, array:size(ProcInfo)},
+    S1#holder{info=ProcInfo, etop=EI#etop_info{procinfo=[]}}.
 
 accum(ProcInfo, State=#holder{accum=true}) ->
     {ProcInfo, State};
@@ -532,12 +535,18 @@ accum2([PI|PIs], Old, Acc) ->
     accum2(PIs, Old, [PI|Acc]);
 accum2([], _, Acc) -> Acc.
 
+sort(Col, Opt, Table)
+  when not is_list(Table) ->
+    sort(Col,Opt,array:to_list(Table));
 sort(Col, Opt=#sort{sort_key=Col, sort_incr=Bool}, Table) ->
-    {Opt#sort{sort_incr=not Bool}, lists:reverse(Table)};
+    {Opt#sort{sort_incr=not Bool},
+     array:from_list(lists:reverse(Table))};
 sort(Col, S=#sort{sort_incr=true}, Table) ->
-    {S#sort{sort_key=Col}, lists:keysort(col_to_element(Col), Table)};
+    {S#sort{sort_key=Col},
+     array:from_list(lists:keysort(col_to_element(Col), Table))};
 sort(Col, S=#sort{sort_incr=false}, Table) ->
-    {S#sort{sort_key=Col}, lists:reverse(lists:keysort(col_to_element(Col), Table))}.
+    {S#sort{sort_key=Col},
+     array:from_list(lists:reverse(lists:keysort(col_to_element(Col), Table)))}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -552,40 +561,50 @@ col_to_element(?COL_FUN)  -> #etop_proc_info.cf;
 col_to_element(?COL_MSG)  -> #etop_proc_info.mq.
 
 get_pids(From, Indices, ProcInfo) ->
-    Processes = [(lists:nth(I+1, ProcInfo))#etop_proc_info.pid || I <- Indices],
+    Processes = [(array:get(I, ProcInfo))#etop_proc_info.pid || I <- Indices],
     From ! {self(), Processes}.
 
 get_name_or_pid(From, Indices, ProcInfo) ->
     Get = fun(#etop_proc_info{name=Name}) when is_atom(Name) -> Name;
 	     (#etop_proc_info{pid=Pid}) -> Pid
 	  end,
-    Processes = [Get(lists:nth(I+1, ProcInfo)) || I <- Indices],
+    Processes = [Get(array:get(I, ProcInfo)) || I <- Indices],
     From ! {self(), Processes}.
-
 
 get_row(From, Row, pid, Info) ->
     Pid = case Row =:= -1 of
 	      true ->  {error, undefined};
-	      false -> {ok, get_procinfo_data(?COL_PID, lists:nth(Row+1, Info))}
+	      false -> {ok, get_procinfo_data(?COL_PID, array:get(Row, Info))}
 	  end,
     From ! {self(), Pid};
 get_row(From, Row, Col, Info) ->
-    Data = case Row+1 > length(Info) of
+    Data = case Row > array:size(Info) of
 	       true ->
 		   "";
 	       false ->
-		   ProcInfo = lists:nth(Row+1, Info),
+		   ProcInfo = array:get(Row, Info),
 		   get_procinfo_data(Col, ProcInfo)
 	   end,
     From ! {self(), observer_lib:to_str(Data)}.
 
 get_rows_from_pids(From, Pids0, Info) ->
-    Res = lists:foldl(fun(Pid, Data = {Ids, Pids}) ->
-			      case index(Pid, Info, 0) of
-				  false -> Data;
-				  Index -> {[Index|Ids], [Pid|Pids]}
-			      end
-		      end, {[],[]}, Pids0),
+    Search = fun(Idx, #etop_proc_info{pid=Pid}, Acc0={Pick0, {Idxs, Pids}}) ->
+		     case ordsets:is_element(Pid, Pick0) of
+			 true ->
+			     Acc = {[Idx|Idxs],[Pid|Pids]},
+			     Pick = ordsets:del_element(Pid, Pick0),
+			     case Pick =:= [] of
+				 true -> throw(Acc);
+				 false -> {Pick, Acc}
+			     end;
+			 false -> Acc0
+		     end
+	     end,
+    Res = try
+	      {_, R} = array:foldl(Search, {ordsets:from_list(Pids0), {[],[]}}, Info),
+	      R
+	  catch R0 -> R0
+	  end,
     From ! {self(), Res}.
 
 get_attr(From, Row, Attrs) ->
@@ -594,7 +613,3 @@ get_attr(From, Row, Attrs) ->
 		    false -> Attrs#attrs.odd
 		end,
     From ! {self(), Attribute}.
-
-index(Pid, [#etop_proc_info{pid=Pid}|_], Index) -> Index;
-index(Pid, [_|PI], Index) -> index(Pid, PI, Index+1);
-index(_, _, _) -> false.

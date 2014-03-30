@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -141,7 +141,7 @@ Eterm big_lshift(Eterm, Sint, Eterm*);
 int big_comp (Wterm, Wterm);
 int big_ucomp (Eterm, Eterm);
 int big_to_double(Wterm x, double* resp);
-Eterm double_to_big(double, Eterm*);
+Eterm double_to_big(double, Eterm*, Uint hsz);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);

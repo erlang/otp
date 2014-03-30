@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
-	 transforms/1]).
+	 transforms/1,forbidden_maps/1,bad_utf8/1]).
 
 %% Used by transforms/1 test case.
 -export([parse_transform/2]).
@@ -36,7 +36,8 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [head_mismatch_line,warnings_as_errors,bif_clashes,transforms]}].
+      [head_mismatch_line,warnings_as_errors,bif_clashes,
+       transforms,forbidden_maps,bad_utf8]}].
 
 init_per_suite(Config) ->
     Config.
@@ -240,6 +241,38 @@ parse_transform(_, _) ->
     error(too_bad).
 
 
+forbidden_maps(Config) when is_list(Config) ->
+    Ts1 = [{map_illegal_use_of_pattern,
+	   <<"
+              -export([t/0]).
+              t() ->
+                 V = 32,
+                 #{<<\"hi\",V,\"all\">> := 1} = id(#{<<\"hi all\">> => 1}).
+              id(I) -> I.
+             ">>,
+	    [return],
+	    {error,[{5,erl_lint,{illegal_map_key_variable,'V'}}], []}}],
+    [] = run2(Config, Ts1),
+    ok.
+
+bad_utf8(Config) ->
+    Ts = [{bad_utf8,
+	   %% If coding is specified explicitly as utf-8, there should be
+	   %% a compilation error; we must not fallback to parsing the
+	   %% file in latin-1 mode.
+	   <<"%% coding: utf-8
+              %% Bj",246,"rn
+              t() -> \"",246,"\".
+             ">>,
+	   [],
+	   {error,[{2,epp,cannot_parse},
+		   {2,file_io_server,invalid_unicode}],
+	    []}
+	  }],
+    [] = run2(Config, Ts),
+    ok.
+
+
 run(Config, Tests) ->
     ?line File = test_filename(Config),
     run(Tests, File, dont_write_beam).
@@ -303,6 +336,7 @@ run_test(Test0, File, Warnings, WriteBeam) ->
     ?line compile:file(File, [binary,report|Warnings]),
 
     %% Test result of compilation.
+    io:format("~p\n", [Opts]),
     ?line Res = case compile:file(File, Opts) of
 		    {ok,Mod,_,[{_File,Ws}]} ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",
@@ -320,6 +354,11 @@ run_test(Test0, File, Warnings, WriteBeam) ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",
 			%	  [File,Opts,_ZZ]),
 			{error,Es,Ws};
+		    {error,[{XFile,Es1},{XFile,Es2}],Ws} = _ZZ
+		      when is_list(XFile) ->
+			%io:format("compile:file(~s,~p) ->~n~p~n",
+			%	  [File,Opts,_ZZ]),
+			{error,Es1++Es2,Ws};
 		    {error,Es,[{_File,Ws}]} = _ZZ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",
 			%	  [File,Opts,_ZZ]),

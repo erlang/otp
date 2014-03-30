@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -350,12 +350,18 @@ module.beam: module.erl \
               parsed code before the code is checked for errors.</p>
           </item>
 
-	  <tag><c>asm</c></tag>
+	  <tag><c>from_asm</c></tag>
           <item>
             <p>The input file is expected to be assembler code (default
 	      file suffix ".S"). Note that the format of assembler files
-              is not documented, and may change between releases - this
-              option is primarily for internal debugging use.</p>
+              is not documented, and may change between releases.</p>
+          </item>
+
+	  <tag><c>from_core</c></tag>
+          <item>
+            <p>The input file is expected to be core code (default
+	      file suffix ".core"). Note that the format of core files
+              is not documented, and may change between releases.</p>
           </item>
 
           <tag><c>no_strict_record_tests</c></tag>
@@ -401,6 +407,11 @@ module.beam: module.erl \
 	  of <c>{F,A}</c>. Example:</p>
 	  <code>-compile({no_auto_import,[error/1]}).</code>
 	  </item>
+
+          <tag><c>no_auto_import</c></tag>
+          <item>
+            <p>Do not auto import any functions from the module <c>erlang</c>.</p>
+          </item>
 
           <tag><c>no_line_info</c></tag>
 
@@ -538,6 +549,14 @@ module.beam: module.erl \
 	      <c>nowarn_deprecated_function</c> but only for
 	      the mentioned functions. <c>MFAs</c> is a tuple
               <c>{Module,Name,Arity}</c> or a list of such tuples.</p>
+          </item>
+
+	  <tag><c>nowarn_deprecated_type</c></tag>
+          <item>
+            <p>Turns off warnings for uses of deprecated types. By
+	      default (<c>warn_deprecated_type</c>), warnings are
+	      emitted for every use of a type known by the compiler
+	      to be deprecated.</p>
           </item>
 
 	  <tag><c>warn_obsolete_guard</c></tag>

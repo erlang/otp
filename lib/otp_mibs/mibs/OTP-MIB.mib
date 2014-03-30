@@ -21,7 +21,7 @@ OTP-MIB DEFINITIONS ::= BEGIN
  
 IMPORTS
     MODULE-IDENTITY, OBJECT-TYPE,
-    Counter32, Gauge32, Integer32
+    Counter64, Gauge32, Integer32
         FROM SNMPv2-SMI
     TEXTUAL-CONVENTION, DisplayString
         FROM SNMPv2-TC
@@ -32,7 +32,7 @@ IMPORTS
     ;
 
 otpModule MODULE-IDENTITY
-    LAST-UPDATED    "0305090900Z"
+    LAST-UPDATED    "201307160700Z"
     ORGANIZATION    "Ericsson"
     CONTACT-INFO
         "Contact:    Erlang Support see license agreement for Erlang/OTP."
@@ -41,16 +41,22 @@ otpModule MODULE-IDENTITY
         agent executing at one node only.  Each Erlang node in the
         OTP system is represented by one row in the erlNodeTable."
 
-    REVISION        "0305090900Z"
+    REVISION        "201307160700Z"
+    DESCRIPTION
+        "Updated various types to be able to reflect larger values.
+        The objects erlNodeReductions, erlNodeInBytes, erlNodeOutBytes as well
+        as the type MilliSeconds have been updated to Counter64."
+
+    REVISION        "200305090900Z"
     DESCRIPTION
         "Changed CONTACT-INFO as it was outdated, made it more generic
 	to avoid such changes in the future."
     
-    REVISION        "9712010900Z"
+    REVISION        "199712010900Z"
     DESCRIPTION
         "Converted to v2 SMI and placed in the OTP tree."
 
-    REVISION        "9608191700Z"
+    REVISION        "199608191700Z"
     DESCRIPTION
         "The initial revision of MIB module OTP-MIB."
 
@@ -70,7 +76,7 @@ MilliSeconds ::= TEXTUAL-CONVENTION
         the time, in milliseconds between two epochs.  When objects
 	are defined which use this type, the description of the object
 	identifies both of the reference epochs."
-    SYNTAX      Counter32
+    SYNTAX      Counter64
 
 
 -- Managed Objects
@@ -103,10 +109,10 @@ ErlNodeEntry ::= SEQUENCE {
     erlNodeRunQueue     Gauge32,
     erlNodeRunTime      MilliSeconds,
     erlNodeWallClock    MilliSeconds,
-    erlNodeReductions   Counter32,
+    erlNodeReductions   Counter64,
     erlNodeProcesses    Gauge32,
-    erlNodeInBytes      Counter32,
-    erlNodeOutBytes     Counter32
+    erlNodeInBytes      Counter64,
+    erlNodeOutBytes     Counter64
 }
 
 erlNodeId OBJECT-TYPE
@@ -168,7 +174,7 @@ erlNodeWallClock OBJECT-TYPE
     ::= { erlNodeEntry 7 }  
 
 erlNodeReductions OBJECT-TYPE
-    SYNTAX      Counter32
+    SYNTAX      Counter64
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION
@@ -184,7 +190,7 @@ erlNodeProcesses OBJECT-TYPE
     ::= { erlNodeEntry 9 }
 
 erlNodeInBytes  OBJECT-TYPE
-    SYNTAX      Counter32
+    SYNTAX      Counter64
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION
@@ -192,7 +198,7 @@ erlNodeInBytes  OBJECT-TYPE
     ::= { erlNodeEntry 10 }
 
 erlNodeOutBytes  OBJECT-TYPE
-    SYNTAX      Counter32
+    SYNTAX      Counter64
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION

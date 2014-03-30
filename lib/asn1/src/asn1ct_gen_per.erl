@@ -99,7 +99,7 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 
 
 gen_encode_prim(Erules, D) ->
-    Value = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+    Value = {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(val)))},
     gen_encode_prim(Erules, D, Value).
 
 gen_encode_prim(Erules, #type{}=D, Value) ->
@@ -132,7 +132,14 @@ gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
 	    ToBinary = {real_common,encode_real},
 	    asn1ct_imm:per_enc_restricted_string(Val, ToBinary, Aligned);
 	{'BIT STRING',NNL} ->
-	    asn1ct_imm:per_enc_bit_string(Val, NNL, Constraint, Aligned);
+	    case asn1ct:use_legacy_types() of
+		false ->
+		    asn1ct_imm:per_enc_bit_string(Val, NNL,
+						  Constraint, Aligned);
+		true ->
+		    asn1ct_imm:per_enc_legacy_bit_string(Val, NNL,
+							 Constraint, Aligned)
+	    end;
 	'NULL' ->
 	    asn1ct_imm:per_enc_null(Val, Aligned);
 	'OBJECT IDENTIFIER' ->
@@ -144,15 +151,21 @@ gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
 	'BOOLEAN' ->
 	    asn1ct_imm:per_enc_boolean(Val, Aligned);
 	'OCTET STRING' ->
-	    asn1ct_imm:per_enc_octet_string(Val, Constraint, Aligned);
+	    case asn1ct:use_legacy_types() of
+		false ->
+		    asn1ct_imm:per_enc_octet_string(Val, Constraint, Aligned);
+		true ->
+		    asn1ct_imm:per_enc_legacy_octet_string(Val, Constraint,
+							   Aligned)
+	    end;
 	'ASN1_OPEN_TYPE' ->
 	    case Constraint of
 		[#'Externaltypereference'{type=Tname}] ->
 		    EncFunc = enc_func(Tname),
-		    Imm = [{apply,EncFunc,[{expr,Val}]}],
+		    Imm = [{apply,{local,EncFunc,[]},[Val]}],
 		    asn1ct_imm:per_enc_open_type(Imm, Aligned);
 		[] ->
-		    Imm = [{call,erlang,iolist_to_binary,[{expr,Val}]}],
+		    Imm = [{call,erlang,iolist_to_binary,[Val]}],
 		    asn1ct_imm:per_enc_open_type(Imm, Aligned)
 	    end
     end.
@@ -325,7 +338,10 @@ gen_dec_imm_1('GeneralizedTime', Constraint, Aligned) ->
 gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
     SzConstr = asn1ct_imm:effective_constraint(bitstring, Constraint),
     Imm = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
-    {convert,binary_to_list,Imm};
+    case asn1ct:use_legacy_types() of
+	false -> {convert,{binary,copy},Imm};
+	true -> {convert,binary_to_list,Imm}
+    end;
 gen_dec_imm_1('TeletexString', _Constraint, Aligned) ->
     gen_dec_restricted_string(Aligned);
 gen_dec_imm_1('T61String', _Constraint, Aligned) ->

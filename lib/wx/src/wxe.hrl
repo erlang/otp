@@ -29,6 +29,11 @@
 
 -record(wx_mem, {bin, size}).
 
+-record(evh, {et=null,id=-1,lastId=-1,cb=0,
+	      skip=undefined,userdata=[], % temp
+	      handler=undefined % added after connect
+	     }).
+
 -define(CLASS(Type,Class), ((Type) =:= Class) orelse (Type):parent_class(Class)).
 
 -define(CLASS_T(Type,Class),

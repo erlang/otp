@@ -98,6 +98,8 @@
 -export([system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
+	 system_get_state/1,
+	 system_replace_state/2,
 	 format_status/2]).
 
 %% Internal exports
@@ -372,13 +374,6 @@ wake_hib(Parent, Name, State, Mod, Debug) ->
 
 decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
     case Msg of
-	{system, From, get_state} ->
-	    sys:handle_system_msg(get_state, From, Parent, ?MODULE, Debug,
-				  {State, [Name, State, Mod, Time]}, Hib);
-	{system, From, {replace_state, StateFun}} ->
-	    NState = try StateFun(State) catch _:_ -> State end,
-	    sys:handle_system_msg(replace_state, From, Parent, ?MODULE, Debug,
-				  {NState, [Name, NState, Mod, Time]}, Hib);
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [Name, State, Mod, Time], Hib);
@@ -623,7 +618,7 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	{stop, Reason, Reply, NState} ->
 	    {'EXIT', R} = 
 		(catch terminate(Reason, Name, Msg, Mod, NState, Debug)),
-	    reply(Name, From, Reply, NState, Debug),
+	    _ = reply(Name, From, Reply, NState, Debug),
 	    exit(R);
 	Other ->
 	    handle_common_reply(Other, Parent, Name, Msg, Mod, State, Debug)
@@ -686,6 +681,13 @@ system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
 	{ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
 	Else -> Else
     end.
+
+system_get_state([_Name, State, _Mod, _Time]) ->
+    {ok, State}.
+
+system_replace_state(StateFun, [Name, State, Mod, Time]) ->
+    NState = StateFun(State),
+    {ok, NState, [Name, NState, Mod, Time]}.
 
 %%-----------------------------------------------------------------
 %% Format debug messages.  Print them as the call-back module sees

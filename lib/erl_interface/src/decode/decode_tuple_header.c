@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -42,6 +42,27 @@ int ei_decode_tuple_header(const char *buf, int *index, int *arity)
   }
   
   *index += s-s0; 
+
+  return 0;
+}
+
+int ei_decode_map_header(const char *buf, int *index, int *arity)
+{
+  const char *s = buf + *index;
+  const char *s0 = s;
+  int i;
+
+  switch ((i=get8(s))) {
+  case ERL_MAP_EXT:
+    if (arity) *arity = get32be(s);
+    else s += 4;
+    break;
+
+  default:
+    return -1;
+  }
+
+  *index += s-s0;
 
   return 0;
 }

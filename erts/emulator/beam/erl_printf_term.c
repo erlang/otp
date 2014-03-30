@@ -24,6 +24,7 @@
 #include "erl_printf_term.h"
 #include "sys.h"
 #include "big.h"
+#include "erl_map.h"
 
 #define PRINT_CHAR(CNT, FN, ARG, C)					\
 do {									\
@@ -216,14 +217,15 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 }
 
 
-#define PRT_BAR ((Eterm) 0)
-#define PRT_COMMA ((Eterm) 1)
-#define PRT_CLOSE_LIST ((Eterm) 2)
-#define PRT_CLOSE_TUPLE ((Eterm) 3)
-#define PRT_TERM ((Eterm) 4)
-#define PRT_ONE_CONS ((Eterm) 5)
-#define PRT_PATCH_FUN_SIZE ((Eterm) 6)
-#define PRT_LAST_ARRAY_ELEMENT ((Eterm) 7) /* Note! Must be last... */
+#define PRT_BAR                ((Eterm) 0)
+#define PRT_COMMA              ((Eterm) 1)
+#define PRT_CLOSE_LIST         ((Eterm) 2)
+#define PRT_CLOSE_TUPLE        ((Eterm) 3)
+#define PRT_ASSOC              ((Eterm) 4)
+#define PRT_TERM               ((Eterm) 5)
+#define PRT_ONE_CONS           ((Eterm) 6)
+#define PRT_PATCH_FUN_SIZE     ((Eterm) 7)
+#define PRT_LAST_ARRAY_ELEMENT ((Eterm) 8) /* Note! Must be last... */
 
 static int
 print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
@@ -259,6 +261,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    goto L_outer_loop;
 	case PRT_CLOSE_TUPLE:
 	    PRINT_CHAR(res, fn, arg, '}');
+	    goto L_outer_loop;
+	case PRT_ASSOC:
+	    PRINT_STRING(res, fn, arg, "=>");
 	    goto L_outer_loop;
 	default:
 	    popped.word = WSTACK_POP(s);
@@ -481,6 +486,37 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
 			    (ErlPfSWord) funp->fe->old_uniq);
 		PRINT_CHAR(res, fn, arg, '>');
+	    }
+	    break;
+	case MAP_DEF:
+	    {
+		Uint n;
+		Eterm *ks, *vs;
+		map_t *mp = (map_t *)map_val(wobj);
+		n  = map_get_size(mp);
+		ks = map_get_keys(mp);
+		vs = map_get_values(mp);
+
+		PRINT_CHAR(res, fn, arg, '#');
+		PRINT_CHAR(res, fn, arg, '{');
+		WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
+		if (n > 0) {
+		    n--;
+		    WSTACK_PUSH(s, vs[n]);
+		    WSTACK_PUSH(s, PRT_TERM);
+		    WSTACK_PUSH(s, PRT_ASSOC);
+		    WSTACK_PUSH(s, ks[n]);
+		    WSTACK_PUSH(s, PRT_TERM);
+
+		    while (n--) {
+			WSTACK_PUSH(s, PRT_COMMA);
+			WSTACK_PUSH(s, vs[n]);
+			WSTACK_PUSH(s, PRT_TERM);
+			WSTACK_PUSH(s, PRT_ASSOC);
+			WSTACK_PUSH(s, ks[n]);
+			WSTACK_PUSH(s, PRT_TERM);
+		    }
+		}
 	    }
 	    break;
 	default:

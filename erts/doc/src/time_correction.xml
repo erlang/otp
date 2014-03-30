@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year><year>2014</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Time and time correction in Erlang</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2013-08-28</date>
+    <rev>PA1</rev>
+    <file>time_correction.xml</file>
+  </header>
+  <p>Time is vital to an Erlang program and, more importantly, <em>correct</em>
+  time is vital to an Erlang program. As Erlang is a language with
+  soft real time properties and we have the possibility to express
+  time in our programs, the Virtual Machine and the language has to be
+  very careful about what is considered a correct point in time and in
+  how time functions behave.</p>
+
+  <p>In the beginning, Erlang was constructed assuming that the wall
+  clock time in the system showed a monotonic time moving forward at
+  exactly the same pace as the definition of time. That more or less
+  meant that an atomic clock (or better) was expected to be attached
+  to your hardware and that the hardware was then expected to be
+  locked away from any human (or unearthly) tinkering for all
+  eternity. While this might be a compelling thought, it's simply
+  never the case.</p>
+
+  <p>A "normal" modern computer can not keep time. Not on itself and
+  not unless you actually have a chip level atomic clock wired to
+  it. Time, as perceived by your computer, will normally need to be
+  corrected. Hence the NTP protocol that together with the ntpd
+  process will do it's best to keep your computers time in sync with
+  the "real" time in the universe. Between NTP corrections, usually a
+  less potent time-keeper than an atomic clock is used.</p>
+
+  <p>But NTP is not fail safe. The NTP server can be unavailable, the
+  ntp.conf can be wrongly configured or your computer may from time to
+  time be disconnected from the internet. Furthermore you can have a
+  user (or even system administrator) on your system that thinks the
+  right way to handle daylight saving time is to adjust the clock one
+  hour two times a year (a tip, that is not the right way to do
+  it...). To further complicate things, this user fetched your
+  software from the internet and has never ever thought about what's
+  the correct time as perceived by a computer. The user simply does
+  not care about keeping the wall clock in sync with the rest of the
+  universe. The user expects your program to have omnipotent knowledge
+  about the time.</p>
+
+  <p>Most programmers also expect time to be reliable, at least until
+  they realize that the wall clock time on their workstation is of by
+  a minute. Then they simply set it to the correct time, maybe or
+  maybe not in a smooth way. Most probably not in a smooth way.</p>
+
+  <p>The amount of problems that arise when you expect the wall clock
+  time on the system to always be correct may be immense. Therefore Erlang
+  introduced the "corrected estimate of time", or the "time
+  correction" many years ago. The time correction relies on the fact
+  that most operating systems have some kind of monotonic clock,
+  either a real time extension or some built in "tick counter" that is
+  independent of the wall clock settings. This counter may have
+  microsecond resolution or much less, but generally it has a drift
+  that is not to be ignored.</p>
+
+  <p>So we have this monotonic ticking and we have the wall clock
+  time. Two unreliable times that together can give us an estimate of
+  an actual wall clock time that does not jump around and that
+  monotonically moves forward. If the tick counter has a high
+  resolution, this is fairly easy to do, if the counter has a low
+  resolution, it's more expensive, but still doable down to
+  frequencies of 50-60 Hz (of the tick counter).</p>
+
+  <p>So the corrected time is the nearest approximation of an atomic
+  clock that is available on the computer. We want it to have the
+  following properties:</p>
+  <taglist>
+    <tag>Monotonic</tag>
+    <item>The clock should not move backwards</item>
+    <tag>Intervals should be near the truth</tag>
+    <item>We want the actual time (as measured by an atomic clock or
+    an astronomer) that passes between two time stamps, T1 and T2, to be as
+    near to T2 - T1 as possible.</item>
+    <tag>Tight coupling to the wall clock</tag>
+    <item>We want a timer that is to be fired when the wall clock
+    reaches a time in the future, to fire as near to that point in
+    time as possible</item>
+  </taglist>
+  <p>To meet all the criteria, we have to utilize both times in such a
+  way that Erlangs "corrected time" moves slightly slower or slightly
+  faster than the wall clock to get in sync with it. The word
+  "slightly" means a maximum of 1% difference to the wall clock time,
+  meaning that a sudden change in the wall clock of one minute, takes
+  100 minutes to fix, by letting all "corrected time" move 1% slower
+  or faster.</p>
+
+  <p>Needless to say, correcting for a faulty handling of daylight
+  saving time may be disturbing to a user comparing wall clock
+  time to for example calendar:now_to_local_time(erlang:now()). But
+  calendar:now_to_local_time/1 is not supposed to be used for presenting wall
+  clock time to the user.</p>
+
+  <p>Time correction is not perfect, but it saves you from the havoc
+  of clocks jumping around, which would make timers in your program
+  fire far to late or far to early and could bring your whole system
+  to it's knees (or worse) just because someone detected a small error
+  in the wall clock time of the server where your program runs. So
+  while it might be confusing, it is still a really good feature of
+  Erlang and you should not throw it away using time functions which
+  may give you higher benchmark results, not unless you really know
+  what you're doing.</p>
+
+  <section>
+    <title>What does time correction mean in my system?</title>
+    <p>Time correction means that Erlang estimates a time from current
+    and previous settings of the wall clock, and it uses a fairly
+    exact tick counter to detect when the wall clock time has jumped
+    for some reason, slowly adjusting to the new value.</p>
+
+    <p>In practice, this means that the difference between two calls
+    to time corrected functions, like erlang:now(), might differ up to
+    one percent from the corresponding calls to non time corrected
+    functions (like os:timestamp()). Furthermore, if comparing
+    calendar:local_time/0 to calendar:now_to_local_time(erlang:now()),
+    you might temporarily see a difference, depending on how well kept your
+    system is.</p>
+
+    <p>It is important to understand that it is (to the program)
+    always unknown if it is the wall clock time that moves in the
+    wrong pace or the Erlang corrected time. The only way to determine
+    that, is to have an external source of universally correct time. If
+    some such source is available, the wall clock time can be kept
+    nearly perfect at all times, and no significant difference will be
+    detected between erlang:now/0's pace and the wall clock's.</p>
+
+    <p>Still, the time correction will mean that your system keeps
+    it's real time characteristics very well, even when the wall clock
+    is unreliable.</p>
+  </section>
+  <section>
+    <title>Where does Erlang use corrected time?</title>
+    <p>For all functionality where real time characteristics are
+    desirable, time correction is used. This basically means:</p>
+    <taglist>
+      <tag>erlang:now/0</tag>
+      <item>The infamous erlang:now/0 function uses time correction so
+      that differences between two "now-timestamps" will correspond to
+      other timeouts in the system. erlang:now/0 also holds other
+      properties, discussed later.</item>
+      <tag>receive ... after</tag>
+      <item>Timeouts on receive uses time correction to determine a
+      stable timeout interval.</item>
+      <tag>The timer module</tag>
+      <item>As the timer module uses other built in functions which
+      deliver corrected time, the timer module itself works with
+      corrected time.</item>
+      <tag>erlang:start_timer/3 and erlang:send_after/3</tag>
+      <item>The timer BIF's work with corrected time, so that they
+      will not fire prematurely or too late due to changes in the wall
+      clock time.</item>
+    </taglist>
+
+    <p>All other functionality in the system where erlang:now/0 or any
+    other time corrected functionality is used, will of course
+    automatically benefit from it, as long as it's not "optimized" to
+    use some other time stamp function (like os:timestamp/0).</p>
+
+    <p>Modules like calendar and functions like erlang:localtime/0 use
+    the wall clock time as it is currently set on the system. They
+    will not use corrected time. However, if you use a now-value and
+    convert it to local time, you will get a corrected local time
+    value, which may or may not be what you want. Typically older code
+    tend to use erlang:now/0 as a wall clock time, which is usually
+    correct (at least when testing), but might surprise you when
+    compared to other times in the system.</p>
+  </section>
+  <section>
+    <title>What is erlang:now/0 really?</title>
+    <p>erlang:now/0 is a function designed to serve multiple purposes
+    (or a multi-headed beast if you're a VM designer). It is expected
+    to hold the following properties:</p>
+    <taglist>
+      <tag>Monotonic</tag>
+      <item>erlang:now() never jumps backwards - it always moves
+      forward</item>
+      <tag>Interval correct</tag>
+      <item>The interval between two erlang:now() calls is expected to
+      correspond to the correct time in real life (as defined by an
+      atomic clock, or better)</item>
+      <tag>Absolute correctness</tag>
+      <item>The erlang:now/0 value should be possible to convert to an
+      absolute and correct date-time, corresponding to the real world
+      date and time (the wall clock)</item>
+      <tag>System correspondence</tag>
+      <item>The erlang:now/0 value converted to a date-time is
+      expected to correspond to times given by other programs on the
+      system (or by functions like os:timestamp/0)</item>
+      <tag>Unique</tag>
+      <item>No two calls to erlang:now on one Erlang node should
+      return the same value</item>
+    </taglist>
+    <p>All these requirements are possible to uphold at the same
+    time if (and only if):</p>
+    <taglist>
+      <tag>The wall clock time of the system is perfect</tag>
+      <item>The system (Operating System) time needs to be perfectly
+      in sync with the actual time as defined by an atomic clock or
+      a better time source. A good installation using NTP, and that is
+      up to date before Erlang starts, will have properties that for
+      most users and programs will be near indistinguishable from the
+      perfect time. Note that any larger corrections to the time done
+      by hand, or after Erlang has started, will partly (or
+      temporarily) invalidate some of the properties, as the time is
+      no longer perfect.</item>
+      <tag>Less than one call per microsecond to erlang:now/0 is
+      done</tag>
+      <item>This means that at <em>any</em> microsecond interval in
+      time, there can be no more than one call to erlang:now/0 in the
+      system. However, for the system not to loose it's properties
+      completely, it's enough that it on average is no more than one
+      call per microsecond (in one Erlang node).</item>
+    </taglist>
+    <p>The uniqueness property of erlang:now/0 is the most limiting
+    property. It means that erlang:now() maintains a global state and
+    that there is a hard-to-check property of the system that needs to
+    be maintained. For most applications this is still not a problem,
+    but a future system might very well manage to violate the
+    frequency limit on the calls globally. The uniqueness property is
+    also quite useless, as there are globally unique references that
+    provide a much better unique value to programs. However the
+    property will need to be maintained unless a really subtle
+    backward compatibility issue is to be introduced.</p>
+  </section>
+  <section>
+    <title>Should I use erlang:now/0 or os:timestamp/0</title>
+    <p>The simple answer is to use erlang:now/0 for everything where
+    you want to keep real time characteristics, but use os:timestamp
+    for things like logs, user communication and debugging (typically
+    timer:ts uses os:timestamp, as it is a test tool, not a real world
+    application API). The benefit of using os:timestamp/0 is that it's
+    faster and does not involve any global state (unless the operating
+    system has one). The downside is that it will be vulnerable to wall
+    clock time changes.</p>
+  </section>
+  <section>
+    <title>Turning off time correction</title>
+    <p>If, for some reason, time correction causes trouble and you are
+    absolutely confident that the wall clock on the system is nearly
+    perfect, you can turn off time correction completely by giving the
+    <c>+c</c> option to <c>erl</c>. The probability for this being a
+    good idea, is very low.</p>
+  </section>
+</chapter>
+

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -85,7 +85,7 @@ adjust_log_writes(DoCast) ->
 	    %% Don't care if we lost a few writes
 	    mnesia_lib:set_counter(trans_log_writes_left, Max),
 	    Diff = Max - Left,
-	    mnesia_lib:incr_counter(trans_log_writes, Diff),
+	    _ = mnesia_lib:incr_counter(trans_log_writes, Diff),
 	    global:del_lock(Token, [node()])
     end.
 
@@ -451,7 +451,8 @@ disc_delete_table(Tab, Storage) ->
 		Storage == disc_only_copies; Tab == schema ->
 		    mnesia_monitor:unsafe_close_dets(Tab),
 		    Dat = mnesia_lib:tab2dat(Tab),
-		    file:delete(Dat);
+		    file:delete(Dat),
+		    ok;
 		true ->
 		    DclFile = mnesia_lib:tab2dcl(Tab),
 		    case get({?MODULE,Tab}) of
@@ -466,13 +467,14 @@ disc_delete_table(Tab, Storage) ->
 		    file:delete(DcdFile),
 		    ok
 	    end,
-	    erase({?MODULE, Tab});
+	    erase({?MODULE, Tab}),
+	    ok;
 	false ->
-	    ignore
+	    ok
     end.
 
 disc_delete_indecies(_Tab, _Cs, Storage) when Storage /= disc_only_copies ->
-    ignore;
+    ok;
 disc_delete_indecies(Tab, Cs, disc_only_copies) ->
     Indecies = Cs#cstruct.index,
     mnesia_index:del_transient(Tab, Indecies, disc_only_copies).
@@ -522,10 +524,11 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		{disc_copies, ram_copies} when Tab == schema ->
 		    mnesia_lib:set(use_dir, false),
 		    mnesia_monitor:unsafe_close_dets(Tab),
-		    file:delete(Dat);
+		    ok = file:delete(Dat);
 		{disc_copies, ram_copies} ->
-		    file:delete(Dcl),
-		    file:delete(Dcd);
+		    _ = file:delete(Dcl),
+		    _ = file:delete(Dcd),
+		    ok;
 		{ram_copies, disc_only_copies} ->
 		    ok = ensure_rename(Dmp, Dat),
 		    true = open_files(Tab, disc_only_copies, InPlace, InitBy),
@@ -544,7 +547,8 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 			startup ->
 			    ignore;
 			_ ->
-			    mnesia_controller:get_disc_copy(Tab)
+			    mnesia_controller:get_disc_copy(Tab),
+			    ok
 		    end,
 		    disc_delete_table(Tab, disc_only_copies);
 		{disc_copies, disc_only_copies} ->
@@ -553,8 +557,9 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		    mnesia_schema:ram_delete_table(Tab, FromS),
 		    PosList = Cs#cstruct.index,
 		    mnesia_index:init_indecies(Tab, disc_only_copies, PosList),
-		    file:delete(Dcl),
-		    file:delete(Dcd);
+		    _ = file:delete(Dcl),
+		    _ = file:delete(Dcd),
+		    ok;
 		{disc_only_copies, disc_copies} ->
 		    mnesia_monitor:unsafe_close_dets(Tab),
 		    disc_delete_indecies(Tab, Cs, disc_only_copies),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -190,10 +190,14 @@ gen_funcs(Defs) ->
 %%     w("  case WXE_REMOVE_PORT:~n", []),
 %%     w("   { destroyMemEnv(Ecmd.port); } break;~n", []),
     w("  case DESTROY_OBJECT: {~n"),
-    w("     wxObject *This = (wxObject *) getPtr(bp,memenv); "),
-    w("     if(This) {"),
-    w("       ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
-    w("       delete This; }~n  } break;~n"),
+    w("     wxObject *This = (wxObject *) getPtr(bp,memenv);~n"),
+    w("     if(This) {~n"),
+    w("       if(recurse_level > 1) {~n"),
+    w("          delayed_delete->Append(Ecmd.Save());~n"),
+    w("       } else {~n"),
+    w("          ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
+    w("          delete This; }~n"),
+    w("  } } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"
       "     rt.addAtom(\"ok\");~n"
@@ -231,24 +235,27 @@ gen_funcs(Defs) ->
 		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject"
 		   ],
 
-    w("void WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
+    w("bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
     w(" switch(refd->type) {~n", []),
-    Case = fun(#class{name=Class, id=Id, abstract=IsAbs, parent=P}) when P /= "static" ->
+    Case = fun(C=#class{name=Class, id=Id, abstract=IsAbs, parent=P}) when P /= "static" ->
 		   UglyWorkaround = lists:member(Class, UglySkipList),
+		   HaveVirtual = virtual_dest(C),
 		   case hd(reverse(wx_gen_erl:parents(Class))) of
-		       root when IsAbs == false, UglyWorkaround == false ->
-			   w("  case ~p: delete (~s *) ptr; break;~n", [Id, Class]);
 		       root when IsAbs == false, UglyWorkaround == true ->
 			   w("  case ~p: /* delete (~s *) ptr;"
 			     "These objects must be deleted by owner object */ "
 			     "break;~n", [Id, Class]);
+		       root when IsAbs == false, HaveVirtual == true ->
+			   w("  case ~p: delete (E~s *) ptr; return false;~n", [Id, Class]);
+		       root when IsAbs == false, UglyWorkaround == false ->
+			   w("  case ~p: delete (~s *) ptr; break;~n", [Id, Class]);
 		       _ -> ok
 		   end;
 	      (_) -> ok
 	   end,
     [Case(Class) || Class <- Defs],
-    w("  default: delete (wxObject *) ptr;~n", []),
-    w("}}~n~n", []),
+    w("  default: delete (wxObject *) ptr; return false;~n", []),
+    w("  }~n  return true;~n}~n~n", []),
     Res.
 
 gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
@@ -397,6 +404,8 @@ declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=false,ref={
     w(" ~s *~s=~s;~n", [Type,N,Def]);
 declare_type(N,true,Def,#type{single=true,name="wxArtClient"}) ->
     w(" wxArtClient ~s= ~s;~n", [N,Def]);
+declare_type(N,true,_Def,#type{name="wxeLocaleC", single=true,base=string}) ->
+    w(" wxString ~s= wxEmptyString;~n", [N]);
 declare_type(N,true,Def,#type{single=true,base=string}) ->
     w(" wxString ~s= ~s;~n", [N,Def]);
 %% declare_type(N,true,_Def,#type{name="wxString"}) ->
@@ -993,6 +1002,8 @@ build_ret(Name,_,#type{base=float,single=true}) ->
     w(" rt.addFloat(~s);~n",[Name]);
 build_ret(Name,_,#type{base=double,single=true}) ->
     w(" rt.addFloat(~s);~n",[Name]);
+build_ret(Name,_,#type{name="wxeLocaleC"}) ->
+    w(" rt.add(wxeLocaleC2String(~s));~n",[Name]);
 build_ret(Name,_,#type{base=string,single=true}) ->
     w(" rt.add(~s);~n",[Name]);
 build_ret(Name,_,#type{name="wxArrayString", single=array}) ->
@@ -1186,15 +1197,6 @@ find_id(OtherClass) ->
 
 encode_events(Evs) ->
     ?WTC("encode_events"),
-    w("void wxeEvtListener::forward(wxEvent& event)~n"
-      "{~n"
-      "#ifdef DEBUG~n"
-      "  if(!sendevent(&event, port))~n"
-      "    fprintf(stderr, \"Couldn't send event!\\r\\n\");~n"
-      "#else~n"
-      "sendevent(&event, port);~n"
-      "#endif~n"
-      "}~n~n"),
     w("int getRef(void* ptr, wxeMemEnv* memenv)~n"
       "{~n"
       "  WxeApp * app = (WxeApp *) wxTheApp;~n"
@@ -1205,7 +1207,7 @@ encode_events(Evs) ->
       " char * evClass = NULL;~n"
       " wxMBConvUTF32 UTFconverter;~n"
       " wxeEtype *Etype = etmap[event->GetEventType()];~n"
-      " wxeCallbackData *cb = (wxeCallbackData *)event->m_callbackUserData;~n"
+      " wxeEvtListener *cb = (wxeEvtListener *)event->m_callbackUserData;~n"
       " WxeApp * app = (WxeApp *) wxTheApp;~n"
       " wxeMemEnv *memenv = app->getMemEnv(port);~n"
       " if(!memenv) return 0;~n~n"

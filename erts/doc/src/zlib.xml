@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2011</year>
+      <year>2005</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -161,20 +161,22 @@ list_to_binary([Compressed|Last])</pre>
           state. <c><anno>MemLevel</anno></c>=1 uses minimum memory but is slow and
           reduces compression ratio; <c><anno>MemLevel</anno></c>=9 uses maximum
           memory for optimal speed. The default value is 8.</p>
-        <p>The <c><anno>Strategy</anno></c> parameter is used to tune the
-          compression algorithm. Use the value <c>default</c> for
-          normal data, <c>filtered</c> for data produced by a filter
-          (or predictor), or <c>huffman_only</c> to force Huffman
-          encoding only (no string match).  Filtered data consists
-          mostly of small values with a somewhat random
-          distribution. In this case, the compression algorithm is
-          tuned to compress them better. The effect of
-          <c>filtered</c>is to force more Huffman coding and less
-          string matching; it is somewhat intermediate between
-          <c>default</c> and <c>huffman_only</c>. The <c><anno>Strategy</anno></c>
-          parameter only affects the compression ratio but not the
-          correctness of the compressed output even if it is not set
-          appropriately.</p>
+        <p>The <c><anno>Strategy</anno></c> parameter is used to tune
+        the compression algorithm. Use the value <c>default</c> for
+        normal data, <c>filtered</c> for data produced by a filter (or
+        predictor), <c>huffman_only</c> to force Huffman encoding
+        only (no string match), or <c>rle</c> to limit match
+        distances to one (run-length encoding).  Filtered data
+        consists mostly of small values with a somewhat random
+        distribution. In this case, the compression algorithm is tuned
+        to compress them better. The effect of <c>filtered</c>is to
+        force more Huffman coding and less string matching; it is
+        somewhat intermediate between <c>default</c> and
+        <c>huffman_only</c>. <c>rle</c> is designed to be almost as
+        fast as <c>huffman_only</c>, but give better compression for PNG
+        image data. The <c><anno>Strategy</anno></c> parameter only
+        affects the compression ratio but not the correctness of the
+        compressed output even if it is not set appropriately.</p>
       </desc>
     </func>
     <func>

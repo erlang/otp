@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="utf8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>1999</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,10 +41,10 @@
   future.</p>
 
   <p>The functionality described in EEP10 was implemented in Erlang/OTP
-  as of R13A, but that was by no means the end of it. In R14B01 support
+  R13A, but that was by no means the end of it. In Erlang/OTP R14B01 support
   for Unicode file names was added, although it was in no way complete
   and was by default disabled on platforms where no guarantee was given
-  for the file name encoding. With R16A came support for UTF-8 encoded
+  for the file name encoding. With Erlang/OTP R16A came support for UTF-8 encoded
   source code, among with enhancements to many of the applications to
   support both Unicode encoded file names as well as support for UTF-8
   encoded files in several circumstances. Most notable is the support
@@ -52,8 +52,8 @@
   for UTF-8 and more support for Unicode character sets in the
   I/O-system.</p>
 
-  <p>In R17, the encoding default for Erlang source files will be
-  switched to UTF-8 and in R18 Erlang will support atoms in the full
+  <p>In Erlang/OTP 17.0, the encoding default for Erlang source files was
+  switched to UTF-8 and in Erlang/OTP 18.0 Erlang will support atoms in the full
   Unicode range, meaning full Unicode function and module
   names</p>
 
@@ -222,7 +222,7 @@
     <tag>Representation</tag>
     <item>To handle Unicode characters in Erlang, we have to have a
     common representation both in lists and binaries. The EEP (10) and
-    the subsequent initial implementation in R13A settled a standard
+    the subsequent initial implementation in Erlang/OTP R13A settled a standard
     representation of Unicode characters in Erlang.</item>
     <tag>Manipulation</tag>
     <item>The Unicode characters need to be processed by the Erlang
@@ -274,9 +274,9 @@
     (<c>+fnu</c>) on platforms where this is not the default.</item>
     <tag>Source code encoding</tag>
     <item>When it comes to the Erlang source code, there is support
-    for the UTF-8 encoding and bytewise encoding. The default in R16B
-    is bytewise (or latin1) encoding. You can control the encoding by
-    a comment like:
+    for the UTF-8 encoding and bytewise encoding. The default in
+    Erlang/OTP R16B was bytewise (or latin1) encoding; in Erlang/OTP 17.0
+    it was changed to UTF-8. You can control the encoding by a comment like:
 <code>
 %% -*- coding: utf-8 -*-
 </code>
@@ -290,7 +290,7 @@
     <item>Having the source code in UTF-8 also allows you to write
     string literals containing Unicode characters with code points &gt;
     255, although atoms, module names and function names will be
-    restricted to the ISO-Latin-1 range until the R18 release. Binary
+    restricted to the ISO-Latin-1 range until the Erlang/OTP 18.0 release. Binary
     literals where you use the <c>/utf8</c> type, can also be
     expressed using Unicode characters &gt; 255. Having module names
     using characters other than 7-bit ASCII can cause trouble on
@@ -304,7 +304,7 @@
 <section>
   <title>Standard Unicode Representation</title>
   <p>In Erlang, strings are actually lists of integers. A string was
-  up until R13 defined to be encoded in the ISO-latin-1 (ISO8859-1)
+  up until Erlang/OTP R13 defined to be encoded in the ISO-latin-1 (ISO8859-1)
   character set, which is, code point by code point, a sub-range of
   the Unicode character set.</p>
   <p>The standard list encoding for strings was therefore easily
@@ -321,7 +321,7 @@
   encoding has to be decided upon and the string should be converted
   to a binary in the preferred encoding using
   <c>unicode:characters_to_binary/{1,2,3}</c>. Strings are not
-  generally lists of bytes, as they were before R13. They are lists of
+  generally lists of bytes, as they were before Erlang/OTP R13. They are lists of
   characters. Characters are not generally bytes, they are Unicode
   code points.</p>
 
@@ -385,7 +385,7 @@ external_charlist() = maybe_improper_list(char() |
   using characters from the ISO-latin-1 character set and atoms are
   restricted to the same ISO-latin-1 range. These restrictions in the
   language are of course independent of the encoding of the source
-  file. Erlang/OTP R18 is expected to handle functions named in
+  file. Erlang/OTP 18.0 is expected to handle functions named in
   Unicode as well as Unicode atoms.</p>
   <section>
     <title>Bit-syntax</title>
@@ -447,8 +447,8 @@ Bin4 = &lt;&lt;"Hello"/utf16&gt;&gt;,</code>
     probably will not appreciate). Another way is to keep it backwards
     compatible so that only the ISO-Latin-1 character set is used to
     detect a string. A third way would be to let the user decide
-    exactly what Unicode ranges are to be viewed as characters. In
-    R16B you can select either the whole Unicode range or the
+    exactly what Unicode ranges are to be viewed as characters. Since
+    Erlang/OTP R16B you can select either the whole Unicode range or the
     ISO-Latin-1 range by supplying the startup flag <c>+pc
     </c><i>Range</i>, where <i>Range</i> is either <c>latin1</c> or
     <c>unicode</c>. For backwards compatibility, the default is
@@ -662,11 +662,14 @@ Eshell V5.10.1  (abort with ^G)
       containing characters having code points between 128 and 255 may
       be named either as plain ISO-latin-1 or using UTF-8 encoding. As
       no consistency is enforced, the Erlang VM can do no consistent
-      translation of all file names. If the VM would automatically
-      select encoding based on heuristics, one could get unexpected
-      behavior on these systems. By default, Erlang starts in "latin1"
-      file name mode on such systems, meaning bytewise encoding in file
-      names. This allows for list representation of all file names in
+      translation of all file names.</p>
+
+      <p>By default on such systems, Erlang starts in <c>utf8</c> file
+      name mode if the terminal supports UTF-8, otherwise in
+      <c>latin1</c> mode.</p>
+
+      <p>In the <c>latin1</c> mode, file names are bytewise endcoded.
+      This allows for list representation of all file names in
       the system, but, for example, a file named "Östersund.txt", will
       appear in <c>file:list_dir/1</c> as either "Östersund.txt" (if
       the file name was encoded in bytewise ISO-Latin-1 by the program
@@ -682,7 +685,7 @@ Eshell V5.10.1  (abort with ^G)
     </item>
   </taglist>
 
-  <p>The Unicode file naming support was introduced with OTP release
+  <p>The Unicode file naming support was introduced with Erlang/OTP
   R14B01. A VM operating in Unicode file name translation mode can
   work with files having names in any language or character set (as
   long as it is supported by the underlying OS and file system). The
@@ -706,7 +709,7 @@ Eshell V5.10.1  (abort with ^G)
   problem even if it uses transparent file naming. Very few systems
   have mixed file name encodings. A consistent UTF-8 named system will
   work perfectly in Unicode file name mode. It was still however
-  considered experimental in R14B01 and is still not the default on
+  considered experimental in Erlang/OTP R14B01 and is still not the default on
   such systems. Unicode file name translation is turned on with the
   <c>+fnu</c> switch to the On Linux, a VM started without explicitly
   stating the file name translation mode will default to <c>latin1</c>
@@ -752,9 +755,9 @@ Eshell V5.10.1  (abort with ^G)
 
 <section>
   <title>Notes About Raw File Names</title>
-
+  <marker id="notes-about-raw-filenames"/>
   <p>Raw file names were introduced together with Unicode file name
-  support in erts-5.8.2 (OTP R14B01). The reason &quot;raw file
+  support in erts-5.8.2 (Erlang/OTP R14B01). The reason &quot;raw file
   names&quot; was introduced in the system was to be able to
   consistently represent file names given in different encodings on
   the same system. Having the VM automatically translate a file name
@@ -795,10 +798,10 @@ Eshell V5.10.1  (abort with ^G)
   the argument as a binary.</p>
 
   <p>To force Unicode file name translation mode on systems where this
-  is not the default was considered experimental in OTP R14B01 due to
+  is not the default was considered experimental in Erlang/OTP R14B01 due to
   the fact that the initial implementation did not ignore wrongly
   encoded file names, so that raw file names could spread unexpectedly
-  throughout the system. Beginning with R16B, the wrongly encoded file
+  throughout the system. Beginning with Erlang/OTP R16B, the wrongly encoded file
   names are only retrieved by special functions
   (e.g. <c>file:list_dir_all/1</c>), so the impact on existing code is
   much lower, why it is now supported. Unicode file name translation
@@ -845,6 +848,7 @@ Eshell V5.10.1  (abort with ^G)
 </section>
 <section>
   <title>Unicode in Environment and Parameters</title>
+  <marker id="unicode_in_environment_and_parameters"/>
   <p>Environment variables and their interpretation is handled much in
   the same way as file names. If Unicode file names are enabled,
   environment variables as well as parameters to the Erlang VM are
@@ -993,7 +997,8 @@ ok
   </pre>
 </section>
 <section>
-  <title><marker id="unicode_options_summary"/>Summary of Options</title>
+  <title>Summary of Options</title>
+  <marker id="unicode_options_summary"/>
   <p>The Unicode support is controlled by both command line switches,
   some standard environment variables and the version of OTP you are
   using. Most options affect mainly the way Unicode data is displayed,
@@ -1014,7 +1019,8 @@ ok
       allowed. This setting should correspond to the actual terminal
       you are using.</p>
       <p>The environment can also affect file name interpretation, if
-      Erlang is started with the <c>+fna</c> flag.</p>
+      Erlang is started with the <c>+fna</c> flag (which is default from
+      Erlang/OTP 17.0).</p>
       <p>You can check the setting of this by calling
       <c>io:getopts()</c>, which will give you an option list
       containing <c>{encoding,unicode}</c> or
@@ -1028,7 +1034,7 @@ ok
       <c>io</c>/<c>io_lib:format</c> with the <c>"~tp"</c> and
       <c>~tP</c> formatting instructions, as described above.</p>
       <p>You can check this option by calling io:printable_range/0,
-      which in R16B will return <c>unicode</c> or <c>latin1</c>. To be
+      which will return <c>unicode</c> or <c>latin1</c>. To be
       compatible with future (expected) extensions to the settings,
       one should rather use <c>io_lib:printable_list/1</c> to check if
       a list is printable according to the setting. That function will
@@ -1046,8 +1052,7 @@ ok
       &gt; 255.</p>
       <p><c>+fnl</c> means bytewise interpretation of file names, which
       was the usual way to represent ISO-Latin-1 file names before
-      UTF-8 file naming got widespread. This is the default on all
-      Unix-like operating systems except MacOS X.</p>
+      UTF-8 file naming got widespread.</p>
       <p><c>+fnu</c> means that file names are encoded in UTF-8, which
       is nowadays the common scheme (although not enforced).</p>
       <p><c>+fna</c> means that you automatically select between
@@ -1055,8 +1060,8 @@ ok
       <c>LC_CTYPE</c> environment variables. This is optimistic
       heuristics indeed, nothing enforces a user to have a terminal
       with the same encoding as the file system, but usually, this is
-      the case. This might be the default behavior in a future
-      release.</p>
+      the case.  This is the default on all Unix-like operating
+      systems except MacOS X.</p>
 
       <p>The file name translation mode can be read with the
       <c>file:native_name_encoding/0</c> function, which returns
@@ -1067,8 +1072,8 @@ ok
     <item>
       <p>This function returns the default encoding for Erlang source
       files (if no encoding comment is present) in the currently
-      running release. For R16 this returns <c>latin1</c> (meaning
-      bytewise encoding). In R17 and forward it is expected to return
+      running release. In Erlang/OTP R16B <c>latin1</c> was returned (meaning
+      bytewise encoding). In Erlang/OTP 17.0 and forward it returns
       <c>utf8</c>.</p>
       <p>The encoding of each file can be specified using comments as
       described in 

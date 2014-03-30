@@ -786,7 +786,7 @@ test_events(skip_pre_end_cth) ->
       {?eh,cth,{'_',post_end_per_group,[group1,'$proplist','_',[]]}},
       {?eh,tc_done,{ct_scope_per_group_cth_SUITE,{end_per_group,group1,[]},
 		    {skipped,"Test skip"}}}],
-      {?eh,cth,{'_',on_tc_skip,[end_per_group,
+      {?eh,cth,{'_',on_tc_skip,[{end_per_group,group1},
 				{tc_user_skip,{skipped,"Test skip"}},
 				[]]}},
      {?eh,tc_start,{ct_scope_per_group_cth_SUITE,end_per_suite}},

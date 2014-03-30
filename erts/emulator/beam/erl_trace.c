@@ -151,6 +151,11 @@ do { \
     message dispatcher thread takes care of that). */
 #define ERTS_GET_TRACER_REF(RES, TPID, TRACEE_FLGS) \
 do { (RES) = (TPID); } while(0)
+int
+erts_is_tracer_proc_valid(Process* p)
+{
+    return 1;
+}
 #else
 #define ERTS_NULL_TRACER_REF NULL
 #define ERTS_TRACER_REF_TYPE Process *
@@ -163,6 +168,20 @@ do { \
 	return; \
     } \
 } while (0)
+int
+erts_is_tracer_proc_valid(Process* p)
+{
+    Process* tracer;
+
+    tracer = erts_proc_lookup(ERTS_TRACER_PROC(p));
+    if (tracer && ERTS_TRACE_FLAGS(tracer) & F_TRACER) {
+	return 1;
+    } else {
+	ERTS_TRACER_PROC(p) = NIL;
+	ERTS_TRACE_FLAGS(p) = ~TRACEE_FLAGS;
+	return 0;
+    }
+}
 #endif
 
 static Uint active_sched;
@@ -3309,6 +3328,8 @@ sys_msg_dispatcher_func(void *unused)
 	    if (erts_thr_progress_update(NULL))
 		erts_thr_progress_leader_update(NULL);
 
+	    ERTS_SCHED_FAIR_YIELD();
+
 #ifdef DEBUG_PRINTOUTS
 	    print_msg_type(smqp);
 #endif
@@ -3467,12 +3488,20 @@ static void
 init_sys_msg_dispatcher(void)
 {
     erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+#ifdef __OSE__
+    thr_opts.coreNo   = 0;
+#endif
     thr_opts.detached = 1;
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
+
+#ifdef ETHR_HAVE_THREAD_NAMES
+    thr_opts.name = "sys_msg_dispatcher";
+#endif
+
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,

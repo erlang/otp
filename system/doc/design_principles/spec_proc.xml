@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
     <p>The module <c>sys</c> contains some functions for simple debugging
       of processes implemented using behaviours. We use the
       <c>code_lock</c> example from
-      the <seealso marker="fsm#ex">gen_event</seealso> chapter to
+      the <seealso marker="fsm#ex">gen_fsm</seealso> chapter to
       illustrate this:</p>
     <pre>
 % <input>erl</input>
@@ -130,7 +130,8 @@ ok
 -export([alloc/0, free/1]).
 -export([init/1]).
 -export([system_continue/3, system_terminate/4,
-         write_debug/3]).
+         write_debug/3,
+         system_get_state/1, system_replace_state/2]).
 
 start_link() ->
     proc_lib:start_link(ch4, init, [self()]).
@@ -156,15 +157,15 @@ init(Parent) ->
 loop(Chs, Parent, Deb) ->
     receive
         {From, alloc} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, alloc, From}),
             {Ch, Chs2} = alloc(Chs),
             From ! {ch4, Ch},
-            Deb3 = sys:handle_debug(Deb2, {ch4, write_debug},
+            Deb3 = sys:handle_debug(Deb2, fun ch4:write_debug/3,
                                     ch4, {out, {ch4, Ch}, From}),
             loop(Chs2, Parent, Deb3);
         {free, Ch} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, {free, Ch}}),
             Chs2 = free(Ch, Chs),
             loop(Chs2, Parent, Deb2);
@@ -177,8 +178,15 @@ loop(Chs, Parent, Deb) ->
 system_continue(Parent, Deb, Chs) ->
     loop(Chs, Parent, Deb).
 
-system_terminate(Reason, Parent, Deb, Chs) ->
+system_terminate(Reason, _Parent, _Deb, _Chs) ->
     exit(Reason).
+
+system_get_state(Chs) ->
+    {ok, Chs}.
+
+system_replace_state(StateFun, Chs) ->
+    NChs = StateFun(Chs),
+    {ok, NChs, NChs}.
 
 write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).</pre>
@@ -281,10 +289,10 @@ sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
           <p><c>Deb</c> is the debug structure.</p>
         </item>
         <item>
-          <p><c>Func</c> is a tuple <c>{Module, Name}</c> (or a fun) and
-            should specify a (user defined) function used to format
+          <p><c>Func</c> is a fun specifying
+            a (user defined) function used to format
             trace output. For each system event, the format function is
-            called as <c>Module:Name(Dev, Event, Info)</c>, where:</p>
+            called as <c>Func(Dev, Event, Info)</c>, where:</p>
           <list type="bulleted">
             <item>
               <p><c>Dev</c> is the IO device to which the output should
@@ -319,15 +327,15 @@ sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
 loop(Chs, Parent, Deb) ->
     receive
         {From, alloc} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, alloc, From}),
             {Ch, Chs2} = alloc(Chs),
             From ! {ch4, Ch},
-            Deb3 = sys:handle_debug(Deb2, {ch4, write_debug},
+            Deb3 = sys:handle_debug(Deb2, fun ch4:write_debug/3,
                                     ch4, {out, {ch4, Ch}, From}),
             loop(Chs2, Parent, Deb3);
         {free, Ch} ->
-            Deb2 = sys:handle_debug(Deb, {ch4, write_debug},
+            Deb2 = sys:handle_debug(Deb, fun ch4:write_debug/3,
                                     ch4, {in, {free, Ch}}),
             Chs2 = free(Ch, Chs),
             loop(Chs2, Parent, Deb2);
@@ -366,8 +374,15 @@ Module:system_terminate(Reason, Parent, Deb, State)</code>
         <item><c>Module</c> is the name of the module.</item>
         <item><c>Deb</c> is the debug structure.</item>
         <item><c>State</c> is a term describing the internal state and
-         is passed to <c>system_continue</c>/<c>system_terminate</c>.</item>
+         is passed to <c>system_continue</c>/<c>system_terminate</c>/
+         <c>system_get_state</c>/<c>system_replace_state</c>.</item>
       </list>
+      <p>If the process should return its state <c>handle_system_msg</c> will call:</p>
+      <code type="none">
+Module:system_get_state(State)</code>
+      <p>or if the process should replace its state using the fun <c>StateFun</c>:</p>
+      <code type="none">
+Module:system_replace_state(StateFun, State)</code>
       <p>In the example:</p>
       <code type="none">
 loop(Chs, Parent, Deb) ->
@@ -383,7 +398,15 @@ system_continue(Parent, Deb, Chs) ->
     loop(Chs, Parent, Deb).
 
 system_terminate(Reason, Parent, Deb, Chs) ->
-    exit(Reason).</code>
+    exit(Reason).
+
+system_get_state(Chs) ->
+    {ok, Chs, Chs}.
+
+system_replace_state(StateFun, Chs) ->
+    NChs = StateFun(Chs),
+    {ok, NChs, NChs}.
+</code>
       <p>If the special process is set to trap exits, note that if
         the parent process terminates, the expected behavior is to
         terminate with the same reason:</p>
@@ -408,11 +431,11 @@ loop(...) ->
 
   <section>
     <title>User-Defined Behaviours</title>
-    <p>To implement a user-defined behaviour, write code similar to
+    <p><marker id="behaviours"/>To implement a user-defined behaviour, write code similar to
       code for a special process but calling functions in a callback
       module for handling specific tasks.</p>
     <p>If it is desired that the compiler should warn for missing callback
-    functions, as it does for the OTP behaviours, add callback attributes in the
+    functions, as it does for the OTP behaviours, add <c>-callback</c> attributes in the
     behaviour module to describe the expected callbacks:</p>
     <code type="none">
 -callback Name1(Arg1_1, Arg1_2, ..., Arg1_N1) -> Res1.
@@ -422,15 +445,15 @@ loop(...) ->
     <p>where <c>NameX</c> are the names of the expected callbacks and
     <c>ArgX_Y</c>, <c>ResX</c> are types as they are described in Specifications
     for functions in <seealso marker="../reference_manual/typespec">Types and
-    Function Specifications</seealso>. The whole syntax of spec attributes is
-    supported by callback attributes.</p>
+    Function Specifications</seealso>. The whole syntax of <c>-spec</c> attribute is
+    supported by <c>-callback</c> attribute.</p>
     <p>Alternatively you may directly implement and export the function:</p>
     <code type="none">
 behaviour_info(callbacks) ->
-    [{Name1,Arity1},...,{NameN,ArityN}].</code>
-    <p>where each <c>{Name,Arity}</c> specifies the name and arity of a callback
+    [{Name1, Arity1},...,{NameN, ArityN}].</code>
+    <p>where each <c>{Name, Arity}</c> specifies the name and arity of a callback
     function. This function is otherwise automatically generated by the compiler
-    using the callback attributes.</p>
+    using the <c>-callback</c> attributes.</p>
     <p>When the compiler encounters the module attribute
     <c>-behaviour(Behaviour).</c> in a module <c>Mod</c>, it will call
     <c>Behaviour:behaviour_info(callbacks)</c> and compare the result with the

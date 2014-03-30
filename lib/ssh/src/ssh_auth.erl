@@ -83,7 +83,7 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
 					method = "password",
 					data =
 					    <<?BOOLEAN(?FALSE),
-					      ?STRING(list_to_binary(Password))>>},
+					      ?STRING(unicode:characters_to_binary(Password))>>},
 	      Ssh)
     end.
 
@@ -190,14 +190,13 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  data = Data}, _, 
 			#ssh{opts = Opts} = Ssh) ->
     <<_:8, ?UINT32(Sz), BinPwd:Sz/binary>> = Data,
-    Password = binary_to_list(BinPwd),
-    
+    Password = unicode:characters_to_list(BinPwd),
     case check_password(User, Password, Opts) of
 	true ->
 	    {authorized, User,
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
 	false  ->
-	    {not_authorized, {User, {passwd, Password}}, 
+	    {not_authorized, {User, {error,"Bad user or password"}}, 
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 		     authentications = "",
 		     partial_success = false}, Ssh)}
@@ -229,7 +228,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 		     ssh_transport:ssh_packet(
 		       #ssh_msg_userauth_success{}, Ssh)};
 		false ->
-		    {not_authorized, {User, {error, "Invalid signature"}}, 
+		    {not_authorized, {User, undefined}, 
 		     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 			     authentications="publickey,password",
 			     partial_success = false}, Ssh)}
@@ -352,7 +351,7 @@ verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
 build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
     Sig = [?binary(SessionId),
 	   ?SSH_MSG_USERAUTH_REQUEST,
-	   ?string(User),
+	   ?string_utf8(User),
 	   ?string(Service),
 	   ?binary(<<"publickey">>),
 	   ?TRUE,

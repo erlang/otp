@@ -235,3 +235,5 @@
 /* Define if you want to turn on extra sanity checking in the ethread library */
 #undef ETHR_XCHK
 
+/* Assumed cache-line size (in bytes) */
+#undef ASSUMED_CACHE_LINE_SIZE

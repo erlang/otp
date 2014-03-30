@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1204,7 +1204,11 @@ mnesia:create_table(person,
       <desc>
         <p>Performs a user initiated dump of the local log file.
           This is usually not necessary since Mnesia, by default,
-          manages this automatically.</p>
+          manages this automatically.
+	  See configuration parameters
+	  <seealso marker="#dump_log_time_threshold">dump_log_time_threshold</seealso> and
+	   <seealso marker="#dump_log_write_threshold">dump_log_write_threshold</seealso>.
+	</p>
       </desc>
     </func>
     <func>
@@ -2208,6 +2212,18 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
+      <name>sync_log() -> ok | {error, Reason} </name>
+      <fsummary>Perform a file sync of the local log file.</fsummary>
+      <desc>
+        <p>Ensures that the local transaction log file is synced to disk.
+	On a single node system data written to disk tables, since the last dump,
+	can be lost in case of a power outage.
+	See <seealso marker="#dump_log/0">dump_log/0</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name>sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun} </name>
       <fsummary>Synchronously execute a transaction.</fsummary>
       <desc>
@@ -2445,7 +2461,7 @@ mnesia:create_table(employee,
       <name>table(Tab [,[Option]]) -> QueryHandle </name>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
-        <p>          <marker id="qlc_table"></marker>
+        <p><marker id="qlc_table"></marker>
 Returns a QLC (Query List Comprehension) query handle, see
           <seealso marker="stdlib:qlc">qlc(3)</seealso>.The module <c>qlc</c> implements a query language, it
           can use mnesia tables as sources of data. Calling
@@ -3015,6 +3031,7 @@ raise(Name, Amount) ->
           performed on the original data file. The default is <c>true</c></p>
       </item>
       <item>
+	<marker id=" dump_log_write_threshold"></marker>
         <p><c>-mnesia dump_log_write_threshold Max</c>, where
           <c>Max</c> is an integer which specifies the maximum number of writes
           allowed to the transaction log before a new dump of the log
@@ -3022,13 +3039,14 @@ raise(Name, Amount) ->
           </p>
       </item>
       <item>
+	<marker id=" dump_log_time_threshold"></marker>
         <p><c>-mnesia dump_log_time_threshold Max</c>,
           where <c>Max</c> is an integer which
           specifies the dump log interval in milliseconds. It defaults
           to 3 minutes. If a dump has not been performed within
           <c>dump_log_time_threshold</c> milliseconds, then a new dump is
           performed regardless of how many writes have been
-          performed. 
+          performed.
           </p>
       </item>
       <item>

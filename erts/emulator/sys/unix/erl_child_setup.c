@@ -54,6 +54,17 @@ void sys_sigrelease(int sig)
 #endif /* !SIG_SIGNAL */
 #endif /* !SIG_SIGSET */
 
+#if defined(__ANDROID__)
+int __system_properties_fd(void);
+#endif /* __ANDROID__ */
+
+#if defined(__ANDROID__)
+#define SHELL "/system/bin/sh"
+#else
+#define SHELL "/bin/sh"
+#endif /* __ANDROID__ */
+
+
 int
 main(int argc, char *argv[])
 {
@@ -89,8 +100,23 @@ main(int argc, char *argv[])
 
     if (sscanf(argv[CS_ARGV_FD_CR_IX], "%d:%d", &from, &to) != 2)
 	return 1;
+
+#if defined(__ANDROID__)
+    for (i = from; i <= to; i++) {
+	if (i!=__system_properties_fd)
+	    (void) close(i);
+    }
+#else
     for (i = from; i <= to; i++)
 	(void) close(i);
+#endif /* __ANDROID__ */
+
+#if defined(HAVE_CLOSEFROM)
+    closefrom(from);
+#else
+    for (i = from; i <= to; i++)
+	(void) close(i);
+#endif
 
     if (!(argv[CS_ARGV_WD_IX][0] == '.' && argv[CS_ARGV_WD_IX][1] == '\0')
 	&& chdir(argv[CS_ARGV_WD_IX]) < 0)
@@ -116,7 +142,25 @@ main(int argc, char *argv[])
 	    execv(argv[CS_ARGV_NO_OF_ARGS],&(argv[CS_ARGV_NO_OF_ARGS + 1]));
 	}
     } else {
-	execl("/bin/sh", "sh", "-c", argv[CS_ARGV_CMD_IX], (char *) NULL);
+        execl(SHELL, "sh", "-c", argv[CS_ARGV_CMD_IX], (char *) NULL);
     }
     return 1;
 }
+
+
+
+#if defined(__ANDROID__)
+int __system_properties_fd(void)
+{
+    int s, fd;
+    char *env;
+
+    env = getenv("ANDROID_PROPERTY_WORKSPACE");
+    if (!env) {
+        return -1;
+    }
+    fd = atoi(env);
+    return fd;
+}
+#endif /* __ANDROID__ */
+

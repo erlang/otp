@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,8 +41,14 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-dict">dict()</marker></name>
+      <name name="dict" n_vars="2"/>
       <desc><p>Dictionary as returned by <c>new/0</c>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="dict" n_vars="0"/>
+      <desc>
+        <p><c>dict()</c> is equivalent to <c>dict(term(), term())</c>.</p>
+      </desc>
     </datatype>
   </datatypes>
   <funcs>
@@ -174,6 +180,13 @@ merge(Fun, D1, D2) ->
       <fsummary>Return the number of elements in a dictionary</fsummary>
       <desc>
         <p>Returns the number of elements in a <c><anno>Dict</anno></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Return true if the dictionary is empty</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Dict</anno></c> has no elements, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>

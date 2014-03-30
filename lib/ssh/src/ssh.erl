@@ -1,4 +1,4 @@
-%%
+%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2004-2013. All Rights Reserved.
@@ -32,8 +32,8 @@
 	 shell/1, shell/2, shell/3]).
 
 %%--------------------------------------------------------------------
--spec start() -> ok.
--spec start(permanent | transient | temporary) -> ok.
+-spec start() -> ok | {error, term()}.
+-spec start(permanent | transient | temporary) -> ok | {error, term()}.
 %%
 %% Description: Starts the ssh application. Default type
 %% is temporary. see application(3)
@@ -51,7 +51,7 @@ start(Type) ->
     application:start(ssh, Type).
 
 %%--------------------------------------------------------------------
--spec stop() -> ok.
+-spec stop() -> ok | {error, term()}.
 %%
 %% Description: Stops the ssh application.
 %%--------------------------------------------------------------------
@@ -59,8 +59,8 @@ stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
--spec connect(string(), integer(), proplists:proplists()) -> {ok, pid()} |  {error, term()}.
--spec connect(string(), integer(), proplists:proplists(), timeout()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+-spec connect(string(), integer(), proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}.
 %%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
@@ -332,6 +332,12 @@ handle_option([{idle_time, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{rekey_limit, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{negotiation_timeout, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{parallel_login, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([parallel_login|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({parallel_login,true}) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -359,6 +365,10 @@ handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), leng
 	    throw({error, {eoptions, Opt}})
     end;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
+    Opt;
+handle_ssh_option({negotiation_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
+    Opt;
+handle_ssh_option({parallel_login, Value} = Opt) when Value==true ; Value==false ->
     Opt;
 handle_ssh_option({user, Value} = Opt) when is_list(Value) ->
     Opt;

@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 	 external_calls  = []             :: [mfa()],
          external_types  = []             :: [mfa()],
 	 legal_warnings  = ordsets:new()  :: [dial_warn_tag()],
-	 mod_deps        = dict:new()     :: dict(),
+	 mod_deps        = dict:new()     :: dialyzer_callgraph:mod_deps(),
 	 output          = standard_io	  :: io:device(),
 	 output_format   = formatted      :: format(),
 	 filename_opt    = basename       :: fopt(),
@@ -504,7 +504,9 @@ hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
 	_ ->
 	  Mods = [lists, dict, digraph, digraph_utils, ets,
 		  gb_sets, gb_trees, ordsets, sets, sofs,
-		  cerl, cerl_trees, erl_types, erl_bif_types,
+		  %cerl,      % uses maps instructions
+		  %erl_types, % uses maps instructions
+		  cerl_trees, erl_bif_types,
 		  dialyzer_analysis_callgraph, dialyzer, dialyzer_behaviours,
 		  dialyzer_codeserver, dialyzer_contracts,
 		  dialyzer_coordinator, dialyzer_dataflow, dialyzer_dep,
@@ -533,7 +535,7 @@ hc(Mod) ->
   case code:is_module_native(Mod) of
     true -> ok;
     false ->
-      %% io:format(" ~s", [Mod]),
+      %% io:format(" ~w", [Mod]),
       {ok, Mod} = hipe:c(Mod),
       ok
   end.
@@ -603,7 +605,7 @@ cl_loop(State, LogCache) ->
       Msg = failed_anal_msg(Reason, LogCache),
       cl_error(State, Msg);
     {'EXIT', BackendPid, Reason} when Reason =/= 'normal' ->
-      Msg = failed_anal_msg(io_lib:format("~P", [Reason, 12]), LogCache),
+      Msg = failed_anal_msg(io_lib:format("~p", [Reason]), LogCache),
       cl_error(State, Msg);
     _Other ->
       %% io:format("Received ~p\n", [_Other]),
@@ -613,7 +615,7 @@ cl_loop(State, LogCache) ->
 -spec failed_anal_msg(string(), [_]) -> nonempty_string().
 
 failed_anal_msg(Reason, LogCache) ->
-  Msg = "Analysis failed with error:\n" ++ Reason ++ "\n",
+  Msg = "Analysis failed with error:\n" ++ lists:flatten(Reason) ++ "\n",
   case LogCache =:= [] of
     true -> Msg;
     false ->
@@ -640,7 +642,7 @@ store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
 -spec cl_error(string()) -> no_return().
 
 cl_error(Msg) ->
-  throw({dialyzer_error, Msg}).
+  throw({dialyzer_error, lists:flatten(Msg)}).
 
 -spec cl_error(#cl_state{}, string()) -> no_return().
 
@@ -650,13 +652,14 @@ cl_error(State, Msg) ->
     Outfile -> io:format(Outfile, "\n~s\n", [Msg])
   end,
   maybe_close_output_file(State),
-  throw({dialyzer_error, Msg}).
+  throw({dialyzer_error, lists:flatten(Msg)}).
 
 return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
-			       stored_warnings = StoredWarnings},
+			       stored_warnings = StoredWarnings,
+                               legal_warnings = LegalWarnings},
 	     Plt) ->
   case OutputPlt =:= none of
     true -> ok;
@@ -676,16 +679,33 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
-      {RetValue, process_warnings(StoredWarnings)}
+      Unknown =
+        case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+          true ->
+            unknown_functions(State) ++
+              unknown_types(State) ++
+              unknown_behaviours(State);
+          false -> []
+        end,
+      UnknownWarnings =
+        [{?WARN_UNKNOWN, {_Filename = "", _Line = 0}, W} || W <- Unknown],
+      AllWarnings =
+        UnknownWarnings ++ process_warnings(StoredWarnings),
+      {RetValue, AllWarnings}
   end.
+
+unknown_functions(#cl_state{external_calls = Calls}) ->
+  [{unknown_function, MFA} || MFA <- Calls].
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
 print_ext_calls(#cl_state{output = Output,
 			  external_calls = Calls,
 			  stored_warnings = Warnings,
-			  output_format = Format}) ->
-  case Calls =:= [] of
+			  output_format = Format,
+                          legal_warnings = LegalWarnings}) ->
+  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
+    orelse Calls =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] of
@@ -708,14 +728,19 @@ do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
 do_print_ext_calls(_, [], _) ->
   ok.
 
+unknown_types(#cl_state{external_types = Types}) ->
+  [{unknown_type, MFA} || MFA <- Types].
+
 print_ext_types(#cl_state{report_mode = quiet}) ->
   ok;
 print_ext_types(#cl_state{output = Output,
                           external_calls = Calls,
                           external_types = Types,
                           stored_warnings = Warnings,
-                          output_format = Format}) ->
-  case Types =:= [] of
+                          output_format = Format,
+                          legal_warnings = LegalWarnings}) ->
+  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
+    orelse Types =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] andalso Calls =:= [] of
@@ -737,6 +762,15 @@ do_print_ext_types(Output, [{M,F,A}|T], Before) ->
   do_print_ext_types(Output, T, Before);
 do_print_ext_types(_, [], _) ->
   ok.
+
+unknown_behaviours(#cl_state{unknown_behaviours = DupBehaviours,
+                             legal_warnings = LegalWarnings}) ->
+  case ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings) of
+    false -> [];
+    true ->
+      Behaviours = lists:usort(DupBehaviours),
+      [{unknown_behaviour, B} || B <- Behaviours]
+  end.
 
 %%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
 %%  ok;

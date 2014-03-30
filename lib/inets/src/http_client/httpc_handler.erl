@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,8 +55,8 @@
           headers,                   % #http_response_h{}
           body,                      % binary()
           mfa,                       % {Module, Function, Args}
-          pipeline = queue:new(),    % queue() 
-          keep_alive = queue:new(),  % queue() 
+          pipeline = queue:new(),    % queue:queue()
+          keep_alive = queue:new(),  % queue:queue()
           status,   % undefined | new | pipeline | keep_alive | close | {ssl_tunnel, Request}
           canceled = [],             % [RequestId]
           max_header_size = nolimit, % nolimit | integer() 
@@ -1119,15 +1119,8 @@ handle_http_body(Body, #state{headers       = Headers,
 		    handle_response(State#state{headers = NewHeaders, 
 						body    = NewBody})
 	    end;
-        Encoding when is_list(Encoding) ->
-	    ?hcrt("handle_http_body - encoding", [{encoding, Encoding}]),
-	    NewState = answer_request(Request, 
-				      httpc_response:error(Request, 
-							   unknown_encoding),
-				      State),
-	    {stop, normal, NewState};
-        _ ->
-	    ?hcrt("handle_http_body - other", []),
+        Enc when Enc =:= "identity"; Enc =:= undefined ->
+            ?hcrt("handle_http_body - identity", []),
             Length =
                 list_to_integer(Headers#http_response_h.'content-length'),
             case ((Length =< MaxBodySize) orelse (MaxBodySize =:= nolimit)) of
@@ -1149,12 +1142,19 @@ handle_http_body(Body, #state{headers       = Headers,
 							    body_too_big),
 				       State),
                     {stop, normal, NewState}
-            end
+            end;
+        Encoding when is_list(Encoding) ->
+            ?hcrt("handle_http_body - other", [{encoding, Encoding}]),
+            NewState = answer_request(Request,
+                                      httpc_response:error(Request,
+                                                           unknown_encoding),
+                                      State),
+            {stop, normal, NewState}
     end.
 
 handle_response(#state{status = new} = State) ->
     ?hcrd("handle response - status = new", []),
-    handle_response(check_persistent(State));
+    handle_response(try_to_enable_pipeline_or_keep_alive(State));
 
 handle_response(#state{request      = Request,
 		       status       = Status,
@@ -1429,22 +1429,39 @@ is_keep_alive_enabled_server(_,_) ->
 is_keep_alive_connection(Headers, #session{client_close = ClientClose}) ->
     (not ((ClientClose) orelse httpc_response:is_server_closing(Headers))).
 
-check_persistent(
-  #state{session      = #session{type = Type} = Session, 
+try_to_enable_pipeline_or_keep_alive(
+  #state{session      = Session, 
+	 request      = #request{method = Method},
 	 status_line  = {Version, _, _},
 	 headers      = Headers,
-	 profile_name = ProfileName} = State) ->    
+	 profile_name = ProfileName} = State) ->
+    ?hcrd("try to enable pipeline or keep-alive", 
+	  [{version, Version}, 
+	   {headers, Headers}, 
+	   {session, Session}]),
     case is_keep_alive_enabled_server(Version, Headers) andalso 
-	is_keep_alive_connection(Headers, Session) of
+	  is_keep_alive_connection(Headers, Session) of
 	true ->
-	    mark_persistent(ProfileName, Session),
-	    State#state{status = Type};
+	    case (is_pipeline_enabled_client(Session) andalso 
+		  httpc_request:is_idempotent(Method)) of
+		true ->
+		    insert_session(Session, ProfileName),
+		    State#state{status = pipeline};
+		false ->
+		    insert_session(Session, ProfileName),
+		    %% Make sure type is keep_alive in session
+		    %% as it in this case might be pipeline
+		    NewSession = Session#session{type = keep_alive}, 
+		    State#state{status  = keep_alive,
+				session = NewSession}
+	    end;
 	false ->
 	    State#state{status = close}
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{timers       = Timers, 
+	       #state{session      = Session, 
+		      timers       = Timers, 
 		      profile_name = ProfileName} = State) -> 
     ?hcrt("answer request", [{request, Request}, {msg, Msg}]),
     httpc_response:send(From, Msg),
@@ -1454,14 +1471,19 @@ answer_request(#request{id = RequestId, from = From} = Request, Msg,
     Timer = {RequestId, TimerRef},
     cancel_timer(TimerRef, {timeout, Request#request.id}),
     httpc_manager:request_done(RequestId, ProfileName),
+    NewSession = maybe_make_session_available(ProfileName, Session), 
     Timers2 = Timers#timers{request_timers = lists:delete(Timer, 
 							  RequestTimers)}, 
     State#state{request = Request#request{from = answer_sent},
+		session = NewSession, 
 		timers  = Timers2}.
 
-mark_persistent(ProfileName, Session) ->
-    update_session(ProfileName, Session, #session.persistent, true),
-    Session#session{persistent = true}.
+maybe_make_session_available(ProfileName, 
+			     #session{available = false} = Session) ->
+    update_session(ProfileName, Session, #session.available, true),
+    Session#session{available = true};
+maybe_make_session_available(_ProfileName, Session) ->
+    Session.
     
 cancel_timers(#timers{request_timers = ReqTmrs, queue_timer = QTmr}) ->
     cancel_timer(QTmr, timeout_queue),
@@ -1829,7 +1851,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                                    [ProfileName, SessionId, Pos, Value, 
                                     (catch httpc_manager:which_session_info(ProfileName)), 
                                     Session, 
-                                    (catch httpc_manager:lookup_session(ProfileName, SessionId)), 
+                                    (catch httpc_manager:lookup_session(SessionId, ProfileName)),
                                     T, E]),
             exit({failed_updating_session, 
                   [{profile,    ProfileName}, 

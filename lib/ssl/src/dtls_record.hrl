@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,16 +28,15 @@
 
 -include("ssl_record.hrl"). %% Common TLS and DTLS records and Constantes
 
-%% Used to handle tls_plain_text, tls_compressed and tls_cipher_text
+%% Used to handle dtls_plain_text, dtls_compressed and dtls_cipher_text
 
 -record(ssl_tls, {   
 	  type,
 	  version,
-	  record_seq,      % used in plain_text
-	  epoch,           % used in plain_text  
-	  message_seq, 
-	  fragment_offset,
-	  fragment_length,
+	  epoch,           
+	  sequence_number,      
+	  offset,
+	  length,
 	  fragment
 	 }).
 

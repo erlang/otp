@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,6 +38,21 @@
 	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
 
+-export_type([cipher_suite/0,
+	      erl_cipher_suite/0, openssl_cipher_suite/0,
+	      key_algo/0]).
+
+-type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
+			   | aes_128_cbc |  aes_256_cbc.
+-type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
+-type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
+-type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash() | default_prf}.
+-type cipher_suite()      :: binary().
+-type cipher_enum()        :: integer().
+-type openssl_cipher_suite()  :: string().
+
+
 -compile(inline).
 
 %%--------------------------------------------------------------------
@@ -51,7 +66,7 @@ security_parameters(?TLS_NULL_WITH_NULL_NULL = CipherSuite, SecParams) ->
     security_parameters(undefined, CipherSuite, SecParams).
 
 %%--------------------------------------------------------------------
--spec security_parameters(tls_version() | undefined, cipher_suite(), #security_parameters{}) ->
+-spec security_parameters(ssl_record:ssl_version() | undefined, cipher_suite(), #security_parameters{}) ->
 				 #security_parameters{}.
 %%
 %% Description: Returns a security parameters record where the
@@ -72,7 +87,7 @@ security_parameters(Version, CipherSuite, SecParams) ->
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
--spec cipher(cipher_enum(), #cipher_state{}, binary(), iolist(), tls_version()) ->
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), iodata(), ssl_record:ssl_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
 %% Description: Encrypts the data and the MAC using chipher described
@@ -127,7 +142,7 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     {T, CS0#cipher_state{iv=NextIV}}.
 
 %%--------------------------------------------------------------------
--spec decipher(cipher_enum(), integer(), #cipher_state{}, binary(), tls_version()) ->
+-spec decipher(cipher_enum(), integer(), #cipher_state{}, binary(), ssl_record:ssl_version()) ->
 		      {binary(), binary(), #cipher_state{}} | #alert{}.
 %%
 %% Description: Decrypts the data and the MAC using cipher described
@@ -200,7 +215,7 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
 %%--------------------------------------------------------------------
--spec suites(tls_version()) -> [cipher_suite()].
+-spec suites(ssl_record:ssl_version()) -> [cipher_suite()].
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
@@ -229,7 +244,7 @@ anonymous_suites() ->
      ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA].
 
 %%--------------------------------------------------------------------
--spec psk_suites(tls_version() | integer()) -> [cipher_suite()].
+-spec psk_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
 %% Description: Returns a list of the PSK cipher suites, only supported
 %% if explicitly set by user.

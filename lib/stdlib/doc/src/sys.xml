@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -246,6 +246,22 @@
           <c>{Module, Id, HandlerState}</c>, where <c>Module</c> is the event handler's module name,
           <c>Id</c> is the handler's ID (which is the value <c>false</c> if it was registered without
           an ID), and <c>HandlerState</c> is the handler's state.</p>
+        <p>If the callback module exports a <c>system_get_state/1</c> function, it will be called in the
+          target process to get its state. Its argument is the same as the <c>Misc</c> value returned by
+          <seealso marker="#get_status-1">get_status/1,2</seealso>, and the <c>system_get_state/1</c>
+          function is expected to extract the callback module's state from it. The <c>system_get_state/1</c>
+          function must return <c>{ok, State}</c> where <c>State</c> is the callback module's state.</p>
+        <p>If the callback module does not export a <c>system_get_state/1</c> function, <c>get_state/1,2</c>
+          assumes the <c>Misc</c> value is the callback module's state and returns it directly instead.</p>
+        <p>If the callback module's <c>system_get_state/1</c> function crashes or throws an exception, the
+          caller exits with error <c>{callback_failed, {Module, system_get_state}, {Class, Reason}}</c> where
+          <c>Module</c> is the name of the callback module and <c>Class</c> and <c>Reason</c> indicate
+          details of the exception.</p>
+        <p>The <c>system_get_state/1</c> function is primarily useful for user-defined
+          behaviours and modules that implement OTP <seealso marker="#special_process">special
+          processes</seealso>. The <c>gen_server</c>, <c>gen_fsm</c>, and <c>gen_event</c> OTP
+          behaviour modules export this function, and so callback modules for those behaviours
+          need not supply their own.</p>
         <p>To obtain more information about a process, including its state, see
           <seealso marker="#get_status-1">get_status/1</seealso> and
           <seealso marker="#get_status-2">get_status/2</seealso>.</p>
@@ -289,6 +305,28 @@
           function means that only the state of the particular event handler it was working on when it
           failed or crashed is unchanged; it can still succeed in changing the states of other event
           handlers registered in the same <c>gen_event</c> process.</p>
+        <p>If the callback module exports a <c>system_replace_state/2</c> function, it will be called in the
+          target process to replace its state using <c>StateFun</c>. Its two arguments are <c>StateFun</c>
+          and <c>Misc</c>, where <c>Misc</c> is the same as the <c>Misc</c> value returned by
+          <seealso marker="#get_status-1">get_status/1,2</seealso>. A <c>system_replace_state/2</c> function
+          is expected to return <c>{ok, NewState, NewMisc}</c> where <c>NewState</c> is the callback module's
+          new state obtained by calling <c>StateFun</c>, and <c>NewMisc</c> is a possibly new value used to
+          replace the original <c>Misc</c> (required since <c>Misc</c> often contains the callback
+          module's state within it).</p>
+        <p>If the callback module does not export a <c>system_replace_state/2</c> function,
+          <c>replace_state/2,3</c> assumes the <c>Misc</c> value is the callback module's state, passes it
+          to <c>StateFun</c> and uses the return value as both the new state and as the new value of
+          <c>Misc</c>.</p>
+        <p>If the callback module's <c>system_replace_state/2</c> function crashes or throws an exception,
+          the caller exits with error <c>{callback_failed, {Module, system_replace_state}, {Class, Reason}}</c>
+          where <c>Module</c> is the name of the callback module and <c>Class</c> and <c>Reason</c> indicate details
+          of the exception. If the callback module does not provide a <c>system_replace_state/2</c> function and
+          <c>StateFun</c> crashes or throws an exception, the caller exits with error
+          <c>{callback_failed, StateFun, {Class, Reason}}</c>.</p>
+        <p>The <c>system_replace_state/2</c> function is primarily useful for user-defined behaviours and
+          modules that implement OTP <seealso marker="#special_process">special processes</seealso>. The
+          <c>gen_server</c>, <c>gen_fsm</c>, and <c>gen_event</c> OTP behaviour modules export this function,
+          and so callback modules for those behaviours need not supply their own.</p>
       </desc>
     </func>
     <func>
@@ -322,7 +360,7 @@
 
   <section>
     <title>Process Implementation Functions</title>
-    <p>The following functions are used when implementing a
+    <p><marker id="special_process"/>The following functions are used when implementing a
       special process. This is an ordinary process which does not use a
       standard behaviour, but a process which understands the standard system messages.</p>
   </section>
@@ -375,8 +413,9 @@
           process continues the execution, or
           <c><anno>Module</anno>:system_terminate(Reason, <anno>Parent</anno>, <anno>Debug</anno>, <anno>Misc</anno>)</c> if
           the process should terminate. The <c><anno>Module</anno></c> must export
-          <c>system_continue/3</c>, <c>system_terminate/4</c>, and
-          <c>system_code_change/4</c> (see below).
+          <c>system_continue/3</c>, <c>system_terminate/4</c>,
+          <c>system_code_change/4</c>, <c>system_get_state/1</c> and
+          <c>system_replace_state/2</c> (see below).
           </p>
         <p>The <c><anno>Misc</anno></c> argument can be used to save internal data
           in a process, for example its state. It is sent to
@@ -442,6 +481,34 @@
           structure. <c>OldVsn</c> is the <em>vsn</em> attribute of the
           old version of the <c>Module</c>. If no such attribute was
           defined, the atom <c>undefined</c> is sent.</p>
+      </desc>
+    </func>
+    <func>
+      <name>Mod:system_get_state(Misc) -> {ok, State}</name>
+      <fsummary>Called when the process should return its current state</fsummary>
+      <type>
+        <v>Misc = term()</v>
+        <v>State = term()</v>
+    </type>
+      <desc>
+        <p>This function is called from <c>sys:handle_system_msg/6</c> when the process
+          should return a term that reflects its current state. <c>State</c> is the
+          value returned by <c>sys:get_state/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>Mod:system_replace_state(StateFun, Misc) -> {ok, NState, NMisc}</name>
+      <fsummary>Called when the process should replace its current state</fsummary>
+      <type>
+        <v>StateFun = fun((State :: term()) -> NState)</v>
+        <v>Misc = term()</v>
+        <v>NState = term()</v>
+        <v>NMisc = term()</v>
+    </type>
+      <desc>
+        <p>This function is called from <c>sys:handle_system_msg/6</c> when the process
+         should replace its current state. <c>NState</c> is the value returned by
+         <c>sys:replace_state/3</c>.</p>
       </desc>
     </func>
   </funcs>

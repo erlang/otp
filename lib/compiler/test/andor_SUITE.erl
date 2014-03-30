@@ -129,6 +129,10 @@ t_case_y(X, Y, Z) ->
 	    Y =:= 100
     end.
 
+-define(GUARD(E), if E -> true;
+             true -> false
+          end).
+
 t_and_or(Config) when is_list(Config) ->
     ?line true = true and true,
     ?line false = true and false,
@@ -160,11 +164,16 @@ t_and_or(Config) when is_list(Config) ->
     ?line true = false or id(true),
     ?line false = false or id(false),
 
-   ok.
+    True = id(true),
 
--define(GUARD(E), if E -> true;
-		     true -> false
-		  end).
+    false = ?GUARD(erlang:'and'(bar, True)),
+    false = ?GUARD(erlang:'or'(bar, True)),
+    false = ?GUARD(erlang:'not'(erlang:'and'(bar, True))),
+    false = ?GUARD(erlang:'not'(erlang:'not'(erlang:'and'(bar, True)))),
+
+    true = (fun (X = true) when X or true or X -> true end)(True),
+
+   ok.
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
@@ -193,6 +202,9 @@ t_andalso(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch not id(false) andalso not id(glurf)),
     ?line false = id(false) andalso not id(glurf),
     ?line false = false andalso not id(glurf),
+
+    true = begin (X1 = true) andalso X1, X1 end,
+    false = false = begin (X2 = false) andalso X2, X2 end,
 
     ok.
 
@@ -223,6 +235,9 @@ t_orelse(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch not id(true) orelse not id(glurf)),
     ?line true = id(true) orelse not id(glurf),
     ?line true = true orelse not id(glurf),
+
+    true = begin (X1 = true) orelse X1, X1 end,
+    false = begin (X2 = false) orelse X2, X2 end,
 
     ok.
 

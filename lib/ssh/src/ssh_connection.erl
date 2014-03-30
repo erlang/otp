@@ -271,10 +271,36 @@ cancel_tcpip_forward(ConnectionHandler, BindIP, Port) ->
 %%--------------------------------------------------------------------
 %%% Internal API
 %%--------------------------------------------------------------------
+l2b(L) when is_integer(hd(L)) ->
+    try list_to_binary(L)
+    of
+	B -> B
+    catch
+	_:_ -> 
+	    unicode:characters_to_binary(L)
+    end;
+l2b([H|T]) -> 
+    << (l2b(H))/binary, (l2b(T))/binary >>;
+l2b(B) when is_binary(B) ->
+    B;
+l2b([]) ->
+    <<>>.
+
+    
+
 channel_data(ChannelId, DataType, Data, Connection, From)
   when is_list(Data)->
     channel_data(ChannelId, DataType, 
-		 list_to_binary(Data), Connection, From);
+%%		 list_to_binary(Data), Connection, From);
+		 l2b(Data), Connection, From);
+		 %% try list_to_binary(Data)
+		 %% of
+		 %%     B -> B
+		 %% catch
+		 %%     _:_ -> io:format('BAD BINARY: ~p~n',[Data]),
+		 %% 	    unicode:characters_to_binary(Data)
+		 %% end,
+		 %% Connection, From);
 
 channel_data(ChannelId, DataType, Data, 
 	     #connection{channel_cache = Cache} = Connection,

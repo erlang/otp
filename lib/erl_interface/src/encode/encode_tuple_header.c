@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -47,3 +47,20 @@ int ei_encode_tuple_header(char *buf, int *index, int arity)
   return 0;
 }
 
+int ei_encode_map_header(char *buf, int *index, int arity)
+{
+  char *s = buf + *index;
+  char *s0 = s;
+
+  if (arity < 0) return -1;
+
+  if (!buf) s += 5;
+  else {
+      put8(s,ERL_MAP_EXT);
+      put32be(s,arity);
+  }
+
+  *index += s-s0;
+
+  return 0;
+}

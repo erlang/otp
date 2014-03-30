@@ -23,5 +23,7 @@
   {modules, [otp_mib]},
   {registered, []},
   {applications, [kernel, stdlib, snmp]},
-  {env,[]}]}.
+  {env,[]},
+  {runtime_dependencies, ["stdlib-2.0","snmp-4.25.1","mnesia-4.12",
+			  "kernel-3.0","erts-6.0"]}]}.
 

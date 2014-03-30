@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,7 +52,11 @@
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
+	{'EXIT', _ReASoN_} ->
+            case mnesia_lib:other_val(Var) of
+                error -> mnesia_lib:pr_other(Var, _ReASoN_);
+                Val -> Val
+            end;
 	_VaLuE_ -> _VaLuE_ 
     end.
 
@@ -229,7 +233,7 @@ del_transient(Tab, Storage) ->
     PosList = val({Tab, index}),
     del_transient(Tab, PosList, Storage).
 
-del_transient(_, [], _) -> done;
+del_transient(_, [], _) -> ok;
 del_transient(Tab, [Pos | Tail], Storage) ->
     delete_transient_index(Tab, Pos, Storage),
     del_transient(Tab, Tail, Storage).
@@ -237,7 +241,7 @@ del_transient(Tab, [Pos | Tail], Storage) ->
 delete_transient_index(Tab, Pos, disc_only_copies) ->
     Tag = {Tab, index, Pos},
     mnesia_monitor:unsafe_close_dets(Tag),
-    file:delete(tab2filename(Tab, Pos)),
+    _ = file:delete(tab2filename(Tab, Pos)),
     del_index_info(Tab, Pos), %% Uses val(..)
     mnesia_lib:unset({Tab, {index, Pos}});
 
@@ -255,7 +259,7 @@ init_disc_index(_Tab, []) ->
 init_disc_index(Tab, [Pos | Tail]) when is_integer(Pos) ->
     Fn = tab2filename(Tab, Pos),
     IxTag = {Tab, index, Pos},
-    file:delete(Fn),
+    _ = file:delete(Fn),
     Args = [{file, Fn}, {keypos, 1}, {type, bag}],
     mnesia_monitor:open_dets(IxTag, Args),
     Storage = disc_only_copies,

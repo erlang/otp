@@ -71,6 +71,7 @@ XML_REF3_FILES = \
 	lib.xml \
 	lists.xml \
 	log_mf_h.xml \
+	maps.xml \
 	math.xml \
 	ms_transform.xml \
 	orddict.xml \

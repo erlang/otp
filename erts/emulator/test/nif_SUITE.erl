@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,14 +29,15 @@
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, 
 	 end_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
-	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, 
+	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
+	 maps/1,
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, 
 	 resource_takeover/1,
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
-	 otp_9668/1, consume_timeslice/1
+	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1
 	]).
 
 -export([many_args_100/100]).
@@ -58,12 +59,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, reload, upgrade, heap_frag, types, many_args,
-     binaries, get_string, get_atom, api_macros, from_array,
+     binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
-     otp_9668, consume_timeslice
+     otp_9668, consume_timeslice, dirty_nif, dirty_nif_send
     ].
 
 groups() -> 
@@ -435,6 +436,54 @@ get_atom(Config) when is_list(Config) ->
     ?line {0, <<>>} = atom_to_bin('',0),
     ok.
 
+maps(doc) -> ["Test NIF maps handling."];
+maps(suite) -> [];
+maps(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+    Pairs = [{adam, "bert"}] ++
+            [{I,I}||I <- lists:seq(1,10)] ++
+	    [{a,value},{"a","value"},{<<"a">>,<<"value">>}],
+    ok = ensure_lib_loaded(Config, 1),
+    M  = maps_from_list_nif(Pairs),
+    R = {RIs,Is} = sorted_list_from_maps_nif(M),
+    io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
+    Is = lists:sort(Pairs),
+    Is = lists:reverse(RIs),
+
+    #{} = maps_from_list_nif([]),
+    {[],[]} = sorted_list_from_maps_nif(#{}),
+
+    1 = is_map_nif(M),
+    0 = is_map_nif("no map"),
+
+    Msz = map_size(M),
+    {1,Msz} = get_map_size_nif(M),
+    {1,0} = get_map_size_nif(#{}),
+    {0,-123} = get_map_size_nif({#{}}),
+
+    #{} = M0 = make_new_map_nif(),
+
+    {1, #{key := value}=M1} = make_map_put_nif(M0, key, value),
+    {1, #{key := value, "key2" := "value2"}=M2} = make_map_put_nif(M1, "key2", "value2"),
+    {1, #{key := "value", "key2" := "value2"}=M3} = make_map_put_nif(M2, key, "value"),
+    {0, undefined} = make_map_put_nif(666, key, value),
+
+    {1, "value2"} = get_map_value_nif(M3,"key2"),
+    {0, undefined} = get_map_value_nif(M3,"key3"),
+    {0, undefined} = get_map_value_nif(false,key),
+
+    {0, undefined} = make_map_update_nif(M0, key, value),
+    {0, undefined} = make_map_update_nif(M1, "key2", "value2"),
+    {1, #{key := "value", "key2" := "value2"}} = make_map_update_nif(M2, key, "value"),
+    {0, undefined} = make_map_update_nif(666, key, value),
+
+    {1, #{}} = make_map_remove_nif(M1, key),
+    {1, M1} = make_map_remove_nif(M2, "key2"),
+    {1, M2} = make_map_remove_nif(M2, "key3"),
+    {0, undefined} = make_map_remove_nif(self(), key),
+
+    ok.
+ 
 api_macros(doc) -> ["Test macros enif_make_list<N> and enif_make_tuple<N>"];
 api_macros(suite) -> [];
 api_macros(Config) when is_list(Config) ->
@@ -800,6 +849,138 @@ resource_takeover(Config) when is_list(Config) ->
 
     ?line ok = forget_resource(AN4),
     ?line [] = nif_mod_call_history(),
+
+
+    %%
+    %% Test rollback after failed upgrade of same lib-version
+    %%
+
+    {A5,BinA5} = make_resource(2, Holder, "A5"),
+    {NA5,BinNA5} = make_resource(0, Holder, "NA5"),
+    {AN5,_BinAN5} = make_resource(1, Holder, "AN5"),
+
+    {A6,BinA6} = make_resource(2, Holder, "A6"),
+    {NA6,BinNA6} = make_resource(0, Holder, "NA6"),
+    {AN6,_BinAN6} = make_resource(1, Holder, "AN6"),
+
+    {module,nif_mod} = erlang:load_module(nif_mod,ModBin),
+    undefined = nif_mod:lib_version(),
+    {error,{upgrade,_}} =
+	nif_mod:load_nif_lib(Config, 1,
+			     [{resource_type, 4, ?RT_TAKEOVER, "resource_type_A",resource_dtor_B,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",null,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER, "resource_type_A_null",resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_CREATE, "Mr Pink", resource_dtor_A,
+			       ?RT_CREATE},
+
+			      {return, 1}  % FAIL
+			     ]),
+
+    undefined = nif_mod:lib_version(),
+    [{upgrade,1,5,105}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not changed (from A to B)
+    ok = forget_resource(A5),
+    [{{resource_dtor_A_v1,BinA5},1,6,106}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not nullified (from A to null)
+    ok = forget_resource(NA5),
+    [{{resource_dtor_A_v1,BinNA5},1,7,107}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not added (from null to A)
+    ok = forget_resource(AN5),
+    [] = nif_mod_call_history(),
+
+    %%
+    %% Test rollback after failed upgrade of other lib-version
+    %%
+
+    {error,{upgrade,_}} =
+	nif_mod:load_nif_lib(Config, 2,
+			     [{resource_type, 4, ?RT_TAKEOVER, "resource_type_A",resource_dtor_B,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",null,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER, "resource_type_A_null",resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, null, ?RT_TAKEOVER, "Mr Pink", resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_CREATE, "Mr Pink", resource_dtor_A,
+			       ?RT_CREATE},
+
+			      {return, 1}  % FAIL
+			     ]),
+
+    undefined = nif_mod:lib_version(),
+    [{upgrade,2,_,_}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not changed (from A to B)
+    ok = forget_resource(A6),
+    [{{resource_dtor_A_v1,BinA6},1,_,_}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not nullified (from A to null)
+    ok = forget_resource(NA6),
+    [{{resource_dtor_A_v1,BinNA6},1,_,_}] = nif_mod_call_history(),
+
+    %% Make sure dtor was not added (from null to A)
+    ok = forget_resource(AN6),
+    [] = nif_mod_call_history(),
+
+    %%
+    %% Test rolback after failed initial load
+    %%
+    false = code:purge(nif_mod),
+    [{unload,1,_,_}] = nif_mod_call_history(),
+    true = code:delete(nif_mod),
+    false = code:purge(nif_mod),
+    [] = nif_mod_call_history(),
+
+
+    {module,nif_mod} = erlang:load_module(nif_mod,ModBin),
+    undefined = nif_mod:lib_version(),
+    {error,{load,_}} =
+	nif_mod:load_nif_lib(Config, 1,
+			     [{resource_type, null, ?RT_TAKEOVER, "resource_type_A",resource_dtor_A,
+			       ?RT_TAKEOVER},
+			      {resource_type, 4, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",null,
+			       ?RT_CREATE},
+			      {resource_type, 4, ?RT_CREATE, "resource_type_A_null",resource_dtor_A,
+			       ?RT_CREATE},
+			      {resource_type, 4, ?RT_CREATE, "Mr Pink", resource_dtor_A,
+			       ?RT_CREATE},
+
+			      {return, 1}  % FAIL
+			     ]),
+
+    undefined = nif_mod:lib_version(),
+    ok = nif_mod:load_nif_lib(Config, 1,
+			      [{resource_type, null, ?RT_TAKEOVER, "resource_type_A",resource_dtor_A,
+				?RT_TAKEOVER},
+			       {resource_type, 0, ?RT_TAKEOVER bor ?RT_CREATE, "resource_type_null_A",
+				resource_dtor_A, ?RT_CREATE},
+
+			       {resource_type, 1, ?RT_CREATE, "resource_type_A_null", null,
+				?RT_CREATE},
+			       {resource_type, null, ?RT_TAKEOVER, "Mr Pink", resource_dtor_A,
+				?RT_TAKEOVER},
+
+			       {return, 0}  % SUCCESS
+			      ]),
+
+    ?line hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    ?line [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    {NA7,BinNA7} = make_resource(0, Holder, "NA7"),
+    {AN7,BinAN7} = make_resource(1, Holder, "AN7"),
+
+    ok = forget_resource(NA7),
+    [{{resource_dtor_A_v1,BinNA7},1,_,_}] = nif_mod_call_history(),
+
+    ok = forget_resource(AN7),
+    [] = nif_mod_call_history(),
 
     ?line true = lists:member(?MODULE, erlang:system_info(taints)),
     ?line true = lists:member(nif_mod, erlang:system_info(taints)),
@@ -1343,7 +1524,39 @@ consume_timeslice(Config) when is_list(Config) ->
 
     ok.
 
-next_msg(Pid) ->
+dirty_nif(Config) when is_list(Config) ->
+    try erlang:system_info(dirty_cpu_schedulers) of
+	N when is_integer(N) ->
+	    ensure_lib_loaded(Config),
+	    Val1 = 42,
+	    Val2 = "Erlang",
+	    Val3 = list_to_binary([Val2, 0]),
+	    {Val1, Val2, Val3} = call_dirty_nif(Val1, Val2, Val3),
+	    ok
+    catch
+	error:badarg ->
+	    {skipped,"No dirty scheduler support"}
+    end.
+
+dirty_nif_send(Config) when is_list(Config) ->
+    try erlang:system_info(dirty_cpu_schedulers) of
+	N when is_integer(N) ->
+	    ensure_lib_loaded(Config),
+	    Parent = self(),
+	    Pid = spawn_link(fun() ->
+				     Self = self(),
+				     {ok, Self} = receive_any(),
+				     Parent ! {ok, Self}
+			     end),
+	    {ok, Pid} = send_from_dirty_nif(Pid),
+	    {ok, Pid} = receive_any(),
+	    ok
+    catch
+	error:badarg ->
+	    {skipped,"No dirty scheduler support"}
+    end.
+
+next_msg(_Pid) ->
     receive
 	M -> M
     after 100 ->
@@ -1472,6 +1685,20 @@ echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
 otp_9668_nif(_) -> ?nif_stub.
 consume_timeslice_nif(_,_) -> ?nif_stub.
+call_dirty_nif(_,_,_) -> ?nif_stub.
+send_from_dirty_nif(_) -> ?nif_stub.
+
+%% maps
+is_map_nif(_) -> ?nif_stub.
+get_map_size_nif(_) -> ?nif_stub.
+make_new_map_nif() -> ?nif_stub.
+make_map_put_nif(_,_,_) -> ?nif_stub.
+get_map_value_nif(_,_) -> ?nif_stub.
+make_map_update_nif(_,_,_) -> ?nif_stub.
+make_map_remove_nif(_,_) -> ?nif_stub.
+maps_from_list_nif(_) -> ?nif_stub.
+sorted_list_from_maps_nif(_) -> ?nif_stub.
+
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -109,7 +109,10 @@ erts_lib(Vars,OsType) ->
      ErtsLibIncludeInternal,
      ErtsLibIncludeInternalGenerated,
      ErtsLibPath,
-     ErtsLibInternalPath}
+     ErtsLibInternalPath,
+     ErtsLibEthreadMake,
+     ErtsLibInternalMake
+    }
 	= case erl_root(Vars) of
 	      {installed, _Root} ->
 		  Erts = lib_dir(Vars, erts),
@@ -117,12 +120,17 @@ erts_lib(Vars,OsType) ->
 		  ErtsIncludeInternal = filename:join([ErtsInclude, "internal"]),
 		  ErtsLib = filename:join([Erts, "lib"]),
 		  ErtsLibInternal = filename:join([ErtsLib, "internal"]),
+		  ErtsEthreadMake = filename:join([ErtsIncludeInternal, "ethread.mk"]),
+		  ErtsInternalMake = filename:join([ErtsIncludeInternal, "erts_internal.mk"]),
+
 		  {ErtsInclude,
 		   ErtsInclude,
 		   ErtsIncludeInternal,
 		   ErtsIncludeInternal,
 		   ErtsLib,
-		   ErtsLibInternal};
+		   ErtsLibInternal,
+		   ErtsEthreadMake,
+		   ErtsInternalMake};
 	      {srctree, Root, Target} ->
 		  Erts = filename:join([Root, "erts"]),
 		  ErtsInclude = filename:join([Erts, "include"]),
@@ -136,12 +144,17 @@ erts_lib(Vars,OsType) ->
 						   "lib",
 						   "internal",
 						   Target]),
+		  ErtsEthreadMake = filename:join([ErtsIncludeInternalTarget, "ethread.mk"]),
+		  ErtsInternalMake = filename:join([ErtsIncludeInternalTarget, "erts_internal.mk"]),
+
 		  {ErtsInclude,
 		   ErtsIncludeTarget,
 		   ErtsIncludeInternal,
 		   ErtsIncludeInternalTarget,
 		   ErtsLib,
-		   ErtsLibInternal}
+		   ErtsLibInternal,
+		   ErtsEthreadMake,
+		   ErtsInternalMake}
 	  end,
     [{erts_lib_include,
       quote(filename:nativename(ErtsLibInclude))},
@@ -154,7 +167,9 @@ erts_lib(Vars,OsType) ->
      {erts_lib_path, quote(filename:nativename(ErtsLibPath))},
      {erts_lib_internal_path, quote(filename:nativename(ErtsLibInternalPath))},
      {erts_lib_multi_threaded, erts_lib_name(multi_threaded, OsType)},
-     {erts_lib_single_threaded, erts_lib_name(single_threaded, OsType)}
+     {erts_lib_single_threaded, erts_lib_name(single_threaded, OsType)},
+     {erts_lib_make_ethread, quote(ErtsLibEthreadMake)},
+     {erts_lib_make_internal, quote(ErtsLibInternalMake)}
      | Vars].
 
 erl_include(Vars) ->
@@ -190,10 +205,10 @@ erl_interface(Vars,OsType) ->
 		 case erl_root(Vars) of
 		     {installed, _Root} ->
 			 {filename:join(Dir, "lib"),
-			  filename:join(Dir, "src")};
+			  filename:join([Dir, "src", "eidefs.mk"])};
 		     {srctree, _Root, Target} ->
 			 {filename:join([Dir, "obj", Target]),
-			  filename:join([Dir, "src", Target])}
+			  filename:join([Dir, "src", Target, "eidefs.mk"])}
 		 end}
 	end,
     Lib = link_library("erl_interface",OsType),
@@ -234,10 +249,10 @@ erl_interface(Vars,OsType) ->
 		end,
     [{erl_interface_libpath, quote(filename:nativename(LibPath))},
      {erl_interface_sock_libs, sock_libraries(OsType)},
-     {erl_interface_lib, Lib},
-     {erl_interface_eilib, Lib1},
-     {erl_interface_lib_drv, LibDrv},
-     {erl_interface_eilib_drv, Lib1Drv},
+     {erl_interface_lib, quote(filename:join(LibPath, Lib))},
+     {erl_interface_eilib, quote(filename:join(LibPath, Lib1))},
+     {erl_interface_lib_drv, quote(filename:join(LibPath, LibDrv))},
+     {erl_interface_eilib_drv, quote(filename:join(LibPath, Lib1Drv))},
      {erl_interface_threadlib, ThreadLib},
      {erl_interface_include, quote(filename:nativename(Incl))},
      {erl_interface_mk_include, quote(filename:nativename(MkIncl))}
@@ -260,7 +275,7 @@ ic(Vars, OsType) ->
 	end,
     [{ic_classpath, quote(filename:nativename(ClassPath))},
      {ic_libpath, quote(filename:nativename(LibPath))},
-     {ic_lib, link_library("ic", OsType)},
+     {ic_lib, quote(filename:join(filename:nativename(LibPath),link_library("ic", OsType)))},
      {ic_include_path, quote(filename:nativename(Incl))}|Vars].
 
 jinterface(Vars, _OsType) ->
@@ -370,9 +385,18 @@ separators(Vars, {win32,_}) ->
 separators(Vars, _) ->
     [{'DS',"/"},{'PS',":"}|Vars].
 
-quote([$ |R]) ->
-    "\\ "++quote(R);
-quote([C|R]) ->
-    [C|quote(R)];
-quote([]) ->
-    [].
+quote(List) ->
+    case lists:member($ , List) of
+	false -> List;
+	true -> make_quote(List)
+    end.
+
+make_quote(List) ->
+    case os:type() of
+	{win32, _} -> %% nmake"
+	    [$"] ++ List ++ [$"];
+	_ -> %% make
+	    BackQuote = fun($ , Acc) -> [$\\ , $  |Acc];
+			   (Char, Acc) -> [Char|Acc] end,
+	    lists:foldr(BackQuote, [], List)
+    end.

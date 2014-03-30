@@ -40,6 +40,7 @@
 -export([action_function/1]).
 -export([warnings/1]).
 -export([no_warnings/1]).
+-export([eep37/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
@@ -57,7 +58,7 @@ all() ->
      record_index, multipass, bitsyntax, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
-     semicolon].
+     semicolon, eep37].
 
 groups() -> 
     [].
@@ -805,6 +806,14 @@ action_function(Config) when is_list(Config) ->
 	    "trace(Y, [procs], [send])  end)">>),
     ok.
 
+
+eep37(Config) when is_list(Config) ->
+    setup(Config),
+    [{'$1',[],['$1']}] =
+        compile_and_run(<<"F = fun _Ms() ->\n"
+                          "            ets:fun2ms(fun (X) -> X end)\n"
+                          "    end,\n"
+                          "F()">>).
 
 
 

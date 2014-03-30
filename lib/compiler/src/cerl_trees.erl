@@ -55,7 +55,15 @@
 	       update_c_let/4, update_c_letrec/3, update_c_module/5,
 	       update_c_primop/3, update_c_receive/4, update_c_seq/3,
 	       update_c_try/6, update_c_tuple/2, update_c_tuple_skel/2,
-	       update_c_values/2, values_es/1, var_name/1]).
+	       update_c_values/2, values_es/1, var_name/1,
+
+	       map_arg/1, map_es/1,
+	       ann_c_map/3,
+	       update_c_map/3,
+	       map_pair_key/1,map_pair_val/1,map_pair_op/1,
+	       ann_c_map_pair/4,
+	       update_c_map_pair/4
+	   ]).
 
 
 %% ---------------------------------------------------------------------
@@ -129,6 +137,12 @@ map_1(F, T) ->
 			       map(F, cons_tl(T)));
  	tuple ->
 	    update_c_tuple_skel(T, map_list(F, tuple_es(T)));
+ 	map ->
+	    update_c_map(T, map(F, map_arg(T)), map_list(F, map_es(T)));
+	map_pair ->
+	    update_c_map_pair(T, map(F, map_pair_op(T)),
+                                 map(F, map_pair_key(T)),
+                                 map(F, map_pair_val(T)));
  	'let' ->
 	    update_c_let(T, map_list(F, let_vars(T)),
 			 map(F, let_arg(T)),
@@ -235,6 +249,14 @@ fold_1(F, S, T) ->
 	    fold(F, fold(F, S, cons_hd(T)), cons_tl(T));
 	tuple ->
 	    fold_list(F, S, tuple_es(T));
+	map ->
+	    fold_list(F, S, map_es(T));
+	map_pair ->
+	    fold(F,
+		fold(F,
+		    fold(F, S, map_pair_op(T)),
+		    map_pair_key(T)),
+		map_pair_val(T));
  	'let' ->
 	    fold(F, fold(F, fold_list(F, S, let_vars(T)),
 			 let_arg(T)),
@@ -349,6 +371,15 @@ mapfold(F, S0, T) ->
  	tuple ->
 	    {Ts, S1} = mapfold_list(F, S0, tuple_es(T)),
 	    F(update_c_tuple_skel(T, Ts), S1);
+	map ->
+	    {M , S1} = mapfold(F, S0, map_arg(T)),
+	    {Ts, S2} = mapfold_list(F, S1, map_es(T)),
+	    F(update_c_map(T, M, Ts), S2);
+	map_pair ->
+	    {Op,  S1} = mapfold(F, S0, map_pair_op(T)),
+	    {Key, S2} = mapfold(F, S1, map_pair_key(T)),
+	    {Val, S3} = mapfold(F, S2, map_pair_val(T)),
+	    F(update_c_map_pair(T,Op,Key,Val), S3);
  	'let' ->
 	    {Vs, S1} = mapfold_list(F, S0, let_vars(T)),
 	    {A, S2} = mapfold(F, S1, let_arg(T)),
@@ -488,6 +519,10 @@ variables(T, S) ->
 			  variables(cons_tl(T), S));
 	tuple ->
 	    vars_in_list(tuple_es(T), S);
+	map ->
+	    vars_in_list(map_es(T), S);
+	map_pair ->
+	    vars_in_list([map_pair_op(T),map_pair_key(T), map_pair_val(T)], S);
 	'let' ->
 	    Vs = variables(let_body(T), S),
 	    Vs1 = var_list_names(let_vars(T)),
@@ -688,6 +723,17 @@ label(T, N, Env) ->
 	    {Ts, N1} = label_list(tuple_es(T), N, Env),
 	    {As, N2} = label_ann(T, N1),
 	    {ann_c_tuple_skel(As, Ts), N2};
+ 	map ->
+	    {M,  N1} = label(map_arg(T), N, Env),
+	    {Ts, N2} = label_list(map_es(T), N1, Env),
+	    {As, N3} = label_ann(T, N2),
+	    {ann_c_map(As, M, Ts), N3};
+	map_pair ->
+	    {Op,  N1} = label(map_pair_op(T), N, Env),
+	    {Val, N2} = label(map_pair_key(T), N1, Env),
+	    {Key, N3} = label(map_pair_val(T), N2, Env),
+	    {As,  N4} = label_ann(T, N3),
+	    {ann_c_map_pair(As,Op,Key,Val), N4};
  	'let' ->
 	    {A, N1} = label(let_arg(T), N, Env),
 	    {Vs, N2, Env1} = label_vars(let_vars(T), N1, Env),

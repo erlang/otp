@@ -254,6 +254,10 @@ gexpr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
     gexpr_list([H,T], Def, St);
 gexpr(#c_tuple{es=Es}, Def, _Rt, St) ->
     gexpr_list(Es, Def, St);
+gexpr(#c_map{es=Es}, Def, _Rt, St) ->
+    gexpr_list(Es, Def, St);
+gexpr(#c_map_pair{key=K,val=V}, Def, _Rt, St) ->
+    gexpr_list([K,V], Def, St);
 gexpr(#c_binary{segments=Ss}, Def, _Rt, St) ->
     gbitstr_list(Ss, Def, St);
 gexpr(#c_seq{arg=Arg,body=B}, Def, Rt, St0) ->
@@ -263,10 +267,21 @@ gexpr(#c_let{vars=Vs,arg=Arg,body=B}, Def, Rt, St0) ->
     St1 = gbody(Arg, Def, let_varcount(Vs), St0), %This is a guard body
     {Lvs,St2} = variable_list(Vs, St1),
     gbody(B, union(Lvs, Def), Rt, St2);
-gexpr(#c_call{module=#c_literal{val=erlang},
-	      name=#c_literal{},
-	      args=As}, Def, 1, St) ->
-    gexpr_list(As, Def, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record},
+              args=[Arg,#c_literal{val=Tag},#c_literal{val=Size}]},
+      Def, 1, St) when is_atom(Tag), is_integer(Size) ->
+    gexpr(Arg, Def, 1, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record}},
+      _Def, 1, St) ->
+    add_error({illegal_guard,St#lint.func}, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
+      Def, 1, St) when is_atom(Name) ->
+    case is_guard_bif(Name, length(As)) of
+        true ->
+            gexpr_list(As, Def, St);
+        false ->
+            add_error({illegal_guard,St#lint.func}, St)
+    end;
 gexpr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
     gexpr_list(As, Def, St0);
 gexpr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
@@ -278,6 +293,7 @@ gexpr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     St1 = gbody(Arg, Def, PatCount, St0),
     clauses(Cs, Def, PatCount, Rt, St1);
 gexpr(_Core, _, _, St) ->
+    %%io:fwrite("clint gexpr: ~p~n", [_Core]),
     add_error({illegal_guard,St#lint.func}, St).
 
 %% gexpr_list([Expr], Defined, State) -> State.
@@ -293,6 +309,14 @@ gbitstr_list(Es, Def, St0) ->
 gbitstr(#c_bitstr{val=V,size=S}, Def, St) ->
     gexpr_list([V,S], Def, St).
 
+%% is_guard_bif(Name, Arity) -> Boolean.
+
+is_guard_bif(Name, Arity) ->
+    erl_internal:guard_bif(Name, Arity)
+        orelse erl_internal:arith_op(Name, Arity)
+        orelse erl_internal:bool_op(Name, Arity)
+        orelse erl_internal:comp_op(Name, Arity).
+
 %% expr(Expr, Defined, RetCount, State) -> State.
 
 expr(#c_var{name={_,_}=FA}, Def, _Rt, St) ->
@@ -303,6 +327,10 @@ expr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
     expr_list([H,T], Def, St);
 expr(#c_tuple{es=Es}, Def, _Rt, St) ->
     expr_list(Es, Def, St);
+expr(#c_map{es=Es}, Def, _Rt, St) ->
+    expr_list(Es, Def, St);
+expr(#c_map_pair{key=K,val=V},Def,_Rt,St) ->
+    expr_list([K,V],Def,St);
 expr(#c_binary{segments=Ss}, Def, _Rt, St) ->
     bitstr_list(Ss, Def, St);
 expr(#c_fun{vars=Vs,body=B}, Def, Rt, St0) ->
@@ -355,7 +383,7 @@ expr(#c_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Def, Rt, St0) ->
     {Ens,St5} = variable_list(Evs, St4),
     body(H, union(Ens, Def), Rt, St5);
 expr(_Other, _, _, St) ->
-    %%io:fwrite("clint: ~p~n", [_Other]),
+    %%io:fwrite("clint expr: ~p~n", [_Other]),
     add_error({illegal_expr,St#lint.func}, St).
 
 %% expr_list([Expr], Defined, State) -> State.
@@ -454,13 +482,19 @@ pattern(#c_cons{hd=H,tl=T}, Def, Ps, St) ->
     pattern_list([H,T], Def, Ps, St);
 pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
+pattern(#c_map{es=Es}, Def, Ps, St) ->
+    pattern_list(Es, Def, Ps, St);
+pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V},Def,Ps,St) ->
+    pattern_list([K,V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
 pattern(#c_alias{var=V,pat=P}, Def, Ps, St0) ->
     {Vvs,St1} = variable(V, Ps, St0),
     pattern(P, Def, union(Vvs, Ps), St1);
-pattern(_, _, Ps, St) -> {Ps,add_error({not_pattern,St#lint.func}, St)}.
+pattern(_Other, _, Ps, St) ->
+    %%io:fwrite("clint pattern: ~p~n", [_Other]),
+    {Ps,add_error({not_pattern,St#lint.func}, St)}.
 
 pat_var(N, _Def, Ps, St) ->
     case is_element(N, Ps) of

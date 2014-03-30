@@ -2,13 +2,13 @@
 
 -export([f/0, gen/0]).
 
--opaque id() :: string().
+%-opaque id() :: string().
 
 -spec f() -> char().
 
 %% List pattern matching issue
 f() -> [H|_T] = gen(), H.
 
--spec gen() -> id().
+-spec gen() -> zoltan_adt:id().
 
 gen() -> "Dummy".

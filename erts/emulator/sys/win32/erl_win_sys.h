@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -60,16 +60,18 @@
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
 
-/*
- * Define MAXPATHLEN in terms of MAXPATH if available.
- */
-
-#ifndef MAXPATH
-#define MAXPATH MAX_PATH
-#endif /* MAXPATH */
 
 #ifndef MAXPATHLEN
-#define MAXPATHLEN MAXPATH
+#define MAXPATHLEN 4096
+/*
+   erts-6.0 (OTP 17.0):
+   We now accept windows paths longer than 260 (MAX_PATH) by conversion to
+   UNC path format. In order to also return long paths from the driver we
+   increased MAXPATHLEN from 260 to larger (but arbitrary) value 4096.
+   It would of course be nicer to instead dynamically allocate large enough
+   tmp buffers when efile_drv needs to return really long paths, and do that
+   for unix as well.
+ */
 #endif /* MAXPATHLEN */
 
 /*
@@ -103,6 +105,10 @@
 #define CreateAutoEvent(state) CreateEvent(NULL, FALSE, state, NULL)
 #define CreateManualEvent(state) CreateEvent(NULL, TRUE, state, NULL)
 
+/*
+ * Min number of async threads
+ */
+#define ERTS_MIN_NO_OF_ASYNC_THREADS 0
 
 /*
  * Our own type of "FD's"

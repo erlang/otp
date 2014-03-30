@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,6 +49,11 @@
 
 %% Payload encryption/decryption
 -export([cipher/4, decipher/3, is_correct_mac/2]).
+
+-export_type([ssl_version/0, ssl_atom_version/0]).
+
+-type ssl_version()       :: {integer(), integer()}.
+-type ssl_atom_version() :: tls_record:tls_atom_version().
 
 %%====================================================================
 %% Internal application API
@@ -299,7 +304,7 @@ set_pending_cipher_state(#connection_states{pending_read = Read,
 
 
 %%--------------------------------------------------------------------
--spec encode_handshake(iolist(), tls_version(), #connection_states{}) ->
+-spec encode_handshake(iolist(), ssl_version(), #connection_states{}) ->
 			      {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes a handshake message to send on the ssl-socket.
@@ -308,7 +313,7 @@ encode_handshake(Frag, Version, ConnectionStates) ->
     encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_alert_record(#alert{}, tls_version(), #connection_states{}) ->
+-spec encode_alert_record(#alert{}, ssl_version(), #connection_states{}) ->
 				 {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes an alert message to send on the ssl-socket.
@@ -319,7 +324,7 @@ encode_alert_record(#alert{level = Level, description = Description},
 		      ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_change_cipher_spec(tls_version(), #connection_states{}) ->
+-spec encode_change_cipher_spec(ssl_version(), #connection_states{}) ->
 				       {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
@@ -328,7 +333,7 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
     encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_data(binary(), tls_version(), #connection_states{}) ->
+-spec encode_data(binary(), ssl_version(), #connection_states{}) ->
 			 {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
@@ -356,7 +361,7 @@ compressions() ->
     [?byte(?NULL)].
 
 %%--------------------------------------------------------------------
--spec cipher(tls_version(), iolist(), #connection_state{}, MacHash::binary()) ->
+-spec cipher(ssl_version(), iodata(), #connection_state{}, MacHash::binary()) ->
 		    {CipherFragment::binary(), #connection_state{}}.
 %%
 %% Description: Payload encryption
@@ -372,7 +377,7 @@ cipher(Version, Fragment,
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
 %%--------------------------------------------------------------------
--spec decipher(tls_version(), binary(), #connection_state{}) -> {binary(), binary(), #connection_state{}}.
+-spec decipher(ssl_version(), binary(), #connection_state{}) -> {binary(), binary(), #connection_state{}}.
 %%
 %% Description: Payload decryption
 %%--------------------------------------------------------------------

@@ -1,0 +1,2 @@
+-module(myapp).
+-vsn("1.0").

@@ -1,4 +1,3 @@
-% -*- coding: utf-8 -*-
 {application, ua,
  [{description, "Application for testing unicode in reltool - αβ"},
   {vsn, "1.0"},

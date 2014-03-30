@@ -28,7 +28,8 @@
 -record(alu, {dst, src1, op, src2}).
 -record(alub, {dst, src1, op, src2, 'cond', true_label, false_label, p}).
 -record(branch, {src1, src2, 'cond', true_label, false_label, p}).
--record(call, {dstlist, 'fun', arglist, type, continuation, failcontinuation}).
+-record(call, {dstlist, 'fun', arglist, type, continuation,
+    failcontinuation, normalcontinuation = []}).
 -record(comment, {text}).
 -record(enter, {'fun', arglist, type}).
 -record(fconv, {dst, src}).

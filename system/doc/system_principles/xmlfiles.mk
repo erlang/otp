@@ -19,4 +19,5 @@
 SYSTEM_PRINCIPLES_CHAPTER_FILES = \
 	system_principles.xml \
 	error_logging.xml \
-	create_target.xml
+	create_target.xml \
+	versions.xml

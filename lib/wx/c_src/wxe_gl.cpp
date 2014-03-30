@@ -1,20 +1,20 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
- * %CopyrightEnd% 
+ *
+ * %CopyrightEnd%
  */
 
 #include <stdio.h>
@@ -26,8 +26,9 @@
 #endif
 #include "wxe_impl.h"
 #include "wxe_return.h"
+#include "wxe_gl.h"
 
-/* **************************************************************************** 
+/* ****************************************************************************
  * Opengl context management *
  * ****************************************************************************/
 
@@ -138,7 +139,7 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
     else {
       ErlDrvTermData rt[] = // Error msg
 	{ERL_DRV_ATOM, driver_mk_atom((char *) "_egl_error_"),
-	 ERL_DRV_INT,  op,
+	 ERL_DRV_INT,  (ErlDrvTermData) op,
 	 ERL_DRV_ATOM, driver_mk_atom((char *) "no_gl_context"),
 	 ERL_DRV_TUPLE,3};
       erl_drv_send_term(WXE_DRV_PORT,caller,rt,8);

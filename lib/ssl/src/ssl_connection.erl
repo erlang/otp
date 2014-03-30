@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,6 +51,7 @@
 -export([hello/3, abbreviated/3, certify/3, cipher/3, connection/3]).
 %% SSL all state functions 
 -export([handle_sync_event/4, handle_info/3, terminate/3]).
+
 
 %%====================================================================
 %% Internal application API
@@ -1757,12 +1758,12 @@ handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport,
 	    Connection:handle_close_alert(Data, StateName, State)
     end.
 
-handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = <<>>}}) ->
+handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = <<>>, cacerts = []}}) ->
     %% No trusted certs specified
     ok;
 handle_trusted_certs_db(#state{cert_db_ref = Ref,
 			       cert_db = CertDb,
-			       ssl_options = #ssl_options{cacertfile = undefined}}) ->
+			       ssl_options = #ssl_options{cacertfile = <<>>}}) ->
     %% Certs provided as DER directly can not be shared
     %% with other connections and it is safe to delete them when the connection ends.
     ssl_pkix_db:remove_trusted_certs(Ref, CertDb);

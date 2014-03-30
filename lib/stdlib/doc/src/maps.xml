@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+	<header>
+		<copyright>
+			<year>2013</year><year>2014</year>
+			<holder>Ericsson AB. All Rights Reserved.</holder>
+		</copyright>
+		<legalnotice>
+			The contents of this file are subject to the Erlang Public License,
+			Version 1.1, (the "License"); you may not use this file except in
+			compliance with the License. You should have received a copy of the
+			Erlang Public License along with this software. If not, it can be
+			retrieved online at http://www.erlang.org/.
+
+			Software distributed under the License is distributed on an "AS IS"
+			basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+			the License for the specific language governing rights and limitations
+			under the License.
+		</legalnotice>
+		<title>maps</title>
+		<prepared>Björn-Egil Dahlberg</prepared>
+		<docno>1</docno>
+		<date>2014-02-28</date>
+		<rev>A</rev>
+	</header>
+	<module>maps</module>
+	<modulesummary>Maps Processing Functions</modulesummary>
+	<description>
+		<p>This module contains functions for maps processing.</p>
+	</description>
+	<funcs>
+
+		<func>
+			<name name="find" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns a tuple <c>{ok, Value}</c> where <c><anno>Value</anno></c> is the value associated with <c><anno>Key</anno></c>,
+					or <c>error</c> if no value is associated with <c><anno>Key</anno></c> in <c><anno>Map</anno></c>. 
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"hi" => 42},
+  Key = "hi",
+  maps:find(Key,Map).
+{ok,42} </code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="fold" arity="3"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Calls <c>F(K, V, AccIn)</c> for every <c><anno>K</anno></c> to value <c><anno>V</anno></c>
+					association in <c><anno>Map</anno></c> in
+					arbitrary order. The function <c>fun F/3</c> must return a new accumulator
+					which is passed to the next successive call. <c>maps:fold/3</c> returns the final
+					value of the accumulator. The initial accumulator value <c><anno>Init</anno></c> is returned if
+					the map is empty.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
+  Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
+  maps:fold(Fun,0,Map).
+6</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="from_list" arity="1"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The function takes a list of key-value tuples elements and builds a
+					map. The associations may be in any order and both keys and values in the
+					association may be of any term. If the same key appears more than once,
+					the latter (rightmost) value is used and the previous values are ignored.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
+  maps:from_list(List).
+#{42 => value_three,1337 => "value two","a" => 1}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="get" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns the value <c><anno>Value</anno></c> associated with <c><anno>Key</anno></c> if
+					<c><anno>Map</anno></c> contains <c><anno>Key</anno></c>.
+					If no value is associated with <c><anno>Key</anno></c> then the call will
+					fail with an exception.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Key = 1337,
+  Map = #{42 => value_two,1337 => "value one","a" => 1},
+  maps:get(Key,Map).
+"value one"</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="is_key" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns <c>true</c> if map <c><anno>Map</anno></c> contains <c><anno>Key</anno></c> and returns
+					<c>false</c> if it does not contain the <c><anno>Key</anno></c>.
+					The function will fail with an exception if <c><anno>Map</anno></c> is not a Map.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"42" => value}.
+#{"42"> => value}
+> maps:is_key("42",Map).
+true
+> maps:is_key(value,Map).
+false</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="keys" arity="1"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns a complete list of keys, in arbitrary order, which resides within <c><anno>Map</anno></c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  maps:keys(Map).
+[42,1337,"a"]</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="map" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The function produces a new map <c><anno>Map2</anno></c> by calling the function <c>fun F(K, V1)</c> for
+					every <c><anno>K</anno></c> to value <c><anno>V1</anno></c> association in <c><anno>Map1</anno></c> in arbitrary order.
+					The function <c>fun F/2</c> must return the value <c><anno>V2</anno></c> to be associated with key <c><anno>K</anno></c> for
+					the new map <c><anno>Map2</anno></c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Fun = fun(K,V1) when is_list(K) -> V1*2 end,
+  Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
+  maps:map(Fun,Map).
+#{"k1" => 2,"k2" => 4,"k3" => 6}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="merge" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Merges two maps into a single map <c><anno>Map3</anno></c>. If two keys exists in both maps the
+					value in <c><anno>Map1</anno></c> will be superseded by the value in <c><anno>Map2</anno></c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:merge(Map1,Map2).
+#{a => 1,b => "value_two",c => 2}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="new" arity="0"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns a new empty map.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> maps:new().
+#{}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="put" arity="3"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Associates <c><anno>Key</anno></c> with value <c><anno>Value</anno></c> and inserts the association into map <c>Map2</c>.
+					If key <c><anno>Key</anno></c> already exists in map <c><anno>Map1</anno></c>, the old associated value is
+					replaced by value <c><anno>Value</anno></c>. The function returns a new map <c><anno>Map2</anno></c> containing the new association and
+					the old associations in <c><anno>Map1</anno></c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"a" => 1}.
+#{"a" => 1}
+> maps:put("a", 42, Map).
+#{"a" => 42}
+> maps:put("b", 1337, Map).
+#{"a" => 1,"b" => 1337}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="remove" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The function removes the <c><anno>Key</anno></c>, if it exists, and its associated value from
+					<c><anno>Map1</anno></c> and returns a new map <c><anno>Map2</anno></c> without key <c><anno>Key</anno></c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"a" => 1}.
+#{"a" => 1}
+> maps:remove("a",Map).
+#{}
+> maps:remove("b",Map).
+#{"a" => 1}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="size" arity="1"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The function returns the number of key-value associations in the <c><anno>Map</anno></c>.
+					This operation happens in constant time.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{42 => value_two,1337 => "value one","a" => 1},
+  maps:size(Map).
+3</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="to_list" arity="1"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The fuction returns a list of pairs representing the key-value associations of <c><anno>Map</anno></c>,
+					where the pairs, <c>[{K1,V1}, ..., {Kn,Vn}]</c>, are returned in arbitrary order.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  maps:to_list(Map).
+[{42,value_three},{1337,"value two"},{"a",1}]</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="update" arity="3"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					If <c><anno>Key</anno></c> exists in <c><anno>Map1</anno></c> the old associated value is
+					replaced by value <c><anno>Value</anno></c>. The function returns a new map <c><anno>Map2</anno></c> containing
+					the new associated value. If <c><anno>Key</anno></c> does not exist in <c><anno>Map1</anno></c> an exception is
+					generated.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"a" => 1}.
+#{"a" => 1}
+> maps:update("a", 42, Map).
+#{"a" => 42}</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="values" arity="1"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns a complete list of values, in arbitrary order, contained in map <c>M</c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  maps:values(Map).
+[value_three,"value two",1]</code>
+			</desc>
+		</func>
+
+		<func>
+			<name name="without" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns a new map <c><anno>Map2</anno></c> without the keys <c>K1</c> through <c>Kn</c> and their associated values from map <c><anno>Map1</anno></c>.
+					Any key in <c><anno>Ks</anno></c> that does not exist in <c><anno>Map1</anno></c> are ignored.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  Ks = ["a",42,"other key"],
+  maps:without(Ks,Map).
+#{1337 => "value two"}</code>
+			</desc>
+		</func>
+	</funcs>
+</erlref>

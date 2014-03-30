@@ -85,6 +85,9 @@ public class OtpExternal {
     /** The tag used for new style references */
     public static final int newRefTag = 114;
 
+    /** The tag used for maps */
+    public static final int mapTag = 116;
+
     /** The tag used for old Funs */
     public static final int funTag = 117;
 
