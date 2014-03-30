@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -158,12 +158,15 @@ appvsn(Name) ->
 %% # xref/1
 %%
 %% Ensure that no function in our application calls an undefined function
-%% or one in an application we haven't specified as a dependency. (Almost.)
+%% or one in an application we haven't declared as a dependency. (Almost.)
 %% ===========================================================================
 
 xref(Config) ->
     App = fetch(app, Config),
-    Mods = fetch(modules, App),
+    Mods = fetch(modules, App),  %% modules listed in the app file
+
+    %% List of application names extracted from runtime_dependencies.
+    Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
@@ -178,7 +181,8 @@ xref(Config) ->
                        [?APP, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
-    {ok, Called} = xref:analyze(XRef, {module_call, ?COMPILER_MODULES}),
+    {ok, CTdeps} = xref:analyze(XRef, {module_call, ?COMPILER_MODULES}),
+    {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
     xref:stop(XRef),
 
@@ -193,15 +197,45 @@ xref(Config) ->
     %% TLS security: it's up to a client who wants TLS it to start
     %% ssl.
 
-    [] = lists:filter(fun is_bad_dependency/1, Called).
+    %% Ensure that compiler modules don't call runtime modules.
+    [] = lists:filter(fun nok_compiler_dependency/1, CTdeps),
+
+    %% Ensure that runtime modules only call other runtime modules, or
+    %% applications declared as in runtime_dependencies in the app
+    %% file. Note that the declared application versions are ignored
+    %% since we only know what we can see now.
+    [] = lists:filter(fun(M) -> not ok_runtime_dependency(M, Mods, Deps) end,
+                      RTdeps).
+
+unversion(App) ->
+    T = lists:dropwhile(fun is_vsn_ch/1, lists:reverse(App)),
+    lists:reverse(case T of [$-|TT] -> TT; _ -> T end).
+
+is_vsn_ch(C) ->
+    $0 =< C andalso C =< $9 orelse $. == C.
 
 %% It's not strictly necessary that diameter compiler modules not
 %% depend on other diameter modules but it's a simple source of build
-%% errors if not encoded in the makefile (hence the test) so guard
-%% against it.
-is_bad_dependency(Mod) ->
-    lists:prefix("diameter", atom_to_list(Mod))
-        andalso not lists:member(Mod, ?COMPILER_MODULES).
+%% errors if not properly encoded in the makefile so guard against it.
+nok_compiler_dependency(Mod) ->
+    is_diameter(Mod) andalso not lists:member(Mod, ?COMPILER_MODULES).
+
+ok_runtime_dependency(Mod, Mods, Apps) ->
+    lists:member(app(Mod), Apps)
+        orelse (is_diameter(Mod) andalso lists:member(Mod, Mods)).
+
+is_diameter(Mod) ->
+    lists:prefix("diameter", atom_to_list(Mod)).
+
+app('$M_EXPR') -> %% could be anything but assume it's ok
+    "erts";
+app(Mod) ->
+    case code:which(Mod) of
+        preloaded ->
+            "erts";
+        Path ->
+            unversion(lists:nth(3, lists:reverse(filename:split(Path))))
+    end.
 
 add_application(XRef, App) ->
     add_application(XRef, App, code:lib_dir(App)).
