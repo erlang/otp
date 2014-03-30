@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,6 +17,10 @@
 %% %CopyrightEnd%
 %%
 
+%%
+%% Information and debug functions.
+%%
+
 -module(diameter_dbg).
 
 -export([table/1,
@@ -29,8 +33,7 @@
          compiled/0,
          procs/0,
          latest/0,
-         nl/0,
-         log/4]).
+         nl/0]).
 
 -export([diameter_config/0,
          diameter_peer/0,
@@ -52,9 +55,8 @@
          tp/1]).
 
 -include_lib("diameter/include/diameter.hrl").
--include("diameter_internal.hrl").
 
-
+-define(APPLICATION, diameter).
 -define(INFO,  diameter_info).
 -define(SEP(), ?INFO:sep()).
 
@@ -67,9 +69,6 @@
                 diameter_stats]).
 
 -define(VALUES(Rec), tl(tuple_to_list(Rec))).
-
-log(_Slogan, _Mod, _Line, _Details) ->
-    ok.
 
 %%% ----------------------------------------------------------
 %%% # help()

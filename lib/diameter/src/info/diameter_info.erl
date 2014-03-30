@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -15,6 +15,11 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
+%%
+
+%%
+%% Generic functions for formatting table listings and more. Used by
+%% diameter_dbg.
 %%
 
 -module(diameter_info).
@@ -573,12 +578,7 @@ sys_info() ->
     {A,V}.
 
 os_info() ->
-    {os:version(), case os:type() of
-                       {_Fam, _Name} = T ->
-                           T;
-                       Fam ->
-                           {Fam, ""}
-                   end}.
+    {os:version(), os:type()}.
 
 chomp(S) ->
     string:strip(S, right, $\n).

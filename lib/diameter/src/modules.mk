@@ -1,8 +1,7 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2010-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -64,15 +63,18 @@ RT_MODULES = \
 	transport/diameter_transport \
 	transport/diameter_transport_sup
 
-# Handwritten (compile time) modules not included in the app file.
+# Handwritten compiler modules not included in the app file.
 CT_MODULES = \
-	base/diameter_dbg \
-	base/diameter_info \
 	compiler/diameter_codegen \
 	compiler/diameter_exprecs \
 	compiler/diameter_dict_scanner \
 	compiler/diameter_dict_util \
 	compiler/diameter_make
+
+# Info/debug modules, also not included in the app file.
+INFO_MODULES = \
+	info/diameter_dbg \
+	info/diameter_info
 
 # Released hrl files in ../include intended for public consumption.
 EXTERNAL_HRLS = \

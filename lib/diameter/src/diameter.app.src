@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,9 +20,18 @@
 {application, diameter,
  [{description, "Diameter protocol"},
   {vsn, "%VSN%"},
-  {modules, [%MODULES%]},
+  {modules, [
+      %MODULES%
+      %,%COMPILER%
+      %,%INFO%
+      ]},
   {registered, [%REGISTERED%]},
-  {applications, [stdlib, kernel]},
+  {applications, [
+      stdlib, kernel
+      %, syntax_tools
+      %, runtime_tools
+      %, ssl
+      ]},
   {env, []},
   {mod, {diameter_app, []}},
   {runtime_dependencies, ["syntax_tools-1.6.14","stdlib-2.0","ssl-5.3.4",
