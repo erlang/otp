@@ -232,21 +232,29 @@ identify([Vsn | [T|_] = ParseD])
 identify({path, File} = T) ->
     {T, File};
 identify(File) ->
-    Bin = iolist_to_binary([File]),
-    case is_path(Bin) of
+    case is_path([File]) of
         true  -> {{path, File}, File};
-        false -> {Bin, ?DEFAULT_DICT_FILE}
+        false -> {File, ?DEFAULT_DICT_FILE}
     end.
 
-%% Interpret anything containing \n or \r as a literal dictionary,
-%% otherwise a path. (Which might be the wrong guess in the worst case.)
-is_path(Bin) ->
-    try
-        [throw(C) || <<C>> <= Bin, $\n == C orelse $\r == C],
-        true
-    catch
-        throw:_ -> false
-    end.
+%% Interpret anything containing \n or \r as a literal dictionary.
+
+is_path([<<C,B/binary>> | T]) ->
+    is_path([C, B | T]);
+
+is_path([[C|L] | T]) ->
+    is_path([C, L | T]);
+
+is_path([C|_])
+  when $\n == C;
+       $\r == C ->
+    false;
+
+is_path([_|T]) ->
+    is_path(T);
+
+is_path([]) ->
+    true.
 
 make(File, Opts, Dict) ->
     ok(lists:foldl(fun(M,A) -> [make(File, Opts, Dict, M) | A] end,
