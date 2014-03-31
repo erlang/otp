@@ -168,7 +168,12 @@ init_per_group(http_1_1, Config) ->
 init_per_group(http_1_0, Config) ->
     [{http_version, "HTTP/1.0"} | Config];
 init_per_group(http_0_9, Config) ->
-    [{http_version, "HTTP/0.9"} | Config];
+    case {os:type(), os:version()} of
+	{{win32, _}, {5,1,2600}} ->
+	    {skip, "eaddrinuse XP problem"};
+	_ ->
+	    [{http_version, "HTTP/0.9"} | Config]
+    end;
 init_per_group(http_htaccess = Group, Config) ->
     Path = ?config(doc_root, Config),
     catch remove_htaccess(Path),
@@ -1099,7 +1104,7 @@ do_max_clients(Config) ->
     BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
-    ct:sleep(100),
+    ct:sleep(100), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -1112,6 +1117,7 @@ do_max_clients(Config) ->
 	    ok
     end,
     inets_test_lib:close(Type, Socket),
+    ct:sleep(100), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
