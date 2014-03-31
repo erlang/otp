@@ -9207,7 +9207,6 @@ Process *schedule(Process *p, int calls)
 	 */
     pick_next_process: {
 	    erts_aint32_t psflg_band_mask;
-	    erts_aint32_t running_flag;
 	    int prio_q;
 	    int qmask;
 
@@ -9269,12 +9268,6 @@ Process *schedule(Process *p, int calls)
 		state = erts_smp_atomic32_read_nob(&p->state);
 	    }
 
-
-	    if (state & ERTS_PSFLG_ACTIVE_SYS)
-		running_flag = ERTS_PSFLG_RUNNING_SYS;
-	    else
-		running_flag = ERTS_PSFLG_RUNNING;
-
 	    while (1) {
 		erts_aint32_t exp, new, tmp;
 		tmp = new = exp = state;
@@ -9284,8 +9277,12 @@ Process *schedule(Process *p, int calls)
 		    tmp = state & (ERTS_PSFLG_SUSPENDED
 				   | ERTS_PSFLG_PENDING_EXIT
 				   | ERTS_PSFLG_ACTIVE_SYS);
-		    if (tmp != ERTS_PSFLG_SUSPENDED)
-			new |= running_flag;
+		    if (tmp != ERTS_PSFLG_SUSPENDED) {
+			if (state & ERTS_PSFLG_ACTIVE_SYS)
+			    new |= ERTS_PSFLG_RUNNING_SYS;
+			else
+			    new |= ERTS_PSFLG_RUNNING;
+		    }
 		}
 		state = erts_smp_atomic32_cmpxchg_relb(&p->state, new, exp);
 		if (state == exp) {
