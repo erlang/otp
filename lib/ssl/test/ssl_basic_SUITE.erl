@@ -88,7 +88,8 @@ basic_tests() ->
      send_close,
      connect_twice,
      connect_dist,
-     clear_pem_cache
+     clear_pem_cache,
+     clear_cacert_cache
     ].
 
 options_tests() ->
@@ -581,6 +582,32 @@ clear_pem_cache(Config) when is_list(Config) ->
     ct:sleep(5000),
     _ = sys:get_status(whereis(ssl_manager)),
     0 = ets:info(FilRefDb, size).
+
+%%--------------------------------------------------------------------
+clear_cacert_cache() ->
+    [{doc,"Test that the internal cache table for explicitly supplied CA certs "
+     "is cleaned up correctly" }].
+clear_cacert_cache(Config) when is_list(Config) ->
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    [CertDb,_, _] = element(5, State),
+    ServerCaCertFile = filename:join([?config(priv_dir, Config),
+              "server", "cacerts.pem"]),
+    {ok, PemBin} = file:read_file(ServerCaCertFile),
+    DEREntries = public_key:pem_decode(PemBin),
+    Certs = [Bin || {_, Bin, _} <- DEREntries],
+    % Swap the 'cacerts' option into the config, replacing 'cacertfile'
+    ServerVerificationOpts = ?config(server_verification_opts, Config),
+    NewSVOpts = [{cacerts, Certs} | proplists:delete(cacertfile, ServerVerificationOpts)],
+    NewConfig = [{server_verification_opts, NewSVOpts} | proplists:delete(server_verification_opts, Config)],
+    {Server2, Client2} = basic_verify_test_no_close(NewConfig),
+    4 = ets:info(CertDb, size),
+
+    ssl_test_lib:close(Server2),
+    ssl_test_lib:close(Client2),
+    ct:sleep(5000),
+    0 = ets:info(CertDb, size).
 
 %%--------------------------------------------------------------------
 peername() ->
