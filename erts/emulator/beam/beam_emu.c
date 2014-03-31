@@ -3525,7 +3525,7 @@ get_map_elements_fail:
 		erts_post_nif(&env);
 #ifdef ERTS_DIRTY_SCHEDULERS
 		if (is_non_value(nif_bif_result) && c_p->freason == TRAP) {
-		    Export* ep = (Export*) c_p->psd->data[ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT];
+		    Export* ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(c_p);
 		    ep->code[0] = I[-3];
 		    ep->code[1] = I[-2];
 		}
