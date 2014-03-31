@@ -1389,6 +1389,8 @@ pick_peer(Local, Remote, Pid, _SvcName, #diameter_app{mutable = true} = App)
     case call_service(Pid, {pick_peer, Local, Remote, App}) of
         {TPid, _} = T when is_pid(TPid) ->
             T;
+        false = No ->
+            No;
         {error, _} ->
             false
     end;
