@@ -98,6 +98,8 @@ lib/wx/c_src/win32/
 lib/wx/priv/win32/
 lib/wx/win32/
 make/win32/
+make/otp_built
+make/otp_doc_built
 
 # OSE
 *.d

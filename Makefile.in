@@ -422,6 +422,10 @@ endif
 	cd $(ERL_TOP)/system/doc && \
 	  PATH=$(BOOT_PREFIX)"$${PATH}" \
 	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
+ifneq  ($(OTP_SMALL_BUILD),true)
+	echo "OTP doc built" > $(ERL_TOP)/make/otp_doc_built
+endif
+
 
 mod2app: 
 	PATH=$(BOOT_PREFIX)"$${PATH}" escript $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
@@ -447,6 +451,7 @@ else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
+	echo "OTP built" > $(ERL_TOP)/make/otp_built
 endif
 kernel:
 	$(make_verbose)cd lib/kernel && \
