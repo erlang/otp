@@ -768,39 +768,45 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>ssl_accept(ListenSocket) -> </name>
-      <name>ssl_accept(ListenSocket, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Perform server-side SSL handshake</fsummary>
+      <name>ssl_accept(Socket) -> </name>
+      <name>ssl_accept(Socket, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Perform server-side SSL/TLS handshake</fsummary>
       <type>
-        <v>ListenSocket = sslsocket()</v>
+        <v>Socket = sslsocket()</v>
         <v>Timeout = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>The <c>ssl_accept</c> function establish the SSL connection
-          on the server side. It should be called directly after
-          <c>transport_accept</c>, in the spawned server-loop.</p>
+        <p> Performs the SSL/TLS server-side handshake <c>Socket</c> is a socket as returned
+	by  <seealso
+        marker="#transport_accept-2">ssl:transport_accept/[1,2]</seealso>
+	</p>
       </desc>
     </func>
 
     <func>
-      <name>ssl_accept(ListenSocket, SslOptions) -> </name>
-      <name>ssl_accept(ListenSocket, SslOptions, Timeout) -> {ok, Socket} | {error, Reason}</name>
-      <fsummary>Perform server-side SSL handshake</fsummary>
+      <name>ssl_accept(Socket, SslOptions) -> </name>
+      <name>ssl_accept(Socket, SslOptions, Timeout) -> {ok, Socket} | ok | {error, Reason}</name>
+      <fsummary>Perform server-side SSL/TLS handshake</fsummary>
       <type>
-        <v>ListenSocket = socket()</v>
+        <v>Socket = socket() | sslsocket() </v>
 	<v>SslOptions = ssloptions()</v>
         <v>Timeout = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p> Upgrades a gen_tcp, or
-	  equivalent, socket to an ssl socket i.e. performs the
-	ssl server-side handshake.</p>
+        <p> If <c>Socket</c> is a socket() - upgrades a gen_tcp, or equivalent, socket to an ssl socket
+        i.e. performs the SSL/TLS server-side handshake and returns the ssl socket.
+	</p>
+	
 	<warning><p>Note that the listen socket should be in {active, false} mode
 	before telling the client that the server is ready to upgrade
-	and calling this function, otherwise the upgrade may
+	by calling this function, otherwise the upgrade may
 	or may not succeed depending on timing.</p></warning>
+	
+	<p> If <c>Socket</c> is an sslsocket() - provides additional SSL/TLS options to those specified in <seealso
+        marker="#listen-2">ssl:listen/2 </seealso> and then performs the SSL/TLS handshake.
+	</p>
       </desc>
     </func>
     
@@ -842,33 +848,38 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>transport_accept(Socket) -></name>
-      <name>transport_accept(Socket, Timeout) ->
+      <name>transport_accept(ListenSocket) -></name>
+      <name>transport_accept(ListenSocket, Timeout) ->
 	{ok, NewSocket} | {error, Reason}</name>
       <fsummary>Accept an incoming connection and
 	prepare for <c>ssl_accept</c></fsummary>
       <type>
-        <v>Socket = NewSocket = sslsocket()</v>
+        <v>ListenSocket = NewSocket = sslsocket()</v>
         <v>Timeout = integer()</v>
         <v>Reason = reason()</v>
       </type>
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
-          <c>ListenSocket</c> must be a socket returned from
-          <c>listen/2</c>.  The socket returned should be passed to
-          <c>ssl_accept</c> to complete ssl handshaking and
-          establishing the connection.</p>
+	<c>ListenSocket</c> must be a socket returned from
+	<seealso
+	    marker="#listen-2"> ssl:listen/2</seealso>.
+	The socket returned should be passed to
+	<seealso marker="#ssl_accept-2"> ssl:ssl_accept[2,3]</seealso>
+	to complete handshaking i.e
+	establishing the SSL/TLS connection.</p>
         <warning>
-          <p>The socket returned can only be used with <c>ssl_accept</c>,
-            no traffic can be sent or received before that call.</p>
+          <p>The socket returned can only be used with
+	  <seealso marker="#ssl_accept-2"> ssl:ssl_accept[2,3]</seealso>
+	  no traffic can be sent or received before that call.</p>
         </warning>
         <p>The accepted socket inherits the options set for
-          <c>ListenSocket</c> in <c>listen/2</c>.</p>
+	<c>ListenSocket</c> in <seealso
+	    marker="#listen-2"> ssl:listen/2</seealso>.</p>
 	<p>The default
-          value for <c>Timeout</c> is <c>infinity</c>. If
-          <c>Timeout</c> is specified, and no connection is accepted
-          within the given time, <c>{error, timeout}</c> is
-          returned.</p>
+	value for <c>Timeout</c> is <c>infinity</c>. If
+	<c>Timeout</c> is specified, and no connection is accepted
+	within the given time, <c>{error, timeout}</c> is
+	returned.</p>
       </desc>
     </func>
     
