@@ -50,7 +50,7 @@
                            diameter_exprecs,
                            diameter_make]).
 
--define(HELP_MODULES, [diameter_dbg,
+-define(INFO_MODULES, [diameter_dbg,
                        diameter_info]).
 
 %% ===========================================================================
@@ -99,13 +99,13 @@ vsn(Config) ->
 %% # modules/1
 %%
 %% Ensure that the app file modules and installed modules differ by
-%% compiler/help modules.
+%% compiler/info modules.
 %% ===========================================================================
 
 modules(Config) ->
     Mods = fetch(modules, fetch(app, Config)),
     Installed = code_mods(),
-    Help = lists:sort(?HELP_MODULES ++ ?COMPILER_MODULES),
+    Help = lists:sort(?INFO_MODULES ++ ?COMPILER_MODULES),
 
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
 
@@ -181,7 +181,8 @@ xref(Config) ->
                        [?APP, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
-    {ok, CTdeps} = xref:analyze(XRef, {module_call, ?COMPILER_MODULES}),
+    {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
+    {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
     {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
     xref:stop(XRef),
@@ -194,18 +195,24 @@ xref(Config) ->
                       Undefs),
     %% diameter_tcp does call ssl despite the latter not being listed
     %% as a dependency in the app file since ssl is only required for
-    %% TLS security: it's up to a client who wants TLS it to start
-    %% ssl.
+    %% TLS security: it's up to a client who wants TLS to start ssl.
 
-    %% Ensure that compiler modules don't call runtime modules.
-    [] = lists:filter(fun nok_compiler_dependency/1, CTdeps),
+    %% Ensure that only runtime or info modules call runtime modules.
+    %% It's not strictly necessary that diameter compiler modules not
+    %% depend on other diameter modules but it's a simple source of
+    %% build errors if not properly encoded in the makefile so guard
+    %% against it.
+    [] = (RTmods -- Mods) -- ?INFO_MODULES,
+
+    %% Ensure that runtime modules don't call compiler modules.
+    CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
     %% applications declared as in runtime_dependencies in the app
     %% file. Note that the declared application versions are ignored
     %% since we only know what we can see now.
-    [] = lists:filter(fun(M) -> not ok_runtime_dependency(M, Mods, Deps) end,
-                      RTdeps).
+    [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
+                      RTdeps -- Mods).
 
 unversion(App) ->
     T = lists:dropwhile(fun is_vsn_ch/1, lists:reverse(App)),
@@ -213,19 +220,6 @@ unversion(App) ->
 
 is_vsn_ch(C) ->
     $0 =< C andalso C =< $9 orelse $. == C.
-
-%% It's not strictly necessary that diameter compiler modules not
-%% depend on other diameter modules but it's a simple source of build
-%% errors if not properly encoded in the makefile so guard against it.
-nok_compiler_dependency(Mod) ->
-    is_diameter(Mod) andalso not lists:member(Mod, ?COMPILER_MODULES).
-
-ok_runtime_dependency(Mod, Mods, Apps) ->
-    lists:member(app(Mod), Apps)
-        orelse (is_diameter(Mod) andalso lists:member(Mod, Mods)).
-
-is_diameter(Mod) ->
-    lists:prefix("diameter", atom_to_list(Mod)).
 
 app('$M_EXPR') -> %% could be anything but assume it's ok
     "erts";
