@@ -365,7 +365,7 @@ Some of the available `configure` options are:
 *   `--{with,without}-javac` - Java compiler (without implies that the
     `jinterface` application won't be built)
 *   `--{enable,disable}-dynamic-ssl-lib` - Dynamic OpenSSL libraries
-*   `--{enable,disable}-shared-zlib` - Shared zlib library
+*   `--{enable,disable}-builtin-zlib` - Use the built-in source for zlib.
 *   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
 *   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
     `ssh`, and `ssl` won't be built)
@@ -478,7 +478,7 @@ Build Erlang/OTP
 
     $ export PATH=/usr/local/bin:$PATH
     $ cd $ERL_TOP
-    $ ./configure --enable-shared-zlib
+    $ ./configure
     $ make
     $ sudo make install
 
