@@ -1030,6 +1030,7 @@ resolve_inst({gc_bif2,Args},Imports,_,_) ->
     [F,Live,Bif,A1,A2,Reg] = resolve_args(Args),
     {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
     {gc_bif,BifName,F,Live,[A1,A2],Reg};
+
 %%
 %% New instruction in R14, gc_bif with 3 arguments
 %%
@@ -1146,21 +1147,17 @@ resolve_inst({put_map_assoc,Args},_,_,_) ->
     [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
     List = resolve_args(List0),
     {put_map_assoc,FLbl,Src,Dst,N,{list,List}};
-
 resolve_inst({put_map_exact,Args},_,_,_) ->
     [FLbl,Src,Dst,{u,N},{{z,1},{u,_Len},List0}] = Args,
     List = resolve_args(List0),
     {put_map_exact,FLbl,Src,Dst,N,{list,List}};
-
-resolve_inst({is_map,Args0},_,_,_) ->
+resolve_inst({is_map=I,Args0},_,_,_) ->
     [FLbl|Args] = resolve_args(Args0),
-    {test, is_map, FLbl, Args};
-
+    {test,I,FLbl,Args};
 resolve_inst({has_map_fields,Args0},_,_,_) ->
     [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
     List = resolve_args(List0),
     {test,has_map_fields,FLbl,Src,{list,List}};
-
 resolve_inst({get_map_elements,Args0},_,_,_) ->
     [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
     List = resolve_args(List0),
