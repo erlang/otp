@@ -392,12 +392,18 @@ is_bad_encoding(File) ->
     end.
 
 runtime_dependencies(Config) ->
+    %% Ignore applications intentionally not declaring dependencies
+    %% found by xref.
+    IgnoreApps = [diameter],
+
+
     %% Verify that (at least) OTP application runtime dependencies found
     %% by xref are listed in the runtime_dependencies field of the .app file
     %% of each application.
     Server = ?config(xref_server, Config),
     {ok, AE} = xref:q(Server, "AE"),
     SAE = lists:keysort(1, AE),
+    put(ignored_failures, []),
     {AppDep, AppDeps} = lists:foldl(fun ({App, App}, Acc) ->
 					    Acc;
 					({App, Dep}, {undefined, []}) ->
@@ -409,8 +415,45 @@ runtime_dependencies(Config) ->
 				    end,
 				    {undefined, []},
 				    SAE),
-    [] = check_apps_deps([AppDep|AppDeps]),
-    ok.
+    [] = lists:filter(fun ({missing_runtime_dependency,
+			    AppFile,
+			    common_test}) ->
+			      %% The test_server app is contaminated by
+			      %% common_test when run in a source tree. It
+			      %% should however *not* be contaminated
+			      %% when run in an installation.
+			      case {filename:basename(AppFile),
+				    is_run_in_src_tree()} of
+				  {"test_server.app", true} ->
+				      false;
+				  _ ->
+				      true
+			      end;
+			  (_) ->
+			      true
+		      end,
+		      check_apps_deps([AppDep|AppDeps], IgnoreApps)),
+    case IgnoreApps of
+	[] ->
+	    ok;
+	_ ->
+	    Comment = lists:flatten(io_lib:format("Ignored applications: ~p "
+						  "Ignored failures: ~p",
+						  [IgnoreApps,
+						   get(ignored_failures)])),
+	    {comment, Comment}
+    end.
+
+is_run_in_src_tree() ->
+    %% At least currently run_erl is not present in <code-root>/bin
+    %% in the source tree, but present in <code-root>/bin of an
+    %% ordinary installation.
+    case file:read_file_info(filename:join([code:root_dir(),
+					    "bin",
+					    "run_erl"])) of
+	{ok, _} -> false;
+	{error, _} -> true
+    end.
 
 have_rdep(_App, [], _Dep) ->
     false;
@@ -424,28 +467,43 @@ have_rdep(App, [RDep | RDeps], Dep) ->
 	    have_rdep(App, RDeps, Dep)
     end.
 
-check_app_deps(_App, _AppFile, _AFDeps, []) ->
+check_app_deps(_App, _AppFile, _AFDeps, [], _IgnoreApps) ->
     [];
-check_app_deps(App, AppFile, AFDeps, [XRDep | XRDeps]) ->
-    ResOtherDeps = check_app_deps(App, AppFile, AFDeps, XRDeps),
+check_app_deps(App, AppFile, AFDeps, [XRDep | XRDeps], IgnoreApps) ->
+    ResOtherDeps = check_app_deps(App, AppFile, AFDeps, XRDeps, IgnoreApps),
     case have_rdep(App, AFDeps, XRDep) of
 	true ->
 	    ResOtherDeps;
 	false ->
-	    [{missing_runtime_dependency, AppFile, XRDep} | ResOtherDeps]
+	    Failure = {missing_runtime_dependency, AppFile, XRDep},
+	    case lists:member(App, IgnoreApps) of
+		true ->
+		    put(ignored_failures, [Failure | get(ignored_failures)]),
+		    ResOtherDeps;
+		false ->
+		    [Failure | ResOtherDeps]
+	    end
     end.
 
-check_apps_deps([]) ->
+check_apps_deps([], _IgnoreApps) ->
     [];
-check_apps_deps([{App, Deps}|AppDeps]) ->
-    ResOtherApps = check_apps_deps(AppDeps),
+check_apps_deps([{App, Deps}|AppDeps], IgnoreApps) ->
+    ResOtherApps = check_apps_deps(AppDeps, IgnoreApps),
     AppFile = code:where_is_file(atom_to_list(App) ++ ".app"),
     {ok,[{application, App, Info}]} = file:consult(AppFile),
     case lists:keyfind(runtime_dependencies, 1, Info) of
 	{runtime_dependencies, RDeps} ->
-	    check_app_deps(App, AppFile, RDeps, Deps) ++ ResOtherApps;
+	    check_app_deps(App, AppFile, RDeps, Deps, IgnoreApps)
+		++ ResOtherApps;
 	false ->
-	    [{missing_runtime_dependencies_key, AppFile} | ResOtherApps]
+	    Failure = {missing_runtime_dependencies_key, AppFile},
+	    case lists:member(App, IgnoreApps) of
+		true ->
+		    put(ignored_failures, [Failure | get(ignored_failures)]),
+		    ResOtherApps;
+		false ->
+		    [Failure | ResOtherApps]
+	    end
     end.
 
 %%%
