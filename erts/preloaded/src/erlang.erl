@@ -107,7 +107,7 @@
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
 -export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2
 ]).
--export([node/0, node/1, now/0, phash/2, phash2/1, phash2/2]).
+-export([node/0, node/1, bigger_than_last_time/0, phash/2, phash2/1, phash2/2]).
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
 -export([port_set_data/2, port_to_list/1, ports/0]).
@@ -1126,10 +1126,10 @@ node() ->
 node(_Arg) ->
     erlang:nif_error(undefined).
 
-%% now/0
--spec now() -> Timestamp when
+%% bigger_than_last_time/0
+-spec bigger_than_last_time() -> Timestamp when
       Timestamp :: timestamp().
-now() ->
+bigger_than_last_time() ->
     erlang:nif_error(undefined).
 
 %% phash/2
