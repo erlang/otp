@@ -1266,7 +1266,7 @@ deep(Config) when is_list(Config) ->
 
 deep_roundtrip(T) ->
     B = term_to_binary(T),
-    T = binary_to_term_stress(B).
+    T = binary_to_term(B).
 
 obsolete_funs(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
