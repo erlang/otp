@@ -17,8 +17,8 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Callback module for ct_telnet for talking telnet
-%%% to a unix host.
+%%% @doc Callback module for ct_telnet, for connecting to a telnet
+%%% server on a unix host.
 %%% 
 %%% <p>It requires the following entry in the config file:</p>
 %%% <pre>
@@ -28,15 +28,15 @@
 %%%        {password,Password},
 %%%        {keep_alive,Bool}]}.            % optional</pre>
 %%%
-%%% <p>To talk telnet to the host specified by
+%%% <p>To communicate via telnet to the host specified by
 %%% <code>HostNameOrIpAddress</code>, use the interface functions in
-%%% <code>ct</code>, e.g. <code>open(Name), cmd(Name,Cmd), ...</code>.</p>
+%%% <code>ct_telnet</code>, e.g. <code>open(Name), cmd(Name,Cmd), ...</code>.</p>
 %%%
 %%% <p><code>Name</code> is the name you allocated to the unix host in
 %%% your <code>require</code> statement. E.g.</p>
-%%% <pre>   suite() -> [{require,Name,{unix,[telnet,username,password]}}].</pre>
+%%% <pre>   suite() -> [{require,Name,{unix,[telnet]}}].</pre>
 %%% <p>or</p>
-%%% <pre>   ct:require(Name,{unix,[telnet,username,password]}).</pre>
+%%% <pre>   ct:require(Name,{unix,[telnet]}).</pre>
 %%%
 %%% <p>The "keep alive" activity (i.e. that Common Test sends NOP to the server
 %%% every 10 seconds if the connection is idle) may be enabled or disabled for one 
@@ -62,20 +62,18 @@
 -define(prx,"login: |Password: |\\\$ |> ").
 
 %%%-----------------------------------------------------------------
-%%% @hidden
 %%% @spec get_prompt_regexp() -> PromptRegexp
 %%%      PromptRegexp = ct_telnet:prompt_regexp()
 %%%
 %%% @doc Callback for ct_telnet.erl.
 %%%
-%%% <p>Return the prompt regexp for telnet connections to the
-%%% interwatch instrument.</p>
+%%% <p>Return a suitable regexp string that will match common
+%%% prompts for users on unix hosts.</p>
 get_prompt_regexp() ->
     ?prx.
 
 
 %%%-----------------------------------------------------------------
-%%% @hidden
 %%% @spec connect(ConnName,Ip,Port,Timeout,KeepAlive,Extra) -> 
 %%%   {ok,Handle} | {error,Reason}
 %%%      ConnName = ct:target_name()
@@ -83,14 +81,15 @@ get_prompt_regexp() ->
 %%%      Port = integer()
 %%%      Timeout = integer()
 %%%      KeepAlive = bool()
-%%%      Extra = {Username,Password}
+%%%      Extra = ct:target_name() | {Username,Password}
 %%%      Username = string()
 %%%      Password = string()
 %%%      Handle = ct_telnet:handle()
+%%%      Reason = term()
 %%%
 %%% @doc Callback for ct_telnet.erl.
 %%%
-%%% <p>Setup telnet connection to a UNIX host.</p>
+%%% <p>Setup telnet connection to a unix host.</p>
 connect(ConnName,Ip,Port,Timeout,KeepAlive,Extra) ->
     case Extra of
 	{Username,Password} -> 

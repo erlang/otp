@@ -91,12 +91,15 @@ merge_log_info([{Mod,ConfOpts}|ConfList],HookList) ->
 	    {value,{_,HookOpts},HL1} ->
 		{ConfOpts ++ HookOpts, HL1} % ConfOpts overwrites HookOpts!
 	end,
-    [{Mod,get_log_opts(Opts)} | merge_log_info(ConfList,HookList1)];
+    [{Mod,get_log_opts(Mod,Opts)} | merge_log_info(ConfList,HookList1)];
 merge_log_info([],HookList) ->
-    [{Mod,get_log_opts(Opts)} || {Mod,Opts} <- HookList].
+    [{Mod,get_log_opts(Mod,Opts)} || {Mod,Opts} <- HookList].
 
-get_log_opts(Opts) ->
-    LogType = proplists:get_value(log_type,Opts,html),
+get_log_opts(Mod,Opts) ->
+    DefaultLogType = if Mod == ct_telnet -> raw;
+			true -> html
+		     end,
+    LogType = proplists:get_value(log_type,Opts,DefaultLogType),
     Hosts = proplists:get_value(hosts,Opts,[]),
     {LogType,Hosts}.
 
