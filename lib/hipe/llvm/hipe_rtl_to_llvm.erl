@@ -430,12 +430,13 @@ trans_call_name(RtlCallName, Relocs, CallArgs, FinalArgs) ->
   case RtlCallName of
     PrimOp when is_atom(PrimOp) ->
       LlvmName = trans_prim_op(PrimOp),
-      Relocs1 = relocs_store(LlvmName, {call, {bif, PrimOp, length(CallArgs)}},
-                             Relocs),
+      Relocs1 =
+        relocs_store(LlvmName, {call, {bif, PrimOp, length(CallArgs)}}, Relocs),
       {"@" ++ LlvmName, [], Relocs1};
     {M, F, A} when is_atom(M), is_atom(F), is_integer(A) ->
-      LlvmName = trans_mfa_name({M,F,A}),
-      Relocs1 = relocs_store(LlvmName, {call, {M,F,A}}, Relocs),
+      LlvmName = trans_mfa_name({M, F, A}),
+      Relocs1 =
+        relocs_store(LlvmName, {call, {M, F, length(CallArgs)}}, Relocs),
       {"@" ++ LlvmName, [], Relocs1};
     Reg ->
       case hipe_rtl:is_reg(Reg) of
