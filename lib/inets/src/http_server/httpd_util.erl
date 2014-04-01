@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -206,9 +206,6 @@ message(413, Reason,_) ->
     "Entity: " ++ html_encode(Reason);
 message(414,ReasonPhrase,_) ->
     "Message " ++ html_encode(ReasonPhrase) ++ ".";
-message(416,ReasonPhrase,_) ->
-    html_encode(ReasonPhrase);
-
 message(500,_,ConfigDB) ->
     ServerAdmin=lookup(ConfigDB,server_admin,"unknown@unknown"),
     "The server encountered an internal error or "
@@ -233,7 +230,9 @@ message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
     end;
 
 message(503, String, _ConfigDB) ->
-    "This service in unavailable due to: " ++ html_encode(String).
+    "This service in unavailable due to: " ++ html_encode(String);
+message(_, ReasonPhrase, _) ->
+    html_encode(ReasonPhrase).
 
 maybe_encode(URI) ->
     Decoded = try http_uri:decode(URI) of
