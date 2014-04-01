@@ -342,8 +342,8 @@ create_sdesc_list([{ExnLbl, SPOff} | MoreExnAndSPOffs],
 %%      (thus, some of their arguments are passed to the stack). Because of the
 %%      Reserved Call Frame feature that the LLVM uses, the stack descriptors
 %%      are not correct since at the point of call the frame size is reduced
-%%      proportionally to the number of arguments that are passed on the stack.
-%%      Also the offsets of the roots need to be re-adjusted.
+%%      by the number of arguments that are passed on the stack. Also, the
+%%      offsets of the roots need to be re-adjusted.
 fix_stack_descriptors(_, _, [], _) ->
   [];
 fix_stack_descriptors(RelocsDict, Relocs, SDescs, ExposedClosures) ->
@@ -427,29 +427,21 @@ find_offsets([{Off,Arity}|Rest], Offsets, Acc) ->
   [I | RestOffsets] = lists:dropwhile(fun (Y) -> Y<Off end, Offsets),
   find_offsets(Rest, RestOffsets, [{I, Arity}|Acc]).
 
-%% The functions below correct the arity of calls, that are identified
-%% by offset, in the stack descriptors.
+%% The function below corrects the stack descriptors of calls with arguments
+%% that are passed on the stack (more than NR_ARG_REGS) by subtracting the
+%% number of stacked arguments from the frame size and from the offset of the
+%% roots.
 fix_sdescs([], SDescs) -> SDescs;
 fix_sdescs([{Offset, Arity} | Rest], SDescs) ->
   case lists:keyfind(Offset, 2, SDescs) of
     false ->
       fix_sdescs(Rest, SDescs);
-    {?SDESC, Offset, SDesc} ->
-      {ExnHandler, FrameSize, StkArity, Roots} = SDesc,
-      DecRoot = fun(X) -> X-Arity end,
-      NewRootsList = lists:map(DecRoot, tuple_to_list(Roots)),
-      NewSDesc =
-        case length(NewRootsList) > 0 andalso hd(NewRootsList) >= 0 of
-          true ->
-            {?SDESC, Offset, {ExnHandler, FrameSize-Arity, StkArity,
-			      list_to_tuple(NewRootsList)}};
-          false ->
-            {?SDESC, Offset, {ExnHandler, FrameSize, StkArity, Roots}}
-        end,
-      RestSDescs = lists:keydelete(Offset, 2, SDescs),
-      fix_sdescs(Rest, [NewSDesc | RestSDescs])
+    {?SDESC, Offset, {ExnHandler, FrameSize, StkArity, Roots}} ->
+      FixedRoots = list_to_tuple([Ri - Arity || Ri <- tuple_to_list(Roots)]),
+      FixedSDesc =
+        {?SDESC, Offset, {ExnHandler, FrameSize - Arity, StkArity, FixedRoots}},
+      fix_sdescs(Rest, [FixedSDesc | lists:keydelete(Offset, 2, SDescs)])
   end.
-
 
 %%------------------------------------------------------------------------------
 %% Miscellaneous functions
