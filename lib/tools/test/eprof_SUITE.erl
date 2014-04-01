@@ -104,7 +104,7 @@ basic(Config) when is_list(Config) ->
     profiling = eprof:profile([A]),
     true      = exit(A, kill_it),
     profiling_stopped = eprof:stop_profiling(),
-    {error,_} = eprof:profile(fun() -> a = b end),
+    {error,_} = eprof:profile(fun() -> a = id(b) end),
 
     %% with mfa
 
@@ -149,8 +149,7 @@ basic_option_1(Config) ->
     % vanilla
     {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, [{set_on_spawn, true}]),
 
-    [{_, MfasDo1},{_, MfasLists1}] = eprof:dump(),
-    Mfas1 = MfasDo1 ++ MfasLists1,
+    Mfas1 = lists:foldl(fun({_,Mfas},Out) -> Mfas ++ Out end, [], eprof:dump()),
 
     {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1},  1, Mfas1),
     {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1},  1, Mfas1),
@@ -159,8 +158,7 @@ basic_option_1(Config) ->
 
     {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, [set_on_spawn]),
 
-    [{_, MfasDo2},{_, MfasLists2}] = eprof:dump(),
-    Mfas2 = MfasDo2 ++ MfasLists2,
+    Mfas2 = lists:foldl(fun({_,Mfas},Out) -> Mfas ++ Out end, [], eprof:dump()),
     {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1},  1, Mfas2),
     {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1},  1, Mfas2),
     {value, {_, { 9, _}}} = lists:keysearch({lists, split_2,5},  1, Mfas2),
@@ -255,3 +253,5 @@ ensure_eprof_stopped() ->
 	Pid ->
 	    stopped=eprof:stop()
     end.
+
+id(I) -> I.
