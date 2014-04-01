@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@
                            diameter_exprecs,
                            diameter_make]).
 
--define(HELP_MODULES, [diameter_dbg,
+-define(INFO_MODULES, [diameter_dbg,
                        diameter_info]).
 
 %% ===========================================================================
@@ -99,13 +99,13 @@ vsn(Config) ->
 %% # modules/1
 %%
 %% Ensure that the app file modules and installed modules differ by
-%% compiler/help modules.
+%% compiler/info modules.
 %% ===========================================================================
 
 modules(Config) ->
     Mods = fetch(modules, fetch(app, Config)),
     Installed = code_mods(),
-    Help = lists:sort(?HELP_MODULES ++ ?COMPILER_MODULES),
+    Help = lists:sort(?INFO_MODULES ++ ?COMPILER_MODULES),
 
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
 
@@ -158,12 +158,15 @@ appvsn(Name) ->
 %% # xref/1
 %%
 %% Ensure that no function in our application calls an undefined function
-%% or one in an application we haven't specified as a dependency. (Almost.)
+%% or one in an application we haven't declared as a dependency. (Almost.)
 %% ===========================================================================
 
 xref(Config) ->
     App = fetch(app, Config),
-    Mods = fetch(modules, App),
+    Mods = fetch(modules, App),  %% modules listed in the app file
+
+    %% List of application names extracted from runtime_dependencies.
+    Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
@@ -178,7 +181,9 @@ xref(Config) ->
                        [?APP, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
-    {ok, Called} = xref:analyze(XRef, {module_call, ?COMPILER_MODULES}),
+    {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
+    {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
+    {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
     xref:stop(XRef),
 
@@ -190,18 +195,41 @@ xref(Config) ->
                       Undefs),
     %% diameter_tcp does call ssl despite the latter not being listed
     %% as a dependency in the app file since ssl is only required for
-    %% TLS security: it's up to a client who wants TLS it to start
-    %% ssl.
+    %% TLS security: it's up to a client who wants TLS to start ssl.
 
-    [] = lists:filter(fun is_bad_dependency/1, Called).
+    %% Ensure that only runtime or info modules call runtime modules.
+    %% It's not strictly necessary that diameter compiler modules not
+    %% depend on other diameter modules but it's a simple source of
+    %% build errors if not properly encoded in the makefile so guard
+    %% against it.
+    [] = (RTmods -- Mods) -- ?INFO_MODULES,
 
-%% It's not strictly necessary that diameter compiler modules not
-%% depend on other diameter modules but it's a simple source of build
-%% errors if not encoded in the makefile (hence the test) so guard
-%% against it.
-is_bad_dependency(Mod) ->
-    lists:prefix("diameter", atom_to_list(Mod))
-        andalso not lists:member(Mod, ?COMPILER_MODULES).
+    %% Ensure that runtime modules don't call compiler modules.
+    CTmods = CTmods -- Mods,
+
+    %% Ensure that runtime modules only call other runtime modules, or
+    %% applications declared as in runtime_dependencies in the app
+    %% file. Note that the declared application versions are ignored
+    %% since we only know what we can see now.
+    [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
+                      RTdeps -- Mods).
+
+unversion(App) ->
+    T = lists:dropwhile(fun is_vsn_ch/1, lists:reverse(App)),
+    lists:reverse(case T of [$-|TT] -> TT; _ -> T end).
+
+is_vsn_ch(C) ->
+    $0 =< C andalso C =< $9 orelse $. == C.
+
+app('$M_EXPR') -> %% could be anything but assume it's ok
+    "erts";
+app(Mod) ->
+    case code:which(Mod) of
+        preloaded ->
+            "erts";
+        Path ->
+            unversion(lists:nth(3, lists:reverse(filename:split(Path))))
+    end.
 
 add_application(XRef, App) ->
     add_application(XRef, App, code:lib_dir(App)).
