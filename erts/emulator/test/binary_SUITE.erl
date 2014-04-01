@@ -64,7 +64,7 @@
 -export([sleeper/0,trapping_loop/4]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-	    {timetrap,{minutes,2}}].
+	    {timetrap,{minutes,4}}].
 
 all() -> 
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
