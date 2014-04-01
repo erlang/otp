@@ -190,6 +190,38 @@ adam
   </section>
 
   <section>
+    <title>Map</title>
+    <p>Compound data type with a variable number of key-value associations:</p>
+    <pre>
+#{Key1=>Value1,...,KeyN=>ValueN}</pre>
+	<p>Each key-value association in the map is called an
+		<em>association pair</em>. The key and value parts of the pair are
+		called <em>elements</em>. The number of association pairs is said to be
+      the <em>size</em> of the map.</p>
+    <p>There exists a number of BIFs to manipulate maps.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>M1 = #{name=>adam,age=>24,date=>{july,29}}.</input>
+#{age => 24,date => {july,29},name => adam}
+2> <input>maps:get(name,M1).</input>
+adam
+3> <input>maps:get(date,M1).</input>
+{july,29}
+4> <input>M2 = maps:update(age,25,M1).</input>
+#{age => 25,date => {july,29},name => adam}
+5> <input>map_size(M).</input>
+3
+6> <input>map_size(#{}).</input>
+0</pre>
+    <p>A collection of maps processing functions can be found in
+	the STDLIB module <seealso marker="stdlib:maps"><c>maps</c></seealso>.</p>
+    <p>Read more about <seealso marker="maps">Maps</seealso>.</p>
+  <note>
+	  <p>Maps are considered experimental during OTP 17.</p>
+  </note>
+  </section>
+
+  <section>
     <title>List</title>
     <p>Compound data type with a variable number of terms.</p>
     <pre>

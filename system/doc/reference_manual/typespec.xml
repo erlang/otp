@@ -100,6 +100,7 @@
         | Fun
         | Integer
         | List
+        | Map
         | Tuple
         | Union
         | UserDefined           %% described in Section 6.3
@@ -126,9 +127,16 @@
         | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
         | nonempty_list(Type)                  %% Proper non-empty list
 
+  Map :: map()                                 %% stands for a map of any size
+       | #{}                                   %% stands for a map of any size
+       | #{PairList}
+
   Tuple :: tuple()                             %% stands for a tuple of any size
          | {}
          | {TList}
+
+  PairList :: Type => Type
+            | Type => Type, PairList
 
   TList :: Type
          | Type, TList
@@ -275,6 +283,10 @@
     Records have been extended to possibly contain type information. 
     This is described in the sub-section <seealso marker="#typeinrecords">"Type information in record declarations"</seealso> below.
   </p>
+  <note>
+	  <p>Map types, both <c>map()</c> and <c>#{ ... }</c>, are considered experimental during OTP 17.</p>
+	  <p>No type information of maps pairs, only the containing map types, are used by Dialyzer in OTP 17.</p>
+  </note>
   </section>
   
   <section>

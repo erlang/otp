@@ -53,10 +53,10 @@ fact(0) ->           %  |
     <pre>
 -Tag(Value).</pre>
     <p><c>Tag</c> must be an atom, while <c>Value</c> must be a literal
-      term. As a convenience in user-defined attributes, the literal term
-      <c>Value</c> the syntax <c>Name/Arity</c>
-      (where <c>Name</c> is an atom and <c>Arity</c> a positive integer)
-      will be translated to <c>{Name,Arity}</c>.</p>
+      term. As a convenience in user-defined attributes, if the literal term
+      <c>Value</c> has the syntax <c>Name/Arity</c>
+      (where <c>Name</c> is an atom and <c>Arity</c> a positive integer),
+	  the term <c>Name/Arity</c> will be translated to <c>{Name,Arity}</c>.</p>
 
     <p>Any module attribute can be specified. The attributes are stored
       in the compiled code and can be retrieved by calling
