@@ -227,11 +227,13 @@
 
       <item>
 	<marker id="tc_auto_skip"></marker>
-        <c>#event{name = tc_auto_skip, data = {Suite,Func,Reason}}</c>
+        <c>#event{name = tc_auto_skip, data = {Suite,TestName,Reason}}</c>
         <p><c>Suite = atom()</c>, the name of the suite.</p>
-        <p><c>Func = atom() | {end_per_group,GroupName}</c>, the name of the test case
-	  or configuration function.</p>
-        <p><c>GroupName = atom()</c>, name of the group.</p>
+        <p><c>TestName = init_per_suite | end_per_suite |
+	                 {init_per_group,GroupName} | {end_per_group,GroupName} |
+	                 {FuncName,GroupName} | FuncName</c></p>
+	<p><c>FuncName = atom()</c>, the name of the test case or configuration function.</p>
+        <p><c>GroupName = atom()</c>, the name of the test case group.</p>
         <p><c>Reason = {failed,FailReason} |
 	               {require_failed_in_suite0,RequireInfo}</c>, 
 	      reason for auto skipping <c>Func</c>.</p>
@@ -252,21 +254,26 @@
 	<c>init_per_group</c>, a failed <c>require</c> in <c>suite/0</c>, or a failed test case
 	in a sequence. Note that this event is never received as a result of a test case getting
 	skipped because of <c>init_per_testcase</c> failing, since that information is carried with
-	the <c>tc_done</c> event.
+	the <c>tc_done</c> event. If a failed test case belongs	to a test case group, the second
+	data element is a tuple <c>{FuncName,GroupName}</c>, otherwise simply the function name.
 	</p></item>
-	
+
       <item>
 	<marker id="tc_user_skip"></marker>
-        <c>#event{name = tc_user_skip, data = {Suite,Func,Comment}}</c>
+        <c>#event{name = tc_user_skip, data = {Suite,TestName,Comment}}</c>
         <p><c>Suite = atom()</c>, the name of the suite.</p>
-        <p><c>Func = atom() | {end_per_group,GroupName}</c>, the name of the test case
-	  or configuration function.</p>
-        <p><c>GroupName = atom()</c>, name of the group.</p>
+        <p><c>TestName = init_per_suite | end_per_suite |
+	                 {init_per_group,GroupName} | {end_per_group,GroupName} |
+	                 {FuncName,GroupName} | FuncName</c></p>
+	<p><c>FuncName = atom()</c>, the name of the test case or configuration function.</p>
+        <p><c>GroupName = atom()</c>, the name of the test case group.</p>
         <p><c>Comment = string()</c>, reason for skipping the test case.</p>
         <p>This event specifies that a test case has been skipped by the user. 
 	It is only ever received if the skip was declared in a test specification. 
 	Otherwise, user skip information is received as a <c>{skipped,SkipReason}</c> 
-	result in the <c>tc_done</c> event for the test case.
+	result in the <c>tc_done</c> event for the test case. If a skipped test case belongs
+	to a test case group, the second data element is a tuple <c>{FuncName,GroupName}</c>,
+	otherwise simply the function name.
 	</p></item>
 
       <item><c>#event{name = test_stats, data = {Ok,Failed,Skipped}}</c>
