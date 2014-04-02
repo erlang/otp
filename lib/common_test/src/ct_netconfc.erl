@@ -536,7 +536,7 @@ send(Client, SimpleXml) ->
       Client :: client(),
       SimpleXml :: simple_xml(),
       Timeout :: timeout(),
-      Result :: ok | {error,error_reason()}.
+      Result :: simple_xml() | {error,error_reason()}.
 %% @doc Send an XML document to the server.
 %%
 %% The given XML document is sent as is to the server. This function
@@ -556,7 +556,7 @@ send_rpc(Client, SimpleXml) ->
       Client :: client(),
       SimpleXml :: simple_xml(),
       Timeout :: timeout(),
-      Result :: ok | {error,error_reason()}.
+      Result :: [simple_xml()] | {error,error_reason()}.
 %% @doc Send a Netconf <code>rpc</code> request to the server.
 %%
 %% The given XML document is wrapped in a valid Netconf
@@ -635,7 +635,7 @@ get(Client, Filter) ->
       Client :: client(),
       Filter :: simple_xml() | xpath(),
       Timeout :: timeout(),
-      Result :: {ok,simple_xml()} | {error,error_reason()}.
+      Result :: {ok,[simple_xml()]} | {error,error_reason()}.
 %% @doc Get data.
 %%
 %% This operation returns both configuration and state data from the
@@ -661,7 +661,7 @@ get_config(Client, Source, Filter) ->
       Source :: netconf_db(),
       Filter :: simple_xml() | xpath(),
       Timeout :: timeout(),
-      Result :: {ok,simple_xml()} | {error,error_reason()}.
+      Result :: {ok,[simple_xml()]} | {error,error_reason()}.
 %% @doc Get configuration data.
 %%
 %% To be able to access another source than `running', the server
@@ -759,7 +759,7 @@ action(Client,Action) ->
       Client :: client(),
       Action :: simple_xml(),
       Timeout :: timeout(),
-      Result :: {ok,simple_xml()} | {error,error_reason()}.
+      Result :: {ok,[simple_xml()]} | {error,error_reason()}.
 %% @doc Execute an action.
 %%
 %% @end
