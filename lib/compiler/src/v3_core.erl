@@ -1605,26 +1605,17 @@ pattern_alias_map_pair_patterns([Cv1,Cv2|Cvs]) ->
     pattern_alias_map_pair_patterns([pat_alias(Cv1,Cv2)|Cvs]).
 
 pattern_map_pair({map_field_exact,L,K,V}, St) ->
-    %% FIXME: Better way to construct literals? or missing case
-    %% {Key,_,_} = expr(K, St),
-    Key = case K of
-	{bin,L,Es0} ->
-	    case constant_bin(Es0) of
-		error ->
-		    %% this will throw a cryptic error message
-		    %% but it is better than nothing
-		    throw(nomatch);
-		Bin ->
-		    #c_literal{anno=lineno_anno(L,St),val=Bin}
-	    end;
+    case expr(K,St) of
+	{#c_literal{}=Key,_,_} ->
+	    #c_map_pair{anno=lineno_anno(L, St),
+			op=#c_literal{val=exact},
+			key=Key,
+			val=pattern(V, St)};
 	_ ->
-	    pattern(K,St)
-    end,
-    #c_map_pair{anno=lineno_anno(L, St),
-                op=#c_literal{val=exact},
-		key=Key,
-		val=pattern(V, St)}.
-
+	    %% this will throw a cryptic error message
+	    %% but it is better than nothing
+	    throw(nomatch)
+    end.
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 

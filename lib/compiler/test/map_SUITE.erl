@@ -113,6 +113,10 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     M = #{ map_1:=#{ map_2:=#{value_3 := third}, value_2:= second}, value_1:=first} =
 	 id(#{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first}),
 
+    %% map key
+    #{ #{} := 42 } = id(#{ #{} => 42 }),
+    #{ #{ "a" => 3 } := 42 } = id(#{ #{ "a" => 3} => 42 }),
+
     %% nil key
     #{[]:=ok,1:=2} = id(#{[]=>ok,1=>2}),
 
@@ -123,6 +127,7 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{y=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
     {'EXIT',{badarg,_}} = (catch id(#{<<0:258>> =>"three"})),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{#{"a"=>42} := 3}=id(#{#{"a"=>3}=>42}))),
     ok.
 
 t_build_and_match_aliasing(Config) when is_list(Config) ->

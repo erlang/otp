@@ -59,7 +59,7 @@ is_lit_bin(Es) ->
 
 %% Return the value of LitExpr.
 -spec literal_value(cerl:c_literal() | cerl:c_binary() |
-		    cerl:c_cons() | cerl:c_tuple()) -> term().
+		    cerl:c_map() | cerl:c_cons() | cerl:c_tuple()) -> term().
 
 literal_value(#c_literal{val=V}) -> V;
 literal_value(#c_binary{segments=Es}) ->
@@ -67,7 +67,14 @@ literal_value(#c_binary{segments=Es}) ->
 literal_value(#c_cons{hd=H,tl=T}) ->
     [literal_value(H)|literal_value(T)];
 literal_value(#c_tuple{es=Es}) ->
-    list_to_tuple(literal_value_list(Es)).
+    list_to_tuple(literal_value_list(Es));
+literal_value(#c_map{arg=Cm,es=Cmps}) ->
+    M = literal_value(Cm),
+    lists:foldl(fun(#c_map_pair{ key=Ck, val=Cv },Mi) ->
+		K = literal_value(Ck),
+		V = literal_value(Cv),
+		maps:put(K,V,Mi)
+	end, M, Cmps).
 
 literal_value_list(Vals) -> [literal_value(V) || V <- Vals].
 

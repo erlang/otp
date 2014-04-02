@@ -232,7 +232,7 @@ pattern({map,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{map,Line,TPs},St1};
 pattern({map_field_exact,Line,K0,V0}, St0) ->
-    {K,St1} = pattern(K0, St0),
+    {K,St1} = expr(K0, St0),
     {V,St2} = pattern(V0, St1),
     {{map_field_exact,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
