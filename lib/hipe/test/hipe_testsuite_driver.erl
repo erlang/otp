@@ -176,7 +176,8 @@ run(TestCase, Dir, _OutDir) ->
     HiPEOpts = try TestCase:hipe_options() catch error:undef -> [] end,
     {ok, TestCase} = hipe:c(TestCase, HiPEOpts),
     ok = TestCase:test(),
-    case is_llvm_opt_available() of
+    ToLLVM = try TestCase:to_llvm() catch error:undef -> true end,
+    case ToLLVM andalso hipe:llvm_support_available() of
 	true ->
 	    {ok, TestCase} = hipe:c(TestCase, [to_llvm|HiPEOpts]),
 	    ok = TestCase:test();
@@ -186,16 +187,3 @@ run(TestCase, Dir, _OutDir) ->
     %% 	lists:foreach(fun (DF) -> ok end, % = file:delete(DF) end,
     %% 		      [filename:join(OutDir, D) || D <- DataFiles])
     %% end.
-
-
-%% This function, which is supposed to check whether the right LLVM
-%% infrastructure is available, should be probably written in a better
-%% and more portable way and moved to the hipe application.
-
-is_llvm_opt_available() ->
-    OptStr = os:cmd("opt -version"),
-    SubStr = "LLVM version ", N = length(SubStr),
-    case string:str(OptStr, SubStr) of
-	0 -> false;
-	S -> P = S + N, string:sub_string(OptStr, P, P + 2) >= "3.4"
-    end.
