@@ -3406,7 +3406,19 @@ maps(Config) ->
 		    {4,erl_lint,illegal_map_key},
 		    {6,erl_lint,illegal_map_key},
 		    {8,erl_lint,illegal_map_key},
-		    {10,erl_lint,illegal_map_key}],[]}}],
+		    {10,erl_lint,illegal_map_key}],[]}},
+	   {errors_in_map_keys_pattern,
+	   <<"t(#{ a := 2,
+	           #{} := A,
+	           #{ 3 => 33 } := hi,
+	           #{ 3 := 33 } := hi,
+	           #{ hi => 54, \"hello\" => 45 } := hi,
+		   #{ V => 33 } := hi }) ->
+	       A.
+	   ">>,
+	   [],
+	   {errors,[{4,erl_lint,illegal_map_key},
+		    {6,erl_lint,{illegal_map_key_variable,'V'}}],[]}}],
     [] = run(Config, Ts),
     ok.
 
