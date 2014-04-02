@@ -667,6 +667,9 @@ release_handler_which_releases(Conf) ->
 
     ok.
 
+release_handler_which_releases(cleanup,_Conf) ->
+    stop_node(node_name(release_handler_which_releases)).
+
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2740
 %% Slogan: vsn not numeric doesn't work so good in release_handling
@@ -1364,6 +1367,9 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     {child,_,_,_,_,brutal_kill,_,_} = Child, % changed from timeout 2000
 
     ok.
+
+upgrade_supervisor(cleanup,_Condf) ->
+    stop_node(node_name(upgrade_supervisor)).
 
 %% Check that if the supervisor fails, then the upgrade is rolled back
 %% and an ok error message is returned
