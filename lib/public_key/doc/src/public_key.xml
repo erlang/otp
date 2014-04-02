@@ -461,11 +461,14 @@
 	  <p>The fun should be defined as:</p>
 
 	  <code>
-fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
-	                                     {extension, #'Extension'{}},
+fun(OtpCert :: #'OTPCertificate'{},
+    Event :: {bad_cert, Reason :: atom()} |
+             {extension, #'Extension'{}},
     InitialUserState :: term()) ->
-	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
-	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+	{valid, UserState :: term()} |
+	{valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} |
+	{unknown, UserState :: term()}.
 	  </code>
 
 	<p>If the verify callback fun returns {fail, Reason}, the
@@ -511,7 +514,8 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	<item>
 	  <p>The fun has the following type spec:</p>
 
-	  <code> fun(#'DistributionPoint'{}, #'CertificateList'{}) -> #'CertificateList'{}</code>
+	  <code> fun(#'DistributionPoint'{}, #'CertificateList'{}) ->
+        #'CertificateList'{}</code>
 
 	  <p>The fun should use the information in the distribution point to acesses
 	  the lates possible version of the CRL. If this fun is not specified
@@ -519,6 +523,21 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	  </p>
 	  <code> fun(_DP, CRL) -> CRL end</code>
 	</item>
+
+	<tag>{issuer_fun, fun()}</tag>
+	<item>
+	  <p>The fun has the following type spec:</p>
+
+	  <code>
+fun(#'DistributionPoint'{}, #'CertificateList'{},
+    {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
+	{ok, #'OTPCertificate'{}, [der_encoded]}</code>
+
+	  <p>The fun should return the Root certificate and certificate chain
+	  that has signed the CRL. 
+	  </p>
+	  <code> fun(DP, CRL, Issuer, UserState) -> {ok, RootCert, CertChain}</code>
+	</item>	
       </taglist>
     </desc>
    </func>
