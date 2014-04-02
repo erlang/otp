@@ -64,7 +64,7 @@
 %% `conn_mod()' is the name of the common_test module implementing
 %% the connection protocol, i.e. `ct_telnet'.
 %%
-%% The `cth_conn_log' hook provides unformatted logging of telnet data to
+%% The `cth_conn_log' hook performs unformatted logging of telnet data to
 %% a separate text file. All telnet communication is captured and printed,
 %% including arbitrary data sent from the server. The link to this text file
 %% can be found on the top of the test case HTML log.
@@ -106,7 +106,7 @@
 %%'''
 %%
 %% As previously explained, the above specification could also be provided
-%% with the following entry in a configuration file:
+%% by means of an entry like this in a configuration file:
 %%
 %% ```
 %% {ct_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}.

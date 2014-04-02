@@ -150,7 +150,8 @@ run(TestDirs) ->
 %%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
 %%%               {cover,CoverSpecFile} | {cover_stop,Bool} | {step,StepOpts} |
 %%%               {event_handler,EventHandlers} | {include,InclDirs} |
-%%%               {auto_compile,Bool} | {create_priv_dir,CreatePrivDir}  |
+%%%               {auto_compile,Bool} | {abort_if_missing_suites,Bool} |
+%%%               {create_priv_dir,CreatePrivDir}  |
 %%%               {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,ForceStop} | {decrypt,DecryptKeyOrFile} |
