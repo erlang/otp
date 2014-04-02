@@ -12,6 +12,15 @@ middle-ware to develop these systems. It includes its own distributed
 database, applications to interface towards other languages, debugging
 and release handling tools.
 
+ERTS and BEAM
+-------------
+**BEAM** is the name of the virtual machine where all Erlang code is executed.
+Every compiled Erlang file has the suffix .beam. The virtual machine
+is sometimes referred to as the emulator.
+
+**ERTS** is the Erlang Runtime System where the BEAM, kernel and
+standard libraries amongst others are included.
+
 More information can be found at [erlang.org] [1].
 
 Building and Installing
@@ -57,7 +66,7 @@ Copyright and License
 
 > %CopyrightBegin%
 >
-> Copyright Ericsson AB 2010-2012. All Rights Reserved.
+> Copyright Ericsson AB 2010-2014. All Rights Reserved.
 >
 > The contents of this file are subject to the Erlang Public License,
 > Version 1.1, (the "License"); you may not use this file except in

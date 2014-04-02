@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,13 +34,12 @@
     <p>An Erlang runtime system is started with the command <c>erl</c>:</p>
     <pre>
 % <input>erl</input>
-Erlang (BEAM) emulator version 5.2.3.5 [hipe] [threads:0]
+Erlang/OTP 17 [erts-6.0] [hipe] [smp:8:8]
 
-Eshell V5.2.3.5  (abort with ^G)
+Eshell V6.0  (abort with ^G)
 1> </pre>
     <p><c>erl</c> understands a number of command line arguments, see
-      <c>erl(1)</c>. A number of them are also described in this
-      chapter.</p>
+      <c>erl(1)</c>. A number of them are also described in this chapter.</p>
     <p>Application programs can access the values of the command line
       arguments by calling one of the functions
       <c>init:get_argument(Key)</c>, or <c>init:get_arguments()</c>.

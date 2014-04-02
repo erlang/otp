@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -157,8 +157,9 @@ ch_app:stop([])</code>
        all applications have dependencies to at least <c>kernel</c>
        and <c>stdlib</c>.</item>
     </taglist>
-    <p>The syntax and contents of of the application resource file
-      are described in detail in <c>app(4)</c>.</p>
+    <note><p>The syntax and contents of of the application resource file
+      are described in detail in the<seealso marker="kernel:app">
+      Application resource file reference</seealso>.</p></note>
   </section>
 
   <section>
