@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -577,6 +577,8 @@ obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
     {deprecated,{unicode,characters_to_list,1}};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
     {deprecated,{unicode,characters_to_binary,1}};
+obsolete_1(pg, _, _) ->
+    {deprecated,"deprecated; will be removed in OTP 18"};
 
 obsolete_1(_, _, _) ->
     no.

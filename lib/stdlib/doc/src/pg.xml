@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,9 @@
   <module>pg</module>
   <modulesummary>Distributed, Named Process Groups</modulesummary>
   <description>
+    <warning>
+      <p>This module is deprecated and will be removed in Erlang/OTP 18.</p>
+    </warning>
     <p>This (experimental) module implements process groups. A process
       group is a group of processes that can be accessed by a common
       name. For example, a group named <c>foobar</c> can include a set
