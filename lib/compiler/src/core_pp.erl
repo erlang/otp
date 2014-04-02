@@ -120,7 +120,11 @@ format_1(#c_literal{anno=A,val=Bitstring}, Ctxt) when is_bitstring(Bitstring) ->
     format_1(#c_binary{anno=A,segments=Segs}, Ctxt);
 format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
     Pairs = maps:to_list(M),
-    Cpairs = [#c_map_pair{op=#c_literal{val=assoc},
+    Op = case Ctxt of
+	#ctxt{ class = clause } -> exact;
+	_ -> assoc
+    end,
+    Cpairs = [#c_map_pair{op=#c_literal{val=Op},
 			  key=#c_literal{val=V},
 			  val=#c_literal{val=K}} || {K,V} <- Pairs],
 	format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
