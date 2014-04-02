@@ -42,7 +42,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:seconds(10)),
+    Dog=?t:timetrap(?t:seconds(30)),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Func, Config) ->
