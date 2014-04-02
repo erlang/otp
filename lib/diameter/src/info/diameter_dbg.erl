@@ -26,7 +26,6 @@
 -export([table/1,
          tables/0,
          fields/1,
-         help/0,
          modules/0,
          versions/0,
          version_info/0,
@@ -56,9 +55,8 @@
 
 -include_lib("diameter/include/diameter.hrl").
 
--define(APPLICATION, diameter).
--define(INFO,  diameter_info).
--define(SEP(), ?INFO:sep()).
+-define(APP, diameter).
+-define(I, diameter_info).
 
 -define(LOCAL, [diameter_config,
                 diameter_peer,
@@ -70,24 +68,16 @@
 
 -define(VALUES(Rec), tl(tuple_to_list(Rec))).
 
-%%% ----------------------------------------------------------
-%%% # help()
-%%% ----------------------------------------------------------
-
-help() ->
-    not_yet_implemented.
-
-%%% ----------------------------------------------------------
-%%% # table(TableName)
-%%%
-%%% Input:  TableName = diameter table containing record entries.
-%%%
-%%% Output: Count | undefined
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # table(TableName)
+%%
+%% Pretty-print a diameter table. Returns the number of records
+%% printed, or undefined.
+%% ----------------------------------------------------------
 
 table(T)
   when (T == diameter_peer) orelse (T == diameter_reg) ->
-    ?INFO:format(collect(T), fields(T), fun ?INFO:split/2);
+    ?I:format(collect(T), fields(T), fun ?I:split/2);
 
 table(Table)
   when is_atom(Table) ->
@@ -95,7 +85,7 @@ table(Table)
         undefined = No ->
             No;
         Fields ->
-            ?INFO:format(Table, Fields, fun split/2)
+            ?I:format(Table, Fields, fun split/2)
     end.
 
 split([started, name | Fs], [S, N | Vs]) ->
@@ -106,9 +96,9 @@ split([[F|FT]|Fs], [Rec|Vs]) ->
 split([F|Fs], [V|Vs]) ->
     {F, Fs, V, Vs}.
 
-%%% ----------------------------------------------------------
-%%% # TableName()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # TableName()
+%% ----------------------------------------------------------
 
 -define(TABLE(Name), Name() -> table(Name)).
 
@@ -120,16 +110,15 @@ split([F|Fs], [V|Vs]) ->
 ?TABLE(diameter_service).
 ?TABLE(diameter_stats).
 
-%%% ----------------------------------------------------------
-%%% # tables()
-%%%
-%%% Output: Number of records output.
-%%%
-%%% Description: Pretty-print records in diameter tables from all nodes.
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # tables()
+%%
+%% Pretty-print diameter tables from all nodes. Returns the number of
+%% records printed.
+%% ----------------------------------------------------------
 
 tables() ->
-    ?INFO:format(field(?LOCAL), fun split/3, fun collect/1).
+    ?I:format(field(?LOCAL), fun split/3, fun collect/1).
 
 field(Tables) ->
     lists:map(fun(T) -> {T, fields(T)} end, lists:sort(Tables)).
@@ -137,66 +126,66 @@ field(Tables) ->
 split(_, Fs, Vs) ->
     split(Fs, Vs).
 
-%%% ----------------------------------------------------------
-%%% # modules()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # modules()
+%% ----------------------------------------------------------
 
 modules() ->
-    Path = filename:join([appdir(), atom_to_list(?APPLICATION) ++ ".app"]),
-    {ok, [{application, ?APPLICATION, Attrs}]} = file:consult(Path),
+    Path = filename:join([appdir(), atom_to_list(?APP) ++ ".app"]),
+    {ok, [{application, ?APP, Attrs}]} = file:consult(Path),
     {modules, Mods} = lists:keyfind(modules, 1, Attrs),
     Mods.
 
 appdir() ->
-    [_|_] = code:lib_dir(?APPLICATION, ebin).
+    [_|_] = code:lib_dir(?APP, ebin).
 
-%%% ----------------------------------------------------------
-%%% # versions()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # versions()
+%% ----------------------------------------------------------
 
 versions() ->
-    ?INFO:versions(modules()).
+    ?I:versions(modules()).
 
-%%% ----------------------------------------------------------
-%%% # versions()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # versions()
+%% ----------------------------------------------------------
 
 version_info() ->
-    ?INFO:version_info(modules()).
+    ?I:version_info(modules()).
 
-%%% ----------------------------------------------------------
-%%% # compiled()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # compiled()
+%% ----------------------------------------------------------
 
 compiled() ->
-    ?INFO:compiled(modules()).
+    ?I:compiled(modules()).
 
-%%% ----------------------------------------------------------
-%%% procs()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% procs()
+%% ----------------------------------------------------------
 
 procs() ->
-    ?INFO:procs(?APPLICATION).
+    ?I:procs(?APP).
 
-%%% ----------------------------------------------------------
-%%% # latest()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # latest()
+%% ----------------------------------------------------------
 
 latest() ->
-    ?INFO:latest(modules()).
+    ?I:latest(modules()).
 
-%%% ----------------------------------------------------------
-%%% # nl()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # nl()
+%% ----------------------------------------------------------
 
 nl() ->
     lists:foreach(fun(M) -> abcast = c:nl(M) end, modules()).
 
-%%% ----------------------------------------------------------
-%%% # pp(Bin)
-%%%
-%%% Description: Pretty-print a message binary.
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # pp(Bin)
+%%
+%% Description: Pretty-print a message binary.
+%% ----------------------------------------------------------
 
 %% Network byte order = big endian.
 
@@ -206,7 +195,7 @@ pp(<<Version:8, MsgLength:24,
      HbHid:32,
      E2Eid:32,
      AVPs/binary>>) ->
-    ?SEP(),
+    ?I:sep(),
     ppp(["Version",
          "Message length",
          "[Actual length]",
@@ -226,7 +215,7 @@ pp(<<Version:8, MsgLength:24,
          HbHid,
          E2Eid]),
     N = avp_loop({AVPs, MsgLength - 20}, 0),
-    ?SEP(),
+    ?I:sep(),
     N;
 
 pp(<<_Version:8, MsgLength:24, _/binary>> = Bin) ->
@@ -327,23 +316,23 @@ ppp(Fields, Values) ->
 ppp({Field, Value}) ->
     io:format(": ~-22s : ~p~n", [Field, Value]).
 
-%%% ----------------------------------------------------------
-%%% # subscriptions()
-%%%
-%%% Output: list of {SvcName, Pid}
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # subscriptions()
+%%
+%% Returns a list of {SvcName, Pid}.
+%% ----------------------------------------------------------
 
 subscriptions() ->
     diameter_service:subscriptions().
 
-%%% ----------------------------------------------------------
-%%% # children()
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
+%% # children()
+%% ----------------------------------------------------------
 
 children() ->
     diameter_sup:tree().
 
-%%% ----------------------------------------------------------
+%% ----------------------------------------------------------
 
 %% tracer/[12]
 
@@ -429,7 +418,7 @@ peers(Name, Ts) ->
 
 mk_peers(Name, [_, {type, connect} | _] = Ts) ->
     [[Name | mk_peer(Ts)]];
-mk_peers(Name, [R, {type, listen}, O, {accept = A, As}]) ->
+mk_peers(Name, [R, {type, listen}, O, {accept = A, As} | _]) ->
     [[Name | mk_peer([R, {type, A}, O | Ts])] || Ts <- As].
 %% This is a bit lame: service_info works to build this list and out
 %% of something like what we want here and then we take it apart.
@@ -484,13 +473,12 @@ fields(diameter_service) ->
     [started,
      name,
      record_info(fields, diameter_service),
+     watchdogT,
      peerT,
-     connT,
-     share_peers,
-     use_shared_peers,
      shared_peers,
      local_peers,
-     monitor];
+     monitor,
+     options];
 
 ?FIELDS(diameter_event);
 ?FIELDS(diameter_uri);
