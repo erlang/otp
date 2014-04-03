@@ -83,11 +83,11 @@ obsolete_1(crypto, sha_init, 0) ->
     {deprecated, {crypto, hash_init, 1}};
 
 obsolete_1(crypto, md4_update, 2) ->
-    {deprecated, {crypto, hash_update, 3}};
+    {deprecated, {crypto, hash_update, 2}};
 obsolete_1(crypto, md5_update, 2) ->
-    {deprecated, {crypto, hash_update, 3}};
+    {deprecated, {crypto, hash_update, 2}};
 obsolete_1(crypto, sha_update, 2) ->
-    {deprecated, {crypto, hash_update, 3}};
+    {deprecated, {crypto, hash_update, 2}};
 
 obsolete_1(crypto, md4_final, 1) ->
     {deprecated, {crypto, hash_final, 2}};
