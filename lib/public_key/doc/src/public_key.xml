@@ -533,7 +533,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
 	{ok, #'OTPCertificate'{}, [der_encoded]}</code>
 
-	  <p>The fun should return the Root certificate and certificate chain
+	  <p>The fun should return the root certificate and certificate chain
 	  that has signed the CRL. 
 	  </p>
 	  <code> fun(DP, CRL, Issuer, UserState) -> {ok, RootCert, CertChain}</code>
