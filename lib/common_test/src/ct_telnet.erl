@@ -46,100 +46,80 @@
 %%
 %% == Logging ==
 %%
-%% `ct_telnet' can be configured to uses the `error_logger' for logging telnet
-%% traffic. A special purpose error handler is implemented in
-%% `ct_conn_log_h'. To use this error handler, add the `cth_conn_log'
-%% hook in your test suite, e.g:
-%%
+%% The default logging behaviour of `ct_telnet' is to print information
+%% to the test case HTML log about performed operations and commands
+%% and their corresponding results. What won't be printed to the HTML log
+%% are text strings sent from the telnet server that are not explicitly
+%% received by means of a `ct_telnet' function such as `expect/3'.
+%% `ct_telnet' may however be configured to use a special purpose event handler,
+%% implemented in `ct_conn_log_h', for logging <b>all</b> telnet traffic.
+%% To use this handler, you need to install a Common Test hook named
+%% `cth_conn_log'. Example (using the test suite info function):
 %%
 %% ```
 %% suite() ->
-%%    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
-%%'''
+%%     [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
+%% '''
 %%
 %% `conn_mod()' is the name of the common_test module implementing
 %% the connection protocol, i.e. `ct_telnet'.
 %%
-%% The hook option `log_type' specifies the type of logging:
+%% The `cth_conn_log' hook performs unformatted logging of telnet data to
+%% a separate text file. All telnet communication is captured and printed,
+%% including arbitrary data sent from the server. The link to this text file
+%% can be found on the top of the test case HTML log.
 %%
-%% <dl>
-%%   <dt>`raw'</dt>
-%%   <dd>The sent and received telnet data is logged to a separate
-%%   text file as is, without any formatting. A link to the file is
-%%   added to the test case HTML log.</dd>
-%%
-%%   <dt>`html (default)'</dt>
-%%   <dd>The sent and received telnet traffic is pretty printed
-%%   directly in the test case HTML log.</dd>
-%%
-%%   <dt>`silent'</dt>
-%%   <dd>Telnet traffic is not logged.</dd>
-%% </dl>
-%%
-%% By default, all telnet traffic is logged in one single log
-%% file. However, it is possible to have different connections logged
-%% in separate files. To do this, use the hook option `hosts' and
-%% list the names of the servers/connections that will be used in the
-%% suite. Note that the connections must be named for this to work
+%% By default, data for all telnet connections is logged in one common
+%% file (named `default'), which might get messy e.g. if multiple telnet
+%% sessions are running in parallel. It is therefore possible to create a
+%% separate log file for each connection. To configure this, use the hook
+%% option `hosts' and list the names of the servers/connections that will be
+%% used in the suite. Note that the connections must be named for this to work
 %% (see the `open' function below).
 %%
-%% The `hosts' option has no effect if `log_type' is set to `html' or
-%% `silent'.
+%% The hook option named `log_type' may be used to change the `cth_conn_log'
+%% behaviour. The default value of this option is `raw', which results in the
+%% behaviour described above. If the value is set to `html', all telnet
+%% communication is printed to the test case HTML log instead.
 %%
-%% The hook options can also be specified in a configuration file with
-%% the configuration variable `ct_conn_log':
-%%
-%% ```
-%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
-%% '''
-%%
-%% For example:
+%% All `cth_conn_log' hook options described above can also be specified in
+%% a configuration file with the configuration variable `ct_conn_log'. Example:
 %%
 %% ```
-%% {ct_conn_log,[{ct_telnet,[{log_type,raw},
-%%                           {hosts,[key_or_name()]}]}]}
+%% {ct_conn_log, [{ct_telnet,[{log_type,raw},
+%%                            {hosts,[key_or_name()]}]}]}
 %% '''
 %%
 %% <b>Note</b> that hook options specified in a configuration file
-%% will overwrite any hardcoded hook options in the test suite.
+%% will overwrite any hardcoded hook options in the test suite!
 %%
-%% === Logging example 1 ===
+%% === Logging example ===
 %%
-%% The following `ct_hooks' statement will cause raw printing of
-%% telnet traffic to separate logs for the connections named
-%% `server1' and `server2'. Any other connections will be logged
-%% to default telnet log.
+%% The following `ct_hooks' statement will cause printing of telnet traffic
+%% to separate logs for the connections named `server1' and `server2'.
+%% Traffic for any other connections will be logged in the default telnet log.
 %%
 %% ```
 %% suite() ->
-%%    [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
-%%                                             {hosts,[server1,server2]}]}
-%%                                ]}]}].
+%%     [{ct_hooks,
+%%       [{cth_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}]}].
 %%'''
 %%
-%% === Logging example 2 ===
-%%
-%% The following configuration file will cause raw logging of all
-%% telnet traffic into one single text file.
+%% As previously explained, the above specification could also be provided
+%% by means of an entry like this in a configuration file:
 %%
 %% ```
-%% {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.
+%% {ct_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}.
 %% '''
 %%
-%% The `ct_hooks' statement must look like this:
+%% in which case the `ct_hooks' statement in the test suite may simply look
+%% like this:
 %%
 %% ```
 %% suite() ->
-%%    [{ct_hooks, [{cth_conn_log, []}]}].
+%%     [{ct_hooks, [{cth_conn_log, []}]}].
 %% '''
 %%
-%% The same `ct_hooks' statement without the configuration file would
-%% cause HTML logging of all telnet connections into the test case
-%% HTML log.
-%%
-%% <b>Note</b> that if the `cth_conn_log' hook is not added, telnet
-%% traffic is still logged in the test case HTML log file (on the legacy
-%% `ct_telnet' format).
 %% @end
 
 %% @type connection_type() = telnet | ts1 | ts2
@@ -205,6 +185,7 @@ open(Name) ->
 %%%      Name = target_name()
 %%%      ConnType = ct_telnet:connection_type()
 %%%      Handle = ct_telnet:handle()
+%%%      Reason = term()
 %%%
 %%% @doc Open a telnet connection to the specified target host.
 open(Name,ConnType) ->
@@ -234,6 +215,7 @@ open(KeyOrName,ConnType,TargetMod) ->
 %%%      TargetMod = atom()
 %%%      Extra = term()
 %%%      Handle = handle()
+%%%      Reason = term()
 %%%
 %%% @doc Open a telnet connection to the specified target host.
 %%%
@@ -295,7 +277,8 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec close(Connection) -> ok | {error,Reason}
-%%%       Connection = ct_telnet:connection()
+%%%      Connection = ct_telnet:connection()
+%%%      Reason = term()
 %%%
 %%% @doc Close the telnet connection and stop the process managing it.
 %%% 
@@ -330,6 +313,7 @@ cmd(Connection,Cmd) ->
 %%%      Cmd = string()
 %%%      Timeout = integer()
 %%%      Data = [string()]
+%%%      Reason = term()
 %%% @doc Send a command via telnet and wait for prompt.
 cmd(Connection,Cmd,Timeout) ->
     case get_handle(Connection) of
@@ -350,6 +334,7 @@ cmdf(Connection,CmdFormat,Args) ->
 %%%      Args = list()
 %%%      Timeout = integer()
 %%%      Data = [string()]
+%%%      Reason = term()
 %%% @doc Send a telnet command and wait for prompt 
 %%%      (uses a format string and list of arguments to build the command).
 cmdf(Connection,CmdFormat,Args,Timeout) when is_list(Args) ->
@@ -360,6 +345,7 @@ cmdf(Connection,CmdFormat,Args,Timeout) when is_list(Args) ->
 %%% @spec get_data(Connection) -> {ok,Data} | {error,Reason}
 %%%      Connection = ct_telnet:connection()
 %%%      Data = [string()]
+%%%      Reason = term()
 %%% @doc Get all data which has been received by the telnet client
 %%% since last command was sent.
 get_data(Connection) ->
@@ -374,6 +360,7 @@ get_data(Connection) ->
 %%% @spec send(Connection,Cmd) -> ok | {error,Reason}
 %%%      Connection = ct_telnet:connection()
 %%%      Cmd = string()
+%%%      Reason = term()
 %%% @doc Send a telnet command and return immediately.
 %%%
 %%% <p>The resulting output from the command can be read with
@@ -391,6 +378,7 @@ send(Connection,Cmd) ->
 %%%      Connection = ct_telnet:connection()
 %%%      CmdFormat = string()
 %%%      Args = list()
+%%%      Reason = term()
 %%% @doc Send a telnet command and return immediately (uses a format
 %%% string and a list of arguments to build the command).
 sendf(Connection,CmdFormat,Args) when is_list(Args) ->
@@ -765,8 +753,8 @@ check_if_prompt_was_reached(Data,_) when is_list(Data) ->
 check_if_prompt_was_reached(_,_) ->
     false.
 
-%%% @hidden
-%% Functions for logging ct_telnet reports and telnet data 
+%%%-----------------------------------------------------------------
+%%% Functions for logging ct_telnet reports and telnet data 
 
 heading(Action,undefined) ->
     io_lib:format("~w ~w",[?MODULE,Action]);
@@ -776,6 +764,8 @@ heading(Action,Name) ->
 force_log(State,Action,String,Args) ->
     log(State,Action,String,Args,true).
 
+%%%-----------------------------------------------------------------
+%%% @hidden
 log(State,Action,String,Args) when is_record(State, state) ->
     log(State,Action,String,Args,false);
 log(Name,Action,String,Args) when is_atom(Name) ->
@@ -783,6 +773,8 @@ log(Name,Action,String,Args) when is_atom(Name) ->
 log(TelnPid,Action,String,Args) when is_pid(TelnPid) ->
     log(#state{teln_pid=TelnPid},Action,String,Args,false).
 
+%%%-----------------------------------------------------------------
+%%% @hidden
 log(undefined,String,Args) ->
     log(#state{},undefined,String,Args,false);
 log(Name,String,Args) when is_atom(Name) ->
@@ -790,6 +782,8 @@ log(Name,String,Args) when is_atom(Name) ->
 log(TelnPid,String,Args) when is_pid(TelnPid) ->
     log(#state{teln_pid=TelnPid},undefined,String,Args).
 
+%%%-----------------------------------------------------------------
+%%% @hidden
 log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
     Action,String,Args,ForcePrint) ->
     Name1 = if Name == undefined -> get({ct_telnet_pid2name,TelnPid});
@@ -839,6 +833,8 @@ log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
 	    end
     end.
 
+%%%-----------------------------------------------------------------
+%%% @hidden
 start_gen_log(Heading) ->
     %% check if output is suppressed
     case ct_util:is_silenced(telnet) of
@@ -846,6 +842,8 @@ start_gen_log(Heading) ->
 	false -> ct_gen_conn:start_log(Heading)
     end.
 
+%%%-----------------------------------------------------------------
+%%% @hidden
 end_gen_log() -> 
     %% check if output is suppressed
     case ct_util:is_silenced(telnet) of

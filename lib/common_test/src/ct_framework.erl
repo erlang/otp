@@ -1274,7 +1274,7 @@ report(What,Data) ->
 	    ct_util:set_testdata({What,Data}),
 	    ok;
 	tc_start ->
-	    %% Data = {Suite,{Func,GroupName}},LogFileName}
+	    %% Data = {{Suite,{Func,GroupName}},LogFileName}
 	    Data1 = case Data of
 			{{Suite,{Func,undefined}},LFN} -> {{Suite,Func},LFN};
 			_ -> Data

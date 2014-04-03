@@ -773,11 +773,14 @@ test_server_ctrl:cross_cover_analyse(Level,[{s1,S1LogDir},{s2,S2LogDir}])
         <p><c>What = tests_start, Data = {Name,NumCases}</c><br></br>
 	   <c>What = loginfo, Data = [{topdir,TestRootDir},{rundir,CurrLogDir}]</c><br></br>
 	   <c>What = tests_done, Data = {Ok,Failed,{UserSkipped,AutoSkipped}}</c><br></br>
-	   <c>What = tc_start, Data = {{Mod,Func},TCLogFile}</c><br></br>
-	   <c>What = tc_done, Data = {Mod,Func,Result}</c><br></br>
-	   <c>What = tc_user_skip, Data = {Mod,Func,Comment}</c><br></br>
-	   <c>What = tc_auto_skip, Data = {Mod,Func,Comment}</c><br></br>
+	   <c>What = tc_start, Data = {{Mod,{Func,GroupName}},TCLogFile}</c><br></br>
+	   <c>What = tc_done, Data = {Mod,{Func,GroupName},Result}</c><br></br>
+	   <c>What = tc_user_skip, Data = {Mod,{Func,GroupName},Comment}</c><br></br>
+	   <c>What = tc_auto_skip, Data = {Mod,{Func,GroupName},Comment}</c><br></br>
 	   <c>What = framework_error, Data = {{FWMod,FWFunc},Error}</c></p>
+	<p>Note that for a test case function that doesn't belong to a group,
+	  <c>GroupName</c> has value <c>undefined</c>, otherwise the name of the test
+	  case group.</p>
       </desc>
     </func>
     <func>

@@ -180,14 +180,20 @@ telnet_config(unix_telnet, legacy) ->
      {ct_conn_log,[]}];
 %% LogType same as GroupName
 telnet_config(unix_telnet, LogType) ->
+    LogTypeTerm = if LogType == raw -> [];
+		     true -> [{log_type,LogType}]
+		  end,
     [{unix, ct:get_config(unix)},
      {ct_conn_log,
-      [{ct_telnet,[{log_type,LogType},
-		   {hosts,[telnet_server_conn1,
-			   telnet_server_conn2,
-			   telnet_server_conn3,
-			   telnet_server_conn4]}]}]}];
+      [{ct_telnet, LogTypeTerm ++
+	    [{hosts,[telnet_server_conn1,
+		     telnet_server_conn2,
+		     telnet_server_conn3,
+		     telnet_server_conn4]}]}]}];
 telnet_config(_, LogType) ->
+    LogTypeTerm = if LogType == raw -> [];
+		     true -> [{log_type,LogType}]
+		  end,
     [{unix,[{telnet,"localhost"},
 	    {port, ?erl_telnet_server_port},
 	    {username,?erl_telnet_server_user},
@@ -202,11 +208,11 @@ telnet_config(_, LogType) ->
 	     [{ct_conn_log,[]}];
 	true ->
 	     [{ct_conn_log,
-	       [{ct_telnet,[{log_type,LogType},
-			    {hosts,[telnet_server_conn1,
-				    telnet_server_conn2,
-				    telnet_server_conn3,
-				    telnet_server_conn4]}]}]}]
+	       [{ct_telnet, LogTypeTerm ++
+		     [{hosts,[telnet_server_conn1,
+			      telnet_server_conn2,
+			      telnet_server_conn3,
+			      telnet_server_conn4]}]}]}]
      end].
 
 %%%-----------------------------------------------------------------
