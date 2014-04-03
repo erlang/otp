@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009. All Rights Reserved.
+# Copyright Ericsson AB 2009-2014. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -20,4 +20,5 @@ SYSTEM_PRINCIPLES_CHAPTER_FILES = \
 	system_principles.xml \
 	error_logging.xml \
 	create_target.xml \
+	upgrade.xml \
 	versions.xml

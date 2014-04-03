@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -84,6 +84,9 @@
     version identifier must be specified as a binary, e.g.</p>
     <code type="none">&lt;&lt;"2\\.1\\.[0-9]+">></code>
     <p>will match all versions <c>2.1.x</c>, where x is any number.</p>
+    <p>Note that the regular expression must match the complete
+    version string, so the above example will work for for
+    e.g. <c>2.1.1</c>, but not for <c>2.1.1.1</c></p>
   </section>
 
   <section>
@@ -339,7 +342,7 @@ restart_new_emulator
       version of erts, kernel, stdlib and sasl are used when the
       emulator restarts. Only one <c>restart_new_emulator</c>
       instruction is allowed in the relup, and it shall be placed
-      first. <seealso marker="systools#make_relup/3">systools:make_relup3,4</seealso>
+      first. <seealso marker="systools#make_relup/3">systools:make_relup/3,4</seealso>
       will ensure this when the relup is generated. The rest of the
       relup script is executed after the restart as a part of the boot
       script.</p>
@@ -347,11 +350,25 @@ restart_new_emulator
       completed. To programatically find out if the upgrade is
       complete,
       call <seealso marker="release_handler#which_releases/0">
-      release_handler:which_releases</seealso> and check if the
+      release_handler:which_releases/0,1</seealso> and check if the
       expected release has status <c>current</c>.</p>
     <p>The new release must still be made permanent after the upgrade
       is completed. Otherwise, the old emulator is started in case of
       an emulator restart.</p>
+    <warning>
+      <p>As stated above, the <c>restart_new_emulator</c>
+	instruction causes the emulator to be restarted with new
+	versions of <c>erts</c>, <c>kernel</c>, <c>stdlib</c> and
+	<c>sasl</c>. All other applications, however, will at startup
+	be running their old versions in this new emulator. In most
+	cases this is no problem, but every now and then there will be
+	incompatible changes to the core applications which may cause
+	trouble in this setting. Such incompatible changes (when
+	functions are removed) are normally preceded by a deprecation
+	over two major releases. To make sure your application is not
+	crashed by an incompatible change, always remove any call to
+	deprecated functions as soon as possible.</p>
+    </warning>
     <pre>
 restart_emulator
     </pre>

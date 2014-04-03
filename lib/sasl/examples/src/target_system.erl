@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ create(RelFileName,SystoolsOpts) ->
               [RelFileName, RelFileName]),
     make_script(RelFileName,SystoolsOpts),
 
-    TarFileName = filename:join(Dir,RelFileName ++ ".tar.gz"),
+    TarFileName = RelFileName ++ ".tar.gz",
     io:fwrite("Creating tar file ~tp ...~n", [TarFileName]),
     make_tar(RelFileName,SystoolsOpts),
 
@@ -100,6 +100,12 @@ create(RelFileName,SystoolsOpts) ->
     copy_file(filename:join([ErtsBinDir, "to_erl"]), 
               filename:join([TmpBinDir, "to_erl"]), [preserve]),
 
+    %% This is needed if 'start' script created from 'start.src' shall
+    %% be used as it points out this directory as log dir for 'run_erl'
+    TmpLogDir = filename:join([TmpDir, "log"]),
+    io:fwrite("Creating temporary directory ~tp ...~n", [TmpLogDir]),
+    ok = file:make_dir(TmpLogDir),
+
     StartErlDataFile = filename:join([TmpDir, "releases", "start_erl.data"]),
     io:fwrite("Creating ~tp ...~n", [StartErlDataFile]),
     StartErlData = io_lib:fwrite("~s ~s~n", [ErtsVsn, RelVsn]),
@@ -115,6 +121,7 @@ create(RelFileName,SystoolsOpts) ->
     erl_tar:add(Tar, filename:join(TmpDir,ErtsDir), ErtsDir, []),
     erl_tar:add(Tar, filename:join(TmpDir,"releases"), "releases", []),
     erl_tar:add(Tar, filename:join(TmpDir,"lib"), "lib", []),
+    erl_tar:add(Tar, filename:join(TmpDir,"log"), "log", []),
     erl_tar:close(Tar),
     %% file:set_cwd(Cwd),
     io:fwrite("Removing directory ~tp ...~n",[TmpDir]),
@@ -136,6 +143,11 @@ install(RelFileName, RootDir) ->
     subst_src_scripts(["erl", "start", "start_erl"], ErtsBinDir, BinDir, 
                       [{"FINAL_ROOTDIR", RootDir}, {"EMU", "beam"}],
                       [preserve]),
+    %%! Workaround for pre OTP 17.0: start.src and start_erl.src did
+    %%! not have correct permissions, so the above 'preserve' option did not help
+    ok = file:change_mode(filename:join(BinDir,"start"),8#0755),
+    ok = file:change_mode(filename:join(BinDir,"start_erl"),8#0755),
+
     io:fwrite("Creating the RELEASES file ...\n"),
     create_RELEASES(RootDir, filename:join([RootDir, "releases",
 					    filename:basename(RelFileName)])).

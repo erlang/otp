@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,7 +21,7 @@
 
     </legalnotice>
 
-    <title>Creating a First Target System</title>
+    <title>Creating and Upgrading a Target System</title>
     <prepared>Peter H&ouml;gfeldt</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -71,23 +71,24 @@
   </section>
 
   <section>
+    <marker id="create"/>
     <title>Creating a Target System</title>
     <p>It is assumed that you have a working Erlang/OTP system structured
       according to the OTP Design Principles.</p>
-    <p><em>Step 1.</em> First create a <c>.rel</c> file (see
-      <c>rel(4)</c>) that specifies the <c>erts</c> version
-      and lists all applications that should be included in the new
-      basic target system. An example is the following
+    <p><em>Step 1.</em> First create a <c>.rel</c> file (see <seealso
+      marker="sasl:rel">rel(4)</seealso>) that specifies the <c>erts</c>
+      version and lists all applications that should be included in the
+      new basic target system. An example is the following
       <c>mysystem.rel</c> file:</p>
     <code type="none">
 %% mysystem.rel
 {release,
  {"MYSYSTEM", "FIRST"},
- {erts, "5.1"},
- [{kernel, "2.7"},
-  {stdlib, "1.10"},
-  {sasl, "1.9.3"},
-  {pea, "1.0"}]}.    </code>
+ {erts, "5.10.4"},
+ [{kernel, "2.16.4"},
+  {stdlib, "1.19.4"},
+  {sasl, "2.3.4"},
+  {pea, "1.0"}]}.</code>
     <p>The listed applications are not only original Erlang/OTP
       applications but possibly also new applications that you have
       written yourself (here examplified by the application
@@ -116,13 +117,13 @@ os> <input>erl -pa /home/user/target_system/myapps/pea-1.0/ebin</input></pre>
           <c>systools:make_tar/2</c>. That file has the following
           contents:</p>
         <code type="none">
-erts-5.1/bin/
+erts-5.10.4/bin/
 releases/FIRST/start.boot
 releases/FIRST/mysystem.rel
 releases/mysystem.rel
-lib/kernel-2.7/
-lib/stdlib-1.10/
-lib/sasl-1.9.3/
+lib/kernel-2.16.4/
+lib/stdlib-1.19.4/
+lib/sasl-2.3.4/
 lib/pea-1.0/        </code>
         <p>The file <c>releases/FIRST/start.boot</c> is a copy of our
           <c>mysystem.boot</c></p>
@@ -142,16 +143,19 @@ lib/pea-1.0/        </code>
       <item>Creates the temporary directory <c>tmp</c> and extracts the tar file
       <c>mysystem.tar.gz</c> into that directory. </item>
       <item>Deletes the <c>erl</c> and <c>start</c> files from
-      <c>tmp/erts-5.1/bin</c>. These files will be created again from
+      <c>tmp/erts-5.10.4/bin</c>. These files will be created again from
       source when installing the release.</item>
       <item>Creates the directory <c>tmp/bin</c>.</item>
       <item>Copies the previously created file <c>plain.boot</c> to
       <c>tmp/bin/start.boot</c>.</item>
       <item>Copies the files <c>epmd</c>, <c>run_erl</c>, and
-      <c>to_erl</c> from the directory <c>tmp/erts-5.1/bin</c> to
+      <c>to_erl</c> from the directory <c>tmp/erts-5.10.4/bin</c> to
        the directory <c>tmp/bin</c>.</item>
+      <item>Creates the directory <c>tmp/log</c>, which will be used
+       if the system is started as embedded with the <c>bin/start</c>
+       script.</item>
       <item>Creates the file <c>tmp/releases/start_erl.data</c> with
-       the contents "5.1 FIRST". This file is to be passed as data
+       the contents "5.10.4 FIRST". This file is to be passed as data
        file to the <c>start_erl</c> script.
       </item>
       <item>Recreates the file <c>mysystem.tar.gz</c> from the directories
@@ -171,11 +175,11 @@ lib/pea-1.0/        </code>
       <item>Extracts the tar file <c>mysystem.tar.gz</c> into the target
        directory <c>/usr/local/erl-target</c>.</item>
       <item>In the target directory reads the file <c>releases/start_erl.data</c>
-       in order to find the Erlang runtime system version ("5.1").</item>
+       in order to find the Erlang runtime system version ("5.10.4").</item>
       <item>Substitutes <c>%FINAL_ROOTDIR%</c> and <c>%EMU%</c> for
       <c>/usr/local/erl-target</c> and <c>beam</c>, respectively, in
        the files <c>erl.src</c>, <c>start.src</c>, and
-      <c>start_erl.src</c> of the target <c>erts-5.1/bin</c>
+      <c>start_erl.src</c> of the target <c>erts-5.10.4/bin</c>
        directory, and puts the resulting files <c>erl</c>,
       <c>start</c>, and <c>run_erl</c> in the target <c>bin</c>
        directory.</item>
@@ -185,6 +189,7 @@ lib/pea-1.0/        </code>
   </section>
 
   <section>
+    <marker id="start"/>
     <title>Starting a Target System</title>
     <p>Now we have a target system that can be started in various ways.</p>
     <p>We start it as a <em>basic target system</em> by invoking</p>
@@ -193,7 +198,7 @@ os> <input>/usr/local/erl-target/bin/erl</input></pre>
     <p>where only the <c>kernel</c> and <c>stdlib</c> applications are
       started, i.e. the system is started as an ordinary development
       system. There are only two files needed for all this to work:
-      <c>bin/erl</c> file (obtained from <c>erts-5.1/bin/erl.src</c>)
+      <c>bin/erl</c> file (obtained from <c>erts-5.10.4/bin/erl.src</c>)
       and the <c>bin/start.boot</c> file (a copy of <c>plain.boot</c>).</p>
     <p>We can also start a distributed system (requires <c>bin/epmd</c>).</p>
     <p>To start all applications specified in the original
@@ -208,9 +213,10 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
       <c>bin/run_erl</c>, which in turn calls <c>bin/start_erl</c>
       (roughly, <c>start_erl</c> is an embedded variant of
       <c>erl</c>). </p>
-    <p>The shell script <c>start</c> is only an example. You should
-      edit it to suite your needs. Typically it is executed when the
-      UNIX system boots.</p>
+    <p>The shell script <c>start</c>, which is generated from
+      erts-5.10.4/bin/start.src during installation, is only an
+      example. You should edit it to suite your needs. Typically it is
+      executed when the UNIX system boots.</p>
     <p><c>run_erl</c> is a wrapper that provides logging of output from
       the run-time system to file. It also provides a simple mechanism
       for attaching to the Erlang shell (<c>to_erl</c>).</p>
@@ -218,7 +224,7 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
       (<c>"/usr/local/erl-target"</c>), the releases directory
       (<c>"/usr/local/erl-target/releases"</c>), and the location of
       the <c>start_erl.data</c> file. It reads the run-time system
-      version (<c>"5.1"</c>) and release version (<c>"FIRST"</c>) from
+      version (<c>"5.10.4"</c>) and release version (<c>"FIRST"</c>) from
       the <c>start_erl.data</c> file, starts the run-time system of the
       version found, and provides <c>-boot</c> flag specifying the boot
       file of the release version found
@@ -255,6 +261,198 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
       makes the release package as complete as possible, and leave to the
       <c>install/2</c> procedure to finish by only considering location
       dependent files.</p>
+  </section>
+
+  <section>
+    <title>Creating the Next Version</title>
+
+    <p>
+      In this example the <c>pea</c> application has been changed, and
+      so are <c>erts</c>, <c>kernel</c>, <c>stdlib</c> and
+      <c>sasl</c>.
+    </p>
+
+    <p>
+      <em>Step 1.</em> Create the <c>.rel</c> file:
+    </p>
+    <code type="none">
+%% mysystem2.rel
+{release,
+ {"MYSYSTEM", "SECOND"},
+ {erts, "6.0"},
+ [{kernel, "3.0"},
+  {stdlib, "2.0"},
+  {sasl, "2.4"},
+  {pea, "2.0"}]}.</code>
+    <p>
+      <em>Step 2.</em> Create the application upgrade file (see
+      <seealso marker="sasl:appup">appup(4)</seealso>) for <c>pea</c>,
+      for example:
+    </p>
+    <code type="none">
+%% pea.appup
+{"2.0",
+ [{"1.0",[{load_module,pea_lib}]}],
+ [{"1.0",[{load_module,pea_lib}]}]}.</code>
+    <p>
+      <em>Step 3.</em> From the directory where the
+      <c>mysystem2.rel</c> file reside, start the Erlang/OTP system:
+    </p>
+    <pre>
+os> <input>erl -pa /home/user/target_system/myapps/pea-2.0/ebin</input></pre>
+    <p>giving the path to the new version of <c>pea</c>. </p>
+
+    <p>
+      <em>Step 4.</em> Create the release upgrade file (see <seealso
+      marker="sasl:relup">relup(4)</seealso>):
+    </p>
+    <pre>
+1> <input>systools:make_relup("mysystem2",["mysystem"],["mysystem"],[{path,["/home/user/target_system/myapps/pea-1.0/ebin","/my/old/erlang/lib/*/ebin"]}]).</input></pre>
+    <p>
+      where <c>"mysystem"</c> is the base release and
+      <c>"mysystem2"</c> is the release to upgrade to.
+    </p>
+    <p>
+      Note that the <c>path</c> option is used for pointing out the
+      old version of all applications. (The new versions are already
+      in the code path - assuming of course that the erlang node on
+      which this is executed is running the correct version of
+      Erlang/OTP.)
+    </p>
+    <p>
+      <em>Step 5.</em> Create the new release:
+    </p>
+    <pre>
+2> <input>target_system:create("mysystem2").</input></pre>
+    <p>
+      Given that the <c>relup</c> file generated in step 4 above is
+      now located in the current directory, it will automatically be
+      included in the release package.
+    </p>
+  </section>
+
+  <section>
+    <title>Upgrading the Target System</title>
+    <p>
+      This part is done on the target node, and for this example we
+      want the node to be running as an embedded system with the
+      <c>-heart</c> option, allowing automatic restart of the
+      node. See <seealso marker="#start">Starting a Target
+      System</seealso> above for more information.
+    </p>
+    <p>
+      We add <c>-heart</c> to <c>bin/start</c>:
+    </p>
+    <code type="none">
+#!/bin/sh
+ROOTDIR=/usr/local/erl-target/
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl -daemon /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA -heart</code>
+    <p>
+      And we use the simplest possible <c>sys.config</c>, which we
+      store in <c>releases/FIRST</c>:
+    </p>
+    <code type="none">
+%% sys.config
+[].</code>
+    <p>
+      Finally, in order to prepare the upgrade, we need to put the new
+      release package in the <c>releases</c> directory of the first
+      target system:
+    </p>
+    <pre>
+os> <input>cp mysystem2.tar.gz /usr/local/erl-target/releases</input></pre>
+    <p>
+      And assuming that the node has been started like this:
+    </p>
+    <pre>
+os> <input>/usr/local/erl-target/bin/start</input></pre>
+    <p>
+      it can be accessed like this:
+    </p>
+    <pre>
+os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.1</input></pre>
+    <p>
+      Also note that logs can be found in
+      <c>/usr/local/erl-target/log</c>. This directory is specified as
+      an argument to <c>run_erl</c>in the start script listed above.
+    </p>
+    <p>
+      <em>Step 1.</em> Unpack the release:
+    </p>
+    <pre>
+1> <input>{ok,Vsn} = release_handler:unpack_release("mysystem2").</input></pre>
+    <p>
+      <em>Step 2.</em> Install the release:
+    </p>
+    <pre>
+2> <input>release_handler:install_release(Vsn).</input>
+<output>{continue_after_restart,"FIRST",[]}
+heart: Tue Apr  1 12:15:10 2014: Erlang has closed.
+heart: Tue Apr  1 12:15:11 2014: Executed "/usr/local/erl-target/bin/start /usr/local/erl-target/releases/new_start_erl.data" -> 0. Terminating.
+[End]</output></pre>
+    <p>
+      The above return value and output after the call to
+      <c>release_handler:install_release/1</c> means that the
+      <c>release_handler</c> has restarted the node by using
+      <c>heart</c>. This will always be done when the upgrade involves
+      a change of <c>erts</c>, <c>kernel</c>, <c>stdlib</c> or
+      <c>sasl</c>. See <seealso marker="upgrade">Upgrade when
+      Erlang/OTP has Changed</seealso> for more infomation about this.
+    </p>
+    <p>
+      The node will be accessable via a new pipe:
+    </p>
+    <pre>
+os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</input></pre>
+    <p>
+      Let's see which releases we have in our system:
+    </p>
+    <pre>
+1> <input>release_handler:which_releases().</input>
+<output>[{"MYSYSTEM","SECOND",
+  ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
+  current},
+ {"MYSYSTEM","FIRST",
+  ["kernel-2.16.4","stdlib-1.19.4","sasl-2.3.4","pea-1.0"],
+  permanent}]</output></pre>
+    <p>
+      Our new release, "SECOND", is now the current release, but we
+      can also see that our "FIRST" release is still permanent. This
+      means that if the node would be restarted at this point, it
+      would come up running the "FIRST" release again.
+    </p>
+    <p>
+      <em>Step 3.</em> Make the new release permanent:
+    </p>
+    <pre>
+2> <input>release_handler:make_permanent("SECOND").</input></pre>
+
+    <p>
+      Now look at the releases again:
+    </p>
+
+    <pre>
+3> <input>release_handler:which_releases().</input>
+<output>[{"MYSYSTEM","SECOND",
+  ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
+  permanent},
+ {"MYSYSTEM","FIRST",
+  ["kernel-2.16.4","stdlib-1.19.4","sasl-2.3.4","pea-1.0"],
+  old}]</output></pre>
+
+  <p>
+    Here we see that the new release version is <c>permanent</c>, so
+    it would be safe to restart the node.
+  </p>
+
   </section>
 
   <section>
