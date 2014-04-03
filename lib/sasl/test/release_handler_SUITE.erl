@@ -667,6 +667,9 @@ release_handler_which_releases(Conf) ->
 
     ok.
 
+release_handler_which_releases(cleanup,_Conf) ->
+    stop_node(node_name(release_handler_which_releases)).
+
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2740
 %% Slogan: vsn not numeric doesn't work so good in release_handling
@@ -1364,6 +1367,9 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     {child,_,_,_,_,brutal_kill,_,_} = Child, % changed from timeout 2000
 
     ok.
+
+upgrade_supervisor(cleanup,_Condf) ->
+    stop_node(node_name(upgrade_supervisor)).
 
 %% Check that if the supervisor fails, then the upgrade is rolled back
 %% and an ok error message is returned
@@ -2417,8 +2423,27 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced) ->
 	    ?t:format("~ncheck_gg_info failed for ~p: ~p~nwhen GGI was: ~p~n"
 		      "and GI was: ~p~n",
 		      [Node,E,GGI,GI]),
+	    %% An attempt to find out if it is only a timing issue
+	    %% that makes this fail every now and then:
+	    try_again_check(Node,GGI,GI,1),
 	    ?t:fail("check_gg_info failed")
     end.
+
+try_again_check(_Node,_GGI,_GI,6) ->
+    ok;
+try_again_check(Node,GGI,GI,N) ->
+    timer:sleep(1000),
+    case {rpc:call(Node,global_group,info,[]),
+	  rpc:call(Node,global,info,[])} of
+	{GGI,GI} ->
+	    ?t:format("~nAfter one more sek, GGI and GI are still the same"),
+	    try_again_check(Node,GGI,GI,N+1);
+	{NewGGI,NewGI} ->
+	    ?t:format("~nAfter one more sek:~nNew GGI: ~p~nNew GI: ~p~n",
+		      [NewGGI,NewGI]),
+	    try_again_check(Node,NewGGI,NewGI,N+1)
+    end.
+
 
 do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) ->
     {_,gg1} = lists:keyfind(own_group_name,1,GGI),
@@ -2563,7 +2588,7 @@ start_nodes(Conf,Snames,Tag) ->
     
 start_node_unix(Sname,NodeDir) ->
     Script = filename:join([NodeDir,"bin","start"]),
-    ?t:format("Starting ~p: ~tp~n", [Sname,Script]),
+    ?t:format("Starting ~p: ~ts~n", [Sname,Script]),
     case rh_test_lib:cmd(Script,[],[{"NODENAME",atom_to_list(Sname)}]) of
 	ok ->
 	    {ok,node_name(Sname)};
