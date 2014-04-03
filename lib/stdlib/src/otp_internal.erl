@@ -90,11 +90,11 @@ obsolete_1(crypto, sha_update, 2) ->
     {deprecated, {crypto, hash_update, 2}};
 
 obsolete_1(crypto, md4_final, 1) ->
-    {deprecated, {crypto, hash_final, 2}};
+    {deprecated, {crypto, hash_final, 1}};
 obsolete_1(crypto, md5_final, 1) ->
-    {deprecated, {crypto, hash_final, 2}};
+    {deprecated, {crypto, hash_final, 1}};
 obsolete_1(crypto, sha_final, 1) ->
-    {deprecated, {crypto, hash_final, 2}};
+    {deprecated, {crypto, hash_final, 1}};
 
 obsolete_1(crypto, md5_mac, 2) ->
     {deprecated, {crypto, hmac, 3}};
@@ -104,9 +104,9 @@ obsolete_1(crypto, sha_mac, 3) ->
     {deprecated, {crypto, hmac, 4}};
 
 obsolete_1(crypto, sha_mac_96, 2) ->
-    {deprecated, {crypto, hmac_n, 3}};
+    {deprecated, {crypto, hmac, 4}};
 obsolete_1(crypto, md5_mac_96, 2) ->
-    {deprecated, {crypto, hmac_n, 3}};
+    {deprecated, {crypto, hmac, 4}};
 
 obsolete_1(crypto, rsa_sign, 2) ->
     {deprecated, {crypto, sign, 4}};
@@ -123,9 +123,9 @@ obsolete_1(crypto, dss_sign, 3) ->
     {deprecated, {crypto, sign, 4}};
 
 obsolete_1(crypto, dss_verify, 3) ->
-    {deprecated, {crypto, verify, 4}};
+    {deprecated, {crypto, verify, 5}};
 obsolete_1(crypto, dss_verify, 4) ->
-    {deprecated, {crypto, verify, 4}};
+    {deprecated, {crypto, verify, 5}};
 
 obsolete_1(crypto, mod_exp, 3) ->
     {deprecated, {crypto, mod_pow, 3}};
@@ -133,7 +133,7 @@ obsolete_1(crypto, mod_exp, 3) ->
 obsolete_1(crypto, dh_compute_key, 3) ->
     {deprecated, {crypto, compute_key, 4}};
 obsolete_1(crypto, dh_generate_key, 1) ->
-    {deprecated, {crypto, generate_key, 3}};
+    {deprecated, {crypto, generate_key, 2}};
 obsolete_1(crypto, dh_generate_key, 2) ->
     {deprecated, {crypto, generate_key, 3}};
 
