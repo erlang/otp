@@ -133,6 +133,10 @@ server1(Iport, Oport, Shell) ->
 		flatten(io_lib:format("~ts\n",
 				      [erlang:system_info(system_version)]))},
 	       Iport, Oport),
+
+    %% Init edlin used by switch command
+    edlin:init(),
+
     %% Enter the server loop.
     server_loop(Iport, Oport, Curr, User, Gr, queue:new()).
 
