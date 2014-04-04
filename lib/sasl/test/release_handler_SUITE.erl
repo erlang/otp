@@ -1410,18 +1410,41 @@ upgrade_supervisor_fail(Conf) when is_list(Conf) ->
 
     {error,{code_change_failed,_Pid,a_sup,_Vsn,
 	    {error,{invalid_shutdown,brutal_kil}}}} =
-	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+	rpc:call(Node, release_handler, install_release,
+		 [RelVsn2, [{error_action,reboot}]]),
 
-    %% Check that the upgrade is terminated - normally this would mean
-    %% rollback, but since this testcase is very simplified the node
-    %% is not started with heart supervision and will therefore not be
-    %% restarted. So we just check that the node goes down.
+    %% Check that the upgrade is terminated - normally this would be a
+    %% rollback, but
+    %%
+    %% 1. Default rollback is done with init:restart(), which does not
+    %%    reboot the emulator, it only restarts the system inside the
+    %%    running erlang node.
+    %%
+    %% 2. This does not work well on a slave node since, if timing is
+    %%    right (bad), the slave node will get the nodedown from its
+    %%    master (because distribution is terminated as part of
+    %%    init:restart()) and then it will do halt() and thus never be
+    %%    restarted (see slave:wloop/1)
+    %%
+    %% 3. Sometimes, though, init:restart() will manage to finish its
+    %%    job before the nodedown is received, making the node
+    %%    actually restart - in which case it might very well confuse
+    %%    the next test case.
+    %%
+    %% 4. So, to avoid unstability we use {error_action,reboot} above,
+    %%    to ensure that the node is actually stopped. Of course, in a
+    %%    real system this must be used together with heart
+    %%    supervision, and then the node will be restarted anyway. But
+    %%    here in this simple test case we are satisfied to see that
+    %%    the node terminates.
     receive {nodedown,Node} -> ok
     after 10000 -> ct:fail(failed_upgrade_never_restarted_node)
     end,
 
     ok.
 
+upgrade_supervisor_fail(cleanup,_Condf) ->
+    stop_node(node_name(upgrade_supervisor_fail)).
 
 %% Test upgrade and downgrade of applications
 eval_appup(Conf) when is_list(Conf) ->
