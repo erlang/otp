@@ -1556,16 +1556,8 @@ map_pair_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,Osub}.
 
 map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,{Isub,Osub0}) ->
-    {K,Osub1} = case cerl:type(K0) of
-	binary ->
-	    K1 = eval_binary(K0),
-	    case cerl:type(K1) of
-		literal -> {K1,Osub0};
-		_ -> pattern(K0,Isub,Osub0)
-	    end;
-	_ -> pattern(K0,Isub,Osub0)
-    end,
-    {V,Osub} = pattern(V0,Isub,Osub1),
+    K = expr(K0, Isub),
+    {V,Osub} = pattern(V0,Isub,Osub0),
     {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
 
 bin_pattern_list(Ps0, Isub, Osub0) ->

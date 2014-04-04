@@ -1407,7 +1407,7 @@ pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
 	    ({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
 		{Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
 	    ({map_field_exact,L,KP,VP}, {Psvt,Bvt0,St0}) ->
-		case is_valid_map_key(KP, St0) of
+		case is_valid_map_key(KP, pattern, St0) of
 		    true ->
 			{Pvt,Bvt1,St1} = pattern(VP, Vt, Old, Bvt, St0),
 			{vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt0, Bvt1), St1};
@@ -2322,14 +2322,16 @@ is_valid_call(Call) ->
 %%   check for value expression without variables
 
 is_valid_map_key(K,St) ->
+    is_valid_map_key(K,expr,St).
+is_valid_map_key(K,Ctx,St) ->
     case expr(K,[],St) of
 	{[],_} ->
-	    is_valid_map_key_value(K);
+	    is_valid_map_key_value(K,Ctx);
 	{[Var|_],_} ->
 	    {false,variable,element(1,Var)}
     end.
 
-is_valid_map_key_value(K) ->
+is_valid_map_key_value(K,Ctx) ->
     case K of
 	{char,_,_} -> true;
 	{integer,_,_} -> true;
@@ -2338,34 +2340,36 @@ is_valid_map_key_value(K) ->
 	{nil,_} -> true;
 	{atom,_,_} -> true;
 	{cons,_,H,T} ->
-	    is_valid_map_key_value(H) andalso
-	    is_valid_map_key_value(T);
+	    is_valid_map_key_value(H,Ctx) andalso
+	    is_valid_map_key_value(T,Ctx);
 	{tuple,_,Es} ->
 	    foldl(fun(E,B) ->
-			B andalso is_valid_map_key_value(E)
+			B andalso is_valid_map_key_value(E,Ctx)
 		end,true,Es);
 	{map,_,Arg,Ps} ->
 	    % only check for value expressions to be valid
 	    % invalid map expressions are later checked in
 	    % core and kernel
-	    is_valid_map_key_value(Arg) andalso foldl(fun
+	    is_valid_map_key_value(Arg,Ctx) andalso foldl(fun
 		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
-					   Tag =:= map_field_exact ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve)
+					   Tag =:= map_field_exact, Ctx =:= expr ->
+		    B andalso is_valid_map_key_value(Ke,Ctx)
+		      andalso is_valid_map_key_value(Ve,Ctx);
+		    (_,_) -> false
 	    end,true,Ps);
 	{map,_,Ps} ->
 	    foldl(fun
 		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
-					   Tag =:= map_field_exact ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve)
+					   Tag =:= map_field_exact, Ctx =:= expr ->
+		    B andalso is_valid_map_key_value(Ke,Ctx)
+		      andalso is_valid_map_key_value(Ve,Ctx);
+		    (_,_) -> false
 	    end, true, Ps);
 	{record,_,_,Fs} ->
 	    foldl(fun
 		    ({record_field,_,Ke,Ve},B) ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve)
+		    B andalso is_valid_map_key_value(Ke,Ctx)
+		      andalso is_valid_map_key_value(Ve,Ctx)
 	      end,true,Fs);
 	{bin,_,Es} ->
 	    % only check for value expressions to be valid
@@ -2373,7 +2377,7 @@ is_valid_map_key_value(K) ->
 	    % core and kernel
 	    foldl(fun
 		    ({bin_element,_,E,_,_},B) ->
-		    B andalso is_valid_map_key_value(E)
+		    B andalso is_valid_map_key_value(E,Ctx)
 		end,true,Es);
 	_ -> false
     end.

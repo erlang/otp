@@ -148,7 +148,7 @@ pattern({map,Line,Ps0}) ->
     Ps1 = pattern_list(Ps0),
     {map,Line,Ps1};
 pattern({map_field_exact,Line,K,V}) ->
-    Ke = pattern(K),
+    Ke = expr(K),
     Ve = pattern(V),
     {map_field_exact,Line,Ke,Ve};
 %%pattern({struct,Line,Tag,Ps0}) ->
