@@ -365,7 +365,7 @@ Some of the available `configure` options are:
 *   `--{with,without}-javac` - Java compiler (without implies that the
     `jinterface` application won't be built)
 *   `--{enable,disable}-dynamic-ssl-lib` - Dynamic OpenSSL libraries
-*   `--{enable,disable}-shared-zlib` - Shared zlib library
+*   `--{enable,disable}-builtin-zlib` - Use the built-in source for zlib.
 *   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
 *   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
     `ssh`, and `ssl` won't be built)
@@ -458,8 +458,13 @@ If you have Xcode 4.3, or later, you will also need to download
 
 #### Building with wxErlang ####
 
-Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as matured
-as the old releases and the OS X port still lags behind the other ports.
+If you want to build the `wx` application, you will need to get wxWidgets-3.0
+(`wxWidgets-3.0.0.tar.bz2` from <http://sourceforge.net/projects/wxwindows/files/3.0.0/>) or get it from github with bug fixes:
+
+    $ git clone --branch WX_3_0_branch git@github.com:wxWidgets/wxWidgets.git
+
+Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as
+mature as the old releases and the OS X port still lags behind the other ports.
 
 Configure and build wxWidgets (on Mavericks - 10.9):
 
@@ -478,7 +483,7 @@ Build Erlang/OTP
 
     $ export PATH=/usr/local/bin:$PATH
     $ cd $ERL_TOP
-    $ ./configure --enable-shared-zlib
+    $ ./configure
     $ make
     $ sudo make install
 
@@ -714,7 +719,6 @@ Use `hipe:help_options/0` to print out the available options.
 
 The `gs` application requires the GUI toolkit Tcl/Tk to run. At least
 version 8.4 is required.
-
 
 Known platform issues
 ---------------------
