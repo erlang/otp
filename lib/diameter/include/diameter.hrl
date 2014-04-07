@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,8 +58,8 @@
 -record(diameter_header,
         {version,            %%  8-bit unsigned
          length,             %% 24-bit unsigned
-         cmd_code,           %%  8-bit unsigned
-         application_id,     %% 24-bit unsigned
+         cmd_code,           %% 24-bit unsigned
+         application_id,     %% 32-bit unsigned
          hop_by_hop_id,      %% 32-bit unsigned
          end_to_end_id,      %% 32-bit unsigned
          is_request,         %% boolean() R flag
