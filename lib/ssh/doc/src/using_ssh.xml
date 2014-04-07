@@ -88,7 +88,7 @@
       [...]
     </code>
 
-    <p>Create the file /tmp/otptest_user/.ssh/authrized_keys and add the content
+    <p>Create the file /tmp/otptest_user/.ssh/authorized_keys and add the content
     of /tmp/otptest_user/.ssh/id_rsa.pub  Now we can do</p>
 
     <code type="erl">
