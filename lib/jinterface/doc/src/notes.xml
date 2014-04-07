@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.5.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implement support for Maps</p>
+          <p>
+	    The API and implementation are simplistic, like for lists
+	    and tuples, using arrays and without any connection to
+	    java.util.Map. (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-11703</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.5.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

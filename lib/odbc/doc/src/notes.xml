@@ -31,7 +31,57 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.19</title>
+  <section><title>ODBC 2.10.20</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed warnings at compile time by adding missing
+	    include file (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11569</p>
+        </item>
+        <item>
+          <p>
+	    Apple has removed iODBC in OS X 10.9 Mavericks, but
+	    forgot to remove all binaries, adopt configure so that
+	    will be possible to build odbc with own installation.</p>
+          <p>
+	    Own Id: OTP-11630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

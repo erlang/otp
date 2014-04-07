@@ -30,6 +30,124 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation with 'no_remove_comments' (Thanks to
+	    Johannes Weißl)</p>
+          <p>
+	    Own Id: OTP-11564</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    There is now a test suite for the Hipe application</p>
+          <p>
+	    Own Id: OTP-11748</p>
+        </item>
+        <item>
+          <p>
+	    Support for a LLVM backend has been added in HiPE</p>
+          <p>
+	    Own Id: OTP-11801</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The pre-defined types <c>array/0</c>, <c>dict/0</c>,
+	    <c>digraph/0</c>, <c>gb_set/0</c>, <c>gb_tree/0</c>,
+	    <c>queue/0</c>, <c>set/0</c>, and <c>tid/0</c> have been
+	    deprecated. They will be removed in Erlang/OTP 18.0. </p>
+	    <p> Instead the types <c>array:array/0</c>,
+	    <c>dict:dict/0</c>, <c>digraph:graph/0</c>,
+	    <c>gb_set:set/0</c>, <c>gb_tree:tree/0</c>,
+	    <c>queue:queue/0</c>, <c>sets:set/0</c>, and
+	    <c>ets:tid/0</c> can be used. (Note: it has always been
+	    necessary to use <c>ets:tid/0</c>.) </p> <p> It is
+	    allowed in Erlang/OTP 17.0 to locally re-define the types
+	    <c>array/0</c>, <c>dict/0</c>, and so on. </p> <p> New
+	    types <c>array:array/1</c>, <c>dict:dict/2</c>,
+	    <c>gb_sets:set/1</c>, <c>gb_trees:tree/2</c>,
+	    <c>queue:queue/1</c>, and <c>sets:set/1</c> have been
+	    added. </p> <p> A compiler option,
+	    <c>nowarn_deprecated_type</c>, has been introduced. By
+	    including the attribute </p> <c>
+	    -compile(nowarn_deprecated_type).</c> <p> in an Erlang
+	    source file, warnings about deprecated types can be
+	    avoided in Erlang/OTP 17.0. </p> <p> The option can also
+	    be given as a compiler flag: </p> <c> erlc
+	    +nowarn_deprecated_type file.erl</c>
+          <p>
+	    Own Id: OTP-10342</p>
+        </item>
+        <item>
+          <p>
+	    EEP43: New data type - Maps</p>
+          <p>
+	    With Maps you may for instance: <taglist> <item><c>M0 =
+	    #{ a =&gt; 1, b =&gt; 2}, % create
+	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
+	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
+	    "hello"}, % add new associations</c></item> <item><c>#{
+	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
+	    values</c></item> </taglist></p>
+          <p>
+	    For information on how to use Maps please see the
+	    <seealso marker="doc/reference_manual:maps">Reference
+	    Manual</seealso>.</p>
+          <p>
+	    The current implementation is without the following
+	    features: <taglist> <item>No variable keys</item>
+	    <item>No single value access</item> <item>No map
+	    comprehensions</item> </taglist></p>
+          <p>
+	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11616</p>
+        </item>
+        <item>
+	    <p> Parameterized opaque types have been introduced. </p>
+          <p>
+	    Own Id: OTP-11625</p>
+        </item>
+        <item>
+          <p>
+	    Add support for the compilation of the is_map/1 and
+	    map_size/1 guards to native code.</p>
+          <p>
+	    Own Id: OTP-11831</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.10.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

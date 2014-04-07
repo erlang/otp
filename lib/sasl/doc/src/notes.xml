@@ -30,6 +30,64 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The upgrade instruction 'restart_application' would
+	    earlier ignore the restart type configured in the .rel
+	    file and always restart the application as permanent.
+	    This is now changed, and the restart type from the .rel
+	    file is used. If restart type is 'load', the application
+	    will only be loaded and not started. If the restart type
+	    is 'none', the application will not be loaded nor
+	    started, but all modules in the application will be
+	    loaded. (Thanks to Tobias Schlager for reporting this
+	    problem)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11716</p>
+        </item>
+        <item>
+          <p>
+	    If <c>systools:make_script/2</c> failed with reason
+	    <c>duplicate_modules</c>, and the <c>silent</c> flag was
+	    not used, a crash with reason <c>function_clause</c>
+	    would occur when <c>systools</c> tried to format the
+	    error message. This has been corrected. (Thanks to
+	    Jean-Sébastien Pédron)</p>
+          <p>
+	    Own Id: OTP-11819</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Calls to erlang:open_port/2 with 'spawn' are updated to
+	    handle space in the command path.</p>
+          <p>
+	    Own Id: OTP-10842</p>
+        </item>
+        <item>
+          <p>
+	    Some more documentation is added to explain the behavior
+	    when an upgrade includes new versions of ERTS, Kernel,
+	    STDLIB or SASL.</p>
+          <p>
+	    Own Id: OTP-11717</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

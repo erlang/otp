@@ -31,6 +31,112 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Subtyping an extensible ENUMERATED would cause an
+	    compilation error. (Thanks to Morten Nygaard Åsnes for
+	    reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-11700</p>
+        </item>
+        <item>
+	    <p>When specifying the value for an OCTET STRING in a
+	    specification, the ASN.1 standard clearly states that the
+	    value must be either a bstring or an hstring, but NOT a
+	    cstring. The ASN.1 compiler will now generate a
+	    compilation error if the value of an OCTET STRING is
+	    given as a character string.</p>
+	    <p>That is, the following example is now illegal:</p>
+	    <p><c>string OCTET STRING ::= "Now illegal"</c></p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11727</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By giving --enable-static-{nifs,drivers} to configure it
+	    is now possible to statically linking of nifs and drivers
+	    to the main Erlang VM binary. At the moment only the asn1
+	    and crypto nifs of the Erlang/OTP nifs and drivers have
+	    been prepared to be statically linked. For more details
+	    see the Installation Guide in the System documentation.</p>
+          <p>
+	    Own Id: OTP-11258</p>
+        </item>
+        <item>
+	    <p>Code generation for the <c>per</c> and <c>uper</c>
+	    backends has been somewhat improved.</p>
+          <p>
+	    Own Id: OTP-11573</p>
+        </item>
+        <item>
+	    <p>The OCTET STRING and BIT STRING types now have a more
+	    natural mapping to Erlang types (binary and bitstring,
+	    respectively), which is more efficient and will avoid
+	    useless conversions between lists and
+	    binaries/bitstrings.</p>
+	    <p>This is an incompatible change. To revert to the old
+	    mapping to support existing applications, use the
+	    <c>legacy_erlang_types</c> option.</p>
+	    <p>Impact: There is a potential for better performance,
+	    as it is now possible to avoid conversions between lists
+	    and binaries both in the generated ASN.1 encode/decode
+	    code and in the application itself.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11594</p>
+        </item>
+        <item>
+	    <p>All functions in the <c>asn1rt</c> module, as well as
+	    <c>asn1ct:decode/3</c> and <c>asn1ct:encode/3</c>, are
+	    now deprecated.</p>
+          <p>
+	    Own Id: OTP-11731</p>
+        </item>
+        <item>
+          <p>
+	    Generated .hrl files are now protected from being
+	    included more than once.</p>
+          <p>
+	    Own Id: OTP-11804</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 2.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

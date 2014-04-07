@@ -30,6 +30,390 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The option dupnames did not work as intended in re. When
+	    looking for names with {capture, [Name, ...]}, re:run
+	    returned a random instance of the match for that name,
+	    instead of the leftmost matching instance, which was what
+	    the documentation stated. This is now corrected to adhere
+	    to the documentation. The option {capture,all_names}
+	    along with a re:inspect/2 function is also added to
+	    further help in using named subpatterns.</p>
+          <p>
+	    Own Id: OTP-11205</p>
+        </item>
+        <item>
+          <p>
+	    If option 'binary' was set for standard_input, then c:i()
+	    would hang if the output was more than one page long -
+	    i.e. then input after "(c)ontinue (q)uit --&gt;" could
+	    not be read. This has been corrected. (Thanks to José
+	    Valim)</p>
+          <p>
+	    Own Id: OTP-11589</p>
+        </item>
+        <item>
+          <p>
+	    stdlib/lists: Add function droplast/1 This functions
+	    drops the last element of a non-empty list. lists:last/1
+	    and lists:droplast/1 are the dual of hd/1 and tl/1 but
+	    for the end of a list. (Thanks to Hans Svensson)</p>
+          <p>
+	    Own Id: OTP-11677</p>
+        </item>
+        <item>
+          <p>
+	    Allow all auto imports to be suppressed at once.
+	    Introducing the no_auto_import attribute:
+	    -compile(no_auto_import). Useful for code generation
+	    tools that always use the qualified function names and
+	    want to avoid the auto imported functions clashing with
+	    local ones. (Thanks to José Valim.)</p>
+          <p>
+	    Own Id: OTP-11682</p>
+        </item>
+        <item>
+          <p>
+	    supervisor_bridge does no longer report normal
+	    termination of children. The reason is that in some
+	    cases, for instance when the restart strategy is
+	    simple_one_for_one, the log could be completely
+	    overloaded with reports about normally terminating
+	    processes. (Thanks to Artem Ocheredko)</p>
+          <p>
+	    Own Id: OTP-11685</p>
+        </item>
+        <item>
+	    <p> The type annotations for alternative registries using
+	    the {via, Module, Name} syntax for sup_name() and
+	    sup_ref() in the supervisor module are now consistent
+	    with the documentation. Dialyzer should no longer
+	    complain about valid supervisor:start_link() and
+	    supervisor:start_child() calls. (Thanks to Caleb
+	    Helbling.) </p>
+          <p>
+	    Own Id: OTP-11707</p>
+        </item>
+        <item>
+	    <p> Two Dets bugs have been fixed. When trying to open a
+	    short file that is not a Dets file, the file was deleted
+	    even with just read access. Calling
+	    <c>dets:is_dets_file/1</c> with a file that is not a Dets
+	    file, a file descriptor was left open. (Thanks to Håkan
+	    Mattsson for reporting the bugs.) </p>
+          <p>
+	    Own Id: OTP-11709</p>
+        </item>
+        <item>
+          <p>
+	    Fix race bug in <c>ets:all</c>. Concurrent creation of
+	    tables could cause other tables to not be included in the
+	    result. (Thanks to Florian Schintke for bug report)</p>
+          <p>
+	    Own Id: OTP-11726</p>
+        </item>
+        <item>
+          <p>
+	    erl_eval now properly evaluates '=='/2 when it is used in
+	    guards. (Thanks to José Valim)</p>
+          <p>
+	    Own Id: OTP-11747</p>
+        </item>
+        <item>
+          <p>
+	    Calls to proplists:get_value/3 are replaced by the faster
+	    lists:keyfind/3 in io_lib_pretty. Elements in the list
+	    are always 2-tuples. (Thanks to Andrew Thompson)</p>
+          <p>
+	    Own Id: OTP-11752</p>
+        </item>
+        <item>
+	    <p> A qlc bug where filters were erroneously optimized
+	    away has been fixed. Thanks to Sam Bobroff for reporting
+	    the bug. </p>
+          <p>
+	    Own Id: OTP-11758</p>
+        </item>
+        <item>
+          <p>
+	    A number of compiler errors where unusual or nonsensical
+	    code would crash the compiler have been reported by Ulf
+	    Norell and corrected by Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11770</p>
+        </item>
+        <item>
+	    <p> Since Erlang/OTP R16B the Erlang Core Linter
+	    (<c>erl_lint</c>) has not emitted errors when built-in
+	    types were re-defined. This bug has been fixed. (Thanks
+	    to Roberto Aloi.) </p>
+          <p>
+	    Own Id: OTP-11772</p>
+        </item>
+        <item>
+          <p>
+	    The functions <c>sys:get_state/1,2</c> and
+	    <c>sys:replace_state/2,3</c> are fixed so they can now be
+	    run while the process is sys suspended. To accomplish
+	    this, the new callbacks <c>Mod:system_get_state/1</c> and
+	    <c>Mod:system_replace_state/2</c> are added, which are
+	    also implemented by the generic behaviours
+	    <c>gen_server</c>, <c>gen_event</c> and <c>gen_fsm</c>.</p>
+          <p>
+	    The potential incompatibility refers to</p>
+          <p>
+	    <list> <item>The previous behaviour of intercepting the
+	    system message and passing a tuple of size 2 as the last
+	    argument to <c>sys:handle_system_msg/6</c> is no longer
+	    supported.</item> <item>The error handling when
+	    <c>StateFun</c> in <c>sys:replace_state/2,3</c> fails is
+	    changed from being totally silent to possibly (if the
+	    callback module does not catch) throw an exception in the
+	    client process.</item> </list></p>
+          <p>
+	    (Thanks to James Fish and Steve Vinoski)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11817</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Options to set match_limit and match_limit_recursion are
+	    added to re:run. The option report_errors is also added
+	    to get more information when re:run fails due to limits
+	    or compilation errors.</p>
+          <p>
+	    Own Id: OTP-10285</p>
+        </item>
+        <item>
+	    <p> The pre-defined types <c>array/0</c>, <c>dict/0</c>,
+	    <c>digraph/0</c>, <c>gb_set/0</c>, <c>gb_tree/0</c>,
+	    <c>queue/0</c>, <c>set/0</c>, and <c>tid/0</c> have been
+	    deprecated. They will be removed in Erlang/OTP 18.0. </p>
+	    <p> Instead the types <c>array:array/0</c>,
+	    <c>dict:dict/0</c>, <c>digraph:graph/0</c>,
+	    <c>gb_set:set/0</c>, <c>gb_tree:tree/0</c>,
+	    <c>queue:queue/0</c>, <c>sets:set/0</c>, and
+	    <c>ets:tid/0</c> can be used. (Note: it has always been
+	    necessary to use <c>ets:tid/0</c>.) </p> <p> It is
+	    allowed in Erlang/OTP 17.0 to locally re-define the types
+	    <c>array/0</c>, <c>dict/0</c>, and so on. </p> <p> New
+	    types <c>array:array/1</c>, <c>dict:dict/2</c>,
+	    <c>gb_sets:set/1</c>, <c>gb_trees:tree/2</c>,
+	    <c>queue:queue/1</c>, and <c>sets:set/1</c> have been
+	    added. </p> <p> A compiler option,
+	    <c>nowarn_deprecated_type</c>, has been introduced. By
+	    including the attribute </p> <c>
+	    -compile(nowarn_deprecated_type).</c> <p> in an Erlang
+	    source file, warnings about deprecated types can be
+	    avoided in Erlang/OTP 17.0. </p> <p> The option can also
+	    be given as a compiler flag: </p> <c> erlc
+	    +nowarn_deprecated_type file.erl</c>
+          <p>
+	    Own Id: OTP-10342</p>
+        </item>
+        <item>
+          <p>
+	    Calls to erlang:open_port/2 with 'spawn' are updated to
+	    handle space in the command path.</p>
+          <p>
+	    Own Id: OTP-10842</p>
+        </item>
+        <item>
+	    <p> Dialyzer's <c>unmatched_return</c> warnings have been
+	    corrected. </p>
+          <p>
+	    Own Id: OTP-10908</p>
+        </item>
+        <item>
+          <p>
+	    Forbid unsized fields in patterns of binary generators
+	    and simplified v3_core's translation of bit string
+	    generators. (Thanks to Anthony Ramine.)</p>
+          <p>
+	    Own Id: OTP-11186</p>
+        </item>
+        <item>
+          <p>
+	    The version of the PCRE library Used by Erlang's re
+	    module is raised to 8.33 from 7.6. This means, among
+	    other things, better Unicode and Unicode Character
+	    Properties support. New options connected to PCRE 8.33
+	    are also added to the re module (ucd, notempty_atstart,
+	    no_start_optimize). PCRE has extended the regular
+	    expression syntax between 7.6 and 8.33, why this imposes
+	    a potential incompatibility. Only very complicated
+	    regular expressions may be affected, but if you know you
+	    are using obscure features, please test run your regular
+	    expressions and verify that their behavior has not
+	    changed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11204</p>
+        </item>
+        <item>
+          <p>
+	    Added dict:is_empty/1 and orddict:is_empty/1. (Thanks to
+	    Magnus Henoch.)</p>
+          <p>
+	    Own Id: OTP-11353</p>
+        </item>
+        <item>
+          <p>
+	    A call to either the <c>garbage_collect/1</c> BIF or the
+	    <c>check_process_code/2</c> BIF may trigger garbage
+	    collection of another processes than the process calling
+	    the BIF. The previous implementations performed these
+	    kinds of garbage collections without considering the
+	    internal state of the process being garbage collected. In
+	    order to be able to more easily and more efficiently
+	    implement yielding native code, these types of garbage
+	    collections have been rewritten. A garbage collection
+	    like this is now triggered by an asynchronous request
+	    signal, the actual garbage collection is performed by the
+	    process being garbage collected itself, and finalized by
+	    a reply signal to the process issuing the request. Using
+	    this approach processes can disable garbage collection
+	    and yield without having to set up the heap in a state
+	    that can be garbage collected.</p>
+          <p>
+	    The <seealso
+	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seealso>,
+	    and <seealso
+	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seealso>
+	    BIFs have been introduced. Both taking an option list as
+	    last argument. Using these, one can issue asynchronous
+	    requests.</p>
+          <p>
+	    <c>code:purge/1</c> and <c>code:soft_purge/1</c> have
+	    been rewritten to utilize asynchronous
+	    <c>check_process_code</c> requests in order to
+	    parallelize work.</p>
+          <p>
+	    Characteristics impact: A call to the
+	    <c>garbage_collect/1</c> BIF or the
+	    <c>check_process_code/2</c> BIF will normally take longer
+	    time to complete while the system as a whole wont be as
+	    much negatively effected by the operation as before. A
+	    call to <c>code:purge/1</c> and <c>code:soft_purge/1</c>
+	    may complete faster or slower depending on the state of
+	    the system while the system as a whole wont be as much
+	    negatively effected by the operation as before.</p>
+          <p>
+	    Own Id: OTP-11388 Aux Id: OTP-11535, OTP-11648 </p>
+        </item>
+        <item>
+	    <p> Improve the documentation of the supervisor's
+	    <c>via</c> reference. (Thanks to MaximMinin.) </p>
+          <p>
+	    Own Id: OTP-11399</p>
+        </item>
+        <item>
+	    <p><c>orddict:from_list/1</c> now uses the optimized sort
+	    routines in the <c>lists</c> module instead of
+	    (essentially) an insertion sort. Depending on the input
+	    data, the speed of the new <c>from_list/1</c> is anything
+	    from slightly faster up to several orders of magnitude
+	    faster than the old <c>from_list/1</c>.</p> (Thanks to
+	    Steve Vinoski.)
+          <p>
+	    Own Id: OTP-11552</p>
+        </item>
+        <item>
+          <p>
+	    EEP43: New data type - Maps</p>
+          <p>
+	    With Maps you may for instance: <taglist> <item><c>M0 =
+	    #{ a =&gt; 1, b =&gt; 2}, % create
+	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
+	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
+	    "hello"}, % add new associations</c></item> <item><c>#{
+	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
+	    values</c></item> </taglist></p>
+          <p>
+	    For information on how to use Maps please see the
+	    <seealso marker="doc/reference_manual:maps">Reference
+	    Manual</seealso>.</p>
+          <p>
+	    The current implementation is without the following
+	    features: <taglist> <item>No variable keys</item>
+	    <item>No single value access</item> <item>No map
+	    comprehensions</item> </taglist></p>
+          <p>
+	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11616</p>
+        </item>
+        <item>
+          <p>
+	    When tab completing the erlang shell now expands
+	    zero-arity functions all the way to closing parenthesis,
+	    unless there is another function with the same name and a
+	    different arity. (Thanks to Pierre Fenoll.)</p>
+          <p>
+	    Own Id: OTP-11684</p>
+        </item>
+        <item>
+	    <p> The Erlang Code Preprocessor (<c>epp</c>) could loop
+	    when encountering a circular macro definition in an
+	    included file. This bug has been fixed. </p> <p> Thanks
+	    to Maruthavanan Subbarayan for reporting the bug, and to
+	    Richard Carlsson for providing a bug fix. </p>
+          <p>
+	    Own Id: OTP-11728</p>
+        </item>
+        <item>
+	    <p> The Erlang Code Linter (<c>erl_lint</c>) has since
+	    Erlang/OTP R13B emitted warnings whenever any of the
+	    types <c>arity()</c>, <c>bitstring()</c>,
+	    <c>iodata()</c>, or <c>boolean()</c> were re-defined. Now
+	    errors are emitted instead. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11771</p>
+        </item>
+        <item>
+	    <p> The <c>encoding</c> option of
+	    <c>erl_parse:abstract/2</c> has been extended to include
+	    <c>none</c> and a callback function (a predicate). </p>
+          <p>
+	    Own Id: OTP-11807</p>
+        </item>
+        <item>
+          <p>
+	    Export zip option types to allow referal from other
+	    modules.</p>
+          <p>
+	    Thanks to Pierre Fenoll and Håkan Mattson</p>
+          <p>
+	    Own Id: OTP-11828</p>
+        </item>
+        <item>
+          <p>
+	    The module <c>pg</c> has been deprecated and will be
+	    removed in Erlang/OTP 18.</p>
+          <p>
+	    Own Id: OTP-11840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.19.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

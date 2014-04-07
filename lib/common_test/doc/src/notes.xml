@@ -32,6 +32,184 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The error generated if a test case process received an
+	    exit from a linked process while executing
+	    init_per_testcase/2, was handled incorrectly by Common
+	    Test. The problem has been solved, and Common Test now
+	    reports this type of error correctly, with proper error
+	    reason and exit location as well.</p>
+          <p>
+	    Own Id: OTP-11643</p>
+        </item>
+        <item>
+          <p>
+	    Running a parallel test case group with two or more
+	    instances of the same test case would result in identical
+	    log file names, and one test case instance would
+	    overwrite the log file of another. This problem has been
+	    solved.</p>
+          <p>
+	    Own Id: OTP-11644</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    The <c>cth_surefire</c> hook would crash in
+	    <c>pre_init_per_suite/3</c> if a previous hook returned
+	    <c>{skip,Reason}</c> or <c>{fail,Reason}</c> instead of a
+	    <c>Config</c> list. This error has been corrected, and
+	    <c>cth_surefire</c> will now simply propagate the
+	    received <c>InitData</c> value instead.</p>
+          <p>
+	    Own Id: OTP-11811</p>
+        </item>
+        <item>
+          <p>
+	    Specs of return values are corrected for
+	    <c>ct_netconfc:get/2,3</c>,
+	    <c>ct_netconfc:get_config/3,4</c>,
+	    <c>ct_netconfc:action/2,3</c>,
+	    <c>ct_netconfc:send_rpc/2,3</c> and
+	    <c>ct_netconfc:send/2,3</c>.</p>
+          <p>
+	    Own Id: OTP-11834 Aux Id: seq12574 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ct_telnet can now log all communication taking place
+	    during a telnet session. Previously, only information
+	    about ct_telnet operations and commands, as well as
+	    explicitly requested data from the server, was logged.</p>
+          <p>
+	    Furthermore, a logging mechanism based on an Error Logger
+	    event handler and a dedicated Common Test hook,
+	    <c>cth_conn_log</c>, now makes it possible to print data
+	    for individual connections to separate log files. Please
+	    see the <c>ct_telnet</c> reference manual for more
+	    information and examples.</p>
+          <p>
+	    Important note: A new argument, <c>ConnName</c> has been
+	    added to the <c>unix_telnet:connect/5</c> callback
+	    function. This forces users that use private ct_telnet
+	    callback modules to update their code according to
+	    <c>unix_telnet:connect/6</c>. Please see the
+	    <c>unix_telnet</c> reference manual and source code
+	    module for details.</p>
+          <p>
+	    Own Id: OTP-11440 Aux Id: seq12457 </p>
+        </item>
+        <item>
+          <p>
+	    A new timeout option has been introduced for the
+	    <c>ct_telnet:expect/3</c> function. With
+	    <c>{total_timeout,Time}</c> it's possible to set a time
+	    limit for the complete expect operation. After
+	    <c>Time</c> milliseconds, <c>expect/3</c> returns
+	    <c>{error,timeout}</c>. The default value used if
+	    <c>total_timeout</c> is not specified, is infinity (i.e.
+	    no time limit). Please see the <c>ct_telnet</c> reference
+	    manual for more information.</p>
+          <p>
+	    Own Id: OTP-11689</p>
+        </item>
+        <item>
+          <p>
+	    Some function specs are corrected or moved and some edoc
+	    comments are corrected in order to allow use of edoc.
+	    (Thanks to Pierre Fenoll)</p>
+          <p>
+	    Own Id: OTP-11702</p>
+        </item>
+        <item>
+          <p>
+	    Test case group name information has been added to the
+	    data sent with <c>tc_user_skip</c> and
+	    <c>tc_auto_skip</c> event messages, as well as the data
+	    passed in calls to the CT Hook functions
+	    <c>on_tc_skip/3</c> and <c>on_tc_fail/3</c>. The
+	    modification only affects the function name
+	    element/argument. This value remains an atom if the test
+	    case in question does not belong to a test case group.
+	    Otherwise a tuple <c>{FuncName,GroupName}</c>
+	    (<c>{atom(),atom()}</c>) is passed instead.</p>
+          <p>
+	    Note that this change may (depending on the patterns used
+	    for matching) require modifications of user event
+	    handlers and hook modules. Please see the Event Handling
+	    chapter in the Common Test User's Guide, and the
+	    reference manual for <c>ct_hooks</c>, for details.</p>
+          <p>
+	    Note also that the Test Server framework callback
+	    function <c>report/2</c> has been modified. This change
+	    only affects users with test frameworks interfacing Test
+	    Server rather than Common Test. See the
+	    <c>test_server_ctrl</c> reference manual for details.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11732 Aux Id: seq12541 </p>
+        </item>
+        <item>
+          <p>
+	    If Common Test can't prompt the user to abort or continue
+	    the test run when one or more test suites fail to
+	    compile, a new option,
+	    <c>{abort_if_missing_suites,Bool}</c>, can be used to
+	    specify whether it should proceed with the test run, or
+	    stop execution. The default value of <c>Bool</c> is
+	    <c>false</c> (i.e. to proceed even if suites are
+	    missing).</p>
+          <p>
+	    Own Id: OTP-11769</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    common_test: Fix problems reported by Dialyzer.</p>
+          <p>
+	    Own Id: OTP-11525</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

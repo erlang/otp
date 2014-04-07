@@ -30,6 +30,203 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a deadlock possibility in terminate application</p>
+          <p>
+	    Own Id: OTP-11171</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug where sendfile would return the wrong error
+	    code for a remotely closed socket if the socket was in
+	    passive mode. (Thanks to Vincent Siliakus for reporting
+	    the bug.)</p>
+          <p>
+	    Own Id: OTP-11614</p>
+        </item>
+        <item>
+          <p>
+	    The new option <c>persistent</c> is added to
+	    <c>application:set_env/4</c> and
+	    <c>application:unset_env/3</c>. An environment key set
+	    with the <c>persistent</c> option will not be overridden
+	    by the ones configured in the application resource file
+	    on load. This means persistent values will stick after
+	    the application is loaded and also on application reload.
+	    (Thanks to José Valim)</p>
+          <p>
+	    Own Id: OTP-11708</p>
+        </item>
+        <item>
+          <p>
+	    The spec for file:set_cwd/1 is modified to also accept
+	    binaries as arguments. This has always been allowed in
+	    the code, but it was not reflected in the spec since
+	    binaries are mostly used for raw file names. Raw file
+	    names are names that are not encoded according to
+	    file:native_name_encoding(), and these are not allowed in
+	    file:set_cwd/1. The spec is now, however, more allowing
+	    in order to avoid unnecessary dialyzer warnings. Raw file
+	    names will still fail in runtime with reason
+	    'no_translation'. (Thanks to José Valim)</p>
+          <p>
+	    Own Id: OTP-11787</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    heart:set_cmd/1 is updated to allow unicode code points >
+	    255 in the given heart command</p>
+          <p>
+	    Own Id: OTP-10843</p>
+        </item>
+        <item>
+	    <p> Dialyzer's <c>unmatched_return</c> warnings have been
+	    corrected. </p>
+          <p>
+	    Own Id: OTP-10908</p>
+        </item>
+        <item>
+          <p>
+	    Make erlang:open_port/2 spawn and spawn_executable handle
+	    unicode.</p>
+          <p>
+	    Own Id: OTP-11105</p>
+        </item>
+        <item>
+          <p>
+	    Erlang/OTP has been ported to the realtime operating
+	    system OSE. The port supports both smp and non-smp
+	    emulator. For details around the port and how to started
+	    see the User's Guide in the <seealso
+	    marker="ose:ose_intro">ose</seealso> application. </p>
+          <p>
+	    Note that not all parts of Erlang/OTP has been ported. </p>
+          <p>
+	    Notable things that work are: non-smp and smp emulators,
+	    OSE signal interaction, crypto, asn1, run_erl/to_erl,
+	    tcp, epmd, distribution and most if not all non-os
+	    specific functionality of Erlang.</p>
+          <p>
+	    Notable things that does not work are: udp/sctp, os_mon,
+	    erl_interface, binding of schedulers.</p>
+          <p>
+	    Own Id: OTP-11334</p>
+        </item>
+        <item>
+          <p>
+	    Add the {active,N} socket option for TCP, UDP, and SCTP,
+	    where N is an integer in the range -32768..32767, to
+	    allow a caller to specify the number of data messages to
+	    be delivered to the controlling process. Once the
+	    socket's delivered message count either reaches 0 or is
+	    explicitly set to 0 with inet:setopts/2 or by including
+	    {active,0} as an option when the socket is created, the
+	    socket transitions to passive ({active, false}) mode and
+	    the socket's controlling process receives a message to
+	    inform it of the transition. TCP sockets receive
+	    {tcp_passive,Socket}, UDP sockets receive
+	    {udp_passive,Socket} and SCTP sockets receive
+	    {sctp_passive,Socket}. </p>
+          <p>
+	    The socket's delivered message counter defaults to 0, but
+	    it can be set using {active,N} via any gen_tcp, gen_udp,
+	    or gen_sctp function that takes socket options as
+	    arguments, or via inet:setopts/2. New N values are added
+	    to the socket's current counter value, and negative
+	    numbers can be used to reduce the counter value.
+	    Specifying a number that would cause the socket's counter
+	    value to go above 32767 causes an einval error. If a
+	    negative number is specified such that the counter value
+	    would become negative, the socket's counter value is set
+	    to 0 and the socket transitions to passive mode. If the
+	    counter value is already 0 and inet:setopts(Socket,
+	    [{active,0}]) is specified, the counter value remains at
+	    0 but the appropriate passive mode transition message is
+	    generated for the socket.</p>
+          <p>
+	    Thanks to Steve Vinoski</p>
+          <p>
+	    Own Id: OTP-11368</p>
+        </item>
+        <item>
+          <p>
+	    A call to either the <c>garbage_collect/1</c> BIF or the
+	    <c>check_process_code/2</c> BIF may trigger garbage
+	    collection of another processes than the process calling
+	    the BIF. The previous implementations performed these
+	    kinds of garbage collections without considering the
+	    internal state of the process being garbage collected. In
+	    order to be able to more easily and more efficiently
+	    implement yielding native code, these types of garbage
+	    collections have been rewritten. A garbage collection
+	    like this is now triggered by an asynchronous request
+	    signal, the actual garbage collection is performed by the
+	    process being garbage collected itself, and finalized by
+	    a reply signal to the process issuing the request. Using
+	    this approach processes can disable garbage collection
+	    and yield without having to set up the heap in a state
+	    that can be garbage collected.</p>
+          <p>
+	    The <seealso
+	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seealso>,
+	    and <seealso
+	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seealso>
+	    BIFs have been introduced. Both taking an option list as
+	    last argument. Using these, one can issue asynchronous
+	    requests.</p>
+          <p>
+	    <c>code:purge/1</c> and <c>code:soft_purge/1</c> have
+	    been rewritten to utilize asynchronous
+	    <c>check_process_code</c> requests in order to
+	    parallelize work.</p>
+          <p>
+	    Characteristics impact: A call to the
+	    <c>garbage_collect/1</c> BIF or the
+	    <c>check_process_code/2</c> BIF will normally take longer
+	    time to complete while the system as a whole wont be as
+	    much negatively effected by the operation as before. A
+	    call to <c>code:purge/1</c> and <c>code:soft_purge/1</c>
+	    may complete faster or slower depending on the state of
+	    the system while the system as a whole wont be as much
+	    negatively effected by the operation as before.</p>
+          <p>
+	    Own Id: OTP-11388 Aux Id: OTP-11535, OTP-11648 </p>
+        </item>
+        <item>
+          <p>
+	    Add sync option to file:open/2.</p>
+          <p>
+	    The sync option adds the POSIX O_SYNC flag to the open
+	    system call on platforms that support the flag or its
+	    equivalent, e.g., FILE_FLAG_WRITE_THROUGH on Windows. For
+	    platforms that don't support it, file:open/2 returns
+	    {error, enotsup} if the sync option is passed in. Thank
+	    to Steve Vinoski and Joseph Blomstedt</p>
+          <p>
+	    Own Id: OTP-11498</p>
+        </item>
+        <item>
+	    <p> The contract of <c>inet:ntoa/1</c> has been
+	    corrected. </p> <p> Thanks to Max Treskin. </p>
+          <p>
+	    Own Id: OTP-11730</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.16.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

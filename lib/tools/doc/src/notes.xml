@@ -30,6 +30,82 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed the support for the query keyword from emacs mode
+	    (Thanks to Paul Oliver)</p>
+          <p>
+	    Own Id: OTP-11568</p>
+        </item>
+        <item>
+          <p>
+	    Emacs mode improvements (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-11601</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    The emacs erlang mode now match erlang keywords more
+	    carefully (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-11786</p>
+        </item>
+        <item>
+          <p>
+	    The emacs erlang-mode now auto loads for more file types
+	    (Thanks to Phil Hagelberg)</p>
+          <p>
+	    Own Id: OTP-11788</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>cover</c> can run on itself. Also, support for reading
+	    BEAM files produced by ancient OTP versions before R9C
+	    has been removed.</p>
+          <p>
+	    Own Id: OTP-11692</p>
+        </item>
+        <item>
+          <p>
+	    Support maps in cover</p>
+          <p>
+	    Own Id: OTP-11764</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

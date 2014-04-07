@@ -42,6 +42,164 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing check at dictionary compilation.</p>
+          <p>
+	    In particular, that an AVP defined as having type Grouped
+	    in an @avp_types section has a corresponding definition
+	    in a @grouped section.</p>
+          <p>
+	    Own Id: OTP-11561</p>
+        </item>
+        <item>
+          <p>
+	    Correct documentation on the setting of Origin-State-Id</p>
+          <p>
+	    It was incorrectly stated that the AVP would be set in an
+	    outgoing DPR/DPA.</p>
+          <p>
+	    Own Id: OTP-11583</p>
+        </item>
+        <item>
+          <p>
+	    Change interface for communicating outbound stream id to
+	    diameter_sctp</p>
+          <p>
+	    The module uses the transport_data field of record
+	    diameter_packet to communicate the stream on which the an
+	    incoming message is received and on which an outgoing
+	    message should be sent, the previous interface being that
+	    both are communicated as a tuple of the form {stream,
+	    Id}. However, since diameter retains the value of an
+	    incoming request's transport_data unless the
+	    corresponding answer message specifies otherwise, the
+	    behaviour in this case is to send an answer on the
+	    outbound stream with the same identifier as the that of
+	    the inbound stream on which the request was received. If
+	    the inbound stream id is greater than or equal to the
+	    number of outbound streams then this is guaranteed to
+	    fail, causing the transport process in question to
+	    terminate. There is no relationship between inbound and
+	    outbound stream identifiers so diameter_sctp's imposition
+	    of one is simply wrong.</p>
+          <p>
+	    Outbound stream ids are now communicated with a different
+	    tuple: {outstream, Id}, interpreted modulo the number of
+	    outbound streams. Thus, retention of an inbound request's
+	    transport_data has no effect on the selection of an
+	    outbound stream.</p>
+          <p>
+	    The change in interface is not strictly backwards
+	    compatible because of the new atom for the outbound
+	    stream. However, as there is currently no documented way
+	    of obtaining the available number of outbound streams for
+	    a peer connection, there is no way for a client to have
+	    known the range of ids from which it could reliably have
+	    chosen with the previous interface, so any setting of the
+	    outbound stream has probably been unintentional. Not
+	    explicitly specifying an outbound stream now results in a
+	    round-robin selection.</p>
+          <p>
+	    Thanks to Sharmila Pillai for reporting the problem.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11593</p>
+        </item>
+        <item>
+          <p>
+	    Fix unicode path failure in diameter_make:codec/2.</p>
+          <p>
+	    A dictionary path containing a unicode codepoint > 255
+	    caused the function to fail.</p>
+          <p>
+	    Own Id: OTP-11655</p>
+        </item>
+        <item>
+          <p>
+	    Fix 'accept' config to diameter_sctp.</p>
+          <p>
+	    OTP-10893 added support for {accept, Match} tuples to
+	    specify addresses or regexps that should be matched
+	    against peer addresses to decide whether or not a newly
+	    established association should be retained, but this
+	    hasn't been functional in the SCTP case because of
+	    missing support in inet(3).</p>
+          <p>
+	    The display of both local and peer addresses in
+	    diameter:service_info/2 output has also been corrected.</p>
+          <p>
+	    Own Id: OTP-11661 Aux Id: OTP-10229 </p>
+        </item>
+        <item>
+          <p>
+	    Be lenient with the M-bit in Grouped AVPs.</p>
+          <p>
+	    RFC 6733 says this, in 4.4:</p>
+          <p>
+	    <taglist><item><p><c>Receivers of a Grouped AVP that does
+	    not have the 'M' (mandatory) bit set and one or more of
+	    the encapsulated AVPs within the group has the 'M'
+	    (mandatory) bit set MAY simply be ignored if the Grouped
+	    AVP itself is unrecognized. The rule applies even if the
+	    encapsulated AVP with its 'M' (mandatory) bit set is
+	    further encapsulated within other sub-groups, i.e., other
+	    Grouped AVPs embedded within the Grouped
+	    AVP.</c></p></item></taglist></p>
+          <p>
+	    The first sentence is mangled but take it to mean this:</p>
+          <p>
+	    <taglist><item><p><c>An unrecognized AVP of type Grouped
+	    that does not set the 'M' bit MAY be ignored even if one
+	    of its encapsulated AVPs sets the 'M'
+	    bit.</c></p></item></taglist></p>
+          <p>
+	    This is a bit of a non-statement since if the AVP is
+	    unrecognized then its type is unknown. We therefore don't
+	    know that its data bytes contain encapsulated AVPs, so
+	    can't but ignore any of those that set the M-bit. Doing
+	    anything else when the type *is* known would be
+	    inconsistent.</p>
+          <p>
+	    OTP-11087 (R16B03) caused the M-bit on any unrecognized
+	    AVP to be regarded as an error, unrecognized being taken
+	    to mean "not explicitly defined as a member of its
+	    container". (That is, an AVP that can't be packed into a
+	    dedicated record field, which is slightly stronger than
+	    "not defined".) This fixed the original intention for
+	    top-level AVPs but broke the required leniency for
+	    Grouped AVPs whose type is known. This leniency is now
+	    restored.</p>
+          <p>
+	    Note that dictionary files need to be recompiled for the
+	    change to have effect.</p>
+          <p>
+	    Thanks to Rory McKeown for reporting the problem.</p>
+          <p>
+	    Own Id: OTP-11675 Aux Id: OTP-11087 </p>
+        </item>
+        <item>
+          <p>
+	    Fix pick_peer case clause failure.</p>
+          <p>
+	    In the case of {call_mutates_state, true} configuration
+	    on the service in question, any peer selection that
+	    failed to select a peer resulted in a case clause
+	    failure. This was noticed in the case of a peer failover
+	    in which an alternate peer wasn't available.</p>
+          <p>
+	    Own Id: OTP-11789</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.5</title>
 
     <section><title>Improvements and New Features</title>

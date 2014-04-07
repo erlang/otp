@@ -33,7 +33,26 @@
   </header>
 
 
-  <section><title>Orber 3.6.26.1</title>
+  <section><title>Orber 3.6.27</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.26.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -31,6 +31,233 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Line numbers would not be correct when a binary
+	    construction such as
+	    '<c>&lt;&lt;Bin/binary,...&gt;&gt;</c>' fails. (Thanks to
+	    Stanislav Seletskiy for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-11572</p>
+        </item>
+        <item>
+          <p>
+	    The compiler now properly annotates the code in value in
+	    the '<c>after</c>' clause for a '<c>try</c>' so that
+	    Dialyzer no longer generates a false warning for an
+	    unmatched return.</p>
+          <p>
+	    Own Id: OTP-11580</p>
+        </item>
+        <item>
+          <p>
+	    Some case statements where no clause would match could
+	    cause an internal error in the compiler. (Thanks to Erik
+	    Soe Sorensen for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-11610</p>
+        </item>
+        <item>
+          <p>
+	    With <c>--Wunmatched_returns</c>, dialyzer will no longer
+	    warn when the value of a list comprehension is ignored,
+	    provided that the each value in the list would be an
+	    atomic value (such as integer or atoms, as opposed to
+	    tuples and lists). Example: ignoring '<c>[io:format(...)
+	    || ...]</c>' will not cause a warning, while ignoring
+	    '<c>[file:close(Fd) || ...]</c>' will.</p>
+          <p>
+	    Own Id: OTP-11626</p>
+        </item>
+        <item>
+          <p>
+	    Matching out a binary and applying the binary as if it
+	    were a fun would crash the run-time system. (Thanks to
+	    Loïc Hoguin.)</p>
+          <p>
+	    Own Id: OTP-11672</p>
+        </item>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+        <item>
+          <p>
+	    Allow all auto imports to be suppressed at once.
+	    Introducing the no_auto_import attribute:
+	    -compile(no_auto_import). Useful for code generation
+	    tools that always use the qualified function names and
+	    want to avoid the auto imported functions clashing with
+	    local ones. (Thanks to José Valim.)</p>
+          <p>
+	    Own Id: OTP-11682</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    Adapt 'asm' deprecation message to new version scheme.
+	    (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-11751</p>
+        </item>
+        <item>
+          <p>
+	    A number of compiler errors where unusual or nonsensical
+	    code would crash the compiler have been reported by Ulf
+	    Norell and corrected by Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11770</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Compilation times for modules with a huge number for
+	    record accesses using the dot operator has been improved.</p>
+          <p>
+	    Own Id: OTP-10652</p>
+        </item>
+        <item>
+          <p>
+	    The compiler can generate somewhat better code by moving
+	    let expressions into sequences. (Thanks to Anthony
+	    Ramine.)</p>
+          <p>
+	    Own Id: OTP-11056</p>
+        </item>
+        <item>
+          <p>
+	    Forbid unsized fields in patterns of binary generators
+	    and simplified v3_core's translation of bit string
+	    generators. (Thanks to Anthony Ramine.)</p>
+          <p>
+	    Own Id: OTP-11186</p>
+        </item>
+        <item>
+          <p>
+	    Funs can now be a given a name. Thanks to to Richard
+	    O'Keefe for the idea (EEP37) and to Anthony Ramine for
+	    the implementation.</p>
+          <p>
+	    Own Id: OTP-11537</p>
+        </item>
+        <item>
+          <p>
+	    Using the <c>from_asm</c> option to produce a BEAM file
+	    starting from BEAM assembly code would often fail because
+	    early optimization passes would not understand
+	    instructions that later optimization passes would
+	    introduce. (Thanks to Anthony Ramine.)</p>
+          <p>
+	    Own Id: OTP-11544</p>
+        </item>
+        <item>
+          <p>
+	    The <c>.core</c> and <c>.S</c> extensions are now
+	    documented in the <c>erlc</c> documentation, and the
+	    '<c>from_core</c>' and '<c>from_asm</c>' options are now
+	    documented in the compiler documentation. (Thanks to
+	    Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-11547</p>
+        </item>
+        <item>
+	    <p>Optimization of case expressions that build tuples or
+	    lists have been improved.</p>
+          <p>
+	    Own Id: OTP-11584</p>
+        </item>
+        <item>
+          <p>
+	    EEP43: New data type - Maps</p>
+          <p>
+	    With Maps you may for instance: <taglist> <item><c>M0 =
+	    #{ a =&gt; 1, b =&gt; 2}, % create
+	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
+	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
+	    "hello"}, % add new associations</c></item> <item><c>#{
+	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
+	    values</c></item> </taglist></p>
+          <p>
+	    For information on how to use Maps please see the
+	    <seealso marker="doc/reference_manual:maps">Reference
+	    Manual</seealso>.</p>
+          <p>
+	    The current implementation is without the following
+	    features: <taglist> <item>No variable keys</item>
+	    <item>No single value access</item> <item>No map
+	    comprehensions</item> </taglist></p>
+          <p>
+	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11616</p>
+        </item>
+        <item>
+          <p>
+	    Some function specs are corrected or moved and some edoc
+	    comments are corrected in order to allow use of edoc.
+	    (Thanks to Pierre Fenoll)</p>
+          <p>
+	    Own Id: OTP-11702</p>
+        </item>
+        <item>
+          <p>
+	    Thanks to Anthony Ramine for several improvements to the
+	    optimizations in the BEAM compiler and for cleaning up
+	    the code the code that transforms list and binary
+	    comprehensions to Core Erlang.</p>
+          <p>
+	    Own Id: OTP-11720</p>
+        </item>
+        <item>
+          <p>
+	    The default encoding for Erlang source files is now
+	    UTF-8. As a temporary measure to ease the transition from
+	    the old default of latin-1, if the compiler encounters
+	    byte sequences that are not valid UTF-8 sequences, the
+	    compiler will re-try the compilation in latin-1 mode.
+	    This workaround will be removed in a future release.</p>
+          <p>
+	    Own Id: OTP-11791</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.9.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

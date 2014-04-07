@@ -30,6 +30,715 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The option dupnames did not work as intended in re. When
+	    looking for names with {capture, [Name, ...]}, re:run
+	    returned a random instance of the match for that name,
+	    instead of the leftmost matching instance, which was what
+	    the documentation stated. This is now corrected to adhere
+	    to the documentation. The option {capture,all_names}
+	    along with a re:inspect/2 function is also added to
+	    further help in using named subpatterns.</p>
+          <p>
+	    Own Id: OTP-11205</p>
+        </item>
+        <item>
+          <p>
+	    Allow loading of NIF library with unicode path name</p>
+          <p>
+	    Own Id: OTP-11408</p>
+        </item>
+        <item>
+          <p>
+	    Allow loading of driver with unicode path name</p>
+          <p>
+	    Own Id: OTP-11549</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where starting Erlang without having an open
+	    stdin on fd 0 would sometimes deadlock the emulator when
+	    terminating.</p>
+          <p>
+	    Own Id: OTP-11558</p>
+        </item>
+        <item>
+          <p>
+	    The option '-names' in epmd now works on Windows (Thanks
+	    to Johannes Weißl)</p>
+          <p>
+	    Own Id: OTP-11565</p>
+        </item>
+        <item>
+          <p>
+	    Correction of the examples in escript documentation.
+	    (Thanks to Pierre Fenoll).</p>
+          <p>
+	    Own Id: OTP-11577</p>
+        </item>
+        <item>
+          <p>
+	    Fix bs_get_integer instruction</p>
+          <p>
+	    The instruction bs_get_integer could unnecessarily
+	    trigger a garbage collection in failure cases which is
+	    unwanted or outright dangerous.</p>
+          <p>
+	    Ex:</p>
+          <p>
+	    &lt;&lt;X:Sz,_/bits&gt;&gt; = &lt;&lt;"some
+	    binary"&gt;&gt;</p>
+          <p>
+	    Previously, if Sz induced X to a bignum it would reserved
+	    memory size this on the heap via a garbage collection
+	    before checking if the size could actually match.</p>
+          <p>
+	    It will now check the binary size before triggering a
+	    collection.</p>
+          <p>
+	    Own Id: OTP-11581</p>
+        </item>
+        <item>
+          <p>
+	    Remove heap space overestimation in <c>binary_to_term</c>
+	    (and remote message reception) for integers in the
+	    intervals [-2147483648,-1] and [256,2147483647] on 64-bit
+	    emulators.</p>
+          <p>
+	    Own Id: OTP-11585</p>
+        </item>
+        <item>
+          <p>
+	    Add support for detecting the separate tinfo library from
+	    ncurses (Thanks to Dirkjan Ochtman)</p>
+          <p>
+	    Own Id: OTP-11590</p>
+        </item>
+        <item>
+          <p>
+	    Deprecation warning for system_flag(cpu_topology) has
+	    been extended for removal in OTP 18 (Thanks to Steve
+	    Vinoski for the update)</p>
+          <p>
+	    Own Id: OTP-11602</p>
+        </item>
+        <item>
+          <p>
+	    Documentation improvement regarding some awkward wording
+	    around the +spp flag. (Thanks to Brian L. Troutwine )</p>
+          <p>
+	    Own Id: OTP-11607</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug where sendfile would return the wrong error
+	    code for a remotely closed socket if the socket was in
+	    passive mode. (Thanks to Vincent Siliakus for reporting
+	    the bug.)</p>
+          <p>
+	    Own Id: OTP-11614</p>
+        </item>
+        <item>
+          <p>
+	    Increase garbage collection tenure rate</p>
+	    <p>The garbage collector tries to maintain the previous
+	    heap block size during a minor gc, i.e. 'need' is not
+	    utilized in determining the size of the new heap, instead
+	    it relies on tenure and garbage to be sufficiently
+	    large.</p>
+	    <p>In instances during intense growing with exclusively
+	    live data on the heap coupled with delayed tenure,
+	    fullsweeps would be triggered directly after a minor gc
+	    to make room for 'need' since the new heap would be
+	    full.</p>
+	    <p>To remedy this, the tenure of terms on the minor heap
+	    will always happen (if it is below the high watermark)
+	    instead of every other minor gc.</p>
+	    <p>Characteristics Impact: Reduced CPU-time spent in
+	    garbage collection but may infer delays in collecting
+	    garbage from the heap. Tweak 'fullsweep_after' options to
+	    increase gc pressure if needed.</p>
+          <p>
+	    Own Id: OTP-11617</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug when comparing integers with floats larger than
+	    2^992. The bug could potentially cause memory corruption
+	    on 32-bit emulators.</p>
+          <p>
+	    Own Id: OTP-11618</p>
+        </item>
+        <item>
+          <p>
+	    Cross-compilation fixes for TileraMDE-3.0.1.125620</p>
+          <p>
+	    Own Id: OTP-11635</p>
+        </item>
+        <item>
+          <p>
+	    sendfile no longer uses async threads by default</p>
+          <p>
+	    This has been done because a slow client attack is
+	    possible if the async thread pool is used. The scenario
+	    is:</p>
+          <p>
+	    Client does a request for a file and then slowly receives
+	    the file one byte at a time. This will eventually fill
+	    the async thread pool with blocking sendfile operations
+	    and thus starving the vm of all file operations.</p>
+          <p>
+	    If you still want to use the async threads pool for
+	    sendfile an option to enable it has been introduced.</p>
+          <p>
+	    Thanks to Christopher Faulet for identifying this
+	    vulnerability.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11639</p>
+        </item>
+        <item>
+          <p>
+	    Do proper rollback of calls to
+	    <c>enif_open_resource_type</c> when load/upgrade
+	    callbacks of NIF library return failure.</p>
+          <p>
+	    Own Id: OTP-11722</p>
+        </item>
+        <item>
+          <p>
+	    Changed the default configuration when configuring with
+	    <c>$ERL_TOP/configure</c> to be the same as when
+	    configuring with <c>$ERL_TOP/otp_build configure</c>.</p>
+          <p>
+	    Previously floating point exceptions got enabled by
+	    default on Linux when HiPE was enabled when configuring
+	    with <c>$ERL_TOP/configure</c>, but not when configuring
+	    with <c>$ERL_TOP/otp_build configure</c>. The default is
+	    now in both cases not to use floating point exceptions
+	    since there still exist unresolved issues with floating
+	    point exceptions on Linux.</p>
+          <p>
+	    For more information see <seealso
+	    marker="doc/installation_guide:INSTALL"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seealso>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11723</p>
+        </item>
+        <item>
+          <p>
+	    A comment in erl_db_tree.c no longer differ from the
+	    code. (Thanks to Cobus Carstens)</p>
+          <p>
+	    Own Id: OTP-11793</p>
+        </item>
+        <item>
+          <p>
+	    Fix epmd debug functionality for VxWorks (Thanks to Jay
+	    True)</p>
+          <p>
+	    Own Id: OTP-11808</p>
+        </item>
+        <item>
+          <p>
+	    Use closefrom/2 when available in child_setup (Thanks to
+	    Rick Reed and Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11809</p>
+        </item>
+        <item>
+          <p>
+	    Fix dtrace/systemtap bug where the probe arguments would
+	    be concatenated due to faulty length calculation. </p>
+          <p>
+	    Thanks to Michal Ptaszek and Scott Lystig Fritchie</p>
+          <p>
+	    Own Id: OTP-11816</p>
+        </item>
+        <item>
+          <p>
+	    It is now better documented that the <c>+fn*</c> flags to
+	    <c>erl</c> also affect how command line parameters and
+	    environment variables are read. (Thanks to Vlad
+	    Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-11818</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Options to set match_limit and match_limit_recursion are
+	    added to re:run. The option report_errors is also added
+	    to get more information when re:run fails due to limits
+	    or compilation errors.</p>
+          <p>
+	    Own Id: OTP-10285</p>
+        </item>
+        <item>
+	    <p> Dialyzer's <c>unmatched_return</c> warnings have been
+	    corrected. </p>
+          <p>
+	    Own Id: OTP-10908</p>
+        </item>
+        <item>
+          <p>
+	    A common case is to wrap an argument to
+	    <c>list_to_binary/1</c> in a list to ensure conversion
+	    can happen even though the argument may already be a
+	    binary. Take special care of this case and do not copy
+	    binary.</p>
+          <p>
+	    Impact: May cause incompatibility since a single binary
+	    is no longer copied. Use <c>binary:copy/1,2</c> instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11082</p>
+        </item>
+        <item>
+          <p>
+	    Make erlang:open_port/2 spawn and spawn_executable handle
+	    unicode.</p>
+          <p>
+	    Own Id: OTP-11105</p>
+        </item>
+        <item>
+          <p>
+	    Handle unicode (widestring) in erl, erlc, heart, etc on
+	    windows.</p>
+          <p>
+	    Own Id: OTP-11135</p>
+        </item>
+        <item>
+          <p>
+	    The version of the PCRE library Used by Erlang's re
+	    module is raised to 8.33 from 7.6. This means, among
+	    other things, better Unicode and Unicode Character
+	    Properties support. New options connected to PCRE 8.33
+	    are also added to the re module (ucd, notempty_atstart,
+	    no_start_optimize). PCRE has extended the regular
+	    expression syntax between 7.6 and 8.33, why this imposes
+	    a potential incompatibility. Only very complicated
+	    regular expressions may be affected, but if you know you
+	    are using obscure features, please test run your regular
+	    expressions and verify that their behavior has not
+	    changed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11204</p>
+        </item>
+        <item>
+	    <p>Filenames containing UTF-8 encoded characters can now
+	    be handled by erlc.</p>
+	    <p>If you have set the <c>ERLC_EMULATOR</c> environment
+	    variable, note that <c>erlc</c> in OTP 17 will only work
+	    with <c>erl</c> in OTP 17 since the protocol between the
+	    <c>erlc</c> program and the <c>erl_compile</c> module has
+	    changed.</p>
+          <p>
+	    Own Id: OTP-11248</p>
+        </item>
+        <item>
+          <p>
+	    By giving --enable-static-{nifs,drivers} to configure it
+	    is now possible to statically linking of nifs and drivers
+	    to the main Erlang VM binary. At the moment only the asn1
+	    and crypto nifs of the Erlang/OTP nifs and drivers have
+	    been prepared to be statically linked. For more details
+	    see the Installation Guide in the System documentation.</p>
+          <p>
+	    Own Id: OTP-11258</p>
+        </item>
+        <item>
+          <p>
+	    Erlang/OTP has been ported to the realtime operating
+	    system OSE. The port supports both smp and non-smp
+	    emulator. For details around the port and how to started
+	    see the User's Guide in the <seealso
+	    marker="ose:ose_intro">ose</seealso> application. </p>
+          <p>
+	    Note that not all parts of Erlang/OTP has been ported. </p>
+          <p>
+	    Notable things that work are: non-smp and smp emulators,
+	    OSE signal interaction, crypto, asn1, run_erl/to_erl,
+	    tcp, epmd, distribution and most if not all non-os
+	    specific functionality of Erlang.</p>
+          <p>
+	    Notable things that does not work are: udp/sctp, os_mon,
+	    erl_interface, binding of schedulers.</p>
+          <p>
+	    Own Id: OTP-11334</p>
+        </item>
+        <item>
+          <p>
+	    Add the {active,N} socket option for TCP, UDP, and SCTP,
+	    where N is an integer in the range -32768..32767, to
+	    allow a caller to specify the number of data messages to
+	    be delivered to the controlling process. Once the
+	    socket's delivered message count either reaches 0 or is
+	    explicitly set to 0 with inet:setopts/2 or by including
+	    {active,0} as an option when the socket is created, the
+	    socket transitions to passive ({active, false}) mode and
+	    the socket's controlling process receives a message to
+	    inform it of the transition. TCP sockets receive
+	    {tcp_passive,Socket}, UDP sockets receive
+	    {udp_passive,Socket} and SCTP sockets receive
+	    {sctp_passive,Socket}. </p>
+          <p>
+	    The socket's delivered message counter defaults to 0, but
+	    it can be set using {active,N} via any gen_tcp, gen_udp,
+	    or gen_sctp function that takes socket options as
+	    arguments, or via inet:setopts/2. New N values are added
+	    to the socket's current counter value, and negative
+	    numbers can be used to reduce the counter value.
+	    Specifying a number that would cause the socket's counter
+	    value to go above 32767 causes an einval error. If a
+	    negative number is specified such that the counter value
+	    would become negative, the socket's counter value is set
+	    to 0 and the socket transitions to passive mode. If the
+	    counter value is already 0 and inet:setopts(Socket,
+	    [{active,0}]) is specified, the counter value remains at
+	    0 but the appropriate passive mode transition message is
+	    generated for the socket.</p>
+          <p>
+	    Thanks to Steve Vinoski</p>
+          <p>
+	    Own Id: OTP-11368</p>
+        </item>
+        <item>
+          <p>
+	    A new optional scheduler utilization balancing mechanism
+	    has been introduced. For more information see the
+	    <seealso marker="erl#+sub"><c>+sub</c></seealso> command
+	    line argument.</p>
+          <p>
+	    Characteristics impact: None, when not enabled. When
+	    enabled, changed timing in the system, normally a small
+	    overhead due to measuring of utilization and calculating
+	    balancing information. On some systems, such as old
+	    Windows systems, the overhead can be quite substantial.
+	    This time measurement overhead highly depend on the
+	    underlying primitives provided by the OS.</p>
+          <p>
+	    Own Id: OTP-11385</p>
+        </item>
+        <item>
+          <p>
+	    A call to either the <c>garbage_collect/1</c> BIF or the
+	    <c>check_process_code/2</c> BIF may trigger garbage
+	    collection of another processes than the process calling
+	    the BIF. The previous implementations performed these
+	    kinds of garbage collections without considering the
+	    internal state of the process being garbage collected. In
+	    order to be able to more easily and more efficiently
+	    implement yielding native code, these types of garbage
+	    collections have been rewritten. A garbage collection
+	    like this is now triggered by an asynchronous request
+	    signal, the actual garbage collection is performed by the
+	    process being garbage collected itself, and finalized by
+	    a reply signal to the process issuing the request. Using
+	    this approach processes can disable garbage collection
+	    and yield without having to set up the heap in a state
+	    that can be garbage collected.</p>
+          <p>
+	    The <seealso
+	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seealso>,
+	    and <seealso
+	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seealso>
+	    BIFs have been introduced. Both taking an option list as
+	    last argument. Using these, one can issue asynchronous
+	    requests.</p>
+          <p>
+	    <c>code:purge/1</c> and <c>code:soft_purge/1</c> have
+	    been rewritten to utilize asynchronous
+	    <c>check_process_code</c> requests in order to
+	    parallelize work.</p>
+          <p>
+	    Characteristics impact: A call to the
+	    <c>garbage_collect/1</c> BIF or the
+	    <c>check_process_code/2</c> BIF will normally take longer
+	    time to complete while the system as a whole wont be as
+	    much negatively effected by the operation as before. A
+	    call to <c>code:purge/1</c> and <c>code:soft_purge/1</c>
+	    may complete faster or slower depending on the state of
+	    the system while the system as a whole wont be as much
+	    negatively effected by the operation as before.</p>
+          <p>
+	    Own Id: OTP-11388 Aux Id: OTP-11535, OTP-11648 </p>
+        </item>
+        <item>
+          <p>
+	    Cleanup 'Buckets' and 'Time left' fields in crashdump to
+	    ease parsing.</p>
+          <p>
+	    Own Id: OTP-11419</p>
+        </item>
+        <item>
+          <p>
+	    Add sync option to file:open/2.</p>
+          <p>
+	    The sync option adds the POSIX O_SYNC flag to the open
+	    system call on platforms that support the flag or its
+	    equivalent, e.g., FILE_FLAG_WRITE_THROUGH on Windows. For
+	    platforms that don't support it, file:open/2 returns
+	    {error, enotsup} if the sync option is passed in. Thank
+	    to Steve Vinoski and Joseph Blomstedt</p>
+          <p>
+	    Own Id: OTP-11498</p>
+        </item>
+        <item>
+          <p>
+	    erlang:binary_to_term will now cost an appropriate amount
+	    of reductions and will interrupt (yield) for reschedule
+	    if the term is big. This avoids too long schedules when
+	    binary_to_term is used. (Thanks to Svante Karlsson for
+	    the original patch)</p>
+          <p>
+	    Impact: Programs running binary_to_term on large binaries
+	    will run more smoothly, but rescheduling will impact the
+	    single process performance of the BIF. Single threaded
+	    benchmarks might show degraded performance of the BIF,
+	    while general system behaviour will be improved.</p>
+          <p>
+	    Own Id: OTP-11535 Aux Id: OTP-11388 </p>
+        </item>
+        <item>
+          <p>
+	    Added high resolution icon for windows. (Thanks to Daniel
+	    Goertz for the inspiration.)</p>
+          <p>
+	    Own Id: OTP-11560</p>
+        </item>
+        <item>
+          <p>
+	    Migration of memory carriers has been enabled by default
+	    on all ERTS internal memory allocators based on the
+	    <seealso
+	    marker="erts_alloc#alloc_util"><c>alloc_util</c></seealso>
+	    framework except for <c>temp_alloc</c>. That is, <seealso
+	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul
+	    de</c></seealso> is default for these allocators. Note
+	    that this also implies changed allocation strategies for
+	    all of these allocators. They will all now use the
+	    "address order first fit carrier best fit" strategy.</p>
+          <p>
+	    By passing <c>+Muacul 0</c> on the command line, all
+	    configuration changes made by this change will be
+	    reverted.</p>
+          <p>
+	    Characteristics impact: Improved memory characteristics
+	    with a smaller memory footprint at the expense of a quite
+	    small performance cost.</p>
+          <p>
+	    Own Id: OTP-11604 Aux Id: OTP-10279 </p>
+        </item>
+        <item>
+	    <p>A clarification has been added to the documentation of
+	    <c>-on_load()</c> in the Reference Manual that it is only
+	    recommended for loading NIF libraries.</p>
+          <p>
+	    Own Id: OTP-11611</p>
+        </item>
+        <item>
+	    <p><c>+fnaw</c> is now default when starting the
+	    emulator; it used to be <c>+fnl</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11612</p>
+        </item>
+        <item>
+          <p>
+	    EEP43: New data type - Maps</p>
+          <p>
+	    With Maps you may for instance: <taglist> <item><c>M0 =
+	    #{ a =&gt; 1, b =&gt; 2}, % create
+	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
+	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
+	    "hello"}, % add new associations</c></item> <item><c>#{
+	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
+	    values</c></item> </taglist></p>
+          <p>
+	    For information on how to use Maps please see the
+	    <seealso marker="doc/reference_manual:maps">Reference
+	    Manual</seealso>.</p>
+          <p>
+	    The current implementation is without the following
+	    features: <taglist> <item>No variable keys</item>
+	    <item>No single value access</item> <item>No map
+	    comprehensions</item> </taglist></p>
+          <p>
+	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11616</p>
+        </item>
+        <item>
+          <p>
+	    The previously deprecated driver API function
+	    <c>driver_async_cancel()</c> has been removed. Due to
+	    this, the driver API version has been bumped to 3.0.</p>
+          <p>
+	    Thanks to Steve Vinoski.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11628</p>
+        </item>
+        <item>
+          <p>
+	    Experimental "dirty scheduler" functionality has been
+	    introduced. In order to try the functionality out, you
+	    need to pass the command line argument
+	    <c>--enable-dirty-schedulers</c> to <c>configure</c> when
+	    building the system.</p>
+          <p>
+	    Dirty schedulers can currently only be used by NIFs on a
+	    system with SMP support. More information can be found in
+	    the <seealso
+	    marker="erl_nif#dirty_nifs"><c>erl_nif(3)</c></seealso>
+	    documentation, the <seealso
+	    marker="erl"><c>erl(1)</c></seealso> documentation, and
+	    in the git commit comment of commit
+	    'c1c03ae4ee50e58b7669ea88ec4d29c6b2b67c7b'.</p>
+          <p>
+	    Note that the functionality is <em>experimental</em>, and
+	    <em>not supported</em>. This functionality <em>will</em>
+	    be subject to backward incompatible changes. You should
+	    <em>not</em> enable the dirty scheduler functionality on
+	    production systems. It is only provided for testing.</p>
+          <p>
+	    Thanks to Steve Vinoski.</p>
+          <p>
+	    Own Id: OTP-11629</p>
+        </item>
+        <item>
+          <p>
+	    Improve reduction cost and yielding of
+	    <c>term_to_binary</c>. The reduction cost is increased
+	    and garbage collection is disabled during yield.</p>
+          <p>
+	    Impact: Improves system responsiveness when
+	    <c>term_to_binary</c> is called with large terms without
+	    significant degradation of single threaded performance.</p>
+          <p>
+	    Own Id: OTP-11648 Aux Id: OTP-11388 </p>
+        </item>
+        <item>
+          <p>
+	    By default, the system's version of zlib will be used,
+	    provided its version is 1.2.4 or higher; otherwise the
+	    built-in zlib will be used. The built-in version of zlib
+	    has been bumped to 1.2.8. (Use the
+	    <c>--enable-builtin-zlib</c> option to <c>configure</c>
+	    to force the use of the built-in zlib.)</p>
+          <p>
+	    Own Id: OTP-11669</p>
+        </item>
+        <item>
+          <p>
+	    The default float encoding in binary_to_term and
+	    external_size has been changed to use minor_mode 1
+	    instead of 0.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11738</p>
+        </item>
+        <item>
+          <p>
+	    Introduced the <c>configure</c> option
+	    <c>--with-assumed-cache-line-size=SIZE</c>. For more
+	    information see <seealso
+	    marker="doc/installation_guide:INSTALL"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-11742</p>
+        </item>
+        <item>
+          <p>
+	    Halfword emulator is marked as deprecated. It still works
+	    as before but is planned to be removed in a future major
+	    release.</p>
+          <p>
+	    Own Id: OTP-11777</p>
+        </item>
+        <item>
+          <p>
+	    The external format for Maps has changed in a way that is
+	    not compatible with the format used in OTP 17.0-rc1 and
+	    OTP 17.0-rc2.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11782</p>
+        </item>
+        <item>
+          <p>
+	    Fixed faulty make dependency that would make some make
+	    versions fail while building gen_git_version.mk.</p>
+          <p>
+	    Own Id: OTP-11784</p>
+        </item>
+        <item>
+          <p>
+	    Introduced functionality for allowing old drivers and NIF
+	    libraries to be loaded during a transition period. For
+	    more information see <seealso
+	    marker="erts:erl_driver#version_management">the version
+	    management section in the <c>erl_driver(3)</c>
+	    documentation</seealso> and <seealso
+	    marker="erts:erl_nif#version_management">the version
+	    management section in the <c>erl_nif(3)</c>
+	    documentation</seealso>.</p>
+          <p>
+	    Own Id: OTP-11799</p>
+        </item>
+        <item>
+          <p>
+	    Support file paths longer than 259 characters on Windows.
+	    Long absolute paths are automatically converted to UNC
+	    format with a <c>\\?\</c> prefix which is the only way to
+	    represent long paths. The 259 character limit still
+	    applies for individual file names, relative paths and the
+	    current working directory.</p>
+          <p>
+	    Own Id: OTP-11813</p>
+        </item>
+        <item>
+          <p>
+	    Document that escript:create/2 also accepts a 3-elements
+	    tuple containing files and zip:create/3 options to build
+	    a zip file.</p>
+          <p>
+	    Thanks to Pierre Fenoll</p>
+          <p>
+	    Own Id: OTP-11827</p>
+        </item>
+        <item>
+          <p>
+	    Add systemd socket activation for epmd.</p>
+          <p>
+	    Thanks to Matwey V. Kornilov</p>
+          <p>
+	    Own Id: OTP-11829</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

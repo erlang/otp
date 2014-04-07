@@ -29,6 +29,146 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes the problem that ssh_cli in some cases could delay
+	    the prompt if a tty was not requested by the client.</p>
+          <p>
+	    Own Id: OTP-10732</p>
+        </item>
+        <item>
+          <p>
+	    The variable NewCol is now correctly calculated allowing
+	    for tab-completion of function calls even when preceded
+	    with blank space (Thanks to Alexander Demidenko)</p>
+          <p>
+	    Own Id: OTP-11566</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect dialyzer spec and types, also enhance
+	    documentation. </p>
+          <p>
+	    Thanks to Ayaz Tuncer.</p>
+          <p>
+	    Own Id: OTP-11627</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug when ssh:exec executes a linux command on a
+	    linux ssh daemon. If the result is sent back from
+	    standard error, the length information was not stripped
+	    off correctly.</p>
+          <p>
+	    Own Id: OTP-11667</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug with the ssh file 'known_hosts' which made
+	    the file grow with many equal entries.</p>
+          <p>
+	    Own Id: OTP-11671</p>
+        </item>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+        <item>
+          <p>
+	    Bug fix for <c>ssh:daemon/2,3</c> so that the failfun is
+	    called when it should.</p>
+          <p>
+	    Own Id: OTP-11680</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug which crashed ssh when SSH_MSG_KEX_DH_GEX_GROUP
+	    is received. This could cause a vm-crash for eheap_alloc
+	    during garbage collect.</p>
+          <p>
+	    Own Id: OTP-11696 Aux Id: 12547, 12532 </p>
+        </item>
+        <item>
+          <p>
+	    Fixes a bug that breaks keyboard-interactive
+	    authentication. Thanks to Simon Cornish for reporting and
+	    suggesting a fix.</p>
+          <p>
+	    Own Id: OTP-11698</p>
+        </item>
+        <item>
+          <p>
+	    dialyzer specs are now correct for <c>ssh:start/0</c>,
+	    <c>ssh:start/1</c>, <c>ssh:stop/0</c> and
+	    <c>ssh_connection_handler:open_channel/5</c>. (Thanks to
+	    Johannes Weißl )</p>
+          <p>
+	    Own Id: OTP-11705</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dialyzer warning for <c>ssh_connection:send</c>.</p>
+          <p>
+	    Own Id: OTP-11821</p>
+        </item>
+        <item>
+          <p>
+	    <c>ssh:daemon/2,3</c> : Added options
+	    <c>negotiation_timeout</c> and <c>parallel_login</c> to
+	    tune the authentication behaviour.</p>
+          <p>
+	    Own Id: OTP-11823</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Ssh now fully supports unicode filenames, filecontents,
+	    shell and cli. Please note that the underlying os and
+	    emulator must also give support for unicode. You may want
+	    to start the emulator with "<c>erl +fnu</c>" on Linux.</p>
+          <p>
+	    Own Id: OTP-10953</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

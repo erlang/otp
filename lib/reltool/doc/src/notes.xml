@@ -37,7 +37,53 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.6.4.1</title>
+  <section><title>Reltool 0.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When adding a regexp to a filter in reltool using
+	    {add,Regexp}, and the existing regexp was undefined,
+	    reltool would crash since it got an improper list. This
+	    has been corrected. (Thanks to Håkan Mattsson)</p>
+          <p>
+	    Own Id: OTP-11591</p>
+        </item>
+        <item>
+          <p>
+	    Adapted reltool test server to common test usage of
+	    tc_status. (Note that this code is not used by OTP daily
+	    test runs.) (Thanks to Håkan Mattsson)</p>
+          <p>
+	    Own Id: OTP-11592</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6.4.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

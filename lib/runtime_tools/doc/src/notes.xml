@@ -31,6 +31,95 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for the return value of
+	    dbg:{stop,stop_clear} functions are now correct (Thanks
+	    to Luca Favatella)</p>
+          <p>
+	    Own Id: OTP-11603</p>
+        </item>
+        <item>
+          <p>
+	    Fix DTrace build on Illumos. (Thanks to Ryan Zezeski.)</p>
+          <p>
+	    Own Id: OTP-11622</p>
+        </item>
+        <item>
+          <p>
+	    Do not turn off scheduler_wall_time, as it can interfere
+	    with other applications usage.</p>
+          <p>
+	    Own Id: OTP-11693 Aux Id: seq12528 </p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow install path to have unicode characters.</p>
+          <p>
+	    Own Id: OTP-10877</p>
+        </item>
+        <item>
+          <p>
+	    The <c>erts_alloc_config</c> tool has been updated to
+	    produce configurations that better fit todays SMP support
+	    in the VM.</p>
+          <p>
+	    Own Id: OTP-11662</p>
+        </item>
+        <item>
+          <p>
+	    The <seealso
+	    marker="kernel:app"><c>app</c></seealso>-file key
+	    <seealso
+	    marker="kernel:app#runtime_dependencies"><c>runtime_dependencies</c></seealso>
+	    has been introduced.</p>
+          <p>
+	    Runtime dependencies have been added to all app-files in
+	    OTP. Note that these may not be completely correct during
+	    OTP 17, but this is actively being worked on.</p>
+          <p>
+	    The function <seealso
+	    marker="runtime_tools:system_information#sanity_check/0"><c>system_information:sanity_check/0</c></seealso>
+	    will verify all declared runtime dependencies in the
+	    system when called.</p>
+          <p>
+	    Own Id: OTP-11773</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

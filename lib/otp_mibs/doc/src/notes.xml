@@ -31,6 +31,55 @@
   <p>This document describes the changes made to the OTP_Mibs
     application.</p>
 
+<section><title>Otp_Mibs 1.0.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add type based integer value truncation/reset.</p>
+          <p>
+	    This fixes errors when querying e.g. the
+	    erlNodeReductions, erlNodeInBytes and erlNodeOutBytes
+	    objects in long-running Erlang/OTP systems.</p>
+          <p>
+	    Update types of applicable MIB objects to 64bit based
+	    types.</p>
+          <p>
+	    Potential incompatibility: Type change of Counter32 to
+	    Counter64 in OTP-MIB.mib</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11203</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Otp_Mibs 1.0.8</title>
 
     <section><title>Improvements and New Features</title>

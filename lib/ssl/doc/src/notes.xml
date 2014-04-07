@@ -25,7 +25,164 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.3</title>
+  <section><title>SSL 5.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix incorrect dialyzer spec and types, also enhance
+	    documentation. </p>
+          <p>
+	    Thanks to Ayaz Tuncer.</p>
+          <p>
+	    Own Id: OTP-11627</p>
+        </item>
+        <item>
+          <p>
+	    Fix possible mismatch between SSL/TLS version and default
+	    ciphers. Could happen when you specified SSL/TLS-version
+	    in optionlist to listen or accept.</p>
+          <p>
+	    Own Id: OTP-11712</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Moved elliptic curve definition from the crypto
+	    NIF/OpenSSL into Erlang code, adds the RFC-5639 brainpool
+	    curves and makes TLS use them (RFC-7027).</p>
+          <p>
+	    Thanks to Andreas Schultz</p>
+          <p>
+	    Own Id: OTP-11578</p>
+        </item>
+        <item>
+          <p>
+	    Unicode adaptations</p>
+          <p>
+	    Own Id: OTP-11620</p>
+        </item>
+        <item>
+          <p>
+	    Added option honor_cipher_order. This instructs the
+	    server to prefer its own cipher ordering rather than the
+	    client's and can help protect against things like BEAST
+	    while maintaining compatability with clients which only
+	    support older ciphers. </p>
+          <p>
+	    Thanks to Andrew Thompson for the implementation, and
+	    Andreas Schultz for the test cases.</p>
+          <p>
+	    Own Id: OTP-11621</p>
+        </item>
+        <item>
+          <p>
+	    Replace boolean checking in validate_option with
+	    is_boolean guard. </p>
+          <p>
+	    Thanks to Andreas Schultz.</p>
+          <p>
+	    Own Id: OTP-11634</p>
+        </item>
+        <item>
+          <p>
+	    Some function specs are corrected or moved and some edoc
+	    comments are corrected in order to allow use of edoc.
+	    (Thanks to Pierre Fenoll)</p>
+          <p>
+	    Own Id: OTP-11702</p>
+        </item>
+        <item>
+          <p>
+	    Correct clean up of certificate database when certs are
+	    inputed in pure DER format.The incorrect code could cause
+	    a memory leek when certs where inputed in DER. Thanks to
+	    Bernard Duggan for reporting this.</p>
+          <p>
+	    Own Id: OTP-11733</p>
+        </item>
+        <item>
+          <p>
+	    Improved documentation of the cacertfile option</p>
+          <p>
+	    Own Id: OTP-11759 Aux Id: seq12535 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid next protocol negotiation failure due to incorrect
+	    option format.</p>
+          <p>
+	    Own Id: OTP-11760</p>
+        </item>
+        <item>
+          <p>
+	    Handle v1 CRLs, with no extensions and fixes issues with
+	    IDP (Issuing Distribution Point) comparison during CRL
+	    validation. </p>
+          <p>
+	    Thanks to Andrew Thompson</p>
+          <p>
+	    Own Id: OTP-11761</p>
+        </item>
+        <item>
+          <p>
+	    Server now ignores client ECC curves that it does not
+	    support instead of crashing. </p>
+          <p>
+	    Thanks to Danil Zagoskin for reporting the issue and
+	    suggesting a solution.</p>
+          <p>
+	    Own Id: OTP-11780</p>
+        </item>
+        <item>
+          <p>
+	    Handle SNI (Server Name Indication) alert
+	    unrecognized_name and gracefully deal with unexpected
+	    alerts. </p>
+          <p>
+	    Thanks to Masatake Daimon for reporting this.</p>
+          <p>
+	    Own Id: OTP-11815</p>
+        </item>
+        <item>
+          <p>
+	    Add possibility to specify ssl options when calling
+	    ssl:ssl_accept</p>
+          <p>
+	    Own Id: OTP-11837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

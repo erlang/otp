@@ -32,7 +32,98 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.9.8</title>
+  <section><title>Inets 5.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in httpc doc (Thanks to Wasif
+	    Riaz Malik)</p>
+          <p>
+	    Own Id: OTP-11538</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    ftp now sanitize file name, user name and passwords from
+	    &lt;CR&gt; and &lt;LF&gt; tags (Thanks to Sergei Golovan)</p>
+          <p>
+	    Own Id: OTP-11750</p>
+        </item>
+        <item>
+          <p>
+	    Corrected error handling in the HTTP client, making it
+	    behave more graceful.</p>
+          <p>
+	    Thanks to Kirilll Zaborsky</p>
+          <p>
+	    Own Id: OTP-11794</p>
+        </item>
+        <item>
+          <p>
+	    Support identity transfer-encoding in httpc.</p>
+          <p>
+	    Thanks to Anthony Ramine</p>
+          <p>
+	    Own Id: OTP-11802</p>
+        </item>
+        <item>
+          <p>
+	    Ignore empty Set-Cookie headers to increase
+	    interoperability with servers that violate the RFC. </p>
+          <p>
+	    Thanks to Kirilll Zaborsky</p>
+          <p>
+	    Own Id: OTP-11803</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The commit 6189bc07 "inets: httpc improve pipelining" has
+	    been reverted, as it turned out to break things rather
+	    than improve pipelining utilization. It is instead up to
+	    the user to configure httpc and use it wisely to be able
+	    to get the most out of pipelining.</p>
+          <p>
+	    Own Id: OTP-11756</p>
+        </item>
+        <item>
+          <p>
+	    Handle all response codes in httpd_util:message/3</p>
+          <p>
+	    Own Id: OTP-11838</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.8</title>
 
     <section><title>Improvements and New Features</title>
       <list>

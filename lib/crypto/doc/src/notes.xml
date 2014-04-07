@@ -30,6 +30,110 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix memory leaks and invalid deallocations in
+	    <c>mod_pow</c>, <c>mod_exp</c> and
+	    <c>generate_key(srp,...)</c> when bad arguments are
+	    passed. (Thanks to Florian Zumbiehi)</p>
+          <p>
+	    Own Id: OTP-11550</p>
+        </item>
+        <item>
+          <p>
+	    Correction of the word 'ChipherText' throughout the
+	    documentation (Thanks to Andrew Tunnell-Jones)</p>
+          <p>
+	    Own Id: OTP-11609</p>
+        </item>
+        <item>
+          <p>
+	    Fix fatal bug when using a hmac context variable in more
+	    than one call to <c>hmac_update</c> or <c>hmac_final</c>.
+	    The reuse of hmac contexts has never worked as the
+	    underlying OpenSSL implementation does not support it. It
+	    is now documented as having undefined behaviour, but it
+	    does not crash or corrupt the VM anymore.</p>
+          <p>
+	    Own Id: OTP-11724</p>
+        </item>
+        <item>
+          <p>
+	    Crypto handles out-of-memory with a controlled abort
+	    instead of crash/corruption. (Thanks to Florian Zumbiehi)</p>
+          <p>
+	    Own Id: OTP-11725</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By giving --enable-static-{nifs,drivers} to configure it
+	    is now possible to statically linking of nifs and drivers
+	    to the main Erlang VM binary. At the moment only the asn1
+	    and crypto nifs of the Erlang/OTP nifs and drivers have
+	    been prepared to be statically linked. For more details
+	    see the Installation Guide in the System documentation.</p>
+          <p>
+	    Own Id: OTP-11258</p>
+        </item>
+        <item>
+          <p>
+	    Add IGE mode for AES cipher in crypto (Thanks to Yura
+	    Beznos).</p>
+          <p>
+	    Own Id: OTP-11522</p>
+        </item>
+        <item>
+          <p>
+	    Moved elliptic curve definition from the crypto
+	    NIF/OpenSSL into Erlang code, adds the RFC-5639 brainpool
+	    curves and makes TLS use them (RFC-7027).</p>
+          <p>
+	    Thanks to Andreas Schultz</p>
+          <p>
+	    Own Id: OTP-11578</p>
+        </item>
+        <item>
+          <p>
+	    Remove all obsolete application processes from crypto and
+	    make it into a pure library application.</p>
+          <p>
+	    Own Id: OTP-11619</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
