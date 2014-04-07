@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
-	 fold_files/1,otp_5960/1,ensure_dir_eexist/1]).
+	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,symlinks/1]).
 
 -import(lists, [foreach/2]).
 
@@ -43,7 +43,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [wildcard_one, wildcard_two, wildcard_errors,
-     fold_files, otp_5960, ensure_dir_eexist].
+     fold_files, otp_5960, ensure_dir_eexist, symlinks].
 
 groups() -> 
     [].
@@ -366,3 +366,39 @@ ensure_dir_eexist(Config) when is_list(Config) ->
     ?line {error, eexist} = filelib:ensure_dir(NeedFile),
     ?line {error, eexist} = filelib:ensure_dir(NeedFileB),
     ok.
+
+symlinks(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?MODULE_STRING++"_symlinks"),
+    SubDir = filename:join(Dir, "sub"),
+    AFile = filename:join(SubDir, "a_file"),
+    Alias = filename:join(Dir, "symlink"),
+    ok = file:make_dir(Dir),
+    ok = file:make_dir(SubDir),
+    ok = file:write_file(AFile, "not that big\n"),
+    case file:make_symlink(AFile, Alias) of
+	{error, enotsup} ->
+	    {skip, "Links not supported on this platform"};
+	{error, eperm} ->
+	    {win32,_} = os:type(),
+	    {skip, "Windows user not privileged to create symlinks"};
+	ok ->
+	    ["sub","symlink"] =
+		basenames(Dir, filelib:wildcard(filename:join(Dir, "*"))),
+	    ["symlink"] =
+		basenames(Dir, filelib:wildcard(filename:join(Dir, "symlink"))),
+	    ok = file:delete(AFile),
+	    %% The symlink should still be visible even when its target
+	    %% has been deleted.
+	    ["sub","symlink"] =
+		basenames(Dir, filelib:wildcard(filename:join(Dir, "*"))),
+	    ["symlink"] =
+		basenames(Dir, filelib:wildcard(filename:join(Dir, "symlink"))),
+	    ok
+    end.
+
+basenames(Dir, Files) ->
+    [begin
+	 Dir = filename:dirname(F),
+	 filename:basename(F)
+     end || F <- Files].
