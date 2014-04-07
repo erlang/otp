@@ -33,7 +33,7 @@
     all needed applications (crypto, public_key and ssh). All examples
     are run in an Erlang shell, or in a bash shell using openssh to
     illustrate how the erlang ssh application can be used.  The
-    exampels are run as the user otptest on a local network where the
+    examples are run as the user otptest on a local network where the
     user is authorized to login in over ssh to the host "tarlop". If
     nothing else is stated it is persumed that the otptest user has an
     entry in tarlop's authorized_keys file (may log in via ssh without
@@ -88,7 +88,7 @@
       [...]
     </code>
 
-    <p>Create the file /tmp/otptest_user/.ssh/authrized_keys and add the content
+    <p>Create the file /tmp/otptest_user/.ssh/authorized_keys and add the content
     of /tmp/otptest_user/.ssh/id_rsa.pub  Now we can do</p>
 
     <code type="erl">
