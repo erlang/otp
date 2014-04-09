@@ -2742,7 +2742,7 @@ check_type({type, _L, map, Pairs}, SeenVars, St) ->
     lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
 			check_type(Pair, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Pairs);
-check_type({type, _L, map_field_assoc, Dom, Range}, SeenVars, St) ->
+check_type({type, _L, map_field_assoc, [Dom, Range]}, SeenVars, St) ->
     check_type({type, -1, product, [Dom, Range]}, SeenVars, St);
 check_type({type, _L, tuple, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, _L, any}, SeenVars, St) -> {SeenVars, St};

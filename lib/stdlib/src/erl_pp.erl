@@ -310,7 +310,7 @@ map_type(Fs) ->
 map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/1).
 
-map_pair_type({type,_Line,map_field_assoc,Ktype,Vtype}) ->
+map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}) ->
     {seq,[],[]," =>",[ltype(Ktype),ltype(Vtype)]}.
 
 record_type(Name, Fields) ->

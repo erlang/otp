@@ -362,7 +362,7 @@ d2e({type,_,map,any}) ->
     #t_map{ types = []};
 d2e({type,_,map,Es}) ->
     #t_map{ types = d2e(Es) };
-d2e({type,_,map_field_assoc,K,V}) ->
+d2e({type,_,map_field_assoc,[K,V]}) ->
     #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
 d2e({type,_,map_field_exact,K,V}) ->
     #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
