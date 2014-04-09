@@ -357,8 +357,10 @@ format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
-format_error({redefine_callback, {M, F, A}}) ->
-    io_lib:format("callback ~w:~w/~w already defined", [M, F, A]);
+format_error({redefine_callback, {F, A}}) ->
+    io_lib:format("callback ~w/~w already defined", [F, A]);
+format_error({bad_callback, {M, F, A}}) ->
+    io_lib:format("explicit module not allowed for callback ~w:~w/~w ", [M, F, A]);
 format_error({spec_fun_undefined, {M, F, A}}) ->
     io_lib:format("spec for undefined function ~w:~w/~w", [M, F, A]);
 format_error({missing_spec, {F,A}}) ->
@@ -2884,14 +2886,15 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
 
 callback_decl(Line, MFA0, TypeSpecs,
 	      St0 = #lint{callbacks = Callbacks, module = Mod}) ->
-    MFA = case MFA0 of
-	      {F, Arity} -> {Mod, F, Arity};
-	      {_M, _F, Arity} -> MFA0
-	  end,
-    St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
-    case dict:is_key(MFA, Callbacks) of
-	true -> add_error(Line, {redefine_callback, MFA}, St1);
-	false -> check_specs(TypeSpecs, Arity, St1)
+    case MFA0 of
+        {_M, _F, _A} -> add_error(Line, {bad_callback, MFA0}, St0);
+        {F, Arity} ->
+            MFA = {Mod, F, Arity},
+            St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
+            case dict:is_key(MFA, Callbacks) of
+                true -> add_error(Line, {redefine_callback, MFA0}, St1);
+                false -> check_specs(TypeSpecs, Arity, St1)
+            end
     end.
 
 %% optional_callbacks(Line, FAs, State) -> State.

@@ -3248,7 +3248,7 @@ otp_11861(Conf) when is_list(Conf) ->
               -callback b(_) -> atom().
              ">>,
            [],
-           {errors,[{3,erl_lint,{redefine_callback,{lint_test,b,1}}}],[]}},
+           {errors,[{3,erl_lint,{redefine_callback,{b,1}}}],[]}},
           {otp_11861_17,
            <<"
               -behaviour(bad_behaviour2).
@@ -3664,11 +3664,11 @@ maps_type(Config) when is_list(Config) ->
     ok.
 
 otp_11851(doc) ->
-    "OTP-11851: More atoms can be used as type names.";
+    "OTP-11851: More atoms can be used as type names + bug fixes.";
 otp_11851(Config) when is_list(Config) ->
     Ts = [
-	{otp_11851,
-	 <<"
+	{otp_11851_1,
+	 <<"-export([t/0]).
             -type range(A, B) :: A | B.
 
             -type union(A) :: A.
@@ -3705,7 +3705,22 @@ otp_11851(Config) when is_list(Config) ->
                 a.
 	">>,
 	[],
-	[]}
+	[]},
+	{otp_11851_2,
+	 <<"-export([a/1, b/1, t/0]).
+
+            -callback b(_) -> integer().
+
+            -callback ?MODULE:a(_) -> integer().
+
+            a(_) -> 3.
+
+            b(_) -> a.
+
+            t()-> a.
+	">>,
+	[],
+	{errors,[{5,erl_lint,{bad_callback,{lint_test,a,1}}}],[]}}
           ],
     [] = run(Config, Ts),
     ok.
