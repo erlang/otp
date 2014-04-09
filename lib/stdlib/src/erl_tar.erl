@@ -397,9 +397,17 @@ to_string(Str0, Count) ->
 
 pad_file(File) ->
     {ok,Position} = file:position(File, {cur,0}),
-    %% There must be at least one empty record at the end of the file.
-    Zeros = zeroes(?block_size - (Position rem ?block_size)),
-    file:write(File, Zeros).
+    %% There must be at least two zero records at the end.
+    Fill = case ?block_size - (Position rem ?block_size) of
+	       Fill0 when Fill0 < 2*?record_size ->
+		   %% We need to another block here to ensure that there
+		   %% are at least two zero records at the end.
+		   Fill0 + ?block_size;
+	       Fill0 ->
+		   %% Large enough.
+		   Fill0
+	   end,
+    file:write(File, zeroes(Fill)).
 
 split_filename(Name) when length(Name) =< ?th_name_len ->
     {"", Name};

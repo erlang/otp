@@ -73,6 +73,7 @@ borderline(Config) when is_list(Config) ->
 
     ?line lists:foreach(fun(Size) -> borderline_test(Size, TempDir) end,
 			[0, 1, 10, 13, 127, 333, Record-1, Record, Record+1,
+			 Block-2*Record-1, Block-2*Record, Block-2*Record+1,
 			 Block-Record-1, Block-Record, Block-Record+1,
 			 Block-1, Block, Block+1,
 			 Block+Record-1, Block+Record, Block+Record+1]),
