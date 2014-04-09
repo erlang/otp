@@ -388,6 +388,9 @@ d2e({record_field,L,_Name}=F) ->
 d2e({type,_,Name,Types0}) ->
     Types = d2e(Types0),
     typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
+d2e({user_type,_,Name,Types0}) ->
+    Types = d2e(Types0),
+    typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
 d2e({var,_,'_'}) ->
     #t_type{name = #t_name{name = ?TOP_TYPE}};
 d2e({var,_,TypeName}) ->

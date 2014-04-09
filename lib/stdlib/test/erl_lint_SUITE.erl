@@ -63,7 +63,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1
+          maps/1,maps_type/1,otp_11851/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -92,7 +92,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type].
+     maps, maps_type, otp_11851].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -2649,7 +2649,9 @@ otp_11872(Config) when is_list(Config) ->
                 1.
          ">>,
     {error,[{6,erl_lint,{undefined_type,{product,0}}}],
-     [{8,erl_lint,{new_var_arity_type,map}}]} =
+     [{8,erl_lint,{new_builtin_type,{map,0}}},
+      {8,erl_lint,
+       {deprecated_builtin_type,{dict,0},{dict,dict,2}, "OTP 18.0"}}]} =
         run_test2(Config, Ts, []),
     ok.
 
@@ -3657,7 +3659,54 @@ maps_type(Config) when is_list(Config) ->
 	    t(M) -> M.
 	 ">>,
 	 [],
-	 {warnings,[{3,erl_lint,{new_var_arity_type,map}}]}}],
+	 {warnings,[{3,erl_lint,{new_builtin_type,{map,0}}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
+otp_11851(doc) ->
+    "OTP-11851: More atoms can be used as type names.";
+otp_11851(Config) when is_list(Config) ->
+    Ts = [
+	{otp_11851,
+	 <<"
+            -type range(A, B) :: A | B.
+
+            -type union(A) :: A.
+
+            -type product() :: integer().
+
+            -type tuple(A) :: A.
+
+            -type map(A) :: A.
+
+            -type record() :: a | b.
+
+            -type integer(A) :: A.
+
+            -type atom(A) :: A.
+
+            -type binary(A, B) :: A | B.
+
+            -type 'fun'() :: integer().
+
+            -type 'fun'(X) :: X.
+
+            -type 'fun'(X, Y) :: X | Y.
+
+            -type all() :: range(atom(), integer()) | union(pid()) | product()
+                         | tuple(reference()) | map(function()) | record()
+                         | integer(atom()) | atom(integer())
+                         | binary(pid(), tuple()) | 'fun'(port())
+                         | 'fun'() | 'fun'(<<>>, 'none').
+
+            -spec t() -> all().
+
+            t() ->
+                a.
+	">>,
+	[],
+	[]}
+          ],
     [] = run(Config, Ts),
     ok.
 

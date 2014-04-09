@@ -146,8 +146,7 @@ type -> '(' top_type ')'                  : {paren_type, ?line('$2'), ['$2']}.
 type -> var                               : '$1'.
 type -> atom                              : '$1'.
 type -> atom '(' ')'                      : build_gen_type('$1').
-type -> atom '(' top_types ')'            : {type, ?line('$1'),
-                                             normalise('$1'), '$3'}.
+type -> atom '(' top_types ')'            : build_type('$1', '$3').
 type -> atom ':' atom '(' ')'             : {remote_type, ?line('$1'),
                                              ['$1', '$3', []]}.
 type -> atom ':' atom '(' top_types ')'   : {remote_type, ?line('$1'),
@@ -684,7 +683,8 @@ build_gen_type({atom, La, tuple}) ->
 build_gen_type({atom, La, map}) ->
     {type, La, map, any};
 build_gen_type({atom, La, Name}) ->
-    {type, La, Name, []}.
+    Tag = type_tag(Name, 0),
+    {Tag, La, Name, []}.
 
 build_bin_type([{var, _, '_'}|Left], Int) ->
     build_bin_type(Left, Int);
@@ -692,6 +692,16 @@ build_bin_type([], Int) ->
     skip_paren(Int);
 build_bin_type([{var, La, _}|_], _) ->
     ret_err(La, "Bad binary type").
+
+build_type({atom, L, Name}, Types) ->
+    Tag = type_tag(Name, length(Types)),
+    {Tag, L, Name, Types}.
+
+type_tag(TypeName, NumberOfTypeVariables) ->
+    case erl_internal:is_type(TypeName, NumberOfTypeVariables) of
+        true -> type;
+        false -> user_type
+    end.
 
 %% build_attribute(AttrName, AttrValue) ->
 %%	{attribute,Line,module,Module}

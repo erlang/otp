@@ -340,14 +340,10 @@ format_error({undefined_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s undefined", [TypeName, gen_type_paren(Arity)]);
 format_error({unused_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is unused", [TypeName, gen_type_paren(Arity)]);
-%% format_error({new_builtin_type, {TypeName, Arity}}) ->
-%%     io_lib:format("type ~w~s is a new builtin type; "
-%% 		  "its (re)definition is allowed only until the next release",
-%% 		  [TypeName, gen_type_paren(Arity)]);
-format_error({new_var_arity_type, TypeName}) ->
-    io_lib:format("type ~w is a new builtin type; "
+format_error({new_builtin_type, {TypeName, Arity}}) ->
+    io_lib:format("type ~w~s is a new builtin type; "
 		  "its (re)definition is allowed only until the next release",
-		  [TypeName]);
+		  [TypeName, gen_type_paren(Arity)]);
 format_error({builtin_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is a builtin type; it cannot be redefined",
 		  [TypeName, gen_type_paren(Arity)]);
@@ -1073,10 +1069,9 @@ check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = dict:fetch_keys(Used),
     Undef = [{TA,dict:fetch(TA, Used)} ||
-		{T,_}=TA <- UTAs,
+		TA <- UTAs,
 		not dict:is_key(TA, Def),
-		not is_default_type(TA),
-                not is_newly_introduced_var_arity_type(T)],
+		not is_default_type(TA)],
     foldl(fun ({TA,L}, St) ->
 		  add_error(L, {undefined_type,TA}, St)
 	  end, St0, Undef).
@@ -2652,30 +2647,21 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
         true ->
             case is_obsolete_builtin_type(TypePair) of
                 true -> StoreType(St0);
-                false -> add_error(Line, {builtin_type, TypePair}, St0)
-%%                     case is_newly_introduced_builtin_type(TypePair) of
-%%                         %% allow some types just for bootstrapping
-%%                         true ->
-%%                             Warn = {new_builtin_type, TypePair},
-%%                             St1 = add_warning(Line, Warn, St0),
-%%                             StoreType(St1);
-%%                         false ->
-%%                             add_error(Line, {builtin_type, TypePair}, St0)
-%%                     end
+                false ->
+                     case is_newly_introduced_builtin_type(TypePair) of
+                         %% allow some types just for bootstrapping
+                         true ->
+                             Warn = {new_builtin_type, TypePair},
+                             St1 = add_warning(Line, Warn, St0),
+                             StoreType(St1);
+                         false ->
+                             add_error(Line, {builtin_type, TypePair}, St0)
+                     end
             end;
         false ->
-            case
-                dict:is_key(TypePair, TypeDefs) orelse
-                is_var_arity_type(TypeName)
-            of
+            case dict:is_key(TypePair, TypeDefs) of
                 true ->
-                    case is_newly_introduced_var_arity_type(TypeName) of
-                        true ->
-                            Warn = {new_var_arity_type, TypeName},
-                            add_warning(Line, Warn, St0);
-                        false ->
-                            add_error(Line, {redefine_type, TypePair}, St0)
-                    end;
+                    add_error(Line, {redefine_type, TypePair}, St0);
                 false ->
                     St1 = case
                               Attr =:= opaque andalso
@@ -2712,7 +2698,7 @@ check_type({paren_type, _L, [Type]}, SeenVars, St) ->
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, #lint{module=CurrentMod} = St) ->
     case Mod =:= CurrentMod of
-	true -> check_type({type, L, Name, Args}, SeenVars, St);
+	true -> check_type({user_type, L, Name, Args}, SeenVars, St);
 	false ->
 	    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 				check_type(T, AccSeenVars, AccSt)
@@ -2746,7 +2732,10 @@ check_type({type, L, range, [From, To]}, SeenVars, St) ->
 	    _ -> add_error(L, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
-check_type({type, _L, map, any}, SeenVars, St) -> {SeenVars, St};
+check_type({type, L, map, any}, SeenVars, St) ->
+    %% To get usage right while map/0 is a newly_introduced_builtin_type.
+    St1 = used_type({map, 0}, L, St),
+    {SeenVars, St1};
 check_type({type, _L, map, Pairs}, SeenVars, St) ->
     lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
 			check_type(Pair, AccSeenVars, AccSt)
@@ -2770,41 +2759,39 @@ check_type({type, L, record, [Name|Fields]}, SeenVars, St) ->
 	    check_record_types(L, Atom, Fields, SeenVars, St1);
 	_ -> {SeenVars, add_error(L, {type_syntax, record}, St)}
     end;
-check_type({type, _L, product, Args}, SeenVars, St) ->
+check_type({type, _L, Tag, Args}, SeenVars, St) when Tag =:= product;
+                                                     Tag =:= union;
+                                                     Tag =:= tuple ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Args);
 check_type({type, La, TypeName, Args}, SeenVars, St) ->
-    #lint{usage=Usage, module = Module, types=Types} = St,
+    #lint{module = Module, types=Types} = St,
     Arity = length(Args),
     TypePair = {TypeName, Arity},
-    St1 = case is_var_arity_type(TypeName) of
-	      true -> St;
-	      false ->
-                  Obsolete = (is_warn_enabled(deprecated_type, St)
-                              andalso obsolete_builtin_type(TypePair)),
-                  IsObsolete =
-                      case Obsolete of
-                          {deprecated, Repl, _} when element(1, Repl) =/= Module ->
-                              case dict:find(TypePair, Types) of
-                                  {ok, _} -> false;
-                                  error -> true
-                              end;
-                          _ -> false
-                      end,
-                  case IsObsolete of
-                      true ->
+    Obsolete = (is_warn_enabled(deprecated_type, St)
+                andalso obsolete_builtin_type(TypePair)),
+    St1 = case Obsolete of
+              {deprecated, Repl, _} when element(1, Repl) =/= Module ->
+                  case dict:find(TypePair, Types) of
+                      {ok, _} ->
+                          used_type(TypePair, La, St);
+                      error ->
                           {deprecated, Replacement, Rel} = Obsolete,
                           Tag = deprecated_builtin_type,
                           W = {Tag, TypePair, Replacement, Rel},
-                          add_warning(La, W, St);
-                      false ->
-                          OldUsed = Usage#usage.used_types,
-                          UsedTypes = dict:store(TypePair, La, OldUsed),
-                          St#lint{usage=Usage#usage{used_types=UsedTypes}}
-                  end
-	  end,
+                          add_warning(La, W, St)
+                end;
+            _ -> St
+        end,
     check_type({type, -1, product, Args}, SeenVars, St1);
+check_type({user_type, L, TypeName, Args}, SeenVars, St) ->
+    Arity = length(Args),
+    TypePair = {TypeName, Arity},
+    St1 = used_type(TypePair, L, St),
+    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
+			check_type(T, AccSeenVars, AccSt)
+		end, {SeenVars, St1}, Args);
 check_type(I, SeenVars, St) ->
     case erl_eval:partial_eval(I) of
         {integer,_ILn,_Integer} -> {SeenVars, St};
@@ -2846,74 +2833,17 @@ check_record_types([{type, _, field_type, [{atom, AL, FName}, Type]}|Left],
 check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
-is_var_arity_type(tuple) -> true;
-is_var_arity_type(map) -> true;
-is_var_arity_type(product) -> true;
-is_var_arity_type(union) -> true;
-is_var_arity_type(record) -> true;
-is_var_arity_type(_) -> false.
+used_type(TypePair, L, St) ->
+    Usage = St#lint.usage,
+    OldUsed = Usage#usage.used_types,
+    UsedTypes = dict:store(TypePair, L, OldUsed),
+    St#lint{usage=Usage#usage{used_types=UsedTypes}}.
 
-is_default_type({any, 0}) -> true;
-is_default_type({arity, 0}) -> true;
-is_default_type({array, 0}) -> true;
-is_default_type({atom, 0}) -> true;
-is_default_type({atom, 1}) -> true;
-is_default_type({binary, 0}) -> true;
-is_default_type({binary, 2}) -> true;
-is_default_type({bitstring, 0}) -> true;
-is_default_type({bool, 0}) -> true;
-is_default_type({boolean, 0}) -> true;
-is_default_type({byte, 0}) -> true;
-is_default_type({char, 0}) -> true;
-is_default_type({dict, 0}) -> true;
-is_default_type({digraph, 0}) -> true;
-is_default_type({float, 0}) -> true;
-is_default_type({'fun', 0}) -> true;
-is_default_type({'fun', 2}) -> true;
-is_default_type({function, 0}) -> true;
-is_default_type({gb_set, 0}) -> true;
-is_default_type({gb_tree, 0}) -> true;
-is_default_type({identifier, 0}) -> true;
-is_default_type({integer, 0}) -> true;
-is_default_type({integer, 1}) -> true;
-is_default_type({iodata, 0}) -> true;
-is_default_type({iolist, 0}) -> true;
-is_default_type({list, 0}) -> true;
-is_default_type({list, 1}) -> true;
-is_default_type({maybe_improper_list, 0}) -> true;
-is_default_type({maybe_improper_list, 2}) -> true;
-is_default_type({mfa, 0}) -> true;
-is_default_type({module, 0}) -> true;
-is_default_type({neg_integer, 0}) -> true;
-is_default_type({nil, 0}) -> true;
-is_default_type({no_return, 0}) -> true;
-is_default_type({node, 0}) -> true;
-is_default_type({non_neg_integer, 0}) -> true;
-is_default_type({none, 0}) -> true;
-is_default_type({nonempty_list, 0}) -> true;
-is_default_type({nonempty_list, 1}) -> true;
-is_default_type({nonempty_improper_list, 2}) -> true;
-is_default_type({nonempty_maybe_improper_list, 0}) -> true;
-is_default_type({nonempty_maybe_improper_list, 2}) -> true;
-is_default_type({nonempty_string, 0}) -> true;
-is_default_type({number, 0}) -> true;
-is_default_type({pid, 0}) -> true;
-is_default_type({port, 0}) -> true;
-is_default_type({pos_integer, 0}) -> true;
-is_default_type({queue, 0}) -> true;
-is_default_type({range, 2}) -> true;
-is_default_type({reference, 0}) -> true;
-is_default_type({set, 0}) -> true;
-is_default_type({string, 0}) -> true;
-is_default_type({term, 0}) -> true;
-is_default_type({timeout, 0}) -> true;
-is_default_type({var, 1}) -> true;
-is_default_type(_) -> false.
+is_default_type({Name, NumberOfTypeVariables}) ->
+    erl_internal:is_type(Name, NumberOfTypeVariables).
 
-is_newly_introduced_var_arity_type(map) -> true;
-is_newly_introduced_var_arity_type(_) -> false.
-
-%% is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
+is_newly_introduced_builtin_type({map, 0}) -> true;
+is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
     obsolete_builtin_type(TypePair) =/= no.

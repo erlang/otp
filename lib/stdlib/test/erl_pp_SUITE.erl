@@ -874,6 +874,7 @@ type_examples() ->
      {ex3,<<"-type paren() :: (ann2()). ">>},
      {ex4,<<"-type t1() :: atom(). ">>},
      {ex5,<<"-type t2() :: [t1()]. ">>},
+     {ex56,<<"-type integer(A) :: A. ">>},
      {ex6,<<"-type t3(Atom) :: integer(Atom). ">>},
      {ex7,<<"-type '\\'t::4'() :: t3('\\'foobar'). ">>},
      {ex8,<<"-type t5() :: {t1(), t3(foo)}. ">>},
