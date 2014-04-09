@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -106,17 +106,19 @@ do_reconfigure(Dir) ->
 read_notify_config_files(Dir) ->
     ?vdebug("read notify config file",[]),
     FileName = "notify.conf", 
-    Gen      = fun(D, Reason) -> 
-		       info_msg("failed reading config file ~s"
-				"~n   Config Dir: ~s"
-				"~n   Reason:     ~p", 
-				[FileName, D, Reason]),
-		       ok 
-	       end,
-    Filter = fun(Notifs) -> Notifs end,
-    Check  = fun(Entry) -> check_notify(Entry) end,
+    Gen =
+	fun (D, Reason) ->
+		info_msg("failed reading config file ~s"
+			 "~n   Config Dir: ~s"
+			 "~n   Reason:     ~p",
+			 [FileName, D, Reason]),
+		ok
+	end,
+    Order  = fun snmp_conf:no_order/2,
+    Filter = fun snmp_conf:no_filter/1,
+    Check  = fun (Entry, State) -> {check_notify(Entry), State} end,
     [Notifs] = 
-	snmp_conf:read_files(Dir, [{Gen, Filter, Check, "notify.conf"}]),
+	snmp_conf:read_files(Dir, [{FileName, Gen, Order, Check, Filter}]),
     Notifs.
 
 check_notify({Name, Tag, Type}) ->

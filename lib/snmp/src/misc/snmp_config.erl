@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,8 @@
 -compile({no_auto_import,[error/1]}).
 -export([config/0]).
 
--export([write_config_file/4, append_config_file/4, read_config_file/3]).
+-export([write_config_file/4, append_config_file/4,
+	 read_config_file/3, read_config_file/4]).
 
 -export([write_agent_snmp_files/7, write_agent_snmp_files/12,
 
@@ -2471,7 +2472,9 @@ append_config_file(Dir, FileName, Verify, Write)
 	throw:Error ->
 	    Error;
 	  T:E ->
-	    {error, {failed_append, Dir, FileName, T, E}}
+	    {error,
+	     {failed_append, Dir, FileName,
+	      {T, E, erlang:get_stacktrace()}}}
     end.
 
 do_append_config_file(Dir, FileName, Verify, Write) ->
@@ -2500,58 +2503,130 @@ file_write_and_close(Write, Fd, Dir, FileName) ->
     end.
 
 
+%% XXX remove
+read_config_file(Dir, FileName, Verify) ->
+    read_config_file(
+      Dir, FileName, fun snmp_conf:no_order/2,
+      fun (Term, State) ->
+	      {Verify(Term), State}
+      end).
+
 -spec read_config_file(Dir :: string(), 
-		       FileName :: string(), 
-		       Verify :: verify_config_entry_function()) ->
+		       FileName :: string(),
+		       Order :: function(),
+		       Verify :: function()) ->
     {ok, Config :: list()} | {error, Reason :: term()}.
 
-read_config_file(Dir, FileName, Verify) 
-  when is_list(Dir) andalso is_list(FileName) andalso is_function(Verify) ->
-    (catch do_read_config_file(Dir, FileName, Verify)).
-
-do_read_config_file(Dir, FileName, Verify) ->
+read_config_file(Dir, FileName, Order, Check)
+  when is_list(Dir), is_list(FileName),
+       is_function(Order), is_function(Check) ->
     case file:open(filename:join(Dir, FileName), [read]) of
 	{ok, Fd} ->
-	    Result = read_loop(Fd, [], Verify, 1),
-	    file:close(Fd),
-	    Result;
+	    try
+		{ok,
+		 verify_lines(
+		   lists:sort(
+		     fun ({_, T1, _}, {_, T2, _}) ->
+			     Order(T1, T2)
+		     end,
+		     read_lines(Fd, [], 1)),
+		   Check, undefined, [])}
+	    catch
+		Error ->
+		    {error, Error}
+	    after
+		file:close(Fd)
+	    end;
 	{error, Reason} ->
 	    {error, {Reason, FileName}}
     end.
 
-read_loop(Fd, Acc, Check, StartLine) ->
-    case read_term(Fd, StartLine) of
+read_lines(Fd, Acc, StartLine) ->
+    case read_and_parse_term(Fd, StartLine) of
 	{ok, Term, EndLine} ->
-	    case (catch Check(Term)) of
-		ok ->
-		    read_loop(Fd, [Term | Acc], Check, EndLine);
-		{error, Reason} ->
-		    {error, {failed_check, StartLine, EndLine, Reason}};
-		Error ->
-		    {error, {failed_check, StartLine, EndLine, Error}}
-	    end;
-	{error, EndLine, Error} ->
-            {error, {failed_reading, StartLine, EndLine, Error}};
-        eof ->
-            {ok, lists:reverse(Acc)}
+	    read_lines(Fd, [{StartLine, Term, EndLine}|Acc], EndLine);
+	{error, Error, EndLine} ->
+            throw({failed_reading, StartLine, EndLine, Error});
+        {eof, _EndLine} ->
+            lists:reverse(Acc)
     end.
-	    
-read_term(Fd, StartLine) ->
+
+read_and_parse_term(Fd, StartLine) ->
     case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
 	{ok, Tokens, EndLine} ->
 	    case erl_parse:parse_term(Tokens) of
                 {ok, Term} ->
                     {ok, Term, EndLine};
                 {error, {Line, erl_parse, Error}} ->
-                    {error, Line, {parse_error, Error}}
+                    {error, {parse_error, Error}, Line}
             end;
-        {error, E, EndLine} ->
-            {error, EndLine, E};
-        {eof, _EndLine} ->
-            eof;
         Other ->
             Other
     end.
+
+verify_lines([], _, Acc, _) ->
+    list:reverse(Acc);
+verify_lines(
+  [{StartLine, Term, EndLine}|Lines], State, Acc, Check) ->
+    try Check(Term, State) of
+	{ok, NewState} ->
+	    verify_lines(Lines, NewState, [Term|Acc], Check);
+	{{ok, NewTerm}, NewState} ->
+	    verify_lines(Lines, NewState, [NewTerm|Acc], Check)
+    catch
+	{error, Reason} ->
+	    throw({failed_check, StartLine, EndLine, Reason});
+	C:R ->
+	    S = erlang:get_stacktrace(),
+	    throw({failed_check, StartLine, EndLine, {C, R, S}})
+    end.
+
+
+%% XXX remove
+
+%% do_read_config_file(Dir, FileName, Verify) ->
+%%     case file:open(filename:join(Dir, FileName), [read]) of
+%% 	{ok, Fd} ->
+%% 	    Result = read_loop(Fd, [], Verify, 1),
+%% 	    file:close(Fd),
+%% 	    Result;
+%% 	{error, Reason} ->
+%% 	    {error, {Reason, FileName}}
+%%     end.
+
+%% read_loop(Fd, Acc, Check, StartLine) ->
+%%     case read_term(Fd, StartLine) of
+%% 	{ok, Term, EndLine} ->
+%% 	    case (catch Check(Term)) of
+%% 		ok ->
+%% 		    read_loop(Fd, [Term | Acc], Check, EndLine);
+%% 		{error, Reason} ->
+%% 		    {error, {failed_check, StartLine, EndLine, Reason}};
+%% 		Error ->
+%% 		    {error, {failed_check, StartLine, EndLine, Error}}
+%% 	    end;
+%% 	{error, EndLine, Error} ->
+%%             {error, {failed_reading, StartLine, EndLine, Error}};
+%%         eof ->
+%%             {ok, lists:reverse(Acc)}
+%%     end.
+
+%% read_term(Fd, StartLine) ->
+%%     case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
+%% 	{ok, Tokens, EndLine} ->
+%% 	    case erl_parse:parse_term(Tokens) of
+%%                 {ok, Term} ->
+%%                     {ok, Term, EndLine};
+%%                 {error, {Line, erl_parse, Error}} ->
+%%                     {error, Line, {parse_error, Error}}
+%%             end;
+%%         {error, E, EndLine} ->
+%%             {error, EndLine, E};
+%%         {eof, _EndLine} ->
+%%             eof;
+%%         Other ->
+%%             Other
+%%     end.
 
 
 agent_snmp_mk_secret(Alg, Passwd, EngineID) ->

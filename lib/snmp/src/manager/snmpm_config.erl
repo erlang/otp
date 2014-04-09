@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1666,7 +1666,7 @@ init_agent_default(Item, Val) when Item =/= user_id ->
 
 
 read_agents_config_file(Dir) ->
-    Check = fun(C) -> check_agent_config2(C) end,
+    Check = fun(C, S) -> {check_agent_config2(C), S} end,
     case read_file(Dir, "agents.conf", Check, []) of
 	{ok, Conf} ->
 	    Conf;
@@ -1837,7 +1837,7 @@ verify_agent2([Bad|_], _VerifiedConf) ->
 
 
 read_users_config_file(Dir) ->
-    Check = fun(C) -> check_user_config(C) end,
+    Check = fun(C, S) -> {check_user_config(C), S} end,
     case read_file(Dir, "users.conf", Check, []) of
 	{ok, Conf} ->
 	    Conf;
@@ -1950,7 +1950,7 @@ verify_user_agent_config(Conf) ->
     end.
 
 read_usm_config_file(Dir) ->
-    Check = fun(C) -> check_usm_user_config(C) end,
+    Check = fun(C, S) -> {check_usm_user_config(C), S} end,
     case read_file(Dir, "usm.conf", Check, []) of
 	{ok, Conf} ->
 	    Conf;
@@ -2139,7 +2139,7 @@ is_crypto_supported(Func) ->
  
 
 read_manager_config_file(Dir) ->
-    Check = fun(Conf) -> check_manager_config(Conf) end,
+    Check = fun(Conf, State) -> {check_manager_config(Conf), State} end,
     case read_file(Dir, "manager.conf", Check) of
 	{ok, Conf} ->
 	    ?d("read_manager_config_file -> ok: "

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,7 +51,7 @@
 	 set_engine_boots/1, set_engine_time/1,
 	 table_next/2, check_status/3]).
 -export([add_context/1, delete_context/1]).
--export([check_agent/1, check_context/1]).
+-export([check_agent/1, check_agent/2, check_context/1, order_agent/2]).
 
 
 %%-----------------------------------------------------------------
@@ -115,23 +115,22 @@ do_configure(Dir) ->
 
 read_internal_config_files(Dir) ->
     ?vdebug("read context config file",[]),
-    Gen    = fun(D, Reason) -> 
-		     convert_context(D, Reason) 
-	     end,
-    Filter = fun(Contexts) -> Contexts end,
-    Check  = fun(Entry) -> check_context(Entry) end,
-    [Ctxs] = snmp_conf:read_files(Dir, [{Gen, Filter, Check, "context.conf"}]),
+    Gen    = fun gen_context/2,
+    Order  = fun snmp_conf:no_order/2,
+    Filter = fun snmp_conf:no_filter/1,
+    Check  = fun(Entry, State) -> {check_context(Entry), State} end,
+    [Ctxs] =
+	snmp_conf:read_files
+	  (Dir, [{"context.conf", Gen, Order, Check, Filter}]),
     Ctxs.
-
 
 read_agent(Dir) ->
     ?vdebug("read agent config file", []),
-    FileName = "agent.conf", 
-    Check    = fun(Entry) -> check_agent(Entry) end,
+    FileName = "agent.conf",
     File     = filename:join(Dir, FileName), 
-    Agent    = 
+    Agent    =
 	try
-	    snmp_conf:read(File, Check)
+	    snmp_conf:read(File, fun order_agent/2, fun check_agent/2)
 	catch
 	    throw:{error, Reason} ->
 		error({failed_reading_config_file, Dir, FileName, Reason})
@@ -155,14 +154,15 @@ sort_agent(L) ->
 %%-----------------------------------------------------------------
 %% Generate a context.conf file.
 %%-----------------------------------------------------------------
-convert_context(Dir, _Reason) ->
+gen_context(Dir, _Reason) ->
     config_err("missing context.conf file => generating a default file", []),
     File = filename:join(Dir, "context.conf"),
     case file:open(File, [write]) of
 	{ok, Fid} ->
 	    ok = io:format(Fid, "~s\n", [context_header()]),
 	    ok = io:format(Fid, "%% The default context\n\"\".\n", []),
-	    file:close(Fid);
+	    file:close(Fid),
+	    [];
 	{error, Reason} ->
             file:delete(File),
 	    error({failed_creating_file, File, Reason})
@@ -196,9 +196,21 @@ check_context(Context) ->
 %%  Agent
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
-check_agent({intAgentIpAddress, Value}) -> 
+check_agent({intAgentTransportDomain, D}, Domain) ->
+    case Domain of
+	undefined ->
+	    {snmp_conf:check_domain(D), D};
+	_ ->
+	    error({invalid_agent_attribute, D})
+    end;
+check_agent({intAgentTransportAddress, Address}, Domain) ->
+    {snmp_conf:check_address(Domain, Address), Domain};
+check_agent(Entry, Domain) ->
+    {check_agent(Entry), Domain}.
+
+check_agent({intAgentIpAddress, Value}) -> % Obsoleted
     snmp_conf:check_ip(Value);
-check_agent({intAgentUDPPort, Value}) -> 
+check_agent({intAgentUDPPort, Value}) -> % Obsoleted
     snmp_conf:check_integer(Value);
 %% This one is kept for backwards compatibility
 check_agent({intAgentMaxPacketSize, Value}) -> 
@@ -209,6 +221,15 @@ check_agent({snmpEngineID, Value}) ->
     snmp_conf:check_string(Value);
 check_agent(X) -> 
     error({invalid_agent_attribute, X}).
+
+%% Ordering function to sort intAgentTransportDomain first
+%% hence before intAgentTransportAddress
+order_agent({intAgentTransportDomain, _}, {intAgentTransportDomain, _}) ->
+    true; %% Less than or equal
+order_agent(_, {intAgentTransportDomain, _}) ->
+    false; %% Greater than
+order_agent(_, _) ->
+    true. %% Less than or equal
 
 
 maybe_create_table(Name) ->

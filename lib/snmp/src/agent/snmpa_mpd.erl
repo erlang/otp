@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -183,11 +183,30 @@ discarded_pdu(Variable) -> inc(Variable).
 %%-----------------------------------------------------------------
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
-v1_v2c_proc(Vsn, NoteStore, Community, Domain, 
-	    {Ip, Udp}, LocalEngineID, 
-	    Data, HS, Log, Packet) ->
+v1_v2c_proc(
+  Vsn, NoteStore, Community, Domain, Address,
+  LocalEngineID, Data, HS, Log, Packet) ->
+    try snmp_conf:check_domain(Domain) of
+	ok ->
+	    try snmp_conf:check_address(Domain, Address) of
+		ok ->
+		    v1_v2c_proc_dec(
+		      Vsn, NoteStore, Community, Domain, Address,
+		      LocalEngineID, Data, HS, Log, Packet)
+	    catch
+		_ ->
+		    {discarded, {badarg, Address}}
+	    end
+    catch
+	_ ->
+	    {discarded, {badarg, Domain}}
+    end.
+
+v1_v2c_proc_dec(
+  Vsn, NoteStore, Community, Domain, Address,
+  LocalEngineID, Data, HS, Log, Packet) ->
     TDomain  = snmp_conf:mk_tdomain(Domain), 
-    TAddress = snmp_conf:mk_taddress(Domain, Ip, Udp),
+    TAddress = snmp_conf:mk_taddress(Domain, Address),
     AgentMS  = get_engine_max_message_size(LocalEngineID),
     MgrMS    = snmp_community_mib:get_target_addr_ext_mms(TDomain, TAddress),
     PduMS    = case MgrMS of
@@ -214,7 +233,7 @@ v1_v2c_proc(Vsn, NoteStore, Community, Domain,
 	    case Pdu#pdu.type of
 		'set-request' ->
 		    %% Check if this message has already been processed
-		    Key = {agent, Ip, ReqId},
+		    Key = {agent, {Domain, Address}, ReqId},
 		    case snmp_note_store:get_note(NoteStore, Key) of
 			undefined -> 
 			    %% Set the processed note _after_ pdu processing. 
@@ -236,13 +255,7 @@ v1_v2c_proc(Vsn, NoteStore, Community, Domain,
 	    {discarded, Reason};
 	_TrapPdu ->
 	    {discarded, trap_pdu}
-    end;
-v1_v2c_proc(_Vsn, _NoteStore, _Community, snmpUDPDomain, TAddress, 
-	    _LocalEngineID, _Data, _HS, _Log, _Packet) ->
-    {discarded, {badarg, TAddress}};
-v1_v2c_proc(_Vsn, _NoteStore, _Community, TDomain, _TAddress, 
-	    _LocalEngineID, _Data, _HS, _Log, _Packet) ->
-    {discarded, {badarg, TDomain}}.
+    end.
 
 sec_model('version-1') -> ?SEC_V1;
 sec_model('version-2') -> ?SEC_V2C.

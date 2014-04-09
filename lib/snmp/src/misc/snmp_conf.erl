@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,8 @@
 %% External exports
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([read_files/2, read/2]).
+-export([read_files/2, no_gen/2, no_order/2, no_filter/1]).
+-export([read/2, read/3]).
 
 %% Basic (type) check functions
 -export([check_mandatory/2,
@@ -43,9 +44,10 @@
 	 check_tdomain/1,  
 	 mk_tdomain/1, 
 	 which_domain/1, 
-	 check_ip/1, check_ip/2, 
-	 check_taddress/1, check_taddress/2, 
-	 mk_taddress/3, 
+	 check_ip/1, check_ip/2,
+	 check_address/2,
+	 check_taddress/2,
+	 mk_taddress/2, mk_taddress/3,
 	 
 	 check_packet_size/1, 
 
@@ -70,17 +72,53 @@
 -include("snmp_verbosity.hrl").
 
 
+-define(is_word(P), (((P) band (bnot 65535)) =:= 0)).
+-define(is_word(P0, P1), ((((P0) bor (P1)) band (bnot 255)) =:= 0)).
+
+mk_word(B0, B1) -> ((B0) bsl 8) bor (B1).
+mk_bytes(W) -> [(W) bsr 8,(W) band 255].
+
+-define(
+   is_ipv4_addr(A0, A1, A2, A3),
+   ((((A0) bor (A1) bor (A2) bor (A3)) band (bnot 255)) =:= 0)).
+
+-define(
+   is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7),
+   ((((A0) bor (A1) bor (A2) bor (A3) bor (A4) bor (A5) bor (A6) bor (A7))
+	 band (bnot 65535)) =:= 0)).
+-define(
+   is_ipv6_addr(
+     A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15),
+   ((((A0) bor (A1) bor (A2) bor (A3) bor
+	  (A4) bor (A5) bor (A6) bor (A7) bor
+	  (A8) bor (A9) bor (A10) bor (A11) bor
+	  (A12) bor (A13) bor (A14) bor (A15))
+	 band (bnot 65535)) =:= 0)).
+
+
 %%-----------------------------------------------------------------
 
 %% read_files(Dir, Files) -> Configs
 %% Dir      - string()   - Full path to the config dir.
-%% Files    - [{Gen, Filter, Check, FileName}]
+%% Files    - [{FileName, Gen, Order, Check, Filter}]
+%% FileName - string()   - Name of the config file.
 %% Gen      - function/2 - In case of failure when reading the config file, 
 %%                         this function is called to either generate a
 %%                         default file or issue the error.
-%% Filter   - function/1 - Filters all the config entries read from the file
-%% Check    - function/1 - Check each entry as they are read from the file.
-%% FileName - string()   - Name of the config file.
+%%                         Returns a generated config list corresponding
+%%                         to the written file.
+%%                         (Dir, Error) -> Configs.
+%% Order    - function/2 - An ordering function that is used to process
+%%                         the read config entries using lists:sort/2.
+%%                         Returns true if arg 1 compares less than or
+%%                         equal to arg 2, false otherwise.
+%% Check    - function/2 - Check each entry as they are read from the file.
+%%                         (Entry, State) ->
+%%                             {ok,NewState} | {{ok,NewEntry},NewState} |
+%%                             throw(Error)
+%%                         State =:= 'undefined' the first time.
+%% Filter   - function/1 - Process all the config entries read from the file
+%%                         (Configs) -> [config_entry()].
 %% Configs  - [config_entry()]
 %% config_entry() - term()
 
@@ -89,24 +127,122 @@ read_files(Dir, Files) when is_list(Dir) andalso is_list(Files) ->
 
 read_files(_Dir, [], Res) ->
     lists:reverse(Res);
-read_files(Dir, [{Gen, Filter, Check, FileName}|Files], Res) 
-  when is_function(Filter) andalso 
-       is_function(Check)  andalso 
-       is_list(FileName) ->
-    ?vdebug("read_files -> entry with"
-	"~n   FileName: ~p", [FileName]),
+read_files(Dir, [{FileName, Gen, Order, Check, Filter}|Files], Res)
+  when is_list(FileName),
+       is_function(Gen),
+       is_function(Order),
+       is_function(Check),
+       is_function(Filter) ->
+    ?vdebug("read_files -> entry with~n"
+	    "   FileName: ~p", [FileName]),
     File = filename:join(Dir, FileName),
-    case file:read_file_info(File) of
-        {ok, _} ->
-            Confs = read(File, Check),
-            read_files(Dir, Files, [Filter(Confs)|Res]);
-        {error, R} ->
-	    ?vlog("failed reading file info for ~s: "
-		  "~n   ~p", [FileName, R]),
-            Gen(Dir, R),
-            read_files(Dir, Files, [Filter([])|Res])
+    Confs =
+	case file:read_file_info(File) of
+	    {ok,_} ->
+		read(File, Order, Check);
+	    {error, R} ->
+		?vlog("failed reading file info for ~s: ~n"
+		      "   ~p", [FileName, R]),
+		Gen(Dir, R)
+	end,
+    read_files(Dir, Files, [Filter(Confs)|Res]).
+%% %%
+%% %% XXX remove
+%% %%
+%% %% read_files(Dir, Files) -> Configs
+%% %% Dir      - string()   - Full path to the config dir.
+%% %% Files    - [{Gen, Filter, Check, FileName}]
+%% %% Gen      - function/2 - In case of failure when reading the config file,
+%% %%                         this function is called to either generate a
+%% %%                         default file or issue the error.
+%% %% Filter   - function/1 - Filters all the config entries read from the file
+%% %% Check    - function/1 - Check each entry as they are read from the file.
+%% %% FileName - string()   - Name of the config file.
+%% %% Configs  - [config_entry()]
+%% %% config_entry() - term()
+%%
+%% read_files(Dir, [{Gen, Filter, Check, FileName}|Files], Res)
+%%   when is_function(Filter) andalso
+%%        is_function(Check)  andalso
+%%        is_list(FileName) ->
+%%     ?vdebug("read_files -> entry with"
+%% 	"~n   FileName: ~p", [FileName]),
+%%     File = filename:join(Dir, FileName),
+%%     case file:read_file_info(File) of
+%%         {ok, _} ->
+%%             Confs = read(File, Check),
+%%             read_files(Dir, Files, [Filter(Confs)|Res]);
+%%         {error, R} ->
+%% 	    ?vlog("failed reading file info for ~s: "
+%% 		  "~n   ~p", [FileName, R]),
+%%             Gen(Dir, R),
+%%             read_files(Dir, Files, [Filter([])|Res])
+%%     end.
+
+no_gen(_Dir, _R) -> [].
+no_order(_, _) -> true.
+no_filter(X) -> X.
+
+
+
+%% Ret. Res | exit(Reason)
+read(File, Order, Check) when is_function(Order), is_function(Check) ->
+    ?vdebug("read -> entry with~n"
+	"   File: ~p", [File]),
+    Fd = open_file(File),
+    read_fd(File, Order, Check, Fd, 1, []).
+
+read_fd(File, Order, Check, Fd, StartLine, Res) ->
+    case do_read(Fd, "", StartLine) of
+	{ok, Row, EndLine} ->
+	    ?vtrace("read_fd ->~n"
+		    "   Row:     ~p~n"
+		    "   EndLine: ~p", [Row,EndLine]),
+	    read_fd(
+	      File, Order, Check, Fd, EndLine,
+	      [{StartLine, Row, EndLine}|Res]);
+	{error, Error, EndLine} ->
+	    ?vtrace("read_fd -> read failure:~n"
+		    "   Error: ~p~n"
+		    "   EndLine: ~p", [Error,EndLine]),
+	    file:close(Fd),
+	    error({failed_reading, File, StartLine, EndLine, Error});
+	{eof, _EndLine} ->
+	    Lines =
+		lists:sort(
+		  fun ({_, RowA, _}, {_, RowB, _}) ->
+			  Order(RowA, RowB)
+		  end,
+		  lists:reverse(Res)),
+	    read_check(File, Check, Lines, undefined, [])
     end.
 
+read_check(_, _, [], _, Res) ->
+    lists:reverse(Res);
+read_check(File, Check, [{StartLine, Row, EndLine}|Lines], State, Res) ->
+    try Check(Row, State) of
+	{ok, NewState} ->
+	    ?vtrace("read_check -> ok", []),
+	    read_check(File, Check, Lines, NewState, [Row|Res]);
+	{{ok, NewRow}, NewState} ->
+	    ?vtrace("read_check -> ok:~n"
+		    "   NewRow: ~p~n", [NewRow]),
+	    read_check(File, Check, Lines, NewState, [NewRow|Res])
+    catch
+	{error, Reason} ->
+	    ?vtrace("read_check -> error:~n"
+		    "   Reason: ~p", [Reason]),
+	    error({failed_check, File, StartLine, EndLine, Reason});
+	Class:Reason ->
+	    Error = {Class,Reason,erlang:get_stacktrace()},
+	    ?vtrace("read_check -> failure:~n"
+		    "   Error: ~p", [Error]),
+	    error({failed_check, File, StartLine, EndLine, Error})
+    end.
+
+
+
+%% XXX remove
 
 %% Ret. Res | exit(Reason)
 read(File, Check) when is_function(Check) -> 
@@ -155,11 +291,11 @@ loop(Fd, Res, Check, StartLine, File) ->
 			    "~n   Error: ~p", [Error]),
                     {error, {failed_check, File, StartLine, EndLine, Error}}
 		end;
-        {error, EndLine, Error} ->
+        {error, Error, EndLine} ->
 	    ?vtrace("loop -> read failure: "
 		    "~n   Error: ~p", [Error]),
             {error, {failed_reading, File, StartLine, EndLine, Error}};
-        eof ->
+        {eof, _EndLine} ->
             {ok, Res}
     end.
 
@@ -171,12 +307,8 @@ do_read(Io, Prompt, StartLine) ->
                 {ok, Term} ->
                     {ok, Term, EndLine};
                 {error, {Line, erl_parse, Error}} ->
-                    {error, Line, {parse_error, Error}}
+                    {error, {parse_error, Error}, Line}
             end;
-        {error,E,EndLine} ->
-            {error, EndLine, E};
-        {eof, _EndLine} ->
-            eof;
         Other ->
             Other
     end.
@@ -384,7 +516,7 @@ all_tdomains() ->
 check_tdomain(TDomain) ->
     SupportedTDomains = 
 	[
-	 ?snmpUDPDomain, 
+	 ?snmpUDPDomain, % Legacy
 	 ?transportDomainUdpIpv4,
 	 ?transportDomainUdpIpv6			 
 	],
@@ -416,40 +548,38 @@ mk_tdomain(BadDomain) ->
 
 %% ---------
 
-check_taddress(X) ->
-    check_taddress(snmpUDPDomain, X).
+%% XXX remove
+%% check_taddress(X) ->
+%%    check_taddress(snmpUDPDomain, X).
 
 check_taddress(?snmpUDPDomain, X) ->
     check_taddress(transportDomainUdpIpv4, X);
 check_taddress(snmpUDPDomain, X) ->
     check_taddress(transportDomainUdpIpv4, X);
-
+%%
 check_taddress(?transportDomainUdpIpv4, X) ->
     check_taddress(transportDomainUdpIpv4, X);
-check_taddress(transportDomainUdpIpv4, X) 
-  when is_list(X) andalso (length(X) =:= 6) ->
-    case (catch all_integer(X)) of
-	true  -> 
+check_taddress(transportDomainUdpIpv4, X) ->
+    case X of
+	[A0,A1,A2,A3,P0,P1]
+	  when ?is_ipv4_addr(A0, A1, A2, A3), ?is_word(P0, P1) ->
 	    ok;
-	false -> 
+	_ ->
 	    error({invalid_taddress, X})
     end;
-check_taddress(transportDomainUdpIpv4, X) ->
-    error({invalid_taddress, X});
-
+%%
 check_taddress(?transportDomainUdpIpv6, X) ->
     check_taddress(transportDomainUdpIpv6, X);
-check_taddress(transportDomainUdpIpv6, X) 
-  when is_list(X) andalso (length(X) =:= 10) ->
-    case (catch all_integer(X)) of
-	true  -> 
+check_taddress(transportDomainUdpIpv6, X) ->
+    case X of
+	[A0,A1,A2,A3,A4,A5,A6,A7,P0,P1]
+	when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7),
+	     ?is_word(P0, P1) ->
 	    ok;
-	false -> 
+	_ ->
 	    error({invalid_taddress, X})
     end;
-check_taddress(transportDomainUdpIpv6, X) ->
-    error({invalid_taddress, X});
-
+%%
 check_taddress(BadDomain, _X) ->
     error({invalid_tdomain, BadDomain}).
 
@@ -512,31 +642,65 @@ all_domains() ->
      transportDomainSctpDns
     ].
 
+check_domain(snmpUDPDomain) -> ok;
+check_domain(transportDomainUdpIpv4) -> ok;
+check_domain(transportDomainUdpIpv6) -> ok;
 check_domain(Domain) ->
-    SupportedDomains = 
-	[
-	 snmpUDPDomain, 
-	 transportDomainUdpIpv4,
-	 transportDomainUdpIpv6
-	],
-    AllDomains = all_domains(), 
-    case lists:member(Domain, SupportedDomains) of
+    case lists:member(Domain, all_domains()) of
 	true ->
-	    ok;
+	    error({unsupported_domain, Domain});
 	false ->
-	    case lists:member(Domain, AllDomains) of
-		true ->
-		    error({unsupported_domain, Domain});
-		false ->
-		    error({unknown_domain, Domain})
-	    end
+	    error({unknown_domain, Domain})
     end.
-	    
+
 
 %% ---------
 
-%% The values of Ip and Port has both been checked at this
+%% The values of Domain, Ip and Port has both been checked at this
 %% point, so we dont need to do that again.
+
+mk_taddress(snmpUDPDomain, Address) ->
+    mk_taddress(transportDomainUdpIpv4, Address);
+mk_taddress(transportDomainUdpIpv4, {Ip, Port}) when is_list(Ip) ->
+    Ip ++ mk_bytes(Port);
+mk_taddress(transportDomainUdpIpv4, {Ip, Port}) when is_tuple(Ip) ->
+    tuple_to_list(Ip) ++ mk_bytes(Port);
+mk_taddress(transportDomainUdpIpv4, IpPort) when is_list(IpPort) ->
+    IpPort; % Should be length 6
+mk_taddress(transportDomainUdpIpv6, {Ip, Port}) when is_list(Ip) ->
+    Ip ++ mk_bytes(Port);
+mk_taddress(transportDomainUdpIpv6, {Ip, Port}) when is_tuple(Ip) ->
+    tuple_to_list(Ip) ++ mk_bytes(Port);
+mk_taddress(transportDomainUdpIpv6, IpPort) when is_list(IpPort) ->
+    case IpPort of
+	[A0,A1,A2,A3,A4,A5,A6,A7,P] ->
+	    [A0,A1,A2,A3,A4,A5,A6,A7] ++ mk_bytes(P);
+	[A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15,P0,P1] ->
+	    [mk_word(A0, A1),mk_word(A2, A3),
+	     mk_word(A4, A5),mk_word(A6, A7),
+	     mk_word(A8, A9),mk_word(A10, A11),
+	     mk_word(A12, A13),mk_word(A14, A15),P0,P1];
+	_ ->
+	    IpPort % Should already be 8 words and 2 bytes hence length 10
+    end;
+mk_taddress(Domain, Address) when is_atom(Domain) ->
+    erlang:error(badarg, [Domain,Address]);
+%%
+%% These are just for convenience
+mk_taddress(?snmpUDPDomain, Address) ->
+    mk_taddress(snmpUDPDomain, Address);
+mk_taddress(?transportDomainUdpIpv4, Address) ->
+    mk_taddress(transportDomainUdpIpv4, Address);
+mk_taddress(?transportDomainUdpIpv6, Address) ->
+    mk_taddress(transportDomainUdpIpv6, Address);
+%% Bad domain
+mk_taddress(BadDomain, _) ->
+    error({bad_domain, BadDomain}).
+
+
+
+%% XXX remove
+
 mk_taddress(snmpUDPDomain, Ip, Port) ->
     mk_taddress(transportDomainUdpIpv4, Ip, Port);
 mk_taddress(transportDomainUdpIpv4, Ip, Port) when is_list(Ip) ->
@@ -547,7 +711,7 @@ mk_taddress(transportDomainUdpIpv6, Ip, Port) when is_list(Ip) ->
     Ip ++ [Port div 256, Port rem 256];
 mk_taddress(transportDomainUdpIpv6 = Domain, Ip, Port) when is_tuple(Ip) ->
     mk_taddress(Domain, tuple_to_list(Ip), Port);
-
+%%
 %% These are just for convenience
 mk_taddress(?snmpUDPDomain, Ip, Port) ->
     mk_taddress(snmpUDPDomain, Ip, Port);
@@ -555,7 +719,7 @@ mk_taddress(?transportDomainUdpIpv4, Ip, Port) ->
     mk_taddress(transportDomainUdpIpv4, Ip, Port);
 mk_taddress(?transportDomainUdpIpv6, Ip, Port) ->
     mk_taddress(transportDomainUdpIpv6, Ip, Port);
-
+%%
 %% Bad domain
 mk_taddress(BadDomain, _Ip, _Port) ->
     error({bad_domain, BadDomain}).
@@ -563,44 +727,110 @@ mk_taddress(BadDomain, _Ip, _Port) ->
     
 %% ---------
 
-which_domain(Ip) when is_list(Ip) andalso (length(Ip) =:= 4) ->
+%% XXX remove
+
+which_domain([A0,A1,A2,A3]) when ?is_ipv4_addr(A0, A1, A2, A3) ->
     transportDomainUdpIpv4;
-which_domain(Ip) when is_tuple(Ip) andalso (size(Ip) =:= 4) ->
+which_domain({A0,A1,A2,A3}) when ?is_ipv4_addr(A0, A1, A2, A3) ->
     transportDomainUdpIpv4;
-which_domain(Ip) when is_list(Ip) andalso (length(Ip) =:= 8) ->
+which_domain([A0,A1,A2,A3,A4,A5,A6,A7])
+  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7) ->
     transportDomainUdpIpv6;
-which_domain(Ip) when is_tuple(Ip) andalso (size(Ip) =:= 8) ->
+which_domain({A0, A1, A2, A3, A4, A5, A6, A7})
+  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7) ->
     transportDomainUdpIpv6.
 
     
 %% ---------
+
+%% XXX remove
 
 check_ip(X) ->
     check_ip(snmpUDPDomain, X).
 
 check_ip(snmpUDPDomain, X) ->
     check_ip(transportDomainUdpIpv4, X);
-check_ip(transportDomainUdpIpv4, X) when is_list(X) andalso (length(X) =:= 4) ->
-    case (catch all_integer(X)) of
-	true  -> 
-	    ok;
-	false -> 
-	    error({invalid_ip_address, X})
-    end;
 check_ip(transportDomainUdpIpv4, X) ->
-    error({invalid_ip_address, X});
-
-check_ip(transportDomainUdpIpv6, X) when is_list(X) andalso (length(X) =:= 8) ->
-    case (catch all_integer(X)) of
-	true  -> 
+    case X of
+	[A,B,C,D] when ?is_ipv4_addr(A, B, C, D) ->
 	    ok;
-	false -> 
+	_ ->
 	    error({invalid_ip_address, X})
     end;
 check_ip(transportDomainUdpIpv6, X) ->
-    error({invalid_ip_address, X});
-
+    case X of
+	[A,B,C,D,E,F,G,H]
+	  when ?is_ipv6_addr(A, B, C, D, E, F, G, H) ->
+	    ok;
+	[A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P]
+	  when ?is_ipv6_addr(
+		  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) ->
+	    ok;
+	_ ->
+	    error({invalid_ip_address, X})
+    end;
+%%
 check_ip(BadDomain, _X) ->
+    error({invalid_domain, BadDomain}).
+
+
+%% ---------
+
+%% Check a configuration term field from a file to see if it
+%% can be fed to mk_taddress/2.
+
+check_address(Domain, Address)
+  when Domain =:= snmpUDPDomain;
+       Domain =:= transportDomainUdpIpv4 ->
+    case Address of
+	%% Erlang native format
+	{{A0, A1, A2, A3}, P}
+	  when ?is_ipv4_addr(A0, A1, A2, A3), ?is_word(P) ->
+	    ok;
+	%% Erlangish format
+	{[A0,A1,A2,A3], P}
+	  when ?is_ipv4_addr(A0, A1, A2, A3), ?is_word(P) ->
+	    ok;
+	%% SNMP standards format
+	[A0,A1,A2,A3,P0,P1]
+	  when ?is_ipv4_addr(A0, A1, A2, A3), ?is_word(P0, P1) ->
+	    ok;
+	_ ->
+	    error({invalid_address, {Domain, Address}})
+    end;
+check_address(transportDomainUdpIpv6 = Domain, Address) ->
+    case Address of
+	%% Erlang native format
+	{{A0, A1, A2, A3, A4, A5, A6, A7}, P}
+	  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7),
+	       ?is_word(P) ->
+	    ok;
+	%% Erlangish format
+	{[A0,A1,A2,A3,A4,A5,A6,A7], P}
+	  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7),
+	       ?is_word(P) ->
+	    ok;
+	%% Erlang friendly list format
+	[A0,A1,A2,A3,A4,A5,A6,A7,P]
+	  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7),
+	       ?is_word(P) ->
+	    ok;
+	%% Strange hybrid format with port as bytes
+	[A0,A1,A2,A3,A4,A5,A6,A7,P0,P1]
+	  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7),
+	       ?is_word(P0, P1) ->
+	    ok;
+	%% SNMP standards format
+	[A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15,P0,P1]
+	  when ?is_ipv6_addr(
+		  A0, A1, A2, A3, A4, A5, A6, A7,
+		  A8, A9, A10, A11, A12, A13, A14, A15),
+	       ?is_word(P0, P1) ->
+	    ok;
+	_ ->
+	    error({invalid_address, {Domain, Address}})
+    end;
+check_address(BadDomain, _) ->
     error({invalid_domain, BadDomain}).
 
 
