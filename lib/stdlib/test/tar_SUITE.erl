@@ -23,7 +23,7 @@
 	 create_long_names/1, bad_tar/1, errors/1, extract_from_binary/1,
 	 extract_from_binary_compressed/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
-	 memory/1]).
+	 memory/1,unicode/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -34,7 +34,7 @@ all() ->
     [borderline, atomic, long_names, create_long_names,
      bad_tar, errors, extract_from_binary,
      extract_from_binary_compressed, extract_from_open_file,
-     symlinks, open_add_close, cooked_compressed, memory].
+     symlinks, open_add_close, cooked_compressed, memory, unicode].
 
 groups() -> 
     [].
@@ -726,6 +726,56 @@ memory(Config) when is_list(Config) ->
     ?line ok = delete_files([Name1,Name2]),
     ok.
 
+%% Test filenames with characters outside the US ASCII range.
+unicode(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    do_unicode(PrivDir),
+    case has_transparent_naming() of
+	true ->
+	    Pa = filename:dirname(code:which(?MODULE)),
+	    Node = start_node(unicode, "+fnl -pa "++Pa),
+	    ok = rpc:call(Node, erlang, apply,
+			  [fun() -> do_unicode(PrivDir) end,[]]),
+	    true = test_server:stop_node(Node),
+	    ok;
+	false ->
+	    ok
+    end.
+
+has_transparent_naming() ->
+    case os:type() of
+	{unix,darwin} -> false;
+	{unix,_} -> true;
+	_ -> false
+    end.
+
+do_unicode(PrivDir) ->
+    ok = file:set_cwd(PrivDir),
+    ok = file:make_dir("unicöde"),
+
+    Names = unicode_create_files(),
+    Tar = "unicöde.tar",
+    ok = erl_tar:create(Tar, ["unicöde"], []),
+    {ok,Names} = erl_tar:table(Tar, []),
+    _ = [ok = file:delete(Name) || Name <- Names],
+    ok = erl_tar:extract(Tar),
+    _ = [{ok,_} = file:read_file(Name) || Name <- Names],
+    _ = [ok = file:delete(Name) || Name <- Names],
+    ok = file:del_dir("unicöde"),
+    ok.
+
+unicode_create_files() ->
+    FileA = "unicöde/smörgåsbord",
+    ok = file:write_file(FileA, "yum!\n"),
+    [FileA|case file:native_name_encoding() of
+	       utf8 ->
+		   FileB = "unicöde/Хороший файл!",
+		   ok = file:write_file(FileB, "But almost empty.\n"),
+		   [FileB];
+	       latin1 ->
+		   []
+	   end].
+
 %% Delete the given list of files.
 delete_files([]) -> ok;
 delete_files([Item|Rest]) ->
@@ -790,4 +840,15 @@ make_temp_dir(Base, I) ->
     case file:make_dir(Name) of
 	ok -> Name;
 	{error,eexist} -> make_temp_dir(Base, I+1)
+    end.
+
+start_node(Name, Args) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    ct:log("Trying to start ~w@~s~n", [Name,Host]),
+    case test_server:start_node(Name, peer, [{args,Args}]) of
+	{error,Reason} ->
+	    test_server:fail(Reason);
+	{ok,Node} ->
+	    ct:log("Node ~p started~n", [Node]),
+	    Node
     end.

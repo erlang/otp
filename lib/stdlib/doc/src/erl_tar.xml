@@ -65,6 +65,20 @@
   </description>
 
   <section>
+    <title>UNICODE SUPPORT</title>
+    <p>If <seealso
+    marker="kernel:file#native_name_encoding/0">file:native_name_encoding/0</seealso>
+    returns <c>utf8</c>, path names will be encoded in UTF-8 when
+    creating tar files and path names will be assumed to be encoded in
+    UTF-8 when extracting tar files.</p>
+
+    <p>If <seealso
+    marker="kernel:file#native_name_encoding/0">file:native_name_encoding/0</seealso>
+    returns <c>latin1</c>, no translation of path names will be
+    done.</p>
+  </section>
+
+  <section>
     <title>LIMITATIONS</title>
     <p>For maximum compatibility, it is safe to archive files with names
       up to 100 characters in length. Such tar files can generally be
