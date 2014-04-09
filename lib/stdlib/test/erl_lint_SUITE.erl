@@ -3720,7 +3720,18 @@ otp_11851(Config) when is_list(Config) ->
             t()-> a.
 	">>,
 	[],
-	{errors,[{5,erl_lint,{bad_callback,{lint_test,a,1}}}],[]}}
+	{errors,[{5,erl_lint,{bad_callback,{lint_test,a,1}}}],[]}},
+	{otp_11851_3,
+	 <<"-export([a/1]).
+
+            -spec a(_A) -> boolean() when
+                  _ :: atom(),
+                  _A :: integer().
+
+            a(_) -> true.
+	">>,
+	[],
+	{errors,[{4,erl_parse,"bad type variable"}],[]}}
           ],
     [] = run(Config, Ts),
     ok.

@@ -664,6 +664,8 @@ find_arity_from_specs([Spec|_]) ->
     {type, _, 'fun', [{type, _, product, Args},_]} = Fun,
     length(Args).
 
+build_def({var, L, '_'}, _Types) ->
+    ret_err(L, "bad type variable");
 build_def(LHS, Types) ->
     IsSubType = {atom, ?line(LHS), is_subtype},
     {type, ?line(LHS), constraint, [IsSubType, [LHS, Types]]}.
