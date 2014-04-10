@@ -2839,17 +2839,22 @@ fsck_try(Fd, Tab, FH, Fname, SlotNumbers, Version) ->
 
 tempfile(Fname) ->
     Tmp = lists:concat([Fname, ".TMP"]),
-    tempfile(Tmp, 10).
-
-tempfile(Tmp, 0) ->
-    Tmp;
-tempfile(Tmp, N) ->
     case file:delete(Tmp) of
-        {error, eacces} -> % 'dets_process_died' happened anyway... (W-nd-ws)
-            timer:sleep(1000),
-            tempfile(Tmp, N-1);
-        _ ->
-            Tmp
+        {error, _Reason} -> % typically enoent
+            ok;
+        ok ->
+            assure_no_file(Tmp)
+    end,
+    Tmp.
+
+assure_no_file(File) ->
+    case file:read_file_info(File) of
+        {ok, _FileInfo} ->
+            %% Wait for some other process to close the file:
+            timer:sleep(100),
+            assure_no_file(File);
+        {error, _} ->
+            ok
     end.
 
 %% -> {ok, NewHead} | {try_again, integer()} | Error

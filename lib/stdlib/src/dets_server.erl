@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -171,9 +171,15 @@ handle_info({pending_reply, {Ref, Result0}}, State) ->
 		link(Pid),
 		do_link(Store, FromPid),
 		true = ets:insert(Store, {FromPid, Tab}),
-		true = ets:insert(?REGISTRY, {Tab, 1, Pid}),
-		true = ets:insert(?OWNERS, {Pid, Tab}),
+                %% do_internal_open() has already done the following:
+                %% true = ets:insert(?REGISTRY, {Tab, 1, Pid}),
+                %% true = ets:insert(?OWNERS, {Pid, Tab}),
 		{ok, Tab};
+            {Reply, internal_open} ->
+                %% Clean up what do_internal_open() did:
+                true = ets:delete(?REGISTRY, Tab),
+                true = ets:delete(?OWNERS, Pid),
+                Reply;
 	    {Reply, _} -> % ok or Error
 		Reply
 	end,
@@ -309,6 +315,12 @@ do_internal_open(State, From, Args) ->
                       [T, _, _] -> T;
                       [_, _] -> Ref
                   end,
+            %% Pretend the table is open. If someone else tries to
+            %% open the file it will always become a pending
+            %% 'add_user' request. If someone tries to use the table
+            %% there will be a delay, but that is OK.
+            true = ets:insert(?REGISTRY, {Tab, 1, Pid}),
+            true = ets:insert(?OWNERS, {Pid, Tab}),
             pending_call(Tab, Pid, Ref, From, Args, internal_open, State);
         Error ->
             {Error, State}
