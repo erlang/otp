@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -282,8 +282,13 @@ handle_cast({register_session, Host, Port, Session},
 		   session_cache_cb = CacheCb} = State) ->
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     NewSession = Session#session{time_stamp = TimeStamp},
-    CacheCb:update(Cache, {{Host, Port}, 
-		   NewSession#session.session_id}, NewSession),
+    case CacheCb:select_session(Cache, {Host, Port}) of
+	no_session ->
+	    CacheCb:update(Cache, {{Host, Port}, 
+				   NewSession#session.session_id}, NewSession);
+	Sessions ->
+	    register_unique_session(Sessions, NewSession, CacheCb, Cache, {Host, Port})
+    end,
     {noreply, State};
 
 handle_cast({register_session, Port, Session},  
@@ -494,3 +499,34 @@ clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
 	_ ->
 	    ok
     end.
+
+%% Do not let dumb clients create a gigantic session table
+register_unique_session(Sessions, Session, CacheCb, Cache, PartialKey) ->
+    case exists_equivalent(Session , Sessions) of
+	true ->
+	    ok;
+	false ->
+	    CacheCb:update(Cache, {PartialKey, 
+				   Session#session.session_id}, Session)
+    end.
+
+exists_equivalent(_, []) ->
+    false;
+exists_equivalent(#session{
+		     peer_certificate = PeerCert,
+		     own_certificate = OwnCert,
+		     compression_method = Compress,
+		     cipher_suite = CipherSuite,
+		     srp_username = SRP,
+		     ecc = ECC} , 
+		  [#session{
+		      peer_certificate = PeerCert,
+		      own_certificate = OwnCert,
+		      compression_method = Compress,
+		      cipher_suite = CipherSuite,
+		      srp_username = SRP,
+		      ecc = ECC} | _]) ->
+    true;
+exists_equivalent(Session, [ _ | Rest]) ->
+    exists_equivalent(Session, Rest).
+
