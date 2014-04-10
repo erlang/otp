@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2524,7 +2524,7 @@ monitor_large_heap(Process *p) {
 #ifndef ERTS_SMP 
     ASSERT(is_internal_pid(system_monitor));
     monitor_p = erts_proc_lookup(system_monitor);
-    if (monitor_p || p == monitor_p) {
+    if (!monitor_p || p == monitor_p) {
 	return;
     }
 #endif
