@@ -32,6 +32,7 @@
 	     v2_crls = true,
 	     ecc_certs = false,
 	     issuing_distribution_point = false,
+	     crl_port = 8000,
 	     openssl_cmd = "openssl"}).
 
 
@@ -57,6 +58,8 @@ make_config([{default_bits, Bits}|T], C) when is_integer(Bits) ->
     make_config(T, C#config{default_bits = Bits});
 make_config([{v2_crls, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{v2_crls = Bool});
+make_config([{crl_port, Port}|T], C) when is_integer(Port) ->
+    make_config(T, C#config{crl_port = Port});
 make_config([{ecc_certs, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{ecc_certs = Bool});
 make_config([{issuing_distribution_point, Bool}|T], C) when is_boolean(Bool) ->
@@ -423,7 +426,7 @@ ca_cnf(C) ->
      "[crl_section]\n"
      %% intentionally invalid
      "URI.1=http://localhost/",C#config.commonName,"/crl.pem\n"
-     "URI.2=http://localhost:8000/",C#config.commonName,"/crl.pem\n"
+     "URI.2=http://localhost:",integer_to_list(C#config.crl_port),"/",C#config.commonName,"/crl.pem\n"
      "\n"
 
      "[user_cert_digital_signature_only]\n"
