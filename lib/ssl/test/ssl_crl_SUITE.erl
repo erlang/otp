@@ -48,8 +48,8 @@ all() ->
     ].
 
 groups() ->
-    [{basic, [], basic_tests()},
-     {v1_crl, [], v1_crl_tests()},
+    [{basic,   [], basic_tests()},
+     {v1_crl,  [], v1_crl_tests()},
      {idp_crl, [], idp_crl_tests()}].
 
 basic_tests() ->
@@ -72,8 +72,8 @@ init_per_suite(Config0) ->
 	_ ->
 	    TLSVersion = ?config(tls_version, Config0),
 	    OpenSSL_version = (catch os:cmd("openssl version")),
-	    ct:log("TLS version: ~p~nOpenSSL version: ~p~n~n~p:module_info(): ~p~n~nssh:module_info(): ~p~n",
-		   [TLSVersion, OpenSSL_version, ?MODULE, ?MODULE:module_info(), ssh:module_info()]),
+	    ct:log("TLS version: ~p~nOpenSSL version: ~p~n~n~p:module_info(): ~p~n~nssl:module_info(): ~p~n",
+		   [TLSVersion, OpenSSL_version, ?MODULE, ?MODULE:module_info(), ssl:module_info()]),
 	    case ssl_test_lib:enough_openssl_crl_support(OpenSSL_version) of
 		false ->
 		    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
@@ -82,7 +82,13 @@ init_per_suite(Config0) ->
 		    try crypto:start() of
 			ok ->
 			    ssl:start(),
-			    [{watchdog, Dog}, {openssl_version,OpenSSL_version} | Config0]
+			    {ok, Hostname0} = inet:gethostname(),
+			    IPfamily =
+				case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts,[])) of
+				    true -> inet6;
+				    false -> inet
+				end,
+			    [{ipfamily,IPfamily}, {watchdog, Dog}, {openssl_version,OpenSSL_version} | Config0]
 		    catch _C:_E ->
 			    ct:log("crypto:start() caught ~p:~p",[_C,_E]),
 			    {skip, "Crypto did not start"}
@@ -98,21 +104,23 @@ end_per_suite(_Config) ->
 %%% Group init/end
 
 init_per_group(Group, Config) ->
-    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     ssl:start(),
     inets:start(),
     CertDir = filename:join(?config(priv_dir, Config), Group),
     DataDir = ?config(data_dir, Config),
     ServerRoot = make_dir_path([?config(priv_dir,Config), Group, tmp]),
-    Result =  make_certs:all(DataDir, CertDir, cert_opts(Group)),
-    ct:log("~p:~p~nmake_certs:all(~n DataDir=~p,~n CertDir=~p,~n ServerRoot=~p~n Opts=~p~n) returned ~p~n", [?MODULE,?LINE,DataDir, CertDir, ServerRoot, cert_opts(Group), Result]),
     %% start a HTTP server to serve the CRLs
-    {ok, Httpd} = inets:start(httpd, [{server_name, "localhost"}, {port, 8000},
+    {ok, Httpd} = inets:start(httpd, [{ipfamily, ?config(ipfamily,Config)},
+				      {server_name, "localhost"}, {port, 0},
 				      {server_root, ServerRoot},
 				      {document_root, CertDir},
 				      {modules, [mod_get]}
 				     ]),
-    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
+    [{port,Port}] = httpd:info(Httpd, [port]),
+    ct:log("~p:~p~nHTTPD IP family=~p, port=~p~n", [?MODULE, ?LINE, ?config(ipfamily,Config), Port]),
+    CertOpts =  [{crl_port,Port}|cert_opts(Group)],
+    Result =  make_certs:all(DataDir, CertDir, CertOpts),
+    ct:log("~p:~p~nmake_certs:all(~n DataDir=~p,~n CertDir=~p,~n ServerRoot=~p~n Opts=~p~n) returned ~p~n", [?MODULE,?LINE,DataDir, CertDir, ServerRoot, CertOpts, Result]),
     [{make_cert_result, Result}, {cert_dir, CertDir}, {httpd, Httpd} | Config].
 
 cert_opts(v1_crl)  -> [{v2_crls, false}];
@@ -134,7 +142,6 @@ end_per_group(_GroupName, Config) ->
 		,ct:log("Stopped",[])
     end,
     inets:stop(),
-    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     Config.
 
 %%%================================================================
@@ -481,7 +488,6 @@ fetch([]) ->
     not_available;
 fetch([{uniformResourceIdentifier, "http"++_=URL}|Rest]) ->
     ct:log("~p:~p~ngetting CRL from ~p~n", [?MODULE,?LINE, URL]),
-    ct:log("~p:~p~nlisteners to port 8000:~n~p~n)",[?MODULE,?LINE,os:cmd("netstat -tln|grep ':8000'")]),
     case httpc:request(get, {URL, []}, [], [{body_format, binary}]) of
         {ok, {_Status, _Headers, Body}} ->
             case Body of
