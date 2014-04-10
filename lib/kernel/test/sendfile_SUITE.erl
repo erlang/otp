@@ -72,7 +72,12 @@ end_per_suite(Config) ->
     file:delete(proplists:get_value(big_file, Config)).
 
 init_per_group(async_threads,Config) ->
-    [{sendfile_opts,[{use_threads,true}]}|Config];
+    case erlang:system_info(thread_pool_size) of
+	0 ->
+	    {skip,"No async threads"};
+	_ ->
+	    [{sendfile_opts,[{use_threads,true}]}|Config]
+    end;
 init_per_group(no_async_threads,Config) ->
     [{sendfile_opts,[{use_threads,false}]}|Config].
 
