@@ -30,6 +30,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken system monitoring of <c>large_heap</c> for
+	    non-smp VM. No message for <c>large_heap</c> was ever
+	    sent on non-smp VM. Bug exist since R16B.</p>
+          <p>
+	    Own Id: OTP-11852</p>
+        </item>
+        <item>
+          <p>
+	    Fixed type spec of <c>erlang:system_info/1</c>.</p>
+          <p>
+	    Own Id: OTP-11859 Aux Id: OTP-11615 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
