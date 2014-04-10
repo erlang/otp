@@ -193,7 +193,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Node = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Request = term()</v>
-        <v>Timeout = int()>0 | infinity</v>
+        <v>Timeout = int()>0 | infinity | reference()</v>
         <v>Reply = term()</v>
       </type>
       <desc>
@@ -215,9 +215,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>Request</c> is an arbitrary term which is passed as one of
           the arguments to <c>Module:handle_call/3</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero which
-          specifies how many milliseconds to wait for a reply, or
-          the atom <c>infinity</c> to wait indefinitely. Default value
-          is 5000. If no reply is received within the specified time,
+          specifies how many milliseconds to wait for a reply,
+          the atom <c>infinity</c> to wait indefinitely, or a timer reference
+          created by <c>erlang:start_timer/3</c>. Default value
+          is 5000. If no reply is received within the specified time (or
+          before the timeout message is received in the case of a timer),
           the function call fails. If the caller catches the failure
           and continues running, and the server is just late with the reply,
           it may arrive at any time later into the caller's message queue.

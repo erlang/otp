@@ -148,12 +148,14 @@ call(Process, Label, Request) ->
 %% Local or remote by pid
 call(Pid, Label, Request, Timeout) 
   when is_pid(Pid), Timeout =:= infinity;
-       is_pid(Pid), is_integer(Timeout), Timeout >= 0 ->
+       is_pid(Pid), is_integer(Timeout), Timeout >= 0;
+       is_pid(Pid), is_reference(Timeout) ->
     do_call(Pid, Label, Request, Timeout);
 %% Local by name
 call(Name, Label, Request, Timeout) 
   when is_atom(Name), Timeout =:= infinity;
-       is_atom(Name), is_integer(Timeout), Timeout >= 0 ->
+       is_atom(Name), is_integer(Timeout), Timeout >= 0;
+       is_atom(Name), is_reference(Timeout) ->
     case whereis(Name) of
 	Pid when is_pid(Pid) ->
 	    do_call(Pid, Label, Request, Timeout);
@@ -166,7 +168,7 @@ call(Process, Label, Request, Timeout)
 	orelse
 	  (tuple_size(Process) == 3 andalso element(1, Process) == via))
        andalso
-       (Timeout =:= infinity orelse (is_integer(Timeout) andalso Timeout >= 0)) ->
+       (Timeout =:= infinity orelse (is_integer(Timeout) andalso Timeout >= 0) orelse is_reference(Timeout)) ->
     case where(Process) of
 	Pid when is_pid(Pid) ->
 	    Node = node(Pid),
@@ -183,12 +185,14 @@ call(Process, Label, Request, Timeout)
 %% Local by name in disguise
 call({Name, Node}, Label, Request, Timeout)
   when Node =:= node(), Timeout =:= infinity;
-       Node =:= node(), is_integer(Timeout), Timeout >= 0 ->
+       Node =:= node(), is_integer(Timeout), Timeout >= 0;
+       Node =:= node(), is_reference(Timeout) ->
     call(Name, Label, Request, Timeout);
 %% Remote by name
 call({_Name, Node}=Process, Label, Request, Timeout)
   when is_atom(Node), Timeout =:= infinity;
-       is_atom(Node), is_integer(Timeout), Timeout >= 0 ->
+       is_atom(Node), is_integer(Timeout), Timeout >= 0;
+       is_atom(Node), is_reference(Timeout) ->
     if
  	node() =:= nonode@nohost ->
  	    exit({nodedown, Node});
@@ -210,19 +214,8 @@ do_call(Process, Label, Request, Timeout) ->
 
 	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
 		  [noconnect]),
-	    receive
-		{Mref, Reply} ->
-		    erlang:demonitor(Mref, [flush]),
-		    {ok, Reply};
-		{'DOWN', Mref, _, _, noconnection} ->
-		    Node = get_node(Process),
-		    exit({nodedown, Node});
-		{'DOWN', Mref, _, _, Reason} ->
-		    exit(Reason)
-	    after Timeout ->
-		    erlang:demonitor(Mref, [flush]),
-		    exit(timeout)
-	    end
+        wait_resp_local(Process, Mref, Timeout)
+
     catch
 	error:_ ->
 	    %% Node (C/Java?) is not supporting the monitor.
@@ -256,15 +249,48 @@ get_node(Process) ->
 	    node(Process)
     end.
 
+get_timeouts(Timeout, _RefDefault) when is_reference(Timeout) ->
+    % Timeout is a reference, so assume it's a timer reference
+    % set the "after" timeout to infinity
+    {infinity, Timeout};
+get_timeouts(Timeout, RefDefault) ->
+    % Use the default reference in place of a timer reference, so
+    % the unique(-ish) value should prevent accidentally matching
+    % other {timeout, _, _} messages
+    {Timeout, RefDefault}.
+
+wait_resp_local(Process, Mref, Timeout) ->
+    {TimeoutMs, TimeoutRef} = get_timeouts(Timeout, Mref),
+    receive
+	{Mref, Reply} ->
+	    erlang:demonitor(Mref, [flush]),
+	    {ok, Reply};
+	{'DOWN', Mref, _, _, noconnection} ->
+	    Node = get_node(Process),
+	    exit({nodedown, Node});
+	{'DOWN', Mref, _, _, Reason} ->
+	    exit(Reason);
+	{timeout, TimeoutRef, _} ->
+	    erlang:demonitor(Mref, [flush]),
+	    exit(timeout)
+    after TimeoutMs ->
+	    erlang:demonitor(Mref, [flush]),
+	    exit(timeout)
+    end.
+
 wait_resp(Node, Tag, Timeout) ->
+    {TimeoutMs, TimeoutRef} = get_timeouts(Timeout, Tag),
     receive
 	{Tag, Reply} ->
 	    monitor_node(Node, false),
 	    {ok, Reply};
 	{nodedown, Node} ->
 	    monitor_node(Node, false),
-	    exit({nodedown, Node})
-    after Timeout ->
+	    exit({nodedown, Node});
+	{timeout, TimeoutRef, _} ->
+	    monitor_node(Node, false),
+	    exit(timeout)
+    after TimeoutMs ->
 	    monitor_node(Node, false),
 	    exit(timeout)
     end.
