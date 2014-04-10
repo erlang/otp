@@ -30,7 +30,22 @@
   </header>
   <p>This document describes the changes made to TypEr.</p>
 
-<section><title></title></section>
+<section><title>TypEr 0.9.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added initial documentation framework for TypEr.</p>
+          <p>
+	    Own Id: OTP-11860</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
 
 </chapter>
 
