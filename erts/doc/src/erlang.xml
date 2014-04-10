@@ -5051,6 +5051,29 @@ ok
       </desc>
     </func>
     <func>
+      <name name="statistics" arity="1" clause_i="10"/>
+      <name name="statistics" arity="1" clause_i="11"/>
+      <fsummary>Information about async_queue</fsummary>
+      <desc>
+        <p>Returns the length of the async queues.</p>
+        <taglist>
+          <tag><c>async_queue</c></tag>
+          <item>
+            <p>Returns the total length of the async queues, that is, the number
+              of asynchronous works that are ready to run on all available async
+              queues.</p>
+          </item>
+          <tag><c>{async_queue, AsyncId}</c></tag>
+          <item>
+            <p>Returns the length of Nth async queue where N equals to
+              <c><anno>AsyncId</anno></c>. If <c><anno>AsyncId</anno></c>
+              is less than 1 or greater than the number of async threads, this
+              function returns 0.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
       <name name="suspend_process" arity="2"/>
       <fsummary>Suspend a process</fsummary>
       <desc>

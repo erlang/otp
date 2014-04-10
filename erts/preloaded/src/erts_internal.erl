@@ -31,6 +31,8 @@
 -export([await_port_send_result/3]).
 -export([binary_to_term/1, binary_to_term/2]).
 -export([cmp_term/2]).
+-export([statistics/1]).
+
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -47,6 +49,18 @@ await_port_send_result(Ref, Busy, Ok) ->
 	{Ref, false} -> Busy;
 	{Ref, _} -> Ok
     end.
+
+%%
+%% erlang:statistics(async_queue) traps to 
+%% erts_internal:statistics(async_queue).
+%%
+
+statistics(async_queue) ->
+    total_async_queue_len(erlang:system_info(thread_pool_size), 0).
+
+total_async_queue_len(0, Acc) -> Acc;
+total_async_queue_len(N, Acc) ->
+    total_async_queue_len(N-1, Acc+erlang:statistics({async_queue, N})).
 
 %%
 %% Statically linked port NIFs
