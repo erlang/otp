@@ -2264,7 +2264,6 @@ tuple_to_list(_Tuple) ->
          (modified_timing_level) -> integer() | undefined;
          (multi_scheduling) -> disabled | blocked | enabled;
          (multi_scheduling_blockers) -> [PID :: pid()];
-         (otp_correction_package) -> string();
          (otp_release) -> string();
          (port_count) -> non_neg_integer();
          (port_limit) -> pos_integer();
