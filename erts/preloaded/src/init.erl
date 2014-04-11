@@ -1041,7 +1041,7 @@ start_em([]) -> ok.
 start_it([]) ->
     ok;
 start_it({eval,Bin}) ->
-    Str = binary_to_list(Bin),
+    Str = b2s(Bin),
     {ok,Ts,_} = erl_scan:string(Str),
     Ts1 = case reverse(Ts) of
 	      [{dot,_}|_] -> Ts;
