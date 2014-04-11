@@ -140,7 +140,7 @@ verify_agent_conf(X, _) ->
     error({bad_agent_config, X}).
 
 check_agent_conf_entry(Entry, State) ->
-    {ok, _NewState} = snmp_framework_mib:check_agent(Entry, State).
+    snmp_framework_mib:check_agent(Entry, State).
 
 write_agent_conf(Fd, "", Conf) ->
     write_agent_conf(Fd, Conf);

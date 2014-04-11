@@ -186,12 +186,12 @@ discarded_pdu(Variable) -> inc(Variable).
 v1_v2c_proc(
   Vsn, NoteStore, Community, Domain, Address,
   LocalEngineID, Data, HS, Log, Packet) ->
-    try snmp_conf:check_domain(Domain) of
-	ok ->
-	    try snmp_conf:check_address(Domain, Address) of
-		ok ->
+    try snmp_conf:mk_tdomain(Domain) of
+	TDomain ->
+	    try snmp_conf:mk_taddress(Domain, Address) of
+		TAddress ->
 		    v1_v2c_proc_dec(
-		      Vsn, NoteStore, Community, Domain, Address,
+		      Vsn, NoteStore, Community, TDomain, TAddress,
 		      LocalEngineID, Data, HS, Log, Packet)
 	    catch
 		_ ->
@@ -203,10 +203,8 @@ v1_v2c_proc(
     end.
 
 v1_v2c_proc_dec(
-  Vsn, NoteStore, Community, Domain, Address,
+  Vsn, NoteStore, Community, TDomain, TAddress,
   LocalEngineID, Data, HS, Log, Packet) ->
-    TDomain  = snmp_conf:mk_tdomain(Domain), 
-    TAddress = snmp_conf:mk_taddress(Domain, Address),
     AgentMS  = get_engine_max_message_size(LocalEngineID),
     MgrMS    = snmp_community_mib:get_target_addr_ext_mms(TDomain, TAddress),
     PduMS    = case MgrMS of
@@ -233,7 +231,7 @@ v1_v2c_proc_dec(
 	    case Pdu#pdu.type of
 		'set-request' ->
 		    %% Check if this message has already been processed
-		    Key = {agent, {Domain, Address}, ReqId},
+		    Key = {agent, {TDomain, TAddress}, ReqId},
 		    case snmp_note_store:get_note(NoteStore, Key) of
 			undefined -> 
 			    %% Set the processed note _after_ pdu processing. 

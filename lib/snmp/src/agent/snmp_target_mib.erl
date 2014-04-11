@@ -263,16 +263,16 @@ check_target_addr(
 	     TagList, Params, EngineId, Mask, MMS]),
     snmp_conf:check_string(Name,{gt,0}),
     snmp_conf:check_domain(Domain),
-    snmp_conf:check_address(Domain, Address),
+    NAddress = snmp_conf:check_address(Domain, Address),
     snmp_conf:check_integer(Timeout, {gte, 0}),
     snmp_conf:check_integer(RetryCount, {gte,0}),
     snmp_conf:check_string(TagList),
     snmp_conf:check_string(Params),
     check_engine_id(EngineId),
-    check_mask(Domain, Mask),
+    NMask = check_mask(Domain, Mask),
     TDomain  = snmp_conf:mk_tdomain(Domain), 
-    TAddress = snmp_conf:mk_taddress(Domain, Address),
-    TMask    = snmp_conf:mk_taddress(Domain, Mask),
+    TAddress = snmp_conf:mk_taddress(Domain, NAddress),
+    TMask    = snmp_conf:mk_taddress(Domain, NMask),
     snmp_conf:check_packet_size(MMS),
     ?vtrace("check target address done",[]),
     Addr = {Name, TDomain, TAddress, Timeout,
@@ -286,13 +286,21 @@ check_engine_id(discovery) ->
 check_engine_id(EngineId) ->
     snmp_conf:check_string(EngineId).
 
+check_address(Domain, Address) ->
+    case snmp_conf:check_address(Domain, Address) of
+	ok ->
+	    Address;
+	{ok, FixedAddress} ->
+	    FixedAddress
+    end.
+
 check_mask(_Domain, []) ->
-    ok;
+    [];
 check_mask(Domain, Mask) ->
-    try snmp_conf:check_address(Domain, Mask)
+    try check_address(Domain, Mask)
     catch
 	{error, {invalid_address, Info}} ->
-	    {error, {invalid_mask, Info}}
+	    error({invalid_mask, Info})
     end.
 
 %%-----------------------------------------------------------------

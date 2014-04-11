@@ -197,12 +197,7 @@ check_context(Context) ->
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
 check_agent({intAgentTransportDomain, D}, Domain) ->
-    case Domain of
-	undefined ->
-	    {snmp_conf:check_domain(D), D};
-	_ ->
-	    error({invalid_agent_attribute, D})
-    end;
+    {snmp_conf:check_domain(D), D};
 check_agent({intAgentTransportAddress, Address}, Domain) ->
     {snmp_conf:check_address(Domain, Address), Domain};
 check_agent(Entry, Domain) ->
@@ -224,7 +219,7 @@ check_agent(X) ->
 
 %% Ordering function to sort intAgentTransportDomain first
 %% hence before intAgentTransportAddress
-order_agent({intAgentTransportDomain, _}, {intAgentTransportDomain, _}) ->
+order_agent({Name, _}, {Name, _}) ->
     true; %% Less than or equal
 order_agent(_, {intAgentTransportDomain, _}) ->
     false; %% Greater than
