@@ -596,7 +596,7 @@ type(Node) ->
 	{b_generate, _, _, _} -> binary_generator;
 	{generate, _, _, _} -> generator;
 	{lc, _, _, _} -> list_comp;
-	{bc, _, _, _} -> binary_comp;		
+	{bc, _, _, _} -> binary_comp;
 	{match, _, _, _} -> match_expr;
         {map, _, _, _} -> map_expr;
         {map, _, _} -> map_expr;
@@ -2071,7 +2071,7 @@ map_field_assoc_value(Node) ->
         {map_field_assoc, _, _, Value} ->
             Value;
         _ ->
-            (data(Node))#map_field_assoc.name
+            (data(Node))#map_field_assoc.value
     end.
 
 
@@ -2129,7 +2129,7 @@ map_field_exact_value(Node) ->
         {map_field_exact, _, _, Value} ->
             Value;
         _ ->
-            (data(Node))#map_field_exact.name
+            (data(Node))#map_field_exact.value
     end.
 
 
@@ -2651,7 +2651,7 @@ compact_list(Node) ->
 					  copy_attrs(Node,
 						     Node1));
 			_ ->
-			    Node 
+			    Node
 		    end
 	    end;
 	_ ->
@@ -3172,7 +3172,7 @@ revert_attribute(Node) ->
 
 revert_attribute_1(module, [M], Pos, Node) ->
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, A};
 	error -> Node
     end;
@@ -3189,7 +3189,7 @@ revert_attribute_1(module, [M, List], Pos, Node) ->
 		 Node
 	 end,
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, {A, Vs}};
 	error -> Node
     end;
@@ -6505,7 +6505,7 @@ subtrees(T) ->
 			     Ts]
 		    end;
 	        binary_generator ->
-		    [[binary_generator_pattern(T)], 
+		    [[binary_generator_pattern(T)],
                      [binary_generator_body(T)]];
 		block_expr ->
 		    [block_expr_body(T)];
