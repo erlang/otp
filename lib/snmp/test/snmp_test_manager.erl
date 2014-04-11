@@ -56,7 +56,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 code_change/3, terminate/2]).
 
--record(state, {mgr, parent, req, agent_target_name}).
+-record(state, {parent, req, agent_target_name}).
 
 -define(SERVER, ?MODULE).
 -define(USER,   ?MODULE).
@@ -130,10 +130,10 @@ init([Parent, Opts]) ->
 do_init(Opts) ->
     {MgrDir, MgrConf, MgrOpts, AgentTargetName, AgentConf} = parse_opts(Opts),
     ok = snmp_config:write_manager_config(MgrDir, "", MgrConf),
-    {ok, Pid} = snmpm:start_link(MgrOpts),
+    ok = snmpm:start_link(MgrOpts),
     ok = snmpm:register_user(?USER, ?MODULE, self()),
     ok = snmpm:register_agent(?USER, AgentTargetName, AgentConf),
-    {ok, #state{mgr = Pid, agent_target_name = AgentTargetName}}.
+    {ok, #state{agent_target_name = AgentTargetName}}.
 
 
 parse_opts(Opts) ->
