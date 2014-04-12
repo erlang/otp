@@ -113,7 +113,7 @@
       <type>
         <v>TarDescriptor = term()</v>
         <v>FilenameOrBin = Filename()|binary()</v>
-        <v>Filename = filename()()</v>
+        <v>Filename = filename()</v>
         <v>NameInArchive = filename()</v>
         <v>Options = [Option]</v>
         <v>Option = dereference|verbose</v>
