@@ -23,7 +23,8 @@
 	fold/3,
 	map/2,
 	size/1,
-	without/2
+    without/2,
+    get/3
     ]).
 
 
@@ -141,6 +142,21 @@ values(_) -> erlang:nif_error(undef).
 
 
 %%% End of BIFs
+
+-spec get(Key, Map, Default) -> Value | Default when
+        Key :: term(),
+        Map :: map(),
+        Value :: term(),
+        Default :: term().
+
+get(Key, Map, Default) ->
+    case maps:find(Key, Map) of
+        {ok, Value} ->
+            Value;
+        error ->
+            Default
+    end.
+
 
 -spec fold(Fun,Init,Map) -> Acc when
     Fun :: fun((K, V, AccIn) -> AccOut),
