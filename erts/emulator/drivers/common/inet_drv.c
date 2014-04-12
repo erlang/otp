@@ -807,6 +807,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_REQ_RECV           42
 #define TCP_REQ_UNRECV         43
 #define TCP_REQ_SHUTDOWN       44
+#define TCP_REQ_PEEK           45
 /* UDP and SCTP requests */
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
 /* #define SCTP_REQ_LISTEN       61 MERGED Different from TCP; not for UDP */
@@ -1391,6 +1392,7 @@ typedef struct {
     char*         i_ptr;        /* current pos in buf */
     char*         i_ptr_start;  /* packet start pos in buf */
     int           i_remain;     /* remaining chars to read */
+    int           recv_flags;   /* recv flags, for setting peek */
     int           tcp_add_flags;/* Additional TCP descriptor flags */
     int           http_state;   /* 0 = response|request  1=headers fields */
     inet_async_multi_op *multi_first;/* NULL == no multi-accept-queue, op is in ordinary queue */
@@ -8936,6 +8938,7 @@ static ErlDrvData prep_tcp_inet_start(ErlDrvPort port, char* args)
     desc->i_ptr = NULL;
     desc->i_ptr_start = NULL;
     desc->i_remain = 0;
+    desc->recv_flags = 0;
     desc->i_bufsz = 0;
     desc->tcp_add_flags = 0;
     desc->http_state = 0;
@@ -9330,7 +9333,8 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	erl_inet_close(INETP(desc));
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 
-
+    /* peek fall-through to recv case */
+    case TCP_REQ_PEEK:
     case TCP_REQ_RECV: {
 	unsigned timeout;
 	char tbuf[2];
@@ -9338,6 +9342,13 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 
 	DEBUGF(("tcp_inet_ctl(%ld): RECV (s=%d)\r\n",
 		(long)desc->inet.port, desc->inet.s)); 
+    /* if peek set the MSG_PEEK recv flag */
+    if (cmd == TCP_REQ_PEEK)
+        desc->recv_flags = MSG_PEEK;
+    else
+        desc->recv_flags = 0;
+
+	DEBUGF(("tcp_inet_ctl(%ld): RECV\r\n", (long)desc->inet.port));
 	/* INPUT: Timeout(4),  Length(4) */
 	if (!IS_CONNECTED(INETP(desc))) {
 	    if (desc->tcp_add_flags & TCP_ADDF_DELAYED_CLOSE_RECV) {
@@ -9856,7 +9867,6 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
     return count;
 }
 
-
 static int tcp_recv(tcp_descriptor* desc, int request_len)
 {
     int n;
@@ -9900,10 +9910,10 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
     else  /* remain already set use it */
 	nread = desc->i_remain;
     
-    DEBUGF(("tcp_recv(%ld): s=%d about to read %d bytes...\r\n",  
-	    (long)desc->inet.port, desc->inet.s, nread));
+    DEBUGF(("tcp_recv(%ld): s=%d flags=%d about to read %d bytes...\r\n",
+            (long)desc->inet.port, desc->inet.s, desc->flags, read));
 
-    n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
+    n = sock_recv(desc->inet.s, desc->i_ptr, nread, desc->recv_flags);
 
     if (IS_SOCKET_ERROR(n)) {
 	int err = sock_errno();
@@ -9942,7 +9952,6 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
     }
     return 0;
 }
-
 
 #ifdef __WIN32__
 

@@ -29,6 +29,7 @@
 -export([bind/3, listen/1, listen/2, peeloff/2]).
 -export([connect/3, connect/4, async_connect/4]).
 -export([accept/1, accept/2, async_accept/2]).
+-export([peek/2, peek/3]).
 -export([shutdown/2]).
 -export([send/2, send/3, sendto/4, sendmsg/3]).
 -export([recv/2, recv/3, async_recv/3]).
@@ -440,6 +441,31 @@ sendmsg(S, #sctp_sndrcvinfo{}=SRI, Data) when is_port(S) ->
 	false -> {error,einval}
     catch
 	Reason -> {error,Reason}
+    end.
+
+%% "peek" is for TCP:
+peek(S, Length) -> peek0(S, Length, -1).
+
+peek(S, Length, infinity) -> peek0(S, Length,-1);
+
+peek(S, Length, Time) when is_integer(Time) -> peek0(S, Length, Time).
+
+peek0(S, Length, Time) when is_port(S), is_integer(Length), Length >= 0 ->
+    case async_peek(S, Length, Time) of
+	{ok, Ref} ->
+	    receive
+		{inet_async, S, Ref, Status} -> Status;
+		{'EXIT', S, _Reason} ->
+		    {error, closed}
+	    end;
+	Error -> Error
+    end.
+
+
+async_peek(S, Length, Time) ->
+    case ctl_cmd(S, ?TCP_REQ_PEEK, [enc_time(Time), ?int32(Length)]) of
+	{ok,[R1,R0]} -> {ok, ?u16(R1,R0)};
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

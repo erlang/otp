@@ -21,7 +21,7 @@
 %% Socket server for TCP/IP
 
 -export([connect/3, connect/4, listen/2, accept/1, accept/2, close/1]).
--export([send/2, send/3, recv/2, recv/3, unrecv/2]).
+-export([send/2, send/3, recv/2, recv/3, unrecv/2, peek/2, peek/3]).
 -export([shutdown/2]).
 -export([controlling_process/2]).
 -export([fdopen/2]).
@@ -48,6 +48,9 @@ getaddrs(Address,Timer) -> inet:getaddrs_tm(Address,inet,Timer).
 %%
 send(Socket, Packet, Opts) -> prim_inet:send(Socket, Packet, Opts).
 send(Socket, Packet) -> prim_inet:send(Socket, Packet, []).
+
+peek(Socket, Length) -> prim_inet:peek(Socket, Length).
+peek(Socket, Length, Timeout) -> prim_inet:peek(Socket, Length, Timeout).
 
 %%
 %% Receive data from a socket (inactive only)

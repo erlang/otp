@@ -1,3 +1,4 @@
+
 %%
 %% %CopyrightBegin%
 %% 
@@ -22,7 +23,7 @@
 
 -export([connect/3, connect/4, listen/2, accept/1, accept/2,
 	 shutdown/2, close/1]).
--export([send/2, recv/2, recv/3, unrecv/2]).
+-export([send/2, recv/2, recv/3, unrecv/2, peek/2, peek/3]).
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
@@ -267,6 +268,25 @@ send(S, Packet) when is_port(S) ->
     end.
 
 %%
+%% Peek
+%%
+peek(S, Length) when is_port(S) ->
+    case inet_db:lookup_socket(S) of
+	{ok, Mod} ->
+	    Mod:peek(S, Length);
+	Error ->
+	    Error
+    end.
+
+peek(S, Length, Time) when is_port(S) ->
+    case inet_db:lookup_socket(S) of
+	{ok, Mod} ->
+	    Mod:peek(S, Length, Time);
+	Error ->
+	    Error
+    end.
+
+%%
 %% Receive data from a socket (passive mode)
 %%
 
@@ -359,4 +379,3 @@ mod([_|Opts], Address) ->
     mod(Opts, Address);
 mod([], Address) ->
     mod(Address).
-
