@@ -391,7 +391,7 @@ parse({with, X, As}=T) when is_list(As) ->
 parse({S, T1} = T) when is_list(S) ->
     case eunit_lib:is_string(S) of
 	true ->
-	    group(#group{tests = T1, desc = list_to_binary(S)});
+	    group(#group{tests = T1, desc = unicode:characters_to_binary(S)});
 	false ->
 	    bad_test(T)
     end;
