@@ -45,7 +45,7 @@ all() ->
 groups() ->
     [{gui, [],
       [basic
-      %% , process_win, table_win
+      , process_win, table_win
       ]
      }].
 
