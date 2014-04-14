@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -859,7 +859,8 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     {Record, State} = next_record(State0),
     next_state(StateName, connection, Record, State);
 
-handle_alert(#alert{level = ?WARNING, description = ?USER_CANCELED} = Alert, StateName, 
+%% Gracefully log and ignore all other warning alerts
+handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{ssl_options = SslOpts} = State0) ->
     log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
     {Record, State} = next_record(State0),
