@@ -1850,6 +1850,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    Session2 = erlang:setelement(Pos, Session, Value),
 	    insert_session(Session2, ProfileName);
 	  T:E ->
+            Stacktrace = erlang:get_stacktrace(),
             error_logger:error_msg("Failed updating session: "
                                    "~n   ProfileName: ~p"
                                    "~n   SessionId:   ~p"
@@ -1873,7 +1874,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                    {value,      Value}, 
                    {etype,      T}, 
                    {error,      E}, 
-                   {stacktrace, erlang:get_stacktrace()}]})	    
+                   {stacktrace, Stacktrace}]})
     end.
 
 
