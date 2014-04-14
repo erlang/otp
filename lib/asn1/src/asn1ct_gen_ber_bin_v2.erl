@@ -27,7 +27,7 @@
 -export([decode_class/1, decode_type/1]).
 -export([gen_encode/2,gen_encode/3,gen_decode/2,gen_decode/3]).
 -export([gen_encode_prim/4]).
--export([gen_dec_prim/7]).
+-export([gen_dec_prim/3]).
 -export([gen_objectset_code/2, gen_obj_code/3]).
 -export([encode_tag_val/3]).
 -export([gen_inc_decode/2,gen_decode_selected/3]).
@@ -339,15 +339,11 @@ gen_decode_selected_type(_Erules,TypeDef) ->
     case asn1ct_gen:type(InnerType) of
 	'ASN1_OPEN_TYPE' ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def#type{def='ASN1_OPEN_TYPE'}, 
-			 BytesVar,Tag, [] , 
-			 ?PRIMITIVE,"OptOrMand");
-%	    emit({";",nl});
+	    gen_dec_prim(Def#type{def='ASN1_OPEN_TYPE'},
+			 BytesVar, Tag);
 	{primitive,bif} ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def, BytesVar,Tag,[] , 
-			 ?PRIMITIVE,"OptOrMand");
-%	    emit([";",nl]);
+	    gen_dec_prim(Def, BytesVar, Tag);
 	{constructed,bif} ->
 	    TopType = case TypeDef#typedef.name of
 			  A when is_atom(A) -> [A];
@@ -461,14 +457,12 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     case asn1ct_gen:type(InnerType) of
 	'ASN1_OPEN_TYPE' ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def#type{def='ASN1_OPEN_TYPE'}, 
-			 BytesVar,{string,"TagIn"}, [] , 
-			 ?PRIMITIVE,"OptOrMand"),
+	    gen_dec_prim(Def#type{def='ASN1_OPEN_TYPE'},
+			 BytesVar, {string,"TagIn"}),
 	    emit({".",nl,nl});
 	{primitive,bif} ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def, BytesVar,{string,"TagIn"},[] , 
-			 ?PRIMITIVE,"OptOrMand"),
+	    gen_dec_prim(Def, BytesVar, {string,"TagIn"}),
 	    emit([".",nl,nl]);
 	{constructed,bif} ->
 	    asn1ct:update_namelist(D#typedef.name),
@@ -481,7 +475,7 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     end.
 
 
-gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
+gen_dec_prim(Att, BytesVar, DoTag) ->
     Typename = Att#type.def,
 %% Currently not used for BER replaced with [] as place holder
 %%    Constraint = Att#type.constraint,
@@ -986,9 +980,8 @@ gen_decode_field_call(ObjName,FieldName,Bytes,Type) ->
     Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number || 
 	      X <- OTag],
     case Type#typedef.name of
-	{primitive,bif} -> %%tag should be the primitive tag
-	    gen_dec_prim(ber,Def,Bytes,Tag,"TagIn",?PRIMITIVE,
-			 opt_or_default),
+	{primitive,bif} ->
+	    gen_dec_prim(Def, Bytes, Tag),
 	    [];
 	{constructed,bif} ->
 	    emit({"   'dec_",ObjName,'_',FieldName,
@@ -1016,8 +1009,7 @@ gen_decode_default_call(ClassName,FieldName,Bytes,Type) ->
 						      FieldName])),
 		      typespec=Type}];
 	{primitive,bif} ->
-	    gen_dec_prim(ber,Type,Bytes,Tag,"TagIn",
-			 ?PRIMITIVE,opt_or_default),
+	    gen_dec_prim(Type, Bytes, Tag),
 	    [];
 	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
 	    emit(["   'dec_",Etype,"'(",Bytes, " ,",{asis,Tag},")",nl]),
@@ -1386,7 +1378,7 @@ emit_dec_open_type(I) ->
 	end,
     emit(S).
 
-emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
+emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type}, _Prop,
 		     InternalDefFunName) ->
     OTag = Type#type.tag,
 %%    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
@@ -1394,8 +1386,7 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
     case {ExtName,Name} of
 	{primitive,bif} ->
 	    emit(indent(12)),
-	    gen_dec_prim(ber,Type,"Bytes",Tag,"TagIn",
-			 ?PRIMITIVE,Prop),
+	    gen_dec_prim(Type, "Bytes", Tag),
 	    0;
 	{constructed,bif} ->
 	    emit([indent(12),"'dec_",
@@ -1412,7 +1403,7 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
 emit_inner_of_decfun(#typedef{name=Name},_Prop,_) ->
     emit([indent(12),"'dec_",Name,"'(Bytes)"]),
     0;
-emit_inner_of_decfun(Type,Prop,_) when is_record(Type,type) ->
+emit_inner_of_decfun(#type{}=Type, _Prop, _) ->
     OTag = Type#type.tag,
 %%    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
     Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number || X <- OTag],
@@ -1423,8 +1414,7 @@ emit_inner_of_decfun(Type,Prop,_) when is_record(Type,type) ->
     case WhatKind of
 	{primitive,bif} -> 
 	    emit([indent(9),Def," ->",nl,indent(12)]),
-	    gen_dec_prim(ber,Type,"Bytes",Tag,"TagIn",
-			 ?PRIMITIVE,Prop);
+	    gen_dec_prim(Type, "Bytes", Tag);
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit([indent(9),T," ->",nl,indent(12),"'dec_",T,
 %		  "'(Bytes, ",Prop,")"]);

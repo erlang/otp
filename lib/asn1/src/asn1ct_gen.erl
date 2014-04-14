@@ -542,8 +542,7 @@ gen_part_decode_funcs({constructed,bif},TypeName,
     emit(["  'dec_",TypeName,"'(Data,",{asis,Tag},")"]);
 gen_part_decode_funcs({primitive,bif},_TypeName,
 		      {_Name,undecoded,Tag,Type}) ->
-    % Argument no 6 is 0, i.e. bit 6 for primitive encoding.
-    asn1ct_gen_ber_bin_v2:gen_dec_prim(ber_bin_v2,Type,"Data",Tag,[],0,", mandatory, ");
+    asn1ct_gen_ber_bin_v2:gen_dec_prim(Type, "Data", Tag);
 gen_part_decode_funcs(WhatKind,_TypeName,{_,Directive,_,_}) ->
     throw({error,{asn1,{"Not implemented yet",WhatKind," partial incomplete directive:",Directive}}}).
 

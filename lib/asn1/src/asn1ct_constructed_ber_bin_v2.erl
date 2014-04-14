@@ -1210,11 +1210,11 @@ gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandC
 	(Type#type.def)#'ObjectClassFieldType'.fieldname,
     [{Cname,RefedFieldName,asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
-gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
-	     OptOrMand,DecObjInf,_) ->
+gen_dec_call(InnerType, _Erules, TopType, Cname, Type, BytesVar,
+	     Tag, _PrimOptOrMand, _OptOrMand, DecObjInf,_) ->
     WhatKind = asn1ct_gen:type(InnerType),
-    gen_dec_call1(WhatKind,InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,
-		  PrimOptOrMand,OptOrMand),
+    gen_dec_call1(WhatKind, InnerType, TopType, Cname,
+		  Type, BytesVar, Tag),
     case DecObjInf of
 	{Cname,{_,OSet,_UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
@@ -1226,8 +1226,9 @@ gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
 	    ok
     end,
     [].
-gen_dec_call1({primitive,bif},InnerType,Erules,TopType,Cname,Type,BytesVar,
-	      Tag,OptOrMand,_) ->
+
+gen_dec_call1({primitive,bif}, InnerType, TopType, Cname,
+	      Type, BytesVar, Tag) ->
     case {asn1ct:get_gen_state_field(namelist),InnerType} of
 	{[{Cname,undecoded}|Rest],_} ->
 	    asn1ct:add_generated_refed_func({[Cname|TopType],undecoded,
@@ -1236,11 +1237,10 @@ gen_dec_call1({primitive,bif},InnerType,Erules,TopType,Cname,Type,BytesVar,
 	    emit(["{'",asn1ct_gen:list2name([Cname|TopType]),"',",
 		  BytesVar,"}"]);
 	_ ->
-	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,Type,BytesVar,Tag,[],
-					?PRIMITIVE,OptOrMand)
+	    ?ASN1CT_GEN_BER:gen_dec_prim(Type, BytesVar, Tag)
     end;
-gen_dec_call1('ASN1_OPEN_TYPE',_InnerType,Erules,TopType,Cname,Type,BytesVar,
-	      Tag,OptOrMand,_) ->
+gen_dec_call1('ASN1_OPEN_TYPE', _InnerType, TopType, Cname,
+	      Type, BytesVar, Tag) ->
     case {asn1ct:get_gen_state_field(namelist),Type#type.def} of
 	{[{Cname,undecoded}|Rest],_} ->
 	    asn1ct:add_generated_refed_func({[Cname|TopType],undecoded,
@@ -1249,15 +1249,12 @@ gen_dec_call1('ASN1_OPEN_TYPE',_InnerType,Erules,TopType,Cname,Type,BytesVar,
 	    emit(["{'",asn1ct_gen:list2name([Cname|TopType]),"',",
 		  BytesVar,"}"]);
 	{_,#'ObjectClassFieldType'{type=OpenType}} ->
-	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,#type{def=OpenType},
-					 BytesVar,Tag,[],
-					 ?PRIMITIVE,OptOrMand);
+	    ?ASN1CT_GEN_BER:gen_dec_prim(#type{def=OpenType},
+					 BytesVar, Tag);
 	_ ->
-	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,Type,BytesVar,Tag,[],
-					 ?PRIMITIVE,OptOrMand)
+	    ?ASN1CT_GEN_BER:gen_dec_prim(Type, BytesVar, Tag)
     end;
-gen_dec_call1(WhatKind,_,_Erules,TopType,Cname,Type,BytesVar,
-	      Tag,_,_OptOrMand) ->
+gen_dec_call1(WhatKind, _, TopType, Cname, Type, BytesVar, Tag) ->
     case asn1ct:get_gen_state_field(namelist) of
 	[{Cname,undecoded}|Rest] ->
 	    asn1ct:add_generated_refed_func({[Cname|TopType],undecoded,
