@@ -59,7 +59,7 @@ DOC_MODULES = hipe_beam_to_icode \
 	hipe_icode_pp hipe_icode_primops \
 	hipe_icode_range \
 	hipe_icode_split_arith \
-	hipe_icode_ssa hipe_icode_ssa_const_prop \
+	hipe_icode_ssa hipe_icode_ssa_const_prop hipe_icode_call_elim \
 	hipe_icode_ssa_copy_prop hipe_icode_ssa_struct_reuse \
 	hipe_icode_type $(HIPE_MODULES)
 
