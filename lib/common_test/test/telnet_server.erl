@@ -198,6 +198,14 @@ do_handle_data(Data,#state{authorized={user,_}}=State) ->
 do_handle_data("echo " ++ Data,State) ->
     send(Data++"\r\n> ",State),
     {ok,State};
+do_handle_data("echo_sep " ++ Data,State) ->
+    Msgs = string:tokens(Data," "),
+    lists:foreach(fun(Msg) ->
+			  send(Msg,State),
+			  timer:sleep(10)
+		  end, Msgs),
+    send("\r\n> ",State),
+    {ok,State};
 do_handle_data("echo_no_prompt " ++ Data,State) ->
     send(Data,State),
     {ok,State};

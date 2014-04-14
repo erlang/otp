@@ -869,14 +869,13 @@ teln_cmd(Pid,Cmd,Prx,Timeout) ->
     teln_receive_until_prompt(Pid,Prx,Timeout).
 
 teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
-    case check_for_prompt(Prx,lists:reverse(LastLine) ++ Data) of
+    case check_for_prompt(Prx,LastLine++Data) of
 	{prompt,Lines,_PromptType,Rest} ->
 	    teln_get_all_data(Pid,Prx,Rest,[Lines|Acc],[]);
 	{noprompt,Lines,LastLine1} ->
 	    case ct_telnet_client:get_data(Pid) of
 		{ok,[]} ->
-		    {ok,lists:reverse(lists:append([Lines|Acc])),
-		     lists:reverse(LastLine1)};
+		    {ok,lists:reverse(lists:append([Lines|Acc])),LastLine1};
 		{ok,Data1} ->
 		    teln_get_all_data(Pid,Prx,Data1,[Lines|Acc],LastLine1)
 	    end
@@ -1334,7 +1333,7 @@ teln_receive_until_prompt(Pid,Prx,Timeout) ->
 
 teln_receive_until_prompt(Pid,Prx,Acc,LastLine) ->
     {ok,Data} = ct_telnet_client:get_data(Pid),
-    case check_for_prompt(Prx,LastLine ++ Data) of
+    case check_for_prompt(Prx,LastLine++Data) of
 	{prompt,Lines,PromptType,Rest} ->
 	    Return = lists:reverse(lists:append([Lines|Acc])),
 	   {ok,Return,PromptType,Rest};
