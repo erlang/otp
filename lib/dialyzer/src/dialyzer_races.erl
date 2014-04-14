@@ -990,8 +990,7 @@ fixup_race_forward_helper(CurrFun, CurrFunLabel, Fun, FunLabel,
            NewRaceVarMap, Args, NewFunArgs, NewFunTypes, NestingLevel};
         {CurrFun, Fun} ->
           NewCallsToAnalyze = lists:delete(Head, CallsToAnalyze),
-          NewRaceVarMap =
-            race_var_map(Args, NewFunArgs, RaceVarMap, bind),
+          NewRaceVarMap = race_var_map(Args, NewFunArgs, RaceVarMap, bind),
           RetC =
             case Fun of
               InitFun ->
@@ -1018,8 +1017,7 @@ fixup_race_forward_helper(CurrFun, CurrFunLabel, Fun, FunLabel,
                            label = FunLabel, var_map = NewRaceVarMap,
                            def_vars = Args, call_vars = NewFunArgs,
                            arg_types = NewFunTypes}|
-                 lists:reverse(StateRaceList)] ++
-                  RetC;
+                 lists:reverse(StateRaceList)] ++ RetC;
               _ ->
                 [#curr_fun{status = in, mfa = Fun,
                            label = FunLabel, var_map = NewRaceVarMap,
@@ -1054,13 +1052,9 @@ fixup_race_backward(CurrFun, Calls, CallsToAnalyze, Parents, Height) ->
             false -> [CurrFun|Parents]
           end;
         [Head|Tail] ->
-          MorePaths =
-            case Head of
-              {Parent, CurrFun} -> true;
-              {Parent, _TupleB} -> false
-            end,
-          case MorePaths of
-            true ->
+	  {Parent, TupleB} = Head,
+	  case TupleB =:= CurrFun of
+            true ->  % more paths are needed
               NewCallsToAnalyze = lists:delete(Head, CallsToAnalyze),
               NewParents =
                 fixup_race_backward(Parent, NewCallsToAnalyze,
