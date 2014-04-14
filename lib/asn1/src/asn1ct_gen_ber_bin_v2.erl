@@ -477,15 +477,8 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 
 gen_dec_prim(Att, BytesVar, DoTag) ->
     Typename = Att#type.def,
-%% Currently not used for BER replaced with [] as place holder
-%%    Constraint = Att#type.constraint,
-%% Constraint = [],
     Constraint = get_size_constraint(Att#type.constraint),
     IntConstr = int_constr(Att#type.constraint),
-    AsBin = case get(binary_strings) of
-		true -> "_as_bin";
-		_ -> ""
-	    end,
     NewTypeName = case Typename of
 		      'NumericString'   -> restricted_string;
 		      'TeletexString'   -> restricted_string;
@@ -501,96 +494,36 @@ gen_dec_prim(Att, BytesVar, DoTag) ->
 		      'GeneralizedTime' -> restricted_string;
 		      _                 -> Typename
 		  end,
-    case NewTypeName of
-	'BOOLEAN'->
-	    emit(["decode_boolean(",BytesVar,","]),
-	    need(decode_boolean, 2);
-	'INTEGER' ->
-	    case IntConstr of
-		[] ->
-		    emit(["decode_integer(",BytesVar,","]),
-		    need(decode_integer, 2);
-		{_,_} ->
-		    emit(["decode_integer(",BytesVar,",",
-			  {asis,IntConstr},","]),
-		    need(decode_integer, 3)
-	    end;
-	{'INTEGER',NamedNumberList} ->
-	    case IntConstr of
-		[] ->
-		    emit(["decode_named_integer(",BytesVar,",",
-			  {asis,NamedNumberList},","]),
-		    need(decode_named_integer, 3);
-		{_,_} ->
-		    emit(["decode_named_integer(",BytesVar,",",
-			  {asis,IntConstr},",",
-			  {asis,NamedNumberList},","]),
-		    need(decode_named_integer, 4)
-	    end;
-	{'ENUMERATED',NamedNumberList} ->
-	    emit(["decode_enumerated(",BytesVar,",",
-		  {asis,NamedNumberList},","]),
-	    need(decode_enumerated, 3);
-	'REAL' ->
-	    ok;
-	{'BIT STRING',_NamedNumberList} ->
-	    ok;
-	'NULL' ->
-	    emit(["decode_null(",BytesVar,","]),
-	    need(decode_null, 2);
-	'OBJECT IDENTIFIER' ->
-	    emit(["decode_object_identifier(",BytesVar,","]),
-	    need(decode_object_identifier, 2);
-	'RELATIVE-OID' ->
-	    emit(["decode_relative_oid(",BytesVar,","]),
-	    need(decode_relative_oid, 2);
-	'OCTET STRING' ->
-	    F = case asn1ct:use_legacy_types() of
-		    false -> decode_octet_string;
-		    true -> decode_restricted_string
-		end,
-	    emit([{asis,F},"(",BytesVar,","]),
-	    case Constraint of
-		[] ->
-		    need(F, 2);
-		_ ->
-		    emit([{asis,Constraint},","]),
-		    need(F, 3)
-	    end;
-	restricted_string ->
-	    emit(["decode_restricted_string",AsBin,"(",BytesVar,","]),
-	    case Constraint of
-		[] ->
-		    need(decode_restricted_string, 2);
-		_ ->
-		    emit([{asis,Constraint},","]),
-		    need(decode_restricted_string, 3)
-	    end;
-	'UniversalString' ->
-	    emit(["decode_universal_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_universal_string, 3);
-	'UTF8String' ->
-	    emit(["decode_UTF8_string",AsBin,"(",
-		  BytesVar,","]),
-	    need(decode_UTF8_string, 2);
-	'BMPString' ->
-	    emit(["decode_BMP_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_BMP_string, 3);
-	'ASN1_OPEN_TYPE' ->
-	    emit(["decode_open_type_as_binary(",
-		  BytesVar,","]),
-	    need(decode_open_type_as_binary, 2)
-    end,
-
     TagStr = case DoTag of
 		 {string,Tag1} -> Tag1;
 		 _ when is_list(DoTag) -> {asis,DoTag}
 	     end,
     case NewTypeName of
-	{'BIT STRING',NNL} ->
-	    gen_dec_bit_string(BytesVar, Constraint, NNL, TagStr);
+	'BOOLEAN'->
+	    call(decode_boolean, [BytesVar,TagStr]);
+	'INTEGER' ->
+	    case IntConstr of
+		[] ->
+		    call(decode_integer, [BytesVar,TagStr]);
+		{_,_} ->
+		    call(decode_integer, [BytesVar,{asis,IntConstr},TagStr])
+	    end;
+	{'INTEGER',NamedNumberList} ->
+	    case IntConstr of
+		[] ->
+		    call(decode_named_integer,
+			 [BytesVar,
+			  {asis,NamedNumberList},
+			  TagStr]);
+		{_,_} ->
+		    call(decode_named_integer,
+			 [BytesVar,
+			  {asis,IntConstr},
+			  {asis,NamedNumberList},
+			  TagStr])
+	    end;
+	{'ENUMERATED',NNL} ->
+	    call(decode_enumerated, [BytesVar,{asis,NNL},TagStr]);
 	'REAL' ->
 	    asn1ct_name:new(tmpbuf),
 	    emit(["begin",nl,
@@ -598,8 +531,43 @@ gen_dec_prim(Att, BytesVar, DoTag) ->
 		  {call,ber,match_tags,[BytesVar,TagStr]},com,nl,
 		  {call,real_common,decode_real,[{curr,tmpbuf}]},nl,
 		  "end",nl]);
-	_ ->
-	    emit([TagStr,")"])
+	{'BIT STRING',NNL} ->
+	    gen_dec_bit_string(BytesVar, Constraint, NNL, TagStr);
+	'NULL' ->
+	    call(decode_null, [BytesVar,TagStr]);
+	'OBJECT IDENTIFIER' ->
+	    call(decode_object_identifier, [BytesVar,TagStr]);
+	'RELATIVE-OID' ->
+	    call(decode_relative_oid, [BytesVar,TagStr]);
+	'OCTET STRING' ->
+	    F = case asn1ct:use_legacy_types() of
+		    false -> decode_octet_string;
+		    true -> decode_restricted_string
+		end,
+	    case Constraint of
+		[] ->
+		    call(F, [BytesVar,TagStr]);
+		_ ->
+		    call(F, [BytesVar,{asis,Constraint},TagStr])
+	    end;
+	restricted_string ->
+	    case Constraint of
+		[] ->
+		    call(decode_restricted_string,
+			 [BytesVar,TagStr]);
+		_ ->
+		    call(decode_restricted_string,
+			 [BytesVar,{asis,Constraint},TagStr])
+	    end;
+	'UniversalString' ->
+	    call(decode_universal_string,
+		 [BytesVar,{asis,Constraint},TagStr]);
+	'UTF8String' ->
+	    call(decode_UTF8_string, [BytesVar,TagStr]);
+	'BMPString' ->
+	    call(decode_BMP_string, [BytesVar,{asis,Constraint},TagStr]);
+	'ASN1_OPEN_TYPE' ->
+	    call(decode_open_type_as_binary, [BytesVar,TagStr])
     end.
 
 %% Simplify an integer constraint so that we can efficiently test it.
@@ -1551,6 +1519,3 @@ extaddgroup2sequence(ExtList) when is_list(ExtList) ->
 
 call(F, Args) ->
     asn1ct_func:call(ber, F, Args).
-
-need(F, Arity) ->
-    asn1ct_func:need({ber,F,Arity}).
