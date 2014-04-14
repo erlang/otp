@@ -699,8 +699,7 @@ handle_add_files(#gui_state{chosen_box = ChosenBox, file_box = FileBox,
   end.
 
 handle_add_dir(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
-			  files_to_analyze = FileList,
-			  mode = Mode} = State) ->
+			  files_to_analyze = FileList, mode = Mode} = State) ->
   case wxDirPickerCtrl:getPath(DirBox) of
     "" ->
       State;
@@ -714,8 +713,8 @@ handle_add_dir(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
       State#gui_state{files_to_analyze = add_files(filter_mods(NewDir1,Ext), FileList, ChosenBox, Ext)}
   end.
 	    
-handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox, files_to_analyze = FileList,
-			     mode = Mode} = State) ->
+handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
+			  files_to_analyze = FileList, mode = Mode} = State) ->
   case wxDirPickerCtrl:getPath(DirBox) of
     "" ->
       State;
@@ -723,11 +722,11 @@ handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox, files_to_a
       NewDir = ordsets:new(),
       NewDir1 = ordsets:add_element(Dir,NewDir),
       TargetDirs = ordsets:union(NewDir1, all_subdirs(NewDir1)),
-      case wxRadioBox:getSelection(Mode) of
-	0 -> Ext = ".beam";
-	1-> Ext = ".erl"
-      end,
-      State#gui_state{files_to_analyze = add_files(filter_mods(TargetDirs,Ext), FileList, ChosenBox, Ext)}
+      Ext = case wxRadioBox:getSelection(Mode) of
+	      0 -> ".beam";
+	      1 -> ".erl"
+	    end,
+      State#gui_state{files_to_analyze = add_files(filter_mods(TargetDirs, Ext), FileList, ChosenBox, Ext)}
   end.
 
 handle_file_delete(#gui_state{chosen_box = ChosenBox,
@@ -886,13 +885,10 @@ config_gui_start(State) ->
   wxRadioBox:disable(State#gui_state.mode).
 
 save_file(#gui_state{frame = Frame, warnings_box = WBox, log = Log} = State, Type) ->
-  case Type of
-    warnings ->
-      Message = "Save Warnings",
-      Box = WBox;
-    log -> Message = "Save Log",
-	   Box = Log
-  end,
+  {Message, Box} = case Type of
+		     warnings -> {"Save Warnings", WBox};
+		     log -> {"Save Log", Log}
+		   end,
   case wxTextCtrl:getValue(Box) of
     "" -> error_sms(State,"There is nothing to save...\n");
     _ ->
@@ -936,8 +932,7 @@ include_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   wxButton:connect(DeleteAllButton, command_button_clicked),
   wxButton:connect(Ok, command_button_clicked),
   wxButton:connect(Cancel, command_button_clicked),
-  Dirs = [io_lib:format("~s", [X]) 
-	  || X <- Options#options.include_dirs],
+  Dirs = [io_lib:format("~s", [X]) || X <- Options#options.include_dirs],
   wxListBox:set(Box, Dirs),
   Layout = wxBoxSizer:new(?wxVERTICAL),
   Buttons = wxBoxSizer:new(?wxHORIZONTAL),
