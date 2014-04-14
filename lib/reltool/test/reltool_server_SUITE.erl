@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1205,14 +1205,9 @@ create_slim(Config) ->
 
     RootDir = code:root_dir(),
     Erl = filename:join([RootDir, "bin", "erl"]),
-    EscapedQuote =
-	case os:type() of
-	    {win32,_} -> "\\\"";
-	    _         -> "\""
-	end,
     Args = ["-boot_var", "RELTOOL_EXT_LIB", TargetLibDir,
 	    "-boot", filename:join(TargetRelVsnDir,RelName),
-	    "-sasl", "releases_dir", EscapedQuote++TargetRelDir++EscapedQuote],
+	    "-sasl", "releases_dir", "\""++TargetRelDir++"\""],
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl, Args)),
     ?msym(RootDir, rpc:call(Node, code, root_dir, [])),
     wait_for_app(Node,sasl,50),
