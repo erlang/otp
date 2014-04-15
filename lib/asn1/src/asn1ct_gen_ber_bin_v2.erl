@@ -492,6 +492,11 @@ gen_dec_prim(Att, BytesVar, DoTag) ->
 		      'ObjectDescriptor'-> restricted_string;
 		      'UTCTime'         -> restricted_string;
 		      'GeneralizedTime' -> restricted_string;
+		      'OCTET STRING'    ->
+			  case asn1ct:use_legacy_types() of
+			      true -> restricted_string;
+			      false -> Typename
+			  end;
 		      _                 -> Typename
 		  end,
     TagStr = case DoTag of
@@ -502,26 +507,23 @@ gen_dec_prim(Att, BytesVar, DoTag) ->
 	'BOOLEAN'->
 	    call(decode_boolean, [BytesVar,TagStr]);
 	'INTEGER' ->
-	    case IntConstr of
-		[] ->
-		    call(decode_integer, [BytesVar,TagStr]);
-		{_,_} ->
-		    call(decode_integer, [BytesVar,{asis,IntConstr},TagStr])
-	    end;
-	{'INTEGER',NamedNumberList} ->
-	    case IntConstr of
-		[] ->
-		    call(decode_named_integer,
-			 [BytesVar,
-			  {asis,NamedNumberList},
-			  TagStr]);
-		{_,_} ->
-		    call(decode_named_integer,
-			 [BytesVar,
-			  {asis,IntConstr},
-			  {asis,NamedNumberList},
-			  TagStr])
-	    end;
+	    check_constraint(decode_integer, [BytesVar,TagStr],
+			     IntConstr,
+			     identity,
+			     identity);
+	{'INTEGER',NNL} ->
+	    check_constraint(decode_integer,
+			     [BytesVar,TagStr],
+			     IntConstr,
+			     identity,
+			     fun(Val) ->
+				     asn1ct_name:new(val),
+				     emit([{curr,val}," = "]),
+				     Val(),
+				     emit([com,nl,
+					   {call,ber,number2name,
+					    [{curr,val},{asis,NNL}]}])
+			     end);
 	{'ENUMERATED',NNL} ->
 	    call(decode_enumerated, [BytesVar,{asis,NNL},TagStr]);
 	'REAL' ->
@@ -540,32 +542,25 @@ gen_dec_prim(Att, BytesVar, DoTag) ->
 	'RELATIVE-OID' ->
 	    call(decode_relative_oid, [BytesVar,TagStr]);
 	'OCTET STRING' ->
-	    F = case asn1ct:use_legacy_types() of
-		    false -> decode_octet_string;
-		    true -> decode_restricted_string
-		end,
-	    case Constraint of
-		[] ->
-		    call(F, [BytesVar,TagStr]);
-		_ ->
-		    call(F, [BytesVar,{asis,Constraint},TagStr])
-	    end;
+	    check_constraint(decode_octet_string, [BytesVar,TagStr],
+			     Constraint, {erlang,byte_size}, identity);
 	restricted_string ->
-	    case Constraint of
-		[] ->
-		    call(decode_restricted_string,
-			 [BytesVar,TagStr]);
-		_ ->
-		    call(decode_restricted_string,
-			 [BytesVar,{asis,Constraint},TagStr])
-	    end;
+	    check_constraint(decode_restricted_string, [BytesVar,TagStr],
+			     Constraint,
+			     {erlang,byte_size},
+			     fun(Val) ->
+				     emit("binary_to_list("),
+				     Val(),
+				     emit(")")
+			     end);
 	'UniversalString' ->
-	    call(decode_universal_string,
-		 [BytesVar,{asis,Constraint},TagStr]);
+	    check_constraint(decode_universal_string, [BytesVar,TagStr],
+			     Constraint, {erlang,length}, identity);
 	'UTF8String' ->
 	    call(decode_UTF8_string, [BytesVar,TagStr]);
 	'BMPString' ->
-	    call(decode_BMP_string, [BytesVar,{asis,Constraint},TagStr]);
+	    check_constraint(decode_BMP_string, [BytesVar,TagStr],
+			     Constraint, {erlang,length}, identity);
 	'ASN1_OPEN_TYPE' ->
 	    call(decode_open_type_as_binary, [BytesVar,TagStr])
     end.
@@ -583,7 +578,7 @@ int_constr(C) ->
 	[{'ValueRange',{_,_}=Range}] ->
 	    Range;
 	[{'SingleValue',Sv}] ->
-	    {Sv,Sv};
+	    Sv;
 	[] ->
 	    []
     end.
@@ -594,16 +589,82 @@ gen_dec_bit_string(BytesVar, _Constraint, [_|_]=NNL, TagStr) ->
 gen_dec_bit_string(BytesVar, Constraint, [], TagStr) ->
     case asn1ct:get_bit_string_format() of
 	compact ->
-	    call(decode_compact_bit_string,
-		 [BytesVar,{asis,Constraint},TagStr]);
+	    check_constraint(decode_compact_bit_string,
+			     [BytesVar,TagStr],
+			     Constraint,
+			     {ber,compact_bit_string_size},
+			     identity);
 	legacy ->
-	    call(decode_legacy_bit_string,
-		 [BytesVar,{asis,Constraint},TagStr]);
+	    check_constraint(decode_native_bit_string,
+			     [BytesVar,TagStr],
+			     Constraint,
+			     {erlang,bit_size},
+			     fun(Val) ->
+				     asn1ct_name:new(val),
+				     emit([{curr,val}," = "]),
+				     Val(),
+				     emit([com,nl,
+					   {call,ber,native_to_legacy_bit_string,
+					    [{curr,val}]}])
+			     end);
 	bitstring ->
-	    call(decode_native_bit_string,
-		 [BytesVar,{asis,Constraint},TagStr])
+	    check_constraint(decode_native_bit_string,
+			     [BytesVar,TagStr],
+			     Constraint,
+			     {erlang,bit_size},
+			     identity)
     end.
 
+check_constraint(F, Args, Constr, PreConstr0, ReturnVal0) ->
+    PreConstr = case PreConstr0 of
+		    identity ->
+			fun(V) -> V end;
+		    {Mod,Name} ->
+			fun(V) ->
+				asn1ct_name:new(c),
+				emit([{curr,c}," = ",
+				      {call,Mod,Name,[V]},com,nl]),
+				{curr,c}
+			end
+		end,
+    ReturnVal = case ReturnVal0 of
+		    identity ->	fun(Val) -> Val() end;
+		    _ -> ReturnVal0
+		end,
+    case Constr of
+	[] when ReturnVal0 =:= identity ->
+	    %% No constraint, no complications.
+	    call(F, Args);
+	[] ->
+	    %% No constraint, but the return value could consist
+	    %% of more than one statement.
+	    emit(["begin",nl]),
+	    ReturnVal(fun() -> call(F, Args) end),
+	    emit([nl,
+		  "end",nl]);
+	_ ->
+	    %% There is a constraint.
+	    asn1ct_name:new(val),
+	    emit(["begin",nl,
+		  {curr,val}," = ",{call,ber,F,Args},com,nl]),
+	    PreVal0 = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+	    PreVal = PreConstr(PreVal0),
+	    emit("if "),
+	    case Constr of
+		{Min,Max} ->
+		    emit([{asis,Min}," =< ",PreVal,", ",
+			  PreVal," =< ",{asis,Max}]);
+		Sv when is_integer(Sv) ->
+		    emit([PreVal," =:= ",{asis,Sv}])
+	    end,
+	    emit([" ->",nl]),
+	    ReturnVal(fun() -> emit(PreVal0) end),
+	    emit([";",nl,
+		  "true ->",nl,
+		  "exit({error,{asn1,bad_range}})",nl,
+		  "end",nl,
+		 "end"])
+    end.
     
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------

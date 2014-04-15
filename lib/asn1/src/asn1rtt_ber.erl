@@ -26,25 +26,25 @@
 	 skip_ExtensionAdditions/2]).
 -export([encode_boolean/2,decode_boolean/2,
 	 encode_integer/2,encode_integer/3,
-	 decode_integer/2,decode_integer/3,
-	 decode_named_integer/3,decode_named_integer/4,
+	 decode_integer/2,
+	 number2name/2,
 	 encode_enumerated/2,decode_enumerated/3,
 	 encode_unnamed_bit_string/2,encode_unnamed_bit_string/3,
 	 encode_named_bit_string/3,encode_named_bit_string/4,
 	 encode_bit_string/4,
 	 decode_named_bit_string/3,
-	 decode_compact_bit_string/3,
-	 decode_legacy_bit_string/3,
-	 decode_native_bit_string/3,
+	 decode_compact_bit_string/2,compact_bit_string_size/1,
+	 decode_native_bit_string/2,
+	 native_to_legacy_bit_string/1,
 	 encode_null/2,decode_null/2,
 	 encode_relative_oid/2,decode_relative_oid/2,
 	 encode_object_identifier/2,decode_object_identifier/2,
 	 encode_restricted_string/2,
-	 decode_octet_string/2,decode_octet_string/3,
-	 decode_restricted_string/2,decode_restricted_string/3,
-	 encode_universal_string/2,decode_universal_string/3,
+	 decode_octet_string/2,
+	 decode_restricted_string/2,
+	 encode_universal_string/2,decode_universal_string/2,
 	 encode_UTF8_string/2,decode_UTF8_string/2,
-	 encode_BMP_string/2,decode_BMP_string/3]).
+	 encode_BMP_string/2,decode_BMP_string/2]).
 
 -export([encode_open_type/2,decode_open_type/2,
 	 decode_open_type_as_binary/2]).
@@ -697,41 +697,17 @@ encode_integer_neg(N, Acc) ->
 
 %%===============================================================================
 %% decode integer
-%%    (Buffer, Range, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
-%%    (Buffer, Range, NamedNumberList, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%===============================================================================
-
-decode_named_integer(Tlv, NamedNumberList, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    Int = decode_integer(V),
-    number2name(Int, NamedNumberList).
-
-decode_named_integer(Tlv, Range, NamedNumberList, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    Int = range_check_integer(decode_integer(V), Range),
-    number2name(Int, NamedNumberList).
 
 decode_integer(Tlv, TagIn) ->
     V = match_tags(Tlv, TagIn),
     decode_integer(V).
-
-decode_integer(Tlv, Range, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    Int = decode_integer(V),
-    range_check_integer(Int, Range).
 
 decode_integer(Bin) ->
     Len = byte_size(Bin),
     <<Int:Len/signed-unit:8>> = Bin,
     Int.
 
-range_check_integer(Int, {Lb,Ub}) when Lb =< Int, Int =< Ub ->
-    Int;
-range_check_integer(Int, Range) ->
-    exit({error,{asn1,{integer_range,Range,Int}}}).
-
-number2name(Int, []) ->
-    Int;
 number2name(Int, NamedNumberList) ->
     case lists:keyfind(Int, 2, NamedNumberList) of
 	{NamedVal,_} ->
@@ -1098,33 +1074,23 @@ unused_bitlist([Bit | Rest], Trail, Ack) ->
 %% decode bitstring value
 %%============================================================================
 
-decode_compact_bit_string(Buffer, Range, Tags) ->
+decode_compact_bit_string(Buffer, Tags) ->
     case match_and_collect(Buffer, Tags) of
-	<<0>> ->
-	    check_restricted_string({0,<<>>}, 0, Range);
-	<<Unused,Bits/binary>> ->
-	    Val = {Unused,Bits},
-	    Len = bit_size(Bits) - Unused,
-	    check_restricted_string(Val, Len, Range)
+	<<0>> -> {0,<<>>};
+	<<Unused,Bits/binary>> -> {Unused,Bits}
     end.
 
-decode_legacy_bit_string(Buffer, Range, Tags) ->
-    Val = case match_and_collect(Buffer, Tags) of
-	      <<0>> ->
-		  [];
-	      <<Unused,Bits/binary>> ->
-		  decode_bitstring2(byte_size(Bits), Unused, Bits)
-	  end,
-    check_restricted_string(Val, length(Val), Range).
+compact_bit_string_size({Unused,Bits}) ->
+    bit_size(Bits) - Unused.
 
-decode_native_bit_string(Buffer, Range, Tags) ->
+decode_native_bit_string(Buffer, Tags) ->
     case match_and_collect(Buffer, Tags) of
 	<<0>> ->
-	    check_restricted_string(<<>>, 0, Range);
+	    <<>>;
 	<<Unused,Bits/binary>> ->
 	    Size = bit_size(Bits) - Unused,
 	    <<Val:Size/bitstring,_:Unused/bitstring>> = Bits,
-	    check_restricted_string(Val, Size, Range)
+	    Val
     end.
 
 decode_named_bit_string(Buffer, NamedNumberList, Tags) ->
@@ -1146,6 +1112,9 @@ decode_bitstring2(Len, Unused,
 		  <<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1,Buffer/binary>>) ->
     [B7,B6,B5,B4,B3,B2,B1,B0|
      decode_bitstring2(Len - 1, Unused, Buffer)].
+
+native_to_legacy_bit_string(Bits) ->
+    [B || <<B:1>> <= Bits].
 
 %%----------------------------------------
 %% Decode the bitlist to names
@@ -1310,31 +1279,12 @@ decode_octet_string(Tlv, TagsIn) ->
     Bin = match_and_collect(Tlv, TagsIn),
     binary:copy(Bin).
 
-decode_octet_string(Tlv, Range, TagsIn) ->
-    Bin0 = match_and_collect(Tlv, TagsIn),
-    Bin = binary:copy(Bin0),
-    check_restricted_string(Bin, byte_size(Bin), Range).
-
 %%============================================================================
 %% decode Numeric Printable Teletex Videotex Visible IA5 Graphic General strings
 %%============================================================================
 
 decode_restricted_string(Tlv, TagsIn) ->
-    Bin = match_and_collect(Tlv, TagsIn),
-    binary_to_list(Bin).
-
-decode_restricted_string(Tlv, Range, TagsIn) ->
-    Bin = match_and_collect(Tlv, TagsIn),
-    check_restricted_string(binary_to_list(Bin), byte_size(Bin), Range).
-
-check_restricted_string(Val, _Len, []) ->
-    Val;
-check_restricted_string(Val, Len, {Lb,Ub}) when Lb =< Len, Len =< Ub ->
-    Val;
-check_restricted_string(Val, Len, Len) ->
-    Val;
-check_restricted_string(Val, _Len, Range) ->
-    exit({error,{asn1,{length,Range,Val}}}).
+    match_and_collect(Tlv, TagsIn).
 
 %%============================================================================
 %% encode Universal string
@@ -1360,10 +1310,9 @@ mk_uni_list([H|T],List) ->
 %%                           {String, Remain, RemovedBytes}
 %%===========================================================================
 
-decode_universal_string(Buffer, Range, Tags) ->
+decode_universal_string(Buffer, Tags) ->
     Bin = match_and_collect(Buffer, Tags),
-    Val = mk_universal_string(binary_to_list(Bin)),
-    check_restricted_string(Val, length(Val), Range).
+    mk_universal_string(binary_to_list(Bin)).
 
 mk_universal_string(In) ->
     mk_universal_string(In, []).
@@ -1423,10 +1372,9 @@ mk_BMP_list([H|T], List) ->
 %%    (Buffer, Range, StringType, HasTag, TotalLen) ->
 %%                               {String, Remain, RemovedBytes}
 %%============================================================================
-decode_BMP_string(Buffer, Range, Tags) ->
+decode_BMP_string(Buffer, Tags) ->
     Bin = match_and_collect(Buffer, Tags),
-    Val = mk_BMP_string(binary_to_list(Bin)),
-    check_restricted_string(Val, length(Val), Range).
+    mk_BMP_string(binary_to_list(Bin)).
 
 mk_BMP_string(In) ->
     mk_BMP_string(In,[]).
