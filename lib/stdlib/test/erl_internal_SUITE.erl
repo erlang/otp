@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,7 +51,7 @@ end_per_group(_GroupName, Config) ->
 -define(default_timeout, ?t:minutes(2)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
@@ -63,27 +63,50 @@ behav(suite) -> [];
 behav(doc) ->
     ["Check that the behaviour callbacks are correctly defined"];
 behav(_) ->
-    ?line check_behav_list([{start,2}, {stop,1}], 
-			   application:behaviour_info(callbacks)),
-    ?line check_behav_list([{init,1}, {handle_call,3}, {handle_cast,2},
-			    {handle_info,2}, {terminate,2}, {code_change,3}],
-			   gen_server:behaviour_info(callbacks)),
-    ?line check_behav_list([{init,1}, {handle_event,3}, {handle_sync_event,4},
-			    {handle_info,3}, {terminate,3}, {code_change,4}],
-			   gen_fsm:behaviour_info(callbacks)),
-    ?line check_behav_list([{init,1}, {handle_event,2}, {handle_call,2},
-			    {handle_info,2}, {terminate,2}, {code_change,3}],
-			   gen_event:behaviour_info(callbacks)),
-    ?line check_behav_list( [{init,1}, {terminate,2}], 
-			   supervisor_bridge:behaviour_info(callbacks)),
-    ?line check_behav_list([{init,1}],
-			   supervisor:behaviour_info(callbacks)),
-    ok.
+    Modules = [application, gen_server, gen_fsm, gen_event,
+               supervisor_bridge, supervisor],
+    lists:foreach(fun check_behav/1, Modules).
+
+check_behav(Module) ->
+    Callbacks = callbacks(Module),
+    Optional = optional_callbacks(Module),
+    check_behav_list(Callbacks, Module:behaviour_info(callbacks)),
+    check_behav_list(Optional, Module:behaviour_info(optional_callbacks)).
 
 check_behav_list([], []) -> ok;
 check_behav_list([L | L1], L2) ->
-    ?line true = lists:member(L, L2),
-    ?line L3 = lists:delete(L, L2),
+    true = lists:member(L, L2),
+    L3 = lists:delete(L, L2),
     check_behav_list(L1, L3).
 
+callbacks(application) ->
+    [{start,2}, {stop,1}];
+callbacks(gen_server) ->
+    [{init,1}, {handle_call,3}, {handle_cast,2},
+     {handle_info,2}, {terminate,2}, {code_change,3},
+     {format_status,2}];
+callbacks(gen_fsm) ->
+    [{init,1}, {handle_event,3}, {handle_sync_event,4},
+     {handle_info,3}, {terminate,3}, {code_change,4},
+     {format_status,2}];
+callbacks(gen_event) ->
+    [{init,1}, {handle_event,2}, {handle_call,2},
+     {handle_info,2}, {terminate,2}, {code_change,3},
+     {format_status,2}];
+callbacks(supervisor_bridge) ->
+    [{init,1}, {terminate,2}];
+callbacks(supervisor) ->
+    [{init,1}].
 
+optional_callbacks(application) ->
+    [];
+optional_callbacks(gen_server) ->
+    [{format_status,2}];
+optional_callbacks(gen_fsm) ->
+    [{format_status,2}];
+optional_callbacks(gen_event) ->
+    [{format_status,2}];
+optional_callbacks(supervisor_bridge) ->
+    [];
+optional_callbacks(supervisor) ->
+    [].

@@ -3320,6 +3320,11 @@ attribute_arguments(Node) ->
 		    [set_pos(
 		       list(unfold_function_names(Data, Pos)),
 		       Pos)];
+		optional_callbacks ->
+                    D = try list(unfold_function_names(Data, Pos))
+                        catch _:_ -> abstract(Data)
+                        end,
+		    [set_pos(D, Pos)];
 		import ->
 		    {Module, Imports} = Data,
 		    [set_pos(atom(Module), Pos),

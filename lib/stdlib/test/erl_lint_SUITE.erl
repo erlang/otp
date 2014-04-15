@@ -55,7 +55,7 @@
           otp_11772/1, otp_11771/1, otp_11872/1,
           export_all/1,
 	  bif_clash/1,
-	  behaviour_basic/1, behaviour_multiple/1,
+	  behaviour_basic/1, behaviour_multiple/1, otp_11861/1,
 	  otp_7550/1,
 	  otp_8051/1,
 	  format_warn/1,
@@ -89,7 +89,7 @@ all() ->
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
      otp_11772, otp_11771, otp_11872, export_all,
-     bif_clash, behaviour_basic, behaviour_multiple,
+     bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type].
@@ -3078,6 +3078,193 @@ behaviour_multiple(Config) when is_list(Config) ->
 		       {conflicting_behaviours,{init,1},supervisor,1,gen_server}}]}}
 	 ],
     ?line [] = run(Config, Ts),
+    ok.
+
+otp_11861(doc) ->
+    "OTP-11861. behaviour_info() and -callback.";
+otp_11861(suite) -> [];
+otp_11861(Conf) when is_list(Conf) ->
+    CallbackFiles = [callback1, callback2, callback3,
+                     bad_behaviour1, bad_behaviour2],
+    lists:foreach(fun(M) ->
+                          F = filename:join(?datadir, M),
+                          Opts = [{outdir,?privdir}, return],
+                          {ok, M, []} = compile:file(F, Opts)
+                  end, CallbackFiles),
+    CodePath = code:get_path(),
+    true = code:add_path(?privdir),
+    Ts = [{otp_11861_1,
+           <<"
+              -export([b1/1]).
+              -behaviour(callback1).
+              -behaviour(callback2).
+
+              -spec b1(atom()) -> integer().
+              b1(A) when is_atom(A)->
+                  3.
+             ">>,
+           [],
+           %% b2/1 is optional in both modules
+           {warnings,[{4,erl_lint,
+                       {conflicting_behaviours,{b1,1},callback2,3,callback1}}]}},
+          {otp_11861_2,
+           <<"
+              -export([b2/1]).
+              -behaviour(callback1).
+              -behaviour(callback2).
+
+              -spec b2(integer()) -> atom().
+              b2(I) when is_integer(I)->
+                  a.
+             ">>,
+           [],
+           %% b2/1 is optional in callback2, but not in callback1
+           {warnings,[{3,erl_lint,{undefined_behaviour_func,{b1,1},callback1}},
+                      {4,erl_lint,
+                       {conflicting_behaviours,{b2,1},callback2,3,callback1}}]}},
+          {otp_11861_3,
+           <<"
+              -callback b(_) -> atom().
+              -optional_callbacks({b1,1}). % non-existing and ignored
+             ">>,
+           [],
+           []},
+          {otp_11861_4,
+           <<"
+              -callback b(_) -> atom().
+              -optional_callbacks([{b1,1}]). % non-existing
+             ">>,
+           [],
+           %% No behaviour-info(), but callback.
+           {errors,[{3,erl_lint,{undefined_callback,{lint_test,b1,1}}}],[]}},
+          {otp_11861_5,
+           <<"
+              -optional_callbacks([{b1,1}]). % non-existing
+             ">>,
+           [],
+           %% No behaviour-info() and no callback: warning anyway
+           {errors,[{2,erl_lint,{undefined_callback,{lint_test,b1,1}}}],[]}},
+          {otp_11861_6,
+           <<"
+              -optional_callbacks([b1/1]). % non-existing
+              behaviour_info(callbacks) -> [{b1,1}].
+             ">>,
+           [],
+           %% behaviour-info() and no callback: warning anyway
+           {errors,[{2,erl_lint,{undefined_callback,{lint_test,b1,1}}}],[]}},
+          {otp_11861_7,
+           <<"
+              -optional_callbacks([b1/1]). % non-existing
+              -callback b(_) -> atom().
+              behaviour_info(callbacks) -> [{b1,1}].
+             ">>,
+           [],
+           %% behaviour-info() callback: warning
+           {errors,[{2,erl_lint,{undefined_callback,{lint_test,b1,1}}},
+                    {3,erl_lint,{behaviour_info,{lint_test,b,1}}}],
+            []}},
+          {otp_11861_8,
+           <<"
+              -callback b(_) -> atom().
+              -optional_callbacks([b/1, {b, 1}]).
+             ">>,
+           [],
+           {errors,[{3,erl_lint,{redefine_optional_callback,{b,1}}}],[]}},
+          {otp_11861_9,
+           <<"
+              -behaviour(gen_server).
+              -export([handle_call/3,handle_cast/2,handle_info/2,
+                       code_change/3, init/1, terminate/2]).
+              handle_call(_, _, _) -> ok.
+              handle_cast(_, _) -> ok.
+              handle_info(_, _) -> ok.
+              code_change(_, _, _) -> ok.
+              init(_) -> ok.
+              terminate(_, _) -> ok.
+             ">>,
+           [],
+           []},
+          {otp_11861_9,
+           <<"
+              -behaviour(gen_server).
+              -export([handle_call/3,handle_cast/2,handle_info/2,
+                       code_change/3, init/1, terminate/2, format_status/2]).
+              handle_call(_, _, _) -> ok.
+              handle_cast(_, _) -> ok.
+              handle_info(_, _) -> ok.
+              code_change(_, _, _) -> ok.
+              init(_) -> ok.
+              terminate(_, _) -> ok.
+              format_status(_, _) -> ok. % optional callback
+             ">>,
+           [],
+           %% Nothing...
+           []},
+          {otp_11861_10,
+           <<"
+              -optional_callbacks([{b1,1,bad}]). % badly formed and ignored
+              behaviour_info(callbacks) -> [{b1,1}].
+             ">>,
+           [],
+           []},
+          {otp_11861_11,
+           <<"
+              -behaviour(bad_behaviour1).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,
+                       {ill_defined_behaviour_callbacks,bad_behaviour1}}]}},
+          {otp_11861_12,
+           <<"
+              -behaviour(non_existing_behaviour).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,
+                       {undefined_behaviour,non_existing_behaviour}}]}},
+          {otp_11861_13,
+           <<"
+              -behaviour(bad_behaviour_none).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,{undefined_behaviour,bad_behaviour_none}}]}},
+          {otp_11861_14,
+           <<"
+              -callback b(_) -> atom().
+             ">>,
+           [],
+           []},
+          {otp_11861_15,
+           <<"
+              -optional_callbacks([{b1,1,bad}]). % badly formed
+              -callback b(_) -> atom().
+             ">>,
+           [],
+           []},
+          {otp_11861_16,
+           <<"
+              -callback b(_) -> atom().
+              -callback b(_) -> atom().
+             ">>,
+           [],
+           {errors,[{3,erl_lint,{redefine_callback,{lint_test,b,1}}}],[]}},
+          {otp_11861_17,
+           <<"
+              -behaviour(bad_behaviour2).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,{undefined_behaviour_callbacks,
+                                   bad_behaviour2}}]}},
+          {otp_11861_18,
+           <<"
+              -export([f1/1]).
+              -behaviour(callback3).
+              f1(_) -> ok.
+             ">>,
+           [],
+           []}
+	 ],
+    ?line [] = run(Conf, Ts),
+    true = code:set_path(CodePath),
     ok.
 
 otp_7550(doc) ->

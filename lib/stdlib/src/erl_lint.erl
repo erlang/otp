@@ -130,6 +130,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: dict:dict(mfa(), line()),
                callbacks = dict:new()           %Callback types
                    :: dict:dict(mfa(), line()),
+               optional_callbacks = dict:new()  %Optional callbacks
+                   :: dict:dict(mfa(), line()),
                types = dict:new()               %Type definitions
                    :: dict:dict(ta(), #typeinfo{}),
                exp_types=gb_sets:empty()        %Exported types
@@ -313,13 +315,20 @@ format_error({undefined_behaviour,Behaviour}) ->
     io_lib:format("behaviour ~w undefined", [Behaviour]);
 format_error({undefined_behaviour_callbacks,Behaviour}) ->
     io_lib:format("behaviour ~w callback functions are undefined",
-                  [Behaviour]);
+		  [Behaviour]);
 format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
     io_lib:format("behaviour ~w callback functions erroneously defined",
+		  [Behaviour]);
+format_error({ill_defined_optional_callbacks,Behaviour}) ->
+    io_lib:format("behaviour ~w optional callback functions erroneously defined",
 		  [Behaviour]);
 format_error({behaviour_info, {_M,F,A}}) ->
     io_lib:format("cannot define callback attibute for ~w/~w when "
                   "behaviour_info is defined",[F,A]);
+format_error({redefine_optional_callback, {F, A}}) ->
+    io_lib:format("optional callback ~w/~w duplicated", [F, A]);
+format_error({undefined_callback, {_M, F, A}}) ->
+    io_lib:format("callback ~w/~w is undefined", [F, A]);
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
@@ -727,6 +736,8 @@ attribute_state({attribute,L,spec,{Fun,Types}}, St) ->
     spec_decl(L, Fun, Types, St);
 attribute_state({attribute,L,callback,{Fun,Types}}, St) ->
     callback_decl(L, Fun, Types, St);
+attribute_state({attribute,L,optional_callbacks,Es}, St) ->
+    optional_callbacks(L, Es, St);
 attribute_state({attribute,L,on_load,Val}, St) ->
     on_load(L, Val, St);
 attribute_state({attribute,_L,_Other,_Val}, St) -> % Ignore others
@@ -834,57 +845,73 @@ check_behaviour(St0) ->
 %%  Check behaviours for existence and defined functions.
 
 behaviour_check(Bs, St0) ->
-    {AllBfs,St1} = all_behaviour_callbacks(Bs, [], St0),
-    St = behaviour_missing_callbacks(AllBfs, St1),
+    {AllBfs0, St1} = all_behaviour_callbacks(Bs, [], St0),
+    St = behaviour_missing_callbacks(AllBfs0, St1),
+    Exports = exports(St0),
+    F = fun(Bfs, OBfs) ->
+                [B || B <- Bfs,
+                      not lists:member(B, OBfs)
+                      orelse gb_sets:is_member(B, Exports)]
+        end,
+    %% After fixing missing callbacks new warnings may be emitted.
+    AllBfs = [{Item,F(Bfs0, OBfs0)} || {Item,Bfs0,OBfs0} <- AllBfs0],
     behaviour_conflicting(AllBfs, St).
 
 all_behaviour_callbacks([{Line,B}|Bs], Acc, St0) ->
-    {Bfs0,St} = behaviour_callbacks(Line, B, St0),
-    all_behaviour_callbacks(Bs, [{{Line,B},Bfs0}|Acc], St);
+    {Bfs0,OBfs0,St} = behaviour_callbacks(Line, B, St0),
+    all_behaviour_callbacks(Bs, [{{Line,B},Bfs0,OBfs0}|Acc], St);
 all_behaviour_callbacks([], Acc, St) -> {reverse(Acc),St}.
 
 behaviour_callbacks(Line, B, St0) ->
     try B:behaviour_info(callbacks) of
-        Funcs when is_list(Funcs) ->
-            All = all(fun({FuncName, Arity}) ->
-                              is_atom(FuncName) andalso is_integer(Arity);
-			 ({FuncName, Arity, Spec}) ->
-			      is_atom(FuncName) andalso is_integer(Arity)
-				  andalso is_list(Spec);
-                         (_Other) ->
-                              false
-                      end,
-                      Funcs),
-	    MaybeRemoveSpec = fun({_F,_A}=FA) -> FA;
-				 ({F,A,_S}) -> {F,A};
-				 (Other) -> Other
-			      end,
-            if
-                All =:= true ->
-                    {[MaybeRemoveSpec(F) || F <- Funcs], St0};
-                true ->
-                    St1 = add_warning(Line,
-                                      {ill_defined_behaviour_callbacks,B},
-                                      St0),
-                    {[], St1}
-            end;
         undefined ->
-            St1 = add_warning(Line, {undefined_behaviour_callbacks,B}, St0),
-            {[], St1};
-        _Other ->
-            St1 = add_warning(Line, {ill_defined_behaviour_callbacks,B}, St0),
-            {[], St1}
+            St1 = add_warning(Line, {undefined_behaviour_callbacks, B}, St0),
+            {[], [], St1};
+        Funcs ->
+            case is_fa_list(Funcs) of
+                true ->
+                    try B:behaviour_info(optional_callbacks) of
+                        undefined ->
+                            {Funcs, [], St0};
+                        OptFuncs ->
+                            %% OptFuncs should always be OK thanks to
+                            %% sys_pre_expand.
+                            case is_fa_list(OptFuncs) of
+                                true ->
+                                    {Funcs, OptFuncs, St0};
+                                false ->
+                                    W = {ill_defined_optional_callbacks, B},
+                                    St1 = add_warning(Line, W, St0),
+                                    {Funcs, [], St1}
+                            end
+                    catch
+                        _:_ ->
+                            {Funcs, [], St0}
+                    end;
+                false ->
+                    St1 = add_warning(Line,
+                                      {ill_defined_behaviour_callbacks, B},
+                                      St0),
+                    {[], [], St1}
+            end
     catch
         _:_ ->
-            St1 = add_warning(Line, {undefined_behaviour,B}, St0),
-            {[], St1}
+            St1 = add_warning(Line, {undefined_behaviour, B}, St0),
+            {[], [], St1}
     end.
 
-behaviour_missing_callbacks([{{Line,B},Bfs}|T], St0) ->
+behaviour_missing_callbacks([{{Line,B},Bfs0,OBfs}|T], St0) ->
+    Bfs = ordsets:subtract(ordsets:from_list(Bfs0), ordsets:from_list(OBfs)),
     Exports = gb_sets:to_list(exports(St0)),
-    Missing = ordsets:subtract(ordsets:from_list(Bfs), Exports),
+    Missing = ordsets:subtract(Bfs, Exports),
     St = foldl(fun (F, S0) ->
-		       add_warning(Line, {undefined_behaviour_func,F,B}, S0)
+                       case is_fa(F) of
+                           true ->
+                               M = {undefined_behaviour_func,F,B},
+                               add_warning(Line, M, S0);
+                           false ->
+                               S0 % ill_defined_behaviour_callbacks
+                       end
 	       end, St0, Missing),
     behaviour_missing_callbacks(T, St);
 behaviour_missing_callbacks([], St) -> St.
@@ -1127,19 +1154,29 @@ check_unused_records(Forms, St0) ->
     end.
 
 check_callback_information(#lint{callbacks = Callbacks,
-				 defined = Defined} = State) ->
-    case gb_sets:is_member({behaviour_info,1}, Defined) of
-	false -> State;
+                                 optional_callbacks = OptionalCbs,
+				 defined = Defined} = St0) ->
+    OptFun = fun({MFA, Line}, St) ->
+                     case dict:is_key(MFA, Callbacks) of
+                         true ->
+                             St;
+                         false ->
+                             add_error(Line, {undefined_callback, MFA}, St)
+                     end
+             end,
+    St1 = lists:foldl(OptFun, St0, dict:to_list(OptionalCbs)),
+    case gb_sets:is_member({behaviour_info, 1}, Defined) of
+	false -> St1;
 	true ->
 	    case dict:size(Callbacks) of
-		0 -> State;
+		0 -> St1;
 		_ ->
 		    CallbacksList = dict:to_list(Callbacks),
 		    FoldL =
-			fun({Fa,Line},St) ->
+			fun({Fa, Line}, St) ->
 				add_error(Line, {behaviour_info, Fa}, St)
 			end,
-		    lists:foldl(FoldL, State, CallbacksList)
+		    lists:foldl(FoldL, St1, CallbacksList)
 	    end
     end.
 
@@ -2926,6 +2963,39 @@ callback_decl(Line, MFA0, TypeSpecs,
 	true -> add_error(Line, {redefine_callback, MFA}, St1);
 	false -> check_specs(TypeSpecs, Arity, St1)
     end.
+
+%% optional_callbacks(Line, FAs, State) -> State.
+
+optional_callbacks(Line, Term, St0) ->
+    try true = is_fa_list(Term), Term of
+        FAs ->
+            optional_cbs(Line, FAs, St0)
+    catch
+        _:_ ->
+            St0 % ignore others
+    end.
+
+optional_cbs(_Line, [], St) ->
+    St;
+optional_cbs(Line, [{F,A}|FAs], St0) ->
+    #lint{optional_callbacks = OptionalCbs, module = Mod} = St0,
+    MFA = {Mod, F, A},
+    St1 = St0#lint{optional_callbacks = dict:store(MFA, Line, OptionalCbs)},
+    St2 = case dict:is_key(MFA, OptionalCbs) of
+              true ->
+                  add_error(Line, {redefine_optional_callback, {F,A}}, St1);
+              false ->
+                  St1
+          end,
+    optional_cbs(Line, FAs, St2).
+
+is_fa_list([E|L]) -> is_fa(E) andalso is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
+
+is_fa({FuncName, Arity})
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
+is_fa(_) -> false.
 
 check_specs([FunType|Left], Arity, St0) ->
     {FunType1, CTypes} =

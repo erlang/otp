@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,12 +33,15 @@
 
 -include("../include/erl_bits.hrl").
 
+-type fa() :: {atom(), arity()}.
+
 -record(expand, {module=[],                     %Module name
                  exports=[],                    %Exports
                  imports=[],                    %Imports
                  compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
                  callbacks=[],                  %Callbacks
+                 optional_callbacks=[] :: [fa()],  %Optional callbacks
                  defined,			%Defined functions (gb_set)
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
@@ -99,7 +102,21 @@ define_functions(Forms, #expand{defined=Predef}=St) ->
 module_attrs(#expand{attributes=Attributes}=St) ->
     Attrs = [{attribute,Line,Name,Val} || {Name,Line,Val} <- Attributes],
     Callbacks = [Callback || {_,_,callback,_}=Callback <- Attrs],
-    {Attrs,St#expand{callbacks=Callbacks}}.
+    OptionalCallbacks = get_optional_callbacks(Attrs),
+    {Attrs,St#expand{callbacks=Callbacks,
+                     optional_callbacks=OptionalCallbacks}}.
+
+get_optional_callbacks(Attrs) ->
+    L = [O ||
+            {attribute, _, optional_callbacks, O} <- Attrs,
+            is_fa_list(O)],
+    lists:append(L).
+
+is_fa_list([{FuncName, Arity}|L])
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 ->
+    is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
 
 module_predef_funcs(St) ->
     {Mpf1,St1}=module_predef_func_beh_info(St),
@@ -108,19 +125,24 @@ module_predef_funcs(St) ->
 
 module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
     {[], St};
-module_predef_func_beh_info(#expand{callbacks=Callbacks,defined=Defined,
+module_predef_func_beh_info(#expand{callbacks=Callbacks,
+                                    optional_callbacks=OptionalCallbacks,
+                                    defined=Defined,
 				    exports=Exports}=St) ->
     PreDef=[{behaviour_info,1}],
     PreExp=PreDef,
-    {[gen_beh_info(Callbacks)],
+    {[gen_beh_info(Callbacks, OptionalCallbacks)],
      St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef), Defined),
 	       exports=union(from_list(PreExp), Exports)}}.
 
-gen_beh_info(Callbacks) ->
+gen_beh_info(Callbacks, OptionalCallbacks) ->
     List = make_list(Callbacks),
+    OptionalList = make_optional_list(OptionalCallbacks),
     {function,0,behaviour_info,1,
      [{clause,0,[{atom,0,callbacks}],[],
-       [List]}]}.
+       [List]},
+      {clause,0,[{atom,0,optional_callbacks}],[],
+       [OptionalList]}]}.
 
 make_list([]) -> {nil,0};
 make_list([{_,_,_,[{{Name,Arity},_}]}|Rest]) ->
@@ -129,6 +151,14 @@ make_list([{_,_,_,[{{Name,Arity},_}]}|Rest]) ->
       [{atom,0,Name},
        {integer,0,Arity}]},
      make_list(Rest)}.
+
+make_optional_list([]) -> {nil,0};
+make_optional_list([{Name,Arity}|Rest]) ->
+    {cons,0,
+     {tuple,0,
+      [{atom,0,Name},
+       {integer,0,Arity}]},
+     make_optional_list(Rest)}.
 
 module_predef_funcs_mod_info(St) ->
     PreDef = [{module_info,0},{module_info,1}],
