@@ -604,9 +604,12 @@ handle_msg({cmd,Cmd,Timeout},State) ->
     end_gen_log(),
     {Return,State#state{buffer=NewBuffer,prompt=Prompt}};
 handle_msg({send,Cmd},State) ->
+    start_gen_log(heading(send,State#state.name)),
     log(State,send,"Sending: ~p",[Cmd]),
+    
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
+    
     case {State#state.type,State#state.prompt} of
 	{ts,_} -> 
 	    silent_teln_expect(State#state.name,
@@ -626,6 +629,7 @@ handle_msg({send,Cmd},State) ->
 	    ok
     end,
     ct_telnet_client:send_data(State#state.teln_pid,Cmd),
+    end_gen_log(),
     {ok,State#state{buffer=[],prompt=false}};
 handle_msg(get_data,State) ->
     start_gen_log(heading(get_data,State#state.name)),
