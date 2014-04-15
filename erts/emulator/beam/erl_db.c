@@ -23,11 +23,9 @@
  * db tables.
  */
 
-/*
 #ifdef DEBUG
 #define HARDDEBUG 1
 #endif
-*/
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -174,6 +172,7 @@ typedef enum {
 } db_lock_kind_t;
 
 extern DbTableMethod db_hash;
+extern DbTableMethod db_nested_hash;
 extern DbTableMethod db_tree;
 
 int user_requested_db_max_tabs;
@@ -602,8 +601,12 @@ static ERTS_INLINE void local_fix_table(DbTable* tb)
 static ERTS_INLINE void local_unfix_table(DbTable* tb)
 {	
     if (erts_refc_dectest(&tb->common.ref, 0) == 0) {
-	ASSERT(IS_HASH_TABLE(tb->common.status));
-	db_unfix_table_hash(&(tb->hash));
+        if (IS_NESTED_HASH_TABLE(tb->common.status)) {
+            db_unfix_table_nhash(&(tb->nested));
+        } else {
+            ASSERT(IS_HASH_TABLE(tb->common.status));
+            db_unfix_table_hash(&(tb->hash));
+        }
     }
 }
 
@@ -1396,7 +1399,15 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     if (is_not_nil(list)) { /* bad opt or not a well formed list */
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (IS_HASH_TABLE(status)) {
+    if (IS_NESTED_HASH_TABLE(status)) {
+	meth = &db_nested_hash;
+#ifdef ERTS_SMP
+	if (is_fine_locked && !(status & DB_PRIVATE)) {
+	    status |= DB_FINE_LOCKED;
+	}
+#endif
+    }
+    else if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
 #ifdef ERTS_SMP
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
@@ -1525,11 +1536,11 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     UseTmpHeap(3,BIF_P);
 
     db_meta_lock(meta_pid_to_tab, LCK_WRITE_REC);
-    if (db_put_hash(meta_pid_to_tab,
-		    TUPLE2(meta_tuple,
-			   BIF_P->common.id,
-			   make_small(slot)),
-		    0) != DB_ERROR_NONE) {
+    if (db_put_nhash(meta_pid_to_tab,
+                     TUPLE2(meta_tuple,
+                            BIF_P->common.id,
+                            make_small(slot)),
+                     0) != DB_ERROR_NONE) {
 	erl_exit(1,"Could not update ets metadata.");
     }
     db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
@@ -1681,11 +1692,11 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	BIF_P->flags |= F_USING_DB;
 	tb->common.owner = BIF_P->common.id;
 
-	db_put_hash(meta_pid_to_tab,
-		    TUPLE2(meta_tuple,
-			   BIF_P->common.id,
-			   make_small(tb->common.slot)),
-		    0);
+        db_put_nhash(meta_pid_to_tab,
+                     TUPLE2(meta_tuple,
+                            BIF_P->common.id,
+                            make_small(tb->common.slot)),
+                     0);
 	db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
 	UnUseTmpHeap(3,BIF_P);
     }    
@@ -1776,9 +1787,9 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
     to_proc->flags |= F_USING_DB;
     tb->common.owner = to_pid;
 
-    db_put_hash(meta_pid_to_tab,
-		TUPLE2(buf,to_pid,make_small(tb->common.slot)),
-		0);
+    db_put_nhash(meta_pid_to_tab,
+                 TUPLE2(buf,to_pid,make_small(tb->common.slot)),
+                 0);
     db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
 
     db_unlock(tb,LCK_WRITE);
@@ -2877,6 +2888,7 @@ void init_db(void)
     }
 
     db_initialize_hash();
+    db_initialize_nhash();
     db_initialize_tree();
 
     /*TT*/
@@ -2901,14 +2913,14 @@ void init_db(void)
     meta_pid_to_tab->common.owner  = NIL;
     erts_smp_atomic_init_nob(&meta_pid_to_tab->common.nitems, 0);
     meta_pid_to_tab->common.slot   = -1;
-    meta_pid_to_tab->common.meth   = &db_hash;
+    meta_pid_to_tab->common.meth   = &db_nested_hash;
     meta_pid_to_tab->common.compress = 0;
 
     erts_refc_init(&meta_pid_to_tab->common.ref, 0);
     /* Neither rwlock or fixlock used
     db_init_lock(meta_pid_to_tab, "meta_pid_to_tab", "meta_pid_to_tab_FIX");*/
 
-    if (db_create_hash(NULL, meta_pid_to_tab) != DB_ERROR_NONE) {
+    if (db_create_nhash(NULL, meta_pid_to_tab) != DB_ERROR_NONE) {
 	erl_exit(1,"Unable to create ets metadata tables.");
     }
 
@@ -2932,14 +2944,14 @@ void init_db(void)
     meta_pid_to_fixed_tab->common.owner  = NIL;
     erts_smp_atomic_init_nob(&meta_pid_to_fixed_tab->common.nitems, 0);
     meta_pid_to_fixed_tab->common.slot   = -1;
-    meta_pid_to_fixed_tab->common.meth   = &db_hash;
+    meta_pid_to_fixed_tab->common.meth   = &db_nested_hash;
     meta_pid_to_fixed_tab->common.compress = 0;
 
     erts_refc_init(&meta_pid_to_fixed_tab->common.ref, 0);
     /* Neither rwlock or fixlock used
     db_init_lock(meta_pid_to_fixed_tab, "meta_pid_to_fixed_tab", "meta_pid_to_fixed_tab_FIX");*/
 
-    if (db_create_hash(NULL, meta_pid_to_fixed_tab) != DB_ERROR_NONE) {
+    if (db_create_nhash(NULL, meta_pid_to_fixed_tab) != DB_ERROR_NONE) {
 	erl_exit(1,"Unable to create ets metadata tables.");
     }
 
@@ -3008,7 +3020,7 @@ proc_exit_cleanup_tables_meta_data(Eterm pid, ErtsDbProcCleanupState *state)
 	if (state->slots.size < ARRAY_CHUNK
 	    && state->slots.ix == state->slots.size) {
 	    Eterm dummy;
-	    db_erase_hash(meta_pid_to_tab,pid,&dummy);
+	    db_erase_nhash(meta_pid_to_tab,pid,&dummy);
 	}
 	else {
 	    int ix;
@@ -3032,7 +3044,7 @@ proc_exit_cleanup_fixations_meta_data(Eterm pid, ErtsDbProcCleanupState *state)
 	if (state->slots.size < ARRAY_CHUNK
 	    && state->slots.ix == state->slots.size) {
 	    Eterm dummy;
-	    db_erase_hash(meta_pid_to_fixed_tab,pid,&dummy);
+	    db_erase_nhash(meta_pid_to_fixed_tab,pid,&dummy);
 	}
 	else {
 	    int ix;
@@ -3107,9 +3119,9 @@ retry:
     to_proc->flags |= F_USING_DB;
     tb->common.owner = to_pid;
     
-    db_put_hash(meta_pid_to_tab,
-		TUPLE2(buf,to_pid,make_small(tb->common.slot)),
-		0);
+    db_put_nhash(meta_pid_to_tab,
+                 TUPLE2(buf,to_pid,make_small(tb->common.slot)),
+                 0);
     db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
     UnUseTmpHeap(5,p);
     db_unlock(tb,LCK_WRITE);
@@ -3160,10 +3172,10 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 	    state->slots.size = ARRAY_CHUNK;
 	    db_meta_lock(meta_pid_to_tab, LCK_READ);
 	    ret = db_get_element_array(meta_pid_to_tab,
-				       pid,
-				       2,
-				       state->slots.arr,
-				       &state->slots.size);
+                                       pid,
+                                       2,
+                                       state->slots.arr,
+                                       &state->slots.size);
 	    db_meta_unlock(meta_pid_to_tab, LCK_READ);
 	    if (ret == DB_ERROR_BADKEY) {
 		/* Done with tables; now fixations */
@@ -3247,10 +3259,10 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 	    state->slots.size = ARRAY_CHUNK;
 	    db_meta_lock(meta_pid_to_fixed_tab, LCK_READ);
 	    ret = db_get_element_array(meta_pid_to_fixed_tab, 
-				       pid,
-				       2,
-				       state->slots.arr,
-				       &state->slots.size);
+                                       pid,
+                                       2,
+                                       state->slots.arr,
+                                       &state->slots.size);
 	    db_meta_unlock(meta_pid_to_fixed_tab, LCK_READ);
 
 	    if (ret == DB_ERROR_BADKEY) {
@@ -3304,13 +3316,19 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 				break;
 			    }
 			}
-			#ifdef ERTS_SMP
+                        #ifdef ERTS_SMP
 			erts_smp_mtx_unlock(&tb->common.fixlock);
-			#endif
-			if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)) {
-			    db_unfix_table_hash(&(tb->hash));
-			    reds += 40;
-			}
+                        #endif
+                        if (!IS_FIXED(tb)) {
+                            if (IS_NESTED_HASH_TABLE(tb->common.status)) {
+                                db_unfix_table_nhash(&(tb->nested));
+                                reds += 40;
+                            }
+                            else if (IS_HASH_TABLE(tb->common.status)) {
+                                db_unfix_table_hash(&(tb->hash));
+                                reds += 40;
+                            }
+                        }
 		    }
 		    db_unlock(tb, LCK_WRITE_REC);
 		    BUMP_REDS(c_p, reds);
@@ -3403,11 +3421,11 @@ static void fix_table_locked(Process* p, DbTable* tb)
     p->flags |= F_USING_DB;        
     UseTmpHeap(3,p);
     db_meta_lock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
-    if (db_put_hash(meta_pid_to_fixed_tab,
-		    TUPLE2(meta_tuple,
-			   p->common.id,
-			   make_small(tb->common.slot)),
-		    0) != DB_ERROR_NONE) {
+    if (db_put_nhash(meta_pid_to_fixed_tab,
+                     TUPLE2(meta_tuple,
+                            p->common.id,
+                            make_small(tb->common.slot)),
+                     0) != DB_ERROR_NONE) {
 	UnUseTmpHeap(3,p);
 	erl_exit(1,"Could not insert ets metadata in safe_fixtable.");
     }	
@@ -3453,18 +3471,24 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 #endif
 unlocked:
 
-    if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)
-	&& erts_smp_atomic_read_nob(&tb->hash.fixdel) != (erts_aint_t)NULL) {
+    if (!IS_FIXED(tb)
+        && ((IS_NESTED_HASH_TABLE(tb->common.status)
+             && (erts_smp_atomic_read_nob(&tb->nested.fixdel) != (erts_aint_t)NULL))
+            || (IS_HASH_TABLE(tb->common.status)
+                && (erts_smp_atomic_read_nob(&tb->hash.fixdel) != (erts_aint_t)NULL)))) {
 #ifdef ERTS_SMP
-	if (*kind_p == LCK_READ && tb->common.is_thread_safe) {
-	    /* Must have write lock while purging pseudo-deleted (OTP-8166) */
-	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
-	    erts_smp_rwmtx_rwlock(&tb->common.rwlock);
-	    *kind_p = LCK_WRITE;
-	    if (tb->common.status & DB_DELETE) return;
-	}
+        if (*kind_p == LCK_READ && tb->common.is_thread_safe) {
+            /* Must have write lock while purging pseudo-deleted (OTP-8166) */
+            erts_smp_rwmtx_runlock(&tb->common.rwlock);
+            erts_smp_rwmtx_rwlock(&tb->common.rwlock);
+            *kind_p = LCK_WRITE;
+            if (tb->common.status & DB_DELETE) return;
+        }
 #endif
-	db_unfix_table_hash(&(tb->hash));
+        if (IS_NESTED_HASH_TABLE(tb->common.status))
+            db_unfix_table_nhash(&(tb->nested));
+        else
+            db_unfix_table_hash(&(tb->hash));
     }
 }
 
@@ -3726,7 +3750,35 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	erts_smp_mtx_unlock(&tb->common.fixlock);
 #endif
     } else if (What == am_atom_put("stats",5)) {
-	if (IS_HASH_TABLE(tb->common.status)) {
+	if (IS_NESTED_HASH_TABLE(tb->common.status)) {
+	    FloatDef f;
+	    DbNestedHashStats stats;
+	    Eterm avg, std_dev_real, std_dev_exp;
+	    Eterm* hp;
+
+	    db_calc_stats_nhash(&tb->nested, &stats);
+	    hp = HAlloc(p, 1 + 7 + FLOAT_SIZE_OBJECT*3);
+	    f.fd = stats.avg_chain_len;
+	    avg = make_float(hp);
+	    PUT_DOUBLE(f, hp);
+	    hp += FLOAT_SIZE_OBJECT;
+
+	    f.fd = stats.std_dev_chain_len;
+	    std_dev_real = make_float(hp);
+	    PUT_DOUBLE(f, hp);
+	    hp += FLOAT_SIZE_OBJECT;
+
+	    f.fd = stats.std_dev_expected;
+	    std_dev_exp = make_float(hp);
+	    PUT_DOUBLE(f, hp);
+	    hp += FLOAT_SIZE_OBJECT;
+	    ret = TUPLE7(hp, make_small(erts_smp_atomic_read_nob(&tb->nested.linearht.nactive)),
+			 avg, std_dev_real, std_dev_exp,
+			 make_small(stats.min_chain_len),
+			 make_small(stats.max_chain_len),
+			 make_small(db_kept_items_nhash(&tb->nested)));
+	}
+	else if (IS_HASH_TABLE(tb->common.status)) {
 	    FloatDef f;
 	    DbHashStats stats;
 	    Eterm avg, std_dev_real, std_dev_exp;
@@ -3875,8 +3927,9 @@ void db_check_tables(void)
 
     for (i = 0; i < db_max_tabs; i++) {
 	if (IS_SLOT_ALIVE(i)) {
-	    DbTable* tb = meta_main_tab[i].t; 
-	    tb->common.meth->db_check_table(tb);
+	    DbTable* tb = meta_main_tab[i].u.tb;
+	    if (tb->common.meth->db_check_table != NULL)
+                tb->common.meth->db_check_table(tb);
 	}
     }
 #endif

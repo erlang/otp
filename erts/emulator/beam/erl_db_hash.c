@@ -761,14 +761,7 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     /* Key found */
 
     b = next(tb, &ix, &lck, b);
-    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-	while (b != 0) {
-	    if (!has_live_key(tb, b, key, hval)) {
-		break;
-	    }
-	    b = next(tb, &ix, &lck, b);
-	}
-    }
+    ASSERT(tb->common.status & DB_SET);
     if (b == NULL) {
 	*ret = am_EOT;
     }
@@ -785,9 +778,8 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     HashValue hval;
     int ix;
     Eterm key;
-    HashDbTerm** bp;
-    HashDbTerm* b;
-    HashDbTerm* q;
+    HashDbTerm **bp;
+    HashDbTerm *b, *q, *bnext;
     erts_smp_rwmtx_t* lck;
     int nitems;
     int ret = DB_ERROR_NONE;
@@ -801,7 +793,20 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 
     for (;;) {
 	if (b == NULL) {
-	    goto Lnew;
+            q = new_dbterm(tb, obj);
+            q->hvalue = hval;
+            q->next = b;
+            *bp = q;
+            nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+            WUNLOCK_HASH(lck);
+            {
+                int nactive = NACTIVE(tb);
+                if (nitems > nactive * (CHAIN_LEN+1) && !IS_FIXED(tb)) {
+                    grow(tb, nactive);
+                }
+            }
+            CHECK_TABLES();
+            return DB_ERROR_NONE;
 	}
 	if (has_key(tb,b,key,hval)) {
 	    break;
@@ -810,71 +815,21 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	b = b->next;
     }
     /* Key found
-    */
-    if (tb->common.status & DB_SET) {
-	HashDbTerm* bnext = b->next;
-	if (b->hvalue == INVALID_HASH) {
-	    erts_smp_atomic_inc_nob(&tb->common.nitems);
-	}
-	else if (key_clash_fail) {
-	    ret = DB_ERROR_BADKEY;
-	    goto Ldone;
-	}
-	q = replace_dbterm(tb, b, obj);
-	q->next = bnext;
-	q->hvalue = hval; /* In case of INVALID_HASH */
-	*bp = q;
-	goto Ldone;
+     */
+    ASSERT(tb->common.status & DB_SET);
+    bnext = b->next;
+    if (b->hvalue == INVALID_HASH) {
+        erts_smp_atomic_inc_nob(&tb->common.nitems);
     }
-    else if (key_clash_fail) { /* && (DB_BAG || DB_DUPLICATE_BAG) */
-	q = b;
-	do {
-	    if (q->hvalue != INVALID_HASH) {
-		ret = DB_ERROR_BADKEY;
-		goto Ldone;
-	    }
-	    q = q->next;
-	}while (q != NULL && has_key(tb,q,key,hval)); 	
+    else if (key_clash_fail) {
+        ret = DB_ERROR_BADKEY;
+        WUNLOCK_HASH(lck);
+        return ret;
     }
-    else if (tb->common.status & DB_BAG) {
-	HashDbTerm** qp = bp;
-	q = b;
-	do {
-	    if (db_eq(&tb->common,obj,&q->dbterm)) {
-		if (q->hvalue == INVALID_HASH) {
-		    erts_smp_atomic_inc_nob(&tb->common.nitems);
-		    q->hvalue = hval;
-		    if (q != b) { /* must move to preserve key insertion order */
-			*qp = q->next;
-			q->next = b;
-			*bp = q;
-		    }
-		}
-		goto Ldone;
-	    }
-	    qp = &q->next;
-	    q = *qp;
-	}while (q != NULL && has_key(tb,q,key,hval)); 
-    }
-    /*else DB_DUPLICATE_BAG */
-
-Lnew:
-    q = new_dbterm(tb, obj);
-    q->hvalue = hval;
-    q->next = b;
+    q = replace_dbterm(tb, b, obj);
+    q->next = bnext;
+    q->hvalue = hval; /* In case of INVALID_HASH */
     *bp = q;
-    nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
-    WUNLOCK_HASH(lck);
-    {
-	int nactive = NACTIVE(tb);       
-	if (nitems > nactive * (CHAIN_LEN+1) && !IS_FIXED(tb)) {
-	    grow(tb, nactive);
-	}
-    }
-    CHECK_TABLES();
-    return DB_ERROR_NONE;
-
-Ldone:
     WUNLOCK_HASH(lck);	
     return ret;
 }
@@ -897,10 +852,7 @@ int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 	    HashDbTerm* b2 = b1->next;
 	    Eterm copy;
 
-	    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-		while(b2 != NULL && has_key(tb,b2,key,hval))
-		    b2 = b2->next;
-	    }
+            ASSERT(tb->common.status & DB_SET);
 	    copy = build_term_list(p, b1, b2, tb);
 	    CHECK_TABLES();
 	    *ret = copy;
@@ -914,70 +866,6 @@ done:
     return DB_ERROR_NONE;
 }
 
-int db_get_element_array(DbTable *tbl, 
-			 Eterm key,
-			 int ndex, 
-			 Eterm *ret,
-			 int *num_ret)
-{
-    DbTableHash *tb = &tbl->hash;
-    HashValue hval;
-    int ix;
-    HashDbTerm* b1;
-    int num = 0;
-    int retval;
-    erts_smp_rwmtx_t* lck;
-
-    ASSERT(!IS_FIXED(tbl)); /* no support for fixed tables here */
-
-    hval = MAKE_HASH(key);
-    lck = RLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, hval);
-    b1 = BUCKET(tb, ix);
-
-    while(b1 != 0) {
-	if (has_live_key(tb,b1,key,hval)) {
-	    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-		HashDbTerm* b;
-		HashDbTerm* b2 = b1->next;
-
-		while(b2 != NULL && has_live_key(tb,b2,key,hval)) {
-		    if (ndex > arityval(b2->dbterm.tpl[0])) {
-			retval = DB_ERROR_BADITEM;
-			goto done;
-		    }
-		    b2 = b2->next;
-		}
-
-		b = b1;
-		while(b != b2) {
-		    if (num < *num_ret) {
-			ret[num++] = b->dbterm.tpl[ndex];
-		    } else {
-			retval = DB_ERROR_NONE;
-			goto done;
-		    }
-		    b = b->next;
-		}
-		*num_ret = num;
-	    }
-	    else {
-		ASSERT(*num_ret > 0);
-		ret[0] = b1->dbterm.tpl[ndex];
-		*num_ret = 1;
-	    }
-	    retval = DB_ERROR_NONE;
-	    goto done;
-	}
-	b1 = b1->next;
-    }
-    retval = DB_ERROR_BADKEY;
-done:
-    RUNLOCK_HASH(lck);
-    return retval;
-}
-    
-    
 static int db_member_hash(DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableHash *tb = &tbl->hash;
@@ -1015,6 +903,7 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
     HashDbTerm* b1;
     erts_smp_rwmtx_t* lck;
     int retval;
+    Eterm *hp;
     
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb, hval);
@@ -1028,36 +917,8 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 		retval = DB_ERROR_BADITEM;
 		goto done;
 	    }
-	    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-		HashDbTerm* b;
-		HashDbTerm* b2 = b1->next;
-		Eterm elem_list = NIL;
-
-		while(b2 != NULL && has_key(tb,b2,key,hval)) {
-		    if (ndex > arityval(b2->dbterm.tpl[0])
-			&& b2->hvalue != INVALID_HASH) {
-			retval = DB_ERROR_BADITEM;
-			goto done;
-		    }
-		    b2 = b2->next;
-		}
-		b = b1;
-		while(b != b2) {
-		    if (b->hvalue != INVALID_HASH) {
-			Eterm *hp;
-			Eterm copy = db_copy_element_from_ets(&tb->common, p,
-							      &b->dbterm, ndex, &hp, 2);
-			elem_list = CONS(hp, copy, elem_list);
-			hp += 2;
-		    }
-		    b = b->next;
-		}
-		*ret = elem_list;
-	    }
-	    else {
-		Eterm* hp;
-		*ret = db_copy_element_from_ets(&tb->common, p, &b1->dbterm, ndex, &hp, 0);
-	    }
+            ASSERT(tb->common.status & DB_SET);
+            *ret = db_copy_element_from_ets(&tb->common, p, &b1->dbterm, ndex, &hp, 0);
 	    retval = DB_ERROR_NONE;
 	    goto done;
 	}
@@ -1067,54 +928,6 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 done:
     RUNLOCK_HASH(lck);
     return retval;
-}
-
-/*
- * Very internal interface, removes elements of arity two from 
- * BAG. Used for the PID meta table
- */
-int db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
-{
-    DbTableHash *tb = &tbl->hash;
-    HashValue hval;
-    int ix;
-    HashDbTerm** bp;
-    HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
-    int found = 0;
-
-    hval = MAKE_HASH(key);
-    lck = WLOCK_HASH(tb,hval);
-    ix = hash_to_ix(tb, hval);
-    bp = &BUCKET(tb, ix);
-    b = *bp;
-
-    ASSERT(!IS_FIXED(tb));
-    ASSERT((tb->common.status & DB_BAG));
-    ASSERT(!tb->common.compress);
-
-    while(b != 0) {
-	if (has_live_key(tb,b,key,hval)) {
-	    found = 1;
-	    if ((arityval(b->dbterm.tpl[0]) == 2) && 
-		EQ(value, b->dbterm.tpl[2])) {
-		*bp = b->next;
-		free_term(tb, b);
-		erts_smp_atomic_dec_nob(&tb->common.nitems);
-		b = *bp;
-		break;
-	    }
-	} else if (found) {
-		break;
-	}
-	bp = &b->next;
-	b = b->next;
-    }
-    WUNLOCK_HASH(lck);
-    if (found) {
-	try_shrink(tb);
-    }
-    return DB_ERROR_NONE;
 }
 	
 /*
@@ -1203,11 +1016,8 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 		    free_term(tb, b);
 		    b = *bp;
 		}
-		if (tb->common.status & (DB_DUPLICATE_BAG)) {
-		    continue;
-		} else {
-		    break;
-		}
+                ASSERT(tb->common.status & DB_SET);
+                break;
 	    }
 	}
 	else if (nitems_diff && b->hvalue != INVALID_HASH) {
