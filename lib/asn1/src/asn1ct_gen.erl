@@ -790,7 +790,7 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 
 
 pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
-    emit(["-export([encoding_rule/0,bit_string_format/0,"
+    emit(["-export([encoding_rule/0,bit_string_format/0,",nl,
 	  "         legacy_erlang_types/0]).",nl]),
     case Types of
 	[] -> ok;
