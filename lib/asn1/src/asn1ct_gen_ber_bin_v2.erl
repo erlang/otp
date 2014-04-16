@@ -537,7 +537,7 @@ gen_dec_prim(Att, BytesVar, DoTag) ->
 					    [{curr,val},{asis,NNL}]}])
 			     end);
 	{'ENUMERATED',NNL} ->
-	    call(decode_enumerated, [BytesVar,{asis,NNL},TagStr]);
+	    gen_dec_enumerated(BytesVar, NNL, TagStr);
 	'REAL' ->
 	    asn1ct_name:new(tmpbuf),
 	    emit(["begin",nl,
@@ -677,6 +677,32 @@ check_constraint(F, Args, Constr, PreConstr0, ReturnVal0) ->
 		  "end",nl,
 		 "end"])
     end.
+
+gen_dec_enumerated(BytesVar, NNL0, TagStr) ->
+    asn1ct_name:new(enum),
+    emit(["case ",
+	  {call,ber,decode_integer,[BytesVar,TagStr]},
+	  " of",nl]),
+    NNL = case NNL0 of
+	      {L1,L2} ->
+		  L1 ++ L2 ++ [accept];
+	      [_|_] ->
+		  NNL0 ++ [error]
+	  end,
+    gen_dec_enumerated_1(NNL),
+    emit("end").
+
+gen_dec_enumerated_1([accept]) ->
+    asn1ct_name:new(default),
+    emit([{curr,default}," -> {asn1_enum,",{curr,default},"}",nl]);
+gen_dec_enumerated_1([error]) ->
+    asn1ct_name:new(default),
+    emit([{curr,default}," -> exit({error,{asn1,{illegal_enumerated,",
+	  {curr,default},"}}})",nl]);
+gen_dec_enumerated_1([{V,K}|T]) ->
+    emit([{asis,K}," -> ",{asis,V},";",nl]),
+    gen_dec_enumerated_1(T).
+
     
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------

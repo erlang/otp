@@ -28,7 +28,7 @@
 	 encode_integer/2,encode_integer/3,
 	 decode_integer/2,
 	 number2name/2,
-	 encode_enumerated/2,decode_enumerated/3,
+	 encode_enumerated/2,
 	 encode_unnamed_bit_string/2,encode_unnamed_bit_string/3,
 	 encode_named_bit_string/3,encode_named_bit_string/4,
 	 encode_bit_string/4,
@@ -700,10 +700,7 @@ encode_integer_neg(N, Acc) ->
 %%===============================================================================
 
 decode_integer(Tlv, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    decode_integer(V).
-
-decode_integer(Bin) ->
+    Bin = match_tags(Tlv, TagIn),
     Len = byte_size(Bin),
     <<Int:Len/signed-unit:8>> = Bin,
     Int.
@@ -724,40 +721,6 @@ number2name(Int, NamedNumberList) ->
 %%============================================================================
 encode_enumerated(Val, TagIn) when is_integer(Val) ->
     encode_tags(TagIn, encode_integer(Val)).
-
-%%============================================================================
-%% decode enumerated value
-%%   (Buffer, Range, NamedNumberList, HasTag, TotalLen) ->  Value
-%%===========================================================================
-decode_enumerated(Tlv, NamedNumberList, Tags) ->
-    Buffer = match_tags(Tlv, Tags),
-    decode_enumerated_notag(Buffer, NamedNumberList, Tags).
-
-decode_enumerated_notag(Buffer, {NamedNumberList,ExtList}, _Tags) ->
-    IVal = decode_integer(Buffer),
-    case decode_enumerated1(IVal, NamedNumberList) of
-	{asn1_enum,IVal} ->
-	    decode_enumerated1(IVal,ExtList);
-	EVal ->
-	    EVal
-    end;
-decode_enumerated_notag(Buffer, NNList, _Tags) ->
-    IVal = decode_integer(Buffer),
-    case decode_enumerated1(IVal, NNList) of
-	{asn1_enum,_} ->
-	    exit({error,{asn1, {illegal_enumerated, IVal}}});
-	EVal ->
-	    EVal
-    end.
-
-decode_enumerated1(Val, NamedNumberList) ->
-    %% it must be a named integer
-    case lists:keyfind(Val, 2, NamedNumberList) of
-	{NamedVal, _} ->
-	    NamedVal;
-	_ ->
-	    {asn1_enum,Val}
-    end.
 
 %%============================================================================
 %% Bitstring value, ITU_T X.690 Chapter 8.6
