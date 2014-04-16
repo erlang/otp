@@ -31636,6 +31636,13 @@ case wxLocale_IsOk: { // wxLocale::IsOk
  rt.addBool(Result);
  break;
 }
+case wxActivateEvent_GetActive: { // wxActivateEvent::GetActive
+ wxActivateEvent *This = (wxActivateEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->GetActive();
+ rt.addBool(Result);
+ break;
+}
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) Ecmd.op);

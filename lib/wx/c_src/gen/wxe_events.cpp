@@ -298,6 +298,9 @@ void initEventTable()
    {wxEVT_TASKBAR_LEFT_DCLICK, 228, "taskbar_left_dclick"},
    {wxEVT_TASKBAR_RIGHT_DCLICK, 228, "taskbar_right_dclick"},
    {wxEVT_INIT_DIALOG, 229, "init_dialog"},
+   {wxEVT_ACTIVATE, 231, "activate"},
+   {wxEVT_ACTIVATE_APP, 231, "activate_app"},
+   {wxEVT_HIBERNATE, 231, "hibernate"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -810,6 +813,15 @@ case 229: {// wxInitDialogEvent
     rt.addAtom((char*)"wxInitDialog");
     rt.addAtom(Etype->eName);
     rt.addTupleCount(2);
+  break;
+}
+case 231: {// wxActivateEvent
+ wxActivateEvent * ev = (wxActivateEvent *) event;
+    evClass = (char*)"wxActivateEvent";
+    rt.addAtom((char*)"wxActivate");
+    rt.addAtom(Etype->eName);
+ rt.addBool(ev->GetActive());
+    rt.addTupleCount(3);
   break;
 }
  }

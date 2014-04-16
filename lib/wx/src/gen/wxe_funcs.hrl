@@ -3326,3 +3326,4 @@
 -define(wxLocale_GetSystemLanguage, 3548).
 -define(wxLocale_IsLoaded, 3549).
 -define(wxLocale_IsOk, 3550).
+-define(wxActivateEvent_GetActive, 3551).

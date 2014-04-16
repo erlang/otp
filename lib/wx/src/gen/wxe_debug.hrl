@@ -3329,6 +3329,7 @@ wxdebug_table() ->
  {3548, {wxLocale, getSystemLanguage, 0}},
  {3549, {wxLocale, isLoaded, 1}},
  {3550, {wxLocale, isOk, 0}},
+ {3551, {wxActivateEvent, getActive, 0}},
  {-1, {mod, func, -1}}
 ].
 

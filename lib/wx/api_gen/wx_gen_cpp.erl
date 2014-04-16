@@ -71,7 +71,8 @@ gen_derived_dest_2(C=#class{name=Class, options=Opts}) ->
 
     if Derived andalso (TaylorMade =:= false) ->
 	    case lists:keysearch(ifdef,1,Opts) of
-		{value, {ifdef, What}} -> w("#if ~p~n",[What]);
+		{value, {ifdef, What}} when is_list(What)-> w("#if ~s~n",[What]);
+		{value, {ifdef, What}} when is_atom(What) -> w("#if ~p~n",[What]);
 		_ -> ok
 	    end,
 	    w("class E~s : public ~s {~n",[Class,Class]),
@@ -270,7 +271,8 @@ gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
 	    false ->
 		case lists:keysearch(ifdef,1,Opts) of
 		    {value, {ifdef, What}} ->
-			w("#if ~p~n",[What]),
+			is_atom(What) andalso w("#if ~p~n",[What]),
+			is_list(What) andalso w("#if ~s~n",[What]),
 			Methods = lists:flatten(Ms),
 			MsR = [gen_method(Name,M) ||
 				  M <- lists:keysort(#method.id, Methods)],
