@@ -1046,9 +1046,10 @@ check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = dict:fetch_keys(Used),
     Undef = [{TA,dict:fetch(TA, Used)} ||
-		TA <- UTAs,
+		{T,_}=TA <- UTAs,
 		not dict:is_key(TA, Def),
-		not is_default_type(TA)],
+		not is_default_type(TA),
+                not is_newly_introduced_var_arity_type(T)],
     foldl(fun ({TA,L}, St) ->
 		  add_error(L, {undefined_type,TA}, St)
 	  end, St0, Undef).
