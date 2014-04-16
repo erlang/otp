@@ -115,7 +115,8 @@ options_tests() ->
      reuseaddr,
      tcp_reuseaddr,
      honor_server_cipher_order,
-     honor_client_cipher_order
+     honor_client_cipher_order,
+     ciphersuite_vs_version
 ].
 
 api_tests() ->
@@ -2558,6 +2559,38 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+%%--------------------------------------------------------------------
+ciphersuite_vs_version(Config) when is_list(Config) ->
+    
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerOpts = ?config(server_opts, Config),
+    
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
+    ok = gen_tcp:send(Socket, 
+		      <<22, 3,0, 49:16, % handshake, SSL 3.0, length
+			1, 45:24, % client_hello, length
+			3,0, % SSL 3.0
+			16#deadbeef:256, % 32 'random' bytes = 256 bits
+			0, % no session ID
+			%% three cipher suites -- null, one with sha256 hash and one with sha hash
+			6:16, 0,255, 0,61, 0,57, 
+			1, 0 % no compression
+		      >>),
+    {ok, <<22, RecMajor:8, RecMinor:8, _RecLen:16, 2, HelloLen:24>>} = gen_tcp:recv(Socket, 9, 10000),
+    {ok, <<HelloBin:HelloLen/binary>>} = gen_tcp:recv(Socket, HelloLen, 5000),
+    ServerHello = tls_handshake:decode_handshake({RecMajor, RecMinor}, 2, HelloBin),
+    case ServerHello of
+	#server_hello{server_version = {3,0}, cipher_suite = <<0,57>>} -> 
+	    ok;
+	_ ->
+	    ct:fail({unexpected_server_hello, ServerHello})
+    end.
+										
 %%--------------------------------------------------------------------
 
 hibernate() ->

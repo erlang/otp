@@ -357,11 +357,7 @@ cipher_suites(openssl) ->
     [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)];
 cipher_suites(all) ->
     Version = tls_record:highest_protocol_version([]),
-    Supported = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites()
-	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites(),
-    [suite_definition(S) || S <- Supported].
+    [suite_definition(S) || S <- ssl_cipher:all_suites(Version)].
 
 %%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
@@ -953,7 +949,7 @@ handle_cipher_option(Value, Version)  when is_list(Value) ->
 	error:_->
 	    throw({error, {options, {ciphers, Value}}})
     end.
-binary_cipher_suites(Version, []) -> %% Defaults to all supported suits
+binary_cipher_suites(Version, []) -> % Defaults to all supported suites
     ssl_cipher:suites(Version);
 binary_cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
     Ciphers = [{KeyExchange, Cipher, Hash} || {KeyExchange, Cipher, Hash, _} <- Ciphers0],
