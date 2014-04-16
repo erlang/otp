@@ -16774,6 +16774,15 @@ case wxTextCtrl_DiscardEdits: { // wxTextCtrl::DiscardEdits
  This->DiscardEdits();
  break;
 }
+case wxTextCtrl_ChangeValue: { // wxTextCtrl::ChangeValue
+ wxTextCtrl *This = (wxTextCtrl *) getPtr(bp,memenv); bp += 4;
+ int * valueLen = (int *) bp; bp += 4;
+ wxString value = wxString(bp, wxConvUTF8);
+ bp += *valueLen+((8-((0+ *valueLen) & 7)) & 7);
+ if(!This) throw wxe_badarg(0);
+ This->ChangeValue(value);
+ break;
+}
 case wxTextCtrl_EmulateKeyPress: { // wxTextCtrl::EmulateKeyPress
  wxTextCtrl *This = (wxTextCtrl *) getPtr(bp,memenv); bp += 4;
  wxKeyEvent *event = (wxKeyEvent *) getPtr(bp,memenv); bp += 4;

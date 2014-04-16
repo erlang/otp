@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,8 +29,8 @@
 
 -module(wxTextCtrl).
 -include("wxe.hrl").
--export([appendText/2,canCopy/1,canCut/1,canPaste/1,canRedo/1,canUndo/1,clear/1,
-  copy/1,create/3,create/4,cut/1,destroy/1,discardEdits/1,emulateKeyPress/2,
+-export([appendText/2,canCopy/1,canCut/1,canPaste/1,canRedo/1,canUndo/1,changeValue/2,
+  clear/1,copy/1,create/3,create/4,cut/1,destroy/1,discardEdits/1,emulateKeyPress/2,
   getDefaultStyle/1,getInsertionPoint/1,getLastPosition/1,getLineLength/2,
   getLineText/2,getNumberOfLines/1,getRange/3,getSelection/1,getStringSelection/1,
   getStyle/3,getValue/1,isEditable/1,isModified/1,isMultiLine/1,isSingleLine/1,
@@ -231,6 +231,16 @@ discardEdits(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:cast(?wxTextCtrl_DiscardEdits,
   <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextctrl.html#wxtextctrlchangevalue">external documentation</a>.
+-spec changeValue(This, Value) -> ok when
+	This::wxTextCtrl(), Value::unicode:chardata().
+changeValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
+ when is_list(Value) ->
+  ?CLASS(ThisT,wxTextCtrl),
+  Value_UC = unicode:characters_to_binary([Value,0]),
+  wxe_util:cast(?wxTextCtrl_ChangeValue,
+  <<ThisRef:32/?UI,(byte_size(Value_UC)):32/?UI,(Value_UC)/binary, 0:(((8- ((0+byte_size(Value_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextctrl.html#wxtextctrlemulatekeypress">external documentation</a>.
 -spec emulateKeyPress(This, Event) -> boolean() when
