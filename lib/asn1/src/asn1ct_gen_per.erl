@@ -32,6 +32,7 @@
 -export([gen_encode/2, gen_encode/3]).
 -export([gen_dec_external/2]).
 -export([extaddgroup2sequence/1]).
+-export([dialyzer_suppressions/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 -import(asn1ct_func, [call/3]).
@@ -39,6 +40,9 @@
 
 %% Generate ENCODING ******************************
 %%****************************************x
+
+dialyzer_suppressions(_) ->
+    emit(["    ok.",nl]).
 
 
 gen_encode(Erules,Type) when is_record(Type,typedef) ->

@@ -19,7 +19,8 @@
 %%
 
 -module(asn1ct_func).
--export([start_link/0,need/1,call/3,call_gen/3,call_gen/4,generate/1]).
+-export([start_link/0,need/1,call/3,call_gen/3,call_gen/4,
+	 generate/1,is_used/1]).
 -export([init/1,handle_call/3,handle_cast/2,terminate/2]).
 
 start_link() ->
@@ -63,6 +64,10 @@ generate(Fd) ->
     Funcs = sofs:to_external(Funcs0),
     ok = file:write(Fd, Funcs).
 
+is_used({_,_,_}=MFA) ->
+    req({is_used,MFA}).
+
+
 req(Req) ->
     gen_server:call(get(?MODULE), Req, infinity).
 
@@ -103,7 +108,10 @@ handle_call({gen_func,Prefix,Key,GenFun}, _From, #st{gen=G0,gc=Gc0}=St) ->
 	    {reply,Name,St#st{gen=G,gc=Gc}};
 	{value,{Name,_}} ->
 	    {reply,Name,St}
-    end.
+    end;
+handle_call({is_used,MFA}, _From, #st{used=Used}=St) ->
+    {reply,gb_sets:is_member(MFA, Used),St}.
+
 
 terminate(_, _) ->
     ok.

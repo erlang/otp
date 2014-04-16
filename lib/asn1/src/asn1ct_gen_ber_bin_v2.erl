@@ -32,6 +32,7 @@
 -export([encode_tag_val/3]).
 -export([gen_inc_decode/2,gen_decode_selected/3]).
 -export([extaddgroup2sequence/1]).
+-export([dialyzer_suppressions/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 
@@ -64,6 +65,17 @@
 %%===============================================================================
 %%===============================================================================
 %%===============================================================================
+
+dialyzer_suppressions(_) ->
+    case asn1ct:use_legacy_types() andalso
+	asn1ct_func:is_used({ber,encode_bit_string,4}) of
+	false ->
+	    ok;
+	true ->
+	    emit(["    {A,B,C,D} = Arg,",nl,
+		  "    encode_bit_string(A, B, C, D),",nl])
+    end,
+    emit(["    ok.",nl]).
 
 %%===============================================================================
 %% encode #{typedef, {pos, name, typespec}}

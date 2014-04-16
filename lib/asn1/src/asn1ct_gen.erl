@@ -43,6 +43,8 @@
 -export([gen_encode_constructed/4,
 	 gen_decode_constructed/4]).
 
+-define(SUPPRESSION_FUNC, 'dialyzer-suppressions').
+
 %% pgen(Outfile, Erules, Module, TypeOrVal, Options)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
 %% .hrl file is only generated if necessary
@@ -85,12 +87,18 @@ pgen_module(OutFile,Erules,Module,
 	  "%%%",nl,
 	  "%%% Run-time functions.",nl,
 	  "%%%",nl]),
+    dialyzer_suppressions(Erules),
     Fd = get(gen_file_out),
     asn1ct_func:generate(Fd),
     close_output_file(),
     _ = erase(outfile),
     asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
+dialyzer_suppressions(Erules) ->
+    emit([nl,
+	  {asis,?SUPPRESSION_FUNC},"(Arg) ->",nl]),
+    Rtmod = ct_gen_module(Erules),
+    Rtmod:dialyzer_suppressions(Erules).
 
 pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
     Rtmod = ct_gen_module(Erules),
@@ -791,6 +799,7 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
     emit(["-export([encoding_rule/0,bit_string_format/0,",nl,
 	  "         legacy_erlang_types/0]).",nl]),
+    emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
     case Types of
 	[] -> ok;
 	_ ->
