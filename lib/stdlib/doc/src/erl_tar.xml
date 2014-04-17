@@ -127,7 +127,7 @@
       <fsummary>Add a file to an open tar file</fsummary>
       <type>
         <v>TarDescriptor = term()</v>
-        <v>FilenameOrBin = Filename()|binary()</v>
+        <v>FilenameOrBin = filename()|binary()</v>
         <v>Filename = filename()</v>
         <v>NameInArchive = filename()</v>
         <v>Options = [Option]</v>
