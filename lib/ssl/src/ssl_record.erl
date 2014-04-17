@@ -377,7 +377,7 @@ cipher(Version, Fragment,
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
 %%--------------------------------------------------------------------
--spec decipher(ssl_version(), binary(), #connection_state{}) -> {binary(), binary(), #connection_state{}}.
+-spec decipher(ssl_version(), binary(), #connection_state{}) -> {binary(), binary(), #connection_state{}} | #alert{}.
 %%
 %% Description: Payload decryption
 %%--------------------------------------------------------------------
