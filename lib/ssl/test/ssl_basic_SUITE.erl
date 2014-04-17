@@ -187,7 +187,9 @@ error_handling_tests()->
      tcp_error_propagation_in_active_mode,
      tcp_connect,
      tcp_connect_big,
-     close_transport_accept
+     close_transport_accept,
+     recv_active,
+     recv_active_once
     ].
 
 rizzo_tests() ->
@@ -1154,6 +1156,57 @@ close_transport_accept(Config) when is_list(Config) ->
 	Other ->
 	    exit({?LINE, Other})
     end.
+%%--------------------------------------------------------------------
+recv_active() ->
+    [{doc,"Test recv on active socket"}].
+
+recv_active(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()}, 
+				   {mfa, {?MODULE, try_recv_active, []}},
+				   {options,  [{active, true} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = 
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+				   {host, Hostname},
+				   {from, self()}, 
+				   {mfa, {?MODULE, try_recv_active, []}},
+				   {options, [{active, true} | ClientOpts]}]),
+        
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+recv_active_once() ->
+    [{doc,"Test recv on active socket"}].
+
+recv_active_once(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()}, 
+				   {mfa, {?MODULE, try_recv_active_once, []}},
+				   {options,  [{active, once} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = 
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+				   {host, Hostname},
+				   {from, self()}, 
+				   {mfa, {?MODULE, try_recv_active_once, []}},
+				   {options, [{active, once} | ClientOpts]}]),
+        
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 dh_params() ->
@@ -3582,3 +3635,11 @@ version_option_test(Config, Version) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+try_recv_active(Socket) ->
+    ssl:send(Socket, "Hello world"),
+    {error, einval} = ssl:recv(Socket, 11),
+    ok.
+try_recv_active_once(Socket) ->
+    {error, einval} = ssl:recv(Socket, 11),
+    ok.
