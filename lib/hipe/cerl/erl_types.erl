@@ -2985,16 +2985,19 @@ inf_union(U1, U2, Opaques) ->
         List = [A,B,F,I,L,N,T,M,Map],
         inf_union_collect(List, Opaque, InfFun, [], [])
     end,
-  O1 = OpaqueFun(U1, U2, fun(E, Opaque) -> t_inf(Opaque, E, Opaques) end),
-  O2 = OpaqueFun(U2, U1, fun(E, Opaque) -> t_inf(E, Opaque, Opaques) end),
-  Union = inf_union(U1, U2, 0, [], Opaques),
-  t_sup([O1, O2, Union]).
+  {O1, ThrowList1} =
+    OpaqueFun(U1, U2, fun(E, Opaque) -> t_inf(Opaque, E, Opaques) end),
+  {O2, ThrowList2}
+    = OpaqueFun(U2, U1, fun(E, Opaque) -> t_inf(E, Opaque, Opaques) end),
+  {Union, ThrowList3} = inf_union(U1, U2, 0, [], [], Opaques),
+  ThrowList = lists:merge3(ThrowList1, ThrowList2, ThrowList3),
+  case t_sup([O1, O2, Union]) of
+    ?none when ThrowList =/= [] -> throw(hd(ThrowList));
+    Sup -> Sup
+  end.
 
 inf_union_collect([], _Opaque, _InfFun, InfList, ThrowList) ->
-  case t_sup(InfList) of
-    ?none when ThrowList =/= [] -> throw(hd(lists:flatten(ThrowList)));
-    Sup -> Sup
-  end;
+  {t_sup(InfList), lists:usort(ThrowList)};
 inf_union_collect([?none|L], Opaque, InfFun, InfList, ThrowList) ->
   inf_union_collect(L, Opaque, InfFun, [?none|InfList], ThrowList);
 inf_union_collect([E|L], Opaque, InfFun, InfList, ThrowList) ->
@@ -3005,19 +3008,21 @@ inf_union_collect([E|L], Opaque, InfFun, InfList, ThrowList) ->
       inf_union_collect(L, Opaque, InfFun, InfList, [N|ThrowList])
   end.
 
-inf_union([?none|Left1], [?none|Left2], N, Acc, Opaques) ->
-  inf_union(Left1, Left2, N, [?none|Acc], Opaques);
-inf_union([T1|Left1], [T2|Left2], N, Acc, Opaques) ->
-  case t_inf(T1, T2, Opaques) of
-    ?none -> inf_union(Left1, Left2, N, [?none|Acc], Opaques);
-    T     -> inf_union(Left1, Left2, N+1, [T|Acc], Opaques)
+inf_union([?none|Left1], [?none|Left2], N, Acc, ThrowList, Opaques) ->
+  inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
+inf_union([T1|Left1], [T2|Left2], N, Acc, ThrowList, Opaques) ->
+  try t_inf(T1, T2, Opaques) of
+    ?none -> inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
+    T     -> inf_union(Left1, Left2, N+1, [T|Acc], ThrowList, Opaques)
+  catch throw:N when is_integer(N) ->
+      inf_union(Left1, Left2, N, [?none|Acc], [N|ThrowList], Opaques)
   end;
-inf_union([], [], N, Acc, _Opaques) ->
-  if N =:= 0 -> ?none;
+inf_union([], [], N, Acc, ThrowList, _Opaques) ->
+  if N =:= 0 -> {?none, ThrowList};
      N =:= 1 ->
       [Type] = [T || T <- Acc, T =/= ?none],
-      Type;
-     N >= 2  -> ?union(lists:reverse(Acc))
+      {Type, ThrowList};
+     N >= 2  -> {?union(lists:reverse(Acc)), ThrowList}
   end.
 
 inf_bitstr(U1, B1, U2, B2) ->
