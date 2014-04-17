@@ -107,6 +107,7 @@ appup_file(Config) when is_list(Config) ->
 basic(suite) -> [];
 basic(doc) -> [""];
 basic(Config) when is_list(Config) ->
+    timer:send_after(100, "foobar"), %% Otherwise the timer sever gets added to procs
     ProcsBefore = processes(),
     NumProcsBefore = length(ProcsBefore),
 
@@ -243,12 +244,10 @@ table_win(Config) when is_list(Config) ->
     %% Modal can not test edit..
     %% TPid = wx_object:get_pid(TObj),
     %% TPid ! #wx{event=#wxList{type=command_list_item_activated, itemIndex=12}},
-    timer:sleep(2000),
+    timer:sleep(3000),
     wx_object:get_pid(TObj) ! #wx{event=#wxClose{type=close_window}},
     observer:stop(),
     ok.
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

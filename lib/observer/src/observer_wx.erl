@@ -388,6 +388,7 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, #state{frame = Frame}) ->
     wxFrame:destroy(Frame),
+    wx:destroy(),
     ok.
 
 code_change(_, _, State) ->
