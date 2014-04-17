@@ -52,7 +52,7 @@
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
 	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
-          otp_11772/1, otp_11771/1,
+          otp_11772/1, otp_11771/1, otp_11872/1,
           export_all/1,
 	  bif_clash/1,
 	  behaviour_basic/1, behaviour_multiple/1,
@@ -88,7 +88,7 @@ all() ->
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
-     otp_11772, otp_11771, export_all,
+     otp_11772, otp_11771, otp_11872, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
@@ -2628,6 +2628,29 @@ otp_11771(Config) when is_list(Config) ->
              {9,erl_lint,{builtin_type,{iodata,0}}},
              {10,erl_lint,{builtin_type,{boolean,0}}}],
      []} = run_test2(Config, Ts, []),
+    ok.
+
+otp_11872(doc) ->
+    "OTP-11872. The type map() undefined when exported.";
+otp_11872(suite) -> [];
+otp_11872(Config) when is_list(Config) ->
+    Ts = <<"
+            -module(map).
+
+            -compile(export_all).
+
+            -export_type([map/0, product/0]).
+
+            -opaque map() :: dict().
+
+            -spec t() -> map().
+
+            t() ->
+                1.
+         ">>,
+    {error,[{6,erl_lint,{undefined_type,{product,0}}}],
+     [{8,erl_lint,{new_var_arity_type,map}}]} =
+        run_test2(Config, Ts, []),
     ok.
 
 export_all(doc) ->
