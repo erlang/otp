@@ -2446,7 +2446,9 @@ write_config_file(Dir, FileName, Verify, Write)
 	throw:Error ->
 	    Error;
 	  T:E ->
-	    {error, {failed_write, Dir, FileName, T, E}}
+	    {error,
+	     {failed_write, Dir, FileName,
+	      {T, E, erlang:get_stacktrace()}}}
     end.
 
 

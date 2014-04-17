@@ -596,6 +596,8 @@ mk_taddress(?transportDomainUdpIpv6, Address) ->
 %%
 mk_taddress(transportDomainUdpIpv4 = Domain, Address) ->
     case Address of
+	[] -> % Empty mask
+	    [];
 	{Ip, Port} when tuple_size(Ip) =:= 4, is_integer(Port) ->
 	    tuple_to_list(Ip) ++ mk_bytes(Port);
 	_ ->
@@ -603,6 +605,8 @@ mk_taddress(transportDomainUdpIpv4 = Domain, Address) ->
     end;
 mk_taddress(transportDomainUdpIpv6 = Domain, Address) ->
     case Address of
+	[] -> % Empty mask
+	    [];
 	{Ip, Port}
 	  when tuple_size(Ip) =:= 8, is_integer(Port) ->
 	    tuple_to_list(Ip) ++ mk_bytes(Port);
@@ -710,14 +714,14 @@ check_ip(X) ->
 
 check_ip(snmpUDPDomain, X) ->
     check_ip(transportDomainUdpIpv4, X);
-check_ip(transportDomainUdpIpv4, X) ->
+check_ip(transportDomainUdpIpv4 = Domain, X) ->
     case X of
 	[A,B,C,D] when ?is_ipv4_addr(A, B, C, D) ->
 	    ok;
 	_ ->
-	    error({invalid_ip_address, X})
+	    error({bad_address, {Domain, X}})
     end;
-check_ip(transportDomainUdpIpv6, X) ->
+check_ip(transportDomainUdpIpv6 = Domain, X) ->
     case X of
 	[A,B,C,D,E,F,G,H]
 	  when ?is_ipv6_addr(A, B, C, D, E, F, G, H) ->
@@ -727,7 +731,7 @@ check_ip(transportDomainUdpIpv6, X) ->
 		  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) ->
 	    ok;
 	_ ->
-	    error({invalid_ip_address, X})
+	    error({bad_address, {Domain, X}})
     end;
 %%
 check_ip(BadDomain, _X) ->
@@ -744,7 +748,7 @@ check_address(Domain, Address, DefaultPort) ->
 	false ->
 	    case check_address_ip_port(Domain, Address) of
 		false ->
-		    error({invalid_address, {Domain, Address}});
+		    error({bad_address, {Domain, Address}});
 		true ->
 		    {ok, Address};
 		FixedAddress ->
@@ -759,7 +763,7 @@ check_address(Domain, Address, DefaultPort) ->
 check_address(Domain, Address) ->
     case check_address_ip_port(Domain, Address) of
 	false ->
-	    error({invalid_address, {Domain, Address}});
+	    error({bad_address, {Domain, Address}});
 	true ->
 	    {ok, Address};
 	FixedAddress ->

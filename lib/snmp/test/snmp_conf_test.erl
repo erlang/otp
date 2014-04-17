@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -401,7 +401,7 @@ check_taddress(Config) when is_list(Config) ->
     ok.
 
 verify_taddress(Val) ->
-    case (catch snmp_conf:check_taddress(Val)) of
+    case (catch snmp_conf:check_taddress(snmpUDPDomain, Val)) of
 	{error, Reason} ->
 	    ?FAIL({verify_taddress, Val, Reason});
 	ok ->
@@ -409,7 +409,7 @@ verify_taddress(Val) ->
     end.
 
 verify_not_taddress(Val) ->
-    case (catch snmp_conf:check_taddress(Val)) of
+    case (catch snmp_conf:check_taddress(snmpUDPDomain, Val)) of
 	ok ->
 	    ?FAIL({verify_taddress, Val});
 	{error, _Reason} ->

@@ -1702,7 +1702,10 @@ verify_agent(Conf) ->
     verify_agent(lists:sort(fun order_agent/2, Conf), []).
 
 verify_agent([], VerifiedConf) ->
-    list:reverse(VerifiedConf);
+    Ret = lists:reverse(VerifiedConf),
+    ?vdebug("verify_agent -> returns:~n"
+	    "   ~p", [Ret]),
+    Ret;
 verify_agent([{_Item, _} = Entry|Conf], VerifiedConf) ->
 %%    verify_invalid(VerifiedConf, [_Item]), % Check for duplicate
     verify_agent(Conf, VerifiedConf, Entry);
@@ -1744,11 +1747,11 @@ verify_agent(Conf, VerifiedConf, {address = Item, Address} = Entry) ->
 	{ok, {NAddress,FakePort}} ->
 	    verify_agent(Conf, [{Item, NAddress}|VC]);
 	{ok, _} ->
-	    error({invalid_address, {TDomain, Address}})
+	    error({bad_address, {TDomain, Address}})
     end;
 verify_agent(Conf, VerifiedConf, {port, Port} = Entry) ->
     verify_invalid(VerifiedConf, [taddress]),
-    ok = snmp_conf:check_address(snmpUDPDomain, {{0, 0, 0, 0}, Port}),
+    _ = snmp_conf:check_address(snmpUDPDomain, {{0, 0, 0, 0}, Port}),
     verify_agent(Conf, [Entry|VerifiedConf]);
 verify_agent(Conf, VerifiedConf, {Item, Val} = Entry) ->
     case verify_agent_entry(Item, Val) of
@@ -1846,7 +1849,7 @@ check_user_config({Id, Mod, Data, DefaultAgentConfig} = _User)
     end;
 check_user_config({Id, _Mod, _Data, DefaultAgentConfig}) 
   when (Id =/= ?DEFAULT_USER) ->
-    {error, {bad_default_agent_config, DefaultAgentConfig}};
+    error({bad_default_agent_config, DefaultAgentConfig});
 check_user_config({Id, _Mod, _Data, _DefaultAgentConfig}) ->
     error({bad_user_id, Id});
 check_user_config(User) ->
@@ -2146,7 +2149,7 @@ check_manager_config({engine_id, EngineID}) ->
 check_manager_config({max_message_size, Max}) ->
     snmp_conf:check_integer(Max, {gte, 484});
 check_manager_config(Conf) ->
-    {error, {unknown_config, Conf}}.
+    error({unknown_config, Conf}).
 
 
 check_mandatory_manager_config(Conf) ->
@@ -2709,7 +2712,7 @@ handle_register_agent(UserId, TargetName, Config) ->
 		    %% dirty crossref stuff
 		    ?vtrace("handle_register_agent -> lookup address", []),
 		    {ok, Addr} = agent_info(TargetName, address),
-		    ?vtrace("handle_register_agent -> Addr: ~p, lookup Port", 
+		    ?vtrace("handle_register_agent -> Addr: ~p, lookup Port",
 			    [Addr]),
 		    {ok, Port} = agent_info(TargetName, port),
 		    ?vtrace("handle_register_agent -> register cross-ref fix", []),
@@ -2737,7 +2740,7 @@ handle_register_agent(UserId, TargetName, Config) ->
 do_handle_register_agent(_TargetName, []) ->
     ok;
 do_handle_register_agent(TargetName, [{Item, Val}|Rest]) ->
-    ?vtrace("handle_register_agent -> entry with"
+    ?vtrace("do_handle_register_agent -> entry with"
 	    "~n   TargetName: ~p"
 	    "~n   Item:       ~p"
 	    "~n   Val:        ~p"
@@ -2746,7 +2749,7 @@ do_handle_register_agent(TargetName, [{Item, Val}|Rest]) ->
 	ok ->
 	    do_handle_register_agent(TargetName, Rest);
 	{error, Reason} ->
-	    ?vtrace("handle_register_agent -> failed updating ~p"
+	    ?vtrace("do_handle_register_agent -> failed updating ~p"
 		    "~n   Item:   ~p"
 		    "~n   Reason: ~p", [Item, Reason]),
 	    ets:match_delete(snmpm_agent_table, {TargetName, '_'}),

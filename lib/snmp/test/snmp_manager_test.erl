@@ -1508,7 +1508,7 @@ register_agent3(Config) when is_list(Config) ->
     TargetName2 = "agent3", 
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{tdomain,   transportDomainUdpIpv6},
-				   {address,   LocalHost},
+				   {address,   {0,0,0,0,0,0,0,1}},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
     TargetName3 = "agent4", 

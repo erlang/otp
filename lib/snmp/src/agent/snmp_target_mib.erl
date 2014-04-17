@@ -263,7 +263,7 @@ check_target_addr(
 	     TagList, Params, EngineId, Mask, MMS]),
     snmp_conf:check_string(Name,{gt,0}),
     snmp_conf:check_domain(Domain),
-    NAddress = snmp_conf:check_address(Domain, Address),
+    NAddress = check_address(Domain, Address),
     snmp_conf:check_integer(Timeout, {gte, 0}),
     snmp_conf:check_integer(RetryCount, {gte,0}),
     snmp_conf:check_string(TagList),
@@ -290,18 +290,19 @@ check_address(Domain, Address) ->
     case snmp_conf:check_address(Domain, Address) of
 	ok ->
 	    Address;
-	{ok, FixedAddress} ->
-	    FixedAddress
+	{ok, NAddress} ->
+	    NAddress
     end.
 
-check_mask(_Domain, []) ->
-    [];
+check_mask(_Domain, [] = Mask) ->
+    Mask;
 check_mask(Domain, Mask) ->
     try check_address(Domain, Mask)
     catch
-	{error, {invalid_address, Info}} ->
-	    error({invalid_mask, Info})
+	{error, {bad_address, Info}} ->
+	    error({bad_mask, Info})
     end.
+
 
 %%-----------------------------------------------------------------
 %%  TargetParams

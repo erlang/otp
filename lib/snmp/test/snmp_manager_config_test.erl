@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -693,7 +693,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
 		       "arne_anka", "4001", "500", "\"bmkEngine\""),
     ?line {error, Reason12} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason12]),
-    ?line {failed_check, _, _, 2, {invalid_ip_address, _}} = Reason12,
+    ?line {failed_check, _, _, 2, {bad_address, _}} = Reason12,
     await_config_not_running(),
 
     %% --
@@ -702,7 +702,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
 		       "9999", "4001", "500", "\"bmkEngine\""),
     ?line {error, Reason13} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason13]),
-    ?line {failed_check, _, _, 2, {invalid_ip_address, _}} = Reason13,
+    ?line {failed_check, _, _, 2, {bad_address, _}} = Reason13,
     await_config_not_running(),
 
     %% --
@@ -1073,7 +1073,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     case config_start(Opts) of
 	{error, Reason53} ->
 	    p("start failed (as expected): ~p", [Reason53]),
-	    ?line {failed_check, _, _, _, {invalid_ip_address, _}} = Reason53,
+	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason53,
 	    await_config_not_running();
 	OK_53 ->
 	    exit({error, {unexpected_success, "53", OK_53}})
@@ -1086,7 +1086,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     case config_start(Opts) of
 	{error, Reason54} ->
 	    p("start failed (as expected): ~p", [Reason54]),
-	    ?line {failed_check, _, _, _, {invalid_ip_address, _}} = Reason54,
+	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason54,
 	    await_config_not_running();
 	OK_54 ->
 	    exit({error, {unexpected_success, "54", OK_54}})
@@ -1098,7 +1098,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     write_agents_conf(ConfDir, [Agent55]),
     ?line {error, Reason55} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason55]),
-    ?line {failed_check, _, _, _, {invalid_ip_address, _}} = Reason55,
+    ?line {failed_check, _, _, _, {bad_address, _}} = Reason55,
     await_config_not_running(),
 
     %% --
@@ -1107,7 +1107,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     write_agents_conf(ConfDir, [Agent61]),
     ?line {error, Reason61} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason61]),
-    ?line {failed_check, _, _, _, {invalid_integer, _}} = Reason61,
+    ?line {failed_check, _, _, _, {bad_address, _}} = Reason61,
     await_config_not_running(),
 
     %% --
@@ -1116,7 +1116,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     write_agents_conf(ConfDir, [Agent62]),
     ?line {error, Reason62} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason62]),
-    ?line {failed_check, _, _, _, {invalid_integer, _}} = Reason62,
+    ?line {failed_check, _, _, _, {bad_address, _}} = Reason62,
     await_config_not_running(),
 
     %% --
@@ -1125,7 +1125,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     write_agents_conf(ConfDir, [Agent63]),
     ?line {error, Reason63} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason63]),
-    ?line {failed_check, _, _, _, {invalid_integer, _}} = Reason63,
+    ?line {failed_check, _, _, _, {bad_address, _}} = Reason63,
     await_config_not_running(),
 
     %% --
