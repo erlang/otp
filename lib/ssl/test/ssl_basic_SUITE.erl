@@ -190,7 +190,8 @@ error_handling_tests()->
      tcp_connect_big,
      close_transport_accept,
      recv_active,
-     recv_active_once
+     recv_active_once,
+     dont_crash_on_handshake_garbage
     ].
 
 rizzo_tests() ->
@@ -2644,6 +2645,49 @@ ciphersuite_vs_version(Config) when is_list(Config) ->
 	    ct:fail({unexpected_server_hello, ServerHello})
     end.
 										
+%%--------------------------------------------------------------------
+
+dont_crash_on_handshake_garbage() ->
+    [{doc, "Ensure SSL server worker thows an alert on garbage during handshake "
+      "instead of crashing and exposing state to user code"}].
+
+dont_crash_on_handshake_garbage(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    unlink(Server), monitor(process, Server),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
+
+    % Send hello and garbage record
+    ok = gen_tcp:send(Socket,
+                      [<<22, 3,3, 49:16, 1, 45:24, 3,3, % client_hello
+                         16#deadbeef:256, % 32 'random' bytes = 256 bits
+                         0, 6:16, 0,255, 0,61, 0,57, 1, 0 >>, % some hello values
+
+                       <<22, 3,3, 5:16, 92,64,37,228,209>> % garbage
+                      ]),
+    % Send unexpected change_cipher_spec
+    ok = gen_tcp:send(Socket, <<20, 0,0,12, 111,40,244,7,137,224,16,109,197,110,249,152>>),
+
+    % Ensure we receive an alert, not sudden disconnect
+    {ok, <<21, _/binary>>} = drop_handshakes(Socket, 1000).
+
+drop_handshakes(Socket, Timeout) ->
+    {ok, <<RecType:8, _RecMajor:8, _RecMinor:8, RecLen:16>> = Header} = gen_tcp:recv(Socket, 5, Timeout),
+    {ok, <<Frag:RecLen/binary>>} = gen_tcp:recv(Socket, RecLen, Timeout),
+    case RecType of
+        22 -> drop_handshakes(Socket, Timeout);
+        _ -> {ok, <<Header/binary, Frag/binary>>}
+    end.
+
+
 %%--------------------------------------------------------------------
 
 hibernate() ->
