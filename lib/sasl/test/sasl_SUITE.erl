@@ -29,7 +29,7 @@
 	 log_mf_h_env/1]).
 
 all() -> 
-    [log_mf_h_env, app_test, appup_test].
+    [log_mf_h_env, log_file, app_test, appup_test].
 
 groups() -> 
     [].
@@ -177,6 +177,24 @@ log_mf_h_env(Config) ->
 
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     ok = application:start(sasl).
+
+log_file(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    LogDir  = filename:join(PrivDir,sasl_SUITE_log_dir),
+    ok      = file:make_dir(LogDir),
+    File    = filename:join(LogDir, "file.log"),
+    application:stop(sasl),
+    SaslEnv = application:get_all_env(sasl),
+    lists:foreach(fun({E,_V}) -> application:unset_env(sasl,E) end, SaslEnv),
+
+    ok = application:set_env(sasl,sasl_error_logger,{file, File}),
+    ok = application:start(sasl),
+    true = filelib:is_file(File),
+
+    application:stop(sasl),
+    ok = application:set_env(sasl,sasl_error_logger,{file, File, [append]}),
+    ok = application:start(sasl),
+    true = filelib:is_file(File).
 
 
 %%-----------------------------------------------------------------

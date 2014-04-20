@@ -55,7 +55,9 @@ get_sasl_error_logger() ->
     case application:get_env(sasl, sasl_error_logger) of
 	{ok, false} -> undefined;
 	{ok, tty} -> tty;
-	{ok, {file, File}} when is_list(File) -> {file, File};
+	{ok, {file, File}} when is_list(File) -> {file, File, [write]};
+	{ok, {file, File, Modes}} when is_list(File), is_list(Modes) ->
+        {file, File, Modes};
 	{ok, Bad} -> exit({bad_config, {sasl, {sasl_error_logger, Bad}}});
 	_ -> undefined
     end.
@@ -125,9 +127,9 @@ delete_sasl_error_logger(Type) ->
     error_logger:delete_report_handler(mod(Type)).
 
 mod(tty) -> sasl_report_tty_h;
-mod({file, _File}) -> sasl_report_file_h.
+mod({file, _File, _Modes}) -> sasl_report_file_h.
 
-args({file, File}, Type) -> {File, type(Type)};
+args({file, File, Modes}, Type) -> {File, Modes, type(Type)};
 args(_, Type) -> type(Type).
 
 type(error) -> error;
