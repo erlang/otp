@@ -28,9 +28,9 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-init({File, Type}) ->
+init({File, Modes, Type}) when is_list(Modes) ->
     process_flag(trap_exit, true),
-    case file:open(File, [write]) of
+    case file:open(File, Modes) of
 	{ok,Fd} ->
 	    {ok, {Fd, File, Type}};
 	What ->
