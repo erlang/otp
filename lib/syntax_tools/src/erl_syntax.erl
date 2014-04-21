@@ -2071,7 +2071,7 @@ map_field_assoc_value(Node) ->
         {map_field_assoc, _, _, Value} ->
             Value;
         _ ->
-            (data(Node))#map_field_assoc.name
+            (data(Node))#map_field_assoc.value
     end.
 
 
@@ -2129,7 +2129,7 @@ map_field_exact_value(Node) ->
         {map_field_exact, _, _, Value} ->
             Value;
         _ ->
-            (data(Node))#map_field_exact.name
+            (data(Node))#map_field_exact.value
     end.
 
 
