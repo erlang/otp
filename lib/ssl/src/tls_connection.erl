@@ -208,11 +208,11 @@ hello(Hello = #client_hello{client_version = ClientVersion,
 		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
 		     ssl_options = SslOpts}) ->
-    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert}, Renegotiation) of
         {Version, {Type, Session},
 	 ConnectionStates, ServerHelloExt} ->
+            HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
             ssl_connection:hello({common_client_hello, Type, ServerHelloExt, HashSign},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,
