@@ -270,10 +270,6 @@
 	 record_index_expr/2,
 	 record_index_expr_field/1,
 	 record_index_expr_type/1,
-	 rule/2,
-	 rule_arity/1,
-	 rule_clauses/1,
-	 rule_name/1,
 	 size_qualifier/2,
 	 size_qualifier_argument/1,
 	 size_qualifier_body/1,
@@ -471,19 +467,16 @@
 %%   <td>record_field</td>
 %%  </tr><tr>
 %%   <td>record_index_expr</td>
-%%   <td>rule</td>
 %%   <td>size_qualifier</td>
 %%   <td>string</td>
-%%  </tr><tr>
 %%   <td>text</td>
+%%  </tr><tr>
 %%   <td>try_expr</td>
 %%   <td>tuple</td>
 %%   <td>underscore</td>
-%%  </tr><tr>
 %%   <td>variable</td>
+%%  </tr><tr>
 %%   <td>warning_marker</td>
-%%   <td></td>
-%%   <td></td>
 %%  </tr>
 %% </table></center>
 %%
@@ -539,7 +532,6 @@
 %% @see record_expr/2
 %% @see record_field/2
 %% @see record_index_expr/2
-%% @see rule/2
 %% @see size_qualifier/2
 %% @see string/1
 %% @see text/1
@@ -608,7 +600,6 @@ type(Node) ->
 	{record_field, _, _, _, _} -> record_access;
 	{record_index, _, _, _} -> record_index_expr;
 	{remote, _, _, _} -> module_qualifier;
-	{rule, _, _, _, _} -> rule;
 	{'try', _, _, _, _, _} -> try_expr;
 	{tuple, _, _} -> tuple;
 	_ ->
@@ -691,10 +682,9 @@ is_leaf(Node) ->
 %%   <td>`comment'</td>
 %%   <td>`error_marker'</td>
 %%   <td>`eof_marker'</td>
-%%   <td>`form_list'</td>
 %%  </tr><tr>
+%%   <td>`form_list'</td>
 %%   <td>`function'</td>
-%%   <td>`rule'</td>
 %%   <td>`warning_marker'</td>
 %%   <td>`text'</td>
 %%  </tr>
@@ -707,7 +697,6 @@ is_leaf(Node) ->
 %% @see error_marker/1
 %% @see form_list/1
 %% @see function/2
-%% @see rule/2
 %% @see warning_marker/1
 
 -spec is_form(syntaxTree()) -> boolean().
@@ -720,7 +709,6 @@ is_form(Node) ->
 	eof_marker -> true;
 	error_marker -> true;
 	form_list -> true;
-	rule -> true;
 	warning_marker -> true;
 	text -> true;
 	_ -> false
@@ -3478,7 +3466,6 @@ module_qualifier_body(Node) ->
 %% @see function_clauses/1
 %% @see function_arity/1
 %% @see is_form/1
-%% @see rule/2
 
 %% Don't use the name 'function' for this record, to avoid confusion with
 %% the tuples on the form {function,Name,Arity} used by erl_parse.
@@ -4770,117 +4757,6 @@ binary_comp_body(Node) ->
 	Node1 ->
 	    (data(Node1))#binary_comp.body
     end.
-
-
-%% =====================================================================
-%% @doc Creates an abstract Mnemosyne rule. If `Clauses' is
-%% `[C1, ..., Cn]', the results represents
-%% "<code><em>Name</em> <em>C1</em>; ...; <em>Name</em>
-%% <em>Cn</em>.</code>". More exactly, if each `Ci'
-%% represents "<code>(<em>Pi1</em>, ..., <em>Pim</em>) <em>Gi</em> ->
-%% <em>Bi</em></code>", then the result represents
-%% "<code><em>Name</em>(<em>P11</em>, ..., <em>P1m</em>) <em>G1</em> :-
-%% <em>B1</em>; ...; <em>Name</em>(<em>Pn1</em>, ..., <em>Pnm</em>)
-%% <em>Gn</em> :- <em>Bn</em>.</code>". Rules are source code forms.
-%%
-%% @see rule_name/1
-%% @see rule_clauses/1
-%% @see rule_arity/1
-%% @see is_form/1
-%% @see function/2
-
--record(rule, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
-
-%% type(Node) = rule
-%% data(Node) = #rule{name :: Name, clauses :: Clauses}
-%%
-%%	Name = syntaxTree()
-%%	Clauses = [syntaxTree()]
-%%
-%%	(See `function' for notes on why the arity is not stored.)
-%%
-%% `erl_parse' representation:
-%%
-%% {rule, Pos, Name, Arity, Clauses}
-%%
-%%	Name = atom()
-%%	Arity = integer()
-%%	Clauses = [Clause] \ []
-%%	Clause = {clause, ...}
-%%
-%%	where the number of patterns in each clause should be equal to
-%%	the integer `Arity'; see `clause' for documentation on
-%%	`erl_parse' clauses.
-
--spec rule(syntaxTree(), [syntaxTree()]) -> syntaxTree().
-
-rule(Name, Clauses) ->
-    tree(rule, #rule{name = Name, clauses = Clauses}).
-
-revert_rule(Node) ->
-    Name = rule_name(Node),
-    Clauses = [revert_clause(C) || C <- rule_clauses(Node)],
-    Pos = get_pos(Node),
-    case type(Name) of
-	atom ->
-	    A = rule_arity(Node),
-	    {rule, Pos, concrete(Name), A, Clauses};
-	_ ->
-	    Node
-    end.
-
-
-%% =====================================================================
-%% @doc Returns the name subtree of a `rule' node.
-%%
-%% @see rule/2
-
--spec rule_name(syntaxTree()) -> syntaxTree().
-
-rule_name(Node) ->
-    case unwrap(Node) of
-	{rule, Pos, Name, _, _} ->
-	    set_pos(atom(Name), Pos);
-	Node1 ->
-	    (data(Node1))#rule.name
-    end.
-
-%% =====================================================================
-%% @doc Returns the list of clause subtrees of a `rule' node.
-%%
-%% @see rule/2
-
--spec rule_clauses(syntaxTree()) -> [syntaxTree()].
-
-rule_clauses(Node) ->
-    case unwrap(Node) of
-	{rule, _, _, _, Clauses} ->
-	    Clauses;
-	Node1 ->
-	    (data(Node1))#rule.clauses
-    end.
-
-%% =====================================================================
-%% @doc Returns the arity of a `rule' node. The result is the
-%% number of parameter patterns in the first clause of the rule;
-%% subsequent clauses are ignored.
-%%
-%% An exception is thrown if `rule_clauses(Node)' returns
-%% an empty list, or if the first element of that list is not a syntax
-%% tree `C' of type `clause' such that
-%% `clause_patterns(C)' is a nonempty list.
-%%
-%% @see rule/2
-%% @see rule_clauses/1
-%% @see clause/3
-%% @see clause_patterns/1
-
--spec rule_arity(syntaxTree()) -> arity().
-
-rule_arity(Node) ->
-    %% Note that this never accesses the arity field of
-    %% `erl_parse' rule nodes.
-    length(clause_patterns(hd(rule_clauses(Node)))).
 
 
 %% =====================================================================
@@ -6368,8 +6244,6 @@ revert_root(Node) ->
 	    revert_record_expr(Node);
 	record_index_expr ->
 	    revert_record_index_expr(Node);
-	rule ->
-	    revert_rule(Node);
 	string ->
 	    revert_string(Node);
 	try_expr ->
@@ -6649,8 +6523,6 @@ subtrees(T) ->
 		record_index_expr ->
 		    [[record_index_expr_type(T)],
 		     [record_index_expr_field(T)]];
-		rule ->
-		    [[rule_name(T)], rule_clauses(T)];
 		size_qualifier ->
 		    [[size_qualifier_body(T)],
 		     [size_qualifier_argument(T)]];
@@ -6753,7 +6625,6 @@ make_tree(record_field, [[N]]) -> record_field(N);
 make_tree(record_field, [[N], [E]]) -> record_field(N, E);
 make_tree(record_index_expr, [[T], [F]]) ->
     record_index_expr(T, F);
-make_tree(rule, [[N], C]) -> rule(N, C);
 make_tree(size_qualifier, [[N], [A]]) -> size_qualifier(N, A);
 make_tree(try_expr, [B, C, H, A]) -> try_expr(B, C, H, A);
 make_tree(tuple, [E]) -> tuple(E).

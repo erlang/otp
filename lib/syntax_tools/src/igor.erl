@@ -1713,8 +1713,6 @@ transform(Tree, Env, St) ->
   	    transform_function(Tree, Env, St);
  	implicit_fun ->
  	    transform_implicit_fun(Tree, Env, St);
-  	rule ->
-  	    transform_rule(Tree, Env, St);
   	record_expr ->
   	    transform_record(Tree, Env, St);
   	record_index_expr ->
@@ -1777,27 +1775,6 @@ renaming_note(Name) ->
 
 rename_atom(Node, Atom) ->
     rewrite(Node, erl_syntax:atom(Atom)).
-
-%% Renaming Mnemosyne rules (just like function definitions)
-
-transform_rule(T, Env, St) ->
-    {T1, St1} = default_transform(T, Env, St),
-    F = erl_syntax_lib:analyze_rule(T1),
-    {V, Text} = case (Env#code.map)(F) of
-		    F ->
-			%% Not renamed
-			{none, []};
-		    {Atom, _Arity} ->
-			%% Renamed
-			Cs = erl_syntax:rule_clauses(T1),
-			N = rename_atom(
-			      erl_syntax:rule_name(T1),
-			      Atom),
-			T2 = rewrite(T1,
-				     erl_syntax:rule(N, Cs)),
-			{{value, T2}, renaming_note(Atom)}
-		end,
-    {maybe_modified(V, T1, 2, Text, Env), St1}.
 
 %% Renaming "implicit fun" expressions (done quietly).
 
