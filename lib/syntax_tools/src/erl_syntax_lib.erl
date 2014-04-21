@@ -1669,7 +1669,7 @@ analyze_record_attribute_tuple(Node) ->
 %%   <dt>`record_expr':</dt>
 %%     <dd>`{atom(), [{atom(), Value}]}'</dd>
 %%   <dt>`record_access':</dt>
-%%     <dd>`{atom(), atom()} | atom()'</dd>
+%%     <dd>`{atom(), atom()}'</dd>
 %%   <dt>`record_index_expr':</dt>
 %%     <dd>`{atom(), atom()}'</dd>
 %% </dl>
@@ -1679,9 +1679,7 @@ analyze_record_attribute_tuple(Node) ->
 %% listed in the order they appear. (See
 %% `analyze_record_field/1' for details on the field
 %% descriptors). For a `record_access' node,
-%% `Info' represents the record name and the field name (or
-%% if the record name is not included, only the field name; this is
-%% allowed only in Mnemosyne-query syntax). For a
+%% `Info' represents the record name and the field name. For a
 %% `record_index_expr' node, `Info' represents the
 %% record name and the name field name.
 %%
@@ -1713,18 +1711,14 @@ analyze_record_expr(Node) ->
 	    F = erl_syntax:record_access_field(Node),
 	    case erl_syntax:type(F) of
 		atom ->
-		    case erl_syntax:record_access_type(Node) of
-			none ->
-			    {record_access, erl_syntax:atom_value(F)};
-			A ->
-			    case erl_syntax:type(A) of
-				atom ->
-				    {record_access,
-				     {erl_syntax:atom_value(A),
-				      erl_syntax:atom_value(F)}};
-				_ ->
-				    throw(syntax_error)
-			    end
+		    A = erl_syntax:record_access_type(Node),
+                    case erl_syntax:type(A) of
+                        atom ->
+                            {record_access,
+                             {erl_syntax:atom_value(A),
+                              erl_syntax:atom_value(F)}};
+                        _ ->
+                            throw(syntax_error)
 		    end;
 		_ ->
 		    throw(syntax_error)

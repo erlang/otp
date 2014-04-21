@@ -851,14 +851,10 @@ lay_2(Node, Ctxt) ->
 		   floating(text(".")),
 		   lay(erl_syntax:record_access_field(Node),
 		       set_prec(Ctxt, PrecR))),
-	    D3 = case erl_syntax:record_access_type(Node) of
-		     none ->
-			 D2;
-		     T ->
-			 beside(beside(floating(text("#")),
-				       lay(T, reset_prec(Ctxt))),
-				D2)
-		 end,
+	    T = erl_syntax:record_access_type(Node),
+	    D3 = beside(beside(floating(text("#")),
+                               lay(T, reset_prec(Ctxt))),
+                        D2),
 	    maybe_parentheses(beside(D1, D3), Prec, Ctxt);
 
 	record_expr ->

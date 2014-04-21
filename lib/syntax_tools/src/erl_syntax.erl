@@ -254,7 +254,6 @@
 	 receive_expr_action/1,
 	 receive_expr_clauses/1,
 	 receive_expr_timeout/1,
-	 record_access/2,
 	 record_access/3,
 	 record_access_argument/1,
 	 record_access_field/1,
@@ -607,7 +606,6 @@ type(Node) ->
 	{record, _, _, _, _} -> record_expr;
 	{record, _, _, _} -> record_expr;
 	{record_field, _, _, _, _} -> record_access;
-	{record_field, _, _, _} -> record_access;
 	{record_index, _, _, _} -> record_index_expr;
 	{remote, _, _, _} -> module_qualifier;
 	{rule, _, _, _, _} -> rule;
@@ -4310,49 +4308,32 @@ record_index_expr_field(Node) ->
 
 
 %% =====================================================================
-%% @equiv record_access(Argument, none, Field)
-
--spec record_access(syntaxTree(), syntaxTree()) -> syntaxTree().
-
-record_access(Argument, Field) ->
-    record_access(Argument, none, Field).
-
-
-%% =====================================================================
-%% @doc Creates an abstract record field access expression. If
-%% `Type' is not `none', the result represents
-%% "<code><em>Argument</em>#<em>Type</em>.<em>Field</em></code>".
+%% @doc Creates an abstract record field access expression. The result
+%% represents "<code><em>Argument</em>#<em>Type</em>.<em>Field</em></code>".
 %%
-%% If `Type' is `none', the result represents
-%% "<code><em>Argument</em>.<em>Field</em></code>". This is a special
-%% form only allowed within Mnemosyne queries.
-%%
-%% @see record_access/2
 %% @see record_access_argument/1
 %% @see record_access_type/1
 %% @see record_access_field/1
 %% @see record_expr/3
 
 -record(record_access, {argument :: syntaxTree(),
-			type     :: 'none' | syntaxTree(),
+			type     :: syntaxTree(),
 			field    :: syntaxTree()}).
 
 %% type(Node) = record_access
 %% data(Node) = #record_access{argument :: Argument, type :: Type,
 %%			       field :: Field}
 %%
-%%	Argument = Field = syntaxTree()
-%%	Type = none | syntaxTree()
+%%	Argument = Type = Field = syntaxTree()
 %%
 %% `erl_parse' representation:
 %%
 %% {record_field, Pos, Argument, Type, Field}
-%% {record_field, Pos, Argument, Field}
 %%
 %%	Argument = Field = erl_parse()
 %%	Type = atom()
 
--spec record_access(syntaxTree(), 'none' | syntaxTree(), syntaxTree()) ->
+-spec record_access(syntaxTree(), syntaxTree(), syntaxTree()) ->
         syntaxTree().
 
 record_access(Argument, Type, Field) ->
@@ -4365,16 +4346,11 @@ revert_record_access(Node) ->
     Argument = record_access_argument(Node),
     Type = record_access_type(Node),
     Field = record_access_field(Node),
-    if Type =:= none ->
-	    {record_field, Pos, Argument, Field};
-       true ->
-	    case type(Type) of
-		atom ->
-		    {record_field, Pos,
-		     Argument, concrete(Type), Field};
-		_ ->
-		    Node
-	    end
+    case type(Type) of
+        atom ->
+            {record_field, Pos, Argument, concrete(Type), Field};
+        _ ->
+            Node
     end.
 
 
@@ -4387,8 +4363,6 @@ revert_record_access(Node) ->
 
 record_access_argument(Node) ->
     case unwrap(Node) of
-	{record_field, _, Argument, _} ->
-	    Argument;
 	{record_field, _, Argument, _, _} ->
 	    Argument;
 	Node1 ->
@@ -4397,21 +4371,14 @@ record_access_argument(Node) ->
 
 
 %% =====================================================================
-%% @doc Returns the type subtree of a `record_access' node,
-%% if any. If `Node' represents
-%% "<code><em>Argument</em>.<em>Field</em></code>", `none'
-%% is returned, otherwise if `Node' represents
-%% "<code><em>Argument</em>#<em>Type</em>.<em>Field</em></code>",
-%% `Type' is returned.
+%% @doc Returns the type subtree of a `record_access' node.
 %%
 %% @see record_access/3
 
--spec record_access_type(syntaxTree()) -> 'none' | syntaxTree().
+-spec record_access_type(syntaxTree()) -> syntaxTree().
 
 record_access_type(Node) ->
     case unwrap(Node) of
-	{record_field, _, _, _} ->
-	    none;
 	{record_field, Pos, _, Type, _} ->
 	    set_pos(atom(Type), Pos);
 	Node1 ->
@@ -4428,8 +4395,6 @@ record_access_type(Node) ->
 
 record_access_field(Node) ->
     case unwrap(Node) of
-	{record_field, _, _, Field} ->
-	    Field;
 	{record_field, _, _, _, Field} ->
 	    Field;
 	Node1 ->
@@ -6661,15 +6626,9 @@ subtrees(T) ->
 			     receive_expr_action(T)]
 		    end;
 		record_access ->
-		    case record_access_type(T) of
-			none ->
-			    [[record_access_argument(T)],
-			     [record_access_field(T)]];
-			R ->
-			    [[record_access_argument(T)],
-			     [R],
-			     [record_access_field(T)]]
-		    end;
+                    [[record_access_argument(T)],
+                     [record_access_type(T)],
+                     [record_access_field(T)]];
 		record_expr ->
 		    case record_expr_argument(T) of
 			none ->
@@ -6786,8 +6745,6 @@ make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
 make_tree(receive_expr, [C]) -> receive_expr(C);
 make_tree(receive_expr, [C, [E], A]) -> receive_expr(C, E, A);
-make_tree(record_access, [[E], [F]]) ->
-    record_access(E, F);
 make_tree(record_access, [[E], [T], [F]]) ->
     record_access(E, T, F);
 make_tree(record_expr, [[T], F]) -> record_expr(T, F);
