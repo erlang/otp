@@ -24,12 +24,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app_test/1,appup_test/1,smoke_test/1,revert/1]).
+-export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test,appup_test,smoke_test,revert].
+    [app_test,appup_test,smoke_test,revert,revert_map].
 
 groups() -> 
     [].
@@ -108,6 +108,16 @@ revert_file(File, Path) ->
             {ok,_} = compile:forms(Fs4, [report,strong_validation]),
             ok
     end.
+
+%% Testing bug fix for reverting map_field_assoc
+revert_map(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    ?line [{map_field_assoc,16,{atom,17,name},{var,18,'Value'}}] =
+        erl_syntax:revert_forms([{tree,map_field_assoc,
+                                  {attr,16,[],none},
+                                  {map_field_assoc,
+                                   {atom,17,name},{var,18,'Value'}}}]),
+    ?line ?t:timetrap_cancel(Dog).
 
 p_run(Test, List) ->
     N = erlang:system_info(schedulers),
