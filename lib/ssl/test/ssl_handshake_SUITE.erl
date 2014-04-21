@@ -26,6 +26,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -36,7 +37,8 @@ all() -> [decode_hello_handshake,
 	  decode_single_hello_extension_correctly,
 	  decode_supported_elliptic_curves_hello_extension_correctly,
 	  decode_unknown_hello_extension_correctly,
-	  encode_single_hello_sni_extension_correctly].
+	  encode_single_hello_sni_extension_correctly,
+	  select_proper_tls_1_2_rsa_default_hashsign].
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -95,3 +97,11 @@ encode_single_hello_sni_extension_correctly(_Config) ->
     HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
     Encoded = ssl_handshake:encode_hello_extensions(Exts),
     HelloExt = Encoded.
+
+select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
+    % RFC 5246 section 7.4.1.4.1 tells to use {sha1,rsa} as default signature_algorithm for RSA key exchanges
+    {sha, rsa} = ssl_handshake:select_cert_hashsign(undefined, ?rsaEncryption, {3,3}),
+    % Older versions use MD5/SHA1 combination
+    {md5sha, rsa} = ssl_handshake:select_cert_hashsign(undefined, ?rsaEncryption, {3,2}),
+    {md5sha, rsa} = ssl_handshake:select_cert_hashsign(undefined, ?rsaEncryption, {3,0}).
+

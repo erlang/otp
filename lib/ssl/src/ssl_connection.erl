@@ -441,8 +441,9 @@ certify(#server_key_exchange{} = Msg,
     Connection:handle_unexpected_message(Msg, certify_server_keyexchange, State);
 
 certify(#certificate_request{hashsign_algorithms = HashSigns},
-	#state{session = #session{own_certificate = Cert}} = State0, Connection) ->
-    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
+	#state{session = #session{own_certificate = Cert},
+        negotiated_version = Version} = State0, Connection) ->
+    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
     {Record, State} = Connection:next_record(State0#state{client_certificate_requested = true}),
     Connection:next_state(certify, certify, Record,
 			  State#state{cert_hashsign_algorithm = HashSign});
