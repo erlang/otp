@@ -635,6 +635,9 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
 						       Major >= 3 andalso Minor >= 3 ->
     HashSign;
+select_cert_hashsign(undefined, ?rsaEncryption, {Major, Minor}) when 
+        is_integer(Major) andalso Major >= 3 andalso is_integer(Minor) andalso Minor >= 3 ->
+    {sha, rsa};
 select_cert_hashsign(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
 select_cert_hashsign(undefined, ?rsaEncryption, _) ->
