@@ -73,7 +73,7 @@
 	]).
 
 %% MISC
--export([select_version/3, prf/5, select_hashsign/2, select_cert_hashsign/3,
+-export([select_version/3, prf/5, select_hashsign/3, select_cert_hashsign/3,
 	 premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %%====================================================================
@@ -591,22 +591,22 @@ prf({3,1}, Secret, Label, Seed, WantedLength) ->
 prf({3,_N}, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
 %%--------------------------------------------------------------------
--spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | binary()) ->
+-spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | binary(), ssl_record:ssl_version()) ->
 			      [{atom(), atom()}] | undefined.
 
 %%
 %% Description:
 %%--------------------------------------------------------------------
-select_hashsign(_, undefined) ->
+select_hashsign(_, undefined, _Version) ->
     {null, anon};
-select_hashsign(undefined,  Cert) ->
+select_hashsign(undefined,  Cert, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    select_cert_hashsign(undefined, Algo, {undefined, undefined});
-select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
+    select_cert_hashsign(undefined, Algo, Version);
+select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} =public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    DefaultHashSign = {_, Sign} = select_cert_hashsign(undefined, Algo, {undefined, undefined}),
+    DefaultHashSign = {_, Sign} = select_cert_hashsign(undefined, Algo, Version),
     case lists:filter(fun({sha, dsa}) ->
 			      true;
 			 ({_, dsa}) ->
@@ -623,7 +623,7 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 	    HashSign
     end.
 %%--------------------------------------------------------------------
--spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version() | {undefined, undefined}) ->
+-spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version()) ->
 				  {atom(), atom()}.
 
 %%
@@ -635,8 +635,7 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
 						       Major >= 3 andalso Minor >= 3 ->
     HashSign;
-select_cert_hashsign(undefined, ?rsaEncryption, {Major, Minor}) when 
-        is_integer(Major) andalso Major >= 3 andalso is_integer(Minor) andalso Minor >= 3 ->
+select_cert_hashsign(undefined, ?rsaEncryption, {Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
     {sha, rsa};
 select_cert_hashsign(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
