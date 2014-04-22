@@ -34,7 +34,8 @@
 
 -export([security_parameters/2, security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
-	 suite/1, suites/1, ec_keyed_suites/0, anonymous_suites/0, psk_suites/1, srp_suites/0,
+	 suite/1, suites/1, all_suites/1, 
+	 ec_keyed_suites/0, anonymous_suites/0, psk_suites/1, srp_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
 
@@ -224,6 +225,11 @@ suites({3, 0}) ->
 suites({3, N}) ->
     tls_v1:suites(N).
 
+all_suites(Version) ->
+    suites(Version)
+	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:psk_suites(Version)
+	++ ssl_cipher:srp_suites().
 %%--------------------------------------------------------------------
 -spec anonymous_suites() -> [cipher_suite()].
 %%

@@ -696,7 +696,11 @@ handle_sync_event({shutdown, How0}, _, StateName,
 	Error ->
 	    {stop, normal, Error, State}
     end;
-    
+
+handle_sync_event({recv, _N, _Timeout}, _RecvFrom, StateName,  
+		  #state{socket_options = #socket_options{active = Active}} = State) when Active =/= false ->
+    {reply, {error, einval}, StateName, State, get_timeout(State)};
+
 handle_sync_event({recv, N, Timeout}, RecvFrom, connection = StateName,  
 		  #state{protocol_cb = Connection} = State0) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
