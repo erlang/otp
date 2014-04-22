@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -653,7 +653,7 @@ find_rel_linux(Rel) ->
     end.
 
 find_rel_suse(Rel, SuseRel) ->
-    Root = "/usr/local/otp/releases/otp_beam_linux_sles",
+    Root = "/usr/local/otp/releases/sles",
     case SuseRel of
 	"11" ->
 	    %% Try both SuSE 11, SuSE 10 and SuSe 9 in that order.
@@ -673,10 +673,10 @@ find_rel_suse(Rel, SuseRel) ->
 find_rel_suse_1(Rel, RootWc) ->
     case erlang:system_info(wordsize) of
 	4 ->
-	    find_rel_suse_2(Rel, RootWc++"_i386");
+	    find_rel_suse_2(Rel, RootWc++"_32");
 	8 ->
-	    find_rel_suse_2(Rel, RootWc++"_x64") ++
-		find_rel_suse_2(Rel, RootWc++"_i386")
+	    find_rel_suse_2(Rel, RootWc++"_64") ++
+		find_rel_suse_2(Rel, RootWc++"_32")
     end.
 
 find_rel_suse_2(Rel, RootWc) ->
