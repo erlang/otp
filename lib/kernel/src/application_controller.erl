@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -829,12 +829,12 @@ handle_call({change_application_data, Applications, Config}, _From, S) ->
 	    {reply, Error, S};
 	{'EXIT', R} ->
 	    {reply, {error, R}, S};
-	NewAppls ->
+	{NewAppls, NewConfig} ->
 	    lists:foreach(fun(Appl) ->
 				  ets:insert(ac_tab, {{loaded, Appl#appl.name},
 						      Appl})
 			  end, NewAppls),
-	    {reply, ok, S#state{conf_data = Config}}
+	    {reply, ok, S#state{conf_data = NewConfig}}
     end;
 
 handle_call(prep_config_change, _From, S) ->
@@ -1550,18 +1550,19 @@ do_change_apps(Applications, Config, OldAppls) ->
 		  end,
 		  Errors),
 
-    map(fun(Appl) ->
-		AppName = Appl#appl.name,
-		case is_loaded_app(AppName, Applications) of
-		    {true, Application} ->
-			do_change_appl(make_appl(Application),
-				       Appl, SysConfig);
+    {map(fun(Appl) ->
+		 AppName = Appl#appl.name,
+		 case is_loaded_app(AppName, Applications) of
+		     {true, Application} ->
+			 do_change_appl(make_appl(Application),
+					Appl, SysConfig);
 
-		    %% ignored removed apps - handled elsewhere
-		    false ->
-			Appl
-		end
-	end, OldAppls).
+		     %% ignored removed apps - handled elsewhere
+		     false ->
+			 Appl
+		 end
+	 end, OldAppls),
+     SysConfig}.
 
 is_loaded_app(AppName, [{application, AppName, App} | _]) ->
     {true, {application, AppName, App}};

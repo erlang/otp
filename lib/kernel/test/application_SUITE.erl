@@ -1949,14 +1949,22 @@ config_change(Conf) when is_list(Conf) ->
     %% Find out application data from boot script
     Boot = filename:join([code:root_dir(), "bin", "start.boot"]),
     {ok, Bin} = file:read_file(Boot),
-    Appls = get_appls(binary_to_term(Bin)),
+    Appls0 = get_appls(binary_to_term(Bin)),
+
+    %% And add app1 in order to test OTP-11864 - included config files
+    %% not read for new (not already loaded) applications
+    Appls = [app1() | Appls0],
 
     %% Simulate contents of "sys.config"
     Config = [{stdlib, [{par1,sys},{par2,sys}]},
 		    "t1",
 		    "t2.config",
 		    filename:join([DataDir, "subdir", "t3"]),
-		    {stdlib, [{par6,sys}]}],
+		    {stdlib, [{par6,sys}]},
+	            "t4.config"],
+
+    %% Check that app1 is not loaded
+    false = lists:keymember(app1,1,application:loaded_applications()),
 
     %% Order application_controller to update configuration
     ok = application_controller:change_application_data(Appls,
@@ -1970,6 +1978,13 @@ config_change(Conf) when is_list(Conf) ->
     {value, {par4,t2}}  = lists:keysearch(par4, 1, Env),
     {value, {par5,t3}}  = lists:keysearch(par5, 1, Env),
     {value, {par6,sys}} = lists:keysearch(par6, 1, Env),
+
+    %% Check that app1 parameters are correctly set after loading
+    [] = application:get_all_env(app1),
+    application:load(app1()),
+    App1Env = application:get_all_env(app1),
+    {value, {par1,t4}} = lists:keysearch(par1, 1, App1Env),
+    application:unload(app1),
 
     ok = file:set_cwd(CWD).
 
@@ -1988,6 +2003,7 @@ get_appls([_ | T], Res) ->
     get_appls(T, Res);
 get_appls([], Res) ->
     Res.
+
 
 persistent_env(suite) ->
     [];
