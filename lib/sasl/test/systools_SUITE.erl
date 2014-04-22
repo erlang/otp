@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1615,9 +1615,19 @@ no_sasl_relup(Config) when is_list(Config) ->
 
 %% make_relup: Check that application start type is used in relup
 app_start_type_relup(Config) when is_list(Config) ->
+    %% This might fail if some applications are not available, if so
+    %% skip the test case.
+    try create_script(latest_app_start_type2,Config) of
+	{Dir2,Name2} ->
+	    app_start_type_relup(Dir2,Name2,Config)
+    catch throw:{error,Reason} ->
+	    {skip,Reason}
+    end.
+
+app_start_type_relup(Dir2,Name2,Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Dir1,Name1} = create_script(latest_app_start_type1,Config),
-    {Dir2,Name2} = create_script(latest_app_start_type2,Config),
+
     Release1 = filename:join(Dir1,Name1),
     Release2 = filename:join(Dir2,Name2),
 
@@ -2242,9 +2252,13 @@ app_vsns(AppVsns) ->
     [{App,app_vsn(App,Vsn)} || {App,Vsn} <- AppVsns] ++
 	[{App,app_vsn(App,Vsn),Type} || {App,Vsn,Type} <- AppVsns].
 app_vsn(App,current) ->
-    application:load(App),
-    {ok,Vsn} = application:get_key(App,vsn),
-    Vsn;
+    case application:load(App) of
+	Ok when Ok==ok; Ok=={error,{already_loaded,App}} ->
+	    {ok,Vsn} = application:get_key(App,vsn),
+	    Vsn;
+	Error ->
+	    throw(Error)
+    end;
 app_vsn(_App,Vsn) ->
     Vsn.
 

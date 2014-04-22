@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,12 +20,13 @@
 -compile(export_all).
 
 -include("reltool_test_lib.hrl").
+-define(timeout, 20). % minutes
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) when is_list(Config)->
     global:register_name(reltool_global_logger, group_leader()),
-    incr_timetrap(Config, 10).
+    incr_timetrap(Config, ?timeout).
 
 end_per_suite(Config) when is_list(Config)->
     global:unregister_name(reltool_global_logger),
@@ -51,7 +52,7 @@ set_kill_timer(Config) ->
 	    Time = 
 		case lookup_config(tc_timeout, Config) of
 		    [] ->
-			timer:minutes(10);
+			timer:minutes(?timeout);
 		    ConfigTime when is_integer(ConfigTime) ->
 			ConfigTime
 		end,
