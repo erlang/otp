@@ -40,6 +40,8 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("erl_tar.hrl").
 
+-export_type([typeflag/0, mode/0, tar_entry_pos/0]).
+
 %% Converts the short error reason to a descriptive string.
 -spec format_error(term()) -> string().
 format_error(invalid_tar_checksum) ->
@@ -181,6 +183,16 @@ check_extract(Name, #read_opts{files=Files}) ->
                       Uid :: uid(),
                       Gid :: gid()}.
 
+-type tar_entry_pos() :: {file:filename(),
+                          typeflag(),
+                          non_neg_integer(),
+                          tar_time(),
+                          mode(),
+                          uid(),
+                          gid(),
+                          'undefined' | non_neg_integer() | string()
+                         }.
+
 %% Returns a list of names of the files in the tar file Name.
 -spec table(Open :: open_type()) -> {ok, [name_in_archive()]} | {error, term()}.
 table(Name) ->
@@ -188,13 +200,43 @@ table(Name) ->
 
 %% Returns a list of names of the files in the tar file Name.
 %% Options accepted: compressed, verbose, cooked.
--spec table(Open :: open_type(), [compressed | verbose | cooked]) ->
-                   {ok, [name_in_archive() | tar_entry()]} | {error, term()}.
+%% Tail-f added: pos_info, noclose.
+%% Tail-f added: tar_entry_pos()
+-spec table(Open :: open_type(), [compressed | verbose | cooked | pos_info | noclose]) ->
+                   {ok, [name_in_archive() | tar_entry() | tar_entry_pos()]} | {error, term()}.
 table(Name, Opts) when is_list(Opts) ->
     foldl_read(Name, fun table1/4, [], table_opts(Opts)).
 
 table1(eof, Reader, _, Result) ->
     {ok, {ok, lists:reverse(Result)}, Reader};
+table1(#tar_header{}=Header, Reader, #read_opts{pos_info=true}, Result) ->
+    {Name, Type, Size, Mtime, Mode, Uid, Gid} =
+        table1_attrs(Header, true),
+    Linkname= Header#tar_header.linkname,
+    Attrs =
+        case Type of
+            regular ->
+                case Reader of
+                    #reg_file_reader{handle=Handle} -> ok;
+                    #sparse_file_reader{handle=Handle} -> ok
+                end,
+                {ok, Pos, _Handle} = do_position(Handle, {cur,0}),
+                {Name, Type, Size, Mtime, Mode, Uid, Gid, Pos};
+            link ->
+                %% Linkname must already be in the list - find and use it
+                {_, Type2, Size2, Mtime2, Mode2, Uid2, Gid2, Pos2} = 
+                    lists:keyfind(Linkname, 1, Result),
+                {Name, Type2, Size2, Mtime2, Mode2, Uid2, Gid2, Pos2};
+            symlink ->
+                %% Linkname is not likely to be in the list as-is even
+                %% if the pointed-to item is in the archive - and the
+                %% item may be later in the archive if it is there at all
+                {Name, Type, 0, Mtime, Mode, Uid, Gid, Linkname};
+            _ ->
+                {Name, Type, 0, Mtime, Mode, Uid, Gid, undefined}
+        end,
+    Reader2 = skip_file(Reader),
+    {ok, [Attrs|Result], Reader2};
 table1(#tar_header{}=Header, Reader, #read_opts{verbose=Verbose}, Result) ->
     Attrs = table1_attrs(Header, Verbose),
     Reader2 = skip_file(Reader),
@@ -1963,7 +2005,7 @@ extract_opts(List) ->
     extract_opts(List, default_options()).
 
 table_opts(List) ->
-    read_opts(List, default_options()).
+    table_opts(List, default_options()).
 
 default_options() ->
     {ok, Cwd} = file:get_cwd(),
@@ -1998,4 +2040,12 @@ read_opts([verbose|Rest], Opts) ->
 read_opts([_|Rest], Opts) ->
     read_opts(Rest, Opts);
 read_opts([], Opts) ->
+    Opts.
+
+%% Parse options for table.
+table_opts([pos_info|Rest], Opts) ->
+    table_opts(Rest, Opts#read_opts{pos_info=true});
+table_opts([Other|Rest], Opts) ->
+    table_opts(Rest, read_opts([Other], Opts));
+table_opts([], Opts) ->
     Opts.

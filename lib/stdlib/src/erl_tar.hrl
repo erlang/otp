@@ -36,6 +36,7 @@
           files = all,                         %% Set of files to extract (or all)
           output = file :: 'file' | 'memory',
           open_mode = [],                      %% Open mode options.
+          pos_info = false :: boolean(),       %% Return position etc for table
           verbose = false :: boolean()}).      %% Verbose on/off.
 -type read_opts() :: #read_opts{}.
 
