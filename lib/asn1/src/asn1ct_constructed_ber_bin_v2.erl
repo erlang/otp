@@ -962,8 +962,7 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
     WhatKind = asn1ct_gen:type(InnerType),
     emit(IndDeep),
     emit(Assign),
-    gen_optormand_case(OptOrMand,Erules,TopType,Cname,Type,InnerType,WhatKind,
-		       Element),
+    gen_optormand_case(OptOrMand, Erules, TopType, Cname, Type, Element),
     case {Type,asn1ct_gen:get_constraint(Type#type.constraint,
 					 componentrelation)} of
 % 	#type{constraint=[{tableconstraint_info,RefedFieldName}],
@@ -1029,26 +1028,19 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	    emit([nl,indent(7),"end"])
     end.
 
-gen_optormand_case(mandatory,_Erules,_TopType,_Cname,_Type,_InnerType,_WhatKind,
-		   _Element) ->
+gen_optormand_case(mandatory, _Erules, _TopType, _Cname, _Type, _Element) ->
     ok;
-gen_optormand_case('OPTIONAL',Erules,_TopType,_Cname,_Type,_InnerType,_WhatKind,
-		   Element) ->
+gen_optormand_case('OPTIONAL', Erules, _TopType, _Cname, _Type, Element) ->
     emit([" case ",Element," of",nl]),
     emit([indent(9),"asn1_NOVALUE -> {",
 	  empty_lb(Erules),",0};",nl]),
     emit([indent(9),"_ ->",nl,indent(12)]);
-gen_optormand_case({'DEFAULT',DefaultValue},Erules,TopType,Cname,Type,
-		   InnerType,WhatKind,Element) ->
+gen_optormand_case({'DEFAULT',DefaultValue}, Erules, _TopType,
+		   _Cname, Type, Element) ->
     CurrMod = get(currmod),
     case catch lists:member(der,get(encoding_options)) of
 	true ->
-	    emit(" case catch "),
-	    asn1ct_gen:gen_check_call(TopType,Cname,Type,InnerType,
-				      WhatKind,{asis,DefaultValue},
-				      Element),
-	    emit([" of",nl]),
-	    emit([indent(12),"true -> {[],0};",nl]);
+	    asn1ct_gen_check:emit(Type, DefaultValue, Element);
 	_ ->
 	    emit([" case ",Element," of",nl]),
 	    emit([indent(9),"asn1_DEFAULT -> {",
@@ -1063,10 +1055,9 @@ gen_optormand_case({'DEFAULT',DefaultValue},Erules,TopType,Cname,Type,
 		    emit([indent(9),{asis,
 				     DefaultValue}," -> {",
 			  empty_lb(Erules),",0};",nl])
-	    end
-    end,
-    emit([indent(9),"_ ->",nl,indent(12)]).
-
+	    end,
+	    emit([indent(9),"_ ->",nl,indent(12)])
+    end.
     
 
 gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
