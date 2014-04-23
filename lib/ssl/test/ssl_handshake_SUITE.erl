@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,8 +100,8 @@ encode_single_hello_sni_extension_correctly(_Config) ->
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
     % RFC 5246 section 7.4.1.4.1 tells to use {sha1,rsa} as default signature_algorithm for RSA key exchanges
-    {sha, rsa} = ssl_handshake:select_cert_hashsign(undefined, ?rsaEncryption, {3,3}),
+    {sha, rsa} = ssl_handshake:select_hashsign_algs(undefined, ?rsaEncryption, {3,3}),
     % Older versions use MD5/SHA1 combination
-    {md5sha, rsa} = ssl_handshake:select_cert_hashsign(undefined, ?rsaEncryption, {3,2}),
-    {md5sha, rsa} = ssl_handshake:select_cert_hashsign(undefined, ?rsaEncryption, {3,0}).
+    {md5sha, rsa} = ssl_handshake:select_hashsign_algs(undefined, ?rsaEncryption, {3,2}),
+    {md5sha, rsa} = ssl_handshake:select_hashsign_algs(undefined, ?rsaEncryption, {3,0}).
 

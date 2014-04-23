@@ -73,7 +73,8 @@
 	]).
 
 %% MISC
--export([select_version/3, prf/5, select_hashsign/3, select_cert_hashsign/3,
+-export([select_version/3, prf/5, select_hashsign/3, 
+	 select_hashsign_algs/2, select_hashsign_algs/3,
 	 premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %%====================================================================
@@ -590,9 +591,11 @@ prf({3,1}, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(?MD5SHA, Secret, Label, Seed, WantedLength)};
 prf({3,_N}, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
+
+
 %%--------------------------------------------------------------------
 -spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | binary(), ssl_record:ssl_version()) ->
-			      [{atom(), atom()}] | undefined.
+			      {atom(), atom()} | undefined.
 
 %%
 %% Description:
@@ -602,11 +605,11 @@ select_hashsign(_, undefined, _Version) ->
 select_hashsign(undefined,  Cert, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    select_cert_hashsign(undefined, Algo, Version);
+    select_hashsign_algs(undefined, Algo, Version);
 select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} =public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    DefaultHashSign = {_, Sign} = select_cert_hashsign(undefined, Algo, Version),
+    DefaultHashSign = {_, Sign} = select_hashsign_algs(undefined, Algo, Version),
     case lists:filter(fun({sha, dsa}) ->
 			      true;
 			 ({_, dsa}) ->
@@ -622,27 +625,58 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
 	[HashSign| _] ->
 	    HashSign
     end.
+
 %%--------------------------------------------------------------------
--spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version()) ->
+-spec select_hashsign_algs(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version()) ->
 				  {atom(), atom()}.
 
+%% Description: For TLS 1.2 hash function and signature algorithm pairs can be
+%% negotiated with the signature_algorithms extension,
+%% for previous versions always use appropriate defaults.
+%% RFC 5246, Sect. 7.4.1.4.1.  Signature Algorithms
+%% If the client does not send the signature_algorithms extension, the
+%% server MUST do the following: (e.i defaults for TLS 1.2)
 %%
-%% Description: For TLS 1.2 selected cert_hash_sign will be recived
-%% in the handshake message, for previous versions use appropriate defaults.
-%% This function is also used by select_hashsign to extract
-%% the alogrithm of the server cert key.
+%% -  If the negotiated key exchange algorithm is one of (RSA, DHE_RSA,
+%%    DH_RSA, RSA_PSK, ECDH_RSA, ECDHE_RSA), behave as if client had
+%%    sent the value {sha1,rsa}.
+%%
+%% -  If the negotiated key exchange algorithm is one of (DHE_DSS,
+%%    DH_DSS), behave as if the client had sent the value {sha1,dsa}.
+%%
+%% -  If the negotiated key exchange algorithm is one of (ECDH_ECDSA,
+%%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
+
 %%--------------------------------------------------------------------
-select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
+select_hashsign_algs(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
 						       Major >= 3 andalso Minor >= 3 ->
     HashSign;
-select_cert_hashsign(undefined, ?rsaEncryption, {Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
+select_hashsign_algs(undefined, ?rsaEncryption, {Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
     {sha, rsa};
-select_cert_hashsign(undefined,?'id-ecPublicKey', _) ->
+select_hashsign_algs(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
-select_cert_hashsign(undefined, ?rsaEncryption, _) ->
+select_hashsign_algs(undefined, ?rsaEncryption, _) -> 
     {md5sha, rsa};
-select_cert_hashsign(undefined, ?'id-dsa', _) ->
+select_hashsign_algs(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
+
+-spec select_hashsign_algs(atom(),  ssl_record:ssl_version()) -> {atom(), atom()}.
+%% Wrap function to keep the knowledge of the default values in
+%% one place only 
+select_hashsign_algs(Alg, Version) when (Alg == rsa orelse
+				    Alg == dhe_rsa orelse
+				    Alg == dh_rsa orelse
+				    Alg == ecdhe_rsa orelse
+				    Alg == ecdh_rsa orelse
+				    Alg == srp_rsa) ->    
+    select_hashsign_algs(undefined, ?rsaEncryption, Version);
+select_hashsign_algs(Alg, Version) when (Alg == dhe_dss orelse
+				    Alg == dh_dss orelse
+				    Alg == srp_dss) ->
+    select_hashsign_algs(undefined, ?'id-dsa', Version);
+select_hashsign_algs(Alg, Version) when (Alg == ecdhe_ecdsa orelse
+					 Alg == ecdh_ecdsa) ->
+    select_hashsign_algs(undefined, ?'id-ecPublicKey', Version).
 
 %%--------------------------------------------------------------------
 -spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
