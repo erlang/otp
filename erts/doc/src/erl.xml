@@ -495,7 +495,7 @@
           <c><![CDATA[werl]]></c>, not <c><![CDATA[erl]]></c> (<c><![CDATA[oldshell]]></c>). Note also that
           <c><![CDATA[Ctrl-Break]]></c> is used instead of <c><![CDATA[Ctrl-C]]></c> on Windows.</p>
       </item>
-      <tag><c><![CDATA[+c]]></c></tag>
+      <tag><marker id="+c"><c><![CDATA[+c]]></c></marker></tag>
       <item>
         <p>Disable compensation for sudden changes of system time.</p>
         <p>Normally, <c><![CDATA[erlang:now/0]]></c> will not immediately reflect
@@ -510,6 +510,9 @@
           reflect the current system time. Note that timers are based
           on <c><![CDATA[erlang:now/0]]></c>. If the system time jumps, timers
           then time out at the wrong time.</p>
+        <p><em>NOTE</em>: You can check whether the adjustment is enabled or
+          disabled by calling
+	  <seealso marker="erlang#system_info_tolerant_timeofday">erlang:system_info(tolerant_timeofday)</seealso>.</p>
       </item>
       <tag><c><![CDATA[+d]]></c></tag>
       <item>

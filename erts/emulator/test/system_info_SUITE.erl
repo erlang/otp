@@ -155,6 +155,7 @@ misc_smoke_tests(Config) when is_list(Config) ->
     ?line true = is_binary(erlang:system_info(loaded)),
     ?line true = is_binary(erlang:system_info(dist)),
     ?line ok = try erlang:system_info({cpu_topology,erts_get_cpu_topology_error_case}), fail catch error:badarg -> ok end,
+    true = lists:member(erlang:system_info(tolerant_timeofday), [enabled, disabled]),
     ?line ok.
     
 
