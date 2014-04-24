@@ -3731,7 +3731,21 @@ otp_11851(Config) when is_list(Config) ->
             a(_) -> true.
 	">>,
 	[],
-	{errors,[{4,erl_parse,"bad type variable"}],[]}}
+	{errors,[{4,erl_parse,"bad type variable"}],[]}},
+	{otp_11851_4,
+	 <<"
+            -spec a(_) -> ok.
+            -spec a(_) -> ok.
+
+            -spec ?MODULE:a(_) -> ok.
+            -spec ?MODULE:a(_) -> ok.
+	">>,
+	[],
+         {errors,[{3,erl_lint,{redefine_spec,{a,1}}},
+                  {5,erl_lint,{redefine_spec,{lint_test,a,1}}},
+                  {6,erl_lint,{redefine_spec,{lint_test,a,1}}},
+                  {6,erl_lint,{spec_fun_undefined,{a,1}}}],
+          []}}
           ],
     [] = run(Config, Ts),
     ok.

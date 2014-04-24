@@ -357,12 +357,14 @@ format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
+format_error({redefine_spec, {F, A}}) ->
+    io_lib:format("spec for ~w/~w already defined", [F, A]);
 format_error({redefine_callback, {F, A}}) ->
     io_lib:format("callback ~w/~w already defined", [F, A]);
 format_error({bad_callback, {M, F, A}}) ->
     io_lib:format("explicit module not allowed for callback ~w:~w/~w ", [M, F, A]);
-format_error({spec_fun_undefined, {M, F, A}}) ->
-    io_lib:format("spec for undefined function ~w:~w/~w", [M, F, A]);
+format_error({spec_fun_undefined, {F, A}}) ->
+    io_lib:format("spec for undefined function ~w/~w", [F, A]);
 format_error({missing_spec, {F,A}}) ->
     io_lib:format("missing specification for function ~w/~w", [F, A]);
 format_error(spec_wrong_arity) ->
@@ -2878,7 +2880,7 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
 	  end,
     St1 = St0#lint{specs = dict:store(MFA, Line, Specs)},
     case dict:is_key(MFA, Specs) of
-	true -> add_error(Line, {redefine_spec, MFA}, St1);
+	true -> add_error(Line, {redefine_spec, MFA0}, St1);
 	false -> check_specs(TypeSpecs, Arity, St1)
     end.
 
@@ -2953,10 +2955,11 @@ check_specs([], _Arity, St) ->
     St.
 
 check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
-    Fun = fun({M, F, A} = MFA, Line, AccSt) when M =:= Mod ->
-		  case gb_sets:is_element({F, A}, Funcs) of
+    Fun = fun({M, F, A}, Line, AccSt) when M =:= Mod ->
+                  FA = {F, A},
+		  case gb_sets:is_element(FA, Funcs) of
 		      true -> AccSt;
-		      false -> add_error(Line, {spec_fun_undefined, MFA}, AccSt)
+		      false -> add_error(Line, {spec_fun_undefined, FA}, AccSt)
 		  end;
 	     ({_M, _F, _A}, _Line, AccSt) -> AccSt
 	  end,
