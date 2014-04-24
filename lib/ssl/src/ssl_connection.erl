@@ -290,12 +290,11 @@ hello(#hello_request{}, #state{role = client} = State0, Connection) ->
     {Record, State} = Connection:next_record(State0),
     Connection:next_state(hello, hello, Record, State);
 
-hello({common_client_hello, Type, ServerHelloExt, HashSign},
-      #state{session = #session{cipher_suite = CipherSuite},
-	     negotiated_version = Version} = State, Connection) ->
-    {KeyAlg, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
-    NegotiatedHashSign = negotiated_hashsign(HashSign, KeyAlg, Version),
+hello({common_client_hello, Type, ServerHelloExt, NegotiatedHashSign},
+      State, Connection) ->
     do_server_hello(Type, ServerHelloExt,
+		    %% Note NegotiatedHashSign is only negotiated for real if
+		    %% if TLS version is at least TLS-1.2 
 		    State#state{hashsign_algorithm = NegotiatedHashSign}, Connection);
 
 hello(timeout, State, _) ->
@@ -432,7 +431,8 @@ certify(#server_key_exchange{exchange_keys = Keys},
 		    calculate_secret(Params#server_key_params.params,
 				     State#state{hashsign_algorithm = HashSign}, Connection);
 		false ->
-		    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
+		    Connection:handle_own_alert(?ALERT_REC(?FATAL, ?DECRYPT_ERROR),
+						Version, certify, State)
 	    end
     end;
 
@@ -441,8 +441,9 @@ certify(#server_key_exchange{} = Msg,
     Connection:handle_unexpected_message(Msg, certify_server_keyexchange, State);
 
 certify(#certificate_request{hashsign_algorithms = HashSigns},
-	#state{session = #session{own_certificate = Cert}} = State0, Connection) ->
-    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
+	#state{session = #session{own_certificate = Cert},
+        negotiated_version = Version} = State0, Connection) ->
+    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
     {Record, State} = Connection:next_record(State0#state{client_certificate_requested = true}),
     Connection:next_state(certify, certify, Record,
 			  State#state{cert_hashsign_algorithm = HashSign});
@@ -559,7 +560,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 	      tls_handshake_history = Handshake
 	     } = State0, Connection) ->
 
-    HashSign = ssl_handshake:select_cert_hashsign(CertHashSign, Algo, Version),
+    HashSign = ssl_handshake:select_hashsign_algs(CertHashSign, Algo, Version),
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
 					  Version, HashSign, MasterSecret, Handshake) of
 	valid ->
@@ -1563,60 +1564,6 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
 					session = Session}, cipher, Connection),
     Connection:next_state_connection(cipher, ack_connection(State#state{session = Session})).
 
-negotiated_hashsign(undefined, Algo, Version) ->
-    default_hashsign(Version, Algo);
-negotiated_hashsign(HashSign = {_, _}, _, _) ->
-    HashSign.
-
-%% RFC 5246, Sect. 7.4.1.4.1.  Signature Algorithms
-%% If the client does not send the signature_algorithms extension, the
-%% server MUST do the following:
-%%
-%% -  If the negotiated key exchange algorithm is one of (RSA, DHE_RSA,
-%%    DH_RSA, RSA_PSK, ECDH_RSA, ECDHE_RSA), behave as if client had
-%%    sent the value {sha1,rsa}.
-%%
-%% -  If the negotiated key exchange algorithm is one of (DHE_DSS,
-%%    DH_DSS), behave as if the client had sent the value {sha1,dsa}.
-%%
-%% -  If the negotiated key exchange algorithm is one of (ECDH_ECDSA,
-%%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
-
-default_hashsign(_Version = {Major, Minor}, KeyExchange)
-  when Major >= 3 andalso Minor >= 3 andalso
-       (KeyExchange == rsa orelse
-	KeyExchange == dhe_rsa orelse
-	KeyExchange == dh_rsa orelse
-	KeyExchange == ecdhe_rsa orelse
-	KeyExchange == ecdh_rsa orelse
-	KeyExchange == srp_rsa) ->
-    {sha, rsa};
-default_hashsign(_Version, KeyExchange)
-  when KeyExchange == rsa;
-       KeyExchange == dhe_rsa;
-       KeyExchange == dh_rsa;
-       KeyExchange == ecdhe_rsa;
-       KeyExchange == ecdh_rsa;
-       KeyExchange == srp_rsa ->
-    {md5sha, rsa};
-default_hashsign(_Version, KeyExchange)
-  when KeyExchange == ecdhe_ecdsa;
-       KeyExchange == ecdh_ecdsa ->
-    {sha, ecdsa};
-default_hashsign(_Version, KeyExchange)
-  when KeyExchange == dhe_dss;
-       KeyExchange == dh_dss;
-       KeyExchange == srp_dss ->
-    {sha, dsa};
-default_hashsign(_Version, KeyExchange)
-  when KeyExchange == dh_anon;
-       KeyExchange == ecdh_anon;
-       KeyExchange == psk;
-       KeyExchange == dhe_psk;
-       KeyExchange == rsa_psk;
-       KeyExchange == srp_anon ->
-    {null, anon}.
-
 select_curve(#state{client_ecc = {[Curve|_], _}}) ->
     {namedCurve, Curve};
 select_curve(_) ->
@@ -1888,3 +1835,15 @@ new_ssl_options([undefined | Rest0], [Head1| Rest1], Acc) ->
     new_ssl_options(Rest0, Rest1, [Head1 | Acc]);
 new_ssl_options([Head0 | Rest0], [_| Rest1], Acc) ->
     new_ssl_options(Rest0, Rest1, [Head0 | Acc]).
+
+negotiated_hashsign(undefined, Alg, Version) ->
+    %% Not negotiated choose default 
+    case is_anonymous(Alg) of
+	true ->
+	    {null, anon};
+	false ->
+	    ssl_handshake:select_hashsign_algs(Alg, Version)
+    end;
+negotiated_hashsign(HashSign = {_, _}, _, _) ->
+    HashSign.
+
