@@ -396,6 +396,19 @@ Uint size_shared(Eterm obj)
 		}
 		goto pop_next;
 	    }
+            case MAP_SUBTAG: {
+                map_t *mp = (map_t *) ptr;
+                Uint n = map_get_size(mp) + 1;
+                sum += n + 2;
+                ptr += 2; /* hdr + size words */
+                while (n-- > 0) {
+                    obj = *ptr++;
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT(s, obj);
+                    }
+                }
+                goto pop_next;
+            }
 	    case BIN_MATCHSTATE_SUBTAG:
 		erl_exit(ERTS_ABORT_EXIT,
 			 "size_shared: matchstate term not allowed");
@@ -495,6 +508,18 @@ cleanup:
 		}
 		goto cleanup_next;
 	    }
+            case MAP_SUBTAG: {
+                map_t *mp = (map_t *) ptr;
+                Uint n = map_get_size(mp) + 1;
+                ptr += 2; /* hdr + size words */
+                while (n-- > 0) {
+                    obj = *ptr++;
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT_UNCHECKED(s, obj);
+                    }
+                }
+                goto cleanup_next;
+            }
 	    default:
 		goto cleanup_next;
 	    }
