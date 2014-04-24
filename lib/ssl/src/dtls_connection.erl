@@ -202,13 +202,14 @@ hello(Hello = #client_hello{client_version = ClientVersion,
 		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
 		     ssl_options = SslOpts}) ->
-    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
     case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert}, Renegotiation) of
         {Version, {Type, Session},
 	 ConnectionStates,
 	 #hello_extensions{ec_point_formats = EcPointFormats,
 			   elliptic_curves = EllipticCurves} = ServerHelloExt} ->
+            HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, 
+						     dtls_v1:corresponding_tls_version(Version)),
             ssl_connection:hello({common_client_hello, Type, ServerHelloExt, HashSign},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,
