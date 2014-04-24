@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1206,7 +1206,14 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 			{value,{_,Worker}} = lists:keysearch(WPid,1,get_loaders(State0)),
 			add_loader(Tab,Worker,State1);
 		    _ ->
-			State1
+			DelState = State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)},
+			case ?catch_val({Tab, storage_type}) of
+			    ram_copies ->
+				cast({disc_load, Tab, ram_only}),
+				DelState;
+			    _ ->
+				DelState
+			end
 		end
 	end,
     State3 = opt_start_worker(State2),
