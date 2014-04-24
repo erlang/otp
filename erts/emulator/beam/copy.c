@@ -1165,6 +1165,19 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 		}
 		goto pop_next;
 	    }
+            case MAP_SUBTAG: {
+                map_t *mp = (map_t *) ptr;
+                Uint n = map_get_size(mp) + 1;
+                sum += n + 2;
+                ptr += 2; /* hdr + size words */
+                while (n-- > 0) {
+                    obj = *ptr++;
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT(s, obj);
+                    }
+                }
+                goto pop_next;
+            }
 	    case BIN_MATCHSTATE_SUBTAG:
 		erl_exit(ERTS_ABORT_EXIT,
 			 "size_shared: matchstate term not allowed");
@@ -1407,6 +1420,23 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 		erts_refc_inc(&funp->fe->refc, 2);
 		goto cleanup_next;
 	    }
+	    case MAP_SUBTAG: {
+		map_t *mp = (map_t *) ptr;
+		Uint n = map_get_size(mp) + 1;
+		*resp = make_map(hp);
+		*hp++ = hdr;
+                *hp++ = *++ptr;
+		while (n-- > 0) {
+		    obj = *++ptr;
+		    if (IS_CONST(obj)) {
+			*hp++ = obj;
+		    } else {
+			EQUEUE_PUT_UNCHECKED(s, obj);
+			*hp++ = HEAP_ELEM_TO_BE_FILLED;
+		    }
+		}
+		goto cleanup_next;
+	    }
 	    case REFC_BINARY_SUBTAG: {
 		ProcBin* pb = (ProcBin *) ptr;
 		sz = thing_arityval(hdr);
@@ -1540,6 +1570,12 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 			    ErlFunThing* funp = (ErlFunThing *) hscan;
 			    hscan += 1 + thing_arityval(*hscan);
 			    remaining = 1 + funp->num_free;
+			    break;
+			}
+			case MAP_SUBTAG: {
+			    map_t *mp = (map_t *) hscan;
+			    remaining = map_get_size(mp) + 1;
+                            hscan += 2;
 			    break;
 			}
 			case SUB_BINARY_SUBTAG:
