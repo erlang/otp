@@ -4,13 +4,13 @@
 	 show_spawn_destroys_sharing_in_arguments/0,
 	 show_spawn_destroys_sharing_in_closure/0,
 	 show_printing_may_be_bad/0,
-         show_optim_destroys_sharing/0,
+	 show_optim_destroys_sharing/0,
 	 show_compiler_crashes/0,
-         mklist/1, mktuple/1, mkfunny/1, mkcls/1,
+	 mklist/1, mktuple/1, mkfunny/1, mkcls/1,
 	 mkimfunny1/1, mkimfunny2/1, mkimfunny3/1, mkimfunny4/1, mkimfunny5/1,
-         mkimlist/1, mkbin/1, mkbin2/1,
-         sanity/0, sanity/1, sanity/2, sanity/3, term_sanity/1,
-         sanity_report/2, sanity_check/1, sanity_size_check/1
+	 mkimlist/1, mkbin/1, mkbin2/1, mkmap/1,
+	 sanity/0, sanity/1, sanity/2, sanity/3, term_sanity/1,
+	 sanity_report/2, sanity_check/1, sanity_size_check/1
 	 ]).
 
 
@@ -156,6 +156,13 @@ mkbin2(M) -> B = mkbin2(M-1),
 	     <<X:4, Y:4, Rest/binary>> = B,
 	     <<X, B/binary, M, Rest/binary, Y>>.
 
+mkmap(0) -> #{};
+mkmap(M) -> Map1 = mkmap(M-1),
+            Map2 = mkmap(M div 2),
+            Map3 = maps:put(2*M, Map2, Map1),
+            Map4 = maps:put(2*M+1, Map2, Map3),
+            maps:put(M, Map1, Map4).
+
 
 % Machinery for testing
 
@@ -279,5 +286,6 @@ all_tests() ->
      B3,
      T2,
      {apply, mkbin, [10]},
-     {apply, mkbin2, [10]}
+     {apply, mkbin2, [10]},
+     {apply, mkmap, [20]}
     ].

@@ -2,6 +2,7 @@
 -export([
 	 mklist/1, mktuple/1, mkfunny/1, mkcls/1,
 	 mkimfunny1/1, mkimfunny2/1, mkimfunny3/1, mkimfunny4/1, mkimfunny5/1,
+	 mkmap/1,
 	 bench/0, bench/1, bench/2, term_bench/1, regression/2, timer/2
 	 ]).
 
@@ -55,6 +56,11 @@ prime_chk(N, I) when I*I > N -> true;
 prime_chk(N, I) when N rem I =:= 0 -> false;
 prime_chk(N, I) when I rem 6 =:= 1 -> prime_chk(N, I+4);
 prime_chk(N, I) -> prime_chk(N, I+2).
+
+mkmap(0) -> #{};
+mkmap(M) -> Map1 = maps:put(2*M, mkmap(M div 2), mkmap(M-1)),
+            Map2 = maps:put(2*M+1, mkmap(M div 2), Map1),
+            maps:put(M, mkmap(M-1), Map2).
 
 
 % Machinery for benchmarking
@@ -198,5 +204,11 @@ all_tests() ->
        {  500000, {apply, mklist, [8]}},                  % 23: size 1020
        {  500000, {apply, mktuple, [8]}},                 % 24: size 765
        {  250000, {apply, mkcls, [6]}}                    % 25: size 1640
+      ],
+      % new tests for maps
+      [{       1, {apply, mkmap, [20]}},                  % 26: size 70346590
+       {  250000, {apply, mkmap, [5]}},                   % 27: size 1354
+       {10000000, #{42 => ok}},                           % 28: size 6
+       {10000000, #{}}                                    % 29: size 4
       ]
     ]).
