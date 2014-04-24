@@ -232,13 +232,14 @@ init_case(Config) when is_list(Config) ->
     MgrNode    = ?config(snmp_mgr,    Config),
     MasterNode = ?config(snmp_master, Config),
     %% MasterNode = node(),
-
+    IpFamily  = proplists:get_value(ipfamily, Config, inet),
+    
     SaHost         = ?HOSTNAME(SaNode),
     MgrHost        = ?HOSTNAME(MgrNode),
     MasterHost     = ?HOSTNAME(MasterNode),
-    {ok, MasterIP} = snmp_misc:ip(MasterHost),
-    {ok, MIP}      = snmp_misc:ip(MgrHost),
-    {ok, SIP}      = snmp_misc:ip(SaHost),
+    {ok, MasterIP} = snmp_misc:ip(MasterHost, IpFamily),
+    {ok, MIP}      = snmp_misc:ip(MgrHost, IpFamily),
+    {ok, SIP}      = snmp_misc:ip(SaHost, IpFamily),
 
 
     put(mgr_node,    MgrNode),

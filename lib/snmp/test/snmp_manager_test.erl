@@ -241,8 +241,10 @@ init_per_testcase2(Case, Config) ->
     AgLogDir  = filename:join(AgTopDir,   "log/"),
     ?line ok  = file:make_dir(AgLogDir),
 
+    Family = proplists:get_value(ipfamily, Config, inet),
+
     Conf = [{watchdog,                  ?WD_START(?MINS(5))},
-	    {ip,                        ?LOCALHOST()},
+	    {ip,                        ?LOCALHOST(Family)},
 	    {case_top_dir,              CaseTopDir},
 	    {agent_dir,                 AgTopDir},
 	    {agent_conf_dir,            AgConfDir},
@@ -410,7 +412,8 @@ all() ->
      {group, event_tests}, 
      {group, event_tests_mt}, 
      discovery, 
-     {group, tickets} 
+     {group, tickets}, 
+     {group, ipv6}
     ].
 
 groups() -> 
@@ -545,7 +548,15 @@ groups() ->
       [
        otp8395_1
       ]
+     },
+     {ipv6, [], 
+      [
+       simple_sync_get3,
+       inform1
+      ]
      }
+     
+
     ].
 
 init_per_group(request_tests_mt = GroupName, Config) ->
@@ -556,10 +567,16 @@ init_per_group(event_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(ipv6 = GroupName, Config) -> 
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
-
-	    
+   
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?
     lists:keydelete(snmp_group_top_dir, 1, Config).
@@ -6426,3 +6443,5 @@ formated_timestamp() ->
 %% p(TName, F, A) ->
 %%     io:format("~w -> " ++ F ++ "~n", [TName|A]).
 
+ipv6_init(Config) when is_list(Config) ->
+    [{ipfamily, inet6} | Config].
