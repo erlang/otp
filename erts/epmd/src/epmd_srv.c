@@ -213,7 +213,7 @@ void run(EpmdVars *g)
   node_init(g);
   g->conn = conn_init(g);
 
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef HAVE_SYSTEMD_DAEMON
   if (g->is_systemd)
     {
       int n;
@@ -310,7 +310,7 @@ void run(EpmdVars *g)
       SET_ADDR(iserv_addr[0],EPMD_ADDR_ANY,sport);
       num_sockets = 1;
     }
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef HAVE_SYSTEMD_DAEMON
     }
 #endif
 

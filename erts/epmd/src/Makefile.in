@@ -84,7 +84,7 @@ LD      = @LD@
 ifeq ($(findstring ose,$(TARGET)),ose)
 LIBS    = $(ERTS_INTERNAL_LIBS) @LIBS@
 else
-LIBS    = @LIBS@ $(ERTS_INTERNAL_LIBS)
+LIBS    = @LIBS@ @SYSTEMD_DAEMON_LIBS@ $(ERTS_INTERNAL_LIBS)
 endif
 LDFLAGS = @LDFLAGS@
 
