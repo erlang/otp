@@ -29,7 +29,6 @@
 	 list2rname/1,
 	 constructed_suffix/2,
 	 unify_if_string/1,
-	 gen_check_call/7,
 	 get_constraint/2,
 	 insert_once/2,
 	 ct_gen_module/1,
@@ -106,11 +105,6 @@ pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects
     pgen_values(Erules,Module,Values),
     pgen_objects(Rtmod,Erules,Module,Objects),
     pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
-    case catch lists:member(der,get(encoding_options)) of
-	true ->
-	    pgen_check_defaultval(Erules,Module);
-	_ -> ok
-    end,
     pgen_partial_decode(Rtmod,Erules,Module).
 
 pgen_values(_,_,[]) ->
@@ -185,23 +179,6 @@ pgen_objectsets(Rtmod,Erules,Module,[H|T]) ->
     TypeDef = asn1_db:dbget(Module,H),
     Rtmod:gen_objectset_code(Erules,TypeDef),
     pgen_objectsets(Rtmod,Erules,Module,T).
-
-pgen_check_defaultval(Erules,Module) ->
-    CheckObjects = asn1ct_table:to_list(check_functions),
-    case get(asndebug) of
-	true ->
-	    FileName = lists:concat([Module,".table"]),
-	    {ok,IoDevice} = file:open(FileName,[write]),
-	    Fun =
-		fun(X)->
-			io:format(IoDevice,"~n~n************~n~n~p~n~n*****"
-				  "********~n~n",[X]) 
-		end,
-	    lists:foreach(Fun,CheckObjects),
-	    ok = file:close(IoDevice);
-	_ -> ok
-    end,
-    gen_check_defaultval(Erules,Module,CheckObjects).
 
 pgen_partial_decode(Rtmod,Erule,Module) when Erule == ber ->
     pgen_partial_inc_dec(Rtmod,Erule,Module),
@@ -583,131 +560,6 @@ gen_types(Erules,Tname,Type) when is_record(Type,type) ->
     asn1ct_name:clear(),
     Rtmod:gen_decode(Erules,Tname,Type).
 
-gen_check_defaultval(Erules,Module,[{Name,Type}|Rest]) ->
-    gen_check_func(Name,Type),
-    gen_check_defaultval(Erules,Module,Rest);
-gen_check_defaultval(_,_,[]) ->
-    ok.
-
-gen_check_func(Name,FType = #type{def=Def}) ->
-    EncName = ensure_atom(Name),
-    emit({{asis,EncName},"(_V,asn1_DEFAULT) ->",nl,"   true;",nl}),
-    emit({{asis,EncName},"(V,V) ->",nl,"   true;",nl}),
-    emit({{asis,EncName},"(V,{_,V}) ->",nl,"   true;",nl}),
-    case Def of
-	{'SEQUENCE OF',Type} ->
-	    gen_check_sof(Name,'SEQOF',Type);
-	{'SET OF',Type} ->
-	    gen_check_sof(Name,'SETOF',Type);
-	#'SEQUENCE'{components=Components} ->
-	    gen_check_sequence(Name,Components);
-	#'SET'{components=Components} ->
-	    gen_check_sequence(Name,Components);
-	{'CHOICE',Components} ->
-	    gen_check_choice(Name,Components);
-	#'Externaltypereference'{type=T} ->
-	    emit({{asis,EncName},"(DefaultValue,Value) ->",nl}),
-	    emit({"   '",list2name([T,check]),"'(DefaultValue,Value).",nl});
-	MaybePrim ->
-	    InnerType = get_inner(MaybePrim),
-	    case type(InnerType) of
-		{primitive,bif} ->
-		    emit({{asis,EncName},"(DefaultValue,Value) ->",nl,"   "}),
-		    gen_prim_check_call(get_inner(InnerType),"DefaultValue","Value",
-					FType),
-		    emit({".",nl,nl});
-		_ ->
-		    throw({asn1_error,{unknown,type,MaybePrim}})
-	    end
-    end.
-
-gen_check_sof(Name,SOF,Type) ->
-    EncName = ensure_atom(Name),
-    NewName = ensure_atom(list2name([sorted,Name])),
-    emit({{asis,EncName},"(V1,V2) ->",nl}),
-    emit({"   ",{asis,NewName},"(lists:sort(V1),lists:sort(V2)).",nl,nl}),
-    emit({{asis,NewName},"([],[]) ->",nl,"   true;",nl}),
-    emit({{asis,NewName},"([DV|DVs],[V|Vs]) ->",nl,"   "}),
-    InnerType = get_inner(Type#type.def),
-    case type(InnerType) of
-	{primitive,bif} ->
-	    gen_prim_check_call(get_inner(InnerType),"DV","V",Type),
-	    emit({",",nl});
-	{constructed,bif} ->
-	    emit([{asis,ensure_atom(list2name([SOF,Name]))},"(DV, V),",nl]);
-	#'Externaltypereference'{type=T} ->
-	    emit([{asis,ensure_atom(list2name([T,check]))},"(DV,V),",nl]);
-	'ASN1_OPEN_TYPE' ->
-	    emit(["DV = V,",nl]);
-	_ ->
-	    emit(["DV = V,",nl])
-    end,
-    emit({"   ",{asis,NewName},"(DVs,Vs).",nl,nl}).
-
-gen_check_sequence(Name, []) ->
-    emit([{asis,ensure_atom(Name)},"(_,_) ->",nl,
-	 "    throw(badval).",nl,nl]);
-gen_check_sequence(Name,Components) ->
-    emit([{asis,ensure_atom(Name)},"(DefaultValue,Value) ->",nl]),
-    gen_check_sequence(Name,Components,1).
-
-gen_check_sequence(Name,[#'ComponentType'{name=N,typespec=Type}|Cs],Num) ->
-    InnerType = get_inner(Type#type.def),
-    NthDefV = ["element(",Num+1,",DefaultValue)"],
-    NthV = ["element(",Num+1,",Value)"],
-    gen_check_func_call(Name,Type,InnerType,NthDefV,NthV,N),
-    case Cs of
-	[] ->
-	    emit({".",nl,nl});
-	_ ->
-	    emit({",",nl}),
-	    gen_check_sequence(Name,Cs,Num+1)
-    end.
-
-gen_check_choice(Name,CList=[#'ComponentType'{}|_Cs]) ->
-    emit([{asis,ensure_atom(Name)},"({Id,DefaultValue},{Id,Value}) ->",nl]),
-    emit(["   case Id of",nl]),
-    gen_check_choice_components(Name,CList,1).
-
-gen_check_choice_components(_,[],_)->
-    ok;
-gen_check_choice_components(Name,[#'ComponentType'{name=N,typespec=Type}|
-				  Cs],Num) ->
-    Ind6 = "      ",
-    InnerType = get_inner(Type#type.def),
-    emit({Ind6,"'",N,"' ->",nl,Ind6}),
-    gen_check_func_call(Name,Type,InnerType,{var,"defaultValue"},
-			{var,"value"},N),
-    case Cs of
-	[] ->
-	    emit({nl,"   end.",nl,nl});
-	_ ->
-	    emit({";",nl}),
-	    gen_check_choice_components(Name,Cs,Num+1)
-    end.
-
-gen_check_func_call(Name,Type,InnerType,DefVal,Val,N) ->
-    case type(InnerType) of
-	{primitive,bif} ->
-	    emit("   "),
-	    gen_prim_check_call(get_inner(InnerType),DefVal,Val,Type);
-	#'Externaltypereference'{type=T} ->
-	    emit({"   ",{asis,ensure_atom(list2name([T,check]))},"(",DefVal,",",Val,")"});
-	'ASN1_OPEN_TYPE' ->
-	    emit(["   if",nl,
-		  "      ",DefVal," == ",Val," -> true;",nl,
-		  "      true -> throw({error,{asn1_open_type}})",nl,
-		  "   end",nl]);
-	{constructed,bif} ->
-	    emit(["   ",{asis,ensure_atom(list2name([N,Name]))},"(",DefVal,",",Val,")"]);
-	_ ->
-	    emit(["   if",nl,
-		  "      ",DefVal," == ",Val," -> true;",nl,
-		  "      true -> throw({error,{asn1_open_type}})",nl,
-		  "   end",nl])
-    end.
-		  
-    
 %% VARIOUS GENERATOR STUFF 
 %% *************************************************
 %%**************************************************
@@ -1473,171 +1325,6 @@ to_textual_order(Cs=[#'ComponentType'{textual_order=undefined}|_]) ->
 to_textual_order(Cs) when is_list(Cs) ->
     lists:keysort(#'ComponentType'.textual_order,Cs).
     
-
-gen_check_call(TopType,Cname,Type,InnerType,WhatKind,DefaultValue,Element) ->
-    case WhatKind of
-	{primitive,bif} ->
-	    gen_prim_check_call(InnerType,DefaultValue,Element,Type);
-	#'Externaltypereference'{module=M,type=T} ->
-	    %% generate function call
-	    Name = list2name([T,check]),
-	    emit({"'",Name,"'(",DefaultValue,", ",Element,")"}),
-	    %% insert in ets table and do look ahead check
-	    Typedef = asn1_db:dbget(M,T),
-	    RefType = Typedef#typedef.typespec,
-	    InType = asn1ct_gen:get_inner(RefType#type.def),
-	    case insert_once(check_functions,{Name,RefType}) of
-		true ->
-		    lookahead_innertype([T],InType,RefType);
-		_ ->
-		    ok
-	    end;
-	{constructed,bif} ->
-	    NameList = [Cname|TopType],
-	    Name = list2name(NameList ++ [check]),
-	    emit({"'",Name,"'(",DefaultValue,", ",Element,")"}),
-	    asn1ct_table:insert(check_functions, {Name, Type}),
-	    %% Must look for check functions in InnerType,
-	    %% that may be referenced  or internal defined 
-	    %% constructed types not used elsewhere.
-	    lookahead_innertype(NameList,InnerType,Type);
-	_ ->
-	    %% Generate Dummy function call i.e. anything is accepted
-	    emit(["fun() -> true end ()"])
-    end.
-
-gen_prim_check_call(PrimType, Default, Element, Type) ->
-    case unify_if_string(PrimType) of
-	'BOOLEAN' ->
-	    check_call(check_bool, [Default,Element]);
-	'INTEGER' ->
-	    NNL = case Type#type.def of
-		      {_,NamedNumberList} -> NamedNumberList;
-		      _ -> []
-		  end,
-	    check_call(check_int, [Default,Element,{asis,NNL}]);
-	'BIT STRING' ->
-	    case Type#type.def of
-		{_,[]} ->
-		    check_call(check_bitstring,
-			       [Default,Element]);
-		{_,[_|_]=NBL} ->
-		    check_call(check_named_bitstring,
-			       [Default,Element,{asis,NBL}])
-	    end;
-	'OCTET STRING' ->
-	    check_call(check_octetstring, [Default,Element]);
-	'NULL' ->
-	    check_call(check_null, [Default,Element]);
-	'OBJECT IDENTIFIER' ->
-	    check_call(check_objectidentifier, [Default,Element]);
-	'RELATIVE-OID' ->
-	    check_call(check_objectidentifier, [Default,Element]);
-	'ObjectDescriptor' ->
-	    check_call(check_objectdescriptor, [Default,Element]);
-	'REAL' ->
-	    check_call(check_real, [Default,Element]);
-	'ENUMERATED' ->
-	    {_,Enumerations} = Type#type.def,
-	    check_call(check_enum, [Default,Element,{asis,Enumerations}]);
-	restrictedstring ->
-	    check_call(check_restrictedstring, [Default,Element])
-    end.
-
-check_call(F, Args) ->
-    asn1ct_func:call(check, F, Args).
-
-%% lokahead_innertype/3 traverses Type and checks if check functions
-%% have to be generated, i.e. for all constructed or referenced types.
-lookahead_innertype(Name,'SEQUENCE',Type) ->
-    Components = (Type#type.def)#'SEQUENCE'.components,
-    lookahead_components(Name,Components);
-lookahead_innertype(Name,'SET',Type) ->
-    Components = (Type#type.def)#'SET'.components,
-    lookahead_components(Name,Components);
-lookahead_innertype(Name,'CHOICE',Type) ->
-    {_,Components} = Type#type.def,
-    lookahead_components(Name,Components);
-lookahead_innertype(Name,'SEQUENCE OF',SeqOf) ->
-    lookahead_sof(Name,'SEQOF',SeqOf);
-lookahead_innertype(Name,'SET OF',SeqOf) ->
-    lookahead_sof(Name,'SETOF',SeqOf);
-lookahead_innertype(_Name,#'Externaltypereference'{module=M,type=T},_) ->
-    Typedef = asn1_db:dbget(M,T),
-    RefType = Typedef#typedef.typespec,
-    insert_once(check_functions,{list2name([T,check]),RefType}),
-    InType = asn1ct_gen:get_inner(RefType#type.def),
-    case type(InType) of
-	{constructed,bif} ->
-	    lookahead_innertype([T],InType,RefType);
-	Ref = #'Externaltypereference'{} ->
-	    lookahead_reference(Ref);
-	_ ->
-	    ok
-    end;
-lookahead_innertype(_,_,_) ->
-    ok.
-
-lookahead_components(_,[]) -> ok;
-lookahead_components(Name,[C|Cs]) ->
-    #'ComponentType'{name=Cname,typespec=Type} = C,
-    InType = asn1ct_gen:get_inner(Type#type.def),
-    case asn1ct_gen:type(InType) of
-	{constructed,bif} ->
-	    case insert_once(check_functions,
-			     {list2name([Cname|Name] ++ [check]),Type}) of
-		true ->
-		    lookahead_innertype([Cname|Name],InType,Type);
-		_ ->
-		    ok
-	    end;
-	#'Externaltypereference'{module=RefMod,type=RefName} ->
-  	    Typedef = asn1_db:dbget(RefMod,RefName),
-  	    RefType = Typedef#typedef.typespec,
-  	    case insert_once(check_functions,{list2name([RefName,check]),
-  					      RefType}) of
-  		true ->
-  		    lookahead_innertype([RefName],InType,RefType);
-  		_ ->
-  		    ok
-  	    end;
-	_ ->
-	    ok
-    end,
-    lookahead_components(Name,Cs).
-
-lookahead_sof(Name,SOF,SOFType) ->
-    Type = case SOFType#type.def of
-	       {_,_Type} -> _Type;
-	       _Type -> _Type
-	   end,
-    InnerType = asn1ct_gen:get_inner(Type#type.def),
-    case asn1ct_gen:type(InnerType) of
-	{constructed,bif} ->
-	    %% this is if a constructed type is defined in
-	    %% the SEQUENCE OF type
-	    NameList = [SOF|Name],
-	    insert_once(check_functions,
-			{list2name(NameList ++ [check]),Type}),
-	    lookahead_innertype(NameList,InnerType,Type);
-	Ref = #'Externaltypereference'{} ->
-	    lookahead_reference(Ref);
-	_ ->
-	    ok
-    end.
-
-lookahead_reference(#'Externaltypereference'{module=M,type=T}) ->
-    Typedef = asn1_db:dbget(M,T),
-    RefType = Typedef#typedef.typespec,
-    InType = get_inner(RefType#type.def),
-    case insert_once(check_functions,
-		     {list2name([T,check]),RefType}) of
-	true ->
-	    lookahead_innertype([T],InType,RefType);
-	_ ->
-	    ok
-    end.
-
 insert_once(Table,Object) ->
     case asn1ct_table:lookup(Table, element(1, Object)) of
 	[] ->
@@ -1909,11 +1596,6 @@ get_constraint(C,Key) ->
 	{value,Cnstr} ->
 	    Cnstr
     end.
-
-ensure_atom(Atom) when is_atom(Atom) ->
-    Atom;
-ensure_atom(List) when is_list(List) ->
-    list_to_atom(List).
     
 get_record_name_prefix() ->
     case lists:keysearch(record_name_prefix,1,get(encoding_options)) of
