@@ -38,6 +38,11 @@ static int list_to_bitstr_buf(Eterm obj, char* buf);
 #endif
 static int bitstr_list_len(Eterm obj, Uint* num_bytes);
 
+static Export binary_to_list_continue_export;
+
+static BIF_RETTYPE binary_to_list_continue(BIF_ALIST_1);
+
+
 void
 erts_init_binary(void)
 {
@@ -49,6 +54,11 @@ erts_init_binary(void)
 		 "Internal error: Address of orig_bytes[0] of a Binary"
 		 " is *not* 8-byte aligned\n");
     }
+
+    erts_init_trap_export(&binary_to_list_continue_export,
+			  am_erts_internal, am_binary_to_list_continue, 1,
+			  &binary_to_list_continue);
+
 }
 
 /*
@@ -333,6 +343,132 @@ BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+#define ERTS_B2L_BYTES_PER_REDUCTION 256
+
+typedef struct {
+    Eterm res;
+    Eterm *hp;
+#ifdef DEBUG
+    Eterm *hp_end;
+#endif
+    byte *bytes;
+    Uint size;
+    Uint bitoffs;
+} ErtsB2LState;
+
+static void b2l_state_destructor(Binary *mbp)
+{
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == b2l_state_destructor);
+}
+
+static BIF_RETTYPE
+binary_to_list_chunk(Process *c_p,
+		     Eterm mb_eterm,
+		     ErtsB2LState* sp,
+		     int reds_left,
+		     int gc_disabled)
+{
+    BIF_RETTYPE ret;
+    int bump_reds;
+    Uint size;
+    byte *bytes;
+
+    size = (reds_left + 1)*ERTS_B2L_BYTES_PER_REDUCTION;
+    if (size > sp->size)
+	size = sp->size;
+    bytes = sp->bytes + (sp->size - size);
+
+    bump_reds = (size - 1)/ERTS_B2L_BYTES_PER_REDUCTION + 1;
+    BUMP_REDS(c_p, bump_reds);
+
+    ASSERT(is_list(sp->res) || is_nil(sp->res));
+
+    sp->res = erts_bin_bytes_to_list(sp->res,
+				     sp->hp,
+				     bytes,
+				     size,
+				     sp->bitoffs);
+    sp->size -= size;
+    sp->hp += 2*size;
+
+    if (sp->size > 0) {
+
+	if (!gc_disabled)
+	    erts_set_gc_state(c_p, 0);
+
+	ASSERT(c_p->flags & F_DISABLE_GC);
+	ASSERT(is_value(mb_eterm));
+	ERTS_BIF_PREP_TRAP1(ret,
+			    &binary_to_list_continue_export,
+			    c_p,
+			    mb_eterm);
+    }
+    else {
+
+	ASSERT(sp->hp == sp->hp_end);
+	ASSERT(sp->size == 0);
+
+	if (!gc_disabled || !erts_set_gc_state(c_p, 1))
+	    ERTS_BIF_PREP_RET(ret, sp->res);
+	else
+	    ERTS_BIF_PREP_YIELD_RETURN(ret, c_p, sp->res);
+	ASSERT(!(c_p->flags & F_DISABLE_GC));
+    }
+
+    return ret;
+}
+
+static ERTS_INLINE BIF_RETTYPE
+binary_to_list(Process *c_p, Eterm *hp, Eterm tail, byte *bytes, Uint size, Uint bitoffs)
+{
+    int reds_left = ERTS_BIF_REDS_LEFT(c_p);
+    if (size < reds_left*ERTS_B2L_BYTES_PER_REDUCTION) {
+	Eterm res;
+	BIF_RETTYPE ret;
+	int bump_reds = (size - 1)/ERTS_B2L_BYTES_PER_REDUCTION + 1;
+	BUMP_REDS(c_p, bump_reds);
+	res = erts_bin_bytes_to_list(tail, hp, bytes, size, bitoffs);
+	ERTS_BIF_PREP_RET(ret, res);
+	return ret;
+    }
+    else {
+	Binary *mbp = erts_create_magic_binary(sizeof(ErtsB2LState),
+					       b2l_state_destructor);
+	ErtsB2LState *sp = ERTS_MAGIC_BIN_DATA(mbp);
+	Eterm mb;
+
+	sp->res = tail;
+	sp->hp = hp;
+#ifdef DEBUG
+	sp->hp_end = sp->hp + 2*size;
+#endif
+	sp->bytes = bytes;
+	sp->size = size;
+	sp->bitoffs = bitoffs;
+
+	hp = HAlloc(c_p, PROC_BIN_SIZE);
+	mb = erts_mk_magic_binary_term(&hp, &MSO(c_p), mbp);
+	return binary_to_list_chunk(c_p, mb, sp, reds_left, 0);
+    }
+}
+
+static BIF_RETTYPE binary_to_list_continue(BIF_ALIST_1)
+{
+    Binary *mbp = ((ProcBin *) binary_val(BIF_ARG_1))->val;
+
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == b2l_state_destructor);
+
+    ASSERT(BIF_P->flags & F_DISABLE_GC);
+
+    return binary_to_list_chunk(BIF_P,
+				BIF_ARG_1,
+				(ErtsB2LState*) ERTS_MAGIC_BIN_DATA(mbp),
+				ERTS_BIF_REDS_LEFT(BIF_P),
+				1);
+}
+
+HIPE_WRAPPER_BIF_DISABLE_GC(binary_to_list, 1)
+
 BIF_RETTYPE binary_to_list_1(BIF_ALIST_1)
 {
     Eterm real_bin;
@@ -354,13 +490,14 @@ BIF_RETTYPE binary_to_list_1(BIF_ALIST_1)
     } else {
 	Eterm* hp = HAlloc(BIF_P, 2 * size);
 	byte* bytes = binary_bytes(real_bin)+offset;
-
-	BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
+	return binary_to_list(BIF_P, hp, NIL, bytes, size, bitoffs);
     }
 
     error:
 	BIF_ERROR(BIF_P, BADARG);
 }
+
+HIPE_WRAPPER_BIF_DISABLE_GC(binary_to_list, 3)
 
 BIF_RETTYPE binary_to_list_3(BIF_ALIST_3)
 {
@@ -387,11 +524,12 @@ BIF_RETTYPE binary_to_list_3(BIF_ALIST_3)
     }
     i = stop-start+1;
     hp = HAlloc(BIF_P, 2*i);
-    BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes+start-1, i, bitoffs));
-    
+    return binary_to_list(BIF_P, hp, NIL, bytes+start-1, i, bitoffs);
     error:
 	BIF_ERROR(BIF_P, BADARG);
 }
+
+HIPE_WRAPPER_BIF_DISABLE_GC(bitstring_to_list, 1)
 
 BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 {
@@ -431,7 +569,8 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 	previous = CONS(hp, make_binary(last), previous);
 	hp += 2;
     }
-    BIF_RET(erts_bin_bytes_to_list(previous, hp, bytes, size, bitoffs));
+
+    return binary_to_list(BIF_P, hp, previous, bytes, size, bitoffs);
 }
 
 

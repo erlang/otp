@@ -58,7 +58,7 @@
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
-	 otp_8180/1, trapping/1]).
+	 otp_8180/1, trapping/1, large/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -76,7 +76,7 @@ all() ->
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180, trapping].
+     obsolete_funs, robustness, otp_8180, trapping, large].
 
 groups() -> 
     [].
@@ -1351,7 +1351,12 @@ trapping(Config) when is_list(Config)->
     do_trapping(5, term_to_binary,
 		fun() -> [lists:duplicate(2000000,2000000)] end),
     do_trapping(5, binary_to_term,
-		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end).
+		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end),
+    do_trapping(5, binary_to_list,
+		fun() -> [list_to_binary(lists:duplicate(2000000,$x))] end),
+    do_trapping(5, bitstring_to_list,
+		fun() -> [list_to_bitstring([lists:duplicate(2000000,$x),<<7:4>>])] end)
+    .
 
 do_trapping(0, _, _) ->
     ok;
@@ -1384,6 +1389,18 @@ trapping_loop2(Bif,Args,N) ->
     apply(erlang,Bif,Args),
     trapping_loop2(Bif, Args, N-1).
 
+large(Config) when is_list(Config) ->
+    List = lists:flatten(lists:map(fun (_) ->
+					   [0,1,2,3,4,5,6,7,8]
+				   end,
+				   lists:seq(1, 131072))),
+    Bin = list_to_binary(List),
+    List = binary_to_list(Bin),
+    PartList = lists:reverse(tl(tl(lists:reverse(tl(tl(List)))))),
+    PartList = binary_to_list(Bin, 3, length(List)-2),
+    ListBS = List ++ [<<7:4>>],
+    ListBS = bitstring_to_list(list_to_bitstring(ListBS)),
+    ok.
 
 %% Utilities.
 
