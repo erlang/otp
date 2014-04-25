@@ -105,7 +105,11 @@ main(Rule, Opts) ->
 
     case {Rule,Opts} of
 	{ber,[der]} ->
-	    der();
+	    der(),
+	    case 'Default':legacy_erlang_types() of
+		false -> ok;
+		true -> der_legacy()
+	    end;
 	{_,_} ->
 	    ok
     end,
@@ -118,45 +122,45 @@ main(Rule, Opts) ->
 
 	  {#'SeqBS'{},
 	   [{#'SeqBS'.a,
-	     [asn1_DEFAULT,
-	      2#0110101,
+	     [asn1_DEFAULT,			%Always.
+	      <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>],
+	     [2#0110101,			%Legacy only.
 	      [1,0,1,0,1,1,0],
-	      {1,<<16#AC>>},
-	      <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>]},
+	      {1,<<16#AC>>}]},
 	    {#'SeqBS'.b,
 	     [asn1_DEFAULT,
-	      2#10100010101,
+	      <<16#A8:8,16#A:4>>],
+	     [2#10100010101,
 	      [1,0,1,0,1,0,0,0,1,0,1,0],
-	      {4,<<16#A8,16#A0>>},
-	      <<16#A8:8,16#A:4>>]},
+	      {4,<<16#A8,16#A0>>}]},
 	    {#'SeqBS'.c,
 	     [asn1_DEFAULT,
 	      [second],
-	      [0,1],
-	      {6,<<0:1,1:1,0:6>>},
-	      <<1:2>>]},
+	      <<1:2>>],
+	     [[0,1],
+	      {6,<<0:1,1:1,0:6>>}]},
 	    {#'SeqBS'.c,			%Zeroes on the right
 	     [asn1_DEFAULT,
 	      [second],
-	      [0,1,0,0,0],
-	      {4,<<0:1,1:1,0:6>>},
-	      <<1:2,0:17>>]},
+	      <<1:2,0:17>>],
+	     [[0,1,0,0,0],
+	      {4,<<0:1,1:1,0:6>>}]},
 	    {#'SeqBS'.d,
 	     [asn1_DEFAULT,
-	      2#1001,
+	      <<2#1001:4>>],
+	     [2#1001,
 	      [1,0,0,1],
-	      {4,<<2#1001:4,0:4>>},
-	      <<2#1001:4>>]},
+	      {4,<<2#1001:4,0:4>>}]},
 	    {#'SeqBS'.e,
 	     [asn1_DEFAULT,
-	      [0,1,0,1,1,0,1,0],
-	      {0,<<2#01011010:8>>},
-	      <<2#01011010:8>>]},
+	      <<2#01011010:8>>],
+	     [[0,1,0,1,1,0,1,0],
+	      {0,<<2#01011010:8>>}]},
 	    %% Not EQUAL to DEFAULT.
 	    {#'SeqBS'.b,
+	     [<<6:3>>],
 	     [[1,1,0],				%Not equal to DEFAULT
-	      {5,<<6:3,0:5>>},
-	      <<6:3>>]}
+	      {5,<<6:3,0:5>>}]}
 	   ]},
 
 	  {#'SeqOS'{},
@@ -170,15 +174,14 @@ main(Rule, Opts) ->
 	      {1,2,14,15}]},
 	    {#'SeqOI'.b,
 	     [asn1_DEFAULT,
-%%	      {iso,'member-body',250,3,4},
+	      %%	      {iso,'member-body',250,3,4},
 	      {1,2,250,3,4}]},
 	    {#'SeqOI'.c,
 	     [asn1_DEFAULT,
-%%	      {iso,standard,8571,2,250,4},
+	      %%	      {iso,standard,8571,2,250,4},
 	      {1,0,8571,2,250,4}]}]}
 	 ],
-    io:format("~p\n", [Ts]),
-    R0 = [[consistency(Rec, Pos, Vs) || {Pos,Vs} <- Fs] || {Rec,Fs} <- Ts],
+    R0 = [[consistency(Rec, PosVs) || PosVs <- Fs] || {Rec,Fs} <- Ts],
     case lists:flatten(R0) of
 	[] ->
 	    ok;
@@ -187,8 +190,20 @@ main(Rule, Opts) ->
 	    ?t:fail()
     end.
 
-consistency(Rec0, Pos, [V|Vs]) ->
+legacy_filter({_,_}=Keep) ->
+    Keep;
+legacy_filter({Rec,Standard,Legacy}) ->
+    case 'Default':legacy_erlang_types() of
+	false ->
+	    {Rec,Standard};
+	true ->
+	    {Rec,Standard++Legacy}
+    end.
+
+consistency(Rec0, PosVs) ->
+    {Pos,[V|Vs]=AllVs} = legacy_filter(PosVs),
     T = element(1, Rec0),
+    io:format("~p: ~p\n", [T,AllVs]),
     Rec = setelement(Pos, Rec0, V),
     {ok,Enc} = 'Default':encode(T, Rec),
     {ok,_SmokeTest} = 'Default':decode(T, Enc),
@@ -206,7 +221,7 @@ consistency_1([V|Vs], Rec0, Pos, Enc) ->
 consistency_1([], _, _, _) -> [].
 
 der() ->
-    io:put_chars("Peforming DER-specific tests..."),
+    io:put_chars("Performing DER-specific tests..."),
     roundtrip(<<48,0>>,
 	      'SeqInts',
 	      #'SeqInts'{a=asn1_DEFAULT,b=asn1_DEFAULT,
@@ -227,91 +242,6 @@ der() ->
 	      #'SetInts'{a=1,b=-1,c=three,d=1},
 	      #'SetInts'{a=1,b=-1,c=3,d=1}),
 
-
-    roundtrip(<<48,0>>,
-	      'SeqBS',
-	      #'SeqBS'{a=2#0110101,
-		       b=2#010100010101,
-		       c=[second],
-		       d=[1,0,0,1]},
-	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<2#1001:4>>,
-		       e = <<2#01011010:8>>}),
-    roundtrip(<<48,0>>,
-	      'SeqBS',
-	      #'SeqBS'{a=[1,0,1,0,1,1,0],
-		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
-		       c={5,<<64>>},
-		       d=2#1001},
-	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<2#1001:4>>,
-		       e = <<2#01011010:8>>}),
-    roundtrip(<<48,3,131,1,0>>,
-	      'SeqBS',
-	      #'SeqBS'{a=[1,0,1,0,1,1,0],
-		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
-		       c={5,<<64>>},
-		       d=0},
-	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<>>,
-		       e = <<2#01011010:8>>}),
-    roundtrip(<<48,3,131,1,0>>,
-	      'SeqBS',
-	      #'SeqBS'{a = <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>,
-		       b = <<1:1,0:1,1:1,0:1,1:1,0:1,0:1,0:1,1:1,0:1,1:1,0:1>>,
-		       c = <<2:3>>,
-		       d=0,
-		       e = <<16#5A:8>>},
-	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<>>,
-		       e = <<2#01011010:8>>}),
-
-    %% None of the default values are used.
-    roundtrip(<<48,19,128,2,7,128,129,2,5,64,130,2,5,32,131,1,0,132,2,5,224>>,
-	      'SeqBS',
-	      #'SeqBS'{a = <<1:1>>,
-		       b = {5,<<64>>},
-		       c = [third],
-		       d = 0,
-		       e = <<7:3>>},
-	      #'SeqBS'{a = <<1:1>>,
-		       b = <<2:3>>,
-		       c = [third],
-		       d = <<>>,
-		       e = <<7:3>>}),
-
-    roundtrip(<<49,0>>,
-	      'SetBS',
-	      #'SetBS'{a=2#0110101,
-		       b=2#010100010101,
-		       c=[second],
-		       d=[1,0,0,1]},
-	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<2#1001:4>>}),
-    roundtrip(<<49,0>>,
-	      'SetBS',
-	      #'SetBS'{a=[1,0,1,0,1,1,0],
-		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
-		       c={5,<<64>>},
-		       d=9},
-	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<2#1001:4>>}),
-    roundtrip(<<49,3,131,1,0>>,
-	      'SetBS',
-	      #'SetBS'{a=[1,0,1,0,1,1,0],
-		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
-		       c={5,<<64>>},
-		       d=0},
-	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<>>}),
-    roundtrip(<<49,3,131,1,0>>,
-	      'SetBS',
-	      #'SetBS'{a = <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>,
-		       b = <<1:1,0:1,1:1,0:1,1:1,0:1,0:1,0:1,1:1,0:1,1:1,0:1>>,
-		       c = <<2:3>>,
-		       d=0},
-	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
-		       c=[second], d = <<>>}),
 
     roundtrip(<<48,0>>, 'SeqOS',
 	      #'SeqOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
@@ -442,6 +372,119 @@ der() ->
 	      'S4',
 	      #'S4'{a=#'S2'{a=1,b=asn1_NOVALUE},b=#'S4_b'{ba=true,bb=0}},
 	      #'S4'{a=#'S2'{a=1,b=asn1_NOVALUE},b=#'S4_b'{ba=true,bb=0}}),
+
+    roundtrip(<<48,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<49,0>>,
+	      'SetBS',
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>}),
+
+    %% None of the default values are used.
+    roundtrip(<<48,19,128,2,7,128,129,2,5,64,130,2,5,32,131,1,0,132,2,5,224>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<1:1>>,
+		       b = <<2:3>>,
+		       c = [third],
+		       d = <<>>,
+		       e = <<7:3>>}),
+    roundtrip(<<49,3,131,1,0>>,
+	      'SetBS',
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>}),
+    ok.
+
+der_legacy() ->
+    io:put_chars("Performing DER-specific tests with legacy types..."),
+
+    roundtrip(<<48,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a=2#0110101,
+		       b=2#010100010101,
+		       c=[second],
+		       d=[1,0,0,1]},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<48,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=2#1001},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<48,3,131,1,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=0},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<48,3,131,1,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>,
+		       b = <<1:1,0:1,1:1,0:1,1:1,0:1,0:1,0:1,1:1,0:1,1:1,0:1>>,
+		       c = <<2:3>>,
+		       d=0,
+		       e = <<16#5A:8>>},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>,
+		       e = <<2#01011010:8>>}),
+
+    %% None of the default values are used.
+    roundtrip(<<48,19,128,2,7,128,129,2,5,64,130,2,5,32,131,1,0,132,2,5,224>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<1:1>>,
+		       b = {5,<<64>>},
+		       c = [third],
+		       d = 0,
+		       e = <<7:3>>},
+	      #'SeqBS'{a = <<1:1>>,
+		       b = <<2:3>>,
+		       c = [third],
+		       d = <<>>,
+		       e = <<7:3>>}),
+
+    roundtrip(<<49,0>>,
+	      'SetBS',
+	      #'SetBS'{a=2#0110101,
+		       b=2#010100010101,
+		       c=[second],
+		       d=[1,0,0,1]},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>}),
+    roundtrip(<<49,0>>,
+	      'SetBS',
+	      #'SetBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=9},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>}),
+    roundtrip(<<49,3,131,1,0>>,
+	      'SetBS',
+	      #'SetBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=0},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>}),
+    roundtrip(<<49,3,131,1,0>>,
+	      'SetBS',
+	      #'SetBS'{a = <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>,
+		       b = <<1:1,0:1,1:1,0:1,1:1,0:1,0:1,0:1,1:1,0:1,1:1,0:1>>,
+		       c = <<2:3>>,
+		       d=0},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>}),
+
 
     ok.
 

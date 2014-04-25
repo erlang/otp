@@ -428,14 +428,12 @@ testMultipleLevels(Config, Rule, Opts) ->
     asn1_test_lib:compile("MultipleLevels", Config, [Rule|Opts]),
     testMultipleLevels:main(Rule).
 
-testDef(Config) -> test(Config, fun testDef/3).
-testDef(Config, Rule, Opts) ->
-    asn1_test_lib:compile("Def", Config, [Rule|Opts]),
-    testDef:main(Rule).
-
 testDEFAULT(Config) ->
     test(Config, fun testDEFAULT/3, [ber,{ber,[der]},per,uper]).
 testDEFAULT(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["Def","Default"], Config, [Rule|Opts]),
+    testDef:main(Rule),
+    testSeqSetDefaultVal:main(Rule, Opts),
     asn1_test_lib:compile_all(["Def","Default"], Config,
 			      [legacy_erlang_types,Rule|Opts]),
     testDef:main(Rule),
