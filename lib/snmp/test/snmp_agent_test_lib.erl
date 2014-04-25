@@ -1536,11 +1536,7 @@ rewrite_target_addr_conf(Dir, NewPort) ->
     end,
 
     ?line [TrapAddr|Addrs] = 
-	snmp_conf:read(
-	  TAFile,
-	  fun(R, S) ->
-		  {rewrite_target_addr_conf_check(R),S}
-	  end),
+	snmp_conf:read(TAFile, fun rewrite_target_addr_conf_check/1),
 
     ?DBG("rewrite_target_addr_conf -> TrapAddr: ~p",[TrapAddr]),
 

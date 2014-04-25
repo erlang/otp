@@ -45,6 +45,7 @@
 	 mk_tdomain/1, 
 	 which_domain/1, 
 	 check_ip/1, check_ip/2,
+	 check_address_no_port/2, check_port/1,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
 	 mk_taddress/2,
@@ -155,7 +156,8 @@ no_filter(X) -> X.
 
 
 
-read(File, Check) ->
+read(File, Verify) ->
+    Check = fun (Row, State) -> {Verify(Row), State} end,
     read(File, fun no_order/2, Check).
 
 %% Ret. Res | exit(Reason)
@@ -740,32 +742,70 @@ check_ip(BadDomain, _X) ->
 
 %% ---------
 
+%% check_address_default_port(Domain, Address) ->
+%%     case check_address_ip(Domain, Address) of
+%% 	false ->
+%% 	    case check_address_ip_port(Domain, Address) of
+%% 		false ->
+%% 		    error({bad_address, {Domain, Address}});
+%% 		_ ->
+%% 		    ok
+%% 	    end;
+%% 	_ ->
+%% 	    ok
+%%     end.
+
+check_address_no_port(Domain, Address) ->
+    case check_address_ip(Domain, Address) of
+	false ->
+	    error({bad_address, {Domain, Address}});
+	true ->
+	    ok;
+	FixedIP ->
+	    {ok, FixedIP}
+    end.
+
+check_port(Port) when ?is_word(Port) ->
+    ok;
+check_port(Port) ->
+    error({bad_port, Port}).
+
 %% Check a configuration term field from a file to see if it
-%% can be fed to mk_taddress/2.
+%% can be fixed to be fed to mk_taddress/2.
 
 check_address(Domain, Address, DefaultPort) ->
+    %% If Address does not contain Port or contains Port =:= 0
+    %% create an address containing DefaultPort
     case check_address_ip(Domain, Address) of
 	false ->
 	    case check_address_ip_port(Domain, Address) of
 		false ->
 		    error({bad_address, {Domain, Address}});
 		true ->
-		    {ok, Address};
+		    case Address of
+			{IP, 0} ->
+			    {ok, {IP, DefaultPort}};
+			_ ->
+			    ok
+		    end;
+		{FixedIP, 0} ->
+		    {ok, {FixedIP, DefaultPort}};
 		FixedAddress ->
 		    {ok, FixedAddress}
 	    end;
 	true ->
 	    {ok, {Address, DefaultPort}};
-	FixedIp ->
-	    {ok, {FixedIp, DefaultPort}}
+	FixedIP ->
+	    {ok, {FixedIP, DefaultPort}}
     end.
 
 check_address(Domain, Address) ->
+    %% Address has to contain Port
     case check_address_ip_port(Domain, Address) of
 	false ->
 	    error({bad_address, {Domain, Address}});
 	true ->
-	    {ok, Address};
+	    ok;
 	FixedAddress ->
 	    {ok, FixedAddress}
     end.
