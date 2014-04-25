@@ -1482,8 +1482,7 @@ ssh_channel_info([ _ | Rest], Channel, Acc) ->
 
 log_error(Reason) ->
     Report = io_lib:format("Erlang ssh connection handler failed with reason: "
-			   "~p ~n, Stacktace: ~p ~n"
-			   "please report this to erlang-bugs@erlang.org \n",
+			   "~p ~n, Stacktrace: ~p ~n",
 			   [Reason,  erlang:get_stacktrace()]),
     error_logger:error_report(Report),
     "Internal error".
