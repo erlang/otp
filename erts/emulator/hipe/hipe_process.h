@@ -23,6 +23,7 @@
 #define HIPE_PROCESS_H
 
 #include "erl_alloc.h"
+#include "export.h"
 
 struct hipe_process_state {
     Eterm *nsp;			/* Native stack pointer. */
@@ -31,6 +32,7 @@ struct hipe_process_state {
     union {
 	void (*ncallee)(void);	/* Native code callee (label) to invoke. */
 	Eterm closure;		/* Used to pass a closure from native code. */
+	Export* callee_exp;     /* Used to pass export entry from native code */
     }u;
     Eterm *nstgraylim;		/* Gray/white stack boundary. */
     Eterm *nstblacklim;		/* Black/gray stack boundary. Must exist if

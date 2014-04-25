@@ -396,13 +396,13 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  if (is_recursive)
 	      hipe_push_beam_trap_frame(p, reg, p->arity);
 	  
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  break;
       }
-      case HIPE_MODE_SWITCH_RES_CALL: {
+      case HIPE_MODE_SWITCH_RES_CALL_EXPORTED: {
 	  /* Native code calls or tailcalls BEAM.
 	   *
-	   * p->i is the callee's BEAM code
+	   * p->hipe.u.callee_exp is the callee's export entry
 	   * p->arity is the callee's arity
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
@@ -460,7 +460,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->i = closure->fe->address;
 
 	      /* Change result code to the faster plain CALL type. */
-	      result = HIPE_MODE_SWITCH_RES_CALL;
+	      result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  }
 	  /* Append the closure as the last parameter. Don't increment arity. */
 	  reg[arity] = p->hipe.u.closure;
@@ -541,7 +541,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      }
 	  }
 	  HIPE_CHECK_PCB(p);
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  p->def_arg_reg[3] = result;
 	  return p;
       }

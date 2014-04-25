@@ -524,6 +524,7 @@ static const struct rts_param rts_params[] = {
     },
     { 49, "P_MSG_FIRST", 1, offsetof(struct process, msg.first) },
     { 50, "P_MSG_SAVE", 1, offsetof(struct process, msg.save) },
+    { 51, "P_CALLEE_EXP", 1, offsetof(struct process, hipe.u.callee_exp) },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)

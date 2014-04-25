@@ -5034,7 +5034,10 @@ get_map_elements_fail:
        case HIPE_MODE_SWITCH_RES_RETURN:
 	 ASSERT(is_value(reg[0]));
 	 MoveReturn(reg[0], r(0));
-       case HIPE_MODE_SWITCH_RES_CALL:
+       case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
+	 c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
+	 /*fall through*/
+       case HIPE_MODE_SWITCH_RES_CALL_BEAM:
 	 SET_I(c_p->i);
 	 r(0) = reg[0];
 	 Dispatch();

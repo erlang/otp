@@ -104,7 +104,7 @@ ASYM(nbif_return):
  * stub (hipe_x86_loader.erl) which should look as follows:
  *
  * stub for f/N:
- *	movl	$<f's BEAM code address>, P_BEAM_IP(P)
+ *	movl	$<f's export entry address>, P_CALLEE_EXP(P)
  *	movb	$<N>, P_ARITY(P)
  *	jmp	nbif_callemu
  *
@@ -114,7 +114,7 @@ ASYM(nbif_return):
 	GLOBAL(ASYM(nbif_callemu))
 ASYM(nbif_callemu):
 	STORE_ARG_REGS
-	movl	$HIPE_MODE_SWITCH_RES_CALL, %eax
+	movl	$HIPE_MODE_SWITCH_RES_CALL_EXPORTED, %eax
 	jmp	.suspend_exit
 
 /*

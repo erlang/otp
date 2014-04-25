@@ -1490,18 +1490,13 @@ void hipe_mfa_save_orig_beam_op(Eterm mod, Eterm fun, unsigned int ari, Eterm *p
 
 static void *hipe_make_stub(Eterm m, Eterm f, unsigned int arity, int is_remote)
 {
-    void *BEAMAddress;
+    Export *export_entry;
     void *StubAddress;
 
-#if 0
-    if (is_not_atom(m) || is_not_atom(f) || arity > 255)
-	return NULL;
-#endif
-    BEAMAddress = hipe_get_emu_address(m, f, arity, is_remote);
-    StubAddress = hipe_make_native_stub(BEAMAddress, arity);
-#if 0
-    hipe_mfa_set_na(m, f, arity, StubAddress);
-#endif
+    ASSERT(is_remote);
+
+    export_entry = erts_export_get_or_make_stub(m, f, arity);
+    StubAddress = hipe_make_native_stub(export_entry, arity);
     return StubAddress;
 }
 
