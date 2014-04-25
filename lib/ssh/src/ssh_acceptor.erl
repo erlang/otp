@@ -80,18 +80,36 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
 				  ListenSocket, AcceptTimeout)
     end.
 
-handle_connection(_Callback, Address, Port, Options, Socket) ->
+handle_connection(Callback, Address, Port, Options, Socket) ->
     SystemSup = ssh_system_sup:system_supervisor(Address, Port),
-    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
-    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
-    Timeout = proplists:get_value(negotiation_timeout, 
-				  proplists:get_value(ssh_opts, Options, []),
-				  2*60*1000),
-    ssh_connection_handler:start_connection(server, Socket,
-					    [{supervisors, [{system_sup, SystemSup},
-							    {subsystem_sup, SubSysSup},
-							    {connection_sup, ConnectionSup}]}
-					     | Options], Timeout).
+    SSHopts = proplists:get_value(ssh_opts, Options, []),
+    MaxSessions = proplists:get_value(max_sessions,SSHopts,infinity),
+    case number_of_connections(SystemSup) < MaxSessions of
+	true ->
+	    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
+	    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
+	    Timeout = proplists:get_value(negotiation_timeout, SSHopts, 2*60*1000),
+	    ssh_connection_handler:start_connection(server, Socket,
+						    [{supervisors, [{system_sup, SystemSup},
+								    {subsystem_sup, SubSysSup},
+								    {connection_sup, ConnectionSup}]}
+						     | Options], Timeout);
+	false ->
+	    Callback:close(Socket),
+	    IPstr = if is_tuple(Address) -> inet:ntoa(Address);
+		     true -> Address
+		  end,
+	    Str = try io_lib:format('~s:~p',[IPstr,Port])
+		  catch _:_ -> "port "++integer_to_list(Port)
+		  end,
+	    error_logger:info_report("Ssh login attempt to "++Str++" denied due to option "
+				     "max_sessions limits to "++ io_lib:write(MaxSessions) ++
+				     " sessions."
+				     ),
+	    {error,max_sessions}
+    end.
+
+
 handle_error(timeout) ->
     ok;
 
@@ -117,3 +135,10 @@ handle_error(Reason) ->
     String = lists:flatten(io_lib:format("Accept error: ~p", [Reason])),
     error_logger:error_report(String),
     exit({accept_failed, String}).    
+
+
+number_of_connections(SystemSup) ->
+    length([X || 
+	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
+	       is_reference(R)
+	  ]).

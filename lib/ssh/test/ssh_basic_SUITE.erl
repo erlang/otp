@@ -47,20 +47,25 @@ all() ->
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
-     double_close].
+     double_close,
+     {group, hardening_tests}
+    ].
 
 groups() -> 
     [{dsa_key, [], basic_tests()},
      {rsa_key, [], basic_tests()},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
-     {internal_error, [], [internal_error]}
+     {internal_error, [], [internal_error]},
+     {hardening_tests, [], [max_sessions]}
     ].
+
 
 basic_tests() ->
     [send, close, peername_sockname,
      exec, exec_compressed, shell, cli, known_hosts, 
      idle_time, rekey, openssh_zlib_basic_test].
+
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -74,6 +79,8 @@ end_per_suite(_Config) ->
     ssh:stop(),
     crypto:stop().
 %%--------------------------------------------------------------------
+init_per_group(hardening_tests, Config) ->
+    init_per_group(dsa_key, Config);
 init_per_group(dsa_key, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -103,6 +110,8 @@ init_per_group(internal_error, Config) ->
 init_per_group(_, Config) ->
     Config.
 
+end_per_group(hardening_tests, Config) ->
+    end_per_group(dsa_key, Config);
 end_per_group(dsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
@@ -637,6 +646,49 @@ openssh_zlib_basic_test(Config) ->
 					  {compression, openssh_zlib}]),
     ok = ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+
+max_sessions(Config) ->
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    MaxSessions = 2,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user_passwords, [{"carni", "meat"}]},
+					     {parallel_login, true},
+					     {max_sessions, MaxSessions}
+					    ]),
+
+    Connect = fun() ->
+		      R=ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+							  {user_dir, UserDir},
+							  {user_interaction, false},
+							  {user, "carni"},
+							  {password, "meat"}
+							 ]),
+		      ct:log("Connection ~p up",[R])
+	      end,
+
+    try [Connect() || _ <- lists:seq(1,MaxSessions)]
+    of
+	_ ->
+	    ct:pal("Expect Info Report:",[]),
+	    try Connect()
+	    of
+		_ConnectionRef ->
+		    ssh:stop_daemon(Pid),
+		    {fail,"Too many connections accepted"}
+	    catch
+		error:{badmatch,{error,"Connection closed"}} ->
+		    ssh:stop_daemon(Pid),
+		    ok
+	    end
+    catch
+	error:{badmatch,{error,"Connection closed"}} ->
+	    ssh:stop_daemon(Pid),
+	    {fail,"Too few connections accepted"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

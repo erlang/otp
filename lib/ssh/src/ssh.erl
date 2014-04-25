@@ -332,6 +332,8 @@ handle_option([{idle_time, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{rekey_limit, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{max_sessions, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{negotiation_timeout, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{parallel_login, _} = Opt|Rest], SocketOptions, SshOptions) ->
@@ -365,6 +367,8 @@ handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), leng
 	    throw({error, {eoptions, Opt}})
     end;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
+    Opt;
+handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
     Opt;
 handle_ssh_option({negotiation_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
