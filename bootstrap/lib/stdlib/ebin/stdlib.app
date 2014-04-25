@@ -77,7 +77,6 @@
 	     orddict,
 	     ordsets,
 	     otp_internal,
-	     pg,
 	     pool,
 	     proc_lib,
 	     proplists,
