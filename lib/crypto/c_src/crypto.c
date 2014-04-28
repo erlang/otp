@@ -222,6 +222,8 @@ static void unload(ErlNifEnv* env, void* priv_data);
 
 /* The NIFs: */
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -291,6 +293,8 @@ static int library_refc = 0; /* number of users of this dynamic library */
 
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib},
+    {"info_fips", 0, info_fips},
+    {"enable_fips_mode", 1, enable_fips_mode},
     {"algorithms", 0, algorithms},
     {"hash_nif", 2, hash_nif},
     {"hash_init_nif", 1, hash_init_nif},
@@ -378,6 +382,12 @@ static ERL_NIF_TERM atom_unknown;
 static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
+#ifdef FIPS_SUPPORT
+static ERL_NIF_TERM atom_enabled;
+static ERL_NIF_TERM atom_not_enabled;
+#else
+static ERL_NIF_TERM atom_not_supported;
+#endif
 
 #if defined(HAVE_EC)
 static ERL_NIF_TERM atom_ec;
@@ -552,6 +562,13 @@ static int verify_lib_version(void)
     return 1;
 }
 
+#ifdef FIPS_SUPPORT
+/* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
+#define CHECK_NO_FIPS_MODE() { if (FIPS_mode()) return atom_notsup; }
+#else
+#define CHECK_NO_FIPS_MODE()
+#endif
+
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 
 # if defined(DEBUG)
@@ -602,11 +619,11 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!verify_lib_version())
 	return 0;
 
-    /* load_info: {301, <<"/full/path/of/this/library">>} */
+    /* load_info: {302, <<"/full/path/of/this/library">>,true|false} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
-	|| tpl_arity != 2
+	|| tpl_arity != 3
 	|| !enif_get_int(env, tpl_array[0], &vernum)
-	|| vernum != 301
+	|| vernum != 302
 	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
@@ -650,6 +667,21 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
+    /* Enter FIPS mode */
+    if (tpl_array[2] == atom_true) {
+#ifdef FIPS_SUPPORT
+        if (!FIPS_mode_set(1)) {
+#else
+        {
+#endif
+            PRINTF_ERR0("CRYPTO: Could not setup FIPS mode");
+            return 0;
+        }
+    } else if (tpl_array[2] != atom_false) {
+        PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
+        return 0;
+    }
+
     atom_sha = enif_make_atom(env,"sha");
     atom_error = enif_make_atom(env,"error");
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
@@ -681,6 +713,13 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_aes_ecb = enif_make_atom(env, "aes_ecb");
     atom_des_ecb = enif_make_atom(env, "des_ecb");
     atom_blowfish_ecb = enif_make_atom(env, "blowfish_ecb");
+#endif
+
+#ifdef FIPS_SUPPORT
+    atom_enabled = enif_make_atom(env,"enabled");
+    atom_not_enabled = enif_make_atom(env,"not_enabled");
+#else
+    atom_not_supported = enif_make_atom(env,"not_supported");
 #endif
 
     init_digest_types(env);
@@ -766,15 +805,16 @@ static void unload(ErlNifEnv* env, void* priv_data)
     --library_refc;
 }
 
-static int algo_hash_cnt;
+static int algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
-static int algo_pubkey_cnt;
+static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
-static int algo_cipher_cnt;
+static int algo_cipher_cnt, algo_cipher_fips_cnt;
 static ERL_NIF_TERM algo_cipher[23]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
+    // Validated algorithms first
     algo_hash_cnt = 0;
     algo_hash[algo_hash_cnt++] = atom_sha;
 #ifdef HAVE_SHA224
@@ -789,6 +829,8 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_SHA512
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha512");
 #endif
+    // Non-validated algorithms follow
+    algo_hash_fips_cnt = algo_hash_cnt;
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md5");
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "ripemd160");
@@ -804,8 +846,11 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ecdsa");
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ecdh");
 #endif
+    // Non-validated algorithms follow
+    algo_pubkey_fips_cnt = algo_pubkey_cnt;
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
+    // Validated algorithms first
     algo_cipher_cnt = 0;
 #ifndef OPENSSL_NO_DES
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc");
@@ -822,6 +867,11 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
+#if defined(HAVE_GCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
+#endif
+    // Non-validated algorithms follow
+    algo_cipher_fips_cnt = algo_cipher_cnt;
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
 #endif
@@ -836,9 +886,6 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ecb");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
-#if defined(HAVE_GCM)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
-#endif
 #if defined(HAVE_CHACHA20_POLY1305)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
 #endif
@@ -850,9 +897,16 @@ static void init_algorithms_types(ErlNifEnv* env)
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+#ifdef FIPS_SUPPORT
+    int fips_mode  = FIPS_mode();
+    int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
+    int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
+#else
     int hash_cnt   = algo_hash_cnt;
     int pubkey_cnt = algo_pubkey_cnt;
     int cipher_cnt = algo_cipher_cnt;
+#endif
     return enif_make_tuple3(env,
 			    enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
@@ -884,6 +938,37 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_list1(env, enif_make_tuple3(env, name_term,
 						 enif_make_int(env, ver_num),						 
 						 ver_term));
+}
+
+static ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef FIPS_SUPPORT
+    return FIPS_mode() ? atom_enabled : atom_not_enabled;
+#else
+    return atom_not_supported;
+#endif
+}
+
+static ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Boolean) */
+    if (argv[0] == atom_true) {
+#ifdef FIPS_SUPPORT
+        if (FIPS_mode_set(1)) {
+            return atom_true;
+        }
+#endif
+        PRINTF_ERR0("CRYPTO: Could not setup FIPS mode");
+        return atom_false;
+    } else if (argv[0] == atom_false) {
+#ifdef FIPS_SUPPORT
+        if (!FIPS_mode_set(0)) {
+            return atom_false;
+        }
+#endif
+        return atom_true;
+    } else {
+        return enif_make_badarg(env);
+    }
 }
 
 static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
@@ -1442,7 +1527,11 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     }
 
     if ((argv[0] == atom_aes_cfb8 || argv[0] == atom_aes_cfb128)
-        && (key.size == 24 || key.size == 32)) {
+        && (key.size == 24 || key.size == 32)
+#ifdef FIPS_SUPPORT
+	&& !FIPS_mode()
+#endif
+	) {
         /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
          * Fall back on low level API
          */
@@ -1504,6 +1593,8 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
      int new_ivlen = 0;
      ERL_NIF_TERM ret;
 
+     CHECK_NO_FIPS_MODE();
+
      if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
          || !(key.size == 16 || key.size == 24 || key.size == 32)
          || !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
@@ -1530,6 +1621,8 @@ static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     int i;
     unsigned char* ret_ptr;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
        || (key_bin.size != 16 && key_bin.size != 32)
@@ -2385,6 +2478,8 @@ static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     RC4_KEY rc4_key;
     ERL_NIF_TERM ret;
 
+    CHECK_NO_FIPS_MODE();
+
     if (!enif_inspect_iolist_as_binary(env,argv[0], &key)
 	|| !enif_inspect_iolist_as_binary(env,argv[1], &data)) {
 	return enif_make_badarg(env);
@@ -2401,6 +2496,8 @@ static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     ErlNifBinary key;
     ERL_NIF_TERM ret;
 
+    CHECK_NO_FIPS_MODE();
+
     if (!enif_inspect_iolist_as_binary(env,argv[0], &key)) {
 	return enif_make_badarg(env);
     }
@@ -2415,6 +2512,8 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
     ErlNifBinary state, data;
     RC4_KEY* rc4_key;
     ERL_NIF_TERM new_state, new_data;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!enif_inspect_iolist_as_binary(env,argv[0], &state)
 	|| state.size != sizeof(RC4_KEY)
@@ -2844,6 +2943,8 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     unsigned dlen;
     ERL_NIF_TERM ret;
 
+    CHECK_NO_FIPS_MODE();
+
     if (!get_bn_from_bin(env, argv[0], &bn_multiplier)
 	|| !get_bn_from_bin(env, argv[1], &bn_verifier)
 	|| !get_bn_from_bin(env, argv[2], &bn_generator)
@@ -2903,6 +3004,8 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     unsigned char* ptr;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!get_bn_from_bin(env, argv[0], &bn_a)
 	|| !get_bn_from_bin(env, argv[1], &bn_u)
@@ -2982,6 +3085,8 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     unsigned char* ptr;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!get_bn_from_bin(env, argv[0], &bn_verifier)
 	|| !get_bn_from_bin(env, argv[1], &bn_b)

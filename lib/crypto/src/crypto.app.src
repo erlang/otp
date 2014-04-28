@@ -24,7 +24,7 @@
 	       crypto_ec_curves]},
     {registered, []},
     {applications, [kernel, stdlib]},
-    {env, []},
+    {env, [{fips_mode, false}]},
     {runtime_dependencies, ["erts-6.0","stdlib-2.0","kernel-3.0"]}]}.
 
 
