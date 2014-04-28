@@ -322,8 +322,26 @@ merge_records(NewRecords, OldRecords) ->
         {'ok', spec_dict(), callback_dict()} | {'error', string()}.
 
 get_spec_info(ModName, AbstractCode, RecordsDict) ->
+  OptionalCallbacks0 = get_optional_callbacks(AbstractCode, ModName),
+  OptionalCallbacks = gb_sets:from_list(OptionalCallbacks0),
   get_spec_info(AbstractCode, dict:new(), dict:new(),
-		RecordsDict, ModName, "nofile").
+		RecordsDict, ModName, OptionalCallbacks, "nofile").
+
+get_optional_callbacks(Abs, ModName) ->
+  [{ModName, F, A} || {F, A} <- get_optional_callbacks(Abs)].
+
+get_optional_callbacks(Abs) ->
+    L = [O ||
+            {attribute, _, optional_callbacks, O} <- Abs,
+            is_fa_list(O)],
+    lists:append(L).
+
+is_fa_list([{FuncName, Arity}|L])
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 ->
+    is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
+
 
 %% TypeSpec is a list of conditional contracts for a function.
 %% Each contract is of the form {[Argument], Range, [Constraint]} where
@@ -332,13 +350,14 @@ get_spec_info(ModName, AbstractCode, RecordsDict) ->
 %%    are erl_types:erl_type()
 
 get_spec_info([{attribute, Ln, Contract, {Id, TypeSpec}}|Left],
-	      SpecDict, CallbackDict, RecordsDict, ModName, File)
+	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, File)
   when ((Contract =:= 'spec') or (Contract =:= 'callback')),
        is_list(TypeSpec) ->
   MFA = case Id of
 	  {_, _, _} = T -> T;
 	  {F, A} -> {ModName, F, A}
 	end,
+  Xtra = [optional_callback || gb_sets:is_member(MFA, OptCb)],
   ActiveDict =
     case Contract of
       spec     -> SpecDict;
@@ -346,8 +365,9 @@ get_spec_info([{attribute, Ln, Contract, {Id, TypeSpec}}|Left],
     end,
   try dict:find(MFA, ActiveDict) of
     error ->
+      SpecData = {TypeSpec, Xtra},
       NewActiveDict =
-	dialyzer_contracts:store_tmp_contract(MFA, {File, Ln}, TypeSpec,
+	dialyzer_contracts:store_tmp_contract(MFA, {File, Ln}, SpecData,
 					      ActiveDict, RecordsDict),
       {NewSpecDict, NewCallbackDict} =
 	case Contract of
@@ -355,8 +375,8 @@ get_spec_info([{attribute, Ln, Contract, {Id, TypeSpec}}|Left],
 	  callback -> {SpecDict, NewActiveDict}
 	end,
       get_spec_info(Left, NewSpecDict, NewCallbackDict,
-		    RecordsDict, ModName,File);
-    {ok, {{OtherFile, L},_C}} ->
+		    RecordsDict, ModName, OptCb, File);
+    {ok, {{OtherFile, L}, _D}} ->
       {Mod, Fun, Arity} = MFA,
       Msg = flat_format("  Contract/callback for function ~w:~w/~w "
 			"already defined in ~s:~w\n",
@@ -368,13 +388,15 @@ get_spec_info([{attribute, Ln, Contract, {Id, TypeSpec}}|Left],
 			  [Ln, Error])}
   end;
 get_spec_info([{attribute, _, file, {IncludeFile, _}}|Left],
-	      SpecDict, CallbackDict, RecordsDict, ModName, _File) ->
+	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, _File) ->
   get_spec_info(Left, SpecDict, CallbackDict,
-		RecordsDict, ModName, IncludeFile);
+		RecordsDict, ModName, OptCb, IncludeFile);
 get_spec_info([_Other|Left], SpecDict, CallbackDict,
-	      RecordsDict, ModName, File) ->
-  get_spec_info(Left, SpecDict, CallbackDict, RecordsDict, ModName, File);
-get_spec_info([], SpecDict, CallbackDict, _RecordsDict, _ModName, _File) ->
+	      RecordsDict, ModName, OptCb, File) ->
+  get_spec_info(Left, SpecDict, CallbackDict,
+                RecordsDict, ModName, OptCb, File);
+get_spec_info([], SpecDict, CallbackDict,
+              _RecordsDict, _ModName, _OptCb, _File) ->
   {ok, SpecDict, CallbackDict}.
 
 %% ============================================================================

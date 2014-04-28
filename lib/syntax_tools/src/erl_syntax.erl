@@ -3320,6 +3320,11 @@ attribute_arguments(Node) ->
 		    [set_pos(
 		       list(unfold_function_names(Data, Pos)),
 		       Pos)];
+		optional_callbacks ->
+                    D = try list(unfold_function_names(Data, Pos))
+                        catch _:_ -> abstract(Data)
+                        end,
+		    [set_pos(D, Pos)];
 		import ->
 		    {Module, Imports} = Data,
 		    [set_pos(atom(Module), Pos),
@@ -6129,6 +6134,13 @@ abstract_tail(H, T) ->
 %% {@link char/1} function to explicitly create an abstract
 %% character.)
 %%
+%% Note: `arity_qualifier' nodes are recognized. This is to follow The
+%% Erlang Parser when it comes to wild attributes: both {F, A} and F/A
+%% are recognized, which makes it possible to turn wild attributes
+%% into recognized attributes without at the same time making it
+%% impossible to compile files using the new syntax with the old
+%% version of the Erlang Compiler.
+%%
 %% @see abstract/1
 %% @see is_literal/1
 %% @see char/1
@@ -6170,6 +6182,20 @@ concrete(Node) ->
 					   {value, concrete(F), []}
 				   end, [], true),
 	    B;
+        arity_qualifier ->
+            A = erl_syntax:arity_qualifier_argument(Node),
+            case erl_syntax:type(A) of
+                integer ->
+                    F = erl_syntax:arity_qualifier_body(Node),
+                    case erl_syntax:type(F) of
+                        atom ->
+                            {F, A};
+                        _ ->
+                            erlang:error({badarg, Node})
+                    end;
+                _ ->
+                    erlang:error({badarg, Node})
+            end;
         _ ->
 	    erlang:error({badarg, Node})
     end.

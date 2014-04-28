@@ -158,9 +158,7 @@ lookup_contract(#mini_plt{contracts = ETSContracts},
   ets_table_lookup(ETSContracts, MFA).
 
 -spec lookup_callbacks(plt(), module()) ->
-	 'none' | {'value', [{mfa(), {{Filename::string(),
-				       Line::pos_integer()},
-				      #contract{}}}]}.
+	 'none' | {'value', [{mfa(), dialyzer_contracts:file_contract()}]}.
 
 lookup_callbacks(#mini_plt{callbacks = ETSCallbacks}, Mod) when is_atom(Mod) ->
   ets_table_lookup(ETSCallbacks, Mod).
@@ -618,9 +616,7 @@ table_insert_list(Plt, [{Key, Val}|Left]) ->
 table_insert_list(Plt, []) ->
   Plt.
 
-table_insert(Plt, Key, {_Ret, _Arg} = Obj) ->
-  dict:store(Key, Obj, Plt);
-table_insert(Plt, Key, #contract{} = C) ->
+table_insert(Plt, Key, {_File, #contract{}, _Xtra} = C) ->
   dict:store(Key, C, Plt).
 
 table_lookup(Plt, Obj) ->

@@ -102,14 +102,18 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 		    #state{plt = Plt, codeserver = Codeserver,
 			   records = Records} = State, Acc) ->
   {{Behaviour, Function, Arity},
-   {{_BehFile, _BehLine}, Callback}} = Cb,
+   {{_BehFile, _BehLine}, Callback, Xtra}} = Cb,
   CbMFA = {Module, Function, Arity},
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
   Acc0 = Acc,
   Acc1 = 
     case dialyzer_plt:lookup(Plt, CbMFA) of
-      'none' -> [{callback_missing, [Behaviour, Function, Arity]}|Acc0];
+      'none' ->
+        case lists:member(optional_callback, Xtra) of
+          true -> Acc0;
+          false -> [{callback_missing, [Behaviour, Function, Arity]}|Acc0]
+        end;
       {'value', RetArgTypes} ->
 	Acc00 = Acc0,
 	{ReturnType, ArgTypes} = RetArgTypes,
@@ -137,7 +141,7 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
   Acc2 =
     case dialyzer_codeserver:lookup_mfa_contract(CbMFA, Codeserver) of
       'error' -> Acc1;
-      {ok, {{File, Line}, Contract}} ->
+      {ok, {{File, Line}, Contract, _Xtra}} ->
 	Acc10 = Acc1,
 	SpecReturnType0 = dialyzer_contracts:get_contract_return(Contract),
 	SpecArgTypes0 = dialyzer_contracts:get_contract_args(Contract),

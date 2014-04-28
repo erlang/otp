@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -232,13 +232,21 @@ lattribute(import, Name, _Opts, _State) when is_list(Name) ->
     attr("import", [{var,0,pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts, _State) ->
     attr("import",[{var,0,pname(From)},falist(Falist)]);
+lattribute(optional_callbacks, Falist, Opts, _State) ->
+    ArgL = try falist(Falist)
+           catch _:_ -> abstract(Falist, Opts)
+           end,
+    call({var,0,"-optional_callbacks"}, [ArgL], 0, options(none));
 lattribute(file, {Name,Line}, _Opts, State) ->
     attr("file", [{var,0,(State#pp.string_fun)(Name)},{integer,0,Line}]);
 lattribute(record, {Name,Is}, Opts, _State) ->
     Nl = leaf(format("-record(~w,", [Name])),
     [{first,Nl,record_fields(Is, Opts)},$)];
-lattribute(Name, Arg, #options{encoding = Encoding}, _State) ->
-    attr(write(Name), [erl_parse:abstract(Arg, [{encoding,Encoding}])]).
+lattribute(Name, Arg, Options, _State) ->
+    attr(write(Name), [abstract(Arg, Options)]).
+
+abstract(Arg, #options{encoding = Encoding}) ->
+    erl_parse:abstract(Arg, [{encoding,Encoding}]).
 
 typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
     {first,leaf("-"++atom_to_list(Tag)++" "),
