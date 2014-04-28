@@ -21,7 +21,8 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, supports/0, version/0, bytes_to_integer/1]).
+-export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
+         version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -185,7 +186,7 @@
 %%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -on_load(on_load/0).
--define(CRYPTO_NIF_VSN,301).
+-define(CRYPTO_NIF_VSN,302).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 nif_stub_error(Line) ->
@@ -207,15 +208,32 @@ stop() ->
 
 supports()->
     {Hashs, PubKeys, Ciphers} = algorithms(),
+    {ExCiphers, ExPubKeys} =
+        case info_fips() of
+            enabled ->
+                {[], []};
+            _ ->
+                {[des_cbc, des_cfb,
+                  blowfish_cbc, blowfish_cfb64, blowfish_ofb64, blowfish_ecb,
+                  rc2_cbc, rc4],
+                 [srp]}
+        end,
 
     [{hashs, Hashs},
-     {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
-		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4] ++ Ciphers},
-     {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
+     {ciphers, [des3_cbc, des_ede3, aes_cbc128, aes_cfb8, aes_cfb128, aes_cbc256, aes_ctr]
+      ++ ExCiphers ++ Ciphers},
+     {public_keys, [rsa, dss, dh] ++ ExPubKeys ++ PubKeys}
     ].
 
 info_lib() -> ?nif_stub.
+
+-spec info_fips() -> not_supported | not_enabled | enabled.
+
+info_fips() -> ?nif_stub.
+
+-spec enable_fips_mode(boolean()) -> boolean().
+
+enable_fips_mode(_) -> ?nif_stub.
 
 -spec hash(_, iodata()) -> binary().
 
@@ -227,14 +245,14 @@ hash(Hash, Data0) ->
 -spec hash_init('md5'|'md4'|'ripemd160'|
                 'sha'|'sha224'|'sha256'|'sha384'|'sha512') -> any().
 
-hash_init(md5)       -> {md5, md5_init()};
-hash_init(md4)       -> {md4, md4_init()};
-hash_init(sha)       -> {sha, sha_init()};
-hash_init(ripemd160) -> {ripemd160, ripemd160_init()};
-hash_init(sha224)    -> {sha224, sha224_init()};
-hash_init(sha256)    -> {sha256, sha256_init()};
-hash_init(sha384)    -> {sha384, sha384_init()};
-hash_init(sha512)    -> {sha512, sha512_init()}.
+hash_init(md5)       -> {md5, notsup_to_error(md5_init())};
+hash_init(md4)       -> {md4, notsup_to_error(md4_init())};
+hash_init(sha)       -> {sha, notsup_to_error(sha_init())};
+hash_init(ripemd160) -> {ripemd160, notsup_to_error(ripemd160_init())};
+hash_init(sha224)    -> {sha224, notsup_to_error(sha224_init())};
+hash_init(sha256)    -> {sha256, notsup_to_error(sha256_init())};
+hash_init(sha384)    -> {sha384, notsup_to_error(sha384_init())};
+hash_init(sha512)    -> {sha512, notsup_to_error(sha512_init())}.
 
 -spec hash_update(_, iodata()) -> any().
 
@@ -270,7 +288,10 @@ hmac(Type, Key, Data0, MacSize) ->
     hmac(Type, Key, Data, MacSize, erlang:byte_size(Data), max_bytes(), initial).
 
 
-hmac_init(_Type, _Key) -> ?nif_stub.
+hmac_init(Type, Key) ->
+    notsup_to_error(hmac_init_nif(Type, Key)).
+
+hmac_init_nif(_Type, _Key) -> ?nif_stub.
 
 hmac_update(State, Data0) ->
     Data = iolist_to_binary(Data0),
@@ -382,7 +403,7 @@ next_iv(Type, Data, _Ivec) ->
 stream_init(aes_ctr, Key, Ivec) ->
     {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
 stream_init(rc4, Key) ->
-    {rc4, rc4_set_key(Key)}.
+    {rc4, notsup_to_error(rc4_set_key(Key))}.
 
 stream_encrypt(State, Data0) ->
     Data = iolist_to_binary(Data0),
@@ -458,35 +479,31 @@ verify(dss, none, Data, Signature, Key) when is_binary(Data) ->
     verify(dss, sha, {digest, Data}, Signature, Key);
 verify(Alg, Type, Data, Signature, Key) when is_binary(Data) ->
     verify(Alg, Type,  {digest, hash(Type, Data)}, Signature, Key);
-verify(dss, Type, Data, Signature, Key) ->
-    dss_verify_nif(Type, Data, Signature, map_ensure_int_as_bin(Key));
-verify(rsa, Type, DataOrDigest, Signature, Key) ->
-    case rsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
-	notsup -> erlang:error(notsup);
-	Bool -> Bool
-    end;
-verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	notsup -> erlang:error(notsup);
-	Bool -> Bool
-    end.
+verify(dss, Type, {digest, Digest}, Signature, Key) ->
+    dss_verify_nif(Type, Digest, Signature, map_ensure_int_as_bin(Key));
+verify(rsa, Type, {digest, Digest}, Signature, Key) ->
+    notsup_to_error(
+      rsa_verify_nif(Type, Digest, Signature, map_ensure_int_as_bin(Key)));
+verify(ecdsa, Type, {digest, Digest}, Signature, [Key, Curve]) ->
+    notsup_to_error(
+      ecdsa_verify_nif(Type, Digest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key))).
 sign(dss, none, Data, Key) when is_binary(Data) ->
     sign(dss, sha, {digest, Data}, Key);
 sign(Alg, Type, Data, Key) when is_binary(Data) ->
     sign(Alg, Type, {digest, hash(Type, Data)}, Key);
-sign(rsa, Type, DataOrDigest, Key) ->
-    case rsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
+sign(rsa, Type, {digest, Digest}, Key) ->
+    case rsa_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [Type,Digest,Key]);
 	Sign -> Sign
     end;
-sign(dss, Type, DataOrDigest, Key) ->
-    case dss_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [DataOrDigest, Key]);
+sign(dss, Type, {digest, Digest}, Key) ->
+    case dss_sign_nif(Type, Digest, map_ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [Digest, Key]);
 	Sign -> Sign
     end;
-sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
+sign(ecdsa, Type, {digest, Digest}, [Key, Curve]) ->
+    case ecdsa_sign_nif(Type, Digest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [Type,Digest,Key]);
 	Sign -> Sign
     end.
 
@@ -592,8 +609,9 @@ compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 					HostPubBin, Prime);
 		    [S] -> S
 		end,
-    srp_user_secret_nif(ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin,
-			Multiplier, Generator, DerivedKey, Prime);
+    notsup_to_error(
+      srp_user_secret_nif(ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin,
+                          Multiplier, Generator, DerivedKey, Prime));
 
 compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
@@ -605,8 +623,9 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 		    [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
 		    [S] -> S
 		end,
-    srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
-			UserPubBin, Prime);
+    notsup_to_error(
+      srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
+                          UserPubBin, Prime));
 
 compute_key(ecdh, Others, My, Curve) ->
     ecdh_compute_key_nif(ensure_int_as_bin(Others),
@@ -650,8 +669,10 @@ on_load() ->
 			  false -> LibBaseName
 		      end
 	      end,
-    Lib = filename:join([PrivDir, "lib", LibName]),
-    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,path2bin(Lib)}) of
+    Lib      = filename:join([PrivDir, "lib", LibName]),
+    LibBin   = path2bin(Lib),
+    FipsMode = application:get_env(crypto, fips_mode, false) == true,
+    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
 		     ArchLibDir =
@@ -663,7 +684,8 @@ on_load() ->
 			 [] -> Error1;
 			 _ ->
 			     ArchLib = filename:join([ArchLibDir, LibName]),
-			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,path2bin(ArchLib)})
+                             ArchBin = path2bin(ArchLib),
+			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchBin,FipsMode})
 		     end;
 		 Error1 -> Error1
 	     end,
@@ -688,9 +710,14 @@ path2bin(Path) when is_list(Path) ->
 max_bytes() ->
     ?MAX_BYTES_TO_NIF.
 
+notsup_to_error(notsup) ->
+    erlang:error(notsup);
+notsup_to_error(Other) ->
+    Other.
+
 %% HASH --------------------------------------------------------------------
 hash(Hash, Data, Size, Max, initial) when Size =< Max ->
-    do_hash(Hash, Data);
+    notsup_to_error(do_hash(Hash, Data));
 hash(State0, Data, Size, Max, continue) when Size =< Max ->
     State = do_hash_update(State0, Data),
     hash_final(State);
@@ -793,25 +820,13 @@ sha_final(_Context) -> ?nif_stub.
 -spec sha224_final(binary()) -> binary().
 
 sha224(Data) ->
-    case sha224_nif(Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha224_nif(Data)).
 sha224_init() ->
-    case sha224_init_nif() of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha224_init_nif()).
 sha224_update(Context, Data) ->
-    case sha224_update_nif(Context, Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha224_update_nif(Context, Data)).
 sha224_final(Context) ->
-    case sha224_final_nif(Context) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha224_final_nif(Context)).
 
 sha224_nif(_Data) -> ?nif_stub.
 sha224_init_nif() -> ?nif_stub.
@@ -827,25 +842,13 @@ sha224_final_nif(_Context) -> ?nif_stub.
 -spec sha256_final(binary()) -> binary().
 
 sha256(Data) ->
-    case sha256_nif(Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha256_nif(Data)).
 sha256_init() ->
-    case sha256_init_nif() of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha256_init_nif()).
 sha256_update(Context, Data) ->
-    case sha256_update_nif(Context, Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha256_update_nif(Context, Data)).
 sha256_final(Context) ->
-    case sha256_final_nif(Context) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha256_final_nif(Context)).
 
 sha256_nif(_Data) -> ?nif_stub.
 sha256_init_nif() -> ?nif_stub.
@@ -861,25 +864,13 @@ sha256_final_nif(_Context) -> ?nif_stub.
 -spec sha384_final(binary()) -> binary().
 
 sha384(Data) ->
-    case sha384_nif(Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha384_nif(Data)).
 sha384_init() ->
-    case sha384_init_nif() of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha384_init_nif()).
 sha384_update(Context, Data) ->
-    case sha384_update_nif(Context, Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha384_update_nif(Context, Data)).
 sha384_final(Context) ->
-    case sha384_final_nif(Context) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha384_final_nif(Context)).
 
 sha384_nif(_Data) -> ?nif_stub.
 sha384_init_nif() -> ?nif_stub.
@@ -895,25 +886,13 @@ sha384_final_nif(_Context) -> ?nif_stub.
 -spec sha512_final(binary()) -> binary().
 
 sha512(Data) ->
-    case sha512_nif(Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha512_nif(Data)).
 sha512_init() ->
-    case sha512_init_nif() of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha512_init_nif()).
 sha512_update(Context, Data) ->
-    case sha512_update_nif(Context, Data) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha512_update_nif(Context, Data)).
 sha512_final(Context) ->
-    case sha512_final_nif(Context) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(sha512_final_nif(Context)).
 
 sha512_nif(_Data) -> ?nif_stub.
 sha512_init_nif() -> ?nif_stub.
@@ -923,12 +902,13 @@ sha512_final_nif(_Context) -> ?nif_stub.
 %% HMAC --------------------------------------------------------------------
 
 hmac(Type, Key, Data, MacSize, Size, MaxBytes, initial) when Size =< MaxBytes ->
-    case MacSize of
-	undefined ->
-	    do_hmac(Type, Key, Data);
-	_ ->
-	    do_hmac(Type, Key, Data, MacSize)
-    end;
+    notsup_to_error(
+      case MacSize of
+          undefined ->
+              do_hmac(Type, Key, Data);
+          _ ->
+              do_hmac(Type, Key, Data, MacSize)
+      end);
 hmac(Type, Key, Data, MacSize, _, MaxBytes, initial) ->
     <<Increment:MaxBytes/binary, Rest/binary>> = Data,
     State0 = hmac_init(Type, Key),
@@ -1010,10 +990,7 @@ sha224_mac(Key, Data) ->
     sha224_mac(Key, Data, 224 div 8).
 
 sha224_mac(Key, Data, Size) ->
-   case sha224_mac_nif(Key, Data, Size) of
-       notsup -> erlang:error(notsup);
-       Bin -> Bin
-   end.
+   notsup_to_error(sha224_mac_nif(Key, Data, Size)).
 
 sha224_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
@@ -1026,10 +1003,7 @@ sha256_mac(Key, Data) ->
     sha256_mac(Key, Data, 256 div 8).
 
 sha256_mac(Key, Data, Size) ->
-   case sha256_mac_nif(Key, Data, Size) of
-       notsup -> erlang:error(notsup);
-       Bin -> Bin
-   end.
+   notsup_to_error(sha256_mac_nif(Key, Data, Size)).
 
 sha256_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
@@ -1042,10 +1016,7 @@ sha384_mac(Key, Data) ->
     sha384_mac(Key, Data, 384 div 8).
 
 sha384_mac(Key, Data, Size) ->
-   case sha384_mac_nif(Key, Data, Size) of
-       notsup -> erlang:error(notsup);
-       Bin -> Bin
-   end.
+   notsup_to_error(sha384_mac_nif(Key, Data, Size)).
 
 sha384_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
@@ -1058,10 +1029,7 @@ sha512_mac(Key, Data) ->
     sha512_mac(Key, Data, 512 div 8).
 
 sha512_mac(Key, Data, MacSz) ->
-   case sha512_mac_nif(Key, Data, MacSz) of
-       notsup -> erlang:error(notsup);
-       Bin -> Bin
-   end.
+   notsup_to_error(sha512_mac_nif(Key, Data, MacSz)).
 
 sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
@@ -1114,10 +1082,8 @@ des3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, false).
 
 des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, IsEncrypt) ->
-    case des_ede3_cfb_crypt_nif(Key1,Key2,Key3,IVec,Data,IsEncrypt) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(
+      des_ede3_cfb_crypt_nif(Key1,Key2,Key3,IVec,Data,IsEncrypt)).
 
 des_ede3_cfb_crypt_nif(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
@@ -1133,33 +1099,36 @@ des_ede3_cfb_crypt_nif(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_st
 -spec blowfish_ofb64_encrypt(iodata(), binary(), iodata()) -> binary().
 
 blowfish_ecb_encrypt(Key, Data) ->
-    bf_ecb_crypt(Key,Data, true).
+    notsup_to_error(bf_ecb_crypt(Key,Data, true)).
 
 blowfish_ecb_decrypt(Key, Data) ->
-    bf_ecb_crypt(Key,Data, false).
+    notsup_to_error(bf_ecb_crypt(Key,Data, false)).
 
 bf_ecb_crypt(_Key,_Data,_IsEncrypt) -> ?nif_stub.
 
 blowfish_cbc_encrypt(Key, IVec, Data) ->
-    bf_cbc_crypt(Key,IVec,Data,true).
+    notsup_to_error(bf_cbc_crypt(Key,IVec,Data,true)).
 
 blowfish_cbc_decrypt(Key, IVec, Data) ->
-    bf_cbc_crypt(Key,IVec,Data,false).
+    notsup_to_error(bf_cbc_crypt(Key,IVec,Data,false)).
 
 bf_cbc_crypt(_Key,_IVec,_Data,_IsEncrypt) -> ?nif_stub.    
 
 blowfish_cfb64_encrypt(Key, IVec, Data) ->
-    bf_cfb64_crypt(Key, IVec, Data, true).
+    notsup_to_error(bf_cfb64_crypt(Key, IVec, Data, true)).
 
 blowfish_cfb64_decrypt(Key, IVec, Data) ->
-    bf_cfb64_crypt(Key, IVec, Data, false).
+    notsup_to_error(bf_cfb64_crypt(Key, IVec, Data, false)).
 
 bf_cfb64_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
 blowfish_ofb64_decrypt(Key, Ivec, Data) ->
-    blowfish_ofb64_encrypt(Key, Ivec, Data).
+    notsup_to_error(bf_ofb64_crypt(Key, Ivec, Data)).
 
-blowfish_ofb64_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
+blowfish_ofb64_encrypt(Key, Ivec, Data) ->
+    notsup_to_error(bf_ofb64_crypt(Key, Ivec, Data)).
+
+bf_ofb64_crypt(_Key, _IVec, _Data) -> ?nif_stub.
 
 
 %%
@@ -1198,10 +1167,10 @@ aes_cfb_128_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 -spec des_cbc_decrypt(iodata(), binary(), iodata()) -> binary().
 
 des_cbc_encrypt(Key, IVec, Data) ->
-    des_cbc_crypt(Key, IVec, Data, true).
+    notsup_to_error(des_cbc_crypt(Key, IVec, Data, true)).
 
 des_cbc_decrypt(Key, IVec, Data) ->
-    des_cbc_crypt(Key, IVec, Data, false).
+    notsup_to_error(des_cbc_crypt(Key, IVec, Data, false)).
 
 des_cbc_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
@@ -1226,10 +1195,10 @@ des_cbc_ivec(Data) when is_list(Data) ->
 -spec des_cfb_decrypt(iodata(), binary(), iodata()) -> binary().
 
 des_cfb_encrypt(Key, IVec, Data) ->
-    des_cfb_crypt(Key, IVec, Data, true).
+    notsup_to_error(des_cfb_crypt(Key, IVec, Data, true)).
 
 des_cfb_decrypt(Key, IVec, Data) ->
-    des_cfb_crypt(Key, IVec, Data, false).
+    notsup_to_error(des_cfb_crypt(Key, IVec, Data, false)).
 
 des_cfb_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
@@ -1302,10 +1271,7 @@ aes_ige_256_decrypt(Key, IVec, Data) ->
     aes_ige_crypt(Key, IVec, Data, false).
 
 aes_ige_crypt(Key, IVec, Data, IsEncrypt) ->
-    case aes_ige_crypt_nif(Key,IVec,Data,IsEncrypt) of
-	notsup -> erlang:error(notsup);
-	Bin -> Bin
-    end.
+    notsup_to_error(aes_ige_crypt_nif(Key,IVec,Data,IsEncrypt)).
 
 aes_ige_crypt_nif(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
@@ -1363,7 +1329,7 @@ aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 %%
 %% AES - in counter mode (CTR) with state maintained for multi-call streaming 
 %%
--type ctr_state() :: { iodata(), binary(), binary(), integer() }.
+-type ctr_state() :: { iodata(), binary(), binary(), integer() } | binary().
 
 -spec aes_ctr_stream_init(iodata(), binary()) -> ctr_state().
 -spec aes_ctr_stream_encrypt(ctr_state(), binary()) ->
@@ -1371,10 +1337,9 @@ aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 -spec aes_ctr_stream_decrypt(ctr_state(), binary()) ->
 				 { ctr_state(), binary() }.
  
-aes_ctr_stream_init(Key, IVec) -> 
-    {Key, IVec, << 0:128 >>, 0}.
-aes_ctr_stream_encrypt({_Key, _IVec, _ECount, _Num}=_State, _Data) -> ?nif_stub.
-aes_ctr_stream_decrypt({_Key, _IVec, _ECount, _Num}=_State, _Cipher) -> ?nif_stub.
+aes_ctr_stream_init(_Key, _IVec) -> ?nif_stub.
+aes_ctr_stream_encrypt(_State, _Data) -> ?nif_stub.
+aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
      
 %%
 %% RC4 - symmetric stream cipher
@@ -1389,10 +1354,10 @@ rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
 %% RC2 block cipher
 
 rc2_cbc_encrypt(Key, IVec, Data) ->
-    rc2_cbc_crypt(Key,IVec,Data,true).
+    notsup_to_error(rc2_cbc_crypt(Key,IVec,Data,true)).
 
 rc2_cbc_decrypt(Key, IVec, Data) ->
-    rc2_cbc_crypt(Key,IVec,Data,false).
+    notsup_to_error(rc2_cbc_crypt(Key,IVec,Data,false)).
 
 rc2_cbc_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
@@ -1400,15 +1365,20 @@ rc2_cbc_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 %% RC2 - 40 bits block cipher - Backwards compatibility not documented.
 %%
 rc2_40_cbc_encrypt(Key, IVec, Data) when erlang:byte_size(Key) == 5 ->
-    rc2_cbc_crypt(Key,IVec,Data,true).
+    notsup_to_error(rc2_cbc_crypt(Key,IVec,Data,true)).
 
 rc2_40_cbc_decrypt(Key, IVec, Data)  when erlang:byte_size(Key) == 5 ->
-    rc2_cbc_crypt(Key,IVec,Data,false).
+    notsup_to_error(rc2_cbc_crypt(Key,IVec,Data,false)).
 
 
 %% Secure remote password  -------------------------------------------------------------------
 
 user_srp_gen_key(Private, Generator, Prime) ->
+    %% Ensure the SRP algorithm is disabled in FIPS mode
+    case info_fips() of
+        enabled -> erlang:error(notsup);
+        _       -> ok
+    end,
     case mod_pow(Generator, Private, Prime) of
 	error ->
 	    error;
@@ -1421,6 +1391,8 @@ host_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
    case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
    error ->
        error;
+   notsup ->
+       erlang:error(notsup);
    Public ->
        {Public, Private}
    end.
@@ -1466,13 +1438,13 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 
 
 %% Digital signatures  --------------------------------------------------------------------
-rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
-dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
-ecdsa_sign_nif(_Type, _DataOrDigest, _Curve, _Key) -> ?nif_stub.
+rsa_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
+dss_sign_nif(_Type,_Digest,_Key) -> ?nif_stub.
+ecdsa_sign_nif(_Type, _Digest, _Curve, _Key) -> ?nif_stub.
 
-dss_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
-rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
-ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Curve, _Key) -> ?nif_stub.
+dss_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
+rsa_verify_nif(_Type, _Digest, _Signature, _Key) -> ?nif_stub.
+ecdsa_verify_nif(_Type, _Digest, _Signature, _Curve, _Key) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
 %% DH Diffie-Hellman functions
@@ -1824,6 +1796,6 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 		    des_cbc_ivec, des_cfb_ivec,
 		    info,
 		    %%
-		    info_lib, supports]).
+		    info_lib, info_fips, supports]).
 info() ->
     ?FUNC_LIST.
