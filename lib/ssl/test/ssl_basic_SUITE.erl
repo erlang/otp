@@ -139,7 +139,8 @@ api_tests() ->
      ssl_accept_timeout,
      ssl_recv_timeout,
      versions_option,
-     server_name_indication_option
+     server_name_indication_option,
+     accept_pool
     ].
 
 session_tests() ->
@@ -3124,6 +3125,53 @@ server_name_indication_option(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client0),
     ssl_test_lib:close(Client1).
+%%--------------------------------------------------------------------
+
+accept_pool() ->
+    [{doc,"Test having an accept pool."}].
+accept_pool(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server0 = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{accepters, 3},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server0),
+    [Server1, Server2] = ssl_test_lib:accepters(2),
+
+    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options, ClientOpts}
+					]),
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options, ClientOpts}
+					]),
+    
+    Client2 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					 {options, ClientOpts}
+					]),
+    
+    ssl_test_lib:check_ok([Server0, Server1, Server2, Client0, Client1, Client2]),
+    
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Server2),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Client2).
+    
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
