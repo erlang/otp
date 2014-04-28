@@ -25,7 +25,7 @@
 
 -module(edoc_types).
 
--export([is_predefined/2, is_new_predefined/2, is_predefined_otp_type/2,
+-export([is_predefined/2, is_new_predefined/2,
          to_ref/1, to_xml/2, to_label/1, arg_names/1, set_arg_names/2,
          arg_descs/1, range_desc/1]).
 
@@ -34,66 +34,12 @@
 -include("edoc_types.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
-
-is_predefined(any, 0) -> true;
-is_predefined(atom, 0) -> true;
-is_predefined(binary, 0) -> true;
-is_predefined(bool, 0) -> true;    % kept for backwards compatibility
-is_predefined(char, 0) -> true;
 is_predefined(cons, 2) -> true;
 is_predefined(deep_string, 0) -> true;
-is_predefined(float, 0) -> true;
-is_predefined(function, 0) -> true;
-is_predefined(integer, 0) -> true;
-is_predefined(list, 0) -> true;
-is_predefined(list, 1) -> true;
-is_predefined(nil, 0) -> true;
-is_predefined(none, 0) -> true;
-is_predefined(no_return, 0) -> true;
-is_predefined(number, 0) -> true;
-is_predefined(pid, 0) -> true;
-is_predefined(port, 0) -> true;
-is_predefined(reference, 0) -> true;
-is_predefined(string, 0) -> true;
-is_predefined(term, 0) -> true;
-is_predefined(tuple, 0) -> true;
-is_predefined(F, A) -> is_new_predefined(F, A).
+is_predefined(F, A) -> erl_internal:is_type(F, A).
 
-%% Should eventually be coalesced with is_predefined/2.
-is_new_predefined(arity, 0) -> true;
-is_new_predefined(bitstring, 0) -> true;
-is_new_predefined(boolean, 0) -> true;
-is_new_predefined(byte, 0) -> true;
-is_new_predefined(iodata, 0) -> true;
-is_new_predefined(iolist, 0) -> true;
 is_new_predefined(map, 0) -> true;
-is_new_predefined(maybe_improper_list, 0) -> true;
-is_new_predefined(maybe_improper_list, 2) -> true;
-is_new_predefined(mfa, 0) -> true;
-is_new_predefined(module, 0) -> true;
-is_new_predefined(neg_integer, 0) -> true;
-is_new_predefined(node, 0) -> true;
-is_new_predefined(non_neg_integer, 0) -> true;
-is_new_predefined(nonempty_improper_list, 2) -> true;
-is_new_predefined(nonempty_list, 0) -> true;
-is_new_predefined(nonempty_list, 1) -> true;
-is_new_predefined(nonempty_maybe_improper_list, 0) -> true;
-is_new_predefined(nonempty_maybe_improper_list, 2) -> true;
-is_new_predefined(nonempty_string, 0) -> true;
-is_new_predefined(pos_integer, 0) -> true;
-is_new_predefined(timeout, 0) -> true;
 is_new_predefined(_, _) -> false.
-
-%% The following types will be removed later, but they are currently
-%% kind of built-in.
-is_predefined_otp_type(array, 0) -> true;
-is_predefined_otp_type(dict, 0) -> true;
-is_predefined_otp_type(digraph, 0) -> true;
-is_predefined_otp_type(gb_set, 0) -> true;
-is_predefined_otp_type(gb_tree, 0) -> true;
-is_predefined_otp_type(queue, 0) -> true;
-is_predefined_otp_type(set, 0) -> true;
-is_predefined_otp_type(_, _) -> false.
 
 to_ref(#t_typedef{name = N}) ->
     to_ref(N);
@@ -129,8 +75,7 @@ to_xml(#t_type{name = N, args = As}, Env) ->
     Predef = case N of
 		 #t_name{module = [], name = T} ->
                      NArgs = length(As),
-		     (is_predefined(T, NArgs)
-                      orelse is_predefined_otp_type(T, NArgs));
+		     is_predefined(T, NArgs);
 		 _ ->
 		     false
 	     end,
