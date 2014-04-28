@@ -472,7 +472,6 @@ encode(dwr = M, Dict0, Mask) ->
     #diameter_packet{bin = Bin} = diameter_codec:encode(Dict0, Pkt),
     Bin;
 
-
 encode(dwa, Dict0, #diameter_packet{header = H, transport_data = TD}
                    = ReqPkt) ->
     AnsPkt = #diameter_packet{header
@@ -560,13 +559,21 @@ recv(Name, Pkt, S) ->
 
 rcv('DWR', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
-    send(TPid, {send, encode(dwa, Dict0, Pkt)}),
+    EPkt = encode(dwa, Dict0, Pkt),
+    diameter_traffic:incr_A(send, EPkt, TPid, Dict0),
+    send(TPid, {send, EPkt}),
     ?LOG(send, 'DWA');
+
+rcv('DWA', Pkt, #watchdog{transport = TPid,
+                          dictionary = Dict0}) ->
+    diameter_traffic:incr_A(recv,
+                            diameter_codec:decode(Dict0, Pkt),
+                            TPid,
+                            Dict0);
 
 rcv(N, _, _)
   when N == 'CER';
        N == 'CEA';
-       N == 'DWA';
        N == 'DPR';
        N == 'DPA' ->
     false;
