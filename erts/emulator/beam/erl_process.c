@@ -6144,7 +6144,7 @@ suspend_process(Process *c_p, Process *p)
 	if (c_p == p) {
 	    state = erts_smp_atomic32_read_bor_relb(&p->state,
 						    ERTS_PSFLG_SUSPENDED);
-	    ASSERT(state & ERTS_PSFLG_RUNNING);
+	    ASSERT(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
 	    suspended = (state & ERTS_PSFLG_SUSPENDED) ? -1: 1;
 	}
 	else {
