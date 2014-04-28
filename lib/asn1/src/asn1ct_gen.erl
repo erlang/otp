@@ -1378,6 +1378,11 @@ conform_value(#type{def={'BIT STRING',[]}}, Bs) ->
 	bitstring when is_bitstring(Bs) ->
 	    Bs
     end;
+conform_value(#type{def='OCTET STRING'}, String) ->
+    case asn1ct:use_legacy_types() of
+	false -> String;
+	true -> binary_to_list(String)
+    end;
 conform_value(_, Value) -> Value.
 
 named_bitstring_value(List, Names) ->

@@ -107,7 +107,7 @@ main(Rule, Opts) ->
 	{ber,[der]} ->
 	    der(),
 	    case 'Default':legacy_erlang_types() of
-		false -> ok;
+		false -> der_new_types();
 		true -> der_legacy()
 	    end;
 	{_,_} ->
@@ -241,13 +241,6 @@ der() ->
 	      'SetInts',
 	      #'SetInts'{a=1,b=-1,c=three,d=1},
 	      #'SetInts'{a=1,b=-1,c=3,d=1}),
-
-
-    roundtrip(<<48,0>>, 'SeqOS',
-	      #'SeqOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
-
-    roundtrip(<<49,0>>, 'SetOS',
-	      #'SetOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
 
     roundtrip(<<48,0>>,
 	      'SeqOI',
@@ -397,8 +390,23 @@ der() ->
 		       c=[second], d = <<>>}),
     ok.
 
+der_new_types() ->
+    io:put_chars("Performing DER-specific tests with new types..."),
+
+    roundtrip(<<48,0>>, 'SeqOS',
+	      #'SeqOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
+
+    roundtrip(<<49,0>>, 'SetOS',
+	      #'SetOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
+    ok.
+
 der_legacy() ->
     io:put_chars("Performing DER-specific tests with legacy types..."),
+
+    roundtrip(<<48,0>>, 'SeqOS',
+	      #'SeqOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
+    roundtrip(<<49,0>>, 'SetOS',
+	      #'SetOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
 
     roundtrip(<<48,0>>,
 	      'SeqBS',
