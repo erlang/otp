@@ -316,6 +316,7 @@ atom line_length
 atom linked_in_driver
 atom links
 atom list
+atom list_to_binary_continue
 atom little
 atom loaded
 atom load_cancelled

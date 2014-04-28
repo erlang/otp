@@ -2294,18 +2294,11 @@ BIF_RETTYPE binary_bin_to_list_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P,BADARG);
 }
 
-/*
- * Ok, erlang:list_to_binary does not interrupt, and we really don't want
- * an alternative implementation for the exact same thing, why we
- * have descided to use the old non-restarting implementation for now.
- * In reality, there are seldom many iterations involved in doing this, so the
- * problem of long-running bifs is not really that big in this case.
- * So, for now we use the old implementation also in the module binary.
- */
+HIPE_WRAPPER_BIF_DISABLE_GC(binary_list_to_bin, 1)
 
 BIF_RETTYPE binary_list_to_bin_1(BIF_ALIST_1)
 {
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, bif_export[BIF_binary_list_to_bin_1]);
 }
 
 typedef struct {

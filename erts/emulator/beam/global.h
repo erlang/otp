@@ -435,6 +435,8 @@ do {\
     }\
 } while(0)
 
+#define CLEAR_SAVED_ESTACK(estack) ((void) ((estack)->start = NULL))
+
 /*
  * Use on empty stack, only the allocator can be changed before this.
  * The src stack is reset to NULL.
@@ -550,6 +552,8 @@ do {\
 	(wstack)->wstart = NULL;\
     }\
 } while(0)
+
+#define CLEAR_SAVED_WSTACK(wstack) ((void) ((wstack)->wstart = NULL))
 
 /*
  * Use on empty stack, only the allocator can be changed before this.
@@ -951,20 +955,67 @@ struct Sint_buf {
 };	
 char* Sint_to_buf(Sint, struct Sint_buf*);
 
+#define ERTS_IOLIST_STATE_INITER(C_P, OBJ)	\
+    {(C_P), 0, 0, (OBJ), {NULL, NULL, NULL, ERTS_ALC_T_INVALID}, 0, 0}
+
+#define ERTS_IOLIST_STATE_MOVE(TO, FROM)	\
+    sys_memcpy((void *) (TO), (void *) (FROM), sizeof(ErtsIOListState))
+
+#define ERTS_IOLIST_SIZE_YIELDS_COUNT_PER_RED 8
+
+typedef struct {
+    Process *c_p;
+    ErlDrvSizeT size;
+    Uint offs;
+    Eterm obj;
+    ErtsEStack estack;
+    int reds_left;
+    int have_size;
+} ErtsIOListState;
+
+#define ERTS_IOLIST2BUF_STATE_INITER(C_P, OBJ)	\
+    {ERTS_IOLIST_STATE_INITER((C_P), (OBJ)), {NULL, 0, 0, 0}, NULL, 0, NULL, 0}
+
+#define ERTS_IOLIST2BUF_STATE_MOVE(TO, FROM)	\
+    sys_memcpy((void *) (TO), (void *) (FROM), sizeof(ErtsIOList2BufState))
+
+#define ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT 32
+#define ERTS_IOLIST_TO_BUF_YIELD_COUNT_PER_RED 8
+#define ERTS_IOLIST_TO_BUF_BYTES_PER_RED \
+    (ERTS_IOLIST_TO_BUF_YIELD_COUNT_PER_RED*ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT)
+
+typedef struct {
+    ErtsIOListState iolist;
+    struct {
+	byte *bptr;
+	size_t size;
+	Uint bitoffs;
+	Uint bitsize;
+    } bcopy;
+    char *buf;
+    ErlDrvSizeT len;
+    Eterm *objp;
+    int offset;
+} ErtsIOList2BufState;
+
 #define ERTS_IOLIST_OK 0
 #define ERTS_IOLIST_OVERFLOW 1
 #define ERTS_IOLIST_TYPE 2
+#define ERTS_IOLIST_YIELD 3
 
 Eterm buf_to_intlist(Eterm**, const char*, size_t, Eterm); /* most callers pass plain char*'s */
 
 #define ERTS_IOLIST_TO_BUF_OVERFLOW	(~((ErlDrvSizeT) 0))
 #define ERTS_IOLIST_TO_BUF_TYPE_ERROR	(~((ErlDrvSizeT) 1))
+#define ERTS_IOLIST_TO_BUF_YIELD	(~((ErlDrvSizeT) 2))
 #define ERTS_IOLIST_TO_BUF_FAILED(R) \
-    (((R) & (~((ErlDrvSizeT) 1))) == (~((ErlDrvSizeT) 1)))
+    (((R) & (~((ErlDrvSizeT) 3))) == (~((ErlDrvSizeT) 3)))
 #define ERTS_IOLIST_TO_BUF_SUCCEEDED(R) \
     (!ERTS_IOLIST_TO_BUF_FAILED((R)))
 
 ErlDrvSizeT erts_iolist_to_buf(Eterm, char*, ErlDrvSizeT);
+ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *);
+int erts_iolist_size_yielding(ErtsIOListState *state);
 int erts_iolist_size(Eterm, ErlDrvSizeT *);
 int is_string(Eterm);
 void erl_at_exit(void (*) (void*), void*);

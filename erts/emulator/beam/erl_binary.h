@@ -166,7 +166,7 @@ Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, 
  * Common implementation for erlang:list_to_binary/1 and binary:list_to_bin/1
  */
 
-BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg);
+BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg, Export *bif);
 BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple);
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 
