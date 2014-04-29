@@ -4350,7 +4350,10 @@ t_from_form({type, _L, tuple, Args}, TypeNames, RecDict, VarDict) ->
 t_from_form({type, _L, union, Args}, TypeNames, RecDict, VarDict) ->
   {L, R} = list_from_form(Args, TypeNames, RecDict, VarDict),
   {t_sup(L), R};
+t_from_form({user_type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
+  type_from_form(Name, Args, TypeNames, RecDict, VarDict);
 t_from_form({type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
+  %% Compatibility. Modules compiled before 18.0.
   type_from_form(Name, Args, TypeNames, RecDict, VarDict);
 t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
             _RecDict, _VarDict) ->
@@ -4588,9 +4591,12 @@ t_form_to_string({type, _L, Name, []} = T) ->
   try t_to_string(t_from_form(T))
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
-t_form_to_string({type, _L, Name, List}) -> 
+t_form_to_string({user_type, _L, Name, List}) ->
   flat_format("~w(~s)",
-              [Name, string:join(t_form_to_string_list(List), ",")]).
+              [Name, string:join(t_form_to_string_list(List), ",")]);
+t_form_to_string({type, L, Name, List}) ->
+  %% Compatibility. Modules compiled before 18.0.
+  t_form_to_string({user_type, L, Name, List}).
 
 t_form_to_string_list(List) ->
   t_form_to_string_list(List, []).

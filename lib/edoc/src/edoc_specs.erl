@@ -362,7 +362,7 @@ d2e({type,_,map,any}) ->
     #t_map{ types = []};
 d2e({type,_,map,Es}) ->
     #t_map{ types = d2e(Es) };
-d2e({type,_,map_field_assoc,K,V}) ->
+d2e({type,_,map_field_assoc,[K,V]}) ->
     #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
 d2e({type,_,map_field_exact,K,V}) ->
     #t_map_field{ k_type = d2e(K), v_type=d2e(V) };
@@ -386,6 +386,9 @@ d2e({record_field,L,_Name,_E}=F) ->
 d2e({record_field,L,_Name}=F) ->
     d2e({typed_record_field,F,{type,L,any,[]}}); % Maybe skip...
 d2e({type,_,Name,Types0}) ->
+    Types = d2e(Types0),
+    typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
+d2e({user_type,_,Name,Types0}) ->
     Types = d2e(Types0),
     typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
 d2e({var,_,'_'}) ->

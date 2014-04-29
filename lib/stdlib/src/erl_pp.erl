@@ -285,6 +285,9 @@ ltype({type,_,'fun',[{type,_,any},_]}=FunType) ->
 ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType) ->
     [fun_type(['fun',$(], FunType),$)];
 ltype({type,Line,T,Ts}) ->
+    %% Compatibility. Before 18.0.
+    simple_type({atom,Line,T}, Ts);
+ltype({user_type,Line,T,Ts}) ->
     simple_type({atom,Line,T}, Ts);
 ltype({remote_type,Line,[M,F,Ts]}) ->
     simple_type({remote,Line,M,F}, Ts);
@@ -307,7 +310,7 @@ map_type(Fs) ->
 map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/1).
 
-map_pair_type({type,_Line,map_field_assoc,Ktype,Vtype}) ->
+map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}) ->
     {seq,[],[]," =>",[ltype(Ktype),ltype(Vtype)]}.
 
 record_type(Name, Fields) ->
