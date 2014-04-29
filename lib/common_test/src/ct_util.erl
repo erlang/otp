@@ -37,7 +37,7 @@
 	 save_suite_data_async/3, save_suite_data_async/2,
 	 read_suite_data/1, 
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
-	 delete_testdata/0, delete_testdata/1,
+	 delete_testdata/0, delete_testdata/1, match_delete_testdata/1,
 	 set_testdata/1, get_testdata/1, get_testdata/2,
 	 set_testdata_async/1, update_testdata/2, update_testdata/3,
 	 set_verbosity/1, get_verbosity/1]).
@@ -270,6 +270,9 @@ delete_testdata() ->
 delete_testdata(Key) ->
     call({delete_testdata, Key}).
 
+match_delete_testdata(KeyPat) ->
+    call({match_delete_testdata, KeyPat}).
+
 update_testdata(Key, Fun) ->
     update_testdata(Key, Fun, []).
 
@@ -361,7 +364,25 @@ loop(Mode,TestData,StartDir) ->
 	{{delete_testdata,Key},From} ->
 	    TestData1 = lists:keydelete(Key,1,TestData),
 	    return(From,ok),
-	    loop(From,TestData1,StartDir);	
+	    loop(From,TestData1,StartDir);
+	{{match_delete_testdata,{Key1,Key2}},From} ->
+	    %% handles keys with 2 elements
+	    TestData1 =
+		lists:filter(fun({Key,_}) when not is_tuple(Key) ->
+				     true;
+				({Key,_}) when tuple_size(Key) =/= 2 ->
+				     true;
+				({{_,KeyB},_}) when Key1 == '_' ->
+				     KeyB =/= Key2; 
+				({{KeyA,_},_}) when Key2 == '_' ->
+				     KeyA =/= Key1; 
+				(_) when Key1 == '_' ; Key2 == '_' ->
+				     false;
+				(_) ->
+				     true
+			     end, TestData),
+	    return(From,ok),
+	    loop(From,TestData1,StartDir);
 	{{set_testdata,New = {Key,_Val}},From} ->
 	    TestData1 = lists:keydelete(Key,1,TestData),
 	    return(From,ok),
