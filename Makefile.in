@@ -451,7 +451,7 @@ else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
-	echo "OTP built" > $(ERL_TOP)/make/otp_built
+	$(V_at)echo "OTP built" > $(ERL_TOP)/make/otp_built
 endif
 kernel:
 	$(make_verbose)cd lib/kernel && \
