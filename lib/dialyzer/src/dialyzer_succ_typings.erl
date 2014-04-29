@@ -422,10 +422,7 @@ lookup_and_find_opaques_fun(Codeserver) ->
   end.
 
 find_opaques_fun(Records) ->
-  fun(Module) ->
-      erl_types:module_builtin_opaques(Module) ++
-      erl_types:t_opaque_from_records(Records)
-  end.
+  fun(_Module) -> erl_types:t_opaque_from_records(Records) end.
 
 get_fun_types_from_plt(FunList, Callgraph, Plt) ->
   get_fun_types_from_plt(FunList, Callgraph, Plt, dict:new()).

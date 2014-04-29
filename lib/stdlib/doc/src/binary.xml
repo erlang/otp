@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -450,7 +450,7 @@ store(Binary, GBSet) ->
       </code>
 
       <p>In this example, we chose to copy the binary content before
-      inserting it in the <c>gb_set()</c> if it references a binary more than
+      inserting it in the <c>gb_sets:set()</c> if it references a binary more than
       twice the size of the data we're going to keep. Of course
       different rules for when copying will apply to different
       programs.</p>
