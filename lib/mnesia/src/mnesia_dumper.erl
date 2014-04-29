@@ -122,7 +122,7 @@ perform_dump(InitBy, Regulator) ->
 	    U = mnesia_monitor:get_env(dump_log_update_in_place),
 	    Cont = mnesia_log:init_log_dump(),
 	    mnesia_recover:sync(),
-	    case catch do_perform_dump(Cont, U, InitBy, Regulator, undefined) of
+	    try do_perform_dump(Cont, U, InitBy, Regulator, undefined) of
 		ok ->
 		    ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 		    case mnesia_monitor:use_dir() of
@@ -133,17 +133,15 @@ perform_dump(InitBy, Regulator) ->
 		    end,
 		    mnesia_recover:allow_garb(),
 		    %% And now to the crucial point...
-		    mnesia_log:confirm_log_dump(Diff);
-		{error, Reason} ->
-		    {error, Reason};
- 		{'EXIT', {Desc, Reason}} ->
+		    mnesia_log:confirm_log_dump(Diff)
+	    catch exit:Reason when Reason =/= fatal ->
 		    case mnesia_monitor:get_env(auto_repair) of
 			true ->
-			    mnesia_lib:important(Desc, Reason),
+			    mnesia_lib:important(error, Reason),
 			    %% Ignore rest of the log
 			    mnesia_log:confirm_log_dump(Diff);
 			false ->
-			    fatal(Desc, Reason)
+			    fatal(error, Reason)
 		    end
 	    end;
 	{error, Reason} ->
@@ -161,24 +159,25 @@ scan_decisions(Fname, InitBy, Regulator) ->
 	    mnesia_log:open_log(Name, Header, Fname, Exists,
 				mnesia_monitor:get_env(auto_repair), read_only),
 	    Cont = start,
-	    Res = (catch do_perform_dump(Cont, false, InitBy, Regulator, undefined)),
-	    mnesia_log:close_log(Name),
-	    case Res of
-		ok -> ok;
-		{'EXIT', Reason} -> {error, Reason}
+	    try
+		do_perform_dump(Cont, false, InitBy, Regulator, undefined)
+	    catch exit:Reason when Reason =/= fatal ->
+		    {error, Reason}
+	    after mnesia_log:close_log(Name)
 	    end
     end.
 
 do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
     case mnesia_log:chunk_log(Cont) of
 	{C2, Recs} ->
-	    case catch insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
-		{'EXIT', R} ->
-		    Reason = {"Transaction log dump error: ~p~n", [R]},
-		    close_files(InPlace, {error, Reason}, InitBy),
-		    exit(Reason);
+	    try insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
 		Version ->
 		    do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
+	    catch _:R when R =/= fatal ->
+		    ST = erlang:get_stacktrace(),
+		    Reason = {"Transaction log dump error: ~p~n", [{R, ST}]},
+		    close_files(InPlace, {error, Reason}, InitBy),
+		    exit(Reason)
 	    end;
 	eof ->
 	    close_files(InPlace, ok, InitBy),
@@ -288,17 +287,16 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 
     InitBy = fast_schema_update,
     InPlace = mnesia_monitor:get_env(dump_log_update_in_place),
-    ?eval_debug_fun({?MODULE, dump_schema_op}, [InitBy]),
-    case catch insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy,
-			  mnesia_log:version()) of
-	{'EXIT', Reason} ->
-	    Error = {error, {"Schema update error", Reason}},
+    try insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy,
+		   mnesia_log:version()),
+	 ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
+	 close_files(InPlace, ok, InitBy),
+	 ok
+    catch _:Reason when Reason =/= fatal ->
+	    ST = erlang:get_stacktrace(),
+	    Error = {error, {"Schema update error", {Reason, ST}}},
 	    close_files(InPlace, Error, InitBy),
-            fatal("Schema update error ~p ~p", [Reason, SchemaOps]);
-	_ ->
-	    ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
-	    close_files(InPlace, ok, InitBy),
-	    ok
+            fatal("Schema update error ~p ~p", [{Reason,ST}, SchemaOps])
     end.
 
 insert_ops(_Tid, _Storage, [], _InPlace, _InitBy, _) ->    ok;
@@ -347,13 +345,11 @@ dets_insert(Op,Tab,Key,Val) ->
 	    case dets_incr_counter(Tab,Key) of
 		true ->
 		    {RecName, Incr} = Val,
-		    case catch dets:update_counter(Tab, Key, Incr) of
-			CounterVal when is_integer(CounterVal) ->
-			    ok;
-			_ when Incr < 0 ->
+		    try _ = dets:update_counter(Tab, Key, Incr)
+		    catch error:_ when Incr < 0 ->
 			    Zero = {RecName, Key, 0},
 			    ok = dets:insert(Tab, Zero);
-			_ ->
+			  error:_ ->
 			    Init = {RecName, Key, Incr},
 			    ok = dets:insert(Tab, Init)
 		    end;
@@ -771,7 +767,7 @@ insert_op(Tid, _, {op, clear_table, TabDef}, InPlace, InitBy) ->
 	    end,
 	    %% Need to catch this, it crashes on ram_copies if
 	    %% the op comes before table is loaded at startup.
-	    catch insert(Tid, Storage, Tab, '_', Oid, clear_table, InPlace, InitBy)
+	    ?CATCH(insert(Tid, Storage, Tab, '_', Oid, clear_table, InPlace, InitBy))
     end;
 
 insert_op(Tid, _, {op, merge_schema, TabDef}, InPlace, InitBy) ->
@@ -1042,14 +1038,13 @@ prepare_open(Tab, UpdateInPlace) ->
 	    Dat;
 	false ->
 	    Tmp = mnesia_lib:tab2tmp(Tab),
-	    case catch mnesia_lib:copy_file(Dat, Tmp) of
-		ok ->
-		    Tmp;
-		Error ->
+	    try ok = mnesia_lib:copy_file(Dat, Tmp)
+	    catch error:Error ->
 		    fatal("Cannot copy dets file ~p to ~p: ~p~n",
 			  [Dat, Tmp, Error])
-	    end
-	end.
+	    end,
+	    Tmp
+    end.
 
 del_opened_tab(Tab) ->
     erase({?MODULE, Tab}).
@@ -1171,18 +1166,16 @@ raw_named_dump_table(Tab, Ftype) ->
 		    Storage = ram_copies,
 		    mnesia_lib:db_fixtable(Storage, Tab, true),
 
-		    case catch raw_dump_table(TabRef, Tab) of
-			{'EXIT', Reason} ->
-			    mnesia_lib:db_fixtable(Storage, Tab, false),
-			    mnesia_lib:dets_sync_close(Tab),
-			    file:delete(TmpFname),
-			    mnesia_lib:unlock_table(Tab),
-			    exit({"Dump of table to disc failed", Reason});
-			ok ->
-			    mnesia_lib:db_fixtable(Storage, Tab, false),
-			    mnesia_lib:dets_sync_close(Tab),
-			    mnesia_lib:unlock_table(Tab),
-			    ok = file:rename(TmpFname, Fname)
+		    try
+			ok = raw_dump_table(TabRef, Tab),
+			ok = file:rename(TmpFname, Fname)
+		    catch _:Reason ->
+			    ?SAFE(file:delete(TmpFname)),
+			    exit({"Dump of table to disc failed", Reason})
+		    after
+			mnesia_lib:db_fixtable(Storage, Tab, false),
+			mnesia_lib:dets_sync_close(Tab),
+			mnesia_lib:unlock_table(Tab)
 		    end;
 		{error, Reason} ->
 		    mnesia_lib:unlock_table(Tab),
@@ -1248,6 +1241,6 @@ regulate(RegulatorPid) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.

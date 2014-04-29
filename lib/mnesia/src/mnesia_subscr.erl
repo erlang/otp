@@ -186,11 +186,11 @@ patch_record(Tab, Obj) ->
     end.
 
 what(Tab, Tid, {RecName, Key}, delete, undefined) ->
-    case catch mnesia_lib:db_get(Tab, Key) of
-	Old when is_list(Old) -> %% Op only allowed for set table.
-	    {mnesia_table_event, {delete, Tab, {RecName, Key}, Old, Tid}};
-	_ ->
-	    %% Record just deleted by a dirty_op or 
+    try mnesia_lib:db_get(Tab, Key) of
+	Old -> %% Op only allowed for set table.
+	    {mnesia_table_event, {delete, Tab, {RecName, Key}, Old, Tid}}
+    catch error:_ ->
+	    %% Record just deleted by a dirty_op or
 	    %% the whole table has been deleted
 	    ignore
     end;
@@ -199,10 +199,10 @@ what(Tab, Tid, Obj, delete, Old) ->
 what(Tab, Tid, Obj, delete_object, _Old) ->
     {mnesia_table_event, {delete, Tab, Obj, [Obj], Tid}};
 what(Tab, Tid, Obj, write, undefined) ->
-    case catch mnesia_lib:db_get(Tab, element(2, Obj)) of
-	Old when is_list(Old) ->
-	    {mnesia_table_event, {write, Tab, Obj, Old, Tid}};
-	{'EXIT', _} ->
+    try	mnesia_lib:db_get(Tab, element(2, Obj)) of
+	Old ->
+	    {mnesia_table_event, {write, Tab, Obj, Old, Tid}}
+    catch error:_ ->
 	    ignore
     end;
 what(Tab, Tid, Obj, write, Old) ->
@@ -386,12 +386,12 @@ activate(ClientPid, What, Var, OldSubscribers, SubscrTab) ->
     case lists:member(ClientPid, Old) of
 	false ->
 	    %% Don't care about checking old links
-	    case catch link(ClientPid) of
+	    try link(ClientPid) of
 		true ->
 		    ?ets_insert(SubscrTab, {ClientPid, What}),
 		    add_subscr(Var, What, ClientPid),
-		    {ok, node()};
-		{'EXIT', _Reason} ->
+		    {ok, node()}
+	    catch error:_ ->
 		    {error, {no_exists, ClientPid}}
 	    end;
 	true ->
@@ -443,11 +443,10 @@ add_subscr({Tab, commit_work}, What, Pid) ->
 
 deactivate(ClientPid, What, Var, SubscrTab) ->
     ?ets_match_delete(SubscrTab, {ClientPid, What}),
-    case catch ?ets_lookup_element(SubscrTab, ClientPid, 1) of
-	List when is_list(List) ->
-	    ignore;
-	{'EXIT', _} ->
-	    unlink(ClientPid)
+    try
+	?ets_lookup_element(SubscrTab, ClientPid, 1),
+	ignore
+    catch error:_ -> unlink(ClientPid)
     end,
     try
 	del_subscr(Var, What, ClientPid),

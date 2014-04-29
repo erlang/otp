@@ -36,17 +36,19 @@
 
 -define(SERVER_NAME, ?MODULE).
 
+-include("mnesia.hrl").
+
 -record(state, {supervisor}).
 
 async_late_disc_load(_, [], _) -> ok;
 async_late_disc_load(Node, Tabs, Reason) ->
     Msg = {async_late_disc_load, Tabs, Reason},
-    catch ({?SERVER_NAME, Node} ! {self(), Msg}).
+    ?SAFE({?SERVER_NAME, Node} ! {self(), Msg}).
 
 maybe_async_late_disc_load(_, [], _) -> ok;
 maybe_async_late_disc_load(Node, Tabs, Reason) ->
     Msg = {maybe_async_late_disc_load, Tabs, Reason},
-    catch ({?SERVER_NAME, Node} ! {self(), Msg}).
+    ?SAFE({?SERVER_NAME, Node} ! {self(), Msg}).
 
 start() ->
     mnesia_monitor:start_proc(?SERVER_NAME, ?MODULE, init, [self()]).

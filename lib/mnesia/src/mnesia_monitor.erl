@@ -268,7 +268,7 @@ init([Parent]) ->
     set(version, Version),
     dbg_out("Version: ~p~n", [Version]),
 
-    case catch process_config_args(env()) of
+    try process_config_args(env()) of
 	ok ->
 	    mnesia_lib:set({'$$$_report', current_pos}, 0),
 	    Level = mnesia_lib:val(debug),
@@ -288,8 +288,8 @@ init([Parent]) ->
 	    set(pending_checkpoints, []),
 	    set(pending_checkpoint_pids, []),
 
-	    {ok, #state{supervisor = Parent}};
-	{'EXIT', Reason} ->
+	    {ok, #state{supervisor = Parent}}
+    catch _:Reason ->
 	    mnesia_lib:report_fatal("Bad configuration: ~p~n", [Reason]),
 	    {stop, {bad_config, Reason}}
     end.
@@ -323,24 +323,23 @@ non_empty_dir() ->
 %%----------------------------------------------------------------------
 
 handle_call({mktab, Tab, Args}, _From, State) ->
-    case catch ?ets_new_table(Tab, Args) of
-	{'EXIT', ExitReason} ->
+    try ?ets_new_table(Tab, Args) of
+	Reply ->
+	    {reply, Reply, State}
+    catch error:ExitReason ->
 	    Msg = "Cannot create ets table",
 	    Reason = {system_limit, Msg, Tab, Args, ExitReason},
 	    fatal("~p~n", [Reason]),
-	    {noreply, State};
-	Reply ->
-	    {reply, Reply, State}
+	    {noreply, State}
     end;
 
 handle_call({unsafe_mktab, Tab, Args}, _From, State) ->
-    case catch ?ets_new_table(Tab, Args) of
-	{'EXIT', ExitReason} ->
-	    {reply, {error, ExitReason}, State};
+    try ?ets_new_table(Tab, Args) of
 	Reply ->
 	    {reply, Reply, State}
+    catch error:ExitReason ->
+	    {reply, {error, ExitReason}, State}
     end;
-
 
 handle_call({open_dets, Tab, Args}, _From, State) ->
     case mnesia_lib:dets_sync_open(Tab, Args) of
@@ -546,7 +545,7 @@ handle_info({'EXIT', Pid, fatal}, State) when node(Pid) == node() ->
     %% is in progress
     %% exit(State#state.supervisor, shutdown),
     %% It is better to kill an innocent process
-    catch exit(whereis(mnesia_locker), kill),
+    ?SAFE(exit(whereis(mnesia_locker), kill)),
     {noreply, State};
 
 handle_info(Msg = {'EXIT',Pid,_}, State) ->
@@ -724,11 +723,8 @@ default_env(send_compressed) ->
     0.
 
 check_type(Env, Val) ->
-    case catch do_check_type(Env, Val) of
-	{'EXIT', _Reason} ->
-	    exit({bad_config, Env, Val});
-	NewVal ->
-	    NewVal
+    try do_check_type(Env, Val)
+    catch error:_ -> exit({bad_config, Env, Val})
     end.
 
 do_check_type(access_module, A) when is_atom(A) -> A;
@@ -777,12 +773,12 @@ media(opt_disc) -> opt_disc;
 media(ram) -> ram.
 
 patch_env(Env, Val) ->
-    case catch do_check_type(Env, Val) of
-	{'EXIT', _Reason} ->
-	    {error, {bad_type, Env, Val}};
+    try do_check_type(Env, Val) of
 	NewVal ->
 	    application_controller:set_env(mnesia, Env, NewVal),
 	    NewVal
+    catch error:_ ->
+	    {error, {bad_type, Env, Val}}
     end.
 
 detect_partitioned_network(Mon, Node) ->

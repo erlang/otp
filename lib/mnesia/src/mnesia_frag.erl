@@ -406,10 +406,11 @@ verify_numbers(FH,MatchSpec) ->
     VerifyFun = fun(F) when is_integer(F), F >= 1, F =< N -> false;
 		   (_F) -> true
 		end,
-    case catch lists:filter(VerifyFun, FragNumbers) of
-	[] ->
-	    FragNumbers;
-	BadFrags ->
+    try
+	Frags = lists:filter(VerifyFun, FragNumbers),
+	Frags == [] orelse error(Frags),
+	FragNumbers
+    catch error:BadFrags ->
 	    mnesia:abort({"match_spec_to_frag_numbers: Fragment numbers out of range",
 			  BadFrags, {range, 1, N}})
     end.
@@ -437,7 +438,7 @@ remote_select(ReplyTo, Ref, NameNodes, MatchSpec) ->
 do_remote_select(ReplyTo, Ref, [{Name, Node} | NameNodes], MatchSpec) ->
     if
 	Node == node() ->
-	    Res = (catch {ok, mnesia:dirty_select(Name, MatchSpec)}),
+	    Res = ?CATCH({ok, mnesia:dirty_select(Name, MatchSpec)}),
 	    ReplyTo ! {remote_select, Ref, Node, Res},
 	    do_remote_select(ReplyTo, Ref, NameNodes, MatchSpec);
 	true ->
@@ -886,17 +887,19 @@ adjust_before_split(FH) ->
 		HashMod:add_frag(HashState)
 	end,
     N = FH#frag_state.n_fragments + 1,
-    FromFrags2 = (catch lists:sort(FromFrags)),
-    UnionFrags = (catch lists:merge(FromFrags2, lists:sort(AdditionalWriteFrags))),
     VerifyFun = fun(F) when is_integer(F), F >= 1, F =< N -> false;
 		   (_F) -> true
 		end,
-    case catch lists:filter(VerifyFun, UnionFrags) of
-	[] ->
-	    FH2 = FH#frag_state{n_fragments = N,
-				hash_state  = HashState2},
-	    {FH2, FromFrags2, UnionFrags};
-	BadFrags ->
+    try
+	FromFrags2 = lists:sort(FromFrags),
+	UnionFrags = lists:merge(FromFrags2, lists:sort(AdditionalWriteFrags)),
+
+	Frags = lists:filter(VerifyFun, UnionFrags),
+	Frags == [] orelse error(Frags),
+	FH2 = FH#frag_state{n_fragments = N,
+			    hash_state  = HashState2},
+	{FH2, FromFrags2, UnionFrags}
+    catch error:BadFrags ->
 	    mnesia:abort({"add_frag: Fragment numbers out of range",
 			  BadFrags, {range, 1, N}})
     end.
@@ -981,22 +984,24 @@ adjust_before_merge(FH) ->
 		HashMod:del_frag(HashState)
 	end,
     N = FH#frag_state.n_fragments,
-    FromFrags2 = (catch lists:sort(FromFrags)),
-    UnionFrags = (catch lists:merge(FromFrags2, lists:sort(AdditionalWriteFrags))),
     VerifyFun = fun(F) when is_integer(F), F >= 1, F =< N -> false;
 		   (_F) -> true
 		end,
-    case catch lists:filter(VerifyFun, UnionFrags) of
-	[] ->
-	    case lists:member(N, FromFrags2) of
-		true ->
-		    FH2 = FH#frag_state{n_fragments = N - 1,
-					hash_state  = HashState2},
-		    {FH2, FromFrags2, UnionFrags};
+    try
+	FromFrags2 = lists:sort(FromFrags),
+	UnionFrags = lists:merge(FromFrags2, lists:sort(AdditionalWriteFrags)),
+
+	Frags = lists:filter(VerifyFun, UnionFrags),
+	[] == Frags orelse error(Frags),
+	case lists:member(N, FromFrags2) of
+	    true ->
+		FH2 = FH#frag_state{n_fragments = N - 1,
+				    hash_state  = HashState2},
+		{FH2, FromFrags2, UnionFrags};
 		false ->
-		    mnesia:abort({"del_frag: Last fragment number not included", N})
-	    end;
-	BadFrags ->
+		mnesia:abort({"del_frag: Last fragment number not included", N})
+	end
+    catch error:BadFrags ->
 	    mnesia:abort({"del_frag: Fragment numbers out of range",
 			  BadFrags, {range, 1, N}})
     end.
@@ -1141,8 +1146,8 @@ remove_node(Node, Cs) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason); 
-	Value -> Value 
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
+	Value -> Value
     end.
 
 set_frag_hash(Tab, Props) ->
