@@ -36,6 +36,7 @@
 		 c = asn1_DEFAULT,
 		 d = asn1_DEFAULT,
 		 e = asn1_DEFAULT}).
+-record('SeqBS2',{bs = asn1_DEFAULT}).
 -record('SetBS',{a = asn1_DEFAULT, 
 		 b = asn1_DEFAULT, 
 		 c = asn1_DEFAULT,
@@ -93,6 +94,13 @@
 	      b = asn1_DEFAULT}).
 -record('S4_b',{ba = asn1_DEFAULT, 
 		bb = asn1_DEFAULT}).
+-record('SeqNamedInts',
+	{i1 = asn1_DEFAULT,
+	 i2 = asn1_DEFAULT}).
+-record('S5',{s3 = asn1_DEFAULT,
+	      so = asn1_DEFAULT,
+	      soe = asn1_DEFAULT}).
+-record('SOI', {soi = asn1_DEFAULT}).
 
 main(ber, []) ->
     %% Nothing to test because plain BER will only use
@@ -388,6 +396,58 @@ der() ->
 	      'SetBS',
 	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
 		       c=[second], d = <<>>}),
+
+    %% SeqNamedInts
+    roundtrip(<<48,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{i1=15,i2=31}),
+    roundtrip(<<48,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{},
+	      #'SeqNamedInts'{i1=15,i2=31}),
+    roundtrip(<<48,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{i2=last},
+	      #'SeqNamedInts'{i1=15,i2=31}),
+    roundtrip(<<48,3,128,1,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{i1=first,i2=31},
+	      #'SeqNamedInts'{i1=first,i2=31}),
+
+    %% S5
+    roundtrip(<<48,0>>,
+	      'S5',
+	      #'S5'{s3=#'S3'{a=[11,12,13],
+			     b=[{a,11},{b,true},{c,13}],
+			     c=[1,2,3,4],
+			     d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]},
+		    so=[{0,1,999},{0,1,555}],
+		    soe=[]}),
+    roundtrip(<<48,0>>,
+	      'S5',
+	      #'S5'{},
+	      #'S5'{s3=#'S3'{a=[11,12,13],
+			     b=[{a,11},{b,true},{c,13}],
+			     c=[1,2,3,4],
+			     d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]},
+		    so=[{0,1,999},{0,1,555}],
+		    soe=[]}),
+
+    %% SOI
+    roundtrip(<<48,0>>,
+	      'SOI',
+	      #'SOI'{},
+	      #'SOI'{soi=[{1,2,250,9,55},{1,2,250,3,4}]}),
+
+    %% SeqBS2
+    roundtrip(<<48,0>>,
+	      'SeqBS2',
+	      #'SeqBS2'{bs= <<16#5:3>>}),
+    roundtrip(<<48,0>>,
+	      'SeqBS2',
+	      #'SeqBS2'{bs= <<16#5:3,0:4>>},
+	      #'SeqBS2'{bs= <<16#5:3>>}),
+
     ok.
 
 der_new_types() ->
@@ -459,7 +519,6 @@ der_legacy() ->
 		       c = [third],
 		       d = <<>>,
 		       e = <<7:3>>}),
-
     roundtrip(<<49,0>>,
 	      'SetBS',
 	      #'SetBS'{a=2#0110101,
@@ -492,7 +551,6 @@ der_legacy() ->
 		       d=0},
 	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
 		       c=[second], d = <<>>}),
-
 
     ok.
 
