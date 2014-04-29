@@ -1125,6 +1125,23 @@ trans_fun([{trim,N,NY}|Instructions], Env) ->
 trans_fun([{line,_}|Instructions], Env) ->
   trans_fun(Instructions,Env);
 %%--------------------------------------------------------------------
+%% Map instructions added in Spring 2014 (17.0).
+%%--------------------------------------------------------------------
+trans_fun([{test,has_map_fields,{f,Lbl},Map,{list,Keys}}|Instructions], Env) ->
+  {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
+  %% We assume that hipe_icode:mk_call has no side-effects, and reuse
+  %% the help function of get_map_elements below, discarding the value
+  %% assignment instruction list.
+  {TestInstructions, _GetInstructions, Env2} =
+    trans_map_query(MapVar, map_label(Lbl), Env1,
+		    lists:flatten([[K, {r, 0}] || K <- Keys])),
+  [MapMove, TestInstructions | trans_fun(Instructions, Env2)];
+trans_fun([{get_map_elements,{f,Lbl},Map,{list,KVPs}}|Instructions], Env) ->
+  {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
+  {TestInstructions, GetInstructions, Env2} =
+    trans_map_query(MapVar, map_label(Lbl), Env1, KVPs),
+  [MapMove, TestInstructions, GetInstructions | trans_fun(Instructions, Env2)];
+%%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
 trans_fun([X|_], _) ->
@@ -1503,6 +1520,25 @@ trans_type_test2(function2, Lbl, Arg, Arity, Env) ->
   I = hipe_icode:mk_type([Var1,Var2], function2,
 			 hipe_icode:label_name(True), map_label(Lbl)),
   {[Move1,Move2,I,True],Env2}.
+
+%%
+%% Handles the get_map_elements instruction and the has_map_fields
+%% test instruction.
+%%
+trans_map_query(_MapVar, _FailLabel, Env, []) ->
+  {[], [], Env};
+trans_map_query(MapVar, FailLabel, Env, [Key,Val|KVPs]) ->
+  {Move,KeyVar,Env1} = mk_move_and_var(Key,Env),
+  PassLabel = mk_label(new),
+  BoolVar = hipe_icode:mk_new_var(),
+  ValVar = mk_var(Val),
+  IsKeyCall = hipe_icode:mk_call([BoolVar], maps, is_key, [KeyVar, MapVar],
+				 remote),
+  TrueTest = hipe_icode:mk_if('=:=', [BoolVar, hipe_icode:mk_const(true)],
+			      hipe_icode:label_name(PassLabel), FailLabel),
+  GetCall = hipe_icode:mk_call([ValVar], maps, get,  [KeyVar, MapVar], remote),
+  {TestList, GetList, Env2} = trans_map_query(MapVar, FailLabel, Env1, KVPs),
+  {[Move, IsKeyCall, TrueTest, PassLabel|TestList], [GetCall|GetList], Env2}.
 
 %%-----------------------------------------------------------------------
 %% trans_puts(Code, Environment) -> 
