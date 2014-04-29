@@ -55,6 +55,7 @@ all() ->
      {group, blowfish_cfb64},
      {group, blowfish_ofb64},
      {group, aes_cbc128},
+     {group, aes_cfb8},
      {group, aes_cfb128},
      {group, aes_cbc256},
      {group, aes_ige256},
@@ -90,6 +91,7 @@ groups() ->
      {des3_cbf,[], [block]},
      {rc2_cbc,[], [block]},
      {aes_cbc128,[], [block]},
+     {aes_cfb8,[], [block]},
      {aes_cfb128,[], [block]},
      {aes_cbc256,[], [block]},
      {aes_ige256,[], [block]},
@@ -723,6 +725,9 @@ group_config(aes_cbc256, Config) ->
 group_config(aes_ige256, Config) ->
     Block = aes_ige256(),
     [{block, Block} | Config];
+group_config(aes_cfb8, Config) ->
+    Block = aes_cfb8(),
+    [{block, Block} | Config];
 group_config(aes_cfb128, Config) ->
     Block = aes_cfb128(),
     [{block, Block} | Config];
@@ -1161,6 +1166,25 @@ aes_ige256() ->
       {aes_ige256,
        hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
        hexstr2bin("15D5A583D2D668E518E683D9BDF1B6D0E0C3B1E5D5C1D51E964822E1ADE88DFA"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
+     ].
+
+aes_cfb8() -> 
+    [{aes_cfb8,
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_cfb8,
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("3B3FD92EB72DAD20333449F8E83CFB4A"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_cfb8,
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("C8A64537A0B3A93FCDE3CDAD9F1CE58B"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_cfb8,
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("26751F67A3CBB140B1808CF187A4F4DF"),
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
