@@ -1009,12 +1009,14 @@ loop_runner(Collector, Fun, Laps) ->
     end,
     loop_runner_cont(Collector, Fun, 0, Laps).
 
-loop_runner_cont(_Collector, _Fun, Laps, Laps) ->
+loop_runner_cont(Collector, _Fun, Laps, Laps) ->
     receive
-	{done, Collector} ->
-	    io:format("loop_runner ~p exit after ~p laps\n", [self(), Laps]),
-	    Collector ! {gone, self()}
-    end;
+	{done, Collector} -> ok;
+	{abort, Collector} -> ok
+    end,
+    io:format("loop_runner ~p exit after ~p laps\n", [self(), Laps]),
+    Collector ! {gone, self()};
+
 loop_runner_cont(Collector, Fun, N, Laps) ->
     Fun(),
     receive
