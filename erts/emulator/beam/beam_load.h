@@ -91,7 +91,6 @@ extern Uint erts_total_code_size;
 #define MI_LITERALS_END		8
 #define MI_LITERALS_OFF_HEAP	9
 
-
 /*
  * Pointer to the on_load function (or NULL if none).
  */
@@ -103,6 +102,11 @@ extern Uint erts_total_code_size;
 #define MI_LINE_TABLE 11
 
 /*
+ * Pointer to the module MD5 sum (16 bytes)
+ */
+#define MI_MD5_PTR 12
+
+/*
  * Start of function pointer table.  This table contains pointers to
  * all functions in the module plus an additional pointer just beyond
  * the end of the last function.
@@ -111,7 +115,7 @@ extern Uint erts_total_code_size;
  * this table.
  */
 
-#define MI_FUNCTIONS         12
+#define MI_FUNCTIONS         13
 
 /*
  * Layout of the line table.
