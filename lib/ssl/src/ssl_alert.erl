@@ -31,7 +31,7 @@
 -include("ssl_record.hrl").
 -include("ssl_internal.hrl").
 
--export([encode/3, alert_txt/1, reason_code/2]).
+-export([encode/3, decode/1, alert_txt/1, reason_code/2]).
 
 %%====================================================================
 %% Internal application API
@@ -41,10 +41,19 @@
 -spec encode(#alert{}, ssl_record:ssl_version(), #connection_states{}) -> 
 		    {iolist(), #connection_states{}}.
 %%
-%% Description: 
+%% Description: Encodes an alert
 %%--------------------------------------------------------------------
 encode(#alert{} = Alert, Version, ConnectionStates) ->
     ssl_record:encode_alert_record(Alert, Version, ConnectionStates).
+
+%%--------------------------------------------------------------------
+-spec decode(binary()) -> [#alert{}] | #alert{}.
+%%
+%% Description: Decode alert(s), will return a singel own alert if peer
+%% sends garbage or too many warning alerts.
+%%--------------------------------------------------------------------
+decode(Bin) ->
+    decode(Bin, [], 0).
 
 %%--------------------------------------------------------------------
 -spec reason_code(#alert{}, client | server) -> closed | {essl, string()}.
@@ -71,6 +80,22 @@ alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}}) 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+%% It is very unlikely that an correct implementation will send more than one alert at the time
+%% So it there is more than 10 warning alerts we consider it an error
+decode(<<?BYTE(Level), ?BYTE(_), _/binary>>, _, N) when Level == ?WARNING, N > ?MAX_ALERTS ->
+    ?ALERT_REC(?FATAL, ?DECODE_ERROR);
+decode(<<?BYTE(Level), ?BYTE(Description), Rest/binary>>, Acc, N) when Level == ?WARNING ->
+    Alert = ?ALERT_REC(Level, Description),
+    decode(Rest, [Alert | Acc], N + 1);
+decode(<<?BYTE(Level), ?BYTE(Description), _Rest/binary>>, Acc, _) when Level == ?FATAL->
+    Alert = ?ALERT_REC(Level, Description),
+    lists:reverse([Alert | Acc]); %% No need to decode rest fatal alert will end the connection
+decode(<<?BYTE(_Level), _/binary>>, _, _) ->
+    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+decode(<<>>, Acc, _) ->
+    lists:reverse(Acc, []).
+
 level_txt(?WARNING) ->
     "Warning:";
 level_txt(?FATAL) ->
