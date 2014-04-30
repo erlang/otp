@@ -1116,8 +1116,16 @@ handle_http_body(Body, #state{headers       = Headers,
 			   {new_body,        NewBody}]),
 		    NewHeaders = http_chunk:handle_headers(Headers, 
 							   ChunkedHeaders),
-		    handle_response(State#state{headers = NewHeaders, 
-						body    = NewBody})
+                    case Body of
+                        <<>> ->
+                           handle_response(State#state{headers = NewHeaders,
+                                                body    = NewBody});
+                        _ ->
+                           {NewBody2, NewRequest} =
+                                stream(NewBody, Request, Code),
+                           handle_response(State#state{headers = NewHeaders,
+                                       body    = NewBody2})
+                    end
 	    end;
         Encoding when is_list(Encoding) ->
 	    ?hcrt("handle_http_body - encoding", [{encoding, Encoding}]),
