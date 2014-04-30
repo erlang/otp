@@ -5074,7 +5074,7 @@ inform_swarm_collector(N) ->
 inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _) 
   when ((N == SentAckCnt) and 
 	(N == RespCnt)    and
-	(N >= RecvCnt)) ->
+	(N =< RecvCnt)) ->
     p("inform_swarm_collector -> done when"
       "~n   N:          ~w"
       "~n   SentAckCnt: ~w"

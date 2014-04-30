@@ -45,7 +45,8 @@
 	 mk_tdomain/1, 
 	 which_domain/1, 
 	 check_ip/1, check_ip/2,
-	 check_address_no_port/2, check_port/1,
+	 check_port/1,
+	 fix_domain_address/2,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
 	 mk_taddress/2,
@@ -693,19 +694,25 @@ mk_taddress(BadDomain, _) ->
     
 %% ---------
 
-%% XXX remove
+%% XXX remove, when net_if handles one socket per transport domain
 
-which_domain([A0,A1,A2,A3]) when ?is_ipv4_addr(A0, A1, A2, A3) ->
+which_domain([A0,A1,A2,A3])
+  when ?is_ipv4_addr(A0, A1, A2, A3) ->
     transportDomainUdpIpv4;
-which_domain({A0,A1,A2,A3}) when ?is_ipv4_addr(A0, A1, A2, A3) ->
+which_domain({A0, A1, A2, A3})
+  when ?is_ipv4_addr(A0, A1, A2, A3) ->
     transportDomainUdpIpv4;
 which_domain([A0,A1,A2,A3,A4,A5,A6,A7])
   when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7) ->
     transportDomainUdpIpv6;
+which_domain([A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15])
+  when ?is_ipv6_addr(
+	  A0, A1, A2, A3, A4, A5, A6, A7,
+	  A8, A9, A10, A11, A12, A13, A14, A15) ->
+    transportDomainUdpIpv6;
 which_domain({A0, A1, A2, A3, A4, A5, A6, A7})
   when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7) ->
     transportDomainUdpIpv6.
-
     
 %% ---------
 
@@ -742,33 +749,29 @@ check_ip(BadDomain, _X) ->
 
 %% ---------
 
-%% check_address_default_port(Domain, Address) ->
-%%     case check_address_ip(Domain, Address) of
-%% 	false ->
-%% 	    case check_address_ip_port(Domain, Address) of
-%% 		false ->
-%% 		    error({bad_address, {Domain, Address}});
-%% 		_ ->
-%% 		    ok
-%% 	    end;
-%% 	_ ->
-%% 	    ok
-%%     end.
-
-check_address_no_port(Domain, Address) ->
-    case check_address_ip(Domain, Address) of
-	false ->
-	    error({bad_address, {Domain, Address}});
-	true ->
-	    ok;
-	FixedIP ->
-	    {ok, FixedIP}
-    end.
-
 check_port(Port) when ?is_word(Port) ->
     ok;
 check_port(Port) ->
     error({bad_port, Port}).
+
+fix_domain_address(IP, Port) when ?is_word(Port) ->
+    case check_address_ip(transportDomainUdpIpv4, IP) of
+	false ->
+	    case check_address_ip(transportDomainUdpIpv6, IP) of
+		false ->
+		    error({bad_address, {transportDomainUdpIpv4, {IP, Port}}});
+		true ->
+		    {transportDomainUdpIpv6, {IP, Port}};
+		FixedIP ->
+		    {transportDomainUdpIpv6, {FixedIP, Port}}
+	    end;
+	true ->
+	    {transportDomainUdpIpv4, {IP, Port}};
+	FixedIP ->
+	    {transportDomainUdpIpv4, {FixedIP, Port}}
+    end;
+fix_domain_address(IP, Port) ->
+    error({bad_address, {transportDomainUdpIpv4, {IP, Port}}}).
 
 %% Check a configuration term field from a file to see if it
 %% can be fixed to be fed to mk_taddress/2.

@@ -21,7 +21,7 @@
 
 -export([init/1, 
 
-	 process_msg/7,
+	 process_msg/7, process_msg/6,
 	 generate_msg/5, generate_response_msg/4,
 
 	 next_msg_id/0, 

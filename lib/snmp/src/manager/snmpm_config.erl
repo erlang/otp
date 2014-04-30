@@ -286,7 +286,8 @@ do_user_info(_UserId, BadItem) ->
 %% <IP-address>:<Port>-<Version>
 %% This is intended for backward compatibility and therefor has
 %% only support for IPv4 addresses and *no* other transport domain.
-mk_target_name(Addr, Port, Config) when is_list(Config) ->
+mk_target_name(Domain, Address, Config)
+  when is_atom(Domain), is_list(Config) ->
     Version = 
 	case lists:keysearch(version, 1, Config) of
 	    {value, {_, V}} ->
@@ -294,15 +295,27 @@ mk_target_name(Addr, Port, Config) when is_list(Config) ->
 	    false ->
 		select_lowest_supported_version()
 	end,
-    case normalize_address(Addr) of
-	{A, B, C, D} ->
+    try fix_address(Domain, Address) of
+	{{A, B, C, D}, P} ->
 	    lists:flatten(
-	      io_lib:format("~w.~w.~w.~w:~w-~w", [A, B, C, D, Port, Version]));
-	_ -> 
+	      io_lib:format(
+		"~w.~w.~w.~w:~w-~w",
+		[A, B, C, D, P, Version]));
+	{{A, B, C, D, E, F, G, H}, P} ->
 	    lists:flatten(
-	      io_lib:format("~p:~w-~w", [Addr, Port, Version]))
-    end.
-	
+	      io_lib:format(
+		"[~.16b:~.16b:~.16b:~.16b:~.16b:~.16b:~.16b:~.16b]:~w-~w",
+		[A, B, C, D, E, F, G, H, P, Version]))
+    catch
+	_ ->
+	    lists:flatten(
+	      io_lib:format("~p-~w", [Address, Version]))
+    end;
+mk_target_name(Ip, Port, Config)
+  when is_integer(Port), is_list(Config) ->
+    {Domain, Address} = snmp_conf:fix_domain_address(Ip, Port),
+    mk_target_name(Domain, Address, Config).
+
 select_lowest_supported_version() ->
     {ok, Versions} = system_info(versions),
     select_lowest_supported_version([v1, v2, v3], Versions).
@@ -381,13 +394,32 @@ unregister_agent(UserId, TargetName) ->
     call({unregister_agent, UserId, TargetName}).
 
 %% This is the old style agent unregistration (using Addr and Port).
-unregister_agent(UserId, Addr, Port) ->
-    case do_agent_info(normalize_address(Addr), Port, target_name) of
+unregister_agent(UserId, Domain, Address) when is_atom(Domain) ->
+    try fix_address(Domain, Address) of
+	NAddress ->
+	    do_unregister_agent(UserId, Domain, NAddress)
+    catch
+	_ ->
+	    {error, not_found}
+    end;
+unregister_agent(UserId, Ip, Port) when is_integer(Port) ->
+    try snmp_conf:fix_domain_address(Ip, Port) of
+	{Domain, Address} ->
+	    do_unregister_agent(UserId, Domain, Address)
+    catch
+	_ ->
+	    {error, not_found}
+    end.
+
+do_unregister_agent(UserId, Domain, Address) ->
+    case do_agent_info(Domain, Address, target_name) of
 	{ok, TargetName} ->
 	    unregister_agent(UserId, TargetName);
 	Error ->
 	    Error
     end.
+
+
 
 agent_info() ->
     agent_info(?DEFAULT_TARGETNAME, all).
@@ -407,18 +439,32 @@ agent_info(TargetName, Item) ->
 	    {error, not_found}
     end.
 
-agent_info(Addr, Port, Item) ->
-    do_agent_info(normalize_address(Addr), Port, Item).
+agent_info(Domain, Address, Item) when is_atom(Domain) ->
+    try fix_address(Domain, Address) of
+	NAddress ->
+	    do_agent_info(Domain, NAddress, Item)
+    catch
+	_ ->
+	    {error, not_found}
+    end;
+agent_info(Ip, Port, Item) ->
+    try snmp_conf:fix_domain_address(Ip, Port) of
+	{Domain, Address} ->
+	    do_agent_info(Domain, Address, Item)
+    catch
+	_ ->
+	    {error, not_found}
+    end.
 
-do_agent_info(Addr, Port, target_name = Item) ->
-    case ets:lookup(snmpm_agent_table, {Addr, Port, Item}) of
+do_agent_info(Domain, Address, target_name = Item) ->
+    case ets:lookup(snmpm_agent_table, {Domain, Address, Item}) of
 	[{_, Val}] ->
 	    {ok, Val};
 	[] ->
 	    {error, not_found}
     end;
-do_agent_info(Addr, Port, Item) ->
-    case do_agent_info(Addr, Port, target_name) of
+do_agent_info(Domain, Address, Item) ->
+    case do_agent_info(Domain, Address, target_name) of
 	{ok, TargetName} ->
 	    agent_info(TargetName, Item);
 	Error ->
@@ -1672,24 +1718,24 @@ check_agent_config(
   {UserId, TargetName, Community, Ip, Port,
    EngineId, Timeout, MaxMessageSize,
    Version, SecModel, SecName, SecLevel}) ->
-    TDomain = default_transport_domain(),
+    {Domain, Address} = snmp_conf:fix_domain_address(Ip, Port),
     check_agent_config(
-      UserId, TargetName, Community, TDomain, {Ip, Port},
+      UserId, TargetName, Community, Domain, Address,
       EngineId, Timeout, MaxMessageSize,
       Version, SecModel, SecName, SecLevel);
 check_agent_config(
-  {UserId, TargetName, Community, TDomain, Ip, Port,
+  {UserId, TargetName, Community, Domain, Ip, Port,
    EngineId, Timeout, MaxMessageSize,
    Version, SecModel, SecName, SecLevel}) ->
     check_agent_config(
-      UserId, TargetName, Community, TDomain, {Ip, Port},
+      UserId, TargetName, Community, Domain, {Ip, Port},
       EngineId, Timeout, MaxMessageSize,
       Version, SecModel, SecName, SecLevel);
 check_agent_config(Agent) ->
     error({bad_agent_config, Agent}).
 
 check_agent_config(
-  UserId, TargetName, Comm, TDomain, TAddress,
+  UserId, TargetName, Comm, Domain, Address,
   EngineId, Timeout, MMS,
   Version, SecModel, SecName, SecLevel) ->
     ?vdebug("check_agent_config -> entry with"
@@ -1704,8 +1750,8 @@ check_agent_config(
     %% the property tdomain is needed.
     Conf =
 	[{reg_type,         target_name},
-	 {tdomain,          TDomain}, 
-	 {taddress,         TAddress},
+	 {tdomain,          Domain},
+	 {taddress,         Address},
 	 {community,        Comm}, 
 	 {engine_id,        EngineId},
 	 {timeout,          Timeout},
@@ -2842,12 +2888,14 @@ handle_register_agent(UserId, TargetName, Config) ->
 		    %% <DIRTY-BACKWARD-COMPATIBILLITY>
 		    %% And now for some (backward compatibillity)
 		    %% dirty crossref stuff
-		    {value, {taddress, {Addr, Port}}} =
+		    {value, {_, Domain}} =
+			lists:keysearch(tdomain, 1, FixedConfig),
+		    {value, {_, Address}} =
 			lists:keysearch(taddress, 1, FixedConfig),
 		    ?vtrace(
 		       "handle_register_agent -> register cross-ref fix", []),
 		    ets:insert(snmpm_agent_table,
-			       {{Addr, Port, target_name}, TargetName}),
+			       {{Domain, Address, target_name}, TargetName}),
 		    %% </DIRTY-BACKWARD-COMPATIBILLITY>
 
 %%		    %% First, insert this users default config
@@ -2923,8 +2971,9 @@ handle_unregister_agent(UserId, TargetName) ->
 	    %% <DIRTY-BACKWARD-COMPATIBILLITY>
 	    %% And now for some (backward compatibillity) 
 	    %% dirty crossref stuff
-	    {ok, {Addr, Port}} = agent_info(TargetName, taddress),
-	    ets:delete(snmpm_agent_table, {Addr, Port, target_name}),
+	    {ok, Domain} = agent_info(TargetName, tdomain),
+	    {ok, Address} = agent_info(TargetName, taddress),
+	    ets:delete(snmpm_agent_table, {Domain, Address, target_name}),
 	    %% </DIRTY-BACKWARD-COMPATIBILLITY>
 	    ets:match_delete(snmpm_agent_table, {{TargetName, '_'}, '_'}),
 	    ok;
@@ -3358,15 +3407,12 @@ init_mini_mib_elems(MibName, [_|T], Res) ->
 
 %%----------------------------------------------------------------------
 
-normalize_address(Addr) ->
-    try snmp_conf:check_address_no_port(snmpUDPDomain, Addr) of
+fix_address(Domain, Address) ->
+    case snmp_conf:check_address(Domain, Address) of
 	ok ->
-	    Addr;
-	{ok, NAddr} ->
-	    NAddr
-    catch
-	_ ->
-	    Addr
+	    Address;
+	{ok, NAddress} ->
+	    NAddress
     end.
 
 %%----------------------------------------------------------------------
