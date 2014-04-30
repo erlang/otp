@@ -39,12 +39,17 @@
 	 get_core_from_src/2,
 	 get_record_and_type_info/1,
 	 get_spec_info/3,
+         get_fun_meta_info/3,
+         is_suppressed_fun/2,
+         is_suppressed_tag/3,
+         is_nowarn_unused_fun/2,
 	 merge_records/2,
 	 pp_hook/0,
 	 process_record_remote_types/1,
          sets_filter/2,
 	 src_compiler_opts/0,
-	 parallelism/0
+	 parallelism/0,
+         family/1
 	]).
 
 -include("dialyzer.hrl").
@@ -79,7 +84,9 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 
 -type abstract_code() :: [tuple()]. %% XXX: import from somewhere
 -type comp_options()  :: [compile:option()].
--type mod_or_fname()  :: atom() | file:filename().
+-type mod_or_fname()  :: module() | file:filename().
+-type fa()            :: {atom(), arity()}.
+-type codeserver()    :: dialyzer_codeserver:codeserver().
 
 %% ============================================================================
 %%
@@ -277,7 +284,7 @@ type_record_fields([RecKey|Recs], RecDict) ->
       {error, Name, Error}
   end.
 
--spec process_record_remote_types(dialyzer_codeserver:codeserver()) -> dialyzer_codeserver:codeserver().
+-spec process_record_remote_types(codeserver()) -> codeserver().
 
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
@@ -318,7 +325,7 @@ merge_records(NewRecords, OldRecords) ->
 -type spec_dict()     :: dict:dict().
 -type callback_dict() :: dict:dict().
 
--spec get_spec_info(atom(), abstract_code(), dict:dict()) ->
+-spec get_spec_info(module(), abstract_code(), dict:dict()) ->
         {'ok', spec_dict(), callback_dict()} | {'error', string()}.
 
 get_spec_info(ModName, AbstractCode, RecordsDict) ->
@@ -335,13 +342,6 @@ get_optional_callbacks(Abs) ->
             {attribute, _, optional_callbacks, O} <- Abs,
             is_fa_list(O)],
     lists:append(L).
-
-is_fa_list([{FuncName, Arity}|L])
-  when is_atom(FuncName), is_integer(Arity), Arity >= 0 ->
-    is_fa_list(L);
-is_fa_list([]) -> true;
-is_fa_list(_) -> false.
-
 
 %% TypeSpec is a list of conditional contracts for a function.
 %% Each contract is of the form {[Argument], Range, [Constraint]} where
@@ -398,6 +398,88 @@ get_spec_info([_Other|Left], SpecDict, CallbackDict,
 get_spec_info([], SpecDict, CallbackDict,
               _RecordsDict, _ModName, _OptCb, _File) ->
   {ok, SpecDict, CallbackDict}.
+
+-spec get_fun_meta_info(module(), abstract_code(), [dial_warn_tag()]) ->
+                           dialyzer_codeserver:fun_meta_info().
+
+get_fun_meta_info(M, Abs, LegalWarnings) ->
+  NoWarn = get_nowarn_unused_function(M, Abs),
+  FuncSupp = get_func_suppressions(M, Abs),
+  TagSupp = get_options(M, Abs, LegalWarnings),
+  RawProps = lists:append([NoWarn, FuncSupp, TagSupp]),
+  dialyzer_utils:family(RawProps).
+
+-spec get_nowarn_unused_function(module(), abstract_code()) ->
+                                    [{mfa(), 'nowarn_unused_function'}].
+
+get_nowarn_unused_function(M, Abs) ->
+  Opts = get_options_with_tag(compile, Abs),
+  Warn = erl_lint:bool_option(warn_unused_function, nowarn_unused_function,
+                              true, Opts),
+  Functions = [{F, A} || {function, _, F, A, _} <- Abs],
+  FaList = get_fa_list(Abs, compile, nowarn_unused_function, Functions),
+  FAs = case Warn of
+          false -> Functions;
+          true -> FaList
+        end,
+  fa_to_mfa_data(M, nowarn_unused_function, FAs).
+
+-spec get_func_suppressions(module(), abstract_code()) ->
+                               [{mfa(), 'nowarn_function'}].
+
+get_func_suppressions(M, Abs) ->
+  Functions = [{F, A} || {function, _, F, A, _} <- Abs],
+  FAs = get_fa_list(Abs, dialyzer, nowarn_function, Functions),
+  fa_to_mfa_data(M, nowarn_function, FAs).
+
+-spec get_options(module(), abstract_code(), [dial_warn_tag()]) ->
+                     [{module(), dial_warn_tag()}].
+
+get_options(M, Abs, LegalWarnings) ->
+  Warnings = get_options1(Abs, "nofile", LegalWarnings),
+  [{M, W} || W <- ordsets:to_list(Warnings)].
+
+get_options1([{attribute, L, dialyzer, Args}|Left], File, Warnings) ->
+  Opts = [O ||
+           O <- lists:flatten([Args]),
+           not is_warn_function(O)],
+  try dialyzer_options:build_warnings(Opts, Warnings) of
+    NewWarnings ->
+      get_options1(Left, File, NewWarnings)
+  catch
+    throw:{dialyzer_options_error, Msg} ->
+      Msg1 = flat_format("  ~s:~w: ~s", [File, L, Msg]),
+      throw({error, Msg1})
+  end;
+get_options1([{attribute, _, file, {IncludeFile, _}}|Left], _F, Warnings) ->
+  get_options1(Left, IncludeFile, Warnings);
+get_options1([_Other|Left], File, Warnings) ->
+  get_options1(Left, File, Warnings);
+get_options1([], _File, Warnings) ->
+  Warnings.
+
+is_warn_function({nowarn_function, _}) -> true;
+is_warn_function(nowarn_function) -> true;
+is_warn_function(_) -> false.
+
+-spec is_suppressed_fun(mfa(), codeserver()) -> boolean().
+
+is_suppressed_fun(MFA, CodeServer) ->
+  lookup_fun_property(MFA, nowarn_function, CodeServer, false).
+
+-spec is_suppressed_tag(module(), dial_warn_tag(), codeserver()) -> boolean().
+
+is_suppressed_tag(Module, Tag, CodeServer) ->
+  not lookup_fun_property(Module, Tag, CodeServer, false).
+
+-spec is_nowarn_unused_fun(mfa(), codeserver()) -> boolean().
+
+is_nowarn_unused_fun(MFA, CodeServer) ->
+  lookup_fun_property(MFA, nowarn_unused_function, CodeServer, false).
+
+lookup_fun_property(MorMFA, Property, CodeServer, Default) ->
+  PropList = dialyzer_codeserver:lookup_meta_info(MorMFA, CodeServer),
+  proplists:get_value(Property, PropList, Default).
 
 %% ============================================================================
 %%
@@ -465,6 +547,65 @@ format_sig(Type, RecDict) ->
 
 flat_format(Fmt, Lst) ->
   lists:flatten(io_lib:format(Fmt, Lst)).
+
+-spec get_options_with_tag(atom(), abstract_code()) -> [term()].
+
+get_options_with_tag(Tag, Abs) ->
+  lists:flatten([O || {attribute, _, Tag0, O} <- Abs, Tag =:= Tag0]).
+
+-spec fa_to_mfa_data(module(), D, [fa()]) -> [{mfa(), D}].
+
+fa_to_mfa_data(ModName, Data, FAs) ->
+  [{{ModName, F, A}, Data} || {F, A} <- FAs].
+
+-spec get_fa_list([term()], 'compile' | 'dialyzer', atom(), [fa()]) ->
+                     [fa()].
+
+get_fa_list(Abs, AttrTag, Tag, Functions) ->
+  FuncTab = gb_sets:from_list(Functions),
+  get_fa_list(Abs, AttrTag, Tag, "nofile", FuncTab).
+
+get_fa_list([{attribute, L, ATag, Args}|Left], ATag, Tag, File, Funcs) ->
+  TermsL = [Term ||
+             {Tag0, Terms0} <- lists:flatten([Args]),
+             Tag0 =:= Tag,
+             Term <- lists:flatten([Terms0])],
+  case lists:dropwhile(fun(T) -> is_fa(T) end, TermsL) of
+    [] -> ok;
+    [Bad|_] ->
+      Msg1 = flat_format("  Bad function ~w in line ~s:~w",
+                         [Bad, File, L]),
+      throw({error, Msg1})
+  end,
+  case lists:dropwhile(fun(FA) -> is_known(FA, Funcs) end, TermsL) of
+    [] -> ok;
+    [{F, A}|_] ->
+      Msg2 = flat_format("  Unknown function ~w/~w in line ~s:~w",
+                         [F, A, File, L]),
+      throw({error, Msg2})
+  end,
+  TermsL ++ get_fa_list(Left, ATag, Tag, File, Funcs);
+get_fa_list([{attribute, _, file, {IncludeFile, _}}|Left],
+            ATag, Tag, _File, Funcs) ->
+  get_fa_list(Left, ATag, Tag, IncludeFile, Funcs);
+get_fa_list([_Other|Left], ATag, Tag, File, Funcs) ->
+  get_fa_list(Left, ATag, Tag, File, Funcs);
+get_fa_list([], _ATag, _Tag, _File, _Funcs) -> [].
+
+is_known(FA, Funcs) ->
+  gb_sets:is_element(FA, Funcs).
+
+-spec is_fa_list(term()) -> boolean().
+
+is_fa_list([E|L]) -> is_fa(E) andalso is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
+
+-spec is_fa(term()) -> boolean().
+
+is_fa({FuncName, Arity})
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
+is_fa(_) -> false.
 
 %%-------------------------------------------------------------------
 %% Author      : Per Gustafsson <pergu@it.uu.se>
@@ -570,3 +711,8 @@ parallelism() ->
   CPUs = erlang:system_info(logical_processors_available),
   Schedulers = erlang:system_info(schedulers),
   min(CPUs, Schedulers).
+
+-spec family([{K,V}]) -> [{K,[V]}].
+
+family(L) ->
+    sofs:to_external(sofs:rel2fam(sofs:relation(L))).
