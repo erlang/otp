@@ -40,12 +40,16 @@
 	 get_core_from_src/2,
 	 get_record_and_type_info/1,
 	 get_spec_info/3,
+         get_fun_meta_info/3,
+         is_suppressed_fun/2,
+         is_suppressed_tag/3,
 	 merge_records/2,
 	 pp_hook/0,
 	 process_record_remote_types/1,
          sets_filter/2,
 	 src_compiler_opts/0,
-	 parallelism/0
+	 parallelism/0,
+         family/1
 	]).
 
 -include("dialyzer.hrl").
@@ -80,7 +84,9 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 
 -type abstract_code() :: [tuple()]. %% XXX: import from somewhere
 -type comp_options()  :: [compile:option()].
--type mod_or_fname()  :: atom() | file:filename().
+-type mod_or_fname()  :: module() | file:filename().
+-type fa()            :: {atom(), arity()}.
+-type codeserver()    :: dialyzer_codeserver:codeserver().
 
 %% ============================================================================
 %%
@@ -300,7 +306,7 @@ type_record_fields([RecKey|Recs], RecDict) ->
       {error, Name, Error}
   end.
 
--spec process_record_remote_types(dialyzer_codeserver:codeserver()) -> dialyzer_codeserver:codeserver().
+-spec process_record_remote_types(codeserver()) -> codeserver().
 
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
@@ -341,7 +347,7 @@ merge_records(NewRecords, OldRecords) ->
 -type spec_dict()     :: dict:dict().
 -type callback_dict() :: dict:dict().
 
--spec get_spec_info(atom(), abstract_code(), dict:dict()) ->
+-spec get_spec_info(module(), abstract_code(), dict:dict()) ->
         {'ok', spec_dict(), callback_dict()} | {'error', string()}.
 
 get_spec_info(ModName, AbstractCode, RecordsDict) ->
@@ -358,13 +364,6 @@ get_optional_callbacks(Abs) ->
             {attribute, _, optional_callbacks, O} <- Abs,
             is_fa_list(O)],
     lists:append(L).
-
-is_fa_list([{FuncName, Arity}|L])
-  when is_atom(FuncName), is_integer(Arity), Arity >= 0 ->
-    is_fa_list(L);
-is_fa_list([]) -> true;
-is_fa_list(_) -> false.
-
 
 %% TypeSpec is a list of conditional contracts for a function.
 %% Each contract is of the form {[Argument], Range, [Constraint]} where
@@ -421,6 +420,126 @@ get_spec_info([_Other|Left], SpecDict, CallbackDict,
 get_spec_info([], SpecDict, CallbackDict,
               _RecordsDict, _ModName, _OptCb, _File) ->
   {ok, SpecDict, CallbackDict}.
+
+-spec get_fun_meta_info(module(), abstract_code(), [dial_warn_tag()]) ->
+                           dialyzer_codeserver:fun_meta_info().
+
+get_fun_meta_info(M, Abs, LegalWarnings) ->
+  NoWarn = get_nowarn_unused_function(M, Abs),
+  FuncSupp = get_func_suppressions(M, Abs),
+  Warnings0 = get_options(Abs, LegalWarnings),
+  Warnings = ordsets:to_list(Warnings0),
+  ModuleWarnings = [{M, W} || W <- Warnings],
+  RawProps = lists:append([NoWarn, FuncSupp, ModuleWarnings]),
+  process_options(dialyzer_utils:family(RawProps), Warnings0).
+
+process_options([{M, _}=Mod|Left], Warnings) when is_atom(M) ->
+  [Mod|process_options(Left, Warnings)];
+process_options([{{_M, _F, _A}=MFA, Opts}|Left], Warnings) ->
+  WL = case lists:member(nowarn_function, Opts) of
+         true -> [{nowarn_function, func}]; % takes precedence
+         false ->
+           Ws = dialyzer_options:build_warnings(Opts, Warnings),
+           ModOnly = [{W, mod} || W <- ordsets:subtract(Warnings, Ws)],
+           FunOnly = [{W, func} || W <- ordsets:subtract(Ws, Warnings)],
+           ordsets:union(ModOnly, FunOnly)
+       end,
+  case WL of
+    [] -> process_options(Left, Warnings);
+    _ -> [{MFA, WL}|process_options(Left, Warnings)]
+  end;
+process_options([], _Warnings) -> [].
+
+-spec get_nowarn_unused_function(module(), abstract_code()) ->
+                                    [{mfa(), 'no_unused'}].
+
+get_nowarn_unused_function(M, Abs) ->
+  Opts = get_options_with_tag(compile, Abs),
+  Warn = erl_lint:bool_option(warn_unused_function, nowarn_unused_function,
+                              true, Opts),
+  Functions = [{F, A} || {function, _, F, A, _} <- Abs],
+  AttrFile = collect_attribute(Abs, compile),
+  TagsFaList = check_fa_list(AttrFile, nowarn_unused_function, Functions),
+  FAs = case Warn of
+          false -> Functions;
+          true ->
+            [FA || {{nowarn_unused_function,_L,_File}, FA} <- TagsFaList]
+        end,
+  [{{M, F, A}, no_unused} || {F, A} <- FAs].
+
+-spec get_func_suppressions(module(), abstract_code()) ->
+                            [{mfa(), 'nowarn_function' | dial_warn_tag()}].
+
+get_func_suppressions(M, Abs) ->
+  Functions = [{F, A} || {function, _, F, A, _} <- Abs],
+  AttrFile = collect_attribute(Abs, dialyzer),
+  TagsFAs = check_fa_list(AttrFile, '*', Functions),
+  %% Check the options:
+  Fun = fun({{nowarn_function, _L, _File}, _FA}) -> ok;
+           ({OptLFile, _FA}) ->
+            _ = get_options1([OptLFile], ordsets:new())
+        end,
+  lists:foreach(Fun, TagsFAs),
+  [{{M, F, A}, W} || {{W, _L, _File}, {F, A}} <- TagsFAs].
+
+-spec get_options(abstract_code(), [dial_warn_tag()]) ->
+                     ordsets:ordset(dial_warn_tag()).
+
+get_options(Abs, LegalWarnings) ->
+  AttrFile = collect_attribute(Abs, dialyzer),
+  get_options1(AttrFile, LegalWarnings).
+
+get_options1([{Args, L, File}|Left], Warnings) ->
+  Opts = [O ||
+           O <- lists:flatten([Args]),
+           is_atom(O)],
+  try dialyzer_options:build_warnings(Opts, Warnings) of
+    NewWarnings ->
+      get_options1(Left, NewWarnings)
+  catch
+    throw:{dialyzer_options_error, Msg} ->
+      Msg1 = flat_format("  ~s:~w: ~s", [File, L, Msg]),
+      throw({error, Msg1})
+  end;
+get_options1([], Warnings) ->
+  Warnings.
+
+-type collected_attribute() ::
+        {Args :: term(), erl_scan:line(), file:filename()}.
+
+collect_attribute(Abs, Tag) ->
+  collect_attribute(Abs, Tag, "nofile").
+
+collect_attribute([{attribute, L, Tag, Args}|Left], Tag, File) ->
+  CollAttr = {Args, L, File},
+  [CollAttr | collect_attribute(Left, Tag, File)];
+collect_attribute([{attribute, _, file, {IncludeFile, _}}|Left], Tag, _) ->
+  collect_attribute(Left, Tag, IncludeFile);
+collect_attribute([_Other|Left], Tag, File) ->
+  collect_attribute(Left, Tag, File);
+collect_attribute([], _Tag, _File) -> [].
+
+-spec is_suppressed_fun(mfa(), codeserver()) -> boolean().
+
+is_suppressed_fun(MFA, CodeServer) ->
+  lookup_fun_property(MFA, nowarn_function, CodeServer).
+
+-spec is_suppressed_tag(mfa() | module(), dial_warn_tag(), codeserver()) ->
+                           boolean().
+
+is_suppressed_tag(MorMFA, Tag, Codeserver) ->
+  not lookup_fun_property(MorMFA, Tag, Codeserver).
+
+lookup_fun_property({M, _F, _A}=MFA, Property, CodeServer) ->
+  MFAPropList = dialyzer_codeserver:lookup_meta_info(MFA, CodeServer),
+  case proplists:get_value(Property, MFAPropList, no) of
+    mod -> false; % suppressed in function
+    func -> true; % requested in function
+    no -> lookup_fun_property(M, Property, CodeServer)
+  end;
+lookup_fun_property(M, Property, CodeServer) when is_atom(M) ->
+  MPropList = dialyzer_codeserver:lookup_meta_info(M, CodeServer),
+  proplists:is_defined(Property, MPropList).
 
 %% ============================================================================
 %%
@@ -502,6 +621,57 @@ format_sig(Type, RecDict) ->
 
 flat_format(Fmt, Lst) ->
   lists:flatten(io_lib:format(Fmt, Lst)).
+
+-spec get_options_with_tag(atom(), abstract_code()) -> [term()].
+
+get_options_with_tag(Tag, Abs) ->
+  lists:flatten([O || {attribute, _, Tag0, O} <- Abs, Tag =:= Tag0]).
+
+%% Check F/A, and collect (unchecked) warning tags with line and file.
+-spec check_fa_list([collected_attribute()], atom(), [fa()]) ->
+                       [{{atom(), erl_scan:line(), file:filename()},fa()}].
+
+check_fa_list(AttrFile, Tag, Functions) ->
+  FuncTab = gb_sets:from_list(Functions),
+  check_fa_list1(AttrFile, Tag, FuncTab).
+
+check_fa_list1([{Args, L, File}|Left], Tag, Funcs) ->
+  TermsL = [{{Tag0, L, File}, Term} ||
+             {Tags, Terms0} <- lists:flatten([Args]),
+             Tag0 <- lists:flatten([Tags]),
+             Tag =:= '*' orelse Tag =:= Tag0,
+             Term <- lists:flatten([Terms0])],
+  case lists:dropwhile(fun({_, T}) -> is_fa(T) end, TermsL) of
+    [] -> ok;
+    [{_, Bad}|_] ->
+      Msg1 = flat_format("  Bad function ~w in line ~s:~w",
+                         [Bad, File, L]),
+      throw({error, Msg1})
+  end,
+  case lists:dropwhile(fun({_, FA}) -> is_known(FA, Funcs) end, TermsL) of
+    [] -> ok;
+    [{_, {F, A}}|_] ->
+      Msg2 = flat_format("  Unknown function ~w/~w in line ~s:~w",
+                         [F, A, File, L]),
+      throw({error, Msg2})
+  end,
+  TermsL ++ check_fa_list1(Left, Tag, Funcs);
+check_fa_list1([], _Tag, _Funcs) -> [].
+
+is_known(FA, Funcs) ->
+  gb_sets:is_element(FA, Funcs).
+
+-spec is_fa_list(term()) -> boolean().
+
+is_fa_list([E|L]) -> is_fa(E) andalso is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
+
+-spec is_fa(term()) -> boolean().
+
+is_fa({FuncName, Arity})
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
+is_fa(_) -> false.
 
 %%-------------------------------------------------------------------
 %% Author      : Per Gustafsson <pergu@it.uu.se>
@@ -607,3 +777,8 @@ parallelism() ->
   CPUs = erlang:system_info(logical_processors_available),
   Schedulers = erlang:system_info(schedulers),
   min(CPUs, Schedulers).
+
+-spec family([{K,V}]) -> [{K,[V]}].
+
+family(L) ->
+    sofs:to_external(sofs:rel2fam(sofs:relation(L))).

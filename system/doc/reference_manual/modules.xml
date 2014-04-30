@@ -194,8 +194,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	</p>
 	<pre>
 -type my_type() :: atom() | integer().
--spec my_function(integer()) -> integer().
-	</pre>
+-spec my_function(integer()) -> integer().</pre>
         <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
 	</p>
 	<p>
