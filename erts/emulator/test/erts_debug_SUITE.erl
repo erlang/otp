@@ -67,6 +67,9 @@ test_size(Config) when is_list(Config) ->
     2 = do_test_size({[]}),
     3 = do_test_size({a,b}),
     7 = do_test_size({a,[b,c]}),
+    8 = do_test_size(#{b => 2,c => 3}),
+    4 = do_test_size(#{}),
+    32 = do_test_size(#{b => 2,c => 3,txt => "hello world"}),
 
     %% Test internal consistency of sizes, but without testing
     %% exact sizes.
@@ -97,6 +100,9 @@ test_size(Config) when is_list(Config) ->
     do_test_size({SimplestFun,SimplestFun},
 		 2*FunSz0+do_test_size({a,b}),
 		 FunSz0+do_test_size({a,b})),
+
+    M = id(#{ "atom" => first, i => 0}),
+    do_test_size([M,M#{ "atom" := other },M#{i := 42}],54,32),
     ok.
 
 do_test_size(Term) ->
