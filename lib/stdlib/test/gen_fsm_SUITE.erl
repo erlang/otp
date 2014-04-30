@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,9 @@
 
 -export([start1/1, start2/1, start3/1, start4/1, start5/1, start6/1,
 	 start7/1, start8/1, start9/1, start10/1, start11/1, start12/1]).
+
+-export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
+	 stop8/1, stop9/1, stop10/1]).
 
 -export([ abnormal1/1, abnormal2/1]).
 
@@ -64,6 +67,8 @@ groups() ->
     [{start, [],
       [start1, start2, start3, start4, start5, start6, start7,
        start8, start9, start10, start11, start12]},
+     {stop, [],
+      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
       [sys1, call_format_status, error_format_status, get_state, replace_state]}].
@@ -277,6 +282,105 @@ start12(Config) when is_list(Config) ->
     test_server:messages_get(),
     ok.
 
+
+%% Anonymous, reason 'normal'
+stop1(_Config) ->
+    {ok, Pid} = gen_fsm:start(?MODULE, [], []),
+    ok = gen_fsm:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
+    ok.
+
+%% Anonymous, other reason
+stop2(_Config) ->
+    {ok,Pid} = gen_fsm:start(?MODULE, [], []),
+    ok = gen_fsm:stop(Pid, other_reason, infinity),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Anonymous, invalid timeout
+stop3(_Config) ->
+    {ok,Pid} = gen_fsm:start(?MODULE, [], []),
+    {'EXIT',_} = (catch gen_fsm:stop(Pid, other_reason, invalid_timeout)),
+    true = erlang:is_process_alive(Pid),
+    ok = gen_fsm:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Registered name
+stop4(_Config) ->
+    {ok,Pid} = gen_fsm:start({local,to_stop},?MODULE, [], []),
+    ok = gen_fsm:stop(to_stop),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop(to_stop)),
+    ok.
+
+%% Registered name and local node
+stop5(_Config) ->
+    {ok,Pid} = gen_fsm:start({local,to_stop},?MODULE, [], []),
+    ok = gen_fsm:stop({to_stop,node()}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,node()})),
+    ok.
+
+%% Globally registered name
+stop6(_Config) ->
+    {ok, Pid} = gen_fsm:start({global, to_stop}, ?MODULE, [], []),
+    ok = gen_fsm:stop({global,to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ok.
+
+%% 'via' registered name
+stop7(_Config) ->
+    dummy_via:reset(),
+    {ok, Pid} = gen_fsm:start({via, dummy_via, to_stop},
+				  ?MODULE, [], []),
+    ok = gen_fsm:stop({via, dummy_via, to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop({via, dummy_via, to_stop})),
+    ok.
+
+%% Anonymous on remote node
+stop8(_Config) ->
+    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop8,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_fsm,start,[?MODULE,[],[]]),
+    ok = gen_fsm:stop(Pid),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop(Pid)),
+    ok.
+
+%% Registered name on remote node
+stop9(_Config) ->
+    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop9,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_fsm,start,[{local,to_stop},?MODULE,[],[]]),
+    ok = gen_fsm:stop({to_stop,Node}),
+    undefined = rpc:call(Node,erlang,whereis,[to_stop]),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,Node})),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop({to_stop,Node})),
+    ok.
+
+%% Globally registered name on remote node
+stop10(_Config) ->
+    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop10,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_fsm,start,[{global,to_stop},?MODULE,[],[]]),
+    global:sync(),
+    ok = gen_fsm:stop({global,to_stop}),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    true = test_server:stop_node(Node),
+    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ok.
 
 %% Check that time outs in calls work
 abnormal1(suite) -> [];

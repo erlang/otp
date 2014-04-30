@@ -106,6 +106,7 @@
 
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
+	 stop/1, stop/3,
 	 send_event/2, sync_send_event/2, sync_send_event/3,
 	 send_all_state_event/2,
 	 sync_send_all_state_event/2, sync_send_all_state_event/3,
@@ -197,6 +198,11 @@ start_link(Mod, Args, Options) ->
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
 
+stop(Name) ->
+    gen:stop(Name).
+
+stop(Name, Reason, Timeout) ->
+    gen:stop(Name, Reason, Timeout).
 
 send_event({global, Name}, Event) ->
     catch global:send(Name, {'$gen_event', Event}),

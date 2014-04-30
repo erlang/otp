@@ -26,7 +26,7 @@
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------
 -export([start/5, start/6, debug_options/1,
-	 call/3, call/4, reply/2]).
+	 call/3, call/4, reply/2, stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
 
@@ -145,56 +145,10 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 call(Process, Label, Request) -> 
     call(Process, Label, Request, ?default_timeout).
 
-%% Local or remote by pid
-call(Pid, Label, Request, Timeout) 
-  when is_pid(Pid), Timeout =:= infinity;
-       is_pid(Pid), is_integer(Timeout), Timeout >= 0 ->
-    do_call(Pid, Label, Request, Timeout);
-%% Local by name
-call(Name, Label, Request, Timeout) 
-  when is_atom(Name), Timeout =:= infinity;
-       is_atom(Name), is_integer(Timeout), Timeout >= 0 ->
-    case whereis(Name) of
-	Pid when is_pid(Pid) ->
-	    do_call(Pid, Label, Request, Timeout);
-	undefined ->
-	    exit(noproc)
-    end;
-%% Global by name
 call(Process, Label, Request, Timeout)
-  when ((tuple_size(Process) == 2 andalso element(1, Process) == global)
-	orelse
-	  (tuple_size(Process) == 3 andalso element(1, Process) == via))
-       andalso
-       (Timeout =:= infinity orelse (is_integer(Timeout) andalso Timeout >= 0)) ->
-    case where(Process) of
-	Pid when is_pid(Pid) ->
-	    Node = node(Pid),
- 	    try do_call(Pid, Label, Request, Timeout)
- 	    catch
- 		exit:{nodedown, Node} ->
- 		    %% A nodedown not yet detected by global,
- 		    %% pretend that it was.
- 		    exit(noproc)
-	    end;
-	undefined ->
-	    exit(noproc)
-    end;
-%% Local by name in disguise
-call({Name, Node}, Label, Request, Timeout)
-  when Node =:= node(), Timeout =:= infinity;
-       Node =:= node(), is_integer(Timeout), Timeout >= 0 ->
-    call(Name, Label, Request, Timeout);
-%% Remote by name
-call({_Name, Node}=Process, Label, Request, Timeout)
-  when is_atom(Node), Timeout =:= infinity;
-       is_atom(Node), is_integer(Timeout), Timeout >= 0 ->
-    if
- 	node() =:= nonode@nohost ->
- 	    exit({nodedown, Node});
- 	true ->
- 	    do_call(Process, Label, Request, Timeout)
-    end.
+  when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
+    Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout) end,
+    do_for_proc(Process, Fun).
 
 do_call(Process, Label, Request, Timeout) ->
     try erlang:monitor(process, Process) of
@@ -275,6 +229,65 @@ wait_resp(Node, Tag, Timeout) ->
 reply({To, Tag}, Reply) ->
     Msg = {Tag, Reply},
     try To ! Msg catch _:_ -> Msg end.
+
+%%-----------------------------------------------------------------
+%% Syncronously stop a generic process
+%%-----------------------------------------------------------------
+stop(Process) ->
+    stop(Process, normal, infinity).
+
+stop(Process, Reason, Timeout)
+  when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
+    Fun = fun(Pid) -> proc_lib:stop(Pid, Reason, Timeout) end,
+    do_for_proc(Process, Fun).
+
+%%-----------------------------------------------------------------
+%% Map different specifications of a process to either Pid or
+%% {Name,Node}. Execute the given Fun with the process as only
+%% argument.
+%% -----------------------------------------------------------------
+
+%% Local or remote by pid
+do_for_proc(Pid, Fun) when is_pid(Pid) ->
+    Fun(Pid);
+%% Local by name
+do_for_proc(Name, Fun) when is_atom(Name) ->
+    case whereis(Name) of
+	Pid when is_pid(Pid) ->
+	    Fun(Pid);
+	undefined ->
+	    exit(noproc)
+    end;
+%% Global by name
+do_for_proc(Process, Fun)
+  when ((tuple_size(Process) == 2 andalso element(1, Process) == global)
+	orelse
+	  (tuple_size(Process) == 3 andalso element(1, Process) == via)) ->
+    case where(Process) of
+	Pid when is_pid(Pid) ->
+	    Node = node(Pid),
+	    try Fun(Pid)
+	    catch
+		exit:{nodedown, Node} ->
+		    %% A nodedown not yet detected by global,
+		    %% pretend that it was.
+		    exit(noproc)
+	    end;
+	undefined ->
+	    exit(noproc)
+    end;
+%% Local by name in disguise
+do_for_proc({Name, Node}, Fun) when Node =:= node() ->
+    do_for_proc(Name, Fun);
+%% Remote by name
+do_for_proc({_Name, Node} = Process, Fun) when is_atom(Node) ->
+    if
+	node() =:= nonode@nohost ->
+	    exit({nodedown, Node});
+	true ->
+	    Fun(Process)
+    end.
+
 
 %%%-----------------------------------------------------------------
 %%%  Misc. functions.
