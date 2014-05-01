@@ -173,11 +173,6 @@ server_loop(Iport, Oport, Curr, User, Gr, IOQueue) ->
 	{Iport,eof} ->
 	    Curr ! {self(),eof},
 	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-        {User,Req} when element(1,Req) == tty_geometry;
-                        element(1,Req) == get_unicode_state;
-                        element(1,Req) == set_unicode_state ->
-            %% We ignore these requests from User, could be a bug?
-            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
         Req when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
                  tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
             %% We match {User|Curr,_}|{User|Curr,_,_}
