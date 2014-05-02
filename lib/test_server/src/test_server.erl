@@ -444,7 +444,7 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 %% If this process (group leader of the test case) terminates before
 %% all messages have been replied back to the io server, the io server
 %% hangs. Fixed by the 20 milli timeout check here, and by using monitor in
-%% io.erl (livrem OCH hangslen mao :)
+%% io.erl.
 %%
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
@@ -673,7 +673,7 @@ handle_tc_exit({testcase_aborted,{user_timetrap_error,_}=Msg,_}, St) ->
     spawn_fw_call(Mod, Func, Config, Pid, Msg, unknown, self()),
     St;
 handle_tc_exit(Reason, #st{status={framework,FwMod,FwFunc},
-			  config=Config,pid=Pid}=St) ->
+			   config=Config,pid=Pid}=St) ->
     R = case Reason of
 	    {timetrap_timeout,TVal,_} ->
 		{timetrap,TVal};
