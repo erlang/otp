@@ -116,7 +116,9 @@ options_tests() ->
      tcp_reuseaddr,
      honor_server_cipher_order,
      honor_client_cipher_order,
-     ciphersuite_vs_version
+     ciphersuite_vs_version,
+     unordered_protocol_versions_server,
+     unordered_protocol_versions_client
 ].
 
 api_tests() ->
@@ -244,6 +246,14 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
+init_per_testcase(Case, Config) when Case ==  unordered_protocol_versions_client;
+				     Case == unordered_protocol_versions_server->
+    case proplists:get_value(supported, ssl:versions()) of
+	['tlsv1.2' | _] ->
+	    Config;
+	_ ->
+	    {skip, "TLS 1.2 need but not supported on this platform"}
+    end;
 init_per_testcase(no_authority_key_identifier, Config) ->
     %% Clear cach so that root cert will not
     %% be found.
@@ -400,6 +410,7 @@ protocol_versions() ->
 
 protocol_versions(Config) when is_list(Config) -> 
     basic_test(Config).
+
 %%--------------------------------------------------------------------
 empty_protocol_versions() ->
     [{doc,"Test to set an empty list of protocol versions in app environment."}].
@@ -3087,6 +3098,57 @@ versions_option(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
+unordered_protocol_versions_server() ->
+    [{doc,"Test that the highest protocol is selected even" 
+      " when it is not first in the versions list."}].
+
+unordered_protocol_versions_server(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, [{versions, ['tlsv1.1', 'tlsv1.2']} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, ClientOpts}]),
+    CipherSuite = first_rsa_suite(ssl:cipher_suites()),
+    ServerMsg = ClientMsg = {ok, {'tlsv1.2', CipherSuite}},    
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
+
+%%--------------------------------------------------------------------
+unordered_protocol_versions_client() ->
+    [{doc,"Test that the highest protocol is selected even" 
+      " when it is not first in the versions list."}].
+
+unordered_protocol_versions_client(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, ServerOpts }]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options,  [{versions, ['tlsv1.1', 'tlsv1.2']} | ClientOpts]}]),
+ 
+    CipherSuite = first_rsa_suite(ssl:cipher_suites()),
+    ServerMsg = ClientMsg = {ok, {'tlsv1.2', CipherSuite}},    
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
+  
+%%--------------------------------------------------------------------
 
 server_name_indication_option() ->
     [{doc,"Test API server_name_indication option to connect."}].
@@ -3635,6 +3697,10 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 connection_info_result(Socket) ->
     ssl:connection_info(Socket).
 
+version_info_result(Socket) ->
+    {ok, {Version, _}} = ssl:connection_info(Socket),
+    {ok, Version}.
+
 connect_dist_s(S) ->
     Msg = term_to_binary({erlang,term}),
     ok = ssl:send(S, Msg).
@@ -3720,3 +3786,14 @@ try_recv_active(Socket) ->
 try_recv_active_once(Socket) ->
     {error, einval} = ssl:recv(Socket, 11),
     ok.
+
+first_rsa_suite([{ecdhe_rsa, _, _} = Suite | _]) ->
+    Suite;
+first_rsa_suite([{dhe_rsa, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([{rsa, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([_ | Rest]) ->
+    first_rsa_suite(Rest).
+    
+
