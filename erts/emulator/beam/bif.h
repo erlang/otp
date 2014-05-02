@@ -392,6 +392,51 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs);
 
+#ifndef HIPE
+
+#define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)
+
+#else
+
+#include "erl_fun.h"
+#include "hipe_mode_switch.h"
+
+/*
+ * Hipe wrappers used by native code for BIFs that disable GC while trapping.
+ * Also add usage of the wrapper in ../hipe/hipe_bif_list.m4
+ *
+ * Problem:
+ * When native code calls a BIF that traps, hipe_mode_switch will push a
+ * "trap frame" on the Erlang stack in order to find its way back from beam_emu
+ * back to native caller when finally done. If GC is disabled and stack/heap
+ * is full there is no place to push the "trap frame".
+ *
+ * Solution:
+ * We reserve space on stack for the "trap frame" here before the BIF is called.
+ * If the BIF does not trap, the space is reclaimed here before returning.
+ * If the BIF traps, hipe_push_beam_trap_frame() will detect that a "trap frame"
+ * already is reserved and use it.
+ */
+
+
+#define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)			\
+BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
+						     Eterm* args);	\
+BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
+						     Eterm* args)	\
+{									\
+    BIF_RETTYPE  res;							\
+    hipe_reserve_beam_trap_frame(c_p, args, ARITY);			\
+    res =  BIF_NAME ## _ ## ARITY (c_p, args);				\
+    if (is_value(res) || c_p->freason != TRAP) {			\
+	hipe_unreserve_beam_trap_frame(c_p);				\
+    }									\
+    return res;								\
+}
+
+#endif
+
+
 #include "erl_bif_table.h"
 
 #endif
