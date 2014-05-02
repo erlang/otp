@@ -657,7 +657,18 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	_ ->
 	    ok
     end,
-    ct_util:delete_testdata(comment),
+    if Func == end_per_group; Func == end_per_suite ->
+	    %% clean up any saved comments
+	    ct_util:match_delete_testdata({comment,'_'});
+       true ->
+	    %% attemp to delete any saved comment for this TC
+	    case process_info(TCPid, group_leader) of
+		{group_leader,TCGL} ->
+		    ct_util:delete_testdata({comment,TCGL});
+		_ ->
+		    ok
+	    end
+    end,
     ct_util:delete_suite_data(last_saved_config),
 
     FuncSpec = group_or_func(Func,Args),
@@ -850,7 +861,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	_ ->			     
 	    %% this notification comes from the test case process, so
 	    %% we can add error info to comment with test_server:comment/1
-	    case ct_util:get_testdata(comment) of
+	    case ct_util:get_testdata({comment,group_leader()}) of
 		undefined ->
 		    test_server:comment(ErrorHtml);
 		Comment ->

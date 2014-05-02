@@ -773,7 +773,7 @@ comment(Format, Args) when is_list(Format), is_list(Args) ->
 
 send_html_comment(Comment) ->
     Html = "<font color=\"green\">" ++ Comment ++ "</font>",
-    ct_util:set_testdata({comment,Html}),
+    ct_util:set_testdata({{comment,group_leader()},Html}),
     test_server:comment(Html).
 
 %%%-----------------------------------------------------------------
