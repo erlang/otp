@@ -604,9 +604,12 @@ handle_msg({cmd,Cmd,Timeout},State) ->
     end_gen_log(),
     {Return,State#state{buffer=NewBuffer,prompt=Prompt}};
 handle_msg({send,Cmd},State) ->
+    start_gen_log(heading(send,State#state.name)),
     log(State,send,"Sending: ~p",[Cmd]),
+    
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
+    
     case {State#state.type,State#state.prompt} of
 	{ts,_} -> 
 	    silent_teln_expect(State#state.name,
@@ -626,6 +629,7 @@ handle_msg({send,Cmd},State) ->
 	    ok
     end,
     ct_telnet_client:send_data(State#state.teln_pid,Cmd),
+    end_gen_log(),
     {ok,State#state{buffer=[],prompt=false}};
 handle_msg(get_data,State) ->
     start_gen_log(heading(get_data,State#state.name)),
@@ -869,14 +873,13 @@ teln_cmd(Pid,Cmd,Prx,Timeout) ->
     teln_receive_until_prompt(Pid,Prx,Timeout).
 
 teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
-    case check_for_prompt(Prx,lists:reverse(LastLine) ++ Data) of
+    case check_for_prompt(Prx,LastLine++Data) of
 	{prompt,Lines,_PromptType,Rest} ->
 	    teln_get_all_data(Pid,Prx,Rest,[Lines|Acc],[]);
 	{noprompt,Lines,LastLine1} ->
 	    case ct_telnet_client:get_data(Pid) of
 		{ok,[]} ->
-		    {ok,lists:reverse(lists:append([Lines|Acc])),
-		     lists:reverse(LastLine1)};
+		    {ok,lists:reverse(lists:append([Lines|Acc])),LastLine1};
 		{ok,Data1} ->
 		    teln_get_all_data(Pid,Prx,Data1,[Lines|Acc],LastLine1)
 	    end
@@ -1334,7 +1337,7 @@ teln_receive_until_prompt(Pid,Prx,Timeout) ->
 
 teln_receive_until_prompt(Pid,Prx,Acc,LastLine) ->
     {ok,Data} = ct_telnet_client:get_data(Pid),
-    case check_for_prompt(Prx,LastLine ++ Data) of
+    case check_for_prompt(Prx,LastLine++Data) of
 	{prompt,Lines,PromptType,Rest} ->
 	    Return = lists:reverse(lists:append([Lines|Acc])),
 	   {ok,Return,PromptType,Rest};

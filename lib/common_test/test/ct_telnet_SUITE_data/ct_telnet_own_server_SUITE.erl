@@ -16,7 +16,8 @@ suite() ->
     ].
 
 all() ->
-    [expect,
+    [
+     expect,
      expect_repeat,
      expect_sequence,
      expect_error_prompt,
@@ -31,8 +32,10 @@ all() ->
      ignore_prompt_repeat,
      ignore_prompt_sequence,
      ignore_prompt_timeout,
+     large_string,
      server_speaks,
-     server_disconnects].
+     server_disconnects
+    ].
 
 groups() ->
     [].
@@ -211,6 +214,41 @@ no_prompt_check_timeout(_) ->
     ok = ct_telnet:send(Handle, "echo xxx"),
     {error,timeout} = ct_telnet:expect(Handle, ["yyy"], [no_prompt_check,
 							 {timeout,1000}]),
+    ok = ct_telnet:close(Handle),
+    ok.
+
+%% Check that it's possible to receive multiple chunks of data sent from
+%% the server with one get_data call
+large_string(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    String = "abcd efgh ijkl mnop qrst uvwx yz ",
+    BigString = lists:flatmap(fun(S) -> S end,
+			      [String || _ <- lists:seq(1,10)]),
+    VerifyStr = [C || C <- BigString, C/=$ ],
+
+    {ok,Data} = ct_telnet:cmd(Handle, "echo_sep "++BigString),
+    ct:log("[CMD] Received ~w chars: ~s", [length(lists:flatten(Data)),Data]),
+    VerifyStr = [C || C <- lists:flatten(Data), C/=$ , C/=$\r, C/=$\n, C/=$>],
+
+    %% Test #1: With a long sleep value, all data gets gets buffered and
+    %% ct_telnet can receive it with one single request to ct_telnet_client.
+    %% Test #2: With a short sleep value, ct_telnet needs multiple calls to
+    %% ct_telnet_client to collect the data. This iterative operation should
+    %% yield the same result as the single request case.
+
+    ok = ct_telnet:send(Handle, "echo_sep "++BigString),
+    timer:sleep(1000),
+    {ok,Data1} = ct_telnet:get_data(Handle),
+    ct:log("[GET DATA #1] Received ~w chars: ~s",
+	   [length(lists:flatten(Data1)),Data1]),
+    VerifyStr = [C || C <- lists:flatten(Data1), C/=$ , C/=$\r, C/=$\n, C/=$>],
+
+    ok = ct_telnet:send(Handle, "echo_sep "++BigString),
+    timer:sleep(50),
+    {ok,Data2} = ct_telnet:get_data(Handle),
+    ct:log("[GET DATA #2] Received ~w chars: ~s", [length(lists:flatten(Data2)),Data2]),
+    VerifyStr = [C || C <- lists:flatten(Data2), C/=$ , C/=$\r, C/=$\n, C/=$>],
+
     ok = ct_telnet:close(Handle),
     ok.
 
