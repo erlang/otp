@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -67,8 +67,11 @@ fname(get) ->
 	end,
 	case snmpa:current_address() of
 	    {value, {[_A,_B,_C,_D], E}} when is_integer(E) -> ok;
-	    {value, _} -> throw("bad_ip");
-	    _ -> throw("bad_adr")
+	    {value, {D, _}} when is_atom(D) -> ok;
+	    {value, Ip} ->
+		throw(format_string("bad_ip: ~p", [Ip]));
+	    Other ->
+		throw(format_string("bad_adr: ~p", [Other]))
 	end,
 	case snmpa:current_net_if_data() of
 	    {value, []} -> ok;
@@ -160,3 +163,6 @@ ftab2(get_next, [9], _Cols) ->
     % bad return value
     io:format("** Here comes Error Report get_next 3 bad return~n"),
     [{[1,5],1},{[2,5],3},{[2,6],3}].    
+
+format_string(Format, Args) ->
+    lists:flatten(io_lib:format(Format, Args)).

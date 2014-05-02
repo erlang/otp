@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2512,10 +2512,11 @@ handle_mib_of(MibServer, Oid) ->
 %% Func: process_msg/7
 %% Returns: RePdu
 %%-----------------------------------------------------------------
-process_msg(MibView, Vsn, Pdu, PduMS, Community, {Ip, Udp}, ContextName, 
-	    GbMaxVBs) ->
+process_msg(
+  MibView, Vsn, Pdu, PduMS, Community,
+  SourceAddress, ContextName, GbMaxVBs) ->
     #pdu{request_id = ReqId} = Pdu,
-    put(snmp_address, {tuple_to_list(Ip), Udp}),
+    put(snmp_address, SourceAddress),
     put(snmp_request_id, ReqId),
     put(snmp_community, Community),
     put(snmp_context, ContextName),

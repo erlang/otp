@@ -1010,7 +1010,7 @@ generate_discovery_msg(NoteStore, {TDomain, TAddress},
 		       InitialUserName, 
 		       ContextName, Timeout) ->
 
-    {ok, {_Domain, Address}} = transform_taddr(TDomain, TAddress),
+    {ok, {Domain, Address}} = transform_taddr(TDomain, TAddress),
 
     %% 7.1.7
     ?vdebug("generate_discovery_msg -> 7.1.7 (~w)", [ManagerEngineID]),
@@ -1052,7 +1052,7 @@ generate_discovery_msg(NoteStore, {TDomain, TAddress},
 	    %% Log(Packet),
 	    inc_snmp_out_vars(Pdu),
 	    ?vdebug("generate_discovery_msg -> done", []),
-	    {Packet, Address};
+	    {Domain, Address, Packet};
 
 	Error ->
 	    throw(Error)

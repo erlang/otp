@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1794,7 +1794,11 @@ init_v3(Config) when is_list(Config) ->
     Ip = ?config(ip, Config),
     ?line ok = config([v3], MgrDir, AgentConfDir, 
 		      tuple_to_list(Ip), tuple_to_list(Ip)),
-    [{vsn, v3} | start_v3_agent(Config)].
+    Opts =
+	[{master_agent_verbosity, trace},
+	 {agent_verbosity, trace},
+	 {net_if_verbosity, trace}],
+    [{vsn, v3} | start_v3_agent(Config, Opts)].
 
 finish_v3(Config) when is_list(Config) ->
     delete_tables(),
