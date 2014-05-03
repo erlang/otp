@@ -665,11 +665,11 @@ expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
     {value,E,Bs1} = expr(E0, Bs0, Ieval),
     case E of
         #{} ->
-            {Fs,Bs2} = eval_map_fields(Fs0, Bs1, Ieval),
+            {Fs,Bs2} = eval_map_fields(Fs0, Bs0, Ieval),
             Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
                                     ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
                                 end, E, Fs),
-            {value,Value,Bs2};
+            {value,Value,merge_bindings(Bs2, Bs1, Ieval)};
         _ ->
             exception(error, {badarg,E}, Bs1, Ieval)
     end;
