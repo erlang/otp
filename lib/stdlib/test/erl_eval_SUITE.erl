@@ -1451,6 +1451,13 @@ eep43(Config) when is_list(Config) ->
           "    {Map#{a := B},Map#{a => c},Map#{d => e}} "
           "end.",
           {#{a => b},#{a => c},#{a => b,d => e}}),
+    check(fun () ->
+                  lists:map(fun (X) -> X#{price := 0} end,
+                            [#{hello => 0, price => nil}])
+          end,
+          "lists:map(fun (X) -> X#{price := 0} end,
+                     [#{hello => 0, price => nil}]).",
+          [#{hello => 0, price => 0}]),
     error_check("[camembert]#{}.", {badarg,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
     ok.

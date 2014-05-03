@@ -294,6 +294,7 @@ stacktrace(Config) when is_list(Config) ->
 maps(Config) when is_list(Config) ->
     Fun = fun () -> ?IM:empty_map_update([camembert]) end,
     {'EXIT',{{badarg,[camembert]},_}} = spawn_eval(Fun),
+    [#{hello := 0, price := 0}] = spawn_eval(fun () -> ?IM:update_in_fun() end),
     ok.
 
 
