@@ -4245,6 +4245,9 @@ ann_make_tree(As, bitstr, [[V],[S],[U],[T],[Fs]]) ->
     ann_c_bitstr(As, V, S, U, T, Fs);
 ann_make_tree(As, cons, [[H], [T]]) -> ann_c_cons(As, H, T);
 ann_make_tree(As, tuple, [Es]) -> ann_c_tuple(As, Es);
+ann_make_tree(As, map, [Es]) -> ann_c_map(As, Es);
+ann_make_tree(As, map, [[A], Es]) -> ann_c_map(As, A, Es);
+ann_make_tree(As, map_pair, [[Op], [K], [V]]) -> ann_c_map_pair(As, Op, K, V);
 ann_make_tree(As, 'let', [Vs, [A], [B]]) -> ann_c_let(As, Vs, A, B);
 ann_make_tree(As, seq, [[A], [B]]) -> ann_c_seq(As, A, B);
 ann_make_tree(As, apply, [[Op], Es]) -> ann_c_apply(As, Op, Es);
