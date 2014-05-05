@@ -2648,10 +2648,9 @@ otp_11872(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {error,[{6,erl_lint,{undefined_type,{product,0}}}],
-     [{8,erl_lint,{new_builtin_type,{map,0}}},
-      {8,erl_lint,
-       {deprecated_builtin_type,{dict,0},{dict,dict,2}, "OTP 18.0"}}]} =
+    {error,[{6,erl_lint,{undefined_type,{product,0}}},
+            {8,erl_lint,{undefined_type,{dict,0}}}],
+           [{8,erl_lint,{new_builtin_type,{map,0}}}]} =
         run_test2(Config, Ts, []),
     ok.
 
@@ -3334,8 +3333,8 @@ format_warn(Config) when is_list(Config) ->
     ok.
 
 format_level(Level, Count, Config) ->
-    ?line W = get_compilation_warnings(Config, "format",
-                                       [{warn_format, Level}]),
+    ?line W = get_compilation_result(Config, "format",
+                                     [{warn_format, Level}]),
     %% Pick out the 'format' warnings.
     ?line FW = lists:filter(fun({_Line, erl_lint, {format_error, _}}) -> true;
                                (_) -> false
@@ -3519,42 +3518,22 @@ bin_syntax_errors(Config) ->
     ok.
 
 predef(doc) ->
-    "OTP-10342: Predefined types: array(), digraph(), and so on";
+    "OTP-10342: No longer predefined types: array(), digraph(), and so on";
 predef(suite) -> [];
 predef(Config) when is_list(Config) ->
-    W = get_compilation_warnings(Config, "predef", []),
+    W = get_compilation_result(Config, "predef", []),
     [] = W,
-    W2 = get_compilation_warnings(Config, "predef2", []),
-    Tag = deprecated_builtin_type,
-    [{7,erl_lint,{Tag,{array,0},{array,array,1},"OTP 18.0"}},
-     {12,erl_lint,{Tag,{dict,0},{dict,dict,2},"OTP 18.0"}},
-     {17,erl_lint,{Tag,{digraph,0},{digraph,graph},"OTP 18.0"}},
-     {27,erl_lint,{Tag,{gb_set,0},{gb_sets,set,1},"OTP 18.0"}},
-     {32,erl_lint,{Tag,{gb_tree,0},{gb_trees,tree,2},"OTP 18.0"}},
-     {37,erl_lint,{Tag,{queue,0},{queue,queue,1},"OTP 18.0"}},
-     {42,erl_lint,{Tag,{set,0},{sets,set,1},"OTP 18.0"}},
-     {47,erl_lint,{Tag,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
-    Ts = [{otp_10342_1,
-           <<"-compile(nowarn_deprecated_type).
-
-              -spec t(dict()) -> non_neg_integer().
-
-              t(D) ->
-                  erlang:phash2(D, 3000).
-             ">>,
-           {[nowarn_unused_function]},
-           []},
-         {otp_10342_2,
-           <<"-spec t(dict()) -> non_neg_integer().
-
-              t(D) ->
-                  erlang:phash2(D, 3000).
-             ">>,
-           {[nowarn_unused_function]},
-           {warnings,[{1,erl_lint,
-                       {deprecated_builtin_type,{dict,0},{dict,dict,2},
-                        "OTP 18.0"}}]}}],
-    [] = run(Config, Ts),
+    %% dict(), digraph() and so on were removed in Erlang/OTP 18.0.
+    E2 = get_compilation_result(Config, "predef2", []),
+    Tag = undefined_type,
+    {[{7,erl_lint,{Tag,{array,0}}},
+      {12,erl_lint,{Tag,{dict,0}}},
+      {17,erl_lint,{Tag,{digraph,0}}},
+      {27,erl_lint,{Tag,{gb_set,0}}},
+      {32,erl_lint,{Tag,{gb_tree,0}}},
+      {37,erl_lint,{Tag,{queue,0}}},
+      {42,erl_lint,{Tag,{set,0}}},
+      {47,erl_lint,{Tag,{tid,0}}}],[]} = E2,
     ok.
 
 maps(Config) ->
@@ -3763,9 +3742,9 @@ run(Config, Tests) ->
         end,
     lists:foldl(F, [], Tests).
 
-%% Compiles a test file and returns the list of warnings.
+%% Compiles a test file and returns the list of warnings/errors.
 
-get_compilation_warnings(Conf, Filename, Warnings) ->
+get_compilation_result(Conf, Filename, Warnings) ->
     ?line DataDir = ?datadir,
     ?line File = filename:join(DataDir, Filename),
     {ok,Bin} = file:read_file(File++".erl"),
@@ -3774,6 +3753,7 @@ get_compilation_warnings(Conf, Filename, Warnings) ->
     Test = lists:nthtail(Start+Length, FileS),
     case run_test(Conf, Test, Warnings) of
         {warnings, Ws} -> Ws;
+        {errors,Es,Ws} -> {Es,Ws};
         [] -> []
     end.
 

@@ -2770,8 +2770,7 @@ filter_match_fail([]) ->
 %%% ===========================================================================
 
 state__new(Callgraph, Tree, Plt, Module, Records) ->
-  Opaques = erl_types:module_builtin_opaques(Module) ++
-    erl_types:t_opaque_from_records(Records),
+  Opaques = erl_types:t_opaque_from_records(Records),
   TreeMap = build_tree_map(Tree),
   Funs = dict:fetch_keys(TreeMap),
   FunTab = init_fun_tab(Funs, dict:new(), TreeMap, Callgraph, Plt),

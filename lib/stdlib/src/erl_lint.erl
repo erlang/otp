@@ -2852,23 +2852,9 @@ is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 is_obsolete_builtin_type(TypePair) ->
     obsolete_builtin_type(TypePair) =/= no.
 
-%% Obsolete in OTP 17.0.
-obsolete_builtin_type({array, 0}) ->
-    {deprecated, {array, array, 1}, "OTP 18.0"};
-obsolete_builtin_type({dict, 0}) ->
-    {deprecated, {dict, dict, 2}, "OTP 18.0"};
-obsolete_builtin_type({digraph, 0}) ->
-    {deprecated, {digraph, graph}, "OTP 18.0"};
-obsolete_builtin_type({gb_set, 0}) ->
-    {deprecated, {gb_sets, set, 1}, "OTP 18.0"};
-obsolete_builtin_type({gb_tree, 0}) ->
-    {deprecated, {gb_trees, tree, 2}, "OTP 18.0"};
-obsolete_builtin_type({queue, 0}) ->
-    {deprecated, {queue, queue, 1}, "OTP 18.0"};
-obsolete_builtin_type({set, 0}) ->
-    {deprecated, {sets, set, 1}, "OTP 18.0"};
-obsolete_builtin_type({tid, 0}) ->
-    {deprecated, {ets, tid}, "OTP 18.0"};
+%% To keep Dialyzer silent...
+obsolete_builtin_type({1, 255}) ->
+    {deprecated, {2, 255}, ""};
 obsolete_builtin_type({Name, A}) when is_atom(Name), is_integer(A) -> no.
 
 %% spec_decl(Line, Fun, Types, State) -> State.

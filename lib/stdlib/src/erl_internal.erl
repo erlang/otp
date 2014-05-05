@@ -540,7 +540,6 @@ old_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 is_type(any, 0) -> true;
 is_type(arity, 0) -> true;
-is_type(array, 0) -> true; % To be removed.
 is_type(atom, 0) -> true;
 is_type(binary, 0) -> true;
 is_type(bitstring, 0) -> true;
@@ -548,12 +547,8 @@ is_type(bool, 0) -> true;
 is_type(boolean, 0) -> true;
 is_type(byte, 0) -> true;
 is_type(char, 0) -> true;
-is_type(dict, 0) -> true; % To be removed.
-is_type(digraph, 0) -> true; % To be removed.
 is_type(float, 0) -> true;
 is_type(function, 0) -> true;
-is_type(gb_set, 0) -> true; % To be removed.
-is_type(gb_tree, 0) -> true; % To be removed.
 is_type(identifier, 0) -> true;
 is_type(integer, 0) -> true;
 is_type(iodata, 0) -> true;
@@ -581,12 +576,9 @@ is_type(number, 0) -> true;
 is_type(pid, 0) -> true;
 is_type(port, 0) -> true;
 is_type(pos_integer, 0) -> true;
-is_type(queue, 0) -> true; % To be removed.
 is_type(reference, 0) -> true;
-is_type(set, 0) -> true; % To be removed.
 is_type(string, 0) -> true;
 is_type(term, 0) -> true;
-is_type(tid, 0) -> true; % To be removed.
 is_type(timeout, 0) -> true;
 is_type(tuple, 0) -> true;
 is_type(_, _) -> false.
