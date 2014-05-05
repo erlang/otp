@@ -48,6 +48,7 @@ all() ->
      server_password_option,
      server_userpassword_option,
      double_close,
+     ssh_connect_timeout,
      {group, hardening_tests}
     ].
 
@@ -627,6 +628,27 @@ double_close(Config) when is_list(Config) ->
     
     exit(CM, {shutdown, normal}),
     ok = ssh:close(CM).
+
+%%--------------------------------------------------------------------
+ssh_connect_timeout() ->
+    [{doc, "Test connect_timeout option in ssh:connect/4"}].
+ssh_connect_timeout(_Config) ->
+    ConnTimeout = 2000,
+    {error,{faked_transport,connect,TimeoutToTransport}} = 
+	ssh:connect("localhost", 12345, 
+		    [{transport,{tcp,?MODULE,tcp_closed}},
+		     {connect_timeout,ConnTimeout}],
+		    1000),
+    case TimeoutToTransport of
+	ConnTimeout -> ok;
+	Other -> 
+	    ct:log("connect_timeout is ~p but transport received ~p",[ConnTimeout,Other]),
+	    {fail,"ssh:connect/4 wrong connect_timeout received in transport"}
+    end.
+    
+%% Help for the test above
+connect(_Host, _Port, _Opts, Timeout) ->
+    {error, {faked_transport,connect,Timeout}}.
 
 %%--------------------------------------------------------------------
 
