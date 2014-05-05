@@ -265,10 +265,6 @@ per_enc_k_m_string(Val0, StringType, Constraint, Aligned) ->
     SzConstraint = effective_constraint(bitstring, Constraint),
     Unit = string_num_bits(StringType, Constraint, Aligned),
     Chars0 = char_tab(Constraint, StringType, Unit),
-    Args = case enc_char_tab(Chars0) of
-	       notab -> [Val,Unit];
-	       Chars -> [Val,Unit,Chars]
-	   end,
     Enc = case Unit of
 	      16 ->
 		  {call,per_common,encode_chars_16bit,[Val],Bin};
@@ -277,7 +273,15 @@ per_enc_k_m_string(Val0, StringType, Constraint, Aligned) ->
 	      8 ->
 		  {call,erlang,list_to_binary,[Val],Bin};
 	      _ ->
-		  {call,per_common,encode_chars,Args,Bin}
+		  case enc_char_tab(Chars0) of
+		      notab ->
+			  {call,per_common,encode_chars,[Val,Unit],Bin};
+		      {tab,Tab} ->
+			  {call,per_common,encode_chars,[Val,Unit,Tab],Bin};
+		      {compact_map,Map} ->
+			  {call,per_common,encode_chars_compact_map,
+			   [Val,Unit,Map],Bin}
+		  end
 	  end,
     case Unit of
 	8 ->
@@ -1303,9 +1307,15 @@ prepend_to_cond_1([Check|T], Code) ->
 enc_char_tab(notab) ->
     notab;
 enc_char_tab(Tab0) ->
-    Tab = tuple_to_list(Tab0),
-    First = hd(Tab),
-    {First-1,list_to_tuple(enc_char_tab_1(Tab, First, 0))}.
+    Tab1 = tuple_to_list(Tab0),
+    First = hd(Tab1),
+    Tab = enc_char_tab_1(Tab1, First, 0),
+    case lists:member(ill, Tab) of
+	false ->
+	    {compact_map,{First,tuple_size(Tab0)}};
+	true ->
+	    {tab,{First-1,list_to_tuple(Tab)}}
+    end.
 
 enc_char_tab_1([H|T], H, I) ->
     [I|enc_char_tab_1(T, H+1, I+1)];
