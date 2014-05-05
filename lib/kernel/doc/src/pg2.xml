@@ -34,11 +34,8 @@
   <module>pg2</module>
   <modulesummary>Distributed Named Process Groups</modulesummary>
   <description>
-    <p>This module implements process groups. The groups in this
-      module differ from the groups in the module <c>pg</c> in several
-      ways. In <c>pg</c>, each message is sent to all members in the
-      group. In this module, each message may be sent to one, some, or
-      all members.
+    <p>This module implements process groups. Each message may be sent
+      to one, some, or all members of the group.
       </p>
     <p>A group of processes can be accessed by a common name. For
       example, if there is a group named <c>foobar</c>, there can be a
@@ -160,8 +157,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel_app">kernel(6)</seealso>, 
-       <seealso marker="stdlib:pg">pg(3)</seealso></p>
+    <p><seealso marker="kernel_app">kernel(6)</seealso></p>
   </section>
 </erlref>
 
