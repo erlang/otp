@@ -270,9 +270,9 @@ union erts_lc_free_block_t_ {
 
 static ethr_tsd_key locks_key;
 
-static erts_lc_locked_locks_t *erts_locked_locks;
+static erts_lc_locked_locks_t *erts_locked_locks = NULL;
 
-static erts_lc_free_block_t *free_blocks;
+static erts_lc_free_block_t *free_blocks = NULL;
 
 #ifdef ERTS_LC_STATIC_ALLOC
 #define ERTS_LC_FB_CHUNK_SIZE 10000

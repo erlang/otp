@@ -54,13 +54,23 @@ document etp-help
 %   etp-mfa, etp-cp, 
 %   etp-msgq, etpf-msgq, 
 %   etp-stacktrace, etp-stackdump, etpf-stackdump, etp-dictdump
-%   etp-offheapdump, etpf-offheapdump,
-%   etp-print-procs, etp-search-heaps, etp-search-alloc,
+%   etp-process-info, etp-process-memory-info
+%   etp-port-info, etp-port-state, etp-port-sched-flags
+%   etp-heapdump, etp-offheapdump, etpf-offheapdump,
+%   etp-search-heaps, etp-search-alloc,
 %   etp-ets-tables, etp-ets-tabledump
 %
 % Complex commands that use the Erlang support module.
 %   etp-overlapped-heaps, etp-chart, etp-chart-start, etp-chart-end
-% 
+%
+% System inspection
+%   etp-system-info, etp-schedulers, etp-process, etp-ports, etp-lc-dump,
+%   etp-migration-info, etp-processes-memory,
+%   etp-compile-info, etp-config-h-info
+%
+% Platform specific (when gdb fails you)
+%   etp-ppc-stacktrace
+%
 % Erlang support module handling commands:
 %   etp-run
 %
@@ -3133,6 +3143,77 @@ document etp-ets-tabledump
 %---------------------------------------------------------------------------
 end
 
+define etp-lc-dump
+# Non-reentrant
+  set $etp_lc_dump_thread = erts_locked_locks
+  while $etp_lc_dump_thread
+    printf "Thread %s\n", $etp_lc_dump_thread->thread_name
+    set $etp_lc_dump_thread_locked = $etp_lc_dump_thread->locked.first
+    while $etp_lc_dump_thread_locked
+      if 0 <= $etp_lc_dump_thread_locked->id && $etp_lc_dump_thread_locked->id < sizeof(erts_lock_order)/sizeof(erts_lc_lock_order_t)
+        printf "  %s:", erts_lock_order[$etp_lc_dump_thread_locked->id].name
+      else
+        printf "  unkown:"
+      end
+      if ($etp_lc_dump_thread_locked->extra & 0x3) == 0x3
+        etp-1 $etp_lc_dump_thread_locked->extra
+      else
+        printf "%p", $etp_lc_dump_thread_locked->extra
+      end
+      if ($etp_lc_dump_thread_locked->flags & (0x1f)) == (1 << 0)
+        printf "[spinlock]"
+      end
+      if ($etp_lc_dump_thread_locked->flags & (0x1f)) == (1 << 1)
+        printf "[rw(spin)lock]"
+      end
+      if ($etp_lc_dump_thread_locked->flags & (0x1f)) == (1 << 2)
+        printf "[mutex]"
+      end
+      if ($etp_lc_dump_thread_locked->flags & (0x1f)) == (1 << 3)
+        printf "[rwmutex]"
+      end
+      if ($etp_lc_dump_thread_locked->flags & (0x1f)) == (1 << 4)
+        printf "[proclock]"
+      end
+      printf "(%s:%d)", $etp_lc_dump_thread_locked->file, $etp_lc_dump_thread_locked->line
+      if ($etp_lc_dump_thread_locked->flags & (0x60)) == (1 << 5)
+        printf "(r)"
+      end
+      if ($etp_lc_dump_thread_locked->flags & (0x60)) == ((1 << 5) | (1 << 6))
+        printf "(rw)"
+      end
+      printf "\n"
+      set $etp_lc_dump_thread_locked = $etp_lc_dump_thread_locked->next
+    end
+    set $etp_lc_dump_thread = $etp_lc_dump_thread->next
+  end
+end
+
+document etp-lc-dump
+%---------------------------------------------------------------------------
+% etp-lc-dump
+%
+% Dump all info about locks in the lock checker
+%---------------------------------------------------------------------------
+end
+
+define etp-ppc-stacktrace
+# Args: R1
+# Non-reentrant
+  set $etp_ppc_st_fp = ($arg0)
+  while $etp_ppc_st_fp
+    info symbol ((void**)$etp_ppc_st_fp)[1]
+    set $etp_ppc_st_fp = ((void**)$etp_ppc_st_fp)[0]
+ end
+end
+
+document etp-ppc-stacktrace
+%---------------------------------------------------------------------------
+% etp-ppc-stacktrace R1
+%
+% Dump stacktrace from given $r1 frame pointer
+%---------------------------------------------------------------------------
+end
 
 ############################################################################
 # OSE support
