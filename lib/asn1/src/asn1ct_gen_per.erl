@@ -41,7 +41,13 @@
 %% Generate ENCODING ******************************
 %%****************************************x
 
-dialyzer_suppressions(_) ->
+dialyzer_suppressions(Erules) ->
+    case asn1ct_func:is_used({Erules,complete,1}) of
+	false ->
+	    ok;
+	true ->
+	    emit(["    _ = complete(Arg),",nl])
+    end,
     emit(["    ok.",nl]).
 
 
