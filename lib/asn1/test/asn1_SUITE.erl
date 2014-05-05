@@ -50,13 +50,14 @@ all() ->
      {group, performance}].
 
 groups() ->
-    [{compile, parallel([]),
+    Parallel = asn1_test_lib:parallel(),
+    [{compile, Parallel,
       [c_syntax,
        c_string,
        c_implicit_before_choice,
        constraint_equivalence]},
 
-     {ber, parallel([]),
+     {ber, Parallel,
       [ber_choiceinseq,
        % Uses 'SOpttest'
        ber_optional]},
@@ -65,7 +66,7 @@ groups() ->
 
      {appup_test, [], [{asn1_appup_test, all}]},
 
-     {parallel, parallel([]),
+     {parallel, Parallel,
       [cover,
        xref,
        {group, ber},
@@ -172,13 +173,6 @@ groups() ->
       [testTimer_ber,
        testTimer_per,
        testTimer_uper]}].
-
-parallel(Options) ->
-    case erlang:system_info(smp_support) andalso
-         erlang:system_info(schedulers) > 1 of
-        true  -> [parallel|Options];
-        false -> Options
-    end.
 
 %%------------------------------------------------------------------------------
 %% Init/end
