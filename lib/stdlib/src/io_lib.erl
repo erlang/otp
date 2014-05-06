@@ -60,6 +60,7 @@
 -module(io_lib).
 
 -export([fwrite/2,fread/2,fread/3,format/2]).
+-export([scan_format/2,unscan_format/1,build_text/1]).
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
@@ -108,6 +109,15 @@
 
 -type fread_item() :: string() | atom() | integer() | float().
 
+-type format_spec() :: {ControlChar :: char(),
+                        Args :: [any()],
+                        Width :: none | integer(),
+                        Adjust :: left | right,
+                        Precision :: none | integer(),
+                        PadChar :: char(),
+                        Encoding :: unicode | latin1,
+                        Strings :: boolean()}.
+
 %%----------------------------------------------------------------------
 
 %% Interface calls to sub-modules.
@@ -155,6 +165,31 @@ format(Format, Args) ->
 	Other ->
 	    Other
     end.
+
+-spec scan_format(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char()|format_spec()].
+
+scan_format(Format, Args) ->
+    try io_lib_format:scan(Format, Args)
+    catch
+        _:_ -> erlang:error(badarg, [Format, Args])
+    end.
+
+-spec unscan_format(FormatList) -> {Format, Data} when
+      FormatList :: [char()|format_spec()],
+      Format :: io:format(),
+      Data :: [term()].
+
+unscan_format(FormatList) ->
+    io_lib_format:unscan(FormatList).
+
+-spec build_text(FormatList) -> string() when
+      FormatList :: [char()|format_spec()].
+
+build_text(FormatList) ->
+    io_lib_format:build(FormatList).
 
 -spec print(Term) -> chars() when
       Term :: term().

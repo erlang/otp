@@ -505,7 +505,8 @@ ok
             <p>Writes the data with standard syntax in the same way as
               <c>~w</c>, but breaks terms whose printed representation
               is longer than one line into many lines and indents each
-              line sensibly. It also tries to detect lists of
+              line sensibly. Left justification is not supported.
+              It also tries to detect lists of
               printable characters and to output these as strings. The
               Unicode translation modifier is used for determining
               what characters are printable. For example:</p>
