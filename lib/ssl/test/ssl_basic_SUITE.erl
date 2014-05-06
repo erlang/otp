@@ -350,7 +350,7 @@ new_options_in_accept(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{ssl_opts, [{versions, [sslv3]},
-						    {ciphers,[{rsa,rc4_128,sha}]}]}, %% To be set in ssl_accept/3
+						    {ciphers,[{rsa,aes_128_cbc,sha}]}]}, %% To be set in ssl_accept/3
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, ServerOpts}]),
     
@@ -364,7 +364,7 @@ new_options_in_accept(Config) when is_list(Config) ->
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
-    ServerMsg = ClientMsg = {ok, {sslv3, {rsa, rc4_128, sha}}},
+    ServerMsg = ClientMsg = {ok, {sslv3, {rsa, aes_128_cbc, sha}}},
    
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
@@ -389,7 +389,7 @@ connection_info(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, connection_info_result, []}},
 			   {options, 
-			    [{ciphers,[{rsa,rc4_128,sha,no_export}]} | 
+			    [{ciphers,[{rsa,aes_128_cbc,sha,no_export}]} |
 			     ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
@@ -398,7 +398,7 @@ connection_info(Config) when is_list(Config) ->
     Version = 
 	tls_record:protocol_version(tls_record:highest_protocol_version([])),
     
-    ServerMsg = ClientMsg = {ok, {Version, {rsa,rc4_128,sha}}},
+    ServerMsg = ClientMsg = {ok, {Version, {rsa,aes_128_cbc,sha}}},
 			   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
@@ -3650,6 +3650,8 @@ client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_rsa ->
     {?config(client_opts, Config),
      ?config(server_ecdh_rsa_opts, Config)}.
 
+run_suites([], _Version, _Config, _Type) ->
+    {skip, "No suitable cipher suites found"};
 run_suites(Ciphers, Version, Config, Type) ->
     {ClientOpts, ServerOpts} =
 	case Type of

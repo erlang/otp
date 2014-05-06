@@ -117,14 +117,14 @@ connection_init(Trustedcerts, Role) ->
 %% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
 cache_pem_file(File, DbHandle) ->
-    MD5 = crypto:hash(md5, File),
-    case ssl_pkix_db:lookup_cached_pem(DbHandle, MD5) of
+    Hash = crypto:hash(?PKIX_DB_HASH, File),
+    case ssl_pkix_db:lookup_cached_pem(DbHandle, Hash) of
 	[{Content,_}] ->
 	    {ok, Content};
 	[Content] ->
 	   {ok, Content};
 	undefined ->
-	    call({cache_pem, {MD5, File}})
+	    call({cache_pem, {Hash, File}})
     end.
 
 %%--------------------------------------------------------------------
@@ -482,10 +482,10 @@ new_id(Port, Tries, Cache, CacheCb) ->
 clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
     case ssl_pkix_db:ref_count(Ref, RefDb, 0) of
 	0 ->	  
-	    MD5 = crypto:hash(md5, File),
-	    case ssl_pkix_db:lookup_cached_pem(PemCache, MD5) of
+	    Hash = crypto:hash(?PKIX_DB_HASH, File),
+	    case ssl_pkix_db:lookup_cached_pem(PemCache, Hash) of
 		[{Content, Ref}] ->
-		    ssl_pkix_db:insert(MD5, Content, PemCache);		
+		    ssl_pkix_db:insert(Hash, Content, PemCache);
 		_ ->
 		    ok
 	    end,
