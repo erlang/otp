@@ -82,15 +82,8 @@ per_dec_enumerated(NamedList0, Aligned) ->
     Ub = length(NamedList0) - 1,
     Constraint = [{'ValueRange',{0,Ub}}],
     Int = per_dec_integer(Constraint, Aligned),
-    EnumTail = case matched_range(Int) of
-		   {0,Ub} ->
-		       %% The error case can never happen.
-		       [];
-		   _ ->
-		       [enum_error]
-	       end,
-    NamedList = per_dec_enumerated_fix_list(NamedList0, EnumTail, 0),
-    {map,Int,NamedList}.
+    NamedList = per_dec_enumerated_fix_list(NamedList0, [enum_error], 0),
+    {map,Int,opt_map(NamedList, Int)}.
 
 per_dec_enumerated(BaseNamedList, NamedListExt0, Aligned) ->
     Base = per_dec_enumerated(BaseNamedList, Aligned),
@@ -124,7 +117,7 @@ per_dec_length(no, AllowZero, Aligned) ->
 per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     Int = per_dec_integer(Constraint, Aligned),
     NamedList = [{K,V} || {V,K} <- NamedList0] ++ [integer_default],
-    {map,Int,NamedList}.
+    {map,Int,opt_map(NamedList, Int)}.
 
 per_dec_k_m_string(StringType, Constraint, Aligned) ->
     SzConstr = effective_constraint(bitstring, Constraint),
@@ -588,13 +581,41 @@ per_num_bits(N) when N =< 64 -> 6;
 per_num_bits(N) when N =< 128 -> 7;
 per_num_bits(N) when N =< 255 -> 8.
 
+opt_map(Map, Imm) ->
+    case matched_range(Imm) of
+	unknown -> Map;
+	{Lb,Ub} -> opt_map_1(Map, Lb, Ub)
+    end.
+
+opt_map_1([{I,_}=Pair|T], Lb, Ub) ->
+    if
+	I =:= Lb, I =< Ub ->
+	    [Pair|opt_map_1(T, Lb+1, Ub)];
+	Lb < I, I =< Ub ->
+	    [Pair|opt_map_1(T, Lb, Ub)];
+	true ->
+	    opt_map_1(T, Lb, Ub)
+    end;
+opt_map_1(Map, Lb, Ub) ->
+    if
+	Lb =< Ub ->
+	    Map;
+	true ->
+	    []
+    end.
+
 matched_range({get_bits,Bits0,[U|Flags]}) when is_integer(U) ->
-    case lists:member(signed, Flags) of
-	false ->
+    case not lists:member(signed, Flags) andalso is_integer(Bits0) of
+	true ->
 	    Bits = U*Bits0,
 	    {0,(1 bsl Bits) - 1};
-	true ->
+	false ->
 	    unknown
+    end;
+matched_range({add,Imm,Add}) ->
+    case matched_range(Imm) of
+	unknown -> unknown;
+	{Lb,Ub} -> {Lb+Add,Ub+Add}
     end;
 matched_range(_Op) -> unknown.
 
