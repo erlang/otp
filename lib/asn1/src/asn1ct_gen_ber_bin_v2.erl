@@ -266,14 +266,20 @@ emit_enc_enumerated_cases(L, Tags) ->
     emit_enc_enumerated_cases(L, Tags, noext).
 
 emit_enc_enumerated_cases([{EnumName,EnumVal}|T], Tags, Ext) ->
+    Bytes = encode_pos_integer(EnumVal, []),
+    Len = length(Bytes),
     emit([{asis,EnumName}," -> ",
-	  {call,ber,encode_enumerated,[EnumVal,Tags]},";",nl]),
+	  {call,ber,encode_tags,[Tags,{asis,Bytes},Len]},";",nl]),
     emit_enc_enumerated_cases(T, Tags, Ext);
 emit_enc_enumerated_cases([], _Tags, _Ext) ->
     %% FIXME: Should extension be handled?
     emit([{curr,enumval}," -> exit({error,{asn1, {enumerated_not_in_range,",{curr, enumval},"}}})"]),
     emit([nl,"end"]).
 
+encode_pos_integer(0, [B|_Acc] = L) when B < 128 ->
+    L;
+encode_pos_integer(N, Acc) ->
+    encode_pos_integer(N bsr 8, [N band 255|Acc]).
 
 %%===============================================================================
 %%===============================================================================

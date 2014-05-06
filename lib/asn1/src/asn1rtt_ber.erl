@@ -28,7 +28,6 @@
 	 encode_integer/2,encode_integer/3,
 	 decode_integer/2,
 	 number2name/2,
-	 encode_enumerated/2,
 	 encode_unnamed_bit_string/2,encode_unnamed_bit_string/3,
 	 encode_named_bit_string/3,encode_named_bit_string/4,
 	 encode_bit_string/4,
@@ -710,15 +709,6 @@ number2name(Int, NamedNumberList) ->
 	_ ->
 	    Int
     end.
-
-
-%%============================================================================
-%% Enumerated value, ITU_T X.690 Chapter 8.4
-
-%% encode enumerated value
-%%============================================================================
-encode_enumerated(Val, TagIn) when is_integer(Val) ->
-    encode_tags(TagIn, encode_integer(Val)).
 
 %%============================================================================
 %% Bitstring value, ITU_T X.690 Chapter 8.6
