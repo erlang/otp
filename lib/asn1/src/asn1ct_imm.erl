@@ -175,6 +175,8 @@ per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     ToBs = case ExtraArgs of
 	       [] ->
 		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
+	       [0] ->
+		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
 	       [Lower] ->
 		   {call,per_common,adjust_trailing_zeroes,[Val,Lower]}
 	   end,
@@ -203,6 +205,7 @@ per_enc_legacy_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     Constraint = effective_constraint(bitstring, Constraint0),
     ExtraArgs = case constr_min_size(Constraint) of
 		    no -> [];
+		    0 -> [];
 		    Lb -> [Lb]
 		end,
     B ++ [{'try',
