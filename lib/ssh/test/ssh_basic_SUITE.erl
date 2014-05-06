@@ -650,6 +650,65 @@ ssh_connect_timeout(_Config) ->
 connect(_Host, _Port, _Opts, Timeout) ->
     {error, {faked_transport,connect,Timeout}}.
 
+
+%%--------------------------------------------------------------------
+ssh_connect_arg4_timeout() ->
+    [{doc, "Test fourth argument in ssh:connect/4"}].
+ssh_connect_arg4_timeout(_Config) ->
+    Timeout = 1000,
+    Parent = self(),
+    %% start the server
+    Server = spawn(fun() ->
+			   {ok,Sl} = gen_tcp:listen(0,[]),
+			   {ok,{_,Port}} = inet:sockname(Sl),
+			   Parent ! {port,self(),Port},
+			   Rsa = gen_tcp:accept(Sl),
+			   ct:log("Server gen_tcp:accept got ~p",[Rsa]),
+			   receive after 2*Timeout -> ok end %% let client timeout first
+		   end),
+
+    %% Get listening port
+    Port = receive
+	       {port,Server,ServerPort} -> ServerPort
+	   end,
+
+    %% try to connect with a timeout, but "supervise" it
+    Client = spawn(fun() ->
+			   T0 = now(),
+			   Rc = ssh:connect("localhost",Port,[],Timeout),
+			   ct:log("Client ssh:connect got ~p",[Rc]),
+			   Parent ! {done,self(),Rc,T0}
+		   end),
+
+    %% Wait for client reaction on the connection try:
+    receive
+	{done, Client, {error,_E}, T0} ->
+	    Msp = ms_passed(T0, now()),
+	    exit(Server,hasta_la_vista___baby),
+	    Low = 0.9*Timeout,
+	    High =  1.1*Timeout,
+	    ct:log("Timeout limits: ~p--~p, timeout was ~p, expected ~p",[Low,High,Msp,Timeout]),
+	    if
+		Low<Msp, Msp<High -> ok;
+		true -> {fail, "timeout not within limits"}
+	    end;
+	{done, Client, {ok,_Ref}, _T0} ->
+	    {fail,"ssh-connected ???"}
+    after
+	5000 ->
+	    exit(Server,hasta_la_vista___baby),
+	    exit(Client,hasta_la_vista___baby),
+	    {fail, "Didn't timeout"}
+    end.
+
+
+%% Help function
+%% N2-N1
+ms_passed(N1={_,_,M1}, N2={_,_,M2}) ->
+    {0,{0,Min,Sec}} = calendar:time_difference(calendar:now_to_local_time(N1),
+					       calendar:now_to_local_time(N2)),
+    1000 * (Min*60 + Sec + (M2-M1)/1000000).
+
 %%--------------------------------------------------------------------
 
 openssh_zlib_basic_test() ->
