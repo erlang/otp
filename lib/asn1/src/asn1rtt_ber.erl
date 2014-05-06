@@ -591,8 +591,6 @@ encode_tags(TagIn, {BytesSoFar,LenSoFar}) ->
 
 encode_open_type(Val, T) when is_list(Val) ->
     encode_open_type(list_to_binary(Val), T);
-encode_open_type(Val, []) ->
-    {Val,byte_size(Val)};
 encode_open_type(Val, Tag) ->
     encode_tags(Tag, Val, byte_size(Val)).
 
