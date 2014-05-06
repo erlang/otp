@@ -16,6 +16,7 @@ SemiConstrained ::= INTEGER (100..MAX)
 NegSemiConstrained ::= INTEGER (-128..MAX)
 SemiConstrainedExt ::= INTEGER (42..MAX, ...)
 NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
+SemiNamed ::= INTEGER {a(100), b(200)} (100..MAX)
 -- Extensions --
 LongLongExt ::= INTEGER (0..18446744073709551615, ..., -5000..-1)
 Range256to65536Ext ::= INTEGER (256..65536, ..., 1000000..9000000)

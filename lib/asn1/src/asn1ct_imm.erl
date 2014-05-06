@@ -1296,6 +1296,8 @@ eval_cond_1({eq,[],[]}) ->
     true;
 eval_cond_1({eq,I,N}) when is_integer(I), is_integer(N) ->
     I =:= N;
+eval_cond_1({ge,I,N}) when is_integer(I), is_integer(N) ->
+    I >= N;
 eval_cond_1({lt,I,N}) when is_integer(I), is_integer(N) ->
     I < N;
 eval_cond_1(_) -> maybe.
