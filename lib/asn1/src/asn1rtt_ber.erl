@@ -721,44 +721,45 @@ encode_unnamed_bit_string(Bits, TagIn) ->
     Bin = <<Unused,Bits/bitstring,0:Unused>>,
     encode_tags(TagIn, Bin, byte_size(Bin)).
 
-encode_unnamed_bit_string(C, Bits, TagIn) ->
+encode_unnamed_bit_string(MaxBits, Bits, TagIn) ->
     NumBits = bit_size(Bits),
     Unused = (8 - (NumBits band 7)) band 7,
     Bin = <<Unused,Bits/bitstring,0:Unused>>,
-    case C of
-	{_Min,Max} ->
-	    if
-		NumBits > Max ->
-		    exit({error,{asn1,
-				 {bitstring_length,
-				  {{was,NumBits},{maximum,Max}}}}});
-		true ->
-		    ok
-	    end;
-	Size ->
-	    if NumBits =< Size ->
-		    ok;
-	       true ->
-		    exit({error,{asn1,
-				 {bitstring_length,
-				  {{was,NumBits},{should_be,Size}}}}})
-	    end
-    end,
-    encode_tags(TagIn, Bin, byte_size(Bin)).
+    if
+	NumBits > MaxBits ->
+	    exit({error,{asn1,
+			 {bitstring_length,
+			  {{was,NumBits},{maximum,MaxBits}}}}});
+	true ->
+	    encode_tags(TagIn, Bin, byte_size(Bin))
+    end.
 
 encode_named_bit_string([H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
-    encode_bit_string_named([], Bits, NamedBitList, TagIn);
+    do_encode_named_bit_string(Bits, NamedBitList, TagIn);
 encode_named_bit_string([{bit,_}|_]=Bits, NamedBitList, TagIn) ->
-    encode_bit_string_named([], Bits, NamedBitList, TagIn);
+    do_encode_named_bit_string(Bits, NamedBitList, TagIn);
 encode_named_bit_string(Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
     encode_unnamed_bit_string(Bits, TagIn).
 
 encode_named_bit_string(C, [H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
-    encode_bit_string_named(C, Bits, NamedBitList, TagIn);
+    do_encode_named_bit_string(C, Bits, NamedBitList, TagIn);
 encode_named_bit_string(C, [{bit,_}|_]=Bits, NamedBitList, TagIn) ->
-    encode_bit_string_named(C, Bits, NamedBitList, TagIn);
+    do_encode_named_bit_string(C, Bits, NamedBitList, TagIn);
 encode_named_bit_string(C, Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
     encode_unnamed_bit_string(C, Bits, TagIn).
+
+do_encode_named_bit_string([FirstVal | RestVal], NamedBitList, TagIn) ->
+    ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
+    Size = lists:max(ToSetPos) + 1,
+    BitList = make_and_set_list(Size, ToSetPos, 0),
+    {Len,Unused,OctetList} = encode_bitstring(BitList),
+    encode_tags(TagIn, [Unused|OctetList],Len+1).
+
+do_encode_named_bit_string(Size, [FirstVal | RestVal], NamedBitList, TagIn) ->
+    ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
+    BitList = make_and_set_list(Size, ToSetPos, 0),
+    {Len, Unused, OctetList} = encode_bitstring(BitList),
+    encode_tags(TagIn, [Unused|OctetList], Len+1).
 
 %%============================================================================
 %% Bitstring value, ITU_T X.690 Chapter 8.6
@@ -859,15 +860,14 @@ remove_unused_then_dotag(TagIn,Unused,BinBits) ->
 
 encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, TagIn) ->
     ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
-    Size =
-	case C of
-	    [] ->
-		lists:max(ToSetPos)+1;
-	    {_Min,Max} ->
-		Max;
-	    TSize ->
-		TSize
-	end,
+    Size = case C of
+	       [] ->
+		   lists:max(ToSetPos) + 1;
+	       {_Min,Max} ->
+		   Max;
+	       TSize ->
+		   TSize
+	   end,
     BitList = make_and_set_list(Size, ToSetPos, 0),
     {Len, Unused, OctetList} = encode_bitstring(BitList),
     encode_tags(TagIn, [Unused|OctetList],Len+1).

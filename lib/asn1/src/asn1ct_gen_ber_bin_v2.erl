@@ -175,6 +175,12 @@ gen_encode_user(Erules, #typedef{}=D, Wrapper) ->
 
 gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
     BitStringConstraint = get_size_constraint(D#type.constraint),
+    MaxBitStrSize = case BitStringConstraint of
+			[] -> none;
+			{_,'MAX'} -> none;
+			{_,Max} -> Max;
+			Max when is_integer(Max) -> Max
+		    end,
     asn1ct_name:new(enumval),
     Type = case D#type.def of
 	       'OCTET STRING'    -> restricted_string;
@@ -220,11 +226,11 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 		  "end"]);
 	{'BIT STRING',[]} ->
 	    case asn1ct:use_legacy_types() of
-		false when BitStringConstraint =:= [] ->
+		false when MaxBitStrSize =:= none ->
 		    call(encode_unnamed_bit_string, [Value,DoTag]);
 		false ->
 		    call(encode_unnamed_bit_string,
-			 [{asis,BitStringConstraint},Value,DoTag]);
+			 [{asis,MaxBitStrSize},Value,DoTag]);
 		true ->
 		    call(encode_bit_string,
 			 [{asis,BitStringConstraint},Value,
@@ -232,12 +238,12 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 	    end;
 	{'BIT STRING',NamedNumberList} ->
 	    case asn1ct:use_legacy_types() of
-		false when BitStringConstraint =:= [] ->
+		false when MaxBitStrSize =:= none ->
 		    call(encode_named_bit_string,
 			 [Value,{asis,NamedNumberList},DoTag]);
 		false ->
 		    call(encode_named_bit_string,
-			 [{asis,BitStringConstraint},Value,
+			 [{asis,MaxBitStrSize},Value,
 			  {asis,NamedNumberList},DoTag]);
 		true ->
 		    call(encode_bit_string,
