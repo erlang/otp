@@ -259,10 +259,11 @@ static void schedule_free_dbtable(DbTable* tb)
     /*
      * NON-SMP case: Caller is *not* allowed to access the *tb
      *               structure after this function has returned!          
-     * SMP case:     Caller is allowed to access the *tb structure
-     *               until the bif has returned (we typically
-     *               need to unlock the table lock after this
-     *               function has returned).
+     * SMP case:     Caller is allowed to access the *common* part of the *tb
+     *  	     structure until the bif has returned (we typically need to
+     *  	     unlock the table lock after this function has returned).
+     *  	     Caller is *not* allowed to access the specialized part
+     *  	     (hash or tree) of *tb after this function has returned.
      */
     ASSERT(erts_refc_read(&tb->common.ref, 0) == 0);
     erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
@@ -3279,34 +3280,37 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 		}
 		erts_smp_rwmtx_runlock(mmtl);
 		if (tb) {
-		    int reds;
-		    DbFixation** pp;
+		    int reds = 0;
 
 		    db_lock(tb, LCK_WRITE_REC);
-		    #ifdef ERTS_SMP
-		    erts_smp_mtx_lock(&tb->common.fixlock);
-		    #endif
-		    reds = 10;
-		    
-		    for (pp = &tb->common.fixations; *pp != NULL;
-			  pp = &(*pp)->next) {
-			if ((*pp)->pid == pid) {
-			    DbFixation* fix = *pp;
-			    erts_aint_t diff = -((erts_aint_t) fix->counter);
-			    erts_refc_add(&tb->common.ref,diff,0);
-			    *pp = fix->next;
-			    erts_db_free(ERTS_ALC_T_DB_FIXATION,
-					 tb, fix, sizeof(DbFixation));
-			    ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
-			    break;
+		    if (!(tb->common.status & DB_DELETE)) {
+			DbFixation** pp;
+
+			#ifdef ERTS_SMP
+			erts_smp_mtx_lock(&tb->common.fixlock);
+			#endif
+			reds = 10;
+
+			for (pp = &tb->common.fixations; *pp != NULL;
+			      pp = &(*pp)->next) {
+			    if ((*pp)->pid == pid) {
+				DbFixation* fix = *pp;
+				erts_aint_t diff = -((erts_aint_t) fix->counter);
+				erts_refc_add(&tb->common.ref,diff,0);
+				*pp = fix->next;
+				erts_db_free(ERTS_ALC_T_DB_FIXATION,
+					     tb, fix, sizeof(DbFixation));
+				ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
+				break;
+			    }
 			}
-		    }
-		    #ifdef ERTS_SMP
-		    erts_smp_mtx_unlock(&tb->common.fixlock);
-		    #endif
-		    if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)) {
-			db_unfix_table_hash(&(tb->hash));
-			reds += 40;
+			#ifdef ERTS_SMP
+			erts_smp_mtx_unlock(&tb->common.fixlock);
+			#endif
+			if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)) {
+			    db_unfix_table_hash(&(tb->hash));
+			    reds += 40;
+			}
 		    }
 		    db_unlock(tb, LCK_WRITE_REC);
 		    BUMP_REDS(c_p, reds);

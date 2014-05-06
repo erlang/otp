@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2005-2012. All Rights Reserved.
+# Copyright Ericsson AB 2005-2014. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -3256,6 +3256,154 @@ end
 define etp-thr
   source @ERL_TOP@/erts/etc/unix/etp-thr.py
 end
+
+############################################################################
+# erl_alloc_util (blocks and carriers)
+#
+
+define etp-block-size-1
+#
+# In:  (Block_t*) in $arg0
+# Out: Byte size in $etp_blk_sz
+#
+  if ($arg0)->bhdr & 1
+      # Free block
+      set $etp_blk_sz = ($arg0)->bhdr & ~7
+  else
+      # Allocated block
+      if !$etp_MBC_ABLK_SZ_MASK
+        if etp_arch_bits == 64
+          set $etp_MBC_ABLK_OFFSET_SHIFT = (64 - 24)
+        else
+          set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
+        end
+        set $etp_MBC_ABLK_SZ_MASK = ~(~0 << $etp_MBC_ABLK_OFFSET_SHIFT) & ~7
+      end
+      set $etp_blk_sz = ($arg0)->bhdr & $etp_MBC_ABLK_SZ_MASK
+  end
+end
+
+define etp-block2mbc-1
+#
+# In: (Block_t*) in $arg0
+# Out: (Carrier_t*) in $etp-mbc
+#
+  if (($arg0)->bhdr) & 1
+      # Free block
+      set $etp_mbc = ($arg0)->u.carrier
+  else
+      # Allocated block
+      if !$etp_MBC_ABLK_OFFSET_SHIFT
+        if etp_arch_bits == 64
+          set $etp_MBC_ABLK_OFFSET_SHIFT = (64 - 24)
+        else
+          set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
+        end
+      end
+      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0)) & (~0 << 18)) - ((($arg0)->bhdr >> $etp_MBC_ABLK_OFFSET_SHIFT) << 18))
+  end
+end
+
+define etp-block2mbc
+  etp-block2mbc-1 ((Block_t*)$arg0)
+  print $etp_mbc
+end
+
+document etp-block2mbc
+%---------------------------------------------------------------------------
+% Print pointer to multiblock carrier containing the argument (Block_t*)
+%---------------------------------------------------------------------------
+end
+
+define etp-block
+  etp-block-size-1 ((Block_t*)$arg0)
+  if ((Block_t*)$arg0)->bhdr & 1
+     printf "%#lx: FREE sz=%#x\n", ($arg0), $etp_blk_sz
+  else
+     printf "%#lx: ALLOCATED sz=%#x\n", ($arg0), $etp_blk_sz
+  end
+end
+
+document etp-block
+%---------------------------------------------------------------------------
+% Print memory block (Block_t*)
+%---------------------------------------------------------------------------
+end
+
+define etp-carrier-blocks
+  set $etp_crr = (Carrier_t*) $arg0
+  set $etp_alc = (Allctr_t*)($etp_crr->allctr.counter & ~7)
+  set $etp_blk = (Block_t*) ((char*)$etp_crr + $etp_alc->mbc_header_size)
+  set $etp_prev_blk = 0
+  set $etp_error_cnt = 0
+  set $etp_ablk_cnt = 0
+  set $etp_fblk_cnt = 0
+
+  if $argc == 2
+    set $etp_be_silent = $arg1
+  else
+    set $etp_be_silent = 0
+  end
+
+  while 1
+    if !$etp_be_silent
+      etp-block $etp_blk
+    else
+      etp-block-size-1 $etp_blk
+    end
+    etp-block2mbc-1 $etp_blk
+    if $etp_mbc != $etp_crr
+      printf "ERROR: Invalid carrier pointer %#lx in block at %#lx\n", $etp_mbc, $etp_blk
+      set $etp_error_cnt = $etp_error_cnt + 1
+    end
+    if $etp_prev_blk
+      if ($etp_prev_blk->bhdr & 1)
+        # Prev is FREE
+        if ($etp_blk->bhdr & 1)
+          printf "ERROR: Adjacent FREE blocks at %#lx and %#lx\n", $etp_prev_blk, $etp_blk
+	  set $etp_error_cnt = $etp_error_cnt + 1
+        end
+        if !($etp_blk->bhdr & 2)
+          printf "ERROR: Missing PREV_FREE_BLK_HDR_FLG (2) in block at %#lx\n", $etp_blk
+	  set $etp_error_cnt = $etp_error_cnt + 1
+        end
+      end
+    end
+    if $etp_blk->bhdr & 1
+      set $etp_fblk_cnt = $etp_fblk_cnt + 1
+    else
+      set $etp_ablk_cnt = $etp_ablk_cnt + 1
+    end
+    if $etp_blk->bhdr & 4
+      # Last block
+      loop_break
+    end
+    # All free blocks except the last have a footer
+    if ($etp_blk->bhdr & 1) && ((UWord*)((char*)$etp_blk + $etp_blk_sz))[-1] != $etp_blk_sz
+      printf "ERROR: Invalid footer of free block at %#lx\n", $etp_blk
+    end
+    set $etp_prev_blk = $etp_blk
+    set $etp_blk = (Block_t*) ((char*)$etp_blk + $etp_blk_sz)
+  end
+
+  if ((char*)$etp_blk + $etp_blk_sz) != ((char*)$etp_crr + ($etp_crr->chdr & ~7))
+    printf "ERROR: Last block not at end of carrier\n"
+    set $etp_error_cnt = $etp_error_cnt + 1
+  end
+  printf "Allocated blocks: %u\n", $etp_ablk_cnt
+  printf "Free      blocks: %u\n", $etp_fblk_cnt
+  if $etp_error_cnt
+    printf "%u ERRORs reported above\n", $etp-error-cnt
+  end
+end
+
+document etp-carrier-blocks
+%---------------------------------------------------------------------------
+% Check and (maybe) print all memory blocks in carrier
+% Args: (Carrier_t*) [1=be_silent]
+%---------------------------------------------------------------------------
+end
+
 
 ############################################################################
 # Toolbox parameter handling
