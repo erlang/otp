@@ -31,8 +31,8 @@
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
 
--export([start/0, start/1, start_link/0, start_link/1, stop/1, notify/2, 
-	 sync_notify/2,
+-export([start/0, start/1, start_link/0, start_link/1, stop/1, stop/3,
+	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/4]).
 
@@ -193,7 +193,11 @@ swap_sup_handler(M, {H1, A1}, {H2, A2}) ->
 which_handlers(M) -> rpc(M, which_handlers).
 
 -spec stop(emgr_ref()) -> 'ok'.
-stop(M) -> rpc(M, stop).
+stop(M) ->
+    gen:stop(M).
+
+stop(M, Reason, Timeout) ->
+    gen:stop(M, Reason, Timeout).
 
 rpc(M, Cmd) -> 
     {ok, Reply} = gen:call(M, self(), Cmd, infinity),
@@ -292,9 +296,6 @@ handle_msg(Msg, Parent, ServerName, MSL, Debug) ->
 						Args2, MSL, Sup, ServerName),
 	    ?reply(Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, stop} ->
-	    catch terminate_server(normal, Parent, MSL, ServerName),
-	    ?reply(ok);
 	{From, Tag, which_handlers} ->
 	    ?reply(the_handlers(MSL)),
 	    loop(Parent, ServerName, MSL, Debug, false);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -106,7 +106,7 @@ start(Config) when is_list(Config) ->
     ?line {error, {already_started, _}} =
 	gen_event:start({global, my_dummy_name}),
 
-    exit(Pid6, shutdown),
+    ok = gen_event:stop({global, my_dummy_name}, shutdown, 10000),
     receive
 	{'EXIT', Pid6, shutdown} -> ok
     after 10000 ->
