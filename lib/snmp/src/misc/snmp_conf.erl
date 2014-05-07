@@ -46,7 +46,7 @@
 	 which_domain/1, 
 	 check_ip/1, check_ip/2,
 	 check_port/1,
-	 fix_domain_address/2,
+	 ip_port_to_domaddr/2,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
 	 mk_taddress/2,
@@ -754,7 +754,7 @@ check_port(Port) when ?is_word(Port) ->
 check_port(Port) ->
     error({bad_port, Port}).
 
-fix_domain_address(IP, Port) when ?is_word(Port) ->
+ip_port_to_domaddr(IP, Port) when ?is_word(Port) ->
     case check_address_ip(transportDomainUdpIpv4, IP) of
 	false ->
 	    case check_address_ip(transportDomainUdpIpv6, IP) of
@@ -770,7 +770,7 @@ fix_domain_address(IP, Port) when ?is_word(Port) ->
 	FixedIP ->
 	    {transportDomainUdpIpv4, {FixedIP, Port}}
     end;
-fix_domain_address(IP, Port) ->
+ip_port_to_domaddr(IP, Port) ->
     error({bad_address, {transportDomainUdpIpv4, {IP, Port}}}).
 
 %% Check a configuration term field from a file to see if it

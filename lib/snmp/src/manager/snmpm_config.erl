@@ -313,7 +313,7 @@ mk_target_name(Domain, Address, Config)
     end;
 mk_target_name(Ip, Port, Config)
   when is_integer(Port), is_list(Config) ->
-    {Domain, Address} = snmp_conf:fix_domain_address(Ip, Port),
+    {Domain, Address} = snmp_conf:ip_port_to_domaddr(Ip, Port),
     mk_target_name(Domain, Address, Config).
 
 select_lowest_supported_version() ->
@@ -403,7 +403,7 @@ unregister_agent(UserId, Domain, Address) when is_atom(Domain) ->
 	    {error, not_found}
     end;
 unregister_agent(UserId, Ip, Port) when is_integer(Port) ->
-    try snmp_conf:fix_domain_address(Ip, Port) of
+    try snmp_conf:ip_port_to_domaddr(Ip, Port) of
 	{Domain, Address} ->
 	    do_unregister_agent(UserId, Domain, Address)
     catch
@@ -448,7 +448,7 @@ agent_info(Domain, Address, Item) when is_atom(Domain) ->
 	    {error, not_found}
     end;
 agent_info(Ip, Port, Item) ->
-    try snmp_conf:fix_domain_address(Ip, Port) of
+    try snmp_conf:ip_port_to_domaddr(Ip, Port) of
 	{Domain, Address} ->
 	    do_agent_info(Domain, Address, Item)
     catch

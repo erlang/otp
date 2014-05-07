@@ -425,7 +425,7 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({udp, Sock, Ip, Port, Bytes}, #state{sock = Sock} = State) ->
     ?vlog("received ~w bytes from ~p:~p [~w]", [size(Bytes), Ip, Port, Sock]),
-    {Domain, Address} = snmp_conf:fix_domain_address(Ip, Port),
+    {Domain, Address} = snmp_conf:ip_port_to_domaddr(Ip, Port),
     maybe_handle_recv_msg(Domain, Address, Bytes, State),
     {noreply, State};
 
