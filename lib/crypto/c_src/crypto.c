@@ -215,6 +215,7 @@ static ERL_NIF_TERM des_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -344,6 +345,7 @@ static ErlNifFunc nif_funcs[] = {
     {"des_ecb_crypt", 3, des_ecb_crypt},
     {"des_ede3_cbc_crypt", 6, des_ede3_cbc_crypt},
     {"des_ede3_cfb_crypt_nif", 6, des_ede3_cfb_crypt_nif},
+    {"aes_cfb_8_crypt", 4, aes_cfb_8_crypt},
     {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
@@ -1598,6 +1600,30 @@ static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_N
 #else
     return atom_notsup;
 #endif
+}
+
+static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */    
+    ErlNifBinary key, ivec, text;
+    AES_KEY aes_key;
+    unsigned char ivec_clone[16]; /* writable copy */
+    int new_ivlen = 0;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 16
+	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+	return enif_make_badarg(env);
+    }
+
+    memcpy(ivec_clone, ivec.data, 16);
+    AES_set_encrypt_key(key.data, 128, &aes_key);
+    AES_cfb8_encrypt((unsigned char *) text.data,
+		       enif_make_new_binary(env, text.size, &ret), 
+		       text.size, &aes_key, ivec_clone, &new_ivlen,
+		       (argv[3] == atom_true));
+    CONSUME_REDS(env,text);
+    return ret;
 }
 
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
