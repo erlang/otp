@@ -272,6 +272,7 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 			ErlOffHeap* off_heap);
 int db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b);
 DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org);
+void db_free_tmp_uncompressed(DbTerm* obj);
 
 ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap);

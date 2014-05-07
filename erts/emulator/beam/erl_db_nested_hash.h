@@ -32,61 +32,51 @@
 
 
 typedef struct linear_hash_table {
-    erts_smp_atomic_t segtab; /* The segment table (struct segment**) */
+    erts_smp_atomic_t segtab; /* the segment table (struct segment **) */
     erts_smp_atomic_t szm;    /* current size mask. */
 
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
-    int nslots; /* Total number of slots */
-    int nsegs;  /* Size of segment table */
+    int nslots; /* total number of slots */
+    int nsegs;  /* size of segment table */
 
-    erts_smp_atomic_t nactive; /* Number of "active" slots */
+    erts_smp_atomic_t nactive; /* number of active slots */
 } LinearHashTable;
 
-/* !!! REMOVE !!! */
-typedef struct nested_hash_db_term {
-    struct nested_hash_db_term *next;      /* next term (different key) */
-    struct nested_hash_db_term *knext;     /* next term (same key) */
-    struct nested_hash_db_term *kprevious; /* previous term (same key) */
-
-    /* length of knext/kprevious chain (includes INVALID_HASH terms) */
-    int nkitems;
-
-    LinearHashTable *lht;
-    HashValue hvalue; /* hash value of the key */
-    DbTerm dbterm;     /* The actual term */
-} NestedHashDbTerm;
-
-struct branch_db_term;
-
 typedef struct trunk_db_term {
-    struct trunk_db_term *next;    /* next term (different key) */
-    struct branch_db_term *branch; /* next term (same key) */
+    /*
+     * The np field of the first TrunkDbTerm contains nkitems, the np
+     * field of the other TrunkDbTerms contains the previous pointer.
+     */
+    union {
+        int nkitems;                    /* length of trunk chain */
+        struct trunk_db_term *previous; /* previous term (same key) */
+    } np;
 
-    /* length of branch chain (includes INVALID_HASH terms) */
-    int nkitems;
+    struct trunk_db_term *next; /* next term (same key) */
 
-    HashValue hvalue; /* hash value of the key */
-    LinearHashTable *lht;
-
-    DbTerm dbterm; /* The actual term */
+    DbTerm dbterm; /* the actual term */
 } TrunkDbTerm;
 
-typedef union {
-    struct trunk_db_term *trunk;
-    struct branch_db_term *branch;
-} TrunkOrBranchDbTerm;
+typedef struct root_db_term {
+    struct root_db_term *next; /* next root term */
 
-typedef struct branch_db_term {
-    TrunkOrBranchDbTerm previous; /* previous term (same key) */
-    struct branch_db_term *next;  /* next term (same key) */
+    /*
+     * The first trunk term of the chain (it's never NULL).
+     * Its lsb is used as a flag:
+     * o if zero, this RootDbTerm is truncated at the lht field
+     * o if set, this RootDbTerm includes the lht field
+     * Use GET_TRUNK() and SET_TRUNK() to access this field.
+     */
+    TrunkDbTerm *trunk;
 
-    DbTerm dbterm; /* The actual term */
-} BranchDbTerm;
+    HashValue hvalue;    /* hash value of the key */
+    LinearHashTable lht;
+} RootDbTerm;
 
 typedef struct nested_db_term {
-    struct nested_db_term* next; /* next nested term */
+    struct nested_db_term *next; /* next nested term */
     HashValue ohvalue;           /* hash value of the whole dbterm */
-    TrunkOrBranchDbTerm hdbterm;
+    TrunkDbTerm *hdbterm;
 } NestedDbTerm;
 
 typedef struct nested_fixed_deletion {
@@ -109,7 +99,7 @@ typedef struct db_table_nested_hash {
     /* List of slots where elements have been deleted while table was fixed */
     erts_smp_atomic_t fixdel; /* (NestedFixedDeletion *) */
 #ifdef ERTS_SMP
-    DbTableNestedHashFineLocks* locks;
+    DbTableNestedHashFineLocks *locks;
 #endif
 } DbTableNestedHash;
 
@@ -121,35 +111,44 @@ typedef struct {
     int min_chain_len;
 } DbNestedHashStats;
 
+/* Interface for meta pid table */
+int
+db_create_nhash(Process *p, DbTable *tbl);
+
+int
+db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail);
+
+int
+db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret);
+
+#ifdef HARDDEBUG
+void
+db_check_table_nhash(DbTable *tbl);
+#endif
 
 /*
  * Function prototypes, looks the same (except the suffix) for all
  * table types. The process is always an [in out] parameter.
  */
-void db_initialize_nhash(void);
+void
+db_initialize_nhash(void);
 
-void db_unfix_table_nhash(DbTableNestedHash *tb);
+void
+db_unfix_table_nhash(DbTableNestedHash *tb);
 
-Uint db_kept_items_nhash(DbTableNestedHash *tb);
+Uint
+db_kept_items_nhash(DbTableNestedHash *tb);
 
-/* Interface for meta pid table */
-int db_create_nhash(Process *p, DbTable *tbl);
 
-int db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail);
+int
+db_get_element_array(DbTable *tbl, Eterm key, int ndex,
+                     Eterm *ret, int *num_ret);
 
-int db_get_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
+int
+db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value);
 
-int db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret);
-
-int db_get_element_array(DbTable *tbl, Eterm key, int ndex,
-                         Eterm *ret, int *num_ret);
-
-int db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value);
-
-/* not yet in method table */
-int db_mark_all_deleted_nhash(DbTable *tbl);
-
-void db_calc_stats_nhash(DbTableNestedHash *tb, DbNestedHashStats *stats);
+void
+db_calc_stats_nhash(DbTableNestedHash *tb, DbNestedHashStats *stats);
 
 
 #endif /* _DB_NESTED_HASH_H */
