@@ -124,12 +124,85 @@ do {									\
     return THE_NON_VALUE; 			\
 } while(0)
 
+#define ERTS_BIF_ERROR_TRAPPED0(Proc, Reason, Bif)		\
+do {								\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    return THE_NON_VALUE; 					\
+} while (0)
+
+#define ERTS_BIF_ERROR_TRAPPED1(Proc, Reason, Bif, A0)		\
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    return THE_NON_VALUE; 					\
+} while (0)
+
+#define ERTS_BIF_ERROR_TRAPPED2(Proc, Reason, Bif, A0, A1)	\
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    return THE_NON_VALUE; 					\
+} while (0)
+
+#define ERTS_BIF_ERROR_TRAPPED3(Proc, Reason, Bif, A0, A1, A2)	\
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    reg[2] = (Eterm) (A2);					\
+    return THE_NON_VALUE; 					\
+} while (0)
+
 #define ERTS_BIF_PREP_ERROR(Ret, Proc, Reason)	\
 do {						\
     (Proc)->freason = (Reason);			\
     (Ret) = THE_NON_VALUE;			\
 } while (0)
 
+#define ERTS_BIF_PREP_ERROR_TRAPPED0(Ret, Proc, Reason, Bif)	\
+do {								\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
+#define ERTS_BIF_PREP_ERROR_TRAPPED1(Ret, Proc, Reason, Bif, A0) \
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
+#define ERTS_BIF_PREP_ERROR_TRAPPED2(Ret, Proc, Reason, Bif, A0, A1) \
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
+#define ERTS_BIF_PREP_ERROR_TRAPPED3(Ret, Proc, Reason, Bif, A0, A1, A2) \
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    reg[2] = (Eterm) (A2);					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
 
 #define ERTS_BIF_PREP_TRAP0(Ret, Trap, Proc)	\
 do {						\
