@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(sys_sp2).
--export([start_link/1, stop/0]).
+-export([start_link/1]).
 -export([alloc/0, free/1]).
 -export([init/1]).
 -export([system_continue/3, system_terminate/4,
@@ -29,10 +29,6 @@
 
 start_link(NumCh) ->
     proc_lib:start_link(?MODULE, init, [[self(),NumCh]]).
-
-stop() ->
-    ?MODULE ! stop,
-    ok.
 
 alloc() ->
     ?MODULE ! {self(), alloc},
@@ -69,11 +65,7 @@ loop(Chs, Parent, Deb) ->
             loop(Chs2, Parent, Deb2);
         {system, From, Request} ->
             sys:handle_system_msg(Request, From, Parent,
-                                  ?MODULE, Deb, Chs);
-        stop ->
-            sys:handle_debug(Deb, fun write_debug/3,
-                             ?MODULE, {in, stop}),
-            ok
+                                  ?MODULE, Deb, Chs)
     end.
 
 system_continue(Parent, Deb, Chs) ->

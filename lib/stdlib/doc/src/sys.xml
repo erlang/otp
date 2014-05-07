@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -354,6 +354,17 @@
         <p>Removes a previously installed debug function from the
           process. <c><anno>Func</anno></c> must be the same as previously
           installed.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="terminate" arity="2"/>
+      <name name="terminate" arity="3"/>
+      <fsummary>Terminate the process</fsummary>
+      <desc>
+        <p>This function orders the process to terminate with the
+        given <c><anno>Reason</anno></c>. The termination is done
+        asynchronously, so there is no guarantee that the process is
+        actually terminated when the function returns.</p>
       </desc>
     </func>
   </funcs>
