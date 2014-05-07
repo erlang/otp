@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,11 +45,6 @@ free(Ch) ->
     ?MODULE ! {free, Ch},
     ok.
 
-%% can't use 2-tuple for state here as we do in sys_sp1, since the 2-tuple
-%% is not compatible with the backward compatibility handling for
-%% sys:get_state in sys.erl
--record(state, {alloc,free}).
-
 init([Parent,NumCh]) ->
     register(?MODULE, self()),
     Chs = channels(NumCh),
@@ -91,17 +86,17 @@ write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).
 
 channels(NumCh) ->
-    #state{alloc=[], free=lists:seq(1,NumCh)}.
+    {_Allocated=[], _Free=lists:seq(1,NumCh)}.
 
-alloc(#state{free=[]}=Channels) ->
-    {{error, "no channels available"}, Channels};
-alloc(#state{alloc=Allocated, free=[H|T]}) ->
-    {H, #state{alloc=[H|Allocated], free=T}}.
+alloc({_, []}) ->
+    {error, "no channels available"};
+alloc({Allocated, [H|T]}) ->
+    {H, {[H|Allocated], T}}.
 
-free(Ch, #state{alloc=Alloc, free=Free}=Channels) ->
+free(Ch, {Alloc, Free}=Channels) ->
     case lists:member(Ch, Alloc) of
         true ->
-            #state{alloc=lists:delete(Ch, Alloc), free=[Ch|Free]};
+            {lists:delete(Ch, Alloc), [Ch|Free]};
         false ->
             Channels
     end.
