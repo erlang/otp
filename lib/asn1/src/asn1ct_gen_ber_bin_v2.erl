@@ -67,15 +67,21 @@
 %%===============================================================================
 
 dialyzer_suppressions(_) ->
-    case asn1ct:use_legacy_types() andalso
-	asn1ct_func:is_used({ber,encode_bit_string,4}) of
+    case asn1ct:use_legacy_types() of
+	false -> ok;
+	true -> suppress({ber,encode_bit_string,4})
+    end,
+    suppress({ber,decode_selective,2}),
+    emit(["    ok.",nl]).
+
+suppress({M,F,A}=MFA) ->
+    case asn1ct_func:is_used(MFA) of
 	false ->
 	    ok;
 	true ->
-	    emit(["    {A,B,C,D} = Arg,",nl,
-		  "    encode_bit_string(A, B, C, D),",nl])
-    end,
-    emit(["    ok.",nl]).
+	    Args = [lists:concat(["element(",I,", Arg)"]) || I <- lists:seq(1, A)],
+	    emit(["    ",{call,M,F,Args},com,nl])
+    end.
 
 %%===============================================================================
 %% encode #{typedef, {pos, name, typespec}}

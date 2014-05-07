@@ -937,9 +937,10 @@ gen_partial_inc_dispatcher() ->
 	    ok;
 	{Data1,Data2} ->
 %	    io:format("partial_incomplete_decode: ~p~ninc_type_pattern: ~p~n",[Data,Data2]),
-	    gen_partial_inc_dispatcher(Data1,Data2)
+	    gen_partial_inc_dispatcher(Data1, Data2, "")
     end.
-gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest],TypePattern) ->
+
+gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest], TypePattern, Sep) ->
     TPattern =
 	case lists:keysearch(FuncName,1,TypePattern) of
 	    {value,{_,TP}} -> TP;
@@ -953,13 +954,13 @@ gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest],TypePattern) ->
 	    _ ->
 		atom_to_list(TopType)
 	end,
-    emit(["decode_partial_inc_disp('",TopTypeName,"',Data) ->",nl,
+    emit([Sep,
+	  "decode_partial_inc_disp('",TopTypeName,"',Data) ->",nl,
 	  "  ",{asis,list_to_atom(lists:concat(["dec-inc-",FuncName2]))},
-	  "(Data);",nl]),
-    gen_partial_inc_dispatcher(Rest,TypePattern);
-gen_partial_inc_dispatcher([],_) ->
-    emit(["decode_partial_inc_disp(Type,_Data) ->",nl,
-	  "  exit({error,{asn1,{undefined_type,Type}}}).",nl]).
+	  "(Data)"]),
+    gen_partial_inc_dispatcher(Rest, TypePattern, ";\n");
+gen_partial_inc_dispatcher([], _, _) ->
+    emit([".",nl]).
 
 gen_dispatcher([F1,F2|T],FuncName,Prefix,ExtraArg) ->
 	emit([FuncName,"('",F1,"',Data) -> '",Prefix,F1,"'(Data",ExtraArg,")",";",nl]),
