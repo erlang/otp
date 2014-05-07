@@ -118,7 +118,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           If <c>FsmName={global,GlobalName}</c>, the gen_fsm is
           registered globally as <c>GlobalName</c> using
           <c>global:register_name/2</c>.
-	  If <c>EventMgrName={via,Module,ViaName}</c>, the event manager will
+	  If <c>FsmName={via,Module,ViaName}</c>, the gen_fsm will
 	  register with the registry represented by <c>Module</c>.
 	  The <c>Module</c> callback should export the functions
 	  <c>register_name/2</c>, <c>unregister_name/1</c>,
@@ -246,7 +246,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
 	  registered at another node, or</item>
 	  <item><c>{global,GlobalName}</c>, if the gen_fsm is globally
 	  registered.</item>
-	  <item><c>{via,Module,ViaName}</c>, if the event manager is registered
+	  <item><c>{via,Module,ViaName}</c>, if the gen_fsm is registered
 	  through an alternative process registry.</item>
         </list>
         <p><c>Event</c> is an arbitrary term which is passed as one of
@@ -564,7 +564,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>Module:init/1</c> for a description of <c>Timeout</c> and <c>hibernate</c>.</p>
         <p>If the function returns <c>{stop,Reason,NewStateData}</c>,
           the gen_fsm will call
-          <c>Module:terminate(Reason,NewStateData)</c> and terminate.</p>
+          <c>Module:terminate(Reason,StateName,NewStateData)</c> and
+          terminate.</p>
       </desc>
     </func>
     <func>
@@ -650,7 +651,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>{stop,Reason,NewStateData}</c>, any reply to <c>From</c>
           must be given explicitly using <c>gen_fsm:reply/2</c>.
           The gen_fsm will then call
-          <c>Module:terminate(Reason,NewStateData)</c> and terminate.</p>
+          <c>Module:terminate(Reason,StateName,NewStateData)</c> and
+          terminate.</p>
       </desc>
     </func>
     <func>
