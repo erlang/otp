@@ -210,9 +210,10 @@ handle_call({block , Blocker, Mode, Timeout}, From,
 handle_call({block , _, _, _}, _, State) ->
     {reply, {error, blocked}, State};
 
-handle_call({unblock, Blocker}, _, #state{blocker_ref = {Blocker,_},
+handle_call({unblock, Blocker}, _, #state{blocker_ref = {Blocker, Monitor},
 					  admin_state = blocked} = State) ->
-    
+   
+    erlang:demonitor(Monitor),
     {reply, ok, 
      State#state{admin_state = unblocked, blocker_ref = undefined}};
 
@@ -247,37 +248,36 @@ handle_cast(Message, State) ->
 handle_info(connections_terminated, #state{admin_state = shutting_down,
 					   blocking_from = From} = State) ->
     gen_server:reply(From, ok),
-    {noreply, State#state{admin_state = blocked, blocking_from = undefined,
-			  blocker_ref = undefined}};
+    {noreply, State#state{admin_state = blocked, blocking_from = undefined}};
 handle_info(connections_terminated, State) ->
     {noreply, State};
 
-handle_info({block_timeout, non_disturbing}, 
+handle_info({block_timeout, non_disturbing, Blocker}, 
 	    #state{admin_state = shutting_down,
 		   blocking_from = From,
-		   blocker_ref = {_, Monitor}} = State) ->
+		   blocker_ref = {_, Monitor} = Blocker} = State) ->
     erlang:demonitor(Monitor),		  
     gen_server:reply(From, {error, timeout}),
     {noreply, State#state{admin_state = unblocked, blocking_from = undefined,
 			  blocker_ref = undefined}};
-handle_info({block_timeout, disturbing}, 
+handle_info({block_timeout, disturbing, Blocker}, 
 	    #state{admin_state = shutting_down,
 		   blocking_from = From,
-		   blocker_ref = {_, Monitor},
+		   blocker_ref = Blocker,
 		   connection_sup = Sup} = State) ->
     SupPid = whereis(Sup),
     shutdown_connections(SupPid),
-    erlang:demonitor(Monitor),		  
     gen_server:reply(From, ok),
-    {noreply, State#state{admin_state = blocked, blocker_ref = undefined,
+    {noreply, State#state{admin_state = blocked,
 			  blocking_from = undefined}};
 handle_info({block_timeout, _, _}, State) ->
     {noreply, State};	   
 
 handle_info({'DOWN', _, process, Pid, _Info}, 
 	    #state{admin_state = Admin,
-		   blocker_ref = {Pid, _}} = State) when 
+		   blocker_ref = {Pid, Monitor}} = State) when 
       Admin =/= unblocked ->
+    erlang:demonitor(Monitor),	
     {noreply, State#state{admin_state = unblocked,
 			  blocking_from = undefined,
 			  blocker_ref = undefined}};
@@ -333,18 +333,16 @@ handle_new_connection(_UsageState, _AdminState, State, _Handler) ->
 
 handle_block(disturbing, infinity, 
 	     #state{connection_sup = CSup,
-		    blocking_from = From,
-		    blocker_ref = {_, Monitor}} = State) ->
+		    blocking_from = From} = State) ->
     SupPid = whereis(CSup),
     shutdown_connections(SupPid),
-    erlang:demonitor(Monitor),		  
     gen_server:reply(From, ok),
-    {noreply, State#state{admin_state = blocked, blocker_ref = undefined,
+    {noreply, State#state{admin_state = blocked,
 			  blocking_from = undefined}};
-handle_block(disturbing, Timeout, #state{connection_sup = CSup} = State) ->
+handle_block(disturbing, Timeout, #state{connection_sup = CSup, blocker_ref = Blocker} = State) ->
     Manager = self(),
     spawn_link(fun() -> wait_for_shutdown(CSup, Manager) end),
-    erlang:send_after(Timeout, self(), {block_timeout, disturbing}),
+    erlang:send_after(Timeout, self(), {block_timeout, disturbing, Blocker}),
     {noreply, State#state{admin_state = shutting_down}};
 
 handle_block(non_disturbing, infinity, 
@@ -354,10 +352,10 @@ handle_block(non_disturbing, infinity,
     {noreply, State#state{admin_state = shutting_down}};
 
 handle_block(non_disturbing, Timeout,  
-	     #state{connection_sup = CSup} = State) ->
+	     #state{connection_sup = CSup, blocker_ref = Blocker} = State) ->
     Manager = self(),
     spawn_link(fun() -> wait_for_shutdown(CSup, Manager) end),
-    erlang:send_after(Timeout, self(), {block_timeout, non_disturbing}),
+    erlang:send_after(Timeout, self(), {block_timeout, non_disturbing, Blocker}),
     {noreply, State#state{admin_state = shutting_down}}.
     
 handle_reload(undefined, #state{config_file = undefined} = State) ->

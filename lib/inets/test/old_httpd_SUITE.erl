@@ -182,22 +182,24 @@ groups() ->
        %% ip_load_medium,
        %% ip_load_heavy, 
        %%ip_dos_hostname, 
-       ip_time_test
-       %% Replaced by load_config
-       %% ip_restart_no_block, 
-       %% ip_restart_disturbing_block,
-       %% ip_restart_non_disturbing_block,
-       %% ip_block_disturbing_idle, 
-       %% ip_block_non_disturbing_idle,
-       %% ip_block_503, 
-       %% ip_block_disturbing_active,
-       %% ip_block_non_disturbing_active,
-       %% ip_block_disturbing_active_timeout_not_released,
-       %% ip_block_disturbing_active_timeout_released,
-       %% ip_block_non_disturbing_active_timeout_not_released,
-       %% ip_block_non_disturbing_active_timeout_released,
-       %% ip_block_disturbing_blocker_dies,
-       %% ip_block_non_disturbing_blocker_dies
+       ip_time_test,
+       %% Only used through load_config
+       %% but we still need these tests
+       %% should be cleaned up and moved to new test suite 
+       ip_restart_no_block, 
+       ip_restart_disturbing_block,
+       ip_restart_non_disturbing_block,
+       ip_block_disturbing_idle, 
+       ip_block_non_disturbing_idle,
+       ip_block_503, 
+       ip_block_disturbing_active,
+       ip_block_non_disturbing_active,
+       ip_block_disturbing_active_timeout_not_released,
+       ip_block_disturbing_active_timeout_released,
+       ip_block_non_disturbing_active_timeout_not_released,
+       ip_block_non_disturbing_active_timeout_released,
+       ip_block_disturbing_blocker_dies,
+       ip_block_non_disturbing_blocker_dies
       ]},
      {ssl, [], [{group, essl}]},
      {essl, [],
