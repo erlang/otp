@@ -637,7 +637,8 @@ handle_options(Opts0, _Role) ->
 		    user_lookup_fun = handle_option(user_lookup_fun, Opts, undefined),
 		    psk_identity = handle_option(psk_identity, Opts, undefined),
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
-		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), hd(Versions)),
+		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), 
+						      RecordCb:highest_protocol_version(Versions)),
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
