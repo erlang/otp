@@ -30,6 +30,7 @@
 	 read_config_file/3, read_config_file/4]).
 
 -export([write_agent_snmp_files/7, write_agent_snmp_files/12,
+	 write_agent_snmp_files/6, write_agent_snmp_files/11,
 
 	 write_agent_snmp_conf/5, 
 	 write_agent_snmp_context_conf/1, 
@@ -568,11 +569,9 @@ config_agent_snmp(Dir, Vsns) ->
 		end,
 		NT
 	end,
-    case (catch write_agent_snmp_files(Dir, 
-				       Vsns, ManagerIP, TrapUdp, 
-				       AgentIP, AgentUDP,
-				       SysName, NotifType, SecType, 
-				       Passwd, EngineID, MMS)) of
+    case (catch write_agent_snmp_files(
+		  Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP, SysName,
+		  NotifType, SecType, Passwd, EngineID, MMS)) of
 	ok ->
 	   i("~n- - - - - - - - - - - - -"),
 	   i("Info: 1. SecurityName \"initial\" has noAuthNoPriv read access~n"
@@ -1581,35 +1580,63 @@ remove_newline(Str) ->
 %% File generation
 %%======================================================================
 
+write_agent_snmp_files(
+  Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName)
+  when is_list(Dir),
+       is_list(Vsns),
+       is_atom(Domain),
+       is_list(SysName) ->
+    write_agent_snmp_files(
+      Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
+      "trap", none, "", "agentEngine", 484).
+
 %%----------------------------------------------------------------------
 %% Dir: string()  (ex: "../conf/")
 %% ManagerIP, AgentIP: [int(),int(),int(),int()]
 %% TrapUdp, AgentUDP: integer()
 %% SysName: string()
 %%----------------------------------------------------------------------
-write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, 
-		       AgentIP, AgentUDP, SysName) 
-  when is_list(Dir) andalso 
-       is_list(Vsns) andalso 
-       is_list(ManagerIP) andalso 
-       is_integer(TrapUdp) andalso 
-       is_list(AgentIP) andalso 
-       is_integer(AgentUDP) andalso 
+write_agent_snmp_files(
+  Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName)
+  when is_list(Dir) andalso
+       is_list(Vsns) andalso
+       is_list(ManagerIP) andalso
+       is_integer(TrapUDP) andalso
+       is_list(AgentIP) andalso
+       is_integer(AgentUDP) andalso
        is_list(SysName) ->
-    write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP,
-			   SysName, "trap", none, "", "agentEngine", 484).
+    write_agent_snmp_files(
+      Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName,
+      "trap", none, "", "agentEngine", 484).
 
 %% 
 %% ----- Agent config files generator functions -----
 %% 
 
-write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP, 
-		       SysName, NotifType, SecType, Passwd, EngineID, MMS) ->
+write_agent_snmp_files(
+  Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) ->
+    write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS),
+    write_agent_snmp_context_conf(Dir),
+    write_agent_snmp_community_conf(Dir),
+    write_agent_snmp_standard_conf(Dir, SysName),
+    write_agent_snmp_target_addr_conf(Dir, Domain, ManagerAddr, Vsns),
+    write_agent_snmp_target_params_conf(Dir, Vsns),
+    write_agent_snmp_notify_conf(Dir, NotifType),
+    write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
+    write_agent_snmp_vacm_conf(Dir, Vsns, SecType),
+    ok.
+
+write_agent_snmp_files(
+  Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) ->
+    Domain = snmp_target_mib:default_domain(),
+    ManagerAddr = {ManagerIP, TrapUDP},
     write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS),
     write_agent_snmp_context_conf(Dir),
     write_agent_snmp_community_conf(Dir),
     write_agent_snmp_standard_conf(Dir, SysName),
-    write_agent_snmp_target_addr_conf(Dir, ManagerIP, TrapUdp, Vsns),
+    write_agent_snmp_target_addr_conf(Dir, Domain, ManagerAddr, Vsns),
     write_agent_snmp_target_params_conf(Dir, Vsns),
     write_agent_snmp_notify_conf(Dir, NotifType),
     write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
@@ -1617,11 +1644,32 @@ write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP,
     ok.
 
 
+
 %% 
 %% ------ [agent] agent.conf ------
 %% 
 
-write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS) -> 
+
+write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS)
+  when is_atom(Domain) ->
+    {AgentIP, AgentUDP} = AgentAddr,
+    Conf =
+	[{intAgentTransportDomain,  Domain},
+	 {intAgentUDPPort,          AgentUDP},
+	 {intAgentIpAddress,        AgentIP},
+	 {snmpEngineID,             EngineID},
+	 {snmpEngineMaxMessageSize, MMS}],
+    do_write_agent_snmp_conf(Dir, Conf);
+write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS)
+  when is_integer(AgentUDP) ->
+    Conf =
+	[{intAgentUDPPort,          AgentUDP},
+	 {intAgentIpAddress,        AgentIP},
+	 {snmpEngineID,             EngineID},
+	 {snmpEngineMaxMessageSize, MMS}],
+    do_write_agent_snmp_conf(Dir, Conf).
+
+do_write_agent_snmp_conf(Dir, Conf) ->
     Comment = 
 "%% This file defines the Agent local configuration info\n"
 "%% The data is inserted into the snmpEngine* variables defined\n"
@@ -1636,11 +1684,7 @@ write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS) ->
 "%% {snmpEngineID, \"agentEngine\"}.\n"
 "%% {snmpEngineMaxMessageSize, 484}.\n"
 "%%\n\n",
-    Hdr = header() ++ Comment, 
-    Conf = [{intAgentUDPPort,          AgentUDP}, 
-	    {intAgentIpAddress,        AgentIP},
-	    {snmpEngineID,             EngineID},
-	    {snmpEngineMaxMessageSize, MMS}],
+    Hdr = header() ++ Comment,
     write_agent_config(Dir, Hdr, Conf).
 
 write_agent_config(Dir, Hdr, Conf) ->
@@ -1746,17 +1790,22 @@ update_agent_standard_config(Dir, Conf) ->
 %% ------ target_addr.conf ------
 %% 
 
-write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
+write_agent_snmp_target_addr_conf(Dir, Domain, Addr, Vsns)
+  when is_atom(Domain) ->
     Timeout    = 1500, 
     RetryCount = 3, 
-    write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, 
-				      Timeout, RetryCount, 
-				      Vsns).
+    write_agent_snmp_target_addr_conf(
+      Dir, Domain, Addr, Timeout, RetryCount, Vsns);
+write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, Vsns)
+  when is_integer(UDP) ->
+    Domain = snmp_target_mib:default_domain(),
+    Addr = {ManagerIp, UDP},
+    write_agent_snmp_target_addr_conf(Dir, Domain, Addr, Vsns).
 
-write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, 
-				  Timeout, RetryCount, 
-				  Vsns) -> 
-    Comment = 
+write_agent_snmp_target_addr_conf(
+  Dir, Domain, Addr, Timeout, RetryCount, Vsns)
+  when is_atom(Domain) ->
+    Comment =
 "%% This file defines the target address parameters.\n"
 "%% The data is inserted into the snmpTargetAddrTable defined\n"
 "%% in SNMP-TARGET-MIB, and in the snmpTargetAddrExtTable defined\n"
@@ -1776,35 +1825,37 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
 "%%\n\n",
     Hdr = header() ++ Comment,
     F = fun(v1 = Vsn, Acc) ->
-		[{mk_ip(ManagerIp, Vsn), 
-		  snmp_target_mib:default_domain(), 
-		  ManagerIp, UDP, Timeout, RetryCount, 
+		[{mk_name(Addr, Vsn), Domain, Addr, Timeout, RetryCount,
 		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v2 = Vsn, Acc) ->
-		[{mk_ip(ManagerIp, Vsn), 
-		  snmp_target_mib:default_domain(), 
-		  ManagerIp, UDP, Timeout, RetryCount, 
+		[{mk_name(Addr, Vsn), Domain, Addr, Timeout, RetryCount,
 		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(io_lib:format("~s.2",[mk_ip(ManagerIp, Vsn)])),
-		  ManagerIp, UDP, Timeout, RetryCount, 
+		 {lists:flatten(io_lib:format("~s.2",[mk_name(Addr, Vsn)])),
+		  Domain, Addr, Timeout, RetryCount,
 		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v3 = Vsn, Acc) ->
-		[{mk_ip(ManagerIp, Vsn), 
-		  snmp_target_mib:default_domain(), 
-		  ManagerIp, UDP, Timeout, RetryCount, 
+		[{mk_name(Addr, Vsn), Domain, Addr, Timeout, RetryCount,
 		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(io_lib:format("~s.3",[mk_ip(ManagerIp, Vsn)])),
-		  ManagerIp, UDP, Timeout, RetryCount, 
+		 {lists:flatten(io_lib:format("~s.3",[mk_name(Addr, Vsn)])),
+		  Domain, Addr, Timeout, RetryCount,
 		  "std_inform", mk_param(Vsn), "mgrEngine", [], 2048}| Acc]
 	end,
     Conf = lists:foldl(F, [], Vsns),
-    write_agent_target_addr_config(Dir, Hdr, Conf).
+    write_agent_target_addr_config(Dir, Hdr, Conf);
+write_agent_snmp_target_addr_conf(
+  Dir, ManagerIp, UDP, Timeout, RetryCount, Vsns) when is_integer(UDP) ->
+    Domain = snmp_target_mib:default_domain(),
+    Addr = {ManagerIp, UDP},
+    write_agent_snmp_target_addr_conf(
+      Dir, Domain, Addr, Timeout, RetryCount, Vsns).
 
 mk_param(Vsn) ->
     lists:flatten(io_lib:format("target_~w", [Vsn])).
 
-mk_ip([A,B,C,D], Vsn) ->
-    lists:flatten(io_lib:format("~w.~w.~w.~w ~w", [A,B,C,D,Vsn])).
+mk_name({[A,B,C,D], _}, Vsn) ->
+    lists:flatten(io_lib:format("~w.~w.~w.~w ~w", [A,B,C,D,Vsn]));
+mk_name(Address, Vsn) ->
+    lists:flatten(io_lib:format("~w ~w", [Address,Vsn])).
 
 write_agent_target_addr_config(Dir, Hdr, Conf) ->
     snmpa_conf:write_target_addr_config(Dir, Hdr, Conf).
@@ -2438,14 +2489,20 @@ write_config_file(Dir, FileName, Verify, Write)
 	is_list(FileName) andalso 
 	is_function(Verify) andalso 
 	is_function(Write)) ->
-    try
-	begin
-	    do_write_config_file(Dir, FileName, Verify, Write)
-	end
+    try	do_write_config_file(Dir, FileName, Verify, Write) of
+	ok ->
+	    ok;
+	Other ->
+	    d("File write of ~s returned: ~p~n", [FileName,Other])
     catch
 	throw:Error ->
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s throwed: ~p~n    ~p~n", [FileName,Error,S]),
 	    Error;
 	  T:E ->
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s exception: ~p:~p~n    ~p~n",
+	      [FileName,T,E,S]),
 	    {error,
 	     {failed_write, Dir, FileName,
 	      {T, E, erlang:get_stacktrace()}}}
@@ -2652,8 +2709,8 @@ ensure_started(App) ->
 
 %% -------------------------------------------------------------------------
 
-% d(F, A) ->
-%     i("DBG: " ++ F, A).
+d(F, A) ->
+    i("DBG: " ++ F, A).
 
 i(F) ->
     i(F, []).

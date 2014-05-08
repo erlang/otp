@@ -112,6 +112,14 @@ get_address() ->
     {value, IPAddress} = snmp_framework_mib:intAgentIpAddress(get),
     IPAddress.
 
+get_domain() ->
+    case snmp_framework_mib:intAgentTransportDomain(get) of
+	{value, Domain} ->
+	    Domain;
+	genErr ->
+	    snmpUDPDomain
+    end.
+
 filter_reset(Pid) ->
     Pid ! filter_reset.
 
@@ -155,6 +163,8 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     ?vlog("starting",[]),
 
     %% -- Port and address --
+    Domain = get_domain(),
+    ?vdebug("domain: ~w",[Domain]),
     UDPPort = get_port(),
     ?vdebug("port: ~w",[UDPPort]),
     IPAddress = get_address(),
@@ -181,7 +191,9 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     IPOpts2 = ip_opt_no_reuse_address(Opts),
     IPOpts3 = ip_opt_recbuf(Opts),
     IPOpts4 = ip_opt_sndbuf(Opts),
-    IPOpts  = [binary | IPOpts1 ++ IPOpts2 ++ IPOpts3 ++ IPOpts4], 
+    IPOpts  =
+	[binary, snmp_conf:tdomain_to_family(Domain)
+	 | IPOpts1 ++ IPOpts2 ++ IPOpts3 ++ IPOpts4],
     ?vdebug("open socket with options: ~w",[IPOpts]),
     case gen_udp_open(UDPPort, IPOpts) of
 	{ok, Sock} ->

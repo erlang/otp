@@ -41,6 +41,7 @@
 -compile({no_auto_import,[error/1]}).
 -export([init/0, configure/1]).
 -export([intContextTable/1, intContextTable/3,
+	 intAgentTransportDomain/1,
 	 intAgentUDPPort/1, intAgentIpAddress/1,
 	 snmpEngineID/1,
 	 snmpEngineBoots/1,
@@ -128,27 +129,20 @@ read_agent(Dir) ->
     ?vdebug("read agent config file", []),
     FileName = "agent.conf",
     File     = filename:join(Dir, FileName), 
-    Agent    =
+    Conf0    =
 	try
 	    snmp_conf:read(File, fun order_agent/2, fun check_agent/2)
 	catch
 	    throw:{error, Reason} ->
 		error({failed_reading_config_file, Dir, FileName, Reason})
 	end,
-    sort_agent(Agent).
-
-
-%%-----------------------------------------------------------------
-%% Make sure that each mandatory agent attribute is present, and
-%% provide default values for the other non-present attributes.
-%%-----------------------------------------------------------------
-sort_agent(L) ->
-    Mand = [{intAgentIpAddress,        mandatory},
-	    {intAgentUDPPort,          mandatory},
-	    {snmpEngineMaxMessageSize, mandatory},
-	    {snmpEngineID,             mandatory}],
-    {ok, L2} = snmp_conf:check_mandatory(L, Mand),
-    lists:keysort(1, L2).
+    Mand =
+	[{intAgentIpAddress,        mandatory},
+	 {intAgentUDPPort,          mandatory},
+	 {snmpEngineMaxMessageSize, mandatory},
+	 {snmpEngineID,             mandatory}],
+    {ok, Conf} = snmp_conf:check_mandatory(Conf0, Mand),
+    Conf.
 
 
 %%-----------------------------------------------------------------
@@ -198,14 +192,17 @@ check_context(Context) ->
 %%-----------------------------------------------------------------
 check_agent({intAgentTransportDomain, D}, Domain) ->
     {snmp_conf:check_domain(D), D};
-check_agent({intAgentTransportAddress, Address}, Domain) ->
-    {snmp_conf:check_address(Domain, Address), Domain};
+check_agent({intAgentIpAddress, Value}, D) ->
+    Domain =
+	case D of
+	    undefined -> snmp_target_mib:default_domain();
+	    _ -> D
+	end,
+    {snmp_conf:check_ip(Domain, Value), Domain};
 check_agent(Entry, Domain) ->
     {check_agent(Entry), Domain}.
 
-check_agent({intAgentIpAddress, Value}) -> % Obsoleted
-    snmp_conf:check_ip(Value);
-check_agent({intAgentUDPPort, Value}) -> % Obsoleted
+check_agent({intAgentUDPPort, Value}) ->
     snmp_conf:check_integer(Value);
 %% This one is kept for backwards compatibility
 check_agent({intAgentMaxPacketSize, Value}) -> 
@@ -218,13 +215,14 @@ check_agent(X) ->
     error({invalid_agent_attribute, X}).
 
 %% Ordering function to sort intAgentTransportDomain first
-%% hence before intAgentTransportAddress
+%% hence before intAgentIpAddress
 order_agent({Name, _}, {Name, _}) ->
     true; %% Less than or equal
-order_agent(_, {intAgentTransportDomain, _}) ->
+order_agent({_, _}, {intAgentTransportDomain, _}) ->
     false; %% Greater than
-order_agent(_, _) ->
-    true. %% Less than or equal
+order_agent({A, _}, {B, _}) ->
+    A =< B.
+
 
 
 maybe_create_table(Name) ->
@@ -397,6 +395,11 @@ intAgentUDPPort(Op) ->
 
 intAgentIpAddress(Op) ->
     snmp_generic:variable_func(Op, db(intAgentIpAddress)).
+
+intAgentTransportDomain(Op) ->
+    snmp_generic:variable_func(Op, db(intAgentTransportDomain)).
+
+
 
 snmpEngineID(print) ->
     VarAndValue = [{snmpEngineID, snmpEngineID(get)}],

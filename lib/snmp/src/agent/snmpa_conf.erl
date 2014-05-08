@@ -154,6 +154,8 @@ write_agent_conf(Fd, [H|T]) ->
     do_write_agent_conf(Fd, H),
     write_agent_conf(Fd, T).
 
+do_write_agent_conf(Fd, {intAgentTransportDomain = Tag, Val}) ->
+    io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_agent_conf(Fd, {intAgentIpAddress = Tag, Val}) ->
     io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_agent_conf(Fd, {intAgentUDPPort = Tag, Val} ) ->
@@ -566,29 +568,36 @@ write_target_addr_conf(Fd, Conf) ->
     lists:foreach(Fun, Conf),
     ok.
 
-do_write_target_addr_conf(Fd,
-			  {Name, 
-			   Ip, Udp,
-			   Timeout, RetryCount, TagList,
-			   ParamsName, EngineId,
-			   TMask, MaxMessageSize}) ->
-    Domain = snmp_target_mib:default_domain(), 
-    do_write_target_addr_conf(Fd,
-			      {Name, 
-			       Domain, Ip, Udp,
-			       Timeout, RetryCount, TagList,
-			       ParamsName, EngineId,
-			       TMask, MaxMessageSize});
-do_write_target_addr_conf(Fd,
-			  {Name, 
-			   Domain, Ip, Udp,
-			   Timeout, RetryCount, TagList,
-			   ParamsName, EngineId,
-			   TMask, MaxMessageSize}) ->
-    io:format(Fd, 
-	      "{\"~s\", ~w, ~w, ~w, ~w, ~w, \"~s\", \"~s\", \"~s\", ~w, ~w}.~n",
-              [Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
-               ParamsName, EngineId, TMask, MaxMessageSize]);
+do_write_target_addr_conf(
+  Fd,
+  {Name, Ip, Udp, Timeout, RetryCount, TagList,
+   ParamsName, EngineId, TMask, MaxMessageSize})
+  when is_integer(Udp) ->
+    Domain = snmp_target_mib:default_domain(),
+    Address = {Ip, Udp},
+    do_write_target_addr_conf(
+      Fd,
+      {Name, Domain, Address, Timeout, RetryCount, TagList,
+       ParamsName, EngineId, TMask, MaxMessageSize});
+do_write_target_addr_conf(
+  Fd,
+  {Name, Domain, Address, Timeout, RetryCount, TagList,
+   ParamsName, EngineId, TMask, MaxMessageSize})
+  when is_atom(Domain) ->
+    io:format(
+      Fd,
+      "{\"~s\", ~w, ~w, ~w, ~w, \"~s\", \"~s\", \"~s\", ~w, ~w}.~n",
+      [Name, Domain, Address, Timeout, RetryCount, TagList,
+       ParamsName, EngineId, TMask, MaxMessageSize]);
+do_write_target_addr_conf(
+  Fd,
+  {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
+   ParamsName, EngineId, TMask, MaxMessageSize}) ->
+    Address = {Ip, Udp},
+    do_write_target_addr_conf(
+      Fd,
+      {Name, Domain, Address, Timeout, RetryCount, TagList,
+       ParamsName, EngineId, TMask, MaxMessageSize});
 do_write_target_addr_conf(_Fd, Crap) ->
     error({bad_target_addr_config, Crap}).
 

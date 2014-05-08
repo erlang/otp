@@ -31,33 +31,34 @@
 %% Basic (type) check functions
 -export([check_mandatory/2,
 	 check_integer/1, check_integer/2,
-	 
+
 	 check_string/1, check_string/2,
 
-	 check_atom/2, 
+	 check_atom/2,
 
 	 check_timer/1,
 
-	 all_domains/0, 
-	 check_domain/1, 
-	 all_tdomains/0, 
-	 check_tdomain/1,  
-	 mk_tdomain/1, 
-	 which_domain/1, 
+	 all_domains/0,
+	 check_domain/1,
+	 all_tdomains/0,
+	 check_tdomain/1,
+	 mk_tdomain/1,
+	 tdomain_to_family/1,
+	 which_domain/1,
 	 check_ip/1, check_ip/2,
 	 check_port/1,
 	 ip_port_to_domaddr/2,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
 	 mk_taddress/2,
-	 
-	 check_packet_size/1, 
+
+	 check_packet_size/1,
 
 	 check_oid/1,
-	 check_imask/1, check_emask/1, 
-	 
-	 check_mp_model/1, 
-	 check_sec_model/1, check_sec_model/2, check_sec_model/3, 
+	 check_imask/1, check_emask/1,
+
+	 check_mp_model/1,
+	 check_sec_model/1, check_sec_model/2, check_sec_model/3,
 	 check_sec_level/1,
 
 	 all_integer/1
@@ -473,6 +474,22 @@ mk_tdomain(BadDomain) ->
 
 %% ---------
 
+tdomain_to_family(snmpUDPDomain) ->
+    inet;
+tdomain_to_family(transportDomainUdpIpv4) ->
+    inet;
+tdomain_to_family(transportDomainUdpIpv6) ->
+    inet6;
+tdomain_to_family(?transportDomainUdpIpv4) ->
+    inet;
+tdomain_to_family(?transportDomainUdpIpv6) ->
+    inet6;
+tdomain_to_family(BadDomain) ->
+    error({bad_domain, BadDomain}).
+
+
+%% ---------
+
 %% XXX remove
 %% check_taddress(X) ->
 %%    check_taddress(snmpUDPDomain, X).
@@ -716,35 +733,43 @@ which_domain({A0, A1, A2, A3, A4, A5, A6, A7})
     
 %% ---------
 
-%% XXX remove
-
 check_ip(X) ->
     check_ip(snmpUDPDomain, X).
 
-check_ip(snmpUDPDomain, X) ->
-    check_ip(transportDomainUdpIpv4, X);
-check_ip(transportDomainUdpIpv4 = Domain, X) ->
-    case X of
-	[A,B,C,D] when ?is_ipv4_addr(A, B, C, D) ->
+check_ip(Domain, IP) ->
+    case check_address_ip(Domain, IP) of
+	false ->
+	    error({bad_address, {Domain, IP}});
+	true ->
 	    ok;
-	_ ->
-	    error({bad_address, {Domain, X}})
-    end;
-check_ip(transportDomainUdpIpv6 = Domain, X) ->
-    case X of
-	[A,B,C,D,E,F,G,H]
-	  when ?is_ipv6_addr(A, B, C, D, E, F, G, H) ->
-	    ok;
-	[A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P]
-	  when ?is_ipv6_addr(
-		  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) ->
-	    ok;
-	_ ->
-	    error({bad_address, {Domain, X}})
-    end;
-%%
-check_ip(BadDomain, _X) ->
-    error({invalid_domain, BadDomain}).
+	FixedIP ->
+	    {ok, FixedIP}
+    end.
+
+%% check_ip(snmpUDPDomain, X) ->
+%%     check_ip(transportDomainUdpIpv4, X);
+%% check_ip(transportDomainUdpIpv4 = Domain, X) ->
+%%     case X of
+%% 	[A,B,C,D] when ?is_ipv4_addr(A, B, C, D) ->
+%% 	    ok;
+%% 	_ ->
+%% 	    error({bad_address, {Domain, X}})
+%%     end;
+%% check_ip(transportDomainUdpIpv6 = Domain, X) ->
+%%     case X of
+%% 	[A,B,C,D,E,F,G,H]
+%% 	  when ?is_ipv6_addr(A, B, C, D, E, F, G, H) ->
+%% 	    ok;
+%% 	[A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P]
+%% 	  when ?is_ipv6_addr(
+%% 		  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) ->
+%% 	    ok;
+%% 	_ ->
+%% 	    error({bad_address, {Domain, X}})
+%%     end;
+%% %%
+%% check_ip(BadDomain, _X) ->
+%%     error({invalid_domain, BadDomain}).
 
 
 %% ---------
@@ -850,7 +875,9 @@ check_address_ip(transportDomainUdpIpv6, Address) ->
 	     mk_word(A12, A13), mk_word(A14, A15)};
 	_ ->
 	    false
-    end.
+    end;
+check_address_ip(BadDomain, _) ->
+    error({bad_domain, BadDomain}).
 
 %% -> {IP, Port}
 check_address_ip_port(Domain, Address)
@@ -907,7 +934,9 @@ check_address_ip_port(transportDomainUdpIpv6 = Domain, Address) ->
 	     mk_word(P0, P1)};
 	_ ->
 	    false
-    end.
+    end;
+check_address_ip_port(BadDomain, _) ->
+    error({bad_domain, BadDomain}).
 
 
 
