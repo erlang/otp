@@ -198,7 +198,7 @@ typedef long long ErlDrvSInt64;
 #error No 64-bit integer type
 #endif
 
-#if defined(__WIN32__)
+#if defined(__WIN32__) || defined(_WIN32)
 typedef ErlDrvUInt ErlDrvSizeT;
 typedef ErlDrvSInt ErlDrvSSizeT;
 #else
