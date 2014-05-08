@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -294,9 +294,13 @@ do_reload_config(ConfigList, Mode) ->
 	{ok, Config} ->
 	    Address = proplists:get_value(bind_address, Config, any), 
 	    Port    = proplists:get_value(port, Config, 80),
-	    block(Address, Port, Mode),
-	    reload(Config, Address, Port),
-	    unblock(Address, Port);
+	    case block(Address, Port, Mode) of
+		ok ->
+		    reload(Config, Address, Port),
+		    unblock(Address, Port);
+		Error ->
+		    Error
+	    end;
 	Error ->
 	    Error
     end.
