@@ -488,7 +488,7 @@ badpattern(Reason) ->
     error({badpattern,Reason}).
 
 eval_read_file_info(File, file) ->
-    file:read_file_info(File);
+    file:read_link_info(File);
 eval_read_file_info(File, erl_prim_loader) ->
     case erl_prim_loader:read_file_info(File) of
 	error -> {error, erl_prim_loader};

@@ -4842,6 +4842,8 @@ true</pre>
           <c><anno>Node</anno></c> does not exist, a useless pid is returned.
           Otherwise works like
           <seealso marker="#spawn_opt/4">spawn_opt/4</seealso>.</p>
+	  <note><p>The <c>monitor</c> option is currently not supported by
+	  <c>spawn_opt/5</c>.</p></note>
       </desc>
     </func>
     <func>
