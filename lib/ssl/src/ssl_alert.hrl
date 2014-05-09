@@ -104,6 +104,8 @@
 
 -define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
 
+-define(MAX_ALERTS, 10).
+
 %% Alert
 -record(alert, {
 	  level,

@@ -362,20 +362,11 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
         ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
     {Encoded, ConnectionStates, Hist}.
 
-
 encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     ssl_record:encode_change_cipher_spec(Version, ConnectionStates).
 
-
-
 decode_alerts(Bin) ->
-    decode_alerts(Bin, []).
-
-decode_alerts(<<?BYTE(Level), ?BYTE(Description), Rest/binary>>, Acc) ->
-    A = ?ALERT_REC(Level, Description),
-    decode_alerts(Rest, [A | Acc]);
-decode_alerts(<<>>, Acc) ->
-    lists:reverse(Acc, []).
+    ssl_alert:decode(Bin).
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
@@ -420,10 +411,13 @@ next_state(Current,_, #alert{} = Alert, #state{negotiated_version = Version} = S
 next_state(_,Next, no_record, State) ->
     {next_state, Next, State, get_timeout(State)};
 
-next_state(_,Next, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, State) ->
-    Alerts = decode_alerts(EncAlerts),
-    handle_alerts(Alerts,  {next_state, Next, State, get_timeout(State)});
-
+next_state(Current, Next, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, #state{negotiated_version = Version} = State) ->
+    case decode_alerts(EncAlerts) of
+	Alerts = [_|_] ->
+	    handle_alerts(Alerts,  {next_state, Next, State, get_timeout(State)});
+	#alert{} = Alert ->
+	    handle_own_alert(Alert, Version, Current, State)
+    end;
 next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 	   State0 = #state{protocol_buffers =
 			       #protocol_buffers{tls_handshake_buffer = Buf0} = Buffers,
