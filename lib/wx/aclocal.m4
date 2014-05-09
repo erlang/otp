@@ -1118,7 +1118,7 @@ case "$THR_LIB_NAME" in
 		    [Define if you have the "ose_spi/ose_spi.h" header file.]))
 		;;
 	esac
-	if test "x$THR_LIB_NAME" == "xpthread"; then
+	if test "x$THR_LIB_NAME" = "xpthread"; then
 	case $host_os in
 	    openbsd*)
 		# The default stack size is insufficient for our needs
@@ -1222,7 +1222,7 @@ case "$THR_LIB_NAME" in
 	dnl
 	dnl Check for functions
 	dnl
-	if test "x$THR_LIB_NAME" == "xpthread"; then
+	if test "x$THR_LIB_NAME" = "xpthread"; then
 	AC_CHECK_FUNC(pthread_spin_lock, \
 			[ethr_have_native_spinlock=yes \
 			 AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
