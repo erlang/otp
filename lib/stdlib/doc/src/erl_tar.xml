@@ -35,10 +35,11 @@
   <modulesummary>Unix 'tar' utility for reading and writing tar archives</modulesummary>
   <description>
     <p>The <c>erl_tar</c> module archives and extract files to and from
-      a tar file. The tar file format is the POSIX extended tar file format
-      specified in IEEE Std 1003.1 and ISO/IEC&nbsp;9945-1. That is the same
-      format as used by <c>tar</c> program on Solaris, but is not the same
-      as used by the GNU tar program.</p>
+      a tar file. <c>erl_tar</c> supports the <c>ustar</c> format
+      (IEEE Std 1003.1 and ISO/IEC&nbsp;9945-1). All modern <c>tar</c>
+      programs (including GNU tar) can read this format. To ensure that
+      that GNU tar produces a tar file that <c>erl_tar</c> can read,
+      give the <c>--format=ustar</c> option to GNU tar.</p>
     <p>By convention, the name of a tar file should end in "<c>.tar</c>".
       To abide to the convention, you'll need to add "<c>.tar</c>" yourself
       to the name.</p>
@@ -63,6 +64,20 @@
       above to a readable message, use the
       <seealso marker="#format_error_1">format_error/1</seealso> function.</p>
   </description>
+
+  <section>
+    <title>UNICODE SUPPORT</title>
+    <p>If <seealso
+    marker="kernel:file#native_name_encoding/0">file:native_name_encoding/0</seealso>
+    returns <c>utf8</c>, path names will be encoded in UTF-8 when
+    creating tar files and path names will be assumed to be encoded in
+    UTF-8 when extracting tar files.</p>
+
+    <p>If <seealso
+    marker="kernel:file#native_name_encoding/0">file:native_name_encoding/0</seealso>
+    returns <c>latin1</c>, no translation of path names will be
+    done.</p>
+  </section>
 
   <section>
     <title>LIMITATIONS</title>
@@ -112,8 +127,8 @@
       <fsummary>Add a file to an open tar file</fsummary>
       <type>
         <v>TarDescriptor = term()</v>
-        <v>FilenameOrBin = Filename()|binary()</v>
-        <v>Filename = filename()()</v>
+        <v>FilenameOrBin = filename()|binary()</v>
+        <v>Filename = filename()</v>
         <v>NameInArchive = filename()</v>
         <v>Options = [Option]</v>
         <v>Option = dereference|verbose</v>
