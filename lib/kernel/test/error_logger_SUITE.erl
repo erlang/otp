@@ -32,7 +32,7 @@
 	 error_report/1, info_report/1, error/1, info/1,
 	 emulator/1, tty/1, logfile/1, add/1, delete/1]).
 
--export([generate_error/0]).
+-export([generate_error/2]).
 
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
@@ -210,13 +210,16 @@ emulator(suite) -> [];
 emulator(doc) -> [];
 emulator(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
-    spawn(?MODULE, generate_error, []),
-    reported(emulator),
+    Msg = "Error in process ~p on node ~p with exit value:~n~p~n",
+    Error = {badmatch,4},
+    Stack = [{module, function, 2, []}],
+    Pid = spawn(?MODULE, generate_error, [Error, Stack]),
+    reported(error, Msg, [Pid, node(), {Error, Stack}]),
     ?line my_yes = error_logger:delete_report_handler(?MODULE),
     ok.
 
-generate_error() ->
-    erlang:error({badmatch,4}).
+generate_error(Error, Stack) ->
+    erlang:raise(error, Error, Stack).
 
 %%-----------------------------------------------------------------
 %% We don't enables or disables tty error logging here. We do not
@@ -277,15 +280,6 @@ delete(Config) when is_list(Config) ->
 reported(Tag, Type, Report) ->
     receive
 	{Tag, Type, Report} ->
-	    test_server:messages_get(),
-	    ok
-    after 1000 ->
-	    test_server:fail(no_report_received)
-    end.
-
-reported(emulator) ->
-    receive
-	{error, "~s~n", String} when is_list(String) ->
 	    test_server:messages_get(),
 	    ok
     after 1000 ->
