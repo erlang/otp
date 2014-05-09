@@ -45,7 +45,7 @@ The first return value from a function is placed in %rax, the second
 (if any) is placed in %rdx.
 
 Notes:
-- Currently, NR_ARG_REGS==0.
+- Currently, NR_ARG_REGS == 4.
 - C BIFs expect P in C parameter register 1: %rdi. By making Erlang
   parameter registers 1-5 coincide with C parameter registers 2-6,
   our BIF wrappers can simply move P to %rdi without having to shift

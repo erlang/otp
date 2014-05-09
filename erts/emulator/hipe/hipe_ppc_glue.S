@@ -463,10 +463,12 @@ ASYM(nbif_fail):
 	OPD(nbif_1_gc_after_bif)
 	OPD(nbif_2_gc_after_bif)
 	OPD(nbif_3_gc_after_bif)
+	OPD(nbif_4_gc_after_bif)
 	GLOBAL(CSYM(nbif_0_gc_after_bif))
 	GLOBAL(CSYM(nbif_1_gc_after_bif))
 	GLOBAL(CSYM(nbif_2_gc_after_bif))
 	GLOBAL(CSYM(nbif_3_gc_after_bif))
+	GLOBAL(CSYM(nbif_4_gc_after_bif))
 CSYM(nbif_0_gc_after_bif):
 	li	r4, 0
 	b	.gc_after_bif
@@ -478,6 +480,9 @@ CSYM(nbif_2_gc_after_bif):
 	b	.gc_after_bif
 CSYM(nbif_3_gc_after_bif):
 	li	r4, 3
+	b	.gc_after_bif
+CSYM(nbif_4_gc_after_bif):
+	li	r4, 4
 	/*FALLTHROUGH*/
 .gc_after_bif:
 	stw	r4, P_NARITY(P)		/* Note: narity is a 32-bit field */
@@ -520,6 +525,11 @@ CSYM(nbif_2_simple_exception):
 	GLOBAL(CSYM(nbif_3_simple_exception))
 CSYM(nbif_3_simple_exception):
 	li	r4, 3
+	b	.nbif_simple_exception
+	OPD(nbif_3_simple_exception)
+	GLOBAL(CSYM(nbif_4_simple_exception))
+CSYM(nbif_4_simple_exception):
+	li	r4, 4
 	/*FALLTHROUGH*/
 .nbif_simple_exception:
 	LOAD	r3, P_FREASON(P)

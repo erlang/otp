@@ -300,6 +300,7 @@ ASYM(nbif_fail):
 	GLOBAL(nbif_1_gc_after_bif)
 	GLOBAL(nbif_2_gc_after_bif)
 	GLOBAL(nbif_3_gc_after_bif)
+	GLOBAL(nbif_4_gc_after_bif)
 	.align	4
 nbif_0_gc_after_bif:
 	xorl	%edx, %edx
@@ -315,6 +316,10 @@ nbif_2_gc_after_bif:
 	.align	4
 nbif_3_gc_after_bif:
 	movl	$3, %edx
+	jmp	.gc_after_bif
+	.align	4
+nbif_4_gc_after_bif:
+	movl	$4, %edx
 	/*FALLTHROUGH*/
 	.align	4
 .gc_after_bif:
@@ -338,6 +343,7 @@ nbif_3_gc_after_bif:
 	GLOBAL(nbif_1_simple_exception)
 	GLOBAL(nbif_2_simple_exception)
 	GLOBAL(nbif_3_simple_exception)
+	GLOBAL(nbif_4_simple_exception)
 	.align	4
 nbif_0_simple_exception:
 	xorl	%eax, %eax
@@ -353,6 +359,10 @@ nbif_2_simple_exception:
 	.align	4
 nbif_3_simple_exception:
 	movl	$3, %eax
+	jmp	.nbif_simple_exception
+	.align	4
+nbif_4_simple_exception:
+	movl	$4, %eax
 	/*FALLTHROUGH*/
 	.align	4
 .nbif_simple_exception:
