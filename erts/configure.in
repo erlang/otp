@@ -214,9 +214,6 @@ AC_ARG_ENABLE(native-libs,
 AS_HELP_STRING([--enable-native-libs],
                [compile Erlang libraries to native code]))
 
-AC_ARG_ENABLE(tsp,
-AS_HELP_STRING([--enable-tsp], [compile tsp app]))
-
 AC_ARG_ENABLE(fp-exceptions,
 AS_HELP_STRING([--enable-fp-exceptions],
                [use hardware floating point exceptions (default if hipe enabled)]),
@@ -366,6 +363,11 @@ AC_DEFINE_UNQUOTED(ASSUMED_CACHE_LINE_SIZE,
 		   $with_assumed_cache_line_size,
 		   [Assumed cache-line size (in bytes)])
 
+AC_ARG_ENABLE(systemd,
+AS_HELP_STRING([--enable-systemd], [enable systemd support in epmd]),
+[],
+[enable_systemd=no])
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
@@ -456,10 +458,10 @@ AS_HELP_STRING([--enable-static-drivers], [comma seperated list of linked-in dri
 AC_SUBST(STATIC_DRIVERS)
 
 AC_ARG_WITH(ets-write-concurrency-locks,
-  AS_HELP_STRING([--with-ets-write-concurrency-locks={8,16,32,64,128,256}],
-                 [specify how many locks the write_concurrency option for ets should use.])
-  AS_HELP_STRING([--without-ets-write-concurrency-locks],
-                 [use the default number of write_concurrency locks (default)]))
+AS_HELP_STRING([--with-ets-write-concurrency-locks={8|16|32|64|128|256}],
+               [specify how many locks the write_concurrency option for ets should use.])
+AS_HELP_STRING([--without-ets-write-concurrency-locks],
+               [use the default number of write_concurrency locks (default)]))
 
 if test X"$with_ets_write_concurrency_locks" != X""; then
    AC_DEFINE_UNQUOTED(ERTS_DB_HASH_LOCK_CNT,$with_ets_write_concurrency_locks,
@@ -1041,8 +1043,6 @@ AC_CHECK_LIB(m, sin)
 AC_CHECK_LIB(dl, dlopen)
 AC_CHECK_LIB(inet, main)
 AC_CHECK_LIB(util, openpty)
-
-AC_CHECK_LIB(systemd-daemon, sd_listen_fds)
 
 dnl Try to find a thread library.
 dnl
@@ -1679,7 +1679,29 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 	 #endif
 	])
 
-AC_CHECK_HEADERS(systemd/sd-daemon.h)
+dnl ----------------------------------------------------------------------
+dnl  Check the availability of systemd
+dnl ----------------------------------------------------------------------
+if test x"$enable_systemd" != x"no"; then
+
+systemd_daemon_save_LIBS=$LIBS
+LIBS=
+AC_SEARCH_LIBS(sd_listen_fds,[systemd systemd-daemon],
+  [have_sd_listen_fds=yes],[have_sd_listen_fds=no],$systemd_daemon_save_LIBS)
+AC_CHECK_HEADERS(systemd/sd-daemon.h,
+  [have_systemd_sd_daemon_h=yes],[have_systemd_sd_daemon_h=no])
+
+if test x"$have_sd_listen_fds" = x"yes" && \
+   test x"$have_systemd_sd_daemon_h" = x"yes"; then
+  AC_DEFINE([HAVE_SYSTEMD_DAEMON],[1],[Define if you have systemd daemon])
+  SYSTEMD_DAEMON_LIBS=$LIBS
+elif test x"$enable_systemd" = x"yes"; then
+  AC_MSG_FAILURE([--enable-systemd was given, but test for systemd failed])
+fi
+LIBS=$systemd_daemon_save_LIBS
+fi
+AC_SUBST(SYSTEMD_DAEMON_LIBS)
+
 
 dnl ----------------------------------------------------------------------
 dnl Check the availability for libdlpi
@@ -3430,16 +3452,6 @@ dnl ----------------------------------------------------------------------
 dnl Tests related to configurable options given on command line
 dnl (using the --disable, --enable and --with switches).
 dnl ----------------------------------------------------------------------
-
-#
-# Check if we should compile TSP app
-#
-
-TSP_APP=
-if test X${enable_tsp} = Xyes; then
-  TSP_APP=tsp
-fi
-AC_SUBST(TSP_APP)
 
 #
 # Check if we should enable HiPE.
