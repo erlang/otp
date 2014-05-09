@@ -46,7 +46,8 @@
 		debug = false,
 		limit = infinity,
 		rcnt  = [],
-		filter}).
+		filter,
+		use_tdomain = false}).
 
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
@@ -165,6 +166,13 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     %% -- Port and address --
     Domain = get_domain(),
     ?vdebug("domain: ~w",[Domain]),
+    UseTDomain =
+	case Domain of
+	    snmpUDPDomain ->
+		false;
+	    _ ->
+		true
+	end,
     UDPPort = get_port(),
     ?vdebug("port: ~w",[UDPPort]),
     IPAddress = get_address(),
@@ -208,7 +216,8 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 		       usock_opts   = IPOpts,
 		       log          = Log,
 		       limit        = Limit,
-		       filter       = FilterMod},
+		       filter       = FilterMod,
+		       use_tdomain  = UseTDomain},
 	    ?vdebug("started with MpdState: ~p", [MpdState]),
 	    {ok, S};
 	{error, Reason} ->
@@ -541,14 +550,39 @@ update_req_counter_outgoing(#state{limit = Limit, rcnt = RCnt} = S,
     
 
 maybe_handle_recv(
-  #state{usock = Sock, filter = FilterMod} = S, From, Packet) ->
-    case (catch FilterMod:accept_recv(From)) of
+  #state{usock = Sock, filter = FilterMod, use_tdomain = UseTDomain} = S,
+  {Domain, Addr} = From, Packet) ->
+    case
+	try
+	    case UseTDomain of
+		true ->
+		    FilterMod:accept_recv(Domain, Addr);
+		false ->
+		    {Ip, Port} = Addr,
+		    FilterMod:accept_recv(Ip, Port)
+	    end
+	catch
+	    Class:Exception ->
+		error_msg(
+		  "FilterMod:accept_recv/2 crashed for ~p: ~w:~w~n    ~p",
+		  [From,Class,Exception,erlang:get_stacktrace()]),
+		true
+	end
+    of
 	false ->
 	    %% Drop the received packet 
 	    inc(netIfMsgInDrops),
 	    active_once(Sock),
 	    S;
-	_ ->
+	Other ->
+	    case Other of
+		true ->
+		    ok;
+		_ ->
+		    error_msg(
+		      "FilterMod:accept_recv/2 returned: ~p for ~p",
+		      [Other,From])
+	    end,
 	    handle_recv(S, From, Packet)
     end.
 
@@ -620,15 +654,40 @@ handle_recv(
     end.
     
 maybe_handle_recv_pdu(
-  From, Vsn,
+  {Domain, Addr} = From, Vsn,
   #pdu{type = Type} = Pdu, PduMS, ACMData,
-  #state{usock = Sock, filter = FilterMod} = S) ->
-    case (catch FilterMod:accept_recv_pdu(From, Type)) of
+  #state{usock = Sock, filter = FilterMod, use_tdomain = UseTDomain} = S) ->
+    case
+	try
+	    case UseTDomain of
+		true ->
+		    FilterMod:accept_recv_pdu(Domain, Addr, Type);
+		false ->
+		    {Ip, Port} = Addr,
+		    FilterMod:accept_recv_pdu(Ip, Port, Type)
+	    end
+	catch
+	    Class:Exception ->
+		error_msg(
+		  "FilterMod:accept_recv_pdu/3 crashed for ~p, ~p: ~w:~w~n"
+		  "    ~p",
+		  [From,Type,Class,Exception,erlang:get_stacktrace()]),
+		true
+	end
+    of
 	false ->
 	    inc(netIfPduInDrops),
 	    active_once(Sock),
 	    ok;
-	_ ->
+	Other ->
+	    case Other of
+		true ->
+		    ok;
+		_ ->
+		    error_msg(
+		      "FilterMod:accept_recv_pdu/3 returned: ~p for ~p, ~p",
+		      [Other,From,Type])
+	    end,
 	    handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S)
     end;
 maybe_handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S) ->
@@ -658,15 +717,40 @@ handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData,
 
 
 maybe_handle_reply_pdu(
-  #state{filter = FilterMod} = S, Vsn,
+  #state{filter = FilterMod, use_tdomain = UseTDomain} = S, Vsn,
   #pdu{request_id = Rid} = Pdu,
-  Type, ACMData, To) ->
+  Type, ACMData, {_Domain, Addr} = To) ->
     S1 = update_req_counter_outgoing(S, Rid),
-    case (catch FilterMod:accept_send_pdu([To], Type)) of
+    Addresses =
+	case UseTDomain of
+	    true ->
+		[To];
+	    false ->
+		[Addr]
+	end,
+    case
+	try
+	    FilterMod:accept_send_pdu(Addresses, Type)
+	catch
+	    Class:Exception ->
+		error_msg(
+		  "FilterMod:accept_send_pdu(~p, ~p) crashed: ~w:~w~n    ~p",
+		  [Addresses,Type,Class,Exception,erlang:get_stacktrace()]),
+		true
+	end
+    of
 	false ->
 	    inc(netIfPduOutDrops),
 	    ok;
-	_ ->
+	Other ->
+	    case Other of
+		true ->
+		    ok;
+		_ ->
+		    error_msg(
+		      "FilterMod:accept_send_pdu(~p, ~p) returned: ~p",
+		      [Addresses,Type,Other])
+	    end,
 	    handle_reply_pdu(S1, Vsn, Pdu, Type, ACMData, To)
     end,
     S1.
@@ -694,7 +778,7 @@ handle_reply_pdu(#state{log = Log} = S, Vsn, Pdu, Type, ACMData, To) ->
 
 
 maybe_handle_send_pdu(
-  #state{filter = FilterMod} = S,
+  #state{filter = FilterMod, use_tdomain = UseTDomain} = S,
   Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
 
     ?vtrace("maybe_handle_send_pdu -> entry with~n"
@@ -702,42 +786,77 @@ maybe_handle_send_pdu(
 	    "   TDomAddrSecs: ~p", [FilterMod, TDomAddrSecs]),
 
     DomAddrSecs = snmpa_mpd:process_taddrs(TDomAddrSecs),
-    DomAddrs =
-	[case DAS of
-	     {{Domain, _Address} = DomAddr, _SecData}
-	       when is_atom(Domain) -> % v3
-		 DomAddr;
-	     {Domain, _Address} = DomAddr
-	       when is_atom(Domain) -> % v1 & v2
-		 DomAddr
+    AddressesToFilter =
+	[case UseTDomain of
+	     true ->
+		 case DAS of
+		     {{Domain, _Address} = DomAddr, _SecData}
+		       when is_atom(Domain) -> % v3
+			 DomAddr;
+		     {Domain, _Address} = DomAddr
+		       when is_atom(Domain) -> % v1 & v2
+			 DomAddr
+		 end;
+	     false ->
+		 case DAS of
+		     {{Domain, Address}, _SecData}
+		       when is_atom(Domain) -> % v3
+			 Address;
+		     {Domain, Address}
+		       when is_atom(Domain) -> % v1 & v2
+			 Address
+		 end
 	 end || DAS <- DomAddrSecs],
+    Type = pdu_type_of(Pdu),
 
-    case (catch FilterMod:accept_send_pdu(
-		  DomAddrs, pdu_type_of(Pdu))) of
+    case
+	try FilterMod:accept_send_pdu(AddressesToFilter, Type)
+	catch
+	    Class:Exception ->
+		error_msg(
+		  "FilterMod:accept_send_pdu(~p, ~p) crashed: ~w:~w~n    ~p",
+		  [AddressesToFilter,Type,
+		   Class,Exception,erlang:get_stacktrace()]),
+		true
+	end
+    of
 	false ->
 	    inc(netIfPduOutDrops),
 	    ok;
 	true ->
 	    handle_send_pdu(S, Vsn, Pdu, MsgData, DomAddrSecs, From);
-	FilteredDomAddrs when is_list(FilteredDomAddrs) ->
+	FilteredAddresses when is_list(FilteredAddresses) ->
 	    MergedDomAddrSecs =
-		[DAS || DAS <- DomAddrSecs,
-		      case DAS of
-			  {{Domain, _Address} = DomAddr, _SData}
-			    when is_atom(Domain) -> % v3
-			      lists:member(
-				DomAddr, FilteredDomAddrs);
-			  {Domain, _Address} = DomAddr
-			    when is_atom(Domain) -> % v1 & v2
-			      lists:member(
-				DomAddr, FilteredDomAddrs)
-		      end],
+		[DAS ||
+		    DAS <- DomAddrSecs,
+		    lists:member(
+		      case UseTDomain of
+			  true ->
+			      case DAS of
+				  {{Domain, _Address} = DomAddr, _SData}
+				    when is_atom(Domain) -> % v3
+				      DomAddr;
+				  {Domain, _Address} = DomAddr
+				    when is_atom(Domain) -> % v1 & v2
+				      DomAddr
+			      end;
+			  false ->
+			      case DAS of
+				  {{Domain, Address}, _SData}
+				    when is_atom(Domain) -> % v3
+				      Address;
+				  {Domain, Address}
+				    when is_atom(Domain) -> % v1 & v2
+				      Address
+			      end
+		      end, FilteredAddresses)],
 	    ?vtrace("maybe_handle_send_pdu -> MergedDomAddrSecs:~n"
 		    "   ~p", [MergedDomAddrSecs]),
 	    handle_send_pdu(S, Vsn, Pdu, MsgData, MergedDomAddrSecs, From);
 	Other ->
 	    error_msg(
-	      "FilterMod:accept_send_pdu/2 returned: ~p", [Other]),
+	      "FilterMod:accept_send_pdu(~p, ~p) returned: ~p",
+	      [AddressesToFilter,Type,Other]),
 	    handle_send_pdu(S, Vsn, Pdu, MsgData, DomAddrSecs, From)
     end.
 
@@ -856,31 +975,81 @@ handle_response(Vsn, Pdu, From, S) ->
     end.
 
 maybe_udp_send(
-  #state{usock  = Sock,
-	 filter = FilterMod}, To, Packet) ->
-    case (catch FilterMod:accept_send(To)) of
+  #state{usock  = Sock, filter = FilterMod, use_tdomain = UseTDomain},
+  {Domain, Addr} = To, Packet) ->
+    case
+	try
+	    case UseTDomain of
+		true ->
+		    FilterMod:accept_send(Domain, Addr);
+		false ->
+		    {Ip, Port} = Addr,
+		    FilterMod:accept_send(Ip, Port)
+	    end
+	catch
+	    Class:Exception ->
+		error_msg(
+		  "FilterMod:accept_send/2 crashed for ~p: ~w:~w~n    ~p",
+		  [To,Class,Exception,erlang:get_stacktrace()]),
+		true
+	end
+    of
 	false ->
 	    inc(netIfMsgOutDrops),
 	    ok;
-	_ ->
+	Other ->
+	    case Other of
+		true ->
+		    ok;
+		_ ->
+		    error_msg(
+		      "FilterMod:accept_send/2 returned: ~p for ~p",
+		      [Other,To])
+	    end,
 	    %% XXX should be some kind of lookup of domain to socket
-	    {_Domain, {Ip, Port}} = To,
-	    (catch udp_send(Sock, Ip, Port, Packet))
+	    {SockIp, SockPort} = Addr,
+	    (catch udp_send(Sock, SockIp, SockPort, Packet))
     end.
 
 maybe_udp_send(
-  #state{log    = Log,
-	 usock  = Sock,
-	 filter = FilterMod}, To, Packet, Type, _LogData) ->
-    case (catch FilterMod:accept_send(To)) of
+  #state{log         = Log,
+	 usock       = Sock,
+	 filter      = FilterMod,
+	 use_tdomain = UseTDomain},
+  {Domain, Addr} = To, Packet, Type, _LogData) ->
+    case
+	try
+	    case UseTDomain of
+		true ->
+		    FilterMod:accept_send(Domain, Addr);
+		false ->
+		    {Ip, Port} = Addr,
+		    FilterMod:accept_send(Ip, Port)
+	    end
+	catch
+	    Class:Exception ->
+		error_msg(
+		  "FilterMod:accept_send/2 crashed for ~p: ~w:~w~n    ~p",
+		  [To,Class,Exception,erlang:get_stacktrace()]),
+		true
+	end
+    of
 	false ->
 	    inc(netIfMsgOutDrops),
 	    ok;
-	_ ->
+	Other ->
+	    case Other of
+		true ->
+		    ok;
+		_ ->
+		    error_msg(
+		      "FilterMod:accept_send/2 returned: ~p for ~p",
+		      [Other,To])
+	    end,
 	    log(Log, Type, Packet, To),
 	    %% XXX should be some kind of lookup of domain to socket
-	    {_Domain, {Ip, Port}} = To,
-	    (catch udp_send(Sock, Ip, Port, Packet))
+	    {SockIp, SockPort} = Addr,
+	    (catch udp_send(Sock, SockIp, SockPort, Packet))
     end.
 
 udp_send(UdpId, AgentIp, UdpPort, B) ->

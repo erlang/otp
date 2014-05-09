@@ -23,9 +23,9 @@
 
 
 behaviour_info(callbacks) ->
-    [{accept_recv,     1},
-     {accept_send,     1},
-     {accept_recv_pdu, 2},
+    [{accept_recv,     2},
+     {accept_send,     2},
+     {accept_recv_pdu, 3},
      {accept_send_pdu, 2}];
 behaviour_info(_) ->
     undefined.

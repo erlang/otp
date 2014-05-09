@@ -18,46 +18,39 @@
 %%
 -module(snmpa_net_if_filter).
 
-%% New behaviour
--export([accept_recv/1, accept_send/1, accept_recv_pdu/2]).
-%% Common signature for both old and new behaviour
--export([accept_send_pdu/2]).
-%% Old behaviour
--export([accept_recv/2, accept_send/2, accept_recv_pdu/3]).
+%% Behaviour
+-export([accept_recv/2, accept_send/2, accept_recv_pdu/3, accept_send_pdu/2]).
 
 -include("snmp_debug.hrl").
 
-accept_recv({Domain, _Address}) when is_atom(Domain) ->
+accept_recv(Domain, _Address) when is_atom(Domain) ->
     ?d("accept_recv -> entry with~n"
        "   Domain:  ~p~n"
        "   Address: ~p", [Domain, _Address]),
-    true.
-%%
+    true;
 accept_recv(_Addr, Port) when is_integer(Port) ->
     ?d("accept_recv -> entry with~n"
        "   Addr: ~p~n"
        "   Port: ~p", [_Addr, Port]),
     true.
 
-accept_send({Domain, _Address}) when is_atom(Domain) ->
+accept_send(Domain, _Address) when is_atom(Domain) ->
     ?d("accept_send -> entry with~n"
        "   Domain:  ~p~n"
        "   Address: ~p", [Domain, _Address]),
-    true.
-%%
+    true;
 accept_send(_Addr, Port) when is_integer(Port) ->
     ?d("accept_send -> entry with~n"
        "   Addr: ~p~n"
        "   Port: ~p", [_Addr, Port]),
     true.
 
-accept_recv_pdu({Domain, _Address}, _PduType) when is_atom(Domain) ->
+accept_recv_pdu(Domain, _Address, _PduType) when is_atom(Domain) ->
     ?d("accept_recv -> entry with~n"
        "   Domain:  ~p~n"
        "   Address: ~p~n"
        "   PduType: ~p", [Domain, _Address, _PduType]),
-    true.
-%%
+    true;
 accept_recv_pdu(_Addr, Port, _PduType) when is_integer(Port) ->
     ?d("accept_recv_pdu -> entry with~n"
        "   Addr: ~p~n"

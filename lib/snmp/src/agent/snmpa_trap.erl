@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1045,7 +1045,7 @@ deliver_recv(#snmpa_notification_delivery_info{tag   = Tag,
 	"~n   DeliveryResult: ~p"
 	"~n   TAddr:          ~p"
 	"", [Tag, Mod, Extra, DeliveryResult, TAddr]),
-    Addr = transform_taddr(TAddr),
+    [Addr] = transform_taddrs([TAddr]),
     (catch Mod:delivery_info(Tag, Addr, DeliveryResult, Extra));
 deliver_recv({Tag, Receiver}, MsgId, Result) ->
     ?vtrace("deliver_recv -> entry with"
@@ -1072,35 +1072,80 @@ deliver_recv(Else, _MsgId, _Result) ->
 	   [Else]),
     user_err("snmpa: bad receiver, ~w\n", [Else]).
 
-transform_taddrs(Addrs) ->
-    [transform_taddr(Addr) || Addr <- Addrs].
+transform_taddrs(TAddrs) ->
+    UseTDomain =
+	case snmp_framework_mib:intAgentTransportDomain(get) of
+	    {value,snmpUDPDomain} ->
+		false;
+	    {value,_} ->
+		true;
+	    genErr ->
+		false
+	end,
+    DomAddrs = [transform_taddr(TAddr) || TAddr <- TAddrs],
+    case UseTDomain of
+	true ->
+	    DomAddrs;
+	false ->
+	    [Addr || {_Domain, Addr} <- DomAddrs]
+    end.
 
-transform_taddr({?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}) -> % v2
-    Addr = {A1, A2, A3, A4},
+%% v2
+transform_taddr({?snmpUDPDomain, Addr}) ->
+    transform_taddr(transportDomainIdpIpv4, Addr);
+transform_taddr({?transportDomainUdpIpv4, Addr}) ->
+    transform_taddr(transportDomainUdpIpv4, Addr);
+transform_taddr({?transportDomainUdpIpv6, Addr}) ->
+    transform_taddr(transportDomainUdpIpv6, Addr);
+%% v3
+transform_taddr({{?snmpUDPDomain, Addr}, _MsgData}) ->
+    transform_taddr(transportDomainUdpIpv4, Addr);
+transform_taddr({{?transportDomainUdpIpv4, Addr}, _MsgData}) ->
+    transform_taddr(transportDomainUdpIpv4, Addr);
+transform_taddr({{?transportDomainUdpIpv6, Addr}, _MsgData}) ->
+    transform_taddr(transportDomainUdpIpv6, Addr).
+
+transform_taddr(
+  transportDomainUdpIpv4 = Domain,
+  [A1,A2,A3,A4,P1,P2]) ->
+    Ip = {A1, A2, A3, A4},
     Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}) -> % v2
-    Addr = {A1, A2, A3, A4},
+    {Domain, {Ip, Port}};
+transform_taddr(
+  transportDomainUdpIpv6 = Domain,
+  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
+    Ip = {A1, A2, A3, A4, A5, A6, A7, A8},
     Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({?transportDomainUdpIpv6, 
-		 [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}) -> % v2
-    Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({{?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
-    Addr = {A1, A2, A3, A4},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({{?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
-    Addr = {A1, A2, A3, A4},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({{?transportDomainUdpIpv6, 
-		  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}, _MsgData}) -> % v3
-    Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port}.
+    {Domain, {Ip, Port}}.
+
+
+%% transform_taddr({?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}) -> % v2
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}) -> % v2
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({?transportDomainUdpIpv6,
+%% 		 [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}) -> % v2
+%%     Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({{?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({{?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({{?transportDomainUdpIpv6,
+%% 		  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}, _MsgData}) -> % v3
+%%     Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port}.
+
 
 
 check_all_varbinds(#notification{oid = Oid}, Vbs, MibView) ->

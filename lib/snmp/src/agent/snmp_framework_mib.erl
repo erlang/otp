@@ -190,15 +190,22 @@ check_context(Context) ->
 %%  Agent
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
-check_agent({intAgentTransportDomain, D}, Domain) ->
+check_agent({intAgentTransportDomain, D}, _Domain) ->
     {snmp_conf:check_domain(D), D};
-check_agent({intAgentIpAddress, Value}, D) ->
+check_agent({intAgentIpAddress = Tag, Value}, D) ->
     Domain =
 	case D of
-	    undefined -> snmp_target_mib:default_domain();
-	    _ -> D
+	    undefined ->
+		snmp_target_mib:default_domain();
+	    _ ->
+		D
 	end,
-    {snmp_conf:check_ip(Domain, Value), Domain};
+    {case snmp_conf:check_ip(Domain, Value) of
+	 ok ->
+	     ok;
+	 {ok, FixedIp} ->
+	     {ok, {Tag, FixedIp}}
+     end, Domain};
 check_agent(Entry, Domain) ->
     {check_agent(Entry), Domain}.
 
