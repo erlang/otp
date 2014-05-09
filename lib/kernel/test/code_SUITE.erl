@@ -37,8 +37,7 @@
 	 native_early_modules/1, get_mode/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
-	 init_per_suite/1, end_per_suite/1,
-	 sticky_compiler/1]).
+	 init_per_suite/1, end_per_suite/1]).
 
 %% error_logger
 -export([init/1,
@@ -55,7 +54,7 @@ all() ->
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      load_binary, dir_req, object_code, set_path_file,
      upgrade,
-     pa_pz_option, add_del_path, dir_disappeared,
+     sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
      ext_mod_dep, clash, load_cached, start_node_with_cache,
      add_and_rehash, where_is_file_no_cache,
      where_is_file_cached, purge_stacktrace, mult_lib_roots,
@@ -587,35 +586,42 @@ sticky_dir(suite) -> [];
 sticky_dir(doc) -> ["Test that a module with the same name as a module in ",
 		    "a sticky directory cannot be loaded."];
 sticky_dir(Config) when is_list(Config) ->
-    MyDir=filename:dirname(code:which(?MODULE)),
-    {ok, Node}=?t:start_node(sticky_dir, slave,[{args, "-pa \""++MyDir++"\""}]),
-    File=filename:join([?config(data_dir, Config), "calendar"]),
-    Ret=rpc:call(Node, ?MODULE, sticky_compiler, [File]),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok,Node} = ?t:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
+    Mods = [code,lists,erlang,init],
+    OutDir = filename:join(?config(priv_dir, Config), sticky_dir),
+    _ = file:make_dir(OutDir),
+    Ret = rpc:call(Node, erlang, apply,
+		   [fun sticky_compiler/2,[Mods,OutDir]]),
     case Ret of
-	fail ->
-	    ?t:fail("c:c allowed a sticky module to be compiled and loaded.");
-	ok ->
+	[] ->
 	    ok;
 	Other ->
-	    test_server:format("Other: ~p",[Other])
+	    io:format("~p\n", [Other]),
+	    ?t:fail()
     end,
-    ?t:stop_node(Node).
+    ?t:stop_node(Node),
+    ok.
 
-sticky_compiler(File) ->
-    Compiled=File++code:objfile_extension(),
-    Dir=filename:dirname(File),
-    code:add_patha(Dir),
-    file:delete(Compiled),
-    case c:c(File, [{outdir, Dir}]) of
-	{ok, Module} ->
-	    case catch Module:test(apa) of
-		{error, _} ->
-		    fail;
-		{'EXIT', _} ->
-		    ok
-	    end;
-	Other ->
-	    test_server:format("c:c(~p) returned: ~p",[File, Other]),
+sticky_compiler(Files, PrivDir) ->
+    code:add_patha(PrivDir),
+    Rets = [do_sticky_compile(F, PrivDir) || F <- Files],
+    [R || R <- Rets, R =/= ok].
+
+do_sticky_compile(Mod, Dir) ->
+    %% Make sure that the module is loaded. A module being sticky
+    %% only prevents it from begin reloaded, not from being loaded
+    %% from the wrong place to begin with.
+    Mod = Mod:module_info(module),
+    File = filename:append(Dir, atom_to_list(Mod)),
+    Src = io_lib:format("-module(~s).\n"
+			"-export([test/1]).\n"
+			"test(me) -> fail.\n", [Mod]),
+    ok = file:write_file(File++".erl", Src),
+    case c:c(File, [{outdir,Dir}]) of
+	{ok,Module} ->
+	    Module:test(me);
+	{error,sticky_directory} ->
 	    ok
     end.
 
