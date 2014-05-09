@@ -381,7 +381,12 @@ to_octal(Int, Count, Result) ->
     to_octal(Int div 8, Count-1, [Int rem 8 + $0|Result]).
 
 to_string(Str0, Count) ->
-    Str = list_to_binary(Str0),
+    Str = case file:native_name_encoding() of
+	      utf8 ->
+		  unicode:characters_to_binary(Str0);
+	      latin1 ->
+		  list_to_binary(Str0)
+	  end,
     case byte_size(Str) of
 	Size when Size < Count ->
 	    [Str|zeroes(Count-Size)];
@@ -392,9 +397,17 @@ to_string(Str0, Count) ->
 
 pad_file(File) ->
     {ok,Position} = file:position(File, {cur,0}),
-    %% There must be at least one empty record at the end of the file.
-    Zeros = zeroes(?block_size - (Position rem ?block_size)),
-    file:write(File, Zeros).
+    %% There must be at least two zero records at the end.
+    Fill = case ?block_size - (Position rem ?block_size) of
+	       Fill0 when Fill0 < 2*?record_size ->
+		   %% We need to another block here to ensure that there
+		   %% are at least two zero records at the end.
+		   Fill0 + ?block_size;
+	       Fill0 ->
+		   %% Large enough.
+		   Fill0
+	   end,
+    file:write(File, zeroes(Fill)).
 
 split_filename(Name) when length(Name) =< ?th_name_len ->
     {"", Name};
@@ -608,7 +621,22 @@ typeflag(Bin) ->
 %% Get the name of the file from the prefix and name fields of the
 %% tar header.
 
-get_name(Bin) ->
+get_name(Bin0) ->
+    List0 = get_name_raw(Bin0),
+    case file:native_name_encoding() of
+	utf8 ->
+	    Bin = list_to_binary(List0),
+	    case unicode:characters_to_list(Bin) of
+		{error,_,_} ->
+		    List0;
+		List when is_list(List) ->
+		    List
+	    end;
+	latin1 ->
+	    List0
+    end.
+
+get_name_raw(Bin) ->
     Name = from_string(Bin, ?th_name, ?th_name_len),
     case binary_to_list(Bin, ?th_prefix+1, ?th_prefix+1) of
 	[0] ->
