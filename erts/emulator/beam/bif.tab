@@ -613,6 +613,7 @@ bif erlang:fun_info_mfa/1
 #
 
 bif erlang:get_keys/0
+bif ets:update_counter/4
 
 #
 # Obsolete

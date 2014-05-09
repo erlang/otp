@@ -72,7 +72,7 @@
          select_count/2, select_delete/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
          take/2,
-         update_counter/3, update_element/3]).
+         update_counter/3, update_counter/4, update_element/3]).
 
 -spec all() -> [Tab] when
       Tab :: tab().
@@ -437,6 +437,38 @@ take(_, _) ->
       Result :: integer().
 
 update_counter(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec update_counter(Tab, Key, UpdateOp, Default) -> Result when
+                        Tab :: tab(),
+                        Key :: term(),
+                        UpdateOp :: {Pos, Incr}
+                                  | {Pos, Incr, Threshold, SetValue},
+                        Pos :: integer(),
+                        Incr :: integer(),
+                        Threshold :: integer(),
+                        SetValue :: integer(),
+                        Result :: integer(),
+                        Default :: tuple();
+                    (Tab, Key, [UpdateOp], Default) -> [Result] when
+                        Tab :: tab(),
+                        Key :: term(),
+                        UpdateOp :: {Pos, Incr}
+                                  | {Pos, Incr, Threshold, SetValue},
+                        Pos :: integer(),
+                        Incr :: integer(),
+                        Threshold :: integer(),
+                        SetValue :: integer(),
+                        Result :: integer(),
+                        Default :: tuple();
+                    (Tab, Key, Incr, Default) -> Result when
+                        Tab :: tab(),
+                        Key :: term(),
+                        Incr :: integer(),
+                        Result :: integer(),
+                        Default :: tuple().
+
+update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -spec update_element(Tab, Key, ElementSpec :: {Pos, Value}) -> boolean() when

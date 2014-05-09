@@ -316,6 +316,7 @@ nbif_fail:
 	.global	nbif_1_gc_after_bif
 	.global	nbif_2_gc_after_bif
 	.global	nbif_3_gc_after_bif
+	.global nbif_4_gc_after_bif
 nbif_0_gc_after_bif:
 	ba	.gc_after_bif
 	mov	0, %o1		/* delay slot */

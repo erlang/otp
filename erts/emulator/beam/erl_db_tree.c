@@ -399,8 +399,11 @@ static int db_delete_all_objects_tree(Process* p, DbTable* tbl);
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
 #endif
-static int db_lookup_dbterm_tree(DbTable *, Eterm key, DbUpdateHandle*);
-static void db_finalize_dbterm_tree(DbUpdateHandle*);
+static int
+db_lookup_dbterm_tree(Process *, DbTable *, Eterm key, Eterm obj,
+                      DbUpdateHandle*);
+static void
+db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
 
 /*
 ** Static variables
@@ -2546,16 +2549,43 @@ static TreeDbTerm **find_node2(DbTableTree *tb, Eterm key)
     return this;
 }
 
-static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle)
+static int
+db_lookup_dbterm_tree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
+                      DbUpdateHandle* handle)
 {
     DbTableTree *tb = &tbl->tree;
     TreeDbTerm **pp = find_node2(tb, key);
+    int flags = 0;
 
-    if (pp == NULL) return 0;
+    if (pp == NULL) {
+        if (obj == THE_NON_VALUE) {
+            return 0;
+        } else {
+            Eterm *objp = tuple_val(obj);
+            int arity = arityval(*objp);
+            Eterm *htop, *hend;
+
+            ASSERT(arity >= tb->common.keypos);
+            htop = HAlloc(p, arity + 1);
+            hend = htop + arity + 1;
+            sys_memcpy(htop, objp, sizeof(Eterm) * (arity + 1));
+            htop[tb->common.keypos] = key;
+            obj = make_tuple(htop);
+
+            if (db_put_tree(tbl, obj, 1) != DB_ERROR_NONE) {
+                return 0;
+            }
+
+            pp = find_node2(tb, key);
+            ASSERT(pp != NULL);
+            HRelease(p, hend, htop);
+            flags |= DB_NEW_OBJECT;
+        }
+    }
 
     handle->tb = tbl;
     handle->dbterm = &(*pp)->dbterm;
-    handle->mustResize = 0;
+    handle->flags = flags;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
 #if HALFWORD_HEAP
@@ -2564,15 +2594,21 @@ static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle
     return 1;
 }
 
-static void db_finalize_dbterm_tree(DbUpdateHandle* handle)
+static void
+db_finalize_dbterm_tree(int cret, DbUpdateHandle *handle)
 {
-    if (handle->mustResize) {
-	TreeDbTerm* oldp = (TreeDbTerm*) *handle->bp;
+    DbTable *tbl = handle->tb;
+    DbTableTree *tb = &tbl->tree;
+    TreeDbTerm *bp = (TreeDbTerm *) *handle->bp;
 
+    if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
+        Eterm ret;
+        db_erase_tree(tbl, GETKEY(tb, bp->dbterm.tpl), &ret);
+    } else if (handle->flags & DB_MUST_RESIZE) {
 	db_finalize_resize(handle, offsetof(TreeDbTerm,dbterm));
-	reset_static_stack(&handle->tb->tree);
+        reset_static_stack(tb);
 
-	free_term(&handle->tb->tree, oldp);
+        free_term(tb, bp);
     }
 #ifdef DEBUG
     handle->dbterm = 0;
