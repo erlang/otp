@@ -2292,8 +2292,8 @@ create_p1g(Conf,TargetDir) ->
     ok.
 
 fix_version(SystemLib,App) ->
-    FromVsn = vsn(App,current),
-    ToVsn = vsn(App,old),
+    FromVsn = re:replace(vsn(App,current),"\\.","\\\\.",[{return,binary}]),
+    ToVsn = re:replace(vsn(App,old),"\\.","\\\\.",[{return,binary}]),
     Rootname = filename:join([SystemLib,app_dir(App,old),ebin,atom_to_list(App)]),
 
     AppFile = Rootname ++ ".app",

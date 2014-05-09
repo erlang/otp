@@ -94,10 +94,10 @@ appup_tests(App,{OkVsns,NokVsns}) ->
     ok.
 
 create_test_vsns(App) ->
-    This = erlang:system_info(otp_release),
-    FirstMajor = previous_major(This),
+    ThisMajor = erlang:system_info(otp_release),
+    FirstMajor = previous_major(ThisMajor),
     SecondMajor = previous_major(FirstMajor),
-    Ok = app_vsn(App,[FirstMajor]),
+    Ok = app_vsn(App,[ThisMajor,FirstMajor]),
     Nok0 = app_vsn(App,[SecondMajor]),
     Nok = case Ok of
 	       [Ok1|_] ->
@@ -108,9 +108,9 @@ create_test_vsns(App) ->
     {Ok,Nok}.
 
 previous_major("17") ->
-    "r16";
-previous_major("r"++Rel) ->
-    "r"++previous_major(Rel);
+    "r16b";
+previous_major("r16b") ->
+    "r15b";
 previous_major(Rel) ->
     integer_to_list(list_to_integer(Rel)-1).
 
