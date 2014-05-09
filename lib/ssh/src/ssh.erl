@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -73,8 +73,9 @@ connect(Host, Port, Options, Timeout) ->
 	{SocketOptions, SshOptions} ->
 	    {_, Transport, _} = TransportOpts =
 		proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
+	    ConnectionTimeout = proplists:get_value(connect_timeout, Options, infinity),
 	    Inet = proplists:get_value(inet, SshOptions, inet),
-	    try Transport:connect(Host, Port,  [ {active, false}, Inet | SocketOptions], Timeout) of
+	    try Transport:connect(Host, Port,  [ {active, false}, Inet | SocketOptions], ConnectionTimeout) of
 		{ok, Socket} ->
 		    Opts =  [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)],
 		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
