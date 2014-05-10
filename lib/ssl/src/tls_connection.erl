@@ -386,6 +386,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   renegotiation = {false, first},
 	   start_or_recv_from = undefined,
 	   send_queue = queue:new(),
+	   socket_stats = #socket_stats{},
 	   protocol_cb = ?MODULE,
 	   tracker = Tracker
 	  }.
@@ -557,6 +558,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 				   socket = Socket,
 				   transport_cb = Transport,
 				   socket_options = SOpts,
+				   socket_stats = SStats,
 				   bytes_to_read = BytesToRead,
 				   start_or_recv_from = RecvFrom,
 				   timer = Timer,
@@ -575,7 +577,8 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 				 start_or_recv_from = undefined,
 				 timer = undefined,
 				 bytes_to_read = undefined,
-				 socket_options = SocketOpt 
+				 socket_options = SocketOpt,
+				 socket_stats = update_stats(recv, byte_size(ClientData), SStats)
 				},
 	    if
 		SocketOpt#socket_options.active =:= false; Buffer =:= <<>> -> 
@@ -716,6 +719,21 @@ send_or_reply(_, Pid, _From, Data) ->
 send_user(Pid, Msg) ->
     Pid ! Msg.
 
+
+%% Update socket stats
+%% Stats are used for handling ssl:getstat/{1,2} calls
+update_stats(recv, Size, #socket_stats{recv_cnt = Cnt0, recv_oct = Oct0, recv_max = Max0} = SStats) ->
+    Cnt = Cnt0 + 1,
+    Oct = Oct0 + Size,
+    Max = max(Max0, Size),
+    SStats#socket_stats{recv_cnt = Cnt, recv_oct = Oct, recv_max = Max};
+update_stats(send, Size, #socket_stats{send_cnt = Cnt0, send_oct = Oct0, send_max = Max0} = SStats) ->
+    Cnt = Cnt0 + 1,
+    Oct = Oct0 + Size,
+    Max = max(Max0, Size),
+    SStats#socket_stats{send_cnt = Cnt, send_oct = Oct, send_max = Max}.
+
+
 handle_tls_handshake(Handle, StateName,
 		     #state{protocol_buffers =
 				#protocol_buffers{tls_packets = [Packet]} = Buffers} = State) ->
@@ -747,8 +765,10 @@ write_application_data(Data0, From,
 			      connection_states = ConnectionStates0,
 			      send_queue = SendQueue,
 			      socket_options = SockOpts,
-			      ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} = State) ->
+			      socket_stats = SockStats,
+			      ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} = State0) ->
     Data = encode_packet(Data0, SockOpts),
+    State = State0#state{socket_stats = update_stats(send, byte_size(Data0), SockStats)},
     
     case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
 	true ->

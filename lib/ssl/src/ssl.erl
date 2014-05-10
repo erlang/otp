@@ -33,7 +33,8 @@
 	 listen/2, transport_accept/1, transport_accept/2,
 	 ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
-	 close/1, shutdown/2, recv/2, recv/3, send/2, getopts/2, setopts/2
+	 close/1, shutdown/2, recv/2, recv/3, send/2,
+	 getopts/2, setopts/2, getstat/1, getstat/2
 	]).
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
@@ -411,6 +412,28 @@ setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_}}}} = Lis
     end;
 setopts(#sslsocket{}, Options) ->
     {error, {options,{not_a_proplist, Options}}}.
+
+%%---------------------------------------------------------------
+-spec getstat(#sslsocket{}) -> {ok, OptionValues} | {error, inet:posix()} when
+      OptionValues :: [{inet:stat_option(), integer()}].
+%%
+%% Description: get socket stats like inet:getstat/1 does
+%%
+getstat(Socket) ->
+    getstat(Socket, inet:stats()).
+
+%%---------------------------------------------------------------
+-spec getstat(#sslsocket{}, [inet:stat_option()]) -> {ok, OptionValues} | {error, inet:posix()} when
+      OptionValues :: [{inet:stat_option(), integer()}].
+%%
+%% Description: get socket stats like inet:getstat/2 does
+%%
+getstat(#sslsocket{fd = {_, _, _}, pid = Pid}, Options) when is_pid(Pid), is_list(Options)  ->
+    ssl_connection:get_stat(Pid, Options);
+
+getstat(#sslsocket{fd = nil, pid = {Port, #config{}}}, Options) when is_port(Port), is_list(Options) ->
+    % Listen socket. It seems to always have zero stats, but let it be compatible
+    inet:getstat(Port, Options).
 
 %%---------------------------------------------------------------
 -spec shutdown(#sslsocket{}, read | write | read_write) ->  ok | {error, reason()}.
