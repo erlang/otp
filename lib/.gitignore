@@ -11,6 +11,11 @@
 /common_test/doc/src/ct_telnet.xml
 /common_test/doc/src/unix_telnet.xml
 
+# compiler
+
+/compiler/doc/src/cerl.xml
+/compiler/doc/src/cerl_trees.xml
+
 # edoc
 
 /edoc/doc/src/chapter.xml
