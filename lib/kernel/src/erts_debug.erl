@@ -182,6 +182,11 @@ size(Tuple, Seen0, Sum0) when is_tuple(Tuple) ->
 	    Sum = Sum0 + 1 + tuple_size(Tuple),
 	    tuple_size(1, tuple_size(Tuple), Tuple, Seen, Sum)
     end;
+size(Map, Seen0, Sum) when is_map(Map) ->
+    case remember_term(Map, Seen0) of
+	seen -> {Sum,Seen0};
+	Seen -> map_size(Map, Seen, Sum)
+    end;
 size(Fun, Seen0, Sum) when is_function(Fun) ->
     case remember_term(Fun, Seen0) of
 	seen -> {Sum,Seen0};
@@ -203,6 +208,12 @@ tuple_size(I, Sz, Tuple, Seen0, Sum0) ->
     {Sum,Seen} = size(element(I, Tuple), Seen0, Sum0),
     tuple_size(I+1, Sz, Tuple, Seen, Sum).
 
+map_size(Map,Seen0,Sum0) ->
+    Kt = erts_internal:map_to_tuple_keys(Map),
+    Vs = maps:values(Map),
+    {Sum1,Seen1} = size(Kt,Seen0,Sum0),
+    fold_size(Vs,Seen1,Sum1+length(Vs)+3).
+
 fun_size(Fun, Seen, Sum) ->
     case erlang:fun_info(Fun, type) of
 	{type,external} ->
@@ -210,14 +221,14 @@ fun_size(Fun, Seen, Sum) ->
 	{type,local} ->
 	    Sz = erts_debug:flat_size(fun() -> ok end),
 	    {env,Env} = erlang:fun_info(Fun, env),
-	    fun_size_1(Env, Seen, Sum+Sz+length(Env))
+	    fold_size(Env, Seen, Sum+Sz+length(Env))
     end.
 
-fun_size_1([H|T], Seen0, Sum0) ->
+fold_size([H|T], Seen0, Sum0) ->
     {Sum,Seen} = size(H, Seen0, Sum0),
-    fun_size_1(T, Seen, Sum);
-fun_size_1([], Seen, Sum) -> {Sum,Seen}.
-	    
+    fold_size(T, Seen, Sum);
+fold_size([], Seen, Sum) -> {Sum,Seen}.
+
 remember_term(Term, Seen) ->
     case gb_trees:lookup(Term, Seen) of
 	none -> gb_trees:insert(Term, [Term], Seen);
