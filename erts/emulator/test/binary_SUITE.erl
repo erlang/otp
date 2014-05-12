@@ -59,7 +59,7 @@
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
 	 otp_8180/1, trapping/1, large/1,
-	 error_after_yield/1]).
+	 error_after_yield/1, cmp_old_impl/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -78,7 +78,7 @@ all() ->
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
      obsolete_funs, robustness, otp_8180, trapping, large,
-     error_after_yield].
+     error_after_yield, cmp_old_impl].
 
 groups() -> 
     [].
@@ -1486,6 +1486,61 @@ error_after_yield_sched(P, TrapFunc, N) ->
 	    N
     end.
 	    
+cmp_old_impl(Config) when is_list(Config) ->
+    %% Compare results from new yielding implementations with
+    %% old non yielding implementations 
+    Cookie = atom_to_list(erlang:get_cookie()),
+    Rel = "r16b_latest",
+    case test_server:is_release_available(Rel) of
+	false ->
+	    {skipped, "No "++Rel++" available"};
+	true ->
+	    {ok, Node} = ?t:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
+				       peer,
+				       [{args, " -setcookie "++Cookie},
+					{erl, [{release, Rel}]}]),
+
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10000000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list_lb(10000000))]}),
+
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(100))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10000000))]}),
+
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(100))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10000000))]}),
+
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(100)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(100000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000000)))]}),
+
+	    ?t:stop_node(Node),
+
+	    ok
+    end.
 
 %% Utilities.
 
@@ -1497,6 +1552,11 @@ huge_iolist(X, Sz, Lim) when Sz >= Lim ->
     X;
 huge_iolist(X, Sz, Lim) ->
     huge_iolist([X, X], Sz*2, Lim).
+
+cmp_node(Node, {M, F, A}) ->
+    Res = rpc:call(Node, M, F, A),
+    Res = apply(M, F, A),
+    ok.
 
 make_sub_binary(Bin) when is_binary(Bin) ->
     {_,B} = split_binary(list_to_binary([0,1,3,Bin]), 3),
