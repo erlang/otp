@@ -244,17 +244,17 @@ expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, {undef_record,Name}, stacktrace());
 
 %% map
-expr({map,_, Binding,Es}, Bs0, Lf, Ef, RBs) ->
-    {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, RBs),
+expr({map,_,Binding,Es}, Bs0, Lf, Ef, RBs) ->
+    {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, none),
     case Map0 of
         #{} ->
-            {Vs,Bs} = eval_map_fields(Es, Bs1, Lf, Ef),
+            {Vs,Bs2} = eval_map_fields(Es, Bs0, Lf, Ef),
             Map1 = lists:foldl(fun ({map_assoc,K,V}, Mi) ->
                                        maps:put(K, V, Mi);
                                    ({map_exact,K,V}, Mi) ->
                                        maps:update(K, V, Mi)
                                end, Map0, Vs),
-            ret_expr(Map1, Bs, RBs);
+            ret_expr(Map1, merge_bindings(Bs2, Bs1), RBs);
         _ ->
             erlang:raise(error, {badarg,Map0}, stacktrace())
     end;
