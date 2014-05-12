@@ -2064,11 +2064,13 @@ output_actions(St0, StateJumps, StateInfo) ->
     SelS = [{State,Called} || 
                {{State,_JActions}, {State,Called}} <- 
                    lists:zip(StateJumps, lists:keysort(1, Sel))],
+    St05 =
+        fwrite(St0, <<"-dialyzer({nowarn_function, yeccpars2/7}).\n">>, []),
     St10 = foldl(fun({State, Called}, St_0) ->
                          {State, #state_info{state_repr = IState}} = 
                              lookup_state(StateInfo, State),
                          output_state_selection(St_0, State, IState, Called)
-            end, St0, SelS),
+            end, St05, SelS),
     St20 = fwrite(St10, <<"yeccpars2(Other, _, _, _, _, _, _) ->\n">>, []),
     St = fwrite(St20,
                 ?YECC_BUG(<<"{missing_state_in_action_table, Other}">>, []),
@@ -2089,7 +2091,8 @@ output_state_selection(St0, State, IState, Called) ->
            [Comment, IState]).
 
 output_state_actions(St, State, State, {Actions,jump_none}, SI) ->
-    output_state_actions1(St, State, Actions, true, normal, SI);
+    St1 = output_state_actions_begin(St, State, Actions),
+    output_state_actions1(St1, State, Actions, true, normal, SI);
 output_state_actions(St0, State, State, {Actions, Jump}, SI) ->
     {Tag, To, Common} = Jump,
     CS = case Tag of
@@ -2099,12 +2102,21 @@ output_state_actions(St0, State, State, {Actions, Jump}, SI) ->
     St = output_state_actions1(St0, State, Actions, true, {to, CS}, SI),
     if 
         To =:= State ->
-            output_state_actions1(St, CS, Common, true, normal, SI);
+            St1 = output_state_actions_begin(St, State, Actions),
+            output_state_actions1(St1, CS, Common, true, normal, SI);
         true ->
             St
     end;
 output_state_actions(St, State, JState, _XActions, _SI) ->
     fwrite(St, <<"%% yeccpars2_~w: see yeccpars2_~w\n\n">>, [State, JState]).
+
+output_state_actions_begin(St, State, Actions) ->
+    case [yes || {_, #reduce{}} <- Actions] of
+        [] ->
+            fwrite(St, <<"-dialyzer({nowarn_function, yeccpars2_~w/7}).\n">>,
+                   [State]); % Only when yeccerror(T) is output.
+        _ -> St
+    end.
 
 output_state_actions1(St, State, [], IsFirst, normal, _SI) ->
     output_state_actions_fini(State, IsFirst, St);
