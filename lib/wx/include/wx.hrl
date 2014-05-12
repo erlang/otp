@@ -2515,7 +2515,9 @@
 -define(wxSL_RIGHT, 256).
 -define(wxSL_TOP, 128).
 -define(wxSL_LEFT, 64).
--define(wxSL_LABELS, 32).
+-define(wxSL_MIN_MAX_LABELS, 8192).
+-define(wxSL_VALUE_LABEL, 16384).
+-define(wxSL_LABELS, ?wxSL_MIN_MAX_LABELS bor ?wxSL_VALUE_LABEL). % 24576
 -define(wxSL_AUTOTICKS, ?wxSL_TICKS).
 -define(wxSL_TICKS, 16).
 -define(wxSL_VERTICAL, ?wxVERTICAL).
