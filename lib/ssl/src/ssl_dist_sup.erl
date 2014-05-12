@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,9 +45,11 @@ start_link() ->
 init([]) ->    
     SessionCertManager = session_and_cert_manager_child_spec(),
     ConnetionManager = connection_manager_child_spec(),
+    ListenOptionsTracker = listen_options_tracker_child_spec(), 
     ProxyServer = proxy_server_child_spec(),
 
-    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager,
+    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager, 
+				    ListenOptionsTracker,
 				    ProxyServer]}}.
 
 %%--------------------------------------------------------------------
@@ -68,7 +70,7 @@ connection_manager_child_spec() ->
     StartFunc = {tls_connection_sup, start_link_dist, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_connection],
+    Modules = [tls_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
@@ -81,3 +83,11 @@ proxy_server_child_spec() ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
+listen_options_tracker_child_spec() ->
+    Name = ssl_socket_dist,  
+    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
+    Restart = permanent, 
+    Shutdown = 4000,
+    Modules = [ssl_socket],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
