@@ -58,6 +58,8 @@
  * - maps:size/1
  * - maps:without/2
  *
+ * DEBUG: for sharing calculation
+ * - erts_internal:map_to_tuple_keys/1
  */
 
 /* erlang:map_size/1
@@ -818,4 +820,18 @@ int erts_validate_and_sort_map(map_t* mp)
 	}
     }
     return 1;
+}
+
+/*
+ * erts_internal:map_to_tuple_keys/1
+ *
+ * Used in erts_debug:size/1
+ */
+
+BIF_RETTYPE erts_internal_map_to_tuple_keys_1(BIF_ALIST_1) {
+    if (is_map(BIF_ARG_1)) {
+	map_t *mp = (map_t*)map_val(BIF_ARG_1);
+	BIF_RET(mp->keys);
+    }
+    BIF_ERROR(BIF_P, BADARG);
 }

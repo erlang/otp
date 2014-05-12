@@ -31,6 +31,7 @@
 -export([await_port_send_result/3]).
 -export([binary_to_term/1, binary_to_term/2]).
 -export([cmp_term/2]).
+-export([map_to_tuple_keys/1]).
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -180,4 +181,12 @@ binary_to_term(_Binary, _Opts) ->
     Result :: -1 | 0 | 1.
 
 cmp_term(_A,_B) ->
+    erlang:nif_error(undefined).
+
+%% return the internal key tuple for map keys
+-spec map_to_tuple_keys(M) -> Keys when
+    M :: map(),
+    Keys :: tuple().
+
+map_to_tuple_keys(_M) ->
     erlang:nif_error(undefined).
