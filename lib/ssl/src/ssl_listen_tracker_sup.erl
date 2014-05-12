@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,9 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Supervisor for a SSL/TLS connection
+%% Purpose: Supervisor for a listen options tracker
 %%----------------------------------------------------------------------
--module(tls_connection_sup).
+-module(ssl_listen_tracker_sup).
 
 -behaviour(supervisor).
 
@@ -36,17 +36,17 @@
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    supervisor:start_link({local, tracker_name(normal)}, ?MODULE, []).
 
 start_link_dist() ->
-    supervisor:start_link({local, ssl_connection_sup_dist}, ?MODULE, []).
+    supervisor:start_link({local, tracker_name(dist)}, ?MODULE, []).
 
 start_child(Args) ->
-    supervisor:start_child(?MODULE, Args).
-    
+    supervisor:start_child(tracker_name(normal), Args).
+
 start_child_dist(Args) ->
-    supervisor:start_child(ssl_connection_sup_dist, Args).
-    
+    supervisor:start_child(tracker_name(dist), Args).
+  
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
@@ -56,11 +56,16 @@ init(_O) ->
     MaxT = 3600,
    
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {tls_connection, start_link, []},
+    StartFunc = {ssl_socket, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [tls_connection, ssl_connection],
+    Modules = [ssl_socket],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
+
+tracker_name(normal) ->
+    ?MODULE;
+tracker_name(dist) ->
+    list_to_atom(atom_to_list(?MODULE) ++ "dist").

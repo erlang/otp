@@ -28,6 +28,7 @@
 	       ssl_srp_primes,
 	       ssl_alert,
 	       ssl_socket,
+	       ssl_listen_tracker_sup,	
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       ssl_tls_dist_proxy,

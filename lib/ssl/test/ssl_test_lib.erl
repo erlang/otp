@@ -67,7 +67,16 @@ run_server(Opts) ->
     run_server(ListenSocket, Opts).
 
 run_server(ListenSocket, Opts) ->
-    do_run_server(ListenSocket, connect(ListenSocket, Opts), Opts).
+    Accepters = proplists:get_value(accepters, Opts, 1),
+    run_server(ListenSocket, Opts, Accepters). 
+    
+run_server(ListenSocket, Opts, 1) ->
+    do_run_server(ListenSocket, connect(ListenSocket, Opts), Opts);
+run_server(ListenSocket, Opts, N) ->
+    Pid = proplists:get_value(from, Opts),
+    Server = spawn(?MODULE, run_server, [ListenSocket, Opts, 1]),
+    Pid ! {accepter, N, Server},
+    run_server(ListenSocket, Opts, N-1).
 
 do_run_server(_, {error, timeout} = Result, Opts)  ->
     Pid = proplists:get_value(from, Opts),
@@ -290,7 +299,16 @@ wait_for_result(Server, ServerMsg, Client, ClientMsg) ->
 	%%     Unexpected
     end.
 
-
+check_ok([]) ->
+    ok;
+check_ok(Pids) ->
+    receive 
+	{Pid, ok} ->
+	    check_ok(lists:delete(Pid, Pids));
+	Other ->
+	    ct:fail({expected, {"pid()", ok}, got, Other})
+    end.
+	
 wait_for_result(Pid, Msg) -> 
     receive 
 	{Pid, Msg} -> 
@@ -678,6 +696,17 @@ run_client_error(Opts) ->
     ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
     Error = rpc:call(Node, Transport, connect, [Host, Port, Options]),
     Pid ! {self(), Error}.
+
+accepters(N) ->
+    accepters([], N).
+
+accepters(Acc, 0) ->
+    Acc;
+accepters(Acc, N) ->
+    receive 
+	{accepter, _, Server} ->
+	    accepters([Server| Acc], N-1)
+    end.
 
 inet_port(Pid) when is_pid(Pid)->
     receive

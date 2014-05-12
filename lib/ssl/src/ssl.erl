@@ -97,17 +97,17 @@ connect(Socket, SslOptions) when is_port(Socket) ->
 connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
     {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
 					      {gen_tcp, tcp, tcp_closed, tcp_error}),
-    EmulatedOptions = emulated_options(),
+    EmulatedOptions = ssl_socket:emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
     try handle_options(SslOptions0 ++ SocketValues, client) of
 	{ok, #config{transport_info = CbInfo, ssl = SslOptions, emulated = EmOpts,
 		     connection_cb = ConnectionCb}} ->
 
-	    ok = ssl_socket:setopts(Transport, Socket, internal_inet_values()),
+	    ok = ssl_socket:setopts(Transport, Socket, ssl_socket:internal_inet_values()),
 	    case ssl_socket:peername(Transport, Socket) of
 		{ok, {Address, Port}} ->
 		    ssl_connection:connect(ConnectionCb, Address, Port, Socket,
-					   {SslOptions, EmOpts},
+					   {SslOptions, emulated_socket_options(EmOpts, #socket_options{})},
 					   self(), CbInfo, Timeout);
 		{error, Error} ->
 		    {error, Error}
@@ -141,10 +141,13 @@ listen(Port, Options0) ->
     try
 	{ok, Config} = handle_options(Options0, server),
 	ConnectionCb = connection_cb(Options0),
-	#config{transport_info = {Transport, _, _, _}, inet_user = Options, connection_cb = ConnectionCb} = Config,
+	#config{transport_info = {Transport, _, _, _}, inet_user = Options, connection_cb = ConnectionCb,
+		ssl = SslOpts, emulated = EmOpts} = Config,
 	case Transport:listen(Port, Options) of
 	    {ok, ListenSocket} ->
-		{ok, #sslsocket{pid = {ListenSocket, Config}}};
+		ok = ssl_socket:setopts(Transport, ListenSocket, ssl_socket:internal_inet_values()),
+		{ok, Tracker} = ssl_socket:inherit_tracker(ListenSocket, EmOpts, SslOpts),
+		{ok, #sslsocket{pid = {ListenSocket, Config#config{emulated = Tracker}}}};
 	    Err = {error, _} ->
 		Err
 	end
@@ -164,21 +167,16 @@ transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
 transport_accept(#sslsocket{pid = {ListenSocket,
-				   #config{transport_info = CbInfo,
+				   #config{transport_info =  {Transport,_,_, _} =CbInfo,
 					   connection_cb = ConnectionCb,
-					   ssl = SslOpts}}}, Timeout) ->
-    %% The setopt could have been invoked on the listen socket
-    %% and options should be inherited.
-    EmOptions = emulated_options(),
-    {Transport,_,_, _} = CbInfo,
-    {ok, SocketValues} = ssl_socket:getopts(Transport, ListenSocket, EmOptions),
-    ok = ssl_socket:setopts(Transport, ListenSocket, internal_inet_values()),
+					   ssl = SslOpts,
+					   emulated = Tracker}}}, Timeout) ->   
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
-	    ok = ssl_socket:setopts(Transport, ListenSocket, SocketValues),
+	    {ok, EmOpts} = ssl_socket:get_emulated_opts(Tracker),
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
 	    ConnArgs = [server, "localhost", Port, Socket,
-			{SslOpts, socket_options(SocketValues)}, self(), CbInfo],
+			{SslOpts, emulated_socket_options(EmOpts, #socket_options{})}, self(), CbInfo],
 	    ConnectionSup = connection_sup(ConnectionCb),
 	    case ConnectionSup:start_child(ConnArgs) of
 		{ok, Pid} ->
@@ -223,16 +221,16 @@ ssl_accept(#sslsocket{} = Socket, SslOptions, Timeout) ->
 ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) -> 
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
-    EmulatedOptions = emulated_options(),
+    EmulatedOptions = ssl_socket:emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
     try handle_options(SslOptions ++ SocketValues, server) of
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
-	    ok = ssl_socket:setopts(Transport, Socket, internal_inet_values()),
+	    ok = ssl_socket:setopts(Transport, Socket, ssl_socket:internal_inet_values()),
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
 	    ssl_connection:ssl_accept(ConnetionCb, Port, Socket,
-				   {SslOpts, EmOpts},
-				   self(), CbInfo, Timeout)
+				      {SslOpts, emulated_socket_options(EmOpts, #socket_options{})},
+				      self(), CbInfo, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end.
@@ -367,7 +365,7 @@ cipher_suites(all) ->
 %%--------------------------------------------------------------------
 getopts(#sslsocket{pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
     ssl_connection:get_opts(Pid, OptionTags);
-getopts(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}},
+getopts(#sslsocket{pid = {_,  #config{transport_info = {Transport,_,_,_}}}} = ListenSocket,
 	OptionTags) when is_list(OptionTags) ->
     try ssl_socket:getopts(Transport, ListenSocket, OptionTags) of
 	{ok, _} = Result ->
@@ -375,8 +373,8 @@ getopts(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_
 	{error, InetError} ->
 	    {error, {options, {socket_options, OptionTags, InetError}}}
     catch
-	_:_ ->
-	    {error, {options, {socket_options, OptionTags}}}
+	_:Error ->
+	    {error, {options, {socket_options, OptionTags, Error}}}
     end;
 getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
@@ -396,7 +394,7 @@ setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
 	    {error, {options, {not_a_proplist, Options0}}}
     end;
 
-setopts(#sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_}}}}, Options) when is_list(Options) ->
+setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
     try ssl_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
@@ -547,7 +545,8 @@ do_connect(Address, Port,
     {Transport, _, _, _} = CbInfo,
     try Transport:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, {SslOpts,EmOpts},
+	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
+				   {SslOpts, emulated_socket_options(EmOpts, #socket_options{})},
 				   self(), CbInfo, Timeout);
 	{error, Reason} ->
 	    {error, Reason}
@@ -901,40 +900,24 @@ ca_cert_default(verify_peer, {Fun,_}, _) when is_function(Fun) ->
 %% some trusted certs.
 ca_cert_default(verify_peer, undefined, _) ->
     "".
-
-emulated_options() ->
-    [mode, packet, active, header, packet_size].
-
-internal_inet_values() ->
-    [{packet_size,0},{packet, 0},{header, 0},{active, false},{mode,binary}].
-
-socket_options(InetValues) ->
-    #socket_options{
-		mode   = proplists:get_value(mode, InetValues, lists),
-		header = proplists:get_value(header, InetValues, 0),
-		active = proplists:get_value(active, InetValues, active),
-		packet = proplists:get_value(packet, InetValues, 0),
-		packet_size = proplists:get_value(packet_size, InetValues)
-	       }.
-
 emulated_options(Opts) ->
-    emulated_options(Opts, internal_inet_values(), #socket_options{}).
+    emulated_options(Opts, ssl_socket:internal_inet_values(), ssl_socket:default_inet_values()).
 
-emulated_options([{mode,Opt}|Opts], Inet, Emulated) ->
-    validate_inet_option(mode,Opt),
-    emulated_options(Opts, Inet, Emulated#socket_options{mode=Opt});
-emulated_options([{header,Opt}|Opts], Inet, Emulated) ->
-    validate_inet_option(header,Opt),
-    emulated_options(Opts, Inet, Emulated#socket_options{header=Opt});
-emulated_options([{active,Opt}|Opts], Inet, Emulated) ->
-    validate_inet_option(active,Opt),
-    emulated_options(Opts, Inet, Emulated#socket_options{active=Opt});
-emulated_options([{packet,Opt}|Opts], Inet, Emulated) ->
-    validate_inet_option(packet,Opt),
-    emulated_options(Opts, Inet, Emulated#socket_options{packet=Opt});
-emulated_options([{packet_size,Opt}|Opts], Inet, Emulated) ->
-    validate_inet_option(packet_size,Opt),
-    emulated_options(Opts, Inet, Emulated#socket_options{packet_size=Opt});
+emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(mode, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(mode, Emulated)]);
+emulated_options([{header, Value} = Opt | Opts], Inet, Emulated) ->
+    validate_inet_option(header, Value),
+    emulated_options(Opts, Inet,  [Opt | proplists:delete(header, Emulated)]);
+emulated_options([{active, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(active, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(active, Emulated)]);
+emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(packet, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(packet, Emulated)]);
+emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
+    validate_inet_option(packet_size, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
 emulated_options([Opt|Opts], Inet, Emulated) ->
     emulated_options(Opts, [Opt|Inet], Emulated);
 emulated_options([], Inet,Emulated) ->
@@ -1073,3 +1056,17 @@ assert_proplist([inet6 | Rest]) ->
     assert_proplist(Rest);
 assert_proplist([Value | _]) ->
     throw({option_not_a_key_value_tuple, Value}).
+
+emulated_socket_options(InetValues, #socket_options{
+				       mode   = Mode,
+				       header = Header,
+				       active = Active,
+				       packet = Packet,
+				       packet_size = Size}) ->
+    #socket_options{
+       mode   = proplists:get_value(mode, InetValues, Mode),
+       header = proplists:get_value(header, InetValues, Header),
+       active = proplists:get_value(active, InetValues, Active),
+       packet = proplists:get_value(packet, InetValues, Packet),
+       packet_size = proplists:get_value(packet_size, InetValues, Size)
+      }.

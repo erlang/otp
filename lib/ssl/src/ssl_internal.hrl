@@ -116,14 +116,6 @@
 	  honor_cipher_order = false
 	  }).
 
--record(config, {ssl,               %% SSL parameters
-		 inet_user,         %% User set inet options
-		 emulated,          %% #socket_option{} emulated
-		 inet_ssl,          %% inet options for internal ssl socket
-		 transport_info,                 %% Callback info
-		 connection_cb
-		}).
-
 -record(socket_options,
 	{
 	  mode   = list, 
@@ -132,6 +124,15 @@
 	  header = 0,
 	  active = true
 	 }).
+
+-record(config, {ssl,               %% SSL parameters
+		 inet_user,         %% User set inet options
+		 emulated,          %% Emulated option list or "inherit_tracker" pid 
+		 inet_ssl,          %% inet options for internal ssl socket
+		 transport_info,                 %% Callback info
+		 connection_cb
+		}).
+
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
 -type gen_fsm_state_return() :: {next_state, state_name(), term()} |
