@@ -754,14 +754,7 @@ is_remote_types_related(Contract, CSig, Sig, RecDict) ->
 
 t_from_forms_without_remote([{FType, []}], RecDict) ->
   Type0 = erl_types:t_from_form(FType, RecDict),
-  Map =
-    fun(Type) ->
-	case erl_types:t_is_remote(Type) of
-	  true -> erl_types:t_none();
-	  false -> Type
-	end
-    end,
-  {ok, erl_types:t_map(Map, Type0)};
+  {ok, erl_types:subst_all_remote(Type0, erl_types:t_none())};
 t_from_forms_without_remote([{_FType, _Constrs}], _RecDict) ->
   %% 'When' constraints
   unsupported;

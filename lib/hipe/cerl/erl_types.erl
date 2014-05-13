@@ -207,6 +207,7 @@
 	 type_is_defined/4,
 	 record_field_diffs_to_string/2,
 	 subst_all_vars_to_any/1,
+         subst_all_remote/2,
 	 lift_list_to_pos_empty/1,
          is_opaque_type/2,
 	 is_erl_type/1,
@@ -3068,6 +3069,18 @@ t_subst_aux(?union(List), VarMap) ->
 t_subst_aux(T, _VarMap) ->
   T.
 	      
+-spec subst_all_remote(erl_type(), erl_type()) -> erl_type().
+
+subst_all_remote(Type0, Substitute) ->
+  Map =
+    fun(Type) ->
+        case erl_types:t_is_remote(Type) of
+          true -> Substitute;
+          false -> Type
+        end
+    end,
+  erl_types:t_map(Map, Type0).
+
 %%-----------------------------------------------------------------------------
 %% Unification
 %%
@@ -4360,7 +4373,7 @@ get_mod_record([{FieldName, DeclType}|Left1],
 	       [{FieldName, ModType}|Left2], Acc) ->
   ModTypeNoVars = subst_all_vars_to_any(ModType),
   case
-    t_is_remote(ModTypeNoVars) orelse t_is_subtype(ModTypeNoVars, DeclType)
+    contains_remote(ModTypeNoVars) orelse t_is_subtype(ModTypeNoVars, DeclType)
   of
     false -> {error, FieldName};
     true -> get_mod_record(Left1, Left2, [{FieldName, ModType}|Acc])
@@ -4373,6 +4386,10 @@ get_mod_record(DeclFields, [], Acc) ->
   {ok, orddict:from_list(Acc ++ DeclFields)};
 get_mod_record(_, [{FieldName2, _ModType}|_], _Acc) ->
   {error, FieldName2}.
+
+contains_remote(Type) ->
+  TypeNoRemote = subst_all_remote(Type, t_none()),
+  not t_is_equal(Type, TypeNoRemote).
 
 fields_from_form([], _TypeNames, _RecDict, _VarDict) ->
   {[], []};
