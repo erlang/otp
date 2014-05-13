@@ -848,10 +848,12 @@ build_fun(Line, Cs) ->
     end.
 
 check_clauses(Cs, Name, Arity) ->
-     mapl(fun ({clause,L,N,As,G,B}) when N =:= Name, length(As) =:= Arity ->
-		 {clause,L,As,G,B};
-	     ({clause,L,_N,_As,_G,_B}) ->
-		 ret_err(L, "head mismatch") end, Cs).
+    [case C of
+         {clause,L,N,As,G,B} when N =:= Name, length(As) =:= Arity ->
+             {clause,L,As,G,B};
+         {clause,L,_N,_As,_G,_B} ->
+             ret_err(L, "head mismatch")
+     end || C <- Cs].
 
 build_try(L,Es,Scs,{Ccs,As}) ->
     {'try',L,Es,Scs,Ccs,As}.
@@ -861,17 +863,6 @@ ret_err(L, S) ->
     {location,Location} = get_attribute(L, location),
     return_error(Location, S).
 
-%% mapl(F,List)
-%% an alternative map which always maps from left to right
-%% and makes it possible to interrupt the mapping with throw on
-%% the first occurence from left as expected.
-%% can be removed when the jam machine (and all other machines)
-%% uses the standardized (Erlang 5.0) evaluation order (from left to right)
-mapl(F, [H|T]) ->
-	V = F(H),
-	[V | mapl(F,T)];
-mapl(_, []) ->
-	[].
 
 %%  Convert between the abstract form of a term and a term.
 
