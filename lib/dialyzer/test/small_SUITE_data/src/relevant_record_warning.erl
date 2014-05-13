@@ -1,3 +1,7 @@
+%% Formerly confusing_record_warning.erl.
+%% The warning output is relevant as of Erlang/OTP 17.1.
+%% The original comment kept below.
+
 %%---------------------------------------------------------------------
 %% A user complained that dialyzer produces a weird warning for the
 %% following program.  I explained to him that there is an implicit
@@ -9,7 +13,7 @@
 %%    The pattern {'r', [_]} can never match the type any()
 %% We should clearly give some less confusing warning in this case.
 %%---------------------------------------------------------------------
--module(confusing_record_warning).
+-module(relevant_record_warning).
 
 -export([test/1]).
 

@@ -389,13 +389,8 @@ traverse(Tree, DefinedVars, State) ->
       {State2, _} = traverse_list(Funs, DefinedVars1, State1),
       traverse(Body, DefinedVars1, State2);
     literal ->
-      %% This is needed for finding records
-      case cerl:unfold_literal(Tree) of
-	Tree ->
-	  Type = t_from_term(cerl:concrete(Tree)),
-	  {State, Type};
-	NewTree -> traverse(NewTree, DefinedVars, State)
-      end;
+      Type = t_from_term(cerl:concrete(Tree)),
+      {State, Type};
     module ->
       Defs = cerl:module_defs(Tree),
       Funs = [Fun || {_Var, Fun} <- Defs],
@@ -462,7 +457,7 @@ traverse(Tree, DefinedVars, State) ->
 	end,
       case Elements of
 	[Tag|Fields] ->
-	  case cerl:is_c_atom(Tag) of
+	  case cerl:is_c_atom(Tag) andalso is_literal_record(Tree) of
 	    true ->
               %% Check if a record is constructed.
               Arity = length(Fields),
@@ -874,7 +869,8 @@ get_underapprox_from_guard(Tree, Map) ->
 	MFA ->
 	  case get_type_test(MFA) of
 	    {ok, Type} ->
-	      [Arg] = cerl:call_args(Tree),
+	      [Arg0] = cerl:call_args(Tree),
+              Arg = cerl:fold_literal(Arg0),
 	      {ArgType, Map1} = get_underapprox_from_guard(Arg, Map),
 	      Inf = t_inf(Type, ArgType),
 	      case t_is_none(Inf) of
@@ -891,7 +887,9 @@ get_underapprox_from_guard(Tree, Map) ->
 		{erlang, '=:=', 2} -> throw(dont_know);
 		{erlang, '==', 2} -> throw(dont_know);
 		{erlang, 'and', 2} ->
-		  [Arg1, Arg2] = cerl:call_args(Tree),
+		  [Arg1_0, Arg2_0] = cerl:call_args(Tree),
+                  Arg1 = cerl:fold_literal(Arg1_0),
+                  Arg2 = cerl:fold_literal(Arg2_0),
 		  case ((cerl:is_c_var(Arg1) orelse cerl:is_literal(Arg1))
 			andalso
 			(cerl:is_c_var(Arg2) orelse cerl:is_literal(Arg2))) of
@@ -3271,6 +3269,10 @@ lookup_record(Records, Tag, Arity) ->
     error ->
       error
   end.
+
+is_literal_record(Tree) ->
+  Ann = cerl:get_ann(Tree),
+  lists:member(record, Ann).
 
 family(L) ->
     sofs:to_external(sofs:rel2fam(sofs:relation(L))).

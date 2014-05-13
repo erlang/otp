@@ -53,7 +53,7 @@
 	 t_bitstr/0, t_bitstr/2, t_bitstr_concat/1, t_bitstr_match/2,
 	 t_cons/0, t_cons/2, t_cons_hd/2, t_cons_tl/2,
          t_contains_opaque/2,
-	 t_find_opaque_mismatch/2, t_float/0, t_from_range/2, t_from_term/1,
+	 t_find_opaque_mismatch/3, t_float/0, t_from_range/2, t_from_term/1,
 	 t_fun/0, t_fun/2, t_fun_args/1, t_fun_args/2, t_fun_range/1,
 	 t_fun_range/2, t_integer/0, t_integers/1,
 	 t_is_any/1, t_is_atom/1, t_is_atom/2, t_is_any_atom/3,
@@ -136,11 +136,10 @@
 
 get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
   State1 = analyze_module(Tree, Plt, Callgraph, Records, true),
-  State2 = find_mismatched_record_patterns(Tree, State1),
-  State3 =
-    state__renew_warnings(state__get_warnings(State2, NoWarnUnused), State2),
-  State4 = state__get_race_warnings(State3),
-  {State4#state.warnings, state__all_fun_types(State4)}.
+  State2 =
+    state__renew_warnings(state__get_warnings(State1, NoWarnUnused), State1),
+  State3 = state__get_race_warnings(State2),
+  {State3#state.warnings, state__all_fun_types(State3)}.
 
 -spec get_fun_types(cerl:c_module(), dialyzer_plt:plt(),
                     dialyzer_callgraph:callgraph(),
@@ -277,13 +276,8 @@ traverse(Tree, Map, State) ->
       {State1, Map1} = lists:foldl(FoldFun, {State, Map}, Defs),
       traverse(Body, Map1, State1);
     literal ->
-      %% This is needed for finding records
-      case cerl:unfold_literal(Tree) of
-	Tree ->
-	  Type = literal_type(Tree),
-	  {State, Map, Type};
-	NewTree -> traverse(NewTree, Map, State)
-      end;
+      Type = literal_type(Tree),
+      {State, Map, Type};
     module ->
       handle_module(Tree, Map, State);
     primop ->
@@ -1110,7 +1104,7 @@ handle_tuple(Tree, Map, State) ->
       %% Let's find out if this is a record
       case Elements of
 	[Tag|Left] ->
-	  case cerl:is_c_atom(Tag) of
+	  case cerl:is_c_atom(Tag) andalso is_literal_record(Tree) of
 	    true ->
 	      TagVal = cerl:atom_val(Tag),
               case state__lookup_record(TagVal, length(Left), State1) of
@@ -1240,15 +1234,10 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
         false ->
           {State1, Map, t_none(), ArgType0};
 	true ->
-	  PatString =
-	    case ErrorType of
-	      bind   -> format_patterns(Pats);
-	      record -> format_patterns(Pats);
-	      opaque -> format_patterns(NewPats)
-	    end,
 	  {Msg, Force} =
 	    case t_is_none(ArgType0) of
 	      true ->
+                PatString = format_patterns(Pats),
 		PatTypes = [PatString, format_type(OrigArgType, State1)],
 		%% See if this is covered by an earlier clause or if it
 		%% simply cannot match
@@ -1298,6 +1287,12 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
 		    false ->
 		      true
 		  end,
+                PatString =
+                  case ErrorType of
+                    bind   -> format_patterns(Pats);
+                    record -> format_patterns(NewPats);
+                    opaque -> format_patterns(NewPats)
+                  end,
 		PatTypes = case ErrorType of
 			     bind -> [PatString, format_type(ArgType0, State1)];
 			     record -> [PatString, format_type(Type, State1)];
@@ -1444,7 +1439,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	    BinType = t_inf(t_bitstr(), Type, Opaques),
 	    case t_is_none(BinType) of
 	      true ->
-                case t_find_opaque_mismatch(t_bitstr(), Type) of
+                case t_find_opaque_mismatch(t_bitstr(), Type, Opaques) of
                   {ok, T1, T2}  ->
                     bind_error([Pat], T1, T2, opaque);
                   error ->
@@ -1460,7 +1455,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	Cons = t_inf(Type, t_cons(), Opaques),
 	case t_is_none(Cons) of
 	  true ->
-	    bind_opaque_pats(t_cons(), Type, Pat, Map, State, Rev);
+	    bind_opaque_pats(t_cons(), Type, Pat, State);
 	  false ->
 	    {Map1, [HdType, TlType]} =
 	      bind_pat_vars([cerl:cons_hd(Pat), cerl:cons_tl(Pat)],
@@ -1473,7 +1468,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	Literal = literal_type(Pat),
 	case t_is_none(t_inf(Literal, Type, Opaques)) of
 	  true ->
-	    bind_opaque_pats(Literal, Type, Pat, Map, State, Rev);
+	    bind_opaque_pats(Literal, Type, Pat, State);
 	  false -> {Map, Literal}
 	end;
       map ->
@@ -1484,7 +1479,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	  case Es of
 	    [] -> {false, t_tuple([])};
 	    [Tag|Left] ->
-	      case cerl:is_c_atom(Tag) of
+	      case cerl:is_c_atom(Tag) andalso is_literal_record(Pat) of
 		true ->
 		  TagAtom = cerl:atom_val(Tag),
 		  case state__lookup_record(TagAtom, length(Left), State) of
@@ -1500,7 +1495,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	Tuple = t_inf(Prototype, Type, Opaques),
 	case t_is_none(Tuple) of
 	  true ->
-	    bind_opaque_pats(Prototype, Type, Pat, Map, State, Rev);
+	    bind_opaque_pats(Prototype, Type, Pat, State);
 	  false ->
 	    SubTuples = t_tuple_subtypes(Tuple, Opaques),
 	    %% Need to call the top function to get the try-catch wrapper
@@ -1549,7 +1544,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	VarType2 = t_inf(VarType1, Type, Opaques),
 	case t_is_none(VarType2) of
 	  true ->
-	    case t_find_opaque_mismatch(VarType1, Type) of
+	    case t_find_opaque_mismatch(VarType1, Type, Opaques) of
 	      {ok, T1, T2}  ->
 		bind_error([Pat], T1, T2, opaque);
 	      error ->
@@ -1631,21 +1626,26 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
 bind_bin_segs([], _BinType, Acc, Map, _State) ->
   {Map, lists:reverse(Acc)}.
 
-bind_error(Pats, Type, OpaqueType, Error) ->
+bind_error(Pats, Type, OpaqueType, Error0) ->
+  Error = case {Error0, Pats} of
+            {bind, [Pat]} ->
+              case is_literal_record(Pat) of
+                true -> record;
+                false -> Error0
+              end;
+            _ -> Error0
+          end,
   throw({error, Error, Pats, Type, OpaqueType}).
 
-bind_opaque_pats(GenType, Type, Pat, Map, State, Rev) ->
-  case t_find_opaque_mismatch(GenType, Type) of
+-spec bind_opaque_pats(type(), type(), cerl:c_literal(), state()) ->
+                          no_return().
+
+bind_opaque_pats(GenType, Type, Pat, State) ->
+  case t_find_opaque_mismatch(GenType, Type, State#state.opaques) of
     {ok, T1, T2}  ->
-      case erl_types:is_opaque_type(T2, State#state.opaques) of
-	true ->
-	  NewType = erl_types:t_struct_from_opaque(Type, [T2]),
-	  {Map1, _} =
-	    bind_pat_vars([Pat], [NewType], [], Map, State, Rev),
-	  {Map1, T2};
-	false -> bind_error([Pat], T1, T2, opaque)
-      end;
-    error -> bind_error([Pat], Type, t_none(), bind)
+	bind_error([Pat], T1, T2, opaque);
+    error ->
+      bind_error([Pat], Type, t_none(), bind)
   end.
 
 %%----------------------------------------
@@ -1843,9 +1843,9 @@ handle_guard_comp(Guard, Comp, Map, Env, Eval, State) ->
   [Type1, Type2] = ArgTypes,
   IsInt1 = t_is_integer(Type1, Opaques),
   IsInt2 = t_is_integer(Type2, Opaques),
-  case {cerl:type(Arg1), cerl:type(Arg2)} of
-    {literal, literal} ->
-      case erlang:Comp(cerl:concrete(Arg1), cerl:concrete(Arg2)) of
+  case {type(Arg1), type(Arg2)} of
+    {{literal, Lit1}, {literal, Lit2}} ->
+      case erlang:Comp(cerl:concrete(Lit1), cerl:concrete(Lit2)) of
 	true  when Eval =:= pos ->       {Map, t_atom(true)};
 	true  when Eval =:= dont_know -> {Map, t_atom(true)};
 	true  when Eval =:= neg ->       {Map, t_atom(true)};
@@ -1854,13 +1854,13 @@ handle_guard_comp(Guard, Comp, Map, Env, Eval, State) ->
 	false when Eval =:= dont_know -> {Map, t_atom(false)};
 	false when Eval =:= neg ->       {Map, t_atom(false)}
       end;
-    {literal, var} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
-      case bind_comp_literal_var(Arg1, Arg2, Type2, Comp, Map1, Opaques) of
+    {{literal, Lit1}, var} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
+      case bind_comp_literal_var(Lit1, Arg2, Type2, Comp, Map1, Opaques) of
 	error -> signal_guard_fail(Eval, Guard, ArgTypes, State);
 	{ok, NewMap} -> {NewMap, t_atom(true)}
       end;
-    {var, literal} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
-      case bind_comp_literal_var(Arg2, Arg1, Type1, invert_comp(Comp),
+    {var, {literal, Lit2}} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
+      case bind_comp_literal_var(Lit2, Arg1, Type1, invert_comp(Comp),
                                  Map1, Opaques) of
 	error -> signal_guard_fail(Eval, Guard, ArgTypes, State);
 	{ok, NewMap} -> {NewMap, t_atom(true)}
@@ -1980,15 +1980,15 @@ handle_guard_is_record(Guard, Map, Env, Eval, State) ->
 
 handle_guard_eq(Guard, Map, Env, Eval, State) ->
   [Arg1, Arg2] = cerl:call_args(Guard),
-  case {cerl:type(Arg1), cerl:type(Arg2)} of
-    {literal, literal} ->
-      case cerl:concrete(Arg1) =:= cerl:concrete(Arg2) of
+  case {type(Arg1), type(Arg2)} of
+    {{literal, Lit1}, {literal, Lit2}} ->
+      case cerl:concrete(Lit1) =:= cerl:concrete(Lit2) of
 	true ->
 	  if
 	    Eval =:= pos -> {Map, t_atom(true)};
 	    Eval =:= neg ->
-	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
-			  t_from_term(cerl:concrete(Arg2))],
+	      ArgTypes = [t_from_term(cerl:concrete(Lit1)),
+			  t_from_term(cerl:concrete(Lit2))],
 	      signal_guard_fail(Eval, Guard, ArgTypes, State);
 	    Eval =:= dont_know -> {Map, t_atom(true)}
 	  end;
@@ -1997,28 +1997,28 @@ handle_guard_eq(Guard, Map, Env, Eval, State) ->
 	    Eval =:= neg -> {Map, t_atom(false)};
 	    Eval =:= dont_know -> {Map, t_atom(false)};
 	    Eval =:= pos ->
-	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
-			  t_from_term(cerl:concrete(Arg2))],
+	      ArgTypes = [t_from_term(cerl:concrete(Lit1)),
+			  t_from_term(cerl:concrete(Lit2))],
 	      signal_guard_fail(Eval, Guard, ArgTypes, State)
 	  end
       end;
-    {literal, _} when Eval =:= pos ->
-      case cerl:concrete(Arg1) of
+    {{literal, Lit1}, _} when Eval =:= pos ->
+      case cerl:concrete(Lit1) of
 	Atom when is_atom(Atom) ->
-	  bind_eqeq_guard_lit_other(Guard, Arg1, Arg2, Map, Env, State);
+	  bind_eqeq_guard_lit_other(Guard, Lit1, Arg2, Map, Env, State);
 	[] ->
-	  bind_eqeq_guard_lit_other(Guard, Arg1, Arg2, Map, Env, State);
+	  bind_eqeq_guard_lit_other(Guard, Lit1, Arg2, Map, Env, State);
 	_ ->
-	  bind_eq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State)
+	  bind_eq_guard(Guard, Lit1, Arg2, Map, Env, Eval, State)
       end;
-    {_, literal} when Eval =:= pos ->
-      case cerl:concrete(Arg2) of
+    {_, {literal, Lit2}} when Eval =:= pos ->
+      case cerl:concrete(Lit2) of
 	Atom when is_atom(Atom) ->
-	  bind_eqeq_guard_lit_other(Guard, Arg2, Arg1, Map, Env, State);
+	  bind_eqeq_guard_lit_other(Guard, Lit2, Arg1, Map, Env, State);
 	[] ->
-	  bind_eqeq_guard_lit_other(Guard, Arg2, Arg1, Map, Env, State);
+	  bind_eqeq_guard_lit_other(Guard, Lit2, Arg1, Map, Env, State);
 	_ ->
-	  bind_eq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State)
+	  bind_eq_guard(Guard, Arg1, Lit2, Map, Env, Eval, State)
       end;
     {_, _} ->
       bind_eq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State)
@@ -2050,13 +2050,14 @@ bind_eq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State) ->
 
 handle_guard_eqeq(Guard, Map, Env, Eval, State) ->
   [Arg1, Arg2] = cerl:call_args(Guard),
-  case {cerl:type(Arg1), cerl:type(Arg2)} of
-    {literal, literal} ->
-      case cerl:concrete(Arg1) =:= cerl:concrete(Arg2) of
+  case {type(Arg1), type(Arg2)} of
+    {{literal, Lit1}, {literal, Lit2}} ->
+
+      case cerl:concrete(Lit1) =:= cerl:concrete(Lit2) of
 	true ->
 	  if Eval =:= neg ->
-	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
-			  t_from_term(cerl:concrete(Arg2))],
+	      ArgTypes = [t_from_term(cerl:concrete(Lit1)),
+			  t_from_term(cerl:concrete(Lit2))],
 	      signal_guard_fail(Eval, Guard, ArgTypes, State);
 	     Eval =:= pos -> {Map, t_atom(true)};
 	     Eval =:= dont_know -> {Map, t_atom(true)}
@@ -2065,15 +2066,15 @@ handle_guard_eqeq(Guard, Map, Env, Eval, State) ->
 	  if Eval =:= neg -> {Map, t_atom(false)};
 	     Eval =:= dont_know -> {Map, t_atom(false)};
 	     Eval =:= pos ->
-	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
-			  t_from_term(cerl:concrete(Arg2))],
+	      ArgTypes = [t_from_term(cerl:concrete(Lit1)),
+			  t_from_term(cerl:concrete(Lit2))],
 	      signal_guard_fail(Eval, Guard, ArgTypes, State)
 	  end
       end;
-    {literal, _} when Eval =:= pos ->
-      bind_eqeq_guard_lit_other(Guard, Arg1, Arg2, Map, Env, State);
-    {_, literal} when Eval =:= pos ->
-      bind_eqeq_guard_lit_other(Guard, Arg2, Arg1, Map, Env, State);
+    {{literal, Lit1}, _} when Eval =:= pos ->
+      bind_eqeq_guard_lit_other(Guard, Lit1, Arg2, Map, Env, State);
+    {_, {literal, Lit2}} when Eval =:= pos ->
+      bind_eqeq_guard_lit_other(Guard, Lit2, Arg1, Map, Env, State);
     {_, _} ->
       bind_eqeq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State)
   end.
@@ -3282,12 +3283,17 @@ get_file([_|Tail]) -> get_file(Tail).
 is_compiler_generated(Ann) ->
   lists:member(compiler_generated, Ann) orelse (get_line(Ann) < 1).
 
+is_literal_record(Tree) ->
+  Ann = cerl:get_ann(Tree),
+  lists:member(record, Ann).
+
 -spec format_args([cerl:cerl()], [type()], state()) ->
   nonempty_string().
 
 format_args([], [], _State) ->
   "()";
-format_args(ArgList, TypeList, State) ->
+format_args(ArgList0, TypeList, State) ->
+  ArgList = fold_literals(ArgList0),
   "(" ++ format_args_1(ArgList, TypeList, State) ++ ")".
 
 format_args_1([Arg], [Type], State) ->
@@ -3346,7 +3352,8 @@ format_cerl(Tree) ->
 			{ribbon, 100000} %% newlines.
 		       ]).
 
-format_patterns(Pats) ->
+format_patterns(Pats0) ->
+  Pats = fold_literals(Pats0),
   NewPats = map_pats(cerl:c_values(Pats)),
   String = format_cerl(NewPats),
   case Pats of
@@ -3377,6 +3384,23 @@ map_pats(Pats) ->
 	    end
 	end,
   cerl_trees:map(Fun, Pats).
+
+fold_literals(TreeList) ->
+  [cerl:fold_literal(Tree) || Tree <- TreeList].
+
+type(Tree) ->
+  Folded = cerl:fold_literal(Tree),
+  case cerl:type(Folded) of
+    literal -> {literal, Folded};
+    Type -> Type
+  end.
+
+is_literal(Tree) ->
+  Folded = cerl:fold_literal(Tree),
+  case cerl:is_literal(Folded) of
+    true -> {yes, Folded};
+    false -> no
+  end.
 
 parent_allows_this(FunLbl, #state{callgraph = Callgraph, plt = Plt} =State) ->
   case state__is_escaping(FunLbl, State) of
@@ -3422,18 +3446,18 @@ find_terminals(Tree) ->
       M0 = cerl:call_module(Tree),
       F0 = cerl:call_name(Tree),
       A = length(cerl:call_args(Tree)),
-      case cerl:is_literal(M0) andalso cerl:is_literal(F0) of
-	false ->
-	  %% We cannot make assumptions. Say that both are true.
-	  {true, true};
-	true ->
-	  M = cerl:concrete(M0),
-	  F = cerl:concrete(F0),
+      case {is_literal(M0), is_literal(F0)} of
+        {{yes, LitM}, {yes, LitF}} ->
+	  M = cerl:concrete(LitM),
+	  F = cerl:concrete(LitF),
 	  case (erl_bif_types:is_known(M, F, A)
 		andalso t_is_none(erl_bif_types:type(M, F, A))) of
 	    true -> {true, false};
 	    false -> {false, true}
-	  end
+	  end;
+        _ ->
+	  %% We cannot make assumptions. Say that both are true.
+	  {true, true}
       end;
     'case' -> find_terminals_list(cerl:case_clauses(Tree));
     'catch' -> find_terminals(cerl:catch_body(Tree));
@@ -3475,66 +3499,6 @@ find_terminals_list([Tree|Left], Explicit1, Normal1) ->
   end;
 find_terminals_list([], Explicit, Normal) ->
   {Explicit, Normal}.
-
-%%----------------------------------------------------------------------------
-
-%% If you write a record pattern in a matching that violates the
-%% definition it will never match. However, the warning is lost in the
-%% regular analysis. This after-pass catches it.
-
-find_mismatched_record_patterns(Tree, State) ->
-  cerl_trees:fold(
-    fun(SubTree, AccState) ->
-	case cerl:is_c_clause(SubTree) of
-	  true -> lists:foldl(fun(P, AccState1) ->
-				  find_rec_warnings(P, AccState1)
-			      end, AccState, cerl:clause_pats(SubTree));
-	  false -> AccState
-	end
-    end, State, Tree).
-
-find_rec_warnings(Tree, State) ->
-  cerl_trees:fold(
-    fun(SubTree, AccState) ->
-	case cerl:is_c_tuple(SubTree) of
-	  true -> find_rec_warnings_tuple(SubTree, AccState);
-	  false -> AccState
-	end
-    end, State, Tree).
-
-find_rec_warnings_tuple(Tree, State) ->
-  Elements = cerl:tuple_es(Tree),
-  {_, _, EsType} = traverse_list(Elements, map__new(), State),
-  TupleType = t_tuple(EsType),
-  case t_is_none(TupleType) of
-    true -> State;
-    false ->
-      %% Let's find out if this is a record construction.
-      case Elements of
-	[Tag|Left] ->
-	  case cerl:is_c_atom(Tag) of
-	    true ->
-	      TagVal = cerl:atom_val(Tag),
-	      case state__lookup_record(TagVal, length(Left), State) of
-		error -> State;
-		{ok, Prototype} ->
-		  InfTupleType = t_inf(Prototype, TupleType),
-		  case t_is_none(InfTupleType) of
-		    true ->
-		      Msg = {record_matching,
-			     [format_patterns([Tree]), TagVal]},
-		      state__add_warning(State, ?WARN_MATCHING, Tree, Msg);
-		    false ->
-		      State
-		  end
-	      end;
-	    false ->
-	      State
-	  end;
-	_ ->
-	  State
-      end
-  end.
 
 %%----------------------------------------------------------------------------
 

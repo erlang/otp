@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,6 +81,8 @@
 	       ann_c_map/2, ann_c_map/3]).
 
 -include("core_parse.hrl").
+
+-define(REC_OFFSET, 100000000). % Also in erl_expand_records.
 
 %% Internal core expressions and help functions.
 %% N.B. annotations fields in place as normal Core expressions.
@@ -501,7 +503,7 @@ expr({cons,L,H0,T0}, St0) ->
     {H1,Hps,St1} = safe(H0, St0),
     {T1,Tps,St2} = safe(T0, St1),
     A = lineno_anno(L, St2),
-    {ann_c_cons(A, H1, T1),Hps ++ Tps,St2};
+    {annotate_cons(A, H1, T1, St2),Hps ++ Tps,St2};
 expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
     lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
@@ -509,8 +511,8 @@ expr({bc,L,E,Qs}, St) ->
     bc_tq(L, E, Qs, {nil,L}, St);
 expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
-    A = lineno_anno(L, St1),
-    {ann_c_tuple(A, Es1),Eps,St1};
+    A = record_anno(L, St1),
+    {annotate_tuple(A, Es1, St1),Eps,St1};
 expr({map,L,Es0}, St0) ->
     % erl_lint should make sure only #{ K => V } are allowed
     % in map construction.
@@ -1557,9 +1559,9 @@ pattern({atom,L,A}, St) -> #c_literal{anno=lineno_anno(L, St),val=A};
 pattern({string,L,S}, St) -> #c_literal{anno=lineno_anno(L, St),val=S};
 pattern({nil,L}, St) -> #c_literal{anno=lineno_anno(L, St),val=[]};
 pattern({cons,L,H,T}, St) ->
-    ann_c_cons(lineno_anno(L, St), pattern(H, St), pattern(T, St));
+    annotate_cons(lineno_anno(L, St), pattern(H, St), pattern(T, St), St);
 pattern({tuple,L,Ps}, St) ->
-    ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
+    annotate_tuple(record_anno(L, St), pattern_list(Ps, St), St);
 pattern({map,L,Ps}, St) ->
     #c_map{anno=lineno_anno(L, St), es=pattern_map_pairs(Ps, St)};
 pattern({bin,L,Ps}, St) ->
@@ -1720,6 +1722,26 @@ fail_clause(Pats, Anno, Arg) ->
 	     pats=Pats,guard=[],
 	     body=[#iprimop{anno=#a{anno=Anno},name=#c_literal{val=match_fail},
 			    args=[Arg]}]}.
+
+annotate_tuple(A, Es, St) ->
+    case member(annotate_records, St#core.opts) of
+        true ->
+            %% Do not coalesce constant tuple elements. A Hack.
+            Node = cerl:ann_c_tuple(A, [cerl:c_var(any)]),
+            cerl:update_c_tuple_skel(Node, Es);
+        false ->
+            ann_c_tuple(A, Es)
+    end.
+
+annotate_cons(A, H, T, St) ->
+    case member(annotate_records, St#core.opts) of
+        true ->
+            %% Do not coalesce constant conses. A Hack.
+            Node= cerl:ann_c_cons(A, cerl:c_var(any), cerl:c_var(any)),
+            cerl:update_c_cons_skel(Node, H, T);
+        false ->
+            ann_c_cons(A, H, T)
+    end.
 
 ubody(B, St) -> uexpr(B, [], St).
 
@@ -2237,6 +2259,23 @@ bitstr_vars(Segs, Vs) ->
     foldl(fun (#c_bitstr{val=V,size=S}, Vs0) ->
  		  lit_vars(V, lit_vars(S, Vs0))
 	  end, Vs, Segs).
+
+record_anno(L, St) when L >= ?REC_OFFSET ->
+    case member(annotate_records, St#core.opts) of
+        true ->
+            [record | lineno_anno(L - ?REC_OFFSET, St)];
+        false ->
+            lineno_anno(L, St)
+    end;
+record_anno(L, St) when L < -?REC_OFFSET ->
+    case member(annotate_records, St#core.opts) of
+        true ->
+            [record | lineno_anno(L + ?REC_OFFSET, St)];
+        false ->
+            lineno_anno(L, St)
+    end;
+record_anno(L, St) ->
+    lineno_anno(L, St).
 
 lineno_anno(L, St) ->
     {line, Line} = erl_parse:get_attribute(L, line),

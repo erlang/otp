@@ -14,12 +14,17 @@ is_rec.erl:53: The call erlang:is_record(A::simple1_adt:d1(),A::simple1_adt:d1()
 is_rec.erl:57: Guard test is_record(A::simple1_adt:d1(),'r',2) breaks the opaqueness of its argument
 is_rec.erl:61: The record #r{f1::simple1_adt:d1()} violates the declared type for #r{}
 is_rec.erl:65: The call erlang:is_record({simple1_adt:d1(),1},'r',2) contains an opaque term as 1st argument when terms of different types are expected in these positions
-rec_api.erl:22: Record construction #r1{f1::10} violates the declared type of field f1::'undefined' | rec_api:a()
-rec_api.erl:23: The pattern {'r1', 10} violates the declared type for #r1{}
-rec_api.erl:27: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opaqueness of the term
-rec_api.erl:29: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}
-rec_api.erl:34: Invalid type specification for function rec_api:adt_r1/0. The success typing is () -> #r1{f1::'a'}
-rec_api.erl:77: The attempt to match a term of type rec_api:f() against the variable _ breaks the opaqueness of the term
+rec_api.erl:104: Matching of pattern {'r2', 10} tagged with a record name violates the declared type of #r2{f1::10}
+rec_api.erl:113: The attempt to match a term of type #r3{f1::queue:queue(_)} against the pattern {'r3', 'a'} breaks the opaqueness of queue:queue(_)
+rec_api.erl:118: Record construction #r3{f1::10} violates the declared type of field f1::queue:queue(_)
+rec_api.erl:123: The attempt to match a term of type #r3{f1::10} against the pattern {'r3', 10} breaks the opaqueness of queue:queue(_)
+rec_api.erl:24: Record construction #r1{f1::10} violates the declared type of field f1::'undefined' | rec_api:a()
+rec_api.erl:29: Matching of pattern {'r1', 10} tagged with a record name violates the declared type of #r1{f1::10}
+rec_api.erl:33: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opaqueness of the term
+rec_api.erl:35: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}
+rec_api.erl:40: Invalid type specification for function rec_api:adt_r1/0. The success typing is () -> #r1{f1::'a'}
+rec_api.erl:85: The attempt to match a term of type rec_api:f() against the variable _ breaks the opaqueness of rec_adt:f()
+rec_api.erl:99: Record construction #r2{f1::10} violates the declared type of field f1::rec_api:a()
 simple1_api.erl:113: The test simple1_api:d1() =:= simple1_api:d2() can never evaluate to 'true'
 simple1_api.erl:118: Guard test simple1_api:d2() =:= A::simple1_api:d1() can never succeed
 simple1_api.erl:142: Attempt to test for equality between a term of type simple1_adt:o2() and a term of opaque type simple1_adt:o1()
@@ -58,7 +63,7 @@ simple1_api.erl:381: Invalid type specification for function simple1_api:bool_ad
 simple1_api.erl:407: The size simple1_adt:i1() breaks the opaqueness of A
 simple1_api.erl:418: The attempt to match a term of type non_neg_integer() against the variable A breaks the opaqueness of simple1_adt:i1()
 simple1_api.erl:425: The attempt to match a term of type non_neg_integer() against the variable B breaks the opaqueness of simple1_adt:i1()
-simple1_api.erl:432: The attempt to match a term of type non_neg_integer() against the variable B breaks the opaqueness of simple1_api:o1()
+simple1_api.erl:432: The pattern <<_:B/integer-unit:1>> can never match the type any()
 simple1_api.erl:448: The attempt to match a term of type non_neg_integer() against the variable Sz breaks the opaqueness of simple1_adt:i1()
 simple1_api.erl:460: The attempt to match a term of type simple1_adt:bit1() against the pattern <<_/binary-unit:8>> breaks the opaqueness of the term
 simple1_api.erl:478: The call 'foo':A(A::simple1_adt:a()) breaks the opaqueness of the term A :: simple1_adt:a()

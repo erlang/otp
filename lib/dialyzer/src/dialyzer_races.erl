@@ -1848,7 +1848,8 @@ ets_tuple_argtypes1(Str, Tuple, TupleList, NestingLevel) ->
   end.
 
 format_arg(?bypassed) -> ?no_label;
-format_arg(Arg) ->
+format_arg(Arg0) ->
+  Arg = cerl:fold_literal(Arg0),
   case cerl:type(Arg) of
     var -> cerl_trees:get_label(Arg);
     tuple -> list_to_tuple([format_arg(A) || A <- cerl:tuple_es(Arg)]);
@@ -1878,7 +1879,7 @@ format_args_1([Arg|Args], [Type|Types], CleanState) ->
     case Arg =:= ?bypassed of
       true -> [?no_label, format_type(Type, CleanState)];
       false ->
-        case cerl:is_literal(Arg) of
+        case cerl:is_literal(cerl:fold_literal(Arg)) of
           true -> [?no_label, format_cerl(Arg)];
           false -> [format_arg(Arg), format_type(Type, CleanState)]
         end
@@ -2148,7 +2149,8 @@ race_var_map_guard_helper1(Arg, Pats, RaceVarMap, Op) ->
       end
   end.
 
-race_var_map_guard_helper2(Arg, Pat, Bool, RaceVarMap, Op) ->
+race_var_map_guard_helper2(Arg, Pat0, Bool, RaceVarMap, Op) ->
+  Pat = cerl:fold_literal(Pat0),
   case cerl:type(Pat) of
     literal ->
       [Arg1, Arg2] = cerl:call_args(Arg),
