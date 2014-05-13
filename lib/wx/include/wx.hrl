@@ -2520,7 +2520,7 @@
 -define(wxSL_RIGHT, 256).
 -define(wxSL_TOP, 128).
 -define(wxSL_LEFT, 64).
--define(wxSL_LABELS, 32).
+-define(wxSL_LABELS, wxe_util:get_const(wxSL_LABELS)).
 -define(wxSL_AUTOTICKS, ?wxSL_TICKS).
 -define(wxSL_TICKS, 16).
 -define(wxSL_VERTICAL, ?wxVERTICAL).

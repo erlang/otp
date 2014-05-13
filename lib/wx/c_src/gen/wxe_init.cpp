@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -35,6 +35,8 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("wxRETAINED"); rt.addInt(wxRETAINED);
  rt.addTupleCount(2);
  rt.addAtom("wxGAUGE_EMULATE_INDETERMINATE_MODE"); rt.addInt(wxGAUGE_EMULATE_INDETERMINATE_MODE);
+ rt.addTupleCount(2);
+ rt.addAtom("wxSL_LABELS"); rt.addInt(wxSL_LABELS);
  rt.addTupleCount(2);
  rt.addAtom("wxTR_DEFAULT_STYLE"); rt.addInt(wxTR_DEFAULT_STYLE);
  rt.addTupleCount(2);
@@ -136,7 +138,7 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
    rt.addTupleCount(2);
    rt.addAtom("wxWHITE_PEN"); rt.addRef(getRef((void *)wxWHITE_PEN,memenv),"wxPen");
    rt.addTupleCount(2);
- rt.endList(56);
+ rt.endList(57);
  rt.addTupleCount(2);
   rt.send();
 }
