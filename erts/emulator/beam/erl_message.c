@@ -1032,7 +1032,6 @@ erts_send_message(Process* sender,
 	}
         BM_SWAP_TIMER(send,system);
     } else {
-#ifdef ERTS_SMP
 	ErlOffHeap *ohp;
         Eterm *hp;
 	erts_aint32_t state;
@@ -1064,42 +1063,6 @@ erts_send_message(Process* sender,
 #endif
 	    );
         BM_SWAP_TIMER(send,system);
-#else
-	ErlMessage* mp = message_alloc();
-        Eterm *hp;
-        BM_SWAP_TIMER(send,size);
-	msize = size_object(message);
-        BM_SWAP_TIMER(size,send);
-	
-	if (receiver->stop - receiver->htop <= msize) {
-            BM_SWAP_TIMER(send,system);
-	    erts_garbage_collect(receiver, msize, receiver->arg_reg, receiver->arity);
-            BM_SWAP_TIMER(system,send);
-	}
-	hp = receiver->htop;
-	receiver->htop = hp + msize;
-        BM_SWAP_TIMER(send,copy);
-	message = copy_struct(message, msize, &hp, &receiver->off_heap);
-	BM_MESSAGE_COPIED(msize);
-        BM_SWAP_TIMER(copy,send);
-        DTRACE6(message_send, sender_name, receiver_name,
-                (uint32_t)msize, tok_label, tok_lastcnt, tok_serial);
-	ERL_MESSAGE_TERM(mp) = message;
-	ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-	ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
-	mp->next = NULL;
-	mp->data.attached = NULL;
-	LINK_MESSAGE(receiver, mp);
-	res = receiver->msg.len;
-	erts_proc_notify_new_message(receiver);
-
-	if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)) {
-	    trace_receive(receiver, message);
-	}
-        BM_SWAP_TIMER(send,system);
-#endif /* #ifndef ERTS_SMP */
     }
    return res;
 }
