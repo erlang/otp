@@ -31643,6 +31643,95 @@ case wxActivateEvent_GetActive: { // wxActivateEvent::GetActive
  rt.addBool(Result);
  break;
 }
+#if wxUSE_POPUPWIN
+case wxPopupWindow_new_2: { // wxPopupWindow::wxPopupWindow
+ int flags=wxBORDER_NONE;
+ wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ flags = (int)*(int *) bp; bp += 4;
+  } break;
+ }};
+ wxPopupWindow * Result = new EwxPopupWindow(parent,flags);
+ newPtr((void *) Result, 0, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxPopupWindow");
+ break;
+}
+case wxPopupWindow_new_0: { // wxPopupWindow::wxPopupWindow
+ wxPopupWindow * Result = new EwxPopupWindow();
+ newPtr((void *) Result, 0, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxPopupWindow");
+ break;
+}
+case wxPopupWindow_Create: { // wxPopupWindow::Create
+ int flags=wxBORDER_NONE;
+ wxPopupWindow *This = (wxPopupWindow *) getPtr(bp,memenv); bp += 4;
+ wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ flags = (int)*(int *) bp; bp += 4;
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->Create(parent,flags);
+ rt.addBool(Result);
+ break;
+}
+case wxPopupWindow_Position: { // wxPopupWindow::Position
+ wxPopupWindow *This = (wxPopupWindow *) getPtr(bp,memenv); bp += 4;
+ int * ptOriginX = (int *) bp; bp += 4;
+ int * ptOriginY = (int *) bp; bp += 4;
+ wxPoint ptOrigin = wxPoint(*ptOriginX,*ptOriginY);
+ int * sizeW = (int *) bp; bp += 4;
+ int * sizeH = (int *) bp; bp += 4;
+ wxSize size = wxSize(*sizeW,*sizeH);
+ if(!This) throw wxe_badarg(0);
+ This->Position(ptOrigin,size);
+ break;
+}
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
+case wxPopupTransientWindow_new_0: { // wxPopupTransientWindow::wxPopupTransientWindow
+ wxPopupTransientWindow * Result = new EwxPopupTransientWindow();
+ newPtr((void *) Result, 0, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxPopupTransientWindow");
+ break;
+}
+case wxPopupTransientWindow_new_2: { // wxPopupTransientWindow::wxPopupTransientWindow
+ int style=wxBORDER_NONE;
+ wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ style = (int)*(int *) bp; bp += 4;
+  } break;
+ }};
+ wxPopupTransientWindow * Result = new EwxPopupTransientWindow(parent,style);
+ newPtr((void *) Result, 0, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxPopupTransientWindow");
+ break;
+}
+case wxPopupTransientWindow_Popup: { // wxPopupTransientWindow::Popup
+ wxWindow * focus=NULL;
+ wxPopupTransientWindow *This = (wxPopupTransientWindow *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+focus = (wxWindow *) getPtr(bp,memenv); bp += 4;
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ This->Popup(focus);
+ break;
+}
+case wxPopupTransientWindow_Dismiss: { // wxPopupTransientWindow::Dismiss
+ wxPopupTransientWindow *This = (wxPopupTransientWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->Dismiss();
+ break;
+}
+#endif // wxUSE_POPUPWIN
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) Ecmd.op);

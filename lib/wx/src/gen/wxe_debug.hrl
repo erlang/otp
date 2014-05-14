@@ -3330,6 +3330,16 @@ wxdebug_table() ->
  {3549, {wxLocale, isLoaded, 1}},
  {3550, {wxLocale, isOk, 0}},
  {3551, {wxActivateEvent, getActive, 0}},
+ {3553, {wxPopupWindow, new_2, 2}},
+ {3554, {wxPopupWindow, new_0, 0}},
+ {3556, {wxPopupWindow, destruct, 0}},
+ {3557, {wxPopupWindow, create, 2}},
+ {3558, {wxPopupWindow, position, 2}},
+ {3559, {wxPopupTransientWindow, new_0, 0}},
+ {3560, {wxPopupTransientWindow, new_2, 2}},
+ {3561, {wxPopupTransientWindow, destruct, 0}},
+ {3562, {wxPopupTransientWindow, popup, 1}},
+ {3563, {wxPopupTransientWindow, dismiss, 0}},
  {-1, {mod, func, -1}}
 ].
 

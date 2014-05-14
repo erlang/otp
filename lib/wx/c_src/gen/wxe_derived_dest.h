@@ -770,3 +770,19 @@ class EwxLocale : public wxLocale {
  EwxLocale() : wxLocale() {};
 };
 
+#if wxUSE_POPUPWIN
+class EwxPopupWindow : public wxPopupWindow {
+ public: ~EwxPopupWindow() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxPopupWindow(wxWindow * parent,int flags) : wxPopupWindow(parent,flags) {};
+ EwxPopupWindow() : wxPopupWindow() {};
+};
+#endif // wxUSE_POPUPWIN
+
+#if wxUSE_POPUPWIN
+class EwxPopupTransientWindow : public wxPopupTransientWindow {
+ public: ~EwxPopupTransientWindow() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxPopupTransientWindow(wxWindow * parent,int style) : wxPopupTransientWindow(parent,style) {};
+ EwxPopupTransientWindow() : wxPopupTransientWindow() {};
+};
+#endif // wxUSE_POPUPWIN
+

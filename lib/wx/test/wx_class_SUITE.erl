@@ -50,7 +50,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
      clipboard, helpFrame, htmlWindow, listCtrlSort, listCtrlVirtual,
-     radioBox, systemSettings, taskBarIcon, toolbar].
+     radioBox, systemSettings, taskBarIcon, toolbar, popup].
 
 groups() ->
     [].
@@ -510,4 +510,51 @@ toolbar(Config) ->
 
     wxFrame:connect(Frame, command_menu_selected, [{callback, Add}, {id, 747}]),
     wxFrame:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+
+popup(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+popup(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+    TB = wxFrame:createToolBar(Frame),
+    wxToolBar:addTool(TB, 747, "PressMe", wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}]),
+		      [{shortHelp, "Press Me"}]),
+
+    Log = fun(#wx{id=Id, event=Ev}, Obj) ->
+		  io:format("Got ~p from ~p~n", [Id, Ev]),
+		  wxEvent:skip(Obj)
+	  end,
+    CreatePopup = fun() ->
+			  Pop = wxPopupTransientWindow:new(Frame),
+			  Panel = wxPanel:new(Pop),
+			  Sz = wxBoxSizer:new(?wxVERTICAL),
+			  wxSizer:add(Sz, wxButton:new(Panel, 42, [{label, "A button"}])),
+			  wxSizer:add(Sz, Txt = wxStaticText:new(Panel, 43, "Some static text")),
+			  wxSizer:add(Sz, wxButton:new(Panel, 44, [{label, "B button"}])),
+			  wxPanel:setSizerAndFit(Panel, Sz),
+			  wxSizer:setSizeHints(Sz, Pop),
+			  wxWindow:connect(Pop, command_button_clicked, [{callback, Log}]),
+			  wxWindow:connect(Txt, left_up, [{callback, Log}]),
+			  wxWindow:connect(Txt, middle_up, [{callback, Log}]),
+			  wxWindow:connect(Txt, right_up, [{callback, Log}]),
+			  wxWindow:connect(Pop, show, [{callback, Log}]),
+			  Pos = wx_misc:getMousePosition(),
+			  wxPopupTransientWindow:position(Pop, Pos, {-1, -1}),
+			  wxPopupTransientWindow:popup(Pop),
+			  Pop
+		  end,
+    wxFrame:connect(Frame, command_menu_selected, [{id, 747}]),
+    wxFrame:show(Frame),
+
+    Pop = CreatePopup(),
+    Scale = case wx_test_lib:user_available(Config) of
+		true -> 25;
+		false -> 1
+	    end,
+    receive
+	#wx{} -> CreatePopup()
+    after 200*Scale ->
+	    wxPopupTransientWindow:dismiss(Pop)
+    end,
     wx_test_lib:wx_destroy(Frame,Config).

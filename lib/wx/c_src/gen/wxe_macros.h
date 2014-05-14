@@ -58,6 +58,7 @@
 #include <wx/listbook.h>
 #include <wx/treebook.h>
 #include <wx/taskbar.h>
+#include <wx/popupwin.h>
 #include <wx/html/htmlwin.h>
 #include <wx/html/htmlcell.h>
 #include <wx/filename.h>
@@ -3377,5 +3378,15 @@
 #define wxLocale_IsLoaded 3549
 #define wxLocale_IsOk 3550
 #define wxActivateEvent_GetActive 3551
+#define wxPopupWindow_new_2 3553
+#define wxPopupWindow_new_0 3554
+#define wxPopupWindow_destruct 3556
+#define wxPopupWindow_Create 3557
+#define wxPopupWindow_Position 3558
+#define wxPopupTransientWindow_new_0 3559
+#define wxPopupTransientWindow_new_2 3560
+#define wxPopupTransientWindow_destruct 3561
+#define wxPopupTransientWindow_Popup 3562
+#define wxPopupTransientWindow_Dismiss 3563
 
 
