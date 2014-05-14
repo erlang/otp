@@ -2623,15 +2623,15 @@ read_and_parse_term(Fd, StartLine) ->
             Other
     end.
 
-verify_lines([], _, Acc, _) ->
+verify_lines([], _, _, Acc) ->
     list:reverse(Acc);
 verify_lines(
-  [{StartLine, Term, EndLine}|Lines], State, Acc, Check) ->
+  [{StartLine, Term, EndLine}|Lines], Check, State, Acc) ->
     try Check(Term, State) of
 	{ok, NewState} ->
-	    verify_lines(Lines, NewState, [Term|Acc], Check);
+	    verify_lines(Lines, Check, NewState, [Term|Acc]);
 	{{ok, NewTerm}, NewState} ->
-	    verify_lines(Lines, NewState, [NewTerm|Acc], Check)
+	    verify_lines(Lines, Check, NewState, [NewTerm|Acc])
     catch
 	{error, Reason} ->
 	    throw({failed_check, StartLine, EndLine, Reason});
