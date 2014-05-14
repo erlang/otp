@@ -112,6 +112,9 @@ parse_ModuleDefinition(Tokens) ->
     
 parse_Exports([{'EXPORTS',_L1},{';',_L2}|Rest]) ->
     {{exports,[]},Rest};
+parse_Exports([{'EXPORTS',_},{'ALL',_},{';',_}|Rest]) ->
+    %% Same as no exports definition.
+    {{exports,all},Rest};
 parse_Exports([{'EXPORTS',_L1}|Rest]) ->
     {SymbolList,Rest2} = parse_SymbolList(Rest),
     case Rest2 of
