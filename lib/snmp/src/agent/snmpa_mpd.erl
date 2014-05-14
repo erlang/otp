@@ -192,23 +192,27 @@ discarded_pdu(Variable) -> inc(Variable).
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
 v1_v2c_proc(
-  Vsn, NoteStore, Community, {Domain, Address},
+  Vsn, NoteStore, Community, From,
   LocalEngineID, Data, HS, Log, Packet) ->
-    try snmp_conf:mk_tdomain(Domain) of
-	TDomain ->
-	    try snmp_conf:mk_taddress(Domain, Address) of
-		TAddress ->
-		    v1_v2c_proc_dec(
-		      Vsn, NoteStore, Community, TDomain, TAddress,
-		      LocalEngineID, Data, HS, Log, Packet)
-	    catch
-		_ ->
-		    {discarded, {badarg, Address}}
-	    end
+    try
+	case From of
+	    {D, A} when is_atom(D) ->
+		{snmp_conf:mk_tdomain(D),
+		 snmp_conf:mk_taddress(D, A)};
+	    {_, P} = A when is_integer(P) ->
+		{snmp_conf:mk_tdomain(),
+		 snmp_conf:mk_taddress(A)}
+	end
+    of
+	{TDomain, TAddress} ->
+	    v1_v2c_proc_dec(
+	      Vsn, NoteStore, Community, TDomain, TAddress,
+	      LocalEngineID, Data, HS, Log, Packet)
     catch
 	_ ->
-	    {discarded, {badarg, Domain}}
+	    {discarded, {badarg, From}}
     end.
+
 
 v1_v2c_proc_dec(
   Vsn, NoteStore, Community, TDomain, TAddress,

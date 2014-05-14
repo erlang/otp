@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -export([
 	 create/4, create/5, create/6, open/1, open/2, 
 	 change_size/2, close/1, sync/1, info/1, 
-	 log/4, 
+	 log/3, log/4,
 	 log_to_txt/6, log_to_txt/7, log_to_txt/8, 
 	 log_to_io/5,  log_to_io/6,  log_to_io/7
 	]).
@@ -344,12 +344,20 @@ validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
 %% log(Log, Packet, Addr, Port)
 %%-----------------------------------------------------------------
 
-log(#snmp_log{id = Log, seqno = SeqNo}, Packet, Addr, Port) ->
+log(#snmp_log{id = Log, seqno = SeqNo}, Packet, AddrStr) ->
+    ?vtrace(
+       "log -> entry with~n"
+       "   Log:     ~p~n"
+       "   AddrStr: ~s", [Log, AddrStr]),
+    Entry = make_entry(SeqNo, Packet, AddrStr),
+    disk_log:alog(Log, Entry).
+
+log(#snmp_log{id = Log, seqno = SeqNo}, Packet, Ip, Port) ->
     ?vtrace("log -> entry with"
 	    "~n   Log:  ~p"
-	    "~n   Addr: ~p"
-	    "~n   Port: ~p", [Log, Addr, Port]),
-    Entry = make_entry(SeqNo, Packet, Addr, Port), 
+	    "~n   Ip: ~p"
+	    "~n   Port: ~p", [Log, Ip, Port]),
+    Entry = make_entry(SeqNo, Packet, Ip, Port),
 %%     io:format("log -> "
 %% 	      "~n   Entry: ~p"
 %% 	      "~n   Info:  ~p"
@@ -361,18 +369,35 @@ log(#snmp_log{id = Log, seqno = SeqNo}, Packet, Addr, Port) ->
 %% 	      "~n", [Res, disk_log:info(Log)]),
     %% disk_log:sync(Log), 
     Res.
-   
 
 
-make_entry(SeqNoGen, Packet, Addr, Port) ->
+
+make_entry(SeqNoGen, Packet, AddrStr)
+  when is_integer(Packet);
+       is_tuple(AddrStr) ->
+    erlang:error(badarg, [SeqNoGen, Packet, AddrStr]);
+make_entry(SeqNoGen, Packet, AddrStr) ->
     try next_seqno(SeqNoGen) of
 	disabled ->
-	    {timestamp(), Packet, Addr, Port};
-	{ok, NextSeqNo} ->
-	    {timestamp(), NextSeqNo, Packet, Addr, Port}
+	    {timestamp(), Packet, AddrStr};
+	{ok, NextSeqNo} when is_integer(NextSeqNo) ->
+	    {timestamp(), NextSeqNo, Packet, AddrStr}
     catch
 	_:_ ->
-	    {timestamp(), Packet, Addr, Port}
+	    {timestamp(), Packet, AddrStr}
+    end.
+
+make_entry(SeqNoGen, Packet, Ip, Port) when is_integer(Packet) ->
+    erlang:error(badarg, [SeqNoGen, Packet, Ip, Port]);
+make_entry(SeqNoGen, Packet, Ip, Port) ->
+    try next_seqno(SeqNoGen) of
+	disabled ->
+	    {timestamp(), Packet, Ip, Port};
+	{ok, NextSeqNo} when is_integer(NextSeqNo) ->
+	    {timestamp(), NextSeqNo, Packet, Ip, Port}
+    catch
+	_:_ ->
+	    {timestamp(), Packet, Ip, Port}
     end.
 
 next_seqno({M, F, A}) ->
@@ -674,60 +699,68 @@ format_msg(Entry, Mib, Start, Stop) ->
     end.
 
 %% This is an old-style entry, that never had the sequence-number
-do_format_msg({Timestamp, Packet, {Addr, Port}}, Mib) ->
-    do_format_msg(Timestamp, Packet, Addr, Port, Mib);
-
+do_format_msg({Timestamp, Packet, {Ip, Port}}, Mib) ->
+    do_format_msg(Timestamp, Packet, ipPort2Str(Ip, Port), Mib);
 %% This is the format without sequence-number
-do_format_msg({Timestamp, Packet, Addr, Port}, Mib) ->
-    do_format_msg(Timestamp, Packet, Addr, Port, Mib);
+do_format_msg({Timestamp, Packet, AddrStr}, Mib) ->
+    do_format_msg(Timestamp, Packet, AddrStr, Mib);
 
 %% This is the format with sequence-number
-do_format_msg({Timestamp, SeqNo, Packet, Addr, Port}, Mib) ->
-    do_format_msg(Timestamp, SeqNo, Packet, Addr, Port, Mib);
+do_format_msg({Timestamp, SeqNo, Packet, AddrStr}, Mib)
+  when is_integer(SeqNo) ->
+    do_format_msg(Timestamp, Packet, AddrStr, Mib);
+%% This is the format without sequence-number
+do_format_msg({Timestamp, Packet, Ip, Port}, Mib) ->
+    do_format_msg(Timestamp, Packet, ipPort2Str(Ip, Port), Mib);
+
+%% This is the format with sequence-number
+do_format_msg({Timestamp, SeqNo, Packet, Ip, Port}, Mib) ->
+    do_format_msg(Timestamp, SeqNo, Packet, ipPort2Str(Ip, Port), Mib);
 
 %% This is crap...
 do_format_msg(_, _) ->
     format_tab("** unknown entry in log file\n\n", []).
 
-do_format_msg(TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port, Mib) ->
+do_format_msg(TimeStamp, {V3Hdr, ScopedPdu}, AddrStr, Mib) ->
     case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
 	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
 	    Msg = #message{version = 'version-3',
 			   vsn_hdr = V3Hdr,
 			   data    = ScopedPDU},
-	    f(ts2str(TimeStamp), "", Msg, Addr, Port, Mib);
+	    f(ts2str(TimeStamp), "", Msg, AddrStr, Mib);
 	{'EXIT', Reason} ->
-	    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
-		       [ts2str(TimeStamp), ip(Addr), Port, Reason])
+	    format_tab(
+	      "** error in log file at ~s from ~s ~p\n\n",
+	      [ts2str(TimeStamp), AddrStr, Reason])
     end;
-do_format_msg(TimeStamp, Packet, Addr, Port, Mib) ->
+do_format_msg(TimeStamp, Packet, AddrStr, Mib) ->
     case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
 	Msg when is_record(Msg, message) ->
-	    f(ts2str(TimeStamp), "", Msg, Addr, Port, Mib);
+	    f(ts2str(TimeStamp), "", Msg, AddrStr, Mib);
 	{'EXIT', Reason} ->
 	    format_tab("** error in log file ~p\n\n", [Reason])
     end.
     
-do_format_msg(TimeStamp, SeqNo, {V3Hdr, ScopedPdu}, Addr, Port, Mib) ->
+do_format_msg(TimeStamp, SeqNo, {V3Hdr, ScopedPdu}, AddrStr, Mib) ->
     case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
 	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
 	    Msg = #message{version = 'version-3',
 			   vsn_hdr = V3Hdr,
 			   data    = ScopedPDU},
-	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, Addr, Port, Mib);
+	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, AddrStr, Mib);
 	{'EXIT', Reason} ->
-	    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
-		       [ts2str(TimeStamp), sn2str(SeqNo), 
-			ip(Addr), Port, Reason])
+	    format_tab(
+	      "** error in log file at ~s from ~s ~p\n\n",
+	      [ts2str(TimeStamp), sn2str(SeqNo), AddrStr, Reason])
     end;
-do_format_msg(TimeStamp, SeqNo, Packet, Addr, Port, Mib) ->
+do_format_msg(TimeStamp, SeqNo, Packet, AddrStr, Mib) ->
     case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
 	Msg when is_record(Msg, message) ->
-	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, Addr, Port, Mib);
+	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, AddrStr, Mib);
 	{'EXIT', Reason} ->
-	    format_tab("** error in log file ~s from ~p:~w ~p\n\n", 
-		       [ts2str(TimeStamp), sn2str(SeqNo), 
-			ip(Addr), Port, Reason])
+	    format_tab(
+	      "** error in log file ~s from ~s ~p\n\n",
+	      [ts2str(TimeStamp), sn2str(SeqNo), AddrStr, Reason])
     end.
     
     
@@ -771,44 +804,70 @@ do_format_msg(TimeStamp, SeqNo, Packet, Addr, Port, Mib) ->
 
 f(TimeStamp, SeqNo, 
   #message{version = Vsn, vsn_hdr = VsnHdr, data = Data}, 
-  Addr, Port, Mib) ->
+  AddrStr, Mib) ->
     Str    = format_pdu(Data, Mib),
     HdrStr = format_header(Vsn, VsnHdr),
-    case get_type(Data) of
-        trappdu ->
-            f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        'snmpv2-trap' ->
-            f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        'inform-request' ->
-            f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        'get-response' ->
-            f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        report ->
-            f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-        _ ->
-            f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port)
-    end.
+    Class =
+	case get_type(Data) of
+	    trappdu ->
+		trap;
+	    'snmpv2-trap' ->
+		trap;
+	    'inform-request' ->
+		inform;
+	    'get-response' ->
+		response;
+	    report ->
+		report;
+	    _ ->
+		request
+	end,
+    format_tab(
+      "~w ~s - ~s [~s]~s ~w\n~s",
+      [Class, AddrStr, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("request ~s:~w - ~s [~s]~s ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+%% f(TimeStamp, SeqNo,
+%%   #message{version = Vsn, vsn_hdr = VsnHdr, data = Data},
+%%   Addr, Port, Mib) ->
+%%     Str    = format_pdu(Data, Mib),
+%%     HdrStr = format_header(Vsn, VsnHdr),
+%%     case get_type(Data) of
+%%         trappdu ->
+%%             f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+%%         'snmpv2-trap' ->
+%%             f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+%%         'inform-request' ->
+%%             f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+%%         'get-response' ->
+%%             f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+%%         report ->
+%%             f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
+%%         _ ->
+%%             f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port)
+%%     end.
 
-f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("response ~s:~w - ~s [~s]~s ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+%% f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+%%     format_tab("request ~s:~w - ~s [~s]~s ~w\n~s",
+%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("report ~s:~w - ~s [~s]~s ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+%% f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+%%     format_tab("response ~s:~w - ~s [~s]~s ~w\n~s",
+%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("trap ~s:~w - ~s [~s]~s ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+%% f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+%%     format_tab("report ~s:~w - ~s [~s]~s ~w\n~s",
+%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("inform ~s:~w - ~s [~s]~s ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+%% f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+%%     format_tab("trap ~s:~w - ~s [~s]~s ~w\n~s",
+%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
+%% f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+%%     format_tab("inform ~s:~w - ~s [~s]~s ~w\n~s",
+%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+
+ipPort2Str(Ip, Port) ->
+    io_lib:format("~s:~w", [ip(Ip), Port]).
 
 %% Convert a timestamp 2-tupple to a printable string
 %%

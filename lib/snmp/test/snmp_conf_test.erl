@@ -373,6 +373,8 @@ verify_ip(Val) ->
     case (catch snmp_conf:check_ip(Val)) of
 	{error, Reason} ->
 	    ?FAIL({verify_ip, Val, Reason});
+	{ok, _} ->
+	    ok;
 	ok ->
 	    ok
     end.

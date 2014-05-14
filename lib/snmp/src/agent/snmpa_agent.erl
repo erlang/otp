@@ -2516,7 +2516,15 @@ process_msg(
   MibView, Vsn, Pdu, PduMS, Community,
   SourceAddress, ContextName, GbMaxVBs) ->
     #pdu{request_id = ReqId} = Pdu,
-    put(snmp_address, SourceAddress),
+    put(
+      snmp_address,
+      case SourceAddress of
+	  {Domain, _} when is_atom(Domain) ->
+	      SourceAddress;
+	  {Ip, Port} when is_integer(Port) ->
+	      %% Legacy transport domain
+	      {tuple_to_list(Ip), Port}
+      end),
     put(snmp_request_id, ReqId),
     put(snmp_community, Community),
     put(snmp_context, ContextName),

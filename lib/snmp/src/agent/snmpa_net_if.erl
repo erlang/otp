@@ -28,6 +28,7 @@
 -export([system_continue/3, system_terminate/4, system_code_change/4]).
 -export([init/5]).
 -export([filter_reset/1]).
+-export([format_address/1]).
 
 -include("snmp_types.hrl").
 -include("snmpa_internal.hrl").
@@ -47,7 +48,7 @@
 		limit = infinity,
 		rcnt  = [],
 		filter,
-		use_tdomain = false}).
+		domain = snmpUDPDomain}).
 
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
@@ -166,13 +167,6 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     %% -- Port and address --
     Domain = get_domain(),
     ?vdebug("domain: ~w",[Domain]),
-    UseTDomain =
-	case Domain of
-	    snmpUDPDomain ->
-		false;
-	    _ ->
-		true
-	end,
     UDPPort = get_port(),
     ?vdebug("port: ~w",[UDPPort]),
     IPAddress = get_address(),
@@ -187,7 +181,7 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     ?vdebug("Limit: ~w", [Limit]),
     FilterOpts = get_filter_opts(Opts),
     FilterMod  = create_filter(FilterOpts),
-    ?vdebug("FilterMod: ~w", [FilterMod]),
+    ?vdebug("FilterMod: ~w FilterOpts: ~p", [FilterMod,FilterOpts]),
 
     %% -- Audit trail log
     Log = create_log(),
@@ -202,7 +196,6 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     IPOpts  =
 	[binary, snmp_conf:tdomain_to_family(Domain)
 	 | IPOpts1 ++ IPOpts2 ++ IPOpts3 ++ IPOpts4],
-    ?vdebug("open socket with options: ~w",[IPOpts]),
     case gen_udp_open(UDPPort, IPOpts) of
 	{ok, Sock} ->
 	    MpdState = snmpa_mpd:init(Vsns),
@@ -217,7 +210,7 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 		       log          = Log,
 		       limit        = Limit,
 		       filter       = FilterMod,
-		       use_tdomain  = UseTDomain},
+		       domain       = Domain},
 	    ?vdebug("started with MpdState: ~p", [MpdState]),
 	    {ok, S};
 	{error, Reason} ->
@@ -278,50 +271,69 @@ create_filter(BadOpts) ->
     throw({error, {bad_filter_opts, BadOpts}}).
 
 
-log(LogTypes, Req, Packet, {Domain, Address}) ->
-    log(LogTypes, Req, Packet, Domain, Address).
-
-log({_, []}, _, _, _, _) ->
+log({_, []}, _, _, _) ->
     ok;
-log({Log, Types}, 'set-request', Packet, Domain, Address) ->
+log({Log, Types}, 'set-request', Packet, Address) ->
     case lists:member(write, Types) of
 	true ->
-	    snmp_log:log(Log, Packet, Domain, Address);
+	    snmp_log:log(Log, Packet, format_address(Address));
 	false ->
 	    ok
     end;
-log({Log, Types}, _, Packet, Domain, Address) ->
+log({Log, Types}, _, Packet, Address) ->
      case lists:member(read, Types) of
 	true ->
-	    snmp_log:log(Log, Packet, Domain, Address);
+	    snmp_log:log(Log, Packet, format_address(Address));
 	false ->
 	    ok
-    end;
-log(_, _, _, _, _) ->
-    ok.
+    end.
+%% log(_, _, _, _, _) ->
+%%     ok.
+
+format_address({snmpUDPDomain, {_Ip, Port} = Addr}) when is_integer(Port) ->
+    format_address(Addr);
+format_address({transportDomainUdpIpv4, {Ip, Port}}) ->
+    format_address("udpIpv4/~s:~w", [inet:ntoa(Ip), Port]);
+format_address({transportDomainUdpIpv6, {Ip, Port}}) ->
+    format_address("udpIpv6/[~s]:~w", [inet:ntoa(Ip), Port]);
+format_address({Ip, Port}) when is_integer(Port) ->
+    format_address("~s:~w", [inet:ntoa(Ip), Port]).
+
+format_address(Format, Args) ->
+    iolist_to_binary(io_lib:format(Format, Args)).
+
 
 
 gen_udp_open(Port, Opts) ->
     case init:get_argument(snmp_fd) of
 	{ok, [[FdStr]]} ->
 	    Fd = list_to_integer(FdStr),
+	    ?vdebug("gen_udp_open(~p, ~p) Fd: ~p",[Port,Opts,Fd]),
 	    gen_udp:open(0, [{fd, Fd}|Opts]);
 	error ->
 	    case init:get_argument(snmpa_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
+		    ?vdebug("gen_udp_open(~p, ~p) Fd: ~p",[Port,Opts,Fd]),
 		    gen_udp:open(0, [{fd, Fd}|Opts]);
 		error ->
+		    ?vdebug("gen_udp_open(~p, ~p)",[Port,Opts]),
 		    gen_udp:open(Port, Opts)
 	    end
     end.
 
 
-loop(S) ->
+loop(#state{domain = Domain} = S) ->
     receive
 	{udp, _UdpId, Ip, Port, Packet} ->
 	    ?vlog("got paket from ~w:~w",[Ip,Port]),
-	    From = snmp_conf:ip_port_to_domaddr(Ip, Port),
+	    From =
+		case Domain of
+		    snmpUDPDomain ->
+			{Ip, Port};
+		    _ ->
+			{Domain, {Ip, Port}}
+		end,
 	    NewS = maybe_handle_recv(S, From, Packet),
 	    loop(NewS);
 
@@ -550,22 +562,15 @@ update_req_counter_outgoing(#state{limit = Limit, rcnt = RCnt} = S,
     
 
 maybe_handle_recv(
-  #state{usock = Sock, filter = FilterMod, use_tdomain = UseTDomain} = S,
-  {Domain, Addr} = From, Packet) ->
+  #state{usock = Sock, filter = FilterMod} = S, From, Packet) ->
+    {From_1, From_2} = From,
     case
-	try
-	    case UseTDomain of
-		true ->
-		    FilterMod:accept_recv(Domain, Addr);
-		false ->
-		    {Ip, Port} = Addr,
-		    FilterMod:accept_recv(Ip, Port)
-	    end
+	try FilterMod:accept_recv(From_1, From_2)
 	catch
 	    Class:Exception ->
 		error_msg(
-		  "FilterMod:accept_recv/2 crashed for ~p: ~w:~w~n    ~p",
-		  [From,Class,Exception,erlang:get_stacktrace()]),
+		  "FilterMod:accept_recv(~p, ~p) crashed: ~w:~w~n    ~p",
+		  [From_1,From_2,Class,Exception,erlang:get_stacktrace()]),
 		true
 	end
     of
@@ -580,8 +585,8 @@ maybe_handle_recv(
 		    ok;
 		_ ->
 		    error_msg(
-		      "FilterMod:accept_recv/2 returned: ~p for ~p",
-		      [Other,From])
+		      "FilterMod:accept_recv(~p, ~p) returned: ~p",
+		      [From_1,From_2,Other])
 	    end,
 	    handle_recv(S, From, Packet)
     end.
@@ -634,15 +639,13 @@ handle_recv(
 	    ?vlog("sending report for reason: "
 		"~n   ~s", 
 		[?vapply(snmp_misc, format, [256, "~w", [Reason]])]),
-	    {_Domain, {Ip, Port}} = From,
-	    (catch udp_send(S#state.usock, Ip, Port, ReportPacket)),
+	    (catch udp_send(S#state.usock, From, ReportPacket)),
 	    active_once(Sock),
 	    S;
 	
 	{discovery, ReportPacket} ->
 	    ?vlog("sending discovery report", []),
-	    {_Domain, {Ip, Port}} = From,
-	    (catch udp_send(S#state.usock, Ip, Port, ReportPacket)),
+	    (catch udp_send(S#state.usock, From, ReportPacket)),
 	    active_once(Sock),
 	    S;
 	
@@ -654,24 +657,19 @@ handle_recv(
     end.
     
 maybe_handle_recv_pdu(
-  {Domain, Addr} = From, Vsn,
+  From, Vsn,
   #pdu{type = Type} = Pdu, PduMS, ACMData,
-  #state{usock = Sock, filter = FilterMod, use_tdomain = UseTDomain} = S) ->
+  #state{usock = Sock, filter = FilterMod} = S) ->
+    {From_1, From_2} = From,
     case
-	try
-	    case UseTDomain of
-		true ->
-		    FilterMod:accept_recv_pdu(Domain, Addr, Type);
-		false ->
-		    {Ip, Port} = Addr,
-		    FilterMod:accept_recv_pdu(Ip, Port, Type)
-	    end
+	try FilterMod:accept_recv_pdu(From_1, From_2, Type)
 	catch
 	    Class:Exception ->
 		error_msg(
-		  "FilterMod:accept_recv_pdu/3 crashed for ~p, ~p: ~w:~w~n"
+		  "FilterMod:accept_recv_pdu(~p, ~p, ~p) crashed: ~w:~w~n"
 		  "    ~p",
-		  [From,Type,Class,Exception,erlang:get_stacktrace()]),
+		  [From_1,From_2,Type,Class,Exception,
+		   erlang:get_stacktrace()]),
 		true
 	end
     of
@@ -685,13 +683,11 @@ maybe_handle_recv_pdu(
 		    ok;
 		_ ->
 		    error_msg(
-		      "FilterMod:accept_recv_pdu/3 returned: ~p for ~p, ~p",
-		      [Other,From,Type])
+		      "FilterMod:accept_recv_pdu(~p, ~p, ~p) returned: ~p",
+		      [From_1,From_2,Type,Other])
 	    end,
 	    handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S)
-    end;
-maybe_handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S) ->
-    handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S).
+    end.
 
 handle_recv_pdu(
   From, Vsn,
@@ -717,17 +713,12 @@ handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData,
 
 
 maybe_handle_reply_pdu(
-  #state{filter = FilterMod, use_tdomain = UseTDomain} = S, Vsn,
+  #state{filter = FilterMod} = S, Vsn,
   #pdu{request_id = Rid} = Pdu,
-  Type, ACMData, {_Domain, Addr} = To) ->
+  Type, ACMData, To) ->
+
     S1 = update_req_counter_outgoing(S, Rid),
-    Addresses =
-	case UseTDomain of
-	    true ->
-		[To];
-	    false ->
-		[Addr]
-	end,
+    Addresses = [To],
     case
 	try
 	    FilterMod:accept_send_pdu(Addresses, Type)
@@ -778,7 +769,7 @@ handle_reply_pdu(#state{log = Log} = S, Vsn, Pdu, Type, ACMData, To) ->
 
 
 maybe_handle_send_pdu(
-  #state{filter = FilterMod, use_tdomain = UseTDomain} = S,
+  #state{filter = FilterMod, domain = Domain} = S,
   Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
 
     ?vtrace("maybe_handle_send_pdu -> entry with~n"
@@ -787,24 +778,24 @@ maybe_handle_send_pdu(
 
     DomAddrSecs = snmpa_mpd:process_taddrs(TDomAddrSecs),
     AddressesToFilter =
-	[case UseTDomain of
-	     true ->
+	[case Domain of
+	     snmpUDPDomain ->
 		 case DAS of
-		     {{Domain, _Address} = DomAddr, _SecData}
-		       when is_atom(Domain) -> % v3
-			 DomAddr;
-		     {Domain, _Address} = DomAddr
-		       when is_atom(Domain) -> % v1 & v2
-			 DomAddr
+		     {{Dom, Addr}, _SecData}
+		       when is_atom(Dom) -> % v3
+			 Addr;
+		     {Dom, Addr}
+		       when is_atom(Dom) -> % v1 & v2
+			 Addr
 		 end;
-	     false ->
+	     _ ->
 		 case DAS of
-		     {{Domain, Address}, _SecData}
-		       when is_atom(Domain) -> % v3
-			 Address;
-		     {Domain, Address}
-		       when is_atom(Domain) -> % v1 & v2
-			 Address
+		     {{Dom, _Addr} = DomAddr, _SecData}
+		       when is_atom(Dom) -> % v3
+			 DomAddr;
+		     {Dom, _Addr} = DomAddr
+		       when is_atom(Dom) -> % v1 & v2
+			 DomAddr
 		 end
 	 end || DAS <- DomAddrSecs],
     Type = pdu_type_of(Pdu),
@@ -830,24 +821,24 @@ maybe_handle_send_pdu(
 		[DAS ||
 		    DAS <- DomAddrSecs,
 		    lists:member(
-		      case UseTDomain of
+		      case Domain of
+			  snmpUDPDomain ->
+			      case DAS of
+				  {{Dom, Addr}, _SData}
+				    when is_atom(Dom) -> % v3
+				      Addr;
+				  {Dom, Addr}
+				    when is_atom(Dom) -> % v1 & v2
+				      Addr
+			      end;
 			  true ->
 			      case DAS of
-				  {{Domain, _Address} = DomAddr, _SData}
-				    when is_atom(Domain) -> % v3
+				  {{Dom, _Addr} = DomAddr, _SData}
+				    when is_atom(Dom) -> % v3
 				      DomAddr;
-				  {Domain, _Address} = DomAddr
-				    when is_atom(Domain) -> % v1 & v2
+				  {Dom, _Addr} = DomAddr
+				    when is_atom(Dom) -> % v1 & v2
 				      DomAddr
-			      end;
-			  false ->
-			      case DAS of
-				  {{Domain, Address}, _SData}
-				    when is_atom(Domain) -> % v3
-				      Address;
-				  {Domain, Address}
-				    when is_atom(Domain) -> % v1 & v2
-				      Address
 			      end
 		      end, FilteredAddresses)],
 	    ?vtrace("maybe_handle_send_pdu -> MergedDomAddrSecs:~n"
@@ -909,9 +900,8 @@ handle_send_discovery(
 
     case (catch snmpa_mpd:generate_discovery_msg(NS, Pdu, MsgData, To)) of
 	{ok, {Domain, Address, Packet}} ->
-	    log(Log, Type, Packet, Domain, Address),
-	    {Ip, Port} = Address,
-	    udp_send(Sock, Ip, Port, Packet),
+	    log(Log, Type, Packet, {Domain, Address}),
+	    udp_send(Sock, {Domain, Address}, Packet),
 	    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
 	    NReqs = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
 	    S#state{reqs = NReqs};
@@ -975,22 +965,16 @@ handle_response(Vsn, Pdu, From, S) ->
     end.
 
 maybe_udp_send(
-  #state{usock  = Sock, filter = FilterMod, use_tdomain = UseTDomain},
-  {Domain, Addr} = To, Packet) ->
+  #state{usock  = Sock, filter = FilterMod},
+  To, Packet) ->
+    {To_1, To_2} = To,
     case
-	try
-	    case UseTDomain of
-		true ->
-		    FilterMod:accept_send(Domain, Addr);
-		false ->
-		    {Ip, Port} = Addr,
-		    FilterMod:accept_send(Ip, Port)
-	    end
+	try FilterMod:accept_send(To_1, To_2)
 	catch
 	    Class:Exception ->
 		error_msg(
-		  "FilterMod:accept_send/2 crashed for ~p: ~w:~w~n    ~p",
-		  [To,Class,Exception,erlang:get_stacktrace()]),
+		  "FilterMod:accept_send(~p, ~p) crashed: ~w:~w~n    ~p",
+		  [To_1,To_2,Class,Exception,erlang:get_stacktrace()]),
 		true
 	end
     of
@@ -1003,34 +987,26 @@ maybe_udp_send(
 		    ok;
 		_ ->
 		    error_msg(
-		      "FilterMod:accept_send/2 returned: ~p for ~p",
-		      [Other,To])
+		      "FilterMod:accept_send(~p, ~p) returned: ~p",
+		      [To_1,To_2,Other])
 	    end,
 	    %% XXX should be some kind of lookup of domain to socket
-	    {SockIp, SockPort} = Addr,
-	    (catch udp_send(Sock, SockIp, SockPort, Packet))
+	    (catch udp_send(Sock, To, Packet))
     end.
 
 maybe_udp_send(
   #state{log         = Log,
 	 usock       = Sock,
-	 filter      = FilterMod,
-	 use_tdomain = UseTDomain},
-  {Domain, Addr} = To, Packet, Type, _LogData) ->
+	 filter      = FilterMod},
+  To, Packet, Type, _LogData) ->
+    {To_1, To_2} = To,
     case
-	try
-	    case UseTDomain of
-		true ->
-		    FilterMod:accept_send(Domain, Addr);
-		false ->
-		    {Ip, Port} = Addr,
-		    FilterMod:accept_send(Ip, Port)
-	    end
+	try FilterMod:accept_send(To_1, To_2)
 	catch
 	    Class:Exception ->
 		error_msg(
-		  "FilterMod:accept_send/2 crashed for ~p: ~w:~w~n    ~p",
-		  [To,Class,Exception,erlang:get_stacktrace()]),
+		  "FilterMod:accept_send(~p, ~p) crashed for: ~w:~w~n    ~p",
+		  [To_1,To_2,Class,Exception,erlang:get_stacktrace()]),
 		true
 	end
     of
@@ -1043,28 +1019,34 @@ maybe_udp_send(
 		    ok;
 		_ ->
 		    error_msg(
-		      "FilterMod:accept_send/2 returned: ~p for ~p",
-		      [Other,To])
+		      "FilterMod:accept_send(~p, ~p) returned: ~p",
+		      [To_1,To_2,Other])
 	    end,
 	    log(Log, Type, Packet, To),
-	    %% XXX should be some kind of lookup of domain to socket
-	    {SockIp, SockPort} = Addr,
-	    (catch udp_send(Sock, SockIp, SockPort, Packet))
+	    (catch udp_send(Sock, To, Packet))
     end.
 
-udp_send(UdpId, AgentIp, UdpPort, B) ->
-    case (catch gen_udp:send(UdpId, AgentIp, UdpPort, B)) of
+udp_send(UdpId, To, B) ->
+    %% XXX should be some kind of lookup of domain to socket
+    {Ip, Port} =
+	case To of
+	    {Domain, Addr} when is_atom(Domain) ->
+		Addr;
+	    {_, P} = Addr when is_integer(P) ->
+		Addr
+	end,
+    case (catch gen_udp:send(UdpId, Ip, Port, B)) of
 	{error, emsgsize} ->
 	    %% From this message we cannot recover, so exit sending loop
 	    throw({emsgsize, sz(B)});
 	{error, ErrorReason} ->
 	    error_msg("[error] cannot send message "
 		      "(destination: ~p:~p, size: ~p, reason: ~p)",
-		      [AgentIp, UdpPort, sz(B), ErrorReason]);
+		      [Ip, Port, sz(B), ErrorReason]);
 	{'EXIT', ExitReason} ->
 	    error_msg("[exit] cannot send message "
 		      "(destination: ~p:~p, size: ~p, reason: ~p)",
-		      [AgentIp, UdpPort, sz(B), ExitReason]);
+		      [Ip, Port, sz(B), ExitReason]);
 	_ ->
 	    ok
     end.
@@ -1275,7 +1257,7 @@ get_counters([Counter|Counters], Acc) ->
 ip_opt_bind_to_ip_address(Opts, Ip) ->
     case get_bind_to_ip_address(Opts) of
 	true ->
-	    [{ip, list_to_tuple(Ip)}];
+	    [{ip, Ip}];
 	_ ->
 	    []
     end.

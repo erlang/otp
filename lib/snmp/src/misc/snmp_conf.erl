@@ -42,7 +42,7 @@
 	 check_domain/1,
 	 all_tdomains/0,
 	 check_tdomain/1,
-	 mk_tdomain/1,
+	 mk_tdomain/0, mk_tdomain/1,
 	 tdomain_to_family/1,
 	 which_domain/1,
 	 check_ip/1, check_ip/2,
@@ -50,7 +50,7 @@
 	 ip_port_to_domaddr/2,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
-	 mk_taddress/2,
+	 mk_taddress/1, mk_taddress/2,
 
 	 check_packet_size/1,
 
@@ -462,6 +462,9 @@ check_tdomain(TDomain) ->
 
 %% ---------
 
+mk_tdomain() ->
+    mk_tdomain(snmpUDPDomain).
+
 mk_tdomain(snmpUDPDomain) ->
     mk_tdomain(transportDomainUdpIpv4);
 mk_tdomain(transportDomainUdpIpv4) ->
@@ -598,13 +601,13 @@ check_domain(Domain) ->
 
 %% ---------
 
+mk_taddress(Address) ->
+    mk_taddress(snmpUDPDomain, Address).
+
 %% The values of Domain, Ip and Port has both been checked at this
 %% point, so we dont need to do that again, but this function is
 %% also used on incoming packets from net_if so a little
 %% check that net_if does not supply bad arguments is in order.
-%%
-mk_taddress(snmpUDPDomain, Address) -> % Legacy
-    mk_taddress(transportDomainUdpIpv4, Address);
 %%
 %% These are just for convenience
 mk_taddress(?snmpUDPDomain, Address) ->
@@ -614,6 +617,8 @@ mk_taddress(?transportDomainUdpIpv4, Address) ->
 mk_taddress(?transportDomainUdpIpv6, Address) ->
     mk_taddress(transportDomainUdpIpv6, Address);
 %%
+mk_taddress(snmpUDPDomain, Address) -> % Legacy
+    mk_taddress(transportDomainUdpIpv4, Address);
 mk_taddress(transportDomainUdpIpv4 = Domain, Address) ->
     case Address of
 	[] -> % Empty mask

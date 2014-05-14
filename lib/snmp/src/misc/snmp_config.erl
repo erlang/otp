@@ -1588,7 +1588,7 @@ write_agent_snmp_files(
        is_list(SysName) ->
     write_agent_snmp_files(
       Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
-      "trap", none, "", "agentEngine", 484).
+      trap, none, "", "agentEngine", 484).
 
 %%----------------------------------------------------------------------
 %% Dir: string()  (ex: "../conf/")
@@ -1607,7 +1607,7 @@ write_agent_snmp_files(
        is_list(SysName) ->
     write_agent_snmp_files(
       Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName,
-      "trap", none, "", "agentEngine", 484).
+      trap, none, "", "agentEngine", 484).
 
 %% 
 %% ----- Agent config files generator functions -----
