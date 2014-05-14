@@ -361,7 +361,7 @@ fe80::204:acff:fe17:bf38
 	  </item>
 	  <tag><c>send_dvi</c></tag>
 	  <item>
-            <p>Average packet size deviation in bytes received sent from the socket.</p>
+            <p>Average packet size deviation in bytes sent from the socket.</p>
 	  </item>
 	  <tag><c>send_max</c></tag>
 	  <item>
