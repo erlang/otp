@@ -360,7 +360,12 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
     int fd;
     int mode;			/* Open mode. */
 
-    if (stat(name, &statbuf) >= 0 && !ISREG(statbuf)) {
+    if (stat(name, &statbuf) < 0) {
+	/* statbuf is undefined: if the caller depends on it,
+	   i.e. invoke_read_file(), fail the call immediately */
+	if (pSize && flags == EFILE_MODE_READ)
+	    return check_error(-1, errInfo);
+    } else if (!ISREG(statbuf)) {
 	/*
 	 * For UNIX only, here is some ugly code to allow
 	 * /dev/null to be opened as a file.
