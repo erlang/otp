@@ -335,12 +335,22 @@ WUNLOCK_HASH(erts_smp_rwmtx_t *lck)
     }
 
 static ERTS_INLINE void
-SET_SEGTAB(DbTableNestedHash *tb, LinearHashTable *lht, struct segment **segtab)
+SET_SEGTAB(DbTableNestedHash *tb, struct segment **segtab)
 {
     if (DB_USING_FINE_LOCKING(tb)) {
-        erts_smp_atomic_set_wb(&lht->segtab, (erts_aint_t)segtab);
+        erts_smp_atomic_set_wb(&tb->linearht.segtab, (erts_aint_t)segtab);
     } else {
-        erts_smp_atomic_set_nob(&lht->segtab, (erts_aint_t)segtab);
+        erts_smp_atomic_set_nob(&tb->linearht.segtab, (erts_aint_t)segtab);
+    }
+}
+
+static ERTS_INLINE void
+SET_NESTED_SEGTAB(DbTableNestedHash *tb, RootDbTerm *rp, struct segment **segtab)
+{
+    if (DB_USING_FINE_LOCKING(tb)) {
+        erts_smp_atomic_set_wb(&rp->lht.segtab, (erts_aint_t)segtab);
+    } else {
+        erts_smp_atomic_set_nob(&rp->lht.segtab, (erts_aint_t)segtab);
     }
 }
 
@@ -406,17 +416,6 @@ alloc_ext_seg(DbTableNestedHash *tb, unsigned seg_ix,
     return eseg;
 }
 
-static void
-create_linear_hash(DbTableNestedHash *tb, LinearHashTable *lht)
-{
-    erts_smp_atomic_init_nob(&lht->szm, SEGSZ_MASK);
-    erts_smp_atomic_init_nob(&lht->nactive, SEGSZ);
-    erts_smp_atomic_init_nob(&lht->segtab, (erts_aint_t)NULL);
-    lht->nsegs = NSEG_1;
-    lht->nslots = SEGSZ;
-    SET_SEGTAB(tb, lht, alloc_ext_seg(tb, 0, NULL, 0)->segtab);
-}
-
 /*
  * Iteration helper
  * Returns "next" slot index or 0 if EOT reached.
@@ -474,15 +473,32 @@ next_dbterm(DbTableNestedHash *tb, Uint *iptr, erts_smp_rwmtx_t **lck_ptr,
  * RLOCK_HASH or WLOCK_HASH must be done before.
  */
 static ERTS_INLINE Uint
-hash_to_ix(DbTableNestedHash* tb, LinearHashTable *lht, HashValue hval)
+hash_to_ix(DbTableNestedHash *tb, HashValue hval)
 {
     Uint mask = (DB_USING_FINE_LOCKING(tb)
-                 ?erts_smp_atomic_read_acqb(&lht->szm)
-                 :erts_smp_atomic_read_nob(&lht->szm));
+                 ?erts_smp_atomic_read_acqb(&tb->linearht.szm)
+                 :erts_smp_atomic_read_nob(&tb->linearht.szm));
     Uint ix = hval & mask;
-    if (ix >= erts_smp_atomic_read_nob(&lht->nactive)) {
+    if (ix >= erts_smp_atomic_read_nob(&tb->linearht.nactive)) {
         ix &= mask >> 1;
-        ASSERT(ix < erts_smp_atomic_read_nob(&lht->nactive));
+        ASSERT(ix < erts_smp_atomic_read_nob(&tb->linearht.nactive));
+    }
+    return ix;
+}
+
+/*
+ * Calculate slot index from hash value.
+ */
+static ERTS_INLINE Uint
+nested_hash_to_ix(DbTableNestedHash *tb, RootDbTerm *rp, HashValue hval)
+{
+    Uint mask = (DB_USING_FINE_LOCKING(tb)
+                 ?erts_smp_atomic_read_acqb(&rp->lht.szm)
+                 :erts_smp_atomic_read_nob(&rp->lht.szm));
+    Uint ix = hval & mask;
+    if (ix >= erts_smp_atomic_read_nob(&rp->lht.nactive)) {
+        ix &= mask >> 1;
+        ASSERT(ix < erts_smp_atomic_read_nob(&rp->lht.nactive));
     }
     return ix;
 }
@@ -539,15 +555,15 @@ new_root_dbterm(DbTableNestedHash *tb)
  * the nested LinearHashTable.
  */
 static NestedDbTerm **
-get_nested_dbterm(DbTableNestedHash *tb, LinearHashTable *lht,
+get_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
                   TrunkDbTerm *tp, Eterm object)
 {
     int nix;
     HashValue ohval;
     NestedDbTerm *ntp, **ntpp;
     ohval = MAKE_HASH(object);
-    nix = hash_to_ix(tb, lht, ohval);
-    ntpp = &NESTED_BUCKET(tb, lht, nix);
+    nix = nested_hash_to_ix(tb, rp, ohval);
+    ntpp = &NESTED_BUCKET(tb, &rp->lht, nix);
     while ((ntp = *ntpp) != NULL) {
         if (ntp->hdbterm == tp) {
             ASSERT(ntp->ohvalue == ohval);
@@ -571,12 +587,12 @@ free_nested_term(DbTableNestedHash *tb, NestedDbTerm *ntp)
  * the nested LinearHashTable.
  */
 static ERTS_INLINE void
-remove_nested_dbterm(DbTableNestedHash *tb, LinearHashTable *lht,
+remove_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
                      TrunkDbTerm *tp, Eterm object)
 {
     NestedDbTerm *ntp, **ntpp;
     /* !!! merge in get_nested_dbterm() !!! */
-    ntpp = get_nested_dbterm(tb, lht, tp, object);
+    ntpp = get_nested_dbterm(tb, rp, tp, object);
     ntp = *ntpp;
     *ntpp = ntp->next;
     free_nested_term(tb, ntp);
@@ -594,15 +610,15 @@ replace_trunk_dbterm(DbTableNestedHash *tb, TrunkDbTerm *old, Eterm obj)
 }
 
 static ERTS_INLINE void
-put_nested_dbterm(DbTableNestedHash *tb, LinearHashTable *lht,
+put_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
                   TrunkDbTerm *tp, Eterm obj)
 {
     int nix;
     HashValue ohval;
     NestedDbTerm *ntp, **ntpp;
     ohval = MAKE_HASH(obj);
-    nix = hash_to_ix(tb, lht, ohval);
-    ntpp = &NESTED_BUCKET(tb, lht, nix);
+    nix = nested_hash_to_ix(tb, rp, ohval);
+    ntpp = &NESTED_BUCKET(tb, &rp->lht, nix);
     ntp = (NestedDbTerm *)
         erts_db_alloc(ERTS_ALC_T_DB_TERM, /* ??? Use another type ??? */
                       (DbTable *)tb, sizeof(NestedDbTerm));
@@ -616,30 +632,30 @@ put_nested_dbterm(DbTableNestedHash *tb, LinearHashTable *lht,
  * Extend table with one new segment
  */
 static int
-alloc_seg(DbTableNestedHash *tb, LinearHashTable *lht)
+alloc_seg(DbTableNestedHash *tb)
 {
-    int seg_ix = lht->nslots >> SEGSZ_EXP;
+    int seg_ix = tb->linearht.nslots >> SEGSZ_EXP;
     struct segment **segtab;
     struct ext_segment *seg;
-    if ((seg_ix + 1) == lht->nsegs) {
+    if ((seg_ix + 1) == tb->linearht.nsegs) {
         /* New segtab needed (extended segment) */
-        segtab = SEGTAB(tb, lht);
-        seg = alloc_ext_seg(tb, seg_ix, segtab, lht->nsegs);
+        segtab = SEGTAB(tb, &tb->linearht);
+        seg = alloc_ext_seg(tb, seg_ix, segtab, tb->linearht.nsegs);
         if (seg == NULL)
             return 0;
         segtab[seg_ix] = &seg->s;
         /* We don't use the new segtab until next call (see "shrink race") */
     } else {
         /* Just a new plain segment */
-        if (seg_ix == lht->nsegs) {
+        if (seg_ix == tb->linearht.nsegs) {
             /* Time to start use segtab from last call */
-            seg = (struct ext_segment *)SEGTAB(tb, lht)[seg_ix-1];
+            seg = (struct ext_segment *)SEGTAB(tb, &tb->linearht)[seg_ix-1];
             MY_ASSERT((seg != NULL) && seg->s.is_ext_segment);
-            SET_SEGTAB(tb, lht, seg->segtab);
-            lht->nsegs = seg->nsegs;
+            SET_SEGTAB(tb, seg->segtab);
+            tb->linearht.nsegs = seg->nsegs;
         }
-        ASSERT(seg_ix < lht->nsegs);
-        segtab = SEGTAB(tb, lht);
+        ASSERT(seg_ix < tb->linearht.nsegs);
+        segtab = SEGTAB(tb, &tb->linearht);
         ASSERT(segtab[seg_ix] == NULL);
         segtab[seg_ix] = (struct segment *)
             erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
@@ -648,7 +664,47 @@ alloc_seg(DbTableNestedHash *tb, LinearHashTable *lht)
             return 0;
         sys_memset(segtab[seg_ix], 0, sizeof(struct segment));
     }
-    lht->nslots += SEGSZ;
+    tb->linearht.nslots += SEGSZ;
+    return 1;
+}
+
+/*
+ * Extend table with one new segment
+ */
+static int
+nested_alloc_seg(DbTableNestedHash *tb, RootDbTerm *rp)
+{
+    int seg_ix = rp->lht.nslots >> SEGSZ_EXP;
+    struct segment **segtab;
+    struct ext_segment *seg;
+    if ((seg_ix + 1) == rp->lht.nsegs) {
+        /* New segtab needed (extended segment) */
+        segtab = SEGTAB(tb, &rp->lht);
+        seg = alloc_ext_seg(tb, seg_ix, segtab, rp->lht.nsegs);
+        if (seg == NULL)
+            return 0;
+        segtab[seg_ix] = &seg->s;
+        /* We don't use the new segtab until next call (see "shrink race") */
+    } else {
+        /* Just a new plain segment */
+        if (seg_ix == rp->lht.nsegs) {
+            /* Time to start use segtab from last call */
+            seg = (struct ext_segment *)SEGTAB(tb, &rp->lht)[seg_ix-1];
+            MY_ASSERT((seg != NULL) && seg->s.is_ext_segment);
+            SET_NESTED_SEGTAB(tb, rp, seg->segtab);
+            rp->lht.nsegs = seg->nsegs;
+        }
+        ASSERT(seg_ix < rp->lht.nsegs);
+        segtab = SEGTAB(tb, &rp->lht);
+        ASSERT(segtab[seg_ix] == NULL);
+        segtab[seg_ix] = (struct segment *)
+            erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
+                              sizeof(struct segment));
+        if (segtab[seg_ix] == NULL)
+            return 0;
+        sys_memset(segtab[seg_ix], 0, sizeof(struct segment));
+    }
+    rp->lht.nslots += SEGSZ;
     return 1;
 }
 
@@ -657,21 +713,21 @@ alloc_seg(DbTableNestedHash *tb, LinearHashTable *lht)
  * Allocate new segment if needed.
  */
 static void
-nested_grow(DbTableNestedHash *tb, LinearHashTable *lht)
+nested_grow(DbTableNestedHash *tb, RootDbTerm *rp)
 {
     int ix, from_ix, szm, nactive;
     NestedDbTerm *p;
     NestedDbTerm **pnext, **to_pnext;
-    nactive=NACTIVE(lht);
+    nactive=NACTIVE(&rp->lht);
     /* Ensure that the slot nactive exists */
-    if (nactive == lht->nslots) {
+    if (nactive == rp->lht.nslots) {
         /* Time to get a new segment */
         ASSERT(!(nactive & SEGSZ_MASK));
-        if (!alloc_seg(tb, lht))
+        if (!nested_alloc_seg(tb, rp))
             return;
     }
-    ASSERT(nactive < lht->nslots);
-    szm = erts_smp_atomic_read_nob(&lht->szm);
+    ASSERT(nactive < rp->lht.nslots);
+    szm = erts_smp_atomic_read_nob(&rp->lht.szm);
     if (nactive <= szm) {
         from_ix = nactive & (szm >> 1);
     } else {
@@ -679,21 +735,21 @@ nested_grow(DbTableNestedHash *tb, LinearHashTable *lht)
         from_ix = 0;
         szm = (szm<<1) | 1;
     }
-    erts_smp_atomic_inc_nob(&lht->nactive);
+    erts_smp_atomic_inc_nob(&rp->lht.nactive);
     if (from_ix == 0) {
         if (DB_USING_FINE_LOCKING(tb)) {
-            erts_smp_atomic_set_relb(&lht->szm, szm);
+            erts_smp_atomic_set_relb(&rp->lht.szm, szm);
         } else {
-            erts_smp_atomic_set_nob(&lht->szm, szm);
+            erts_smp_atomic_set_nob(&rp->lht.szm, szm);
         }
     }
     /*
      * Finally, let's split the bucket. We try to do it in a smart way
      * to keep link order and avoid unnecessary updates of next-pointers.
      */
-    pnext = &NESTED_BUCKET(tb, lht, from_ix);
+    pnext = &NESTED_BUCKET(tb, &rp->lht, from_ix);
     p = *pnext;
-    to_pnext = &NESTED_BUCKET(tb, lht, nactive);
+    to_pnext = &NESTED_BUCKET(tb, &rp->lht, nactive);
     while (p != NULL) {
         ix = p->ohvalue & szm;
         if (ix != from_ix) {
@@ -719,7 +775,12 @@ realloc_root_dbterm(DbTableNestedHash *tb, RootDbTerm *old)
     ret->next = old->next;
     ret->trunk = (TrunkDbTerm *)(((UWord)old->trunk) | 0x01);
     ret->hvalue = old->hvalue;
-    create_linear_hash(tb, &ret->lht);
+    erts_smp_atomic_init_nob(&ret->lht.szm, SEGSZ_MASK);
+    erts_smp_atomic_init_nob(&ret->lht.nactive, SEGSZ);
+    erts_smp_atomic_init_nob(&ret->lht.segtab, (erts_aint_t)NULL);
+    ret->lht.nsegs = NSEG_1;
+    ret->lht.nslots = SEGSZ;
+    SET_NESTED_SEGTAB(tb, ret, alloc_ext_seg(tb, 0, NULL, 0)->segtab);
     erts_db_free(ERTS_ALC_T_DB_TERM, (DbTable *)&tb->common,
                  old, offsetof(RootDbTerm, lht));
     return ret;
@@ -779,37 +840,24 @@ remove_chain(DbTableNestedHash *tb, RootDbTerm **rpp,
  *   0 -> assume segment is empty
  */
 static void
-free_seg(DbTableNestedHash *tb, LinearHashTable *lht,
-         int free_records, int is_nested)
+free_seg(DbTableNestedHash *tb, int free_records)
 {
     int i;
-    int bytes, seg_ix = (lht->nslots >> SEGSZ_EXP) - 1;
-    struct segment **segtab = SEGTAB(tb, lht);
+    int bytes, seg_ix = (tb->linearht.nslots >> SEGSZ_EXP) - 1;
+    struct segment **segtab = SEGTAB(tb, &tb->linearht);
     struct ext_segment *top = (struct ext_segment *)segtab[seg_ix];
     ASSERT(top != NULL);
 #ifndef DEBUG
     if (free_records)
 #endif
     {
-        if (is_nested) {
-            NestedDbTerm **ntpp, *ntp;
-            for (i=0; i<SEGSZ; ++i) {
-                ntpp = &top->s.buckets[i].nterm;
-                while ((ntp = *ntpp) != NULL) {
-                    ASSERT(free_records); /* segment not empty as assumed? */
-                    *ntpp = ntp->next;
-                    free_nested_term(tb, ntp);
-                }
-            }
-        } else {
-            RootDbTerm **rpp;
-            for (i=0; i<SEGSZ; ++i) {
-                rpp = &top->s.buckets[i].hterm;
-                if (SAFE_GET_TRUNK(*rpp) != NULL) {
-                    ASSERT(free_records); /* segment not empty as assumed? */
-                    /* !!! use max_free !!! */
-                    remove_chain(tb, rpp, NULL, 0);
-                }
+        RootDbTerm **rpp;
+        for (i=0; i<SEGSZ; ++i) {
+            rpp = &top->s.buckets[i].hterm;
+            if (SAFE_GET_TRUNK(*rpp) != NULL) {
+                ASSERT(free_records); /* segment not empty as assumed? */
+                /* !!! use max_free !!! */
+                remove_chain(tb, rpp, NULL, 0);
             }
         }
     }
@@ -827,7 +875,7 @@ free_seg(DbTableNestedHash *tb, LinearHashTable *lht,
      * earlier in alloc_seg() as well. And this is also the reason why
      * the minimum size of the first segtab is 2 and not 1 (NSEG_1).
      */
-    if ((seg_ix == lht->nsegs - 1) || (seg_ix == 0)) {
+    if ((seg_ix == tb->linearht.nsegs - 1) || (seg_ix == 0)) {
         /* Dealloc extended segment */
         MY_ASSERT(top->s.is_ext_segment);
         ASSERT((segtab != top->segtab) || (seg_ix == 0));
@@ -841,9 +889,9 @@ free_seg(DbTableNestedHash *tb, LinearHashTable *lht,
             MY_ASSERT(newtop->s.is_ext_segment);
             if (newtop->prev_segtab != NULL) {
                 /* Time to use a smaller segtab */
-                SET_SEGTAB(tb, lht, newtop->prev_segtab);
-                lht->nsegs = seg_ix;
-                ASSERT(lht->nsegs == EXTSEG(SEGTAB(tb, lht))->nsegs);
+                SET_SEGTAB(tb, newtop->prev_segtab);
+                tb->linearht.nsegs = seg_ix;
+                ASSERT(tb->linearht.nsegs == EXTSEG(SEGTAB(tb, &tb->linearht))->nsegs);
             } else {
                 ASSERT((NSEG_1 > 2) && (seg_ix == 1));
             }
@@ -853,14 +901,91 @@ free_seg(DbTableNestedHash *tb, LinearHashTable *lht,
     erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, (void *)top, bytes);
 #ifdef DEBUG
     if (seg_ix > 0) {
-        if (seg_ix < lht->nsegs)
-            SEGTAB(tb, lht)[seg_ix] = NULL;
+        if (seg_ix < tb->linearht.nsegs)
+            SEGTAB(tb, &tb->linearht)[seg_ix] = NULL;
     } else {
-        SET_SEGTAB(tb, lht, NULL);
+        SET_SEGTAB(tb, NULL);
     }
 #endif
-    lht->nslots -= SEGSZ;
-    ASSERT(lht->nslots >= 0);
+    tb->linearht.nslots -= SEGSZ;
+    ASSERT(tb->linearht.nslots >= 0);
+}
+
+/*
+ * Shrink table by freeing the top segment free_records:
+ *   1 -> free any records in segment
+ *   0 -> assume segment is empty
+ */
+static void
+nested_free_seg(DbTableNestedHash *tb, RootDbTerm *rp, int free_records)
+{
+    int i;
+    int bytes, seg_ix = (rp->lht.nslots >> SEGSZ_EXP) - 1;
+    struct segment **segtab = SEGTAB(tb, &rp->lht);
+    struct ext_segment *top = (struct ext_segment *)segtab[seg_ix];
+    ASSERT(top != NULL);
+#ifndef DEBUG
+    if (free_records)
+#endif
+    {
+        NestedDbTerm **ntpp, *ntp;
+        for (i=0; i<SEGSZ; ++i) {
+            ntpp = &top->s.buckets[i].nterm;
+            while ((ntp = *ntpp) != NULL) {
+                ASSERT(free_records); /* segment not empty as assumed? */
+                *ntpp = ntp->next;
+                free_nested_term(tb, ntp);
+            }
+        }
+    }
+    /*
+     * The "shrink race":
+     * We must avoid deallocating an extended segment while its segtab may
+     * still be used by other threads.
+     * The trick is to stop use a segtab one call earlier. That is, stop use
+     * a segtab when the segment above it is deallocated. When the segtab is
+     * later deallocated, it has not been used for a very long time.
+     * It is even theoretically safe as we have by then rehashed the entire
+     * segment, seizing *all* locks, so there cannot exist any retarded threads
+     * still hanging in BUCKET macro with an old segtab pointer.
+     * For this to work, we must of course allocate a new segtab one call
+     * earlier in alloc_seg() as well. And this is also the reason why
+     * the minimum size of the first segtab is 2 and not 1 (NSEG_1).
+     */
+    if ((seg_ix == rp->lht.nsegs - 1) || (seg_ix == 0)) {
+        /* Dealloc extended segment */
+        MY_ASSERT(top->s.is_ext_segment);
+        ASSERT((segtab != top->segtab) || (seg_ix == 0));
+        bytes = SIZEOF_EXTSEG(top->nsegs);
+    } else {
+        /* Dealloc plain segment */
+        struct ext_segment *newtop = (struct ext_segment *)segtab[seg_ix - 1];
+        MY_ASSERT(!top->s.is_ext_segment);
+        if (segtab == newtop->segtab) {
+            /* New top segment is extended */
+            MY_ASSERT(newtop->s.is_ext_segment);
+            if (newtop->prev_segtab != NULL) {
+                /* Time to use a smaller segtab */
+                SET_NESTED_SEGTAB(tb, rp, newtop->prev_segtab);
+                rp->lht.nsegs = seg_ix;
+                ASSERT(rp->lht.nsegs == EXTSEG(SEGTAB(tb, &rp->lht))->nsegs);
+            } else {
+                ASSERT((NSEG_1 > 2) && (seg_ix == 1));
+            }
+        }
+        bytes = sizeof(struct segment);
+    }
+    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, (void *)top, bytes);
+#ifdef DEBUG
+    if (seg_ix > 0) {
+        if (seg_ix < rp->lht.nsegs)
+            SEGTAB(tb, &rp->lht)[seg_ix] = NULL;
+    } else {
+        SET_NESTED_SEGTAB(tb, rp, NULL);
+    }
+#endif
+    rp->lht.nslots -= SEGSZ;
+    ASSERT(rp->lht.nslots >= 0);
 }
 
 static ERTS_INLINE void
@@ -869,7 +994,7 @@ free_root_term(DbTableNestedHash *tb, RootDbTerm *rp)
     if (HAS_LHT(rp)) {
         /* !!! use free_nested_table() !!! */
         while (rp->lht.nslots)
-            free_seg(tb, &rp->lht, 0, 1);
+            nested_free_seg(tb, rp, 0);
         erts_db_free(ERTS_ALC_T_DB_TERM, /* ??? Use another type ??? */
                      (DbTable *)tb, rp, sizeof(RootDbTerm));
     } else {
@@ -883,35 +1008,35 @@ free_root_term(DbTableNestedHash *tb, RootDbTerm *rp)
  * Remove top segment if it gets empty.
  */
 static void
-nested_shrink(DbTableNestedHash *tb, LinearHashTable *lht)
+nested_shrink(DbTableNestedHash *tb, RootDbTerm *rp)
 {
     int nactive, src_ix, dst_ix, low_szm;
     NestedDbTerm **src_bp, **dst_bp;
-    nactive = NACTIVE(lht);
+    nactive = NACTIVE(&rp->lht);
     src_ix = nactive - 1;
-    low_szm = erts_smp_atomic_read_nob(&lht->szm) >> 1;
+    low_szm = erts_smp_atomic_read_nob(&rp->lht.szm) >> 1;
     dst_ix = src_ix & low_szm;
     ASSERT(dst_ix < src_ix);
     ASSERT(nactive > SEGSZ);
-    src_bp = &NESTED_BUCKET(tb, lht, src_ix);
-    dst_bp = &NESTED_BUCKET(tb, lht, dst_ix);
+    src_bp = &NESTED_BUCKET(tb, &rp->lht, src_ix);
+    dst_bp = &NESTED_BUCKET(tb, &rp->lht, dst_ix);
     while (*dst_bp != NULL)
         dst_bp = &(*dst_bp)->next;
     *dst_bp = *src_bp;
     *src_bp = NULL;
-    erts_smp_atomic_set_nob(&lht->nactive, src_ix);
+    erts_smp_atomic_set_nob(&rp->lht.nactive, src_ix);
     if (dst_ix == 0)
-        erts_smp_atomic_set_relb(&lht->szm, low_szm);
-    if ((lht->nslots - src_ix) >= SEGSZ)
-        free_seg(tb, lht, 0, 1);
+        erts_smp_atomic_set_relb(&rp->lht.szm, low_szm);
+    if ((rp->lht.nslots - src_ix) >= SEGSZ)
+        nested_free_seg(tb, rp, 0);
 }
 
 static ERTS_INLINE void
-try_nested_shrink(DbTableNestedHash *tb, LinearHashTable *lht, int nkitems)
+try_nested_shrink(DbTableNestedHash *tb, RootDbTerm *rp, int nkitems)
 {
-    int nactive = NACTIVE(lht);
+    int nactive = NACTIVE(&rp->lht);
     if ((nactive > SEGSZ) && (nkitems < (nactive * CHAIN_LEN)))
-        nested_shrink(tb, lht);
+        nested_shrink(tb, rp);
 }
 
 /*
@@ -922,8 +1047,9 @@ try_nested_shrink(DbTableNestedHash *tb, LinearHashTable *lht, int nkitems)
  *   0 -> assume segment is empty and free the segment
  */
 /* !!! KEEP free_records ??? */
+/* !!!  == nested_free_seg ??? */
 static void
-free_nested_seg(DbTableNestedHash *tb, LinearHashTable *lht,
+free_nested_seg(DbTableNestedHash *tb, RootDbTerm *rp,
                 int free_records, int *max_free)
 {
     int i, bytes, seg_ix;
@@ -931,8 +1057,8 @@ free_nested_seg(DbTableNestedHash *tb, LinearHashTable *lht,
     NestedDbTerm **ntpp;
     struct segment **segtab;
     struct ext_segment *top;
-    segtab = SEGTAB(tb, lht);
-    seg_ix = (lht->nslots >> SEGSZ_EXP) - 1;
+    segtab = SEGTAB(tb, &rp->lht);
+    seg_ix = (rp->lht.nslots >> SEGSZ_EXP) - 1;
     top = (struct ext_segment *)segtab[seg_ix];
     ASSERT(top != NULL);
 #ifndef DEBUG
@@ -965,7 +1091,7 @@ free_nested_seg(DbTableNestedHash *tb, LinearHashTable *lht,
             return;
         --*max_free;
     }
-    if ((seg_ix == (lht->nsegs - 1)) || (seg_ix == 0)) {
+    if ((seg_ix == (rp->lht.nsegs - 1)) || (seg_ix == 0)) {
         /* Dealloc extended segment */
         MY_ASSERT(top->s.is_ext_segment);
         ASSERT((segtab != top->segtab) || (seg_ix == 0));
@@ -979,9 +1105,9 @@ free_nested_seg(DbTableNestedHash *tb, LinearHashTable *lht,
             MY_ASSERT(newtop->s.is_ext_segment);
             if (newtop->prev_segtab != NULL) {
                 /* Time to use a smaller segtab */
-                SET_SEGTAB(tb, lht, newtop->prev_segtab);
-                lht->nsegs = seg_ix;
-                ASSERT(lht->nsegs == EXTSEG(SEGTAB(tb, lht))->nsegs);
+                SET_NESTED_SEGTAB(tb, rp, newtop->prev_segtab);
+                rp->lht.nsegs = seg_ix;
+                ASSERT(rp->lht.nsegs == EXTSEG(SEGTAB(tb, &rp->lht))->nsegs);
             } else {
                 ASSERT((NSEG_1 > 2) && (seg_ix == 1));
             }
@@ -991,26 +1117,26 @@ free_nested_seg(DbTableNestedHash *tb, LinearHashTable *lht,
     erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, (void *)top, bytes);
 #ifdef DEBUG
     if (seg_ix > 0) {
-        if (seg_ix < lht->nsegs)
-            SEGTAB(tb, lht)[seg_ix] = NULL;
+        if (seg_ix < rp->lht.nsegs)
+            SEGTAB(tb, &rp->lht)[seg_ix] = NULL;
     } else {
-        SET_SEGTAB(tb, lht, NULL);
+        SET_NESTED_SEGTAB(tb, rp, NULL);
     }
 #endif
-    lht->nslots -= SEGSZ;
-    ASSERT(lht->nslots >= 0);
+    rp->lht.nslots -= SEGSZ;
+    ASSERT(rp->lht.nslots >= 0);
 }
 
 /* !!! KEEP free_records ??? */
 /* !!! FIX THIS MESS !!! */
 static void
-free_nested_table(DbTableNestedHash *tb, LinearHashTable *lht,
+free_nested_table(DbTableNestedHash *tb, RootDbTerm *rp,
                   int free_records, int *max_free)
 {
-    while ((lht->nslots > SEGSZ) && ((max_free == NULL) || (*max_free > 0)))
-        free_nested_seg(tb, lht, (free_records) ? 1 : 0, max_free);
-    if ((lht->nslots) && ((max_free == NULL) || (*max_free > 0)))
-        free_nested_seg(tb, lht, free_records, max_free);
+    while ((rp->lht.nslots > SEGSZ) && ((max_free == NULL) || (*max_free > 0)))
+        free_nested_seg(tb, rp, (free_records) ? 1 : 0, max_free);
+    if ((rp->lht.nslots) && ((max_free == NULL) || (*max_free > 0)))
+        free_nested_seg(tb, rp, free_records, max_free);
 }
 
 /*
@@ -1028,7 +1154,7 @@ remove_key(DbTableNestedHash *tb, RootDbTerm ***rppp,
     RootDbTerm *rp = *rpp;
     TrunkDbTerm *tp1, *tp2;
     if (HAS_LHT(rp))
-        free_nested_table(tb, &rp->lht, (pseudo_delete) ? 2 : 1, max_free);
+        free_nested_table(tb, rp, (pseudo_delete) ? 2 : 1, max_free);
     /* !!!
      * RootDbTerm should be marked as being deleted
      * and not used anymore until remove_key()
@@ -1100,7 +1226,7 @@ remove_object(DbTableNestedHash *tb, RootDbTerm ***rppp,
         if (tp->next == NULL) {
             ASSERT(tp->np.nkitems == 1);
             if ((rp->hvalue != INVALID_HASH) && HAS_LHT(rp))
-                remove_nested_dbterm(tb, &rp->lht, tp, object);
+                remove_nested_dbterm(tb, rp, tp, object);
             if (pseudo_delete) {
                 rp->hvalue = INVALID_HASH;
                 *rppp = rpp = &rp->next;
@@ -1128,8 +1254,8 @@ remove_object(DbTableNestedHash *tb, RootDbTerm ***rppp,
     }
     ASSERT(rp->hvalue != INVALID_HASH);
     if (HAS_LHT(rp)) {
-        remove_nested_dbterm(tb, &rp->lht, tp, object);
-        try_nested_shrink(tb, &rp->lht, nk);
+        remove_nested_dbterm(tb, rp, tp, object);
+        try_nested_shrink(tb, rp, nk);
     }
     free_trunk_term(tb, tp);
     return 0;
@@ -1182,7 +1308,7 @@ remove_object_and_nested(DbTableNestedHash *tb, RootDbTerm **rpp,
             tp->next->np.previous = tp->np.previous;
     }
     free_trunk_term(tb, tp);
-    try_nested_shrink(tb, &rp->lht, nk);
+    try_nested_shrink(tb, rp, nk);
     return 0;
 }
 
@@ -1257,7 +1383,7 @@ done_resizing(DbTableNestedHash *tb)
  * Allocate new segment if needed.
  */
 static void
-grow(DbTableNestedHash *tb, LinearHashTable *lht, int nactive)
+grow(DbTableNestedHash *tb, int nactive)
 {
     int from_ix, ix, nd, szm;
     erts_smp_rwmtx_t *lck;
@@ -1266,22 +1392,22 @@ grow(DbTableNestedHash *tb, LinearHashTable *lht, int nactive)
     if (!begin_resizing(tb))
         /* already in progress */
         return;
-    if (NACTIVE(lht) != nactive) {
+    if (NACTIVE(&tb->linearht) != nactive) {
         /* already done (race) */
         done_resizing(tb);
         return;
     }
     /* Ensure that the slot nactive exists */
-    if (nactive == lht->nslots) {
+    if (nactive == tb->linearht.nslots) {
         /* Time to get a new segment */
         ASSERT((nactive & SEGSZ_MASK) == 0);
-        if (!alloc_seg(tb, lht)) {
+        if (!alloc_seg(tb)) {
             done_resizing(tb);
             return;
         }
     }
-    ASSERT(nactive < lht->nslots);
-    szm = erts_smp_atomic_read_nob(&lht->szm);
+    ASSERT(nactive < tb->linearht.nslots);
+    szm = erts_smp_atomic_read_nob(&tb->linearht.szm);
     if (nactive <= szm) {
         from_ix = nactive & (szm >> 1);
     } else {
@@ -1299,12 +1425,12 @@ grow(DbTableNestedHash *tb, LinearHashTable *lht, int nactive)
         done_resizing(tb);
         return;
     }
-    erts_smp_atomic_inc_nob(&lht->nactive);
+    erts_smp_atomic_inc_nob(&tb->linearht.nactive);
     if (from_ix == 0) {
         if (DB_USING_FINE_LOCKING(tb)) {
-            erts_smp_atomic_set_relb(&lht->szm, szm);
+            erts_smp_atomic_set_relb(&tb->linearht.szm, szm);
         } else {
-            erts_smp_atomic_set_nob(&lht->szm, szm);
+            erts_smp_atomic_set_nob(&tb->linearht.szm, szm);
         }
     }
     done_resizing(tb);
@@ -1366,7 +1492,7 @@ add_fixed_deletion(DbTableNestedHash *tb, int ix)
  * Remove top segment if it gets empty.
  */
 static void
-shrink(DbTableNestedHash *tb, LinearHashTable *lht, int nactive)
+shrink(DbTableNestedHash *tb, int nactive)
 {
     int from_ix, nd, low_szm, to_ix;
     RootDbTerm **from_rpp, **to_rpp;
@@ -1375,13 +1501,13 @@ shrink(DbTableNestedHash *tb, LinearHashTable *lht, int nactive)
     if (!begin_resizing(tb))
         /* already in progress */
         return;
-    if (NACTIVE(lht) == nactive) {
+    if (NACTIVE(&tb->linearht) == nactive) {
         /* already done */
         done_resizing(tb);
         return;
     }
     from_ix = nactive - 1;
-    low_szm = erts_smp_atomic_read_nob(&lht->szm) >> 1;
+    low_szm = erts_smp_atomic_read_nob(&tb->linearht.szm) >> 1;
     to_ix = from_ix & low_szm;
     ASSERT(to_ix < from_ix);
     ASSERT(nactive > SEGSZ);
@@ -1410,12 +1536,12 @@ shrink(DbTableNestedHash *tb, LinearHashTable *lht, int nactive)
     *rpp = *to_rpp;
     *to_rpp = *from_rpp;
     *from_rpp = NULL;
-    erts_smp_atomic_set_nob(&lht->nactive, from_ix);
+    erts_smp_atomic_set_nob(&tb->linearht.nactive, from_ix);
     if (to_ix == 0)
-        erts_smp_atomic_set_relb(&lht->szm, low_szm);
+        erts_smp_atomic_set_relb(&tb->linearht.szm, low_szm);
     WUNLOCK_HASH(lck);
-    if ((lht->nslots - from_ix) >= SEGSZ)
-        free_seg(tb, lht, 0, 0);
+    if ((tb->linearht.nslots - from_ix) >= SEGSZ)
+        free_seg(tb, 0);
     done_resizing(tb);
 }
 
@@ -1426,7 +1552,7 @@ try_shrink(DbTableNestedHash *tb)
     if ((nactive > SEGSZ)
         && (NITEMS(tb) < (nactive * CHAIN_LEN))
         && !IS_FIXED(tb)) {
-        shrink(tb, &tb->linearht, nactive);
+        shrink(tb, nactive);
     }
 }
 
@@ -1512,7 +1638,7 @@ analyze_pattern(DbTableNestedHash *tb, Eterm pattern, struct mp_info *mpi)
                 erts_smp_rwmtx_t *lck;
                 hval = MAKE_HASH(key);
                 lck = RLOCK_HASH(tb, hval);
-                ix = hash_to_ix(tb, &tb->linearht, hval);
+                ix = hash_to_ix(tb, hval);
                 rpp = &BUCKET(tb, ix);
                 if (lck == NULL) {
                     search_slot = (search_list(tb, key, hval, *rpp) != NULL);
@@ -1648,21 +1774,21 @@ create_nested_table(DbTableNestedHash *tb, RootDbTerm *rp)
         do {
             dbterm = db_alloc_tmp_uncompressed(&tb->common, &tp->dbterm);
             object = make_tuple_rel(dbterm->tpl, NULL);
-            put_nested_dbterm(tb, &rp->lht, tp, object);
+            put_nested_dbterm(tb, rp, tp, object);
             db_free_tmp_uncompressed(dbterm);
             ++nitems;
             if (nitems > NACTIVE(&rp->lht) * (CHAIN_LEN+1))
-                nested_grow(tb, &rp->lht);
+                nested_grow(tb, rp);
             tp = tp->next;
         } while (tp != NULL);
     } else {
         do {
             base = HALFWORD_HEAP ? tp->dbterm.tpl : NULL;
             object = make_tuple_rel(tp->dbterm.tpl, base);
-            put_nested_dbterm(tb, &rp->lht, tp, object);
+            put_nested_dbterm(tb, rp, tp, object);
             ++nitems;
             if (nitems > NACTIVE(&rp->lht) * (CHAIN_LEN+1))
-                nested_grow(tb, &rp->lht);
+                nested_grow(tb, rp);
             tp = tp->next;
         } while (tp != NULL);
     }
@@ -1678,7 +1804,12 @@ db_create_nhash(Process *p, DbTable *tbl)
 {
     DbTableNestedHash *tb = &tbl->nested;
     erts_smp_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
-    create_linear_hash(tb, &tb->linearht);
+    erts_smp_atomic_init_nob(&tb->linearht.szm, SEGSZ_MASK);
+    erts_smp_atomic_init_nob(&tb->linearht.nactive, SEGSZ);
+    erts_smp_atomic_init_nob(&tb->linearht.segtab, (erts_aint_t)NULL);
+    tb->linearht.nsegs = NSEG_1;
+    tb->linearht.nslots = SEGSZ;
+    SET_SEGTAB(tb, alloc_ext_seg(tb, 0, NULL, 0)->segtab);
     erts_smp_atomic_init_nob(&tb->is_resizing, 0);
 #ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
@@ -1754,7 +1885,7 @@ db_next_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     DbTableNestedHash *tb = &tbl->nested;
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
     for (;;) {
         if (rp == NULL) {
@@ -1791,7 +1922,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
     key = GETKEY(tb, tuple_val(obj));
     hval = MAKE_HASH(key);
     lck = WLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rpp = &BUCKET(tb, ix);
     while ((rp = *rpp) != NULL) {
         if (has_key(tb, rp, key, hval))
@@ -1823,7 +1954,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
             if (HAS_LHT(rp)) {
                 tp = replace_trunk_dbterm(tb, tp, obj);
                 rp->trunk = (TrunkDbTerm *)(((UWord)tp) | 0x01);
-                put_nested_dbterm(tb, &rp->lht, tp, obj);
+                put_nested_dbterm(tb, rp, tp, obj);
             } else {
                 tp = replace_trunk_dbterm(tb, tp, obj);
                 rp->trunk = tp;
@@ -1842,7 +1973,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
                 HashValue ohval;
                 NestedDbTerm *ntp;
                 ohval = MAKE_HASH(obj);
-                nix = hash_to_ix(tb, &rp->lht, ohval);
+                nix = nested_hash_to_ix(tb, rp, ohval);
                 ntp = NESTED_BUCKET(tb, &rp->lht, nix);
                 while (ntp != NULL) {
                     if (db_eq(&tb->common, obj, &ntp->hdbterm->dbterm)) {
@@ -1871,9 +2002,9 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
         sp->np.previous = tp;
         if (HAS_LHT(rp)) {
             rp->trunk = (TrunkDbTerm *)(((UWord)tp) | 0x01);
-            put_nested_dbterm(tb, &rp->lht, tp, obj);
+            put_nested_dbterm(tb, rp, tp, obj);
             if (tp->np.nkitems > NACTIVE(&rp->lht) * (CHAIN_LEN+1))
-                nested_grow(tb, &rp->lht);
+                nested_grow(tb, rp);
         } else {
             rp->trunk = tp;
             if (tp->np.nkitems > NESTED_CHAIN_THRESHOLD)
@@ -1887,7 +2018,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
      * Instead of 'nitems' we should use the number of distinct keys
      */
     if ((nitems > nactive * (CHAIN_LEN+1)) && !IS_FIXED(tb))
-        grow(tb, &tb->linearht, nactive);
+        grow(tb, nactive);
     CHECK_TABLES();
     return DB_ERROR_NONE;
 }
@@ -1903,7 +2034,7 @@ db_get_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     *ret = NIL;
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb,hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
     while (rp != NULL) {
         /* Let build_term_list() skip the not-alive-key RootDbTerm */
@@ -1932,7 +2063,7 @@ db_get_element_nhash(Process *p, DbTable *tbl, Eterm key, int ndex, Eterm *ret)
     ASSERT(tb->common.status & (DB_BAG | DB_DUPLICATE_BAG));
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
     while (rp != NULL) {
         if (has_key(tb, rp, key, hval)) {
@@ -1977,7 +2108,7 @@ db_member_nhash(DbTable *tbl, Eterm key, Eterm *ret)
     DbTableNestedHash *tb = &tbl->nested;
     *ret = am_false;
     hval = MAKE_HASH(key);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     lck = RLOCK_HASH(tb, hval);
     rp = BUCKET(tb, ix);
     while (rp != NULL) {
@@ -2005,7 +2136,7 @@ db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
     DbTableNestedHash *tb = &tbl->nested;
     hval = MAKE_HASH(key);
     lck = WLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rpp = &BUCKET(tb, ix);
     while ((rp = *rpp) != NULL) {
         if (has_key(tb, rp, key, hval)) {
@@ -2047,7 +2178,7 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
     key = GETKEY(tb, tuple_val(object));
     hval = MAKE_HASH(key);
     lck = WLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rpp = &BUCKET(tb, ix);
     while ((rp = *rpp) != NULL) {
         if (has_key(tb, rp, key, hval)) {
@@ -2058,7 +2189,7 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
                 NestedDbTerm *ntp;
                 NestedDbTerm **ntpp;
                 hval = MAKE_HASH(object);
-                nix = hash_to_ix(tb, &rp->lht, hval);
+                nix = nested_hash_to_ix(tb, rp, hval);
                 ntpp = &NESTED_BUCKET(tb, &rp->lht, nix);
                 while ((ntp = *ntpp) != NULL) {
                     tp = ntp->hdbterm;
@@ -2889,7 +3020,7 @@ db_free_table_continue_nhash(DbTable *tbl)
     done /= 2;
     /* ??? Shouldn't we divide also by CHAIN_LEN * SEGSZ ??? */
     while (tb->linearht.nslots != 0) {
-        free_seg(tb, &tb->linearht, 1, 0);
+        free_seg(tb, 1);
         /* If we have done enough work, get out here. */
         if (++done >= (DELETE_RECORD_LIMIT / CHAIN_LEN / SEGSZ))
             /* Not done */
@@ -3212,7 +3343,7 @@ db_get_element_array(DbTable *tbl, Eterm key, int ndex,
     ASSERT(tb->common.status & (DB_BAG | DB_DUPLICATE_BAG));
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb, hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
     while (rp != NULL) {
         if (has_key(tb, rp, key, hval)) {
@@ -3262,7 +3393,7 @@ db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
     DbTableNestedHash *tb = &tbl->nested;
     hval = MAKE_HASH(key);
     lck = WLOCK_HASH(tb,hval);
-    ix = hash_to_ix(tb, &tb->linearht, hval);
+    ix = hash_to_ix(tb, hval);
     rpp = &BUCKET(tb, ix);
     ASSERT(!IS_FIXED(tb));
     ASSERT((tb->common.status & DB_BAG));
@@ -3278,7 +3409,7 @@ db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
                 NestedDbTerm **ntpp;
                 /* ??? Is this correct ??? */
                 hval = MAKE_HASH(TUPLE2(storage, key, value));
-                nix = hash_to_ix(tb, &rp->lht, hval);
+                nix = nested_hash_to_ix(tb, rp, hval);
                 ntpp = &NESTED_BUCKET(tb, &rp->lht, nix);
                 while ((ntp = *ntpp) != NULL) {
                     tp = ntp->hdbterm;
