@@ -5117,7 +5117,6 @@ erts_module_info_0(Process* p, Eterm module)
     BUILD_INFO(am_md5);
     BUILD_INFO(am_compile);
     BUILD_INFO(am_attributes);
-    BUILD_INFO(am_imports);
     BUILD_INFO(am_exports);
     BUILD_INFO(am_module);
 #undef BUILD_INFO
@@ -5129,8 +5128,6 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 {
     if (what == am_module) {
 	return module;
-    } else if (what == am_imports) {
-	return NIL;
     } else if (what == am_md5) {
 	return md5_of_module(p, module);
     } else if (what == am_exports) {
