@@ -245,7 +245,7 @@ typedef struct {
 /*
  * This structure contains all information about the module being loaded.
  */  
-
+#define MD5_SIZE 16
 typedef struct LoaderState {
     /*
      * The current logical file within the binary.
@@ -292,7 +292,7 @@ typedef struct LoaderState {
     StringPatch* string_patches; /* Linked list of position into string table to patch. */
     BeamInstr catches;		/* Linked list of catch_yf instructions. */
     unsigned loaded_size;	/* Final size of code when loaded. */
-    byte mod_md5[16];		/* MD5 for module code. */
+    byte mod_md5[MD5_SIZE];	/* MD5 for module code. */
     int may_load_nif;           /* true if NIFs may later be loaded for this module */  
     int on_load;		/* Index in the code for the on_load function
 				 * (or 0 if there is no on_load function)
@@ -528,6 +528,7 @@ static Eterm exported_from_module(Process* p, Eterm mod);
 static Eterm functions_in_module(Process* p, Eterm mod);
 static Eterm attributes_for_module(Process* p, Eterm mod);
 static Eterm compilation_info_for_module(Process* p, Eterm mod);
+static Eterm md5_of_module(Process* p, Eterm mod);
 static Eterm native_addresses(Process* p, Eterm mod);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
@@ -648,6 +649,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->code[MI_COMPILE_PTR] = 0;
     stp->code[MI_COMPILE_SIZE] = 0;
     stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
+    stp->code[MI_MD5_PTR] = 0;
 
     /*
      * Read the atom table.
@@ -4038,7 +4040,7 @@ freeze_code(LoaderState* stp)
     }
     size = (stp->ci * sizeof(BeamInstr)) +
 	(stp->total_literal_size * sizeof(Eterm)) +
-	strtab_size + attr_size + compile_size + line_size;
+	strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
 
     /*
      * Move the code to its final location.
@@ -4247,11 +4249,20 @@ freeze_code(LoaderState* stp)
 	code[MI_COMPILE_SIZE_ON_HEAP] = decoded_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
+    {
+	byte* md5_sum = str_table + strtab_size + attr_size + compile_size;
+	CHKBLK(ERTS_ALC_T_CODE,code);
+	sys_memcpy(md5_sum, stp->mod_md5, MD5_SIZE);
+	CHKBLK(ERTS_ALC_T_CODE,code);
+	code[MI_MD5_PTR] = (BeamInstr) md5_sum;
+	CHKBLK(ERTS_ALC_T_CODE,code);
+    }
+    CHKBLK(ERTS_ALC_T_CODE,code);
 
     /*
      * Make sure that we have not overflowed the allocated code space.
      */
-    ASSERT(str_table + strtab_size + attr_size + compile_size ==
+    ASSERT(str_table + strtab_size + attr_size + compile_size + MD5_SIZE ==
 	   ((byte *) code) + size);
 
     /*
@@ -5103,10 +5114,11 @@ erts_module_info_0(Process* p, Eterm module)
     hp += 3; \
     list = CONS(hp, tup, list)
 
+    BUILD_INFO(am_md5);
     BUILD_INFO(am_compile);
     BUILD_INFO(am_attributes);
-    BUILD_INFO(am_imports);
     BUILD_INFO(am_exports);
+    BUILD_INFO(am_module);
 #undef BUILD_INFO
     return list;
 }
@@ -5116,8 +5128,8 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 {
     if (what == am_module) {
 	return module;
-    } else if (what == am_imports) {
-	return NIL;
+    } else if (what == am_md5) {
+	return md5_of_module(p, module);
     } else if (what == am_exports) {
 	return exported_from_module(p, module);
     } else if (what == am_functions) {
@@ -5306,7 +5318,7 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
     Eterm result = NIL;
     Eterm* end;
 
-    if (is_not_atom(mod) || (is_not_list(result) && is_not_nil(result))) {
+    if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
     }
 
@@ -5345,7 +5357,7 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
     Eterm result = NIL;
     Eterm* end;
 
-    if (is_not_atom(mod) || (is_not_list(result) && is_not_nil(result))) {
+    if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
     }
 
@@ -5365,6 +5377,33 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
         HRelease(p,end,hp);
     }
     return result;
+}
+
+/*
+ * Returns the MD5 checksum for a module
+ *
+ * Returns a tagged term, or 0 on error.
+ */
+
+Eterm
+md5_of_module(Process* p, /* Process whose heap to use. */
+              Eterm mod) /* Tagged atom for module. */
+{
+    Module* modp;
+    BeamInstr* code;
+    Eterm res = NIL;
+
+    if (is_not_atom(mod)) {
+	return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(mod, erts_active_code_ix());
+    if (modp == NULL) {
+	return THE_NON_VALUE;
+    }
+    code = modp->curr.code;
+    res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    return res;
 }
 
 /*
@@ -5543,7 +5582,7 @@ code_module_md5_1(BIF_ALIST_1)
 	res = am_undefined;
 	goto done;
     }
-    res = new_binary(p, stp->mod_md5, sizeof(stp->mod_md5));
+    res = new_binary(p, stp->mod_md5, MD5_SIZE);
 
  done:
     erts_free_aligned_binary_bytes(temp_alloc);
@@ -5939,6 +5978,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code[MI_LITERALS_END] = 0;
     code[MI_LITERALS_OFF_HEAP] = 0;
     code[MI_ON_LOAD_FUNCTION_PTR] = 0;
+    code[MI_MD5_PTR] = 0;
     ci = MI_FUNCTIONS + n + 1;
 
     /*
