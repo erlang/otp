@@ -2624,7 +2624,7 @@ read_and_parse_term(Fd, StartLine) ->
     end.
 
 verify_lines([], _, _, Acc) ->
-    list:reverse(Acc);
+    lists:reverse(Acc);
 verify_lines(
   [{StartLine, Term, EndLine}|Lines], Check, State, Acc) ->
     try Check(Term, State) of
