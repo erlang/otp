@@ -230,7 +230,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
       a list of <c>{Key,Value}</c> tuples with information about
       the module. Currently, the list contain tuples with the following
       <c>Key</c>s: <c>attributes</c>, <c>compile</c>, 
-      <c>exports</c>, and <c>imports</c>. The order and number of tuples
+      <c>exports</c>, <c>imports</c> and <c>md5</c>. The order and number of tuples
       may change without prior notice.</p>
 
       <warning><p>The <c>{imports,Value}</c> tuple may be removed in a future
@@ -271,6 +271,11 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  <item>
 	  <p>Always return an empty list. The <c>imports</c> key may not
 	  be supported in future release.</p>
+	  </item>
+
+        <tag><c>md5</c></tag>
+	  <item>
+	  <p>Return a binary representing the MD5 checksum of the module.</p>
 	  </item>
 
         <tag><c>exports</c></tag>

@@ -333,6 +333,7 @@ atom max
 atom maximum
 atom max_tables max_processes
 atom mbuf_size
+atom md5
 atom memory
 atom memory_internal
 atom memory_types
