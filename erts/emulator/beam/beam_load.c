@@ -5119,6 +5119,7 @@ erts_module_info_0(Process* p, Eterm module)
     BUILD_INFO(am_attributes);
     BUILD_INFO(am_imports);
     BUILD_INFO(am_exports);
+    BUILD_INFO(am_module);
 #undef BUILD_INFO
     return list;
 }

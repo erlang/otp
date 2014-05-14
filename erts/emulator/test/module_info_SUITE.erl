@@ -128,6 +128,7 @@ info(Config) when is_list(Config) ->
     Info = erlang:get_module_info(?MODULE),
     All = all_exported(),
     {ok,{?MODULE,MD5}} = beam_lib:md5(code:which(?MODULE)),
+    {module, ?MODULE} = lists:keyfind(module, 1, Info),
     {md5, MD5} = lists:keyfind(md5, 1, Info),
     {exports, Exports} = lists:keyfind(exports, 1, Info),
     All = lists:sort(Exports),

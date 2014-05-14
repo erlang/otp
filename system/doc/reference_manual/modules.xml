@@ -229,7 +229,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
       <p>The <c>module_info/0</c> function in each module returns
       a list of <c>{Key,Value}</c> tuples with information about
       the module. Currently, the list contain tuples with the following
-      <c>Key</c>s: <c>attributes</c>, <c>compile</c>, 
+      <c>Key</c>s: <c>module</c>, <c>attributes</c>, <c>compile</c>,
       <c>exports</c>, <c>imports</c> and <c>md5</c>. The order and number of tuples
       may change without prior notice.</p>
 
@@ -246,6 +246,11 @@ behaviour_info(callbacks) -> Callbacks.</pre>
       <p>The following values are allowed for <c>Key</c>:</p>
 
       <taglist>
+        <tag><c>module</c></tag>
+	  <item>
+	  <p>Return an atom representing the module name.</p>
+	  </item>
+
         <tag><c>attributes</c></tag>
 	  <item>
 	  <p>Return a list of <c>{AttributeName,ValueList}</c> tuples,
