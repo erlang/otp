@@ -602,7 +602,7 @@ cipher(#finished{verify_data = Data} = Finished,
 cipher(#next_protocol{selected_protocol = SelectedProtocol},
        #state{role = server, expecting_next_protocol_negotiation = true} = State0, Connection) ->
     {Record, State} = Connection:next_record(State0#state{next_protocol = SelectedProtocol}),
-    Connection:next_state(cipher, cipher, Record, State);
+    Connection:next_state(cipher, cipher, Record, State#state{expecting_next_protocol_negotiation = false});
 
 cipher(timeout, State, _) ->
     {next_state, cipher, State, hibernate};
