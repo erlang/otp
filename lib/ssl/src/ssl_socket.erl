@@ -162,10 +162,11 @@ handle_cast(_, State)->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
+-spec handle_info(msg(), #state{}) ->  {stop, reason(), #state{}}. 
 %% Possible return values not used now.
+%%			              {noreply, #state{}}.
 %%				      |{noreply, #state{}, timeout()} |
-%%				      {stop, reason(), #state{}}.
+%%				     
 %%
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------
