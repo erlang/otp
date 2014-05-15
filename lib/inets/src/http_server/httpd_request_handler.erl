@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -123,7 +123,8 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     
     {_, Status} = httpd_manager:new_connection(Manager),
     
-    MFA = {httpd_request, parse, [{MaxURISize, MaxHeaderSize}]}, 
+    MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
+				   {max_version, ?HTTP_MAX_VERSION_STRING}, {max_method, ?HTTP_MAX_METHOD_STRING}]]}, 
 
     State = #state{mod                    = Mod, 
 		   manager                = Manager, 
@@ -207,23 +208,15 @@ handle_info({Proto, Socket, Data},
 			       set_new_data_size(cancel_request_timeout(State), NewDataSize)
 		       end,
             handle_http_msg(Result, NewState); 
+	{error, {too_long, MaxSize, ErrCode, ErrStr}, Version} ->
+	    NewModData =  ModData#mod{http_version = Version},
+	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
+	    Reason = io_lib:format("~p: ~p max size is ~p~n", 
+				   [ErrCode, ErrStr, MaxSize]),
+	    error_log(Reason, NewModData),
+	    {stop, normal, State#state{response_sent = true, 
+				       mod = NewModData}};
 
-	{error, {uri_too_long, MaxSize}, Version} ->
-	    NewModData =  ModData#mod{http_version = Version},
-	    httpd_response:send_status(NewModData, 414, "URI too long"),
-	    Reason = io_lib:format("Uri too long, max size is ~p~n", 
-				   [MaxSize]),
-	    error_log(Reason, NewModData),
-	    {stop, normal, State#state{response_sent = true, 
-				       mod = NewModData}};
-	{error, {header_too_long, MaxSize}, Version} ->
-	    NewModData =  ModData#mod{http_version = Version},
-	    httpd_response:send_status(NewModData, 413, "Header too long"),
-	    Reason = io_lib:format("Header too long, max size is ~p~n", 
-				   [MaxSize]),
-	    error_log(Reason, NewModData),
-	    {stop, normal, State#state{response_sent = true, 
-				       mod = NewModData}};
 	NewMFA ->
 	    http_transport:setopts(SockType, Socket, [{active, once}]),
 	    case NewDataSize of
@@ -549,7 +542,8 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
     MaxHeaderSize = max_header_size(ModData#mod.config_db), 
     MaxURISize    = max_uri_size(ModData#mod.config_db), 
 
-    MFA = {httpd_request, parse, [{MaxURISize, MaxHeaderSize}]}, 
+    MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
+				   {max_version, ?HTTP_MAX_VERSION_STRING}, {max_method, ?HTTP_MAX_METHOD_STRING}]]}, 
     TmpState = State#state{mod                    = NewModData,
 			   mfa                    = MFA,
 			   max_keep_alive_request = decrease(Max),
