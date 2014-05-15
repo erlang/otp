@@ -4561,55 +4561,45 @@ check_reference(S,#'Externaltypereference'{pos=Pos,module=Emod,type=Name}) ->
 	    #'Externaltypereference'{pos=Pos,module=ModName,type=Name}
     end.
 
+get_referenced_type(S, T) ->
+    case do_get_referenced_type(S, T) of
+	{_,#type{def=#'Externaltypereference'{}=ERef}} ->
+	    get_referenced_type(S, ERef);
+	{_,#type{def=#'Externalvaluereference'{}=VRef}} ->
+	    get_referenced_type(S, VRef);
+	{_,_}=Res ->
+	    Res
+    end.
 
-get_referenced_type(S,Ext) when is_record(Ext,'Externaltypereference') ->
-    case match_parameters(S,Ext, S#state.parameters) of
-	Ext -> 
-	    #'Externaltypereference'{pos=Pos,module=Emod,type=Etype} = Ext,
-	    case S#state.mname of
-		Emod -> % a local reference in this module
-		    get_referenced1(S,Emod,Etype,Pos);
-		_ ->% always when multi file compiling
-		    case lists:member(Emod,S#state.inputmodules) of
-			true ->
-			    get_referenced1(S,Emod,Etype,Pos);
-			false ->
-			    get_referenced(S,Emod,Etype,Pos)
-		    end
-	    end;
-	ERef = #'Externaltypereference'{} ->
-	    get_referenced_type(S,ERef);
-	Other ->
-	    {undefined,Other}
-    end;
-get_referenced_type(S=#state{mname=Emod},
-		    ERef=#'Externalvaluereference'{pos=P,module=Emod,
-						   value=Eval}) ->
-    case match_parameters(S,ERef,S#state.parameters) of
-	ERef ->
-	    get_referenced1(S,Emod,Eval,P);
-	OtherERef when is_record(OtherERef,'Externalvaluereference') ->
-	    get_referenced_type(S,OtherERef);
-	Value ->
-	    {Emod,Value}
-    end;
-get_referenced_type(S,ERef=#'Externalvaluereference'{pos=Pos,module=Emod,
-						value=Eval}) ->
-    case match_parameters(S,ERef,S#state.parameters) of
-	ERef ->
-	    case lists:member(Emod,S#state.inputmodules) of
-		true ->
-		    get_referenced1(S,Emod,Eval,Pos);
-		false ->
-		    get_referenced(S,Emod,Eval,Pos)
-	    end;
-	OtherERef  ->
-	    get_referenced_type(S,OtherERef)
-    end;
-get_referenced_type(S,#identifier{val=Name,pos=Pos}) ->
-    get_referenced1(S,undefined,Name,Pos);
-get_referenced_type(_S,Type) ->
-    {undefined,Type}.
+do_get_referenced_type(#state{parameters=Ps}=S, T0) ->
+    case match_parameters(S, T0, Ps) of
+	T0 ->
+	    do_get_ref_type_1(S, T0);
+	T ->
+	    do_get_referenced_type(S, T)
+    end.
+
+do_get_ref_type_1(S, #'Externaltypereference'{pos=P,
+					      module=M,
+					      type=T}) ->
+    do_get_ref_type_2(S, P, M, T);
+do_get_ref_type_1(S, #'Externalvaluereference'{pos=P,
+					       module=M,
+					       value=V}) ->
+    do_get_ref_type_2(S, P, M, V);
+do_get_ref_type_1(S, #identifier{val=Name,pos=Pos}) ->
+    get_referenced1(S, undefined, Name, Pos);
+do_get_ref_type_1(_, T) ->
+    {undefined,T}.
+
+do_get_ref_type_2(#state{mname=Current,inputmodules=Modules}=S,
+		  Pos, M, T) ->
+    case M =:= Current orelse lists:member(M, Modules) of
+	true ->
+	    get_referenced1(S, M, T, Pos);
+	false ->
+	    get_referenced(S, M, T, Pos)
+    end.
 
 %% get_referenced/3
 %% The referenced entity Ename may in case of an imported parameterized
