@@ -794,7 +794,7 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 		instantiate_po(S,ClassDef,Object,ArgList);
 	    #'Externalvaluereference'{} ->
 		{_,Object} = get_referenced_type(S,ObjectDef),
-		check_object(S,Object,Object#typedef.typespec);
+		check_object(S, Object, object_to_check(Object));
 	    [] -> 
 		%% An object with no fields. All class fields must be
 		%% optional or default.  Check that all fields in
@@ -835,8 +835,7 @@ check_object(S,
 	    {'SingleValue',ERef = #'Externalvaluereference'{}} ->
 		{RefedMod,ObjDef} = get_referenced_type(S,ERef),
 		#'Object'{def=CheckedObj} = 
-		    check_object(S,ObjDef,ObjDef#typedef.typespec),
-
+		    check_object(S, ObjDef, object_to_check(ObjDef)),
 		NewSet = get_unique_valuelist(S,[{{RefedMod,get_datastr_name(ObjDef)},
 						  CheckedObj}],
 					      UniqueInfo),
