@@ -24,7 +24,6 @@ REF_MAN_CHAPTER_FILES = \
 	functions.xml \
 	expressions.xml \
 	macros.xml \
-	maps.xml \
 	records.xml \
 	errors.xml \
 	processes.xml \
