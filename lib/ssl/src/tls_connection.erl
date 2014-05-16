@@ -144,29 +144,10 @@ send_change_cipher(Msg, #state{connection_states = ConnectionStates0,
 start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
 
-init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
+init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
-    Handshake = ssl_handshake:init_handshake_history(),
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
-    try ssl_config:init(SSLOpts0, Role) of
-	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} ->
-	    Session = State0#state.session,
-	    State = State0#state{
-				 tls_handshake_history = Handshake,
-				 session = Session#session{own_certificate = OwnCert,
-							   time_stamp = TimeStamp},
-				 file_ref_db = FileRefHandle,
-				 cert_db_ref = Ref,
-				 cert_db = CertDbHandle,
-				 session_cache = CacheHandle,
-				 private_key = Key,
-				 diffie_hellman_params = DHParams},
-	    gen_fsm:enter_loop(?MODULE, [], hello, State, get_timeout(State))
-    catch
-	throw:Error ->
-	    gen_fsm:enter_loop(?MODULE, [], error, {Error,State0}, get_timeout(State0))
-    end.
+    State = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
+    gen_fsm:enter_loop(?MODULE, [], hello, State, get_timeout(State)).
 
 %%--------------------------------------------------------------------
 %% Description:There should be one instance of this function for each
