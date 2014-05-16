@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -414,7 +414,12 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndGo', RowIndex, Cols) ->
 	    % side effect free and we only use the result temporary.
 	    case catch snmpa_local_db:table_construct_row(
 			 NameDb, RowIndex, ?'RowStatus_createAndGo', Cols) of
-		{'EXIT', _} ->
+		{'EXIT', _Reason} ->
+		    ?vtrace(
+		       "failed construct row (createAndGo): "
+		       " n   Reason: ~p"
+		       " n   Stack:  ~p",
+		       [_Reason, erlang:get_stacktrace()]),
 		    {noCreation, Col}; % Bad RowIndex
 		Row ->
 		    case lists:member(noinit, tuple_to_list(Row)) of
@@ -431,7 +436,12 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndWait', RowIndex, Cols) ->
 	false ->
 	    case catch snmpa_local_db:table_construct_row(
 			 NameDb, RowIndex, ?'RowStatus_createAndGo', Cols) of
-		{'EXIT', _} ->
+		{'EXIT', _Reason} ->
+		    ?vtrace(
+		       "failed construct row (createAndWait): "
+		       " n   Reason: ~p"
+		       " n   Stack:  ~p",
+		       [_Reason, erlang:get_stacktrace()]),
 		    {noCreation, Col}; % Bad RowIndex
 		_Row ->
 		    {noError, 0}
@@ -711,7 +721,19 @@ find_col(Col, [_H | T]) -> find_col(Col, T).
 
 
 try_apply(nofunc, _) -> {noError, 0};
-try_apply(F, Args) -> apply(F, Args).
+try_apply(F, Args) -> maybe_verbose_apply(F, Args).
+
+maybe_verbose_apply(M, Args) ->
+    case get(verbosity) of
+        false ->
+            apply(M, Args);
+        _ ->
+            ?vlog("~n   apply: ~w,~p~n", [M,Args]),
+            Res = apply(M,Args),
+            ?vlog("~n   returned: ~p", [Res]),
+            Res
+    end.
+
 
 table_info({Name, _Db}) ->
     case snmpa_symbolic_store:table_info(Name) of

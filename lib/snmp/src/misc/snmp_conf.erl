@@ -191,6 +191,8 @@ read_fd(File, Order, Check, Fd, StartLine, Res) ->
 			  Order(RowA, RowB)
 		  end,
 		  lists:reverse(Res)),
+	    ?vtrace("read_fd to read_check ->~n"
+		    "   Lines: ~p", [Lines]),
 	    read_check(File, Check, Lines, undefined, [])
     end.
 

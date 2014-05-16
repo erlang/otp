@@ -227,6 +227,8 @@ order_agent({Name, _}, {Name, _}) ->
     true; %% Less than or equal
 order_agent({_, _}, {intAgentTransportDomain, _}) ->
     false; %% Greater than
+order_agent({intAgentTransportDomain, _}, {_, _}) ->
+    true; %% Less than or equal
 order_agent({A, _}, {B, _}) ->
     A =< B.
 
