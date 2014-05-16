@@ -296,11 +296,12 @@ no_block(Config) when is_list(Config) ->
     Type = ?config(type, Config),
     Args = case Type of
                des_ecb ->
-                   [Type, <<"Key">>, <<"Hi There">>];
+                   [Type, <<"Key 1234">>, <<"Now is the time for all ">>];
                blowfish_ecb ->
-                   [Type, <<"Key">>, <<"Hi There">>];
+                   [Type, <<"Key 1234">>, <<"Hi There">>];
                _ ->
-                   [Type, <<"Key">>, <<"Ivec">>, <<"Hi There">>]
+                   [Type, <<"Key 1234">>, <<"IVec1234">>,
+                    <<"Now is the time for all ">>]
            end,
     N = length(Args),
     notsup(fun crypto:block_encrypt/N, Args),

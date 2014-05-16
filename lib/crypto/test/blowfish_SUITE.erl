@@ -233,7 +233,7 @@ no_cbc(suite) ->
     [];
 no_cbc(Config) when is_list(Config) ->
 	notsup(fun crypto:blowfish_cbc_encrypt/3,
-               [?KEY, ?IVEC, ?DATA]).
+               [?KEY, ?IVEC, ?DATA_PADDED]).
 
 no_cfb64(doc) ->
     "Test that CFB64 mode is disabled";
