@@ -107,8 +107,12 @@ validate("POST", Uri, "HTTP/1." ++ _N) ->
 validate("TRACE", Uri, "HTTP/1." ++ N) when hd(N) >= $1 ->
     validate_uri(Uri);
 validate(Method, Uri, Version) ->
-    {error, {not_supported, {Method, Uri, Version}}}.
-
+    case validate_version(Version) of
+	true ->
+	    {error, {not_supported, {Method, Uri, Version}}};
+	false ->
+	    {error, {bad_version, Version}}
+    end.
 %%----------------------------------------------------------------------
 %% The request is passed through the server as a record of type mod 
 %% create it.
@@ -296,6 +300,14 @@ validate_path([".." | Rest], N, RequestURI) ->
 validate_path([_ | Rest], N, RequestURI) ->
     validate_path(Rest, N + 1, RequestURI).
 
+validate_version("HTTP/1.1") ->
+    true;
+validate_version("HTTP/1.0") ->
+    true;
+validate_version("HTTP/0.9") ->
+    true;
+validate_version(_) ->
+    false.
 %%----------------------------------------------------------------------
 %% There are 3 possible forms of the reuqest URI 
 %%

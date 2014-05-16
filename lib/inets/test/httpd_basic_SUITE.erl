@@ -196,16 +196,39 @@ entity_too_long(Config) when is_list(Config) ->
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
     Address = proplists:get_value(bind_address, Info),
+    
+    %% Not so long but wrong
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
+     				       "GET / " ++
+					   lists:duplicate(5, $A) ++ "\r\n\r\n",
+     				       [{statuscode, 400},
+     					%% Server will send lowest version
+    					%% as it will not get to the 
+     					%% client version
+     					%% before aborting
+     				        {version, "HTTP/0.9"}]),
+    
+    %% Too long
     ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
  				       "GET / " ++
- 				       lists:duplicate(100, $A) ++ "\r\n\r\n",
+					   lists:duplicate(100, $A) ++ "\r\n\r\n",
  				       [{statuscode, 413},
 					%% Server will send lowest version
 					%% as it will not get to the 
 					%% client version
 					%% before aborting
  				        {version, "HTTP/0.9"}]),
-    
+    %% Not so long but wrong
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
+				       lists:duplicate(5, $A) ++ " / "
+				       "HTTP/1.1\r\n\r\n",
+ 				       [{statuscode, 501},
+					%% Server will send lowest version
+					%% as it will not get to the 
+					%% client version
+					%% before aborting
+ 				        {version, "HTTP/1.1"}]),
+    %% Too long
     ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
 				       lists:duplicate(100, $A) ++ " / "
 				       "HTTP/1.1\r\n\r\n",

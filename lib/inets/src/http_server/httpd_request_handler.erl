@@ -375,6 +375,11 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 				       400, URI),
 	    Reason = io_lib:format("Malformed syntax in URI: ~p~n", [URI]),
 	    error_log(Reason, ModData),
+	    {stop, normal, State#state{response_sent = true}};
+	{error, {bad_version, Ver}} ->
+	    httpd_response:send_status(ModData#mod{http_version = "HTTP/0.9"}, 400, Ver),
+	    Reason = io_lib:format("Malformed syntax version: ~p~n", [Ver]),
+	    error_log(Reason, ModData),
 	    {stop, normal, State#state{response_sent = true}}
     end;
 handle_http_msg({ChunkedHeaders, Body}, 
