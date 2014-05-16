@@ -1277,10 +1277,25 @@ get_fieldname_element(_S,Def,[{_RefType,_FieldName}|_RestFName])
 
 check_fieldname_element(S,{value,{_,Def}}) ->
     check_fieldname_element(S,Def);
-check_fieldname_element(S,TDef)  when is_record(TDef,typedef) ->
-    check_type(S,TDef,TDef#typedef.typespec);
-check_fieldname_element(S,VDef) when is_record(VDef,valuedef) ->
-    check_value(S,VDef);
+check_fieldname_element(S, #typedef{typespec=Ts}=TDef) ->
+    case Ts of
+	#'Object'{} ->
+	    check_object(S, TDef, Ts);
+	_ ->
+	    check_type(S, TDef, Ts)
+    end;
+check_fieldname_element(S, #valuedef{}=VDef) ->
+    try
+	check_value(S, VDef)
+    catch
+	throw:{objectdef} ->
+	    #valuedef{checked=C,pos=Pos,name=N,type=Type,
+		      value=Def} = VDef,
+	    ClassName = Type#type.def,
+	    NewSpec = #'Object'{classname=ClassName,def=Def},
+	    NewDef = #typedef{checked=C,pos=Pos,name=N,typespec=NewSpec},
+	    check_fieldname_element(S, NewDef)
+    end;
 check_fieldname_element(S,Eref)
   when is_record(Eref,'Externaltypereference');
        is_record(Eref,'Externalvaluereference') ->
