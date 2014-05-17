@@ -1341,7 +1341,7 @@ check_sane_openssl_renegotaite(Config, Version) when Version == 'tlsv1.1';
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 1.0.1a" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
-	"OpenSSL 1.0.1" ++ _ ->
+	"OpenSSL 1.0.1 " ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	_ ->
 	    check_sane_openssl_renegotaite(Config)
