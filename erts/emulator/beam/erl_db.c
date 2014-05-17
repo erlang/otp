@@ -3772,7 +3772,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    std_dev_exp = make_float(hp);
 	    PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
-	    ret = TUPLE7(hp, make_small(erts_smp_atomic_read_nob(&tb->nested.linearht.nactive)),
+	    ret = TUPLE7(hp, make_small(erts_smp_atomic_read_nob(&tb->nested.nactive)),
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),

@@ -31,17 +31,6 @@
 #endif
 
 
-typedef struct linear_hash_table {
-    erts_smp_atomic_t segtab; /* the segment table (struct segment **) */
-    erts_smp_atomic_t szm;    /* current size mask. */
-
-    /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
-    int nslots; /* total number of slots */
-    int nsegs;  /* size of segment table */
-
-    erts_smp_atomic_t nactive; /* number of active slots */
-} LinearHashTable;
-
 typedef struct trunk_db_term {
     /*
      * The np field of the first TrunkDbTerm contains nkitems, the np
@@ -70,7 +59,14 @@ typedef struct root_db_term {
     TrunkDbTerm *trunk;
 
     HashValue hvalue;    /* hash value of the key */
-    LinearHashTable lht;
+    struct segment **segtab;
+    HashValue szm;    /* current size mask. */
+
+    /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
+    int nslots; /* total number of slots */
+    int nsegs;  /* size of segment table */
+
+    int nactive; /* number of active slots */
 } RootDbTerm;
 
 typedef struct nested_db_term {
@@ -93,11 +89,18 @@ typedef struct db_table_nested_hash_fine_locks {
 
 typedef struct db_table_nested_hash {
     DbTableCommon common;
-    LinearHashTable linearht;
-    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
+
+    erts_smp_atomic_t segtab; /* The segment table (struct segment **) */
+    erts_smp_atomic_t szm;    /* current size mask. */
+
+    /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
+    int nslots; /* Total number of slots */
+    int nsegs;  /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_smp_atomic_t fixdel; /* (NestedFixedDeletion *) */
+    erts_smp_atomic_t nactive; /* number of active slots */
+    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
 #ifdef ERTS_SMP
     DbTableNestedHashFineLocks *locks;
 #endif
