@@ -860,6 +860,8 @@ anonymous_suites() ->
 	 {dh_anon, '3des_ede_cbc', sha},
 	 {dh_anon, aes_128_cbc, sha},
 	 {dh_anon, aes_256_cbc, sha},
+	 {dh_anon, aes_128_gcm, null},
+	 {dh_anon, aes_256_gcm, null},
 	 {ecdh_anon,rc4_128,sha},
 	 {ecdh_anon,'3des_ede_cbc',sha},
 	 {ecdh_anon,aes_128_cbc,sha},
@@ -1130,7 +1132,7 @@ version_flag(sslv3) ->
 filter_suites(Ciphers0) ->
     Version = tls_record:highest_protocol_version([]),
     Supported0 = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
 	++ ssl_cipher:srp_suites(),
     Supported1 = ssl_cipher:filter_suites(Supported0),

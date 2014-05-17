@@ -90,11 +90,13 @@
 -define('3DES', 4).
 -define(DES40, 5).
 -define(IDEA, 6).
--define(AES, 7). 
+-define(AES_CBC, 7).
+-define(AES_GCM, 8).
 
 %% CipherType
 -define(STREAM, 0).
 -define(BLOCK, 1).
+-define(AEAD, 2).
 
 %% IsExportable
 %-define(TRUE, 0).  %% Already defined by ssl_internal.hrl

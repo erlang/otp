@@ -354,7 +354,7 @@ cipher_suites(openssl) ->
 cipher_suites(all) ->
     Version = tls_record:highest_protocol_version([]),
     Supported = ssl_cipher:all_suites(Version)
-	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
 	++ ssl_cipher:srp_suites(),
     ssl_cipher:filter_suites([suite_definition(S) || S <- Supported]).
@@ -947,7 +947,7 @@ binary_cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
 
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     All = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
 	++ ssl_cipher:srp_suites(),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
