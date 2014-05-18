@@ -499,9 +499,21 @@ transition(Req, S) ->
 %% # terminate/2
 %% ---------------------------------------------------------------------------
 
-terminate(Reason, #state{service_name = Name} = S) ->
+terminate(Reason, #state{service_name = Name, peerT = PeerT} = S) ->
     send_event(Name, stop),
     ets:delete(?STATE_TABLE, Name),
+
+    %% Communicate pending loss of any peers that connection_down/3
+    %% won't. This is needed when stopping a service since we don't
+    %% wait for watchdog state changes to take care of if. That this
+    %% takes place after deleting the state entry ensures that the
+    %% resulting failover by request processes accomplishes nothing.
+    ets:foldl(fun(#peer{pid = TPid}, _) ->
+                      diameter_traffic:peer_down(TPid)
+              end,
+              ok,
+              PeerT),
+
     shutdown == Reason  %% application shutdown
         andalso shutdown(application, S).
 
