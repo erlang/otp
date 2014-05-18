@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,6 +47,7 @@
          send_discard_1/1,
          send_discard_2/1,
          stop_services/1,
+         empty/1,
          stop/1]).
 
 %% diameter callbacks
@@ -121,6 +122,7 @@ all() ->
      send_discard_1,
      send_discard_2,
      stop_services,
+     empty,
      stop].
 
 %% ===========================================================================
@@ -146,6 +148,10 @@ stop_services(_Config) ->
     [] = [{H,T} || H <- ?CLIENTS ++ ?SERVERS,
                    T <- [diameter:stop_service(H)],
                    T /= ok].
+
+%% Ensure transports have been removed from request table.
+empty(_Config) ->
+    [] = ets:tab2list(diameter_request).
 
 stop(_Config) ->
     ok = diameter:stop().
