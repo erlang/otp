@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1188,7 +1188,7 @@ tc(false = No, _, _) ->  %% removed
 %% another watchdog to be able to detect that it should transition
 %% from initial into reopen rather than okay. That someone is either
 %% the accepting watchdog upon reception of a CER from the previously
-%% connected peer, or us after connect_timer timeout.
+%% connected peer, or us after connect_timer timeout or immediately.
 
 close(#watchdog{type = connect}, _) ->
     ok;
@@ -1199,7 +1199,7 @@ close(#watchdog{type = accept,
       #state{service_name = SvcName}) ->
     c(Pid, diameter_config:have_transport(SvcName, Ref), Opts).
 
-%% Tell watchdog to (maybe) die later ...
+%% Tell watchdog to die later ...
 c(Pid, true, Opts) ->
     Tc = connect_timer(Opts, 2*?DEFAULT_TC),
     erlang:send_after(Tc, Pid, close);

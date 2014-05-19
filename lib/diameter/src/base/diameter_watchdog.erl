@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,8 +48,6 @@
 -define(BASE, ?DIAMETER_DICT_COMMON).
 
 -define(IS_NATURAL(N), (is_integer(N) andalso 0 =< N)).
-
--define(CHOOSE(B,T,F), if (B) -> T; true -> F end).
 
 -record(config,
         {suspect = 1 :: non_neg_integer(),    %% OKAY -> SUSPECT
@@ -328,14 +326,13 @@ code_change(_, State, _) ->
 %% The state transitions documented here are extracted from RFC 3539,
 %% the commentary is ours.
 
-%% Service or watchdog is telling the watchdog of an accepting
-%% transport to die after connect_timer expiry or reestablished
-%% connection (in another transport process) respectively.
-transition(close, #watchdog{status = down}) ->
+%% Service is telling the watchdog of an accepting transport to die
+%% following transport death in state INITIAL, or after connect_timer
+%% expiry; or another watchdog is saying the same after reestablishing
+%% a connection previously had by this one.
+transition(close, #watchdog{}) ->
     {{accept, _}, _, _} = getr(restart), %% assert
     stop;
-transition(close, #watchdog{}) ->
-    ok;
 
 %% Service is asking for the peer to be taken down gracefully.
 transition({shutdown, Pid, _}, #watchdog{parent = Pid,
@@ -425,11 +422,30 @@ transition({'DOWN', _, process, TPid, _Reason},
 
 transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid,
-                     status = T}
-           = S) ->
-    set_watchdog(S#watchdog{status = ?CHOOSE(initial == T, T, down),
-                            pending = false,
-                            transport = undefined});
+                     status = T,
+                     restrict = {_,R}}
+           = S0) ->
+    S = S0#watchdog{pending = false,
+                    transport = undefined},
+    {{M,_}, _, _} = getr(restart),
+
+    %% Close an accepting watchdog immediately if there's no
+    %% restriction on the number of connections to the same peer: the
+    %% state machine never enters state REOPEN in this case. The
+    %% 'close' message (instead of stop) is so as not to bypass the
+    %% sending of messages to the service process in handle_info/2.
+
+    if T /= initial, M == accept, not R ->
+            send(self(), close),
+            S#watchdog{status = down};
+       T /= initial ->
+            set_watchdog(S#watchdog{status = down});
+       M == connect ->
+            set_watchdog(S);
+       M == accept ->
+            send(self(), close),
+            S
+    end;
 
 %% Incoming message.
 transition({recv, TPid, Name, Pkt}, #watchdog{transport = TPid} = S) ->
@@ -755,7 +771,7 @@ timeout(#watchdog{status = T} = S)
 
 restart(#watchdog{transport = undefined} = S) ->
     restart(getr(restart), S);
-restart(S) ->
+restart(S) ->  %% reconnect has won race with timeout
     S.
 
 %% restart/2
@@ -785,9 +801,10 @@ restart({{connect, _} = T, Opts, Svc},
 %% die. Note that a state machine never enters state REOPEN in this
 %% case.
 restart({{accept, _}, _, _}, #watchdog{restrict = {_, false}}) ->
-    stop;
+    stop;  %% 'DOWN' was in old code: 'close' was not sent
 
-%% Otherwise hang around until told to die.
+%% Otherwise hang around until told to die, either by the service or
+%% by another watchdog.
 restart({{accept, _}, _, _}, S) ->
     S.
 
