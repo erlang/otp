@@ -105,11 +105,11 @@ ni(AbsMods, _Options) -> i2(AbsMods, distributed, ok).
 i2([AbsMod|AbsMods], Dist, Acc)
   when is_atom(AbsMod); is_list(AbsMod); is_tuple(AbsMod) -> 
     Res = int_mod(AbsMod, Dist),
-    case Acc of
+    case Res of
 	error ->
-	    i2(AbsMods, Dist, Acc);
+	    i2(AbsMods, Dist, Res);
 	_ ->
-	    i2(AbsMods, Dist, Res)
+	    i2(AbsMods, Dist, Acc)
     end;
 i2([], _Dist, Acc) ->
     Acc;
