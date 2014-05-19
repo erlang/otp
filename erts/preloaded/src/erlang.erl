@@ -361,25 +361,15 @@ binary_to_list(_Binary, _Start, _Stop) ->
 %% binary_to_term/1
 -spec binary_to_term(Binary) -> term() when
       Binary :: ext_binary().
-binary_to_term(Binary) ->
-    %% This BIF may throw badarg while trapping
-    try
-	erts_internal:binary_to_term(Binary)
-    catch
-	error:Reason -> erlang:error(Reason,[Binary])
-    end.
+binary_to_term(_Binary) ->
+    erlang:nif_error(undefined).
 
 %% binary_to_term/2
 -spec binary_to_term(Binary, Opts) -> term() when
       Binary :: ext_binary(),
       Opts :: [safe].
-binary_to_term(Binary, Opts) ->
-    %% This BIF may throw badarg while trapping
-    try
-	erts_internal:binary_to_term(Binary,Opts)
-    catch
-	error:Reason -> erlang:error(Reason,[Binary,Opts])
-    end.
+binary_to_term(_Binary, _Opts) ->
+    erlang:nif_error(undefined).
 
 %% bit_size/1
 %% Shadowed by erl_bif_types: erlang:bit_size/1

@@ -45,6 +45,7 @@ bif erlang:apply/3
 bif erlang:atom_to_list/1
 bif erlang:binary_to_list/1
 bif erlang:binary_to_list/3
+bif erlang:binary_to_term/1
 bif erlang:crc32/1
 bif erlang:crc32/2
 bif erlang:crc32_combine/3
@@ -151,8 +152,6 @@ bif erts_internal:port_command/3
 bif erts_internal:port_control/3
 bif erts_internal:port_close/1
 bif erts_internal:port_connect/2
-bif erts_internal:binary_to_term/1
-bif erts_internal:binary_to_term/2
 
 bif erts_internal:request_system_task/3
 bif erts_internal:check_process_code/2
@@ -478,6 +477,11 @@ bif ets:setopts/2
 bif erlang:load_nif/2
 bif erlang:call_on_load_function/1
 bif erlang:finish_after_on_load/2
+
+#
+# New Bifs in R13B04
+#
+bif erlang:binary_to_term/2
 
 #
 # The binary match bifs (New in R14A - EEP9)

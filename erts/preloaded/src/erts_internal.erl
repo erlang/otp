@@ -29,7 +29,6 @@
 -module(erts_internal).
 
 -export([await_port_send_result/3]).
--export([binary_to_term/1, binary_to_term/2]).
 -export([cmp_term/2]).
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
@@ -159,17 +158,6 @@ request_system_task(_Pid, _Prio, _Request) ->
       Option :: {allow_gc, boolean()},
       OptionList :: [Option].
 check_process_code(_Module, _OptionList) ->
-    erlang:nif_error(undefined).
-
--spec binary_to_term(Binary) -> term() when
-      Binary :: binary().
-binary_to_term(_Binary) ->
-    erlang:nif_error(undefined).
-
--spec binary_to_term(Binary, Opts) -> term() when
-      Binary :: binary(),
-      Opts :: [safe].
-binary_to_term(_Binary, _Opts) ->
     erlang:nif_error(undefined).
 
 %% term compare where integer() < float() = true

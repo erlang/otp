@@ -1420,6 +1420,11 @@ error_after_yield(Config) when is_list(Config) ->
     error_after_yield(badarg, erlang, list_to_bitstring, 1, fun () -> [[list2bitstrlist(mk_list(1000000)), oops]] end, L2BTrap),
     error_after_yield(badarg, binary, list_to_bin, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
 
+    B2TTrap = {erts_internal, binary_to_term_trap, 1},
+
+    error_after_yield(badarg, erlang, binary_to_term, 1, fun () -> [error_after_yield_bad_ext_term()] end, B2TTrap),
+    error_after_yield(badarg, erlang, binary_to_term, 2, fun () -> [error_after_yield_bad_ext_term(), [safe]] end, B2TTrap),
+
     case erlang:system_info(wordsize) of
 	4 ->
 	    SysLimitSz = 1 bsl 32,
@@ -1462,7 +1467,7 @@ error_after_yield(Type, M, F, AN, AFun, TrapFunc) ->
 	{trace_delivered, Pid, TD} ->
 	    NoYields = error_after_yield_sched(Pid, TrapFunc, 0),
 	    io:format("No of yields: ~p~n", [NoYields]),
-	    true =  NoYields > 10
+	    true =  NoYields > 2
     end,
     ok.
 
@@ -1485,6 +1490,21 @@ error_after_yield_sched(P, TrapFunc, N) ->
     after 0 ->
 	    N
     end.
+
+error_after_yield_bad_ext_term() ->
+    TupleSz = 2000000,
+    <<131, % Version magic
+      AtomExt/binary>> = term_to_binary(an_atom_we_use_for_this),
+    BadAtomExt = [100, %% ATOM_EXT
+		  255, 255, % Invalid size of 65535 bytes
+		  "oops"],
+
+    %% Produce a large tuple where the last element is invalid
+    list_to_binary([131, %% Version magic
+		    105, %% LARGE_TUPLE_EXT
+		    <<TupleSz:32/big>>, %% Tuple size
+		    lists:duplicate(TupleSz-1, AtomExt), %% Valid atoms
+		    BadAtomExt]). %% Invalid atom at the end
 	    
 cmp_old_impl(Config) when is_list(Config) ->
     %% Compare results from new yielding implementations with
