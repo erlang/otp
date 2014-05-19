@@ -94,7 +94,7 @@ public class OtpErlangFun extends OtpErlangObject implements Serializable {
 		return false;
 	    }
 	} else {
-	    if (!md5.equals(f.md5)) {
+	    if (!Arrays.equals(md5, f.md5)) {
 		return false;
 	    }
 	}
@@ -104,7 +104,7 @@ public class OtpErlangFun extends OtpErlangObject implements Serializable {
 	if (freeVars == null) {
 	    return f.freeVars == null;
 	}
-	return freeVars.equals(f.freeVars);
+	return Arrays.equals(freeVars, f.freeVars);
     }
     
     @Override
