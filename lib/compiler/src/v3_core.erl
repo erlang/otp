@@ -1724,7 +1724,7 @@ fail_clause(Pats, Anno, Arg) ->
 			    args=[Arg]}]}.
 
 annotate_tuple(A, Es, St) ->
-    case member(annotate_records, St#core.opts) of
+    case member(dialyzer, St#core.opts) of
         true ->
             %% Do not coalesce constant tuple elements. A Hack.
             Node = cerl:ann_c_tuple(A, [cerl:c_var(any)]),
@@ -1734,7 +1734,7 @@ annotate_tuple(A, Es, St) ->
     end.
 
 annotate_cons(A, H, T, St) ->
-    case member(annotate_records, St#core.opts) of
+    case member(dialyzer, St#core.opts) of
         true ->
             %% Do not coalesce constant conses. A Hack.
             Node= cerl:ann_c_cons(A, cerl:c_var(any), cerl:c_var(any)),
@@ -2261,14 +2261,14 @@ bitstr_vars(Segs, Vs) ->
 	  end, Vs, Segs).
 
 record_anno(L, St) when L >= ?REC_OFFSET ->
-    case member(annotate_records, St#core.opts) of
+    case member(dialyzer, St#core.opts) of
         true ->
             [record | lineno_anno(L - ?REC_OFFSET, St)];
         false ->
             lineno_anno(L, St)
     end;
 record_anno(L, St) when L < -?REC_OFFSET ->
-    case member(annotate_records, St#core.opts) of
+    case member(dialyzer, St#core.opts) of
         true ->
             [record | lineno_anno(L + ?REC_OFFSET, St)];
         false ->

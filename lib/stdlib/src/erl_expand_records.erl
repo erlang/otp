@@ -841,7 +841,7 @@ optimize_is_record(H0, G0, #exprec{compile=Opts}) ->
 	[] ->
 	    {H0,G0};
 	Rs0 ->
-	    case lists:member(no_is_record_optimization, Opts) of
+	    case lists:member(dialyzer, Opts) of % no_is_record_optimization
 		true ->
 		    {H0,G0};
 		false ->
@@ -968,7 +968,7 @@ neg_line(L) ->
     erl_parse:set_line(L, fun(Line) -> -abs(Line) end).
 
 record_offset(L, St) ->
-    case lists:member(annotate_records, St#exprec.compile) of
+    case lists:member(dialyzer, St#exprec.compile) of
         true when L >= 0 -> L+?REC_OFFSET;
         true when L < 0  -> L-?REC_OFFSET;
         false -> L

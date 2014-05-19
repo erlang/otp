@@ -402,9 +402,7 @@ sets_filter([Mod|Mods], ExpTypes) ->
 src_compiler_opts() ->
   [no_copt, to_core, binary, return_errors,
    no_inline, strict_record_tests, strict_record_updates,
-   %% The following could be coalesced into one Dialyzer specific option.
-   no_is_record_optimization,
-   annotate_records].
+   dialyzer].
 
 -spec get_module(abstract_code()) -> module().
 
