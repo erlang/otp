@@ -1103,8 +1103,22 @@ transform_taddr(?transportDomainUdpIpv4, [A, B, C, D, P1, P2]) ->
     {ok, {Domain, Address}};
 transform_taddr(?transportDomainUdpIpv4, BadAddr) ->
     {error, {bad_transportDomainUdpIpv4_address, BadAddr}};
-transform_taddr(?transportDomainUdpIpv6, 
-		[A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
+transform_taddr(
+  ?transportDomainUdpIpv6,
+  [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16,
+   P1, P2]) ->
+    Domain = transportDomainUdpIpv6,
+    Addr =
+	{(A1 bsl 8) bor A2, (A3 bsl 8) bor A4,
+	 (A5 bsl 8) bor A6, (A7 bsl 8) bor A8,
+	 (A9 bsl 8) bor A10, (A11 bsl 8) bor A12,
+	 (A13 bsl 8) bor A14, (A15 bsl 8) bor A16},
+    Port = P1 bsl 8 + P2,
+    Address = {Addr, Port},
+    {ok, {Domain, Address}};
+transform_taddr(
+  ?transportDomainUdpIpv6,
+  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
     Domain  = transportDomainUdpIpv6, 
     Addr    = {A1, A2, A3, A4, A5, A6, A7, A8},
     Port    = P1 bsl 8 + P2,

@@ -270,12 +270,13 @@ localise_type({VariableOid, Value}, Mib) when is_list(VariableOid) ->
 localise_type(X, _) -> X.
 
 %%-----------------------------------------------------------------
-%% Func: make_v1_trap_pdu/4
+%% Func: make_v1_trap_pdu/5
 %% Args: Enterprise = oid()
 %%       Specific = integer()
 %%       Varbinds is as returned from initiate_vars
 %%         (but only {Oid, Type[, Value} permitted)
 %%       SysUpTime = integer()
+%%       AgentIp = {A, B, C, D}
 %% Purpose: Make a #trappdu
 %%          Checks the Varbinds to see that no symbolic names are
 %%          present, and that each var has a type. Performs a get
@@ -284,7 +285,7 @@ localise_type(X, _) -> X.
 %% Fails: yes
 %% NOTE: Executed at the MA
 %%-----------------------------------------------------------------
-make_v1_trap_pdu(Enterprise, Specific, VarbindList, SysUpTime) ->
+make_v1_trap_pdu(Enterprise, Specific, VarbindList, SysUpTime, AgentIp) ->
     {Enterp,Generic,Spec} = 
 	case Enterprise of
 	    ?snmp ->
@@ -292,7 +293,6 @@ make_v1_trap_pdu(Enterprise, Specific, VarbindList, SysUpTime) ->
 	    _ ->
 		{Enterprise,?enterpriseSpecific,Specific}
     end,
-    {value, AgentIp} = snmp_framework_mib:intAgentIpAddress(get),
     #trappdu{enterprise    = Enterp,
 	     agent_addr    = AgentIp,
 	     generic_trap  = Generic,
@@ -369,6 +369,7 @@ send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID,
 		    {tag,  T},
 		    {err,  E},
 		    {stacktrace, erlang:get_stacktrace()}],
+	    ?vlog("snmpa_trap:send_trap exception: ~p", [Info]),
 	    {error, {failed_sending_trap, Info}}
     end.
      
@@ -797,13 +798,32 @@ send_v1_trap(#trap{enterpriseoid = Enter, specificcode = Spec},
 	    "~n   ~p"
 	    "~n   to"
 	    "~n   ~p", [Enter, Spec, V1Res]),
-    TrapPdu = make_v1_trap_pdu(Enter, Spec, Vbs, SysUpTime),
-    AddrCommunities = mk_addr_communities(V1Res),
-    lists:foreach(fun({Community, Addrs}) ->
-			  ?vtrace("send v1 trap pdu to ~p",[Addrs]),
-			  NetIf ! {send_pdu, 'version-1', TrapPdu,
-				   {community, Community}, Addrs, ExtraInfo}
-		  end, AddrCommunities);
+    AgentDomain =
+	case snmp_framework_mib:intAgentTransportDomain(get) of
+	    {value, AD} ->
+		AD;
+	    genErr ->
+		snmp_target_mib:default_domain()
+	end,
+    case AgentDomain of
+	snmpUDPDomain ->
+	    {value, AgentIp} = snmp_framework_mib:intAgentIpAddress(get),
+	    TrapPdu = make_v1_trap_pdu(Enter, Spec, Vbs, SysUpTime, AgentIp),
+	    AddrCommunities = mk_addr_communities(V1Res),
+	    lists:foreach(
+	      fun ({Community, Addrs}) ->
+		      ?vtrace("send v1 trap pdu to ~p",[Addrs]),
+		      NetIf ! {send_pdu, 'version-1', TrapPdu,
+			       {community, Community}, Addrs, ExtraInfo}
+	      end, AddrCommunities);
+	_ ->
+	    ?vtrace(
+	      "snmpa_trap: can not send v1 trap with domain: ~w",
+	      [AgentDomain]),
+	    user_err(
+	      "snmpa_trap: can not send v1 trap with domain: ~w",
+	      [AgentDomain])
+    end;
 send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, ExtraInfo, NetIf, 
 	     SysUpTime) ->
     %% Use alg. in rfc2089 to map a v2 trap to a v1 trap
@@ -822,14 +842,33 @@ send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, ExtraInfo, NetIf,
 			{lists:reverse(First),Last}
 		end
 	end,
-    TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime),
-    AddrCommunities = mk_addr_communities(V1Res),
-    lists:foreach(fun({Community, Addrs}) ->
-			  ?vtrace("send v1 trap to ~p",[Addrs]),
-			  NetIf ! {send_pdu, 'version-1', TrapPdu,
-				   {community, Community}, Addrs, ExtraInfo}
-		  end, AddrCommunities).
-    
+    AgentDomain =
+	case snmp_framework_mib:intAgentTransportDomain(get) of
+	    {value, AD} ->
+		AD;
+	    genErr ->
+		snmp_target_mib:default_domain()
+	end,
+    case AgentDomain of
+	snmpUDPDomain ->
+	    {value, AgentIp} = snmp_framework_mib:intAgentIpAddress(get),
+	    TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime, AgentIp),
+	    AddrCommunities = mk_addr_communities(V1Res),
+	    lists:foreach(
+	      fun ({Community, Addrs}) ->
+		      ?vtrace("send v1 trap to ~p",[Addrs]),
+		      NetIf ! {send_pdu, 'version-1', TrapPdu,
+			       {community, Community}, Addrs, ExtraInfo}
+	      end, AddrCommunities);
+	_ ->
+	    ?vtrace(
+	      "snmpa_trap: can not send v1 trap with domain: ~w",
+	      [AgentDomain]),
+	    user_err(
+	      "snmpa_trap: can not send v1 trap with domain: ~w",
+	      [AgentDomain])
+    end.
+
 send_v2_trap(_TrapRec, [], _Vbs, _Recv, _ExtraInfo, _NetIf, _SysUpTime) ->
     ok;
 send_v2_trap(TrapRec, V2Res, Vbs, Recv, ExtraInfo, NetIf, SysUpTime) ->
@@ -1116,8 +1155,18 @@ transform_taddr(
   [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
     Ip = {A1, A2, A3, A4, A5, A6, A7, A8},
     Port = P1 bsl 8 + P2,
+    {Domain, {Ip, Port}};
+transform_taddr(
+  transportDomainUdpIpv6 = Domain,
+  [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16,
+   P1, P2]) ->
+    Ip =
+	{(A1 bsl 8) bor A2, (A3 bsl 8) bor A4,
+	 (A5 bsl 8) bor A6, (A7 bsl 8) bor A8,
+	 (A9 bsl 8) bor A10, (A11 bsl 8) bor A12,
+	 (A13 bsl 8) bor A14, (A15 bsl 8) bor A16},
+    Port = P1 bsl 8 + P2,
     {Domain, {Ip, Port}}.
-
 
 %% transform_taddr({?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}) -> % v2
 %%     Addr = {A1, A2, A3, A4},

@@ -174,7 +174,7 @@ dec_pdu_tag(168) ->
 dec_pdu([164 | Bytes]) ->      % It's a trap
     Bytes2 = get_data_bytes(Bytes),
     {Enterprise, Rest1} = dec_oid_tag(Bytes2),
-    {{'IpAddress', AgentAddr}, Rest2} = dec_value(Rest1),
+    {{'IpAddress', [_, _, _, _] = AgentAddr}, Rest2} = dec_value(Rest1),
     {GenericTrap, Rest3} = dec_int_tag(Rest2),
     {SpecificTrap, Rest4} = dec_int_tag(Rest3),
     {{'TimeTicks', TimeStamp}, VBBytes} = dec_value(Rest4),
@@ -666,17 +666,6 @@ enc_value('OBJECT IDENTIFIER', Val) ->
     enc_oid_tag(Val);
 enc_value('IpAddress', {A, B, C, D}) ->
     enc_value('IpAddress', [A,B,C,D]);
-enc_value('IpAddress', {A, B, C, D, E, F, G, H}) ->
-    enc_value(
-      'IpAddress',
-      [A bsr 8, A band 255,
-       B bsr 8, B band 255,
-       C bsr 8, C band 255,
-       D bsr 8, D band 255,
-       E bsr 8, E band 255,
-       F bsr 8, F band 255,
-       G bsr 8, G band 255,
-       H bsr 8, H band 255]);
 enc_value('IpAddress', Val) when is_list(Val) ->
     Bytes2 = enc_oct_str_notag(Val),
     Len2 = elength(length(Bytes2)),

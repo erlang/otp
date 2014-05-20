@@ -634,9 +634,16 @@ mk_taddress(transportDomainUdpIpv6 = Domain, Address) ->
     case Address of
 	[] -> % Empty mask
 	    [];
-	{Ip, Port}
-	  when tuple_size(Ip) =:= 8, is_integer(Port) ->
-	    tuple_to_list(Ip) ++ mk_bytes(Port);
+	{{A, B, C, D, E, F, G, H}, Port} ->
+	    [A bsr 8, A band 255,
+	     B bsr 8, B band 255,
+	     C bsr 8, C band 255,
+	     D bsr 8, D band 255,
+	     E bsr 8, E band 255,
+	     F bsr 8, F band 255,
+	     G bsr 8, G band 255,
+	     H bsr 8, H band 255,
+	     Port bsr 8, Port band 255];
 	_ ->
 	    erlang:error(badarg, [Domain,Address])
     end;

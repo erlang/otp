@@ -327,13 +327,7 @@ loop(#state{domain = Domain} = S) ->
     receive
 	{udp, _UdpId, Ip, Port, Packet} ->
 	    ?vlog("got paket from ~w:~w",[Ip,Port]),
-	    From =
-		case Domain of
-		    snmpUDPDomain ->
-			{Ip, Port};
-		    _ ->
-			{Domain, {Ip, Port}}
-		end,
+	    From = fix_filter_address(Domain, {Domain, {Ip, Port}}),
 	    NewS = maybe_handle_recv(S, From, Packet),
 	    loop(NewS);
 
@@ -604,7 +598,7 @@ handle_discovery_response(_From, #pdu{request_id = ReqId} = Pdu,
 	    %% Ouch, timeout? resend?
 	    S
     end.
-	   
+
 handle_recv(
   #state{usock      = Sock,
 	 mpd_state  = MpdState,
@@ -655,7 +649,7 @@ handle_recv(
 	    active_once(Sock),
 	    S
     end.
-    
+
 maybe_handle_recv_pdu(
   From, Vsn,
   #pdu{type = Type} = Pdu, PduMS, ACMData,
@@ -713,12 +707,13 @@ handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData,
 
 
 maybe_handle_reply_pdu(
-  #state{filter = FilterMod} = S, Vsn,
+  #state{filter = FilterMod, domain = Domain} = S, Vsn,
   #pdu{request_id = Rid} = Pdu,
   Type, ACMData, To) ->
 
     S1 = update_req_counter_outgoing(S, Rid),
-    Addresses = [To],
+    %% Addresses = [To],
+    Addresses = [fix_filter_address(Domain, To)],
     case
 	try
 	    FilterMod:accept_send_pdu(Addresses, Type)
@@ -965,9 +960,10 @@ handle_response(Vsn, Pdu, From, S) ->
     end.
 
 maybe_udp_send(
-  #state{usock  = Sock, filter = FilterMod},
+  #state{usock  = Sock, filter = FilterMod, domain = Domain},
   To, Packet) ->
-    {To_1, To_2} = To,
+    %% {To_1, To_2} = To,
+    {To_1, To_2} = fix_filter_address(Domain, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
 	catch
@@ -995,11 +991,14 @@ maybe_udp_send(
     end.
 
 maybe_udp_send(
-  #state{log         = Log,
-	 usock       = Sock,
-	 filter      = FilterMod},
+  #state{
+     log    = Log,
+     usock  = Sock,
+     filter = FilterMod,
+     domain = Domain},
   To, Packet, Type, _LogData) ->
-    {To_1, To_2} = To,
+    %% {To_1, To_2} = To,
+    {To_1, To_2} = fix_filter_address(Domain, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
 	catch
@@ -1097,6 +1096,21 @@ active_once(Sock) ->
     ?vtrace("activate once", []),
     inet:setopts(Sock, [{active, once}]).
 
+
+%% If the agent uses legacy snmpUDPDomain e.g has not set
+%% intAgentTransportDomain, then make sure
+%% snmpa_network_interface_filter gets legacy arguments
+%% to not break backwards compatibility.
+%%
+fix_filter_address(snmpUDPDomain, {Domain, Addr})
+  when Domain =:= snmpUDPDomain;
+       Domain =:= transportDomainUdpIpv4 ->
+    Addr;
+fix_filter_address(snmpUDPDomain, {_, Port} = Addr)
+  when is_integer(Port) ->
+    Addr;
+fix_filter_address(_AgentDomain, Address) ->
+    Address.
 
 %%%-----------------------------------------------------------------
 
