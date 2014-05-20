@@ -122,8 +122,7 @@ options_tests() ->
 ].
 
 api_tests() ->
-    [new_options_in_accept,
-     connection_info,
+    [connection_info,
      peername,
      peercert,
      peercert_with_client_cert,
@@ -142,7 +141,8 @@ api_tests() ->
      ssl_recv_timeout,
      versions_option,
      server_name_indication_option,
-     accept_pool
+     accept_pool,
+     new_options_in_accept
     ].
 
 session_tests() ->
@@ -345,14 +345,15 @@ new_options_in_accept() ->
     [{doc,"Test that you can set ssl options in ssl_accept/3 and not tcp upgrade"}].
 new_options_in_accept(Config) when is_list(Config) -> 
     ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ServerOpts0 = ?config(server_dsa_opts, Config),
+    [_ , _ | ServerSslOpts] = ?config(server_opts, Config), %% Remove non ssl opts
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-					{ssl_opts, [{versions, [sslv3]},
-						    {ciphers,[{rsa,rc4_128,sha}]}]}, %% To be set in ssl_accept/3
+					{ssl_extra_opts, [{versions, [sslv3]},
+							  {ciphers,[{rsa,rc4_128,sha}]} | ServerSslOpts]}, %% To be set in ssl_accept/3
 					{mfa, {?MODULE, connection_info_result, []}},
-					{options, ServerOpts}]),
+					{options, proplists:delete(cacertfile, ServerOpts0)}]),
     
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -1244,7 +1245,7 @@ dh_params(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
 			   {options,
-			    [{ciphers,[{dhe_rsa,aes_256_cbc,sha,ignore}]} | 
+			    [{ciphers,[{dhe_rsa,aes_256_cbc,sha}]} | 
 				       ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1343,7 +1344,7 @@ tcp_connect() ->
 tcp_connect(Config) when is_list(Config) ->
     ServerOpts = ?config(server_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    TcpOpts = [binary, {reuseaddr, true}],
+    TcpOpts = [binary, {reuseaddr, true}, {active, false}],
 
     Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0},
 						      {from, self()},

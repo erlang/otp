@@ -37,7 +37,7 @@
 
 %% Setup
 -export([connect/8, ssl_accept/7, handshake/2, handshake/3,
-	 socket_control/4]).
+	 socket_control/4, socket_control/5]).
 
 %% User Events 
 -export([send/2, recv/3, close/1, shutdown/2,
@@ -121,9 +121,16 @@ handshake(#sslsocket{pid = Pid}, SslOptions, Timeout) ->
 %% Description: Set the ssl process to own the accept socket
 %%--------------------------------------------------------------------	    
 socket_control(Connection, Socket, Pid, Transport) ->
+    socket_control(Connection, Socket, Pid, Transport, undefined).
+
+%--------------------------------------------------------------------
+-spec socket_control(tls_connection | dtls_connection, port(), pid(), atom(), pid()| undefined) -> 
+    {ok, #sslsocket{}} | {error, reason()}.  
+%%--------------------------------------------------------------------	    
+socket_control(Connection, Socket, Pid, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, ssl_socket:socket(Pid, Transport, Socket, Connection)};
+	    {ok, ssl_socket:socket(Pid, Transport, Socket, Connection, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -654,12 +661,12 @@ handle_sync_event({start, Timeout}, StartFrom, hello, #state{role = Role,
 	    {stop, normal, {error, Error}, State0}
     end;
 
-handle_sync_event({start, Opts, Timeout}, From, StateName, #state{role = Role} = State0) ->
+handle_sync_event({start, {Opts, EmOpts}, Timeout}, From, StateName, State) ->
     try 
-	State = ssl_config(Opts, Role, State0),
-	handle_sync_event({start, Timeout}, From, StateName, State)
+	handle_sync_event({start, Timeout}, From, StateName, State#state{socket_options = EmOpts,
+									 ssl_options = Opts})
     catch throw:Error ->
-	    {stop, normal, {error, Error}, State0}
+	    {stop, normal, {error, Error}, State}
     end;	
 
 %% These two clauses below could happen if a server upgrades a socket in
@@ -830,8 +837,9 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 	    #state{socket = Socket, transport_cb = Transport,
 		   start_or_recv_from = StartFrom, role = Role,
 		   protocol_cb = Connection,
-		   error_tag = ErrorTag} = State)  when StateName =/= connection ->
-    Connection:alert_user(Transport, Socket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role),
+		   error_tag = ErrorTag,
+		   tracker = Tracker} = State)  when StateName =/= connection ->
+    Connection:alert_user(Transport, Tracker,Socket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role),
     {stop, normal, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
@@ -881,7 +889,6 @@ terminate(_, _, #state{terminated = true}) ->
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns.
     ok;
-
 terminate({shutdown, transport_closed}, StateName, #state{send_queue = SendQueue,
 							  renegotiation = Renegotiate} = State) ->
     handle_unrecv_data(StateName, State),
@@ -894,7 +901,6 @@ terminate({shutdown, own_alert}, _StateName, #state{send_queue = SendQueue,
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate);
-
 terminate(Reason, connection, #state{negotiated_version = Version,
 				     protocol_cb = Connection,
 				     connection_states = ConnectionStates, 
@@ -911,7 +917,6 @@ terminate(Reason, connection, #state{negotiated_version = Version,
 	_ ->
 	    ok
     end;
-
 terminate(_Reason, _StateName, #state{transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate} = State) ->

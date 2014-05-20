@@ -115,7 +115,7 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
     Timeout = proplists:get_value(timeout, Opts, infinity),
-    SslOpts = proplists:get_value(ssl_opts, Opts, []),
+    SslOpts = proplists:get_value(ssl_extra_opts, Opts, []),
     AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy, Timeout, SslOpts),
     case ReconnectTimes of
 	0 ->
@@ -186,10 +186,7 @@ run_client(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
-    ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
-ct:log("~p:~p~nnet_adm:ping(~p)=~p",[?MODULE,?LINE, Node,net_adm:ping(Node)]),
-%%ct:log("~p:~p~n~p:connect(~p, ~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Options, Node]),
-ct:log("~p:~p~n~p:connect(~p, ~p, ...)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
+    ct:log("~p:~p~n~p:connect(~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
     case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
 	    Pid ! {connected, Socket},
