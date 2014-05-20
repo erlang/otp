@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,7 @@
 #include "sys.h"
 #include "big.h"
 #include "erl_map.h"
+#include "erl_binary.h"
 
 #define PRINT_CHAR(CNT, FN, ARG, C)					\
 do {									\
@@ -136,6 +137,25 @@ is_printable_string(Eterm list, Eterm* base)
     if (is_nil(list))
 	return len;
     return 0;
+}
+
+static int is_printable_ascii(byte* bytep, Uint bytesize, Uint bitoffs)
+{
+    if (!bitoffs) {
+	while (bytesize--) {
+	    if (*bytep < ' ' || *bytep >= 127)
+		return 0;
+	    bytep++;
+	}
+    } else {
+	while (bytesize--) {
+	    byte octet = (bytep[0] << bitoffs) | (bytep[1] >> (8-bitoffs));
+	    if (octet < ' ' || octet >= 127)
+		return 0;
+	    bytep++;
+	}
+    }
+    return 1;
 }
 
 /* print a atom doing what quoting is necessary */
@@ -446,13 +466,65 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		PRINT_STRING(res, fn, arg, "#MatchState");
 	    }
 	    else {
-		ProcBin* pb = (ProcBin *) binary_val(wobj);
-		if (pb->size == 1)
-		    PRINT_STRING(res, fn, arg, "<<1 byte>>");
-		else {
+		byte* bytep;
+		Uint bytesize = binary_size_rel(obj,obj_base);
+		Uint bitoffs;
+		Uint bitsize;
+		byte octet;
+		ERTS_GET_BINARY_BYTES_REL(obj, bytep, bitoffs, bitsize, obj_base);
+
+		if (bitsize || !bytesize
+		    || !is_printable_ascii(bytep, bytesize, bitoffs)) {
+		    int is_first = 1;
 		    PRINT_STRING(res, fn, arg, "<<");
-		    PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) pb->size);
-		    PRINT_STRING(res, fn, arg, " bytes>>");
+		    while (bytesize) {
+			if (is_first)
+			    is_first = 0;
+			else
+			    PRINT_CHAR(res, fn, arg, ',');
+			if (bitoffs)
+			    octet = (bytep[0] << bitoffs) | (bytep[1] >> (8-bitoffs));
+			else
+			    octet = bytep[0];
+			PRINT_UWORD(res, fn, arg, 'u', 0, 1, octet);
+			++bytep;
+			--bytesize;
+		    }
+		    if (bitsize) {
+			Uint bits = bitoffs + bitsize;
+			octet = bytep[0];
+			if (bits < 8)
+			    octet >>= 8 - bits;
+			else if (bits > 8) {
+			    bits -= 8;  /* bits in last byte */
+			    octet <<= bits;
+			    octet |= bytep[1] >> (8 - bits);
+			}
+			octet &= (1 << bitsize) - 1;
+			if (is_first)
+			    is_first = 0;
+			else
+			    PRINT_CHAR(res, fn, arg, ',');
+			PRINT_UWORD(res, fn, arg, 'u', 0, 1, octet);
+			PRINT_CHAR(res, fn, arg, ':');
+			PRINT_UWORD(res, fn, arg, 'u', 0, 1, bitsize);
+		    }
+		    PRINT_STRING(res, fn, arg, ">>");
+		}
+		else {
+		    PRINT_STRING(res, fn, arg, "<<\"");
+		    while (bytesize) {
+			if (bitoffs)
+			    octet = (bytep[0] << bitoffs) | (bytep[1] >> (8-bitoffs));
+			else
+			    octet = bytep[0];
+			if (octet == '"')
+			    PRINT_CHAR(res, fn, arg, '\\');
+			PRINT_CHAR(res, fn, arg, octet);
+			++bytep;
+			--bytesize;
+		    }
+		    PRINT_STRING(res, fn, arg, "\">>");
 		}
 	    }
 	    break;
