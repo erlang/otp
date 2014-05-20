@@ -32,7 +32,8 @@
 -export([receive_message/4]).
 
 %% towards diameter_peer_fsm and diameter_watchdog
--export([incr_A/4]).
+-export([incr_A/4,
+         incr_R/3]).
 
 %% towards diameter_service
 -export([make_recvdata/1,
@@ -138,6 +139,18 @@ incr_A(Dir, Pkt, TPid, Dict0) ->
     end.
 
 %% ---------------------------------------------------------------------------
+%% incr_R/3
+%% ---------------------------------------------------------------------------
+
+%% incr_R/3
+
+incr_R(recv = D, #diameter_packet{header = H, errors = [_|_]}, TPid) ->
+    incr_error(diameter_codec:msg_id(H), D, TPid);
+
+incr_R(_, _, _) ->
+    ok.
+
+%% ---------------------------------------------------------------------------
 %% pending/1
 %% ---------------------------------------------------------------------------
 
@@ -241,6 +254,7 @@ recv_R({#diameter_app{id = Id, dictionary = Dict} = App, Caps},
        Dict0,
        RecvData) ->
     Pkt = errors(Id, diameter_codec:decode(Id, Dict, Pkt0)),
+    incr_R(recv, Pkt, TPid),
     {Caps, Pkt, App, recv_R(App, TPid, Dict0, Caps, RecvData, Pkt)};
 %% Note that the decode is different depending on whether or not Id is
 %% ?APP_ID_RELAY.
@@ -1022,7 +1036,7 @@ incr_A(Dir, Pkt, Dict, TPid, Dict0) ->
     Id = diameter_codec:msg_id(Hdr),
 
     %% Count incoming decode errors.
-    recv /= Dir orelse [] == Es orelse incr(TPid, {Id, Dir, error}),
+    recv /= Dir orelse [] == Es orelse incr_error(Id, Dir, TPid),
 
     %% Exit on a missing result code.
     T = rc_counter(Dict, Msg),
@@ -1106,6 +1120,9 @@ x(Reason, F, A) ->
 x(T) ->
     exit(T).
 
+incr_error(Id, Dir, TPid) ->
+    incr(TPid, {Id, Dir, error}).
+    
 %% ---------------------------------------------------------------------------
 %% # send_request/4
 %%

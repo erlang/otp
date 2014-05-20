@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -559,6 +559,7 @@ recv(Name, Pkt, S) ->
 
 rcv('DWR', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
+    diameter_traffic:incr_R(recv, diameter_codec:decode(Pkt), TPid),
     EPkt = encode(dwa, Dict0, Pkt),
     diameter_traffic:incr_A(send, EPkt, TPid, Dict0),
     send(TPid, {send, EPkt}),

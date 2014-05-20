@@ -650,6 +650,8 @@ handle_request(Type, #diameter_packet{} = Pkt, #state{dictionary = D} = S) ->
 %% send_answer/3
 
 send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
+    diameter_traffic:incr_R(recv, ReqPkt, TPid),
+
     #diameter_packet{header = H,
                      transport_data = TD}
         = ReqPkt,
