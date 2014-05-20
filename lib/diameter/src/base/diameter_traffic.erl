@@ -635,7 +635,7 @@ reply(Msg, Dict, TPid, Dict0, Fs, ReqPkt) ->
     Pkt = encode(Dict,
                  reset(make_answer_packet(Msg, ReqPkt), Dict, Dict0),
                  Fs),
-    incr_A(send, Pkt, Dict, TPid, Dict0),  %% count outgoing result codes
+    incr_A(send, Pkt, Dict, TPid, Dict0),  %% count outgoing
     send(TPid, Pkt).
 
 %% reset/3
@@ -1010,17 +1010,19 @@ find(Pred, [H|T]) ->
 incr_A(_, #diameter_packet{msg = undefined = No}, _, _, _) ->
     No;
 
-%% Incoming with decode errors.
-incr_A(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid, _) ->
-    incr(TPid, {diameter_codec:msg_id(H), D, error});
-
-%% Incoming without errors or outgoing. Outgoing with encode errors
-%% never gets here since encode fails.
+%% Incoming or outgoing. Outgoing with encode errors never gets here
+%% since encode fails.
 incr_A(Dir, Pkt, Dict, TPid, Dict0) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
-                     msg = Msg}
+                     msg = Msg,
+                     errors = Es}
         = Pkt,
+
+    Id = diameter_codec:msg_id(Hdr),
+
+    %% Count incoming decode errors.
+    recv /= Dir orelse [] == Es orelse incr(TPid, {Id, Dir, error}),
 
     %% Exit on a missing result code.
     T = rc_counter(Dict, Msg),
@@ -1031,7 +1033,7 @@ incr_A(Dir, Pkt, Dict, TPid, Dict0) ->
     is_result(RC, E, Dict0)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
+    incr(TPid, {Id, Dir, Ctr}).
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
@@ -1408,7 +1410,7 @@ handle_answer(SvcName,
 
 handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
     try
-        incr_A(recv, Pkt, Dict, TPid, Dict0) %% count incoming result codes
+        incr_A(recv, Pkt, Dict, TPid, Dict0) %% count incoming
     of
         _ -> answer(Pkt, SvcName, App, Req)
     catch
