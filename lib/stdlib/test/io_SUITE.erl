@@ -30,7 +30,7 @@
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
 	 printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
-	 otp_10836/1]).
+         otp_10836/1, io_lib_width_too_small/1]).
 
 -export([pretty/2]).
 
@@ -69,7 +69,8 @@ all() ->
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
      printable_range,
-     io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836].
+     io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
+     io_lib_width_too_small].
 
 groups() -> 
     [].
@@ -2213,3 +2214,8 @@ compile_file(File, Text, Config) ->
     try compile:file(Fname, [return])
     after ok %file:delete(Fname)
     end.
+
+io_lib_width_too_small(Config) ->
+    "**" = lists:flatten(io_lib:format("~2.3w", [3.14])),
+    "**" = lists:flatten(io_lib:format("~2.5w", [3.14])),
+    ok.

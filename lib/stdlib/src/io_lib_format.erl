@@ -255,7 +255,7 @@ term(T, none, _Adj, none, _Pad) -> T;
 term(T, none, Adj, P, Pad) -> term(T, P, Adj, P, Pad);
 term(T, F, Adj, P0, Pad) ->
     L = lists:flatlength(T),
-    P = case P0 of none -> erlang:min(L, F); _ -> P0 end,
+    P = erlang:min(L, case P0 of none -> F; _ -> min(P0, F) end),
     if
 	L > P ->
 	    adjust(chars($*, P), chars(Pad, F-P), Adj);
