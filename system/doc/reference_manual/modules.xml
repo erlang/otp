@@ -229,13 +229,9 @@ behaviour_info(callbacks) -> Callbacks.</pre>
       <p>The <c>module_info/0</c> function in each module returns
       a list of <c>{Key,Value}</c> tuples with information about
       the module. Currently, the list contain tuples with the following
-      <c>Key</c>s: <c>attributes</c>, <c>compile</c>, 
-      <c>exports</c>, and <c>imports</c>. The order and number of tuples
+      <c>Key</c>s: <c>module</c>, <c>attributes</c>, <c>compile</c>,
+      <c>exports</c> and <c>md5</c>. The order and number of tuples
       may change without prior notice.</p>
-
-      <warning><p>The <c>{imports,Value}</c> tuple may be removed in a future
-      release because <c>Value</c> is always an empty list.
-      Do not write code that depends on it being present.</p></warning>
     </section>
 
     <section>
@@ -246,6 +242,11 @@ behaviour_info(callbacks) -> Callbacks.</pre>
       <p>The following values are allowed for <c>Key</c>:</p>
 
       <taglist>
+        <tag><c>module</c></tag>
+	  <item>
+	  <p>Return an atom representing the module name.</p>
+	  </item>
+
         <tag><c>attributes</c></tag>
 	  <item>
 	  <p>Return a list of <c>{AttributeName,ValueList}</c> tuples,
@@ -267,10 +268,9 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>.</p>
 	  </item>
 
-        <tag><c>imports</c></tag>
+        <tag><c>md5</c></tag>
 	  <item>
-	  <p>Always return an empty list. The <c>imports</c> key may not
-	  be supported in future release.</p>
+	  <p>Return a binary representing the MD5 checksum of the module.</p>
 	  </item>
 
         <tag><c>exports</c></tag>
