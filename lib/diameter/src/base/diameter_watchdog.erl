@@ -415,11 +415,13 @@ transition({open = Key, TPid, _Hosts, T},
 %%   REOPEN        Connection down      CloseConnection()
 %%                                      SetWatchdog()        DOWN
 
+%% Transport has died after service requested termination ...
 transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid,
                      shutdown = true}) ->
     stop;
 
+%% ... or not.
 transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid,
                      status = T,
