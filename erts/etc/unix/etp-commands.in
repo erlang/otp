@@ -3277,7 +3277,7 @@ define etp-block-size-1
         else
           set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
         end
-        set $etp_MBC_ABLK_SZ_MASK = ~(~0 << $etp_MBC_ABLK_OFFSET_SHIFT) & ~7
+        set $etp_MBC_ABLK_SZ_MASK = ((UWord)1 << $etp_MBC_ABLK_OFFSET_SHIFT) - 1 - 7
       end
       set $etp_blk_sz = ($arg0)->bhdr & $etp_MBC_ABLK_SZ_MASK
   end
@@ -3300,7 +3300,7 @@ define etp-block2mbc-1
           set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
         end
       end
-      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0)) & (~0 << 18)) - ((($arg0)->bhdr >> $etp_MBC_ABLK_OFFSET_SHIFT) << 18))
+      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> 18) - (($arg0)->bhdr >> $etp_MBC_ABLK_OFFSET_SHIFT)) << 18)
   end
 end
 
