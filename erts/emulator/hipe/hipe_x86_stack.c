@@ -209,7 +209,7 @@ void (*hipe_handle_stack_trap(Process *p))(void)
  * The native stack MUST contain a stack frame as it appears on
  * entry to a function (return address, actuals, caller's frame).
  * p->hipe.narity MUST contain the arity (number of actuals).
- * On exit, p->hipe.ncallee is set to the handler's PC and p->hipe.nsp
+ * On exit, p->hipe.u.ncallee is set to the handler's PC and p->hipe.nsp
  * is set to its SP (low address of its stack frame).
  */
 void hipe_find_handler(Process *p)
@@ -240,7 +240,7 @@ void hipe_find_handler(Process *p)
 	if ((exnra = sdesc_exnra(sdesc)) != 0 &&
 	    (p->catches >= 0 ||
 	     exnra == (unsigned long)nbif_fail)) {
-	    p->hipe.ncallee = (void(*)(void)) exnra;
+	    p->hipe.u.ncallee = (void(*)(void)) exnra;
 	    p->hipe.nsp = nsp;
 	    p->hipe.narity = 0;
 	    /* update the gray/white boundary if we threw past it */

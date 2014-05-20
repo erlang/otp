@@ -257,14 +257,14 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  /* BEAM calls a native code function */
 	  unsigned arity = cmd >> 8;
 
-	  /* p->hipe.ncallee set in beam_emu */
+	  /* p->hipe.u.ncallee set in beam_emu */
 	  if (p->cp == hipe_beam_pc_return) {
 	    /* Native called BEAM, which now tailcalls native. */
 	    hipe_pop_beam_trap_frame(p);
 	    result = hipe_tailcall_to_native(p, arity, reg);
 	    break;
 	  }
-	  DPRINTF("calling %#lx/%u", (long)p->hipe.ncallee, arity);
+	  DPRINTF("calling %#lx/%u", (long)p->hipe.u.ncallee, arity);
 	  result = hipe_call_to_native(p, arity, reg);
 	  break;
       }
@@ -282,18 +282,18 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  arity -= funp->num_free;	/* arity == #formals */
 	  reg[arity] = fun;
 	  ++arity;	/* correct for having added the closure */
-	  /* HIPE_ASSERT(p->hipe.ncallee == (void(*)(void))funp->native_address); */
+	  /* HIPE_ASSERT(p->hipe.u.ncallee == (void(*)(void))funp->native_address); */
 
 	  /* just like a normal call from now on */
 
-	  /* p->hipe.ncallee set in beam_emu */
+	  /* p->hipe.u.ncallee set in beam_emu */
 	  if (p->cp == hipe_beam_pc_return) {
 	      /* Native called BEAM, which now tailcalls native. */
 	      hipe_pop_beam_trap_frame(p);
 	      result = hipe_tailcall_to_native(p, arity, reg);
 	      break;
 	  }
-	  DPRINTF("calling %#lx/%u", (long)p->hipe.ncallee, arity);
+	  DPRINTF("calling %#lx/%u", (long)p->hipe.u.ncallee, arity);
 	  result = hipe_call_to_native(p, arity, reg);
 	  break;
       }
@@ -396,13 +396,13 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  if (is_recursive)
 	      hipe_push_beam_trap_frame(p, reg, p->arity);
 	  
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  break;
       }
-      case HIPE_MODE_SWITCH_RES_CALL: {
+      case HIPE_MODE_SWITCH_RES_CALL_EXPORTED: {
 	  /* Native code calls or tailcalls BEAM.
 	   *
-	   * p->i is the callee's BEAM code
+	   * p->hipe.u.callee_exp is the callee's export entry
 	   * p->arity is the callee's arity
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
@@ -422,15 +422,15 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * F(A1, ..., AN, FV1, ..., FVM, Closure)
 	   *  (Where Ai is argument i and FVj is free variable j)
 	   *
-	   * p->hipe.closure contains the closure
+	   * p->hipe.u.closure contains the closure
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
 	   */
 	  ErlFunThing *closure;
 	  unsigned num_free, arity, i, is_recursive;
 
-	  HIPE_ASSERT(is_fun(p->hipe.closure));
-	  closure = (ErlFunThing*)fun_val(p->hipe.closure);
+	  HIPE_ASSERT(is_fun(p->hipe.u.closure));
+	  closure = (ErlFunThing*)fun_val(p->hipe.u.closure);
 	  num_free = closure->num_free;
 	  arity = closure->fe->arity;
 
@@ -460,10 +460,10 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->i = closure->fe->address;
 
 	      /* Change result code to the faster plain CALL type. */
-	      result = HIPE_MODE_SWITCH_RES_CALL;
+	      result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  }
 	  /* Append the closure as the last parameter. Don't increment arity. */
-	  reg[arity] = p->hipe.closure;
+	  reg[arity] = p->hipe.u.closure;
 
 	  if (is_recursive) {
 	      /* BEAM called native, which now calls BEAM.
@@ -541,7 +541,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      }
 	  }
 	  HIPE_CHECK_PCB(p);
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  p->def_arg_reg[3] = result;
 	  return p;
       }
@@ -569,7 +569,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  address = hipe_get_remote_na(mfa[0], mfa[1], arity);
 	  if (!address)
 		  goto do_apply_fail;
-	  p->hipe.ncallee = (void(*)(void)) address;
+	  p->hipe.u.ncallee = (void(*)(void)) address;
 	  result = hipe_tailcall_to_native(p, arity, reg);
 	  goto do_return_from_native;
       do_apply_fail:

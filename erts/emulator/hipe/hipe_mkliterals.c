@@ -498,8 +498,8 @@ static const struct rts_param rts_params[] = {
     { 38, "P_ARG4", 1, offsetof(struct process, def_arg_reg[4]) },
     { 39, "P_ARG5", 1, offsetof(struct process, def_arg_reg[5]) },
     { 40, "P_NSP", 1, offsetof(struct process, hipe.nsp) },
-    { 41, "P_NCALLEE", 1, offsetof(struct process, hipe.ncallee) },
-    { 42, "P_CLOSURE", 1, offsetof(struct process, hipe.closure) },
+    { 41, "P_NCALLEE", 1, offsetof(struct process, hipe.u.ncallee) },
+    { 42, "P_CLOSURE", 1, offsetof(struct process, hipe.u.closure) },
     { 43, "P_NSP_LIMIT", 1, offsetof(struct process, hipe.nstack) },
     { 44, "P_CSP",
 #if defined(__i386__) || defined(__x86_64__)
@@ -524,6 +524,7 @@ static const struct rts_param rts_params[] = {
     },
     { 49, "P_MSG_FIRST", 1, offsetof(struct process, msg.first) },
     { 50, "P_MSG_SAVE", 1, offsetof(struct process, msg.save) },
+    { 51, "P_CALLEE_EXP", 1, offsetof(struct process, hipe.u.callee_exp) },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)
