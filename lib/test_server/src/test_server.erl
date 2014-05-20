@@ -22,7 +22,7 @@
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([run_test_case_apply/1,init_target_info/0,init_purify/0]).
--export([cover_compile/1,cover_analyse/3]).
+-export([cover_compile/1,cover_analyse/4]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([get_loc/1,set_tc_state/1]).
@@ -211,9 +211,10 @@ do_cover_compile1([]) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% cover_analyse(Analyse,Modules,Stop) -> [{M,{Cov,NotCov,Details}}]
+%% cover_analyse(Dir,Analyse,Modules,Stop) -> [{M,{Cov,NotCov,Details}}]
 %%
-%% Analyse = {details,Dir} | details | {overview,void()} | overview
+%% Dir = string()
+%% Analyse = details | overview
 %% Modules = [atom()], the modules to analyse
 %%
 %% Cover analysis. If Analyse=={details,Dir} analyse_to_file is used.
@@ -235,11 +236,11 @@ do_cover_compile1([]) ->
 %% which means that the modules will stay cover compiled. Note that
 %% this is only recommended if the erlang node is being terminated
 %% after the test is completed.
-cover_analyse(Analyse,Modules,Stop) ->
+cover_analyse(Dir,Analyse,Modules,Stop) ->
     print(stdout, "Cover analysing...\n", []),
     DetailsFun =
 	case Analyse of
-	    {details,Dir} ->
+	    details ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
 			fun(M) ->
@@ -256,7 +257,7 @@ cover_analyse(Analyse,Modules,Stop) ->
 		    Error ->
 			fun(_) -> Error end
 		end;
-	    {overview,Dir} ->
+	    overview ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
 			fun(_) -> undefined end;

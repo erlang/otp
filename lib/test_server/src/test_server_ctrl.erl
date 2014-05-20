@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -409,11 +409,11 @@ cover(App, Analyse) when is_atom(App) ->
 cover(CoverFile, Analyse) ->
     cover(none, CoverFile, Analyse).
 cover(App, CoverFile, Analyse) ->
-    controller_call({cover,{App,CoverFile},Analyse,true}).
+    controller_call({cover,{{App,CoverFile},Analyse,true}}).
 cover(App, CoverFile, Exclude, Include, Cross, Export, Analyse, Stop) ->
     controller_call({cover,
-		     {App,{CoverFile,Exclude,Include,Cross,Export}},
-		     Analyse,Stop}).
+		     {{App,{CoverFile,Exclude,Include,Cross,Export}},
+		      Analyse,Stop}}).
 
 testcase_callback(ModFunc) ->
     controller_call({testcase_callback,ModFunc}).
@@ -563,7 +563,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
     ExtraTools =
 	case State#state.cover of
 	    false -> [];
-	    {App,Analyse,Stop} -> [{cover,App,Analyse,Stop}]
+	    CoverInfo -> [{cover,CoverInfo}]
 	end,
     ExtraTools1 =
 	case State#state.random_seed of
@@ -816,13 +816,13 @@ handle_call(stop_trace, _From, State) ->
     {reply,R,State#state{trc=false}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call({cover,App,Analyse,Stop}, _, State) -> ok | {error,Reason}
+%% handle_call({cover,CoverInfo}, _, State) -> ok | {error,Reason}
 %%
-%% All modules inn application App are cover compiled
-%% Analyse indicates on which level the coverage should be analysed
+%% Set specification of cover analysis to be used when running tests
+%% (see start_extra_tools/1 and stop_extra_tools/1)
 
-handle_call({cover,App,Analyse,Stop}, _From, State) ->
-    {reply,ok,State#state{cover={App,Analyse,Stop}}};
+handle_call({cover,CoverInfo}, _From, State) ->
+    {reply,ok,State#state{cover=CoverInfo}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({create_priv_dir,Value}, _, State) -> ok | {error,Reason}
@@ -1203,11 +1203,10 @@ elapsed_time(Before, After) ->
 
 start_extra_tools(ExtraTools) ->
     start_extra_tools(ExtraTools, []).
-start_extra_tools([{cover,App,Analyse,Stop} | ExtraTools], Started) ->
-    case cover_compile(App) of
-	{ok,AnalyseMods} ->
-	    start_extra_tools(ExtraTools,
-			      [{cover,App,Analyse,AnalyseMods,Stop}|Started]);
+start_extra_tools([{cover,CoverInfo} | ExtraTools], Started) ->
+    case cover_compile(CoverInfo) of
+	{ok,NewCoverInfo} ->
+	    start_extra_tools(ExtraTools,[{cover,NewCoverInfo}|Started]);
 	{error,_} ->
 	    start_extra_tools(ExtraTools, Started)
     end;
@@ -1226,7 +1225,7 @@ stop_extra_tools(ExtraTools) ->
     end,
     stop_extra_tools(ExtraTools, TestDir).
 
-stop_extra_tools([{cover,App,Analyse,AnalyseMods,Stop}|ExtraTools], TestDir) ->
+stop_extra_tools([{cover,{App,Analyse,AnalyseMods,Stop}}|ExtraTools], TestDir) ->
     cover_analyse(App, Analyse, AnalyseMods, Stop, TestDir),
     stop_extra_tools(ExtraTools, TestDir);
 %%stop_extra_tools([_ | ExtraTools], TestDir) ->
@@ -5087,14 +5086,22 @@ pinfo(P) ->
 
 %% Cover compilation
 %% The compilation is executed on the target node
-cover_compile({App,{_File,Exclude,Include,Cross,_Export}}) ->
-    cover_compile1({App,Exclude,Include,Cross});
+cover_compile({AppInfo,Analyse,Stop}) ->
+    case cover_compile1(AppInfo) of
+	{ok,AnalyseMods} ->
+	    {ok,{AppInfo,Analyse,AnalyseMods,Stop}};
+	Error ->
+	    Error
+    end.
 
-cover_compile({App,CoverFile}) ->
+cover_compile1({App,{_File,Exclude,Include,Cross,_Export}}) ->
+    cover_compile2({App,Exclude,Include,Cross});
+
+cover_compile1({App,CoverFile}) ->
     {Exclude,Include,Cross} = read_cover_file(CoverFile),
-    cover_compile1({App,Exclude,Include,Cross}).
+    cover_compile2({App,Exclude,Include,Cross}).
 
-cover_compile1(What) ->
+cover_compile2(What) ->
     test_server:cover_compile(What).
 
 %% Read the coverfile for an application and return a list of modules
@@ -5196,7 +5203,7 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
 
     io:fwrite(CoverLog, "<p>Excluded module(s): <code>~tp</code>\n", [Excluded]),
 
-    Coverage = cover_analyse(Analyse, AnalyseMods, Stop),
+    Coverage = cover_analyse(TestDir, Analyse, AnalyseMods, Stop),
     write_binary_file(filename:join(TestDir,?raw_coverlog_name),
 		      term_to_binary(Coverage)),
 
@@ -5215,9 +5222,8 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
     write_binary_file(filename:join(TestDir, ?cover_total),
 		      term_to_binary(TotPercent)).
 
-cover_analyse(Analyse, AnalyseMods, Stop) ->
-    TestDir = get(test_server_log_dir_base),
-    test_server:cover_analyse({Analyse,TestDir}, AnalyseMods, Stop).
+cover_analyse(TestDir, Analyse, AnalyseMods, Stop) ->
+    test_server:cover_analyse(TestDir, Analyse, AnalyseMods, Stop).
 
 
 %% Cover analysis - accumulated over multiple tests
