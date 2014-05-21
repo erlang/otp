@@ -297,12 +297,7 @@
 
 	 %% tickets2
 	 otp8395/1, 
-	 otp9884/1,
-	 
-	 %% IPV6
-	 ipv6_processing/1,
-	 ipv6_trap/1
-
+	 otp9884/1
 	]).
 
 %% Internal exports
@@ -545,8 +540,7 @@ groups() ->
      {tickets1,                      [], tickets1_cases()}, 
      {tickets2,                      [], tickets2_cases()}, 
      {otp4394,                       [], [otp_4394]},
-     {otp7157,                       [], [otp_7157]},
-     {ipv6,                          [], [ipv6_processing, ipv6_trap]}
+     {otp7157,                       [], [otp_7157]}
     ].
 
 
@@ -651,13 +645,6 @@ init_per_group(mib_storage_dets = GroupName, Config) ->
     init_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(mib_storage_ets = GroupName, Config) -> 
     init_mib_storage_ets(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(ipv6 = GroupName, Config) -> 
-    case ct:require(ipv6_hosts) of
-	ok ->
-	    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-	_ ->
-	    {skip, "Host does not support IPV6"}
-    end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
@@ -770,16 +757,6 @@ init_per_testcase1(v3_inform_i = _Case, Config) when is_list(Config) ->
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?WD_START(?MINS(10)),
     [{watchdog, Dog} | Config ];
-init_per_testcase1(ipv6_processing = Case, Config) when is_list(Config) ->
-    ?DBG("init_per_testcase1 -> entry with"
-	 "~n   Case:   ~p"
-	 "~n   Config: ~p", [Case, Config]),
-    ipv6_processing({init, init_per_testcase2(Case, Config)});
-init_per_testcase1(ipv6_trap = Case, Config) when is_list(Config) ->
-    ?DBG("init_per_testcase1 -> entry with"
-	 "~n   Case:   ~p"
-	 "~n   Config: ~p", [Case, Config]),
-    ipv6_trap({init, init_per_testcase2(Case, Config)});
 init_per_testcase1(_Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
@@ -868,8 +845,7 @@ cases() ->
      {group, test_v3_ipv6},
      {group, test_multi_threaded}, 
      {group, mib_storage},
-     {group, tickets1},
-     {group, ipv6}
+     {group, tickets1}
     ].
 
 
@@ -6879,24 +6855,6 @@ otp9884_await_backup_completion(First, Second)
     end;
 otp9884_await_backup_completion(First, Second) ->
     throw({error, {bad_completion, First, Second}}).
-%%-----------------------------------------------------------------
-
-ipv6_processing({init, Config}) when is_list(Config)->
-    init_v1_agent([{ipfamily, inet6} | Config]);
-ipv6_processing({fin, Config}) when is_list(Config) ->
-    fin_v1_agent(Config);
-ipv6_processing(Config) when is_list(Config) ->
-    v1_processing(Config).
-
-%%-----------------------------------------------------------------
-
-ipv6_trap({init, Config}) when is_list(Config)->
-    init_v1_agent([{ipfamily, inet6} | Config]);
-ipv6_trap({fin, Config}) when is_list(Config) ->
-    fin_v1_agent(Config);
-ipv6_trap(Config) when is_list(Config) ->
-    v1_trap(Config).
-
 %%-----------------------------------------------------------------
 
 agent_log_validation(Node) ->

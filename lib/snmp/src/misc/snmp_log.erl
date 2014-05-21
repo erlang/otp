@@ -231,7 +231,20 @@ validate(Log, SeqNoReq)
 		validate_seqno(PrevSN, SeqNo),
 		{Timestamp, SeqNo};
 
-	   ({Timestamp, _Packet, _Addr, _Port}, {PrevTS, _PrevSN}) when SeqNoReq =:= true -> 
+	   ({Timestamp, SeqNo, _Packet, _AddrStr}, {PrevTS, PrevSN})
+	      when is_integer(SeqNo) ->
+		?vtrace("validating log entry when"
+			"~n   Timestamp: ~p"
+			"~n   SeqNo:     ~p"
+			"~n   PrevTS:    ~p"
+			"~n   PrevSN:    ~p",
+			[Timestamp, SeqNo, PrevTS, PrevSN]),
+		validate_timestamp(PrevTS, Timestamp),
+		validate_seqno(PrevSN, SeqNo),
+		{Timestamp, SeqNo};
+
+	   ({Timestamp, _Packet, _Addr, _Port}, {PrevTS, _PrevSN})
+	      when SeqNoReq =:= true ->
 		?vtrace("validating log entry when"
 			"~n   Timestamp: ~p"
 			"~n   PrevTS:    ~p", 
@@ -969,8 +982,8 @@ get_type(#pdu{type = Type}) ->
     Type.
 
 
-ip(Domain, Addr) ->
-    snmp_conf:mk_addr_string(Domain, Addr).
+%% ip(Domain, Addr) ->
+%%     snmp_conf:mk_addr_string(Domain, Addr).
 %% ip({A,B,C,D}) ->
 %%     io_lib:format("~w.~w.~w.~w", [A,B,C,D]).
 
