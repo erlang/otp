@@ -39,7 +39,7 @@
 
 	 get_req/2, get_next_req/1,
 
-	 config/5,
+	 config/5, config/6,
 	 delete_files/1, 
 	 copy_file/2, 
 	 update_usm/2, 
@@ -1369,16 +1369,38 @@ stop_node(Node) ->
 %%%-----------------------------------------------------------------
 
 config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
+    config(Vsns, MgrDir, AgentConfDir, MIp, AIp, inet).
+
+config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?LOG("config -> entry with"
-	 "~n   Vsns:         ~p" 
-	 "~n   MgrDir:       ~p" 
-	 "~n   AgentConfDir: ~p" 
-	 "~n   MIp:          ~p" 
-	 "~n   AIp:          ~p", 
-	 [Vsns, MgrDir, AgentConfDir, MIp, AIp]),
-    ?line ok =
-	snmp_config:write_agent_snmp_files(
-	  AgentConfDir, Vsns, MIp, ?TRAP_UDP, AIp, 4000, "test"),
+	 "~n   Vsns:         ~p"
+	 "~n   MgrDir:       ~p"
+	 "~n   AgentConfDir: ~p"
+	 "~n   MIp:          ~p"
+	 "~n   AIp:          ~p"
+	 "~n   IpFamily:     ~p",
+	 [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
+    ?line {Domain, ManagerAddr} =
+	case IpFamily of
+	    inet6 ->
+		%% XXX Run IPv6 tests over IPv4 compatibility address
+		%% since the test manager needs to be rewritten to
+		%% handle IPv6 before we can improve this.
+		Ipv6Domain = transportDomainUdpIpv6,
+		AgentIpv6Addr = {mk_ipv6_ip(AIp), 4000},
+		ManagerIpv6Addr = {mk_ipv6_ip(MIp), ?TRAP_UDP},
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns,
+		      Ipv6Domain, ManagerIpv6Addr, AgentIpv6Addr, "test"),
+		{Ipv6Domain, ManagerIpv6Addr};
+	    _ ->
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns, MIp, ?TRAP_UDP, AIp, 4000, "test"),
+		{snmpUDPDomain, {MIp, ?TRAP_UDP}}
+	  end,
+
     ?line case update_usm(Vsns, AgentConfDir) of
 	      true ->
 		  ?line copy_file(join(AgentConfDir, "usm.conf"),
@@ -1389,10 +1411,13 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
 	  end,
     ?line update_community(Vsns, AgentConfDir),
     ?line update_vacm(Vsns, AgentConfDir),
-    ?line write_target_addr_conf(AgentConfDir, MIp, ?TRAP_UDP, Vsns),
+    ?line write_target_addr_conf(AgentConfDir, Domain, ManagerAddr, Vsns),
     ?line write_target_params_conf(AgentConfDir, Vsns),
     ?line write_notify_conf(AgentConfDir),
     ok.
+
+mk_ipv6_ip([A,B,C,D]) ->
+    [0,0,0,0,0,0,0,0,0,0,255,255,A,B,C,D].
 
 delete_files(Config) ->
     AgentDir = ?config(agent_dir, Config),
@@ -1518,10 +1543,10 @@ write_community_conf(Dir, Conf) ->
 write_target_addr_conf(Dir, Conf) ->
     ?line ok = snmp_config:write_agent_target_addr_config(Dir, "", Conf).
 
-write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
+write_target_addr_conf(Dir, Ip_or_Domain, Port_or_Addr, Vsns) ->
     ?line ok =
 	snmp_config:write_agent_snmp_target_addr_conf(
-	  Dir, ManagerIp, UDP, Vsns).
+	  Dir, Ip_or_Domain, Port_or_Addr, Vsns).
 
 rewrite_target_addr_conf(Dir, NewPort) -> 
     ?DBG("rewrite_target_addr_conf -> entry with"
