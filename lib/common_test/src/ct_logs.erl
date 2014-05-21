@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,6 +62,7 @@
 -define(totals_name, "totals.info").
 -define(log_cache_name, "ct_log_cache").
 -define(misc_io_log, "misc_io.log.html").
+-define(coverlog_name, "cover.html"). % must be same as in test_server_ctrl
 
 -define(table_color1,"#ADD8E6").
 -define(table_color2,"#E4F0FE").
@@ -1368,6 +1369,19 @@ index_header(Label, StartTime) ->
 		       format_time(StartTime),
 		       {[],[1],[2,3,4,5]})
 	end,
+    Cover =
+	case filelib:is_regular(?abs(?coverlog_name)) of
+	    true ->
+		xhtml(["<p><a href=\"",?coverlog_name,
+		       "\">Cover Log</a></p><br>\n"],
+		      ["<br />"
+		       "<div id=\"button_holder\" class=\"btn\">\n"
+		       "<a href=\"",?coverlog_name,
+		       "\">COVER LOG</a>\n</div><br /><br />"]);
+	    false ->
+		xhtml("<br>\n", "<br /><br /><br />\n")
+	end,
+
     [Head |
      ["<center>\n",
       xhtml(["<p><a href=\"",?ct_log_name,
@@ -1375,8 +1389,8 @@ index_header(Label, StartTime) ->
 	    ["<br />"
 	     "<div id=\"button_holder\" class=\"btn\">\n"
 	     "<a href=\"",?ct_log_name,
-	     "\">COMMON TEST FRAMEWORK LOG</a>\n</div>"]),
-      xhtml("<br>\n", "<br /><br /><br />\n"),
+	     "\">COMMON TEST FRAMEWORK LOG</a>\n</div><br>\n"]),
+      Cover,
       xhtml(["<table border=\"3\" cellpadding=\"5\" "
 	     "bgcolor=\"",?table_color3,"\">\n"],
 	    ["<table id=\"",?sortable_table_name,"\">\n",

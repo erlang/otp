@@ -47,18 +47,21 @@ add_nodes(Nodes) ->
 	undefined ->
 	    {error,cover_not_running};
 	_ ->
-	    {File,Nodes0,Import,Export,AppInfo} = ct_util:get_testdata(cover),
+	    Nodes0 = cover:which_nodes(),
 	    Nodes1 = [Node || Node <- Nodes,
 			      lists:member(Node,Nodes0) == false],
 	    ct_logs:log("COVER INFO",
 			"Adding nodes to cover test: ~w", [Nodes1]),
 	    case cover:start(Nodes1) of
-		Result = {ok,_} ->
-		    ct_util:set_testdata({cover,{File,Nodes1++Nodes0,
-						 Import,Export,AppInfo}}),
-		    
+		Result = {ok,StartedNodes} ->
+		    ct_logs:log("COVER INFO",
+				"Successfully added nodes to cover test: ~w",
+				[StartedNodes]),
 		    Result;
 		Error ->
+		    ct_logs:log("COVER INFO",
+				"Failed to add nodes to cover test: ~tp",
+				[Error]),
 		    Error
 	    end
     end.
@@ -81,19 +84,20 @@ remove_nodes(Nodes) ->
 	undefined ->
 	    {error,cover_not_running};
 	_ ->
-	    {File,Nodes0,Import,Export,AppInfo} = ct_util:get_testdata(cover),
+	    Nodes0 = cover:which_nodes(),
 	    ToRemove = [Node || Node <- Nodes, lists:member(Node,Nodes0)],
 	    ct_logs:log("COVER INFO",
-			"Removing nodes from cover test: ~w", [ToRemove]),	    
+			"Removing nodes from cover test: ~w", [ToRemove]),
 	    case cover:stop(ToRemove) of
 		ok ->
-		    Nodes1 = lists:foldl(fun(N,Deleted) -> 
-						 lists:delete(N,Deleted) 
-					 end, Nodes0, ToRemove),
-		    ct_util:set_testdata({cover,{File,Nodes1,
-						 Import,Export,AppInfo}}),
+		    ct_logs:log("COVER INFO",
+				"Successfully removed nodes from cover test.",
+				[]),
 		    ok;
 		Error ->
+		    ct_logs:log("COVER INFO",
+				"Failed to remove nodes from cover test: ~tp",
+				[Error]),
 		    Error
 	    end
     end.
@@ -149,7 +153,7 @@ get_spec_test(File) ->
 			    {value,{_,[Exp]}} ->
 				filename:absname(Exp);
 			    _ -> 
-				[]
+				undefined
 			end,
 		    Nodes = 
 			case lists:keysearch(nodes, 1, Terms) of

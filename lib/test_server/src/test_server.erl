@@ -22,7 +22,7 @@
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([run_test_case_apply/1,init_target_info/0,init_purify/0]).
--export([cover_compile/1,cover_analyse/4]).
+-export([cover_compile/1,cover_analyse/2]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([get_loc/1,set_tc_state/1]).
@@ -80,8 +80,8 @@ init_purify() ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% cover_compile({App,Include,Exclude,Cross}) ->
-%%                                          {ok,AnalyseModules} | {error,Reason}
+%% cover_compile(#cover{app=App,incl=Include,excl=Exclude,cross=Cross}) ->
+%%        {ok,#cover{mods=AnalyseModules}} | {error,Reason}
 %%
 %% App = atom() , name of application to be compiled
 %% Exclude = [atom()], list of modules to exclude
@@ -90,33 +90,35 @@ init_purify() ->
 %% Cross = [atoms()], list of modules outside of App shat should be included
 %%                 in the cover compilation, but that shall not be part of
 %%                 the cover analysis for this application.
+%% AnalyseModules = [atom()], list of successfully compiled modules
 %%
-%% Cover compile the given application. Return {ok,AnalyseMods} if application
-%% is found, else {error,application_not_found}.
+%% Cover compile the given application. Return {ok,CoverInfo} if
+%% compilation succeeds, else (if application is not found and there
+%% are no modules to compile) {error,application_not_found}.
 
-cover_compile({none,_Exclude,Include,Cross}) ->
+cover_compile(CoverInfo=#cover{app=none,incl=Include,cross=Cross}) ->
     CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
     CompileMods = Include++CrossMods,
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
 	    cover:start(),			% start cover server anyway
-	    {ok,[]};
+	    {ok,CoverInfo#cover{mods=[]}};
 	N ->
 	    io:fwrite("Cover compiling ~w modules - "
 		      "this may take some time... ",[N]),
 	    do_cover_compile(CompileMods),
 	    io:fwrite("done\n\n",[]),
-	    {ok,Include}
+	    {ok,CoverInfo#cover{mods=Include}}
     end;
-cover_compile({App,all,Include,Cross}) ->
+cover_compile(CoverInfo=#cover{app=App,excl=all,incl=Include,cross=Cross}) ->
     CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
     CompileMods = Include++CrossMods,
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
 	    cover:start(),			% start cover server anyway
-	    {ok,[]};
+	    {ok,CoverInfo#cover{mods=[]}};
 	N ->
 	    io:fwrite("Cover compiling '~w' (~w files) - "
 		      "this may take some time... ",[App,N]),
@@ -126,9 +128,9 @@ cover_compile({App,all,Include,Cross}) ->
 		      "~tp\n", [App,CompileMods]),
 	    do_cover_compile(CompileMods),
 	    io:fwrite("done\n\n",[]),
-	    {ok,Include}
+	    {ok,CoverInfo=#cover{mods=Include}}
     end;
-cover_compile({App,Exclude,Include,Cross}) ->
+cover_compile(CoverInfo=#cover{app=App,excl=Exclude,incl=Include,cross=Cross}) ->
     CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
     case code:lib_dir(App) of
 	{error,bad_name} ->
@@ -146,7 +148,7 @@ cover_compile({App,Exclude,Include,Cross}) ->
 			      "~tp\n", [App,Include]),
 		    do_cover_compile(CompileMods),
 		    io:fwrite("done\n\n",[]),
-		    {ok,Include}
+		    {ok,CoverInfo#cover{mods=Include}}
 	    end;
 	LibDir ->
 	    EbinDir = filename:join([LibDir,"ebin"]),
@@ -158,13 +160,13 @@ cover_compile({App,Exclude,Include,Cross}) ->
 		0 ->
 		    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
 		    cover:start(),		% start cover server anyway
-		    {ok,[]};
+		    {ok,CoverInfo#cover{mods=[]}};
 		N ->
 		    io:fwrite("Cover compiling '~w' (~w files) - "
 			      "this may take some time... ",[App,N]),
 		    do_cover_compile(CompileMods),
 		    io:fwrite("done\n\n",[]),
-		    {ok,AnalyseMods}
+		    {ok,CoverInfo#cover{mods=AnalyseMods}}
 	    end
     end.
 
@@ -174,9 +176,11 @@ module_names(Beams) ->
 
 
 do_cover_compile(Modules) ->
-    do_cover_compile1(lists:usort(Modules)). % remove duplicates
+    cover:start(),
+    pmap1(fun(M) -> do_cover_compile1(M) end,lists:usort(Modules)),
+    ok.
 
-do_cover_compile1([M|Rest]) ->
+do_cover_compile1(M) ->
     case {code:is_sticky(M),code:is_loaded(M)} of
 	{true,_} ->
 	    code:unstick_mod(M),
@@ -187,15 +191,13 @@ do_cover_compile1([M|Rest]) ->
 		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
 			      [M,Error])
 	    end,
-	    code:stick_mod(M),
-	    do_cover_compile1(Rest);
+	    code:stick_mod(M);
 	{false,false} ->
 	    case code:load_file(M) of
 		{module,_} ->
-		    do_cover_compile1([M|Rest]);
+		    do_cover_compile1(M);
 		Error ->
-		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error]),
-		    do_cover_compile1(Rest)
+		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error])
 	    end;
 	{false,_} ->
 	    case cover:compile_beam(M) of
@@ -204,24 +206,52 @@ do_cover_compile1([M|Rest]) ->
 		Error ->
 		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
 			      [M,Error])
-	    end,
-	    do_cover_compile1(Rest)
-    end;
-do_cover_compile1([]) ->
-    ok.
+	    end
+    end.
+
+pmap1(Fun,List) ->
+    NTot = length(List),
+    NProcs = erlang:system_info(schedulers) * 2,
+    NPerProc = (NTot div NProcs) + 1,
+
+    {[],Pids} =
+	lists:foldr(
+	  fun(_,{L,Ps}) ->
+		  {L1,L2} = if length(L)>=NPerProc -> lists:split(NPerProc,L);
+			       true -> {L,[]} % last chunk
+			    end,
+		  {P,_Ref} =
+		      spawn_monitor(fun() ->
+					    exit(lists:map(Fun,L1))
+				    end),
+		  {L2,[P|Ps]}
+	  end,
+	  {List,[]},
+	  lists:seq(1,NProcs)),
+    collect(Pids,[]).
+
+collect([],Acc) ->
+    lists:append(Acc);
+collect([Pid|Pids],Acc) ->
+    receive
+	{'DOWN', _Ref, process, Pid, Result} ->
+	    %% collect(lists:delete(Pid,Pids),[Result|Acc])
+	    collect(Pids,[Result|Acc])
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% cover_analyse(Dir,Analyse,Modules,Stop) -> [{M,{Cov,NotCov,Details}}]
+%% cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop) ->
+%%            [{M,{Cov,NotCov,Details}}]
 %%
 %% Dir = string()
 %% Analyse = details | overview
 %% Modules = [atom()], the modules to analyse
 %%
-%% Cover analysis. If Analyse=={details,Dir} analyse_to_file is used.
+%% Cover analysis. If Analyse==details analyse_to_file is used.
 %%
-%% If Analyse=={overview,Dir} analyse_to_file is not used, only an
-%% overview containing the number of covered/not covered lines in each
-%% module.
+%% If Analyse==overview analyse_to_file is not used, only an overview
+%% containing the number of covered/not covered lines in each module.
 %%
 %% Also, cover data will be exported to a file called all.coverdata in
 %% the given directory.
@@ -236,8 +266,8 @@ do_cover_compile1([]) ->
 %% which means that the modules will stay cover compiled. Note that
 %% this is only recommended if the erlang node is being terminated
 %% after the test is completed.
-cover_analyse(Dir,Analyse,Modules,Stop) ->
-    print(stdout, "Cover analysing...\n", []),
+cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop}) ->
+    io:fwrite(user, "Cover analysing... ", []),
     DetailsFun =
 	case Analyse of
 	    details ->
@@ -265,17 +295,19 @@ cover_analyse(Dir,Analyse,Modules,Stop) ->
 			fun(_) -> Error end
 		end
 	end,
-    R = pmap(
+    R = pmap2(
 	  fun(M) ->
 		  case cover:analyse(M,module) of
 		      {ok,{M,{Cov,NotCov}}} ->
 			  {M,{Cov,NotCov,DetailsFun(M)}};
 		      Err ->
-			  io:fwrite("WARNING: Analysis failed for ~w. Reason: ~p\n",
+			  io:fwrite(user,
+				    "\nWARNING: Analysis failed for ~w. Reason: ~p\n",
 				    [M,Err]),
 			  {M,Err}
 		  end
 	  end, Modules),
+    io:fwrite(user, "done\n\n", []),
 
     case Stop of
 	true ->
@@ -287,12 +319,12 @@ cover_analyse(Dir,Analyse,Modules,Stop) ->
     end,
     R.
 
-pmap(Fun,List) ->
+pmap2(Fun,List) ->
     Collector = self(),
     Pids = lists:map(fun(E) ->
 			     spawn(fun() ->
-					   Collector ! {res,self(),Fun(E)} 
-				   end) 
+					   Collector ! {res,self(),Fun(E)}
+				   end)
 		     end, List),
     lists:map(fun(Pid) ->
 		      receive
@@ -300,7 +332,6 @@ pmap(Fun,List) ->
 			      Res
 		      end
 	      end, Pids).
-
 
 do_cover_for_node(Node,CoverFunc) ->
     do_cover_for_node(Node,CoverFunc,true).

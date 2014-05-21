@@ -52,7 +52,9 @@
 -export([reject_io_reqs/1, get_levels/0, set_levels/3]).
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
 -export([create_priv_dir/1]).
--export([cover/2, cover/3, cover/8, cross_cover_analyse/2, trc/1, stop_trace/0]).
+-export([cover/1, cover/2, cover/3,
+	 cover_compile/7, cover_analyse/2, cross_cover_analyse/2,
+	 trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
 -export([kill_slavenodes/0]).
@@ -409,11 +411,26 @@ cover(App, Analyse) when is_atom(App) ->
 cover(CoverFile, Analyse) ->
     cover(none, CoverFile, Analyse).
 cover(App, CoverFile, Analyse) ->
-    controller_call({cover,{{App,CoverFile},Analyse,true}}).
-cover(App, CoverFile, Exclude, Include, Cross, Export, Analyse, Stop) ->
-    controller_call({cover,
-		     {{App,{CoverFile,Exclude,Include,Cross,Export}},
-		      Analyse,Stop}}).
+    {Excl,Incl,Cross} = read_cover_file(CoverFile),
+    CoverInfo = #cover{app=App,
+		       file=CoverFile,
+		       excl=Excl,
+		       incl=Incl,
+		       cross=Cross,
+		       level=Analyse},
+    controller_call({cover,CoverInfo}).
+
+cover(CoverInfo) ->
+    controller_call({cover,CoverInfo}).
+
+cover_compile(App,File,Excl,Incl,Cross,Analyse,Stop) ->
+    cover_compile(#cover{app=App,
+			 file=File,
+			 excl=Excl,
+			 incl=Incl,
+			 cross=Cross,
+			 level=Analyse,
+			 stop=Stop}).
 
 testcase_callback(ModFunc) ->
     controller_call({testcase_callback,ModFunc}).
@@ -1204,7 +1221,7 @@ elapsed_time(Before, After) ->
 start_extra_tools(ExtraTools) ->
     start_extra_tools(ExtraTools, []).
 start_extra_tools([{cover,CoverInfo} | ExtraTools], Started) ->
-    case cover_compile(CoverInfo) of
+    case start_cover(CoverInfo) of
 	{ok,NewCoverInfo} ->
 	    start_extra_tools(ExtraTools,[{cover,NewCoverInfo}|Started]);
 	{error,_} ->
@@ -1225,8 +1242,8 @@ stop_extra_tools(ExtraTools) ->
     end,
     stop_extra_tools(ExtraTools, TestDir).
 
-stop_extra_tools([{cover,{App,Analyse,AnalyseMods,Stop}}|ExtraTools], TestDir) ->
-    cover_analyse(App, Analyse, AnalyseMods, Stop, TestDir),
+stop_extra_tools([{cover,CoverInfo}|ExtraTools], TestDir) ->
+    stop_cover(CoverInfo,TestDir),
     stop_extra_tools(ExtraTools, TestDir);
 %%stop_extra_tools([_ | ExtraTools], TestDir) ->
 %%    stop_extra_tools(ExtraTools, TestDir);
@@ -1568,13 +1585,20 @@ do_test_cases(TopCases, SkipCases,
 			    ok
 		    end
 	    end,
-	    
+	    CoverLog =
+		case get(test_server_cover_log_dir) of
+		    undefined ->
+			?coverlog_name;
+		    AbsLogDir ->
+			AbsLog = filename:join(AbsLogDir,?coverlog_name),
+			make_relative(AbsLog, TestDir)
+		end,
 	    print(html,
 		  "<p><ul>\n"
 		  "<li><a href=\"~ts\">Full textual log</a></li>\n"
 		  "<li><a href=\"~ts\">Coverage log</a></li>\n"
 		  "<li><a href=\"~ts\">Unexpected I/O log</a></li>\n</ul></p>\n",
-		  [?suitelog_name,?coverlog_name,?unexpected_io_log]),
+		  [?suitelog_name,CoverLog,?unexpected_io_log]),
 	    print(html,
 		  "<p>~ts</p>\n" ++
 		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
@@ -5086,23 +5110,15 @@ pinfo(P) ->
 
 %% Cover compilation
 %% The compilation is executed on the target node
-cover_compile({AppInfo,Analyse,Stop}) ->
-    case cover_compile1(AppInfo) of
-	{ok,AnalyseMods} ->
-	    {ok,{AppInfo,Analyse,AnalyseMods,Stop}};
-	Error ->
-	    Error
-    end.
+start_cover(#cover{}=CoverInfo) ->
+    cover_compile(CoverInfo);
+start_cover({log,CoverLogDir}=CoverInfo) ->
+    %% Cover is controlled by the framework - here's the log
+    put(test_server_cover_log_dir,CoverLogDir),
+    {ok,CoverInfo}.
 
-cover_compile1({App,{_File,Exclude,Include,Cross,_Export}}) ->
-    cover_compile2({App,Exclude,Include,Cross});
-
-cover_compile1({App,CoverFile}) ->
-    {Exclude,Include,Cross} = read_cover_file(CoverFile),
-    cover_compile2({App,Exclude,Include,Cross}).
-
-cover_compile2(What) ->
-    test_server:cover_compile(What).
+cover_compile(CoverInfo) ->
+    test_server:cover_compile(CoverInfo).
 
 %% Read the coverfile for an application and return a list of modules
 %% that are members of the application but shall not be compiled
@@ -5170,25 +5186,45 @@ check_cross([]) ->
 %%
 %% This per application analysis writes the file cover.html in the
 %% application's run.<timestamp> directory.
-cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
+stop_cover(#cover{}=CoverInfo, TestDir) ->
+    cover_analyse(CoverInfo, TestDir);
+stop_cover(_CoverInfo, _TestDir) ->
+    %% Cover is probably controlled by the framework
+    ok.
+
+make_relative(AbsDir, VsDir) ->
+    DirTokens = filename:split(AbsDir),
+    VsTokens = filename:split(VsDir),
+    filename:join(make_relative1(DirTokens, VsTokens)).
+
+make_relative1([T | DirTs], [T | VsTs]) ->
+    make_relative1(DirTs, VsTs);
+make_relative1(Last = [_File], []) ->
+    Last;
+make_relative1(Last = [_File], VsTs) ->
+    Ups = ["../" || _ <- VsTs],
+    Ups ++ Last;
+make_relative1(DirTs, []) ->
+    DirTs;
+make_relative1(DirTs, VsTs) ->
+    Ups = ["../" || _ <- VsTs],
+    Ups ++ DirTs.
+
+
+cover_analyse(CoverInfo, TestDir) ->
     write_default_cross_coverlog(TestDir),
 
     {ok,CoverLog} = open_html_file(filename:join(TestDir, ?coverlog_name)),
     write_coverlog_header(CoverLog),
+    #cover{app=App,
+	   file=CoverFile,
+	   excl=Excluded,
+	   cross=Cross} = CoverInfo,
     io:fwrite(CoverLog, "<h1>Coverage for application '~w'</h1>\n", [App]),
     io:fwrite(CoverLog,
 	      "<p><a href=\"~ts\">Coverdata collected over all tests</a></p>",
 	      [?cross_coverlog_name]),
 
-    {CoverFile,_Included,Excluded,Cross} =
-	case CoverInfo of
-	    {File,Excl,Incl,Cr,Export} ->
-		cover:export(Export),
-		{File,Incl,Excl,Cr};
-	    File ->
-		{Excl,Incl,Cr} = read_cover_file(File),
-		{File,Incl,Excl,Cr}
-	end,
     io:fwrite(CoverLog, "<p>CoverFile: <code>~tp</code>\n", [CoverFile]),
     write_cross_cover_info(TestDir,Cross),
 
@@ -5203,7 +5239,7 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
 
     io:fwrite(CoverLog, "<p>Excluded module(s): <code>~tp</code>\n", [Excluded]),
 
-    Coverage = cover_analyse(TestDir, Analyse, AnalyseMods, Stop),
+    Coverage = test_server:cover_analyse(TestDir, CoverInfo),
     write_binary_file(filename:join(TestDir,?raw_coverlog_name),
 		      term_to_binary(Coverage)),
 
@@ -5221,10 +5257,6 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
     TotPercent = write_cover_result_table(CoverLog, Coverage),
     write_binary_file(filename:join(TestDir, ?cover_total),
 		      term_to_binary(TotPercent)).
-
-cover_analyse(TestDir, Analyse, AnalyseMods, Stop) ->
-    test_server:cover_analyse(TestDir, Analyse, AnalyseMods, Stop).
-
 
 %% Cover analysis - accumulated over multiple tests
 %% This can be executed on any node after all tests are finished.

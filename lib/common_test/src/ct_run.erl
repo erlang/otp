@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1646,7 +1646,7 @@ do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
     do_run(Tests, [], Opts#opts{logdir = LogDir}, []);
 
 do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
-    #opts{label = Label, profile = Profile, cover = Cover,
+    #opts{label = Label, profile = Profile,
 	  verbosity = VLvls} = Opts,
     %% label - used by ct_logs
     TestLabel =
@@ -1670,22 +1670,6 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 	non_existing ->
 	    {error,no_path_to_test_server};
 	_ ->
-	    Opts1 = if Cover == undefined ->
-			    Opts;
-		       true ->
-			    case ct_cover:get_spec(Cover) of
-				{error,Reason} ->
-				    exit({error,Reason});
-				CoverSpec ->
-				    CoverStop =
-					case Opts#opts.cover_stop of
-					    undefined -> true;
-					    Stop -> Stop
-					end,
-				    Opts#opts{coverspec = CoverSpec,
-					      cover_stop = CoverStop}
-			    end
-		    end,
 	    %% This env variable is used by test_server to determine
 	    %% which framework it runs under.
 	    case os:getenv("TEST_SERVER_FRAMEWORK") of
@@ -1711,7 +1695,7 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 		_Pid ->
 		    ct_util:set_testdata({starter,Opts#opts.starter}),
 		    compile_and_run(Tests, Skip,
-                                    Opts1#opts{verbosity=Verbosity}, Args)
+                                    Opts#opts{verbosity=Verbosity}, Args)
 	    end
     end.
 
@@ -2146,67 +2130,11 @@ check_and_add([{TestDir0,M,_} | Tests], Added, PA) ->
 check_and_add([], _, PA) ->
     {ok,PA}.
 
-do_run_test(Tests, Skip, Opts) ->
+do_run_test(Tests, Skip, Opts0) ->
     case check_and_add(Tests, [], []) of
 	{ok,AddedToPath} ->
 	    ct_util:set_testdata({stats,{0,0,{0,0}}}),
-	    ct_util:set_testdata({cover,undefined}),
 	    test_server_ctrl:start_link(local),
-	    case Opts#opts.coverspec of
-		CovData={CovFile,
-			 CovNodes,
-			 _CovImport,
-			 CovExport,
-			 #cover{app        = CovApp,
-				level      = CovLevel,
-				excl_mods  = CovExcl,
-				incl_mods  = CovIncl,
-				cross      = CovCross,
-				src        = _CovSrc}} ->
-		    ct_logs:log("COVER INFO",
-				"Using cover specification file: ~ts~n"
-				"App: ~w~n"
-				"Cross cover: ~w~n"
-				"Including ~w modules~n"
-				"Excluding ~w modules",
-				[CovFile,CovApp,CovCross,
-				 length(CovIncl),length(CovExcl)]),
-
-		    %% cover export file will be used for export and import
-		    %% between tests so make sure it doesn't exist initially
-		    case filelib:is_file(CovExport) of
-			true ->
-			    DelResult = file:delete(CovExport),
-			    ct_logs:log("COVER INFO",
-					"Warning! "
-					"Export file ~ts already exists. "
-					"Deleting with result: ~p",
-					[CovExport,DelResult]);
-			false ->
-			    ok
-		    end,
-
-		    %% tell test_server which modules should be cover compiled
-		    %% note that actual compilation is done when tests start
-		    test_server_ctrl:cover(CovApp, CovFile, CovExcl, CovIncl,
-					   CovCross, CovExport, CovLevel,
-					   Opts#opts.cover_stop),
-		    %% save cover data (used e.g. to add nodes dynamically)
-		    ct_util:set_testdata({cover,CovData}),
-		    %% start cover on specified nodes
-		    if (CovNodes /= []) and (CovNodes /= undefined) ->
-			    ct_logs:log("COVER INFO",
-					"Nodes included in cover "
-					"session: ~w",
-					[CovNodes]),
-			    cover:start(CovNodes);
-		       true ->
-			    ok
-		    end,
-		    true;
-		_ ->
-		    false
-	    end,
 
 	    %% let test_server expand the test tuples and count no of cases
 	    {Suites,NoOfCases} = count_test_cases(Tests, Skip),
@@ -2231,24 +2159,31 @@ do_run_test(Tests, Skip, Opts) ->
 	    end,
 	    %% if the verbosity level is set lower than ?STD_IMPORTANCE, tell
 	    %% test_server to ignore stdout printouts to the test case log file
-	    case proplists:get_value(default, Opts#opts.verbosity) of
+	    case proplists:get_value(default, Opts0#opts.verbosity) of
 		VLvl when is_integer(VLvl), (?STD_IMPORTANCE < (100-VLvl)) ->
 		    test_server_ctrl:reject_io_reqs(true);
 		_Lower ->
 		    ok
 	    end,
-	    test_server_ctrl:multiply_timetraps(Opts#opts.multiply_timetraps),
-	    test_server_ctrl:scale_timetraps(Opts#opts.scale_timetraps),
+	    test_server_ctrl:multiply_timetraps(Opts0#opts.multiply_timetraps),
+	    test_server_ctrl:scale_timetraps(Opts0#opts.scale_timetraps),
 
 	    test_server_ctrl:create_priv_dir(choose_val(
-					       Opts#opts.create_priv_dir,
+					       Opts0#opts.create_priv_dir,
 					       auto_per_run)),
+
+	    {ok,LogDir} = ct_logs:get_log_dir(true),
+	    {TsCoverInfo,Opts} = maybe_start_cover(Opts0, LogDir),
+
 	    ct_event:notify(#event{name=start_info,
 				   node=node(),
 				   data={NoOfTests,NoOfSuites,NoOfCases}}),
 	    CleanUp = add_jobs(Tests, Skip, Opts, []),
 	    unlink(whereis(test_server_ctrl)),
 	    catch test_server_ctrl:wait_finish(),
+
+	    maybe_stop_cover(Opts, TsCoverInfo, LogDir),
+
 	    %% check if last testcase has left a "dead" trace window
 	    %% behind, and if so, kill it
 	    case ct_util:get_testdata(interpret) of
@@ -2280,6 +2215,102 @@ do_run_test(Tests, Skip, Opts) ->
 	Error ->
 	    exit(Error)
     end.
+
+maybe_start_cover(Opts=#opts{cover=Cover,cover_stop=CoverStop0},LogDir) ->
+    if Cover == undefined ->
+	    {undefined,Opts};
+       true ->
+	    case ct_cover:get_spec(Cover) of
+		{error,Reason} ->
+		    exit({error,Reason});
+		CoverSpec ->
+		    CoverStop =
+			case CoverStop0 of
+			    undefined -> true;
+			    Stop -> Stop
+			end,
+		    start_cover(Opts#opts{coverspec=CoverSpec,
+					  cover_stop=CoverStop},
+				LogDir)
+	    end
+    end.
+
+start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
+    {CovFile,
+     CovNodes,
+     CovImport,
+     _CovExport,
+     #cover{app        = CovApp,
+	    level      = CovLevel,
+	    excl_mods  = CovExcl,
+	    incl_mods  = CovIncl,
+	    cross      = CovCross,
+	    src        = _CovSrc}} = CovData,
+    ct_logs:log("COVER INFO",
+		"Using cover specification file: ~ts~n"
+		"App: ~w~n"
+		"Cross cover: ~w~n"
+		"Including ~w modules~n"
+		"Excluding ~w modules",
+		[CovFile,CovApp,CovCross,
+		 length(CovIncl),length(CovExcl)]),
+
+    %% Tell test_server to print a link in its coverlog
+    %% pointing to the real coverlog which will be written in
+    %% maybe_stop_cover/2
+    test_server_ctrl:cover({log,LogDir}),
+
+    %% Cover compile all modules
+    {ok,TsCoverInfo} = test_server_ctrl:cover_compile(CovApp,CovFile,
+						      CovExcl,CovIncl,
+						      CovCross,CovLevel,
+						      CovStop),
+    ct_logs:log("COVER INFO",
+		"Compilation completed - test_server cover info: ~tp",
+		[TsCoverInfo]),
+
+    %% start cover on specified nodes
+    if (CovNodes /= []) and (CovNodes /= undefined) ->
+	    ct_logs:log("COVER INFO",
+			"Nodes included in cover "
+			"session: ~w",
+			[CovNodes]),
+	    cover:start(CovNodes);
+       true ->
+	    ok
+    end,
+    lists:foreach(
+      fun(Imp) ->
+	      case cover:import(Imp) of
+		  ok ->
+		      ok;
+		  {error,Reason} ->
+		      ct_logs:log("COVER INFO",
+				  "Importing cover data from: ~ts fails! "
+				  "Reason: ~p", [Imp,Reason])
+	      end
+      end, CovImport),
+    {TsCoverInfo,Opts}.
+
+maybe_stop_cover(_,undefined,_) ->
+    ok;
+maybe_stop_cover(#opts{coverspec=CovData},TsCoverInfo,LogDir) ->
+    {_CovFile,
+     _CovNodes,
+     _CovImport,
+     CovExport,
+     _AppData} = CovData,
+    case CovExport of
+	undefined -> ok;
+	_ ->
+	    ct_logs:log("COVER INFO","Exporting cover data to ~tp",[CovExport]),
+	    cover:export(CovExport)
+    end,
+    ct_logs:log("COVER INFO","Analysing cover data to ~tp",[LogDir]),
+    test_server_ctrl:cover_analyse(TsCoverInfo,LogDir),
+    ct_logs:log("COVER INFO","Analysis completed.",[]),
+    ok.
+
 
 delete_dups([S | Suites]) ->
     Suites1 = lists:delete(S, Suites),

@@ -1244,38 +1244,7 @@ report(What,Data) ->
 	    ct_logs:make_all_suites_index({TestName,RunDir}),
 	    ok;
 	tests_start ->
-	    case ct_util:get_testdata(cover) of
-		undefined -> 
-		    ok;
-		{_CovFile,_CovNodes,CovImport,CovExport,_CovAppData} ->
-		    %% Always import cover data from files specified by CovImport 
-		    %% if no CovExport defined. If CovExport is defined, only
-		    %% import from CovImport files initially, then use CovExport
-		    %% to pass coverdata between proceeding tests (in the same run).
-		    Imps =
-			case CovExport of
-			    [] ->  % don't export data between tests
-				CovImport;
-			    _ ->
-				case filelib:is_file(CovExport) of
-				    true ->
-					[CovExport];
-				    false ->
-					CovImport
-				end
-			end,
-		    lists:foreach(
-		      fun(Imp) ->
-			      case cover:import(Imp) of
-				  ok -> 
-				      ok;
-				  {error,Reason} ->
-				      ct_logs:log("COVER INFO",
-						  "Importing cover data from: ~ts fails! "
-						  "Reason: ~p", [Imp,Reason])
-			      end
-		      end, Imps)
-	    end;
+	    ok;
 	tests_done ->
 	    ok;
 	severe_error ->

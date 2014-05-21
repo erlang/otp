@@ -79,34 +79,29 @@ all() ->
 local(Config) ->
     DataDir = ?config(data_dir, Config),
     Spec = filename:join(DataDir, "local.spec"),
-    PrivDir = ?config(priv_dir,Config),
-    ExportFile = filename:join(PrivDir,"local.coverdata"),
-    CoverSpec = [{incl_mods,[?mod]},
-		 {export, ExportFile}],
+    CoverSpec = [{incl_mods,[?mod]}],
     CoverFile = create_cover_file(local,CoverSpec,Config),
     {Opts,ERPid} = setup([{spec,Spec},{label,local},{cover,CoverFile}], Config),
     {ok,Events} = execute(local, local, Opts, ERPid, Config),
     false = check_cover(Config),
-    check_calls(Events,[{t1,1},{t2,2}]),
+    check_calls(Events,2),
     ok.
 
 remote(Config) ->
     DataDir = ?config(data_dir, Config),
     Spec = filename:join(DataDir, "remote.spec"),
     %% extending some timers for slow test hosts
-    {ok,_Node} = ct_slave:start(ct_nomerge,[{boot_timeout,15},
+    {ok,Node} = ct_slave:start(ct_nomerge,[{boot_timeout,15},
 					   {init_timeout,15},
 					   {startup_timeout,15}]),
     
-    PrivDir = ?config(priv_dir,Config),
-    ExportFile = filename:join(PrivDir,"remote.coverdata"),
-    CoverSpec = [{incl_mods,[?mod]},
-		 {export, ExportFile}],
+    CoverSpec = [{nodes,[Node]},
+		 {incl_mods,[?mod]}],
     CoverFile = create_cover_file(remote,CoverSpec,Config),
     {Opts,ERPid} = setup([{spec,Spec},{label,remote},{cover,CoverFile}], Config),
     {ok,Events} = execute(remote, remote, Opts, ERPid, Config),
     false = check_cover(Config),
-    check_calls(Events,[{t1,1},{t2,2}]),
+    check_calls(Events,2),
     ok.
 remote(cleanup,_Config) ->
     {ok,_} = ct_slave:stop(ct_nomerge),
@@ -120,18 +115,15 @@ remote_nostop(Config) ->
 					   {init_timeout,15},
 					   {startup_timeout,15}]),
     
-    PrivDir = ?config(priv_dir,Config),
-    ExportFile = filename:join(PrivDir,"remote_nostop.coverdata"),
     CoverSpec = [{nodes,[Node]},
-		 {incl_mods,[?mod]},
-		 {export,ExportFile}],
+		 {incl_mods,[?mod]}],
     CoverFile = create_cover_file(remote_nostop,CoverSpec,Config),
     {Opts,ERPid} = setup([{spec,Spec},{label,remote_nostop},
 			  {cover,CoverFile},{cover_stop,false}],
 			 Config),
     {ok,Events} = execute(remote_nostop, remote_nostop, Opts, ERPid, Config),
     {true,[Node],[cover_test_mod]} = check_cover(Config),
-    check_calls(Events,[{t1,1},{t2,2}]),
+    check_calls(Events,2),
     ok.
 remote_nostop(cleanup,Config) ->
     CtNode = ?config(ct_node,Config),
@@ -195,24 +187,18 @@ check_cover(Node) when is_atom(Node) ->
 	    false
     end.
 
-%% Get the log dir "run.<timestamp>" for all tests
-get_run_dirs(Events,Testcase) ->
-    [filename:dirname(TCLog) ||
+%% Get the log dir "ct_run.<timestamp>" for all (both!) tests
+get_log_dirs(Events) ->
+    [LogDir ||
 	{ct_test_support_eh,
-	 {event,tc_logfile,_Node,
-	  {{_Suite,TC},TCLog}}} <- Events,
-	TC==Testcase].
+	 {event,start_logging,_Node,LogDir}} <- Events].
 
 %% Check that each coverlog includes N calls to ?mod:foo/0
 check_calls(Events,N) ->
     check_calls(Events,{?mod,foo,0},N).
-check_calls(Events,MFA,[{Testcase,N}|Expected]) ->
-    CoverLogs =
-	[filename:join(D,"all.coverdata") || D <- get_run_dirs(Events,Testcase)],
-    ok = do_check_logs(CoverLogs,MFA,N),
-    check_calls(Events,MFA,Expected);
-check_calls(_,_,[]) ->
-    ok.
+check_calls(Events,MFA,N) ->
+    CoverLogs = [filename:join(D,"all.coverdata") || D <- get_log_dirs(Events)],
+    do_check_logs(CoverLogs,MFA,N).
 
 do_check_logs([CoverLog|CoverLogs],{Mod,_,_} = MFA,N) ->
     {ok,_} = cover:start(),
