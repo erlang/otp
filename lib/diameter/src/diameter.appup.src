@@ -38,7 +38,8 @@
   {"1.6",     [{load_module, diameter_traffic},    %% 17.0
                {load_module, diameter_peer_fsm},
                {load_module, diameter_watchdog},
-               {load_module, diameter_service}]}
+               {load_module, diameter_service},
+               {load_module, diameter_sctp}]}
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -56,7 +57,8 @@
   {"1.4.3",   [{restart_application, diameter}]},
   {"1.4.4",   [{restart_application, diameter}]},
   {"1.5",     [{restart_application, diameter}]},
-  {"1.6",     [{load_module, diameter_service},
+  {"1.6",     [{load_module, diameter_sctp},
+               {load_module, diameter_service},
                {load_module, diameter_watchdog},
                {load_module, diameter_peer_fsm},
                {load_module, diameter_traffic}]}
