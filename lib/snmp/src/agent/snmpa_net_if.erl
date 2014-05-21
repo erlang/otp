@@ -142,9 +142,16 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 	    try loop(State)
 	    catch C:E ->
 		    S = erlang:get_stacktrace(),
-		    error_msg(
-		      "loop/1 EXCEPTION ~w:~w~n"
-		      "   ~p", [C,E,S]),
+		    Fmt =
+			"loop/1 EXCEPTION ~w:~w~n"
+			"   ~p",
+		    case C of
+			exit ->
+			    %% Externally killed, root cause is elsewhere
+			    info_msg(Fmt, [C, E, S]);
+			_ ->
+			    error_msg(Fmt, [C, E, S])
+		    end,
 		    erlang:raise(C, E, S)
 	    end;
 	{error, Reason} ->
@@ -287,20 +294,9 @@ log({Log, Types}, _, Packet, Address) ->
 	false ->
 	    ok
     end.
-%% log(_, _, _, _, _) ->
-%%     ok.
 
-format_address({snmpUDPDomain, {_Ip, Port} = Addr}) when is_integer(Port) ->
-    format_address(Addr);
-format_address({transportDomainUdpIpv4, {Ip, Port}}) ->
-    format_address("udpIpv4/~s:~w", [inet:ntoa(Ip), Port]);
-format_address({transportDomainUdpIpv6, {Ip, Port}}) ->
-    format_address("udpIpv6/[~s]:~w", [inet:ntoa(Ip), Port]);
-format_address({Ip, Port}) when is_integer(Port) ->
-    format_address("~s:~w", [inet:ntoa(Ip), Port]).
-
-format_address(Format, Args) ->
-    iolist_to_binary(io_lib:format(Format, Args)).
+format_address(Address) ->
+    iolist_to_binary(snmp_conf:mk_addr_string(Address)).
 
 
 
@@ -712,7 +708,6 @@ maybe_handle_reply_pdu(
   Type, ACMData, To) ->
 
     S1 = update_req_counter_outgoing(S, Rid),
-    %% Addresses = [To],
     Addresses = [fix_filter_address(Domain, To)],
     case
 	try
@@ -962,7 +957,6 @@ handle_response(Vsn, Pdu, From, S) ->
 maybe_udp_send(
   #state{usock  = Sock, filter = FilterMod, domain = Domain},
   To, Packet) ->
-    %% {To_1, To_2} = To,
     {To_1, To_2} = fix_filter_address(Domain, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
@@ -997,7 +991,6 @@ maybe_udp_send(
      filter = FilterMod,
      domain = Domain},
   To, Packet, Type, _LogData) ->
-    %% {To_1, To_2} = To,
     {To_1, To_2} = fix_filter_address(Domain, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
@@ -1357,6 +1350,9 @@ get_bind_to_ip_address(Opts) ->
 
 error_msg(F,A) -> 
     ?snmpa_error("NET-IF server: " ++ F, A).
+
+info_msg(F,A) ->
+    ?snmpa_info("NET-IF server: " ++ F, A).
 
 %% --- 
 

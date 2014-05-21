@@ -1825,18 +1825,23 @@ write_agent_snmp_target_addr_conf(
 "%%\n\n",
     Hdr = header() ++ Comment,
     F = fun(v1 = Vsn, Acc) ->
-		[{mk_name(Addr, Vsn), Domain, Addr, Timeout, RetryCount,
+		[{mk_name(Domain, Addr, Vsn),
+		  Domain, Addr, Timeout, RetryCount,
 		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v2 = Vsn, Acc) ->
-		[{mk_name(Addr, Vsn), Domain, Addr, Timeout, RetryCount,
+		[{mk_name(Domain, Addr, Vsn),
+		  Domain, Addr, Timeout, RetryCount,
 		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(io_lib:format("~s.2",[mk_name(Addr, Vsn)])),
+		 {lists:flatten(
+		    io_lib:format("~s.2",[mk_name(Domain, Addr, Vsn)])),
 		  Domain, Addr, Timeout, RetryCount,
 		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v3 = Vsn, Acc) ->
-		[{mk_name(Addr, Vsn), Domain, Addr, Timeout, RetryCount,
+		[{mk_name(Domain, Addr, Vsn),
+		  Domain, Addr, Timeout, RetryCount,
 		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(io_lib:format("~s.3",[mk_name(Addr, Vsn)])),
+		 {lists:flatten(
+		    io_lib:format("~s.3",[mk_name(Domain, Addr, Vsn)])),
 		  Domain, Addr, Timeout, RetryCount,
 		  "std_inform", mk_param(Vsn), "mgrEngine", [], 2048}| Acc]
 	end,
@@ -1852,10 +1857,10 @@ write_agent_snmp_target_addr_conf(
 mk_param(Vsn) ->
     lists:flatten(io_lib:format("target_~w", [Vsn])).
 
-mk_name({[A,B,C,D], _}, Vsn) ->
-    lists:flatten(io_lib:format("~w.~w.~w.~w ~w", [A,B,C,D,Vsn]));
-mk_name(Address, Vsn) ->
-    lists:flatten(io_lib:format("~w ~w", [Address,Vsn])).
+mk_name(Domain, Addr, Vsn) ->
+    lists:flatten(
+      io_lib:format(
+	"~s ~w", [snmp_conf:mk_addr_string({Domain, Addr}), Vsn])).
 
 write_agent_target_addr_config(Dir, Hdr, Conf) ->
     snmpa_conf:write_target_addr_config(Dir, Hdr, Conf).

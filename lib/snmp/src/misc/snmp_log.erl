@@ -867,7 +867,8 @@ f(TimeStamp, SeqNo,
 %% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
 ipPort2Str(Ip, Port) ->
-    io_lib:format("~s:~w", [ip(Ip), Port]).
+    snmp_conf:mk_addr_string({Ip, Port}).
+    %% io_lib:format("~s:~w", [ip(Ip), Port]).
 
 %% Convert a timestamp 2-tupple to a printable string
 %%
@@ -968,8 +969,10 @@ get_type(#pdu{type = Type}) ->
     Type.
 
 
-ip({A,B,C,D}) ->
-    io_lib:format("~w.~w.~w.~w", [A,B,C,D]).
+ip(Domain, Addr) ->
+    snmp_conf:mk_addr_string(Domain, Addr).
+%% ip({A,B,C,D}) ->
+%%     io_lib:format("~w.~w.~w.~w", [A,B,C,D]).
 
 
 

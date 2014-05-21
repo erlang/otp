@@ -679,6 +679,20 @@ snmpTargetAddrTable(print) ->
     FOI   = foi(Table),
     PrintRow = 
 	fun(Prefix, Row) ->
+		TDomain = element(?snmpTargetAddrTDomain, Row),
+		Domain =
+		    try snmp_conf:tdomain_to_domain(TDomain)
+		    catch
+			{error, {bad_tdomain, _}} ->
+			    undefined
+		    end,
+		TAddress = element(?snmpTargetAddrTAddress, Row),
+		AddrString =
+		    try snmp_conf:mk_addr_string({Domain, TAddress})
+		    catch
+			{error, {bad_address, _}} ->
+			    "-"
+		    end,
 		lists:flatten(
 		  io_lib:format("~sName:              ~p"
 				"~n~sTDomain:           ~p (~w)"
@@ -693,21 +707,8 @@ snmpTargetAddrTable(print) ->
 				"~n~s[Ext] TMask:       ~p"
 				"~n~s[Ext] MMS:         ~p", 
 				[Prefix, element(?snmpTargetAddrName, Row),
-				 Prefix, element(?snmpTargetAddrTDomain, Row),
-				 case element(?snmpTargetAddrTDomain, Row) of
-				     ?snmpUDPDomain -> snmpUDPDomain;
-				     ?transportDomainUdpIpv4 -> transportDomainUdpIpv4;
-				     ?transportDomainUdpIpv6 -> transportDomainUdpIpv6;
-				     _ -> undefined
-				 end,
-				 Prefix, element(?snmpTargetAddrTAddress, Row),
-				 case element(?snmpTargetAddrTAddress, Row) of
-				     [A,B,C,D,U1,U2] ->
-					 lists:flatten(
-					   io_lib:format("~w.~w.~w.~w:~w", 
-							 [A, B, C, D, U1 bsl 8 + U2]));
-				     _ -> "-"
-				 end,
+				 Prefix, TDomain, Domain,
+				 Prefix, TAddress, AddrString,
 				 Prefix, element(?snmpTargetAddrTimeout, Row),
 				 Prefix, element(?snmpTargetAddrRetryCount, Row),
 				 Prefix, element(?snmpTargetAddrTagList, Row),

@@ -40,11 +40,13 @@
 
 	 all_domains/0,
 	 check_domain/1,
+	 domain_to_name/1,
 	 all_tdomains/0,
 	 check_tdomain/1,
 	 mk_tdomain/0, mk_tdomain/1,
-	 tdomain_to_family/1,
+	 tdomain_to_family/1, tdomain_to_domain/1,
 	 which_domain/1,
+	 mk_addr_string/1,
 	 check_ip/1, check_ip/2,
 	 check_port/1,
 	 ip_port_to_domaddr/2,
@@ -495,9 +497,17 @@ tdomain_to_family(BadDomain) ->
 
 %% ---------
 
-%% XXX remove
-%% check_taddress(X) ->
-%%    check_taddress(snmpUDPDomain, X).
+tdomain_to_domain(?snmpUDPDomain) ->
+    snmpUDPDomain;
+tdomain_to_domain(?transportDomainUdpIpv4) ->
+    transportDomainUdpIpv4;
+tdomain_to_domain(?transportDomainUdpIpv6) ->
+    transportDomainUdpIpv6;
+tdomain_to_domain(BadTDomain) ->
+    error({bad_tdomain, BadTDomain}).
+
+
+%% ---------
 
 check_taddress(?snmpUDPDomain, X) ->
     check_taddress(transportDomainUdpIpv4, X);
@@ -600,6 +610,42 @@ check_domain(Domain) ->
 	    error({unknown_domain, Domain})
     end.
 
+domain_to_name(snmpUDPDomain) ->
+    undefined;
+domain_to_name(transportDomainUdpIpv4) ->
+    udpIpv4;
+domain_to_name(transportDomainUdpIpv6) ->
+    udpIpv6;
+domain_to_name(transportDomainUdpIpv4z) ->
+    udpIpv4z;
+domain_to_name(transportDomainUdpIpv6z) ->
+    udpIpv6z;
+domain_to_name(transportDomainTcpIpv4) ->
+    tcpIpv4;
+domain_to_name(transportDomainTcpIpv6) ->
+    tcpIpv6;
+domain_to_name(transportDomainTcpIpv4z) ->
+    tcpIpv4z;
+domain_to_name(transportDomainTcpIpv6z) ->
+    tcpIpv6z;
+domain_to_name(transportDomainSctpIpv4) ->
+    sctpIpv4;
+domain_to_name(transportDomainSctpIpv6) ->
+    sctpIpv6;
+domain_to_name(transportDomainSctpIpv4z) ->
+    sctpIpv4z;
+domain_to_name(transportDomainSctpIpv6z) ->
+    sctpIpv6z;
+domain_to_name(transportDomainLocal) ->
+    local;
+domain_to_name(transportDomainUdpDns) ->
+    udpDns;
+domain_to_name(transportDomainTcpDns) ->
+    tcpDns;
+domain_to_name(transportDomainSctpDns) ->
+    sctpDns;
+domain_to_name(BadDomain) ->
+    error({bad_domain, BadDomain}).
 
 %% ---------
 
@@ -652,77 +698,6 @@ mk_taddress(BadDomain, _) ->
     error({bad_domain, BadDomain}).
 
 
-
-%% mk_taddress(snmpUDPDomain, Address) ->
-%%     mk_taddress(transportDomainUdpIpv4, Address);
-%% %% mk_taddress(transportDomainUdpIpv4, {Ip, Port}) when is_list(Ip) ->
-%% %%     Ip ++ mk_bytes(Port);
-%% mk_taddress(transportDomainUdpIpv4, {Ip, Port})
-%%   when tuple_size(Ip) =:= 4 ->
-%%     tuple_to_list(Ip) ++ mk_bytes(Port);
-%% %% mk_taddress(transportDomainUdpIpv4, IpPort) when is_list(IpPort) ->
-%% %%     IpPort; % Should be length 6
-%% %% mk_taddress(transportDomainUdpIpv6, {Ip, Port}) when is_list(Ip) ->
-%% %%     Ip ++ mk_bytes(Port);
-%% mk_taddress(transportDomainUdpIpv6, {Ip, Port})
-%%   when tuple_size(Ip) == 8 ->
-%%     tuple_to_list(Ip) ++ mk_bytes(Port);
-%% %% mk_taddress(transportDomainUdpIpv6, IpPort) when is_list(IpPort) ->
-%% %%     case IpPort of
-%% %% 	[A0,A1,A2,A3,A4,A5,A6,A7,P] ->
-%% %% 	    [A0,A1,A2,A3,A4,A5,A6,A7] ++ mk_bytes(P);
-%% %% 	[A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15,P0,P1] ->
-%% %% 	    [mk_word(A0, A1),mk_word(A2, A3),
-%% %% 	     mk_word(A4, A5),mk_word(A6, A7),
-%% %% 	     mk_word(A8, A9),mk_word(A10, A11),
-%% %% 	     mk_word(A12, A13),mk_word(A14, A15),P0,P1];
-%% %% 	_ ->
-%% %% 	    IpPort % Should already be 8 words and 2 bytes hence length 10
-%% %%     end;
-%% mk_taddress(Domain, []) -> %% Used for empty mask
-%%     [];
-%% mk_taddress(Domain, Address) ->
-%%     erlang:error(badarg, [Domain,Address]);
-%% %%
-%% %% These are just for convenience
-%% mk_taddress(?snmpUDPDomain, Address) ->
-%%     mk_taddress(snmpUDPDomain, Address);
-%% mk_taddress(?transportDomainUdpIpv4, Address) ->
-%%     mk_taddress(transportDomainUdpIpv4, Address);
-%% mk_taddress(?transportDomainUdpIpv6, Address) ->
-%%     mk_taddress(transportDomainUdpIpv6, Address);
-%% %% Bad domain
-%% mk_taddress(BadDomain, _) ->
-%%     error({bad_domain, BadDomain}).
-
-
-
-%% %% XXX remove
-
-%% mk_taddress(snmpUDPDomain, Ip, Port) ->
-%%     mk_taddress(transportDomainUdpIpv4, Ip, Port);
-%% mk_taddress(transportDomainUdpIpv4, Ip, Port) when is_list(Ip) ->
-%%     Ip ++ [Port div 256, Port rem 256];
-%% mk_taddress(transportDomainUdpIpv4 = Domain, Ip, Port) when is_tuple(Ip) ->
-%%     mk_taddress(Domain, tuple_to_list(Ip), Port);
-%% mk_taddress(transportDomainUdpIpv6, Ip, Port) when is_list(Ip) ->
-%%     Ip ++ [Port div 256, Port rem 256];
-%% mk_taddress(transportDomainUdpIpv6 = Domain, Ip, Port) when is_tuple(Ip) ->
-%%     mk_taddress(Domain, tuple_to_list(Ip), Port);
-%% %%
-%% %% These are just for convenience
-%% mk_taddress(?snmpUDPDomain, Ip, Port) ->
-%%     mk_taddress(snmpUDPDomain, Ip, Port);
-%% mk_taddress(?transportDomainUdpIpv4, Ip, Port) ->
-%%     mk_taddress(transportDomainUdpIpv4, Ip, Port);
-%% mk_taddress(?transportDomainUdpIpv6, Ip, Port) ->
-%%     mk_taddress(transportDomainUdpIpv6, Ip, Port);
-%% %%
-%% %% Bad domain
-%% mk_taddress(BadDomain, _Ip, _Port) ->
-%%     error({bad_domain, BadDomain}).
-
-    
 %% ---------
 
 %% XXX remove, when net_if handles one socket per transport domain
@@ -747,10 +722,54 @@ which_domain({A0, A1, A2, A3, A4, A5, A6, A7})
     
 %% ---------
 
+mk_addr_string({_IP, Port} = Addr) when is_integer(Port) ->
+    mk_addr_string({snmpUDPDomain, Addr});
+mk_addr_string({Domain, Addr}) when is_atom(Domain) ->
+    %% XXX There is only code for IP domains here
+    case check_address_ip(Domain, Addr) of
+	false ->
+	    case check_address_ip_port(Domain, Addr) of
+		false ->
+		    error({bad_address, {Domain, Addr}});
+		true ->
+		    {IP, Port} = Addr,
+		    mk_addr_string_ntoa(Domain, IP, Port);
+		{IP, Port} ->
+		    mk_addr_string_ntoa(Domain, IP, Port)
+	    end;
+	true ->
+	    mk_addr_string_ntoa(Domain, Addr);
+	IP ->
+	    mk_addr_string_ntoa(Domain, IP)
+    end.
+
+
+mk_addr_string_ntoa({_, _, _, _} = IP) ->
+    inet:ntoa(IP);
+mk_addr_string_ntoa(IP) ->
+    lists:flatten(io_lib:format("[~s]", [inet:ntoa(IP)])).
+
+mk_addr_string_ntoa(Domain, IP) ->
+    case domain_to_name(Domain) of
+	undefined ->
+	    mk_addr_string_ntoa(IP);
+	Name ->
+	    lists:flatten(
+	      io_lib:format("~w://~s", [Name, mk_addr_string_ntoa(IP)]))
+    end.
+
+mk_addr_string_ntoa(Domain, IP, Port) ->
+    lists:flatten(
+      io_lib:format(
+	"~s:~w", [mk_addr_string_ntoa(Domain, IP), Port])).
+
+%% ---------
+
 check_ip(X) ->
     check_ip(snmpUDPDomain, X).
 
 check_ip(Domain, IP) ->
+    %% XXX There is only code for IP domains here
     case check_address_ip(Domain, IP) of
 	false ->
 	    error({bad_address, {Domain, IP}});
@@ -759,31 +778,6 @@ check_ip(Domain, IP) ->
 	FixedIP ->
 	    {ok, FixedIP}
     end.
-
-%% check_ip(snmpUDPDomain, X) ->
-%%     check_ip(transportDomainUdpIpv4, X);
-%% check_ip(transportDomainUdpIpv4 = Domain, X) ->
-%%     case X of
-%% 	[A,B,C,D] when ?is_ipv4_addr(A, B, C, D) ->
-%% 	    ok;
-%% 	_ ->
-%% 	    error({bad_address, {Domain, X}})
-%%     end;
-%% check_ip(transportDomainUdpIpv6 = Domain, X) ->
-%%     case X of
-%% 	[A,B,C,D,E,F,G,H]
-%% 	  when ?is_ipv6_addr(A, B, C, D, E, F, G, H) ->
-%% 	    ok;
-%% 	[A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P]
-%% 	  when ?is_ipv6_addr(
-%% 		  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) ->
-%% 	    ok;
-%% 	_ ->
-%% 	    error({bad_address, {Domain, X}})
-%%     end;
-%% %%
-%% check_ip(BadDomain, _X) ->
-%%     error({invalid_domain, BadDomain}).
 
 
 %% ---------
@@ -794,6 +788,7 @@ check_port(Port) ->
     error({bad_port, Port}).
 
 ip_port_to_domaddr(IP, Port) when ?is_word(Port) ->
+    %% XXX There is only code for IP domains here
     case check_address_ip(transportDomainUdpIpv4, IP) of
 	false ->
 	    case check_address_ip(transportDomainUdpIpv6, IP) of
@@ -818,6 +813,8 @@ ip_port_to_domaddr(IP, Port) ->
 check_address(Domain, Address, DefaultPort) ->
     %% If Address does not contain Port or contains Port =:= 0
     %% create an address containing DefaultPort
+    %%
+    %% XXX There is only code for IP domains here
     case check_address_ip(Domain, Address) of
 	false ->
 	    case check_address_ip_port(Domain, Address) of
@@ -843,6 +840,8 @@ check_address(Domain, Address, DefaultPort) ->
 
 check_address(Domain, Address) ->
     %% Address has to contain Port
+    %%
+    %% XXX There is only code for IP domains here
     case check_address_ip_port(Domain, Address) of
 	false ->
 	    error({bad_address, {Domain, Address}});
