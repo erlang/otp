@@ -1707,16 +1707,16 @@ v1_cases_ipv6() ->
 %%     mnesia,
 %%     {group, multiple_reqs},
      sa_register,
-     v1_trap,
+%%     v1_trap, % sends v1 trap
 %%     sa_error,
      next_across_sa,
      undo,
 %%     {group, reported_bugs},
-     {group, standard_mibs},
+     {group, standard_mibs}, % snmp_standard_mib still failing, sends v1 trap
      sparse_table,
-     cnt_64,
-     opaque,
-     change_target_addr_config
+%%     cnt_64, % sends v1 trap
+     opaque
+%%     change_target_addr_config % sends v1 trap
     ].
 
 init_v1(Config) when is_list(Config) ->
