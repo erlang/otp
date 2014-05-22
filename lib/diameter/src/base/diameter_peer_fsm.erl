@@ -296,7 +296,8 @@ handle_info(T, #state{} = State) ->
             ?LOG(stop, T),
             {stop, {shutdown, T}, State}
     catch
-        exit: {diameter_codec, encode, _} = Reason ->
+        exit: {diameter_codec, encode, T} = Reason ->
+            incr_error(send, T),
             ?LOG(stop, Reason),
             %% diameter_codec:encode/2 emits an error report. Only
             %% indicate the probable reason here.
@@ -619,7 +620,7 @@ rcv('DPA' = N,
            transport = TPid,
            dpr = {Hid, Eid}}) ->
 
-    incr_A(recv, diameter_codec:decode(Dict0, Pkt), Dict0),
+    incr_rc(recv, diameter_codec:decode(Dict0, Pkt), Dict0),
     diameter_peer:close(TPid),
     {stop, N};
 
@@ -627,10 +628,15 @@ rcv('DPA' = N,
 rcv(_, _, _) ->
     ok.
 
-%% incr_A/3
+%% incr_rc/3
 
-incr_A(Dir, Pkt, Dict0) ->
-    diameter_traffic:incr_A(Dir, Pkt, self(), Dict0).
+incr_rc(Dir, Pkt, Dict0) ->
+    diameter_traffic:incr_rc(Dir, Pkt, self(), Dict0).
+
+%% incr_error/2
+
+incr_error(Dir, Pkt) ->
+    diameter_traffic:incr_error(Dir, Pkt, self()).
 
 %% send/2
 
@@ -650,7 +656,7 @@ handle_request(Type, #diameter_packet{} = Pkt, #state{dictionary = D} = S) ->
 %% send_answer/3
 
 send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
-    diameter_traffic:incr_R(recv, ReqPkt, TPid),
+    incr_error(recv, ReqPkt),
 
     #diameter_packet{header = H,
                      transport_data = TD}
@@ -660,18 +666,18 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
 
     %% An answer message clears the R and T flags and retains the P
     %% flag. The E flag is set at encode.
-    Pkt0 = #diameter_packet{header
-                            = H#diameter_header{version = ?DIAMETER_VERSION,
-                                                is_request = false,
-                                                is_error = undefined,
-                                                is_retransmitted = false},
-                            msg = Msg,
-                            transport_data = TD},
+    Pkt = #diameter_packet{header
+                           = H#diameter_header{version = ?DIAMETER_VERSION,
+                                               is_request = false,
+                                               is_error = undefined,
+                                               is_retransmitted = false},
+                           msg = Msg,
+                           transport_data = TD},
 
-    Pkt = diameter_codec:encode(Dict, Pkt0),
+    AnsPkt = diameter_codec:encode(Dict, Pkt),
 
-    incr_A(send, Pkt, Dict),
-    send(TPid, Pkt),
+    incr_rc(send, AnsPkt, Dict),
+    send(TPid, AnsPkt),
     eval(PostF, S).
 
 eval([F|A], S) ->
@@ -884,7 +890,7 @@ handle_CEA(#diameter_packet{bin = Bin}
         = DPkt
         = diameter_codec:decode(Dict0, Pkt),
 
-    RC = result_code(incr_A(recv, DPkt, Dict0)),
+    RC = result_code(incr_rc(recv, DPkt, Dict0)),
 
     {SApps, IS, RCaps} = recv_CEA(DPkt, S),
 
