@@ -25,7 +25,7 @@
 %% External exports
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([read_files/2, no_gen/2, no_order/2, no_filter/1]).
+-export([read_files/2, no_gen/2, no_order/2, no_filter/1, keyorder/4]).
 -export([read/2, read/3]).
 
 %% Basic (type) check functions
@@ -158,6 +158,27 @@ no_gen(_Dir, _R) -> [].
 no_order(_, _) -> true.
 no_filter(X) -> X.
 
+%% Order tuples on element N with Keys first in appearence order.
+%%
+%% An ordering function (A, B) shall return true iff
+%% A is less than or equal to B i.e shall return
+%% false iff A is to be ordered after B.
+keyorder(N, A, B, _) when element(N, A) == element(N, B) ->
+    true;
+keyorder(N, A, B, [Key | _])
+  when tuple_size(A) >= 1, element(N, B) == Key ->
+    false;
+keyorder(N, A, B, [Key | _])
+  when element(N, A) == Key, tuple_size(B) >= 1 ->
+    true;
+keyorder(N, A, B, [_ | Keys]) ->
+    keyorder(N, A, B, Keys);
+keyorder(_, A, B, []) when tuple_size(A) >= 1, tuple_size(B) >= 1 ->
+    %% Do not order other keys
+    true;
+keyorder(N, A, B, sort) ->
+    %% Order other keys according to standard sort order
+    element(N, A) =< element(N, B).
 
 
 read(File, Verify) ->

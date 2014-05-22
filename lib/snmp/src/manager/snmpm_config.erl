@@ -1783,21 +1783,10 @@ init_agent_config({UserId, TargetName, Config}) ->
 
 
 
-%% Sort tdomain first then port to ensure both comes before taddress
-order_agent({Item1, _}, {Item2, _}) ->
-    if  Item1 == Item2 ->
-	    true; % Item1 == Item2
-	Item2 =:= tdomain ->
-	    false; % Item1 > tdomain
-	Item2 =:= port ->
-	    if  Item1 =:= tdomain ->
-		    true; % tdomain < port
-		true ->
-		    false % Item1 > port
-	    end;
-	true ->
-	    true % Item1 < Item 2
-    end.
+%% Sort 'tdomain' first then 'port' to ensure both
+%% sorts before 'taddress'.  Keep the order of other items.
+order_agent(ItemA, ItemB) ->
+    snmp_conf:keyorder(1, ItemA, ItemB, [tdomain, port]).
 
 fix_agent_config(Conf) ->
     ?vdebug("fix_agent_config -> entry with~n~n"

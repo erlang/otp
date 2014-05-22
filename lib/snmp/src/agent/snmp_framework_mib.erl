@@ -222,15 +222,9 @@ check_agent(X) ->
     error({invalid_agent_attribute, X}).
 
 %% Ordering function to sort intAgentTransportDomain first
-%% hence before intAgentIpAddress
-order_agent({Name, _}, {Name, _}) ->
-    true; %% Less than or equal
-order_agent({_, _}, {intAgentTransportDomain, _}) ->
-    false; %% Greater than
-order_agent({intAgentTransportDomain, _}, {_, _}) ->
-    true; %% Less than or equal
-order_agent({A, _}, {B, _}) ->
-    A =< B.
+%% hence before intAgentIpAddress.  Sort other entries on the key.
+order_agent(EntryA, EntryB) ->
+    snmp_conf:keyorder(1, EntryA, EntryB, [intAgentTransportDomain | sort]).
 
 
 
