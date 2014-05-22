@@ -94,6 +94,7 @@ only_simulated() ->
      empty_set_cookie,
      trace,
      stream_once,
+     stream_single_chunk,
      no_content_204,
      tolerate_missing_CR,
      userinfo,
@@ -387,6 +388,13 @@ stream_once(Config) when is_list(Config) ->
 
     Request2  = {url(group_name(Config), "/once_chunked.html", Config), []},
     stream_test(Request2, {stream, {self, once}}).
+%%-------------------------------------------------------------------------
+stream_single_chunk() ->
+    [{doc, "Test the option stream for asynchrony requests"}].
+stream_single_chunk(Config) when is_list(Config) ->
+    Request  = {url(group_name(Config), "/single_chunk.html", Config), []},
+    stream_test(Request, {stream, self}).
+
 
 %%-------------------------------------------------------------------------
 redirect_multiple_choises() ->
@@ -1047,7 +1055,7 @@ stream_test(Request, To) ->
 		ct:fail(Msg)
 	end,
 
-    Body == binary_to_list(StreamedBody).
+    Body = binary_to_list(StreamedBody).
 
 url(http, End, Config) ->
     Port = ?config(port, Config),
@@ -1674,6 +1682,14 @@ handle_uri(_,"/once_chunked.html",_,_,Socket,_) ->
     send(Socket,
 	 http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
+
+handle_uri(_,"/single_chunk.html",_,_,Socket,_) ->
+    Chunk =  "HTTP/1.1 200 ok\r\n" ++
+        "Transfer-Encoding:Chunked\r\n\r\n" ++
+        http_chunk:encode("<HTML><BODY>fo") ++
+        http_chunk:encode("obar</BODY></HTML>") ++
+        http_chunk:encode_last(),
+    send(Socket, Chunk);
 
 handle_uri(_,"/once.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
