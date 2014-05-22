@@ -35,11 +35,17 @@
   {"1.4.3",   [{restart_application, diameter}]},  %% R16B02
   {"1.4.4",   [{restart_application, diameter}]},
   {"1.5",     [{restart_application, diameter}]},  %% R16B03
-  {"1.6",     [{load_module, diameter_traffic},    %% 17.0
-               {load_module, diameter_codec},
+  {"1.6",     [{load_module, diameter_lib},        %% 17.0
+               {load_module, diameter_traffic},
                {load_module, diameter_peer_fsm},
                {load_module, diameter_watchdog},
                {load_module, diameter_service},
+               {load_module, diameter_gen_base_rfc6733},
+               {load_module, diameter_gen_acct_rfc6733},
+               {load_module, diameter_gen_base_rfc3588},
+               {load_module, diameter_gen_accounting},
+               {load_module, diameter_gen_relay},
+               {load_module, diameter_codec},
                {load_module, diameter_sctp}]}
  ],
  [
@@ -59,10 +65,16 @@
   {"1.4.4",   [{restart_application, diameter}]},
   {"1.5",     [{restart_application, diameter}]},
   {"1.6",     [{load_module, diameter_sctp},
+               {load_module, diameter_codec},
+               {load_module, diameter_gen_relay},
+               {load_module, diameter_gen_accounting},
+               {load_module, diameter_gen_base_rfc3588},
+               {load_module, diameter_gen_acct_rfc6733},
+               {load_module, diameter_gen_base_rfc6733},
                {load_module, diameter_service},
                {load_module, diameter_watchdog},
                {load_module, diameter_peer_fsm},
-               {load_module, diameter_codec},
-               {load_module, diameter_traffic}]}
+               {load_module, diameter_traffic},
+               {load_module, diameter_lib}]}
  ]
 }.
