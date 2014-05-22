@@ -37,8 +37,8 @@
   {"1.5",     [{restart_application, diameter}]},  %% R16B03
   {"1.6",     [{load_module, diameter_lib},        %% 17.0
                {load_module, diameter_traffic},
-               {load_module, diameter_peer_fsm},
                {load_module, diameter_watchdog},
+               {load_module, diameter_peer_fsm},
                {load_module, diameter_service},
                {load_module, diameter_gen_base_rfc6733},
                {load_module, diameter_gen_acct_rfc6733},
@@ -72,8 +72,8 @@
                {load_module, diameter_gen_acct_rfc6733},
                {load_module, diameter_gen_base_rfc6733},
                {load_module, diameter_service},
-               {load_module, diameter_watchdog},
                {load_module, diameter_peer_fsm},
+               {load_module, diameter_watchdog},
                {load_module, diameter_traffic},
                {load_module, diameter_lib}]}
  ]
