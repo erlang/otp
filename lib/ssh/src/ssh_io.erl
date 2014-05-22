@@ -81,6 +81,8 @@ format(Fmt, Args) ->
 
 trim(Line) when is_list(Line) ->
     lists:reverse(trim1(lists:reverse(trim1(Line))));
+trim(Line) when is_binary(Line) ->
+    trim(unicode:characters_to_list(Line));
 trim(Other) -> Other.
 
 trim1([$\s|Cs]) -> trim(Cs);
