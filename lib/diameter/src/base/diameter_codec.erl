@@ -70,18 +70,15 @@ encode(Mod, #diameter_packet{} = Pkt) ->
     try
         e(Mod, Pkt)
     catch
-        exit: {_, _, #diameter_header{}} = T ->
+        exit: {Reason, Stack, #diameter_header{} = H} = T ->
             %% Exit with a header in the reason to let the caller
             %% count encode errors.
-            X = {?MODULE, encode, T},
-            diameter_lib:error_report(X, {?MODULE, encode, [Mod, Pkt]}),
-            exit(X);
+            ?LOG(encode_error, {Reason, Stack, H}),
+            exit({?MODULE, encode, T});
         error: Reason ->
-            %% Be verbose since a crash report may be truncated and
-            %% encode errors are self-inflicted.
-            X = {?MODULE, encode, {Reason, ?STACK}},
-            diameter_lib:error_report(X, {?MODULE, encode, [Mod, Pkt]}),
-            exit(X)
+            T = {Reason, diameter_lib:get_stacktrace()},
+            ?LOG(encode_error, T),
+            exit({?MODULE, encode, T})
     end;
 
 encode(Mod, Msg) ->
@@ -115,7 +112,7 @@ e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
                                         Avps/binary>>}
     catch
         error: Reason ->
-            exit({Reason, ?STACK, Hdr})
+            exit({Reason, diameter_lib:get_stacktrace(), Hdr})
     end;
 
 e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
@@ -147,7 +144,7 @@ e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
                                         Avps/binary>>}
     catch
         error: Reason ->
-            exit({Reason, ?STACK, Hdr})
+            exit({Reason, diameter_lib:get_stacktrace(), Hdr})
     end.
 
 %% make_flags/2
@@ -278,23 +275,23 @@ decode(Id, Mod, Bin)
     decode(Id, Mod, #diameter_packet{header = decode_header(Bin), bin = Bin}).
 
 decode_avps(MsgName, Mod, Pkt, {E, Avps}) ->
-    ?LOG(invalid, Pkt#diameter_packet.bin),
+    ?LOG(invalid_avp_length, Pkt#diameter_packet.header),
     #diameter_packet{errors = Failed}
         = P
         = decode_avps(MsgName, Mod, Pkt, Avps),
     P#diameter_packet{errors = [E | Failed]};
 
-decode_avps('', Mod, Pkt, Avps) ->  %% unknown message ...
-    ?LOG(unknown, {Mod, Pkt#diameter_packet.header}),
+decode_avps('', _, Pkt, Avps) ->  %% unknown message ...
+    ?LOG(unknown_message, Pkt#diameter_packet.header),
     Pkt#diameter_packet{avps = lists:reverse(Avps),
                         errors = [3001]};   %% DIAMETER_COMMAND_UNSUPPORTED
 %% msg = undefined identifies this case.
 
 decode_avps(MsgName, Mod, Pkt, Avps) ->  %% ... or not
-    {Rec, As, Failed} = Mod:decode_avps(MsgName, Avps),
-    ?LOGC([] /= Failed, failed, {Mod, Failed}),
+    {Rec, As, Errors} = Mod:decode_avps(MsgName, Avps),
+    ?LOGC([] /= Errors, decode_errors, Pkt#diameter_packet.header),
     Pkt#diameter_packet{msg = Rec,
-                        errors = Failed,
+                        errors = Errors,
                         avps = As}.
 
 %%% ---------------------------------------------------------------------------

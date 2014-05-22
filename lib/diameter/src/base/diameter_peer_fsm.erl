@@ -283,7 +283,7 @@ handle_info(T, #state{} = State) ->
         ok ->
             {noreply, State};
         #state{state = X} = S ->
-            ?LOGC(X =/= State#state.state, transition, X),
+            ?LOGC(X /= State#state.state, transition, X),
             {noreply, S};
         {stop, Reason} ->
             ?LOG(stop, Reason),
@@ -295,13 +295,9 @@ handle_info(T, #state{} = State) ->
         exit: {diameter_codec, encode, T} = Reason ->
             incr_error(send, T),
             ?LOG(stop, Reason),
-            %% diameter_codec:encode/2 emits an error report. Only
-            %% indicate the probable reason here.
-            diameter_lib:info_report(probable_configuration_error,
-                                     insufficient_capabilities),
             {stop, {shutdown, Reason}, State};
         {?MODULE, Tag, Reason}  ->
-            ?LOG(Tag, {Reason, T}),
+            ?LOG(stop, Tag),
             {stop, {shutdown, Reason}, State}
     end.
 %% The form of the throw caught here is historical. It's
@@ -477,12 +473,12 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
         orelse
         close({already_connected, Remote, LCaps}),
     CER = build_CER(S),
-    ?LOG(send, 'CER'),
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
                                                hop_by_hop_id = Hid}}
         = Pkt
         = encode(CER, Dict),
     send(TPid, Pkt),
+    ?LOG(send, 'CER'),
     start_timer(Tmo, S#state{state = {'Wait-CEA', Hid, Eid}}).
 
 %% Register ourselves as connecting to the remote endpoint in
@@ -554,26 +550,18 @@ recv(#diameter_header{length = Len}
 recv(#diameter_header{}
      = H,
      #diameter_packet{bin = Bin},
-     #state{length_errors = E}
-     = S) ->
-    invalid(E,
-            invalid_message_length,
-            recv,
-            [size(Bin), bit_size(Bin) rem 8, H, S]);
+     #state{length_errors = E}) ->
+    T = {size(Bin), bit_size(Bin) rem 8, H},
+    invalid(E, message_length_mismatch, T);
 
-recv(false, Pkt, #state{length_errors = E} = S) ->
-    invalid(E, truncated_header, recv, [Pkt, S]).
+recv(false, #diameter_packet{bin = Bin}, #state{length_errors = E}) ->
+    invalid(E, truncated_header, Bin).
 
 %% Note that counters here only count discarded messages.
-invalid(E, Reason, F, A) ->
+invalid(E, Reason, T) ->
     diameter_stats:incr(Reason),
-    abort(E, Reason, F, A).
-
-abort(exit, Reason, F, A) ->
-    diameter_lib:warning_report(Reason, {?MODULE, F, A}),
-    throw({?MODULE, abort, Reason});
-
-abort(_, _, _, _) ->
+    E == exit andalso close({Reason, T}),
+    ?LOG(Reason, T),
     ok.
 
 msg_id({_,_,_} = T, _) ->
@@ -674,7 +662,11 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
 
     incr_rc(send, AnsPkt, Dict),
     send(TPid, AnsPkt),
+    ?LOG(send, ans(Type)),
     eval(PostF, S).
+
+ans('CER') -> 'CEA';
+ans('DPR') -> 'DPA'.
 
 eval([F|A], S) ->
     apply(F, A ++ [S]);
@@ -897,9 +889,7 @@ handle_CEA(#diameter_packet{bin = Bin}
     %% connection with the peer.
 
     try
-        is_integer(RC)
-            orelse ?THROW(no_result_code),
-        ?IS_SUCCESS(RC)
+        is_integer(RC) andalso ?IS_SUCCESS(RC)
             orelse ?THROW(RC),
         [] == SApps
             andalso ?THROW(no_common_application),
@@ -1015,18 +1005,12 @@ capz(#diameter_caps{} = L, #diameter_caps{} = R) ->
                                                    tl(tuple_to_list(R)))]).
 
 %% close/1
+%%
+%% A good function to trace on in case of problems with capabilities
+%% exchange.
 
 close(Reason) ->
-    report(Reason),
     throw({?MODULE, close, Reason}).
-
-%% Could possibly log more here.
-report({M, _, _, _, _} = T)
-  when M == 'CER';
-       M == 'CEA' ->
-    diameter_lib:error_report(failure, T);
-report(_) ->
-    ok.
 
 %% dpr/2
 %%
@@ -1061,7 +1045,7 @@ dpr(_Reason, _S) ->
 %% process and contact it. (eg. diameter:service_info/2)
 
 dpr([CB|Rest], [Reason | _] = Args, S) ->
-    try diameter_lib:eval([CB | Args]) of
+    case diameter_lib:eval([CB | Args]) of
         {dpr, Opts} when is_list(Opts) ->
             send_dpr(Reason, Opts, S);
         dpr ->
@@ -1071,14 +1055,7 @@ dpr([CB|Rest], [Reason | _] = Args, S) ->
         ignore ->
             dpr(Rest, Args, S);
         T ->
-            No = {disconnect_cb, T},
-            diameter_lib:error_report(invalid, No),
-            {stop, No}
-    catch
-        E:R ->
-            No = {disconnect_cb, E, R, ?STACK},
-            diameter_lib:error_report(failure, No),
-            {stop, No}
+            ?ERROR({disconnect_cb, CB, Args, T})
     end;
 
 dpr([], [Reason | _], S) ->

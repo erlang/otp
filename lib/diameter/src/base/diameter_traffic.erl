@@ -48,6 +48,8 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+-define(LOGX(Reason, T), begin ?LOG(Reason, T), x({Reason, T}) end).
+
 -define(RELAY, ?DIAMETER_DICT_RELAY).
 -define(BASE,  ?DIAMETER_DICT_COMMON).  %% Note: the RFC 3588 dictionary
 
@@ -154,9 +156,8 @@ incr_rc(Dir, Pkt, TPid, Dict0) ->
     try
         incr_rc(Dir, Pkt, Dict0, TPid, Dict0)
     catch
-        exit: {invalid_error_bit = E, _} ->
-            E;
-        exit: no_result_code = E ->
+        exit: {E,_} when E == no_result_code;
+                         E == invalid_error_bit ->
             E
     end.
 
@@ -234,7 +235,7 @@ spawn_request(TPid, Pkt, Dict0, Opts, RecvData) ->
         spawn_opt(fun() -> recv_request(TPid, Pkt, Dict0, RecvData) end, Opts)
     catch
         error: system_limit = E ->  %% discard
-            ?LOG({error, E}, now())
+            ?LOG(error, E)
     end.
 
 %% ---------------------------------------------------------------------------
@@ -336,23 +337,25 @@ rc(N) ->
 %%      This error is returned when a request is received with an invalid
 %%      message length.
 
-errors(_, #diameter_packet{header = #diameter_header{length = Len},
+errors(_, #diameter_packet{header = #diameter_header{length = Len} = H,
                            bin = Bin,
                            errors = Es}
           = Pkt)
   when Len < 20;
        0 /= Len rem 4;
        8*Len /= bit_size(Bin) ->
+    ?LOG(invalid_message_length, {H, bit_size(Bin)}),
     Pkt#diameter_packet{errors = [5015 | Es]};
 
 %%   DIAMETER_UNSUPPORTED_VERSION       5011
 %%      This error is returned when a request was received, whose version
 %%      number is unsupported.
 
-errors(_, #diameter_packet{header = #diameter_header{version = V},
+errors(_, #diameter_packet{header = #diameter_header{version = V} = H,
                            errors = Es}
           = Pkt)
   when V /= ?DIAMETER_VERSION ->
+    ?LOG(unsupported_version, H),
     Pkt#diameter_packet{errors = [5011 | Es]};
 
 %%   DIAMETER_COMMAND_UNSUPPORTED       3001
@@ -360,12 +363,13 @@ errors(_, #diameter_packet{header = #diameter_header{version = V},
 %%      recognize or support.  This MUST be used when a Diameter node
 %%      receives an experimental command that it does not understand.
 
-errors(Id, #diameter_packet{header = #diameter_header{is_proxiable = P},
+errors(Id, #diameter_packet{header = #diameter_header{is_proxiable = P} = H,
                             msg = M,
                             errors = Es}
            = Pkt)
   when ?APP_ID_RELAY /= Id, undefined == M;  %% don't know the command
        ?APP_ID_RELAY == Id, not P ->         %% command isn't proxiable
+    ?LOG(command_unsupported, H),
     Pkt#diameter_packet{errors = [3001 | Es]};
 
 %%   DIAMETER_INVALID_HDR_BITS          3008
@@ -374,9 +378,11 @@ errors(Id, #diameter_packet{header = #diameter_header{is_proxiable = P},
 %%      inconsistent with the command code's definition.
 
 errors(_, #diameter_packet{header = #diameter_header{is_request = true,
-                                                     is_error = true},
+                                                     is_error = true}
+                                  = H,
                             errors = Es}
           = Pkt) ->
+    ?LOG(invalid_hdr_bits, H),
     Pkt#diameter_packet{errors = [3008 | Es]};
 
 %% Green.
@@ -532,7 +538,6 @@ answer_message(RC,
                               origin_realm = {OR,_}},
                Dict0,
                Pkt) ->
-    ?LOG({error, RC}, Pkt),
     {Dict0, answer_message(OH, OR, RC, Dict0, Pkt)}.
 
 %% resend/7
@@ -1042,12 +1047,12 @@ incr_rc(Dir, Pkt, Dict, TPid, Dict0) ->
 
     %% Exit on a missing result code.
     T = rc_counter(Dict, Msg),
-    T == false andalso x(no_result_code, answer, [Dir, Pkt]),
+    T == false andalso ?LOGX(no_result_code, {Dict, Dir, Hdr}),
     {Ctr, RC} = T,
 
     %% Or on an inappropriate value.
     is_result(RC, E, Dict0)
-        orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
+        orelse ?LOGX(invalid_error_bit, {Dict, Dir, Hdr, RC}),
 
     incr(TPid, {Id, Dir, Ctr}).
 
@@ -1111,13 +1116,6 @@ int(N)
     N;
 int(_) ->
     undefined.
-
--spec x(any(), atom(), list()) -> no_return().
-
-%% Warn and exit request process on errors in an incoming answer.
-x(Reason, F, A) ->
-    diameter_lib:warning_report(Reason, {?MODULE, F, A}),
-    x(Reason).
 
 x(T) ->
     exit(T).
@@ -1430,7 +1428,7 @@ handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
     of
         _ -> answer(Pkt, SvcName, App, Req)
     catch
-        exit: no_result_code ->
+        exit: {no_result_code, _} ->
             %% RFC 6733 requires one of Result-Code or
             %% Experimental-Result, but the decode will have detected
             %% a missing AVP. If both are optional in the dictionary
@@ -1462,11 +1460,16 @@ a(#diameter_packet{errors = Es}
        callback == AE ->
     cb(ModX, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
 
-a(Pkt, SvcName, _, report, Req) ->
-    x(errors, handle_answer, [SvcName, Req, Pkt]);
+a(Pkt, SvcName, _, AE, _) ->
+    a(Pkt#diameter_packet.header, SvcName, AE).
 
-a(Pkt, SvcName, _, discard, Req) ->
-    x({errors, handle_answer, [SvcName, Req, Pkt]}).
+a(Hdr, SvcName, report) ->
+    MFA = {?MODULE, handle_answer, [SvcName, Hdr]},
+    diameter_lib:warning_report(errors, MFA),
+    a(Hdr, SvcName, discard);
+
+a(Hdr, SvcName, discard) ->
+    x({answer_errors, {SvcName, Hdr}}).
 
 %% Note that we don't check that the application id in the answer's
 %% header is what we expect. (TODO: Does the rfc says anything about
@@ -1652,7 +1655,7 @@ resend_request(Pkt0,
                        packet = Pkt0,
                        caps = Caps},
 
-    ?LOG(retransmission, Req),
+    ?LOG(retransmission, Pkt#diameter_packet.header),
     TRef = send_request(TPid, Pkt, Req, SvcName, Tmo),
     {TRef, Req}.
 

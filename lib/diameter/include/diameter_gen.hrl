@@ -320,10 +320,12 @@ d(Name, Avp, {Avps, Acc}) ->
             %% respond sensibly to. Log the occurence for traceability,
             %% but the peer will also receive info in the resulting
             %% answer-message.
-            diameter_lib:log({decode, failure},
+            Stack = diameter_lib:get_stacktrace(),
+            diameter_lib:log(decode_error,
                              ?MODULE,
                              ?LINE,
-                             {Reason, Avp, erlang:get_stacktrace()}),
+                             {Reason, AvpName, Stack}),
+
             {Rec, Failed} = Acc,
             {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}
     after

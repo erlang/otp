@@ -219,7 +219,6 @@ dict0(_, _, Acc) ->
     Acc.
 
 config_error(T) ->
-    diameter_lib:error_report(configuration_error, T),
     exit({shutdown, {configuration_error, T}}).
 
 %% handle_call/3
@@ -268,7 +267,7 @@ event(Msg,
     TPid = tpid(F,T),
     E = {[TPid | data(Msg, TPid, From, To)], From, To},
     send(Pid, {watchdog, self(), E}),
-    ?LOG(transition, {self(), E}).
+    ?LOG(transition, {From, To}).
 
 data(Msg, TPid, reopen, okay) ->
     {recv, TPid, 'DWA', _Pkt} = Msg,  %% assert
@@ -562,6 +561,7 @@ recv(Name, Pkt, S) ->
 
 rcv('DWR', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
+    ?LOG(recv, 'DWR'),
     DPkt = diameter_codec:decode(Dict0, Pkt),
     diameter_traffic:incr_error(recv, DPkt, TPid),
     EPkt = encode(dwa, Dict0, Pkt),
@@ -572,6 +572,7 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
 
 rcv('DWA', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
+    ?LOG(recv, 'DWA'),
     diameter_traffic:incr_rc(recv,
                              diameter_codec:decode(Dict0, Pkt),
                              TPid,
