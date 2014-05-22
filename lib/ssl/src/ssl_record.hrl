@@ -70,7 +70,7 @@
 
 -define(INITIAL_BYTES, 5).
 
--define(MAX_SEQENCE_NUMBER, 18446744073709552000). %% math:pow(2, 64) - 1 = 1.8446744073709552e19
+-define(MAX_SEQENCE_NUMBER, 18446744073709551615). %% (1 bsl 64) - 1 = 18446744073709551615
 %% Sequence numbers can not wrap so when max is about to be reached we should renegotiate.
 %% We will renegotiate a little before so that there will be sequence numbers left
 %% for the rehandshake and a little data. Currently we decided to renegotiate a little more
