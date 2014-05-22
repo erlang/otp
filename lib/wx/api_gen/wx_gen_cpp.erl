@@ -191,13 +191,14 @@ gen_funcs(Defs) ->
 %%     w("  case WXE_REMOVE_PORT:~n", []),
 %%     w("   { destroyMemEnv(Ecmd.port); } break;~n", []),
     w("  case DESTROY_OBJECT: {~n"),
-    w("     wxObject *This = (wxObject *) getPtr(bp,memenv);~n"),
-    w("     if(This) {~n"),
-    w("       if(recurse_level > 1) {~n"),
+    w("     void *This = getPtr(bp,memenv);~n"),
+    w("     wxeRefData *refd = getRefData(This);~n"),
+    w("     if(This && refd) {~n"),
+    w("       if(recurse_level > 1 && refd->type != 4) {~n"),
     w("          delayed_delete->Append(Ecmd.Save());~n"),
     w("       } else {~n"),
-    w("          ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
-    w("          delete This; }~n"),
+    w("          ((WxeApp *) wxTheApp)->clearPtr(This);~n"),
+    w("          delete_object(This, refd); }~n"),
     w("  } } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"
@@ -737,9 +738,13 @@ call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
 			false -> 0
 		    end;
 		false ->
-		    case hd(reverse(wx_gen_erl:parents(RClass))) of
-			root -> Id;
-			_ -> 1
+		    case is_dc(RClass) of
+			true -> 4;
+			false ->
+			    case hd(reverse(wx_gen_erl:parents(RClass))) of
+				root -> Id;
+				_ -> 1
+			    end
 		    end
 	    end,
     case virtual_dest(ClassDef) orelse (CType =/= 0) of
@@ -900,6 +905,10 @@ is_window(Class) ->
 
 is_dialog(Class) ->
     lists:member("wxDialog", wx_gen_erl:parents(Class)).
+
+is_dc(Class) ->
+    Parents = wx_gen_erl:parents(Class),
+    lists:member("wxDC", Parents) orelse lists:member("wxGraphicsContext", Parents).
 
 build_return_vals(Type,Ps) ->
     HaveType = case Type of  void -> 0; _ -> 1 end,

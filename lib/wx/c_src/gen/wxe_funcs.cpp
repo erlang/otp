@@ -45,13 +45,14 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
  switch (Ecmd.op)
 {
   case DESTROY_OBJECT: {
-     wxObject *This = (wxObject *) getPtr(bp,memenv);
-     if(This) {
-       if(recurse_level > 1) {
+     void *This = getPtr(bp,memenv);
+     wxeRefData *refd = getRefData(This);
+     if(This && refd) {
+       if(recurse_level > 1 && refd->type != 4) {
           delayed_delete->Append(Ecmd.Save());
        } else {
-          ((WxeApp *) wxTheApp)->clearPtr((void *) This);
-          delete This; }
+          ((WxeApp *) wxTheApp)->clearPtr(This);
+          delete_object(This, refd); }
   } } break;
   case WXE_REGISTER_OBJECT: {
      registerPid(bp, Ecmd.caller, memenv);
@@ -5843,26 +5844,26 @@ case wxMirrorDC_new: { // wxMirrorDC::wxMirrorDC
  wxDC *dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  bool * mirror = (bool *) bp; bp += 4;
  wxMirrorDC * Result = new EwxMirrorDC(*dc,*mirror);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMirrorDC");
  break;
 }
 case wxScreenDC_new: { // wxScreenDC::wxScreenDC
  wxScreenDC * Result = new EwxScreenDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxScreenDC");
  break;
 }
 case wxPostScriptDC_new_0: { // wxPostScriptDC::wxPostScriptDC
  wxPostScriptDC * Result = new EwxPostScriptDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPostScriptDC");
  break;
 }
 case wxPostScriptDC_new_1: { // wxPostScriptDC::wxPostScriptDC
  wxPrintData *printData = (wxPrintData *) getPtr(bp,memenv); bp += 4;
  wxPostScriptDC * Result = new EwxPostScriptDC(*printData);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPostScriptDC");
  break;
 }
@@ -5883,7 +5884,7 @@ case wxPostScriptDC_GetResolution: { // wxPostScriptDC::GetResolution
 #if !wxCHECK_VERSION(2,9,0)
 case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
  wxWindowDC * Result = new EwxWindowDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxWindowDC");
  break;
 }
@@ -5891,14 +5892,14 @@ case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
 case wxWindowDC_new_1: { // wxWindowDC::wxWindowDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxWindowDC * Result = new EwxWindowDC(win);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxWindowDC");
  break;
 }
 #if !wxCHECK_VERSION(2,9,0)
 case wxClientDC_new_0: { // wxClientDC::wxClientDC
  wxClientDC * Result = new EwxClientDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxClientDC");
  break;
 }
@@ -5906,14 +5907,14 @@ case wxClientDC_new_0: { // wxClientDC::wxClientDC
 case wxClientDC_new_1: { // wxClientDC::wxClientDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxClientDC * Result = new EwxClientDC(win);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxClientDC");
  break;
 }
 #if !wxCHECK_VERSION(2,9,0)
 case wxPaintDC_new_0: { // wxPaintDC::wxPaintDC
  wxPaintDC * Result = new EwxPaintDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPaintDC");
  break;
 }
@@ -5921,27 +5922,27 @@ case wxPaintDC_new_0: { // wxPaintDC::wxPaintDC
 case wxPaintDC_new_1: { // wxPaintDC::wxPaintDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxPaintDC * Result = new EwxPaintDC(win);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPaintDC");
  break;
 }
 case wxMemoryDC_new_1_0: { // wxMemoryDC::wxMemoryDC
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxMemoryDC * Result = new EwxMemoryDC(*bitmap);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMemoryDC");
  break;
 }
 case wxMemoryDC_new_1_1: { // wxMemoryDC::wxMemoryDC
  wxDC * dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  wxMemoryDC * Result = new EwxMemoryDC(dc);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMemoryDC");
  break;
 }
 case wxMemoryDC_new_0: { // wxMemoryDC::wxMemoryDC
  wxMemoryDC * Result = new EwxMemoryDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMemoryDC");
  break;
 }
@@ -5961,7 +5962,7 @@ case wxMemoryDC_SelectObjectAsSource: { // wxMemoryDC::SelectObjectAsSource
 }
 case wxBufferedDC_new_0: { // wxBufferedDC::wxBufferedDC
  wxBufferedDC * Result = new EwxBufferedDC();
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedDC");
  break;
 }
@@ -5979,7 +5980,7 @@ buffer = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBufferedDC * Result = new EwxBufferedDC(dc,*buffer,style);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedDC");
  break;
 }
@@ -5996,7 +5997,7 @@ case wxBufferedDC_new_3: { // wxBufferedDC::wxBufferedDC
   } break;
  }};
  wxBufferedDC * Result = new EwxBufferedDC(dc,area,style);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedDC");
  break;
 }
@@ -6043,7 +6044,7 @@ case wxBufferedPaintDC_new_3: { // wxBufferedPaintDC::wxBufferedPaintDC
   } break;
  }};
  wxBufferedPaintDC * Result = new EwxBufferedPaintDC(window,*buffer,style);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedPaintDC");
  break;
 }
@@ -6057,7 +6058,7 @@ case wxBufferedPaintDC_new_2: { // wxBufferedPaintDC::wxBufferedPaintDC
   } break;
  }};
  wxBufferedPaintDC * Result = new EwxBufferedPaintDC(window,style);
- newPtr((void *) Result, 1, memenv);
+ newPtr((void *) Result, 4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedPaintDC");
  break;
 }
