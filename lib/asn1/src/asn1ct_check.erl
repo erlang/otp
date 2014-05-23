@@ -1818,12 +1818,10 @@ convert_to_defaultfield(S,ObjFieldName,[OFS|RestOFS],CField)->
 						      FieldName);
 			    ValSetting = #valuedef{} ->
 				ValSetting;
-			    ValSetting = {'CHOICE',{Alt,_ChVal}} when is_atom(Alt) ->
-					#valuedef{type=element(3,CField),
-						  value=ValSetting,
-						  module=S#state.mname};
 			    ValSetting ->
-				#identifier{val=ValSetting}
+				#valuedef{type=element(3,CField),
+					  value=ValSetting,
+					  module=S#state.mname}
 			end,
 		    ?dbg("fixedtypevaluefield ValRef: ~p~n",[ValRef]),
 		    case ValRef of
@@ -4588,8 +4586,6 @@ do_get_ref_type_1(S, #'Externalvaluereference'{pos=P,
 					       module=M,
 					       value=V}) ->
     do_get_ref_type_2(S, P, M, V);
-do_get_ref_type_1(S, #identifier{val=Name,pos=Pos}) ->
-    get_referenced1(S, undefined, Name, Pos);
 do_get_ref_type_1(_, T) ->
     {undefined,T}.
 

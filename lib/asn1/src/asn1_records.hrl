@@ -45,7 +45,6 @@
 -record(pobjectdef,{checked=false,pos,name,args,class,def}).
 -record(pobjectsetdef,{checked=false,pos,name,args,class,def}).
 
--record(identifier,{pos,val}).
 -record('Constraint',{'SingleValue'=no,'SizeConstraint'=no,'ValueRange'=no,'PermittedAlphabet'=no,
 		      'ContainedSubtype'=no, 'TypeConstraint'=no,'InnerSubtyping'=no,e=no,'Other'=no}).
 -record(simpletableattributes,{objectsetname,c_name,c_index,usedclassfield,

@@ -25,7 +25,8 @@
 
 %% Only used internally within this module.
 -record(typereference, {pos,val}).
--record(constraint,{c,e}).
+-record(constraint, {c,e}).
+-record(identifier, {pos,val}).
 
 %% parse all types in module
 parse(Tokens) ->
