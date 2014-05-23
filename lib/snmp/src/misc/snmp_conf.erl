@@ -49,7 +49,7 @@
 	 mk_addr_string/1,
 	 check_ip/1, check_ip/2,
 	 check_port/1,
-	 ip_port_to_domaddr/2,
+%%	 ip_port_to_domaddr/2,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
 	 mk_taddress/1, mk_taddress/2,
@@ -808,25 +808,25 @@ check_port(Port) when ?is_word(Port) ->
 check_port(Port) ->
     error({bad_port, Port}).
 
-ip_port_to_domaddr(IP, Port) when ?is_word(Port) ->
-    %% XXX There is only code for IP domains here
-    case check_address_ip(transportDomainUdpIpv4, IP) of
-	false ->
-	    case check_address_ip(transportDomainUdpIpv6, IP) of
-		false ->
-		    error({bad_address, {transportDomainUdpIpv4, {IP, Port}}});
-		true ->
-		    {transportDomainUdpIpv6, {IP, Port}};
-		FixedIP ->
-		    {transportDomainUdpIpv6, {FixedIP, Port}}
-	    end;
-	true ->
-	    {transportDomainUdpIpv4, {IP, Port}};
-	FixedIP ->
-	    {transportDomainUdpIpv4, {FixedIP, Port}}
-    end;
-ip_port_to_domaddr(IP, Port) ->
-    error({bad_address, {transportDomainUdpIpv4, {IP, Port}}}).
+%% ip_port_to_domaddr(IP, Port) when ?is_word(Port) ->
+%%     %% XXX There is only code for IP domains here
+%%     case check_address_ip(transportDomainUdpIpv4, IP) of
+%% 	false ->
+%% 	    case check_address_ip(transportDomainUdpIpv6, IP) of
+%% 		false ->
+%% 		    error({bad_address, {transportDomainUdpIpv4, {IP, Port}}});
+%% 		true ->
+%% 		    {transportDomainUdpIpv6, {IP, Port}};
+%% 		FixedIP ->
+%% 		    {transportDomainUdpIpv6, {FixedIP, Port}}
+%% 	    end;
+%% 	true ->
+%% 	    {transportDomainUdpIpv4, {IP, Port}};
+%% 	FixedIP ->
+%% 	    {transportDomainUdpIpv4, {FixedIP, Port}}
+%%     end;
+%% ip_port_to_domaddr(IP, Port) ->
+%%     error({bad_address, {transportDomainUdpIpv4, {IP, Port}}}).
 
 %% Check a configuration term field from a file to see if it
 %% can be fixed to be fed to mk_taddress/2.
@@ -923,7 +923,7 @@ check_address_ip_port(Domain, Address)
 		false ->
 		    false;
 		true ->
-		    Address;
+		    true;
 		FixedIP ->
 		    {FixedIP, Port}
 	    end;
@@ -941,7 +941,7 @@ check_address_ip_port(transportDomainUdpIpv6 = Domain, Address) ->
 		false ->
 		    false;
 		true ->
-		    Address;
+		    true;
 		FixedIP ->
 		    {FixedIP, Port}
 	    end;

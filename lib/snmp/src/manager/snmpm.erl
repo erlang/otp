@@ -379,13 +379,13 @@ register_agent(UserId, Addr) ->
     register_agent(UserId, Addr, ?DEFAULT_AGENT_PORT, []).
 
 %% Backward compatibility 
-register_agent(UserId, Domain, Address, Config0) when is_atom(Domain) ->
+register_agent(UserId, Domain, Addr, Config0) when is_atom(Domain) ->
     case lists:keymember(target_name, 1, Config0) of
 	false ->
-	    TargetName = mk_target_name(Domain, Address, Config0),
+	    TargetName = mk_target_name(Domain, Addr, Config0),
 	    Config =
 		[{reg_type, addr_port},
-		 {tdomain, Domain}, {taddress, Address} | Config0],
+		 {tdomain, Domain}, {taddress, Addr} | Config0],
 	    do_register_agent(UserId, TargetName, ensure_engine_id(Config));
 	true ->
 	    {value, {_, TargetName}} = 
@@ -393,12 +393,19 @@ register_agent(UserId, Domain, Address, Config0) when is_atom(Domain) ->
 	    Config1 = lists:keydelete(target_name, 1, Config0),
 	    Config2 =
 		[{reg_type, addr_port},
-		 {tdomain, Domain}, {taddress, Address} | Config1],
+		 {tdomain, Domain}, {taddress, Addr} | Config1],
 	    register_agent(UserId, TargetName, ensure_engine_id(Config2))
     end;
 register_agent(UserId, Ip, Port, Config) when is_integer(Port) ->
-    {Domain, Address} = snmp_conf:fix_domain_address(Ip, Port),
-    register_agent(UserId, Domain, Address, Config).
+    Domain = snmpm_config:default_transport_domain(),
+    Addr =
+	case snmp_conf:check_address(Domain, {Ip, Port}) of
+	    ok ->
+		{Ip, Port};
+	    {ok, FixedAddr} ->
+		FixedAddr
+	end,
+    register_agent(UserId, Domain, Addr, Config).
 
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
@@ -1276,7 +1283,10 @@ target_name(DomainIp, AddressPort) ->
     snmpm_config:agent_info(DomainIp, AddressPort, target_name).
 
 mk_target_name(Addr, Port, Config) ->
-    snmpm_config:mk_target_name(Addr, Port, Config).
+    R = snmpm_config:mk_target_name(Addr, Port, Config),
+    p(?MODULE_STRING":mk_target_name(~p, ~p, ~p) -> ~p.~n",
+      [Addr, Port, Config, R]),
+    R.
 
 ensure_engine_id(Config) ->
     case lists:keymember(engine_id, 1, Config) of
@@ -1292,5 +1302,5 @@ ensure_engine_id(Config) ->
 %% p(F) ->
 %%     p(F, []).
 
-%% p(F, A) ->
-%%     io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
+p(F, A) ->
+    io:format("~w:" ++ F ++ "~n", [?MODULE | A]).

@@ -165,7 +165,7 @@
 %%%-------------------------------------------------------------------
 
 default_transport_domain() ->
-    transportDomainUdpIpv4.
+    snmpUDPDomain.
 
 
 start_link(Opts) -> 
@@ -284,9 +284,9 @@ do_user_info(_UserId, BadItem) ->
 
 %% A target-name constructed in this way is a string with the following: 
 %% <IP-address>:<Port>-<Version>
-%% This is intended for backward compatibility and therefor has
+%% This is intended for backward compatibility and therefore has
 %% only support for IPv4 addresses and *no* other transport domain.
-mk_target_name(Domain, Address, Config)
+mk_target_name(Domain, Addr, Config)
   when is_atom(Domain), is_list(Config) ->
     Version = 
 	case lists:keysearch(version, 1, Config) of
@@ -295,26 +295,34 @@ mk_target_name(Domain, Address, Config)
 	    false ->
 		select_lowest_supported_version()
 	end,
-    try fix_address(Domain, Address) of
-	{{A, B, C, D}, P} ->
-	    lists:flatten(
-	      io_lib:format(
-		"~w.~w.~w.~w:~w-~w",
-		[A, B, C, D, P, Version]));
-	{{A, B, C, D, E, F, G, H}, P} ->
-	    lists:flatten(
-	      io_lib:format(
-		"[~.16b:~.16b:~.16b:~.16b:~.16b:~.16b:~.16b:~.16b]:~w-~w",
-		[A, B, C, D, E, F, G, H, P, Version]))
+    try
+	lists:flatten(
+	  io_lib:format(
+	    "~s-~w", [snmp_conf:mk_addr_string({Domain, Addr}), Version]))
     catch
 	_ ->
 	    lists:flatten(
-	      io_lib:format("~p-~w", [Address, Version]))
+	      io_lib:format("~p-~w", [Addr, Version]))
     end;
 mk_target_name(Ip, Port, Config)
   when is_integer(Port), is_list(Config) ->
-    {Domain, Address} = snmp_conf:ip_port_to_domaddr(Ip, Port),
-    mk_target_name(Domain, Address, Config).
+    Domain = default_transport_domain(),
+    try fix_address(Domain, {Ip, Port}) of
+	Address ->
+	    mk_target_name(Domain, Address, Config)
+    catch
+	_ ->
+	    Version =
+		case lists:keysearch(version, 1, Config) of
+		    {value, {_, V}} ->
+			V;
+		    false ->
+			select_lowest_supported_version()
+		end,
+	    lists:flatten(
+	      io_lib:format("~p:~w-~w", [Ip, Port, Version]))
+    end.
+
 
 select_lowest_supported_version() ->
     {ok, Versions} = system_info(versions),
@@ -403,8 +411,9 @@ unregister_agent(UserId, Domain, Address) when is_atom(Domain) ->
 	    {error, not_found}
     end;
 unregister_agent(UserId, Ip, Port) when is_integer(Port) ->
-    try snmp_conf:ip_port_to_domaddr(Ip, Port) of
-	{Domain, Address} ->
+    Domain = default_transport_domain(),
+    try fix_address(Domain, {Ip, Port}) of
+	Address ->
 	    do_unregister_agent(UserId, Domain, Address)
     catch
 	_ ->
@@ -444,19 +453,30 @@ agent_info(Domain, Address, Item) when is_atom(Domain) ->
 	NAddress ->
 	    do_agent_info(Domain, NAddress, Item)
     catch
-	_ ->
+	_Thrown ->
+	    p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
+	      "    ~p",
+	      [Domain, Address, Item, _Thrown, erlang:get_stacktrace()]),
 	    {error, not_found}
     end;
 agent_info(Ip, Port, Item) ->
-    try snmp_conf:ip_port_to_domaddr(Ip, Port) of
-	{Domain, Address} ->
+    p(?MODULE_STRING":agent_info(~p, ~p, ~p) entry~n",
+      [Ip, Port, Item]),
+    Domain = default_transport_domain(),
+    try fix_address(Domain, {Ip, Port}) of
+	Address ->
 	    do_agent_info(Domain, Address, Item)
     catch
-	_ ->
+	_Thrown ->
+	    p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
+	      "    ~p",
+	      [Ip, Port, Item, _Thrown, erlang:get_stacktrace()]),
 	    {error, not_found}
     end.
 
 do_agent_info(Domain, Address, target_name = Item) ->
+    p(?MODULE_STRING":do_agent_info(~p, ~p, ~p) entry~n",
+      [Domain, Address, Item]),
     case ets:lookup(snmpm_agent_table, {Domain, Address, Item}) of
 	[{_, Val}] ->
 	    {ok, Val};
@@ -464,6 +484,8 @@ do_agent_info(Domain, Address, target_name = Item) ->
 	    {error, not_found}
     end;
 do_agent_info(Domain, Address, Item) ->
+    p(?MODULE_STRING":do_agent_info(~p, ~p, ~p) entry~n",
+      [Domain, Address, Item]),
     case do_agent_info(Domain, Address, target_name) of
 	{ok, TargetName} ->
 	    agent_info(TargetName, Item);
@@ -1718,9 +1740,10 @@ check_agent_config(
   {UserId, TargetName, Community, Ip, Port,
    EngineId, Timeout, MaxMessageSize,
    Version, SecModel, SecName, SecLevel}) ->
-    {Domain, Address} = snmp_conf:fix_domain_address(Ip, Port),
+    Domain = default_transport_domain(),
+    Addr = fix_address(Domain, {Ip, Port}),
     check_agent_config(
-      UserId, TargetName, Community, Domain, Address,
+      UserId, TargetName, Community, Domain, Addr,
       EngineId, Timeout, MaxMessageSize,
       Version, SecModel, SecName, SecLevel);
 check_agent_config(
@@ -1735,7 +1758,7 @@ check_agent_config(Agent) ->
     error({bad_agent_config, Agent}).
 
 check_agent_config(
-  UserId, TargetName, Comm, Domain, Address,
+  UserId, TargetName, Comm, Domain, Addr,
   EngineId, Timeout, MMS,
   Version, SecModel, SecName, SecLevel) ->
     ?vdebug("check_agent_config -> entry with"
@@ -1751,7 +1774,7 @@ check_agent_config(
     Conf =
 	[{reg_type,         target_name},
 	 {tdomain,          Domain},
-	 {taddress,         Address},
+	 {taddress,         Addr},
 	 {community,        Comm}, 
 	 {engine_id,        EngineId},
 	 {timeout,          Timeout},
@@ -3511,6 +3534,6 @@ error_msg(F, A) ->
 %% p(F) ->
 %%     p(F, []).
 
-%% p(F, A) ->
-%%     io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
+p(F, A) ->
+    io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
 
