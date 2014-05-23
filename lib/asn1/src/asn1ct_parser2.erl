@@ -2866,13 +2866,14 @@ parse_SequenceValue(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,'{']}}).
 
-parse_SequenceValue([{identifier,_,IdName}|Rest],Acc) ->
+parse_SequenceValue([{identifier,Pos,IdName}|Rest],Acc) ->
     {Value,Rest2} = parse_Value(Rest),
+    SeqTag = #seqtag{pos=Pos,module=get(asn1_module),val=IdName},
     case Rest2 of
 	[{',',_}|Rest3] ->
-	    parse_SequenceValue(Rest3,[{IdName,Value}|Acc]);
+	    parse_SequenceValue(Rest3, [{SeqTag,Value}|Acc]);
 	[{'}',_}|Rest3] ->
-	    {lists:reverse([{IdName,Value}|Acc]),Rest3};
+	    {lists:reverse(Acc, [{SeqTag,Value}]),Rest3};
 	_ ->
 	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
 			       [got,get_token(hd(Rest2)),expected,'}']}})

@@ -73,6 +73,15 @@
 % Externalvaluereference -> modulename '.' typename
 -record('Externalvaluereference',{pos,module,value}).
 
+%% Used to hold a tag for a field in a SEQUENCE/SET. It can also
+%% be used for identifiers in OBJECT IDENTIFIER values, since the
+%% parser cannot always distinguish a SEQUENCE with one element from
+%% an OBJECT IDENTIFIER.
+-record(seqtag,
+	{pos :: integer(),
+	 module :: atom(),
+	 val :: atom()}).
+
 -record(state,{module,mname,type,tname,value,vname,erule,parameters=[],
 	       inputmodules,abscomppath=[],recordtopname=[],options,
 	       sourcedir}).

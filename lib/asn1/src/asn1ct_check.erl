@@ -2307,22 +2307,23 @@ validate_oid(_, S, OID, [Id|Vrest], Acc)
 		    error({value, {"illegal "++to_string(OID),[Id,Vrest],Acc}, S})
 	    end
     end;
-validate_oid(_, S, OID, [{Atom,Value}],[]) 
+validate_oid(_, S, OID, [{#seqtag{module=Mod,val=Atom},Value}], [])
   when is_atom(Atom),is_integer(Value) ->
     %% this case when an OBJECT IDENTIFIER value has been parsed as a 
     %% SEQUENCE value
-    Rec = #'Externalvaluereference'{module=S#state.mname,
+    Rec = #'Externalvaluereference'{module=Mod,
 				    value=Atom},
     validate_objectidentifier1(S, OID, [Rec,Value]);
-validate_oid(_, S, OID, [{Atom,EVRef}],[]) 
+validate_oid(_, S, OID, [{#seqtag{module=Mod,val=Atom},EVRef}], [])
   when is_atom(Atom),is_record(EVRef,'Externalvaluereference') ->
     %% this case when an OBJECT IDENTIFIER value has been parsed as a 
     %% SEQUENCE value OTP-4354
-    Rec = #'Externalvaluereference'{module=EVRef#'Externalvaluereference'.module,
+    Rec = #'Externalvaluereference'{module=Mod,
 				    value=Atom},
     validate_objectidentifier1(S, OID, [Rec,EVRef]);
-validate_oid(_, S, OID, [Atom|Rest],Acc) when is_atom(Atom) ->
-    Rec = #'Externalvaluereference'{module=S#state.mname,
+validate_oid(_, S, OID, [#seqtag{module=Mod,val=Atom}|Rest], Acc)
+  when is_atom(Atom) ->
+    Rec = #'Externalvaluereference'{module=Mod,
 				    value=Atom},
     validate_oid(true,S, OID, [Rec|Rest],Acc);
 validate_oid(_, S, OID, V, Acc) ->
@@ -2704,20 +2705,20 @@ normalize_set(S,Value,Components,NameList) ->
 	    normalized_record('SET',S,SortedVal,Components,NameList)
     end.
 
-sort_value(Components,Value) ->
-    ComponentNames = lists:map(fun(#'ComponentType'{name=Cname}) -> Cname end,
-			       Components),
-    sort_value1(ComponentNames,Value,[]).
-sort_value1(_,V=#'Externalvaluereference'{},_) ->
-    %% sort later, get the value in normalize_seq_or_set
-    V;
-sort_value1([N|Ns],Value,Acc) ->
-    case lists:keysearch(N,1,Value) of
-	{value,V} ->sort_value1(Ns,Value,[V|Acc]);
-	_ -> sort_value1(Ns,Value,Acc)
-    end;
-sort_value1([],_,Acc) ->
-    lists:reverse(Acc).
+sort_value(Components, Value0) when is_list(Value0) ->
+    {Keys0,_} = lists:mapfoldl(fun(#'ComponentType'{name=N}, I) ->
+				       {{N,I},I+1}
+			       end, 0, Components),
+    Keys = gb_trees:from_orddict(orddict:from_list(Keys0)),
+    Value1 = [{case gb_trees:lookup(N, Keys) of
+		   {value,K} -> K;
+		   none -> 'end'
+	       end,Pair} || {#seqtag{val=N},_}=Pair <- Value0],
+    Value = lists:sort(Value1),
+    [Pair || {_,Pair} <- Value];
+sort_value(_Components, #'Externalvaluereference'{}=Value) ->
+    %% Sort later.
+    Value.
 
 sort_val_if_set(['SET'|_],Val,Type) ->
     sort_value(Type,Val);
@@ -2750,9 +2751,9 @@ is_record_normalized(_S,Name,Value,NumComps) when is_tuple(Value) ->
 is_record_normalized(_,_,_,_) ->
     false.
 
-normalize_seq_or_set(SorS,S,[{Cname,V}|Vs],
+normalize_seq_or_set(SorS, S, [{#seqtag{val=Cname},V}|Vs],
 		     [#'ComponentType'{name=Cname,typespec=TS}|Cs],
-		     NameList,Acc) ->
+		     NameList, Acc) ->
     NewNameList = 
 	case TS#type.def of
 	    #'Externaltypereference'{type=TName} ->
