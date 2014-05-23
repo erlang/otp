@@ -471,8 +471,7 @@ encode(dwr = M, Dict0, Mask) ->
                            hop_by_hop_id = Seq},
     Pkt = #diameter_packet{header = Hdr,
                            msg = Msg},
-    #diameter_packet{bin = Bin} = diameter_codec:encode(Dict0, Pkt),
-    Bin;
+    diameter_codec:encode(Dict0, Pkt);
 
 encode(dwa, Dict0, #diameter_packet{header = H, transport_data = TD}
                    = ReqPkt) ->
@@ -541,9 +540,13 @@ send_watchdog(#watchdog{pending = false,
                         dictionary = Dict0,
                         sequence = Mask}
               = S) ->
-    send(TPid, {send, encode(dwr, Dict0, Mask)}),
+    #diameter_packet{bin = Bin} = EPkt = encode(dwr, Dict0, Mask),
+    diameter_traffic:incr(send, EPkt, TPid, Dict0),
+    send(TPid, {send, Bin}),
     ?LOG(send, 'DWR'),
     S#watchdog{pending = true}.
+
+%% Dont' count encode errors since we don't expect any on DWR/DWA.
 
 %% recv/3
 
@@ -563,8 +566,10 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
     ?LOG(recv, 'DWR'),
     DPkt = diameter_codec:decode(Dict0, Pkt),
-    diameter_traffic:incr_error(recv, DPkt, TPid),
+    diameter_traffic:incr(recv, DPkt, TPid, Dict0),
+    diameter_traffic:incr_error(recv, DPkt, TPid, Dict0),
     EPkt = encode(dwa, Dict0, Pkt),
+    diameter_traffic:incr(send, EPkt, TPid, Dict0),
     diameter_traffic:incr_rc(send, EPkt, TPid, Dict0),
 
     send(TPid, {send, EPkt}),
@@ -573,6 +578,7 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
 rcv('DWA', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
     ?LOG(recv, 'DWA'),
+    diameter_traffic:incr(recv, Pkt, TPid, Dict0),
     diameter_traffic:incr_rc(recv,
                              diameter_codec:decode(Dict0, Pkt),
                              TPid,

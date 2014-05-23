@@ -293,7 +293,7 @@ handle_info(T, #state{} = State) ->
             {stop, {shutdown, T}, State}
     catch
         exit: {diameter_codec, encode, T} = Reason ->
-            incr_error(send, T),
+            incr_error(send, T, State#state.dictionary),
             ?LOG(stop, Reason),
             {stop, {shutdown, Reason}, State};
         {?MODULE, Tag, Reason}  ->
@@ -523,7 +523,6 @@ recv(#diameter_packet{header = #diameter_header{} = Hdr}
      = S) ->
     Name = diameter_codec:msg_name(Dict0, Hdr),
     Pid ! {recv, self(), Name, Pkt},
-    diameter_stats:incr({msg_id(Name, Hdr), recv}), %% count received
     rcv(Name, Pkt, S);
 
 recv(#diameter_packet{header = undefined,
@@ -564,20 +563,16 @@ invalid(E, Reason, T) ->
     ?LOG(Reason, T),
     ok.
 
-msg_id({_,_,_} = T, _) ->
-    T;
-msg_id(_, Hdr) ->
-    {_,_,_} = diameter_codec:msg_id(Hdr).
-
 %% rcv/3
 
 %% Incoming CEA.
-rcv('CEA',
+rcv('CEA' = N,
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
                                                hop_by_hop_id = Hid}}
     = Pkt,
     #state{state = {'Wait-CEA', Hid, Eid}}
     = S) ->
+    ?LOG(recv, N),
     handle_CEA(Pkt, S);
 
 %% Incoming CER
@@ -598,29 +593,46 @@ rcv('DPR' = N, Pkt, S) ->
 %% DPA in response to DPR and with the expected identifiers.
 rcv('DPA' = N,
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid}}
+                                               hop_by_hop_id = Hid}
+                            = H}
     = Pkt,
     #state{dictionary = Dict0,
            transport = TPid,
            dpr = {Hid, Eid}}) ->
-
+    ?LOG(recv, N),
+    incr(recv, H, Dict0),
     incr_rc(recv, diameter_codec:decode(Dict0, Pkt), Dict0),
     diameter_peer:close(TPid),
     {stop, N};
 
 %% Ignore anything else, an unsolicited DPA in particular.
+rcv(N, #diameter_packet{header = H}, _)
+  when N == 'CER';
+       N == 'CEA';
+       N == 'DPR';
+       N == 'DPA' ->
+    ?LOG(ignored, N),
+    %% Note that these aren't counted in the normal recv counter.
+    diameter_stats:incr({diameter_codec:msg_id(H), recv, ignored}),
+    ok;
+
 rcv(_, _, _) ->
     ok.
+
+%% incr/3
+
+incr(Dir, Hdr, Dict0) ->
+    diameter_traffic:incr(Dir, Hdr, self(), Dict0).
 
 %% incr_rc/3
 
 incr_rc(Dir, Pkt, Dict0) ->
     diameter_traffic:incr_rc(Dir, Pkt, self(), Dict0).
 
-%% incr_error/2
+%% incr_error/3
 
-incr_error(Dir, Pkt) ->
-    diameter_traffic:incr_error(Dir, Pkt, self()).
+incr_error(Dir, Pkt, Dict0) ->
+    diameter_traffic:incr_error(Dir, Pkt, self(), Dict0).
 
 %% send/2
 
@@ -628,19 +640,23 @@ incr_error(Dir, Pkt) ->
 %% sending. In particular, the watchdog will send DWR as a binary
 %% while messages coming from clients will be in a #diameter_packet.
 send(Pid, Msg) ->
-    diameter_stats:incr({diameter_codec:msg_id(Msg), send}),
     diameter_peer:send(Pid, Msg).
 
 %% handle_request/3
+%%
+%% Incoming CER or DPR.
 
-handle_request(Type, #diameter_packet{} = Pkt, #state{dictionary = D} = S) ->
-    ?LOG(recv, Type),
-    send_answer(Type, diameter_codec:decode(D, Pkt), S).
+handle_request(Name,
+               #diameter_packet{header = H} = Pkt,
+               #state{dictionary = Dict0} = S) ->
+    ?LOG(recv, Name),
+    incr(recv, H, Dict0),
+    send_answer(Name, diameter_codec:decode(Dict0, Pkt), S).
 
 %% send_answer/3
 
 send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
-    incr_error(recv, ReqPkt),
+    incr_error(recv, ReqPkt, Dict),
 
     #diameter_packet{header = H,
                      transport_data = TD}
@@ -660,6 +676,7 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
 
     AnsPkt = diameter_codec:encode(Dict, Pkt),
 
+    incr(send, AnsPkt, Dict),
     incr_rc(send, AnsPkt, Dict),
     send(TPid, AnsPkt),
     ?LOG(send, ans(Type)),
@@ -862,13 +879,12 @@ recv_CER(CER, #state{service = Svc, dictionary = Dict}) ->
 
 %% handle_CEA/2
 
-handle_CEA(#diameter_packet{bin = Bin}
+handle_CEA(#diameter_packet{header = H}
            = Pkt,
            #state{dictionary = Dict0,
                   service = #diameter_service{capabilities = LCaps}}
-           = S)
-  when is_binary(Bin) ->
-    ?LOG(recv, 'CEA'),
+           = S) ->
+    incr(recv, H, Dict0),
 
     #diameter_packet{}
         = DPkt
@@ -909,7 +925,7 @@ handle_CEA(#diameter_packet{bin = Bin}
 %% capabilities exchange could send DIAMETER_LIMITED_SUCCESS = 2002,
 %% even if this isn't required by RFC 3588.
 
-result_code({{'Result-Code', N}, _}) ->
+result_code({'Result-Code', N}) ->
     N;
 result_code(_) ->
     undefined.

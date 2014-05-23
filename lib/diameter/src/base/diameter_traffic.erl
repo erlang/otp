@@ -32,7 +32,8 @@
 -export([receive_message/4]).
 
 %% towards diameter_peer_fsm and diameter_watchdog
--export([incr_error/3,
+-export([incr/4,
+         incr_error/4,
          incr_rc/4]).
 
 %% towards diameter_service
@@ -115,38 +116,52 @@ peer_down(TPid) ->
     failover(TPid).
 
 %% ---------------------------------------------------------------------------
-%% incr_error/3
+%% incr/4
 %% ---------------------------------------------------------------------------
 
-%% A decoded message with errors.
-incr_error(Dir, #diameter_packet{header = H, errors = [_|_]}, TPid) ->
-    incr_error(Dir, H, TPid);
+incr(Dir, #diameter_packet{header = H}, TPid, Dict) ->
+    incr(Dir, H, TPid, Dict);
 
-%% An encoded message with errors and an identifiable header ...
-incr_error(Dir, {_, _, #diameter_header{} = H}, TPid) ->
-    incr_error(Dir, H, TPid);
+incr(Dir, #diameter_header{} = H, TPid, Dict) ->
+    incr(TPid, {msg_id(H, Dict), Dir}).
+
+%% ---------------------------------------------------------------------------
+%% incr_error/4
+%% ---------------------------------------------------------------------------
+
+%% Decoded message without errors.
+incr_error(recv, #diameter_packet{errors = []}, _, _) ->
+    ok;
+
+incr_error(recv = D, #diameter_packet{header = H}, TPid, Dict) ->
+    incr_error(D, H, TPid, Dict);
+
+%% Encoded message with errors and an identifiable header ...
+incr_error(send = D, {_, _, #diameter_header{} = H}, TPid, Dict) ->
+    incr_error(D, H, TPid, Dict);
 
 %% ... or not.
-incr_error(Dir, {_,_}, TPid) ->
-    incr(TPid, {unknown, Dir, error});
+incr_error(send = D, {_,_}, TPid, _) ->
+    incr_error(D, unknown, TPid);
 
-incr_error(Dir, #diameter_header{} = H, TPid) ->
-    incr_error(Dir, diameter_codec:msg_id(H), TPid);
+incr_error(Dir, #diameter_header{} = H, TPid, Dict) ->
+    incr_error(Dir, msg_id(H, Dict), TPid);
 
-incr_error(Dir, {_,_,_} = Id, TPid) ->
-    incr(TPid, {Id, Dir, error});
+incr_error(Dir, Id, TPid, _) ->
+    incr_error(Dir, Id, TPid).
 
-incr_error(_, _, _) ->
-    false.
-
+incr_error(Dir, Id, TPid) ->
+    incr(TPid, {Id, Dir, error}).
+    
 %% ---------------------------------------------------------------------------
 %% incr_rc/4
 %% ---------------------------------------------------------------------------
 
--spec incr_rc(send|recv, #diameter_packet{}, TPid, Dict0)
+-spec incr_rc(send|recv, Pkt, TPid, Dict0)
    -> {Counter, non_neg_integer()}
     | Reason
- when TPid :: pid(),
+ when Pkt :: #diameter_packet{},
+      TPid :: pid(),
       Dict0 :: module(),
       Counter :: {'Result-Code', integer()}
                | {'Experimental-Result', integer(), integer()},
@@ -264,8 +279,9 @@ recv_R({#diameter_app{id = Id, dictionary = Dict} = App, Caps},
        Pkt0,
        Dict0,
        RecvData) ->
+    incr(recv, Pkt0, TPid, Dict),
     Pkt = errors(Id, diameter_codec:decode(Id, Dict, Pkt0)),
-    incr_error(recv, Pkt, TPid),
+    incr_error(recv, Pkt, TPid, Dict),
     {Caps, Pkt, App, recv_R(App, TPid, Dict0, Caps, RecvData, Pkt)};
 %% Note that the decode is different depending on whether or not Id is
 %% ?APP_ID_RELAY.
@@ -656,6 +672,7 @@ reply(Msg, Dict, TPid, Dict0, Fs, ReqPkt) ->
                  TPid,
                  reset(make_answer_packet(Msg, ReqPkt), Dict, Dict0),
                  Fs),
+    incr(send, Pkt, TPid, Dict),
     incr_rc(send, Pkt, Dict, TPid, Dict0),  %% count outgoing
     send(TPid, Pkt).
 
@@ -1040,10 +1057,10 @@ incr_rc(Dir, Pkt, Dict, TPid, Dict0) ->
                      errors = Es}
         = Pkt,
 
-    Id = diameter_codec:msg_id(Hdr),
+    Id = msg_id(Hdr, Dict),
 
     %% Count incoming decode errors.
-    recv /= Dir orelse [] == Es orelse incr_error(Dir, Id, TPid),
+    recv /= Dir orelse [] == Es orelse incr_error(Dir, Id, TPid, Dict),
 
     %% Exit on a missing result code.
     T = rc_counter(Dict, Msg),
@@ -1054,7 +1071,15 @@ incr_rc(Dir, Pkt, Dict, TPid, Dict0) ->
     is_result(RC, E, Dict0)
         orelse ?LOGX(invalid_error_bit, {Dict, Dir, Hdr, RC}),
 
-    incr(TPid, {Id, Dir, Ctr}).
+    incr(TPid, {Id, Dir, Ctr}),
+    Ctr.
+
+%% Only count on known keeps so as not to be vulnerable to attack:
+%% there are 2^32 (application ids) * 2^24 (command codes) * 2 (R-bits)
+%% = 2^57 Ids for an attacker to choose from.
+msg_id(Hdr, Dict) ->
+    {_ApplId, Code, R} = Id = diameter_codec:msg_id(Hdr),
+    choose('' == Dict:msg_name(Code, 0 == R), unknown, Id).
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
@@ -1072,8 +1097,8 @@ is_result(RC, true, _) ->
 
 %% incr/2
 
-incr(TPid, {_, _, T} = Counter) ->
-    {T, diameter_stats:incr(Counter, TPid, 1)}.
+incr(TPid, Counter) ->
+    diameter_stats:incr(Counter, TPid, 1).
 
 %% rc_counter/2
 
@@ -1423,6 +1448,8 @@ handle_answer(SvcName,
 %% want to examine the answer?
 
 handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
+    incr(recv, Pkt, TPid, Dict),
+
     try
         incr_rc(recv, Pkt, Dict, TPid, Dict0) %% count incoming
     of
@@ -1547,7 +1574,7 @@ encode(Dict, TPid, #diameter_packet{bin = undefined} = Pkt) ->
         diameter_codec:encode(Dict, Pkt)
     catch
         exit: {diameter_codec, encode, T} = Reason ->
-            incr_error(send, T, TPid),
+            incr_error(send, T, TPid, Dict),
             exit(Reason)
     end;
 
