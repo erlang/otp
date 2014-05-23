@@ -1276,6 +1276,7 @@ dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
 	    From ! {stopped, self()}
     after 0 ->
 	    {ok, Socket} = ssl:transport_accept(ListenSocket),
+	    ok = ssl:ssl_accept(Socket, infinity),
 	    HandlerPid  = dummy_request_handler(MFA, Socket),
 	    ssl:controlling_process(Socket, HandlerPid),
 	    HandlerPid ! ssl_controller,
