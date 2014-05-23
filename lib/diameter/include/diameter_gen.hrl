@@ -412,6 +412,23 @@ pack_avp(_, Arity, Avp, Acc) ->
 
 %% pack_AVP/3
 
+%% Length failure was induced because of a header/payload length
+%% mismatch. The AVP Length is reset to match the received data if
+%% this AVP is encoded in an answer message, since the length is
+%% computed.
+%%
+%% Data is a truncated header if command_code = undefined, otherwise
+%% payload bytes. The former is padded to the length of a header if
+%% the AVP reaches an outgoing encode in diameter_codec.
+%%
+%% RFC 6733 says that an AVP returned with 5014 can contain a minimal
+%% payload for the AVP's type, but in this case we don't know the
+%% type.
+
+pack_AVP(_, #diameter_avp{data = <<0:1, Data/binary>>} = Avp, Acc) ->
+    {Rec, Failed} = Acc,
+    {Rec, [{5014, Avp#diameter_avp{data = Data}} | Failed]};
+
 pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
     case pack_arity(Name, M) of
         0 ->
