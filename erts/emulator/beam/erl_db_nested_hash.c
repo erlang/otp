@@ -125,7 +125,7 @@
      : ((struct segment **)erts_smp_atomic_read_nob(&(tb)->segtab)))
 #endif
 #define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
-#define NITEMS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->common.nitems))
+#define NKEYS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nkeys))
 
 #define BUCKET(tb, i) SEGTAB(tb)[(i) >> SEGSZ_EXP]->buckets[(i) & SEGSZ_MASK].hterm
 
@@ -1528,7 +1528,7 @@ try_shrink(DbTableNestedHash *tb)
 {
     int nactive = NACTIVE(tb);
     if ((nactive > SEGSZ)
-        && (NITEMS(tb) < (nactive * CHAIN_LEN))
+        && (NKEYS(tb) < (nactive * CHAIN_LEN))
         && !IS_FIXED(tb)) {
         shrink(tb, nactive);
     }
@@ -1709,6 +1709,7 @@ db_mark_all_deleted_nhash(DbTable *tbl)
         remove_chain(tb, rpp, NULL, 1);
     }
     erts_smp_atomic_set_nob(&tb->common.nitems, 0);
+    erts_smp_atomic_set_nob(&tb->nkeys, 0);
     return DB_ERROR_NONE;
 }
 
@@ -1781,6 +1782,7 @@ int
 db_create_nhash(Process *p, DbTable *tbl)
 {
     DbTableNestedHash *tb = &tbl->nested;
+    erts_smp_atomic_init_nob(&tb->nkeys, 0);
     erts_smp_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
     erts_smp_atomic_init_nob(&tb->szm, SEGSZ_MASK);
     erts_smp_atomic_init_nob(&tb->nactive, SEGSZ);
@@ -1890,7 +1892,7 @@ db_next_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 int
 db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
 {
-    int ix, nactive, nitems;
+    int ix, nactive, nkeys;
     Eterm key;
     HashValue hval;
     RootDbTerm **rpp, *rp;
@@ -1916,6 +1918,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
         SET_TRUNK(rp, tp);
         rp->hvalue = hval;
         *rpp = rp;
+        nkeys = erts_smp_atomic_inc_read_nob(&tb->nkeys);
     } else {
         /*
          * Key found
@@ -1926,6 +1929,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
             tp = GET_TRUNK(rp);
             ASSERT(tp != NULL);
             erts_smp_atomic_inc_nob(&tb->common.nitems);
+            erts_smp_atomic_inc_nob(&tb->nkeys);
             /*
              * Recycle the Root and TrunkDbTerms
              */
@@ -1988,14 +1992,12 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
             if (tp->np.nkitems > NESTED_CHAIN_THRESHOLD)
                 *rpp = create_nested_table(tb, rp);
         }
+        nkeys = erts_smp_atomic_read_nob(&tb->nkeys);
     }
-    nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+    erts_smp_atomic_inc_nob(&tb->common.nitems);
     WUNLOCK_HASH(lck);
     nactive = NACTIVE(tb);
-    /* !!!
-     * Instead of 'nitems' we should use the number of distinct keys
-     */
-    if ((nitems > nactive * (CHAIN_LEN+1)) && !IS_FIXED(tb))
+    if ((nkeys > nactive * (CHAIN_LEN+1)) && !IS_FIXED(tb))
         grow(tb, nactive);
     CHECK_TABLES();
     return DB_ERROR_NONE;
@@ -2134,6 +2136,7 @@ db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
         erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        erts_smp_atomic_dec_nob(&tb->nkeys);
         try_shrink(tb);
     }
     *ret = am_true;
@@ -2146,13 +2149,14 @@ db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
 static int
 db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
 {
-    int ix, nitems_diff = 0;
+    int ix, nitems_diff, nkeys_diff;
     Eterm key;
     HashValue hval;
     RootDbTerm **rpp, *rp;
     TrunkDbTerm *tp;
     erts_smp_rwmtx_t *lck;
     DbTableNestedHash *tb = &tbl->nested;
+    nitems_diff = nkeys_diff = 0;
     key = GETKEY(tb, tuple_val(object));
     hval = MAKE_HASH(key);
     lck = WLOCK_HASH(tb, hval);
@@ -2176,13 +2180,16 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
                         if (IS_FIXED(tb)) {
                             if (remove_object_and_nested(tb, rpp, tp,
                                                          ntpp, 1)) {
+                                --nkeys_diff;
                                 /* pseudo-deletion */
                                 add_fixed_deletion(tb, ix);
                                 break;
                             }
                         } else {
-                            if (remove_object_and_nested(tb, rpp, tp, ntpp, 0))
+                            if (remove_object_and_nested(tb, rpp, tp, ntpp, 0)) {
+                                --nkeys_diff;
                                 break;
+                            }
                         }
                         if (!(tb->common.status & (DB_DUPLICATE_BAG)))
                             break;
@@ -2197,13 +2204,16 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
                         --nitems_diff;
                         if (IS_FIXED(tb)) {
                             if (remove_object_no_nested(tb, rpp, &tp, 1)) {
+                                --nkeys_diff;
                                 /* pseudo-deletion */
                                 add_fixed_deletion(tb, ix);
                                 break;
                             }
                         } else {
-                            if (remove_object_no_nested(tb, rpp, &tp, 0))
+                            if (remove_object_no_nested(tb, rpp, &tp, 0)) {
+                                --nkeys_diff;
                                 break;
+                            }
                         }
                         if (!(tb->common.status & (DB_DUPLICATE_BAG)))
                             break;
@@ -2219,7 +2229,10 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
         erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
-        try_shrink(tb);
+        if (nkeys_diff) {
+            erts_smp_atomic_add_nob(&tb->nkeys, nkeys_diff);
+            try_shrink(tb);
+        }
     }
     *ret = am_true;
     return DB_ERROR_NONE;
@@ -2510,6 +2523,7 @@ db_select_delete_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
                 /* fixated by others? */
                 if (NFIXED(tb) > fixated_by_me) {
                     if (remove_object(tb, &rpp, &tp, object, 1)) {
+                        erts_smp_atomic_dec_nob(&tb->nkeys);
                         /* Pseudo deletion */
                         if (slot_ix != last_pseudo_delete) {
                             add_fixed_deletion(tb, slot_ix);
@@ -2517,7 +2531,8 @@ db_select_delete_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
                         }
                     }
                 } else {
-                    remove_object(tb, &rpp, &tp, object, 0);
+                    if (remove_object(tb, &rpp, &tp, object, 0))
+                        erts_smp_atomic_dec_nob(&tb->nkeys);
                 }
                 erts_smp_atomic_dec_nob(&tb->common.nitems);
                 ++got;
@@ -2754,6 +2769,7 @@ db_select_delete_continue_nhash(Process *p, DbTable *tbl,
                 /* fixated by others? */
                 if (NFIXED(tb) > fixated_by_me) {
                     if (remove_object(tb, &rpp, &tp, object, 1)) {
+                        erts_smp_atomic_dec_nob(&tb->nkeys);
                         /* Pseudo deletion */
                         if (slot_ix != last_pseudo_delete) {
                             add_fixed_deletion(tb, slot_ix);
@@ -2761,7 +2777,8 @@ db_select_delete_continue_nhash(Process *p, DbTable *tbl,
                         }
                     }
                 } else {
-                    remove_object(tb, &rpp, &tp, object, 0);
+                    if (remove_object(tb, &rpp, &tp, object, 0))
+                        erts_smp_atomic_dec_nob(&tb->nkeys);
                 }
                 erts_smp_atomic_dec_nob(&tb->common.nitems);
                 ++got;
@@ -3107,16 +3124,17 @@ db_foreach_offheap_nhash(DbTable *tbl,
 }
 
 #ifdef HARDDEBUG
-void
+static void
 db_check_table_nhash(DbTable *tbl)
 {
-    int i, j, na, nk, nk2, nactive;
+    int i, j, na, nk, nk2;
+    int nactive, nitems, nkeys;
     RootDbTerm *rp;
     TrunkDbTerm *tp;
     NestedDbTerm *ntp;
     DbTableNestedHash *tb = &tbl->nested;
+    nkeys = nitems = 0;
     nactive = NACTIVE(tb);
-    /* !!! table should be locked while reading tb->nslots !!! */
     if (nactive > tb->nslots)
         nactive = tb->nslots;
     for (j = 0; j < nactive; ++j) {
@@ -3136,6 +3154,9 @@ db_check_table_nhash(DbTable *tbl)
                 if (nk != 1)
                     erl_exit(1, "Invalid number of terms in pseudo-deleted RootDbTerm in slot %d of ets table", j);
                 nk = 0;
+            } else {
+                ++nkeys;
+                nitems += nk;
             }
             if (HAS_LHT(rp)) {
                 nk2 = 0;
@@ -3147,13 +3168,16 @@ db_check_table_nhash(DbTable *tbl)
                         ntp = ntp->next;
                     }
                 }
-                if (nk2 != nk) {
+                if (nk2 != nk)
                     erl_exit(1, "Invalid number of terms in nested table of slot %d of ets table", j);
-                }
             }
             rp = rp->next;
         }
     }
+    if (erts_smp_atomic_read_nob(&tb->common.nitems) != nitems)
+        erl_exit(1, "Invalid number of items in ets table");
+    if (erts_smp_atomic_read_nob(&tb->nkeys) != nkeys)
+        erl_exit(1, "Invalid number of keys in ets table");
 }
 #endif
 
@@ -3393,7 +3417,8 @@ db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
                     tp = ntp->hdbterm;
                     if ((arityval(tp->dbterm.tpl[0]) == 2) &&
                         EQ(value, tp->dbterm.tpl[2])) {
-                        remove_object_and_nested(tb, rpp, tp, ntpp, 0);
+                        if (remove_object_and_nested(tb, rpp, tp, ntpp, 0))
+                            erts_smp_atomic_dec_nob(&tb->nkeys);
                         erts_smp_atomic_dec_nob(&tb->common.nitems);
                         break;
                     }
@@ -3404,7 +3429,8 @@ db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
                 do {
                     if ((arityval(tp->dbterm.tpl[0]) == 2) &&
                         EQ(value, tp->dbterm.tpl[2])) {
-                        remove_object_no_nested(tb, rpp, &tp, 0);
+                        if (remove_object_no_nested(tb, rpp, &tp, 0))
+                            erts_smp_atomic_dec_nob(&tb->nkeys);
                         erts_smp_atomic_dec_nob(&tb->common.nitems);
                         break;
                     }

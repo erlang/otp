@@ -89,6 +89,7 @@ typedef struct db_table_nested_hash_fine_locks {
 
 typedef struct db_table_nested_hash {
     DbTableCommon common;
+    erts_smp_atomic_t nkeys; /* Number of different keys in table */
 
     erts_smp_atomic_t segtab; /* The segment table (struct segment **) */
     erts_smp_atomic_t szm;    /* current size mask. */
@@ -123,11 +124,6 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail);
 
 int
 db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret);
-
-#ifdef HARDDEBUG
-void
-db_check_table_nhash(DbTable *tbl);
-#endif
 
 /*
  * Function prototypes, looks the same (except the suffix) for all
