@@ -88,16 +88,15 @@ handle_request(#diameter_packet{msg = Req}, _SvcName, {_, Caps})
 
     {reply, Ans};
 
-%% Should really reply to other base messages that we don't support
-%% but simply discard them instead.
-handle_request(#diameter_packet{}, _SvcName, {_,_}) ->
-    discard.
+%% Answer that any other message is unsupported.
+handle_request(#diameter_packet{}, _SvcName, _) ->
+    {answer_message, 3001}.  %% DIAMETER_COMMAND_UNSUPPORTED
 
 %% ---------------------------------------------------------------------------
 
 %% Answer using the record or list encoding depending on
 %% Re-Auth-Request-Type. This is just as an example. You would
-%% typically just choose one, and this has nothing to do with the how
+%% typically just choose one, and this has nothing to do with how
 %% client.erl sends.
 
 answer(0, Id, OH, OR) ->
