@@ -66,10 +66,13 @@ handle_request(#diameter_packet{msg = Req, errors = []}, _SvcName, {_, Caps})
                    origin_realm = {OR,_}}
         = Caps,
     #diameter_base_RAR{'Session-Id' = Id,
-                       'Re-Auth-Request-Type' = RT}
+                       'Re-Auth-Request-Type' = Type}
         = Req,
 
-    {reply, answer(RT, Id, OH, OR)};
+    {reply, #diameter_base_RAA{'Result-Code' = rc(Type),
+                               'Origin-Host' = OH,
+                               'Origin-Realm' = OR,
+                               'Session-Id' = Id}};
 
 %% ... or one that wasn't. 3xxx errors are answered by diameter itself
 %% but these are 5xxx errors for which we must contruct a reply.
@@ -82,31 +85,18 @@ handle_request(#diameter_packet{msg = Req}, _SvcName, {_, Caps})
     #diameter_base_RAR{'Session-Id' = Id}
         = Req,
 
-    Ans = #diameter_base_RAA{'Origin-Host' = OH,
-                             'Origin-Realm' = OR,
-                             'Session-Id' = Id},
-
-    {reply, Ans};
+    {reply, #diameter_base_RAA{'Origin-Host' = OH,
+                               'Origin-Realm' = OR,
+                               'Session-Id' = Id}};
 
 %% Answer that any other message is unsupported.
 handle_request(#diameter_packet{}, _SvcName, _) ->
     {answer_message, 3001}.  %% DIAMETER_COMMAND_UNSUPPORTED
 
-%% ---------------------------------------------------------------------------
+%% Map Re-Auth-Request-Type to Result-Code just for the purpose of
+%% generating different answers.
 
-%% Answer using the record or list encoding depending on
-%% Re-Auth-Request-Type. This is just as an example. You would
-%% typically just choose one, and this has nothing to do with how
-%% client.erl sends.
-
-answer(0, Id, OH, OR) ->
-    #diameter_base_RAA{'Result-Code' = 2001, %% DIAMETER_SUCCESS
-                       'Origin-Host' = OH,
-                       'Origin-Realm' = OR,
-                       'Session-Id' = Id};
-
-answer(_, Id, OH, OR) ->
-    ['RAA', {'Result-Code', 5012}, %% DIAMETER_UNABLE_TO_COMPLY
-            {'Origin-Host', OH},
-            {'Origin-Realm', OR},
-            {'Session-Id', Id}].
+rc(0) ->
+    2001;  %% DIAMETER_SUCCESS
+rc(_) ->
+    5012.  %% DIAMETER_UNABLE_TO_COMPLY
