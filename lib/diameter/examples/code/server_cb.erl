@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,12 +38,10 @@
 
 -define(UNEXPECTED, erlang:error({unexpected, ?MODULE, ?LINE})).
 
-peer_up(_SvcName, {PeerRef, _}, State) ->
-    io:format("up: ~p~n", [PeerRef]),
+peer_up(_SvcName, _Peer, State) ->
     State.
 
-peer_down(_SvcName, {PeerRef, _}, State) ->
-    io:format("down: ~p~n", [PeerRef]),
+peer_down(_SvcName, _Peer, State) ->
     State.
 
 pick_peer(_, _, _SvcName, _State) ->
