@@ -71,6 +71,7 @@
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
          select_count/2, select_delete/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
+         take/2,
          update_counter/3, update_element/3]).
 
 -spec all() -> [Tab] when
@@ -398,6 +399,14 @@ setopts(_, _) ->
       Object :: tuple().
 
 slot(_, _) ->
+    erlang:nif_error(undef).
+
+-spec take(Tab, Key) -> [Object] when
+      Tab :: tab(),
+      Key :: term(),
+      Object :: tuple().
+
+take(_, _) ->
     erlang:nif_error(undef).
 
 -spec update_counter(Tab, Key, UpdateOp) -> Result when

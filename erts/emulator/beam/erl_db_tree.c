@@ -383,6 +383,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 				 Eterm pattern,  Eterm *ret);
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
 					  Eterm continuation, Eterm *ret);
+static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(int to, void *to_arg,
 			  int show, DbTable *tbl);
 static int db_free_table_tree(DbTable *tbl);
@@ -431,6 +432,7 @@ DbTableMethod db_tree =
     db_select_delete_continue_tree,
     db_select_count_tree,
     db_select_count_continue_tree,
+    db_take_tree,
     db_delete_all_objects_tree,
     db_free_table_tree,
     db_free_table_continue_tree,
@@ -1720,6 +1722,28 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 
 #undef RET_TO_BIF
 
+}
+
+static int db_take_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    TreeDbTerm *this;
+
+    *ret = NIL;
+    this = linkout_tree(tb, key, NULL);
+    if (this) {
+        Eterm copy, *hp, *hend;
+
+        hp = HAlloc(p, this->dbterm.size + 2);
+        hend = hp + this->dbterm.size + 2;
+        copy = db_copy_object_from_ets(&tb->common,
+                                       &this->dbterm, &hp, &MSO(p));
+        *ret = CONS(hp, copy, NIL);
+        hp += 2;
+        HRelease(p, hend, hp);
+        free_term(tb, this);
+    }
+    return DB_ERROR_NONE;
 }
 
 /*

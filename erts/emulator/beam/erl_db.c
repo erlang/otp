@@ -753,6 +753,31 @@ BIF_RETTYPE ets_prev_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
+/*
+** take(Tab, Key)
+*/
+BIF_RETTYPE ets_take_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+#ifdef DEBUG
+    int cret;
+#endif
+    Eterm ret;
+    CHECK_TABLES();
+
+    tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC);
+    if (!tb) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+#ifdef DEBUG
+    cret =
+#endif
+        tb->common.meth->db_take(BIF_P, tb, BIF_ARG_2, &ret);
+    ASSERT(cret == DB_ERROR_NONE);
+    db_unlock(tb, LCK_WRITE_REC);
+    BIF_RET(ret);
+}
+
 /* 
 ** update_element(Tab, Key, {Pos, Value})
 ** update_element(Tab, Key, [{Pos, Value}])

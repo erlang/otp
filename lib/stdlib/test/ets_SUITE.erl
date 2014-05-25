@@ -77,6 +77,7 @@
 -export([otp_10182/1]).
 -export([ets_all/1]).
 -export([memory_check_summary/1]).
+-export([take/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -153,6 +154,7 @@ all() ->
      otp_9932,
      otp_9423,
      ets_all,
+     take,
      
      memory_check_summary]. % MUST BE LAST
 
@@ -5581,6 +5583,43 @@ ets_all_run() ->
     false = lists:member(Table, ets:all()),
     ets_all_run().
     
+
+take(Config) when is_list(Config) ->
+    %% Simple test for set tables.
+    T1 = ets_new(a, [set]),
+    [] = ets:take(T1, foo),
+    ets:insert(T1, {foo,bar}),
+    [] = ets:take(T1, bar),
+    [{foo,bar}] = ets:take(T1, foo),
+    [] = ets:tab2list(T1),
+    %% Non-immediate key.
+    ets:insert(T1, {{'not',<<"immediate">>},ok}),
+    [{{'not',<<"immediate">>},ok}] = ets:take(T1, {'not',<<"immediate">>}),
+    %% Same with ordered tables.
+    T2 = ets_new(b, [ordered_set]),
+    [] = ets:take(T2, foo),
+    ets:insert(T2, {foo,bar}),
+    [] = ets:take(T2, bar),
+    [{foo,bar}] = ets:take(T2, foo),
+    [] = ets:tab2list(T2),
+    ets:insert(T2, {{'not',<<"immediate">>},ok}),
+    [{{'not',<<"immediate">>},ok}] = ets:take(T2, {'not',<<"immediate">>}),
+    %% Arithmetically-equal keys.
+    ets:insert(T2, [{1.0,float},{2,integer}]),
+    [{1.0,float}] = ets:take(T2, 1),
+    [{2,integer}] = ets:take(T2, 2.0),
+    [] = ets:tab2list(T2),
+    %% Same with bag.
+    T3 = ets_new(c, [bag]),
+    ets:insert(T3, [{1,1},{1,2},{3,3}]),
+    [{1,1},{1,2}] = ets:take(T3, 1),
+    [{3,3}] = ets:take(T3, 3),
+    [] = ets:tab2list(T3),
+    ets:delete(T1),
+    ets:delete(T2),
+    ets:delete(T3),
+    ok.
+
 
 %
 % Utility functions:

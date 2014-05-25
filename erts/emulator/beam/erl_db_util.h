@@ -165,6 +165,7 @@ typedef struct db_table_method
 				    DbTable* tb, /* [in out] */ 
 				    Eterm continuation, 
 				    Eterm* ret);
+    int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
     int (*db_delete_all_objects)(Process* p,
 				 DbTable* db /* [in out] */ );
