@@ -121,7 +121,7 @@ dict() ->
 dict(_Config) ->
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
-    [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia")),
+    [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
                       RC <- [make(F,D)],
                       RC /= ok].
@@ -228,7 +228,7 @@ code(Config) ->
 install(PrivDir) ->
     Top = install(here(), PrivDir),
     Src = filename:join([Top, "examples", "code"]),
-    Files = find_files([Src], ".*\\.erl"),
+    Files = find_files([Src], ".*\\.erl$"),
     [] = [{F,E} || {_,F} <- Files,
                    {error, _, _} = E <- [compile:file(F, [warnings_as_errors,
                                                           return_errors])]].
@@ -260,7 +260,7 @@ install(Dir, PrivDir) ->
 
     Inc = filename:join([Top, "include"]),
     Gen = filename:join([Top, "src", "gen"]),
-    Files = find_files([Inc, Gen], ".*\\.hrl"),
+    Files = find_files([Inc, Gen], ".*\\.hrl$"),
     [] = [{F,E} || {_,F} <- Files,
                    B <- [filename:basename(F)],
                    D <- [filename:join([TmpInc, B])],
