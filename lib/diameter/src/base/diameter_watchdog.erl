@@ -562,17 +562,20 @@ recv(Name, Pkt, S) ->
 
 rcv('DWR', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
+    DPkt = diameter_codec:decode(Dict0, Pkt),
+    diameter_traffic:incr_error(recv, DPkt, TPid),
     EPkt = encode(dwa, Dict0, Pkt),
-    diameter_traffic:incr_A(send, EPkt, TPid, Dict0),
+    diameter_traffic:incr_rc(send, EPkt, TPid, Dict0),
+
     send(TPid, {send, EPkt}),
     ?LOG(send, 'DWA');
 
 rcv('DWA', Pkt, #watchdog{transport = TPid,
                           dictionary = Dict0}) ->
-    diameter_traffic:incr_A(recv,
-                            diameter_codec:decode(Dict0, Pkt),
-                            TPid,
-                            Dict0);
+    diameter_traffic:incr_rc(recv,
+                             diameter_codec:decode(Dict0, Pkt),
+                             TPid,
+                             Dict0);
 
 rcv(N, _, _)
   when N == 'CER';

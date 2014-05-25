@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,6 +70,12 @@ encode(Mod, #diameter_packet{} = Pkt) ->
     try
         e(Mod, Pkt)
     catch
+        exit: {_, _, #diameter_header{}} = T ->
+            %% Exit with a header in the reason to let the caller
+            %% count encode errors.
+            X = {?MODULE, encode, T},
+            diameter_lib:error_report(X, {?MODULE, encode, [Mod, Pkt]}),
+            exit(X);
         error: Reason ->
             %% Be verbose since a crash report may be truncated and
             %% encode errors are self-inflicted.
@@ -87,53 +93,62 @@ encode(Mod, Msg) ->
                                   msg = Msg}).
 
 e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
-    Avps = encode_avps(As),
-    Length = size(Avps) + 20,
+    try encode_avps(As) of
+        Avps ->
+            Length = size(Avps) + 20,
 
-    #diameter_header{version = Vsn,
-                     cmd_code = Code,
-                     application_id = Aid,
-                     hop_by_hop_id  = Hid,
-                     end_to_end_id  = Eid}
-        = Hdr,
+            #diameter_header{version = Vsn,
+                             cmd_code = Code,
+                             application_id = Aid,
+                             hop_by_hop_id  = Hid,
+                             end_to_end_id  = Eid}
+                = Hdr,
 
-    Flags = make_flags(0, Hdr),
+            Flags = make_flags(0, Hdr),
 
-    Pkt#diameter_packet{header = Hdr,
-                        bin = <<Vsn:8, Length:24,
-                                Flags:8, Code:24,
-                                Aid:32,
-                                Hid:32,
-                                Eid:32,
-                                Avps/binary>>};
+            Pkt#diameter_packet{header = Hdr,
+                                bin = <<Vsn:8, Length:24,
+                                        Flags:8, Code:24,
+                                        Aid:32,
+                                        Hid:32,
+                                        Eid:32,
+                                        Avps/binary>>}
+    catch
+        error: Reason ->
+            exit({Reason, ?STACK, Hdr})
+    end;
 
-e(Mod, #diameter_packet{header = Hdr, msg = Msg} = Pkt) ->
+e(Mod, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
     #diameter_header{version = Vsn,
                      hop_by_hop_id = Hid,
                      end_to_end_id = Eid}
-        = Hdr,
+        = Hdr0,
 
     MsgName = rec2msg(Mod, Msg),
-    {Code, Flags0, Aid} = msg_header(Mod, MsgName, Hdr),
-    Flags = make_flags(Flags0, Hdr),
+    {Code, Flags0, Aid} = msg_header(Mod, MsgName, Hdr0),
+    Flags = make_flags(Flags0, Hdr0),
+    Hdr = Hdr0#diameter_header{cmd_code = Code,
+                               application_id = Aid,
+                               is_request       = 0 /= ?MASK(7, Flags),
+                               is_proxiable     = 0 /= ?MASK(6, Flags),
+                               is_error         = 0 /= ?MASK(5, Flags),
+                               is_retransmitted = 0 /= ?MASK(4, Flags)},
+    Values = values(Msg),
 
-    Avps = encode_avps(Mod, MsgName, values(Msg)),
-    Length = size(Avps) + 20,
-
-    Pkt#diameter_packet{header = Hdr#diameter_header
-                                    {length = Length,
-                                     cmd_code = Code,
-                                     application_id = Aid,
-                                     is_request       = 0 /= ?MASK(7, Flags),
-                                     is_proxiable     = 0 /= ?MASK(6, Flags),
-                                     is_error         = 0 /= ?MASK(5, Flags),
-                                     is_retransmitted = 0 /= ?MASK(4, Flags)},
-                        bin = <<Vsn:8, Length:24,
-                                Flags:8, Code:24,
-                                Aid:32,
-                                Hid:32,
-                                Eid:32,
-                                Avps/binary>>}.
+    try encode_avps(Mod, MsgName, Values) of
+        Avps ->
+            Length = size(Avps) + 20,
+            Pkt#diameter_packet{header = Hdr#diameter_header{length = Length},
+                                bin = <<Vsn:8, Length:24,
+                                        Flags:8, Code:24,
+                                        Aid:32,
+                                        Hid:32,
+                                        Eid:32,
+                                        Avps/binary>>}
+    catch
+        error: Reason ->
+            exit({Reason, ?STACK, Hdr})
+    end.
 
 %% make_flags/2
 
