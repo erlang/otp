@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -73,7 +73,7 @@
 %% Valid values for Disconnect-Cause.
 -define(CAUSES, [0, rebooting, 1, busy, 2, goaway]).
 
-%% Establish one client connection for element of this list,
+%% Establish one client connection for each element of this list,
 %% configured with disconnect/5 as disconnect_cb and returning the
 %% specified value.
 -define(RETURNS,
@@ -129,8 +129,8 @@ stop_service(Config) ->
     service == group(Config)
         andalso (ok = diameter:stop_service(?CLIENT)).
 
-%% Check for callbacks and stop the service. (Not the other way around
-%% for the timing reason explained below.)
+%% Check for callbacks before diameter:stop/0, not the other way around
+%% for the timing reason explained below.
 check(Config) ->
     Grp = group(Config),
     [Pid | Refs] = ?util:read_priv(Config, config),
