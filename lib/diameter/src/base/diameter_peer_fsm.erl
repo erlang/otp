@@ -609,15 +609,24 @@ rcv('DPR' = N, Pkt, S) ->
 %% DPA in response to DPR and with the expected identifiers.
 rcv('DPA' = N,
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid}},
-    #state{transport = TPid,
+                                               hop_by_hop_id = Hid}}
+    = Pkt,
+    #state{dictionary = Dict0,
+           transport = TPid,
            dpr = {Hid, Eid}}) ->
+
+    incr_A(recv, diameter_codec:decode(Dict0, Pkt), Dict0),
     diameter_peer:close(TPid),
     {stop, N};
 
 %% Ignore anything else, an unsolicited DPA in particular.
 rcv(_, _, _) ->
     ok.
+
+%% incr_A/3
+
+incr_A(Dir, Pkt, Dict0) ->
+    diameter_traffic:incr_A(Dir, Pkt, self(), Dict0).
 
 %% send/2
 
@@ -645,15 +654,18 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
 
     %% An answer message clears the R and T flags and retains the P
     %% flag. The E flag is set at encode.
-    Pkt = #diameter_packet{header
-                           = H#diameter_header{version = ?DIAMETER_VERSION,
-                                               is_request = false,
-                                               is_error = undefined,
-                                               is_retransmitted = false},
-                           msg = Msg,
-                           transport_data = TD},
+    Pkt0 = #diameter_packet{header
+                            = H#diameter_header{version = ?DIAMETER_VERSION,
+                                                is_request = false,
+                                                is_error = undefined,
+                                                is_retransmitted = false},
+                            msg = Msg,
+                            transport_data = TD},
 
-    send(TPid, diameter_codec:encode(Dict, Pkt)),
+    Pkt = diameter_codec:encode(Dict, Pkt0),
+
+    incr_A(send, Pkt, Dict),
+    send(TPid, Pkt),
     eval(PostF, S).
 
 eval([F|A], S) ->
@@ -734,7 +746,7 @@ rejected(discard, T, _) ->
 rejected({N, Es}, T, S) ->
     {answer('CER', N, failed_avp(N, Es), S), T};
 rejected(N, T, S) ->
-    rejected({N, []}, T, S).
+    {answer('CER', N, [], S), T}.
 
 failed_avp(RC, [{RC, Avp} | _]) ->
     [{'Failed-AVP', [[{'AVP', [Avp]}]]}];
@@ -848,7 +860,7 @@ recv_CER(CER, #state{service = Svc, dictionary = Dict}) ->
             close({'CER', CER, Svc, Dict, Reason})
     end.
 
-%% handle_CEA/1
+%% handle_CEA/2
 
 handle_CEA(#diameter_packet{bin = Bin}
            = Pkt,
@@ -858,17 +870,17 @@ handle_CEA(#diameter_packet{bin = Bin}
   when is_binary(Bin) ->
     ?LOG(recv, 'CEA'),
 
-    #diameter_packet{msg = CEA}
+    #diameter_packet{}
         = DPkt
         = diameter_codec:decode(Dict0, Pkt),
+
+    RC = result_code(incr_A(recv, DPkt, Dict0)),
 
     {SApps, IS, RCaps} = recv_CEA(DPkt, S),
 
     #diameter_caps{origin_host = {OH, DH}}
         = Caps
         = capz(LCaps, RCaps),
-
-    RC = Dict0:'#get-'('Result-Code', CEA),
 
     %% Ensure that we don't already have a connection to the peer in
     %% question. This isn't the peer election of 3588 except in the
@@ -877,6 +889,8 @@ handle_CEA(#diameter_packet{bin = Bin}
     %% connection with the peer.
 
     try
+        is_integer(RC)
+            orelse ?THROW(no_result_code),
         ?IS_SUCCESS(RC)
             orelse ?THROW(RC),
         [] == SApps
@@ -896,6 +910,11 @@ handle_CEA(#diameter_packet{bin = Bin}
 %% required. It's not unimaginable that a peer agreeing to TLS after
 %% capabilities exchange could send DIAMETER_LIMITED_SUCCESS = 2002,
 %% even if this isn't required by RFC 3588.
+
+result_code({{'Result-Code', N}, _}) ->
+    N;
+result_code(_) ->
+    undefined.
 
 %% recv_CEA/2
 

@@ -31,6 +31,9 @@
 %% towards diameter_watchdog
 -export([receive_message/4]).
 
+%% towards diameter_peer_fsm and diameter_watchdog
+-export([incr_A/4]).
+
 %% towards diameter_service
 -export([make_recvdata/1,
          peer_up/1,
@@ -107,6 +110,29 @@ peer_up(TPid) ->
 peer_down(TPid) ->
     ets:delete(?REQUEST_TABLE, TPid),
     failover(TPid).
+
+%% ---------------------------------------------------------------------------
+%% incr_A/4
+%% ---------------------------------------------------------------------------
+
+-spec incr_A(send|recv, #diameter_packet{}, TPid, Dict0)
+   -> {Counter, non_neg_integer()}
+    | Reason
+ when TPid :: pid(),
+      Dict0 :: module(),
+      Counter :: {'Result-Code', integer()}
+               | {'Experimental-Result', integer(), integer()},
+      Reason :: atom().
+
+incr_A(Dir, Pkt, TPid, Dict0) ->
+    try
+        incr_A(Dir, Pkt, Dict0, TPid, Dict0)
+    catch
+        exit: {invalid_error_bit = E, _} ->
+            E;
+        exit: no_result_code = E ->
+            E
+    end.
 
 %% ---------------------------------------------------------------------------
 %% pending/1
@@ -597,7 +623,7 @@ reply(Msg, Dict, TPid, Dict0, Fs, ReqPkt) ->
     Pkt = encode(Dict,
                  reset(make_answer_packet(Msg, ReqPkt), Dict, Dict0),
                  Fs),
-    incr(send, Pkt, Dict, TPid, Dict0),  %% count outgoing result codes
+    incr_A(send, Pkt, Dict, TPid, Dict0),  %% count outgoing result codes
     send(TPid, Pkt).
 
 %% reset/3
@@ -962,35 +988,38 @@ find(Pred, [H|T]) ->
 %%    code, the missing vendor id, and a zero filled payload of the minimum
 %%    required length for the omitted AVP will be added.
 
-%% incr/4
+%% incr_A/5
 %%
 %% Increment a stats counter for result codes in incoming and outgoing
 %% answers.
 
 %% Outgoing message as binary: don't count. (Sending binaries is only
 %% partially supported.)
-incr(_, #diameter_packet{msg = undefined}, _, _, _) ->
-    ok;
+incr_A(_, #diameter_packet{msg = undefined = No}, _, _, _) ->
+    No;
 
 %% Incoming with decode errors.
-incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid, _) ->
+incr_A(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid, _) ->
     incr(TPid, {diameter_codec:msg_id(H), D, error});
 
 %% Incoming without errors or outgoing. Outgoing with encode errors
 %% never gets here since encode fails.
-incr(Dir, Pkt, Dict, TPid, Dict0) ->
+incr_A(Dir, Pkt, Dict, TPid, Dict0) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
-                     msg = Rec}
+                     msg = Msg}
         = Pkt,
 
-    RC = int(get_avp_value(Dict, 'Result-Code', Rec)),
+    %% Exit on a missing result code.
+    T = rc_counter(Dict, Msg),
+    T == false andalso x(no_result_code, answer, [Dir, Pkt]),
+    {Ctr, RC} = T,
 
-    %% Exit on an improper Result-Code.
+    %% Or on an inappropriate value.
     is_result(RC, E, Dict0)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    irc(TPid, Hdr, Dir, rc_counter(Dict, Rec, RC)).
+    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
@@ -1006,16 +1035,10 @@ is_result(RC, true, _) ->
         orelse
         5000 =< RC andalso RC < 6000.
 
-irc(_, _, _, undefined) ->
-    false;
-
-irc(TPid, Hdr, Dir, Ctr) ->
-    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
-
 %% incr/2
 
-incr(TPid, Counter) ->
-    diameter_stats:incr(Counter, TPid, 1).
+incr(TPid, {_, _, T} = Counter) ->
+    {T, diameter_stats:incr(Counter, TPid, 1)}.
 
 %% rc_counter/2
 
@@ -1024,14 +1047,16 @@ incr(TPid, Counter) ->
 %%   All Diameter answer messages defined in vendor-specific
 %%   applications MUST include either one Result-Code AVP or one
 %%   Experimental-Result AVP.
-%%
-%% Maintain statistics assuming one or the other, not both, which is
-%% surely the intent of the RFC.
 
-rc_counter(Dict, Rec, undefined) ->
-    rcc(get_avp_value(Dict, 'Experimental-Result', Rec));
-rc_counter(_, _, RC) ->
-    {'Result-Code', RC}.
+rc_counter(Dict, Msg) ->
+    rcc(Dict, Msg, int(get_avp_value(Dict, 'Result-Code', Msg))).
+
+rcc(Dict, Msg, undefined) ->
+    rcc(get_avp_value(Dict, 'Experimental-Result', Msg));
+
+rcc(_, _, N)
+  when is_integer(N) ->
+    {{'Result-Code', N}, N}.
 
 %% Outgoing answers may be in any of the forms messages can be sent
 %% in. Incoming messages will be records. We're assuming here that the
@@ -1039,12 +1064,12 @@ rc_counter(_, _, RC) ->
 
 rcc([{_,_,N} = T | _])
   when is_integer(N) ->
-    T;
+    {T,N};
 rcc({_,_,N} = T)
   when is_integer(N) ->
-    T;
+    {T,N};
 rcc(_) ->
-    undefined.
+    false.
 
 %% Extract the first good looking integer. There's no guarantee
 %% that what we're looking for has arity 1.
@@ -1371,10 +1396,16 @@ handle_answer(SvcName,
 
 handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
     try
-        incr(recv, Pkt, Dict, TPid, Dict0) %% count incoming result codes
+        incr_A(recv, Pkt, Dict, TPid, Dict0) %% count incoming result codes
     of
         _ -> answer(Pkt, SvcName, App, Req)
     catch
+        exit: no_result_code ->
+            %% RFC 6733 requires one of Result-Code or
+            %% Experimental-Result, but the decode will have detected
+            %% a missing AVP. If both are optional in the dictionary
+            %% then this isn't a decode error: just continue on.
+            answer(Pkt, SvcName, App, Req);
         exit: {invalid_error_bit, RC} ->
             #diameter_packet{errors = Es}
                 = Pkt,
