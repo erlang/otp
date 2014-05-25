@@ -499,9 +499,21 @@ transition(Req, S) ->
 %% # terminate/2
 %% ---------------------------------------------------------------------------
 
-terminate(Reason, #state{service_name = Name} = S) ->
+terminate(Reason, #state{service_name = Name, peerT = PeerT} = S) ->
     send_event(Name, stop),
     ets:delete(?STATE_TABLE, Name),
+
+    %% Communicate pending loss of any peers that connection_down/3
+    %% won't. This is needed when stopping a service since we don't
+    %% wait for watchdog state changes to take care of if. That this
+    %% takes place after deleting the state entry ensures that the
+    %% resulting failover by request processes accomplishes nothing.
+    ets:foldl(fun(#peer{pid = TPid}, _) ->
+                      diameter_traffic:peer_down(TPid)
+              end,
+              ok,
+              PeerT),
+
     shutdown == Reason  %% application shutdown
         andalso shutdown(application, S).
 
@@ -869,7 +881,7 @@ watchdog(TPid, [], ?WD_OKAY, ?WD_SUSPECT = To, Wd, State) ->
 
 %% Watchdog has lost its connection.
 watchdog(TPid, [], _, ?WD_DOWN = To, Wd, #state{peerT = PeerT} = S) ->
-    close(Wd, S),
+    close(Wd),
     watchdog_down(Wd, To, S),
     ets:delete(PeerT, TPid);
 
@@ -1187,26 +1199,16 @@ tc(false = No, _, _) ->  %% removed
 %% another watchdog to be able to detect that it should transition
 %% from initial into reopen rather than okay. That someone is either
 %% the accepting watchdog upon reception of a CER from the previously
-%% connected peer, or us after connect_timer timeout.
+%% connected peer, or us after connect_timer timeout or immediately.
 
-close(#watchdog{type = connect}, _) ->
+close(#watchdog{type = connect}) ->
     ok;
+
 close(#watchdog{type = accept,
                 pid = Pid,
-                ref = Ref,
-                options = Opts},
-      #state{service_name = SvcName}) ->
-    c(Pid, diameter_config:have_transport(SvcName, Ref), Opts).
-
-%% Tell watchdog to (maybe) die later ...
-c(Pid, true, Opts) ->
+                options = Opts}) ->
     Tc = connect_timer(Opts, 2*?DEFAULT_TC),
-    erlang:send_after(Tc, Pid, close);
-
-%% ... or now.
-c(Pid, false, _Opts) ->
-    Pid ! close.
-
+    erlang:send_after(Tc, Pid, close).
 %% The RFC's only document the behaviour of Tc, our connect_timer,
 %% for the establishment of connections but we also give
 %% connect_timer semantics for a listener, being the time within
