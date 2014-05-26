@@ -126,9 +126,11 @@
 	 map_es/1,
 	 map_arg/1,
 	 update_c_map/3,
+	 c_map/1, is_c_map_empty/1,
 	 ann_c_map/2, ann_c_map/3,
 	 map_pair_op/1,map_pair_key/1,map_pair_val/1,
 	 update_c_map_pair/4,
+	 c_map_pair/2,
 	 ann_c_map_pair/4
      ]).
 
@@ -1582,8 +1584,19 @@ map_es(#c_map{es = Es}) ->
 
 -spec map_arg(c_map()) -> c_map() | c_literal().
 
-map_arg(#c_map{arg = M}) ->
+map_arg(#c_map{arg=M}) ->
     M.
+
+-spec c_map([c_map_pair()]) -> c_map().
+
+c_map(Pairs) ->
+    #c_map{es=Pairs}.
+
+-spec is_c_map_empty(c_map() | c_literal()) -> boolean().
+
+is_c_map_empty(#c_map{ es=[] }) -> true;
+is_c_map_empty(#c_literal{val=M}) when is_map(M),map_size(M) =:= 0 -> true;
+is_c_map_empty(_) -> false.
 
 -spec ann_c_map([term()], [cerl()]) -> c_map() | c_literal().
 
@@ -1643,6 +1656,11 @@ update_c_map(Old,M,Es) ->
 map_pair_key(#c_map_pair{key=K}) -> K.
 map_pair_val(#c_map_pair{val=V}) -> V.
 map_pair_op(#c_map_pair{op=Op}) -> Op.
+
+-spec c_map_pair(cerl(), cerl()) -> c_map_pair().
+
+c_map_pair(Key,Val) ->
+    #c_map_pair{op=#c_literal{val=assoc},key=Key,val=Val}.
 
 -spec ann_c_map_pair([term()], cerl(), cerl(), cerl()) ->
         c_map_pair().
