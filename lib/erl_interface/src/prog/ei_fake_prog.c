@@ -110,6 +110,12 @@ int main(void)
   ei_receive_msg(intx, &emsg, &eix);
   ei_xreceive_msg(intx, &emsg, &eix);
 
+  ei_receive_wt(intx, ucharp, intx);
+  ei_receive_msg_wt(intx, &emsg, &eix);
+  ei_xreceive_msg_wt(intx, &emsg, &eix);
+
+  ei_send_tock(intx);
+
   ei_send(intx, &epid, charp, intx);
   ei_reg_send(&xec, intx, charp, charp, intx);
 
