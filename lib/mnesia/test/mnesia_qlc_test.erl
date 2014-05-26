@@ -264,7 +264,7 @@ atomic_eval(Config) ->
     
     ?match({1,[{a,{a,9},91}]}, ok(Restart,[Pid3, Cursor])),
     QC1 = ok(fun() -> qlc:cursor(Q1) end, []),
-    ?match({'EXIT', _},  qlc:next_answers(QC1)),
+    ?match({'EXIT', _},  (catch qlc:next_answers(QC1))),
     ?match({aborted,_},  ok(fun()->qlc:next_answers(QC1)end,[])),
     ?verify_mnesia(Ns, []).
 

@@ -46,15 +46,32 @@
 
 -define(match(ExpectedRes,Expr),
 	fun() ->
-		AcTuAlReS = (catch (Expr)),
-		case AcTuAlReS of
-		    ExpectedRes ->
-			?verbose("ok, ~n Result as expected:~p~n",[AcTuAlReS]),
-			{success,AcTuAlReS};
-		    _ ->
-			?error("Not Matching Actual result was:~n ~p~n",
-			       [AcTuAlReS]),
-			{fail,AcTuAlReS}
+		try Expr of
+		    _AR_0 = ExpectedRes ->
+			?verbose("ok, ~n Result as expected:~p~n",[_AR_0]),
+			{success,_AR_0};
+		    _AR_0 ->
+			?error("Not Matching Actual result was:~n ~p~n",[_AR_0]),
+			{fail,_AR_0}
+		catch
+		    exit:{aborted, _ER_1} when
+			  element(1, _ER_1) =:= node_not_running;
+			  element(1, _ER_1) =:= bad_commit;
+			  element(1, _ER_1) =:= cyclic ->
+			%% Need to re-raise these to restart transaction
+			erlang:raise(exit, {aborted, _ER_1}, erlang:get_stacktrace());
+		    exit:_AR_1 ->
+			case fun(_AR_EXIT_) -> {'EXIT', _AR_EXIT_} end(_AR_1) of
+			    _AR_2 = ExpectedRes ->
+				?verbose("ok, ~n Result as expected:~p~n",[_AR_2]),
+				{success,_AR_2};
+			    _AR_2 ->
+				?error("Not Matching Actual result was:~n ~p~n", [_AR_2]),
+				{fail,_AR_2}
+			end;
+		    _:_AR_1 ->
+			?error("Not Matching Actual result was:~n ~p~n", [_AR_1]),
+			{fail,_AR_1}
 		end
 	end()).
 

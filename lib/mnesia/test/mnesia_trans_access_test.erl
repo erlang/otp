@@ -677,7 +677,7 @@ check_res(sync_dirty, Res) when is_list(Res) ->
 check_res(ets, Res) when is_list(Res) ->
     Res;
 check_res(Type,Res) ->
-    ?match(bug,{Type,Res}).
+    ?match({bug, bug},{Type,Res}).
 
 read_op(Oid) ->
     case lists:reverse(mnesia:read(Oid)) of
@@ -1118,10 +1118,7 @@ create_live_table_index(Config, Storage) ->
     ValPos = 3,
     mnesia:dirty_write({Tab, 1, 2}),
 
-    Fun = fun() ->
-                  ?match(ok, mnesia:write({Tab, 2, 2})),
-                  ok
-          end,
+    Fun = fun() -> mnesia:write({Tab, 2, 2}) end,
     ?match({atomic, ok}, mnesia:transaction(Fun)),
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos)),
     IRead = fun() -> lists:sort(mnesia:index_read(Tab, 2, ValPos)) end,
