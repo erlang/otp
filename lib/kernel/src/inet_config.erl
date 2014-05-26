@@ -53,11 +53,12 @@ init() ->
     %% for it ourselves.
 
     OsType = os:type(),
-    do_load_resolv(OsType, erl_dist_mode()),
+    DistMode = erl_dist_mode(),
+    do_load_resolv(OsType, DistMode),
 
     case OsType of
 	{unix,Type} ->
-	    if Type =:= linux ->
+	    if Type =:= linux, DistMode =:= longnames ->
 		    %% It may be the case that the domain name was not set
 		    %% because the hostname was short. But NOW we can look it
 		    %% up and get the long name and the domain name from it.
