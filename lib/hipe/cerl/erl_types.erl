@@ -4373,7 +4373,9 @@ get_mod_record([{FieldName, DeclType}|Left1],
 	       [{FieldName, ModType}|Left2], Acc) ->
   ModTypeNoVars = subst_all_vars_to_any(ModType),
   case
-    contains_remote(ModTypeNoVars) orelse t_is_subtype(ModTypeNoVars, DeclType)
+    contains_remote(ModTypeNoVars)
+    orelse contains_remote(DeclType)
+    orelse t_is_subtype(ModTypeNoVars, DeclType)
   of
     false -> {error, FieldName};
     true -> get_mod_record(Left1, Left2, [{FieldName, ModType}|Acc])
