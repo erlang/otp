@@ -112,7 +112,14 @@ const char* ei_getfdcookie(int fd);
 short       ei_thiscreation(const ei_cnode* ec);
 const char *ei_thiscookie(const ei_cnode* ec);
 
+int ei_do_receive_msg_wt(int fd, int staticbuffer_p, 
+		      erlang_msg* msg, ei_x_buff* x, unsigned ms, int auto_tick);
+
 int ei_do_receive_msg(int fd, int staticbuffer_p, 
 		      erlang_msg* msg, ei_x_buff* x, unsigned ms);
+
+int ei_receive_tmo_wt_actual(int fd, unsigned char *bufp, int bufsize, unsigned ms, int auto_tick);
+
+int ei_receive_wt_actual(int fd, unsigned char *bufp, int bufsize, int auto_tick);
 
 #endif /* _EI_CONNECT_H */

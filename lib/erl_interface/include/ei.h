@@ -99,6 +99,9 @@
 #define ERL_DEMONITOR_P    20
 #define ERL_MONITOR_P_EXIT 21
 
+/* For enabling / disabling auto tick */
+#define ERL_TICK_AUTO      0
+#define ERL_TICK_MANUAL    1
 
 /* -------------------------------------------------------------------- */
 /*           Defines used for ei_get_type_internal() output             */
@@ -329,6 +332,17 @@ int ei_receive_msg(int fd, erlang_msg* msg, ei_x_buff* x);
 int ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned ms);
 int ei_xreceive_msg(int fd, erlang_msg* msg, ei_x_buff* x);
 int ei_xreceive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned ms);
+
+int ei_receive_wt(int fd, unsigned char *bufp, int bufsize);
+int ei_receive_tmo_wt(int fd, unsigned char *bufp, int bufsize, unsigned ms);
+int ei_receive_msg_wt(int fd, erlang_msg* msg, ei_x_buff* x);
+int ei_receive_msg_tmo_wt(int fd, erlang_msg* msg, ei_x_buff* x, unsigned ms);
+int ei_xreceive_msg_wt(int fd, erlang_msg *msg, ei_x_buff *x);
+int ei_xreceive_msg_tmo_wt(int fd, erlang_msg *msg, ei_x_buff *x, unsigned ms);
+
+
+void ei_send_tock_tmo(int fd, int ms);
+void ei_send_tock(int fd);
 
 int ei_send(int fd, erlang_pid* to, char* buf, int len);
 int ei_send_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned ms);

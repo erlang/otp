@@ -20,7 +20,9 @@
 #define _EIRECV_H
 
 /* Internal interface */
+int ei_recv_internal_wt(int fd, char **mbufp, int *bufsz, erlang_msg *msg,
+		     int *msglenp, int staticbufp, unsigned ms, int auto_tick);
+
 int ei_recv_internal(int fd, char **mbufp, int *bufsz, erlang_msg *msg,
 		     int *msglenp, int staticbufp, unsigned ms);
-
 #endif /* _EIRECV_H */
