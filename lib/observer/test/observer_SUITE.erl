@@ -45,7 +45,7 @@ all() ->
 groups() ->
     [{gui, [],
       [basic
-      %% , process_win, table_win
+      , process_win, table_win
       ]
      }].
 
@@ -107,6 +107,10 @@ appup_file(Config) when is_list(Config) ->
 basic(suite) -> [];
 basic(doc) -> [""];
 basic(Config) when is_list(Config) ->
+    timer:send_after(100, "foobar"), %% Otherwise the timer sever gets added to procs
+    ProcsBefore = processes(),
+    NumProcsBefore = length(ProcsBefore),
+
     ok = observer:start(),
     Notebook = setup_whitebox_testing(),
 
@@ -116,11 +120,11 @@ basic(Config) when is_list(Config) ->
     0 = wxNotebook:getSelection(Notebook),
     timer:sleep(500),
     Check = fun(N, TestMore) ->
-		    ok = wxNotebook:advanceSelection(Notebook),
 		    TestMore andalso
 			test_page(wxNotebook:getPageText(Notebook, N),
 				  wxNotebook:getCurrentPage(Notebook)),
-		    timer:sleep(200)
+		    timer:sleep(200),
+		    ok = wxNotebook:advanceSelection(Notebook)
 	    end,
     %% Just verify that we can toogle trough all pages
     [_|_] = [Check(N, false) || N <- lists:seq(1, Count)],
@@ -128,9 +132,22 @@ basic(Config) when is_list(Config) ->
     Frame = get_top_level_parent(Notebook),
     {W,H} = wxWindow:getSize(Frame),
     wxWindow:setSize(Frame, W+10, H+10),
-    [_|_] = [Check(N, true) || N <- lists:seq(1, Count)],
+    [_|_] = [Check(N, true) || N <- lists:seq(0, Count-1)],
 
-    ok = observer:stop().
+    ok = observer:stop(),
+    timer:sleep(2000), %% stop is async
+    ProcsAfter = processes(),
+    NumProcsAfter = length(ProcsAfter),
+    if NumProcsAfter=/=NumProcsBefore ->
+	    ct:log("Before but not after:~n~p~n",
+		   [[{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter]]),
+	    ct:log("After but not before:~n~p~n",
+		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
+	    ct:fail("leaking processes");
+       true ->
+	    ok
+    end,
+    ok.
 
 test_page("Load Charts" ++ _, _Window) ->
     %% Just let it display some info and hopefully it doesn't crash
@@ -163,8 +180,11 @@ test_page("Processes" ++ _, _Window) ->
     timer:sleep(1000),  %% Give it time to refresh
     ok;
 
-test_page("Table" ++ _, _Window) ->
+test_page(_Title = "Table" ++ _, _Window) ->
     Tables = [ets:new(list_to_atom("Test-" ++ [C]), [public]) || C <- lists:seq($A, $Z)],
+    Table = lists:nth(3, Tables),
+    ets:insert(Table, [{N,100-N} || N <- lists:seq(1,100)]),
+
     Active = get_active(),
     Active ! refresh_interval,
     ChangeSort = fun(N) ->
@@ -174,8 +194,6 @@ test_page("Table" ++ _, _Window) ->
 		 end,
     [ChangeSort(N) || N <- lists:seq(1,5) ++ [0]],
     timer:sleep(1000),
-    Table = lists:nth(3, Tables),
-    ets:insert(Table, [{N,100-N} || N <- lists:seq(1,100)]),
     Focus = #wx{event=#wxList{type=command_list_item_selected, itemIndex=2}},
     Active ! Focus,
     Activate = #wx{event=#wxList{type=command_list_item_activated, itemIndex=2}},
@@ -226,12 +244,10 @@ table_win(Config) when is_list(Config) ->
     %% Modal can not test edit..
     %% TPid = wx_object:get_pid(TObj),
     %% TPid ! #wx{event=#wxList{type=command_list_item_activated, itemIndex=12}},
-    timer:sleep(2000),
+    timer:sleep(3000),
     wx_object:get_pid(TObj) ! #wx{event=#wxClose{type=close_window}},
     observer:stop(),
     ok.
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
