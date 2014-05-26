@@ -1209,7 +1209,7 @@ init_ssl(Group, Config) ->
     
     CertK1 = {_Cert1, _} = erl_make_certs:make_cert([{issuer, CaKey}]),
     CertK2 = {_Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
-						   {digest, md5}, 
+						   {digest, sha1},
 						   {extensions, false}]),
     ok = erl_make_certs:write_pem(PrivDir, "public_key_cert", CertK2),
 

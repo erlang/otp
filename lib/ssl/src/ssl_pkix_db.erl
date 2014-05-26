@@ -81,10 +81,10 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
 	    {ok, Certs}
     end.
 
-lookup_cached_pem([_, _, PemChache], MD5) ->
-    lookup_cached_pem(PemChache, MD5);
-lookup_cached_pem(PemChache, MD5) ->
-    lookup(MD5, PemChache).
+lookup_cached_pem([_, _, PemChache], Hash) ->
+    lookup_cached_pem(PemChache, Hash);
+lookup_cached_pem(PemChache, Hash) ->
+    lookup(Hash, PemChache).
 
 %%--------------------------------------------------------------------
 -spec add_trusted_certs(pid(), {erlang:timestamp(), string()} |
@@ -100,36 +100,36 @@ add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
     {ok, NewRef};
 
 add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
-    MD5 = crypto:hash(md5, File),
-    case lookup_cached_pem(Db, MD5) of
+    Hash = crypto:hash(?PKIX_DB_HASH, File),
+    case lookup_cached_pem(Db, Hash) of
 	[{_Content, Ref}] ->
 	    ref_count(Ref, RefDb, 1),
 	    {ok, Ref};
 	[Content] ->
 	    Ref = make_ref(),
 	    update_counter(Ref, 1, RefDb),
-	    insert(MD5, {Content, Ref}, PemChache),
+	    insert(Hash, {Content, Ref}, PemChache),
 	    add_certs_from_pem(Content, Ref, CertsDb),
 	    {ok, Ref};
 	undefined ->
-	    new_trusted_cert_entry({MD5, File}, Db)
+	    new_trusted_cert_entry({Hash, File}, Db)
     end.
 %%--------------------------------------------------------------------
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
 -spec cache_pem_file({binary(), binary()}, [db_handle()]) -> {ok, term()}.
-cache_pem_file({MD5, File}, [_CertsDb, _RefDb, PemChache]) ->
+cache_pem_file({Hash, File}, [_CertsDb, _RefDb, PemChache]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),
-    insert(MD5, Content, PemChache),
+    insert(Hash, Content, PemChache),
     {ok, Content}.
 
 -spec cache_pem_file(reference(), {binary(), binary()}, [db_handle()]) -> {ok, term()}.
-cache_pem_file(Ref, {MD5, File}, [_CertsDb, _RefDb, PemChache]) ->
+cache_pem_file(Ref, {Hash, File}, [_CertsDb, _RefDb, PemChache]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),
-    insert(MD5, {Content, Ref}, PemChache),
+    insert(Hash, {Content, Ref}, PemChache),
     {ok, Content}.
 
 %%--------------------------------------------------------------------

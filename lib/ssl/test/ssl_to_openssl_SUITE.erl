@@ -92,6 +92,7 @@ npn_tests() ->
 
 init_per_suite(Config0) ->
     Dog = ct:timetrap(?LONG_TIMEOUT *2),
+    ParamFile = filename:join(?config(data_dir, Config0), "dhParam.pem"),
     case os:find_executable("openssl") of
 	false ->
 	    {skip, "Openssl not found"};
@@ -106,7 +107,9 @@ init_per_suite(Config0) ->
 		    ct:log("Make certs  ~p~n", [Result]),
 		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 		    Config2 = ssl_test_lib:cert_options(Config1),
-		    Config = [{watchdog, Dog} | Config2],
+		    Config = [{watchdog, Dog},
+                              {param_file, ParamFile} |
+                              Config2],
 		    ssl_test_lib:cipher_restriction(Config)
 		catch _:_  ->
 		    {skip, "Crypto did not start"}
@@ -343,6 +346,7 @@ erlang_client_openssl_server_dsa_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ?config(client_dsa_opts, Config),  
     ServerOpts = ?config(server_dsa_opts, Config),  
+    ParamFile  = ?config(param_file, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
   
@@ -355,8 +359,9 @@ erlang_client_openssl_server_dsa_cert(Config) when is_list(Config) ->
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
 
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++  ssl_test_lib:version_flag(Version) ++
-	" -cert " ++ CertFile ++ " -CAfile " ++ CaCertFile  
-	++ " -key " ++ KeyFile ++ " -Verify 2 -msg",
+	" -cert " ++ CertFile ++ " -CAfile " ++ CaCertFile ++
+	" -key " ++ KeyFile ++ " -Verify 2 -msg" ++
+        " -dhparam " ++ ParamFile,
     
     ct:log("openssl cmd: ~p~n", [Cmd]),
 
@@ -1032,9 +1037,12 @@ run_suites(Ciphers, Version, Config, Type) ->
 		{?config(client_opts, Config),
 		 ?config(server_dsa_opts, Config)}
 	end,
+    ParamFile = ?config(param_file, Config),
 
     Result =  lists:map(fun(Cipher) ->
-				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
+				cipher(Cipher, Version, Config,
+                                       ClientOpts, ServerOpts, ParamFile)
+                        end,
 			Ciphers),
     case lists:flatten(Result) of
 	[] ->
@@ -1044,7 +1052,7 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    ct:fail(cipher_suite_failed_see_test_case_log)
     end.
 
-cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
+cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts, ParamFile) ->
     process_flag(trap_exit, true),
     ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
     {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1054,7 +1062,8 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++  ssl_test_lib:version_flag(Version) ++
-	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "",
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++
+        " -dhparam " ++ ParamFile,
 
     ct:log("openssl cmd: ~p~n", [Cmd]),
 

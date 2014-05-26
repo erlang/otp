@@ -450,7 +450,28 @@ is_prime(_,_,_,_) ->
     false.
 
 odd_rand(Size) ->
-    Min = 1 bsl (Size*8-1),
+    %% We want to generate an N = (Size * 8) bit prime, and we want
+    %% that two such primes multiplied yield a 2N bit number (e.g. two
+    %% 512 bit primes multiplied should give an 1024 bit RSA key).
+    %%
+    %% For the Min and Max for that N bit prime thus must be true that:
+    %% 2^(N - 1) = 1 bsl (N - 1) =< Min
+    %% 2^(2N - 1) =< Min^2
+    %%
+    %% 2^N = 1 bsl N > Max
+    %% 2^2N > Max^2
+    %%
+    %% For Max the two constraints are identical. However for Min the
+    %% second one is stronger:
+    %% 2^(2N - 1) =< Min^2
+    %% sqrt(2^(2N - 1)) =< Min
+    %% sqrt(2^(2N - 1)) = sqrt(2^(2 * (N - 1) + 1)) = 2^(N - 1) * sqrt(2) =< Min
+    %%
+    %% And since sqrt(2) < 1.5 the following choice of Min would
+    %% statisfy the second constraint:
+    %%
+    %% Min = 2^(N - 1) * 1.5 = 3 * 2^(N - 2) = 3 * bsl (N - 2)
+    Min = 3 bsl (Size*8-2),
     Max = (1 bsl (Size*8))-1,
     odd_rand(Min, Max).
 
