@@ -219,6 +219,13 @@ del_path(suite) -> [];
 del_path(doc) -> [];
 del_path(Config) when is_list(Config) ->
     P = code:get_path(),
+    try
+	del_path_1(P)
+    after
+	code:set_path(P)
+    end.
+
+del_path_1(P) ->
     test_server:format("Initial code:get_path()=~p~n",[P]),
     {'EXIT',_} = (catch code:del_path(3)),
     false = code:del_path(my_dummy_name),
@@ -226,19 +233,22 @@ del_path(Config) when is_list(Config) ->
     Dir = filename:join([code:lib_dir(kernel),"ebin"]),
     test_server:format("kernel dir: ~p~n",[Dir]),
 
-
     true = code:del_path(kernel),
     NewP = code:get_path(),
     test_server:format("Path after removing 'kernel':~p~n",[NewP]),
     ReferenceP = lists:delete(Dir,P),
     test_server:format("Reference path:~p~n",[ReferenceP]),
     NewP = ReferenceP, % check that dir is deleted
-
     code:set_path(P),
+
+    %% An superfluous "/" should also work.
+    true = code:del_path("kernel/"),
+    NewP = ReferenceP,			   % check that dir is deleted
+    code:set_path(P),
+
     true = code:del_path(Dir),
     NewP1 = code:get_path(),
     NewP1 = lists:delete(Dir,P), % check that dir is deleted
-    code:set_path(P),
     ok.
 
 replace_path(suite) -> [];

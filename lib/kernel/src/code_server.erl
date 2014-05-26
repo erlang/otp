@@ -988,7 +988,7 @@ try_archive_subdirs(_Archive, Base, []) ->
 %% the complete directory name.
 %%
 del_path(Name0,Path,NameDb) ->
-    case catch to_list(Name0)of
+    case catch filename:join([to_list(Name0)]) of
 	{'EXIT',_} ->
 	    {{error,bad_name},Path};
 	Name ->
