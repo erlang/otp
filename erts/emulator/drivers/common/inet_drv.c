@@ -4053,7 +4053,7 @@ static int erl_inet_close(inet_descriptor* desc)
 	desc_close(desc);
 	desc->state = INET_STATE_CLOSED;
     } else if (desc->prebound && (desc->s != INVALID_SOCKET)) {
-	sock_select(desc, FD_READ | FD_WRITE | FD_CLOSE, 0);
+	sock_select(desc, FD_READ | FD_WRITE | FD_CLOSE | ERL_DRV_USE_NO_CALLBACK, 0);
 	desc->event_mask = 0;
 #ifdef __WIN32__
 	desc->forced_events = 0;
