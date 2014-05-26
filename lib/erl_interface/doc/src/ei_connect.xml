@@ -75,6 +75,28 @@
       the return values and the semantics from the functions without 
       the <c><![CDATA[_tmo]]></c> suffix.</p>
   </section>
+
+  <section>
+    <title>With Tick functions</title>
+    <p>Most receive functions appear in a version with the suffix
+      <c><![CDATA[_wt]]></c> appended to the function name. These functions
+      do not automatically respond to <em>tick</em> requests from connected nodes.
+      When a <em>tick</em> is received, these functions will still return <c><![CDATA[ERL_TICK]]></c>
+      but the reply (a <em>tock</em>) will not be sent. The reply must be sent explicitly using the
+      <c><![CDATA[ei_send_tock]]></c> function. Failure to do so will cause the remote node to disconnect.</p>
+    <p>The semantics is this; when dealing with multi-threaded code that writes to the connection, it
+      is neccessary to protect the socket with a mutex. However, because the non <c><![CDATA[_wt]]></c>
+      functions automatically respond to the <em>tick</em>, there is no way to protect the socket during
+      the write and data corruption can occur. It is not possible to wrap the <c><![CDATA[ei_receive_]]></c>
+      calls in a mutex as this is a blocking call and would prevent the other threads from writing to the socket.
+      It can be done with the <c><![CDATA[_tmo]]></c> versions of the function, however setting the timeout becomes
+      arbitrary and there is the possibility that the function will timeout before a message has been completely received.</p>
+    <p>The <c><![CDATA[_wt]]></c> versions allow for the <c><![CDATA[ei_receive_]]></c> functions to block indefinitely. When
+      a <em>tick</em> is received, the <c><![CDATA[ei_send_tock]]></c> function can be called from within a mutex to ensure all
+      writes to the socket are properly protected.</p>
+    <p>In short, the <c><![CDATA[_wt]]></c> functions are useful when multilple threads might write to the socket. In single threaded
+       applications or where writes are always done from the same thread that calls <c><![CDATA[ei_receive_]]></c>, the non <c><![CDATA[_wt]]></c> functions can safely be used.</p> 
+      </section> 
   <funcs>
     <func>
       <name><ret>int</ret><nametext>ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)</nametext></name>
@@ -223,10 +245,26 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
       </desc>
     </func>
     <func>
+      <name><ret>int</ret><nametext>ei_receive_wt(int fd, unsigned char* bufp, int bufsize)</nametext></name>
+      <fsummary>Receive a message with tick handling set to manual</fsummary>
+      <desc>
+        <p>ei_receive with tick handling set to manual,
+          see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+    <func>
       <name><ret>int</ret><nametext>ei_receive_tmo(int fd, unsigned char* bufp, int bufsize, unsigned timeout_ms)</nametext></name>
       <fsummary>Receive a message with optional timeout</fsummary>
       <desc>
         <p>ei_receive with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_receive_tmo_wt(int fd, unsigned char* bufp, int bufsize, unsigned timeout_ms)</nametext></name>
+      <fsummary>Receive a message with optional timeout and tick handling set to manual</fsummary>
+      <desc>
+        <p>ei_receive with optional timeout and tick handling set to manual,
           see the description at the beginning of this document.</p>
       </desc>
     </func>
@@ -276,12 +314,39 @@ typedef struct {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned imeout_ms)</nametext></name>
+      <name><ret>int</ret><nametext>ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</nametext></name>
       <name><ret>int</ret><nametext>ei_xreceive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</nametext></name>
       <fsummary>Receive a message with optional timeout</fsummary>
       <desc>
         <p>ei_receive_msg and ei_xreceive_msg with an optional timeout argument,
           see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_receive_msg_tmo_wt(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</nametext></name>
+      <name><ret>int</ret><nametext>ei_xreceive_msg_tmo_wt(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</nametext></name>
+      <fsummary>Receive a message with optional timeout and tick handling set to manual</fsummary>
+      <desc>
+        <p>ei_receive_msg and ei_xreceive_msg with an optional timeout argument and tick handling set to manual,
+          see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+      <func>
+      <name><ret>void</ret><nametext>ei_send_tock(int fd)</nametext></name>
+      <fsummary>Sends a tock (a reply to the tick heartbeat message)</fsummary>
+      <desc>
+        <p><c><![CDATA[ei_send_tock]]></c> sends a tock (a reply to the tick heartbeat message).
+          This is <em>only</em> necessary when using the <c><![CDATA[_wt]]></c> versions of the <c><![CDATA[ei_receive]]></c> functions.
+          For more information see the description at the beginning of this document.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>ei_send_tock(int fd, unsigned timeout_ms)</nametext></name>
+      <fsummary>Sends a tock (a reply to the tick heartbeat message) with optional timeout</fsummary>
+      <desc>
+        <p><c><![CDATA[ei_send_tock]]></c> sends a tock (a reply to the tick heartbeat message) with an optional timeout.
+          This is <em>only</em> necessary when using the <c><![CDATA[_wt]]></c> versions of the <c><![CDATA[ei_receive]]></c> functions.
+          For more information see the description at the beginning of this document.</p>
       </desc>
     </func>
     <func>
