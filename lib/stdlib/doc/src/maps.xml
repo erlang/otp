@@ -108,6 +108,26 @@
 		</func>
 
 		<func>
+			<name name="get" arity="3"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns the value <c><anno>Value</anno></c> associated with <c><anno>Key</anno></c> if
+					<c><anno>Map</anno></c> contains <c><anno>Key</anno></c>.
+					If no value is associated with <c><anno>Key</anno></c> then returns <c><anno>Default</anno></c>.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{ key1 => val1, key2 => val2 }.
+#{key1 => val1,key2 => val2}
+> maps:get(key1, Map, "Default value").
+val1
+> maps:get(key3, Map, "Default value").
+"Default value"</code>
+			</desc>
+		</func>
+
+		<func>
 			<name name="is_key" arity="2"/>
 			<fsummary></fsummary>
 			<desc>
