@@ -50,7 +50,7 @@
 %% SSL FSM state functions 
 -export([hello/3, abbreviated/3, certify/3, cipher/3, connection/3]).
 %% SSL all state functions 
--export([handle_sync_event/4, handle_info/3, terminate/3]).
+-export([handle_sync_event/4, handle_info/3, terminate/3, format_status/2]).
 
 
 %%====================================================================
@@ -925,6 +925,30 @@ terminate(_Reason, _StateName, #state{transport_cb = Transport,
     notify_renegotiater(Renegotiate),
     Transport:close(Socket).
 
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}]; 
+format_status(terminate, [_, State]) ->
+    SslOptions = (State#state.ssl_options),
+    NewOptions = SslOptions#ssl_options{password = "***",
+					cert = "***",
+					cacerts = "***",
+					key = "***",			      
+					dh = "***",
+					psk_identity = "***",
+					srp_identity = "***"},
+    [{data, [{"StateData", State#state{connection_states = "***",
+				       protocol_buffers =  "***",
+				       user_data_buffer = "***",
+				       tls_handshake_history =  "***",
+				       session =  "***",
+				       private_key =  "***",
+				       diffie_hellman_params = "***",
+				       diffie_hellman_keys =  "***",
+				       srp_params = "***",
+				       srp_keys =  "***",
+				       premaster_secret =  "***",
+				       ssl_options = NewOptions
+				      }}]}].
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------

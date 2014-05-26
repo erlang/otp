@@ -66,7 +66,7 @@
 %% gen_fsm callbacks
 -export([init/1, hello/2, certify/2, cipher/2,
 	 abbreviated/2, connection/2, handle_event/3,
-         handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+         handle_sync_event/4, handle_info/3, terminate/3, code_change/4, format_status/2]).
 
 %%====================================================================
 %% Internal application API
@@ -331,6 +331,9 @@ terminate(Reason, StateName, State) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
+
+format_status(Type, Data) ->
+    ssl_connection:format_status(Type, Data).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
