@@ -131,9 +131,14 @@ send_release_tid(Nodes, Tid) ->
 receive_release_tid_acc([Node | Nodes], Tid) ->
     receive
 	{?MODULE, Node, {tid_released, Tid}} ->
-	    receive_release_tid_acc(Nodes, Tid);
-	{mnesia_down, Node} ->
 	    receive_release_tid_acc(Nodes, Tid)
+    after 0 ->
+	    receive
+		{?MODULE, Node, {tid_released, Tid}} ->
+		    receive_release_tid_acc(Nodes, Tid);
+		{mnesia_down, Node} ->
+		    receive_release_tid_acc(Nodes, Tid)
+	    end
     end;
 receive_release_tid_acc([], _Tid) ->
     ok.
