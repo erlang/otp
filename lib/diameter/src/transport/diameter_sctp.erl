@@ -616,6 +616,8 @@ send(#diameter_packet{bin = Bin, transport_data = {outstream, SId}},
     S;
 
 %% ... or not: rotate through all streams.
+send(#diameter_packet{bin = Bin}, S) ->
+    send(Bin, S);
 send(Bin, #transport{streams = {_, OS},
                      os = N}
           = S)
