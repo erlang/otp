@@ -2509,6 +2509,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	return enif_make_binary(env, &ret_bin);
     }
     else {
+	enif_release_binary(&ret_bin);
 	return atom_error;
     }
 }
@@ -2771,6 +2772,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	    ret = enif_make_binary(env, &ret_bin);
 	}
 	else {
+	    enif_release_binary(&ret_bin);
 	    ret = atom_error;
 	}
     }
