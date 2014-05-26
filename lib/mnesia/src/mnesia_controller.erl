@@ -1208,7 +1208,14 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 			{value,{_,Worker}} = lists:keysearch(WPid,1,get_loaders(State0)),
 			add_loader(Tab,Worker,State1);
 		    _ ->
-			State1
+			DelState = State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)},
+			case ?catch_val({Tab, storage_type}) of
+			    ram_copies ->
+				cast({disc_load, Tab, ram_only}),
+				DelState;
+			    _ ->
+				DelState
+			end
 		end
 	end,
     State3 = opt_start_worker(State2),
