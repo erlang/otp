@@ -112,7 +112,8 @@ setup(#state{frame = Frame} = State) ->
     observer_lib:create_menus(DefMenus, MenuBar, default),
 
     wxFrame:setMenuBar(Frame, MenuBar),
-    StatusBar = wxFrame:createStatusBar(Frame, []),
+    StatusBar = wxStatusBar:new(Frame),
+    wxFrame:setStatusBar(Frame, StatusBar),
     wxFrame:setTitle(Frame, atom_to_list(node())),
     wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
 
@@ -388,6 +389,7 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, #state{frame = Frame}) ->
     wxFrame:destroy(Frame),
+    wx:destroy(),
     ok.
 
 code_change(_, _, State) ->
