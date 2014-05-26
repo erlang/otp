@@ -678,8 +678,6 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
 
 eval([F|A], S) ->
     apply(F, A ++ [S]);
-eval(ok, S) ->
-    S;
 eval(T, _) ->
     close(T).
 
@@ -743,8 +741,8 @@ cea(CEA, RC, Dict0) ->
 
 post('CER' = T, RC, Pkt, S) ->
     {T, caps(S), {RC, Pkt}};
-post('DPR', _, _, _) ->
-    ok.
+post('DPR' = T, _, _, #state{parent = Pid}) ->
+    [fun(S) -> Pid ! {T, self()}, S end].
 
 rejected({capabilities_cb, _F, Reason}, T, S) ->
     rejected(Reason, T, S);

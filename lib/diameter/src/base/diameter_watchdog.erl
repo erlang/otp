@@ -329,6 +329,11 @@ transition({shutdown = T, Pid, Reason}, #watchdog{parent = Pid,
     send(TPid, {T, self(), Reason}),
     S#watchdog{shutdown = true};
 
+%% Transport is telling us that DPA has been sent in response to DPR:
+%% its death should lead to ours.
+transition({'DPR', TPid}, #watchdog{transport = TPid} = S) ->
+    S#watchdog{shutdown = true};
+
 %% Parent process has died,
 transition({'DOWN', _, process, Pid, _Reason},
            #watchdog{parent = Pid}) ->
@@ -400,7 +405,7 @@ transition({open = Key, TPid, _Hosts, T},
 %%   REOPEN        Connection down      CloseConnection()
 %%                                      SetWatchdog()        DOWN
 
-%% Transport has died after service requested termination ...
+%% Transport has died after DPA or service requested termination ...
 transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid,
                      shutdown = true}) ->

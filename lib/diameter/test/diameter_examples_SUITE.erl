@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,10 @@
 -module(diameter_examples_SUITE).
 
 -export([suite/0,
-         all/0]).
+         all/0,
+         groups/0,
+         init_per_group/2,
+         end_per_group/2]).
 
 %% testcases
 -export([dict/1, dict/0,
@@ -46,7 +49,7 @@
 
 %% The order here is significant and causes the server to listen
 %% before the clients connect.
--define(NODES, [compile, server, client]).
+-define(NODES, [server, client]).
 
 %% Options to ct_slave:start/2.
 -define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
@@ -63,6 +66,9 @@
 %% Common dictionaries to inherit from examples.
 -define(DICT0, [rfc3588_base, rfc6733_base]).
 
+%% Transport protocols over which the example Diameter nodes are run.
+-define(PROTS, [tcp, sctp]).
+
 %% ===========================================================================
 
 suite() ->
@@ -71,7 +77,34 @@ suite() ->
 all() ->
     [dict,
      code,
-     slave,
+     {group, all}].
+
+groups() ->
+    Tc = tc(),
+    [{all, [parallel], [{group, P} || P <- ?PROTS]}
+     | [{P, [], Tc} || P <- ?PROTS]].
+
+init_per_group(all, Config) ->
+    Config;
+
+init_per_group(tcp = N, Config) ->
+    [{group, N} | Config];
+
+init_per_group(sctp = N, Config) ->
+    case gen_sctp:open() of
+        {ok, Sock} ->
+            gen_sctp:close(Sock),
+            [{group, N} | Config];
+        {error, E} when E == eprotonosupport;
+                        E == esocktnosupport -> %% fail on any other reason
+            {skip, no_sctp}
+    end.
+
+end_per_group(_, _) ->
+    ok.
+
+tc() ->
+    [slave,
      enslave,
      start,
      traffic,
@@ -88,7 +121,7 @@ dict() ->
 dict(_Config) ->
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
-    [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia")),
+    [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
                       RC <- [make(F,D)],
                       RC /= ok].
@@ -184,17 +217,18 @@ make_name(Dict) ->
 %% Compile example code under examples/code.
 
 code(Config) ->
-    Node = slave(hd(?NODES), here()),
+    Node = slave(compile, here()),
     [] = rpc:call(Node,
                   ?MODULE,
                   install,
-                  [proplists:get_value(priv_dir, Config)]).
+                  [proplists:get_value(priv_dir, Config)]),
+    {ok, Node} = ct_slave:stop(compile).
 
 %% Compile on another node since the code path may be modified.
 install(PrivDir) ->
     Top = install(here(), PrivDir),
     Src = filename:join([Top, "examples", "code"]),
-    Files = find_files([Src], ".*\\.erl"),
+    Files = find_files([Src], ".*\\.erl$"),
     [] = [{F,E} || {_,F} <- Files,
                    {error, _, _} = E <- [compile:file(F, [warnings_as_errors,
                                                           return_errors])]].
@@ -226,7 +260,7 @@ install(Dir, PrivDir) ->
 
     Inc = filename:join([Top, "include"]),
     Gen = filename:join([Top, "src", "gen"]),
-    Files = find_files([Inc, Gen], ".*\\.hrl"),
+    Files = find_files([Inc, Gen], ".*\\.hrl$"),
     [] = [{F,E} || {_,F} <- Files,
                    B <- [filename:basename(F)],
                    D <- [filename:join([TmpInc, B])],
@@ -280,9 +314,10 @@ now_diff(_) ->
 %% Start two nodes: one for the server, one for the client.
 
 enslave(Config) ->
+    Prot = proplists:get_value(group, Config),
     Dir = here(),
-    Nodes = [{N, slave(N, Dir)} || N <- tl(?NODES)],
-    ?util:write_priv(Config, nodes, Nodes).
+    Nodes = [{S, slave(N, Dir)} || S <- ?NODES, N <- [concat(Prot, S)]],
+    ?util:write_priv(Config, Prot, Nodes).
 
 slave(Name, Dir) ->
     {ok, Node} = ct_slave:start(Name, ?TIMEOUTS),
@@ -291,6 +326,9 @@ slave(Name, Dir) ->
                   add_pathsa,
                   [[Dir, filename:join([Dir, "..", "ebin"])]]),
     Node.
+
+concat(Prot, Svc) ->
+    list_to_atom(atom_to_list(Prot) ++ atom_to_list(Svc)).
 
 here() ->
     filename:dirname(code:which(?MODULE)).
@@ -304,24 +342,25 @@ top(Dir, LibDir) ->
 
 %% start/1
 
-start(server) ->
+start({server, Prot}) ->
     ok = diameter:start(),
     ok = server:start(),
-    {ok, Ref} = server:listen(tcp),
-    [_] = ?util:lport(tcp, Ref),
+    {ok, Ref} = server:listen(Prot),
+    [_] = ?util:lport(Prot, Ref),
     ok;
 
-start(client) ->
+start({client = Svc, Prot}) ->
     ok = diameter:start(),
-    true = diameter:subscribe(client),
+    true = diameter:subscribe(Svc),
     ok = client:start(),
-    {ok, Ref} = client:connect(tcp),
+    {ok, Ref} = client:connect(Prot),
     receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end;
 
 start(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
+    Prot = proplists:get_value(group, Config),
+    Nodes = ?util:read_priv(Config, Prot),
     [] = [RC || {T,N} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, start, [T])],
+                RC <- [rpc:call(N, ?MODULE, start, [{T, Prot}])],
                 RC /= ok].
 
 %% traffic/1
@@ -336,7 +375,8 @@ traffic(client) ->
     receive {'DOWN', MRef, process, _, Reason} -> Reason end;
 
 traffic(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
+    Prot = proplists:get_value(group, Config),
+    Nodes = ?util:read_priv(Config, Prot),
     [] = [RC || {T,N} <- Nodes,
                 RC <- [rpc:call(N, ?MODULE, traffic, [T])],
                 RC /= ok].
@@ -355,5 +395,6 @@ stop(Name)
     {ok, _Node} = ct_slave:stop(Name),
     ok;
 
-stop(_Config) ->
-    [] = [RC || N <- ?NODES, RC <- [stop(N)], RC /= ok].
+stop(Config) ->
+    Prot = proplists:get_value(group, Config),
+    [] = [RC || N <- ?NODES, RC <- [stop(concat(Prot, N))], RC /= ok].
