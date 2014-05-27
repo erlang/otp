@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,8 @@
 -define(HTTP_MAX_BODY_SIZE,   nolimit).
 -define(HTTP_MAX_HEADER_SIZE, 10240).
 -define(HTTP_MAX_URI_SIZE,    nolimit).
+-define(HTTP_MAX_VERSION_STRING, 8).
+-define(HTTP_MAX_METHOD_STRING, 20).
 
 -ifndef(HTTP_DEFAULT_SSL_KIND).
 -define(HTTP_DEFAULT_SSL_KIND, essl).

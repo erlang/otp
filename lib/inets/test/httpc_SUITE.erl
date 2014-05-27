@@ -27,15 +27,14 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
-
+-include("http_internal.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
 -define(URL_START, "http://").
 -define(TLS_URL_START, "https://").
 -define(NOT_IN_USE_PORT, 8997).
--define(LF, $\n).
--define(HTTP_MAX_HEADER_SIZE, 10240).
+
 -record(sslsocket, {fd = nil, pid = nil}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -1234,7 +1233,10 @@ dummy_server_init(Caller, ip_comm, Inet, _) ->
     {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
     {ok, Port} = inet:port(ListenSocket),
     Caller ! {port, Port},
-    dummy_ipcomm_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
+    dummy_ipcomm_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
+						      {max_header, ?HTTP_MAX_HEADER_SIZE},
+						      {max_version,?HTTP_MAX_VERSION_STRING}, 
+						      {max_method, ?HTTP_MAX_METHOD_STRING}]]},
 			     [], ListenSocket);
 
 dummy_server_init(Caller, ssl, Inet, SSLOptions) ->
@@ -1246,7 +1248,10 @@ dummy_ssl_server_init(Caller, BaseOpts, Inet) ->
     {ok, ListenSocket} = ssl:listen(0, [Inet | BaseOpts]),
     {ok, {_, Port}} = ssl:sockname(ListenSocket),
     Caller ! {port, Port},
-    dummy_ssl_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
+    dummy_ssl_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
+						   {max_method, ?HTTP_MAX_METHOD_STRING},
+						   {max_version,?HTTP_MAX_VERSION_STRING}, 
+						   {max_method, ?HTTP_MAX_METHOD_STRING}]]},
 			  [], ListenSocket).
 
 dummy_ipcomm_server_loop(MFA, Handlers, ListenSocket) ->
@@ -1322,10 +1327,16 @@ handle_request(Module, Function, Args, Socket) ->
 		stop ->
 		    stop;
 		<<>> ->
-		    {httpd_request, parse, [[<<>>, ?HTTP_MAX_HEADER_SIZE]]};
+		    {httpd_request, parse, [[<<>>, [{max_uri,    ?HTTP_MAX_URI_SIZE},
+						    {max_header, ?HTTP_MAX_HEADER_SIZE},
+						    {max_version,?HTTP_MAX_VERSION_STRING}, 
+						    {max_method, ?HTTP_MAX_METHOD_STRING}]]]};
 		Data ->	
 		    handle_request(httpd_request, parse, 
-				   [Data |[?HTTP_MAX_HEADER_SIZE]], Socket)
+				   [Data, [{max_uri,    ?HTTP_MAX_URI_SIZE},
+					   {max_header, ?HTTP_MAX_HEADER_SIZE},
+					   {max_version,?HTTP_MAX_VERSION_STRING}, 
+					   {max_method, ?HTTP_MAX_METHOD_STRING}]], Socket)
 	    end;
 	NewMFA ->
 	    NewMFA

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -356,7 +356,10 @@ http_request(Config) when is_list(Config) ->
      "HTTP/1.1",
      {#http_request_h{host = "www.erlang.org", te = []},
       ["te: ","host:www.erlang.org"]}, <<>>} =
-	parse(httpd_request, parse, [?HTTP_MAX_HEADER_SIZE], HttpHead),
+	parse(httpd_request, parse, [[{max_header, ?HTTP_MAX_HEADER_SIZE},
+				      {max_version, ?HTTP_MAX_VERSION_STRING}, 
+				      {max_method, ?HTTP_MAX_METHOD_STRING}]],
+	      HttpHead),
 
     HttpHead1 = ["GET http://www.erlang.org HTTP/1.1" ++ 
 		 [?CR], [?LF, ?CR, ?LF]],
@@ -364,7 +367,9 @@ http_request(Config) when is_list(Config) ->
      "http://www.erlang.org",
      "HTTP/1.1",
      {#http_request_h{}, []}, <<>>} =
-	parse(httpd_request, parse, [?HTTP_MAX_HEADER_SIZE], HttpHead1),
+	parse(httpd_request, parse,  [[{max_header, ?HTTP_MAX_HEADER_SIZE},
+				       {max_version, ?HTTP_MAX_VERSION_STRING}, 
+				       {max_method, ?HTTP_MAX_METHOD_STRING}]], HttpHead1),
 
 
     HttpHead2 = ["GET http://www.erlang.org HTTP/1.1" ++ 
@@ -373,7 +378,9 @@ http_request(Config) when is_list(Config) ->
      "http://www.erlang.org",
      "HTTP/1.1",
      {#http_request_h{}, []}, <<>>} =
-	parse(httpd_request, parse, [?HTTP_MAX_HEADER_SIZE], HttpHead2),
+	parse(httpd_request, parse, [[{max_header, ?HTTP_MAX_HEADER_SIZE},
+				      {max_version, ?HTTP_MAX_VERSION_STRING}, 
+				      {max_method, ?HTTP_MAX_METHOD_STRING}]], HttpHead2),
 
     %% Note the following body is not related to the headers above
     HttpBody = ["<HTML>\n<HEAD>\n<TITLE> dummy </TITLE>\n</HEAD>\n<BODY>\n",

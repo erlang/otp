@@ -103,7 +103,7 @@ verify_request(SocketType, Host, Port, TranspOpts0, Node, RequestStr, Options, T
     
     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
-	    SendRes = inets_test_lib:send(SocketType, Socket, RequestStr),
+	    ok = inets_test_lib:send(SocketType, Socket, RequestStr),
 	    State = case inets_regexp:match(RequestStr, "printenv") of
 			nomatch ->
 			    #state{};
