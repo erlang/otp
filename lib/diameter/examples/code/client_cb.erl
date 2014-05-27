@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,22 +77,10 @@ prepare_retransmit(Packet, SvcName, Peer) ->
 
 %% handle_answer/4
 
-%% Since client.erl has detached the call when using the list
-%% encoding and not otherwise, output to the terminal in the
-%% the former case, return in the latter.
-
-handle_answer(#diameter_packet{msg = Msg}, Request, _SvcName, _Peer)
-  when is_list(Request) ->
-    io:format("answer: ~p~n", [Msg]);
-
 handle_answer(#diameter_packet{msg = Msg}, _Request, _SvcName, _Peer) ->
     {ok, Msg}.
 
 %% handle_error/4
-
-handle_error(Reason, Request, _SvcName, _Peer)
-  when is_list(Request) ->
-    io:format("error: ~p~n", [Reason]);
 
 handle_error(Reason, _Request, _SvcName, _Peer) ->
     {error, Reason}.

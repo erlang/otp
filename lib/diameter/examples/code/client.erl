@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,6 +72,7 @@
                         {'Product-Name', "Client"},
                         {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
                         {application, [{alias, ?APP_ALIAS},
+                                       {answer_errors, discard},
                                        {dictionary, ?DIAMETER_DICT_COMMON},
                                        {module, ?CALLBACK_MOD}]}]).
 
