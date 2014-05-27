@@ -103,8 +103,10 @@
 	 get_agent_mp_model/2
 	]).
 
--export([check_manager_config/1, 
-	 check_user_config/1, 
+-export([
+	 order_manager_config/2,
+	 check_manager_config/2,
+	 check_user_config/1,
 	 check_agent_config/1,
 	 check_usm_user_config/1]).
 
@@ -2285,8 +2287,8 @@ is_crypto_supported(Func) ->
 %%     end.
 
 read_manager_config_file(Dir) ->
-    Order = fun snmp_conf:no_order/2,
-    Check = fun (Entry, State) -> {check_manager_config(Entry), State} end,
+    Order = fun order_manager_config/2,
+    Check = fun check_manager_config/2,
     Conf = read_file(Dir, "manager.conf", Order, Check),
     ?d("read_manager_config_file -> ok: "
        "~n   Conf: ~p", [Conf]),
@@ -2309,11 +2311,31 @@ default_manager_config() ->
 	       "~n   _Reason: ~p", [_Reason]),
 	    []
     end.
-    
-check_manager_config({address, Addr}) ->
-    snmp_conf:check_ip(Addr);
+
+order_manager_config(EntryA, EntryB) ->
+    snmp_conf:keyorder(1, EntryA, EntryB, [domain]).
+
+check_manager_config({domain, D}, _Domain) ->
+    {snmp_conf:check_domain(D), D};
+check_manager_config({address = Tag, Ip}, D) ->
+    Domain =
+	case D of
+	    undefined ->
+		default_transport_domain();
+	    _ ->
+		D
+	end,
+    {case snmp_conf:check_ip(Domain, Ip) of
+	 ok ->
+	     ok;
+	 {ok, FixedIp} ->
+	     {ok, {Tag, FixedIp}}
+     end, Domain};
+check_manager_config(Entry, Domain) ->
+    {check_manager_config(Entry), Domain}.
+
 check_manager_config({port, Port}) ->
-    snmp_conf:check_integer(Port, {gt, 0});
+    snmp_conf:check_port(Port);
 check_manager_config({engine_id, EngineID}) ->
     snmp_conf:check_string(EngineID);
 check_manager_config({max_message_size, Max}) ->

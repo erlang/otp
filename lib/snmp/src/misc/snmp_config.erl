@@ -26,8 +26,9 @@
 -compile({no_auto_import,[error/1]}).
 -export([config/0]).
 
--export([write_config_file/4, append_config_file/4,
-	 read_config_file/3, read_config_file/4]).
+%%-export([write_config_file/4, append_config_file/4, read_config_file/4]).
+
+-export([write_config_file/6, append_config_file/6, read_config_file/4]).
 
 -export([write_agent_snmp_files/7, write_agent_snmp_files/12,
 	 write_agent_snmp_files/6, write_agent_snmp_files/11,
@@ -92,9 +93,9 @@
 	]).
 
 
--export_type([void/0, 
-	      verify_config_entry_function/0, 
-	      verify_config_function/0, 
+-export_type([void/0,
+	      order_config_entry_function/0,
+	      check_config_entry_function/0,
 	      write_config_function/0]).
 
 
@@ -2467,93 +2468,90 @@ header() ->
 		  [?MODULE, ?version, Y, Mo, D, H, Mi, S]).
 
 
-%% *If* these functions are successfull, they successfully return anything
-%% (which is ignored), but they fail with either a throw or an exit or 
-%% something similar.
+%% *If* these functions are successfull, they successfully return
+%% (value is ignored), but they fail preferably with
+%% throw({error, Reason}).  Other exceptions are also handled.
 
-%% Verification of one config entry read from a file
--type(verify_config_entry_function() :: 
-      fun((Entry :: term()) -> ok | {error, Reason :: term()})).
+%% Sorting order for config entries (see lists:sort/2)
+-type(order_config_entry_function() ::
+	fun((term(), term()) -> boolean())).
 
-%% Verification of config to be written
--type(verify_config_function() :: 
-      fun(() -> void())).
+%% Check of config entries. Initial State is 'undefined'
+-type(check_config_entry_function() ::
+	fun((Entry :: term(), State :: undefined | term()) ->
+		    {ok | {ok, NewEntry :: term()}, NewState :: term()})).
 
-%% Write config to file (as defined by Fd)
--type(write_config_function() :: 
-      fun((Fd :: file:io_device()) -> void())).
+%% Write configuration entries to file descriptor Fd
+-type(write_config_function() ::
+	fun((Fd :: file:io_device(), [Entry :: term()]) -> ok)).
 
--spec write_config_file(Dir :: string(), 
-			FileName :: string(), 
-			Verify :: verify_config_function(), 
-			Write :: write_config_function()) ->
-    ok | {error, Reason :: term()}.
+-spec write_config_file(
+	Dir :: string(),
+	FileName :: string(),
+	Order :: order_config_entry_function(),
+	Check :: check_config_entry_function(),
+	Write :: write_config_function(),
+	Entries :: [term()]) ->
+			       ok | {error, term()}.
 
-write_config_file(Dir, FileName, Verify, Write) 
-  when (is_list(Dir) andalso 
-	is_list(FileName) andalso 
-	is_function(Verify) andalso 
-	is_function(Write)) ->
-    try	do_write_config_file(Dir, FileName, Verify, Write) of
-	ok ->
-	    ok;
-	Other ->
-	    d("File write of ~s returned: ~p~n", [FileName,Other])
+write_config_file(Dir, FileName, Order, Check, Write, Entries)
+  when is_list(Dir), is_list(FileName),
+       is_function(Order), is_function(Check), is_function(Write),
+       is_list(Entries) ->
+    try
+	SortedEntries = lists:sort(Order, Entries),
+	_ =
+	    lists:foldl(
+	      fun (Entry, State) ->
+		      case Check(Entry, State) of
+			  {ok, NewState} ->
+			      NewState;
+			  {{ok, _}, NewState} ->
+			      NewState
+		      end
+	      end, undefined, SortedEntries),
+	ok
+    of
+	_ ->
+	    case file:open(filename:join(Dir, FileName), [write]) of
+		{ok, Fd} ->
+		    write_config_file(Dir, FileName, Write, Entries, Fd);
+		Error ->
+		    Error
+	    end
     catch
-	throw:Error ->
+	Error ->
 	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n", [FileName,Error,S]),
+	    d("File write of ~s throwed: ~p~n    ~p~n",
+	      [FileName, Error, S]),
 	    Error;
-	  T:E ->
+	C:E ->
 	    S = erlang:get_stacktrace(),
 	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,T,E,S]),
-	    {error,
-	     {failed_write, Dir, FileName,
-	      {T, E, erlang:get_stacktrace()}}}
+	      [FileName,C,E,S]),
+	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
-
-do_write_config_file(Dir, FileName, Verify, Write) ->
-    Verify(),
-    case file:open(filename:join(Dir, FileName), [write]) of
-	{ok, Fd} ->
-	    file_write_and_close(Write, Fd, Dir, FileName);
-	Error ->
-	    Error
-    end.
-
-append_config_file(Dir, FileName, Verify, Write) 
-  when (is_list(Dir) andalso 
-	is_list(FileName) andalso 
-	is_function(Verify) andalso 
-	is_function(Write)) ->
-    try
-	begin
-	    do_append_config_file(Dir, FileName, Verify, Write)
-	end
+write_config_file(Dir, FileName, Write, Entries, Fd) ->
+    try	Write(Fd, Entries) of
+	ok ->
+	    close_config_file(Dir, FileName, Fd)
     catch
-	throw:Error ->
-	    Error;
-	  T:E ->
-	    {error,
-	     {failed_append, Dir, FileName,
-	      {T, E, erlang:get_stacktrace()}}}
-    end.
-
-do_append_config_file(Dir, FileName, Verify, Write) ->
-    Verify(),
-    case file:open(filename:join(Dir, FileName), [read, write]) of
-	{ok, Fd} ->
-	    file:position(Fd, eof),
-	    file_write_and_close(Write, Fd, Dir, FileName);
 	Error ->
-	    Error
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s throwed: ~p~n    ~p~n",
+	      [FileName, Error, S]),
+	    close_config_file(Dir, FileName, Fd),
+	    Error;
+	C:E ->
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s exception: ~p:~p~n    ~p~n",
+	      [FileName,C,E,S]),
+	    close_config_file(Dir, FileName, Fd),
+	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
-
-file_write_and_close(Write, Fd, Dir, FileName) ->
-    ok = Write(Fd),
+close_config_file(Dir, FileName, Fd) ->
     case file:sync(Fd) of
 	ok ->
 	    case file:close(Fd) of
@@ -2563,23 +2561,83 @@ file_write_and_close(Write, Fd, Dir, FileName) ->
 		    {error, {failed_closing, Dir, FileName, Reason}}
 	    end;
 	{error, Reason} ->
+	    _ = file:close(Fd),
 	    {error, {failed_syncing, Dir, FileName, Reason}}
     end.
 
 
-%% XXX remove
-read_config_file(Dir, FileName, Verify) ->
-    read_config_file(
-      Dir, FileName, fun snmp_conf:no_order/2,
-      fun (Term, State) ->
-	      {Verify(Term), State}
-      end).
 
--spec read_config_file(Dir :: string(), 
-		       FileName :: string(),
-		       Order :: function(),
-		       Verify :: function()) ->
-    {ok, Config :: list()} | {error, Reason :: term()}.
+-spec append_config_file(
+	Dir :: string(),
+	FileName :: string(),
+	Order :: order_config_entry_function(),
+	Check :: check_config_entry_function(),
+	Write :: write_config_function(),
+	Entries :: [term()]) ->
+			       ok | {error, term()}.
+
+append_config_file(Dir, FileName, Order, Check, Write, Entries)
+  when is_list(Dir), is_list(FileName),
+       is_function(Order), is_function(Check), is_function(Write),
+       is_list(Entries) ->
+    case file:open(filename:join(Dir, FileName), [read, write]) of
+	{ok, Fd} ->
+	    append_config_file(
+	      Dir, FileName, Order, Check, Write, Entries, Fd);
+	Error ->
+	    Error
+    end.
+
+append_config_file(Dir, FileName, Order, Check, Write, Entries, Fd) ->
+    try
+	%% Verify the entries together with the file content
+	LinesInFileR = read_lines(Fd, [], 1),
+	StartLine =
+	    case LinesInFileR of
+		[] ->
+		    1;
+		[{_, _, EndLine} | _] ->
+		    EndLine
+	    end,
+	LinesR = prepend_lines(LinesInFileR, Entries, StartLine),
+	SortedLines = sort_lines(lists:reverse(LinesR), Order),
+	_ = verify_lines(SortedLines, Check, undefined, []),
+	%% Append to the file
+	Write(Fd, Entries)
+    of
+	ok ->
+	    close_config_file(Dir, FileName, Fd)
+    catch
+	Error ->
+	    S = erlang:get_stacktrace(),
+	    d("File append of ~s throwed: ~p~n    ~p~n",
+	      [FileName, Error, S]),
+	    close_config_file(Dir, FileName, Fd),
+	    Error;
+	C:E ->
+	    S = erlang:get_stacktrace(),
+	    d("File append of ~s exception: ~p:~p~n    ~p~n",
+	      [FileName,C,E,S]),
+	    close_config_file(Dir, FileName, Fd),
+	    {error, {failed_append, Dir, FileName, {C, E, S}}}
+    end.
+
+%% Fake line numbers, one per entry
+prepend_lines(Lines, [], _) ->
+    Lines;
+prepend_lines(Lines, [Entry | Entries], StartLine) ->
+    EndLine = StartLine + 1,
+    prepend_lines([{StartLine, Entry, EndLine} | Lines], Entries, EndLine).
+
+
+
+-spec read_config_file(
+	Dir :: string(),
+	FileName :: string(),
+	Order :: order_config_entry_function(),
+	Check :: check_config_entry_function()) ->
+				{ok, Config :: [Entry :: term()]} |
+				{error, Reason :: term()}.
 
 read_config_file(Dir, FileName, Order, Check)
   when is_list(Dir), is_list(FileName),
@@ -2587,17 +2645,20 @@ read_config_file(Dir, FileName, Order, Check)
     case file:open(filename:join(Dir, FileName), [read]) of
 	{ok, Fd} ->
 	    try
-		{ok,
-		 verify_lines(
-		   lists:sort(
-		     fun ({_, T1, _}, {_, T2, _}) ->
-			     Order(T1, T2)
-		     end,
-		     read_lines(Fd, [], 1)),
-		   Check, undefined, [])}
+		Lines = lists:reverse(read_lines(Fd, [], 1)),
+		SortedLines = sort_lines(Lines, Order),
+		{ok, verify_lines(SortedLines, Check, undefined, [])}
 	    catch
 		Error ->
-		    {error, Error}
+		    S = erlang:get_stacktrace(),
+		    d("File read of ~s throwed: ~p~n    ~p~n",
+		      [FileName, Error, S]),
+		    {error, Error};
+		T:E ->
+		    S = erlang:get_stacktrace(),
+		    d("File read of ~s exception: ~p:~p~n    ~p~n",
+		      [FileName,T,E,S]),
+		    {error, {failed_read, Dir, FileName, {T, E, S}}}
 	    after
 		file:close(Fd)
 	    end;
@@ -2612,7 +2673,7 @@ read_lines(Fd, Acc, StartLine) ->
 	{error, Error, EndLine} ->
             throw({failed_reading, StartLine, EndLine, Error});
         {eof, _EndLine} ->
-            lists:reverse(Acc)
+	    Acc
     end.
 
 read_and_parse_term(Fd, StartLine) ->
@@ -2627,6 +2688,12 @@ read_and_parse_term(Fd, StartLine) ->
         Other ->
             Other
     end.
+
+sort_lines(Lines, Order) ->
+    lists:sort(
+      fun ({_, T1, _}, {_, T2, _}) ->
+	      Order(T1, T2)
+      end, Lines).
 
 verify_lines([], _, _, Acc) ->
     lists:reverse(Acc);
@@ -2644,53 +2711,6 @@ verify_lines(
 	    S = erlang:get_stacktrace(),
 	    throw({failed_check, StartLine, EndLine, {C, R, S}})
     end.
-
-
-%% XXX remove
-
-%% do_read_config_file(Dir, FileName, Verify) ->
-%%     case file:open(filename:join(Dir, FileName), [read]) of
-%% 	{ok, Fd} ->
-%% 	    Result = read_loop(Fd, [], Verify, 1),
-%% 	    file:close(Fd),
-%% 	    Result;
-%% 	{error, Reason} ->
-%% 	    {error, {Reason, FileName}}
-%%     end.
-
-%% read_loop(Fd, Acc, Check, StartLine) ->
-%%     case read_term(Fd, StartLine) of
-%% 	{ok, Term, EndLine} ->
-%% 	    case (catch Check(Term)) of
-%% 		ok ->
-%% 		    read_loop(Fd, [Term | Acc], Check, EndLine);
-%% 		{error, Reason} ->
-%% 		    {error, {failed_check, StartLine, EndLine, Reason}};
-%% 		Error ->
-%% 		    {error, {failed_check, StartLine, EndLine, Error}}
-%% 	    end;
-%% 	{error, EndLine, Error} ->
-%%             {error, {failed_reading, StartLine, EndLine, Error}};
-%%         eof ->
-%%             {ok, lists:reverse(Acc)}
-%%     end.
-
-%% read_term(Fd, StartLine) ->
-%%     case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
-%% 	{ok, Tokens, EndLine} ->
-%% 	    case erl_parse:parse_term(Tokens) of
-%%                 {ok, Term} ->
-%%                     {ok, Term, EndLine};
-%%                 {error, {Line, erl_parse, Error}} ->
-%%                     {error, Line, {parse_error, Error}}
-%%             end;
-%%         {error, E, EndLine} ->
-%%             {error, EndLine, E};
-%%         {eof, _EndLine} ->
-%%             eof;
-%%         Other ->
-%%             Other
-%%     end.
 
 
 agent_snmp_mk_secret(Alg, Passwd, EngineID) ->

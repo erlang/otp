@@ -52,7 +52,7 @@
 	 set_engine_boots/1, set_engine_time/1,
 	 table_next/2, check_status/3]).
 -export([add_context/1, delete_context/1]).
--export([check_agent/1, check_agent/2, check_context/1, order_agent/2]).
+-export([check_agent/2, check_context/1, order_agent/2]).
 
 
 %%-----------------------------------------------------------------

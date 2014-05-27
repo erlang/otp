@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,42 +78,25 @@ write_manager_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_manager_config(Dir, Hdr, Conf).
 
-write_manager_config(Dir, Hdr, Conf) 
-  when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
-    Verify = fun()    -> verify_manager_conf(Conf)           end,
-    Write  = fun(Fid) -> write_manager_conf(Fid, Hdr, Conf)  end,
-    write_config_file(Dir, ?MANAGER_CONF_FILE, Verify, Write).
-    
+write_manager_config(Dir, Hdr, Conf)
+  when is_list(Dir), is_list(Hdr), is_list(Conf) ->
+    Order = fun snmpm_config:order_manager_config/2,
+    Check = fun snmpm_config:check_manager_config/2,
+    Write = fun (Fd, Entries) -> write_manager_conf(Fd, Hdr, Entries) end,
+    write_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
 append_manager_config(Dir, Conf) 
-  when is_list(Dir) andalso is_list(Conf) ->
-    Verify = fun()    -> verify_manager_conf(Conf)     end,
-    Write  = fun(Fid) -> write_manager_conf(Fid, Conf) end,
-    append_config_file(Dir, ?MANAGER_CONF_FILE, Verify, Write).
-    
+  when is_list(Dir), is_list(Conf) ->
+    Order = fun snmpm_config:order_manager_config/2,
+    Check = fun snmpm_config:check_manager_config/2,
+    Write = fun write_manager_conf/2,
+    append_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
-read_manager_config(Dir) ->
-    Verify = fun(Entry) -> verify_manager_conf_entry(Entry) end,
-    read_config_file(Dir, ?MANAGER_CONF_FILE, Verify).
+read_manager_config(Dir) when is_list(Dir) ->
+    Order = fun snmpm_config:order_manager_config/2,
+    Check = fun snmpm_config:check_manager_config/2,
+    read_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check).
 
-
-verify_manager_conf([]) ->
-    ok;
-verify_manager_conf([H|T]) ->
-    verify_manager_conf_entry(H),
-    verify_manager_conf(T);
-verify_manager_conf(X) ->
-    error({bad_manager_config, X}).
-
-verify_manager_conf_entry(Entry) ->
-    case snmpm_config:check_manager_config(Entry) of
-        ok ->
-            ok;
-%%         {ok, _} ->
-%%             ok;
-	Error ->
-	    throw(Error)
-    end.
 
 write_manager_conf(Fd, "", Conf) ->
     write_manager_conf(Fd, Conf);
@@ -167,36 +150,29 @@ write_users_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_users_config(Dir, Hdr, Conf).
 
-write_users_config(Dir, Hdr, Conf) 
+write_users_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
-    Verify = fun()   -> verify_users_conf(Conf)         end,
-    Write  = fun(Fd) -> write_users_conf(Fd, Hdr, Conf) end,
-    write_config_file(Dir, ?USERS_CONF_FILE, Verify, Write).
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_user_config/2,
+    Write = fun (Fd, Entries) -> write_users_conf(Fd, Hdr, Entries) end,
+    write_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
-
-append_users_config(Dir, Conf) 
+append_users_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
-    Verify = fun()   -> verify_users_conf(Conf)    end,
-    Write  = fun(Fd) -> write_users_conf(Fd, Conf) end,
-    append_config_file(Dir, ?USERS_CONF_FILE, Verify, Write).
-
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_user_config/2,
+    Write = fun write_users_conf/2,
+    append_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
 read_users_config(Dir) when is_list(Dir) ->
-    Verify = fun(Entry) -> verify_users_conf_entry(Entry) end,
-    read_config_file(Dir, ?USERS_CONF_FILE, Verify).
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_user_config/2,
+    read_config_file(Dir, ?USERS_CONF_FILE, Order, Check).
 
-    
-verify_users_conf([]) ->
-    ok;
-verify_users_conf([H|T]) ->
-    verify_users_conf_entry(H),
-    verify_users_conf(T);
-verify_users_conf(X) ->
-    error({bad_users_conf, X}).
 
-verify_users_conf_entry(Entry) ->
-    {ok, _} = snmpm_config:check_user_config(Entry),
-    ok.
+check_user_config(Entry, State) ->
+    {check_ok(snmpm_config:check_user_config(Entry)),
+     State}.
 
 write_users_conf(Fd, "", Conf) ->
     write_users_conf(Fd, Conf);
@@ -239,36 +215,29 @@ write_agents_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agents_config(Dir, Hdr, Conf).
 
-write_agents_config(Dir, Hdr, Conf) 
+write_agents_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
-    Verify = fun()   -> verify_agents_conf(Conf)         end,
-    Write  = fun(Fd) -> write_agents_conf(Fd, Hdr, Conf) end,
-    write_config_file(Dir, ?AGENTS_CONF_FILE, Verify, Write).
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_agent_config/2,
+    Write = fun (Fd, Entries) -> write_agents_conf(Fd, Hdr, Entries) end,
+    write_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
-
-append_agents_config(Dir, Conf) 
+append_agents_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
-    Verify = fun()   -> verify_agents_conf(Conf)    end,
-    Write  = fun(Fd) -> write_agents_conf(Fd, Conf) end,
-    append_config_file(Dir, ?AGENTS_CONF_FILE, Verify, Write).
-
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_agent_config/2,
+    Write = fun write_agents_conf/2,
+    append_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
 read_agents_config(Dir) ->
-    Verify = fun(Entry) -> verify_agents_conf_entry(Entry) end,
-    read_config_file(Dir, ?AGENTS_CONF_FILE, Verify).
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_agent_config/2,
+    read_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check).
 
 
-verify_agents_conf([]) ->
-    ok;
-verify_agents_conf([H|T]) ->
-    verify_agents_conf_entry(H),
-    verify_agents_conf(T);
-verify_agents_conf(X) ->
-    error({bad_agents_config, X}).
-
-verify_agents_conf_entry(Entry) ->
-    {ok, _} = snmpm_config:check_agent_config(Entry),
-    ok.
+check_agent_config(Entry, State) ->
+    {check_ok(snmpm_config:check_agent_config(Entry)),
+     State}.
 
 write_agents_conf(Fd, "", Conf) ->
     write_agents_conf(Fd, Conf);
@@ -282,13 +251,15 @@ write_agents_conf(Fd, [H|T]) ->
     do_write_agents_conf(Fd, H),
     write_agents_conf(Fd, T).
 
-do_write_agents_conf(Fd, 
-		    {UserId, 
-		     TargetName, Comm, Ip, Port, EngineID, 
-		     Timeout, MaxMessageSize, Version, 
-		     SecModel, SecName, SecLevel} = _A) ->
-    io:format(Fd, 
-	      "{~w, \"~s\", \"~s\", ~w, ~w, \"~s\", ~w, ~w, ~w, ~w, \"~s\", ~w}.~n", [UserId, TargetName, Comm, Ip, Port, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel]);
+do_write_agents_conf(
+  Fd,
+  {UserId, TargetName, Comm, Ip, Port, EngineID,
+   Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel} = _A) ->
+    io:format(
+      Fd,
+      "{~w, \"~s\", \"~s\", ~w, ~w, \"~s\", ~w, ~w, ~w, ~w, \"~s\", ~w}.~n",
+      [UserId, TargetName, Comm, Ip, Port, EngineID,
+       Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel]);
 do_write_agents_conf(_Fd, Crap) ->
     error({bad_agents_config, Crap}).
 
@@ -314,37 +285,30 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
-write_usm_config(Dir, Hdr, Conf) 
+write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
-    Verify = fun()   -> verify_usm_conf(Conf)         end,
-    Write  = fun(Fd) -> write_usm_conf(Fd, Hdr, Conf) end,
-    write_config_file(Dir, ?USM_USERS_CONF_FILE, Verify, Write).
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_usm_user_config/2,
+    Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
+    write_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
-
-append_usm_config(Dir, Conf) 
+append_usm_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
-    Verify = fun()   -> verify_usm_conf(Conf)    end,
-    Write  = fun(Fd) -> write_usm_conf(Fd, Conf) end,
-    append_config_file(Dir, ?USM_USERS_CONF_FILE, Verify, Write).
-
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_usm_user_config/2,
+    Write = fun write_usm_conf/2,
+    append_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
 read_usm_config(Dir) 
   when is_list(Dir) ->
-    Verify = fun(Entry) -> verify_usm_conf_entry(Entry) end,
-    read_config_file(Dir, ?USM_USERS_CONF_FILE, Verify).
+    Order = fun snmp_conf:no_order/2,
+    Check = fun check_usm_user_config/2,
+    read_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check).
 
 
-verify_usm_conf([]) ->
-    ok;
-verify_usm_conf([H|T]) ->
-    verify_usm_conf_entry(H),
-    verify_usm_conf(T);
-verify_usm_conf(X) ->
-    error({bad_usm_conf, X}).
-
-verify_usm_conf_entry(Entry) ->
-    {ok, _} = snmpm_config:check_usm_user_config(Entry),
-    ok.
+check_usm_user_config(Entry, State) ->
+    {check_ok(snmpm_config:check_usrm_user_config(Entry)),
+     State}.
 
 write_usm_conf(Fd, "", Conf) ->
     write_usm_conf(Fd, Conf);
@@ -358,41 +322,49 @@ write_usm_conf(Fd, [H|T]) ->
     do_write_usm_conf(Fd, H),
     write_usm_conf(Fd, T).
 
-do_write_usm_conf(Fd, 
-		  {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}) ->
-    io:format(Fd, "{\"~s\", \"~s\", ~w, ~w, ~w, ~w}.~n", 
-	      [EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey]);
-do_write_usm_conf(Fd, 
-		  {EngineID, UserName, SecName, 
-		   AuthP, AuthKey, PrivP, PrivKey}) ->
-    io:format(Fd, "{\"~s\", \"~s\", \"~s\", í~w, ~w, ~w, ~w}.~n",
-	      [EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey]);
+do_write_usm_conf(
+  Fd,
+  {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}) ->
+    io:format(
+      Fd, "{\"~s\", \"~s\", ~w, ~w, ~w, ~w}.~n",
+      [EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey]);
+do_write_usm_conf(
+  Fd,
+  {EngineID, UserName, SecName,
+   AuthP, AuthKey, PrivP, PrivKey}) ->
+    io:format(
+      Fd, "{\"~s\", \"~s\", \"~s\", í~w, ~w, ~w, ~w}.~n",
+      [EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey]);
 do_write_usm_conf(_Fd, Crap) ->
     error({bad_usm_conf, Crap}).
 
 
 %% ---- config file wrapper functions ----
 
-write_config_file(Dir, File, Verify, Write) ->
-    snmp_config:write_config_file(Dir, File, Verify, Write).
+write_config_file(Dir, File, Order, Check, Write, Conf) ->
+    snmp_config:write_config_file(Dir, File, Order, Check, Write, Conf).
 
-append_config_file(Dir, File, Verify, Write) ->
-    snmp_config:append_config_file(Dir, File, Verify, Write).
+append_config_file(Dir, File, Order, Check, Write, Conf) ->
+    snmp_config:append_config_file(Dir, File, Order, Check, Write, Conf).
 
-read_config_file(Dir, File, Verify) ->
-    snmp_config:read_config_file(Dir, File, Verify).
-
+read_config_file(Dir, File, Order, Check) ->
+    snmp_config:read_config_file(Dir, File, Order, Check).
 
 %% ---- config file utility functions ----
+
+check_ok(ok) ->
+    ok;
+check_ok({ok, _}) ->
+    ok.
 
 header() ->
     {Y,Mo,D} = date(),
     {H,Mi,S} = time(),
-    io_lib:format("%% This file was generated by "
-		  "~w (version-~s) ~w-~2.2.0w-~2.2.0w "
-		  "~2.2.0w:~2.2.0w:~2.2.0w\n",
-		  [?MODULE, ?version, Y, Mo, D, H, Mi, S]).
-
+    io_lib:format(
+      "%% This file was generated by "
+      "~w (version-~s) ~w-~2.2.0w-~2.2.0w "
+      "~2.2.0w:~2.2.0w:~2.2.0w\n",
+      [?MODULE, ?version, Y, Mo, D, H, Mi, S]).
 
 error(R) ->
     throw({error, R}).
