@@ -194,6 +194,7 @@ error_handling_tests()->
      close_transport_accept,
      recv_active,
      recv_active_once,
+     recv_error_handling,
      dont_crash_on_handshake_garbage
     ].
 
