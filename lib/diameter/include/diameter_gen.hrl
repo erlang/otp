@@ -30,6 +30,10 @@
 %% error or not. See is_strict/0.
 -define(STRICT_KEY, strict).
 
+%% Key that says whether or not we should do a best-effort decode
+%% within Failed-AVP.
+-define(FAILED_KEY, failed).
+
 -type parent_name()   :: atom().  %% parent = Message or AVP
 -type parent_record() :: tuple(). %%
 -type avp_name()   :: atom().
@@ -286,15 +290,7 @@ decode(Name, 'AVP', Avp, Acc) ->
 
 %% d/3
 
-%% Don't try to decode the value of a Failed-AVP component since it
-%% probably won't. Note that matching on 'Failed-AVP' assumes that
-%% this is the RFC AVP, with code 279. Strictly, this doesn't need to
-%% be the case, so we're assuming no one defines another Failed-AVP.
-d('Failed-AVP' = Name, Avp, Acc) ->
-    decode_AVP(Name, Avp, Acc);
-
-%% Or try to decode.
-d(Name, Avp, {Avps, Acc}) ->
+d(Name, Avp, Acc) ->
     #diameter_avp{name = AvpName,
                   data = Data,
                   type = Type,
@@ -307,52 +303,80 @@ d(Name, Avp, {Avps, Acc}) ->
     %% value around through the entire decode. The solution here is
     %% simple in comparison, both to implement and to understand.
 
-    Reset = relax(Type, M),
+    Strict = relax(Type, M),
 
+    %% Use the process dictionary again to keep track of whether we're
+    %% decoding within Failed-AVP and should ignore decode errors
+    %% altogether.
+
+    Failed = relax(Name),  %% Not AvpName or else a failed Failed-AVP
+                           %% decode is packed into 'AVP'.
     try avp(decode, Data, AvpName) of
         V ->
+            {Avps, T} = Acc,
             {H, A} = ungroup(V, Avp),
-            {[H | Avps], pack_avp(Name, A, Acc)}
+            {[H | Avps], pack_avp(Name, A, T)}
     catch
         error: Reason ->
-            %% Failures here won't be visible since they're a "normal"
-            %% occurrence if the peer sends a faulty AVP that we need to
-            %% respond sensibly to. Log the occurence for traceability,
-            %% but the peer will also receive info in the resulting
-            %% answer-message.
-            Stack = diameter_lib:get_stacktrace(),
-            diameter_lib:log(decode_error,
-                             ?MODULE,
-                             ?LINE,
-                             {Reason, AvpName, Stack}),
-
-            {Rec, Failed} = Acc,
-            {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}
+            d(undefined == Failed orelse is_failed(), Reason, Name, Avp, Acc)
     after
-        relax(Reset)
+        reset(?STRICT_KEY, Strict),
+        reset(?FAILED_KEY, Failed)
     end.
+
+%% Ignore a decode error within Failed-AVP ...
+d(true, _, Name, Avp, Acc) ->
+    decode_AVP(Name, Avp, Acc);
+
+%% ... or not. Failures here won't be visible since they're a "normal"
+%% occurrence if the peer sends a faulty AVP that we need to respond
+%% sensibly to. Log the occurence for traceability, but the peer will
+%% also receive info in the resulting answer message.
+d(false, Reason, Name, Avp, {Avps, Acc}) ->
+    Stack = diameter_lib:get_stacktrace(),
+    diameter_lib:log(decode_error,
+                     ?MODULE,
+                     ?LINE,
+                     {Reason, Name, Avp#diameter_avp.name, Stack}),
+    {Rec, Failed} = Acc,
+    {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}.
 
 %% Set false in the process dictionary as soon as we see a Grouped AVP
 %% that doesn't set the M-bit, so that is_strict() can say whether or
 %% not to ignore the M-bit on an encapsulated AVP.
 relax('Grouped', M) ->
-    V = getr(?STRICT_KEY),
-    if V == undefined andalso not M ->
+    case getr(?STRICT_KEY) of
+        undefined when not M ->
             putr(?STRICT_KEY, M);
-       true ->
+        _ ->
             false
     end;
 relax(_, _) ->
     false.
 
-%% Reset strictness.
-relax(undefined) ->
-    eraser(?STRICT_KEY);
-relax(false) ->
-    ok.
-
 is_strict() ->
     false /= getr(?STRICT_KEY).
+
+%% Set true in the process dictionary as soon as we see Failed-AVP.
+%% Matching on 'Failed-AVP' assumes that this is the RFC AVP.
+%% Strictly, this doesn't need to be the case.
+relax('Failed-AVP') ->
+    case getr(?FAILED_KEY) of
+        undefined ->
+            putr(?FAILED_KEY, true);
+        true = Yes ->
+            Yes
+    end;
+relax(_) ->
+    is_failed().
+    
+is_failed() ->
+    true == getr(?FAILED_KEY).
+
+reset(Key, undefined) ->
+    eraser(Key);
+reset(_, _) ->
+    ok.
 
 %% decode_AVP/3
 %%
@@ -441,7 +465,15 @@ pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
 %% Give Failed-AVP special treatment since it'll contain any
 %% unrecognized mandatory AVP's.
 pack_arity(Name, M) ->
-    case Name /= 'Failed-AVP' andalso M andalso is_strict() of
+    NF = Name /= 'Failed-AVP' andalso not is_failed(),
+    %% Not testing just Name /= 'Failed-AVP' means we're changing the
+    %% packing of AVPs nested within Failed-AVP, but the point of
+    %% ignoring errors within Failed-AVP is to decode as much as
+    %% possible, and failing because a mandatory AVP couldn't be
+    %% packed into a dedicated field defeats that point. Note that we
+    %% can't just test not is_failed() since this will be 'true' when
+    %% packing an unknown AVP directly within Failed-AVP.
+    case NF andalso M andalso is_strict() of
         true ->
             0;
         false ->

@@ -593,7 +593,8 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     Len = size(<<H:5/binary, _:24, T/binary>> = <<B/binary, 0:Pad>>),
     <<H/binary, Len:24, T/binary>>;
 
-%% ... from a dictionary compiled against old code (diameter_gen) ...
+%% ... from a dictionary compiled against old code in diameter_gen ...
+%% ... when ignoring errors in Failed-AVP ...
 pack_avp(#diameter_avp{data = <<0:1, B/binary>>} = A) ->
     pack_avp(A#diameter_avp{data = B});
 

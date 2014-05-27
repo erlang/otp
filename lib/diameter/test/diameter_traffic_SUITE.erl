@@ -56,7 +56,8 @@
          send_zero_avp_length/1,
          send_invalid_avp_length/1,
          send_invalid_reject/1,
-         send_unrecognized_mandatory/1,
+         send_unexpected_mandatory_decode/1,
+         send_unexpected_mandatory/1,
          send_long/1,
          send_nopeer/1,
          send_noapp/1,
@@ -281,7 +282,8 @@ tc() ->
      send_zero_avp_length,
      send_invalid_avp_length,
      send_invalid_reject,
-     send_unrecognized_mandatory,
+     send_unexpected_mandatory_decode,
+     send_unexpected_mandatory,
      send_long,
      send_nopeer,
      send_noapp,
@@ -488,6 +490,22 @@ send_unknown_mandatory(Config) ->
 send_unknown_short_mandatory(Config) ->
     send_unknown_short(Config, true, ?INVALID_AVP_LENGTH).
 
+%% Send an ACR containing an unexpected mandatory Session-Timeout.
+%% Expect 5001, and check that the value in Failed-AVP was decoded.
+send_unexpected_mandatory_decode(Config) ->
+    Req = ['ASR', {'AVP', [#diameter_avp{code = 27,  %% Session-Timeout
+                                         is_mandatory = true,
+                                         data = <<12:32>>}]}],
+    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+        = call(Config, Req),
+    [#'diameter_base_Failed-AVP'{'AVP' = As}]
+        = proplists:get_value('Failed-AVP', Avps),
+    [#diameter_avp{code = 27,
+                   is_mandatory = true,
+                   value = 12,
+                   data = <<12:32>>}]
+        = As.
+
 %% Send an STR that the server ignores.
 send_noreply(Config) ->
     Req = ['STR', {'Termination-Cause', ?BAD_ANSWER}],
@@ -554,9 +572,9 @@ send_invalid_reject(Config) ->
     ?answer_message(?TOO_BUSY)
         = call(Config, Req).
 
-%% Send an STR containing a known AVP, but one that's not allowed and
-%% sets the M-bit.
-send_unrecognized_mandatory(Config) ->
+%% Send an STR containing a known AVP, but one that's not expected and
+%% that sets the M-bit.
+send_unexpected_mandatory(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
     ['STA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | _]
@@ -923,8 +941,8 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
     <<V, L:24, H/binary>> = H0,  %% assert
     E#diameter_packet{bin = <<V, (L+4):24, H/binary, 16:24, 0:32, T/binary>>};
 
-prepare(Pkt, Caps, send_unrecognized_mandatory, #group{client_dict0 = Dict0}
-                                                = Group) ->
+prepare(Pkt, Caps, send_unexpected_mandatory, #group{client_dict0 = Dict0}
+                                              = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<V, Len:24, T/binary>>}
         = E
@@ -1045,7 +1063,8 @@ answer(Rec, [_|_], N)
        N == send_zero_avp_length;
        N == send_invalid_avp_length;
        N == send_invalid_reject;
-       N == send_unknown_short_mandatory ->
+       N == send_unknown_short_mandatory;
+       N == send_unexpected_mandatory_decode ->
     Rec;
 answer(Rec, [], _) ->
     Rec.
