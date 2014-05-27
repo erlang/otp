@@ -227,7 +227,7 @@ question is as if a callback had taken place and returned
 <c>{error, failure}</c>.</p>
 
 <p>
-Defaults to <c>report</c> if unspecified.</p>
+Defaults to <c>discard</c> if unspecified.</p>
 </item>
 
 <tag><c>{request_errors, answer_3xxx|answer|callback}</c></tag>

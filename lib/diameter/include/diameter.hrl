@@ -126,7 +126,7 @@
          default,
          extra = []}).
 
-%% The diameter service and diameter_apps records are only passed
+%% The diameter service and diameter_app records are only passed
 %% through the transport interface when starting a transport process,
 %% although typically a transport implementation will (and probably
 %% should) only be interested host_ip_address.
@@ -143,6 +143,7 @@
          init_state, %% option 'state', initial callback state
          id,         %% 32-bit unsigned application identifier = Dict:id()
          mutable = false, %% boolean(), do traffic callbacks modify state?
-         options = [{answer_errors, report},      %% | callback | discard
+         options = [{answer_errors, discard},         %% | callback | report
                     {request_errors, answer_3xxx}]}). %% | callback | answer
+
 -endif. %% -ifdef(diameter_hrl).
