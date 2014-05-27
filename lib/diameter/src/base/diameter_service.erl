@@ -731,13 +731,26 @@ remotes(F) ->
         L when is_list(L) ->
             L;
         T ->
-            diameter_lib:error_report({invalid_return, T}, F),
+            ?LOG(invalid_return, {F,T}),
+            error_report(invalid_return, share_peers, F),
             []
     catch
         E:R ->
-            diameter_lib:error_report({failure, {E, R, ?STACK}}, F),
+            ?LOG(failure, {E, R, F, diameter_lib:get_stacktrace()}),
+            error_report(failure, share_peers, F),
             []
     end.
+
+%% error_report/3
+
+error_report(T, What, F) ->
+    Reason = io_lib:format("~s from ~p callback", [reason(T), What]),
+    diameter_lib:error_report(Reason, diameter_lib:eval_name(F)).
+
+reason(invalid_return) ->
+    "invalid return";
+reason(failure) ->
+    "failure".
 
 %% ---------------------------------------------------------------------------
 %% # start/3
@@ -1038,8 +1051,11 @@ peer_cb(App, F, A) ->
             true
     catch
         E:R ->
-            diameter_lib:error_report({failure, {E, R, ?STACK}},
-                                      {App, F, A}),
+            %% Don't include arguments since a #diameter_caps{} strings
+            %% from the peer, which could be anything (especially, large).
+            [Mod|X] = App#diameter_app.module,
+            ?LOG(failure, {E, R, Mod, F, diameter_lib:get_stacktrace()}),
+            error_report(failure, F, {Mod, F, A ++ X}),
             false
     end.
 
@@ -1262,13 +1278,14 @@ cm([#diameter_app{alias = Alias} = App], Req, From, Svc) ->
             mod_state(Alias, ModS),
             {T, RC};
         T ->
-            diameter_lib:error_report({invalid, T},
-                                      {App, handle_call, Args}),
+            ModX = App#diameter_app.module,
+            ?LOG(invalid_return, {ModX, handle_call, Args, T}),
             invalid
     catch
         E: Reason ->
-            diameter_lib:error_report({failure, {E, Reason, ?STACK}},
-                                      {App, handle_call, Args}),
+            ModX = App#diameter_app.module,
+            Stack = diameter_lib:get_stacktrace(),
+            ?LOG(failure, {E, Reason, ModX, handle_call, Stack}),
             failure
     end;
 
@@ -1426,13 +1443,16 @@ pick_peer(Local,
             T;                     %% Accept returned state in the immutable
         {false = No, S} ->         %% case as long it isn't changed.
             No;
-        T ->
-            diameter_lib:error_report({invalid, T, App},
-                                      {App, pick_peer, Args})
+        T when M ->
+            ModX = App#diameter_app.module,
+            ?LOG(invalid_return, {ModX, pick_peer, T}),
+            false
     catch
-        E: Reason ->
-            diameter_lib:error_report({failure, {E, Reason, ?STACK}},
-                                      {App, pick_peer, Args})
+        E: Reason when M ->
+            ModX = App#diameter_app.module,
+            Stack = diameter_lib:get_stacktrace(),
+            ?LOG(failure, {E, Reason, ModX, pick_peer, Stack}),
+            false
     end.
 
 %% peers/4

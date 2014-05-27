@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,11 +25,29 @@
          now_diff/1,
          time/1,
          eval/1,
+         eval_name/1,
+         get_stacktrace/0,
          ipaddr/1,
          spawn_opts/2,
          wait/1,
          fold_tuple/3,
          log/4]).
+
+%% ---------------------------------------------------------------------------
+%% # get_stacktrace/0
+%% ---------------------------------------------------------------------------
+
+%% Return a stacktrace with a leading, potentially large, argument
+%% list replaced by an arity. Trace on stacktrace/0 to see the
+%% original.
+
+get_stacktrace() ->
+    stacktrace(erlang:get_stacktrace()).
+
+stacktrace([{M,F,A,L} | T]) when is_list(A) ->
+    [{M, F, length(A), L} | T];
+stacktrace(L) ->
+    L.
 
 %% ---------------------------------------------------------------------------
 %% # info_report/2
@@ -60,8 +78,16 @@ warning_report(Reason, T) ->
     report(fun error_logger:warning_report/1, Reason, T).
 
 report(Fun, Reason, T) ->
-    Fun([{why, Reason}, {who, self()}, {what, T}]),
+    Fun(io_lib:format("diameter: ~" ++ fmt(Reason) ++ "~n    ~p~n",
+                      [Reason, T])),
     false.
+
+fmt(T) ->
+    if is_list(T) ->
+            "s";
+       true ->
+            "p"
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # now_diff/1
@@ -129,8 +155,8 @@ eval({M,F,A}) ->
 eval([{M,F,A} | X]) ->
     apply(M, F, X ++ A);
 
-eval([[F|A] | X]) ->
-    eval([F | X ++ A]);
+eval([[F|X] | A]) ->
+    eval([F | A ++ X]);
 
 eval([F|A]) ->
     apply(F,A);
@@ -140,6 +166,28 @@ eval({F}) ->
 
 eval(F) ->
     F().
+
+%% ---------------------------------------------------------------------------
+%% eval_name/1
+%% ---------------------------------------------------------------------------
+
+eval_name({M,F,A}) ->
+    {M, F, length(A)};
+
+eval_name([{M,F,A} | X]) ->
+    {M, F, length(A) + length(X)};
+
+eval_name([[F|A] | X]) ->
+    eval_name([F | X ++ A]);
+
+eval_name([F|_]) ->
+    F;
+
+eval_name({F}) ->
+    eval_name(F);
+
+eval_name(F) ->
+    F.
 
 %% ---------------------------------------------------------------------------
 %% # ipaddr/1

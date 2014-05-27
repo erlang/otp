@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,9 @@
          send_protocol_error/1,
          send_arbitrary/1,
          send_unknown/1,
+         send_unknown_short/1,
          send_unknown_mandatory/1,
+         send_unknown_short_mandatory/1,
          send_noreply/1,
          send_unsupported/1,
          send_unsupported_app/1,
@@ -54,7 +56,8 @@
          send_zero_avp_length/1,
          send_invalid_avp_length/1,
          send_invalid_reject/1,
-         send_unrecognized_mandatory/1,
+         send_unexpected_mandatory_decode/1,
+         send_unexpected_mandatory/1,
          send_long/1,
          send_nopeer/1,
          send_noapp/1,
@@ -266,7 +269,9 @@ tc() ->
      send_protocol_error,
      send_arbitrary,
      send_unknown,
+     send_unknown_short,
      send_unknown_mandatory,
+     send_unknown_short_mandatory,
      send_noreply,
      send_unsupported,
      send_unsupported_app,
@@ -277,7 +282,8 @@ tc() ->
      send_zero_avp_length,
      send_invalid_avp_length,
      send_invalid_reject,
-     send_unrecognized_mandatory,
+     send_unexpected_mandatory_decode,
+     send_unexpected_mandatory,
      send_long,
      send_nopeer,
      send_noapp,
@@ -447,6 +453,24 @@ send_unknown(Config) ->
                            data = <<17>>}]}
         = lists:last(Avps).
 
+%% Ditto, and point the AVP length past the end of the message. Expect
+%% 5014.
+send_unknown_short(Config) ->
+    send_unknown_short(Config, false, ?INVALID_AVP_LENGTH).
+
+send_unknown_short(Config, M, RC) ->
+    Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
+                                         is_mandatory = M,
+                                         data = <<17>>}]}],
+    ['ASA', _SessionId, {'Result-Code', RC} | Avps]
+        = call(Config, Req),
+    [#'diameter_base_Failed-AVP'{'AVP' = As}]
+        = proplists:get_value('Failed-AVP', Avps),
+    [#diameter_avp{code = 999,
+                   is_mandatory = M,
+                   data = <<17, _/binary>>}]  %% extra bits from padding
+        = As.
+
 %% Ditto but set the M flag.
 send_unknown_mandatory(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
@@ -459,6 +483,27 @@ send_unknown_mandatory(Config) ->
     [#diameter_avp{code = 999,
                    is_mandatory = true,
                    data = <<17>>}]
+        = As.
+
+%% Ditto, and point the AVP length past the end of the message. Expect
+%% 5014 instead of 5001.
+send_unknown_short_mandatory(Config) ->
+    send_unknown_short(Config, true, ?INVALID_AVP_LENGTH).
+
+%% Send an ACR containing an unexpected mandatory Session-Timeout.
+%% Expect 5001, and check that the value in Failed-AVP was decoded.
+send_unexpected_mandatory_decode(Config) ->
+    Req = ['ASR', {'AVP', [#diameter_avp{code = 27,  %% Session-Timeout
+                                         is_mandatory = true,
+                                         data = <<12:32>>}]}],
+    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+        = call(Config, Req),
+    [#'diameter_base_Failed-AVP'{'AVP' = As}]
+        = proplists:get_value('Failed-AVP', Avps),
+    [#diameter_avp{code = 27,
+                   is_mandatory = true,
+                   value = 12,
+                   data = <<12:32>>}]
         = As.
 
 %% Send an STR that the server ignores.
@@ -527,9 +572,9 @@ send_invalid_reject(Config) ->
     ?answer_message(?TOO_BUSY)
         = call(Config, Req).
 
-%% Send an STR containing a known AVP, but one that's not allowed and
-%% sets the M-bit.
-send_unrecognized_mandatory(Config) ->
+%% Send an STR containing a known AVP, but one that's not expected and
+%% that sets the M-bit.
+send_unexpected_mandatory(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
     ['STA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | _]
@@ -836,6 +881,26 @@ log(#diameter_packet{bin = Bin} = P, T)
 %% prepare/4
 
 prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
+  when N == send_unknown_short_mandatory;
+       N == send_unknown_short ->
+    Req = prepare(Pkt, Caps, Group),
+
+    #diameter_packet{header = #diameter_header{length = L},
+                     bin = Bin}
+        = E
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
+
+    %% Find the unknown AVP data at the end of the message and alter
+    %% its length header.
+
+    {Padding, [17|_]} = lists:splitwith(fun(C) -> C == 0 end,
+                                       lists:reverse(binary_to_list(Bin))),
+
+    Offset = L - length(Padding) - 4,
+    <<H:Offset/binary, Len:24, T/binary>> = Bin,
+    E#diameter_packet{bin = <<H/binary, (Len+9):24, T/binary>>};
+
+prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
   when N == send_long_avp_length;
        N == send_short_avp_length;
        N == send_zero_avp_length ->
@@ -876,8 +941,8 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
     <<V, L:24, H/binary>> = H0,  %% assert
     E#diameter_packet{bin = <<V, (L+4):24, H/binary, 16:24, 0:32, T/binary>>};
 
-prepare(Pkt, Caps, send_unrecognized_mandatory, #group{client_dict0 = Dict0}
-                                                = Group) ->
+prepare(Pkt, Caps, send_unexpected_mandatory, #group{client_dict0 = Dict0}
+                                              = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<V, Len:24, T/binary>>}
         = E
@@ -997,7 +1062,9 @@ answer(Rec, [_|_], N)
        N == send_short_avp_length;
        N == send_zero_avp_length;
        N == send_invalid_avp_length;
-       N == send_invalid_reject ->
+       N == send_invalid_reject;
+       N == send_unknown_short_mandatory;
+       N == send_unexpected_mandatory_decode ->
     Rec;
 answer(Rec, [], _) ->
     Rec.
