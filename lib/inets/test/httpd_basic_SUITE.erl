@@ -32,9 +32,9 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [
-     uri_too_long_414, 
+    [uri_too_long_414, 
      header_too_long_413,
+     entity_too_long,
      erl_script_nocache_opt,
      script_nocache,
      escaped_url_in_error_body,
@@ -63,15 +63,13 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    tsp("init_per_suite -> entry with"
-	"~n   Config: ~p", [Config]),
     inets_test_lib:stop_apps([inets]),
     inets_test_lib:start_apps([inets]),
     PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config), 
-
+    
     Dummy = 
-"<HTML>
+	"<HTML>
 <HEAD>
 <TITLE>/index.html</TITLE>
 </HEAD>
@@ -79,7 +77,7 @@ init_per_suite(Config) ->
 DUMMY
 </BODY>
 </HTML>",
-
+    
     DummyFile = filename:join([PrivDir,"dummy.html"]),
     CgiDir =  filename:join(PrivDir, "cgi-bin"),
     ok = file:make_dir(CgiDir),
@@ -116,8 +114,6 @@ DUMMY
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-    tsp("end_per_suite -> entry with"
-	"~n   Config: ~p", [_Config]),
     inets:stop(),
     ok.
 
@@ -134,8 +130,6 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_testcase(Case, Config) ->
-    tsp("init_per_testcase(~w) -> entry with"
-	"~n   Config: ~p", [Case, Config]),
     Config.
 
 
@@ -147,22 +141,18 @@ init_per_testcase(Case, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(Case, Config) ->
-    tsp("end_per_testcase(~w) -> entry with"
-	"~n   Config: ~p", [Case, Config]),
+end_per_testcase(_Case, Config) ->
     Config.
 
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-uri_too_long_414(doc) ->
-    ["Test that too long uri's get 414 HTTP code"];
-uri_too_long_414(suite) ->
-    [];
+uri_too_long_414() ->
+    [{doc, "Test that too long uri's get 414 HTTP code"}].
 uri_too_long_414(Config) when is_list(Config) ->
     HttpdConf =   ?config(httpd_conf, Config),    
-    {ok, Pid} = inets:start(httpd, [{port, 0}, {max_uri_size, 10} 
+    {ok, Pid} = inets:start(httpd, [{max_uri_size, 10} 
 				    | HttpdConf]),
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
@@ -178,17 +168,12 @@ uri_too_long_414(Config) when is_list(Config) ->
  				        {version, "HTTP/0.9"}]),    
     inets:stop(httpd, Pid).
     
-
 %%-------------------------------------------------------------------------
-%%-------------------------------------------------------------------------
-
-header_too_long_413(doc) ->
-    ["Test that too long headers's get 413 HTTP code"];
-header_too_long_413(suite) ->
-    [];
+header_too_long_413() ->
+    [{doc,"Test that too long headers's get 413 HTTP code"}].
 header_too_long_413(Config) when is_list(Config) ->
     HttpdConf = ?config(httpd_conf, Config), 
-    {ok, Pid} = inets:start(httpd, [{port, 0}, {max_header_size, 10}
+    {ok, Pid} = inets:start(httpd, [{max_header_size, 10}
 				    | HttpdConf]),
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
@@ -202,8 +187,72 @@ header_too_long_413(Config) when is_list(Config) ->
     inets:stop(httpd, Pid).
    
 %%-------------------------------------------------------------------------
+
+entity_too_long() ->
+    [{doc, "Test that too long versions and method strings are rejected"}].
+entity_too_long(Config) when is_list(Config) ->
+    HttpdConf =   ?config(httpd_conf, Config),    
+    {ok, Pid} = inets:start(httpd, HttpdConf),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    
+    %% Not so long but wrong
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
+     				       "GET / " ++
+					   lists:duplicate(5, $A) ++ "\r\n\r\n",
+     				       [{statuscode, 400},
+     					%% Server will send lowest version
+    					%% as it will not get to the 
+     					%% client version
+     					%% before aborting
+     				        {version, "HTTP/0.9"}]),
+    
+    %% Too long
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
+ 				       "GET / " ++
+					   lists:duplicate(100, $A) ++ "\r\n\r\n",
+ 				       [{statuscode, 413},
+					%% Server will send lowest version
+					%% as it will not get to the 
+					%% client version
+					%% before aborting
+ 				        {version, "HTTP/0.9"}]),
+    %% Not so long but wrong
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
+				       lists:duplicate(5, $A) ++ " / "
+				       "HTTP/1.1\r\n\r\n",
+ 				       [{statuscode, 501},
+					%% Server will send lowest version
+					%% as it will not get to the 
+					%% client version
+					%% before aborting
+ 				        {version, "HTTP/1.1"}]),
+    %% Too long
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
+				       lists:duplicate(100, $A) ++ " / "
+				       "HTTP/1.1\r\n\r\n",
+ 				       [{statuscode, 413},
+					%% Server will send lowest version
+					%% as it will not get to the 
+					%% client version
+					%% before aborting
+ 				        {version, "HTTP/0.9"}]),   
+    inets:stop(httpd, Pid).
+    
 %%-------------------------------------------------------------------------
 
+script_nocache() ->
+    [{doc,"Test nocache option for mod_cgi and mod_esi"}].
+script_nocache(Config) when is_list(Config) ->
+    Normal = {no_header, "cache-control"},
+    NoCache = {header, "cache-control", "no-cache"},
+    verify_script_nocache(Config, false, false, Normal, Normal),
+    verify_script_nocache(Config, true, false, NoCache, Normal),
+    verify_script_nocache(Config, false, true, Normal, NoCache),
+    verify_script_nocache(Config, true, true, NoCache, NoCache).
+
+%%-------------------------------------------------------------------------
 erl_script_nocache_opt(doc) ->
     ["Test that too long headers's get 413 HTTP code"];
 erl_script_nocache_opt(suite) ->
@@ -225,154 +274,48 @@ erl_script_nocache_opt(Config) when is_list(Config) ->
     inets:stop(httpd, Pid).
 
 %%-------------------------------------------------------------------------
-%%-------------------------------------------------------------------------
-
-script_nocache(doc) ->
-    ["Test nocache option for mod_cgi and mod_esi"];
-script_nocache(suite) ->
-    [];
-script_nocache(Config) when is_list(Config) ->
-    Normal = {no_header, "cache-control"},
-    NoCache = {header, "cache-control", "no-cache"},
-    verify_script_nocache(Config, false, false, Normal, Normal),
-    verify_script_nocache(Config, true, false, NoCache, Normal),
-    verify_script_nocache(Config, false, true, Normal, NoCache),
-    verify_script_nocache(Config, true, true, NoCache, NoCache),
-    ok.
-
-verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
-    HttpdConf = ?config(httpd_conf, Config),
-    CgiScript = ?config(cgi_printenv, Config),
-    CgiDir = ?config(cgi_dir, Config),
-    {ok, Pid} = inets:start(httpd, [{port, 0},
-				    {script_alias,
-				     {"/cgi-bin/", CgiDir ++ "/"}},
-				    {script_nocache, CgiNoCache},
-				    {erl_script_alias,
-				     {"/cgi-bin/erl", [httpd_example,io]}},
-				    {erl_script_nocache, EsiNoCache}
-				    | HttpdConf]),
-    Info = httpd:info(Pid),
-    Port = proplists:get_value(port, Info),
-    Address = proplists:get_value(bind_address, Info),
-    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
-				       "GET /cgi-bin/" ++ CgiScript ++
-					   " HTTP/1.0\r\n\r\n",
-				       [{statuscode, 200},
-					CgiOption,
-					{version, "HTTP/1.0"}]),
-    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
-				       "GET /cgi-bin/erl/httpd_example:get "
-				       "HTTP/1.0\r\n\r\n",
-				       [{statuscode, 200},
-					EsiOption,
-					{version, "HTTP/1.0"}]),
-    inets:stop(httpd, Pid).
 
 
 %%-------------------------------------------------------------------------
-%%-------------------------------------------------------------------------
 
-escaped_url_in_error_body(doc) ->
-    ["Test Url-encoding see OTP-8940"];
-escaped_url_in_error_body(suite) ->
-    [];
-escaped_url_in_error_body(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    %% This skip is due to a problem on windows with long path's
-    %% If a path is too long file:open fails with, for example, eio.
-    %% Until that problem is fixed, we skip this case...
-    Skippable = [win32],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
-    tsp("escaped_url_in_error_body -> entry"),
+escaped_url_in_error_body() ->
+    [{doc, "Test Url-encoding see OTP-8940"}].
+escaped_url_in_error_body(Config) when is_list(Config) -> 
     HttpdConf   = ?config(httpd_conf, Config),
     {ok, Pid}   = inets:start(httpd, [{port, 0} | HttpdConf]),
     Info        = httpd:info(Pid),
     Port        = proplists:get_value(port,         Info),
-    _Address    = proplists:get_value(bind_address, Info),
-
-    %% Request 1
-    tss(1000), 
-    tsp("escaped_url_in_error_body -> request 1"),
     URL1        = ?URL_START ++ integer_to_list(Port),
-    %% Make sure the server is ok, by making a request for a valid page
-    case httpc:request(get, {URL1 ++ "/dummy.html", []},
-		       [{url_encode,  false}, 
-			{version,     "HTTP/1.0"}],
-		       [{full_result, false}]) of
-	{ok, {200, _}} ->
-	    %% Don't care about the the body, just that we get a ok response
-	    ok;
-	{ok, {StatusCode1, Body1}} ->
-	    tsf({unexpected_ok_1, StatusCode1, Body1})
-    end,
-
-    %% Request 2
-    tss(1000), 
-    tsp("escaped_url_in_error_body -> request 2"),
-    %% Make sure the server is ok, by making a request for a valid page
-    case httpc:request(get, {URL1 ++ "/dummy.html", []},
-		       [{url_encode,  true}, 
-			{version,     "HTTP/1.0"}],
-		       [{full_result, false}]) of
-	{ok, {200, _}} ->
-	    %% Don't care about the the body, just that we get a ok response
-	    ok;
-	{ok, {StatusCode2, Body2}} ->
-	    tsf({unexpected_ok_2, StatusCode2, Body2})
-    end,
-
-    %% Request 3
-    tss(1000), 
-    tsp("escaped_url_in_error_body -> request 3"),
+   
+    %% Sanity check
+    {ok, {200, _}} = httpc:request(get, {URL1 ++ "/dummy.html", []},
+     				   [{url_encode,  false}, 
+     				    {version,     "HTTP/1.0"}],
+     				   [{full_result, false}]),
+    {ok, {200, _}} = httpc:request(get, {URL1 ++ "/dummy.html", []},
+     				   [{url_encode,  true}, 
+     				    {version,     "HTTP/1.0"}],
+     				   [{full_result, false}]),
+    
     %% Ask for a non-existing page(1)
     Path            = "/<b>this_is_bold<b>",
     HTMLEncodedPath = http_util:html_encode(Path),
     URL2            = URL1 ++ Path,
-    case httpc:request(get, {URL2, []},
-		       [{url_encode,  true}, 
-			{version,     "HTTP/1.0"}],
-		       [{full_result, false}]) of
-	{ok, {404, Body3}} ->
-	    case find_URL_path(string:tokens(Body3, " ")) of
-		HTMLEncodedPath ->
-		    ok;
-		BadPath3 ->
-		    tsf({unexpected_path_3, HTMLEncodedPath, BadPath3})
-	    end;
-	{ok, UnexpectedOK3} ->
-	    tsf({unexpected_ok_3, UnexpectedOK3})
-    end,
+    {ok, {404, Body3}} = httpc:request(get, {URL2, []},
+				       [{url_encode,  true}, 
+					{version,     "HTTP/1.0"}],
+				       [{full_result, false}]),
 
-    %% Request 4
-    tss(1000), 
-    tsp("escaped_url_in_error_body -> request 4"),
-    %% Ask for a non-existing page(2)
-    case httpc:request(get, {URL2, []}, 
-		       [{url_encode,  false}, 
-			{version,     "HTTP/1.0"}],
-		       [{full_result, false}]) of
-	{ok, {404, Body4}} ->
-	    case find_URL_path(string:tokens(Body4, " ")) of
-		HTMLEncodedPath ->
-		    ok;
-		BadPath4 ->
-		    tsf({unexpected_path_4, HTMLEncodedPath, BadPath4})
-	    end;
-	{ok, UnexpectedOK4} ->
-	    tsf({unexpected_ok_4, UnexpectedOK4})
-    end, 
-    tss(1000), 
-    tsp("escaped_url_in_error_body -> stop inets"),
-    inets:stop(httpd, Pid),
-    tsp("escaped_url_in_error_body -> done"),    
-    ok.
+    HTMLEncodedPath = find_URL_path(string:tokens(Body3, " ")),
 
+    {ok, {404, Body4}} = httpc:request(get, {URL2, []}, 
+				       [{url_encode,  false}, 
+					{version,     "HTTP/1.0"}],
+				       [{full_result, false}]),
+    
+    HTMLEncodedPath = find_URL_path(string:tokens(Body4, " ")),
+    inets:stop(httpd, Pid).
 
-%%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------
 
 keep_alive_timeout(doc) ->
@@ -392,7 +335,6 @@ keep_alive_timeout(Config) when is_list(Config) ->
     end,
     inets:stop(httpd, Pid).
 
-%%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------
 
 script_timeout(doc) ->
@@ -423,12 +365,10 @@ verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
 					{version, "HTTP/1.0"}]),
     inets:stop(httpd, Pid).
 
-
-%%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------
 
-slowdose(doc) ->
-    ["Testing minimum bytes per second option"];
+slowdose() ->
+    [{doc, "Testing minimum bytes per second option"}].
 slowdose(Config) when is_list(Config) ->
     HttpdConf =   ?config(httpd_conf, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0}, {minimum_bytes_per_second, 200}|HttpdConf]),
@@ -439,27 +379,46 @@ slowdose(Config) when is_list(Config) ->
     after 6000 ->
 	    {error, closed} = gen_tcp:send(Socket, "Hey")
     end.
+
+%%-------------------------------------------------------------------------
+%% Internal functions
+%%-------------------------------------------------------------------------
+
+verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
+    HttpdConf = ?config(httpd_conf, Config),
+    CgiScript = ?config(cgi_printenv, Config),
+    CgiDir = ?config(cgi_dir, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+				    {script_alias,
+				     {"/cgi-bin/", CgiDir ++ "/"}},
+				    {script_nocache, CgiNoCache},
+				    {erl_script_alias,
+				     {"/cgi-bin/erl", [httpd_example,io]}},
+				    {erl_script_nocache, EsiNoCache}
+				    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/" ++ CgiScript ++
+					   " HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					CgiOption,
+					{version, "HTTP/1.0"}]),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/erl/httpd_example:get "
+				       "HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					EsiOption,
+					{version, "HTTP/1.0"}]),
+    inets:stop(httpd, Pid).
+
 find_URL_path([]) ->
     "";
 find_URL_path(["URL", URL | _]) ->
     URL;
 find_URL_path([_ | Rest]) ->
     find_URL_path(Rest).
-
-
-tsp(F) ->
-    inets_test_lib:tsp(F).
-tsp(F, A) ->
-    inets_test_lib:tsp(F, A).
-
-tsf(Reason) ->
-    inets_test_lib:tsf(Reason).
-
-tss(Time) ->
-    inets_test_lib:tss(Time).
-
-
-
 
 skip(Reason) ->
     {skip, Reason}.
