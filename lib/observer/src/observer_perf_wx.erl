@@ -33,6 +33,18 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
+-define(PERF_SETTINGS, 701).
+
+-define(PERF_TIME_MARKER_INTERVALS,
+        [600, 300, 120, 60, 30, 20, 10, 5, 2, 1]).
+-define(PERF_MIN_NUM_TIME_MARKERS, 5).
+-define(PERF_MIN_NUM_SECONDS, 5).
+
+-record(settings,
+	{
+	  graph_time = 60
+	}).
+
 -record(state,
 	{
 	  offset = 0.0,
@@ -43,7 +55,8 @@
 	  panel,
 	  paint,
 	  appmon,
-	  usegc = false
+	  usegc = false,
+	  settings = #settings{}
 	}).
 
 -define(wxGC, wxGraphicsContext).
@@ -129,6 +142,12 @@ init([Notebook, Parent]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+handle_event(#wx{event=#wxCommand{type=command_menu_selected},
+		 id=?PERF_SETTINGS},
+	     State = #state{panel = Panel, settings = Settings}) ->
+    perf_settings_dialog(Panel, Settings),
+    {noreply, State};
+
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{}) ->
     {noreply, State};
@@ -139,7 +158,8 @@ handle_event(Event, _State) ->
 %%%%%%%%%%
 handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 		  #state{active=Active, offset=Offset, paint=Paint,
-			 windows=Windows, data=Data, usegc=UseGC}) ->
+			 windows=Windows, data=Data, usegc=UseGC,
+			 settings=Settings}) ->
     %% PaintDC must be created in a callback to work on windows.
     %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
     %% Panel = element(Id, Windows),
@@ -162,7 +182,7 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 	 end,
     %% Nothing is drawn until wxPaintDC is destroyed.
     try
-	draw(Offset, Id, {UseGC, GC}, Panel, Paint, Data, Active)
+	draw(Offset, Id, {UseGC, GC}, Panel, Paint, Data, Active, Settings)
     catch _:Err ->
 	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
@@ -177,14 +197,15 @@ handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
 handle_info(Stats = {stats, 1, _, _, _},
-	    State = #state{panel=Panel, data=Data, active=Active}) ->
+	    State = #state{panel=Panel, data=Data, active=Active,
+			   settings=#settings{graph_time=GraphTime}}) ->
     if Active ->
 	    wxWindow:refresh(Panel),
 	    Freq = 6,
 	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, 1, Freq});
        true -> ignore
     end,
-    {noreply, State#state{offset=0.0, data = add_data(Stats, Data)}};
+    {noreply, State#state{offset=0.0, data = add_data(Stats, Data, GraphTime)}};
 
 handle_info({refresh, Seq, Freq}, State = #state{panel=Panel, offset=Prev}) ->
     wxWindow:refresh(Panel),
@@ -217,6 +238,9 @@ handle_info(not_active, State = #state{appmon=_Pid}) ->
     %% Pid ! exit,
     {noreply, State#state{active=false}};
 
+handle_info({update_settings, NewSettings}, State) ->
+    {noreply, State#state{settings=NewSettings}};
+
 handle_info({'EXIT', Old, _}, State = #state{appmon=Old}) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
@@ -231,9 +255,9 @@ terminate(_Event, #state{appmon=Pid}) ->
 code_change(_, _, State) ->
     State.
 
-add_data(Stats, {N, Q}) when N > 60 ->
-    {N, queue:drop(queue:in(Stats, Q))};
-add_data(Stats, {N, Q}) ->
+add_data(Stats, {N, Q}, GraphTime) when N > GraphTime ->
+    add_data(Stats, {N-1, queue:drop(Q)}, GraphTime);
+add_data(Stats, {N, Q}, _GraphTime) ->
     {N+1, queue:in(Stats, Q)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -242,9 +266,75 @@ create_menus(Parent, _) ->
     MenuEntries =
 	[{"File",
 	  [
+	  ]},
+	 {"Options",
+	  [
+	   #create_menu{id=?PERF_SETTINGS, text="Edit settings"}
 	  ]}
 	],
     observer_wx:create_menus(Parent, MenuEntries).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+perf_settings_dialog(Parent, Settings = #settings{graph_time = GraphTime}) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Load Chart Settings",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
+				?wxRESIZE_BORDER}]),
+
+    XAxisText = wxStaticText:new(Dialog, ?wxID_ANY, "X Axis length:"),
+    XAxisMinutesInput = wxTextCtrl:new(Dialog, ?wxID_ANY),
+    XAxisMinutesText = wxStaticText:new(Dialog, ?wxID_ANY, "minutes"),
+    XAxisSecondsInput = wxTextCtrl:new(Dialog, ?wxID_ANY),
+    XAxisSecondsText = wxStaticText:new(Dialog, ?wxID_ANY, "seconds"),
+
+    XAxisSizer = wxBoxSizer:new(?wxHORIZONTAL),
+    XSecondsSizer = wxBoxSizer:new(?wxHORIZONTAL),
+    XMinutesSizer = wxBoxSizer:new(?wxHORIZONTAL),
+
+    Opts = [{flag, ?wxEXPAND bor ?wxALL}, {border, 2}],
+    wxSizer:add(XAxisSizer, XAxisText, Opts),
+    wxSizer:add(XMinutesSizer, XAxisMinutesInput, Opts),
+    wxSizer:add(XMinutesSizer, XAxisMinutesText, Opts),
+    wxSizer:add(XSecondsSizer, XAxisSecondsInput, Opts),
+    wxSizer:add(XSecondsSizer, XAxisSecondsText, Opts),
+
+    ButtonsSizer = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    MainSizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(MainSizer, XAxisSizer, [{flag, ?wxEXPAND}]),
+    wxSizer:add(MainSizer, XMinutesSizer, [{flag, ?wxEXPAND}]),
+    wxSizer:add(MainSizer, XSecondsSizer, [{flag, ?wxEXPAND}]),
+    wxSizer:add(MainSizer, ButtonsSizer, [{flag, ?wxEXPAND}]),
+    wxWindow:setSizerAndFit(Dialog, MainSizer),
+
+    wxTextCtrl:setValue(XAxisMinutesInput, integer_to_list(GraphTime div 60)),
+    wxTextCtrl:setValue(XAxisSecondsInput, integer_to_list(GraphTime rem 60)),
+
+    Self = self(),
+    Callback =
+    	fun(_Event, Object) ->
+		NewMinutes = wxTextCtrl:getValue(XAxisMinutesInput),
+		NewSeconds = wxTextCtrl:getValue(XAxisSecondsInput),
+    		try
+    		    NewTime = timer:hms(0, list_to_integer(NewMinutes),
+					list_to_integer(NewSeconds)) div 1000,
+    		    NewTime >= ?PERF_MIN_NUM_SECONDS
+    			orelse
+    			error("X axis must be at least "
+    			      ++ integer_to_list(?PERF_MIN_NUM_SECONDS)
+    			      ++ " seconds."),
+    		    Self ! {update_settings,
+    			    Settings#settings{graph_time = NewTime}},
+		    wxEvent:skip(Object)
+    		catch
+    		    Type:Reason ->
+    			Msg = io_lib:format("~p: ~p", [Type, Reason]),
+    			MsgDialog = wxMessageDialog:new(Parent, Msg),
+    			wxMessageDialog:showModal(MsgDialog)
+    		end
+    	end,
+    wxDialog:connect(Dialog, command_button_clicked,
+    		     [{id, ?wxID_OK}, {callback, Callback}]),
+    wxDialog:show(Dialog).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 collect_data(?RQ_W, {N, Q}) ->
@@ -295,7 +385,8 @@ calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
 calc_delta([], []) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) ->
+draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data,
+     Active, Settings = #settings{graph_time = GraphTime}) ->
     %% This can be optimized a lot by collecting data once
     %% and draw to memory and then blit memory and only draw new entries in new memory
     %% area.  Hmm now rewritten to use ?wxGC I don't now if it is feasable.
@@ -303,9 +394,9 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
     Max = calc_max(Max0),
     NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
     Size = wxWindow:getClientSize(Panel),
-    {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint),
-    Last = 60*WS+X0-1,
-    Start = max(61-Len, 0)*WS+X0 - Offset*WS,
+    {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint, Settings),
+    Last = GraphTime*WS+X0-1,
+    Start = max(GraphTime+1-Len, 0)*WS+X0 - Offset*WS,
     Samples = length(Hs),
     case Active andalso Samples > 1 andalso NoGraphs > 0 of
 	true ->
@@ -398,7 +489,8 @@ spline_tan(Y0, Y1, Y2, Y3) ->
 -define(BH, 5).
 
 draw_borders(Type, NoGraphs, DC, {W,H}, Max,
-	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small}) ->
+	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small},
+	     #settings{graph_time = GraphTime}) ->
     {Unit, MaxUnit} = bytes(Type, Max),
     Str1 = observer_lib:to_str(MaxUnit),
     Str2 = observer_lib:to_str(MaxUnit div 2),
@@ -421,7 +513,7 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     GraphY25 = GraphY0 + (GraphY1 - GraphY0) / 4,
     GraphY50 = GraphY0 + (GraphY1 - GraphY0) / 2,
     GraphY75 = GraphY0 + 3*(GraphY1 - GraphY0) / 4,
-    ScaleW = GraphW / 60,
+    ScaleW = GraphW / GraphTime,
     ScaleH = GraphH / Max,
 
     setFont(DC, Small, {0,0,0}),
@@ -434,14 +526,8 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     Align(Str3, GraphY1 - (TH / 2) + 1),
 
     setPen(DC, Pen),
-    DrawSecs = fun(Secs, Pos) ->
-		       Str = [observer_lib:to_str(Secs)|" s"],
-		       X = GraphX0+Pos,
-		       drawText(DC, Str,  X-SpaceW, SecondsY),
-		       strokeLine(DC, X, GraphY0, X, GraphY1+5),
-		       Pos + 10*ScaleW
-	       end,
-    lists:foldl(DrawSecs, 0, lists:seq(60,0, -10)),
+    draw_time_markers(DC, GraphTime, GraphX1, GraphY0,
+		      GraphY1, SecondsY, ScaleW),
 
     strokeLine(DC, GraphX0-3, GraphY25, GraphX1, GraphY25),
     strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
@@ -487,6 +573,35 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
 	    Text(TN0, BottomTextY, "Output", 2)
     end,
     {GraphX0+1, GraphY1, ScaleW, ScaleH}.
+
+draw_time_markers(DC, GraphTime, GraphX1, GraphY0, GraphY1, SecondsY, ScaleW) ->
+    [Interval|_] = lists:dropwhile(
+		     fun(I) -> GraphTime div I < ?PERF_MIN_NUM_TIME_MARKERS end,
+		     ?PERF_TIME_MARKER_INTERVALS),
+
+    TimeFormatter =
+	if
+	    Interval >= 60 ->
+                % Only minutes if interval is larger than one minute
+		fun(Secs) -> [observer_lib:to_str(Secs div 60)|" m"] end;
+	    GraphTime =< 60 ->
+		% Only seconds if entire graph is smaller than one minute
+		fun(Secs) -> [observer_lib:to_str(Secs)|" s"] end;
+	    GraphTime > 60 ->
+		% Otherwise, show both minutes and seconds
+		fun(Secs) -> [observer_lib:to_str(Secs div 60), "m ",
+			      observer_lib:to_str(Secs rem 60)| "s"] end
+	end,
+
+    {TextWidth, _} = getTextExtent(DC, TimeFormatter(0)),
+
+    DrawSecs = fun(Secs) ->
+		       Str = TimeFormatter(Secs),
+		       XPos = GraphX1-(Secs*ScaleW),
+		       drawText(DC, Str,  XPos-(TextWidth/2), SecondsY),
+		       strokeLine(DC, XPos, GraphY0, XPos, GraphY1+5)
+	       end,
+    [ DrawSecs(Secs) || Secs <- lists:seq(0, GraphTime, Interval) ].
 
 uppercase([C|Rest]) ->
     [C-$a+$A|Rest].
