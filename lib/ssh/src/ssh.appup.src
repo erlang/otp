@@ -19,9 +19,13 @@
 
 {"%VSN%",	
  [
+  {"3.0.1", [{load_module, ssh, soft_purge, soft_purge, []},
+	     {load_module, ssh_acceptor, soft_purge, soft_purge, []}]},
   {<<".*">>, [{restart_application, ssh}]}
  ],
  [
+  {"3.0.1", [{load_module, ssh, soft_purge, soft_purge, []},
+	     {load_module, ssh_acceptor, soft_purge, soft_purge, []}]},
   {<<".*">>, [{restart_application, ssh}]}
  ]
 }.

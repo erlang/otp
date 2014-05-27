@@ -47,20 +47,27 @@ all() ->
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
-     double_close].
+     double_close,
+     ssh_connect_timeout,
+     ssh_connect_arg4_timeout,
+     {group, hardening_tests}
+    ].
 
 groups() -> 
     [{dsa_key, [], basic_tests()},
      {rsa_key, [], basic_tests()},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
-     {internal_error, [], [internal_error]}
+     {internal_error, [], [internal_error]},
+     {hardening_tests, [], [max_sessions]}
     ].
+
 
 basic_tests() ->
     [send, close, peername_sockname,
      exec, exec_compressed, shell, cli, known_hosts, 
      idle_time, rekey, openssh_zlib_basic_test].
+
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -74,6 +81,8 @@ end_per_suite(_Config) ->
     ssh:stop(),
     crypto:stop().
 %%--------------------------------------------------------------------
+init_per_group(hardening_tests, Config) ->
+    init_per_group(dsa_key, Config);
 init_per_group(dsa_key, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -103,6 +112,8 @@ init_per_group(internal_error, Config) ->
 init_per_group(_, Config) ->
     Config.
 
+end_per_group(hardening_tests, Config) ->
+    end_per_group(dsa_key, Config);
 end_per_group(dsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
@@ -620,6 +631,86 @@ double_close(Config) when is_list(Config) ->
     ok = ssh:close(CM).
 
 %%--------------------------------------------------------------------
+ssh_connect_timeout() ->
+    [{doc, "Test connect_timeout option in ssh:connect/4"}].
+ssh_connect_timeout(_Config) ->
+    ConnTimeout = 2000,
+    {error,{faked_transport,connect,TimeoutToTransport}} = 
+	ssh:connect("localhost", 12345, 
+		    [{transport,{tcp,?MODULE,tcp_closed}},
+		     {connect_timeout,ConnTimeout}],
+		    1000),
+    case TimeoutToTransport of
+	ConnTimeout -> ok;
+	Other -> 
+	    ct:log("connect_timeout is ~p but transport received ~p",[ConnTimeout,Other]),
+	    {fail,"ssh:connect/4 wrong connect_timeout received in transport"}
+    end.
+    
+%% Help for the test above
+connect(_Host, _Port, _Opts, Timeout) ->
+    {error, {faked_transport,connect,Timeout}}.
+
+
+%%--------------------------------------------------------------------
+ssh_connect_arg4_timeout() ->
+    [{doc, "Test fourth argument in ssh:connect/4"}].
+ssh_connect_arg4_timeout(_Config) ->
+    Timeout = 1000,
+    Parent = self(),
+    %% start the server
+    Server = spawn(fun() ->
+			   {ok,Sl} = gen_tcp:listen(0,[]),
+			   {ok,{_,Port}} = inet:sockname(Sl),
+			   Parent ! {port,self(),Port},
+			   Rsa = gen_tcp:accept(Sl),
+			   ct:log("Server gen_tcp:accept got ~p",[Rsa]),
+			   receive after 2*Timeout -> ok end %% let client timeout first
+		   end),
+
+    %% Get listening port
+    Port = receive
+	       {port,Server,ServerPort} -> ServerPort
+	   end,
+
+    %% try to connect with a timeout, but "supervise" it
+    Client = spawn(fun() ->
+			   T0 = now(),
+			   Rc = ssh:connect("localhost",Port,[],Timeout),
+			   ct:log("Client ssh:connect got ~p",[Rc]),
+			   Parent ! {done,self(),Rc,T0}
+		   end),
+
+    %% Wait for client reaction on the connection try:
+    receive
+	{done, Client, {error,_E}, T0} ->
+	    Msp = ms_passed(T0, now()),
+	    exit(Server,hasta_la_vista___baby),
+	    Low = 0.9*Timeout,
+	    High =  1.1*Timeout,
+	    ct:log("Timeout limits: ~p--~p, timeout was ~p, expected ~p",[Low,High,Msp,Timeout]),
+	    if
+		Low<Msp, Msp<High -> ok;
+		true -> {fail, "timeout not within limits"}
+	    end;
+	{done, Client, {ok,_Ref}, _T0} ->
+	    {fail,"ssh-connected ???"}
+    after
+	5000 ->
+	    exit(Server,hasta_la_vista___baby),
+	    exit(Client,hasta_la_vista___baby),
+	    {fail, "Didn't timeout"}
+    end.
+
+
+%% Help function
+%% N2-N1
+ms_passed(N1={_,_,M1}, N2={_,_,M2}) ->
+    {0,{0,Min,Sec}} = calendar:time_difference(calendar:now_to_local_time(N1),
+					       calendar:now_to_local_time(N2)),
+    1000 * (Min*60 + Sec + (M2-M1)/1000000).
+
+%%--------------------------------------------------------------------
 
 openssh_zlib_basic_test() ->
     [{doc, "Test basic connection with openssh_zlib"}].
@@ -637,6 +728,49 @@ openssh_zlib_basic_test(Config) ->
 					  {compression, openssh_zlib}]),
     ok = ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+
+max_sessions(Config) ->
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    MaxSessions = 2,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user_passwords, [{"carni", "meat"}]},
+					     {parallel_login, true},
+					     {max_sessions, MaxSessions}
+					    ]),
+
+    Connect = fun() ->
+		      R=ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+							  {user_dir, UserDir},
+							  {user_interaction, false},
+							  {user, "carni"},
+							  {password, "meat"}
+							 ]),
+		      ct:log("Connection ~p up",[R])
+	      end,
+
+    try [Connect() || _ <- lists:seq(1,MaxSessions)]
+    of
+	_ ->
+	    ct:pal("Expect Info Report:",[]),
+	    try Connect()
+	    of
+		_ConnectionRef ->
+		    ssh:stop_daemon(Pid),
+		    {fail,"Too many connections accepted"}
+	    catch
+		error:{badmatch,{error,"Connection closed"}} ->
+		    ssh:stop_daemon(Pid),
+		    ok
+	    end
+    catch
+	error:{badmatch,{error,"Connection closed"}} ->
+	    ssh:stop_daemon(Pid),
+	    {fail,"Too few connections accepted"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
