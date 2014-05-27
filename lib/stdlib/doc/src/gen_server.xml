@@ -113,7 +113,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           registered globally as <c>GlobalName</c> using
           <c>global:register_name/2</c>. If no name is provided,
           the gen_server is not registered.
-	  If <c>EventMgrName={via,Module,ViaName}</c>, the event manager will
+	  If <c>ServerName={via,Module,ViaName}</c>, the gen_server will
 	  register with the registry represented by <c>Module</c>.
 	  The <c>Module</c> callback should export the functions
 	  <c>register_name/2</c>, <c>unregister_name/1</c>,
