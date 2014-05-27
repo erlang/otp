@@ -237,7 +237,7 @@ rec2msg(Mod, Rec) ->
 
 %% Unsuccessfully decoded AVPs will be placed in #diameter_packet.errors.
 
--spec decode(module(), #diameter_packet{} | bitstring())
+-spec decode(module(), #diameter_packet{} | binary())
    -> #diameter_packet{}.
 
 decode(Mod, Pkt) ->
@@ -271,7 +271,7 @@ decode(_, Mod, #diameter_packet{header = Hdr} = Pkt) ->
     decode_avps(MsgName, Mod, Pkt, collect_avps(Pkt));
 
 decode(Id, Mod, Bin)
-  when is_bitstring(Bin) ->
+  when is_binary(Bin) ->
     decode(Id, Mod, #diameter_packet{header = decode_header(Bin), bin = Bin}).
 
 decode_avps(MsgName, Mod, Pkt, {E, Avps}) ->
@@ -298,7 +298,7 @@ decode_avps(MsgName, Mod, Pkt, Avps) ->  %% ... or not
 %%% # decode_header/1
 %%% ---------------------------------------------------------------------------
 
--spec decode_header(bitstring())
+-spec decode_header(binary())
    -> #diameter_header{}
     | false.
 
@@ -309,7 +309,7 @@ decode_header(<<Version:8,
                 ApplicationId:32,
                 HopByHopId:32,
                 EndToEndId:32,
-                _/bitstring>>) ->
+                _/binary>>) ->
     <<R:1, P:1, E:1, T:1, _:4>>
         = CmdFlags,
     %% 3588 (ch 3) says that reserved bits MUST be set to 0 and ignored
@@ -422,7 +422,7 @@ msg_id(#diameter_header{application_id = A,
                         is_request = R}) ->
     {A, C, if R -> 1; true -> 0 end};
 
-msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/bitstring>>) ->
+msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/binary>>) ->
     {ApplId, CmdCode, Rbit}.
 
 %%% ---------------------------------------------------------------------------
@@ -433,17 +433,18 @@ msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/bitstring>>) ->
 %% order in the binary. Note also that grouped avp's aren't unraveled,
 %% only those at the top level.
 
--spec collect_avps(#diameter_packet{} | bitstring())
+-spec collect_avps(#diameter_packet{} | binary())
    -> [Avp]
     | {Error, [Avp]}
  when Avp   :: #diameter_avp{},
       Error :: {5014, #diameter_avp{}}.
 
 collect_avps(#diameter_packet{bin = Bin}) ->
-    <<_:20/binary, Avps/bitstring>> = Bin,
+    <<_:20/binary, Avps/binary>> = Bin,
     collect_avps(Avps);
 
-collect_avps(Bin) ->
+collect_avps(Bin)
+  when is_binary(Bin) ->
     collect_avps(Bin, 0, []).
 
 collect_avps(<<>>, _, Acc) ->
@@ -473,7 +474,9 @@ collect_avps(Bin, N, Acc) ->
 
 split_avp(Bin) ->
     {Code, V, M, P, Len, HdrLen} = split_head(Bin),
-    {Data, B} = split_data(Bin, HdrLen, Len - HdrLen),
+
+    <<_:HdrLen/binary, Rest/binary>> = Bin,
+    {Data, B} = split_data(Rest, Len - HdrLen),
 
     {B, #diameter_avp{code = Code,
                       vendor_id = V,
@@ -483,17 +486,15 @@ split_avp(Bin) ->
 
 %% split_head/1
 
-split_head(<<Code:32, 1:1, M:1, P:1, _:5, Len:24, V:32, _/bitstring>>) ->
+split_head(<<Code:32, 1:1, M:1, P:1, _:5, Len:24, V:32, _/binary>>) ->
     {Code, V, M, P, Len, 12};
 
-split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/bitstring>>) ->
+split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/binary>>) ->
     {Code, undefined, M, P, Len, 8};
 
-%% Header is truncated: pack_avp/1 will pad to the minimum header
-%% length.
-split_head(B)
-  when is_bitstring(B) ->
-    ?THROW({5014, #diameter_avp{data = B}}).
+%% Header is truncated.
+split_head(Bin) ->
+    ?THROW({5014, #diameter_avp{data = Bin}}).
 
 %% 3588:
 %%
@@ -528,33 +529,26 @@ split_head(B)
 
 %% split_data/3
 
-split_data(Bin, HdrLen, Len)
-  when 0 =< Len ->
-    split_data(Bin, HdrLen, Len, (4 - (Len rem 4)) rem 4);
+split_data(Bin, Len) ->
+    Pad = (4 - (Len rem 4)) rem 4,
 
-split_data(_, _, _) ->
-    invalid_avp_length().
+    %% Len might be negative here, but that ensures the failure of the
+    %% binary match.
 
-%% split_data/4
-
-split_data(Bin, HdrLen, Len, Pad) ->
     case Bin of
-        <<_:HdrLen/binary, Data:Len/binary, _:Pad/binary, Rest/bitstring>> ->
+        <<Data:Len/binary, _:Pad/binary, Rest/binary>> ->
             {Data, Rest};
         _ ->
-            invalid_avp_length()
+            %% Header length points past the end of the message. As
+            %% stated in the 6733 text above, it's sufficient to
+            %% return a zero-filled minimal payload if this is a
+            %% request. Do this (in cases that we know the type) by
+            %% inducing a decode failure and letting the dictionary's
+            %% decode (in diameter_gen) deal with it. Here we don't
+            %% know type. If the type isn't known, then the decode
+            %% just strips the extra bit.
+            {<<0:1, Bin/binary>>, <<>>}
     end.
-
-%% invalid_avp_length/0
-%%
-%% AVP Length doesn't mesh with payload. Induce a decode error by
-%% returning a payload that no valid Diameter type can have. This is
-%% so that a known AVP will result in 5014 error with a zero'd
-%% payload. Here we simply don't know how to construct this payload.
-%% (Yes, this solution is an afterthought.)
-
-invalid_avp_length() ->
-    {<<0:1>>, <<>>}.
 
 %%% ---------------------------------------------------------------------------
 %%% # pack_avp/1
@@ -587,16 +581,21 @@ pack_avp(#diameter_avp{data = {Dict, Name, Value}} = A) ->
     {Name, Type} = Dict:avp_name(Code, Vid),
     pack_avp(A#diameter_avp{data = {Hdr, {Type, Value}}});
 
+%% ... with a truncated header ...
 pack_avp(#diameter_avp{code = undefined, data = B})
-  when is_bitstring(B) ->
+  when is_binary(B) ->
     %% Reset the AVP Length of an AVP Header resulting from a 5014
     %% error. The RFC doesn't explicitly say to do this but the
     %% receiver can't correctly extract this and following AVP's
     %% without a correct length. On the downside, the header doesn't
     %% reveal if the received header has been padded.
     Pad = 8*header_length(B) - bit_size(B),
-    Len = size(<<H:5/binary, _:24, T/binary>> = <<B/bitstring, 0:Pad>>),
+    Len = size(<<H:5/binary, _:24, T/binary>> = <<B/binary, 0:Pad>>),
     <<H/binary, Len:24, T/binary>>;
+
+%% ... from a dictionary compiled against old code (diameter_gen) ...
+pack_avp(#diameter_avp{data = <<0:1, B/binary>>} = A) ->
+    pack_avp(A#diameter_avp{data = B});
 
 %% ... or as an iolist.
 pack_avp(#diameter_avp{code = Code,
