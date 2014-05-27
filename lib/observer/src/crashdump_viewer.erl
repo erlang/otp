@@ -298,6 +298,7 @@ expand_binary(Pos) ->
 %%--------------------------------------------------------------------
 init([]) ->
     ets:new(cdv_dump_index_table,[ordered_set,named_table,public]),
+    ets:new(cdv_reg_proc_table,[ordered_set,named_table,public]),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -978,9 +979,20 @@ count() ->
 %%-----------------------------------------------------------------
 %% Page with all processes
 procs_summary(File,WS) ->
-    ParseFun = fun(Fd,Pid) ->
+    ParseFun = fun(Fd,Pid0) ->
+		       Pid = list_to_pid(Pid0),
 		       Proc = get_procinfo(Fd,fun main_procinfo/5,
-					   #proc{pid=list_to_pid(Pid)},WS),
+					   #proc{pid=Pid},WS),
+		       case Proc#proc.name of
+			   undefined ->
+			       true;
+			   Name ->
+			       %% Registered process - store to allow
+			       %% lookup for timers connected to
+			       %% registered name instead of pid.
+			       ets:insert(cdv_reg_proc_table,{Name,Pid}),
+			       ets:insert(cdv_reg_proc_table,{Pid0,Name})
+		       end,
 		       case Proc#proc.memory of
 			   undefined -> Proc#proc{memory=Proc#proc.stack_heap};
 			   _ -> Proc
@@ -1495,8 +1507,28 @@ get_internal_ets_tables(File,WS) ->
 %%-----------------------------------------------------------------
 %% Page with list of all timers 
 get_timers(File,Pid) ->
-    ParseFun = fun(Fd,Id) -> get_timerinfo_1(Fd,#timer{pid=list_to_pid(Id)}) end,
-    lookup_and_parse_index(File,{?timer,Pid},ParseFun,"timers").
+    ParseFun = fun(Fd,Id) -> get_timerinfo(Fd,Id) end,
+    T1 = lookup_and_parse_index(File,{?timer,Pid},ParseFun,"timers"),
+    T2 = case ets:lookup(cdv_reg_proc_table,Pid) of
+	     [{_,Name}] ->
+		 lookup_and_parse_index(File,{?timer,Name},ParseFun,"timers");
+	     _ ->
+		 []
+	 end,
+    T1 ++ T2.
+
+get_timerinfo(Fd,Id) ->
+    case catch list_to_pid(Id) of
+	Pid when is_pid(Pid) ->
+	    get_timerinfo_1(Fd,#timer{pid=Pid});
+	_ ->
+	    case ets:lookup(cdv_reg_proc_table,Id) of
+		[{_,Pid}] when is_pid(Pid) ->
+		    get_timerinfo_1(Fd,#timer{pid=Pid,name=Id});
+		[] ->
+		    get_timerinfo_1(Fd,#timer{name=Id})
+	    end
+    end.
 
 get_timerinfo_1(Fd,Timer) ->
     case line_head(Fd) of

@@ -269,7 +269,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 		  MenuId = ?ID_DETAILS + Col,
 		  ColText = call(Holder, {get_row, self(), Row, Col}),
 		  case ColText of
-		      "[]" -> [];
+		      Empty when Empty=="[]"; Empty=="" -> [];
 		      _ ->
 			  What =
 			      case catch list_to_integer(ColText) of
@@ -284,8 +284,13 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 		  end
 	  end,
 	  MenuCols),
-    wxWindow:popupMenu(Panel, Menu),
-    wxMenu:destroy(Menu),
+    case MenuItems of
+	[] ->
+	    wxMenu:destroy(Menu);
+	_ ->
+	    wxWindow:popupMenu(Panel, Menu),
+	    wxMenu:destroy(Menu)
+    end,
     {noreply,State#state{menu_items=MenuItems}};
 
 handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
