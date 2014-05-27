@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,26 +44,26 @@
 %%%=========================================================================
 parse([Bin, MaxSizes]) ->
     ?hdrt("parse", [{bin, Bin}, {max_sizes, MaxSizes}]),    
-    parse_method(Bin, [], MaxSizes, []);
+    parse_method(Bin, [], 0, proplists:get_value(max_method, MaxSizes), MaxSizes, []);
 parse(Unknown) ->
     ?hdrt("parse", [{unknown, Unknown}]),
     exit({bad_args, Unknown}).
 
 %% Functions that may be returned during the decoding process
 %% if the input data is incompleate. 
-parse_method([Bin, Method, MaxSizes, Result]) ->
-    parse_method(Bin, Method, MaxSizes, Result).
+parse_method([Bin, Method, Current, Max, MaxSizes, Result]) ->
+    parse_method(Bin, Method, Current, Max, MaxSizes, Result).
 
-parse_uri([Bin, URI, CurrSize, MaxSizes, Result]) ->
-    parse_uri(Bin, URI, CurrSize, MaxSizes, Result).
+parse_uri([Bin, URI, Current, Max, MaxSizes, Result]) ->
+    parse_uri(Bin, URI, Current, Max, MaxSizes, Result).
 
-parse_version([Bin, Rest, Version, MaxSizes, Result]) ->
-    parse_version(<<Rest/binary, Bin/binary>>, Version, MaxSizes, 
+parse_version([Bin, Rest, Version, Current, Max, MaxSizes, Result]) ->
+    parse_version(<<Rest/binary, Bin/binary>>, Version, Current, Max, MaxSizes, 
 		  Result).
 
-parse_headers([Bin, Rest, Header, Headers, CurrSize, MaxSizes, Result]) ->
+parse_headers([Bin, Rest, Header, Headers, Current, Max, MaxSizes, Result]) ->
     parse_headers(<<Rest/binary, Bin/binary>>, 
-		  Header, Headers, CurrSize, MaxSizes, Result).
+		  Header, Headers, Current, Max, MaxSizes, Result).
 
 whole_body([Bin, Body, Length])  ->
     whole_body(<<Body/binary, Bin/binary>>, Length).    
@@ -107,8 +107,12 @@ validate("POST", Uri, "HTTP/1." ++ _N) ->
 validate("TRACE", Uri, "HTTP/1." ++ N) when hd(N) >= $1 ->
     validate_uri(Uri);
 validate(Method, Uri, Version) ->
-    {error, {not_supported, {Method, Uri, Version}}}.
-
+    case validate_version(Version) of
+	true ->
+	    {error, {not_supported, {Method, Uri, Version}}};
+	false ->
+	    {error, {bad_version, Version}}
+    end.
 %%----------------------------------------------------------------------
 %% The request is passed through the server as a record of type mod 
 %% create it.
@@ -131,104 +135,75 @@ update_mod_data(ModData, Method, RequestURI, HTTPVersion, Headers)->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
-parse_method(<<>>, Method, MaxSizes, Result) ->
-    ?hdrt("parse_method - empty bin", 
-	  [{method, Method}, {max_sizes, MaxSizes}, {result, Result}]),    
-    {?MODULE, parse_method, [Method, MaxSizes, Result]};
-parse_method(<<?SP, Rest/binary>>, Method, MaxSizes, Result) ->
-    ?hdrt("parse_method - SP begin", 
-	  [{rest,      Rest}, 
-	   {method,    Method}, 
-	   {max_sizes, MaxSizes}, 
-	   {result,    Result}]),    
-    parse_uri(Rest, [], 0, MaxSizes,
+parse_method(<<>>, Method, Current, Max, MaxSizes, Result) ->
+    {?MODULE, parse_method, [Method, Current, Max, MaxSizes, Result]};
+parse_method(<<?SP, Rest/binary>>, Method, _Current, _Max, MaxSizes, Result) ->
+    parse_uri(Rest, [], 0,  proplists:get_value(max_uri, MaxSizes), MaxSizes,
 	      [string:strip(lists:reverse(Method)) | Result]);
-parse_method(<<Octet, Rest/binary>>, Method, MaxSizes, Result) ->
-    ?hdrt("parse_method", 
-	  [{octet,     Octet}, 
-	   {rest,      Rest}, 
-	   {method,    Method}, 
-	   {max_sizes, MaxSizes}, 
-	   {result,    Result}]),    
-    parse_method(Rest, [Octet | Method], MaxSizes, Result).
+parse_method(<<Octet, Rest/binary>>, Method, Current, Max, MaxSizes, Result) when Current =< Max ->
+    parse_method(Rest, [Octet | Method], Current + 1, Max, MaxSizes, Result);
+parse_method(_, _, _, Max, _, _) ->
+    %% We do not know the version of the client as it comes after the
+    %% method send the lowest version in the response so that the client
+    %% will be able to handle it.
+    {error, {too_long, Max, 413, "Method unreasonably long"}, lowest_version()}.
 
-parse_uri(_, _, CurrSize, {MaxURI, _}, _) 
-  when (CurrSize > MaxURI) andalso (MaxURI =/= nolimit) -> 
-    ?hdrt("parse_uri", 
-	  [{current_size, CurrSize}, 
-	   {max_uri,      MaxURI}]),    
+parse_uri(_, _, Current, MaxURI, _, _) 
+  when (Current > MaxURI) andalso (MaxURI =/= nolimit) -> 
     %% We do not know the version of the client as it comes after the
     %% uri send the lowest version in the response so that the client
     %% will be able to handle it.
-    HttpVersion = "HTTP/0.9", 
-    {error, {uri_too_long, MaxURI}, HttpVersion};
-parse_uri(<<>>, URI, CurrSize, MaxSizes, Result) ->
-    ?hdrt("parse_uri - empty bin", 
-	  [{uri,          URI},
-	   {current_size, CurrSize}, 
-	   {max_sz,       MaxSizes}, 
-	   {result,       Result}]),    
-    {?MODULE, parse_uri, [URI, CurrSize, MaxSizes, Result]};
-parse_uri(<<?SP, Rest/binary>>, URI, _, MaxSizes, Result) -> 
-    ?hdrt("parse_uri - SP begin", 
-	  [{uri,          URI},
-	   {max_sz,       MaxSizes}, 
-	   {result,       Result}]),    
-    parse_version(Rest, [], MaxSizes, 
+    {error, {too_long, MaxURI, 414, "URI unreasonably long"},lowest_version()};
+parse_uri(<<>>, URI, Current, Max, MaxSizes, Result) ->
+    {?MODULE, parse_uri, [URI, Current, Max, MaxSizes, Result]};
+parse_uri(<<?SP, Rest/binary>>, URI, _, _, MaxSizes, Result) -> 
+    parse_version(Rest, [], 0, proplists:get_value(max_version, MaxSizes), MaxSizes, 
 		  [string:strip(lists:reverse(URI)) | Result]);
 %% Can happen if it is a simple HTTP/0.9 request e.i "GET /\r\n\r\n"
-parse_uri(<<?CR, _Rest/binary>> = Data, URI, _, MaxSizes, Result) ->
-    ?hdrt("parse_uri - CR begin", 
-	  [{uri,          URI},
-	   {max_sz,       MaxSizes}, 
-	   {result,       Result}]),    
-    parse_version(Data, [], MaxSizes, 
+parse_uri(<<?CR, _Rest/binary>> = Data, URI, _, _, MaxSizes, Result) ->
+    parse_version(Data, [], 0, proplists:get_value(max_version, MaxSizes), MaxSizes, 
 		  [string:strip(lists:reverse(URI)) | Result]);
-parse_uri(<<Octet, Rest/binary>>, URI, CurrSize, MaxSizes, Result) ->
-    ?hdrt("parse_uri", 
-	  [{octet,        Octet}, 
-	   {uri,          URI},
-	   {curr_sz,      CurrSize}, 
-	   {max_sz,       MaxSizes}, 
-	   {result,       Result}]),    
-    parse_uri(Rest, [Octet | URI], CurrSize + 1, MaxSizes, Result).
+parse_uri(<<Octet, Rest/binary>>, URI, Current, Max, MaxSizes, Result) ->
+    parse_uri(Rest, [Octet | URI], Current + 1, Max, MaxSizes, Result).
 
-parse_version(<<>>, Version, MaxSizes, Result) ->
-    {?MODULE, parse_version, [<<>>, Version, MaxSizes, Result]};
-parse_version(<<?LF, Rest/binary>>, Version, MaxSizes, Result) ->
+parse_version(<<>>, Version, Current, Max, MaxSizes, Result) ->
+    {?MODULE, parse_version, [<<>>, Version, Current, Max, MaxSizes, Result]};
+parse_version(<<?LF, Rest/binary>>, Version, Current, Max, MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_version(<<?CR, ?LF, Rest/binary>>, Version, MaxSizes, Result);
-parse_version(<<?CR, ?LF, Rest/binary>>, Version, MaxSizes, Result) ->
-    parse_headers(Rest, [], [], 0, MaxSizes, 
+    parse_version(<<?CR, ?LF, Rest/binary>>, Version, Current, Max, MaxSizes, Result);
+parse_version(<<?CR, ?LF, Rest/binary>>, Version, _, _,  MaxSizes, Result) ->
+    parse_headers(Rest, [], [], 0, proplists:get_value(max_header, MaxSizes), MaxSizes, 
 		  [string:strip(lists:reverse(Version)) | Result]);
-parse_version(<<?CR>> = Data, Version, MaxSizes, Result) ->
-    {?MODULE, parse_version, [Data, Version, MaxSizes, Result]};
-parse_version(<<Octet, Rest/binary>>, Version, MaxSizes, Result) ->
-    parse_version(Rest, [Octet | Version], MaxSizes, Result).
+parse_version(<<?CR>> = Data, Version, Current, Max, MaxSizes, Result) ->
+    {?MODULE, parse_version, [Data, Version, Current, Max, MaxSizes, Result]};
+parse_version(<<Octet, Rest/binary>>, Version, Current, Max, MaxSizes, Result)  when Current =< Max ->
+    parse_version(Rest, [Octet | Version], Current + 1, Max, MaxSizes, Result);
+parse_version(_, _, _, Max,_,_) ->
+    {error, {too_long, Max, 413, "Version string unreasonably long"}, lowest_version()}.
 
-parse_headers(_, _, _, CurrSize, {_, MaxHeaderSize}, Result) 
-  when CurrSize > MaxHeaderSize, MaxHeaderSize =/= nolimit -> 
+parse_headers(_, _, _, Current, Max, _, Result) 
+  when Max =/= nolimit andalso Current > Max -> 
     HttpVersion = lists:nth(3, lists:reverse(Result)),
-    {error, {header_too_long, MaxHeaderSize}, HttpVersion};
+    {error, {too_long, Max, 413, "Headers unreasonably long"}, HttpVersion};
 
-parse_headers(<<>>, Header, Headers, CurrSize, MaxSizes, Result) ->
-    {?MODULE, parse_headers, [<<>>, Header, Headers, CurrSize, 
+parse_headers(<<>>, Header, Headers, Current, Max, MaxSizes, Result) ->
+    {?MODULE, parse_headers, [<<>>, Header, Headers, Current, Max, 
 			      MaxSizes, Result]};
-parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], CurrSize, MaxSizes, Result) ->
+parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], Current, Max, MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], CurrSize,  
+    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max,  
 		  MaxSizes, Result);
 
-parse_headers(<<?LF,?LF,Body/binary>>, [], [], CurrSize, MaxSizes, Result) ->
+parse_headers(<<?LF,?LF,Body/binary>>, [], [], Current, Max,  MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], CurrSize,  
+    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max, 
 		  MaxSizes, Result);
 
-parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _,  _, Result) ->
+parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
     NewResult = list_to_tuple(lists:reverse([Body, {#http_request_h{}, []} |
 					     Result])),
     {ok, NewResult};
-parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _,
+parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 	      _, Result) ->
     HTTPHeaders = [lists:reverse(Header) | Headers],
     RequestHeaderRcord = 
@@ -238,52 +213,51 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _,
 						    HTTPHeaders} | Result])),
     {ok, NewResult};
 
-parse_headers(<<?CR,?LF,?CR>> = Data, Header, Headers, CurrSize, 
+parse_headers(<<?CR,?LF,?CR>> = Data, Header, Headers, Current, Max, 
 	      MaxSizes, Result) ->
-    {?MODULE, parse_headers, [Data, Header, Headers, CurrSize, 
+    {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
 			      MaxSizes, Result]};
-parse_headers(<<?LF>>, [], [], CurrSize, MaxSizes, Result) ->
+parse_headers(<<?LF>>, [], [], Current, Max, MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF>>, [], [], CurrSize, MaxSizes, Result);
+    parse_headers(<<?CR,?LF>>, [], [], Current, Max, MaxSizes, Result);
 
 %% There where no headers, which is unlikely to happen.
-parse_headers(<<?CR,?LF>>, [], [], _, _, Result) ->
+parse_headers(<<?CR,?LF>>, [], [], _, _, _, Result) ->
      NewResult = list_to_tuple(lists:reverse([<<>>, {#http_request_h{}, []} |
 					      Result])),
     {ok, NewResult};
 
-parse_headers(<<?LF>>, Header, Headers, CurrSize, 
+parse_headers(<<?LF>>, Header, Headers, Current, Max,  
 	      MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF>>, Header, Headers, CurrSize, MaxSizes, Result);
+    parse_headers(<<?CR,?LF>>, Header, Headers, Current, Max, MaxSizes, Result);
 
-parse_headers(<<?CR,?LF>> = Data, Header, Headers, CurrSize, 
+parse_headers(<<?CR,?LF>> = Data, Header, Headers, Current, Max, 
 	      MaxSizes, Result) ->
-    {?MODULE, parse_headers, [Data, Header, Headers, CurrSize, 
+    {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
 			      MaxSizes, Result]};
-parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, CurrSize,
+parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 	      MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, CurrSize,
+    parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 		  MaxSizes, Result); 
-parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, CurrSize,
+parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, _, Max,
 	      MaxSizes, Result) ->
     parse_headers(Rest, [Octet], [lists:reverse(Header) | Headers], 
-		  CurrSize + 1, MaxSizes, Result);
-
-parse_headers(<<?CR>> = Data, Header, Headers, CurrSize,  
+		  0, Max, MaxSizes, Result);
+parse_headers(<<?CR>> = Data, Header, Headers, Current, Max,  
 	      MaxSizes, Result) ->
-    {?MODULE, parse_headers, [Data, Header, Headers, CurrSize, 
+    {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
 			      MaxSizes, Result]};
-parse_headers(<<?LF>>, Header, Headers, CurrSize,  
+parse_headers(<<?LF>>, Header, Headers, Current,  Max, 
 	      MaxSizes, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR, ?LF>>, Header, Headers, CurrSize,  
+    parse_headers(<<?CR, ?LF>>, Header, Headers, Current, Max,  
 		  MaxSizes, Result);
 
-parse_headers(<<Octet, Rest/binary>>, Header, Headers, 
-	      CurrSize, MaxSizes, Result) ->
-    parse_headers(Rest, [Octet | Header], Headers, CurrSize + 1,
+parse_headers(<<Octet, Rest/binary>>, Header, Headers, Current,
+	      Max, MaxSizes, Result) ->
+    parse_headers(Rest, [Octet | Header], Headers, Current + 1, Max,
 		  MaxSizes, Result).
 
 whole_body(Body, Length) ->
@@ -326,6 +300,14 @@ validate_path([".." | Rest], N, RequestURI) ->
 validate_path([_ | Rest], N, RequestURI) ->
     validate_path(Rest, N + 1, RequestURI).
 
+validate_version("HTTP/1.1") ->
+    true;
+validate_version("HTTP/1.0") ->
+    true;
+validate_version("HTTP/0.9") ->
+    true;
+validate_version(_) ->
+    false.
 %%----------------------------------------------------------------------
 %% There are 3 possible forms of the reuqest URI 
 %%
@@ -430,3 +412,5 @@ tag([$:|Rest], Tag) ->
 tag([Chr|Rest], Tag) ->
     tag(Rest, [Chr|Tag]).
 
+lowest_version()->    
+    "HTTP/0.9".

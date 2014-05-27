@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,37 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10</title>
+  <section><title>Inets 5.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct distirbing mode for httpd:reload_config/2</p>
+          <p>
+	    Own Id: OTP-11914</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved handling of invalid strings in the HTTP request
+	    line.</p>
+          <p>
+	    Impact: May improve memory consumption</p>
+          <p>
+	    Own Id: OTP-11925 Aux Id: Sequence 12601 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
