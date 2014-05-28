@@ -23,24 +23,25 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([socket/4, setopts/3, getopts/3, peername/2, sockname/2, port/2]).
+-export([socket/5, setopts/3, getopts/3, peername/2, sockname/2, port/2]).
 -export([emulated_options/0, internal_inet_values/0, default_inet_values/0,
-	 init/1, start_link/2, terminate/2, inherit_tracker/3, get_emulated_opts/1, 
-	 set_emulated_opts/2, handle_call/3, handle_cast/2,
+	 init/1, start_link/3, terminate/2, inherit_tracker/3, get_emulated_opts/1, 
+	 set_emulated_opts/2, get_all_opts/1, handle_call/3, handle_cast/2,
 	 handle_info/2, code_change/3]).
 
 -record(state, {
 	  emulated_opts,
-	  port
+	  port,
+	  ssl_opts
 	 }).
 
 %%--------------------------------------------------------------------
 %%% Internal API
 %%--------------------------------------------------------------------
-socket(Pid, Transport, Socket, ConnectionCb) ->
+socket(Pid, Transport, Socket, ConnectionCb, Tracker) ->
     #sslsocket{pid = Pid, 
 	       %% "The name "fd" is keept for backwards compatibility
-	       fd = {Transport, Socket, ConnectionCb}}.
+	       fd = {Transport, Socket, ConnectionCb, Tracker}}.
 setopts(gen_tcp, #sslsocket{pid = {ListenSocket, #config{emulated = Tracker}}}, Options) ->
     {SockOpts, EmulatedOpts} = split_options(Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
@@ -96,28 +97,24 @@ internal_inet_values() ->
 default_inet_values() ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
-inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = false}) ->
-    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts]);
-inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = true}) ->
-    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts]).
-
-get_emulated_opts(TrackerPid, EmOptNames) -> 
-    {ok, EmOpts} = get_emulated_opts(TrackerPid),
-    lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
-			   Value end,
-	      EmOptNames).
+inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = false} = SslOpts) ->
+    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]);
+inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = true} = SslOpts) ->
+    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
 
 get_emulated_opts(TrackerPid) -> 
     call(TrackerPid, get_emulated_opts).
 set_emulated_opts(TrackerPid, InetValues) -> 
     call(TrackerPid, {set_emulated_opts, InetValues}).
+get_all_opts(TrackerPid) -> 
+    call(TrackerPid, get_all_opts).
 
 %%====================================================================
 %% ssl_listen_tracker_sup API
 %%====================================================================
 
-start_link(Port, SockOpts) ->
-    gen_server:start_link(?MODULE, [Port, SockOpts], []).
+start_link(Port, SockOpts, SslOpts) ->
+    gen_server:start_link(?MODULE, [Port, SockOpts, SslOpts], []).
 
 %%--------------------------------------------------------------------
 -spec init(list()) -> {ok, #state{}}.
@@ -126,10 +123,10 @@ start_link(Port, SockOpts) ->
 %%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([Port, Opts]) ->
+init([Port, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
     true = link(Port),
-    {ok, #state{emulated_opts = Opts, port = Port}}.
+    {ok, #state{emulated_opts = Opts, port = Port, ssl_opts = SslOpts}}.
 
 %%--------------------------------------------------------------------
 -spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
@@ -148,7 +145,11 @@ handle_call({set_emulated_opts, Opts0}, _From,
     {reply, ok, State#state{emulated_opts = Opts}};
 handle_call(get_emulated_opts, _From,
 	    #state{emulated_opts = Opts} = State) ->
-    {reply, {ok, Opts}, State}.
+    {reply, {ok, Opts}, State};
+handle_call(get_all_opts, _From,
+	    #state{emulated_opts = EmOpts,
+		   ssl_opts = SslOpts} = State) ->
+    {reply, {ok, EmOpts, SslOpts}, State}.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
@@ -228,3 +229,9 @@ get_socket_opts(_, [], _) ->
 get_socket_opts(ListenSocket, SockOptNames, Cb) ->
     {ok, Opts} = Cb:getopts(ListenSocket, SockOptNames),
     Opts.
+
+get_emulated_opts(TrackerPid, EmOptNames) -> 
+    {ok, EmOpts} = get_emulated_opts(TrackerPid),
+    lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
+			   Value end,
+	      EmOptNames).

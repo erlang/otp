@@ -53,7 +53,7 @@
 %% Alert and close handling
 -export([send_alert/2, handle_own_alert/4, handle_close_alert/3,
 	 handle_normal_shutdown/3, handle_unexpected_message/3,
-	 workaround_transport_delivery_problems/2, alert_user/5, alert_user/8
+	 workaround_transport_delivery_problems/2, alert_user/6, alert_user/9
 	]).
 
 %% Data handling
@@ -66,18 +66,18 @@
 %% gen_fsm callbacks
 -export([init/1, hello/2, certify/2, cipher/2,
 	 abbreviated/2, connection/2, handle_event/3,
-         handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+         handle_sync_event/4, handle_info/3, terminate/3, code_change/4, format_status/2]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
-start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_} = Opts,
+start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} = Opts,
 	  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
     try 
 	{ok, Pid} = tls_connection_sup:start_child([Role, Host, Port, Socket, 
 						    Opts, User, CbInfo]), 
-	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule),
+	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
 	ok = ssl_connection:handshake(SslSocket, Timeout),
 	{ok, SslSocket} 
     catch
@@ -85,13 +85,13 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_} = Opts,
 	    Error
     end;
 
-start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_} = Opts,
+start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} = Opts,
 	  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
     try 
 	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Host, Port, Socket, 
 							 Opts, User, CbInfo]), 
-	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule),
+	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
 	ok = ssl_connection:handshake(SslSocket, Timeout),
 	{ok, SslSocket} 
     catch
@@ -144,29 +144,10 @@ send_change_cipher(Msg, #state{connection_states = ConnectionStates0,
 start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
 
-init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
+init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
-    Handshake = ssl_handshake:init_handshake_history(),
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
-    try ssl_config:init(SSLOpts0, Role) of
-	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} ->
-	    Session = State0#state.session,
-	    State = State0#state{
-				 tls_handshake_history = Handshake,
-				 session = Session#session{own_certificate = OwnCert,
-							   time_stamp = TimeStamp},
-				 file_ref_db = FileRefHandle,
-				 cert_db_ref = Ref,
-				 cert_db = CertDbHandle,
-				 session_cache = CacheHandle,
-				 private_key = Key,
-				 diffie_hellman_params = DHParams},
-	    gen_fsm:enter_loop(?MODULE, [], hello, State, get_timeout(State))
-    catch
-	throw:Error ->
-	    gen_fsm:enter_loop(?MODULE, [], error, {Error,State0}, get_timeout(State0))
-    end.
+    State = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
+    gen_fsm:enter_loop(?MODULE, [], hello, State, get_timeout(State)).
 
 %%--------------------------------------------------------------------
 %% Description:There should be one instance of this function for each
@@ -344,13 +325,15 @@ handle_info(Msg, StateName, State) ->
 terminate(Reason, StateName, State) ->
     ssl_connection:terminate(Reason, StateName, State).
 
-
 %%--------------------------------------------------------------------
 %% code_change(OldVsn, StateName, State, Extra) -> {ok, StateName, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
+
+format_status(Type, Data) ->
+    ssl_connection:format_status(Type, Data).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -368,7 +351,7 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
 
-initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
+initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
     ConnectionStates = ssl_record:init_connection_states(Role),
     
@@ -382,9 +365,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
     Monitor = erlang:monitor(process, User),
 
     #state{socket_options = SocketOptions,
-	   %% We do not want to save the password in the state so that
-	   %% could be written in the clear into error logs.
-	   ssl_options = SSLOptions#ssl_options{password = undefined},	   
+	   ssl_options = SSLOptions,	   
 	   session = #session{is_resumable = new},
 	   transport_cb = CbModule,
 	   data_tag = DataTag,
@@ -402,7 +383,8 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   renegotiation = {false, first},
 	   start_or_recv_from = undefined,
 	   send_queue = queue:new(),
-	   protocol_cb = ?MODULE
+	   protocol_cb = ?MODULE,
+	   tracker = Tracker
 	  }.
 
 next_state(Current,_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
@@ -507,7 +489,7 @@ next_record(State) ->
 
 next_record_if_active(State = 
 		      #state{socket_options = 
-			     #socket_options{active = false}}) ->    
+			     #socket_options{active = false}}) -> 
     {no_record ,State};
 
 next_record_if_active(State) ->
@@ -571,7 +553,8 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 				   bytes_to_read = BytesToRead,
 				   start_or_recv_from = RecvFrom,
 				   timer = Timer,
-				   user_data_buffer = Buffer0} = State0) ->
+				   user_data_buffer = Buffer0,
+				   tracker = Tracker} = State0) ->
     Buffer1 = if 
 		  Buffer0 =:= <<>> -> Data;
 		  Data =:= <<>> -> Buffer0;
@@ -579,7 +562,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	      end,
     case get_data(SOpts, BytesToRead, Buffer1) of
 	{ok, ClientData, Buffer} -> % Send data
-	    SocketOpt = deliver_app_data(Transport, Socket, SOpts, ClientData, Pid, RecvFrom),
+	    SocketOpt = deliver_app_data(Transport, Socket, SOpts, ClientData, Pid, RecvFrom, Tracker),
 	    cancel_timer(Timer),
 	    State = State0#state{user_data_buffer = Buffer,
 				 start_or_recv_from = undefined,
@@ -600,7 +583,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	{passive, Buffer} ->
 	    next_record_if_active(State0#state{user_data_buffer = Buffer});
 	{error,_Reason} -> %% Invalid packet in packet mode
-	    deliver_packet_error(Transport, Socket, SOpts, Buffer1, Pid, RecvFrom),
+	    deliver_packet_error(Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker),
 	    {stop, normal, State0}
     end.
 
@@ -655,8 +638,8 @@ decode_packet(Type, Buffer, PacketOpts) ->
 %% HTTP headers using the {packet, httph} option, we don't do any automatic
 %% switching of states.
 deliver_app_data(Transport, Socket, SOpts = #socket_options{active=Active, packet=Type},
-		 Data, Pid, From) ->
-    send_or_reply(Active, Pid, From, format_reply(Transport, Socket, SOpts, Data)),
+		 Data, Pid, From, Tracker) ->
+    send_or_reply(Active, Pid, From, format_reply(Transport, Socket, SOpts, Data, Tracker)),
     SO = case Data of
 	     {P, _, _, _} when ((P =:= http_request) or (P =:= http_response)),
 			       ((Type =:= http) or (Type =:= http_bin)) ->
@@ -676,20 +659,20 @@ deliver_app_data(Transport, Socket, SOpts = #socket_options{active=Active, packe
     end.
 
 format_reply(_, _,#socket_options{active = false, mode = Mode, packet = Packet,
-			     header = Header}, Data) ->
+				  header = Header}, Data, _) ->
     {ok, do_format_reply(Mode, Packet, Header, Data)};
 format_reply(Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
-						header = Header}, Data) ->
-    {ssl, ssl_socket:socket(self(), Transport, Socket, ?MODULE), 
+						header = Header}, Data, Tracker) ->
+    {ssl, ssl_socket:socket(self(), Transport, Socket, ?MODULE, Tracker), 
      do_format_reply(Mode, Packet, Header, Data)}.
 
-deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From) ->
-    send_or_reply(Active, Pid, From, format_packet_error(Transport, Socket, SO, Data)).
+deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From, Tracker) ->
+    send_or_reply(Active, Pid, From, format_packet_error(Transport, Socket, SO, Data, Tracker)).
 
-format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data) ->
+format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data, _) ->
     {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
-format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data) ->
-    {ssl_error, ssl_socket:socket(self(), Transport, Socket, ?MODULE), 
+format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data, Tracker) ->
+    {ssl_error, ssl_socket:socket(self(), Transport, Socket, ?MODULE, Tracker), 
      {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
 
 do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
@@ -833,10 +816,10 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
 	     #state{socket = Socket, transport_cb = Transport, 
 		    ssl_options = SslOpts, start_or_recv_from = From, host = Host,
 		    port = Port, session = Session, user_application = {_Mon, Pid},
-		    role = Role, socket_options = Opts} = State) ->
+		    role = Role, socket_options = Opts, tracker = Tracker} = State) ->
     invalidate_session(Role, Host, Port, Session),
     log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
-    alert_user(Transport, Socket, StateName, Opts, Pid, From, Alert, Role),
+    alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role),
     {stop, normal, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
@@ -864,30 +847,30 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
     {Record, State} = next_record(State0),
     next_state(StateName, StateName, Record, State).
 
-alert_user(Transport, Socket, connection, Opts, Pid, From, Alert, Role) ->
-    alert_user(Transport,Socket, Opts#socket_options.active, Pid, From, Alert, Role);
-alert_user(Transport, Socket,_, _, _, From, Alert, Role) ->
-    alert_user(Transport, Socket, From, Alert, Role).
+alert_user(Transport, Tracker, Socket, connection, Opts, Pid, From, Alert, Role) ->
+    alert_user(Transport, Tracker, Socket, Opts#socket_options.active, Pid, From, Alert, Role);
+alert_user(Transport, Tracker, Socket,_, _, _, From, Alert, Role) ->
+    alert_user(Transport, Tracker, Socket, From, Alert, Role).
 
-alert_user(Transport, Socket, From, Alert, Role) ->
-    alert_user(Transport, Socket, false, no_pid, From, Alert, Role).
+alert_user(Transport, Tracker, Socket, From, Alert, Role) ->
+    alert_user(Transport, Tracker, Socket, false, no_pid, From, Alert, Role).
 
-alert_user(_,_, false = Active, Pid, From,  Alert, Role) ->
+alert_user(_, _, _, false = Active, Pid, From,  Alert, Role) ->
     %% If there is an outstanding ssl_accept | recv
     %% From will be defined and send_or_reply will
     %% send the appropriate error message.
     ReasonCode = ssl_alert:reason_code(Alert, Role),
     send_or_reply(Active, Pid, From, {error, ReasonCode});
-alert_user(Transport, Socket, Active, Pid, From, Alert, Role) ->
+alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role) ->
     case ssl_alert:reason_code(Alert, Role) of
 	closed ->
 	    send_or_reply(Active, Pid, From,
 			  {ssl_closed, ssl_socket:socket(self(), 
-							 Transport, Socket, ?MODULE)});
+							 Transport, Socket, ?MODULE, Tracker)});
 	ReasonCode ->
 	    send_or_reply(Active, Pid, From,
 			  {ssl_error, ssl_socket:socket(self(), 
-							Transport, Socket, ?MODULE), ReasonCode})
+							Transport, Socket, ?MODULE, Tracker), ReasonCode})
     end.
 
 log_alert(true, Info, Alert) ->
@@ -920,15 +903,17 @@ handle_own_alert(Alert, Version, StateName,
 handle_normal_shutdown(Alert, _, #state{socket = Socket,
 					transport_cb = Transport,
 					start_or_recv_from = StartFrom,
+					tracker = Tracker,
 					role = Role, renegotiation = {false, first}}) ->
-    alert_user(Transport, Socket, StartFrom, Alert, Role);
+    alert_user(Transport, Tracker,Socket, StartFrom, Alert, Role);
 
 handle_normal_shutdown(Alert, StateName, #state{socket = Socket,
 						socket_options = Opts,
 						transport_cb = Transport,
 						user_application = {_Mon, Pid},
+						tracker = Tracker,
 						start_or_recv_from = RecvFrom, role = Role}) ->
-    alert_user(Transport, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role).
+    alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role).
 
 handle_unexpected_message(Msg, Info, #state{negotiated_version = Version} = State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),

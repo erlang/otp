@@ -78,7 +78,8 @@
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),
           next_protocol = undefined                   :: undefined | binary(),
-	  client_ecc          % {Curves, PointFmt}
+	  client_ecc,          % {Curves, PointFmt}
+	  tracker              :: pid() %% Tracker process for listen socket
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,

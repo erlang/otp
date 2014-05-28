@@ -37,7 +37,7 @@
 
 %% Setup
 -export([connect/8, ssl_accept/7, handshake/2, handshake/3,
-	 socket_control/4]).
+	 socket_control/4, socket_control/5]).
 
 %% User Events 
 -export([send/2, recv/3, close/1, shutdown/2,
@@ -50,7 +50,7 @@
 %% SSL FSM state functions 
 -export([hello/3, abbreviated/3, certify/3, cipher/3, connection/3]).
 %% SSL all state functions 
--export([handle_sync_event/4, handle_info/3, terminate/3]).
+-export([handle_sync_event/4, handle_info/3, terminate/3, format_status/2]).
 
 
 %%====================================================================
@@ -121,9 +121,16 @@ handshake(#sslsocket{pid = Pid}, SslOptions, Timeout) ->
 %% Description: Set the ssl process to own the accept socket
 %%--------------------------------------------------------------------	    
 socket_control(Connection, Socket, Pid, Transport) ->
+    socket_control(Connection, Socket, Pid, Transport, undefined).
+
+%--------------------------------------------------------------------
+-spec socket_control(tls_connection | dtls_connection, port(), pid(), atom(), pid()| undefined) -> 
+    {ok, #sslsocket{}} | {error, reason()}.  
+%%--------------------------------------------------------------------	    
+socket_control(Connection, Socket, Pid, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, ssl_socket:socket(Pid, Transport, Socket, Connection)};
+	    {ok, ssl_socket:socket(Pid, Transport, Socket, Connection, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -642,12 +649,27 @@ handle_sync_event({application_data, Data}, From, StateName,
      State#state{send_queue = queue:in({From, Data}, Queue)},
      get_timeout(State)};
 
-handle_sync_event({start, Timeout}, StartFrom, hello, #state{protocol_cb = Connection} = State) ->
-    Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
-    Connection:hello(start, State#state{start_or_recv_from = StartFrom,
-			     timer = Timer});
+handle_sync_event({start, Timeout}, StartFrom, hello, #state{role = Role,
+							     protocol_cb = Connection, 
+							     ssl_options = SSLOpts} = State0) ->
+    try 
+	State = ssl_config(SSLOpts, Role, State0),
+	Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
+	Connection:hello(start, State#state{start_or_recv_from = StartFrom,
+					    timer = Timer})
+    catch throw:Error ->
+	    {stop, normal, {error, Error}, State0}
+    end;
 
-%% The two clauses below could happen if a server upgrades a socket in
+handle_sync_event({start, {Opts, EmOpts}, Timeout}, From, StateName, State) ->
+    try 
+	handle_sync_event({start, Timeout}, From, StateName, State#state{socket_options = EmOpts,
+									 ssl_options = Opts})
+    catch throw:Error ->
+	    {stop, normal, {error, Error}, State}
+    end;	
+
+%% These two clauses below could happen if a server upgrades a socket in
 %% active mode. Note that in this case we are lucky that
 %% controlling_process has been evalueated before receiving handshake
 %% messages from client. The server should put the socket in passive
@@ -657,17 +679,16 @@ handle_sync_event({start, Timeout}, StartFrom, hello, #state{protocol_cb = Conne
 %% they upgrade an active socket. 
 handle_sync_event({start,_}, _, connection, State) ->
     {reply, connected, connection, State, get_timeout(State)};
-handle_sync_event({start,_}, _From, error, {Error, State = #state{}}) ->
-    {stop, {shutdown, Error}, {error, Error}, State};
 
-handle_sync_event({start, Timeout}, StartFrom, StateName, State) ->
-    Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
-    {next_state, StateName, State#state{start_or_recv_from = StartFrom,
-					timer = Timer}, get_timeout(State)};
-
-handle_sync_event({start, Opts, Timeout}, From, StateName, #state{ssl_options = SslOpts} = State) ->
-    NewOpts = new_ssl_options(Opts, SslOpts),
-    handle_sync_event({start, Timeout}, From, StateName, State#state{ssl_options = NewOpts});
+handle_sync_event({start, Timeout}, StartFrom, StateName,  #state{role = Role, ssl_options = SslOpts} = State0) ->
+    try 
+	State = ssl_config(SslOpts, Role, State0),
+	Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
+	{next_state, StateName, State#state{start_or_recv_from = StartFrom,
+					    timer = Timer}, get_timeout(State)}
+    catch throw:Error ->
+	    {stop, normal, {error, Error}, State0}
+    end;	
 
 handle_sync_event(close, _, StateName, #state{protocol_cb = Connection} = State) ->
     %% Run terminate before returning
@@ -675,7 +696,6 @@ handle_sync_event(close, _, StateName, #state{protocol_cb = Connection} = State)
     %% as intended.
     (catch Connection:terminate(user_close, StateName, State)),
     {stop, normal, ok, State#state{terminated = true}};
-
 handle_sync_event({shutdown, How0}, _, StateName,
 		  #state{transport_cb = Transport,
 			 negotiated_version = Version,
@@ -697,17 +717,14 @@ handle_sync_event({shutdown, How0}, _, StateName,
 	Error ->
 	    {stop, normal, Error, State}
     end;
-
 handle_sync_event({recv, _N, _Timeout}, _RecvFrom, StateName,  
 		  #state{socket_options = #socket_options{active = Active}} = State) when Active =/= false ->
     {reply, {error, einval}, StateName, State, get_timeout(State)};
-
 handle_sync_event({recv, N, Timeout}, RecvFrom, connection = StateName,  
 		  #state{protocol_cb = Connection} = State0) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     Connection:passive_receive(State0#state{bytes_to_read = N,
 					    start_or_recv_from = RecvFrom, timer = Timer}, StateName);
-
 %% Doing renegotiate wait with handling request until renegotiate is
 %% finished. Will be handled by next_state_is_connection/2.
 handle_sync_event({recv, N, Timeout}, RecvFrom, StateName, State) ->
@@ -715,26 +732,22 @@ handle_sync_event({recv, N, Timeout}, RecvFrom, StateName, State) ->
     {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom,
 					timer = Timer},
      get_timeout(State)};
-
 handle_sync_event({new_user, User}, _From, StateName, 
 		  State =#state{user_application = {OldMon, _}}) ->
     NewMon = erlang:monitor(process, User),
     erlang:demonitor(OldMon, [flush]),
     {reply, ok, StateName, State#state{user_application = {NewMon,User}},
      get_timeout(State)};
-
 handle_sync_event({get_opts, OptTags}, _From, StateName,
 		  #state{socket = Socket,
 			 transport_cb = Transport,
 			 socket_options = SockOpts} = State) ->
     OptsReply = get_socket_opts(Transport, Socket, OptTags, SockOpts, []),
     {reply, OptsReply, StateName, State, get_timeout(State)};
-
 handle_sync_event(negotiated_next_protocol, _From, StateName, #state{next_protocol = undefined} = State) ->
     {reply, {error, next_protocol_not_negotiated}, StateName, State, get_timeout(State)};
 handle_sync_event(negotiated_next_protocol, _From, StateName, #state{next_protocol = NextProtocol} = State) ->
     {reply, {ok, NextProtocol}, StateName, State, get_timeout(State)};
-
 handle_sync_event({set_opts, Opts0}, _From, StateName0, 
 		  #state{socket_options = Opts1, 
 			 protocol_cb = Connection,
@@ -773,13 +786,10 @@ handle_sync_event({set_opts, Opts0}, _From, StateName0,
 		    end
 	    end
     end;
-
 handle_sync_event(renegotiate, From, connection,  #state{protocol_cb = Connection} = State) ->
     Connection:renegotiate(State#state{renegotiation = {true, From}});
-
 handle_sync_event(renegotiate, _, StateName, State) ->
     {reply, {error, already_renegotiating}, StateName, State, get_timeout(State)};
-
 handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 		  #state{connection_states = ConnectionStates,
 			 negotiated_version = Version} = State) ->
@@ -805,7 +815,6 @@ handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 		error:Reason -> {error, Reason}
 	    end,
     {reply, Reply, StateName, State, get_timeout(State)};
-
 handle_sync_event(info, _, StateName, 
 		  #state{negotiated_version = Version,
 			 session = #session{cipher_suite = Suite}} = State) ->
@@ -813,14 +822,12 @@ handle_sync_event(info, _, StateName,
     AtomVersion = tls_record:protocol_version(Version),
     {reply, {ok, {AtomVersion, ssl:suite_definition(Suite)}},
      StateName, State, get_timeout(State)};
-
 handle_sync_event(session_info, _, StateName, 
 		  #state{session = #session{session_id = Id,
 					    cipher_suite = Suite}} = State) ->
     {reply, [{session_id, Id}, 
 	     {cipher_suite, ssl:suite_definition(Suite)}],
      StateName, State, get_timeout(State)};
-
 handle_sync_event(peer_certificate, _, StateName, 
 		  #state{session = #session{peer_certificate = Cert}} 
 		  = State) ->
@@ -830,8 +837,9 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 	    #state{socket = Socket, transport_cb = Transport,
 		   start_or_recv_from = StartFrom, role = Role,
 		   protocol_cb = Connection,
-		   error_tag = ErrorTag} = State)  when StateName =/= connection ->
-    Connection:alert_user(Transport, Socket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role),
+		   error_tag = ErrorTag,
+		   tracker = Tracker} = State)  when StateName =/= connection ->
+    Connection:alert_user(Transport, Tracker,Socket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role),
     {stop, normal, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
@@ -881,7 +889,6 @@ terminate(_, _, #state{terminated = true}) ->
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns.
     ok;
-
 terminate({shutdown, transport_closed}, StateName, #state{send_queue = SendQueue,
 							  renegotiation = Renegotiate} = State) ->
     handle_unrecv_data(StateName, State),
@@ -894,7 +901,6 @@ terminate({shutdown, own_alert}, _StateName, #state{send_queue = SendQueue,
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate);
-
 terminate(Reason, connection, #state{negotiated_version = Version,
 				     protocol_cb = Connection,
 				     connection_states = ConnectionStates, 
@@ -911,7 +917,6 @@ terminate(Reason, connection, #state{negotiated_version = Version,
 	_ ->
 	    ok
     end;
-
 terminate(_Reason, _StateName, #state{transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate} = State) ->
@@ -920,9 +925,50 @@ terminate(_Reason, _StateName, #state{transport_cb = Transport,
     notify_renegotiater(Renegotiate),
     Transport:close(Socket).
 
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}]; 
+format_status(terminate, [_, State]) ->
+    SslOptions = (State#state.ssl_options),
+    NewOptions = SslOptions#ssl_options{password = "***",
+					cert = "***",
+					cacerts = "***",
+					key = "***",			      
+					dh = "***",
+					psk_identity = "***",
+					srp_identity = "***"},
+    [{data, [{"StateData", State#state{connection_states = "***",
+				       protocol_buffers =  "***",
+				       user_data_buffer = "***",
+				       tls_handshake_history =  "***",
+				       session =  "***",
+				       private_key =  "***",
+				       diffie_hellman_params = "***",
+				       diffie_hellman_keys =  "***",
+				       srp_params = "***",
+				       srp_keys =  "***",
+				       premaster_secret =  "***",
+				       ssl_options = NewOptions
+				      }}]}].
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+ssl_config(Opts, Role, State) ->
+    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} = 
+	ssl_config:init(Opts, Role), 
+    Handshake = ssl_handshake:init_handshake_history(),
+    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
+    Session = State#state.session,
+    State#state{tls_handshake_history = Handshake,
+		session = Session#session{own_certificate = OwnCert,
+					  time_stamp = TimeStamp},
+		file_ref_db = FileRefHandle,
+		cert_db_ref = Ref,
+		cert_db = CertDbHandle,
+		session_cache = CacheHandle,
+		private_key = Key,
+		diffie_hellman_params = DHParams,
+		ssl_options = Opts}.
+
 do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocols} =
 		    ServerHelloExt,
 		#state{negotiated_version = Version,
@@ -1824,17 +1870,6 @@ make_premaster_secret({MajVer, MinVer}, rsa) ->
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
-
-%% One day this can be maps instead, but we have to be backwards compatible for now		     
-new_ssl_options(New, Old) ->
-    new_ssl_options(tuple_to_list(New), tuple_to_list(Old), []).
-
-new_ssl_options([], [], Acc) ->
-    list_to_tuple(lists:reverse(Acc));
-new_ssl_options([undefined | Rest0], [Head1| Rest1], Acc) ->
-    new_ssl_options(Rest0, Rest1, [Head1 | Acc]);
-new_ssl_options([Head0 | Rest0], [_| Rest1], Acc) ->
-    new_ssl_options(Rest0, Rest1, [Head0 | Acc]).
 
 negotiated_hashsign(undefined, Alg, Version) ->
     %% Not negotiated choose default 
