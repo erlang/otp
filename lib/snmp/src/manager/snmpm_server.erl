@@ -1032,14 +1032,14 @@ handle_info({snmp_error, Pdu, Reason}, State) ->
     handle_snmp_error(Pdu, Reason, State),
     {noreply, State};
 
-handle_info({snmp_error, Reason, Domain, Address}, State) ->
+handle_info({snmp_error, Reason, Domain, Addr}, State) ->
     ?vlog("received snmp_error message", []),
-    handle_snmp_error(Domain, Address, -1, Reason, State),
+    handle_snmp_error(Domain, Addr, -1, Reason, State),
     {noreply, State};
 
-handle_info({snmp_error, ReqId, Reason, Domain, Address}, State) ->
+handle_info({snmp_error, ReqId, Reason, Domain, Addr}, State) ->
     ?vlog("received snmp_error message", []),
-    handle_snmp_error(Domain, Address, ReqId, Reason, State),
+    handle_snmp_error(Domain, Addr, ReqId, Reason, State),
     {noreply, State};
 
 %% handle_info({snmp_error, ReqId, Pdu, Reason, Addr, Port}, State) ->
@@ -1048,30 +1048,30 @@ handle_info({snmp_error, ReqId, Reason, Domain, Address}, State) ->
 %%     {noreply, State};
 
 
-handle_info({snmp_pdu, Pdu, Domain, Address}, State) ->
+handle_info({snmp_pdu, Pdu, Domain, Addr}, State) ->
     ?vlog("received snmp_pdu message", []),
-    handle_snmp_pdu(Pdu, Domain, Address, State),
+    handle_snmp_pdu(Pdu, Domain, Addr, State),
     {noreply, State};
 
 
-handle_info({snmp_trap, Trap, Domain, Address}, State) ->
+handle_info({snmp_trap, Trap, Domain, Addr}, State) ->
     ?vlog("received snmp_trap message", []),
-    handle_snmp_trap(Trap, Domain, Address, State),
+    handle_snmp_trap(Trap, Domain, Addr, State),
     {noreply, State};
 
 
-handle_info({snmp_inform, Ref, Pdu, Domain, Address}, State) ->
+handle_info({snmp_inform, Ref, Pdu, Domain, Addr}, State) ->
     ?vlog("received snmp_inform message", []),
-    handle_snmp_inform(Ref, Pdu, Domain, Address, State),
+    handle_snmp_inform(Ref, Pdu, Domain, Addr, State),
     {noreply, State};
 
 
-handle_info({snmp_report, {ok, Pdu}, Domain, Address}, State) ->
-    handle_snmp_report(Pdu, Domain, Address, State),
+handle_info({snmp_report, {ok, Pdu}, Domain, Addr}, State) ->
+    handle_snmp_report(Pdu, Domain, Addr, State),
     {noreply, State};
 
-handle_info({snmp_report, {error, ReqId, Info, Pdu}, Domain, Address}, State) ->
-    handle_snmp_report(ReqId, Pdu, Info, Domain, Address, State),
+handle_info({snmp_report, {error, ReqId, Info, Pdu}, Domain, Addr}, State) ->
+    handle_snmp_report(ReqId, Pdu, Info, Domain, Addr, State),
     {noreply, State};
 
 
@@ -1175,11 +1175,11 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_get_request(Oids, Vsn, MsgData, 
-				       Domain, Address,
+				       Domain, Addr,
 				       Extra, State),
 	    ?vdebug("handle_sync_get -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
@@ -1192,7 +1192,7 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
 			       reg_type = RegType, 
 			       target   = TargetName, 
 			       domain   = Domain, 
-			       address  = Address,
+			       address  = Addr,
 			       type     = get, 
 			       data     = MsgData, 
 			       ref      = Ref, 
@@ -1228,11 +1228,11 @@ handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts,
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_next -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_get_next_request(Oids, Vsn, MsgData, 
-					    Domain, Address,
+					    Domain, Addr,
 					    Extra, State),
 	    ?vdebug("handle_sync_get_next -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
@@ -1245,7 +1245,7 @@ handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts,
 			       reg_type = RegType, 
 			       target   = TargetName, 
 			       domain   = Domain, 
-			       address  = Address,
+			       address  = Addr,
 			       type     = get_next, 
 			       data     = MsgData, 
 			       ref      = Ref, 
@@ -1287,11 +1287,11 @@ handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts,
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_bulk -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_get_bulk_request(Oids, Vsn, MsgData, 
-					    Domain, Address,
+					    Domain, Addr,
 					    NonRep, MaxRep, Extra, State),
 	    ?vdebug("handle_sync_get_bulk -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
@@ -1304,7 +1304,7 @@ handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts,
 			       reg_type = RegType, 
 			       target   = TargetName, 
 			       domain   = Domain, 
-			       address  = Address,
+			       address  = Addr,
 			       type     = get_bulk, 
 			       data     = MsgData, 
 			       ref      = Ref, 
@@ -1342,11 +1342,11 @@ handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
 	    "~n   From:        ~p", 
 	    [Pid, UserId, TargetName, VarsAndVals, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_set -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_set_request(VarsAndVals, Vsn, MsgData, 
-				       Domain, Address,
+				       Domain, Addr,
 				       Extra, State),
 	    ?vdebug("handle_sync_set -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
@@ -1359,7 +1359,7 @@ handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
 			       reg_type = RegType, 
 			       target   = TargetName, 
 			       domain   = Domain, 
-			       address  = Address,
+			       address  = Addr,
 			       type     = set, 
 			       data     = MsgData, 
 			       ref      = Ref, 
@@ -1395,11 +1395,11 @@ handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 	    "~n   SendOpts:   ~p",
 	    [Pid, UserId, TargetName, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
 	    ReqId  = send_get_request(Oids, Vsn, MsgData, 
-				      Domain, Address,
+				      Domain, Addr,
 				      Extra, State),
 	    ?vdebug("handle_async_get -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_GET_TIMEOUT(SendOpts), 
@@ -1408,7 +1408,7 @@ handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 			      reg_type = RegType, 
 			      target   = TargetName, 
 			      domain   = Domain, 
-			      address  = Address,
+			      address  = Addr,
 			      type     = get, 
 			      data     = MsgData, 
 			      expire   = t() + Expire},
@@ -1444,11 +1444,11 @@ handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 	    "~n   SendOpts:   ~p",
 	    [Pid, UserId, TargetName, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_next -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
 	    ReqId  = send_get_next_request(Oids, Vsn, MsgData, 
-					   Domain, Address,
+					   Domain, Addr,
 					   Extra, State),
 	    ?vdebug("handle_async_get_next -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_GET_NEXT_TIMEOUT(SendOpts), 
@@ -1457,7 +1457,7 @@ handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 			      reg_type = RegType, 
 			      target   = TargetName, 
 			      domain   = Domain, 
-			      address  = Address,
+			      address  = Addr,
 			      type     = get_next, 
 			      data     = MsgData, 
 			      expire   = t() + Expire},
@@ -1500,11 +1500,11 @@ handle_async_get_bulk(Pid,
 	    "~n   SendOpts:   ~p", 
 	    [Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_bulk -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
 	    ReqId  = send_get_bulk_request(Oids, Vsn, MsgData, 
-					   Domain, Address,
+					   Domain, Addr,
 					   NonRep, MaxRep, Extra, State),
 	    ?vdebug("handle_async_get_bulk -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_GET_BULK_TIMEOUT(SendOpts), 
@@ -1513,7 +1513,7 @@ handle_async_get_bulk(Pid,
 			      reg_type = RegType, 
 			      target   = TargetName, 
 			      domain   = Domain, 
-			      address  = Address,
+			      address  = Addr,
 			      type     = get_bulk, 
 			      data     = MsgData, 
 			      expire   = t() + Expire},
@@ -1548,11 +1548,11 @@ handle_async_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, State) ->
 	    "~n   SendOpts:    ~p",
 	    [Pid, UserId, TargetName, VarsAndVals, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Domain, Address, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Vsn, MsgData} ->
 	    ?vtrace("handle_async_set -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
 	    ReqId  = send_set_request(VarsAndVals, Vsn, MsgData, 
-				      Domain, Address,
+				      Domain, Addr,
 				      Extra, State),
 	    ?vdebug("handle_async_set -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_SET_TIMEOUT(SendOpts), 
@@ -1561,7 +1561,7 @@ handle_async_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, State) ->
 			      reg_type = RegType, 
 			      target   = TargetName, 
 			      domain   = Domain, 
-			      address  = Address,
+			      address  = Addr,
 			      type     = set, 
 			      data     = MsgData, 
 			      expire   = t() + Expire},
@@ -1799,15 +1799,15 @@ handle_snmp_error(CrapError, Reason, _State) ->
 	      "~n~p~n~p", [CrapError, Reason]),
     ok.
 
-handle_snmp_error(Domain, Address, ReqId, Reason, State) ->
+handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 
     ?vtrace("handle_snmp_error -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
+	    "   Addr:    ~p~n"
 	    "   ReqId:   ~p~n"
-	    "   Reason:  ~p", [Domain, Address, ReqId, Reason]),
+	    "   Reason:  ~p", [Domain, Addr, ReqId, Reason]),
 
-    case snmpm_config:get_agent_user_id(Domain, Address) of
+    case snmpm_config:get_agent_user_id(Domain, Addr) of
 	{ok, UserId} ->
 	    case snmpm_config:user_info(UserId) of
 		{ok, UserMod, UserData} ->
@@ -1822,7 +1822,7 @@ handle_snmp_error(Domain, Address, ReqId, Reason, State) ->
 			    error_msg("failed retreiving the default user "
 				      "info handling snmp error "
 				      "<~p,~p>: ~n~w~n~w",
-				      [Domain, Address, ReqId, Reason])
+				      [Domain, Addr, ReqId, Reason])
 		    end
 	    end;
 	_Error ->
@@ -1834,7 +1834,7 @@ handle_snmp_error(Domain, Address, ReqId, Reason, State) ->
 		    error_msg("failed retreiving the default user "
 			      "info handling snmp error "
 			      "<~p,~p>: ~n~w~n~w",
-			      [Domain, Address, ReqId, Reason])
+			      [Domain, Addr, ReqId, Reason])
 	    end
     end.
 
@@ -1858,12 +1858,12 @@ handle_error(_UserId, Mod, Reason, ReqId, Data, _State) ->
 
 
 handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu, 
-		Domain, Address, State) ->
+		Domain, Addr, State) ->
 
     ?vtrace("handle_snmp_pdu(get-response) -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
-	    "   Pdu:     ~p", [Domain, Address, Pdu]),
+	    "   Addr:    ~p~n"
+	    "   Pdu:     ~p", [Domain, Addr, Pdu]),
 
     case ets:lookup(snmpm_request_table, ReqId) of
 
@@ -1895,7 +1895,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 		{ok, UserMod, UserData} ->
 		    handle_pdu(
 		      UserId, UserMod,
-		      RegType, Target, Domain, Address,
+		      RegType, Target, Domain, Addr,
 		      ReqId, SnmpResponse, UserData, State),
 		    maybe_delete(Disco, ReqId);
 		_Error ->
@@ -1906,14 +1906,14 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_pdu(
 			      DefUserId, DefMod,
-			      RegType, Target, Domain, Address,
+			      RegType, Target, Domain, Addr,
 			      ReqId, SnmpResponse, DefData, State),
 			    maybe_delete(Disco, ReqId);
 			Error ->
 			    error_msg("failed retreiving the default user "
 				      "info handling pdu from "
 				      "~p <~p,~p>: ~n~w~n~w",
-				      [Target, Domain, Address, Error, Pdu])
+				      [Target, Domain, Addr, Error, Pdu])
 		    end
 	    end;
 
@@ -1967,7 +1967,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 		 varbinds     = Varbinds} = Pdu,
 	    Varbinds2 = fix_vbs_BITS(Varbinds), 
 	    SnmpInfo = {EStatus, EIndex, Varbinds2},
-	    case snmpm_config:get_agent_user_id(Domain, Address) of
+	    case snmpm_config:get_agent_user_id(Domain, Addr) of
 		{ok, UserId} ->
 		    %% A very late reply or a reply to a request
 		    %% that has been cancelled.
@@ -1992,7 +1992,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 					      "user info handling (old) "
 					      "pdu from "
 					      "<~p,~p>: ~n~w~n~w",
-					      [Domain, Address, Error, Pdu])
+					      [Domain, Addr, Error, Pdu])
 			    end
 		    end;
 
@@ -2011,7 +2011,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_agent(
 			      DefUserId, DefMod,
-			      Domain, Address,
+			      Domain, Addr,
 			      pdu, ignore,
 			      SnmpInfo, DefData, State);
 			Error ->
@@ -2019,19 +2019,19 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 				      "info handling (old) pdu when no user "
 				      "found from "
 				      "<~p,~p>: ~n~w~n~w",
-				      [Domain, Address, Error, Pdu])
+				      [Domain, Addr, Error, Pdu])
 		    end
 	    end
     end;
 
-handle_snmp_pdu(CrapPdu, Domain, Address, _State) ->
+handle_snmp_pdu(CrapPdu, Domain, Addr, _State) ->
     error_msg("received crap (snmp) Pdu from ~w:~w =>"
-	      "~p", [Domain, Address, CrapPdu]),
+	      "~p", [Domain, Addr, CrapPdu]),
     ok.
 
 
 handle_pdu(
-  _UserId, Mod, target_name = _RegType, TargetName, _Domain, _Address,
+  _UserId, Mod, target_name = _RegType, TargetName, _Domain, _Addr,
   ReqId, SnmpResponse, Data, _State) ->
     ?vtrace("handle_pdu(target_name) -> entry when"
 	    "~n   Mod: ~p", [Mod]),
@@ -2049,37 +2049,37 @@ handle_pdu(
     handle_callback(F),
     ok;
 handle_pdu(
-  _UserId, Mod, addr_port = _RegType, _TargetName, _Domain, Address,
+  _UserId, Mod, addr_port = _RegType, _TargetName, _Domain, Addr,
   ReqId, SnmpResponse, Data, _State) ->
     ?vtrace("handle_pdu(addr_port) -> entry when"
 	    "~n   Mod: ~p", [Mod]),
     F = fun() ->
-		{Ip, Port} = Address,
+		{Ip, Port} = Addr,
 		(catch Mod:handle_pdu(Ip, Port, ReqId, SnmpResponse, Data))
 	end,
     handle_callback(F),
     ok.
 
 
-handle_agent(UserId, Mod, Domain, Address, Type, Ref, SnmpInfo, Data, State) ->
+handle_agent(UserId, Mod, Domain, Addr, Type, Ref, SnmpInfo, Data, State) ->
     ?vtrace("handle_agent -> entry when"
 	    "~n   UserId: ~p"
 	    "~n   Type:   ~p"
 	    "~n   Mod:    ~p", [UserId, Type, Mod]),
     F = fun() ->
-		do_handle_agent(UserId, Mod, Domain, Address,
+		do_handle_agent(UserId, Mod, Domain, Addr,
 				Type, Ref, SnmpInfo, Data, State)
 	end,
     handle_callback(F),
     ok.
 
 do_handle_agent(DefUserId, DefMod, 
-		Domain, Address,
+		Domain, Addr,
 		Type, Ref, 
 		SnmpInfo, DefData, State) ->
     ?vdebug("do_handle_agent -> entry when"
 	    "~n   DefUserId: ~p", [DefUserId]),
-    try DefMod:handle_agent(Domain, Address, Type, SnmpInfo, DefData) of
+    try DefMod:handle_agent(Domain, Addr, Type, SnmpInfo, DefData) of
 	{register, UserId2, TargetName, Config} ->  
 	    ?vtrace("do_handle_agent -> register: "
 		    "~n   UserId2:    ~p"
@@ -2088,7 +2088,7 @@ do_handle_agent(DefUserId, DefMod,
 		    [UserId2, TargetName, Config]),
 	    Config2 =
 		ensure_present(
-		  [{tdomain, Domain}, {taddress, Address}], Config),
+		  [{tdomain, Domain}, {taddress, Addr}], Config),
 	    Config3 = [{reg_type, target_name} | Config2], 
 	    case snmpm_config:register_agent(UserId2, 
 					     TargetName, Config3) of
@@ -2098,7 +2098,7 @@ do_handle_agent(DefUserId, DefMod,
 		    error_msg("failed registering agent - "
 			      "handling agent "
 			      "~p <~p,~p>: ~n~w", 
-			      [TargetName, Domain, Address, Reason]),
+			      [TargetName, Domain, Addr, Reason]),
 		    ok
 	    end;
 	
@@ -2107,23 +2107,23 @@ do_handle_agent(DefUserId, DefMod,
 	    ok;
 
 	InvalidResult ->
-	    CallbackArgs = [Domain, Address, Type, SnmpInfo, DefData], 
+	    CallbackArgs = [Domain, Addr, Type, SnmpInfo, DefData],
 	    handle_invalid_result(handle_agent, CallbackArgs, InvalidResult) 
 
     catch
 	error:{undef, _} when Type =:= pdu ->
 	    %% Maybe, still on the old API
 	    ?vdebug("do_handle_agent -> maybe still on the old api", []),
-	    {Ip, Port} = Address,
+	    {Ip, Port} = Addr,
 	    case (catch DefMod:handle_agent(Ip, Port, SnmpInfo, DefData)) of
 		{register, UserId2, Config} ->  
 		    ?vtrace("do_handle_agent -> register: "
 			    "~n   UserId2: ~p"
 			    "~n   Config:  ~p", [UserId2, Config]),
-		    TargetName = mk_target_name(Domain, Address, Config),
+		    TargetName = mk_target_name(Domain, Addr, Config),
 		    Config2 =
 			ensure_present(
-			  [{tdomain, Domain}, {taddress, Address}], Config),
+			  [{tdomain, Domain}, {taddress, Addr}], Config),
 		    Config3 = [{reg_type, addr_port} | Config2],
 		    case snmpm_config:register_agent(
 			   UserId2, TargetName, Config3) of
@@ -2133,7 +2133,7 @@ do_handle_agent(DefUserId, DefMod,
 			    error_msg("failed registering agent - "
 				      "handling agent "
 				      "~p <~p,~p>: ~n~w", 
-				      [TargetName, Domain, Address, Reason]),
+				      [TargetName, Domain, Addr, Reason]),
 			    ok
 		    end;
 		{register, UserId2, TargetName, Config} ->  
@@ -2144,7 +2144,7 @@ do_handle_agent(DefUserId, DefMod,
 			    [UserId2, TargetName, Config]),
 		    Config2 =
 			ensure_present(
-			  [{tdomain, Domain}, {taddress, Address}], Config),
+			  [{tdomain, Domain}, {taddress, Addr}], Config),
 		    Config3 = [{reg_type, target_name} | Config2], 
 		    case snmpm_config:register_agent(
 			   UserId2, TargetName, Config3) of
@@ -2154,7 +2154,7 @@ do_handle_agent(DefUserId, DefMod,
 			    error_msg("failed registering agent - "
 				      "handling agent "
 				      "~p <~p,~p>: ~n~w", 
-				      [TargetName, Domain, Address, Reason]),
+				      [TargetName, Domain, Addr, Reason]),
 			    ok
 		    end;
 		_Ignore ->
@@ -2172,38 +2172,38 @@ do_handle_agent(DefUserId, DefMod,
 
 	    %% Backward compatibillity crap
 	    RegType = target_name,
-	    Target  = mk_target_name(Domain, Address, default_agent_config()),
+	    Target  = mk_target_name(Domain, Addr, default_agent_config()),
 	    case Type of
 		report ->
 		    SnmpInform = SnmpInfo, 
 		    handle_report(
 		      DefUserId, DefMod, 
-		      RegType, Target, Domain, Address,
+		      RegType, Target, Domain, Addr,
 		      SnmpInform, DefData, State);
 
 		inform ->
 		    SnmpInform = SnmpInfo, 
 		    handle_inform(
 		      DefUserId, DefMod, Ref, 
-		      RegType, Target, Domain, Address, 
+		      RegType, Target, Domain, Addr,
 		      SnmpInform, DefData, State);
 
 		trap ->
 		    SnmpTrapInfo = SnmpInfo, 
 		    handle_trap(
 		      DefUserId, DefMod, 
-		      RegType, Target, Domain, Address,
+		      RegType, Target, Domain, Addr,
 		      SnmpTrapInfo, DefData, State);
 
 		_ ->
 		    error_msg(
 		      "failed delivering ~w info to default user - "
 		      "regarding agent "
-		      "<~p,~p>: ~n~w", [Type, Domain, Address, SnmpInfo])
+		      "<~p,~p>: ~n~w", [Type, Domain, Addr, SnmpInfo])
 	    end;
 	
 	T:E ->
-	    CallbackArgs = [Domain, Address, Type, SnmpInfo, DefData], 
+	    CallbackArgs = [Domain, Addr, Type, SnmpInfo, DefData],
 	    handle_invalid_result(handle_agent, CallbackArgs, T, E)
 	    
     end.
@@ -2226,45 +2226,45 @@ handle_snmp_trap(
 	   generic_trap  = Generic, 
 	   specific_trap = Spec,
 	   time_stamp    = Timestamp, 
-	   varbinds      = Varbinds} = Trap, Domain, Address, State) ->
+	   varbinds      = Varbinds} = Trap, Domain, Addr, State) ->
 
     ?vtrace("handle_snmp_trap [trappdu] -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
-	    "   Trap:    ~p", [Domain, Address, Trap]),
+	    "   Addr:    ~p~n"
+	    "   Trap:    ~p", [Domain, Addr, Trap]),
 
     Varbinds2 = fix_vbs_BITS(Varbinds), 
     SnmpTrapInfo = {Enteprise, Generic, Spec, Timestamp, Varbinds2},
-    do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State);
+    do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State);
 
 handle_snmp_trap(#pdu{error_status = EStatus, 
 		      error_index  = EIndex, 
 		      varbinds     = Varbinds} = Trap, 
-		 Domain, Address, State) ->
+		 Domain, Addr, State) ->
 
     ?vtrace("handle_snmp_trap [pdu] -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
-	    "   Trap:    ~p", [Domain, Address, Trap]),
+	    "   Addr:    ~p~n"
+	    "   Trap:    ~p", [Domain, Addr, Trap]),
 
     Varbinds2 = fix_vbs_BITS(Varbinds), 
     SnmpTrapInfo = {EStatus, EIndex, Varbinds2},
-    do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State);
+    do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State);
 
-handle_snmp_trap(CrapTrap, Domain, Address, _State) ->
+handle_snmp_trap(CrapTrap, Domain, Addr, _State) ->
     error_msg("received crap (snmp) trap from ~w:~w =>"
-	      "~p", [Domain, Address, CrapTrap]),
+	      "~p", [Domain, Addr, CrapTrap]),
     ok.
 
-do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State) ->
-    case snmpm_config:get_agent_user_info(Domain, Address) of
+do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
+    case snmpm_config:get_agent_user_info(Domain, Addr) of
 	{ok, UserId, Target, RegType} ->
 	    ?vtrace("handle_snmp_trap -> found user: ~p", [UserId]), 
 	    case snmpm_config:user_info(UserId) of
 		{ok, Mod, Data} ->
 		    handle_trap(
 		      UserId, Mod, 
-		      RegType, Target, Domain, Address, 
+		      RegType, Target, Domain, Addr,
 		      SnmpTrapInfo, Data, State);
 		
 		Error1 ->
@@ -2279,7 +2279,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State) ->
 				{ok, DefUserId, DefMod, DefData} ->
 				    handle_agent(
 				      DefUserId, DefMod, 
-				      Domain, Address, 
+				      Domain, Addr,
 				      trap, ignore, 
 				      SnmpTrapInfo, DefData, State);
 				Error2 ->
@@ -2287,7 +2287,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State) ->
 				      "failed retreiving the default "
 				      "user info handling report from "
 				      "~p <~p,~p>: ~n~w~n~w",
-				      [Target, Domain, Address, 
+				      [Target, Domain, Addr,
 				       Error2, SnmpTrapInfo])
 			    end;
 			Error3 ->
@@ -2299,7 +2299,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State) ->
 			      "user ~p, handling trap: "
 			      "~n   Error:     ~w"
 			      "~n   Trap info: ~w",
-			      [Target, Domain, Address, UserId, 
+			      [Target, Domain, Addr, UserId,
 			       Error3, SnmpTrapInfo])
 		    end
 	    end;
@@ -2307,12 +2307,12 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State) ->
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
 	    ?vlog("[trap] failed retreiving user id for agent <~p,~p>: "
-		  "~n   ~p", [Domain, Address, Error4]),
+		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
 		    handle_agent(
 		      DefUserId, DefMod, 
-		      Domain, Address, 
+		      Domain, Addr,
 		      trap, ignore, 
 		      SnmpTrapInfo, DefData, State);
 		Error5 ->
@@ -2320,21 +2320,21 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Address, State) ->
 		      "failed retreiving "
 		      "the default user info handling trap from "
 		      "<~p,~p>: ~n~w~n~w",
-		      [Domain, Address, Error5, SnmpTrapInfo])
+		      [Domain, Addr, Error5, SnmpTrapInfo])
 	    end
     end,
     ok.
 
 
 handle_trap(
-  UserId, Mod, RegType, Target, Domain, Address, SnmpTrapInfo, Data, State) ->
+  UserId, Mod, RegType, Target, Domain, Addr, SnmpTrapInfo, Data, State) ->
     ?vtrace("handle_trap -> entry with"
 	    "~n   UserId: ~p"
 	    "~n   Mod:    ~p", [UserId, Mod]),
     F = fun() ->
 		do_handle_trap(
 		  UserId, Mod, 
-		  RegType, Target, Domain, Address, 
+		  RegType, Target, Domain, Addr,
 		  SnmpTrapInfo, Data, State)
 	end,
     handle_callback(F),
@@ -2342,7 +2342,7 @@ handle_trap(
     
 
 do_handle_trap(
-  UserId, Mod, RegType, Target, Domain, Address, SnmpTrapInfo, Data, _State) ->
+  UserId, Mod, RegType, Target, Domain, Addr, SnmpTrapInfo, Data, _State) ->
     ?vdebug("do_handle_trap -> entry with"
 	    "~n   UserId: ~p", [UserId]),
     {HandleTrap, CallbackArgs} = 
@@ -2351,7 +2351,7 @@ do_handle_trap(
 		{fun() -> Mod:handle_trap(Target, SnmpTrapInfo, Data) end, 
 		 [Target, SnmpTrapInfo, Data]};
 	    addr_port ->
-		{Ip, Port} = Address,
+		{Ip, Port} = Addr,
 		{fun() -> Mod:handle_trap(Ip, Port, SnmpTrapInfo, Data) end, 
 		 [Ip, Port, SnmpTrapInfo, Data]}
 	end,
@@ -2361,10 +2361,10 @@ do_handle_trap(
 	    ?vtrace("do_handle_trap -> register: "
 		    "~n   UserId2: ~p"
 		    "~n   Config:  ~p", [UserId2, Config]),
-	    Target2 = mk_target_name(Domain, Address, Config),
+	    Target2 = mk_target_name(Domain, Addr, Config),
 	    Config2 =
 		[{reg_type, target_name}, 
-		 {tdomain, Domain}, {taddress, Address} | Config], 
+		 {tdomain, Domain}, {taddress, Addr} | Config],
 	    case snmpm_config:register_agent(UserId2, Target2, Config2) of
 		ok ->
 		    ok;
@@ -2372,7 +2372,7 @@ do_handle_trap(
 		    error_msg("failed registering agent "
 			      "handling trap "
 			      "<~p,~p>: ~n~w", 
-			      [Domain, Address, Reason]),
+			      [Domain, Addr, Reason]),
 		    ok
 	    end;
 	{register, UserId2, Target2, Config} -> 
@@ -2390,19 +2390,19 @@ do_handle_trap(
 		    error_msg("failed registering agent "
 			      "handling trap "
 			      "~p <~p,~p>: ~n~w", 
-			      [Target2, Domain, Address, Reason]),
+			      [Target2, Domain, Addr, Reason]),
 		    reply
 	    end;
 	unregister ->
 	    ?vtrace("do_handle_trap -> unregister", []),
-	    case snmpm_config:unregister_agent(UserId, Domain, Address) of
+	    case snmpm_config:unregister_agent(UserId, Domain, Addr) of
 		ok ->
 		    ok;
 		{error, Reason} ->
 		    error_msg("failed unregistering agent "
 			      "handling trap "
 			      "<~p,~p>: ~n~w", 
-			      [Domain, Address, Reason]),
+			      [Domain, Addr, Reason]),
 		    ok
 	    end;	    
 	ignore ->
@@ -2423,16 +2423,16 @@ handle_snmp_inform(
   Ref, 
   #pdu{error_status = EStatus, 
        error_index  = EIndex, 
-       varbinds     = Varbinds} = Pdu, Domain, Address, State) ->
+       varbinds     = Varbinds} = Pdu, Domain, Addr, State) ->
  
     ?vtrace("handle_snmp_inform -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
-	    "   Pdu:     ~p", [Domain, Address, Pdu]),
+	    "   Addr:    ~p~n"
+	    "   Pdu:     ~p", [Domain, Addr, Pdu]),
 
     Varbinds2 = fix_vbs_BITS(Varbinds), 
     SnmpInform = {EStatus, EIndex, Varbinds2},
-    case snmpm_config:get_agent_user_info(Domain, Address) of
+    case snmpm_config:get_agent_user_info(Domain, Addr) of
 	{ok, UserId, Target, RegType} ->
 	    case snmpm_config:user_info(UserId) of
 		{ok, Mod, Data} ->
@@ -2441,7 +2441,7 @@ handle_snmp_inform(
 			    "~n   Mod:    ~p", [UserId, Mod]),
 		    handle_inform(
 		      UserId, Mod, Ref, 
-		      RegType, Target, Domain, Address, 
+		      RegType, Target, Domain, Addr,
 		      SnmpInform, Data, State);
 		Error1 ->
 		    %% User no longer exists, unregister agent
@@ -2455,14 +2455,14 @@ handle_snmp_inform(
 				{ok, DefUserId, DefMod, DefData} ->
 				    handle_agent(
 				      DefUserId, DefMod, 
-				      Domain, Address,
+				      Domain, Addr,
 				      inform, Ref, 
 				      SnmpInform, DefData, State);
 				Error2 ->
 				    error_msg("failed retreiving the default "
 					      "user info handling inform from "
 					      "~p <~p,~p>: ~n~w~n~w",
-					      [Target, Domain, Address, 
+					      [Target, Domain, Addr,
 					       Error2, Pdu])
 			    end;
 			Error3 ->
@@ -2473,7 +2473,7 @@ handle_snmp_inform(
 					"user ~p, handling inform: "
 					"~n   Error: ~w"
 					"~n   Pdu:   ~w",
-					[Target, Domain, Address, UserId, 
+					[Target, Domain, Addr, UserId,
 					 Error3, Pdu])
 		    end
 	    end;
@@ -2481,38 +2481,38 @@ handle_snmp_inform(
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
 	    ?vlog("[inform] failed retreiving user id for agent <~p,~p>: "
-		  "~n   ~p", [Domain, Address, Error4]),
+		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
 		    handle_agent(
 		      DefUserId, DefMod, 
-		      Domain, Address, 
+		      Domain, Addr,
 		      inform, Ref, 
 		      SnmpInform, DefData, State);
 		Error5 ->
 		    error_msg("failed retreiving "
 			      "the default user info handling inform from "
 			      "<~p,~p>: ~n~w~n~w",
-			      [Domain, Address, Error5, Pdu])
+			      [Domain, Addr, Error5, Pdu])
 	    end
     end,
     ok;
 
-handle_snmp_inform(_Ref, CrapInform, Domain, Address, _State) ->
+handle_snmp_inform(_Ref, CrapInform, Domain, Addr, _State) ->
     error_msg("received crap (snmp) inform from ~w:~w =>"
-	      "~p", [Domain, Address, CrapInform]),
+	      "~p", [Domain, Addr, CrapInform]),
     ok.
 
 handle_inform(
   UserId, Mod, Ref, 
-  RegType, Target, Domain, Address, SnmpInform, Data, State) ->
+  RegType, Target, Domain, Addr, SnmpInform, Data, State) ->
     ?vtrace("handle_inform -> entry with"
 	    "~n   UserId: ~p"
 	    "~n   Mod:    ~p", [UserId, Mod]),
     F = fun() ->
 		do_handle_inform(
 		  UserId, Mod, Ref, 
-		  RegType, Target, Domain, Address, SnmpInform, 
+		  RegType, Target, Domain, Addr, SnmpInform,
 		  Data, State)
 	end,
     handle_callback(F),
@@ -2520,7 +2520,7 @@ handle_inform(
 
 do_handle_inform(
   UserId, Mod, Ref, 
-  RegType, Target, Domain, Address, SnmpInform, Data, State) ->
+  RegType, Target, Domain, Addr, SnmpInform, Data, State) ->
     ?vdebug("do_handle_inform -> entry with"
 	    "~n   UserId: ~p", [UserId]),
     {HandleInform, CallbackArgs} = 
@@ -2529,7 +2529,7 @@ do_handle_inform(
 		{fun() -> Mod:handle_inform(Target, SnmpInform, Data) end, 
 		 [Target, SnmpInform, Data]};
 	    addr_port ->
-		{Ip, Port} = Address,
+		{Ip, Port} = Addr,
 		{fun() -> Mod:handle_inform(Ip, Port, SnmpInform, Data) end, 
 		 [Ip, Port, SnmpInform, Data]}
 	end,
@@ -2542,11 +2542,11 @@ do_handle_inform(
 			"~n   Config:  ~p", [UserId2, Config]),
 		%% The only user which would do this is the
 		%% default user
-		Target2 = mk_target_name(Domain, Address, Config),
+		Target2 = mk_target_name(Domain, Addr, Config),
 		Config2 =
 		    [{reg_type, target_name} |
 		     ensure_present(
-		       [{tdomain, Domain}, {taddress, Address}], Config)], 
+		       [{tdomain, Domain}, {taddress, Addr}], Config)],
 		case snmpm_config:register_agent(UserId2, Target2, Config2) of
 		    ok ->
 			reply;
@@ -2554,7 +2554,7 @@ do_handle_inform(
 			error_msg("failed registering agent "
 				  "handling inform "
 				  "~p <~p,~p>: ~n~w", 
-				  [Target2, Domain, Address, Reason]),
+				  [Target2, Domain, Addr, Reason]),
 			reply
 		end;
 
@@ -2573,21 +2573,21 @@ do_handle_inform(
 			error_msg("failed registering agent "
 				  "handling inform "
 				  "~p <~p,~p>: ~n~w", 
-				  [Target2, Domain, Address, Reason]),
+				  [Target2, Domain, Addr, Reason]),
 			reply
 		end;
 
 	    unregister ->
 		?vtrace("do_handle_inform -> unregister", []),
 		case snmpm_config:unregister_agent(
-		       UserId, Domain, Address) of
+		       UserId, Domain, Addr) of
 		    ok ->
 			reply;
 		    {error, Reason} ->
 			error_msg("failed unregistering agent "
 				  "handling inform "
 				  "<~p,~p>: ~n~w", 
-				  [Domain, Address, Reason]),
+				  [Domain, Addr, Reason]),
 			reply
 		end;	    
 
@@ -2610,34 +2610,34 @@ do_handle_inform(
 		reply
 
 	end,
-    handle_inform_response(Rep, Ref, Domain, Address, State),
+    handle_inform_response(Rep, Ref, Domain, Addr, State),
     ok.
 
 
-handle_inform_response(_, ignore, _Domain, _Address, _State) ->
+handle_inform_response(_, ignore, _Domain, _Addr, _State) ->
     ignore;
-handle_inform_response(no_reply, _Ref, _Domain, _Address, _State) ->
+handle_inform_response(no_reply, _Ref, _Domain, _Addr, _State) ->
     no_reply;
 handle_inform_response(
-  _, Ref, Domain, Address, 
+  _, Ref, Domain, Addr,
   #state{net_if = Pid, net_if_mod = Mod}) ->
     ?vdebug("handle_inform -> response", []),
-    (catch Mod:inform_response(Pid, Ref, Domain, Address)).
+    (catch Mod:inform_response(Pid, Ref, Domain, Addr)).
     
 handle_snmp_report(
   #pdu{error_status = EStatus,
        error_index  = EIndex,
        varbinds     = Varbinds} = Pdu,
-  Domain, Address, State) ->
+  Domain, Addr, State) ->
 
     ?vtrace("handle_snmp_report -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
-	    "   Pdu:     ~p", [Domain, Address, Pdu]),
+	    "   Addr:    ~p~n"
+	    "   Pdu:     ~p", [Domain, Addr, Pdu]),
 
     Varbinds2  = fix_vbs_BITS(Varbinds), 
     SnmpReport = {EStatus, EIndex, Varbinds2},
-    case snmpm_config:get_agent_user_info(Domain, Address) of
+    case snmpm_config:get_agent_user_info(Domain, Addr) of
  	{ok, UserId, Target, RegType} ->
  	    case snmpm_config:user_info(UserId) of
  		{ok, Mod, Data} ->
@@ -2647,7 +2647,7 @@ handle_snmp_report(
  			    "~n   ~p"
  			    "~n   ~p", [UserId, Mod, Target, SnmpReport]),
  		    handle_report(UserId, Mod, 
-				  RegType, Target, Domain, Address, 
+				  RegType, Target, Domain, Addr,
 				  SnmpReport, Data, State);
  		Error1 ->
 		    %% User no longer exists, unregister agent
@@ -2660,7 +2660,7 @@ handle_snmp_report(
 			    case snmpm_config:user_info() of
 				{ok, DefUserId, DefMod, DefData} ->
 				    handle_agent(DefUserId, DefMod, 
-						 Domain, Address, 
+						 Domain, Addr,
 						 report, ignore, 
 						 SnmpReport, DefData, State);
 				
@@ -2668,7 +2668,7 @@ handle_snmp_report(
 				    error_msg("failed retreiving the default "
 					      "user info handling report from "
 					      "~p <~p,~p>: ~n~w~n~w",
-					      [Target, Domain, Address, 
+					      [Target, Domain, Addr,
 					       Error2, Pdu])
 			    end;
 			Error3 ->
@@ -2679,7 +2679,7 @@ handle_snmp_report(
 					"user ~p, handling report: "
 					"~n   Error:  ~w"
 					"~n   Report: ~w",
-					[Target, Domain, Address, UserId, 
+					[Target, Domain, Addr, UserId,
 					 Error3, Pdu])
 		    end
 	    end;
@@ -2687,25 +2687,25 @@ handle_snmp_report(
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
 	    ?vlog("[report] failed retreiving user id for agent <~p,~p>: "
-		  "~n   ~p", [Domain, Address, Error4]),
+		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
 		    handle_agent(DefUserId, DefMod, 
-				 Domain, Address, 
+				 Domain, Addr,
 				 report, ignore, 
 				 SnmpReport, DefData, State);
 		Error5 ->
 		    error_msg("failed retreiving "
 			      "the default user info handling report from "
 			      "<~p,~p>: ~n~w~n~w",
-			      [Domain, Address, Error5, Pdu])
+			      [Domain, Addr, Error5, Pdu])
 	    end
     end,
     ok;
 
-handle_snmp_report(CrapReport, Domain, Address, _State) ->
+handle_snmp_report(CrapReport, Domain, Addr, _State) ->
     error_msg("received crap (snmp) report from ~w:~w =>"
-	      "~p", [Domain, Address, CrapReport]),
+	      "~p", [Domain, Addr, CrapReport]),
     ok.
 
 %% This could be from a failed get-request, so we might have a user
@@ -2719,14 +2719,14 @@ handle_snmp_report(
        error_index  = EIndex,
        varbinds     = Varbinds} = Pdu,
   {ReportReason, Info} = Rep,
-  Domain, Address, State) when is_integer(ReqId) ->
+  Domain, Addr, State) when is_integer(ReqId) ->
 
     ?vtrace("handle_snmp_report -> entry with~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n"
+	    "   Addr:    ~p~n"
 	    "   ReqId:   ~p~n"
 	    "   Rep:     ~p~n"
-	    "   Pdu:     ~p", [Domain, Address, ReqId, Rep, Pdu]),
+	    "   Pdu:     ~p", [Domain, Addr, ReqId, Rep, Pdu]),
 
     Varbinds2 = fix_vbs_BITS(Varbinds), 
     SnmpReport = {EStatus, EIndex, Varbinds2},
@@ -2771,7 +2771,7 @@ handle_snmp_report(
 	    %% Either not a sync request or no such request. Either
 	    %% way, this is error info, so handle it as such.
 
-	    case snmpm_config:get_agent_user_id(Domain, Address) of
+	    case snmpm_config:get_agent_user_id(Domain, Addr) of
 		{ok, UserId} ->
 		    case snmpm_config:user_info(UserId) of
 			{ok, Mod, Data} ->
@@ -2795,7 +2795,7 @@ handle_snmp_report(
 					      "default user "
 					      "info handling report from "
 					      "<~p,~p>: ~n~w~n~w~n~w",
-					      [Domain, Address, Error, 
+					      [Domain, Addr, Error,
 					       ReqId, Reason])
 			    end
 		    end;
@@ -2803,7 +2803,7 @@ handle_snmp_report(
 		    %% Unknown agent, pass it on to the default user
 		    ?vlog("[report] failed retreiving user id for "
 			  "agent <~p,~p>: "
-			  "~n   ~p", [Domain, Address, Error]),
+			  "~n   ~p", [Domain, Addr, Error]),
 		    case snmpm_config:user_info() of
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_error(DefUserId, DefMod, Reason, ReqId, 
@@ -2813,35 +2813,35 @@ handle_snmp_report(
 				      "the default user info handling "
 				      "report from "
 				      "<~p,~p>: ~n~w~n~w~n~w",
-				      [Domain, Address, Error, ReqId, Reason])
+				      [Domain, Addr, Error, ReqId, Reason])
 		    end
 	    end
     end,
     ok;
 
-handle_snmp_report(CrapReqId, CrapReport, CrapInfo, Domain, Address, _State) ->
+handle_snmp_report(CrapReqId, CrapReport, CrapInfo, Domain, Addr, _State) ->
     error_msg(
       "received crap (snmp) report from ~w:~w =>"
       "~n~p~n~p~n~p",
-      [Domain, Address, CrapReqId, CrapReport, CrapInfo]),
+      [Domain, Addr, CrapReqId, CrapReport, CrapInfo]),
     ok.
    
 
-handle_report(UserId, Mod, RegType, Target, Domain, Address, 
+handle_report(UserId, Mod, RegType, Target, Domain, Addr,
 	      SnmpReport, Data, State) ->
     ?vtrace("handle_report -> entry with"
 	    "~n   UserId: ~p"
 	    "~n   Mod:    ~p", [UserId, Mod]),
     F = fun() ->
 		do_handle_report(
-		  UserId, Mod, RegType, Target, Domain, Address, 
+		  UserId, Mod, RegType, Target, Domain, Addr,
 		  SnmpReport, Data, State)
 	end,
     handle_callback(F),
     ok.
 
 do_handle_report(
-  UserId, Mod, RegType, Target, Domain, Address,
+  UserId, Mod, RegType, Target, Domain, Addr,
   SnmpReport, Data, _State) ->
     ?vdebug("do_handle_report -> entry with"
 	    "~n   UserId: ~p", [UserId]),
@@ -2851,7 +2851,7 @@ do_handle_report(
 		{fun() -> Mod:handle_report(Target, SnmpReport, Data) end, 
 		 [Target, SnmpReport, Data]};
 	    addr_port ->
-		{Ip, Port} = Address,
+		{Ip, Port} = Addr,
 		{fun() -> Mod:handle_report(Ip, Port, SnmpReport, Data) end,
 		 [Ip, Port, SnmpReport, Data]}
 	end,
@@ -2863,10 +2863,10 @@ do_handle_report(
 		    "~n   Config:  ~p", [UserId2, Config]),
 	    %% The only user which would do this is the
 	    %% default user
-	    Target2 = mk_target_name(Domain, Address, Config),
+	    Target2 = mk_target_name(Domain, Addr, Config),
 	    Config2 =
 		[{reg_type, target_name},
-		 {tdomain, Domain}, {taddress, Address} | Config],
+		 {tdomain, Domain}, {taddress, Addr} | Config],
 	    case snmpm_config:register_agent(UserId2, Target2, Config2) of
 		ok ->
 		    ok;
@@ -2874,7 +2874,7 @@ do_handle_report(
 		    error_msg("failed registering agent "
 			      "handling report "
 			      "<~p,~p>: ~n~w",
-			      [Domain, Address, Reason]),
+			      [Domain, Addr, Reason]),
 		    ok
 	    end;
 
@@ -2893,20 +2893,20 @@ do_handle_report(
 		    error_msg("failed registering agent "
 			      "handling report "
 			      "~p <~p,~p>: ~n~w", 
-			      [Target2, Domain, Address, Reason]),
+			      [Target2, Domain, Addr, Reason]),
 		    reply
 	    end;
 
 	unregister ->
 	    ?vtrace("do_handle_trap -> unregister", []),
-	    case snmpm_config:unregister_agent(UserId, Domain, Address) of
+	    case snmpm_config:unregister_agent(UserId, Domain, Addr) of
 		ok ->
 		    ok;
 		{error, Reason} ->
 		    error_msg("failed unregistering agent "
 			      "handling report "
 			      "<~p,~p>: ~n~w", 
-			      [Domain, Address, Reason]),
+			      [Domain, Addr, Reason]),
 		    ok
 	    end;	    
 
@@ -3044,7 +3044,7 @@ do_gc(Key, Now) ->
 %% 
 %%----------------------------------------------------------------------
 
-send_get_request(Oids, Vsn, MsgData, Domain, Address, ExtraInfo, 
+send_get_request(Oids, Vsn, MsgData, Domain, Addr, ExtraInfo,
 		 #state{net_if     = NetIf, 
 			net_if_mod = Mod,
 			mini_mib   = MiniMIB}) ->
@@ -3056,37 +3056,37 @@ send_get_request(Oids, Vsn, MsgData, Domain, Address, ExtraInfo,
 	    "   Vsn:     ~p~n"
 	    "   MsgData: ~p~n"
 	    "   Domain:  ~p~n"
-	    "   Address: ~p~n", 
-	    [Mod, NetIf, Pdu, Vsn, MsgData, Domain, Address]),
+	    "   Addr:    ~p",
+	    [Mod, NetIf, Pdu, Vsn, MsgData, Domain, Addr]),
     Res = (catch Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, 
-			      Domain, Address, ExtraInfo)),
+			      Domain, Addr, ExtraInfo)),
     ?vtrace("send_get_request -> send result:"
 	    "~n   ~p", [Res]),
     Pdu#pdu.request_id.
 
-send_get_next_request(Oids, Vsn, MsgData, Domain, Address, ExtraInfo, 
+send_get_next_request(Oids, Vsn, MsgData, Domain, Addr, ExtraInfo,
 		      #state{mini_mib   = MiniMIB, 
 			     net_if     = NetIf, 
 			     net_if_mod = Mod}) ->
     Pdu = make_pdu(get_next, Oids, MiniMIB),
-    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Address, ExtraInfo),
+    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo),
     Pdu#pdu.request_id.
 
-send_get_bulk_request(Oids, Vsn, MsgData, Domain, Address, 
+send_get_bulk_request(Oids, Vsn, MsgData, Domain, Addr,
 		      NonRep, MaxRep, ExtraInfo, 
 		      #state{mini_mib   = MiniMIB, 
 			     net_if     = NetIf, 
 			     net_if_mod = Mod}) ->
     Pdu = make_pdu(bulk, {NonRep, MaxRep, Oids}, MiniMIB),
-    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Address, ExtraInfo),
+    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo),
     Pdu#pdu.request_id.
 
-send_set_request(VarsAndVals, Vsn, MsgData, Domain, Address, ExtraInfo, 
+send_set_request(VarsAndVals, Vsn, MsgData, Domain, Addr, ExtraInfo,
 		 #state{mini_mib   = MiniMIB,
 			net_if     = NetIf, 
 			net_if_mod = Mod}) ->
     Pdu = make_pdu(set, VarsAndVals, MiniMIB),
-    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Address, ExtraInfo),
+    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo),
     Pdu#pdu.request_id.
 
 %% send_discovery(Vsn, MsgData, Addr, Port, ExtraInfo, 
@@ -3322,9 +3322,9 @@ agent_data(TargetName, SendOpts) ->
 			{Comm, SecModel}
 		end,
 	    Domain  = agent_data_item(tdomain,  TargetName),
-	    Address = agent_data_item(taddress, TargetName),
+	    Addr    = agent_data_item(taddress, TargetName),
 	    RegType = agent_data_item(reg_type, TargetName),
-	    {ok, RegType, Domain, Address, version(Version), MsgData};
+	    {ok, RegType, Domain, Addr, version(Version), MsgData};
 	Error ->
 	    Error
     end.
@@ -3471,8 +3471,8 @@ t() ->
     {A,B,C} = erlang:now(),
     A*1000000000+B*1000+(C div 1000).
 
-mk_target_name(Domain, Address, Config) ->
-    snmpm_config:mk_target_name(Domain, Address, Config).
+mk_target_name(Domain, Addr, Config) ->
+    snmpm_config:mk_target_name(Domain, Addr, Config).
 
 default_agent_config() ->
     case snmpm_config:agent_info() of

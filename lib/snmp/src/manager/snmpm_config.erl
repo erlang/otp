@@ -2297,9 +2297,33 @@ read_manager_config_file(Dir) ->
     %% If the address is not possible to determine
     %% that way, then we give up...
     verify_mandatory(Conf, [port,engine_id,max_message_size]),
-    ensure_config(default_manager_config(), Conf).
+    default_manager_config(Conf).
 
-
+default_manager_config(Conf) ->
+    %% Ensure address of right family
+    case lists:keyfind(address, 1, Conf) of
+	false ->
+	    Domain =
+		case lists:keyfind(domain, 1, Conf) of
+		    false ->
+			default_transport_domain();
+		    {_, D} ->
+			D
+		end,
+	    Family = snmp_conf:tdomain_to_family(Domain),
+	    {ok, HostName} = inet:gethostname(),
+	    case inet:getaddr(HostName, Family) of
+		{ok, Address} ->
+		    [{address, Address} | Conf];
+		{error, _Reason} ->
+		    ?d("default_manager_config -> "
+		       "failed getting ~w address for ~s:~n"
+		       "   _Reason: ~p", [Family, HostName, _Reason]),
+		    Conf
+	    end;
+	_ ->
+	    Conf
+    end.
 
 default_manager_config() ->
     {ok, HostName} = inet:gethostname(),

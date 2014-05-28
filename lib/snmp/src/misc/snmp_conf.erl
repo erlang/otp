@@ -508,6 +508,8 @@ tdomain_to_family(transportDomainUdpIpv4) ->
     inet;
 tdomain_to_family(transportDomainUdpIpv6) ->
     inet6;
+tdomain_to_family(?snmpUDPDomain) ->
+    inet;
 tdomain_to_family(?transportDomainUdpIpv4) ->
     inet;
 tdomain_to_family(?transportDomainUdpIpv6) ->

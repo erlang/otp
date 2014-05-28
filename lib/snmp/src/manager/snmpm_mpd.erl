@@ -92,10 +92,10 @@ reset(#state{v3 = V3}) ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
-process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
-    process_msg(Msg, Domain, {Addr, Port}, State, NoteStore, Logger).
+process_msg(Msg, Domain, Ip, Port, State, NoteStore, Logger) ->
+    process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Logger).
 
-process_msg(Msg, Domain, Address, State, NoteStore, Logger) ->
+process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
     inc(snmpInPkts),
 
     case (catch snmp_pdus:dec_message_only(binary_to_list(Msg))) of
@@ -105,7 +105,7 @@ process_msg(Msg, Domain, Address, State, NoteStore, Logger) ->
 	  when State#state.v1 =:= true ->
 	    HS = ?empty_msg_size + length(Community),
 	    process_v1_v2c_msg(
-	      'version-1', NoteStore, Msg, Domain, Address,
+	      'version-1', NoteStore, Msg, Domain, Addr,
 	      Community, Data, HS, Logger);
 
 	%% Version 2
@@ -113,7 +113,7 @@ process_msg(Msg, Domain, Address, State, NoteStore, Logger) ->
 	  when State#state.v2c =:= true ->
 	    HS = ?empty_msg_size + length(Community),
 	    process_v1_v2c_msg(
-	      'version-2', NoteStore, Msg, Domain, Address,
+	      'version-2', NoteStore, Msg, Domain, Addr,
 	      Community, Data, HS, Logger);
 	     
 	%% Version 3
@@ -124,7 +124,7 @@ process_msg(Msg, Domain, Address, State, NoteStore, Logger) ->
 		"~n   msgFlags:    ~p"
 		"~n   msgSecModel: ~p",
 		[H#v3_hdr.msgID,H#v3_hdr.msgFlags,H#v3_hdr.msgSecurityModel]),
-	    process_v3_msg(NoteStore, Msg, H, Data, Address, Logger);
+	    process_v3_msg(NoteStore, Msg, H, Data, Addr, Logger);
 
 	%% Crap
 	{'EXIT', {bad_version, Vsn}} ->
@@ -151,26 +151,26 @@ process_msg(Msg, Domain, Address, State, NoteStore, Logger) ->
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
 process_v1_v2c_msg(
-  Vsn, _NoteStore, Msg, Domain, Address, Community, Data, HS, Log) ->
+  Vsn, _NoteStore, Msg, Domain, Addr, Community, Data, HS, Log) ->
 
     ?vdebug("process_v1_v2c_msg -> entry with"
 	    "~n   Vsn:       ~p"
 	    "~n   Domain:    ~p"
-	    "~n   Address:   ~p"
+	    "~n   Addr:      ~p"
 	    "~n   Community: ~p"
-	    "~n   HS:        ~p", [Vsn, Domain, Address, Community, HS]),
+	    "~n   HS:        ~p", [Vsn, Domain, Addr, Community, HS]),
 
     {TDomain, TAddress} = 
 	try 
 	    {snmp_conf:mk_tdomain(Domain),
-	     snmp_conf:mk_taddress(Domain, Address)}
+	     snmp_conf:mk_taddress(Domain, Addr)}
 	catch 
 	    throw:{error, TReason} ->
 		throw({discarded, {badarg, Domain, TReason}})
 	end,
 
     Max      = get_max_message_size(),
-    AgentMax = get_agent_max_message_size(Address),
+    AgentMax = get_agent_max_message_size(Addr),
     PduMS    = pdu_ms(Max, AgentMax, HS),
 
     ?vtrace("process_v1_v2c_msg -> PduMS: ~p", [PduMS]),

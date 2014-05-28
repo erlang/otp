@@ -2107,10 +2107,19 @@ write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) ->
 "%% {max_message_size, 484}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [{port,             Port}, 
-            {address,          IP}, 
-	    {engine_id,        EngineID}, 
-	    {max_message_size, MMS}], 
+    Conf =
+	case Port of
+	    {Addr, P} when is_integer(P), is_atom(IP) ->
+		Domain = IP,
+		[{domain,  Domain},
+		 {port,    P},
+		 {address, Addr}];
+	    _ when is_integer(Port) ->
+		[{port,    Port},
+		 {address, IP}]
+	end ++
+	[{engine_id,        EngineID},
+	 {max_message_size, MMS}],
     write_manager_config(Dir, Hdr, Conf).
 
 write_manager_config(Dir, Hdr, Conf) ->

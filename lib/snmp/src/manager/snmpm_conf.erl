@@ -110,14 +110,15 @@ write_manager_conf(Fd, [H|T]) ->
     do_write_manager_conf(Fd, H),
     write_manager_conf(Fd, T).
 
-do_write_manager_conf(Fd, {address = Tag, Val}) ->
+do_write_manager_conf(Fd, {Tag, Val})
+  when Tag =:= domain;
+       Tag =:= address;
+       Tag =:= port;
+       Tag =:= max_message_size ->
     io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
-do_write_manager_conf(Fd, {port = Tag, Val} ) ->
-    io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
-do_write_manager_conf(Fd, {engine_id = Tag, Val} ) ->
+do_write_manager_conf(Fd, {Tag, Val})
+  when Tag =:= engine_id ->
     io:format(Fd, "{~w, \"~s\"}.~n", [Tag, Val]);
-do_write_manager_conf(Fd, {max_message_size = Tag, Val} ) ->
-    io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_manager_conf(_Fd, Crap) ->
     error({bad_manager_config, Crap}).
 
