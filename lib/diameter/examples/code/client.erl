@@ -72,7 +72,6 @@
                         {'Product-Name', "Client"},
                         {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
                         {application, [{alias, ?APP_ALIAS},
-                                       {answer_errors, discard},
                                        {dictionary, ?DIAMETER_DICT_COMMON},
                                        {module, ?CALLBACK_MOD}]}]).
 
