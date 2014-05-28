@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2005-2012. All Rights Reserved.
+# Copyright Ericsson AB 2005-2014. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -2828,6 +2828,152 @@ document etp-search-alloc
 % Search all internal allocator memory blocks for for the specified Eterm.
 %---------------------------------------------------------------------------
 end
+
+
+define etp-alloc-stats
+  printf "\nIx Name    Inst.   Blocks        Bytes    Carriers    Crr.bytes  Util\n"
+  set $etp_tot_block_no = 0
+  set $etp_tot_block_sz = 0
+  set $etp_tot_crr_no = 0
+  set $etp_tot_crr_sz = 0
+  set $etp_ERTS_ALC_A_MIN = 1
+  set $etp_ERTS_ALC_A_MAX = (sizeof(erts_allctrs) / sizeof(*erts_allctrs)) - 1
+
+  set $etp_ix = $etp_ERTS_ALC_A_MIN
+  while $etp_ix <= $etp_ERTS_ALC_A_MAX
+    set $etp_allctr = 0
+    set $etp_alloc = erts_allctrs[$etp_ix].alloc
+    if $etp_alloc != erts_sys_alloc
+      if $etp_alloc == erts_alcu_alloc_thr_spec || \
+         $etp_alloc == erts_alcu_alloc_thr_pref
+        set $etp_instance = 0
+        set $etp_block_no = 0
+        set $etp_block_sz = 0
+        set $etp_crr_no = 0
+        set $etp_crr_sz = 0
+        set $etp_tspec = (ErtsAllocatorThrSpec_t *) erts_allctrs[$etp_ix].extra
+	if $etp_tspec->enabled
+          while $etp_instance < $etp_tspec->size
+            set $etp_allctr = $etp_tspec->allctr[$etp_instance]
+            set $etp_block_no = $etp_block_no + $etp_allctr->mbcs.blocks.curr.no \
+					      + $etp_allctr->sbcs.blocks.curr.no
+            set $etp_block_sz = $etp_block_sz + $etp_allctr->mbcs.blocks.curr.size \
+					      + $etp_allctr->sbcs.blocks.curr.size
+            set $etp_crr_no = $etp_crr_no + $etp_allctr->mbcs.curr.norm.mseg.no \
+					  + $etp_allctr->sbcs.curr.norm.mseg.no \
+					  + $etp_allctr->mbcs.curr.norm.sys_alloc.no \
+					  + $etp_allctr->sbcs.curr.norm.sys_alloc.no
+            set $etp_crr_sz = $etp_crr_sz + $etp_allctr->mbcs.curr.norm.mseg.size \
+					  + $etp_allctr->sbcs.curr.norm.mseg.size \
+					  + $etp_allctr->mbcs.curr.norm.sys_alloc.size \
+					  + $etp_allctr->sbcs.curr.norm.sys_alloc.size
+            set $etp_instance = $etp_instance + 1
+          end
+	else
+          printf "erts_allctr[%d]: Disabled (thread specific)\n", $etp_ix
+	end
+      else
+        if $etp_alloc == erts_alcu_alloc_ts || $etp_alloc == erts_alcu_alloc
+          set $etp_allctr = (Allctr_t*) erts_allctrs[$etp_ix].extra
+          set $etp_block_no = $etp_allctr->mbcs.blocks.curr.no \
+			    + $etp_allctr->sbcs.blocks.curr.no
+          set $etp_block_sz = $etp_allctr->mbcs.blocks.curr.size \
+			    + $etp_allctr->sbcs.blocks.curr.size
+          set $etp_crr_no = $etp_allctr->mbcs.curr.norm.mseg.no \
+			  + $etp_allctr->sbcs.curr.norm.mseg.no \
+			  + $etp_allctr->mbcs.curr.norm.sys_alloc.no \
+			  + $etp_allctr->sbcs.curr.norm.sys_alloc.no
+          set $etp_crr_sz = $etp_allctr->mbcs.curr.norm.mseg.size \
+			  + $etp_allctr->sbcs.curr.norm.mseg.size \
+			  + $etp_allctr->mbcs.curr.norm.sys_alloc.size \
+			  + $etp_allctr->sbcs.curr.norm.sys_alloc.size
+	  set $etp_instance = 1
+        else
+          printf "erts_allctr[%d]: Unknown allocation function: ", $etp_ix
+          p $etp_alloc
+        end
+      end
+    end
+    if $etp_allctr != 0
+      printf "%2d %-8s%2d%12lu%13lu%12lu%13lu", $etp_ix, $etp_allctr->name_prefix, \
+	     $etp_instance, \
+	     $etp_block_no, $etp_block_sz, $etp_crr_no, $etp_crr_sz
+      if $etp_crr_sz != 0
+        printf "%5lu%%", ($etp_block_sz * 100) / $etp_crr_sz
+      end
+      printf "\n"
+      set $etp_tot_block_no = $etp_tot_block_no + $etp_block_no
+      set $etp_tot_block_sz = $etp_tot_block_sz + $etp_block_sz
+      set $etp_tot_crr_no = $etp_tot_crr_no + $etp_crr_no
+      set $etp_tot_crr_sz = $etp_tot_crr_sz + $etp_crr_sz
+    end
+    set $etp_ix = $etp_ix + 1
+  end
+  printf "\nTotal:       %12lu%13lu%12lu%13lu", $etp_tot_block_no, $etp_tot_block_sz, \
+				     $etp_tot_crr_no, $etp_tot_crr_sz
+  if $etp_tot_crr_sz != 0
+    printf "%5lu%%", ($etp_tot_block_sz * 100) / $etp_tot_crr_sz
+  end
+  printf "\n"
+end
+
+document etp-alloc-stats
+%---------------------------------------------------------------------------
+% etp-alloc-stats
+%
+% Combine and print allocator statistics
+%---------------------------------------------------------------------------
+end
+
+
+define etp-alloc-instances
+  set $etp_ERTS_ALC_A_MIN = 1
+  set $etp_ERTS_ALC_A_MAX = (sizeof(erts_allctrs) / sizeof(*erts_allctrs)) - 1
+
+  set $etp_ix = $arg0
+  if $etp_ix >= $etp_ERTS_ALC_A_MIN && $etp_ix <= $etp_ERTS_ALC_A_MAX
+    set $etp_allctr = 0
+    set $etp_alloc = erts_allctrs[$etp_ix].alloc
+    if $etp_alloc == erts_sys_alloc
+      printf "Allocator %d is sys_alloc\n", $etp_ix
+    else
+      if $etp_alloc == erts_alcu_alloc_thr_spec || \
+         $etp_alloc == erts_alcu_alloc_thr_pref
+        set $etp_instance = 0
+        set $etp_tspec = (ErtsAllocatorThrSpec_t *) erts_allctrs[$etp_ix].extra
+	if $etp_tspec->enabled
+          printf "All instances for allocator '%s'\n", $etp_tspec->allctr[0]->name_prefix
+          while $etp_instance < $etp_tspec->size
+	    p $etp_tspec->allctr[$etp_instance]
+            set $etp_instance = $etp_instance + 1
+          end
+	else
+          printf "erts_allctr[%d]: Disabled (thread specific)\n", $etp_ix
+	end
+      else
+        if $etp_alloc == erts_alcu_alloc_ts || $etp_alloc == erts_alcu_alloc
+          set $etp_allctr = (Allctr_t*) erts_allctrs[$etp_ix].extra
+          printf "Single instances for allocator '%s'\n", $etp_allctr->name_prefix
+	  p $etp_allctr
+        else
+          printf "erts_allctr[%d]: Unknown allocation function: ", $etp_ix
+          p $etp_alloc
+        end
+      end
+    end
+  else
+    printf "Allocator type not between %d and %d\n", $etp_ERTS_ALC_A_MIN, $etp_ERTS_ALC_A_MAX
+  end
+end
+
+document etp-alloc-instances
+%---------------------------------------------------------------------------
+% etp-alloc-instances
+%
+% Print pointers to all allocator instances for a specific type (Ix)
+%---------------------------------------------------------------------------
+end
+
 
 
 
