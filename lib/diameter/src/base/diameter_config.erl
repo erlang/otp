@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -753,7 +753,7 @@ app_acc({application, Opts} = T, Acc) ->
     Alias = get_opt(alias, Opts, Dict),
     ModS  = get_opt(state, Opts, Alias),
     M = get_opt(call_mutates_state, Opts, false, [true]),
-    A = get_opt(answer_errors, Opts, report, [callback, discard]),
+    A = get_opt(answer_errors, Opts, discard, [callback, report]),
     P = get_opt(request_errors, Opts, answer_3xxx, [answer, callback]),
     [#diameter_app{alias = Alias,
                    dictionary = Dict,
