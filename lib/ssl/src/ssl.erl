@@ -99,7 +99,7 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
 					      {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = ssl_socket:emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
-    try handle_options(SslOptions0 ++ SocketValues, client) of
+    try handle_options(SslOptions0 ++ SocketValues) of
 	{ok, #config{transport_info = CbInfo, ssl = SslOptions, emulated = EmOpts,
 		     connection_cb = ConnectionCb}} ->
 
@@ -107,7 +107,7 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
 	    case ssl_socket:peername(Transport, Socket) of
 		{ok, {Address, Port}} ->
 		    ssl_connection:connect(ConnectionCb, Address, Port, Socket,
-					   {SslOptions, emulated_socket_options(EmOpts, #socket_options{})},
+					   {SslOptions, emulated_socket_options(EmOpts, #socket_options{}), undefined},
 					   self(), CbInfo, Timeout);
 		{error, Error} ->
 		    {error, Error}
@@ -121,7 +121,7 @@ connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 
 connect(Host, Port, Options, Timeout) ->
-    try handle_options(Options, client) of
+    try handle_options(Options) of
 	{ok, Config} ->
 	    do_connect(Host,Port,Config,Timeout)
     catch
@@ -139,7 +139,7 @@ listen(_Port, []) ->
     {error, nooptions};
 listen(Port, Options0) ->
     try
-	{ok, Config} = handle_options(Options0, server),
+	{ok, Config} = handle_options(Options0),
 	ConnectionCb = connection_cb(Options0),
 	#config{transport_info = {Transport, _, _, _}, inet_user = Options, connection_cb = ConnectionCb,
 		ssl = SslOpts, emulated = EmOpts} = Config,
@@ -176,11 +176,11 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 	    {ok, EmOpts} = ssl_socket:get_emulated_opts(Tracker),
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
 	    ConnArgs = [server, "localhost", Port, Socket,
-			{SslOpts, emulated_socket_options(EmOpts, #socket_options{})}, self(), CbInfo],
+			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Tracker}, self(), CbInfo],
 	    ConnectionSup = connection_sup(ConnectionCb),
 	    case ConnectionSup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport);
+		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport, Tracker);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -211,10 +211,11 @@ ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
 
 ssl_accept(#sslsocket{} = Socket, [], Timeout) ->
     ssl_accept(#sslsocket{} = Socket, Timeout);
-ssl_accept(#sslsocket{} = Socket, SslOptions, Timeout) ->
+ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) ->
     try 
-	{ok, #config{ssl = SSL}} = handle_options(SslOptions, server),
-	 ssl_connection:handshake(Socket, SSL, Timeout)
+	{ok, EmOpts, InheritedSslOpts} = ssl_socket:get_all_opts(Tracker),	
+	SslOpts = handle_options(SslOpts0, InheritedSslOpts),
+	ssl_connection:handshake(Socket, {SslOpts, emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;
@@ -224,12 +225,12 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
     EmulatedOptions = ssl_socket:emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
-    try handle_options(SslOptions ++ SocketValues, server) of
+    try handle_options(SslOptions ++ SocketValues) of
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
 	    ok = ssl_socket:setopts(Transport, Socket, ssl_socket:internal_inet_values()),
 	    {ok, Port} = ssl_socket:port(Transport, Socket),
 	    ssl_connection:ssl_accept(ConnetionCb, Port, Socket,
-				      {SslOpts, emulated_socket_options(EmOpts, #socket_options{})},
+				      {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				      self(), CbInfo, Timeout)
     catch
 	Error = {error, _Reason} -> Error
@@ -299,7 +300,7 @@ connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
-peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid)->
+peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)->
     ssl_socket:peername(Transport, Socket);
 peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}}) ->
     ssl_socket:peername(Transport, ListenSocket). %% Will return {error, enotconn}
@@ -423,10 +424,10 @@ shutdown(#sslsocket{pid = Pid}, How) ->
 %%
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
-sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport,_, _, _}}}}) when is_port(Listen) ->
+sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}) when is_port(Listen) ->
     ssl_socket:sockname(Transport, Listen);
 
-sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid) ->
+sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid) ->
     ssl_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
@@ -546,7 +547,7 @@ do_connect(Address, Port,
     try Transport:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
 	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
-				   {SslOpts, emulated_socket_options(EmOpts, #socket_options{})},
+				   {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				   self(), CbInfo, Timeout);
 	{error, Reason} ->
 	    {error, Reason}
@@ -559,53 +560,47 @@ do_connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
-handle_options(Opts0, _Role) ->
+%% Handle extra ssl options given to ssl_accept
+handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
+				   cacertfile = CaCertFile0} = InheritedSslOpts) ->
+    RecordCB = record_cb(Protocol),
+    CaCerts = handle_option(cacerts, Opts0, CaCerts0),
+    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun} = handle_verify_options(Opts0, CaCerts),
+    CaCertFile = case proplists:get_value(cacertfile, Opts0, CaCertFile0) of
+		     undefined ->
+			 CaCertDefault;
+		     CAFile ->
+			 CAFile
+		 end,
+    NewVerifyOpts = InheritedSslOpts#ssl_options{cacerts = CaCerts,
+						 cacertfile = CaCertFile,
+						 verify = Verify,
+						 verify_fun = VerifyFun,
+						 fail_if_no_peer_cert = FailIfNoPeerCert},
+    SslOpts1 = lists:foldl(fun(Key, PropList) ->
+				   proplists:delete(Key, PropList)
+			   end, Opts0, [cacerts, cacertfile, verify, verify_fun, fail_if_no_peer_cert]),
+    case handle_option(versions, SslOpts1, []) of
+	[] ->
+	    new_ssl_options(SslOpts1, NewVerifyOpts, RecordCB);
+	Value ->
+	    Versions = [RecordCB:protocol_version(Vsn) || Vsn <- Value],
+	    new_ssl_options(proplists:delete(versions, SslOpts1), 
+			    NewVerifyOpts#ssl_options{versions = Versions}, record_cb(Protocol))
+    end.
+
+%% Handle all options in listen and connect
+handle_options(Opts0) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
     assert_proplist(Opts),
     RecordCb = record_cb(Opts),
 
     ReuseSessionFun = fun(_, _, _, _) -> true end,
-
-    DefaultVerifyNoneFun =
-	{fun(_,{bad_cert, _}, UserState) ->
-		 {valid, UserState};
-	    (_,{extension, _}, UserState) ->
-		 {unknown, UserState};
-	    (_, valid, UserState) ->
-		 {valid, UserState};
-	    (_, valid_peer, UserState) ->
-		 {valid, UserState}
-	 end, []},
-
-    VerifyNoneFun = handle_option(verify_fun, Opts, DefaultVerifyNoneFun),
-
-    UserFailIfNoPeerCert = handle_option(fail_if_no_peer_cert, Opts, false),
-    UserVerifyFun = handle_option(verify_fun, Opts, undefined),
     CaCerts = handle_option(cacerts, Opts, undefined),
 
-    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun} =
-	%% Handle 0, 1, 2 for backwards compatibility
-	case proplists:get_value(verify, Opts, verify_none) of
-	    0 ->
-		{verify_none, false,
-		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
-	    1  ->
-		{verify_peer, false,
-		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
-	    2 ->
-		{verify_peer, true,
-		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
-	    verify_none ->
-		{verify_none, false,
-		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
-	    verify_peer ->
-		{verify_peer, UserFailIfNoPeerCert,
-		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
-	    Value ->
-		throw({error, {options, {verify, Value}}})
-	end,
-
+    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun} = handle_verify_options(Opts, CaCerts),
+    
     CertFile = handle_option(certfile, Opts, <<>>),
     
     RecordCb = record_cb(Opts),
@@ -652,7 +647,8 @@ handle_options(Opts0, _Role) ->
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
-		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false)
+		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
+		    protocol = proplists:get_value(protocol, Opts, tls)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -671,10 +667,10 @@ handle_options(Opts0, _Role) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
 
-    {SSLsock, Emulated} = emulated_options(SockOpts),
+    {Sock, Emulated} = emulated_options(SockOpts),
     ConnetionCb = connection_cb(Opts),
 
-    {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = SSLsock,
+    {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = Sock,
 		 inet_user = SockOpts, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
 
@@ -1034,7 +1030,7 @@ record_cb(tls) ->
 record_cb(dtls) ->
     dtls_record;
 record_cb(Opts) ->
-   record_cb(proplists:get_value(protocol, Opts, tls)).
+    record_cb(proplists:get_value(protocol, Opts, tls)).
 
 connection_sup(tls_connection) ->
     tls_connection_sup;
@@ -1070,3 +1066,98 @@ emulated_socket_options(InetValues, #socket_options{
        packet = proplists:get_value(packet, InetValues, Packet),
        packet_size = proplists:get_value(packet_size, InetValues, Size)
       }.
+
+new_ssl_options([], #ssl_options{} = Opts, _) -> 
+    Opts;
+new_ssl_options([{verify_client_once, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{verify_client_once = validate_option(verify_client_once, Value)}, RecordCB); 
+new_ssl_options([{depth, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{depth = validate_option(depth, Value)}, RecordCB);
+new_ssl_options([{cert, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{cert = validate_option(cert, Value)}, RecordCB);
+new_ssl_options([{certfile, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{certfile = validate_option(certfile, Value)}, RecordCB);
+new_ssl_options([{key, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{key = validate_option(key, Value)}, RecordCB);
+new_ssl_options([{keyfile, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{keyfile = validate_option(keyfile, Value)}, RecordCB);
+new_ssl_options([{password, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{password = validate_option(password, Value)}, RecordCB);
+new_ssl_options([{dh, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{dh = validate_option(dh, Value)}, RecordCB);
+new_ssl_options([{dhfile, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{dhfile = validate_option(dhfile, Value)}, RecordCB); 
+new_ssl_options([{user_lookup_fun, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{user_lookup_fun = validate_option(user_lookup_fun, Value)}, RecordCB);
+new_ssl_options([{psk_identity, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{psk_identity = validate_option(psk_identity, Value)}, RecordCB);
+new_ssl_options([{srp_identity, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{srp_identity = validate_option(srp_identity, Value)}, RecordCB);
+new_ssl_options([{ciphers, Value} | Rest], #ssl_options{versions = Versions} = Opts, RecordCB) -> 
+    Ciphers = handle_cipher_option(Value, RecordCB:highest_protocol_version(Versions)),
+    new_ssl_options(Rest, 
+		    Opts#ssl_options{ciphers = Ciphers}, RecordCB);
+new_ssl_options([{reuse_session, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{reuse_session = validate_option(reuse_session, Value)}, RecordCB);
+new_ssl_options([{reuse_sessions, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{reuse_sessions = validate_option(reuse_sessions, Value)}, RecordCB);
+new_ssl_options([{ssl_imp, _Value} | Rest], #ssl_options{} = Opts, RecordCB) -> %% Not used backwards compatibility
+    new_ssl_options(Rest, Opts, RecordCB);
+new_ssl_options([{renegotiate_at, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{ renegotiate_at = validate_option(renegotiate_at, Value)}, RecordCB);
+new_ssl_options([{secure_renegotiate, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{secure_renegotiate = validate_option(secure_renegotiate, Value)}, RecordCB); 
+new_ssl_options([{hibernate_after, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{hibernate_after = validate_option(hibernate_after, Value)}, RecordCB);
+new_ssl_options([{next_protocols_advertised, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{next_protocols_advertised = validate_option(next_protocols_advertised, Value)}, RecordCB);
+new_ssl_options([{client_preferred_next_protocols, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{next_protocol_selector = 
+					       make_next_protocol_selector(validate_option(client_preferred_next_protocols, Value))}, RecordCB);
+new_ssl_options([{log_alert, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{log_alert = validate_option(log_alert, Value)}, RecordCB);
+new_ssl_options([{server_name_indication, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{server_name_indication = validate_option(server_name_indication, Value)}, RecordCB);
+new_ssl_options([{honor_cipher_order, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{honor_cipher_order = validate_option(honor_cipher_order, Value)}, RecordCB);
+new_ssl_options([{Key, Value} | _Rest], #ssl_options{}, _) -> 
+    throw({error, {options, {Key, Value}}}).
+
+
+handle_verify_options(Opts, CaCerts) ->
+    DefaultVerifyNoneFun =
+	{fun(_,{bad_cert, _}, UserState) ->
+		 {valid, UserState};
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState};
+	    (_, valid, UserState) ->
+		 {valid, UserState};
+	    (_, valid_peer, UserState) ->
+		 {valid, UserState}
+	 end, []},
+    VerifyNoneFun = handle_option(verify_fun, Opts, DefaultVerifyNoneFun),
+
+    UserFailIfNoPeerCert = handle_option(fail_if_no_peer_cert, Opts, false),
+    UserVerifyFun = handle_option(verify_fun, Opts, undefined),
+
+    
+    %% Handle 0, 1, 2 for backwards compatibility
+    case proplists:get_value(verify, Opts, verify_none) of
+	0 ->
+	    {verify_none, false,
+		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
+	1  ->
+	    {verify_peer, false,
+	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
+	2 ->
+	    {verify_peer, true,
+	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
+	    verify_none ->
+	    {verify_none, false,
+	     ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
+	verify_peer ->
+	    {verify_peer, UserFailIfNoPeerCert,
+	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
+	Value ->
+	    throw({error, {options, {verify, Value}}})
+    end.
