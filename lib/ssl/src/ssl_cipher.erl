@@ -1019,7 +1019,8 @@ openssl_suite_name(Cipher) ->
 %%--------------------------------------------------------------------
 -spec filter(undefined | binary(), [cipher_suite()]) -> [cipher_suite()].
 %%
-%% Description: .
+%% Description: Select the cipher suites that can be used together with the 
+%% supplied certificate. (Server side functionality)  
 %%-------------------------------------------------------------------
 filter(undefined, Ciphers) -> 
     Ciphers;
@@ -1053,7 +1054,7 @@ filter(DerCert, Ciphers) ->
 %%--------------------------------------------------------------------
 -spec filter_suites([cipher_suite()]) -> [cipher_suite()].
 %%
-%% Description: filter suites for algorithms
+%% Description: Filter suites for algorithms supported by crypto.
 %%-------------------------------------------------------------------
 filter_suites(Suites = [{_,_,_}|_]) ->
     Algos = crypto:supports(),
