@@ -27,18 +27,21 @@
 
 %% Defines
 -define(COL_OWNER, 0).
--define(COL_MSG,   ?COL_OWNER+1).
+-define(COL_NAME,   ?COL_OWNER+1).
+-define(COL_MSG,   ?COL_NAME+1).
 -define(COL_TIME,  ?COL_MSG+1).
 
 %% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_OWNER);
 col_to_elem(?COL_OWNER) -> #timer.pid;
+col_to_elem(?COL_NAME) -> #timer.name;
 col_to_elem(?COL_MSG)   -> #timer.msg;
 col_to_elem(?COL_TIME)  -> #timer.time.
 
 col_spec() ->
     [{"Owner",      ?wxLIST_FORMAT_LEFT,   110},
-     {"Message",    ?wxLIST_FORMAT_LEFT,   400},
+     {"Owner name", ?wxLIST_FORMAT_LEFT,   150},
+     {"Message",    ?wxLIST_FORMAT_LEFT,   300},
      {"Time left (ms)",  ?wxLIST_FORMAT_RIGHT,  80}].
 
 get_info(Owner) ->

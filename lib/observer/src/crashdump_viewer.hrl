@@ -108,6 +108,7 @@
 
 -record(timer,
 	{pid,
+	 name,
 	 msg,
 	 time}).
 

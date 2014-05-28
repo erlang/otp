@@ -385,8 +385,14 @@ special(File,Procs) ->
 
 	    {ok,[_Ets=#ets_table{}],[]} = crashdump_viewer:ets_tables(Pid),
 	    io:format("  ets tables ok",[]),
-	    {ok,[_Timer=#timer{}],[]} = crashdump_viewer:timers(Pid),
-	    io:format("  timers ok",[]),
+
+	    {ok,[#timer{pid=Pid0,name=undefined},
+		 #timer{pid=Pid0,name="aaaaaaaa"}],[]} =
+		crashdump_viewer:timers(Pid),
+	    {ok,AllTimers,_TimersTW} = crashdump_viewer:timers(all),
+	    #timer{name="noexistproc"} =
+		lists:keyfind(undefined,#timer.pid,AllTimers),
+	    io:format("  timers ok:",[]),
 
 	    {ok,Mod1=#loaded_mod{},[]} =
 		crashdump_viewer:loaded_mod_details(atom_to_list(?helper_mod)),
