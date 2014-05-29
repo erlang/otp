@@ -731,8 +731,8 @@ no_messages_without_id(Dict) ->
 
 %% explode/4
 %%
-%% {avp_vendor_id, AvpName}                 -> [Lineno, Id::integer()]
-%% {custom_types|codecs|inherits,  AvpName} -> [Lineno, Mod::string()]
+%% {avp_vendor_id, AvpName}    -> [Lineno, Id::integer()]
+%% {custom|inherits,  AvpName} -> [Lineno, Mod::string()]
 
 explode({_, Line, AvpName}, Dict, {_, _, X} = T, K) ->
     true = K /= avp_vendor_id orelse is_uint32(T, [K]),
@@ -1094,7 +1094,7 @@ explode_avps([{_, Line, Name} | Toks], Dict) ->
     Vid = avp_vendor_id(Flags, Name, Line, Dict),
 
     %% An AVP is uniquely defined by its AVP code and vendor id (if any).
-    %% Ensure there are no duplicate.
+    %% Ensure there are no duplicates.
     store_new({avp_types, {Code, Vid}},
               [Line, Name],
               Dict,
@@ -1302,8 +1302,7 @@ x({K, {Name, AvpName}}, [Line | _], Dict)
 %% Ditto.
 x({K, AvpName}, [Line | _], Dict)
   when K == avp_vendor_id;
-       K == custom_types;
-       K == codecs ->
+       K == custom ->
     true = avp_is_defined(AvpName, Dict, Line);
 
 %% Ensure that all local AVP's of type Grouped are also present in @grouped.
