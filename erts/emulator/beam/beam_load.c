@@ -2363,7 +2363,11 @@ load_code(LoaderState* stp)
 
 		if (stp->may_load_nif) {
 		    const int finfo_ix = ci - FUNC_INFO_SZ;
-		    enum { MIN_FUNC_SZ = 3 };		    
+#ifdef ERTS_DIRTY_SCHEDULERS
+		    enum { MIN_FUNC_SZ = 4 };
+#else
+		    enum { MIN_FUNC_SZ = 3 };
+#endif
 		    if (finfo_ix - last_func_start < MIN_FUNC_SZ && last_func_start) {		   
 			/* Must make room for call_nif op */
 			int pad = MIN_FUNC_SZ - (finfo_ix - last_func_start);

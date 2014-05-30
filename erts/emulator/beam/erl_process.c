@@ -590,12 +590,10 @@ erts_pre_init_process(void)
      erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].set_locks
 	 = ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-     erts_psd_required_locks[ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT].get_locks
-	 = ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT].set_locks
-	 = ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT_SET_LOCKS;
-#endif
+     erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].get_locks
+	 = ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS;
+     erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].set_locks
+	 = ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS;
 
      /* Check that we have locks for all entries */
      for (ix = 0; ix < ERTS_PSD_SIZE; ix++) {
@@ -3758,17 +3756,25 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	    }
 #ifdef ERTS_DIRTY_SCHEDULERS
 	    else if (state & ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q) {
-		erts_aint32_t old;
-		old = erts_smp_atomic32_read_band_nob(&proc->state,
-						      ~(ERTS_PSFLG_DIRTY_CPU_PROC
-							| ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q));
+#ifdef DEBUG
+		erts_aint32_t old =
+#else
+		(void)
+#endif
+		    erts_smp_atomic32_read_band_nob(&proc->state,
+						    ~(ERTS_PSFLG_DIRTY_CPU_PROC
+						      | ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q));
 		/* assert that no other dirty flags are set */
 		ASSERT(!(old & (ERTS_PSFLG_DIRTY_IO_PROC|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q)));
 	    } else if (state & ERTS_PSFLG_DIRTY_IO_PROC_IN_Q) {
-		erts_aint32_t old;
-		old = erts_smp_atomic32_read_band_nob(&proc->state,
-						      ~(ERTS_PSFLG_DIRTY_IO_PROC
-							| ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
+#ifdef DEBUG
+		erts_aint32_t old =
+#else
+		(void)
+#endif
+		    erts_smp_atomic32_read_band_nob(&proc->state,
+						    ~(ERTS_PSFLG_DIRTY_IO_PROC
+						      | ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
 		/* assert that no other dirty flags are set */
 		ASSERT(!(old & (ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q)));
 	    }

@@ -1513,72 +1513,251 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
     return ERTS_BIF_REDS_LEFT(env->proc) == 0;
 }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-
-/* NIFs exports need one more item than the Export struct provides, the
- * erl_module_nif*, so the DirtyNifExport below adds that. The Export
- * member must be first in the struct.
+/*
+ * NIF exports need a few more items than the Export struct provides,
+ * including the erl_module_nif* and a NIF function pointer, so the
+ * NifExport below adds those. The Export member must be first in the
+ * struct. The saved_mfa, saved_argc, nif_level, alloced_argv_sz and argv
+ * members are used to track the MFA and arguments of the top NIF in case a
+ * chain of one or more enif_schedule_nif() calls results in an exception,
+ * since in that case the original MFA and registers have to be restored
+ * before returning to Erlang to ensure stacktrace information associated
+ * with the exception is correct.
  */
+typedef ERL_NIF_TERM (*NativeFunPtr)(ErlNifEnv*, int, const ERL_NIF_TERM[]);
+
 typedef struct {
     Export exp;
     struct erl_module_nif* m;
-} DirtyNifExport;
+    NativeFunPtr fp;
+    Eterm saved_mfa[3];
+    int saved_argc;
+    int alloced_argv_sz;
+    Eterm argv[1];
+} NifExport;
 
-static void
-alloc_proc_psd(Process* proc, DirtyNifExport **ep)
+/*
+ * If a process has saved arguments, they need to be part of the GC
+ * rootset. The function below is called from setup_rootset() in
+ * erl_gc.c. This function is declared in erl_process.h.
+ */
+int
+erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj)
 {
-    int i;
-    if (!*ep) {
-	*ep = erts_alloc(ERTS_ALC_T_PSD, sizeof(DirtyNifExport));
-	sys_memset((void*) *ep, 0, sizeof(DirtyNifExport));
-	for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	    (*ep)->exp.addressv[i] = &(*ep)->exp.code[3];
-	}
-	(*ep)->exp.code[3] = (BeamInstr) em_call_nif;
+    NifExport* ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    int gc = (ep && ep->saved_argc > 0);
+
+    if (gc) {
+	*objv = ep->argv;
+	*nobj = ep->saved_argc;
     }
-    (void) ERTS_PROC_SET_DIRTY_SCHED_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, &(*ep)->exp);
+    return gc;
 }
 
+/*
+ * Allocate a NifExport and set it in proc specific data
+ */
+static NifExport*
+allocate_nif_sched_data(Process* proc, int argc)
+{
+    NifExport* ep;
+    size_t argv_extra, total;
+    int i;
+
+    argv_extra = argc > 1 ? sizeof(Eterm)*(argc-1) : 0;
+    total = sizeof(NifExport) + argv_extra;
+    ep = erts_alloc(ERTS_ALC_T_PSD, total);
+    sys_memset((void*) ep, 0, total);
+    ep->alloced_argv_sz = argc;
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	ep->exp.addressv[i] = &ep->exp.code[3];
+    }
+    ep->exp.code[3] = (BeamInstr) em_call_nif;
+    (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, &ep->exp);
+    return ep;
+}
+
+/*
+ * Initialize a NifExport struct. Create it if needed and store it in the
+ * proc. The direct_fp function is what will be invoked by op_call_nif, and
+ * the indirect_fp function, if not NULL, is what the direct_fp function
+ * will call. If the allocated NifExport isn't enough to hold all of argv,
+ * allocate a larger one. Save MFA and registers only if the need_save
+ * parameter is true.
+ */
 static ERL_NIF_TERM
-execute_dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
+		    int need_save, int argc, const ERL_NIF_TERM argv[])
 {
-    Eterm* reg = ERTS_PROC_GET_SCHDATA(env->proc)->x_reg_array;
-    ERL_NIF_TERM result, dirty_result = (ERL_NIF_TERM) reg[0];
-    typedef ERL_NIF_TERM (*FinalizerFP)(ErlNifEnv*, ERL_NIF_TERM);
-    FinalizerFP fp;
-#if HAVE_INT64 && SIZEOF_LONG != 8
-    ASSERT(sizeof(fp) <= sizeof(ErlNifUInt64));
-    enif_get_uint64(env, reg[1], (ErlNifUInt64 *) &fp);
-#else
-    ASSERT(sizeof(fp) <= sizeof(unsigned long));
-    enif_get_ulong(env, reg[1], (unsigned long *) &fp);
-#endif
-    result = (*fp)(env, dirty_result);
-    if (erts_refc_dectest(&env->mod_nif->rt_dtor_cnt, 0) == 0
-	&& env->mod_nif->mod == NULL)
-	close_lib(env->mod_nif);
-    return result;
-}
-
-#endif /* ERTS_DIRTY_SCHEDULERS */
-
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-
-ERL_NIF_TERM
-enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
-			ERL_NIF_TERM (*fp)(ErlNifEnv*, int, const ERL_NIF_TERM[]),
-			int argc, const ERL_NIF_TERM argv[])
-{
-#ifdef USE_THREADS
-    erts_aint32_t state, n, a;
     Process* proc = env->proc;
     Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
-    DirtyNifExport* ep = NULL;
+    NifExport* ep;
     int i;
 
-    int chkflgs = (flags & (ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND));
-    if (chkflgs != ERL_NIF_DIRTY_JOB_IO_BOUND && chkflgs != ERL_NIF_DIRTY_JOB_CPU_BOUND)
-	return enif_make_badarg(env);
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    if (!ep)
+	ep = allocate_nif_sched_data(proc, argc);
+    else if (need_save && ep->alloced_argv_sz < argc) {
+	NifExport* new_ep = allocate_nif_sched_data(proc, argc);
+	erts_free(ERTS_ALC_T_PSD, (void*) ep);
+	ep = new_ep;
+    }
+    ERTS_VBUMP_ALL_REDS(proc);
+    for (i = 0; i < argc; i++) {
+	if (need_save)
+	    ep->argv[i] = reg[i];
+	reg[i] = (Eterm) argv[i];
+    }
+    if (need_save) {
+	ep->saved_mfa[0] = proc->current[0];
+	ep->saved_mfa[1] = proc->current[1];
+	ep->saved_mfa[2] = proc->current[2];
+	ep->saved_argc = argc;
+    }
+    proc->i = (BeamInstr*) ep->exp.addressv[0];
+    ep->exp.code[0] = (BeamInstr) proc->current[0];
+    ep->exp.code[1] = (BeamInstr) proc->current[1];
+    ep->exp.code[2] = argc;
+    ep->exp.code[4] = (BeamInstr) direct_fp;
+    ep->m = env->mod_nif;
+    ep->fp = indirect_fp;
+    proc->freason = TRAP;
+    return THE_NON_VALUE;
+}
+
+/*
+ * Restore saved MFA and registers. Registers are restored only when the
+ * exception flag is true.
+ */
+static void
+restore_nif_mfa(Process* proc, NifExport* ep, int exception)
+{
+    int i;
+    Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
+
+    proc->current[0] = ep->saved_mfa[0];
+    proc->current[1] = ep->saved_mfa[1];
+    proc->current[2] = ep->saved_mfa[2];
+    if (exception)
+	for (i = 0; i < ep->saved_argc; i++)
+	    reg[i] = ep->argv[i];
+    ep->saved_argc = 0;
+    ep->saved_mfa[0] = THE_NON_VALUE;
+}
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+/*
+ * Finalize a dirty NIF call. This function is scheduled to cause the VM to
+ * switch the process off a dirty scheduler thread and back onto a regular
+ * scheduler thread, and then return the result from the dirty NIF. It also
+ * restores the original NIF MFA when necessary based on the value of
+ * ep->fp set by execute_dirty_nif via init_nif_sched_data -- non-NULL
+ * means restore, NULL means do not restore.
+ */
+static ERL_NIF_TERM
+dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Process* proc = env->proc;
+    NifExport* ep;
+
+    ASSERT(argc == 1);
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data));
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    if (ep->fp)
+	restore_nif_mfa(proc, ep, 0);
+    return argv[0];
+}
+
+/* Finalize a dirty NIF call that raised an exception.  Otherwise same as
+ * the dirty_nif_finalizer() function.
+ */
+static ERL_NIF_TERM
+dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Process* proc = env->proc;
+    NifExport* ep;
+
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data));
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    if (ep->fp)
+	restore_nif_mfa(proc, ep, 1);
+    return enif_make_badarg(env);
+}
+
+/*
+ * Dirty NIF execution wrapper function. Invoke an application's dirty NIF,
+ * then check the result and schedule the appropriate finalizer function
+ * where needed. Also restore the original NIF MFA when appropriate.
+ */
+static ERL_NIF_TERM
+execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Process* proc = env->proc;
+    NativeFunPtr fp = (NativeFunPtr) proc->current[6];
+    NifExport* ep;
+    ERL_NIF_TERM result;
+
+    ASSERT(ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data));
+
+    /*
+     * Set ep->fp to NULL before the native call so we know later whether it scheduled another NIF for execution
+     */
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    ep->fp = NULL;
+    result = (*fp)(env, argc, argv);
+    erts_smp_atomic32_read_band_mb(&proc->state,
+				   ~(ERTS_PSFLG_DIRTY_CPU_PROC
+				     |ERTS_PSFLG_DIRTY_IO_PROC
+				     |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q
+				     |ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
+    if (erts_refc_dectest(&env->mod_nif->rt_dtor_cnt, 0) == 0 && env->mod_nif->mod == NULL)
+	close_lib(env->mod_nif);
+    /*
+     * If no more NIFs were scheduled by the native call via
+     * enif_schedule_nif(), then ep->fp will still be NULL as set above, in
+     * which case we need to restore the original NIF calling
+     * context. Reuse fp essentially as a boolean for this, passing it to
+     * init_nif_sched_data below. Both dirty_nif_exception and
+     * dirty_nif_finalizer then check ep->fp to decide whether or not to
+     * restore the original calling context.
+     */
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    if (ep->fp)
+	fp = NULL;
+    if (is_non_value(result)) {
+	if (proc->freason != TRAP) {
+	    ASSERT(proc->freason == BADARG);
+	    return init_nif_sched_data(env, dirty_nif_exception, fp, 0, argc, argv);
+	} else {
+	    if (ep->fp == NULL)
+		restore_nif_mfa(proc, ep, 1);
+	    return result;
+	}
+    }
+    else
+	return init_nif_sched_data(env, dirty_nif_finalizer, fp, 0, 1, &result);
+}
+
+/*
+ * Dirty NIF scheduling wrapper function. Schedule a dirty NIF to execute
+ * via the execute_dirty_nif() wrapper function. The dirty scheduler thread
+ * type (CPU or I/O) is indicated in flags parameter.
+ */
+static ERTS_INLINE ERL_NIF_TERM
+schedule_dirty_nif(ErlNifEnv* env, int flags, int argc, const ERL_NIF_TERM argv[])
+{
+    erts_aint32_t state, n, a;
+    Process* proc = env->proc;
+    NativeFunPtr fp = (NativeFunPtr) proc->current[6];
+    NifExport* ep;
+    int need_save;
+
+    ASSERT(flags==ERL_NIF_DIRTY_JOB_IO_BOUND || flags==ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
     a = erts_smp_atomic32_read_acqb(&proc->state);
     while (1) {
@@ -1590,7 +1769,7 @@ enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
 	 */
 	n &= ~(ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC
 	       |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q);
-	if (chkflgs == ERL_NIF_DIRTY_JOB_CPU_BOUND)
+	if (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND)
 	    n |= ERTS_PSFLG_DIRTY_CPU_PROC;
 	else
 	    n |= ERTS_PSFLG_DIRTY_IO_PROC;
@@ -1598,68 +1777,99 @@ enif_schedule_dirty_nif(ErlNifEnv* env, int flags,
 	if (a == state)
 	    break;
     }
-    if (!(ep = (DirtyNifExport*) ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
-	alloc_proc_psd(proc, &ep);
-    ERTS_VBUMP_ALL_REDS(proc);
-    ep->exp.code[2] = argc;
-    for (i = 0; i < argc; i++) {
-	reg[i] = (Eterm) argv[i];
-    }
-    proc->i = (BeamInstr*) ep->exp.addressv[0];
-    ep->exp.code[4] = (BeamInstr) fp;
-    ep->m = env->mod_nif;
-    proc->freason = TRAP;
-
     erts_refc_inc(&env->mod_nif->rt_dtor_cnt, 1);
-
-    return THE_NON_VALUE;
-#else
-    return (*fp)(env, argc, argv);
-#endif
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    need_save = (ep == NULL || is_non_value(ep->saved_mfa[0]));
+    return init_nif_sched_data(env, execute_dirty_nif, fp, need_save, argc, argv);
 }
 
-ERL_NIF_TERM
-enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result,
-				  ERL_NIF_TERM (*fp)(ErlNifEnv*, ERL_NIF_TERM))
+static ERL_NIF_TERM
+schedule_dirty_io_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef USE_THREADS
+    return schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_IO_BOUND, argc, argv);
+}
+
+static ERL_NIF_TERM
+schedule_dirty_cpu_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_CPU_BOUND, argc, argv);
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
+/*
+ * NIF execution wrapper used by enif_schedule_nif() for regular NIFs. It
+ * calls the actual NIF, restores original NIF MFA if necessary, and
+ * then returns the NIF result.
+ */
+static ERL_NIF_TERM
+execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
     Process* proc = env->proc;
-    Eterm* reg = ERTS_PROC_GET_SCHDATA(proc)->x_reg_array;
-    DirtyNifExport* ep;
+    NativeFunPtr fp = (NativeFunPtr) proc->current[6];
+    NifExport* ep;
+    ERL_NIF_TERM result;
 
-    erts_smp_atomic32_read_band_mb(&proc->state,
-				   ~(ERTS_PSFLG_DIRTY_CPU_PROC
-				     |ERTS_PSFLG_DIRTY_IO_PROC
-				     |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q
-				     |ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
-    if (!(ep = (DirtyNifExport*) ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(proc)))
-	alloc_proc_psd(proc, &ep);
-    ERTS_VBUMP_ALL_REDS(proc);
-    ep->exp.code[2] = 2;
-    reg[0] = (Eterm) result;
-#if HAVE_INT64 && SIZEOF_LONG != 8
-    ASSERT(sizeof(fp) <= sizeof(ErlNifUInt64));
-    reg[1] = (Eterm) enif_make_uint64(env, (ErlNifUInt64) fp);
-#else
-    ASSERT(sizeof(fp) <= sizeof(unsigned long));
-    reg[1] = (Eterm) enif_make_ulong(env, (unsigned long) fp);
-#endif
-    proc->i = (BeamInstr*) ep->exp.addressv[0];
-    ep->exp.code[4] = (BeamInstr) execute_dirty_nif_finalizer;
-    proc->freason = TRAP;
-
-    return THE_NON_VALUE;
-#else
-    return (*fp)(env, result);
-#endif
-}
-
-/* A simple finalizer that just returns its result argument */
-ERL_NIF_TERM
-enif_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result)
-{
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    ep->fp = NULL;
+    result = (*fp)(env, argc, argv);
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    /*
+     * If no NIFs were scheduled by the native call via
+     * enif_schedule_nif(), then ep->fp will still be NULL as set above, in
+     * which case we need to restore the original NIF MFA.
+     */
+    if (ep->fp == NULL)
+	restore_nif_mfa(proc, ep, is_non_value(result) && proc->freason != TRAP);
     return result;
 }
+
+ERL_NIF_TERM
+enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
+		  ERL_NIF_TERM (*fp)(ErlNifEnv*, int, const ERL_NIF_TERM[]),
+		  int argc, const ERL_NIF_TERM argv[])
+{
+    Process* proc = env->proc;
+    NifExport* ep;
+    ERL_NIF_TERM fun_name_atom, result;
+    int need_save;
+
+    if (argc > MAX_ARG)
+	return enif_make_badarg(env);
+    fun_name_atom = enif_make_atom(env, fun_name);
+    if (enif_is_exception(env, fun_name_atom))
+	return fun_name_atom;
+
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    need_save = (ep == NULL || is_non_value(ep->saved_mfa[0]));
+
+    if (flags) {
+#ifdef ERTS_DIRTY_SCHEDULERS
+	NativeFunPtr sched_fun;
+	int chkflgs = (flags & (ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND));
+	if (chkflgs == ERL_NIF_DIRTY_JOB_IO_BOUND)
+	    sched_fun = schedule_dirty_io_nif;
+	else if (chkflgs == ERL_NIF_DIRTY_JOB_CPU_BOUND)
+	    sched_fun = schedule_dirty_cpu_nif;
+	else
+	    return enif_make_badarg(env);
+	result = init_nif_sched_data(env, sched_fun, fp, need_save, argc, argv);
+#else
+	return enif_make_badarg(env);
+#endif
+    }
+    else
+	result = init_nif_sched_data(env, execute_nif, fp, need_save, argc, argv);
+
+    ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ASSERT(ep);
+    ep->exp.code[1] = (BeamInstr) fun_name_atom;
+    return result;
+}
+
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 
 int
 enif_is_on_dirty_scheduler(ErlNifEnv* env)
@@ -1977,6 +2187,35 @@ static Eterm load_nif_error(Process* p, const char* atom, const char* format, ..
     return ret;
 }
 
+/*
+ * The function below is for looping through ErlNifFunc arrays, helping
+ * provide backwards compatibility across the version 2.7 change that added
+ * the "flags" field to ErlNifFunc.
+ */
+static ErlNifFunc* next_func(ErlNifEntry* entry, int* incrp, ErlNifFunc* func)
+{
+    ASSERT(incrp);
+    if (!*incrp) {
+	if (entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
+	    *incrp = sizeof(ErlNifFunc);
+	else {
+	    /*
+	     * ErlNifFuncV1 below is what ErlNifFunc was before the
+	     * addition of the flags field for 2.7, and is needed to handle
+	     * backward compatibility.
+	     */
+	    typedef struct {
+		const char* name;
+		unsigned arity;
+		ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+	    }ErlNifFuncV1;
+	    *incrp = sizeof(ErlNifFuncV1);
+	}
+    }
+    return (ErlNifFunc*) ((char*)func + *incrp);
+}
+
+
 BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 {
     static const char bad_lib[] = "bad_lib";
@@ -2086,22 +2325,48 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
     else {
 	/*erts_fprintf(stderr, "Found module %T\r\n", mod_atom);*/
-    
+
+	int maybe_dirty_nifs = ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
+				&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION));
+	int incr = 0;
+	ErlNifFunc* f = entry->funcs;
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
 	    BeamInstr** code_pp;
-	    ErlNifFunc* f = &entry->funcs[i];
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
 		|| (code_pp = get_func_pp(mod->curr.code, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
-	    }    
-	    else if (code_pp[1] - code_pp[0] < (5+3)) {
+	    }
+	    else if (maybe_dirty_nifs && f->flags) {
+		/*
+		 * If the flags field is non-zero and this emulator was
+		 * built with dirty scheduler support, check that the flags
+		 * value is legal. But if this emulator was built without
+		 * dirty scheduler support, treat a non-zero flags field as
+		 * a load error.
+		 */
+#ifdef ERTS_DIRTY_SCHEDULERS
+		if (f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND && f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND)
+		    ret = load_nif_error(BIF_P, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
+					 f->flags, mod_atom, f->name, f->arity);
+#else
+		ret = load_nif_error(BIF_P, bad_lib, "NIF %T:%s/%u requires a runtime with dirty scheduler support.",
+				     mod_atom, f->name, f->arity);
+#endif
+	    }
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    else if (code_pp[1] - code_pp[0] < (5+4))
+#else
+	    else if (code_pp[1] - code_pp[0] < (5+3))
+#endif
+	    {
 		ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
-				     " in module (%T:%s/%u to small)",
-				     mod_atom, entry->funcs[i].name, entry->funcs[i].arity);
+				     " in module (%T:%s/%u too small)",
+				     mod_atom, f->name, f->arity);
 	    }
 	    /*erts_fprintf(stderr, "Found NIF %T:%s/%u\r\n",
-			 mod_atom, entry->funcs[i].name, entry->funcs[i].arity);*/
+	      mod_atom, f->name, f->arity);*/
+	    f = next_func(entry, &incr, f);
 	}
     }
 
@@ -2127,7 +2392,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	 * is deprecated and was only ment as a development feature not to
 	 * be used in production systems. (See warning below)
 	 */
-	int k;
+	int k, old_incr = 0;
+	ErlNifFunc* old_func;
         lib->priv_data = mod->curr.nif->priv_data;
 
 	ASSERT(mod->curr.nif->entry != NULL);
@@ -2136,13 +2402,16 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    goto error;
 	}
 	/* Check that no NIF is removed */
+	old_func = mod->curr.nif->entry->funcs;
 	for (k=0; k < mod->curr.nif->entry->num_of_funcs; k++) {
-	    ErlNifFunc* old_func = &mod->curr.nif->entry->funcs[k];
+	    int incr = 0;
+	    ErlNifFunc* f = entry->funcs;
 	    for (i=0; i < entry->num_of_funcs; i++) {
-		if (old_func->arity == entry->funcs[i].arity
-		    && sys_strcmp(old_func->name, entry->funcs[i].name) == 0) {			   
+		if (old_func->arity == f->arity
+		    && sys_strcmp(old_func->name, f->name) == 0) {
 		    break;
 		}
+		f = next_func(entry, &incr, f);
 	    }
 	    if (i == entry->num_of_funcs) {
 		ret = load_nif_error(BIF_P,reload,"Reloaded library missing "
@@ -2150,7 +2419,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 				     old_func->name, old_func->arity);
 		goto error;
 	    }
-	}       
+	    old_func = next_func(mod->curr.nif->entry, &old_incr, old_func);
+	}
 	erts_pre_nif(&env, BIF_P, lib);
 	veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
 	erts_post_nif(&env);
@@ -2197,13 +2467,17 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	/*
 	** Everything ok, patch the beam code with op_call_nif
 	*/
-        mod->curr.nif = lib;
+
+	int incr = 0;
+	ErlNifFunc* f = entry->funcs;
+
+	mod->curr.nif = lib;
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
 	    BeamInstr* code_ptr;
-	    erts_atom_get(entry->funcs[i].name, sys_strlen(entry->funcs[i].name), &f_atom, ERTS_ATOM_ENC_LATIN1); 
-	    code_ptr = *get_func_pp(mod->curr.code, f_atom, entry->funcs[i].arity);
-	    
+	    erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
+	    code_ptr = *get_func_pp(mod->curr.code, f_atom, f->arity);
+
 	    if (code_ptr[1] == 0) {
 		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);
 	    }
@@ -2211,10 +2485,21 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		GenericBp* g = (GenericBp *) code_ptr[1];
 		ASSERT(code_ptr[5+0] ==
 		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
-	        g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
-	    }	    
-	    code_ptr[5+1] = (BeamInstr) entry->funcs[i].fptr;
+		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
+	    }
+	    if ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
+		&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION) && f->flags) {
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+		code_ptr[5+3] = (BeamInstr) f->fptr;
+		code_ptr[5+1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
+		    (BeamInstr) schedule_dirty_io_nif :
+		    (BeamInstr) schedule_dirty_cpu_nif;
+#endif
+	    }
+	    else
+		code_ptr[5+1] = (BeamInstr) f->fptr;
 	    code_ptr[5+2] = (BeamInstr) lib;
+	    f = next_func(entry, &incr, f);
 	}
     }
     else {

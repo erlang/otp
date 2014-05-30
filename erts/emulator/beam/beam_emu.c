@@ -3503,6 +3503,7 @@ get_map_elements_fail:
 	     * I[0]: &&call_nif
 	     * I[1]: Function pointer to NIF function
 	     * I[2]: Pointer to erl_module_nif
+	     * I[3]: Function pointer to dirty NIF
 	     */
 	    BifFunction vbf;
 
@@ -3523,13 +3524,6 @@ get_map_elements_fail:
 		reg[0] = r(0);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		erts_post_nif(&env);
-#ifdef ERTS_DIRTY_SCHEDULERS
-		if (is_non_value(nif_bif_result) && c_p->freason == TRAP) {
-		    Export* ep = ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(c_p);
-		    ep->code[0] = I[-3];
-		    ep->code[1] = I[-2];
-		}
-#endif
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
