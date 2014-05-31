@@ -1719,6 +1719,11 @@ dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
     dec_hello_extensions(Rest, Acc#hello_extensions{ec_point_formats =
 							#ec_point_formats{ec_point_format_list =
 									      ECPointFormats}});
+
+dec_hello_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
+                ExtData:Len/binary, Rest/binary>>, Acc) ->
+    <<?UINT16(_), NameList/binary>> = ExtData,
+    dec_hello_extensions(Rest, Acc#hello_extensions{sni = dec_sni(NameList)});
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 
@@ -1730,6 +1735,13 @@ dec_hello_extensions(_, Acc) ->
 
 dec_hashsign(<<?BYTE(HashAlgo), ?BYTE(SignAlgo)>>) ->
     {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}.
+
+%% Ignore unknown names (only host_name is supported)
+dec_sni(<<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(Len),
+                HostName:Len/binary, _/binary>>) ->
+    #sni{hostname = binary_to_list(HostName)};
+dec_sni(<<?BYTE(_), ?UINT16(Len), _:Len, Rest/binary>>) -> dec_sni(Rest);
+dec_sni(_) -> undefined.
 
 decode_next_protocols({next_protocol_negotiation, Protocols}) ->
     decode_next_protocols(Protocols, []).
