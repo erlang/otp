@@ -673,6 +673,7 @@ case $chk_arch_ in
     x86_64)	ARCH=amd64;;
     amd64)	ARCH=amd64;;
     macppc)	ARCH=ppc;;
+    powerpc)	ARCH=ppc;;
     ppc)	ARCH=ppc;;
     ppc64)	ARCH=ppc64;;
     "Power Macintosh")	ARCH=ppc;;
