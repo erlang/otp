@@ -680,8 +680,10 @@ case $chk_arch_ in
     armv5teb)	ARCH=arm;;
     armv5tel)	ARCH=arm;;
     armv5tejl)	ARCH=arm;;
-    armv6l) ARCH=arm;;
+    armv6l)	ARCH=arm;;
+    armv6hl)	ARCH=arm;;
     armv7l)	ARCH=arm;;
+    armv7hl)	ARCH=arm;;
     tile)	ARCH=tile;;
     *)	 	ARCH=noarch;;
 esac
