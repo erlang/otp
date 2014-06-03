@@ -1578,7 +1578,8 @@ do_test_cases(TopCases, SkipCases,
 		  [?suitelog_name,?coverlog_name,?unexpected_io_log]),
 	    print(html,
 		  "<p>~ts</p>\n" ++
-		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
+		  xhtml(["<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">\n",
+			 "<thead>\n"],
 			["<table id=\"",?sortable_table_name,"\">\n",
 			 "<thead>\n"]) ++
 		      "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
