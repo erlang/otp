@@ -181,12 +181,34 @@ send_trace(Config) when is_list(Config) ->
     ?line {trace, Sender, send, to_receiver, Receiver} = receive_first(),
     ?line receive_nothing(),
 
+    %% Check that a message sent to another registered process is traced.
+    register(?MODULE,Receiver),
+    Sender ! {send_please, ?MODULE, to_receiver},
+    {trace, Sender, send, to_receiver, ?MODULE} = receive_first(),
+    receive_nothing(),
+    unregister(?MODULE),
+
     %% Check that a message sent to this process is traced.
     ?line Sender ! {send_please, self(), to_myself},
     ?line receive to_myself -> ok end,
     ?line Self = self(),
     ?line {trace, Sender, send, to_myself, Self} = receive_first(),
     ?line receive_nothing(),
+
+    %% Check that a message sent to dead process is traced.
+    {Pid,Ref} = spawn_monitor(fun() -> ok end),
+    receive {'DOWN',Ref,_,_,_} -> ok end,
+    Sender ! {send_please, Pid, to_dead},
+    {trace, Sender, send_to_non_existing_process, to_dead, Pid} = receive_first(),
+    receive_nothing(),
+
+    %% Check that a message sent to unknown registrated process is traced.
+    BadargSender = fun_spawn(fun sender/0),
+    1 = erlang:trace(BadargSender, true, [send]),
+    unlink(BadargSender),
+    BadargSender ! {send_please, not_registered, to_unknown},
+    {trace, BadargSender, send, to_unknown, not_registered} = receive_first(),
+    receive_nothing(),
 
     %% Another process should not be able to trace Sender.
     ?line Intruder = fun_spawn(fun() -> erlang:trace(Sender, true, [send]) end),
