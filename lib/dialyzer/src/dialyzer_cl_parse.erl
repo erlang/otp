@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -357,12 +357,13 @@ help_warnings() ->
 help_message() ->
   S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[-pa dir]* [--plt plt] [--plts plt*] [-Ddefine]*
-                [-I include_dir]* [--output_plt file] [-Wwarn]*
+                [-I include_dir]* [--output_plt file] [-Wwarn]* [--raw]
                 [--src] [--gui] [files_or_dirs] [-r dirs]
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native] [--fullpath] [--statistics]
+                [--dump_callgraph file] [--no_native] [--fullpath]
+                [--statistics]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -495,14 +496,16 @@ warning_options_msg() ->
      Suppress warnings for unused functions.
   -Wno_improper_lists
      Suppress warnings for construction of improper lists.
-  -Wno_tuple_as_fun
-     Suppress warnings for using tuples instead of funs.
   -Wno_fun_app
      Suppress warnings for fun applications that will fail.
   -Wno_match
      Suppress warnings for patterns that are unused or cannot match.
   -Wno_opaque
      Suppress warnings for violations of opaqueness of data types.
+  -Wno_fail_call
+     Suppress warnings for failing calls.
+  -Wno_contracts
+     Suppress warnings about invalid contracts.
   -Wno_behaviours
      Suppress warnings about behaviour callbacks which drift from the published
      recommended interfaces.
