@@ -66,7 +66,8 @@ groups() ->
 basic_tests() ->
     [send, close, peername_sockname,
      exec, exec_compressed, shell, cli, known_hosts, 
-     idle_time, rekey, openssh_zlib_basic_test].
+     idle_time, rekey, openssh_zlib_basic_test,
+     misc_ssh_options, inet_option].
 
 
 %%--------------------------------------------------------------------
@@ -175,16 +176,47 @@ misc_ssh_options(Config) when is_list(Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
     
-    CMiscOpt0 = [{connecect_timeout, 1000}, {ip_v6_disabled, false}, {user_dir, UserDir}],
-    CMiscOpt1 = [{connecect_timeout, infinity}, {ip_v6_disabled, true}, {user_dir, UserDir}],
-    SMiscOpt0 =  [{ip_v6_disabled, false}, {user_dir, UserDir}, {system_dir, SystemDir}],
-    SMiscOpt1 =  [{ip_v6_disabled, true}, {user_dir, UserDir}, {system_dir, SystemDir}],
-    
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    CMiscOpt0 = [{connect_timeout, 1000}, {user_dir, UserDir}],
+    CMiscOpt1 = [{connect_timeout, infinity}, {user_dir, UserDir}],
+    SMiscOpt0 =  [{user_dir, UserDir}, {system_dir, SystemDir}],
+    SMiscOpt1 =  [{user_dir, UserDir}, {system_dir, SystemDir}],
 
-    basic_test([{client_opts, CMiscOpt0 ++ ClientOpts}, {server_opts, SMiscOpt0 ++ ServerOpts}]),
-    basic_test([{client_opts, CMiscOpt1 ++ ClientOpts}, {server_opts, SMiscOpt1 ++ ServerOpts}]).
+    basic_test([{client_opts, CMiscOpt0}, {server_opts, SMiscOpt0}]),
+    basic_test([{client_opts, CMiscOpt1}, {server_opts, SMiscOpt1}]).
+
+%%--------------------------------------------------------------------
+inet_option() ->
+    [{doc, "Test configuring IPv4"}].
+inet_option(Config) when is_list(Config) ->   
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    
+    ClientOpts =  [{silently_accept_hosts, true},
+		   {user_dir, UserDir},
+		   {user_interaction, false}],
+    ServerOpts = [{system_dir, SystemDir},
+		  {user_dir, UserDir},
+		  {failfun, fun ssh_test_lib:failfun/2}], 
+
+    basic_test([{client_opts, [{inet, inet} | ClientOpts]}, 
+		{server_opts, [{inet, inet} | ServerOpts]}]).
+
+%%--------------------------------------------------------------------
+inet6_option() ->
+    [{doc, "Test configuring IPv6"}].
+inet6_option(Config) when is_list(Config) ->   
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    
+    ClientOpts =  [{silently_accept_hosts, true},
+		   {user_dir, UserDir},
+		   {user_interaction, false}],
+    ServerOpts = [{system_dir, SystemDir},
+		  {user_dir, UserDir},
+		  {failfun, fun ssh_test_lib:failfun/2}], 
+
+    basic_test([{client_opts, [{inet, inet6} | ClientOpts]}, 
+		{server_opts, [{inet, inet6} | ServerOpts]}]).
 
 %%--------------------------------------------------------------------
 exec() ->
