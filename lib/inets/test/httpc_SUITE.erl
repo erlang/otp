@@ -94,6 +94,7 @@ only_simulated() ->
      trace,
      stream_once,
      stream_single_chunk,
+     stream_no_length,
      no_content_204,
      tolerate_missing_CR,
      userinfo,
@@ -393,6 +394,15 @@ stream_single_chunk() ->
 stream_single_chunk(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/single_chunk.html", Config), []},
     stream_test(Request, {stream, self}).
+%%-------------------------------------------------------------------------
+stream_no_length() ->
+    [{doc, "Test the option stream for asynchrony requests with HTTP 1.0 "
+      "body end on closed connection" }].
+stream_no_length(Config) when is_list(Config) ->
+    Request1 = {url(group_name(Config), "/http_1_0_no_length_single.html", Config), []},
+    stream_test(Request1, {stream, self}),
+    Request2 = {url(group_name(Config), "/http_1_0_no_length_multiple.html", Config), []},
+    stream_test(Request2, {stream, self}).
 
 
 %%-------------------------------------------------------------------------
@@ -1702,6 +1712,22 @@ handle_uri(_,"/single_chunk.html",_,_,Socket,_) ->
         http_chunk:encode("obar</BODY></HTML>") ++
         http_chunk:encode_last(),
     send(Socket, Chunk);
+
+handle_uri(_,"/http_1_0_no_length_single.html",_,_,Socket,_) ->
+    Body = "HTTP/1.0 200 ok\r\n"
+        "Content-type:text/plain\r\n\r\n"
+        "single packet",
+    send(Socket, Body),
+    close(Socket);
+
+handle_uri(_,"/http_1_0_no_length_multiple.html",_,_,Socket,_) ->
+    Head = "HTTP/1.0 200 ok\r\n"
+        "Content-type:text/plain\r\n\r\n"
+        "multiple packets, ",
+    send(Socket, Head),
+    %% long body to make sure it will be sent in multiple tcp packets
+    send(Socket, string:copies("other multiple packets ", 200)),
+    close(Socket);
 
 handle_uri(_,"/once.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
