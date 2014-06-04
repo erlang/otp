@@ -883,14 +883,16 @@ psk_suites() ->
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites() ->
-    [{psk, rc4_128, sha},
-     {psk, '3des_ede_cbc', sha},
-     {psk, aes_128_cbc, sha},
-     {psk, aes_256_cbc, sha},
-     {dhe_psk, rc4_128, sha},
-     {dhe_psk, '3des_ede_cbc', sha},
-     {dhe_psk, aes_128_cbc, sha},
-     {dhe_psk, aes_256_cbc, sha}].
+    Suites =
+	[{psk, rc4_128, sha},
+	 {psk, '3des_ede_cbc', sha},
+	 {psk, aes_128_cbc, sha},
+	 {psk, aes_256_cbc, sha},
+	 {dhe_psk, rc4_128, sha},
+	 {dhe_psk, '3des_ede_cbc', sha},
+	 {dhe_psk, aes_128_cbc, sha},
+	 {dhe_psk, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 srp_suites() ->
     Suites =
@@ -903,9 +905,11 @@ srp_suites() ->
     ssl_cipher:filter_suites(Suites).
 
 srp_anon_suites() ->
-    [{srp_anon, '3des_ede_cbc', sha},
-     {srp_anon, aes_128_cbc, sha},
-     {srp_anon, aes_256_cbc, sha}].
+    Suites =
+	[{srp_anon, '3des_ede_cbc', sha},
+	 {srp_anon, aes_128_cbc, sha},
+	 {srp_anon, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 srp_dss_suites() ->
     Suites =
