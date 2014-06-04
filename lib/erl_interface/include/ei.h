@@ -39,7 +39,7 @@
 #include <stdio.h>		/* Need type FILE */
 #include <errno.h>		/* Need EHOSTUNREACH, ENOMEM, ... */
 
-#if !defined(__WIN32__) && !defined(VXWORKS) || (defined(VXWORKS) && defined(HAVE_SENS))
+#if !(defined(__WIN32__) || defined(_WIN32)) && !defined(VXWORKS) || (defined(VXWORKS) && defined(HAVE_SENS))
 # include <netdb.h>
 #endif
 
