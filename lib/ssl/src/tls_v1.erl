@@ -183,23 +183,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 
 -spec suites(1|2|3) -> [ssl_cipher:cipher_suite()].
 
-suites(Minor) when Minor == 1; Minor == 2->
-    case sufficent_ec_support() of
-	true ->
-	    all_suites(Minor);
-	false ->
-	    no_ec_suites(Minor)
-    end;
-
-suites(Minor) when Minor == 3 ->
-    case sufficent_ec_support() of
-	true ->
-	    all_suites(3) ++ all_suites(2);
-	false ->
-	    no_ec_suites(3) ++ no_ec_suites(2)
-    end.
-
-all_suites(Minor) when Minor == 1; Minor == 2->
+suites(Minor) when Minor == 1; Minor == 2 ->
     [
       ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
       ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
@@ -235,7 +219,7 @@ all_suites(Minor) when Minor == 1; Minor == 2->
 
       ?TLS_RSA_WITH_DES_CBC_SHA
     ];
-all_suites(3) ->
+suites(3) ->
     [
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
@@ -254,33 +238,7 @@ all_suites(3) ->
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
-    ].
-
-no_ec_suites(Minor) when Minor == 1; Minor == 2->
-    [
-      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
-      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-      ?TLS_RSA_WITH_AES_256_CBC_SHA,
-      ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
-      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
-      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
-      ?TLS_RSA_WITH_AES_128_CBC_SHA,
-      ?TLS_RSA_WITH_RC4_128_SHA,
-      ?TLS_RSA_WITH_RC4_128_MD5,
-      ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-      ?TLS_RSA_WITH_DES_CBC_SHA
-    ];
-no_ec_suites(3) ->
-    [
-     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-     ?TLS_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
-     ?TLS_RSA_WITH_AES_128_CBC_SHA256
-    ].
+    ] ++ suites(2).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -442,7 +400,3 @@ enum_to_oid(27) -> ?brainpoolP384r1;
 enum_to_oid(28) -> ?brainpoolP512r1;
 enum_to_oid(_) ->
     undefined.
-
-sufficent_ec_support() ->
-    CryptoSupport = crypto:supports(),
-    proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport)).

@@ -323,7 +323,7 @@ handle_info(Msg, StateName, State) ->
 %% Reason. The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(Reason, StateName, State) ->
-    ssl_connection:terminate(Reason, StateName, State).
+    catch ssl_connection:terminate(Reason, StateName, State).
 
 %%--------------------------------------------------------------------
 %% code_change(OldVsn, StateName, State, Extra) -> {ok, StateName, NewState}
