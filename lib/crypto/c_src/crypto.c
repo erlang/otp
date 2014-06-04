@@ -1384,6 +1384,7 @@ static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ErlNifBinary key;
     struct hmac_context* obj;
     const EVP_MD *md;
+    ERL_NIF_TERM ret;
     
     CHECK_OSE_CRYPTO();
 
@@ -1415,7 +1416,9 @@ static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     HMAC_CTX_init(&obj->ctx);
     HMAC_Init(&obj->ctx, key.data, key.size, md);
 
-    return enif_make_resource(env, obj);
+    ret = enif_make_resource(env, obj);
+    enif_release_resource(obj);
+    return ret;
 }
 
 static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2506,6 +2509,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	return enif_make_binary(env, &ret_bin);
     }
     else {
+	enif_release_binary(&ret_bin);
 	return atom_error;
     }
 }
@@ -2768,6 +2772,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	    ret = enif_make_binary(env, &ret_bin);
 	}
 	else {
+	    enif_release_binary(&ret_bin);
 	    ret = atom_error;
 	}
     }
