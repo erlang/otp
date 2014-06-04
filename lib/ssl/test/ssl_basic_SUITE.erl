@@ -3696,7 +3696,7 @@ run_suites(Ciphers, Version, Config, Type) ->
 
     Result =  lists:map(fun(Cipher) ->
 				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
-			Ciphers),
+			ssl_test_lib:filter_suites(Ciphers)),
     case lists:flatten(Result) of
 	[] ->
 	    ok;

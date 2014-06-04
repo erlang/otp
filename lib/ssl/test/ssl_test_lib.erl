@@ -872,14 +872,21 @@ psk_suites() ->
 	 {psk, '3des_ede_cbc', sha},
 	 {psk, aes_128_cbc, sha},
 	 {psk, aes_256_cbc, sha},
+	 {psk, aes_128_cbc, sha256},
+	 {psk, aes_256_cbc, sha384},
 	 {dhe_psk, rc4_128, sha},
 	 {dhe_psk, '3des_ede_cbc', sha},
 	 {dhe_psk, aes_128_cbc, sha},
 	 {dhe_psk, aes_256_cbc, sha},
+	 {dhe_psk, aes_128_cbc, sha256},
+	 {dhe_psk, aes_256_cbc, sha384},
 	 {rsa_psk, rc4_128, sha},
 	 {rsa_psk, '3des_ede_cbc', sha},
 	 {rsa_psk, aes_128_cbc, sha},
-	 {rsa_psk, aes_256_cbc, sha}],
+	 {rsa_psk, aes_256_cbc, sha},
+	 {rsa_psk, aes_128_cbc, sha256},
+	 {rsa_psk, aes_256_cbc, sha384}
+],
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites() ->
@@ -1119,3 +1126,13 @@ version_flag('tlsv1.2') ->
     " -tls1_2 ";
 version_flag(sslv3) ->
     " -ssl3 ".
+
+filter_suites(Ciphers0) ->
+    Version = tls_record:highest_protocol_version([]),
+    Supported0 = ssl_cipher:suites(Version)
+	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:psk_suites(Version)
+	++ ssl_cipher:srp_suites(),
+    Supported1 = ssl_cipher:filter_suites(Supported0),
+    Supported2 = [ssl:suite_definition(S) || S <- Supported1],
+    [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
