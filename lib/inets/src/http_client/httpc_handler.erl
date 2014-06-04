@@ -1226,6 +1226,7 @@ handle_response(#state{request      = Request,
 	    handle_queue(State#state{request = undefined}, Data);
 	{ok, Msg, Data} ->
 	    ?hcrd("handle response - ok", []),
+	    stream_remaining_body(Body, Request, StatusLine),
 	    end_stream(StatusLine, Request),
 	    NewState = maybe_send_answer(Request, Msg, State),
 	    handle_queue(NewState, Data); 
@@ -1656,6 +1657,10 @@ start_stream(_StatusLine, _Headers, Request) ->
     ?hcrt("start stream - no op", []),
     {ok, Request}.
 
+stream_remaining_body(<<>>, _, _) ->
+    ok;
+stream_remaining_body(Body, Request, {_, Code, _}) ->
+    stream(Body, Request, Code).
 
 %% Note the end stream message is handled by httpc_response and will
 %% be sent by answer_request
