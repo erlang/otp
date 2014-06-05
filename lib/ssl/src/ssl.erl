@@ -358,7 +358,7 @@ cipher_suites(openssl) ->
 cipher_suites(all) ->
     Version = tls_record:highest_protocol_version([]),
     Supported = ssl_cipher:all_suites(Version)
-	++ ssl_cipher:anonymous_suites(Version)
+	++ ssl_cipher:anonymous_suites()
 	++ ssl_cipher:psk_suites(Version)
 	++ ssl_cipher:srp_suites(),
     ssl_cipher:filter_suites([suite_definition(S) || S <- Supported]).
