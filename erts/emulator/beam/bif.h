@@ -124,12 +124,85 @@ do {									\
     return THE_NON_VALUE; 			\
 } while(0)
 
+#define ERTS_BIF_ERROR_TRAPPED0(Proc, Reason, Bif)		\
+do {								\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    return THE_NON_VALUE; 					\
+} while (0)
+
+#define ERTS_BIF_ERROR_TRAPPED1(Proc, Reason, Bif, A0)		\
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    return THE_NON_VALUE; 					\
+} while (0)
+
+#define ERTS_BIF_ERROR_TRAPPED2(Proc, Reason, Bif, A0, A1)	\
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    return THE_NON_VALUE; 					\
+} while (0)
+
+#define ERTS_BIF_ERROR_TRAPPED3(Proc, Reason, Bif, A0, A1, A2)	\
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    reg[2] = (Eterm) (A2);					\
+    return THE_NON_VALUE; 					\
+} while (0)
+
 #define ERTS_BIF_PREP_ERROR(Ret, Proc, Reason)	\
 do {						\
     (Proc)->freason = (Reason);			\
     (Ret) = THE_NON_VALUE;			\
 } while (0)
 
+#define ERTS_BIF_PREP_ERROR_TRAPPED0(Ret, Proc, Reason, Bif)	\
+do {								\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
+#define ERTS_BIF_PREP_ERROR_TRAPPED1(Ret, Proc, Reason, Bif, A0) \
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
+#define ERTS_BIF_PREP_ERROR_TRAPPED2(Ret, Proc, Reason, Bif, A0, A1) \
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
+#define ERTS_BIF_PREP_ERROR_TRAPPED3(Ret, Proc, Reason, Bif, A0, A1, A2) \
+do {								\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    (Proc)->freason = (Reason);					\
+    (Proc)->current = (Bif)->code;				\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    reg[2] = (Eterm) (A2);					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
 
 #define ERTS_BIF_PREP_TRAP0(Ret, Trap, Proc)	\
 do {						\
@@ -391,6 +464,51 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm function,
 					 Eterm args[],
 					 int nargs);
+
+#ifndef HIPE
+
+#define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)
+
+#else
+
+#include "erl_fun.h"
+#include "hipe_mode_switch.h"
+
+/*
+ * Hipe wrappers used by native code for BIFs that disable GC while trapping.
+ * Also add usage of the wrapper in ../hipe/hipe_bif_list.m4
+ *
+ * Problem:
+ * When native code calls a BIF that traps, hipe_mode_switch will push a
+ * "trap frame" on the Erlang stack in order to find its way back from beam_emu
+ * back to native caller when finally done. If GC is disabled and stack/heap
+ * is full there is no place to push the "trap frame".
+ *
+ * Solution:
+ * We reserve space on stack for the "trap frame" here before the BIF is called.
+ * If the BIF does not trap, the space is reclaimed here before returning.
+ * If the BIF traps, hipe_push_beam_trap_frame() will detect that a "trap frame"
+ * already is reserved and use it.
+ */
+
+
+#define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)			\
+BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
+						     Eterm* args);	\
+BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
+						     Eterm* args)	\
+{									\
+    BIF_RETTYPE  res;							\
+    hipe_reserve_beam_trap_frame(c_p, args, ARITY);			\
+    res =  BIF_NAME ## _ ## ARITY (c_p, args);				\
+    if (is_value(res) || c_p->freason != TRAP) {			\
+	hipe_unreserve_beam_trap_frame(c_p);				\
+    }									\
+    return res;								\
+}
+
+#endif
+
 
 #include "erl_bif_table.h"
 
