@@ -27,6 +27,8 @@
 	 collect_tests_from_list/2, collect_tests_from_list/3,
 	 collect_tests_from_file/2, collect_tests_from_file/3]).
 
+-export([testspec_rec2list/1, testspec_rec2list/2]).
+
 -include("ct_util.hrl").
 -define(testspec_fields, record_info(fields, testspec)).
 
@@ -973,7 +975,8 @@ add_tests([Term={Tag,all_nodes,Data}|Ts],Spec) ->
 					should_be_added(Tag,Node,Data,Spec)],
 	    add_tests(Tests++Ts,Spec);
 	invalid ->				% ignore term
-	    add_tests(Ts,Spec)
+	    Unknown = Spec#testspec.unknown,
+	    add_tests(Ts,Spec#testspec{unknown=Unknown++[Term]})
     end;
 %% create one test entry per node in Nodes and reinsert
 add_tests([{Tag,[],Data}|Ts],Spec) ->
@@ -1001,7 +1004,8 @@ add_tests([Term={Tag,NodeOrOther,Data}|Ts],Spec) ->
 			handle_data(Tag,Node,Data,Spec),
 		    add_tests(Ts,mod_field(Spec,Tag,NodeIxData));
 		invalid ->			% ignore term
-		    add_tests(Ts,Spec)
+		    Unknown = Spec#testspec.unknown,
+		    add_tests(Ts,Spec#testspec{unknown=Unknown++[Term]})
 	    end;
 	false ->
 	    add_tests([{Tag,all_nodes,{NodeOrOther,Data}}|Ts],Spec)
@@ -1012,13 +1016,15 @@ add_tests([Term={Tag,Data}|Ts],Spec) ->
 	valid ->
 	    add_tests([{Tag,all_nodes,Data}|Ts],Spec);
 	invalid ->
-	    add_tests(Ts,Spec)
+	    Unknown = Spec#testspec.unknown,
+	    add_tests(Ts,Spec#testspec{unknown=Unknown++[Term]})
     end;
 %% some other data than a tuple
 add_tests([Other|Ts],Spec) ->	
     case get(relaxed) of
-	true ->		
-	    add_tests(Ts,Spec);
+	true ->
+	    Unknown = Spec#testspec.unknown,
+	    add_tests(Ts,Spec#testspec{unknown=Unknown++[Other]});
 	false ->
 	    throw({error,{undefined_term_in_spec,Other}})
     end;
@@ -1148,6 +1154,24 @@ per_node([N|Ns],Tag,Data,Refs) ->
     [list_to_tuple([Tag,ref2node(N,Refs)|Data])|per_node(Ns,Tag,Data,Refs)];
 per_node([],_,_,_) ->
     [].
+
+%% Change the testspec record "back" to a list of tuples
+testspec_rec2list(Rec) ->
+    {Terms,_} = lists:mapfoldl(fun(unknown, Pos) ->
+				       {element(Pos, Rec),Pos+1};
+				  (F, Pos) ->
+				       {{F,element(Pos, Rec)},Pos+1}
+			       end,2,?testspec_fields),
+    lists:flatten(Terms).
+
+%% Extract one or more values from a testspec record and
+%% return the result as a list of tuples
+testspec_rec2list(Field, Rec) when is_atom(Field) ->
+    [Term] = testspec_rec2list([Field], Rec),
+    Term;
+testspec_rec2list(Fields, Rec) ->
+    Terms = testspec_rec2list(Rec),
+    [{Field,proplists:get_value(Field, Terms)} || Field <- Fields].
 
 %% read the value for FieldName in record Rec#testspec
 read_field(Rec, FieldName) ->

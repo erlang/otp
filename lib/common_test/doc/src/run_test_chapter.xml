@@ -1005,6 +1005,31 @@
 	  for starting the tests, the relaxed scanner
 	  mode is enabled by means of the tuple: <c>{allow_user_terms,true}</c></p>
 	</section>
+	<section>
+	  <title>Reading test specification terms</title>
+	  <p>It's possible to look up terms in the current test specification
+	  (i.e. the spec that's been used to configure and run the current test).
+	  The function <c>get_testspec_terms()</c> returns a list of all test spec
+	  terms (both config- and test terms) and <c>get_testspec_terms(Tags)</c>
+	  returns the term (or a list of terms) matching the tag (or tags) in
+	  <c>Tags</c>.</p>
+	  <p>For example, in the test specification:</p>
+	  <pre>
+	    ...
+	    {label, my_server_smoke_test}.
+	    {config, "../../my_server_setup.cfg"}.
+	    {config, "../../my_server_interface.cfg"}.
+	    ...</pre>	    
+	  <p>And in e.g. a test suite or a CT hook function:</p>
+	  <pre>
+	    ...
+	    [{label,[{_Node,TestType}]}, {config,CfgFiles}] =
+                ct:get_testspec_terms([label,config]),
+
+            [verify_my_server_cfg(TestType, CfgFile) || {Node,CfgFile} &lt;- CfgFiles,
+                                                        Node == node()];
+	    ...</pre>
+	</section>
   </section>
 
   <section>
