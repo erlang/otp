@@ -1433,7 +1433,7 @@ void LeaveCriticalSection(CRITICAL_SECTION *cs)
 #define ETHR_CND_WAIT__ ((ethr_sint32_t) 0x11dead11)
 #define ETHR_CND_WAKEUP__ ((ethr_sint32_t) 0x11beef11)
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 cond_wakeup(ethr_ts_event *tse)
 {
     ETHR_ASSERT(ethr_atomic32_read(&tse->uaflgs) == ETHR_CND_WAIT__);
@@ -1574,7 +1574,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
     return 0;
 }
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 posix_compliant_mtx_enqueue(ethr_mutex *mtx,
 			    ethr_ts_event *tse_start,
 			    ethr_ts_event *tse_end)
@@ -1614,7 +1614,7 @@ posix_compliant_mtx_enqueue(ethr_mutex *mtx,
     }
 }
 
-static __forceinline void
+static ETHR_FORCE_INLINE void
 enqueue_cond_wakeups(ethr_ts_event *queue, int posix_compliant)
 {
     if (queue) {
