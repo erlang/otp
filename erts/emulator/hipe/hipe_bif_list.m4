@@ -268,8 +268,8 @@ noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
  */
 define(CFUN,`ifelse($1,term_to_binary_1,hipe_wrapper_term_to_binary_1,
 ifelse($1,term_to_binary_2,hipe_wrapper_term_to_binary_2,
-ifelse($1,erts_internal_binary_to_term_1,hipe_wrapper_erts_internal_binary_to_term_1,
-ifelse($1,erts_internal_binary_to_term_2,hipe_wrapper_erts_internal_binary_to_term_2,
+ifelse($1,binary_to_term_1,hipe_wrapper_binary_to_term_1,
+ifelse($1,binary_to_term_2,hipe_wrapper_binary_to_term_2,
 ifelse($1,binary_to_list_1,hipe_wrapper_binary_to_list_1,
 ifelse($1,binary_to_list_3,hipe_wrapper_binary_to_list_3,
 ifelse($1,bitstring_to_list_1,hipe_wrapper_bitstring_to_list_1,
