@@ -264,7 +264,7 @@ do_upgrade(FromVsn,FromApps,ToRel,ToApps,InstallDir) ->
 %%%-----------------------------------------------------------------
 %%% Library functions
 previous_major("17") ->
-    "r16";
+    "r16b";
 previous_major(Rel) ->
     integer_to_list(list_to_integer(Rel)-1).
 
