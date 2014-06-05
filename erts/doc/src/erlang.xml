@@ -6295,6 +6295,13 @@ ok
               (<seealso marker="erts:erl_driver#driver_async">driver_async()</seealso>)
               as an integer.</p>
           </item>
+          <tag><marker id="system_info_tolerant_timeofday"><c>tolerant_timeofday</c></marker></tag>
+          <item>
+            <p>Returns whether compensation for sudden changes of system
+              time is <c>enabled</c> or <c>disabled</c>.</p>
+            <p>See also <seealso marker="erts:erl#+c">+c</seealso>
+              command line flag.</p>
+          </item>
           <tag><c>trace_control_word</c></tag>
           <item>
             <p>Returns the value of the node's trace control word.
