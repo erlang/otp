@@ -1886,8 +1886,13 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	Eterm id = erts_whereis_name_to_id(p, to);
 
 	rp = erts_proc_lookup(id);
-	if (rp)
+	if (rp) {
+	    if (IS_TRACED(p))
+		trace_send(p, to, msg);
+	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+		save_calls(p, &exp_send);
 	    goto send_message;
+	}
 
 	pt = erts_port_lookup(id,
 			      (erts_port_synchronous_ops
