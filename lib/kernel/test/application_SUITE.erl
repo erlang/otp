@@ -1076,10 +1076,13 @@ otp_1586(Conf) when is_list(Conf) ->
     {ok, Fd} = file:open(filename:join(Dir, "app5.app"), [write]),
     w_app5(Fd),
     file:close(Fd),
-    code:add_patha(Dir),
-    ok = application:load(app4()),
-    ok = application:unload(app4),
-    ok.
+    try
+	true = code:add_patha(Dir),
+	ok = application:load(app4()),
+	ok = application:unload(app4)
+    after
+	_ = code:del_path(Dir)
+    end.
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2078
