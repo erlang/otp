@@ -2126,6 +2126,8 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 	mac = 1;
     case ERL_FILENAME_UTF8:
 	size = strlen((char *) bytes);
+	if (size == 0)
+	    return NIL;
 	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
 	    goto noconvert;
 	}

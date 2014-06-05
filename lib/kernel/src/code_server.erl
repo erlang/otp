@@ -63,7 +63,10 @@ init(Ref, Parent, [Root,Mode0]) ->
     process_flag(trap_exit, true),
 
     Db = ets:new(code, [private]),
-    foreach(fun (M) -> ets:insert(Db, {M,preloaded}) end, erlang:pre_loaded()),
+    foreach(fun (M) ->
+		    %% Pre-loaded modules are always sticky.
+		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
+	    end, erlang:pre_loaded()),
     ets:insert(Db, init:fetch_loaded()),
 
     Mode = 
@@ -988,7 +991,7 @@ try_archive_subdirs(_Archive, Base, []) ->
 %% the complete directory name.
 %%
 del_path(Name0,Path,NameDb) ->
-    case catch to_list(Name0)of
+    case catch filename:join([to_list(Name0)]) of
 	{'EXIT',_} ->
 	    {{error,bad_name},Path};
 	Name ->
@@ -1165,7 +1168,7 @@ stick_dir(Dir, Stick, St) ->
 		true ->
 		    foreach(fun (M) -> ets:insert(Db, {{sticky,M},true}) end, Mods);
 		false ->
-		    foreach(fun (M) -> ets:delete(Db, {sticky,M}) end, Mods)
+		    foreach(fun (M) -> do_unstick_mod(Db, M) end, Mods)
 	    end;
 	Error -> 
 	    Error
@@ -1177,6 +1180,15 @@ stick_mod(M, Stick, St) ->
 	true ->
 	    ets:insert(Db, {{sticky,M},true});
 	false ->
+	    do_unstick_mod(Db, M)
+    end.
+
+do_unstick_mod(Db, M) ->
+    case ets:lookup(Db, M) of
+	[{M,preloaded}] ->
+	    %% Never unstick pre-loaded modules.
+	    true;
+	_ ->
 	    ets:delete(Db, {sticky,M})
     end.
 

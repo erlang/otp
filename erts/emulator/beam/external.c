@@ -44,9 +44,6 @@
 #include "erl_zlib.h"
 #include "erl_map.h"
 
-#ifdef HIPE
-#include "hipe_mode_switch.h"
-#endif
 #define in_area(ptr,start,nbytes) ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 #define MAX_STRING_LEN 0xffff
@@ -111,26 +108,17 @@ static int encode_size_struct_int(struct TTBSizeContext_*, ErtsAtomCacheMap *acm
 
 static Export binary_to_term_trap_export;
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1);
-static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b);
+static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b,
+				      Export *bif, Eterm arg0, Eterm arg1);
 
 void erts_init_external(void) {
-#if 1 /* In R16 */
     erts_init_trap_export(&term_to_binary_trap_export,
-			  am_erlang, am_term_to_binary_trap, 1,
+			  am_erts_internal, am_term_to_binary_trap, 1,
 			  &term_to_binary_trap_1);
 
     erts_init_trap_export(&binary_to_term_trap_export,
-			  am_erlang, am_binary_to_term_trap, 1,
+			  am_erts_internal, am_binary_to_term_trap, 1,
 			  &binary_to_term_trap_1);
-#else
-    sys_memset((void *) &term_to_binary_trap_export, 0, sizeof(Export));
-    term_to_binary_trap_export.address = &term_to_binary_trap_export.code[3];
-    term_to_binary_trap_export.code[0] = am_erlang;
-    term_to_binary_trap_export.code[1] = am_term_to_binary_trap;
-    term_to_binary_trap_export.code[2] = 1;
-    term_to_binary_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    term_to_binary_trap_export.code[4] = (BeamInstr) &term_to_binary_trap_1;
-#endif    
     return;
 }
 
@@ -1069,6 +1057,8 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
     }
 }
 
+HIPE_WRAPPER_BIF_DISABLE_GC(term_to_binary, 1)
+
 BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
     Eterm res = erts_term_to_binary_int(BIF_P, BIF_ARG_1, 0, TERM_TO_BINARY_DFLAGS, NULL);
@@ -1080,6 +1070,8 @@ BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 	BIF_RET(res);
     }
 }
+
+HIPE_WRAPPER_BIF_DISABLE_GC(term_to_binary, 2)
 
 BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 {
@@ -1185,6 +1177,8 @@ typedef struct B2TContext_t {
     Uint32 flags;
     SWord reds;
     Eterm trap_bin;
+    Export *bif;
+    Eterm arg[2];
     enum B2TState state;
     union {
 	B2TSizeContext sc;
@@ -1356,7 +1350,8 @@ static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
     Binary *context_bin = ((ProcBin *) binary_val(BIF_ARG_1))->val;
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(context_bin) == b2t_context_destructor);
 
-    return binary_to_term_int(BIF_P, 0, THE_NON_VALUE, context_bin);
+    return binary_to_term_int(BIF_P, 0, THE_NON_VALUE, context_bin, NULL,
+			      THE_NON_VALUE, THE_NON_VALUE);
 }
 
 
@@ -1391,8 +1386,10 @@ static B2TContext* b2t_export_context(Process* p, B2TContext* src)
     return ctx;
 }
 
-static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b)
+static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b,
+				      Export *bif_init, Eterm arg0, Eterm arg1)
 {
+    BIF_RETTYPE ret_val;
 #ifdef EXTREME_B2T_TRAPPING
     SWord initial_reds = 1 + b2t_rand() % 4;
 #else
@@ -1409,6 +1406,9 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 	ctx->state = B2TPrepare;
         ctx->aligned_alloc = NULL;
         ctx->flags = flags;
+	ctx->bif = bif_init;
+	ctx->arg[0] = arg0;
+	ctx->arg[1] = arg1;
         IF_DEBUG(ctx->trap_bin = THE_NON_VALUE;)
     } else {
         is_first_call = 0;
@@ -1504,12 +1504,24 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             HRelease(p, ctx->u.dc.hp_end, ctx->u.dc.hp_start);
             /*fall through*/
         case B2TBadArg:
-            b2t_destroy_context(ctx);
-            if (!is_first_call) {
-                erts_set_gc_state(p, 1);
-            }
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
-            BIF_ERROR(p, BADARG & ~EXF_SAVETRACE);
+
+	    ASSERT(ctx->bif == bif_export[BIF_binary_to_term_1]
+		   || ctx->bif == bif_export[BIF_binary_to_term_2]);
+
+	    if (is_first_call)
+		ERTS_BIF_PREP_ERROR(ret_val, p, BADARG);
+	    else {
+                erts_set_gc_state(p, 1);
+		if (is_non_value(ctx->arg[1]))
+		    ERTS_BIF_PREP_ERROR_TRAPPED1(ret_val, p, BADARG, ctx->bif,
+						 ctx->arg[0]);
+		else
+		    ERTS_BIF_PREP_ERROR_TRAPPED2(ret_val, p, BADARG, ctx->bif,
+						 ctx->arg[0], ctx->arg[1]);
+	    }
+            b2t_destroy_context(ctx);
+	    return ret_val;
 
         case B2TDone:
             b2t_destroy_context(ctx);
@@ -1524,7 +1536,8 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
                 erts_set_gc_state(p, 1);
             }
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
-            return ctx->u.dc.res;
+	    ERTS_BIF_PREP_RET(ret_val, ctx->u.dc.res);
+	    return ret_val;
 
         default:
             ASSERT(!"Unknown state in binary_to_term");
@@ -1541,15 +1554,24 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
         erts_set_gc_state(p, 0);
     }
     BUMP_ALL_REDS(p);
-    BIF_TRAP1(&binary_to_term_trap_export, p, ctx->trap_bin);
+
+    ERTS_BIF_PREP_TRAP1(ret_val, &binary_to_term_trap_export,
+			p, ctx->trap_bin);
+
+    return ret_val;
 }
 
-BIF_RETTYPE erts_internal_binary_to_term_1(BIF_ALIST_1)
+HIPE_WRAPPER_BIF_DISABLE_GC(binary_to_term, 1)
+
+BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
 {
-    return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL);
+    return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL, bif_export[BIF_binary_to_term_1],
+			      BIF_ARG_1, THE_NON_VALUE);
 }
 
-BIF_RETTYPE erts_internal_binary_to_term_2(BIF_ALIST_2)
+HIPE_WRAPPER_BIF_DISABLE_GC(binary_to_term, 2)
+
+BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
 {
     Eterm opts;
     Eterm opt;
@@ -1570,7 +1592,8 @@ BIF_RETTYPE erts_internal_binary_to_term_2(BIF_ALIST_2)
     if (is_not_nil(opts))
         goto error;
 
-    return binary_to_term_int(BIF_P, flags, BIF_ARG_1, NULL);
+    return binary_to_term_int(BIF_P, flags, BIF_ARG_1, NULL, bif_export[BIF_binary_to_term_2],
+			      BIF_ARG_1, BIF_ARG_2);
 
 error:
     BIF_ERROR(BIF_P, BADARG);
@@ -4440,66 +4463,3 @@ error:
 #undef SKIP2
 #undef CHKSIZE
 }
-
-
-#ifdef HIPE
-BIF_RETTYPE hipe_wrapper_term_to_binary_1(BIF_ALIST_1);
-BIF_RETTYPE hipe_wrapper_term_to_binary_2(BIF_ALIST_2);
-BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_1(BIF_ALIST_1);
-BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_2(BIF_ALIST_2);
-
-/* Hipe wrappers used by native code for BIFs that disable GC while trapping.
- *
- * Problem:
- * When native code calls a BIF that traps, hipe_mode_switch will push a
- * "trap frame" on the Erlang stack in order to find its way back from beam_emu
- * back to native caller when finally done. If GC is disabled and stack/heap
- * is full there is no place to push the "trap frame".
- *
- * Solution:
- * We reserve space on stack for the "trap frame" here before the BIF is called.
- * If the BIF does not trap, the space is reclaimed here before returning.
- * If the BIF traps, hipe_push_beam_trap_frame() will detect that a "trap frame"
- * already is reserved and use it.
- */
-BIF_RETTYPE hipe_wrapper_term_to_binary_1(BIF_ALIST_1)
-{
-    Eterm res;
-    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 1);
-    res = term_to_binary_1(BIF_P, BIF__ARGS);
-    if (is_value(res) || BIF_P->freason != TRAP) {
-	hipe_unreserve_beam_trap_frame(BIF_P);
-    }
-    return res;
-}
-BIF_RETTYPE hipe_wrapper_term_to_binary_2(BIF_ALIST_2)
-{
-    Eterm res;
-    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 2);
-    res = term_to_binary_2(BIF_P, BIF__ARGS);
-    if (is_value(res) || BIF_P->freason != TRAP) {
-	hipe_unreserve_beam_trap_frame(BIF_P);
-    }
-    return res;
-}
-BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_1(BIF_ALIST_1)
-{
-    Eterm res;
-    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 1);
-    res = erts_internal_binary_to_term_1(BIF_P, BIF__ARGS);
-    if (is_value(res) || BIF_P->freason != TRAP) {
-	hipe_unreserve_beam_trap_frame(BIF_P);
-    }
-    return res;
-}
-BIF_RETTYPE hipe_wrapper_erts_internal_binary_to_term_2(BIF_ALIST_2)
-{
-    Eterm res;
-    hipe_reserve_beam_trap_frame(BIF_P, BIF__ARGS, 2);
-    res = erts_internal_binary_to_term_2(BIF_P, BIF__ARGS);
-    if (is_value(res) || BIF_P->freason != TRAP) {
-	hipe_unreserve_beam_trap_frame(BIF_P);
-    }
-    return res;
-}
-#endif /*HIPE*/

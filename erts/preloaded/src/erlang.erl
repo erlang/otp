@@ -79,7 +79,7 @@
 -export([binary_to_integer/1,binary_to_integer/2]).
 -export([binary_to_list/1]).
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
--export([bit_size/1, bitsize/1, bitstr_to_list/1, bitstring_to_list/1]).
+-export([bit_size/1, bitsize/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
 -export([cancel_timer/1, check_old_code/1, check_process_code/2,
 	 check_process_code/3, crc32/1]).
@@ -100,7 +100,7 @@
 -export([integer_to_binary/1, integer_to_list/1]).
 -export([iolist_size/1, iolist_to_binary/1]).
 -export([is_alive/0, is_builtin/3, is_process_alive/1, length/1, link/1]).
--export([list_to_atom/1, list_to_binary/1, list_to_bitstr/1]).
+-export([list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
 -export([list_to_pid/1, list_to_tuple/1, loaded/0]).
@@ -361,25 +361,15 @@ binary_to_list(_Binary, _Start, _Stop) ->
 %% binary_to_term/1
 -spec binary_to_term(Binary) -> term() when
       Binary :: ext_binary().
-binary_to_term(Binary) ->
-    %% This BIF may throw badarg while trapping
-    try
-	erts_internal:binary_to_term(Binary)
-    catch
-	error:Reason -> erlang:error(Reason,[Binary])
-    end.
+binary_to_term(_Binary) ->
+    erlang:nif_error(undefined).
 
 %% binary_to_term/2
 -spec binary_to_term(Binary, Opts) -> term() when
       Binary :: ext_binary(),
       Opts :: [safe].
-binary_to_term(Binary, Opts) ->
-    %% This BIF may throw badarg while trapping
-    try
-	erts_internal:binary_to_term(Binary,Opts)
-    catch
-	error:Reason -> erlang:error(Reason,[Binary,Opts])
-    end.
+binary_to_term(_Binary, _Opts) ->
+    erlang:nif_error(undefined).
 
 %% bit_size/1
 %% Shadowed by erl_bif_types: erlang:bit_size/1
@@ -392,12 +382,6 @@ bit_size(_Bitstring) ->
 -spec bitsize(P1) -> non_neg_integer() when
       P1 :: bitstring().
 bitsize(_P1) ->
-    erlang:nif_error(undefined).
-
-%% bitstr_to_list/1
--spec erlang:bitstr_to_list(P1) -> [byte() | bitstring()] when
-      P1 :: bitstring().
-bitstr_to_list(_P1) ->
     erlang:nif_error(undefined).
 
 %% bitstring_to_list/1
@@ -1080,12 +1064,6 @@ list_to_atom(_String) ->
 -spec list_to_binary(IoList) -> binary() when
       IoList :: iolist().
 list_to_binary(_IoList) ->
-    erlang:nif_error(undefined).
-
-%% list_to_bitstr/1
--spec erlang:list_to_bitstr(P1) -> bitstring() when
-      P1 :: bitstring_list().
-list_to_bitstr(_P1) ->
     erlang:nif_error(undefined).
 
 %% list_to_bitstring/1
