@@ -58,7 +58,8 @@
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
-	 otp_8180/1, trapping/1]).
+	 otp_8180/1, trapping/1, large/1,
+	 error_after_yield/1, cmp_old_impl/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -76,7 +77,8 @@ all() ->
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180, trapping].
+     obsolete_funs, robustness, otp_8180, trapping, large,
+     error_after_yield, cmp_old_impl].
 
 groups() -> 
     [].
@@ -1351,7 +1353,16 @@ trapping(Config) when is_list(Config)->
     do_trapping(5, term_to_binary,
 		fun() -> [lists:duplicate(2000000,2000000)] end),
     do_trapping(5, binary_to_term,
-		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end).
+		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end),
+    do_trapping(5, binary_to_list,
+		fun() -> [list_to_binary(lists:duplicate(2000000,$x))] end),
+    do_trapping(5, list_to_binary,
+		fun() -> [lists:duplicate(2000000,$x)] end),
+    do_trapping(5, bitstring_to_list,
+		fun() -> [list_to_bitstring([lists:duplicate(2000000,$x),<<7:4>>])] end),
+    do_trapping(5, list_to_bitstring,
+		fun() -> [[lists:duplicate(2000000,$x),<<7:4>>]] end)
+    .
 
 do_trapping(0, _, _) ->
     ok;
@@ -1384,8 +1395,168 @@ trapping_loop2(Bif,Args,N) ->
     apply(erlang,Bif,Args),
     trapping_loop2(Bif, Args, N-1).
 
+large(Config) when is_list(Config) ->
+    List = lists:flatten(lists:map(fun (_) ->
+					   [0,1,2,3,4,5,6,7,8]
+				   end,
+				   lists:seq(1, 131072))),
+    Bin = list_to_binary(List),
+    List = binary_to_list(Bin),
+    PartList = lists:reverse(tl(tl(lists:reverse(tl(tl(List)))))),
+    PartList = binary_to_list(Bin, 3, length(List)-2),
+    ListBS = List ++ [<<7:4>>],
+    ListBS = bitstring_to_list(list_to_bitstring(ListBS)),
+    BitStr1 = list_to_bitstring(lists:duplicate(1024*1024, [<<1,5:3>>])),
+    BitStr1 = list_to_bitstring(bitstring_to_list(BitStr1)),
+    BitStr2 = list_to_bitstring([lists:duplicate(512*1024, [<<1,5:3>>]),
+				Bin]),
+    BitStr2 = list_to_bitstring(bitstring_to_list(BitStr2)),
+    ok.
+
+error_after_yield(Config) when is_list(Config) ->
+    L2BTrap = {erts_internal, list_to_binary_continue, 1},
+    error_after_yield(badarg, erlang, list_to_binary, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
+    error_after_yield(badarg, erlang, iolist_to_binary, 1, fun () -> [[list2iolist(mk_list(1000000)), oops]] end, L2BTrap),
+    error_after_yield(badarg, erlang, list_to_bitstring, 1, fun () -> [[list2bitstrlist(mk_list(1000000)), oops]] end, L2BTrap),
+    error_after_yield(badarg, binary, list_to_bin, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
+
+    case erlang:system_info(wordsize) of
+	4 ->
+	    SysLimitSz = 1 bsl 32,
+	    error_after_yield(system_limit, erlang, list_to_binary, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap),
+	    error_after_yield(system_limit, erlang, iolist_to_binary, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap),
+	    error_after_yield(system_limit, erlang, list_to_bitstring, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap),
+	    error_after_yield(system_limit, binary, list_to_bin, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap);
+	8 ->
+	    % Takes waaaay to long time to test system_limit on 64-bit archs...
+	    ok
+    end,
+    ok.
+
+error_after_yield(Type, M, F, AN, AFun, TrapFunc) ->
+    io:format("Testing ~p for ~p:~p/~p~n", [Type, M, F, AN]),
+    Tracer = self(),
+    {Pid, Mon} = spawn_monitor(fun () ->
+				       A = AFun(),
+				       try
+					   erlang:yield(),
+					   erlang:trace(self(),true,[running,{tracer,Tracer}]),
+					   apply(M, F, A),
+					   exit({unexpected_success, {M, F, A}})
+				       catch
+					   error:Type ->
+					       erlang:trace(self(),false,[running,{tracer,Tracer}]),
+					       %% We threw the exception from the native
+					       %% function we trapped to, but we want
+					       %% the BIF that originally was called
+					       %% to appear in the stack trace.
+					       [{M, F, A, _} | _] = erlang:get_stacktrace()
+				       end
+			       end),
+    receive
+	{'DOWN', Mon, process, Pid, Reason} ->
+	    normal = Reason
+    end,
+    TD = erlang:trace_delivered(Pid),
+    receive
+	{trace_delivered, Pid, TD} ->
+	    NoYields = error_after_yield_sched(Pid, TrapFunc, 0),
+	    io:format("No of yields: ~p~n", [NoYields]),
+	    true =  NoYields > 10
+    end,
+    ok.
+
+error_after_yield_sched(P, TrapFunc, N) ->
+    receive
+	{trace, P, out, TrapFunc} ->
+	    receive
+		{trace, P, in, TrapFunc} ->
+		    error_after_yield_sched(P, TrapFunc, N+1)
+	    after 0 ->
+		    exit(trap_sched_mismatch)
+	    end;
+	{trace, P, out, Func} ->
+	    receive
+		{trace, P, in, Func} ->
+		    error_after_yield_sched(P, TrapFunc, N)
+	    after 0 ->
+		    exit(other_sched_mismatch)
+	    end
+    after 0 ->
+	    N
+    end.
+	    
+cmp_old_impl(Config) when is_list(Config) ->
+    %% Compare results from new yielding implementations with
+    %% old non yielding implementations 
+    Cookie = atom_to_list(erlang:get_cookie()),
+    Rel = "r16b_latest",
+    case test_server:is_release_available(Rel) of
+	false ->
+	    {skipped, "No "++Rel++" available"};
+	true ->
+	    {ok, Node} = ?t:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
+				       peer,
+				       [{args, " -setcookie "++Cookie},
+					{erl, [{release, Rel}]}]),
+
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10000000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list_lb(10000000))]}),
+
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(100))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10000000))]}),
+
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(100))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10000000))]}),
+
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(100)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(100000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000000)))]}),
+
+	    ?t:stop_node(Node),
+
+	    ok
+    end.
 
 %% Utilities.
+
+huge_iolist(Lim) ->
+    Sz = 1024,
+    huge_iolist(list_to_binary(mk_list(Sz)), Sz, Lim).
+
+huge_iolist(X, Sz, Lim) when Sz >= Lim ->
+    X;
+huge_iolist(X, Sz, Lim) ->
+    huge_iolist([X, X], Sz*2, Lim).
+
+cmp_node(Node, {M, F, A}) ->
+    Res = rpc:call(Node, M, F, A),
+    Res = apply(M, F, A),
+    ok.
 
 make_sub_binary(Bin) when is_binary(Bin) ->
     {_,B} = split_binary(list_to_binary([0,1,3,Bin]), 3),
@@ -1467,3 +1638,78 @@ get_reds() ->
 	    erts_debug:set_internal_state(available_internal_state, true),
 	    get_reds()
     end.
+
+-define(LARGE_BIN, (512*1024+10)).
+-define(LARGE_BIN_LIM, (1024*1024)).
+
+mk_list(0, Acc) ->
+    Acc;
+mk_list(Sz, Acc) ->
+    mk_list(Sz-1, [$A+(Sz band 63) | Acc]).
+
+mk_list(Sz) when Sz >= ?LARGE_BIN_LIM ->
+    SzLeft = Sz - ?LARGE_BIN,
+    SzHd = SzLeft div 2,
+    SzTl = SzLeft - SzHd,
+    [mk_list(SzHd, []), erlang:list_to_binary(mk_list(?LARGE_BIN, [])), mk_list(SzTl, [])];
+mk_list(Sz) ->
+    mk_list(Sz, []).
+
+mk_list_lb(Sz) when Sz >= ?LARGE_BIN_LIM ->
+    SzLeft = Sz - ?LARGE_BIN,
+    SzHd = SzLeft div 2,
+    SzTl = SzLeft - SzHd,
+    [mk_list(SzHd, []), erlang:list_to_binary(mk_list(?LARGE_BIN, [])), mk_list(SzTl, [])];
+mk_list_lb(Sz) ->
+    mk_list(Sz, []).
+
+
+list2iolist(List) ->
+    list2iolist(List, []).
+
+list2iolist([], Acc) ->
+    Acc;
+list2iolist([X0, X1, X2, X3, X4, X5 | Xs], Acc) when is_integer(X0), 0 =< X0, X0 < 256,
+						     is_integer(X1), 0 =< X1, X1 < 256,
+						     is_integer(X2), 0 =< X2, X2 < 256,
+						     is_integer(X3), 0 =< X3, X3 < 256,
+						     is_integer(X4), 0 =< X4, X4 < 256,
+						     is_integer(X5), 0 =< X5, X5 < 256 ->
+    NewAcc = case (X0+X1+X2+X3+X4+X5) band 3 of
+		 0 ->
+		     [Acc, [[[[[[[[[[[[X0,[],<<"">>,X1]]]]]]]]],[X2,X3]],[],[],[],[],X4],X5]];
+		 1 ->
+		     [Acc, [], erlang:list_to_binary([X0, X1, X2, X3, X4, X5])];
+		 2 ->
+		     [Acc, [[[[X0|erlang:list_to_binary([X1])],[X2|erlang:list_to_binary([X3])],[X4|erlang:list_to_binary([X5])]]]|<<"">>]];
+		 3 ->
+		     [Acc, X0, X1, X2, <<"">>, [], X3, X4 | erlang:list_to_binary([X5])]
+	     end,
+    list2iolist(Xs, NewAcc);
+list2iolist([X | Xs], Acc) ->
+    list2iolist(Xs, [Acc,X]).
+
+list2bitstrlist(List) ->
+    [list2bitstrlist(List, []), <<4:7>>].
+
+list2bitstrlist([], Acc) ->
+    Acc;
+list2bitstrlist([X0, X1, X2, X3, X4, X5 | Xs], Acc) when is_integer(X0), 0 =< X0, X0 < 256,
+						     is_integer(X1), 0 =< X1, X1 < 256,
+						     is_integer(X2), 0 =< X2, X2 < 256,
+						     is_integer(X3), 0 =< X3, X3 < 256,
+						     is_integer(X4), 0 =< X4, X4 < 256,
+						     is_integer(X5), 0 =< X5, X5 < 256 ->
+    NewAcc = case (X0+X1+X2+X3+X4+X5) band 3 of
+		 0 ->
+		     [Acc, [[[[[[[[[[[[X0,[],<<"">>,X1]]]]]]]]],[X2,X3]],[],[],[],[],X4],X5]];
+		 1 ->
+		     [Acc, [], <<X0:X1>>, <<X2:X3>>, <<X4:X5>>];
+		 2 ->
+		     [Acc, [[[[X0|<<X1:X2>>],X3]],[X4|erlang:list_to_binary([X5])]|<<"">>]];
+		 3 ->
+		     [Acc, X0, X1, X2, <<"">>, [], X3, X4 | erlang:list_to_binary([X5])]
+	     end,
+    list2bitstrlist(Xs, NewAcc);
+list2bitstrlist([X | Xs], Acc) ->
+    list2bitstrlist(Xs, [Acc,X]).

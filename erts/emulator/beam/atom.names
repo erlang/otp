@@ -116,6 +116,7 @@ atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
 atom binary_match_trap
 atom binary_matches_trap
+atom binary_to_list_continue
 atom binary_to_term_trap
 atom block
 atom blocked
@@ -315,6 +316,7 @@ atom line_length
 atom linked_in_driver
 atom links
 atom list
+atom list_to_binary_continue
 atom little
 atom loaded
 atom load_cancelled

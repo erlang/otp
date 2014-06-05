@@ -324,7 +324,6 @@ erl_init(int ncpu,
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
     erts_init_trace();
-    erts_init_binary();
     erts_init_bits();
     erts_code_ix_init();
     erts_init_fun_table();
@@ -337,6 +336,7 @@ erl_init(int ncpu,
     erts_ddll_init();
     init_emulator();
     erts_ptab_init(); /* Must be after init_emulator() */
+    erts_init_binary(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(); /* Must be after init_emulator */
     erts_bif_timer_init();
