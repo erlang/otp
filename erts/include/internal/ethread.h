@@ -51,16 +51,36 @@
 #  endif
 #endif
 
+#if !defined(__GNUC__)
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
+#elif !defined(__GNUC_MINOR__)
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#elif !defined(__GNUC_PATCHLEVEL__)
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#else
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#endif
+
 #undef ETHR_INLINE
 #if defined(__GNUC__)
 #  define ETHR_INLINE __inline__
+#  if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1)
+#    define ETHR_FORCE_INLINE __inline__ __attribute__((__always_inline__))
+#  else
+#    define ETHR_FORCE_INLINE __inline__
+#  endif
 #elif defined(__WIN32__)
 #  define ETHR_INLINE __forceinline
+#  define ETHR_FORCE_INLINE __forceinline
 #endif
 #if defined(ETHR_DEBUG) || !defined(ETHR_INLINE) || ETHR_XCHK \
     || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC))
 #  undef ETHR_INLINE
 #  define ETHR_INLINE 
+#  define ETHR_FORCE_INLINE
 #  undef ETHR_TRY_INLINE_FUNCS
 #endif
 
@@ -284,19 +304,6 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
 					 int line,
 					 const char *func,
 					 int err);
-
-#if !defined(__GNUC__)
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
-#elif !defined(__GNUC_MINOR__)
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#elif !defined(__GNUC_PATCHLEVEL__)
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#else
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#endif
 
 #if !ETHR_AT_LEAST_GCC_VSN__(2, 96, 0)
 #define __builtin_expect(X, Y) (X)
