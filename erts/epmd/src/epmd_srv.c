@@ -399,8 +399,11 @@ void run(EpmdVars *g)
       }
       select_fd_set(g, listensock[i]);
     }
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H 
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
     }
+    sd_notifyf(0, "READY=1\n"
+                  "STATUS=Processing port mapping requests...\n"
+                  "MAINPID=%lu", (unsigned long) getpid());
 #endif
 
   dbg_tty_printf(g,2,"entering the main select() loop");
