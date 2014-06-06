@@ -1691,10 +1691,13 @@ systemd_daemon_save_LIBS=$LIBS
 LIBS=
 AC_SEARCH_LIBS(sd_listen_fds,[systemd systemd-daemon],
   [have_sd_listen_fds=yes],[have_sd_listen_fds=no],$systemd_daemon_save_LIBS)
+AC_SEARCH_LIBS(sd_notify,[systemd systemd-daemon],
+  [have_sd_notify=yes],[have_sd_notify=no],$systemd_daemon_save_LIBS)
 AC_CHECK_HEADERS(systemd/sd-daemon.h,
   [have_systemd_sd_daemon_h=yes],[have_systemd_sd_daemon_h=no])
 
 if test x"$have_sd_listen_fds" = x"yes" && \
+   test x"$have_sd_notify" = x"yes" && \
    test x"$have_systemd_sd_daemon_h" = x"yes"; then
   AC_DEFINE([HAVE_SYSTEMD_DAEMON],[1],[Define if you have systemd daemon])
   SYSTEMD_DAEMON_LIBS=$LIBS

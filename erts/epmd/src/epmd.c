@@ -593,9 +593,11 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
       for(i=0; g->argv[i] != NULL; ++i)
 	  free(g->argv[i]);
       free(g->argv);
-  }      
-      
-
+  }
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+  sd_notifyf(0, "STATUS=Exited.\n"
+                "ERRNO=%i", exitval);
+#endif // HAVE_SYSTEMD_SD_DAEMON_H
   exit(exitval);
 }
 
