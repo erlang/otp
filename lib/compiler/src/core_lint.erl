@@ -33,9 +33,6 @@
 %% Values only as multiple values/variables/patterns.
 %% Return same number of values as requested
 %% Correct number of arguments
-%%
-%% Checks to add:
-%%
 %% Consistency of values/variables
 %% Consistency of function return values/calls.
 %%
