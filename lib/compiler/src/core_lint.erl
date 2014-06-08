@@ -368,12 +368,23 @@ expr(#c_receive{clauses=Cs,timeout=T,action=A}, Def, Rt, St0) ->
 expr(#c_apply{op=Op,args=As}, Def, Rt, St0) ->
     St1 = apply_op(Op, Def, length(As), St0),
     return_match(Rt, 1, expr_list(As, Def, St1));
+expr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
+     Def, Rt, St0) when is_atom(Name) ->
+    St1 = expr_list(As, Def, St0),
+    case erl_bifs:is_exit_bif(erlang, Name, length(As)) of
+        true -> St1;
+        false -> return_match(Rt, 1, St1)
+    end;
 expr(#c_call{module=M,name=N,args=As}, Def, _Rt, St0) ->
     St1 = expr(M, Def, 1, St0),
     St2 = expr(N, Def, 1, St1),
     expr_list(As, Def, St2);
-expr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
-    expr_list(As, Def, St0);
+expr(#c_primop{name=#c_literal{val=A},args=As}, Def, Rt, St0) when is_atom(A) ->
+    St1 = expr_list(As, Def, St0),
+    case A of
+        match_fail -> St1;
+        _ -> return_match(Rt, 1, St1)
+    end;
 expr(#c_catch{body=B}, Def, Rt, St) ->
     return_match(Rt, 1, body(B, Def, 1, St));
 expr(#c_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Def, Rt, St0) ->
