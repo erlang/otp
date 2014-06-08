@@ -33,13 +33,23 @@
 
 typedef struct trunk_db_term {
     /*
+     * The following three fields are allocated
+     * if the RootDbTerm contains a nested LHT.
+     */
+
+    struct trunk_db_term *onext; /* next term (nested tree) */
+    HashValue ohvalue;           /* hash value of the object */
+
+    /*
      * The np field of the first TrunkDbTerm contains nkitems, the np
      * field of the other TrunkDbTerms contains the previous pointer.
      */
     union {
-        int nkitems;                    /* length of trunk chain */
+        struct segment **segtab;
         struct trunk_db_term *previous; /* previous term (same key) */
-    } np;
+    } sp;
+
+    /* The following fields are always allocated. */
 
     struct trunk_db_term *next; /* next term (same key) */
 
@@ -47,33 +57,30 @@ typedef struct trunk_db_term {
 } TrunkDbTerm;
 
 typedef struct root_db_term {
-    struct root_db_term *next; /* next root term */
+    struct root_db_term *next; /* next root term (different key) */
 
     /*
      * The first trunk term of the chain (it's never NULL).
      * Its lsb is used as a flag:
-     * o if zero, this RootDbTerm is truncated at the lht field
-     * o if set, this RootDbTerm includes the lht field
+     * o if zero, this RootDbTerm is truncated at the segtab field
+     * o if set, this RootDbTerm includes the segtab and successive fields
      * Use GET_TRUNK() and SET_TRUNK() to access this field.
      */
     TrunkDbTerm *trunk;
 
-    HashValue hvalue;    /* hash value of the key */
-    struct segment **segtab;
-    HashValue szm;    /* current size mask. */
+    HashValue hvalue; /* hash value of the key */
+    int nkitems;      /* length of trunk chain */
 
-    /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
-    int nslots; /* total number of slots */
-    int nsegs;  /* size of segment table */
+    /*
+     * The following fields are allocated if a nested LHT is required.
+     */
 
+    HashValue szm; /* current size mask. */
+
+    int nslots;  /* total number of slots */
+    int nsegs;   /* size of segment table */
     int nactive; /* number of active slots */
 } RootDbTerm;
-
-typedef struct nested_db_term {
-    struct nested_db_term *next; /* next nested term */
-    HashValue ohvalue;           /* hash value of the whole dbterm */
-    TrunkDbTerm *hdbterm;
-} NestedDbTerm;
 
 typedef struct nested_fixed_deletion {
     int slot;
