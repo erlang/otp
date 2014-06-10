@@ -118,10 +118,10 @@ kexinit_messsage(client, Random, Compression, HostKeyAlgs) ->
 		  cookie = Random,
 		  kex_algorithms = ["diffie-hellman-group1-sha1"],
 		  server_host_key_algorithms = HostKeyAlgs,
-		  encryption_algorithms_client_to_server = ["aes128-cbc","3des-cbc"],
-		  encryption_algorithms_server_to_client = ["aes128-cbc","3des-cbc"],
-		  mac_algorithms_client_to_server = ["hmac-sha1"],
-		  mac_algorithms_server_to_client = ["hmac-sha1"],
+		  encryption_algorithms_client_to_server = ["aes128-ctr","aes128-cbc","3des-cbc"],
+		  encryption_algorithms_server_to_client = ["aes128-ctr","aes128-cbc","3des-cbc"],
+		  mac_algorithms_client_to_server = ["hmac-sha2-256","hmac-sha1"],
+		  mac_algorithms_server_to_client = ["hmac-sha2-256","hmac-sha1"],
 		  compression_algorithms_client_to_server = Compression,
 		  compression_algorithms_server_to_client = Compression,
 		  languages_client_to_server = [],
@@ -133,10 +133,10 @@ kexinit_messsage(server, Random, Compression, HostKeyAlgs) ->
 		  cookie = Random,
 		  kex_algorithms = ["diffie-hellman-group1-sha1"],
 		  server_host_key_algorithms = HostKeyAlgs,
-		  encryption_algorithms_client_to_server = ["aes128-cbc","3des-cbc"],
-		  encryption_algorithms_server_to_client = ["aes128-cbc","3des-cbc"],
-		  mac_algorithms_client_to_server = ["hmac-sha1"],
-		  mac_algorithms_server_to_client = ["hmac-sha1"],
+		  encryption_algorithms_client_to_server = ["aes128-ctr","aes128-cbc","3des-cbc"],
+		  encryption_algorithms_server_to_client = ["aes128-ctr","aes128-cbc","3des-cbc"],
+		  mac_algorithms_client_to_server = ["hmac-sha2-256","hmac-sha1"],
+		  mac_algorithms_server_to_client = ["hmac-sha2-256","hmac-sha1"],
 		  compression_algorithms_client_to_server = Compression,
 		  compression_algorithms_server_to_client = Compression,
 		  languages_client_to_server = [],
@@ -636,7 +636,21 @@ encrypt_init(#ssh{encrypt = 'aes128-cbc', role = server} = Ssh) ->
     <<K:16/binary>> = hash(Ssh, "D", 128),
     {ok, Ssh#ssh{encrypt_keys = K,
 		 encrypt_block_size = 16,
-                 encrypt_ctx = IV}}.
+                 encrypt_ctx = IV}};
+encrypt_init(#ssh{encrypt = 'aes128-ctr', role = client} = Ssh) ->
+	IV = hash(Ssh, "A", 128),
+    <<K:16/binary>> = hash(Ssh, "C", 128),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{encrypt_keys = K,
+		 encrypt_block_size = 16,
+                 encrypt_ctx = State}};
+encrypt_init(#ssh{encrypt = 'aes128-ctr', role = server} = Ssh) ->
+	IV = hash(Ssh, "B", 128),
+    <<K:16/binary>> = hash(Ssh, "D", 128),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{encrypt_keys = K,
+		 encrypt_block_size = 16,
+                 encrypt_ctx = State}}.
 
 encrypt_final(Ssh) ->
     {ok, Ssh#ssh{encrypt = none, 
@@ -658,7 +672,11 @@ encrypt(#ssh{encrypt = 'aes128-cbc',
             encrypt_ctx = IV0} = Ssh, Data) ->
     Enc = crypto:block_encrypt(aes_cbc128, K,IV0,Data),
     IV = crypto:next_iv(aes_cbc, Enc),
-    {Ssh#ssh{encrypt_ctx = IV}, Enc}.
+    {Ssh#ssh{encrypt_ctx = IV}, Enc};
+encrypt(#ssh{encrypt = 'aes128-ctr',
+            encrypt_ctx = State0} = Ssh, Data) ->
+    {State, Enc} = crypto:stream_encrypt(State0,Data),
+    {Ssh#ssh{encrypt_ctx = State}, Enc}.
   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -690,7 +708,21 @@ decrypt_init(#ssh{decrypt = 'aes128-cbc', role = server} = Ssh) ->
 		hash(Ssh, "C", 128)},
     <<K:16/binary>> = KD,
     {ok, Ssh#ssh{decrypt_keys = K, decrypt_ctx = IV,
-		 decrypt_block_size = 16}}.
+		 decrypt_block_size = 16}};
+decrypt_init(#ssh{decrypt = 'aes128-ctr', role = client} = Ssh) ->
+	IV = hash(Ssh, "B", 128),
+    <<K:16/binary>> = hash(Ssh, "D", 128),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = 16,
+                 decrypt_ctx = State}};
+decrypt_init(#ssh{decrypt = 'aes128-ctr', role = server} = Ssh) ->
+	IV = hash(Ssh, "A", 128),
+    <<K:16/binary>> = hash(Ssh, "C", 128),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = 16,
+                 decrypt_ctx = State}}.
 
   
 decrypt_final(Ssh) ->
@@ -711,7 +743,11 @@ decrypt(#ssh{decrypt = 'aes128-cbc', decrypt_keys = Key,
 	     decrypt_ctx = IV0} = Ssh, Data) ->
     Dec = crypto:block_decrypt(aes_cbc128, Key,IV0,Data),
     IV = crypto:next_iv(aes_cbc, Data),
-    {Ssh#ssh{decrypt_ctx = IV}, Dec}.
+    {Ssh#ssh{decrypt_ctx = IV}, Dec};
+decrypt(#ssh{decrypt = 'aes128-ctr',
+            decrypt_ctx = State0} = Ssh, Data) ->
+    {State, Enc} = crypto:stream_decrypt(State0,Data),
+    {Ssh#ssh{decrypt_ctx = State}, Enc}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compression
@@ -846,7 +882,9 @@ mac('hmac-sha1-96', Key, SeqNum, Data) ->
 mac('hmac-md5', Key, SeqNum, Data) ->
     crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-md5-96', Key, SeqNum, Data) ->
-    crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-md5-96')).
+    crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-md5-96'));
+mac('hmac-sha2-256', Key, SeqNum, Data) ->
+	crypto:hmac(sha256, Key, [<<?UINT32(SeqNum)>>, Data]).
 
 %% return N hash bytes (HASH)
 hash(SSH, Char, Bits) ->
@@ -911,12 +949,14 @@ mac_key_size('hmac-sha1')    -> 20*8;
 mac_key_size('hmac-sha1-96') -> 20*8;
 mac_key_size('hmac-md5')     -> 16*8;
 mac_key_size('hmac-md5-96')  -> 16*8;
+mac_key_size('hmac-sha2-256')-> 32*8;
 mac_key_size(none) -> 0.
 
 mac_digest_size('hmac-sha1')    -> 20;
 mac_digest_size('hmac-sha1-96') -> 12;
 mac_digest_size('hmac-md5')    -> 20;
 mac_digest_size('hmac-md5-96') -> 12;
+mac_digest_size('hmac-sha2-256') -> 32;
 mac_digest_size(none) -> 0.
 
 peer_name({Host, _}) ->
