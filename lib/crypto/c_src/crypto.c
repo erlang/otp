@@ -2897,8 +2897,8 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     /* a + (u * x) */
     bn_exp2 = BN_new();
-    BN_mod_mul(bn_result, bn_u, bn_exponent, bn_prime, bn_ctx);
-    BN_mod_add(bn_exp2, bn_a, bn_result, bn_prime, bn_ctx);
+    BN_mul(bn_result, bn_u, bn_exponent, bn_ctx);
+    BN_add(bn_exp2, bn_a, bn_result);
 
     /* (B - (k * g^x)) ^ (a + (u * x)) % N */
     BN_mod_exp(bn_result, bn_base, bn_exp2, bn_prime, bn_ctx);
