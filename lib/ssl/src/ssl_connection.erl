@@ -322,6 +322,7 @@ abbreviated(#hello_request{}, State0, Connection) ->
 abbreviated(#finished{verify_data = Data} = Finished,
 	    #state{role = server,
 		   negotiated_version = Version,
+		   expecting_finished = true,
 		   tls_handshake_history = Handshake,
 		   session = #session{master_secret = MasterSecret},
 		   connection_states = ConnectionStates0} =
@@ -334,7 +335,8 @@ abbreviated(#finished{verify_data = Data} = Finished,
 		ssl_record:set_client_verify_data(current_both, Data, ConnectionStates0),
 	    Connection:next_state_connection(abbreviated,
 					     ack_connection(
-					       State#state{connection_states = ConnectionStates}));
+					       State#state{connection_states = ConnectionStates,
+							   expecting_finished = false}));
 	#alert{} = Alert ->
 	    Connection:handle_own_alert(Alert, Version, abbreviated, State)
     end;
@@ -354,7 +356,7 @@ abbreviated(#finished{verify_data = Data} = Finished,
 		finalize_handshake(State0#state{connection_states = ConnectionStates1},
 				   abbreviated, Connection),
 	    Connection:next_state_connection(abbreviated,
-					     ack_connection(State));
+					     ack_connection(State#state{expecting_finished = false}));
         #alert{} = Alert ->
 	    Connection:handle_own_alert(Alert, Version, abbreviated, State0)
     end;
@@ -365,7 +367,7 @@ abbreviated(#next_protocol{selected_protocol = SelectedProtocol},
 	    #state{role = server, expecting_next_protocol_negotiation = true} = State0,
 	    Connection) ->
     {Record, State} = Connection:next_record(State0#state{next_protocol = SelectedProtocol}),
-    Connection:next_state(abbreviated, abbreviated, Record, State);
+    Connection:next_state(abbreviated, abbreviated, Record, State#state{expecting_next_protocol_negotiation = false});
 
 abbreviated(timeout, State, _) ->
     {next_state, abbreviated, State, hibernate };
@@ -589,6 +591,7 @@ cipher(#finished{verify_data = Data} = Finished,
 	      host = Host,
 	      port = Port,
 	      role = Role,
+	      expecting_finished = true,
 	      session = #session{master_secret = MasterSecret}
 	      = Session0,
 	      connection_states = ConnectionStates0,
@@ -599,7 +602,7 @@ cipher(#finished{verify_data = Data} = Finished,
 					 MasterSecret, Handshake0) of
         verified ->
 	    Session = register_session(Role, Host, Port, Session0),
-	    cipher_role(Role, Data, Session, State, Connection);
+	    cipher_role(Role, Data, Session, State#state{expecting_finished = false}, Connection);
         #alert{} = Alert ->
 	    Connection:handle_own_alert(Alert, Version, cipher, State)
     end;
@@ -607,7 +610,8 @@ cipher(#finished{verify_data = Data} = Finished,
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
 cipher(#next_protocol{selected_protocol = SelectedProtocol},
-       #state{role = server, expecting_next_protocol_negotiation = true} = State0, Connection) ->
+       #state{role = server, expecting_next_protocol_negotiation = true,
+	      expecting_finished = true} = State0, Connection) ->
     {Record, State} = Connection:next_record(State0#state{next_protocol = SelectedProtocol}),
     Connection:next_state(cipher, cipher, Record, State#state{expecting_next_protocol_negotiation = false});
 
@@ -1033,9 +1037,6 @@ server_hello(ServerHello, State0, Connection) ->
 server_hello_done(State, Connection) ->
     HelloDone = ssl_handshake:server_hello_done(),
     Connection:send_handshake(HelloDone, State).
-
-
-
 
 handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 		 #state{session = #session{cipher_suite = CipherSuite} = Session} = State0,
