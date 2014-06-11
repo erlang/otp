@@ -19,13 +19,25 @@
 
 {"%VSN%",	
  [
+  {"3.0.2", [{load_module, ssh_message, soft_purge, soft_purge, []},
+	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
+	     {load_module, ssh_io, soft_purge, soft_purge, []}]},
   {"3.0.1", [{load_module, ssh, soft_purge, soft_purge, []},
-	     {load_module, ssh_acceptor, soft_purge, soft_purge, []}]},
+	     {load_module, ssh_acceptor, soft_purge, soft_purge, []},
+	     {load_module, ssh_message, soft_purge, soft_purge, []},
+	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
+	     {load_module, ssh_io, soft_purge, soft_purge, []}]},
   {<<".*">>, [{restart_application, ssh}]}
  ],
  [
+  {"3.0.2", [{load_module, ssh_message, soft_purge, soft_purge, []},
+	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
+	     {load_module, ssh_io, soft_purge, soft_purge, []}]},
   {"3.0.1", [{load_module, ssh, soft_purge, soft_purge, []},
-	     {load_module, ssh_acceptor, soft_purge, soft_purge, []}]},
+	     {load_module, ssh_acceptor, soft_purge, soft_purge, []},
+	     {load_module, ssh_message, soft_purge, soft_purge, []},
+	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
+	     {load_module, ssh_io, soft_purge, soft_purge, []}]},
   {<<".*">>, [{restart_application, ssh}]}
  ]
 }.
