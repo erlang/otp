@@ -115,7 +115,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           If <c>FsmName={global,GlobalName}</c>, the gen_fsm is
           registered globally as <c>GlobalName</c> using
           <c>global:register_name/2</c>.
-	  If <c>EventMgrName={via,Module,ViaName}</c>, the event manager will
+	  If <c>FsmName={via,Module,ViaName}</c>, the gen_fsm will
 	  register with the registry represented by <c>Module</c>.
 	  The <c>Module</c> callback should export the functions
 	  <c>register_name/2</c>, <c>unregister_name/1</c>,
@@ -210,7 +210,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
 	  registered at another node, or</item>
 	  <item><c>{global,GlobalName}</c>, if the gen_fsm is globally
 	  registered.</item>
-	  <item><c>{via,Module,ViaName}</c>, if the event manager is registered
+	  <item><c>{via,Module,ViaName}</c>, if the gen_fsm is registered
 	  through an alternative process registry.</item>
         </list>
         <p><c>Event</c> is an arbitrary term which is passed as one of
