@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -641,16 +641,17 @@ get_last_app_tests([Dir|Dirs],RE,Acc) ->
     NewAcc =
 	case re:run(Dir,RE,[{capture,all,list}]) of
 	    {match,[Dir,AppStr]} ->
+		Dir1 = filename:dirname(Dir), % cover logs in ct_run.<t> dir
 		App = list_to_atom(AppStr),
 		case lists:keytake(App,1,Acc) of
 		    {value,{App,LastDir},Rest} ->
-			if Dir > LastDir ->
-				[{App,Dir}|Rest];
+			if Dir1 > LastDir ->
+				[{App,Dir1}|Rest];
 			   true ->
 				Acc
 			end;
 		    false ->
-			[{App,Dir} | Acc]
+			[{App,Dir1} | Acc]
 		end;
 	    _ ->
 		Acc

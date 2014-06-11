@@ -49,3 +49,12 @@
 	      master,
 	      cookie}).
 	      
+
+-record(cover, {app,    % application; Name | none
+		file,   % cover spec file
+		incl,   % explicitly include modules
+		excl,   % explicitly exclude modules
+		level,  % analyse level; details | overview
+		mods,   % actually cover compiled modules
+		stop=true,   % stop cover after analyse; boolean()
+		cross}).% cross cover analyse info
