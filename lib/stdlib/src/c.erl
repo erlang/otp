@@ -509,9 +509,12 @@ m(M) ->
     {exports,E} = lists:keyfind(exports, 1, L),
     Time = get_compile_time(L),
     COpts = get_compile_options(L),
-    format("Module ~w compiled: ",[M]), print_time(Time),
-    format("Compiler options:  ~p~n", [COpts]),
+    format("Module: ~w~n", [M]),
+    print_md5(L),
+    format("Compiled: "),
+    print_time(Time),
     print_object_file(M),
+    format("Compiler options:  ~p~n", [COpts]),
     format("Exports: ~n",[]), print_exports(keysort(1, E)).
 
 print_object_file(Mod) ->
@@ -520,6 +523,12 @@ print_object_file(Mod) ->
 	    format("Object file: ~ts\n", [File]);
 	_ ->
 	    ignore
+    end.
+
+print_md5(L) ->
+    case lists:keyfind(md5, 1, L) of
+        {md5,<<MD5:128>>} -> io:format("MD5: ~.16b~n",[MD5]);
+        _ -> ok
     end.
 
 get_compile_time(L) ->
@@ -569,8 +578,8 @@ split_print_exports([{F1, A1}|T1], [{F2, A2} | T2]) ->
 split_print_exports([], []) -> ok.
 
 print_time({Year,Month,Day,Hour,Min,_Secs}) ->
-    format("Date: ~s ~w ~w, ", [month(Month),Day,Year]),
-    format("Time: ~.2.0w.~.2.0w~n", [Hour,Min]);
+    format("~s ~w ~w, ", [month(Month),Day,Year]),
+    format("~.2.0w:~.2.0w~n", [Hour,Min]);
 print_time(notime) ->
     format("No compile time info available~n",[]).
 
