@@ -673,6 +673,7 @@ case $chk_arch_ in
     x86_64)	ARCH=amd64;;
     amd64)	ARCH=amd64;;
     macppc)	ARCH=ppc;;
+    powerpc)	ARCH=ppc;;
     ppc)	ARCH=ppc;;
     ppc64)	ARCH=ppc64;;
     "Power Macintosh")	ARCH=ppc;;
@@ -680,8 +681,10 @@ case $chk_arch_ in
     armv5teb)	ARCH=arm;;
     armv5tel)	ARCH=arm;;
     armv5tejl)	ARCH=arm;;
-    armv6l) ARCH=arm;;
+    armv6l)	ARCH=arm;;
+    armv6hl)	ARCH=arm;;
     armv7l)	ARCH=arm;;
+    armv7hl)	ARCH=arm;;
     tile)	ARCH=tile;;
     *)	 	ARCH=noarch;;
 esac

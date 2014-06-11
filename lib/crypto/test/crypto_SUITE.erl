@@ -690,7 +690,7 @@ group_config(ecdsa = Type, Config) ->
     SignVerify = [{Type, sha, Public, Private, Msg}],
     [{sign_verify, SignVerify} | Config];
 group_config(srp, Config) ->
-    GenerateCompute = [srp3(), srp6(), srp6a()],
+    GenerateCompute = [srp3(), srp6(), srp6a(), srp6a_smaller_prime()],
     [{generate_compute, GenerateCompute} | Config];
 group_config(ecdh, Config) ->
     Compute = ecdh(),
@@ -1491,6 +1491,32 @@ srp6() ->
 				 "7216F9CD8A4AC39F0429857D8D1023066614BDFCBCB89F59A0FEB81C"
 				 "72E992AAD89095A84B6A5FADA152369AB1E350A03693BEF044DF3EDF"
 				 "0C34741F4696C30E9F675D09F58ACBEB"),
+    UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
+    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
+    srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
+
+
+srp6a_smaller_prime() ->
+    Username = <<"alice">>,
+    Password = <<"password123">>,
+    Salt = <<"mystrongsalt">>,
+    Prime = hexstr2bin("894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7"),
+    Generator = <<7>>,
+    Version = '6a',
+    Scrambler = hexstr2bin("18DE4A002AD05EF464B19AE2B6929F9B1319C7AA"),
+    Verifier = hexstr2bin("867401D5DE10964768184EAF246B322760C847604075FA66A4423907"
+			  "8428BCA5"),
+    ClientPrivate = hexstr2bin("C49F832EE8D67ECF9E7F2785EB0622D8B3FE2344C00F96E1AEF4103C"
+			  "A44D51F9"),
+    ServerPrivate = hexstr2bin("6C78CCEAAEC15E69068A87795B2A20ED7B45CFC5A254EBE2F17F144A"
+			  "4D99DB18"),
+    ClientPublic = hexstr2bin("2452A57166BBBF690DB77539BAF9C57CD1ED99D5AA15ED925AD9B5C3"
+			  "64BBEDFF"),
+    ServerPublic = hexstr2bin("2C0464DE84B91E4963A3546CAC0EFE55F31F49208C3F0AD7EE55F444"
+			  "8F38BA7F"),
+
+    SessionKey = hexstr2bin("65581B2302580BD26F522A5A421CF969B9CCBCE4051196B034A2A9D22065D848"),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
     Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
     ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
