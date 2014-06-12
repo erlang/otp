@@ -432,14 +432,14 @@ handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
 
 handle_inet_option({active, _} = Opt) ->
-    throw({error, {{eoptions, Opt}, "Ssh has built in flow control, "
-		   "and activ is handled internaly user is not allowd"
+    throw({error, {{eoptions, Opt}, "SSH has built in flow control, "
+		   "and active is handled internally, user is not allowed"
 		   "to specify this option"}});
 
 handle_inet_option({inet, Value}) when (Value == inet) or (Value == inet6) ->
     Value;
 handle_inet_option({reuseaddr, _} = Opt) ->
-    throw({error, {{eoptions, Opt},"Is set internaly user is not allowd"
+    throw({error, {{eoptions, Opt},"Is set internally, user is not allowed"
 		   "to specify this option"}});
 %% Option verified by inet
 handle_inet_option(Opt) ->
