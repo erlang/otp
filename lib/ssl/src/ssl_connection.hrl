@@ -77,6 +77,7 @@
 	  terminated = false                          ::boolean(),
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),
+	  expecting_finished =                  false ::boolean(),
           next_protocol = undefined                   :: undefined | binary(),
 	  client_ecc,          % {Curves, PointFmt}
 	  tracker              :: pid() %% Tracker process for listen socket

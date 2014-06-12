@@ -444,12 +444,16 @@ next_state(_, StateName, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, St
    	    next_state(StateName, StateName, Record, State)
     end;
 next_state(Current, Next, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = <<1>>} = 
- 	   _ChangeCipher, 
- 	   #state{connection_states = ConnectionStates0} = State0) ->
+	       _ChangeCipher, 
+ 	   #state{connection_states = ConnectionStates0} = State0) 
+  when Next == cipher; Next == abbreviated ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read),
     {Record, State} = next_record(State0#state{connection_states = ConnectionStates1}),
-    next_state(Current, Next, Record, State);
+    next_state(Current, Next, Record, State#state{expecting_finished = true});
+next_state(Current, _Next, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = <<1>>} = 
+ 	       _ChangeCipher, #state{negotiated_version = Version} = State) ->
+    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, Current, State);
 next_state(Current, Next, #ssl_tls{type = _Unknown}, State0) ->
     %% Ignore unknown type 
     {Record, State} = next_record(State0),
