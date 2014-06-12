@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,8 @@
 -compile(export_all).
 -include_lib("common_test/include/ct_event.hrl").
 
+-define(remote_host, "NETMARKS_REMOTE_HOST").
+
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> [{group, setup}, {group, payload}].
@@ -32,15 +34,19 @@ groups() ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(_GroupName, _Config) ->
+    ok.
 
 init_per_suite(Config) ->
-    Server = setup(ssl, node()),
-    [{server_node, Server}|Config].
+    try
+	Server = setup(ssl, node()),
+	[{server_node, Server}|Config]
+    catch _:_ ->
+	    {skipped, "Benchmark machines only"}
+    end.
 
-end_per_suite(Config) ->
-    Config.
+end_per_suite(_Config) ->
+    ok.
 
 init_per_testcase(_Func, Conf) ->
     Conf.
@@ -99,6 +105,9 @@ test(Type, Count, Host) ->
     ok.
 
 do_test(Type, TC, Loop, ParallellConnections, Server) ->
+    _ = ssl:stop(),
+    {ok, _} = ensure_all_started(ssl, []),
+
     {ok, {SPid, Host, Port}} = rpc:call(Server, ?MODULE, setup_server_init,
 					[Type, TC, Loop, ParallellConnections]),
     link(SPid),
@@ -130,16 +139,16 @@ do_test(Type, TC, Loop, ParallellConnections, Server) ->
 	   end,
     {TimeInMicro, _} = timer:tc(Run),
     TotalTests = ParallellConnections * Loop,
-    TestPerSecond = 1000000 * TotalTests / TimeInMicro,
-    io:format("TC ~p ~p ~p ~.3f 1/s~n", [TC, Type, ParallellConnections, TestPerSecond]),
+    TestPerSecond = 1000000 * TotalTests div TimeInMicro,
+    io:format("TC ~p ~p ~p ~p 1/s~n", [TC, Type, ParallellConnections, TestPerSecond]),
     unlink(SPid),
     SPid ! quit,
     {ok, TestPerSecond}.
 
 server_init(ssl, setup_connection, _, _, Server) ->
     {ok, Socket} = ssl:listen(0, ssl_opts(listen)),
-    {ok, {Host, Port}} = ssl:sockname(Socket),
-    %% {ok, Host} = inet:gethostname(),
+    {ok, {_Host, Port}} = ssl:sockname(Socket),
+    {ok, Host} = inet:gethostname(),
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
     %%?EPROF_SERVER andalso start_profile(eprof, [ssl_connection_sup, ssl_manager]),
     ?EPROF_SERVER andalso start_profile(eprof, [ssl_manager]),
@@ -152,7 +161,8 @@ server_init(ssl, setup_connection, _, _, Server) ->
     setup_server_connection(Socket, Test);
 server_init(ssl, payload, Loop, _, Server) ->
     {ok, Socket} = ssl:listen(0, ssl_opts(listen)),
-    {ok, {Host, Port}} = ssl:sockname(Socket),
+    {ok, {_Host, Port}} = ssl:sockname(Socket),
+    {ok, Host} = inet:gethostname(),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
 		   ok = ssl:ssl_accept(TSocket),
@@ -228,7 +238,13 @@ msg() ->
 setup(_Type, nonode@nohost) ->
     exit(dist_not_enabled);
 setup(Type, _This) ->
-    {ok, Host} = inet:gethostname(),
+    Host = case os:getenv(?remote_host) of
+	       false ->
+		   {ok, This} = inet:gethostname(),
+		   This;
+	       RemHost ->
+		   RemHost
+	   end,
     Node = list_to_atom("perf_server@" ++ Host),
     SlaveArgs = case init:get_argument(pa) of
 	       {ok, PaPaths} ->
@@ -236,25 +252,28 @@ setup(Type, _This) ->
 	       _ -> []
 	   end,
     %% io:format("Slave args: ~p~n",[SlaveArgs]),
+    Prog =
+	case os:find_executable("erl") of
+	    false -> "erl";
+	    P -> P
+	end,
+    io:format("Prog = ~p~n", [Prog]),
+
     case net_adm:ping(Node) of
 	pong -> ok;
 	pang ->
-	    {ok, Node} = slave:start(Host, perf_server, SlaveArgs)
+	    {ok, Node} = slave:start(Host, perf_server, SlaveArgs, no_link, Prog)
     end,
     Path = code:get_path(),
     true = rpc:call(Node, code, set_path, [Path]),
-    ok = rpc:call(Node, ?MODULE, setup_server, [Type]),
-    io:format("Client using ~s~n",[code:which(ssl)]),
-    %% We expect this to run on 8 core machine
-    restrict_schedulers(client),
-    {ok, _} = ensure_all_started(ssl, []),
+    ok = rpc:call(Node, ?MODULE, setup_server, [Type, node()]),
+    io:format("Client (~p) using ~s~n",[node(), code:which(ssl)]),
+    (Node =:= node()) andalso restrict_schedulers(client),
     Node.
 
-setup_server(_Type) ->
-    restrict_schedulers(server),
-    io:format("Server using ~s~n",[code:which(ssl)]),
-    ssl:stop(),
-    {ok, _} = ensure_all_started(ssl, []),
+setup_server(_Type, ClientNode) ->
+    (ClientNode =:= node()) andalso restrict_schedulers(server),
+    io:format("Server (~p) using ~s~n",[node(), code:which(ssl)]),
     ok.
 
 
@@ -269,6 +288,8 @@ ensure_all_started(App, Ack) ->
     end.
 
 setup_server_init(Type, Tc, Loop, PC) ->
+    _ = ssl:stop(),
+    {ok, _} = ensure_all_started(ssl, []),
     Me = self(),
     Pid = spawn_link(fun() -> server_init(Type, Tc, Loop, PC, Me) end),
     Res = receive
@@ -279,6 +300,7 @@ setup_server_init(Type, Tc, Loop, PC) ->
     Res.
 
 restrict_schedulers(Type) ->
+    %% We expect this to run on 8 core machine
     Extra0 = 1,
     Extra =  if (Type =:= server) -> -Extra0; true -> Extra0 end,
     Scheds = erlang:system_info(schedulers),
@@ -330,7 +352,6 @@ ssl_opts(listen) ->
     [{backlog, 500} | ssl_opts("server")];
 ssl_opts(connect) ->
     [{verify, verify_peer}
-    , {reuse_sessions, false}
      | ssl_opts("client")];
 ssl_opts(Role) ->
     Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
