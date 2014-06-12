@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -531,15 +531,9 @@
        <p>Multiple, thread specific instances of the allocator.
        This option will only have any effect on the runtime system
        with SMP support. Default behaviour on the runtime system with
-       SMP support:</p>
-       <taglist>
-         <tag><c>ll_alloc</c></tag>
-	 <item><c>1</c> instance.</item>
-         <tag>Other allocators</tag>
-	 <item><c>NoSchedulers+1</c> instances. Each scheduler will use
-	 a lock-free instance of its own and other threads will use
-	 a common instance.</item>
-       </taglist>
+       SMP support is <c>NoSchedulers+1</c> instances. Each scheduler will use
+       a lock-free instance of its own and other threads will use
+       a common instance.</p>
        <p>It was previously (before ERTS version 5.9) possible to configure
        a smaller amount of thread specific instances than schedulers.
        This is, however, not possible any more.</p>
