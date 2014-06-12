@@ -1371,6 +1371,7 @@ tcp_connect_big() ->
     [{doc,"Test what happens when a tcp tries to connect, i,e. a bad big (ssl) packet is sent first"}].
 
 tcp_connect_big(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
     ServerOpts = ?config(server_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
@@ -1396,7 +1397,9 @@ tcp_connect_big(Config) when is_list(Config) ->
 		{Server, {error, timeout}} ->
 		    ct:fail("hangs");
 		{Server, {error, Error}} ->
-		    ct:log("Error ~p", [Error])
+		    ct:log("Error ~p", [Error]);
+		{'EXIT', Server, _} ->
+		    ok	 
 	    end
     end.
 
