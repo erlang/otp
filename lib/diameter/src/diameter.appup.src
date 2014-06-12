@@ -43,7 +43,7 @@
                {load_module, diameter_gen_base_rfc6733},
                {load_module, diameter_gen_acct_rfc6733},
                {load_module, diameter_gen_base_rfc3588},
-               {load_module, diameter_gen_accounting},
+               {load_module, diameter_gen_base_accounting},
                {load_module, diameter_gen_relay},
                {load_module, diameter_codec},
                {load_module, diameter_sctp}]}
@@ -67,7 +67,7 @@
   {"1.6",     [{load_module, diameter_sctp},
                {load_module, diameter_codec},
                {load_module, diameter_gen_relay},
-               {load_module, diameter_gen_accounting},
+               {load_module, diameter_gen_base_accounting},
                {load_module, diameter_gen_base_rfc3588},
                {load_module, diameter_gen_acct_rfc6733},
                {load_module, diameter_gen_base_rfc6733},
