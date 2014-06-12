@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2013</year>
+      <year>2006</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -81,10 +81,7 @@
       specify that previously exported data should be imported and
       included in the analysis for a test (you can specify multiple
       import files). This way it is possible to analyse total code coverage
-      without necessarily running all tests at once. Note that even if
-      you run separate tests in one test run, code coverage data will
-      not be passed on from one test to another unless you specify an
-      export file for Common Test to use for this purpose.</p>
+      without necessarily running all tests at once.</p>
 
     <p>To activate the code coverage support, you simply specify the
       name of the cover specification file as you start Common Test.
@@ -266,10 +263,20 @@ ct_cover:cross_cover_analyse(Level, [{s1,S1LogDir},{s2,S2LogDir}]).</code>
 
   <section>
     <title>Logging</title>
-    <p>To view the result of a code coverage test, follow the
-      "Coverage log" link on the test suite results page. This 
-      takes you to the code coverage overview page. If you have 
-      successfully performed a detailed coverage analysis, you 
+    <p>To view the result of a code coverage test, click the button
+      labled "COVER LOG" in the top level index page for the test run.</p>
+
+    <p>Prior to Erlang/OTP 17.1, if your test run consisted of
+      multiple tests, cover would be started and stopped for each test
+      within the test run. Separate logs would be available via the
+      "Coverage log" link on the test suite result pages. These links
+      are still available, but now they all point to the same page as
+      the button on the top level index page. The log contains the
+      accumulated results for the complete test run. See the release
+      notes for more information about this change.</p>
+
+    <p>The buttonc takes you to the code coverage overview page. If you
+      have successfully performed a detailed coverage analysis, you
       find links to each individual module coverage page here.</p>
 
     <p>If cross cover analysis has been performed, and there are

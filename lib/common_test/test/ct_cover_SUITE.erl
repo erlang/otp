@@ -172,8 +172,8 @@ cross(Config) ->
     check_calls(Events2,1),
 
     %% Get the log dirs for each test and run cross cover analyse
-    [D11,D12] = lists:sort(get_run_dirs(Events1)),
-    [D21,D22] = lists:sort(get_run_dirs(Events2)),
+    [D11,D12] = lists:sort(get_log_dirs(Events1)),
+    [D21,D22] = lists:sort(get_log_dirs(Events2)),
 
     ct_cover:cross_cover_analyse(details,[{cross1,D11},{cross2,D21}]),
     ct_cover:cross_cover_analyse(details,[{cross1,D12},{cross2,D22}]),
@@ -267,18 +267,17 @@ check_cover(Node) when is_atom(Node) ->
 	    false
     end.
 
-%% Get the log dir "run.<timestamp>" for all (both!) tests
-get_run_dirs(Events) ->
-    [filename:dirname(TCLog) ||
+%% Get the log dir "ct_run.<timestamp>" for all (both!) tests
+get_log_dirs(Events) ->
+    [LogDir ||
 	{ct_test_support_eh,
-	 {event,tc_logfile,_Node,
-	  {{?suite,init_per_suite},TCLog}}} <- Events].
+	 {event,start_logging,_Node,LogDir}} <- Events].
 
 %% Check that each coverlog includes N calls to ?mod:foo/0
 check_calls(Events,N) ->
     check_calls(Events,{?mod,foo,0},N).
 check_calls(Events,MFA,N) ->
-    CoverLogs = [filename:join(D,"all.coverdata") || D <- get_run_dirs(Events)],
+    CoverLogs = [filename:join(D,"all.coverdata") || D <- get_log_dirs(Events)],
     do_check_logs(CoverLogs,MFA,N).
 
 do_check_logs([CoverLog|CoverLogs],{Mod,_,_} = MFA,N) ->
