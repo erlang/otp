@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -97,6 +97,8 @@
 	<seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/[2, 4]</seealso>.</p>
 	<p>Options are:</p>
 	<taglist>
+	  <tag><c><![CDATA[{inet, inet | inet6}]]></c></tag>
+	  <item> IP version to use.</item>
           <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
 	  <item>
 	    <p>Sets the user directory i.e. the directory containing
@@ -230,6 +232,8 @@
         port.</p>
 	<p>Options are:</p>
         <taglist>
+	  <tag><c><![CDATA[{inet, inet | inet6}]]></c></tag>
+	  <item> IP version to use when the host address is specified as <c>any</c>. </item>
 	  <tag><c><![CDATA[{subsystems, [subsystem_spec()]]]></c></tag>
 	  <item>
 	    Provides specifications for handling of subsystems. The

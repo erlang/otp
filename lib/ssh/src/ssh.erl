@@ -74,8 +74,7 @@ connect(Host, Port, Options, Timeout) ->
 	    {_, Transport, _} = TransportOpts =
 		proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
 	    ConnectionTimeout = proplists:get_value(connect_timeout, Options, infinity),
-	    Inet = proplists:get_value(inet, SshOptions, inet),
-	    try Transport:connect(Host, Port,  [ {active, false}, Inet | SocketOptions], ConnectionTimeout) of
+	    try Transport:connect(Host, Port,  [ {active, false} | SocketOptions], ConnectionTimeout) of
 		{ok, Socket} ->
 		    Opts =  [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)],
 		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
@@ -256,8 +255,8 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
 
 handle_options(Opts) ->
     try handle_option(proplists:unfold(Opts), [], []) of
-	{_,_} = Options ->
-	    Options
+	{Inet, Ssh} ->
+	    {handle_ip(Inet), Ssh}
     catch
 	throw:Error ->
 	    Error
@@ -436,8 +435,9 @@ handle_inet_option({active, _} = Opt) ->
     throw({error, {{eoptions, Opt}, "Ssh has built in flow control, "
 		   "and activ is handled internaly user is not allowd"
 		   "to specify this option"}});
-handle_inet_option({inet, Value} = Opt) when (Value == inet) or (Value == inet6) ->
-    Opt;
+
+handle_inet_option({inet, Value}) when (Value == inet) or (Value == inet6) ->
+    Value;
 handle_inet_option({reuseaddr, _} = Opt) ->
     throw({error, {{eoptions, Opt},"Is set internaly user is not allowd"
 		   "to specify this option"}});
@@ -460,3 +460,17 @@ handle_pref_algs([H|T], Acc) ->
 	_ ->
 	    false
     end.
+
+handle_ip(Inet) -> %% Default to ipv4
+    case lists:member(inet, Inet) of
+	true ->
+	    Inet;
+	false ->
+	    case lists:member(inet6, Inet) of
+		true -> 
+		    Inet;
+		false ->
+		    [inet | Inet]
+	    end
+    end.
+	
