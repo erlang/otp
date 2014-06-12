@@ -1168,7 +1168,7 @@ stick_dir(Dir, Stick, St) ->
 		true ->
 		    foreach(fun (M) -> ets:insert(Db, {{sticky,M},true}) end, Mods);
 		false ->
-		    foreach(fun (M) -> do_unstick_mod(Db, M) end, Mods)
+		    foreach(fun (M) -> ets:delete(Db, {sticky,M}) end, Mods)
 	    end;
 	Error -> 
 	    Error
@@ -1180,15 +1180,6 @@ stick_mod(M, Stick, St) ->
 	true ->
 	    ets:insert(Db, {{sticky,M},true});
 	false ->
-	    do_unstick_mod(Db, M)
-    end.
-
-do_unstick_mod(Db, M) ->
-    case ets:lookup(Db, M) of
-	[{M,preloaded}] ->
-	    %% Never unstick pre-loaded modules.
-	    true;
-	_ ->
 	    ets:delete(Db, {sticky,M})
     end.
 
