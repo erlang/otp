@@ -58,7 +58,10 @@
 %%====================================================================	     
 %%--------------------------------------------------------------------
 -spec connect(tls_connection | dtls_connection,
-	      host(), inet:port_number(), port(), {#ssl_options{}, #socket_options{}},
+	      host(), inet:port_number(), port(),
+	      {#ssl_options{}, #socket_options{},
+	       %% Tracker only needed on server side
+	       undefined},
 	      pid(), tuple(), timeout()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 %%
@@ -73,9 +76,10 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
     end.
 %%--------------------------------------------------------------------
 -spec ssl_accept(tls_connection | dtls_connection,
-		 inet:port_number(), port(), {#ssl_options{}, #socket_options{}},
-				      pid(), tuple(), timeout()) ->
-    {ok, #sslsocket{}} | {error, reason()}.
+		 inet:port_number(), port(),
+		 {#ssl_options{}, #socket_options{}, undefined | pid()},
+		 pid(), tuple(), timeout()) ->
+			{ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
@@ -102,7 +106,8 @@ handshake(#sslsocket{pid = Pid}, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec handshake(#sslsocket{}, #ssl_options{}, timeout()) ->  ok | {error, reason()}.
+-spec handshake(#sslsocket{}, {#ssl_options{},#socket_options{}},
+		timeout()) ->  ok | {error, reason()}.
 %%
 %% Description: Starts ssl handshake with some new options 
 %%--------------------------------------------------------------------
