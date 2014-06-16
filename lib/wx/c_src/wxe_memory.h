@@ -47,7 +47,8 @@ class wxeRefData {
    int type;
    // 0 = wxWindow subclasses, 1 = wxObject subclasses
    // 2 = wxDialog subclasses, 3 = allocated wxObjects but not returned from new
-   // > 3 classes which lack virtual destr, or are supposed to be allocated on
+   // 4 = wxObjects that should always be deleted directly (wxDC derivates)
+   // > 4 classes which lack virtual destr, or are supposed to be allocated on
    //     the stack
    bool alloc_in_erl;
    wxeMemEnv *memenv;

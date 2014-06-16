@@ -80,6 +80,7 @@ public:
   int  getRef(void * ptr, wxeMemEnv *memenv);
   void * getPtr(char * bp, wxeMemEnv *memenv);
   void clearPtr(void *ptr);
+  wxeRefData * getRefData(void *ptr);
   void registerPid(char *ptr, ErlDrvTermData pid, wxeMemEnv *memenv);
   void init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller);
 

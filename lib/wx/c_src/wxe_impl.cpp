@@ -500,7 +500,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
 	if(refd->alloc_in_erl) {
-	  if((refd->type == 1) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
+	  if((refd->type == 4) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
 	  wxString msg;
@@ -538,6 +538,17 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
   driver_pdl_dec_refc(Ecmd.pdl);
   refmap.erase((ErlDrvTermData) Ecmd.port);
 }
+
+
+wxeRefData * WxeApp::getRefData(void *ptr) {
+  ptrMap::iterator it = ptr2ref.find(ptr);
+  if(it != ptr2ref.end()) {
+    wxeRefData *refd = it->second;
+    return refd;
+  }
+  return NULL;
+}
+
 
 wxeMemEnv * WxeApp::getMemEnv(ErlDrvTermData port) {
   return refmap[port];
