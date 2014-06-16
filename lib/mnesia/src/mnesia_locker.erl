@@ -84,7 +84,7 @@ init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
     ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
-    ?ets_new_table(mnesia_tid_locks, [bag, private, named_table]),
+    ?ets_new_table(mnesia_tid_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),
     ?ets_new_table(mnesia_lock_queue, [bag, private, named_table, {keypos, 2}]),
 
@@ -253,13 +253,13 @@ loop(State) ->
     end.
 
 set_lock(Tid, Oid, Op, []) ->
-    ?ets_insert(mnesia_tid_locks, {Tid, Oid, Op}),
+    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, Op}}),
     ?ets_insert(mnesia_held_locks, {Oid, Op, [{Op, Tid}]});
 set_lock(Tid, Oid, read, [{Oid, Prev, Items}]) ->
-    ?ets_insert(mnesia_tid_locks, {Tid, Oid, read}),
+    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, read}}),
     ?ets_insert(mnesia_held_locks, {Oid, Prev, [{read, Tid}|Items]});
 set_lock(Tid, Oid, write, [{Oid, _Prev, Items}]) ->
-    ?ets_insert(mnesia_tid_locks, {Tid, Oid, write}),
+    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, write}}),
     ?ets_insert(mnesia_held_locks, {Oid, write, [{write, Tid}|Items]});
 set_lock(Tid, Oid, Op, undefined) ->
     set_lock(Tid, Oid, Op, ?ets_lookup(mnesia_held_locks, Oid)).
@@ -299,7 +299,7 @@ try_lock(Tid, Op, SimpleOp, Lock, Pid, Oid) ->
 	    ?ets_insert(mnesia_lock_queue,
 			#queue{oid = Oid, tid = Tid, op = Op,
 			       pid = Pid, lucky = Lucky}),
-	    ?ets_insert(mnesia_tid_locks, {Tid, Oid, {queued, Op}})
+	    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, {queued, Op}}})
     end.
 
 grant_lock(Tid, read, Lock, Oid = {Tab, Key}, Default)
@@ -498,7 +498,7 @@ set_read_lock_on_all_keys(Tid, From, Tab, IxKey, Pos) ->
 	    ?ets_insert(mnesia_lock_queue,
 			#queue{oid = Oid, tid = Tid, op = Op,
 			       pid = From, lucky = Lucky}),
-	    ?ets_insert(mnesia_tid_locks, {Tid, Oid, {queued, Op}})
+	    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, {queued, Op}}})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -514,7 +514,8 @@ release_remote_non_pending(Node, Pending) ->
     %% running at the failed node and also simply remove all
     %% queue'd requests back to the failed node
 
-    AllTids = ?ets_match(mnesia_tid_locks, {'$1', '_', '_'}),
+    AllTids0 = ?ets_match(mnesia_tid_locks, {{'$1', '_', '_'}}),
+    AllTids  = lists:usort(AllTids0),
     Tids = [T || [T] <- AllTids, Node == node(T#tid.pid), not lists:member(T, Pending)],
     do_release_tids(Tids).
 
@@ -525,9 +526,10 @@ do_release_tids([]) ->
     ok.
 
 do_release_tid(Tid) ->
-    Locks = ?ets_lookup(mnesia_tid_locks, Tid),
+    Objects = ets:select(mnesia_tid_locks, [{{{Tid, '_', '_'}}, [], ['$_']}]),
+    Locks = lists:map(fun({L}) -> L end, Objects),
     ?dbg("Release ~p ~p ~n", [Tid, Locks]),
-    ?ets_delete(mnesia_tid_locks, Tid),
+    [?ets_delete(mnesia_tid_locks, L) || L <- Locks],
     release_locks(Locks),
     %% Removed queued locks which has had locks
     UniqueLocks = keyunique(lists:sort(Locks),[]),
