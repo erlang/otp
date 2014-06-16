@@ -80,6 +80,7 @@
     || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC))
 #  undef ETHR_INLINE
 #  define ETHR_INLINE 
+#  undef ETHR_FORCE_INLINE
 #  define ETHR_FORCE_INLINE
 #  undef ETHR_TRY_INLINE_FUNCS
 #endif
