@@ -118,7 +118,7 @@ complicated(Config) when is_list(Config) ->
     ok = match_keys(get()),
     comp_4(get()),
     [] = get(),
-    [] = erlang:get_keys(),
+    [] = get_keys(),
     [put(Key, Value) || {Key,Value} <- Previous],
     ok.
 
@@ -167,8 +167,8 @@ heavy(Config) when is_list(Config) ->
 simple_all_keys(Config) when is_list(Config) ->
     erase(),
     ok = simple_all_keys_add_loop(1000),
-    [] = erlang:get_keys(),
-    [] = erlang:get(),
+    [] = get_keys(),
+    [] = get(),
     ok.
 
 simple_all_keys_add_loop(0) ->
