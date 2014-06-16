@@ -811,47 +811,33 @@ openssl_rsa_suites(CounterPart) ->
 		false ->
 		    "DSS | ECDHE | ECDH"
 		end,
-    lists:filter(fun(Str) ->
-			 case re:run(Str, Names,[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end 
-		     end, Ciphers).
+    lists:filter(fun(Str) -> string_regex_filter(Str, Names)
+		 end, Ciphers).
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) ->
-			 case re:run(Str,"DSS",[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end 
+    lists:filter(fun(Str) -> string_regex_filter(Str, "DSS")
 		 end, Ciphers).
 
 openssl_ecdsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) ->
-			 case re:run(Str,"ECDHE-ECDSA",[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end
+    lists:filter(fun(Str) -> string_regex_filter(Str, "ECDHE-ECDSA")
 		 end, Ciphers).
 
 openssl_ecdh_rsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) ->
-			 case re:run(Str,"ECDH-RSA",[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end
+    lists:filter(fun(Str) -> string_regex_filter(Str, "ECDH-RSA")
 		 end, Ciphers).
+
+string_regex_filter(Str, Search) when is_list(Str) ->
+    case re:run(Str, Search, []) of
+	nomatch ->
+	    false;
+	_ ->
+	    true
+    end;
+string_regex_filter(Str, _Search) ->
+    false.
 
 anonymous_suites() ->
     Suites =
