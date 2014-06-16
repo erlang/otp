@@ -1377,6 +1377,19 @@ true
       </desc>
     </func>
     <func>
+      <name name="get_keys" arity="0"/>
+      <fsummary>Return a list of all keys from the process dictionary</fsummary>
+      <desc>
+        <p>Returns a list of keys all keys present in the process dictionary.</p>
+        <pre>
+> <input>put(dog, {animal,1}),</input>
+<input>put(cow, {animal,2}),</input>
+<input>put(lamb, {animal,3}),</input>
+<input>get_keys().</input>
+[dog,cow,lamb]</pre>
+      </desc>
+    </func>
+    <func>
       <name name="get_keys" arity="1"/>
       <fsummary>Return a list of keys from the process dictionary</fsummary>
       <desc>
