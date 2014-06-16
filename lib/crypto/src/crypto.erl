@@ -283,7 +283,7 @@ hmac_final_n(_Context, _HashLen) -> ? nif_stub.
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
 		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
-		   (aes_gcm, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
+		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
 
 block_encrypt(des_cbc, Key, Ivec, Data) ->
     des_cbc_encrypt(Key, Ivec, Data);
@@ -316,6 +316,11 @@ block_encrypt(aes_gcm, Key, Ivec, {AAD, Data}) ->
 	notsup -> erlang:error(notsup);
 	Return -> Return
     end;
+block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, Data}) ->
+    case chacha20_poly1305_encrypt(Key, Ivec, AAD, Data) of
+	notsup -> erlang:error(notsup);
+	Return -> Return
+    end;
 block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
@@ -323,7 +328,7 @@ block_encrypt(rc2_cbc, Key, Ivec, Data) ->
 		    blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
 		    aes_cfb8 | aes_cfb128 | rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
-		   (aes_gcm, Key::iodata(), Ivec::binary(),
+		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
 block_decrypt(des_cbc, Key, Ivec, Data) ->
     des_cbc_decrypt(Key, Ivec, Data);
@@ -353,6 +358,11 @@ block_decrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_decrypt(Key, Ivec, Data);
 block_decrypt(aes_gcm, Key, Ivec, {AAD, Data, Tag}) ->
     case aes_gcm_decrypt(Key, Ivec, AAD, Data, Tag) of
+	notsup -> erlang:error(notsup);
+	Return -> Return
+    end;
+block_decrypt(chacha20_poly1305, Key, Ivec, {AAD, Data, Tag}) ->
+    case chacha20_poly1305_decrypt(Key, Ivec, AAD, Data, Tag) of
 	notsup -> erlang:error(notsup);
 	Return -> Return
     end;
@@ -1206,6 +1216,12 @@ aes_cfb_128_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 %%
 aes_gcm_encrypt(_Key, _Ivec, _AAD, _In) -> ?nif_stub.
 aes_gcm_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
+
+%%
+%% Chacha20/Ppoly1305
+%%
+chacha20_poly1305_encrypt(_Key, _Ivec, _AAD, _In) -> ?nif_stub.
+chacha20_poly1305_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
 
 %%
 %% DES - in cipher block chaining mode (CBC)

@@ -63,6 +63,7 @@ all() ->
      {group, rc4}, 
      {group, aes_ctr},
      {group, aes_gcm},
+     {group, chacha20_poly1305},
      mod_pow,
      exor,
      rand_uniform
@@ -102,7 +103,8 @@ groups() ->
      {blowfish_ofb64,[], [block]},
      {rc4, [], [stream]}, 
      {aes_ctr, [], [stream]},
-     {aes_gcm, [], [aead]}
+     {aes_gcm, [], [aead]},
+     {chacha20_poly1305, [], [aead]}
     ].
 
 %%-------------------------------------------------------------------
@@ -776,6 +778,9 @@ group_config(aes_ctr, Config) ->
     [{stream, Stream} | Config];
 group_config(aes_gcm, Config) ->
     AEAD = aes_gcm(),
+    [{aead, AEAD} | Config];
+group_config(chacha20_poly1305, Config) ->
+    AEAD = chacha20_poly1305(),
     [{aead, AEAD} | Config];
 group_config(_, Config) ->
     Config.
@@ -1655,6 +1660,18 @@ aes_gcm() ->
 		 "0fc0c3b780f244452da3ebf1c5d82cde"
 		 "a2418997200ef82e44ae7e3f"),
       hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")}                    %% CipherTag
+    ].
+
+%% http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
+chacha20_poly1305() ->
+    [
+     {chacha20_poly1305, hexstr2bin("4290bcb154173531f314af57f3be3b500"  %% Key
+				    "6da371ece272afa1b5dbdd1100a1007"),
+      hexstr2bin("86d09974840bded2a5ca"),                                %% PlainText
+      hexstr2bin("cd7cf67be39c794a"),                                    %% Nonce
+      hexstr2bin("87e229d4500845a079c0"),                                %% AAD
+      hexstr2bin("e3e446f7ede9a19b62a4"),                                %% CipherText
+      hexstr2bin("677dabf4e3d24b876bb284753896e1d6")}                   %% CipherTag
     ].
 
 rsa_plain() ->

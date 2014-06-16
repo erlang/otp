@@ -136,7 +136,9 @@
 
      <p><code>block_cipher() =  aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
-     | des_ede3 | rc2_cbc | aes_gcm </code></p>
+     | des_ede3 | rc2_cbc </code></p>
+
+     <p><code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code></p>
 
      <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
 
@@ -158,7 +160,7 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | rc2_cbc | aes_ctr| rc4  </code> </p>
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | chacha20_poly1305 | rc2_cbc | aes_ctr| rc4  </code> </p>
      <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -169,10 +171,11 @@
   <funcs>
     <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
-      <name>block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
+      <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = block_cipher() </v>
+	<v>AeadType = aead_cipher() </v>
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
@@ -190,10 +193,11 @@
 
     <func>
       <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
-      <name>block_decrypt(aes_gcm, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
+      <name>block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
       <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = block_cipher() </v>
+	<v>AeadType = aead_cipher() </v>
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
