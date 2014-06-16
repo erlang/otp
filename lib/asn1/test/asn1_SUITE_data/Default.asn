@@ -25,6 +25,10 @@ SeqBS ::= SEQUENCE {
   e BIT STRING DEFAULT '01011010'B
 }
 
+SeqBS2 ::= SEQUENCE {
+  bs BIT STRING {a(0), z(25)} DEFAULT '101'B
+}
+
 SetBS ::= SET {
   a BIT STRING DEFAULT '1010110'B,
   b BIT STRING DEFAULT 'A8A'H,
@@ -155,5 +159,24 @@ three INTEGER ::= 3
 four INTEGER ::= 4
 
 cr IA5String ::= {0,13}
+
+SeqNamedInts ::= SEQUENCE {
+   i1 INTEGER {first(0), last(31)} DEFAULT 15,
+   i2 INTEGER {first(0), last(31)} DEFAULT 31
+}
+
+S5 ::= SEQUENCE {
+   s3 S3 DEFAULT {},
+   so SEQUENCE OF OBJECT IDENTIFIER DEFAULT {
+               {itu-t question 999},
+               {itu-t question 555}
+	       },
+   soe SEQUENCE OF OBJECT IDENTIFIER DEFAULT { }
+}
+
+SOI ::= SEQUENCE {
+   soi SEQUENCE OF OBJECT IDENTIFIER
+        DEFAULT { {iso member-body f(250) 9 55}, {iso member-body f(250) 3 4} }
+}
 
 END

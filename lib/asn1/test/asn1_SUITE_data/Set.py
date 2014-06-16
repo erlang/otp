@@ -80,8 +80,8 @@ SetOpt3 ::= SET
 
 SetIn ::= SET 
 {
-  boolIn  BOOLEAN,
-  intIn  INTEGER
+  boolIn  BOOLEAN OPTIONAL,
+  intIn  INTEGER OPTIONAL
 }
 
 

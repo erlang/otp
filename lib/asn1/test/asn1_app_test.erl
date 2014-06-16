@@ -134,13 +134,13 @@ get_ebin_mods(App) ->
 
 check_asn1ct_modules(Extra) ->
     ASN1CTMods = [asn1ct,asn1ct_check,asn1_db,asn1ct_pretty_format,
-		  asn1ct_gen,asn1ct_gen_per,asn1ct_gen_per_rt2ct,
+		  asn1ct_gen,asn1ct_gen_check,asn1ct_gen_per,
 		  asn1ct_name,asn1ct_constructed_per,asn1ct_constructed_ber,
 		  asn1ct_gen_ber,asn1ct_constructed_ber_bin_v2,
 		  asn1ct_gen_ber_bin_v2,asn1ct_value,
 		  asn1ct_tok,asn1ct_parser2,asn1ct_table,
 		  asn1ct_imm,asn1ct_func,asn1ct_rtt,
-		  asn1ct_eval_ext,asn1ct_eval_per,asn1ct_eval_uper],
+		  asn1ct_eval_ext],
     case Extra -- ASN1CTMods of
 	[] ->
 	    ok;

@@ -52,6 +52,7 @@ CT_MODULES= \
 	asn1ct_pretty_format \
 	asn1ct_func \
 	asn1ct_gen \
+	asn1ct_gen_check \
 	asn1ct_gen_per \
 	asn1ct_name \
 	asn1ct_constructed_per \

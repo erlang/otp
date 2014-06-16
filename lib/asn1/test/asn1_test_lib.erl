@@ -21,18 +21,71 @@
 
 -export([compile/3,compile_all/3,compile_erlang/3,
 	 hex_to_bin/1,
+	 parallel/0,
 	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+run_dialyzer() ->
+    false.
 
 compile(File, Config, Options) -> compile_all([File], Config, Options).
 
 compile_all(Files, Config, Options) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
-    [compile_file(filename:join(DataDir, F), [{outdir, CaseDir}|Options])
+    [compile_file(filename:join(DataDir, F), [{outdir, CaseDir},
+					      debug_info|Options])
          || F <- Files],
+    dialyze(Files, Options),
     ok.
+
+parallel() ->
+    case erlang:system_info(schedulers) > 1 andalso not run_dialyzer() of
+        true  -> [parallel];
+        false -> []
+    end.
+
+dialyze(Files, Options) ->
+    case not run_dialyzer() orelse lists:member(abs, Options) of
+	true -> ok;
+	false -> dialyze(Files)
+    end.
+
+dialyze(Files) ->
+    Beams0 = [code:which(module(F)) || F <- Files],
+    Beams = [code:which(asn1rt_nif)|Beams0],
+    case dialyzer:run([{files,Beams},
+		       {warnings,[no_improper_lists]},
+		       {get_warnings,true}]) of
+	[] ->
+	    ok;
+	[_|_]=Ws ->
+	    io:put_chars([[B,$\n] || B <- Beams]),
+	    io:put_chars([dialyzer:format_warning(W) || W <- Ws]),
+	    error(dialyzer_warnings)
+    end.
+
+module(F0) ->
+    F1 = filename:basename(F0),
+    F2 = case filename:extension(F1) of
+	     ".asn" ->
+		 filename:rootname(F1);
+	     ".asn1" ->
+		 filename:rootname(F1);
+	     ".py" ->
+		 filename:rootname(F1);
+	     "" ->
+		 F1
+	 end,
+    F = case filename:extension(F2) of
+	    ".set" ->
+		filename:rootname(F2);
+	    "" ->
+		F2
+	end,
+    list_to_atom(F).
+%%    filename:join(CaseDir, F ++ ".beam").
 
 compile_file(File, Options) ->
     try
