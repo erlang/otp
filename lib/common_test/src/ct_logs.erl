@@ -1305,7 +1305,8 @@ total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
      "<td align=right>",integer_to_list(AllSkip),
      " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
      "<td align=right><b>",integer_to_list(NotBuilt),"<b></td>\n",
-     AllInfo, "</tr>\n</tfoot>\n"].
+     AllInfo, "</tr>\n",
+     xhtml("","</tfoot>\n")].
 
 not_built(_BaseName,_LogDir,_All,[]) ->
     0;
@@ -1533,7 +1534,8 @@ all_suites_index_footer() ->
      xhtml("<br><br>\n", "<br /><br />\n") | footer()].
 
 all_runs_index_footer() ->
-    ["</tbody>\n</table>\n",
+    [xhtml("", "</tbody>\n"),
+     "</table>\n",
      "</center>\n",
      xhtml("<br><br>\n", "<br /><br />\n") | footer()].
 
@@ -1690,7 +1692,7 @@ config_table(Vars) ->
 config_table_header() ->
     [
      xhtml(["<h2>Configuration</h2>\n"
-	    "<table border=\"3\" cellpadding=\"5\" bgcolor=\"",?table_color1,"\"\n"],
+	    "<table border=\"3\" cellpadding=\"5\" bgcolor=\"",?table_color1,"\">\n"],
 	   ["<h4>CONFIGURATION</h4>\n",
 	    "<table id=\"",?sortable_table_name,"\">\n",
 	    "<thead>\n"]),
@@ -1706,7 +1708,7 @@ config_table1([{Key,Value}|Vars]) ->
 	    "<td>", io_lib:format("~p",[Value]), "</td>\n</tr>\n"]) |
      config_table1(Vars)];
 config_table1([]) ->
-    ["</tbody>\n</table>\n"].
+    [xhtml("","</tbody>\n"),"</table>\n"].
 
 
 make_all_runs_index(When) ->
