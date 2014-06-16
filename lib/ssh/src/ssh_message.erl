@@ -255,7 +255,7 @@ encode(#ssh_msg_ignore{data = Data}) ->
     ssh_bits:encode([?SSH_MSG_IGNORE, Data], [byte, string]);
 
 encode(#ssh_msg_unimplemented{sequence = Seq}) ->
-    ssh_bits:encode([?SSH_MSG_IGNORE, Seq], [byte, uint32]);
+    ssh_bits:encode([?SSH_MSG_UNIMPLEMENTED, Seq], [byte, uint32]);
 
 encode(#ssh_msg_debug{always_display = Bool,
 		      message = Msg,
@@ -391,18 +391,18 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST), ?UINT32(Len0), Name:Len0/binary,
        data = Data};
 
 %%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
-decode(<<?BYTE(?SSH_MSG_USERAUTH_PK_OK), ?UINT32(Len), Alg:Len/binary, KeyBlob/binary>>) ->
-    #ssh_msg_userauth_pk_ok{
-       algorithm_name = Alg,
-       key_blob = KeyBlob
-      };
-
-%%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
 decode(<<?BYTE(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?UINT32(Len0), Prompt:Len0/binary,
 	 ?UINT32(Len1), Lang:Len1/binary>>) ->
     #ssh_msg_userauth_passwd_changereq{
        prompt = Prompt,
        languge = Lang
+      };
+
+%%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
+decode(<<?BYTE(?SSH_MSG_USERAUTH_PK_OK), ?UINT32(Len), Alg:Len/binary, KeyBlob/binary>>) ->
+    #ssh_msg_userauth_pk_ok{
+       algorithm_name = Alg,
+       key_blob = KeyBlob
       };
 
 decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
@@ -473,7 +473,7 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
 decode(<<?SSH_MSG_NEWKEYS>>) ->
     #ssh_msg_newkeys{};
 
-decode(<<?BYTE(?SSH_MSG_IGNORE), Data/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_IGNORE), ?UINT32(Len), Data:Len/binary>>) ->
     #ssh_msg_ignore{data = Data};
 
 decode(<<?BYTE(?SSH_MSG_UNIMPLEMENTED), ?UINT32(Seq)>>) ->
