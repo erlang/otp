@@ -79,13 +79,14 @@ powerRaiseLimit, dLPowerAveragingWindowSize, 'iE-Extensions' = asn1_NOVALUE}).
 
 
 compile(Config, Options) ->
-    [asn1_test_lib:compile(filename:join([nbapsystem, M]), Config, Options)
-     || M <- ["NBAP-CommonDataTypes.asn",
-              "NBAP-IEs.asn",
-              "NBAP-PDU-Contents.asn",
-              "NBAP-PDU-Discriptions.asn",
-              "NBAP-Constants.asn",
-              "NBAP-Containers.asn"]],
+    Fs = [filename:join("nbapsystem", M) ||
+	     M <- ["NBAP-CommonDataTypes.asn",
+		   "NBAP-IEs.asn",
+		   "NBAP-PDU-Contents.asn",
+		   "NBAP-PDU-Discriptions.asn",
+		   "NBAP-Constants.asn",
+		   "NBAP-Containers.asn"]],
+    asn1_test_lib:compile_all(Fs, Config, Options),
     ok.
 
 

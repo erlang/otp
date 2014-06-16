@@ -30,6 +30,7 @@
 	 decode_big_chars/2,
 	 decode_oid/1,decode_relative_oid/1,
 	 encode_chars/2,encode_chars/3,
+	 encode_chars_compact_map/3,
 	 encode_chars_16bit/1,encode_big_chars/1,
 	 encode_fragmented/2,
 	 encode_oid/1,encode_relative_oid/1,
@@ -107,6 +108,9 @@ encode_chars(Val, NumBits) ->
 
 encode_chars(Val, NumBits, {Lb,Tab}) ->
     << <<(enc_char(C, Lb, Tab)):NumBits>> || C <- Val >>.
+
+encode_chars_compact_map(Val, NumBits, {Lb,Limit}) ->
+    << <<(enc_char_cm(C, Lb, Limit)):NumBits>> || C <- Val >>.
 
 encode_chars_16bit(Val) ->
     L = [case C of
@@ -380,6 +384,15 @@ enc_char(C0, Lb, Tab) ->
 	    C
     catch
 	error:badarg ->
+	    illegal_char_error()
+    end.
+
+enc_char_cm(C0, Lb, Limit) ->
+    C = C0 - Lb,
+    if
+	0 =< C, C < Limit ->
+	    C;
+	true ->
 	    illegal_char_error()
     end.
 

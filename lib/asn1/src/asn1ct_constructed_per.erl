@@ -426,8 +426,7 @@ gen_dec_open_type(Erule, Val, {Xmod,Xtype}, LeadingAttr,
     emit([Term," = ",{asis,F},"(",TmpTerm,", ",Val,")"]).
 
 dec_objset_optional(N, {'DEFAULT',Val}) ->
-    dec_objset_optional_1(N, Val),
-    dec_objset_optional_1(N, asn1_DEFAULT);
+    dec_objset_optional_1(N, Val);
 dec_objset_optional(N, 'OPTIONAL') ->
     dec_objset_optional_1(N, asn1_NOVALUE);
 dec_objset_optional(_N, mandatory) -> ok.

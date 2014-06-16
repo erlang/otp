@@ -16,6 +16,7 @@ SemiConstrained ::= INTEGER (100..MAX)
 NegSemiConstrained ::= INTEGER (-128..MAX)
 SemiConstrainedExt ::= INTEGER (42..MAX, ...)
 NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
+SemiNamed ::= INTEGER {a(100), b(200)} (100..MAX)
 -- Extensions --
 LongLongExt ::= INTEGER (0..18446744073709551615, ..., -5000..-1)
 Range256to65536Ext ::= INTEGER (256..65536, ..., 1000000..9000000)
@@ -65,9 +66,11 @@ Wednesday ::= Day(wednesday)
 
 
 Thing ::= INTEGER {fred (0),fred2 (1),fred3 (2)}
-
-
 AnotherThing ::= Thing (fred | fred2)
+
+OneMoreThing ::= INTEGER {wilma(0), fred(1), betty(3), barney(2)}
+OneMoreThing-1 ::= OneMoreThing (wilma | fred)
+OneMoreThing-2 ::= OneMoreThing (fred | barney)
 
 I ::= INTEGER (0|15..269) -- OTP-5457
 X1 ::= INTEGER (1..4 | 8 | 10 | 20) -- OTP-9946

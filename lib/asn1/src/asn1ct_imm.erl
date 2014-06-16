@@ -82,15 +82,8 @@ per_dec_enumerated(NamedList0, Aligned) ->
     Ub = length(NamedList0) - 1,
     Constraint = [{'ValueRange',{0,Ub}}],
     Int = per_dec_integer(Constraint, Aligned),
-    EnumTail = case matched_range(Int) of
-		   {0,Ub} ->
-		       %% The error case can never happen.
-		       [];
-		   _ ->
-		       [enum_error]
-	       end,
-    NamedList = per_dec_enumerated_fix_list(NamedList0, EnumTail, 0),
-    {map,Int,NamedList}.
+    NamedList = per_dec_enumerated_fix_list(NamedList0, [enum_error], 0),
+    {map,Int,opt_map(NamedList, Int)}.
 
 per_dec_enumerated(BaseNamedList, NamedListExt0, Aligned) ->
     Base = per_dec_enumerated(BaseNamedList, Aligned),
@@ -124,7 +117,7 @@ per_dec_length(no, AllowZero, Aligned) ->
 per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     Int = per_dec_integer(Constraint, Aligned),
     NamedList = [{K,V} || {V,K} <- NamedList0] ++ [integer_default],
-    {map,Int,NamedList}.
+    {map,Int,opt_map(NamedList, Int)}.
 
 per_dec_k_m_string(StringType, Constraint, Aligned) ->
     SzConstr = effective_constraint(bitstring, Constraint),
@@ -175,6 +168,8 @@ per_enc_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     ToBs = case ExtraArgs of
 	       [] ->
 		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
+	       [0] ->
+		   {call,per_common,bs_drop_trailing_zeroes,[Val]};
 	       [Lower] ->
 		   {call,per_common,adjust_trailing_zeroes,[Val,Lower]}
 	   end,
@@ -203,6 +198,7 @@ per_enc_legacy_bit_string(Val0, NNL0, Constraint0, Aligned) ->
     Constraint = effective_constraint(bitstring, Constraint0),
     ExtraArgs = case constr_min_size(Constraint) of
 		    no -> [];
+		    0 -> [];
 		    Lb -> [Lb]
 		end,
     B ++ [{'try',
@@ -265,10 +261,6 @@ per_enc_k_m_string(Val0, StringType, Constraint, Aligned) ->
     SzConstraint = effective_constraint(bitstring, Constraint),
     Unit = string_num_bits(StringType, Constraint, Aligned),
     Chars0 = char_tab(Constraint, StringType, Unit),
-    Args = case enc_char_tab(Chars0) of
-	       notab -> [Val,Unit];
-	       Chars -> [Val,Unit,Chars]
-	   end,
     Enc = case Unit of
 	      16 ->
 		  {call,per_common,encode_chars_16bit,[Val],Bin};
@@ -277,7 +269,15 @@ per_enc_k_m_string(Val0, StringType, Constraint, Aligned) ->
 	      8 ->
 		  {call,erlang,list_to_binary,[Val],Bin};
 	      _ ->
-		  {call,per_common,encode_chars,Args,Bin}
+		  case enc_char_tab(Chars0) of
+		      notab ->
+			  {call,per_common,encode_chars,[Val,Unit],Bin};
+		      {tab,Tab} ->
+			  {call,per_common,encode_chars,[Val,Unit,Tab],Bin};
+		      {compact_map,Map} ->
+			  {call,per_common,encode_chars_compact_map,
+			   [Val,Unit,Map],Bin}
+		  end
 	  end,
     case Unit of
 	8 ->
@@ -581,13 +581,41 @@ per_num_bits(N) when N =< 64 -> 6;
 per_num_bits(N) when N =< 128 -> 7;
 per_num_bits(N) when N =< 255 -> 8.
 
+opt_map(Map, Imm) ->
+    case matched_range(Imm) of
+	unknown -> Map;
+	{Lb,Ub} -> opt_map_1(Map, Lb, Ub)
+    end.
+
+opt_map_1([{I,_}=Pair|T], Lb, Ub) ->
+    if
+	I =:= Lb, I =< Ub ->
+	    [Pair|opt_map_1(T, Lb+1, Ub)];
+	Lb < I, I =< Ub ->
+	    [Pair|opt_map_1(T, Lb, Ub)];
+	true ->
+	    opt_map_1(T, Lb, Ub)
+    end;
+opt_map_1(Map, Lb, Ub) ->
+    if
+	Lb =< Ub ->
+	    Map;
+	true ->
+	    []
+    end.
+
 matched_range({get_bits,Bits0,[U|Flags]}) when is_integer(U) ->
-    case lists:member(signed, Flags) of
-	false ->
+    case not lists:member(signed, Flags) andalso is_integer(Bits0) of
+	true ->
 	    Bits = U*Bits0,
 	    {0,(1 bsl Bits) - 1};
-	true ->
+	false ->
 	    unknown
+    end;
+matched_range({add,Imm,Add}) ->
+    case matched_range(Imm) of
+	unknown -> unknown;
+	{Lb,Ub} -> {Lb+Add,Ub+Add}
     end;
 matched_range(_Op) -> unknown.
 
@@ -1289,6 +1317,8 @@ eval_cond_1({eq,[],[]}) ->
     true;
 eval_cond_1({eq,I,N}) when is_integer(I), is_integer(N) ->
     I =:= N;
+eval_cond_1({ge,I,N}) when is_integer(I), is_integer(N) ->
+    I >= N;
 eval_cond_1({lt,I,N}) when is_integer(I), is_integer(N) ->
     I < N;
 eval_cond_1(_) -> maybe.
@@ -1303,9 +1333,15 @@ prepend_to_cond_1([Check|T], Code) ->
 enc_char_tab(notab) ->
     notab;
 enc_char_tab(Tab0) ->
-    Tab = tuple_to_list(Tab0),
-    First = hd(Tab),
-    {First-1,list_to_tuple(enc_char_tab_1(Tab, First, 0))}.
+    Tab1 = tuple_to_list(Tab0),
+    First = hd(Tab1),
+    Tab = enc_char_tab_1(Tab1, First, 0),
+    case lists:member(ill, Tab) of
+	false ->
+	    {compact_map,{First,tuple_size(Tab0)}};
+	true ->
+	    {tab,{First-1,list_to_tuple(Tab)}}
+    end.
 
 enc_char_tab_1([H|T], H, I) ->
     [I|enc_char_tab_1(T, H+1, I+1)];

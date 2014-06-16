@@ -18,43 +18,41 @@
 %%
 -module(asn1rtt_check).
 
--export([check_bool/2,
+-export([check_fail/1,
 	 check_int/3,
-	 check_bitstring/2,check_named_bitstring/3,
+	 check_legacy_bitstring/2,
+	 check_legacy_named_bitstring/3,
+	 check_legacy_named_bitstring/4,
+	 check_named_bitstring/3,
+	 check_named_bitstring/4,
+	 check_literal_sof/2,
 	 check_octetstring/2,
-	 check_null/2,
 	 check_objectidentifier/2,
 	 check_objectdescriptor/2,
 	 check_real/2,
-	 check_enum/3,
 	 check_restrictedstring/2]).
 
-check_bool(_Bool, asn1_DEFAULT) ->
-    true;
-check_bool(Bool, Bool) when is_boolean(Bool) ->
-    true;
-check_bool(_Bool1, Bool2) ->
-    throw({error,Bool2}).
+check_fail(_) ->
+    throw(false).
 
-check_int(_, asn1_DEFAULT, _) ->
-    true;
 check_int(Value, Value, _) when is_integer(Value) ->
     true;
-check_int(DefValue, Value, NNL) when is_atom(Value) ->
+check_int(Value, DefValue, NNL) when is_atom(Value) ->
     case lists:keyfind(Value, 1, NNL) of
 	{_,DefValue} ->
 	    true;
 	_ ->
-	    throw({error,DefValue})
+	    throw(false)
     end;
-check_int(DefaultValue, _Value, _) ->
-    throw({error,DefaultValue}).
+check_int(_, _, _) ->
+    throw(false).
+
+check_legacy_bitstring(Value, Default) ->
+    check_bitstring(Default, Value).
 
 %% check_bitstring(Default, UserBitstring) -> true|false
 %%  Default = bitstring()
 %%  UserBitstring = integeger() | list(0|1) | {Unused,binary()} | bitstring()
-check_bitstring(_, asn1_DEFAULT) ->
-    true;
 check_bitstring(DefVal, {Unused,Binary}) ->
     %% User value in compact format.
     Sz = bit_size(Binary) - Unused,
@@ -62,7 +60,7 @@ check_bitstring(DefVal, {Unused,Binary}) ->
     check_bitstring(DefVal, Val);
 check_bitstring(DefVal, Val) when is_bitstring(Val) ->
     case Val =:= DefVal of
-	false -> throw(error);
+	false -> throw(false);
 	true -> true
     end;
 check_bitstring(Def, Val) when is_list(Val) ->
@@ -75,178 +73,95 @@ check_bitstring_list(<<H:1,T1/bitstring>>, [H|T2]) ->
 check_bitstring_list(<<>>, []) ->
     true;
 check_bitstring_list(_, _) ->
-    throw(error).
+    throw(false).
 
 check_bitstring_integer(<<H:1,T1/bitstring>>, Int) when H =:= Int band 1 ->
     check_bitstring_integer(T1, Int bsr 1);
 check_bitstring_integer(<<>>, 0) ->
     true;
 check_bitstring_integer(_, _) ->
-    throw(error).
+    throw(false).
 
-check_named_bitstring(_, asn1_DEFAULT, _) ->
+check_legacy_named_bitstring([Int|_]=Val, Bs, BsSize) when is_integer(Int) ->
+    check_named_bitstring(<< <<B:1>> || B <- Val >>, Bs, BsSize);
+check_legacy_named_bitstring({Unused,Val0}, Bs, BsSize) ->
+    Sz = bit_size(Val0) - Unused,
+    <<Val:Sz/bits,_/bits>> = Val0,
+    check_named_bitstring(Val, Bs, BsSize);
+check_legacy_named_bitstring(Val, Bs, BsSize) when is_integer(Val) ->
+    L = legacy_int_to_bitlist(Val),
+    check_named_bitstring(<< <<B:1>> || B <- L >>, Bs, BsSize);
+check_legacy_named_bitstring(Val, Bs, BsSize) ->
+    check_named_bitstring(Val, Bs, BsSize).
+
+check_legacy_named_bitstring([Int|_]=Val, Names, Bs, BsSize) when is_integer(Int) ->
+    check_named_bitstring(<< <<B:1>> || B <- Val >>, Names, Bs, BsSize);
+check_legacy_named_bitstring({Unused,Val0}, Names, Bs, BsSize) ->
+    Sz = bit_size(Val0) - Unused,
+    <<Val:Sz/bits,_/bits>> = Val0,
+    check_named_bitstring(Val, Names, Bs, BsSize);
+check_legacy_named_bitstring(Val, Names, Bs, BsSize) when is_integer(Val) ->
+    L = legacy_int_to_bitlist(Val),
+    check_named_bitstring(<< <<B:1>> || B <- L >>, Names, Bs, BsSize);
+check_legacy_named_bitstring(Val, Names, Bs, BsSize) ->
+    check_named_bitstring(Val, Names, Bs, BsSize).
+
+legacy_int_to_bitlist(0) ->
+    [];
+legacy_int_to_bitlist(Int) ->
+    [Int band 1|legacy_int_to_bitlist(Int bsr 1)].
+
+check_named_bitstring(Bs, Bs, _) ->
     true;
-check_named_bitstring(V, V, _) ->
-    true;
-%% Default value and user value as lists of ones and zeros
-check_named_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL=[_H|_T]) when is_integer(H1), is_integer(H2) ->
-    L2new = remove_trailing_zeros(L2),
-    check_named_bitstring(L1, L2new, NBL);
-%% Default value as a list of 1 and 0 and user value as a list of atoms
-check_named_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL) when is_integer(H1), is_atom(H2) ->
-    L3 = bit_list_to_nbl(L1, NBL, 0, []),
-    check_named_bitstring(L3, L2, NBL);
-%% Both default value and user value as a list of atoms
-check_named_bitstring(L1=[H1|T1], L2=[H2|_T2], _)
-  when is_atom(H1), is_atom(H2), length(L1) =:= length(L2) ->
-    case lists:member(H1, L2) of
-	true ->
-	    check_bitstring1(T1, L2);
-	false -> throw({error,L2})
-    end;
-%% Default value as a list of atoms and user value as a list of 1 and 0
-check_named_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL) when is_atom(H1), is_integer(H2) ->
-    L3 = bit_list_to_nbl(L2, NBL, 0, []),
-    check_named_bitstring(L1, L3, NBL);
-%% User value in compact format
-check_named_bitstring(DefVal,CBS={_,_}, NBL) ->
-    NewVal = cbs_to_bit_list(CBS),
-    check_named_bitstring(DefVal, NewVal, NBL);
-%% User value as a binary
-check_named_bitstring(DefVal, CBS, NBL) when is_binary(CBS) ->
-    NewVal = cbs_to_bit_list({0,CBS}),
-    check_named_bitstring(DefVal, NewVal, NBL);
-%% User value as a bitstring
-check_named_bitstring(DefVal, CBS, NBL) when is_bitstring(CBS) ->
-    BitSize = bit_size(CBS),
-    Unused = 8 - (BitSize band 7),
-    NewVal = cbs_to_bit_list({Unused,<<CBS:BitSize/bits,0:Unused>>}),
-    check_named_bitstring(DefVal, NewVal, NBL);
-check_named_bitstring(DV, V, _) ->
-    throw({error,DV,V}).
-
-int_to_bit_list(0, Acc, 0) ->
-    Acc;
-int_to_bit_list(Int, Acc, Len) when Len > 0 ->
-    int_to_bit_list(Int bsr 1, [Int band 1|Acc], Len - 1).
-
-bit_list_to_nbl([0|T], NBL, Pos, Acc) ->
-    bit_list_to_nbl(T, NBL, Pos+1, Acc);
-bit_list_to_nbl([1|T], NBL, Pos, Acc) ->
-    case lists:keyfind(Pos, 2, NBL) of
-	{N,_} ->
-	    bit_list_to_nbl(T, NBL, Pos+1, [N|Acc]);
+check_named_bitstring(Val, Bs, BsSize) ->
+    Rest = bit_size(Val) - BsSize,
+    case Val of
+	<<Bs:BsSize/bits,0:Rest>> ->
+	    true;
 	_ ->
-	    throw({error,{no,named,element,at,pos,Pos}})
-    end;
-bit_list_to_nbl([], _, _, Acc) ->
-    Acc.
-
-remove_trailing_zeros(L2) ->
-    remove_trailing_zeros1(lists:reverse(L2)).
-remove_trailing_zeros1(L) ->
-    lists:reverse(lists:dropwhile(fun(0)->true;
-				     (_) ->false
-				  end,
-				  L)).
-
-check_bitstring1([H|T], NBL) ->
-    case lists:member(H, NBL) of
-	true -> check_bitstring1(T, NBL);
-	V -> throw({error,V})
-    end;
-check_bitstring1([], _) ->
-    true.
-
-cbs_to_bit_list({Unused, <<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1,Rest/binary>>}) when byte_size(Rest) >= 1 ->
-    [B7,B6,B5,B4,B3,B2,B1,B0|cbs_to_bit_list({Unused,Rest})];
-cbs_to_bit_list({0,<<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1>>}) ->
-    [B7,B6,B5,B4,B3,B2,B1,B0];
-cbs_to_bit_list({Unused,Bin}) when byte_size(Bin) =:= 1 ->
-    Used = 8-Unused,
-    <<Int:Used,_:Unused>> = Bin,
-    int_to_bit_list(Int, [], Used).
-
-
-check_octetstring(_, asn1_DEFAULT) ->
-    true;
-check_octetstring(L, L) ->
-    true;
-check_octetstring(L, Int) when is_list(L), is_integer(Int) ->
-    case integer_to_octetlist(Int) of
-	L -> true;
-	V -> throw({error,V})
-    end;
-check_octetstring(_, V) ->
-    throw({error,V}).
-
-integer_to_octetlist(Int) ->
-    integer_to_octetlist(Int, []).
-integer_to_octetlist(0, Acc) ->
-    Acc;
-integer_to_octetlist(Int, Acc) ->
-    integer_to_octetlist(Int bsr 8, [(Int band 255)|Acc]).
-
-check_null(_, asn1_DEFAULT) ->
-    true;
-check_null('NULL', 'NULL') ->
-    true;
-check_null(_, V) ->
-    throw({error,V}).
-
-check_objectidentifier(_, asn1_DEFAULT) ->
-    true;
-check_objectidentifier(OI, OI) ->
-    true;
-check_objectidentifier(DOI, OI) when is_tuple(DOI), is_tuple(OI) ->
-    check_objectidentifier1(tuple_to_list(DOI), tuple_to_list(OI));
-check_objectidentifier(_, OI) ->
-    throw({error,OI}).
-
-check_objectidentifier1([V|Rest1], [V|Rest2]) ->
-    check_objectidentifier1(Rest1, Rest2, V);
-check_objectidentifier1([V1|Rest1], [V2|Rest2]) ->
-    case reserved_objectid(V2, []) of
-	V1 ->
-	    check_objectidentifier1(Rest1, Rest2, [V1]);
-	V ->
-	    throw({error,V})
+	    throw(false)
     end.
-check_objectidentifier1([V|Rest1], [V|Rest2], Above) ->
-    check_objectidentifier1(Rest1, Rest2, [V|Above]);
-check_objectidentifier1([V1|Rest1], [V2|Rest2], Above) ->
-    case reserved_objectid(V2, Above) of
-	V1 ->
-	    check_objectidentifier1(Rest1, Rest2, [V1|Above]);
-	V ->
-	    throw({error,V})
+
+check_named_bitstring([_|_]=Val, Names, _, _) ->
+    case lists:sort(Val) of
+	Names -> true;
+	_ -> throw(false)
     end;
-check_objectidentifier1([], [], _) ->
+check_named_bitstring(Bs, _, Bs, _) ->
     true;
-check_objectidentifier1(_, V, _) ->
-    throw({error,object,identifier,V}).
+check_named_bitstring(Val, _, Bs, BsSize) ->
+    Rest = bit_size(Val) - BsSize,
+    case Val of
+	<<Bs:BsSize/bits,0:Rest>> ->
+	    true;
+	_ ->
+	    throw(false)
+    end.
 
-%% ITU-T Rec. X.680 Annex B - D
-reserved_objectid('itu-t', []) -> 0;
-reserved_objectid('ccitt', []) -> 0;
-%% arcs below "itu-t"
-reserved_objectid('recommendation', [0]) -> 0;
-reserved_objectid('question', [0]) -> 1;
-reserved_objectid('administration', [0]) -> 2;
-reserved_objectid('network-operator', [0]) -> 3;
-reserved_objectid('identified-organization', [0]) -> 4;
+check_octetstring(V, V) ->
+    true;
+check_octetstring(V, Def) when is_list(V) ->
+    case list_to_binary(V) of
+	Def -> true;
+	_ -> throw(false)
+    end;
+check_octetstring(_, _) ->
+    throw(false).
 
-reserved_objectid(iso, []) -> 1;
-%% arcs below "iso", note that number 1 is not used
-reserved_objectid('standard', [1]) -> 0;
-reserved_objectid('member-body', [1]) -> 2;
-reserved_objectid('identified-organization', [1]) -> 3;
+check_objectidentifier(Value, {Prefix,Tail}) when is_tuple(Value) ->
+    check_oid(tuple_to_list(Value), Prefix, Tail);
+check_objectidentifier(_, _) ->
+    throw(false).
 
-reserved_objectid('joint-iso-itu-t', []) -> 2;
-reserved_objectid('joint-iso-ccitt', []) -> 2;
-
-reserved_objectid(_, _) -> false.
-
+check_oid([H|T], [K|Ks], Tail) ->
+    case lists:member(H, K) of
+	false -> throw(false);
+	true -> check_oid(T, Ks, Tail)
+    end;
+check_oid(Tail, [], Tail) ->
+    true;
+check_oid(_, _, _) ->
+    throw(false).
 
 check_objectdescriptor(_, asn1_DEFAULT) ->
     true;
@@ -262,21 +177,6 @@ check_real(R, R) ->
 check_real(_, _) ->
     throw({error,{not_implemented_yet,check_real}}).
 
-check_enum(_, asn1_DEFAULT, _) ->
-    true;
-check_enum(Val, Val, _) ->
-    true;
-check_enum(Int, Atom, Enumerations) when is_integer(Int), is_atom(Atom) ->
-    case lists:keyfind(Atom, 1, Enumerations) of
-	{_,Int} -> true;
-	_ -> throw({error,{enumerated,Int,Atom}})
-    end;
-check_enum(DefVal, Val, _) ->
-    throw({error,{enumerated,DefVal,Val}}).
-
-
-check_restrictedstring(_, asn1_DEFAULT) ->
-    true;
 check_restrictedstring(Val, Val) ->
     true;
 check_restrictedstring([V|Rest1], [V|Rest2]) ->
@@ -295,7 +195,15 @@ check_restrictedstring({V1,V2,V3,V4}, [V1,V2,V3,V4]) ->
 check_restrictedstring([V1,V2,V3,V4], {V1,V2,V3,V4}) ->
     true;
 %% character string list
-check_restrictedstring(V1, V2) when is_list(V1), is_tuple(V2) ->
-    check_restrictedstring(V1, tuple_to_list(V2));
-check_restrictedstring(V1, V2) ->
-    throw({error,{restricted,string,V1,V2}}).
+check_restrictedstring(V1, V2) when is_tuple(V1) ->
+    check_restrictedstring(tuple_to_list(V1), V2);
+check_restrictedstring(_, _) ->
+    throw(false).
+
+check_literal_sof(Value, Default) ->
+    case lists:sort(Value) of
+	Default ->
+	    true;
+	_ ->
+	    throw(false)
+    end.
