@@ -461,6 +461,15 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
        language = Lang
       };
 
+%% Accept bad disconnects from ancient openssh clients that doesn't send language tag.  Use english as a work-around.
+decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
+       ?UINT32(Len0), Desc:Len0/binary>>) ->
+    #ssh_msg_disconnect{
+       code = Code,
+       description = unicode:characters_to_list(Desc),
+       language = <<"en">>
+      };
+
 decode(<<?SSH_MSG_NEWKEYS>>) ->
     #ssh_msg_newkeys{};
 
