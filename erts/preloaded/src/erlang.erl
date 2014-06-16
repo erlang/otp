@@ -93,7 +93,7 @@
 	 float_to_list/1, float_to_list/2]).
 -export([fun_info/2, fun_info_mfa/1, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
--export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
+-export([garbage_collect_message_area/0, get/0, get/1, get_keys/0, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
 -export([group_leader/2, halt/0, halt/1, halt/2, hash/2, hibernate/3]).
 -export([insert_element/3]).
@@ -929,6 +929,12 @@ get() ->
       Key :: term(),
       Val :: term().
 get(_Key) ->
+    erlang:nif_error(undefined).
+
+%% get_keys/0
+-spec get_keys() -> [Key] when
+      Key :: term().
+get_keys() ->
     erlang:nif_error(undefined).
 
 %% get_keys/1
