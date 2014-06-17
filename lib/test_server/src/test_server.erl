@@ -128,7 +128,7 @@ cover_compile(CoverInfo=#cover{app=App,excl=all,incl=Include,cross=Cross}) ->
 		      "~tp\n", [App,CompileMods]),
 	    do_cover_compile(CompileMods),
 	    io:fwrite("done\n\n",[]),
-	    {ok,CoverInfo=#cover{mods=Include}}
+	    {ok,CoverInfo#cover{mods=Include}}
     end;
 cover_compile(CoverInfo=#cover{app=App,excl=Exclude,incl=Include,cross=Cross}) ->
     CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
