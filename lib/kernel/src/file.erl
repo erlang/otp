@@ -117,15 +117,7 @@
 			  | {'time', 'posix'}.
 %%% BIFs
 
--export([file_info/1, native_name_encoding/0]).
-
--spec file_info(Filename) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
-      FileInfo :: file_info(),
-      Reason :: posix() | badarg.
-
-file_info(_) ->
-    erlang:nif_error(undef).
+-export([native_name_encoding/0]).
 
 -spec native_name_encoding() -> latin1 | utf8.
 

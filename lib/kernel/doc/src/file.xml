@@ -428,14 +428,6 @@
       </desc>
     </func>
     <func>
-      <name name="file_info" arity="1"/>
-      <fsummary>Get information about a file (deprecated)</fsummary>
-      <desc>
-        <p>This function is obsolete. Use <c>read_file_info/1,2</c>
-          instead.</p>
-      </desc>
-    </func>
-    <func>
       <name name="format_error" arity="1"/>
       <fsummary>Return a descriptive string for an error reason</fsummary>
       <desc>
