@@ -662,6 +662,20 @@ latin1_fallback(Conf) when is_list(Conf) ->
 	    {warnings,[{1,compile,reparsing_invalid_unicode}]}
 	   }],
     [] = run(Conf, Ts2),
+
+    Ts3 = [{latin1_fallback3,
+	    %% Test that the compiler fall backs to latin-1 with
+	    %% a warning if a file has no encoding and does not
+	    %% contain correct UTF-8 sequences.
+	    <<"-ifdef(NOTDEFINED).
+              t(_) -> \"",246,"\";
+              t(x) -> ok.
+              -endif.
+              ">>,
+	    [],
+	    {warnings,[{2,compile,reparsing_invalid_unicode}]}}],
+    [] = run(Conf, Ts3),
+
     ok.
 
 %%%
