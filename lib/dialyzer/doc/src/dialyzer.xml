@@ -139,12 +139,7 @@
       <tag><c><![CDATA[-Wwarn]]></c></tag>
       <item>A family of options which selectively turn on/off warnings
         (for help on the names of warnings use
-        <c><![CDATA[dialyzer -Whelp]]></c>).
-        Note that the options can also be given in the file with a
-        <c>-dialyzer({nowarn_tag, WarningTags})</c> attribute.
-        See <seealso
-        marker="doc/reference_manual:typespec#suppression">Erlang Reference
-        Manual</seealso> for details.</item>
+        <c><![CDATA[dialyzer -Whelp]]></c>).</item>
       <tag><c><![CDATA[--shell]]></c></tag>
       <item>Do not disable the Erlang shell while running the GUI.</item>
       <tag><c><![CDATA[--version]]></c> (or <c><![CDATA[-v]]></c>)</tag>
