@@ -1487,7 +1487,13 @@ real_path(Name,[Path|Paths],Acc,Links) ->
 			[""|_] = LinkPaths ->
 			    real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
 			LinkPaths ->
-			    real_path(Name,LinkPaths++Paths,Acc,[ThisFile|Links])
+                % windows symlinks require that all path be rebuilt
+                case erlang:system_info(os_type) of
+                    {win32, _} ->
+                        real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
+                    _ ->
+                        real_path(Name,LinkPaths++Paths,Acc,[ThisFile|Links])
+                end
 		    end;
 		_ ->
 		    real_path(Name,Paths,This,Links)
