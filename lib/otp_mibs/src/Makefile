@@ -72,7 +72,7 @@ ERL_COMPILE_FLAGS += -I$(INCLUDE) +warn_obsolete_guard
 debug opt: $(TARGETS)
 
 clean:
-	rm -f $(TARGETS_FILES)
+	rm -f $(TARGET_FILES)
 	rm -f $(APP_TARGET)
 	rm -f $(APPUP_TARGET)
 	rm -f core
