@@ -440,13 +440,8 @@ parse_function({M, F}) when is_atom(M), is_atom(F) ->
 parse_function(F) ->
     bad_test(F).
 
-check_arity(F, N, T) when is_function(F) ->
-    case erlang:fun_info(F, arity) of
-	{arity, N} ->
-	    ok;
-	_ ->
-	    bad_test(T) 
-    end;
+check_arity(F, N, _) when is_function(F, N) ->
+    ok;
 check_arity(_, _, T) ->
     bad_test(T).
 
