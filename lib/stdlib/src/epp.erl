@@ -1121,8 +1121,20 @@ skip_toks(From, St, [I|Sis]) ->
 	    skip_toks(From, St#epp{location=Cl}, Sis);
 	{ok,_Toks,Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [I|Sis]);
-	{error,_E,Cl} ->
-	    skip_toks(From, St#epp{location=Cl}, [I|Sis]);
+	{error,E,Cl} ->
+	    case E of
+		{_,file_io_server,invalid_unicode} ->
+		    %% The compiler needs to know that there was
+		    %% invalid unicode characters in the file
+		    %% (and there is no point in continuing anyway
+		    %% since io server process has terminated).
+		    epp_reply(From, {error,E}),
+		    leave_file(wait_request(St), St);
+		_ ->
+		    %% Some other invalid token, such as a bad floating
+		    %% point number. Just ignore it.
+		    skip_toks(From, St#epp{location=Cl}, [I|Sis])
+	    end;
 	{eof,Cl} ->
 	    leave_file(From, St#epp{location=Cl,istk=[I|Sis]});
 	{error,_E} ->
