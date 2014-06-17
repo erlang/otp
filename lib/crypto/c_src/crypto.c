@@ -505,6 +505,15 @@ static int init_ose_crypto() {
 #endif
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
+
+# if defined(DEBUG)
+static char crypto_callback_name[] = "crypto_callback.debug";
+# elif defined(VALGRIND)
+static char crypto_callback_name[] = "crypto_callback.valgrind";
+# else
+static char crypto_callback_name[] = "crypto_callback";
+# endif
+
 static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
 {
     int i;
@@ -611,7 +620,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
 	void* handle;
-	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), "crypto_callback")) {
+	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
 	    return 0;
 	}
 	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
