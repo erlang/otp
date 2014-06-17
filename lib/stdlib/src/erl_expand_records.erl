@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,6 +37,8 @@
                  strict_ra=[],        % strict record accesses
                  checked_ra=[]        % successfully accessed records
                 }).
+
+-define(REC_OFFSET, 100000000). % A hundred millions. Also in v3_core.
 
 -spec(module(AbsForms, CompileOptions) -> AbsForms when
       AbsForms :: [erl_parse:abstract_form()],
@@ -144,10 +146,11 @@ pattern({map_field_exact,Line,K0,V0}, St0) ->
 %%    {{struct,Line,Tag,TPs},TPsvs,St1};
 pattern({record_index,Line,Name,Field}, St) ->
     {index_expr(Line, Field, Name, record_fields(Name, St)),St};
-pattern({record,Line,Name,Pfs}, St0) ->
+pattern({record,Line0,Name,Pfs}, St0) ->
     Fs = record_fields(Name, St0),
     {TMs,St1} = pattern_list(pattern_fields(Fs, Pfs), St0),
-    {{tuple,Line,[{atom,Line,Name} | TMs]},St1};
+    Line = record_offset(Line0, St1),
+    {{tuple,Line,[{atom,Line0,Name} | TMs]},St1};
 pattern({bin,Line,Es0}, St0) ->
     {Es1,St1} = pattern_bin(Es0, St0),
     {{bin,Line,Es1},St1};
@@ -329,8 +332,9 @@ expr({map_field_exact,Line,K0,V0}, St0) ->
 expr({record_index,Line,Name,F}, St) ->
     I = index_expr(Line, F, Name, record_fields(Name, St)),
     expr(I, St);
-expr({record,Line,Name,Is}, St) ->
-    expr({tuple,Line,[{atom,Line,Name} | 
+expr({record,Line0,Name,Is}, St) ->
+    Line = record_offset(Line0, St),
+    expr({tuple,Line,[{atom,Line0,Name} |
                       record_inits(record_fields(Name, St), Is)]},
          St);
 expr({record_field,Line,R,Name,F}, St) ->
@@ -582,8 +586,9 @@ strict_get_record_field(Line, R, {atom,_,F}=Index, Name, St0) ->
             I = index_expr(F, Fs, 2),
             P = record_pattern(2, I, Var, length(Fs)+1, Line, [{atom,Line,Name}]),
             NLine = neg_line(Line),
+            RLine = record_offset(NLine, St),
 	    E = {'case',NLine,R,
-		     [{clause,NLine,[{tuple,NLine,P}],[],[Var]},
+		     [{clause,NLine,[{tuple,RLine,P}],[],[Var]},
 		      {clause,NLine,[{var,NLine,'_'}],[],
 		       [{call,NLine,{remote,NLine,
 				    {atom,NLine,erlang},
@@ -836,7 +841,7 @@ optimize_is_record(H0, G0, #exprec{compile=Opts}) ->
 	[] ->
 	    {H0,G0};
 	Rs0 ->
-	    case lists:member(no_is_record_optimization, Opts) of
+	    case lists:member(dialyzer, Opts) of % no_is_record_optimization
 		true ->
 		    {H0,G0};
 		false ->
@@ -961,3 +966,10 @@ opt_remove_2(A, _) -> A.
 
 neg_line(L) ->
     erl_parse:set_line(L, fun(Line) -> -abs(Line) end).
+
+record_offset(L, St) ->
+    case lists:member(dialyzer, St#exprec.compile) of
+        true when L >= 0 -> L+?REC_OFFSET;
+        true when L < 0  -> L-?REC_OFFSET;
+        false -> L
+    end.

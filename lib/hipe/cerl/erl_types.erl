@@ -71,7 +71,7 @@
          t_contains_opaque/1, t_contains_opaque/2,
          t_decorate_with_opaque/3,
 	 t_elements/1,
-	 t_find_opaque_mismatch/2,
+	 t_find_opaque_mismatch/3,
          t_find_unknown_opaque/3,
 	 t_fixnum/0,
 	 t_map/2,
@@ -518,39 +518,51 @@ list_contains_opaque(List, Opaques) ->
 %% The first argument of the function is the pattern and its second
 %% argument the type we are matching against the pattern.
 
--spec t_find_opaque_mismatch(erl_type(), erl_type()) -> 'error' | {'ok', erl_type(), erl_type()}.
+-spec t_find_opaque_mismatch(erl_type(), erl_type(), [erl_type()]) ->
+                                'error' | {'ok', erl_type(), erl_type()}.
 
-t_find_opaque_mismatch(T1, T2) ->
-  t_find_opaque_mismatch(T1, T2, T2).
+t_find_opaque_mismatch(T1, T2, Opaques) ->
+  t_find_opaque_mismatch(T1, T2, T2, Opaques).
 
-t_find_opaque_mismatch(?any, _Type, _TopType) -> error;
-t_find_opaque_mismatch(?none, _Type, _TopType) -> error;
-t_find_opaque_mismatch(?list(T1, Tl1, _), ?list(T2, Tl2, _), TopType) ->
-  t_find_opaque_mismatch_ordlists([T1, Tl1], [T2, Tl2], TopType);
-t_find_opaque_mismatch(_T1, ?opaque(_) = T2, TopType) -> {ok, TopType, T2};
-t_find_opaque_mismatch(?opaque(_) = T1, _T2, TopType) ->
+t_find_opaque_mismatch(?any, _Type, _TopType, _Opaques) -> error;
+t_find_opaque_mismatch(?none, _Type, _TopType, _Opaques) -> error;
+t_find_opaque_mismatch(?list(T1, Tl1, _), ?list(T2, Tl2, _), TopType, Opaques) ->
+  t_find_opaque_mismatch_ordlists([T1, Tl1], [T2, Tl2], TopType, Opaques);
+t_find_opaque_mismatch(T1, ?opaque(_) = T2, TopType, Opaques) ->
+  case is_opaque_type(T2, Opaques) of
+    false -> {ok, TopType, T2};
+    true ->
+      t_find_opaque_mismatch(T1, t_opaque_structure(T2), TopType, Opaques)
+  end;
+t_find_opaque_mismatch(?opaque(_) = T1, T2, TopType, Opaques) ->
   %% The generated message is somewhat misleading:
-  {ok, TopType, T1};
-t_find_opaque_mismatch(?product(T1), ?product(T2), TopType) ->
-  t_find_opaque_mismatch_ordlists(T1, T2, TopType);
-t_find_opaque_mismatch(?tuple(T1, Arity, _), ?tuple(T2, Arity, _), TopType) ->
-  t_find_opaque_mismatch_ordlists(T1, T2, TopType);
-t_find_opaque_mismatch(?tuple(_, _, _) = T1, ?tuple_set(_) = T2, TopType) ->
+  case is_opaque_type(T1, Opaques) of
+    false -> {ok, TopType, T1};
+    true ->
+      t_find_opaque_mismatch(t_opaque_structure(T1), T2, TopType, Opaques)
+  end;
+t_find_opaque_mismatch(?product(T1), ?product(T2), TopType, Opaques) ->
+  t_find_opaque_mismatch_ordlists(T1, T2, TopType, Opaques);
+t_find_opaque_mismatch(?tuple(T1, Arity, _), ?tuple(T2, Arity, _),
+                       TopType, Opaques) ->
+  t_find_opaque_mismatch_ordlists(T1, T2, TopType, Opaques);
+t_find_opaque_mismatch(?tuple(_, _, _) = T1, ?tuple_set(_) = T2,
+                       TopType, Opaques) ->
   Tuples1 = t_tuple_subtypes(T1),
   Tuples2 = t_tuple_subtypes(T2),
-  t_find_opaque_mismatch_lists(Tuples1, Tuples2, TopType);
-t_find_opaque_mismatch(T1, ?union(U2), TopType) ->
-  t_find_opaque_mismatch_lists([T1], U2, TopType);
-t_find_opaque_mismatch(_T1, _T2, _TopType) -> error.
+  t_find_opaque_mismatch_lists(Tuples1, Tuples2, TopType, Opaques);
+t_find_opaque_mismatch(T1, ?union(U2), TopType, Opaques) ->
+  t_find_opaque_mismatch_lists([T1], U2, TopType, Opaques);
+t_find_opaque_mismatch(_T1, _T2, _TopType, _Opaques) -> error.
 
-t_find_opaque_mismatch_ordlists(L1, L2, TopType) ->
+t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
   List = lists:zipwith(fun(T1, T2) ->
-			   t_find_opaque_mismatch(T1, T2, TopType)
+			   t_find_opaque_mismatch(T1, T2, TopType, Opaques)
 		       end, L1, L2),
   t_find_opaque_mismatch_list(List).
 
-t_find_opaque_mismatch_lists(L1, L2, _TopType) ->
-  List = [t_find_opaque_mismatch(T1, T2, T2) || T1 <- L1, T2 <- L2],
+t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques) ->
+  List = [t_find_opaque_mismatch(T1, T2, T2, Opaques) || T1 <- L1, T2 <- L2],
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_list([]) -> error;
@@ -1406,7 +1418,6 @@ t_number_vals(Type) ->
 t_number_vals(Type, Opaques) ->
   do_opaque(Type, Opaques, fun number_vals/1).
 
-number_vals(?int_set(?any)) -> unknown;
 number_vals(?int_set(Set)) -> set_to_list(Set);
 number_vals(?number(_, _)) -> unknown;
 number_vals(?opaque(_)) -> unknown;
