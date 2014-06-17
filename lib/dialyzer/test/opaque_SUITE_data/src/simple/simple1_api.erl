@@ -428,8 +428,8 @@ bit_adt_t3(A) ->
 
 bit_t5(A) ->
     B = o1(),
-    case none:none() of
-        <<A:B>> -> 1 % breaks the opaqueness
+    case none:none() of % the type is any(); should fix that XXX
+        <<A:B>> -> 1 % can never match (local opaque type is OK)
     end.
 
 -spec bit_t4(<<_:1>>) -> integer().
