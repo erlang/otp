@@ -2286,6 +2286,7 @@ tuple_to_list(_Tuple) ->
          (system_architecture) -> string();
          (threads) -> boolean();
          (thread_pool_size) -> non_neg_integer();
+         (tolerant_timeofday) -> enabled | disabled;
          (trace_control_word) -> non_neg_integer();
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();

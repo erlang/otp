@@ -2691,6 +2691,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("ets_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_db_get_max_tabs()));
     }
+    else if (ERTS_IS_ATOM_STR("tolerant_timeofday",BIF_ARG_1)) {
+	BIF_RET(erts_disable_tolerant_timeofday
+		? am_disabled
+		: am_enabled);
+    }
 
     BIF_ERROR(BIF_P, BADARG);
 }
