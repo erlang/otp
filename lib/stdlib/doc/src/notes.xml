@@ -343,10 +343,10 @@
 	    "hello"}, % add new associations</c></item> <item><c>#{
 	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
 	    values</c></item> </taglist></p>
-          <p>
-	    For information on how to use Maps please see the
-	    <seealso marker="doc/reference_manual:maps">Reference
-	    Manual</seealso>.</p>
+        <p>
+	    For information on how to use Maps please see Map Expressions in the
+		<seealso marker="doc/reference_manual:expressions#map_expressions">
+			Reference Manual</seealso>.</p>
           <p>
 	    The current implementation is without the following
 	    features: <taglist> <item>No variable keys</item>
@@ -2193,7 +2193,7 @@
 	    platforms than before. If <c>configure</c> warns about no
 	    atomic implementation available, try using the
 	    <c>libatomic_ops</c> library. Use the <seealso
-	    marker="doc/installation_guide:INSTALL#How-to-Build-and-Install-ErlangOTP_A-Closer-Look-at-the-individual-Steps_Configuring">--with-libatomic_ops=PATH</seealso>
+	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--with-libatomic_ops=PATH</seealso>
 	    <c>configure</c> command line argument when specifying
 	    where the <c>libatomic_ops</c> installation is located.
 	    The <c>libatomic_ops</c> library can be downloaded from:
@@ -2211,7 +2211,7 @@
 	    the pentium 4 processor. If you want the runtime system
 	    to be compatible with older processors (back to 486) you
 	    need to pass the <seealso
-	    marker="doc/installation_guide:INSTALL#How-to-Build-and-Install-ErlangOTP_A-Closer-Look-at-the-individual-Steps_Configuring">--enable-ethread-pre-pentium4-compatibility</seealso>
+	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seealso>
 	    <c>configure</c> command line argument when configuring
 	    the system.</p>
           <p>

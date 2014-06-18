@@ -566,8 +566,8 @@ under the License.
 
 
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
-   [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_Building-in-Git
-   [How to Build the Documentation]: INSTALL.md#The-ErlangOTP-Documentation_How-to-Build-the-Documentation
+   [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP
+   [How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_How-to-Build-the-Documentation
    [cross configuration variables]: #Currently-Used-Configuration-Variables
    [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
    [?TOC]: true

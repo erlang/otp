@@ -215,7 +215,7 @@ adam
 0</pre>
     <p>A collection of maps processing functions can be found in
 	the STDLIB module <seealso marker="stdlib:maps"><c>maps</c></seealso>.</p>
-    <p>Read more about <seealso marker="maps">Maps</seealso>.</p>
+    <p>Read more about <seealso marker="expressions#map_expressions">Maps</seealso>.</p>
   <note>
 	  <p>Maps are considered experimental during OTP 17.</p>
   </note>
