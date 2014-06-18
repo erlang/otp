@@ -3222,6 +3222,7 @@ out:
     if (bn_order) BN_free(bn_order);
     if (cofactor) BN_free(cofactor);
     if (group) EC_GROUP_free(group);
+    if (point) EC_POINT_free(point);
 
     return key;
 }
@@ -3384,8 +3385,11 @@ static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	EC_KEY_free(key);
 	return enif_make_tuple2(env, pub_key, priv_key);
     }
-    else
+    else {
+	if (key)
+	    EC_KEY_free(key);
 	return enif_make_badarg(env);
+    }
 #else
     return atom_notsup;
 #endif
