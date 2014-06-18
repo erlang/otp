@@ -1205,9 +1205,14 @@ create_slim(Config) ->
 
     RootDir = code:root_dir(),
     Erl = filename:join([RootDir, "bin", "erl"]),
+    EscapedQuote =
+	case os:type() of
+	    {win32,_} -> "\\\"";
+	    _         -> "\""
+	end,
     Args = ["-boot_var", "RELTOOL_EXT_LIB", TargetLibDir,
 	    "-boot", filename:join(TargetRelVsnDir,RelName),
-	    "-sasl", "releases_dir", "\""++TargetRelDir++"\""],
+	    "-sasl", "releases_dir", EscapedQuote++TargetRelDir++EscapedQuote],
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl, Args)),
     ?msym(RootDir, rpc:call(Node, code, root_dir, [])),
     wait_for_app(Node,sasl,50),
