@@ -31,6 +31,29 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A Dialyzer crash involving analysis of Map types has now
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-11947</p>
+        </item>
+        <item>
+	    <p>The compiler would fail to compile a file with a
+	    latin-1 character in the false branch of an <c>-ifdef</c>
+	    or <c>-indef</c>.</p>
+          <p>
+	    Own Id: OTP-11987</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 5.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

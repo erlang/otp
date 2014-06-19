@@ -31,6 +31,36 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix delayed destroy for wxPaintDC objects which could
+	    cause an eternal loop for modal dialogs.</p> <p>Fix
+	    wxSL_LABELS compatibility between wxWidgets-2.8 and
+	    wxWidgets-3.0 versions</p>
+          <p>
+	    Own Id: OTP-11985</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add missing classes wxPopup[Transient]Window,
+	    wxActivateEvent and wxTextCtrl:cahngeValue/2 function.</p>
+          <p>
+	    Own Id: OTP-11986</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

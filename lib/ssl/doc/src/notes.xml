@@ -25,7 +25,119 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.4</title>
+  <section><title>SSL 5.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl:recv now returns {error, einval} if applied to a non
+	    passive socket, the same as gen_tcp:recv. </p>
+          <p>
+	    Thanks to Danil Zagoskin for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11878</p>
+        </item>
+        <item>
+          <p>
+	    Corrected handling of default values for
+	    signature_algorithms extension in TLS-1.2 and
+	    corresponding values used in previous versions that does
+	    not support this extension. </p>
+          <p>
+	    Thanks to Danil Zagoskin</p>
+          <p>
+	    Own Id: OTP-11886</p>
+        </item>
+        <item>
+          <p>
+	    Handle socket option inheritance when pooling of accept
+	    sockets is used</p>
+          <p>
+	    Own Id: OTP-11897</p>
+        </item>
+        <item>
+          <p>
+	    Make sure that the list of versions, possibly supplied in
+	    the versions option, is not order dependent.</p>
+          <p>
+	    Thanks to Ransom Richardson for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11912</p>
+        </item>
+        <item>
+          <p>
+	    Reject connection if the next_protocol message is sent
+	    twice.</p>
+          <p>
+	    Own Id: OTP-11926</p>
+        </item>
+        <item>
+          <p>
+	    Correct options handling when ssl:ssl_accept/3 is called
+	    with new ssl options after calling ssl:listen/2</p>
+          <p>
+	    Own Id: OTP-11950</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully handle unknown alerts</p>
+          <p>
+	    Thanks to Atul Atri for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11874</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully ignore cipher suites sent by client not
+	    supported by the SSL/TLS version that the client has
+	    negotiated.</p>
+          <p>
+	    Thanks to Danil Zagoskin for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11875</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully handle structured garbage, i.e a client sends
+	    some garbage in a ssl record instead of a valid fragment.</p>
+          <p>
+	    Thanks to Danil Zagoskin</p>
+          <p>
+	    Own Id: OTP-11880</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully handle invalid alerts</p>
+          <p>
+	    Own Id: OTP-11890</p>
+        </item>
+        <item>
+          <p>
+	    Generalize handling of default ciphers</p>
+          <p>
+	    Thanks to Andreas Schultz</p>
+          <p>
+	    Own Id: OTP-11966</p>
+        </item>
+        <item>
+          <p>
+	    Make sure change cipher spec is correctly handled</p>
+          <p>
+	    Own Id: OTP-11975</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

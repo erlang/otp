@@ -30,6 +30,87 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>filelib:wildcard("broken_symlink")</c> would return
+	    an empty list if "broken_symlink" was a symlink that did
+	    not point to an existing file.</p>
+          <p>
+	    Own Id: OTP-11850 Aux Id: seq12571 </p>
+        </item>
+        <item>
+	    <p><c>erl_tar</c> can now handle files names that contain
+	    Unicode characters. See "UNICODE SUPPORT" in the
+	    documentation for <c>erl_tar</c>.</p>
+	    <p>When creating a tar file, <c>erl_tar</c> would
+	    sometime write a too short end of tape marker. GNU tar
+	    would correctly extract files from such tar file, but
+	    would complain about "A lone zero block at...".</p>
+          <p>
+	    Own Id: OTP-11854</p>
+        </item>
+        <item>
+	    <p> When redefining and exporting the type <c>map()</c>
+	    the Erlang Code Linter (<c>erl_lint</c>) erroneously
+	    emitted an error. This bug has been fixed. </p>
+          <p>
+	    Own Id: OTP-11872</p>
+        </item>
+        <item>
+          <p>
+	    Fix evaluation of map updates in the debugger and
+	    erl_eval</p>
+          <p>
+	    Reported-by: José Valim</p>
+          <p>
+	    Own Id: OTP-11922</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following native functions now bump an appropriate
+	    amount of reductions and yield when out of
+	    reductions:</p> <list>
+	    <item><c>erlang:binary_to_list/1</c></item>
+	    <item><c>erlang:binary_to_list/3</c></item>
+	    <item><c>erlang:bitstring_to_list/1</c></item>
+	    <item><c>erlang:list_to_binary/1</c></item>
+	    <item><c>erlang:iolist_to_binary/1</c></item>
+	    <item><c>erlang:list_to_bitstring/1</c></item>
+	    <item><c>binary:list_to_bin/1</c></item> </list>
+	    <p>Characteristics impact:</p> <taglist>
+	    <tag>Performance</tag> <item>The functions converting
+	    from lists got a performance loss for very small lists,
+	    and a performance gain for very large lists.</item>
+	    <tag>Priority</tag> <item>Previously a process executing
+	    one of these functions effectively got an unfair priority
+	    boost. This priority boost depended on the input size.
+	    The larger the input was, the larger the priority boost
+	    got. This unfair priority boost is now lost. </item>
+	    </taglist>
+          <p>
+	    Own Id: OTP-11888</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>maps:get/3</c> to maps module. The function will
+	    return the supplied default value if the key does not
+	    exist in the map.</p>
+          <p>
+	    Own Id: OTP-11951</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

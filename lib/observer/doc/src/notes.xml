@@ -31,6 +31,29 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    crashdump_viewer would crash if the owner of a timer was
+	    specified as the process' registered name. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-11919</p>
+        </item>
+        <item>
+          <p>
+	    Fix crash and minor updates.</p>
+          <p>
+	    Own Id: OTP-11949</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

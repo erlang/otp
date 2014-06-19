@@ -31,6 +31,44 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug concerning opaque types. Thanks to Shayan
+	    Pooya for pointing out the bug.</p>
+          <p>
+	    Own Id: OTP-11869</p>
+        </item>
+        <item>
+	    <p> A bug where Dialyzer failed to handle typed records
+	    with fields containing remote types has been fixed.
+	    Thanks to Erik Søe Sørensen for reporting the bug. </p>
+          <p>
+	    Own Id: OTP-11918</p>
+        </item>
+        <item>
+	    <p> Make sure that only literal records are checked
+	    against the types of record definitions. Until now the
+	    elements of tuples have been checked against record field
+	    types if the tag och size of the tuple matches the record
+	    definition, often with surprising results. </p>
+          <p>
+	    Own Id: OTP-11935 Aux Id: seq12590 </p>
+        </item>
+        <item>
+          <p>
+	    A Dialyzer crash involving analysis of Map types has now
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-11947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

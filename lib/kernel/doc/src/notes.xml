@@ -30,6 +30,58 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the Config given to
+	    application_controller:change_application_data included
+	    other config files, it was only expanded for already
+	    existing (loaded) applications. If an upgrade added a new
+	    application which had config data in an included config
+	    file, the new application did not get correct config
+	    data.</p>
+          <p>
+	    This is now changed so config data will be expanded for
+	    all applications.</p>
+          <p>
+	    Own Id: OTP-11864</p>
+        </item>
+        <item>
+	    <p>It was allowed to re-load pre-loaded modules such as
+	    <c>erlang</c>, but that could cause strange and unwanted
+	    things to happen, such as call <c>apply/3</c> to loop.
+	    Pre-loaded modules are now sticky by default. (Thanks to
+	    Loïc Hoguin for reporting this bug.)</p>
+	    <p><c>code:add_path("/ending/in/slash/")</c> removes the
+	    trailing slash, adding <c>/ending/in/slash</c> to the
+	    code path. However,
+	    <c>code:del_path("/ending/in/slash/")</c> would fail to
+	    remove the path since it did not remove the trailing
+	    slash. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-11913</p>
+        </item>
+        <item>
+          <p>
+	    Fix erts_debug:size/1 to handle Map sizes</p>
+          <p>
+	    Own Id: OTP-11923</p>
+        </item>
+        <item>
+	    <p>The documentation for <c>file:file_info/1</c> has been
+	    removed. The function itself was removed a long time
+	    ago.</p>
+          <p>
+	    Own Id: OTP-11982</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

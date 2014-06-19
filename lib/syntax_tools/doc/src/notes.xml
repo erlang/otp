@@ -31,6 +31,26 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix reverting map in syntax_tools</p>
+          <p>
+	    There was a bug in erl_syntax when running e.g.
+	    erl_syntax:revert_forms, affecting maps. Instead of
+	    getting Key/Value you got Key/Key in the resulting
+	    abstract form.</p>
+          <p>
+	    Own Id: OTP-11930</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

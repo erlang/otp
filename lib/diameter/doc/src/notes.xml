@@ -42,6 +42,135 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve robustness.</p>
+          <p>
+	    Counters returned by diameter:service_info/2 now only
+	    count messages known to the dictionary in question, so
+	    that an attacker cannot cause arbitrarily many counters
+	    to be created.</p>
+          <p>
+	    Messages to the Erlang log have been minimized, and those
+	    related to traffic have been removed entirely since an
+	    attacker could cause a node to be logged to death.
+	    Consequently, the default answer_errors configuration has
+	    been changed from report to discard. A service needs to
+	    be restarted for the change in default to take effect.</p>
+          <p>
+	    Own Id: OTP-11721</p>
+        </item>
+        <item>
+          <p>
+	    Fix request table leak.</p>
+          <p>
+	    Outgoing Diameter requests are stored in a table until an
+	    answer is received or times out. Calling
+	    diameter:stop_service/1 before this took place would
+	    orphan the entries, resulting in a memory leak.</p>
+          <p>
+	    Own Id: OTP-11893</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken SCTP transport.</p>
+          <p>
+	    OTP-11593 caused the sending of answer messages over SCTP
+	    to fail.</p>
+          <p>
+	    Own Id: OTP-11901 Aux Id: OTP-11593 </p>
+        </item>
+        <item>
+          <p>
+	    Fix watchdog process leak.</p>
+          <p>
+	    A failed capabilities exchange on a listening transport
+	    would orphan a process, causing a memory leak.</p>
+          <p>
+	    Own Id: OTP-11934</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect handling of incoming DPR.</p>
+          <p>
+	    In the case of a listening transport, a reconnection by a
+	    peer following DPR could transition the watchdog state to
+	    REOPEN instead of OKAY.</p>
+          <p>
+	    Own Id: OTP-11938</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of AVP length errors on unknown AVPs.</p>
+          <p>
+	    An AVP (Header) length that pointed past the end of the
+	    message was not flagged as a 5014 error in this case.
+	    Moreover, encoding such an AVP in the Failed-AVP of an
+	    answer message as a consequence of other errors (eg.
+	    M-bit, resulting in 5001) failed if the AVP contained a
+	    complete header.</p>
+          <p>
+	    Own Id: OTP-11946</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken check in dictionary compilation.</p>
+          <p>
+	    That an AVP specified in the content of a @codecs or
+	    @custom_types section was undefined went undetected,
+	    causing compilation to fail when attempting to lookup the
+	    AVP's type.</p>
+          <p>
+	    Own Id: OTP-11958</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add result code counters for CEA, DWA, and DPA.</p>
+          <p>
+	    In addition to the existing result code counters on other
+	    answer messages.</p>
+          <p>
+	    Own Id: OTP-11891</p>
+        </item>
+        <item>
+          <p>
+	    Add best-effort decode of AVPs within Failed-AVP.</p>
+          <p>
+	    OTP-11007 disabled the decode of AVPs in Failed-AVP since
+	    errors could cause the decode of Failed-AVP itself to
+	    fail. Component AVPs are now decoded if possible,
+	    otherwise not. AVPs of type Grouped are decoded as much
+	    as possible, as deeply as possible.</p>
+          <p>
+	    Own Id: OTP-11936 Aux Id: OTP-11007 </p>
+        </item>
+        <item>
+          <p>
+	    Add counters for encode errors in outgoing Diameter
+	    messages.</p>
+          <p>
+	    In addition to the existing counters on decode errors.
+	    The latter now count independently of result codes in
+	    answer messages since decode errors do not preclude the
+	    presence of a result code.</p>
+          <p>
+	    Own Id: OTP-11937</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

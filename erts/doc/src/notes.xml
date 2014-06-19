@@ -30,6 +30,154 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The documentation for <c>spawn_opt/5</c> now has a
+	    note mentioning that the <c>monitor</c> option is not
+	    supported.</p>
+          <p>
+	    Own Id: OTP-11849</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken system monitoring of <c>large_heap</c> for
+	    non-smp VM. No message for <c>large_heap</c> was ever
+	    sent on non-smp VM. Bug exist since R16B.</p>
+          <p>
+	    Own Id: OTP-11852</p>
+        </item>
+        <item>
+          <p>
+	    The emulator without SMP support crashed when passing a
+	    message to a process without enough heap space for the
+	    message. This bug was introduced in <c>erts-6.0</c>.</p>
+          <p>
+	    Own Id: OTP-11887 Aux Id: OTP-11388 </p>
+        </item>
+        <item>
+          <p>
+	    Fix race between ETS table deletion and unfixation that
+	    could cause VM crash. The race could happen between a
+	    terminating process that does not own the table but has a
+	    fixation on it and another process that deletes the table
+	    (maybe the owner terminating) at the same time. Bug
+	    existed since R15B02.</p>
+          <p>
+	    Own Id: OTP-11892</p>
+        </item>
+        <item>
+	    <p>The string following the <c>-eval</c> option when
+	    invoking <c>erl</c> would not be properly translated from
+	    UTF-8 to a list of Unicode characters (as would the
+	    arguments for <c>-run</c>).</p>
+	    <p>That bug would cause the build of Erlang/OTP to fail
+	    when building in a directory whose pathname contained
+	    non-US ASCII characters encoded in UTF-8. (Thanks to Eric
+	    Pailleau for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-11916</p>
+        </item>
+        <item>
+          <p>
+	    Fix erts_debug:size/1 to handle Map sizes</p>
+          <p>
+	    Own Id: OTP-11923</p>
+        </item>
+        <item>
+          <p>
+	    Removed <c>erlang:bitstr_to_list/1</c> and
+	    <c>erlang:list_to_bitstr/1</c>. They were added by
+	    mistake, and have always raised an <c>undefined</c>
+	    exception when called.</p>
+          <p>
+	    Own Id: OTP-11942</p>
+        </item>
+        <item>
+          <p>
+	    Fixed compilation using mingw-w64 on Windows.</p>
+          <p>
+	    Thanks to Jani Hakala.</p>
+          <p>
+	    Own Id: OTP-11945</p>
+        </item>
+        <item>
+          <p>
+	    The git sha is no longer printed in the shell start
+	    header when erlang is built from a tagged git release.</p>
+          <p>
+	    Own Id: OTP-11961</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where <c>send</c> trace events were
+	    erroneously dropped when the send was done to a
+	    registered process. This bug was introduced in R16B.</p>
+          <p>
+	    Own Id: OTP-11968</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following native functions now bump an appropriate
+	    amount of reductions and yield when out of
+	    reductions:</p> <list>
+	    <item><c>erlang:binary_to_list/1</c></item>
+	    <item><c>erlang:binary_to_list/3</c></item>
+	    <item><c>erlang:bitstring_to_list/1</c></item>
+	    <item><c>erlang:list_to_binary/1</c></item>
+	    <item><c>erlang:iolist_to_binary/1</c></item>
+	    <item><c>erlang:list_to_bitstring/1</c></item>
+	    <item><c>binary:list_to_bin/1</c></item> </list>
+	    <p>Characteristics impact:</p> <taglist>
+	    <tag>Performance</tag> <item>The functions converting
+	    from lists got a performance loss for very small lists,
+	    and a performance gain for very large lists.</item>
+	    <tag>Priority</tag> <item>Previously a process executing
+	    one of these functions effectively got an unfair priority
+	    boost. This priority boost depended on the input size.
+	    The larger the input was, the larger the priority boost
+	    got. This unfair priority boost is now lost. </item>
+	    </taglist>
+          <p>
+	    Own Id: OTP-11888</p>
+        </item>
+        <item>
+          <p>
+	    The systemd features of epmd have been removed from epmd
+	    by default. To enable them you have to build erlang with
+	    the configure option --enable-systemd.</p>
+          <p>
+	    Own Id: OTP-11921</p>
+        </item>
+        <item>
+          <p>
+	    Removed Erlang wrapper code used when calling
+	    <c>binary_to_term/1</c>, and <c>binary_to_term/2</c>.
+	    This improves the performance of these BIFs especially
+	    when they are called with small binaries as input.</p>
+          <p>
+	    Own Id: OTP-11931</p>
+        </item>
+        <item>
+          <p>
+	    Add erlang:system_info(tolerant_timeofday), an API to
+	    check whether compensation for sudden changes of system
+	    time is enabled or not.</p>
+          <p>
+	    Own Id: OTP-11970</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -29,6 +29,48 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed mail address from error reports and corrected
+	    spelling error (Stacktace -&gt; stacktrace)</p>
+          <p>
+	    Own Id: OTP-11883 Aux Id: seq12586 </p>
+        </item>
+        <item>
+          <p>
+	    Decode/encode fixes in SSH_MSG_IGNORE and
+	    SSH_MSG_UNIMPLEMENTED.</p>
+          <p>
+	    Own Id: OTP-11983</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Accepts that some older OpenSSH clients sends incorrect
+	    disconnect messages.</p>
+          <p>
+	    Own Id: OTP-11972</p>
+        </item>
+        <item>
+          <p>
+	    Handle inet and inet6 option correctly</p>
+          <p>
+	    Own Id: OTP-11976</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
