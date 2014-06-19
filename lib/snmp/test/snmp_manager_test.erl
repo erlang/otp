@@ -551,20 +551,27 @@ groups() ->
        otp8395_1
       ]
      },
-     {ipv6, [],
-      [
-       simple_sync_get3,
-       inform1
-      ]
-     },
-     {ipv6_mt, [],
-      [
-       simple_sync_get3,
-       inform1
-      ]
-     }
+     {ipv6, [], ipv6_tests()},
+     {ipv6_mt, [], ipv6_tests()}
 
     ].
+
+ipv6_tests() ->
+    [
+     register_agent1,
+     simple_sync_get_next3,
+     simple_async_get2,
+     simple_sync_get3,
+     simple_async_get_next2,
+     simple_sync_set3,
+     simple_async_set2,
+     simple_sync_get_bulk2,
+     simple_async_get_bulk3,
+     misc_async2,
+     inform1,
+     inform_swarm
+    ].
+
 
 init_per_group(request_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(

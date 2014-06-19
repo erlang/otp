@@ -28,7 +28,6 @@
 -export([system_continue/3, system_terminate/4, system_code_change/4]).
 -export([init/5]).
 -export([filter_reset/1]).
--export([format_address/1]).
 
 -include("snmp_types.hrl").
 -include("snmpa_internal.hrl").
@@ -1099,11 +1098,12 @@ fix_filter_address(snmpUDPDomain, {Domain, Addr})
   when Domain =:= snmpUDPDomain;
        Domain =:= transportDomainUdpIpv4 ->
     Addr;
+fix_filter_address(_AgentDomain, {Domain, _} = Address)
+  when is_atom(Domain) ->
+    Address;
 fix_filter_address(snmpUDPDomain, {_, Port} = Addr)
   when is_integer(Port) ->
-    Addr;
-fix_filter_address(_AgentDomain, Address) ->
-    Address.
+    Addr.
 
 %%%-----------------------------------------------------------------
 

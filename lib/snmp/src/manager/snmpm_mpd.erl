@@ -170,7 +170,7 @@ process_v1_v2c_msg(
 	end,
 
     Max      = get_max_message_size(),
-    AgentMax = get_agent_max_message_size(Addr),
+    AgentMax = get_agent_max_message_size(Domain, Addr),
     PduMS    = pdu_ms(Max, AgentMax, HS),
 
     ?vtrace("process_v1_v2c_msg -> PduMS: ~p", [PduMS]),
@@ -862,12 +862,13 @@ get_max_message_size() ->
     end.
 
 %% The the MMS of the agent
-get_agent_max_message_size({Addr, Port}) ->
-    case snmpm_config:get_agent_engine_max_message_size(Addr, Port) of
+get_agent_max_message_size(Domain, Addr) ->
+    case snmpm_config:get_agent_engine_max_message_size(Domain, Addr) of
 	{ok, MMS} ->
 	    MMS;
 	_Error ->
-	    ?vlog("unknown agent: ~w:~w", [Addr, Port]),
+	    ?vlog("unknown agent: ~s",
+		  [snmp_conf:mk_addr_string({Domain, Addr})]),
 	    get_max_message_size()
     end.
 %% get_agent_max_message_size(Addr, Port) ->
