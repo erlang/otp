@@ -19,7 +19,7 @@
 #
 
 # Expected autoconf version
-EXPECTED_AUTOCONF_VERSION=2.59
+EXPECTED_AUTOCONF_VERSION=2.68
 
 # Global configuration variables
 #
@@ -751,62 +751,6 @@ echo_env_vxworks ()
     echo_envinfo
 }
 
-echo_env_win32 ()
-{
-    #echo_envinfo
-    if [ X"$SHELL" = X"" ]; then
-	echo "You need to export the shell variable first," \
-		"for bourne-like shells, type:" >&2
-	echo 'export SHELL' >&2
-	echo "and for csh-like shells, type:" >&2
-	echo 'setenv SHELL $SHELL' >&2
-	echo " - then try again." >&2
-	exit 1
-    fi
-    echo_env_erltop
-    # Try to cope with paths containing unexpected things like stray 
-    # mixed paths (c:/something/bin) and quotes. Only C and D drive
-    # handled.
-    CCYGPATH=`cygpath c:\\`
-    DCYGPATH=`cygpath d:\\`
-    P2=`echo :$PATH | \
-	sed "s,\",,g;s,:[cC]:,:$CCYGPATH,g;s,:[dD]:,:$DCYGPATH,g;s,^:,,"`
-    P3=""
-    save_ifs=$IFS
-    IFS=:
-    for p in $P2; do
-	if [ -d "$p" ]; then
-	    C1="`(cygpath -d $p 2>/dev/null || cygpath -w $p)`" 2> /dev/null
-	    C2=`cygpath "$C1" 2> /dev/null` 2> /dev/null
-	else
-	    C2=""
-	fi
-	if [ ! -z "$C2" ]; then
-	    if [ -z "$P3" ];then 
-		P3="$C2"
-	    else 
-		P3="$P3:$C2"
-	    fi
-	fi
-    done
-    IFS=$save_ifs
-    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools"
-
-    
-    echo_setenv OVERRIDE_TARGET win32 ';'
-    echo_setenv CC cc.sh ';'
-    echo_setenv CXX cc.sh ';'
-    echo_setenv AR ar.sh ';'
-    echo_setenv RANLIB true ';'
-    if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
-	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
-    fi
-    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
-    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
-    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
-    echo_envinfo
-}
-
 echo_env_mingw32 ()
 {
     #echo_envinfo
@@ -867,7 +811,6 @@ echo_env_mingw32 ()
     fi
     WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/mingw:$ERL_TOP/erts/etc/win32/cygwin_tools"
 
-
     echo_setenv OVERRIDE_TARGET win32 ';'
     echo_setenv MINGW_EXE_PATH $found ';'
     echo_setenv WINE_EXE_PATH $found2 ';'
@@ -880,11 +823,74 @@ echo_env_mingw32 ()
     echo_envinfo
 }
 
-# N.B. In Erlang, and the build system, win32 means windows, so we keep
-# everything as terget win32, but add the CONFIG_SUBTYPE win64, which can
-# be handled by configure, setting WINDOWS_64BIT in headers and such
-echo_env_win64 ()
+# define common vc variables to both builds, win32 and win64
+# input env variables
+#    MSDEV_PATH (eg. export MSDEV_PATH="C:\Program Files (x86)\Microsoft Visual Studio 10.0" )
+#    PLATFORMSDK_PATH (eg. export PLATFORMSDK_PATH="C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A")
+function env_vc()
 {
+  # visual studio path
+  MSDEV=`cygpath -u "$MSDEV_PATH"`
+  # set the platformsdk bin path
+  PLATFORMSDK=`cygpath -u "$PLATFORMSDK_PATH"`
+
+  # save the path of the x86 msdev
+  MSDEV_BIN_x86=$MSDEV/VC/bin
+  # and set a new var with x64 one
+  MSDEV_BIN_AMD64=$MSDEV/VC/bin/amd64
+  MSDEV_BIN_x64=$MSDEV/VC/bin/x86_amd64
+
+  # define the several include directories needed
+  MSDEV_INCLUDE=`cygpath -m "$MSDEV/VC/include"`
+  MSDEV_ATLMFC_INCLUDE=`cygpath -m "$MSDEV/VC/atlmfc/include"`
+  PLATFORMSDK_INCLUDE=`cygpath -m "$PLATFORMSDK/Include"`
+
+  # now set vars with the several lib path for x64 and x86
+  MSDEV_LIBPATH_x86=$MSDEV/VC/lib
+  MSDEV_LIBPATH_x64=$MSDEV/VC/lib/amd64
+  MSDEV_ATLMFC_LIBPATH_x86=$MSDEV/VC/atlmfc/lib
+  MSDEV_ATLMFC_LIBPATH_x64=$MSDEV/VC/atlmfc/lib/amd64
+  # do the same for the platform sdk lib directories
+  LIBPATH_PLATFORM_x86=$PLATFORMSDK/lib
+  LIBPATH_PLATFORM_x64=$PLATFORMSDK/lib/x64
+
+  # and finally the bin directories, for platformsdk
+  PLATFORMSDK_BIN_x86=$PLATFORMSDK/bin
+  PLATFORMSDK_BIN_x64=$PLATFORMSDK/bin/x64
+}
+
+# makes sure that all necessary env variables are defined
+function env_vc_check_vars()
+{
+  if [ X"$MSDEV_PATH" = X"" ]; then
+      echo "You need to export the Microsoft Visual Studio location variable first," \
+          "for example:" >&2
+      echo '  export MSDEV_PATH="C:\Program Files (x86)\Microsoft Visual Studio 10.0"' >&2
+      exit 1
+  fi
+
+  if [ X"$PLATFORMSDK_PATH" = X"" ]; then
+      echo "You need to export the Windows Platform SDK location variable first," \
+          "for example:" >&2
+      echo '  export PLATFORMSDK_PATH="C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A"' >&2
+      exit 1
+  fi
+  
+  if [ X"$JDK_HOME" = X"" ]; then
+      echo "You need to export the Java SDK location variable first (cygwin format is ok)," \
+          "for example:" >&2
+      echo '  export JDK_HOME="/cygdrive/c/Program Files/Java/jdk1.7.0_03"' >&2
+      exit 1
+  fi
+}
+
+echo_env_win32 ()
+{   
+    env_vc_check_vars
+
+    # this script will set all necessary variables x86 and x64
+    env_vc
+
     #echo_envinfo
     if [ X"$SHELL" = X"" ]; then
 	echo "You need to export the shell variable first," \
@@ -926,6 +932,81 @@ echo_env_win64 ()
 
     
     echo_setenv OVERRIDE_TARGET win32 ';'
+    echo_setenv CC cc.sh ';'
+    echo_setenv CXX cc.sh ';'
+    echo_setenv AR ar.sh ';'
+    echo_setenv RANLIB true ';'
+    if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
+	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+    fi
+    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
+    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
+    echo_envinfo
+}
+
+# N.B. In Erlang, and the build system, win32 means windows, so we keep
+# everything as terget win32, but add the CONFIG_SUBTYPE win64, which can
+# be handled by configure, setting WINDOWS_64BIT in headers and such
+echo_env_win64 ()
+{
+    env_vc_check_vars
+
+    # this script will set all necessary variables x86 and x64
+    env_vc
+
+    # now set the final variables that are x64 based
+    MSDEV_LIBPATH=`cygpath -w "$MSDEV_LIBPATH_x64"`
+    MSDEV_ATLMFC_LIBPATH=`cygpath -w "$MSDEV_ATLMFC_LIBPATH_x64"`
+    LIBPATH_PLATFORM=`cygpath -w "$LIBPATH_PLATFORM_x64"`
+
+    MSDEV_BIN=$MSDEV_BIN_AMD64
+    PLATFORMSDK_BIN=$PLATFORMSDK_BIN_x64
+
+    #echo_envinfo
+    if [ X"$SHELL" = X"" ]; then
+	echo "You need to export the shell variable first," \
+		"for bourne-like shells, type:" >&2
+	echo 'export SHELL' >&2
+	echo "and for csh-like shells, type:" >&2
+	echo 'setenv SHELL $SHELL' >&2
+	echo " - then try again." >&2
+	exit 1
+    fi
+    echo_env_erltop
+    # Try to cope with paths containing unexpected things like stray 
+    # mixed paths (c:/something/bin) and quotes. Only C and D drive
+    # handled.
+    CCYGPATH=`cygpath c:\\`
+    DCYGPATH=`cygpath d:\\`
+    P2=`echo :$PATH | \
+	sed "s,\",,g;s,:[cC]:,:$CCYGPATH,g;s,:[dD]:,:$DCYGPATH,g;s,^:,,"`
+    P3=""
+    save_ifs=$IFS
+    IFS=:
+    for p in $P2; do
+	if [ -d "$p" ]; then
+	    C1="`(cygpath -d $p 2>/dev/null || cygpath -w $p)`" 2> /dev/null
+	    C2=`cygpath "$C1" 2> /dev/null` 2> /dev/null
+	else
+	    C2=""
+	fi
+	if [ ! -z "$C2" ]; then
+	    if [ -z "$P3" ];then 
+		P3="$C2"
+	    else 
+		P3="$P3:$C2"
+	    fi
+	fi
+    done
+    IFS=$save_ifs
+    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools"
+
+    echo_setenv INCLUDE "$MSDEV_INCLUDE;$MSDEV_ATLMFC_INCLUDE;$PLATFORMSDK_INCLUDE"
+    echo_setenv LIB "$MSDEV_LIBPATH;$MSDEV_ATLMFC_LIBPATH;$LIBPATH_PLATFORM"
+    echo_setenv LIBPATH "$MSDEV_LIBPATH;$MSDEV_ATLMFC_LIBPATH"
+
+    echo_setenv OVERRIDE_TARGET win32 ';'
     echo_setenv CONFIG_SUBTYPE win64 ';'
     echo_setenv CC cc.sh ';'
     echo_setenv CXX cc.sh ';'
@@ -936,7 +1017,7 @@ echo_env_win64 ()
     fi
     echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
-    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
+    echo_setenv PATH "$MSDEV_BIN:$PLATFORMSDK_BIN:$WIN32_WRAPPER_PATH:$P3:$JDK_HOME/bin" ';'
     echo_envinfo
 }
 
