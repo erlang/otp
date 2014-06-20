@@ -278,6 +278,7 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/werl.o
 	rm -f $(TEXTFILES)
 	rm -f *~ core
+	rm -f $(OBJDIR)/LOGMESS-GENERATED  
 
 #------------------------------------------------------------------------
 # Windows specific targets
