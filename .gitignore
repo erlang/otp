@@ -45,6 +45,7 @@ a.out.dSYM/
 *.pdb
 tcltk85_win32_bin.tar.gz
 erts/autoconf/win32.config.cache
+erts/autoconf/win64.config.cache
 erts/emulator/obj/
 erts/emulator/pcre/obj/
 erts/emulator/pcre/win32/
