@@ -23,20 +23,8 @@ SAVE="$@"
 CMD=""
 OUTPUT_DIRNAME=""
 
-# Find the correct mc.exe. This could be done by the configure script,
-# But as we seldom use the message compiler, it might as well be done here...
-MCC=""
-save_ifs=$IFS
-IFS=:
-for p in $PATH; do 
-    if [ -f $p/mc.exe ]; then 
-	if [ -n "`$p/mc.exe -? 2>&1 >/dev/null </dev/null \
-                 | grep -i \"message compiler\"`" ]; then 
-	    MCC=`echo "$p/mc.exe" | sed 's/ /\\\\ /g'`
-	fi
-    fi
-done
-IFS=$save_ifs
+# just use the mc that's already in the path
+MCC="mc.exe"
 
 if [ -z "$MCC" ]; then
     echo 'mc.exe not found!' >&2
