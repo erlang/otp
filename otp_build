@@ -19,7 +19,7 @@
 #
 
 # Expected autoconf version
-EXPECTED_AUTOCONF_VERSION=2.68
+EXPECTED_AUTOCONF_VERSION=2.59
 
 # Global configuration variables
 #
