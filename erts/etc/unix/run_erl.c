@@ -40,9 +40,13 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+
 #ifdef HAVE_WORKING_POSIX_OPENPT
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 600 
 #endif
+#endif
+
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
