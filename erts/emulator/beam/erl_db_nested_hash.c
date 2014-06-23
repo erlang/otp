@@ -17,47 +17,51 @@
  * %CopyrightEnd%
  */
 
-/* !!! FIX !!!
+/*
  * Implementation of unordered ETS tables.
- * The tables are implemented as linear dynamic hash tables.
+ * The tables are implemented as a two levels linear dynamic hash tables --
+ * the first level is keyed by the key's hash, the second (optional) level is
+ * keyed by the object's hash.
  */
 
-/* SMP:
-** The hash table supports two different locking "modes",
-** coarse grained and fine grained locking.
-**
-** Coarse grained locking relies entirely on the caller (erl_db.c) to obtain
-** the right kind of lock on the entire table depending on operation (reading
-** or writing). No further locking is then done by the table itself.
-**
-** Fine grained locking is supported by this code to allow concurrent updates
-** (and reading) to different parts of the table. This works by keeping one
-** rw-mtx for every N'th bucket. Even dynamic growing and shrinking by
-** rehashing buckets can be done without exclusive table lock.
-**
-** A table will support fine grained locking if it is created with flag
-** DB_FINE_LOCKED set. The table variable is_thread_safe will then indicate
-** if operations need to obtain fine grained locks or not. Some operations
-** will for example always use exclusive table lock to guarantee
-** a higher level of atomicy.
-*/
+/*
+ * SMP:
+ * The hash table supports two different locking "modes",
+ * coarse grained and fine grained locking.
+ *
+ * Coarse grained locking relies entirely on the caller (erl_db.c) to obtain
+ * the right kind of lock on the entire table depending on operation (reading
+ * or writing). No further locking is then done by the table itself.
+ *
+ * Fine grained locking is supported by this code to allow concurrent updates
+ * (and reading) to different parts of the table. This works by keeping one
+ * rw-mtx for every N'th bucket. Even dynamic growing and shrinking by
+ * rehashing buckets can be done without exclusive table lock.
+ *
+ * A table will support fine grained locking if it is created with flag
+ * DB_FINE_LOCKED set. The table variable is_thread_safe will then indicate
+ * if operations need to obtain fine grained locks or not. Some operations
+ * will for example always use exclusive table lock to guarantee
+ * a higher level of atomicy.
+ */
 
-/* FIXATION:
-** Fixating the table, by ets:safe_fixtable or as done by select-operations,
-** guarantees two things in current implementation.
-** (1) Keys will not *totaly* disappear from the table. A key can thus be used
-**     as an iterator to find the next key in iteration sequence. Note however
-**     that this does not mean that (pointers to) table objects are guaranteed
-**     to be maintained while the table is fixated. A BAG or DBAG may actually
-**     remove objects as long as there is at least one object left in the table
-**     with the same key (alive or pseudo-deleted).
-** (2) Objects will not be moved between buckets due to table grow/shrink.
-**     This will guarantee that iterations do not miss keys or get double-hits.
-**
-** With fine grained locking, a concurrent thread can fixate the table at any
-** time. A "dangerous" operation (delete or move) therefore needs to check
-** if the table is fixated while write-locking the bucket.
-*/
+/*
+ * FIXATION:
+ * Fixating the table, by ets:safe_fixtable or as done by select-operations,
+ * guarantees two things in current implementation.
+ * (1) Keys will not *totaly* disappear from the table. A key can thus be used
+ *     as an iterator to find the next key in iteration sequence. Note however
+ *     that this does not mean that (pointers to) table objects are guaranteed
+ *     to be maintained while the table is fixated. A BAG or DBAG may actually
+ *     remove objects as long as there is at least one object left in the table
+ *     with the same key (alive or pseudo-deleted).
+ * (2) Objects will not be moved between buckets due to table grow/shrink.
+ *     This will guarantee that iterations do not miss keys or get double-hits.
+ *
+ * With fine grained locking, a concurrent thread can fixate the table at any
+ * time. A "dangerous" operation (delete or move) therefore needs to check
+ * if the table is fixated while write-locking the bucket.
+ */
 
 
 #ifdef DEBUG
@@ -83,14 +87,13 @@
 #include "erl_binary.h"
 #include "erl_db_hash.h"
 
+
 #ifdef MYDEBUG /* Will fail test case ets_SUITE:memory */
 
-#define IF_DEBUG(x) x
 #define MY_ASSERT(x) ASSERT(x)
 
 #else
 
-#define IF_DEBUG(x)
 #define MY_ASSERT(x)
 
 #endif
@@ -98,158 +101,26 @@
 /*
  * The following symbols can be manipulated to "tune" the linear hash array
  */
-#define CHAIN_LEN 6                /* Medium bucket chain len */
-#define NESTED_CHAIN_THRESHOLD 2 /* !!! (2*CHAIN_LEN) */
+
+/* Medium bucket chain len */
+#define CHAIN_LEN 6
+
+/* Trunk chains longer that this value will get a nested LHT */
+#define NESTED_CHAIN_THRESHOLD (2*CHAIN_LEN)
 
 /* Number of slots per segment */
 #define SEGSZ_EXP  8
-#define SEGSZ   (1 << SEGSZ_EXP)
+#define SEGSZ      (1 << SEGSZ_EXP)
 #define SEGSZ_MASK (SEGSZ-1)
 
 #define NSEG_1     2 /* Size of first segment table (must be at least 2) */
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#ifdef ERTS_SMP
-#  define DB_USING_FINE_LOCKING(TB) (((TB))->common.type & DB_FINE_LOCKED)
-#else
-#  define DB_USING_FINE_LOCKING(TB) 0
-#endif
-
-#ifdef ETHR_ORDERED_READ_DEPEND
-#define SEGTAB(tb) ((struct segment **)erts_smp_atomic_read_nob(&(tb)->segtab))
-#else
-#define SEGTAB(tb)                                                   \
-    (DB_USING_FINE_LOCKING(tb)                                       \
-     ? ((struct segment **)erts_smp_atomic_read_ddrb(&(tb)->segtab)) \
-     : ((struct segment **)erts_smp_atomic_read_nob(&(tb)->segtab)))
-#endif
-#define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
-#define NKEYS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nkeys))
-
-#define BUCKET(tb, i) SEGTAB(tb)[(i) >> SEGSZ_EXP]->buckets[(i) & SEGSZ_MASK].hterm
-
-#define HAS_LHT(rp) ((((UWord)(rp)->trunk) & 0x01) != 0)
-#define TRUNK_PTR(tp) ((TrunkDbTerm *)(((UWord)(tp)) & ~0x01))
-#define GET_TRUNK(rp) TRUNK_PTR((rp)->trunk)
-#define SAFE_GET_TRUNK(rp) (((rp) == NULL) ? NULL : GET_TRUNK(rp))
-#define SAFE_GET_TRUNK_P(rpp) ((*(rpp) == NULL) ? NULL : &(*(rpp))->trunk)
-
-#define SET_TRUNK(rp, tp)                           \
-    {                                               \
-        ASSERT((((UWord)(tp)) & 0x01) == 0);        \
-        (rp)->trunk = HAS_LHT(rp)                   \
-            ? (TrunkDbTerm *)(((UWord)(tp)) | 0x01) \
-            : (tp);                                 \
-    }
-
-#define NESTED_BUCKET(rp, i) GET_TRUNK(rp)->sp.segtab[(i) >> SEGSZ_EXP]->buckets[(i) & SEGSZ_MASK].nterm
-
-/*
- * When deleting a table, the number of records to delete.
- * Approximate number, because we must delete entire buckets.
- */
-#define DELETE_RECORD_LIMIT 10000
-
-#define MAX_HASH     0xEFFFFFFFUL
-#define INVALID_HASH 0xFFFFFFFFUL
-
-/* optimised version of make_hash (normal case? atomic key) */
-#define MAKE_HASH(term)                                                \
-    ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
-      make_hash2(term)) % MAX_HASH)
-
-/*
- * Some special binary flags
- */
-#define BIN_FLAG_ALL_OBJECTS         BIN_FLAG_USR1
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#   define IFN_EXCL(tb,cmd) (((tb)->common.is_thread_safe) || (cmd))
-#   define IS_HASH_RLOCKED(tb, hval) IFN_EXCL(tb, erts_smp_lc_rwmtx_is_rlocked(GET_LOCK(tb, hval)))
-#   define IS_TAB_WLOCKED(tb) erts_smp_lc_rwmtx_is_rwlocked(&(tb)->common.rwlock)
-#else
-#   define IS_HASH_RLOCKED(tb, hval) (1)
-#   define IS_TAB_WLOCKED(tb) (1)
-#endif
-
-
-/*
- * Local types
- */
-struct mp_prefound {
-    RootDbTerm **bucket;
-    int ix;
-};
-
-struct mp_info {
-    int all_objects; /* True if complete objects are always
-                      * returned from the match_spec (can use
-                      * copy_shallow on the return value) */
-    int something_can_match;       /* The match_spec is not "impossible" */
-    int key_given;
-    struct mp_prefound dlists[10]; /* Default list of "pre-found" buckets */
-    struct mp_prefound* lists;     /* Buckets to search if keys are given,
-                                    * = dlists initially */
-    unsigned num_lists; /* Number of elements in "lists",
-                         * = 0 initially */
-    Binary *mp;         /* The compiled match program */
-};
-
-/*
- * How the table segments relate to each other:
- *
- *     ext_segment:                 ext_segment:            "plain" segment
- *    #=================#          #================#       #=============#
- *    | bucket[0]       |<-+ +---->| bucket[256]    |    +->| bucket[512] |
- *    | bucket[1]       |  | |     |       [257]    |    |  |       [513] |
- *    :                 :  | |     :                :    |  :             :
- *    | bucket[255]     |  | |     |       [511]    |    |  |       [767] |
- *    |-----------------|  | |     |----------------|    |  #=============#
- *    | prev_segtab=NULL|  | | +-<---prev_segtab    |    |
- *    | nsegs = 2       |  | | |   | nsegs = 256    |    |
- * +->| segtab[0] -->------+-|-|-<---segtab[0]      |<-+ |
- * |  | segtab[1] -->--------+-|-<---segtab[1]      |  | |
- * |  #=================#      |   | segtab[2] -->-----|-+   ext_segment:
- * |                           |   :                :  |    #================#
- * +----------------<----------+   | segtab[255] ->----|--->| bucket[255*256]|
- *                                 #================#  |    |                |
- *                                                     |    :                :
- *                                                     |    |----------------|
- *                                                     +--<---prev_segtab    |
- *                                                          :                :
- */
-
-/* A table "plain" segment */
-struct segment {
-    union {
-        RootDbTerm *hterm;
-        TrunkDbTerm *nterm;
-    } buckets[SEGSZ];
-#ifdef MYDEBUG
-    int is_ext_segment;
-#endif
-};
-
-/* A segment that also contains a segment table */
-struct ext_segment {
-    struct segment s; /* The segment itself. Must be first */
-
-    struct segment **prev_segtab;  /* Used when table is shrinking */
-    int nsegs;                     /* Size of segtab */
-    struct segment *segtab[1];     /* The segment table */
-};
-
-#define SIZEOF_EXTSEG(NSEGS)                                            \
-    (offsetof(struct ext_segment, segtab) + sizeof(struct segment *)*(NSEGS))
-
-#if defined(DEBUG)
-#  define EXTSEG(SEGTAB_PTR) \
-    ((struct ext_segment *)(((char *)(SEGTAB_PTR)) - offsetof(struct ext_segment, segtab)))
-#endif
-
 
 #ifdef ERTS_SMP
+
+#define DB_USING_FINE_LOCKING(TB) (((TB))->common.type & DB_FINE_LOCKED)
 
 #define DB_HASH_LOCK_MASK (DB_NESTED_HASH_LOCK_CNT - 1)
 #define GET_LOCK(tb, hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck)
@@ -300,13 +171,172 @@ WUNLOCK_HASH(erts_smp_rwmtx_t *lck)
 
 #else /* ERTS_SMP */
 
+#define DB_USING_FINE_LOCKING(TB) 0
+
 #define RLOCK_HASH(tb,hval) NULL
 #define WLOCK_HASH(tb,hval) NULL
+
 #define RUNLOCK_HASH(lck) ((void)lck)
 #define WUNLOCK_HASH(lck) ((void)lck)
 
 #endif /* ERTS_SMP */
 
+
+#ifdef ETHR_ORDERED_READ_DEPEND
+#define SEGTAB(tb) ((struct segment **)erts_smp_atomic_read_nob(&(tb)->segtab))
+#else
+#define SEGTAB(tb)                                                   \
+    (DB_USING_FINE_LOCKING(tb)                                       \
+     ? ((struct segment **)erts_smp_atomic_read_ddrb(&(tb)->segtab)) \
+     : ((struct segment **)erts_smp_atomic_read_nob(&(tb)->segtab)))
+#endif
+
+#define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
+#define NKEYS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nkeys))
+
+#define BUCKET(tb, i) SEGTAB(tb)[(i) >> SEGSZ_EXP]->buckets[(i) & SEGSZ_MASK].hterm
+
+#define HAS_LHT(rp) ((((UWord)(rp)->trunk) & 0x01) != 0)
+#define TRUNK_PTR(tp) ((TrunkDbTerm *)(((UWord)(tp)) & ~0x01))
+#define GET_TRUNK(rp) TRUNK_PTR((rp)->trunk)
+#define SAFE_GET_TRUNK(rp) (((rp) == NULL) ? NULL : GET_TRUNK(rp))
+#define SAFE_GET_TRUNK_P(rpp) ((*(rpp) == NULL) ? NULL : &(*(rpp))->trunk)
+
+#define SET_TRUNK(rp, tp)                           \
+    {                                               \
+        ASSERT((((UWord)(tp)) & 0x01) == 0);        \
+        (rp)->trunk = HAS_LHT(rp)                   \
+            ? (TrunkDbTerm *)(((UWord)(tp)) | 0x01) \
+            : (tp);                                 \
+    }
+
+#define NESTED_BUCKET(rp, i) GET_TRUNK(rp)->sp.segtab[(i) >> SEGSZ_EXP]->buckets[(i) & SEGSZ_MASK].nterm
+
+/*
+ * When deleting a table, the number of records to delete.
+ * Approximate number, because we must delete entire buckets.
+ */
+#define DELETE_RECORD_LIMIT 10000
+
+#define MAX_HASH     0xEFFFFFFFUL
+#define INVALID_HASH 0xFFFFFFFFUL
+
+/* optimised version of make_hash (normal case? atomic key) */
+#define MAKE_HASH(term)                                \
+    ((is_atom(term)                                    \
+      ? (atom_tab(atom_val(term))->slot.bucket.hvalue) \
+      : make_hash2(term))                              \
+     % MAX_HASH)
+
+/*
+ * Some special binary flags
+ */
+#define BIN_FLAG_ALL_OBJECTS BIN_FLAG_USR1
+
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+
+#define IFN_EXCL(tb, cmd) (((tb)->common.is_thread_safe) || (cmd))
+#define IS_HASH_RLOCKED(tb, hval) IFN_EXCL(tb, erts_smp_lc_rwmtx_is_rlocked(GET_LOCK(tb, hval)))
+#define IS_TAB_WLOCKED(tb) erts_smp_lc_rwmtx_is_rwlocked(&(tb)->common.rwlock)
+
+#else
+
+#define IS_HASH_RLOCKED(tb, hval) (1)
+#define IS_TAB_WLOCKED(tb) (1)
+
+#endif
+
+
+/*
+ * Local types
+ */
+struct mp_prefound {
+    RootDbTerm **bucket;
+    int ix;
+};
+
+#define N_OF_PREFOUND 10
+
+struct mp_info {
+    /*
+     * True if complete objects are always returned from the
+     * match_spec (can use copy_shallow on the return value)
+     */
+    int all_objects;
+
+    int something_can_match; /* The match_spec is not "impossible" */
+    int key_given;
+
+    /*
+     * Default list of "pre-found" buckets
+     */
+    struct mp_prefound dlists[N_OF_PREFOUND];
+
+    /*
+     * Buckets to search if keys are given, = dlists initially
+     */
+    struct mp_prefound *lists;
+
+    /*
+     * Number of elements in "lists", = 0 initially
+     */
+    unsigned num_lists;
+
+    Binary *mp; /* The compiled match program */
+};
+
+/*
+ * How the table segments relate to each other:
+ *
+ *     ext_segment:                 ext_segment:            "plain" segment
+ *    #=================#          #================#       #=============#
+ *    | bucket[0]       |<-+ +---->| bucket[256]    |    +->| bucket[512] |
+ *    | bucket[1]       |  | |     |       [257]    |    |  |       [513] |
+ *    :                 :  | |     :                :    |  :             :
+ *    | bucket[255]     |  | |     |       [511]    |    |  |       [767] |
+ *    |-----------------|  | |     |----------------|    |  #=============#
+ *    | prev_segtab=NULL|  | | +-<---prev_segtab    |    |
+ *    | nsegs = 2       |  | | |   | nsegs = 256    |    |
+ * +->| segtab[0] -->------+-|-|-<---segtab[0]      |<-+ |
+ * |  | segtab[1] -->--------+-|-<---segtab[1]      |  | |
+ * |  #=================#      |   | segtab[2] -->-----|-+   ext_segment:
+ * |                           |   :                :  |    #================#
+ * +----------------<----------+   | segtab[255] ->----|--->| bucket[255*256]|
+ *                                 #================#  |    |                |
+ *                                                     |    :                :
+ *                                                     |    |----------------|
+ *                                                     +--<---prev_segtab    |
+ *                                                          :                :
+ */
+
+/* A table "plain" segment */
+struct segment {
+    union {
+        RootDbTerm *hterm;
+        TrunkDbTerm *nterm;
+    } buckets[SEGSZ];
+#ifdef MYDEBUG
+    int is_ext_segment;
+#endif
+};
+
+/* A segment that also contains a segment table */
+struct ext_segment {
+    struct segment s; /* The segment itself. Must be first */
+
+    struct segment **prev_segtab; /* Used when table is shrinking */
+    int nsegs;                    /* Size of segtab */
+    struct segment *segtab[1];    /* The segment table */
+};
+
+#define SIZEOF_EXTSEG(n)                                                \
+    (offsetof(struct ext_segment, segtab) + sizeof(struct segment *)*(n))
+
+#if defined(DEBUG)
+#define EXTSEG(p)                                                       \
+    ((struct ext_segment *)(((char *)(p)) - offsetof(struct ext_segment, segtab)))
+#endif
 
 /*
  * 'rpp' and 'tpp' are updated such that '*tpp' points to the next TrunkDbTerm
@@ -353,18 +383,12 @@ DEBUG_WAIT(void)
     while (--spin);
 }
 #else
-#   define DEBUG_WAIT()
+#define DEBUG_WAIT()
 #endif
 
 
-
-
-
-
-
-
 /*
- * Utility routines. (static)
+ * Utility routines (static)
  */
 
 static struct ext_segment *
@@ -390,7 +414,9 @@ alloc_ext_seg(DbTableNestedHash *tb, unsigned seg_ix,
     if (eseg == NULL)
         return NULL;
     sys_memset(&eseg->s, 0, sizeof(struct segment));
-    IF_DEBUG(eseg->s.is_ext_segment = 1);
+#ifdef MYDEBUG
+    eseg->s.is_ext_segment = 1;
+#endif
     eseg->prev_segtab = old_segtab;
     eseg->nsegs = nsegs;
     if (old_segtab) {
@@ -420,42 +446,12 @@ next_slot(DbTableNestedHash *tb, Uint ix, erts_smp_rwmtx_t **lck_ptr)
         return ix;
     RUNLOCK_HASH(*lck_ptr);
     ix = (ix + 1) & DB_HASH_LOCK_MASK;
-    if (ix != 0)
+    if (ix)
         *lck_ptr = RLOCK_HASH(tb, ix);
     return ix;
 #else
     return (++ix < NACTIVE(tb)) ? ix : 0;
 #endif
-}
-
-/*
- * This function is called by the next AND the select BIF
- * It return the next live object in a table, NULL if no more
- * In-bucket: RLOCKED
- * Out-bucket: RLOCKED unless NULL
- * N.B.: The name 'next_dbterm' is misleading. It skips DbTerms
- *       until one with a valid key is found -- it will skip none
- *       if *rpp has a valid key.
- */
-static TrunkDbTerm *
-next_dbterm(DbTableNestedHash *tb, Uint *iptr, erts_smp_rwmtx_t **lck_ptr,
-            RootDbTerm **rpp, TrunkDbTerm *tp)
-{
-    int i = *iptr;
-    ERTS_SMP_LC_ASSERT(IS_HASH_RLOCKED(tb, i));
-    for (;;) {
-        while (tp != NULL) {
-            if ((*rpp)->hvalue != INVALID_HASH)
-                return tp;
-            NEXT_DBTERM(*rpp, tp);
-        }
-        *iptr = i = next_slot(tb, i, lck_ptr);
-        if (!i)
-            break;
-        *rpp = BUCKET(tb, i);
-        tp = SAFE_GET_TRUNK(*rpp);
-    }
-    return NULL;
 }
 
 /*
@@ -476,24 +472,10 @@ hash_to_ix(DbTableNestedHash *tb, HashValue hval)
     return ix;
 }
 
-/*
- * Calculate slot index from hash value.
- */
-static ERTS_INLINE Uint
-nested_hash_to_ix(RootDbTerm *rp, HashValue hval)
-{
-    Uint mask = rp->szm;
-    Uint ix = hval & mask;
-    if (ix >= rp->nactive) {
-        ix &= mask >> 1;
-        ASSERT(ix < rp->nactive);
-    }
-    return ix;
-}
-
-#define EQ_REL(x, y, y_base)                                            \
-    (is_same(x, NULL, y, y_base)                                        \
-     || (is_not_both_immed((x), (y)) && eq_rel((x), NULL, (y), y_base)))
+#define EQ_REL(x, y, y_base)                    \
+    (is_same(x, NULL, y, y_base)                \
+     || (is_not_both_immed((x), (y))            \
+         && eq_rel((x), NULL, (y), y_base)))
 
 /*
  * Has this object the specified key? Can be pseudo-deleted.
@@ -536,43 +518,15 @@ new_root_dbterm(DbTableNestedHash *tb)
     /*
      * New RootDbTerms are always created without a LHT. It will be
      * added later using realloc_root_dbterm() when there will be more
-     * than NESTED_CHAIN_THRESHOLD TrunkDbTerm in the trunk chain.
+     * than NESTED_CHAIN_THRESHOLD TrunkDbTerms in the trunk chain.
      */
     ret = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable *)&tb->common,
                         offsetof(RootDbTerm, szm));
-    /* ret->next = NULL; */
-    ret->trunk = NULL;
+    ret->next = NULL;
+    /* ret->trunk = NULL; */
     /* ret->hvalue = INVALID_HASH; */
+    ret->nkitems = 1;
     return ret;
-}
-
-/*
- * It is assumed that the TrunkDbTerm to remove is present in
- * the nested RootDbTerm.
- */
-static ERTS_INLINE void
-remove_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
-                     TrunkDbTerm *tp, Eterm object)
-{
-    int nix;
-    HashValue ohval;
-    TrunkDbTerm **ntpp;
-    ohval = MAKE_HASH(object);
-    nix = nested_hash_to_ix(rp, ohval);
-    ntpp = &NESTED_BUCKET(rp, nix);
-#ifdef DEBUG
-    while (*ntpp != NULL) {
-#else
-    while (1) {
-#endif
-        if (*ntpp == tp) {
-            ASSERT((*ntpp)->ohvalue == ohval);
-            *ntpp = (*ntpp)->onext;
-            return;
-        }
-        ntpp = &(*ntpp)->onext;
-    }
-    ASSERT(0);
 }
 
 static ERTS_INLINE TrunkDbTerm *
@@ -595,6 +549,21 @@ replace_trunk_dbterm(DbTableNestedHash *tb,
     return (TrunkDbTerm *)(p - offset);
 }
 
+/*
+ * Calculate slot index from hash value.
+ */
+static ERTS_INLINE Uint
+nested_hash_to_ix(RootDbTerm *rp, HashValue hval)
+{
+    Uint mask = rp->szm;
+    Uint ix = hval & mask;
+    if (ix >= rp->nactive) {
+        ix &= mask >> 1;
+        ASSERT(ix < rp->nactive);
+    }
+    return ix;
+}
+
 static ERTS_INLINE void
 put_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
                   TrunkDbTerm *tp, Eterm obj)
@@ -614,47 +583,7 @@ put_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
  * Extend table with one new segment
  */
 static int
-alloc_seg(DbTableNestedHash *tb)
-{
-    int seg_ix = tb->nslots >> SEGSZ_EXP;
-    struct segment **segtab;
-    struct ext_segment *seg;
-    if ((seg_ix + 1) == tb->nsegs) {
-        /* New segtab needed (extended segment) */
-        segtab = SEGTAB(tb);
-        seg = alloc_ext_seg(tb, seg_ix, segtab, tb->nsegs);
-        if (seg == NULL)
-            return 0;
-        segtab[seg_ix] = &seg->s;
-        /* We don't use the new segtab until next call (see "shrink race") */
-    } else {
-        /* Just a new plain segment */
-        if (seg_ix == tb->nsegs) {
-            /* Time to start use segtab from last call */
-            seg = (struct ext_segment *)SEGTAB(tb)[seg_ix-1];
-            MY_ASSERT((seg != NULL) && seg->s.is_ext_segment);
-            SET_SEGTAB(tb, seg->segtab);
-            tb->nsegs = seg->nsegs;
-        }
-        ASSERT(seg_ix < tb->nsegs);
-        segtab = SEGTAB(tb);
-        ASSERT(segtab[seg_ix] == NULL);
-        segtab[seg_ix] = (struct segment *)
-            erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
-                              sizeof(struct segment));
-        if (segtab[seg_ix] == NULL)
-            return 0;
-        sys_memset(segtab[seg_ix], 0, sizeof(struct segment));
-    }
-    tb->nslots += SEGSZ;
-    return 1;
-}
-
-/*
- * Extend table with one new segment
- */
-static int
-nested_alloc_seg(DbTableNestedHash *tb, RootDbTerm *rp)
+alloc_nested_seg(DbTableNestedHash *tb, RootDbTerm *rp)
 {
     int seg_ix = rp->nslots >> SEGSZ_EXP;
     struct segment **segtab;
@@ -705,7 +634,7 @@ nested_grow(DbTableNestedHash *tb, RootDbTerm *rp)
     if (nactive == rp->nslots) {
         /* Time to get a new segment */
         ASSERT(!(nactive & SEGSZ_MASK));
-        if (!nested_alloc_seg(tb, rp))
+        if (!alloc_nested_seg(tb, rp))
             return;
     }
     ASSERT(nactive < rp->nslots);
@@ -718,9 +647,8 @@ nested_grow(DbTableNestedHash *tb, RootDbTerm *rp)
         szm = (szm<<1) | 1;
     }
     ++rp->nactive;
-    if (from_ix == 0) {
+    if (from_ix == 0)
         rp->szm = szm;
-    }
     /*
      * Finally, let's split the bucket. We try to do it in a smart way
      * to keep link order and avoid unnecessary updates of next-pointers.
@@ -780,6 +708,394 @@ free_trunk_dbterm(DbTableNestedHash *tb, TrunkDbTerm *tp, int full)
 }
 
 /*
+ * Once created, the nested table is removed
+ * only when the root element is deleted.
+ */
+static RootDbTerm *
+create_nested_table(DbTableNestedHash *tb, RootDbTerm *rp)
+{
+    int nitems = 0;
+    Eterm object;
+    Eterm *base;
+    DbTerm *dbterm;
+    TrunkDbTerm *tp1, *tp2, *tp3;
+    TrunkDbTerm **tpp;
+    ASSERT(!HAS_LHT(rp));
+    tp1 = NULL;
+    tpp = &rp->trunk;
+    tp2 = *tpp;
+    if (tb->common.compress) {
+        do {
+            dbterm = db_alloc_tmp_uncompressed(&tb->common, &tp2->dbterm);
+            object = make_tuple_rel(dbterm->tpl, NULL);
+            *tpp = new_trunk_dbterm(tb, object, 1);
+            if (tp1 == NULL) {
+                tp1 = *tpp;
+                rp = realloc_root_dbterm(tb, rp, tp1);
+            } else {
+                (*tpp)->sp.previous = tp1;
+                tp1 = *tpp;
+            }
+            put_nested_dbterm(tb, rp, tp1, object);
+            db_free_tmp_uncompressed(dbterm);
+            tp3 = tp2->next;
+            free_trunk_dbterm(tb, tp2, 0);
+            if (++nitems > rp->nactive * (CHAIN_LEN + 1))
+                nested_grow(tb, rp);
+            tpp = &tp1->next;
+        } while ((tp2 = tp3) != NULL);
+    } else {
+        do {
+            base = HALFWORD_HEAP ? tp2->dbterm.tpl : NULL;
+            object = make_tuple_rel(tp2->dbterm.tpl, base);
+            *tpp = new_trunk_dbterm(tb, object, 1);
+            if (tp1 == NULL) {
+                tp1 = *tpp;
+                rp = realloc_root_dbterm(tb, rp, tp1);
+            } else {
+                (*tpp)->sp.previous = tp1;
+                tp1 = *tpp;
+            }
+            put_nested_dbterm(tb, rp, tp1, object);
+            tp3 = tp2->next;
+            free_trunk_dbterm(tb, tp2, 0);
+            if (++nitems > rp->nactive * (CHAIN_LEN + 1))
+                nested_grow(tb, rp);
+            tpp = &tp1->next;
+        } while ((tp2 = tp3) != NULL);
+    }
+    *tpp = NULL;
+    return rp;
+}
+
+static ERTS_INLINE int
+begin_resizing(DbTableNestedHash *tb)
+{
+    if (DB_USING_FINE_LOCKING(tb))
+        return !erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1);
+    return !erts_smp_atomic_xchg_nob(&tb->is_resizing, 1);
+}
+
+static ERTS_INLINE void
+done_resizing(DbTableNestedHash *tb)
+{
+    if (DB_USING_FINE_LOCKING(tb)) {
+        erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    } else {
+        erts_smp_atomic_set_nob(&tb->is_resizing, 0);
+    }
+}
+
+/*
+ * Extend table with one new segment
+ */
+static int
+alloc_seg(DbTableNestedHash *tb)
+{
+    int seg_ix = tb->nslots >> SEGSZ_EXP;
+    struct segment **segtab;
+    struct ext_segment *seg;
+    if ((seg_ix + 1) == tb->nsegs) {
+        /* New segtab needed (extended segment) */
+        segtab = SEGTAB(tb);
+        seg = alloc_ext_seg(tb, seg_ix, segtab, tb->nsegs);
+        if (seg == NULL)
+            return 0;
+        segtab[seg_ix] = &seg->s;
+        /* We don't use the new segtab until next call (see "shrink race") */
+    } else {
+        /* Just a new plain segment */
+        if (seg_ix == tb->nsegs) {
+            /* Time to start use segtab from last call */
+            seg = (struct ext_segment *)SEGTAB(tb)[seg_ix-1];
+            MY_ASSERT((seg != NULL) && seg->s.is_ext_segment);
+            SET_SEGTAB(tb, seg->segtab);
+            tb->nsegs = seg->nsegs;
+        }
+        ASSERT(seg_ix < tb->nsegs);
+        segtab = SEGTAB(tb);
+        ASSERT(segtab[seg_ix] == NULL);
+        segtab[seg_ix] = (struct segment *)
+            erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
+                              sizeof(struct segment));
+        if (segtab[seg_ix] == NULL)
+            return 0;
+        sys_memset(segtab[seg_ix], 0, sizeof(struct segment));
+    }
+    tb->nslots += SEGSZ;
+    return 1;
+}
+
+/*
+ * Free all the TrunkDbTerms of the top segment, except
+ * the first (the one with the segment table).
+ *
+ * Return:
+ *   1 -> done
+ *   0 -> *max_free zeroed, need another round
+ */
+static int
+free_nested_records(DbTableNestedHash *tb, RootDbTerm *rp, int *max_free)
+{
+    int i, seg_ix;
+    TrunkDbTerm *tp, *ntp;
+    TrunkDbTerm **ntpp;
+    struct ext_segment *top;
+    tp = GET_TRUNK(rp);
+    seg_ix = (rp->nslots >> SEGSZ_EXP) - 1;
+    top = (struct ext_segment *)tp->sp.segtab[seg_ix];
+    ASSERT(top != NULL);
+    for (i=0; i<SEGSZ; ++i) {
+        ntpp = &top->s.buckets[i].nterm;
+        while ((ntp = *ntpp) != NULL) {
+            if (ntp == tp) {
+                *ntpp = ntp->onext;
+#ifdef DEBUG
+                ntp->onext = NULL;
+#endif
+                continue;
+            }
+            if (*max_free <= 0)
+                return 0;
+            --*max_free;
+            --rp->nkitems;
+            *ntpp = ntp->onext;
+            ntp->sp.previous->next = ntp->next;
+            if (ntp->next != NULL)
+                ntp->next->sp.previous = ntp->sp.previous;
+            free_trunk_dbterm(tb, ntp, 1);
+        }
+    }
+    return 1;
+}
+
+/*
+ * Shrink table by freeing the top segment.
+ */
+static void
+free_nested_seg(DbTableNestedHash *tb, RootDbTerm *rp)
+{
+    int bytes, seg_ix;
+    struct segment **segtab;
+    struct ext_segment *top;
+    segtab = GET_TRUNK(rp)->sp.segtab;
+    seg_ix = (rp->nslots >> SEGSZ_EXP) - 1;
+    top = (struct ext_segment *)segtab[seg_ix];
+    ASSERT(top != NULL);
+#ifdef DEBUG
+    {
+        int i;
+        for (i=0; i<SEGSZ; ++i)
+            ASSERT(top->s.buckets[i].nterm == NULL);
+    }
+#endif
+    /*
+     * No "shrink race" here.
+     * However we still stop use or allocate a new segtab one call earlier.
+     * Maybe some day this "early" allocation will be dropped.
+     */
+    if ((seg_ix == (rp->nsegs - 1)) || (seg_ix == 0)) {
+        /* Dealloc extended segment */
+        MY_ASSERT(top->s.is_ext_segment);
+        ASSERT((segtab != top->segtab) || (seg_ix == 0));
+        bytes = SIZEOF_EXTSEG(top->nsegs);
+    } else {
+        /* Dealloc plain segment */
+        struct ext_segment *newtop = (struct ext_segment *)segtab[seg_ix - 1];
+        MY_ASSERT(!top->s.is_ext_segment);
+        if (segtab == newtop->segtab) {
+            /* New top segment is extended */
+            MY_ASSERT(newtop->s.is_ext_segment);
+            if (newtop->prev_segtab != NULL) {
+                /* Time to use a smaller segtab */
+                GET_TRUNK(rp)->sp.segtab = newtop->prev_segtab;
+                rp->nsegs = seg_ix;
+                ASSERT(rp->nsegs == EXTSEG(GET_TRUNK(rp)->sp.segtab)->nsegs);
+            } else {
+                ASSERT((NSEG_1 > 2) && (seg_ix == 1));
+            }
+        }
+        bytes = sizeof(struct segment);
+    }
+    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, (void *)top, bytes);
+#ifdef DEBUG
+    if (seg_ix > 0) {
+        if (seg_ix < rp->nsegs)
+            GET_TRUNK(rp)->sp.segtab[seg_ix] = NULL;
+    } else {
+        GET_TRUNK(rp)->sp.segtab = NULL;
+    }
+#endif
+    rp->nslots -= SEGSZ;
+    ASSERT(rp->nslots >= 0);
+}
+
+static ERTS_INLINE void
+free_root_dbterm(DbTableNestedHash *tb, RootDbTerm *rp)
+{
+    if (HAS_LHT(rp)) {
+        free_nested_seg(tb, rp);
+        ASSERT(rp->nslots == 0);
+        erts_db_free(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
+                     rp, sizeof(RootDbTerm));
+    } else {
+        erts_db_free(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
+                     rp, offsetof(RootDbTerm, szm));
+    }
+}
+
+/*
+ * Remove the chain rooted in '***rppp' from the table.
+ * '*rppp' is updated appropriately to point to the next RootDbTerm.
+ * NOTE: It is assumed that rppp, *rppp, **rppp are not NULL
+ *
+ * max_free:
+ *   == NULL -> the RootDbTerm is pseudo-deleted -- the
+ *              nested LHT is expected to be already empty
+ *   != NULL -> free at most *max_free TrunkDbTerms
+ *
+ * Return:
+ *   1 -> done
+ *   0 -> *max_free zeroed, need another round
+ */
+static int
+remove_key(DbTableNestedHash *tb, RootDbTerm ***rppp,
+           int *max_free, int pseudo_delete)
+{
+    int hl;
+    RootDbTerm **rpp = *rppp;
+    RootDbTerm *rp = *rpp;
+    TrunkDbTerm *tp;
+    TrunkDbTerm **tpp;
+    hl = HAS_LHT(rp);
+    if (max_free != NULL) {
+        tp = GET_TRUNK(rp);
+        if (hl) {
+            while (rp->nslots > SEGSZ) {
+                if (!free_nested_records(tb, rp, max_free))
+                    return 0;
+                free_nested_seg(tb, rp);
+            }
+            ASSERT(rp->nslots == SEGSZ);
+            if (!free_nested_records(tb, rp, max_free))
+                return 0;
+            tp->next = NULL;
+        } else {
+            tpp = &tp->next;
+            while ((tp = *tpp) != NULL) {
+                if (*max_free <= 0)
+                    return 0;
+                --*max_free;
+                --rp->nkitems;
+                *tpp = tp->next;
+                free_trunk_dbterm(tb, tp, 0);
+            }
+        }
+    }
+    if (pseudo_delete) {
+        ASSERT(rp->nkitems == 1);
+        if (rp->hvalue != INVALID_HASH) {
+            ASSERT(max_free != NULL);
+            rp->hvalue = INVALID_HASH;
+            --*max_free;
+        }
+        *rppp = &rp->next;
+        return 1;
+    }
+    if (rp->hvalue != INVALID_HASH) {
+        ASSERT(max_free != NULL);
+        --*max_free;
+    }
+    *rpp = rp->next;
+    tp = GET_TRUNK(rp);
+    free_root_dbterm(tb, rp);
+    free_trunk_dbterm(tb, tp, hl);
+    return 1;
+}
+
+/*
+ * Grow table with one new bucket.
+ * Allocate new segment if needed.
+ */
+static void
+grow(DbTableNestedHash *tb, int nactive)
+{
+    int from_ix, ix, szm;
+    erts_smp_rwmtx_t *lck;
+    RootDbTerm *rp;
+    RootDbTerm **from_rpp, **to_rpp;
+    if (!begin_resizing(tb))
+        /* already in progress */
+        return;
+    if (NACTIVE(tb) != nactive) {
+        /* already done (race) */
+        done_resizing(tb);
+        return;
+    }
+    /* Ensure that the slot nactive exists */
+    if (nactive == tb->nslots) {
+        /* Time to get a new segment */
+        ASSERT((nactive & SEGSZ_MASK) == 0);
+        if (!alloc_seg(tb)) {
+            done_resizing(tb);
+            return;
+        }
+    }
+    ASSERT(nactive < tb->nslots);
+    szm = erts_smp_atomic_read_nob(&tb->szm);
+    if (nactive <= szm) {
+        from_ix = nactive & (szm >> 1);
+    } else {
+        ASSERT(nactive == szm+1);
+        from_ix = 0;
+        szm = (szm<<1) | 1;
+    }
+    lck = WLOCK_HASH(tb, from_ix);
+    /*
+     * Now a final double check (with the from_ix lock held)
+     * that we did not get raced by a table fixer.
+     */
+    if (IS_FIXED(tb)) {
+        WUNLOCK_HASH(lck);
+        done_resizing(tb);
+        return;
+    }
+    erts_smp_atomic_inc_nob(&tb->nactive);
+    if (from_ix == 0) {
+        if (DB_USING_FINE_LOCKING(tb)) {
+            erts_smp_atomic_set_relb(&tb->szm, szm);
+        } else {
+            erts_smp_atomic_set_nob(&tb->szm, szm);
+        }
+    }
+    done_resizing(tb);
+    /*
+     * Finally, let's split the bucket. We try to do it in a smart way
+     * to keep link order and avoid unnecessary updates of next-pointers
+     */
+    from_rpp = &BUCKET(tb, from_ix);
+    to_rpp = &BUCKET(tb, nactive);
+    while ((rp = *from_rpp) != NULL) {
+        if (rp->hvalue == INVALID_HASH) {
+            /* rare but possible with fine locking */
+            remove_key(tb, &from_rpp, NULL, 0);
+        } else {
+            ix = rp->hvalue & szm;
+            if (ix != from_ix) {
+                ASSERT(ix == (from_ix ^ ((szm >> 1) + 1)));
+                *to_rpp = rp;
+                /* Swap "from" and "to": */
+                from_ix = ix;
+                to_rpp = from_rpp;
+            }
+            from_rpp = &rp->next;
+        }
+    }
+    *to_rpp = NULL;
+    WUNLOCK_HASH(lck);
+}
+
+/*
  * Copy terms from rp1 until rp2
  * works for rp1 == rp2 == NULL  => []
  * or rp2 == NULL
@@ -794,57 +1110,104 @@ build_term_list(Process *p, RootDbTerm *rp1,
     RootDbTerm *rp;
     TrunkDbTerm *tp;
     rp = rp1;
-    tp = SAFE_GET_TRUNK(rp);
     while (rp != rp2) {
-        if (rp->hvalue != INVALID_HASH)
-            sz += tp->dbterm.size + 2;
-        NEXT_DBTERM(rp, tp);
+        if (rp->hvalue != INVALID_HASH) {
+            tp = GET_TRUNK(rp);
+            do {
+                sz += tp->dbterm.size + 2;
+                tp = tp->next;
+            } while (tp != NULL);
+        }
+        rp = rp->next;
     }
     hp = HAlloc(p, sz);
     hend = hp + sz;
-    rp = rp1;
-    tp = SAFE_GET_TRUNK(rp);
-    while (rp != rp2) {
-        if (rp->hvalue != INVALID_HASH) {
-            copy = db_copy_object_from_ets(&tb->common, &tp->dbterm,
-                                           &hp, &MSO(p));
-            list = CONS(hp, copy, list);
-            hp += 2;
+    while (rp1 != rp2) {
+        if (rp1->hvalue != INVALID_HASH) {
+            tp = GET_TRUNK(rp1);
+            do {
+                copy = db_copy_object_from_ets(&tb->common, &tp->dbterm,
+                                               &hp, &MSO(p));
+                list = CONS(hp, copy, list);
+                hp += 2;
+                tp = tp->next;
+            } while (tp != NULL);
         }
-        NEXT_DBTERM(rp, tp);
+        rp1 = rp1->next;
     }
     HRelease(p, hend, hp);
     return list;
 }
 
-static void
-remove_chain(DbTableNestedHash *tb, RootDbTerm **rpp,
-             int *max_free, int pseudo_delete);
+/*
+ * Remember a slot containing a pseudo-deleted item (INVALID_HASH)
+ */
+static ERTS_INLINE void
+add_fixed_deletion(DbTableNestedHash *tb, int ix)
+{
+    erts_aint_t was_next, exp_next;
+    NestedFixedDeletion *fixd;
+    fixd = (NestedFixedDeletion *)
+        erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL, (DbTable *)tb,
+                      sizeof(NestedFixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(sizeof(NestedFixedDeletion));
+    fixd->slot = ix;
+    was_next = erts_smp_atomic_read_acqb(&tb->fixdel);
+    do {
+        /* Lockless atomic insertion in linked list: */
+        exp_next = was_next;
+        fixd->next = (NestedFixedDeletion *)exp_next;
+        was_next =
+            erts_smp_atomic_cmpxchg_relb(&tb->fixdel,
+                                         (erts_aint_t)fixd, exp_next);
+    } while (was_next != exp_next);
+}
 
 /*
- * Shrink table by freeing the top segment free_records:
- *   1 -> free any records in segment
- *   0 -> assume segment is empty
+ * Return:
+ *   1 -> done
+ *   0 -> *max_free zeroed, need another round
  */
-static void
-free_seg(DbTableNestedHash *tb, int free_records)
+static int
+free_bucket(DbTableNestedHash *tb, RootDbTerm **rpp,
+            int *max_free, int pseudo_delete)
 {
-    int i;
-    int bytes, seg_ix = (tb->nslots >> SEGSZ_EXP) - 1;
+    while (*rpp != NULL)
+        if (!remove_key(tb, &rpp, max_free, pseudo_delete))
+            return 0;
+    return 1;
+}
+
+/*
+ * Shrink table by freeing the top segment.
+ * free_records:
+ *   != NULL -> free no more than *free_records records in segment
+ *   == NULL -> assume segment is empty
+ *
+ * Return:
+ *   1 -> done
+ *   0 -> *max_free zeroed, need another round
+ */
+static int
+free_seg(DbTableNestedHash *tb, int *max_free)
+{
+    int i, bytes, seg_ix;
+    RootDbTerm **rpp;
     struct segment **segtab = SEGTAB(tb);
-    struct ext_segment *top = (struct ext_segment *)segtab[seg_ix];
+    struct ext_segment *top;
+    seg_ix = (tb->nslots >> SEGSZ_EXP) - 1;
+    top = (struct ext_segment *)segtab[seg_ix];
     ASSERT(top != NULL);
 #ifndef DEBUG
-    if (free_records)
+    if (max_free != NULL)
 #endif
     {
-        RootDbTerm **rpp;
         for (i=0; i<SEGSZ; ++i) {
             rpp = &top->s.buckets[i].hterm;
             if (SAFE_GET_TRUNK(*rpp) != NULL) {
-                ASSERT(free_records); /* segment not empty as assumed? */
-                /* !!! use max_free !!! */
-                remove_chain(tb, rpp, NULL, 0);
+                ASSERT(max_free != NULL); /* segment not empty as assumed? */
+                if (!free_bucket(tb, rpp, max_free, 0))
+                    return 0;
             }
         }
     }
@@ -896,104 +1259,74 @@ free_seg(DbTableNestedHash *tb, int free_records)
 #endif
     tb->nslots -= SEGSZ;
     ASSERT(tb->nslots >= 0);
-}
-
-static void
-free_nested_table(DbTableNestedHash *tb, RootDbTerm *rp,
-                  int free_records, int *max_free);
-
-static ERTS_INLINE void
-free_root_dbterm(DbTableNestedHash *tb, RootDbTerm *rp)
-{
-    if (HAS_LHT(rp)) {
-        /* !!! use max_free !!! */
-        free_nested_table(tb, rp, 0, NULL);
-        erts_db_free(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
-                     rp, sizeof(RootDbTerm));
-    } else {
-        erts_db_free(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
-                     rp, offsetof(RootDbTerm, szm));
-    }
+    return 1;
 }
 
 /*
- * Shrink table by freeing the top segment.
- * free_records:
- *   2 -> free any records in segment, don't free the segment
- *   1 -> free any records in segment and the segment itself
- *   0 -> assume segment is empty and free the segment
+ * Shrink table by joining top bucket.
+ * Remove top segment if it gets empty.
  */
-/* !!! KEEP free_records ??? */
 static void
-free_nested_seg(DbTableNestedHash *tb, RootDbTerm *rp,
-                int free_records, int *max_free)
+shrink(DbTableNestedHash *tb, int nactive)
 {
-    int i, bytes, seg_ix;
-    TrunkDbTerm **ntpp;
-    struct segment **segtab;
-    struct ext_segment *top;
-    segtab = GET_TRUNK(rp)->sp.segtab;
-    seg_ix = (rp->nslots >> SEGSZ_EXP) - 1;
-    top = (struct ext_segment *)segtab[seg_ix];
-    ASSERT(top != NULL);
-#ifndef DEBUG
-    if (free_records)
-#endif
-    {
-        for (i=0; i<SEGSZ; ++i) {
-            ntpp = &top->s.buckets[i].nterm;
-            if (*ntpp != NULL) {
-                ASSERT(free_records); /* segment not empty as assumed? */
-                *ntpp = NULL;
-            }
-        }
-    }
-    if (free_records > 1)
+    int from_ix, low_szm, to_ix;
+    RootDbTerm **from_rpp, **to_rpp;
+    RootDbTerm **rpp, *rp;
+    erts_smp_rwmtx_t *lck;
+    if (!begin_resizing(tb))
+        /* already in progress */
         return;
+    if (NACTIVE(tb) == nactive) {
+        /* already done */
+        done_resizing(tb);
+        return;
+    }
+    from_ix = nactive - 1;
+    low_szm = erts_smp_atomic_read_nob(&tb->szm) >> 1;
+    to_ix = from_ix & low_szm;
+    ASSERT(to_ix < from_ix);
+    ASSERT(nactive > SEGSZ);
+    lck = WLOCK_HASH(tb, to_ix);
+    /* Double check for racing table fixers */
+    if (IS_FIXED(tb)) {
+        WUNLOCK_HASH(lck);
+        done_resizing(tb);
+        return;
+    }
+    from_rpp = &BUCKET(tb, from_ix);
+    to_rpp = &BUCKET(tb, to_ix);
+    rpp = from_rpp;
     /*
-     * No "shrink race" here.
-     * However we still stop use or allocate a new segtab one call earlier.
-     * Maybe some day this "early" allocation will be dropped.
+     * Q: Why join lists by appending "to" at the end of "from"?
+     * A: Must step through "from" anyway to purge pseudo deleted.
      */
-    if (max_free != NULL) {
-        if (*max_free <= 0)
-            return;
-        --*max_free;
-    }
-    if ((seg_ix == (rp->nsegs - 1)) || (seg_ix == 0)) {
-        /* Dealloc extended segment */
-        MY_ASSERT(top->s.is_ext_segment);
-        ASSERT((segtab != top->segtab) || (seg_ix == 0));
-        bytes = SIZEOF_EXTSEG(top->nsegs);
-    } else {
-        /* Dealloc plain segment */
-        struct ext_segment *newtop = (struct ext_segment *)segtab[seg_ix - 1];
-        MY_ASSERT(!top->s.is_ext_segment);
-        if (segtab == newtop->segtab) {
-            /* New top segment is extended */
-            MY_ASSERT(newtop->s.is_ext_segment);
-            if (newtop->prev_segtab != NULL) {
-                /* Time to use a smaller segtab */
-                GET_TRUNK(rp)->sp.segtab = newtop->prev_segtab;
-                rp->nsegs = seg_ix;
-                ASSERT(rp->nsegs == EXTSEG(GET_TRUNK(rp)->sp.segtab)->nsegs);
-            } else {
-                ASSERT((NSEG_1 > 2) && (seg_ix == 1));
-            }
+    while ((rp = *rpp) != NULL) {
+        if (rp->hvalue == INVALID_HASH) {
+            remove_key(tb, &rpp, NULL, 0);
+        } else {
+            rpp = &(*rpp)->next;
         }
-        bytes = sizeof(struct segment);
     }
-    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, (void *)top, bytes);
-#ifdef DEBUG
-    if (seg_ix > 0) {
-        if (seg_ix < rp->nsegs)
-            GET_TRUNK(rp)->sp.segtab[seg_ix] = NULL;
-    } else {
-        GET_TRUNK(rp)->sp.segtab = NULL;
-    }
-#endif
-    rp->nslots -= SEGSZ;
-    ASSERT(rp->nslots >= 0);
+    *rpp = *to_rpp;
+    *to_rpp = *from_rpp;
+    *from_rpp = NULL;
+    erts_smp_atomic_set_nob(&tb->nactive, from_ix);
+    if (to_ix == 0)
+        erts_smp_atomic_set_relb(&tb->szm, low_szm);
+    WUNLOCK_HASH(lck);
+    if ((tb->nslots - from_ix) >= SEGSZ)
+        free_seg(tb, NULL);
+    done_resizing(tb);
+}
+
+static ERTS_INLINE void
+try_shrink(DbTableNestedHash *tb)
+{
+    int nactive = NACTIVE(tb);
+    if ((nactive > SEGSZ)
+        && (NKEYS(tb) < (nactive * CHAIN_LEN))
+        && !IS_FIXED(tb))
+        shrink(tb, nactive);
 }
 
 /*
@@ -1021,8 +1354,7 @@ nested_shrink(DbTableNestedHash *tb, RootDbTerm *rp)
     if (dst_ix == 0)
         rp->szm = low_szm;
     if ((rp->nslots - src_ix) >= SEGSZ)
-        /* !!! use max_free !!! */
-        free_nested_seg(tb, rp, 0, NULL);
+        free_nested_seg(tb, rp);
 }
 
 static ERTS_INLINE void
@@ -1031,149 +1363,6 @@ try_nested_shrink(DbTableNestedHash *tb, RootDbTerm *rp)
     int nactive = rp->nactive;
     if ((nactive > SEGSZ) && (rp->nkitems < (nactive * CHAIN_LEN)))
         nested_shrink(tb, rp);
-}
-
-/* !!! KEEP free_records ??? */
-/* !!! FIX THIS MESS !!! */
-static void
-free_nested_table(DbTableNestedHash *tb, RootDbTerm *rp,
-                  int free_records, int *max_free)
-{
-    while ((rp->nslots > SEGSZ) && ((max_free == NULL) || (*max_free > 0)))
-        free_nested_seg(tb, rp, (free_records) ? 1 : 0, max_free);
-    if ((rp->nslots) && ((max_free == NULL) || (*max_free > 0)))
-        free_nested_seg(tb, rp, free_records, max_free);
-}
-
-/*
- * Remove the chain rooted in '***rppp' from the table.
- * '*rppp' is updated appropriately to point to the next RootDbTerm.
- * Returns the number of deleted terms.
- * NOTE: It is assumed that rppp, *rppp, **rppp are not NULL
- */
-/* !!! yield !!! */
-static int
-remove_key(DbTableNestedHash *tb, RootDbTerm ***rppp,
-           int *max_free, int pseudo_delete)
-{
-    int hl, nd = 0;
-    RootDbTerm **rpp = *rppp;
-    RootDbTerm *rp = *rpp;
-    TrunkDbTerm *tp1, *tp2;
-    hl = HAS_LHT(rp);
-    if (hl)
-        free_nested_table(tb, rp, (pseudo_delete) ? 2 : 1, max_free);
-    /* !!!
-     * RootDbTerm should be marked as being deleted
-     * and not used anymore until remove_key()
-     * completes, i.e. until returns with *max_free > 0
-     */
-    tp1 = GET_TRUNK(rp);
-    while ((tp2 = tp1->next) != NULL) {
-        if (max_free != NULL) {
-            if (*max_free <= 0)
-                return nd;
-            --*max_free;
-        }
-        --rp->nkitems;
-        if (hl)
-            /* !!! use remove_nested_dbterm() ??? */
-            tp2->sp.segtab = tp1->sp.segtab;
-        SET_TRUNK(rp, tp2);
-        free_trunk_dbterm(tb, tp1, hl);
-        ++nd;
-        tp1 = tp2;
-    }
-    if (pseudo_delete) {
-        /* !!!
-         * Now RootDbTerm should be _unmarked_ as being deleted
-         */
-        ASSERT(rp->nkitems == 1);
-        if (rp->hvalue != INVALID_HASH) {
-            rp->hvalue = INVALID_HASH;
-            ++nd;
-        }
-        *rppp = &rp->next;
-        return nd;
-    }
-    if (max_free != NULL) {
-        if (*max_free <= 0)
-            return nd;
-        *max_free -= 2;
-    }
-    if (rp->hvalue != INVALID_HASH)
-        ++nd;
-    *rpp = rp->next;
-    free_root_dbterm(tb, rp);
-    free_trunk_dbterm(tb, tp1, hl);
-    return nd;
-}
-
-static void
-remove_chain(DbTableNestedHash *tb, RootDbTerm **rpp,
-             int *max_free, int pseudo_delete)
-{
-    while ((*rpp != NULL) && ((max_free == NULL) || (*max_free > 0)))
-        remove_key(tb, &rpp, max_free, pseudo_delete);
-}
-
-/*
- * Remove term ***tppp from the chain.
- * *rppp and **tppp are updated appropriately to point to the next
- * term. At the end of the bucket list **tppp is set to NULL.
- * NOTE: It is assumed that rppp, *rppp, **rppp, tppp, *tppp
- *       and **tppp are not NULL.
- * Return: 0 -> more terms left with the same key of the removed one's
- *         1 -> the removed term was the last with its key
- */
-static int
-remove_object(DbTableNestedHash *tb, RootDbTerm ***rppp,
-              TrunkDbTerm ***tppp, Eterm object, int pseudo_delete)
-{
-    int hl;
-    RootDbTerm **rpp = *rppp;
-    RootDbTerm *rp = *rpp;
-    TrunkDbTerm **tpp = *tppp;
-    TrunkDbTerm *tp;
-    hl = HAS_LHT(rp);
-    if (&rp->trunk == tpp) {
-        tp = TRUNK_PTR(*tpp);
-        if (tp->next == NULL) {
-            ASSERT(rp->nkitems == 1);
-            if ((rp->hvalue != INVALID_HASH) && hl)
-                remove_nested_dbterm(tb, rp, tp, object);
-            if (pseudo_delete) {
-                rp->hvalue = INVALID_HASH;
-                *rppp = rpp = &rp->next;
-            } else {
-                *rpp = rp->next;
-                free_root_dbterm(tb, rp);
-                free_trunk_dbterm(tb, tp, hl);
-            }
-            *tppp = SAFE_GET_TRUNK_P(rpp);
-            return 1;
-        }
-        SET_TRUNK(rp, tp->next);
-        if (hl)
-            tp->next->sp.segtab = tp->sp.segtab;
-    } else {
-        tp = *tpp;
-        ASSERT(GET_TRUNK(rp) != tp);
-        if ((*tpp = tp->next) == NULL) {
-            *rppp = rpp = &rp->next;
-            *tppp = SAFE_GET_TRUNK_P(rpp);
-        } else if (hl) {
-            tp->next->sp.previous = tp->sp.previous;
-        }
-    }
-    --rp->nkitems;
-    ASSERT(rp->hvalue != INVALID_HASH);
-    if (hl) {
-        remove_nested_dbterm(tb, rp, tp, object);
-        try_nested_shrink(tb, rp);
-    }
-    free_trunk_dbterm(tb, tp, hl);
-    return 0;
 }
 
 /*
@@ -1264,210 +1453,17 @@ remove_object_no_nested(DbTableNestedHash *tb, RootDbTerm **rpp,
     return 0;
 }
 
-static ERTS_INLINE int
-begin_resizing(DbTableNestedHash *tb)
-{
-    if (DB_USING_FINE_LOCKING(tb))
-        return !erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1);
-    return !erts_smp_atomic_xchg_nob(&tb->is_resizing, 1);
-}
-
-static ERTS_INLINE void
-done_resizing(DbTableNestedHash *tb)
-{
-    if (DB_USING_FINE_LOCKING(tb)) {
-        erts_smp_atomic_set_relb(&tb->is_resizing, 0);
-    } else {
-        erts_smp_atomic_set_nob(&tb->is_resizing, 0);
-    }
-}
-
-/*
- * Grow table with one new bucket.
- * Allocate new segment if needed.
- */
-static void
-grow(DbTableNestedHash *tb, int nactive)
-{
-    int from_ix, ix, nd, szm;
-    erts_smp_rwmtx_t *lck;
-    RootDbTerm *rp;
-    RootDbTerm **from_rpp, **to_rpp;
-    if (!begin_resizing(tb))
-        /* already in progress */
-        return;
-    if (NACTIVE(tb) != nactive) {
-        /* already done (race) */
-        done_resizing(tb);
-        return;
-    }
-    /* Ensure that the slot nactive exists */
-    if (nactive == tb->nslots) {
-        /* Time to get a new segment */
-        ASSERT((nactive & SEGSZ_MASK) == 0);
-        if (!alloc_seg(tb)) {
-            done_resizing(tb);
-            return;
-        }
-    }
-    ASSERT(nactive < tb->nslots);
-    szm = erts_smp_atomic_read_nob(&tb->szm);
-    if (nactive <= szm) {
-        from_ix = nactive & (szm >> 1);
-    } else {
-        ASSERT(nactive == szm+1);
-        from_ix = 0;
-        szm = (szm<<1) | 1;
-    }
-    lck = WLOCK_HASH(tb, from_ix);
-    /*
-     * Now a final double check (with the from_ix lock held)
-     * that we did not get raced by a table fixer.
-     */
-    if (IS_FIXED(tb)) {
-        WUNLOCK_HASH(lck);
-        done_resizing(tb);
-        return;
-    }
-    erts_smp_atomic_inc_nob(&tb->nactive);
-    if (from_ix == 0) {
-        if (DB_USING_FINE_LOCKING(tb)) {
-            erts_smp_atomic_set_relb(&tb->szm, szm);
-        } else {
-            erts_smp_atomic_set_nob(&tb->szm, szm);
-        }
-    }
-    done_resizing(tb);
-    /*
-     * Finally, let's split the bucket. We try to do it in a smart way
-     * to keep link order and avoid unnecessary updates of next-pointers
-     */
-    from_rpp = &BUCKET(tb, from_ix);
-    to_rpp = &BUCKET(tb, nactive);
-    while ((rp = *from_rpp) != NULL) {
-        if (rp->hvalue == INVALID_HASH) {
-            /* rare but possible with fine locking */
-            nd = remove_key(tb, &from_rpp, NULL, 0);
-            ASSERT(nd == 0);
-        } else {
-            ix = rp->hvalue & szm;
-            if (ix != from_ix) {
-                ASSERT(ix == (from_ix ^ ((szm >> 1) + 1)));
-                *to_rpp = rp;
-                /* Swap "from" and "to": */
-                from_ix = ix;
-                to_rpp = from_rpp;
-            }
-            from_rpp = &rp->next;
-        }
-    }
-    *to_rpp = NULL;
-    WUNLOCK_HASH(lck);
-}
-
-/*
- * Remember a slot containing a pseudo-deleted item (INVALID_HASH)
- */
-static ERTS_INLINE void
-add_fixed_deletion(DbTableNestedHash *tb, int ix)
-{
-    erts_aint_t was_next, exp_next;
-    NestedFixedDeletion *fixd;
-    fixd = (NestedFixedDeletion *)
-        erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL, (DbTable *)tb,
-                      sizeof(NestedFixedDeletion));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(NestedFixedDeletion));
-    fixd->slot = ix;
-    was_next = erts_smp_atomic_read_acqb(&tb->fixdel);
-    do {
-        /* Lockless atomic insertion in linked list: */
-        exp_next = was_next;
-        fixd->next = (NestedFixedDeletion *)exp_next;
-        was_next =
-            erts_smp_atomic_cmpxchg_relb(&tb->fixdel,
-                                         (erts_aint_t)fixd, exp_next);
-    } while (was_next != exp_next);
-}
-
-/*
- * Shrink table by joining top bucket.
- * Remove top segment if it gets empty.
- */
-static void
-shrink(DbTableNestedHash *tb, int nactive)
-{
-    int from_ix, nd, low_szm, to_ix;
-    RootDbTerm **from_rpp, **to_rpp;
-    RootDbTerm **rpp, *rp;
-    erts_smp_rwmtx_t *lck;
-    if (!begin_resizing(tb))
-        /* already in progress */
-        return;
-    if (NACTIVE(tb) == nactive) {
-        /* already done */
-        done_resizing(tb);
-        return;
-    }
-    from_ix = nactive - 1;
-    low_szm = erts_smp_atomic_read_nob(&tb->szm) >> 1;
-    to_ix = from_ix & low_szm;
-    ASSERT(to_ix < from_ix);
-    ASSERT(nactive > SEGSZ);
-    lck = WLOCK_HASH(tb, to_ix);
-    /* Double check for racing table fixers */
-    if (IS_FIXED(tb)) {
-        WUNLOCK_HASH(lck);
-        done_resizing(tb);
-        return;
-    }
-    from_rpp = &BUCKET(tb, from_ix);
-    to_rpp = &BUCKET(tb, to_ix);
-    rpp = from_rpp;
-    /*
-     * Q: Why join lists by appending "to" at the end of "from"?
-     * A: Must step through "from" anyway to purge pseudo deleted.
-     */
-    while ((rp = *rpp) != NULL) {
-        if (rp->hvalue == INVALID_HASH) {
-            nd = remove_key(tb, &rpp, NULL, 0);
-            ASSERT(nd == 0);
-        } else {
-            rpp = &(*rpp)->next;
-        }
-    }
-    *rpp = *to_rpp;
-    *to_rpp = *from_rpp;
-    *from_rpp = NULL;
-    erts_smp_atomic_set_nob(&tb->nactive, from_ix);
-    if (to_ix == 0)
-        erts_smp_atomic_set_relb(&tb->szm, low_szm);
-    WUNLOCK_HASH(lck);
-    if ((tb->nslots - from_ix) >= SEGSZ)
-        free_seg(tb, 0);
-    done_resizing(tb);
-}
-
-static ERTS_INLINE void
-try_shrink(DbTableNestedHash *tb)
-{
-    int nactive = NACTIVE(tb);
-    if ((nactive > SEGSZ)
-        && (NKEYS(tb) < (nactive * CHAIN_LEN))
-        && !IS_FIXED(tb)) {
-        shrink(tb, nactive);
-    }
-}
-
 /* Search a list of tuples for a matching key */
-static RootDbTerm *
-search_list(DbTableNestedHash *tb, Eterm key, HashValue hval, RootDbTerm *rp)
+static int
+bucket_has_key(DbTableNestedHash *tb, Eterm key,
+               HashValue hval, RootDbTerm *rp)
 {
     while (rp != NULL) {
         if (has_key(tb, rp, key, hval))
-            return (rp->hvalue == INVALID_HASH) ? NULL : rp;
+            return (rp->hvalue == INVALID_HASH) ? 0 : 1;
         rp = rp->next;
     }
-    return NULL;
+    return 0;
 }
 
 /*
@@ -1477,12 +1473,15 @@ search_list(DbTableNestedHash *tb, Eterm key, HashValue hval, RootDbTerm *rp)
 static int
 analyze_pattern(DbTableNestedHash *tb, Eterm pattern, struct mp_info *mpi)
 {
-    int i, num_heads = 0;
+    int i, ix, j, search_slot;
+    int num_heads = 0;
     Eterm body, key, lst, tpl, ttpl;
-    Eterm sbuff[30];
+    Eterm sbuff[3 * N_OF_PREFOUND];
     Eterm *ptpl, *matches, *guards, *bodies;
     Eterm *buff = sbuff;
     HashValue hval = NIL;
+    RootDbTerm **rpp;
+    erts_smp_rwmtx_t *lck;
     key = NIL;
     mpi->lists = mpi->dlists;
     mpi->num_lists = 0;
@@ -1495,24 +1494,19 @@ analyze_pattern(DbTableNestedHash *tb, Eterm pattern, struct mp_info *mpi)
     if (lst != NIL)
         /* improper list... */
         return DB_ERROR_BADPARAM;
-    if (num_heads > 10) {
+    if (num_heads > N_OF_PREFOUND) {
         buff = erts_alloc(ERTS_ALC_T_DB_TMP, sizeof(Eterm) * num_heads * 3);
         mpi->lists =
             erts_alloc(ERTS_ALC_T_DB_SEL_LIST,
                        sizeof(*(mpi->lists)) * num_heads);
     }
-    matches = buff;
-    guards = buff + num_heads;
-    bodies = buff + (num_heads * 2);
+    matches = &buff[0];
+    guards = &buff[num_heads];
+    bodies = &buff[num_heads * 2];
     for (i = 0, lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
         ttpl = CAR(list_val(lst));
-        if (!is_tuple(ttpl)) {
-            if (buff != sbuff)
-                erts_free(ERTS_ALC_T_DB_TMP, buff);
-            return DB_ERROR_BADPARAM;
-        }
-        ptpl = tuple_val(ttpl);
-        if (ptpl[0] != make_arityval(3U)) {
+        if ((!is_tuple(ttpl))
+            || ((ptpl = tuple_val(ttpl))[0] != make_arityval(3U))) {
             if (buff != sbuff)
                 erts_free(ERTS_ALC_T_DB_TMP, buff);
             return DB_ERROR_BADPARAM;
@@ -1535,15 +1529,12 @@ analyze_pattern(DbTableNestedHash *tb, Eterm pattern, struct mp_info *mpi)
         if (is_value(key)) {
             if (!db_has_variable(key)) {
                 /* Bound key */
-                int ix, j, search_slot;
-                RootDbTerm **rpp;
-                erts_smp_rwmtx_t *lck;
                 hval = MAKE_HASH(key);
                 lck = RLOCK_HASH(tb, hval);
                 ix = hash_to_ix(tb, hval);
                 rpp = &BUCKET(tb, ix);
                 if (lck == NULL) {
-                    search_slot = (search_list(tb, key, hval, *rpp) != NULL);
+                    search_slot = bucket_has_key(tb, key, hval, *rpp);
                 } else {
                     /*
                      * No point to verify if key exist now as there
@@ -1597,46 +1588,6 @@ bif_trap1(Export *bif, Process *p, Eterm p1)
     BIF_TRAP1(bif, p, p1);
 }
 
-/*
- * Same as next_slot but with WRITE locking
- */
-static ERTS_INLINE Sint
-next_slot_w(DbTableNestedHash *tb, Uint ix, erts_smp_rwmtx_t **lck_ptr)
-{
-#ifdef ERTS_SMP
-    ix += DB_NESTED_HASH_LOCK_CNT;
-    if (ix < NACTIVE(tb))
-        return ix;
-    WUNLOCK_HASH(*lck_ptr);
-    ix = (ix + 1) & DB_HASH_LOCK_MASK;
-    if (ix != 0)
-        *lck_ptr = WLOCK_HASH(tb, ix);
-    return ix;
-#else
-    return next_slot(tb, ix, lck_ptr);
-#endif
-}
-
-static int
-db_mark_all_deleted_nhash(DbTable *tbl)
-{
-    int i;
-    RootDbTerm **rpp;
-    DbTableNestedHash *tb = &tbl->nested;
-    ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb));
-    for (i = 0; i < NACTIVE(tb); i++) {
-        rpp = &BUCKET(tb, i);
-        if (*rpp == NULL)
-            continue;
-        add_fixed_deletion(tb, i);
-        /* !!! use max_free !!! */
-        remove_chain(tb, rpp, NULL, 1);
-    }
-    erts_smp_atomic_set_nob(&tb->common.nitems, 0);
-    erts_smp_atomic_set_nob(&tb->nkeys, 0);
-    return DB_ERROR_NONE;
-}
-
 static int
 db_match_dbterm_nhash(DbTableNestedHash *tb, Process *c_p, Binary *bprog,
                       DbTerm *dbterm, Eterm *object, DbTerm **uncomp_dbterm)
@@ -1660,65 +1611,131 @@ db_match_dbterm_nhash(DbTableNestedHash *tb, Process *c_p, Binary *bprog,
 }
 
 /*
- * Once created, the nested table is removed
- * only when the root element is deleted.
+ * It is assumed that the TrunkDbTerm to remove
+ * is present in the nested LHT.
  */
-static RootDbTerm *
-create_nested_table(DbTableNestedHash *tb, RootDbTerm *rp)
+static ERTS_INLINE void
+remove_nested_dbterm(DbTableNestedHash *tb, RootDbTerm *rp,
+                     TrunkDbTerm *tp, Eterm object)
 {
-    int nitems = 0;
-    Eterm object;
-    Eterm *base;
-    DbTerm *dbterm;
-    TrunkDbTerm *tp1, *tp2, *tp3;
-    TrunkDbTerm **tpp;
-    ASSERT(!HAS_LHT(rp));
-    tp1 = NULL;
-    tpp = &rp->trunk;
-    tp2 = *tpp;
-    if (tb->common.compress) {
-        do {
-            dbterm = db_alloc_tmp_uncompressed(&tb->common, &tp2->dbterm);
-            object = make_tuple_rel(dbterm->tpl, NULL);
-            *tpp = new_trunk_dbterm(tb, object, 1);
-            if (tp1 == NULL) {
-                tp1 = *tpp;
-                rp = realloc_root_dbterm(tb, rp, tp1);
-            } else {
-                (*tpp)->sp.previous = tp1;
-                tp1 = *tpp;
-            }
-            put_nested_dbterm(tb, rp, tp1, object);
-            db_free_tmp_uncompressed(dbterm);
-            tp3 = tp2->next;
-            free_trunk_dbterm(tb, tp2, 0);
-            if (++nitems > rp->nactive * (CHAIN_LEN + 1))
-                nested_grow(tb, rp);
-            tpp = &tp1->next;
-        } while ((tp2 = tp3) != NULL);
-    } else {
-        do {
-            base = HALFWORD_HEAP ? tp2->dbterm.tpl : NULL;
-            object = make_tuple_rel(tp2->dbterm.tpl, base);
-            *tpp = new_trunk_dbterm(tb, object, 1);
-            if (tp1 == NULL) {
-                tp1 = *tpp;
-                rp = realloc_root_dbterm(tb, rp, tp1);
-            } else {
-                (*tpp)->sp.previous = tp1;
-                tp1 = *tpp;
-            }
-            put_nested_dbterm(tb, rp, tp1, object);
-            tp3 = tp2->next;
-            free_trunk_dbterm(tb, tp2, 0);
-            if (++nitems > rp->nactive * (CHAIN_LEN + 1))
-                nested_grow(tb, rp);
-            tpp = &tp1->next;
-        } while ((tp2 = tp3) != NULL);
+    int nix;
+    HashValue ohval;
+    TrunkDbTerm **ntpp;
+    ohval = MAKE_HASH(object);
+    nix = nested_hash_to_ix(rp, ohval);
+    ntpp = &NESTED_BUCKET(rp, nix);
+    while (1) {
+        ASSERT(*ntpp != NULL);
+        if (*ntpp == tp) {
+            ASSERT((*ntpp)->ohvalue == ohval);
+            *ntpp = (*ntpp)->onext;
+            return;
+        }
+        ntpp = &(*ntpp)->onext;
     }
-    *tpp = NULL;
-    return rp;
 }
+
+/*
+ * Remove term ***tppp from the chain.
+ * *rppp and **tppp are updated appropriately to point to the next
+ * term. At the end of the bucket list **tppp is set to NULL.
+ * NOTE: It is assumed that rppp, *rppp, **rppp, tppp, *tppp
+ *       and **tppp are not NULL.
+ * Return: 0 -> more terms left with the same key of the removed one's
+ *         1 -> the removed term was the last with its key
+ */
+static int
+remove_object(DbTableNestedHash *tb, RootDbTerm ***rppp,
+              TrunkDbTerm ***tppp, Eterm object, int pseudo_delete)
+{
+    int hl;
+    RootDbTerm **rpp = *rppp;
+    RootDbTerm *rp = *rpp;
+    TrunkDbTerm **tpp = *tppp;
+    TrunkDbTerm *tp;
+    hl = HAS_LHT(rp);
+    if (&rp->trunk == tpp) {
+        tp = TRUNK_PTR(*tpp);
+        if (tp->next == NULL) {
+            ASSERT(rp->nkitems == 1);
+            if ((rp->hvalue != INVALID_HASH) && hl)
+                remove_nested_dbterm(tb, rp, tp, object);
+            if (pseudo_delete) {
+                rp->hvalue = INVALID_HASH;
+                *rppp = rpp = &rp->next;
+            } else {
+                *rpp = rp->next;
+                free_root_dbterm(tb, rp);
+                free_trunk_dbterm(tb, tp, hl);
+            }
+            *tppp = SAFE_GET_TRUNK_P(rpp);
+            return 1;
+        }
+        SET_TRUNK(rp, tp->next);
+        if (hl)
+            tp->next->sp.segtab = tp->sp.segtab;
+    } else {
+        tp = *tpp;
+        ASSERT(GET_TRUNK(rp) != tp);
+        if ((*tpp = tp->next) == NULL) {
+            *rppp = rpp = &rp->next;
+            *tppp = SAFE_GET_TRUNK_P(rpp);
+        } else if (hl) {
+            tp->next->sp.previous = tp->sp.previous;
+        }
+    }
+    --rp->nkitems;
+    ASSERT(rp->hvalue != INVALID_HASH);
+    if (hl) {
+        remove_nested_dbterm(tb, rp, tp, object);
+        try_nested_shrink(tb, rp);
+    }
+    free_trunk_dbterm(tb, tp, hl);
+    return 0;
+}
+
+/*
+ * Same as next_slot but with WRITE locking
+ */
+static ERTS_INLINE Sint
+next_slot_w(DbTableNestedHash *tb, Uint ix, erts_smp_rwmtx_t **lck_ptr)
+{
+#ifdef ERTS_SMP
+    ix += DB_NESTED_HASH_LOCK_CNT;
+    if (ix < NACTIVE(tb))
+        return ix;
+    WUNLOCK_HASH(*lck_ptr);
+    ix = (ix + 1) & DB_HASH_LOCK_MASK;
+    if (ix != 0)
+        *lck_ptr = WLOCK_HASH(tb, ix);
+    return ix;
+#else
+    return next_slot(tb, ix, lck_ptr);
+#endif
+}
+
+static int
+db_mark_all_deleted_nhash(DbTable *tbl)
+{
+    int i, max_free;
+    RootDbTerm **rpp;
+    DbTableNestedHash *tb = &tbl->nested;
+    ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb));
+    for (i = 0; i < NACTIVE(tb); i++) {
+        rpp = &BUCKET(tb, i);
+        if (*rpp == NULL)
+            continue;
+        add_fixed_deletion(tb, i);
+        max_free = DELETE_RECORD_LIMIT;
+        /* !!! yield !!! */
+        while (!free_bucket(tb, rpp, &max_free, 1))
+            max_free += DELETE_RECORD_LIMIT;
+    }
+    erts_smp_atomic_set_nob(&tb->common.nitems, 0);
+    erts_smp_atomic_set_nob(&tb->nkeys, 0);
+    return DB_ERROR_NONE;
+}
+
 
 /*
  * Table interface routines ie what's called by the bif's
@@ -1777,26 +1794,20 @@ db_first_nhash(Process *p, DbTable *tbl, Eterm *ret)
     TrunkDbTerm *tp;
     DbTableNestedHash *tb = &tbl->nested;
     erts_smp_rwmtx_t *lck = RLOCK_HASH(tb, ix);
-    for (;;) {
+    do {
         rp = BUCKET(tb, ix);
-        if (rp != NULL) {
-            tp = GET_TRUNK(rp);
-            if (rp->hvalue == INVALID_HASH)
-                tp = next_dbterm(tb, &ix, &lck, &rp, tp);
-            break;
+        while (rp != NULL) {
+            if (rp->hvalue != INVALID_HASH) {
+                tp = GET_TRUNK(rp);
+                *ret = db_copy_key(p, tbl, &tp->dbterm);
+                RUNLOCK_HASH(lck);
+                return DB_ERROR_NONE;
+            }
+            rp = rp->next;
         }
         ix = next_slot(tb, ix, &lck);
-        if (!ix) {
-            rp = NULL;
-            break;
-        }
-    }
-    if (rp != NULL) {
-        *ret = db_copy_key(p, tbl, &tp->dbterm);
-        RUNLOCK_HASH(lck);
-    } else {
-        *ret = am_EOT;
-    }
+    } while (ix);
+    *ret = am_EOT;
     return DB_ERROR_NONE;
 }
 
@@ -1813,26 +1824,32 @@ db_next_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     lck = RLOCK_HASH(tb, hval);
     ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
-    for (;;) {
-        if (rp == NULL) {
-            RUNLOCK_HASH(lck);
-            return DB_ERROR_BADKEY;
+    while (rp != NULL) {
+        if (has_key(tb, rp, key, hval)) {
+            /* Key found */
+            rp = rp->next;
+            for (;;) {
+                while (rp != NULL) {
+                    if (rp->hvalue != INVALID_HASH) {
+                        tp = GET_TRUNK(rp);
+                        *ret = db_copy_key(p, tbl, &tp->dbterm);
+                        RUNLOCK_HASH(lck);
+                        return DB_ERROR_NONE;
+                    }
+                    rp = rp->next;
+                }
+                ix = next_slot(tb, ix, &lck);
+                if (!ix)
+                    break;
+                rp = BUCKET(tb, ix);
+            }
+            *ret = am_EOT;
+            return DB_ERROR_NONE;
         }
-        if (has_key(tb, rp, key, hval))
-            break;
         rp = rp->next;
     }
-    /* Key found */
-    rp = rp->next;
-    tp = SAFE_GET_TRUNK(rp);
-    tp = next_dbterm(tb, &ix, &lck, &rp, tp);
-    if (rp == NULL) {
-        *ret = am_EOT;
-    } else {
-        *ret = db_copy_key(p, tbl, &tp->dbterm);
-        RUNLOCK_HASH(lck);
-    }
-    return DB_ERROR_NONE;
+    RUNLOCK_HASH(lck);
+    return DB_ERROR_BADKEY;
 }
 
 int
@@ -1842,7 +1859,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
     Eterm key;
     HashValue hval, ohval;
     RootDbTerm **rpp, *rp;
-    TrunkDbTerm *tp, *sp, *ntp;
+    TrunkDbTerm *tp1, *tp2;
     erts_smp_rwmtx_t *lck;
     DbTableNestedHash *tb = &tbl->nested;
     key = GETKEY(tb, tuple_val(obj));
@@ -1856,13 +1873,11 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
         rpp = &rp->next;
     }
     if (rp == NULL) {
-        tp = new_trunk_dbterm(tb, obj, 0);
-        tp->next = NULL;
+        tp1 = new_trunk_dbterm(tb, obj, 0);
+        tp1->next = NULL;
         rp = new_root_dbterm(tb);
-        rp->next = NULL;
-        SET_TRUNK(rp, tp);
+        rp->trunk = tp1;
         rp->hvalue = hval;
-        rp->nkitems = 1;
         *rpp = rp;
         nkeys = erts_smp_atomic_inc_read_nob(&tb->nkeys);
     } else {
@@ -1872,17 +1887,17 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
         ASSERT(tb->common.status & (DB_BAG | DB_DUPLICATE_BAG));
         if (rp->hvalue == INVALID_HASH) {
             /* If pseudo-deleted then there's only one TrunkDbTerm */
-            tp = GET_TRUNK(rp);
-            ASSERT(tp != NULL);
+            tp1 = GET_TRUNK(rp);
+            ASSERT(tp1 != NULL);
             erts_smp_atomic_inc_nob(&tb->common.nitems);
             erts_smp_atomic_inc_nob(&tb->nkeys);
             /*
              * Recycle the Root and TrunkDbTerms
              */
-            tp = replace_trunk_dbterm(tb, tp, obj, HAS_LHT(rp));
-            SET_TRUNK(rp, tp);
+            tp1 = replace_trunk_dbterm(tb, tp1, obj, HAS_LHT(rp));
+            SET_TRUNK(rp, tp1);
             if (HAS_LHT(rp))
-                put_nested_dbterm(tb, rp, tp, obj);
+                put_nested_dbterm(tb, rp, tp1, obj);
             rp->hvalue = hval;
             ASSERT(rp->nkitems == 1);
             WUNLOCK_HASH(lck);
@@ -1896,36 +1911,36 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
             if (HAS_LHT(rp)) {
                 ohval = MAKE_HASH(obj);
                 nix = nested_hash_to_ix(rp, ohval);
-                ntp = NESTED_BUCKET(rp, nix);
-                while (ntp != NULL) {
-                    if (db_eq(&tb->common, obj, &ntp->dbterm)) {
+                tp1 = NESTED_BUCKET(rp, nix);
+                while (tp1 != NULL) {
+                    if (db_eq(&tb->common, obj, &tp1->dbterm)) {
                         WUNLOCK_HASH(lck);
                         return DB_ERROR_NONE;
                     }
-                    ntp = ntp->onext;
+                    tp1 = tp1->onext;
                 }
             } else {
-                tp = rp->trunk;
-                ASSERT(tp != NULL);
+                tp1 = rp->trunk;
+                ASSERT(tp1 != NULL);
                 do {
-                    if (db_eq(&tb->common, obj, &tp->dbterm)) {
+                    if (db_eq(&tb->common, obj, &tp1->dbterm)) {
                         WUNLOCK_HASH(lck);
                         return DB_ERROR_NONE;
                     }
-                    tp = tp->next;
-                } while (tp != NULL);
+                    tp1 = tp1->next;
+                } while (tp1 != NULL);
             }
         }
         /* else DB_DUPLICATE_BAG */
-        sp = GET_TRUNK(rp);
-        tp = new_trunk_dbterm(tb, obj, HAS_LHT(rp));
-        tp->next = sp;
-        SET_TRUNK(rp, tp);
+        tp2 = GET_TRUNK(rp);
+        tp1 = new_trunk_dbterm(tb, obj, HAS_LHT(rp));
+        tp1->next = tp2;
+        SET_TRUNK(rp, tp1);
         ++rp->nkitems;
         if (HAS_LHT(rp)) {
-            tp->sp.segtab = sp->sp.segtab;
-            sp->sp.previous = tp;
-            put_nested_dbterm(tb, rp, tp, obj);
+            tp1->sp.segtab = tp2->sp.segtab;
+            tp2->sp.previous = tp1;
+            put_nested_dbterm(tb, rp, tp1, obj);
             if (rp->nkitems > (rp->nactive * (CHAIN_LEN + 1)))
                 nested_grow(tb, rp);
         } else {
@@ -1937,7 +1952,7 @@ db_put_nhash(DbTable *tbl, Eterm obj, int key_clash_fail)
     erts_smp_atomic_inc_nob(&tb->common.nitems);
     WUNLOCK_HASH(lck);
     nactive = NACTIVE(tb);
-    if ((nkeys > nactive * (CHAIN_LEN+1)) && !IS_FIXED(tb))
+    if ((nkeys > nactive * (CHAIN_LEN + 1)) && (!IS_FIXED(tb)))
         grow(tb, nactive);
     CHECK_TABLES();
     return DB_ERROR_NONE;
@@ -1957,8 +1972,9 @@ db_get_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
     while (rp != NULL) {
-        /* Let build_term_list() skip the not-alive-key RootDbTerm */
+        /* Let build_term_list() skip the pseudo-deleted RootDbTerm */
         if (has_key(tb, rp, key, hval)) {
+            /* !!! yield !!! */
             *ret = build_term_list(p, rp, rp->next, tb);
             CHECK_TABLES();
             break;
@@ -1989,10 +2005,13 @@ db_get_element_nhash(Process *p, DbTable *tbl, Eterm key, int ndex, Eterm *ret)
         if (has_key(tb, rp, key, hval)) {
             if (rp->hvalue == INVALID_HASH)
                 break;
+            /* !!! yield !!! */
             tp = GET_TRUNK(rp);
             do {
-                if (ndex > arityval(tp->dbterm.tpl[0]))
-                    goto bad_item;
+                if (ndex > arityval(tp->dbterm.tpl[0])) {
+                    RUNLOCK_HASH(lck);
+                    return DB_ERROR_BADITEM;
+                }
                 tp = tp->next;
             } while (tp != NULL);
             elem_list = NIL;
@@ -2012,10 +2031,6 @@ db_get_element_nhash(Process *p, DbTable *tbl, Eterm key, int ndex, Eterm *ret)
     }
     RUNLOCK_HASH(lck);
     return DB_ERROR_BADKEY;
-
-bad_item:
-    RUNLOCK_HASH(lck);
-    return DB_ERROR_BADITEM;
 }
 
 static int
@@ -2046,15 +2061,15 @@ db_member_nhash(DbTable *tbl, Eterm key, Eterm *ret)
 /*
  * NB: this is for the db_erase/2 bif.
  */
-/* !!! yield !!! */
 int
 db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
 {
-    int ix, nitems_diff = 0;
+    int ix, nitems_diff, max_free;
     HashValue hval;
     RootDbTerm **rpp, *rp;
     erts_smp_rwmtx_t *lck;
     DbTableNestedHash *tb = &tbl->nested;
+    nitems_diff = 0;
     hval = MAKE_HASH(key);
     lck = WLOCK_HASH(tb, hval);
     ix = hash_to_ix(tb, hval);
@@ -2063,20 +2078,22 @@ db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
         if (has_key(tb, rp, key, hval)) {
             if (rp->hvalue == INVALID_HASH)
                 break;
-            /* !!! use max_free !!! */
-            if (IS_FIXED(tb)) {
-                nitems_diff -= remove_key(tb, &rpp, NULL, 1);
-                add_fixed_deletion(tb, ix);
-            } else {
-                nitems_diff -= remove_key(tb, &rpp, NULL, 0);
+            nitems_diff = max_free = DELETE_RECORD_LIMIT;
+            /* !!! yield !!! */
+            while (!remove_key(tb, &rpp, &max_free, IS_FIXED(tb))) {
+                nitems_diff += DELETE_RECORD_LIMIT;
+                max_free += DELETE_RECORD_LIMIT;
             }
+            nitems_diff -= max_free;
+            if (IS_FIXED(tb))
+                add_fixed_deletion(tb, ix);
             break;
         }
         rpp = &rp->next;
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-        erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        erts_smp_atomic_add_nob(&tb->common.nitems, -nitems_diff);
         erts_smp_atomic_dec_nob(&tb->nkeys);
         try_shrink(tb);
     }
@@ -2188,18 +2205,16 @@ db_slot_nhash(Process *p, DbTable *tbl, Eterm slot_term, Eterm *ret)
         return DB_ERROR_BADPARAM;
     lck = RLOCK_HASH(tb, slot);
     nactive = NACTIVE(tb);
-    if (slot < nactive) {
-        *ret = build_term_list(p, BUCKET(tb, slot), NULL, tb);
-        goto done;
+    if (slot > nactive) {
+        RUNLOCK_HASH(lck);
+        return DB_ERROR_BADPARAM;
     }
     if (slot == nactive) {
         *ret = am_EOT;
-        goto done;
+    } else {
+        /* !!! yield !!! */
+        *ret = build_term_list(p, BUCKET(tb, slot), NULL, tb);
     }
-    RUNLOCK_HASH(lck);
-    return DB_ERROR_BADPARAM;
-
-done:
     RUNLOCK_HASH(lck);
     return DB_ERROR_NONE;
 }
@@ -2227,7 +2242,14 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
     /* errcode == DB_ERROR_NONE; */
     if (!mpi.something_can_match)
         goto end_of_table;
-    if (!mpi.key_given) {
+    if (mpi.key_given) {
+        /* We have at least one */
+        slot_ix = mpi.lists[current_list_pos].ix;
+        lck = RLOCK_HASH(tb, slot_ix);
+        rp = *(mpi.lists[current_list_pos].bucket);
+        ASSERT(rp == BUCKET(tb, slot_ix));
+        ++current_list_pos;
+    } else {
         /*
          * Run this code if pattern is variable
          * or GETKEY(pattern) is a variable
@@ -2243,17 +2265,11 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
             if (slot_ix == 0)
                 goto end_of_table;
         }
-    } else {
-        /* We have at least one */
-        slot_ix = mpi.lists[current_list_pos].ix;
-        lck = RLOCK_HASH(tb, slot_ix);
-        rp = *(mpi.lists[current_list_pos].bucket);
-        ASSERT(rp == BUCKET(tb, slot_ix));
-        ++current_list_pos;
     }
     match_list = NIL;
     tp = SAFE_GET_TRUNK(rp);
     for (;;) {
+        /* !!! yield !!! */
         if (tp != NULL) {
             if (rp->hvalue != INVALID_HASH) {
                 match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
@@ -2262,6 +2278,7 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
                     match_list = CONS(hp, match_res, match_list);
                     ++got;
                 }
+                --num_left;
             }
             NEXT_DBTERM(rp, tp);
         } else if (mpi.key_given) {
@@ -2270,7 +2287,7 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
             if (current_list_pos == mpi.num_lists) {
                 /* EOT */
                 slot_ix = -1;
-                goto done;
+                break;
             }
             slot_ix = mpi.lists[current_list_pos].ix;
             lck = RLOCK_HASH(tb, slot_ix);
@@ -2280,7 +2297,6 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
             ++current_list_pos;
         } else {
             /* Key is variable */
-            --num_left;
             slot_ix = next_slot(tb, slot_ix, &lck);
             if (slot_ix == 0) {
                 slot_ix = -1;
@@ -2303,8 +2319,6 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
             tp = SAFE_GET_TRUNK(rp);
         }
     }
-
-done:
     BUMP_REDS(p, 1000 - num_left);
     if (!chunk_size) {
         *ret = match_list;
@@ -2312,13 +2326,11 @@ done:
     }
     rest_size = 0;
     rest = NIL;
-    if (mpi.all_objects)
-        (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
     if (got > chunk_size) {
         /* Split list in return value and 'rest' */
         Eterm tmp = match_list;
         rest = match_list;
-        while (got-- > chunk_size + 1) {
+        while (--got > chunk_size) {
             tmp = CDR(list_val(tmp));
             ++rest_size;
         }
@@ -2329,12 +2341,12 @@ done:
     }
     if ((rest != NIL) || (slot_ix >= 0)) {
         /* Need more calls */
-        hp = HAlloc(p, 3+7+PROC_BIN_SIZE);
-        mpb = db_make_mp_binary(p, mpi.mp, &hp);
         if (mpi.all_objects)
             (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
+        hp = HAlloc(p, 3 + 7 + PROC_BIN_SIZE);
+        mpb = db_make_mp_binary(p, mpi.mp, &hp);
         continuation =
-            TUPLE6(hp, tb->common.id,make_small(slot_ix),
+            TUPLE6(hp, tb->common.id, make_small(slot_ix),
                    make_small(chunk_size), mpb, rest, make_small(rest_size));
         mpi.mp = NULL;
         hp += 7;
@@ -2415,76 +2427,76 @@ db_select_delete_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
         *ret = make_small(0);
         goto exit;
     }
-    if (!mpi.key_given) {
+    if (mpi.key_given) {
+        /* We have at least one */
+        slot_ix = mpi.lists[current_list_pos].ix;
+        lck = WLOCK_HASH(tb, slot_ix);
+        rpp = mpi.lists[current_list_pos++].bucket;
+        ASSERT(*rpp == BUCKET(tb, slot_ix));
+    } else {
         /*
          * Run this code if pattern is variable
          * or GETKEY(pattern) is a variable
          */
         lck = WLOCK_HASH(tb, slot_ix);
         rpp = &BUCKET(tb, slot_ix);
-    } else {
-        /* We have at least one */
-        slot_ix = mpi.lists[current_list_pos].ix;
-        lck = WLOCK_HASH(tb, slot_ix);
-        rpp = mpi.lists[current_list_pos++].bucket;
-        ASSERT(*rpp == BUCKET(tb, slot_ix));
     }
     tpp = SAFE_GET_TRUNK_P(rpp);
     for (;;) {
-        if (tpp == NULL) {
-            if (mpi.key_given) {
-                /* Key is bound */
-                WUNLOCK_HASH(lck);
-                if (current_list_pos == mpi.num_lists)
-                    goto done;
-                slot_ix = mpi.lists[current_list_pos].ix;
-                lck = WLOCK_HASH(tb, slot_ix);
-                rpp = mpi.lists[current_list_pos].bucket;
-                ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb, slot_ix));
-                tpp = SAFE_GET_TRUNK_P(rpp);
-                ++current_list_pos;
-            } else {
-                slot_ix = next_slot_w(tb, slot_ix, &lck);
-                if (slot_ix == 0)
-                    goto done;
-                if (num_left <= 0) {
-                    WUNLOCK_HASH(lck);
-                    goto trap;
-                }
-                rpp = &BUCKET(tb, slot_ix);
-                tpp = SAFE_GET_TRUNK_P(rpp);
-            }
-        } else if ((*rpp)->hvalue == INVALID_HASH) {
-            NEXT_DBTERM_P(rpp, tpp);
-        } else {
-            if (db_match_dbterm_nhash(tb, p, mpi.mp, &TRUNK_PTR(*tpp)->dbterm,
-                                      &object, &uterm)) {
-                /* fixated by others? */
-                if (NFIXED(tb) > fixated_by_me) {
-                    if (remove_object(tb, &rpp, &tpp, object, 1)) {
-                        erts_smp_atomic_dec_nob(&tb->nkeys);
-                        /* Pseudo deletion */
-                        if (slot_ix != last_pseudo_delete) {
-                            add_fixed_deletion(tb, slot_ix);
-                            last_pseudo_delete = slot_ix;
+        /* !!! yield !!! */
+        if (tpp != NULL) {
+            if ((*rpp)->hvalue != INVALID_HASH) {
+                if (db_match_dbterm_nhash(tb, p, mpi.mp,
+                                          &TRUNK_PTR(*tpp)->dbterm,
+                                          &object, &uterm)) {
+                    /* fixated by others? */
+                    if (NFIXED(tb) > fixated_by_me) {
+                        if (remove_object(tb, &rpp, &tpp, object, 1)) {
+                            erts_smp_atomic_dec_nob(&tb->nkeys);
+                            /* Pseudo deletion */
+                            if (slot_ix != last_pseudo_delete) {
+                                add_fixed_deletion(tb, slot_ix);
+                                last_pseudo_delete = slot_ix;
+                            }
                         }
+                    } else {
+                        if (remove_object(tb, &rpp, &tpp, object, 0))
+                            erts_smp_atomic_dec_nob(&tb->nkeys);
                     }
+                    erts_smp_atomic_dec_nob(&tb->common.nitems);
+                    ++got;
                 } else {
-                    if (remove_object(tb, &rpp, &tpp, object, 0))
-                        erts_smp_atomic_dec_nob(&tb->nkeys);
+                    NEXT_DBTERM_P(rpp, tpp);
                 }
-                erts_smp_atomic_dec_nob(&tb->common.nitems);
-                ++got;
+                if (uterm != NULL)
+                    db_free_tmp_uncompressed(uterm);
+                --num_left;
             } else {
                 NEXT_DBTERM_P(rpp, tpp);
             }
-            if (uterm != NULL)
-                db_free_tmp_uncompressed(uterm);
-            --num_left;
+        } else if (mpi.key_given) {
+            /* Key is bound */
+            WUNLOCK_HASH(lck);
+            if (current_list_pos == mpi.num_lists)
+                break;
+            slot_ix = mpi.lists[current_list_pos].ix;
+            lck = WLOCK_HASH(tb, slot_ix);
+            rpp = mpi.lists[current_list_pos].bucket;
+            ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb, slot_ix));
+            tpp = SAFE_GET_TRUNK_P(rpp);
+            ++current_list_pos;
+        } else {
+            slot_ix = next_slot_w(tb, slot_ix, &lck);
+            if (slot_ix == 0)
+                break;
+            if (num_left <= 0) {
+                WUNLOCK_HASH(lck);
+                goto trap;
+            }
+            rpp = &BUCKET(tb, slot_ix);
+            tpp = SAFE_GET_TRUNK_P(rpp);
         }
     }
-
-done:
     BUMP_REDS(p, 1000 - num_left);
     if (got)
         try_shrink(tb);
@@ -2523,7 +2535,7 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
                          Eterm continuation, Eterm *ret)
 {
     int all_objects, num_left = 1000;
-    Sint chunk_size, got, rest_size, slot_ix, save_slot_ix;
+    Sint chunk_size, got, rest_size, slot_ix;
     Binary *mp;
     Eterm match_list, match_res, rest;
     Eterm *hp, *tptr;
@@ -2545,7 +2557,7 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
     chunk_size = signed_val(tptr[3]);
     if (chunk_size < 0)
         return DB_ERROR_BADPARAM;
-    if (!(thing_subtag(*binary_val(tptr[4])) == REFC_BINARY_SUBTAG))
+    if (thing_subtag(*binary_val(tptr[4])) != REFC_BINARY_SUBTAG)
         return DB_ERROR_BADPARAM;
     mp = ((ProcBin *)binary_val(tptr[4]))->val;
     if (!IsMatchProgBinary(mp))
@@ -2575,23 +2587,25 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
     }
     tp = GET_TRUNK(rp);
     for (;;) {
-        if ((rp->hvalue != INVALID_HASH)
-            && (match_res = db_match_dbterm(&tb->common, p, mp, all_objects,
-                                            &tp->dbterm, &hp, 2),
-                is_value(match_res))) {
-            match_list = CONS(hp, match_res, match_list);
-            ++got;
-        }
-        --num_left;
-        save_slot_ix = slot_ix;
-        NEXT_DBTERM(rp, tp);
-        tp = next_dbterm(tb, (Uint *)&slot_ix, &lck, &rp, tp);
-        if (tp == NULL) {
-            /* EOT */
-            slot_ix = -1;
-            break;
-        }
-        if (slot_ix != save_slot_ix) {
+        /* !!! yield !!! */
+        if (tp != NULL) {
+            if (rp->hvalue != INVALID_HASH) {
+                match_res = db_match_dbterm(&tb->common, p, mp, all_objects,
+                                            &tp->dbterm, &hp, 2);
+                if (is_value(match_res)) {
+                    match_list = CONS(hp, match_res, match_list);
+                    ++got;
+                }
+                --num_left;
+            }
+            NEXT_DBTERM(rp, tp);
+        } else {
+            slot_ix = next_slot(tb, slot_ix, &lck);
+            if (slot_ix == 0) {
+                /* EOT */
+                slot_ix = -1;
+                break;
+            }
             if (chunk_size && (got >= chunk_size)) {
                 RUNLOCK_HASH(lck);
                 break;
@@ -2600,11 +2614,13 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
                 /*
                  * We have either reached our limit, or just created
                  * some heap fragments. Since many heap fragments
-                 * will make the GC* slower, trap and GC now.
+                 * will make the GC slower, trap and GC now.
                  */
                 RUNLOCK_HASH(lck);
                 goto trap;
             }
+            rp = BUCKET(tb, slot_ix);
+            tp = SAFE_GET_TRUNK(rp);
         }
     }
 
@@ -2684,52 +2700,51 @@ db_select_delete_continue_nhash(Process *p, DbTable *tbl,
     lck = WLOCK_HASH(tb, slot_ix);
     if (slot_ix >= NACTIVE(tb)) {
         WUNLOCK_HASH(lck);
-        goto done;
-    }
-    rpp = &BUCKET(tb, slot_ix);
-    tpp = SAFE_GET_TRUNK_P(rpp);
-    for (;;) {
-        if (tpp == NULL) {
-            slot_ix = next_slot_w(tb, slot_ix, &lck);
-            if (slot_ix == 0)
-                goto done;
-            if (num_left <= 0) {
-                WUNLOCK_HASH(lck);
-                goto trap;
-            }
-            rpp = &BUCKET(tb, slot_ix);
-            tpp = SAFE_GET_TRUNK_P(rpp);
-        } else if ((*rpp)->hvalue == INVALID_HASH) {
-            NEXT_DBTERM_P(rpp, tpp);
-        } else {
-            if (db_match_dbterm_nhash(tb, p, mp, &TRUNK_PTR(*tpp)->dbterm,
-                                      &object, &uterm)) {
-                /* fixated by others? */
-                if (NFIXED(tb) > fixated_by_me) {
-                    if (remove_object(tb, &rpp, &tpp, object, 1)) {
-                        erts_smp_atomic_dec_nob(&tb->nkeys);
-                        /* Pseudo deletion */
-                        if (slot_ix != last_pseudo_delete) {
-                            add_fixed_deletion(tb, slot_ix);
-                            last_pseudo_delete = slot_ix;
-                        }
-                    }
-                } else {
-                    if (remove_object(tb, &rpp, &tpp, object, 0))
-                        erts_smp_atomic_dec_nob(&tb->nkeys);
+    } else {
+        rpp = &BUCKET(tb, slot_ix);
+        tpp = SAFE_GET_TRUNK_P(rpp);
+        for (;;) {
+            /* !!! yield !!! */
+            if (tpp == NULL) {
+                slot_ix = next_slot_w(tb, slot_ix, &lck);
+                if (slot_ix == 0)
+                    break;
+                if (num_left <= 0) {
+                    WUNLOCK_HASH(lck);
+                    goto trap;
                 }
-                erts_smp_atomic_dec_nob(&tb->common.nitems);
-                ++got;
-            } else {
+                rpp = &BUCKET(tb, slot_ix);
+                tpp = SAFE_GET_TRUNK_P(rpp);
+            } else if ((*rpp)->hvalue == INVALID_HASH) {
                 NEXT_DBTERM_P(rpp, tpp);
+            } else {
+                if (db_match_dbterm_nhash(tb, p, mp, &TRUNK_PTR(*tpp)->dbterm,
+                                          &object, &uterm)) {
+                    /* fixated by others? */
+                    if (NFIXED(tb) > fixated_by_me) {
+                        if (remove_object(tb, &rpp, &tpp, object, 1)) {
+                            erts_smp_atomic_dec_nob(&tb->nkeys);
+                            /* Pseudo deletion */
+                            if (slot_ix != last_pseudo_delete) {
+                                add_fixed_deletion(tb, slot_ix);
+                                last_pseudo_delete = slot_ix;
+                            }
+                        }
+                    } else {
+                        if (remove_object(tb, &rpp, &tpp, object, 0))
+                            erts_smp_atomic_dec_nob(&tb->nkeys);
+                    }
+                    erts_smp_atomic_dec_nob(&tb->common.nitems);
+                    ++got;
+                } else {
+                    NEXT_DBTERM_P(rpp, tpp);
+                }
+                if (uterm != NULL)
+                    db_free_tmp_uncompressed(uterm);
+                --num_left;
             }
-            if (uterm != NULL)
-                db_free_tmp_uncompressed(uterm);
-            --num_left;
         }
     }
-
-done:
     BUMP_REDS(p, 1000 - num_left);
     if (got)
         try_shrink(tb);
@@ -2794,6 +2809,7 @@ db_select_count_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
     }
     tp = SAFE_GET_TRUNK(rp);
     for (;;) {
+        /* !!! yield !!! */
         if (tp != NULL) {
             if (rp->hvalue != INVALID_HASH) {
                 if (db_match_dbterm(&tb->common, p, mpi.mp, 0,
@@ -2802,34 +2818,29 @@ db_select_count_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
                 --num_left;
             }
             NEXT_DBTERM(rp, tp);
+        } else if (mpi.key_given) {
+            /* Key is bound */
+            RUNLOCK_HASH(lck);
+            if (current_list_pos == mpi.num_lists)
+                break;
+            slot_ix = mpi.lists[current_list_pos].ix;
+            lck = RLOCK_HASH(tb, slot_ix);
+            rp = *(mpi.lists[current_list_pos].bucket);
+            ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb, slot_ix));
+            tp = SAFE_GET_TRUNK(rp);
+            ++current_list_pos;
         } else {
-            /* next bucket */
-            if (mpi.key_given) {
-                /* Key is bound */
+            slot_ix = next_slot(tb, slot_ix, &lck);
+            if (slot_ix == 0)
+                break;
+            if (num_left <= 0) {
                 RUNLOCK_HASH(lck);
-                if (current_list_pos == mpi.num_lists)
-                    goto done;
-                slot_ix = mpi.lists[current_list_pos].ix;
-                lck = RLOCK_HASH(tb, slot_ix);
-                rp = *(mpi.lists[current_list_pos].bucket);
-                ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb, slot_ix));
-                tp = SAFE_GET_TRUNK(rp);
-                ++current_list_pos;
-            } else {
-                slot_ix = next_slot(tb, slot_ix, &lck);
-                if (slot_ix == 0)
-                    goto done;
-                if (num_left <= 0) {
-                    RUNLOCK_HASH(lck);
-                    goto trap;
-                }
-                rp = BUCKET(tb, slot_ix);
-                tp = SAFE_GET_TRUNK(rp);
+                goto trap;
             }
+            rp = BUCKET(tb, slot_ix);
+            tp = SAFE_GET_TRUNK(rp);
         }
     }
-
-done:
     BUMP_REDS(p, 1000 - num_left);
     *ret = erts_make_integer(got, p);
     goto exit;
@@ -2881,34 +2892,33 @@ db_select_count_continue_nhash(Process *p, DbTable *tbl,
     if (slot_ix >= NACTIVE(tb)) {
         /* Is this possible? */
         RUNLOCK_HASH(lck);
-        goto done;
-    }
-    rp = BUCKET(tb, slot_ix);
-    tp = SAFE_GET_TRUNK(rp);
-    for (;;) {
-        if (tp != NULL) {
-            if (rp->hvalue != INVALID_HASH) {
-                if (db_match_dbterm(&tb->common, p, mp, 0,
-                                    &tp->dbterm, NULL, 0) == am_true)
-                    ++got;
-                --num_left;
+    } else {
+        rp = BUCKET(tb, slot_ix);
+        tp = SAFE_GET_TRUNK(rp);
+        for (;;) {
+            /* !!! yield !!! */
+            if (tp != NULL) {
+                if (rp->hvalue != INVALID_HASH) {
+                    if (db_match_dbterm(&tb->common, p, mp, 0,
+                                        &tp->dbterm, NULL, 0) == am_true)
+                        ++got;
+                    --num_left;
+                }
+                NEXT_DBTERM(rp, tp);
+            } else {
+                /* next bucket */
+                slot_ix = next_slot(tb, slot_ix, &lck);
+                if (slot_ix == 0)
+                    break;
+                if (num_left <= 0) {
+                    RUNLOCK_HASH(lck);
+                    goto trap;
+                }
+                rp = BUCKET(tb, slot_ix);
+                tp = SAFE_GET_TRUNK(rp);
             }
-            NEXT_DBTERM(rp, tp);
-        } else {
-            /* next bucket */
-            slot_ix = next_slot(tb, slot_ix, &lck);
-            if (slot_ix == 0)
-                goto done;
-            if (num_left <= 0) {
-                RUNLOCK_HASH(lck);
-                goto trap;
-            }
-            rp = BUCKET(tb, slot_ix);
-            tp = SAFE_GET_TRUNK(rp);
         }
     }
-
-done:
     BUMP_REDS(p, 1000 - num_left);
     *ret = erts_make_integer(got, p);
     return DB_ERROR_NONE;
@@ -2932,7 +2942,7 @@ trap:
 static int
 db_free_table_continue_nhash(DbTable *tbl)
 {
-    int done = 0;
+    int max_free = DELETE_RECORD_LIMIT;
     NestedFixedDeletion *fixdel, *fx;
     DbTableNestedHash *tb = &tbl->nested;
     ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb));
@@ -2943,19 +2953,17 @@ db_free_table_continue_nhash(DbTable *tbl)
         erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable *)tb,
                      (void *)fx, sizeof(NestedFixedDeletion));
         ERTS_ETS_MISC_MEM_ADD(-sizeof(NestedFixedDeletion));
-        if (++done >= (2*DELETE_RECORD_LIMIT)) {
+        if (max_free <= 0) {
             erts_smp_atomic_set_relb(&tb->fixdel, (erts_aint_t)fixdel);
             /* Not done */
             return 0;
         }
+        --max_free;
     }
     erts_smp_atomic_set_relb(&tb->fixdel, (erts_aint_t)NULL);
-    done /= 2;
     while (tb->nslots != 0) {
-        free_seg(tb, 1);
-        /* If we have done enough work, get out here. */
-        if (++done >= (DELETE_RECORD_LIMIT / CHAIN_LEN / SEGSZ))
-            /* Not done */
+        if (!free_seg(tb, &max_free))
+            /* If we have done enough work, get out here. */
             return 0;
     }
 #ifdef ERTS_SMP
@@ -2968,7 +2976,8 @@ db_free_table_continue_nhash(DbTable *tbl)
         tb->locks = NULL;
     }
 #endif
-    ASSERT(erts_smp_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
+    ASSERT(erts_smp_atomic_read_nob(&tb->common.memory_size)
+           == sizeof(DbTable));
     /* Done */
     return 1;
 }
@@ -2983,6 +2992,7 @@ db_free_table_nhash(DbTable *tbl)
     return 0;
 }
 
+/* !!! yield ??? */
 static int
 db_delete_all_objects_nhash(Process *p, DbTable *tbl)
 {
@@ -3088,7 +3098,8 @@ db_check_table_nhash(DbTable *tbl)
                 erl_exit(1, "Invalid nkitems in slot %d of ets table", j);
             if (rp->hvalue == INVALID_HASH) {
                 if (nk != 1)
-                    erl_exit(1, "Invalid number of terms in pseudo-deleted RootDbTerm in slot %d of ets table", j);
+                    erl_exit(1, "Invalid number of terms in pseudo-deleted"
+                             " RootDbTerm in slot %d of ets table", j);
                 nk = 0;
             } else {
                 ++nkeys;
@@ -3105,7 +3116,8 @@ db_check_table_nhash(DbTable *tbl)
                     }
                 }
                 if (nk2 != nk)
-                    erl_exit(1, "Invalid number of terms in nested table of slot %d of ets table", j);
+                    erl_exit(1, "Invalid number of terms in nested table"
+                             " of slot %d of ets table", j);
             }
             rp = rp->next;
         }
@@ -3116,6 +3128,7 @@ db_check_table_nhash(DbTable *tbl)
         erl_exit(1, "Invalid number of keys in ets table");
 }
 #endif
+
 
 /*
  * External interface
@@ -3153,6 +3166,7 @@ DbTableMethod db_nested_hash = {
     NULL,
     NULL
 };
+
 
 /*
  * Other interface routines (not directly coupled to one bif)
@@ -3195,7 +3209,7 @@ restore_fixdel(DbTableNestedHash *tb, NestedFixedDeletion *fixdel)
 void
 db_unfix_table_nhash(DbTableNestedHash *tb)
 {
-    int ix, nd;
+    int ix;
     RootDbTerm **rpp;
     erts_smp_rwmtx_t *lck;
     NestedFixedDeletion *fx, *fixdel;
@@ -3223,8 +3237,7 @@ restart:
             rpp = &BUCKET(tb, ix);
             while (*rpp != NULL) {
                 if ((*rpp)->hvalue == INVALID_HASH) {
-                    nd = remove_key(tb, &rpp, NULL, 0);
-                    ASSERT(nd == 0);
+                    remove_key(tb, &rpp, NULL, 0);
                 } else {
                     rpp = &(*rpp)->next;
                 }
@@ -3286,6 +3299,7 @@ db_get_element_array(DbTable *tbl, Eterm key, int ndex,
     while (rp != NULL) {
         if (has_key(tb, rp, key, hval)) {
             ASSERT(rp->hvalue != INVALID_HASH);
+            /* !!! yield !!! */
             tp1 = tp2 = GET_TRUNK(rp);
             do {
                 if (ndex > arityval(tp1->dbterm.tpl[0]))
@@ -3394,6 +3408,7 @@ db_calc_stats_nhash(DbTableNestedHash *tb, DbNestedHashStats *stats)
         len = 0;
         rp = BUCKET(tb, ix);
         tp = SAFE_GET_TRUNK(rp);
+        /* !!! yield !!! */
         while (tp != NULL) {
             ++len;
             NEXT_DBTERM(rp, tp);
