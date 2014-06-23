@@ -39,6 +39,7 @@
 -define(FAIL_EXPIRE_TIME,1). 
 %% Seconds before successful auths timeout.
 -define(AUTH_TIMEOUT,5).
+-define(URL_START, "http://").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -63,7 +64,9 @@ all() ->
      {group, http_htaccess}, 
      {group, https_htaccess},
      {group, http_security}, 
-     {group, https_security}
+     {group, https_security},
+     {group, http_reload},
+     {group, https_reload}
     ].
 
 groups() ->
@@ -84,7 +87,18 @@ groups() ->
      {https_htaccess, [], [{group, htaccess}]},
      {http_security, [], [{group, security}]},
      {https_security, [], [{group, security}]},
+     {http_reload, [], [{group, reload}]},
+     {https_reload, [], [{group, reload}]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {reload, [], [non_disturbing_reconfiger_dies,
+		   disturbing_reconfiger_dies,
+		   non_disturbing_1_1, 
+		   non_disturbing_1_0, 
+		   non_disturbing_0_9,
+		   disturbing_1_1,
+		   disturbing_1_0, 
+		   disturbing_0_9
+		  ]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
 		    ]},
@@ -150,7 +164,8 @@ init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_auth_api;
 				    Group == https_auth_api_dets;
 				    Group == https_auth_api_mnesia;
-				    Group == https_security
+				    Group == https_security;
+				    Group == https_reload
 				    ->
     init_ssl(Group, Config0);
 init_per_group(Group, Config0)  when  Group == http_basic;
@@ -159,7 +174,8 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_auth_api;
 				      Group == http_auth_api_dets;
 				      Group == http_auth_api_mnesia;
-				      Group == http_security
+				      Group == http_security;
+				      Group == http_reload
 				      ->
     ok = start_apps(Group),
     init_httpd(Group, [{type, ip_comm} | Config0]);
@@ -202,17 +218,19 @@ end_per_group(Group, _Config)  when  Group == http_basic;
 				     Group == http_auth_api_dets;
 				     Group == http_auth_api_mnesia;
 				     Group == http_htaccess;
-				     Group == http_security
+				     Group == http_security;
+				     Group == http_reload
 				     ->
     inets:stop();
 end_per_group(Group, _Config) when  Group == https_basic;
 				    Group == https_limit;
 				    Group == https_basic_auth;
 				    Group == https_auth_api;
-				    Group == http_auth_api_dets;
-				    Group == http_auth_api_mnesia;
+				    Group == https_auth_api_dets;
+				    Group == https_auth_api_mnesia;
 				    Group == https_htaccess;
-				    Group == http_security
+				    Group == https_security;
+				    Group == https_reload
 				    ->
     ssl:stop(),
     inets:stop();
@@ -1088,12 +1106,114 @@ security(Config) ->
 		     [{statuscode, 401}]),
     
     true = unblock_user(Node, "two", Port, OpenDir).
+
+%%-------------------------------------------------------------------------
+non_disturbing_reconfiger_dies(Config) when is_list(Config) -> 
+    do_reconfiger_dies([{http_version, "HTTP/1.1"} | Config], non_disturbing).
+disturbing_reconfiger_dies(Config) when is_list(Config) -> 
+    do_reconfiger_dies([{http_version, "HTTP/1.1"} | Config], disturbing).
+
+do_reconfiger_dies(Config, DisturbingType) ->
+    Server =  ?config(server_pid, Config),
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Port = ?config(port, Config),
+    Type = ?config(type, Config),
+
+    HttpdConfig = httpd:info(Server), 
+    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
+    inets_test_lib:send(Type, Socket, BlockRequest),
+    ct:sleep(100), %% Avoid possible timing issues
+    Pid = spawn(fun() -> httpd:reload_config([{server_name, "httpd_kill_" ++ Version}, 
+					      {port, Port}|
+					      proplists:delete(server_name, HttpdConfig)], DisturbingType) 
+	  end),
     
+    monitor(process, Pid),
+    exit(Pid, kill),
+    receive 
+	{'DOWN', _, _, _, _} ->
+	    ok
+    end,
+    inets_test_lib:close(Type, Socket),
+    [{server_name, "httpd_test"}] =  httpd:info(Server, [server_name]).
+%%-------------------------------------------------------------------------
+disturbing_1_1(Config) when is_list(Config) -> 
+    disturbing([{http_version, "HTTP/1.1"} | Config]).
+
+disturbing_1_0(Config) when is_list(Config) -> 
+    disturbing([{http_version, "HTTP/1.0"} | Config]).
+
+disturbing_0_9(Config) when is_list(Config) -> 
+    disturbing([{http_version, "HTTP/0.9"} | Config]).
+
+disturbing(Config) when is_list(Config)->
+    Server =  ?config(server_pid, Config),
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Port = ?config(port, Config),
+    Type = ?config(type, Config),
+    HttpdConfig = httpd:info(Server), 
+    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version,  Host),
+    {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
+    inets_test_lib:send(Type, Socket, BlockRequest),
+    ct:sleep(100), %% Avoid possible timing issues
+    ok = httpd:reload_config([{server_name, "httpd_disturbing_" ++ Version}, {port, Port}|
+			      proplists:delete(server_name, HttpdConfig)], disturbing),
+    Close = list_to_atom((typestr(Type)) ++ "_closed"),
+    receive 
+	{Close, Socket} ->
+	    ok;
+	Msg ->
+	    ct:fail({{expected, {Close, Socket}}, {got, Msg}})
+    end,
+    inets_test_lib:close(Type, Socket),
+    [{server_name, "httpd_disturbing_" ++ Version}] =  httpd:info(Server, [server_name]).
+%%-------------------------------------------------------------------------
+non_disturbing_1_1(Config) when is_list(Config) -> 
+    non_disturbing([{http_version, "HTTP/1.1"} | Config]).
+
+non_disturbing_1_0(Config) when is_list(Config) -> 
+    non_disturbing([{http_version, "HTTP/1.0"} | Config]).
+
+non_disturbing_0_9(Config) when is_list(Config) -> 
+    non_disturbing([{http_version, "HTTP/0.9"} | Config]).
+
+non_disturbing(Config) when is_list(Config)->
+    Server =  ?config(server_pid, Config),
+    Version = ?config(http_version, Config),
+    Host = ?config(host, Config),
+    Port = ?config(port, Config),
+    Type = ?config(type, Config),
+
+    HttpdConfig = httpd:info(Server), 
+    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
+    inets_test_lib:send(Type, Socket, BlockRequest),
+    ct:sleep(100), %% Avoid possible timing issues
+    ok = httpd:reload_config([{server_name, "httpd_non_disturbing_" ++ Version}, {port, Port}|
+			      proplists:delete(server_name, HttpdConfig)], non_disturbing),
+    Transport = type(Type),
+    receive 
+	{Transport, Socket, Msg} ->
+	    ct:pal("Received message ~p~n", [Msg]),
+	    ok
+    after 2000 ->
+	  ct:fail(timeout)  
+    end,
+    inets_test_lib:close(Type, Socket),
+    [{server_name, "httpd_non_disturbing_" ++ Version}] =  httpd:info(Server, [server_name]).
 
 
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
+url(http, End, Config) ->
+    Port = ?config(port, Config),
+    {ok,Host} = inet:gethostname(),
+    ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
+
 do_max_clients(Config) ->
     Version = ?config(http_version, Config),
     Host    = ?config(host, Config),
@@ -1171,7 +1291,9 @@ start_apps(Group) when  Group == https_basic;
 			Group == https_auth_api_dets;
 			Group == https_auth_api_mnesia;
 			Group == http_htaccess;
-			Group == http_security ->
+			Group == http_security;
+			Group == http_reload
+			->
     inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
 start_apps(Group) when  Group == http_basic;
 			Group == http_limit;
@@ -1180,7 +1302,8 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_auth_api_dets;
 			Group == http_auth_api_mnesia;			
 			Group == https_htaccess;
-			Group == https_security ->
+			Group == https_security;
+			Group == https_reload->
     inets_test_lib:start_apps([inets]).
 
 server_start(_, HttpdConfig) ->
@@ -1224,6 +1347,10 @@ server_config(http_basic, Config) ->
     basic_conf() ++ server_config(http, Config);
 server_config(https_basic, Config) ->
     basic_conf() ++ server_config(https, Config);
+server_config(http_reload, Config) ->
+    [{keep_alive_timeout, 2}]  ++ server_config(http, Config);
+server_config(https_reload, Config) ->
+    [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(http, Config);
 server_config(https_limit, Config) ->
@@ -1792,3 +1919,12 @@ event(What, Port, Dir, Data) ->
 	    global:send(mod_security_test, Msg)
     end.
 
+type(ip_comm) ->
+    tcp;
+type(_) ->
+    ssl.
+
+typestr(ip_comm) ->
+    "tcp";
+typestr(_) ->
+    "ssl".
