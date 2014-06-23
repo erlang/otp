@@ -41,8 +41,9 @@ typedef struct trunk_db_term {
     HashValue ohvalue;           /* hash value of the object */
 
     /*
-     * The np field of the first TrunkDbTerm contains nkitems, the np
-     * field of the other TrunkDbTerms contains the previous pointer.
+     * The np field of the first TrunkDbTerm contains
+     * the segtab, the np field of the other TrunkDbTerms
+     * contains the pointer to the previous TrunkDbTerm.
      */
     union {
         struct segment **segtab;
@@ -62,8 +63,8 @@ typedef struct root_db_term {
     /*
      * The first trunk term of the chain (it's never NULL).
      * Its lsb is used as a flag:
-     * o if zero, this RootDbTerm is truncated at the segtab field
-     * o if set, this RootDbTerm includes the segtab and successive fields
+     * o if zero, this RootDbTerm is truncated at the szm field
+     * o if set, this RootDbTerm includes szm and successive fields
      * Use GET_TRUNK() and SET_TRUNK() to access this field.
      */
     TrunkDbTerm *trunk;
