@@ -184,7 +184,7 @@ in your web browser and make sure that there are zero failed test cases.
 You are now ready to install the Erlang/OTP release!
 The following command will install the release on your system.
 
-    $ make install
+    # make install
 
 
 ### Running ###
