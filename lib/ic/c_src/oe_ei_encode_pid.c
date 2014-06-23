@@ -23,7 +23,7 @@
 int oe_ei_encode_pid(CORBA_Environment *ev, const erlang_pid *p) {
   int size = ev->_iout;
   
-  (int) ei_encode_pid(NULL, &size, p);
+  ei_encode_pid(NULL, &size, p);
 
   if (size >= ev->_outbufsz) {
     char *buf = ev->_outbuf;
