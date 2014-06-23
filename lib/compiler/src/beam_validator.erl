@@ -1123,7 +1123,9 @@ assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 %%% Maps
 
 %% ensure that a list of literals has a strict
-%% ascending term order (also meaning unique literals)
+%% ascending term order (also meaning unique literals).
+%% Single item lists may have registers.
+assert_strict_literal_termorder([_]) -> ok;
 assert_strict_literal_termorder(Ls) ->
     Vs = lists:map(fun (L) -> get_literal(L) end, Ls),
     case check_strict_value_termorder(Vs) of
