@@ -78,7 +78,7 @@
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_cons_skel/3,ann_c_tuple/2,c_tuple/1,
-	       ann_c_map/2, ann_c_map/3]).
+	       ann_c_map/3]).
 
 -include("core_parse.hrl").
 
@@ -169,18 +169,19 @@ form({attribute,_,_,_}=F, {Fs,As,Ws,File}, _Opts) ->
 attribute({attribute,Line,Name,Val}) ->
     {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
 
+%% function_dump(module_info,_,_,_) -> ok;
+%% function_dump(Name,Arity,Format,Terms) ->
+%%     io:format("~w/~w " ++ Format,[Name,Arity]++Terms),
+%%     ok.
+
 function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
-    %%ok = io:fwrite("~p - ", [{Name,Arity}]),
     St0 = #core{vcount=0,opts=Opts,ws=Ws0,file=[{file,File}]},
     {B0,St1} = body(Cs0, Name, Arity, St0),
-    %%ok = io:fwrite("1", []),
-    %%ok = io:fwrite("~w:~p~n", [?LINE,B0]),
+    %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
     {B1,St2} = ubody(B0, St1),
-    %%ok = io:fwrite("2", []),
-    %%ok = io:fwrite("~w:~p~n", [?LINE,B1]),
+    %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
     {B2,#core{ws=Ws}} = cbody(B1, St2),
-    %%ok = io:fwrite("3~n", []),
-    %%ok = io:fwrite("~w:~p~n", [?LINE,B2]),
+    %% ok = function_dump(Name,Arity,"cbody:~n~p~n",[B2]),
     {{#c_var{name={Name,Arity}},B2},Ws}.
 
 body(Cs0, Name, Arity, St0) ->
@@ -514,22 +515,7 @@ expr({tuple,L,Es0}, St0) ->
     A = record_anno(L, St1),
     {annotate_tuple(A, Es1, St1),Eps,St1};
 expr({map,L,Es0}, St0) ->
-    % erl_lint should make sure only #{ K => V } are allowed
-    % in map construction.
-    try map_pair_list(Es0, St0) of
-	{Es1,Eps,St1} ->
-	    A = lineno_anno(L, St1),
-	    {ann_c_map(A,Es1),Eps,St1}
-    catch
-	throw:{bad_map,Warning} ->
-	    St = add_warning(L, Warning, St0),
-	    LineAnno = lineno_anno(L, St),
-	    As = [#c_literal{anno=LineAnno,val=badarg}],
-	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
-		    module=#c_literal{anno=LineAnno,val=erlang},
-		    name=#c_literal{anno=LineAnno,val=error},
-		    args=As},[],St}
-    end;
+    map_build_pair_chain(#c_literal{val=#{}},Es0,lineno_anno(L,St0),St0);
 expr({map,L,M0,Es0}, St0) ->
     try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
 	{_,_,_}=Res -> Res
@@ -772,37 +758,66 @@ expr_map(M0,Es0,A,St0) ->
 		    Fc = fail_clause([Fpat], A, #c_literal{val=badarg}),
 		    {#icase{anno=#a{anno=A},args=[M1],clauses=Cs,fc=Fc},Mps,St3};
 		{_,_} ->
-		    {Es1,Eps,St2} = map_pair_list(Es0, St1),
-		    {ann_c_map(A,M1,Es1),Mps++Eps,St2}
+		    {M2,Eps,St2} = map_build_pair_chain(M1,Es0,A,St1),
+		    {M2,Mps++Eps,St2}
 	    end;
 	false -> throw({bad_map,bad_map})
     end.
 
+%% Group continuous literal blocks and single variables, i.e.
+%% M0#{ a := 1, b := V1, K1 := V2, K2 := 42}
+%% becomes equivalent to
+%% M1 = M0#{ a := 1, b := V1 },
+%% M2 = M1#{ K1 := V1 },
+%% M3 = M2#{ K2 := 42 }
+
+map_build_pair_chain(M,Es,A,St) ->
+    map_build_pair_chain(M,Es,A,St,[]).
+
+map_build_pair_chain(M0,[],_,St,Mps) ->
+    {M0,Mps,St};
+map_build_pair_chain(M0,Es0,A,St0,Mps) ->
+    % group continuous literal blocks
+    % Anno = #a{anno=[compiler_generated]},
+    % order is important, we need to reverse the literals
+    case map_pair_block(Es0,[],[],St0) of
+	{{CesL,EspL},{[],[]},Es1,St1} ->
+	    {MVar,St2} = new_var(St1),
+	    Pre = [#iset{var=MVar, arg=ann_c_map(A,M0,reverse(CesL))}],
+	    map_build_pair_chain(MVar,Es1,A,St2,Mps++EspL++Pre);
+	{{[],[]},{CesV,EspV},Es1,St1} ->
+	    {MVar,St2} = new_var(St1),
+	    Pre = [#iset{var=MVar, arg=#c_map{arg=M0,es=CesV, anno=A}}],
+	    map_build_pair_chain(MVar,Es1,A,St2,Mps ++ EspV++Pre);
+	{{CesL,EspL},{CesV,EspV},Es1,St1} ->
+	    {MVarL,St2} = new_var(St1),
+	    {MVarV,St3} = new_var(St2),
+	    Pre = [#iset{var=MVarL, arg=ann_c_map(A,M0,reverse(CesL))},
+		   #iset{var=MVarV, arg=#c_map{arg=MVarL,es=CesV,anno=A}}],
+	    map_build_pair_chain(MVarV,Es1,A,St3,Mps++EspL++EspV++Pre)
+    end.
+
+map_pair_block([{Op,L,K0,V0}|Es],Ces,Esp,St0) ->
+    {K,Ep0,St1} = safe(K0, St0),
+    {V,Ep1,St2} = safe(V0, St1),
+    A = lineno_anno(L, St2),
+    Pair0 = map_op_to_c_map_pair(Op),
+    Pair1 = Pair0#c_map_pair{anno=A,key=K,val=V},
+    case cerl:is_c_var(K) of
+	false ->
+	    map_pair_block(Es,[Pair1|Ces],Ep0 ++ Ep1 ++ Esp,St2);
+	true ->
+	    {{Ces,Esp},{[Pair1],Ep0++Ep1},Es,St2}
+    end;
+map_pair_block([],Ces,Esp,St) ->
+    {{Ces,Esp},{[],[]},[],St}.
+
+map_op_to_c_map_pair(map_field_assoc) -> #c_map_pair{op=#c_literal{val=assoc}};
+map_op_to_c_map_pair(map_field_exact) -> #c_map_pair{op=#c_literal{val=exact}}.
+
 is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
-is_valid_map_src(#c_map{})  -> true;
 is_valid_map_src(#c_var{})  -> true;
 is_valid_map_src(_)         -> false.
-
-map_pair_list(Es, St) ->
-    foldr(fun
-	    ({map_field_assoc,L,K0,V0}, {Ces,Esp,St0}) ->
-		{K,Ep0,St1} = safe(K0, St0),
-		ok = ensure_valid_map_key(K),
-		{V,Ep1,St2} = safe(V0, St1),
-		A = lineno_anno(L, St2),
-		Pair = #c_map_pair{op=#c_literal{val=assoc},anno=A,key=K,val=V},
-		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2};
-	    ({map_field_exact,L,K0,V0}, {Ces,Esp,St0}) ->
-		{K,Ep0,St1} = safe(K0, St0),
-		ok = ensure_valid_map_key(K),
-		{V,Ep1,St2} = safe(V0, St1),
-		A = lineno_anno(L, St2),
-		Pair = #c_map_pair{op=#c_literal{val=exact},anno=A,key=K,val=V},
-		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2}
-	end, {[],[],St}, Es).
-
-ensure_valid_map_key(#c_literal{}) -> ok;
-ensure_valid_map_key(_) -> throw({bad_map,bad_map_key}).
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -1578,7 +1593,7 @@ pattern_map_pairs(Ps, St) ->
     {CMapPairs, Kdb} = lists:mapfoldl(fun
 	    (P,Kdbi) ->
 		#c_map_pair{key=Ck,val=Cv} = CMapPair = pattern_map_pair(P,St),
-		K = core_lib:literal_value(Ck),
+		K = pattern_map_clean_key(Ck),
 		case dict:find(K,Kdbi) of
 		    {ok, Vs} ->
 			{CMapPair, dict:store(K,[Cv|Vs],Kdbi)};
@@ -1588,10 +1603,14 @@ pattern_map_pairs(Ps, St) ->
 	end, dict:new(), Ps),
     pattern_alias_map_pairs(CMapPairs,Kdb,dict:new(),St).
 
+%% remove cluddering annotations
+pattern_map_clean_key(#c_literal{val=V}) -> {literal,V};
+pattern_map_clean_key(#c_var{name=V}) -> {var,V}.
+
 pattern_alias_map_pairs([],_,_,_) -> [];
 pattern_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Kset,St) ->
     %% alias same keys if needed
-    K = core_lib:literal_value(Ck),
+    K = pattern_map_clean_key(Ck),
     case dict:find(K,Kset) of
 	{ok,processed} ->
 	    pattern_alias_map_pairs(Pairs,Kdb,Kset,St);
@@ -1607,17 +1626,11 @@ pattern_alias_map_pair_patterns([Cv1,Cv2|Cvs]) ->
     pattern_alias_map_pair_patterns([pat_alias(Cv1,Cv2)|Cvs]).
 
 pattern_map_pair({map_field_exact,L,K,V}, St) ->
-    case expr(K,St) of
-	{#c_literal{}=Key,_,_} ->
-	    #c_map_pair{anno=lineno_anno(L, St),
-			op=#c_literal{val=exact},
-			key=Key,
-			val=pattern(V, St)};
-	_ ->
-	    %% this will throw a cryptic error message
-	    %% but it is better than nothing
-	    throw(nomatch)
-    end.
+    {Ck,[],_} = expr(K,St),
+    #c_map_pair{anno=lineno_anno(L,St),
+		op=#c_literal{val=exact},
+		key=Ck,
+		val=pattern(V,St)}.
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
@@ -1974,9 +1987,14 @@ upattern(#c_tuple{es=Es0}=Tuple, Ks, St0) ->
 upattern(#c_map{es=Es0}=Map, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
     {Map#c_map{es=Es1},Esg,Esv,Eus,St1};
-upattern(#c_map_pair{op=#c_literal{val=exact},val=V0}=MapPair, Ks, St0) ->
-    {V,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
-    {MapPair#c_map_pair{val=V},Vg,Vv,Vu,St1};
+upattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,Ks,St0) ->
+    {V,Vg,Vn,Vu,St1} = upattern(V0, Ks, St0),
+    % A variable key must be considered used here
+    Ku = case K0 of
+	#c_var{name=Name} -> [Name];
+	_ -> []
+    end,
+    {Pair#c_map_pair{val=V},Vg,Vn,union(Ku,Vu),St1};
 upattern(#c_binary{segments=Es0}=Bin, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upat_bin(Es0, Ks, St0),
     {Bin#c_binary{segments=Es1},Esg,Esv,Eus,St1};
@@ -2347,8 +2365,6 @@ format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
-format_error(bad_map_key) ->
-    "map construction will fail because of none literal key (large binaries are not literals)";
 format_error(bad_map) ->
     "map construction will fail because of a type mismatch".
 
