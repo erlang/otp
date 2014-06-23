@@ -107,8 +107,6 @@ static INLINE void locking(int mode, ErlNifRWLock* lock)
 
 static void locking_function(int mode, int n, const char *file, int line)
 {
-    ASSERT(n>=0 && n<CRYPTO_num_locks());
-
     locking(mode, lock_vec[n]);
 }
 
