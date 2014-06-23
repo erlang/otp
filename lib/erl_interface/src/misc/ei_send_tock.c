@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2009. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -15,14 +15,22 @@
  * under the License.
  * 
  * %CopyrightEnd%
+ *
+
  */
-#ifndef _EIRECV_H
-#define _EIRECV_H
+#include "ei.h"
+#include "ei_internal.h"
+#include "ei_portio.h"
 
-/* Internal interface */
-int ei_recv_internal_wt(int fd, char **mbufp, int *bufsz, erlang_msg *msg,
-		     int *msglenp, int staticbufp, unsigned ms, int auto_tick);
+void
+ei_send_tock_tmo(int fd, int ms)
+{
+    char tock[] = {0,0,0,0};
+    ei_write_fill_t(fd, tock, sizeof(tock), ms);
+}
 
-int ei_recv_internal(int fd, char **mbufp, int *bufsz, erlang_msg *msg,
-		     int *msglenp, int staticbufp, unsigned ms);
-#endif /* _EIRECV_H */
+void
+ei_send_tock(int fd)
+{
+    ei_send_tock_tmo(fd, 0);
+}
