@@ -389,6 +389,9 @@ DWORD WINAPI database_handler(const char *port)
     close_socket(socket);
     clean_socket_lib();
     /* Exit will be done by suervisor thread */ 
+#ifdef WIN32
+    return (DWORD)0;
+#endif
 }
  
 /* Description: Calls the appropriate function to handle the database
@@ -631,7 +634,7 @@ static db_result_msg db_query(byte *sql, db_state *state)
 				   &statement_handle(state))))
 	DO_EXIT(EXIT_ALLOC);
 
-    result = SQLExecDirect(statement_handle(state), sql, SQL_NTS);
+    result = SQLExecDirect(statement_handle(state), (SQLCHAR *)sql, SQL_NTS);
     
     /* SQL_SUCCESS_WITH_INFO at this point may indicate an error in user input. */
     if (result != SQL_SUCCESS && result != SQL_NO_DATA_FOUND) {
@@ -723,7 +726,7 @@ static db_result_msg db_select_count(byte *sql, db_state *state)
 		       (SQLPOINTER)SQL_SCROLLABLE, (SQLINTEGER)0);
     }
     
-    if(!sql_success(SQLExecDirect(statement_handle(state), sql, SQL_NTS))) {
+    if(!sql_success(SQLExecDirect(statement_handle(state), (SQLCHAR *)sql, SQL_NTS))) {
 	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	clean_state(state);
 	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
@@ -864,7 +867,7 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
     
     if(params != NULL) {
 
-	result = SQLExecDirect(statement_handle(state), sql, SQL_NTS);
+	result = SQLExecDirect(statement_handle(state), (SQLCHAR *)sql, SQL_NTS);
 	if (!sql_success(result) || result == SQL_NO_DATA) {
 		diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	}
@@ -955,7 +958,7 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
 				   &statement_handle(state))))
 	DO_EXIT(EXIT_ALLOC);
     
-    if (!sql_success(SQLPrepare(statement_handle(state), sql, SQL_NTS))){
+    if (!sql_success(SQLPrepare(statement_handle(state), (SQLCHAR *)sql, SQL_NTS))){
 	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	clean_state(state);
@@ -1324,7 +1327,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 	
 		if (columns(state)[i].type.c == SQL_C_BINARY) {
 		    /* retrived later by retrive_binary_data */
-		}else {
+		} else {
 		    if(!sql_success(
 			SQLBindCol
 			(statement_handle(state),
@@ -1336,7 +1339,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 			DO_EXIT(EXIT_BIND);
 		}
 		ei_x_encode_string_len(&dynamic_buffer(state),
-				       name, name_len);
+				       (char *)name, name_len);
 	    }
 	    else {
 		columns(state)[i].type.len = 0;
@@ -2739,8 +2742,8 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean ext
        the error message is obtained */
     for(record_nr = 1; ;record_nr++) {    
         result = SQLGetDiagRec(handleType, handle, record_nr, current_sql_state,
-			 &nativeError, current_errmsg_pos,
-							   (SQLSMALLINT)errmsg_buffer_size, &errmsg_size);
+			 &nativeError, (SQLCHAR *)current_errmsg_pos,
+			 (SQLSMALLINT)errmsg_buffer_size, &errmsg_size);
 	if(result == SQL_SUCCESS) {
 	    /* update the sqlstate in the diagnos record, because the SQLGetDiagRec
 	       call succeeded */
