@@ -37,7 +37,7 @@
 	 v1_processing/1, 
 	 big/1, 
 	 big2/1,
-	 loop_mib_1/1, 
+	 loop_mib_1/1,
 	 api/1, 
 	 subagent/1, 
 	 mnesia/1, 
@@ -389,9 +389,9 @@
 	 usm_read/0, 
 	 usm_del_user/0, 
 	 usm_bad/0, 
-	 loop_mib_1_test/0, 
-	 loop_mib_2_test/0, 
-	 loop_mib_3_test/0, 
+	 loop_mib_1_test/0,
+	 loop_mib_2_test/0,
+	 loop_mib_3_test/0,
 	 otp_1129_i/1, 
 	 otp_1162_test/0, 
 	 otp_1131_test/0, 
@@ -898,8 +898,8 @@ start_v2_agent(Config) ->
 start_v2_agent(Config, Opts) ->
     snmp_agent_test_lib:start_v2_agent(Config, Opts).
 
-start_v3_agent(Config) ->
-    snmp_agent_test_lib:start_v3_agent(Config).
+%% start_v3_agent(Config) ->
+%%     snmp_agent_test_lib:start_v3_agent(Config).
 
 start_v3_agent(Config, Opts) ->
     snmp_agent_test_lib:start_v3_agent(Config, Opts).
@@ -1669,7 +1669,7 @@ del_dir(Dir, Depth) ->
             ok
     end.
 
-%v1_cases() -> [loop_mib];
+%v1_cases() -> [loop_mib_1];
 v1_cases() -> 
     [
      simple, 
@@ -1677,7 +1677,7 @@ v1_cases() ->
      v1_processing, 
      big, 
      big2,
-     loop_mib_1, 
+     loop_mib_1,
      api, 
      subagent, 
      mnesia, 
@@ -1699,7 +1699,7 @@ v1_cases_ipv6() ->
     [
      simple,
      v1_processing,
-     loop_mib,
+     loop_mib_1,
 %%     big,
 %%     big2,
      api,
@@ -5670,7 +5670,7 @@ usm_bad() ->
 %%-----------------------------------------------------------------
 loop_mib_1(suite) -> [];
 loop_mib_1(Config) when is_list(Config) ->
-    ?P(loop_mib_1), 
+    ?P(loop_mib_1),
     ?LOG("loop_mib_1 -> initiate case",[]),
     %% snmpa:verbosity(master_agent,debug),
     %% snmpa:verbosity(mib_server,info),
@@ -5678,7 +5678,7 @@ loop_mib_1(Config) when is_list(Config) ->
     ?DBG("loop_mib_1 -> ~n"
 	   "\tSaNode:  ~p~n"
 	   "\tMgrNode: ~p~n"
-	   "\tMibDir:  ~p", [_SaNode, _MgrNode, _MibDir]),
+	   "\tMibDir:  ~p",[_SaNode, _MgrNode, _MibDir]),
     ?DBG("loop_mib_1 -> load mib SNMP-COMMUNITY-MIB",[]),
     ?line load_master_std("SNMP-COMMUNITY-MIB"),
     ?DBG("loop_mib_1 -> load mib SNMP-MPD-MIB",[]),
@@ -6502,10 +6502,6 @@ otp_4394_config(AgentConfDir, MgrDir, Ip0) ->
     ?line write_notify_conf(AgentConfDir),
     ok.
     
-ipv6_init(Config) when is_list(Config) ->
-    Opts = [],
-    [{vsn, v1} | start_v1_agent(Config, Opts)].
-
 otp_4394_finish(Config) when is_list(Config) ->
     ?DBG("finish_otp_4394 -> entry", []),
     C1 = stop_agent(Config),
