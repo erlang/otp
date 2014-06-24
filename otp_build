@@ -891,6 +891,14 @@ echo_env_win32 ()
     # this script will set all necessary variables x86 and x64
     env_vc
 
+    # now set the final variables that are x86 based
+    MSDEV_LIBPATH=`cygpath -w "$MSDEV_LIBPATH_x86"`
+    MSDEV_ATLMFC_LIBPATH=`cygpath -w "$MSDEV_ATLMFC_LIBPATH_x86"`
+    LIBPATH_PLATFORM=`cygpath -w "$LIBPATH_PLATFORM_x86"`
+
+    MSDEV_BIN=$MSDEV_BIN
+    PLATFORMSDK_BIN=$PLATFORMSDK_BIN_x86
+
     #echo_envinfo
     if [ X"$SHELL" = X"" ]; then
 	echo "You need to export the shell variable first," \
@@ -929,7 +937,10 @@ echo_env_win32 ()
     done
     IFS=$save_ifs
     WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools"
-
+    
+    echo_setenv INCLUDE "$MSDEV_INCLUDE;$MSDEV_ATLMFC_INCLUDE;$PLATFORMSDK_INCLUDE"
+    echo_setenv LIB "$MSDEV_LIBPATH;$MSDEV_ATLMFC_LIBPATH;$LIBPATH_PLATFORM"
+    echo_setenv LIBPATH "$MSDEV_LIBPATH;$MSDEV_ATLMFC_LIBPATH"
     
     echo_setenv OVERRIDE_TARGET win32 ';'
     echo_setenv CC cc.sh ';'
@@ -941,7 +952,7 @@ echo_env_win32 ()
     fi
     echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
-    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
+    echo_setenv PATH "$MSDEV_BIN:$PLATFORMSDK_BIN:$WIN32_WRAPPER_PATH:$P3:$JDK_HOME/bin" ';'
     echo_envinfo
 }
 
