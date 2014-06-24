@@ -1725,7 +1725,7 @@ init_v1(Config) when is_list(Config) ->
     ?line AgentConfDir = ?config(agent_conf_dir, Config),
     ?line MgrDir = ?config(mgr_dir, Config),
     ?line Ip = ?config(ip, Config),
-    ?line IpFamily = ?config(ipfamily, Config),
+    ?line IpFamily = config_ipfamily(Config),
     ?line config(
 	    [v1], MgrDir, AgentConfDir,
 	    tuple_to_list(Ip), tuple_to_list(Ip), IpFamily),
@@ -1798,7 +1798,7 @@ init_v2(Config) when is_list(Config) ->
     AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir = ?config(mgr_dir, Config),
     Ip = ?config(ip, Config),
-    IpFamily = ?config(ipfamily, Config),
+    IpFamily = config_ipfamily(Config),
     config(
       [v2], MgrDir, AgentConfDir,
       tuple_to_list(Ip), tuple_to_list(Ip), IpFamily),
@@ -1820,7 +1820,7 @@ init_v1_v2(Config) when is_list(Config) ->
     AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir = ?config(mgr_dir, Config),
     Ip = ?config(ip, Config),
-    IpFamily = ?config(ipfamily, Config),
+    IpFamily = config_ipfamily(Config),
     config([v1,v2], MgrDir, AgentConfDir, 
 	   tuple_to_list(Ip), tuple_to_list(Ip), IpFamily),
     [{vsn, bilingual} | start_bilingual_agent(Config)].
@@ -1909,7 +1909,7 @@ init_v3(Config) when is_list(Config) ->
     AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir = ?config(mgr_dir, Config),
     Ip = ?config(ip, Config),
-    IpFamily = ?config(ipfamily, Config),
+    IpFamily = config_ipfamily(Config),
     ?line ok =
 	config(
 	  [v3], MgrDir, AgentConfDir,
@@ -7430,7 +7430,8 @@ init_v1_agent(Config) ->
     ManagerHost = ?HOSTNAME(ManagerNode),
 
     Host              = snmp_test_lib:hostname(), 
-    IpFamily          = ?LOCALHOST(?config(ipfamily, Config)),
+    IpFamily          = config_ipfamily(Config),
+    Ip                = ?LOCALHOST(IpFamily),
     {ok, AgentIP0}    = snmp_misc:ip(AgentHost, IpFamily),
     AgentIP           = tuple_to_list(AgentIP0), 
     {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost, IpFamily),
@@ -7458,7 +7459,7 @@ init_v1_agent(Config) ->
     %% 
 
     Config2 = start_agent([{host,              Host}, 
-			   {ip,                IpFamily},
+			   {ip,                Ip},
 			   {agent_node,        AgentNode}, 
 			   {agent_host,        AgentHost}, 
 			   {agent_ip,          AgentIP}, 
@@ -7508,3 +7509,13 @@ fin_v1_agent(Config) ->
     Dog = ?config(watchdog, Config),
     ?WD_STOP(Dog),
     lists:keydelete(watchdog, 1, Config).
+
+
+
+config_ipfamily(Config) ->
+    case ?config(ipfamily, Config) of
+	undefined ->
+	    inet;
+	Value ->
+	    Value
+    end.

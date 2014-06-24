@@ -720,7 +720,8 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
 		       "[134,138,177,189]", "-1", "500", "\"bmkEngine\""),
     ?line {error, Reason22} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason22]),
-    ?line {failed_check, _, _, 3, {invalid_integer, _}} = Reason22,
+    io:format("Reason22: ~p~n", [Reason22]),
+   ?line {failed_check, _, _, 3, {bad_port, _}} = Reason22,
     await_config_not_running(),
 
     %% --
@@ -729,7 +730,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
 		       "[134,138,177,189]", "\"kalle-anka\"", "500", "\"bmkEngine\""),
     ?line {error, Reason23} = config_start(Opts),
     p("start failed (as expected): ~p", [Reason23]),
-    ?line {failed_check, _, _, 3, {invalid_integer, _}} = Reason23,
+    ?line {failed_check, _, _, 3, {bad_port, _}} = Reason23,
     await_config_not_running(),
 
     %% --

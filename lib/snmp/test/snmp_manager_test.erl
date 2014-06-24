@@ -581,8 +581,16 @@ init_per_group(event_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
-init_per_group(ipv6_mt, Config) ->
-    init_per_group(ipv6, [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(ipv6_mt = GroupName, Config) ->
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    ipv6_init(
+	      snmp_test_lib:init_group_top_dir(
+		GroupName,
+		[{manager_net_if_module, snmpm_net_if_mt} | Config]));
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
 init_per_group(ipv6 = GroupName, Config) -> 
     case ct:require(ipv6_hosts) of
 	ok ->
