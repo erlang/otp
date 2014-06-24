@@ -95,12 +95,7 @@ names() ->
       Reason :: address | file:posix().
 
 names(Hostname) ->
-    case inet:gethostbyname(Hostname) of
-	{ok, {hostent, _Name, _ , _Af, _Size, [Addr | _]}} ->
-	    erl_epmd:names(Addr);
-	Else ->
-	    Else
-    end.
+    erl_epmd:names(Hostname).
 
 -spec dns_hostname(Host) -> {ok, Name} | {error, Host} when
       Host :: atom() | string(),
