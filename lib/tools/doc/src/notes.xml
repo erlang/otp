@@ -30,6 +30,24 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed <c>erlang:bitstr_to_list/1</c> and
+	    <c>erlang:list_to_bitstr/1</c>. They were added by
+	    mistake, and have always raised an <c>undefined</c>
+	    exception when called.</p>
+          <p>
+	    Own Id: OTP-11942</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

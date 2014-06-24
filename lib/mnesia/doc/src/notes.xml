@@ -38,7 +38,30 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.12</title>
+  <section><title>Mnesia 4.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Force load table could hang when a node went away during
+	    start up.</p>
+          <p>
+	    Own Id: OTP-11948 Aux Id: seq12585 </p>
+        </item>
+        <item>
+          <p>
+	    The time for inserting locks for a transaction with large
+	    number of locks is reduced significantly.</p>
+          <p>
+	    Own Id: OTP-11981</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

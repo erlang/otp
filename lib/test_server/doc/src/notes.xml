@@ -32,6 +32,45 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The mechanism for running code cover analysis with
+	    common_test has been improved. Earlier, if a test run
+	    consisted of multiple tests, cover would be started and
+	    stopped for each test. This would give "intermediate"
+	    cover logs available from the "Coverage log" link on the
+	    test suite result pages. To accumulate cover data over
+	    all tests, the 'export' option had to be used in the
+	    cover spec file. This was not well documented, and the
+	    functionality was quite confusing.</p>
+          <p>
+	    Using the 'nodes' option in the cover spec file would
+	    fail when the test run consisted of multiple tests, since
+	    the specified nodes would only be included in the cover
+	    analysis of the first test.</p>
+          <p>
+	    The repeated compilation and analysis of the same modules
+	    was also very time consuming.</p>
+          <p>
+	    To overcome these problems, ct will now only cover
+	    compile and analyze modules once per test run, i.e. once
+	    for each cover spec file. The log file is available via a
+	    new button on the top level index page. The old "Coverage
+	    log" links on the test suite result pages still exist,
+	    but they all point to the same log containing the
+	    accumulated result.</p>
+          <p>
+	    Own Id: OTP-11971</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,7 +32,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.1</title>
+  <section><title>Inets 5.10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    httpc: Fix streaming bugs when handling small responses</p>
+          <p>
+	    Own Id: OTP-11992</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

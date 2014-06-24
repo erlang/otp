@@ -32,6 +32,71 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Substrings in long telnet messages would sometimes get
+	    wrongly reversed. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-11871 Aux Id: seq12581 </p>
+        </item>
+        <item>
+          <p>
+	    The basic_html logging mode in Common Test (for
+	    compatibility with old browsers) generated HTML code with
+	    unbalanced tags. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-11917 Aux Id: seq12598 </p>
+        </item>
+        <item>
+          <p>
+	    The mechanism for running code cover analysis with
+	    common_test has been improved. Earlier, if a test run
+	    consisted of multiple tests, cover would be started and
+	    stopped for each test. This would give "intermediate"
+	    cover logs available from the "Coverage log" link on the
+	    test suite result pages. To accumulate cover data over
+	    all tests, the 'export' option had to be used in the
+	    cover spec file. This was not well documented, and the
+	    functionality was quite confusing.</p>
+          <p>
+	    Using the 'nodes' option in the cover spec file would
+	    fail when the test run consisted of multiple tests, since
+	    the specified nodes would only be included in the cover
+	    analysis of the first test.</p>
+          <p>
+	    The repeated compilation and analysis of the same modules
+	    was also very time consuming.</p>
+          <p>
+	    To overcome these problems, ct will now only cover
+	    compile and analyze modules once per test run, i.e. once
+	    for each cover spec file. The log file is available via a
+	    new button on the top level index page. The old "Coverage
+	    log" links on the test suite result pages still exist,
+	    but they all point to the same log containing the
+	    accumulated result.</p>
+          <p>
+	    Own Id: OTP-11971</p>
+        </item>
+        <item>
+          <p>
+	    If multiple tests would run simultaneously on different
+	    Erlang nodes, writing their logs to the same directory,
+	    then there would often be entries in the all_runs.html
+	    log file showing incomplete results (all zeroes) upon
+	    completion. This problem was caused by a bug in the
+	    Common Test log cache mechanism, which has been fixed.</p>
+          <p>
+	    Own Id: OTP-11988 Aux Id: seq12611 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

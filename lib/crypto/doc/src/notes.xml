@@ -30,6 +30,42 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix memory leak in <c>crypto:hmac_init/upgrade/final</c>
+	    functions for all data and in <c>crypto:hmac/3/4</c> for
+	    data larger than 20000 bytes. Bug exists since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11953</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak in <c>crypto</c> for elliptic curve.</p>
+          <p>
+	    Own Id: OTP-11999</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>aes_cfb8</c> cypher to <c>crypto:block_encrypt</c>
+	    and <c>block_decrypt</c>.</p>
+          <p>
+	    Own Id: OTP-11911</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

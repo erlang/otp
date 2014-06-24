@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ASN.1 compiler now generates code that don't trigger
+	    Dialyzer warnings. Along the way, a few minor bugs were
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-11372 Aux Id: seq12397 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
