@@ -112,6 +112,7 @@ roundtrip(Mod, Type, Value) ->
 roundtrip(Mod, Type, Value, ExpectedValue) ->
     {ok,Encoded} = Mod:encode(Type, Value),
     {ok,ExpectedValue} = Mod:decode(Type, Encoded),
+    test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
     ok.
 
 roundtrip_enc(Mod, Type, Value) ->
@@ -120,6 +121,7 @@ roundtrip_enc(Mod, Type, Value) ->
 roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
     {ok,Encoded} = Mod:encode(Type, Value),
     {ok,ExpectedValue} = Mod:decode(Type, Encoded),
+    test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
     Encoded.
 
 %%%
@@ -129,3 +131,52 @@ roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
 hex2num(C) when $0 =< C, C =< $9 -> C - $0;
 hex2num(C) when $A =< C, C =< $F -> C - $A + 10;
 hex2num(C) when $a =< C, C =< $f -> C - $a + 10.
+
+test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
+    case Mod:encoding_rule() of
+	ber ->
+	    Indefinite = iolist_to_binary(ber_indefinite(Encoded)),
+	    {ok,ExpectedValue} = Mod:decode(Type, Indefinite);
+	_ ->
+	    ok
+    end.
+
+%% Rewrite all definite lengths for constructed values to an
+%% indefinite length.
+ber_indefinite(Bin0) ->
+    case ber_get_tag(Bin0) of
+	done ->
+	    [];
+	primitive ->
+	    Bin0;
+	{constructed,Tag,Bin1} ->
+	    {Len,Bin2} = ber_get_len(Bin1),
+	    <<Val0:Len/binary,Bin/binary>> = Bin2,
+	    Val = iolist_to_binary(ber_indefinite(Val0)),
+	    [<<Tag/binary,16#80,Val/binary,0,0>>|ber_indefinite(Bin)]
+    end.
+
+ber_get_tag(<<>>) ->
+    done;
+ber_get_tag(<<_:2,0:1,_:5,_/binary>>) ->
+    primitive;
+ber_get_tag(<<_:2,1:1,_:5,_/binary>>=Bin0) ->
+    TagLen = ber_tag_length(Bin0),
+    <<Tag:TagLen/binary,Bin/binary>> = Bin0,
+    {constructed,Tag,Bin}.
+
+ber_tag_length(<<_:3,2#11111:5,T/binary>>) ->
+    ber_tag_length_1(T, 1);
+ber_tag_length(_) ->
+    1.
+
+ber_tag_length_1(<<1:1,_:7,T/binary>>, N) ->
+    ber_tag_length_1(T, N+1);
+ber_tag_length_1(<<0:1,_:7,_/binary>>, N) ->
+    N+1.
+
+ber_get_len(<<0:1,L:7,T/binary>>) ->
+    {L,T};
+ber_get_len(<<1:1,Octets:7,T0/binary>>) ->
+    <<L:Octets/unit:8,T/binary>> = T0,
+    {L,T}.
