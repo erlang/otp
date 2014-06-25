@@ -23,9 +23,11 @@
  * db tables.
  */
 
+/*
 #ifdef DEBUG
 #define HARDDEBUG 1
 #endif
+*/
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
