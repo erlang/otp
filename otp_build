@@ -827,7 +827,7 @@ echo_env_mingw32 ()
 # input env variables
 #    MSDEV_PATH (eg. export MSDEV_PATH="C:\Program Files (x86)\Microsoft Visual Studio 10.0" )
 #    PLATFORMSDK_PATH (eg. export PLATFORMSDK_PATH="C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A")
-function env_vc()
+env_vc()
 {
   # visual studio path
   MSDEV=`cygpath -u "$MSDEV_PATH"`
@@ -860,7 +860,7 @@ function env_vc()
 }
 
 # makes sure that all necessary env variables are defined
-function env_vc_check_vars()
+env_vc_check_vars()
 {
   if [ X"$MSDEV_PATH" = X"" ]; then
       echo "You need to export the Microsoft Visual Studio location variable first," \
