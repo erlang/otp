@@ -226,7 +226,6 @@ parse_options([{port, Type, Port} | Rest], State) ->
 		{ok, IP} = inet:getaddr(Host, Family),
 		IPFamilyOptions ++ [{ip, IP} |Options]
 	end,
-    io:format("HEJ parse_options: ~p\n", [Options2]),
 
     {ok, Listen, NewPort} = orber_socket:listen(Type, Port, Options2, true),
     {ok, Pid} = orber_iiop_socketsup:start_accept(Type, Listen, 0),
@@ -301,7 +300,6 @@ handle_call({add, IP, Type, Port, AllOptions}, _From, State) ->
 	{ok, IPTuple} ->
 	    try 
 		Options = IPFamilyOptions ++ [{ip, IPTuple} |get_options(Type, AllOptions)],
-	        io:format("HEJ handle_call: ~p\n", [Options]),
 	        Ref = make_ref(),
 	        ProxyOptions = filter_options(AllOptions, []),
 	        case orber_socket:listen(Type, Port, Options, false) of

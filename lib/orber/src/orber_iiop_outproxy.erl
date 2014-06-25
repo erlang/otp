@@ -513,7 +513,7 @@ get_ip_family_opts(Host) ->
 	{ok, {_,_,_,_}} -> 
 	    [inet];
 	{ok, {_,_,_,_,_,_,_,_}} -> 
-	    [inet6, {ipv6_v6only, true}];
+	    [inet6];
 	{error, einval} ->
 	    check_family_for_name(Host, orber_env:ip_version())
     end.
@@ -525,7 +525,7 @@ check_family_for_name(Host, inet) ->
 	{error, _} ->
 	    case inet:getaddrs(Host, inet6) of
 		{ok, _Address} ->
-		    [inet6, {ipv6_v6only, true}];
+		    [inet6];
 		{error, _} ->
 		    [inet]
 	    end
@@ -533,13 +533,13 @@ check_family_for_name(Host, inet) ->
 check_family_for_name(Host, inet6) ->
     case inet:getaddr(Host, inet6) of
 	{ok, _Address} ->
-	    [inet6, {ipv6_v6only, true}];
+	    [inet6];
 	{error, _} ->
 	    case inet:getaddr(Host, inet) of
 		{ok, _Address} ->
 		    [inet];
 		{error, _} ->
-		    [inet6, {ipv6_v6only, true}]
+		    [inet6]
 	    end
     end.
 
