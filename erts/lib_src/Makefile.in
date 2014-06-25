@@ -465,6 +465,7 @@ RELEASE_LIBS=$(ERTS_LIBS)
 INTERNAL_RELEASE_INCLUDES= \
 	$(ERTS_INCL_INT)/README \
 	$(ERTS_INCL_INT)/ethread.h \
+	$(ERTS_INCL_INT)/ethread_inline.h \
 	$(ERTS_INCL_INT)/ethr_mutex.h \
 	$(ERTS_INCL_INT)/ethr_optimized_fallbacks.h \
 	$(ERTS_INCL_INT)/ethr_atomics.h \
