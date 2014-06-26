@@ -35,19 +35,27 @@
 -include("snmp_debug.hrl").
 -include("snmp_verbosity.hrl").
 
--record(state, {parent, 
-		note_store,
-		master_agent, 
-		usock, 
-		usock_opts, 
-		mpd_state, 
-		log,
-		reqs  = [], 
-		debug = false,
-		limit = infinity,
-		rcnt  = [],
-		filter,
-		domain = snmpUDPDomain}).
+-record(state,
+	{parent,
+	 note_store,
+	 master_agent,
+	 transports = [],
+%%	 usock,
+%%	 usock_opts,
+	 mpd_state,
+	 log,
+	 reqs  = [],
+	 debug = false,
+	 limit = infinity,
+%%	 rcnt  = [],
+	 filter}).
+%%	 domain = snmpUDPDomain}).
+
+-record(transport,
+	{socket,
+	 domain = snmpUDPDomain,
+	 opts = [],
+	 req_refs = []}).
 
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
@@ -105,21 +113,27 @@ get_request_limit(Pid) ->
 set_request_limit(Pid, NewLimit) ->
     call(Pid, {set_request_limit, NewLimit}).
 
-get_port() ->
-    {value, UDPPort} = snmp_framework_mib:intAgentUDPPort(get),
-    UDPPort.
+get_transports() ->
+    {value, Transports} = snmp_framework_mib:intAgentTransports(get),
+    Transports.
 
-get_address() ->
-    {value, IPAddress} = snmp_framework_mib:intAgentIpAddress(get),
-    IPAddress.
-
-get_domain() ->
-    case snmp_framework_mib:intAgentTransportDomain(get) of
-	{value, Domain} ->
-	    Domain;
-	genErr ->
-	    snmpUDPDomain
-    end.
+%%% XXX remove
+%%%
+%%% get_ip_port() ->
+%%%     {value, UDPPort} = snmp_framework_mib:intAgentUDPPort(get),
+%%%     UDPPort.
+%%%
+%%% get_address() ->
+%%%     {value, IPAddress} = snmp_framework_mib:intAgentIpAddress(get),
+%%%     IPAddress.
+%%%
+%%% get_domain() ->
+%%%     case snmp_framework_mib:intAgentTransportDomain(get) of
+%%% 	{value, Domain} ->
+%%% 	    Domain;
+%%% 	genErr ->
+%%% 	    snmpUDPDomain
+%%%     end.
 
 filter_reset(Pid) ->
     Pid ! filter_reset.
@@ -170,13 +184,15 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     put(verbosity,get_verbosity(Opts)),
     ?vlog("starting",[]),
 
-    %% -- Port and address --
-    Domain = get_domain(),
-    ?vdebug("domain: ~w",[Domain]),
-    UDPPort = get_port(),
-    ?vdebug("port: ~w",[UDPPort]),
-    IPAddress = get_address(),
-    ?vdebug("addr: ~w",[IPAddress]),
+%%% XXX remove
+%%%
+%%%     %% -- Port and address --
+%%%     Domain = get_domain(),
+%%%     ?vdebug("domain: ~w",[Domain]),
+%%%     UDPPort = get_ip_port(),
+%%%     ?vdebug("port: ~w",[UDPPort]),
+%%%     IPAddress = get_address(),
+%%%     ?vdebug("addr: ~w",[IPAddress]),
 
     %% -- Versions --
     Vsns = get_vsns(Opts),
@@ -193,36 +209,72 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     Log = create_log(),
     ?vdebug("Log: ~w",[Log]),
 
-
-    %% -- Socket --
-    IPOpts1 = ip_opt_bind_to_ip_address(Opts, IPAddress),
-    IPOpts2 = ip_opt_no_reuse_address(Opts),
-    IPOpts3 = ip_opt_recbuf(Opts),
-    IPOpts4 = ip_opt_sndbuf(Opts),
-    IPOpts  =
-	[binary, snmp_conf:tdomain_to_family(Domain)
-	 | IPOpts1 ++ IPOpts2 ++ IPOpts3 ++ IPOpts4],
-    case gen_udp_open(UDPPort, IPOpts) of
-	{ok, Sock} ->
+    DomainAddresses = get_transports(),
+    ?vdebug("DomainAddresses: ~w",[DomainAddresses]),
+    try
+	[begin
+	     SocketOpts = socket_opts(Domain, Address, Opts),
+	     Socket = socket_open(Domain, SocketOpts),
+	     active_once(Socket),
+	     #transport{
+		      socket = Socket,
+		      domain = Domain,
+		      opts   = SocketOpts}
+	 end || {Domain, Address} <- DomainAddresses]
+    of
+	[] ->
+	    ?vinfo("No transports configured: ~p", [DomainAddresses]),
+	    {error, {no_transports,DomainAddresses}};
+	Transports ->
 	    MpdState = snmpa_mpd:init(Vsns),
-	    init_counters(), 
-	    active_once(Sock),
+	    init_counters(),
 	    S = #state{parent       = Parent,
 		       note_store   = NoteStore,
 		       master_agent = MasterAgent, 
 		       mpd_state    = MpdState,
-		       usock        = Sock, 
-		       usock_opts   = IPOpts,
+		       transports   = Transports,
 		       log          = Log,
 		       limit        = Limit,
-		       filter       = FilterMod,
-		       domain       = Domain},
+		       filter       = FilterMod},
 	    ?vdebug("started with MpdState: ~p", [MpdState]),
-	    {ok, S};
-	{error, Reason} ->
-	    ?vinfo("Failed to open UDP socket: ~p", [Reason]),
-	    {error, {udp_open, UDPPort, Reason}}
+	    {ok, S}
+    catch
+	Error ->
+	    ?vinfo("Failed to initialize socket(s): ~p", [Error]),
+	    {error, Error}
     end.
+
+%%% XXX remove
+%%%
+%%%     %% -- Socket --
+%%%     IPOpts1 = ip_opt_bind_to_ip_address(Opts, IPAddress),
+%%%     IPOpts2 = ip_opt_no_reuse_address(Opts),
+%%%     IPOpts3 = ip_opt_recbuf(Opts),
+%%%     IPOpts4 = ip_opt_sndbuf(Opts),
+%%%     IPOpts  =
+%%% 	[binary, snmp_conf:tdomain_to_family(Domain)
+%%% 	 | IPOpts1 ++ IPOpts2 ++ IPOpts3 ++ IPOpts4],
+%%%     case gen_udp_open(UDPPort, IPOpts) of
+%%% 	{ok, Sock} ->
+%%% 	    MpdState = snmpa_mpd:init(Vsns),
+%%% 	    init_counters(),
+%%% 	    active_once(Sock),
+%%% 	    S = #state{parent       = Parent,
+%%% 		       note_store   = NoteStore,
+%%% 		       master_agent = MasterAgent,
+%%% 		       mpd_state    = MpdState,
+%%% 		       usock        = Sock,
+%%% 		       usock_opts   = IPOpts,
+%%% 		       log          = Log,
+%%% 		       limit        = Limit,
+%%% 		       filter       = FilterMod,
+%%% 		       domain       = Domain},
+%%% 	    ?vdebug("started with MpdState: ~p", [MpdState]),
+%%% 	    {ok, S};
+%%% 	{error, Reason} ->
+%%% 	    ?vinfo("Failed to open UDP socket: ~p", [Reason]),
+%%% 	    {error, {udp_open, UDPPort, Reason}}
+%%%     end.
 
 
 create_log() ->
@@ -298,33 +350,63 @@ format_address(Address) ->
     iolist_to_binary(snmp_conf:mk_addr_string(Address)).
 
 
-
-gen_udp_open(Port, Opts) ->
+socket_open(snmpUDPDomain = Domain, [IpPort | Opts]) ->
     case init:get_argument(snmp_fd) of
 	{ok, [[FdStr]]} ->
 	    Fd = list_to_integer(FdStr),
-	    ?vdebug("gen_udp_open(~p, ~p) Fd: ~p",[Port,Opts,Fd]),
-	    gen_udp:open(0, [{fd, Fd}|Opts]);
+	    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
+		    [Domain, IpPort, Opts, Fd]),
+	    gen_udp_open(IpPort, [{fd, Fd} | Opts]);
 	error ->
 	    case init:get_argument(snmpa_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
-		    ?vdebug("gen_udp_open(~p, ~p) Fd: ~p",[Port,Opts,Fd]),
-		    gen_udp:open(0, [{fd, Fd}|Opts]);
+		    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
+			    [Domain, IpPort, Opts, Fd]),
+		    gen_udp_open(IpPort, [{fd, Fd} | Opts]);
 		error ->
-		    ?vdebug("gen_udp_open(~p, ~p)",[Port,Opts]),
-		    gen_udp:open(Port, Opts)
+		    ?vdebug("socket_open(~p, [~p | ~p])",
+			    [Domain, IpPort, Opts]),
+		    gen_udp_open(IpPort, Opts)
 	    end
+    end;
+socket_open(Domain, [IpPort | Opts])
+  when Domain =:= transportDomainUdpIpv4;
+       Domain =:= transportDomainUdpIpv6 ->
+    ?vdebug("socket_open(~p, [~p | ~p])", [Domain, IpPort, Opts]),
+    gen_udp_open(IpPort, Opts);
+socket_open(Domain, Opts) ->
+    throw({socket_open, Domain, Opts}).
+
+gen_udp_open(IpPort, Opts) ->
+    case gen_udp:open(IpPort, Opts) of
+	{ok, Socket} ->
+	    Socket;
+	{error, Reason} ->
+	    throw({udp_open, IpPort, Reason})
     end.
 
 
-loop(#state{domain = Domain} = S) ->
+
+loop(#state{transports = Transports, limit = Limit, parent = Parent} = S) ->
+    ?vdebug("loop(~p)", [S]),
     receive
-	{udp, _UdpId, Ip, Port, Packet} ->
-	    ?vlog("got paket from ~w:~w",[Ip,Port]),
-	    From = fix_filter_address(Domain, {Domain, {Ip, Port}}),
-	    NewS = maybe_handle_recv(S, From, Packet),
-	    loop(NewS);
+	{udp, Socket, IpAddr, IpPort, Packet} = Msg when is_port(Socket) ->
+	    ?vlog("got paket from ~w:~w on ~w", [IpAddr, IpPort, Socket]),
+	    case lists:keyfind(Socket, #transport.socket, Transports) of
+		#transport{socket = Socket, domain = Domain} = Transport ->
+		    From =
+			case Domain of
+			    snmpUDPDomain ->
+				{IpAddr, IpPort};
+			    _ ->
+				{Domain, {IpAddr, IpPort}}
+			end,
+		    loop(maybe_handle_recv(S, Transport, From, Packet));
+		false ->
+		    error_msg("Packet on unknown port: ~p", [Msg]),
+		    loop(S)
+	    end;
 
 	{info, ReplyRef, Pid} ->
 	    Info = get_info(S),
@@ -332,12 +414,35 @@ loop(#state{domain = Domain} = S) ->
 	    loop(S);
 
 	%% response (to get/get_next/get_bulk/set requests)
-	{snmp_response, Vsn, RePdu, Type, ACMData, To, []} ->
+	{snmp_response, Vsn, RePdu, Type, ACMData, To, Extra} ->
 	    ?vlog("reply pdu: "
 		  "~n   ~s", 
 		  [?vapply(snmp_misc, format, [256, "~w", [RePdu]])]),
-	    NewS = maybe_handle_reply_pdu(S, Vsn, RePdu, Type, ACMData, To),
-	    loop(NewS);
+	    {_, ReqRef} = lists:keyfind(request_ref, 1, Extra),
+	    case
+		case
+		    (Limit =/= infinity) andalso
+		    select_transport_from_req_ref(ReqRef, Transports)
+		of
+		    false ->
+			select_transport_from_domain(
+			  address_to_domain(To),
+			  Transports);
+		    T ->
+			T
+		end
+	    of
+		false ->
+		    error_msg(
+		      "Can not find transport for response PDU to: ~s",
+		      [format_address(To)]),
+		    loop(S);
+		Transport ->
+		    NewS = update_req_counter_outgoing(S, Transport, ReqRef),
+		    maybe_handle_reply_pdu(
+		      NewS, Transport, Vsn, RePdu, Type, ACMData, To),
+		    loop(NewS)
+	    end;
 
 	%% Traps/notification
 	{send_pdu, Vsn, Pdu, MsgData, TDomAddrs} ->
@@ -406,15 +511,34 @@ loop(#state{domain = Domain} = S) ->
 	    NewS = handle_send_discovery(S, Pdu, MsgData, To, From),
 	    loop(NewS);
 
-	{discarded_pdu, _Vsn, ReqId, _ACMData, Variable, _Extra} ->
-	    ?vdebug("discard PDU: ~p", [Variable]),
+	{discarded_pdu, _Vsn, ReqId, _ACMData, Variable, Extra} ->
+	    ?vdebug("discard PDU: ~p - ~p - ~p",
+		    [Variable, Extra, Transports]),
 	    snmpa_mpd:discarded_pdu(Variable),
-	    NewS = update_req_counter_outgoing(S, ReqId),
-	    loop(NewS);
+	    {_, ReqRef} = lists:keyfind(request_ref, 1, Extra),
+	    if
+		Limit =:= infinity ->
+		    %% The incoming PDU was not registered
+		    loop(update_req_counter_outgoing(S, false, ReqRef));
+		true ->
+		    case
+			select_transport_from_req_ref(ReqRef, Transports)
+		    of
+			false ->
+			    error_msg(
+			      "Can not find transport for discarded PDU: ~p",
+			      [ReqId]),
+			    loop(S);
+			Transport ->
+			    loop(
+			      update_req_counter_outgoing(
+				S, Transport, ReqRef))
+		    end
+	    end;
 
 	{get_log_type, ReplyRef, Pid} ->
 	    ?vdebug("get log type: ~p", []),
-	    #state{log = {_, LogType}} = S,
+	    {_, LogType} = S#state.log,
 	    Pid ! {ReplyRef, {ok, LogType}, self()},
 	    loop(S);
 
@@ -426,7 +550,6 @@ loop(#state{domain = Domain} = S) ->
 
 	{get_request_limit, ReplyRef, Pid} ->
 	    ?vdebug("get request limit: ~p", []),
-	    #state{limit = Limit} = S,
 	    Pid ! {ReplyRef, {ok, Limit}, self()},
 	    loop(S);
 
@@ -450,36 +573,50 @@ loop(#state{domain = Domain} = S) ->
 	    reset_counters(),
 	    loop(S);
 
-	{'EXIT', Parent, Reason} when Parent == S#state.parent ->
+	{'EXIT', Parent, Reason} ->
 	    ?vlog("parent (~p) exited: "
 		  "~n   ~p", [Parent, Reason]),
 	    exit(Reason);
 
-	{'EXIT', Port, Reason} when Port == S#state.usock ->
-	    UDPPort = get_port(),
-	    NewS = 
-		case gen_udp_open(UDPPort, S#state.usock_opts) of
-		    {ok, Id} ->
-			error_msg("Port ~p exited for reason"
-				  "~n   ~p"
-				  "~n   Re-opened (~p)", [Port, Reason, Id]),
-			S#state{usock = Id};
-		    {error, ReopenReason} ->
-			error_msg("Port ~p exited for reason"
-				  "~n   ~p"
-				  "~n   Re-open failed with reason"
-				  "~n   ~p", 
-				  [Port, Reason, ReopenReason]),
-			ok
-		end,
-	    loop(NewS);
+	{'EXIT', Socket, Reason} when is_port(Socket) ->
+	    case lists:keyfind(Socket, #transport.socket, Transports) of
+		#transport{
+		  socket   = Socket,
+		  domain   = Domain,
+		  opts     = SocketOpts,
+		  req_refs = ReqRefs} = Transport ->
+		    try socket_open(Domain, SocketOpts) of
+			NewSocket ->
+			    error_msg(
+			      "Socket ~p exited for reason"
+			      "~n     ~p"
+			      "~n     Re-opened (~p)",
+			      [Socket, Reason, NewSocket]),
+			    (length(ReqRefs) < Limit) andalso
+				active_once(NewSocket),
+			    S#state{
+			      transports =
+				  lists:keyreplace(
+				    Socket, #transport.socket, Transports,
+				    Transport#transport{socket = NewSocket})}
+		    catch
+			ReopenReason ->
+			    error_msg(
+			      "Socket ~p exited for reason"
+			      "~n     ~p"
+			      "~n     Re-open failed with reason"
+			      "~n     ~p",
+			      [Socket, Reason, ReopenReason]),
+			    exit(ReopenReason)
+		    end;
+		false ->
+		    error_msg(
+		      "Exit message from port ~p for reason ~p~n",
+		      [Socket, Reason]),
+		    loop(S)
+	    end;
 
-	{'EXIT', Port, Reason} when is_port(Port) ->
-	    error_msg("Exit message from port ~p for reason ~p~n", 
-		      [Port, Reason]),
-	    loop(S);
-
-	{'EXIT', Pid, Reason} ->
+	{'EXIT', Pid, Reason} when is_pid(Pid) ->
 	    ?vlog("~p exited: "
 		  "~n   ~p", [Pid, Reason]),
 	    NewS = clear_reqs(Pid, S),
@@ -487,71 +624,144 @@ loop(#state{domain = Domain} = S) ->
 
 	{system, From, Msg} ->
 	    ?vdebug("system event ~p from ~p", [Msg, From]),
-	    sys:handle_system_msg(Msg, From, S#state.parent, ?MODULE, [], S);
+	    sys:handle_system_msg(Msg, From, Parent, ?MODULE, [], S);
 
 	_ ->
 	    loop(S)
     end.
 
 
-update_req_counter_incomming(#state{limit = infinity, usock = Sock} = S, _) ->
-    active_once(Sock), %% No limit so activate directly
+update_req_counter_incoming(
+  #state{limit = infinity} = S,
+  #transport{socket = Socket},
+  _ReqRef) ->
+    active_once(Socket), %% No limit so activate directly
     S; 
-update_req_counter_incomming(#state{limit = Limit, 
-				    rcnt  = RCnt, 
-				    usock = Sock} = S, Rid) 
-  when length(RCnt) + 1 == Limit ->
+update_req_counter_incoming(
+  #state{limit = Limit} = S,
+  #transport{socket = Socket, req_refs = ReqRefs} = T,
+  ReqRef) when length(ReqRefs) + 1 >= Limit ->
     %% Ok, one more and we are at the limit.
     %% Just make sure we are not already processing this one...
-    case lists:member(Rid, RCnt) of
+    case lists:member(ReqRef, ReqRefs) of
 	false ->
 	    %% We are at the limit, do _not_ activate socket
-	    S#state{rcnt = [Rid|RCnt]};
+	    update_transport_req_refs(S, T, [ReqRef | ReqRefs]);
 	true ->
-	    active_once(Sock),
+	    active_once(Socket),
 	    S
     end;
-update_req_counter_incomming(#state{rcnt  = RCnt, 
-				    usock = Sock} = S, Rid) ->
-    active_once(Sock),
-    case lists:member(Rid, RCnt) of
+update_req_counter_incoming(
+  #state{} = S,
+  #transport{socket = Socket, req_refs = ReqRefs} = T,
+  ReqRef) ->
+    active_once(Socket),
+    case lists:member(ReqRef, ReqRefs) of
 	false ->
-	    S#state{rcnt = [Rid|RCnt]};
+	    update_transport_req_refs(S, T, [ReqRef | ReqRefs]);
 	true ->
 	    S
     end.
 
+update_transport_req_refs(
+  #state{transports = Transports} = S,
+  #transport{socket = Socket} = T,
+  ReqRefs) ->
+    S#state{
+      transports =
+	  lists:keyreplace(
+	    Socket, #transport.socket, Transports,
+	    T#transport{req_refs = ReqRefs})}.
 
-update_req_counter_outgoing(#state{limit = infinity} = S, _Rid) ->
+%%% XXX remove
+%%%
+%%% update_req_counter_incoming(#state{limit = infinity, usock = Sock} = S, _) ->
+%%%     active_once(Sock), %% No limit so activate directly
+%%%     S;
+%%% update_req_counter_incoming(#state{limit = Limit,
+%%% 				    rcnt  = RCnt,
+%%% 				    usock = Sock} = S, Rid)
+%%%   when length(RCnt) + 1 >= Limit ->
+%%%     %% Ok, one more and we are at the limit.
+%%%     %% Just make sure we are not already processing this one...
+%%%     case lists:member(Rid, RCnt) of
+%%% 	false ->
+%%% 	    %% We are at the limit, do _not_ activate socket
+%%% 	    S#state{rcnt = [Rid|RCnt]};
+%%% 	true ->
+%%% 	    active_once(Sock),
+%%% 	    S
+%%%     end;
+%%% update_req_counter_incoming(#state{rcnt  = RCnt,
+%%% 				    usock = Sock} = S, Rid) ->
+%%%     active_once(Sock),
+%%%     case lists:member(Rid, RCnt) of
+%%% 	false ->
+%%% 	    S#state{rcnt = [Rid|RCnt]};
+%%% 	true ->
+%%% 	    S
+%%%     end.
+
+
+update_req_counter_outgoing(
+  #state{limit = infinity} = S,
+  _Transport, _ReqRef) ->
     %% Already activated (in the incoming function)
     S;
-update_req_counter_outgoing(#state{limit = Limit, 
-				   rcnt  = RCnt, 
-				   usock = Sock} = S, Rid) 
-  when length(RCnt) == Limit ->
-    ?vtrace("handle_req_counter_outgoing(~w) -> entry with"
-	"~n   Rid:          ~w"
-	"~n   length(RCnt): ~w", [Limit, Rid, length(RCnt)]),
-    case lists:delete(Rid, RCnt) of
-	NewRCnt when length(NewRCnt) < Limit ->
+update_req_counter_outgoing(
+  #state{limit = Limit, transports = Transports} = S,
+  #transport{socket = Socket, req_refs = ReqRefs} = Transport,
+  ReqRef) ->
+    LengthReqRefs = length(ReqRefs),
+    ?vtrace("update_req_counter_outgoing() -> entry with~n"
+	    "   Limit:          ~w~n"
+	    "   ReqRef:          ~w~n"
+	    "   length(ReqRefs): ~w", [Limit, ReqRef, LengthReqRefs]),
+    NewReqRefs = lists:delete(ReqRef, ReqRefs),
+    (LengthReqRefs >= Limit) andalso (length(NewReqRefs) < Limit) andalso
+	begin
 	    ?vtrace("update_req_counter_outgoing -> "
-		"passed below limit: activate", []),
-	    active_once(Sock),
-	    S#state{rcnt = NewRCnt};
-	_ ->
-	    S
-    end;
-update_req_counter_outgoing(#state{limit = Limit, rcnt = RCnt} = S, 
-			    Rid) ->
-    ?vtrace("handle_req_counter_outgoing(~w) -> entry with"
-	"~n   Rid:          ~w"
-	"~n   length(RCnt): ~w", [Limit, Rid, length(RCnt)]),
-    NewRCnt = lists:delete(Rid, RCnt),
-    S#state{rcnt = NewRCnt}.
+		    "passed below limit: activate", []),
+	    active_once(Socket)
+	end,
+    S#state{
+      transports =
+	  snmp_misc:keyreplace(
+	    Socket, #transport.socket, Transports,
+	    Transport#transport{req_refs = NewReqRefs})}.
+
+%%% XXX remove
+%%%
+%%% update_req_counter_outgoing(
+%%%   #state{limit = Limit,
+%%% 	 rcnt  = RCnt,
+%%% 	 usock = Sock} = S, Rid)
+%%%   when length(RCnt) >= Limit ->
+%%%     ?vtrace("handle_req_counter_outgoing(~w) -> entry with"
+%%% 	"~n   Rid:          ~w"
+%%% 	"~n   length(RCnt): ~w", [Limit, Rid, length(RCnt)]),
+%%%     case lists:delete(Rid, RCnt) of
+%%% 	NewRCnt when length(NewRCnt) < Limit ->
+%%% 	    ?vtrace("update_req_counter_outgoing -> "
+%%% 		"passed below limit: activate", []),
+%%% 	    active_once(Sock),
+%%% 	    S#state{rcnt = NewRCnt};
+%%% 	_ ->
+%%% 	    S
+%%%     end;
+%%% update_req_counter_outgoing(#state{limit = Limit, rcnt = RCnt} = S,
+%%% 			    Rid) ->
+%%%     ?vtrace("handle_req_counter_outgoing(~w) -> entry with"
+%%% 	"~n   Rid:          ~w"
+%%% 	"~n   length(RCnt): ~w", [Limit, Rid, length(RCnt)]),
+%%%     NewRCnt = lists:delete(Rid, RCnt),
+%%%     S#state{rcnt = NewRCnt}.
     
 
 maybe_handle_recv(
-  #state{usock = Sock, filter = FilterMod} = S, From, Packet) ->
+  #state{filter = FilterMod} = S,
+  #transport{socket = Socket} = Transport,
+  From, Packet) ->
     {From_1, From_2} = From,
     case
 	try FilterMod:accept_recv(From_1, From_2)
@@ -566,7 +776,7 @@ maybe_handle_recv(
 	false ->
 	    %% Drop the received packet 
 	    inc(netIfMsgInDrops),
-	    active_once(Sock),
+	    active_once(Socket),
 	    S;
 	Other ->
 	    case Other of
@@ -577,28 +787,13 @@ maybe_handle_recv(
 		      "FilterMod:accept_recv(~p, ~p) returned: ~p",
 		      [From_1,From_2,Other])
 	    end,
-	    handle_recv(S, From, Packet)
-    end.
-
-handle_discovery_response(_From, #pdu{request_id = ReqId} = Pdu,
-			  ManagerEngineId, 
-			  #state{usock = Sock, reqs = Reqs} = S) ->
-    case lists:keysearch(ReqId, 1, S#state.reqs) of
-	{value, {_, Pid}} ->
-	    active_once(Sock),
-	    Pid ! {snmp_discovery_response_received, Pdu, ManagerEngineId},
-	    NReqs = lists:keydelete(ReqId, 1, Reqs),
-	    S#state{reqs = NReqs};
-	_ ->
-	    %% Ouch, timeout? resend?
-	    S
+	    handle_recv(S, Transport, From, Packet)
     end.
 
 handle_recv(
-  #state{usock      = Sock,
-	 mpd_state  = MpdState,
-	 note_store = NS,
-	 log        = Log} = S, From, Packet) ->
+  #state{mpd_state  = MpdState, note_store = NS, log = Log} = S,
+  #transport{socket = Socket} = Transport,
+  From, Packet) ->
     put(n1, erlang:now()),
     LogF =
 	fun(Type, Data) ->
@@ -607,48 +802,72 @@ handle_recv(
     case (catch snmpa_mpd:process_packet(
 		  Packet, From, MpdState, NS, LogF)) of
 	{ok, _Vsn, Pdu, _PduMS, {discovery, ManagerEngineId}} ->
-	    handle_discovery_response(From, Pdu, ManagerEngineId, S);
+	    handle_discovery_response(
+	      S, Transport, From, Pdu, ManagerEngineId);
 
 	{ok, _Vsn, Pdu, _PduMS, discovery} ->
-	    handle_discovery_response(From, Pdu, undefined, S);
+	    handle_discovery_response(
+	      S, Transport, From, Pdu, undefined);
 
 	{ok, Vsn, Pdu, PduMS, ACMData} ->
 	    ?vlog("got pdu ~s", 
 		  [?vapply(snmp_misc, format, [256, "~w", [Pdu]])]),
-	    %% handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S);
-	    maybe_handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S);
+	    %% handle_recv_pdu(S, Transport, From, Vsn, Pdu, PduMS, ACMData);
+	    maybe_handle_recv_pdu(
+	      S, Transport, From, Vsn, Pdu, PduMS, ACMData);
 
 	{discarded, Reason} ->
 	    ?vlog("packet discarded for reason: ~s",
 		  [?vapply(snmp_misc, format, [256, "~w", [Reason]])]),
-	    active_once(Sock),
+	    active_once(Socket),
 	    S;
 
 	{discarded, Reason, ReportPacket} ->
 	    ?vlog("sending report for reason: "
 		"~n   ~s", 
 		[?vapply(snmp_misc, format, [256, "~w", [Reason]])]),
-	    (catch udp_send(S#state.usock, From, ReportPacket)),
-	    active_once(Sock),
+	    (catch udp_send(Socket, From, ReportPacket)),
+	    active_once(Socket),
 	    S;
 	
 	{discovery, ReportPacket} ->
 	    ?vlog("sending discovery report", []),
-	    (catch udp_send(S#state.usock, From, ReportPacket)),
-	    active_once(Sock),
+	    (catch udp_send(Socket, From, ReportPacket)),
+	    active_once(Socket),
 	    S;
 	
 	Error ->
 	    error_msg("processing of received message failed: "
                       "~n   ~p", [Error]),
-	    active_once(Sock),
+	    active_once(Socket),
+	    S
+    end.
+
+handle_discovery_response(
+  #state{reqs = Reqs} = S,
+  #transport{socket = Socket},
+  _From,
+  #pdu{request_id = ReqId} = Pdu,
+  ManagerEngineId) ->
+    case lists:keyfind(ReqId, 1, S#state.reqs) of
+	{ReqId, Pid} ->
+	    active_once(Socket),
+	    Pid ! {snmp_discovery_response_received, Pdu, ManagerEngineId},
+	    %% XXX Strange... Reqs from this Pid should be reaped
+	    %% at process exit by clear_reqs/2 so the following
+	    %% should be redundant.
+	    NReqs = lists:keydelete(ReqId, 1, Reqs),
+	    S#state{reqs = NReqs};
+	false ->
+	    %% Ouch, timeout? resend?
 	    S
     end.
 
 maybe_handle_recv_pdu(
+  #state{filter = FilterMod} = S,
+  #transport{socket = Socket} = Transport,
   From, Vsn,
-  #pdu{type = Type} = Pdu, PduMS, ACMData,
-  #state{usock = Sock, filter = FilterMod} = S) ->
+  #pdu{type = Type} = Pdu, PduMS, ACMData) ->
     {From_1, From_2} = From,
     case
 	try FilterMod:accept_recv_pdu(From_1, From_2, Type)
@@ -664,8 +883,8 @@ maybe_handle_recv_pdu(
     of
 	false ->
 	    inc(netIfPduInDrops),
-	    active_once(Sock),
-	    ok;
+	    active_once(Socket),
+	    S;
 	Other ->
 	    case Other of
 		true ->
@@ -675,39 +894,72 @@ maybe_handle_recv_pdu(
 		      "FilterMod:accept_recv_pdu(~p, ~p, ~p) returned: ~p",
 		      [From_1,From_2,Type,Other])
 	    end,
-	    handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData, S)
+	    handle_recv_pdu(S, Transport, From, Vsn, Pdu, PduMS, ACMData)
     end.
 
 handle_recv_pdu(
+  #state{reqs = Reqs} = S,
+  #transport{socket = Socket},
   From, Vsn,
-  #pdu{type = 'get-response'} = Pdu, _PduMS, _ACMData,
-  #state{usock = Sock} = S) ->
-    active_once(Sock),
-    handle_response(Vsn, Pdu, From, S),
+  #pdu{type = 'get-response', request_id = ReqId} = Pdu,
+  _PduMS, _ACMData) ->
+    active_once(Socket),
+    case lists:keyfind(ReqId, 1, Reqs) of
+	{ReqId, Pid} ->
+	    ?vdebug("handle_recv_pdu -> "
+		    "~n   send response to receiver ~p", [Pid]),
+	    Pid ! {snmp_response_received, Vsn, Pdu, From};
+	false ->
+	    ?vdebug("handle_recv_pdu -> "
+		    "~n   No receiver available for response pdu", [])
+    end,
     S;
-handle_recv_pdu(From, Vsn, #pdu{request_id = Rid, type = Type} = Pdu,
-		PduMS, ACMData, #state{master_agent = Pid} = S) 
-  when ((Type =:= 'get-request') orelse
-	(Type =:= 'get-next-request') orelse
-	(Type =:= 'get-bulk-request')) ->
-    ?vtrace("handle_recv_pdu -> received get (~w)", [Type]),
-    Pid ! {snmp_pdu, Vsn, Pdu, PduMS, ACMData, From, []},
-    update_req_counter_incomming(S, Rid);
-handle_recv_pdu(From, Vsn, Pdu, PduMS, ACMData,
-		#state{usock = Sock, master_agent = Pid} = S) ->
+%%% XXX remove
+%%%
+%%% handle_recv_pdu(
+%%%   #state{} = S,
+%%%   #transport{socket = Socket} = Transport,
+%%%   From, Vsn,
+%%%   #pdu{type = 'get-response'} = Pdu,
+%%%   _PduMS, _ACMData) ->
+%%%     active_once(Socket),
+%%%     handle_response(S, Pdu, From, Vsn),
+%%%     S;
+handle_recv_pdu(
+  #state{master_agent = Pid} = S,
+  #transport{} = Transport,
+  From, Vsn,
+  #pdu{type = Type} = Pdu,
+  PduMS, ACMData)
+  when Type =:= 'set-request';
+       Type =:= 'get-request';
+       Type =:= 'get-next-request';
+       Type =:= 'get-bulk-request' ->
+    ?vtrace("handle_recv_pdu -> received request (~w)", [Type]),
+    ReqRef = make_ref(),
+    Extra = [{request_ref, ReqRef}],
+    Pid ! {snmp_pdu, Vsn, Pdu, PduMS, ACMData, From, Extra},
+    NewS = update_req_counter_incoming(S, Transport, ReqRef),
+    ?vdebug("handle_recv_pdu -> ~p", [NewS]),
+    NewS;
+handle_recv_pdu(
+  #state{master_agent = Pid} = S,
+  #transport{socket = Socket},
+  From, Vsn, Pdu, PduMS, ACMData) ->
     ?vtrace("handle_recv_pdu -> received other request", []),
-    active_once(Sock),
+    active_once(Socket),
     Pid ! {snmp_pdu, Vsn, Pdu, PduMS, ACMData, From, []},
     S.
 
 
 maybe_handle_reply_pdu(
-  #state{filter = FilterMod, domain = Domain} = S, Vsn,
-  #pdu{request_id = Rid} = Pdu,
+  #state{filter = FilterMod, transports = Transports} = S,
+  #transport{} = Transport,
+  Vsn,
+  #pdu{} = Pdu,
   Type, ACMData, To) ->
-
-    S1 = update_req_counter_outgoing(S, Rid),
-    Addresses = [fix_filter_address(Domain, To)],
+    %%
+    Addresses = [fix_filter_address(Transports, To)],
     case
 	try
 	    FilterMod:accept_send_pdu(Addresses, Type)
@@ -715,7 +967,8 @@ maybe_handle_reply_pdu(
 	    Class:Exception ->
 		error_msg(
 		  "FilterMod:accept_send_pdu(~p, ~p) crashed: ~w:~w~n    ~p",
-		  [Addresses,Type,Class,Exception,erlang:get_stacktrace()]),
+		  [Addresses, Type, Class, Exception,
+		   erlang:get_stacktrace()]),
 		true
 	end
     of
@@ -731,11 +984,16 @@ maybe_handle_reply_pdu(
 		      "FilterMod:accept_send_pdu(~p, ~p) returned: ~p",
 		      [Addresses,Type,Other])
 	    end,
-	    handle_reply_pdu(S1, Vsn, Pdu, Type, ACMData, To)
-    end,
-    S1.
+	    handle_reply_pdu(S, Transport, Vsn, Pdu, Type, ACMData, To)
+    end.
 
-handle_reply_pdu(#state{log = Log} = S, Vsn, Pdu, Type, ACMData, To) ->
+handle_reply_pdu(
+  #state{log = Log} = S,
+  #transport{} = Transport,
+  Vsn,
+  #pdu{} = Pdu,
+  Type, ACMData, To) ->
+    %%
     LogF =
 	fun(Type2, Data) ->
 		log(Log, Type2, Data, To)
@@ -744,7 +1002,15 @@ handle_reply_pdu(#state{log = Log} = S, Vsn, Pdu, Type, ACMData, To) ->
 						ACMData, LogF)) of
 	{ok, Packet} ->
 	    ?vinfo("time in agent: ~w mysec", [time_in_agent()]),
-	    maybe_udp_send(S, To, Packet);
+	    try maybe_udp_send(S, Transport, To, Packet)
+	    catch
+		{Reason, Sz} ->
+		    error_msg("Cannot send message "
+			      "~n   size:   ~p"
+			      "~n   reason: ~p"
+			      "~n   pdu:    ~p",
+			      [Sz, Reason, Pdu])
+	    end;
 	{discarded, Reason} ->
 	    ?vlog("handle_reply_pdu -> "
 		  "~n   reply discarded for reason: ~s", 
@@ -758,7 +1024,7 @@ handle_reply_pdu(#state{log = Log} = S, Vsn, Pdu, Type, ACMData, To) ->
 
 
 maybe_handle_send_pdu(
-  #state{filter = FilterMod, domain = Domain} = S,
+  #state{filter = FilterMod, transports = Transports} = S,
   Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
 
     ?vtrace("maybe_handle_send_pdu -> entry with~n"
@@ -767,26 +1033,15 @@ maybe_handle_send_pdu(
 
     DomAddrSecs = snmpa_mpd:process_taddrs(TDomAddrSecs),
     AddressesToFilter =
-	[case Domain of
-	     snmpUDPDomain ->
-		 case DAS of
-		     {{Dom, Addr}, _SecData}
-		       when is_atom(Dom) -> % v3
-			 Addr;
-		     {Dom, Addr}
-		       when is_atom(Dom) -> % v1 & v2
-			 Addr
-		 end;
-	     _ ->
-		 case DAS of
-		     {{Dom, _Addr} = DomAddr, _SecData}
-		       when is_atom(Dom) -> % v3
-			 DomAddr;
-		     {Dom, _Addr} = DomAddr
-		       when is_atom(Dom) -> % v1 & v2
-			 DomAddr
-		 end
-	 end || DAS <- DomAddrSecs],
+	case is_legacy_transports(Transports) of
+	    true ->
+		[fix_filter_legacy_mpd_address(DAS)
+		 || DAS <- DomAddrSecs];
+	    false ->
+		[fix_filter_mpd_address(DAS)
+		 || DAS <- DomAddrSecs]
+	end,
+
     Type = pdu_type_of(Pdu),
 
     case
@@ -806,33 +1061,24 @@ maybe_handle_send_pdu(
 	true ->
 	    handle_send_pdu(S, Vsn, Pdu, MsgData, DomAddrSecs, From);
 	FilteredAddresses when is_list(FilteredAddresses) ->
-	    MergedDomAddrSecs =
-		[DAS ||
-		    DAS <- DomAddrSecs,
-		    lists:member(
-		      case Domain of
-			  snmpUDPDomain ->
-			      case DAS of
-				  {{Dom, Addr}, _SData}
-				    when is_atom(Dom) -> % v3
-				      Addr;
-				  {Dom, Addr}
-				    when is_atom(Dom) -> % v1 & v2
-				      Addr
-			      end;
-			  true ->
-			      case DAS of
-				  {{Dom, _Addr} = DomAddr, _SData}
-				    when is_atom(Dom) -> % v3
-				      DomAddr;
-				  {Dom, _Addr} = DomAddr
-				    when is_atom(Dom) -> % v1 & v2
-				      DomAddr
-			      end
-		      end, FilteredAddresses)],
-	    ?vtrace("maybe_handle_send_pdu -> MergedDomAddrSecs:~n"
-		    "   ~p", [MergedDomAddrSecs]),
-	    handle_send_pdu(S, Vsn, Pdu, MsgData, MergedDomAddrSecs, From);
+	    FilteredDomAddrSecs =
+		case is_legacy_transports(Transports) of
+		    true ->
+			[DAS ||
+			    DAS <- DomAddrSecs,
+			    lists:member(
+				fix_filter_legacy_mpd_address(DAS),
+				FilteredAddresses)];
+		    false ->
+			[DAS ||
+			    DAS <- DomAddrSecs,
+			    lists:member(
+				fix_filter_mpd_address(DAS),
+				FilteredAddresses)]
+		end,
+	    ?vtrace("maybe_handle_send_pdu -> FilteredDomAddrSecs:~n"
+		    "   ~p", [FilteredDomAddrSecs]),
+	    handle_send_pdu(S, Vsn, Pdu, MsgData, FilteredDomAddrSecs, From);
 	Other ->
 	    error_msg(
 	      "FilterMod:accept_send_pdu(~p, ~p) returned: ~p",
@@ -841,8 +1087,9 @@ maybe_handle_send_pdu(
     end.
 
 handle_send_pdu(
-  #state{note_store = NS} = S, Vsn, Pdu, MsgData, DomAddrSecs, From) ->
-    
+  #state{note_store = NS} = S,
+  Vsn, Pdu, MsgData, DomAddrSecs, From) ->
+    %%
     ?vtrace("handle_send_pdu -> entry with~n"
 	    "   Pdu:         ~p~n"
 	    "   DomAddrSecs: ~p", [Pdu, DomAddrSecs]),
@@ -863,23 +1110,24 @@ handle_send_pdu(
     case From of
 	undefined ->
 	    S;
-	Pid ->
+	Pid when is_pid(Pid) ->
 	    ?vtrace("link to ~p and add to request list", [Pid]),
 	    link(Pid),
-	    NReqs = snmp_misc:keyreplaceadd(
-		      Pid, 2, S#state.reqs, {Pdu#pdu.request_id, From}),
+	    NReqs =
+		snmp_misc:keyreplaceadd(
+		  Pid, 2, S#state.reqs, {Pdu#pdu.request_id, From}),
 	    S#state{reqs = NReqs}
     end.
 
 
 handle_send_discovery(
-  #state{note_store = NS,
-	 log        = Log,
-	 usock      = Sock,
-	 reqs       = Reqs} = S,
-  #pdu{type = Type,
-       request_id = ReqId} = Pdu,
-  MsgData, To, From) ->
+  #state{
+     note_store = NS,
+     log        = Log,
+     reqs       = Reqs,
+     transports = Transports} = S,
+  #pdu{type = Type, request_id = ReqId} = Pdu,
+  MsgData, To, From) when is_pid(From) ->
     
     ?vtrace("handle_send_discovery -> entry with"
 	    "~n   Pdu:     ~p"
@@ -889,20 +1137,28 @@ handle_send_discovery(
 
     case (catch snmpa_mpd:generate_discovery_msg(NS, Pdu, MsgData, To)) of
 	{ok, {Domain, Address, Packet}} ->
-	    log(Log, Type, Packet, {Domain, Address}),
-	    udp_send(Sock, {Domain, Address}, Packet),
-	    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
-	    NReqs = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
-	    S#state{reqs = NReqs};
+	    case select_transport_from_domain(Domain, Transports) of
+		false ->
+		    error_msg(
+		      "Can not find transport to: ~s",
+		      [format_address(To)]),
+		    S;
+		#transport{socket = Socket} ->
+		    log(Log, Type, Packet, {Domain, Address}),
+		    udp_send(Socket, {Domain, Address}, Packet),
+		    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
+		    NReqs = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
+		    S#state{reqs = NReqs}
+	    end;
 	{discarded, Reason} ->
 	    ?vlog("handle_send_discovery -> "
 		  "~n   Discovery PDU ~p not sent due to ~p", [Pdu, Reason]),
-	    ok;
+	    S;
         {'EXIT', Reason} ->
             user_err("failed generating discovery message: "
                      "~n   PDU:    ~p"
 		     "~n   Reason: ~p", [Pdu, Reason]),
-            ok
+            S
     end.
 
 
@@ -912,18 +1168,20 @@ do_handle_send_pdu(S, Trap, Addresses) ->
     do_handle_send_pdu(S, trappdu, Trap, Addresses).
 
 do_handle_send_pdu(S, Type, Pdu, Addresses) ->
-    case (catch do_handle_send_pdu1(S, Type, Addresses)) of
+    try do_handle_send_pdu1(S, Type, Addresses)
+    catch
 	{Reason, Sz} ->
-	    error_msg("Cannot send message "
-		      "~n   size:   ~p"
-		      "~n   reason: ~p"
-		      "~n   pdu:    ~p",
-		      [Sz, Reason, Pdu]);
-	_ ->
-	    ok
+	    error_msg(
+	      "Can not send message~n"
+	      "   size:   ~p~n"
+	      "   reason: ~p~n"
+	      "   pdu:    ~p",
+	      [Sz, Reason, Pdu])
     end.
 
-do_handle_send_pdu1(S, Type, Addresses) ->
+do_handle_send_pdu1(
+  #state{transports = Transports} = S,
+  Type, Addresses) ->
     lists:foreach(
       fun ({Domain, Address, Packet}) when is_binary(Packet) ->
 	      ?vdebug(
@@ -931,32 +1189,55 @@ do_handle_send_pdu1(S, Type, Addresses) ->
 		 "   size: ~p~n"
 		 "   to:   ~p", [Domain, sz(Packet), Address]),
 	      To = {Domain, Address},
-	      maybe_udp_send(S, To, Packet);
+	      case select_transport_from_domain(Domain, Transports) of
+		  false ->
+		      error_msg(
+			"Can not find transport~n"
+			"   size:   ~p~n"
+			"   to:     ~s",
+			[sz(Packet), To]);
+		  Transport ->
+		      maybe_udp_send(S, Transport, To, Packet)
+	      end;
 	  ({Domain, Address, {Packet, LogData}}) when is_binary(Packet) ->
 	      ?vdebug(
 		 "[~w] sending encrypted packet:~n"
 		 "   size: ~p~n"
 		 "   to:   ~p", [Domain, sz(Packet), Address]),
 	      To = {Domain, Address},
-	      maybe_udp_send(S, To, Packet, Type, LogData)
+	      case select_transport_from_domain(Domain, Transports) of
+		  false ->
+		      error_msg(
+			"Can not find transport~n"
+			"   size:   ~p~n"
+			"   to:     ~s",
+			[sz(Packet), To]);
+		  Transport ->
+		      maybe_udp_send(S, Transport, To, Packet, Type, LogData)
+	      end
       end,
       Addresses).
 
-handle_response(Vsn, Pdu, From, S) ->
-    case lists:keysearch(Pdu#pdu.request_id, 1, S#state.reqs) of
-	{value, {_, Pid}} ->
-	    ?vdebug("handle_response -> "
-		    "~n   send response to receiver ~p", [Pid]),
-	    Pid ! {snmp_response_received, Vsn, Pdu, From};
-	_ ->
-	    ?vdebug("handle_response -> "
-		    "~n   No receiver available for response pdu", [])
-    end.
+%%% XXX remove
+%%%
+%%% handle_response(
+%%%   #state{reqs = Reqs} = S, Pdu#pdu{request_id = ReqId}, From, Vsn)
+%%%   when is_pid(From) ->
+%%%     case lists:keyfind(ReqId, 1, S#state.reqs) of
+%%% 	{ReqId, Pid} ->
+%%% 	    ?vdebug("handle_response -> "
+%%% 		    "~n   send response to receiver ~p", [Pid]),
+%%% 	    Pid ! {snmp_response_received, Vsn, Pdu, From};
+%%% 	false ->
+%%% 	    ?vdebug("handle_response -> "
+%%% 		    "~n   No receiver available for response pdu", [])
+%%%     end.
 
 maybe_udp_send(
-  #state{usock  = Sock, filter = FilterMod, domain = Domain},
+  #state{filter = FilterMod, transports = Transports},
+  #transport{socket = Socket},
   To, Packet) ->
-    {To_1, To_2} = fix_filter_address(Domain, To),
+    {To_1, To_2} = fix_filter_address(Transports, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
 	catch
@@ -979,25 +1260,21 @@ maybe_udp_send(
 		      "FilterMod:accept_send(~p, ~p) returned: ~p",
 		      [To_1,To_2,Other])
 	    end,
-	    %% XXX should be some kind of lookup of domain to socket
-	    (catch udp_send(Sock, To, Packet))
+	    udp_send(Socket, To, Packet)
     end.
 
 maybe_udp_send(
-  #state{
-     log    = Log,
-     usock  = Sock,
-     filter = FilterMod,
-     domain = Domain},
+  #state{log = Log, filter = FilterMod, transports = Transports},
+  #transport{socket = Socket},
   To, Packet, Type, _LogData) ->
-    {To_1, To_2} = fix_filter_address(Domain, To),
+    {To_1, To_2} = fix_filter_address(Transports, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
 	catch
 	    Class:Exception ->
 		error_msg(
 		  "FilterMod:accept_send(~p, ~p) crashed for: ~w:~w~n    ~p",
-		  [To_1,To_2,Class,Exception,erlang:get_stacktrace()]),
+		  [To_1, To_2, Class, Exception, erlang:get_stacktrace()]),
 		true
 	end
     of
@@ -1014,32 +1291,33 @@ maybe_udp_send(
 		      [To_1,To_2,Other])
 	    end,
 	    log(Log, Type, Packet, To),
-	    (catch udp_send(Sock, To, Packet))
+	    udp_send(Socket, To, Packet)
     end.
 
-udp_send(UdpId, To, B) ->
-    %% XXX should be some kind of lookup of domain to socket
-    {Ip, Port} =
+udp_send(Socket, To, B) ->
+    {IpAddr, IpPort} =
 	case To of
 	    {Domain, Addr} when is_atom(Domain) ->
 		Addr;
 	    {_, P} = Addr when is_integer(P) ->
 		Addr
 	end,
-    case (catch gen_udp:send(UdpId, Ip, Port, B)) of
+    try gen_udp:send(Socket, IpAddr, IpPort, B) of
 	{error, emsgsize} ->
 	    %% From this message we cannot recover, so exit sending loop
 	    throw({emsgsize, sz(B)});
 	{error, ErrorReason} ->
 	    error_msg("[error] cannot send message "
 		      "(destination: ~p:~p, size: ~p, reason: ~p)",
-		      [Ip, Port, sz(B), ErrorReason]);
-	{'EXIT', ExitReason} ->
-	    error_msg("[exit] cannot send message "
-		      "(destination: ~p:~p, size: ~p, reason: ~p)",
-		      [Ip, Port, sz(B), ExitReason]);
-	_ ->
+		      [IpAddr, IpPort, sz(B), ErrorReason]);
+	ok ->
 	    ok
+    catch
+	error:ExitReason ->
+	    error_msg("[exit] cannot send message "
+		      "(destination: ~p:~p, size: ~p, reason: ~p, at: ~p)",
+		      [IpAddr, IpPort, sz(B), ExitReason,
+		       erlang:get_stacktrace()])
     end.
 
 sz(L) when is_list(L) -> length(L);
@@ -1089,21 +1367,74 @@ active_once(Sock) ->
     inet:setopts(Sock, [{active, once}]).
 
 
+select_transport_from_req_ref(_, []) ->
+    false;
+select_transport_from_req_ref(
+  ReqRef,
+  [#transport{req_refs = ReqRefs} = Transport | Transports]) ->
+    case lists:member(ReqRef, ReqRefs) of
+	true ->
+	    Transport;
+	false ->
+	    select_transport_from_req_ref(ReqRef, Transports)
+    end.
+
+select_transport_from_domain(Domain, Transports) when is_atom(Domain) ->
+    Pos = #transport.domain,
+    case lists:keyfind(Domain, Pos, Transports) of
+	#transport{domain = Domain} = Transport ->
+	    Transport;
+	false when Domain == snmpUDPDomain ->
+	    lists:keyfind(transportDomainUdpIpv4, Pos, Transports);
+	false when Domain == transportDomainUdpIpv4 ->
+	    lists:keyfind(snmpUDPDomain, Pos, Transports);
+	false ->
+	    false
+    end.
+
+address_to_domain({Domain, _Addr}) when is_atom(Domain) ->
+    Domain;
+address_to_domain({_Ip, Port}) when is_integer(Port) ->
+    snmpUDPDomain.
+
 %% If the agent uses legacy snmpUDPDomain e.g has not set
 %% intAgentTransportDomain, then make sure
 %% snmpa_network_interface_filter gets legacy arguments
 %% to not break backwards compatibility.
 %%
-fix_filter_address(snmpUDPDomain, {Domain, Addr})
-  when Domain =:= snmpUDPDomain;
-       Domain =:= transportDomainUdpIpv4 ->
-    Addr;
-fix_filter_address(_AgentDomain, {Domain, _} = Address)
-  when is_atom(Domain) ->
-    Address;
-fix_filter_address(snmpUDPDomain, {_, Port} = Addr)
-  when is_integer(Port) ->
-    Addr.
+fix_filter_address(Transports, Address) ->
+    case is_legacy_transports(Transports) of
+	true ->
+	    case Address of
+		{Domain, Addr} when is_atom(Domain) ->
+		    Addr;
+		{_, IpPort} = Addr when is_integer(IpPort) ->
+		    Addr
+	    end;
+	false ->
+	    Address
+    end.
+
+is_legacy_transports([#transport{domain = snmpUDPDomain}]) ->
+    true;
+is_legacy_transports([#transport{} | _]) ->
+    false.
+
+fix_filter_legacy_mpd_address(Domain_Address_SecData) ->
+    case Domain_Address_SecData of
+	{{Domain, Addr}, _SecData} when is_atom(Domain) -> % v3
+	    Addr;
+	{Domain, Addr} when is_atom(Domain) -> % v1 & v2
+	    Addr
+    end.
+
+fix_filter_mpd_address(Domain_Address_SecData) ->
+    case Domain_Address_SecData of
+	{{Domain, _Addr} = Address, _SecData} when is_atom(Domain) -> % v3
+	    Address;
+	{Domain, _Addr} = Address when is_atom(Domain) -> % v1 & v2
+	    Address
+    end.
 
 %%%-----------------------------------------------------------------
 
@@ -1261,6 +1592,35 @@ get_counters([Counter|Counters], Acc) ->
 
 %% ----------------------------------------------------------------
 
+socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
+    [IpPort, % Picked off at socket open, separate argument
+     binary,
+     snmp_conf:tdomain_to_family(Domain)
+     |   case get_bind_to_ip_address(Opts) of
+	     true ->
+		 [{ip, IpAddr}];
+	     _ ->
+		 []
+	 end ++
+	 case get_no_reuse_address(Opts) of
+	     false ->
+		 [{reuseaddr, true}];
+	     _ ->
+		 []
+	 end ++
+	 case get_recbuf(Opts) of
+	     use_default ->
+		 [];
+	     Sz ->
+		 [{recbuf, Sz}]
+	 end ++
+	 case get_sndbuf(Opts) of
+	     use_default ->
+		 [];
+	     Sz ->
+		 [{sndbuf, Sz}]
+	 end].
+
 ip_opt_bind_to_ip_address(Opts, Ip) ->
     case get_bind_to_ip_address(Opts) of
 	true ->
@@ -1378,14 +1738,14 @@ call(Pid, Req) ->
 		       
 %% ----------------------------------------------------------------
 
-get_info(#state{usock = Id, reqs = Reqs}) ->
+get_info(#state{transports = Transports, reqs = Reqs}) ->
     ProcSize = proc_mem(self()),
-    PortInfo = get_port_info(Id),
     Counters = get_counters(),
-    [{reqs,           Reqs}, 
-     {counters,       Counters}, 
-     {process_memory, ProcSize}, 
-     {port_info,      PortInfo}].
+    [{reqs,           Reqs},
+     {counters,       Counters},
+     {process_memory, ProcSize}
+     | [{port_info, get_port_info(Socket)}
+	|| #transport{socket = Socket} <- Transports]].
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of

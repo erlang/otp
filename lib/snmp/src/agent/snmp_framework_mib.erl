@@ -41,7 +41,7 @@
 -compile({no_auto_import,[error/1]}).
 -export([init/0, configure/1]).
 -export([intContextTable/1, intContextTable/3,
-	 intAgentTransportDomain/1,
+	 intAgentTransportDomain/1, intAgentTransports/1,
 	 intAgentUDPPort/1, intAgentIpAddress/1,
 	 snmpEngineID/1,
 	 snmpEngineBoots/1,
@@ -137,8 +137,9 @@ read_agent(Dir) ->
 		error({failed_reading_config_file, Dir, FileName, Reason})
 	end,
     Mand =
-	[{intAgentIpAddress,        mandatory},
-	 {intAgentUDPPort,          mandatory},
+	[{intAgentTransports,       mandatory},
+%%% 	 {intAgentIpAddress,        mandatory},
+%%% 	 {intAgentUDPPort,          mandatory},
 	 {snmpEngineMaxMessageSize, mandatory},
 	 {snmpEngineID,             mandatory}],
     {ok, Conf} = snmp_conf:check_mandatory(Conf0, Mand),
@@ -190,27 +191,63 @@ check_context(Context) ->
 %%  Agent
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
-check_agent({intAgentTransportDomain, D}, _Domain) ->
-    {snmp_conf:check_domain(D), D};
-check_agent({intAgentIpAddress = Tag, Value}, D) ->
-    Domain =
-	case D of
-	    undefined ->
-		snmp_target_mib:default_domain();
-	    _ ->
-		D
-	end,
-    {case snmp_conf:check_ip(Domain, Value) of
+check_agent(Entry, undefined) ->
+    check_agent(Entry, {snmp_target_mib:default_domain(), undefined});
+check_agent({intAgentTransportDomain, Domain}, {_, Port}) ->
+    {snmp_conf:check_domain(Domain), {Domain, Port}};
+check_agent({intAgentUDPPort, Port}, {Domain, _}) ->
+    ok = snmp_conf:check_port(Port),
+    {ok, {Domain, Port}};
+check_agent({intAgentIpAddress, _}, {_, undefined}) ->
+    error({missing_mandatory, intAgentUDPPort});
+check_agent({intAgentIpAddress = Tag, Ip} = Entry, {Domain, Port} = State) ->
+    {case snmp_conf:check_ip(Domain, Ip) of
 	 ok ->
-	     ok;
+	     [Entry, {intAgentTransports, [{Domain, {Ip, Port}}]}];
 	 {ok, FixedIp} ->
-	     {ok, {Tag, FixedIp}}
-     end, Domain};
-check_agent(Entry, Domain) ->
-    {check_agent(Entry), Domain}.
+	     [{Tag, Ip}, {intAgentTransports, [{Domain, {FixedIp, Port}}]}]
+     end, State};
+check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State) ->
+    CheckedTransports =
+	[case
+	     case Port of
+		 undefined ->
+		     snmp_conf:check_address(Domain, Address);
+		 _ ->
+		     snmp_conf:check_address(Domain, Address, Port)
+	     end
+	 of
+	     ok ->
+		 Transport;
+	     {ok, FixedAddress} ->
+		 {Domain, FixedAddress}
+	 end
+	 || {Domain, Address} = Transport <- Transports],
+    {{ok, {Tag, CheckedTransports}}, State};
+check_agent(Entry, State) ->
+    {check_agent(Entry), State}.
 
-check_agent({intAgentUDPPort, Value}) ->
-    snmp_conf:check_integer(Value);
+%%% XXX remove
+%%%
+%%% check_agent({intAgentTransportDomain, D}, _Domain) ->
+%%%     {snmp_conf:check_domain(D), D};
+%%% check_agent({intAgentIpAddress = Tag, Value}, D) ->
+%%%     Domain =
+%%% 	case D of
+%%% 	    undefined ->
+%%% 		snmp_target_mib:default_domain();
+%%% 	    _ ->
+%%% 		D
+%%% 	end,
+%%%     {case snmp_conf:check_ip(Domain, Value) of
+%%% 	 ok ->
+%%% 	     ok;
+%%% 	 {ok, FixedIp} ->
+%%% 	     {ok, {Tag, FixedIp}}
+%%%      end, Domain};
+%%% check_agent(Entry, Domain) ->
+%%%     {check_agent(Entry), Domain}.
+
 %% This one is kept for backwards compatibility
 check_agent({intAgentMaxPacketSize, Value}) -> 
     snmp_conf:check_packet_size(Value);
@@ -224,7 +261,9 @@ check_agent(X) ->
 %% Ordering function to sort intAgentTransportDomain first
 %% hence before intAgentIpAddress.  Sort other entries on the key.
 order_agent(EntryA, EntryB) ->
-    snmp_conf:keyorder(1, EntryA, EntryB, [intAgentTransportDomain | sort]).
+    snmp_conf:keyorder(
+      1, EntryA, EntryB,
+      [intAgentTransportDomain, intAgentUDPPort | sort]).
 
 
 
@@ -401,6 +440,9 @@ intAgentIpAddress(Op) ->
 
 intAgentTransportDomain(Op) ->
     snmp_generic:variable_func(Op, db(intAgentTransportDomain)).
+
+intAgentTransports(Op) ->
+    snmp_generic:variable_func(Op, db(intAgentTransports)).
 
 
 

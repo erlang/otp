@@ -223,13 +223,17 @@ read_check(_, _, [], _, Res) ->
     lists:reverse(Res);
 read_check(File, Check, [{StartLine, Row, EndLine}|Lines], State, Res) ->
     try Check(Row, State) of
+	{Rows, NewState} when is_list(Rows) ->
+	    ?vtrace("read_check -> ok:~n"
+		    "   Rows: ~p~n", [Rows]),
+	    read_check(File, Check, Lines, NewState, Rows ++ Res);
 	{ok, NewState} ->
 	    ?vtrace("read_check -> ok", []),
-	    read_check(File, Check, Lines, NewState, [Row|Res]);
+	    read_check(File, Check, Lines, NewState, [Row | Res]);
 	{{ok, NewRow}, NewState} ->
 	    ?vtrace("read_check -> ok:~n"
 		    "   NewRow: ~p~n", [NewRow]),
-	    read_check(File, Check, Lines, NewState, [NewRow|Res])
+	    read_check(File, Check, Lines, NewState, [NewRow | Res])
     catch
 	{error, Reason} ->
 	    ?vtrace("read_check -> error:~n"

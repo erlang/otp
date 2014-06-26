@@ -75,6 +75,7 @@ fname(get) ->
 	end,
 	case snmpa:current_net_if_data() of
 	    {value, []} -> ok;
+	    {value, [{request_ref, R}]} when is_reference(R) -> ok;
 	    {value, _} -> throw("bad_nil");
 	    _ -> throw("bad_nid")
 	end,

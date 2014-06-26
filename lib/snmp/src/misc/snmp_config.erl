@@ -33,7 +33,7 @@
 -export([write_agent_snmp_files/7, write_agent_snmp_files/12,
 	 write_agent_snmp_files/6, write_agent_snmp_files/11,
 
-	 write_agent_snmp_conf/5, 
+	 write_agent_snmp_conf/4, write_agent_snmp_conf/5,
 	 write_agent_snmp_context_conf/1, 
 	 write_agent_snmp_community_conf/1, 
 	 write_agent_snmp_standard_conf/2, 
@@ -1650,6 +1650,12 @@ write_agent_snmp_files(
 %% ------ [agent] agent.conf ------
 %% 
 
+write_agent_snmp_conf(Dir, Transports, EngineID, MMS) ->
+    Conf =
+	[{intAgentTransports,       Transports},
+	 {snmpEngineID,             EngineID},
+	 {snmpEngineMaxMessageSize, MMS}],
+    do_write_agent_snmp_conf(Dir, Conf).
 
 write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS)
   when is_atom(Domain) ->
@@ -2513,6 +2519,8 @@ write_config_file(Dir, FileName, Order, Check, Write, Entries)
 	    lists:foldl(
 	      fun (Entry, State) ->
 		      case Check(Entry, State) of
+			  {Ok, NewState} when is_list(Ok) ->
+			      NewState;
 			  {ok, NewState} ->
 			      NewState;
 			  {{ok, _}, NewState} ->
@@ -2709,6 +2717,8 @@ verify_lines([], _, _, Acc) ->
 verify_lines(
   [{StartLine, Term, EndLine}|Lines], Check, State, Acc) ->
     try Check(Term, State) of
+	{Terms, NewState} when is_list(Terms) ->
+	    verify_lines(Lines, Check, NewState, Terms ++ Acc);
 	{ok, NewState} ->
 	    verify_lines(Lines, Check, NewState, [Term|Acc]);
 	{{ok, NewTerm}, NewState} ->

@@ -140,6 +140,8 @@ write_agent_conf(Fd, [H|T]) ->
     do_write_agent_conf(Fd, H),
     write_agent_conf(Fd, T).
 
+do_write_agent_conf(Fd, {intAgentTransports = Tag, Val}) ->
+    io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_agent_conf(Fd, {intAgentTransportDomain = Tag, Val}) ->
     io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_agent_conf(Fd, {intAgentIpAddress = Tag, Val}) ->
@@ -379,72 +381,35 @@ do_write_standard_conf(_Fd, Tag, Val) ->
 %% ------ target_addr.conf ------
 %%
 
-target_addr_entry(Name, 
-		  Ip, 
-		  TagList, 
-		  ParamsName, 
-		  EngineId) ->
+target_addr_entry(
+  Name, Ip, TagList, ParamsName, EngineId) ->
     target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, []).
 
-target_addr_entry(Name, 
-		  Ip, 
-		  TagList, 
-		  ParamsName, 
-		  EngineId,
-		  TMask) ->
-    target_addr_entry(Name, Ip, 162, TagList, 
-		      ParamsName, EngineId, 
-		      TMask, 2048).
+target_addr_entry(
+  Name, Ip, TagList, ParamsName,
+  EngineId, TMask) ->
+    target_addr_entry(
+      Name, Ip, 162, TagList, ParamsName,
+      EngineId, TMask, 2048).
 
-target_addr_entry(Name, 
-		  Ip, 
-		  Udp, 
-		  TagList, 
-		  ParamsName, 
-		  EngineId,
-		  TMask, 
-		  MaxMessageSize) ->
-    target_addr_entry(Name, Ip, Udp, 1500, 3, TagList, 
-		      ParamsName, EngineId, 
-		      TMask, MaxMessageSize).
+target_addr_entry(
+  Name, Domain_or_Ip, Addr_or_Port, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize) ->
+    target_addr_entry(
+      Name, Domain_or_Ip, Addr_or_Port, 1500, 3, TagList,
+      ParamsName, EngineId, TMask, MaxMessageSize).
 
-target_addr_entry(Name, 
-		  Ip, 
-		  Udp, 
-		  Timeout, 
-		  RetryCount, 
-		  TagList, 
-		  ParamsName, 
-		  EngineId,
-		  TMask, 
-		  MaxMessageSize) ->
-    target_addr_entry(Name, snmp_target_mib:default_domain(), Ip, Udp, 
-		      Timeout, RetryCount, TagList, 
-		      ParamsName, EngineId, 
-		      TMask, MaxMessageSize).
+target_addr_entry(
+  Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize) ->
+    {Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
+     ParamsName, EngineId, TMask, MaxMessageSize}.
 
-target_addr_entry(Name, 
-		  Domain, 
-		  Ip, 
-		  Udp, 
-		  Timeout, 
-		  RetryCount, 
-		  TagList, 
-		  ParamsName, 
-		  EngineId,
-		  TMask, 
-		  MaxMessageSize) ->
-    {Name, 
-     Domain, 
-     Ip, 
-     Udp, 
-     Timeout, 
-     RetryCount, 
-     TagList, 
-     ParamsName, 
-     EngineId, 
-     TMask, 
-     MaxMessageSize}.
+target_addr_entry(
+  Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
+  ParamsName, EngineId,TMask, MaxMessageSize) ->
+    {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
+     ParamsName, EngineId, TMask, MaxMessageSize}.
 
 
 write_target_addr_config(Dir, Conf) ->

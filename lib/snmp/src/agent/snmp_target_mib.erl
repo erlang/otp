@@ -174,7 +174,8 @@ check_target_addr(
       EngineId, TMask, MMS);
 check_target_addr(
   {Name, Ip, Udp, Timeout, RetryCount, TagList, Params,
-   EngineId, TMask, MMS}) -> % Arity 10
+   EngineId, TMask, MMS})
+  when is_integer(Udp) -> % Arity 10
     Domain = default_domain(),
     Address = {Ip, Udp},
     check_target_addr(
@@ -189,7 +190,8 @@ check_target_addr(
       EngineId);
 check_target_addr(
   {Name, Ip, Udp, Timeout, RetryCount, TagList, Params,
-   EngineId}) -> % Arity 8
+   EngineId}) % Arity 8
+  when is_integer(Udp) ->
     Domain = default_domain(),
     Address = {Ip, Udp},
     check_target_addr(
@@ -202,7 +204,8 @@ check_target_addr(
     check_target_addr(
       Name, Domain, Address, Timeout, RetryCount, TagList, Params);
 check_target_addr(
-  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params}) -> % Arity 7
+  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params})  % Arity 7
+  when is_integer(Udp) ->
     Domain = default_domain(),
     Address = {Ip, Udp},
     check_target_addr(
@@ -216,7 +219,8 @@ check_target_addr(
       Name, Domain, Address, Timeout, RetryCount, TagList, Params, TMask, MMS);
 check_target_addr(
   {Name, Ip, Udp, Timeout, RetryCount, TagList, Params,
-   TMask, MMS}) -> % Arity 9
+   TMask, MMS}) % Arity 9
+  when is_integer(Udp) ->
     Domain = default_domain(),
     Address = {Ip, Udp},
     check_target_addr(
