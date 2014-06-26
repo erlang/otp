@@ -93,6 +93,7 @@ static volatile int cols_needs_update = FALSE;
 #define OP_INSC 2
 #define OP_DELC 3
 #define OP_BEEP 4
+#define OP_PUTC_SYNC 5
 /* Control op */
 #define CTRL_OP_GET_WINSIZE 100
 #define CTRL_OP_GET_UNICODE_STATE 101
@@ -137,6 +138,7 @@ static Sint16 get_sint16(char*);
 static ErlDrvPort ttysl_port;
 static int ttysl_fd;
 static int ttysl_terminate = 0;
+static int ttysl_send_ok = 0;
 static ErlDrvBinary *putcbuf;
 static int putcpos;
 static int putclen;
@@ -683,6 +685,14 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
 	put_chars((byte*)"\n", 1);
 
     switch (buf[0]) {
+    case OP_PUTC_SYNC:
+        /* Using sync means that we have to send an ok to the
+           controlling process for each command call. We delay
+           sending ok if the driver queue exceeds a certain size.
+           We do not set ourselves as a busy port, as this
+           could be very bad for user_drv, if it gets blocked on
+           the port_command. */
+        /* fall through */
     case OP_PUTC:
 	DEBUGLOG(("OP: Putc(%lu)",(unsigned long) count-1));
 	if (check_buf_size((byte*)buf+1, count-1) == 0)
@@ -736,6 +746,22 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
         }
     }
 
+    if (buf[0] == OP_PUTC_SYNC) {
+        if (driver_sizeq(ttysl_port) > TTY_BUFFSIZE && !ttysl_terminate) {
+            /* We delay sending the ack until the buffer has been consumed */
+            ttysl_send_ok = 1;
+        } else {
+            ErlDrvTermData spec[] = {
+                ERL_DRV_PORT, driver_mk_port(ttysl_port),
+                ERL_DRV_ATOM, driver_mk_atom("ok"),
+                ERL_DRV_TUPLE, 2
+            };
+            ASSERT(ttysl_send_ok == 0);
+            erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                                sizeof(spec) / sizeof(spec[0]));
+        }
+    }
+
     return; /* TRUE; */
 }
 
@@ -758,6 +784,16 @@ static void ttysl_to_tty(ErlDrvData ttysl_data, ErlDrvEvent fd) {
             }
         } else {
             sz = driver_deq(ttysl_port, written);
+            if (sz < TTY_BUFFSIZE && ttysl_send_ok) {
+                ErlDrvTermData spec[] = {
+                    ERL_DRV_PORT, driver_mk_port(ttysl_port),
+                    ERL_DRV_ATOM, driver_mk_atom("ok"),
+                    ERL_DRV_TUPLE, 2
+                };
+                ttysl_send_ok = 0;
+                erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                                    sizeof(spec) / sizeof(spec[0]));
+            }
             if (sz == 0) {
                 driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
                               ERL_DRV_WRITE,0);
