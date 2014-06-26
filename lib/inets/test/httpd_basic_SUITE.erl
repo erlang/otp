@@ -129,7 +129,7 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
-init_per_testcase(Case, Config) ->
+init_per_testcase(_Case, Config) ->
     Config.
 
 
