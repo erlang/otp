@@ -102,6 +102,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab_fix",				"address"		},
     {	"meta_main_tab_main",			NULL 			},
     {	"db_hash_slot",				"address"		},
+    {	"db_nested_hash_slot",			"address"		},
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
     {	"sys_tracers",				NULL			},

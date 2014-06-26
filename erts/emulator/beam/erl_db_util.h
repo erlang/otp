@@ -82,7 +82,7 @@ typedef union db_table DbTable;
 typedef struct {
     DbTable* tb;
     DbTerm* dbterm;
-    void** bp;         /* {Hash|Tree}DbTerm** */
+    void** bp;         /* {NestedHash|Hash|Tree}DbTerm** */
     Uint new_size;
     int mustResize;
     void* lck;
@@ -251,16 +251,18 @@ typedef struct db_table_common {
 
 #define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET|DB_FINE_LOCKED|DB_FREQ_READ)
 
-#define IS_HASH_TABLE(Status) (!!((Status) & \
-				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
-#define IS_TREE_TABLE(Status) (!!((Status) & \
+#define IS_NESTED_HASH_TABLE(Status) (!!((Status) &                     \
+                                         (DB_BAG | DB_DUPLICATE_BAG)))
+#define IS_HASH_TABLE(Status) (!!((Status) &    \
+				  DB_SET))
+#define IS_TREE_TABLE(Status) (!!((Status) &            \
 				  DB_ORDERED_SET))
 #define NFIXED(T) (erts_refc_read(&(T)->common.ref,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
 /*
  * tplp is an untagged pointer to a tuple we know is large enough
- * and dth is a pointer to a DbTableHash.
+ * and dth is a pointer to a DbTableHash or NestedDbTableHash.
  */
 #define GETKEY(dth, tplp)   (*((tplp) + ((DbTableCommon*)(dth))->keypos))
 
@@ -270,6 +272,7 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 			ErlOffHeap* off_heap);
 int db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b);
 DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org);
+void db_free_tmp_uncompressed(DbTerm* obj);
 
 ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap);
