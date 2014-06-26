@@ -1,7 +1,7 @@
 %% =====================================================================
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -476,13 +476,20 @@ lay_literal(Node, Ctxt) ->
 	    %% that could represent printable characters - we
 	    %% always print an integer.
 	    text(int_lit(Node));
-	V when is_binary(V) ->
-	    lay_binary(c_binary([c_bitstr(abstract(B),
-					  abstract(8),
+        V when is_bitstring(V) ->
+            Val = fun(I) when is_integer(I) -> I;
+                     (B) when is_bitstring(B) ->
+                          BZ = bit_size(B), <<BV:BZ>> = B, BV
+                  end,
+            Sz = fun(I) when is_integer(I) -> 8;
+                    (B) when is_bitstring(B) -> bit_size(B)
+                 end,
+	    lay_binary(c_binary([c_bitstr(abstract(Val(B)),
+					  abstract(Sz(B)),
 					  abstract(1),
 					  abstract(integer),
 					  abstract([unsigned, big]))
-				 || B <- binary_to_list(V)]),
+				 || B <- bitstring_to_list(V)]),
 		       Ctxt);
 	[] ->
 	    text("[]");
