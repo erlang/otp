@@ -40,7 +40,6 @@
 	 any_none_or_unit/1,
 	 lookup_record/3,
 	 max/2,
-	 module_builtin_opaques/1,
 	 min/2,
 	 number_max/1, number_max/2,
 	 number_min/1, number_min/2,
@@ -188,7 +187,6 @@
 	 t_subtract_list/2,
 	 t_sup/1,
 	 t_sup/2,
-	 t_tid/0,
 	 t_timeout/0,
 	 t_to_string/1,
 	 t_to_string/2,
@@ -463,16 +461,6 @@ has_opaque_subtype(T) ->
 
 t_opaque_structure(?opaque(Elements)) ->
   t_sup([Struct || #opaque{struct = Struct} <- ordsets:to_list(Elements)]).
-
--spec t_opaque_modules(erl_type()) -> [module()].
-
-t_opaque_modules(?opaque(Elements)) ->
-  case ordsets:size(Elements) of
-    1 ->
-      [#opaque{mod = Mod}] = set_to_list(Elements),
-      [Mod];
-    _ -> throw({error, "Unexpected multiple opaque types"})
-  end.
 
 -spec t_contains_opaque(erl_type()) -> boolean().
 
@@ -798,11 +786,6 @@ t_struct_from_opaque(Type, _Opaques) -> Type.
 
 list_struct_from_opaque(Types, Opaques) ->
   [t_struct_from_opaque(Type, Opaques) || Type <- Types].
-
--spec module_builtin_opaques(module()) -> [erl_type()].
-
-module_builtin_opaques(Module) ->
-  [O || O <- all_opaque_builtins(), lists:member(Module, t_opaque_modules(O))].
 
 %%-----------------------------------------------------------------------------
 %% Remote types: these types are used for preprocessing;
@@ -1982,82 +1965,6 @@ t_parameterized_module() ->
 
 t_timeout() ->
   t_sup(t_non_neg_integer(), t_atom('infinity')).
-
-%%-----------------------------------------------------------------------------
-%% Some built-in opaque types
-%%
-
--spec t_array() -> erl_type().
-
-t_array() ->
-  t_opaque(array, array, [t_any()],
-	   t_tuple([t_atom('array'),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-                    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_any(),
-                    t_any()])).
-
--spec t_dict() -> erl_type().
-
-t_dict() ->
-  t_opaque(dict, dict, [t_any(), t_any()],
-	   t_tuple([t_atom('dict'),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-		    t_sup([t_atom('undefined'), t_non_neg_integer()]),
-                    t_sup([t_atom('undefined'), t_tuple()]),
-                    t_sup([t_atom('undefined'), t_tuple()])])).
-
--spec t_digraph() -> erl_type().
-
-t_digraph() ->
-  t_opaque(digraph, digraph, [],
-	   t_tuple([t_atom('digraph'),
-		    t_sup(t_atom(), t_tid()),
-		    t_sup(t_atom(), t_tid()),
-		    t_sup(t_atom(), t_tid()),
-		    t_boolean()])).
-
--spec t_gb_set() -> erl_type().
-
-t_gb_set() ->
-  t_opaque(gb_sets, gb_set, [],
-	   t_tuple([t_non_neg_integer(), t_sup(t_atom('nil'), t_tuple(3))])).
-
--spec t_gb_tree() -> erl_type().
-
-t_gb_tree() ->
-  t_opaque(gb_trees, gb_tree, [],
-	   t_tuple([t_non_neg_integer(), t_sup(t_atom('nil'), t_tuple(4))])).
-
--spec t_queue() -> erl_type().
-
-t_queue() ->
-  t_opaque(queue, queue, [t_any()], t_tuple([t_list(), t_list()])).
-
--spec t_set() -> erl_type().
-
-t_set() ->
-  t_opaque(sets, set, [t_any()],
-	   t_tuple([t_atom('set'), t_non_neg_integer(), t_non_neg_integer(),
-		    t_pos_integer(), t_non_neg_integer(), t_non_neg_integer(),
-		    t_non_neg_integer(),
-                    t_sup([t_atom('undefined'), t_tuple()]),
-                    t_sup([t_atom('undefined'), t_tuple()])])).
-
--spec t_tid() -> erl_type().
-
-t_tid() ->
-  t_opaque(ets, tid, [], t_integer()).
-
--spec all_opaque_builtins() -> [erl_type(),...].
-
-all_opaque_builtins() ->
-  [t_array(), t_dict(), t_digraph(), t_gb_set(),
-   t_gb_tree(), t_queue(), t_set(), t_tid()].
 
 %%------------------------------------
 
@@ -3313,8 +3220,8 @@ is_opaque_type2(#opaque{mod = Mod1, name = Name1, args = Args1}, Opaques) ->
 
 is_type_name(Mod, Name, Args1, Mod, Name, Args2) ->
   length(Args1) =:= length(Args2);
-is_type_name(Mod1, Name1, Args1, Mod2, Name2, Args2) ->
-  is_same_type_name2(Mod1, Name1, Args1, Mod2, Name2, Args2).
+is_type_name(_Mod1, _Name1, _Args1, _Mod2, _Name2, _Args2) ->
+  false.
 
 %% Two functions since t_unify is not symmetric.
 unify_tuple_set_and_tuple1(?tuple_set([{Arity, List}]),
@@ -4152,15 +4059,7 @@ opaque_name(Mod, Name, Extra) ->
   flat_format("~s(~s)", [S, Extra]).
 
 mod_name(Mod, Name) ->
-  case is_obsolete_opaque_builtin(Mod, Name) of
-    true  -> flat_format("~w", [Name]);
-    false -> flat_format("~w:~w", [Mod, Name])
-  end.
-
-is_obsolete_opaque_builtin(digraph, digraph) -> true;
-is_obsolete_opaque_builtin(gb_sets, gb_set) -> true;
-is_obsolete_opaque_builtin(gb_trees, gb_tree) -> true;
-is_obsolete_opaque_builtin(_, _) -> false.
+  flat_format("~w:~w", [Mod, Name]).
 
 %%=============================================================================
 %% 
@@ -4225,8 +4124,6 @@ t_from_form({type, _L, any, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_any(), []};
 t_from_form({type, _L, arity, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_arity(), []};
-t_from_form({type, _L, array, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(array, t_array(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, atom, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_atom(), []};
 t_from_form({type, _L, binary, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4248,10 +4145,6 @@ t_from_form({type, _L, byte, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_byte(), []};
 t_from_form({type, _L, char, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_char(), []};
-t_from_form({type, _L, dict, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(dict, t_dict(), TypeNames, RecDict, VarDict);
-t_from_form({type, _L, digraph, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(digraph, t_digraph(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, float, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_float(), []};
 t_from_form({type, _L, function, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4267,10 +4160,6 @@ t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
   {L, R1} = list_from_form(Domain, TypeNames, RecDict, VarDict),
   {T, R2} = t_from_form(Range, TypeNames, RecDict, VarDict),
   {t_fun(L, T), R1 ++ R2};
-t_from_form({type, _L, gb_set, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(gb_set, t_gb_set(), TypeNames, RecDict, VarDict);
-t_from_form({type, _L, gb_tree, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(gb_tree, t_gb_tree(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, identifier, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_identifier(), []};
 t_from_form({type, _L, integer, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4343,8 +4232,6 @@ t_from_form({type, _L, maybe_improper_list, [Content, Termination]},
 t_from_form({type, _L, product, Elements}, TypeNames, RecDict, VarDict) ->
   {L, R} = list_from_form(Elements, TypeNames, RecDict, VarDict),
   {t_product(L), R};
-t_from_form({type, _L, queue, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(queue, t_queue(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, range, [From, To]} = Type,
 	    _TypeNames, _RecDict, _VarDict) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
@@ -4356,14 +4243,10 @@ t_from_form({type, _L, record, [Name|Fields]}, TypeNames, RecDict, VarDict) ->
   record_from_form(Name, Fields, TypeNames, RecDict, VarDict);
 t_from_form({type, _L, reference, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_reference(), []};
-t_from_form({type, _L, set, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(set, t_set(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, string, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_string(), []};
 t_from_form({type, _L, term, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_any(), []};
-t_from_form({type, _L, tid, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(tid, t_tid(), TypeNames, RecDict, VarDict);
 t_from_form({type, _L, timeout, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_timeout(), []};
 t_from_form({type, _L, tuple, any}, _TypeNames, _RecDict, _VarDict) ->
@@ -4374,7 +4257,10 @@ t_from_form({type, _L, tuple, Args}, TypeNames, RecDict, VarDict) ->
 t_from_form({type, _L, union, Args}, TypeNames, RecDict, VarDict) ->
   {L, R} = list_from_form(Args, TypeNames, RecDict, VarDict),
   {t_sup(L), R};
+t_from_form({user_type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
+  type_from_form(Name, Args, TypeNames, RecDict, VarDict);
 t_from_form({type, _L, Name, Args}, TypeNames, RecDict, VarDict) ->
+  %% Compatibility: modules compiled before Erlang/OTP 18.0.
   type_from_form(Name, Args, TypeNames, RecDict, VarDict);
 t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
             _RecDict, _VarDict) ->
@@ -4618,9 +4504,12 @@ t_form_to_string({type, _L, Name, []} = T) ->
   try t_to_string(t_from_form(T))
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
-t_form_to_string({type, _L, Name, List}) -> 
+t_form_to_string({user_type, _L, Name, List}) ->
   flat_format("~w(~s)",
-              [Name, string:join(t_form_to_string_list(List), ",")]).
+              [Name, string:join(t_form_to_string_list(List), ",")]);
+t_form_to_string({type, L, Name, List}) ->
+  %% Compatibility: modules compiled before Erlang/OTP 18.0.
+  t_form_to_string({user_type, L, Name, List}).
 
 t_form_to_string_list(List) ->
   t_form_to_string_list(List, []).
@@ -4733,26 +4622,13 @@ do_opaque(Type, _Opaques, Pred) ->
 is_same_type_name(ModNameArgs, ModNameArgs) -> true;
 is_same_type_name({Mod, Name, Args1}, {Mod, Name, Args2}) ->
   all_any(Args1) orelse all_any(Args2);
-is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) ->
-  is_same_type_name2(Mod1, Name1, Args1, Mod2, Name2, Args2).
+is_same_type_name(_ModNameArgs1, _ModNameArgs2) ->
+  false.
 
 all_any([]) -> true;
 all_any([T|L]) ->
   t_is_any(T) andalso all_any(L);
 all_any(_) -> false.
-
-%% Compatibility. In Erlang/OTP 17 the pre-defined opaque types
-%% digraph() and so on can be used, but there are also new types such
-%% as digraph:graph() with the exact same meaning. In Erlang/OTP R18.0
-%% all but the last clause can be removed.
-
-is_same_type_name2(digraph,  digraph, [], digraph,  graph, [])   -> true;
-is_same_type_name2(digraph,  graph, [],   digraph,  digraph, []) -> true;
-is_same_type_name2(gb_sets,  gb_set, [],  gb_sets,  set, [_]) -> true;
-is_same_type_name2(gb_sets,  set, [_], gb_sets,  gb_set, [])  -> true;
-is_same_type_name2(gb_trees, gb_tree, [], gb_trees, tree, [_, _]) -> true;
-is_same_type_name2(gb_trees, tree, [_, _], gb_trees, gb_tree, []) -> true;
-is_same_type_name2(_, _, _, _, _, _) -> false.
 
 map_keys(?map(Pairs)) ->
   [K || {K, _} <- Pairs].

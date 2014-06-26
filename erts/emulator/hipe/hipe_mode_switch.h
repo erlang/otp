@@ -31,7 +31,7 @@
 
 /* result codes for beam_emu <- hipe_mode_switch() return */
 #define HIPE_MODE_SWITCH_RES_RETURN		4
-#define HIPE_MODE_SWITCH_RES_CALL		5
+#define HIPE_MODE_SWITCH_RES_CALL_EXPORTED	5
 #define HIPE_MODE_SWITCH_RES_THROW		6
 
 /* additional result codes for hipe_mode_switch() <- native return */
@@ -44,6 +44,8 @@
 #define HIPE_MODE_SWITCH_RES_CALL_CLOSURE	12 /* mode_switch <- native */
 
 #define HIPE_MODE_SWITCH_RES_APPLY		13 /* mode_switch <- native */
+
+#define HIPE_MODE_SWITCH_RES_CALL_BEAM	        14
 
 #ifndef ASM
 

@@ -130,6 +130,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: dict:dict(mfa(), line()),
                callbacks = dict:new()           %Callback types
                    :: dict:dict(mfa(), line()),
+               optional_callbacks = dict:new()  %Optional callbacks
+                   :: dict:dict(mfa(), line()),
                types = dict:new()               %Type definitions
                    :: dict:dict(ta(), #typeinfo{}),
                exp_types=gb_sets:empty()        %Exported types
@@ -313,13 +315,20 @@ format_error({undefined_behaviour,Behaviour}) ->
     io_lib:format("behaviour ~w undefined", [Behaviour]);
 format_error({undefined_behaviour_callbacks,Behaviour}) ->
     io_lib:format("behaviour ~w callback functions are undefined",
-                  [Behaviour]);
+		  [Behaviour]);
 format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
     io_lib:format("behaviour ~w callback functions erroneously defined",
+		  [Behaviour]);
+format_error({ill_defined_optional_callbacks,Behaviour}) ->
+    io_lib:format("behaviour ~w optional callback functions erroneously defined",
 		  [Behaviour]);
 format_error({behaviour_info, {_M,F,A}}) ->
     io_lib:format("cannot define callback attibute for ~w/~w when "
                   "behaviour_info is defined",[F,A]);
+format_error({redefine_optional_callback, {F, A}}) ->
+    io_lib:format("optional callback ~w/~w duplicated", [F, A]);
+format_error({undefined_callback, {_M, F, A}}) ->
+    io_lib:format("callback ~w/~w is undefined", [F, A]);
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
@@ -331,14 +340,10 @@ format_error({undefined_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s undefined", [TypeName, gen_type_paren(Arity)]);
 format_error({unused_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is unused", [TypeName, gen_type_paren(Arity)]);
-%% format_error({new_builtin_type, {TypeName, Arity}}) ->
-%%     io_lib:format("type ~w~s is a new builtin type; "
-%% 		  "its (re)definition is allowed only until the next release",
-%% 		  [TypeName, gen_type_paren(Arity)]);
-format_error({new_var_arity_type, TypeName}) ->
-    io_lib:format("type ~w is a new builtin type; "
+format_error({new_builtin_type, {TypeName, Arity}}) ->
+    io_lib:format("type ~w~s is a new builtin type; "
 		  "its (re)definition is allowed only until the next release",
-		  [TypeName]);
+		  [TypeName, gen_type_paren(Arity)]);
 format_error({builtin_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is a builtin type; it cannot be redefined",
 		  [TypeName, gen_type_paren(Arity)]);
@@ -352,10 +357,14 @@ format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
-format_error({redefine_callback, {M, F, A}}) ->
-    io_lib:format("callback ~w:~w/~w already defined", [M, F, A]);
-format_error({spec_fun_undefined, {M, F, A}}) ->
-    io_lib:format("spec for undefined function ~w:~w/~w", [M, F, A]);
+format_error({redefine_spec, {F, A}}) ->
+    io_lib:format("spec for ~w/~w already defined", [F, A]);
+format_error({redefine_callback, {F, A}}) ->
+    io_lib:format("callback ~w/~w already defined", [F, A]);
+format_error({bad_callback, {M, F, A}}) ->
+    io_lib:format("explicit module not allowed for callback ~w:~w/~w ", [M, F, A]);
+format_error({spec_fun_undefined, {F, A}}) ->
+    io_lib:format("spec for undefined function ~w/~w", [F, A]);
 format_error({missing_spec, {F,A}}) ->
     io_lib:format("missing specification for function ~w/~w", [F, A]);
 format_error(spec_wrong_arity) ->
@@ -727,6 +736,8 @@ attribute_state({attribute,L,spec,{Fun,Types}}, St) ->
     spec_decl(L, Fun, Types, St);
 attribute_state({attribute,L,callback,{Fun,Types}}, St) ->
     callback_decl(L, Fun, Types, St);
+attribute_state({attribute,L,optional_callbacks,Es}, St) ->
+    optional_callbacks(L, Es, St);
 attribute_state({attribute,L,on_load,Val}, St) ->
     on_load(L, Val, St);
 attribute_state({attribute,_L,_Other,_Val}, St) -> % Ignore others
@@ -834,57 +845,73 @@ check_behaviour(St0) ->
 %%  Check behaviours for existence and defined functions.
 
 behaviour_check(Bs, St0) ->
-    {AllBfs,St1} = all_behaviour_callbacks(Bs, [], St0),
-    St = behaviour_missing_callbacks(AllBfs, St1),
+    {AllBfs0, St1} = all_behaviour_callbacks(Bs, [], St0),
+    St = behaviour_missing_callbacks(AllBfs0, St1),
+    Exports = exports(St0),
+    F = fun(Bfs, OBfs) ->
+                [B || B <- Bfs,
+                      not lists:member(B, OBfs)
+                      orelse gb_sets:is_member(B, Exports)]
+        end,
+    %% After fixing missing callbacks new warnings may be emitted.
+    AllBfs = [{Item,F(Bfs0, OBfs0)} || {Item,Bfs0,OBfs0} <- AllBfs0],
     behaviour_conflicting(AllBfs, St).
 
 all_behaviour_callbacks([{Line,B}|Bs], Acc, St0) ->
-    {Bfs0,St} = behaviour_callbacks(Line, B, St0),
-    all_behaviour_callbacks(Bs, [{{Line,B},Bfs0}|Acc], St);
+    {Bfs0,OBfs0,St} = behaviour_callbacks(Line, B, St0),
+    all_behaviour_callbacks(Bs, [{{Line,B},Bfs0,OBfs0}|Acc], St);
 all_behaviour_callbacks([], Acc, St) -> {reverse(Acc),St}.
 
 behaviour_callbacks(Line, B, St0) ->
     try B:behaviour_info(callbacks) of
-        Funcs when is_list(Funcs) ->
-            All = all(fun({FuncName, Arity}) ->
-                              is_atom(FuncName) andalso is_integer(Arity);
-			 ({FuncName, Arity, Spec}) ->
-			      is_atom(FuncName) andalso is_integer(Arity)
-				  andalso is_list(Spec);
-                         (_Other) ->
-                              false
-                      end,
-                      Funcs),
-	    MaybeRemoveSpec = fun({_F,_A}=FA) -> FA;
-				 ({F,A,_S}) -> {F,A};
-				 (Other) -> Other
-			      end,
-            if
-                All =:= true ->
-                    {[MaybeRemoveSpec(F) || F <- Funcs], St0};
-                true ->
-                    St1 = add_warning(Line,
-                                      {ill_defined_behaviour_callbacks,B},
-                                      St0),
-                    {[], St1}
-            end;
         undefined ->
-            St1 = add_warning(Line, {undefined_behaviour_callbacks,B}, St0),
-            {[], St1};
-        _Other ->
-            St1 = add_warning(Line, {ill_defined_behaviour_callbacks,B}, St0),
-            {[], St1}
+            St1 = add_warning(Line, {undefined_behaviour_callbacks, B}, St0),
+            {[], [], St1};
+        Funcs ->
+            case is_fa_list(Funcs) of
+                true ->
+                    try B:behaviour_info(optional_callbacks) of
+                        undefined ->
+                            {Funcs, [], St0};
+                        OptFuncs ->
+                            %% OptFuncs should always be OK thanks to
+                            %% sys_pre_expand.
+                            case is_fa_list(OptFuncs) of
+                                true ->
+                                    {Funcs, OptFuncs, St0};
+                                false ->
+                                    W = {ill_defined_optional_callbacks, B},
+                                    St1 = add_warning(Line, W, St0),
+                                    {Funcs, [], St1}
+                            end
+                    catch
+                        _:_ ->
+                            {Funcs, [], St0}
+                    end;
+                false ->
+                    St1 = add_warning(Line,
+                                      {ill_defined_behaviour_callbacks, B},
+                                      St0),
+                    {[], [], St1}
+            end
     catch
         _:_ ->
-            St1 = add_warning(Line, {undefined_behaviour,B}, St0),
-            {[], St1}
+            St1 = add_warning(Line, {undefined_behaviour, B}, St0),
+            {[], [], St1}
     end.
 
-behaviour_missing_callbacks([{{Line,B},Bfs}|T], St0) ->
+behaviour_missing_callbacks([{{Line,B},Bfs0,OBfs}|T], St0) ->
+    Bfs = ordsets:subtract(ordsets:from_list(Bfs0), ordsets:from_list(OBfs)),
     Exports = gb_sets:to_list(exports(St0)),
-    Missing = ordsets:subtract(ordsets:from_list(Bfs), Exports),
+    Missing = ordsets:subtract(Bfs, Exports),
     St = foldl(fun (F, S0) ->
-		       add_warning(Line, {undefined_behaviour_func,F,B}, S0)
+                       case is_fa(F) of
+                           true ->
+                               M = {undefined_behaviour_func,F,B},
+                               add_warning(Line, M, S0);
+                           false ->
+                               S0 % ill_defined_behaviour_callbacks
+                       end
 	       end, St0, Missing),
     behaviour_missing_callbacks(T, St);
 behaviour_missing_callbacks([], St) -> St.
@@ -1046,10 +1073,9 @@ check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = dict:fetch_keys(Used),
     Undef = [{TA,dict:fetch(TA, Used)} ||
-		{T,_}=TA <- UTAs,
+		TA <- UTAs,
 		not dict:is_key(TA, Def),
-		not is_default_type(TA),
-                not is_newly_introduced_var_arity_type(T)],
+		not is_default_type(TA)],
     foldl(fun ({TA,L}, St) ->
 		  add_error(L, {undefined_type,TA}, St)
 	  end, St0, Undef).
@@ -1127,19 +1153,29 @@ check_unused_records(Forms, St0) ->
     end.
 
 check_callback_information(#lint{callbacks = Callbacks,
-				 defined = Defined} = State) ->
-    case gb_sets:is_member({behaviour_info,1}, Defined) of
-	false -> State;
+                                 optional_callbacks = OptionalCbs,
+				 defined = Defined} = St0) ->
+    OptFun = fun({MFA, Line}, St) ->
+                     case dict:is_key(MFA, Callbacks) of
+                         true ->
+                             St;
+                         false ->
+                             add_error(Line, {undefined_callback, MFA}, St)
+                     end
+             end,
+    St1 = lists:foldl(OptFun, St0, dict:to_list(OptionalCbs)),
+    case gb_sets:is_member({behaviour_info, 1}, Defined) of
+	false -> St1;
 	true ->
 	    case dict:size(Callbacks) of
-		0 -> State;
+		0 -> St1;
 		_ ->
 		    CallbacksList = dict:to_list(Callbacks),
 		    FoldL =
-			fun({Fa,Line},St) ->
+			fun({Fa, Line}, St) ->
 				add_error(Line, {behaviour_info, Fa}, St)
 			end,
-		    lists:foldl(FoldL, State, CallbacksList)
+		    lists:foldl(FoldL, St1, CallbacksList)
 	    end
     end.
 
@@ -2615,30 +2651,21 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
         true ->
             case is_obsolete_builtin_type(TypePair) of
                 true -> StoreType(St0);
-                false -> add_error(Line, {builtin_type, TypePair}, St0)
-%%                     case is_newly_introduced_builtin_type(TypePair) of
-%%                         %% allow some types just for bootstrapping
-%%                         true ->
-%%                             Warn = {new_builtin_type, TypePair},
-%%                             St1 = add_warning(Line, Warn, St0),
-%%                             StoreType(St1);
-%%                         false ->
-%%                             add_error(Line, {builtin_type, TypePair}, St0)
-%%                     end
+                false ->
+                     case is_newly_introduced_builtin_type(TypePair) of
+                         %% allow some types just for bootstrapping
+                         true ->
+                             Warn = {new_builtin_type, TypePair},
+                             St1 = add_warning(Line, Warn, St0),
+                             StoreType(St1);
+                         false ->
+                             add_error(Line, {builtin_type, TypePair}, St0)
+                     end
             end;
         false ->
-            case
-                dict:is_key(TypePair, TypeDefs) orelse
-                is_var_arity_type(TypeName)
-            of
+            case dict:is_key(TypePair, TypeDefs) of
                 true ->
-                    case is_newly_introduced_var_arity_type(TypeName) of
-                        true ->
-                            Warn = {new_var_arity_type, TypeName},
-                            add_warning(Line, Warn, St0);
-                        false ->
-                            add_error(Line, {redefine_type, TypePair}, St0)
-                    end;
+                    add_error(Line, {redefine_type, TypePair}, St0);
                 false ->
                     St1 = case
                               Attr =:= opaque andalso
@@ -2675,7 +2702,7 @@ check_type({paren_type, _L, [Type]}, SeenVars, St) ->
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, #lint{module=CurrentMod} = St) ->
     case Mod =:= CurrentMod of
-	true -> check_type({type, L, Name, Args}, SeenVars, St);
+	true -> check_type({user_type, L, Name, Args}, SeenVars, St);
 	false ->
 	    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 				check_type(T, AccSeenVars, AccSt)
@@ -2709,12 +2736,15 @@ check_type({type, L, range, [From, To]}, SeenVars, St) ->
 	    _ -> add_error(L, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
-check_type({type, _L, map, any}, SeenVars, St) -> {SeenVars, St};
+check_type({type, L, map, any}, SeenVars, St) ->
+    %% To get usage right while map/0 is a newly_introduced_builtin_type.
+    St1 = used_type({map, 0}, L, St),
+    {SeenVars, St1};
 check_type({type, _L, map, Pairs}, SeenVars, St) ->
     lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
 			check_type(Pair, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Pairs);
-check_type({type, _L, map_field_assoc, Dom, Range}, SeenVars, St) ->
+check_type({type, _L, map_field_assoc, [Dom, Range]}, SeenVars, St) ->
     check_type({type, -1, product, [Dom, Range]}, SeenVars, St);
 check_type({type, _L, tuple, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, _L, any}, SeenVars, St) -> {SeenVars, St};
@@ -2733,41 +2763,39 @@ check_type({type, L, record, [Name|Fields]}, SeenVars, St) ->
 	    check_record_types(L, Atom, Fields, SeenVars, St1);
 	_ -> {SeenVars, add_error(L, {type_syntax, record}, St)}
     end;
-check_type({type, _L, product, Args}, SeenVars, St) ->
+check_type({type, _L, Tag, Args}, SeenVars, St) when Tag =:= product;
+                                                     Tag =:= union;
+                                                     Tag =:= tuple ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Args);
 check_type({type, La, TypeName, Args}, SeenVars, St) ->
-    #lint{usage=Usage, module = Module, types=Types} = St,
+    #lint{module = Module, types=Types} = St,
     Arity = length(Args),
     TypePair = {TypeName, Arity},
-    St1 = case is_var_arity_type(TypeName) of
-	      true -> St;
-	      false ->
-                  Obsolete = (is_warn_enabled(deprecated_type, St)
-                              andalso obsolete_builtin_type(TypePair)),
-                  IsObsolete =
-                      case Obsolete of
-                          {deprecated, Repl, _} when element(1, Repl) =/= Module ->
-                              case dict:find(TypePair, Types) of
-                                  {ok, _} -> false;
-                                  error -> true
-                              end;
-                          _ -> false
-                      end,
-                  case IsObsolete of
-                      true ->
+    Obsolete = (is_warn_enabled(deprecated_type, St)
+                andalso obsolete_builtin_type(TypePair)),
+    St1 = case Obsolete of
+              {deprecated, Repl, _} when element(1, Repl) =/= Module ->
+                  case dict:find(TypePair, Types) of
+                      {ok, _} ->
+                          used_type(TypePair, La, St);
+                      error ->
                           {deprecated, Replacement, Rel} = Obsolete,
                           Tag = deprecated_builtin_type,
                           W = {Tag, TypePair, Replacement, Rel},
-                          add_warning(La, W, St);
-                      false ->
-                          OldUsed = Usage#usage.used_types,
-                          UsedTypes = dict:store(TypePair, La, OldUsed),
-                          St#lint{usage=Usage#usage{used_types=UsedTypes}}
-                  end
-	  end,
+                          add_warning(La, W, St)
+                end;
+            _ -> St
+        end,
     check_type({type, -1, product, Args}, SeenVars, St1);
+check_type({user_type, L, TypeName, Args}, SeenVars, St) ->
+    Arity = length(Args),
+    TypePair = {TypeName, Arity},
+    St1 = used_type(TypePair, L, St),
+    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
+			check_type(T, AccSeenVars, AccSt)
+		end, {SeenVars, St1}, Args);
 check_type(I, SeenVars, St) ->
     case erl_eval:partial_eval(I) of
         {integer,_ILn,_Integer} -> {SeenVars, St};
@@ -2809,95 +2837,24 @@ check_record_types([{type, _, field_type, [{atom, AL, FName}, Type]}|Left],
 check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
-is_var_arity_type(tuple) -> true;
-is_var_arity_type(map) -> true;
-is_var_arity_type(product) -> true;
-is_var_arity_type(union) -> true;
-is_var_arity_type(record) -> true;
-is_var_arity_type(_) -> false.
+used_type(TypePair, L, St) ->
+    Usage = St#lint.usage,
+    OldUsed = Usage#usage.used_types,
+    UsedTypes = dict:store(TypePair, L, OldUsed),
+    St#lint{usage=Usage#usage{used_types=UsedTypes}}.
 
-is_default_type({any, 0}) -> true;
-is_default_type({arity, 0}) -> true;
-is_default_type({array, 0}) -> true;
-is_default_type({atom, 0}) -> true;
-is_default_type({atom, 1}) -> true;
-is_default_type({binary, 0}) -> true;
-is_default_type({binary, 2}) -> true;
-is_default_type({bitstring, 0}) -> true;
-is_default_type({bool, 0}) -> true;
-is_default_type({boolean, 0}) -> true;
-is_default_type({byte, 0}) -> true;
-is_default_type({char, 0}) -> true;
-is_default_type({dict, 0}) -> true;
-is_default_type({digraph, 0}) -> true;
-is_default_type({float, 0}) -> true;
-is_default_type({'fun', 0}) -> true;
-is_default_type({'fun', 2}) -> true;
-is_default_type({function, 0}) -> true;
-is_default_type({gb_set, 0}) -> true;
-is_default_type({gb_tree, 0}) -> true;
-is_default_type({identifier, 0}) -> true;
-is_default_type({integer, 0}) -> true;
-is_default_type({integer, 1}) -> true;
-is_default_type({iodata, 0}) -> true;
-is_default_type({iolist, 0}) -> true;
-is_default_type({list, 0}) -> true;
-is_default_type({list, 1}) -> true;
-is_default_type({maybe_improper_list, 0}) -> true;
-is_default_type({maybe_improper_list, 2}) -> true;
-is_default_type({mfa, 0}) -> true;
-is_default_type({module, 0}) -> true;
-is_default_type({neg_integer, 0}) -> true;
-is_default_type({nil, 0}) -> true;
-is_default_type({no_return, 0}) -> true;
-is_default_type({node, 0}) -> true;
-is_default_type({non_neg_integer, 0}) -> true;
-is_default_type({none, 0}) -> true;
-is_default_type({nonempty_list, 0}) -> true;
-is_default_type({nonempty_list, 1}) -> true;
-is_default_type({nonempty_improper_list, 2}) -> true;
-is_default_type({nonempty_maybe_improper_list, 0}) -> true;
-is_default_type({nonempty_maybe_improper_list, 2}) -> true;
-is_default_type({nonempty_string, 0}) -> true;
-is_default_type({number, 0}) -> true;
-is_default_type({pid, 0}) -> true;
-is_default_type({port, 0}) -> true;
-is_default_type({pos_integer, 0}) -> true;
-is_default_type({queue, 0}) -> true;
-is_default_type({range, 2}) -> true;
-is_default_type({reference, 0}) -> true;
-is_default_type({set, 0}) -> true;
-is_default_type({string, 0}) -> true;
-is_default_type({term, 0}) -> true;
-is_default_type({timeout, 0}) -> true;
-is_default_type({var, 1}) -> true;
-is_default_type(_) -> false.
+is_default_type({Name, NumberOfTypeVariables}) ->
+    erl_internal:is_type(Name, NumberOfTypeVariables).
 
-is_newly_introduced_var_arity_type(map) -> true;
-is_newly_introduced_var_arity_type(_) -> false.
-
-%% is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
+is_newly_introduced_builtin_type({map, 0}) -> true;
+is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
     obsolete_builtin_type(TypePair) =/= no.
 
-%% Obsolete in OTP 17.0.
-obsolete_builtin_type({array, 0}) ->
-    {deprecated, {array, array, 1}, "OTP 18.0"};
-obsolete_builtin_type({dict, 0}) ->
-    {deprecated, {dict, dict, 2}, "OTP 18.0"};
-obsolete_builtin_type({digraph, 0}) ->
-    {deprecated, {digraph, graph}, "OTP 18.0"};
-obsolete_builtin_type({gb_set, 0}) ->
-    {deprecated, {gb_sets, set, 1}, "OTP 18.0"};
-obsolete_builtin_type({gb_tree, 0}) ->
-    {deprecated, {gb_trees, tree, 2}, "OTP 18.0"};
-obsolete_builtin_type({queue, 0}) ->
-    {deprecated, {queue, queue, 1}, "OTP 18.0"};
-obsolete_builtin_type({set, 0}) ->
-    {deprecated, {sets, set, 1}, "OTP 18.0"};
-obsolete_builtin_type({tid, 0}) ->
-    {deprecated, {ets, tid}, "OTP 18.0"};
+%% To keep Dialyzer silent...
+obsolete_builtin_type({1, 255}) ->
+    {deprecated, {2, 255}, ""};
 obsolete_builtin_type({Name, A}) when is_atom(Name), is_integer(A) -> no.
 
 %% spec_decl(Line, Fun, Types, State) -> State.
@@ -2909,7 +2866,7 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
 	  end,
     St1 = St0#lint{specs = dict:store(MFA, Line, Specs)},
     case dict:is_key(MFA, Specs) of
-	true -> add_error(Line, {redefine_spec, MFA}, St1);
+	true -> add_error(Line, {redefine_spec, MFA0}, St1);
 	false -> check_specs(TypeSpecs, Arity, St1)
     end.
 
@@ -2917,15 +2874,49 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
 
 callback_decl(Line, MFA0, TypeSpecs,
 	      St0 = #lint{callbacks = Callbacks, module = Mod}) ->
-    MFA = case MFA0 of
-	      {F, Arity} -> {Mod, F, Arity};
-	      {_M, _F, Arity} -> MFA0
-	  end,
-    St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
-    case dict:is_key(MFA, Callbacks) of
-	true -> add_error(Line, {redefine_callback, MFA}, St1);
-	false -> check_specs(TypeSpecs, Arity, St1)
+    case MFA0 of
+        {_M, _F, _A} -> add_error(Line, {bad_callback, MFA0}, St0);
+        {F, Arity} ->
+            MFA = {Mod, F, Arity},
+            St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
+            case dict:is_key(MFA, Callbacks) of
+                true -> add_error(Line, {redefine_callback, MFA0}, St1);
+                false -> check_specs(TypeSpecs, Arity, St1)
+            end
     end.
+
+%% optional_callbacks(Line, FAs, State) -> State.
+
+optional_callbacks(Line, Term, St0) ->
+    try true = is_fa_list(Term), Term of
+        FAs ->
+            optional_cbs(Line, FAs, St0)
+    catch
+        _:_ ->
+            St0 % ignore others
+    end.
+
+optional_cbs(_Line, [], St) ->
+    St;
+optional_cbs(Line, [{F,A}|FAs], St0) ->
+    #lint{optional_callbacks = OptionalCbs, module = Mod} = St0,
+    MFA = {Mod, F, A},
+    St1 = St0#lint{optional_callbacks = dict:store(MFA, Line, OptionalCbs)},
+    St2 = case dict:is_key(MFA, OptionalCbs) of
+              true ->
+                  add_error(Line, {redefine_optional_callback, {F,A}}, St1);
+              false ->
+                  St1
+          end,
+    optional_cbs(Line, FAs, St2).
+
+is_fa_list([E|L]) -> is_fa(E) andalso is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
+
+is_fa({FuncName, Arity})
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
+is_fa(_) -> false.
 
 check_specs([FunType|Left], Arity, St0) ->
     {FunType1, CTypes} =
@@ -2950,10 +2941,11 @@ check_specs([], _Arity, St) ->
     St.
 
 check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
-    Fun = fun({M, F, A} = MFA, Line, AccSt) when M =:= Mod ->
-		  case gb_sets:is_element({F, A}, Funcs) of
+    Fun = fun({M, F, A}, Line, AccSt) when M =:= Mod ->
+                  FA = {F, A},
+		  case gb_sets:is_element(FA, Funcs) of
 		      true -> AccSt;
-		      false -> add_error(Line, {spec_fun_undefined, MFA}, AccSt)
+		      false -> add_error(Line, {spec_fun_undefined, FA}, AccSt)
 		  end;
 	     ({_M, _F, _A}, _Line, AccSt) -> AccSt
 	  end,

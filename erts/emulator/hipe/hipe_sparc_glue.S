@@ -155,9 +155,9 @@ hipe_sparc_throw_to_native:
  * which should look as follows:
  *
  * stub for f/N:
- *	sethi %hi(f's BEAM code address), TEMP_ARG0
+ *	sethi %hi(f's export entry address), TEMP_ARG0
  *	mov RA, TEMP_RA		! because the call below clobbers RA (%o7)
- *	or TEMP_ARG0, %lo(f's BEAM code address), TEMP_ARG0
+ *	or TEMP_ARG0, %lo(f's export entry address), TEMP_ARG0
  *	call nbif_callemu	! clobbers RA!
  *	mov N, TEMP_ARG1	! delay slot: TEMP_ARG1 := ARITY
  *
@@ -165,12 +165,12 @@ hipe_sparc_throw_to_native:
  */
 	.global nbif_callemu
 nbif_callemu:
-	st	TEMP_ARG0, [P+P_BEAM_IP]
+	st	TEMP_ARG0, [P+P_CALLEE_EXP]
 	st	TEMP_ARG1, [P+P_ARITY]
 	st	TEMP_RA, [P+P_NRA]
 	STORE_ARG_REGS
 	ba	.flush_exit
-	mov	HIPE_MODE_SWITCH_RES_CALL, %o0
+	mov	HIPE_MODE_SWITCH_RES_CALL_EXPORTED, %o0
 
 /*
  * nbif_apply

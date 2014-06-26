@@ -701,6 +701,8 @@ deprecated(Es, S) ->
     end.
 
 behaviours(Es, Name) ->
+    CBs = get_content(callbacks, Es),
+    OCBs = get_content(optional_callbacks, Es),
     (case get_elem(behaviour, Es) of
 	 [] -> [];
 	 Es1 ->
@@ -709,13 +711,24 @@ behaviours(Es, Name) ->
 	      ?NL]
      end
      ++
-     case get_content(callbacks, Es) of
-	 [] -> [];
-	 Es1 ->
+     if CBs =:= [], OCBs =:= [] ->
+             [];
+	 true ->
+             Req = if CBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Required callback functions: "]
+                           ++ seq(fun callback/1, CBs, ["."])
+                   end,
+             Opt = if OCBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Optional callback functions: "]
+                           ++ seq(fun callback/1, OCBs, ["."])
+                   end,
 	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
-			 " behaviour."]},
-		    br, " Required callback functions: "]
-		   ++ seq(fun callback/1, Es1, ["."]))},
+			 " behaviour."]}]
+                   ++ Req ++ Opt)},
 	      ?NL]
      end).
 

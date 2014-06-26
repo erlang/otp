@@ -1405,6 +1405,12 @@ spawn_executable(Config) when is_list(Config) ->
 	run_echo_args(SpaceDir,[ExactFile2,"hello world","dlrow olleh"]),
     [ExactFile2,"hello world","dlrow olleh"] =
 	run_echo_args(SpaceDir,[binary, ExactFile2,"hello world","dlrow olleh"]),
+
+    [ExactFile2,"hello \"world\"","\"dlrow\" olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
+    [ExactFile2,"hello \"world\"","\"dlrow\" olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
+
     [ExactFile2] = run_echo_args(SpaceDir,[default]),
     [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[switch_order,ExactFile2,"hello world",

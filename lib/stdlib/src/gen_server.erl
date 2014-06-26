@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -88,6 +88,7 @@
 %% API
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
+	 stop/1, stop/3,
 	 call/2, call/3,
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
@@ -137,6 +138,15 @@
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
+-callback format_status(Opt, StatusData) -> Status when
+      Opt :: 'normal' | 'terminate',
+      StatusData :: [PDict | State],
+      PDict :: [{Key :: term(), Value :: term()}],
+      State :: term(),
+      Status :: term().
+
+-optional_callbacks([format_status/2]).
+
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -166,6 +176,17 @@ start_link(Mod, Args, Options) ->
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
 
+
+%% -----------------------------------------------------------------
+%% Stop a generic server and wait for it to terminate.
+%% If the server is located at another node, that node will
+%% be monitored.
+%% -----------------------------------------------------------------
+stop(Name) ->
+    gen:stop(Name).
+
+stop(Name, Reason, Timeout) ->
+    gen:stop(Name, Reason, Timeout).
 
 %% -----------------------------------------------------------------
 %% Make a call to a generic server.

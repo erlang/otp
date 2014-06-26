@@ -231,7 +231,7 @@ void hipe_print_pcb(Process *p)
     U("nsp        ", hipe.nsp);
     U("nstack     ", hipe.nstack);
     U("nstend     ", hipe.nstend);
-    U("ncallee    ", hipe.ncallee);
+    U("ncallee    ", hipe.u.ncallee);
     hipe_arch_print_pcb(&p->hipe);
 #endif	/* HIPE */
 #undef U

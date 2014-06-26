@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
-          otp_10302/1, otp_10820/1, otp_11100/1]).
+          otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -83,7 +83,7 @@ groups() ->
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820, otp_11100]}].
+       otp_10302, otp_10820, otp_11100, otp_11861]}].
 
 init_per_suite(Config) ->
     Config.
@@ -874,6 +874,7 @@ type_examples() ->
      {ex3,<<"-type paren() :: (ann2()). ">>},
      {ex4,<<"-type t1() :: atom(). ">>},
      {ex5,<<"-type t2() :: [t1()]. ">>},
+     {ex56,<<"-type integer(A) :: A. ">>},
      {ex6,<<"-type t3(Atom) :: integer(Atom). ">>},
      {ex7,<<"-type '\\'t::4'() :: t3('\\'foobar'). ">>},
      {ex8,<<"-type t5() :: {t1(), t3(foo)}. ">>},
@@ -1204,8 +1205,18 @@ otp_11100(Config) when is_list(Config) ->
              []}}),
     ok.
 
+otp_11861(doc) ->
+    "OTP-11861. behaviour_info() and -callback.";
+otp_11861(suite) -> [];
+otp_11861(Config) when is_list(Config) ->
+    "-optional_callbacks([bar/0]).\n" =
+        pf({attribute,3,optional_callbacks,[{bar,0}]}),
+    "-optional_callbacks([{bar,1,bad}]).\n" =
+        pf({attribute,4,optional_callbacks,[{bar,1,bad}]}),
+    ok.
+
 pf(Form) ->
-    lists:flatten(erl_pp:form(Form,none)).
+    lists:flatten(erl_pp:form(Form, none)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

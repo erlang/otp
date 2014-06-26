@@ -45,7 +45,7 @@
 %% Types used in other parts of the system below
 %%-----------------------------------------------------------------------
 
--type file_contract() :: {file_line(), #contract{}}.
+-type file_contract() :: {file_line(), #contract{}, Extra :: [_]}.
 
 -type plt_contracts() :: [{mfa(), #contract{}}]. % actually, an orddict()
 
@@ -148,10 +148,10 @@ process_contract_remote_types(CodeServer) ->
   ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
   RecordDict = dialyzer_codeserver:get_records(CodeServer),
   ContractFun =
-    fun({_M, _F, _A}, {File, #tmp_contract{contract_funs = CFuns, forms = Forms}}) ->
+    fun({_M, _F, _A}, {File, #tmp_contract{contract_funs = CFuns, forms = Forms}, Xtra}) ->
 	NewCs = [CFun(ExpTypes, RecordDict) || CFun <- CFuns],
 	Args = general_domain(NewCs),
-	{File, #contract{contracts = NewCs, args = Args, forms = Forms}}
+	{File, #contract{contracts = NewCs, args = Args, forms = Forms}, Xtra}
     end,
   ModuleFun =
     fun(_ModuleName, ContractDict) ->
@@ -177,7 +177,7 @@ check_contracts(Contracts, Callgraph, FunTypes, FindOpaques) ->
 	case dialyzer_callgraph:lookup_name(Label, Callgraph) of
 	  {ok, {M,F,A} = MFA} ->
 	    case orddict:find(MFA, Contracts) of
-	      {ok, {_FileLine, Contract}} ->
+	      {ok, {_FileLine, Contract, _Xtra}} ->
                 Opaques = FindOpaques(M),
 		case check_contract(Contract, Type, Opaques) of
 		  ok ->
@@ -364,7 +364,7 @@ contracts_without_fun(Contracts, AllFuns0, Callgraph) ->
   [warn_spec_missing_fun(MFA, Contracts) || MFA <- ErrorContractMFAs].
 
 warn_spec_missing_fun({M, F, A} = MFA, Contracts) ->
-  {FileLine, _Contract} = dict:fetch(MFA, Contracts),
+  {FileLine, _Contract, _Xtra} = dict:fetch(MFA, Contracts),
   {?WARN_CONTRACT_SYNTAX, FileLine, {spec_missing_fun, [M, F, A]}}.
 
 %% This treats the "when" constraints. It will be extended, we hope.
@@ -388,14 +388,16 @@ insert_constraints([], Dict) -> Dict.
 
 -type types() :: erl_types:type_table().
 
--spec store_tmp_contract(mfa(), file_line(), [_], contracts(), types()) ->
+-type spec_data() :: {TypeSpec :: [_], Xtra:: [_]}.
+
+-spec store_tmp_contract(mfa(), file_line(), spec_data(), contracts(), types()) ->
         contracts().
 
-store_tmp_contract(MFA, FileLine, TypeSpec, SpecDict, RecordsDict) ->
+store_tmp_contract(MFA, FileLine, {TypeSpec, Xtra}, SpecDict, RecordsDict) ->
   %% io:format("contract from form: ~p\n", [TypeSpec]),
   TmpContract = contract_from_form(TypeSpec, RecordsDict, FileLine),
   %% io:format("contract: ~p\n", [TmpContract]),
-  dict:store(MFA, {FileLine, TmpContract}, SpecDict).
+  dict:store(MFA, {FileLine, TmpContract, Xtra}, SpecDict).
 
 contract_from_form(Forms, RecDict, FileLine) ->
   {CFuns, Forms1} = contract_from_form(Forms, RecDict, FileLine, [], []),
@@ -599,7 +601,7 @@ get_invalid_contract_warnings_modules([Mod|Mods], CodeServer, Plt, FindOpaques, 
 get_invalid_contract_warnings_modules([], _CodeServer, _Plt, _FindOpaques, Acc) ->
   Acc.
 
-get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract}}|Left],
+get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 				   Plt, RecDict, FindOpaques, Acc) ->
   case dialyzer_plt:lookup(Plt, MFA) of
     none ->

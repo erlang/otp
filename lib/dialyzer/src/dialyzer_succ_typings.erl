@@ -201,7 +201,7 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
 			   Codeserver, WAcc, Acc) ->
   {contract_range, [Contract, M, F, A, ArgStrings, CRet]} = Msg,
   case dialyzer_codeserver:lookup_mfa_contract({M,F,A}, Codeserver) of
-    {ok, {{ContrF, _ContrL} = FileLine, _C}} ->
+    {ok, {{ContrF, _ContrL} = FileLine, _C, _X}} ->
       case CallF =:= ContrF of
 	true ->
 	  NewMsg = {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
@@ -401,7 +401,7 @@ decorate_succ_typings(Contracts, Callgraph, FunTypes, FindOpaques) ->
           case dialyzer_callgraph:lookup_name(Label, Callgraph) of
             {ok, MFA} ->
               case orddict:find(MFA, Contracts) of
-                {ok, {_FileLine, Contract}} ->
+                {ok, {_FileLine, Contract, _Xtra}} ->
                   Args = dialyzer_contracts:get_contract_args(Contract),
                   Ret = dialyzer_contracts:get_contract_return(Contract),
                   C = erl_types:t_fun(Args, Ret),
@@ -422,10 +422,7 @@ lookup_and_find_opaques_fun(Codeserver) ->
   end.
 
 find_opaques_fun(Records) ->
-  fun(Module) ->
-      erl_types:module_builtin_opaques(Module) ++
-      erl_types:t_opaque_from_records(Records)
-  end.
+  fun(_Module) -> erl_types:t_opaque_from_records(Records) end.
 
 get_fun_types_from_plt(FunList, Callgraph, Plt) ->
   get_fun_types_from_plt(FunList, Callgraph, Plt, dict:new()).

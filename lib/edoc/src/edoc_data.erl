@@ -173,19 +173,32 @@ callbacks(Es, Module, Env, Opts) ->
 	lists:keymember(callback, 1, Module#module.attributes)
     of
 	true ->
-	    try (Module#module.name):behaviour_info(callbacks) of
-		Fs ->
-		    Fs1 = [{F,A} || {F,A} <- Fs, is_atom(F), is_integer(A)],
-		    if Fs1 =:= [] ->
-			    [];
-		       true ->
-			    [{callbacks,
-			      [callback(F, Env, Opts) || F <- Fs1]}]
-		    end
-	    catch
-		_:_ -> []
-	    end;
+            M = Module#module.name,
+            Fs = get_callback_functions(M, callbacks),
+            Os1 = get_callback_functions(M, optional_callbacks),
+            Fs1 = [FA || FA <- Fs, not lists:member(FA, Os1)],
+            Req = if Fs1 =:= [] ->
+                          [];
+                     true ->
+                          [{callbacks,
+                            [callback(FA, Env, Opts) || FA <- Fs1]}]
+                  end,
+            Opt = if Os1 =:= [] ->
+                          [];
+                     true ->
+                          [{optional_callbacks,
+                            [callback(FA, Env, Opts) || FA <- Os1]}]
+                  end,
+            Req ++ Opt;
 	false -> []
+    end.
+
+get_callback_functions(M, Callbacks) ->
+    try
+        [FA || {F, A} = FA <- M:behaviour_info(Callbacks),
+               is_atom(F), is_integer(A), A >= 0]
+    catch
+        _:_ -> []
     end.
 
 %% <!ELEMENT callback EMPTY>

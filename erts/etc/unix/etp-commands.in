@@ -1065,8 +1065,8 @@ define etp-cp-1
     set $etp_cp_mid = $etp_cp_low + ($etp_cp_high-$etp_cp_low)/2
   end
   if $etp_cp_p
-    # 12 = MI_FUNCTIONS
-    set $etp_cp_low = (Eterm**)($etp_cp_p->start + 12)
+    # 13 = MI_FUNCTIONS
+    set $etp_cp_low = (Eterm**)($etp_cp_p->start + 13)
     # 0 = MI_NUM_FUNCTIONS
     set $etp_cp_high = $etp_cp_low +$etp_cp_p->start[0]
     set $etp_cp_p = 0

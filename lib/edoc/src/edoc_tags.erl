@@ -329,10 +329,7 @@ parse_typedef(Data, Line, _Env, Where) ->
     NAs = length(As),
     case edoc_types:is_predefined(T, NAs) of
 	true ->
-            case
-                edoc_types:is_new_predefined(T, NAs)
-                orelse edoc_types:is_predefined_otp_type(T, NAs)
-            of
+            case edoc_types:is_new_predefined(T, NAs) of
                 false ->
                     throw_error(Line, {"redefining built-in type '~w'.",
                                        [T]});
@@ -499,7 +496,6 @@ check_used_type(#t_name{name = N, module = Mod}=Name, Args, P, LocalTypes) ->
         Mod =/= []
         orelse lists:member(TypeName, ets:lookup(DT, Name))
         orelse edoc_types:is_predefined(N, NArgs)
-        orelse edoc_types:is_predefined_otp_type(N, NArgs)
         orelse lists:member(TypeName, LocalTypes)
     of
         true ->

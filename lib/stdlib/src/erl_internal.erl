@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,6 +50,8 @@
 -export([bif/2,bif/3,guard_bif/2,
 	 type_test/2,new_type_test/2,old_type_test/2,old_bif/2]).
 -export([arith_op/2,bool_op/2,comp_op/2,list_op/2,send_op/2,op_type/2]).
+
+-export([is_type/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -530,3 +532,53 @@ old_bif(unlink, 1) -> true;
 old_bif(unregister, 1) -> true;
 old_bif(whereis, 1) -> true;
 old_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
+
+-spec is_type(Name, NumberOfTypeVariables) -> boolean() when
+      Name :: atom(),
+      NumberOfTypeVariables :: non_neg_integer().
+%% Returns true if Name/NumberOfTypeVariables is a predefined type.
+
+is_type(any, 0) -> true;
+is_type(arity, 0) -> true;
+is_type(atom, 0) -> true;
+is_type(binary, 0) -> true;
+is_type(bitstring, 0) -> true;
+is_type(bool, 0) -> true;
+is_type(boolean, 0) -> true;
+is_type(byte, 0) -> true;
+is_type(char, 0) -> true;
+is_type(float, 0) -> true;
+is_type(function, 0) -> true;
+is_type(identifier, 0) -> true;
+is_type(integer, 0) -> true;
+is_type(iodata, 0) -> true;
+is_type(iolist, 0) -> true;
+is_type(list, 0) -> true;
+is_type(list, 1) -> true;
+is_type(map, 0) -> true;
+is_type(maybe_improper_list, 0) -> true;
+is_type(maybe_improper_list, 2) -> true;
+is_type(mfa, 0) -> true;
+is_type(module, 0) -> true;
+is_type(neg_integer, 0) -> true;
+is_type(nil, 0) -> true;
+is_type(no_return, 0) -> true;
+is_type(node, 0) -> true;
+is_type(non_neg_integer, 0) -> true;
+is_type(none, 0) -> true;
+is_type(nonempty_improper_list, 2) -> true;
+is_type(nonempty_list, 0) -> true;
+is_type(nonempty_list, 1) -> true;
+is_type(nonempty_maybe_improper_list, 0) -> true;
+is_type(nonempty_maybe_improper_list, 2) -> true;
+is_type(nonempty_string, 0) -> true;
+is_type(number, 0) -> true;
+is_type(pid, 0) -> true;
+is_type(port, 0) -> true;
+is_type(pos_integer, 0) -> true;
+is_type(reference, 0) -> true;
+is_type(string, 0) -> true;
+is_type(term, 0) -> true;
+is_type(timeout, 0) -> true;
+is_type(tuple, 0) -> true;
+is_type(_, _) -> false.

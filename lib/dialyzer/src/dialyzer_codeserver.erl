@@ -278,10 +278,10 @@ lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   case ets_dict_find(Mod, ContDict) of
     error -> dict:new();
     {ok, Keys} ->
-      dict:from_list([get_contract_pair(Key, ContDict)|| Key <- Keys])
+      dict:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
   end.
 
-get_contract_pair(Key, ContDict) ->
+get_file_contract(Key, ContDict) ->
   {Key, ets:lookup_element(ContDict, Key, 2)}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
