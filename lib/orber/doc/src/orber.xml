@@ -356,8 +356,8 @@
         <v>Type = normal | ssl</v>
         <v>Port = integer() > 0</v>
         <v>ConfigurationParameters = [{Key, Value}]</v>
-        <v>Key = flags | iiop_in_connection_timeout | iiop_max_fragments | iiop_max_in_requests | interceptors | iiop_port | iiop_ssl_port | ssl_server_options</v>
-        <v>Value = as described in the User's Guide</v>
+        <v>Key = flags | ip_family | iiop_in_connection_timeout | iiop_max_fragments | iiop_max_in_requests | interceptors | iiop_port | iiop_ssl_port | ssl_server_options</v>
+        <v>Value = as described in the User's Guide or below</v>
         <v>Result = {ok, Ref} | {error, Reason} | {'EXCEPTION', #'BAD_PARAM'{}}</v>
         <v>Ref = #Ref</v>
         <v>Reason = string()</v>
@@ -383,6 +383,9 @@
           <item><em>flags</em> - currently it is only possible to override the global
            setting for the <c>Use Current Interface in IOR</c> and 
           <c>Exclude CodeSet Component</c> flags.</item>
+	  <item><em>ip_family</em> - can be set to <c>inet</c> or <c>inet6</c> and is 
+	  used to get a listen interface that uses another IP version than the default
+	  set with flags at startup.</item>
           <item><em>iiop_port</em> - requires that <c>Use Current Interface in IOR</c>
            is activated and the supplied <c>Type</c> is <c>normal</c>. If so,
            exported IOR:s will contain the IIOP port defined by this configuration
@@ -390,7 +393,7 @@
           <item><em>iiop_ssl_port</em> - almost equivalent to <c>iiop_port</c>.
            The difference is that <c>Type</c> shall be <c>ssl</c> and that
            exported IOR:s will contain the IIOP via SSL port defined by this configuration
-           parameter.</item>
+           parameter.</item>	
         </list>
         <p>If it is not possible to add a listener based on the supplied interface
           and port, the error message is one of the ones described in <c>inet</c>

@@ -208,6 +208,7 @@ listen(normal, Port, Options, Exception) ->
     Options4 = [binary, {packet,cdr}, {keepalive, Keepalive},
 				     {reuseaddr,true}, {backlog, Backlog} |
 				     Options3],
+
     case catch gen_tcp:listen(Port, Options4) of
 	{ok, ListenSocket} ->
 	    {ok, ListenSocket, check_port(Port, normal, ListenSocket)};
