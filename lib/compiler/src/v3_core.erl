@@ -772,7 +772,11 @@ expr_map(M0,Es0,A,St0) ->
 %% M3 = M2#{ K2 := 42 }
 
 map_build_pair_chain(M,Es,A,St) ->
-    map_build_pair_chain(M,Es,A,St,[]).
+    %% hack, remove iset if only literal
+    case map_build_pair_chain(M,Es,A,St,[]) of
+	{_,[#iset{arg=#c_literal{}=Val}],St1} -> {Val,[],St1};
+	Normal -> Normal
+    end.
 
 map_build_pair_chain(M0,[],_,St,Mps) ->
     {M0,Mps,St};
