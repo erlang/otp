@@ -34,6 +34,7 @@
 #include <termios.h>
 #include <ctype.h>
 #include <sys/utsname.h>
+#include <sys/select.h>
 
 #ifdef ISC32
 #include <sys/bsdtypes.h>
@@ -2658,18 +2659,30 @@ void sys_preload_end(Preload* p)
     /* Nothing */
 }
 
-/* Read a key from console (?) */
-
+/* Read a key from console, used by break.c
+   Here we assume that all schedulers are stopped so that erl_poll
+   does not interfere with the select below.
+*/
 int sys_get_key(fd)
 int fd;
 {
-    int c;
+    int c, ret;
     unsigned char rbuf[64];
+    fd_set fds;
 
     fflush(stdout);		/* Flush query ??? */
 
-    if ((c = read(fd,rbuf,64)) <= 0) {
-      return c; 
+    FD_ZERO(&fds);
+    FD_SET(fd,&fds);
+
+    ret = select(fd+1, &fds, NULL, NULL, NULL);
+
+    if (ret == 1) {
+        do {
+            c = read(fd,rbuf,64);
+        } while (c < 0 && errno == EAGAIN);
+        if (c <= 0)
+            return c;
     }
 
     return rbuf[0]; 
