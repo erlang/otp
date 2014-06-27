@@ -1079,6 +1079,12 @@ normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
+normalise({map,_,Pairs0}) ->
+    Pairs1 = lists:map(fun ({map_field_exact,_,K,V}) ->
+                               {normalise(K),normalise(V)}
+                       end,
+                       Pairs0),
+    maps:from_list(Pairs1);
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
