@@ -610,13 +610,11 @@ terminate(_Reason, State) ->
 code_change(_, State, _) ->
     case (State#state.module):init(State#state.args) of
 	{ok, {SupFlags, StartSpec}} ->
-	    case catch check_flags(SupFlags) of
-		ok ->
-		    {Strategy, MaxIntensity, Period} = SupFlags,
-                    update_childspec(State#state{strategy = Strategy,
-                                                 intensity = MaxIntensity,
-                                                 period = Period},
-                                     StartSpec);
+	    case set_flags(SupFlags, State) of
+		{ok, State1}  ->
+                    update_childspec(State1, StartSpec);
+		{invalid_type, SupFlags} ->
+		    {error, {bad_flags, SupFlags}}; % backwards compatibility
 		Error ->
 		    {error, Error}
 	    end;
@@ -625,14 +623,6 @@ code_change(_, State, _) ->
 	Error ->
 	    Error
     end.
-
-check_flags({Strategy, MaxIntensity, Period}) ->
-    validStrategy(Strategy),
-    validIntensity(MaxIntensity),
-    validPeriod(Period),
-    ok;
-check_flags(What) ->
-    {bad_flags, What}.
 
 update_childspec(State, StartSpec) when ?is_simple(State) ->
     case check_startspec(StartSpec) of
@@ -1188,25 +1178,27 @@ remove_child(Child, State) ->
 %% Returns: {ok, state()} | Error
 %%-----------------------------------------------------------------
 init_state(SupName, Type, Mod, Args) ->
-    case catch init_state1(SupName, Type, Mod, Args) of
-	{ok, State} ->
-	    {ok, State};
-	Error ->
-	    Error
+    set_flags(Type, #state{name = supname(SupName,Mod),
+			   module = Mod,
+			   args = Args}).
+
+set_flags(Flags, State) ->
+    try check_flags(Flags) of
+	{ok, {Strategy, MaxIntensity, Period}} ->
+	    {ok, State#state{strategy = Strategy,
+			     intensity = MaxIntensity,
+			     period = Period}}
+    catch
+	Thrown -> Thrown
     end.
 
-init_state1(SupName, {Strategy, MaxIntensity, Period}, Mod, Args) ->
+check_flags({Strategy, MaxIntensity, Period} = Flags) ->
     validStrategy(Strategy),
     validIntensity(MaxIntensity),
     validPeriod(Period),
-    {ok, #state{name = supname(SupName,Mod),
-		strategy = Strategy,
-		intensity = MaxIntensity,
-		period = Period,
-		module = Mod,
-		args = Args}};
-init_state1(_SupName, Type, _, _) ->
-    {invalid_type, Type}.
+    {ok, Flags} ;
+check_flags(What) ->
+    throw({invalid_type, What}).
 
 validStrategy(simple_one_for_one) -> true;
 validStrategy(one_for_one)        -> true;
