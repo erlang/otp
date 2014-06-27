@@ -30,7 +30,8 @@
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
 	 printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
-         otp_10836/1, io_lib_width_too_small/1]).
+         otp_10836/1, io_lib_width_too_small/1,
+         io_with_huge_message_queue/1]).
 
 -export([pretty/2]).
 
@@ -70,7 +71,7 @@ all() ->
      io_fread_newlines, otp_8989, io_lib_fread_literal,
      printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
-     io_lib_width_too_small].
+     io_lib_width_too_small, io_with_huge_message_queue].
 
 groups() -> 
     [].
@@ -2219,3 +2220,44 @@ io_lib_width_too_small(Config) ->
     "**" = lists:flatten(io_lib:format("~2.3w", [3.14])),
     "**" = lists:flatten(io_lib:format("~2.5w", [3.14])),
     ok.
+
+%% Test that the time for a huge message queue is not
+%% significantly slower than with an empty message queue.
+io_with_huge_message_queue(Config) when is_list(Config) ->
+    case test_server:is_native(gen) of
+	true ->
+	    {skip,
+	     "gen is native - huge message queue optimization "
+	     "is not implemented"};
+	false ->
+	    do_io_with_huge_message_queue(Config)
+    end.
+
+do_io_with_huge_message_queue(Config) ->
+    PrivDir = ?privdir(Config),
+    File = filename:join(PrivDir, "slask"),
+    {ok, F1} = file:open(File, [write]),
+
+    {Time,ok} = timer:tc(fun() -> writes(1000, F1) end),
+
+    [self() ! {msg,N} || N <- lists:seq(1, 500000)],
+    erlang:garbage_collect(),
+    {NewTime,ok} = timer:tc(fun() -> writes(1000, F1) end),
+    file:close(F1),
+    io:format("Time for empty message queue: ~p", [Time]),
+    io:format("Time for huge message queue: ~p", [NewTime]),
+
+    IsCover = test_server:is_cover(),
+    case (NewTime+1) / (Time+1) of
+	Q when Q < 10; IsCover ->
+	    ok;
+	Q ->
+	    io:format("Q = ~p", [Q]),
+	    ?t:fail()
+    end,
+    ok.
+
+writes(0, _) -> ok;
+writes(N, F1) ->
+    file:write(F1, "hello\n"),
+    writes(N - 1, F1).
