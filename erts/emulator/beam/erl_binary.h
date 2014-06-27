@@ -236,6 +236,8 @@ erts_bin_drv_alloc_fnf(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     void *res;
+    if (bsize < size) /* overflow */
+	return NULL;
     res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
     return (Binary *) res;
@@ -246,6 +248,8 @@ erts_bin_drv_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     void *res;
+    if (bsize < size) /* overflow */
+	erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
     return (Binary *) res;
@@ -257,6 +261,8 @@ erts_bin_nrml_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     void *res;
+    if (bsize < size) /* overflow */
+	erts_alloc_enomem(ERTS_ALC_T_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
     return (Binary *) res;
@@ -267,11 +273,12 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
 {
     Binary *nbp;
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    ErtsAlcType_t type = (bp->flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+	                                            : ERTS_ALC_T_BINARY;
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
-    if (bp->flags & BIN_FLAG_DRV)
-	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
-    else
-	nbp = erts_realloc_fnf(ERTS_ALC_T_BINARY, (void *) bp, bsize);
+    if (bsize < size) /* overflow */
+	return NULL;
+    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
     return nbp;
 }
@@ -281,17 +288,14 @@ erts_bin_realloc(Binary *bp, Uint size)
 {
     Binary *nbp;
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    ErtsAlcType_t type = (bp->flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+	                                            : ERTS_ALC_T_BINARY;
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
-    if (bp->flags & BIN_FLAG_DRV)
-	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
-    else
-	nbp = erts_realloc_fnf(ERTS_ALC_T_BINARY, (void *) bp, bsize);
+    if (bsize < size) /* overflow */
+	erts_realloc_enomem(type, bp, size);
+    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
     if (!nbp)
-	erts_realloc_n_enomem(ERTS_ALC_T2N(bp->flags & BIN_FLAG_DRV
-					   ? ERTS_ALC_T_DRV_BINARY
-					   : ERTS_ALC_T_BINARY),
-			      bp,
-			      bsize);
+	erts_realloc_enomem(type, bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
     return nbp;
 }
@@ -312,6 +316,7 @@ erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
 {
     Uint bsize = ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
+    ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);

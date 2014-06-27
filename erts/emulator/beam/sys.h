@@ -274,6 +274,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 typedef unsigned int Eterm;
 typedef unsigned int Uint;
 typedef int          Sint;
+#define ERTS_UINT_MAX UINT_MAX
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
 #define ErtsStrToSint strtol
 #else
@@ -347,6 +348,7 @@ typedef long long          Sint;
 
 typedef Uint UWord;
 typedef Sint SWord;
+#define ERTS_UINT_MAX ERTS_UWORD_MAX
 
 #endif /* HALFWORD_HEAP */
 

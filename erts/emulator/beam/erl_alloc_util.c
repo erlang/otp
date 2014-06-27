@@ -3274,6 +3274,15 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
     ASSERT(!(flags & CFLG_FORCE_MSEG && flags & CFLG_FORCE_SYS_ALLOC));
 
+    if (umem_sz > (ERTS_UINT_MAX - ERTS_UINT_MAX/100)) {
+	/* Do an overly conservative _overflow_ check here so we don't
+	 * have to deal with it from here on. I guess we could be more accurate
+	 * but I don't think the need to allocate over 99% of the address space
+	 * will ever arise on any machine, neither 32 nor 64 bit.
+	 */
+	return NULL;
+    }
+
     blk_sz = UMEMSZ2BLKSZ(allctr, umem_sz);
 
 #ifdef ERTS_SMP
