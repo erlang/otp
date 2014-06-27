@@ -27,7 +27,8 @@
 -include_lib("snmp/include/STANDARD-MIB.hrl").
 
 -define(AGENT_ENGIN_ID, "ErlangSnmpAgent").
--define(AGENT_PORT,       4000).
+-define(AGENT_PORT, 4000).
+-define(MANAGER_PORT, 8989).
 -define(DEFAULT_MAX_MESSAGE_SIZE, 484).
 -define(SYS_DESC, "iso.3.6.1.2.1.1.1.0 = STRING: \"Erlang SNMP agent\"\n").
 
@@ -44,33 +45,21 @@ all() ->
     ].
 
 groups() ->
-    [{ipv4, [], ipv4_tests()},
-     {ipv6, [], ipv6_tests()},
-     {get, [], get_tests()},
-     %%{trap, [], trap_tests()},
-     {dual_ip, [], dual_ip_tests()}].
-
-get_tests() ->
-    [erlang_agent_netsnmp_get].
-trap_tests() ->
-    [erlang_agent_netsnmp_trap].
-dual_ip_tests() ->
-    [erlang_agent_dual_ip_get].
-ipv4_tests() ->
-    [{group, get}].
-ipv6_tests() ->
-    [{group, get},
-     {group, dual_ip}
+    [{ipv4, [],    [{group, get},
+		    {group, inform}
+		   ]},
+     {ipv6, [],    [{group, get},
+		    {group, inform},
+		    {group, dual_ip}
+		   ]},
+     {get, [],     [erlang_agent_netsnmp_get]},
+     {inform, [],  [erlang_agent_netsnmp_inform]},
+     {dual_ip, [], [erlang_agent_dual_ip_get]}
     ].
 
 init_per_suite(Config) ->
-    case os:find_executable("snmpget") of
-	false ->
-	    {skip, "snmpget not found"};
-	_ ->
-	    Config
-    end.
-
+    [{agent_port, ?AGENT_PORT}, {manager_port, ?MANAGER_PORT} | Config].
+    
 end_per_suite(_Config) ->
     ok.
 
@@ -82,8 +71,8 @@ init_per_group(ipv6, Config) ->
 	    {ok, Host} = inet:gethostname(),
 	    {ok, IpAddr} = inet:getaddr(Host, inet6),
 	    Versions = [v2],
-	    agent_config(Dir, Domain, IpAddr, IpAddr, ?AGENT_PORT, Versions),
-	    [{host, Host}, {port, ?AGENT_PORT}, 
+	    agent_config(Dir, Domain, IpAddr, IpAddr, ?config(agent_port, Config), Versions),
+	    [{host, Host}, 
 	     {snmp_versions, Versions}, {ip_version, ipv6} | Config];	
 	_ ->
 	    {skip, "Host does not support IPV6"}
@@ -95,11 +84,13 @@ init_per_group(ipv4, Config) ->
     {ok, Host} = inet:gethostname(),
     {ok, IpAddr} = inet:getaddr(Host, inet),
     Versions = [v2],
-    agent_config(Dir, Domain, IpAddr, IpAddr, ?AGENT_PORT, Versions),
-    [{host, Host}, {port, ?AGENT_PORT}, {snmp_versions, Versions},
+    agent_config(Dir, Domain, IpAddr, {IpAddr, ?config(manager_port, Config)}, 
+		 ?config(agent_port, Config), Versions),
+    [{host, Host}, {snmp_versions, Versions},
      {ip_version, ipv4} | Config];
 
 init_per_group(get, Config) ->
+    %% From Ubuntu package snmp
     case os:find_executable("snmpget") of
 	false ->
 	    {skip, "snmpget not found"};
@@ -107,7 +98,8 @@ init_per_group(get, Config) ->
 	    Config
     end;
 
-init_per_group(trap, Config) ->
+init_per_group(inform, Config) ->
+    %% From Ubuntu package snmptrapfmt
     case os:find_executable("snmptrapd") of
 	false ->
 	    {skip, "snmptrapd not found"};
@@ -121,12 +113,13 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Case, Config) ->
+    Dog = ct:timetrap(10000),
     end_per_testcase(Case, Config),
     application:start(snmp),
     application:load(snmp),
     application:set_env(snmp, agent, app_env(Case, Config)),
     snmp:start_agent(normal),
-    Config.
+    [{watchdog, Dog} | Config].
 
 end_per_testcase(_, Config) ->
     application:stop(snmp),
@@ -141,10 +134,10 @@ erlang_agent_netsnmp_get() ->
 
 erlang_agent_netsnmp_get(Config) when is_list(Config) ->
     Host = ?config(host, Config),
-    Port = ?config(port, Config),
+    Port = ?config(agent_port, Config),
     IPVersion = ?config(ip_version, Config),
     Versions = ?config(snmp_versions, Config),
-
+   
     Cmd = "snmpget -c public " ++ net_snmp_version(Versions) ++ " " ++
 	net_snmp_ip_version(IPVersion) ++ 
 	Host ++ ":" ++ integer_to_list(Port) ++ 
@@ -159,26 +152,58 @@ erlang_agent_dual_ip_get(Config) when is_list(Config) ->
     erlang_agent_netsnmp_get([{ip_version, ipv4}]),
     erlang_agent_netsnmp_get([{ip_version, ipv6}]).
 %%--------------------------------------------------------------------
-erlang_agent_netsnmp_trap() ->
-    %% Host = ?config(host, Config),
-    %% Port = ?config(port, Config),
-    %% IPVersion = ?config(ip_version, Config),
-    %% Versions = ?config(snmp_versions, Config),
+erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
+    Host = ?config(host, Config),
+    IPVersion = ?config(ip_version, Config),    
+    DataDir = ?config(data_dir, Config),  
+    ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
     
-    Cmd = "",
-    net_snmp(Cmd, "").
+    Cmd = "snmptrapd -L o -M " ++ DataDir ++ 
+	" --disableAuthorization=yes" ++
+	" --snmpTrapdAddr=" ++ net_snmp_ip_version(IPVersion) ++ 
+	Host ++ ":" ++ integer_to_list(?config(manager_port, Config)),
 
+    NetSnmpPort = net_snmp_trapd(Cmd),
+    snmpa:send_notification(snmp_master_agent, testTrapv22, 
+			    {erlang_agent_test, self()}),
+    net_snmp_log(NetSnmpPort),
+    receive
+	{snmp_targets, erlang_agent_test, Addresses} ->
+	    ct:pal("Notification sent to: ~p~n", [Addresses])
+    end,
+    receive
+	{snmp_notification, erlang_agent_test, {got_response, Address}} ->
+	    ct:pal("Got respons from: ~p~n", [Address]),
+	    ok;
+	{snmp_notification, erlang_agent_test, {no_response, _} = 
+	     NoResponse} ->
+	    ct:fail(NoResponse)
+    end.
+	
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 net_snmp(Cmd, Expect) ->
-    SnmpNetPort = open_port({spawn, Cmd}, [stderr_to_stdout]), 
+    NetSnmpPort = open_port({spawn, Cmd}, [stderr_to_stdout]),
     receive 
-	{SnmpNetPort, {data, Expect}} ->
+	{NetSnmpPort, {data, Expect}} ->
 	    ok;
 	Msg ->
-	    ct:fail({{expected, {SnmpNetPort, {data, Expect}}}, 
+	    ct:fail({{expected, {NetSnmpPort, {data, Expect}}}, 
 		     {got, Msg}})
+    end,
+    catch erlang:port_close(NetSnmpPort).
+
+net_snmp_trapd(Cmd) ->
+    open_port({spawn, Cmd}, [stderr_to_stdout]).
+
+net_snmp_log(NetSnmpPort) -> 
+    receive 
+	{NetSnmpPort, {data, Data}} ->
+	    ct:pal("Received from netsnmp: ~p~n", [Data]),
+	    net_snmp_log(NetSnmpPort)
+    after 500 ->
+	    catch erlang:port_close(NetSnmpPort)
     end.
 
 app_env(_Case, Config) ->
@@ -212,16 +237,16 @@ oid_str([Int | Rest], Acc) ->
 agent_config(Dir, Domain, IpA, IpM, Port, Versions) ->
     EngineID = ?AGENT_ENGIN_ID,
     MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
-    snmp_config:write_agent_snmp_conf(Dir, Domain, {IpA, Port},
+    ok = snmp_config:write_agent_snmp_conf(Dir, Domain, {IpA, Port},
 				      EngineID, MMS),
-    snmp_config:write_agent_snmp_context_conf(Dir),
-    snmp_config:write_agent_snmp_community_conf(Dir),
-    snmp_config:write_agent_snmp_standard_conf(Dir, "snmp_to_snmpnet_SUITE"),
-    snmp_config:write_agent_snmp_target_addr_conf(Dir, Domain, 
+    ok = snmp_config:write_agent_snmp_context_conf(Dir),
+    ok = snmp_config:write_agent_snmp_community_conf(Dir),
+    ok = snmp_config:write_agent_snmp_standard_conf(Dir, "snmp_to_snmpnet_SUITE"),
+    ok = snmp_config:write_agent_snmp_target_addr_conf(Dir, Domain, 
 						  IpM, Versions),
-    snmp_config:write_agent_snmp_target_params_conf(Dir, Versions),
-    snmp_config:write_agent_snmp_notify_conf(Dir, inform),
-    snmp_config:write_agent_snmp_vacm_conf(Dir, Versions, none).
+    ok = snmp_config:write_agent_snmp_target_params_conf(Dir, Versions),
+    ok = snmp_config:write_agent_snmp_notify_conf(Dir, inform),
+    ok = snmp_config:write_agent_snmp_vacm_conf(Dir, Versions, none).
 
 net_snmp_version([v3 | _]) ->
     "-v3";

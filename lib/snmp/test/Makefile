@@ -239,6 +239,7 @@ release_tests_spec: opt
 	$(INSTALL_DATA) $(RELTEST_FILES) $(COVER_SPEC_FILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - snmp_test_data | (cd "$(RELSYSDIR)"; tar xf -)
+	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 
