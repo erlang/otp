@@ -227,7 +227,7 @@ ensure_dir("/") ->
     ok;
 ensure_dir(F) ->
     Dir = filename:dirname(F),
-    case do_is_dir(Dir, file) of
+    case do_is_dir(Dir, directory) of
 	true ->
 	    ok;
 	false when Dir =:= F ->
@@ -487,6 +487,8 @@ compile_alt(Pattern, Result) ->
 badpattern(Reason) ->
     error({badpattern,Reason}).
 
+eval_read_file_info(File, directory) ->
+    file:read_file_info(File);
 eval_read_file_info(File, file) ->
     file:read_link_info(File);
 eval_read_file_info(File, erl_prim_loader) ->
