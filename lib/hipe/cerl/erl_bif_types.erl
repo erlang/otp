@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1891,7 +1891,11 @@ infinity_add(neg_inf, _Number) -> neg_inf;
 infinity_add(_Number, pos_inf) -> pos_inf;
 infinity_add(_Number, neg_inf) -> neg_inf;
 infinity_add(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
-  Number1 + Number2.
+  try Number1 + Number2
+  catch
+    error:system_limit when Number1 < 0 -> neg_inf;
+    error:system_limit -> pos_inf
+  end.
 
 infinity_mult(neg_inf, Number) -> 
   Greater = infinity_geq(Number, 0), 
@@ -1902,7 +1906,13 @@ infinity_mult(pos_inf, Number) -> infinity_inv(infinity_mult(neg_inf, Number));
 infinity_mult(Number, pos_inf) -> infinity_inv(infinity_mult(neg_inf, Number));
 infinity_mult(Number, neg_inf) -> infinity_mult(neg_inf, Number);
 infinity_mult(Number1, Number2) when is_integer(Number1), is_integer(Number2)->
-  Number1 * Number2.
+  try Number1 * Number2
+  catch
+    error:system_limit ->
+      if (Number1 >= 0) =:= (Number2 >= 0) -> pos_inf;
+         true -> neg_inf
+      end
+  end.
 
 width({Min, Max}) -> infinity_max([width(Min), width(Max)]);
 width(pos_inf) -> pos_inf;
@@ -2633,7 +2643,9 @@ opaque_args(M, F, A, Xs, Opaques) ->
           true ->
             case t_tuple_subtypes(X, Opaques) of
               unknown -> false;
-              List when length(List) >= 1 -> opaque_recargs(List, Y, Opaques)
+              List when length(List) >= 1 ->
+                (t_is_atom(Y, Opaques) andalso
+                 opaque_recargs(List, Y, Opaques))
             end;
           false -> t_has_opaque_subtype(X, Opaques)
         end];

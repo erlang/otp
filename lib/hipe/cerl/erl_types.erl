@@ -262,6 +262,8 @@
 -define(TAG_IMMED1_SIZE, 4).
 -define(BITS, (erlang:system_info(wordsize) * 8) - ?TAG_IMMED1_SIZE).
 
+-define(MAX_TUPLE_SIZE, (1 bsl 10)).
+
 %%-----------------------------------------------------------------------------
 %% Type tags and qualifiers
 %%
@@ -1770,6 +1772,8 @@ t_tuple() ->
 
 -spec t_tuple(non_neg_integer() | [erl_type()]) -> erl_type().
 
+t_tuple(N) when is_integer(N), N > ?MAX_TUPLE_SIZE  ->
+  t_tuple();
 t_tuple(N) when is_integer(N) ->
   ?tuple(lists:duplicate(N, ?any), N, ?any);
 t_tuple(List) ->
