@@ -64,9 +64,17 @@ typedef struct map_s {
 
 Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map);
 int   erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res);
-int   erts_maps_find(Eterm key, Eterm map, Eterm *value);
-int   erts_maps_get(Eterm key, Eterm map, Eterm *value);
 int   erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
 int   erts_validate_and_sort_map(map_t* map);
+
+#if HALFWORD_HEAP
+const Eterm *
+erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base);
+#  define erts_maps_get(A, B) erts_maps_get_rel(A, B, NULL)
+#else
+const Eterm *
+erts_maps_get(Eterm key, Eterm map);
+#  define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
 #endif
 
+#endif

@@ -113,36 +113,55 @@ BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
  * return value if key *matches* a key in the map
  */
 
-int erts_maps_find(Eterm key, Eterm map, Eterm *value) {
-
-    Eterm *ks,*vs;
+const Eterm *
+#if HALFWORD_HEAP
+erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base)
+#else
+erts_maps_get(Eterm key, Eterm map)
+#endif
+{
+    Eterm *ks, *vs;
     map_t *mp;
-    Uint n,i;
+    Uint n, i;
 
-    mp  = (map_t*)map_val(map);
+    mp  = (map_t *)map_val_rel(map, map_base);
     n   = map_get_size(mp);
-    ks  = map_get_keys(mp);
+
+    if (n == 0) {
+        return NULL;
+    }
+
+    ks  = (Eterm *)tuple_val_rel(mp->keys, map_base) + 1;
     vs  = map_get_values(mp);
 
-    for( i = 0; i < n; i++) {
-	if (EQ(ks[i], key)) {
-	    *value = vs[i];
-	    return 1;
-	}
+    if (is_immed(key)) {
+        for (i = 0; i < n; i++) {
+            if (ks[i] == key) {
+                return &vs[i];
+            }
+        }
     }
-    return 0;
+
+    for (i = 0; i < n; i++) {
+        if (eq_rel(ks[i], NULL, key, map_base)) {
+            return &vs[i];
+        }
+    }
+    return NULL;
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
-	Eterm *hp, value,res;
+        Eterm *hp, res;
+        const Eterm *value;
 
-	if (erts_maps_find(BIF_ARG_1, BIF_ARG_2, &value)) {
+        value = erts_maps_get(BIF_ARG_1, BIF_ARG_2);
+	if (value) {
 	    hp    = HAlloc(BIF_P, 3);
 	    res   = make_tuple(hp);
 	    *hp++ = make_arityval(2);
 	    *hp++ = am_ok;
-	    *hp++ = value;
+            *hp++ = *value;
 	    BIF_RET(res);
 	}
 
@@ -150,52 +169,22 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
     }
     BIF_ERROR(BIF_P, BADARG);
 }
+
 /* maps:get/2
  * return value if key *matches* a key in the map
  * exception bad_key if none matches
  */
 
-
-int erts_maps_get(Eterm key, Eterm map, Eterm *value) {
-    Eterm *ks,*vs;
-    map_t *mp;
-    Uint n,i;
-
-    mp  = (map_t*)map_val(map);
-    n   = map_get_size(mp);
-
-    if (n == 0)
-	return 0;
-
-    ks  = map_get_keys(mp);
-    vs  = map_get_values(mp);
-
-    if (is_immed(key)) {
-	for( i = 0; i < n; i++) {
-	    if (ks[i] == key) {
-		*value = vs[i];
-		return 1;
-	    }
-	}
-    }
-
-    for( i = 0; i < n; i++) {
-	if (EQ(ks[i], key)) {
-	    *value = vs[i];
-	    return 1;
-	}
-    }
-    return 0;
-}
-
 BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
 	Eterm *hp;
-	Eterm value, error;
+        Eterm error;
+        const Eterm *value;
 	char *s_error;
 
-	if (erts_maps_get(BIF_ARG_1, BIF_ARG_2, &value)) {
-	    BIF_RET(value);
+        value = erts_maps_get(BIF_ARG_1, BIF_ARG_2);
+        if (value) {
+            BIF_RET(*value);
 	}
 
 	s_error = "bad_key";
