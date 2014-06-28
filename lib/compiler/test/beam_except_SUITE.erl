@@ -54,6 +54,8 @@ coverage(_) ->
     {'EXIT',{function_clause,
 	     [{?MODULE,fc,[[a,b,c]],[File,{line,6}]}|_]}} =
 	(catch fc([a,b,c])),
+    {'EXIT',{function_clause,[{?MODULE,qux,[],[File,{line,12}]}|_]}} =
+        (catch qux()),
 
     {'EXIT',{undef,[{erlang,error,[a,b,c],_}|_]}} =
 	(catch erlang:error(a, b, c)),
@@ -75,3 +77,5 @@ bar(X) ->					%Line 8
     case {X+1} of				%Line 9
 	1 -> ok					%Line 10
     end.					%Line 11
+qux() when 1 =:= 0 ->                           %Line 12
+    ok.

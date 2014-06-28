@@ -146,6 +146,9 @@ dig_out_block_fc([{set,[],[],{alloc,Live,_}}|Bl]) ->
 	yes ->
 	    {yes,{function_clause,Live}}
     end;
+dig_out_block_fc([{set,[{x,1}],[nil],move},
+                  {set,[{x,0}],[{atom,function_clause}],move}|_]) ->
+    {yes,{function_clause,0}};
 dig_out_block_fc(_) -> no.
 
 dig_out_fc([{set,[Dst],[{x,Reg},Dst0],put_list}|Is], Reg, Dst0) ->
