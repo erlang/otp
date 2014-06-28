@@ -1236,9 +1236,10 @@ file_info_basic_file(Config) when is_list(Config) ->
 
     %% Test that the file has the expected attributes.
     %% The times are tricky, so we will save them to a separate test case.
-    ?line {ok,#file_info{size=Size,type=Type,access=Access,
-			 atime=AccessTime,mtime=ModifyTime}} =
-	?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo} = ?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo} = ?FILE_MODULE:read_file_info(Name, [raw]),
+    #file_info{size=Size,type=Type,access=Access,
+                         atime=AccessTime,mtime=ModifyTime} = FileInfo,
     ?line io:format("Access ~p, Modify ~p", [AccessTime, ModifyTime]),
     ?line Size = 7,
     ?line Type = regular,
@@ -1280,9 +1281,10 @@ file_info_basic_directory(Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog).
 
 test_directory(Name, ExpectedAccess) ->
-    ?line {ok,#file_info{size=Size,type=Type,access=Access,
-			 atime=AccessTime,mtime=ModifyTime}} =
-	?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo} = ?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo} = ?FILE_MODULE:read_file_info(Name, [raw]),
+    #file_info{size=Size,type=Type,access=Access,
+               atime=AccessTime,mtime=ModifyTime} = FileInfo,
     ?line io:format("Testing directory ~s", [Name]),
     ?line io:format("Directory size is ~p", [Size]),
     ?line io:format("Access ~p", [Access]),
@@ -1307,11 +1309,11 @@ file_info_bad(doc) -> [];
 file_info_bad(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = filename:join([?config(priv_dir, Config)]),
-    ?line {error, enoent} = 
-	?FILE_MODULE:read_file_info(
-	  filename:join(RootDir, 
-			atom_to_list(?MODULE)++ "_nonexistent")),
+    FileName = filename:join(RootDir, atom_to_list(?MODULE) ++ "_nonexistent"),
+    {error,enoent} = ?FILE_MODULE:read_file_info(FileName),
+    {error,enoent} = ?FILE_MODULE:read_file_info(FileName, [raw]),
     ?line {error, enoent} = ?FILE_MODULE:read_file_info(""),
+    {error, enoent} = ?FILE_MODULE:read_file_info("", [raw]),
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -1346,8 +1348,9 @@ file_info_int(Config) ->
     ?line io:put_chars(Fd1,"foo"),
 
     %% check that the file got a modify date max a few seconds away from now
-    ?line {ok,#file_info{type=regular,atime=AccTime1,mtime=ModTime1}} =
-	?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Name, [raw]),
+    #file_info{type=regular,atime=AccTime1,mtime=ModTime1} = FileInfo1,
     ?line Now = erlang:localtime(), %???
     ?line io:format("Now ~p",[Now]),
     ?line io:format("Open file Acc ~p Mod ~p",[AccTime1,ModTime1]),
@@ -1363,9 +1366,10 @@ file_info_int(Config) ->
 
     %% close the file, and watch the modify date change
     ?line ok = ?FILE_MODULE:close(Fd1),
-    ?line {ok,#file_info{size=Size,type=regular,access=Access,
-			 atime=AccTime2,mtime=ModTime2}} =
-	?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo2} = ?FILE_MODULE:read_file_info(Name),
+    {ok,FileInfo2} = ?FILE_MODULE:read_file_info(Name, [raw]),
+    #file_info{size=Size,type=regular,access=Access,
+               atime=AccTime2,mtime=ModTime2} = FileInfo2,
     ?line io:format("Closed file Acc ~p Mod ~p",[AccTime2,ModTime2]),
     ?line true = time_dist(ModTime1,ModTime2) >= 0,
 
@@ -1374,9 +1378,10 @@ file_info_int(Config) ->
     ?line Access = read_write,
 
     %% Do some directory checking
-    ?line {ok,#file_info{size=DSize,type=directory,access=DAccess,
-			 atime=AccTime3,mtime=ModTime3}} =
-	?FILE_MODULE:read_file_info(RootDir),
+    {ok,FileInfo3} = ?FILE_MODULE:read_file_info(RootDir),
+    {ok,FileInfo3} = ?FILE_MODULE:read_file_info(RootDir, [raw]),
+    #file_info{size=DSize,type=directory,access=DAccess,
+               atime=AccTime3,mtime=ModTime3} = FileInfo3,
     %% this dir was modified only a few secs ago
     ?line io:format("Dir Acc ~p; Mod ~p; Now ~p", [AccTime3, ModTime3, Now]),
     ?line true = abs(time_dist(Now,ModTime3)) < 5,
@@ -1448,6 +1453,12 @@ file_write_file_info(Config) when is_list(Config) ->
     %% And unwritable.
     ?line ?FILE_MODULE:write_file_info(Name1, #file_info{mode=8#400}),
     ?line {error, eacces} = ?FILE_MODULE:write_file(Name1, "hello again"),
+
+    %% Same with raw.
+    ?FILE_MODULE:write_file_info(Name1, #file_info{mode=8#600}, [raw]),
+    ok = ?FILE_MODULE:write_file(Name1, "hello again"),
+    ?FILE_MODULE:write_file_info(Name1, #file_info{mode=8#400}, [raw]),
+    {error,eacces} = ?FILE_MODULE:write_file(Name1, "hello again"),
 
     %% Write the times again.
     %% Note: Seconds must be even; see note in file_info_times/1.
@@ -2650,7 +2661,9 @@ make_link(Config) when is_list(Config) ->
 		%% since they are not used on symbolic links.
 		
 		?line {ok, Info} = ?FILE_MODULE:read_link_info(Name),
+                {ok,Info} = ?FILE_MODULE:read_link_info(Name, [raw]),
 		?line {ok, Info} = ?FILE_MODULE:read_link_info(Alias),
+                {ok,Info} = ?FILE_MODULE:read_link_info(Alias, [raw]),
 		?line #file_info{links = 2, type = regular} = Info,
 		?line {error, eexist} = 
 		    ?FILE_MODULE:make_link(Name, Alias),
@@ -2670,6 +2683,7 @@ read_link_info_for_non_link(Config) when is_list(Config) ->
 
     ?line {ok, #file_info{type=directory}} = 
 	?FILE_MODULE:read_link_info("."),
+    {ok, #file_info{type=directory}} = ?FILE_MODULE:read_link_info(".", [raw]),
 		  
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),
@@ -2700,11 +2714,15 @@ symlinks(Config) when is_list(Config) ->
 		{skipped, "Windows user not privileged to create symlinks"};
 	    ok ->
 		?line {ok, Info1} = ?FILE_MODULE:read_file_info(Name),
+                {ok,Info1} = ?FILE_MODULE:read_file_info(Name, [raw]),
 		?line {ok, Info1} = ?FILE_MODULE:read_file_info(Alias),
+                {ok,Info1} = ?FILE_MODULE:read_file_info(Alias, [raw]),
 		?line {ok, Info1} = ?FILE_MODULE:read_link_info(Name),
+                {ok,Info1} = ?FILE_MODULE:read_link_info(Name, [raw]),
 		?line #file_info{links = 1, type = regular} = Info1,
 		
 		?line {ok, Info2} = ?FILE_MODULE:read_link_info(Alias),
+                {ok,Info2} = ?FILE_MODULE:read_link_info(Alias, [raw]),
 		?line #file_info{links=1, type=symlink} = Info2,
 		?line {ok, Name} = ?FILE_MODULE:read_link(Alias),
 		{ok, Name} = ?FILE_MODULE:read_link_all(Alias),

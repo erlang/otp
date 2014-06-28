@@ -114,7 +114,7 @@
 -type sendfile_option() :: {chunk_size, non_neg_integer()}
 			 | {use_threads, boolean()}.
 -type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
-			  | {'time', 'posix'}.
+			  | {'time', 'posix'} | raw.
 %%% BIFs
 
 -export([file_info/1, native_name_encoding/0]).
@@ -250,7 +250,19 @@ read_file_info(Name) ->
       Reason :: posix() | badarg.
 
 read_file_info(Name, Opts) when is_list(Opts) ->
-    check_and_call(read_file_info, [file_name(Name), Opts]).
+    Args = [file_name(Name), Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:read_file_info(FileName, Opts);
+                false ->
+                    call(read_file_info, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 -spec altname(Name :: name_all()) -> any().
 
@@ -272,7 +284,19 @@ read_link_info(Name) ->
       Reason :: posix() | badarg.
 
 read_link_info(Name, Opts) when is_list(Opts) ->
-    check_and_call(read_link_info, [file_name(Name),Opts]).
+    Args = [file_name(Name), Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:read_link_info(FileName, Opts);
+                false ->
+                    call(read_link_info, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 
 -spec read_link(Name) -> {ok, Filename} | {error, Reason} when
@@ -306,7 +330,19 @@ write_file_info(Name, Info = #file_info{}) ->
       Reason :: posix() | badarg.
 
 write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
-    check_and_call(write_file_info, [file_name(Name), Info, Opts]).
+    Args = [file_name(Name), Info, Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:write_file_info(FileName, Info, Opts);
+                false ->
+                    call(write_file_info, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 -spec list_dir(Dir) -> {ok, Filenames} | {error, Reason} when
       Dir :: name_all(),
@@ -392,26 +428,12 @@ write_file(Name, Bin, ModeList) when is_list(ModeList) ->
 %% Obsolete, undocumented, local node only, don't use!.
 %% XXX to be removed.
 raw_read_file_info(Name) ->
-    Args = [file_name(Name)],
-    case check_args(Args) of
-	ok ->
-	    [FileName] = Args,
-	    ?PRIM_FILE:read_file_info(FileName);
-	Error ->
-	    Error
-    end.
+    read_file_info(Name, [raw]).
 
 %% Obsolete, undocumented, local node only, don't use!.
 %% XXX to be removed.
 raw_write_file_info(Name, #file_info{} = Info) ->
-    Args = [file_name(Name)],
-    case check_args(Args) of
-	ok ->
-	    [FileName] = Args,
-	    ?PRIM_FILE:write_file_info(FileName, Info);
-	Error ->
-	    Error
-    end.
+    write_file_info(Name, Info, [raw]).
 
 %%%-----------------------------------------------------------------
 %%% File io server functions.
