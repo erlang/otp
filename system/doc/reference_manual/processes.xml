@@ -114,8 +114,8 @@ spawn(Module, Name, Args) -> pid()
     <p>Two processes can be <em>linked</em> to each other. A link
       between two processes <c>Pid1</c> and <c>Pid2</c> is created
       by <c>Pid1</c> calling the BIF <c>link(Pid2)</c> (or vice versa).
-      There also exists a number a <c>spawn_link</c> BIFs, which spawns
-      and links to a process in one operation.</p>
+      There also exist a number of <c>spawn_link</c> BIFs, which spawn
+      and link to a process in one operation.</p>
     <p>Links are bidirectional and there can only be one link between
       two processes. Repeated calls to <c>link(Pid)</c> have no effect.</p>
     <p>A link can be removed by calling the BIF <c>unlink(Pid)</c>.</p>
