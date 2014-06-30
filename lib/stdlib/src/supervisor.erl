@@ -25,7 +25,7 @@
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
 	 which_children/1, count_children/1,
-	 check_childspecs/1]).
+	 check_childspecs/1, get_childspec/2]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -197,6 +197,14 @@ delete_child(Supervisor, Name) ->
       Error :: 'not_found' | 'simple_one_for_one'.
 terminate_child(Supervisor, Name) ->
     call(Supervisor, {terminate_child, Name}).
+
+-spec get_childspec(SupRef, Id) -> Result when
+      SupRef :: sup_ref(),
+      Id :: pid() | child_id(),
+      Result :: {'ok', child_spec()} | {'error', Error},
+      Error :: 'not_found'.
+get_childspec(Supervisor, Name) ->
+    call(Supervisor, {get_childspec, Name}).
 
 -spec which_children(SupRef) -> [{Id,Child,Type,Modules}] when
       SupRef :: sup_ref(),
@@ -448,6 +456,14 @@ handle_call({delete_child, Name}, _From, State) ->
 	{value, _} ->
 	    {reply, {error, running}, State};
 	_ ->
+	    {reply, {error, not_found}, State}
+    end;
+
+handle_call({get_childspec, Name}, _From, State) ->
+    case get_child(Name, State, ?is_simple(State)) of
+	{value, Child} ->
+            {reply, {ok, child_to_spec(Child)}, State};
+	false ->
 	    {reply, {error, not_found}, State}
     end;
 
@@ -1340,6 +1356,19 @@ validMods(Mods) when is_list(Mods) ->
 		  end,
 		  Mods);
 validMods(Mods) -> throw({invalid_modules, Mods}).
+
+child_to_spec(#child{name = Name,
+		    mfargs = Func,
+		    restart_type = RestartType,
+		    shutdown = Shutdown,
+		    child_type = ChildType,
+		    modules = Mods}) ->
+    #{id => Name,
+      start => Func,
+      restart => RestartType,
+      shutdown => Shutdown,
+      type => ChildType,
+      modules => Mods}.
 
 %%% ------------------------------------------------------
 %%% Add a new restart and calculate if the max restart
