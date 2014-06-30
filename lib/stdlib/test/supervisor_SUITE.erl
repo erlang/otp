@@ -37,9 +37,11 @@
 	  sup_start_ignore_child/1, sup_start_ignore_temporary_child/1,
 	  sup_start_ignore_temporary_child_start_child/1,
 	  sup_start_ignore_temporary_child_start_child_simple/1,
-	  sup_start_error_return/1, sup_start_fail/1, sup_stop_infinity/1,
-	  sup_stop_timeout/1, sup_stop_brutal_kill/1, child_adm/1,
-	  child_adm_simple/1, child_specs/1, extra_return/1, sup_flags/1]).
+	  sup_start_error_return/1, sup_start_fail/1,
+	  sup_start_map/1, sup_start_map_faulty_specs/1,
+	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_brutal_kill/1,
+	  child_adm/1, child_adm_simple/1, child_specs/1, extra_return/1,
+	  sup_flags/1]).
 
 %% Tests concept permanent, transient and temporary 
 -export([ permanent_normal/1, transient_normal/1,
@@ -65,7 +67,8 @@
 	 do_not_save_child_specs_for_temporary_children/1,
 	 simple_one_for_one_scale_many_temporary_children/1,
          simple_global_supervisor/1, hanging_restart_loop/1,
-	 hanging_restart_loop_simple/1, code_change/1, code_change_simple/1]).
+	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
+	 code_change_simple/1, code_change_simple_map/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -73,7 +76,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, sup_start}, {group, sup_stop}, child_adm,
+    [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
      child_adm_simple, extra_return, child_specs, sup_flags,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
@@ -86,7 +89,7 @@ all() ->
      do_not_save_child_specs_for_temporary_children,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
      simple_global_supervisor, hanging_restart_loop, hanging_restart_loop_simple,
-     code_change, code_change_simple].
+     code_change, code_change_map, code_change_simple, code_change_simple_map].
 
 groups() -> 
     [{sup_start, [],
@@ -95,6 +98,8 @@ groups() ->
        sup_start_ignore_temporary_child_start_child,
        sup_start_ignore_temporary_child_start_child_simple,
        sup_start_error_return, sup_start_fail]},
+     {sup_start_map, [],
+      [sup_start_map, sup_start_map_faulty_specs]},
      {sup_stop, [],
       [sup_stop_infinity, sup_stop_timeout,
        sup_stop_brutal_kill]},
@@ -255,6 +260,60 @@ sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {error, Term} = start_link(fail),
     check_exit_reason(Term).
+
+%%-------------------------------------------------------------------------
+%% Tests that the supervisor process starts correctly with map
+%% startspec, and that the full childspec can be read.
+sup_start_map(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id=>child1, start=>{supervisor_1, start_child, []}},
+    Child2 = #{id=>child2,
+	       start=>{supervisor_1, start_child, []},
+	       shutdown=>brutal_kill},
+    Child3 = #{id=>child3,
+	       start=>{supervisor_1, start_child, []},
+	       type=>supervisor},
+    {ok, Pid} = start_link({ok, {#{}, [Child1,Child2,Child3]}}),
+
+    %% Check default values
+    {ok,#{id:=child1,
+	  start:={supervisor_1,start_child,[]},
+	  restart:=permanent,
+	  shutdown:=5000,
+	  type:=worker,
+	  modules:=[supervisor_1]}} = supervisor:get_childspec(Pid, child1),
+    {ok,#{id:=child2,
+	  start:={supervisor_1,start_child,[]},
+	  restart:=permanent,
+	  shutdown:=brutal_kill,
+	  type:=worker,
+	  modules:=[supervisor_1]}} = supervisor:get_childspec(Pid, child2),
+    {ok,#{id:=child3,
+	  start:={supervisor_1,start_child,[]},
+	  restart:=permanent,
+	  shutdown:=infinity,
+	  type:=supervisor,
+	  modules:=[supervisor_1]}} = supervisor:get_childspec(Pid, child3),
+    {error,not_found} = supervisor:get_childspec(Pid, child4),
+    terminate(Pid, shutdown).
+
+%%-------------------------------------------------------------------------
+%% Tests that the supervisor produces good error messages when start-
+%% and child specs are faulty.
+sup_start_map_faulty_specs(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{start=>{supervisor_1, start_child, []}},
+    Child2 = #{id=>child2},
+    Child3 = #{id=>child3,
+	       start=>{supervisor_1, start_child, []},
+	       silly_flag=>true},
+    Child4 = child4,
+    {error,{start_spec,missing_id}} = start_link({ok, {#{}, [Child1]}}),
+    {error,{start_spec,missing_start}} = start_link({ok, {#{}, [Child2]}}),
+    {ok,Pid} = start_link({ok, {#{}, [Child3]}}),
+    terminate(Pid,shutdown),
+    {error,{start_spec,{invalid_child_spec,child4}}} =
+	start_link({ok, {#{}, [Child4]}}).
 
 %%-------------------------------------------------------------------------
 %% See sup_stop/1 when Shutdown = infinity, this walue is allowed for
@@ -551,14 +610,28 @@ sup_flags(_Config) ->
     process_flag(trap_exit,true),
     {error,{supervisor_data,{invalid_strategy,_}}} =
 	start_link({ok, {{none_for_one, 2, 3600}, []}}),
+    {error,{supervisor_data,{invalid_strategy,_}}} =
+	start_link({ok, {#{strategy=>none_for_one}, []}}),
     {error,{supervisor_data,{invalid_intensity,_}}} =
 	start_link({ok, {{one_for_one, infinity, 3600}, []}}),
+    {error,{supervisor_data,{invalid_intensity,_}}} =
+	start_link({ok, {#{intensity=>infinity}, []}}),
     {error,{supervisor_data,{invalid_period,_}}} =
 	start_link({ok, {{one_for_one, 2, 0}, []}}),
     {error,{supervisor_data,{invalid_period,_}}} =
+	start_link({ok, {#{period=>0}, []}}),
+    {error,{supervisor_data,{invalid_period,_}}} =
 	start_link({ok, {{one_for_one, 2, infinity}, []}}),
+    {error,{supervisor_data,{invalid_period,_}}} =
+	start_link({ok, {#{period=>infinity}, []}}),
+
+    %% SupFlags other than a map or a 3-tuple
     {error,{supervisor_data,{invalid_type,_}}} =
 	start_link({ok, {{one_for_one, 2}, []}}),
+
+    %% Unexpected flags are ignored
+    {ok,Pid} = start_link({ok,{#{silly_flag=>true},[]}}),
+    terminate(Pid,shutdown),
 
     ok.
 
@@ -1738,6 +1811,61 @@ code_change(_Config) ->
 
     terminate(Pid,shutdown).
 
+code_change_map(_Config) ->
+    process_flag(trap_exit, true),
+
+    {ok, Pid} = start_link({ok, {#{}, []}}),
+    [] = supervisor:which_children(Pid),
+
+    %% Change supervisor flags
+    S1 = sys:get_state(Pid),
+    ok = fake_upgrade(Pid,{ok, {#{intensity=>1, period=>3}, []}}),
+    S2 = sys:get_state(Pid),
+    true = (S1 /= S2),
+
+    %% Faulty childspec
+    FaultyChild = #{id=>faulty_child},
+    {error,{error,missing_start}} =
+	fake_upgrade(Pid,{ok,{#{},[FaultyChild]}}),
+
+    %% Add child1 and child2
+    Child1 = #{id=>child1,
+	       start=>{supervisor_1, start_child, []},
+	       shutdown=>2000},
+    Child2 = #{id=>child2,
+	       start=>{supervisor_1, start_child, []}},
+    ok = fake_upgrade(Pid,{ok,{#{},[Child1,Child2]}}),
+    %% Children are not automatically started
+    {ok,_} = supervisor:restart_child(Pid,child1),
+    {ok,_} = supervisor:restart_child(Pid,child2),
+    [{child2,_,_,_},{child1,_,_,_}] = supervisor:which_children(Pid),
+    {ok,#{shutdown:=2000}} = supervisor:get_childspec(Pid,child1),
+
+    %% Change child1, remove child2 and add child3
+    Child11 = #{id=>child1,
+		start=>{supervisor_1, start_child, []},
+		shutdown=>1000},
+    Child3 = #{id=>child3,
+	       start=>{supervisor_1, start_child, []}},
+    ok = fake_upgrade(Pid,{ok, {#{}, [Child11,Child3]}}),
+    %% Children are not deleted on upgrade, so it is ok that child2 is
+    %% still here
+    [{child2,_,_,_},{child3,_,_,_},{child1,_,_,_}] =
+	supervisor:which_children(Pid),
+    {ok,#{shutdown:=1000}} = supervisor:get_childspec(Pid,child1),
+
+    %% Ignore during upgrade
+    ok = fake_upgrade(Pid,ignore),
+
+    %% Error during upgrade
+    {error, faulty_return} = fake_upgrade(Pid,faulty_return),
+
+    %% Faulty flags
+    {error,{error, {invalid_intensity,faulty_intensity}}} =
+	fake_upgrade(Pid,{ok, {#{intensity=>faulty_intensity}, []}}),
+
+    terminate(Pid,shutdown).
+
 code_change_simple(_Config) ->
     process_flag(trap_exit, true),
 
@@ -1759,6 +1887,32 @@ code_change_simple(_Config) ->
 
     %% Attempt to remove child
     {error, {error, {ok,[]}}} = fake_upgrade(SimplePid,{ok,{SimpleFlags,[]}}),
+
+    terminate(SimplePid,shutdown),
+    ok.
+
+code_change_simple_map(_Config) ->
+    process_flag(trap_exit, true),
+
+    SimpleChild1 = #{id=>child1,
+		     start=>{supervisor_1, start_child, []}},
+    SimpleFlags = #{strategy=>simple_one_for_one},
+    {ok, SimplePid}  = start_link({ok, {SimpleFlags,[SimpleChild1]}}),
+    %% Change childspec
+    SimpleChild11 = #{id=>child1,
+		      start=>{supervisor_1, start_child, []},
+		      shutdown=>1000},
+    ok = fake_upgrade(SimplePid,{ok,{SimpleFlags,[SimpleChild11]}}),
+
+    %% Attempt to add child
+    SimpleChild2 = #{id=>child2,
+		     start=>{supervisor_1, start_child, []}},
+    {error, {error, {ok, [_,_]}}} =
+	fake_upgrade(SimplePid,{ok,{SimpleFlags,[SimpleChild1,SimpleChild2]}}),
+
+    %% Attempt to remove child
+    {error, {error, {ok, []}}} =
+	fake_upgrade(SimplePid,{ok,{SimpleFlags,[]}}),
 
     terminate(SimplePid,shutdown),
     ok.
