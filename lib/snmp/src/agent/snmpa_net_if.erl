@@ -153,11 +153,12 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 	{ok, State} ->
 	    proc_lib:init_ack({ok, self()}),
 	    try loop(State)
-	    catch C:E ->
-		    S = erlang:get_stacktrace(),
+	    catch
+		C:E when C =/= exit, E =/= shutdown ->
 		    Fmt =
 			"loop/1 EXCEPTION ~w:~w~n"
 			"   ~p",
+		    S = erlang:get_stacktrace(),
 		    case C of
 			exit ->
 			    %% Externally killed, root cause is elsewhere
