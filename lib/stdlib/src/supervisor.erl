@@ -34,7 +34,7 @@
 
 %%--------------------------------------------------------------------------
 
--export_type([child_spec/0, startchild_ret/0, strategy/0]).
+-export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
 
 %%--------------------------------------------------------------------------
 
@@ -53,7 +53,13 @@
                   | {'global', Name :: atom()}
                   | {'via', Module :: module(), Name :: any()}
                   | pid().
--type child_spec() :: {Id :: child_id(),
+-type child_spec() :: #{id => child_id(),       % mandatory
+			start => mfargs(),      % mandatory
+			restart => restart(),   % optional
+			shutdown => shutdown(), % optional
+			type => worker(),       % optional
+			modules => modules()}   % optional
+                    | {Id :: child_id(),
                        StartFunc :: mfargs(),
                        Restart :: restart(),
                        Shutdown :: shutdown(),
@@ -62,6 +68,23 @@
 
 -type strategy() :: 'one_for_all' | 'one_for_one'
                   | 'rest_for_one' | 'simple_one_for_one'.
+
+-type sup_flags() :: #{strategy => strategy(),         % optional
+		       intensity => non_neg_integer(), % optional
+		       period => pos_integer()}        % optional
+                   | {RestartStrategy :: strategy(),
+                      Intensity :: non_neg_integer(),
+                      Period :: pos_integer()}.
+
+%%--------------------------------------------------------------------------
+%% Defaults
+-define(default_flags, #{strategy  => one_for_one,
+			 intensity => 1,
+			 period    => 5}).
+-define(default_child_spec, #{restart  => permanent,
+			      type     => worker}).
+%% Default 'shutdown' is 5000 for workers and infinity for supervisors.
+%% Default 'modules' is [M], where M comes from the child's start {M,F,A}.
 
 %%--------------------------------------------------------------------------
 
@@ -96,10 +119,7 @@
 -define(is_simple(State), State#state.strategy =:= simple_one_for_one).
 
 -callback init(Args :: term()) ->
-    {ok, {{RestartStrategy :: strategy(),
-           MaxR            :: non_neg_integer(),
-           MaxT            :: non_neg_integer()},
-           [ChildSpec :: child_spec()]}}
+    {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}}
     | ignore.
 
 -define(restarting(_Pid_), {restarting,_Pid_}).
@@ -1184,7 +1204,7 @@ init_state(SupName, Type, Mod, Args) ->
 
 set_flags(Flags, State) ->
     try check_flags(Flags) of
-	{ok, {Strategy, MaxIntensity, Period}} ->
+	#{strategy := Strategy, intensity := MaxIntensity, period := Period} ->
 	    {ok, State#state{strategy = Strategy,
 			     intensity = MaxIntensity,
 			     period = Period}}
@@ -1192,13 +1212,22 @@ set_flags(Flags, State) ->
 	Thrown -> Thrown
     end.
 
-check_flags({Strategy, MaxIntensity, Period} = Flags) ->
+check_flags(SupFlags) when is_map(SupFlags) ->
+    do_check_flags(maps:merge(?default_flags,SupFlags));
+check_flags({Strategy, MaxIntensity, Period}) ->
+    check_flags(#{strategy => Strategy,
+		  intensity => MaxIntensity,
+		  period => Period});
+check_flags(What) ->
+    throw({invalid_type, What}).
+
+do_check_flags(#{strategy := Strategy,
+		 intensity := MaxIntensity,
+		 period := Period} = Flags) ->
     validStrategy(Strategy),
     validIntensity(MaxIntensity),
     validPeriod(Period),
-    {ok, Flags} ;
-check_flags(What) ->
-    throw({invalid_type, What}).
+    Flags.
 
 validStrategy(simple_one_for_one) -> true;
 validStrategy(one_for_one)        -> true;
@@ -1219,14 +1248,7 @@ supname(N, _)      -> N.
 
 %%% ------------------------------------------------------
 %%% Check that the children start specification is valid.
-%%% Shall be a six (6) tuple
-%%%    {Name, Func, RestartType, Shutdown, ChildType, Modules}
-%%% where Name is an atom
-%%%       Func is {Mod, Fun, Args} == {atom(), atom(), list()}
-%%%       RestartType is permanent | temporary | transient
-%%%       Shutdown = integer() > 0 | infinity | brutal_kill
-%%%       ChildType = supervisor | worker
-%%%       Modules = [atom()] | dynamic
+%%% Input: [child_spec()]
 %%% Returns: {ok, [child_rec()]} | Error
 %%% ------------------------------------------------------
 
@@ -1236,6 +1258,9 @@ check_startspec([ChildSpec|T], Res) ->
     case check_childspec(ChildSpec) of
 	{ok, Child} ->
 	    case lists:keymember(Child#child.name, #child.name, Res) of
+		%% The error message duplicate_child_name is kept for
+		%% backwards compatibility, although
+		%% duplicate_child_id would be more correct.
 		true -> {duplicate_child_name, Child#child.name};
 		false -> check_startspec(T, [Child | Res])
 	    end;
@@ -1244,16 +1269,41 @@ check_startspec([ChildSpec|T], Res) ->
 check_startspec([], Res) ->
     {ok, lists:reverse(Res)}.
 
+check_childspec(ChildSpec) when is_map(ChildSpec) ->
+    catch do_check_childspec(maps:merge(?default_child_spec,ChildSpec));
 check_childspec({Name, Func, RestartType, Shutdown, ChildType, Mods}) ->
-    catch check_childspec(Name, Func, RestartType, Shutdown, ChildType, Mods);
+    check_childspec(#{id => Name,
+		      start => Func,
+		      restart => RestartType,
+		      shutdown => Shutdown,
+		      type => ChildType,
+		      modules => Mods});
 check_childspec(X) -> {invalid_child_spec, X}.
 
-check_childspec(Name, Func, RestartType, Shutdown, ChildType, Mods) ->
+do_check_childspec(#{restart := RestartType,
+		     type := ChildType} = ChildSpec)->
+    Name = case ChildSpec of
+	       #{id := N} -> N;
+	       _ -> throw(missing_id)
+	   end,
+    Func = case ChildSpec of
+	       #{start := F} -> F;
+	       _ -> throw(missing_start)
+	   end,
     validName(Name),
     validFunc(Func),
     validRestartType(RestartType),
     validChildType(ChildType),
-    validShutdown(Shutdown, ChildType),
+    Shutdown = case ChildSpec of
+		   #{shutdown := S} -> S;
+		   #{type := worker} -> 5000;
+		   #{type := supervisor} -> infinity
+	       end,
+    validShutdown(Shutdown),
+    Mods = case ChildSpec of
+	       #{modules := Ms} -> Ms;
+	       _ -> {M,_,_} = Func, [M]
+	   end,
     validMods(Mods),
     {ok, #child{name = Name, mfargs = Func, restart_type = RestartType,
 		shutdown = Shutdown, child_type = ChildType, modules = Mods}}.
@@ -1274,11 +1324,11 @@ validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
 validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
-validShutdown(Shutdown, _) 
+validShutdown(Shutdown)
   when is_integer(Shutdown), Shutdown > 0 -> true;
-validShutdown(infinity, _)             -> true;
-validShutdown(brutal_kill, _)          -> true;
-validShutdown(Shutdown, _)             -> throw({invalid_shutdown, Shutdown}).
+validShutdown(infinity)             -> true;
+validShutdown(brutal_kill)          -> true;
+validShutdown(Shutdown)             -> throw({invalid_shutdown, Shutdown}).
 
 validMods(dynamic) -> true;
 validMods(Mods) when is_list(Mods) ->
@@ -1359,14 +1409,14 @@ report_error(Error, Reason, Child, SupName) ->
 
 extract_child(Child) when is_list(Child#child.pid) ->
     [{nb_children, length(Child#child.pid)},
-     {name, Child#child.name},
+     {id, Child#child.name},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}];
 extract_child(Child) ->
     [{pid, Child#child.pid},
-     {name, Child#child.name},
+     {id, Child#child.name},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
      {shutdown, Child#child.shutdown},
