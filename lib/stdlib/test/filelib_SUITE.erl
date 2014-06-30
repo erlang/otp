@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
-	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,symlinks/1]).
+	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
+     symlinks/1]).
 
 -import(lists, [foreach/2]).
 
@@ -43,7 +44,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [wildcard_one, wildcard_two, wildcard_errors,
-     fold_files, otp_5960, ensure_dir_eexist, symlinks].
+     fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink, symlinks].
 
 groups() -> 
     [].
@@ -366,6 +367,26 @@ ensure_dir_eexist(Config) when is_list(Config) ->
     ?line {error, eexist} = filelib:ensure_dir(NeedFile),
     ?line {error, eexist} = filelib:ensure_dir(NeedFileB),
     ok.
+
+ensure_dir_symlink(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Dir = filename:join(PrivDir, "ensure_dir_symlink"),
+    Name = filename:join(Dir, "same_name_as_file_and_dir"),
+    ok = filelib:ensure_dir(Name),
+    ok = file:write_file(Name, <<"some string\n">>),
+    %% With a symlink to the directory.
+    Symlink = filename:join(PrivDir, "ensure_dir_symlink_link"),
+    case file:make_symlink(Dir, Symlink) of
+        {error,enotsup} ->
+            {skip,"Symlinks not supported on this platform"};
+        {error,eperm} ->
+            {win32,_} = os:type(),
+            {skip,"Windows user not privileged to create symlinks"};
+        ok ->
+            SymlinkedName = filename:join(Symlink, "same_name_as_file_and_dir"),
+            ok = filelib:ensure_dir(SymlinkedName)
+    end.
+
 
 symlinks(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),

@@ -265,7 +265,7 @@ do_wildcard(Pattern, Cwd, Mod) ->
     lists:sort(Files).
 
 do_wildcard_1({exists,File}, Mod) ->
-    case eval_read_file_info(File, Mod) of
+    case eval_read_link_info(File, Mod) of
 	{ok,_} -> [File];
 	_ -> []
     end;
@@ -488,7 +488,7 @@ badpattern(Reason) ->
     error({badpattern,Reason}).
 
 eval_read_file_info(File, file) ->
-    file:read_link_info(File);
+    file:read_file_info(File);
 eval_read_file_info(File, erl_prim_loader) ->
     case erl_prim_loader:read_file_info(File) of
 	error -> {error, erl_prim_loader};
@@ -496,6 +496,16 @@ eval_read_file_info(File, erl_prim_loader) ->
     end;
 eval_read_file_info(File, Mod) ->
     Mod:read_file_info(File).
+
+eval_read_link_info(File, file) ->
+    file:read_link_info(File);
+eval_read_link_info(File, erl_prim_loader) ->
+    case erl_prim_loader:read_link_info(File) of
+        error -> {error, erl_prim_loader};
+        Res-> Res
+    end;
+eval_read_link_info(File, Mod) ->
+    Mod:read_link_info(File).
 
 eval_list_dir(Dir, file) ->
     file:list_dir(Dir);
