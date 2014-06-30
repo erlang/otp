@@ -92,8 +92,10 @@ static erts_smp_rwmtx_t environ_rwmtx;
 #  else
 #    define CHLDWTHR 0
 #  endif
+#  define FDBLOCK 1
 #else
 #  define CHLDWTHR 0
+#  define FDBLOCK 0
 #endif
 /*
  * [OTP-3906]
@@ -122,6 +124,12 @@ struct ErtsSysReportExit_ {
 #endif
 };
 
+/* Used by the fd driver iff the fd could not be set to non-blocking */
+typedef struct ErtsSysBlocking_ {
+    ErlDrvPDL pdl;
+    int pipe[2];
+} ErtsSysBlocking;
+
 /* This data is shared by these drivers - initialized by spawn_init() */
 static struct driver_data {
     ErlDrvPort port_num;
@@ -130,11 +138,20 @@ static struct driver_data {
     int pid;
     int alive;
     int status;
+    int terminating;
+    ErtsSysBlocking *blocking;
 } *driver_data;			/* indexed by fd */
 
 static ErtsSysReportExit *report_exit_list;
 #if CHLDWTHR && !defined(ERTS_SMP)
 static ErtsSysReportExit *report_exit_transit_list;
+#endif
+
+#if FDBLOCK
+/* Used by the blocking_writer thread */
+static erts_tid_t blocking_writer_tid;
+static int blocking_pipe[2];
+static void *blocking_writer(void *);
 #endif
 
 extern int  driver_interrupt(int, int);
@@ -1114,6 +1131,7 @@ static ErlDrvSSizeT fd_control(ErlDrvData, unsigned int, char *, ErlDrvSizeT,
 static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
 static int spawn_init(void);
 static void fd_stop(ErlDrvData);
+static void fd_flush(ErlDrvData);
 static void stop(ErlDrvData);
 static void ready_input(ErlDrvData, ErlDrvEvent);
 static void ready_output(ErlDrvData, ErlDrvEvent);
@@ -1159,7 +1177,7 @@ struct erl_drv_entry fd_driver_entry = {
     NULL,
     outputv,
     NULL, /* ready_async */
-    NULL, /* flush */
+    fd_flush, /* flush */
     NULL, /* call */
     NULL, /* event */
     ERL_DRV_EXTENDED_MARKER,
@@ -1213,13 +1231,32 @@ static RETSIGTYPE onchld(int signum)
 #endif
 }
 
+static int set_blocking_data(struct driver_data *dd) {
+
+    dd->blocking = erts_alloc(ERTS_ALC_T_SYS_BLOCKING, sizeof(ErtsSysBlocking));
+
+    if (pipe(dd->blocking->pipe) < 0) {
+        erts_free(ERTS_ALC_T_SYS_BLOCKING, dd->blocking);
+        dd->blocking = NULL;
+        driver_failure_posix(dd->port_num, errno);
+        return 0;
+    }
+
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sizeof(ErtsSysBlocking));
+
+    dd->blocking->pdl = driver_pdl_create(dd->port_num);
+
+    return 1;
+}
+
 static int set_driver_data(ErlDrvPort port_num,
 			   int ifd,
 			   int ofd,
 			   int packet_bytes,
 			   int read_write,
 			   int exit_status,
-			   int pid)
+			   int pid,
+                           int is_blocking)
 {
     Port *prt;
     ErtsSysReportExit *report_exit;
@@ -1251,8 +1288,13 @@ static int set_driver_data(ErlDrvPort port_num,
 	driver_data[ifd].pid = pid;
 	driver_data[ifd].alive = 1;
 	driver_data[ifd].status = 0;
+        driver_data[ifd].terminating = 0;
+        driver_data[ifd].blocking = NULL;
 	if (read_write & DO_WRITE) {
 	    driver_data[ifd].ofd = ofd;
+            if (is_blocking && FDBLOCK)
+                if (!set_blocking_data(driver_data+ifd))
+                    return -1;
 	    if (ifd != ofd)
 		driver_data[ofd] = driver_data[ifd];  /* structure copy */
 	} else {		/* DO_READ only */
@@ -1268,6 +1310,11 @@ static int set_driver_data(ErlDrvPort port_num,
 	driver_data[ofd].pid = pid;
 	driver_data[ofd].alive = 1;
 	driver_data[ofd].status = 0;
+        driver_data[ofd].terminating = 0;
+        driver_data[ofd].blocking = NULL;
+        if (is_blocking && FDBLOCK)
+            if (!set_blocking_data(driver_data+ofd))
+                return -1;
 	return(ofd);
     }
 }
@@ -1275,10 +1322,18 @@ static int set_driver_data(ErlDrvPort port_num,
 static int spawn_init()
 {
    int i;
-#if CHLDWTHR
+#ifdef USE_THREADS
    erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
+
    thr_opts.detached = 0;
    thr_opts.suggested_stack_size = 0; /* Smallest possible */
+#endif
+
+#if FDBLOCK
+   if (pipe(blocking_pipe) < 0)
+       return -1;
+
+   erts_thr_create(&blocking_writer_tid, blocking_writer, NULL, &thr_opts);
 #endif
 
    sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
@@ -1756,7 +1811,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
     }
 
     res = set_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
-			  opts->read_write, opts->exit_status, pid);
+			  opts->read_write, opts->exit_status, pid, 0);
     /* Don't unblock SIGCHLD until now, since the call above must
        first complete putting away the info about our new subprocess. */
     unblock_signals();
@@ -1841,6 +1896,7 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
 			   SysDriverOpts* opts)
 {
     ErlDrvData res;
+    int non_blocking = 0;
 
     if (((opts->read_write & DO_READ) && opts->ifd >= max_files) ||
 	((opts->read_write & DO_WRITE) && opts->ofd >= max_files))
@@ -1913,6 +1969,19 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
      * case - it can be called with any old pre-existing file descriptors,
      * the relations between which (if they're even two) we can only guess
      * at - still, we try our best...
+     *
+     * Added note OTP 17.3: Some systems seem to use stdout/stderr to log data
+     * using unix pipes, so we cannot allow the system to block on a write.
+     * Therefore a thread has been added that reads from the driver queue and
+     * writes the data to fd's that could not be set to non-blocking.
+     *
+     * Also the guarantee about what is delivered to the OS has changed.
+     * Pre 17.3 the fd driver did no flushing of data before terminating.
+     * Now it does. This is because we want to be able to guarantee that things
+     * such as escripts and friends really have outputted all data before
+     * terminating. This could potentially block the termination of the system
+     * for a very long time, but if the user want to terminate fast she should
+     * use erlang:halt with flush=false.
      */
 
     if (opts->read_write & DO_READ) {
@@ -1935,6 +2004,7 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
 		       imagine a scenario where setting non-blocking mode
 		       here would cause problems - go ahead and do it. */
 
+                    non_blocking = 1;
 		    SET_NONBLOCKING(opts->ofd);
 
 		} else {	/* output fd is a tty, input fd isn't */
@@ -1977,6 +2047,7 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
 			(nfd = open(tty, O_WRONLY)) != -1) {
 			dup2(nfd, opts->ofd);
 			close(nfd);
+                        non_blocking = 1;
 			SET_NONBLOCKING(opts->ofd);
 		    }
 		}
@@ -1985,8 +2056,9 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
     }
     CHLD_STAT_LOCK;
     res = (ErlDrvData)(long)set_driver_data(port_num, opts->ifd, opts->ofd,
-				      opts->packet_bytes,
-				      opts->read_write, 0, -1);
+                                            opts->packet_bytes,
+                                            opts->read_write, 0, -1,
+                                            !non_blocking);
     CHLD_STAT_UNLOCK;
     return res;
 }
@@ -2012,14 +2084,29 @@ static void nbio_stop_fd(ErlDrvPort prt, int fd)
     SET_BLOCKING(fd);
 }
 
-static void fd_stop(ErlDrvData fd)  /* Does not close the fds */
+static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
 {
     int ofd;
+    int fd = (int)(long)ev;
+    ErlDrvPort prt = driver_data[fd].port_num;
     
-    nbio_stop_fd(driver_data[(int)(long)fd].port_num, (int)(long)fd);
-    ofd = driver_data[(int)(long)fd].ofd;
-    if (ofd != (int)(long)fd && ofd != -1) 
-	nbio_stop_fd(driver_data[(int)(long)fd].port_num, (int)(long)ofd);
+    if (driver_data[fd].blocking && FDBLOCK) {
+        /* we close both ends of the pipe as no more data is to be written */
+        close(driver_data[fd].blocking->pipe[0]);
+        close(driver_data[fd].blocking->pipe[1]);
+        erts_free(ERTS_ALC_T_SYS_BLOCKING,driver_data[fd].blocking);
+        erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*sizeof(ErtsSysBlocking));
+    }
+
+    nbio_stop_fd(prt, fd);
+    ofd = driver_data[fd].ofd;
+    if (ofd != fd && ofd != -1)
+	nbio_stop_fd(prt, ofd);
+}
+
+static void fd_flush(ErlDrvData fd)
+{
+    driver_data[(int)(long)fd].terminating = 1;
 }
 
 static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
@@ -2042,8 +2129,8 @@ static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
 
     CHLD_STAT_LOCK;
     res = (ErlDrvData)(long)set_driver_data(port_num, fd, fd,
-				      opts->packet_bytes,
-				      opts->read_write, 0, -1);
+                                            opts->packet_bytes,
+                                            opts->read_write, 0, -1, 0);
     CHLD_STAT_UNLOCK;
     return res;
 }
@@ -2080,6 +2167,7 @@ static void stop(ErlDrvData fd)
     }
 }
 
+/* used by fd_driver */
 static void outputv(ErlDrvData e, ErlIOVec* ev)
 {
     int fd = (int)(long)e;
@@ -2105,12 +2193,21 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     ev->iov[0].iov_base = lbp;
     ev->iov[0].iov_len = pb;
     ev->size += pb;
+
+    if (driver_data[fd].blocking && FDBLOCK)
+        driver_pdl_lock(driver_data[fd].blocking->pdl);
+
     if ((sz = driver_sizeq(ix)) > 0) {
 	driver_enqv(ix, ev, 0);
+
+        if (driver_data[fd].blocking && FDBLOCK)
+            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+
 	if (sz + ev->size >= (1 << 13))
 	    set_busy_port(ix, 1);
     }
-    else {
+    else if (!driver_data[fd].blocking || !FDBLOCK) {
+        /* We try to write directly if the fd in non-blocking */
 	int vsize = ev->vsize > MAX_VSIZE ? MAX_VSIZE : ev->vsize;
 
 	n = writev(ofd, (const void *) (ev->iov), vsize);
@@ -2126,10 +2223,23 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 	driver_enqv(ix, ev, n);  /* n is the skip value */
 	driver_select(ix, ofd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
     }
+#if FDBLOCK
+    else {
+        driver_enqv(ix, ev, 0);
+        if (write(blocking_pipe[1], &ofd, sizeof(ofd)) < 0) {
+            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+            driver_failure_posix(ix, errno);
+            return; /* -1; */
+        }
+        driver_pdl_unlock(driver_data[fd].blocking->pdl);
+	driver_select(ix, driver_data[ofd].blocking->pipe[0],
+                      ERL_DRV_READ|ERL_DRV_USE, 1);
+    }
+#endif
     /* return 0;*/
 }
 
-
+/* Used by spawn_driver and vanilla driver */
 static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
     int fd = (int)(long)e;
@@ -2241,6 +2351,44 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 
     port_num = driver_data[fd].port_num;
     packet_bytes = driver_data[fd].packet_bytes;
+
+#if FDBLOCK
+    if (ready_fd != fd) {
+        /* We got an acknowledgment from writer thread */
+        int read_buf[2];
+        ASSERT(driver_data[fd].blocking);
+        ASSERT(driver_data[fd].blocking->pipe[0] == ready_fd);
+        res = read(ready_fd, read_buf, sizeof(read_buf));
+        if (read_buf[0] > 0) {
+            driver_pdl_lock(driver_data[fd].blocking->pdl);
+            if (driver_deq(port_num, read_buf[0]) == 0) {
+                set_busy_port(port_num, 0);
+                driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
+                if (driver_data[fd].terminating) {
+                    /* The port is has been ordered to terminate */
+                    driver_pdl_unlock(driver_data[fd].blocking->pdl);
+                    driver_failure_atom(port_num, "normal");
+                    return; /* -1; */
+                }
+            } else {
+                /* still data left to write in queue and not terminating */
+                if (write(blocking_pipe[1], &driver_data[fd].ofd, sizeof(fd)) < 0) {
+                    driver_pdl_unlock(driver_data[fd].blocking->pdl);
+                    driver_failure_posix(port_num, errno);
+                    return; /* -1; */
+                }
+            }
+            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+        }
+        else if (read_buf[0] < 0) {
+            int res = read_buf[1];
+            driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
+            driver_failure_posix(port_num, res);
+            return; /* -1; */
+        }
+        return; /* 0; */
+    }
+#endif
 
     if (packet_bytes == 0) {
 	byte *read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
@@ -2365,6 +2513,8 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 
     if ((iv = (struct iovec*) driver_peekq(ix, &vsize)) == NULL) {
 	driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
+        if (driver_data[fd].terminating)
+            driver_failure_atom(driver_data[fd].port_num,"normal");
 	return; /* 0; */
     }
     vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
@@ -2390,6 +2540,76 @@ static void stop_select(ErlDrvEvent fd, void* _)
     close((int)fd);
 }
 
+#if FDBLOCK
+
+static void *
+blocking_writer(void *unused)
+{
+    int res;
+    fd_set fdset;
+
+    while (1) {
+        FD_ZERO(&fdset);
+        FD_SET(blocking_pipe[0],&fdset);
+
+        res = select(blocking_pipe[0]+1,&fdset,NULL,NULL,NULL);
+
+        if (res < 0) {
+            if (errno == EINTR)
+		continue;
+            erl_exit(ERTS_ABORT_EXIT,
+                     "blocking-writer thraed got unexpected error: %s (%d)\n",
+                     erl_errno_id(errno),errno);
+        }
+        if (FD_ISSET(blocking_pipe[0],&fdset)) {
+            /* Start to select on an additional pipe for write requests */
+            int write_fd;
+            res = read(blocking_pipe[0],&write_fd,sizeof(write_fd));
+            if (res == 0) {
+                /* control pipe closed, we shutdown */
+                close(blocking_pipe[0]);
+                return NULL;
+            } else if (res == sizeof(write_fd)) {
+                SysIOVec      *iov0;
+                SysIOVec      *iov;
+                int            iovlen;
+                int            iovcnt;
+                int            resbuf[2];
+                int            p;
+                /* much of this code is stolen from efile_drv:invoke_writev */
+                driver_pdl_lock(driver_data[write_fd].blocking->pdl);
+                iov0 = driver_peekq(driver_data[write_fd].port_num, &iovlen);
+                /* Calculate iovcnt */
+                for (p = 0, iovcnt = 0; iovcnt < iovlen;
+                     p += iov0[iovcnt++].iov_len)
+                    ;
+                iov = erts_alloc_fnf(ERTS_ALC_T_SYS_WRITE_BUF,
+                                     sizeof(SysIOVec)*iovcnt);
+                if (!iov) {
+                    res = -1;
+                    errno = ENOMEM;
+                    erts_free(ERTS_ALC_T_SYS_WRITE_BUF,iov);
+                    driver_pdl_unlock(driver_data[write_fd].blocking->pdl);
+                } else {
+                    memcpy(iov,iov0,iovcnt*sizeof(SysIOVec));
+                    driver_pdl_unlock(driver_data[write_fd].blocking->pdl);
+
+                    res = writev(write_fd,iov,iovlen);
+
+                    erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
+                }
+                /* Write back the result on the pipe for this fd */
+                /* We dequeue the data from the port in ready_input */
+                resbuf[0] = res;
+                resbuf[1] = errno;
+                if (write(driver_data[write_fd].blocking->pipe[1],
+                          resbuf, sizeof(resbuf)))
+                    ; /* ignore error, should we terminate here? */
+            }
+        }
+    }
+}
+#endif
 
 void erts_do_break_handling(void)
 {
