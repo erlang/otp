@@ -68,12 +68,16 @@ init_per_group(ipv6, Config) ->
 	ok ->
 	    Dir = ?config(priv_dir, Config),
 	    Domain =  transportDomainUdpIpv6,
+	    AgentPort = ?config(agent_port, Config),
+	    ManagerPort = ?config(manager_port, Config),
 	    {ok, Host} = inet:gethostname(),
 	    {ok, IpAddr} = inet:getaddr(Host, inet6),
+	    Transports = [{Domain, {IpAddr, AgentPort}}],
+	    TrapAddr = {IpAddr, ManagerPort},
 	    Versions = [v2],
-	    agent_config(Dir, Domain, IpAddr, IpAddr, ?config(agent_port, Config), Versions),
-	    [{host, Host}, 
-	     {snmp_versions, Versions}, {ip_version, ipv6} | Config];	
+	    agent_config(Dir, Transports, Domain, TrapAddr, Versions),
+	    [{host, Host}, {snmp_versions, Versions}, {ip_version, ipv6}
+	     | Config];
 	_ ->
 	    {skip, "Host does not support IPV6"}
     end;
@@ -81,13 +85,36 @@ init_per_group(ipv6, Config) ->
 init_per_group(ipv4, Config) ->
     Dir = ?config(priv_dir, Config),
     Domain =  transportDomainUdpIpv4,
+    AgentPort = ?config(agent_port, Config),
+    ManagerPort = ?config(manager_port, Config),
     {ok, Host} = inet:gethostname(),
     {ok, IpAddr} = inet:getaddr(Host, inet),
+    Transports = [{Domain, {IpAddr, AgentPort}}],
+    TrapAddr = {IpAddr, ManagerPort},
     Versions = [v2],
-    agent_config(Dir, Domain, IpAddr, {IpAddr, ?config(manager_port, Config)}, 
-		 ?config(agent_port, Config), Versions),
-    [{host, Host}, {snmp_versions, Versions},
-     {ip_version, ipv4} | Config];
+    agent_config(Dir, Transports, Domain, TrapAddr, Versions),
+    [{host, Host}, {snmp_versions, Versions}, {ip_version, ipv4}
+     | Config];
+
+init_per_group(dual_ip, Config) ->
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    Dir = ?config(priv_dir, Config),
+	    {ok, Host} = inet:gethostname(),
+	    {ok, IPv4Addr} = inet:getaddr(Host, inet),
+	    {ok, IPv6Addr} = inet:getaddr(Host, inet6),
+	    Domain = snmpUDPDomain,
+	    Transports =
+		[{Domain, {IPv4Addr, ?AGENT_PORT}},
+		 {transportDomainUdpIpv6, {IPv6Addr, ?AGENT_PORT}}],
+	    TrapAddr = {IPv4Addr, 0},
+	    Versions = [v2],
+	    agent_config(Dir, Transports, Domain, TrapAddr, Versions),
+	    [{host, Host}, {port, ?AGENT_PORT}, {snmp_versions, Versions}
+	     | Config];
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
 
 init_per_group(get, Config) ->
     %% From Ubuntu package snmp
@@ -149,14 +176,16 @@ erlang_agent_dual_ip_get() ->
     [{doc,"Test that we can access erlang snmp agent from both " 
       "snmpnet ipv4 and snmpnet ipv6 manager at the same time"}].
 erlang_agent_dual_ip_get(Config) when is_list(Config) ->
-    erlang_agent_netsnmp_get([{ip_version, ipv4}]),
-    erlang_agent_netsnmp_get([{ip_version, ipv6}]).
+    erlang_agent_netsnmp_get([{ip_version, ipv4} | Config]),
+    erlang_agent_netsnmp_get([{ip_version, ipv6} | Config]).
 %%--------------------------------------------------------------------
 erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     Host = ?config(host, Config),
     IPVersion = ?config(ip_version, Config),    
     DataDir = ?config(data_dir, Config),  
-    ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
+    ok =
+      snmpa:load_mib(
+	snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
     
     Cmd = "snmptrapd -L o -M " ++ DataDir ++ 
 	" --disableAuthorization=yes" ++
@@ -173,7 +202,7 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     end,
     receive
 	{snmp_notification, erlang_agent_test, {got_response, Address}} ->
-	    ct:pal("Got respons from: ~p~n", [Address]),
+	    ct:pal("Got response from: ~p~n", [Address]),
 	    ok;
 	{snmp_notification, erlang_agent_test, {no_response, _} = 
 	     NoResponse} ->
@@ -185,6 +214,7 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 net_snmp(Cmd, Expect) ->
     NetSnmpPort = open_port({spawn, Cmd}, [stderr_to_stdout]),
+    ct:pal("net_snmp started: ~s~n", [Cmd]),
     receive 
 	{NetSnmpPort, {data, Expect}} ->
 	    ok;
@@ -195,7 +225,9 @@ net_snmp(Cmd, Expect) ->
     catch erlang:port_close(NetSnmpPort).
 
 net_snmp_trapd(Cmd) ->
-    open_port({spawn, Cmd}, [stderr_to_stdout]).
+    NetSnmpTrapdPort = open_port({spawn, Cmd}, [stderr_to_stdout]),
+    ct:pal("net_snmp_trapd started: ~s~n", [Cmd]),
+    NetSnmpTrapdPort.
 
 net_snmp_log(NetSnmpPort) -> 
     receive 
@@ -234,16 +266,18 @@ oid_str([], Acc) ->
 oid_str([Int | Rest], Acc) ->
     oid_str(Rest, Acc ++ "." ++ integer_to_list(Int)).
 
-agent_config(Dir, Domain, IpA, IpM, Port, Versions) ->
+agent_config(Dir, Transports, TargetDomain, TargetAddr, Versions) ->
     EngineID = ?AGENT_ENGIN_ID,
     MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
-    ok = snmp_config:write_agent_snmp_conf(Dir, Domain, {IpA, Port},
-				      EngineID, MMS),
+    ok = snmp_config:write_agent_snmp_conf(Dir, Transports, EngineID, MMS),
     ok = snmp_config:write_agent_snmp_context_conf(Dir),
     ok = snmp_config:write_agent_snmp_community_conf(Dir),
-    ok = snmp_config:write_agent_snmp_standard_conf(Dir, "snmp_to_snmpnet_SUITE"),
-    ok = snmp_config:write_agent_snmp_target_addr_conf(Dir, Domain, 
-						  IpM, Versions),
+    ok =
+	snmp_config:write_agent_snmp_standard_conf(
+	  Dir, "snmp_to_snmpnet_SUITE"),
+    ok =
+	snmp_config:write_agent_snmp_target_addr_conf(
+	  Dir, TargetDomain, TargetAddr, Versions),
     ok = snmp_config:write_agent_snmp_target_params_conf(Dir, Versions),
     ok = snmp_config:write_agent_snmp_notify_conf(Dir, inform),
     ok = snmp_config:write_agent_snmp_vacm_conf(Dir, Versions, none).
