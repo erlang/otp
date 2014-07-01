@@ -2532,6 +2532,11 @@ otp_6554(Config) when is_list(Config) ->
           "\n    end.\nok.\n" = 
         t(<<"begin F = fun() -> foo end, 1 end. B = F(). C = 17. b().">>),
 
+    ?line "3: command not found" = comm_err(<<"#{v(3) => v}.">>),
+    ?line "3: command not found" = comm_err(<<"#{k => v(3)}.">>),
+    ?line "3: command not found" = comm_err(<<"#{v(3) := v}.">>),
+    ?line "3: command not found" = comm_err(<<"#{k := v(3)}.">>),
+    ?line "3: command not found" = comm_err(<<"(v(3))#{}.">>),
     %% Tests I'd like to do: (you should try them manually)
     %% "catch spawn_link(fun() -> timer:sleep(1000), exit(foo) end)."
     %%   "** exception error: foo" should be output after 1 second
