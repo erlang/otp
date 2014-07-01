@@ -133,10 +133,10 @@ to_list(_) -> erlang:nif_error(undef).
 update(_,_,_) -> erlang:nif_error(undef).
 
 
--spec values(Map) -> Keys when
+-spec values(Map) -> Values when
     Map :: map(),
-    Keys :: [Key],
-    Key :: term().
+    Values :: [Value],
+    Value :: term().
 
 values(_) -> erlang:nif_error(undef).
 
