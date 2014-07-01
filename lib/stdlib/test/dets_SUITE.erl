@@ -2032,6 +2032,12 @@ match(Config, Version) ->
     CrashPos = if Version =:= 8 -> 5; Version =:= 9 -> 1 end,
     crash(Fname, ObjPos2+CrashPos),
     {ok, _} = dets:open_file(T, Args),
+    case dets:insert_new(T, Obj) of % OTP-12024
+        ok ->
+            bad_object(dets:sync(T), Fname);
+        Else3 ->
+            bad_object(Else3, Fname)
+    end,
     io:format("Expect corrupt table:~n"),
     case ins(T, N) of
         ok ->
