@@ -498,15 +498,37 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
     return ep;
 }
 
-Uint erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp)
+int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
+			      Uint* szp)
 {
-    Uint sz = 0;
+    Uint sz;
+    if (encode_size_struct_int(NULL, acmp, term, flags, NULL, &sz)) {
+	return -1;
+    } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 #endif
-	sz++ /* VERSION_MAGIC */;
-    sz += encode_size_struct2(acmp, term, flags);
-    return sz;
+	    sz++ /* VERSION_MAGIC */;
+
+	*szp += sz;
+	return 0;
+    }
+}
+
+int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp)
+{
+    Uint sz;
+    if (encode_size_struct_int(&ctx->u.sc, ctx->acmp, term, ctx->flags, &ctx->reds, &sz)) {
+	return -1;
+    } else {
+#ifndef ERTS_DEBUG_USE_DIST_SEP
+	if (!(ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE))
+#endif
+	    sz++ /* VERSION_MAGIC */;
+
+	*szp += sz;
+	return 0;
+    }
 }
 
 Uint erts_encode_ext_size(Eterm term)
@@ -527,19 +549,16 @@ Uint erts_encode_ext_size_ets(Eterm term)
 }
 
 
-void erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp)
+int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp,
+			  TTBEncodeContext* ctx, Sint* reds)
 {
-    byte *ep = *ext;
-#ifndef ERTS_DEBUG_USE_DIST_SEP
-    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
-#endif
-	*ep++ = VERSION_MAGIC;
-    ep = enc_term(acmp, term, ep, flags, NULL);
-    if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s:%d:erts_encode_dist_ext(): Internal data structure error\n",
-		 __FILE__, __LINE__);
-    *ext = ep;
+    if (!ctx || !ctx->wstack.wstart) {
+    #ifndef ERTS_DEBUG_USE_DIST_SEP
+	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+    #endif
+	    *(*ext)++ = VERSION_MAGIC;
+    }
+    return enc_term_int(ctx, acmp, term, *ext, flags, NULL, reds, ext);
 }
 
 void erts_encode_ext(Eterm term, byte **ext)
@@ -1740,54 +1759,14 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
     return erts_term_to_binary_simple(p, Term, size, level, flags);
 }
 
-/* Define for testing */
-/* #define EXTREME_TTB_TRAPPING 1 */
+/* Define EXTREME_TTB_TRAPPING for testing in dist.h */
 
 #ifndef EXTREME_TTB_TRAPPING
-#define TERM_TO_BINARY_LOOP_FACTOR 32
 #define TERM_TO_BINARY_COMPRESS_CHUNK (1 << 18)
 #else
-#define TERM_TO_BINARY_LOOP_FACTOR 1
 #define TERM_TO_BINARY_COMPRESS_CHUNK 10
 #endif
 
-
-typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
-typedef struct TTBSizeContext_ {
-    Uint flags;
-    int level;
-    Uint result;
-    Eterm obj;
-    ErtsEStack estack;
-} TTBSizeContext;
-
-typedef struct TTBEncodeContext_ {
-    Uint flags;
-    int level;
-    byte* ep;
-    Eterm obj;
-    ErtsWStack wstack;
-    Binary *result_bin;
-} TTBEncodeContext;
-
-typedef struct {
-    Uint real_size;
-    Uint dest_len;
-    byte *dbytes;
-    Binary *result_bin;
-    Binary *destination_bin;
-    z_stream stream;
-} TTBCompressContext;
-
-typedef struct {
-    int alive;
-    TTBState state;
-    union {
-	TTBSizeContext sc;
-	TTBEncodeContext ec;
-	TTBCompressContext cc;
-    } s;
-} TTBContext;
 
 static void ttb_context_destructor(Binary *context_bin)
 {
