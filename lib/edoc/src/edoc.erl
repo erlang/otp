@@ -696,14 +696,43 @@ read_source_2(Name, Opts) ->
 %% The line of the dot token will be copied to the integer token.
 
 parse_file(Name, Includes, Macros) ->
-    case epp:open(Name, Includes, Macros) of
-        {ok, Epp} ->
-            try {ok, parse_file(Epp)}
+    case parse_file(utf8, Name, Includes, Macros) of
+        invalid_unicode ->
+            parse_file(latin1, Name, Includes, Macros);
+        Ret ->
+            Ret
+    end.
+
+parse_file(DefEncoding, Name, Includes, Macros) ->
+    Options = [{name, Name},
+               {includes, Includes},
+               {macros, Macros},
+               {default_encoding, DefEncoding}],
+    case epp:open([extra | Options]) of
+        {ok, Epp, Extra} ->
+            try parse_file(Epp) of
+                Forms ->
+                    Encoding = proplists:get_value(encoding, Extra),
+                    case find_invalid_unicode(Forms) of
+                        invalid_unicode when Encoding =/= utf8 ->
+                            invalid_unicode;
+                        _ ->
+                            {ok, Forms}
+                    end
             after _ = epp:close(Epp)
             end;
         Error ->
             Error
     end.
+
+find_invalid_unicode([H|T]) ->
+    case H of
+	{error,{_Line,file_io_server,invalid_unicode}} ->
+	    invalid_unicode;
+	_Other ->
+	    find_invalid_unicode(T)
+    end;
+find_invalid_unicode([]) -> none.
 
 parse_file(Epp) ->
     case scan_and_parse(Epp) of
