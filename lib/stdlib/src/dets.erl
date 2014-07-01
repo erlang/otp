@@ -440,9 +440,10 @@ insert(Tab, Objs) when is_list(Objs) ->
 insert(Tab, Obj) ->
     badarg(treq(Tab, {insert, [Obj]}), [Tab, Obj]).
 
--spec insert_new(Name, Objects) -> boolean() when
+-spec insert_new(Name, Objects) -> boolean() | {'error', Reason} when
       Name :: tab_name(),
-      Objects :: object() | [object()].
+      Objects :: object() | [object()],
+      Reason :: term().
 
 insert_new(Tab, Objs) when is_list(Objs) ->
     badarg(treq(Tab, {insert_new, Objs}), [Tab, Objs]);
