@@ -1448,9 +1448,14 @@ get_counters([Counter|Counters], Acc) ->
 
 socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
     [IpPort, % Picked off at socket open, separate argument
-     binary,
-     snmp_conf:tdomain_to_family(Domain)
-     |   case get_bind_to_ip_address(Opts) of
+     binary
+     |   case snmp_conf:tdomain_to_family(Domain) of
+	     inet6 = Family ->
+		 [Family, {ipv6_v6only, true}];
+	     Family ->
+		 [Family]
+	 end ++
+	 case get_bind_to_ip_address(Opts) of
 	     true ->
 		 [{ip, IpAddr}];
 	     _ ->
