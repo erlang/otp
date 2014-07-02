@@ -117,24 +117,6 @@ get_transports() ->
     {value, Transports} = snmp_framework_mib:intAgentTransports(get),
     Transports.
 
-%%% XXX remove
-%%%
-%%% get_ip_port() ->
-%%%     {value, UDPPort} = snmp_framework_mib:intAgentUDPPort(get),
-%%%     UDPPort.
-%%%
-%%% get_address() ->
-%%%     {value, IPAddress} = snmp_framework_mib:intAgentIpAddress(get),
-%%%     IPAddress.
-%%%
-%%% get_domain() ->
-%%%     case snmp_framework_mib:intAgentTransportDomain(get) of
-%%% 	{value, Domain} ->
-%%% 	    Domain;
-%%% 	genErr ->
-%%% 	    snmpUDPDomain
-%%%     end.
-
 filter_reset(Pid) ->
     Pid ! filter_reset.
 
@@ -185,16 +167,6 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     put(verbosity,get_verbosity(Opts)),
     ?vlog("starting",[]),
 
-%%% XXX remove
-%%%
-%%%     %% -- Port and address --
-%%%     Domain = get_domain(),
-%%%     ?vdebug("domain: ~w",[Domain]),
-%%%     UDPPort = get_ip_port(),
-%%%     ?vdebug("port: ~w",[UDPPort]),
-%%%     IPAddress = get_address(),
-%%%     ?vdebug("addr: ~w",[IPAddress]),
-
     %% -- Versions --
     Vsns = get_vsns(Opts),
     ?vdebug("vsns: ~w",[Vsns]),
@@ -244,38 +216,6 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 	    ?vinfo("Failed to initialize socket(s): ~p", [Error]),
 	    {error, Error}
     end.
-
-%%% XXX remove
-%%%
-%%%     %% -- Socket --
-%%%     IPOpts1 = ip_opt_bind_to_ip_address(Opts, IPAddress),
-%%%     IPOpts2 = ip_opt_no_reuse_address(Opts),
-%%%     IPOpts3 = ip_opt_recbuf(Opts),
-%%%     IPOpts4 = ip_opt_sndbuf(Opts),
-%%%     IPOpts  =
-%%% 	[binary, snmp_conf:tdomain_to_family(Domain)
-%%% 	 | IPOpts1 ++ IPOpts2 ++ IPOpts3 ++ IPOpts4],
-%%%     case gen_udp_open(UDPPort, IPOpts) of
-%%% 	{ok, Sock} ->
-%%% 	    MpdState = snmpa_mpd:init(Vsns),
-%%% 	    init_counters(),
-%%% 	    active_once(Sock),
-%%% 	    S = #state{parent       = Parent,
-%%% 		       note_store   = NoteStore,
-%%% 		       master_agent = MasterAgent,
-%%% 		       mpd_state    = MpdState,
-%%% 		       usock        = Sock,
-%%% 		       usock_opts   = IPOpts,
-%%% 		       log          = Log,
-%%% 		       limit        = Limit,
-%%% 		       filter       = FilterMod,
-%%% 		       domain       = Domain},
-%%% 	    ?vdebug("started with MpdState: ~p", [MpdState]),
-%%% 	    {ok, S};
-%%% 	{error, Reason} ->
-%%% 	    ?vinfo("Failed to open UDP socket: ~p", [Reason]),
-%%% 	    {error, {udp_open, UDPPort, Reason}}
-%%%     end.
 
 
 create_log() ->
@@ -664,53 +604,13 @@ update_req_counter_incoming(
 	    S
     end.
 
-update_transport_req_refs(
-  #state{transports = Transports} = S,
-  #transport{socket = Socket} = T,
-  ReqRefs) ->
-    S#state{
-      transports =
-	  lists:keyreplace(
-	    Socket, #transport.socket, Transports,
-	    T#transport{req_refs = ReqRefs})}.
-
-%%% XXX remove
-%%%
-%%% update_req_counter_incoming(#state{limit = infinity, usock = Sock} = S, _) ->
-%%%     active_once(Sock), %% No limit so activate directly
-%%%     S;
-%%% update_req_counter_incoming(#state{limit = Limit,
-%%% 				    rcnt  = RCnt,
-%%% 				    usock = Sock} = S, Rid)
-%%%   when length(RCnt) + 1 >= Limit ->
-%%%     %% Ok, one more and we are at the limit.
-%%%     %% Just make sure we are not already processing this one...
-%%%     case lists:member(Rid, RCnt) of
-%%% 	false ->
-%%% 	    %% We are at the limit, do _not_ activate socket
-%%% 	    S#state{rcnt = [Rid|RCnt]};
-%%% 	true ->
-%%% 	    active_once(Sock),
-%%% 	    S
-%%%     end;
-%%% update_req_counter_incoming(#state{rcnt  = RCnt,
-%%% 				    usock = Sock} = S, Rid) ->
-%%%     active_once(Sock),
-%%%     case lists:member(Rid, RCnt) of
-%%% 	false ->
-%%% 	    S#state{rcnt = [Rid|RCnt]};
-%%% 	true ->
-%%% 	    S
-%%%     end.
-
-
 update_req_counter_outgoing(
   #state{limit = infinity} = S,
   _Transport, _ReqRef) ->
     %% Already activated (in the incoming function)
     S;
 update_req_counter_outgoing(
-  #state{limit = Limit, transports = Transports} = S,
+  #state{limit = Limit} = S,
   #transport{socket = Socket, req_refs = ReqRefs} = Transport,
   ReqRef) ->
     LengthReqRefs = length(ReqRefs),
@@ -725,39 +625,18 @@ update_req_counter_outgoing(
 		    "passed below limit: activate", []),
 	    active_once(Socket)
 	end,
+    update_transport_req_refs(S, Transport, NewReqRefs).
+
+update_transport_req_refs(
+  #state{transports = Transports} = S,
+  #transport{socket = Socket} = T,
+  ReqRefs) ->
     S#state{
       transports =
-	  snmp_misc:keyreplace(
+	  lists:keyreplace(
 	    Socket, #transport.socket, Transports,
-	    Transport#transport{req_refs = NewReqRefs})}.
+	    T#transport{req_refs = ReqRefs})}.
 
-%%% XXX remove
-%%%
-%%% update_req_counter_outgoing(
-%%%   #state{limit = Limit,
-%%% 	 rcnt  = RCnt,
-%%% 	 usock = Sock} = S, Rid)
-%%%   when length(RCnt) >= Limit ->
-%%%     ?vtrace("handle_req_counter_outgoing(~w) -> entry with"
-%%% 	"~n   Rid:          ~w"
-%%% 	"~n   length(RCnt): ~w", [Limit, Rid, length(RCnt)]),
-%%%     case lists:delete(Rid, RCnt) of
-%%% 	NewRCnt when length(NewRCnt) < Limit ->
-%%% 	    ?vtrace("update_req_counter_outgoing -> "
-%%% 		"passed below limit: activate", []),
-%%% 	    active_once(Sock),
-%%% 	    S#state{rcnt = NewRCnt};
-%%% 	_ ->
-%%% 	    S
-%%%     end;
-%%% update_req_counter_outgoing(#state{limit = Limit, rcnt = RCnt} = S,
-%%% 			    Rid) ->
-%%%     ?vtrace("handle_req_counter_outgoing(~w) -> entry with"
-%%% 	"~n   Rid:          ~w"
-%%% 	"~n   length(RCnt): ~w", [Limit, Rid, length(RCnt)]),
-%%%     NewRCnt = lists:delete(Rid, RCnt),
-%%%     S#state{rcnt = NewRCnt}.
-    
 
 maybe_handle_recv(
   #state{filter = FilterMod} = S,
@@ -915,17 +794,6 @@ handle_recv_pdu(
 		    "~n   No receiver available for response pdu", [])
     end,
     S;
-%%% XXX remove
-%%%
-%%% handle_recv_pdu(
-%%%   #state{} = S,
-%%%   #transport{socket = Socket} = Transport,
-%%%   From, Vsn,
-%%%   #pdu{type = 'get-response'} = Pdu,
-%%%   _PduMS, _ACMData) ->
-%%%     active_once(Socket),
-%%%     handle_response(S, Pdu, From, Vsn),
-%%%     S;
 handle_recv_pdu(
   #state{master_agent = Pid} = S,
   #transport{} = Transport,
@@ -1218,21 +1086,6 @@ do_handle_send_pdu1(
 	      end
       end,
       Addresses).
-
-%%% XXX remove
-%%%
-%%% handle_response(
-%%%   #state{reqs = Reqs} = S, Pdu#pdu{request_id = ReqId}, From, Vsn)
-%%%   when is_pid(From) ->
-%%%     case lists:keyfind(ReqId, 1, S#state.reqs) of
-%%% 	{ReqId, Pid} ->
-%%% 	    ?vdebug("handle_response -> "
-%%% 		    "~n   send response to receiver ~p", [Pid]),
-%%% 	    Pid ! {snmp_response_received, Vsn, Pdu, From};
-%%% 	false ->
-%%% 	    ?vdebug("handle_response -> "
-%%% 		    "~n   No receiver available for response pdu", [])
-%%%     end.
 
 maybe_udp_send(
   #state{filter = FilterMod, transports = Transports},
@@ -1621,38 +1474,6 @@ socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
 	     Sz ->
 		 [{sndbuf, Sz}]
 	 end].
-
-ip_opt_bind_to_ip_address(Opts, Ip) ->
-    case get_bind_to_ip_address(Opts) of
-	true ->
-	    [{ip, Ip}];
-	_ ->
-	    []
-    end.
-
-ip_opt_no_reuse_address(Opts) ->
-    case get_no_reuse_address(Opts) of
-	false ->
-	    [{reuseaddr, true}];
-	_ ->
-	    []
-    end.
-
-ip_opt_recbuf(Opts) ->
-    case get_recbuf(Opts) of
-	use_default ->
-	    [];
-	Sz ->
-	    [{recbuf, Sz}]
-    end.
-
-ip_opt_sndbuf(Opts) ->
-    case get_sndbuf(Opts) of
-	use_default ->
-	    [];
-	Sz ->
-	    [{sndbuf, Sz}]
-    end.
 
 
 %% ----------------------------------------------------------------

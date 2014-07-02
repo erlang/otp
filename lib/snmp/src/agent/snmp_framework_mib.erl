@@ -138,8 +138,6 @@ read_agent(Dir) ->
 	end,
     Mand =
 	[{intAgentTransports,       mandatory},
-%%% 	 {intAgentIpAddress,        mandatory},
-%%% 	 {intAgentUDPPort,          mandatory},
 	 {snmpEngineMaxMessageSize, mandatory},
 	 {snmpEngineID,             mandatory}],
     {ok, Conf} = snmp_conf:check_mandatory(Conf0, Mand),
@@ -226,27 +224,6 @@ check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State) ->
     {{ok, {Tag, CheckedTransports}}, State};
 check_agent(Entry, State) ->
     {check_agent(Entry), State}.
-
-%%% XXX remove
-%%%
-%%% check_agent({intAgentTransportDomain, D}, _Domain) ->
-%%%     {snmp_conf:check_domain(D), D};
-%%% check_agent({intAgentIpAddress = Tag, Value}, D) ->
-%%%     Domain =
-%%% 	case D of
-%%% 	    undefined ->
-%%% 		snmp_target_mib:default_domain();
-%%% 	    _ ->
-%%% 		D
-%%% 	end,
-%%%     {case snmp_conf:check_ip(Domain, Value) of
-%%% 	 ok ->
-%%% 	     ok;
-%%% 	 {ok, FixedIp} ->
-%%% 	     {ok, {Tag, FixedIp}}
-%%%      end, Domain};
-%%% check_agent(Entry, Domain) ->
-%%%     {check_agent(Entry), Domain}.
 
 %% This one is kept for backwards compatibility
 check_agent({intAgentMaxPacketSize, Value}) -> 
