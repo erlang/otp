@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed ETHR_FORCE_INLINE which caused the build to break
+	    on some platforms without adequate thread support
+	    (VxWorks).</p>
+          <p>
+	    Own Id: OTP-12010</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

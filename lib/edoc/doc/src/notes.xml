@@ -31,6 +31,25 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The default encoding for Erlang source files is now
+	    UTF-8. As a temporary measure to ease the transition from
+	    the old default of Latin-1, if EDoc encounters byte
+	    sequences that are not valid UTF-8 sequences, EDoc will
+	    re-try in Latin-1 mode. This workaround will be removed
+	    in a future release. </p>
+          <p>
+	    Own Id: OTP-12008</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

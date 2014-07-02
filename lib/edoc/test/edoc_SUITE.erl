@@ -22,12 +22,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app/1,appup/1,build_std/1,build_map_module/1]).
+-export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app,appup,build_std,build_map_module].
+    [app,appup,build_std,build_map_module,otp_12008].
 
 groups() -> 
     [].
@@ -76,4 +76,22 @@ build_map_module(Config) when is_list(Config) ->
     PrivDir  = ?config(priv_dir, Config),
     Filename = filename:join(DataDir, "map_module.erl"),
     ok = edoc:file(Filename, [{dir, PrivDir}]),
+    ok.
+
+otp_12008(Config) when is_list(Config) ->
+    DataDir  = ?config(data_dir, Config),
+    PrivDir  = ?config(priv_dir, Config),
+    Un1 = filename:join(DataDir, "un1.erl"),
+    Un2 = filename:join(DataDir, "un2.erl"),
+    Un3 = filename:join(DataDir, "un3.erl"),
+    %% epp_dodger
+    Opts1 = [{dir, PrivDir}],
+    ok = edoc:files([Un1], Opts1),
+    ok = edoc:files([Un2], Opts1),
+    {'EXIT', error} = (catch edoc:files([Un3], Opts1)),
+    %% epp
+    Opts2 = [{preprocess, true}, {dir, PrivDir}],
+    ok = edoc:files([Un1], Opts2),
+    ok = edoc:files([Un2], Opts2),
+    {'EXIT', error} = (catch edoc:files([Un3], Opts2)),
     ok.
