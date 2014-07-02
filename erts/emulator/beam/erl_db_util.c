@@ -918,8 +918,6 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace);
 
 static Eterm seq_trace_fake(Process *p, Eterm arg1);
 
-static void db_free_tmp_uncompressed(DbTerm* obj);
-
 
 /*
 ** Interface routines.

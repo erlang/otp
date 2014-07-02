@@ -35,6 +35,7 @@
 
 #include "erl_db_util.h" /* Flags */
 #include "erl_db_hash.h" /* DbTableHash */
+#include "erl_db_nested_hash.h" /* DbTableNestedHash */
 #include "erl_db_tree.h" /* DbTableTree */
 /*TT*/
 
@@ -52,6 +53,7 @@ typedef struct {
 union db_table {
     DbTableCommon common; /* Any type of db table */
     DbTableHash hash;     /* Linear hash array specific data */
+    DbTableNestedHash nested;     /* Nested linear hash array specific data */
     DbTableTree tree;     /* AVL tree specific data */
     DbTableRelease release;
     /*TT*/

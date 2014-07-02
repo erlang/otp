@@ -776,6 +776,7 @@ RUN_OBJS = \
 	$(OBJDIR)/external.o		$(OBJDIR)/dist.o \
 	$(OBJDIR)/binary.o		$(OBJDIR)/erl_db.o \
 	$(OBJDIR)/erl_db_util.o		$(OBJDIR)/erl_db_hash.o \
+	$(OBJDIR)/erl_db_nested_hash.o \
 	$(OBJDIR)/erl_db_tree.o		$(OBJDIR)/erl_thr_progress.o \
 	$(OBJDIR)/big.o			$(OBJDIR)/hash.o \
 	$(OBJDIR)/index.o		$(OBJDIR)/atom.o \
