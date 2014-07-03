@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@
                          {N :: non_neg_integer(),
                           [{Event :: system_event(),
                             FuncState :: _,
-                            FormFunc :: dbg_fun()}]}}
+                            FormFunc :: format_fun()}]}}
                       | {'statistics', {file:date_time(),
                                         {'reductions', non_neg_integer()},
                                         MessagesIn :: non_neg_integer(),
@@ -56,6 +56,10 @@
 -type dbg_fun()      :: fun((FuncState :: _,
                              Event :: system_event(),
                              ProcState :: _) -> 'done' | (NewFuncState :: _)).
+
+-type format_fun()   :: fun((Device :: io:device() | file:io_device(),
+			     Event :: system_event(),
+			     Extra :: term()) -> any()).
 
 %%-----------------------------------------------------------------
 %% System messages
@@ -346,7 +350,7 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 %%-----------------------------------------------------------------
 -spec handle_debug(Debug, FormFunc, Extra, Event) -> [dbg_opt()] when
       Debug :: [dbg_opt()],
-      FormFunc :: dbg_fun(),
+      FormFunc :: format_fun(),
       Extra :: term(),
       Event :: system_event().
 handle_debug([{trace, true} | T], FormFunc, State, Event) ->
