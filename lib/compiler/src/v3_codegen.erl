@@ -643,10 +643,6 @@ select_val_cg(tuple, R, [Arity,{f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,is_tuple,{f,Tf},[R]},{test,test_arity,{f,Vf},[R,Arity]}|Sis];
 select_val_cg(tuple, R, Vls, Tf, Vf, Sis) ->
     [{test,is_tuple,{f,Tf},[R]},{select_tuple_arity,R,{f,Vf},{list,Vls}}|Sis];
-select_val_cg(map, R, [_Val,{f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
-    [{test,is_map,{f,Fail},[R]}|Sis];
-select_val_cg(map, R, [_Val,{f,Lbl}|_], Tf, _Vf, [{label,Lbl}|Sis]) ->
-    [{test,is_map,{f,Tf},[R]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
     [{test,is_eq_exact,{f,Fail},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
