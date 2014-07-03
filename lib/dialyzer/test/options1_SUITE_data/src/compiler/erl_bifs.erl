@@ -224,6 +224,7 @@ is_bif(math, erf, 1) -> true;
 is_bif(math, erfc, 1) -> true;
 is_bif(math, exp, 1) -> true;
 is_bif(math, log, 1) -> true;
+is_bif(math, log2, 1) -> true;
 is_bif(math, log10, 1) -> true;
 is_bif(math, pow, 2) -> true;
 is_bif(math, sin, 1) -> true;
@@ -317,6 +318,7 @@ is_guard_bif(math, erf, 1) -> true;  % unorthodox
 is_guard_bif(math, erfc, 1) -> true;  % unorthodox
 is_guard_bif(math, exp, 1) -> true;  % unorthodox
 is_guard_bif(math, log, 1) -> true;  % unorthodox
+is_guard_bif(math, log2, 1) -> true;  % unorthodox
 is_guard_bif(math, log10, 1) -> true;  % unorthodox
 is_guard_bif(math, pow, 2) -> true;  % unorthodox
 is_guard_bif(math, sin, 1) -> true;  % unorthodox
@@ -423,6 +425,7 @@ is_pure(math, erf, 1) -> true;
 is_pure(math, erfc, 1) -> true;
 is_pure(math, exp, 1) -> true;
 is_pure(math, log, 1) -> true;
+is_pure(math, log2, 1) -> true;
 is_pure(math, log10, 1) -> true;
 is_pure(math, pow, 2) -> true;
 is_pure(math, sin, 1) -> true;

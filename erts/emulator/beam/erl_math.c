@@ -207,6 +207,10 @@ BIF_RETTYPE math_log_1(BIF_ALIST_1)
     return math_call_1(BIF_P, log, BIF_ARG_1);
 }
 
+BIF_RETTYPE math_log2_1(BIF_ALIST_1)
+{
+    return math_call_1(BIF_P, log2, BIF_ARG_1);
+}
 
 BIF_RETTYPE math_log10_1(BIF_ALIST_1)
 {
