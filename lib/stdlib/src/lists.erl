@@ -27,6 +27,7 @@
 	 delete/2,
 	 unzip/1, unzip3/1, zip/2, zip3/3, zipwith/3, zipwith3/4,
 	 sort/1, merge/1, merge/2, rmerge/2, merge3/3, rmerge3/3,
+   intersection/1, intersection/2,
 	 usort/1, umerge/1, umerge3/3, umerge/2, rumerge3/3, rumerge/2,
 	 concat/1, flatten/1, flatten/2, flatlength/1,
 	 keydelete/3, keyreplace/4, keytake/3, keystore/4,
@@ -992,6 +993,31 @@ rmerge(Fun, T1, [H2 | T2]) when is_function(Fun, 2) ->
     lists:reverse(rfmerge2_1(T1, H2, Fun, T2, []), []);
 rmerge(Fun, T1, []) when is_function(Fun, 2) ->
     T1.
+
+%%  Return the intersection of List1 and List2.
+-spec intersection(List1, List2) -> List3 when
+      List1 :: [T],
+      List2 :: [T],
+      List3 :: [T],
+      T :: term().
+intersection(L1, L2) when length(L1) < length(L2) ->
+    filter(fun (E) -> lists:member(E, L2) end, L1);
+intersection(L1, L2) ->
+    filter(fun (E) -> lists:member(E, L1) end, L2).
+
+%%  Return the intersection of the list of sets.
+-spec intersection(Lists) -> List when
+      Lists :: [[T],...],
+      List :: [T],
+      T :: term().
+intersection([L1,L2|Ls]) ->
+    intersection1(intersection(L1, L2), Ls);
+intersection([L]) -> L.
+
+-spec intersection1([T], [[T]]) -> [T].
+intersection1(L1, [L2|Ls]) ->
+    intersection1(intersection(L1, L2), Ls);
+intersection1(L1, []) -> L1.
 
 -spec usort(Fun, List1) -> List2 when
       Fun :: fun((T, T) -> boolean()),
