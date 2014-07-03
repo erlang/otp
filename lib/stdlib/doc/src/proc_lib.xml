@@ -302,8 +302,9 @@ init(Parent) ->
       <name name="stop" arity="1"/>
       <fsummary>Terminate a process synchronously.</fsummary>
       <type variable="Process"/>
-      <desc>Equivalent
-	to <seealso marker="#stop/3">stop(Process, normal, infinity)</seealso>.
+      <desc>
+	<p>Equivalent to <seealso marker="#stop/3">stop(Process,
+	    normal, infinity)</seealso>.</p>
       </desc>
     </func>
     <func>
