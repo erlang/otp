@@ -446,13 +446,13 @@ else
 fi
 
 AC_ARG_ENABLE(static-nifs,
-AS_HELP_STRING([--enable-static-nifs], [link nifs statically. If yes then all nifs in all Erlang/OTP applications will be statically linked into the main binary. It is also possible to give a list of nifs that should be linked statically. The list should be a comma seperated and contain the absolute path to a .a archive for each nif that is to be statically linked. The name of the .a archive has to be the same as the name of the nif. Note that you have to link any external dependencies that the nifs have to the main binary, so for the crypto nif you want to pass LIBS=-lcrypto to configure.]),
+AS_HELP_STRING([--enable-static-nifs], [link nifs statically. If yes then all nifs in all Erlang/OTP applications will be statically linked into the main binary. It is also possible to give a list of nifs that should be linked statically. The list should be a comma separated and contain the absolute path to a .a archive for each nif that is to be statically linked. The name of the .a archive has to be the same as the name of the nif. Note that you have to link any external dependencies that the nifs have to the main binary, so for the crypto nif you want to pass LIBS=-lcrypto to configure.]),
 	       STATIC_NIFS="$enableval",
 	       STATIC_NIFS=no)
 AC_SUBST(STATIC_NIFS)
 
 AC_ARG_ENABLE(static-drivers,
-AS_HELP_STRING([--enable-static-drivers], [comma seperated list of linked-in drivers to link statically with the main binary. The list should contain the absolute path to a .a archive for each driver that is to be statically linked. The name of the .a archive has to be the same as the name of the driver.]),
+AS_HELP_STRING([--enable-static-drivers], [comma separated list of linked-in drivers to link statically with the main binary. The list should contain the absolute path to a .a archive for each driver that is to be statically linked. The name of the .a archive has to be the same as the name of the driver.]),
 	       STATIC_DRIVERS="$enableval",
 	       STATIC_DRIVERS=no)
 AC_SUBST(STATIC_DRIVERS)
