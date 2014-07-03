@@ -30,7 +30,7 @@
 -define(AGENT_PORT, 4000).
 -define(MANAGER_PORT, 8989).
 -define(DEFAULT_MAX_MESSAGE_SIZE, 484).
--define(SYS_DESC, "iso.3.6.1.2.1.1.1.0 = STRING: \"Erlang SNMP agent\"\n").
+-define(SYS_DESC, <<"iso.3.6.1.2.1.1.1.0 = STRING: \"Erlang SNMP agent\"">>).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -97,23 +97,30 @@ init_per_group(ipv4, Config) ->
      | Config];
 
 init_per_group(dual_ip, Config) ->
-    case ct:require(ipv6_hosts) of
-	ok ->
-	    Dir = ?config(priv_dir, Config),
-	    {ok, Host} = inet:gethostname(),
-	    {ok, IPv4Addr} = inet:getaddr(Host, inet),
-	    {ok, IPv6Addr} = inet:getaddr(Host, inet6),
-	    Domain = snmpUDPDomain,
-	    Transports =
-		[{Domain, {IPv4Addr, ?AGENT_PORT}},
-		 {transportDomainUdpIpv6, {IPv6Addr, ?AGENT_PORT}}],
-	    TrapAddr = {IPv4Addr, 0},
-	    Versions = [v2],
-	    agent_config(Dir, Transports, Domain, TrapAddr, Versions),
-	    [{host, Host}, {port, ?AGENT_PORT}, {snmp_versions, Versions}
-	     | Config];
-	_ ->
-	    {skip, "Host does not support IPV6"}
+    case os:find_executable("snmpget") of
+	false ->
+	    {skip, "snmpget not found"};
+	Path ->
+	    case ct:require(ipv6_hosts) of
+		ok ->
+		    Dir = ?config(priv_dir, Config),
+		    {ok, Host} = inet:gethostname(),
+		    {ok, IPv4Addr} = inet:getaddr(Host, inet),
+		    {ok, IPv6Addr} = inet:getaddr(Host, inet6),
+		    Domain = snmpUDPDomain,
+		    Transports =
+			[{Domain, {IPv4Addr, ?AGENT_PORT}},
+			 {transportDomainUdpIpv6, {IPv6Addr, ?AGENT_PORT}}],
+		    TrapAddr = {IPv4Addr, 0},
+		    Versions = [v2],
+		    agent_config(
+		      Dir, Transports, Domain, TrapAddr, Versions),
+		    [{host, Host}, {port, ?AGENT_PORT},
+		     {snmp_versions, Versions},
+		     {snmpget, Path} | Config];
+		_ ->
+		    {skip, "Host does not support IPV6"}
+	    end
     end;
 
 init_per_group(get, Config) ->
@@ -121,8 +128,8 @@ init_per_group(get, Config) ->
     case os:find_executable("snmpget") of
 	false ->
 	    {skip, "snmpget not found"};
-	_ ->
-	    Config
+	Path ->
+	    [{snmpget, Path} | Config]
     end;
 
 init_per_group(inform, Config) ->
@@ -130,8 +137,8 @@ init_per_group(inform, Config) ->
     case os:find_executable("snmptrapd") of
 	false ->
 	    {skip, "snmptrapd not found"};
-	_ ->
-	    Config
+	Path ->
+	    [{snmptrapd, Path} | Config]
     end;
 init_per_group(_, Config) ->
     Config.
@@ -139,18 +146,31 @@ init_per_group(_, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(Case, Config) ->
+init_per_testcase(_Case, Config) ->
     Dog = ct:timetrap(10000),
-    end_per_testcase(Case, Config),
-    application:start(snmp),
-    application:load(snmp),
-    application:set_env(snmp, agent, app_env(Case, Config)),
-    snmp:start_agent(normal),
+    application:stop(snmp),
+    application:unload(snmp),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_, Config) ->
-    application:stop(snmp),
+    case application:stop(snmp) of
+	ok ->
+	    ok;
+	E1 ->
+	    ct:pal("application:stop(snmp) -> ~p", [E1])
+    end,
+    case application:unload(snmp) of
+	ok ->
+	    ok;
+	E2 ->
+	    ct:pal("application:unload(snmp) -> ~p", [E2])
+    end,
     Config.
+
+start_agent(Config) ->
+    ok = application:load(snmp),
+    ok = application:set_env(snmp, agent, app_env(Config)),
+    ok = application:start(snmp).
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -160,42 +180,46 @@ erlang_agent_netsnmp_get() ->
       "from snmpnet manager"}].
 
 erlang_agent_netsnmp_get(Config) when is_list(Config) ->
-    Host = ?config(host, Config),
-    Port = ?config(agent_port, Config),
-    IPVersion = ?config(ip_version, Config),
-    Versions = ?config(snmp_versions, Config),
-   
-    Cmd = "snmpget -c public " ++ net_snmp_version(Versions) ++ " " ++
-	net_snmp_ip_version(IPVersion) ++ 
-	Host ++ ":" ++ integer_to_list(Port) ++ 
-	" " ++ oid_str(?sysDescr_instance),
-    net_snmp(Cmd, ?SYS_DESC).
+    start_agent(Config),
+    ?SYS_DESC = snmpget(oid_str(?sysDescr_instance), Config),
+    ok.
 
 %%--------------------------------------------------------------------
 erlang_agent_dual_ip_get() ->
     [{doc,"Test that we can access erlang snmp agent from both " 
       "snmpnet ipv4 and snmpnet ipv6 manager at the same time"}].
 erlang_agent_dual_ip_get(Config) when is_list(Config) ->
-    erlang_agent_netsnmp_get([{ip_version, ipv4} | Config]),
-    erlang_agent_netsnmp_get([{ip_version, ipv6} | Config]).
+    start_agent(Config),
+
+    OidStr = oid_str(?sysDescr_instance),
+    ?SYS_DESC = snmpget(OidStr, [{ip_version, ipv4} | Config]),
+    ?SYS_DESC = snmpget(OidStr, [{ip_version, ipv6} | Config]),
+    ok.
+
 %%--------------------------------------------------------------------
 erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     Host = ?config(host, Config),
     IPVersion = ?config(ip_version, Config),    
     DataDir = ?config(data_dir, Config),  
+
+    start_agent(Config),
     ok =
       snmpa:load_mib(
 	snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
     
-    Cmd = "snmptrapd -L o -M " ++ DataDir ++ 
-	" --disableAuthorization=yes" ++
-	" --snmpTrapdAddr=" ++ net_snmp_ip_version(IPVersion) ++ 
-	Host ++ ":" ++ integer_to_list(?config(manager_port, Config)),
+    SnmptrapdArgs =
+	["-f", "-Lo",
+	 "-M", DataDir,
+	 "--disableAuthorization=yes",
+	 "--snmpTrapdAddr=" ++ net_snmp_transport(IPVersion) ++
+	     Host ++ ":" ++ integer_to_list(?config(manager_port, Config))],
+    {ok, CheckMP} = re:compile("NET-SNMP version ", [anchored]),
+    ProgHandle =
+	start_program(snmptrapd, SnmptrapdArgs, CheckMP, Config),
 
-    NetSnmpPort = net_snmp_trapd(Cmd),
-    snmpa:send_notification(snmp_master_agent, testTrapv22, 
-			    {erlang_agent_test, self()}),
-    net_snmp_log(NetSnmpPort),
+    snmpa:send_notification(
+      snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
+
     receive
 	{snmp_targets, erlang_agent_test, Addresses} ->
 	    ct:pal("Notification sent to: ~p~n", [Addresses])
@@ -207,38 +231,116 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
 	{snmp_notification, erlang_agent_test, {no_response, _} = 
 	     NoResponse} ->
 	    ct:fail(NoResponse)
-    end.
+    end,
+
+    stop_program(ProgHandle).
 	
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-net_snmp(Cmd, Expect) ->
-    NetSnmpPort = open_port({spawn, Cmd}, [stderr_to_stdout]),
-    ct:pal("net_snmp started: ~s~n", [Cmd]),
-    receive 
-	{NetSnmpPort, {data, Expect}} ->
-	    ok;
-	Msg ->
-	    ct:fail({{expected, {NetSnmpPort, {data, Expect}}}, 
-		     {got, Msg}})
-    end,
-    catch erlang:port_close(NetSnmpPort).
+snmpget(OidStr, Config) ->
+    Versions = ?config(snmp_versions, Config),
+    IPVersion = ?config(ip_version, Config),
+    Host = ?config(host, Config),
+    Port = ?config(agent_port, Config),
 
-net_snmp_trapd(Cmd) ->
-    NetSnmpTrapdPort = open_port({spawn, Cmd}, [stderr_to_stdout]),
-    ct:pal("net_snmp_trapd started: ~s~n", [Cmd]),
-    NetSnmpTrapdPort.
+    Args =
+	["-c", "public", net_snmp_version(Versions),
+	 net_snmp_transport(IPVersion) ++
+	     Host ++ ":" ++ integer_to_list(Port),
+	 OidStr],
+    ProgHandle = start_program(snmpget, Args, none, Config),
+    {_, line, Line} = get_program_output(ProgHandle),
+    stop_program(ProgHandle),
+    Line.
 
-net_snmp_log(NetSnmpPort) -> 
-    receive 
-	{NetSnmpPort, {data, Data}} ->
-	    ct:pal("Received from netsnmp: ~p~n", [Data]),
-	    net_snmp_log(NetSnmpPort)
-    after 500 ->
-	    catch erlang:port_close(NetSnmpPort)
+
+start_program(Prog, Args, StartCheckMP, Config) ->
+    Path = ?config(Prog, Config),
+    DataDir = ?config(data_dir, Config),
+    StartWrapper = filename:join(DataDir, "start_stop_wrapper"),
+    Parent = self(),
+    Pid =
+	spawn_link(
+	  fun () ->
+		  run_program(Parent, StartWrapper, [Path | Args])
+	  end),
+    start_check(Pid, erlang:monitor(process, Pid), StartCheckMP).
+
+start_check(Pid, Mon, none) ->
+    {Pid, Mon};
+start_check(Pid, Mon, StartCheckMP) ->
+    receive
+	{Pid, line, Line} ->
+	    case re:run(Line, StartCheckMP, [{capture, none}]) of
+		match ->
+		    {Pid, Mon};
+		nomatch ->
+		    start_check(Pid, Mon, StartCheckMP)
+	    end;
+	{'DOWN', Mon, _, _, Reason} ->
+	    ct:fail("Prog ~p start failed: ~p", [Pid, Reason])
     end.
 
-app_env(_Case, Config) ->
+get_program_output({Pid, Mon}) ->
+    receive
+	{Pid, _, _} = Msg ->
+	    Msg;
+	{'DOWN', Mon, _, _, Reason} ->
+	    ct:fail("Prog ~p crashed: ~p", [Pid, Reason])
+    end.
+
+stop_program({Pid, _} = Handle) ->
+    Pid ! {self(), stop},
+    wait_program_stop(Handle).
+
+wait_program_stop({Pid, Mon}) ->
+    receive
+	{Pid, exit, ExitStatus} ->
+	    receive
+		{'DOWN', Mon, _, _, _} ->
+		    ExitStatus
+	    end;
+	{'DOWN', Mon, _, _, Reason} ->
+	    ct:fail("Prog stop: ~p", [Reason])
+    end.
+
+run_program(Parent, StartWrapper, ProgAndArgs) ->
+    Port =
+	open_port(
+	  {spawn_executable, StartWrapper},
+	  [{args, ProgAndArgs}, binary, stderr_to_stdout, {line, 80},
+	   exit_status]),
+    ct:pal("Prog ~p started: ~p", [Port, ProgAndArgs]),
+    run_program_loop(Parent, Port, []).
+
+run_program_loop(Parent, Port, Buf) ->
+    receive
+	{Parent, stop} ->
+	    true = port_command(Port, <<"stop\n">>),
+	    ct:pal("Prog ~p stop", [Port]),
+	    run_program_loop(Parent, Port, Buf);
+	{Port, {data, {Flag, Data}}} ->
+	    case Flag of
+		eol ->
+		    Line = iolist_to_binary(lists:reverse(Buf, Data)),
+		    ct:pal("Prog ~p output: ~s", [Port, Line]),
+		    Parent ! {self(), line, Line},
+		    run_program_loop(Parent, Port, []);
+		noeol ->
+		    run_program_loop(Parent, Port, [Data | Buf])
+	    end;
+	{Port, {exit_status,ExitStatus}} ->
+	    ct:pal("Prog ~p exit: ~p", [Port, ExitStatus]),
+	    catch port_close(Port),
+	    Parent ! {self(), exit, ExitStatus};
+	Unexpected ->
+	    ct:pal("run_program_loop Unexpected: ~p", [Unexpected]),
+	    run_program_loop(Parent, Port, Buf)
+    end.
+
+
+app_env(Config) ->
     Dir = ?config(priv_dir, Config),
     Vsns = ?config(snmp_versions, Config),
     [{versions,         Vsns}, 
@@ -249,7 +351,7 @@ app_env(_Case, Config) ->
 			 {dir,  Dir},
 			 {size, {10240, 10}}]},
      {config,           [{dir, Dir},
-			 {force_load, false}, 
+			 {force_load, true},
 			 {verbosity,  trace}]}, 
      {local_db,         [{repair,    true},
 			 {verbosity,  silence}]}, 
@@ -288,7 +390,8 @@ net_snmp_version([v2 | _]) ->
     "-v2c";
 net_snmp_version([v1 | _]) ->
     "-v1".
-net_snmp_ip_version(ipv4) ->
+
+net_snmp_transport(ipv4) ->
     "udp:";
-net_snmp_ip_version(ipv6) ->
+net_snmp_transport(ipv6) ->
     "udp6:".
