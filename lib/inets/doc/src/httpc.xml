@@ -332,7 +332,7 @@ filename()       = string()
             <p>Defaults to <c>true</c>. </p>
 	  </item>
 
-          <tag><c><![CDATA[header_as_is]]></c></tag>
+          <tag><c><![CDATA[headers_as_is]]></c></tag>
           <item>
             <p>Shall the headers provided by the user be made 
 	    lower case or be regarded as case sensitive. </p>

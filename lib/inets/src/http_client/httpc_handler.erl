@@ -1793,7 +1793,7 @@ tls_tunnel_request(#request{headers = Headers,
 host_header(#http_request_h{host = Host}, _) ->
     Host;
 
-%% Handles header_as_is
+%% Handles headers_as_is
 host_header(_, URI) ->
     {ok, {_, _, Host, _, _, _}} =  http_uri:parse(URI),
     Host.
