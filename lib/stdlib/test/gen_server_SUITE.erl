@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,8 @@
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
 	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
-	 error_format_status/1, get_state/1, replace_state/1, call_with_huge_message_queue/1
+	 error_format_status/1, terminate_crash_format/1,
+	 get_state/1, replace_state/1, call_with_huge_message_queue/1
 	]).
 
 % spawn export
@@ -56,7 +57,8 @@ all() ->
      call_remote_n3, spec_init,
      spec_init_local_registered_parent,
      spec_init_global_registered_parent, otp_5854, hibernate,
-     otp_7669, call_format_status, error_format_status,
+     otp_7669,
+     call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
      call_with_huge_message_queue].
 
@@ -273,7 +275,7 @@ crash(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader4,{Pid4,
 			      "** Generic server"++_,
-			      [Pid4,crash,state4,crashed]}} ->
+			      [Pid4,crash,{formatted, state4},crashed]}} ->
 	    ok;
 	Other4a ->
  	    ?line io:format("Unexpected: ~p", [Other4a]),
@@ -1024,11 +1026,36 @@ error_format_status(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
-			     [Pid,crash,State,crashed]}} ->
+			     [Pid,crash,{formatted, State},crashed]}} ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
 	    ?line ?t:fail()
+    end,
+    ?t:messages_get(),
+    process_flag(trap_exit, OldFl),
+    ok.
+
+%% Verify that error when terminating correctly calls our format_status/2 fun
+%%
+terminate_crash_format(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+    State = crash_terminate,
+    {ok, Pid} = gen_server:start_link(?MODULE, {state, State}, []),
+    gen_server:call(Pid, stop),
+    receive {'EXIT', Pid, {crash, terminate}} -> ok end,
+    receive
+	{error,_GroupLeader,{Pid,
+			     "** Generic server"++_,
+			     [Pid,stop, {formatted, State},{crash, terminate}]}} ->
+	    ok;
+	Other ->
+	    io:format("Unexpected: ~p", [Other]),
+	    ?t:fail()
+    after 5000 ->
+	    io:format("Timeout: expected error logger msg", []),
+	    ?t:fail()
     end,
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -1323,10 +1350,12 @@ terminate({From, stopped}, _State) ->
 terminate({From, stopped_info}, _State) ->
     From ! {self(), stopped_info},
     ok;
+terminate(_, crash_terminate) ->
+    exit({crash, terminate});
 terminate(_Reason, _State) ->
     ok.
 
 format_status(terminate, [_PDict, State]) ->
-    State;
+    {formatted, State};
 format_status(normal, [_PDict, _State]) ->
     format_status_called.

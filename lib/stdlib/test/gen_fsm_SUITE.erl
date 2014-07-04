@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,9 @@
 
 -export([shutdown/1]).
 
--export([ sys1/1, call_format_status/1, error_format_status/1, get_state/1, replace_state/1]).
+-export([ sys1/1,
+	  call_format_status/1, error_format_status/1, terminate_crash_format/1,
+	  get_state/1, replace_state/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
@@ -66,7 +68,8 @@ groups() ->
        start8, start9, start10, start11, start12]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
-      [sys1, call_format_status, error_format_status, get_state, replace_state]}].
+      [sys1, call_format_status, error_format_status, terminate_crash_format,
+       get_state, replace_state]}].
 
 init_per_suite(Config) ->
     Config.
@@ -403,7 +406,7 @@ error_format_status(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader,{Pid,
 			     "** State machine"++_,
-			     [Pid,{_,_,badreturn},idle,StateData,_]}} ->
+			     [Pid,{_,_,badreturn},idle,{formatted,StateData},_]}} ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
@@ -412,6 +415,29 @@ error_format_status(Config) when is_list(Config) ->
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
+
+terminate_crash_format(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+    StateData = crash_terminate,
+    {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, {state_data, StateData}, []),
+    stop_it(Pid),
+    receive
+	{error,_GroupLeader,{Pid,
+			     "** State machine"++_,
+			     [Pid,{_,_,_},idle,{formatted, StateData},_]}} ->
+	    ok;
+	Other ->
+	    io:format("Unexpected: ~p", [Other]),
+	    ?t:fail()
+    after 5000 ->
+	    io:format("Timeout: expected error logger msg", []),
+	    ?t:fail()
+    end,
+    [] = ?t:messages_get(),
+    process_flag(trap_exit, OldFl),
+    ok.
+
 
 get_state(Config) when is_list(Config) ->
     State = self(),
@@ -867,7 +893,8 @@ init({state_data, StateData}) ->
 init(_) ->
     {ok, idle, state_data}.
 
-
+terminate(_, _State, crash_terminate) ->
+    exit({crash, terminate});
 terminate({From, stopped}, State, _Data) ->
     From ! {self(), {stopped, State}},
     ok;
@@ -1005,6 +1032,6 @@ handle_sync_event({get, _Pid}, _From, State, Data) ->
     {reply, {state, State, Data}, State, Data}.
 
 format_status(terminate, [_Pdict, StateData]) ->
-    StateData;
+    {formatted, StateData};
 format_status(normal, [_Pdict, _StateData]) ->
     [format_status_called].

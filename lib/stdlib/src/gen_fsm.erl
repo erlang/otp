@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -594,7 +594,8 @@ reply(Name, {To, Tag}, Reply, Debug, StateName) ->
 terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
     case catch Mod:terminate(Reason, StateName, StateData) of
 	{'EXIT', R} ->
-	    error_info(R, Name, Msg, StateName, StateData, Debug),
+	    FmtStateData = format_status(terminate, Mod, get(), StateData),
+	    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
 	    exit(R);
 	_ ->
 	    case Reason of
@@ -605,17 +606,7 @@ terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
  		{shutdown,_}=Shutdown ->
  		    exit(Shutdown);
 		_ ->
-                    FmtStateData =
-                        case erlang:function_exported(Mod, format_status, 2) of
-                            true ->
-                                Args = [get(), StateData],
-                                case catch Mod:format_status(terminate, Args) of
-                                    {'EXIT', _} -> StateData;
-                                    Else -> Else
-                                end;
-                            _ ->
-                                StateData
-                        end,
+                    FmtStateData = format_status(terminate, Mod, get(), StateData),
 		    error_info(Reason,Name,Msg,StateName,FmtStateData,Debug),
 		    exit(Reason)
 	    end
@@ -680,21 +671,29 @@ format_status(Opt, StatusData) ->
     Header = gen:format_status_header("Status for state machine",
                                       Name),
     Log = sys:get_debug(log, Debug, []),
-    DefaultStatus = [{data, [{"StateData", StateData}]}],
-    Specfic =
-	case erlang:function_exported(Mod, format_status, 2) of
-	    true ->
-		case catch Mod:format_status(Opt,[PDict,StateData]) of
-		    {'EXIT', _} -> DefaultStatus;
-                    StatusList when is_list(StatusList) -> StatusList;
-		    Else -> [Else]
-		end;
-	    _ ->
-		DefaultStatus
-	end,
+    Specfic = format_status(Opt, Mod, PDict, StateData),
+    Specfic = case format_status(Opt, Mod, PDict, StateData) of
+		  S when is_list(S) -> S;
+		  S -> [S]
+	      end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
 	     {"Logged events", Log},
 	     {"StateName", StateName}]} |
      Specfic].
+
+format_status(Opt, Mod, PDict, State) ->
+    DefStatus = case Opt of
+		    terminate -> State;
+		    _ -> [{data, [{"StateData", State}]}]
+		end,
+    case erlang:function_exported(Mod, format_status, 2) of
+	true ->
+	    case catch Mod:format_status(Opt, [PDict, State]) of
+		{'EXIT', _} -> DefStatus;
+		Else -> Else
+	    end;
+	_ ->
+	    DefStatus
+    end.
