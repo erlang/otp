@@ -1000,10 +1000,18 @@ rmerge(Fun, T1, []) when is_function(Fun, 2) ->
       List2 :: [T],
       List3 :: [T],
       T :: term().
-intersection(L1, L2) when length(L1) < length(L2) ->
-    filter(fun (E) -> lists:member(E, L2) end, L1);
-intersection(L1, L2) ->
-    filter(fun (E) -> lists:member(E, L1) end, L2).
+
+intersection(L1, L2) -> intersection1(lists:sort(L1), lists:sort(L2)).
+
+-spec intersection1([T],[T]) -> [T].
+intersection1([],_) -> [];
+intersection1(_,[]) -> [];
+intersection1([H|T1],[H|T2]) -> [H|intersection1(T1,T2)];
+intersection1([H1|T1]=L1,[H2|T2]=L2) ->
+    case H1 < H2 of
+        true -> intersection1(T1,L2);
+        false -> intersection1(L1,T2)
+    end.
 
 %%  Return the intersection of the list of lists.
 -spec intersection(Lists) -> List when
@@ -1011,13 +1019,13 @@ intersection(L1, L2) ->
       List :: [T],
       T :: term().
 intersection([L1,L2|Ls]) ->
-    intersection1(intersection(L1, L2), Ls);
+    intersection2(intersection(L1, L2), Ls);
 intersection([L]) -> L.
 
--spec intersection1([T], [[T]]) -> [T].
-intersection1(L1, [L2|Ls]) ->
-    intersection1(intersection(L1, L2), Ls);
-intersection1(L1, []) -> L1.
+-spec intersection2([T], [[T]]) -> [T].
+intersection2(L1, [L2|Ls]) ->
+    intersection2(intersection(L1, L2), Ls);
+intersection2(L1, []) -> L1.
 
 -spec usort(Fun, List1) -> List2 when
       Fun :: fun((T, T) -> boolean()),
