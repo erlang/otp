@@ -45,16 +45,22 @@ all() ->
     ].
 
 groups() ->
-    [{ipv4, [],    [{group, get},
-		    {group, inform}
-		   ]},
-     {ipv6, [],    [{group, get},
-		    {group, inform},
-		    {group, dual_ip}
-		   ]},
-     {get, [],     [erlang_agent_netsnmp_get]},
-     {inform, [],  [erlang_agent_netsnmp_inform]},
-     {dual_ip, [], [erlang_agent_dual_ip_get]}
+    [{ipv4, [],
+      [{group, get},
+       {group, inform}
+      ]},
+     {ipv6, [],
+      [{group, get},
+       {group, inform},
+       {group, dual_ip}
+      ]},
+     {get, [],
+      [erlang_agent_netsnmp_get]},
+     {inform, [],
+      [erlang_agent_netsnmp_inform]},
+     {dual_ip, [],
+      [erlang_agent_dual_ip_get,
+       erlang_agent_dual_ip_inform]}
     ].
 
 init_per_suite(Config) ->
@@ -81,7 +87,7 @@ init_per_group(ipv6, Config) ->
 	_ ->
 	    {skip, "Host does not support IPV6"}
     end;
-
+%%
 init_per_group(ipv4, Config) ->
     Dir = ?config(priv_dir, Config),
     Domain =  transportDomainUdpIpv4,
@@ -95,51 +101,44 @@ init_per_group(ipv4, Config) ->
     agent_config(Dir, Transports, Domain, TrapAddr, Versions),
     [{host, Host}, {snmp_versions, Versions}, {ip_version, ipv4}
      | Config];
-
+%%
 init_per_group(dual_ip, Config) ->
-    case os:find_executable("snmpget") of
-	false ->
-	    {skip, "snmpget not found"};
-	Path ->
+    case find_executables([snmpget, snmptrapd], Config) of
+	NewConfig when is_list(NewConfig) ->
 	    case ct:require(ipv6_hosts) of
 		ok ->
 		    Dir = ?config(priv_dir, Config),
+		    Domain = transportDomainUdpIpv4,
+		    AgentPort = ?config(agent_port, Config),
+		    ManagerPort = ?config(manager_port, Config),
 		    {ok, Host} = inet:gethostname(),
 		    {ok, IPv4Addr} = inet:getaddr(Host, inet),
 		    {ok, IPv6Addr} = inet:getaddr(Host, inet6),
-		    Domain = snmpUDPDomain,
 		    Transports =
-			[{Domain, {IPv4Addr, ?AGENT_PORT}},
-			 {transportDomainUdpIpv6, {IPv6Addr, ?AGENT_PORT}}],
-		    TrapAddr = {IPv4Addr, 0},
+			[{Domain, {IPv4Addr, AgentPort}},
+			 {transportDomainUdpIpv6, {IPv6Addr, AgentPort}}],
+		    Targets =
+			[{Domain, {IPv4Addr, ManagerPort}},
+			 {transportDomainUdpIpv6, {IPv6Addr, ManagerPort}}],
 		    Versions = [v2],
-		    agent_config(
-		      Dir, Transports, Domain, TrapAddr, Versions),
+		    agent_config(Dir, Transports, Targets, Versions),
 		    [{host, Host}, {port, ?AGENT_PORT},
-		     {snmp_versions, Versions},
-		     {snmpget, Path} | Config];
+		     {snmp_versions, Versions}
+		     | NewConfig];
 		_ ->
 		    {skip, "Host does not support IPV6"}
-	    end
+	    end;
+	Other ->
+	    Other
     end;
-
+%%
 init_per_group(get, Config) ->
     %% From Ubuntu package snmp
-    case os:find_executable("snmpget") of
-	false ->
-	    {skip, "snmpget not found"};
-	Path ->
-	    [{snmpget, Path} | Config]
-    end;
-
+    find_executables([snmpget], Config);
+%%
 init_per_group(inform, Config) ->
     %% From Ubuntu package snmptrapfmt
-    case os:find_executable("snmptrapd") of
-	false ->
-	    {skip, "snmptrapd not found"};
-	Path ->
-	    [{snmptrapd, Path} | Config]
-    end;
+    find_executables([snmptrapd], Config);
 init_per_group(_, Config) ->
     Config.
 
@@ -166,6 +165,18 @@ end_per_testcase(_, Config) ->
 	    ct:pal("application:unload(snmp) -> ~p", [E2])
     end,
     Config.
+
+find_executables([], Config) ->
+    Config;
+find_executables([Exec | Execs], Config) ->
+    case os:find_executable(atom_to_list(Exec)) of
+	false ->
+	    {skip, Exec ++ " not found"};
+	Path ->
+	    find_executables(
+	      Execs,
+	      [{Exec, Path} | Config])
+    end.
 
 start_agent(Config) ->
     ok = application:load(snmp),
@@ -213,9 +224,9 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
 	 "--disableAuthorization=yes",
 	 "--snmpTrapdAddr=" ++ net_snmp_transport(IPVersion) ++
 	     Host ++ ":" ++ integer_to_list(?config(manager_port, Config))],
-    {ok, CheckMP} = re:compile("NET-SNMP version ", [anchored]),
+    {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
     ProgHandle =
-	start_program(snmptrapd, SnmptrapdArgs, CheckMP, Config),
+	start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config),
 
     snmpa:send_notification(
       snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
@@ -235,6 +246,56 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
 
     stop_program(ProgHandle).
 	
+%%--------------------------------------------------------------------
+erlang_agent_dual_ip_inform(Config) when is_list(Config) ->
+    Host = ?config(host, Config),
+    ManagerPort = ?config(manager_port, Config),
+    DataDir = ?config(data_dir, Config),
+
+    start_agent(Config),
+    ok =
+      snmpa:load_mib(
+	snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
+
+    ManagerPortStr = integer_to_list(ManagerPort),
+    SnmptrapdArgs =
+	["-f", "-Lo",
+	 "-M", DataDir,
+	 "--disableAuthorization=yes",
+	 "--snmpTrapdAddr=" ++
+	     net_snmp_transport(ipv4) ++ Host ++ ":" ++ ManagerPortStr ++
+	     "," ++
+	     net_snmp_transport(ipv6) ++ Host ++ ":" ++ ManagerPortStr],
+    {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
+    ProgHandle =
+	start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config),
+
+    snmpa:send_notification(
+      snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
+
+    receive
+	{snmp_targets, erlang_agent_test, Addresses} ->
+	    ct:pal("Notification sent to: ~p~n", [Addresses]),
+	    erlang_agent_dual_ip_inform_responses(Addresses)
+    end,
+    stop_program(ProgHandle).
+
+erlang_agent_dual_ip_inform_responses([]) ->
+    ok;
+erlang_agent_dual_ip_inform_responses([Address | Addresses] = AAs) ->
+    receive
+	{snmp_notification, erlang_agent_test,
+	 {got_response, Address}} ->
+	    ct:pal("Got response from: ~p~n", [Address]),
+	    erlang_agent_dual_ip_inform_responses(Addresses);
+	{snmp_notification, erlang_agent_test,
+	 {no_response, _} = NoResponse} ->
+	    ct:fail(NoResponse);
+	{snmp_notification, erlang_agent_test, _} = Unexpected ->
+	    ct:pal("Unexpected response: ~p", [Unexpected]),
+	    erlang_agent_dual_ip_inform_responses(AAs)
+    end.
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -369,6 +430,9 @@ oid_str([Int | Rest], Acc) ->
     oid_str(Rest, Acc ++ "." ++ integer_to_list(Int)).
 
 agent_config(Dir, Transports, TargetDomain, TargetAddr, Versions) ->
+    agent_config(Dir, Transports, [{TargetDomain, TargetAddr}], Versions).
+%%
+agent_config(Dir, Transports, Targets, Versions) ->
     EngineID = ?AGENT_ENGIN_ID,
     MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
     ok = snmp_config:write_agent_snmp_conf(Dir, Transports, EngineID, MMS),
@@ -379,7 +443,7 @@ agent_config(Dir, Transports, TargetDomain, TargetAddr, Versions) ->
 	  Dir, "snmp_to_snmpnet_SUITE"),
     ok =
 	snmp_config:write_agent_snmp_target_addr_conf(
-	  Dir, TargetDomain, TargetAddr, Versions),
+	  Dir, Targets, Versions),
     ok = snmp_config:write_agent_snmp_target_params_conf(Dir, Versions),
     ok = snmp_config:write_agent_snmp_notify_conf(Dir, inform),
     ok = snmp_config:write_agent_snmp_vacm_conf(Dir, Versions, none).
