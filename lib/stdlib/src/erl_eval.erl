@@ -77,7 +77,7 @@
 %% Only exprs/2 checks the command by calling erl_lint. The reason is
 %% that if there is a function handler present, then it is possible
 %% that there are valid constructs in Expression to be taken care of
-%% by a function handler but considerad errors by erl_lint.
+%% by a function handler but considered errors by erl_lint.
 
 -spec(exprs(Expressions, Bindings) -> {value, Value, NewBindings} when
       Expressions :: expressions(),
