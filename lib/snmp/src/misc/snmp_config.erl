@@ -37,8 +37,10 @@
 	 write_agent_snmp_context_conf/1, 
 	 write_agent_snmp_community_conf/1, 
 	 write_agent_snmp_standard_conf/2, 
-	 write_agent_snmp_target_addr_conf/4, 
-	 write_agent_snmp_target_addr_conf/6, 
+	 write_agent_snmp_target_addr_conf/3,
+	 write_agent_snmp_target_addr_conf/4,
+	 write_agent_snmp_target_addr_conf/5,
+	 write_agent_snmp_target_addr_conf/6,
 	 write_agent_snmp_target_params_conf/2, 
 	 write_agent_snmp_notify_conf/2, 
 	 write_agent_snmp_usm_conf/5, 
@@ -1797,21 +1799,18 @@ update_agent_standard_config(Dir, Conf) ->
 %% ------ target_addr.conf ------
 %% 
 
-write_agent_snmp_target_addr_conf(Dir, Domain, Addr, Vsns)
-  when is_atom(Domain) ->
-    Timeout    = 1500, 
-    RetryCount = 3, 
+write_agent_snmp_target_addr_conf(Dir, Addresses, Vsns) ->
+    Timeout    = 1500,
+    RetryCount = 3,
     write_agent_snmp_target_addr_conf(
-      Dir, Domain, Addr, Timeout, RetryCount, Vsns);
-write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, Vsns)
-  when is_integer(UDP) ->
-    Domain = snmp_target_mib:default_domain(),
-    Addr = {ManagerIp, UDP},
-    write_agent_snmp_target_addr_conf(Dir, Domain, Addr, Vsns).
+      Dir, Addresses, Timeout, RetryCount, Vsns).
+
+write_agent_snmp_target_addr_conf(Dir, Domain_or_Ip, Addr_or_Port, Vsns) ->
+    Addresses = [{Domain_or_Ip, Addr_or_Port}],
+    write_agent_snmp_target_addr_conf(Dir, Addresses, Vsns).
 
 write_agent_snmp_target_addr_conf(
-  Dir, Domain, Addr, Timeout, RetryCount, Vsns)
-  when is_atom(Domain) ->
+  Dir, Addresses, Timeout, RetryCount, Vsns) ->
     Comment =
 "%% This file defines the target address parameters.\n"
 "%% The data is inserted into the snmpTargetAddrTable defined\n"
@@ -1831,43 +1830,59 @@ write_agent_snmp_target_addr_conf(
 "%%  [127,0,0,0],  2048}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    F = fun(v1 = Vsn, Acc) ->
-		[{mk_name(Domain, Addr, Vsn),
-		  Domain, Addr, Timeout, RetryCount,
-		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
-	   (v2 = Vsn, Acc) ->
-		[{mk_name(Domain, Addr, Vsn),
-		  Domain, Addr, Timeout, RetryCount,
-		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(
-		    io_lib:format("~s.2",[mk_name(Domain, Addr, Vsn)])),
-		  Domain, Addr, Timeout, RetryCount,
-		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
-	   (v3 = Vsn, Acc) ->
-		[{mk_name(Domain, Addr, Vsn),
-		  Domain, Addr, Timeout, RetryCount,
-		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(
-		    io_lib:format("~s.3",[mk_name(Domain, Addr, Vsn)])),
-		  Domain, Addr, Timeout, RetryCount,
-		  "std_inform", mk_param(Vsn), "mgrEngine", [], 2048}| Acc]
-	end,
-    Conf = lists:foldl(F, [], Vsns),
-    write_agent_target_addr_config(Dir, Hdr, Conf);
+    Conf =
+	lists:foldl(
+	  fun ({Domain_or_Ip, Addr_or_Port} = Address, OuterAcc) ->
+		  lists:foldl(
+		    fun(v1 = Vsn, Acc) ->
+			    [{mk_name(Address, Vsn),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_trap", mk_param(Vsn), "",
+			      [], 2048}| Acc];
+		       (v2 = Vsn, Acc) ->
+			    [{mk_name(Address, Vsn),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_trap", mk_param(Vsn), "",
+			      [], 2048},
+			       {lists:flatten(
+				  io_lib:format(
+				    "~s.2", [mk_name(Address, Vsn)])),
+				Domain_or_Ip, Addr_or_Port,
+				Timeout, RetryCount,
+				"std_inform", mk_param(Vsn), "",
+				[], 2048}| Acc];
+		       (v3 = Vsn, Acc) ->
+			    [{mk_name(Address, Vsn),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_trap", mk_param(Vsn), "",
+			      [], 2048},
+			     {lists:flatten(
+				io_lib:format(
+				  "~s.3", [mk_name(Address, Vsn)])),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_inform", mk_param(Vsn), "mgrEngine",
+			      [], 2048} | Acc]
+		    end, OuterAcc, Vsns)
+	  end, [], Addresses),
+    write_agent_target_addr_config(Dir, Hdr, Conf).
+
 write_agent_snmp_target_addr_conf(
-  Dir, ManagerIp, UDP, Timeout, RetryCount, Vsns) when is_integer(UDP) ->
-    Domain = snmp_target_mib:default_domain(),
-    Addr = {ManagerIp, UDP},
+  Dir, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, Vsns) ->
+    Addresses = [{Domain_or_Ip, Addr_or_Port}],
     write_agent_snmp_target_addr_conf(
-      Dir, Domain, Addr, Timeout, RetryCount, Vsns).
+      Dir, Addresses, Timeout, RetryCount, Vsns).
 
 mk_param(Vsn) ->
     lists:flatten(io_lib:format("target_~w", [Vsn])).
 
-mk_name(Domain, Addr, Vsn) ->
+mk_name(Address, Vsn) ->
     lists:flatten(
       io_lib:format(
-	"~s ~w", [snmp_conf:mk_addr_string({Domain, Addr}), Vsn])).
+	"~s ~w", [snmp_conf:mk_addr_string(Address), Vsn])).
 
 write_agent_target_addr_config(Dir, Hdr, Conf) ->
     snmpa_conf:write_target_addr_config(Dir, Hdr, Conf).
