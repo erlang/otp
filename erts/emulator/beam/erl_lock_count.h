@@ -35,6 +35,10 @@
  * 	| | | - collisions (including trylock busy)
  * 	| | | - timer (time spent in waiting for lock)
  * 	| | | - n_timer (collisions excluding trylock busy)
+ * 	| | | - histogram
+ * 	| | | | - # 0 = log2(lock wait_time ns)
+ * 	| | | | - ...
+ * 	| | | | - # n = log2(lock wait_time ns)
  *
  * 	Each instance of a lock is the unique lock, i.e. set and id in that set.
  * 	For each lock there is a set of statistics with where and what impact
@@ -68,8 +72,17 @@
 
 #include "ethread.h"
 
+#define ERTS_LCNT_MAX_LOCK_LOCATIONS  (10)
 
-#define ERTS_LCNT_MAX_LOCK_LOCATIONS (10)
+/* histogram */
+#define ERTS_LCNT_HISTOGRAM_MAX_NS    (((unsigned long)1LL << 28) - 1)
+#if 0 || defined(HAVE_GETHRTIME)
+#define ERTS_LCNT_HISTOGRAM_SLOT_SIZE (30)
+#define ERTS_LCNT_HISTOGRAM_RSHIFT    (0)
+#else
+#define ERTS_LCNT_HISTOGRAM_SLOT_SIZE (20)
+#define ERTS_LCNT_HISTOGRAM_RSHIFT    (10)
+#endif
 
 #define ERTS_LCNT_LT_SPINLOCK   (((Uint16) 1) << 0)
 #define ERTS_LCNT_LT_RWSPINLOCK (((Uint16) 1) << 1)
@@ -104,6 +117,10 @@ typedef struct {
     
 extern erts_lcnt_time_t timer_start;
 
+typedef struct {
+   Uint32 ns[ERTS_LCNT_HISTOGRAM_SLOT_SIZE]; /* log2 array of nano seconds occurences */
+} erts_lcnt_hist_t;
+
 typedef struct erts_lcnt_lock_stats_s {
     /* "tries" and "colls" needs to be atomic since
      * trylock busy does not aquire a lock and there
@@ -118,6 +135,7 @@ typedef struct erts_lcnt_lock_stats_s {
     
     unsigned long timer_n;    /* #times waited for lock */
     erts_lcnt_time_t timer;   /* total wait time for lock */
+    erts_lcnt_hist_t hist;
 } erts_lcnt_lock_stats_t;
 
 /* rw locks uses both states, other locks only uses w_state */

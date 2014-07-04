@@ -3856,16 +3856,19 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
     Uint tries = 0, colls = 0;
     unsigned long timer_s = 0, timer_ns = 0, timer_n = 0;
     unsigned int  line = 0;
+    unsigned int  i;
     
     Eterm af, uil;
     Eterm uit, uic;
     Eterm uits, uitns, uitn;
     Eterm tt, tstat, tloc, t;
+    Eterm thist, vhist[ERTS_LCNT_HISTOGRAM_SLOT_SIZE];
 	
     /* term:
-     * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}}}]
+     * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}},
+     *   { .. histogram .. }]
      */
-    
+
     tries = (Uint) ethr_atomic_read(&stats->tries);
     colls = (Uint) ethr_atomic_read(&stats->colls);
    
@@ -3874,23 +3877,27 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
     timer_ns = stats->timer.ns;
     timer_n  = stats->timer_n;
    
-    af    = erts_atom_put(stats->file, strlen(stats->file), ERTS_ATOM_ENC_LATIN1, 1); 
+    af    = erts_atom_put((byte *)stats->file, strlen(stats->file), ERTS_ATOM_ENC_LATIN1, 1);
     uil   = erts_bld_uint( hpp, szp, line);
     tloc  = erts_bld_tuple(hpp, szp, 2, af, uil);
     
-    uit   = erts_bld_uint( hpp, szp, tries);             
-    uic   = erts_bld_uint( hpp, szp, colls);             
-    
+    uit   = erts_bld_uint( hpp, szp, tries);
+    uic   = erts_bld_uint( hpp, szp, colls);
+
     uits  = erts_bld_uint( hpp, szp, timer_s);
     uitns = erts_bld_uint( hpp, szp, timer_ns);
     uitn  = erts_bld_uint( hpp, szp, timer_n);
     tt    = erts_bld_tuple(hpp, szp, 3, uits, uitns, uitn);
 
     tstat = erts_bld_tuple(hpp, szp, 3, uit, uic, tt);
-    
-    t     = erts_bld_tuple(hpp, szp, 2, tloc, tstat);
-    
-    res   = erts_bld_cons( hpp, szp, t, res);
+
+    for(i = 0; i < ERTS_LCNT_HISTOGRAM_SLOT_SIZE; i++) {
+	vhist[i] = erts_bld_uint(hpp, szp, stats->hist.ns[i]);
+    }
+    thist  = erts_bld_tuplev(hpp, szp, ERTS_LCNT_HISTOGRAM_SLOT_SIZE, vhist);
+
+    t   = erts_bld_tuple(hpp, szp, 3, tloc, tstat, thist);
+    res = erts_bld_cons( hpp, szp, t, res);
 
     return res;
 }
@@ -3911,13 +3918,13 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock
     
     ASSERT(ltype);
     
-    type  = erts_atom_put(ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);           
-    name  = erts_atom_put(lock->name, strlen(lock->name), ERTS_ATOM_ENC_LATIN1, 1); 
+    type  = erts_atom_put((byte *)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
+    name  = erts_atom_put((byte *)lock->name, strlen(lock->name), ERTS_ATOM_ENC_LATIN1, 1);
 
     if (lock->flag & ERTS_LCNT_LT_ALLOC) {
 	/* use allocator types names as id's for allocator locks */
 	ltype = (char *) ERTS_ALC_A2AD(signed_val(lock->id));
-	id    = erts_atom_put(ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
+	id    = erts_atom_put((byte *)ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
     } else if (lock->flag & ERTS_LCNT_LT_PROCLOCK) {
 	/* use registered names as id's for process locks if available */
 	proc  = erts_proc_lookup(lock->id);
@@ -3928,16 +3935,15 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock
 	    id = lock->id;
 	}
     } else {
-	id    = lock->id;                                    
+	id = lock->id;
     }
-    
+
     for (i = 0; i < lock->n_stats; i++) {
 	stats = lcnt_build_lock_stats_term(hpp, szp, &(lock->stats[i]), stats);
     }
-	
-    t     = erts_bld_tuple(hpp, szp, 4, name, id, type, stats);
-    
-    res   = erts_bld_cons( hpp, szp, t, res);          
+
+    t   = erts_bld_tuple(hpp, szp, 4, name, id, type, stats);
+    res = erts_bld_cons( hpp, szp, t, res);
 
     return res;
 }
@@ -3957,12 +3963,12 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_data_t *da
     dtns = erts_bld_uint( hpp, szp, data->duration.ns);
     tdt  = erts_bld_tuple(hpp, szp, 2, dts, dtns);
     
-    adur = erts_atom_put(str_duration, strlen(str_duration), ERTS_ATOM_ENC_LATIN1, 1);
+    adur = erts_atom_put((byte *)str_duration, strlen(str_duration), ERTS_ATOM_ENC_LATIN1, 1);
     tdur = erts_bld_tuple(hpp, szp, 2, adur, tdt);
    
     /* lock tuple */
     
-    aloc = erts_atom_put(str_locks, strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
+    aloc = erts_atom_put((byte *)str_locks, strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
     	
     for (lock = data->current_locks->head; lock != NULL ; lock = lock->next ) {
 	lloc = lcnt_build_lock_term(hpp, szp, lock, lloc);
