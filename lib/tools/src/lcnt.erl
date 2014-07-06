@@ -61,6 +61,8 @@
 	locations/1,
 	inspect/1,
 	inspect/2,
+	histogram/1,
+	histogram/2,
 	information/0,
 	swap_pid_keys/0,
 	% set options
@@ -89,14 +91,14 @@
 	duration   = 0
     }).
 
-
 -record(stats, {
-	file,
-	line,
-	tries,
-	colls,
-	time,	  % us
-	nt	  % #timings collected
+	file  :: atom(),
+	line  :: non_neg_integer(),
+	tries :: non_neg_integer(),
+	colls :: non_neg_integer(),
+	hist  :: tuple(),           % histogram
+	time  :: non_neg_integer(), % us
+	nt    :: non_neg_integer()  % #timings collected
     }).
 
 -record(lock, {
@@ -115,7 +117,8 @@
 	colls,
 	cr,     % collision ratio
 	time,
-	dtr     % time duration ratio
+	dtr,    % time duration ratio
+	hist    % log2 histogram of lock wait_time
     }).
 
 
@@ -171,6 +174,8 @@ conflicts()          -> call({conflicts, []}).
 conflicts(Opts)      -> call({conflicts, Opts}).
 inspect(Lock)        -> call({inspect, Lock, []}).
 inspect(Lock, Opts)  -> call({inspect, Lock, Opts}).
+histogram(Lock)      -> call({histogram, Lock, []}).
+histogram(Lock, Opts)-> call({histogram, Lock, Opts}).
 information()        -> call(information).
 swap_pid_keys()      -> call(swap_pid_keys).
 raw()                -> call(raw).
@@ -283,14 +288,14 @@ handle_call({locations, InOpts}, _From, #state{ locks = Locks } = State) when is
 
     {reply, ok, State};
 
-handle_call({inspect, Lockname, InOpts}, _From, #state{ duration = Duration, locks = Locks } = State) when is_list(InOpts) ->
+handle_call({inspect, Lockname, InOpts}, _From, #state{ duration=Duration, locks=Locks } = State) when is_list(InOpts) ->
     Default = [
 	{sort,       time},
 	{reverse,    false},
-	{print,      [name,id,tries,colls,ratio,time,duration]},
+	{print,      [name,id,tries,colls,ratio,time,duration,histogram]},
 	{max_locks,  20},
 	{combine,    false},
-	{thresholds, [] },
+	{thresholds, []},
 	{locations,  false}],
 
     Opts      = options(InOpts, Default),
@@ -299,7 +304,7 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration = Duration, loc
 	{true, true} -> locks_ids(Filtered);
 	_            -> []
     end,
-    Combos    =  combine_classes(Filtered, proplists:get_value(combine, Opts)),
+    Combos =  combine_classes(Filtered, proplists:get_value(combine, Opts)),
     case proplists:get_value(locations, Opts) of
 	true ->
 	    lists:foreach(fun
@@ -313,23 +318,48 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration = Duration, loc
 			    [] ->
 				ok;
 			    _  ->
-				%io:format("Combined ~p~n", [Combined]),
 				print("lock: " ++ term2string(Name)),
 				print("id:   " ++ IdString),
 				print("type: " ++ term2string(Type)),
 				Ps = stats2print(Combined, Duration),
-				Opts1 = options([{print, [entry, tries,colls,ratio,time,duration]},
+				Opts1 = options([{print, [entry, tries,colls,ratio,time,duration,histogram]},
 					{thresholds, [{tries, -1}, {colls, -1}, {time, -1}]}], Opts),
 				print_lock_information(filter_print(Ps, Opts1), proplists:get_value(print, Opts1))
 			end
-		   % (#lock{ name = Name, id = Id}) ->
-		%	io:format("Empty lock ~p ~p~n", [Name, Id])
 		end, Combos);
 	_ ->
 	    Print1 = locks2print(Combos, Duration),
 	    Print2 = filter_print(Print1, Opts),
 	    print_lock_information(Print2, proplists:get_value(print, Opts))
     end,
+    {reply, ok, State};
+
+%% histogram
+
+handle_call({histogram, Lockname, InOpts}, _From, #state{ duration=Duration, locks=Locks} = State)->
+    Default = [
+	{sort,       time},
+	{reverse,    false},
+	{print,      [name,id,tries,colls,ratio,time,duration,histogram]},
+	{max_locks,  20},
+	{combine,    true},
+	{thresholds, []},
+	{locations,  false}],
+
+    Opts     = options(InOpts, Default),
+    Filtered = filter_locks(Locks, Lockname),
+    Combos   = combine_classes(Filtered, proplists:get_value(combine, Opts)),
+    lists:foreach(fun
+	    (#lock{ stats = Stats }=L) ->
+		SumStats = summate_stats(Stats),
+		Opts1 = options([{print, [name,id,tries,colls,ratio,time,duration]},
+			{thresholds, [{tries, -1}, {colls, -1}, {time, -1}]}], Opts),
+		Prints = locks2print([L], Duration),
+		print_lock_information(Prints, proplists:get_value(print, Opts1)),
+		print_full_histogram(SumStats#stats.hist),
+		io:format("~n")
+	end, Combos),
+
     {reply, ok, State};
 
 handle_call(raw, _From, #state{ locks = Locks} = State)->
@@ -347,7 +377,6 @@ handle_call(swap_pid_keys, _From, #state{ locks = Locks } = State)->
 	(L) ->
 	    L
     end, Locks),
-
     {reply, ok, State#state{ locks = SwappedLocks}};
 
 % settings
@@ -432,15 +461,32 @@ code_change(_OldVsn, State, _Extra) ->
 
 summate_locks(Locks) -> summate_locks(Locks, #stats{ tries = 0, colls = 0, time = 0, nt = 0}).
 summate_locks([], Stats) -> Stats;
-summate_locks([L|Ls], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt}) ->
+summate_locks([L|Ls], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt, hist = Hist}) ->
     S = summate_stats(L#lock.stats),
-    summate_locks(Ls, #stats{ tries = Tries + S#stats.tries, colls = Colls + S#stats.colls, time = Time + S#stats.time, nt = Nt + S#stats.nt}).
+    summate_locks(Ls, #stats{
+	    tries = Tries + S#stats.tries,
+	    colls = Colls + S#stats.colls,
+	    time  = Time + S#stats.time,
+	    nt    = Nt + S#stats.nt,
+	    hist  = summate_histogram(Hist, S#stats.hist)
+	}).
 
 summate_stats(Stats) -> summate_stats(Stats, #stats{ tries = 0, colls = 0, time = 0, nt = 0}).
 summate_stats([], Stats) -> Stats;
-summate_stats([S|Ss], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt}) ->
-    summate_stats(Ss, #stats{ tries = Tries + S#stats.tries, colls = Colls + S#stats.colls, time = Time + S#stats.time, nt = Nt + S#stats.nt}).
+summate_stats([S|Ss], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt, hist = Hist}) ->
+    summate_stats(Ss, #stats{
+	    tries = Tries + S#stats.tries,
+	    colls = Colls + S#stats.colls,
+	    time  = Time + S#stats.time,
+	    nt    = Nt + S#stats.nt,
+	    hist  = summate_histogram(Hist, S#stats.hist)
+	}).
 
+%% first call is undefined
+summate_histogram(Tup,undefined) when is_tuple(Tup) -> Tup;
+summate_histogram(undefined,Tup) when is_tuple(Tup) -> Tup;
+summate_histogram(Hs1,Hs2) ->
+    list_to_tuple([ A + B || {A,B} <- lists:zip(tuple_to_list(Hs1),tuple_to_list(Hs2))]).
 
 %% manipulators
 filter_locks_type(Locks, undefined) -> Locks;
@@ -465,17 +511,16 @@ filter_print(PLs, Opts) ->
     TLs = threshold_locks(PLs, proplists:get_value(thresholds, Opts, [])),
     SLs =      sort_locks(TLs, proplists:get_value(sort,       Opts, time)),
     CLs =       cut_locks(SLs, proplists:get_value(max_locks,  Opts, none)),
-	    reverse_locks(CLs, proplists:get_value(reverse,    Opts, false)).
+	    reverse_locks(CLs, not proplists:get_value(reverse,Opts, false)).
 
-sort_locks(Locks, Type)   -> lists:reverse(sort_locks0(Locks, Type)).
-sort_locks0(Locks, name)  -> lists:keysort(#print.name, Locks);
-sort_locks0(Locks, id)    -> lists:keysort(#print.id, Locks);
-sort_locks0(Locks, type)  -> lists:keysort(#print.type, Locks);
-sort_locks0(Locks, tries) -> lists:keysort(#print.tries, Locks);
-sort_locks0(Locks, colls) -> lists:keysort(#print.colls, Locks);
-sort_locks0(Locks, ratio) -> lists:keysort(#print.cr, Locks);
-sort_locks0(Locks, time)  -> lists:keysort(#print.time, Locks);
-sort_locks0(Locks, _)     -> sort_locks0(Locks, time).
+sort_locks(Locks, name)  -> lists:keysort(#print.name, Locks);
+sort_locks(Locks, id)    -> lists:keysort(#print.id, Locks);
+sort_locks(Locks, type)  -> lists:keysort(#print.type, Locks);
+sort_locks(Locks, tries) -> lists:keysort(#print.tries, Locks);
+sort_locks(Locks, colls) -> lists:keysort(#print.colls, Locks);
+sort_locks(Locks, ratio) -> lists:keysort(#print.cr, Locks);
+sort_locks(Locks, time)  -> lists:keysort(#print.time, Locks);
+sort_locks(Locks, _)     -> sort_locks(Locks, time).
 
 % cut locks not above certain thresholds
 threshold_locks(Locks, Thresholds) ->
@@ -556,44 +601,60 @@ locks_ids(Locks) -> locks_ids(Locks, []).
 locks_ids([], Out) -> Out;
 locks_ids([#lock{ name = Key } = L|Ls], Out) ->
     case proplists:get_value(Key, Out) of
-	undefined ->
-	    locks_ids(Ls, [{Key, [L#lock.id] } | Out]);
-	Ids ->
-	    locks_ids(Ls, [{Key, [L#lock.id | Ids] } | proplists:delete(Key,Out)])
+	undefined -> locks_ids(Ls, [{Key, [L#lock.id]}|Out]);
+	Ids ->       locks_ids(Ls, [{Key, [L#lock.id|Ids]}|proplists:delete(Key,Out)])
     end.
 
 stats2print(Stats, Duration) ->
     lists:map(fun
 	(S) ->
-	    #print{
-		entry = term2string("~tp:~p", [S#stats.file, S#stats.line]),
-		colls = S#stats.colls,
-		tries = S#stats.tries,
-		cr    = percent(S#stats.colls, S#stats.tries),
-		time  = S#stats.time,
-		dtr   = percent(S#stats.time,  Duration)
-	    }
+	    #print{entry = term2string("~tp:~p", [S#stats.file, S#stats.line]),
+		   colls = S#stats.colls,
+		   tries = S#stats.tries,
+		   cr    = percent(S#stats.colls, S#stats.tries),
+		   time  = S#stats.time,
+		   dtr   = percent(S#stats.time,  Duration),
+		   hist  = format_histogram(S#stats.hist)}
 	end, Stats).
 
 locks2print(Locks, Duration) ->
     lists:map( fun
 	(L) ->
-	    Tries = lists:sum([T || #stats{ tries = T} <- L#lock.stats]),
-	    Colls = lists:sum([C || #stats{ colls = C} <- L#lock.stats]),
-	    Time  = lists:sum([T || #stats{ time  = T} <- L#lock.stats]),
-	    Cr    = percent(Colls, Tries),
-	    Dtr   = percent(Time,  Duration),
-	    #print{
-		name  = L#lock.name,
-		id    = L#lock.id,
-		type  = L#lock.type,
-		tries = Tries,
-		colls = Colls,
-		cr    = Cr,
-		time  = Time,
-		dtr   = Dtr
-	    }
+	    #stats{tries = Tries,
+		   colls = Colls,
+		   time  = Time,
+		   hist  = Hist} = summate_stats(L#lock.stats),
+	    Cr  = percent(Colls, Tries),
+	    Dtr = percent(Time,  Duration),
+	    #print{name  = L#lock.name,
+		   id    = L#lock.id,
+		   type  = L#lock.type,
+		   tries = Tries,
+		   colls = Colls,
+		   hist  = format_histogram(Hist),
+		   cr    = Cr,
+		   time  = Time,
+		   dtr   = Dtr}
 	end, Locks).
+
+
+format_histogram(Tup) when is_tuple(Tup) ->
+    Vs   = tuple_to_list(Tup),
+    Max  = lists:max(Vs),
+    case Max of
+	0 -> string_histogram(Vs);
+	_ -> string_histogram([case V of 0 -> 0; _ -> V/Max end || V <- Vs])
+    end.
+
+string_histogram([0|Vs]) ->
+    [$\s|string_histogram(Vs)];
+string_histogram([V|Vs]) when V > 0.66 ->
+    [$X|string_histogram(Vs)];
+string_histogram([V|Vs]) when V > 0.33 ->
+    [$x|string_histogram(Vs)];
+string_histogram([_|Vs]) ->
+    [$.|string_histogram(Vs)];
+string_histogram([]) -> [].
 
 %% state making
 
@@ -606,22 +667,32 @@ data2state(Data, State) ->
 	locks    = Locks
     }.
 
-locks2records(Locks) -> locks2records(Locks, []).
-locks2records([], Out) -> Out;
-locks2records([{Name, Id, Type, Stats}|Locks], Out) ->
-    Lock = #lock{
-	    name  = Name,
-	    id    = clean_id_creation(Id),
-	    type  = Type,
-	    stats = [ #stats{
-		file  = File,
-		line  = Line,
-		tries = Tries,
-		colls = Colls,
-		time  = time2us({S, Ns}),
-		nt    = N
-	    } || {{File, Line}, {Tries, Colls, {S, Ns, N}}} <- Stats] },
-    locks2records(Locks, [Lock|Out]).
+locks2records([{Name, Id, Type, Stats}|Locks]) ->
+    [#lock{name  = Name,
+	   id    = clean_id_creation(Id),
+	   type  = Type,
+	   stats = stats2record(Stats)}|locks2records(Locks)];
+locks2records([]) -> [].
+
+%% new stats with histogram
+stats2record([{{File,Line},{Tries,Colls,{S,Ns,N}},Hist}|Stats]) ->
+    [#stats{file  = File,
+	    line  = Line,
+	    hist  = Hist,
+	    tries = Tries,
+	    colls = Colls,
+	    time  = time2us({S, Ns}),
+	    nt    = N} | stats2record(Stats)];
+%% old stats without histogram
+stats2record([{{File,Line},{Tries,Colls,{S,Ns,N}}}|Stats]) ->
+    [#stats{file  = File,
+	    line  = Line,
+	    hist  = {},
+	    tries = Tries,
+	    colls = Colls,
+	    time  = time2us({S, Ns}),
+	    nt    = N} | stats2record(Stats)];
+stats2record([]) -> [].
 
 clean_id_creation(Id) when is_pid(Id) ->
     Bin = term_to_binary(Id),
@@ -683,7 +754,7 @@ auto_print_width(Locks, Print) ->
 		    ({print,print}, Out) -> [print|Out];
 		    ({Str, Len}, Out)    -> [erlang:min(erlang:max(length(s(Str))+1,Len),80)|Out]
 		end, [], lists:zip(tuple_to_list(L), tuple_to_list(Max)))))
-	end, #print{ id = 4, type = 5, entry = 5, name = 6, tries = 8, colls = 13, cr = 16, time = 11, dtr = 14 },
+	end, #print{ id = 4, type = 5, entry = 5, name = 6, tries = 8, colls = 13, cr = 16, time = 11, dtr = 14, hist=20 },
 	Locks),
     % Setup the offsets for later pruning
     Offsets = [
@@ -695,7 +766,9 @@ auto_print_width(Locks, Print) ->
 	{colls, R#print.colls},
 	{ratio, R#print.cr},
 	{time, R#print.time},
-	{duration, R#print.dtr}],
+	{duration, R#print.dtr},
+	{histogram, R#print.hist}
+    ],
     % Prune offsets to only allow specified print options
     lists:foldr(fun
 	    ({Type, W}, Out) -> [{Type, W}|Out];
@@ -705,9 +778,7 @@ auto_print_width(Locks, Print) ->
 print_lock_information(Locks, Print) ->
     % remake Print to autosize entries
     AutoPrint = auto_print_width(Locks, Print),
-
     print_header(AutoPrint),
-
     lists:foreach(fun
 	(L) ->
 	    print_lock(L, AutoPrint)
@@ -724,7 +795,8 @@ print_header(Opts) ->
 	colls = "#collisions",
 	cr    = "collisions [%]",
 	time  = "time [us]",
-	dtr   = "duration [%]"
+	dtr   = "duration [%]",
+	hist  = "histogram"
     },
     Divider = #print{
 	name  = lists:duplicate(1 + length(Header#print.name),  45),
@@ -735,39 +807,44 @@ print_header(Opts) ->
 	colls = lists:duplicate(1 + length(Header#print.colls), 45),
 	cr    = lists:duplicate(1 + length(Header#print.cr),    45),
 	time  = lists:duplicate(1 + length(Header#print.time),  45),
-	dtr   = lists:duplicate(1 + length(Header#print.dtr),   45)
+	dtr   = lists:duplicate(1 + length(Header#print.dtr),   45),
+	hist  = lists:duplicate(1 + length(Header#print.hist),  45)
     },
     print_lock(Header, Opts),
     print_lock(Divider, Opts),
     ok.
 
 
-print_lock(L, Opts) -> print_lock(L, Opts, []).
-print_lock(_, [],  Formats) -> print(strings(lists:reverse(Formats)));
-print_lock(L, [Opt|Opts], Formats) ->
+print_lock(L, Opts) ->
+    print(strings(format_lock(L, Opts))).
+
+format_lock(_, []) -> [];
+format_lock(L, [Opt|Opts]) ->
     case Opt of
-	id            -> print_lock(L, Opts, [{space, 25, s(L#print.id)   } | Formats]);
-	{id, W}       -> print_lock(L, Opts, [{space,  W, s(L#print.id)   } | Formats]);
-	type          -> print_lock(L, Opts, [{space, 18, s(L#print.type) } | Formats]);
-	{type, W}     -> print_lock(L, Opts, [{space,  W, s(L#print.type) } | Formats]);
-	entry         -> print_lock(L, Opts, [{space, 30, s(L#print.entry)} | Formats]);
-	{entry, W}    -> print_lock(L, Opts, [{space,  W, s(L#print.entry)} | Formats]);
-	name          -> print_lock(L, Opts, [{space, 22, s(L#print.name) } | Formats]);
-	{name, W}     -> print_lock(L, Opts, [{space,  W, s(L#print.name) } | Formats]);
-	tries         -> print_lock(L, Opts, [{space, 12, s(L#print.tries)} | Formats]);
-	{tries, W}    -> print_lock(L, Opts, [{space,  W, s(L#print.tries)} | Formats]);
-	colls         -> print_lock(L, Opts, [{space, 14, s(L#print.colls)} | Formats]);
-	{colls, W}    -> print_lock(L, Opts, [{space,  W, s(L#print.colls)} | Formats]);
-	ratio         -> print_lock(L, Opts, [{space, 20, s(L#print.cr)   } | Formats]);
-	{ratio, W}    -> print_lock(L, Opts, [{space,  W, s(L#print.cr)   } | Formats]);
-	time          -> print_lock(L, Opts, [{space, 15, s(L#print.time) } | Formats]);
-	{time, W}     -> print_lock(L, Opts, [{space,  W, s(L#print.time) } | Formats]);
-	duration      -> print_lock(L, Opts, [{space, 20, s(L#print.dtr)  } | Formats]);
-	{duration, W} -> print_lock(L, Opts, [{space,  W, s(L#print.dtr)  } | Formats]);
-	_             -> print_lock(L, Opts, Formats)
+	id             -> [{space, 25, s(L#print.id)   } | format_lock(L, Opts)];
+	{id, W}        -> [{space,  W, s(L#print.id)   } | format_lock(L, Opts)];
+	type           -> [{space, 18, s(L#print.type) } | format_lock(L, Opts)];
+	{type, W}      -> [{space,  W, s(L#print.type) } | format_lock(L, Opts)];
+	entry          -> [{space, 30, s(L#print.entry)} | format_lock(L, Opts)];
+	{entry, W}     -> [{space,  W, s(L#print.entry)} | format_lock(L, Opts)];
+	name           -> [{space, 22, s(L#print.name) } | format_lock(L, Opts)];
+	{name, W}      -> [{space,  W, s(L#print.name) } | format_lock(L, Opts)];
+	tries          -> [{space, 12, s(L#print.tries)} | format_lock(L, Opts)];
+	{tries, W}     -> [{space,  W, s(L#print.tries)} | format_lock(L, Opts)];
+	colls          -> [{space, 14, s(L#print.colls)} | format_lock(L, Opts)];
+	{colls, W}     -> [{space,  W, s(L#print.colls)} | format_lock(L, Opts)];
+	ratio          -> [{space, 20, s(L#print.cr)   } | format_lock(L, Opts)];
+	{ratio, W}     -> [{space,  W, s(L#print.cr)   } | format_lock(L, Opts)];
+	time           -> [{space, 15, s(L#print.time) } | format_lock(L, Opts)];
+	{time, W}      -> [{space,  W, s(L#print.time) } | format_lock(L, Opts)];
+	duration       -> [{space, 20, s(L#print.dtr)  } | format_lock(L, Opts)];
+	{duration, W}  -> [{space,  W, s(L#print.dtr)  } | format_lock(L, Opts)];
+	histogram      -> [{space,  0, s(L#print.hist) } | format_lock(L, Opts)];
+	{histogram, W} -> [{space,  W, s(L#print.hist) } | format_lock(L, Opts)];
+	_              ->                                  format_lock(L, Opts)
     end.
 
-print_state_information(#state{ locks = Locks} = State) ->
+print_state_information(#state{locks = Locks} = State) ->
     Stats = summate_locks(Locks),
     print("information:"),
     print(kv("#locks",          s(length(Locks)))),
@@ -779,9 +856,25 @@ print_state_information(#state{ locks = Locks} = State) ->
     print(kv("percent of duration", s(Stats#stats.time/State#state.duration*100) ++ " %")),
     ok.
 
+
+print_full_histogram(T) when is_tuple(T) ->
+    Vs = tuple_to_list(T),
+    Max = lists:max(Vs),
+    W = 60,
+    print_full_histogram(0,Vs,Max,W).
+
+print_full_histogram(_,[],_,_) -> ok;
+print_full_histogram(Ix,[V|Vs],0,W) ->
+    io:format("~2w = log2 : ~8w |~n", [Ix,V]),
+    print_full_histogram(Ix+1,Vs,0,W);
+print_full_histogram(Ix,[V|Vs],Max,W) ->
+    io:format("~2w = log2 : ~8w | ~s~n", [Ix,V,lists:duplicate(trunc(W*(V/Max)), $#)]),
+    print_full_histogram(Ix+1,Vs,Max,W).
+
+
 %% AUX
 
-time2us({S, Ns}) -> round(S*1000000 + Ns/1000).
+time2us({S, Ns}) -> S*1000000 + (Ns div 1000).
 
 percent(_,0) -> 0.0;
 percent(T,N) -> T/N*100.
@@ -808,7 +901,7 @@ s(T)                  -> term2string(T).
 
 strings(Strings) -> strings(Strings, []).
 strings([], Out) -> Out;
-strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string("~~~ps", [N]), [S]));
+strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string("~~~ws", [N]), [S]));
 strings([{format, Format, S} | Ss], Out) -> strings(Ss, Out ++ term2string(Format, [S]));
 strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~ts", [S])).
 
@@ -825,7 +918,7 @@ term2string(Term) when is_pid(Term) ->
 term2string(Term) -> term2string("~w", [Term]).
 term2string(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
 
-%%% AUD id binary
+%%% AUX id binary
 
 bytes16(Value) ->
     B0 =  Value band 255,
