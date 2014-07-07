@@ -24,6 +24,7 @@
 	map/2,
 	size/1,
     without/2,
+    only/2,
     get/3
     ]).
 
@@ -201,3 +202,13 @@ size(Map) when is_map(Map) ->
 
 without(Ks, M) when is_list(Ks), is_map(M) ->
     maps:from_list([{K,V}||{K,V} <- maps:to_list(M), not lists:member(K, Ks)]).
+
+
+-spec only(Ks, Map1) -> Map2 when
+    Ks :: [K],
+    Map1 :: map(),
+    Map2 :: map(),
+    K :: term().
+
+only(Ks, M) when is_list(Ks), is_map(M) ->
+    maps:from_list([{K,V}||{K,V} <- maps:to_list(M), lists:member(K, Ks)]).
