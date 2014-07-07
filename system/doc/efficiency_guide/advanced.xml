@@ -183,7 +183,7 @@ On 64-bit architectures: 4 words for a reference from the current local node, an
       <tag><em>Open ports</em></tag>
       <item>
         <marker id="ports"></marker>
-	  <p>The maximum number of simultaneously oper Erlang ports is
+	  <p>The maximum number of simultaneously open Erlang ports is
 	  often by default 16384. This limit can be configured at startup,
 	  for more information see the
 	  <seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
