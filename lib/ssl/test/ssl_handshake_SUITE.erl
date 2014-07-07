@@ -38,6 +38,7 @@ all() -> [decode_hello_handshake,
 	  decode_supported_elliptic_curves_hello_extension_correctly,
 	  decode_unknown_hello_extension_correctly,
 	  encode_single_hello_sni_extension_correctly,
+	  decode_single_hello_sni_extension_correctly,
 	  select_proper_tls_1_2_rsa_default_hashsign].
 
 %%--------------------------------------------------------------------
@@ -97,6 +98,13 @@ encode_single_hello_sni_extension_correctly(_Config) ->
     HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
     Encoded = ssl_handshake:encode_hello_extensions(Exts),
     HelloExt = Encoded.
+
+decode_single_hello_sni_extension_correctly(_Config) ->
+    Exts = #hello_extensions{sni = #sni{hostname = "test.com"}},
+    SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
+	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
+    Decoded = ssl_handshake:decode_hello_extensions(SNI),
+    Exts = Decoded.
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
     % RFC 5246 section 7.4.1.4.1 tells to use {sha1,rsa} as default signature_algorithm for RSA key exchanges
