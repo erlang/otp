@@ -29,6 +29,7 @@
 -export([port/1]).
 -export([terminate/1, unavailable/1, restart/1]).
 -export([otp_5910/1]).
+-export([posix_only/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(1)).
@@ -62,9 +63,9 @@ all() ->
     Bugs = [otp_5910],
     case test_server:os_type() of
 	{unix, sunos} ->
-	    [api, config, alarm, port, unavailable] ++ Bugs;
-	{unix, _OSname} -> [api, alarm] ++ Bugs;
-	{win32, _OSname} -> [api, alarm] ++ Bugs;
+	    [api, config, alarm, port, unavailable, posix_only] ++ Bugs;
+	{unix, _OSname} -> [api, alarm, posix_only] ++ Bugs;
+	{win32, _OSname} -> [api, alarm, posix_only] ++ Bugs;
 	_OS -> [unavailable]
     end.
 
@@ -83,12 +84,7 @@ api(doc) -> ["Test of API functions"];
 api(Config) when is_list(Config) ->
 
     %% get_disk_data()
-    [{Id,KByte,Capacity}|_] = get_disk_data(),
-    true = io_lib:printable_list(Id),
-    true = is_integer(KByte),
-    true = is_integer(Capacity),
-    true = Capacity>0,
-    true = KByte>0,
+    ok = check_get_disk_data(),
 
     %% get_check_interval()
     1800000 = disksup:get_check_interval(),
@@ -405,8 +401,33 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
+posix_only(suite) -> [];
+posix_only(doc) -> ["Test disksup_posix_only option"];
+posix_only(Config) when is_list(Config) ->
+    %% Set option and restart disksup
+    ok = application:set_env(os_mon, disksup_posix_only, true),
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child1} = supervisor:restart_child(os_mon_sup, disksup),
+
+    ok = check_get_disk_data(),
+
+    %% Reset option and restart disksup
+    ok = application:set_env(os_mon, disksup_posix_only, false),
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
+    ok.
+
 dump_info() ->
     io:format("Status: ~p~n", [sys:get_status(disksup)]).
+
+check_get_disk_data() ->
+    [{Id,KByte,Capacity}|_] = get_disk_data(),
+    true = io_lib:printable_list(Id),
+    true = is_integer(KByte),
+    true = is_integer(Capacity),
+    true = Capacity>0,
+    true = KByte>0,
+    ok.
 
 % filter get_disk_data and remove entriew with zero capacity
 % "non-normal" filesystems report zero capacity
