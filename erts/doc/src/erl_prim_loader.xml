@@ -148,6 +148,22 @@
       </desc>
     </func>
     <func>
+      <name name="read_link_info" arity="1"/>
+      <fsummary>Get information about a link or file</fsummary>
+      <desc>
+        <p>This function works like
+          <seealso marker="#read_file_info/1">read_file_info/1</seealso>
+          except that if <c><anno>Filename</anno></c> is a symbolic link,
+          information about the link will be returned in the <c>file_info</c>
+          record and the <c>type</c> field of the record will be set to
+          <c>symlink</c>.</p>
+        <p>If <c><anno>Filename</anno></c> is not a symbolic link, this function
+          returns exactly the same result as <c>read_file_info/1</c>.
+          On platforms that do not support symbolic links, this function
+          is always equivalent to <c>read_file_info/1</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="set_path" arity="1"/>
       <fsummary>Set the path of the loader</fsummary>
       <desc>
