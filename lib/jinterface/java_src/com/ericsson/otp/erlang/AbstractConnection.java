@@ -266,7 +266,7 @@ public abstract class AbstractConnection extends Thread {
      * 
      * @param dest
      *            the Erlang PID of the remote process.
-     * @param msg
+     * @param payload
      *            the encoded message to send.
      * 
      * @exception java.io.IOException
