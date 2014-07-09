@@ -73,6 +73,16 @@
           much disk can be utilized before the <c>disk_almost_full</c>
           alarm is set. The default is 0.80 (80%).</p>
       </item>
+      <tag><c>disksup_posix_only = bool()</c></tag>
+      <item>
+        <p>Specifies whether the <c>disksup</c> helper process should only
+          use POSIX conformant commands (<c>true</c>) or not. The default is
+          <c>false</c>. Setting this parameter to <c>true</c> can be
+          necessary on embedded systems with stripped-down versions
+          of Unix tools like <c>df</c>. The returned disk data and alarms
+          can be different when using this option.</p>
+        <p>The parameter is ignored on Windows.</p>
+      </item>
     </taglist>
     <p>See <seealso marker="kernel:config">config(4)</seealso> for
       information about how to change the value of configuration

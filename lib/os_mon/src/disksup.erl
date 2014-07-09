@@ -81,10 +81,12 @@ param_type(disk_space_check_interval, Val) when is_integer(Val),
 param_type(disk_almost_full_threshold, Val) when is_number(Val),
 						 0=<Val,
 						 Val=<1 -> true;
+param_type(disksup_posix_only, Val) when Val==true; Val==false -> true;
 param_type(_Param, _Val) -> false.
 
 param_default(disk_space_check_interval) -> 30;
-param_default(disk_almost_full_threshold) -> 0.80.
+param_default(disk_almost_full_threshold) -> 0.80;
+param_default(disksup_posix_only) -> false.
 
 %%----------------------------------------------------------------------
 %% gen_server callbacks
@@ -94,7 +96,8 @@ init([]) ->
     process_flag(trap_exit, true),
     process_flag(priority, low),
 
-    OS = get_os(),
+    PosixOnly = os_mon:get_env(disksup, disksup_posix_only),
+    OS = get_os(PosixOnly),
     Port = case OS of
 		{unix, Flavor} when Flavor==sunos4;
 				    Flavor==solaris;
@@ -102,6 +105,7 @@ init([]) ->
 				    Flavor==dragonfly;
 				    Flavor==darwin;
 				    Flavor==linux;
+				    Flavor==posix;
 				    Flavor==openbsd;
 				    Flavor==netbsd;
 				    Flavor==irix64;
@@ -205,8 +209,10 @@ format_status(_Opt, [_PDict, #state{os = OS, threshold = Threshold,
 %% Internal functions
 %%----------------------------------------------------------------------
 
-get_os() ->
+get_os(PosixOnly) ->
     case os:type() of
+	{unix, _} when PosixOnly ->
+	    {unix, posix};
 	{unix, sunos} ->
 	    case os:version() of
 		{5,_,_} -> {unix, solaris};
@@ -258,6 +264,9 @@ check_disk_space({unix, irix}, Port, Threshold) ->
     check_disks_irix(skip_to_eol(Result), Threshold);
 check_disk_space({unix, linux}, Port, Threshold) ->
     Result = my_cmd("/bin/df -lk", Port),
+    check_disks_solaris(skip_to_eol(Result), Threshold);
+check_disk_space({unix, posix}, Port, Threshold) ->
+    Result = my_cmd("df -k -P", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, dragonfly}, Port, Threshold) ->
     Result = my_cmd("/bin/df -k -t ufs,hammer", Port),
