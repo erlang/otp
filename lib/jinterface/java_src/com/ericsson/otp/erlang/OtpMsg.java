@@ -30,14 +30,14 @@ package com.ericsson.otp.erlang;
  * </p>
  * 
  * <p>
- * The header information that is available is as follows: <lu>
+ * The header information that is available is as follows: <ul>
  * <li> a tag indicating the type of message
  * <li> the intended recipient of the message, either as a
  * {@link OtpErlangPid pid} or as a String, but never both.
  * <li> (sometimes) the sender of the message. Due to some eccentric
  * characteristics of the Erlang distribution protocol, not all messages have
  * information about the sending process. In particular, only messages whose tag
- * is {@link OtpMsg#regSendTag regSendTag} contain sender information. </lu>
+ * is {@link OtpMsg#regSendTag regSendTag} contain sender information. </ul>
  * 
  * <p>
  * Message are sent using the Erlang external format (see separate
