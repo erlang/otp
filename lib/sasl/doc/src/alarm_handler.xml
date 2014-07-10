@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -87,7 +87,9 @@
         <v>AlarmId = term()</v>
       </type>
       <desc>
-        <p>Clears all alarms with id <c>AlarmId</c>.
+	<p>Sends the <c>clear_alarm</c> event to all event handlers.</p>
+        <p>When receiving this event, the default simple handler
+          clears the latest received alarm with id <c>AlarmId</c>.
           </p>
       </desc>
     </func>
@@ -109,8 +111,10 @@
         <v>AlarmDescription = term()</v>
       </type>
       <desc>
-        <p>Sets an alarm with id <c>AlarmId</c>. This id is used at a
-          later stage when the alarm is cleared.
+	<p>Sends the <c>set_alarm</c> event to all event handlers.</p>
+        <p>When receiving this event, the default simple handler
+          stores the alarm. The <c>AlarmId</c> identifies the alarm
+          and is used when the alarm is cleared.
           </p>
       </desc>
     </func>
