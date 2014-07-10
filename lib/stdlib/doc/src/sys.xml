@@ -115,6 +115,9 @@
     <datatype>
       <name name="dbg_fun"/>
     </datatype>
+    <datatype>
+      <name name="format_fun"/>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
