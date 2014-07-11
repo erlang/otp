@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    OTP-11850 fixed filelib:wildcard/1 to work with broken
+	    symlinks. This correction, however, introduced problems
+	    since symlinks were no longer followed for functions like
+	    filelib:ensure_dir/1, filelib:is_dir/1,
+	    filelib:file_size/1, etc. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-12054 Aux Id: seq12660 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
