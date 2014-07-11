@@ -371,7 +371,7 @@ compile_wildcard(Pattern, Cwd0) ->
     [Root|Rest] = filename:split(Pattern),
     case filename:pathtype(Root) of
 	relative ->
-	    Cwd = filename:join([Cwd0]),
+	    Cwd = prepare_base(Cwd0),
 	    compile_wildcard_2([Root|Rest], {cwd,Cwd});
 	_ ->
 	    compile_wildcard_2(Rest, {root,0,Root})

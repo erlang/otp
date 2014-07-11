@@ -86,6 +86,7 @@ wildcard_two(Config) when is_list(Config) ->
     ?line ok = file:make_dir(Dir),
     ?line do_wildcard_1(Dir, fun(Wc) -> io:format("~p~n",[{Wc,Dir, X = filelib:wildcard(Wc, Dir)}]),X  end),
     ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir++"/") end),
+    ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir++"/.") end),
     case os:type() of
 	{win32,_} ->
 	    ok;
