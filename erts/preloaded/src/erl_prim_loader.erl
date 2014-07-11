@@ -42,11 +42,11 @@
 
 %% Public
 -export([start/3, set_path/1, get_path/0, get_file/1, get_files/2,
-         list_dir/1, read_file_info/1, get_cwd/0, get_cwd/1]).
+         list_dir/1, read_file_info/1, read_link_info/1, get_cwd/0, get_cwd/1]).
 
 %% Used by erl_boot_server
 -export([prim_init/0, prim_get_file/2, prim_list_dir/2,
-         prim_read_file_info/2, prim_get_cwd/2]).
+         prim_read_file_info/3, prim_get_cwd/2]).
 
 %% Used by escript and code
 -export([set_primary_archive/4, release_archives/0]).
@@ -223,6 +223,12 @@ list_dir(Dir) ->
 read_file_info(File) ->
     check_file_result(read_file_info, File, request({read_file_info,File})).
 
+-spec read_link_info(Filename) -> {'ok', FileInfo} | 'error' when
+      Filename :: string(),
+      FileInfo :: file:file_info().
+read_link_info(File) ->
+    check_file_result(read_link_info, File, request({read_link_info,File})).
+
 -spec get_cwd() -> {'ok', string()} | 'error'.
 get_cwd() ->
     check_file_result(get_cwd, [], request({get_cwd,[]})).
@@ -325,6 +331,9 @@ loop(State, Parent, Paths) ->
                     {read_file_info,File} ->
                         {Res,State1} = handle_read_file_info(State, File),
                         {Res,State1,Paths};
+                    {read_link_info,File} ->
+                        {Res,State1} = handle_read_link_info(State, File),
+                        {Res,State1,Paths};
                     {get_cwd,[]} ->
                         {Res,State1} = handle_get_cwd(State, []),
                         {Res,State1,Paths};
@@ -387,9 +396,14 @@ handle_list_dir(State = #state{loader = inet}, Dir) ->
     ?SAFE2(inet_list_dir(State, Dir), State).
 
 handle_read_file_info(State = #state{loader = efile}, File) ->
-    ?SAFE2(efile_read_file_info(State, File), State);
+    ?SAFE2(efile_read_file_info(State, File, true), State);
 handle_read_file_info(State = #state{loader = inet}, File) ->
     ?SAFE2(inet_read_file_info(State, File), State).
+
+handle_read_link_info(State = #state{loader = efile}, File) ->
+    ?SAFE2(efile_read_file_info(State, File, false), State);
+handle_read_link_info(State = #state{loader = inet}, File) ->
+    ?SAFE2(inet_read_link_info(State, File), State).
 
 handle_get_cwd(State = #state{loader = efile}, Drive) ->
     ?SAFE2(efile_get_cwd(State, Drive), State);
@@ -514,8 +528,8 @@ efile_list_dir(#state{prim_state = PS} = State, Dir) ->
     {Res, PS2} = prim_list_dir(PS, Dir),
     {Res, State#state{prim_state = PS2}}.
 
-efile_read_file_info(#state{prim_state = PS} = State, File) ->
-    {Res, PS2} = prim_read_file_info(PS, File),
+efile_read_file_info(#state{prim_state = PS} = State, File, FollowLinks) ->
+    {Res, PS2} = prim_read_file_info(PS, File, FollowLinks),
     {Res, State#state{prim_state = PS2}}.
 
 efile_get_cwd(#state{prim_state = PS} = State, Drive) ->
@@ -717,6 +731,10 @@ inet_list_dir(State, Dir) ->
 %% -> {{ok,Info},State} | {{error,Reason},State}
 inet_read_file_info(State, File) ->
     inet_send_and_rcv({read_file_info,File}, read_file_info, State).
+
+%% -> {{ok,Info},State} | {{error,Reason},State}
+inet_read_link_info(State, File) ->
+    inet_send_and_rcv({read_link_info,File}, read_link_info, State).
 
 %% -> {{ok,Cwd},State} | {{error,Reason},State}
 inet_get_cwd(State, []) ->
@@ -951,16 +969,18 @@ prim_list_dir(PS, Dir) ->
     debug(PS, {return, Res2}),
     {Res2, PS3}.
 
--spec prim_read_file_info(prim_state(), file:filename()) ->
+-spec prim_read_file_info(prim_state(), file:filename(), boolean()) ->
 	{{'ok', #file_info{}}, prim_state()}
       | {{'error', term()}, prim_state()}.
-prim_read_file_info(PS, File) ->
+prim_read_file_info(PS, File, FollowLinks) ->
     debug(PS, {read_file_info, File}),
     {Res2, PS2} =
         case name_split(PS#prim_state.primary_archive, File) of
             {file, PrimFile} ->
-                Res = prim_file:read_file_info(PrimFile),
-                {Res, PS};
+                case FollowLinks of
+                    true -> {prim_file:read_file_info(PrimFile), PS};
+                    false -> {prim_file:read_link_info(PrimFile), PS}
+                end;
             {archive, ArchiveFile, []} ->
                 %% Fake top directory
                 debug(PS, {archive_read_file_info, ArchiveFile}),

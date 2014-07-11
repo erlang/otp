@@ -341,9 +341,13 @@ handle_command(S, PS, Msg) ->
 	    send_file_result(S, list_dir, Res),
 	    PS2;
 	{read_file_info,File} ->
-	    {Res, PS2} = erl_prim_loader:prim_read_file_info(PS, File),
+	    {Res, PS2} = erl_prim_loader:prim_read_file_info(PS, File, true),
 	    send_file_result(S, read_file_info, Res),
 	    PS2;
+        {read_link_info,File} ->
+            {Res, PS2} = erl_prim_loader:prim_read_file_info(PS, File, false),
+            send_file_result(S, read_link_info, Res),
+            PS2;
 	get_cwd ->
 	    {Res, PS2} = erl_prim_loader:prim_get_cwd(PS, []),
 	    send_file_result(S, get_cwd, Res),

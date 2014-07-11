@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -328,6 +328,30 @@ file_requests(Config) when is_list(Config) ->
     {ok,Info} = file:read_file_info(code:which(test_server)),
     ?line {ok,Info} = rpc:call(Node, erl_prim_loader, read_file_info,
 			       [code:which(test_server)]),
+
+    PrivDir = ?config(priv_dir,Config),
+    Dir = filename:join(PrivDir,?MODULE_STRING++"_file_requests"),
+    ok = file:make_dir(Dir),
+    Alias = filename:join(Dir,"symlink"),
+    case file:make_symlink(code:which(test_server), Alias) of
+	{error, enotsup} ->
+	    %% Links not supported on this platform
+	    ok;
+	{error, eperm} ->
+	    {win32,_} = os:type(),
+	    %% Windows user not privileged to create symlinks"
+	    ok;
+	ok ->
+	    %% Reading file info for link should return file info for
+	    %% link target
+	    {ok,Info} = rpc:call(Node, erl_prim_loader, read_file_info,
+				 [Alias]),
+	    #file_info{type=regular} = Info,
+	    {ok,#file_info{type=symlink}} =
+		rpc:call(Node, erl_prim_loader, read_link_info,
+			 [Alias])
+    end,
+
     {ok,Cwd} = file:get_cwd(),
     ?line {ok,Cwd} = rpc:call(Node, erl_prim_loader, get_cwd, []),
     case file:get_cwd("C:") of
