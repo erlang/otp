@@ -41,8 +41,6 @@ public class OtpErlangString extends OtpErlangObject implements Serializable,
 
     /**
      * Create an Erlang string from a list of integers.
-     * 
-     * @return an Erlang string with Unicode code units.
      *
      * @throws OtpErlangException
      *                for non-proper and non-integer lists.

@@ -51,8 +51,8 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
     /**
      * Create an Erlang integer from the given value.
      * 
-     * @param val
-     *                the long value to use.
+     * @param v
+     *                the big integer value to use.
      */
     public OtpErlangLong(final BigInteger v) {
 	if (v == null) {

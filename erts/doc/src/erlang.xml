@@ -4968,7 +4968,7 @@ true</pre>
       <desc>
         <p>Note that the run-time is the sum of the run-time for all
         threads in the Erlang run-time system and may therefore be greater
-        than the wall-clock time.</p>
+        than the wall-clock time. The time is returned in milliseconds.</p>
         <pre>
 > <input>statistics(runtime).</input>
 {1690,1620}

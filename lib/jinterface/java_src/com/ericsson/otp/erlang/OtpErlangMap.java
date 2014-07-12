@@ -58,15 +58,23 @@ public class OtpErlangMap extends OtpErlangObject implements Serializable,
     /**
      * Create a map from an array of terms.
      * 
-     * @param elems
+     * @param keys
      *            the array of terms to create the map from.
-     * @param start
-     *            the offset of the first term to insert.
+     * @param kstart
+     *            the offset of the first key to insert.
+     * @param kcount
+     *            the number of keys to insert.
+     * @param values
+     *            the array of values to create the map from.
+     * @param vstart
+     *            the offset of the first value to insert.
      * @param vcount
-     *            the number of terms to insert.
+     *            the number of values to insert.
      * 
      * @exception java.lang.IllegalArgumentException
      *                if any array is empty (null) or contains null elements.
+     * @exception java.lang.IllegalArgumentException
+     *                if kcount and vcount differ.
      */
     public OtpErlangMap(final OtpErlangObject[] keys, final int kstart,
 	    final int kcount, final OtpErlangObject[] values, final int vstart,

@@ -35,6 +35,7 @@
 -include("http_internal.hrl").
 -include("httpd_internal.hrl").
 
+-define(HANDSHAKE_TIMEOUT, 5000).
 -record(state, {mod,     %% #mod{}
 		manager, %% pid()
 		status,  %% accept | busy | blocked
@@ -96,15 +97,13 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
  
-    TimeOut = httpd_util:lookup(ConfigDB, keep_alive_timeout, 150000),
-    Then = erlang:now(),
+    KeepAliveTimeOut = httpd_util:lookup(ConfigDB, keep_alive_timeout, 150000),
     
-    case http_transport:negotiate(SocketType, Socket, TimeOut) of
+    case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
 	{error, _Error} ->
 	    exit(shutdown); %% Can be 'normal'.
 	ok ->
-	    NewTimeout = TimeOut - timer:now_diff(now(),Then) div 1000,
-	    continue_init(Manager, ConfigDB, SocketType, Socket, NewTimeout)
+	    continue_init(Manager, ConfigDB, SocketType, Socket, KeepAliveTimeOut)
     end.
 
 continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->

@@ -202,7 +202,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     /**
      * Write an array of bytes to the stream.
      * 
-     * @param buf
+     * @param bytes
      *            the array of bytes to write.
      * 
      */
@@ -637,7 +637,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * Write a positive short to the stream. The short is interpreted as a two's
      * complement unsigned short even if it is negative.
      * 
-     * @param s
+     * @param us
      *            the short to use.
      */
     public void write_ushort(final short us) {

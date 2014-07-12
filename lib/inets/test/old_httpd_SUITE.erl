@@ -186,20 +186,23 @@ groups() ->
        %% Only used through load_config
        %% but we still need these tests
        %% should be cleaned up and moved to new test suite 
-       ip_restart_no_block, 
-       ip_restart_disturbing_block,
-       ip_restart_non_disturbing_block,
-       ip_block_disturbing_idle, 
-       ip_block_non_disturbing_idle,
-       ip_block_503, 
-       ip_block_disturbing_active,
-       ip_block_non_disturbing_active,
-       ip_block_disturbing_active_timeout_not_released,
-       ip_block_disturbing_active_timeout_released,
-       ip_block_non_disturbing_active_timeout_not_released,
-       ip_block_non_disturbing_active_timeout_released,
-       ip_block_disturbing_blocker_dies,
-       ip_block_non_disturbing_blocker_dies
+       %%ip_restart_no_block, 
+       %%ip_restart_disturbing_block,
+       %%ip_restart_non_disturbing_block,
+       %% Tested in inets_SUITE
+       %%ip_block_disturbing_idle, 
+       %%ip_block_non_disturbing_idle,
+       ip_block_503
+       %% Tested in new httpd_SUITE
+       %%ip_block_disturbing_active,
+       %%ip_block_non_disturbing_active,
+       %%ip_block_disturbing_blocker_dies,
+       %%ip_block_non_disturbing_blocker_dies
+       %% No longer relevant
+       %%ip_block_disturbing_active_timeout_not_released,
+       %%ip_block_disturbing_active_timeout_released,
+       %%ip_block_non_disturbing_active_timeout_not_released,
+       %%ip_block_non_disturbing_active_timeout_released,
       ]},
      {ssl, [], [{group, essl}]},
      {essl, [],

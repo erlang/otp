@@ -162,7 +162,7 @@ public class OtpErlangPid extends OtpErlangObject implements Serializable,
      * Determine if two PIDs are equal. PIDs are equal if their components are
      * equal.
      * 
-     * @param port
+     * @param o
      *                the other PID to compare to.
      * 
      * @return true if the PIDs are equal, false otherwise.

@@ -69,6 +69,7 @@ package com.ericsson.otp.erlang;
  * notify other parties in a timely manner.
  * </p>
  * 
+ * <p>
  * When retrieving messages from a mailbox that has received an exit signal, an
  * {@link OtpErlangExit OtpErlangExit} exception will be raised. Note that the
  * exception is queued in the mailbox along with other messages, and will not be
@@ -420,7 +421,6 @@ public class OtpMbox {
 
     /**
      * Equivalent to <code>exit(new OtpErlangAtom(reason))</code>.
-     * </p>
      * 
      * @see #exit(OtpErlangObject)
      */
