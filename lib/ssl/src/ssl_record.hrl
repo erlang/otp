@@ -92,6 +92,7 @@
 -define(IDEA, 6).
 -define(AES_CBC, 7).
 -define(AES_GCM, 8).
+-define(CHACHA20_POLY1305, 9).
 
 %% CipherType
 -define(STREAM, 0).
