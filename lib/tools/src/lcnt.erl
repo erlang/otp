@@ -96,9 +96,9 @@
 	line  :: non_neg_integer(),
 	tries :: non_neg_integer(),
 	colls :: non_neg_integer(),
-	hist  :: tuple(),           % histogram
 	time  :: non_neg_integer(), % us
-	nt    :: non_neg_integer()  % #timings collected
+	nt    :: non_neg_integer(), % #timings collected
+	hist  :: tuple()            % histogram
     }).
 
 -record(lock, {
@@ -118,6 +118,7 @@
 	cr,     % collision ratio
 	time,
 	dtr,    % time duration ratio
+	%% new
 	hist    % log2 histogram of lock wait_time
     }).
 
@@ -718,22 +719,45 @@ state2list(State) ->
 	(X, Y) -> {X,Y}
     end, record_info(fields, state), Values).
 
-list2state(List) -> list2state(record_info(fields, state), List, [state]).
-list2state([], _, Out) -> list_to_tuple(lists:reverse(Out));
-list2state([locks|Fs], List, Out) ->
-    Locks = [ list2lock(Lock) || Lock <- proplists:get_value(locks, List, [])],
-    list2state(Fs, List, [Locks|Out]);
-list2state([F|Fs], List, Out) -> list2state(Fs, List, [proplists:get_value(F, List, state_default(F))|Out]).
-
 lock_default(Field) -> proplists:get_value(Field, lock2list(#lock{})).
 
 lock2list(Lock) ->
     [_|Values] = tuple_to_list(Lock),
     lists:zip(record_info(fields, lock), Values).
 
-list2lock(List) -> list2lock(record_info(fields, lock), List, [lock]).
-list2lock([], _, Out) -> list_to_tuple(lists:reverse(Out));
-list2lock([F|Fs], List, Out) -> list2lock(Fs, List, [proplists:get_value(F, List, lock_default(F))|Out]).
+
+list2state(List) ->
+    list_to_tuple([state|list2state(record_info(fields, state), List)]).
+list2state([], _) -> [];
+list2state([locks|Fs], List) ->
+    Locks = [list2lock(Lock) || Lock <- proplists:get_value(locks, List, [])],
+    [Locks|list2state(Fs,List)];
+list2state([F|Fs], List) ->
+    [proplists:get_value(F, List, state_default(F))|list2state(Fs, List)].
+
+list2lock(Ls) ->
+    list_to_tuple([lock|list2lock(record_info(fields, lock), Ls)]).
+
+list2lock([],_) -> [];
+list2lock([stats=F|Fs], Ls) ->
+    Stats = stats2stats(proplists:get_value(F, Ls, lock_default(F))),
+    [Stats|list2lock(Fs, Ls)];
+list2lock([F|Fs], Ls) ->
+    [proplists:get_value(F, Ls, lock_default(F))|list2lock(Fs, Ls)].
+
+%% process old stats (hack)
+%% old stats had no histograms
+%% in future versions stats should be serialized as a list, not a record
+
+stats2stats([]) -> [];
+stats2stats([Stat|Stats]) ->
+    Sz = tuple_size(#stats{}),
+    [stat2stat(Stat,Sz)|stats2stats(Stats)].
+
+stat2stat(Stat,Sz) when tuple_size(Stat) =:= Sz -> Stat;
+stat2stat(Stat,_) ->
+    %% assume no histogram at the end
+    list_to_tuple(tuple_to_list(Stat) ++ [{0}]).
 
 %% printing
 
