@@ -131,7 +131,7 @@
 %% -------------------------------------------------------------------- %%
 
 start()  -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
-stop()   -> gen_server:cast(?MODULE, stop).
+stop()   -> gen_server:call(?MODULE, stop, infinity).
 init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
 %% -------------------------------------------------------------------- %%
@@ -410,6 +410,8 @@ handle_call({save, Filename}, _From, State) ->
 	    {reply, {error, Error}, State}
     end;
 
+handle_call(stop, _From, State) ->
+    {stop, normal, ok, State};
 
 handle_call(Command, _From, State) ->
     {reply, {error, {undefined, Command}}, State}.
@@ -420,8 +422,6 @@ handle_call(Command, _From, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
-handle_cast(stop, State) ->
-    {stop, normal, State};
 handle_cast(_, State) ->
     {noreply, State}.
 
