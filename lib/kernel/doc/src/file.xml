@@ -1679,13 +1679,13 @@
       <desc>
         <p>Makes sure that any buffers kept by the operating system
           (not by the Erlang runtime system) are written to disk. In
-          many ways it's resembles fsync but it not requires to update
-          some of file's metadata such as the access time. On
+          many ways it resembles fsync but does not require an update
+          to all of the file's metadata, such as the access time. On
           some platforms, this function might have no effect.</p>
         <p>Applications that access databases or log files often write
           a tiny data fragment (e.g., one line in a log file) and then
           call fsync() immediately in order to ensure that the written
-          data is physically stored on the harddisk. Unfortunately, fsync()
+          data is physically stored on the disk. Unfortunately, fsync()
           will always initiate two write operations: one for the newly
           written data and another one in order to update the modification
           time stored in the inode. If the modification time is not a part
