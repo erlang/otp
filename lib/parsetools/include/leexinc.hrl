@@ -36,8 +36,8 @@ string(Ics0, L0, Tcs, Ts) ->
             string_cont(Ics1, L1, yyaction(A, Alen, Tcs, L0), Ts);
         {reject,_Alen,Tlen,_Ics1,L1,_S1} ->  % After a non-accepting state
             {error,{L0,?MODULE,{illegal,yypre(Tcs, Tlen+1)}},L1};
-        {A,Alen,_Tlen,_Ics1,L1,_S1} ->
-            string_cont(yysuf(Tcs, Alen), L1, yyaction(A, Alen, Tcs, L0), Ts)
+        {A,Alen,_Tlen,_Ics1,_L1,_S1} ->
+            string_cont(yysuf(Tcs, Alen), L0, yyaction(A, Alen, Tcs, L0), Ts)
     end.
 
 %% string_cont(RestChars, Line, Token, Tokens)
