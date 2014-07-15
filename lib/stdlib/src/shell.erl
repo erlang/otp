@@ -371,6 +371,14 @@ expand_expr({bc,L,E,Qs}, C) ->
     {bc,L,expand_expr(E, C),expand_quals(Qs, C)};
 expand_expr({tuple,L,Elts}, C) ->
     {tuple,L,expand_exprs(Elts, C)};
+expand_expr({map,L,Es}, C) ->
+    {map,L,expand_exprs(Es, C)};
+expand_expr({map,L,Arg,Es}, C) ->
+    {map,L,expand_expr(Arg, C),expand_exprs(Es, C)};
+expand_expr({map_field_assoc,L,K,V}, C) ->
+    {map_field_assoc,L,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({map_field_exact,L,K,V}, C) ->
+    {map_field_exact,L,expand_expr(K, C),expand_expr(V, C)};
 expand_expr({record_index,L,Name,F}, C) ->
     {record_index,L,Name,expand_expr(F, C)};
 expand_expr({record,L,Name,Is}, C) ->
