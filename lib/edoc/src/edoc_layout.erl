@@ -898,7 +898,7 @@ t_map(Es) ->
     ["#{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
 
 t_map_field([K,V]) ->
-    [t_utype_elem(K) ++ " => " ++ t_utype_elem(V)].
+    t_utype_elem(K) ++ [" => "] ++ t_utype_elem(V).
 
 t_record(E, Es) ->
     Name = ["#"] ++ t_type(get_elem(atom, Es)),
@@ -1095,6 +1095,10 @@ ot_type([#xmlElement{name = nonempty_list, content = Es}]) ->
     ot_nonempty_list(Es);
 ot_type([#xmlElement{name = tuple, content = Es}]) ->
     ot_tuple(Es);
+ot_type([#xmlElement{name = map, content = Es}]) ->
+    ot_map(Es);
+ot_type([#xmlElement{name = map_field, content = Es}]) ->
+    ot_map_field(Es);
 ot_type([#xmlElement{name = 'fun', content = Es}]) ->
     ot_fun(Es);
 ot_type([#xmlElement{name = record, content = Es}]) ->
@@ -1150,6 +1154,12 @@ ot_nonempty_list(Es) ->
 
 ot_tuple(Es) ->
     {type,0,tuple,[ot_utype_elem(E) || E <- Es]}.
+
+ot_map(Es) ->
+    {type,0,map,[ot_utype_elem(E) || E <- Es]}.
+
+ot_map_field(Es) ->
+    {type,0,map_field_assoc,[ot_utype_elem(E) || E <- Es]}.
 
 ot_fun(Es) ->
     Range = ot_utype(get_elem(type, Es)),
