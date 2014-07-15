@@ -43,8 +43,8 @@
 	 file/1, compile/1, syntax/1,
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
-
-         otp_10302/1, otp_11286/1, unicode/1]).
+	 line_wrap/1,
+	 otp_10302/1, otp_11286/1, unicode/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -61,12 +61,13 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, checks}, {group, examples}].
+    [{group, checks}, {group, examples}, {group, bugs}].
 
 groups() -> 
     [{checks, [], [file, compile, syntax]},
      {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
-     {tickets, [], [otp_10302, otp_11286]}].
+     {tickets, [], [otp_10302, otp_11286]},
+     {bugs, [], [line_wrap]}].
 
 init_per_suite(Config) ->
     Config.
@@ -870,6 +871,35 @@ scan_token_1({more, Cont}, [C | Cs], Fun, Loc, Rs) ->
     scan_token_1(R, Cs, Fun, Loc, Rs).
 
 %% End of ex2
+
+line_wrap(doc) ->    "Much more examples.";
+line_wrap(suite) -> [];
+line_wrap(Config) when is_list(Config) ->
+    Xrl =
+     <<"
+Definitions.
+Rules.
+[a]+[\\n]*= : {token, {first, TokenLine}}.
+[a]+ : {token, {second, TokenLine}}.
+[\\s\\r\\n\\t]+ : skip_token.
+Erlang code.
+      ">>,
+    Dir = ?privdir,
+    XrlFile = filename:join(Dir, "test_line_wrap.xrl"),
+    ?line ok = file:write_file(XrlFile, Xrl),
+    ErlFile = filename:join(Dir, "test_line_wrap.erl"),
+    ?line {ok, _} = leex:file(XrlFile, []),
+    ?line {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
+    code:purge(test_line_wrap),
+    AbsFile = filename:rootname(ErlFile, ".erl"),
+    code:load_abs(AbsFile, test_line_wrap),
+    fun() ->
+            S = "aaa\naaa",
+            {ok,[{second,1},{second,2}],2} = test_line_wrap:string(S)
+    end(),
+    ok.
+
+%% End of line_wrap
 
 not_yet(doc) ->
     "Not yet implemented.";
