@@ -6129,7 +6129,7 @@ driver_pdl_create(ErlDrvPort dp)
 	return NULL;
     pdl = erts_alloc(ERTS_ALC_T_PORT_DATA_LOCK,
 		     sizeof(struct erl_drv_port_data_lock));
-    erts_mtx_init(&pdl->mtx, "port_data_lock");
+    erts_mtx_init_x(&pdl->mtx, "port_data_lock", pp->common.id, 1);
     pdl_init_refc(pdl);
     erts_port_inc_refc(pp);
     pdl->prt = pp;
