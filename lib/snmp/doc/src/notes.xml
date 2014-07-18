@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,69 @@
     <rev></rev>
     <file>notes.xml</file>
   </header>
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.24.3</title>
+    <p>Version 4.24.3 supports code replacement in runtime from/to
+    version 4.24.2, 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Refinement of type Opaque was not allowed. </p>
+          <p>MIB constructs such as '<c>SYNTAX Opaque (SIZE(0..65535))</c>' 
+	  was previously not allowed, 
+	  see the standard <c>ALARM-MIB</c> for eaxmple. </p>
+          <p>Own Id: OTP-12066</p>
+          <p>Aux Id: Seq 12669</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] 
+	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
+	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
+          <p>Own Id: OTP-11216</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.24.3 -->
 
 
   <section>
