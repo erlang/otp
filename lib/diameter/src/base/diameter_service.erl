@@ -1573,7 +1573,8 @@ transports(#state{watchdogT = WatchdogT}) ->
 -define(OTHER_INFO, [connections,
                      name,
                      peers,
-                     statistics]).
+                     statistics,
+                     info]).
 
 service_info(Item, S)
   when is_atom(Item) ->
@@ -1663,6 +1664,7 @@ complete_info(Item, #state{service = Svc} = S) ->
         keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
         statistics   -> info_stats(S);
+        info         -> info_info(S);
         connections  -> info_connections(S);
         peers        -> info_peers(S)
     end.
@@ -1845,6 +1847,13 @@ mk_app(#diameter_app{} = A) ->
 
 info_pending(#state{} = S) ->
     diameter_traffic:pending(transports(S)).
+
+%% info_info/1
+%%
+%% Extract process_info from connections info.
+
+info_info(S) ->
+    [I || L <- conn_list(S), {info, I} <- L].
 
 %% info_connections/1
 %%
