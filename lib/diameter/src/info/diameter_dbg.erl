@@ -32,7 +32,8 @@
          compiled/0,
          procs/0,
          latest/0,
-         nl/0]).
+         nl/0,
+         sizes/0]).
 
 -export([diameter_config/0,
          diameter_peer/0,
@@ -67,6 +68,15 @@
                 diameter_stats]).
 
 -define(VALUES(Rec), tl(tuple_to_list(Rec))).
+
+%% ----------------------------------------------------------
+%% # sizes/0
+%%
+%% Return sizes of named tables.
+%% ----------------------------------------------------------
+
+sizes() ->
+    [{T, ets:info(T, size)} || T <- ?LOCAL, T /= diameter_peer].
 
 %% ----------------------------------------------------------
 %% # table/1
