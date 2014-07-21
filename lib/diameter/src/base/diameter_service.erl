@@ -1745,12 +1745,11 @@ peer_acc(PeerT, Acc, #watchdog{pid = Pid,
                                state = WS,
                                started = At,
                                peer = TPid}) ->
-    dict:append(Ref,
-                [{type, Type},
-                 {options, Opts},
-                 {watchdog, {Pid, At, WS}}
-                 | info_peer(PeerT, TPid, WS)],
-                Acc).
+    Info = [{type, Type},
+            {options, Opts},
+            {watchdog, {Pid, At, WS}}
+            | info_peer(PeerT, TPid, WS)],
+    dict:append(Ref, Info ++ [{info, info_process_info(Info)}], Acc).
 
 info_peer(PeerT, TPid, WS)
   when is_pid(TPid), WS /= ?WD_DOWN ->
@@ -1761,6 +1760,34 @@ info_peer(PeerT, TPid, WS)
     end;
 info_peer(_, _, _) ->
     [].
+
+info_process_info(Info) ->
+    lists:flatmap(fun ipi/1, Info).
+
+ipi({watchdog, {Pid, _, _}}) ->
+    info_pid(Pid);
+
+ipi({peer, {Pid, _}}) ->
+    info_pid(Pid);
+
+ipi({port, [{owner, Pid} | _]}) ->
+    info_pid(Pid);
+
+ipi(_) ->
+    [].
+
+info_pid(Pid) ->
+    case process_info(Pid, [message_queue_len, memory, binary]) of
+        undefined ->
+            [];
+        L ->
+            [{Pid, lists:map(fun({K,V}) -> {K, map_info(K,V)} end, L)}]
+    end.
+
+map_info(binary, L) ->
+    lists:reverse(lists:keysort(2, L));
+map_info(_, T) ->
+    T.
 
 %% The point of extracting the config here is so that 'transport' info
 %% has one entry for each transport ref, the peer table only
