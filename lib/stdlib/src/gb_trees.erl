@@ -48,6 +48,10 @@
 %% - update(X, V, T): updates key X to value V in tree T; returns the
 %%   new tree. Assumes that the key is present in the tree.
 %%
+%% - modify(X, F, T): modifies key X using fun F called for the current
+%%   value to return the new one; returns the new tree. Assumes the key
+%%   is present in the tree.
+%%
 %% - enter(X, V, T): inserts key X with value V into tree T if the key
 %%   is not present in the tree, otherwise updates key X to value V in
 %%   T. Returns the new tree.
@@ -114,7 +118,7 @@
 -module(gb_trees).
 
 -export([empty/0, is_empty/1, size/1, lookup/2, get/2, insert/3,
-	 update/3, enter/3, delete/2, delete_any/2, balance/1,
+	 update/3, modify/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
 	 smallest/1, largest/1, take_smallest/1, take_largest/1,
 	 iterator/1, next/1, map/2]).
@@ -249,18 +253,29 @@ get_1(_, {_, Value, _, _}) ->
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
 
-update(Key, Val, {S, T}) ->
-    T1 = update_1(Key, Val, T),
+update(Key, Val, Tree) ->
+    modify(Key, fun(_) -> Val end, Tree).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec modify(Key, Fun, Tree1) -> Tree2 when
+      Key :: term(),
+      Tree1 :: gb_tree(),
+      Tree2 :: gb_tree(),
+      Fun :: fun((Val1 :: term()) -> Val2 :: term()).
+
+modify(Key, Fun, {S, T}) when is_function(Fun, 1) ->
+    T1 = modify_1(Key, Fun, T),
     {S, T1}.
 
 %% See `lookup' for notes on the term comparison order.
 
-update_1(Key, Value, {Key1, V, Smaller, Bigger}) when Key < Key1 -> 
-    {Key1, V, update_1(Key, Value, Smaller), Bigger};
-update_1(Key, Value, {Key1, V, Smaller, Bigger}) when Key > Key1 ->
-    {Key1, V, Smaller, update_1(Key, Value, Bigger)};
-update_1(Key, Value, {_, _, Smaller, Bigger}) ->
-    {Key, Value, Smaller, Bigger}.
+modify_1(Key, Fun, {Key1, V, Smaller, Bigger}) when Key < Key1 ->
+    {Key1, V, modify_1(Key, Fun, Smaller), Bigger};
+modify_1(Key, Fun, {Key1, V, Smaller, Bigger}) when Key > Key1 ->
+    {Key1, V, Smaller, modify_1(Key, Fun, Bigger)};
+modify_1(Key, Fun, {_, Value, Smaller, Bigger}) ->
+    {Key, Fun(Value), Smaller, Bigger}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

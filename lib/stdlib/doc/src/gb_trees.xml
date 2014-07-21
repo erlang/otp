@@ -281,6 +281,17 @@
       </desc>
     </func>
     <func>
+      <name name="modify" arity="3"/>
+      <fsummary>Modify a key using a function from the current value</fsummary>
+      <desc>
+          <p>Modifies <c><anno>Key</anno></c> using updater function <c><anno>Fun</anno></c>
+            that transforms the current value and returns the new one. In general, this is more
+            effective than a call to <c>lookup/2</c> followed with <c>update/3</c> although
+            does exactly the same.
+          </p>
+      </desc>
+    </func>
+    <func>
       <name name="values" arity="1"/>
       <fsummary>Return a list of the values in a tree</fsummary>
       <desc>
