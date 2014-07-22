@@ -32,14 +32,16 @@
 	 t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
-	 t_fdopen/1, t_implicit_inet6/1]).
+	 t_fdopen/1, t_fdconnect/1, t_implicit_inet6/1]).
+
+-export([getsockfd/0,closesockfd/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, t_accept}, {group, t_connect}, {group, t_recv},
      t_shutdown_write, t_shutdown_both, t_shutdown_error,
-     t_fdopen, t_implicit_inet6].
+     t_fdopen, t_fdconnect, t_implicit_inet6].
 
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
@@ -185,6 +187,37 @@ t_fdopen(Config) when is_list(Config) ->
     ?line ok = gen_tcp:close(L),
     ok.
 
+t_fdconnect(Config) when is_list(Config) ->
+    Question = "Aaaa... Long time ago in a small town in Germany,",
+    Question1 = list_to_binary(Question),
+    Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
+                       ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
+    Question1 = iolist_to_binary(Question2),
+    Answer = "there was a shoemaker, Schumacher was his name.",
+    Path = ?config(data_dir, Config),
+    Lib = "gen_tcp_api_SUITE",
+    ok = erlang:load_nif(filename:join(Path,Lib), []),
+    {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(L),
+    FD = gen_tcp_api_SUITE:getsockfd(),
+    {ok, Client} = gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
+                                                     {active,false}]),
+    {ok, Server} = gen_tcp:accept(L),
+    ok = gen_tcp:send(Client, Question),
+    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ok = gen_tcp:send(Client, Question1),
+    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ok = gen_tcp:send(Client, Question2),
+    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ok = gen_tcp:send(Server, Answer),
+    {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
+    ok = gen_tcp:close(Client),
+    FD = gen_tcp_api_SUITE:closesockfd(FD),
+    {error,closed} = gen_tcp:recv(Server, 1, 2000),
+    ok = gen_tcp:close(Server),
+    ok = gen_tcp:close(L),
+    ok.
+
 
 %%% implicit inet6 option to api functions
 
@@ -300,3 +333,7 @@ unused_ip(A, B, C, D) ->
     end.
 
 ok({ok,V}) -> V.
+
+
+getsockfd() -> undefined.
+closesockfd(_FD) -> undefined.

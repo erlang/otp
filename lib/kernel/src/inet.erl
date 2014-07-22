@@ -1246,9 +1246,9 @@ open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
 	Error ->
 	    Error
     end;
-open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module)
+open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module)
   when is_integer(Fd) ->
-    fdopen(Fd, Opts, Protocol, Family, Type, Module).
+    fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module).
 
 bindx(S, [Addr], Port0) ->
     {IP, Port} = set_bindx_port(Addr, Port0),
@@ -1287,12 +1287,35 @@ change_bindx_0_port({_IP, _Port}=Addr, _AssignedPort) ->
 	{'ok', socket()} | {'error', posix()}.
 
 fdopen(Fd, Opts, Protocol, Family, Type, Module) ->
-    case prim_inet:fdopen(Protocol, Family, Type, Fd) of
+    fdopen(Fd, any, 0, Opts, Protocol, Family, Type, Module).
+
+fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
+    IsAnyAddr = (Addr == {0,0,0,0} orelse Addr == {0,0,0,0,0,0,0,0} 
+                 orelse Addr == any),
+    Bound = Port == 0 andalso IsAnyAddr,
+    case prim_inet:fdopen(Protocol, Family, Type, Fd, Bound) of
 	{ok, S} ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
-		    inet_db:register_socket(S, Module),
-		    {ok, S};
+                    case if
+                             Bound ->
+                                 %% We do not do any binding if default
+                                 %% port+addr options where given in order
+                                 %% to keep backwards compatability with
+                                 %% pre Erlang/TOP 17
+                                 {ok, ok};
+                             is_list(Addr) ->
+                                 bindx(S, Addr, Port);
+                             true ->
+                                 prim_inet:bind(S, Addr, Port)
+                         end of
+                        {ok, _} ->
+                            inet_db:register_socket(S, Module),
+                            {ok, S};
+                        Error  ->
+                            prim_inet:close(S),
+                            Error
+                    end;
 		Error ->
 		    prim_inet:close(S), Error
 	    end;
