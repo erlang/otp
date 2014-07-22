@@ -1287,10 +1287,11 @@ change_bindx_0_port({_IP, _Port}=Addr, _AssignedPort) ->
 	{'ok', socket()} | {'error', posix()}.
 
 fdopen(Fd, Opts, Protocol, Family, Type, Module) ->
-    fdopen(Fd, undefined, 0, Opts, Protocol, Family, Type, Module).
+    fdopen(Fd, any, 0, Opts, Protocol, Family, Type, Module).
 
 fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    IsAnyAddr = (Addr == {0,0,0,0} orelse Addr == {0,0,0,0,0,0,0,0}),
+    IsAnyAddr = (Addr == {0,0,0,0} orelse Addr == {0,0,0,0,0,0,0,0} 
+                 orelse Addr == any),
     Bound = Port == 0 andalso IsAnyAddr,
     case prim_inet:fdopen(Protocol, Family, Type, Fd, Bound) of
 	{ok, S} ->
