@@ -37,7 +37,8 @@ suite() ->
 all() ->
     [
      {group, openssh_payload},
-     interrupted_send
+     interrupted_send,
+     start_shell
     ].
 groups() ->
     [{openssh_payload, [], [simple_exec,
@@ -276,6 +277,39 @@ interrupted_send(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+start_shell() ->
+    [{doc, "Start a shell"}].
+
+start_shell(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                         {user_dir, UserDir},
+                         {password, "morot"},
+                         {shell, fun(U, H) -> start_our_shell(U, H) end} ]),
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                      {user, "foo"},
+                      {password, "morot"},
+                      {user_interaction, true},
+                      {user_dir, UserDir}]),
+
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:shell(ConnectionRef,ChannelId0),
+
+    receive
+    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"Enter command\r\n">>}} ->
+        ok
+    after 5000 ->
+        ct:fail("CLI Timeout")
+    end,
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 big_cat_rx(ConnectionRef, ChannelId) ->
@@ -308,3 +342,12 @@ collect_data(ConnectionRef, ChannelId, Acc) ->
     after 5000 ->
 	    timeout
     end.
+
+%%%-------------------------------------------------------------------
+% This is taken from the ssh example code.  
+start_our_shell(_User, _Peer) ->
+    spawn(fun() ->
+          io:format("Enter command\n")
+          %% Don't actually loop, just exit
+      end).
+
