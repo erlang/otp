@@ -16,7 +16,13 @@
 %%
 %% %CopyrightEnd%
 %%
-%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test suite uses the following external programs:
+%%     snmpget    From packet 'snmp' (in Ubuntu 12.04)
+%%     snmptrapd  From packet 'snmpd' (in Ubuntu 12.04)
+%% They originate from the Net-SNMP applications, see:
+%%     http://net-snmp.sourceforge.net/
+
 
 -module(snmp_to_snmpnet_SUITE).
 
@@ -26,11 +32,14 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
 
--define(AGENT_ENGIN_ID, "ErlangSnmpAgent").
+-define(AGENT_ENGINE_ID, "ErlangSnmpAgent").
 -define(AGENT_PORT, 4000).
 -define(MANAGER_PORT, 8989).
 -define(DEFAULT_MAX_MESSAGE_SIZE, 484).
--define(SYS_DESC, <<"iso.3.6.1.2.1.1.1.0 = STRING: \"Erlang SNMP agent\"">>).
+
+expected(?sysDescr_instance = Oid, get) ->
+    OidStr = oid_str(Oid),
+    iolist_to_binary([OidStr | " = STRING: \"Erlang SNMP agent\""]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -192,7 +201,9 @@ erlang_agent_netsnmp_get() ->
 
 erlang_agent_netsnmp_get(Config) when is_list(Config) ->
     start_agent(Config),
-    ?SYS_DESC = snmpget(oid_str(?sysDescr_instance), Config),
+    Oid = ?sysDescr_instance,
+    Expected = expected(Oid, get),
+    Expected = snmpget(Oid, Config),
     ok.
 
 %%--------------------------------------------------------------------
@@ -201,10 +212,10 @@ erlang_agent_dual_ip_get() ->
       "snmpnet ipv4 and snmpnet ipv6 manager at the same time"}].
 erlang_agent_dual_ip_get(Config) when is_list(Config) ->
     start_agent(Config),
-
-    OidStr = oid_str(?sysDescr_instance),
-    ?SYS_DESC = snmpget(OidStr, [{ip_version, ipv4} | Config]),
-    ?SYS_DESC = snmpget(OidStr, [{ip_version, ipv6} | Config]),
+    Oid = ?sysDescr_instance,
+    Expected = expected(Oid, get),
+    Expected = snmpget(Oid, [{ip_version, ipv4} | Config]),
+    Expected = snmpget(Oid, [{ip_version, ipv6} | Config]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -212,21 +223,14 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     Host = ?config(host, Config),
     IPVersion = ?config(ip_version, Config),    
     DataDir = ?config(data_dir, Config),  
+    Mib = "TestTrapv2",
 
     start_agent(Config),
-    ok =
-      snmpa:load_mib(
-	snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
-    
-    SnmptrapdArgs =
-	["-f", "-Lo",
-	 "-M", DataDir,
-	 "--disableAuthorization=yes",
-	 "--snmpTrapdAddr=" ++ net_snmp_transport(IPVersion) ++
-	     Host ++ ":" ++ integer_to_list(?config(manager_port, Config))],
-    {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
-    ProgHandle =
-	start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config),
+    ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, Mib)),
+
+    TrapAddr = net_snmp_transport(IPVersion) ++ Host ++
+	":" ++ integer_to_list(?config(manager_port, Config)),
+    ProgHandle = start_snmptrapd(Mib, TrapAddr, Config),
 
     snmpa:send_notification(
       snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
@@ -251,24 +255,17 @@ erlang_agent_dual_ip_inform(Config) when is_list(Config) ->
     Host = ?config(host, Config),
     ManagerPort = ?config(manager_port, Config),
     DataDir = ?config(data_dir, Config),
+    Mib = "TestTrapv2",
 
     start_agent(Config),
-    ok =
-      snmpa:load_mib(
-	snmp_master_agent, filename:join(DataDir, "TestTrapv2")),
+    ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, Mib)),
 
     ManagerPortStr = integer_to_list(ManagerPort),
-    SnmptrapdArgs =
-	["-f", "-Lo",
-	 "-M", DataDir,
-	 "--disableAuthorization=yes",
-	 "--snmpTrapdAddr=" ++
-	     net_snmp_transport(ipv4) ++ Host ++ ":" ++ ManagerPortStr ++
-	     "," ++
-	     net_snmp_transport(ipv6) ++ Host ++ ":" ++ ManagerPortStr],
-    {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
-    ProgHandle =
-	start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config),
+    TrapAddrs =
+	net_snmp_transport(ipv4) ++ Host ++ ":" ++ ManagerPortStr ++
+	"," ++
+	net_snmp_transport(ipv6) ++ Host ++ ":" ++ ManagerPortStr,
+    ProgHandle = start_snmptrapd(Mib, TrapAddrs, Config),
 
     snmpa:send_notification(
       snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
@@ -281,8 +278,14 @@ erlang_agent_dual_ip_inform(Config) when is_list(Config) ->
     stop_program(ProgHandle).
 
 erlang_agent_dual_ip_inform_responses([]) ->
-    ok;
-erlang_agent_dual_ip_inform_responses([Address | Addresses] = AAs) ->
+    receive
+	{snmp_notification, erlang_agent_test, _} = Unexpected ->
+	    ct:pal("Unexpected response: ~p", [Unexpected]),
+	    erlang_agent_dual_ip_inform_responses([])
+    after 0 ->
+	    ok
+    end;
+erlang_agent_dual_ip_inform_responses([Address | Addresses]) ->
     receive
 	{snmp_notification, erlang_agent_test,
 	 {got_response, Address}} ->
@@ -290,16 +293,13 @@ erlang_agent_dual_ip_inform_responses([Address | Addresses] = AAs) ->
 	    erlang_agent_dual_ip_inform_responses(Addresses);
 	{snmp_notification, erlang_agent_test,
 	 {no_response, _} = NoResponse} ->
-	    ct:fail(NoResponse);
-	{snmp_notification, erlang_agent_test, _} = Unexpected ->
-	    ct:pal("Unexpected response: ~p", [Unexpected]),
-	    erlang_agent_dual_ip_inform_responses(AAs)
+	    ct:fail(NoResponse)
     end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-snmpget(OidStr, Config) ->
+snmpget(Oid, Config) ->
     Versions = ?config(snmp_versions, Config),
     IPVersion = ?config(ip_version, Config),
     Host = ?config(host, Config),
@@ -307,14 +307,26 @@ snmpget(OidStr, Config) ->
 
     Args =
 	["-c", "public", net_snmp_version(Versions),
-	 net_snmp_transport(IPVersion) ++
-	     Host ++ ":" ++ integer_to_list(Port),
-	 OidStr],
+	 "-m", "",
+	 "-Cf",
+	 net_snmp_transport(IPVersion)++Host++":"++ integer_to_list(Port),
+	 oid_str(Oid)],
     ProgHandle = start_program(snmpget, Args, none, Config),
     {_, line, Line} = get_program_output(ProgHandle),
     stop_program(ProgHandle),
     Line.
 
+start_snmptrapd(Mibs, TrapAddrs, Config) ->
+    DataDir = ?config(data_dir, Config),
+    MibDir = filename:join(code:lib_dir(snmp), "mibs"),
+    SnmptrapdArgs =
+	["-f", "-Lo", "-C",
+	 "-m", Mibs,
+	 "-M", MibDir++":"++DataDir,
+	 "--disableAuthorization=yes",
+	 "--snmpTrapdAddr="++TrapAddrs],
+    {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
+    start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config).
 
 start_program(Prog, Args, StartCheckMP, Config) ->
     Path = ?config(Prog, Config),
@@ -421,19 +433,23 @@ app_env(Config) ->
      {note_store,       [{verbosity, silence}]},
      {net_if,           [{verbosity, trace}]}].
 
-oid_str([Int | Rest]) ->
-    oid_str(Rest, integer_to_list(Int)).
+oid_str([1 | Ints]) ->
+    "iso." ++ oid_str_tl(Ints);
+oid_str(Ints) ->
+    oid_str_tl(Ints).
 
-oid_str([], Acc) ->
-    Acc;
-oid_str([Int | Rest], Acc) ->
-    oid_str(Rest, Acc ++ "." ++ integer_to_list(Int)).
+oid_str_tl([]) ->
+    "";
+oid_str_tl([Int]) ->
+    integer_to_list(Int);
+oid_str_tl([Int | Ints]) ->
+    integer_to_list(Int) ++ "." ++ oid_str_tl(Ints).
 
 agent_config(Dir, Transports, TargetDomain, TargetAddr, Versions) ->
     agent_config(Dir, Transports, [{TargetDomain, TargetAddr}], Versions).
 %%
 agent_config(Dir, Transports, Targets, Versions) ->
-    EngineID = ?AGENT_ENGIN_ID,
+    EngineID = ?AGENT_ENGINE_ID,
     MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
     ok = snmp_config:write_agent_snmp_conf(Dir, Transports, EngineID, MMS),
     ok = snmp_config:write_agent_snmp_context_conf(Dir),
