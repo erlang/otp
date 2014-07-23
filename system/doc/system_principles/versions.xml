@@ -67,7 +67,7 @@
     suffix corresponds to the OTP version of the base system that
     has been patched. Note that if a development system is updated by
     other means than <c>otp_patch_apply</c>, the <c>OTP_VERSION</c> file
-    may identify wrong OTP version.</p>
+    may identify an incorrect OTP version.</p>
 
     <p>No <c>OTP_VERSION</c> file will be placed in a
     <seealso marker="create_target">target system</seealso> created
