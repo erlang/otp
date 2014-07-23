@@ -888,14 +888,27 @@ Erlang code.
     XrlFile = filename:join(Dir, "test_line_wrap.xrl"),
     ?line ok = file:write_file(XrlFile, Xrl),
     ErlFile = filename:join(Dir, "test_line_wrap.erl"),
-    ?line {ok, _} = leex:file(XrlFile, []),
-    ?line {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
+    {ok, _} = leex:file(XrlFile, []),
+    {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
     code:purge(test_line_wrap),
     AbsFile = filename:rootname(ErlFile, ".erl"),
     code:load_abs(AbsFile, test_line_wrap),
     fun() ->
             S = "aaa\naaa",
             {ok,[{second,1},{second,2}],2} = test_line_wrap:string(S)
+    end(),
+    fun() ->
+            S = "aaa\naaa",
+            {ok,[{second,3},{second,4}],4} = test_line_wrap:string(S, 3)
+    end(),
+    fun() ->
+            {done,{ok,{second,1},1},"\na"} = test_line_wrap:token([], "a\na"),
+            {more,Cont1} = test_line_wrap:token([], "\na"),
+            {done,{ok,{second,2},2},eof} = test_line_wrap:token(Cont1, eof)
+    end(),
+    fun() ->
+            {more,Cont1} = test_line_wrap:tokens([], "a\na"),
+            {done,{ok,[{second,1},{second,2}],2},eof} = test_line_wrap:tokens(Cont1, eof)
     end(),
     ok.
 
