@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,11 @@
 %% {add_module,  snmpm_net_if_mt}
 
  [
+  {"4.24.2", 
+   [
+   %% Only changes in the compiler
+   ]
+  }, 
   {"4.24.1", 
    [
     {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]}, 
@@ -57,6 +62,11 @@
 %% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
 
  [
+  {"4.24.2", 
+   [
+   %% Only changes in the compiler
+   ]
+  }, 
   {"4.24.1", 
    [
     {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]}, 
