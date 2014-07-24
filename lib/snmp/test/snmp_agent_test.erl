@@ -653,7 +653,9 @@ init_per_group_ipv6(GroupName, Config, Init) ->
 	ok ->
 	    Init(
 	      snmp_test_lib:init_group_top_dir(
-		GroupName, [{ipfamily, inet6}|Config]));
+		GroupName,
+		[{ipfamily, inet6},
+		 {ip, ?LOCALHOST(inet6)} | lists:keydelete(ip, 1, Config)]));
 	_ ->
 	    {skip, "Host does not support IPV6"}
     end.
@@ -6654,6 +6656,7 @@ otp8395({init, Config}) when is_list(Config) ->
     %% SubAgentHost = ?HPSTNAME(SubAgentNode), 
     ManagerHost  = ?HOSTNAME(ManagerNode),
 
+    IpFamily          = inet,
     Host              = snmp_test_lib:hostname(), 
     Ip                = ?LOCALHOST(),
     {ok, AgentIP0}    = snmp_misc:ip(AgentHost),
@@ -6671,7 +6674,7 @@ otp8395({init, Config}) when is_list(Config) ->
     Vsns           = [v1], 
     AgentConfDir   = ?config(agent_conf_dir, Config),
     ManagerConfDir = ?config(manager_top_dir, Config),
-    config(Vsns, ManagerConfDir, AgentConfDir, ManagerIP, AgentIP),
+    config(Vsns, ManagerConfDir, AgentConfDir, ManagerIP, AgentIP, IpFamily),
 
 
     %% --
@@ -6680,6 +6683,7 @@ otp8395({init, Config}) when is_list(Config) ->
 
     Config2 = start_agent([{host,          Host}, 
 			   {ip,            Ip}, 
+			   {ipfamily,      IpFamily},
 			   {agent_node,    AgentNode}, 
 			   {agent_host,    AgentHost}, 
 			   {agent_ip,      AgentIP}, 
@@ -6759,6 +6763,7 @@ otp8395(Config) when is_list(Config) ->
     put(mib_dir,  ?config(mib_dir, Config)),
     put(vsn, v1), 
     put(master_host, ?config(agent_host, Config)),
+    put(ipfamily, ?config(ipfamily, Config)),
     try_test(simple_standard_test),
 
     ?SLEEP(1000),

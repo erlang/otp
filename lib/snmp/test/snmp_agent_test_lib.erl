@@ -251,6 +251,7 @@ init_case(Config) when is_list(Config) ->
     put(mip,         tuple_to_list(MIP)),
     put(masterip,    tuple_to_list(MasterIP)),
     put(sip,         tuple_to_list(SIP)),
+    put(ipfamily,    IpFamily),
     
     MibDir = ?config(mib_dir, Config),
     put(mib_dir, MibDir),
@@ -359,6 +360,7 @@ run(Mod, Func, Args, Opts) ->
 			      {packet_server_debug,true},
 			      {debug,true},
 			      {agent, get(master_host)}, 
+			      {ipfamily, get(ipfamily)},
 			      {agent_udp, 4000},
 			      {trap_udp, 5000},
 			      {recbuf,65535},
@@ -1383,12 +1385,9 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?line {Domain, ManagerAddr} =
 	case IpFamily of
 	    inet6 ->
-		%% XXX Run IPv6 tests over IPv4 compatibility address
-		%% since the test manager needs to be rewritten to
-		%% handle IPv6 before we can improve this.
 		Ipv6Domain = transportDomainUdpIpv6,
-		AgentIpv6Addr = {mk_ipv6_ip(AIp), 4000},
-		ManagerIpv6Addr = {mk_ipv6_ip(MIp), ?TRAP_UDP},
+		AgentIpv6Addr = {AIp, 4000},
+		ManagerIpv6Addr = {MIp, ?TRAP_UDP},
 		?line ok =
 		    snmp_config:write_agent_snmp_files(
 		      AgentConfDir, Vsns,
@@ -1415,9 +1414,6 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?line write_target_params_conf(AgentConfDir, Vsns),
     ?line write_notify_conf(AgentConfDir),
     ok.
-
-mk_ipv6_ip([A,B,C,D]) ->
-    [0,0,0,0,0,0,0,0,0,0,255,255,A,B,C,D].
 
 delete_files(Config) ->
     AgentDir = ?config(agent_dir, Config),
