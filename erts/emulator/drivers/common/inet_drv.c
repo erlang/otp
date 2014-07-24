@@ -4372,7 +4372,7 @@ static int erl_inet_close(inet_descriptor* desc)
 	desc_close(desc);
 	desc->state = INET_STATE_CLOSED;
     } else if (desc->prebound && (desc->s != INVALID_SOCKET)) {
-	sock_select(desc, FD_READ | FD_WRITE | FD_CLOSE, 0);
+	sock_select(desc, FD_READ | FD_WRITE | FD_CLOSE | ERL_DRV_USE_NO_CALLBACK, 0);
 	desc->event_mask = 0;
 #ifdef __WIN32__
 	desc->forced_events = 0;
@@ -4536,7 +4536,8 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 
 /* as inet_open but pass in an open socket (MUST BE OF RIGHT TYPE) */
 static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
-				    SOCKET s, char** rbuf, ErlDrvSizeT rsize)
+				    SOCKET s, Uint32 bound,
+                                    char** rbuf, ErlDrvSizeT rsize)
 {
     inet_address name;
     unsigned int sz = sizeof(name);
@@ -4560,7 +4561,12 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
 #ifdef __WIN32__
     driver_select(desc->port, desc->event, ERL_DRV_READ, 1);
 #endif
-    desc->state = INET_STATE_BOUND; /* assume bound */
+
+    if (bound)
+        desc->state = INET_STATE_BOUND;
+    else
+        desc->state = INET_STATE_OPEN;
+
     if (type == SOCK_STREAM) { /* check if connected */
 	sz = sizeof(name);
 	if (!IS_SOCKET_ERROR(sock_peer(s, (struct sockaddr*) &name, &sz))) {
@@ -9121,10 +9127,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	break;
     }
 
-    case INET_REQ_FDOPEN: {  /* pass in an open socket */
+    case INET_REQ_FDOPEN: {  /* pass in an open (and optionally bound) socket */
 	int domain;
+        int bound;
 	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port));
-	if (len != 6) return ctl_error(EINVAL, rbuf, rsize);
+	if (len != 6 && len != 10) return ctl_error(EINVAL, rbuf, rsize);
 	switch(buf[0]) {
 	case INET_AF_INET:
 	    domain = AF_INET;
@@ -9142,8 +9149,13 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
+
+        if (len == 6) bound = 1;
+        else bound = get_int32(buf+2+4);
+
 	return inet_ctl_fdopen(INETP(desc), domain, SOCK_STREAM,
-			       (SOCKET) get_int32(buf+2), rbuf, rsize);
+                               (SOCKET) get_int32(buf+2),
+                               bound, rbuf, rsize);
 	break;
     }
 
@@ -11116,10 +11128,11 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	return replen;
 
 
-    case INET_REQ_FDOPEN: {  /* pass in an open (and bound) socket */
+    case INET_REQ_FDOPEN: {  /* pass in an open (and optionally bound) socket */
 	SOCKET s;
+        int bound;
 	DEBUGF(("packet inet_ctl(%ld): FDOPEN\r\n", (long)desc->port));
-	if (len != 6) {
+	if (len != 6 && len != 10) {
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 	switch (buf[0]) {
@@ -11144,7 +11157,11 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 	s = (SOCKET)get_int32(buf+2);
-	replen = inet_ctl_fdopen(desc, af, type, s, rbuf, rsize);
+
+        if (len == 6) bound = 1;
+        else bound = get_int32(buf+2+4);
+
+	replen = inet_ctl_fdopen(desc, af, type, s, bound, rbuf, rsize);
 
 	if ((*rbuf)[0] != INET_REP_ERROR) {
 	    if (desc->active)

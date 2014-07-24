@@ -112,7 +112,12 @@ do_recv(Sock, Bs) ->
           <item>
             <p>If a socket has somehow been connected without using
               <c>gen_tcp</c>, use this option to pass the file
-              descriptor for it.</p>
+              descriptor for it. If <c>{ip, ip_address()}</c>
+              and/or <c>{port, port_number()}</c> is combined with
+              this option the fd will be bound to the given interface
+              and port before connecting. If these options are not given
+              it is assumed that the fd is already bound appropriately.
+            </p>
           </item>
 
           <tag><c>inet</c></tag>
