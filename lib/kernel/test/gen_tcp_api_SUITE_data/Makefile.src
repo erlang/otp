@@ -1,0 +1,8 @@
+
+NIF_LIBS = gen_tcp_api_SUITE@dll@
+
+all: $(NIF_LIBS)
+
+@SHLIB_RULES@
+
+$(NIF_LIBS): gen_tcp_api_SUITE.c

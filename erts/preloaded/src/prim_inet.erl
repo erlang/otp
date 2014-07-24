@@ -25,7 +25,7 @@
 
 %% Primitive inet_drv interface
 
--export([open/3, open/4, fdopen/4, close/1]).
+-export([open/3, open/4, fdopen/4, fdopen/5, close/1]).
 -export([bind/3, listen/1, listen/2, peeloff/2]).
 -export([connect/3, connect/4, async_connect/4]).
 -export([accept/1, accept/2, async_accept/2]).
@@ -70,7 +70,12 @@ open(Protocol, Family, Type, Opts) ->
     open(Protocol, Family, Type, Opts, ?INET_REQ_OPEN, []).
 
 fdopen(Protocol, Family, Type, Fd) when is_integer(Fd) ->
-    open(Protocol, Family, Type, [], ?INET_REQ_FDOPEN, ?int32(Fd)).
+    fdopen(Protocol, Family, Type, Fd, true).
+
+fdopen(Protocol, Family, Type, Fd, Bound)
+  when is_integer(Fd), Bound == true orelse Bound == false ->
+    open(Protocol, Family, Type, [], ?INET_REQ_FDOPEN,
+         [?int32(Fd), enc_value_2(bool, Bound)]).
 
 open(Protocol, Family, Type, Opts, Req, Data) ->
     Drv = protocol2drv(Protocol),
