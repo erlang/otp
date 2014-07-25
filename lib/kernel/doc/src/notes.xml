@@ -151,7 +151,6 @@
       </list>
     </section>
 
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -292,25 +291,29 @@
 	    corrected. </p> <p> Thanks to Max Treskin. </p>
           <p>
 	    Own Id: OTP-11730</p>
-<section><title>Kernel 2.16.4.1</title>
-
-    <section><title>Known Bugs and Problems</title>
-      <list>
-        <item>
-          <p>
-	    When using gen_tcp:connect and the <c>fd</c> option with
-	    <c>port</c> and/or <c>ip</c>, the <c>port</c> and
-	    <c>ip</c> options were ignored. This has been fixed so
-	    that if <c>port</c> and/or <c>ip</c> is specified
-	    together with <c>fd</c> a bind is requested for that
-	    <c>fd</c>. If <c>port</c> and/or <c>ip</c> is not
-	    specified bind will not be called.</p>
-          <p>
-	    Own Id: OTP-12061</p>
         </item>
       </list>
     </section>
+</section>
 
+<section><title>Kernel 2.16.4.1</title>
+
+  <section><title>Known Bugs and Problems</title>
+  <list>
+    <item>
+      <p>
+        When using gen_tcp:connect and the <c>fd</c> option with
+        <c>port</c> and/or <c>ip</c>, the <c>port</c> and
+        <c>ip</c> options were ignored. This has been fixed so
+        that if <c>port</c> and/or <c>ip</c> is specified
+        together with <c>fd</c> a bind is requested for that
+        <c>fd</c>. If <c>port</c> and/or <c>ip</c> is not
+      specified bind will not be called.</p>
+      <p>
+      Own Id: OTP-12061</p>
+    </item>
+  </list>
+  </section>
 </section>
 
 <section><title>Kernel 2.16.4</title>
