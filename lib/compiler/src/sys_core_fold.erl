@@ -1205,7 +1205,7 @@ eval_rel_op(Call, '==', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
 	true ->
 	    Name = #c_literal{anno=core_lib:get_anno(Call),val='=:='},
-	    Call#c_call{name=Name};
+	    core_lib:set_anno(Call#c_call{name=Name}, [compiler_generated]);
 	false ->
 	    Call
     end;
@@ -1213,7 +1213,7 @@ eval_rel_op(Call, '/=', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
 	true ->
 	    Name = #c_literal{anno=core_lib:get_anno(Call),val='=/='},
-	    Call#c_call{name=Name};
+	    core_lib:set_anno(Call#c_call{name=Name}, [compiler_generated]);
 	false ->
 	    Call
     end;
