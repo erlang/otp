@@ -91,7 +91,8 @@ init_per_group(ipv6, Config) ->
 	    TrapAddr = {IpAddr, ManagerPort},
 	    Versions = [v2],
 	    agent_config(Dir, Transports, Domain, TrapAddr, Versions),
-	    [{host, Host}, {snmp_versions, Versions}, {ip_version, ipv6}
+	    [{snmp_versions, Versions}, {ip_version, ipv6},
+	     {trapaddrs, [IpAddr]}
 	     | Config];
 	_ ->
 	    {skip, "Host does not support IPV6"}
@@ -108,7 +109,8 @@ init_per_group(ipv4, Config) ->
     TrapAddr = {IpAddr, ManagerPort},
     Versions = [v2],
     agent_config(Dir, Transports, Domain, TrapAddr, Versions),
-    [{host, Host}, {snmp_versions, Versions}, {ip_version, ipv4}
+    [{snmp_versions, Versions}, {ip_version, ipv4},
+     {trapaddrs, [IpAddr]}
      | Config];
 %%
 init_per_group(dual_ip, Config) ->
@@ -131,8 +133,8 @@ init_per_group(dual_ip, Config) ->
 			 {transportDomainUdpIpv6, {IPv6Addr, ManagerPort}}],
 		    Versions = [v2],
 		    agent_config(Dir, Transports, Targets, Versions),
-		    [{host, Host}, {port, ?AGENT_PORT},
-		     {snmp_versions, Versions}
+		    [{port, ?AGENT_PORT}, {snmp_versions, Versions},
+		     {trapaddrs, [IPv4Addr, IPv6Addr]}
 		     | NewConfig];
 		_ ->
 		    {skip, "Host does not support IPV6"}
@@ -178,9 +180,26 @@ end_per_testcase(_, Config) ->
 find_executables([], Config) ->
     Config;
 find_executables([Exec | Execs], Config) ->
-    case os:find_executable(atom_to_list(Exec)) of
+    ExecStr = atom_to_list(Exec),
+    case os:find_executable(ExecStr) of
 	false ->
-	    {skip, Exec ++ " not found"};
+	    find_sys_executables(
+	      Execs, Config, Exec, ExecStr,
+	      [["usr", "local", "sbin"],
+	       ["usr", "sbin"],
+	       ["sbin"]]);
+	Path ->
+	    find_executables(
+	      Execs,
+	      [{Exec, Path} | Config])
+    end.
+
+find_sys_executables(_Execs, _Config, _Exec, ExecStr, []) ->
+    {skip, ExecStr ++ " not found"};
+find_sys_executables(Execs, Config, Exec, ExecStr, [Dir | Dirs]) ->
+    case os:find_executable(filename:join(["/" | Dir] ++ [ExecStr])) of
+	false ->
+	    find_sys_executables(Execs, Config, Exec, ExecStr, Dirs);
 	Path ->
 	    find_executables(
 	      Execs,
@@ -220,17 +239,15 @@ erlang_agent_dual_ip_get(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
-    Host = ?config(host, Config),
-    IPVersion = ?config(ip_version, Config),    
-    DataDir = ?config(data_dir, Config),  
+    [TrapAddr | _] = ?config(trapaddrs, Config),
+    DataDir = ?config(data_dir, Config),
     Mib = "TestTrapv2",
 
     start_agent(Config),
     ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, Mib)),
 
-    TrapAddr = net_snmp_transport(IPVersion) ++ Host ++
-	":" ++ integer_to_list(?config(manager_port, Config)),
-    ProgHandle = start_snmptrapd(Mib, TrapAddr, Config),
+    TrapAddrStr = net_snmp_addr_str(TrapAddr, ?config(manager_port, Config)),
+    ProgHandle = start_snmptrapd(Mib, TrapAddrStr, Config),
 
     snmpa:send_notification(
       snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
@@ -252,7 +269,7 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
 	
 %%--------------------------------------------------------------------
 erlang_agent_dual_ip_inform(Config) when is_list(Config) ->
-    Host = ?config(host, Config),
+    [TrapAddr1, TrapAddr2 | _] = ?config(trapaddrs, Config),
     ManagerPort = ?config(manager_port, Config),
     DataDir = ?config(data_dir, Config),
     Mib = "TestTrapv2",
@@ -260,11 +277,10 @@ erlang_agent_dual_ip_inform(Config) when is_list(Config) ->
     start_agent(Config),
     ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, Mib)),
 
-    ManagerPortStr = integer_to_list(ManagerPort),
     TrapAddrs =
-	net_snmp_transport(ipv4) ++ Host ++ ":" ++ ManagerPortStr ++
+	net_snmp_addr_str(TrapAddr1, ManagerPort) ++
 	"," ++
-	net_snmp_transport(ipv6) ++ Host ++ ":" ++ ManagerPortStr,
+	net_snmp_addr_str(TrapAddr2, ManagerPort),
     ProgHandle = start_snmptrapd(Mib, TrapAddrs, Config),
 
     snmpa:send_notification(
@@ -301,15 +317,14 @@ erlang_agent_dual_ip_inform_responses([Address | Addresses]) ->
 %%--------------------------------------------------------------------
 snmpget(Oid, Config) ->
     Versions = ?config(snmp_versions, Config),
-    IPVersion = ?config(ip_version, Config),
-    Host = ?config(host, Config),
+    [TrapAddr | _] = ?config(trapaddrs, Config),
     Port = ?config(agent_port, Config),
 
     Args =
 	["-c", "public", net_snmp_version(Versions),
 	 "-m", "",
 	 "-Cf",
-	 net_snmp_transport(IPVersion)++Host++":"++ integer_to_list(Port),
+	 net_snmp_addr_str(TrapAddr, Port),
 	 oid_str(Oid)],
     ProgHandle = start_program(snmpget, Args, none, Config),
     {_, line, Line} = get_program_output(ProgHandle),
@@ -471,7 +486,11 @@ net_snmp_version([v2 | _]) ->
 net_snmp_version([v1 | _]) ->
     "-v1".
 
-net_snmp_transport(ipv4) ->
-    "udp:";
-net_snmp_transport(ipv6) ->
-    "udp6:".
+net_snmp_addr_str(IPv4Addr, Port) when tuple_size(IPv4Addr) =:= 4 ->
+    "udp:" ++
+	inet_parse:ntoa(IPv4Addr) ++ ":" ++
+	integer_to_list(Port);
+net_snmp_addr_str(IPv6Addr, Port) when tuple_size(IPv6Addr) =:= 8 ->
+    "udp6:[" ++
+	inet_parse:ntoa(IPv6Addr) ++ "]:" ++
+	integer_to_list(Port).
