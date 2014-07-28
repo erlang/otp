@@ -308,7 +308,7 @@ read_usm_config(Dir)
 
 
 check_usm_user_config(Entry, State) ->
-    {check_ok(snmpm_config:check_usrm_user_config(Entry)),
+    {check_ok(snmpm_config:check_usm_user_config(Entry)),
      State}.
 
 write_usm_conf(Fd, "", Conf) ->
