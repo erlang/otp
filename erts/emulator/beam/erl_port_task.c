@@ -1525,7 +1525,7 @@ abort_nosuspend:
 	erts_port_dec_refc(pp);
 #endif
 
-    abort_nosuspend_task(pp, ptp->type, &ptp->u.alive.td);
+    erts_port_task_abort_nosuspend_tasks(pp);
 
     ASSERT(ns_pthlp);
     erts_free(ERTS_ALC_T_PT_HNDL_LIST, ns_pthlp);
