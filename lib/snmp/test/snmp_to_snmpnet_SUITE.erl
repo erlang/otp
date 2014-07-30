@@ -50,7 +50,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [
      {group, ipv4},
-     {group, ipv6}
+     {group, ipv6},
+     {group, ipv4_ipv6}
     ].
 
 groups() ->
@@ -60,16 +61,17 @@ groups() ->
       ]},
      {ipv6, [],
       [{group, get},
-       {group, inform},
-       {group, dual_ip}
+       {group, inform}
       ]},
+     {ipv4_ipv6, [],
+      [{group, get},
+       {group, inform}
+      ]},
+     %%
      {get, [],
       [erlang_agent_netsnmp_get]},
      {inform, [],
-      [erlang_agent_netsnmp_inform]},
-     {dual_ip, [],
-      [erlang_agent_netsnmp_get,
-       erlang_agent_netsnmp_inform]}
+      [erlang_agent_netsnmp_inform]}
     ].
 
 init_per_suite(Config) ->
@@ -78,39 +80,30 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(ipv6, Config) ->
-    case ct:require(ipv6_hosts) of
-	ok ->
-	    init_per_group_ip([inet6], Config);
-	_ ->
-	    {skip, "Host does not support IPV6"}
-    end;
-%%
 init_per_group(ipv4, Config) ->
     init_per_group_ip([inet], Config);
-%%
-init_per_group(dual_ip, Config) ->
-    case find_executables([snmpget, snmptrapd], Config) of
-	NewConfig when is_list(NewConfig) ->
-	    case ct:require(ipv6_hosts) of
-		ok ->
-		    init_per_group_ip([inet, inet6], NewConfig);
-		_ ->
-		    {skip, "Host does not support IPV6"}
-	    end;
-	Other ->
-	    Other
-    end;
+init_per_group(ipv6, Config) ->
+    init_per_group_ipv6([inet6], Config);
+init_per_group(ipv4_ipv6, Config) ->
+    init_per_group_ipv6([inet, inet6], Config);
 %%
 init_per_group(get, Config) ->
     %% From Ubuntu package snmp
-    find_executables([snmpget], Config);
-%%
+    find_executable(snmpget, Config);
 init_per_group(inform, Config) ->
-    %% From Ubuntu package snmptrapfmt
-    find_executables([snmptrapd], Config);
+    %% From Ubuntu package snmpd
+    find_executable(snmptrapd, Config);
+%%
 init_per_group(_, Config) ->
     Config.
+
+init_per_group_ipv6(Families, Config) ->
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    init_per_group_ip(Families, Config);
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end.
 
 init_per_group_ip(Families, Config) ->
     Dir = ?config(priv_dir, Config),
@@ -159,33 +152,29 @@ end_per_testcase(_, Config) ->
     end,
     Config.
 
-find_executables([], Config) ->
-    Config;
-find_executables([Exec | Execs], Config) ->
+find_executable(Exec, Config) ->
     ExecStr = atom_to_list(Exec),
     case os:find_executable(ExecStr) of
 	false ->
-	    find_sys_executables(
-	      Execs, Config, Exec, ExecStr,
+	    %% The sbin dirs are not in the PATH on all platforms...
+	    find_sys_executable(
+	      Exec, ExecStr,
 	      [["usr", "local", "sbin"],
 	       ["usr", "sbin"],
-	       ["sbin"]]);
+	       ["sbin"]],
+	     Config);
 	Path ->
-	    find_executables(
-	      Execs,
-	      [{Exec, Path} | Config])
+	    [{Exec, Path} | Config]
     end.
 
-find_sys_executables(_Execs, _Config, _Exec, ExecStr, []) ->
+find_sys_executable(_Exec, ExecStr, [], _Config) ->
     {skip, ExecStr ++ " not found"};
-find_sys_executables(Execs, Config, Exec, ExecStr, [Dir | Dirs]) ->
+find_sys_executable(Exec, ExecStr, [Dir | Dirs], Config) ->
     case os:find_executable(filename:join(["/" | Dir] ++ [ExecStr])) of
 	false ->
-	    find_sys_executables(Execs, Config, Exec, ExecStr, Dirs);
+	    find_sys_executable(Exec, ExecStr, Dirs, Config);
 	Path ->
-	    find_executables(
-	      Execs,
-	      [{Exec, Path} | Config])
+	    [{Exec, Path} | Config]
     end.
 
 start_agent(Config) ->
