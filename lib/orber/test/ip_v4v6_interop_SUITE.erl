@@ -82,12 +82,16 @@
 %% Initialization functions.
 %%======================================================================
 
-init_per_testcase(_Case, Config) ->
+init_per_testcase(_Case, Config) ->    
+    %% Starting dual configured ORB
+    orber:jump_start([{iiop_port, 10001}, {flags, 16#1000}]),
+    orber:info(),
     Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
+    orber:jump_stop(),
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -135,13 +139,10 @@ dual_ipv4v6(_Config) ->
 	?match({ok,_,_}, orber_test_lib:js_node([{iiop_port, 6001}, {flags, 16#0100}])),
     Ipv6NS = orber_test_lib:remote_apply(Ipv6Node, corba, resolve_initial_references, ["NameService"]),
 
-    %% Starting dual configured ORB
-    orber:jump_start([{iiop_port, 10001}, {flags, 16#1000}]),
-    ?match({ok, _}, orber:add_listen_interface("FEC0:0:0:0:0222:64FF:FEA7:3C02", normal, 
-						 [{ip_family, inet6}, {iiop_port, 10002}])),
-    orber:info(),
+    %% Add the ipv6 interface in the dual configured ORB
+    ?match({ok, _}, orber:add_listen_interface("::1", normal, 
+					       [{ip_family, inet6}, {iiop_port, 10002}])),
     DualNS = corba:resolve_initial_references("NameService"),
-
 
     %% Bind IPv4 NameServer to a name in the dual stack orbs NameServer
     NSDual4 = orber_test_lib:remote_apply(Ipv4Node, corba, resolve_initial_references_remote,
@@ -152,7 +153,7 @@ dual_ipv4v6(_Config) ->
 
     %% Bind IPv6 NameServer to a name in the dual stack orbs NameServer
     NSDual6 = orber_test_lib:remote_apply(Ipv6Node, corba, resolve_initial_references_remote,
-					  ["NameService", ["iiop://[FEC0:0:0:0:0222:64FF:FEA7:3C02]:10002"]]),
+					  ["NameService", ["iiop://[::1]:10002"]]),
     ?match(ok, orber_test_lib:remote_apply(Ipv6Node, 'CosNaming_NamingContext', bind,
 				     [NSDual6, lname:new(["ns6"]), Ipv6NS])),
     'CosNaming_NamingContext':resolve(DualNS, lname:new(["ns6"])), 
@@ -193,6 +194,6 @@ dual_ipv4v6(_Config) ->
     ?match(2, length(Ipv4Names)),
     io:format("\nNames in IPv6 NS: ~p\n", [Ipv6Names]),
     ?match(2, length(Ipv6Names)),
-    
+
     ok.
 
