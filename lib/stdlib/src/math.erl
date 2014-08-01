@@ -94,8 +94,8 @@ log(_) ->
 
 -spec log2(X) -> float() when
       X :: number().
-log2(_) ->
-    erlang:nif_error(undef).
+log2(X) ->
+    log(X) / log(2).
 
 -spec log10(X) -> float() when
       X :: number().
