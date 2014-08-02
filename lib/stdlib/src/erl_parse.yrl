@@ -753,12 +753,23 @@ attribute_farity({cons,L,H,T}) ->
 attribute_farity({tuple,L,Args0}) ->
     Args = attribute_farity_list(Args0),
     {tuple,L,Args};
+attribute_farity({map,L,Args0}) ->
+    Args = attribute_farity_map(Args0),
+    {map,L,Args};
 attribute_farity({op,L,'/',{atom,_,_}=Name,{integer,_,_}=Arity}) ->
     {tuple,L,[Name,Arity]};
 attribute_farity(Other) -> Other.
 
 attribute_farity_list(Args) ->
     [attribute_farity(A) || A <- Args].
+
+attribute_farity_map(Args) ->
+    [attribute_farity_map_field(A) || A <- Args].
+
+attribute_farity_map_field({map_field_assoc,L,K,V}) ->
+    {map_field_assoc,L,attribute_farity(K),attribute_farity(V)};
+attribute_farity_map_field({map_field_exact,L,K,V}) ->
+    {map_field_exact,L,attribute_farity(K),attribute_farity(V)}.
 
 -spec error_bad_decl(integer(), attributes()) -> no_return().
 
