@@ -151,6 +151,9 @@ static erts_lcnt_thread_data_t *lcnt_thread_data_alloc(void) {
     erts_lcnt_thread_data_t *eltd;
    
     eltd = (erts_lcnt_thread_data_t*)malloc(sizeof(erts_lcnt_thread_data_t));
+    if (!eltd) {
+        ERTS_INTERNAL_ERROR("Lock counter failed to allocate memory!");
+    }
     eltd->timer_set = 0;
     eltd->lock_in_conflict = 0;
 
@@ -272,6 +275,9 @@ void erts_lcnt_init() {
     
     /* init lcnt structure */
     erts_lcnt_data = (erts_lcnt_data_t*)malloc(sizeof(erts_lcnt_data_t));
+    if (!erts_lcnt_data) {
+        ERTS_INTERNAL_ERROR("Lock counter failed to allocate memory!");
+    }
     erts_lcnt_data->current_locks = erts_lcnt_list_init();
     erts_lcnt_data->deleted_locks = erts_lcnt_list_init();
 
@@ -293,6 +299,9 @@ erts_lcnt_lock_list_t *erts_lcnt_list_init(void) {
     erts_lcnt_lock_list_t *list;
     
     list = (erts_lcnt_lock_list_t*)malloc(sizeof(erts_lcnt_lock_list_t));
+    if (!list) {
+        ERTS_INTERNAL_ERROR("Lock counter failed to allocate memory!");
+    }
     list->head = NULL;
     list->tail = NULL;
     list->n    = 0;
@@ -399,6 +408,9 @@ void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock) {
 	/* copy structure and insert the copy */
 
 	deleted_lock = (erts_lcnt_lock_t*)malloc(sizeof(erts_lcnt_lock_t));
+        if (!deleted_lock) {
+            ERTS_INTERNAL_ERROR("Lock counter failed to allocate memory!");
+        }
 	memcpy(deleted_lock, lock, sizeof(erts_lcnt_lock_t));
 
 	deleted_lock->next = NULL;
