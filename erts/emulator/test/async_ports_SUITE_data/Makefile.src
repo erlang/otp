@@ -1,4 +1,4 @@
-all: busy_drv@dll@ hard_busy_drv@dll@ soft_busy_drv@dll@ scheduling_drv@dll@
+all: cport@obj@
 
 @SHLIB_RULES@
 
