@@ -1062,10 +1062,9 @@ otp_6602(Config) when is_list(Config) ->
 				      %% Inet driver use port locking...
 				      {ok, S} = gen_udp:open(0),
 				      {ok, Fd} = inet:getfd(S),
-				      {ok, Port} = inet:port(S),
 				      %% Steal fd (lock checker used to
 				      %% trigger here).
-				      {ok, _S2} = gen_udp:open(Port,[{fd,Fd}]),
+				      {ok, _S2} = gen_udp:open(0,[{fd,Fd}]),
 				      Parent ! Done
 			      end),
     ?line receive Done -> ok end,

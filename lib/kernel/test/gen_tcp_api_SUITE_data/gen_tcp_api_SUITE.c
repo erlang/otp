@@ -22,13 +22,12 @@
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 
 #ifdef __WIN32__
 #include <winsock2.h>
 #else
-
+#include <sys/socket.h>
 #endif
 
 #define sock_open(af, type, proto)  socket((af), (type), (proto))
