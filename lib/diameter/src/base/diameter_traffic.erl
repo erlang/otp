@@ -1684,6 +1684,7 @@ resend_request(Pkt0,
                        caps = Caps},
 
     ?LOG(retransmission, Pkt#diameter_packet.header),
+    incr(TPid, {msg_id(Pkt, Dict), send, retransmission}),
     TRef = send_request(TPid, Pkt, Req, SvcName, Tmo),
     {TRef, Req}.
 
