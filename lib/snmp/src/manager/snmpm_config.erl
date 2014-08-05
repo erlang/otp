@@ -1655,7 +1655,7 @@ init_agent_default() ->
 	 {sec_model, v2c},            % SecModel
 	 {sec_name, "initial"},       % SecName
 	 {sec_level, noAuthPriv},     % SecLevel
-	 {community, "all-rigthts"}], % Community
+	 {community, "all-rights"}],  % Community
     do_update_agent_info(default_agent, AgentDefaultConfig).
 
 %%     %% Port
