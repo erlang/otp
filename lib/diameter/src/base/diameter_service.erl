@@ -1786,8 +1786,23 @@ info_pid(Pid) ->
             [{Pid, lists:map(fun({K,V}) -> {K, map_info(K,V)} end, L)}]
     end.
 
+%% The binary list consists of 3-tuples {Ptr, Size, Count}, where Ptr
+%% is a C pointer value, Size is the size of a referenced binary in
+%% bytes, and Count is a global reference count. The same Ptr can
+%% occur multiple times, once for each reference on the process heap.
+%% In this case, the corresponding tuples will have Size in common but
+%% Count may differ just because no global lock is taken when the
+%% value is retrieved.
+%%
+%% The list can be quite large, and we aren't often interested in the
+%% pointers or counts, so whittle this down to the number of binaries
+%% referenced and their total byte count.
 map_info(binary, L) ->
-    lists:reverse(lists:keysort(2, L));
+    SzD = lists:foldl(fun({P,S,_}, D) -> dict:store(P,S,D) end,
+                      dict:new(),
+                      L),
+    {dict:size(SzD), dict:fold(fun(_,S,N) -> S + N end, 0, SzD)};
+
 map_info(_, T) ->
     T.
 
