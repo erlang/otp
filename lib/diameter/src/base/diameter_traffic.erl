@@ -1074,12 +1074,22 @@ incr_rc(Dir, Pkt, Dict, TPid, Dict0) ->
     incr(TPid, {Id, Dir, Ctr}),
     Ctr.
 
-%% Only count on known keeps so as not to be vulnerable to attack:
-%% there are 2^32 (application ids) * 2^24 (command codes) * 2 (R-bits)
-%% = 2^57 Ids for an attacker to choose from.
+%% Only count on known keys so as not to be vulnerable to attack:
+%% there are 2^32 (application ids) * 2^24 (command codes) = 2^56
+%% pairs for an attacker to choose from.
 msg_id(Hdr, Dict) ->
     {_ApplId, Code, R} = Id = diameter_codec:msg_id(Hdr),
-    choose('' == Dict:msg_name(Code, 0 == R), unknown, Id).
+    case Dict:msg_name(Code, 0 == R) of
+        '' ->
+            unknown(Dict:id(), R);
+        _ ->
+            Id
+    end.
+
+unknown(?APP_ID_RELAY, R) ->
+    {relay, R};
+unknown(_, _) ->
+    unknown.
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
