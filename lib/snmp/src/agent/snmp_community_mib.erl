@@ -246,6 +246,10 @@ gc_tabs() ->
 %%-----------------------------------------------------------------
 community2vacm(Community, Addr) ->
     Idxs = ets:lookup(snmp_community_cache, Community),
+    ?vtrace("community2vacm ->~n"
+	    "  Community: ~p~n"
+	    "  Addr:      ~p~n"
+	    "  Idxs:      ~p", [Community, Addr, Idxs]),
     loop_c2v_rows(lists:keysort(2, Idxs), Addr).
 
 loop_c2v_rows([{_, CommunityIndex} | T], Addr) ->
@@ -253,6 +257,9 @@ loop_c2v_rows([{_, CommunityIndex} | T], Addr) ->
 	    "~n   CommunityIndex: ~p", [CommunityIndex]),
     case get_row(CommunityIndex) of
 	{_Community, VacmParams, Tag} ->
+	    ?vtrace("loop_c2v_rows ->~n"
+		    "  VacmParams: ~p~n"
+		    "  Tag:        ~p", [VacmParams, Tag]),
 	    {TDomain, TAddr} = Addr,
 	    case snmp_target_mib:is_valid_tag(Tag, TDomain, TAddr) of
 		true ->
