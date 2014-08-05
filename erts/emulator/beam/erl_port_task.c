@@ -798,12 +798,13 @@ schedule_port_task_handle_list_free(ErtsPortTaskHandleList *pthlp)
 static ERTS_INLINE void
 abort_nosuspend_task(Port *pp,
 		     ErtsPortTaskType type,
-		     ErtsPortTaskTypeData *tdp)
+		     ErtsPortTaskTypeData *tdp,
+		     int bpq_data)
 {
 
     ASSERT(type == ERTS_PORT_TASK_PROC_SIG);
 
-    if (!pp->sched.taskq.bpq)
+    if (!bpq_data)
 	tdp->psig.callback(NULL,
 			   ERTS_PORT_SFLG_INVALID,
 			   ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND,
@@ -1345,7 +1346,7 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 #endif
 	schedule_port_task_handle_list_free(pthlp);
 
-	abort_nosuspend_task(pp, type, &td);
+	abort_nosuspend_task(pp, type, &td, pp->sched.taskq.bpq != NULL);
     }
 }
 
@@ -1525,7 +1526,7 @@ abort_nosuspend:
 	erts_port_dec_refc(pp);
 #endif
 
-    abort_nosuspend_task(pp, ptp->type, &ptp->u.alive.td);
+    abort_nosuspend_task(pp, ptp->type, &ptp->u.alive.td, 0);
 
     ASSERT(ns_pthlp);
     erts_free(ERTS_ALC_T_PT_HNDL_LIST, ns_pthlp);
