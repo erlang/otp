@@ -1396,6 +1396,7 @@ send_R(Pkt0,
                    packet = Pkt0},
 
     try
+        incr(send, Pkt, TPid, Dict),
         TRef = send_request(TPid, Pkt, Req, SvcName, Timeout),
         Pid ! Ref,  %% tell caller a send has been attempted
         handle_answer(SvcName,
