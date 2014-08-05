@@ -1,9 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
+#ifdef __WIN32__
+#  include "windows.h"
+#  include "winbase.h"
+#else
+#  include <unistd.h>
+#endif
 
 typedef unsigned char byte;
 
@@ -53,13 +57,25 @@ int write_exact(byte *buf, int len)
   return len;
 }
 
+byte static_buf[31457280]; // 30 mb
+
 int main(int argc, char **argv) {
   int sleep_time = atoi(argv[1]);
   int fn, arg, res;
-  byte *buf = malloc(31457280); // 30 mb
+  byte *buf = &static_buf[0];
   int len = 0;
+  if (sleep_time <= 0)
+    sleep_time = 0;
+#ifdef __WIN32__
+  else
+    sleep_time = ((sleep_time - 1) / 1000) + 1; /* Milli seconds */
+#endif
   while ((len = read_cmd(buf)) > 0) {
+#ifdef __WIN32__
+    Sleep((DWORD) sleep_time);
+#else
     usleep(sleep_time);
+#endif
     write_cmd(buf, len);
   }
 }

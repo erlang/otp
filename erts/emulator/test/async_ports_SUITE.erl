@@ -11,6 +11,7 @@
 -define(TEST_PROCS_COUNT, 2).
 -define(TC_TIMETRAP_SECONDS, 10).
 
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
