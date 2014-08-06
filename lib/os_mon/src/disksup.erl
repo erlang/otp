@@ -211,14 +211,14 @@ format_status(_Opt, [_PDict, #state{os = OS, threshold = Threshold,
 
 get_os(PosixOnly) ->
     case os:type() of
-	{unix, _} when PosixOnly ->
-	    {unix, posix};
 	{unix, sunos} ->
-	    case os:version() of
+            case os:version() of
 		{5,_,_} -> {unix, solaris};
 		{4,_,_} -> {unix, sunos4};
 		V -> exit({unknown_os_version, V})
-	    end;
+            end;
+	{unix, _} when PosixOnly ->
+	    {unix, posix};
         {unix, irix64} -> {unix, irix};
 	OS ->
 	    OS
