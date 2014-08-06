@@ -84,7 +84,12 @@
           <item>
             <p>If a socket has somehow been opened without using
               <c>gen_udp</c>, use this option to pass the file
-              descriptor for it.</p>
+              descriptor for it. If <c><anno>Port</anno></c> is not set to 0
+              and/or <c>{ip, ip_address()}</c> is combined with this option
+              the fd will be bound to the given interface and port after being
+              opened. If these options are not given it is assumed that the fd
+              is already bound appropriately.
+            </p>
           </item>
           <tag><c>inet6</c></tag>
           <item>
