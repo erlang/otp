@@ -1,5 +1,6 @@
 
 NIF_LIBS = gen_tcp_api_SUITE@dll@
+SHLIB_EXTRA_LDLIBS = @LIBS@
 
 all: $(NIF_LIBS)
 
