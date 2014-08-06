@@ -49,7 +49,8 @@ init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?default_timeout),
     [{watchdog,Dog} | Config].
 
-end_per_testcase(unavailable, Config) ->
+end_per_testcase(TC, Config) when TC =:= unavailable;
+                                  TC =:= posix_only ->
     restart(Config),
     end_per_testcase(dummy, Config);
 end_per_testcase(_Case, Config) ->
@@ -61,11 +62,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     Bugs = [otp_5910],
+    Always = [api, config, alarm, port, posix_only, unavailable] ++ Bugs,
     case test_server:os_type() of
-	{unix, sunos} ->
-	    [api, config, alarm, port, unavailable, posix_only] ++ Bugs;
-	{unix, _OSname} -> [api, alarm, posix_only] ++ Bugs;
-	{win32, _OSname} -> [api, alarm, posix_only] ++ Bugs;
+	{unix, _OSname} -> Always;
+	{win32, _OSname} -> Always;
 	_OS -> [unavailable]
     end.
 
@@ -336,6 +336,7 @@ restart(suite) ->
     [];
 restart(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_disksup, true),
+    ok = application:set_env(os_mon, disksup_posix_only, false),
     {ok, _Pid} = supervisor:restart_child(os_mon_sup, disksup),
     ok.
 
@@ -409,13 +410,7 @@ posix_only(Config) when is_list(Config) ->
     ok = supervisor:terminate_child(os_mon_sup, disksup),
     {ok, _Child1} = supervisor:restart_child(os_mon_sup, disksup),
 
-    ok = check_get_disk_data(),
-
-    %% Reset option and restart disksup
-    ok = application:set_env(os_mon, disksup_posix_only, false),
-    ok = supervisor:terminate_child(os_mon_sup, disksup),
-    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
-    ok.
+    ok = check_get_disk_data().
 
 dump_info() ->
     io:format("Status: ~p~n", [sys:get_status(disksup)]).
