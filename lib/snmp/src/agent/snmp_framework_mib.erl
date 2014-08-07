@@ -201,9 +201,11 @@ check_agent({intAgentIpAddress, _}, {_, undefined}) ->
 check_agent({intAgentIpAddress = Tag, Ip} = Entry, {Domain, Port} = State) ->
     {case snmp_conf:check_ip(Domain, Ip) of
 	 ok ->
-	     [Entry, {intAgentTransports, [{Domain, {Ip, Port}}]}];
+	     [Entry,
+	      {intAgentTransports, [{Domain, {Ip, Port}}]}];
 	 {ok, FixedIp} ->
-	     [{Tag, Ip}, {intAgentTransports, [{Domain, {FixedIp, Port}}]}]
+	     [{Tag, FixedIp},
+	      {intAgentTransports, [{Domain, {FixedIp, Port}}]}]
      end, State};
 check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State) ->
     CheckedTransports =

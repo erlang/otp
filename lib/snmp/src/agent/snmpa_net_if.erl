@@ -1064,7 +1064,7 @@ do_handle_send_pdu1(
 			"Can not find transport~n"
 			"   size:   ~p~n"
 			"   to:     ~s",
-			[sz(Packet), To]);
+			[sz(Packet), format_address(To)]);
 		  Transport ->
 		      maybe_udp_send(S, Transport, To, Packet)
 	      end;
@@ -1080,7 +1080,7 @@ do_handle_send_pdu1(
 			"Can not find transport~n"
 			"   size:   ~p~n"
 			"   to:     ~s",
-			[sz(Packet), To]);
+			[sz(Packet), format_address(To)]);
 		  Transport ->
 		      maybe_udp_send(S, Transport, To, Packet, Type, LogData)
 	      end
