@@ -33,7 +33,29 @@
   </header>
 
 
-  <section><title>SNMP 4.25.1</title>
+  <section><title>SNMP 5.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    SNMP has been improved to handle IPv6. The agent can
+	    handle dual stack IPv4 + IPv6, but not yet the manager.
+	    The documentation also still lags behind... If you do
+	    such advanced stuff like writing a custom net_if module,
+	    the interface for it has changed, but other than that
+	    SNMP is backwards compatible.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12020 Aux Id: OTP-11518 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 4.25.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
