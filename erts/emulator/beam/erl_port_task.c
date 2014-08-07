@@ -576,8 +576,20 @@ erts_port_task_schedule(Eterm id,
     if (!pp->sched.taskq && !pp->sched.exe_taskq) {
 #ifdef ERTS_SMP
 	ErtsRunQueue *xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
-	if (xrunq) {
-	    /* Port emigrated ... */
+	ERTS_SMP_LC_ASSERT(runq != xrunq);
+	if (runq != (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue)) {
+	    /*
+	     * Someone else migrated this port while we had the run-queue
+	     * lock on runq unlocked in erts_check_emigration_need(). Respect
+	     * that migration decision...
+	     */
+	    erts_smp_runq_unlock(runq);
+	    if (xrunq)
+		erts_smp_runq_unlock(xrunq);
+	    runq = erts_port_runq(pp);
+	}
+	else if (xrunq) {
+	    /* Emigrate port... */
 	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
 	    erts_smp_runq_unlock(runq);
 	    runq = xrunq;
@@ -929,6 +941,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
 #ifdef ERTS_SMP
 	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
+	ERTS_SMP_LC_ASSERT(runq != xrunq);
+	ERTS_SMP_LC_ASSERT(runq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
 	if (!xrunq) {
 #endif
 	    enqueue_port(runq, pp);
@@ -938,7 +952,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 #ifdef ERTS_SMP
 	}
 	else {
-	    /* Port emigrated ... */
+	    /* Emigrate port... */
 	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
 	    enqueue_port(xrunq, pp);
 	    ASSERT(pp->sched.exe_taskq);
