@@ -73,7 +73,8 @@ MODULES =  \
 	orber_firewall_ipv6_in_SUITE \
 	orber_firewall_ipv4_out_SUITE \
 	orber_firewall_ipv6_out_SUITE \
-	orber_nat_SUITE
+	orber_nat_SUITE \
+	ip_v4v6_interop_SUITE
 
 GEN_MOD_ORBER = \
 	oe_orber_test \

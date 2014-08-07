@@ -204,9 +204,9 @@ info(IoDevice) ->
 	    _ ->
 		lists:flatten(
 		  io_lib:format("======= Orber Execution Environment ======~n"
-				"   *** Orber-~s is not running ***~n"
+				"   *** Orber is not running ***~n"
 				"==========================================~n",
-				[?ORBVSN]))
+				[]))
 	end,
     case IoDevice of
 	info_msg ->
@@ -223,6 +223,7 @@ info(IoDevice) ->
 
 create_main_info() ->
     {Major, Minor} = giop_version(),
+    {orber, _, OrberVsn} = lists:keyfind(orber, 1, application:loaded_applications()),
     [io_lib:format("======= Orber Execution Environment ======~n"
 		   "Orber version.................: ~s~n"
 		   "Orber domain..................: ~s~n"
@@ -257,7 +258,7 @@ create_main_info() ->
 		   "Debug Level...................: ~p~n"
 		   "orbInitRef....................: ~p~n"
 		   "orbDefaultInitRef.............: ~p~n",
-		   [?ORBVSN, domain(), iiop_port(), nat_iiop_port(), host(),
+		   [OrberVsn, domain(), iiop_port(), nat_iiop_port(), host(),
 		    nat_host(), ip_address_local(),
 		    orber:orber_nodes(), Major, Minor,
 		    iiop_timeout(), iiop_connection_timeout(),
