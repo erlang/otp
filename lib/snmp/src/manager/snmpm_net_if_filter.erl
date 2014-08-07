@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,29 +25,51 @@
 
 -include("snmp_debug.hrl").
 
-accept_recv(_Addr, _Port) ->
-    ?d("accept_recv -> entry with"
-       "~n   Addr: ~p"
-       "~n   Port: ~p", [_Addr, _Port]),
+accept_recv(Domain, _Address) when is_atom(Domain) ->
+    ?d("accept_recv -> entry with~n"
+       "   Domain:  ~p~n"
+       "   Address: ~p", [Domain, _Address]),
+    true;
+accept_recv(_Addr, Port) when is_integer(Port) ->
+    ?d("accept_recv -> entry with~n"
+       "   Addr: ~p~n"
+       "   Port: ~p", [_Addr, Port]),
     true.
 
-accept_send(_Addr, _Port) ->
-    ?d("accept_send -> entry with"
-       "~n   Addr: ~p"
-       "~n   Port: ~p", [_Addr, _Port]),
+accept_send(Domain, _Address) when is_atom(Domain) ->
+    ?d("accept_send -> entry with~n"
+       "   Domain:  ~p~n"
+       "   Address: ~p", [Domain, _Address]),
+    true;
+accept_send(_Addr, Port) when is_integer(Port) ->
+    ?d("accept_send -> entry with~n"
+       "   Addr: ~p~n"
+       "   Port: ~p", [_Addr, Port]),
     true.
 
-accept_recv_pdu(_Addr, _Port, _PduType) ->
-    ?d("accept_recv_pdu -> entry with"
-       "~n   Addr: ~p"
-       "~n   Port: ~p"
-       "~n   PduType: ~p", [_Addr, _Port, _PduType]),
+accept_recv_pdu(Domain, _Address, _PduType) when is_atom(Domain) ->
+    ?d("accept_recv_pdu -> entry with~n"
+       "   Domain:  ~p~n"
+       "   Address: ~p~n"
+       "   PduType: ~p", [Domain, _Address, _PduType]),
+    true;
+accept_recv_pdu(_Addr, Port, _PduType) when is_integer(Port) ->
+    ?d("accept_recv_pdu -> entry with~n"
+       "   Addr: ~p~n"
+       "   Port: ~p~n"
+       "   PduType: ~p", [_Addr, Port, _PduType]),
     true.
 
-accept_send_pdu(_Addr, _Port, _PduType) ->
-    ?d("accept_send_pdu -> entry with"
-       "~n   Addr:    ~p"
-       "~n   Port:    ~p"
-       "~n   PduType: ~p", [_Addr, _Port, _PduType]),
+accept_send_pdu(Domain, _Address, _PduType) when is_atom(Domain) ->
+    ?d("accept_send_pdu -> entry with~n"
+       "   Domain:  ~p~n"
+       "   Address: ~p~n"
+       "   PduType: ~p", [Domain, _Address, _PduType]),
+    true;
+accept_send_pdu(_Addr, Port, _PduType) when is_integer(Port) ->
+    ?d("accept_send_pdu -> entry with~n"
+       "   Addr:    ~p~n"
+       "   Port:    ~p~n"
+       "   PduType: ~p", [_Addr, Port, _PduType]),
     true.
 

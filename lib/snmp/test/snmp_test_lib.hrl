@@ -1,5 +1,5 @@
 %%<copyright>
-%% <year>2002-2008</year>
+%% <year>2002-2014</year>
 %% <holder>Ericsson AB, All Rights Reserved</holder>
 %%</copyright>
 %%<legalnotice>
@@ -32,14 +32,15 @@
 -define(APPLICATION,    snmp).
 -endif.
 
--define(SCONF(K,D,C),         snmp_test_lib:set_config(K,D,C)).
--define(GCONF(K,C),           snmp_test_lib:get_config(K,C)).
--define(RCONF(K,C,V),         snmp_test_lib:replace_config(K,C,V)).
--define(HOSTNAME(N),          snmp_test_lib:hostname(N)).
--define(LOCALHOST(),          snmp_test_lib:localhost()).
--define(SZ(X),                snmp_test_lib:sz(X)).
--define(OSTYPE(),             snmp_test_lib:os_type()).
--define(DISPLAY_SUITE_INFO(), snmp_test_lib:display_suite_info(?MODULE)).
+-define(SCONF(K,D,C),               snmp_test_lib:set_config(K,D,C)).
+-define(GCONF(K,C),                 snmp_test_lib:get_config(K,C)).
+-define(RCONF(K,C,V),               snmp_test_lib:replace_config(K,C,V)).
+-define(HOSTNAME(N),                snmp_test_lib:hostname(N)).
+-define(LOCALHOST(),                snmp_test_lib:localhost()).
+-define(LOCALHOST(Family),          snmp_test_lib:localhost(Family)).
+-define(SZ(X),                      snmp_test_lib:sz(X)).
+-define(OSTYPE(),                   snmp_test_lib:os_type()).
+-define(DISPLAY_SUITE_INFO(),       snmp_test_lib:display_suite_info(?MODULE)).
 
 
 %% - Test case macros - 

@@ -28,6 +28,8 @@
 %% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
 %% {add_module,  snmpm_net_if_mt}
  [
+  {"4.25.1", [{restart_application, snmp}]},
+  {"4.25.0.1", [{restart_application, snmp}]},
   {"4.25",   [{restart_application, snmp}]}, 
   {"4.24.2", [{restart_application, snmp}]}, 
   {"4.24.1", [{restart_application, snmp}]}, 
@@ -40,6 +42,8 @@
 %% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
 
  [
+  {"4.25.1", [{restart_application, snmp}]},
+  {"4.25.0.1", [{restart_application, snmp}]},
   {"4.25",   [{restart_application, snmp}]}, 
   {"4.24.2", [{restart_application, snmp}]}, 
   {"4.24.1", [{restart_application, snmp}]}, 

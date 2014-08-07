@@ -1,0 +1,71 @@
+TestTrapv2 DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    TimeTicks, Counter32, snmpModules, mib-2, enterprises, IpAddress,
+    Integer32
+        FROM SNMPv2-SMI
+    DisplayString, TestAndIncr, TimeStamp, RowStatus, TruthValue,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+
+    system, snmp, ifIndex, ifAdminStatus, ifOperStatus
+	FROM RFC1213-MIB
+    snmpTraps
+	FROM SNMPv2-MIB;
+
+testTrapv2 MODULE-IDENTITY
+    LAST-UPDATED "9511090000Z"
+    ORGANIZATION "IETF SNMPv2 Working Group"
+    CONTACT-INFO
+            "        Marshall T. Rose
+
+             Postal: Dover Beach Consulting, Inc.
+                     420 Whisman Court
+                     Mountain View, CA  94043-2186
+                     US
+
+                Tel: +1 415 968 1052
+
+             E-mail: mrose@dbc.mtview.ca.us"
+    DESCRIPTION
+            "The MIB module for SNMPv2 entities."
+    REVISION      "9304010000Z"
+    DESCRIPTION
+            "The initial revision of this MIB module was published as
+            RFC 1450."
+    ::= { system 100 }
+
+
+tst      OBJECT IDENTIFIER ::= { system 0 }
+
+testTrapv21 NOTIFICATION-TYPE
+    STATUS  current
+    DESCRIPTION
+            "This trap is exactly the v2 correspondance of testTrap1 in
+	    TestTrap mib."
+    ::= { snmp 1 }
+
+testTrapv22 NOTIFICATION-TYPE
+    STATUS  current
+    DESCRIPTION
+            "This trap is exactly the v2 correspondance of testTrap2 in
+	    TestTrap mib."
+    ::= { system 0 1 }
+
+linkUp NOTIFICATION-TYPE
+       OBJECTS { ifIndex, ifAdminStatus, ifOperStatus }
+       STATUS  current
+       DESCRIPTION
+               "A linkUp trap signifies that the SNMPv2 entity,
+               acting in an agent role, has detected that the
+               ifOperStatus object for one of its communication links
+               has transitioned out of the down state."
+       ::= { snmpTraps 4 }
+
+
+
+
+END
