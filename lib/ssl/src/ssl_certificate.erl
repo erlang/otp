@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014 All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -232,7 +232,12 @@ find_issuer(OtpCert, CertDbHandle) ->
     IsIssuerFun = fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
 			  case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 			      true ->
-				  throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
+				  case verify_cert_signer(OtpCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
+				      true ->
+					  throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
+				      false ->
+					  Acc
+				  end;
 			      false ->
 				  Acc
 			  end;
@@ -254,3 +259,19 @@ is_valid_extkey_usage(KeyUse, client) ->
 is_valid_extkey_usage(KeyUse, server) ->
     %% Server wants to verify client
     is_valid_key_usage(KeyUse, ?'id-kp-clientAuth').
+
+verify_cert_signer(OtpCert, SignerTBSCert) -> 
+    PublicKey = public_key(SignerTBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo),
+    public_key:pkix_verify(public_key:pkix_encode('OTPCertificate', OtpCert, otp),  PublicKey).
+
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+									parameters = Params},
+				      subjectPublicKey = Point}) ->
+    {Point, Params};
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'rsaEncryption'}, 
+				      subjectPublicKey = Key}) ->
+    Key;
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-dsa',
+									parameters = {params, Params}},
+				      subjectPublicKey = Key}) ->
+    {Key, Params}.
