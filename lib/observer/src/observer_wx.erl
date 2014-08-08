@@ -112,10 +112,6 @@ setup(#state{frame = Frame} = State) ->
     observer_lib:create_menus(DefMenus, MenuBar, default),
 
     wxFrame:setMenuBar(Frame, MenuBar),
-    StatusBar = wxStatusBar:new(Frame),
-    wxFrame:setStatusBar(Frame, StatusBar),
-    wxFrame:setTitle(Frame, atom_to_list(node())),
-    wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
 
     %% Setup panels
     Panel = wxPanel:new(Frame, []),
@@ -130,6 +126,11 @@ setup(#state{frame = Frame} = State) ->
 
     wxSizer:add(MainSizer, Notebook, [{proportion, 1}, {flag, ?wxEXPAND}]),
     wxPanel:setSizer(Panel, MainSizer),
+
+    StatusBar = wxStatusBar:new(Frame),
+    wxFrame:setStatusBar(Frame, StatusBar),
+    wxFrame:setTitle(Frame, atom_to_list(node())),
+    wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
 
     wxNotebook:connect(Notebook, command_notebook_page_changing),
     wxFrame:connect(Frame, close_window, [{skip, true}]),
