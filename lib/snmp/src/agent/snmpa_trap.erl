@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -270,12 +270,13 @@ localise_type({VariableOid, Value}, Mib) when is_list(VariableOid) ->
 localise_type(X, _) -> X.
 
 %%-----------------------------------------------------------------
-%% Func: make_v1_trap_pdu/4
+%% Func: make_v1_trap_pdu/5
 %% Args: Enterprise = oid()
 %%       Specific = integer()
 %%       Varbinds is as returned from initiate_vars
 %%         (but only {Oid, Type[, Value} permitted)
 %%       SysUpTime = integer()
+%%       AgentIp = {A, B, C, D}
 %% Purpose: Make a #trappdu
 %%          Checks the Varbinds to see that no symbolic names are
 %%          present, and that each var has a type. Performs a get
@@ -284,7 +285,7 @@ localise_type(X, _) -> X.
 %% Fails: yes
 %% NOTE: Executed at the MA
 %%-----------------------------------------------------------------
-make_v1_trap_pdu(Enterprise, Specific, VarbindList, SysUpTime) ->
+make_v1_trap_pdu(Enterprise, Specific, VarbindList, SysUpTime, AgentIp) ->
     {Enterp,Generic,Spec} = 
 	case Enterprise of
 	    ?snmp ->
@@ -292,7 +293,6 @@ make_v1_trap_pdu(Enterprise, Specific, VarbindList, SysUpTime) ->
 	    _ ->
 		{Enterprise,?enterpriseSpecific,Specific}
     end,
-    {value, AgentIp} = snmp_framework_mib:intAgentIpAddress(get),
     #trappdu{enterprise    = Enterp,
 	     agent_addr    = AgentIp,
 	     generic_trap  = Generic,
@@ -369,6 +369,7 @@ send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID,
 		    {tag,  T},
 		    {err,  E},
 		    {stacktrace, erlang:get_stacktrace()}],
+	    ?vlog("snmpa_trap:send_trap exception: ~p", [Info]),
 	    {error, {failed_sending_trap, Info}}
     end.
      
@@ -789,23 +790,19 @@ send_trap_pdus([], ContextName, {TrapRec, Vbs},
 
 send_v1_trap(_TrapRec, [], _Vbs, _ExtraInfo, _NetIf, _SysUpTime) ->
     ok;
-send_v1_trap(#trap{enterpriseoid = Enter, specificcode = Spec},
-	     V1Res, Vbs, ExtraInfo, NetIf, SysUpTime) ->
+send_v1_trap(
+  #trap{enterpriseoid = Enter, specificcode = Spec},
+  V1Res, Vbs, ExtraInfo, NetIf, SysUpTime) ->
     ?vdebug("prepare to send v1 trap "
 	    "~n   '~p'"
 	    "~n   with"
 	    "~n   ~p"
 	    "~n   to"
 	    "~n   ~p", [Enter, Spec, V1Res]),
-    TrapPdu = make_v1_trap_pdu(Enter, Spec, Vbs, SysUpTime),
-    AddrCommunities = mk_addr_communities(V1Res),
-    lists:foreach(fun({Community, Addrs}) ->
-			  ?vtrace("send v1 trap pdu to ~p",[Addrs]),
-			  NetIf ! {send_pdu, 'version-1', TrapPdu,
-				   {community, Community}, Addrs, ExtraInfo}
-		  end, AddrCommunities);
-send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, ExtraInfo, NetIf, 
-	     SysUpTime) ->
+    do_send_v1_trap(Enter, Spec, V1Res, Vbs, ExtraInfo, NetIf, SysUpTime);
+send_v1_trap(
+  #notification{oid = Oid},
+  V1Res, Vbs, ExtraInfo, NetIf, SysUpTime) ->
     %% Use alg. in rfc2089 to map a v2 trap to a v1 trap
     % delete Counter64 objects from vbs
     ?vdebug("prepare to send v1 trap '~p'",[Oid]),
@@ -822,14 +819,38 @@ send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, ExtraInfo, NetIf,
 			{lists:reverse(First),Last}
 		end
 	end,
-    TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime),
+    do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime).
+
+do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
+    {value, Transports} = snmp_framework_mib:intAgentTransports(get),
+    {_Domain, {AgentIp, _AgentPort}} =
+	case lists:keyfind(snmpUDPDomain, 1, Transports) of
+	    false ->
+		case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
+		    false ->
+			?vtrace(
+			   "snmpa_trap: can not send v1 trap "
+			   "without IPv4 domain: ~p",
+			   [Transports]),
+			user_err(
+			   "snmpa_trap: can not send v1 trap "
+			   "without IPv4 domain: ~p",
+			   [Transports]);
+		    DomainAddr ->
+			DomainAddr
+		end;
+	    DomainAddr ->
+		DomainAddr
+	end,
+    TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime, AgentIp),
     AddrCommunities = mk_addr_communities(V1Res),
-    lists:foreach(fun({Community, Addrs}) ->
-			  ?vtrace("send v1 trap to ~p",[Addrs]),
-			  NetIf ! {send_pdu, 'version-1', TrapPdu,
-				   {community, Community}, Addrs, ExtraInfo}
-		  end, AddrCommunities).
-    
+    lists:foreach(
+      fun ({Community, Addrs}) ->
+	      ?vtrace("send v1 trap to ~p",[Addrs]),
+	      NetIf ! {send_pdu, 'version-1', TrapPdu,
+		       {community, Community}, Addrs, ExtraInfo}
+      end, AddrCommunities).
+
 send_v2_trap(_TrapRec, [], _Vbs, _Recv, _ExtraInfo, _NetIf, _SysUpTime) ->
     ok;
 send_v2_trap(TrapRec, V2Res, Vbs, Recv, ExtraInfo, NetIf, SysUpTime) ->
@@ -1045,7 +1066,7 @@ deliver_recv(#snmpa_notification_delivery_info{tag   = Tag,
 	"~n   DeliveryResult: ~p"
 	"~n   TAddr:          ~p"
 	"", [Tag, Mod, Extra, DeliveryResult, TAddr]),
-    Addr = transform_taddr(TAddr),
+    [Addr] = transform_taddrs([TAddr]),
     (catch Mod:delivery_info(Tag, Addr, DeliveryResult, Extra));
 deliver_recv({Tag, Receiver}, MsgId, Result) ->
     ?vtrace("deliver_recv -> entry with"
@@ -1072,35 +1093,90 @@ deliver_recv(Else, _MsgId, _Result) ->
 	   [Else]),
     user_err("snmpa: bad receiver, ~w\n", [Else]).
 
-transform_taddrs(Addrs) ->
-    [transform_taddr(Addr) || Addr <- Addrs].
+transform_taddrs(TAddrs) ->
+    UseTDomain =
+	case snmp_framework_mib:intAgentTransportDomain(get) of
+	    {value,snmpUDPDomain} ->
+		false;
+	    {value,_} ->
+		true;
+	    genErr ->
+		false
+	end,
+    DomAddrs = [transform_taddr(TAddr) || TAddr <- TAddrs],
+    case UseTDomain of
+	true ->
+	    DomAddrs;
+	false ->
+	    [Addr || {_Domain, Addr} <- DomAddrs]
+    end.
 
-transform_taddr({?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}) -> % v2
-    Addr = {A1, A2, A3, A4},
+%% v2
+transform_taddr({?snmpUDPDomain, Addr}) ->
+    transform_taddr(transportDomainIdpIpv4, Addr);
+transform_taddr({?transportDomainUdpIpv4, Addr}) ->
+    transform_taddr(transportDomainUdpIpv4, Addr);
+transform_taddr({?transportDomainUdpIpv6, Addr}) ->
+    transform_taddr(transportDomainUdpIpv6, Addr);
+%% v3
+transform_taddr({{?snmpUDPDomain, Addr}, _MsgData}) ->
+    transform_taddr(transportDomainUdpIpv4, Addr);
+transform_taddr({{?transportDomainUdpIpv4, Addr}, _MsgData}) ->
+    transform_taddr(transportDomainUdpIpv4, Addr);
+transform_taddr({{?transportDomainUdpIpv6, Addr}, _MsgData}) ->
+    transform_taddr(transportDomainUdpIpv6, Addr).
+
+transform_taddr(
+  transportDomainUdpIpv4 = Domain,
+  [A1,A2,A3,A4,P1,P2]) ->
+    Ip = {A1, A2, A3, A4},
     Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}) -> % v2
-    Addr = {A1, A2, A3, A4},
+    {Domain, {Ip, Port}};
+transform_taddr(
+  transportDomainUdpIpv6 = Domain,
+  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
+    Ip = {A1, A2, A3, A4, A5, A6, A7, A8},
     Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({?transportDomainUdpIpv6, 
-		 [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}) -> % v2
-    Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
+    {Domain, {Ip, Port}};
+transform_taddr(
+  transportDomainUdpIpv6 = Domain,
+  [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16,
+   P1, P2]) ->
+    Ip =
+	{(A1 bsl 8) bor A2, (A3 bsl 8) bor A4,
+	 (A5 bsl 8) bor A6, (A7 bsl 8) bor A8,
+	 (A9 bsl 8) bor A10, (A11 bsl 8) bor A12,
+	 (A13 bsl 8) bor A14, (A15 bsl 8) bor A16},
     Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({{?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
-    Addr = {A1, A2, A3, A4},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({{?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
-    Addr = {A1, A2, A3, A4},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port};
-transform_taddr({{?transportDomainUdpIpv6, 
-		  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}, _MsgData}) -> % v3
-    Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
-    Port = P1 bsl 8 + P2,
-    {Addr, Port}.
+    {Domain, {Ip, Port}}.
+
+%% transform_taddr({?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}) -> % v2
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}) -> % v2
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({?transportDomainUdpIpv6,
+%% 		 [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}) -> % v2
+%%     Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({{?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({{?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
+%%     Addr = {A1, A2, A3, A4},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port};
+%% transform_taddr({{?transportDomainUdpIpv6,
+%% 		  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}, _MsgData}) -> % v3
+%%     Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
+%%     Port = P1 bsl 8 + P2,
+%%     {Addr, Port}.
+
 
 
 check_all_varbinds(#notification{oid = Oid}, Vbs, MibView) ->

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -137,18 +137,20 @@ do_reconfigure(Dir) ->
 
 read_usm_config_files(Dir) ->
     ?vdebug("read usm config file",[]),
-    Gen    = fun(D, Reason) -> generate_usm(D, Reason) end,
-    Filter = fun(Usms) -> Usms end,
-    Check  = fun(Entry) -> check_usm(Entry) end,
+    Gen    = fun (D, Reason) -> generate_usm(D, Reason) end,
+    Order  = fun snmp_conf:no_order/2,
+    Check  = fun (Entry, State) -> {check_usm(Entry), State} end,
+    Filter = fun snmp_conf:no_filter/1,
     [Usms] = 
-	snmp_conf:read_files(Dir, [{Gen, Filter, Check, "usm.conf"}]),
+	snmp_conf:read_files(Dir, [{"usm.conf", Gen, Order, Check, Filter}]),
     Usms.
 
 
 generate_usm(Dir, _Reason) ->
     info_msg("Incomplete configuration. Generating empty usm.conf.", []),
     USMFile = filename:join(Dir, "usm.conf"),
-    ok = file:write_file(USMFile, list_to_binary([])).
+    ok = file:write_file(USMFile, list_to_binary([])),
+    [].
 
 
 check_usm({EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,

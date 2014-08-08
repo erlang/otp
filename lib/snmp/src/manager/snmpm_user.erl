@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,20 +39,25 @@
 %% *** handle_error ***
 %% An "asynchronous" error has been detected 
 
--callback handle_error(ReqId :: integer(), 
-		       Reason :: {unexpected_pdu, SnmpInfo :: snmp_gen_info()} |
-				 {invalid_sec_info, SecInfo :: term(), SnmpInfo :: snmp_gen_info()} | 
-				 {empty_message, Addr :: ip_address(), Port :: port_number()} | 
-				 term(), 
-		       UserData :: term()) ->
+-callback handle_error(
+	    ReqId :: integer(), 
+	    Reason :: {unexpected_pdu, SnmpInfo :: snmp_gen_info()} |
+		      {invalid_sec_info,
+		       SecInfo :: term(),
+		       SnmpInfo :: snmp_gen_info()} | 
+		      {empty_message,
+		       TransportDomain :: atom(),
+		       {Addr :: ip_address(), Port :: port_number()}} | 
+		      term(), 
+	    UserData :: term()) ->
     snmp:void().
 
 
 %% *** handle_agent ***
 %% A message was received from an unknown agent
 
--callback handle_agent(Addr     :: term(), 
-		       Port     :: pos_integer(), 
+-callback handle_agent(Domain   :: atom(),
+		       Address  :: term(),
 		       Type     :: pdu | trap | inform | report, 
 		       SnmpInfo :: snmp_gen_info() | snmp_v1_trap_info(), 
 		       UserData :: term()) ->

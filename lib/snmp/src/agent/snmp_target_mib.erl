@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -133,18 +133,22 @@ do_reconfigure(Dir) ->
 
 read_target_config_files(Dir) ->
     ?vdebug("check target address and parameter config file(s)",[]),
-    TAGen    = fun(_D, _Reason) -> ok end,
-    TAFilter = fun(Addr) -> Addr end,
-    TACheck  = fun(Entry) -> check_target_addr(Entry) end,
 
-    TPGen    = fun(_D, _Reason) -> ok end,
-    TPFilter = fun(Params) -> Params end,
-    TPCheck  = fun(Entry) -> check_target_params(Entry) end,
+    TAName   = "target_addr.conf",
+    TACheck  = fun (Entry, State) -> {check_target_addr(Entry), State} end,
+
+    TPName   = "target_params.conf",
+    TPCheck  = fun (Entry, State) -> {check_target_params(Entry), State} end,
+
+    NoGen    = fun snmp_conf:no_gen/2,
+    NoOrder  = fun snmp_conf:no_order/2,
+    NoFilter = fun snmp_conf:no_filter/1,
 
     [Addrs, Params] = 
-        snmp_conf:read_files(Dir, 
-			     [{TAGen, TAFilter, TACheck, "target_addr.conf"},
-			      {TPGen, TPFilter, TPCheck, "target_params.conf"}]),
+        snmp_conf:read_files(
+	  Dir,
+	  [{TAName, NoGen, NoOrder, TACheck, NoFilter},
+	   {TPName, NoGen, NoOrder, TPCheck, NoFilter}]),
     {Addrs, Params}.
 
 
@@ -154,79 +158,154 @@ read_target_config_files(Dir) ->
 %%   TMask, MMS}
 %%-----------------------------------------------------------------
 
-check_target_addr({Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
-		   Params, EngineId, TMask, MMS}) ->
+check_target_addr(
+  {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList, Params,
+   EngineId, TMask, MMS}) -> % Arity 11
+    Address = {Ip, Udp},
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      EngineId, TMask, MMS);
+check_target_addr(
+  {Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+   EngineId, TMask, MMS}) % Arity 10
+  when is_atom(Domain) ->
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      EngineId, TMask, MMS);
+check_target_addr(
+  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params,
+   EngineId, TMask, MMS})
+  when is_integer(Udp) -> % Arity 10
+    Domain = default_domain(),
+    Address = {Ip, Udp},
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      EngineId, TMask, MMS);
+check_target_addr(
+  {Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+   EngineId}) % Arity 8
+  when is_atom(Domain) ->
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      EngineId);
+check_target_addr(
+  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params,
+   EngineId}) % Arity 8
+  when is_integer(Udp) ->
+    Domain = default_domain(),
+    Address = {Ip, Udp},
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      EngineId);
+%% Use dummy engine id if the old style is found
+check_target_addr(
+  {Name, Domain, Address, Timeout, RetryCount, TagList, Params}) % Arity 7
+  when is_atom(Domain) ->
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params);
+check_target_addr(
+  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params})  % Arity 7
+  when is_integer(Udp) ->
+    Domain = default_domain(),
+    Address = {Ip, Udp},
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params);
+%% Use dummy engine id if the old style is found
+check_target_addr(
+  {Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+   TMask, MMS}) % Arity 9
+  when is_atom(Domain) ->
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params, TMask, MMS);
+check_target_addr(
+  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params,
+   TMask, MMS}) % Arity 9
+  when is_integer(Udp) ->
+    Domain = default_domain(),
+    Address = {Ip, Udp},
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params, TMask, MMS);
+check_target_addr(X) ->
+    error({invalid_target_addr, X}).
+
+check_target_addr(
+  Name, Domain, Address, Timeout, RetryCount, TagList, Params) -> % Arity 7
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      "dummy").
+%%
+check_target_addr(
+  Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+  EngineId) -> % Arity 8
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      EngineId, [], 2048).
+%%
+check_target_addr(
+  Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+  TMask, MMS) -> % Arity 9
+    check_target_addr(
+      Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+      "dummy", TMask, MMS).
+%%
+check_target_addr(
+  Name, Domain, Address, Timeout, RetryCount, TagList, Params,
+  EngineId, Mask, MMS) -> % Arity 10
     ?vtrace("check target address with:"
 	    "~n   Name:       ~s"
 	    "~n   Domain:     ~p"
-	    "~n   Ip:         ~p"
-	    "~n   Udp:        ~p"
+	    "~n   Address:    ~p"
 	    "~n   Timeout:    ~p"
 	    "~n   RetryCount: ~p"
 	    "~n   TagList:    ~p"
 	    "~n   Params:     ~p"
 	    "~n   EngineId:   ~p"
-	    "~n   TMask:      ~p"
+	    "~n   Mask:      ~p"
 	    "~n   MMS:        ~p",
-	    [Name, 
-	     Domain, Ip, Udp, 
+	    [Name, Domain, Address,
 	     Timeout, RetryCount,
-	     TagList, Params, EngineId, TMask, MMS]),
+	     TagList, Params, EngineId, Mask, MMS]),
     snmp_conf:check_string(Name,{gt,0}),
     snmp_conf:check_domain(Domain),
-    snmp_conf:check_ip(Domain, Ip),
-    snmp_conf:check_integer(Udp, {gt, 0}),
+    NAddress = check_address(Domain, Address),
     snmp_conf:check_integer(Timeout, {gte, 0}),
     snmp_conf:check_integer(RetryCount, {gte,0}),
     snmp_conf:check_string(TagList),
     snmp_conf:check_string(Params),
     check_engine_id(EngineId),
-    TAddress = snmp_conf:mk_taddress(Domain, Ip, Udp),
+    NMask = check_mask(Domain, Mask),
     TDomain  = snmp_conf:mk_tdomain(Domain), 
-    check_tmask(TDomain, TMask, TAddress),
+    TAddress = snmp_conf:mk_taddress(Domain, NAddress),
+    TMask    = snmp_conf:mk_taddress(Domain, NMask),
     snmp_conf:check_packet_size(MMS),
     ?vtrace("check target address done",[]),
     Addr = {Name, TDomain, TAddress, Timeout,
 	    RetryCount, TagList, Params,
 	    ?'StorageType_nonVolatile', ?'RowStatus_active', EngineId,
             TMask, MMS}, % Values for Augmenting table in SNMP-COMMUNITY-MIB
-    {ok, Addr};
-check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
-                   Params, EngineId, TMask, MMS}) ->
-    Domain = default_domain(), 
-    check_target_addr({Name, 
-		       Domain, Ip, Udp, 
-		       Timeout, RetryCount, TagList,
-		       Params, EngineId, TMask, MMS});
-check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList, Params, 
-                   EngineId}) ->
-    check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
-                       Params, EngineId, [], 2048});
-%% Use dummy engine id if the old style is found
-check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList, Params}) ->
-    check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
-                       Params, "dummy", [], 2048});
-%% Use dummy engine id if the old style is found
-check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList, Params, 
-		   TMask, MMS}) ->
-    check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
-                       Params, "dummy", TMask, MMS});
-check_target_addr(X) ->
-    error({invalid_target_addr, X}).
-
+    {ok, Addr}.
 
 check_engine_id(discovery) ->
     ok;
 check_engine_id(EngineId) ->
     snmp_conf:check_string(EngineId).
 
+check_address(Domain, Address) ->
+    case snmp_conf:check_address(Domain, Address) of
+	ok ->
+	    Address;
+	{ok, NAddress} ->
+	    NAddress
+    end.
 
-check_tmask(_TDomain, [], _TAddress) ->
-    ok;
-check_tmask(TDomain, TMask, TAddress) when length(TMask) =:= length(TAddress) ->
-    snmp_conf:check_taddress(TDomain, TMask);
-check_tmask(_TDomain, TMask, _TAddr) ->
-    throw({error, {invalid_tmask, TMask}}).
+check_mask(_Domain, [] = Mask) ->
+    Mask;
+check_mask(Domain, Mask) ->
+    try check_address(Domain, Mask)
+    catch
+	{error, {bad_address, Info}} ->
+	    error({bad_mask, Info})
+    end.
 
 
 %%-----------------------------------------------------------------
@@ -604,6 +683,20 @@ snmpTargetAddrTable(print) ->
     FOI   = foi(Table),
     PrintRow = 
 	fun(Prefix, Row) ->
+		TDomain = element(?snmpTargetAddrTDomain, Row),
+		Domain =
+		    try snmp_conf:tdomain_to_domain(TDomain)
+		    catch
+			{error, {bad_tdomain, _}} ->
+			    undefined
+		    end,
+		TAddress = element(?snmpTargetAddrTAddress, Row),
+		AddrString =
+		    try snmp_conf:mk_addr_string({Domain, TAddress})
+		    catch
+			{error, {bad_address, _}} ->
+			    "-"
+		    end,
 		lists:flatten(
 		  io_lib:format("~sName:              ~p"
 				"~n~sTDomain:           ~p (~w)"
@@ -618,21 +711,8 @@ snmpTargetAddrTable(print) ->
 				"~n~s[Ext] TMask:       ~p"
 				"~n~s[Ext] MMS:         ~p", 
 				[Prefix, element(?snmpTargetAddrName, Row),
-				 Prefix, element(?snmpTargetAddrTDomain, Row),
-				 case element(?snmpTargetAddrTDomain, Row) of
-				     ?snmpUDPDomain -> snmpUDPDomain;
-				     ?transportDomainUdpIpv4 -> transportDomainUdpIpv4;
-				     ?transportDomainUdpIpv6 -> transportDomainUdpIpv6;
-				     _ -> undefined
-				 end,
-				 Prefix, element(?snmpTargetAddrTAddress, Row),
-				 case element(?snmpTargetAddrTAddress, Row) of
-				     [A,B,C,D,U1,U2] ->
-					 lists:flatten(
-					   io_lib:format("~w.~w.~w.~w:~w", 
-							 [A, B, C, D, U1 bsl 8 + U2]));
-				     _ -> "-"
-				 end,
+				 Prefix, TDomain, Domain,
+				 Prefix, TAddress, AddrString,
 				 Prefix, element(?snmpTargetAddrTimeout, Row),
 				 Prefix, element(?snmpTargetAddrRetryCount, Row),
 				 Prefix, element(?snmpTargetAddrTagList, Row),

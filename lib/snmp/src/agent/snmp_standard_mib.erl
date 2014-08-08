@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -152,16 +152,19 @@ do_reconfigure(Dir) ->
 %%-----------------------------------------------------------------
 read_standard(Dir) ->
     ?vdebug("check standard config file",[]),
-    FileName   = "standard.conf", 
-    Gen        = fun(D, Reason) -> 
-			 throw({error, {failed_reading_config_file, 
-					D, FileName, 
-					list_dir(Dir), Reason}})
-		 end,
-    Filter     = fun(Standard) -> sort_standard(Standard) end,
-    Check      = fun(Entry) -> check_standard(Entry) end,
+    FileName = "standard.conf",
+    Gen =
+	fun (D, Reason) ->
+		throw(
+		  {error,
+		   {failed_reading_config_file,
+		    D, FileName, list_dir(Dir), Reason}})
+	end,
+    Order  = fun snmp_conf:no_order/2,
+    Check  = fun (Entry, State) -> {check_standard(Entry), State} end,
+    Filter = fun sort_standard/1,
     [Standard] = 
-	snmp_conf:read_files(Dir, [{Gen, Filter, Check, FileName}]), 
+	snmp_conf:read_files(Dir, [{FileName, Gen, Order, Check, Filter}]),
     Standard.
 
 list_dir(Dir) ->

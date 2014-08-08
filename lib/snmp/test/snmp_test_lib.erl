@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 -include_lib("kernel/include/file.hrl").
 
 
--export([hostname/0, hostname/1, localhost/0, os_type/0, sz/1,
+-export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1]).
 -export([fix_data_dir/1, 
@@ -59,6 +59,9 @@ from(_H, []) -> [].
 
 localhost() ->
     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
+    Ip.
+localhost(Family) ->
+    {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
     Ip.
 
 sz(L) when is_list(L) ->
