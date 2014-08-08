@@ -2211,6 +2211,9 @@ aux_work_timeout_early_init(int no_schedulers)
     p = (UWord) malloc((sizeof(ErtsAuxWorkTmo)
 			+ sizeof(erts_atomic32_t)*(no_schedulers+1))
 		       + ERTS_CACHE_LINE_SIZE-1);
+    if (!p) {
+        ERTS_INTERNAL_ERROR("malloc failed to allocate memory!");
+    }
     if (p & ERTS_CACHE_LINE_MASK)
 	p = (p & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
     ASSERT((p & ERTS_CACHE_LINE_MASK) == 0);
@@ -7818,6 +7821,9 @@ erts_start_schedulers(void)
 
 #ifdef ETHR_HAVE_THREAD_NAMES
     opts.name = malloc(80);
+    if (!opts.name) {
+        ERTS_INTERNAL_ERROR("malloc failed to allocate memory!");
+    }
 #endif
 
 #ifdef ERTS_SMP

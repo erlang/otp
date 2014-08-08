@@ -227,8 +227,7 @@ rw_op_str(Uint16 flags)
     case ERTS_LC_FLG_LO_READ:
 	return " (r)";
     case ERTS_LC_FLG_LO_WRITE:
-	erts_fprintf(stderr, "\nInternal error\n");
-	lc_abort();
+	ERTS_INTERNAL_ERROR("Only write flag present");
     default:
 	break;
     }
@@ -311,8 +310,7 @@ static ERTS_INLINE void lc_free(void *p)
 static void *lc_core_alloc(void)
 {
     lc_unlock();
-    erts_fprintf(stderr, "Lock checker out of memory!\n");
-    lc_abort();
+    ERTS_INTERNAL_ERROR("Lock checker out of memory!\n");
 }
 
 #else
@@ -325,8 +323,7 @@ static void *lc_core_alloc(void)
     fbs = (erts_lc_free_block_t *) malloc(sizeof(erts_lc_free_block_t)
 					  * ERTS_LC_FB_CHUNK_SIZE);
     if (!fbs) {
-	erts_fprintf(stderr, "Lock checker failed to allocate memory!\n");
-	lc_abort();
+        ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
     }
     for (i = 1; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
 #ifdef DEBUG
@@ -366,11 +363,11 @@ create_locked_locks(char *thread_name)
 {
     erts_lc_locked_locks_t *l_lcks = malloc(sizeof(erts_lc_locked_locks_t));
     if (!l_lcks)
-	lc_abort();
+	ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
 
     l_lcks->thread_name = strdup(thread_name ? thread_name : "unknown");
     if (!l_lcks->thread_name)
-	lc_abort();
+	ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
 
     l_lcks->emu_thread = 0;
     l_lcks->tid = erts_thr_self();
@@ -691,7 +688,7 @@ erts_lc_set_thread_name(char *thread_name)
 	free((void *) l_lcks->thread_name);
 	l_lcks->thread_name = strdup(thread_name ? thread_name : "unknown");
 	if (!l_lcks->thread_name)
-	    lc_abort();
+	    ERTS_INTERNAL_ERROR("strdup failed");
     }
     l_lcks->emu_thread = 1;
 }
@@ -1330,7 +1327,7 @@ erts_lc_init(void)
 #endif /* #ifdef ERTS_LC_STATIC_ALLOC */
 
     if (ethr_spinlock_init(&free_blocks_lock) != 0)
-	lc_abort();
+	ERTS_INTERNAL_ERROR("spinlock_init failed");
 
     erts_tsd_key_create(&locks_key,"erts_lock_check_key");
 }
