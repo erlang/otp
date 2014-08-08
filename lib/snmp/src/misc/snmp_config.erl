@@ -47,8 +47,8 @@
 	 write_agent_snmp_vacm_conf/3, 
 
 	 write_manager_snmp_files/8,
-	 write_manager_snmp_conf/5, 
-	 write_manager_snmp_users_conf/2, 
+	 write_manager_snmp_conf/4, write_manager_snmp_conf/5,
+	 write_manager_snmp_users_conf/2,
 	 write_manager_snmp_agents_conf/2, 
 	 write_manager_snmp_usm_conf/2
  	 
@@ -2116,7 +2116,24 @@ write_manager_snmp_files(Dir, IP, Port, MMS, EngineID,
 %% ------ manager.conf ------
 %% 
 
-write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) -> 
+write_manager_snmp_conf(Dir, Transports, MMS, EngineID) ->
+    Comment =
+"%% This file defines the Manager local configuration info\n"
+"%% Each row is a 2-tuple:\n"
+"%% {Variable, Value}.\n"
+"%% For example\n"
+"%% {transports,       [{transportDomainUdpIpv4, {{127,42,17,5}, 5000}}]}.\n"
+"%% {engine_id,        \"managerEngine\"}.\n"
+"%% {max_message_size, 484}.\n"
+"%%\n\n",
+    Hdr = header() ++ Comment,
+    Conf =
+	[{transports, Transports},
+	 {engine_id,        EngineID},
+	 {max_message_size, MMS}],
+    write_manager_config(Dir, Hdr, Conf).
+
+write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
     Comment = 
 "%% This file defines the Manager local configuration info\n"
 "%% Each row is a 2-tuple:\n"
@@ -2129,15 +2146,14 @@ write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	case Port of
-	    {Addr, P} when is_integer(P), is_atom(IP) ->
-		Domain = IP,
-		[{domain,  Domain},
-		 {port,    P},
-		 {address, Addr}];
-	    _ when is_integer(Port) ->
-		[{port,    Port},
-		 {address, IP}]
+	case Addr_or_Port of
+	    {IP, Port} when is_integer(Port), is_atom(Domain_or_IP) ->
+		[{domain,  Domain_or_IP},
+		 {port,    Port},
+		 {address, IP}];
+	    _ when is_integer(Addr_or_Port) ->
+		[{port,    Addr_or_Port},
+		 {address, Domain_or_IP}]
 	end ++
 	[{engine_id,        EngineID},
 	 {max_message_size, MMS}],

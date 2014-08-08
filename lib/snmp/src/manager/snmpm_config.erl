@@ -1287,36 +1287,6 @@ verify_options(Opts, Mandatory) ->
     verify_mandatory_options(Opts, Mandatory),
     verify_options(Opts).
 
-%% mandatory() -> [mand()]
-%% mand() -> atom() | {atom, [atom()]}
-verify_mandatory_options(_Opts, []) ->
-    ok;
-verify_mandatory_options(Opts, [Mand|Mands]) ->
-    verify_mandatory_option(Opts, Mand),
-    verify_mandatory_options(Opts, Mands).
-
-verify_mandatory_option(Opts, {Mand, MandSubOpts}) ->
-    ?d("verify_mandatory_option -> entry with"
-       "~n   Mand:        ~p"
-       "~n   MandSubObjs: ~p", [Mand, MandSubOpts]),
-    case lists:keysearch(Mand, 1, Opts) of
-	{value, {Mand, SubOpts}} ->
-	    verify_mandatory_options(SubOpts, MandSubOpts);
-	false ->
-	    ?d("missing mandatory option: ~w [~p]", [Mand, MandSubOpts]),
-	    error({missing_mandatory, Mand, MandSubOpts})
-    end;
-verify_mandatory_option(Opts, Mand) ->
-    ?d("verify_mandatory_option -> entry with"
-       "~n   Mand:        ~p", [Mand]),
-    case lists:keymember(Mand, 1, Opts) of
-	true ->
-	    ok;
-	false ->
-	    ?d("missing mandatory option: ~w", [Mand]),
-	    error({missing_mandatory, Mand})
-    end.
-	
 verify_options([]) ->
     ?d("verify_options -> done", []),
     ok;
@@ -1632,7 +1602,38 @@ verify_verbosity(Verbosity) ->
 	_ ->
 	    error({invalid_verbosity, Verbosity})
     end.
+
     
+%% mandatory() -> [mand()]
+%% mand() -> atom() | {atom, [atom()]}
+verify_mandatory_options(_Opts, []) ->
+    ok;
+verify_mandatory_options(Opts, [Mand|Mands]) ->
+    verify_mandatory_option(Opts, Mand),
+    verify_mandatory_options(Opts, Mands).
+
+verify_mandatory_option(Opts, {Mand, MandSubOpts}) ->
+    ?d("verify_mandatory_option -> entry with"
+       "~n   Mand:        ~p"
+       "~n   MandSubObjs: ~p", [Mand, MandSubOpts]),
+    case lists:keysearch(Mand, 1, Opts) of
+	{value, {Mand, SubOpts}} ->
+	    verify_mandatory_options(SubOpts, MandSubOpts);
+	false ->
+	    ?d("missing mandatory option: ~w [~p]", [Mand, MandSubOpts]),
+	    error({missing_mandatory, Mand, MandSubOpts})
+    end;
+verify_mandatory_option(Opts, Mand) ->
+    ?d("verify_mandatory_option -> entry with"
+       "~n   Mand:        ~p", [Mand]),
+    case lists:keymember(Mand, 1, Opts) of
+	true ->
+	    ok;
+	false ->
+	    ?d("missing mandatory option: ~w", [Mand]),
+	    error({missing_mandatory, Mand})
+    end.
+
 %% ------------------------------------------------------------------------
 
 init_manager_config([]) ->
@@ -1654,68 +1655,9 @@ init_agent_default() ->
 	 {version, v2},               % MPModel
 	 {sec_model, v2c},            % SecModel
 	 {sec_name, "initial"},       % SecName
-	 {sec_level, noAuthPriv},     % SecLevel
+	 {sec_level, noAuthNoPriv},   % SecLevel
 	 {community, "all-rights"}],  % Community
     do_update_agent_info(default_agent, AgentDefaultConfig).
-
-%%     %% Port
-%%     init_agent_default(port, ?DEFAULT_AGENT_PORT),
-
-%%     %% Timeout
-%%     init_agent_default(timeout, 10000),
-
-%%     %% Max message (packet) size
-%%     init_agent_default(max_message_size, 484),
-
-%%     %% MPModel
-%%     init_agent_default(version, v2),
-
-%%     %% SecModel
-%%     init_agent_default(sec_model, v2c),
-
-%%     %% SecName
-%%     init_agent_default(sec_name, "initial"),
-
-%%     %% SecLevel
-%%     init_agent_default(sec_level, noAuthNoPriv),
-
-%%     %% Community
-%%     init_agent_default(community, "all-rights"),
-%%     ok.
-
-
-%% init_agent_default(Item, Val) when Item =/= user_id ->
-%%     case do_update_agent_info(default_agent, Item, Val) of
-%% 	ok ->
-%% 	    ok;
-%% 	{error, Reason} ->
-%% 	    error(Reason)
-%%     end.
-
-%% read_agents_config_file(Dir) ->
-%%     Verify = fun check_agent_config2/1,
-%%     case read_file(Dir, "agents.conf", Verify, []) of
-%% 	{ok, Conf} ->
-%% 	    Conf;
-%% 	Error ->
-%% 	    ?vlog("agent config error: ~p", [Error]),
-%% 	    throw(Error)
-%%     end.
-
-%% check_agent_config2(Agent) ->
-%%     case (catch check_agent_config(Agent)) of
-%% 	{ok, {UserId, TargetName, Conf, Version}} ->
-%% 	    {ok, Vsns} = system_info(versions),
-%% 	    case lists:member(Version, Vsns) of
-%% 		true ->
-%% 		    {ok, {UserId, TargetName, Conf}};
-%% 		false ->
-%% 		    error({version_not_supported_by_manager,
-%% 			   Version, Vsns})
-%% 	    end;
-%% 	Err ->
-%% 	    throw(Err)
-%%     end.
 
 read_agents_config_file(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -1739,11 +1681,19 @@ check_agent_config(Agent, State) ->
 
 %% For backward compatibility
 check_agent_config(
+  {UserId, TargetName, Community, Domain, Addr,
+   EngineId, Timeout, MaxMessageSize,
+   Version, SecModel, SecName, SecLevel}) when is_atom(Domain) ->
+    check_agent_config(
+      UserId, TargetName, Community, Domain, Addr,
+      EngineId, Timeout, MaxMessageSize,
+      Version, SecModel, SecName, SecLevel);
+check_agent_config(
   {UserId, TargetName, Community, Ip, Port,
    EngineId, Timeout, MaxMessageSize,
-   Version, SecModel, SecName, SecLevel}) ->
+   Version, SecModel, SecName, SecLevel}) when is_integer(Port) ->
     Domain = default_transport_domain(),
-    Addr = fix_address(Domain, {Ip, Port}),
+    Addr = {Ip, Port},
     check_agent_config(
       UserId, TargetName, Community, Domain, Addr,
       EngineId, Timeout, MaxMessageSize,
@@ -1752,8 +1702,9 @@ check_agent_config(
   {UserId, TargetName, Community, Domain, Ip, Port,
    EngineId, Timeout, MaxMessageSize,
    Version, SecModel, SecName, SecLevel}) ->
+    Addr = {Ip, Port},
     check_agent_config(
-      UserId, TargetName, Community, Domain, {Ip, Port},
+      UserId, TargetName, Community, Domain, Addr,
       EngineId, Timeout, MaxMessageSize,
       Version, SecModel, SecName, SecLevel);
 check_agent_config(Agent) ->
@@ -1776,7 +1727,7 @@ check_agent_config(
     Conf =
 	[{reg_type,         target_name},
 	 {tdomain,          Domain},
-	 {taddress,         Addr},
+	 {taddress,         fix_address(Domain, Addr)},
 	 {community,        Comm}, 
 	 {engine_id,        EngineId},
 	 {timeout,          Timeout},
@@ -1946,16 +1897,6 @@ verify_agent_entry(Item, _) ->
 
 
 
-%% read_users_config_file(Dir) ->
-%%     Verify = fun check_user_config/1,
-%%     case read_file(Dir, "users.conf", Verify, []) of
-%% 	{ok, Conf} ->
-%% 	    Conf;
-%% 	Error ->
-%% 	    ?vlog("failure reading users config file: ~n   ~p", [Error]),
-%% 	    throw(Error)
-%%     end.
-
 read_users_config_file(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun (User, State) -> {check_user_config(User), State} end,
@@ -2074,14 +2015,6 @@ verify_default_agent_config(Conf) ->
 	    error({bad_default_agent_config, Error})
     end.
 
-%% read_usm_config_file(Dir) ->
-%%     Verify = fun check_usm_user_config/1,
-%%     case read_file(Dir, "usm.conf", Verify, []) of
-%% 	{ok, Conf} ->
-%% 	    Conf;
-%% 	Error ->
-%% 	    throw(Error)
-%%     end.
 
 read_usm_config_file(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -2268,24 +2201,6 @@ is_crypto_supported(Func) ->
     snmp_misc:is_crypto_supported(Func). 
  
 
-%% read_manager_config_file(Dir) ->
-%%     Verify = fun check_manager_config/1,
-%%     case read_file(Dir, "manager.conf", Verify) of
-%% 	{ok, Conf} ->
-%% 	    ?d("read_manager_config_file -> ok: "
-%% 	       "~n   Conf: ~p", [Conf]),
-%% 	    %% If the address is not specified, then we assume
-%% 	    %% it should be the local host.
-%% 	    %% If the address is not possible to determine
-%% 	    %% that way, then we give up...
-%% 	    verify_mandatory(Conf, [port,engine_id,max_message_size]),
-%% 	    ensure_config(default_manager_config(), Conf);
-%% %%	    check_mandatory_manager_config(Conf),
-%% %%	    ensure_manager_config(Conf);
-%% 	Error ->
-%% 	    throw(Error)
-%%     end.
-
 read_manager_config_file(Dir) ->
     Order = fun order_manager_config/2,
     Check = fun check_manager_config/2,
@@ -2296,13 +2211,15 @@ read_manager_config_file(Dir) ->
     %% it should be the local host.
     %% If the address is not possible to determine
     %% that way, then we give up...
-    verify_mandatory(Conf, [port,engine_id,max_message_size]),
+    verify_someof(Conf, [port, transports]),
+    verify_mandatory(Conf, [engine_id, max_message_size]),
     default_manager_config(Conf).
 
 default_manager_config(Conf) ->
-    %% Ensure address of right family
-    case lists:keyfind(address, 1, Conf) of
+    %% Ensure valid transports entry
+    case lists:keyfind(transports, 1, Conf) of
 	false ->
+	    {port, Port} = lists:keyfind(port, 1, Conf),
 	    Domain =
 		case lists:keyfind(domain, 1, Conf) of
 		    false ->
@@ -2311,55 +2228,55 @@ default_manager_config(Conf) ->
 			D
 		end,
 	    Family = snmp_conf:tdomain_to_family(Domain),
-	    {ok, HostName} = inet:gethostname(),
-	    case inet:getaddr(HostName, Family) of
+	    {ok, Hostname} = inet:gethostname(),
+	    case inet:getaddr(Hostname, Family) of
 		{ok, Address} ->
-		    [{address, Address} | Conf];
+		    lists:sort(
+		      fun order_manager_config/2,
+		      [{transports, [{Domain, {Address, Port}}]} | Conf]);
 		{error, _Reason} ->
 		    ?d("default_manager_config -> "
 		       "failed getting ~w address for ~s:~n"
-		       "   _Reason: ~p", [Family, HostName, _Reason]),
+		       "   _Reason: ~p", [Family, Hostname, _Reason]),
 		    Conf
 	    end;
 	_ ->
 	    Conf
     end.
 
-default_manager_config() ->
-    {ok, HostName} = inet:gethostname(),
-    case inet:getaddr(HostName, inet) of
-	{ok, A} ->
-	    [{address, tuple_to_list(A)}];
-	{error, _Reason} ->
-	    ?d("default_manager_config -> failed getting address: "
-	       "~n   _Reason: ~p", [_Reason]),
-	    []
-    end.
-
 order_manager_config(EntryA, EntryB) ->
-    snmp_conf:keyorder(1, EntryA, EntryB, [domain]).
+    snmp_conf:keyorder(1, EntryA, EntryB, [domain, port]).
 
-check_manager_config({domain, D}, _Domain) ->
-    {snmp_conf:check_domain(D), D};
-check_manager_config({address = Tag, Ip}, D) ->
-    Domain =
-	case D of
-	    undefined ->
-		default_transport_domain();
-	    _ ->
-		D
-	end,
+check_manager_config(Entry, undefined) ->
+    check_manager_config(Entry, {default_transport_domain(), undefined});
+check_manager_config({domain, Domain}, {_, Port}) ->
+    {snmp_conf:check_domain(Domain), {Domain, Port}};
+check_manager_config({port, Port}, {Domain, _}) ->
+    {ok = snmp_conf:check_port(Port), {Domain, Port}};
+check_manager_config({address, _}, {_, undefined}) ->
+    error({missing_mandatory, port});
+check_manager_config({address = Tag, Ip} = Entry, {Domain, Port} = State) ->
     {case snmp_conf:check_ip(Domain, Ip) of
 	 ok ->
-	     ok;
+	     [Entry,
+	      {transports, [{Domain, {Ip, Port}}]}];
 	 {ok, FixedIp} ->
-	     {ok, {Tag, FixedIp}}
-     end, Domain};
-check_manager_config(Entry, Domain) ->
-    {check_manager_config(Entry), Domain}.
+	     [{Tag, FixedIp},
+	      {transports, [{Domain, {FixedIp, Port}}]}]
+     end, State};
+check_manager_config({transports = Tag, Transports}, State) ->
+    CheckedTransports =
+	[case snmp_conf:check_address(Domain, Address) of
+	     ok ->
+		 Transport;
+	     {ok, FixedAddress} ->
+		 {Domain, FixedAddress}
+	 end
+	 || {Domain, Address} = Transport <- Transports],
+    {{ok, {Tag, CheckedTransports}}, State};
+check_manager_config(Entry, State) ->
+    {check_manager_config(Entry), State}.
 
-check_manager_config({port, Port}) ->
-    snmp_conf:check_port(Port);
 check_manager_config({engine_id, EngineID}) ->
     snmp_conf:check_string(EngineID);
 check_manager_config({max_message_size, Max}) ->
@@ -2368,45 +2285,6 @@ check_manager_config(Conf) ->
     error({unknown_config, Conf}).
 
 
-%% check_mandatory_manager_config(Conf) ->
-%%     Mand  = [port, engine_id, max_message_size],
-%%     check_mandatory_manager_config(Mand, Conf).
-
-%% check_mandatory_manager_config([], _Conf) ->
-%%     ok;
-%% check_mandatory_manager_config([Item|Mand], Conf) ->
-%%     case lists:keysearch(Item, 1, Conf) of
-%% 	false ->
-%% 	    error({missing_mandatory_manager_config, Item});
-%% 	_ ->
-%% 	    check_mandatory_manager_config(Mand, Conf)
-%%     end.
-    
-
-%% ensure_manager_config(Confs) ->
-%%     ensure_manager_config(Confs, default_manager_config()).
-
-%% ensure_manager_config(Confs, []) ->
-%%     Confs;
-%% ensure_manager_config(Confs, [{Key,_} = DefKeyVal|Defs]) ->
-%%     case lists:keysearch(Key, 1, Confs) of
-%% 	false ->
-%% 	    ensure_manager_config([DefKeyVal|Confs], Defs);
-%% 	{value, _Conf} ->
-%% 	    ensure_manager_config(Confs, Defs)
-%%     end.
-
-% ensure_manager_config([], Defs, Confs) ->
-%     Confs ++ Defs;
-% ensure_manager_config(Confs0, [{Key, DefVal}|Defs], Acc) ->
-%     case lists:keysearch(Key, 1, Confs0) of
-% 	false ->
-% 	    ensure_manager_config(Confs0, Defs, [{Key, DefVal}|Acc]);
-% 	{value, Conf} ->
-% 	    Confs = lists:keydelete(Key, 1, Confs0),
-% 	    ensure_manager_config(Confs, Defs, [Conf|Acc])
-%     end.
-			      
 read_file(Dir, FileName, Order, Check, Default) ->
     try snmp_conf:read(filename:join(Dir, FileName), Order, Check)
     catch
@@ -2423,87 +2301,6 @@ read_file(Dir, FileName, Order, Check) ->
 	    error_msg("failed reading config from ~s: ~p", [FileName, Reason]),
 	    erlang:raise(throw, Error, erlang:get_stacktrace())
     end.
-
-
-
-
-
-
-%% read_file(Dir, FileName, Verify, Default) ->
-%%     File = filename:join(Dir, FileName),
-%%     case file:read_file_info(File) of
-%%         {ok, _} ->
-%% 	    read_file(File, Verify);
-%% 	{error, Reason} ->
-%% 	    ?vlog("failed reading config from ~s: ~p", [FileName, Reason]),
-%% 	    {ok, Default}
-%%     end.
-
-%% read_file(Dir, FileName, Verify) ->
-%%     File = filename:join(Dir, FileName),
-%%     case file:read_file_info(File) of
-%%         {ok, _} ->
-%% 	    read_file(File, Verify);
-%%         {error, Reason} ->
-%% 	    error_msg("failed reading config from ~s: ~p", [FileName, Reason]),
-%% 	    {error, {failed_reading, FileName, Reason}}
-%%     end.
-
-%% read_file(File, Verify) ->
-%%     Check = fun (Config, State) -> {Verify(Config), State} end,
-%%     try snmp_conf:read(File, Check) of
-%% 	Conf ->
-%% 	    ?vtrace("read_file -> read ok"
-%% 		    "~n   Conf: ~p", [Conf]),
-%% 	    {ok, Conf}
-%%     catch
-%% 	Error ->
-%% 	    ?vtrace("read_file -> read failed:"
-%% 		    "~n   Error: ~p", [Error]),
-%% 	    Error
-%%     end.
-
-%% XXX remove
-
-%% read_file(Dir, FileName, Check, Default) ->
-%%     File = filename:join(Dir, FileName),
-%%     case file:read_file_info(File) of
-%%         {ok, _} ->
-%%             case (catch do_read(File, Check)) of
-%% 		{ok, Conf} ->
-%% 		    {ok, Conf};
-%% 		Error ->
-%% 		    ?vtrace("read_file -> read failed:"
-%% 			    "~n   Error: ~p", [Error]),
-%% 		    Error
-%% 	    end;
-%%         {error, Reason} ->
-%% 	    ?vlog("failed reading config from ~s: ~p", [FileName, Reason]),
-%% 	    {ok, Default}
-%%     end.
-
-%% read_file(Dir, FileName, Check) ->
-%%     File = filename:join(Dir, FileName),
-%%     case file:read_file_info(File) of
-%%         {ok, _} ->
-%%             case (catch do_read(File, Check)) of
-%% 		{ok, Conf} ->
-%% 		    ?vtrace("read_file -> read ok"
-%% 			    "~n   Conf: ~p", [Conf]),
-%% 		    {ok, Conf};
-%% 		Error ->
-%% 		    ?vtrace("read_file -> read failed:"
-%% 			    "~n   Error: ~p", [Error]),
-%% 		    Error
-%% 	    end;
-%%         {error, Reason} ->
-%% 	    error_msg("failed reading config from ~s: ~p", [FileName, Reason]),
-%% 	    {error, {failed_reading, FileName, Reason}}
-%%     end.
-
-%% do_read(File, Check) ->
-%%     {ok, snmp_conf:read(File, Check)}.
-
 
 %%--------------------------------------------------------------------
 %% Func: handle_call/3
@@ -3582,4 +3379,3 @@ error_msg(F, A) ->
 
 p(F, A) ->
     io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
-

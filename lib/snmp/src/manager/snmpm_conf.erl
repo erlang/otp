@@ -114,6 +114,7 @@ do_write_manager_conf(Fd, {Tag, Val})
   when Tag =:= domain;
        Tag =:= address;
        Tag =:= port;
+       Tag =:= transports;
        Tag =:= max_message_size ->
     io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_manager_conf(Fd, {Tag, Val})
