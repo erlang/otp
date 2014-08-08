@@ -1,0 +1,5 @@
+all: cport@obj@
+
+@SHLIB_RULES@
+
+cport@obj@: cport.c
