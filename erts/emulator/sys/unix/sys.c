@@ -2090,13 +2090,28 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
     int fd = (int)(long)ev;
     ErlDrvPort prt = driver_data[fd].port_num;
     
-    if (driver_data[fd].blocking && FDBLOCK) {
+#if FDBLOCK
+    if (driver_data[fd].blocking) {
+
+        /* We have to make sure that all writes for this fd have been processed */
+        int resbuf[2];
+        resbuf[0] = -fd;
+        if (write(blocking_pipe[1], resbuf, sizeof(int)) == sizeof(int)) {
+            do {
+                int res = read(driver_data[fd].blocking->pipe[0],
+                               resbuf, sizeof(resbuf));
+                if (res == sizeof(resbuf) && resbuf[0] != -fd)
+                    continue;
+            } while(0);
+        }
+
         /* we close both ends of the pipe as no more data is to be written */
         close(driver_data[fd].blocking->pipe[0]);
         close(driver_data[fd].blocking->pipe[1]);
         erts_free(ERTS_ALC_T_SYS_BLOCKING,driver_data[fd].blocking);
         erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*sizeof(ErtsSysBlocking));
     }
+#endif
 
     nbio_stop_fd(prt, fd);
     ofd = driver_data[fd].ofd;
@@ -2569,7 +2584,7 @@ blocking_writer(void *unused)
                 /* control pipe closed, we shutdown */
                 close(blocking_pipe[0]);
                 return NULL;
-            } else if (res == sizeof(write_fd)) {
+            } else if (res == sizeof(write_fd) && write_fd >= 0) {
                 SysIOVec      *iov0;
                 SysIOVec      *iov;
                 int            iovlen;
@@ -2605,6 +2620,17 @@ blocking_writer(void *unused)
                 if (write(driver_data[write_fd].blocking->pipe[1],
                           resbuf, sizeof(resbuf)))
                     ; /* ignore error, should we terminate here? */
+            } else if (write_fd < 0) {
+                int resbuf[2];
+                /* a negative fd is sent as a closing handshake
+                   it is needed in order for the port to know that
+                   it is ok to release the ErtsSysBlocking struct
+                   and terminate */
+                resbuf[0] = write_fd;
+                resbuf[1] = -1;
+                if (write(driver_data[-write_fd].blocking->pipe[1],
+                          resbuf, sizeof(resbuf)))
+                    ; /* ignore error */
             }
         }
     }
