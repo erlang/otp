@@ -3948,6 +3948,9 @@ erts_save_emu_args(int argc, char **argv)
 	size += sz+1;
     } 
     ptr = (char *) malloc(size);
+    if (!ptr) {
+        ERTS_INTERNAL_ERROR("malloc failed to allocate memory!");
+    }
 #ifdef DEBUG
     end_ptr = ptr + size;
 #endif
