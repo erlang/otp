@@ -176,7 +176,6 @@ addresses({false, Adr, Rest}, Addresses) ->
     {lists:reverse([Adr|Addresses]), Rest};
 addresses({true, Adr, Rest}, Addresses) ->
     addresses(address(protocol, Rest, [], []), [Adr|Addresses]).
-
 %% Which protocol.
 address(protocol, [$:|T], [], []) ->
     address(version, T, [], [iiop]);
@@ -191,6 +190,7 @@ address(protocol, What, _, _) ->
 		      "Malformed or unsupported protocol.", 
 	      [?LINE, What], ?DEBUG_LEVEL),
     corba:raise(#'CosNaming_NamingContextExt_InvalidAddress'{});
+
 
 %% Parsed one address, no version found or port found.
 address(version, [$,|T], Acc, Previous) ->
@@ -208,15 +208,26 @@ address(version, [$@|T], Acc, Previous) ->
 		      [?LINE, What], ?DEBUG_LEVEL),
 	    corba:raise(#'CosNaming_NamingContextExt_InvalidAddress'{})
     end;
+
+%% Found no iiop version, switch to ipv6.
+address(version, [$[|T], [], Previous) ->
+    address(ipv6, T, [], [?DEF_VERS|Previous]);
+    
 %% Found no iiop version, switch to port. In this case Acc contains the
 %% Host.
 address(version, [$:|T], Acc, Previous) ->
-    case check_ip_version(T, [$:|Acc]) of
-	false ->
-	    address(port, T, [], [lists:reverse(Acc), ?DEF_VERS|Previous]);
-	{ok, NewAcc, NewT, Type} ->
-	    address(Type, NewT, [], [lists:reverse(NewAcc), ?DEF_VERS|Previous])
-    end;
+    address(port, T, [], [lists:reverse(Acc), ?DEF_VERS|Previous]);
+
+%% Found IPv6
+address(address, [$[|T], [], Previous) ->
+    address(ipv6, T, [], Previous);
+
+%% Found port
+address(address, [$:|T], Acc, Previous) ->
+    address(port, T, [], [lists:reverse(Acc)|Previous]);
+	
+address(ipv6, [$]|T], Acc, Previous) ->
+    address(address, T, Acc, Previous);
 
 %% Parsed one address, port not found.
 address(address, [$,|T], [], Previous) ->
@@ -267,67 +278,8 @@ address(address, [], [], Previous) ->
 address(address, [], Acc, Previous) ->
     {false, lists:reverse([?DEF_PORT, lists:reverse(Acc)|Previous]), []};
     
-%% Found port
-address(address, [$:|T], Acc, Previous) ->
-    case check_ip_version(T, [$:|Acc]) of
-	false ->
-	    address(port, T, [], [lists:reverse(Acc)|Previous]);
-	{ok, NewAcc, NewT, Type} ->
-	    address(Type, NewT, [], [lists:reverse(NewAcc)|Previous])
-    end;
-	
 address(Type, [H|T], Acc, Previous) ->
     address(Type, T, [H|Acc], Previous).
-
-
-check_ip_version(T, Acc) ->
-    case orber_env:ip_version() of
-	inet ->
-	    false;
-	inet6 ->
-	    case search_for_delimiter(1, T, Acc, $:) of
-		{ok, NewAcc, NewT, Type} ->
-		    {ok, NewAcc, NewT, Type};
-		_ ->
-		    false
-	    end
-    end.
-
-%% An IPv6 address may look like (x == hex, d == dec):
-%%  * "0:0:0:0:0:0:10.1.1.1" - x:x:x:x:x:x:d.d.d.d
-%%  * "0:0:0:0:8:800:200C:417A" - x:x:x:x:x:x:x:x
-%% We cannot allow compressed addresses (::10.1.1.1) since we it is not
-%% possible to know if the last part is a port number or part of the address.
-search_for_delimiter(7, [], Acc, $:) ->
-    {ok, Acc, [], address};
-search_for_delimiter(9, [], Acc, $.) ->
-    {ok, Acc, [], address};
-search_for_delimiter(_, [], _, _) ->
-    false;
-search_for_delimiter(7, [$/|T], Acc, $:) ->
-    {ok, Acc, [$/|T], address};
-search_for_delimiter(9, [$/|T], Acc, $.) ->
-    {ok, Acc, [$/|T], address};
-search_for_delimiter(_, [$/|_T], _Acc, _) ->
-    false;
-search_for_delimiter(7, [$,|T], Acc, $:) ->
-    {ok, Acc, [$,|T], address};
-search_for_delimiter(9, [$,|T], Acc, $.) ->
-    {ok, Acc, [$,|T], address};
-search_for_delimiter(_, [$,|_T], _Acc, _) ->
-    false;
-search_for_delimiter(7, [$:|T], Acc, $:) ->
-    {ok, Acc, T, port};
-search_for_delimiter(9, [$:|T], Acc, $.) ->
-    {ok, Acc, T, port};
-search_for_delimiter(N, [$:|T], Acc, $:) ->
-    search_for_delimiter(N+1, T, [$:|Acc], $:);
-search_for_delimiter(N, [$.|T], Acc, $.) when N > 6, N < 9 ->
-    search_for_delimiter(N+1, T, [$.|Acc], $.);
-search_for_delimiter(6, [$.|T], Acc, $:) ->
-    search_for_delimiter(7, T, [$.|Acc], $.);
-search_for_delimiter(N, [H|T], Acc, LookingFor) ->
-    search_for_delimiter(N, T, [H|Acc], LookingFor).
 
 %%----------------------------------------------------------------------
 %% Function   : key

@@ -241,8 +241,11 @@ init_per_testcase2(Case, Config) ->
     AgLogDir  = filename:join(AgTopDir,   "log/"),
     ?line ok  = file:make_dir(AgLogDir),
 
+    Family = proplists:get_value(ipfamily, Config, inet),
+
     Conf = [{watchdog,                  ?WD_START(?MINS(5))},
-	    {ip,                        ?LOCALHOST()},
+	    {ipfamily,                  Family},
+	    {ip,                        ?LOCALHOST(Family)},
 	    {case_top_dir,              CaseTopDir},
 	    {agent_dir,                 AgTopDir},
 	    {agent_conf_dir,            AgConfDir},
@@ -410,7 +413,9 @@ all() ->
      {group, event_tests}, 
      {group, event_tests_mt}, 
      discovery, 
-     {group, tickets} 
+     {group, tickets}, 
+     {group, ipv6},
+     {group, ipv6_mt}
     ].
 
 groups() -> 
@@ -545,8 +550,28 @@ groups() ->
       [
        otp8395_1
       ]
-     }
+     },
+     {ipv6, [], ipv6_tests()},
+     {ipv6_mt, [], ipv6_tests()}
+
     ].
+
+ipv6_tests() ->
+    [
+     register_agent1,
+     simple_sync_get_next3,
+     simple_async_get2,
+     simple_sync_get3,
+     simple_async_get_next2,
+     simple_sync_set3,
+     simple_async_set2,
+     simple_sync_get_bulk2,
+     simple_async_get_bulk3,
+     misc_async2,
+     inform1,
+     inform_swarm
+    ].
+
 
 init_per_group(request_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
@@ -556,10 +581,26 @@ init_per_group(event_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(ipv6_mt = GroupName, Config) ->
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    ipv6_init(
+	      snmp_test_lib:init_group_top_dir(
+		GroupName,
+		[{manager_net_if_module, snmpm_net_if_mt} | Config]));
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
+init_per_group(ipv6 = GroupName, Config) -> 
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
-
-	    
+   
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?
     lists:keydelete(snmp_group_top_dir, 1, Config).
@@ -1508,7 +1549,7 @@ register_agent3(Config) when is_list(Config) ->
     TargetName2 = "agent3", 
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{tdomain,   transportDomainUdpIpv6},
-				   {address,   LocalHost},
+				   {address,   {0,0,0,0,0,0,0,1}},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
     TargetName3 = "agent4", 
@@ -5074,7 +5115,7 @@ inform_swarm_collector(N) ->
 inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _) 
   when ((N == SentAckCnt) and 
 	(N == RespCnt)    and
-	(N >= RecvCnt)) ->
+	(N =< RecvCnt)) ->
     p("inform_swarm_collector -> done when"
       "~n   N:          ~w"
       "~n   SentAckCnt: ~w"
@@ -5750,12 +5791,24 @@ fin_mgr_user(Conf) ->
 init_mgr_user_data1(Conf) ->
     Node = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
-    Addr       = ?config(ip, Conf),
+    IpFamily   = ?config(ipfamily, Conf),
+    Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok = mgr_user_register_agent(Node, TargetName, 
-				       [{address,   Addr},
-					{port,      Port},
-					{engine_id, "agentEngine"}]),
+    ?line ok =
+	case IpFamily of
+	    inet ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{address,   Ip},
+		   {port,      Port},
+		   {engine_id, "agentEngine"}]);
+	    inet6 ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{tdomain,   transportDomainUdpIpv6},
+		   {taddress,  {Ip, Port}},
+		   {engine_id, "agentEngine"}])
+	end,
     _Agents = mgr_user_which_own_agents(Node),
     ?DBG("Own agents: ~p", [_Agents]),
 
@@ -5780,12 +5833,24 @@ init_mgr_user_data2(Conf) ->
 	 "~n   Conf: ~p", [Conf]),
     Node       = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
-    Addr       = ?config(ip, Conf),
+    IpFamily   = ?config(ipfamily, Conf),
+    Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok = mgr_user_register_agent(Node, TargetName, 
-				       [{address,   Addr}, 
-					{port,      Port},
-					{engine_id, "agentEngine"}]),
+    ?line ok =
+	case IpFamily of
+	    inet ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{address,   Ip},
+		   {port,      Port},
+		   {engine_id, "agentEngine"}]);
+	    inet6 ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{tdomain,   transportDomainUdpIpv6},
+		   {taddress,  {Ip, Port}},
+		   {engine_id, "agentEngine"}])
+	end,
     _Agents = mgr_user_which_own_agents(Node),
     ?DBG("Own agents: ~p", [_Agents]),
 
@@ -6182,10 +6247,16 @@ await_stopped(Node, N) ->
 
 write_manager_config(Config) ->
     Dir  = ?config(manager_conf_dir, Config),
-    Ip   = ?config(ip, Config),
-    Addr = tuple_to_list(Ip),
-    snmp_config:write_manager_snmp_files(Dir, Addr, ?MGR_PORT, 
-					 ?MGR_MMS, ?MGR_ENGINE_ID, [], [], []).
+    Ip = tuple_to_list(?config(ip, Config)),
+    {Addr, Port} =
+	case ?config(ipfamily, Config) of
+	    inet ->
+		{Ip, ?MGR_PORT};
+	    inet6 ->
+		{transportDomainUdpIpv6, {Ip, ?MGR_PORT}}
+	end,
+    snmp_config:write_manager_snmp_files(
+      Dir, Addr, Port, ?MGR_MMS, ?MGR_ENGINE_ID, [], [], []).
 
 write_manager_conf(Dir) ->
     Port = "5000",
@@ -6214,25 +6285,27 @@ write_manager_conf(Dir, Str) ->
 
 write_agent_config(Vsns, Conf) ->
     Dir = ?config(agent_conf_dir, Conf),
-    Ip  = ?config(ip, Conf),
-    ?line Addr = tuple_to_list(Ip),
-    ?line ok = write_agent_config_files(Dir, Vsns, Addr),
+    ?line Ip  = tuple_to_list(?config(ip, Conf)),
+    ?line Domain =
+	case ?config(ipfamily, Conf) of
+	    inet ->
+		snmpUDPDomain;
+	    inet6 ->
+		transportDomainUdpIpv6
+	end,
+    ?line ok = write_agent_config_files(Dir, Vsns, Domain, Ip),
     ?line ok = update_agent_usm(Vsns, Dir),
     ?line ok = update_agent_community(Vsns, Dir),
     ?line ok = update_agent_vacm(Vsns, Dir),
-    ?line ok = write_agent_target_addr_conf(Dir, Addr, Vsns),
+    ?line ok = write_agent_target_addr_conf(Dir, Domain, Ip, Vsns),
     ?line ok = write_agent_target_params_conf(Dir, Vsns),
     ?line ok = write_agent_notify_conf(Dir),
     ok.
     
-write_agent_config_files(Dir, Vsns, Addr) ->
-    snmp_config:write_agent_snmp_files(Dir, Vsns, 
-				       Addr, ?MGR_PORT, 
-				       Addr, ?AGENT_PORT, 
-				       "mgr-test", "trap", 
-				       none, "", 
-				       ?AGENT_ENGINE_ID, 
-				       ?AGENT_MMS).
+write_agent_config_files(Dir, Vsns, Domain, Ip) ->
+    snmp_config:write_agent_snmp_files(
+      Dir, Vsns, Domain, {Ip, ?MGR_PORT}, {Ip, ?AGENT_PORT}, "mgr-test",
+      trap, none, "", ?AGENT_ENGINE_ID, ?AGENT_MMS).
 
 update_agent_usm(Vsns, Dir) ->
     case lists:member(v3, Vsns) of
@@ -6300,9 +6373,9 @@ update_agent_vacm(_Vsns, Dir) ->
              excluded, null}],
     snmp_config:update_agent_vacm_config(Dir, Conf).
 
-write_agent_target_addr_conf(Dir, Addr, Vsns) -> 
-    snmp_config:write_agent_snmp_target_addr_conf(Dir, Addr, ?MGR_PORT, 
-						  300, 3, Vsns).
+write_agent_target_addr_conf(Dir, Domain, Ip, Vsns) ->
+    snmp_config:write_agent_snmp_target_addr_conf(
+      Dir, Domain, {Ip, ?MGR_PORT}, 300, 3, Vsns).
 
 write_agent_target_params_conf(Dir, Vsns) -> 
     F = fun(v1) -> {"target_v1", v1,  v1,  "all-rights", noAuthNoPriv};
@@ -6426,3 +6499,5 @@ formated_timestamp() ->
 %% p(TName, F, A) ->
 %%     io:format("~w -> " ++ F ++ "~n", [TName|A]).
 
+ipv6_init(Config) when is_list(Config) ->
+    [{ipfamily, inet6} | Config].

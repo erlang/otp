@@ -273,25 +273,28 @@ lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of
       <p>The notation of this scheme is similar to the more well known URL <c>HTTP</c>, and
         the full <c>corbaloc</c> BNF is:</p>
       <code type="none"><![CDATA[
-<corbaloc>         =  "corbaloc:"<obj_addr_list>["/"<key_string>] 
-<obj_addr_list>    = [<obj_addr>","]*<obj_addr> 
-<obj_addr>         = <prot_addr> | <future_prot_addr> 
-<prot_addr>        = <rir_prot_addr> | <iiop_prot_addr> 
-<rir_prot_addr>    = <rir_prot_token>":"  
-<rir_prot_token>   = rir  
-<future_prot_addr> = <future_prot_id><future_prot_addr>
-<future_prot_id>   = <future_prot_token>":" 
-<iiop_prot_addr>   = <iiop_id><iiop_addr>
-<iiop_id>          = <iiop_default> | <iiop_prot_token>":"  
-<iiop_default>     = ":"  
-<iiop_prot_token>  = "iiop"  
-<iiop_addr>        = <version><host>[":"<port>] 
-<host>             = DNS-style Host Name | ip_address 
-<version>          = <major>"."<minor>"@"  | empty_string 
-<port>             = number 
-<major>            = number 
-<minor>            = number
-<key_string>       = for example NameService
+<corbaloc>            =  "corbaloc:"<obj_addr_list>["/"<key_string>] 
+<obj_addr_list>       = [<obj_addr>","]*<obj_addr> 
+<obj_addr>            = <prot_addr> | <future_prot_addr> 
+<prot_addr>           = <rir_prot_addr> | <iiop_prot_addr> 
+<rir_prot_addr>       = <rir_prot_token>":"  
+<rir_prot_token>      = rir  
+<future_prot_addr>    = <future_prot_id><future_prot_addr>
+<future_prot_id>      = <future_prot_token>":" 
+<iiop_prot_addr>      = <iiop_id><iiop_addr>
+<iiop_id>             = <iiop_default> | <iiop_prot_token>":"  
+<iiop_default>        = ":"  
+<iiop_prot_token>     = "iiop"  
+<iiop_addr>           = <version><host>[":"<port>] 
+<host>                = <DNS-style Host Name> | <ip_v4_address> | "["<ip_v6_address>"]"
+<version>             = <major>"."<minor>"@"  | empty_string 
+<port>                = number 
+<major>               = number 
+<minor>               = number
+<DNS-style Host Name> = string
+<ip_v4_address>       = string
+<ip_v6_address>       = string
+<key_string>          = for example NameService
       ]]></code>
       <p>The <c>corbaloc</c> scheme consists of 3 parts:</p>
       <list type="bulleted">

@@ -33,7 +33,46 @@
   </header>
 
 
-  <section><title>Orber 3.6.27</title>
+  <section><title>Orber 3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The following functions have been corrected so they
+	    work properly with IPv6 addresses. </p> <list>
+	    <item><c>corba:resolve_initial_references_remote/2/3</c></item>
+	    <item><c>corba:list_initial_references_remote/1/2</c></item>
+	    <item><c>corba:string_to_object/1/2</c></item> </list>
+          <p>
+	    Own Id: OTP-12016</p>
+        </item>
+        <item>
+	    <p> A couple of macros were malformed, missing commas:
+	    PROFILEBODY_1_1_TYPEDEF and PROFILEBODY_1_2_TYPEDEF.
+	    Thanks to Vlad Dumitrescu. </p>
+          <p>
+	    Own Id: OTP-12062</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> It is now possible to add listen interfaces for IPv6
+	    when orber is default configured for IPv4 and the other
+	    way around. For more information, consult the User's
+	    Guide and the orber module Reference Manual. </p>
+          <p>
+	    Own Id: OTP-12007</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.27</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

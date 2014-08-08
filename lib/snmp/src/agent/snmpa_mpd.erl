@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 
 -export([init/1, reset/0, inc/1, counters/0, 
 	 discarded_pdu/1,
-	 process_packet/6, process_packet/7, 
+	 process_packet/5, process_packet/6, process_packet/7,
 	 generate_response_msg/5, generate_response_msg/6, 
 	 generate_msg/5, generate_msg/6, 
 	 generate_discovery_msg/4, 
@@ -113,22 +113,30 @@ reset() ->
 %    length(snmp_pdus:enc_message(M)) + 4.
 
 %%-----------------------------------------------------------------
-%% Func: process_packet(Packet, TDomain, TAddress, State, Log) ->
+%% Func: process_packet(Packet, Domain, Address, State, Log) ->
 %%       {ok, SnmpVsn, Pdu, PduMS, ACMData} | {discarded, Reason}
 %% Types: Packet = binary()
-%%        TDomain = snmpUDPDomain | transportDomain()
-%%        TAddress = {Ip, Udp} (*but* depends on TDomain)
+%%        Domain = snmpUDPDomain | transportDomain()
+%%        Address = {Ip, Udp} (*but* depends on Domain)
 %%        State = #state
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
-process_packet(Packet, TDomain, TAddress, State, NoteStore, Log) ->
+process_packet(Packet, From, State, NoteStore, Log) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    process_packet(Packet, TDomain, TAddress, LocalEngineID, 
-		   State, NoteStore, Log).
+    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
-process_packet(Packet, TDomain, TAddress, LocalEngineID, 
-	       State, NoteStore, Log) ->
+process_packet(
+  Packet, Domain, Address, LocalEngineID, State, NoteStore, Log) ->
+    From = {Domain, Address},
+    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
+
+process_packet(Packet, Domain, Address, State, NoteStore, Log)
+  when is_atom(Domain) ->
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
+    From = {Domain, Address},
+    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log);
+process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
     inc(snmpInPkts),
     case catch snmp_pdus:dec_message_only(binary_to_list(Packet)) of
 
@@ -136,17 +144,17 @@ process_packet(Packet, TDomain, TAddress, LocalEngineID,
 	  when State#state.v1 =:= true ->
 	    ?vlog("v1, community: ~s", [Community]),
 	    HS = ?empty_msg_size + length(Community),
-	    v1_v2c_proc('version-1', NoteStore, Community, 
-			TDomain, TAddress, 
-			LocalEngineID, Data, HS, Log, Packet);
+	    v1_v2c_proc(
+	      'version-1', NoteStore, Community, From,
+	      LocalEngineID, Data, HS, Log, Packet);
 
 	#message{version = 'version-2', vsn_hdr = Community, data = Data}
 	  when State#state.v2c =:= true ->
 	    ?vlog("v2c, community: ~s", [Community]),
 	    HS = ?empty_msg_size + length(Community),
-	    v1_v2c_proc('version-2', NoteStore, Community, 
-			TDomain, TAddress, 
-			LocalEngineID, Data, HS, Log, Packet);
+	    v1_v2c_proc(
+	      'version-2', NoteStore, Community, From,
+	      LocalEngineID, Data, HS, Log, Packet);
 
 	#message{version = 'version-3', vsn_hdr = V3Hdr, data = Data}
 	  when State#state.v3 =:= true ->
@@ -154,9 +162,9 @@ process_packet(Packet, TDomain, TAddress, LocalEngineID,
 		  [V3Hdr#v3_hdr.msgID,
 		   V3Hdr#v3_hdr.msgFlags,
 		   V3Hdr#v3_hdr.msgSecurityModel]),
-	    v3_proc(NoteStore, Packet, 
-		    TDomain, TAddress, 
-		    LocalEngineID, V3Hdr, Data, Log);
+	    v3_proc(
+	      NoteStore, Packet, From,
+	      LocalEngineID, V3Hdr, Data, Log);
 
 	{'EXIT', {bad_version, Vsn}} ->
 	    ?vtrace("exit: bad version: ~p",[Vsn]),
@@ -183,11 +191,32 @@ discarded_pdu(Variable) -> inc(Variable).
 %%-----------------------------------------------------------------
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
-v1_v2c_proc(Vsn, NoteStore, Community, Domain, 
-	    {Ip, Udp}, LocalEngineID, 
-	    Data, HS, Log, Packet) ->
-    TDomain  = snmp_conf:mk_tdomain(Domain), 
-    TAddress = snmp_conf:mk_taddress(Domain, Ip, Udp),
+v1_v2c_proc(
+  Vsn, NoteStore, Community, From,
+  LocalEngineID, Data, HS, Log, Packet) ->
+    try
+	case From of
+	    {D, A} when is_atom(D) ->
+		{snmp_conf:mk_tdomain(D),
+		 snmp_conf:mk_taddress(D, A)};
+	    {_, P} = A when is_integer(P) ->
+		{snmp_conf:mk_tdomain(),
+		 snmp_conf:mk_taddress(A)}
+	end
+    of
+	{TDomain, TAddress} ->
+	    v1_v2c_proc_dec(
+	      Vsn, NoteStore, Community, TDomain, TAddress,
+	      LocalEngineID, Data, HS, Log, Packet)
+    catch
+	_ ->
+	    {discarded, {badarg, From}}
+    end.
+
+
+v1_v2c_proc_dec(
+  Vsn, NoteStore, Community, TDomain, TAddress,
+  LocalEngineID, Data, HS, Log, Packet) ->
     AgentMS  = get_engine_max_message_size(LocalEngineID),
     MgrMS    = snmp_community_mib:get_target_addr_ext_mms(TDomain, TAddress),
     PduMS    = case MgrMS of
@@ -214,7 +243,7 @@ v1_v2c_proc(Vsn, NoteStore, Community, Domain,
 	    case Pdu#pdu.type of
 		'set-request' ->
 		    %% Check if this message has already been processed
-		    Key = {agent, Ip, ReqId},
+		    Key = {agent, {TDomain, TAddress}, ReqId},
 		    case snmp_note_store:get_note(NoteStore, Key) of
 			undefined -> 
 			    %% Set the processed note _after_ pdu processing. 
@@ -236,13 +265,7 @@ v1_v2c_proc(Vsn, NoteStore, Community, Domain,
 	    {discarded, Reason};
 	_TrapPdu ->
 	    {discarded, trap_pdu}
-    end;
-v1_v2c_proc(_Vsn, _NoteStore, _Community, snmpUDPDomain, TAddress, 
-	    _LocalEngineID, _Data, _HS, _Log, _Packet) ->
-    {discarded, {badarg, TAddress}};
-v1_v2c_proc(_Vsn, _NoteStore, _Community, TDomain, _TAddress, 
-	    _LocalEngineID, _Data, _HS, _Log, _Packet) ->
-    {discarded, {badarg, TDomain}}.
+    end.
 
 sec_model('version-1') -> ?SEC_V1;
 sec_model('version-2') -> ?SEC_V2C.
@@ -252,8 +275,7 @@ sec_model('version-2') -> ?SEC_V2C.
 %% Handles a SNMPv3 Message, following the procedures in rfc2272,
 %% section 4.2 and 7.2
 %%-----------------------------------------------------------------
-v3_proc(NoteStore, Packet, _TDomain, _TAddress, LocalEngineID, 
-	V3Hdr, Data, Log) ->
+v3_proc(NoteStore, Packet, _From, LocalEngineID, V3Hdr, Data, Log) ->
     case (catch v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log)) of
 	{'EXIT', Reason} ->
 	    exit(Reason);
@@ -999,7 +1021,7 @@ generate_discovery_msg(NoteStore, {TDomain, TAddress},
 		       InitialUserName, 
 		       ContextName, Timeout) ->
 
-    {ok, {_Domain, Address}} = transform_taddr(TDomain, TAddress),
+    {ok, {Domain, Address}} = transform_taddr(TDomain, TAddress),
 
     %% 7.1.7
     ?vdebug("generate_discovery_msg -> 7.1.7 (~w)", [ManagerEngineID]),
@@ -1041,7 +1063,7 @@ generate_discovery_msg(NoteStore, {TDomain, TAddress},
 	    %% Log(Packet),
 	    inc_snmp_out_vars(Pdu),
 	    ?vdebug("generate_discovery_msg -> done", []),
-	    {Packet, Address};
+	    {Domain, Address, Packet};
 
 	Error ->
 	    throw(Error)
@@ -1081,8 +1103,22 @@ transform_taddr(?transportDomainUdpIpv4, [A, B, C, D, P1, P2]) ->
     {ok, {Domain, Address}};
 transform_taddr(?transportDomainUdpIpv4, BadAddr) ->
     {error, {bad_transportDomainUdpIpv4_address, BadAddr}};
-transform_taddr(?transportDomainUdpIpv6, 
-		[A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
+transform_taddr(
+  ?transportDomainUdpIpv6,
+  [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16,
+   P1, P2]) ->
+    Domain = transportDomainUdpIpv6,
+    Addr =
+	{(A1 bsl 8) bor A2, (A3 bsl 8) bor A4,
+	 (A5 bsl 8) bor A6, (A7 bsl 8) bor A8,
+	 (A9 bsl 8) bor A10, (A11 bsl 8) bor A12,
+	 (A13 bsl 8) bor A14, (A15 bsl 8) bor A16},
+    Port = P1 bsl 8 + P2,
+    Address = {Addr, Port},
+    {ok, {Domain, Address}};
+transform_taddr(
+  ?transportDomainUdpIpv6,
+  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
     Domain  = transportDomainUdpIpv6, 
     Addr    = {A1, A2, A3, A4, A5, A6, A7, A8},
     Port    = P1 bsl 8 + P2,
@@ -1171,6 +1207,9 @@ mk_v1_v2_packet_list([{Domain, Addr} | T],
     %% Sending from default UDP port
     inc_snmp_out_vars(Pdu),
     Entry = {Domain, Addr, Packet},
+    %% It would be cleaner to return {To, Packet} to not
+    %% break the abstraction for an address on the
+    %% {Domain, Address} format.
     mk_v1_v2_packet_list(T, Packet, Len, Pdu, [Entry | Acc]).
 
 
@@ -1277,6 +1316,9 @@ mk_v3_packet_entry(NoteStore, Domain, Addr,
 			     req_id        = Pdu#pdu.request_id},
 	    snmp_note_store:set_note(NoteStore, 1500, CacheKey, CacheVal),
 	    inc_snmp_out_vars(Pdu),
+	    %% It would be cleaner to return {To, Packet} to not
+	    %% break the abstraction for an address on the
+	    %% {Domain, Address} format.
 	    {ok, {Domain, Addr, Data}}
     end.
 

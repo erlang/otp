@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,6 +41,7 @@
 -compile({no_auto_import,[error/1]}).
 -export([init/0, configure/1]).
 -export([intContextTable/1, intContextTable/3,
+	 intAgentTransportDomain/1, intAgentTransports/1,
 	 intAgentUDPPort/1, intAgentIpAddress/1,
 	 snmpEngineID/1,
 	 snmpEngineBoots/1,
@@ -51,7 +52,7 @@
 	 set_engine_boots/1, set_engine_time/1,
 	 table_next/2, check_status/3]).
 -export([add_context/1, delete_context/1]).
--export([check_agent/1, check_context/1]).
+-export([check_agent/2, check_context/1, order_agent/2]).
 
 
 %%-----------------------------------------------------------------
@@ -115,54 +116,46 @@ do_configure(Dir) ->
 
 read_internal_config_files(Dir) ->
     ?vdebug("read context config file",[]),
-    Gen    = fun(D, Reason) -> 
-		     convert_context(D, Reason) 
-	     end,
-    Filter = fun(Contexts) -> Contexts end,
-    Check  = fun(Entry) -> check_context(Entry) end,
-    [Ctxs] = snmp_conf:read_files(Dir, [{Gen, Filter, Check, "context.conf"}]),
+    Gen    = fun gen_context/2,
+    Order  = fun snmp_conf:no_order/2,
+    Filter = fun snmp_conf:no_filter/1,
+    Check  = fun(Entry, State) -> {check_context(Entry), State} end,
+    [Ctxs] =
+	snmp_conf:read_files
+	  (Dir, [{"context.conf", Gen, Order, Check, Filter}]),
     Ctxs.
-
 
 read_agent(Dir) ->
     ?vdebug("read agent config file", []),
-    FileName = "agent.conf", 
-    Check    = fun(Entry) -> check_agent(Entry) end,
+    FileName = "agent.conf",
     File     = filename:join(Dir, FileName), 
-    Agent    = 
+    Conf0    =
 	try
-	    snmp_conf:read(File, Check)
+	    snmp_conf:read(File, fun order_agent/2, fun check_agent/2)
 	catch
 	    throw:{error, Reason} ->
 		error({failed_reading_config_file, Dir, FileName, Reason})
 	end,
-    sort_agent(Agent).
-
-
-%%-----------------------------------------------------------------
-%% Make sure that each mandatory agent attribute is present, and
-%% provide default values for the other non-present attributes.
-%%-----------------------------------------------------------------
-sort_agent(L) ->
-    Mand = [{intAgentIpAddress,        mandatory},
-	    {intAgentUDPPort,          mandatory},
-	    {snmpEngineMaxMessageSize, mandatory},
-	    {snmpEngineID,             mandatory}],
-    {ok, L2} = snmp_conf:check_mandatory(L, Mand),
-    lists:keysort(1, L2).
+    Mand =
+	[{intAgentTransports,       mandatory},
+	 {snmpEngineMaxMessageSize, mandatory},
+	 {snmpEngineID,             mandatory}],
+    {ok, Conf} = snmp_conf:check_mandatory(Conf0, Mand),
+    Conf.
 
 
 %%-----------------------------------------------------------------
 %% Generate a context.conf file.
 %%-----------------------------------------------------------------
-convert_context(Dir, _Reason) ->
+gen_context(Dir, _Reason) ->
     config_err("missing context.conf file => generating a default file", []),
     File = filename:join(Dir, "context.conf"),
     case file:open(File, [write]) of
 	{ok, Fid} ->
 	    ok = io:format(Fid, "~s\n", [context_header()]),
 	    ok = io:format(Fid, "%% The default context\n\"\".\n", []),
-	    file:close(Fid);
+	    file:close(Fid),
+	    [];
 	{error, Reason} ->
             file:delete(File),
 	    error({failed_creating_file, File, Reason})
@@ -196,10 +189,44 @@ check_context(Context) ->
 %%  Agent
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
-check_agent({intAgentIpAddress, Value}) -> 
-    snmp_conf:check_ip(Value);
-check_agent({intAgentUDPPort, Value}) -> 
-    snmp_conf:check_integer(Value);
+check_agent(Entry, undefined) ->
+    check_agent(Entry, {snmp_target_mib:default_domain(), undefined});
+check_agent({intAgentTransportDomain, Domain}, {_, Port}) ->
+    {snmp_conf:check_domain(Domain), {Domain, Port}};
+check_agent({intAgentUDPPort, Port}, {Domain, _}) ->
+    ok = snmp_conf:check_port(Port),
+    {ok, {Domain, Port}};
+check_agent({intAgentIpAddress, _}, {_, undefined}) ->
+    error({missing_mandatory, intAgentUDPPort});
+check_agent({intAgentIpAddress = Tag, Ip} = Entry, {Domain, Port} = State) ->
+    {case snmp_conf:check_ip(Domain, Ip) of
+	 ok ->
+	     [Entry,
+	      {intAgentTransports, [{Domain, {Ip, Port}}]}];
+	 {ok, FixedIp} ->
+	     [{Tag, FixedIp},
+	      {intAgentTransports, [{Domain, {FixedIp, Port}}]}]
+     end, State};
+check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State) ->
+    CheckedTransports =
+	[case
+	     case Port of
+		 undefined ->
+		     snmp_conf:check_address(Domain, Address);
+		 _ ->
+		     snmp_conf:check_address(Domain, Address, Port)
+	     end
+	 of
+	     ok ->
+		 Transport;
+	     {ok, FixedAddress} ->
+		 {Domain, FixedAddress}
+	 end
+	 || {Domain, Address} = Transport <- Transports],
+    {{ok, {Tag, CheckedTransports}}, State};
+check_agent(Entry, State) ->
+    {check_agent(Entry), State}.
+
 %% This one is kept for backwards compatibility
 check_agent({intAgentMaxPacketSize, Value}) -> 
     snmp_conf:check_packet_size(Value);
@@ -209,6 +236,14 @@ check_agent({snmpEngineID, Value}) ->
     snmp_conf:check_string(Value);
 check_agent(X) -> 
     error({invalid_agent_attribute, X}).
+
+%% Ordering function to sort intAgentTransportDomain first
+%% hence before intAgentIpAddress.  Sort other entries on the key.
+order_agent(EntryA, EntryB) ->
+    snmp_conf:keyorder(
+      1, EntryA, EntryB,
+      [intAgentTransportDomain, intAgentUDPPort | sort]).
+
 
 
 maybe_create_table(Name) ->
@@ -381,6 +416,14 @@ intAgentUDPPort(Op) ->
 
 intAgentIpAddress(Op) ->
     snmp_generic:variable_func(Op, db(intAgentIpAddress)).
+
+intAgentTransportDomain(Op) ->
+    snmp_generic:variable_func(Op, db(intAgentTransportDomain)).
+
+intAgentTransports(Op) ->
+    snmp_generic:variable_func(Op, db(intAgentTransports)).
+
+
 
 snmpEngineID(print) ->
     VarAndValue = [{snmpEngineID, snmpEngineID(get)}],

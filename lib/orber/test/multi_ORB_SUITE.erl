@@ -582,12 +582,12 @@ proxy_interface_ipv6_api2() ->
 
     IOR1 = ?match(#'IOP_IOR'{},
 		  orber_test_lib:remote_apply(ClientNode, corba, string_to_object,
-					      ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
+					      ["corbaloc::1.2@["++IP++"]:"++integer_to_list(ServerPort)++"/NameService"])),
     ?match({'external', {IP, ServerPort, _ObjectKey, _Counter, _TP, _NewHD}},
 	   orber_test_lib:remote_apply(ClientNode, iop_ior, get_key, [IOR1])),
     IOR2 = ?match(#'IOP_IOR'{},
 		  orber_test_lib:remote_apply(ClientNode, corba, string_to_object,
-					      ["corbaloc::1.2@"++Loopback++":"++integer_to_list(ServerPort)++"/NameService"])),
+					      ["corbaloc::1.2@["++Loopback++"]:"++integer_to_list(ServerPort)++"/NameService"])),
     ?match({'external', {Loopback, ServerPort, _ObjectKey, _Counter, _TP, _NewHD}},
 	   orber_test_lib:remote_apply(ClientNode, iop_ior, get_key, [IOR2])),
     ok.

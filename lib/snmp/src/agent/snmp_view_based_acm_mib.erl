@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -123,15 +123,18 @@ do_reconfigure(Dir) ->
 
 read_vacm_config_files(Dir) ->
     ?vdebug("read vacm config file",[]),
-    Gen    = fun(_D, _Reason) -> ok end,
-    Filter = fun(Vacms) -> 
-                     Sec2Group = [X || {vacmSecurityToGroup, X} <- Vacms],
-                     Access = [X || {vacmAccess, X} <- Vacms],
-                     View = [X || {vacmViewTreeFamily, X} <- Vacms],
-                     {Sec2Group, Access, View}
-             end,
-    Check  = fun(Entry) -> check_vacm(Entry) end,
-    [Vacms] = snmp_conf:read_files(Dir, [{Gen, Filter, Check, "vacm.conf"}]),
+    Gen    = fun snmp_conf:no_gen/2,
+    Order  = fun snmp_conf:no_order/2,
+    Check  = fun (Entry, State) -> {check_vacm(Entry), State} end,
+    Filter =
+	fun (Vacms) ->
+		Sec2Group = [X || {vacmSecurityToGroup, X} <- Vacms],
+		Access = [X || {vacmAccess, X} <- Vacms],
+		View = [X || {vacmViewTreeFamily, X} <- Vacms],
+		{Sec2Group, Access, View}
+	end,
+    [Vacms] =
+	snmp_conf:read_files(Dir, [{"vacm.conf", Gen, Order, Check, Filter}]),
     Vacms.
 
 %%-----------------------------------------------------------------

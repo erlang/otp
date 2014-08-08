@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@
 
 	 get_req/2, get_next_req/1,
 
-	 config/5,
+	 config/5, config/6,
 	 delete_files/1, 
 	 copy_file/2, 
 	 update_usm/2, 
@@ -232,13 +232,14 @@ init_case(Config) when is_list(Config) ->
     MgrNode    = ?config(snmp_mgr,    Config),
     MasterNode = ?config(snmp_master, Config),
     %% MasterNode = node(),
-
+    IpFamily  = proplists:get_value(ipfamily, Config, inet),
+    
     SaHost         = ?HOSTNAME(SaNode),
     MgrHost        = ?HOSTNAME(MgrNode),
     MasterHost     = ?HOSTNAME(MasterNode),
-    {ok, MasterIP} = snmp_misc:ip(MasterHost),
-    {ok, MIP}      = snmp_misc:ip(MgrHost),
-    {ok, SIP}      = snmp_misc:ip(SaHost),
+    {ok, MasterIP} = snmp_misc:ip(MasterHost, IpFamily),
+    {ok, MIP}      = snmp_misc:ip(MgrHost, IpFamily),
+    {ok, SIP}      = snmp_misc:ip(SaHost, IpFamily),
 
 
     put(mgr_node,    MgrNode),
@@ -250,6 +251,7 @@ init_case(Config) when is_list(Config) ->
     put(mip,         tuple_to_list(MIP)),
     put(masterip,    tuple_to_list(MasterIP)),
     put(sip,         tuple_to_list(SIP)),
+    put(ipfamily,    IpFamily),
     
     MibDir = ?config(mib_dir, Config),
     put(mib_dir, MibDir),
@@ -358,6 +360,7 @@ run(Mod, Func, Args, Opts) ->
 			      {packet_server_debug,true},
 			      {debug,true},
 			      {agent, get(master_host)}, 
+			      {ipfamily, get(ipfamily)},
 			      {agent_udp, 4000},
 			      {trap_udp, 5000},
 			      {recbuf,65535},
@@ -1368,16 +1371,35 @@ stop_node(Node) ->
 %%%-----------------------------------------------------------------
 
 config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
+    config(Vsns, MgrDir, AgentConfDir, MIp, AIp, inet).
+
+config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?LOG("config -> entry with"
-	 "~n   Vsns:         ~p" 
-	 "~n   MgrDir:       ~p" 
-	 "~n   AgentConfDir: ~p" 
-	 "~n   MIp:          ~p" 
-	 "~n   AIp:          ~p", 
-	 [Vsns, MgrDir, AgentConfDir, MIp, AIp]),
-    ?line snmp_config:write_agent_snmp_files(AgentConfDir, Vsns, 
-					     MIp, ?TRAP_UDP, AIp, 4000, 
- 					     "test"),
+	 "~n   Vsns:         ~p"
+	 "~n   MgrDir:       ~p"
+	 "~n   AgentConfDir: ~p"
+	 "~n   MIp:          ~p"
+	 "~n   AIp:          ~p"
+	 "~n   IpFamily:     ~p",
+	 [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
+    ?line {Domain, ManagerAddr} =
+	case IpFamily of
+	    inet6 ->
+		Ipv6Domain = transportDomainUdpIpv6,
+		AgentIpv6Addr = {AIp, 4000},
+		ManagerIpv6Addr = {MIp, ?TRAP_UDP},
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns,
+		      Ipv6Domain, ManagerIpv6Addr, AgentIpv6Addr, "test"),
+		{Ipv6Domain, ManagerIpv6Addr};
+	    _ ->
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns, MIp, ?TRAP_UDP, AIp, 4000, "test"),
+		{snmpUDPDomain, {MIp, ?TRAP_UDP}}
+	  end,
+
     ?line case update_usm(Vsns, AgentConfDir) of
 	      true ->
 		  ?line copy_file(join(AgentConfDir, "usm.conf"),
@@ -1388,7 +1410,7 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
 	  end,
     ?line update_community(Vsns, AgentConfDir),
     ?line update_vacm(Vsns, AgentConfDir),
-    ?line write_target_addr_conf(AgentConfDir, MIp, ?TRAP_UDP, Vsns),
+    ?line write_target_addr_conf(AgentConfDir, Domain, ManagerAddr, Vsns),
     ?line write_target_params_conf(AgentConfDir, Vsns),
     ?line write_notify_conf(AgentConfDir),
     ok.
@@ -1486,7 +1508,7 @@ rewrite_usm_mgr(Dir, ShaKey, DesKey) ->
 	    {"mgrEngine", "newUser", "newUser", zeroDotZero, 
 	     usmHMACSHAAuthProtocol, "", "", 
 	     usmDESPrivProtocol, "", "", "", ShaKey, DesKey}], 
-    ok = snmp_config:write_agent_usm_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_usm_config(Dir, "", Conf).
 
 reset_usm_mgr(Dir) ->
     ?line ok = file:rename(join(Dir,"usm.old"),
@@ -1512,13 +1534,15 @@ update_vacm(_Vsn, Dir) ->
     
     
 write_community_conf(Dir, Conf) ->
-    snmp_config:write_agent_community_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_community_config(Dir, "", Conf).
 
 write_target_addr_conf(Dir, Conf) ->
-    snmp_config:write_agent_target_addr_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_target_addr_config(Dir, "", Conf).
 
-write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
-    snmp_config:write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, Vsns).
+write_target_addr_conf(Dir, Ip_or_Domain, Port_or_Addr, Vsns) ->
+    ?line ok =
+	snmp_config:write_agent_snmp_target_addr_conf(
+	  Dir, Ip_or_Domain, Port_or_Addr, Vsns).
 
 rewrite_target_addr_conf(Dir, NewPort) -> 
     ?DBG("rewrite_target_addr_conf -> entry with"
@@ -1534,8 +1558,7 @@ rewrite_target_addr_conf(Dir, NewPort) ->
     end,
 
     ?line [TrapAddr|Addrs] = 
-	snmp_conf:read(TAFile, 
-		       fun(R) -> rewrite_target_addr_conf_check(R) end),
+	snmp_conf:read(TAFile, fun rewrite_target_addr_conf_check/1),
 
     ?DBG("rewrite_target_addr_conf -> TrapAddr: ~p",[TrapAddr]),
 
@@ -1571,14 +1594,14 @@ write_target_params_conf(Dir, Vsns) ->
 	   (v3) -> {"target_v3", v3,  usm, "all-rights", noAuthNoPriv}
 	end,
     Conf = [F(Vsn) || Vsn <- Vsns],
-    snmp_config:write_agent_target_params_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_target_params_config(Dir, "", Conf).
 
 rewrite_target_params_conf(Dir, SecName, SecLevel) 
   when is_list(SecName) andalso is_atom(SecLevel) -> 
     ?line ok = file:rename(join(Dir,"target_params.conf"),
 			   join(Dir,"target_params.old")),
     Conf = [{"target_v3", v3, usm, SecName, SecLevel}],
-    snmp_config:write_agent_target_params_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_target_params_config(Dir, "", Conf).
 
 reset_target_params_conf(Dir) ->
     ?line ok = file:rename(join(Dir,"target_params.old"),
@@ -1587,12 +1610,12 @@ reset_target_params_conf(Dir) ->
 write_notify_conf(Dir) -> 
     Conf = [{"standard trap",   "std_trap",   trap}, 
 	    {"standard inform", "std_inform", inform}],
-    snmp_config:write_agent_notify_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_notify_config(Dir, "", Conf).
 
 write_view_conf(Dir) -> 
     Conf = [{2, [1,3,6], included, null},
 	    {2, ?tDescr_instance, excluded, null}], 
-    snmp_config:write_agent_view_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_view_config(Dir, "", Conf).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

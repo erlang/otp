@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -174,7 +174,7 @@ dec_pdu_tag(168) ->
 dec_pdu([164 | Bytes]) ->      % It's a trap
     Bytes2 = get_data_bytes(Bytes),
     {Enterprise, Rest1} = dec_oid_tag(Bytes2),
-    {{'IpAddress', AgentAddr}, Rest2} = dec_value(Rest1),
+    {{'IpAddress', [_, _, _, _] = AgentAddr}, Rest2} = dec_value(Rest1),
     {GenericTrap, Rest3} = dec_int_tag(Rest2),
     {SpecificTrap, Rest4} = dec_int_tag(Rest3),
     {{'TimeTicks', TimeStamp}, VBBytes} = dec_value(Rest4),
@@ -664,7 +664,9 @@ enc_value('BITS', Val) ->
     enc_oct_str_tag(bits_to_str(Val));
 enc_value('OBJECT IDENTIFIER', Val) ->
     enc_oid_tag(Val);
-enc_value('IpAddress', Val) ->
+enc_value('IpAddress', {A, B, C, D}) ->
+    enc_value('IpAddress', [A,B,C,D]);
+enc_value('IpAddress', Val) when is_list(Val) ->
     Bytes2 = enc_oct_str_notag(Val),
     Len2 = elength(length(Bytes2)),
     lists:append([64 | Len2],Bytes2);

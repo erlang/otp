@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1011,6 +1011,10 @@ table_construct_row(Name, RowIndex, Status, Cols) ->
 		defvals = Defs, status_col = StatusCol,
 		first_own_index = FirstOwnIndex, not_accessible = NoAccs} =
 	snmp_generic:table_info(Name),
+    ?vtrace(
+       "table_construct_row Indexes: ~p~n"
+       "    RowIndex: ~p",
+       [Indexes, RowIndex]),
     Keys = snmp_generic:split_index_to_keys(Indexes, RowIndex),
     OwnKeys = snmp_generic:get_own_indexes(FirstOwnIndex, Keys),
     Row = OwnKeys ++ snmp_generic:table_create_rest(length(OwnKeys) + 1,
