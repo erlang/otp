@@ -59,7 +59,11 @@ groups() ->
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]},
-     {hardening_tests, [], [max_sessions]}
+     {hardening_tests, [], [ssh_connect_nonegtimeout_connected_parallel,
+			    ssh_connect_nonegtimeout_connected_sequential,
+			    ssh_connect_negtimeout_parallel,
+			    ssh_connect_negtimeout_sequential,
+			    max_sessions]}
     ].
 
 
@@ -741,6 +745,98 @@ ms_passed(N1={_,_,M1}, N2={_,_,M2}) ->
     {0,{0,Min,Sec}} = calendar:time_difference(calendar:now_to_local_time(N1),
 					       calendar:now_to_local_time(N2)),
     1000 * (Min*60 + Sec + (M2-M1)/1000000).
+
+%%--------------------------------------------------------------------
+ssh_connect_negtimeout_parallel(Config) -> ssh_connect_negtimeout(Config,true).
+ssh_connect_negtimeout_sequential(Config) -> ssh_connect_negtimeout(Config,false).
+    
+ssh_connect_negtimeout(Config, Parallel) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    NegTimeOut = 2000,				% ms
+    ct:log("Parallel: ~p",[Parallel]),
+
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+					      {parallel_login, Parallel},
+					      {negotiation_timeout, NegTimeOut},
+					      {failfun, fun ssh_test_lib:failfun/2}]),
+    
+    {ok,Socket} = gen_tcp:connect(Host, Port, []),
+    ct:pal("And now sleeping 1.2*NegTimeOut (~p ms)...", [round(1.2 * NegTimeOut)]),
+    receive after round(1.2 * NegTimeOut) -> ok end,
+    
+    case inet:sockname(Socket) of
+	{ok,_} -> ct:fail("Socket not closed");
+	{error,_} -> ok
+    end.
+
+%%--------------------------------------------------------------------
+ssh_connect_nonegtimeout_connected_parallel() ->
+    [{doc, "Test that ssh connection does not timeout if the connection is established (parallel)"}].
+ssh_connect_nonegtimeout_connected_parallel(Config) ->
+    ssh_connect_nonegtimeout_connected(Config, true).
+
+ssh_connect_nonegtimeout_connected_sequential() ->
+    [{doc, "Test that ssh connection does not timeout if the connection is established (non-parallel)"}].
+ssh_connect_nonegtimeout_connected_sequential(Config) ->
+    ssh_connect_nonegtimeout_connected(Config, false).
+
+
+ssh_connect_nonegtimeout_connected(Config, Parallel) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    NegTimeOut = 20000,				% ms
+    ct:log("Parallel: ~p",[Parallel]),
+   
+    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+					       {parallel_login, Parallel},
+					       {negotiation_timeout, NegTimeOut},
+					       {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+
+    IO = ssh_test_lib:start_io_server(),
+    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
+    receive
+	{'EXIT', _, _} ->
+	    ct:fail(no_ssh_connection);  
+	ErlShellStart ->
+	    ct:pal("---Erlang shell start: ~p~n", [ErlShellStart]),
+	    one_shell_op(IO, NegTimeOut),
+	    one_shell_op(IO, NegTimeOut),
+	    ct:pal("And now sleeping 1.2*NegTimeOut (~p ms)...", [round(1.2 * NegTimeOut)]),
+	    receive after round(1.2 * NegTimeOut) -> ok end,
+	    one_shell_op(IO, NegTimeOut)
+    end,
+    exit(Shell, kill).
+
+
+one_shell_op(IO, TimeOut) ->
+    ct:pal("One shell op: Waiting for prompter"),
+    receive
+	ErlPrompt0 -> ct:log("Erlang prompt: ~p~n", [ErlPrompt0])
+	after TimeOut -> ct:fail("Timeout waiting for promter")
+    end,
+
+    IO ! {input, self(), "2*3*7.\r\n"},
+    receive
+	Echo0 -> ct:log("Echo: ~p ~n", [Echo0])
+	after TimeOut -> ct:fail("Timeout waiting for echo")
+    end,
+
+    receive
+	?NEWLINE -> ct:log("NEWLINE received", [])
+    after TimeOut -> 
+	    receive Any1 -> ct:log("Bad NEWLINE: ~p",[Any1])
+	    after 0 -> ct:fail("Timeout waiting for NEWLINE")
+	    end
+    end,
+
+    receive
+	Result0 -> ct:log("Result: ~p~n", [Result0])
+	after TimeOut ->  ct:fail("Timeout waiting for result")
+    end.
 
 %%--------------------------------------------------------------------
 
