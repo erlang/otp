@@ -994,7 +994,8 @@ int erl_print_term(FILE *fp, const ETERM *ep)
     case ERL_ATOM: {
 	char* adata = ERL_ATOM_PTR(ep);
 	/* FIXME: what if some weird locale is in use? */
-	if (!islower(adata[0]))
+	/* Tail-f: Do not assume a non-zero length */
+	if (ERL_ATOM_SIZE(ep) == 0 || !islower(adata[0]))
 	    doquote = 1;
 
 	for (i = 0; !doquote && i < ERL_ATOM_SIZE(ep); i++) 
