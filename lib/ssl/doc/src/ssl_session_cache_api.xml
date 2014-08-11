@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -79,17 +79,25 @@
     </func>
 
     <func>
-      <name>init() -> opaque() </name>
+      <name>init(Args) -> opaque() </name>
       <fsummary>Return cache reference</fsummary>
       <type>
-	<v></v>
+	<v>Args = proplists:proplist()</v>
+	<d>Will always include the property {role, client | server}. Currently this
+	is the only predefined property, there may also be user defined properties.
+	<seealso marker="ssl_app"> See also application environment variable
+	session_cb_init_args</seealso>
+	</d>
       </type>
       <desc>
 	<p>Performs possible initializations of the cache and returns
 	a reference to it that will be used as parameter to the other
-	api functions. Will be called by the cache handling processes
-	init function, hence putting the same requirements on it as
-	a normal process init function.
+	API functions. Will be called by the cache handling processes
+	init function, hence putting the same requirements on it as a
+	normal process init function. Note that this function will be
+	called twice when starting the ssl application, once with the
+	role client and once with the role server, as the ssl application
+	must be prepared to take on both roles.
 	</p>
       </desc>
     </func>

@@ -629,7 +629,7 @@ clear_pem_cache(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    [_,FilRefDb, _] = element(5, State),
+    [_,FilRefDb, _] = element(6, State),
     {Server, Client} = basic_verify_test_no_close(Config),
     2 = ets:info(FilRefDb, size), 
     ssl:clear_pem_cache(),
@@ -2339,7 +2339,7 @@ der_input(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    [CADb | _] = element(5, State),
+    [CADb | _] = element(6, State),
     [] = ets:tab2list(CADb).
     
 %%--------------------------------------------------------------------
