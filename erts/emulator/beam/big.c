@@ -1506,13 +1506,15 @@ Eterm uword_to_big(UWord x, Eterm *y)
 */
 Eterm small_to_big(Sint x, Eterm *y)
 {
+    Uint xu;
     if (x >= 0) {
+        xu = x;
 	*y = make_pos_bignum_header(1);
     } else {
-	x = -x;
+        xu = -(Uint)x;
 	*y = make_neg_bignum_header(1);
     }
-    BIG_DIGIT(y, 0) = x;
+    BIG_DIGIT(y, 0) = xu;
     return make_big(y);
 }
 
