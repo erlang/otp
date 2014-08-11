@@ -31,6 +31,7 @@ MODULES= \
 	a_SUITE \
 	after_SUITE \
 	alloc_SUITE \
+	async_ports_SUITE \
 	beam_SUITE \
 	beam_literals_SUITE \
 	bif_SUITE \
