@@ -1487,11 +1487,13 @@ real_path(Name,[Path|Paths],Acc,Links) ->
 			[""|_] = LinkPaths ->
 			    real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
 			LinkPaths ->
+                % windows currently does not allow creation of relative symlinks
+                % across different drives
 				case erlang:system_info(os_type) of
-                     {win32, _} ->
-                         real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
-                     _ ->
-                         real_path(Name,LinkPaths++Paths,Acc,[ThisFile|Links])
+                 {win32, _} ->
+                     real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
+                 _ ->
+                     real_path(Name,LinkPaths++Paths,Acc,[ThisFile|Links])
                 end
 		    end;
 		_ ->
