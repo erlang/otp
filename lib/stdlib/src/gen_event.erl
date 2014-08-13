@@ -49,8 +49,6 @@
 
 -import(error_logger, [error_msg/2]).
 
--define(reply(X), From ! {element(2,Tag), X}).
-
 -record(handler, {module             :: atom(),
 		  id = false,
 		  state,
@@ -249,49 +247,49 @@ handle_msg(Msg, Parent, ServerName, MSL, Debug) ->
 	{notify, Event} ->
 	    {Hib,MSL1} = server_notify(Event, handle_event, MSL, ServerName),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {sync_notify, Event}} ->
+	{_From, Tag, {sync_notify, Event}} ->
 	    {Hib, MSL1} = server_notify(Event, handle_event, MSL, ServerName),
-	    ?reply(ok),
+	    reply(Tag, ok),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
 	{'EXIT', From, Reason} ->
 	    MSL1 = handle_exit(From, Reason, MSL, ServerName),
 	    loop(Parent, ServerName, MSL1, Debug, false);
-	{From, Tag, {call, Handler, Query}} ->
+	{_From, Tag, {call, Handler, Query}} ->
 	    {Hib, Reply, MSL1} = server_call(Handler, Query, MSL, ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {add_handler, Handler, Args}} ->
+	{_From, Tag, {add_handler, Handler, Args}} ->
 	    {Hib, Reply, MSL1} = server_add_handler(Handler, Args, MSL),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {add_sup_handler, Handler, Args, SupP}} ->
+	{_From, Tag, {add_sup_handler, Handler, Args, SupP}} ->
 	    {Hib, Reply, MSL1} = server_add_sup_handler(Handler, Args, MSL, SupP),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {delete_handler, Handler, Args}} ->
+	{_From, Tag, {delete_handler, Handler, Args}} ->
 	    {Reply, MSL1} = server_delete_handler(Handler, Args, MSL,
 						  ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, false);
-	{From, Tag, {swap_handler, Handler1, Args1, Handler2, Args2}} ->
+	{_From, Tag, {swap_handler, Handler1, Args1, Handler2, Args2}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						     Args2, MSL, ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {swap_sup_handler, Handler1, Args1, Handler2, Args2,
+	{_From, Tag, {swap_sup_handler, Handler1, Args1, Handler2, Args2,
 		     Sup}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						Args2, MSL, Sup, ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, stop} ->
+	{_From, Tag, stop} ->
 	    catch terminate_server(normal, Parent, MSL, ServerName),
-	    ?reply(ok);
-	{From, Tag, which_handlers} ->
-	    ?reply(the_handlers(MSL)),
+	    reply(Tag, ok);
+	{_From, Tag, which_handlers} ->
+	    reply(Tag, the_handlers(MSL)),
 	    loop(Parent, ServerName, MSL, Debug, false);
-	{From, Tag, get_modules} ->
-	    ?reply(get_modules(MSL)),
+	{_From, Tag, get_modules} ->
+	    reply(Tag, get_modules(MSL)),
 	    loop(Parent, ServerName, MSL, Debug, false);
 	Other  ->
 	    {Hib, MSL1} = server_notify(Other, handle_info, MSL, ServerName),
@@ -302,6 +300,9 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     stop_handlers(MSL, ServerName),
     do_unlink(Parent, MSL),
     exit(Reason).
+
+reply({From, Ref}, Msg) ->
+    From ! {Ref, Msg}.
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
