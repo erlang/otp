@@ -273,6 +273,11 @@ obj:*/ssleay.*
    fun:AES_cbc_encrypt
    ...
 }
+{
+   crypto RC4 can do harmless word aligned read past end of input
+   Memcheck:Addr8
+   fun:RC4
+}
 
 {
 erts_bits_init_state; Why is this needed?
