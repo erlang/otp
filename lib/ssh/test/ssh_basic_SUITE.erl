@@ -53,7 +53,7 @@ all() ->
      {group, hardening_tests}
     ].
 
-groups() -> 
+groups() ->
     [{dsa_key, [], basic_tests()},
      {rsa_key, [], basic_tests()},
      {dsa_pass_key, [], [pass_phrase]},
@@ -63,7 +63,11 @@ groups() ->
 			    ssh_connect_nonegtimeout_connected_sequential,
 			    ssh_connect_negtimeout_parallel,
 			    ssh_connect_negtimeout_sequential,
-			    max_sessions]}
+			    max_sessions_ssh_connect_parallel,
+			    max_sessions_ssh_connect_sequential,
+			    max_sessions_sftp_start_channel_parallel,
+			    max_sessions_sftp_start_channel_sequential
+			   ]}
     ].
 
 
@@ -859,40 +863,87 @@ openssh_zlib_basic_test(Config) ->
 
 %%--------------------------------------------------------------------
 
-max_sessions(Config) ->
+max_sessions_ssh_connect_parallel(Config) -> 
+    max_sessions(Config, true, connect_fun(ssh__connect,Config)).
+max_sessions_ssh_connect_sequential(Config) -> 
+    max_sessions(Config, false, connect_fun(ssh__connect,Config)).
+
+max_sessions_sftp_start_channel_parallel(Config) -> 
+    max_sessions(Config, true, connect_fun(ssh_sftp__start_channel, Config)).
+max_sessions_sftp_start_channel_sequential(Config) -> 
+    max_sessions(Config, false, connect_fun(ssh_sftp__start_channel, Config)).
+
+
+%%%---- helpers:
+connect_fun(ssh__connect, Config) ->
+    fun(Host,Port) ->
+	    ssh_test_lib:connect(Host, Port, 
+				 [{silently_accept_hosts, true},
+				  {user_dir, ?config(priv_dir,Config)},
+				  {user_interaction, false},
+				  {user, "carni"},
+				  {password, "meat"}
+				 ])
+	    %% ssh_test_lib returns R when ssh:connect returns {ok,R}
+    end;
+connect_fun(ssh_sftp__start_channel, _Config) ->
+    fun(Host,Port) ->
+	    {ok,_Pid,ConnRef} =
+		ssh_sftp:start_channel(Host, Port, 
+				       [{silently_accept_hosts, true},
+					{user, "carni"},
+					{password, "meat"}
+				       ]),
+	    ConnRef
+    end.
+
+
+max_sessions(Config, ParallelLogin, Connect) when is_function(Connect,2) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
-    MaxSessions = 2,
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    MaxSessions = 5,
+    {Pid, Host, Port} = ssh_test_lib:daemon([
+					     {system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {user_passwords, [{"carni", "meat"}]},
-					     {parallel_login, true},
+					     {parallel_login, ParallelLogin},
 					     {max_sessions, MaxSessions}
 					    ]),
 
-    Connect = fun() ->
-		      R=ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-							  {user_dir, UserDir},
-							  {user_interaction, false},
-							  {user, "carni"},
-							  {password, "meat"}
-							 ]),
-		      ct:log("Connection ~p up",[R])
-	      end,
-
-    try [Connect() || _ <- lists:seq(1,MaxSessions)]
+    try [Connect(Host,Port) || _ <- lists:seq(1,MaxSessions)]
     of
-	_ ->
-	    ct:pal("Expect Info Report:",[]),
-	    try Connect()
+	Connections ->
+	    %% Step 1 ok: could set up max_sessions connections
+	    ct:log("Connections up: ~p",[Connections]),
+	    [_|_] = Connections,
+
+	    %% Now try one more than alowed:
+	    ct:pal("Info Report might come here...",[]),
+	    try Connect(Host,Port)
 	    of
-		_ConnectionRef ->
+		_ConnectionRef1 ->
 		    ssh:stop_daemon(Pid),
 		    {fail,"Too many connections accepted"}
 	    catch
 		error:{badmatch,{error,"Connection closed"}} ->
-		    ssh:stop_daemon(Pid),
-		    ok
+		    %% Step 2 ok: could not set up max_sessions+1 connections
+		    %% This is expected
+		    %% Now stop one connection and try to open one more
+		    ok = ssh:close(hd(Connections)),
+		    try Connect(Host,Port)
+		    of
+			_ConnectionRef1 ->
+			    %% Step 3 ok: could set up one more connection after killing one
+			    %% Thats good.
+			    ssh:stop_daemon(Pid),
+			    ok
+		    catch
+			error:{badmatch,{error,"Connection closed"}} ->
+			    %% Bad indeed. Could not set up one more connection even after killing
+			    %% one existing. Very bad.
+			    ssh:stop_daemon(Pid),
+			    {fail,"Does not decrease # active sessions"}
+		    end
 	    end
     catch
 	error:{badmatch,{error,"Connection closed"}} ->
