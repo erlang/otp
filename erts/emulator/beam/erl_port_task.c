@@ -76,6 +76,13 @@ do {					\
 #define  DTRACE_DRIVER(PROBE_NAME, PP) do {} while(0)
 #endif
 
+#define ERTS_SMP_LC_VERIFY_RQ(RQ, PP)					\
+    do {								\
+	ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));		\
+	ERTS_SMP_LC_ASSERT((RQ) == ((ErtsRunQueue *)			\
+				    erts_smp_atomic_read_nob(&(PP)->run_queue))); \
+    } while (0)
+
 erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 
 struct ErtsPortTaskQueue_ {
@@ -786,7 +793,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	erts_smp_port_lock(pp);
 	erts_smp_runq_lock(runq);
     }
-    
+
+    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
+
     if (erts_sched_stat.enabled) {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
 	Uint old = ERTS_PORT_SCHED_ID(pp, esdp->no);
@@ -828,6 +837,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	case ERTS_PORT_TASK_FREE: /* May be pushed in q at any time */
 	    reds += ERTS_PORT_REDS_FREE;
 	    erts_smp_runq_lock(runq);
+	    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 
 	    erts_unblock_fpe(fpe_was_unmasked);
 	    ASSERT(pp->status & ERTS_PORT_SFLG_FREE_SCHEDULED);
@@ -906,6 +916,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	port_task_free(ptp);
 
 	erts_smp_runq_lock(runq);
+	ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 
 	ptp = pop_task(ptqp);
     }
@@ -942,7 +953,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 #ifdef ERTS_SMP
 	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
 	ERTS_SMP_LC_ASSERT(runq != xrunq);
-	ERTS_SMP_LC_ASSERT(runq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
+	ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 	if (!xrunq) {
 #endif
 	    enqueue_port(runq, pp);
@@ -1052,6 +1063,7 @@ handle_remaining_tasks(ErtsRunQueue *runq, Port *pp)
 	    port_task_free(ptp);
 
 	    erts_smp_runq_lock(runq);
+	    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 	    ptp = pop_task(ptqps[i]);
 	}
     }
