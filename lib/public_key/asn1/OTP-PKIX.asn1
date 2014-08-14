@@ -452,23 +452,23 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 
    ecdsa-with-sha1 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA1
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha224 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA224
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha256 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA256
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha384 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA384
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha512 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA512
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    FIELD-ID-CLASS ::= CLASS {
 	&id OBJECT IDENTIFIER UNIQUE,
