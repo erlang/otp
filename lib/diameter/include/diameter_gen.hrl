@@ -453,8 +453,8 @@ pack_AVP(_, #diameter_avp{data = <<0:1, Data/binary>>} = Avp, Acc) ->
     {Rec, Failed} = Acc,
     {Rec, [{5014, Avp#diameter_avp{data = Data}} | Failed]};
 
-pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
-    case pack_arity(Name, M) of
+pack_AVP(Name, #diameter_avp{is_mandatory = M, name = AvpName} = Avp, Acc) ->
+    case pack_arity(Name, AvpName, M) of
         0 ->
             {Rec, Failed} = Acc,
             {Rec, [{if M -> 5001; true -> 5008 end, Avp} | Failed]};
@@ -462,10 +462,13 @@ pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
             pack(Arity, 'AVP', Avp, Acc)
     end.
 
-%% Give Failed-AVP special treatment since it'll contain any
-%% unrecognized mandatory AVP's.
-pack_arity(Name, M) ->
-    NF = Name /= 'Failed-AVP' andalso not is_failed(),
+%% Give Failed-AVP special treatment since (1) it'll contain any
+%% unrecognized mandatory AVP's and (2) the RFC 3588 grammar failed to
+%% allow for Failed-AVP in an answer-message.
+
+pack_arity(Name, AvpName, M) ->
+    IsFailed = Name == 'Failed-AVP' orelse is_failed(),
+
     %% Not testing just Name /= 'Failed-AVP' means we're changing the
     %% packing of AVPs nested within Failed-AVP, but the point of
     %% ignoring errors within Failed-AVP is to decode as much as
@@ -473,12 +476,18 @@ pack_arity(Name, M) ->
     %% packed into a dedicated field defeats that point. Note that we
     %% can't just test not is_failed() since this will be 'true' when
     %% packing an unknown AVP directly within Failed-AVP.
-    case NF andalso M andalso is_strict() of
-        true ->
-            0;
-        false ->
-            avp_arity(Name, 'AVP')
-    end.
+
+    pack_arity(IsFailed
+                 orelse {Name, AvpName} == {'answer-message', 'Failed-AVP'}
+                 orelse not M
+                 orelse not is_strict(),
+               Name).
+
+pack_arity(true, Name) ->
+    avp_arity(Name, 'AVP');
+
+pack_arity(false, _) ->
+    0.
 
 %% 3588:
 %%
