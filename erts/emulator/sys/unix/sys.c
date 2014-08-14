@@ -1980,7 +1980,7 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
      * Now it does. This is because we want to be able to guarantee that things
      * such as escripts and friends really have outputted all data before
      * terminating. This could potentially block the termination of the system
-     * for a very long time, but if the user want to terminate fast she should
+     * for a very long time, but if the user wants to terminate fast she should
      * use erlang:halt with flush=false.
      */
 

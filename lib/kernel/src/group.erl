@@ -206,7 +206,7 @@ io_request(Req, From, ReplyAs, Drv, Buf0) ->
 %%     {ok,ok,Buf};
 %%
 %% These put requests have to be synchronous to the driver as otherwise
-%% there is guarantee that the data has actually been printed.
+%% there is no guarantee that the data has actually been printed.
 io_request({put_chars,unicode,Chars}, Drv, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,utf8) of
 	Binary when is_binary(Binary) ->

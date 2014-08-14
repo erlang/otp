@@ -556,7 +556,7 @@ put_int16(N, Tail) ->
 %% the bytes have been put in the buffer of the port before an acknowledgement
 %% is sent back to the process sending the request. This command was added in
 %% OTP 17.3 to make sure that data sent from io:format is actually printed
-%% to the console before the stops when calling erlang:halt(integer()).
+%% to the console before the vm stops when calling erlang:halt(integer()).
 io_command({put_chars_sync, unicode,Cs,Reply}) ->
     {{command,[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs,utf8)]},Reply};
 io_command({put_chars, unicode,Cs}) ->

@@ -99,7 +99,7 @@ static volatile int cols_needs_update = FALSE;
 #define CTRL_OP_GET_UNICODE_STATE 101
 #define CTRL_OP_SET_UNICODE_STATE 102
 
-/* We use 1024 as the buf size as that was the default buff size of FILE streams
+/* We use 1024 as the buf size as that was the default buf size of FILE streams
    on all platforms that I checked. */
 #define TTY_BUFFSIZE 1024
 
@@ -689,8 +689,8 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
         /* Using sync means that we have to send an ok to the
            controlling process for each command call. We delay
            sending ok if the driver queue exceeds a certain size.
-           We do not set outselves as a busy port as this
-           could be very bad for user_drv if it gets blocked on
+           We do not set ourselves as a busy port, as this
+           could be very bad for user_drv, if it gets blocked on
            the port_command. */
         /* fall through */
     case OP_PUTC:
