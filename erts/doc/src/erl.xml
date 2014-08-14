@@ -1186,7 +1186,7 @@
 	    utilization.
 	    </p>
           </item>
-	  <tag><marker id="+swct"><c>+sws very_eager|eager|medium|lazy|very_lazy</c></marker></tag>
+	  <tag><marker id="+swct"><c>+swct very_eager|eager|medium|lazy|very_lazy</c></marker></tag>
 	  <item>
              <p>
 	       Set scheduler wake cleanup threshold. Default is <c>medium</c>.
