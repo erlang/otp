@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,41 +57,51 @@ all_versions_groups ()->
     ].
 
 key_cert_combinations() ->
-    [client_ec_server_ec,
-     client_rsa_server_ec,
-     client_ec_server_rsa,
-     client_rsa_server_rsa].
+    [client_ecdh_server_ecdh,
+     client_rsa_server_ecdh,
+     client_ecdh_server_rsa,
+     client_rsa_server_rsa,
+     client_ecdsa_server_ecdsa,
+     client_ecdsa_server_rsa,
+     client_rsa_server_ecdsa
+    ].
 
 %%--------------------------------------------------------------------
-init_per_suite(Config) ->
-    catch crypto:stop(),
+init_per_suite(Config0) ->
+    end_per_suite(Config0),
     try crypto:start() of
 	ok ->
-	    ssl:start(),
-	    Config
+	    %% make rsa certs using oppenssl
+	    Result =
+		(catch make_certs:all(?config(data_dir, Config0),
+				      ?config(priv_dir, Config0))),
+	    ct:log("Make certs  ~p~n", [Result]),
+	    Config1 = ssl_test_lib:make_ecdsa_cert(Config0),
+	    Config2 = ssl_test_lib:make_ecdh_rsa_cert(Config1),
+	    ssl_test_lib:cert_options(Config2)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
-    ssl:stop(),
+    application:stop(ssl),
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
-init_per_group(erlang_client, Config) ->
+init_per_group(erlang_client = Group, Config) ->
     case ssl_test_lib:is_sane_ecc(openssl) of
 	true ->
-	    common_init_per_group(erlang_client, [{server_type, openssl},
-						  {client_type, erlang} | Config]);
+	    common_init_per_group(Group, [{server_type, openssl},
+					  {client_type, erlang} | Config]);
 	false ->
 	    {skip, "Known ECC bug in openssl"}
     end;
 
-init_per_group(erlang_server, Config) ->
+init_per_group(erlang_server = Group, Config) ->
     case ssl_test_lib:is_sane_ecc(openssl) of 
 	true ->
-	    common_init_per_group(erlang_client, [{server_type, erlang},
-						  {client_type, openssl} | Config]);
+	    common_init_per_group(Group, [{server_type, erlang},
+					  {client_type, openssl} | Config]);
 	false ->
 	    {skip, "Known ECC bug in openssl"}
     end;
@@ -99,11 +109,21 @@ init_per_group(erlang_server, Config) ->
 init_per_group(erlang = Group, Config) ->
      case ssl_test_lib:sufficient_crypto_support(Group) of
 	 true ->
-	     common_init_per_group(erlang, [{server_type, erlang},
-					    {client_type, erlang} | Config]);
+	     common_init_per_group(Group, [{server_type, erlang},
+					   {client_type, erlang} | Config]);
 	 false ->
 	      {skip, "Crypto does not support ECC"}
-     end;		 
+     end;
+
+init_per_group(openssl = Group, Config) ->
+     case ssl_test_lib:sufficient_crypto_support(Group) of
+	 true ->
+	     common_init_per_group(Group, [{server_type, openssl},
+					   {client_type, openssl} | Config]);
+	 false ->
+	      {skip, "Crypto does not support ECC"}
+     end;
+		 
 init_per_group(Group, Config) ->
     common_init_per_group(Group, Config).
 
@@ -121,76 +141,118 @@ end_per_group(_GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 
-init_per_testcase(_TestCase, Config) ->
+init_per_testcase(TestCase, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
+    end_per_testcase(TestCase, Config),
+    ssl:start(),	
     Config.
 
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(_TestCase, Config) ->     
+    application:stop(ssl),
     Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-client_ec_server_ec(Config) when is_list(Config) ->
-    basic_test("ec1.crt", "ec1.key", "ec2.crt", "ec2.key", Config).
-
-client_ec_server_rsa(Config)  when is_list(Config) ->
-    basic_test("ec1.crt", "ec1.key", "rsa1.crt", "rsa1.key", Config).
-
-client_rsa_server_ec(Config)  when is_list(Config) ->
-    basic_test("rsa1.crt", "rsa1.key", "ec2.crt", "ec2.key", Config).
-
+client_ecdh_server_ecdh(Config) when is_list(Config) ->
+    COpts =  ?config(client_ecdh_rsa_opts, Config),
+    SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
+    basic_test(COpts, SOpts, Config).
+    
+client_ecdh_server_rsa(Config)  when is_list(Config) ->
+    COpts =  ?config(client_ecdh_rsa_opts, Config),
+    SOpts = ?config(server_verification_opts, Config),
+    basic_test(COpts, SOpts, Config).
+  
+client_rsa_server_ecdh(Config)  when is_list(Config) ->
+    COpts =  ?config(client_verification_opts, Config),
+    SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
+    basic_test(COpts, SOpts, Config).
+   
 client_rsa_server_rsa(Config)  when is_list(Config) ->
-    basic_test("rsa1.crt", "rsa1.key", "rsa2.crt", "rsa2.key", Config).
+    COpts =  ?config(client_verification_opts, Config),
+    SOpts = ?config(server_verification_opts, Config),
+    basic_test(COpts, SOpts, Config).
+   
+client_ecdsa_server_ecdsa(Config)  when is_list(Config) ->
+    COpts =  ?config(client_ecdsa_opts, Config),
+    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    basic_test(COpts, SOpts, Config).
+
+client_ecdsa_server_rsa(Config)  when is_list(Config) ->
+    COpts =  ?config(client_ecdsa_opts, Config),
+    SOpts = ?config(server_verification_opts, Config),
+    basic_test(COpts, SOpts, Config).
+
+client_rsa_server_ecdsa(Config)  when is_list(Config) ->
+    COpts =  ?config(client_verification_opts, Config),
+    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    basic_test(COpts, SOpts, Config).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-basic_test(ClientCert, ClientKey, ServerCert, ServerKey, Config) ->
-    DataDir = ?config(data_dir, Config),
+basic_test(COpts, SOpts, Config) ->
+    basic_test(proplists:get_value(certfile, COpts), 
+	       proplists:get_value(keyfile, COpts), 
+	       proplists:get_value(cacertfile, COpts), 
+	       proplists:get_value(certfile, SOpts), 
+	       proplists:get_value(keyfile, SOpts), 
+	       proplists:get_value(cacertfile, SOpts), 
+	       Config).
+    
+basic_test(ClientCert, ClientKey, ClientCA, ServerCert, ServerKey, ServerCA, Config) ->
     SType = ?config(server_type, Config),
     CType = ?config(client_type, Config),
     {Server, Port} = start_server(SType,
-				  filename:join(DataDir, "CA.pem"),
-				  filename:join(DataDir, ServerCert),
-				  filename:join(DataDir, ServerKey),
+				  ClientCA, ServerCA,
+				  ServerCert,
+				  ServerKey,
 				  Config),
-    Client = start_client(CType, Port, filename:join(DataDir, "CA.pem"),
-			  filename:join(DataDir, ClientCert),
-			  filename:join(DataDir, ClientKey), Config),
-    check_result(Server, SType, Client, CType).
+    Client = start_client(CType, Port, ServerCA, ClientCA,
+			  ClientCert,
+			  ClientKey, Config),
+    check_result(Server, SType, Client, CType),
+    close(Server, Client).    
 
-start_client(openssl, Port, CA, Cert, Key, _) ->
+start_client(openssl, Port, CA, OwnCa, Cert, Key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NewCA = new_ca(filename:join(PrivDir, "new_ca.pem"), CA, OwnCa),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Cmd = "openssl s_client -port " ++ integer_to_list(Port) ++  ssl_test_lib:version_flag(Version) ++
-	" -cert " ++ Cert ++ " -CAfile " ++ CA
-	++ " -key " ++ Key ++ " -host localhost -msg",
+    Cmd = "openssl s_client -verify 2 -port " ++ integer_to_list(Port) ++  ssl_test_lib:version_flag(Version) ++
+	" -cert " ++ Cert ++ " -CAfile " ++ NewCA
+	++ " -key " ++ Key ++ " -host localhost -msg -debug",
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
-start_client(erlang, Port, CA, Cert, Key, Config) ->
+start_client(erlang, Port, CA, _, Cert, Key, Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 			       {host, Hostname},
 			       {from, self()},
 			       {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			       {options, [{verify, verify_peer}, {cacertfile, CA},
+			       {options, [{verify, verify_peer}, 
+					  {cacertfile, CA},
 					  {certfile, Cert}, {keyfile, Key}]}]).
 
-start_server(openssl, CA, Cert, Key, _) ->
+start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NewCA = new_ca(filename:join(PrivDir, "new_ca.pem"), CA, OwnCa),
+
     Port = ssl_test_lib:inet_port(node()),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port) ++ ssl_test_lib:version_flag(Version) ++
-	" -cert " ++ Cert ++ " -CAfile " ++ CA
-	++ " -key " ++ Key ++ " -Verify 2 -msg",
+	" -verify 2 -cert " ++ Cert ++ " -CAfile " ++ NewCA
+	++ " -key " ++ Key ++ " -msg -debug",
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
     ssl_test_lib:wait_for_openssl_server(),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 
-start_server(erlang, CA, Cert, Key, Config) ->
+start_server(erlang, CA, _, Cert, Key, Config) ->
+
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 			       {from, self()},
@@ -217,9 +279,31 @@ openssl_check(_, Config) ->
     TLSVersion = ?config(tls_version, Config),
     case ssl_test_lib:check_sane_openssl_version(TLSVersion) of
 	true ->
-	    ssl:start(),
 	    Config;
 	false ->
 	    {skip, "TLS version not supported by openssl"}
     end.
 
+close(Port1, Port2) when is_port(Port1), is_port(Port2) ->
+    ssl_test_lib:close_port(Port1),
+    ssl_test_lib:close_port(Port2);
+close(Port, Pid) when is_port(Port) ->
+    ssl_test_lib:close_port(Port),
+    ssl_test_lib:close(Pid);
+close(Pid, Port) when is_port(Port) ->
+    ssl_test_lib:close_port(Port),
+    ssl_test_lib:close(Pid);
+close(Client, Server)  ->
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%% Work around OpenSSL bug, apparently the same bug as we had fixed in
+%% 11629690ba61f8e0c93ef9b2b6102fd279825977
+new_ca(FileName, CA, OwnCa) ->
+    {ok, P1} = file:read_file(CA),
+    E1 = public_key:pem_decode(P1),
+    {ok, P2} = file:read_file(OwnCa),
+    E2 = public_key:pem_decode(P2),
+    Pem = public_key:pem_encode(E2 ++E1),
+    file:write_file(FileName,  Pem),
+    FileName.

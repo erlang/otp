@@ -450,7 +450,7 @@ make_ecdsa_cert(Config) ->
 				  {cacertfile, ServerCaCertFile},
 				  {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
 	     {server_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-					 {cacertfile, ClientCaCertFile},
+					 {cacertfile, ServerCaCertFile},
 					 {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 					 {verify, verify_peer}]},
 	     {client_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
@@ -475,7 +475,7 @@ make_ecdh_rsa_cert(Config) ->
 				     {cacertfile, ServerCaCertFile},
 				     {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
 	     {server_ecdh_rsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-					    {cacertfile, ClientCaCertFile},
+					    {cacertfile, ServerCaCertFile},
 					    {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 					    {verify, verify_peer}]},
 	     {client_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
@@ -1136,3 +1136,36 @@ filter_suites(Ciphers0) ->
     Supported1 = ssl_cipher:filter_suites(Supported0),
     Supported2 = [ssl:suite_definition(S) || S <- Supported1],
     [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
+
+-define(OPENSSL_QUIT, "Q\n").
+close_port(Port) ->
+    catch port_command(Port, ?OPENSSL_QUIT),
+    close_loop(Port, 500, false).
+
+close_loop(Port, Time, SentClose) ->
+    receive 
+	{Port, {data,Debug}} when is_port(Port) ->
+	    ct:log("openssl ~s~n",[Debug]),
+	    close_loop(Port, Time, SentClose);	
+	{ssl,_,Msg} ->
+	    ct:log("ssl Msg ~s~n",[Msg]),
+	    close_loop(Port, Time, SentClose);	
+	{Port, closed} -> 
+	    ct:log("Port Closed~n",[]),
+	    ok;
+	{'EXIT', Port, Reason} ->
+	    ct:log("Port Closed ~p~n",[Reason]),
+	    ok;
+	Msg ->
+	    ct:log("Port Msg ~p~n",[Msg]),
+	    close_loop(Port, Time, SentClose)
+    after Time ->
+	    case SentClose of
+		false -> 
+		    ct:log("Closing port ~n",[]),
+		    catch erlang:port_close(Port),
+		    close_loop(Port, Time, true);
+		true ->
+		    ct:log("Timeout~n",[])
+	    end
+    end.

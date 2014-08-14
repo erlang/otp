@@ -203,7 +203,7 @@ pem_start('ContentInfo') ->
     <<"-----BEGIN PKCS7-----">>;
 pem_start('CertificateList') ->
      <<"-----BEGIN X509 CRL-----">>;
-pem_start('OTPEcpkParameters') ->
+pem_start('EcpkParameters') ->
     <<"-----BEGIN EC PARAMETERS-----">>;
 pem_start('ECPrivateKey') ->
     <<"-----BEGIN EC PRIVATE KEY-----">>.
@@ -260,7 +260,7 @@ asn1_type(<<"-----BEGIN PKCS7-----">>) ->
 asn1_type(<<"-----BEGIN X509 CRL-----">>) ->
     'CertificateList';
 asn1_type(<<"-----BEGIN EC PARAMETERS-----">>) ->
-    'OTPEcpkParameters';
+    'EcpkParameters';
 asn1_type(<<"-----BEGIN EC PRIVATE KEY-----">>) ->
     'ECPrivateKey'.
 

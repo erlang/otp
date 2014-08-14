@@ -36,8 +36,9 @@
 
   <p>This chapter briefly describes erlang records derived from ASN1
   specifications used to handle <c> X509 certificates</c> and <c>CertificationRequest</c>.
-  The intent is to describe the data types and not to specify the meaning of each
-  component for this we refer you to <url
+ The intent is to describe the data types
+and not to specify the semantics of each component. For information on the
+semantics, please see <url
   href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280</url> and
   <url href="http://www.ietf.org/rfc/rfc5967.txt">PKCS-10</url>.
   </p>

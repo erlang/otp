@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -325,14 +325,14 @@ sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
     {Type, 'NULL'};
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     {?'id-dsa-with-sha1', {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
-sign_algorithm(#'ECPrivateKey'{}, Opts) ->
+sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = case proplists:get_value(digest, Opts, sha1) of
 	       sha1 ->   ?'ecdsa-with-SHA1';
 	       sha512 -> ?'ecdsa-with-SHA512';
 	       sha384 -> ?'ecdsa-with-SHA384';
 	       sha256 -> ?'ecdsa-with-SHA256'
 	   end,
-    {Type, 'NULL'}.
+    {Type, Parms}.
 
 make_key(rsa, _Opts) ->
     %% (OBS: for testing only)

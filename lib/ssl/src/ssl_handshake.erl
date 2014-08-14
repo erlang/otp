@@ -207,7 +207,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
 certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version) ->
-    Types = certificate_types(CipherSuite),
+    Types = certificate_types(ssl_cipher:suite_definition(CipherSuite), Version),
     HashSigns = advertised_hash_signs(Version),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
@@ -1098,19 +1098,31 @@ supported_ecc(_) ->
 
 %%-------------certificate handling --------------------------------
 
-certificate_types({KeyExchange, _, _, _})
-  when KeyExchange == rsa;
-       KeyExchange == dhe_dss;
-       KeyExchange == dhe_rsa;
-       KeyExchange == ecdhe_rsa ->
-    <<?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>;
+certificate_types(_, {N, M}) when N >= 3 andalso M >= 3 ->
+    case proplists:get_bool(ecdsa,  
+			    proplists:get_value(public_keys, crypto:supports())) of
+	true ->
+	    <<?BYTE(?ECDSA_SIGN), ?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>;
+	false ->
+	    <<?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>
+    end;
 
-certificate_types({KeyExchange, _, _, _})
-  when KeyExchange == dh_ecdsa;
-       KeyExchange == dhe_ecdsa ->
+certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == rsa;
+						  KeyExchange == dhe_rsa;
+						  KeyExchange == ecdhe_rsa ->
+    <<?BYTE(?RSA_SIGN)>>;
+
+certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dhe_dss,
+						   KeyExchange == srp_dss ->
+    <<?BYTE(?DSS_SIGN)>>;
+
+certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == dh_ecdsa;
+						  KeyExchange == dhe_ecdsa;
+						  KeyExchange == ecdh_ecdsa;
+						  KeyExchange == ecdhe_ecdsa ->
     <<?BYTE(?ECDSA_SIGN)>>;
 
-certificate_types(_) ->
+certificate_types(_, _) ->
     <<?BYTE(?RSA_SIGN)>>.
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
