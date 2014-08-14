@@ -436,7 +436,7 @@ self_compile_1(Config, Prefix, Opts) ->
     %% Compile the compiler. (In this node to get better coverage.)
     ?line CompA = make_compiler_dir(Priv, Prefix++"compiler_a"),
     ?line VsnA = Version ++ ".0",
-    ?line compile_compiler(compiler_src(), CompA, VsnA, [clint|Opts]),
+    compile_compiler(compiler_src(), CompA, VsnA, [clint0,clint|Opts]),
 
     %% Compile the compiler again using the newly compiled compiler.
     %% (In another node because reloading the compiler would disturb cover.)
