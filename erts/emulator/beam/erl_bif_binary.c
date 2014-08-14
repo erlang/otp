@@ -1324,9 +1324,9 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 		goto badarg;
 	    }
 	    if (len < 0) {
-		Sint lentmp = -len;
+		Uint lentmp = -(Uint)len;
 		/* overflow */
-		if (lentmp == len || lentmp < 0 || -lentmp != len) {
+		if ((Sint)lentmp < 0) {
 		    goto badarg;
 		}
 		len = lentmp;
@@ -1555,9 +1555,9 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
     if (len < 0) {
-	Sint lentmp = -len;
+	Uint lentmp = -(Uint)len;
 	/* overflow */
-	if (lentmp == len || lentmp < 0 || -lentmp != len) {
+	if ((Sint)lentmp < 0) {
 	    goto badarg;
 	}
 	len = lentmp;
@@ -1644,9 +1644,9 @@ BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is
 	goto badarg;
     }
     if (len < 0) {
-	Sint lentmp = -len;
+	Uint lentmp = -(Uint)len;
 	/* overflow */
-	if (lentmp == len || lentmp < 0 || -lentmp != len) {
+	if ((Sint)lentmp < 0) {
 	    goto badarg;
 	}
 	len = lentmp;
@@ -2213,9 +2213,9 @@ static BIF_RETTYPE binary_bin_to_list_common(Process *p,
 	goto badarg;
     }
     if (len < 0) {
-	Sint lentmp = -len;
+	Uint lentmp = -(Uint)len;
 	/* overflow */
-	if (lentmp == len || lentmp < 0 || -lentmp != len) {
+	if ((Sint)lentmp < 0) {
 	    goto badarg;
 	}
 	len = lentmp;

@@ -2066,8 +2066,10 @@ erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
     system_cleanup(flush_async);
 
     save_statistics();
-
-    an = abs(n);
+    if (n < 0)
+        an = -(unsigned int)n;
+    else
+        an = n;
 
     if (erts_mtrace_enabled)
 	erts_mtrace_exit((Uint32) an);
