@@ -1252,10 +1252,11 @@ true
       <fsummary>Check if a function is exported and loaded</fsummary>
       <desc>
         <p>Returns <c>true</c> if the module <c><anno>Module</anno></c> is loaded
-          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>;
-          otherwise <c>false</c>.</p>
-        <p>Returns <c>false</c> for any BIF (functions implemented in C
-          rather than in Erlang).</p>
+          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>,
+	  or if there is a BIF (a built-in function implemented in C)
+	  with the given name; otherwise returns <c>false</c>.</p>
+	  <note><p>This function used to return false for built-in
+	  functions before the 18.0 release.</p></note>
       </desc>
     </func>
     <func>

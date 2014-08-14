@@ -3989,16 +3989,19 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 
 BIF_RETTYPE function_exported_3(BIF_ALIST_3)
 {
+    int arity;
     if (is_not_atom(BIF_ARG_1) ||
 	is_not_atom(BIF_ARG_2) || 
 	is_not_small(BIF_ARG_3)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (erts_find_function(BIF_ARG_1, BIF_ARG_2, signed_val(BIF_ARG_3),
-			   erts_active_code_ix()) == NULL) {
-	BIF_RET(am_false);
+    arity = signed_val(BIF_ARG_3);
+    if (erts_find_function(BIF_ARG_1, BIF_ARG_2, arity,
+			   erts_active_code_ix()) != NULL ||
+	erts_is_builtin(BIF_ARG_1, BIF_ARG_2, arity)) {
+	BIF_RET(am_true);
     }
-    BIF_RET(am_true);
+    BIF_RET(am_false);
 }
 
 /**********************************************************************/    
