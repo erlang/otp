@@ -7166,7 +7166,7 @@ char *driver_dl_error(void)
 
 
 #define ERL_DRV_SYS_INFO_SIZE(LAST_FIELD) \
-  (((size_t) &((ErlDrvSysInfo *) 0)->LAST_FIELD) \
+  (offsetof(ErlDrvSysInfo, LAST_FIELD) \
    + sizeof(((ErlDrvSysInfo *) 0)->LAST_FIELD))
 
 void
