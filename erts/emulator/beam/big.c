@@ -274,6 +274,9 @@
 	_b = _b << _s;							\
 	_vn1 = _b >> H_EXP;						\
 	_vn0 = _b & LO_MASK;						\
+        /* Sometimes _s is 0 which triggers undefined behaviour for the \
+           (_a0>>(D_EXP-_s)) shift, but this is ok because the          \
+           & -s will make it all to 0 later anyways. */                 \
 	_un32 = (_a1 << _s) | ((_a0>>(D_EXP-_s)) & (-_s >> (D_EXP-1)));	\
 	_un10 = _a0 << _s;						\
 	_un1 = _un10 >> H_EXP;						\
@@ -1542,21 +1545,24 @@ Eterm erts_uint64_to_big(Uint64 x, Eterm **hpp)
 Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 {
     Eterm *hp = *hpp;
+    Uint64 ux;
     int neg;
-    if (x >= 0)
+    if (x >= 0) {
 	neg = 0;
+        ux = x;
+    }
     else {
 	neg = 1;
-	x = -x;
+	ux = -(Uint64)x;
     }
 #if defined(ARCH_32) || HALFWORD_HEAP
-    if (x >= (((Uint64) 1) << 32)) {
+    if (ux >= (((Uint64) 1) << 32)) {
 	if (neg)
 	    *hp = make_neg_bignum_header(2);
 	else
 	    *hp = make_pos_bignum_header(2);
-	BIG_DIGIT(hp, 0) = (Uint) (x & ((Uint) 0xffffffff));
-	BIG_DIGIT(hp, 1) = (Uint) ((x >> 32) & ((Uint) 0xffffffff));
+	BIG_DIGIT(hp, 0) = (Uint) (ux & ((Uint) 0xffffffff));
+	BIG_DIGIT(hp, 1) = (Uint) ((ux >> 32) & ((Uint) 0xffffffff));
 	*hpp += 3;
     }
     else
@@ -1566,7 +1572,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	    *hp = make_neg_bignum_header(1);
 	else
 	    *hp = make_pos_bignum_header(1);
-	BIG_DIGIT(hp, 0) = (Uint) x;
+	BIG_DIGIT(hp, 0) = (Uint) ux;
 	*hpp += 2;
     }
     return make_big(hp);

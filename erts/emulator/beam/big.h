@@ -101,7 +101,7 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #define ERTS_SINT64_HEAP_SIZE(X)				\
   (IS_SSMALL((X))						\
    ? 0								\
-   : ERTS_UINT64_BIG_HEAP_SIZE__((X) >= 0 ? (X) : -(X)))
+   : ERTS_UINT64_BIG_HEAP_SIZE__((X) >= 0 ? (X) : -(Uint64)(X)))
 #define ERTS_UINT64_HEAP_SIZE(X)				\
   (IS_USMALL(0, (X)) ? 0 : ERTS_UINT64_BIG_HEAP_SIZE__((X)))
 
