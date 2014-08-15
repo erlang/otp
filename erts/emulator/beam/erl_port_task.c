@@ -68,6 +68,13 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
 #define  DTRACE_DRIVER(PROBE_NAME, PP) do {} while(0)
 #endif
 
+#define ERTS_SMP_LC_VERIFY_RQ(RQ, PP)					\
+    do {								\
+	ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));		\
+	ERTS_SMP_LC_ASSERT((RQ) == ((ErtsRunQueue *)			\
+				    erts_smp_atomic_read_nob(&(PP)->run_queue))); \
+    } while (0)
+
 erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 
 #define ERTS_PT_STATE_SCHEDULED		0
@@ -1490,8 +1497,10 @@ erts_port_task_schedule(Eterm id,
 
 #ifdef ERTS_SMP
     xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
+    ERTS_SMP_LC_ASSERT(runq != xrunq);
+    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
     if (xrunq) {
-	/* Port emigrated ... */
+	/* Emigrate port ... */
 	erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
 	erts_smp_runq_unlock(runq);
 	runq = erts_port_runq(pp);
@@ -1609,6 +1618,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	res = 0;
 	goto done;
     }
+
+    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 
     erts_smp_runq_unlock(runq);
 
@@ -1805,6 +1816,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
 #ifdef ERTS_SMP
 	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
+	ERTS_SMP_LC_ASSERT(runq != xrunq);
+	ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 	if (!xrunq) {
 #endif
 	    enqueue_port(runq, pp);
@@ -1812,7 +1825,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 #ifdef ERTS_SMP
 	}
 	else {
-	    /* Port emigrated ... */
+	    /* Emigrate port... */
 	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
 	    erts_smp_runq_unlock(runq);
 
