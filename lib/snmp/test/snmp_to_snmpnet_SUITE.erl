@@ -19,6 +19,7 @@
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test suite uses the following external programs:
 %%     snmpget    From packet 'snmp' (in Ubuntu 12.04)
+%%     snmpd      From packet 'snmpd' (in Ubuntu 12.04)
 %%     snmptrapd  From packet 'snmpd' (in Ubuntu 12.04)
 %% They originate from the Net-SNMP applications, see:
 %%     http://net-snmp.sourceforge.net/
@@ -33,6 +34,7 @@
 -include_lib("snmp/include/STANDARD-MIB.hrl").
 
 -define(AGENT_ENGINE_ID, "ErlangSnmpAgent").
+-define(MANAGER_ENGINE_ID, "ErlangSnmpManager").
 -define(AGENT_PORT, 4000).
 -define(MANAGER_PORT, 8989).
 -define(DEFAULT_MAX_MESSAGE_SIZE, 484).
@@ -56,22 +58,27 @@ all() ->
 
 groups() ->
     [{ipv4, [],
-      [{group, get},
-       {group, inform}
+      [{group, snmpget},
+       {group, snmptrapd},
+       {group, snmpd}
       ]},
      {ipv6, [],
-      [{group, get},
-       {group, inform}
+      [{group, snmpget},
+       {group, snmptrapd},
+       {group, snmpd}
       ]},
      {ipv4_ipv6, [],
-      [{group, get},
-       {group, inform}
+      [{group, snmpget},
+       {group, snmptrapd},
+       {group, snmpd}
       ]},
      %%
-     {get, [],
+     {snmpget, [],
       [erlang_agent_netsnmp_get]},
-     {inform, [],
-      [erlang_agent_netsnmp_inform]}
+     {snmptrapd, [],
+      [erlang_agent_netsnmp_inform]},
+     {snmpd, [],
+      [erlang_manager_netsnmp_get]}
     ].
 
 init_per_suite(Config) ->
@@ -87,12 +94,15 @@ init_per_group(ipv6, Config) ->
 init_per_group(ipv4_ipv6, Config) ->
     init_per_group_ipv6([inet, inet6], Config);
 %%
-init_per_group(get, Config) ->
+init_per_group(snmpget = Exec, Config) ->
     %% From Ubuntu package snmp
-    find_executable(snmpget, Config);
-init_per_group(inform, Config) ->
+    init_per_group_agent(Exec, Config);
+init_per_group(snmptrapd = Exec, Config) ->
     %% From Ubuntu package snmpd
-    find_executable(snmptrapd, Config);
+    init_per_group_agent(Exec, Config);
+init_per_group(snmpd = Exec, Config) ->
+    %% From Ubuntu package snmp
+    init_per_group_manager(Exec, Config);
 %%
 init_per_group(_, Config) ->
     Config.
@@ -106,10 +116,8 @@ init_per_group_ipv6(Families, Config) ->
     end.
 
 init_per_group_ip(Families, Config) ->
-    Dir = ?config(priv_dir, Config),
     AgentPort = ?config(agent_port, Config),
     ManagerPort = ?config(manager_port, Config),
-    Versions = [v2],
     {ok, Host} = inet:gethostname(),
     Transports =
 	[begin
@@ -121,10 +129,22 @@ init_per_group_ip(Families, Config) ->
 	     {ok, Addr} = inet:getaddr(Host, Family),
 	     {domain(Family), {Addr, ManagerPort}}
 	 end || Family <- Families],
+    [{transports, Transports}, {targets, Targets} | Config].
+
+init_per_group_agent(Exec, Config) ->
+    Versions = [v2],
+    Dir = ?config(priv_dir, Config),
+    Transports = ?config(transports, Config),
+    Targets = ?config(targets, Config),
     agent_config(Dir, Transports, Targets, Versions),
-    [{port, ?AGENT_PORT}, {snmp_versions, Versions},
-     {transports, Transports}, {targets, Targets}
-     | Config].
+    find_executable(Exec, [{snmp_versions, Versions} | Config]).
+
+init_per_group_manager(Exec, Config) ->
+    Versions = [v2],
+    Dir = ?config(priv_dir, Config),
+    Targets = ?config(targets, Config),
+    manager_config(Dir, Targets),
+    find_executable(Exec, [{snmp_versions, Versions} | Config]).
 
 
 
@@ -179,7 +199,12 @@ find_sys_executable(Exec, ExecStr, [Dir | Dirs], Config) ->
 
 start_agent(Config) ->
     ok = application:load(snmp),
-    ok = application:set_env(snmp, agent, app_env(Config)),
+    ok = application:set_env(snmp, agent, agent_app_env(Config)),
+    ok = application:start(snmp).
+
+start_manager(Config) ->
+    ok = application:load(snmp),
+    ok = application:set_env(snmp, manager, manager_app_env(Config)),
     ok = application:start(snmp).
 
 %%--------------------------------------------------------------------
@@ -196,6 +221,39 @@ erlang_agent_netsnmp_get(Config) when is_list(Config) ->
     Expected = expected(Oid, get),
     [Expected = snmpget(Oid, Transport, Config)
      || Transport <- Transports],
+    ok.
+
+%%--------------------------------------------------------------------
+erlang_manager_netsnmp_get() ->
+    [{doc,"Test that the erlang snmp manager can access snmpnet agent"}].
+
+erlang_manager_netsnmp_get(Config) when is_list(Config) ->
+    Community = "happy-testing",
+    SysDescr = "Net-SNMP agent",
+    TargetName = "Target Net-SNMP agent",
+    Transports = ?config(transports, Config),
+    ProgHandle = start_snmpd(Community, SysDescr, Config),
+    start_manager(Config),
+    snmp_manager_user:start_link(self(), test_user),
+    [snmp_manager_user:register_agent(
+       TargetName++domain_suffix(Domain),
+       [{reg_type, target_name},
+	{tdomain, Domain}, {taddress, Addr},
+	{community, Community}, {engine_id, "EngineId"},
+	{version, v2}, {sec_model, v2c}, {sec_level, noAuthNoPriv}])
+     || {Domain, Addr} <- Transports],
+    Results =
+	[snmp_manager_user:sync_get(
+	   TargetName++domain_suffix(Domain),
+	   [?sysDescr_instance])
+	 || {Domain, _} <- Transports],
+    ct:pal("sync_get -> ~p", [Results]),
+    snmp_manager_user:stop(),
+    stop_program(ProgHandle),
+    [{ok,
+      {noError, 0,
+       [{varbind, ?sysDescr_instance, 'OCTET STRING', SysDescr,1}] },
+      _} = R || R <- Results],
     ok.
 
 %%--------------------------------------------------------------------
@@ -267,7 +325,29 @@ start_snmptrapd(Mibs, Config) ->
     {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
     start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config).
 
+start_snmpd(Community, SysDescr, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Targets = ?config(targets, Config),
+    Transports = ?config(transports, Config),
+    Port = mk_port_number(),
+    CommunityArgs =
+	["--rocommunity"++domain_suffix(Domain)++"="
+	 ++Community++" "++inet_parse:ntoa(Ip)
+	 || {Domain, {Ip, _}} <- Targets],
+    SnmpdArgs =
+	["-f", "-r", %"-Dverbose",
+	 "-c", filename:join(DataDir, "snmpd.conf"),
+	 "-C", "-Lo",
+	 "-m", "",
+	 "--sysDescr="++SysDescr,
+	 "--agentXSocket=tcp:localhost:"++integer_to_list(Port)]
+	++ CommunityArgs
+	++ [net_snmp_addr_str(Transports)],
+    {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
+    start_program(snmpd, SnmpdArgs, StartCheckMP, Config).
+
 start_program(Prog, Args, StartCheckMP, Config) ->
+    ct:pal("Starting program: ~w ~p", [Prog, Args]),
     Path = ?config(Prog, Config),
     DataDir = ?config(data_dir, Config),
     StartWrapper = filename:join(DataDir, "start_stop_wrapper"),
@@ -318,12 +398,13 @@ wait_program_stop({Pid, Mon}) ->
     end.
 
 run_program(Parent, StartWrapper, ProgAndArgs) ->
+    [Prog | _] = ProgAndArgs,
     Port =
 	open_port(
 	  {spawn_executable, StartWrapper},
 	  [{args, ProgAndArgs}, binary, stderr_to_stdout, {line, 80},
 	   exit_status]),
-    ct:pal("Prog ~p started: ~p", [Port, ProgAndArgs]),
+    ct:pal("Prog ~p started: ~p", [Port, Prog]),
     run_program_loop(Parent, Port, []).
 
 run_program_loop(Parent, Port, Buf) ->
@@ -352,7 +433,7 @@ run_program_loop(Parent, Port, Buf) ->
     end.
 
 
-app_env(Config) ->
+agent_app_env(Config) ->
     Dir = ?config(priv_dir, Config),
     Vsns = ?config(snmp_versions, Config),
     [{versions,         Vsns}, 
@@ -372,6 +453,18 @@ app_env(Config) ->
      {note_store,       [{verbosity, silence}]},
      {net_if,           [{verbosity, trace}]}].
 
+manager_app_env(Config) ->
+    Dir = ?config(priv_dir, Config),
+    Vsns = ?config(snmp_versions, Config),
+    [{versions,         Vsns},
+     {audit_trail_log,  [{type, read_write},
+			 {dir, Dir},
+			 {size, {10240, 10}}]},
+     {config,           [{dir, Dir},
+			 {db_dir, Dir},
+			 {verbosity, trace}]}
+    ].
+
 oid_str([1 | Ints]) ->
     "iso." ++ oid_str_tl(Ints);
 oid_str(Ints) ->
@@ -384,9 +477,6 @@ oid_str_tl([Int]) ->
 oid_str_tl([Int | Ints]) ->
     integer_to_list(Int) ++ "." ++ oid_str_tl(Ints).
 
-agent_config(Dir, Transports, TargetDomain, TargetAddr, Versions) ->
-    agent_config(Dir, Transports, [{TargetDomain, TargetAddr}], Versions).
-%%
 agent_config(Dir, Transports, Targets, Versions) ->
     EngineID = ?AGENT_ENGINE_ID,
     MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
@@ -402,6 +492,11 @@ agent_config(Dir, Transports, Targets, Versions) ->
     ok = snmp_config:write_agent_snmp_target_params_conf(Dir, Versions),
     ok = snmp_config:write_agent_snmp_notify_conf(Dir, inform),
     ok = snmp_config:write_agent_snmp_vacm_conf(Dir, Versions, none).
+
+manager_config(Dir, Targets) ->
+    EngineID = ?MANAGER_ENGINE_ID,
+    MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
+    ok = snmp_config:write_manager_snmp_conf(Dir, Targets, MMS, EngineID).
 
 net_snmp_version([v3 | _]) ->
     "-v3";
@@ -431,3 +526,14 @@ net_snmp_addr_str({transportDomainUdpIpv6, {Addr, Port}}) ->
     "udp6:[" ++
 	inet_parse:ntoa(Addr) ++ "]:" ++
 	integer_to_list(Port).
+
+domain_suffix(transportDomainUdpIpv4) ->
+    "";
+domain_suffix(transportDomainUdpIpv6) ->
+    "6".
+
+mk_port_number() ->
+    {ok, Socket} = gen_udp:open(0, [{reuseaddr, true}]),
+    {ok, PortNum} = inet:port(Socket),
+    ok = gen_udp:close(Socket),
+    PortNum.
