@@ -2248,23 +2248,23 @@ letify(#c_var{name=Vname}=Var, Val, Body) ->
 
 %% opt_case_in_let(LetExpr) -> LetExpr'
 
-opt_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let) ->
-    opt_case_in_let_0(Vs, Arg, B, Let).
+opt_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let, Sub) ->
+    opt_case_in_let_0(Vs, Arg, B, Let, Sub).
 
 opt_case_in_let_0([#c_var{name=V}], Arg,
-		  #c_case{arg=#c_var{name=V},clauses=Cs}=Case, Let) ->
+		  #c_case{arg=#c_var{name=V},clauses=Cs}=Case, Let, Sub) ->
     case opt_case_in_let_1(V, Arg, Cs) of
 	impossible ->
 	    case is_simple_case_arg(Arg) andalso
 		not core_lib:is_var_used(V, Case#c_case{arg=#c_literal{val=nil}}) of
 		true ->
-		    expr(opt_bool_case(Case#c_case{arg=Arg,clauses=Cs}), sub_new());
+		    expr(opt_bool_case(Case#c_case{arg=Arg,clauses=Cs}), sub_new(Sub));
 		false ->
 		    Let
 	    end;
 	Expr -> Expr
     end;
-opt_case_in_let_0(_, _, _, Let) -> Let.
+opt_case_in_let_0(_, _, _, Let, _) -> Let.
 
 opt_case_in_let_1(V, Arg, Cs) ->
     try
@@ -2607,7 +2607,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body0, effect, Sub) ->
 		    expr(#c_seq{arg=Arg,body=Body}, effect, sub_new_preserve_types(Sub));
 		true ->
 		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
-		    opt_case_in_let_arg(opt_case_in_let(Let), effect, Sub)
+		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), effect, Sub)
 	    end
     end;
 opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
@@ -2630,7 +2630,7 @@ opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
 	    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub));
 	{Vs,Arg,Body} ->
 	    opt_case_in_let_arg(
-	      opt_case_in_let(Let#c_let{vars=Vs,arg=Arg,body=Body}),
+	      opt_case_in_let(Let#c_let{vars=Vs,arg=Arg,body=Body}, Sub),
 	      value, Sub)
     end.
 
