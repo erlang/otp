@@ -39,7 +39,10 @@ define(HANDLE_GOT_MBUF,`
 	jmp 2b')
 
 `#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define CALL_BIF(F)	movq $CSYM(F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
+#  define CALL_BIF(F) \
+		movq CSYM(F)@GOTPCREL(%rip), %r11; \
+		movq %r11, P_BIF_CALLEE(P); \
+		call CSYM(hipe_debug_bif_wrapper)
 #else
 #  define CALL_BIF(F)	call	CSYM(F)
 #endif'
