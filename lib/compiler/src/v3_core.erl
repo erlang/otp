@@ -1609,7 +1609,8 @@ pattern_map_pairs(Ps, St) ->
 
 %% remove cluddering annotations
 pattern_map_clean_key(#c_literal{val=V}) -> {literal,V};
-pattern_map_clean_key(#c_var{name=V}) -> {var,V}.
+pattern_map_clean_key(#c_var{name=V}) -> {var,V};
+pattern_map_clean_key(_) -> erlang:throw(nomatch).
 
 pattern_alias_map_pairs([],_,_,_) -> [];
 pattern_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Kset,St) ->
@@ -1630,11 +1631,17 @@ pattern_alias_map_pair_patterns([Cv1,Cv2|Cvs]) ->
     pattern_alias_map_pair_patterns([pat_alias(Cv1,Cv2)|Cvs]).
 
 pattern_map_pair({map_field_exact,L,K,V}, St) ->
-    {Ck,[],_} = expr(K,St),
-    #c_map_pair{anno=lineno_anno(L,St),
-		op=#c_literal{val=exact},
-		key=Ck,
-		val=pattern(V,St)}.
+    %% guard against pre-expressions
+    %% i.e. keys like {atom, <<0:300>>} where
+    %% <<0:300>> becomes a pre-expression
+    case expr(K,St) of
+	{Ck,[],_} ->
+	    #c_map_pair{anno=lineno_anno(L,St),
+			op=#c_literal{val=exact},
+			key=Ck,
+			val=pattern(V,St)};
+	_ -> erlang:throw(nomatch)
+    end.
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
