@@ -127,8 +127,11 @@ struct ErtsSysReportExit_ {
 /* Used by the fd driver iff the fd could not be set to non-blocking */
 typedef struct ErtsSysBlocking_ {
     ErlDrvPDL pdl;
-    int pipe[2];
+    int res;
+    int err;
+    unsigned int pkey;
 } ErtsSysBlocking;
+
 
 /* This data is shared by these drivers - initialized by spawn_init() */
 static struct driver_data {
@@ -145,13 +148,6 @@ static struct driver_data {
 static ErtsSysReportExit *report_exit_list;
 #if CHLDWTHR && !defined(ERTS_SMP)
 static ErtsSysReportExit *report_exit_transit_list;
-#endif
-
-#if FDBLOCK
-/* Used by the blocking_writer thread */
-static erts_tid_t blocking_writer_tid;
-static int blocking_pipe[2];
-static void *blocking_writer(void *);
 #endif
 
 extern int  driver_interrupt(int, int);
@@ -1126,6 +1122,10 @@ void fini_getenv_state(GETENV_STATE *state)
 /* Driver interfaces */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
+#if FDBLOCK
+static void fd_async(void *);
+static void fd_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
+#endif
 static ErlDrvSSizeT fd_control(ErlDrvData, unsigned int, char *, ErlDrvSizeT,
 			       char **, ErlDrvSizeT);
 static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
@@ -1176,7 +1176,11 @@ struct erl_drv_entry fd_driver_entry = {
     fd_control,
     NULL,
     outputv,
-    NULL, /* ready_async */
+#if FDBLOCK
+    fd_ready_async, /* ready_async */
+#else
+    NULL,
+#endif
     fd_flush, /* flush */
     NULL, /* call */
     NULL, /* event */
@@ -1235,16 +1239,12 @@ static int set_blocking_data(struct driver_data *dd) {
 
     dd->blocking = erts_alloc(ERTS_ALC_T_SYS_BLOCKING, sizeof(ErtsSysBlocking));
 
-    if (pipe(dd->blocking->pipe) < 0) {
-        erts_free(ERTS_ALC_T_SYS_BLOCKING, dd->blocking);
-        dd->blocking = NULL;
-        driver_failure_posix(dd->port_num, errno);
-        return 0;
-    }
-
     erts_smp_atomic_add_nob(&sys_misc_mem_sz, sizeof(ErtsSysBlocking));
 
     dd->blocking->pdl = driver_pdl_create(dd->port_num);
+    dd->blocking->res = 0;
+    dd->blocking->err = 0;
+    dd->blocking->pkey = driver_async_port_key(dd->port_num);
 
     return 1;
 }
@@ -1322,18 +1322,11 @@ static int set_driver_data(ErlDrvPort port_num,
 static int spawn_init()
 {
    int i;
-#ifdef USE_THREADS
+#if CHLDWTHR
    erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
 
    thr_opts.detached = 0;
    thr_opts.suggested_stack_size = 0; /* Smallest possible */
-#endif
-
-#if FDBLOCK
-   if (pipe(blocking_pipe) < 0)
-       return -1;
-
-   erts_thr_create(&blocking_writer_tid, blocking_writer, NULL, &thr_opts);
 #endif
 
    sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
@@ -1972,8 +1965,9 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
      *
      * Added note OTP 17.3: Some systems seem to use stdout/stderr to log data
      * using unix pipes, so we cannot allow the system to block on a write.
-     * Therefore a thread has been added that reads from the driver queue and
-     * writes the data to fd's that could not be set to non-blocking.
+     * Therefore we use an async thread to write the data to fd's that could
+     * not be set to non-blocking. When no async threads are available we
+     * fall back on the old behaviour.
      *
      * Also the guarantee about what is delivered to the OS has changed.
      * Pre 17.3 the fd driver did no flushing of data before terminating.
@@ -2092,23 +2086,8 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
     
 #if FDBLOCK
     if (driver_data[fd].blocking) {
-
-        /* We have to make sure that all writes for this fd have been processed */
-        int resbuf[2];
-        resbuf[0] = -fd;
-        if (write(blocking_pipe[1], resbuf, sizeof(int)) == sizeof(int)) {
-            do {
-                int res = read(driver_data[fd].blocking->pipe[0],
-                               resbuf, sizeof(resbuf));
-                if (res == sizeof(resbuf) && resbuf[0] != -fd)
-                    continue;
-            } while(0);
-        }
-
-        /* we close both ends of the pipe as no more data is to be written */
-        close(driver_data[fd].blocking->pipe[0]);
-        close(driver_data[fd].blocking->pipe[1]);
         erts_free(ERTS_ALC_T_SYS_BLOCKING,driver_data[fd].blocking);
+        driver_data[fd].blocking = NULL;
         erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*sizeof(ErtsSysBlocking));
     }
 #endif
@@ -2121,7 +2100,8 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
 
 static void fd_flush(ErlDrvData fd)
 {
-    driver_data[(int)(long)fd].terminating = 1;
+    if (!driver_data[(int)(long)fd].terminating)
+        driver_data[(int)(long)fd].terminating = 1;
 }
 
 static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
@@ -2241,14 +2221,9 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 #if FDBLOCK
     else {
         driver_enqv(ix, ev, 0);
-        if (write(blocking_pipe[1], &ofd, sizeof(ofd)) < 0) {
-            driver_pdl_unlock(driver_data[fd].blocking->pdl);
-            driver_failure_posix(ix, errno);
-            return; /* -1; */
-        }
         driver_pdl_unlock(driver_data[fd].blocking->pdl);
-	driver_select(ix, driver_data[ofd].blocking->pipe[0],
-                      ERL_DRV_READ|ERL_DRV_USE, 1);
+        driver_async(ix, &driver_data[fd].blocking->pkey,
+                     fd_async, driver_data+fd, NULL);
     }
 #endif
     /* return 0;*/
@@ -2317,6 +2292,23 @@ static int port_inp_failure(ErlDrvPort port_num, int ready_fd, int res)
     ASSERT(res <= 0);
     (void) driver_select(port_num, ready_fd, ERL_DRV_READ|ERL_DRV_WRITE, 0); 
     clear_fd_data(ready_fd);
+
+    if (driver_data[ready_fd].blocking && FDBLOCK) {
+        driver_pdl_lock(driver_data[ready_fd].blocking->pdl);
+        if (driver_sizeq(driver_data[ready_fd].port_num) > 0) {
+            driver_pdl_unlock(driver_data[ready_fd].blocking->pdl);
+            /* We have stuff in the output queue, so we just
+               set the state to terminating and wait for fd_async_ready
+               to terminate the port */
+            if (res == 0)
+                driver_data[ready_fd].terminating = 2;
+            else
+                driver_data[ready_fd].terminating = -err;
+            return 0;
+        }
+        driver_pdl_unlock(driver_data[ready_fd].blocking->pdl);
+    }
+
     if (res == 0) {
 	if (driver_data[ready_fd].report_exit) {
 	    CHLD_STAT_LOCK;
@@ -2367,43 +2359,6 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
     port_num = driver_data[fd].port_num;
     packet_bytes = driver_data[fd].packet_bytes;
 
-#if FDBLOCK
-    if (ready_fd != fd) {
-        /* We got an acknowledgment from writer thread */
-        int read_buf[2];
-        ASSERT(driver_data[fd].blocking);
-        ASSERT(driver_data[fd].blocking->pipe[0] == ready_fd);
-        res = read(ready_fd, read_buf, sizeof(read_buf));
-        if (read_buf[0] > 0) {
-            driver_pdl_lock(driver_data[fd].blocking->pdl);
-            if (driver_deq(port_num, read_buf[0]) == 0) {
-                set_busy_port(port_num, 0);
-                driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
-                if (driver_data[fd].terminating) {
-                    /* The port is has been ordered to terminate */
-                    driver_pdl_unlock(driver_data[fd].blocking->pdl);
-                    driver_failure_atom(port_num, "normal");
-                    return; /* -1; */
-                }
-            } else {
-                /* still data left to write in queue and not terminating */
-                if (write(blocking_pipe[1], &driver_data[fd].ofd, sizeof(fd)) < 0) {
-                    driver_pdl_unlock(driver_data[fd].blocking->pdl);
-                    driver_failure_posix(port_num, errno);
-                    return; /* -1; */
-                }
-            }
-            driver_pdl_unlock(driver_data[fd].blocking->pdl);
-        }
-        else if (read_buf[0] < 0) {
-            int res = read_buf[1];
-            driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
-            driver_failure_posix(port_num, res);
-            return; /* -1; */
-        }
-        return; /* 0; */
-    }
-#endif
 
     if (packet_bytes == 0) {
 	byte *read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
@@ -2557,84 +2512,78 @@ static void stop_select(ErlDrvEvent fd, void* _)
 
 #if FDBLOCK
 
-static void *
-blocking_writer(void *unused)
+static void
+fd_async(void *async_data)
 {
     int res;
-    fd_set fdset;
+    struct driver_data *dd = (struct driver_data*)async_data;
+    SysIOVec      *iov0;
+    SysIOVec      *iov;
+    int            iovlen;
+    int            iovcnt;
+    int            p;
+    /* much of this code is stolen from efile_drv:invoke_writev */
+    driver_pdl_lock(dd->blocking->pdl);
+    iov0 = driver_peekq(dd->port_num, &iovlen);
+    /* Calculate iovcnt */
+    for (p = 0, iovcnt = 0; iovcnt < iovlen;
+         p += iov0[iovcnt++].iov_len)
+        ;
+    iov = erts_alloc_fnf(ERTS_ALC_T_SYS_WRITE_BUF,
+                         sizeof(SysIOVec)*iovcnt);
+    if (!iov) {
+        res = -1;
+        errno = ENOMEM;
+        erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
+        driver_pdl_unlock(dd->blocking->pdl);
+    } else {
+        memcpy(iov,iov0,iovcnt*sizeof(SysIOVec));
+        driver_pdl_unlock(dd->blocking->pdl);
 
-    while (1) {
-        FD_ZERO(&fdset);
-        FD_SET(blocking_pipe[0],&fdset);
+        res = writev(dd->ofd, iov, iovlen);
 
-        res = select(blocking_pipe[0]+1,&fdset,NULL,NULL,NULL);
-
-        if (res < 0) {
-            if (errno == EINTR)
-		continue;
-            erl_exit(ERTS_ABORT_EXIT,
-                     "blocking-writer thraed got unexpected error: %s (%d)\n",
-                     erl_errno_id(errno),errno);
-        }
-        if (FD_ISSET(blocking_pipe[0],&fdset)) {
-            /* Start to select on an additional pipe for write requests */
-            int write_fd;
-            res = read(blocking_pipe[0],&write_fd,sizeof(write_fd));
-            if (res == 0) {
-                /* control pipe closed, we shutdown */
-                close(blocking_pipe[0]);
-                return NULL;
-            } else if (res == sizeof(write_fd) && write_fd >= 0) {
-                SysIOVec      *iov0;
-                SysIOVec      *iov;
-                int            iovlen;
-                int            iovcnt;
-                int            resbuf[2];
-                int            p;
-                /* much of this code is stolen from efile_drv:invoke_writev */
-                driver_pdl_lock(driver_data[write_fd].blocking->pdl);
-                iov0 = driver_peekq(driver_data[write_fd].port_num, &iovlen);
-                /* Calculate iovcnt */
-                for (p = 0, iovcnt = 0; iovcnt < iovlen;
-                     p += iov0[iovcnt++].iov_len)
-                    ;
-                iov = erts_alloc_fnf(ERTS_ALC_T_SYS_WRITE_BUF,
-                                     sizeof(SysIOVec)*iovcnt);
-                if (!iov) {
-                    res = -1;
-                    errno = ENOMEM;
-                    erts_free(ERTS_ALC_T_SYS_WRITE_BUF,iov);
-                    driver_pdl_unlock(driver_data[write_fd].blocking->pdl);
-                } else {
-                    memcpy(iov,iov0,iovcnt*sizeof(SysIOVec));
-                    driver_pdl_unlock(driver_data[write_fd].blocking->pdl);
-
-                    res = writev(write_fd,iov,iovlen);
-
-                    erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
-                }
-                /* Write back the result on the pipe for this fd */
-                /* We dequeue the data from the port in ready_input */
-                resbuf[0] = res;
-                resbuf[1] = errno;
-                if (write(driver_data[write_fd].blocking->pipe[1],
-                          resbuf, sizeof(resbuf)))
-                    ; /* ignore error, should we terminate here? */
-            } else if (write_fd < 0) {
-                int resbuf[2];
-                /* a negative fd is sent as a closing handshake
-                   it is needed in order for the port to know that
-                   it is ok to release the ErtsSysBlocking struct
-                   and terminate */
-                resbuf[0] = write_fd;
-                resbuf[1] = -1;
-                if (write(driver_data[-write_fd].blocking->pipe[1],
-                          resbuf, sizeof(resbuf)))
-                    ; /* ignore error */
-            }
-        }
+        erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
     }
+    dd->blocking->res = res;
+    dd->blocking->err = errno;
 }
+
+void fd_ready_async(ErlDrvData drv_data,
+                    ErlDrvThreadData thread_data) {
+    struct driver_data *dd = (struct driver_data *)thread_data;
+    ErlDrvPort port_num = dd->port_num;
+
+    ASSERT(dd->blocking);
+    ASSERT(dd == (driver_data + (int)(long)drv_data));
+
+    if (dd->blocking->res > 0) {
+        driver_pdl_lock(dd->blocking->pdl);
+        if (driver_deq(port_num, dd->blocking->res) == 0) {
+            set_busy_port(port_num, 0);
+            if (dd->terminating) {
+                /* The port is has been ordered to terminate
+                   from either fd_flush or port_inp_failure */
+                driver_pdl_unlock(dd->blocking->pdl);
+                if (dd->terminating == 1)
+                    driver_failure_atom(port_num, "normal");
+                else if (dd->terminating == 2)
+                    driver_failure_eof(port_num);
+                else if (dd->terminating < 0)
+                    driver_failure_posix(port_num, -dd->terminating);
+                return; /* -1; */
+            }
+        } else {
+            /* still data left to write in queue */
+            driver_async(port_num, &dd->blocking->pkey, fd_async, dd, NULL);
+        }
+        driver_pdl_unlock(dd->blocking->pdl);
+    } else if (dd->blocking->res < 0) {
+        driver_failure_posix(port_num, dd->blocking->err);
+        return; /* -1; */
+    }
+    return; /* 0; */
+}
+
 #endif
 
 void erts_do_break_handling(void)
