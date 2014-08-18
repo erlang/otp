@@ -110,9 +110,15 @@ init_per_group(_, Config) ->
 init_per_group_ipv6(Families, Config) ->
     case ct:require(ipv6_hosts) of
 	ok ->
-	    init_per_group_ip(Families, Config);
+	    case gen_udp:open(0, [inet6]) of
+		{ok, S} ->
+		    ok = gen_udp:close(S),
+		    init_per_group_ip(Families, Config);
+		{error, _} ->
+		    {skip, "Host seems to not support IPv6"}
+	    end;
 	_ ->
-	    {skip, "Host does not support IPV6"}
+	    {skip, "Test config ipv6_hosts is missing"}
     end.
 
 init_per_group_ip(Families, Config) ->
