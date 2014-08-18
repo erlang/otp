@@ -5877,6 +5877,9 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Proces
     case ERTS_ENQUEUE_NOT:
 	if (erts_system_profile_flags.runnable_procs) {
 
+	    /* Status lock prevents out of order "runnable proc" trace msgs */
+	    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
+
 	    if (!(a & ERTS_PSFLG_ACTIVE_SYS)
 		&& (!(a & ERTS_PSFLG_ACTIVE)
 		    || (a & ERTS_PSFLG_SUSPENDED))) {
@@ -5990,7 +5993,8 @@ change_proc_schedule_state(Process *p,
 			   erts_aint32_t clear_state_flags,
 			   erts_aint32_t set_state_flags,
 			   erts_aint32_t *statep,
-			   erts_aint32_t *enq_prio_p)
+			   erts_aint32_t *enq_prio_p,
+			   ErtsProcLocks locks)
 {
     /*
      * NOTE: ERTS_PSFLG_RUNNING, ERTS_PSFLG_RUNNING_SYS and
@@ -5999,6 +6003,11 @@ change_proc_schedule_state(Process *p,
      */
     erts_aint32_t a = *statep, n;
     int enqueue; /* < 0 -> use proxy */
+    unsigned int prof_runnable_procs = erts_system_profile_flags.runnable_procs;
+    unsigned int lock_status = (prof_runnable_procs
+				&& !(locks & ERTS_PROC_LOCK_STATUS));
+
+    ERTS_SMP_LC_ASSERT(locks == erts_proc_lc_my_proc_locks(p));
 
     ASSERT(!(a & ERTS_PSFLG_PROXY));
     ASSERT((clear_state_flags & (ERTS_PSFLG_RUNNING
@@ -6007,6 +6016,9 @@ change_proc_schedule_state(Process *p,
     ASSERT((set_state_flags & (ERTS_PSFLG_RUNNING
 			       | ERTS_PSFLG_RUNNING_SYS
 			       | ERTS_PSFLG_ACTIVE_SYS)) == 0);
+
+    if (lock_status)
+	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
 
     while (1) {
 	erts_aint32_t e;
@@ -6043,7 +6055,9 @@ change_proc_schedule_state(Process *p,
 	    break;
     }
 
-    if (erts_system_profile_flags.runnable_procs) {
+    if (prof_runnable_procs) {
+
+	/* Status lock prevents out of order "runnable proc" trace msgs */
 
 	if (((n & (ERTS_PSFLG_SUSPENDED
 		   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
@@ -6056,7 +6070,10 @@ change_proc_schedule_state(Process *p,
 	    profile_runnable_proc(p, am_active);
 	}
 
+	if (lock_status)
+	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     }
+
 
     *statep = a;
 
@@ -6064,7 +6081,7 @@ change_proc_schedule_state(Process *p,
 }
 
 static ERTS_INLINE void
-schedule_process(Process *p, erts_aint32_t in_state)
+schedule_process(Process *p, erts_aint32_t in_state, ErtsProcLocks locks)
 {
     erts_aint32_t enq_prio  = -1;
     erts_aint32_t state = in_state;
@@ -6072,7 +6089,8 @@ schedule_process(Process *p, erts_aint32_t in_state)
 					     0,
 					     ERTS_PSFLG_ACTIVE,
 					     &state,
-					     &enq_prio);
+					     &enq_prio,
+					     locks);
     if (enqueue != ERTS_ENQUEUE_NOT)
 	add2runq(enqueue > 0 ? p : make_proxy_proc(NULL, p, enq_prio),
 		 state,
@@ -6080,16 +6098,27 @@ schedule_process(Process *p, erts_aint32_t in_state)
 }
 
 void
-erts_schedule_process(Process *p, erts_aint32_t state)
+erts_schedule_process(Process *p, erts_aint32_t state, ErtsProcLocks locks)
 {
-    schedule_process(p, state);
+    schedule_process(p, state, locks);
 }
 
 static void
 schedule_process_sys_task(Process *p, erts_aint32_t state, Process *proxy)
 {
+    /*
+     * Expects status lock to be locked when called, and
+     * returns with status lock unlocked...
+     */
     erts_aint32_t a = state, n, enq_prio = -1;
     int enqueue; /* < 0 -> use proxy */
+    unsigned int prof_runnable_procs = erts_system_profile_flags.runnable_procs;
+
+    /* Status lock prevents out of order "runnable proc" trace msgs */
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
+
+    if (!prof_runnable_procs)
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
     ASSERT(!(state & ERTS_PSFLG_PROXY));
 
@@ -6098,7 +6127,7 @@ schedule_process_sys_task(Process *p, erts_aint32_t state, Process *proxy)
 	n = e = a;
 
 	if (a & ERTS_PSFLG_FREE)
-	    return; /* We don't want to schedule free processes... */
+	    goto cleanup; /* We don't want to schedule free processes... */
 
 	enqueue = ERTS_ENQUEUE_NOT;
 	n |= ERTS_PSFLG_ACTIVE_SYS;
@@ -6111,7 +6140,7 @@ schedule_process_sys_task(Process *p, erts_aint32_t state, Process *proxy)
 	    goto cleanup;
     }
 
-    if (erts_system_profile_flags.runnable_procs) {
+    if (prof_runnable_procs) {
 
 	if (!(a & (ERTS_PSFLG_ACTIVE_SYS
 		   | ERTS_PSFLG_RUNNING
@@ -6121,6 +6150,8 @@ schedule_process_sys_task(Process *p, erts_aint32_t state, Process *proxy)
 	    profile_runnable_proc(p, am_active);
 	}
 
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+	prof_runnable_procs = 0;
     }
 
     if (enqueue != ERTS_ENQUEUE_NOT) {
@@ -6135,8 +6166,14 @@ schedule_process_sys_task(Process *p, erts_aint32_t state, Process *proxy)
     }
 
 cleanup:
+
+    if (prof_runnable_procs)
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+
     if (proxy)
 	free_proxy_proc(proxy);
+
+    ERTS_SMP_LC_ASSERT(!(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p)));
 }
 
 static ERTS_INLINE int
@@ -6203,7 +6240,7 @@ suspend_process(Process *c_p, Process *p)
 }
 
 static ERTS_INLINE void
-resume_process(Process *p)
+resume_process(Process *p, ErtsProcLocks locks)
 {
     erts_aint32_t state, enq_prio = -1;
     int enqueue;
@@ -6220,7 +6257,8 @@ resume_process(Process *p)
 					 ERTS_PSFLG_SUSPENDED,
 					 0,
 					 &state,
-					 &enq_prio);
+					 &enq_prio,
+					 locks);
     if (enqueue)
 	add2runq(enqueue > 0 ? p : make_proxy_proc(NULL, p, enq_prio),
 		 state,
@@ -8036,7 +8074,8 @@ handle_pend_sync_suspend(Process *suspendee,
 	}
 	/* suspender is suspended waiting for suspendee to suspend;
 	   resume suspender */
-	resume_process(suspender);
+	ASSERT(suspendee != suspender);
+	resume_process(suspender, ERTS_PROC_LOCK_STATUS);
 	erts_smp_proc_unlock(suspender, ERTS_PROC_LOCK_STATUS);
     }
 }
@@ -8071,7 +8110,7 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	ASSERT(c_p->flags & F_P2PNR_RESCHED);
 	c_p->flags &= ~F_P2PNR_RESCHED;
 	if (!suspend && rp)
-	    resume_process(rp);
+	    resume_process(rp, rp_locks);
     }
     else {
 
@@ -8229,7 +8268,8 @@ handle_pend_bif_sync_suspend(Process *suspendee,
 	}
 	/* suspender is suspended waiting for suspendee to suspend;
 	   resume suspender */
-	resume_process(suspender);
+	ASSERT(suspender != suspendee);
+	resume_process(suspender, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
 	erts_smp_proc_unlock(suspender,
 			     ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
     }
@@ -8589,7 +8629,8 @@ resume_process_1(BIF_ALIST_1)
 
 	ASSERT(ERTS_PSFLG_SUSPENDED
 	       & erts_smp_atomic32_read_nob(&suspendee->state));
-	resume_process(suspendee);
+	ASSERT(BIF_P != suspendee);
+	resume_process(suspendee, ERTS_PROC_LOCK_STATUS);
 
 	erts_smp_proc_unlock(suspendee, ERTS_PROC_LOCK_STATUS);
     }
@@ -8719,7 +8760,7 @@ erts_resume(Process* process, ErtsProcLocks process_locks)
     ERTS_SMP_LC_ASSERT(process_locks == erts_proc_lc_my_proc_locks(process));
     if (!(process_locks & ERTS_PROC_LOCK_STATUS))
 	erts_smp_proc_lock(process, ERTS_PROC_LOCK_STATUS);
-    resume_process(process);
+    resume_process(process, process_locks|ERTS_PROC_LOCK_STATUS);
     if (!(process_locks & ERTS_PROC_LOCK_STATUS))
 	erts_smp_proc_unlock(process, ERTS_PROC_LOCK_STATUS);
 }
@@ -8738,7 +8779,7 @@ erts_resume_processes(ErtsProcList *list)
 	proc = erts_pid2proc(NULL, 0, plp->pid, ERTS_PROC_LOCK_STATUS);
 	if (proc) {
 	    if (erts_proclist_same(plp, proc)) {
-		resume_process(proc);
+		resume_process(proc, ERTS_PROC_LOCK_STATUS);
 		nresumed++;
 	    }
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_STATUS);
@@ -9974,8 +10015,10 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
 	rp_state = n;
     }
 
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-
+    /*
+     * schedule_process_sys_task() unlocks status
+     * lock on process.
+     */
     schedule_process_sys_task(rp, rp_state, NULL);
 
     if (free_stqs)
@@ -10720,7 +10763,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      * Schedule process for execution.
      */
 
-    schedule_process(p, state);
+    schedule_process(p, state, 0);
 
     VERBOSE(DEBUG_PROCESSES, ("Created a new process: %T\n",p->common.id));
 
@@ -11041,7 +11084,8 @@ set_proc_exiting(Process *p,
 					 ERTS_PSFLG_SUSPENDED|ERTS_PSFLG_PENDING_EXIT,
 					 ERTS_PSFLG_EXITING|ERTS_PSFLG_ACTIVE,
 					 &state,
-					 &enq_prio);
+					 &enq_prio,
+					 ERTS_PROC_LOCKS_ALL);
 
     p->fvalue = reason;
     if (bp)
@@ -11082,7 +11126,8 @@ set_proc_self_exiting(Process *c_p)
 				   ERTS_PSFLG_SUSPENDED|ERTS_PSFLG_PENDING_EXIT,
 				   ERTS_PSFLG_EXITING|ERTS_PSFLG_ACTIVE,
 				   &state,
-				   &enq_prio);
+				   &enq_prio,
+				   ERTS_PROC_LOCKS_ALL);
 
     ASSERT(!enqueue);
     return state;
@@ -11727,8 +11772,9 @@ resume_suspend_monitor(ErtsSuspendMonitor *smon, void *vc_p)
     Process *suspendee = erts_pid2proc((Process *) vc_p, ERTS_PROC_LOCK_MAIN,
 				       smon->pid, ERTS_PROC_LOCK_STATUS);
     if (suspendee) {
+	ASSERT(suspendee != vc_p);
 	if (smon->active)
-	    resume_process(suspendee);
+	    resume_process(suspendee, ERTS_PROC_LOCK_STATUS);
 	erts_smp_proc_unlock(suspendee, ERTS_PROC_LOCK_STATUS);
     }
     erts_destroy_suspend_monitor(smon);
@@ -12061,7 +12107,7 @@ timeout_proc(Process* p)
 
     state = erts_smp_atomic32_read_acqb(&p->state);
     if (!(state & ERTS_PSFLG_ACTIVE))
-	schedule_process(p, state);
+	schedule_process(p, state, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 }
 
 

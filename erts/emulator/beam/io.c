@@ -1253,12 +1253,18 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	goto locked_fail;
     }
 
-
     if (!c_p)
 	reds_left_in = CONTEXT_REDS/10;
     else {
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
 	    trace_virtual_sched(c_p, am_out);
+	/*
+	 * No status lock held while sending runnable
+	 * proc trace messages. It is however not needed
+	 * in this case, since only this thread can send
+	 * such messages for this process until the process
+	 * has been scheduled out.
+	 */
 	if (erts_system_profile_flags.runnable_procs
 	    && erts_system_profile_flags.exclusive)
 	    profile_runnable_proc(c_p, am_inactive);
@@ -1319,6 +1325,13 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
 	    trace_virtual_sched(c_p, am_in);
+	/*
+	 * No status lock held while sending runnable
+	 * proc trace messages. It is however not needed
+	 * in this case, since only this thread can send
+	 * such messages for this process until the process
+	 * has been scheduled out.
+	 */
 	if (erts_system_profile_flags.runnable_procs
 	    && erts_system_profile_flags.exclusive)
 	    profile_runnable_proc(c_p, am_active);
