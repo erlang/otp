@@ -2304,8 +2304,8 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 #define ENC_TERM ((Eterm) 0)
 #define ENC_ONE_CONS ((Eterm) 1)
 #define ENC_PATCH_FUN_SIZE ((Eterm) 2)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 3)
-
+#define ENC_BIN_COPY ((Eterm) 3)
+#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 4)
 
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
@@ -2341,6 +2341,9 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_RESTORE(s, &ctx->wstack);
 	    ep = ctx->ep;
 	    obj = ctx->obj;
+	    if (is_non_value(obj)) {
+		goto outer_loop;
+	    }
 	}
     }
 
@@ -2378,6 +2381,26 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
+	case ENC_BIN_COPY: {
+	    Uint bits = (Uint)obj;
+	    Uint bitoffs = WSTACK_POP(s);
+	    byte* bytes = (byte*) WSTACK_POP(s);
+	    byte* dst = (byte*) WSTACK_POP(s);
+	    if (bits > r * (B2T_MEMCPY_FACTOR * 8)) {
+		Uint n = r * B2T_MEMCPY_FACTOR;
+		WSTACK_PUSH3(s, (UWord)(dst + n), (UWord)(bytes + n), bitoffs);
+		WSTACK_PUSH2(s, ENC_BIN_COPY, bits - 8*n);
+		bits = 8*n;
+		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
+		obj = THE_NON_VALUE;
+		r = 0; /* yield */
+		break;
+	    } else {
+		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
+		r -= bits / (B2T_MEMCPY_FACTOR * 8);
+		goto outer_loop;
+	    }
+	}
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
@@ -2405,8 +2428,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
     L_jump_start:
 
-	if (ctx && --r == 0) {
-	    *reds = r;
+	if (ctx && --r <= 0) {
+	    *reds = 0;
 	    ctx->obj = obj;
 	    ctx->ep = ep;
 	    WSTACK_SAVE(s, &ctx->wstack);
@@ -2621,6 +2644,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		Uint bitoffs;
 		Uint bitsize;
 		byte* bytes;
+		byte* data_dst;
 
 		ERTS_GET_BINARY_BYTES(obj, bytes, bitoffs, bitsize);
 		if (dflags & DFLAG_INTERNAL_TAGS) {
@@ -2666,7 +2690,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    j = binary_size(obj);
 		    put_int32(j, ep);
 		    ep += 4;
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j);
+		    data_dst = ep;
 		    ep += j;
 		} else if (dflags & DFLAG_BIT_BINARIES) {
 		    /* Bit-level binary. */
@@ -2676,7 +2700,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep += 4;
 		    *ep++ = bitsize;
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j+bitsize);
+		    data_dst = ep;
 		    ep += j + 1;
 		} else {
 		    /*
@@ -2690,10 +2714,17 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    put_int32((j+1), ep);
 		    ep += 4;
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j+bitsize);
+		    data_dst = ep;
 		    ep += j+1;
 		    *ep++ = SMALL_INTEGER_EXT;
 		    *ep++ = bitsize;
+		}
+		if (ctx && j > r * B2T_MEMCPY_FACTOR) {
+		    WSTACK_PUSH3(s, (UWord)data_dst, (UWord)bytes, bitoffs);
+		    WSTACK_PUSH2(s, ENC_BIN_COPY, 8*j + bitsize);
+		} else {
+		    copy_binary_to_buffer(data_dst, 0, bytes, bitoffs,
+					  8 * j + bitsize);
 		}
 	    }
 	    break;
