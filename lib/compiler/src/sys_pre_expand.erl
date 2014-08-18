@@ -232,9 +232,18 @@ pattern({map,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{map,Line,TPs},St1};
 pattern({map_field_exact,Line,K0,V0}, St0) ->
-    {K,St1} = expr(K0, St0),
+    %% Key should be treated as an expression
+    %% but since expressions are not allowed yet,
+    %% process it through pattern .. and handle assoc
+    %% (normalise unary op integer -> integer)
+    {K,St1} = pattern(K0, St0),
     {V,St2} = pattern(V0, St1),
     {{map_field_exact,Line,K,V},St2};
+pattern({map_field_assoc,Line,K0,V0}, St0) ->
+    %% when keys are Maps
+    {K,St1} = pattern(K0, St0),
+    {V,St2} = pattern(V0, St1),
+    {{map_field_assoc,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{tuple,Line,[{atom,Line,Tag}|TPs]},TPsvs,St1};
