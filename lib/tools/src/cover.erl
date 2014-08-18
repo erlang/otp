@@ -2360,22 +2360,13 @@ do_reset_collection_table(Module) ->
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
 %% do_reset(Module) -> ok
-%% The reset is done on a per-clause basis to avoid building
-%% long lists in the case of very large modules
 do_reset(Module) ->
-    [{Module,Clauses}] = ets:lookup(?COVER_CLAUSE_TABLE, Module),
-    do_reset2(Clauses).
-
-do_reset2([{M,F,A,C,_L}|Clauses]) ->
-    Pattern = {#bump{module=M, function=F, arity=A, clause=C}, '_'},
+    Pattern = {#bump{module=Module, _ = '_'}, '_'},
     Bumps = ets:match_object(?COVER_TABLE, Pattern),
     lists:foreach(fun({Bump,_N}) ->
 			  ets:insert(?COVER_TABLE, {Bump,0})
 		  end,
-		  Bumps),
-    do_reset2(Clauses);
-do_reset2([]) ->
-    ok.    
+		  Bumps).
 
 do_clear(Module) ->
     ets:match_delete(?COVER_CLAUSE_TABLE, {Module,'_'}),
