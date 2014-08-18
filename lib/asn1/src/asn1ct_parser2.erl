@@ -1055,7 +1055,8 @@ parse_DefinedObjectClass(Tokens) ->
 
 parse_ObjectClassAssignment([{typereference,L1,ObjClName},{'::=',_}|Rest]) ->
     {Type,Rest2} = parse_ObjectClass(Rest),
-    {#classdef{pos=L1,name=ObjClName,typespec=Type},Rest2};
+    {#classdef{pos=L1,name=ObjClName,module=resolve_module(Type),
+	       typespec=Type},Rest2};
 parse_ObjectClassAssignment(Tokens) ->
     throw({asn1_assignment_error,{get_line(hd(Tokens)),get(asn1_module),
 				  [got,get_token(hd(Tokens)),expected,

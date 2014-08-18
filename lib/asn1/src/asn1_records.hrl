@@ -37,7 +37,7 @@
 -record('ObjectClassFieldType',{classname,class,fieldname,type}).
 
 -record(typedef,{checked=false,pos,name,typespec}).
--record(classdef,{checked=false,pos,name,typespec}).
+-record(classdef, {checked=false,pos,name,module,typespec}).
 -record(valuedef,{checked=false,pos,name,type,value,module}).
 -record(ptypedef,{checked=false,pos,name,args,typespec}).
 -record(pvaluedef,{checked=false,pos,name,args,type,value}).

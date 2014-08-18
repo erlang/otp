@@ -7008,7 +7008,7 @@ include_default_class1(_,[]) ->
 include_default_class1(Module,[{Name,TS}|Rest]) ->
     case asn1_db:dbget(Module,Name) of
 	undefined ->
-	    C = #classdef{checked=true,name=Name,
+	    C = #classdef{checked=true,module=Module,name=Name,
 			  typespec=TS},
 	    asn1_db:dbput(Module,Name,C);
 	_ -> ok
