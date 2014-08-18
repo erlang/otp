@@ -201,7 +201,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_request(ssl_cipher:erl_cipher_suite(), db_handle(), certdb_ref(), ssl_record:ssl_version()) ->
+-spec certificate_request(ssl_cipher:cipher_suite(), db_handle(), certdb_ref(), ssl_record:ssl_version()) ->
     #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
