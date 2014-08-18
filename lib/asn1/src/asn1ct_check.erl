@@ -549,14 +549,10 @@ check_class(S = #state{mname=M,tname=T},ClassSpec)
 	    #objectclass{fields=Def}; % in case of recursive definitions
 	Tref = #'Externaltypereference'{type=TName} ->
 	    {MName,RefType} = get_referenced_type(S,Tref),
-	    case is_class(S,RefType) of
-		true ->
-		    NewState = update_state(S#state{type=RefType,
-						    tname=TName},MName),
- 		    check_class(NewState,get_class_def(S,RefType));
-		_ ->
-		    error({class,{internal_error,RefType},S})
-	    end;
+	    #classdef{} = CD = get_class_def(S, RefType),
+	    NewState = update_state(S#state{type=RefType,
+					    tname=TName}, MName),
+	    check_class(NewState, CD);
 	{pt,ClassRef,Params} ->
 	    %% parameterized class
 	    {_,PClassDef} = get_referenced_type(S,ClassRef),
@@ -3003,9 +2999,9 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			{TmpRefMod,TmpRefDef} ->
 			    {TmpRefMod,TmpRefDef,false}
 		    end,
-		case is_class(S,RefTypeDef) of
-		    true -> throw({asn1_class,RefTypeDef});
-		    _ -> ok
+		case get_class_def(S, RefTypeDef) of
+		    none -> ok;
+		    #classdef{} -> throw({asn1_class,RefTypeDef})
 		end,
 		Ct = TestFun(Ext),
 		{RefType,ExtRef} = 
@@ -3386,23 +3382,17 @@ get_type_from_object(S,Object,TypeField)
     ObjSpec = check_object(S,ObjectDef,ObjectDef#typedef.typespec),
     get_fieldname_element(S,ObjectDef#typedef{typespec=ObjSpec},TypeField).
     
-is_class(_S,#classdef{}) ->
-    true;
-is_class(S,#typedef{typespec=#type{def=Eref}}) 
-  when is_record(Eref,'Externaltypereference')->
-    is_class(S,Eref);
-is_class(S,Eref) when is_record(Eref,'Externaltypereference')->
-    {_,NextDef} = get_referenced_type(S,Eref),
-    is_class(S,NextDef);
-is_class(_,_) ->
-    false.
-
-get_class_def(_S,CD=#classdef{}) ->
+%% get_class_def(S, Type) -> #classdef{} | 'none'.
+get_class_def(S, #typedef{typespec=#type{def=#'Externaltypereference'{}=Eref}}) ->
+    {_,NextDef} = get_referenced_type(S, Eref),
+    get_class_def(S, NextDef);
+get_class_def(S, #'Externaltypereference'{}=Eref) ->
+    {_,NextDef} = get_referenced_type(S, Eref),
+    get_class_def(S, NextDef);
+get_class_def(_S, #classdef{}=CD) ->
     CD;
-get_class_def(S,#typedef{typespec=#type{def=Eref}})
-  when is_record(Eref,'Externaltypereference') ->
-    {_,NextDef} = get_referenced_type(S,Eref),
-    get_class_def(S,NextDef).
+get_class_def(_S, _) ->
+    none.
     
 maybe_illicit_implicit_tag(Kind,Tag) ->
     case Tag of
@@ -3644,18 +3634,16 @@ governor_category(S,#type{def=Eref})
     governor_category(S,Eref);
 governor_category(_S,#type{}) ->
     type;
-governor_category(S,Ref) when is_record(Ref,'Externaltypereference') ->
-    case is_class(S,Ref) of
-	true ->
-	    {class,Ref};
-	_ ->
+governor_category(S, #'Externaltypereference'{}=Ref) ->
+    case get_class_def(S, Ref) of
+	#classdef{pos=Pos,module=Mod,name=Name} ->
+	    {class,#'Externaltypereference'{pos=Pos,module=Mod,type=Name}};
+	none ->
 	    type
     end;
 governor_category(_,Class) 
   when Class == 'TYPE-IDENTIFIER'; Class == 'ABSTRACT-SYNTAX' ->
     class.
-%% governor_category(_,_) ->
-%%     absent.
 
 %% parameter_name_style(Param,Data) -> Result
 %% gets the Parameter and the name of the Data and if it exists tells
