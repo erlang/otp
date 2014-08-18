@@ -2754,10 +2754,9 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case FUN_DEF:
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
+		int ei;
 
 		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    int ei;
-
 		    *ep++ = NEW_FUN_EXT;
 		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
 		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
@@ -2774,16 +2773,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
 		    ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
 		    ep = enc_pid(acmp, funp->creator, ep, dflags);
-
-		fun_env:
-		    for (ei = funp->num_free-1; ei > 0; ei--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) funp->env[ei]);
-		    }
-		    if (funp->num_free != 0) {
-			obj = funp->env[0];
-			goto L_jump_start;
-		    }
 		} else {
 		    /*
 		     * Communicating with an obsolete erl_interface or
@@ -2815,7 +2804,14 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    *ep++ = SMALL_TUPLE_EXT;
 		    put_int8(funp->num_free, ep);
 		    ep += 1;
-		    goto fun_env;
+		}
+		for (ei = funp->num_free-1; ei > 0; ei--) {
+		    WSTACK_PUSH(s, ENC_TERM);
+		    WSTACK_PUSH(s, (UWord) funp->env[ei]);
+		}
+		if (funp->num_free != 0) {
+		    obj = funp->env[0];
+		    goto L_jump_start;
 		}
 	    }
 	    break;
