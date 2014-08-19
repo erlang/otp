@@ -1112,7 +1112,7 @@ certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == rsa;
 						  KeyExchange == ecdhe_rsa ->
     <<?BYTE(?RSA_SIGN)>>;
 
-certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dhe_dss,
+certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dhe_dss;
 						   KeyExchange == srp_dss ->
     <<?BYTE(?DSS_SIGN)>>;
 
