@@ -60,16 +60,19 @@ groups() ->
     [{ipv4, [],
       [{group, snmpget},
        {group, snmptrapd},
+       {group, snmpd_mt},
        {group, snmpd}
       ]},
      {ipv6, [],
       [{group, snmpget},
        {group, snmptrapd},
+       {group, snmpd_mt},
        {group, snmpd}
       ]},
      {ipv4_ipv6, [],
       [{group, snmpget},
        {group, snmptrapd},
+       {group, snmpd_mt},
        {group, snmpd}
       ]},
      %%
@@ -77,6 +80,8 @@ groups() ->
       [erlang_agent_netsnmp_get]},
      {snmptrapd, [],
       [erlang_agent_netsnmp_inform]},
+     {snmpd_mt, [],
+      [erlang_manager_netsnmp_get]},
      {snmpd, [],
       [erlang_manager_netsnmp_get]}
     ].
@@ -100,9 +105,16 @@ init_per_group(snmpget = Exec, Config) ->
 init_per_group(snmptrapd = Exec, Config) ->
     %% From Ubuntu package snmpd
     init_per_group_agent(Exec, Config);
+init_per_group(snmpd_mt, Config) ->
+    %% From Ubuntu package snmp
+    init_per_group_manager(
+      snmpd,
+      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(snmpd = Exec, Config) ->
     %% From Ubuntu package snmp
-    init_per_group_manager(Exec, Config);
+    init_per_group_manager(
+      Exec,
+      [{manager_net_if_module, snmpm_net_if} | Config]);
 %%
 init_per_group(_, Config) ->
     Config.
@@ -462,10 +474,12 @@ agent_app_env(Config) ->
 manager_app_env(Config) ->
     Dir = ?config(priv_dir, Config),
     Vsns = ?config(snmp_versions, Config),
+    NetIfModule = ?config(manager_net_if_module, Config),
     [{versions,         Vsns},
      {audit_trail_log,  [{type, read_write},
 			 {dir, Dir},
 			 {size, {10240, 10}}]},
+     {net_if,           [{module, NetIfModule}]},
      {config,           [{dir, Dir},
 			 {db_dir, Dir},
 			 {verbosity, trace}]}
