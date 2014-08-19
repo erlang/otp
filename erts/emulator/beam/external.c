@@ -2368,8 +2368,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 		obj = CAR(cons);
 		tl = CDR(cons);
-		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		WSTACK_PUSH(s, tl);
+		WSTACK_PUSH2(s, (is_list(tl) ? ENC_ONE_CONS : ENC_TERM),
+			     tl);
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
@@ -2433,9 +2433,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 #else
 		Eterm* ptr = (Eterm *) obj;
 #endif
-		WSTACK_PUSH(s, val-1);
 		obj = *ptr++;
-		WSTACK_PUSH(s, (UWord)ptr);
+		WSTACK_PUSH2(s, val-1, (UWord)ptr);
 	    }
 	    break;
 	}
@@ -2592,8 +2591,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		ep += 4;
 	    }
 	    if (i > 0) {
-		WSTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
-		WSTACK_PUSH(s, (UWord)ptr);
+		WSTACK_PUSH2(s, ENC_LAST_ARRAY_ELEMENT+i-1, (UWord)ptr);
 	    }
 	    break;
 
@@ -2762,8 +2760,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
 		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
-		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
+		    WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
+				 (UWord) ep); /* Position for patching in size */
 		    ep += 4;
 		    *ep = funp->arity;
 		    ep += 1;
@@ -2810,8 +2808,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep += 1;
 		}
 		for (ei = funp->num_free-1; ei > 0; ei--) {
-		    WSTACK_PUSH(s, ENC_TERM);
-		    WSTACK_PUSH(s, (UWord) funp->env[ei]);
+		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
 		}
 		if (funp->num_free != 0) {
 		    obj = funp->env[0];

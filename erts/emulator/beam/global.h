@@ -479,6 +479,17 @@ do {						\
     *s.sp++ = (z);				\
 } while(0)
 
+#define ESTACK_PUSH4(s, E1, E2, E3, E4)		\
+do {						\
+    if (s.sp > s.end - 4) {			\
+	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    }						\
+    *s.sp++ = (E1);				\
+    *s.sp++ = (E2);				\
+    *s.sp++ = (E3);				\
+    *s.sp++ = (E4);				\
+} while(0)
+
 #define ESTACK_COUNT(s) (s.sp - s.start)
 #define ESTACK_ISEMPTY(s) (s.sp == s.start)
 #define ESTACK_POP(s) (*(--s.sp))
@@ -619,6 +630,20 @@ do {						\
     *s.wsp++ = (A4);				\
     *s.wsp++ = (A5);				\
 } while(0)
+
+#define WSTACK_PUSH6(s, A1, A2, A3, A4, A5, A6) \
+do {						\
+    if (s.wsp > s.wend - 6) {	                \
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    }						\
+    *s.wsp++ = (A1);				\
+    *s.wsp++ = (A2);				\
+    *s.wsp++ = (A3);				\
+    *s.wsp++ = (A4);				\
+    *s.wsp++ = (A5);				\
+    *s.wsp++ = (A6);				\
+} while(0)
+
 #define WSTACK_COUNT(s) (s.wsp - s.wstart)
 #define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
 #define WSTACK_POP(s) (*(--s.wsp))
