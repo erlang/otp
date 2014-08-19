@@ -98,8 +98,10 @@ generator(0, Writer, _Data) ->
 
     %% Calling process_info(Pid, current_function) on a suspended process
     %% used to crash Beam.
-    {current_function, {erlang, send, 2}} =
-	process_info(Writer, current_function),
+    case process_info(Writer, [status,current_function]) of
+	[{status,suspended},{current_function,{erlang,send,2}}] -> ok;
+	[{status,suspended},{current_function,{erlang,bif_return_trap,_}}] -> ok
+    end,
     unlock_slave();
 generator(N, Writer, Data) ->
     Writer ! {exec, Data},
