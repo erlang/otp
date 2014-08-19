@@ -597,6 +597,28 @@ do {						\
     *s.wsp++ = (z);				\
 } while(0)
 
+#define WSTACK_PUSH4(s, A1, A2, A3, A4)		\
+do {						\
+    if (s.wsp > s.wend - 4) {	\
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    }						\
+    *s.wsp++ = (A1);				\
+    *s.wsp++ = (A2);				\
+    *s.wsp++ = (A3);				\
+    *s.wsp++ = (A4);				\
+} while(0)
+
+#define WSTACK_PUSH5(s, A1, A2, A3, A4, A5)     \
+do {						\
+    if (s.wsp > s.wend - 5) {	                \
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    }						\
+    *s.wsp++ = (A1);				\
+    *s.wsp++ = (A2);				\
+    *s.wsp++ = (A3);				\
+    *s.wsp++ = (A4);				\
+    *s.wsp++ = (A5);				\
+} while(0)
 #define WSTACK_COUNT(s) (s.wsp - s.wstart)
 #define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
 #define WSTACK_POP(s) (*(--s.wsp))
