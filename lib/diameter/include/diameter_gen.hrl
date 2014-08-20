@@ -311,7 +311,9 @@ d(Name, Avp, Acc) ->
 
     Failed = relax(Name),  %% Not AvpName or else a failed Failed-AVP
                            %% decode is packed into 'AVP'.
-    try avp(decode, Data, AvpName) of
+    Mod = dict(Failed),    %% Dictionary to decode in.
+
+    try Mod:avp(decode, Data, AvpName) of
         V ->
             {Avps, T} = Acc,
             {H, A} = ungroup(V, Avp),
@@ -323,6 +325,25 @@ d(Name, Avp, Acc) ->
         reset(?STRICT_KEY, Strict),
         reset(?FAILED_KEY, Failed)
     end.
+
+%% dict/1
+%%
+%% Retrieve the dictionary for the best-effort decode of Failed-AVP,
+%% as put by diameter_codec:decode/2. See that function for the
+%% explanation.
+
+dict(true) ->
+    case get({diameter_codec, dictionary}) of
+        undefined ->
+            ?MODULE;
+        Mod ->
+            Mod
+    end;
+
+dict(_) ->
+    ?MODULE.
+
+%% d/5
 
 %% Ignore a decode error within Failed-AVP ...
 d(true, _, Name, Avp, Acc) ->
@@ -341,6 +362,8 @@ d(false, Reason, Name, Avp, {Avps, Acc}) ->
     {Rec, Failed} = Acc,
     {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}.
 
+%% relax/2
+
 %% Set false in the process dictionary as soon as we see a Grouped AVP
 %% that doesn't set the M-bit, so that is_strict() can say whether or
 %% not to ignore the M-bit on an encapsulated AVP.
@@ -357,21 +380,22 @@ relax(_, _) ->
 is_strict() ->
     false /= getr(?STRICT_KEY).
 
+%% relax/1
+%%
 %% Set true in the process dictionary as soon as we see Failed-AVP.
 %% Matching on 'Failed-AVP' assumes that this is the RFC AVP.
 %% Strictly, this doesn't need to be the case.
+
 relax('Failed-AVP') ->
-    case getr(?FAILED_KEY) of
-        undefined ->
-            putr(?FAILED_KEY, true);
-        true = Yes ->
-            Yes
-    end;
+    is_failed() orelse putr(?FAILED_KEY, true);
+
 relax(_) ->
     is_failed().
     
 is_failed() ->
     true == getr(?FAILED_KEY).
+
+%% reset/2
 
 reset(Key, undefined) ->
     eraser(Key);

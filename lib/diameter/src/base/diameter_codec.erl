@@ -237,15 +237,35 @@ rec2msg(Mod, Rec) ->
 
 %% Unsuccessfully decoded AVPs will be placed in #diameter_packet.errors.
 
--spec decode(module(), #diameter_packet{} | binary())
+-spec decode(module() | {module(), module()}, #diameter_packet{} | binary())
    -> #diameter_packet{}.
 
+%% An Answer setting the E-bit. The application dictionary is needed
+%% for the best-effort decode of Failed-AVP, and the best way to make
+%% this available to the AVP decode in diameter_gen.hrl, without
+%% having to rewrite the entire codec generation, is to place it in
+%% the process dictionary. It's the code in diameter_gen.hrl (that's
+%% included by every generated codec module) that looks for the entry.
+%% Not ideal, but it solves the problem relatively simply.
+decode({Mod, Mod}, Pkt) ->
+    decode(Mod, Pkt);
+decode({Mod, AppMod}, Pkt) ->
+    Key = {?MODULE, dictionary},
+    put(Key, AppMod),
+    try
+        decode(Mod, Pkt)
+    after
+        erase(Key)
+    end;
+
+%% Or not: a request, or an answer not setting the E-bit.
 decode(Mod, Pkt) ->
     decode(Mod:id(), Mod, Pkt).
 
-%% If we're a relay application then just extract the avp's without
-%% any decoding of their data since we don't know the application in
-%% question.
+%% decode/3
+
+%% Relay application: just extract the avp's without any decoding of
+%% their data since we don't know the application in question.
 decode(?APP_ID_RELAY, _, #diameter_packet{} = Pkt) ->
     case collect_avps(Pkt) of
         {E, As} ->
@@ -273,6 +293,8 @@ decode(_, Mod, #diameter_packet{header = Hdr} = Pkt) ->
 decode(Id, Mod, Bin)
   when is_binary(Bin) ->
     decode(Id, Mod, #diameter_packet{header = decode_header(Bin), bin = Bin}).
+
+%% decode_avps/4
 
 decode_avps(MsgName, Mod, Pkt, {E, Avps}) ->
     ?LOG(invalid_avp_length, Pkt#diameter_packet.header),
