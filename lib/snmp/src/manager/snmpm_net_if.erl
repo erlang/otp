@@ -59,8 +59,6 @@
 	{
 	  server,
 	  note_store,
-%%	  domain,
-%%	  sock,
 	  transports = [],
 	  mpd_state,
 	  log,
@@ -170,12 +168,6 @@ init([Server, NoteStore]) ->
 	{error, Reason} ->
 	    {stop, Reason}
     end.
-    %% case (catch do_init(Server, NoteStore)) of
-    %% 	{error, Reason} ->
-    %% 	    {stop, Reason};
-    %% 	{ok, State} ->
-    %% 	    {ok, State}
-    %% end.
 	    
 do_init(Server, NoteStore) ->
     process_flag(trap_exit, true),
@@ -190,8 +182,8 @@ do_init(Server, NoteStore) ->
 
     %% -- Verbosity -- 
     {ok, Verbosity} = snmpm_config:system_info(net_if_verbosity),
-    put(sname,mnif),
-    put(verbosity,Verbosity),
+    put(sname, mnif),
+    put(verbosity, Verbosity),
     ?vlog("starting", []),
 
     %% -- MPD --
@@ -246,74 +238,6 @@ do_init(Server, NoteStore) ->
 	    ?vdebug("started", []),
 	    {ok, State}
     end.
-    
-
-
-    %% %% -- Socket --
-    %% SndBuf  = get_opt(Opts, sndbuf,   default),
-    %% RecBuf  = get_opt(Opts, recbuf,   default),
-    %% BindTo  = get_opt(Opts, bind_to,  false),
-    %% NoReuse = get_opt(Opts, no_reuse, false),
-
-    %% {ok, Port} = snmpm_config:system_info(port),
-    %% Domain =
-    %% 	case snmpm_config:system_info(domain) of
-    %% 	    {ok, D} ->
-    %% 		D;
-    %% 	    _ ->
-    %% 		snmpm_config:default_transport_domain()
-    %% 	end,
-    %% {ok, Sock} = do_open_port(Port, SndBuf, RecBuf, Domain, BindTo, NoReuse),
-
-    %% %% -- Initiate counters ---
-    %% init_counters(),
-
-    %% %% -- We are done ---
-    %% State = #state{server     = Server,
-    %% 		   note_store = NoteStore,
-    %% 		   mpd_state  = MpdState,
-    %% 		   domain     = Domain,
-    %% 		   sock       = Sock,
-    %% 		   log        = Log,
-    %% 		   irb        = IRB,
-    %% 		   irgc       = IrGcRef,
-    %% 		   filter     = FilterMod},
-    %% ?vdebug("started", []),
-    %% {ok, State}.
-
-
-%% %% Open port
-%% do_open_port(Port, SendSz, RecvSz, Domain, BindTo, NoReuse) ->
-%%     ?vtrace("do_open_port -> entry with~n"
-%% 	    "   Port:    ~p~n"
-%% 	    "   SendSz:  ~p~n"
-%% 	    "   RecvSz:  ~p~n"
-%% 	    "   Domain:  ~p~n"
-%% 	    "   BindTo:  ~p~n"
-%% 	    "   NoReuse: ~p",
-%% 	    [Port, SendSz, RecvSz, Domain, BindTo, NoReuse]),
-%%     IpOpts1 = bind_to(BindTo),
-%%     IpOpts2 = no_reuse(NoReuse),
-%%     IpOpts3 = recbuf(RecvSz),
-%%     IpOpts4 = sndbuf(SendSz),
-%%     IpOpts  =
-%% 	[binary,
-%% 	 snmp_conf:tdomain_to_family(Domain) |
-%% 	 IpOpts1 ++ IpOpts2 ++ IpOpts3 ++ IpOpts4],
-%%     OpenRes =
-%% 	case init:get_argument(snmpm_fd) of
-%% 	    {ok, [[FdStr]]} ->
-%% 		Fd = list_to_integer(FdStr),
-%% 		gen_udp:open(0, [{fd, Fd}|IpOpts]);
-%% 	    error ->
-%% 		gen_udp:open(Port, IpOpts)
-%% 	end,
-%%     case OpenRes of
-%% 	{error, _} = Error ->
-%% 	    throw(Error);
-%% 	OK ->
-%% 	    OK
-%%     end.
 
 socket_open(IpPort, SocketOpts) ->
     ?vtrace("socket_open -> entry with~n"
@@ -325,18 +249,6 @@ socket_open(IpPort, SocketOpts) ->
 	{ok, Socket} ->
 	    Socket
     end.
-
-%% bind_to(true) ->
-%%     case snmpm_config:system_info(address) of
-%% 	{ok, Addr} when is_list(Addr) ->
-%% 	    [{ip, list_to_tuple(Addr)}];
-%% 	{ok, Addr} ->
-%% 	    [{ip, Addr}];
-%% 	_ ->
-%% 	    []
-%%     end;
-%% bind_to(_) ->
-%%     [].
 
 socket_params(Domain, {IpAddr, IpPort}, BindTo, CommonSocketOpts) ->
     Family = snmp_conf:tdomain_to_family(Domain),
@@ -391,21 +303,6 @@ common_socket_opts(Opts) ->
 		 []
 	 end].
 
-%% no_reuse(false) ->
-%%     [{reuseaddr, true}];
-%% no_reuse(_) ->
-%%     [].
-
-%% recbuf(default) ->
-%%     [];
-%% recbuf(Sz) ->
-%%     [{recbuf, Sz}].
-
-%% sndbuf(default) ->
-%%     [];
-%% sndbuf(Sz) ->
-%%     [{sndbuf, Sz}].
-
 
 create_filter(Opts) when is_list(Opts) ->
     case get_opt(Opts, module, ?DEFAULT_FILTER_MODULE) of
@@ -418,6 +315,10 @@ create_filter(Opts) when is_list(Opts) ->
 create_filter(BadOpts) ->
     throw({error, {bad_filter_opts, BadOpts}}).
 
+
+%% ----------------------------------------------------------------------
+%%                         Audit Trail Logger
+%% ----------------------------------------------------------------------
 
 %% Open log
 do_init_log(false) ->
@@ -439,8 +340,8 @@ do_init_log(true) ->
 	    Function = increment_counter, 
 	    Args     = [atl_seqno, Initial, Max], 
 	    SeqNoGen = {Module, Function, Args}, 
-	    case snmp_log:create(Name, File, 
-				 SeqNoGen, Size, Repair, true) of
+	    case snmp_log:create(
+		   Name, File, SeqNoGen, Size, Repair, true) of
 		{ok, Log} ->
 		    ?vdebug("log created: ~w", [Log]),
 		    {Log, Type};
@@ -518,7 +419,7 @@ handle_cast({send_pdu, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo},
 	  "   Vsn:     ~p~n"
 	  "   MsgData: ~p~n"
 	  "   Domain:  ~p~n"
-	  "   Addr   : ~p", [Pdu, Vsn, MsgData, Domain, Addr]),
+	  "   Addr:    ~p", [Pdu, Vsn, MsgData, Domain, Addr]),
     maybe_process_extra_info(ExtraInfo),
     maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, State),
     {noreply, State};
@@ -625,18 +526,17 @@ maybe_handle_recv_msg(
     case (catch FilterMod:accept_recv(Arg1, Arg2)) of
 	false ->
 	    %% Drop the received packet 
-	    inc(netIfMsgInDrops),
-	    ok;
+	    inc(netIfMsgInDrops);
 	_ ->
 	    handle_recv_msg(Domain, Addr, Bytes, State)
-    end.
+    end,
+    ok.
     
 
 handle_recv_msg(Domain, Addr, Bytes, #state{server = Pid})
   when is_binary(Bytes) andalso (size(Bytes) =:= 0) ->
-    Pid ! {snmp_error, {empty_message, Domain, Addr}, Domain, Addr},
-    ok;
-
+    Pid ! {snmp_error, {empty_message, Domain, Addr}, Domain, Addr};
+%%
 handle_recv_msg(
   Domain, Addr, Bytes,
   #state{
@@ -645,30 +545,27 @@ handle_recv_msg(
 	  mpd_state  = MpdState,
 	  log        = Log} = State) ->
     Logger = logger(Log, read, Domain, Addr),
-    case (catch snmpm_mpd:process_msg(Bytes, Domain, Addr,
-				      MpdState, NoteStore, Logger)) of
+    case (catch snmpm_mpd:process_msg(
+		  Bytes, Domain, Addr, MpdState, NoteStore, Logger)) of
 
 	{ok, Vsn, Pdu, MS, ACM} ->
-	    maybe_handle_recv_pdu(Domain, Addr, Vsn, Pdu, MS, ACM,
-				  Logger, State);
+	    maybe_handle_recv_pdu(
+	      Domain, Addr, Vsn, Pdu, MS, ACM, Logger, State);
 
 	{discarded, Reason, Report} ->
 	    ?vdebug("discarded: ~p", [Reason]),
 	    ErrorInfo = {failed_processing_message, Reason},
 	    Pid ! {snmp_error, ErrorInfo, Domain, Addr},
-	    maybe_udp_send(Domain, Addr, Report, State),
-	    ok;
+	    maybe_udp_send(Domain, Addr, Report, State);
 
 	{discarded, Reason} ->
 	    ?vdebug("discarded: ~p", [Reason]),
 	    ErrorInfo = {failed_processing_message, Reason},
-	    Pid ! {snmp_error, ErrorInfo, Domain, Addr},
-	    ok;
+	    Pid ! {snmp_error, ErrorInfo, Domain, Addr};
 
 	Error ->
 	    error_msg("processing of received message failed: "
-		      "~n   ~p", [Error]),
-	    ok
+		      "~n   ~p", [Error])
     end.
 
 
@@ -678,8 +575,7 @@ maybe_handle_recv_pdu(
     {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_recv_pdu(Arg1, Arg2, Type)) of
 	false ->
-	    inc(netIfPduInDrops),
-	    ok;
+	    inc(netIfPduInDrops);
 	_ ->
 	    handle_recv_pdu(
 	      Domain, Addr, Vsn, Pdu, PduMS, ACM, Logger, State)
@@ -691,8 +587,7 @@ maybe_handle_recv_pdu(
     {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_recv_pdu(Arg1, Arg2, trappdu)) of
 	false ->
-	    inc(netIfPduInDrops),
-	    ok;
+	    inc(netIfPduInDrops);
 	_ ->
 	    handle_recv_pdu(
 	      Domain, Addr, Vsn, Trap, PduMS, ACM, Logger, State)
@@ -809,8 +704,7 @@ maybe_send_inform_response(
 			  "~n   Reason: ~p", [Reason]),
 		    ReqId     = RePdu#pdu.request_id,
 		    ErrorInfo = {failed_generating_response, {RePdu, Reason}},
-		    Pid ! {snmp_error, ReqId, ErrorInfo, Domain, Addr},
-		    ok
+		    Pid ! {snmp_error, ReqId, ErrorInfo, Domain, Addr}
 	    end
     end.
     
