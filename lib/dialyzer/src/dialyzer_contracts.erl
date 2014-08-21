@@ -20,8 +20,6 @@
 
 -module(dialyzer_contracts).
 
--compile(export_all).
-
 -export([check_contract/2,
 	 check_contracts/4,
 	 contracts_without_fun/3,
@@ -688,7 +686,7 @@ picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
 	true -> Acc;
 	false ->
 	  case extra_contract_warning(MFA, FileLine, Contract,
-				      CSig, Sig, RecDict) of
+				      CSig0, Sig0, RecDict) of
 	    no_warning -> Acc;
 	    {warning, Warning} -> [Warning|Acc]
 	  end
@@ -754,7 +752,8 @@ is_remote_types_related(Contract, CSig, Sig, RecDict) ->
 
 t_from_forms_without_remote([{FType, []}], RecDict) ->
   Type0 = erl_types:t_from_form(FType, RecDict),
-  {ok, erl_types:subst_all_remote(Type0, erl_types:t_none())};
+  Type1 = erl_types:subst_all_remote(Type0, erl_types:t_none()),
+  {ok, erl_types:subst_all_vars_to_any(Type1)};
 t_from_forms_without_remote([{_FType, _Constrs}], _RecDict) ->
   %% 'When' constraints
   unsupported;
