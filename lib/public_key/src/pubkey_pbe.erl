@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -117,14 +117,18 @@ password_to_key_and_iv(Password, _, #'PBES2-params'{} = Params) ->
     <<Key:KeyLen/binary, _/binary>> = 
 	pbdkdf2(Password, Salt, ItrCount, KeyLen, PseudoRandomFunction, PseudoHash, PseudoOtputLen),
     {Key, IV};
+password_to_key_and_iv(Password, _Cipher, {#'PBEParameter'{salt = Salt,
+							  iterationCount = Count}, Hash}) ->
+    <<Key:8/binary, IV:8/binary, _/binary>> 
+	= pbdkdf1(Password, erlang:iolist_to_binary(Salt), Count, Hash),
+    {Key, IV};
 password_to_key_and_iv(Password, Cipher, Salt) ->
-    KeyLen = derived_key_length(Cipher, undefined),
+ KeyLen = derived_key_length(Cipher, undefined),
     <<Key:KeyLen/binary, _/binary>> = 
 	pem_encrypt(<<>>, Password, Salt, ceiling(KeyLen div 16), <<>>, md5),
     %% Old PEM encryption does not use standard encryption method
-    %% pbdkdf1 and uses then salt as IV
+    %% pbdkdf1 and uses then salt as IV 
     {Key, Salt}.
-
 pem_encrypt(_, _, _, 0, Acc, _) ->
     Acc;
 pem_encrypt(Prev, Password, Salt, Count, Acc, Hash) ->
@@ -169,7 +173,20 @@ do_xor_sum(Prf, PrfHash, PrfLen, Prev, Password, Count, Acc)->
 
 decrypt_parameters(?'id-PBES2', DekParams) ->
     {ok, Params} = 'PKCS-FRAME':decode('PBES2-params', DekParams),
-    {cipher(Params#'PBES2-params'.encryptionScheme), Params}.
+    {cipher(Params#'PBES2-params'.encryptionScheme), Params};
+decrypt_parameters(?'pbeWithSHA1AndRC2-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"RC2-CBC", {Params, sha}};
+decrypt_parameters(?'pbeWithSHA1AndDES-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"DES-CBC", {Params, sha}};
+decrypt_parameters(?'pbeWithMD5AndRC2-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"RC2-CBC", {Params, md5}};
+decrypt_parameters(?'pbeWithMD5AndDES-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"DES-CBC", {Params, md5}}.
+
 
 key_derivation_params(#'PBES2-params'{keyDerivationFunc = KeyDerivationFunc,
 				      encryptionScheme = EncScheme}) ->
