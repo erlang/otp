@@ -85,24 +85,19 @@ port_please1(Node,HostName, Timeout) ->
       Else
   end.
 
-names() -> 
+names() ->
     {ok, H} = inet:gethostname(),
     names(H).
 
-names(HostName) when is_atom(HostName) ->
-  names1(atom_to_list(HostName));
-names(HostName) when is_list(HostName) ->
-  names1(HostName);
-names(EpmdAddr) ->
-  get_names(EpmdAddr).
-
-names1(HostName) ->
+names(HostName) when is_atom(HostName); is_list(HostName) ->
   case inet:gethostbyname(HostName) of
     {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
       get_names(EpmdAddr);
     Else ->
       Else
-  end.
+  end;
+names(EpmdAddr) ->
+  get_names(EpmdAddr).
 
 
 register_node(Name, PortNo) ->
