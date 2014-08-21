@@ -148,8 +148,24 @@ init_per_suite(Config) ->
     inets_test_lib:del_dirs(ServerRoot),
     DocRoot = filename:join(ServerRoot, "htdocs"),
     setup_server_dirs(ServerRoot, DocRoot, DataDir),
+    {ok, Hostname0} = inet:gethostname(),
+    Inet = 
+	case (catch ct:get_config(ipv6_hosts)) of
+	    undefined ->
+		inet;
+	    Hosts when is_list(Hosts) ->
+		case lists:member(list_to_atom(Hostname0), Hosts) of
+		    true ->
+			inet6;
+		    false ->
+			inet
+		end;
+	    _ ->
+		inet
+	end,
     [{server_root, ServerRoot}, 
      {doc_root, DocRoot},
+     {ipfamily, Inet},
      {node,             node()},
      {host,             inets_test_lib:hostname()}, 
      {address,          getaddr()} | Config].
@@ -524,7 +540,7 @@ ipv6(Config) when is_list(Config) ->
 	 true ->
 	     Version = ?config(http_version, Config),
 	     Host = ?config(host, Config),
-	     URI = http_request("GET /", Version, Host),
+	     URI = http_request("GET / ", Version, Host),
 	     httpd_test_lib:verify_request(?config(type, Config), Host,
  					  ?config(port, Config), [inet6], 
 					   ?config(code, Config), 
@@ -1397,7 +1413,7 @@ server_config(http, Config) ->
      {server_root, ServerRoot},
      {document_root, ?config(doc_root, Config)},
      {bind_address, any},
-     {ipfamily, inet},
+     {ipfamily, ?config(ipfamily, Config)},
      {max_header_size, 256},
      {max_header_action, close},
      {directory_index, ["index.html", "welcome.html"]},
@@ -1666,9 +1682,10 @@ cleanup_mnesia() ->
 
 transport_opts(ssl, Config) ->
     PrivDir = ?config(priv_dir, Config),
-    [{cacertfile, filename:join(PrivDir, "public_key_cacert.pem")}];
-transport_opts(_, _) ->
-    [].
+    [?config(ipfamily, Config),
+     {cacertfile, filename:join(PrivDir, "public_key_cacert.pem")}];
+transport_opts(_, Config) ->
+    [?config(ipfamily, Config)].
 
 
 %%% mod_range
