@@ -256,6 +256,7 @@ print_process_info(int to, void *to_arg, Process *p)
 		   p->current[1],
 		   p->current[2]);
     }
+    erts_print(to, to_arg, "Run queue: %d\n", erts_get_runq_proc(p)->ix);
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
     approx_started = (time_t) p->approx_started;
