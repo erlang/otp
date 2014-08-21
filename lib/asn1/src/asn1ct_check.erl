@@ -2926,8 +2926,7 @@ get_canonic_type(S,Type,NameList) ->
 
 
 check_ptype(S,Type,Ts) when is_record(Ts,type) ->
-    %Tag = Ts#type.tag,
-    %Constr = Ts#type.constraint,
+    check_formal_parameters(S, Type#ptypedef.args),
     Def = Ts#type.def,
     NewDef= 
 	case Def of 
@@ -2953,6 +2952,16 @@ check_ptype(S,Type,Ts) when is_record(Ts,type) ->
 check_ptype(_S,_PTDef,Ts) when is_record(Ts,objectclass) ->
     throw({asn1_param_class,Ts}).
 
+check_formal_parameters(S, Args) ->
+    _ = [check_formal_parameter(S, A) || A <- Args],
+    ok.
+
+check_formal_parameter(_, {_,_}) ->
+    ok;
+check_formal_parameter(_, #'Externaltypereference'{}) ->
+    ok;
+check_formal_parameter(S, #'Externalvaluereference'{value=Name}=Ref) ->
+    asn1_error(S, Ref, {illegal_typereference,Name}).
 
 % check_type(S,Type,ObjSpec={{objectclassname,_},_}) ->
  %     check_class(S,ObjSpec);
@@ -6748,6 +6757,8 @@ format_error({illegal_instance_of,Class}) ->
 		  [Class]);
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
+format_error({illegal_typereference,Name}) ->
+    io_lib:format("'~p' is used as a typereference, but does not start with an uppercase letter", [Name]);
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({invalid_bit_number,Bit}) ->
