@@ -91,7 +91,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     save_asn1db_uptodate(S,S#state.erule,S#state.mname),
     put(top_module,S#state.mname),
 
-    _ = checkp(S, ParameterizedTypes), %must do this before the templates are used
+    ParamError = checkp(S, ParameterizedTypes), %must do this before the templates are used
     
     %% table to save instances of parameterized objects,object sets
     asn1ct_table:new(parameterized_objects),
@@ -160,8 +160,10 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     Exporterror = check_exports(S,S#state.module),
     ImportError = check_imports(S,S#state.module),
 
-    case {Terror3,Verror5,Cerror,Oerror,Exporterror,ImportError} of
-	{[],[],[],[],[],[]} -> 
+    AllErrors = lists:flatten([ParamError,Terror3,Verror5,Cerror,
+			       Oerror,Exporterror,ImportError]),
+    case AllErrors of
+	[] ->
 	    ContextSwitchTs = context_switch_in_spec(),
 	    InstanceOf = instance_of_in_spec(S#state.mname),
 	    NewTypes = lists:subtract(Types,AddClasses) ++ ContextSwitchTs
@@ -175,8 +177,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
 	      lists:subtract(NewObjects,ExclO)++InlinedObjects,
 	      lists:subtract(NewObjectSets,ExclOS)++ParObjectSetNames}};
 	_ ->
-	    {error,lists:flatten([Terror3,Verror5,Cerror,
-				  Oerror,Exporterror,ImportError])}
+	    {error,AllErrors}
     end.
 
 context_switch_in_spec() ->
