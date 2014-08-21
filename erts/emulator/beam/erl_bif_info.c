@@ -3055,6 +3055,25 @@ fun_info_2(BIF_ALIST_2)
     return TUPLE2(hp, what, val);
 }
 
+BIF_RETTYPE
+fun_info_mfa_1(BIF_ALIST_1)
+{
+    Process* p = BIF_P;
+    Eterm fun = BIF_ARG_1;
+    Eterm* hp;
+
+    if (is_fun(fun)) {
+	ErlFunThing* funp = (ErlFunThing *) fun_val(fun);
+	hp = HAlloc(p, 4);
+	BIF_RET(TUPLE3(hp,funp->fe->module,funp->fe->address[-2],make_small(funp->arity)));
+    } else if (is_export(fun)) {
+	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
+	hp = HAlloc(p, 4);
+	BIF_RET(TUPLE3(hp,exp->code[0],exp->code[1],make_small(exp->code[2])));
+    }
+    BIF_ERROR(p, BADARG);
+}
+
 BIF_RETTYPE is_process_alive_1(BIF_ALIST_1) 
 {
    if(is_internal_pid(BIF_ARG_1)) {

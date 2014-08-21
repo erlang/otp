@@ -217,10 +217,8 @@ ensure_link(SpawnOpts) ->
 
 init_p(Parent, Ancestors, Fun) when is_function(Fun) ->
     put('$ancestors', [Parent|Ancestors]),
-    {module,Mod} = erlang:fun_info(Fun, module),
-    {name,Name} = erlang:fun_info(Fun, name),
-    {arity,Arity} = erlang:fun_info(Fun, arity),
-    put('$initial_call', {Mod,Name,Arity}),
+    Mfa = erlang:fun_info_mfa(Fun),
+    put('$initial_call', Mfa),
     try
 	Fun()
     catch
