@@ -173,13 +173,19 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, #'PBES2-params'{}} = CipherInfo,
 						    is_list(Password) andalso
 						    is_list(Cipher) ->
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password);
-
+pem_entry_encode(Asn1Type, Entity, {{Cipher,
+				     {#'PBEParameter'{}, _}} = CipherInfo,
+				    Password}) when is_atom(Asn1Type) andalso
+						    is_list(Password) andalso
+						    is_list(Cipher) ->
+    do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password);
 pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo, 
 				    Password}) when is_atom(Asn1Type) andalso
 						    is_list(Password) andalso
 						    is_list(Cipher) andalso
 						    is_binary(Salt) andalso
-						    erlang:byte_size(Salt) == 8 ->
+						    ((erlang:byte_size(Salt) == 8) or
+						     (erlang:byte_size(Salt) == 16)) ->
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password).
     
 %%--------------------------------------------------------------------
