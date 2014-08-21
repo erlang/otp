@@ -601,6 +601,10 @@ bif maps:values/1
 bif erts_internal:cmp_term/2
 
 #
+# New in 17.1.
+#
+bif erlang:fun_info_mfa/1
+#
 # Obsolete
 #
 

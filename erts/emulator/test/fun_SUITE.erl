@@ -30,7 +30,7 @@
 	 fun_to_port/1,t_hash/1,t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
-	 t_fun_info/1]).
+	 t_fun_info/1,t_fun_info_mfa/1]).
 
 -export([nothing/0]).
 
@@ -42,7 +42,8 @@ all() ->
     [bad_apply, bad_fun_call, badarity, ext_badarity,
      equality, ordering, fun_to_port, t_hash, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
-     const_propagation, t_arity, t_is_function2, t_fun_info].
+     const_propagation, t_arity, t_is_function2, t_fun_info,
+     t_fun_info_mfa].
 
 groups() -> 
     [].
@@ -823,6 +824,24 @@ t_fun_info(Config) when is_list(Config) ->
     ?line bad_info(<<>>),
     ?line bad_info(<<1,2>>),
     ok.
+
+t_fun_info_mfa(Config) when is_list(Config) ->
+    Fun1 = fun spawn_call/2,
+    {module,M1}  = erlang:fun_info(Fun1, module),
+    {name,F1}    = erlang:fun_info(Fun1, name),
+    {arity,A1}   = erlang:fun_info(Fun1, arity),
+    {M1,F1,A1=2} = erlang:fun_info_mfa(Fun1),
+    %% Module fun.
+    Fun2 = fun ?MODULE:t_fun_info/1,
+    {module,M2}  = erlang:fun_info(Fun2, module),
+    {name,F2}    = erlang:fun_info(Fun2, name),
+    {arity,A2}   = erlang:fun_info(Fun2, arity),
+    {M2,F2,A2=1} = erlang:fun_info_mfa(Fun2),
+
+    %% Not fun.
+    {'EXIT',_} = (catch erlang:fun_info_mfa(id(d))),
+    ok.
+
 
 bad_info(Term) ->
     try	erlang:fun_info(Term, module) of

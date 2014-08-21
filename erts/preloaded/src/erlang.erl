@@ -91,7 +91,7 @@
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
 	 float_to_list/1, float_to_list/2]).
--export([fun_info/2, fun_to_list/1, function_exported/3]).
+-export([fun_info/2, fun_info_mfa/1, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
@@ -825,6 +825,15 @@ float_to_list(_Float, _Options) ->
       Item :: fun_info_item(),
       Info :: term().
 fun_info(_Fun, _Item) ->
+    erlang:nif_error(undefined).
+
+%% fun_info_mfa/1
+-spec erlang:fun_info_mfa(Fun) -> {Mod, Name, Arity} when
+      Fun :: function(),
+      Mod :: atom(),
+      Name :: atom(),
+      Arity :: non_neg_integer().
+fun_info_mfa(_Fun) ->
     erlang:nif_error(undefined).
 
 %% fun_to_list/1
