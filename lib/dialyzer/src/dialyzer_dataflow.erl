@@ -93,6 +93,8 @@
 
 -define(TYPE_LIMIT, 3).
 
+-define(BITS, 128).
+
 -record(state, {callgraph            :: dialyzer_callgraph:callgraph(),
 		envs                 :: env_tab(),
 		fun_tab		     :: fun_tab(),
@@ -1610,10 +1612,18 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
 		SizeVal = lists:max(List),
 		Flags = cerl:concrete(cerl:bitstr_flags(Seg)),
 		N = SizeVal * UnitVal,
-		case lists:member(signed, Flags) of
-		  true -> t_from_range(-(1 bsl (N - 1)), 1 bsl (N - 1) - 1);
-		  false -> t_from_range(0, 1 bsl N - 1)
-		end
+                case N >= ?BITS  of
+                  true ->
+                    case lists:member(signed, Flags) of
+                      true -> t_from_range(neg_inf, pos_inf);
+                      false -> t_from_range(0, pos_inf)
+                    end;
+                  false ->
+                    case lists:member(signed, Flags) of
+                      true -> t_from_range(-(1 bsl (N - 1)), 1 bsl (N - 1) - 1);
+                      false -> t_from_range(0, 1 bsl N - 1)
+                    end
+                end
 	    end
 	end,
       {Map2, [_]} = bind_pat_vars([Val], [ValConstr], [], Map1, State, false),
