@@ -3640,10 +3640,7 @@ governor_category(S, #'Externaltypereference'{}=Ref) ->
 	    {class,#'Externaltypereference'{pos=Pos,module=Mod,type=Name}};
 	none ->
 	    type
-    end;
-governor_category(_,Class) 
-  when Class == 'TYPE-IDENTIFIER'; Class == 'ABSTRACT-SYNTAX' ->
-    class.
+    end.
 
 %% parameter_name_style(Param,Data) -> Result
 %% gets the Parameter and the name of the Data and if it exists tells

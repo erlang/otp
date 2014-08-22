@@ -1041,10 +1041,6 @@ parse_DefinedObjectClass([{typereference,_,_ModName},{'.',_},Tr={typereference,_
 parse_DefinedObjectClass([Tr={typereference,_,_ObjClName}|Rest]) ->
 %    {{objectclassname,tref2Exttref(Tr)},Rest};
     {tref2Exttref(Tr),Rest};
-parse_DefinedObjectClass([{'TYPE-IDENTIFIER',_}|Rest]) ->
-    {'TYPE-IDENTIFIER',Rest};
-parse_DefinedObjectClass([{'ABSTRACT-SYNTAX',_}|Rest]) ->
-    {'ABSTRACT-SYNTAX',Rest};
 parse_DefinedObjectClass(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,
@@ -2139,8 +2135,7 @@ parse_ParameterizedObjectSetAssignment(Tokens) ->
 %% Parameter = {Governor,Reference} | Reference
 %% Governor = Type | DefinedObjectClass
 %% Type = #type{}
-%% DefinedObjectClass = #'Externaltypereference'{} | 
-%%                      'ABSTRACT-SYNTAX' | 'TYPE-IDENTIFIER'
+%% DefinedObjectClass = #'Externaltypereference'{}
 %% Reference = #'Externaltypereference'{} | #'Externalvaluereference'{}
 parse_ParameterList([{'{',_}|Rest]) ->
     parse_ParameterList(Rest,[]);
