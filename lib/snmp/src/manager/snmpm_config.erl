@@ -461,7 +461,7 @@ agent_info(Domain, Address, Item) when is_atom(Domain) ->
 	      [Domain, Address, Item, _Thrown, erlang:get_stacktrace()]),
 	    {error, not_found}
     end;
-agent_info(Ip, Port, Item) ->
+agent_info(Ip, Port, Item) when is_integer(Port) ->
     p(?MODULE_STRING":agent_info(~p, ~p, ~p) entry~n",
       [Ip, Port, Item]),
     Domain = default_transport_domain(),
@@ -1698,6 +1698,11 @@ check_agent_config(
       UserId, TargetName, Community, Domain, Addr,
       EngineId, Timeout, MaxMessageSize,
       Version, SecModel, SecName, SecLevel);
+check_agent_config(
+  {_UserId, _TargetName, _Community, Domain, Addr,
+   _EngineId, _Timeout, _MaxMessageSize,
+   _Version, _SecModel, _SecName, _SecLevel}) ->
+    error({bad_address, {Domain, Addr}});
 check_agent_config(
   {UserId, TargetName, Community, Domain, Ip, Port,
    EngineId, Timeout, MaxMessageSize,

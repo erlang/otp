@@ -1676,7 +1676,9 @@ write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS)
 	 {intAgentIpAddress,        AgentIP},
 	 {snmpEngineID,             EngineID},
 	 {snmpEngineMaxMessageSize, MMS}],
-    do_write_agent_snmp_conf(Dir, Conf).
+    do_write_agent_snmp_conf(Dir, Conf);
+write_agent_snmp_conf(_Dir, Domain, AgentAddr, _EngineID, _MMS) ->
+    error({bad_address, {Domain, AgentAddr}}).
 
 do_write_agent_snmp_conf(Dir, Conf) ->
     Comment = 
@@ -2153,7 +2155,9 @@ write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
 		 {address, IP}];
 	    _ when is_integer(Addr_or_Port) ->
 		[{port,    Addr_or_Port},
-		 {address, Domain_or_IP}]
+		 {address, Domain_or_IP}];
+	    _ ->
+		error({bad_address, {Domain_or_IP, Addr_or_Port}})
 	end ++
 	[{engine_id,        EngineID},
 	 {max_message_size, MMS}],

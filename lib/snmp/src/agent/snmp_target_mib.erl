@@ -182,6 +182,10 @@ check_target_addr(
       Name, Domain, Address, Timeout, RetryCount, TagList, Params,
       EngineId, TMask, MMS);
 check_target_addr(
+  {_Name, Domain, Address, _Timeout, _RetryCount, _TagList, _Params,
+   _EngineId, _TMask, _MMS}) -> % Arity 10
+    error({bad_address, {Domain, Address}});
+check_target_addr(
   {Name, Domain, Address, Timeout, RetryCount, TagList, Params,
    EngineId}) % Arity 8
   when is_atom(Domain) ->
@@ -197,6 +201,10 @@ check_target_addr(
     check_target_addr(
       Name, Domain, Address, Timeout, RetryCount, TagList, Params,
       EngineId);
+check_target_addr(
+  {_Name, Domain, Address, _Timeout, _RetryCount, _TagList, _Params,
+   _EngineId}) ->% Arity 8
+    error({bad_address, {Domain, Address}});
 %% Use dummy engine id if the old style is found
 check_target_addr(
   {Name, Domain, Address, Timeout, RetryCount, TagList, Params}) % Arity 7
@@ -210,6 +218,9 @@ check_target_addr(
     Address = {Ip, Udp},
     check_target_addr(
       Name, Domain, Address, Timeout, RetryCount, TagList, Params);
+check_target_addr(
+  {_Name, Domain, Address, _Timeout, _RetryCount, _TagList, _Params}) -> % Arity 7
+    error({bad_address, {Domain, Address}});
 %% Use dummy engine id if the old style is found
 check_target_addr(
   {Name, Domain, Address, Timeout, RetryCount, TagList, Params,
@@ -225,6 +236,10 @@ check_target_addr(
     Address = {Ip, Udp},
     check_target_addr(
       Name, Domain, Address, Timeout, RetryCount, TagList, Params, TMask, MMS);
+check_target_addr(
+  {_Name, Domain, Address, _Timeout, _RetryCount, _TagList, _Params,
+   _TMask, _MMS}) -> % Arity 9
+    error({bad_address, {Domain, Address}});
 check_target_addr(X) ->
     error({invalid_target_addr, X}).
 
