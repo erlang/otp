@@ -3609,40 +3609,26 @@ match_args(_,_, _, _) ->
 %% categorize_arg(S,FormalArg,ActualArg) -> {FormalArg,CatgorizedActualArg}
 %%
 categorize_arg(S,{Governor,Param},ActArg) ->
-    case {governor_category(S,Governor),parameter_name_style(Param,ActArg)} of
-%% 	{absent,beginning_uppercase} -> %% a type
-%% 	    categorize(S,type,ActArg);
-	{type,beginning_lowercase} -> %% a value
-	    categorize(S,value,Governor,ActArg);
-	{type,beginning_uppercase} -> %% a value set
-	    categorize(S,value_set,ActArg);
-%% 	{absent,entirely_uppercase} -> %% a class
-%% 	    categorize(S,class,ActArg);
+    case {governor_category(S, Governor),parameter_name_style(Param)} of
+	{type,beginning_lowercase} ->		%a value
+	    categorize(S, value, Governor, ActArg);
+	{type,beginning_uppercase} ->		%a value set
+	    categorize(ActArg);
 	{{class,ClassRef},beginning_lowercase} -> 
-	    categorize(S,object,ActArg,ClassRef);
+	    categorize(S, object, ActArg, ClassRef);
 	{{class,ClassRef},beginning_uppercase} ->
-	    categorize(S,object_set,ActArg,ClassRef);
-	_ ->
-	    [ActArg]
+	    categorize(S, object_set, ActArg, ClassRef)
     end;
-categorize_arg(S,FormalArg,ActualArg) ->
-    %% governor is absent => a type or a class
-    case FormalArg of
-	#'Externaltypereference'{type=Name} ->
-	    case is_class_name(Name) of
-		true ->
-		    categorize(S,class,ActualArg);
-		_ ->
-		    categorize(S,type,ActualArg)
-	    end;
-	FA ->
-	    throw({error,{unexpected_formal_argument,FA}})
-    end.
+categorize_arg(_S, _FormalArg, ActualArg) ->
+    %% Governor is absent -- must be a type or a class. We have already
+    %% checked that the FormalArg begins with an uppercase letter.
+    categorize(ActualArg).
 
-governor_category(S,#type{def=Eref}) 
-  when is_record(Eref,'Externaltypereference') ->   
-    governor_category(S,Eref);
-governor_category(_S,#type{}) ->
+%% governor_category(S, Item) -> type | {class,#'Externaltypereference'{}}
+%%  Determine whether Item is a type or a class.
+governor_category(S, #type{def=#'Externaltypereference'{}=Eref}) ->
+    governor_category(S, Eref);
+governor_category(_S, #type{}) ->
     type;
 governor_category(S, #'Externaltypereference'{}=Ref) ->
     case get_class_def(S, Ref) of
@@ -3657,56 +3643,20 @@ governor_category(S, #'Externaltypereference'{}=Ref) ->
 %% whether it begins with a lowercase letter or is partly or entirely
 %% spelled with uppercase letters. Otherwise returns undefined
 %%
-parameter_name_style(_,#'Externaltypereference'{type=Name}) ->
-    name_category(Name);
-parameter_name_style(_,#'Externalvaluereference'{value=Name}) ->
-    name_category(Name);
-parameter_name_style(_,{valueset,_}) ->
-    %% It is a object set or value set
+parameter_name_style(#'Externaltypereference'{}) ->
     beginning_uppercase;
-parameter_name_style(#'Externalvaluereference'{},_) ->
-    beginning_lowercase;
-parameter_name_style(#'Externaltypereference'{type=Name},_) ->
-    name_category(Name);
-parameter_name_style(_,_) ->
-    undefined.
-
-name_category(Atom) when is_atom(Atom) ->
-    name_category(atom_to_list(Atom));
-name_category([H|T]) ->
-    case is_lowercase(H) of
-	true ->
-	    beginning_lowercase;
-	_ ->
-	    case is_class_name(T) of
-		true ->
-		    entirely_uppercase;
-		_ ->
-		    beginning_uppercase
-	    end
-    end;
-name_category(_) ->
-    undefined.
+parameter_name_style(#'Externalvaluereference'{}) ->
+    beginning_lowercase.
 
 is_lowercase(X) when X >= $A,X =< $W ->
     false;
 is_lowercase(_) ->
     true.
-
-is_class_name(Name) when is_atom(Name) ->
-    is_class_name(atom_to_list(Name));
-is_class_name(Name) ->
-    case [X||X <- Name, X >= $a,X =< $w] of
-	[] ->
-	    true;
-	_ ->
-	    false
-    end.
 		
-%% categorize(S,Category,Parameter) -> CategorizedParameter
+%% categorize(Parameter) -> CategorizedParameter
 %% If Parameter has an abstract syntax of another category than
 %% Category, transform it to a known syntax.
-categorize(_S,type,{object,_,Type}) ->
+categorize({object,_,Type}) ->
     %% One example of this case is an object with a parameterized type
     %% having a locally defined type as parameter.
     Def = fun(D = #type{}) ->
@@ -3718,11 +3668,12 @@ categorize(_S,type,{object,_,Type}) ->
 		  D
 	  end,
     [Def(X)||X<-Type];
-categorize(_S,type,Def) when is_record(Def,type) ->
+categorize(#type{}=Def) ->
     [#typedef{name = new_reference_name("type_argument"),
 	      typespec = Def#type{inlined=yes}}];
-categorize(_,_,Def) ->
+categorize(Def) ->
     [Def].
+
 categorize(S,object_set,Def,ClassRef) ->
     NewObjSetSpec = 
 	check_object(S,Def,#'ObjectSet'{class = ClassRef,
