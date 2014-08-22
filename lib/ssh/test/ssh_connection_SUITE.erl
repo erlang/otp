@@ -38,7 +38,9 @@ all() ->
     [
      {group, openssh_payload},
      interrupted_send,
-     start_shell
+     start_shell,
+     start_shell_exec,
+     start_shell_exec_fun
     ].
 groups() ->
     [{openssh_payload, [], [simple_exec,
@@ -308,7 +310,74 @@ start_shell(Config) when is_list(Config) ->
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+%%--------------------------------------------------------------------
+start_shell_exec() ->
+    [{doc, "start shell to exec command"}].
 
+start_shell_exec(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                         {user_dir, UserDir},
+                         {password, "morot"},
+                         {exec, {?MODULE,ssh_exec,[]}} ]),
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                      {user, "foo"},
+                      {password, "morot"},
+                      {user_interaction, true},
+                      {user_dir, UserDir}]),
+
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    success = ssh_connection:exec(ConnectionRef, ChannelId0,
+                  "testing", infinity),
+    receive
+    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"testing\r\n">>}} ->
+        ok
+    after 5000 ->
+        ct:fail("Exec Timeout")
+    end,
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+start_shell_exec_fun() ->
+    [{doc, "start shell to exec command"}].
+
+start_shell_exec_fun(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                         {user_dir, UserDir},
+                         {password, "morot"},
+                         {exec, fun ssh_exec/1}]),
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                      {user, "foo"},
+                      {password, "morot"},
+                      {user_interaction, true},
+                      {user_dir, UserDir}]),
+
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    success = ssh_connection:exec(ConnectionRef, ChannelId0,
+                  "testing", infinity),
+
+    receive
+    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"testing\r\n">>}} ->
+        ok
+    after 5000 ->
+        ct:fail("Exec Timeout")
+    end,
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -347,7 +416,11 @@ collect_data(ConnectionRef, ChannelId, Acc) ->
 % This is taken from the ssh example code.  
 start_our_shell(_User, _Peer) ->
     spawn(fun() ->
-          io:format("Enter command\n")
-          %% Don't actually loop, just exit
-      end).
+            io:format("Enter command\n")
+            %% Don't actually loop, just exit
+          end).
 
+ssh_exec(Cmd) ->
+    spawn(fun() ->
+            io:format(Cmd ++ "\n")
+          end).
