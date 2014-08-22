@@ -17,7 +17,9 @@
 %% %CopyrightEnd%
 %% 
 
+-ifndef(snmpm_net_if_mt).
 -module(snmpm_net_if).
+-endif.
 
 -behaviour(gen_server).
 -behaviour(snmpm_network_interface).
@@ -149,6 +151,64 @@ filter_reset(Pid) ->
 
 
 %%%-------------------------------------------------------------------
+%%% Multi-thread manager
+%%%-------------------------------------------------------------------
+
+-ifdef(snmpm_net_if_mt).
+
+%% This function is called through the macro below to
+%% (in the not multithreaded case) avoid creating the
+%% Failer/4 fun, and to avoid calling the Worker through a fun
+%% (now it shall not be a fun, just a code snippet).
+
+worker(Worker, Failer, #state{log = Log} = State) ->
+    Verbosity = get(verbosity),
+    spawn_opt(
+      fun () ->
+	      try
+		  put(sname, mnifw),
+		  put(verbosity, Verbosity),
+		  NewState =
+		      case do_reopen_log(Log) of
+			  Log ->
+			      State;
+			  NewLog ->
+			      State#state{log = NewLog}
+		      end,
+		  Worker(NewState)
+	      of
+		  Result ->
+		      %% Winds up in handle_info {'DOWN', ...}
+		      erlang:exit({net_if_worker, Result})
+	      catch
+		  Class:Reason ->
+		      %% Winds up in handle_info {'DOWN', ...}
+		      erlang:exit(
+			{net_if_worker, Failer,
+			 Class, Reason, erlang:get_stacktrace()})
+	      end
+      end,
+      [monitor]).
+-define(
+   worker(S, Worker, Failer, State),
+   begin
+       worker(
+	 fun (S) -> begin Worker end end,
+	 begin Failer end,
+	 (State))
+   end).
+
+-else.
+
+-define(
+   worker(S, Worker, _Failer, State),
+   begin (S) = (State), begin Worker end end).
+
+-endif.
+
+
+
+%%%-------------------------------------------------------------------
 %%% Callback functions from gen_server
 %%%-------------------------------------------------------------------
 
@@ -168,6 +228,14 @@ init([Server, NoteStore]) ->
 	{error, Reason} ->
 	    {stop, Reason}
     end.
+
+-ifdef(snmpm_net_if_mt).
+%% This should really be protected, but it also needs to
+%% be writable for the worker processes, so...
+-define(inform_table_opts, [set, public, named_table, {keypos, 1}]).
+-else.
+-define(inform_table_opts, [set, protected, named_table, {keypos, 1}]).
+-endif.
 	    
 do_init(Server, NoteStore) ->
     process_flag(trap_exit, true),
@@ -177,8 +245,7 @@ do_init(Server, NoteStore) ->
     process_flag(priority, Prio),
 
     %% -- Create inform request table --
-    ets:new(snmpm_inform_request_table,
-	    [set, protected, named_table, {keypos, 1}]),
+    ets:new(snmpm_inform_request_table, ?inform_table_opts),
 
     %% -- Verbosity -- 
     {ok, Verbosity} = snmpm_config:system_info(net_if_verbosity),
@@ -189,6 +256,7 @@ do_init(Server, NoteStore) ->
     %% -- MPD --
     {ok, Vsns} = snmpm_config:system_info(versions),
     MpdState   = snmpm_mpd:init(Vsns),
+    ?vdebug("MpdState: ~w", [MpdState]),
 
     %% -- Module dependent options --
     {ok, Opts} = snmpm_config:system_info(net_if_options),
@@ -205,6 +273,7 @@ do_init(Server, NoteStore) ->
     %% -- Audit trail log ---
     {ok, ATL} = snmpm_config:system_info(audit_trail_log),
     Log = do_init_log(ATL),
+    ?vdebug("Log: ~w", [Log]),
 
     {ok, DomainAddresses} = snmpm_config:system_info(transports),
     ?vdebug("DomainAddresses: ~w",[DomainAddresses]),
@@ -344,20 +413,65 @@ do_init_log(true) ->
 		   Name, File, SeqNoGen, Size, Repair, true) of
 		{ok, Log} ->
 		    ?vdebug("log created: ~w", [Log]),
-		    {Log, Type};
+		    {Name, Log, Type};
 		{error, Reason} ->
 		    throw({error, {failed_create_audit_log, Reason}})
 	    end;
 	_ ->
 	    case snmp_log:create(Name, File, Size, Repair, true) of
 		{ok, Log} ->
-		    {Log, Type};
+		    ?vdebug("log created: ~w", [Log]),
+		    {Name, Log, Type};
 		{error, Reason} ->
 		    throw({error, {failed_create_audit_log, Reason}})
 	    end
     end.
 
-    
+-ifdef(snmpm_net_if_mt).
+do_reopen_log(undefined) ->
+    undefined;
+do_reopen_log({Name, Log, Type}) ->
+    case snmp_log:open(Name, Log) of
+	{ok, NewLog} ->
+	    {Name, NewLog, Type};
+	{error, Reason} ->
+	    warning_msg(
+	      "NetIf worker ~p failed to open ATL:~n"
+	      "   ~p", [self(), Reason]),
+	    undefined
+    end.
+-endif.
+
+%% Close log
+do_close_log(undefined) ->
+    ok;
+do_close_log({_Name, Log, _Type}) ->
+    (catch snmp_log:sync(Log)),
+    (catch snmp_log:close(Log)),
+    ok;
+do_close_log(_) ->
+    ok.
+
+%% Log
+logger(undefined, _Type, _Domain, _Addr) ->
+    fun(_) ->
+	    ok
+    end;
+logger({_Name, Log, Types}, Type, Domain, Addr) ->
+    case lists:member(Type, Types) of
+	true ->
+	    AddrString =
+		iolist_to_binary(snmp_conf:mk_addr_string({Domain, Addr})),
+	    fun(Msg) ->
+		    snmp_log:log(Log, Msg, AddrString)
+	    end;
+	false ->
+	    fun(_) ->
+		    ok
+	    end
+    end.
+
+
 %%--------------------------------------------------------------------
 %% Func: handle_call/3
 %% Returns: {reply, Reply, State}          |
@@ -475,9 +589,40 @@ handle_info({disk_log, _Node, Log, Info}, State) ->
     State2 = handle_disk_log(Log, Info, State),
     {noreply, State2};
 
+handle_info({'DOWN', _, _, _, _} = Info, State) ->
+    handle_info_down(Info, State);
+
 handle_info(Info, State) ->
+    handle_info_unknown(Info, State).
+
+
+handle_info_unknown(Info, State) ->
     warning_msg("received unknown info: ~n~p", [Info]),
     {noreply, State}.
+
+
+-ifdef(snmpm_net_if_mt).
+handle_info_down(
+  {'DOWN', _MRef, process, _Pid,
+   {net_if_worker, _Result}},
+  State) ->
+    ?vdebug("received DOWN message from net_if worker [~w]: "
+	    "~n   Result: ~p", [_Pid, _Result]),
+    {noreply, State};
+handle_info_down(
+  {'DOWN', _MRef, process, Pid,
+   {net_if_worker, Failer, Class, Reason, Stacktrace} = _ExitStatus},
+  State) ->
+    ?vdebug("received DOWN message from net_if worker [~w]: "
+	    "~n   ExitStatus: ~p", [Pid, _ExitStatus]),
+    Failer(Pid, Class, Reason, Stacktrace),
+    {noreply, State};
+handle_info_down(Info, State) ->
+    handle_info_unknown(Info, State).
+-else.
+handle_info_down(Info, State) ->
+    handle_info_unknown(Info, State).
+-endif.
 
 
 %%--------------------------------------------------------------------
@@ -490,14 +635,6 @@ terminate(Reason, #state{log = Log, irgc = IrGcRef}) ->
     irgc_stop(IrGcRef),
     %% Close logs
     do_close_log(Log),
-    ok.
-
-
-do_close_log({Log, _Type}) ->
-    (catch snmp_log:sync(Log)),
-    (catch snmp_log:close(Log)),
-    ok;
-do_close_log(_) ->
     ok.
 
 
@@ -519,7 +656,20 @@ code_change(_Vsn, State, _Extra) ->
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
-maybe_handle_recv_msg(
+maybe_handle_recv_msg(Domain, Addr, Bytes, State) ->
+    ?worker(
+       S, maybe_handle_recv_msg_mt(Domain, Addr, Bytes, S),
+       fun (Pid, Class, Reason, Stacktrace) ->
+	       warning_msg(
+		 "Worker process (~p) terminated "
+		 "while processing (incomming) message from %s:~n"
+		 "~w:~w at ~p",
+		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
+		  Class, Reason, Stacktrace])
+       end,
+       State).
+
+maybe_handle_recv_msg_mt(
   Domain, Addr, Bytes,
   #state{filter = FilterMod, transports = Transports} = State) ->
     {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
@@ -669,6 +819,19 @@ handle_inform_request(
     end.
 
 handle_inform_response(Ref, Domain, Addr, State) ->
+    ?worker(
+       S, handle_inform_response_mt(Ref, Domain, Addr, S),
+       fun (Pid, Class, Reason, Stacktrace) ->
+	       warning_msg(
+		 "Worker process (~p) terminated "
+		 "while processing (outgoing) inform response for %s:~n"
+		 "~w:~w at ~p",
+		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
+		  Class, Reason, Stacktrace])
+       end,
+       State).
+
+handle_inform_response_mt(Ref, Domain, Addr, State) ->
     Key = {Ref, Domain, Addr},
     case ets:lookup(snmpm_inform_request_table, Key) of
 	[{Key, _, {Vsn, ACM, RePdu}}] ->
@@ -737,18 +900,30 @@ irgc_stop(undefined) ->
 irgc_stop(Ref) ->
     (catch erlang:cancel_timer(Ref)).
 
+maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, State) ->
+    ?worker(
+       S, maybe_handle_send_pdu_mt(Pdu, Vsn, MsgData, Domain, Addr, S),
+       fun (Pid, Class, Reason, Stacktrace) ->
+	       warning_msg(
+		 "Worker process (~p) terminated "
+		 "while processing (outgoing) pdu for %s:~n"
+		 "~w:~w at ~p",
+		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
+		  Class, Reason, Stacktrace])
+       end,
+       State).
 
-maybe_handle_send_pdu(
+maybe_handle_send_pdu_mt(
   Pdu, Vsn, MsgData, Domain, Addr,
   #state{filter = FilterMod, transports = Transports} = State) ->
     {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_send_pdu(Arg1, Arg2, pdu_type_of(Pdu))) of
 	false ->
-	    inc(netIfPduOutDrops),
-	    ok;
+	    inc(netIfPduOutDrops);
 	_ ->
 	    handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, State)
-    end.
+    end,
+    ok.
 
 handle_send_pdu(
   Pdu, Vsn, MsgData, Domain, Addr,
@@ -766,8 +941,7 @@ handle_send_pdu(
 	    ?vlog("PDU not sent: "
 		  "~n   PDU:    ~p"
 		  "~n   Reason: ~p", [Pdu, Reason]),
-	    Pid ! {snmp_error, Pdu, Reason},
-	    ok
+	    Pid ! {snmp_error, Pdu, Reason}
     end.
 
 
@@ -1083,27 +1257,6 @@ maybe_process_extra_info(_ExtraInfo) ->
 t() ->
     {A,B,C} = erlang:now(),
     A*1000000000+B*1000+(C div 1000).
-
-
-%% -------------------------------------------------------------------
-
-logger(undefined, _Type, _Domain, _Addr) ->
-    fun(_) ->
-	    ok
-    end;
-logger({Log, Types}, Type, Domain, Addr) ->
-    case lists:member(Type, Types) of
-	true ->
-	    AddrString =
-		iolist_to_binary(snmp_conf:mk_addr_string({Domain, Addr})),
-	    fun(Msg) ->
-		    snmp_log:log(Log, Msg, AddrString)
-	    end;
-	false ->
-	    fun(_) ->
-		    ok
-	    end
-    end.
 
 
 %% -------------------------------------------------------------------
