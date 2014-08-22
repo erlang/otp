@@ -118,7 +118,41 @@ main(_Erule) ->
     roundtrip('InfObj', 'Multiple-Optionals',
 	      {'Multiple-Optionals',1,42,true,asn1_NOVALUE}),
     roundtrip('InfObj', 'Multiple-Optionals',
-	      {'Multiple-Optionals',1,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}).
+	      {'Multiple-Optionals',1,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}),
+
+    test_objset('OstSeq12', [1,2]),
+    test_objset('OstSeq123', [1,2,3]),
+    test_objset('OstSeq1234', [1,2,3,4]),
+    test_objset('OstSeq45', [4,5]),
+    test_objset('OstSeq12345', [1,2,3,4,5]),
+
+    test_objset('ExOstSeq12', [1,2]),
+    test_objset('ExOstSeq123', [1,2,3]),
+    %%test_objset('ExOstSeq1234', [1,2,3,4]),
+    test_objset('ExOstSeq45', [4,5]),
+    test_objset('ExOstSeq12345', [1,2,3,4,5]),
+
+    ok.
+
+test_objset(Type, Keys) ->
+    _ = [test_object(Type, Key) || Key <- Keys],
+    _ = [(catch test_object(Type, Key)) ||
+	    Key <- lists:seq(1, 5) -- Keys],
+    ok.
+
+test_object(T, 1) ->
+    roundtrip('InfObj', T, {T,1,<<42:7>>});
+test_object(T, 2) ->
+    roundtrip('InfObj', T, {T,2,<<"abc">>});
+test_object(T, 3) ->
+    roundtrip('InfObj', T, {T,3,donald}),
+    roundtrip('InfObj', T, {T,3,scrooge});
+test_object(T, 4) ->
+    roundtrip('InfObj', T, {T,4,true}),
+    roundtrip('InfObj', T, {T,4,false});
+test_object(T, 5) ->
+    roundtrip('InfObj', T, {T,5,0}),
+    roundtrip('InfObj', T, {T,5,15}).
 
 roundtrip(M, T, V) ->
     asn1_test_lib:roundtrip(M, T, V).

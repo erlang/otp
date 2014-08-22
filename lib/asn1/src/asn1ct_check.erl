@@ -947,6 +947,8 @@ prepare_objset(ObjDef={object,definedsyntax,_ObjFields}) ->
     {set,[ObjDef],false};
 prepare_objset({ObjDef=#type{},Ext}) when is_list(Ext) ->
     {set,[ObjDef|Ext],true};
+prepare_objset({#type{}=Type,#type{}=Ext}) ->
+    {set,[Type,Ext],true};
 prepare_objset(Ret) ->
     Ret.
 
