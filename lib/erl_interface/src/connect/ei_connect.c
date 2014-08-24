@@ -761,7 +761,7 @@ int ei_close_connection(int fd)
 #endif
 
   /*
-  * Accept and initiate a connection from an other
+  * Accept and initiate a connection from another
   * Erlang node. Return a file descriptor at success,
   * otherwise -1;
 */

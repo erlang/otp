@@ -5778,7 +5778,7 @@ done:
 	    ia_p->Ipv6IfIndex &&
 	    ia_p->Ipv6IfIndex != index)
 	{
-	    /* Oops, there was an other interface for IPv6. Possible? XXX */
+	    /* Oops, there was another interface for IPv6. Possible? XXX */
 	    index = ia_p->Ipv6IfIndex;
 	    goto index;
 	}

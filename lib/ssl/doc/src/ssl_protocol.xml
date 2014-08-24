@@ -83,7 +83,7 @@
      <em>subject</em>. The certificate is signed 
      with the private key of the issuer of the certificate. A chain
      of trust is build by having the issuer in its turn being
-     certified by an other certificate and so on until you reach the
+     certified by another certificate and so on until you reach the
      so called root certificate that is self signed i.e. issued
      by itself.</p>
      
