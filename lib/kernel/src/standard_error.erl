@@ -63,7 +63,7 @@ server(PortName,PortSettings) ->
     run(Port).
 
 run(P) ->
-    put(unicode,false),
+    put(encoding, latin1),
     server_loop(P).
 
 server_loop(Port) ->
@@ -97,19 +97,11 @@ do_io_request(Req, From, ReplyAs, Port) ->
 %% New in R13B
 % Wide characters (Unicode)
 io_request({put_chars,Encoding,Chars}, Port) -> % Binary new in R9C
-    put_chars(wrap_characters_to_binary(Chars,Encoding,
-					case get(unicode) of 
-					    true -> unicode;
-					    _ -> latin1
-					end), Port);
+    put_chars(wrap_characters_to_binary(Chars, Encoding, get(encoding)), Port);
 io_request({put_chars,Encoding,Mod,Func,Args}, Port) ->
     Result = case catch apply(Mod,Func,Args) of
 		 Data when is_list(Data); is_binary(Data) ->
-		     wrap_characters_to_binary(Data,Encoding,
-					       case get(unicode) of 
-						   true -> unicode;
-						   _ -> latin1
-					       end);
+		     wrap_characters_to_binary(Data, Encoding, get(encoding));
 		 Undef ->
 		     Undef
 	     end,
@@ -134,10 +126,10 @@ io_request({get_geometry,rows},Port) ->
 	_ ->
 	    {error,{error,enotsup}}
     end;
-io_request({getopts,[]}, Port) ->
-    getopts(Port);
-io_request({setopts,Opts}, Port) when is_list(Opts) ->
-    setopts(Opts, Port);
+io_request(getopts, _Port) ->
+    getopts();
+io_request({setopts,Opts}, _Port) when is_list(Opts) ->
+    setopts(Opts);
 io_request({requests,Reqs}, Port) ->
     io_requests(Reqs, {ok,ok}, Port);
 io_request(R, _Port) ->                      %Unknown request
@@ -186,37 +178,45 @@ put_chars(Chars, Port) ->
     end.
 
 %% setopts
-setopts(Opts0,Port) ->
-    Opts = proplists:unfold(
-	     proplists:substitute_negations(
-	       [{latin1,unicode}], 
-	       Opts0)),
+setopts(Opts0) ->
+    Opts = expand_encoding(Opts0),
     case check_valid_opts(Opts) of
-	true ->
-	    do_setopts(Opts,Port);
-	false ->
-	    {error,{error,enotsup}}
+        true ->
+            do_setopts(Opts);
+        false ->
+            {error,{error,enotsup}}
     end.
+
 check_valid_opts([]) ->
     true;
-check_valid_opts([{unicode,Valid}|T]) when Valid =:= true; Valid =:= utf8; Valid =:= false ->
+check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
+                                            Valid =:= utf8; Valid =:= latin1 ->
     check_valid_opts(T);
 check_valid_opts(_) ->
     false.
 
-do_setopts(Opts, _Port) ->
-    case proplists:get_value(unicode,Opts) of
-	Valid when Valid =:= true; Valid =:= utf8 ->
-	    put(unicode,true);
-	false ->
-	    put(unicode,false);
-	undefined ->
-	    ok
+expand_encoding([]) ->
+    [];
+expand_encoding([latin1 | T]) ->
+    [{encoding,latin1} | expand_encoding(T)];
+expand_encoding([unicode | T]) ->
+    [{encoding,unicode} | expand_encoding(T)];
+expand_encoding([H|T]) ->
+    [H|expand_encoding(T)].
+
+do_setopts(Opts) ->
+    case proplists:get_value(encoding, Opts) of
+        Valid when Valid =:= unicode; Valid =:= utf8 ->
+            put(encoding, unicode);
+        latin1 ->
+            put(encoding, latin1);
+        undefined ->
+            ok
     end,
     {ok,ok}.
 
-getopts(_Port) ->
-    Uni = {unicode, get(unicode) =:= true},
+getopts() ->
+    Uni = {encoding,get(encoding)},
     {ok,[Uni]}.
 
 wrap_characters_to_binary(Chars,From,To) ->
