@@ -38,7 +38,8 @@
 	 java_exit_with_reason_any_term/1,
 	 status_handler_localStatus/1, status_handler_remoteStatus/1,
 	 status_handler_connAttempt/1,
-	 maps/1
+	 maps/1,
+	 fun_equals/1
      ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -106,7 +107,8 @@ fundamental() ->
      register_and_whereis, % RegisterAndWhereis.java
      get_names,            % GetNames.java
      boolean_atom,         % BooleanAtom.java
-     maps                  % Maps.java
+     maps,                 % Maps.java
+     fun_equals            % FunEquals.java
     ].
 
 ping() ->
@@ -688,6 +690,18 @@ maps(Config) when is_list(Config) ->
     ok = jitu:java(?config(java, Config),
            ?config(data_dir, Config),
            "Maps",
+           []).
+
+%%%-----------------------------------------------------------------
+fun_equals(doc) ->
+    ["FunEquals.java: "
+     "Test OtpErlangFun.equals()"];
+fun_equals(suite) ->
+    [];
+fun_equals(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+           ?config(data_dir, Config),
+           "FunEquals",
            []).
 
 %%%-----------------------------------------------------------------
