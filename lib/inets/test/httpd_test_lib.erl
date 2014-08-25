@@ -91,16 +91,7 @@ verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut)
   when (is_integer(TimeOut) orelse (TimeOut =:= infinity)) ->
     verify_request(SocketType, Host, Port, [], Node, RequestStr, Options, TimeOut).
 
-verify_request(SocketType, Host, Port, TranspOpts0, Node, RequestStr, Options, TimeOut) ->
-    %% For now, until we modernize the httpd tests 
-    TranspOpts =
-	case lists:member(inet6, TranspOpts0) of
-	    true ->
-		TranspOpts0;
-	    false ->
-		[inet | TranspOpts0]
-	end,
-    
+verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, TimeOut) ->
     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
 	    ok = inets_test_lib:send(SocketType, Socket, RequestStr),
