@@ -170,7 +170,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    Dog = ct:timetrap(10000),
+    Dog = ct:timetrap(20000),
     application:stop(snmp),
     application:unload(snmp),
     [{watchdog, Dog} | Config].
