@@ -501,7 +501,7 @@ fun(OtpCert :: #'OTPCertificate'{},
      <fsummary> Performs CRL validation.</fsummary>
      <type>
        <v> OTPCertificate =  #'OTPCertificate'{}</v>
-       <v> DPAndCRLs  = [{DP::#'DistributionPoint'{} ,CRL::#'CertificateList'{}}] </v>
+       <v> DPAndCRLs  = [{DP::#'DistributionPoint'{}, {DerCRL::der_encoded(), CRL::#'CertificateList'{}}}] </v>
        <v> Options = proplists:proplist()</v>
        <v> CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |
        {bad_cert, {revoked, crl_reason()}}</v>

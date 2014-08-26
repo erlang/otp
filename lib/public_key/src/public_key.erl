@@ -626,11 +626,11 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
 
 %--------------------------------------------------------------------
 -spec pkix_crls_validate(#'OTPCertificate'{},
-			 [{DP::#'DistributionPoint'{} ,CRL::#'CertificateList'{}}],
+			 [{DP::#'DistributionPoint'{}, {DerCRL::binary(), CRL::#'CertificateList'{}}}],
 			 Options :: proplists:proplist()) -> valid | {bad_cert, revocation_status_undetermined}
 								| {bad_cert, {revoked, crl_reason()}}.
 
-%% Description: Performs a basic path validation according to RFC 5280.
+%% Description: Performs a CRL validation according to RFC 5280.
 %%--------------------------------------------------------------------
 pkix_crls_validate(OtpCert, [{_,_,_} |_] = DPAndCRLs, Options) ->
     pkix_crls_validate(OtpCert, DPAndCRLs, DPAndCRLs,
