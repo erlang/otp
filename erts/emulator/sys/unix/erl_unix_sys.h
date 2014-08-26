@@ -130,9 +130,6 @@
 /* File descriptors are numbers anc consecutively allocated on Unix */
 #define  ERTS_SYS_CONTINOUS_FD_NUMBERS
 
-#define HAVE_ERTS_CHECK_IO_DEBUG
-int erts_check_io_debug(void);
-
 #ifndef ERTS_SMP
 #  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT

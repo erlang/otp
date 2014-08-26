@@ -64,8 +64,12 @@
  */
 
 #ifndef ERTS_SYS_FD_TYPE
+#define ERTS_SYS_FD_INVALID ((ErtsSysFdType) -1)
 typedef int ErtsSysFdType;
 #else
+#ifndef ERTS_SYS_FD_INVALID
+# error missing ERTS_SYS_FD_INVALID
+#endif
 typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #endif
 
@@ -730,6 +734,14 @@ void os_version(int*, int*, int*);
 void init_getenv_state(GETENV_STATE *);
 char * getenv_string(GETENV_STATE *);
 void fini_getenv_state(GETENV_STATE *);
+
+#define HAVE_ERTS_CHECK_IO_DEBUG
+typedef struct {
+    int no_used_fds;
+    int no_driver_select_structs;
+    int no_driver_event_structs;
+} ErtsCheckIoDebugInfo;
+int erts_check_io_debug(ErtsCheckIoDebugInfo *ip);
 
 /* xxxP */
 #define SYS_DEFAULT_FLOAT_DECIMALS 20

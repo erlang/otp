@@ -5611,6 +5611,7 @@ ok
       <name name="system_info" arity="1" clause_i="52"/>
       <name name="system_info" arity="1" clause_i="53"/>
       <name name="system_info" arity="1" clause_i="54"/>
+      <name name="system_info" arity="1" clause_i="55"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -5739,6 +5740,16 @@ ok
             <p>This option will be removed in a future release.
 	      The return value will always be <c>false</c> since
 	      the elib_malloc allocator has been removed.</p>
+          </item>
+          <tag><marker id="system_info_eager_check_io"><c>eager_check_io</c></marker></tag>
+          <item>
+            <p>
+	      Returns the value of the <c>erl</c>
+	      <seealso marker="erl#+secio">+secio</seealso> command line
+	      flag which is either <c>true</c> or <c>false</c>. See the
+	      documentation of the command line flag for information about
+	      the different values.
+	    </p>
           </item>
           <tag><c>ets_limit</c></tag>
           <item>

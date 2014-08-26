@@ -537,6 +537,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
+    erts_fprintf(stderr, "-secio bool enable/disable eager check I/O scheduling,\n");
+    erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sws val    set scheduler wakeup strategy, valid values are:\n");
     erts_fprintf(stderr, "            default|legacy.\n");
     erts_fprintf(stderr, "-swct val   set scheduler wake cleanup threshold, valid values are:\n");
@@ -1484,6 +1486,19 @@ erl_start(int argc, char **argv)
 				 "bad cpu topology '%s': %s\n",
 				 arg,
 				 estr);
+		    erts_usage();
+		}
+	    }
+	    else if (has_prefix("ecio", sub_param)) {
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+		if (sys_strcmp("true", arg) == 0)
+		    erts_eager_check_io = 1;
+		else if (sys_strcmp("false", arg) == 0)
+		    erts_eager_check_io = 0;
+		else {
+		    erts_fprintf(stderr,
+				 "bad schedule eager check I/O value '%s'\n",
+				 arg);
 		    erts_usage();
 		}
 	    }

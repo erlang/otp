@@ -31,8 +31,9 @@
 	 end_per_suite/1, init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
+
+	 a_test/1,
 	 outputv_echo/1,
-	
 	 timer_measure/1,
 	 timer_cancel/1,
 	 timer_change/1,
@@ -79,7 +80,8 @@
 	 thr_free_drv/1,
 	 async_blast/1,
 	 thr_msg_blast/1,
-	 consume_timeslice/1]).
+	 consume_timeslice/1,
+	 z_test/1]).
 
 -export([bin_prefix/2]).
 
@@ -122,19 +124,19 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
     erlang:display({init_per_testcase, Case}),
-    ?line 0 = erts_debug:get_internal_state(check_io_debug),
+    ?line 0 = element(1, erts_debug:get_internal_state(check_io_debug)),
     [{watchdog, Dog},{testcase, Case}|Config].
 
 end_per_testcase(Case, Config) ->
     Dog = ?config(watchdog, Config),
     erlang:display({end_per_testcase, Case}),
-    ?line 0 = erts_debug:get_internal_state(check_io_debug),
+    ?line 0 = element(1, erts_debug:get_internal_state(check_io_debug)),
     ?t:timetrap_cancel(Dog).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [outputv_errors, outputv_echo, queue_echo, {group, timer},
+all() -> %% Keep a_test first and z_test last...
+    [a_test, outputv_errors, outputv_echo, queue_echo, {group, timer},
      driver_unloaded, io_ready_exit, use_fallback_pollset,
      bad_fd_in_pollset, driver_event, fd_change,
      steal_control, otp_6602, driver_system_info_base_ver,
@@ -151,7 +153,8 @@ all() ->
      thr_free_drv,
      async_blast,
      thr_msg_blast,
-     consume_timeslice].
+     consume_timeslice,
+     z_test].
 
 groups() -> 
     [{timer, [],
@@ -917,8 +920,7 @@ steal_control_test(Hndl = {erts_poll_info, Before}) ->
 	  end.
 
 chkio_test_init(Config) when is_list(Config) ->
-    ?line wait_until_no_pending_updates(),
-    ?line ChkIo = erlang:system_info(check_io),
+    ?line ChkIo = get_stable_check_io_info(),
     ?line case catch lists:keysearch(name, 1, ChkIo) of
 	      {value, {name, erts_poll}} ->
 		  ?line ?t:format("Before test: ~p~n", [ChkIo]),
@@ -937,8 +939,7 @@ chkio_test_fini({skipped, _} = Res) ->
 chkio_test_fini({chkio_test_result, Res, Before}) ->
     ?line ok = erl_ddll:unload_driver('chkio_drv'),
     ?line ok = erl_ddll:stop(),
-    ?line wait_until_no_pending_updates(),
-    ?line After = erlang:system_info(check_io),
+    ?line After = get_stable_check_io_info(),
     ?line ?t:format("After test: ~p~n", [After]),
     ?line verify_chkio_state(Before, After),
     ?line Res.
@@ -985,7 +986,7 @@ chkio_test({erts_poll_info, Before},
 		  ?line Fun(),
 		  ?line During = erlang:system_info(check_io),
 		  ?line erlang:display(During),
-		  ?line 0 = erts_debug:get_internal_state(check_io_debug),
+		  ?line 0 = element(1, erts_debug:get_internal_state(check_io_debug)),
 		  ?line ?t:format("During test: ~p~n", [During]),
 		  ?line chk_chkio_port(Port),
 		  ?line case erlang:port_control(Port, ?CHKIO_STOP, "") of
@@ -1034,18 +1035,22 @@ verify_chkio_state(Before, After) ->
 						       After)
 	  end,
     ?line ok.
-    
-    
 
-wait_until_no_pending_updates() ->
-    case lists:keysearch(pending_updates, 1, erlang:system_info(check_io)) of
-	{value, {pending_updates, 0}} ->
-	    ok;
-	false ->
-	    ok;
+get_stable_check_io_info() ->
+    ChkIo = erlang:system_info(check_io),
+    PendUpdNo = case lists:keysearch(pending_updates, 1, ChkIo) of
+		    {value, {pending_updates, PendNo}} ->
+			PendNo;
+		    false ->
+			0
+		end,
+    {value, {active_fds, ActFds}} = lists:keysearch(active_fds, 1, ChkIo),
+    case {PendUpdNo, ActFds} of
+	{0, 0} ->
+	    ChkIo;
 	_ ->
 	    receive after 10 -> ok end,
-	    wait_until_no_pending_updates()
+	    get_stable_check_io_info()
     end.
 
 otp_6602(doc) -> ["Missed port lock when stealing control of fd from a "
@@ -2374,9 +2379,24 @@ count_proc_sched(Ps, PNs) ->
 	    PNs
     end.
     
+a_test(Config) when is_list(Config) ->
+    check_io_debug().
+
+z_test(Config) when is_list(Config) ->
+    check_io_debug().
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_io_debug() ->
+    get_stable_check_io_info(),
+    {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs}
+	= erts_debug:get_internal_state(check_io_debug),
+    0 = NoErrorFds,
+    NoUsedFds = NoDrvSelStructs,
+    0 = NoDrvEvStructs,
+    ok.
 
 %flush_msgs() ->
 %    receive
