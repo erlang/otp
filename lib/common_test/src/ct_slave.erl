@@ -406,6 +406,8 @@ check_for_ssh_running() ->
 	    application:start(crypto),
 	    case application:get_application(ssh) of
 		undefined->
+		    application:start(asn1),
+		    application:start(public_key),
 		    application:start(ssh);
 		{ok, ssh}->
 		    ok
