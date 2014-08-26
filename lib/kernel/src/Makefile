@@ -122,6 +122,7 @@ HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
 	../include/net_address.hrl 
 
 INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
+        erl_epmd.hrl hipe_ext_format.hrl \
         inet_dns.hrl inet_res.hrl \
         inet_boot.hrl inet_config.hrl inet_int.hrl \
 	inet_dns_record_adts.hrl
