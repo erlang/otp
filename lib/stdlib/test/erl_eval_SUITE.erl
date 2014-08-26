@@ -1458,6 +1458,30 @@ eep43(Config) when is_list(Config) ->
           "lists:map(fun (X) -> X#{price := 0} end,
                      [#{hello => 0, price => nil}]).",
           [#{hello => 0, price => 0}]),
+    check(fun () ->
+		Map = #{ <<33:333>> => "wat" },
+		#{ <<33:333>> := "wat" } = Map
+	  end,
+	  "begin "
+	  "   Map = #{ <<33:333>> => \"wat\" }, "
+	  "   #{ <<33:333>> := \"wat\" } = Map  "
+	  "end.",
+	  #{ <<33:333>> => "wat" }),
+    check(fun () ->
+		K1 = 1,
+		K2 = <<42:301>>,
+		K3 = {3,K2},
+		Map = #{ K1 => 1, K2 => 2, K3 => 3, {2,2} => 4},
+		#{ K1 := 1, K2 := 2, K3 := 3, {2,2} := 4} = Map
+	  end,
+	  "begin "
+	  "    K1 = 1, "
+	  "    K2 = <<42:301>>, "
+	  "    K3 = {3,K2}, "
+	  "    Map = #{ K1 => 1, K2 => 2, K3 => 3, {2,2} => 4}, "
+	  "    #{ K1 := 1, K2 := 2, K3 := 3, {2,2} := 4} = Map "
+	  "end.",
+	  #{ 1 => 1, <<42:301>> => 2, {3,<<42:301>>} => 3, {2,2} => 4}),
     error_check("[camembert]#{}.", {badarg,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
     ok.
