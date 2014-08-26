@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -include("public_key.hrl").
 
--export([encode/4, decode/4, decrypt_parameters/1]). 
+-export([encode/4, decode/4, decrypt_parameters/1, encrypt_parameters/1]). 
 -export([pbdkdf1/4, pbdkdf2/7]).
 
 -define(DEFAULT_SHA_MAC_KEYLEN, 20).
@@ -40,16 +40,16 @@
 %%--------------------------------------------------------------------
 encode(Data, Password, "DES-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(des_cbc, Key, IV, Data);
+    crypto:block_encrypt(des_cbc, Key, IV, pbe_pad(Data, KeyDevParams));
 
 encode(Data, Password, "DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
-    crypto:block_encrypt(des3_cbc, [Key1, Key2, Key3], IV, Data);
+    crypto:block_encrypt(des3_cbc, [Key1, Key2, Key3], IV, pbe_pad(Data));
 
 encode(Data, Password, "RC2-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(rc2_cbc, Key, IV, Data).
+    crypto:block_encrypt(rc2_cbc, Key, IV, pbe_pad(Data, KeyDevParams)).
 %%--------------------------------------------------------------------
 -spec decode(binary(), string(), string(), term()) -> binary().
 %%
@@ -108,6 +108,15 @@ decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
 		      algorithm = Oid, parameters = Param}) ->
      decrypt_parameters(Oid, Param).
     
+
+%%--------------------------------------------------------------------
+-spec encrypt_parameters({Cipher::string(), Params::term()}) -> 
+			#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
+%%
+%% Description: Performs ANS1-decoding of encryption parameters.
+%%--------------------------------------------------------------------
+encrypt_parameters({Cipher, Params}) ->
+    encrypt_parameters(Cipher, Params).
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -117,14 +126,18 @@ password_to_key_and_iv(Password, _, #'PBES2-params'{} = Params) ->
     <<Key:KeyLen/binary, _/binary>> = 
 	pbdkdf2(Password, Salt, ItrCount, KeyLen, PseudoRandomFunction, PseudoHash, PseudoOtputLen),
     {Key, IV};
+password_to_key_and_iv(Password, _Cipher, {#'PBEParameter'{salt = Salt,
+							  iterationCount = Count}, Hash}) ->
+    <<Key:8/binary, IV:8/binary, _/binary>> 
+	= pbdkdf1(Password, erlang:iolist_to_binary(Salt), Count, Hash),
+    {Key, IV};
 password_to_key_and_iv(Password, Cipher, Salt) ->
-    KeyLen = derived_key_length(Cipher, undefined),
+ KeyLen = derived_key_length(Cipher, undefined),
     <<Key:KeyLen/binary, _/binary>> = 
 	pem_encrypt(<<>>, Password, Salt, ceiling(KeyLen div 16), <<>>, md5),
     %% Old PEM encryption does not use standard encryption method
-    %% pbdkdf1 and uses then salt as IV
+    %% pbdkdf1 and uses then salt as IV 
     {Key, Salt}.
-
 pem_encrypt(_, _, _, 0, Acc, _) ->
     Acc;
 pem_encrypt(Prev, Password, Salt, Count, Acc, Hash) ->
@@ -169,7 +182,52 @@ do_xor_sum(Prf, PrfHash, PrfLen, Prev, Password, Count, Acc)->
 
 decrypt_parameters(?'id-PBES2', DekParams) ->
     {ok, Params} = 'PKCS-FRAME':decode('PBES2-params', DekParams),
-    {cipher(Params#'PBES2-params'.encryptionScheme), Params}.
+    {cipher(Params#'PBES2-params'.encryptionScheme), Params};
+decrypt_parameters(?'pbeWithSHA1AndRC2-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"RC2-CBC", {Params, sha}};
+decrypt_parameters(?'pbeWithSHA1AndDES-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"DES-CBC", {Params, sha}};
+decrypt_parameters(?'pbeWithMD5AndRC2-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"RC2-CBC", {Params, md5}};
+decrypt_parameters(?'pbeWithMD5AndDES-CBC', DekParams) ->
+    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    {"DES-CBC", {Params, md5}}.
+
+encrypt_parameters(_Cipher, #'PBES2-params'{} = Params) ->
+    {ok, Der} ='PKCS-FRAME':encode('PBES2-params', Params),
+    #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
+       algorithm = ?'id-PBES2', 
+       parameters = Der};
+
+encrypt_parameters(Cipher, {#'PBEParameter'{} = Params, Hash}) ->
+    {ok, Der} ='PKCS-FRAME':encode('PBEParameter', Params),
+    #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
+       algorithm = pbe1_oid(Cipher, Hash), 
+       parameters = Der}.
+
+pbe1_oid("RC2-CBC", sha) ->
+    ?'pbeWithSHA1AndRC2-CBC';
+pbe1_oid("DES-CBC", sha) ->
+    ?'pbeWithSHA1AndDES-CBC';
+pbe1_oid("RC2-CBC", md5) ->
+    ?'pbeWithMD5AndRC2-CBC';
+pbe1_oid("DES-CBC", md5) ->
+    ?'pbeWithMD5AndDES-CBC'.
+
+pbe_pad(Data, {#'PBEParameter'{}, _}) ->
+    pbe_pad(Data);
+pbe_pad(Data, #'PBES2-params'{}) ->
+    pbe_pad(Data);
+pbe_pad(Data, _) ->
+    Data.
+
+pbe_pad(Data) ->
+    N = 8 - (erlang:byte_size(Data) rem 8), 
+    Pad = list_to_binary(lists:duplicate(N, N)),
+    <<Data/binary, Pad/binary>>.
 
 key_derivation_params(#'PBES2-params'{keyDerivationFunc = KeyDerivationFunc,
 				      encryptionScheme = EncScheme}) ->
