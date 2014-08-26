@@ -94,6 +94,10 @@ encode_pem_entries(Entries) ->
 encode_pem_entry({Type, Der, not_encrypted}) ->
     StartStr = pem_start(Type),
     [StartStr, "\n", b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"];
+encode_pem_entry({'PrivateKeyInfo', Der, EncParams}) -> 
+    EncDer = encode_encrypted_private_keyinfo(Der, EncParams),
+    StartStr = pem_start('EncryptedPrivateKeyInfo'),
+    [StartStr, "\n", b64encode_and_split(EncDer), "\n", pem_end(StartStr) ,"\n\n"];
 encode_pem_entry({Type, Der, {Cipher, Salt}}) ->
     StartStr = pem_start(Type),
     [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n",
@@ -139,6 +143,12 @@ decode_encrypted_private_keyinfo(Der) ->
     DecryptParams = pubkey_pbe:decrypt_parameters(AlgorithmInfo), 
     {'PrivateKeyInfo', iolist_to_binary(Data), DecryptParams}.
 
+
+encode_encrypted_private_keyinfo(EncData, EncryptParmams) ->
+    AlgorithmInfo = pubkey_pbe:encrypt_parameters(EncryptParmams),
+    public_key:der_encode('EncryptedPrivateKeyInfo',   
+			  #'EncryptedPrivateKeyInfo'{encryptionAlgorithm = AlgorithmInfo,
+						     encryptedData = EncData}).
 split_bin(Bin) ->
     split_bin(0, Bin).
 
@@ -197,6 +207,8 @@ pem_start('DSAPrivateKey') ->
     <<"-----BEGIN DSA PRIVATE KEY-----">>;
 pem_start('DHParameter') ->
     <<"-----BEGIN DH PARAMETERS-----">>;
+pem_start('EncryptedPrivateKeyInfo') ->
+    <<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>;
 pem_start('CertificationRequest') ->
     <<"-----BEGIN CERTIFICATE REQUEST-----">>;
 pem_start('ContentInfo') ->
