@@ -64,9 +64,15 @@
 -type der_encoded()          :: binary().
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
 			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
-                               | 'SubjectPublicKeyInfo' | 'CertificationRequest' | 'CertificateList'.
--type pem_entry()            :: {pki_asn1_type(), binary(), %% DER or Encrypted DER
-				 not_encrypted | {Cipher :: string(), Salt :: binary()}}.
+                               | 'SubjectPublicKeyInfo' | 'PrivateKeyInfo' | 
+				 'CertificationRequest' | 'CertificateList' |
+				 'ECPrivateKey' | 'EcpkParameters'.
+-type pem_entry()            :: {pki_asn1_type(), 
+				 binary(), %% DER or Encrypted DER
+				 not_encrypted | {Cipher :: string(), Salt :: binary()} |
+				 {Cipher :: string(), #'PBES2-params'{}} | 
+				 {Cipher :: string(), {#'PBEParameter'{}, atom()}} %% hash type
+				}.
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
 -type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
 				auth_keys.
@@ -134,9 +140,9 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, #'PBES2-params'{}}} = PemEntry,
 				is_list(Cipher) ->
     do_pem_entry_decode(PemEntry, Password);
 pem_entry_decode({Asn1Type, CryptDer, {Cipher, {#'PBEParameter'{},_}}} = PemEntry, 
-		 Password) when is_atom(Asn1Type) andalso
-				is_binary(CryptDer) andalso
-				is_list(Cipher) ->
+ 		 Password) when is_atom(Asn1Type) andalso
+ 				is_binary(CryptDer) andalso
+ 				is_list(Cipher) ->
     do_pem_entry_decode(PemEntry, Password);
 pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry, 
 		 Password) when is_atom(Asn1Type) andalso
@@ -174,10 +180,10 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, #'PBES2-params'{}} = CipherInfo,
 						    is_list(Cipher) ->
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password);
 pem_entry_encode(Asn1Type, Entity, {{Cipher,
-				     {#'PBEParameter'{}, _}} = CipherInfo,
-				    Password}) when is_atom(Asn1Type) andalso
-						    is_list(Password) andalso
-						    is_list(Cipher) ->
+ 				     {#'PBEParameter'{}, _}} = CipherInfo,
+ 				    Password}) when is_atom(Asn1Type) andalso
+ 						    is_list(Password) andalso
+ 						    is_list(Cipher) ->
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password);
 pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo, 
 				    Password}) when is_atom(Asn1Type) andalso
