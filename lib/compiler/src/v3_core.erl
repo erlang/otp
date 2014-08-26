@@ -827,10 +827,10 @@ map_pair_block([{Op,L,K0,V0}|Es],Ces,Esp,St0) ->
     A = lineno_anno(L, St2),
     Pair0 = map_op_to_c_map_pair(Op),
     Pair1 = Pair0#c_map_pair{anno=A,key=K,val=V},
-    case cerl:is_c_var(K) of
-	false ->
-	    map_pair_block(Es,[Pair1|Ces],Ep0 ++ Ep1 ++ Esp,St2);
+    case cerl:is_literal(K) of
 	true ->
+	    map_pair_block(Es,[Pair1|Ces],Ep0 ++ Ep1 ++ Esp,St2);
+	false ->
 	    {{Ces,Esp},{[Pair1],Ep0++Ep1},Es,St2}
     end;
 map_pair_block([],Ces,Esp,St) ->
