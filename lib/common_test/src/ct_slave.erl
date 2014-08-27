@@ -399,20 +399,20 @@ spawn_local_node(Node, Options) ->
     Cmd = get_cmd(Node, ErlFlags),
     open_port({spawn, Cmd}, [stream,{env,Env}]).
 
+% Does module application has this functionallity?
+maybe_start_application(Module) ->
+    case application:get_application(Module) of
+        undefined ->
+            application:start(Module);
+        {ok, _} -> ok
+    end.
+
 % start crypto and ssh if not yet started
 check_for_ssh_running() ->
-    case application:get_application(crypto) of
-	undefined->
-	    application:start(crypto),
-	    case application:get_application(ssh) of
-		undefined->
-		    application:start(ssh);
-		{ok, ssh}->
-		    ok
-	    end;
-	{ok, crypto}->
-	    ok
-    end.
+    maybe_start_application(crypto),
+    maybe_start_application(asn1),
+    maybe_start_application(public_Key),
+    maybe_start_application(ssh).
 
 % spawn node remotely
 spawn_remote_node(Host, Node, Options) ->
