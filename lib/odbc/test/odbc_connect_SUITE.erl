@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,7 +47,7 @@ all() ->
     case odbc_test_lib:odbc_check() of
 	ok ->
 	    [not_exist_db, commit, rollback, not_explicit_commit,
-	     no_c_node, port_dies, control_process_dies,
+	     no_c_executable, port_dies, control_process_dies,
 	     {group, client_dies}, connect_timeout, timeout,
 	     many_timeouts, timeout_reset, disconnect_on_timeout,
 	     connection_closed, disable_scrollable_cursors,
@@ -248,28 +248,31 @@ not_exist_db(_Config)  ->
     test_server:sleep(100).
 
 %%-------------------------------------------------------------------------
-no_c_node(doc) ->
+no_c_executable(doc) ->
     "Test what happens if the port-program can not be found";
-no_c_node(suite) -> [];
-no_c_node(_Config) ->
+no_c_executable(suite) -> [];
+no_c_executable(_Config) ->
     process_flag(trap_exit, true),
     Dir = filename:nativename(filename:join(code:priv_dir(odbc), 
 					    "bin")),
     FileName1 = filename:nativename(os:find_executable("odbcserver", 
 						       Dir)),
     FileName2 = filename:nativename(filename:join(Dir, "odbcsrv")),
-    ok = file:rename(FileName1, FileName2),
-    Result = 
-	case catch odbc:connect(?RDBMS:connection_string(),
-				odbc_test_lib:platform_options()) of
-	    {error, port_program_executable_not_found} ->
-		ok;
-	    Else ->
-		Else
-	end,
-
-    ok = file:rename(FileName2, FileName1), 
-    ok = Result.
+    case file:rename(FileName1, FileName2) of
+	ok ->
+	    Result = 
+		case catch odbc:connect(?RDBMS:connection_string(),
+					odbc_test_lib:platform_options()) of
+		    {error, port_program_executable_not_found} ->
+			ok;
+		    Else ->
+			Else
+		end,
+	    ok = file:rename(FileName2, FileName1), 
+	    ok = Result;
+	_ ->
+	    {skip, "File permission issues"}
+    end.
 %%------------------------------------------------------------------------
 
 port_dies(doc) ->
