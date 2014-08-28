@@ -113,15 +113,28 @@ key_init(client, Ssh, Value) ->
 key_init(server, Ssh, Value) ->
     Ssh#ssh{s_keyinit = Value}.
 
+available_ssh_algos() ->
+    Supports = crypto:supports(),
+    CipherAlgos = [{aes_ctr, "aes128-ctr"}, {aes_cbc128, "aes128-cbc"}, {des3_cbc, "3des-cbc"}],
+    Ciphers = [SshAlgo ||
+	{CryptoAlgo, SshAlgo} <- CipherAlgos,
+	lists:member(CryptoAlgo, proplists:get_value(ciphers, Supports, []))],
+    HashAlgos = [{sha256, "hmac-sha2-256"}, {sha, "hmac-sha1"}],
+    Hashs = [SshAlgo ||
+	{CryptoAlgo, SshAlgo} <- HashAlgos,
+	lists:member(CryptoAlgo, proplists:get_value(hashs, Supports, []))],
+    {Ciphers, Hashs}.
+
 kexinit_messsage(client, Random, Compression, HostKeyAlgs) ->
+    {CipherAlgs, HashAlgs} = available_ssh_algos(),
     #ssh_msg_kexinit{ 
 		  cookie = Random,
 		  kex_algorithms = ["diffie-hellman-group1-sha1"],
 		  server_host_key_algorithms = HostKeyAlgs,
-		  encryption_algorithms_client_to_server = ["aes128-ctr","aes128-cbc","3des-cbc"],
-		  encryption_algorithms_server_to_client = ["aes128-ctr","aes128-cbc","3des-cbc"],
-		  mac_algorithms_client_to_server = ["hmac-sha2-256","hmac-sha1"],
-		  mac_algorithms_server_to_client = ["hmac-sha2-256","hmac-sha1"],
+		  encryption_algorithms_client_to_server = CipherAlgs,
+		  encryption_algorithms_server_to_client = CipherAlgs,
+		  mac_algorithms_client_to_server = HashAlgs,
+		  mac_algorithms_server_to_client = HashAlgs,
 		  compression_algorithms_client_to_server = Compression,
 		  compression_algorithms_server_to_client = Compression,
 		  languages_client_to_server = [],
@@ -129,14 +142,15 @@ kexinit_messsage(client, Random, Compression, HostKeyAlgs) ->
 		 };
 
 kexinit_messsage(server, Random, Compression, HostKeyAlgs) ->
+    {CipherAlgs, HashAlgs} = available_ssh_algos(),
     #ssh_msg_kexinit{
 		  cookie = Random,
 		  kex_algorithms = ["diffie-hellman-group1-sha1"],
 		  server_host_key_algorithms = HostKeyAlgs,
-		  encryption_algorithms_client_to_server = ["aes128-ctr","aes128-cbc","3des-cbc"],
-		  encryption_algorithms_server_to_client = ["aes128-ctr","aes128-cbc","3des-cbc"],
-		  mac_algorithms_client_to_server = ["hmac-sha2-256","hmac-sha1"],
-		  mac_algorithms_server_to_client = ["hmac-sha2-256","hmac-sha1"],
+		  encryption_algorithms_client_to_server = CipherAlgs,
+		  encryption_algorithms_server_to_client = CipherAlgs,
+		  mac_algorithms_client_to_server = HashAlgs,
+		  mac_algorithms_server_to_client = HashAlgs,
 		  compression_algorithms_client_to_server = Compression,
 		  compression_algorithms_server_to_client = Compression,
 		  languages_client_to_server = [],

@@ -237,10 +237,14 @@ erlang_server_openssh_client_cipher_suites(Config) when is_list(Config) ->
 
     ct:sleep(500),
 
-    Ciphers = [{"3des-cbc", true},
-        {"aes128-cbc", true},
-        {"aes128-ctr", true},
-        {"aes256-cbc", false}],
+    Supports = crypto:supports(),
+    Ciphers = proplists:get_value(ciphers, Supports),
+    Tests = [
+        {"3des-cbc", lists:member(des3_cbc, Ciphers)},
+        {"aes128-cbc", lists:member(aes_cbc128, Ciphers)},
+        {"aes128-ctr", lists:member(aes_ctr, Ciphers)},
+        {"aes256-cbc", false}
+    ],
     lists:foreach(fun({Cipher, Expect}) ->
         Cmd = "ssh -p " ++ integer_to_list(Port) ++
         " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
@@ -266,7 +270,7 @@ erlang_server_openssh_client_cipher_suites(Config) when is_list(Config) ->
                     ct:fail("Did not receive no matching cipher message")
                 end
         end
-    end, Ciphers),
+    end, Tests),
 
      ssh:stop_daemon(Pid).
 
@@ -285,8 +289,10 @@ erlang_server_openssh_client_macs(Config) when is_list(Config) ->
 
     ct:sleep(500),
 
-    MACs = [{"hmac-sha1", true},
-        {"hmac-sha2-256", true},
+    Supports = crypto:supports(),
+    Hashs = proplists:get_value(hashs, Supports),
+    MACs = [{"hmac-sha1", lists:member(sha, Hashs)},
+        {"hmac-sha2-256", lists:member(sha256, Hashs)},
         {"hmac-md5-96", false},
         {"hmac-ripemd160", false}],
     lists:foreach(fun({MAC, Expect}) ->
