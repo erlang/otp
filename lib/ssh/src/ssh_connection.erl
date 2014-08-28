@@ -782,9 +782,8 @@ handle_cli_msg(#connection{channel_cache = Cache} = Connection,
 	    erlang:monitor(process, Pid),
 	    Channel = Channel0#channel{user = Pid},
 	    ssh_channel:cache_update(Cache, Channel),
-	    Reply = {connection_reply,
-		     channel_success_msg(RemoteId)},
-	    {{replies, [{channel_data, Pid, Reply0}, Reply]}, Connection};
+	    {Reply, Connection1} = reply_msg(Channel, Connection, Reply0),
+ 	    {{replies, [Reply]}, Connection1};
 	_Other ->
 	    Reply = {connection_reply,
 		     channel_failure_msg(RemoteId)},

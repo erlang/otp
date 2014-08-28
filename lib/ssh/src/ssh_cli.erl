@@ -457,17 +457,17 @@ bin_to_list(I) when is_integer(I) ->
 
 start_shell(ConnectionHandler, State) ->
     Shell = State#state.shell,
-    ConnectionInfo = ssh_connection_handler:info(ConnectionHandler,
+    ConnectionInfo = ssh_connection_handler:connection_info(ConnectionHandler,
 						  [peer, user]),
     ShellFun = case is_function(Shell) of
 		   true ->
-		       {ok, User} = 
+		       User = 
 			   proplists:get_value(user, ConnectionInfo),
 		       case erlang:fun_info(Shell, arity) of
 			   {arity, 1} ->
 			       fun() -> Shell(User) end;
 			   {arity, 2} ->
-			       [{_, PeerAddr}] =
+			       {_, PeerAddr} =
 				   proplists:get_value(peer, ConnectionInfo),
 			       fun() -> Shell(User, PeerAddr) end;
 			   _ ->
@@ -485,9 +485,9 @@ start_shell(_ConnectionHandler, Cmd, #state{exec={M, F, A}} = State) ->
     State#state{group = Group, buf = empty_buf()};
 start_shell(ConnectionHandler, Cmd, #state{exec=Shell} = State) when is_function(Shell) ->
 
-    ConnectionInfo = ssh_connection_handler:info(ConnectionHandler,
+    ConnectionInfo = ssh_connection_handler:connection_info(ConnectionHandler,
 						 [peer, user]),
-    {ok, User} = 
+    User = 
 	proplists:get_value(user, ConnectionInfo),
     ShellFun = 
 	case erlang:fun_info(Shell, arity) of
@@ -496,7 +496,7 @@ start_shell(ConnectionHandler, Cmd, #state{exec=Shell} = State) when is_function
 	    {arity, 2} ->
 		fun() -> Shell(Cmd, User) end;
 	    {arity, 3} ->
-		[{_, PeerAddr}] =
+		{_, PeerAddr} =
 		    proplists:get_value(peer, ConnectionInfo),
 		fun() -> Shell(Cmd, User, PeerAddr) end;
 	    _ ->

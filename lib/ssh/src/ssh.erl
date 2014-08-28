@@ -392,7 +392,8 @@ handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
     Opt;
 handle_ssh_option({exec, {Module, Function, _}} = Opt) when is_atom(Module), 
 							    is_atom(Function) ->
-
+    Opt;
+handle_ssh_option({exec, Function} = Opt) when is_function(Function) ->
     Opt;
 handle_ssh_option({auth_methods, Value} = Opt)  when is_list(Value) ->
     Opt;
