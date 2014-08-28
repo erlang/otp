@@ -2157,7 +2157,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 
 #ifdef ERTS_POLL_DEBUG_PRINT
     erts_printf("Entering erts_poll_wait(), timeout=%d\n",
-		 (int) tv->tv_sec*1000 + tv->tv_usec/1000);
+		 (int) tvp->tv_sec*1000 + tvp->tv_usec/1000);
 #endif
 
     if (ERTS_POLLSET_SET_POLLED_CHK(ps)) {

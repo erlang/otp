@@ -882,7 +882,7 @@ passive_sockets_server_send(Socket, X) ->
 
 accept_closed_by_other_process(doc) ->
     ["Tests the return value from gen_tcp:accept when ",
-     "the socket is closed from an other process. (OTP-3817)"];
+     "the socket is closed from another process. (OTP-3817)"];
 accept_closed_by_other_process(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {ok, ListenSocket} = gen_tcp:listen(0, []),

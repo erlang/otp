@@ -1390,7 +1390,7 @@ GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
       instance, if a Type is used in a definition with certain
       purpose, one want the type-name to express the intention. This
       can be done with parameterization.</p>
-    <p>When many types (or an other ASN.1 entity) only differs in some
+    <p>When many types (or another ASN.1 entity) only differs in some
       minor cases, but the structure of the types are similar, only
       one general type can be defined and the differences may be supplied
       through parameters. </p>

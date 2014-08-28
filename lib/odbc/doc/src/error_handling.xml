@@ -88,7 +88,7 @@
   <section>
     <title>The whole picture </title>
     <p>As the Erlang ODBC application relies on third party products
-      and communicates with a database that probably runs on an other
+      and communicates with a database that probably runs on another
       computer in the network there are plenty of things that might go
       wrong. To fully understand the things that might happen it
       facilitate to know the design of the Erlang ODBC application,

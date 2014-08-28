@@ -20,7 +20,7 @@
 /* Purpose:    Multidriver interface 
    This is an example of a driver which allows multiple instances of itself.
    I.e have one erlang process execute open_port(multi......) and
-   at the same time have an other erlang process open an other port 
+   at the same time have another erlang process open another port
    running multi there as well.
 */
 
