@@ -939,7 +939,7 @@ do_split(_FH, _OldN, _FragNames, [], Ops) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Delete a fragment from a fragmented table
-%% and merge its records with an other fragment
+%% and merge its records with another fragment
     
 make_multi_del_frag(Tab) ->
     verify_multi(Tab),

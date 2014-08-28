@@ -150,7 +150,7 @@
         <item>Chapter 8: "Operation and Management Principles" describes the model for operation and maintenance of sub-systems.</item>
         <item>Chapter 9: "Tutorial" gives an orientation of the different 
          interoperability mechanism, which can be used when integrating an 
-         Erlang program with a program written in an other programming language.</item>
+         Erlang program with a program written in another programming language.</item>
       </list>
     </section>
 
