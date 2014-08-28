@@ -734,13 +734,9 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_DIST_ENTRY			3
 #define ERTS_PSD_CALL_TIME_BP			4
 #define ERTS_PSD_DELAYED_GC_TASK_QS		5
-#ifdef ERTS_DIRTY_SCHEDULERS
-#define ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT	6
+#define ERTS_PSD_NIF_TRAP_EXPORT		6
 
 #define ERTS_PSD_SIZE				7
-#else
-#define ERTS_PSD_SIZE				6
-#endif
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -767,10 +763,8 @@ typedef struct {
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-#define ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
-#define ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
-#endif
+#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -1367,6 +1361,8 @@ Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
 
+int erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj); /* see erl_nif.c */
+
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
 
@@ -1817,12 +1813,10 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
 #define ERTS_PROC_SET_DELAYED_GC_TASK_QS(P, L, PBT) \
     ((ErtsProcSysTaskQs *) erts_psd_set((P), (L), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-#define ERTS_PROC_GET_DIRTY_SCHED_TRAP_EXPORT(P) \
-    ((Export *) erts_psd_get((P), ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT))
-#define ERTS_PROC_SET_DIRTY_SCHED_TRAP_EXPORT(P, L, DSTE) \
-    ((Export *) erts_psd_set((P), (L), ERTS_PSD_DIRTY_SCHED_TRAP_EXPORT, (void *) (DSTE)))
-#endif
+#define ERTS_PROC_GET_NIF_TRAP_EXPORT(P) \
+    ((Export *) erts_psd_get((P), ERTS_PSD_NIF_TRAP_EXPORT))
+#define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, L, DSTE) \
+    ((Export *) erts_psd_set((P), (L), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (DSTE)))
 
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);

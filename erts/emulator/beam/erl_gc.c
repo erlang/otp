@@ -2018,6 +2018,20 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	roots[n].sz = 1;
 	n++;
     }
+
+    /*
+     * If a NIF has saved arguments, they need to be added
+     */
+    if (ERTS_PROC_GET_NIF_TRAP_EXPORT(p)) {
+	Eterm* argv;
+	int argc;
+	if (erts_setup_nif_gc(p, &argv, &argc)) {
+	    roots[n].v = argv;
+	    roots[n].sz = argc;
+	    n++;
+	}
+    }
+
     ASSERT(n <= rootset->size);
 
     mp = p->msg.first;

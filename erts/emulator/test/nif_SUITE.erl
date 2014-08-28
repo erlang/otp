@@ -37,7 +37,8 @@
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
-	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1
+	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
+	 dirty_nif_exception/1, nif_schedule/1
 	]).
 
 -export([many_args_100/100]).
@@ -64,7 +65,8 @@ all() ->
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
-     otp_9668, consume_timeslice, dirty_nif, dirty_nif_send
+     otp_9668, consume_timeslice,
+     nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception
     ].
 
 groups() -> 
@@ -1524,6 +1526,20 @@ consume_timeslice(Config) when is_list(Config) ->
 
     ok.
 
+nif_schedule(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    A = "this is a string",
+    B = {this,is,a,tuple},
+    {B,A} = call_nif_schedule(A, B),
+    ok = try call_nif_schedule(1, 2)
+	 catch
+	     error:badarg ->
+		 [{?MODULE,call_nif_schedule,[1,2],_}|_] =
+		     erlang:get_stacktrace(),
+		 ok
+	 end,
+    ok.
+
 dirty_nif(Config) when is_list(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
 	N when is_integer(N) ->
@@ -1551,6 +1567,24 @@ dirty_nif_send(Config) when is_list(Config) ->
 	    {ok, Pid} = send_from_dirty_nif(Pid),
 	    {ok, Pid} = receive_any(),
 	    ok
+    catch
+	error:badarg ->
+	    {skipped,"No dirty scheduler support"}
+    end.
+
+dirty_nif_exception(Config) when is_list(Config) ->
+    try erlang:system_info(dirty_cpu_schedulers) of
+	N when is_integer(N) ->
+	    ensure_lib_loaded(Config),
+	    try
+	        call_dirty_nif_exception(),
+	        ?t:fail(expected_badarg)
+	    catch
+	        error:badarg ->
+		    [{?MODULE,call_dirty_nif_exception,[],_}|_] =
+			erlang:get_stacktrace(),
+		    ok
+	    end
     catch
 	error:badarg ->
 	    {skipped,"No dirty scheduler support"}
@@ -1685,8 +1719,10 @@ echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
 otp_9668_nif(_) -> ?nif_stub.
 consume_timeslice_nif(_,_) -> ?nif_stub.
+call_nif_schedule(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
+call_dirty_nif_exception() -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.
