@@ -1493,6 +1493,31 @@ static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NI
     }
 }
 
+static ERL_NIF_TERM nif_sched2(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    char s[64];
+    if (!enif_get_string(env, argv[2], s, sizeof s, ERL_NIF_LATIN1))
+	return enif_make_badarg(env);
+    return enif_make_tuple2(env, argv[3], argv[2]);
+}
+
+static ERL_NIF_TERM nif_sched1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM new_argv[4];
+    new_argv[0] = enif_make_atom(env, "garbage0");
+    new_argv[1] = enif_make_atom(env, "garbage1");
+    new_argv[2] = argv[0];
+    new_argv[3] = argv[1];
+    return enif_schedule_nif(env, "nif_sched2", 0, nif_sched2, 4, new_argv);
+}
+
+static ERL_NIF_TERM call_nif_schedule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != 2)
+	return enif_make_atom(env, "false");
+    return enif_schedule_nif(env, "nif_sched1", 0, nif_sched1, argc, argv);
+}
+
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -1507,11 +1532,10 @@ static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     enif_get_int(env, argv[0], &n);
     enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1);
     enif_inspect_binary(env, argv[2], &b);
-    result = enif_make_tuple3(env,
-			      enif_make_int(env, n),
-			      enif_make_string(env, s, ERL_NIF_LATIN1),
-			      enif_make_binary(env, &b));
-    return enif_schedule_dirty_nif_finalizer(env, result, enif_dirty_nif_finalizer);
+    return enif_make_tuple3(env,
+			    enif_make_int(env, n),
+			    enif_make_string(env, s, ERL_NIF_LATIN1),
+			    enif_make_binary(env, &b));
 }
 
 static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1526,7 +1550,7 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	if (enif_get_int(env, argv[0], &n) &&
 	    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1) &&
 	    enif_inspect_binary(env, argv[2], &b))
-	    return enif_schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_CPU_BOUND, dirty_nif, argc, argv);
+	    return enif_schedule_nif(env, "call_dirty_nif", ERL_NIF_DIRTY_JOB_CPU_BOUND, dirty_nif, argc, argv);
 	else
 	    return enif_make_badarg(env);
     } else {
@@ -1534,35 +1558,42 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     }
 }
 
-static ERL_NIF_TERM dirty_sender(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM send_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM result;
     ErlNifPid pid;
     ErlNifEnv* menv;
     int res;
 
-    enif_get_local_pid(env, argv[0], &pid);
+    if (!enif_get_local_pid(env, argv[0], &pid))
+	return enif_make_badarg(env);
     result = enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_pid(env, &pid));
     menv = enif_alloc_env();
     res = enif_send(env, &pid, menv, result);
     enif_free_env(menv);
     if (!res)
-	/* Note the next line will crash, since dirty nifs can't return exceptions.
-	 * This is intentional, since enif_send should not fail if the test succeeds.
-	 */
-	return enif_schedule_dirty_nif_finalizer(env, enif_make_badarg(env), enif_dirty_nif_finalizer);
+	return enif_make_badarg(env);
     else
-	return enif_schedule_dirty_nif_finalizer(env, result, enif_dirty_nif_finalizer);
+	return result;
 }
 
-static ERL_NIF_TERM send_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM call_dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM result;
-    ErlNifPid pid;
-
-    if (!enif_get_local_pid(env, argv[0], &pid))
+    switch (argc) {
+    case 0: {
+	ERL_NIF_TERM args[255];
+	int i;
+	for (i = 0; i < 255; i++)
+	    args[i] = enif_make_int(env, i);
+	return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+				 call_dirty_nif_exception, 255, argv);
+    }
+    case 1:
 	return enif_make_badarg(env);
-    return enif_schedule_dirty_nif(env, ERL_NIF_DIRTY_JOB_CPU_BOUND, dirty_sender, argc, argv);
+    default:
+	return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+				 call_dirty_nif_exception, argc-1, argv);
+    }
 }
 #endif
 
@@ -1742,9 +1773,11 @@ static ErlNifFunc nif_funcs[] =
     {"type_sizes", 0, type_sizes},
     {"otp_9668_nif", 1, otp_9668_nif},
     {"consume_timeslice_nif", 2, consume_timeslice_nif},
+    {"call_nif_schedule", 2, call_nif_schedule},
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
     {"call_dirty_nif", 3, call_dirty_nif},
-    {"send_from_dirty_nif", 1, send_from_dirty_nif},
+    {"send_from_dirty_nif", 1, send_from_dirty_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"call_dirty_nif_exception", 0, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
 #endif
     {"is_map_nif", 1, is_map_nif},
     {"get_map_size_nif", 1, get_map_size_nif},

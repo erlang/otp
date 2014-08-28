@@ -42,9 +42,13 @@
 ** 2.5: R17 Maps API additions
 ** 2.6: R17 with maps
 **      R17 dirty schedulers
+** 2.7: 17.3 add enif_schedule_nif
+**           remove enif_schedule_dirty_nif, enif_schedule_dirty_nif_finalizer, enif_dirty_nif_finalizer
+**           add ErlNifEntry options
+**           add ErlNifFunc flags
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 6
+#define ERL_NIF_MINOR_VERSION 7
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -125,7 +129,9 @@ typedef struct
     const char* name;
     unsigned arity;
     ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    unsigned flags;
 }ErlNifFunc;
+
 
 typedef struct enif_entry_t
 {
@@ -139,8 +145,11 @@ typedef struct enif_entry_t
     int  (*upgrade)(ErlNifEnv*, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
     void (*unload) (ErlNifEnv*, void* priv_data);
     const char* vm_variant;
+    unsigned options;
 }ErlNifEntry;
 
+/* Field bits for ErlNifEntry options */
+#define ERL_NIF_DIRTY_NIF_OPTION 1
 
 
 typedef struct
@@ -232,10 +241,21 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  else
 #    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
 #  endif
-#  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
+#  ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+#    define ERL_NIF_INIT_BODY do {					\
+	memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks)); \
+	entry.options = ERL_NIF_DIRTY_NIF_OPTION;			\
+     } while(0)
+#  else
+#    define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
+#  endif
 #else 
 #  define ERL_NIF_INIT_GLOB
-#  define ERL_NIF_INIT_BODY
+#  ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+#    define ERL_NIF_INIT_BODY entry.options = ERL_NIF_DIRTY_NIF_OPTION
+#  else
+#    define ERL_NIF_INIT_BODY
+#  endif
 #  ifdef STATIC_ERLANG_NIF
 #    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* MODNAME ## _nif_init(void)
 #  else

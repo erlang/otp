@@ -141,10 +141,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(void*,enif_dlopen,(const char* lib, void (*err_handler)(void*,const char*), void* err_arg));
 ERL_NIF_API_FUNC_DECL(void*,enif_dlsym,(void* handle, const char* symbol, void (*err_handler)(void*,const char*), void* err_arg));
 ERL_NIF_API_FUNC_DECL(int,enif_consume_timeslice,(ErlNifEnv*, int percent));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_nif,(ErlNifEnv*,const char*,int,ERL_NIF_TERM (*)(ErlNifEnv*,int,const ERL_NIF_TERM[]),int,const ERL_NIF_TERM[]));
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_dirty_nif,(ErlNifEnv*,int,ERL_NIF_TERM (*)(ErlNifEnv*,int,const ERL_NIF_TERM[]),int,const ERL_NIF_TERM[]));
-ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_dirty_nif_finalizer,(ErlNifEnv*,ERL_NIF_TERM,ERL_NIF_TERM (*)(ErlNifEnv*,ERL_NIF_TERM)));
-ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_dirty_nif_finalizer,(ErlNifEnv*,ERL_NIF_TERM));
 ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
 #endif
@@ -289,10 +287,8 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMa
 #  define enif_dlopen ERL_NIF_API_FUNC_MACRO(enif_dlopen)
 #  define enif_dlsym ERL_NIF_API_FUNC_MACRO(enif_dlsym)
 #  define enif_consume_timeslice ERL_NIF_API_FUNC_MACRO(enif_consume_timeslice)
+#  define enif_schedule_nif ERL_NIF_API_FUNC_MACRO(enif_schedule_nif)
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#  define enif_schedule_dirty_nif ERL_NIF_API_FUNC_MACRO(enif_schedule_dirty_nif)
-#  define enif_schedule_dirty_nif_finalizer ERL_NIF_API_FUNC_MACRO(enif_schedule_dirty_nif_finalizer)
-#  define enif_dirty_nif_finalizer ERL_NIF_API_FUNC_MACRO(enif_dirty_nif_finalizer)
 #  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
 #  define enif_have_dirty_schedulers ERL_NIF_API_FUNC_MACRO(enif_have_dirty_schedulers)
 #endif
