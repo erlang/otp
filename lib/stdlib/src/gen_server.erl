@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -720,7 +720,8 @@ print_event(Dev, Event, Name) ->
 terminate(Reason, Name, Msg, Mod, State, Debug) ->
     case catch Mod:terminate(Reason, State) of
 	{'EXIT', R} ->
-	    error_info(R, Name, Msg, State, Debug),
+	    FmtState = format_status(terminate, Mod, get(), State),
+	    error_info(R, Name, Msg, FmtState, Debug),
 	    exit(R);
 	_ ->
 	    case Reason of
@@ -731,17 +732,7 @@ terminate(Reason, Name, Msg, Mod, State, Debug) ->
 		{shutdown,_}=Shutdown ->
 		    exit(Shutdown);
 		_ ->
-		    FmtState =
-			case erlang:function_exported(Mod, format_status, 2) of
-			    true ->
-				Args = [get(), State],
-				case catch Mod:format_status(terminate, Args) of
-				    {'EXIT', _} -> State;
-				    Else -> Else
-				end;
-			    _ ->
-				State
-			end,
+		    FmtState = format_status(terminate, Mod, get(), State),
 		    error_info(Reason, Name, Msg, FmtState, Debug),
 		    exit(Reason)
 	    end
@@ -875,23 +866,29 @@ name_to_pid(Name) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    Header = gen:format_status_header("Status for generic server",
-                                      Name),
+    Header = gen:format_status_header("Status for generic server", Name),
     Log = sys:get_debug(log, Debug, []),
-    DefaultStatus = [{data, [{"State", State}]}],
-    Specfic =
-	case erlang:function_exported(Mod, format_status, 2) of
-	    true ->
-		case catch Mod:format_status(Opt, [PDict, State]) of
-		    {'EXIT', _} -> DefaultStatus;
-                    StatusList when is_list(StatusList) -> StatusList;
-		    Else -> [Else]
-		end;
-	    _ ->
-		DefaultStatus
-	end,
+    Specfic = case format_status(Opt, Mod, PDict, State) of
+		  S when is_list(S) -> S;
+		  S -> [S]
+	      end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
 	     {"Logged events", Log}]} |
      Specfic].
+
+format_status(Opt, Mod, PDict, State) ->
+    DefStatus = case Opt of
+		    terminate -> State;
+		    _ -> [{data, [{"State", State}]}]
+		end,
+    case erlang:function_exported(Mod, format_status, 2) of
+	true ->
+	    case catch Mod:format_status(Opt, [PDict, State]) of
+		{'EXIT', _} -> DefStatus;
+		Else -> Else
+	    end;
+	_ ->
+	    DefStatus
+    end.
