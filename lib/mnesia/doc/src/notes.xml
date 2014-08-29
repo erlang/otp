@@ -38,7 +38,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.12.1</title>
+  <section><title>Mnesia 4.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race which could make create_table fail if a node
+	    was going down during the transaction.</p>
+          <p>
+	    Own Id: OTP-12124 Aux Id: seq12694 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
