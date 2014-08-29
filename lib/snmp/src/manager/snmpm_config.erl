@@ -1816,7 +1816,11 @@ verify_agent_config(
 		{TD, VerifiedConf};
 	    _ ->
 		%% Insert tdomain since it is missing
-		TD = default_transport_domain(),
+		%% Note: not default_transport_domain() since
+		%% taddress is the new format hence the application
+		%% should be tdomain aware and therefore addresses
+		%% on the Domain, Addr format should be used and understood.
+		TD = transportDomainUdpIpv4,
 		{TD, [{tdomain, TD}|VerifiedConf]}
 	end,
     case snmp_conf:check_address(TDomain, Address, 0) of
@@ -2269,15 +2273,37 @@ check_manager_config({address = Tag, Ip} = Entry, {Domain, Port} = State) ->
 	     [{Tag, FixedIp},
 	      {transports, [{Domain, {FixedIp, Port}}]}]
      end, State};
-check_manager_config({transports = Tag, Transports}, State) ->
+check_manager_config({transports = Tag, Transports}, {_, Port} = State)
+  when is_list(Transports) ->
     CheckedTransports =
-	[case snmp_conf:check_address(Domain, Address) of
-	     ok ->
-		 Transport;
-	     {ok, FixedAddress} ->
-		 {Domain, FixedAddress}
+	[case Transport of
+	     {Domain, Address} ->
+		 case
+		     case Port of
+			 undefined ->
+			     snmp_conf:check_address(Domain, Address);
+			 _ ->
+			     snmp_conf:check_address(Domain, Address, Port)
+		     end
+		 of
+		     ok ->
+			 Transport;
+		     {ok, FixedAddress} ->
+			 {Domain, FixedAddress}
+		 end;
+	     _Domain when Port =:= undefined->
+		 error({missing_mandatory, port});
+	     Domain ->
+		 Family = snmp_conf:tdomain_to_family(Domain),
+		 {ok, Hostname} = inet:gethostname(),
+		 case inet:getaddr(Hostname, Family) of
+		     {ok, IpAddr} ->
+			 {Domain, {IpAddr, Port}};
+		     {error, _} ->
+			 error({bad_address, {Domain, Hostname}})
+		 end
 	 end
-	 || {Domain, Address} = Transport <- Transports],
+	 || Transport <- Transports],
     {{ok, {Tag, CheckedTransports}}, State};
 check_manager_config(Entry, State) ->
     {check_manager_config(Entry), State}.

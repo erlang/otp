@@ -200,9 +200,10 @@ do_write_users_conf(_Fd, Crap) ->
 %% ------ agents.conf ------
 %% 
 
-agents_entry(UserId, TargetName, Comm, Ip, Port, EngineID, Timeout, 
-	     MaxMessageSize, Version, SecModel, SecName, SecLevel) ->
-    {UserId, TargetName, Comm, Ip, Port, EngineID, Timeout, 
+agents_entry(
+  UserId, TargetName, Comm, Domain_or_Ip, Addr_or_Port, EngineID, Timeout,
+  MaxMessageSize, Version, SecModel, SecName, SecLevel) ->
+    {UserId, TargetName, Comm, Domain_or_Ip, Addr_or_Port, EngineID, Timeout,
      MaxMessageSize, Version, SecModel, SecName, SecLevel}.
 
 

@@ -306,7 +306,7 @@ check_engine_id(EngineId) ->
     snmp_conf:check_string(EngineId).
 
 check_address(Domain, Address) ->
-    case snmp_conf:check_address(Domain, Address) of
+    case snmp_conf:check_address(Domain, Address, 162) of
 	ok ->
 	    Address;
 	{ok, NAddress} ->
@@ -316,7 +316,11 @@ check_address(Domain, Address) ->
 check_mask(_Domain, [] = Mask) ->
     Mask;
 check_mask(Domain, Mask) ->
-    try check_address(Domain, Mask)
+    try snmp_conf:check_address(Domain, Mask) of
+	ok ->
+	    Mask;
+	{ok, NMask} ->
+	    NMask
     catch
 	{error, {bad_address, Info}} ->
 	    error({bad_mask, Info})
@@ -380,16 +384,21 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
-add_addr(Name, Ip, Port, Timeout, Retry, TagList, 
-	 Params, EngineId, TMask, MMS) ->
-    Domain = default_domain(), 
-    add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, 
-	     Params, EngineId, TMask, MMS).
-
-add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, 
-	 Params, EngineId, TMask, MMS) ->
-    Addr = {Name, Domain, Ip, Port, Timeout, Retry, TagList, 
-	    Params, EngineId, TMask, MMS},
+add_addr(
+  Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+  EngineId, TMask, MMS) ->
+    add_addr(
+      {Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+       EngineId, TMask, MMS}).
+%%
+add_addr(
+  Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
+  EngineId, TMask, MMS) ->
+    add_addr(
+      {Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
+       EngineId, TMask, MMS}).
+%%
+add_addr(Addr) ->
     case (catch check_target_addr(Addr)) of
 	{ok, Row} ->
 	    Key = element(1, Row),
