@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -69,6 +69,10 @@
     <p>The semantics of them and their exact signatures are explained
       below. </p>
 
+    <p>Legacy API function <c>send_pdu/7</c> that has got separate
+      <c>IpAddr</c> and <c>PortNumber</c> arguments still works as before
+      for backwards compatibility reasons.</p>
+
     <marker id="start_link"></marker>
   </description>
 
@@ -103,15 +107,15 @@
     </func>
 
     <func>
-      <name>send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo) -> void()</name>
+      <name>send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo) -> void()</name>
       <fsummary>Request the network interface process to send this pdu</fsummary>
       <type>
         <v>Pid = pid()</v>
         <v>Pdu = pdu()</v>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
         <v>MsgData = term()</v>
-        <v>Addr = address()</v>
-        <v>Port = integer()</v>
+        <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
         <v>ExtraInfo = term()</v>
       </type>
       <desc>

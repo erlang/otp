@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2013</year>
+      <year>2006</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,20 +45,56 @@
     <title>DATA TYPES</title>
     <code type="none"><![CDATA[
 transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
-transportAddressIPv4() = [integer()], length 4
-transportAddressIPv6() = [integer()], length 8
-transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
+
+transportAddress() =
+    transportAddressIPv4() | transportAddressIPv6()
+
+transportAddressWithPort() =
+    transportAddressIPv4WithPort() | transportAddressIPv6WithPort()
+
+transportAddressWithoutPort() =
+    transportAddressIPv4WithoutPort() | transportAddressIPv6WithoutPort()
+
+transportAddressIPv4() =
+    transportAddressIPv4WithPort() | transportAddressIPv4WithoutPort()
+transportAddressIPv4WithPort =
+    {transportAddressIPv4WithoutPort(), inet:port_number()} |
+    [byte() x 4, byte() x 2]
+transportAddressIPv4WithoutPort =
+    inet:ip4_address() | [byte() x 4]
+
+transportAddressIPv6() =
+    transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort()
+transportAddressIPv6WithPort =
+    {transportAddressIPv6WithoutPort(), inet:port_number()} |
+    [word() x 8, inet:port_number()] |
+    [word() x 8, byte() x 2] |
+    {byte() x 16, byte() x 2]
+transportAddressIPv6WithoutPort =
+    inet:ip6_address() | [word() x 8] | [byte() x 16]
+
+transportAddressMask() =
+    [] | transportAddressWithPort()
+
+byte() = 0..255
+word() = 0..65535
     ]]></code>
+    <p>For <c>inet:ip4_address()</c>, <c>inet:ip6_address()</c>
+    and <c>inet:port_number()</c>, see also
+    <seealso marker="kernel:inet#type-ip_address">
+    <c>inet:ip_address()</c></seealso></p>
 
     <marker id="agent_entry"></marker>
   </section>
+
+
 
   <funcs>
     <func>
       <name>agent_entry(Tag, Val) -> agent_entry()</name>
       <fsummary>Create an agent entry</fsummary>
       <type>
-        <v>Tag = intAgentIpAddress | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</v>
+        <v>Tag = intAgentTransports | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</v>
         <v>Val = term()</v>
         <v>agent_entry() = term()</v>
       </type>
@@ -390,17 +426,15 @@ transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
     </func>
 
     <func>
-      <name>target_addr_entry(Name, Ip, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Ip, Udp, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
+      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
+      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name>target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <fsummary>Create an target_addr entry</fsummary>
       <type>
         <v>Name = string()</v>
         <v>Domain = transportDomain()</v>
-        <v>Ip = transportAddressIPv4() | transportAddressIPv6() (depends on Domain)</v>
-        <v>Udp = integer()</v>
+        <v>Ip = transportAddress() (depends on Domain)</v>
         <v>Timeout = integer()</v>
         <v>RetryCount = integer()</v>
         <v>TagList = string()</v>
@@ -414,12 +448,12 @@ transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
         <p>Create an entry for the agent target_addr config file, 
           <c>target_addr.conf</c>. </p>
         <p><c>Name</c> must be a <em>non-empty</em> string. </p>
-        <p><c>target_addr_entry/5</c> translates to the following call:
-          <c>target_addr_entry(Name, Ip, TagList, ParamsName, EngineId)</c>. </p>
         <p><c>target_addr_entry/6</c> translates to the following call:
-          <c>target_addr_entry(Name, Ip, 162, TagList, ParamsName, EngineId, TMask, 2048)</c>. </p>
+          <c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])</c>. </p>
+        <p><c>target_addr_entry/7</c> translates to the following call:
+          <c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)</c>. </p>
         <p><c>target_addr_entry/8</c> translates to the following call:
-          <c>target_addr_entry(Name, Ip, Udp, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
+          <c>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
         <p>See 
           <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
           for more info. </p>

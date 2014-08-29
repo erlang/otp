@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -68,6 +68,9 @@ sec_model() = any | v1 | v2c | usm
 sec_name() = string()
 sec_level() = noAuthNoPriv | authNoPriv | authPriv
 ]]></code>
+
+    <p>See also the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
 
     <marker id="monitor"></marker>
   </section>
@@ -300,9 +303,9 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
 	<p>The type of <c>Val</c> depends on <c>Item</c>: </p>
 <code type="none"><![CDATA[
 [mandatory] engine_id = string()
-[mandatory] address = ip_address()
-[optional]  port = integer()
-[optional]  tdomain = transportDomainUdpIpv4 | transportDomainUdpIpv6
+[mandatory] tadress = transportAddress()  % Depends on tdomain
+[optional]  port = inet:port_number()
+[optional]  tdomain = transportDomain()
 [optional]  community = string()
 [optional]  timeout = integer() | snmp_timer()
 [optional]  max_message_size = integer()
@@ -313,7 +316,8 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
 ]]></code>
         <p>Note that if no <c>tdomain</c> is given, the default value,
 	<c>transportDomainUdpIpv4</c>, is used.</p>
-        <p>Note that if no <c>port</c> is given, the default value is used.</p>
+        <p>Note that if no <c>port</c> is given and if <c>taddress</c> does not
+	contain a port number, the default value is used.</p>
 
         <marker id="unregister_agent"></marker>
       </desc>

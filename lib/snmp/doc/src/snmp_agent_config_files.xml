@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -102,20 +102,41 @@
 	<p><c>AgentVariable</c> is one of the variables is
 	SNMP-FRAMEWORK-MIB or one of the internal variables
 	<c>intAgentUDPPort</c>, which defines which UDP port the agent
-	listens to, or <c>intAgentIpAddress</c>, which defines the IP
-	address of the agent. </p>
+	listens to, or <c>intAgentTransports</c>, which defines the
+	transport domains and addresses of the agent. </p>
       </item>
       <item>
 	<p><c>Value</c> is the value for the variable.</p>
       </item>
     </list>
-    <p>The following example shows a <c>agent.conf</c> file: </p>
+    <p>The following example shows an <c>agent.conf</c> file: </p>
     <pre>
 {intAgentUDPPort, 4000}.
-{intAgentIpAddress,[141,213,11,24]}.
+{intAgentTransports,
+ [{transportDomainUdpIpv4, {141,213,11,24}},
+  {transportDomainUdpIpv6, {0,0,0,0,0,0,0,1}}]}.
 {snmpEngineID, "mbj's engine"}.
 {snmpEngineMaxPacketSize, 484}.
     </pre>
+    <p>The value of <c>intAgentTransports</c> is a list of
+    <c>{Domain, Addr}</c> tuples, where <c>Domain</c>
+    is either <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>,
+    and <c>Addr</c> is the address in the domain.
+    <c>Addr</c> can be specified either as an
+    <c>IpAddr</c> or as an <c>{IpAddr, IpPort}</c> tuple.
+    <c>IpAddr</c> is either a regular Erlang/OTP
+    <seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+    or a traditional SNMP integer list and <c>IpPort</c> is an integer.
+    </p>
+
+    <p>When the <c>Addr</c> value does not contain a port number,
+    the value of <c>intAgentUDPPort</c> is used.</p>
+
+    <p>The legacy and intermediate variables <c>intAgentIpAddress</c>
+    and <c>intAgentTransportDomain</c> are still supported so old
+    <c>agent.conf</c> files will work.
+    </p>
+
     <p>The value of <c>snmpEngineID</c> is a string, which for a 
     deployed agent should have a very specific structure. See
     RFC 2271/2571 for details.</p>
@@ -362,9 +383,9 @@
     SNMP-TARGET-MIB and <c>snmpTargetAddrExtTable</c> in the 
     SNMP-COMMUNITY-MIB. </p>
     <p>Each entry is a term: </p>
-    <p><c>{TargetName, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId}.</c> <br></br> or <br></br> 
-<c>{TargetName, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c> <br></br> or  <br></br>
-<c>{TargetName, Domain, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c> </p>
+    <p><c>{TargetName, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId}.</c>
+    <br></br> or <br></br>
+    <c>{TargetName, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c> </p>
     <list type="bulleted">
       <item>
         <p><c>TargetName</c> is a unique non-empty string. </p>
@@ -374,11 +395,14 @@
 	<c>transportDomainUdpIpv4</c> | <c>transportDomainUdpIpv6</c>. </p>
       </item>
       <item>
-        <p><c>Ip</c> is a list of four or eight integers. </p>
+	<p><c>Addr</c> is either an <c>IpAddr</c> or
+	an <c>{IpAddr, IpPort}</c> tuple. <c>IpAddr</c> is either
+	a regular Erlang/OTP
+	<seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+	or a traditional SNMP integer list, and <c>IpPort</c> is an integer.</p>
+	<p>If <c>IpPort</c> is omitted <c>162</c> is used.</p>
       </item>
-      <item>
-        <p><c>Udp</c> is an integer. </p>
-      </item>
+
       <item>
         <p><c>Timeout</c> is an integer. </p>
       </item>
@@ -395,13 +419,17 @@
         <p><c>EngineId</c> is a string or the atom <c>discovery</c>. </p>
       </item>
       <item>
-        <p><c>TMask</c> is a list of integer() of size 0, 
-	size 6 or size 10 (default: []). </p>
+	<p><c>TMask</c> is specified just as <c>Addr</c> or as <c>[]</c>.
+	Note in particular that using a list of 6 bytes	for IPv4
+	or 8 words plus 2 bytes for IPv6 are still valid address formats
+	so old configurations will work.</p>
       </item>
       <item>
         <p><c>MaxMessageSize</c> is an integer (default: 2048). </p>
       </item>
     </list>
+    <p>The old tuple formats with <c>Ip</c> address and <c>Udp</c>
+    port number found in old configurations still work.</p>
     <p>Note that if <c>EngineId</c> has the value <c>discovery</c>, 
     the agent cannot send
     <c>inform</c> messages to that manager until it has performed the

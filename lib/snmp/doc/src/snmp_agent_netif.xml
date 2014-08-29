@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -51,7 +51,8 @@
     </p>
   <p>It is also possible to write your own Net if process. The default
     Net if process is implemented in the module <c>snmpa_net_if</c> and
-    it uses UDP as the transport protocol.
+    it uses UDP as the transport protocol i.e the transport domains
+    <c>transportDomainUdpIpv4</c> and/or <c>transportDomainUdpIpv6</c>.
     </p>
   <p>This section describes how to write a Net if process.
     </p>
@@ -70,6 +71,12 @@
     <p>The section <em>Messages</em> describes mandatory messages, which
       Net if must send and be able to receive.     
       </p>
+    <p>In this section an <c>Address</c> field is a
+    <c>{Domain, Addr}</c> tuple where <c>Domain</c> is
+    <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv4</c>,
+    and <c>Addr</c> is an
+    <c>{<seealso marker="kernel:inet#type-ip_address">IpAddr</seealso>,
+    IpPort}</c> tuple.</p>
 
     <section>
       <marker id="outgoing_messages"></marker>
@@ -96,10 +103,7 @@ MasterAgent ! {snmp_pdu, Vsn, Pdu, PduMS, ACMData, From, Extra}
          in use.  Normally this is returned from
         <c>snmpa_mpd:process_packet</c> (see Reference Manual).
         </item>
-        <item><c>From</c> is the source address. If UDP over IP is
-         used, this should be a 2-tuple <c>{IP, UDPport}</c>, where
-        <c>IP</c> is a 4-tuple with the IP address, and <c>UDPport</c>
-         is an integer.
+        <item><c>From</c> is the source <c>Address</c>.
         </item>
         <item><c>Extra</c> is any term the Net if process wishes to
          send to the agent. This term can be retrieved by the
@@ -127,10 +131,7 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
         </item>
         <item><c>Pdu</c> is the SNMP Pdu received
         </item>
-        <item><c>From</c> is the source address. If UDP over IP is
-         used, this should be a 2-tuple <c>{IP, UDPport}</c>, where
-        <c>IP</c> is a 4-tuple with the IP address, and <c>UDPport</c>
-         is an integer.
+        <item><c>From</c> is the source <c>Address</c>.
         </item>
       </list>
     </section>
@@ -168,10 +169,9 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
 	      (see Reference Manual). </p>
             </item>
             <item>
-	      <p><c>To</c> is the destination address. If UDP over IP
-	      is used, this should be a 2-tuple <c>{IP, UDPport}</c>,
-	      where <c>IP</c> is a 4-tuple with the IP address, and
-	      <c>UDPport</c> is an integer. </p>
+	      <p><c>To</c> is the destination <c>Address</c> that comes
+	      from the <c>From</c> field in the corresponding <c>snmp_pdu</c>
+	      message previously sent to the MasterAgent.</p>
             </item>
             <item>
 	      <p><c>Extra</c> is the term that the Net if process
@@ -230,7 +230,8 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
 	      SNMPv3, it is the context information. </p>
             </item>
             <item>
-	      <p><c>To</c> is a list of the destination addresses and
+	      <p><c>To</c> is a list of <c>{Address, SecData}</c>
+	      tuples i.e the destination addresses and
 	      their corresponding security parameters.  This value is
 	      normally sent to <c>snmpa_mpd:generate_message/4</c>. </p>
             </item>
@@ -268,7 +269,8 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
 	      SNMPv3, it is the context information. </p>
 	    </item>
 	    <item>
-	      <p><c>To</c> is a list of the destination addresses and
+	      <p><c>To</c> is a list of <c>{Address, SecData}</c>
+	      tuples i.e the destination addresses and
 	      their corresponding security parameters. This value is
 	      normally sent to <c>snmpa_mpd:generate_message/4</c>. </p>
 	    </item>
