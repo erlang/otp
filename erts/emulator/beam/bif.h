@@ -465,6 +465,8 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs);
 
+#ifdef ERL_WANT_HIPE_BIF_WRAPPER__
+
 #ifndef HIPE
 
 #define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)
@@ -509,6 +511,7 @@ BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
 
 #endif
 
+#endif /* ERL_WANT_HIPE_BIF_WRAPPER__ */
 
 #include "erl_bif_table.h"
 

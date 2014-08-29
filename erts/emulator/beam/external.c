@@ -36,7 +36,9 @@
 #include "erl_process.h"
 #include "error.h"
 #include "external.h"
+#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
+#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "dist.h"
 #include "erl_binary.h"

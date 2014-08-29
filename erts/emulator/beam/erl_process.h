@@ -58,6 +58,7 @@ typedef struct process Process;
 #include "external.h"
 #include "erl_mseg.h"
 #include "erl_async.h"
+#include "erl_gc.h"
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -487,11 +488,6 @@ typedef struct {
 	int currently;
     } working;
 } ErtsSchedWallTime;
-
-typedef struct {
-  Uint64 reclaimed;
-  Uint64 garbage_cols;
-} ErtsGCInfo;
 
 typedef struct {
     int sched;

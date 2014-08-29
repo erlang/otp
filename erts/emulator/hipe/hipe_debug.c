@@ -172,8 +172,10 @@ void hipe_print_pcb(Process *p)
     printf("P: 0x%0*lx\r\n", 2*(int)sizeof(long), (unsigned long)p);
     printf("-----------------------------------------------\r\n");
     printf("Offset| Name        | Value      | *Value     |\r\n");
+#undef U
 #define U(n,x) \
     printf(" % 4d | %s | 0x%0*lx |            |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x)
+#undef P
 #define P(n,x) \
     printf(" % 4d | %s | 0x%0*lx | 0x%0*lx |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x, 2*(int)sizeof(long), p->x ? (unsigned long)*(p->x) : -1UL)
 
