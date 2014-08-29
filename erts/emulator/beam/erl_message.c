@@ -415,7 +415,13 @@ erts_queue_dist_message(Process *rcvr,
 	if (!(*rcvr_locks & ERTS_PROC_LOCK_MSGQ))
 	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 
-	erts_proc_notify_new_message(rcvr);
+	erts_proc_notify_new_message(rcvr,
+#ifdef ERTS_SMP
+				     *rcvr_locks
+#else
+				     0
+#endif
+	    );
     }
 }
 
@@ -542,7 +548,13 @@ queue_message(Process *c_p,
     if (locked_msgq)
 	erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
 
-    erts_proc_notify_new_message(receiver);
+    erts_proc_notify_new_message(receiver,
+#ifdef ERTS_SMP
+				 *receiver_locks
+#else
+				 0
+#endif
+	);
 
 #ifndef ERTS_SMP
     ERTS_HOLE_CHECK(receiver);

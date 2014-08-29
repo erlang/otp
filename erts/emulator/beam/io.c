@@ -1218,9 +1218,10 @@ typedef struct {
 static ERTS_INLINE ErtsTryImmDrvCallResult
 try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 {
+    unsigned int prof_runnable_ports;
     ErtsTryImmDrvCallResult res;
     int reds_left_in;
-    erts_aint32_t invalid_state, invalid_sched_flags;
+    erts_aint32_t act, exp, invalid_state, invalid_sched_flags;
     Port *prt = sp->port;
     Process *c_p = sp->c_p;
 
@@ -1247,18 +1248,39 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	goto locked_fail;
     }
 
-    sp->sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
-    if (sp->sched_flags & invalid_sched_flags) {
-	res = ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS;
-	goto locked_fail;
-    }
+    prof_runnable_ports = erts_system_profile_flags.runnable_ports;
+    if (prof_runnable_ports)
+	erts_port_task_sched_lock(&prt->sched);
 
+    act = erts_smp_atomic32_read_nob(&prt->sched.flags);
+
+    do {
+	erts_aint32_t new;
+	
+	if (act & invalid_sched_flags) {
+	    res = ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS;
+	    sp->sched_flags = act;
+	    goto locked_fail;
+	}
+	exp = act;
+	new = act | ERTS_PTS_FLG_EXEC_IMM;
+	act = erts_smp_atomic32_cmpxchg_mb(&prt->sched.flags, new, exp);
+    } while (act != exp);
+    
+    sp->sched_flags = act;
 
     if (!c_p)
 	reds_left_in = CONTEXT_REDS/10;
     else {
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
 	    trace_virtual_sched(c_p, am_out);
+	/*
+	 * No status lock held while sending runnable
+	 * proc trace messages. It is however not needed
+	 * in this case, since only this thread can send
+	 * such messages for this process until the process
+	 * has been scheduled out.
+	 */
 	if (erts_system_profile_flags.runnable_procs
 	    && erts_system_profile_flags.exclusive)
 	    profile_runnable_proc(c_p, am_inactive);
@@ -1273,11 +1295,14 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
-	trace_sched_ports_where(prt, am_in, sp->port_op);
-    if (erts_system_profile_flags.runnable_ports
-	&& !erts_port_is_scheduled(prt))
-    	profile_runnable_port(prt, am_active);
+    if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
+	if (prof_runnable_ports && !(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
+	    profile_runnable_port(prt, am_active);
+	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
+	    trace_sched_ports_where(prt, am_in, sp->port_op);
+	if (prof_runnable_ports)
+	    erts_port_task_sched_unlock(&prt->sched);
+    }
 
     sp->fpe_was_unmasked = erts_block_fpe();
 
@@ -1294,17 +1319,31 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
     int reds;
     Port *prt = sp->port;
     Process *c_p = sp->c_p;
+    erts_aint32_t act;
+    unsigned int prof_runnable_ports;
 
     reds = prt->reds;
     reds += erts_port_driver_callback_epilogue(prt, NULL);
 
     erts_unblock_fpe(sp->fpe_was_unmasked);
 
-    if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
-	trace_sched_ports_where(prt, am_out, sp->port_op);
-    if (erts_system_profile_flags.runnable_ports
-	&& !erts_port_is_scheduled(prt))
-    	profile_runnable_port(prt, am_inactive);
+    prof_runnable_ports = erts_system_profile_flags.runnable_ports;
+    if (prof_runnable_ports)
+	erts_port_task_sched_lock(&prt->sched);
+
+    act = erts_smp_atomic32_read_band_mb(&prt->sched.flags,
+					 ~ERTS_PTS_FLG_EXEC_IMM);
+    ERTS_SMP_LC_ASSERT(act & ERTS_PTS_FLG_EXEC_IMM);
+
+    if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
+	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
+	    trace_sched_ports_where(prt, am_out, sp->port_op);
+	if (prof_runnable_ports) {
+	    if (!(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
+		profile_runnable_port(prt, am_inactive);
+	    erts_port_task_sched_unlock(&prt->sched);
+	}
+    }
 
     erts_port_release(prt);
 
@@ -1319,6 +1358,13 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
 	    trace_virtual_sched(c_p, am_in);
+	/*
+	 * No status lock held while sending runnable
+	 * proc trace messages. It is however not needed
+	 * in this case, since only this thread can send
+	 * such messages for this process until the process
+	 * has been scheduled out.
+	 */
 	if (erts_system_profile_flags.runnable_procs
 	    && erts_system_profile_flags.exclusive)
 	    profile_runnable_proc(c_p, am_active);
