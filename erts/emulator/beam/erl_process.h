@@ -1700,17 +1700,17 @@ ErtsSchedulerData *erts_get_scheduler_data(void)
 #endif
 #endif
 
-void erts_schedule_process(Process *, erts_aint32_t);
+void erts_schedule_process(Process *, erts_aint32_t, ErtsProcLocks);
 
-ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p);
+ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE void
-erts_proc_notify_new_message(Process *p)
+erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
 {
     /* No barrier needed, due to msg lock */
     erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
     if (!(state & ERTS_PSFLG_ACTIVE))
-	erts_schedule_process(p, state);
+	erts_schedule_process(p, state, locks);
 }
 #endif
 

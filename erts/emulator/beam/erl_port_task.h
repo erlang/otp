@@ -78,6 +78,7 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 #define ERTS_PTS_FLG_PARALLELISM		(((erts_aint32_t) 1) <<  9)
 #define ERTS_PTS_FLG_FORCE_SCHED		(((erts_aint32_t) 1) << 10)
 #define ERTS_PTS_FLG_EXITING			(((erts_aint32_t) 1) << 11)
+#define ERTS_PTS_FLG_EXEC_IMM			(((erts_aint32_t) 1) << 12)
 
 #define ERTS_PTS_FLGS_BUSY \
     (ERTS_PTS_FLG_BUSY_PORT | ERTS_PTS_FLG_BUSY_PORT_Q)
@@ -87,6 +88,7 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
      | ERTS_PTS_FLG_HAVE_BUSY_TASKS		\
      | ERTS_PTS_FLG_HAVE_TASKS			\
      | ERTS_PTS_FLG_EXEC			\
+     | ERTS_PTS_FLG_EXEC_IMM			\
      | ERTS_PTS_FLG_FORCE_SCHED			\
      | ERTS_PTS_FLG_EXITING)
 

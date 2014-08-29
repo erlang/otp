@@ -139,7 +139,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"drv_tsd",				NULL			},
     {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP
-    {	"sys_msg_q", 				NULL			},
     {	"atom_tab",				NULL			},
     {	"make_ref",				NULL			},
     {	"misc_op_list_pre_alloc_lock",		"address"		},
@@ -148,6 +147,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"btm_pre_alloc_lock",			NULL,			},
     {	"dist_entry_out_queue",			"address"		},
     {	"port_sched_lock",			"port_id"		},
+    {	"sys_msg_q", 				NULL			},
     {   "port_table",                           NULL                    },
 #endif
     {	"mtrace_op",				NULL			},
