@@ -216,19 +216,19 @@ expand_opt(return, Os) ->
 expand_opt(r12, Os) ->
     [no_recv_opt,no_line_info,no_utf8_atoms|Os];
 expand_opt(r13, Os) ->
-    [no_recv_opt,no_line_info,no_utf8_atoms|Os];
+    [no_record_opt,no_recv_opt,no_line_info,no_utf8_atoms|Os];
 expand_opt(r14, Os) ->
-    [no_line_info,no_utf8_atoms|Os];
+    [no_record_opt,no_line_info,no_utf8_atoms|Os];
 expand_opt(r15, Os) ->
-    [no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms|Os];
 expand_opt(r16, Os) ->
-    [no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms|Os];
 expand_opt(r17, Os) ->
-    [no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms|Os];
 expand_opt(r18, Os) ->
-    [no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms|Os];
 expand_opt(r19, Os) ->
-    [no_utf8_atoms|Os];
+    [no_record_opt,no_utf8_atoms|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_float_opt, Os) ->
@@ -755,6 +755,8 @@ asm_passes() ->
 	 {iff,dbsm,{listing,"bsm"}},
 	 {unless,no_recv_opt,{pass,beam_receive}},
 	 {iff,drecv,{listing,"recv"}},
+	 {unless,no_record_opt,{pass,beam_record}},
+	 {iff,drecord,{listing,"record"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
@@ -1849,6 +1851,7 @@ pre_load() ->
 	 beam_opcodes,
 	 beam_peep,
 	 beam_receive,
+         beam_record,
 	 beam_reorder,
 	 beam_split,
 	 beam_trim,
