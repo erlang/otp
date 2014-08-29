@@ -399,21 +399,6 @@ spawn_local_node(Node, Options) ->
     Cmd = get_cmd(Node, ErlFlags),
     open_port({spawn, Cmd}, [stream,{env,Env}]).
 
-% start crypto and ssh if not yet started
-check_for_ssh_running() ->
-    case application:get_application(crypto) of
-	undefined->
-	    application:start(crypto),
-	    case application:get_application(ssh) of
-		undefined->
-		    application:start(ssh);
-		{ok, ssh}->
-		    ok
-	    end;
-	{ok, crypto}->
-	    ok
-    end.
-
 % spawn node remotely
 spawn_remote_node(Host, Node, Options) ->
     #options{username=Username,
@@ -428,7 +413,7 @@ spawn_remote_node(Host, Node, Options) ->
 	{_, _}->
 	    [{user, Username}, {password, Password}]
     end ++ [{silently_accept_hosts, true}],
-    check_for_ssh_running(),
+    application:ensure_all_started(ssh),
     {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), 22, SSHOptions),
     {ok, SSHChannelId} = ssh_connection:session_channel(SSHConnRef, infinity),
     ssh_setenv(SSHConnRef, SSHChannelId, Env),
