@@ -300,8 +300,13 @@ mnesia_down(Node) ->
     end.
 
 wait_for_schema_commit_lock() ->
-    link(whereis(?SERVER_NAME)),
-    unsafe_call(wait_for_schema_commit_lock).
+    try
+	Pid = whereis(?SERVER_NAME),
+	link(Pid), %% Keep the link until release_schema_commit_lock
+	gen_server:call(Pid, wait_for_schema_commit_lock, infinity)
+    catch _:_ ->
+	    mnesia:abort({node_not_running, node()})
+    end.
 
 block_controller() ->
     call(block_controller).
@@ -556,12 +561,6 @@ cast(Msg) ->
 
 abcast(Nodes, Msg) ->
     gen_server:abcast(Nodes, ?SERVER_NAME, Msg).
-
-unsafe_call(Msg) ->
-    case whereis(?SERVER_NAME) of
-	undefined -> {error, {node_not_running, node()}};
-	Pid -> gen_server:call(Pid, Msg, infinity)
-    end.
 
 call(Msg) ->
     case whereis(?SERVER_NAME) of
