@@ -1075,7 +1075,7 @@ scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0) ->
     Ncs = lists:reverse(Ncs0),
     case catch list_to_integer(Ncs) of
         B when B >= 2, B =< 1+$Z-$A+10 ->
-            Bcs = ?STR(St, Ncs++[$#]),
+            Bcs = Ncs++[$#],
             scan_based_int(Cs, St, Line, Col, Toks, {B,[],Bcs});
         B ->
             Len = length(Ncs),
@@ -1108,7 +1108,7 @@ scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs0,Bcs}) ->
     Ncs = lists:reverse(Ncs0),
     case catch erlang:list_to_integer(Ncs, B) of
         N when is_integer(N) ->
-            tok3(Cs, St, Line, Col, Toks, integer, ?STR(St, Bcs++Ncs), N);
+            tok3(Cs, St, Line, Col, Toks, integer, Bcs++Ncs, N);
         _ ->
             Len = length(Bcs)+length(Ncs),
             Ncol = incr_column(Col, Len),
