@@ -91,6 +91,12 @@ end_per_group(erlang_server, Config) ->
 end_per_group(_, Config) ->
     Config.
 
+init_per_testcase(erlang_server_openssh_client_cipher_suites, Config) ->
+    check_ssh_client_support(Config);
+
+init_per_testcase(erlang_server_openssh_client_macs, Config) ->
+    check_ssh_client_support(Config);
+
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
@@ -536,4 +542,26 @@ receive_hej() ->
 	Info ->
 	    ct:pal("Extra info: ~p~n", [Info]),
 	    receive_hej()
+    end.
+
+%%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Check if we have a "newer" ssh client that supports these test cases
+%%--------------------------------------------------------------------
+check_ssh_client_support(Config) ->
+    Port = open_port({spawn, "ssh -Q cipher"}, [exit_status, stderr_to_stdout]),
+    case check_ssh_client_support2(Port) of
+	0 -> % exit status from command (0 == ok)
+	    ssh:start(),
+	    Config;
+	_ ->
+	    {skip, "test case not supported by ssh client"}
+    end.
+
+check_ssh_client_support2(P) ->
+    receive
+	{P, {data, _A}} ->
+	    check_ssh_client_support2(P);
+	{P, {exit_status, E}} ->
+	    E
     end.
