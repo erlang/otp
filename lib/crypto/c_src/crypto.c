@@ -217,6 +217,7 @@ static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_cfb_256_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -347,6 +348,7 @@ static ErlNifFunc nif_funcs[] = {
     {"des_ede3_cfb_crypt_nif", 6, des_ede3_cfb_crypt_nif},
     {"aes_cfb_8_crypt", 4, aes_cfb_8_crypt},
     {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
+    {"aes_cfb_256_crypt", 4, aes_cfb_256_crypt},
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
@@ -1660,6 +1662,42 @@ static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 		       enif_make_new_binary(env, text.size, &ret), 
 		       text.size, &aes_key, ivec_clone, &new_ivlen,
 		       (argv[3] == atom_true));
+    CONSUME_REDS(env,text);
+    return ret;
+}
+
+static ERL_NIF_TERM aes_cfb_256_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */
+    ErlNifBinary key, ivec, text;
+    EVP_CIPHER_CTX *ctx;
+    unsigned char ivec_clone[32]; /* writable copy */
+    int bytes_processed = 0;
+    int final_length = 0;
+    ERL_NIF_TERM ret;
+    unsigned char *dest;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
+	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+	return enif_make_badarg(env);
+    }
+
+    memcpy(ivec_clone, ivec.data, 16);
+    ctx = EVP_CIPHER_CTX_new();
+    dest = enif_make_new_binary(env, text.size, &ret);
+    if (argv[3] == atom_true) {
+	EVP_EncryptInit_ex(ctx, EVP_aes_256_cfb(), NULL, key.data, ivec.data);
+	EVP_EncryptUpdate(ctx, dest, &bytes_processed, text.data, text.size);
+	EVP_EncryptFinal_ex(ctx, dest+bytes_processed, &final_length);
+    } else {
+	EVP_DecryptInit_ex(ctx, EVP_aes_256_cfb(), NULL, key.data, ivec.data);
+	EVP_DecryptUpdate(ctx, dest, &bytes_processed, text.data, text.size);
+	EVP_DecryptFinal_ex(ctx, dest+bytes_processed, &final_length);
+    }
+
+    EVP_CIPHER_CTX_cleanup(ctx);
     CONSUME_REDS(env,text);
     return ret;
 }

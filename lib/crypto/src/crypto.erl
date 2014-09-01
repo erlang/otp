@@ -210,7 +210,7 @@ supports()->
 
     [{hashs, Hashs},
      {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
-		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128,
+		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128, aes_cfb256,
 		aes_cbc256, rc2_cbc, aes_ctr, rc4] ++ Ciphers},
      {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
@@ -281,7 +281,7 @@ hmac_final_n(_Context, _HashLen) -> ? nif_stub.
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc,
+		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cfb256 | aes_cbc256 | rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
 
 block_encrypt(des_cbc, Key, Ivec, Data) ->
@@ -310,12 +310,14 @@ block_encrypt(aes_cfb8, Key, Ivec, Data) ->
     aes_cfb_8_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cfb256, Key, Ivec, Data) ->
+    aes_cfb_256_encrypt(Key, Ivec, Data);
 block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
 	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
-          aes_cfb8 | aes_cfb128 | rc2_cbc,
+          aes_cfb8 | aes_cfb128 | aes_cfb256 | rc2_cbc,
 	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
 
 block_decrypt(des_cbc, Key, Ivec, Data) ->
@@ -344,6 +346,8 @@ block_decrypt(aes_cfb8, Key, Ivec, Data) ->
     aes_cfb_8_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cfb256, Key, Ivec, Data) ->
+    aes_cfb_256_decrypt(Key, Ivec, Data);
 block_decrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_decrypt(Key, Ivec, Data).
 
@@ -1190,6 +1194,19 @@ aes_cfb_128_decrypt(Key, IVec, Data) ->
 
 aes_cfb_128_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.     
 
+%%
+%% AES in cipher feedback mode (CFB) - 256 bit shift
+%%
+-spec aes_cfb_256_encrypt(iodata(), binary(), iodata()) -> binary().
+-spec aes_cfb_256_decrypt(iodata(), binary(), iodata()) -> binary().
+
+aes_cfb_256_encrypt(Key, IVec, Data) ->
+    aes_cfb_256_crypt(Key, IVec, Data, true).
+
+aes_cfb_256_decrypt(Key, IVec, Data) ->
+    aes_cfb_256_crypt(Key, IVec, Data, false).
+
+aes_cfb_256_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
 %%
 %% DES - in cipher block chaining mode (CBC)
