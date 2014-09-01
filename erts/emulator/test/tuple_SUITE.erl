@@ -21,8 +21,9 @@
 	 init_per_group/2,end_per_group/2, 
 	 t_size/1, t_tuple_size/1, t_element/1, t_setelement/1,
 	 t_insert_element/1, t_delete_element/1,
-	 t_list_to_tuple/1, t_tuple_to_list/1,
-	 t_make_tuple_2/1, t_make_tuple_3/1, t_append_element/1,
+	 t_list_to_tuple/1, t_list_to_upper_boundry_tuple/1, t_tuple_to_list/1,
+	 t_make_tuple_2/1, t_make_upper_boundry_tuple_2/1, t_make_tuple_3/1,
+	 t_append_element/1, t_append_element_upper_boundry/1,
 	 build_and_match/1, tuple_with_case/1, tuple_in_guard/1]).
 -include_lib("test_server/include/test_server.hrl").
 
@@ -40,8 +41,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [build_and_match, t_size, t_tuple_size, t_list_to_tuple,
+     t_list_to_upper_boundry_tuple,
      t_tuple_to_list, t_element, t_setelement,
-     t_make_tuple_2, t_make_tuple_3, t_append_element,
+     t_make_tuple_2, t_make_upper_boundry_tuple_2, t_make_tuple_3,
+     t_append_element, t_append_element_upper_boundry,
      t_insert_element, t_delete_element,
      tuple_with_case, tuple_in_guard].
 
@@ -49,10 +52,20 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    Config.
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    A = case application:start(os_mon) of
+	     ok -> [os_mon|A0];
+	     _ -> A0
+	 end,
+    [{started_apps, A}|Config].
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    As = ?config(started_apps, Config),
+    lists:foreach(fun (A) -> application:stop(A) end, As),
+    Config.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -176,13 +189,18 @@ t_list_to_tuple(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch list_to_tuple(id([a|b]))),
     {'EXIT', {badarg, _}} = (catch list_to_tuple(id([a|b]))),
 
-    % test upper boundry, 16777215 elements
-    MaxSize  = 1 bsl 24 - 1,
-    MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
-    MaxSize  = size(MaxTuple),
-
     {'EXIT', {badarg,_}} = (catch list_to_tuple(lists:seq(1, 1 bsl 24))),
     ok.
+
+t_list_to_upper_boundry_tuple(Config) when is_list(Config) ->
+    sys_mem_cond_run(2048,
+		    fun () ->
+			    %% test upper boundry, 16777215 elements
+			    MaxSize  = 1 bsl 24 - 1,
+			    MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
+			    MaxSize  = size(MaxTuple),
+			    ok
+		    end).
 
 %% Tests tuple_to_list/1.
 
@@ -214,8 +232,6 @@ t_make_tuple_2(Config) when is_list(Config) ->
     t_make_tuple1({a}),
     t_make_tuple1(erlang:make_tuple(400, [])),
 
-    % test upper boundry, 16777215 elements
-    t_make_tuple(1 bsl 24 - 1, a),
     {'EXIT', {badarg,_}} = (catch erlang:make_tuple(1 bsl 24, a)),
 
     {'EXIT', {badarg,_}} = (catch erlang:make_tuple(-1, a)),
@@ -224,6 +240,13 @@ t_make_tuple_2(Config) when is_list(Config) ->
     % bignum
     {'EXIT', {badarg,_}} = (catch erlang:make_tuple(1 bsl 65 + 3, a)),
     ok.
+
+t_make_upper_boundry_tuple_2(Config) when is_list(Config) ->
+    sys_mem_cond_run(2048,
+		     fun () ->
+			     %% test upper boundry, 16777215 elements
+			     t_make_tuple(1 bsl 24 - 1, a)
+		     end).
 
 t_make_tuple1(Element) ->
     lists:foreach(fun(Size) -> t_make_tuple(Size, Element) end,
@@ -309,13 +332,17 @@ t_delete_element(Config) when is_list(Config) ->
 
 %% Tests the append_element/2 BIF.
 t_append_element(Config) when is_list(Config) ->
-    ok = t_append_element({}, 2048, 2048),
+    ok = t_append_element({}, 2048, 2048).
 
-    % test upper boundry, 16777215 elements
-    MaxSize  = 1 bsl 24 - 1,
-    MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
-    {'EXIT',{badarg,_}} = (catch erlang:append_element(MaxTuple, a)),
-    ok.
+t_append_element_upper_boundry(Config) when is_list(Config) ->
+    sys_mem_cond_run(2048,
+		     fun () ->
+			     %% test upper boundry, 16777215 elements
+			     MaxSize  = 1 bsl 24 - 1,
+			     MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
+			     {'EXIT',{badarg,_}} = (catch erlang:append_element(MaxTuple, a)),
+			     ok
+		     end).
 
 t_append_element(_Tuple, 0, _High) -> ok;
 t_append_element(Tuple, N, High) ->
@@ -371,3 +398,31 @@ tuple_in_guard(Config) when is_list(Config) ->
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
 
+
+sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
+    case total_memory() of
+	TotMem when is_integer(TotMem), TotMem >= ReqSizeMB ->
+	    TestFun();
+	TotMem when is_integer(TotMem) ->
+	    {skipped, "Not enough memory ("++integer_to_list(TotMem)++" MB)"};
+	undefined ->
+	    {skipped, "Could not retrieve memory information"}
+    end.
+
+
+total_memory() ->
+    %% Totat memory in MB.
+    try
+	MemoryData = memsup:get_system_memory_data(),
+	case lists:keysearch(total_memory, 1, MemoryData) of
+	    {value, {total_memory, TM}} ->
+		TM div (1024*1024);
+	    false ->
+		{value, {system_total_memory, STM}} =
+		    lists:keysearch(system_total_memory, 1, MemoryData),
+		STM div (1024*1024)
+	end
+    catch
+	_ : _ ->
+	    undefined
+    end.
