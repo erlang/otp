@@ -1,0 +1,12 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%                                                             %%%
+%%%                       WARNING                               %%%
+%%%                                                             %%%
+%%% This is experimental code which may be changed or removed   %%%
+%%%               anytime without any warning.                  %%%
+%%%                                                             %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The test in this directory are written assuming that the user has a QuickCheck license.  They are to be run manually.  Some may be possible to be run with other tools, e.g. PropEr.
+
