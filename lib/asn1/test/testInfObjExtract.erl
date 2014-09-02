@@ -23,16 +23,30 @@
 -export([main/0]).
 
 main() ->
-    roundtrip('DataSeq-1', {'DataSeq-1',1,true}),
-    roundtrip('DataSeq-1', {'DataSeq-1',2,<<"abc">>}),
-    roundtrip('DataSeq-1', {'DataSeq-1',3,<<42:5>>}),
-    roundtrip_error('DataSeq-1', {'DataSeq-1',4,42}),
+    roundtrip_data_object_13('DataSeq-1'),
 
-    roundtrip('DataSeq-2', {'DataSeq-2',1,true}),
-    roundtrip_error('DataSeq-2', {'DataSeq',2,<<"abc">>}),
-    roundtrip_error('DataSeq-2', {'DataSeq',3,<<42:5>>}),
-    roundtrip_error('DataSeq-2', {'DataSeq',999,42}),
+    roundtrip_data_object_1('DataSeq-2'),
+    roundtrip_data_object_1('DataSeq-3'),
+    roundtrip_data_object_1('DataSeq-4'),
+
+    roundtrip_data_object_13('DataSeq-5'),
+    roundtrip_data_object_13('DataSeq-6'),
+
     ok.
+
+roundtrip_data_object_13(SeqType) ->
+    roundtrip(SeqType, {SeqType,1,true}),
+    roundtrip(SeqType, {SeqType,2,<<"abc">>}),
+    roundtrip(SeqType, {SeqType,3,<<42:5>>}),
+    roundtrip_error(SeqType, {SeqType,4,42}).
+
+roundtrip_data_object_1(SeqType) ->
+    roundtrip(SeqType, {SeqType,1,false}),
+    roundtrip(SeqType, {SeqType,1,true}),
+    roundtrip_error(SeqType, {SeqType,1,42}),
+    roundtrip_error(SeqType, {SeqType,2,<<"abc">>}),
+    roundtrip_error(SeqType, {SeqType,3,<<42:5>>}),
+    roundtrip_error(SeqType, {SeqType,999,42}).
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip('InfObjExtract', T, V).

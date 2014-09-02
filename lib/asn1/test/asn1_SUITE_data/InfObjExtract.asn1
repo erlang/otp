@@ -20,6 +20,13 @@ ObjSet DATA-CLASS ::= {
   ...
 }
 
+OBJ-SET DATA-CLASS ::= {
+  holder-object-1.&obj |
+  data-object-2 |
+  data-object-3,
+  ...
+}
+
 holder-object-1 HOLDER-CLASS ::= {
   OBJ data-object-1
 }
@@ -30,6 +37,29 @@ holder-object-2 HOLDER-CLASS ::= {
 
 holder-object-3 HOLDER-CLASS ::= {
   OBJ-SET {holder-object-2.&ObjSet}
+}
+
+-- Note: References to object sets with names in all uppercase/hyphens
+-- may be represented differently compared to object sets with names
+-- that contain lowercase letters. CAVEAT TESTOR.
+
+HOLDER-OBJECTS HOLDER-CLASS ::= { holder-object-2 }
+HolderObjects HOLDER-CLASS ::= { holder-object-3 }
+
+holder-object-4 HOLDER-CLASS ::= {
+  OBJ-SET { HOLDER-OBJECTS.&ObjSet }
+}
+
+holder-object-5 HOLDER-CLASS ::= {
+  OBJ-SET { HolderObjects.&ObjSet }
+}
+
+holder-object-6 HOLDER-CLASS ::= {
+  OBJ-SET { OBJ-SET }
+}
+
+holder-object-7 HOLDER-CLASS ::= {
+  OBJ-SET { ObjSet  }
 }
 
 HOLDER-CLASS ::= CLASS {
@@ -47,5 +77,10 @@ TestSeq{DATA-CLASS:ObjectSet} ::= SEQUENCE {
 
 DataSeq-1 ::= TestSeq{ {ObjSet} }
 DataSeq-2 ::= TestSeq{ {holder-object-3.&ObjSet} }
+
+DataSeq-3 ::= TestSeq{ {holder-object-4.&ObjSet} }
+DataSeq-4 ::= TestSeq{ {holder-object-5.&ObjSet} }
+DataSeq-5 ::= TestSeq{ {holder-object-6.&ObjSet} }
+DataSeq-6 ::= TestSeq{ {holder-object-7.&ObjSet} }
 
 END

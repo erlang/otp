@@ -300,6 +300,29 @@ ExOstSeq123 ::= ObjectSetTest{ {ExOst123} }
 ExOstSeq45 ::= ObjectSetTest{ {ExOst45} }
 ExOstSeq12345 ::= ObjectSetTest{ {ExOst12345} }
 
+--
+-- Test a BIT STRING which is optional in the simplified syntax.
+--
+
+PUBLIC-KEY ::= CLASS {
+    &id             INTEGER UNIQUE,
+    &keyUsage       KeyUsage OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [OPTIONAL-BIT-STRING &keyUsage]
+}
+
+KeyUsage ::= BIT STRING {
+     digitalSignature        (0),
+     nonRepudiation          (1),
+     keyEncipherment         (2)
+ }
+
+object-with-optional-bit-string PUBLIC-KEY ::= {
+ IDENTIFIER 42
+ OPTIONAL-BIT-STRING {digitalSignature, nonRepudiation, keyEncipherment}
+}
+
 END
 
 

@@ -22,7 +22,8 @@
 	 already_defined/1,bitstrings/1,
 	 classes/1,constraints/1,enumerated/1,
 	 imports/1,instance_of/1,integers/1,objects/1,
-	 object_field_extraction/1,parameterization/1,values/1]).
+	 object_field_extraction/1,parameterization/1,
+	 syntax/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -44,6 +45,7 @@ groups() ->
        objects,
        object_field_extraction,
        parameterization,
+       syntax,
        values]}].
 
 parallel() ->
@@ -306,6 +308,100 @@ parameterization(Config) ->
        {illegal_typereference,lowercase}}
       ]
      } = run(P, Config),
+    ok.
+
+syntax(Config) ->
+    M = 'Syntax',
+    P = {M,
+	 <<"Syntax DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  obj1  CL ::= { WRONG }\n"
+	   "  obj2  CL ::= { CODE 42 AGAIN WRONG }\n"
+	   "  obj3  CL ::= { INTEGER }\n"
+	   "  obj4  CL ::= { BIT STRING }\n"
+	   "  obj5  CL ::= { , }\n"
+	   "  obj6  CL ::= { CODE , }\n"
+	   "  obj7  CL ::= { CODE \"abc\" }\n"
+	   "  obj8  CL ::= { CODE }\n"
+	   "  obj9  CL ::= { CODE 42 ENUM}\n"
+	   "  obj10 CL ::= { CODE 42 ENUM BIT STRING}\n"
+
+	   "  obj11 CL ::= { CODE 42 TYPE 13}\n"
+	   "  obj12 CL ::= { CODE 42 TYPE d}\n"
+	   "  obj13 CL ::= { CODE 42 TYPE bs-value}\n"
+
+	   "  bad-syntax-1 BAD-SYNTAX-1 ::= { BAD 42 }\n"
+
+	   "  obj14 CL ::= { CODE 42 OBJ-SET integer }\n"
+	   "  obj15 CL ::= { CODE 42 OBJ-SET { A B } }\n"
+	   "  obj16 CL ::= { CODE 42 OBJ-SET SEQUENCE { an INTEGER } }\n"
+
+	   "  BAD-SYNTAX-1 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE\n"
+	   "  } WITH SYNTAX {\n"
+	   "    BAD &bad\n"
+	   "  }\n"
+
+	   "  BAD-SYNTAX-2 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE\n"
+	   "  } WITH SYNTAX {\n"
+	   "    BAD &Bad\n"
+	   "  }\n"
+
+	   "  CL ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE,\n"
+	   "    &enum ENUMERATED { a, b, c} OPTIONAL,\n"
+	   "    &Type OPTIONAL,\n"
+	   "    &ObjSet CL OPTIONAL\n"
+	   "  } WITH SYNTAX {\n"
+	   "    CODE &code [ENUM &enum] [TYPE &Type] [OBJ-SET &ObjSet]\n"
+	   "  }\n"
+
+	   "  bs-value BIT STRING ::= '1011'B\n"
+
+	   "  integer INTEGER ::= 42\n"
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{M,2},asn1ct_check,
+       {syntax_nomatch,"WRONG"}},
+      {structured_error,{M,3},asn1ct_check,
+       {syntax_nomatch,"AGAIN"}},
+      {structured_error,{M,4},asn1ct_check,
+       {syntax_nomatch,"INTEGER"}},
+      {structured_error,{M,5},asn1ct_check,
+       {syntax_nomatch,"BIT STRING"}},
+      {structured_error,{M,6},asn1ct_check,
+       {syntax_nomatch,"\",\""}},
+      {structured_error,{M,7},asn1ct_check,
+       {syntax_nomatch,"\",\""}},
+      {structured_error,{M,8},asn1ct_check,
+       {syntax_nomatch,"\"abc\""}},
+      {structured_error,{M,9},asn1ct_check,
+       syntax_nomatch},
+      {structured_error,{M,10},asn1ct_check,
+       syntax_nomatch},
+      {structured_error,{M,11},asn1ct_check,
+       {syntax_nomatch,"BIT STRING"}},
+      {structured_error,{M,12},asn1ct_check,
+       {syntax_nomatch,"13"}},
+      {structured_error,{M,13},asn1ct_check,
+       {syntax_nomatch,"d"}},
+      {structured_error,{M,14},asn1ct_check,
+       {syntax_nomatch,"bs-value"}},
+      {structured_error,{M,15},asn1ct_check,
+       {syntax_undefined_field,bad}},
+      {structured_error,{M,16},asn1ct_check,
+       {syntax_nomatch,"integer"}},
+      {structured_error,{M,17},asn1ct_check,
+       {syntax_nomatch,"\"A B\""}},
+      {structured_error,{M,18},asn1ct_check,
+       {syntax_nomatch,"SEQUENCE"}},
+      {structured_error,{M,19},asn1ct_check,
+       {syntax_undefined_field,bad}},
+      {structured_error,{M,24},asn1ct_check,
+       {syntax_undefined_field,'Bad'}}
+    ]
+    } = run(P, Config),
     ok.
 
 values(Config) ->
