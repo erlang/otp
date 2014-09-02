@@ -47,6 +47,7 @@ CT_MODULES = \
 	ct_snmp \
 	unix_telnet \
 	ct_slave \
+	ct_property_test \
 	ct_netconfc
 
 CT_XML_FILES = $(CT_MODULES:=.xml)
