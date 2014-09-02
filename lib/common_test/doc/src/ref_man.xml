@@ -78,6 +78,7 @@
   <xi:include href="unix_telnet.xml"/>
   <xi:include href="ct_slave.xml"/>
   <xi:include href="ct_hooks.xml"/>
+  <xi:include href="ct_property_test.xml"/>
 </application>
 
 
