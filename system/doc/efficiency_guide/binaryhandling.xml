@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -237,8 +237,9 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
       <p><c>Bin1</c> will be copied in the third line.</p>
 
       <p>The same thing happens if you insert a binary into an <em>ets</em>
-      table or send it to a port using <c>erlang:port_command/2</c>.</p>
-
+      table or send it to a port using <c>erlang:port_command/2</c> or pass it to
+      <seealso marker="erts:erl_nif#enif_inspect_binary">enif_inspect_binary</seealso>
+      in a NIF.</p>
       <p>Matching a binary will also cause it to shrink and the next append
       operation will copy the binary data:</p>
 

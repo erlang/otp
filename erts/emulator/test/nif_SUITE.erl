@@ -37,6 +37,7 @@
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
+	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1
 	]).
 
@@ -64,6 +65,7 @@ all() ->
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
+     otp_9828,
      otp_9668, consume_timeslice, dirty_nif, dirty_nif_send
     ].
 
@@ -1440,6 +1442,20 @@ otp_9668(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
+otp_9828(doc) -> ["Copy of writable binary"];
+otp_9828(Config) ->
+    ensure_lib_loaded(Config, 1),
+
+    otp_9828_loop(<<"I'm alive!">>, 1000).
+
+otp_9828_loop(Bin, 0) ->
+    ok;
+otp_9828_loop(Bin, Val) ->
+    WrtBin = <<Bin/binary, Val:32>>,
+    ok = otp_9828_nif(WrtBin),
+    otp_9828_loop(WrtBin, Val-1).
+
+
 consume_timeslice(Config) when is_list(Config) ->
     CONTEXT_REDS = 2000,
     Me = self(),
@@ -1684,6 +1700,7 @@ reverse_list(_) -> ?nif_stub.
 echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
 otp_9668_nif(_) -> ?nif_stub.
+otp_9828_nif(_) -> ?nif_stub.
 consume_timeslice_nif(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
