@@ -54,7 +54,9 @@ groups() ->
 			 ]},
      {erlang_server, [], [erlang_server_openssh_client_exec,
 			  erlang_server_openssh_client_exec_compressed,
-			  erlang_server_openssh_client_pulic_key_dsa]}
+			  erlang_server_openssh_client_pulic_key_dsa,
+			  erlang_server_openssh_client_cipher_suites,
+			  erlang_server_openssh_client_macs]}
     ].
 
 init_per_suite(Config) ->
@@ -88,6 +90,12 @@ end_per_group(erlang_server, Config) ->
     Config;
 end_per_group(_, Config) ->
     Config.
+
+init_per_testcase(erlang_server_openssh_client_cipher_suites, Config) ->
+    check_ssh_client_support(Config);
+
+init_per_testcase(erlang_server_openssh_client_macs, Config) ->
+    check_ssh_client_support(Config);
 
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
@@ -218,6 +226,108 @@ erlang_server_openssh_client_exec(Config) when is_list(Config) ->
 	    ct:fail("Did not receive answer")
 
     end,
+     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+erlang_server_openssh_client_cipher_suites() ->
+    [{doc, "Test that we can connect with different cipher suites."}].
+
+erlang_server_openssh_client_cipher_suites(Config) when is_list(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+
+
+    ct:sleep(500),
+
+    Supports = crypto:supports(),
+    Ciphers = proplists:get_value(ciphers, Supports),
+    Tests = [
+        {"3des-cbc", lists:member(des3_cbc, Ciphers)},
+        {"aes128-cbc", lists:member(aes_cbc128, Ciphers)},
+        {"aes128-ctr", lists:member(aes_ctr, Ciphers)},
+        {"aes256-cbc", false}
+    ],
+    lists:foreach(fun({Cipher, Expect}) ->
+        Cmd = "ssh -p " ++ integer_to_list(Port) ++
+        " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
+        " -c " ++ Cipher ++ " 1+1.",
+
+        ct:pal("Cmd: ~p~n", [Cmd]),
+
+        SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
+
+        case Expect of
+            true ->
+                receive
+                    {SshPort,{data, <<"2\n">>}} ->
+                       ok
+                after ?TIMEOUT ->
+                    ct:fail("Did not receive answer")
+                end;
+            false ->
+                receive
+                    {SshPort,{data, <<"no matching cipher found", _/binary>>}} ->
+                        ok
+                after ?TIMEOUT ->
+                    ct:fail("Did not receive no matching cipher message")
+                end
+        end
+    end, Tests),
+
+     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+erlang_server_openssh_client_macs() ->
+    [{doc, "Test that we can connect with different MACs."}].
+
+erlang_server_openssh_client_macs(Config) when is_list(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                         {failfun, fun ssh_test_lib:failfun/2}]),
+
+
+    ct:sleep(500),
+
+    Supports = crypto:supports(),
+    Hashs = proplists:get_value(hashs, Supports),
+    MACs = [{"hmac-sha1", lists:member(sha, Hashs)},
+        {"hmac-sha2-256", lists:member(sha256, Hashs)},
+        {"hmac-md5-96", false},
+        {"hmac-ripemd160", false}],
+    lists:foreach(fun({MAC, Expect}) ->
+        Cmd = "ssh -p " ++ integer_to_list(Port) ++
+        " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
+        " -o MACs=" ++ MAC ++ " 1+1.",
+
+        ct:pal("Cmd: ~p~n", [Cmd]),
+
+        SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
+
+        case Expect of
+            true ->
+                receive
+                    {SshPort,{data, <<"2\n">>}} ->
+                       ok
+                after ?TIMEOUT ->
+                    ct:fail("Did not receive answer")
+                end;
+            false ->
+                receive
+                    {SshPort,{data, <<"no matching mac found", _/binary>>}} ->
+                        ok
+                after ?TIMEOUT ->
+                    ct:fail("Did not receive no matching mac message")
+                end
+        end
+    end, MACs),
+
      ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -432,4 +542,26 @@ receive_hej() ->
 	Info ->
 	    ct:pal("Extra info: ~p~n", [Info]),
 	    receive_hej()
+    end.
+
+%%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Check if we have a "newer" ssh client that supports these test cases
+%%--------------------------------------------------------------------
+check_ssh_client_support(Config) ->
+    Port = open_port({spawn, "ssh -Q cipher"}, [exit_status, stderr_to_stdout]),
+    case check_ssh_client_support2(Port) of
+	0 -> % exit status from command (0 == ok)
+	    ssh:start(),
+	    Config;
+	_ ->
+	    {skip, "test case not supported by ssh client"}
+    end.
+
+check_ssh_client_support2(P) ->
+    receive
+	{P, {data, _A}} ->
+	    check_ssh_client_support2(P);
+	{P, {exit_status, E}} ->
+	    E
     end.

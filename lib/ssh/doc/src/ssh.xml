@@ -36,8 +36,8 @@
     <list type="bulleted">
       <item>SSH requires the crypto and public_key applications.</item>
       <item>Supported SSH version is 2.0 </item>
-      <item>Supported MAC algorithms: hmac-sha1</item>
-      <item>Supported encryption algorithms: aes128-cb and 3des-cbc</item>
+      <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1</item>
+      <item>Supported encryption algorithms: aes128-ctr, aes128-cb and 3des-cbc</item>
       <item>Supports unicode filenames if the emulator and the underlaying OS supports it. See the DESCRIPTION section in <seealso marker="kernel:file">file</seealso> for information about this subject</item>
       <item>Supports unicode in shell and cli</item>
     </list>
