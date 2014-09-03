@@ -25,7 +25,7 @@
 -define(stc, wxStyledTextCtrl).
 
 code_area(Parent, Sizer) ->
-    FixedFont = wxFont:new(10, ?wxFONTFAMILY_TELETYPE, ?wxNORMAL, ?wxNORMAL,[]),
+    FixedFont = wxFont:new(70, ?wxFONTFAMILY_TELETYPE, ?wxNORMAL, ?wxNORMAL,[]),
     Ed = wxStyledTextCtrl:new(Parent, [{size, {400, 500}}]),
     ?stc:styleClearAll(Ed),
     ?stc:styleSetFont(Ed, ?wxSTC_STYLE_DEFAULT, FixedFont),

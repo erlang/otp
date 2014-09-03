@@ -47,7 +47,7 @@
 -endif.
 
 code_area(Parent) ->
-    FixedFont = wxFont:new(10, ?wxFONTFAMILY_TELETYPE, ?wxNORMAL, ?wxNORMAL,[]),
+    FixedFont = wxFont:new(70, ?wxFONTFAMILY_TELETYPE, ?wxNORMAL, ?wxNORMAL,[]),
     %%Ed = wxStyledTextCtrl:new(Parent, [{size, {700, 500}}]),
     Ed = wxStyledTextCtrl:new(Parent),
 
