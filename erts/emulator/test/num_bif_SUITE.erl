@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -394,18 +394,15 @@ t_string_to_integer(Config) when is_list(Config) ->
     test_sti(268435455),
     test_sti(-268435455),
 
-    %% 1 bsl 28 - 1, just before 32 bit bignum
-    test_sti(1 bsl 28 - 1),
-    %% 1 bsl 28, just beyond 32 bit small
-    test_sti(1 bsl 28),
-    %% 1 bsl 33, just beyond 32 bit
-    test_sti(1 bsl 33),
-    %% 1 bsl 60 - 1, just before 64 bit bignum
-    test_sti(1 bsl 60 - 1),
-    %% 1 bsl 60, just beyond 64 bit small
-    test_sti(1 bsl 60),
-    %% 1 bsl 65, just beyond 64 bit
-    test_sti(1 bsl 65),
+    % Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
+    lists:foreach(fun(Bits) ->
+			  N = 1 bsl Bits,
+			  test_sti(N - 1),
+			  test_sti(N),
+			  test_sti(N + 1)
+		  end,
+		  lists:seq(16, 130)),
+
     %% Bignums.
     test_sti(123456932798748738738,16),
     test_sti(list_to_integer(lists:duplicate(2000, $1))),
@@ -454,10 +451,11 @@ test_sti(Num) ->
      end|| Base <- lists:seq(2,36)].
 
 test_sti(Num,Base) ->
-    Num  = list_to_integer(int2list(Num,Base),Base),
-    Num = -1*list_to_integer(int2list(Num*-1,Base),Base),
-    Num  = binary_to_integer(int2bin(Num,Base),Base),
-    Num = -1*binary_to_integer(int2bin(Num*-1,Base),Base).
+    Neg = -Num,
+    Num = list_to_integer(int2list(Num,Base),Base),
+    Neg = list_to_integer(int2list(Num*-1,Base),Base),
+    Num = binary_to_integer(int2bin(Num,Base),Base),
+    Neg = binary_to_integer(int2bin(Num*-1,Base),Base).
 
 % Calling this function (which is not supposed to be inlined) prevents
 % the compiler from calculating the answer, so we don't test the compiler

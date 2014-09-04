@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2891,9 +2891,6 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
 	     res = big_plus_small(res, m, hp);
 	 }
 
-	 if (is_big(res))  /* check if small */
-	     res = big_plus_small(res, 0, hp); /* includes conversion to small */
-	 
 	 if (neg) {
 	     if (is_small(res))
 		 res = make_small(-signed_val(res));
@@ -2903,8 +2900,12 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
 	     }
 	 }
 
-	 if (is_big(res)) {
-	     hp += (big_arity(res)+1);
+	 if (is_not_small(res)) {
+	     res = big_plus_small(res, 0, hp); /* includes conversion to small */
+
+	     if (is_not_small(res)) {
+		 hp += (big_arity(res)+1);
+	     }
 	 }
 	 HRelease(p,hp_end,hp);
      }

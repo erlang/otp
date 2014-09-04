@@ -2675,9 +2675,6 @@ Eterm erts_chars_to_integer(Process *BIF_P, char *bytes,
 	res = big_plus_small(res, m, hp);
     }
 
-    if (is_big(res)) /* check if small */
-	res = big_plus_small(res, 0, hp); /* includes conversion to small */
-
     if (neg) {
 	if (is_small(res))
 	    res = make_small(-signed_val(res));
@@ -2687,8 +2684,12 @@ Eterm erts_chars_to_integer(Process *BIF_P, char *bytes,
 	}
     }
 
-    if (is_big(res)) {
-	hp += (big_arity(res) + 1);
+    if (is_not_small(res)) {
+	res = big_plus_small(res, 0, hp); /* includes conversion to small */
+
+	if (is_not_small(res)) {
+	    hp += (big_arity(res) + 1);
+	}
     }
     HRelease(BIF_P, hp_end, hp);
     goto bytebuf_to_integer_1_done;
