@@ -1435,6 +1435,7 @@ calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
 
 master_secret(_RecordCB, Version, MasterSecret,
 	      #security_parameters{
+		 bulk_cipher_algorithm = BCA,
 		 client_random = ClientRandom,
 		 server_random = ServerRandom,
 		 hash_size = HashSize,
@@ -1453,8 +1454,8 @@ master_secret(_RecordCB, Version, MasterSecret,
 	ssl_record:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
 				  Role, ConnStates1),
 
-    ClientCipherState = #cipher_state{iv = ClientIV, key = ClientWriteKey},
-    ServerCipherState = #cipher_state{iv = ServerIV, key = ServerWriteKey},
+    ClientCipherState = ssl_cipher:cipher_init(BCA, ClientIV, ClientWriteKey),
+    ServerCipherState = ssl_cipher:cipher_init(BCA, ServerIV, ServerWriteKey),
     {MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.

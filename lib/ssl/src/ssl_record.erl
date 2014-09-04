@@ -48,7 +48,8 @@
 -export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
--export([cipher/4, decipher/3, is_correct_mac/2]).
+-export([cipher/4, decipher/3, is_correct_mac/2,
+	 cipher_aead/4, decipher_aead/4]).
 
 -export_type([ssl_version/0, ssl_atom_version/0]).
 
@@ -377,6 +378,24 @@ cipher(Version, Fragment,
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
 %%--------------------------------------------------------------------
+-spec cipher_aead(ssl_version(), iodata(), #connection_state{}, MacHash::binary()) ->
+			 {CipherFragment::binary(), #connection_state{}}.
+%%
+%% Description: Payload encryption
+%%--------------------------------------------------------------------
+cipher_aead(Version, Fragment,
+       #connection_state{cipher_state = CipherS0,
+			 sequence_number = SeqNo,
+			 security_parameters=
+			     #security_parameters{bulk_cipher_algorithm =
+						      BulkCipherAlgo}
+			} = WriteState0, AAD) ->
+
+    {CipherFragment, CipherS1} =
+	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, Fragment, Version),
+    {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
+
+%%--------------------------------------------------------------------
 -spec decipher(ssl_version(), binary(), #connection_state{}) -> {binary(), binary(), #connection_state{}} | #alert{}.
 %%
 %% Description: Payload decryption
@@ -392,6 +411,25 @@ decipher(Version, CipherFragment,
 	{PlainFragment, Mac, CipherS1} ->
 	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
 	    {PlainFragment, Mac, CS1};
+	#alert{} = Alert ->
+	    Alert
+    end.
+%%--------------------------------------------------------------------
+-spec decipher_aead(ssl_version(), binary(), #connection_state{}, binary()) -> {binary(), binary(), #connection_state{}} | #alert{}.
+%%
+%% Description: Payload decryption
+%%--------------------------------------------------------------------
+decipher_aead(Version, CipherFragment,
+	 #connection_state{sequence_number = SeqNo,
+			   security_parameters =
+			       #security_parameters{bulk_cipher_algorithm =
+							BulkCipherAlgo},
+			   cipher_state = CipherS0
+			  } = ReadState, AAD) ->
+    case ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, CipherFragment, Version) of
+	{PlainFragment, CipherS1} ->
+	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
+	    {PlainFragment, CS1};
 	#alert{} = Alert ->
 	    Alert
     end.

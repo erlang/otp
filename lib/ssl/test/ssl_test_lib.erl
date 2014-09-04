@@ -811,47 +811,33 @@ openssl_rsa_suites(CounterPart) ->
 		false ->
 		    "DSS | ECDHE | ECDH"
 		end,
-    lists:filter(fun(Str) ->
-			 case re:run(Str, Names,[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end 
-		     end, Ciphers).
+    lists:filter(fun(Str) -> string_regex_filter(Str, Names)
+		 end, Ciphers).
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) ->
-			 case re:run(Str,"DSS",[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end 
+    lists:filter(fun(Str) -> string_regex_filter(Str, "DSS")
 		 end, Ciphers).
 
 openssl_ecdsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) ->
-			 case re:run(Str,"ECDHE-ECDSA",[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end
+    lists:filter(fun(Str) -> string_regex_filter(Str, "ECDHE-ECDSA")
 		 end, Ciphers).
 
 openssl_ecdh_rsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) ->
-			 case re:run(Str,"ECDH-RSA",[]) of
-			     nomatch ->
-				 false;
-			     _ ->
-				 true
-			 end
+    lists:filter(fun(Str) -> string_regex_filter(Str, "ECDH-RSA")
 		 end, Ciphers).
+
+string_regex_filter(Str, Search) when is_list(Str) ->
+    case re:run(Str, Search, []) of
+	nomatch ->
+	    false;
+	_ ->
+	    true
+    end;
+string_regex_filter(Str, _Search) ->
+    false.
 
 anonymous_suites() ->
     Suites =
@@ -860,6 +846,8 @@ anonymous_suites() ->
 	 {dh_anon, '3des_ede_cbc', sha},
 	 {dh_anon, aes_128_cbc, sha},
 	 {dh_anon, aes_256_cbc, sha},
+	 {dh_anon, aes_128_gcm, null},
+	 {dh_anon, aes_256_gcm, null},
 	 {ecdh_anon,rc4_128,sha},
 	 {ecdh_anon,'3des_ede_cbc',sha},
 	 {ecdh_anon,aes_128_cbc,sha},
@@ -885,8 +873,13 @@ psk_suites() ->
 	 {rsa_psk, aes_128_cbc, sha},
 	 {rsa_psk, aes_256_cbc, sha},
 	 {rsa_psk, aes_128_cbc, sha256},
-	 {rsa_psk, aes_256_cbc, sha384}
-],
+	 {rsa_psk, aes_256_cbc, sha384},
+	 {psk, aes_128_gcm, null},
+	 {psk, aes_256_gcm, null},
+	 {dhe_psk, aes_128_gcm, null},
+	 {dhe_psk, aes_256_gcm, null},
+	 {rsa_psk, aes_128_gcm, null},
+	 {rsa_psk, aes_256_gcm, null}],
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites() ->
@@ -1130,7 +1123,7 @@ version_flag(sslv3) ->
 filter_suites(Ciphers0) ->
     Version = tls_record:highest_protocol_version([]),
     Supported0 = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
 	++ ssl_cipher:srp_suites(),
     Supported1 = ssl_cipher:filter_suites(Supported0),
