@@ -472,6 +472,18 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 	struct enif_tmp_obj_t* tmp;
 	byte* raw_ptr;
     }u;
+
+    if (is_boxed(bin_term) && *binary_val(bin_term) == HEADER_SUB_BIN) {
+	ErlSubBin* sb = (ErlSubBin*) binary_val(bin_term);
+	if (sb->is_writable) {
+	    ProcBin* pb = (ProcBin*) binary_val(sb->orig);
+	    ASSERT(pb->thing_word == HEADER_PROC_BIN);
+	    if (pb->flags) {
+		erts_emasculate_writable_binary(pb);
+		sb->is_writable = 0;
+	    }
+	}
+    }
     u.tmp = NULL;
     bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr, allocator,
 						    sizeof(struct enif_tmp_obj_t));
