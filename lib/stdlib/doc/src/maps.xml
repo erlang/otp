@@ -319,6 +319,23 @@ false</code>
 		</func>
 
 		<func>
+			<name name="with" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					Returns a new map <c><anno>Map2</anno></c> with the keys <c>K1</c> through <c>Kn</c> and their associated values from map <c><anno>Map1</anno></c>.
+					Any key in <c><anno>Ks</anno></c> that does not exist in <c><anno>Map1</anno></c> are ignored.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{42 => value_three,1337 => "value two","a" => 1},
+  Ks = ["a",42,"other key"],
+  maps:without(Ks,Map).
+#{42 => value_three,"a" => 1}</code>
+			</desc>
+		</func>
+
+		<func>
 			<name name="without" arity="2"/>
 			<fsummary></fsummary>
 			<desc>
