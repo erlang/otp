@@ -330,8 +330,6 @@ char *hipe_bs_allocate(int len)
     Binary *bptr;
 
     bptr = erts_bin_nrml_alloc(len);
-    bptr->flags = 0;
-    bptr->orig_size = len;
     erts_smp_atomic_init_nob(&bptr->refc, 1);
     return bptr->orig_bytes;
 }
@@ -341,7 +339,6 @@ Binary *hipe_bs_reallocate(Binary* oldbptr, int newsize)
     Binary *bptr;
 
     bptr = erts_bin_realloc(oldbptr, newsize);
-    bptr->orig_size = newsize;
     return bptr;
 }
 

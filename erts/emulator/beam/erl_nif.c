@@ -551,9 +551,7 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
     if (refbin == NULL) {
 	return 0; /* The NIF must take action */
     }
-    refbin->flags = BIN_FLAG_DRV; /* BUGBUG: Flag? */
     erts_refc_init(&refbin->refc, 1);
-    refbin->orig_size = (SWord) size;
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;
@@ -573,7 +571,6 @@ int enif_realloc_binary(ErlNifBinary* bin, size_t size)
 	if (!newbin) {
 	    return 0;
 	}    
-	newbin->orig_size = size;
 	bin->ref_bin = newbin;
 	bin->data = (unsigned char*) newbin->orig_bytes;
 	bin->size = size;
