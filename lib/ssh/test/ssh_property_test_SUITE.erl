@@ -57,10 +57,8 @@ init_per_suite(Config) ->
 %%% if we run proper.
 init_per_group(client_server, Config) ->
     case ?config(property_test_tool,Config) of
-	proper ->
-	    {skip, "PropEr is not supported"};
-	eqc ->
-	    Config
+	eqc -> Config;
+	X -> {skip, lists:concat([X," is not supported"])}
     end;
 init_per_group(_, Config) ->
     Config.
