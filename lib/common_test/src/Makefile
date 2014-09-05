@@ -74,7 +74,8 @@ MODULES= \
 	ct_netconfc \
 	ct_conn_log_h \
 	cth_conn_log \
-	ct_groups
+	ct_groups \
+	ct_property_test
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
