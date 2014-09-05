@@ -11826,6 +11826,7 @@ erts_continue_exit_process(Process *p)
     struct saved_calls *scb;
     process_breakpoint_time_t *pbt;
     erts_aint32_t state;
+    void *nif_export;
 
 #ifdef DEBUG
     int yield_allowed = 1;
@@ -11976,6 +11977,7 @@ erts_continue_exit_process(Process *p)
 	   : NULL);
     scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, ERTS_PROC_LOCKS_ALL, NULL);
     pbt = ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCKS_ALL, NULL);
+    nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, ERTS_PROC_LOCKS_ALL, NULL);
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 #ifdef BM_COUNTERS
@@ -12022,6 +12024,9 @@ erts_continue_exit_process(Process *p)
 
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+
+    if (nif_export)
+	erts_destroy_nif_export(nif_export);
 
     delete_process(p);
 
