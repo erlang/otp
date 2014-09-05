@@ -115,7 +115,8 @@ init_per_suite(Config) ->
 
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
-    mk_ct_return( Tool:quickcheck(Property), Tool ).
+    F = function_name(quickcheck, Tool),
+    mk_ct_return( Tool:F(Property), Tool ).
 
 
 %%%================================================================
@@ -177,4 +178,7 @@ compile_tests(Path, ToolModule) ->
 macro_def(eqc) -> [{d, 'EQC'}];
 macro_def(proper) -> [{d, 'PROPER'}];
 macro_def(triq) -> [{d, 'TRIQ'}].
+    
+function_name(quickcheck, triq) -> check;
+function_name(F, _) -> F.
     
