@@ -80,7 +80,7 @@ semantics, please see <url
     <p><c>
       special_string() =
       {teletexString, string()} | {printableString, string()} |
-      {universalString, string()} | {utf8String, string()} |
+      {universalString, string()} | {utf8String, binary()} |
       {bmpString, string()}     
     </c></p>
     
