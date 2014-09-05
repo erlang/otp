@@ -1566,15 +1566,27 @@ allocate_nif_sched_data(Process* proc, int argc)
 
     argv_extra = argc > 1 ? sizeof(Eterm)*(argc-1) : 0;
     total = sizeof(NifExport) + argv_extra;
-    ep = erts_alloc(ERTS_ALC_T_PSD, total);
+    ep = erts_alloc(ERTS_ALC_T_NIF_TRAP_EXPORT, total);
     sys_memset((void*) ep, 0, total);
     ep->alloced_argv_sz = argc;
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
 	ep->exp.addressv[i] = &ep->exp.code[3];
     }
     ep->exp.code[3] = (BeamInstr) em_call_nif;
-    (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, &ep->exp);
+    (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, ep);
     return ep;
+}
+
+static ERTS_INLINE void
+destroy_nif_export(NifExport *nif_export)
+{
+    erts_free(ERTS_ALC_T_NIF_TRAP_EXPORT, (void *) nif_export);
+}
+
+void
+erts_destroy_nif_export(void *nif_export)
+{
+    destroy_nif_export((NifExport *) nif_export);
 }
 
 /*
@@ -1599,7 +1611,7 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 	ep = allocate_nif_sched_data(proc, argc);
     else if (need_save && ep->alloced_argv_sz < argc) {
 	NifExport* new_ep = allocate_nif_sched_data(proc, argc);
-	erts_free(ERTS_ALC_T_PSD, (void*) ep);
+	destroy_nif_export(ep);
 	ep = new_ep;
     }
     ERTS_VBUMP_ALL_REDS(proc);
