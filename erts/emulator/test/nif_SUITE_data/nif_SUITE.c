@@ -1473,6 +1473,26 @@ static ERL_NIF_TERM otp_9668_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return atom_ok;
 }
 
+static ERL_NIF_TERM otp_9828_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    /* copy a writable binary could reallocate it due to "emasculation"
+       and thereby render a previous inspection invalid.
+     */
+    ErlNifBinary bin1;
+    ErlNifEnv* myenv;
+
+    if (!enif_inspect_binary(env, argv[0], &bin1)) {
+	return enif_make_badarg(env);
+    }
+
+    myenv = enif_alloc_env();
+    enif_make_copy(myenv, argv[0]);
+    enif_free_env(myenv);
+
+    return memcmp(bin1.data, "I'm alive!", 10)==0 ? atom_ok : atom_false;
+}
+
+
 static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int percent;
@@ -1772,6 +1792,7 @@ static ErlNifFunc nif_funcs[] =
     {"echo_int", 1, echo_int},
     {"type_sizes", 0, type_sizes},
     {"otp_9668_nif", 1, otp_9668_nif},
+    {"otp_9828_nif", 1, otp_9828_nif},
     {"consume_timeslice_nif", 2, consume_timeslice_nif},
     {"call_nif_schedule", 2, call_nif_schedule},
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT

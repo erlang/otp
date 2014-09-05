@@ -119,7 +119,7 @@
 
 /*------------------------   TYPDEFS  ----------------------------------*/
 
-typedef unsigned char byte;
+typedef char byte;
 typedef int Boolean;
 
 typedef struct {
@@ -201,4 +201,4 @@ typedef enum {
 #define param_query(db_state) (db_state -> param_query)
 #define out_params(db_state) (db_state -> out_params)
 #define extended_errors(db_state) (db_state -> extended_errors)
-#define extended_error(db_state, errorcode) ( extended_errors(state) ? errorcode : NULL )
+#define extended_error(db_state, errorcode) ( extended_errors(state) ? ((char *)errorcode) : NULL )

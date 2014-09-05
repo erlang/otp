@@ -1925,6 +1925,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 		real_size = endp - bytes;
 		result_bin = erts_bin_realloc(context->s.ec.result_bin,real_size);
+		result_bin->orig_size = real_size;
 		level = context->s.ec.level;
 		BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
 		if (level == 0 || real_size < 6) { /* We are done */
@@ -2004,6 +2005,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			erl_zlib_deflate_finish(&(context->s.cc.stream));
 			result_bin = erts_bin_realloc(context->s.cc.destination_bin,
 						      context->s.cc.dest_len+6);
+			result_bin->orig_size = context->s.cc.dest_len+6;
 			context->s.cc.destination_bin = NULL;
 			pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
 			pb->thing_word = HEADER_PROC_BIN;

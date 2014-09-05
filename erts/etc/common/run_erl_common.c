@@ -74,15 +74,6 @@
  * run_erl multiple times with different global variables without them
  * effecting eachother.
  */
-typedef struct run_erl_ run_erl;
-
-#ifdef __OSE__
-static OSPPDKEY run_erl_pp_key;
-#define RE_DATA (*(run_erl**)ose_get_ppdata(run_erl_pp_key))
-#else
-static run_erl re;
-#define RE_DATA (&re)
-#endif
 
 #define STATUSFILE           (RE_DATA->statusfile)
 #define LOG_DIR              (RE_DATA->log_dir)
@@ -115,6 +106,16 @@ struct run_erl_ {
   int lfd;
   unsigned protocol_ver;
 };
+
+typedef struct run_erl_ run_erl;
+
+#ifdef __OSE__
+static OSPPDKEY run_erl_pp_key;
+#define RE_DATA (*(run_erl**)ose_get_ppdata(run_erl_pp_key))
+#else
+static run_erl re;
+#define RE_DATA (&re)
+#endif
 
 /* prototypes */
 
