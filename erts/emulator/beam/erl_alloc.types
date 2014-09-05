@@ -357,6 +357,7 @@ type	DB_MS_PSDO_PROC	LONG_LIVED_LOW	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED_LOW	SYSTEM		scheduler_data
 type  	LL_TEMP_TERM 	LONG_LIVED_LOW	SYSTEM		ll_temp_term
 
+type	NIF_TRAP_EXPORT	STANDARD_LOW	CODE		nif_trap_export_entry
 type	EXPORT		LONG_LIVED_LOW	CODE		export_entry
 type	MONITOR_SH	STANDARD_LOW	PROCESSES	monitor_sh
 type	NLINK_SH	STANDARD_LOW	PROCESSES	nlink_sh
@@ -375,6 +376,7 @@ type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
 type  	LL_TEMP_TERM 	LONG_LIVED	SYSTEM		ll_temp_term
 
+type	NIF_TRAP_EXPORT	STANDARD	CODE		nif_trap_export_entry
 type	EXPORT		LONG_LIVED	CODE		export_entry
 type	MONITOR_SH	FIXED_SIZE	PROCESSES	monitor_sh
 type	NLINK_SH	FIXED_SIZE	PROCESSES	nlink_sh

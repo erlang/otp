@@ -1362,6 +1362,7 @@ Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
 
 int erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj); /* see erl_nif.c */
+void erts_destroy_nif_export(void *); /* see erl_nif.c */
 
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
@@ -1814,9 +1815,9 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
     ((ErtsProcSysTaskQs *) erts_psd_set((P), (L), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
 
 #define ERTS_PROC_GET_NIF_TRAP_EXPORT(P) \
-    ((Export *) erts_psd_get((P), ERTS_PSD_NIF_TRAP_EXPORT))
-#define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, L, DSTE) \
-    ((Export *) erts_psd_set((P), (L), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (DSTE)))
+    erts_psd_get((P), ERTS_PSD_NIF_TRAP_EXPORT)
+#define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, L, NTE) \
+    erts_psd_set((P), (L), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (NTE))
 
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
