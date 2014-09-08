@@ -47,7 +47,9 @@
                {load_module, diameter_gen_relay},
                {load_module, diameter_codec},
                {load_module, diameter_sctp}]},
-  {"1.7",     [{load_module, diameter_service}]}    %% 17.1
+  {"1.7",     [{load_module, diameter_service},    %% 17.1
+               {load_module, diameter_traffic},
+               {load_module, diameter_peer_fsm}]}
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -77,6 +79,8 @@
                {load_module, diameter_watchdog},
                {load_module, diameter_traffic},
                {load_module, diameter_lib}]},
-  {"1.7",     [{load_module, diameter_service}]}
+  {"1.7",     [{load_module, diameter_peer_fsm},
+               {load_module, diameter_traffic},
+               {load_module, diameter_service}]}
  ]
 }.
