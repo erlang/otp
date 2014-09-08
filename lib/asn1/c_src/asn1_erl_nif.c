@@ -941,16 +941,31 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     int maybe_ret;
     unsigned int len = 0;
     unsigned int lenoflen = 0;
-    int indef = 0;
     unsigned char *tmp_out_buff;
     ERL_NIF_TERM term = 0, curr_head = 0;
 
     if (((in_buf[*ib_index]) & 0x80) == ASN1_SHORT_DEFINITE_LENGTH) {
 	len = in_buf[*ib_index];
-    } else if (in_buf[*ib_index] == ASN1_INDEFINITE_LENGTH
-    )
-	indef = 1;
-    else /* long definite length */{
+    } else if (in_buf[*ib_index] == ASN1_INDEFINITE_LENGTH) {
+	(*ib_index)++;
+	curr_head = enif_make_list(env, 0);
+	if (*ib_index+1 >= in_buf_len) {
+	    return ASN1_INDEF_LEN_ERROR;
+	}
+	while (!(in_buf[*ib_index] == 0 && in_buf[*ib_index + 1] == 0)) {
+	    maybe_ret = ber_decode(env, &term, in_buf, ib_index, in_buf_len);
+	    if (maybe_ret <= ASN1_ERROR) {
+		return maybe_ret;
+	    }
+	    curr_head = enif_make_list_cell(env, term, curr_head);
+	    if (*ib_index+1 >= in_buf_len) {
+		return ASN1_INDEF_LEN_ERROR;
+	    }
+	}
+	enif_make_reverse_list(env, curr_head, value);
+	(*ib_index) += 2; /* skip the indefinite length end bytes */
+	return ASN1_OK;
+    } else /* long definite length */{
 	lenoflen = (in_buf[*ib_index] & 0x7f); /*length of length */
 	if (lenoflen > (in_buf_len - (*ib_index + 1)))
 	    return ASN1_LEN_ERROR;
@@ -965,23 +980,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     if (len > (in_buf_len - (*ib_index + 1)))
 	return ASN1_VALUE_ERROR;
     (*ib_index)++;
-    if (indef == 1) { /* in this case it is desireably to check that indefinite length
-     end bytes exist in inbuffer */
-	curr_head = enif_make_list(env, 0);
-	while (!(in_buf[*ib_index] == 0 && in_buf[*ib_index + 1] == 0)) {
-	    if (*ib_index >= in_buf_len)
-		return ASN1_INDEF_LEN_ERROR;
-
-	    if ((maybe_ret = ber_decode(env, &term, in_buf, ib_index, in_buf_len))
-		    <= ASN1_ERROR
-		    )
-		return maybe_ret;
-	    curr_head = enif_make_list_cell(env, term, curr_head);
-	}
-	enif_make_reverse_list(env, curr_head, value);
-	(*ib_index) += 2; /* skip the indefinite length end bytes */
-    } else if (form == ASN1_CONSTRUCTED)
-    {
+    if (form == ASN1_CONSTRUCTED) {
 	int end_index = *ib_index + len;
 	if (end_index > in_buf_len)
 	    return ASN1_LEN_ERROR;
