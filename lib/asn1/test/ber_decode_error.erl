@@ -51,4 +51,18 @@ run([]) ->
     {error,{asn1,{invalid_value,_}}} =
 	(catch 'Constructed':decode('I', <<8,7>>)),
 
+    %% Short indefinite length. Make sure that the decoder doesn't look
+    %% beyond the end of binary when looking for a 0,0 terminator.
+    {error,{asn1,{invalid_length,_}}} =
+	(catch 'Constructed':decode('S', sub(<<8,16#80,0,0>>, 3))),
+    {error,{asn1,{invalid_length,_}}} =
+	(catch 'Constructed':decode('S', sub(<<8,16#80,0,0>>, 2))),
+    {error,{asn1,{invalid_length,_}}} =
+	(catch 'Constructed':decode('S', sub(<<40,16#80,1,1,255,0,0>>, 6))),
+    {error,{asn1,{invalid_length,_}}} =
+	(catch 'Constructed':decode('S', sub(<<40,16#80,1,1,255,0,0>>, 5))),
     ok.
+
+sub(Bin, Bytes) ->
+    <<B:Bytes/binary,_/binary>> = Bin,
+    B.

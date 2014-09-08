@@ -20,4 +20,26 @@ T21 ::= General2{PrintableString}
 
 T22 ::= General2{BIT STRING}
 
+
+--
+-- Test a class parameter that is the governor for another parameter.
+--
+
+AlgorithmIdentifier{ALGORITHM-TYPE, ALGORITHM-TYPE:AlgorithmSet} ::=
+  SEQUENCE {
+     algorithm  ALGORITHM-TYPE.&id   ({AlgorithmSet}),
+     type       ALGORITHM-TYPE.&Type ({AlgorithmSet}{@algorithm})
+  }
+
+AnAlgorithm ::= AlgorithmIdentifier{ SIGNATURE-ALGORITHM,
+	                             { {KEY 1 CONTAINING INTEGER} |
+				       {KEY 2 CONTAINING BOOLEAN} } }
+
+SIGNATURE-ALGORITHM ::= CLASS {
+    &id    INTEGER UNIQUE,
+    &Type
+} WITH SYNTAX {
+    KEY &id CONTAINING &Type
+}
+
 END

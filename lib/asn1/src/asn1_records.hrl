@@ -37,7 +37,7 @@
 -record('ObjectClassFieldType',{classname,class,fieldname,type}).
 
 -record(typedef,{checked=false,pos,name,typespec}).
--record(classdef,{checked=false,pos,name,typespec}).
+-record(classdef, {checked=false,pos,name,module,typespec}).
 -record(valuedef,{checked=false,pos,name,type,value,module}).
 -record(ptypedef,{checked=false,pos,name,args,typespec}).
 -record(pvaluedef,{checked=false,pos,name,args,type,value}).
@@ -45,7 +45,6 @@
 -record(pobjectdef,{checked=false,pos,name,args,class,def}).
 -record(pobjectsetdef,{checked=false,pos,name,args,class,def}).
 
--record(identifier,{pos,val}).
 -record('Constraint',{'SingleValue'=no,'SizeConstraint'=no,'ValueRange'=no,'PermittedAlphabet'=no,
 		      'ContainedSubtype'=no, 'TypeConstraint'=no,'InnerSubtyping'=no,e=no,'Other'=no}).
 -record(simpletableattributes,{objectsetname,c_name,c_index,usedclassfield,
@@ -72,6 +71,15 @@
 -record('Externaltypereference',{pos,module,type}).
 % Externalvaluereference -> modulename '.' typename
 -record('Externalvaluereference',{pos,module,value}).
+
+%% Used to hold a tag for a field in a SEQUENCE/SET. It can also
+%% be used for identifiers in OBJECT IDENTIFIER values, since the
+%% parser cannot always distinguish a SEQUENCE with one element from
+%% an OBJECT IDENTIFIER.
+-record(seqtag,
+	{pos :: integer(),
+	 module :: atom(),
+	 val :: atom()}).
 
 -record(state,{module,mname,type,tname,value,vname,erule,parameters=[],
 	       inputmodules,abscomppath=[],recordtopname=[],options,

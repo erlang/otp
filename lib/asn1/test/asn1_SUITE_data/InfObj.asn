@@ -255,6 +255,51 @@ Multiple-Optionals ::= SEQUENCE {
    t3 [2] MULTIPLE-OPTIONALS.&T3 ({Multiple-Optionals-Set}{@id}) OPTIONAL
 }
 
+-- Test different ways of constructing object sets.
+
+OBJECT-SET-TEST ::= CLASS {
+    &id INTEGER UNIQUE,
+    &Type
+} WITH SYNTAX {
+    &id IS &Type
+}
+
+ObjectSetTest{OBJECT-SET-TEST:ObjectSet} ::=
+  SEQUENCE {
+     id   OBJECT-SET-TEST.&id   ({ObjectSet}),
+     type OBJECT-SET-TEST.&Type ({ObjectSet}{@id})
+  }
+
+ost1 OBJECT-SET-TEST ::= { 1 IS BIT STRING }
+ost2 OBJECT-SET-TEST ::= { 2 IS OCTET STRING }
+ost3 OBJECT-SET-TEST ::= { 3 IS ENUMERATED {donald,scrooge} }
+ost4 OBJECT-SET-TEST ::= { 4 IS BOOLEAN }
+ost5 OBJECT-SET-TEST ::= { 5 IS INTEGER (0..15) }
+
+Ost12    OBJECT-SET-TEST ::= { ost1 | ost2 }
+Ost123   OBJECT-SET-TEST ::= { ost3 | Ost12 }
+Ost1234  OBJECT-SET-TEST ::= { Ost123 | ost4 }
+Ost45    OBJECT-SET-TEST ::= { ost4 | ost5 }
+Ost12345 OBJECT-SET-TEST ::= { Ost123 | Ost45 }
+
+OstSeq12 ::= ObjectSetTest{ {Ost12} }
+OstSeq123 ::= ObjectSetTest{ {Ost123} }
+OstSeq1234 ::= ObjectSetTest{ {Ost1234} }
+OstSeq45 ::= ObjectSetTest{ {Ost45} }
+OstSeq12345 ::= ObjectSetTest{ {Ost12345} }
+
+ExOst12    OBJECT-SET-TEST ::= { ost1, ..., ost2 }
+ExOst123   OBJECT-SET-TEST ::= { ost3, ..., ExOst12 }
+--ExOst1234  OBJECT-SET-TEST ::= { ExOst123, ..., ost4 }
+ExOst45    OBJECT-SET-TEST ::= { ost4, ..., ost5 }
+ExOst12345 OBJECT-SET-TEST ::= { ExOst123, ..., ExOst45 }
+
+ExOstSeq12 ::= ObjectSetTest{ {ExOst12} }
+ExOstSeq123 ::= ObjectSetTest{ {ExOst123} }
+--ExOstSeq1234 ::= ObjectSetTest{ {ExOst1234} }
+ExOstSeq45 ::= ObjectSetTest{ {ExOst45} }
+ExOstSeq12345 ::= ObjectSetTest{ {ExOst12345} }
+
 END
 
 
