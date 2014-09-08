@@ -462,9 +462,11 @@ static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
 /*
 #define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
 #define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
+#define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
 */
 #define PRINTF_ERR0(FMT)
 #define PRINTF_ERR1(FMT,A1)
+#define PRINTF_ERR2(FMT,A1,A2)
 
 #ifdef __OSE__
 
@@ -505,6 +507,23 @@ static int init_ose_crypto() {
 #define INIT_OSE_CRYPTO() 1
 #define CHECK_OSE_CRYPTO()
 #endif
+
+
+static int verify_lib_version(void)
+{
+    const unsigned long libv = SSLeay();
+    const unsigned long hdrv = OPENSSL_VERSION_NUMBER;
+
+#   define MAJOR_VER(V) ((unsigned long)(V) >> (7*4))
+
+    if (MAJOR_VER(libv) != MAJOR_VER(hdrv)) {
+	PRINTF_ERR2("CRYPTO: INCOMPATIBLE SSL VERSION"
+		    " lib=%lx header=%lx\n", libv, hdrv);
+	return 0;
+    }
+    return 1;
+}
+
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 
@@ -553,6 +572,9 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     if (!INIT_OSE_CRYPTO())
       return 0;
+
+    if (!verify_lib_version())
+	return 0;
 
     /* load_info: {301, <<"/full/path/of/this/library">>} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
