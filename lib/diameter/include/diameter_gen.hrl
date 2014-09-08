@@ -320,11 +320,26 @@ d(Name, Avp, Acc) ->
             {[H | Avps], pack_avp(Name, A, T)}
     catch
         error: Reason ->
-            d(undefined == Failed orelse is_failed(), Reason, Name, Avp, Acc)
+            d(undefined == Failed orelse is_failed(),
+              Reason,
+              Name,
+              trim(Avp),
+              Acc)
     after
         reset(?STRICT_KEY, Strict),
         reset(?FAILED_KEY, Failed)
     end.
+
+%% trim/1
+%%
+%% Remove any extra bit that was added in diameter_codec to induce a
+%% 5014 error.
+
+trim(#diameter_avp{data = <<0:1, Bin/binary>>} = Avp) ->
+    Avp#diameter_avp{data = Bin};
+
+trim(Avp) ->
+    Avp.
 
 %% dict/1
 %%
