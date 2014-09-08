@@ -543,7 +543,8 @@ measurement_server_init() ->
     Server = case OS of
 	{unix, Flavor} when Flavor==sunos;
 			    Flavor==linux ->
-	    port_server_start();
+	    {ok, Pid} = port_server_start_link(),
+	    Pid;
 	{unix, Flavor} when Flavor==darwin;
 			    Flavor==freebsd;
 			    Flavor==dragonfly;
@@ -588,8 +589,9 @@ measurement_server_loop(State) ->
 		Error -> Pid ! {error, Error}
 	    end,
 	    measurement_server_loop(State);
-        {'EXIT', Pid, _n} when State#internal.port == Pid -> 
-	    measurement_server_loop(State#internal{port = port_server_start()});
+        {'EXIT', OldPid, _n} when State#internal.port == OldPid ->
+	    {ok, NewPid} = port_server_start_link(),
+	    measurement_server_loop(State#internal{port = NewPid});
 	_Other ->
 	    measurement_server_loop(State)
     end.
@@ -605,12 +607,12 @@ port_server_call(Pid, Command) ->
 	{Pid, {error, Reason}} -> {error, Reason}
     end.
     
-port_server_start() ->
+port_server_start_link() ->
     Timeout = 6000,
     Pid = spawn_link(fun() -> port_server_init(Timeout) end),
     Pid ! {self(), ?ping},
     receive
-	{Pid, {data,4711}} -> Pid;
+	{Pid, {data,4711}} -> {ok, Pid};
 	{error,Reason} -> {error, Reason}
     after Timeout -> 
 	{error, timeout}
