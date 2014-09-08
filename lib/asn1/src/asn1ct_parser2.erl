@@ -25,7 +25,8 @@
 
 %% Only used internally within this module.
 -record(typereference, {pos,val}).
--record(constraint,{c,e}).
+-record(constraint, {c,e}).
+-record(identifier, {pos,val}).
 
 %% parse all types in module
 parse(Tokens) ->
@@ -112,6 +113,9 @@ parse_ModuleDefinition(Tokens) ->
     
 parse_Exports([{'EXPORTS',_L1},{';',_L2}|Rest]) ->
     {{exports,[]},Rest};
+parse_Exports([{'EXPORTS',_},{'ALL',_},{';',_}|Rest]) ->
+    %% Same as no exports definition.
+    {{exports,all},Rest};
 parse_Exports([{'EXPORTS',_L1}|Rest]) ->
     {SymbolList,Rest2} = parse_SymbolList(Rest),
     case Rest2 of
@@ -1037,10 +1041,6 @@ parse_DefinedObjectClass([{typereference,_,_ModName},{'.',_},Tr={typereference,_
 parse_DefinedObjectClass([Tr={typereference,_,_ObjClName}|Rest]) ->
 %    {{objectclassname,tref2Exttref(Tr)},Rest};
     {tref2Exttref(Tr),Rest};
-parse_DefinedObjectClass([{'TYPE-IDENTIFIER',_}|Rest]) ->
-    {'TYPE-IDENTIFIER',Rest};
-parse_DefinedObjectClass([{'ABSTRACT-SYNTAX',_}|Rest]) ->
-    {'ABSTRACT-SYNTAX',Rest};
 parse_DefinedObjectClass(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,
@@ -1051,7 +1051,8 @@ parse_DefinedObjectClass(Tokens) ->
 
 parse_ObjectClassAssignment([{typereference,L1,ObjClName},{'::=',_}|Rest]) ->
     {Type,Rest2} = parse_ObjectClass(Rest),
-    {#classdef{pos=L1,name=ObjClName,typespec=Type},Rest2};
+    {#classdef{pos=L1,name=ObjClName,module=resolve_module(Type),
+	       typespec=Type},Rest2};
 parse_ObjectClassAssignment(Tokens) ->
     throw({asn1_assignment_error,{get_line(hd(Tokens)),get(asn1_module),
 				  [got,get_token(hd(Tokens)),expected,
@@ -2134,8 +2135,7 @@ parse_ParameterizedObjectSetAssignment(Tokens) ->
 %% Parameter = {Governor,Reference} | Reference
 %% Governor = Type | DefinedObjectClass
 %% Type = #type{}
-%% DefinedObjectClass = #'Externaltypereference'{} | 
-%%                      'ABSTRACT-SYNTAX' | 'TYPE-IDENTIFIER'
+%% DefinedObjectClass = #'Externaltypereference'{}
 %% Reference = #'Externaltypereference'{} | #'Externalvaluereference'{}
 parse_ParameterList([{'{',_}|Rest]) ->
     parse_ParameterList(Rest,[]);
@@ -2863,13 +2863,14 @@ parse_SequenceValue(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,'{']}}).
 
-parse_SequenceValue([{identifier,_,IdName}|Rest],Acc) ->
+parse_SequenceValue([{identifier,Pos,IdName}|Rest],Acc) ->
     {Value,Rest2} = parse_Value(Rest),
+    SeqTag = #seqtag{pos=Pos,module=get(asn1_module),val=IdName},
     case Rest2 of
 	[{',',_}|Rest3] ->
-	    parse_SequenceValue(Rest3,[{IdName,Value}|Acc]);
+	    parse_SequenceValue(Rest3, [{SeqTag,Value}|Acc]);
 	[{'}',_}|Rest3] ->
-	    {lists:reverse([{IdName,Value}|Acc]),Rest3};
+	    {lists:reverse(Acc, [{SeqTag,Value}]),Rest3};
 	_ ->
 	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
 			       [got,get_token(hd(Rest2)),expected,'}']}})

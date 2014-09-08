@@ -43,6 +43,9 @@ main(Rules) ->
 			      #'T12'{number=11,string = <<10:4>>});
 	_ -> ok
     end,
+    roundtrip('AnAlgorithm', {'AnAlgorithm',1,42}),
+    roundtrip('AnAlgorithm', {'AnAlgorithm',2,true}),
+    roundtrip('AnAlgorithm', {'AnAlgorithm',2,false}),
     ok.
 
 roundtrip(Type, Value) ->

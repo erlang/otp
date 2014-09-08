@@ -20,7 +20,8 @@
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
 	 already_defined/1,bitstrings/1,enumerated/1,
-	 imports/1,instance_of/1,integers/1,objects/1,values/1]).
+	 imports/1,instance_of/1,integers/1,objects/1,
+	 parameterization/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -38,6 +39,7 @@ groups() ->
        instance_of,
        integers,
        objects,
+       parameterization,
        values]}].
 
 parallel() ->
@@ -217,6 +219,19 @@ objects(Config) ->
        {invalid_fields,[wrong],'InvalidSet'}}
      ]
     } = run(P, Config),
+    ok.
+
+parameterization(Config) ->
+    M = 'Parameterization',
+    P = {M,
+	 <<"Parameterization DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  NotUppercase{lowercase} ::= INTEGER (lowercase)\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{'Parameterization',2},asn1ct_check,
+       {illegal_typereference,lowercase}}
+      ]
+     } = run(P, Config),
     ok.
 
 values(Config) ->

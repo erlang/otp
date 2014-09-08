@@ -309,7 +309,6 @@ check_hex(_) ->
 %% returns rstrtype if A is a reserved word in the group 
 %% 	RestrictedCharacterStringType
 reserved_word('ABSENT') -> true;
-%reserved_word('ABSTRACT-SYNTAX') -> true; % impl as predef item
 reserved_word('ALL') -> true;
 reserved_word('ANY') -> true;
 reserved_word('APPLICATION') -> true;
@@ -380,7 +379,6 @@ reserved_word('T61String') -> rstrtype;
 reserved_word('TAGS') -> true;
 reserved_word('TeletexString') -> rstrtype;
 reserved_word('TRUE') -> true;
-%% reserved_word('TYPE-IDENTIFIER') -> true; % impl as predef item
 reserved_word('UNION') -> true;
 reserved_word('UNIQUE') -> true;
 reserved_word('UNIVERSAL') -> true;

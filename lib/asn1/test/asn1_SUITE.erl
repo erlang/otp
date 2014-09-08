@@ -134,14 +134,13 @@ groups() ->
        testChoiceIndefinite,
        per_open_type,
        testInfObjectClass,
-       testParameterizedInfObj,
+       testParam,
        testFragmented,
        testMergeCompile,
        testobj,
        testDeepTConstr,
        testExport,
        testImport,
-       testParamBasic,
        testDER,
        testDEFAULT,
        testMvrasn6,
@@ -520,12 +519,6 @@ testSetDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetDefault", Config, [Rule|Opts]),
     testSetDefault:main(Rule).
 
-testParamBasic(Config) ->
-    test(Config, fun testParamBasic/3, [ber,{ber,[der]},per,uper]).
-testParamBasic(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ParamBasic", Config, [Rule|Opts]),
-    testParamBasic:main(Rule).
-
 testSetOptional(Config) -> test(Config, fun testSetOptional/3).
 testSetOptional(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetOptional", Config, [Rule|Opts]),
@@ -758,11 +751,12 @@ testInfObjectClass(Config, Rule, Opts) ->
     testInfObjectClass:main(Rule),
     testInfObj:main(Rule).
 
-testParameterizedInfObj(Config) ->
-    test(Config, fun testParameterizedInfObj/3).
-testParameterizedInfObj(Config, Rule, Opts) ->
-    Files = ["Param","Param2"],
+testParam(Config) ->
+    test(Config, fun testParam/3, [ber,{ber,[der]},per,uper]).
+testParam(Config, Rule, Opts) ->
+    Files = ["ParamBasic","Param","Param2"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    testParamBasic:main(Rule),
     testParameterizedInfObj:main(Config, Rule),
     asn1_test_lib:compile("Param", Config,
 			  [legacy_erlang_types,Rule|Opts]),

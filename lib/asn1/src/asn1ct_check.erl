@@ -91,7 +91,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     save_asn1db_uptodate(S,S#state.erule,S#state.mname),
     put(top_module,S#state.mname),
 
-    _ = checkp(S, ParameterizedTypes), %must do this before the templates are used
+    ParamError = checkp(S, ParameterizedTypes), %must do this before the templates are used
     
     %% table to save instances of parameterized objects,object sets
     asn1ct_table:new(parameterized_objects),
@@ -160,8 +160,10 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     Exporterror = check_exports(S,S#state.module),
     ImportError = check_imports(S,S#state.module),
 
-    case {Terror3,Verror5,Cerror,Oerror,Exporterror,ImportError} of
-	{[],[],[],[],[],[]} -> 
+    AllErrors = lists:flatten([ParamError,Terror3,Verror5,Cerror,
+			       Oerror,Exporterror,ImportError]),
+    case AllErrors of
+	[] ->
 	    ContextSwitchTs = context_switch_in_spec(),
 	    InstanceOf = instance_of_in_spec(S#state.mname),
 	    NewTypes = lists:subtract(Types,AddClasses) ++ ContextSwitchTs
@@ -175,8 +177,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
 	      lists:subtract(NewObjects,ExclO)++InlinedObjects,
 	      lists:subtract(NewObjectSets,ExclOS)++ParObjectSetNames}};
 	_ ->
-	    {error,lists:flatten([Terror3,Verror5,Cerror,
-				  Oerror,Exporterror,ImportError])}
+	    {error,AllErrors}
     end.
 
 context_switch_in_spec() ->
@@ -549,14 +550,10 @@ check_class(S = #state{mname=M,tname=T},ClassSpec)
 	    #objectclass{fields=Def}; % in case of recursive definitions
 	Tref = #'Externaltypereference'{type=TName} ->
 	    {MName,RefType} = get_referenced_type(S,Tref),
-	    case is_class(S,RefType) of
-		true ->
-		    NewState = update_state(S#state{type=RefType,
-						    tname=TName},MName),
- 		    check_class(NewState,get_class_def(S,RefType));
-		_ ->
-		    error({class,{internal_error,RefType},S})
-	    end;
+	    #classdef{} = CD = get_class_def(S, RefType),
+	    NewState = update_state(S#state{type=RefType,
+					    tname=TName}, MName),
+	    check_class(NewState, CD);
 	{pt,ClassRef,Params} ->
 	    %% parameterized class
 	    {_,PClassDef} = get_referenced_type(S,ClassRef),
@@ -950,6 +947,8 @@ prepare_objset(ObjDef={object,definedsyntax,_ObjFields}) ->
     {set,[ObjDef],false};
 prepare_objset({ObjDef=#type{},Ext}) when is_list(Ext) ->
     {set,[ObjDef|Ext],true};
+prepare_objset({#type{}=Type,#type{}=Ext}) ->
+    {set,[Type,Ext],true};
 prepare_objset(Ret) ->
     Ret.
 
@@ -1277,10 +1276,25 @@ get_fieldname_element(_S,Def,[{_RefType,_FieldName}|_RestFName])
 
 check_fieldname_element(S,{value,{_,Def}}) ->
     check_fieldname_element(S,Def);
-check_fieldname_element(S,TDef)  when is_record(TDef,typedef) ->
-    check_type(S,TDef,TDef#typedef.typespec);
-check_fieldname_element(S,VDef) when is_record(VDef,valuedef) ->
-    check_value(S,VDef);
+check_fieldname_element(S, #typedef{typespec=Ts}=TDef) ->
+    case Ts of
+	#'Object'{} ->
+	    check_object(S, TDef, Ts);
+	_ ->
+	    check_type(S, TDef, Ts)
+    end;
+check_fieldname_element(S, #valuedef{}=VDef) ->
+    try
+	check_value(S, VDef)
+    catch
+	throw:{objectdef} ->
+	    #valuedef{checked=C,pos=Pos,name=N,type=Type,
+		      value=Def} = VDef,
+	    ClassName = Type#type.def,
+	    NewSpec = #'Object'{classname=ClassName,def=Def},
+	    NewDef = #typedef{checked=C,pos=Pos,name=N,typespec=NewSpec},
+	    check_fieldname_element(S, NewDef)
+    end;
 check_fieldname_element(S,Eref)
   when is_record(Eref,'Externaltypereference');
        is_record(Eref,'Externalvaluereference') ->
@@ -1803,12 +1817,10 @@ convert_to_defaultfield(S,ObjFieldName,[OFS|RestOFS],CField)->
 						      FieldName);
 			    ValSetting = #valuedef{} ->
 				ValSetting;
-			    ValSetting = {'CHOICE',{Alt,_ChVal}} when is_atom(Alt) ->
-					#valuedef{type=element(3,CField),
-						  value=ValSetting,
-						  module=S#state.mname};
 			    ValSetting ->
-				#identifier{val=ValSetting}
+				#valuedef{type=element(3,CField),
+					  value=ValSetting,
+					  module=S#state.mname}
 			end,
 		    ?dbg("fixedtypevaluefield ValRef: ~p~n",[ValRef]),
 		    case ValRef of
@@ -2292,22 +2304,23 @@ validate_oid(_, S, OID, [Id|Vrest], Acc)
 		    error({value, {"illegal "++to_string(OID),[Id,Vrest],Acc}, S})
 	    end
     end;
-validate_oid(_, S, OID, [{Atom,Value}],[]) 
+validate_oid(_, S, OID, [{#seqtag{module=Mod,val=Atom},Value}], [])
   when is_atom(Atom),is_integer(Value) ->
     %% this case when an OBJECT IDENTIFIER value has been parsed as a 
     %% SEQUENCE value
-    Rec = #'Externalvaluereference'{module=S#state.mname,
+    Rec = #'Externalvaluereference'{module=Mod,
 				    value=Atom},
     validate_objectidentifier1(S, OID, [Rec,Value]);
-validate_oid(_, S, OID, [{Atom,EVRef}],[]) 
+validate_oid(_, S, OID, [{#seqtag{module=Mod,val=Atom},EVRef}], [])
   when is_atom(Atom),is_record(EVRef,'Externalvaluereference') ->
     %% this case when an OBJECT IDENTIFIER value has been parsed as a 
     %% SEQUENCE value OTP-4354
-    Rec = #'Externalvaluereference'{module=EVRef#'Externalvaluereference'.module,
+    Rec = #'Externalvaluereference'{module=Mod,
 				    value=Atom},
     validate_objectidentifier1(S, OID, [Rec,EVRef]);
-validate_oid(_, S, OID, [Atom|Rest],Acc) when is_atom(Atom) ->
-    Rec = #'Externalvaluereference'{module=S#state.mname,
+validate_oid(_, S, OID, [#seqtag{module=Mod,val=Atom}|Rest], Acc)
+  when is_atom(Atom) ->
+    Rec = #'Externalvaluereference'{module=Mod,
 				    value=Atom},
     validate_oid(true,S, OID, [Rec|Rest],Acc);
 validate_oid(_, S, OID, V, Acc) ->
@@ -2689,20 +2702,20 @@ normalize_set(S,Value,Components,NameList) ->
 	    normalized_record('SET',S,SortedVal,Components,NameList)
     end.
 
-sort_value(Components,Value) ->
-    ComponentNames = lists:map(fun(#'ComponentType'{name=Cname}) -> Cname end,
-			       Components),
-    sort_value1(ComponentNames,Value,[]).
-sort_value1(_,V=#'Externalvaluereference'{},_) ->
-    %% sort later, get the value in normalize_seq_or_set
-    V;
-sort_value1([N|Ns],Value,Acc) ->
-    case lists:keysearch(N,1,Value) of
-	{value,V} ->sort_value1(Ns,Value,[V|Acc]);
-	_ -> sort_value1(Ns,Value,Acc)
-    end;
-sort_value1([],_,Acc) ->
-    lists:reverse(Acc).
+sort_value(Components, Value0) when is_list(Value0) ->
+    {Keys0,_} = lists:mapfoldl(fun(#'ComponentType'{name=N}, I) ->
+				       {{N,I},I+1}
+			       end, 0, Components),
+    Keys = gb_trees:from_orddict(orddict:from_list(Keys0)),
+    Value1 = [{case gb_trees:lookup(N, Keys) of
+		   {value,K} -> K;
+		   none -> 'end'
+	       end,Pair} || {#seqtag{val=N},_}=Pair <- Value0],
+    Value = lists:sort(Value1),
+    [Pair || {_,Pair} <- Value];
+sort_value(_Components, #'Externalvaluereference'{}=Value) ->
+    %% Sort later.
+    Value.
 
 sort_val_if_set(['SET'|_],Val,Type) ->
     sort_value(Type,Val);
@@ -2735,9 +2748,9 @@ is_record_normalized(_S,Name,Value,NumComps) when is_tuple(Value) ->
 is_record_normalized(_,_,_,_) ->
     false.
 
-normalize_seq_or_set(SorS,S,[{Cname,V}|Vs],
+normalize_seq_or_set(SorS, S, [{#seqtag{val=Cname},V}|Vs],
 		     [#'ComponentType'{name=Cname,typespec=TS}|Cs],
-		     NameList,Acc) ->
+		     NameList, Acc) ->
     NewNameList = 
 	case TS#type.def of
 	    #'Externaltypereference'{type=TName} ->
@@ -2915,8 +2928,7 @@ get_canonic_type(S,Type,NameList) ->
 
 
 check_ptype(S,Type,Ts) when is_record(Ts,type) ->
-    %Tag = Ts#type.tag,
-    %Constr = Ts#type.constraint,
+    check_formal_parameters(S, Type#ptypedef.args),
     Def = Ts#type.def,
     NewDef= 
 	case Def of 
@@ -2942,6 +2954,16 @@ check_ptype(S,Type,Ts) when is_record(Ts,type) ->
 check_ptype(_S,_PTDef,Ts) when is_record(Ts,objectclass) ->
     throw({asn1_param_class,Ts}).
 
+check_formal_parameters(S, Args) ->
+    _ = [check_formal_parameter(S, A) || A <- Args],
+    ok.
+
+check_formal_parameter(_, {_,_}) ->
+    ok;
+check_formal_parameter(_, #'Externaltypereference'{}) ->
+    ok;
+check_formal_parameter(S, #'Externalvaluereference'{value=Name}=Ref) ->
+    asn1_error(S, Ref, {illegal_typereference,Name}).
 
 % check_type(S,Type,ObjSpec={{objectclassname,_},_}) ->
  %     check_class(S,ObjSpec);
@@ -2989,9 +3011,9 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			{TmpRefMod,TmpRefDef} ->
 			    {TmpRefMod,TmpRefDef,false}
 		    end,
-		case is_class(S,RefTypeDef) of
-		    true -> throw({asn1_class,RefTypeDef});
-		    _ -> ok
+		case get_class_def(S, RefTypeDef) of
+		    none -> ok;
+		    #classdef{} -> throw({asn1_class,RefTypeDef})
 		end,
 		Ct = TestFun(Ext),
 		{RefType,ExtRef} = 
@@ -3372,23 +3394,17 @@ get_type_from_object(S,Object,TypeField)
     ObjSpec = check_object(S,ObjectDef,ObjectDef#typedef.typespec),
     get_fieldname_element(S,ObjectDef#typedef{typespec=ObjSpec},TypeField).
     
-is_class(_S,#classdef{}) ->
-    true;
-is_class(S,#typedef{typespec=#type{def=Eref}}) 
-  when is_record(Eref,'Externaltypereference')->
-    is_class(S,Eref);
-is_class(S,Eref) when is_record(Eref,'Externaltypereference')->
-    {_,NextDef} = get_referenced_type(S,Eref),
-    is_class(S,NextDef);
-is_class(_,_) ->
-    false.
-
-get_class_def(_S,CD=#classdef{}) ->
+%% get_class_def(S, Type) -> #classdef{} | 'none'.
+get_class_def(S, #typedef{typespec=#type{def=#'Externaltypereference'{}=Eref}}) ->
+    {_,NextDef} = get_referenced_type(S, Eref),
+    get_class_def(S, NextDef);
+get_class_def(S, #'Externaltypereference'{}=Eref) ->
+    {_,NextDef} = get_referenced_type(S, Eref),
+    get_class_def(S, NextDef);
+get_class_def(_S, #classdef{}=CD) ->
     CD;
-get_class_def(S,#typedef{typespec=#type{def=Eref}})
-  when is_record(Eref,'Externaltypereference') ->
-    {_,NextDef} = get_referenced_type(S,Eref),
-    get_class_def(S,NextDef).
+get_class_def(_S, _) ->
+    none.
     
 maybe_illicit_implicit_tag(Kind,Tag) ->
     case Tag of
@@ -3595,109 +3611,54 @@ match_args(_,_, _, _) ->
 %% categorize_arg(S,FormalArg,ActualArg) -> {FormalArg,CatgorizedActualArg}
 %%
 categorize_arg(S,{Governor,Param},ActArg) ->
-    case {governor_category(S,Governor),parameter_name_style(Param,ActArg)} of
-%% 	{absent,beginning_uppercase} -> %% a type
-%% 	    categorize(S,type,ActArg);
-	{type,beginning_lowercase} -> %% a value
-	    categorize(S,value,Governor,ActArg);
-	{type,beginning_uppercase} -> %% a value set
-	    categorize(S,value_set,ActArg);
-%% 	{absent,entirely_uppercase} -> %% a class
-%% 	    categorize(S,class,ActArg);
+    case {governor_category(S, Governor),parameter_name_style(Param)} of
+	{type,beginning_lowercase} ->		%a value
+	    categorize(S, value, Governor, ActArg);
+	{type,beginning_uppercase} ->		%a value set
+	    categorize(ActArg);
 	{{class,ClassRef},beginning_lowercase} -> 
-	    categorize(S,object,ActArg,ClassRef);
+	    categorize(S, object, ActArg, ClassRef);
 	{{class,ClassRef},beginning_uppercase} ->
-	    categorize(S,object_set,ActArg,ClassRef);
-	_ ->
-	    [ActArg]
+	    categorize(S, object_set, ActArg, ClassRef)
     end;
-categorize_arg(S,FormalArg,ActualArg) ->
-    %% governor is absent => a type or a class
-    case FormalArg of
-	#'Externaltypereference'{type=Name} ->
-	    case is_class_name(Name) of
-		true ->
-		    categorize(S,class,ActualArg);
-		_ ->
-		    categorize(S,type,ActualArg)
-	    end;
-	FA ->
-	    throw({error,{unexpected_formal_argument,FA}})
-    end.
+categorize_arg(_S, _FormalArg, ActualArg) ->
+    %% Governor is absent -- must be a type or a class. We have already
+    %% checked that the FormalArg begins with an uppercase letter.
+    categorize(ActualArg).
 
-governor_category(S,#type{def=Eref}) 
-  when is_record(Eref,'Externaltypereference') ->   
-    governor_category(S,Eref);
-governor_category(_S,#type{}) ->
+%% governor_category(S, Item) -> type | {class,#'Externaltypereference'{}}
+%%  Determine whether Item is a type or a class.
+governor_category(S, #type{def=#'Externaltypereference'{}=Eref}) ->
+    governor_category(S, Eref);
+governor_category(_S, #type{}) ->
     type;
-governor_category(S,Ref) when is_record(Ref,'Externaltypereference') ->
-    case is_class(S,Ref) of
-	true ->
-	    {class,Ref};
-	_ ->
+governor_category(S, #'Externaltypereference'{}=Ref) ->
+    case get_class_def(S, Ref) of
+	#classdef{pos=Pos,module=Mod,name=Name} ->
+	    {class,#'Externaltypereference'{pos=Pos,module=Mod,type=Name}};
+	none ->
 	    type
-    end;
-governor_category(_,Class) 
-  when Class == 'TYPE-IDENTIFIER'; Class == 'ABSTRACT-SYNTAX' ->
-    class.
-%% governor_category(_,_) ->
-%%     absent.
+    end.
 
 %% parameter_name_style(Param,Data) -> Result
 %% gets the Parameter and the name of the Data and if it exists tells
 %% whether it begins with a lowercase letter or is partly or entirely
 %% spelled with uppercase letters. Otherwise returns undefined
 %%
-parameter_name_style(_,#'Externaltypereference'{type=Name}) ->
-    name_category(Name);
-parameter_name_style(_,#'Externalvaluereference'{value=Name}) ->
-    name_category(Name);
-parameter_name_style(_,{valueset,_}) ->
-    %% It is a object set or value set
+parameter_name_style(#'Externaltypereference'{}) ->
     beginning_uppercase;
-parameter_name_style(#'Externalvaluereference'{},_) ->
-    beginning_lowercase;
-parameter_name_style(#'Externaltypereference'{type=Name},_) ->
-    name_category(Name);
-parameter_name_style(_,_) ->
-    undefined.
-
-name_category(Atom) when is_atom(Atom) ->
-    name_category(atom_to_list(Atom));
-name_category([H|T]) ->
-    case is_lowercase(H) of
-	true ->
-	    beginning_lowercase;
-	_ ->
-	    case is_class_name(T) of
-		true ->
-		    entirely_uppercase;
-		_ ->
-		    beginning_uppercase
-	    end
-    end;
-name_category(_) ->
-    undefined.
+parameter_name_style(#'Externalvaluereference'{}) ->
+    beginning_lowercase.
 
 is_lowercase(X) when X >= $A,X =< $W ->
     false;
 is_lowercase(_) ->
     true.
-
-is_class_name(Name) when is_atom(Name) ->
-    is_class_name(atom_to_list(Name));
-is_class_name(Name) ->
-    case [X||X <- Name, X >= $a,X =< $w] of
-	[] ->
-	    true;
-	_ ->
-	    false
-    end.
 		
-%% categorize(S,Category,Parameter) -> CategorizedParameter
+%% categorize(Parameter) -> CategorizedParameter
 %% If Parameter has an abstract syntax of another category than
 %% Category, transform it to a known syntax.
-categorize(_S,type,{object,_,Type}) ->
+categorize({object,_,Type}) ->
     %% One example of this case is an object with a parameterized type
     %% having a locally defined type as parameter.
     Def = fun(D = #type{}) ->
@@ -3709,11 +3670,12 @@ categorize(_S,type,{object,_,Type}) ->
 		  D
 	  end,
     [Def(X)||X<-Type];
-categorize(_S,type,Def) when is_record(Def,type) ->
+categorize(#type{}=Def) ->
     [#typedef{name = new_reference_name("type_argument"),
 	      typespec = Def#type{inlined=yes}}];
-categorize(_,_,Def) ->
+categorize(Def) ->
     [Def].
+
 categorize(S,object_set,Def,ClassRef) ->
     NewObjSetSpec = 
 	check_object(S,Def,#'ObjectSet'{class = ClassRef,
@@ -4546,55 +4508,43 @@ check_reference(S,#'Externaltypereference'{pos=Pos,module=Emod,type=Name}) ->
 	    #'Externaltypereference'{pos=Pos,module=ModName,type=Name}
     end.
 
+get_referenced_type(S, T) ->
+    case do_get_referenced_type(S, T) of
+	{_,#type{def=#'Externaltypereference'{}=ERef}} ->
+	    get_referenced_type(S, ERef);
+	{_,#type{def=#'Externalvaluereference'{}=VRef}} ->
+	    get_referenced_type(S, VRef);
+	{_,_}=Res ->
+	    Res
+    end.
 
-get_referenced_type(S,Ext) when is_record(Ext,'Externaltypereference') ->
-    case match_parameters(S,Ext, S#state.parameters) of
-	Ext -> 
-	    #'Externaltypereference'{pos=Pos,module=Emod,type=Etype} = Ext,
-	    case S#state.mname of
-		Emod -> % a local reference in this module
-		    get_referenced1(S,Emod,Etype,Pos);
-		_ ->% always when multi file compiling
-		    case lists:member(Emod,S#state.inputmodules) of
-			true ->
-			    get_referenced1(S,Emod,Etype,Pos);
-			false ->
-			    get_referenced(S,Emod,Etype,Pos)
-		    end
-	    end;
-	ERef = #'Externaltypereference'{} ->
-	    get_referenced_type(S,ERef);
-	Other ->
-	    {undefined,Other}
-    end;
-get_referenced_type(S=#state{mname=Emod},
-		    ERef=#'Externalvaluereference'{pos=P,module=Emod,
-						   value=Eval}) ->
-    case match_parameters(S,ERef,S#state.parameters) of
-	ERef ->
-	    get_referenced1(S,Emod,Eval,P);
-	OtherERef when is_record(OtherERef,'Externalvaluereference') ->
-	    get_referenced_type(S,OtherERef);
-	Value ->
-	    {Emod,Value}
-    end;
-get_referenced_type(S,ERef=#'Externalvaluereference'{pos=Pos,module=Emod,
-						value=Eval}) ->
-    case match_parameters(S,ERef,S#state.parameters) of
-	ERef ->
-	    case lists:member(Emod,S#state.inputmodules) of
-		true ->
-		    get_referenced1(S,Emod,Eval,Pos);
-		false ->
-		    get_referenced(S,Emod,Eval,Pos)
-	    end;
-	OtherERef  ->
-	    get_referenced_type(S,OtherERef)
-    end;
-get_referenced_type(S,#identifier{val=Name,pos=Pos}) ->
-    get_referenced1(S,undefined,Name,Pos);
-get_referenced_type(_S,Type) ->
-    {undefined,Type}.
+do_get_referenced_type(#state{parameters=Ps}=S, T0) ->
+    case match_parameters(S, T0, Ps) of
+	T0 ->
+	    do_get_ref_type_1(S, T0);
+	T ->
+	    do_get_referenced_type(S, T)
+    end.
+
+do_get_ref_type_1(S, #'Externaltypereference'{pos=P,
+					      module=M,
+					      type=T}) ->
+    do_get_ref_type_2(S, P, M, T);
+do_get_ref_type_1(S, #'Externalvaluereference'{pos=P,
+					       module=M,
+					       value=V}) ->
+    do_get_ref_type_2(S, P, M, V);
+do_get_ref_type_1(_, T) ->
+    {undefined,T}.
+
+do_get_ref_type_2(#state{mname=Current,inputmodules=Modules}=S,
+		  Pos, M, T) ->
+    case M =:= Current orelse lists:member(M, Modules) of
+	true ->
+	    get_referenced1(S, M, T, Pos);
+	false ->
+	    get_referenced(S, M, T, Pos)
+    end.
 
 %% get_referenced/3
 %% The referenced entity Ename may in case of an imported parameterized
@@ -6760,6 +6710,8 @@ format_error({illegal_instance_of,Class}) ->
 		  [Class]);
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
+format_error({illegal_typereference,Name}) ->
+    io_lib:format("'~p' is used as a typereference, but does not start with an uppercase letter", [Name]);
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({invalid_bit_number,Bit}) ->
@@ -7006,7 +6958,7 @@ include_default_class1(_,[]) ->
 include_default_class1(Module,[{Name,TS}|Rest]) ->
     case asn1_db:dbget(Module,Name) of
 	undefined ->
-	    C = #classdef{checked=true,name=Name,
+	    C = #classdef{checked=true,module=Module,name=Name,
 			  typespec=TS},
 	    asn1_db:dbput(Module,Name,C);
 	_ -> ok

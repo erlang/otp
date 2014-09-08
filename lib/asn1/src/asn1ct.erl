@@ -43,7 +43,7 @@
 	 add_tobe_refed_func/1,add_generated_refed_func/1,
 	 maybe_rename_function/3,current_sindex/0,
 	 set_current_sindex/1,maybe_saved_sindex/2,
-	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3]).
+	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3,format_error/1]).
 -export([get_bit_string_format/0,use_legacy_types/0]).
 
 -include("asn1_records.hrl").
@@ -143,7 +143,8 @@ parse_and_save_passes() ->
      {pass,save,fun save_pass/1}].
 
 common_passes() ->
-    [{pass,check,fun check_pass/1},
+    [{iff,parse,{pass,parse_listing,fun parse_listing/1}},
+     {pass,check,fun check_pass/1},
      {iff,abs,{pass,abs_listing,fun abs_listing/1}},
      {pass,generate,fun generate_pass/1},
      {unless,noobj,{pass,compile,fun compile_pass/1}}].
@@ -242,6 +243,16 @@ save_pass(#st{code=M,erule=Erule,dbfile=DbFile}=St) ->
     ok = asn1ct_check:storeindb(#state{erule=Erule}, M),
     asn1_db:dbsave(DbFile,M#module.name),
     {ok,St}.
+
+parse_listing(#st{code=Code,outfile=OutFile0}=St) ->
+    OutFile = OutFile0 ++ ".parse",
+    case file:write_file(OutFile, io_lib:format("~p\n", [Code])) of
+	ok ->
+	    done;
+	{error,Reason} ->
+	    Error = {write_error,OutFile,Reason},
+	    {error,St#st{error=[{structured_error,{OutFile0,none},?MODULE,Error}]}}
+    end.
 
 abs_listing(#st{code={M,_},outfile=OutFile}) ->
     pretty2(M#module.name, OutFile++".abs"),
@@ -2429,6 +2440,10 @@ verbose(Format, Args, S) ->
 	false ->
 	    ok
     end.
+
+format_error({write_error,File,Reason}) ->
+    io_lib:format("writing output file ~s failed: ~s",
+		  [File,file:format_error(Reason)]).
 
 is_error(S) when is_record(S, state) ->
     is_error(S#state.options);
