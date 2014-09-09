@@ -19,7 +19,7 @@
 -module(binary).
 %%
 %% Implemented in this module:
--export([split/2,split/3,replace/3,replace/4]).
+-export([split/2,split/3,join/2,replace/3,replace/4]).
 
 -export_type([cp/0]).
 
@@ -259,6 +259,27 @@ do_split(H,[{A,B}|T],N,Trim) ->
 	Oth ->
 	    [Oth | do_split(H,T,A+B,Trim)]
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% join
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec join(Parts, Delimiter) -> Whole when
+      Parts :: [binary()],
+      Delimiter :: binary(),
+      Whole :: binary().
+
+join([], _Delimiter) ->
+    <<>>;
+join([Only], _Delimiter) ->
+    <<Only/binary>>;
+join(Parts, Delimiter) ->
+    join(Parts, Delimiter, <<>>).
+join([Part|[Last]], Delimiter, Acc) ->
+    <<Acc/binary, Part/binary, Delimiter/binary, Last/binary>>;
+join([Part|Rest], Delimiter, Acc) ->
+    join(Rest, Delimiter, <<Acc/binary, Part/binary, Delimiter/binary>>).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
