@@ -442,8 +442,31 @@ agent_info(TargetName, all) ->
 	All ->
 	    {ok, [{Item, Val} || {{_, Item}, Val} <- All]}
     end;
+%% Begin backwards compatibility
+agent_info(TargetName, address) ->
+    case agent_info({TargetName, taddress}) of
+	{ok, Val} ->
+	    {Addr, _} = Val,
+	    {ok, Addr};
+	_ ->
+	    %% This should be redundant since 'taddress' should exist
+	    agent_info({TargetName, address})
+    end;
+agent_info(TargetName, port) ->
+    case agent_info({TargetName, taddress}) of
+	{ok, Val} ->
+	    {_, Port} = Val,
+	    {ok, Port};
+	_ ->
+	    %% This should be redundant since 'taddress' should exist
+	    agent_info({TargetName, port})
+    end;
+%% End backwards compatibility
 agent_info(TargetName, Item) ->
-    case ets:lookup(snmpm_agent_table, {TargetName, Item}) of
+    agent_info({TargetName, Item}).
+
+agent_info(Key) ->
+    case ets:lookup(snmpm_agent_table, Key) of
 	[{_, Val}] ->
 	    {ok, Val};
 	[] ->
