@@ -373,7 +373,16 @@ compile_byte(File, Callgraph, CServer, UseContracts) ->
       {error, "  Could not get abstract code for: " ++ File ++ "\n" ++
 	 "  Recompile with +debug_info or analyze starting from source code"};
     {ok, AbstrCode} ->
-      compile_common(File, AbstrCode, [], Callgraph, CServer, UseContracts)
+      compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts)
+  end.
+
+compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts) ->
+  case dialyzer_utils:get_compile_options_from_beam(File) of
+    error ->
+      {error, "  Could not get compile options for: " ++ File ++ "\n" ++
+	 "  Recompile or analyze starting from source code"};
+    {ok, CompOpts} ->
+      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts)
   end.
 
 compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts) ->
