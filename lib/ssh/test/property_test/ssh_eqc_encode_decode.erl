@@ -22,20 +22,36 @@
 
 -compile(export_all).
 
+-proptest(eqc).
+-proptest([triq,proper]).
+
+-include_lib("ct_property_test.hrl").
+
 -ifndef(EQC).
 -ifndef(PROPER).
+-ifndef(TRIQ).
 -define(EQC,true).
 %%-define(PROPER,true).
+%%-define(TRIQ,true).
+-endif.
 -endif.
 -endif.
 
 -ifdef(EQC).
 -include_lib("eqc/include/eqc.hrl").
 -define(MOD_eqc,eqc).
+
 -else.
 -ifdef(PROPER).
 -include_lib("proper/include/proper.hrl").
 -define(MOD_eqc,proper).
+
+-else.
+-ifdef(TRIQ).
+-define(MOD_eqc,triq).
+-include_lib("triq/include/triq.hrl").
+
+-endif.
 -endif.
 -endif.
 
