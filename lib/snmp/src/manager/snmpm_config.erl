@@ -479,29 +479,29 @@ agent_info(Domain, Address, Item) when is_atom(Domain) ->
 	    do_agent_info(Domain, NAddress, Item)
     catch
 	_Thrown ->
-	    p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
-	      "    ~p",
-	      [Domain, Address, Item, _Thrown, erlang:get_stacktrace()]),
+	    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
+	    %%   "    ~p",
+	    %%   [Domain, Address, Item, _Thrown, erlang:get_stacktrace()]),
 	    {error, not_found}
     end;
 agent_info(Ip, Port, Item) when is_integer(Port) ->
-    p(?MODULE_STRING":agent_info(~p, ~p, ~p) entry~n",
-      [Ip, Port, Item]),
+    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) entry~n",
+    %%   [Ip, Port, Item]),
     Domain = default_transport_domain(),
     try fix_address(Domain, {Ip, Port}) of
 	Address ->
 	    do_agent_info(Domain, Address, Item)
     catch
 	_Thrown ->
-	    p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
-	      "    ~p",
-	      [Ip, Port, Item, _Thrown, erlang:get_stacktrace()]),
+	    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
+	    %%   "    ~p",
+	    %%   [Ip, Port, Item, _Thrown, erlang:get_stacktrace()]),
 	    {error, not_found}
     end.
 
 do_agent_info(Domain, Address, target_name = Item) ->
-    p(?MODULE_STRING":do_agent_info(~p, ~p, ~p) entry~n",
-      [Domain, Address, Item]),
+    %% p(?MODULE_STRING":do_agent_info(~p, ~p, ~p) entry~n",
+    %%   [Domain, Address, Item]),
     case ets:lookup(snmpm_agent_table, {Domain, Address, Item}) of
 	[{_, Val}] ->
 	    {ok, Val};
@@ -509,8 +509,8 @@ do_agent_info(Domain, Address, target_name = Item) ->
 	    {error, not_found}
     end;
 do_agent_info(Domain, Address, Item) ->
-    p(?MODULE_STRING":do_agent_info(~p, ~p, ~p) entry~n",
-      [Domain, Address, Item]),
+    %% p(?MODULE_STRING":do_agent_info(~p, ~p, ~p) entry~n",
+    %%   [Domain, Address, Item]),
     case do_agent_info(Domain, Address, target_name) of
 	{ok, TargetName} ->
 	    agent_info(TargetName, Item);
@@ -3431,5 +3431,5 @@ error_msg(F, A) ->
 %% p(F) ->
 %%     p(F, []).
 
-p(F, A) ->
-    io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
+%% p(F, A) ->
+%%     io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
