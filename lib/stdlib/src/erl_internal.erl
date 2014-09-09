@@ -295,6 +295,7 @@ bif(garbage_collect, 1) -> true;
 bif(garbage_collect, 2) -> true;
 bif(get, 0) -> true;
 bif(get, 1) -> true;
+bif(get_keys, 0) -> true;
 bif(get_keys, 1) -> true;
 bif(group_leader, 0) -> true;
 bif(group_leader, 2) -> true;

@@ -82,6 +82,7 @@
 static void pd_hash_erase(Process *p, Eterm id, Eterm *ret);
 static void pd_hash_erase_all(Process *p);
 static Eterm pd_hash_get_keys(Process *p, Eterm value);
+static Eterm pd_hash_get_all_keys(Process *p, ProcDict *pd);
 static Eterm pd_hash_get_all(Process *p, ProcDict *pd);
 static Eterm pd_hash_put(Process *p, Eterm id, Eterm value);
 
@@ -275,6 +276,16 @@ BIF_RETTYPE get_1(BIF_ALIST_1)
     BIF_RET(ret);
 }
 
+BIF_RETTYPE get_keys_0(BIF_ALIST_0)
+{
+    Eterm ret;
+
+    PD_CHECK(BIF_P->dictionary);
+    ret = pd_hash_get_all_keys(BIF_P,BIF_P->dictionary);
+    PD_CHECK(BIF_P->dictionary);
+    BIF_RET(ret);
+}
+
 BIF_RETTYPE get_keys_1(BIF_ALIST_1)
 {
     Eterm ret;
@@ -411,6 +422,47 @@ Eterm erts_pd_hash_get(Process *p, Eterm id)
     }
     return am_undefined;
 }
+
+#define PD_GET_TKEY(Dst,Src)                            \
+do {                                                    \
+    ASSERT(is_tuple((Src)));                            \
+    ASSERT(arityval(*((Eterm*)tuple_val((Src)))) == 2); \
+    (Dst) = ((Eterm*)tuple_val((Src)))[1];              \
+} while(0)
+
+static Eterm pd_hash_get_all_keys(Process *p, ProcDict *pd) {
+    Eterm* hp;
+    Eterm res = NIL;
+    Eterm tmp, tmp2;
+    unsigned int i;
+    unsigned int num;
+
+    if (pd == NULL) {
+	return res;
+    }
+
+    num = HASH_RANGE(pd);
+    hp = HAlloc(p, pd->numElements * 2);
+
+    for (i = 0; i < num; ++i) {
+	tmp = ARRAY_GET(pd, i);
+	if (is_boxed(tmp)) {
+	    PD_GET_TKEY(tmp,tmp);
+	    res = CONS(hp, tmp, res);
+	    hp += 2;
+	} else if (is_list(tmp)) {
+	    while (tmp != NIL) {
+		tmp2 = TCAR(tmp);
+		PD_GET_TKEY(tmp2,tmp2);
+		res = CONS(hp, tmp2, res);
+		hp += 2;
+		tmp = TCDR(tmp);
+	    }
+	}
+    }
+    return res;
+}
+#undef PD_GET_TKEY
 
 static Eterm pd_hash_get_keys(Process *p, Eterm value) 
 {
