@@ -1573,7 +1573,8 @@ transports(#state{watchdogT = WatchdogT}) ->
 -define(OTHER_INFO, [connections,
                      name,
                      peers,
-                     statistics]).
+                     statistics,
+                     info]).
 
 service_info(Item, S)
   when is_atom(Item) ->
@@ -1663,6 +1664,7 @@ complete_info(Item, #state{service = Svc} = S) ->
         keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
         statistics   -> info_stats(S);
+        info         -> info_info(S);
         connections  -> info_connections(S);
         peers        -> info_peers(S)
     end.
@@ -1745,12 +1747,11 @@ peer_acc(PeerT, Acc, #watchdog{pid = Pid,
                                state = WS,
                                started = At,
                                peer = TPid}) ->
-    dict:append(Ref,
-                [{type, Type},
-                 {options, Opts},
-                 {watchdog, {Pid, At, WS}}
-                 | info_peer(PeerT, TPid, WS)],
-                Acc).
+    Info = [{type, Type},
+            {options, Opts},
+            {watchdog, {Pid, At, WS}}
+            | info_peer(PeerT, TPid, WS)],
+    dict:append(Ref, Info ++ [{info, info_process_info(Info)}], Acc).
 
 info_peer(PeerT, TPid, WS)
   when is_pid(TPid), WS /= ?WD_DOWN ->
@@ -1761,6 +1762,49 @@ info_peer(PeerT, TPid, WS)
     end;
 info_peer(_, _, _) ->
     [].
+
+info_process_info(Info) ->
+    lists:flatmap(fun ipi/1, Info).
+
+ipi({watchdog, {Pid, _, _}}) ->
+    info_pid(Pid);
+
+ipi({peer, {Pid, _}}) ->
+    info_pid(Pid);
+
+ipi({port, [{owner, Pid} | _]}) ->
+    info_pid(Pid);
+
+ipi(_) ->
+    [].
+
+info_pid(Pid) ->
+    case process_info(Pid, [message_queue_len, memory, binary]) of
+        undefined ->
+            [];
+        L ->
+            [{Pid, lists:map(fun({K,V}) -> {K, map_info(K,V)} end, L)}]
+    end.
+
+%% The binary list consists of 3-tuples {Ptr, Size, Count}, where Ptr
+%% is a C pointer value, Size is the size of a referenced binary in
+%% bytes, and Count is a global reference count. The same Ptr can
+%% occur multiple times, once for each reference on the process heap.
+%% In this case, the corresponding tuples will have Size in common but
+%% Count may differ just because no global lock is taken when the
+%% value is retrieved.
+%%
+%% The list can be quite large, and we aren't often interested in the
+%% pointers or counts, so whittle this down to the number of binaries
+%% referenced and their total byte count.
+map_info(binary, L) ->
+    SzD = lists:foldl(fun({P,S,_}, D) -> dict:store(P,S,D) end,
+                      dict:new(),
+                      L),
+    {dict:size(SzD), dict:fold(fun(_,S,N) -> S + N end, 0, SzD)};
+
+map_info(_, T) ->
+    T.
 
 %% The point of extracting the config here is so that 'transport' info
 %% has one entry for each transport ref, the peer table only
@@ -1818,6 +1862,13 @@ mk_app(#diameter_app{} = A) ->
 
 info_pending(#state{} = S) ->
     diameter_traffic:pending(transports(S)).
+
+%% info_info/1
+%%
+%% Extract process_info from connections info.
+
+info_info(S) ->
+    [I || L <- conn_list(S), {info, I} <- L].
 
 %% info_connections/1
 %%
