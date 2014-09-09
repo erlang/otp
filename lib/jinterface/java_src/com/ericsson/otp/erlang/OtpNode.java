@@ -756,6 +756,7 @@ public class OtpNode extends OtpLocalNode {
 
 		try {
 		    newsock = sock.accept();
+		    //newsock.setSoTimeout(AbstractConnection.SOCKET_TIMEOUT_MILLIS);
 		} catch (final Exception e) {
 		    // Problem in java1.2.2: accept throws SocketException
 		    // when socket is closed. This will happen when
@@ -775,18 +776,10 @@ public class OtpNode extends OtpLocalNode {
 			addConnection(conn);
 		    }
 		} catch (final OtpAuthException e) {
-		    if (conn != null && conn.name != null) {
-			connAttempt(conn.name, true, e);
-		    } else {
-			connAttempt("unknown", true, e);
-		    }
+			connAttempt((conn != null && conn.name != null)?conn.name:"unknown", true, e);
 		    closeSock(newsock);
 		} catch (final IOException e) {
-		    if (conn != null && conn.name != null) {
-			connAttempt(conn.name, true, e);
-		    } else {
-			connAttempt("unknown", true, e);
-		    }
+			connAttempt((conn != null && conn.name != null)?conn.name:"unknown", true, e);
 		    closeSock(newsock);
 		} catch (final Exception e) {
 		    closeSock(newsock);

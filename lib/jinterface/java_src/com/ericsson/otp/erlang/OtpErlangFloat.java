@@ -52,7 +52,6 @@ public class OtpErlangFloat extends OtpErlangDouble implements Serializable,
     public OtpErlangFloat(final OtpInputStream buf)
 	    throws OtpErlangDecodeException, OtpErlangRangeException {
 	super(buf);
-
-	final float f = floatValue();
+	floatValue();
     }
 }

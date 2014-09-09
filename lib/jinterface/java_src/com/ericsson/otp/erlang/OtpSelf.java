@@ -184,6 +184,7 @@ public class OtpSelf extends OtpLocalNode {
 	while (true) {
 	    try {
 		newsock = sock.accept();
+		//newsock.setSoTimeout(AbstractConnection.SOCKET_TIMEOUT_MILLIS);
 		return new OtpConnection(this, newsock);
 	    } catch (final IOException e) {
 		try {
