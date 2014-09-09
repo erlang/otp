@@ -31,6 +31,7 @@
 	 format_sig/1,
 	 format_sig/2,
 	 get_abstract_code_from_beam/1,
+ 	 get_compile_options_from_beam/1,
 	 get_abstract_code_from_src/1,
 	 get_abstract_code_from_src/2,
 	 get_core_from_abstract_code/1,
@@ -136,6 +137,26 @@ get_abstract_code_from_beam(File) ->
       error
   end.
 
+-spec get_compile_options_from_beam(file:filename()) -> 'error' | {'ok', [compile:option()]}.
+
+get_compile_options_from_beam(File) ->
+  case beam_lib:chunks(File, [compile_info]) of
+    {ok, {_, List}} ->
+      case lists:keyfind(compile_info, 1, List) of
+	{compile_info, CompInfo} -> compile_info_to_options(CompInfo);
+	_ -> error
+      end;
+    _ ->
+      %% No or unsuitable compile info.
+      error
+  end.
+
+compile_info_to_options(CompInfo) ->
+  case lists:keyfind(options, 1, CompInfo) of
+    {options, CompOpts} -> {ok, CompOpts};
+    _ -> error
+  end.
+
 -type get_core_from_abs_ret() :: {'ok', cerl:c_module()} | 'error'.
 
 -spec get_core_from_abstract_code(abstract_code()) -> get_core_from_abs_ret().
@@ -150,7 +171,9 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
   %% performed them. In some cases we end up in trouble when
   %% performing them again.
   AbstrCode1 = cleanup_parse_transforms(AbstrCode),
-  try compile:forms(AbstrCode1, Opts ++ src_compiler_opts()) of
+  %% Remove parse_transforms (and other options) from compile options.
+  Opts2 = cleanup_compile_options(Opts),
+  try compile:forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
       {ok, _, Core} -> {ok, Core};
       _What -> error
   catch
@@ -439,6 +462,24 @@ cleanup_parse_transforms([{attribute, _, compile, {parse_transform, _}}|Left]) -
 cleanup_parse_transforms([Other|Left]) ->
   [Other|cleanup_parse_transforms(Left)];
 cleanup_parse_transforms([]) ->
+  [].
+
+-spec cleanup_compile_options([compile:option()]) -> [compile:option()].
+
+%% Using abstract, not asm or core.
+cleanup_compile_options([from_asm|Opts]) ->
+  Opts;
+cleanup_compile_options([asm|Opts]) ->
+  Opts;
+cleanup_compile_options([from_core|Opts]) ->
+  Opts;
+%% The parse transform will already have been applied, may cause problems if it
+%% is re-applied.
+cleanup_compile_options([{parse_transform, _}|Opts]) ->
+  Opts;
+cleanup_compile_options([Other|Opts]) ->
+  [Other|cleanup_compile_options(Opts)];
+cleanup_compile_options([]) ->
   [].
 
 -spec format_errors([{module(), string()}]) -> [string()].
