@@ -2681,6 +2681,9 @@ Eterm erts_chars_to_integer(Process *BIF_P, char *bytes,
 	else {
 	    Uint *big = big_val(res); /* point to thing */
 	    *big = bignum_header_neg(*big);
+	    /* -(MAX_SMALL+1) is MIN_SMALL, so handle possible
+	       bignum to fixnum conversion here */
+	    res = big_plus_small(res, 0, hp);
 	}
     }
 

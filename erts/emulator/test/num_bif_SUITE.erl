@@ -385,6 +385,15 @@ t_string_to_integer(Config) when is_list(Config) ->
     0 = erlang:binary_to_integer(id(<<"-0">>)),
     0 = erlang:binary_to_integer(id(<<"+0">>)),
 
+    %% check that {binary,list}_to_integer/1 on MIN_SMALL
+    %% returns a fixnum not a bignum
+    MinSmall32 = -(1 bsl 27),
+    MinSmall32 = erlang:binary_to_integer(id(erlang:integer_to_binary(MinSmall32))),
+    MinSmall32 = erlang:list_to_integer(id(erlang:integer_to_list(MinSmall32))),
+    MinSmall64 = -(1 bsl 59),
+    MinSmall64 = erlang:binary_to_integer(id(erlang:integer_to_binary(MinSmall64))),
+    MinSmall64 = erlang:list_to_integer(id(erlang:integer_to_list(MinSmall64))),
+
     test_sti(0),
     test_sti(1),
     test_sti(-1),
