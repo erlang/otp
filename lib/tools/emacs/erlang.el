@@ -7,7 +7,7 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2013. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2014. All Rights Reserved.
 ;;
 ;; The contents of this file are subject to the Erlang Public License,
 ;; Version 1.1, (the "License"); you may not use this file except in
@@ -886,6 +886,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "flush_monitor_message"
       "format_cpu_topology"
       "fun_info"
+      "fun_info_mfa"
       "fun_to_list"
       "function_exported"
       "garbage_collect_message_area"
