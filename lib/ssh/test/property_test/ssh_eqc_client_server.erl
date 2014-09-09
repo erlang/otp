@@ -27,6 +27,10 @@
 -ifdef(PROPER).
 %% Proper is not supported.
 -else.
+-ifdef(TRIQ).
+%% Proper is not supported.
+-else.
+
 
 -include_lib("eqc/include/eqc.hrl").
 -include_lib("eqc/include/eqc_statem.hrl").
@@ -599,4 +603,5 @@ erase_dir(Dir) ->
     end,
     file:del_dir(Dir).
 
+-endif.
 -endif.
