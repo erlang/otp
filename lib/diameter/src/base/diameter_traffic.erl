@@ -476,7 +476,7 @@ send_A({Caps, Pkt}, TPid, Dict0, _RecvData) ->  %% unsupported application
     #diameter_packet{errors = [RC|_]} = Pkt,
     send_A(answer_message(RC, Caps, Dict0, Pkt),
            TPid,
-           Dict0,
+           {Dict0, Dict0},
            Pkt,
            [],
            []);
@@ -1457,7 +1457,7 @@ handle_answer(SvcName,
               = App,
               {answer, Req, Dict0, Pkt}) ->
     Dict = dict(AppDict, Dict0, Pkt),
-    handle_A(errors(Id, diameter_codec:decode(Dict, Pkt)),
+    handle_A(errors(Id, diameter_codec:decode({Dict, AppDict}, Pkt)),
              SvcName,
              Dict,
              Dict0,

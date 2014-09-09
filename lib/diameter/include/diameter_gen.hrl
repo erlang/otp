@@ -311,7 +311,9 @@ d(Name, Avp, Acc) ->
 
     Failed = relax(Name),  %% Not AvpName or else a failed Failed-AVP
                            %% decode is packed into 'AVP'.
-    try avp(decode, Data, AvpName) of
+    Mod = dict(Failed),    %% Dictionary to decode in.
+
+    try Mod:avp(decode, Data, AvpName) of
         V ->
             {Avps, T} = Acc,
             {H, A} = ungroup(V, Avp),
@@ -323,6 +325,25 @@ d(Name, Avp, Acc) ->
         reset(?STRICT_KEY, Strict),
         reset(?FAILED_KEY, Failed)
     end.
+
+%% dict/1
+%%
+%% Retrieve the dictionary for the best-effort decode of Failed-AVP,
+%% as put by diameter_codec:decode/2. See that function for the
+%% explanation.
+
+dict(true) ->
+    case get({diameter_codec, dictionary}) of
+        undefined ->
+            ?MODULE;
+        Mod ->
+            Mod
+    end;
+
+dict(_) ->
+    ?MODULE.
+
+%% d/5
 
 %% Ignore a decode error within Failed-AVP ...
 d(true, _, Name, Avp, Acc) ->
@@ -341,6 +362,8 @@ d(false, Reason, Name, Avp, {Avps, Acc}) ->
     {Rec, Failed} = Acc,
     {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}.
 
+%% relax/2
+
 %% Set false in the process dictionary as soon as we see a Grouped AVP
 %% that doesn't set the M-bit, so that is_strict() can say whether or
 %% not to ignore the M-bit on an encapsulated AVP.
@@ -357,21 +380,22 @@ relax(_, _) ->
 is_strict() ->
     false /= getr(?STRICT_KEY).
 
+%% relax/1
+%%
 %% Set true in the process dictionary as soon as we see Failed-AVP.
 %% Matching on 'Failed-AVP' assumes that this is the RFC AVP.
 %% Strictly, this doesn't need to be the case.
+
 relax('Failed-AVP') ->
-    case getr(?FAILED_KEY) of
-        undefined ->
-            putr(?FAILED_KEY, true);
-        true = Yes ->
-            Yes
-    end;
+    is_failed() orelse putr(?FAILED_KEY, true);
+
 relax(_) ->
     is_failed().
     
 is_failed() ->
     true == getr(?FAILED_KEY).
+
+%% reset/2
 
 reset(Key, undefined) ->
     eraser(Key);
@@ -453,8 +477,8 @@ pack_AVP(_, #diameter_avp{data = <<0:1, Data/binary>>} = Avp, Acc) ->
     {Rec, Failed} = Acc,
     {Rec, [{5014, Avp#diameter_avp{data = Data}} | Failed]};
 
-pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
-    case pack_arity(Name, M) of
+pack_AVP(Name, #diameter_avp{is_mandatory = M, name = AvpName} = Avp, Acc) ->
+    case pack_arity(Name, AvpName, M) of
         0 ->
             {Rec, Failed} = Acc,
             {Rec, [{if M -> 5001; true -> 5008 end, Avp} | Failed]};
@@ -462,10 +486,13 @@ pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
             pack(Arity, 'AVP', Avp, Acc)
     end.
 
-%% Give Failed-AVP special treatment since it'll contain any
-%% unrecognized mandatory AVP's.
-pack_arity(Name, M) ->
-    NF = Name /= 'Failed-AVP' andalso not is_failed(),
+%% Give Failed-AVP special treatment since (1) it'll contain any
+%% unrecognized mandatory AVP's and (2) the RFC 3588 grammar failed to
+%% allow for Failed-AVP in an answer-message.
+
+pack_arity(Name, AvpName, M) ->
+    IsFailed = Name == 'Failed-AVP' orelse is_failed(),
+
     %% Not testing just Name /= 'Failed-AVP' means we're changing the
     %% packing of AVPs nested within Failed-AVP, but the point of
     %% ignoring errors within Failed-AVP is to decode as much as
@@ -473,12 +500,18 @@ pack_arity(Name, M) ->
     %% packed into a dedicated field defeats that point. Note that we
     %% can't just test not is_failed() since this will be 'true' when
     %% packing an unknown AVP directly within Failed-AVP.
-    case NF andalso M andalso is_strict() of
-        true ->
-            0;
-        false ->
-            avp_arity(Name, 'AVP')
-    end.
+
+    pack_arity(IsFailed
+                 orelse {Name, AvpName} == {'answer-message', 'Failed-AVP'}
+                 orelse not M
+                 orelse not is_strict(),
+               Name).
+
+pack_arity(true, Name) ->
+    avp_arity(Name, 'AVP');
+
+pack_arity(false, _) ->
+    0.
 
 %% 3588:
 %%
