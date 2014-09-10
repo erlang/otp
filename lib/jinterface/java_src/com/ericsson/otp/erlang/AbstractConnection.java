@@ -506,7 +506,7 @@ public abstract class AbstractConnection extends Thread {
 		// don't return until we get a real message
 		// or a failure of some kind (e.g. EXIT)
 		// read length and read buffer must be atomic!
-		tick_loop: do {
+        do {
 		    // read 4 bytes - get length of incoming packet
 		    // socket.getInputStream().read(lbuf);
 		    readSock(socket, lbuf);

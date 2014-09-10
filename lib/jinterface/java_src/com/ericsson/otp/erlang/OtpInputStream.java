@@ -214,7 +214,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[0] << 8 & 0xff00) + (b[1] & 0xff);
     }
 
@@ -233,7 +232,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[0] << 24 & 0xff000000) + (b[1] << 16 & 0xff0000)
 		+ (b[2] << 8 & 0xff00) + (b[3] & 0xff);
     }
@@ -253,7 +251,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[1] << 8 & 0xff00) + (b[0] & 0xff);
     }
 
@@ -272,7 +269,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[3] << 24 & 0xff000000) + (b[2] << 16 & 0xff0000)
 		+ (b[1] << 8 & 0xff00) + (b[0] & 0xff);
     }
@@ -295,7 +291,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	long v = 0;
 	while (n-- > 0) {
 	    v = v << 8 | (long) b[n] & 0xff;
@@ -321,7 +316,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	long v = 0;
 	for (int i = 0; i < n; i++) {
 	    v = v << 8 | (long) b[i] & 0xff;
