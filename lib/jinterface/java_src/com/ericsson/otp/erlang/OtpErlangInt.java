@@ -54,6 +54,6 @@ public class OtpErlangInt extends OtpErlangLong {
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final int j = intValue();
+    intValue();
     }
 }

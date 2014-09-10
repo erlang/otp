@@ -38,7 +38,7 @@ public class OtpErlangUInt extends OtpErlangLong {
     public OtpErlangUInt(final int i) throws OtpErlangRangeException {
 	super(i);
 
-	final int j = uIntValue();
+    uIntValue();
     }
 
     /**
@@ -60,6 +60,6 @@ public class OtpErlangUInt extends OtpErlangLong {
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final int j = uIntValue();
+    uIntValue();
     }
 }

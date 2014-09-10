@@ -826,7 +826,6 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		    write_nil(); // it should never ever get here...
 		}
 	    } else { // unicode or longer, must code as list
-		final char[] charbuf = s.toCharArray();
 		final int[] codePoints = OtpErlangString.stringToCodePoints(s);
 		write_list_head(codePoints.length);
 		for (final int codePoint : codePoints) {

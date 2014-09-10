@@ -38,7 +38,7 @@ public class OtpErlangUShort extends OtpErlangLong {
     public OtpErlangUShort(final short s) throws OtpErlangRangeException {
 	super(s);
 
-	final short j = uShortValue();
+    uShortValue();
     }
 
     /**
@@ -60,6 +60,6 @@ public class OtpErlangUShort extends OtpErlangLong {
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final short j = uShortValue();
+    uShortValue();
     }
 }
