@@ -85,16 +85,17 @@ public class OtpInputStream extends ByteArrayInputStream {
      * 
      * @return the previous position in the stream.
      */
-    public int setPos(int pos) {
+    public int setPos(final int pos) {
 	final int oldpos = super.pos;
 
+    int apos = pos;
 	if (pos > super.count) {
-	    pos = super.count;
+        apos = super.count;
 	} else if (pos < 0) {
-	    pos = 0;
+        apos = 0;
 	}
 
-	super.pos = pos;
+    super.pos = apos;
 
 	return oldpos;
     }
@@ -284,7 +285,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next byte cannot be read.
      */
-    public long readLE(int n) throws OtpErlangDecodeException {
+    public long readLE(final int n) throws OtpErlangDecodeException {
 	final byte[] b = new byte[n];
 	try {
 	    super.read(b);
@@ -292,8 +293,9 @@ public class OtpInputStream extends ByteArrayInputStream {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
 	long v = 0;
-	while (n-- > 0) {
-	    v = v << 8 | (long) b[n] & 0xff;
+    int i = n;
+    while (i-- > 0) {
+        v = v << 8 | (long) b[i] & 0xff;
 	}
 	return v;
     }
