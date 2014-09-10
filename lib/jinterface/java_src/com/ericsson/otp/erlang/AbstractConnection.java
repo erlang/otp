@@ -749,13 +749,14 @@ public abstract class AbstractConnection extends Thread {
 	final int oldLevel = traceLevel;
 
 	// pin the value
+    int theLevel = level;
 	if (level < 0) {
-	    level = 0;
+        theLevel = 0;
 	} else if (level > 4) {
-	    level = 4;
+        theLevel = 4;
 	}
 
-	traceLevel = level;
+    traceLevel = theLevel;
 
 	return oldLevel;
     }

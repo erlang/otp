@@ -17,7 +17,14 @@
  * %CopyrightEnd%
  */
 
-import com.ericsson.otp.erlang.*;
+import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangBoolean;
+import com.ericsson.otp.erlang.OtpErlangObject;
+import com.ericsson.otp.erlang.OtpErlangString;
+import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.ericsson.otp.erlang.OtpMbox;
+import com.ericsson.otp.erlang.OtpNode;
+import com.ericsson.otp.erlang.OtpNodeStatus;
 
 public class NodeStatusHandler extends OtpNodeStatus {
     /*
@@ -100,6 +107,7 @@ public class NodeStatusHandler extends OtpNodeStatus {
 
 
 
+  @Override
   public void remoteStatus(String node, boolean up, Object info) {
       try {
 	  dbg("Got remoteStatus: " + node + " " + up + " "  + info);
@@ -120,6 +128,7 @@ public class NodeStatusHandler extends OtpNodeStatus {
   }
 
 
+  @Override
   public void localStatus(String node, boolean up, Object info) {
       try {
 	  dbg("Got localStatus: " + node + " " + up + " "  + info);
@@ -141,6 +150,7 @@ public class NodeStatusHandler extends OtpNodeStatus {
 
 
 
+@Override
   public void connAttempt(String node, boolean incoming, Object info) {
       try {
 	  dbg("Got connAttempt: " + node + " " + incoming + " "  + info);

@@ -284,10 +284,11 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @param b
      *            the number of bytes to write from the little end.
      */
-    public void writeLE(long n, final int b) {
+    public void writeLE(final long n, final int b) {
+    long v = n;
 	for (int i = 0; i < b; i++) {
-	    write((byte) (n & 0xff));
-	    n >>= 8;
+        write((byte) (v & 0xff));
+        v >>= 8;
 	}
     }
 
@@ -517,16 +518,17 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	write_double(f);
     }
 
-    public void write_big_integer(BigInteger v) {
+    public void write_big_integer(final BigInteger v) {
 	if (v.bitLength() < 64) {
 	    this.write_long(v.longValue(), true);
 	    return;
 	}
 	final int signum = v.signum();
+    BigInteger val = v;
 	if (signum < 0) {
-	    v = v.negate();
+        val = val.negate();
 	}
-	final byte[] magnitude = v.toByteArray();
+    final byte[] magnitude = val.toByteArray();
 	final int n = magnitude.length;
 	// Reverse the array to make it little endian.
 	for (int i = 0, j = n; i < j--; i++) {
