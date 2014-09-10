@@ -310,9 +310,7 @@ public class OtpEpmd {
 	    final int n = s.getInputStream().read(tmpbuf);
 
 	    if (n < 0) {
-		if (s != null) {
 		    s.close();
-		}
 		throw new IOException("Nameserver not responding on "
 			+ node.host() + " when publishing " + node.alive());
 	    }
@@ -341,9 +339,7 @@ public class OtpEpmd {
 	    throw new IOException("Nameserver not responding on " + node.host()
 		    + " when publishing " + node.alive());
 	} catch (final OtpErlangDecodeException e) {
-	    if (s != null) {
 		s.close();
-	    }
 	    if (traceLevel >= traceThreshold) {
 		System.out.println("<- (invalid response)");
 	    }
@@ -351,9 +347,7 @@ public class OtpEpmd {
 		    + " when publishing " + node.alive());
 	}
 
-	if (s != null) {
 	    s.close();
-	}
 	return null;
     }
 
