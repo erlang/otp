@@ -44,8 +44,11 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     public static final int defaultIncrement = 2048;
 
     // static formats, used to encode floats and doubles
+    @SuppressWarnings("unused")
     private static final DecimalFormat eform = new DecimalFormat("e+00;e-00");
+    @SuppressWarnings("unused")
     private static final BigDecimal ten = new BigDecimal(10.0);
+    @SuppressWarnings("unused")
     private static final BigDecimal one = new BigDecimal(1.0);
 
     private int fixedSize = Integer.MAX_VALUE;
