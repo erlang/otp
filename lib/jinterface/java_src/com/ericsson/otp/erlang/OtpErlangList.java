@@ -186,12 +186,11 @@ public class OtpErlangList extends OtpErlangObject implements
     public OtpErlangObject[] elements() {
 	if (arity() == 0) {
 	    return NO_ELEMENTS;
-	} else {
+    }
 	    final OtpErlangObject[] res = new OtpErlangObject[arity()];
 	    System.arraycopy(elems, 0, res, 0, res.length);
 	    return res;
 	}
-    }
 
     /**
      * Get the string representation of the list.
@@ -360,9 +359,8 @@ public class OtpErlangList extends OtpErlangObject implements
 	if (arity >= n) {
 	    if (arity == n && lastTail != null) {
 		return lastTail;
-	    } else {
-		return new SubList(this, n);
 	    }
+        return new SubList(this, n);
 	}
 	return null;
     }

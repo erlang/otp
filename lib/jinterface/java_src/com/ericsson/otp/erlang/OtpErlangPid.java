@@ -195,14 +195,11 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
 	    if (serial == pid.serial) {
 		if (id == pid.id) {
 		    return node.compareTo(pid.node);
-		} else {
+        }
 		    return id - pid.id;
 		}
-	    } else {
 		return serial - pid.serial;
 	    }
-	} else {
 	    return creation - pid.creation;
 	}
     }
-}

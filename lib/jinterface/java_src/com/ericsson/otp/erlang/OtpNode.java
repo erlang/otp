@@ -450,9 +450,8 @@ public class OtpNode extends OtpLocalNode {
 		/* special case for netKernel requests */
 		if (name.equals("net_kernel")) {
 		    return netKernel(m);
-		} else {
-		    mbox = mboxes.get(name);
 		}
+        mbox = mboxes.get(name);
 	    } else {
 		mbox = mboxes.get(m.getRecipientPid());
 	    }
