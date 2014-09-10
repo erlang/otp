@@ -20,7 +20,6 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.Socket;
 import java.util.Random;
 
@@ -918,18 +917,16 @@ public abstract class AbstractConnection extends Thread {
 	int got = 0;
 	final int len = b.length;
 	int i;
-	InputStream is = null;
 
 	synchronized (this) {
 	    if (s == null) {
 		throw new IOException("expected " + len
 			+ " bytes, socket was closed");
 	    }
-	    is = s.getInputStream();
 	}
 
 	while (got < len) {
-	    i = is.read(b, got, len - got);
+        i = s.getInputStream().read(b, got, len - got);
 
 	    if (i < 0) {
 		throw new IOException("expected " + len
