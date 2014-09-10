@@ -74,7 +74,7 @@ public class OtpNode extends OtpLocalNode {
     OtpNodeStatus handler;
 
     // flags
-    private int flags = 0;
+    private int connFlags = 0;
 
     /**
      * <p>
@@ -495,7 +495,7 @@ public class OtpNode extends OtpLocalNode {
 		if (conn == null) {
 		    try {
 			conn = new OtpCookedConnection(this, peer);
-			conn.setFlags(flags);
+			conn.setFlags(connFlags);
 			addConnection(conn);
 		    } catch (final Exception e) {
 			/* false = outgoing */
@@ -770,7 +770,7 @@ public class OtpNode extends OtpLocalNode {
 		try {
 		    synchronized (connections) {
 			conn = new OtpCookedConnection(OtpNode.this, newsock);
-			conn.setFlags(flags);
+			conn.setFlags(connFlags);
 			addConnection(conn);
 		    }
 		} catch (final OtpAuthException e) {
@@ -801,6 +801,6 @@ public class OtpNode extends OtpLocalNode {
     }
 
     public void setFlags(final int flags) {
-	this.flags = flags;
+	this.connFlags = flags;
     }
 }
