@@ -1054,25 +1054,25 @@ public abstract class AbstractConnection extends Thread {
 	return res;
     }
 
-    protected void sendName(final int dist, final int flags) throws IOException {
+    protected void sendName(final int dist, final int aflags) throws IOException {
 
 	final OtpOutputStream obuf = new OtpOutputStream();
 	final String str = localNode.node();
 	obuf.write2BE(str.length() + 7); // 7 bytes + nodename
 	obuf.write1(AbstractNode.NTYPE_R6);
 	obuf.write2BE(dist);
-	obuf.write4BE(flags);
+	obuf.write4BE(aflags);
 	obuf.write(str.getBytes());
 
 	obuf.writeTo(socket.getOutputStream());
 
 	if (traceLevel >= handshakeThreshold) {
-	    System.out.println("-> " + "HANDSHAKE sendName" + " flags=" + flags
+	    System.out.println("-> " + "HANDSHAKE sendName" + " flags=" + aflags
 		    + " dist=" + dist + " local=" + localNode);
 	}
     }
 
-    protected void sendChallenge(final int dist, final int flags,
+    protected void sendChallenge(final int dist, final int aflags,
 	    final int challenge) throws IOException {
 
 	final OtpOutputStream obuf = new OtpOutputStream();
@@ -1080,7 +1080,7 @@ public abstract class AbstractConnection extends Thread {
 	obuf.write2BE(str.length() + 11); // 11 bytes + nodename
 	obuf.write1(AbstractNode.NTYPE_R6);
 	obuf.write2BE(dist);
-	obuf.write4BE(flags);
+	obuf.write4BE(aflags);
 	obuf.write4BE(challenge);
 	obuf.write(str.getBytes());
 
@@ -1088,7 +1088,7 @@ public abstract class AbstractConnection extends Thread {
 
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("-> " + "HANDSHAKE sendChallenge" + " flags="
-		    + flags + " dist=" + dist + " challenge=" + challenge
+		    + aflags + " dist=" + dist + " challenge=" + challenge
 		    + " local=" + localNode);
 	}
     }
@@ -1107,7 +1107,7 @@ public abstract class AbstractConnection extends Thread {
 	return tmpbuf;
     }
 
-    protected void recvName(final OtpPeer peer) throws IOException {
+    protected void recvName(final OtpPeer apeer) throws IOException {
 
 	String hisname = "";
 
@@ -1116,32 +1116,32 @@ public abstract class AbstractConnection extends Thread {
 	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 	    byte[] tmpname;
 	    final int len = tmpbuf.length;
-	    peer.ntype = ibuf.read1();
-	    if (peer.ntype != AbstractNode.NTYPE_R6) {
+	    apeer.ntype = ibuf.read1();
+	    if (apeer.ntype != AbstractNode.NTYPE_R6) {
 		throw new IOException("Unknown remote node type");
 	    }
-	    peer.distLow = peer.distHigh = ibuf.read2BE();
-	    if (peer.distLow < 5) {
+	    apeer.distLow = apeer.distHigh = ibuf.read2BE();
+	    if (apeer.distLow < 5) {
 		throw new IOException("Unknown remote node type");
 	    }
-	    peer.flags = ibuf.read4BE();
+	    apeer.flags = ibuf.read4BE();
 	    tmpname = new byte[len - 7];
 	    ibuf.readN(tmpname);
 	    hisname = OtpErlangString.newString(tmpname);
 	    // Set the old nodetype parameter to indicate hidden/normal status
 	    // When the old handshake is removed, the ntype should also be.
-	    if ((peer.flags & AbstractNode.dFlagPublished) != 0) {
-		peer.ntype = AbstractNode.NTYPE_R4_ERLANG;
+	    if ((apeer.flags & AbstractNode.dFlagPublished) != 0) {
+		apeer.ntype = AbstractNode.NTYPE_R4_ERLANG;
 	    } else {
-		peer.ntype = AbstractNode.NTYPE_R4_HIDDEN;
+		apeer.ntype = AbstractNode.NTYPE_R4_HIDDEN;
 	    }
 
-	    if ((peer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
+	    if ((apeer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
 		throw new IOException(
 			"Handshake failed - peer cannot handle extended references");
 	    }
 
-	    if ((peer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
+	    if ((apeer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
 		throw new IOException(
 			"Handshake failed - peer cannot handle extended pids and ports");
 	    }
@@ -1151,13 +1151,13 @@ public abstract class AbstractConnection extends Thread {
 	}
 
 	final int i = hisname.indexOf('@', 0);
-	peer.node = hisname;
-	peer.alive = hisname.substring(0, i);
-	peer.host = hisname.substring(i + 1, hisname.length());
+	apeer.node = hisname;
+	apeer.alive = hisname.substring(0, i);
+	apeer.host = hisname.substring(i + 1, hisname.length());
 
 	if (traceLevel >= handshakeThreshold) {
-	    System.out.println("<- " + "HANDSHAKE" + " ntype=" + peer.ntype
-		    + " dist=" + peer.distHigh + " remote=" + peer);
+	    System.out.println("<- " + "HANDSHAKE" + " ntype=" + apeer.ntype
+		    + " dist=" + apeer.distHigh + " remote=" + apeer);
 	}
     }
 

@@ -136,8 +136,8 @@ public class OtpErlangAtom extends OtpErlangObject {
 	    return false;
 	}
 
-	final OtpErlangAtom atom = (OtpErlangAtom) o;
-	return this.atom.compareTo(atom.atom) == 0;
+	final OtpErlangAtom other = (OtpErlangAtom) o;
+	return this.atom.compareTo(other.atom) == 0;
     }
     
     @Override

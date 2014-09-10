@@ -143,12 +143,12 @@ public class OtpNode extends OtpLocalNode {
 	init(port);
     }
 
-    private synchronized void init(final int port) throws IOException {
+    private synchronized void init(final int aport) throws IOException {
 	if (!initDone) {
 	    connections = new Hashtable<String, OtpCookedConnection>(17,
 		    (float) 0.95);
 	    mboxes = new Mailboxes();
-	    acceptor = new Acceptor(port);
+	    acceptor = new Acceptor(aport);
 	    initDone = true;
 	}
     }
@@ -314,13 +314,13 @@ public class OtpNode extends OtpLocalNode {
      * OtpNodeStatus} handler object contains callback methods, that will be
      * called when certain events occur.
      * 
-     * @param handler
+     * @param ahandler
      *            the callback object to register. To clear the handler, specify
      *            null as the handler to use.
      * 
      */
-    public synchronized void registerStatusHandler(final OtpNodeStatus handler) {
-	this.handler = handler;
+    public synchronized void registerStatusHandler(final OtpNodeStatus ahandler) {
+	this.handler = ahandler;
     }
 
     /**
@@ -344,7 +344,7 @@ public class OtpNode extends OtpLocalNode {
      *     ;
      * </pre>
      * 
-     * @param node
+     * @param anode
      *            the name of the node to ping.
      * 
      * @param timeout
@@ -362,11 +362,11 @@ public class OtpNode extends OtpLocalNode {
      * 
      * the reply: <- SEND {2,'',#Pid<bingo@aule.1.0>} {#Ref<bingo@aule.2>,yes}
      */
-    public boolean ping(final String node, final long timeout) {
-	if (node.equals(this.node)) {
+    public boolean ping(final String anode, final long timeout) {
+	if (anode.equals(this.node)) {
 	    return true;
-	} else if (node.indexOf('@', 0) < 0
-		&& node.equals(this.node
+	} else if (anode.indexOf('@', 0) < 0
+		&& anode.equals(this.node
 			.substring(0, this.node.indexOf('@', 0)))) {
 	    return true;
 	}
@@ -375,7 +375,7 @@ public class OtpNode extends OtpLocalNode {
 	OtpMbox mbox = null;
 	try {
 	    mbox = createMbox();
-	    mbox.send("net_kernel", node, getPingTuple(mbox));
+	    mbox.send("net_kernel", anode, getPingTuple(mbox));
 	    final OtpErlangObject reply = mbox.receive(timeout);
 
 	    final OtpErlangTuple t = (OtpErlangTuple) reply;
@@ -392,17 +392,17 @@ public class OtpNode extends OtpLocalNode {
     private OtpErlangTuple getPingTuple(final OtpMbox mbox) {
 	final OtpErlangObject[] ping = new OtpErlangObject[3];
 	final OtpErlangObject[] pid = new OtpErlangObject[2];
-	final OtpErlangObject[] node = new OtpErlangObject[2];
+	final OtpErlangObject[] anode = new OtpErlangObject[2];
 
 	pid[0] = mbox.self();
 	pid[1] = createRef();
 
-	node[0] = new OtpErlangAtom("is_auth");
-	node[1] = new OtpErlangAtom(node());
+	anode[0] = new OtpErlangAtom("is_auth");
+	anode[1] = new OtpErlangAtom(node());
 
 	ping[0] = new OtpErlangAtom("$gen_call");
 	ping[1] = new OtpErlangTuple(pid);
-	ping[2] = new OtpErlangTuple(node);
+	ping[2] = new OtpErlangTuple(anode);
 
 	return new OtpErlangTuple(ping);
     }
@@ -479,17 +479,17 @@ public class OtpNode extends OtpLocalNode {
     /*
      * find or create a connection to the given node
      */
-    OtpCookedConnection getConnection(final String node) {
+    OtpCookedConnection getConnection(final String anode) {
 	OtpPeer peer = null;
 	OtpCookedConnection conn = null;
 
 	synchronized (connections) {
 	    // first just try looking up the name as-is
-	    conn = connections.get(node);
+	    conn = connections.get(anode);
 
 	    if (conn == null) {
 		// in case node had no '@' add localhost info and try again
-		peer = new OtpPeer(node);
+		peer = new OtpPeer(anode);
 		conn = connections.get(peer.node());
 
 		if (conn == null) {
@@ -521,35 +521,35 @@ public class OtpNode extends OtpLocalNode {
     }
 
     /* use these wrappers to call handler functions */
-    private synchronized void remoteStatus(final String node, final boolean up,
+    private synchronized void remoteStatus(final String anode, final boolean up,
 	    final Object info) {
 	if (handler == null) {
 	    return;
 	}
 	try {
-	    handler.remoteStatus(node, up, info);
+	    handler.remoteStatus(anode, up, info);
 	} catch (final Exception e) {
 	}
     }
 
-    synchronized void localStatus(final String node, final boolean up,
+    synchronized void localStatus(final String anode, final boolean up,
 	    final Object info) {
 	if (handler == null) {
 	    return;
 	}
 	try {
-	    handler.localStatus(node, up, info);
+	    handler.localStatus(anode, up, info);
 	} catch (final Exception e) {
 	}
     }
 
-    synchronized void connAttempt(final String node, final boolean incoming,
+    synchronized void connAttempt(final String anode, final boolean incoming,
 	    final Object info) {
 	if (handler == null) {
 	    return;
 	}
 	try {
-	    handler.connAttempt(node, incoming, info);
+	    handler.connAttempt(anode, incoming, info);
 	} catch (final Exception e) {
 	}
     }

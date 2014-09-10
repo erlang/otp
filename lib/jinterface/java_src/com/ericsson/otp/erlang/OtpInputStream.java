@@ -108,8 +108,8 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next byte cannot be read.
      */
-    public int readN(final byte[] buf) throws OtpErlangDecodeException {
-	return this.readN(buf, 0, buf.length);
+    public int readN(final byte[] abuf) throws OtpErlangDecodeException {
+	return this.readN(abuf, 0, abuf.length);
     }
 
     /**
@@ -121,12 +121,12 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next byte cannot be read.
      */
-    public int readN(final byte[] buf, final int off, final int len)
+    public int readN(final byte[] abuf, final int off, final int len)
 	    throws OtpErlangDecodeException {
 	if (len == 0 && available() == 0) {
 	    return 0;
 	}
-	final int i = super.read(buf, off, len);
+	final int i = super.read(abuf, off, len);
 	if (i < 0) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
@@ -1144,13 +1144,13 @@ public class OtpInputStream extends ByteArrayInputStream {
 	}
 
 	final int size = read4BE();
-	final byte[] buf = new byte[size];
+	final byte[] abuf = new byte[size];
 	final java.util.zip.InflaterInputStream is = 
 	    new java.util.zip.InflaterInputStream(this, new java.util.zip.Inflater(), size);
 	int curPos = 0;
 	try {
 	    int curRead;
-	    while(curPos < size && (curRead = is.read(buf, curPos, size - curPos)) != -1) {
+	    while(curPos < size && (curRead = is.read(abuf, curPos, size - curPos)) != -1) {
 		curPos += curRead;
 	    }
 	    if (curPos != size) {
@@ -1161,7 +1161,7 @@ public class OtpInputStream extends ByteArrayInputStream {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
 
-	final OtpInputStream ois = new OtpInputStream(buf, flags);
+	final OtpInputStream ois = new OtpInputStream(abuf, flags);
 	return ois.read_any();
     }
 

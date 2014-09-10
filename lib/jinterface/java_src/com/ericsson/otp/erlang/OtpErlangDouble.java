@@ -118,8 +118,8 @@ public class OtpErlangDouble extends OtpErlangObject {
 	    return false;
 	}
 
-	final OtpErlangDouble d = (OtpErlangDouble) o;
-	return this.d == d.d;
+	final OtpErlangDouble other = (OtpErlangDouble) o;
+	return this.d == other.d;
     }
     
     @Override

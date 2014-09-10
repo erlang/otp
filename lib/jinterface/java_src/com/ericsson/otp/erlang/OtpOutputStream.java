@@ -158,9 +158,9 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @see java.io.ByteArrayOutputStream#write(byte[])
      */
     @Override
-    public void write(final byte[] buf) {
+    public void write(final byte[] abuf) {
 	// don't assume that super.write(byte[]) calls write(buf, 0, buf.length)
-	write(buf, 0, buf.length);
+	write(abuf, 0, abuf.length);
     }
 
     /* (non-Javadoc)

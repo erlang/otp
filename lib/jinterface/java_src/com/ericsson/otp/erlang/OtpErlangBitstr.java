@@ -61,18 +61,18 @@ public class OtpErlangBitstr extends OtpErlangObject {
 	check_bitstr(this.bin, this.pad_bits);
     }
 
-    private void check_bitstr(final byte[] bin, final int pad_bits) {
-	if (pad_bits < 0 || 7 < pad_bits) {
+    private void check_bitstr(final byte[] abin, final int a_pad_bits) {
+	if (a_pad_bits < 0 || 7 < a_pad_bits) {
 	    throw new java.lang.IllegalArgumentException(
 		    "Padding must be in range 0..7");
 	}
-	if (pad_bits != 0 && bin.length == 0) {
+	if (a_pad_bits != 0 && abin.length == 0) {
 	    throw new java.lang.IllegalArgumentException(
 		    "Padding on zero length bitstr");
 	}
-	if (bin.length != 0) {
+	if (abin.length != 0) {
 	    // Make sure padding is zero
-	    bin[bin.length - 1] &= ~((1 << pad_bits) - 1);
+	    abin[abin.length - 1] &= ~((1 << a_pad_bits) - 1);
 	}
     }
 
