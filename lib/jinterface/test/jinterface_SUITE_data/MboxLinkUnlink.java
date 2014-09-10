@@ -17,7 +17,14 @@
  * %CopyrightEnd%
  */
 
-import com.ericsson.otp.erlang.*;
+import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangExit;
+import com.ericsson.otp.erlang.OtpErlangLong;
+import com.ericsson.otp.erlang.OtpErlangObject;
+import com.ericsson.otp.erlang.OtpErlangPid;
+import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.ericsson.otp.erlang.OtpMbox;
+import com.ericsson.otp.erlang.OtpNode;
 
 class MboxLinkUnlink {
 
@@ -91,6 +98,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000);
 		    System.exit(2);
+            break;
 		case erl_link_java_exit:
 		    dbg("Java got \"erl_link_java_exit\"");
 		    mbox.exit(tuple.elementAt(2));
@@ -104,6 +112,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000);
 		    System.exit(3);
+            break;
 		case internal_link_linking_exits:
 		    dbg("Java got \"internal_link_linking_exits\"");
 		    mbox2 = node.createMbox();
@@ -113,6 +122,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox2.receive(1000); // hanging waiting for exit
 		    System.exit(4);  // got someting other than exit
+            break;
 		case internal_link_linked_exits:
 		    dbg("Java got \"internal_link_linked_exits\"");
 		    mbox2 = node.createMbox();
@@ -122,6 +132,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000); // hanging waiting for exit
 		    System.exit(5);  // got someting other than exit
+            break;
 		case internal_unlink_linking_exits:
 		    dbg("Java got \"internal_unlink_linking_exits\"");
 		    mbox2 = node.createMbox();
