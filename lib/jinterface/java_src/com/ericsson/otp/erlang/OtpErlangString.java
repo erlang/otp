@@ -18,15 +18,12 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
-import java.lang.Character;
 import java.io.UnsupportedEncodingException;
 
 /**
  * Provides a Java representation of Erlang strings.
  */
-public class OtpErlangString extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangString extends OtpErlangObject {
     // don't change this!
     static final long serialVersionUID = -7053595217604929233L;
 

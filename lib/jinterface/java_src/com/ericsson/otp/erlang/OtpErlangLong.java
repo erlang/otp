@@ -18,7 +18,6 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 import java.math.BigInteger;
 
 /**
@@ -30,8 +29,7 @@ import java.math.BigInteger;
  * {@link OtpErlangUInt} and {@link OtpErlangUShort} are provided for Corba
  * compatibility. See the documentation for IC for more information.
  */
-public class OtpErlangLong extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangLong extends OtpErlangObject {
     // don't change this!
     static final long serialVersionUID = 1610466859236755096L;
 

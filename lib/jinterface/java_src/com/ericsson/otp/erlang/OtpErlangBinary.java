@@ -18,14 +18,12 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang binaries. Anything that can be
  * represented as a sequence of bytes can be made into an Erlang binary.
  */
-public class OtpErlangBinary extends OtpErlangBitstr implements Serializable,
-	Cloneable {
+public class OtpErlangBinary extends OtpErlangBitstr {
     // don't change this!
     static final long serialVersionUID = -3781009633593609217L;
 

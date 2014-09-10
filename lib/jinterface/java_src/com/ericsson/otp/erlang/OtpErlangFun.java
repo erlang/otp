@@ -18,10 +18,9 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 import java.util.Arrays;
 
-public class OtpErlangFun extends OtpErlangObject implements Serializable {
+public class OtpErlangFun extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -3423031125356706472L;
 

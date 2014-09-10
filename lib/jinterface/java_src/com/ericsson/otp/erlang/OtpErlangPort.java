@@ -18,13 +18,11 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang ports.
  */
-public class OtpErlangPort extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangPort extends OtpErlangObject {
     // don't change this!
     static final long serialVersionUID = 4037115468007644704L;
 

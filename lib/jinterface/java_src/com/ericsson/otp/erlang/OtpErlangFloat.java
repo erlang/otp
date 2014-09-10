@@ -18,13 +18,11 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang floats and doubles.
  */
-public class OtpErlangFloat extends OtpErlangDouble implements Serializable,
-	Cloneable {
+public class OtpErlangFloat extends OtpErlangDouble {
     // don't change this!
     static final long serialVersionUID = -2231546377289456934L;
 
