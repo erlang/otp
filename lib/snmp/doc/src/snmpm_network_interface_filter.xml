@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2013</year>
+      <year>2007</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -76,6 +76,12 @@
     The default filter accepts all messages.</p>
     <p>A network interface filter can e.g. be used during testing or for load 
     regulation. </p>
+    <p>Legacy network interface filter modules used arguments on the form
+      <c>(IpAddr, PortNumber,...)</c> instead of
+      <c>(Domain, Addr, ...)</c>, and if the SNMP manager is run without
+      changing the configuration to use transport domains
+      the network interface filter will still get
+      the old arguments and work as before.</p>
   </description>
 
   <section>
@@ -86,16 +92,18 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
              'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
              report | trappdu
     </code>
+    <p>See also the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
     <marker id="accept_recv"></marker>
   </section>
 
   <funcs>
     <func>
-      <name>accept_recv(Addr, Port) -> boolean()</name>
+      <name>accept_recv(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the received message be accepted</fsummary>
       <type>
-        <v>Addr = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
       </type>
       <desc>
         <p>Called at the reception of a message (before <em>any</em> processing 
@@ -107,11 +115,11 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
     </func>
 
     <func>
-      <name>accept_send(Addr, Port) -> boolean()</name>
+      <name>accept_send(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the message be sent</fsummary>
       <type>
-        <v>Addr = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
       </type>
       <desc>
         <p>Called before the sending of a message (after <em>all</em> processing 
@@ -123,11 +131,11 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
     </func>
 
     <func>
-      <name>accept_recv_pdu(Addr, Port, PduType) -> boolean()</name>
+      <name>accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
       <fsummary>Shall the received pdu be accepted</fsummary>
       <type>
-        <v>Addr = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
         <v>PduType = pdu_type()</v>
       </type>
       <desc>
@@ -141,11 +149,11 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
     </func>
 
     <func>
-      <name>accept_send_pdu(Addr, Port, PduType) -> boolean()</name>
+      <name>accept_send_pdu(Domain, Addr, PduType) -> boolean()</name>
       <fsummary>Shall the pdu be sent</fsummary>
       <type>
-        <v>Addr = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
         <v>PduType = pdu_type() > 0</v>
       </type>
       <desc>

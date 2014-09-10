@@ -749,8 +749,6 @@ which_domain({A0, A1, A2, A3, A4, A5, A6, A7})
     
 %% ---------
 
-mk_addr_string({_IP, Port} = Addr) when is_integer(Port) ->
-    mk_addr_string({snmpUDPDomain, Addr});
 mk_addr_string({Domain, Addr}) when is_atom(Domain) ->
     %% XXX There is only code for IP domains here
     case check_address_ip(Domain, Addr) of
@@ -768,7 +766,11 @@ mk_addr_string({Domain, Addr}) when is_atom(Domain) ->
 	    mk_addr_string_ntoa(Domain, Addr);
 	IP ->
 	    mk_addr_string_ntoa(Domain, IP)
-    end.
+    end;
+mk_addr_string({_IP, Port} = Addr) when is_integer(Port) ->
+    mk_addr_string({snmpUDPDomain, Addr});
+mk_addr_string(Strange) ->
+    lists:flatten(io_lib:format("~w", [Strange])).
 
 
 mk_addr_string_ntoa({_, _, _, _} = IP) ->

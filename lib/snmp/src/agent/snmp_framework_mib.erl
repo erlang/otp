@@ -207,22 +207,28 @@ check_agent({intAgentIpAddress = Tag, Ip} = Entry, {Domain, Port} = State) ->
 	     [{Tag, FixedIp},
 	      {intAgentTransports, [{Domain, {FixedIp, Port}}]}]
      end, State};
-check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State) ->
+check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State)
+  when is_list(Transports) ->
     CheckedTransports =
-	[case
-	     case Port of
-		 undefined ->
-		     snmp_conf:check_address(Domain, Address);
-		 _ ->
-		     snmp_conf:check_address(Domain, Address, Port)
-	     end
-	 of
-	     ok ->
-		 Transport;
-	     {ok, FixedAddress} ->
-		 {Domain, FixedAddress}
+	[case Transport of
+	     {Domain, Address} ->
+		 case
+		     case Port of
+			 undefined ->
+			     snmp_conf:check_address(Domain, Address);
+			 _ ->
+			     snmp_conf:check_address(Domain, Address, Port)
+		     end
+		 of
+		     ok ->
+			 Transport;
+		     {ok, FixedAddress} ->
+			 {Domain, FixedAddress}
+		 end;
+	     _ ->
+		 error({bad_transport, Transport})
 	 end
-	 || {Domain, Address} = Transport <- Transports],
+	 || Transport <- Transports],
     {{ok, {Tag, CheckedTransports}}, State};
 check_agent(Entry, State) ->
     {check_agent(Entry), State}.

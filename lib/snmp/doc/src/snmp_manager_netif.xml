@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,13 +50,14 @@
 
   <p>The snmp application provides two different modules, 
   <c>snmpm_net_if</c> (the default) and <c>snmpm_net_if_mt</c>, 
-  both uses the UDP as the transport protocol. The difference 
-  between the two modules is that the latter is "multi-threaded", 
-  i.e. for each message/request a new process is created that 
-  process the message/request and then exits. </p>
+  both uses UDP as the transport protocol i.e the transport domains
+  <c>transportDomainUdpIpv4</c> and/or <c>transportDomainUdpIpv6</c>.
+  The difference between the two modules is that the latter is
+  "multi-threaded",  i.e. for each message/request a new process
+  is created that processes the message/request and then exits. </p>
 
-  <p>It is also possible to write your own Net if process, 
-  this section describes how to write a Net if processdo that.</p>
+  <p>It is also possible to write your own Net if process and
+  this section describes how to do that.</p>
 
   <section>
     <marker id="mandatory_functions"></marker>
@@ -70,11 +71,17 @@
     <p>The section <em>Messages</em> describes mandatory messages, which
       Net if must send to the manager server process.     
       </p>
+    <p>In this section a <c>Domain</c> field is the transport domain i.e
+    one of <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>,
+    and an <c>Addr</c> field is an
+    <c>{<seealso marker="kernel:inet#type-ip_address">IpAddr</seealso>,
+    IpPort}</c> tuple.</p>
+
     <p>Net if must send the following message when it receives an
       SNMP PDU from the network that is aimed for the MasterAgent:
       </p>
     <pre>
-Server ! {snmp_pdu, Pdu, Addr, Port}
+Server ! {snmp_pdu, Pdu, Domain, Addr}
     </pre>
     <list type="bulleted">
       <item>
@@ -82,14 +89,14 @@ Server ! {snmp_pdu, Pdu, Addr, Port}
           <c>snmp_types.hrl</c>, with the SNMP request.</p>
       </item>
       <item>
-        <p><c>Addr</c> is the source address. </p>
+        <p><c>Domain</c> is the source transport domain. </p>
       </item>
       <item>
-        <p><c>Port</c> is port number of the sender.</p>
+        <p><c>Addr</c> is the source address. </p>
       </item>
     </list>
     <pre>
-Server ! {snmp_trap, Trap, Addr, Port}
+Server ! {snmp_trap, Trap, Domain, Addr}
     </pre>
     <list type="bulleted">
       <item>
@@ -97,14 +104,14 @@ Server ! {snmp_trap, Trap, Addr, Port}
           as defined in <c>snmp_types.hrl</c>, with the SNMP request.</p>
       </item>
       <item>
-        <p><c>Addr</c> is the source address. </p>
+        <p><c>Domain</c> is the source transport domain. </p>
       </item>
       <item>
-        <p><c>Port</c> is port number of the sender.</p>
+        <p><c>Addr</c> is the source address. </p>
       </item>
     </list>
     <pre>
-Server ! {snmp_inform, Ref, Pdu, PduMS, Addr, Port}
+Server ! {snmp_inform, Ref, Pdu, PduMS, Domain, Addr}
     </pre>
     <list type="bulleted">
       <item>
@@ -123,14 +130,14 @@ Server ! {snmp_inform, Ref, Pdu, PduMS, Addr, Port}
           <c>snmp_types.hrl</c>, with the SNMP request.</p>
       </item>
       <item>
-        <p><c>Addr</c> is the source address. </p>
+        <p><c>Domain</c> is the source transport domain. </p>
       </item>
       <item>
-        <p><c>Port</c> is port number of the sender.</p>
+        <p><c>Addr</c> is the source address. </p>
       </item>
     </list>
     <pre>
-Server ! {snmp_report, Data, Addr, Port}
+Server ! {snmp_report, Data, Domain, Addr}
     </pre>
     <list type="bulleted">
       <item>
@@ -152,10 +159,10 @@ Server ! {snmp_report, Data, Addr, Port}
         <p><c>ReasonInfo</c> is a term().</p>
       </item>
       <item>
-        <p><c>Addr</c> is the source address. </p>
+        <p><c>Domain</c> is the source transport domain. </p>
       </item>
       <item>
-        <p><c>Port</c> is port number of the sender.</p>
+        <p><c>Addr</c> is the source address. </p>
       </item>
     </list>
 
