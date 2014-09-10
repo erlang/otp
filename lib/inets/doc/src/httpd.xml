@@ -139,7 +139,7 @@
       <marker id="prop_server_root"></marker>
       <tag>{server_root, path()} </tag>
       <item> 
-	<p>Defines the servers home directory where log files etc can
+	<p>Defines the server's home directory where log files etc can
 	be stored. Relative paths specified in other properties refer
 	to this directory. </p>
       </item>
@@ -904,7 +904,7 @@ bytes
         <p>Fetches information about the HTTP server. When called
 	with only the pid all properties are fetched, when called
 	with a list of specific properties they are fetched.
-	Available properties are the same as the servers start options. 
+	Available properties are the same as the server's start options. 
 	</p>
 	
 	<note><p>Pid is the pid returned from inets:start/[2,3]. 
@@ -930,7 +930,7 @@ bytes
         <p>Fetches information about the HTTP server. When called with
 	only the Address and Port all properties are fetched, when
 	called with a list of specific properties they are fetched.
-	Available properties are the same as the servers start
+	Available properties are the same as the server's start
 	options.
 	</p>
 
@@ -956,7 +956,7 @@ bytes
 	  server. Incoming requests will be answered with a temporary
 	  down message during the time the it takes to reload.</p>
 	
-	<note><p>Available properties are the same as the servers
+	<note><p>Available properties are the same as the server's
 	    start options, although the properties bind_address and
 	    port can not be changed.</p></note>
 	
@@ -1068,7 +1068,7 @@ bytes
       <type>
         <v>OldData = list()</v>
         <v>NewData = [{response,{StatusCode,Body}}] | [{response,{response,Head,Body}}] |  [{response,{already_sent,Statuscode,Size}}] </v>
-        <v>StausCode = integer()</v>
+        <v>StatusCode = integer()</v>
         <v>Body = io_list() | nobody | {Fun, Arg}</v>
         <v>Head = [HeaderOption]</v>
         <v>HeaderOption = {Option, Value} | {code, StatusCode}</v>
