@@ -25,7 +25,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangBinary extends OtpErlangBitstr {
     // don't change this!
-    static final long serialVersionUID = -3781009633593609217L;
+    private static final long serialVersionUID = -3781009633593609217L;
 
     /**
      * Create a binary from a byte array

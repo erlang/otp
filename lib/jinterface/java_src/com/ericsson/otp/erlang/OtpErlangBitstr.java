@@ -28,7 +28,7 @@ import java.io.IOException;
  */
 public class OtpErlangBitstr extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = -3781009633593609217L;
+    private static final long serialVersionUID = -3781009633593609217L;
 
     protected byte[] bin;
     protected int pad_bits;

@@ -24,7 +24,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangByte extends OtpErlangLong {
     // don't change this!
-    static final long serialVersionUID = 5778019796466613446L;
+    private static final long serialVersionUID = 5778019796466613446L;
 
     /**
      * Create an Erlang integer from the given value.

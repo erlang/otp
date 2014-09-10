@@ -24,7 +24,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangFloat extends OtpErlangDouble {
     // don't change this!
-    static final long serialVersionUID = -2231546377289456934L;
+    private static final long serialVersionUID = -2231546377289456934L;
 
     /**
      * Create an Erlang float from the given float value.

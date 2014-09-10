@@ -26,7 +26,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangAtom extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = -3204386396807876641L;
+    private static final long serialVersionUID = -3204386396807876641L;
 
     /** The maximun allowed length of an atom, in characters */
     public static final int maxAtomLength = 0xff; // one byte length

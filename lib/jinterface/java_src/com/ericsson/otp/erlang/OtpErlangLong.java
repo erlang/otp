@@ -31,7 +31,7 @@ import java.math.BigInteger;
  */
 public class OtpErlangLong extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = 1610466859236755096L;
+    private static final long serialVersionUID = 1610466859236755096L;
 
     private long val;
     private BigInteger bigVal = null;

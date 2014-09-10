@@ -31,7 +31,7 @@ import java.util.NoSuchElementException;
 public class OtpErlangList extends OtpErlangObject implements
     Iterable<OtpErlangObject> {
     // don't change this!
-    static final long serialVersionUID = 5999112769036676548L;
+    private static final long serialVersionUID = 5999112769036676548L;
 
     private static final OtpErlangObject[] NO_ELEMENTS = new OtpErlangObject[0];
 
