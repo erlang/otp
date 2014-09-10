@@ -55,7 +55,7 @@ public class OtpErlangShort extends OtpErlangLong {
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final short j = shortValue();
+    shortValue();
     }
 
 }

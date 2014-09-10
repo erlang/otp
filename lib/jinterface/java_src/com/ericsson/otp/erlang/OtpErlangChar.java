@@ -54,6 +54,6 @@ public class OtpErlangChar extends OtpErlangLong {
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final char i = charValue();
+    charValue();
     }
 }

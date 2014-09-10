@@ -54,6 +54,6 @@ public class OtpErlangByte extends OtpErlangLong {
 	    throws OtpErlangRangeException, OtpErlangDecodeException {
 	super(buf);
 
-	final byte i = byteValue();
+    byteValue();
     }
 }

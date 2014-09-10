@@ -51,6 +51,6 @@ public class OtpErlangFloat extends OtpErlangDouble {
 	    throws OtpErlangDecodeException, OtpErlangRangeException {
 	super(buf);
 
-	final float f = floatValue();
+    floatValue();
     }
 }
