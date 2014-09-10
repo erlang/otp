@@ -18,15 +18,13 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang atoms. Atoms can be created from
  * strings whose length is not more than {@link #maxAtomLength maxAtomLength}
  * characters.
  */
-public class OtpErlangAtom extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangAtom extends OtpErlangObject {
     // don't change this!
     static final long serialVersionUID = -3204386396807876641L;
 

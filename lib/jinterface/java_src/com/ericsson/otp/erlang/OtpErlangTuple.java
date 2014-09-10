@@ -18,7 +18,6 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang tuples. Tuples are created from one
@@ -29,8 +28,7 @@ import java.io.Serializable;
  * indexed from 0 to (arity-1) and can be retrieved individually by using the
  * appropriate index.
  */
-public class OtpErlangTuple extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangTuple extends OtpErlangObject {
     // don't change this!
     static final long serialVersionUID = 9163498658004915935L;
 

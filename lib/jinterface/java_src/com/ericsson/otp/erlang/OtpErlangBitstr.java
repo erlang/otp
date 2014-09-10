@@ -20,15 +20,13 @@ package com.ericsson.otp.erlang;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang bitstrs. An Erlang bitstr is an
  * Erlang binary with a length not an integral number of bytes (8-bit). Anything
  * can be represented as a sequence of bytes can be made into an Erlang bitstr.
  */
-public class OtpErlangBitstr extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangBitstr extends OtpErlangObject {
     // don't change this!
     static final long serialVersionUID = -3781009633593609217L;
 

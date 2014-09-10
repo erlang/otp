@@ -18,7 +18,6 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -30,7 +29,7 @@ import java.util.NoSuchElementException;
  * The arity of the list is the number of elements it contains.
  */
 public class OtpErlangList extends OtpErlangObject implements
-	Iterable<OtpErlangObject>, Serializable, Cloneable {
+    Iterable<OtpErlangObject> {
     // don't change this!
     static final long serialVersionUID = 5999112769036676548L;
 
