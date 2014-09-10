@@ -683,13 +683,13 @@ public class OtpNode extends OtpLocalNode {
      */
     public class Acceptor extends Thread {
 	private final ServerSocket sock;
-	private final int port;
+	private final int acceptorPort;
 	private volatile boolean done = false;
 
 	Acceptor(final int port) throws IOException {
 	    sock = new ServerSocket(port);
-	    this.port = sock.getLocalPort();
-	    OtpNode.this.port = this.port;
+	    this.acceptorPort = sock.getLocalPort();
+	    OtpNode.this.port = this.acceptorPort;
 
 	    setDaemon(true);
 	    setName("acceptor");
@@ -740,7 +740,7 @@ public class OtpNode extends OtpLocalNode {
 	}
 
 	public int port() {
-	    return port;
+	    return acceptorPort;
 	}
 
 	@Override
