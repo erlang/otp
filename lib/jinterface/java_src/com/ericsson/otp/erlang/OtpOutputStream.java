@@ -25,7 +25,6 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
-import java.util.Arrays;
 import java.util.zip.Deflater;
 
 /**
@@ -568,7 +567,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		int n;
 		long mask;
 		for (mask = 0xFFFFffffL, n = 4; (abs & mask) != abs; n++, mask = mask << 8 | 0xffL) {
-		    ; // count nonzero bytes
+            // count nonzero bytes
 		}
 		write1(OtpExternal.smallBigTag);
 		write1(n); // length
