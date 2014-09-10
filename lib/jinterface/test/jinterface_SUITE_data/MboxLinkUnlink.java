@@ -73,7 +73,10 @@ class MboxLinkUnlink {
 		OtpErlangObject[] msg = {mainMbox.self(),mbox.self()};
 		mbox.send("erl_link_server", erlNode, new OtpErlangTuple(msg));
 		OtpErlangObject o = mbox.receive(1000);
-		if (o == null) System.exit(1);
+        if (o == null) {
+            System.exit(1);
+            return;
+        }
 		OtpErlangTuple tuple = (OtpErlangTuple)o;
 		int tag = (int)((OtpErlangLong)tuple.elementAt(0)).longValue();
 

@@ -17,7 +17,13 @@
  * %CopyrightEnd%
  */
 
-import com.ericsson.otp.erlang.*;
+import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangLong;
+import com.ericsson.otp.erlang.OtpErlangObject;
+import com.ericsson.otp.erlang.OtpErlangPid;
+import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.ericsson.otp.erlang.OtpMbox;
+import com.ericsson.otp.erlang.OtpNode;
 
 class MboxSendReceive {
 
@@ -35,6 +41,7 @@ class MboxSendReceive {
     private static final int java_internal_send_receive_different_nodes = 3;
     private static final int java_internal_send_receive_self = 4;
 
+    @SuppressWarnings("null")
     public static void main(String argv[]) {
 
 	String cookie = argv[0];
