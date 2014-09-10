@@ -206,6 +206,7 @@ public class echo_server {
 		    && i instanceof OtpErlangString) {
 		final OtpErlangString s = (OtpErlangString) i;
 		final String ss = s.stringValue().substring(3, 6);
+        @SuppressWarnings("unused")
 		final int[] cps = OtpErlangString.stringToCodePoints(ss);
 		return s;
 	    } else if (atomValue.equals("utf8")) {
