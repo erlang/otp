@@ -2220,10 +2220,14 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     }
 #if FDBLOCK
     else {
-        driver_enqv(ix, ev, 0);
-        driver_pdl_unlock(driver_data[fd].blocking->pdl);
-        driver_async(ix, &driver_data[fd].blocking->pkey,
-                     fd_async, driver_data+fd, NULL);
+        if (ev->size != 0) {
+            driver_enqv(ix, ev, 0);
+            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+            driver_async(ix, &driver_data[fd].blocking->pkey,
+                         fd_async, driver_data+fd, NULL);
+        } else {
+            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+        }
     }
 #endif
     /* return 0;*/
@@ -2559,11 +2563,11 @@ void fd_ready_async(ErlDrvData drv_data,
     if (dd->blocking->res > 0) {
         driver_pdl_lock(dd->blocking->pdl);
         if (driver_deq(port_num, dd->blocking->res) == 0) {
+            driver_pdl_unlock(dd->blocking->pdl);
             set_busy_port(port_num, 0);
             if (dd->terminating) {
                 /* The port is has been ordered to terminate
                    from either fd_flush or port_inp_failure */
-                driver_pdl_unlock(dd->blocking->pdl);
                 if (dd->terminating == 1)
                     driver_failure_atom(port_num, "normal");
                 else if (dd->terminating == 2)
@@ -2573,10 +2577,11 @@ void fd_ready_async(ErlDrvData drv_data,
                 return; /* -1; */
             }
         } else {
+            driver_pdl_unlock(dd->blocking->pdl);
             /* still data left to write in queue */
             driver_async(port_num, &dd->blocking->pkey, fd_async, dd, NULL);
+            return /* 0; */;
         }
-        driver_pdl_unlock(dd->blocking->pdl);
     } else if (dd->blocking->res < 0) {
         driver_failure_posix(port_num, dd->blocking->err);
         return; /* -1; */
