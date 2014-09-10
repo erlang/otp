@@ -20,7 +20,6 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.Socket;
 import java.util.Random;
 
@@ -87,7 +86,7 @@ public abstract class AbstractConnection extends Thread {
     protected boolean connected = false; // connection status
     protected Socket socket; // communication channel
     protected OtpPeer peer; // who are we connected to
-    protected OtpLocalNode self; // this nodes id
+    protected OtpLocalNode localNode; // this nodes id
     String name; // local name of this connection
 
     protected boolean cookieOk = false; // already checked the cookie for this
@@ -137,7 +136,7 @@ public abstract class AbstractConnection extends Thread {
      */
     protected AbstractConnection(final OtpLocalNode self, final Socket s)
 	    throws IOException, OtpAuthException {
-	this.self = self;
+	this.localNode = self;
 	peer = new OtpPeer();
 	socket = s;
 
@@ -181,7 +180,7 @@ public abstract class AbstractConnection extends Thread {
     protected AbstractConnection(final OtpLocalNode self, final OtpPeer other)
 	    throws IOException, OtpAuthException {
 	peer = other;
-	this.self = self;
+	this.localNode = self;
 	socket = null;
 	int port;
 
@@ -234,6 +233,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag + version
@@ -246,7 +246,7 @@ public abstract class AbstractConnection extends Thread {
 	header.write_long(regSendTag);
 	header.write_any(from);
 	if (sendCookie) {
-	    header.write_atom(self.cookie());
+	    header.write_atom(localNode.cookie());
 	} else {
 	    header.write_atom("");
 	}
@@ -278,6 +278,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag + version
@@ -289,7 +290,7 @@ public abstract class AbstractConnection extends Thread {
 	header.write_tuple_head(3);
 	header.write_long(sendTag);
 	if (sendCookie) {
-	    header.write_atom(self.cookie());
+	    header.write_atom(localNode.cookie());
 	} else {
 	    header.write_atom("");
 	}
@@ -312,6 +313,7 @@ public abstract class AbstractConnection extends Thread {
     private void cookieError(final OtpLocalNode local,
 	    final OtpErlangAtom cookie) throws OtpAuthException {
 	try {
+        @SuppressWarnings("resource")
 	    final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	    // preamble: 4 byte length + "passthrough" tag + version
@@ -347,6 +349,7 @@ public abstract class AbstractConnection extends Thread {
 	    msg[0] = new OtpErlangAtom("$gen_cast");
 	    msg[1] = new OtpErlangTuple(msgbody);
 
+        @SuppressWarnings("resource")
 	    final OtpOutputStream payload = new OtpOutputStream(
 		    new OtpErlangTuple(msg));
 
@@ -384,6 +387,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag
@@ -420,6 +424,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag
@@ -468,6 +473,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag
@@ -488,6 +494,7 @@ public abstract class AbstractConnection extends Thread {
 	do_send(header);
     }
 
+    @SuppressWarnings("resource")
     @Override
     public void run() {
 	if (!connected) {
@@ -506,7 +513,7 @@ public abstract class AbstractConnection extends Thread {
 		// don't return until we get a real message
 		// or a failure of some kind (e.g. EXIT)
 		// read length and read buffer must be atomic!
-		tick_loop: do {
+        do {
 		    // read 4 bytes - get length of incoming packet
 		    // socket.getInputStream().read(lbuf);
 		    readSock(socket, lbuf);
@@ -526,6 +533,7 @@ public abstract class AbstractConnection extends Thread {
 		final byte[] tmpbuf = new byte[len];
 		// i = socket.getInputStream().read(tmpbuf);
 		readSock(socket, tmpbuf);
+        ibuf.close();
 		ibuf = new OtpInputStream(tmpbuf, flags);
 
 		if (ibuf.read1() != passThrough) {
@@ -567,12 +575,12 @@ public abstract class AbstractConnection extends Thread {
 			}
 			cookie = (OtpErlangAtom) head.elementAt(1);
 			if (sendCookie) {
-			    if (!cookie.atomValue().equals(self.cookie())) {
-				cookieError(self, cookie);
+			    if (!cookie.atomValue().equals(localNode.cookie())) {
+				cookieError(localNode, cookie);
 			    }
 			} else {
 			    if (!cookie.atomValue().equals("")) {
-				cookieError(self, cookie);
+				cookieError(localNode, cookie);
 			    }
 			}
 			cookieOk = true;
@@ -610,12 +618,12 @@ public abstract class AbstractConnection extends Thread {
 			}
 			cookie = (OtpErlangAtom) head.elementAt(2);
 			if (sendCookie) {
-			    if (!cookie.atomValue().equals(self.cookie())) {
-				cookieError(self, cookie);
+			    if (!cookie.atomValue().equals(localNode.cookie())) {
+				cookieError(localNode, cookie);
 			    }
 			} else {
 			    if (!cookie.atomValue().equals("")) {
-				cookieError(self, cookie);
+				cookieError(localNode, cookie);
 			    }
 			}
 			cookieOk = true;
@@ -749,13 +757,14 @@ public abstract class AbstractConnection extends Thread {
 	final int oldLevel = traceLevel;
 
 	// pin the value
+    int theLevel = level;
 	if (level < 0) {
-	    level = 0;
+        theLevel = 0;
 	} else if (level > 4) {
-	    level = 4;
+        theLevel = 4;
 	}
 
-	traceLevel = level;
+    traceLevel = theLevel;
 
 	return oldLevel;
     }
@@ -908,18 +917,16 @@ public abstract class AbstractConnection extends Thread {
 	int got = 0;
 	final int len = b.length;
 	int i;
-	InputStream is = null;
 
 	synchronized (this) {
 	    if (s == null) {
 		throw new IOException("expected " + len
 			+ " bytes, socket was closed");
 	    }
-	    is = s.getInputStream();
 	}
 
 	while (got < len) {
-	    i = is.read(b, got, len - got);
+        i = s.getInputStream().read(b, got, len - got);
 
 	    if (i < 0) {
 		throw new IOException("expected " + len
@@ -943,9 +950,9 @@ public abstract class AbstractConnection extends Thread {
 	try {
 	    sendStatus("ok");
 	    final int our_challenge = genChallenge();
-	    sendChallenge(peer.distChoose, self.flags, our_challenge);
+	    sendChallenge(peer.distChoose, localNode.flags, our_challenge);
 	    final int her_challenge = recvChallengeReply(our_challenge);
-	    final byte[] our_digest = genDigest(her_challenge, self.cookie());
+	    final byte[] our_digest = genDigest(her_challenge, localNode.cookie());
 	    sendChallengeAck(our_digest);
 	    connected = true;
 	    cookieOk = true;
@@ -978,10 +985,10 @@ public abstract class AbstractConnection extends Thread {
 		System.out.println("-> MD5 CONNECT TO " + peer.host() + ":"
 			+ port);
 	    }
-	    sendName(peer.distChoose, self.flags);
+	    sendName(peer.distChoose, localNode.flags);
 	    recvStatus();
 	    final int her_challenge = recvChallenge();
-	    final byte[] our_digest = genDigest(her_challenge, self.cookie());
+	    final byte[] our_digest = genDigest(her_challenge, localNode.cookie());
 	    final int our_challenge = genChallenge();
 	    sendChallengeReply(our_challenge, our_digest);
 	    recvChallengeAck(our_challenge);
@@ -1054,33 +1061,35 @@ public abstract class AbstractConnection extends Thread {
 	return res;
     }
 
-    protected void sendName(final int dist, final int flags) throws IOException {
+    protected void sendName(final int dist, final int aflags) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
-	final String str = self.node();
+	final String str = localNode.node();
 	obuf.write2BE(str.length() + 7); // 7 bytes + nodename
 	obuf.write1(AbstractNode.NTYPE_R6);
 	obuf.write2BE(dist);
-	obuf.write4BE(flags);
+	obuf.write4BE(aflags);
 	obuf.write(str.getBytes());
 
 	obuf.writeTo(socket.getOutputStream());
 
 	if (traceLevel >= handshakeThreshold) {
-	    System.out.println("-> " + "HANDSHAKE sendName" + " flags=" + flags
-		    + " dist=" + dist + " local=" + self);
+	    System.out.println("-> " + "HANDSHAKE sendName" + " flags=" + aflags
+		    + " dist=" + dist + " local=" + localNode);
 	}
     }
 
-    protected void sendChallenge(final int dist, final int flags,
+    protected void sendChallenge(final int dist, final int aflags,
 	    final int challenge) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
-	final String str = self.node();
+	final String str = localNode.node();
 	obuf.write2BE(str.length() + 11); // 11 bytes + nodename
 	obuf.write1(AbstractNode.NTYPE_R6);
 	obuf.write2BE(dist);
-	obuf.write4BE(flags);
+	obuf.write4BE(aflags);
 	obuf.write4BE(challenge);
 	obuf.write(str.getBytes());
 
@@ -1088,8 +1097,8 @@ public abstract class AbstractConnection extends Thread {
 
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("-> " + "HANDSHAKE sendChallenge" + " flags="
-		    + flags + " dist=" + dist + " challenge=" + challenge
-		    + " local=" + self);
+		    + aflags + " dist=" + dist + " challenge=" + challenge
+		    + " local=" + localNode);
 	}
     }
 
@@ -1100,6 +1109,7 @@ public abstract class AbstractConnection extends Thread {
 	byte[] tmpbuf;
 
 	readSock(socket, lbuf);
+    @SuppressWarnings("resource")
 	final OtpInputStream ibuf = new OtpInputStream(lbuf, 0);
 	final int len = ibuf.read2BE();
 	tmpbuf = new byte[len];
@@ -1107,41 +1117,42 @@ public abstract class AbstractConnection extends Thread {
 	return tmpbuf;
     }
 
-    protected void recvName(final OtpPeer peer) throws IOException {
+    protected void recvName(final OtpPeer apeer) throws IOException {
 
 	String hisname = "";
 
 	try {
 	    final byte[] tmpbuf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 	    byte[] tmpname;
 	    final int len = tmpbuf.length;
-	    peer.ntype = ibuf.read1();
-	    if (peer.ntype != AbstractNode.NTYPE_R6) {
+	    apeer.ntype = ibuf.read1();
+	    if (apeer.ntype != AbstractNode.NTYPE_R6) {
 		throw new IOException("Unknown remote node type");
 	    }
-	    peer.distLow = peer.distHigh = ibuf.read2BE();
-	    if (peer.distLow < 5) {
+	    apeer.distLow = apeer.distHigh = ibuf.read2BE();
+	    if (apeer.distLow < 5) {
 		throw new IOException("Unknown remote node type");
 	    }
-	    peer.flags = ibuf.read4BE();
+	    apeer.flags = ibuf.read4BE();
 	    tmpname = new byte[len - 7];
 	    ibuf.readN(tmpname);
 	    hisname = OtpErlangString.newString(tmpname);
 	    // Set the old nodetype parameter to indicate hidden/normal status
 	    // When the old handshake is removed, the ntype should also be.
-	    if ((peer.flags & AbstractNode.dFlagPublished) != 0) {
-		peer.ntype = AbstractNode.NTYPE_R4_ERLANG;
+	    if ((apeer.flags & AbstractNode.dFlagPublished) != 0) {
+		apeer.ntype = AbstractNode.NTYPE_R4_ERLANG;
 	    } else {
-		peer.ntype = AbstractNode.NTYPE_R4_HIDDEN;
+		apeer.ntype = AbstractNode.NTYPE_R4_HIDDEN;
 	    }
 
-	    if ((peer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
+	    if ((apeer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
 		throw new IOException(
 			"Handshake failed - peer cannot handle extended references");
 	    }
 
-	    if ((peer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
+	    if ((apeer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
 		throw new IOException(
 			"Handshake failed - peer cannot handle extended pids and ports");
 	    }
@@ -1151,13 +1162,13 @@ public abstract class AbstractConnection extends Thread {
 	}
 
 	final int i = hisname.indexOf('@', 0);
-	peer.node = hisname;
-	peer.alive = hisname.substring(0, i);
-	peer.host = hisname.substring(i + 1, hisname.length());
+	apeer.node = hisname;
+	apeer.alive = hisname.substring(0, i);
+	apeer.host = hisname.substring(i + 1, hisname.length());
 
 	if (traceLevel >= handshakeThreshold) {
-	    System.out.println("<- " + "HANDSHAKE" + " ntype=" + peer.ntype
-		    + " dist=" + peer.distHigh + " remote=" + peer);
+	    System.out.println("<- " + "HANDSHAKE" + " ntype=" + apeer.ntype
+		    + " dist=" + apeer.distHigh + " remote=" + apeer);
 	}
     }
 
@@ -1167,6 +1178,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    peer.ntype = ibuf.read1();
 	    if (peer.ntype != AbstractNode.NTYPE_R6) {
@@ -1199,7 +1211,7 @@ public abstract class AbstractConnection extends Thread {
 
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("<- " + "HANDSHAKE recvChallenge" + " from="
-		    + peer.node + " challenge=" + challenge + " local=" + self);
+		    + peer.node + " challenge=" + challenge + " local=" + localNode);
 	}
 
 	return challenge;
@@ -1208,6 +1220,7 @@ public abstract class AbstractConnection extends Thread {
     protected void sendChallengeReply(final int challenge, final byte[] digest)
 	    throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	obuf.write2BE(21);
 	obuf.write1(ChallengeReply);
@@ -1218,7 +1231,7 @@ public abstract class AbstractConnection extends Thread {
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("-> " + "HANDSHAKE sendChallengeReply"
 		    + " challenge=" + challenge + " digest=" + hex(digest)
-		    + " local=" + self);
+		    + " local=" + localNode);
 	}
     }
 
@@ -1241,6 +1254,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    final int tag = ibuf.read1();
 	    if (tag != ChallengeReply) {
@@ -1248,7 +1262,7 @@ public abstract class AbstractConnection extends Thread {
 	    }
 	    challenge = ibuf.read4BE();
 	    ibuf.readN(her_digest);
-	    final byte[] our_digest = genDigest(our_challenge, self.cookie());
+	    final byte[] our_digest = genDigest(our_challenge, localNode.cookie());
 	    if (!digests_equals(her_digest, our_digest)) {
 		throw new OtpAuthException("Peer authentication error.");
 	    }
@@ -1259,7 +1273,7 @@ public abstract class AbstractConnection extends Thread {
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("<- " + "HANDSHAKE recvChallengeReply"
 		    + " from=" + peer.node + " challenge=" + challenge
-		    + " digest=" + hex(her_digest) + " local=" + self);
+		    + " digest=" + hex(her_digest) + " local=" + localNode);
 	}
 
 	return challenge;
@@ -1267,6 +1281,7 @@ public abstract class AbstractConnection extends Thread {
 
     protected void sendChallengeAck(final byte[] digest) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	obuf.write2BE(17);
 	obuf.write1(ChallengeAck);
@@ -1276,7 +1291,7 @@ public abstract class AbstractConnection extends Thread {
 
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("-> " + "HANDSHAKE sendChallengeAck"
-		    + " digest=" + hex(digest) + " local=" + self);
+		    + " digest=" + hex(digest) + " local=" + localNode);
 	}
     }
 
@@ -1286,13 +1301,14 @@ public abstract class AbstractConnection extends Thread {
 	final byte[] her_digest = new byte[16];
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    final int tag = ibuf.read1();
 	    if (tag != ChallengeAck) {
 		throw new IOException("Handshake protocol error");
 	    }
 	    ibuf.readN(her_digest);
-	    final byte[] our_digest = genDigest(our_challenge, self.cookie());
+	    final byte[] our_digest = genDigest(our_challenge, localNode.cookie());
 	    if (!digests_equals(her_digest, our_digest)) {
 		throw new OtpAuthException("Peer authentication error.");
 	    }
@@ -1305,12 +1321,13 @@ public abstract class AbstractConnection extends Thread {
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("<- " + "HANDSHAKE recvChallengeAck" + " from="
 		    + peer.node + " digest=" + hex(her_digest) + " local="
-		    + self);
+		    + localNode);
 	}
     }
 
     protected void sendStatus(final String status) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	obuf.write2BE(status.length() + 1);
 	obuf.write1(ChallengeStatus);
@@ -1320,7 +1337,7 @@ public abstract class AbstractConnection extends Thread {
 
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("-> " + "HANDSHAKE sendStatus" + " status="
-		    + status + " local=" + self);
+		    + status + " local=" + localNode);
 	}
     }
 
@@ -1328,6 +1345,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    final int tag = ibuf.read1();
 	    if (tag != ChallengeStatus) {
@@ -1346,7 +1364,7 @@ public abstract class AbstractConnection extends Thread {
 	}
 	if (traceLevel >= handshakeThreshold) {
 	    System.out.println("<- " + "HANDSHAKE recvStatus (ok)" + " local="
-		    + self);
+		    + localNode);
 	}
     }
 

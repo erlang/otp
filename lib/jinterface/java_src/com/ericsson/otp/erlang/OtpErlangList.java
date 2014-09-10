@@ -18,7 +18,6 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -30,9 +29,9 @@ import java.util.NoSuchElementException;
  * The arity of the list is the number of elements it contains.
  */
 public class OtpErlangList extends OtpErlangObject implements
-	Iterable<OtpErlangObject>, Serializable, Cloneable {
+    Iterable<OtpErlangObject> {
     // don't change this!
-    static final long serialVersionUID = 5999112769036676548L;
+    private static final long serialVersionUID = 5999112769036676548L;
 
     private static final OtpErlangObject[] NO_ELEMENTS = new OtpErlangObject[0];
 
@@ -187,12 +186,11 @@ public class OtpErlangList extends OtpErlangObject implements
     public OtpErlangObject[] elements() {
 	if (arity() == 0) {
 	    return NO_ELEMENTS;
-	} else {
+    }
 	    final OtpErlangObject[] res = new OtpErlangObject[arity()];
 	    System.arraycopy(elems, 0, res, 0, res.length);
 	    return res;
 	}
-    }
 
     /**
      * Get the string representation of the list.
@@ -361,9 +359,8 @@ public class OtpErlangList extends OtpErlangObject implements
 	if (arity >= n) {
 	    if (arity == n && lastTail != null) {
 		return lastTail;
-	    } else {
-		return new SubList(this, n);
 	    }
+        return new SubList(this, n);
 	}
 	return null;
     }
