@@ -870,6 +870,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            the compression level (<tt>0..9</tt>)
      */
     public void write_compressed(final OtpErlangObject o, int level) {
+    @SuppressWarnings("resource")
 	final OtpOutputStream oos = new OtpOutputStream(o);
 	/*
 	 * similar to erts_term_to_binary() in external.c:
@@ -923,6 +924,11 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 			"Intermediate stream failed for Erlang object " + o);
 	    } finally {
 		this.fixedSize = Integer.MAX_VALUE;
+        try {
+            dos.close();
+        } catch (IOException e) {
+            // ignore
+        }
 	    }
 	}
     }

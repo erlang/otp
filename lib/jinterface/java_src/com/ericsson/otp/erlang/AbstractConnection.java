@@ -234,6 +234,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag + version
@@ -278,6 +279,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag + version
@@ -312,6 +314,7 @@ public abstract class AbstractConnection extends Thread {
     private void cookieError(final OtpLocalNode local,
 	    final OtpErlangAtom cookie) throws OtpAuthException {
 	try {
+        @SuppressWarnings("resource")
 	    final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	    // preamble: 4 byte length + "passthrough" tag + version
@@ -347,6 +350,7 @@ public abstract class AbstractConnection extends Thread {
 	    msg[0] = new OtpErlangAtom("$gen_cast");
 	    msg[1] = new OtpErlangTuple(msgbody);
 
+        @SuppressWarnings("resource")
 	    final OtpOutputStream payload = new OtpOutputStream(
 		    new OtpErlangTuple(msg));
 
@@ -384,6 +388,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag
@@ -420,6 +425,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag
@@ -468,6 +474,7 @@ public abstract class AbstractConnection extends Thread {
 	if (!connected) {
 	    throw new IOException("Not connected");
 	}
+    @SuppressWarnings("resource")
 	final OtpOutputStream header = new OtpOutputStream(headerLen);
 
 	// preamble: 4 byte length + "passthrough" tag
@@ -488,6 +495,7 @@ public abstract class AbstractConnection extends Thread {
 	do_send(header);
     }
 
+    @SuppressWarnings("resource")
     @Override
     public void run() {
 	if (!connected) {
@@ -526,6 +534,7 @@ public abstract class AbstractConnection extends Thread {
 		final byte[] tmpbuf = new byte[len];
 		// i = socket.getInputStream().read(tmpbuf);
 		readSock(socket, tmpbuf);
+        ibuf.close();
 		ibuf = new OtpInputStream(tmpbuf, flags);
 
 		if (ibuf.read1() != passThrough) {
@@ -1057,6 +1066,7 @@ public abstract class AbstractConnection extends Thread {
 
     protected void sendName(final int dist, final int aflags) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	final String str = localNode.node();
 	obuf.write2BE(str.length() + 7); // 7 bytes + nodename
@@ -1076,6 +1086,7 @@ public abstract class AbstractConnection extends Thread {
     protected void sendChallenge(final int dist, final int aflags,
 	    final int challenge) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	final String str = localNode.node();
 	obuf.write2BE(str.length() + 11); // 11 bytes + nodename
@@ -1101,6 +1112,7 @@ public abstract class AbstractConnection extends Thread {
 	byte[] tmpbuf;
 
 	readSock(socket, lbuf);
+    @SuppressWarnings("resource")
 	final OtpInputStream ibuf = new OtpInputStream(lbuf, 0);
 	final int len = ibuf.read2BE();
 	tmpbuf = new byte[len];
@@ -1114,6 +1126,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] tmpbuf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 	    byte[] tmpname;
 	    final int len = tmpbuf.length;
@@ -1168,6 +1181,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    peer.ntype = ibuf.read1();
 	    if (peer.ntype != AbstractNode.NTYPE_R6) {
@@ -1209,6 +1223,7 @@ public abstract class AbstractConnection extends Thread {
     protected void sendChallengeReply(final int challenge, final byte[] digest)
 	    throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	obuf.write2BE(21);
 	obuf.write1(ChallengeReply);
@@ -1242,6 +1257,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    final int tag = ibuf.read1();
 	    if (tag != ChallengeReply) {
@@ -1268,6 +1284,7 @@ public abstract class AbstractConnection extends Thread {
 
     protected void sendChallengeAck(final byte[] digest) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	obuf.write2BE(17);
 	obuf.write1(ChallengeAck);
@@ -1287,6 +1304,7 @@ public abstract class AbstractConnection extends Thread {
 	final byte[] her_digest = new byte[16];
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    final int tag = ibuf.read1();
 	    if (tag != ChallengeAck) {
@@ -1312,6 +1330,7 @@ public abstract class AbstractConnection extends Thread {
 
     protected void sendStatus(final String status) throws IOException {
 
+    @SuppressWarnings("resource")
 	final OtpOutputStream obuf = new OtpOutputStream();
 	obuf.write2BE(status.length() + 1);
 	obuf.write1(ChallengeStatus);
@@ -1329,6 +1348,7 @@ public abstract class AbstractConnection extends Thread {
 
 	try {
 	    final byte[] buf = read2BytePackage();
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(buf, 0);
 	    final int tag = ibuf.read1();
 	    if (tag != ChallengeStatus) {
