@@ -595,10 +595,16 @@ cert_expired(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
 					      {host, Hostname},
 					      {from, self()},
-					      {options, [{verify, verify_peer} | ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "certificate expired"}},
-			      Client, {error, {tls_alert, "certificate expired"}}).
+					      {options, [{verify, verify_peer} | ClientOpts]}]),    
+     receive
+	{Client, {error, {tls_alert, "certificate expired"}}} ->
+	    receive
+		{Server, {error, {tls_alert, "certificate expired"}}} ->
+		    ok;
+		{Server, {error, closed}} ->
+		    ok
+	    end
+    end.
 
 two_digits_str(N) when N < 10 ->
     lists:flatten(io_lib:format("0~p", [N]));
