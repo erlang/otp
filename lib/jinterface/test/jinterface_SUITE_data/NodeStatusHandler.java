@@ -93,7 +93,10 @@ public class NodeStatusHandler extends OtpNodeStatus {
 	    }
 
 	    OtpErlangObject o = mbox.receive(recTime);
-	    if (o == null) System.exit(2);
+        if (o == null) {
+            System.exit(2);
+            return;
+        }
 	    if (! ((OtpErlangAtom)o).atomValue().equals("done"))
 		System.exit(3);
 
