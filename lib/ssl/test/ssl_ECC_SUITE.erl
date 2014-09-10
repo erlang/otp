@@ -163,11 +163,11 @@ client_ecdh_server_ecdh(Config) when is_list(Config) ->
     
 client_ecdh_server_rsa(Config)  when is_list(Config) ->
     COpts =  ?config(client_ecdh_rsa_opts, Config),
-    SOpts = ?config(server_verification_opts, Config),
+    SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
   
 client_rsa_server_ecdh(Config)  when is_list(Config) ->
-    COpts =  ?config(client_verification_opts, Config),
+    COpts =  ?config(client_ecdh_rsa_opts, Config),
     SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
    
@@ -183,11 +183,11 @@ client_ecdsa_server_ecdsa(Config)  when is_list(Config) ->
 
 client_ecdsa_server_rsa(Config)  when is_list(Config) ->
     COpts =  ?config(client_ecdsa_opts, Config),
-    SOpts = ?config(server_verification_opts, Config),
+    SOpts = ?config(server_ecdsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
 
 client_rsa_server_ecdsa(Config)  when is_list(Config) ->
-    COpts =  ?config(client_verification_opts, Config),
+    COpts =  ?config(client_ecdsa_opts, Config),
     SOpts = ?config(server_ecdsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
 

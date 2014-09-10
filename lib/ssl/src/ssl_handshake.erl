@@ -49,7 +49,7 @@
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
--export([certify/7, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
+-export([certify/8, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
 	]).
@@ -383,13 +383,13 @@ verify_signature(_Version, Hash, {HashAlgo, ecdsa}, Signature,
 
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), integer() | nolimit,
-	      verify_peer | verify_none, {fun(), term},
+	      verify_peer | verify_none, {fun(), term}, fun(),
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-	MaxPathLen, _Verify, VerifyFunAndState, Role) ->
+	MaxPathLen, _Verify, VerifyFunAndState, PartialChain, Role) ->
     [PeerCert | _] = ASN1Certs,
 
     ValidationFunAndState =
@@ -421,7 +421,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 
     try
 	{TrustedErlCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef),
+	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef, PartialChain),
 	case public_key:pkix_path_validation(TrustedErlCert,
 					      CertPath,
 					     [{max_path_length,

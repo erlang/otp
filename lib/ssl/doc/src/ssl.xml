@@ -226,7 +226,7 @@
 	<p>The verification fun should be defined as:</p>
 
 	<code>
-fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
 	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
 	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
 	{fail, Reason :: term()} | {unknown, UserState :: term()}.
@@ -252,7 +252,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	always returns {valid, UserState}, the TLS/SSL handshake will
 	not be terminated with respect to verification failures and
 	the connection will be established. If called with an
-	extension unknown to the user application the return value
+	extension unknown to the user application, the return value
 	{unknown, UserState} should be used.</p>
 
 	<p>The default verify_fun option in verify_peer mode:</p>
@@ -283,9 +283,29 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
  end, []}
       </code>
 
-<p>Possible path validation errors: </p>
+      <p>Possible path validation errors are given on the form {bad_cert, Reason} where Reason is:</p>
 
-<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca},{bad_cert, selfsigned_peer}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
+      <taglist>
+	<tag>unknown_ca</tag>
+	<item>No trusted CA was found in the trusted store. The trusted CA is
+	normally a so called ROOT CA that is a self-signed cert. Trust may
+	be claimed for an intermediat CA (trusted anchor does not have to be self signed
+	according to X-509) by using the option <c>partial_chain</c></item>
+
+	<tag>selfsigned_peer</tag>
+	<item>The chain consisted only of one self-signed certificate.</item>
+
+	<tag>PKIX X-509-path validation error</tag>
+	<item> Possible such reasons see <seealso
+	marker="public_key#pkix_path_validation-3"> public_key:pkix_path_validation/3 </seealso></item>
+      </taglist>
+
+      </item>
+
+      <tag>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} | unknown_ca </tag>
+      <item>
+	Claim an intermediat CA in the chain as trusted. TLS will then perform the public_key:pkix_path_validation/3
+	with the selected CA as trusted anchor and the rest of the chain.
       </item>
 
       <tag>{versions, [protocol()]}</tag>

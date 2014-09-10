@@ -431,10 +431,12 @@
     <name>pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
     <fsummary> Performs a basic path validation according to RFC 5280.</fsummary>
      <type>
-       <v> TrustedCert =  #'OTPCertificate'{} | der_encode() | unknown_ca | selfsigned_peer  </v>
-       <d>Normally a trusted certificate but it can also be one of the path validation
-       errors <c>unknown_ca </c> or <c>selfsigned_peer </c> that can be discovered while
-       constructing the input to this function and that should be run through the <c>verify_fun</c>.</d>
+       <v> TrustedCert =  #'OTPCertificate'{} | der_encode() | atom()  </v>
+       <d>Normally a trusted certificate but it can also be a path validation
+       error that can be discovered while
+       constructing the input to this function and that should be run through the <c>verify_fun</c>.
+       For example <c>unknown_ca </c> or <c>selfsigned_peer </c>
+       </d>
        <v> CertChain = [der_encode()]</v>
        <d>A list of DER encoded certificates in trust order ending with the peer certificate.</d>
        <v> Options = proplists:proplist()</v>
@@ -442,8 +444,8 @@
        rsa_public_key() | integer(), 'NULL' | 'Dss-Parms'{}}</v>
        <v> PolicyTree = term() </v>
        <d>At the moment this will always be an empty list as Policies are not currently supported</d>
-       <v> Reason = cert_expired | invalid_issuer | invalid_signature | unknown_ca |
-       selfsigned_peer | name_not_permitted | missing_basic_constraint | invalid_key_usage | crl_reason()
+       <v> Reason = cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
+       missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom()
        </v>
      </type>
      <desc>
@@ -464,7 +466,7 @@
 
 	  <code>
 fun(OtpCert :: #'OTPCertificate'{},
-    Event :: {bad_cert, Reason :: atom()} |
+    Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
              {extension, #'Extension'{}},
     InitialUserState :: term()) ->
 	{valid, UserState :: term()} |
@@ -493,6 +495,35 @@ fun(OtpCert :: #'OTPCertificate'{},
 	  on.
 	</item>
       </taglist>
+
+      <p> Possible reasons for a bad certificate are: </p>
+      <taglist>
+	<tag>cert_expired</tag>
+	<item>The certificate is no longer valid as its expiration date has passed.</item>
+
+	<tag>invalid_issuer</tag>
+	<item>The certificate issuer name does not match the name of the issuer certificate in the chain.</item>
+
+	<tag>invalid_signature</tag>
+	<item>The certificate was not signed by its issuer certificate in the chain.</item>
+
+	<tag>name_not_permitted</tag>
+	<item>Invalid Subject Alternative Name extension.</item>
+
+	<tag>missing_basic_constraint</tag>
+	<item>Certificate, required to have the basic constraints extension, does not have
+	a basic constraints extension.</item>
+
+	<tag>invalid_key_usage</tag>
+	<item>Certificate key is used in an invalid way according to the key usage extension.</item>
+
+	<tag>{revoked, crl_reason()}</tag>
+	<item>Certificate has been revoked.</item>
+
+	<tag>atom()</tag>
+	<item>Application specific error reason that should be checked by the verify_fun</item>
+      </taglist>
+
     </desc>
    </func>
 
