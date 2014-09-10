@@ -4461,7 +4461,7 @@ dnl		so it is - be adoptable
     CRYPTO_APP=crypto
     SSH_APP=ssh
     if test "$cross_compiling" = "yes"; then
-	SSL_RUNTIME_LIBDIR=`echo "$SSL_LIBDIR" | sed -n "s|^$erl_xcomp_sysroot\(.*\)\$|\1|p"`
+	SSL_RUNTIME_LIBDIR=`echo "$SSL_LIBDIR" | sed -n "s|^$erl_xcomp_sysroot\(/*\)\(.*\)\$|/\2|p"`
     else
 	SSL_RUNTIME_LIBDIR="$SSL_LIBDIR"
     fi
