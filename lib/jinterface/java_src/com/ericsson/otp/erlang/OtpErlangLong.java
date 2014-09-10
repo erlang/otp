@@ -92,9 +92,8 @@ public class OtpErlangLong extends OtpErlangObject {
     public BigInteger bigIntegerValue() {
 	if (bigVal != null) {
 	    return bigVal;
-	} else {
-	    return BigInteger.valueOf(val);
 	}
+    return BigInteger.valueOf(val);
     }
 
     /**
@@ -107,9 +106,8 @@ public class OtpErlangLong extends OtpErlangObject {
     public long longValue() {
 	if (bigVal != null) {
 	    return bigVal.longValue();
-	} else {
-	    return val;
 	}
+    return val;
     }
 
     /**
@@ -157,7 +155,7 @@ public class OtpErlangLong extends OtpErlangObject {
 	}
 	if (val == 0 || val == -1) {
 	    return 0;
-	} else {
+    }
 	    // Binary search for bit length
 	    int i = 32; // mask length
 	    long m = (1L << i) - 1; // AND mask with ones in little end
@@ -191,7 +189,6 @@ public class OtpErlangLong extends OtpErlangObject {
 	    }
 	    return i;
 	}
-    }
 
     /**
      * Return the signum function of this object.
@@ -201,9 +198,8 @@ public class OtpErlangLong extends OtpErlangObject {
     public int signum() {
 	if (bigVal != null) {
 	    return bigVal.signum();
-	} else {
-	    return val > 0 ? 1 : val < 0 ? -1 : 0;
 	}
+    return val > 0 ? 1 : val < 0 ? -1 : 0;
     }
 
     /**
@@ -340,9 +336,8 @@ public class OtpErlangLong extends OtpErlangObject {
     public String toString() {
 	if (bigVal != null) {
 	    return "" + bigVal;
-	} else {
-	    return "" + val;
 	}
+    return "" + val;
     }
 
     /**
@@ -390,8 +385,7 @@ public class OtpErlangLong extends OtpErlangObject {
     protected int doHashCode() {
 	if (bigVal != null) {
 	    return bigVal.hashCode();
-	} else {
-	    return BigInteger.valueOf(val).hashCode();
 	}
+    return BigInteger.valueOf(val).hashCode();
     }
 }

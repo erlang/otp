@@ -49,9 +49,8 @@ public class OtpErlangTuple extends OtpErlangObject {
 	if (elem == null) {
 	    throw new java.lang.IllegalArgumentException(
 		    "Tuple element cannot be null");
-	} else {
-	    elems = new OtpErlangObject[] { elem };
 	}
+    elems = new OtpErlangObject[] { elem };
     }
 
     /**

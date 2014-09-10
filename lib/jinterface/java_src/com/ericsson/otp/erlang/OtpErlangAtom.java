@@ -117,9 +117,8 @@ public class OtpErlangAtom extends OtpErlangObject {
     public String toString() {
 	if (atomNeedsQuoting(atom)) {
 	    return "'" + escapeSpecialChars(atom) + "'";
-	} else {
-	    return atom;
 	}
+    return atom;
     }
 
     /**
