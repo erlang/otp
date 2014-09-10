@@ -1163,6 +1163,7 @@ public class OtpInputStream extends ByteArrayInputStream {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
 
+    @SuppressWarnings("resource")
 	final OtpInputStream ois = new OtpInputStream(abuf, flags);
 	return ois.read_any();
     }

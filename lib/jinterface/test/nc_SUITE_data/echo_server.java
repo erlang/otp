@@ -148,11 +148,13 @@ public class echo_server {
 	    final String atomValue = ((OtpErlangAtom) t).atomValue();
 	    if (atomValue.equals("binary") && i instanceof OtpErlangBinary) {
 		final OtpErlangBinary b = (OtpErlangBinary) i;
+        @SuppressWarnings("resource")
 		final OtpInputStream bis = new OtpInputStream(b.binaryValue(),
 			0);
 		final OtpErlangObject o = bis.read_any();
 		return o;
 	    } else if (atomValue.equals("compress")) {
+        @SuppressWarnings("resource")
 		final OtpOutputStream oos = new OtpOutputStream();
 		oos.write1(OtpExternal.versionTag);
 		oos.write_compressed(i);
