@@ -22,7 +22,7 @@
 #endif
 
 /*
-** WARNING: add new ERL_NIF_API_FUNC_DECL entries at the bottom of the list
+** WARNING: Add new ERL_NIF_API_FUNC_DECL entries at the bottom of the list
 ** to keep compatibility on Windows!!!
 **
 ** And don't forget to increase ERL_NIF_MINOR_VERSION in erl_nif.h
@@ -141,12 +141,6 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(void*,enif_dlopen,(const char* lib, void (*err_handler)(void*,const char*), void* err_arg));
 ERL_NIF_API_FUNC_DECL(void*,enif_dlsym,(void* handle, const char* symbol, void (*err_handler)(void*,const char*), void* err_arg));
 ERL_NIF_API_FUNC_DECL(int,enif_consume_timeslice,(ErlNifEnv*, int percent));
-ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_nif,(ErlNifEnv*,const char*,int,ERL_NIF_TERM (*)(ErlNifEnv*,int,const ERL_NIF_TERM[]),int,const ERL_NIF_TERM[]));
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
-ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
-#endif
-
 ERL_NIF_API_FUNC_DECL(int, enif_is_map, (ErlNifEnv* env, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int, enif_get_map_size, (ErlNifEnv* env, ERL_NIF_TERM term, size_t *size));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_new_map, (ErlNifEnv* env));
@@ -161,12 +155,23 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_is_tail, (ErlNifEnv *env, ErlNifMap
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_next, (ErlNifEnv *env, ErlNifMapIterator *iter));
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_prev, (ErlNifEnv *env, ErlNifMapIterator *iter));
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_nif,(ErlNifEnv*,const char*,int,ERL_NIF_TERM (*)(ErlNifEnv*,int,const ERL_NIF_TERM[]),int,const ERL_NIF_TERM[]));
+
+/*
+** ADD NEW ENTRIES HERE (before this comment) !!!
+*/
 
 
 /*
-** Add new entries here to keep compatibility on Windows!!!
-*/
+ * Conditional EXPERIMENTAL stuff always last.
+ * Must be moved up and made unconditional to support binary backward
+ * compatibility on Windows.
+ */
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
+ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
 #endif
+#endif /* ERL_NIF_API_FUNC_DECL */
 
 /*
 ** Please keep the ERL_NIF_API_FUNC_MACRO list below in the same order
@@ -280,19 +285,12 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMa
 #  define enif_make_int64 ERL_NIF_API_FUNC_MACRO(enif_make_int64)
 #  define enif_make_uint64 ERL_NIF_API_FUNC_MACRO(enif_make_uint64)
 #endif
-
 #  define enif_is_exception ERL_NIF_API_FUNC_MACRO(enif_is_exception)
 #  define enif_make_reverse_list ERL_NIF_API_FUNC_MACRO(enif_make_reverse_list)
 #  define enif_is_number ERL_NIF_API_FUNC_MACRO(enif_is_number)
 #  define enif_dlopen ERL_NIF_API_FUNC_MACRO(enif_dlopen)
 #  define enif_dlsym ERL_NIF_API_FUNC_MACRO(enif_dlsym)
 #  define enif_consume_timeslice ERL_NIF_API_FUNC_MACRO(enif_consume_timeslice)
-#  define enif_schedule_nif ERL_NIF_API_FUNC_MACRO(enif_schedule_nif)
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
-#  define enif_have_dirty_schedulers ERL_NIF_API_FUNC_MACRO(enif_have_dirty_schedulers)
-#endif
-
 #  define enif_is_map ERL_NIF_API_FUNC_MACRO(enif_is_map)
 #  define enif_get_map_size ERL_NIF_API_FUNC_MACRO(enif_get_map_size)
 #  define enif_make_new_map ERL_NIF_API_FUNC_MACRO(enif_make_new_map)
@@ -307,11 +305,22 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMa
 #  define enif_map_iterator_next ERL_NIF_API_FUNC_MACRO(enif_map_iterator_next)
 #  define enif_map_iterator_prev ERL_NIF_API_FUNC_MACRO(enif_map_iterator_prev)
 #  define enif_map_iterator_get_pair ERL_NIF_API_FUNC_MACRO(enif_map_iterator_get_pair)
+#  define enif_schedule_nif ERL_NIF_API_FUNC_MACRO(enif_schedule_nif)
 
 /*
-** Add new entries here
+** ADD NEW ENTRIES HERE (before this comment)
 */
+
+/*
+ * Conditional EXPERIMENTAL stuff always last
+ * Must be moved up and made unconditional to support binary backward
+ * compatibility on Windows.
+ */
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+#  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
+#  define enif_have_dirty_schedulers ERL_NIF_API_FUNC_MACRO(enif_have_dirty_schedulers)
 #endif
+#endif  /* ERL_NIF_API_FUNC_MACRO */
 
 
 #if defined(__GNUC__) && !(defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
