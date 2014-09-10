@@ -30,7 +30,7 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
--export([trusted_cert_and_path/3,
+-export([trusted_cert_and_path/4,
 	 certificate_chain/3,
 	 file_to_certificats/2,
 	 validate_extension/3,
@@ -46,14 +46,14 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec trusted_cert_and_path([der_cert()], db_handle(), certdb_ref()) ->
+-spec trusted_cert_and_path([der_cert()], db_handle(), certdb_ref(), fun()) ->
 				   {der_cert() | unknown_ca, [der_cert()]}.
 %%
 %% Description: Extracts the root cert (if not presents tries to 
 %% look it up, if not found {bad_cert, unknown_ca} will be added verification
 %% errors. Returns {RootCert, Path, VerifyErrors}
 %%--------------------------------------------------------------------
-trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef) ->
+trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) ->
     Path = [Cert | _] = lists:reverse(CertChain),
     OtpCert = public_key:pkix_decode_cert(Cert, otp),
     SignedAndIssuerID =
@@ -62,32 +62,23 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef) ->
 		{ok, IssuerId} = public_key:pkix_issuer_id(OtpCert, self),
 		{self, IssuerId};
 	    false ->
-		case public_key:pkix_issuer_id(OtpCert, other) of
-		    {ok, IssuerId} ->
-			{other, IssuerId};
-		    {error, issuer_not_found} ->
-			case find_issuer(OtpCert, CertDbHandle) of
-			    {ok, IssuerId} ->
-				{other, IssuerId};
-			    Other ->
-				Other
-			end
-		end
+		other_issuer(OtpCert, CertDbHandle)
 	end,
     
     case SignedAndIssuerID of
 	{error, issuer_not_found} ->
 	    %% The root CA was not sent and can not be found.
-	    {unknown_ca, Path};
+	    handle_incomplete_chain(Path, PartialChainHandler);
 	{self, _} when length(Path) == 1 ->
 	    {selfsigned_peer, Path};
 	{_ ,{SerialNr, Issuer}} ->
 	    case ssl_manager:lookup_trusted_cert(CertDbHandle, CertDbRef, SerialNr, Issuer) of
-		{ok, {BinCert,_}} ->
-		    {BinCert, Path};
+		{ok, Trusted} ->
+		    %% Trusted must be selfsigned or it is an incomplete chain
+		    handle_path(Trusted, Path, PartialChainHandler);
 		_ ->
 		    %% Root CA could not be verified
-		    {unknown_ca, Path}
+		    handle_incomplete_chain(Path, PartialChainHandler)
 	    end
     end.
 
@@ -222,28 +213,27 @@ certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned
 	_ ->
 	    %% The trusted cert may be obmitted from the chain as the
 	    %% counter part needs to have it anyway to be able to
-	    %% verify it.  This will be the normal case for servers
-	    %% that does not verify the clients and hence have not
-	    %% specified the cacertfile.
+	    %% verify it.
 	    {ok, lists:reverse(Chain)}		      
     end.
 
 find_issuer(OtpCert, CertDbHandle) ->
-    IsIssuerFun = fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
-			  case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
-			      true ->
-				  case verify_cert_signer(OtpCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
-				      true ->
-					  throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
-				      false ->
-					  Acc
-				  end;
-			      false ->
-				  Acc
-			  end;
-		     (_, Acc) ->
-			  Acc
-		  end,
+    IsIssuerFun =
+	fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
+		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
+		    true ->
+			case verify_cert_signer(OtpCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
+			    true ->
+				throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
+			    false ->
+				Acc
+			end;
+		    false ->
+			Acc
+		end;
+	   (_, Acc) ->
+		Acc
+	end,
 
     try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
 	issuer_not_found ->
@@ -275,3 +265,41 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 									parameters = {params, Params}},
 				      subjectPublicKey = Key}) ->
     {Key, Params}.
+
+other_issuer(OtpCert, CertDbHandle) ->
+    case public_key:pkix_issuer_id(OtpCert, other) of
+	{ok, IssuerId} ->
+	    {other, IssuerId};
+	{error, issuer_not_found} ->
+	    case find_issuer(OtpCert, CertDbHandle) of
+		{ok, IssuerId} ->
+		    {other, IssuerId};
+		Other ->
+		    Other
+	    end
+    end.
+
+handle_path({BinCert, OTPCert}, Path, PartialChainHandler) ->
+    case public_key:pkix_is_self_signed(OTPCert) of
+	true ->
+	    {BinCert, Path};
+	false ->
+	   handle_incomplete_chain(Path, PartialChainHandler)
+    end.
+
+handle_incomplete_chain(Chain, Fun) ->
+    case catch Fun(Chain) of
+	{trusted_ca, DerCert} ->
+	    new_trusteded_chain(DerCert, Chain);
+	unknown_ca = Error ->
+	    {Error, Chain};
+	_  ->
+	    {unknown_ca, Chain}
+    end.
+
+new_trusteded_chain(DerCert, [DerCert | Chain]) ->
+    {DerCert, Chain};
+new_trusteded_chain(DerCert, [_ | Rest]) ->
+    new_trusteded_chain(DerCert, Rest);
+new_trusteded_chain(_, []) ->
+    unknown_ca.

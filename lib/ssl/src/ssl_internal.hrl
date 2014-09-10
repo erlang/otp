@@ -74,6 +74,7 @@
 	  versions    :: [ssl_record:ssl_version()], %% ssl_record:atom_version() in API
 	  verify      :: verify_none | verify_peer,
 	  verify_fun,  %%:: fun(CertVerifyErrors::term()) -> boolean(),
+	  partial_chain       :: fun(),
 	  fail_if_no_peer_cert ::  boolean(),
 	  verify_client_once   ::  boolean(),
 	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
