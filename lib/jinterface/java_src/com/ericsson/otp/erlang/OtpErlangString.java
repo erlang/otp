@@ -25,7 +25,7 @@ import java.io.UnsupportedEncodingException;
  */
 public class OtpErlangString extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = -7053595217604929233L;
+    private static final long serialVersionUID = -7053595217604929233L;
 
     private final String str;
 

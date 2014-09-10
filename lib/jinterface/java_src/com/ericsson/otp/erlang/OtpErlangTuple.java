@@ -30,7 +30,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangTuple extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = 9163498658004915935L;
+    private static final long serialVersionUID = 9163498658004915935L;
 
     private static final OtpErlangObject[] NO_ELEMENTS = new OtpErlangObject[0];
 

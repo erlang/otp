@@ -26,7 +26,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangRef extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = -7022666480768586521L;
+    private static final long serialVersionUID = -7022666480768586521L;
 
     private final String node;
     private final int creation;

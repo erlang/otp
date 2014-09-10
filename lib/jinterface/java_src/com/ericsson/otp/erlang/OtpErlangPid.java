@@ -25,7 +25,7 @@ package com.ericsson.otp.erlang;
  */
 public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> {
     // don't change this!
-    static final long serialVersionUID = 1664394142301803659L;
+    private static final long serialVersionUID = 1664394142301803659L;
 
     private final String node;
     private final int id;
