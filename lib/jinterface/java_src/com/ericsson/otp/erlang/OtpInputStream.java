@@ -344,6 +344,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next term in the stream is not an atom.
      */
+    @SuppressWarnings("fallthrough")
     public String read_atom() throws OtpErlangDecodeException {
 	int tag;
 	int len = -1;
@@ -376,7 +377,7 @@ public class OtpInputStream extends ByteArrayInputStream {
 
 	case OtpExternal.smallAtomUtf8Tag:
 	    len = read1();
-	    /* fall through */
+        // fall-through
 	case OtpExternal.atomUtf8Tag:
 	    if (len < 0) {
 		len = read2BE();

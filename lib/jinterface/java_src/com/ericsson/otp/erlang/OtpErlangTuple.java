@@ -240,6 +240,7 @@ public class OtpErlangTuple extends OtpErlangObject {
 	return true;
     }
     
+    @Override
     protected int doHashCode() {
 	OtpErlangObject.Hash hash = new OtpErlangObject.Hash(9);
 	final int a = arity();

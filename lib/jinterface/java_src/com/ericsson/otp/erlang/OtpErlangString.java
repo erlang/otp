@@ -135,6 +135,7 @@ public class OtpErlangString extends OtpErlangObject {
 	return false;
     }
     
+    @Override
     protected int doHashCode() {
 	return str.hashCode();
     }
