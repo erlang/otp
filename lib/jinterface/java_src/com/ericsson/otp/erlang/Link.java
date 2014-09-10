@@ -41,9 +41,9 @@ class Link {
 	return local.equals(pid) || remote.equals(pid);
     }
 
-    public boolean equals(final OtpErlangPid local, final OtpErlangPid remote) {
-	return this.local.equals(local) && this.remote.equals(remote)
-		|| this.local.equals(remote) && this.remote.equals(local);
+    public boolean equals(final OtpErlangPid alocal, final OtpErlangPid aremote) {
+    return local.equals(alocal) && remote.equals(aremote)
+        || local.equals(aremote) && remote.equals(alocal);
     }
     
     @Override
