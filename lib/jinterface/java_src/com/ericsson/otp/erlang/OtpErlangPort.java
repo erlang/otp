@@ -38,6 +38,7 @@ public class OtpErlangPort extends OtpErlangObject {
      * 
      * @deprecated use OtpLocalNode:createPort() instead
      */
+    @SuppressWarnings("unused")
     private OtpErlangPort(final OtpSelf self) {
 	final OtpErlangPort p = self.createPort();
 
