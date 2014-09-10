@@ -101,8 +101,11 @@ class OtpMD5 {
 
     private void to_buffer(int to_start, final int[] from, int from_start,
 	    int num) {
-	while (num-- > 0) {
-	    buffer[to_start++] = from[from_start++];
+    int ix = num;
+    int to_ix = to_start;
+    int from_ix = from_start;
+    while (ix-- > 0) {
+        buffer[to_ix++] = from[from_ix++];
 	}
     }
 
@@ -121,7 +124,7 @@ class OtpMD5 {
 
 	count[1] = plus(count[1], shr(inlen, 29));
 
-	/* dumpstate(); */
+    // dumpstate();
 
 	if (inlen >= partlen) {
 	    to_buffer(index, bytes, 0, (int) partlen);
@@ -144,6 +147,7 @@ class OtpMD5 {
 
     }
 
+    @SuppressWarnings("unused")
     private void dumpstate() {
 	System.out.println("state = {" + state[0] + ", " + state[1] + ", "
 		+ state[2] + ", " + state[3] + "}");
@@ -185,30 +189,30 @@ class OtpMD5 {
 
     private long FF(long a, final long b, final long c, final long d,
 	    final long x, final long s, final long ac) {
-	a = plus(a, plus(plus(F(b, c, d), x), ac));
-	a = ROTATE_LEFT(a, s);
-	return plus(a, b);
+    long tmp = plus(a, plus(plus(F(b, c, d), x), ac));
+    tmp = ROTATE_LEFT(tmp, s);
+    return plus(tmp, b);
     }
 
     private long GG(long a, final long b, final long c, final long d,
 	    final long x, final long s, final long ac) {
-	a = plus(a, plus(plus(G(b, c, d), x), ac));
-	a = ROTATE_LEFT(a, s);
-	return plus(a, b);
+    long tmp = plus(a, plus(plus(G(b, c, d), x), ac));
+    tmp = ROTATE_LEFT(tmp, s);
+    return plus(tmp, b);
     }
 
     private long HH(long a, final long b, final long c, final long d,
 	    final long x, final long s, final long ac) {
-	a = plus(a, plus(plus(H(b, c, d), x), ac));
-	a = ROTATE_LEFT(a, s);
-	return plus(a, b);
+    long tmp = plus(a, plus(plus(H(b, c, d), x), ac));
+    tmp = ROTATE_LEFT(tmp, s);
+    return plus(tmp, b);
     }
 
     private long II(long a, final long b, final long c, final long d,
 	    final long x, final long s, final long ac) {
-	a = plus(a, plus(plus(I(b, c, d), x), ac));
-	a = ROTATE_LEFT(a, s);
-	return plus(a, b);
+    long tmp = plus(a, plus(plus(I(b, c, d), x), ac));
+    tmp = ROTATE_LEFT(tmp, s);
+    return plus(tmp, b);
     }
 
     private void decode(final long output[], final int input[],
