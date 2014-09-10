@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2013</year>
+      <year>2006</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -195,14 +195,14 @@
       </desc>
     </func>
     <func>
-      <name>agents_entry(UserId, TargetName, Comm, Ip, Port, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()</name>
+      <name>agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()</name>
       <fsummary>Create an agents entry</fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = string()</v>
         <v>Comm = string()</v>
-        <v>Ip = string()</v>
-        <v>Port = integer()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddress()</v>
         <v>EngineID = string()</v>
         <v>Timeout = integer()</v>
         <v>MaxMessageSize = integer()</v>

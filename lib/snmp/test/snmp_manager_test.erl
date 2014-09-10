@@ -584,17 +584,30 @@ init_per_group(event_tests_mt = GroupName, Config) ->
 init_per_group(ipv6_mt = GroupName, Config) ->
     case ct:require(ipv6_hosts) of
 	ok ->
-	    ipv6_init(
-	      snmp_test_lib:init_group_top_dir(
-		GroupName,
-		[{manager_net_if_module, snmpm_net_if_mt} | Config]));
+	    case gen_udp:open(0, [inet6]) of
+		{ok, S} ->
+		    ok = gen_udp:close(S),
+		    ipv6_init(
+		      snmp_test_lib:init_group_top_dir(
+			GroupName,
+			[{manager_net_if_module, snmpm_net_if_mt}
+			 | Config]));
+		{error, _} ->
+		    {skip, "Host seems to not support IPv6"}
+	    end;
 	_ ->
 	    {skip, "Host does not support IPV6"}
     end;
 init_per_group(ipv6 = GroupName, Config) -> 
     case ct:require(ipv6_hosts) of
 	ok ->
-	    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+	    case gen_udp:open(0, [inet6]) of
+		{ok, S} ->
+		    ok = gen_udp:close(S),
+		    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+		{error, _} ->
+		    {skip, "Host seems to not support IPv6"}
+	    end;
 	_ ->
 	    {skip, "Host does not support IPV6"}
     end;
