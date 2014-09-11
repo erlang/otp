@@ -453,7 +453,7 @@
 	 Performs a basic path validation according to
 	 <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
 	 However CRL validation is done separately by <seealso
-	 marker="public_key#pkix_crls_validate-3">pkix_crls_validate/3 </seealso> and should be called
+	 marker="#pkix_crls_validate-3">pkix_crls_validate/3 </seealso> and should be called
 	 from the supplied <c>verify_fun</c>
        </p>
 
@@ -539,7 +539,7 @@ fun(OtpCert :: #'OTPCertificate'{},
      </type>
      <desc>
       <p> Performs CRL validation. It is intended to be called from
-      the verify fun of  <seealso marker="public_key#pkix_path_validation-3"> pkix_path_validation/3
+      the verify fun of  <seealso marker="#pkix_path_validation-3"> pkix_path_validation/3
        </seealso></p>
       <taglist>
 	<p> Available options are: </p>
