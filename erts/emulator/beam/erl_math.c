@@ -207,9 +207,45 @@ BIF_RETTYPE math_log_1(BIF_ALIST_1)
     return math_call_1(BIF_P, log, BIF_ARG_1);
 }
 
+#ifndef HAVE_LOG2
+static Eterm
+math_log2(Process* p, Eterm arg1)
+{
+    FloatDef a1;
+    Eterm res;
+    Eterm* hp;
+
+    ERTS_FP_CHECK_INIT(p);
+    if (is_float(arg1)) {
+	GET_DOUBLE(arg1, a1);
+    } else if (is_small(arg1)) {
+	a1.fd = signed_val(arg1);
+    } else if (is_big(arg1)) {
+	if (big_to_double(arg1, &a1.fd) < 0) {
+	badarith:
+	    p->freason = BADARITH;
+	    return THE_NON_VALUE;
+	}
+    } else {
+	p->freason = BADARG;
+	return THE_NON_VALUE;
+    }
+    a1.fd = log(a1.fd) / log(2.0);
+    ERTS_FP_ERROR_THOROUGH(p, a1.fd, goto badarith);
+    hp = HAlloc(p, FLOAT_SIZE_OBJECT);
+    res = make_float(hp);
+    PUT_DOUBLE(a1, hp);
+    return res;
+}
+#endif
+
 BIF_RETTYPE math_log2_1(BIF_ALIST_1)
 {
+#ifdef HAVE_LOG2
     return math_call_1(BIF_P, log2, BIF_ARG_1);
+#else
+    return math_log2(BIF_P, BIF_ARG_1);
+#endif
 }
 
 BIF_RETTYPE math_log10_1(BIF_ALIST_1)
