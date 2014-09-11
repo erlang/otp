@@ -75,7 +75,7 @@
 
 -define(SUBSYSTEMS, ["echo1", "echo2", "echo3", "echo4"]).
 
--define(SERVER_ADDRESS, { {127,1,1,1}, inet_port({127,1,1,1}) }).
+-define(SERVER_ADDRESS, { {127,1,1,1}, {call, ?MODULE, inet_port, [{127,1,1,1}]} }).
 
 -define(SERVER_EXTRA_OPTIONS,  [{parallel_login,bool()}] ).
 		
