@@ -912,6 +912,8 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 
 #ifdef HAVE_GETHRVTIME_PROCFS_IOCTL
 
+/* The code below only has effect on solaris < 10,
+   needed in order for gehhrvtime to work properly */
 int sys_start_hrvtime(void)
 {
     long msacct = PR_MSACCT;

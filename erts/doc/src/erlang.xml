@@ -131,6 +131,17 @@
 	  </note>
 	  </item>
 
+	  <tag><c>perf_counter</c></tag>
+	  <item><p>Symbolic representation of the performance counter
+          time unit used by the Erlang runtime system.</p>
+
+          <p>The <c>perf_counter</c> time unit behaves much in the same way
+          as the <c>native</c> time unit. That is it might differ inbetween
+          run-time restarts. You get values of this type by calling
+          <seealso marker="kernel:os#perf_counter/0"><c>os:perf_counter()</c></seealso>
+          </p>
+          </item>
+
 	</taglist>
 
 	<p>The <c>time_unit/0</c> type may be extended. Use

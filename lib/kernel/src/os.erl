@@ -27,7 +27,9 @@
 
 %%% BIFs
 
--export([getenv/0, getenv/1, getenv/2, getpid/0, putenv/2, system_time/0, system_time/1,
+-export([getenv/0, getenv/1, getenv/2, getpid/0,
+         perf_counter/0, perf_counter/1,
+         putenv/2, system_time/0, system_time/1,
 	 timestamp/0, unsetenv/1]).
 
 -spec getenv() -> [string()].
@@ -59,6 +61,18 @@ getenv(VarName, DefaultValue) ->
 
 getpid() ->
     erlang:nif_error(undef).
+
+-spec perf_counter() -> Counter when
+      Counter :: integer().
+
+perf_counter() ->
+    erlang:nif_error(undef).
+
+-spec perf_counter(Unit) -> integer() when
+      Unit :: erlang:time_unit().
+
+perf_counter(Unit) ->
+      erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
 
 -spec putenv(VarName, Value) -> true when
       VarName :: string(),

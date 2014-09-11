@@ -45,7 +45,7 @@
 
 -export([await_result/1, gather_io_bytes/2]).
 
--export([time_unit/0]).
+-export([time_unit/0, perf_counter_unit/0]).
 
 -export([is_system_process/1]).
 
@@ -343,6 +343,11 @@ flush_monitor_messages(Ref, Multi, Res) when is_reference(Ref) ->
 -spec erts_internal:time_unit() -> pos_integer().
 
 time_unit() ->
+    erlang:nif_error(undefined).
+
+-spec erts_internal:perf_counter_unit() -> pos_integer().
+
+perf_counter_unit() ->
     erlang:nif_error(undefined).
 
 -spec erts_internal:is_system_process(Pid) -> boolean() when

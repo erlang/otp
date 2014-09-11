@@ -4895,6 +4895,38 @@ do {						\
      }
  }
 
+ /* This is optimised as an instruction because
+    it has to be very very fast */
+ OpCase(i_perf_counter): {
+    BeamInstr* next;
+    ErtsSysHrTime ts;
+    PreFetch(0, next);
+
+    sys_perf_counter(&ts);
+
+    if (IS_SSMALL(ts)) {
+        r(0) = make_small((Sint)ts);
+    } else {
+        TestHeap(ERTS_SINT64_HEAP_SIZE(ts),0);
+        r(0) = make_big(HTOP);
+#if defined(ARCH_32) || HALFWORD_HEAP
+        if (ts >= (((Uint64) 1) << 32)) {
+            *HTOP = make_pos_bignum_header(2);
+            BIG_DIGIT(HTOP, 0) = (Uint) (ts & ((Uint) 0xffffffff));
+            BIG_DIGIT(HTOP, 1) = (Uint) ((ts >> 32) & ((Uint) 0xffffffff));
+            HTOP += 3;
+        }
+        else
+#endif
+        {
+                *HTOP = make_pos_bignum_header(1);
+                BIG_DIGIT(HTOP, 0) = (Uint) ts;
+                HTOP += 2;
+        }
+    }
+    NextPF(0, next);
+ }
+
  OpCase(i_debug_breakpoint): {
      HEAVY_SWAPOUT;
      I = call_error_handler(c_p, I-3, reg, am_breakpoint);

@@ -170,6 +170,7 @@ bif erts_internal:term_type/1
 bif erts_internal:map_hashmap_children/1
 
 bif erts_internal:time_unit/0
+bif erts_internal:perf_counter_unit/0
 
 bif erts_internal:is_system_process/1
 
@@ -369,6 +370,7 @@ bif os:getpid/0
 bif os:timestamp/0
 bif os:system_time/0
 bif os:system_time/1
+bif os:perf_counter/0
 
 #
 # Bifs in the erl_ddll module (the module actually does not exist)

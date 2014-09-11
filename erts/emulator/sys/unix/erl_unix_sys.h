@@ -101,6 +101,10 @@
 #endif
 #include <netdb.h>
 
+#ifdef HAVE_MACH_ABSOLUTE_TIME
+#include <mach/mach_time.h>
+#endif
+
 #ifdef HAVE_POSIX_MEMALIGN
 #  define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 1
 #endif
@@ -266,7 +270,31 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 #endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
 
 /*
- *
+ * Functions for getting the performance counter
+ */
+
+#if defined(__x86_64__)
+ /*  available on all x86_64. Best if used when we have constant_tsc and
+     nonstop_tsc cpu features. It may have been a good idea to put the
+     cpuid instruction before the rdtsc, but I decided against it
+     because it is not really needed for msacc, and it slows it down by
+     quite a bit. As a result though, this timestamp becomes much less
+     accurate as it might be re-ordered to be executed way before this
+     function is called.
+ */
+#define sys_perf_counter(ts) do {                                       \
+        __asm__ __volatile__ ("rdtsc\n\t"                               \
+                              "shl $32, %%rdx\n\t"                      \
+                              "or %%rdx, %0" : "=a" (*ts) : : "rdx");   \
+    } while(0)
+#define SYS_PERF_COUNTER_UNIT erts_perf_counter_unit()
+#else
+#define sys_perf_counter(ts) *(ts) = erts_get_perf_counter()
+#define SYS_PERF_COUNTER_UNIT 1000000000LL
+#endif
+
+/*
+ * Functions for measuring CPU time
  */
 
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))

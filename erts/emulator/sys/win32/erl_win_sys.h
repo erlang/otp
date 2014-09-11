@@ -238,6 +238,8 @@ erts_sys_hrtime(void)
 
 extern void sys_gettimeofday(SysTimeval *tv);
 extern clock_t sys_times(SysTimes *buffer);
+#define sys_perf_counter(ts) *(ts) = erts_sys_hrtime()
+#define SYS_PERF_COUNTER_UNIT ERTS_I64_LITERAL(1000000000)
 
 extern char *win_build_environment(char *);
 

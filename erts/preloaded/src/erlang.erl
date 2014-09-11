@@ -71,7 +71,8 @@
       | 'milli_seconds'
       | 'micro_seconds'
       | 'nano_seconds'
-      | 'native'.
+      | 'native'
+      | 'perf_counter'.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
@@ -1347,6 +1348,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
     try
 	FU = case FromUnit of
 		 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
@@ -1355,6 +1357,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 	     end,
 	TU = case ToUnit of
 		 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
