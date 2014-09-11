@@ -32,6 +32,10 @@
 -else.
 
 
+%% Limit the testing time on CI server... this needs to be improved in % from total budget.
+-define(TESTINGTIME(Prop), eqc:testing_time(30,Prop)).
+  
+
 -include_lib("eqc/include/eqc.hrl").
 -include_lib("eqc/include/eqc_statem.hrl").
 -eqc_group_commands(true).
@@ -97,7 +101,7 @@
 
 %% To be called as eqc:quickcheck( ssh_eqc_client_server:prop_seq() ).
 prop_seq() ->
-    do_prop_seq(?SSH_DIR).
+  ?TESTINGTIME(do_prop_seq(?SSH_DIR)).
 
 %% To be called from a common_test test suite
 prop_seq(CT_Config) ->
@@ -116,7 +120,7 @@ full_path(SSHdir, CT_Config) ->
 		  SSHdir).
 %%%----
 prop_parallel() ->
-    do_prop_parallel(?SSH_DIR).
+    ?TESTINGTIME(do_prop_parallel(?SSH_DIR)).
 
 %% To be called from a common_test test suite
 prop_parallel(CT_Config) ->
@@ -131,7 +135,7 @@ do_prop_parallel(DataDir) ->
 
 %%%----
 prop_parallel_multi() ->
-    do_prop_parallel_multi(?SSH_DIR).
+    ?TESTINGTIME(do_prop_parallel_multi(?SSH_DIR)).
 
 %% To be called from a common_test test suite
 prop_parallel_multi(CT_Config) ->
@@ -171,7 +175,7 @@ weight(_S, _) -> 1.
 
 initial_state_pre(S) -> not S#state.initialized.
 
-initial_state_args(S) -> [{var,data_dir}].
+initial_state_args(_) -> [{var,data_dir}].
 
 initial_state_next(S, _, _) -> S#state{initialized=true}.
 
@@ -182,7 +186,7 @@ initial_state_next(S, _, _) -> S#state{initialized=true}.
 ssh_server_pre(S) -> S#state.initialized andalso 
 			 length(S#state.servers) < ?MAX_NUM_SERVERS.
 
-ssh_server_args(S) -> [?SERVER_ADDRESS, {var,data_dir}, ?SERVER_EXTRA_OPTIONS]. 
+ssh_server_args(_) -> [?SERVER_ADDRESS, {var,data_dir}, ?SERVER_EXTRA_OPTIONS]. 
 
 ssh_server({IP,Port}, DataDir, ExtraOptions) ->
     ok(ssh:daemon(IP, Port, 
