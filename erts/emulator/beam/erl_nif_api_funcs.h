@@ -169,7 +169,6 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_nif,(ErlNifEnv*,const char*,int
  */
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
-ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
 #endif
 #endif /* ERL_NIF_API_FUNC_DECL */
 
@@ -318,7 +317,6 @@ ERL_NIF_API_FUNC_DECL(int,enif_have_dirty_schedulers,(void));
  */
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 #  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
-#  define enif_have_dirty_schedulers ERL_NIF_API_FUNC_MACRO(enif_have_dirty_schedulers)
 #endif
 #endif  /* ERL_NIF_API_FUNC_MACRO */
 

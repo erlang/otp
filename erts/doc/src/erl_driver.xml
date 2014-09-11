@@ -546,6 +546,7 @@ typedef struct ErlDrvSysInfo {
    int scheduler_threads;
    int nif_major_version;
    int nif_minor_version;
+   int dirty_scheduler_support;
 } ErlDrvSysInfo;
       </code>
 
@@ -609,6 +610,10 @@ typedef struct ErlDrvSysInfo {
         </item>
         <tag><c>nif_minor_version</c></tag>
         <item>The value of <c>ERL_NIF_MINOR_VERSION</c> when the runtime system was compiled.
+        </item>
+        <tag><c>dirty_scheduler_support</c></tag>
+        <item>A value <c>!= 0</c> if the runtime system has support for dirty scheduler threads;
+	  otherwise <c>0</c>.
         </item>
         </taglist>
       </item>

@@ -1901,16 +1901,6 @@ enif_is_on_dirty_scheduler(ErlNifEnv* env)
     return ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data);
 }
 
-int
-enif_have_dirty_schedulers()
-{
-#ifdef USE_THREADS
-    return 1;
-#else
-    return 0;
-#endif
-}
-
 #endif /* ERL_NIF_DIRTY_SCHEDULER_SUPPORT */
 
 /* Maps */

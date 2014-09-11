@@ -7274,6 +7274,18 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
 	sip->nif_major_version = ERL_NIF_MAJOR_VERSION;
 	sip->nif_minor_version = ERL_NIF_MINOR_VERSION;
     }
+    /*
+     * 'dirty_scheduler_support' is the last field in the 4th version
+     * (driver version 3.1, NIF version 2.7)
+     */
+    if (si_size >= ERL_DRV_SYS_INFO_SIZE(dirty_scheduler_support)) {
+#if defined(ERL_NIF_DIRTY_SCHEDULER_SUPPORT) && defined(USE_THREADS)
+	sip->dirty_scheduler_support = 1;
+#else
+	sip->dirty_scheduler_support = 0;
+#endif
+    }
+
 }
 
 
