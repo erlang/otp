@@ -107,7 +107,7 @@ ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t elapsed)
 
 /* time_sup */
 
-#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME))
+#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 #  ifndef HAVE_ERTS_NOW_CPU
 #    define HAVE_ERTS_NOW_CPU
 #    ifdef HAVE_GETHRVTIME

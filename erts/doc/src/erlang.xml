@@ -6829,7 +6829,9 @@ ok
               only allowed with <c>PidSpec==all</c>. If the host
               machine operating system does not support high resolution
               CPU time measurements, <c>trace/3</c> exits with
-              <c>badarg</c>.</p>
+              <c>badarg</c>. Note that most operating systems do
+              not synchronize this value across cores, so be prepared
+              that time might seem to go backwards when using this option.</p>
           </item>
           <tag><c>arity</c></tag>
           <item>

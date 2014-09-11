@@ -651,7 +651,7 @@ Eterm trace_3(BIF_ALIST_3)
 	    if (pid_spec == am_all) {
 		if (on) {
 		    if (!erts_cpu_timestamp) {
-#ifdef HAVE_CLOCK_GETTIME
+#ifdef HAVE_CLOCK_GETTIME_CPU_TIME
 			/* 
 			   Perhaps clock_gettime was found during config
 			   on a different machine than this. We check
@@ -678,7 +678,7 @@ Eterm trace_3(BIF_ALIST_3)
 			if (erts_start_now_cpu() < 0) {
 			    goto error;
 			}
-#endif /* HAVE_CLOCK_GETTIME */
+#endif /* HAVE_CLOCK_GETTIME_CPU_TIME */
 			erts_cpu_timestamp = !0;
 		    }
 		}
