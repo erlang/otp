@@ -35,6 +35,7 @@ typedef struct {
     int scheduler_threads;
     int nif_major_version;
     int nif_minor_version;
+    int dirty_scheduler_support;
 }  ErlDrvSysInfo;
 
 typedef struct {

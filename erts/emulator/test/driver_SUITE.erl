@@ -1084,7 +1084,15 @@ otp_6602(Config) when is_list(Config) ->
 	 ["async_thrs",
 	  "sched_thrs"])).
 
--define(EXPECTED_SYSTEM_INFO_NAMES, ?EXPECTED_SYSTEM_INFO_NAMES2).
+-define(EXPECTED_SYSTEM_INFO_NAMES3,
+	(?EXPECTED_SYSTEM_INFO_NAMES2 ++
+	 ["emu_nif_vsn"])).
+
+-define(EXPECTED_SYSTEM_INFO_NAMES4,
+	(?EXPECTED_SYSTEM_INFO_NAMES3 ++
+	 ["dirty_sched"])).
+
+-define(EXPECTED_SYSTEM_INFO_NAMES, ?EXPECTED_SYSTEM_INFO_NAMES4).
 
 'driver_system_info_base_ver'(doc) ->
     [];
@@ -1132,16 +1140,18 @@ check_driver_system_info_result(Result) ->
 		drv_vsn_str2tup(erlang:system_info(driver_version))} of
 	      {DDVSN, DDVSN} ->
 		  ?line [] = Ns;
-	      {{1, 0}, _} ->
+	      %% {{1, 0}, _} ->
+	      %% 	  ?line ExpNs = lists:sort(?EXPECTED_SYSTEM_INFO_NAMES
+	      %% 				   -- ?EXPECTED_SYSTEM_INFO_NAMES1),
+	      %% 	  ?line ExpNs = lists:sort(Ns);
+	      %% {{1, 1}, _} ->
+	      %% 	  ?line ExpNs = lists:sort(?EXPECTED_SYSTEM_INFO_NAMES
+	      %% 				   -- ?EXPECTED_SYSTEM_INFO_NAMES2),
+	      %% 	  ?line ExpNs = lists:sort(Ns);
+	      {{3, 0}, _} ->
 		  ?line ExpNs = lists:sort(?EXPECTED_SYSTEM_INFO_NAMES
-					   -- ?EXPECTED_SYSTEM_INFO_NAMES1),
-		  ?line ExpNs = lists:sort(Ns);
-	      {{1, 1}, _} ->
-		  ?line ExpNs = lists:sort(?EXPECTED_SYSTEM_INFO_NAMES
-					   -- ?EXPECTED_SYSTEM_INFO_NAMES2),
-		  ?line ExpNs = lists:sort(Ns);
-	      {{2, 0}, _} ->
-		  ?line [] = Ns
+					   -- ?EXPECTED_SYSTEM_INFO_NAMES3),
+		  ?line ExpNs = lists:sort(Ns)
 	  end.
 
 chk_sis(SIs, Ns) ->
@@ -1187,6 +1197,14 @@ check_si_res(["async_thrs", Value]) ->
     ?line Value = integer_to_list(erlang:system_info(thread_pool_size));
 check_si_res(["sched_thrs", Value]) ->
     ?line Value = integer_to_list(erlang:system_info(schedulers));
+
+%% Data added in 3rd version of driver_system_info() (driver version 1.5)
+check_si_res(["emu_nif_vsn", _Value]) ->
+    true;
+
+%% Data added in 4th version of driver_system_info() (driver version 3.1)
+check_si_res(["dirty_sched", _Value]) ->
+    true;
 
 check_si_res(Unexpected) ->
     ?line ?t:fail({unexpected_result, Unexpected}).

@@ -374,9 +374,8 @@ ok
       the dirty NIF API is available, native code can check to see if the C preprocessor macro
       <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined. Also, if the Erlang runtime was built
       without threading support, dirty schedulers are disabled. To check at runtime for the presence
-      of dirty scheduler threads, code can call the <seealso marker="#enif_have_dirty_schedulers"><c>
-      enif_have_dirty_schedulers()</c></seealso> API function, which returns true if dirty
-      scheduler threads are present, false otherwise.</p></note>
+      of dirty scheduler threads, code can use the <seealso marker="#enif_system_info"><c>
+      enif_system_info()</c></seealso> API function.</p></note>
       </item>
     </taglist>
   </section>
@@ -806,22 +805,6 @@ typedef enum {
       <desc><p>Set <c>*ip</c> to the unsigned long integer value of <c>term</c>
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_have_dirty_schedulers()</nametext></name>
-      <fsummary>Runtime check for the presence of dirty scheduler threads</fsummary>
-      <desc>
-          <p>Check at runtime for the presence of dirty scheduler threads. If the emulator is
-          built with threading support, dirty scheduler threads are available and
-          <c>enif_have_dirty_schedulers()</c> returns true. If the emulator was built without
-          threading support, <c>enif_have_dirty_schedulers()</c> returns false.</p>
-          <p>If dirty scheduler threads are not available in the emulator, a call to
-          <c>enif_schedule_nif</c> with its <c>flags</c> argument set to indicate that the specified
-          NIF is to be executed on a dirty scheduler thread results in a <c>badarg</c> exception.</p>
-          <note><p>This function is available only when the emulator is configured with dirty
-          schedulers enabled. This feature is currently disabled by default. To determine whether
-          the dirty NIF API is available, native code can check to see if the C preprocessor macro
-          <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined.</p></note>
-      </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary</fsummary>
@@ -1261,7 +1244,9 @@ typedef enum {
           <p>The <c>flags</c> argument must be set to 0 for a regular NIF, or if the emulator was built the
           experimental dirty scheduler support enabled, <c>flags</c> can be set to either <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c>
           if the job is expected to be primarily CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for jobs that will
-          be I/O-bound.</p>
+          be I/O-bound. If dirty scheduler threads are not available in the emulator, a try to schedule such a job
+          will result in a <c>badarg</c> exception.</p>
+
           <p>The <c>argc</c> and <c>argv</c> arguments can either be the originals passed into the calling NIF, or
           they can be values created by the calling NIF.</p>
           <p>The calling NIF must use the return value of <c>enif_schedule_nif</c> as its own return value.</p>
