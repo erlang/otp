@@ -4542,11 +4542,13 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     inet_address name;
     unsigned int sz = sizeof(name);
 
-    /* check that it is a socket and that the socket is bound */
-    if (IS_SOCKET_ERROR(sock_name(s, (struct sockaddr*) &name, &sz)))
-	return ctl_error(sock_errno(), rbuf, rsize);
-    if (name.sa.sa_family != domain)
-	return ctl_error(EINVAL, rbuf, rsize);
+    if (bound) {
+        /* check that it is a socket and that the socket is bound */
+        if (IS_SOCKET_ERROR(sock_name(s, (struct sockaddr*) &name, &sz)))
+            return ctl_error(sock_errno(), rbuf, rsize);
+        if (name.sa.sa_family != domain)
+            return ctl_error(EINVAL, rbuf, rsize);
+    }
 #ifdef __OSE__        
     /* for fdopen duplicating the sd will allow to uniquely identify
        the signal from OSE with erlang port */
