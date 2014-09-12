@@ -64,6 +64,7 @@ static Export* alloc_sizes_trap = NULL;
 static Export* gather_io_bytes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
+static Export *gather_msacc_res_trap;
 static Export *gather_gc_info_res_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
@@ -3260,6 +3261,14 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	    szp = NULL;
 	    hpp = &hp;
 	}
+#ifdef ERTS_ENABLE_MSACC
+    } else if (BIF_ARG_1 == am_microstate_accounting) {
+        Eterm threads;
+        res = erts_msacc_request(BIF_P, ERTS_MSACC_GATHER, &threads);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP2(gather_msacc_res_trap, BIF_P, res, threads);
+#endif
     } else if (BIF_ARG_1 == am_context_switches) {
 	Eterm cs = erts_make_integer(erts_get_total_context_switches(), BIF_P);
 	hp = HAlloc(BIF_P, 3);
@@ -4396,6 +4405,9 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
     gather_io_bytes_trap
 	= erts_export_put(am_erts_internal, am_gather_io_bytes, 2);
+    gather_msacc_res_trap
+	= erts_export_put(am_erts_internal, am_gather_microstate_accounting_result, 2);
+
     process_info_init();
     os_info_init();
 }

@@ -137,6 +137,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"mmap_init_atoms",			NULL			},
     {	"drv_tsd",				NULL			},
     {	"async_enq_mtx",			NULL			},
+    {   "msacc_list_mutex",                     NULL                    },
+    {   "msacc_unmanaged_mutex",                NULL                    },
 #ifdef ERTS_SMP
     {	"atom_tab",				NULL			},
     {	"misc_op_list_pre_alloc_lock",		"address"		},

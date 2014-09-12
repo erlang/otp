@@ -1648,6 +1648,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int active;
     Uint64 start_time = 0;
     ErtsSchedulerData *esdp = runq->scheduler;
+    ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 
@@ -1690,6 +1691,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     state = erts_atomic32_read_nob(&pp->state);
     pp->reds = ERTS_PORT_REDS_EXECUTE;
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     goto begin_handle_tasks;
 
     while (1) {
@@ -1822,6 +1824,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     }
 
     erts_unblock_fpe(fpe_was_unmasked);
+    ERTS_MSACC_POP_STATE_M();
 
 
     if (io_tasks_executed) {

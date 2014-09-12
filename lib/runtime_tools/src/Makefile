@@ -45,7 +45,9 @@ MODULES= \
 	percept_profile \
 	system_information \
 	observer_backend \
-	ttb_autostart
+	ttb_autostart\
+	msacc
+
 HRL_FILES= ../include/observer_backend.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
