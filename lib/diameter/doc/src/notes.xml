@@ -114,6 +114,9 @@ first.</p>
 	    M-bit, resulting in 5001) failed if the AVP contained a
 	    complete header.</p>
           <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
 	    Own Id: OTP-11946</p>
         </item>
         <item>
@@ -151,6 +154,9 @@ first.</p>
 	    fail. Component AVPs are now decoded if possible,
 	    otherwise not. AVPs of type Grouped are decoded as much
 	    as possible, as deeply as possible.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
           <p>
 	    Own Id: OTP-11936 Aux Id: OTP-11007 </p>
         </item>
