@@ -30,6 +30,28 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The pretty-printing of bitstrings has been corrected.
+	    </p>
+          <p>
+	    Own Id: OTP-12015</p>
+        </item>
+        <item>
+	    <p> A bug concerning <c>is_record/2,3</c> has been fixed,
+	    as well as some cases where Dialyzer could crash due to
+	    reaching system limits. </p>
+          <p>
+	    Own Id: OTP-12018</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

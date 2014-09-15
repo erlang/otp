@@ -42,6 +42,59 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't leave extra bit in decoded AVP data.</p>
+          <p>
+	    An extra bit could be communicated in the data field of a
+	    diameter_avp record in the case of length errors. Of no
+	    consequence for code using the record encoding of
+	    Diameter messages, but code examining diameter_avp
+	    records would see this bit.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-12074</p>
+        </item>
+        <item>
+          <p>
+	    Fix counting of outgoing requests and answers setting the
+	    E-bit.</p>
+          <p>
+	    OTP-11721 broke these counters for all outgoing requests
+	    except DWR, and caused answers setting the E-bit to be
+	    counted as unknown messages.</p>
+          <p>
+	    Own Id: OTP-12080</p>
+        </item>
+        <item>
+          <p>
+	    Fix Failed-AVP decode.</p>
+          <p>
+	    The best-effort decode only worked for AVPs in the common
+	    dictionary, not for those in the dictionary of the
+	    application identified in the Diameter Header of the
+	    answer message in question.</p>
+          <p>
+	    Failed-AVP in an answer decoded with the RFC 3588 common
+	    dictionary (diameter_gen_base_rfc3588) was regarded as an
+	    error. The RFC 6733 dictionary was unaffected.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-12094</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

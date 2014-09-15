@@ -30,7 +30,23 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.3.5</title>
+  <section><title>Erl_Docgen 0.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix spec to doc generation from erl_docgen and edoc for
+	    maps</p>
+          <p>
+	    Own Id: OTP-12058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

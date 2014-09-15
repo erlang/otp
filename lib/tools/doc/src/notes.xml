@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add log2 histogram to lcnt for lock wait time</p>
+          <p>
+	    Own Id: OTP-12059</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

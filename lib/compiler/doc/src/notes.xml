@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected a bug with incorrect code generation when
+	    inlining was turned on.</p>
+          <p>
+	    Own Id: OTP-12132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 5.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

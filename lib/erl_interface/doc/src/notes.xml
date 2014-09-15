@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement --enable-sanitizers[=sanitizers]. Similar to
+	    debugging with Valgrind, it's very useful to enable
+	    -fsanitize= switches to catch bugs at runtime.</p>
+          <p>
+	    Own Id: OTP-12153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
