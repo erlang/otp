@@ -59,8 +59,10 @@
 %%% '''
 %%%
 %%% <warning>
+%%% <p>
 %%% This is experimental code which may be changed or removed
-%%% anytime without any warning.  
+%%% anytime without any warning.
+%%% </p>
 %%% </warning>
 %%%
 %%% @end
