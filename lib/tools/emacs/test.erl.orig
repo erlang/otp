@@ -427,6 +427,22 @@ indent_icr(Z) -> 				% icr = if case receive
  ok
  end,
 
+%% test cond keyword
+	 cond
+A ->
+ok;
+B ->
+	    true;
+C ->
+false
+end,
+cond is_binary(A) ->
+A;
+      is_binary(B) ->
+B;
+true ->
+	    {A,B}
+end,
 
  %% receive
   receive 

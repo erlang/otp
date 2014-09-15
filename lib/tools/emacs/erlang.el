@@ -744,6 +744,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "byte_size"
       "check_old_code"
       "check_process_code"
+      "cond"
       "date"
       "delete_module"
       "demonitor"
@@ -2583,7 +2584,7 @@ Value is list (stack token-start token-type in-what)."
 	       (if (and stack (memq (car (car stack)) '(icr begin try)))
 		   (erlang-pop stack))))
 	    )  
-      (cond ((looking-at "\\(if\\|case\\|receive\\)[^_a-zA-Z0-9]")
+      (cond ((looking-at "\\(if\\|case\\|cond\\|receive\\)[^_a-zA-Z0-9]")
 	     ;; Must push a new icr (if/case/receive) layer.
 	     (erlang-push (list 'icr token (current-column)) stack))
 	    ((looking-at "\\(try\\|after\\)[^_a-zA-Z0-9]")
@@ -3125,7 +3126,7 @@ This assumes that the preceding expression is either simple
 
 (defun erlang-at-keyword ()
   "Are we looking at an Erlang keyword which will increase indentation?"
-  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|"
+  (looking-at (concat "\\(when\\|if\\|fun\\|case\\|cond\\|begin\\|"
 		      "of\\|receive\\|after\\|catch\\|try\\)\\b")))
 
 (defun erlang-at-operator ()
