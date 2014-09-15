@@ -1,1 +1,1 @@
-EUNIT_VSN = 2.2.7
+EUNIT_VSN = 2.2.8
