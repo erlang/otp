@@ -562,7 +562,8 @@ void** beam_ops;
        Store(term, Dst);           \
    } while (0)
 
-#define Move2(src1, dst1, src2, dst2) dst1 = (src1); dst2 = (src2)
+#define Move2(S1, D1, S2, D2) D1 = (S1); D2 = (S2)
+#define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
 
 #define MoveGenDest(src, dstp) \
    if ((dstp) == NULL) { r(0) = (src); } else { *(dstp) = src; }
