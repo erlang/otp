@@ -6710,7 +6710,7 @@ format_error({already_defined,Name,PrevLine}) ->
 		  [Name,PrevLine]);
 format_error({illegal_instance_of,Class}) ->
     io_lib:format("using INSTANCE OF on class '~s' is illegal, "
-		  "because INSTANCE OF may only be used on the class TYPE-IDENTFIER",
+		  "because INSTANCE OF may only be used on the class TYPE-IDENTIFIER",
 		  [Class]);
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
