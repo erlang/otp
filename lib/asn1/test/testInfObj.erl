@@ -132,6 +132,8 @@ main(_Erule) ->
     test_objset('ExOstSeq45', [4,5]),
     test_objset('ExOstSeq12345', [1,2,3,4,5]),
 
+    roundtrip('InfObj', 'ExtClassSeq', {'ExtClassSeq', 4}),
+
     ok.
 
 test_objset(Type, Keys) ->

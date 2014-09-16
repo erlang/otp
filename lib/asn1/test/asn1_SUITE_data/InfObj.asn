@@ -288,17 +288,52 @@ OstSeq1234 ::= ObjectSetTest{ {Ost1234} }
 OstSeq45 ::= ObjectSetTest{ {Ost45} }
 OstSeq12345 ::= ObjectSetTest{ {Ost12345} }
 
+ExOst1    OBJECT-SET-TEST ::= { ost1, ... }
 ExOst12    OBJECT-SET-TEST ::= { ost1, ..., ost2 }
 ExOst123   OBJECT-SET-TEST ::= { ost3, ..., ExOst12 }
 --ExOst1234  OBJECT-SET-TEST ::= { ExOst123, ..., ost4 }
 ExOst45    OBJECT-SET-TEST ::= { ost4, ..., ost5 }
 ExOst12345 OBJECT-SET-TEST ::= { ExOst123, ..., ExOst45 }
 
+ExOstSeq1 ::= ObjectSetTest{ {ExOst1} }
 ExOstSeq12 ::= ObjectSetTest{ {ExOst12} }
 ExOstSeq123 ::= ObjectSetTest{ {ExOst123} }
 --ExOstSeq1234 ::= ObjectSetTest{ {ExOst1234} }
 ExOstSeq45 ::= ObjectSetTest{ {ExOst45} }
 ExOstSeq12345 ::= ObjectSetTest{ {ExOst12345} }
+
+ExInlOst1    OBJECT-SET-TEST ::= {
+    { 1 IS BIT STRING },
+    ...
+}
+ExInlOst12   OBJECT-SET-TEST ::= {
+    { 1 IS BIT STRING },
+    ...,
+    { 2 IS OCTET STRING }
+}
+
+ExInlOstSeq1 ::= ObjectSetTest{ {ExInlOst1} }
+ExInlOstSeq12 ::= ObjectSetTest{ {ExInlOst12} }
+
+--
+-- Test that extensions in a simple class works.
+--
+
+ExtClassSeq ::= SEQUENCE {
+  arg      EXT-CLASS.&id({Extend})
+}
+
+EXT-CLASS ::= CLASS {
+    &id INTEGER UNIQUE
+} WITH SYNTAX {
+    ID &id
+}
+
+Extend EXT-CLASS ::= { { ID alt1 } | { ID alt2 }, ... }
+
+alt1 INTEGER ::= 4
+alt2 INTEGER ::= 5
+
 
 --
 -- Test a BIT STRING which is optional in the simplified syntax.
