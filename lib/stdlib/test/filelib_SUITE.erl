@@ -77,7 +77,8 @@ wildcard_one(Config) when is_list(Config) ->
 			  L = filelib:wildcard(Wc),
 			  L = filelib:wildcard(Wc, erl_prim_loader),
 			  L = filelib:wildcard(Wc, "."),
-			  L = filelib:wildcard(Wc, Dir)
+			  L = filelib:wildcard(Wc, Dir),
+			  L = filelib:wildcard(Wc, Dir++"/.")
 		  end),
     ?line file:set_cwd(OldCwd),
     ?line ok = file:del_dir(Dir),
