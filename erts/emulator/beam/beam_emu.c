@@ -3782,8 +3782,6 @@ get_map_elements_fail:
 	  * Allocate the binary struct itself.
 	  */
 	 bptr = erts_bin_nrml_alloc(num_bytes);
-	 bptr->flags = 0;
-	 bptr->orig_size = num_bytes;
 	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 
@@ -3883,8 +3881,6 @@ get_map_elements_fail:
 	  * Allocate the binary struct itself.
 	  */
 	 bptr = erts_bin_nrml_alloc(tmp_arg1);
-	 bptr->flags = 0;
-	 bptr->orig_size = tmp_arg1;
 	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 

@@ -3153,8 +3153,6 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	Binary* bptr;
 
 	bptr = erts_bin_nrml_alloc(len);
-	bptr->flags = 0;
-	bptr->orig_size = len;
 	erts_refc_init(&bptr->refc, 1);
 	sys_memcpy(bptr->orig_bytes, buf, len);
 
@@ -5506,8 +5504,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		ProcBin* pbp;
 		Binary* bp = erts_bin_nrml_alloc(size);
 		ASSERT(bufp);
-		bp->flags = 0;
-		bp->orig_size = (SWord) size;
 		erts_refc_init(&bp->refc, 1);
 		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
 		pbp = (ProcBin *) hp;
@@ -5999,9 +5995,7 @@ driver_alloc_binary(ErlDrvSizeT size)
     bin = erts_bin_drv_alloc_fnf((Uint) size);
     if (!bin)
 	return NULL; /* The driver write must take action */
-    bin->flags = BIN_FLAG_DRV;
     erts_refc_init(&bin->refc, 1);
-    bin->orig_size = (SWord) size;
     return Binary2ErlDrvBinary(bin);
 }
 
@@ -6031,7 +6025,6 @@ ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
     if (!newbin)
 	return NULL;
 
-    newbin->orig_size = size;
     return Binary2ErlDrvBinary(newbin);
 }
 

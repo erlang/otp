@@ -1899,8 +1899,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 
 		result_bin = erts_bin_nrml_alloc(size);
-		result_bin->flags = 0;
-		result_bin->orig_size = size;
 		erts_refc_init(&result_bin->refc, 0);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 		/* Next state immediately, no need to export context */
@@ -1925,7 +1923,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 		real_size = endp - bytes;
 		result_bin = erts_bin_realloc(context->s.ec.result_bin,real_size);
-		result_bin->orig_size = real_size;
 		level = context->s.ec.level;
 		BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
 		if (level == 0 || real_size < 6) { /* We are done */
@@ -1962,8 +1959,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->s.cc.result_bin = result_bin;
 
 		result_bin = erts_bin_nrml_alloc(real_size);
-		result_bin->flags = 0;
-		result_bin->orig_size = real_size;
 		erts_refc_init(&result_bin->refc, 0);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 
@@ -2005,7 +2000,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			erl_zlib_deflate_finish(&(context->s.cc.stream));
 			result_bin = erts_bin_realloc(context->s.cc.destination_bin,
 						      context->s.cc.dest_len+6);
-			result_bin->orig_size = context->s.cc.dest_len+6;
 			context->s.cc.destination_bin = NULL;
 			pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
 			pb->thing_word = HEADER_PROC_BIN;
@@ -3387,8 +3381,6 @@ dec_term_atom_common:
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
-		    dbin->flags = 0;
-		    dbin->orig_size = n;
 		    erts_refc_init(&dbin->refc, 1);
 		    pb = (ProcBin *) hp;
 		    hp += PROC_BIN_SIZE;
@@ -3441,8 +3433,6 @@ dec_term_atom_common:
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
 
-		    dbin->flags = 0;
-		    dbin->orig_size = n;
 		    erts_refc_init(&dbin->refc, 1);
 		    pb = (ProcBin *) hp;
 		    pb->thing_word = HEADER_PROC_BIN;
