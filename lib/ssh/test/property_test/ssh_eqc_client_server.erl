@@ -251,8 +251,9 @@ ssh_open_connection(#srvr{address=Ip, port=Port}, DataDir) ->
 		   [
 		    {silently_accept_hosts, true},
 		    {user_dir, user_dir(DataDir)},
-		    {user_interaction, false}
-		   ])).
+		    {user_interaction, false},
+		    {connect_timeout, 2000}
+		   ], 2000)).
 
 ssh_open_connection_post(_S, _Args, Result) -> is_ok(Result).
 
