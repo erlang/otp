@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -564,4 +564,7 @@ check_ssh_client_support2(P) ->
 	    check_ssh_client_support2(P);
 	{P, {exit_status, E}} ->
 	    E
+    after 5000 ->
+	    ct:pal("Openssh command timed out ~n"),
+	    -1
     end.
