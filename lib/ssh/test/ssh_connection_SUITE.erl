@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,8 +31,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+%% suite() ->
+%%     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
@@ -40,7 +40,11 @@ all() ->
      interrupted_send,
      start_shell,
      start_shell_exec,
-     start_shell_exec_fun
+     start_shell_exec_fun,
+     gracefull_invalid_version,
+     gracefull_invalid_start,
+     gracefull_invalid_long_start,
+     gracefull_invalid_long_start_no_nl
     ].
 groups() ->
     [{openssh_payload, [], [simple_exec,
@@ -302,7 +306,7 @@ start_shell(Config) when is_list(Config) ->
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
 
     receive
-    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"Enter command\r\n">>}} ->
+    {ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"Enter command\r\n">>}} ->
         ok
     after 5000 ->
         ct:fail("CLI Timeout")
@@ -333,10 +337,10 @@ start_shell_exec(Config) when is_list(Config) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
 
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
-                  "testing", infinity),
+				  "testing", infinity),
     receive
-    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"testing\r\n">>}} ->
-        ok
+	{ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"testing\r\n">>}} ->
+	    ok
     after 5000 ->
         ct:fail("Exec Timeout")
     end,
@@ -370,14 +374,99 @@ start_shell_exec_fun(Config) when is_list(Config) ->
                   "testing", infinity),
 
     receive
-    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"testing\r\n">>}} ->
-        ok
+	{ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"testing\r\n">>}} ->
+	    ok
     after 5000 ->
         ct:fail("Exec Timeout")
     end,
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+
+gracefull_invalid_version(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"}]),
+
+    {ok, S} = gen_tcp:connect(Host, Port, []),
+    ok = gen_tcp:send(S,  ["SSH-8.-1","\r\n"]),
+    receive
+	Verstring ->
+	    ct:pal("Server version: ~p~n", [Verstring]),
+	    receive
+		{tcp_closed, S} ->
+		    ok
+	    end
+    end.
+
+gracefull_invalid_start(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"}]),
+
+    {ok, S} = gen_tcp:connect(Host, Port, []),
+    ok = gen_tcp:send(S,  ["foobar","\r\n"]),
+    receive
+	Verstring ->
+	    ct:pal("Server version: ~p~n", [Verstring]),
+	    receive
+		{tcp_closed, S} ->
+		    ok
+	    end
+    end.
+
+gracefull_invalid_long_start(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"}]),
+
+    {ok, S} = gen_tcp:connect(Host, Port, []),
+    ok = gen_tcp:send(S, [lists:duplicate(257, $a), "\r\n"]),
+    receive
+	Verstring ->
+	    ct:pal("Server version: ~p~n", [Verstring]),
+	    receive
+		{tcp_closed, S} ->
+		    ok
+	    end
+    end.
+
+
+gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"}]),
+
+    {ok, S} = gen_tcp:connect(Host, Port, []),
+    ok = gen_tcp:send(S, [lists:duplicate(257, $a), "\r\n"]),
+    receive
+	Verstring ->
+	    ct:pal("Server version: ~p~n", [Verstring]),
+	    receive
+		{tcp_closed, S} ->
+		    ok
+	    end
+    end.
+
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

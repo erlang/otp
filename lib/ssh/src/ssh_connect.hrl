@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,7 @@
 -define(DEFAULT_PACKET_SIZE, 32768).
 -define(DEFAULT_WINDOW_SIZE, 2*?DEFAULT_PACKET_SIZE).
 -define(DEFAULT_TIMEOUT, 5000).
+-define(MAX_PROTO_VERSION, 255).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

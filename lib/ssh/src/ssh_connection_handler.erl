@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -71,7 +71,8 @@
 	  connection_queue,
 	  address,
 	  port,
-	  opts
+	  opts,
+	  recbuf
 	 }). 
 
 -type state_name()           :: hello | kexinit | key_exchange | new_keys | userauth | connection.
@@ -293,28 +294,39 @@ info(ConnectionHandler, ChannelProcess) ->
 hello(socket_control, #state{socket = Socket, ssh_params = Ssh} = State) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh)),
     send_msg(VsnMsg, State),
-    inet:setopts(Socket, [{packet, line}, {active, once}]),
-    {next_state, hello, State};
+    {ok, [{recbuf, Size}]} = inet:getopts(Socket, [recbuf]),
+    inet:setopts(Socket, [{packet, line}, {active, once}, {recbuf, ?MAX_PROTO_VERSION}]),
+    {next_state, hello, State#state{recbuf = Size}};
 
-hello({info_line, _Line},#state{socket = Socket} = State) ->
+hello({info_line, _Line},#state{role = client, socket = Socket} = State) ->
+    %% The server may send info lines before the version_exchange
     inet:setopts(Socket, [{active, once}]),
     {next_state, hello, State};
 
+hello({info_line, _Line},#state{role = server} = State) ->
+    DisconnectMsg =
+	#ssh_msg_disconnect{code =
+				?SSH_DISCONNECT_PROTOCOL_ERROR,
+			    description = "Did not receive expected protocol version exchange",
+			    language = "en"},
+    handle_disconnect(DisconnectMsg, State);
+
 hello({version_exchange, Version}, #state{ssh_params = Ssh0,
-					  socket = Socket} = State) ->
+					  socket = Socket,
+					  recbuf = Size} = State) ->
     {NumVsn, StrVsn} = ssh_transport:handle_hello_version(Version),
     case handle_version(NumVsn, StrVsn, Ssh0) of
 	{ok, Ssh1} ->
-	    inet:setopts(Socket, [{packet,0}, {mode,binary}, {active, once}]),
+	    inet:setopts(Socket, [{packet,0}, {mode,binary}, {active, once}, {recbuf, Size}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
 	    send_msg(SshPacket, State),
 	    {next_state, kexinit, next_packet(State#state{ssh_params = Ssh,
 							  key_exchange_init_msg = 
 							  KeyInitMsg})};
 	not_supported ->
-	   DisconnectMsg =
+	    DisconnectMsg =
 		#ssh_msg_disconnect{code = 
-				    ?SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED,
+					?SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED,
 				    description = "Protocol version " ++  StrVsn 
 				    ++ " not supported",
 				    language = "en"},
