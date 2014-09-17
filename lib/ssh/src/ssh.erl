@@ -234,22 +234,26 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
 				      {port, Port}, {role, server},
 				      {socket_opts, SocketOptions}, 
 				      {ssh_opts, Options}]) of
-		{ok, SysSup} ->
-		    {ok, SysSup};
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
-		{error, R} ->
-		    {error, R}
+		Result = {Code, _} when (Code == ok) or (Code == error) ->
+		    Result
 	    catch
 		exit:{noproc, _} ->
 		    {error, ssh_not_started}
 	    end;
 	Sup  ->
-	    case ssh_system_sup:restart_acceptor(Host, Port) of
+	    AccPid = ssh_system_sup:acceptor_supervisor(Sup),
+	    case ssh_acceptor_sup:start_child(AccPid, [{address, Host},
+						       {port, Port}, {role, server},
+						       {socket_opts, SocketOptions},
+						       {ssh_opts, Options}]) of
+		{error, {already_started, _}} ->
+		    {error, eaddrinuse};
 		{ok, _} ->
 		    {ok, Sup};
-		_  ->
-		    {error, eaddrinuse}
+		Other ->
+		    Other
 	    end
     end.
 
