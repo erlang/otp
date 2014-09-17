@@ -31,6 +31,30 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 3.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Several problems where the ASN.1 compiler would crash
+	    when attempting to compile correct specifications have
+	    been corrected.</p>
+          <p>
+	    Own Id: OTP-12125</p>
+        </item>
+        <item>
+          <p>
+	    Robustness when decoding incorrect BER messages has been
+	    improved.</p>
+          <p>
+	    Own Id: OTP-12145</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 3.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

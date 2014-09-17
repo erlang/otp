@@ -33,7 +33,24 @@
   </header>
 
 
-  <section><title>SNMP 5.0</title>
+  <section><title>SNMP 5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The SNMP manager has been enhanced with dual stack
+	    IPv4+IPv6, as the agent just was. The documentation is
+	    also now updated for both the agent and the manager.</p>
+          <p>
+	    Own Id: OTP-12108 Aux Id: OTP-12020 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.0</title>
 
     <section><title>Improvements and New Features</title>
       <list>

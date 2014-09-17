@@ -34,6 +34,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.22.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added missing encoding support for PBES2, and also
+	    completed support for PBES1 that was incomplete.</p>
+          <p>
+	    Own Id: OTP-11915</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.22</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

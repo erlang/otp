@@ -30,7 +30,22 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3.5</title>
+   <section><title>IC 4.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compiler warnings reported by LLVM</p>
+          <p>
+	    Own Id: OTP-12138</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

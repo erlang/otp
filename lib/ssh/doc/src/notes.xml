@@ -29,6 +29,56 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When starting an ssh-daemon giving the option
+	    {parallel_login, true}, the timeout for authentication
+	    negotiation ({negotiation_timeout, integer()}) was never
+	    removed.</p>
+          <p>
+	    This caused the session to always be terminated after the
+	    timeout if parallel_login was set.</p>
+          <p>
+	    Own Id: OTP-12057 Aux Id: seq12663 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Warning: this is experimental and may disappear or change
+	    without previous warning.</p>
+          <p>
+	    Experimental support for running Quickcheck and PropEr
+	    tests from common_test suites is added to common_test.
+	    See the reference manual for the new module
+	    <c>ct_property_testing</c>.</p>
+          <p>
+	    Experimental property tests are added under
+	    <c>lib/{inet,ssh}/test/property_test</c>. They can be run
+	    directly or from the commont_test suites
+	    <c>inet/ftp_property_test_SUITE.erl</c> and
+	    <c>ssh/test/ssh_property_test_SUITE.erl</c>.</p>
+          <p>
+	    See the code in the <c>test</c> directories and the man
+	    page for details.</p>
+          <p>
+	    (Thanks to Tuncer Ayaz for a patch adding Triq)</p>
+          <p>
+	    Own Id: OTP-12119</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

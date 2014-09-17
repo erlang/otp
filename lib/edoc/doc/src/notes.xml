@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix spec to doc generation from erl_docgen and edoc for
+	    maps</p>
+          <p>
+	    Own Id: OTP-12058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

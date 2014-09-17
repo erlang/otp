@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed statusbar on Windows</p>
+          <p>
+	    Own Id: OTP-12162</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

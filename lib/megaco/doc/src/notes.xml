@@ -36,7 +36,24 @@
   section is the version number of Megaco.</p>
   
   
-  <section><title>Megaco 3.17.1</title>
+  <section><title>Megaco 3.17.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement --enable-sanitizers[=sanitizers]. Similar to
+	    debugging with Valgrind, it's very useful to enable
+	    -fsanitize= switches to catch bugs at runtime.</p>
+          <p>
+	    Own Id: OTP-12153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
