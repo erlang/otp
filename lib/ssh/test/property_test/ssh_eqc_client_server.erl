@@ -79,7 +79,9 @@
 
 -define(SUBSYSTEMS, ["echo1", "echo2", "echo3", "echo4"]).
 
--define(SERVER_ADDRESS, { {127,1,1,1}, {call, ?MODULE, inet_port, [{127,1,1,1}]} }).
+-define(SERVER_ADDRESS,   { {127,1,0,choose(1,254)},  % IP
+			    choose(1024,65535)        % Port
+			  }).
 
 -define(SERVER_EXTRA_OPTIONS,  [{parallel_login,bool()}] ).
 		
@@ -109,6 +111,7 @@ prop_seq(CT_Config) ->
 
 
 do_prop_seq(DataDir) ->
+    setup_rsa(DataDir),
     ?FORALL(Cmds,commands(?MODULE),
 	    begin
 		{H,Sf,Result} = run_commands(?MODULE,Cmds,[{data_dir,DataDir}]),
@@ -127,6 +130,7 @@ prop_parallel(CT_Config) ->
     do_prop_parallel(full_path(?SSH_DIR, CT_Config)).
 
 do_prop_parallel(DataDir) ->
+    setup_rsa(DataDir),
     ?FORALL(Cmds,parallel_commands(?MODULE),
 	    begin
 		{H,Sf,Result} = run_parallel_commands(?MODULE,Cmds,[{data_dir,DataDir}]),
@@ -142,6 +146,7 @@ prop_parallel_multi(CT_Config) ->
     do_prop_parallel_multi(full_path(?SSH_DIR, CT_Config)).
 
 do_prop_parallel_multi(DataDir) ->
+    setup_rsa(DataDir),
     ?FORALL(Repetitions,?SHRINK(1,[10]),
 	    ?FORALL(Cmds,parallel_commands(?MODULE),
 		    ?ALWAYS(Repetitions,
@@ -160,8 +165,7 @@ initial_state() ->
 %%% called when using commands/2
 initial_state(DataDir) ->
     application:stop(ssh),
-    ssh:start(),
-    setup_rsa(DataDir).
+    ssh:start().
 
 %%%----------------
 weight(S, ssh_send) -> 5*length([C || C<-S#state.channels, has_subsyst(C)]);
@@ -183,6 +187,13 @@ initial_state_next(S, _, _) -> S#state{initialized=true}.
 %%% Start a new daemon
 %%% Precondition: not more than ?MAX_NUM_SERVERS started
 
+%%% This is a bit funny because we need to pick an IP address and Port to
+%%% run the server on, but there is no way to atomically select a free Port!
+%%% 
+%%% Therefore we just grab one IP-Port pair randomly and try to start the ssh server
+%%% on that pair.  If it fails, we just forget about it and goes on.  Yes, it
+%%% is a waste of cpu cycles, but at least it works!
+
 ssh_server_pre(S) -> S#state.initialized andalso 
 			 length(S#state.servers) < ?MAX_NUM_SERVERS.
 
@@ -197,8 +208,10 @@ ssh_server({IP,Port}, DataDir, ExtraOptions) ->
 		   | ExtraOptions
 		  ])).
 
+ssh_server_post(_S, _Args, {error,eaddrinuse}) -> true;
 ssh_server_post(_S, _Args, Result) -> is_ok(Result).
 
+ssh_server_next(S, {error,eaddrinuse}, _) -> S;
 ssh_server_next(S, Result, [{IP,Port},_,_]) ->
     S#state{servers=[#srvr{ref = Result,
 			   address = IP,
@@ -573,12 +586,6 @@ median(_) ->
 
 %%%================================================================
 %%% The rest is taken and modified from ssh_test_lib.erl
-inet_port(IpAddress)->
-    {ok, Socket} = gen_tcp:listen(0, [{ip,IpAddress},{reuseaddr,true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.
-
 setup_rsa(Dir) ->
     erase_dir(system_dir(Dir)),
     erase_dir(user_dir(Dir)),
