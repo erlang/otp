@@ -12,6 +12,15 @@ Seq ::= SEQUENCE
    c  BOOLEAN
  }
 
+SeqV1 ::= SEQUENCE
+ {
+   a  INTEGER,
+   ...,
+   b  BOOLEAN,
+   ...
+ }
+
+
 SeqV2 ::= SEQUENCE
  {
    a  INTEGER,
@@ -55,6 +64,14 @@ Set ::= SET {
    ...,
    ...,
    c  BOOLEAN
+ }
+
+
+SetV1 ::= SET {
+   a  INTEGER,
+   ...,
+   b  BOOLEAN,
+   ...
  }
 
 SetV2 ::= SET
