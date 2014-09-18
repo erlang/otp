@@ -25,8 +25,6 @@
 -proptest(eqc).
 -proptest([triq,proper]).
 
--include_lib("ct_property_test.hrl").
-
 -ifndef(EQC).
 -ifndef(PROPER).
 -ifndef(TRIQ).
