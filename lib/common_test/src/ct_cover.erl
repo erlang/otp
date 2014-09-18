@@ -128,20 +128,20 @@ get_spec(File) ->
     catch get_spec_test(File).
 
 get_spec_test(File) ->
-    FullName = filename:absname(File),
-    case filelib:is_file(FullName) of
+    Dir = filename:dirname(File), % always abs path in here, set in ct_run
+    case filelib:is_file(File) of
 	true ->
-	    case file:consult(FullName) of
+	    case file:consult(File) of
 		{ok,Terms} ->
 		    Import = 
 			case lists:keysearch(import, 1, Terms) of
 			    {value,{_,Imps=[S|_]}} when is_list(S) ->
 				ImpsFN = lists:map(fun(F) -> 
-							  filename:absname(F) 
+							  filename:absname(F,Dir)
 						  end, Imps),
 				test_files(ImpsFN, ImpsFN);
 			    {value,{_,Imp=[IC|_]}} when is_integer(IC) ->
-				ImpFN = filename:absname(Imp),
+				ImpFN = filename:absname(Imp,Dir),
 				test_files([ImpFN], [ImpFN]);
 			    _ -> 
 				[]
@@ -149,9 +149,9 @@ get_spec_test(File) ->
 		    Export = 
 			case lists:keysearch(export, 1, Terms) of
 			    {value,{_,Exp=[EC|_]}} when is_integer(EC) -> 
-				filename:absname(Exp);
+				filename:absname(Exp,Dir);
 			    {value,{_,[Exp]}} ->
-				filename:absname(Exp);
+				filename:absname(Exp,Dir);
 			    _ -> 
 				undefined
 			end,
@@ -179,7 +179,7 @@ get_spec_test(File) ->
 				    E;
 				[CoverSpec] ->
 				    CoverSpec1 = remove_excludes_and_dups(CoverSpec),
-				    {FullName,Nodes,Import,Export,CoverSpec1};
+				    {File,Nodes,Import,Export,CoverSpec1};
 				_ ->
 				    {error,multiple_apps_in_cover_spec}
 			    end;
@@ -190,7 +190,7 @@ get_spec_test(File) ->
 		    {error,{invalid_cover_spec,Error}}
 	    end;
 	false ->
-	    {error,{cant_read_cover_spec_file,FullName}}
+	    {error,{cant_read_cover_spec_file,File}}
     end.
 
 collect_apps([{level,Level}|Ts], Apps) ->

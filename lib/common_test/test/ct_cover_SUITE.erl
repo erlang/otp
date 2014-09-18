@@ -76,7 +76,8 @@ all() ->
      cover_node_option,
      ct_cover_add_remove_nodes,
      otp_9956,
-     cross
+     cross,
+     export_import
     ].
 
 %%--------------------------------------------------------------------
@@ -199,6 +200,20 @@ cross(Config) ->
 
     ok.
 
+export_import(Config) ->
+    DataDir = ?config(data_dir,Config),
+    false = check_cover(Config),
+    CoverSpec1 =
+	default_cover_file_content() ++ [{export,"export_import.coverdata"}],
+    CoverFile1 = create_cover_file(export_import1,CoverSpec1,Config),
+    {ok,Events1} = run_test(export_import1,default,[{cover,CoverFile1}],Config),
+    check_calls(Events1,1),
+    CoverSpec2 =
+	default_cover_file_content() ++ [{import,"export_import.coverdata"}],
+    CoverFile2 = create_cover_file(export_import2,CoverSpec2,Config),
+    {ok,Events2} = run_test(export_import2,default,[{cover,CoverFile2}],Config),
+    check_calls(Events2,2),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
