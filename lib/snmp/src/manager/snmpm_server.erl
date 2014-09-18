@@ -2079,7 +2079,16 @@ do_handle_agent(DefUserId, DefMod,
 		SnmpInfo, DefData, State) ->
     ?vdebug("do_handle_agent -> entry when"
 	    "~n   DefUserId: ~p", [DefUserId]),
-    try DefMod:handle_agent(Domain, Addr, Type, SnmpInfo, DefData) of
+    {Domain_or_Ip, Addr_or_Port} =
+	case Domain of
+	    snmpUDPDomain ->
+		Addr;
+	    _ ->
+		{Domain, Addr}
+	end,
+    try DefMod:handle_agent(
+	  Domain_or_Ip, Addr_or_Port, Type, SnmpInfo, DefData)
+    of
 	{register, UserId2, TargetName, Config} ->  
 	    ?vtrace("do_handle_agent -> register: "
 		    "~n   UserId2:    ~p"

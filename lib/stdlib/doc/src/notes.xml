@@ -30,6 +30,79 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The type spec of the FormFunc argument to
+	    sys:handle_debug/4 was erroneously pointing to dbg_fun().
+	    This is now corrected and the new type is format_fun().</p>
+          <p>
+	    Own Id: OTP-11800</p>
+        </item>
+        <item>
+          <p>
+	    Behaviors such as gen_fsm and gen_server should always
+	    invoke format_status/2 before printing the state to the
+	    logs.</p>
+          <p>
+	    Own Id: OTP-11967</p>
+        </item>
+        <item>
+	    <p> The documentation of <c>dets:insert_new/2</c> has
+	    been corrected. (Thanks to Alexei Sholik for reporting
+	    the bug.) </p>
+          <p>
+	    Own Id: OTP-12024</p>
+        </item>
+        <item>
+          <p>
+	    Printing a term with io_lib:format and control sequence
+	    w, precision P and field width F, where F&lt; P would
+	    fail in one of the two following ways:</p>
+          <p>
+	    1) If P &lt; printed length of the term, an infinite loop
+	    would be entered, consuming all available memory.</p>
+          <p>
+	    2) If P &gt;= printed length of the term, an exception
+	    would be raised.</p>
+          <p>
+	    These two problems are now corrected.</p>
+          <p>
+	    Own Id: OTP-12041</p>
+        </item>
+        <item>
+          <p>
+	    The documentation of <c>maps:values/1</c> has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-12055</p>
+        </item>
+        <item>
+          <p>
+	    Expand shell functions in map expressions.</p>
+          <p>
+	    Own Id: OTP-12063</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add maps:with/2</p>
+          <p>
+	    Own Id: OTP-12137</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

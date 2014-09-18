@@ -414,7 +414,9 @@ certify(#certificate{} = Cert,
 	       ssl_options = Opts} = State, Connection) ->
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, Opts#ssl_options.depth,
 			       Opts#ssl_options.verify,
-			       Opts#ssl_options.verify_fun, Role) of
+			       Opts#ssl_options.verify_fun,
+			       Opts#ssl_options.partial_chain,
+			       Role) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 			     State#state{client_certificate_requested = false}, Connection);

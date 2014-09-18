@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -64,13 +64,42 @@
       <item>
         <p><c>Variable</c> is one of the following:</p>
         <list type="bulleted">
-          <item>
-            <p><c>address</c> - which defines the IP address of the 
-              manager. Default is local host.</p>
-          </item>
+	  <item>
+	    <p><c>transports</c> - which defines the transport domains
+	    and their addresses for the manager. <em>Mandatory</em>
+	    </p>
+	    <p><c>Value</c> is a list of <c>{Domain, Addr}</c> tuples
+	    or <c>Domain</c> atoms.
+	    </p>
+	    <list type="bulleted">
+	      <item>
+		<p><c>Domain</c> is one of <c>transportDomainUdpIpv4</c>
+		or <c>transportDomainUdpIpv6</c>.</p>
+	      </item>
+	      <item>
+		<p><c>Addr</c> is for the currently supported domains
+		either an <c>IpAddr</c> or an <c>{IpAddr, IpPort}</c>
+		tuple.<c>IpAddr</c> is either a regular Erlang/OTP
+		<seealso marker="kernel:inet#type-ip_address">
+		<c>ip_address()</c></seealso> or a traditional SNMP integer list
+		and <c>IpPort</c> is an integer.
+		</p>
+		<p>When <c>Addr</c> does not contain a port number,
+		the value of <c>port</c> is used.
+		</p>
+		<p>When a <c>Addr</c> is not specified i.e by
+		using only a <c>Domain</c> atom, the host's name
+		is resolved to find the IP address, and the value of
+		<c>port</c> is used.
+		</p>
+	      </item>
+	    </list>
+	  </item>
           <item>
             <p><c>port</c> - which defines which UDP port the manager uses
-              for communicating with agents. <em>Mandatory</em>.</p>
+              for communicating with agents.
+	    <em>Mandatory</em> if <c>transports</c> does not define
+	    a port number for every transport.</p>
           </item>
           <item>
             <p><c>engine_id</c> - The <c>SnmpEngineID</c> as defined in 
@@ -87,11 +116,13 @@
           </p>
       </item>
     </list>
+    <p>The legacy and intermediate variables <c>address</c> and <c>domain</c>
+    are still supported so old configurations will work.</p>
     <p>The following example shows a <c>manager.conf</c> file: 
       </p>
     <pre>
-{address,          [141,213,11,24]}.
-{port,             5000}.
+{transports,       [{transportDomainUdpIpv4, {{141,213,11,24}, 5000}},
+                    {transportDomainUdpIpv6, {{0,0,0,0,0,0,0,1}, 5000}}]}.
 {engine_id,        "mgrEngine"}.
 {max_message_size, 484}.
     </pre>
@@ -146,7 +177,7 @@
       </p>
     <p>Each entry is a tuple:
       </p>
-    <p><c>{UserId,  TargetName, Comm, Ip, Port, EngineID, Timeout,  MaxMessageSize, Version, SecModel, SecName, SecLevel}.</c></p>
+    <p><c>{UserId,  TargetName, Comm, Domain, Addr, EngineID, Timeout,  MaxMessageSize, Version, SecModel, SecName, SecLevel}.</c></p>
     <list type="bulleted">
       <item>
         <p><c>UserId</c> is the identity of the <em>manager user</em>
@@ -160,10 +191,17 @@
         <p><c>Comm</c> is the community string (string).</p>
       </item>
       <item>
-        <p><c>Ip</c> is the ip address of the agent (a list of four integers).</p>
+	<p><c>Domain</c> is the transport domain, either
+	<c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>.</p>
       </item>
       <item>
-        <p><c>Port</c> is the port number of the agent (integer).</p>
+	<p><c>Addr</c> is the address in the transport domain,
+	either an <c>{IpAddr, IpPort}</c> tuple or a traditional SNMP
+	integer list containing port number. <c>IpAddr</c> is either
+	a regular Erlang/OTP
+	<seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+	or a traditional SNMP integer list not containing port number,
+	and <c>IpPort</c> is an integer.</p>
       </item>
       <item>
         <p><c>EngineID</c> is the engine-id of the agent (string).</p>
@@ -190,6 +228,9 @@
           authPriv).</p>
       </item>
     </list>
+    <p>Legacy configurations using tuples without <c>Domain</c> element,
+    as well as with all <c>TDomain</c>, <c>Ip</c> and <c>Port</c> elements
+    still work.</p>
   </section>
 
   <section>

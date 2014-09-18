@@ -32,6 +32,21 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor refactoring.</p>
+          <p>
+	    Own Id: OTP-12051</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

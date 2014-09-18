@@ -1048,7 +1048,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     case config_start(Opts) of
 	{error, Reason51} ->
 	    p("start failed (as expected): ~p", [Reason51]),
-	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason51,
+	    ?line {failed_check, _, _, _, {bad_domain, _}} = Reason51,
 	    await_config_not_running();
 	OK_51 ->
 	    exit({error, {unexpected_success, "51", OK_51}})

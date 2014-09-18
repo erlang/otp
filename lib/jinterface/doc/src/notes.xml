@@ -30,6 +30,41 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.5.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Array now show meaningful values in exceptions.</p>
+          <p>
+	    Own Id: OTP-12049</p>
+        </item>
+        <item>
+          <p>
+	    Documentation improvements.</p>
+          <p>
+	    Own Id: OTP-12050</p>
+        </item>
+        <item>
+          <p>
+	    Include the cause when raising a new IOException, which
+	    should make the reason for the exception clearer.</p>
+          <p>
+	    Own Id: OTP-12075</p>
+        </item>
+        <item>
+          <p>
+	    Arrays (here: md5 and freeVars) must not be compared with
+	    equals, which is broken (compares identity).</p>
+          <p>
+	    Own Id: OTP-12121</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.5.9</title>
 
     <section><title>Improvements and New Features</title>

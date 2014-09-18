@@ -30,6 +30,176 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    General documentation updates.</p>
+          <p>
+	    Own Id: OTP-12052</p>
+        </item>
+        <item>
+	    <p>A bug in the VM code implementing sending of signals
+	    to ports could cause the receiving port queue to remain
+	    in a busy state forever. When this state had been
+	    reached, processes sending command signals to the port
+	    either got suspended forever, or, if the <c>nosuspend</c>
+	    feature was used, always failed to send to the port. This
+	    bug was introduced in ERTS version 5.10.</p>
+	    <p>In order for this bug to be triggered on a port, one
+	    had to at least once utilize the <c>nosuspend</c>
+	    functionality when passing a signal to the port. This by
+	    either calling</p> <list> <item> <seealso
+	    marker="erlang#port_command/3"><c>port_command(Port,
+	    Data, [nosuspend | Options])</c></seealso>, </item>
+	    <item> <seealso
+	    marker="erlang#send/3"><c>erlang:send(Port, {PortOwner,
+	    {command, Data}}, [nosuspend | Options])</c></seealso>,
+	    </item> <item> <seealso
+	    marker="erlang#send_nosuspend/2"><c>erlang:send_nosuspend(Port,
+	    {PortOwner, {command, Data}})</c></seealso>, or </item>
+	    <item> <seealso
+	    marker="erlang#send_nosuspend/3"><c>erlang:send_nosuspend(Port,
+	    {PortOwner, {command, Data}}, Options)</c></seealso>.
+	    </item> </list>
+	    <p>Thanks Vasily Demidenok for reporting the issue, and
+	    Sergey Kudryashov for providing a testcase.</p>
+          <p>
+	    Own Id: OTP-12082 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    Fix size overflow bug at memory allocation. A memory
+	    allocation call, with an insane size close to the entire
+	    address space, could return successfully as if it had
+	    allocated just a few bytes. (Thanks to Don A. Bailey for
+	    reporting)</p>
+          <p>
+	    Own Id: OTP-12091</p>
+        </item>
+        <item>
+          <p>
+	    Fix various issues where negating a signed integer would
+	    trigger undefined behaviour. This fixes issues in the
+	    enif_make_int64 interface and some edge cases inside the
+	    erlang runtime system.</p>
+          <p>
+	    Own Id: OTP-12097</p>
+        </item>
+        <item>
+          <p>
+	    The documentation erroneously listed the <seealso
+	    marker="erl#+swct"><c>+swct</c></seealso> command line
+	    argument under <c>+sws</c>.</p>
+          <p>
+	    Own Id: OTP-12102 Aux Id: OTP-10994 </p>
+        </item>
+        <item>
+          <p>
+	    Profiling messages could be delivered out of order when
+	    profiling on <c>runnable_procs</c> and/or
+	    <c>runnable_ports</c> using <seealso
+	    marker="erlang#system_profile/2"><c>erlang:system_profile/2</c></seealso>.
+	    This bug was introduced in ERTS version 5.10.</p>
+          <p>
+	    Own Id: OTP-12105 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    Various logging fixes, including: Add run queue index to
+	    the process dump in crash dumps.<br/> Add thread index to
+	    enomem slogan when crashing.<br/> Remove error logger
+	    message for sending messages to old instances of the same
+	    node.</p>
+          <p>
+	    Own Id: OTP-12115</p>
+        </item>
+        <item>
+          <p>
+	    Fix compiler warnings reported by LLVM</p>
+          <p>
+	    Own Id: OTP-12138</p>
+        </item>
+        <item>
+          <p>
+	    Correct conversion of <c>MIN_SMALL</c> by
+	    <c>list_to_integer/1</c> and <c>binary_to_integer/1</c>.
+	    The bug produced an unnormalized bignum which can cause
+	    strange behavior such as comparing different to a correct
+	    <c>MIN_SMALL</c> integer. The value <c>MIN_SMALL</c> is
+	    <c>-(1 bsl 27) = -134217728</c> on a 32-bit VM and <c>-(1
+	    bsl 59) = -576460752303423488</c> on a 64-bit VM. (Thanks
+	    to Jesper Louis Andersen, Mikael Pettersson and Anthony
+	    Ramine for report, patch and optimization suggestion)</p>
+          <p>
+	    Own Id: OTP-12140</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>term_to_binary</c> that reallocates binary
+	    with inconsistent size information. Bug has never been
+	    confirmed to be the cause of any faulty behavior.</p>
+          <p>
+	    Own Id: OTP-12141</p>
+        </item>
+        <item>
+          <p>
+	    Real_path method used while prim loading archive files
+	    was not taking into account the fact that windows
+	    directory symlinks can be across different drives.</p>
+          <p>
+	    Own Id: OTP-12155</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add log2 histogram to lcnt for lock wait time</p>
+          <p>
+	    Own Id: OTP-12059</p>
+        </item>
+        <item>
+          <p>
+	    Introduced <seealso
+	    marker="erl_nif#enif_schedule_nif"><c>enif_schedule_nif()</c></seealso>
+	    to the NIF API.</p>
+          <p>
+	    The <c>enif_schedule_nif()</c> function allows a
+	    long-running NIF to be broken into separate NIF
+	    invocations without the help of a wrapper function
+	    written in Erlang. The NIF first executes part of the
+	    long-running task, then calls <c>enif_schedule_nif()</c>
+	    to schedule a NIF for later execution to continue the
+	    task. Any number of NIFs can be scheduled in this manner,
+	    one after another. Since the emulator regains control
+	    between invocations, this helps avoid problems caused by
+	    native code tying up scheduler threads for too long.</p>
+          <p>
+	    The <c>enif_schedule_nif()</c> function also replaces the
+	    <c>enif_schedule_dirty_nif()</c> in the experimental
+	    dirty NIF API. Note that the only incompatible changes
+	    made are in the experimental dirty NIF API.</p>
+          <p>
+	    See the <seealso marker="erl_nif">NIF
+	    documentation</seealso> for more information.</p>
+          <p>
+	    Thanks to Steve Vinoski.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12128</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Accept inet:ip_address() in net_adm:names/1</p>
+          <p>
+	    Own Id: OTP-12154</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 3.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

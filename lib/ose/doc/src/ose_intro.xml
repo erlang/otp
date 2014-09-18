@@ -65,7 +65,7 @@ erl
 /home/erlang
 --</code>
     <p>
-      The arguments are printed on seperate lines to make it possible to know
+      The arguments are printed on separate lines to make it possible to know
       what has to be quoted with &quot;. Each line is one quotable unit.
       So taking the arguments above you can supply them to pm_create or
       just execute directly on the command line. For example:</p>
@@ -75,7 +75,7 @@ pid: 0x110059
 rtose@acp3400> pm_start 0x110059</code>
     <p>
       Also note that since we are running erl to figure out the arguments on a
-      seperate machine the paths have to be updated. In the example above
+      separate machine the paths have to be updated. In the example above
       <c>/usr/local/lib/erlang</c> was replaced by <c>/mst/erlang/</c>. The
       goal is to in future releases not have to do the special argument handling
       but for now (OTP 17.0) you have to do it.

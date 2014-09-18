@@ -1539,13 +1539,21 @@ static ERL_NIF_TERM call_nif_schedule(ErlNifEnv* env, int argc, const ERL_NIF_TE
 }
 
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+
+static int have_dirty_schedulers(void)
+{
+    ErlNifSysInfo si;
+    enif_system_info(&si, sizeof(si));
+    return si.dirty_scheduler_support;
+}
+
 static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int n;
     char s[10];
     ErlNifBinary b;
     ERL_NIF_TERM result;
-    if (enif_have_dirty_schedulers()) {
+    if (have_dirty_schedulers()) {
 	assert(enif_is_on_dirty_scheduler(env));
     }
     assert(argc == 3);
@@ -1566,7 +1574,7 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     assert(!enif_is_on_dirty_scheduler(env));
     if (argc != 3)
 	return enif_make_badarg(env);
-    if (enif_have_dirty_schedulers()) {
+    if (have_dirty_schedulers()) {
 	if (enif_get_int(env, argv[0], &n) &&
 	    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1) &&
 	    enif_inspect_binary(env, argv[2], &b))

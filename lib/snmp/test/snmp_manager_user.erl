@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -109,7 +109,18 @@ start_link(Parent, Id) ->
     proc_lib:start_link(?MODULE, main, [true, Parent, self(), Id]).
 
 stop() ->
-    cast(stop).
+    MRef = erlang:monitor(process, ?SERVER),
+    cast(stop),
+    receive {'DOWN', MRef, _, _, Info} ->
+	    case Info of
+		noproc ->
+		    ok;
+		noconnection ->
+		    ok;
+		normal ->
+		    ok
+	    end
+    end.
 
 info() ->
     call(info).

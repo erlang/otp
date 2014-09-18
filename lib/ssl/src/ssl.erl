@@ -569,21 +569,24 @@ handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
 				   cacertfile = CaCertFile0} = InheritedSslOpts) ->
     RecordCB = record_cb(Protocol),
     CaCerts = handle_option(cacerts, Opts0, CaCerts0),
-    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun} = handle_verify_options(Opts0, CaCerts),
+    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun, PartialChainHanlder} = handle_verify_options(Opts0, CaCerts),
     CaCertFile = case proplists:get_value(cacertfile, Opts0, CaCertFile0) of
 		     undefined ->
 			 CaCertDefault;
 		     CAFile ->
 			 CAFile
 		 end,
+
     NewVerifyOpts = InheritedSslOpts#ssl_options{cacerts = CaCerts,
 						 cacertfile = CaCertFile,
 						 verify = Verify,
 						 verify_fun = VerifyFun,
+						 partial_chain = PartialChainHanlder,
 						 fail_if_no_peer_cert = FailIfNoPeerCert},
     SslOpts1 = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
-			   end, Opts0, [cacerts, cacertfile, verify, verify_fun, fail_if_no_peer_cert]),
+			   end, Opts0, [cacerts, cacertfile, verify, verify_fun, partial_chain,
+					fail_if_no_peer_cert]),
     case handle_option(versions, SslOpts1, []) of
 	[] ->
 	    new_ssl_options(SslOpts1, NewVerifyOpts, RecordCB);
@@ -603,10 +606,10 @@ handle_options(Opts0) ->
     ReuseSessionFun = fun(_, _, _, _) -> true end,
     CaCerts = handle_option(cacerts, Opts, undefined),
 
-    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun} = handle_verify_options(Opts, CaCerts),
+    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun, PartialChainHanlder} =
+	handle_verify_options(Opts, CaCerts),
     
     CertFile = handle_option(certfile, Opts, <<>>),
-    
     RecordCb = record_cb(Opts),
     
     Versions = case handle_option(versions, Opts, []) of
@@ -620,6 +623,7 @@ handle_options(Opts0) ->
 		    versions   = Versions,
 		    verify     = validate_option(verify, Verify),
 		    verify_fun = VerifyFun,
+		    partial_chain = PartialChainHanlder,
 		    fail_if_no_peer_cert = FailIfNoPeerCert,
 		    verify_client_once =  handle_option(verify_client_once, Opts, false),
 		    depth      = handle_option(depth,  Opts, 1),
@@ -656,7 +660,7 @@ handle_options(Opts0) ->
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
-    SslOptions = [protocol, versions, verify, verify_fun,
+    SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile,
@@ -708,6 +712,8 @@ validate_option(verify_fun, Fun) when is_function(Fun) ->
      end, Fun};
 validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
    Value;
+validate_option(partial_chain, Value) when is_function(Value) ->
+    Value;
 validate_option(fail_if_no_peer_cert, Value) when is_boolean(Value) ->
     Value;
 validate_option(verify_client_once, Value) when is_boolean(Value) ->
@@ -1147,25 +1153,32 @@ handle_verify_options(Opts, CaCerts) ->
 
     UserFailIfNoPeerCert = handle_option(fail_if_no_peer_cert, Opts, false),
     UserVerifyFun = handle_option(verify_fun, Opts, undefined),
-
     
+    PartialChainHanlder = handle_option(partial_chain, Opts,
+					fun(_) -> unknown_ca end),
+
     %% Handle 0, 1, 2 for backwards compatibility
     case proplists:get_value(verify, Opts, verify_none) of
 	0 ->
 	    {verify_none, false,
-		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
+		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts),
+	     VerifyNoneFun, PartialChainHanlder};
 	1  ->
 	    {verify_peer, false,
-	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
+	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts),
+	     UserVerifyFun, PartialChainHanlder};
 	2 ->
 	    {verify_peer, true,
-	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
-	    verify_none ->
+	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts),
+	     UserVerifyFun, PartialChainHanlder};
+	verify_none ->
 	    {verify_none, false,
-	     ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
+	     ca_cert_default(verify_none, VerifyNoneFun, CaCerts),
+	     VerifyNoneFun, PartialChainHanlder};
 	verify_peer ->
 	    {verify_peer, UserFailIfNoPeerCert,
-	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
+	     ca_cert_default(verify_peer, UserVerifyFun, CaCerts),
+	     UserVerifyFun, PartialChainHanlder};
 	Value ->
 	    throw({error, {options, {verify, Value}}})
     end.

@@ -25,7 +25,47 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.5</title>
+  <section><title>SSL 5.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected handling of ECC certificates, there where
+	    several small issues with the handling of such
+	    certificates in the ssl and public_key application. Now
+	    ECC signed ECC certificates shall work and not only RSA
+	    signed ECC certificates.</p>
+          <p>
+	    Own Id: OTP-12026</p>
+        </item>
+        <item>
+          <p>
+	    Check that the certificate chain ends with a trusted ROOT
+	    CA e.i. a self-signed certificate, but provide an option
+	    partial_chain to enable the application to define an
+	    intermediat CA as trusted.</p>
+          <p>
+	    Own Id: OTP-12149</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add decode functions for SNI (Server Name Indication)</p>
+          <p>
+	    Own Id: OTP-12048</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

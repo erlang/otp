@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -63,9 +63,14 @@
     <p>The semantics of them and their exact signatures are explained
     below. </p>
     <p>Some of the function has no defined return value (<c>void()</c>), 
-    they can ofcourse return anythyng. But the functions that do have 
+    they can of course return anything. But the functions that do have
     specified return value(s) <em>must</em> adhere to this. None of the 
     functions can use exit of throw to return. </p>
+
+    <p>If the manager is not configured to use any particular
+    transport domain, the behaviour <c>handle_agent/4</c>
+    will for backwards copmpatibility reasons be called with the old
+    <c>IpAddr</c> and <c>PortNumber</c> arguments</p>
 
     <marker id="types"></marker>
   </description>
@@ -116,11 +121,11 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_agent(Addr, Port, Type, SnmpInfo, UserData) -> Reply</name>
+      <name>handle_agent(Domain, Addr, Type, SnmpInfo, UserData) -> Reply</name>
       <fsummary>Handle agent</fsummary>
       <type>
-        <v>Addr = ip_address()</v>
-        <v>Port = integer()</v>
+        <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
         <v>Type = pdu | trap | report | inform</v>
         <v>SnmpInfo = SnmpPduInfo | SnmpTrapInfo | SnmpReportInfo | SnmpInformInfo</v>
         <v>SnmpPduInfo = snmp_gen_info()</v>

@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>crypto</c> verify major version number of OpenSSL
+	    header files and runtime library. Loading of
+	    <c>crypto</c> will fail if there is a version mismatch.</p>
+          <p>
+	    Own Id: OTP-12146 Aux Id: seq12700 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

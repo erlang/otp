@@ -17,7 +17,9 @@
 %% %CopyrightEnd%
 %% 
 
+-ifndef(snmpm_net_if_mt).
 -module(snmpm_net_if).
+-endif.
 
 -behaviour(gen_server).
 -behaviour(snmpm_network_interface).
@@ -59,8 +61,7 @@
 	{
 	  server,
 	  note_store,
-	  domain,
-	  sock,
+	  transports = [],
 	  mpd_state,
 	  log,
 	  irb = auto, % auto | {user, integer()}
@@ -68,6 +69,9 @@
 	  filter
 	 }).
 
+-record(transport,
+	{socket,
+	 domain = snmpUDPDomain}).
 
 -define(DEFAULT_FILTER_MODULE, snmpm_net_if_filter).
 -define(DEFAULT_FILTER_OPTS,   [{module, ?DEFAULT_FILTER_MODULE}]).
@@ -147,6 +151,64 @@ filter_reset(Pid) ->
 
 
 %%%-------------------------------------------------------------------
+%%% Multi-thread manager
+%%%-------------------------------------------------------------------
+
+-ifdef(snmpm_net_if_mt).
+
+%% This function is called through the macro below to
+%% (in the not multithreaded case) avoid creating the
+%% Failer/4 fun, and to avoid calling the Worker through a fun
+%% (now it shall not be a fun, just a code snippet).
+
+worker(Worker, Failer, #state{log = Log} = State) ->
+    Verbosity = get(verbosity),
+    spawn_opt(
+      fun () ->
+	      try
+		  put(sname, mnifw),
+		  put(verbosity, Verbosity),
+		  NewState =
+		      case do_reopen_log(Log) of
+			  Log ->
+			      State;
+			  NewLog ->
+			      State#state{log = NewLog}
+		      end,
+		  Worker(NewState)
+	      of
+		  Result ->
+		      %% Winds up in handle_info {'DOWN', ...}
+		      erlang:exit({net_if_worker, Result})
+	      catch
+		  Class:Reason ->
+		      %% Winds up in handle_info {'DOWN', ...}
+		      erlang:exit(
+			{net_if_worker, Failer,
+			 Class, Reason, erlang:get_stacktrace()})
+	      end
+      end,
+      [monitor]).
+-define(
+   worker(S, Worker, Failer, State),
+   begin
+       worker(
+	 fun (S) -> begin Worker end end,
+	 begin Failer end,
+	 (State))
+   end).
+
+-else.
+
+-define(
+   worker(S, Worker, _Failer, State),
+   begin (S) = (State), begin Worker end end).
+
+-endif.
+
+
+
+%%%-------------------------------------------------------------------
 %%% Callback functions from gen_server
 %%%-------------------------------------------------------------------
 
@@ -161,12 +223,19 @@ init([Server, NoteStore]) ->
     ?d("init -> entry with"
        "~n   Server:    ~p"
        "~n   NoteStore: ~p", [Server, NoteStore]),
-    case (catch do_init(Server, NoteStore)) of
+    try do_init(Server, NoteStore)
+    catch
 	{error, Reason} ->
-	    {stop, Reason};
-	{ok, State} ->
-	    {ok, State}
+	    {stop, Reason}
     end.
+
+-ifdef(snmpm_net_if_mt).
+%% This should really be protected, but it also needs to
+%% be writable for the worker processes, so...
+-define(inform_table_opts, [set, public, named_table, {keypos, 1}]).
+-else.
+-define(inform_table_opts, [set, protected, named_table, {keypos, 1}]).
+-endif.
 	    
 do_init(Server, NoteStore) ->
     process_flag(trap_exit, true),
@@ -176,18 +245,18 @@ do_init(Server, NoteStore) ->
     process_flag(priority, Prio),
 
     %% -- Create inform request table --
-    ets:new(snmpm_inform_request_table,
-	    [set, protected, named_table, {keypos, 1}]),
+    ets:new(snmpm_inform_request_table, ?inform_table_opts),
 
     %% -- Verbosity -- 
     {ok, Verbosity} = snmpm_config:system_info(net_if_verbosity),
-    put(sname,mnif),
-    put(verbosity,Verbosity),
+    put(sname, mnif),
+    put(verbosity, Verbosity),
     ?vlog("starting", []),
 
     %% -- MPD --
     {ok, Vsns} = snmpm_config:system_info(versions),
     MpdState   = snmpm_mpd:init(Vsns),
+    ?vdebug("MpdState: ~w", [MpdState]),
 
     %% -- Module dependent options --
     {ok, Opts} = snmpm_config:system_info(net_if_options),
@@ -195,21 +264,6 @@ do_init(Server, NoteStore) ->
     %% -- Inform response behaviour --
     {ok, IRB}  = snmpm_config:system_info(net_if_irb), 
     IrGcRef    = irgc_start(IRB), 
-
-    %% -- Socket --
-    SndBuf  = get_opt(Opts, sndbuf,   default),
-    RecBuf  = get_opt(Opts, recbuf,   default),
-    BindTo  = get_opt(Opts, bind_to,  false),
-    NoReuse = get_opt(Opts, no_reuse, false),
-    {ok, Port} = snmpm_config:system_info(port),
-    Domain =
-	case snmpm_config:system_info(domain) of
-	    {ok, D} ->
-		D;
-	    _ ->
-		snmpm_config:default_transport_domain()
-	end,
-    {ok, Sock} = do_open_port(Port, SndBuf, RecBuf, Domain, BindTo, NoReuse),
 
     %% Flow control --
     FilterOpts = get_opt(Opts, filter, []),
@@ -219,83 +273,104 @@ do_init(Server, NoteStore) ->
     %% -- Audit trail log ---
     {ok, ATL} = snmpm_config:system_info(audit_trail_log),
     Log = do_init_log(ATL),
+    ?vdebug("Log: ~w", [Log]),
 
-    %% -- Initiate counters ---
-    init_counters(),
-    
-    %% -- We are done ---
-    State = #state{server     = Server, 
-		   note_store = NoteStore, 
-		   mpd_state  = MpdState,
-		   domain     = Domain,
-		   sock       = Sock, 
-		   log        = Log,
-		   irb        = IRB,
-		   irgc       = IrGcRef,
-		   filter     = FilterMod},
-    ?vdebug("started", []),
-    {ok, State}.
+    {ok, DomainAddresses} = snmpm_config:system_info(transports),
+    ?vdebug("DomainAddresses: ~w",[DomainAddresses]),
+    CommonSocketOpts = common_socket_opts(Opts),
+    BindTo = get_opt(Opts, bind_to,  false),
+    case
+	[begin
+	     {IpPort, SocketOpts} =
+		 socket_params(Domain, Address, BindTo, CommonSocketOpts),
+	     Socket = socket_open(IpPort, SocketOpts),
+	     #transport{socket = Socket, domain = Domain}
+	 end || {Domain, Address} <- DomainAddresses]
+    of
+	[] ->
+	    ?vinfo("No transports configured: ~p", [DomainAddresses]),
+	    throw({error, {no_transports,DomainAddresses}});
+	Transports ->
+	    %% -- Initiate counters ---
+	    init_counters(),
 
-
-%% Open port 
-do_open_port(Port, SendSz, RecvSz, Domain, BindTo, NoReuse) ->
-    ?vtrace("do_open_port -> entry with~n"
-	    "   Port:    ~p~n"
-	    "   SendSz:  ~p~n"
-	    "   RecvSz:  ~p~n"
-	    "   Domain:  ~p~n"
-	    "   BindTo:  ~p~n"
-	    "   NoReuse: ~p",
-	    [Port, SendSz, RecvSz, Domain, BindTo, NoReuse]),
-    IpOpts1 = bind_to(BindTo),
-    IpOpts2 = no_reuse(NoReuse),
-    IpOpts3 = recbuf(RecvSz),
-    IpOpts4 = sndbuf(SendSz),
-    IpOpts  =
-	[binary,
-	 snmp_conf:tdomain_to_family(Domain) |
-	 IpOpts1 ++ IpOpts2 ++ IpOpts3 ++ IpOpts4],
-    OpenRes = 
-	case init:get_argument(snmpm_fd) of
-	    {ok, [[FdStr]]} ->
-		Fd = list_to_integer(FdStr),
-		gen_udp:open(0, [{fd, Fd}|IpOpts]);
-	    error ->
-		gen_udp:open(Port, IpOpts)
-	end,
-    case OpenRes of
-	{error, _} = Error ->
-	    throw(Error);
-	OK ->
-	    OK
+	    %% -- We are done ---
+	    State = #state{
+	      server     = Server,
+	      note_store = NoteStore,
+	      mpd_state  = MpdState,
+	      transports = Transports,
+	      log        = Log,
+	      irb        = IRB,
+	      irgc       = IrGcRef,
+	      filter     = FilterMod},
+	    ?vdebug("started", []),
+	    {ok, State}
     end.
 
-bind_to(true) ->
-    case snmpm_config:system_info(address) of
-	{ok, Addr} when is_list(Addr) ->
-	    [{ip, list_to_tuple(Addr)}];
-	{ok, Addr} ->
-	    [{ip, Addr}];
+socket_open(IpPort, SocketOpts) ->
+    ?vtrace("socket_open -> entry with~n"
+	    "   IpPort:     ~p~n"
+	    "   SocketOpts: ~p", [IpPort, SocketOpts]),
+    case gen_udp:open(IpPort, SocketOpts) of
+	{error, _} = Error ->
+	    throw(Error);
+	{ok, Socket} ->
+	    Socket
+    end.
+
+socket_params(Domain, {IpAddr, IpPort}, BindTo, CommonSocketOpts) ->
+    Family = snmp_conf:tdomain_to_family(Domain),
+    SocketOpts =
+	case Family of
+	    inet6 ->
+		[Family, {ipv6_v6only, true} | CommonSocketOpts];
+	    Family ->
+		[Family | CommonSocketOpts]
+	end,
+    case Family of
+	inet ->
+	    case init:get_argument(snmp_fd) of
+		{ok, [[FdStr]]} ->
+		    Fd = list_to_integer(FdStr),
+		    case BindTo of
+			true ->
+			    {IpPort, [{ip, IpAddr}, {fd, Fd} | SocketOpts]};
+			_ ->
+			    {0, [{fd, Fd} | SocketOpts]}
+		    end;
+		error ->
+		    {IpPort, [{ip, IpAddr} | SocketOpts]}
+	    end;
 	_ ->
-	    []
-    end;
-bind_to(_) ->
-    [].
+	    case BindTo of
+		true ->
+		    {IpPort, [{ip, IpAddr} | SocketOpts]};
+		_ ->
+		    {IpPort, SocketOpts}
+	    end
+    end.
 
-no_reuse(false) ->
-    [{reuseaddr, true}];
-no_reuse(_) ->
-    [].
-
-recbuf(default) ->
-    [];
-recbuf(Sz) ->
-    [{recbuf, Sz}].
-
-sndbuf(default) ->
-    [];
-sndbuf(Sz) ->
-    [{sndbuf, Sz}].
+common_socket_opts(Opts) ->
+    [binary
+     |   case get_opt(Opts, sndbuf, default) of
+	     default ->
+		 [];
+	     Sz ->
+		 [{sndbuf, Sz}]
+	 end ++
+	 case get_opt(Opts, recbuf, default) of
+	     default ->
+		 [];
+	     Sz ->
+		 [{sndbuf, Sz}]
+	 end ++
+	 case get_opt(Opts, no_reuse, false) of
+	     false ->
+		 [{reuseaddr, true}];
+	     _ ->
+		 []
+	 end].
 
 
 create_filter(Opts) when is_list(Opts) ->
@@ -309,6 +384,10 @@ create_filter(Opts) when is_list(Opts) ->
 create_filter(BadOpts) ->
     throw({error, {bad_filter_opts, BadOpts}}).
 
+
+%% ----------------------------------------------------------------------
+%%                         Audit Trail Logger
+%% ----------------------------------------------------------------------
 
 %% Open log
 do_init_log(false) ->
@@ -330,24 +409,69 @@ do_init_log(true) ->
 	    Function = increment_counter, 
 	    Args     = [atl_seqno, Initial, Max], 
 	    SeqNoGen = {Module, Function, Args}, 
-	    case snmp_log:create(Name, File, 
-				 SeqNoGen, Size, Repair, true) of
+	    case snmp_log:create(
+		   Name, File, SeqNoGen, Size, Repair, true) of
 		{ok, Log} ->
 		    ?vdebug("log created: ~w", [Log]),
-		    {Log, Type};
+		    {Name, Log, Type};
 		{error, Reason} ->
 		    throw({error, {failed_create_audit_log, Reason}})
 	    end;
 	_ ->
 	    case snmp_log:create(Name, File, Size, Repair, true) of
 		{ok, Log} ->
-		    {Log, Type};
+		    ?vdebug("log created: ~w", [Log]),
+		    {Name, Log, Type};
 		{error, Reason} ->
 		    throw({error, {failed_create_audit_log, Reason}})
 	    end
     end.
 
-    
+-ifdef(snmpm_net_if_mt).
+do_reopen_log(undefined) ->
+    undefined;
+do_reopen_log({Name, Log, Type}) ->
+    case snmp_log:open(Name, Log) of
+	{ok, NewLog} ->
+	    {Name, NewLog, Type};
+	{error, Reason} ->
+	    warning_msg(
+	      "NetIf worker ~p failed to open ATL:~n"
+	      "   ~p", [self(), Reason]),
+	    undefined
+    end.
+-endif.
+
+%% Close log
+do_close_log(undefined) ->
+    ok;
+do_close_log({_Name, Log, _Type}) ->
+    (catch snmp_log:sync(Log)),
+    (catch snmp_log:close(Log)),
+    ok;
+do_close_log(_) ->
+    ok.
+
+%% Log
+logger(undefined, _Type, _Domain, _Addr) ->
+    fun(_) ->
+	    ok
+    end;
+logger({_Name, Log, Types}, Type, Domain, Addr) ->
+    case lists:member(Type, Types) of
+	true ->
+	    AddrString =
+		iolist_to_binary(snmp_conf:mk_addr_string({Domain, Addr})),
+	    fun(Msg) ->
+		    snmp_log:log(Log, Msg, AddrString)
+	    end;
+	false ->
+	    fun(_) ->
+		    ok
+	    end
+    end.
+
+
 %%--------------------------------------------------------------------
 %% Func: handle_call/3
 %% Returns: {reply, Reply, State}          |
@@ -409,7 +533,7 @@ handle_cast({send_pdu, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo},
 	  "   Vsn:     ~p~n"
 	  "   MsgData: ~p~n"
 	  "   Domain:  ~p~n"
-	  "   Addr   : ~p", [Pdu, Vsn, MsgData, Domain, Addr]),
+	  "   Addr:    ~p", [Pdu, Vsn, MsgData, Domain, Addr]),
     maybe_process_extra_info(ExtraInfo),
     maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, State),
     {noreply, State};
@@ -439,11 +563,20 @@ handle_cast(Msg, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
 handle_info(
-  {udp, Sock, Ip, Port, Bytes},
-  #state{sock = Sock, domain = Domain} = State) ->
-    ?vlog("received ~w bytes from ~p:~p [~w]", [size(Bytes), Ip, Port, Sock]),
-    maybe_handle_recv_msg(Domain, {Ip, Port}, Bytes, State),
-    {noreply, State};
+  {udp, Socket, IpAddr, IpPort, Bytes},
+  #state{transports = Transports} = State) ->
+    Size = byte_size(Bytes),
+    case lists:keyfind(Socket, #transport.socket, Transports) of
+	#transport{socket = Socket, domain = Domain} ->
+	    ?vlog("received ~w bytes from ~p:~p [~w]",
+		  [Size, IpAddr, IpPort, Socket]),
+	    maybe_handle_recv_msg(Domain, {IpAddr, IpPort}, Bytes, State),
+	    {noreply, State};
+	false ->
+	    warning_msg("Received ~w bytes on unknown port: ~p from ~s",
+			[Size, Socket, format_address({IpAddr, IpPort})]),
+	    {noreply, State}
+    end;
 
 handle_info(inform_response_gc, State) ->
     ?vlog("received inform_response_gc message", []),
@@ -456,9 +589,40 @@ handle_info({disk_log, _Node, Log, Info}, State) ->
     State2 = handle_disk_log(Log, Info, State),
     {noreply, State2};
 
+handle_info({'DOWN', _, _, _, _} = Info, State) ->
+    handle_info_down(Info, State);
+
 handle_info(Info, State) ->
+    handle_info_unknown(Info, State).
+
+
+handle_info_unknown(Info, State) ->
     warning_msg("received unknown info: ~n~p", [Info]),
     {noreply, State}.
+
+
+-ifdef(snmpm_net_if_mt).
+handle_info_down(
+  {'DOWN', _MRef, process, _Pid,
+   {net_if_worker, _Result}},
+  State) ->
+    ?vdebug("received DOWN message from net_if worker [~w]: "
+	    "~n   Result: ~p", [_Pid, _Result]),
+    {noreply, State};
+handle_info_down(
+  {'DOWN', _MRef, process, Pid,
+   {net_if_worker, Failer, Class, Reason, Stacktrace} = _ExitStatus},
+  State) ->
+    ?vdebug("received DOWN message from net_if worker [~w]: "
+	    "~n   ExitStatus: ~p", [Pid, _ExitStatus]),
+    Failer(Pid, Class, Reason, Stacktrace),
+    {noreply, State};
+handle_info_down(Info, State) ->
+    handle_info_unknown(Info, State).
+-else.
+handle_info_down(Info, State) ->
+    handle_info_unknown(Info, State).
+-endif.
 
 
 %%--------------------------------------------------------------------
@@ -474,68 +638,12 @@ terminate(Reason, #state{log = Log, irgc = IrGcRef}) ->
     ok.
 
 
-do_close_log({Log, _Type}) ->
-    (catch snmp_log:sync(Log)),
-    (catch snmp_log:close(Log)),
-    ok;
-do_close_log(_) ->
-    ok.
-
-
 %%----------------------------------------------------------------------
 %% Func: code_change/3
 %% Purpose: Convert process state when code is changed
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
  
-code_change({down, _Vsn}, OldState, downgrade_to_pre_4_14) ->
-    ?d("code_change(down, downgrade_to_pre_4_14) -> entry with"
-       "~n   OldState: ~p", [OldState]),
-    #state{server     = Server,
-	   note_store = NoteStore,
-	   sock       = Sock,
-	   mpd_state  = MpdState,
-	   log        = {OldLog, Type}, 
-	   irb        = IRB,
-	   irgc       = IRGC} = OldState, 
-    NewLog = snmp_log:downgrade(OldLog), 
-    State = 
-	{state, Server, NoteStore, Sock, MpdState, {NewLog, Type}, IRB, IRGC},
-    {ok, State};
-
-code_change({down, _Vsn}, OldState, downgrade_to_pre_4_16) ->
-    ?d("code_change(down, downgrade_to_pre_4_16) -> entry with"
-       "~n   OldState: ~p", [OldState]),
-    {OldLog, Type} = OldState#state.log, 
-    NewLog = snmp_log:downgrade(OldLog), 
-    State  = OldState#state{log = {NewLog, Type}}, 
-    {ok, State};
-
-% upgrade
-code_change(_Vsn, OldState, upgrade_from_pre_4_14) ->
-    ?d("code_change(up, upgrade_from_pre_4_14) -> entry with"
-       "~n   OldState: ~p", [OldState]), 
-    {state, Server, NoteStore, Sock, MpdState, {OldLog, Type}, IRB, IRGC} = 
-	OldState,
-    NewLog = snmp_log:upgrade(OldLog), 
-    State = #state{server     = Server,
-		   note_store = NoteStore,
-		   sock       = Sock,
-		   mpd_state  = MpdState,
-		   log        = {NewLog, Type}, 
-		   irb        = IRB,
-		   irgc       = IRGC,
-		   filter     = ?DEFAULT_FILTER_MODULE},
-    {ok, State};
-
-code_change(_Vsn, OldState, upgrade_from_pre_4_16) ->
-    ?d("code_change(up, upgrade_from_pre_4_16) -> entry with"
-       "~n   OldState: ~p", [OldState]),
-    {OldLog, Type} = OldState#state.log,
-    NewLog = snmp_log:upgrade(OldLog), 
-    State  = OldState#state{log = {NewLog, Type}}, 
-    {ok, State};
-
 code_change(_Vsn, State, _Extra) ->
     ?d("code_change -> entry with"
        "~n   Vsn:   ~p"
@@ -548,80 +656,88 @@ code_change(_Vsn, State, _Extra) ->
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
-maybe_handle_recv_msg(
+maybe_handle_recv_msg(Domain, Addr, Bytes, State) ->
+    ?worker(
+       S, maybe_handle_recv_msg_mt(Domain, Addr, Bytes, S),
+       fun (Pid, Class, Reason, Stacktrace) ->
+	       warning_msg(
+		 "Worker process (~p) terminated "
+		 "while processing (incomming) message from %s:~n"
+		 "~w:~w at ~p",
+		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
+		  Class, Reason, Stacktrace])
+       end,
+       State).
+
+maybe_handle_recv_msg_mt(
   Domain, Addr, Bytes,
-  #state{filter = FilterMod, domain = ManagerDomain} = State) ->
-    {Arg1, Arg2} = fix_filter_address(ManagerDomain, {Domain, Addr}),
+  #state{filter = FilterMod, transports = Transports} = State) ->
+    {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_recv(Arg1, Arg2)) of
 	false ->
 	    %% Drop the received packet 
-	    inc(netIfMsgInDrops),
-	    ok;
+	    inc(netIfMsgInDrops);
 	_ ->
 	    handle_recv_msg(Domain, Addr, Bytes, State)
-    end.
+    end,
+    ok.
     
 
 handle_recv_msg(Domain, Addr, Bytes, #state{server = Pid})
   when is_binary(Bytes) andalso (size(Bytes) =:= 0) ->
-    Pid ! {snmp_error, {empty_message, Domain, Addr}, Domain, Addr},
-    ok;
-
+    Pid ! {snmp_error, {empty_message, Domain, Addr}, Domain, Addr};
+%%
 handle_recv_msg(
   Domain, Addr, Bytes,
-  #state{server     = Pid,
-	 note_store = NoteStore,
-	 mpd_state  = MpdState,
-	 log        = Log} = State) ->
+  #state{
+	  server     = Pid,
+	  note_store = NoteStore,
+	  mpd_state  = MpdState,
+	  log        = Log} = State) ->
     Logger = logger(Log, read, Domain, Addr),
-    case (catch snmpm_mpd:process_msg(Bytes, Domain, Addr,
-				      MpdState, NoteStore, Logger)) of
+    case (catch snmpm_mpd:process_msg(
+		  Bytes, Domain, Addr, MpdState, NoteStore, Logger)) of
 
 	{ok, Vsn, Pdu, MS, ACM} ->
-	    maybe_handle_recv_pdu(Domain, Addr, Vsn, Pdu, MS, ACM,
-				  Logger, State);
+	    maybe_handle_recv_pdu(
+	      Domain, Addr, Vsn, Pdu, MS, ACM, Logger, State);
 
 	{discarded, Reason, Report} ->
 	    ?vdebug("discarded: ~p", [Reason]),
 	    ErrorInfo = {failed_processing_message, Reason},
 	    Pid ! {snmp_error, ErrorInfo, Domain, Addr},
-	    maybe_udp_send(Domain, Addr, Report, State),
-	    ok;
+	    maybe_udp_send(Domain, Addr, Report, State);
 
 	{discarded, Reason} ->
 	    ?vdebug("discarded: ~p", [Reason]),
 	    ErrorInfo = {failed_processing_message, Reason},
-	    Pid ! {snmp_error, ErrorInfo, Domain, Addr},
-	    ok;
+	    Pid ! {snmp_error, ErrorInfo, Domain, Addr};
 
 	Error ->
 	    error_msg("processing of received message failed: "
-		      "~n   ~p", [Error]),
-	    ok
+		      "~n   ~p", [Error])
     end.
 
 
 maybe_handle_recv_pdu(
   Domain, Addr, Vsn, #pdu{type = Type} = Pdu, PduMS, ACM, Logger,
-  #state{filter = FilterMod, domain = ManagerDomain} = State) ->
-    {Arg1, Arg2} = fix_filter_address(ManagerDomain, {Domain, Addr}),
+  #state{filter = FilterMod, transports = Transports} = State) ->
+    {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_recv_pdu(Arg1, Arg2, Type)) of
 	false ->
-	    inc(netIfPduInDrops),
-	    ok;
+	    inc(netIfPduInDrops);
 	_ ->
 	    handle_recv_pdu(
 	      Domain, Addr, Vsn, Pdu, PduMS, ACM, Logger, State)
     end;
 maybe_handle_recv_pdu(
   Domain, Addr, Vsn, Trap, PduMS, ACM, Logger,
-  #state{filter = FilterMod, domain = ManagerDomain} = State)
+  #state{filter = FilterMod, transports = Transports} = State)
   when is_record(Trap, trappdu) ->
-    {Arg1, Arg2} = fix_filter_address(ManagerDomain, {Domain, Addr}),
+    {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_recv_pdu(Arg1, Arg2, trappdu)) of
 	false ->
-	    inc(netIfPduInDrops),
-	    ok;
+	    inc(netIfPduInDrops);
 	_ ->
 	    handle_recv_pdu(
 	      Domain, Addr, Vsn, Trap, PduMS, ACM, Logger, State)
@@ -703,6 +819,19 @@ handle_inform_request(
     end.
 
 handle_inform_response(Ref, Domain, Addr, State) ->
+    ?worker(
+       S, handle_inform_response_mt(Ref, Domain, Addr, S),
+       fun (Pid, Class, Reason, Stacktrace) ->
+	       warning_msg(
+		 "Worker process (~p) terminated "
+		 "while processing (outgoing) inform response for %s:~n"
+		 "~w:~w at ~p",
+		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
+		  Class, Reason, Stacktrace])
+       end,
+       State).
+
+handle_inform_response_mt(Ref, Domain, Addr, State) ->
     Key = {Ref, Domain, Addr},
     case ets:lookup(snmpm_inform_request_table, Key) of
 	[{Key, _, {Vsn, ACM, RePdu}}] ->
@@ -718,10 +847,11 @@ handle_inform_response(Ref, Domain, Addr, State) ->
 
 maybe_send_inform_response(
   RePdu, Vsn, ACM, Domain, Addr, Logger,
-  #state{server = Pid,
-	 filter = FilterMod,
-	 domain = ManagerDomain} = State) ->
-    {Arg1, Arg2} = fix_filter_address(ManagerDomain, {Domain, Addr}),
+  #state{
+	  server = Pid,
+	  filter = FilterMod,
+	  transports = Transports} = State) ->
+    {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_send_pdu(
 		  Arg1, Arg2, pdu_type_of(RePdu)))
     of
@@ -737,8 +867,7 @@ maybe_send_inform_response(
 			  "~n   Reason: ~p", [Reason]),
 		    ReqId     = RePdu#pdu.request_id,
 		    ErrorInfo = {failed_generating_response, {RePdu, Reason}},
-		    Pid ! {snmp_error, ReqId, ErrorInfo, Domain, Addr},
-		    ok
+		    Pid ! {snmp_error, ReqId, ErrorInfo, Domain, Addr}
 	    end
     end.
     
@@ -771,24 +900,37 @@ irgc_stop(undefined) ->
 irgc_stop(Ref) ->
     (catch erlang:cancel_timer(Ref)).
 
+maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, State) ->
+    ?worker(
+       S, maybe_handle_send_pdu_mt(Pdu, Vsn, MsgData, Domain, Addr, S),
+       fun (Pid, Class, Reason, Stacktrace) ->
+	       warning_msg(
+		 "Worker process (~p) terminated "
+		 "while processing (outgoing) pdu for %s:~n"
+		 "~w:~w at ~p",
+		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
+		  Class, Reason, Stacktrace])
+       end,
+       State).
 
-maybe_handle_send_pdu(
+maybe_handle_send_pdu_mt(
   Pdu, Vsn, MsgData, Domain, Addr,
-  #state{filter = FilterMod, domain = ManagerDomain} = State) ->
-    {Arg1, Arg2} = fix_filter_address(ManagerDomain, {Domain, Addr}),
+  #state{filter = FilterMod, transports = Transports} = State) ->
+    {Arg1, Arg2} = fix_filter_address(Transports, {Domain, Addr}),
     case (catch FilterMod:accept_send_pdu(Arg1, Arg2, pdu_type_of(Pdu))) of
 	false ->
-	    inc(netIfPduOutDrops),
-	    ok;
+	    inc(netIfPduOutDrops);
 	_ ->
 	    handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, State)
-    end.
+    end,
+    ok.
 
 handle_send_pdu(
   Pdu, Vsn, MsgData, Domain, Addr,
-  #state{server     = Pid,
-	 note_store = NoteStore,
-	 log        = Log} = State) ->
+  #state{
+	  server     = Pid,
+	  note_store = NoteStore,
+	  log        = Log} = State) ->
     Logger = logger(Log, write, Domain, Addr),
     case (catch snmpm_mpd:generate_msg(
 		  Vsn, NoteStore, Pdu, MsgData, Logger)) of
@@ -799,43 +941,58 @@ handle_send_pdu(
 	    ?vlog("PDU not sent: "
 		  "~n   PDU:    ~p"
 		  "~n   Reason: ~p", [Pdu, Reason]),
-	    Pid ! {snmp_error, Pdu, Reason},
-	    ok
+	    Pid ! {snmp_error, Pdu, Reason}
     end.
 
 
 maybe_udp_send(
   Domain, Addr, Msg,
-  #state{sock = Sock, filter = FilterMod, domain = ManagerDomain}) ->
-    {Arg1, Arg2} = fix_filter_address(ManagerDomain, {Domain, Addr}),
+  #state{filter = FilterMod, transports = Transports}) ->
+    To = {Domain, Addr},
+    {Arg1, Arg2} = fix_filter_address(Transports, To),
     case (catch FilterMod:accept_send(Arg1, Arg2)) of
 	false ->
 	    inc(netIfMsgOutDrops),
 	    ok;
 	_ ->
-	    %% XXX There should be some kind of lookup of socket
-	    %% from transport domain here
-	    {Ip, Port} = Addr,
-	    udp_send(Sock, Ip, Port, Msg)
+	    case select_transport_from_domain(Domain, Transports) of
+		false ->
+		    error_msg(
+		      "Can not find transport~n"
+			"   size:   ~p~n"
+		      "   to:     ~s",
+		      [sz(Msg), format_address(To)]);
+		#transport{socket = Socket} ->
+		    udp_send(Socket, Addr, Msg)
+	    end
     end.
-	    
-    
-udp_send(Sock, Ip, Port, Msg) ->
-    case (catch gen_udp:send(Sock, Ip, Port, Msg)) of
+
+udp_send(Sock, To, Msg) ->
+    {IpAddr, IpPort} =
+	case To of
+	    {Domain, Addr} when is_atom(Domain) ->
+		Addr;
+	    {_, P} = Addr when is_integer(P) ->
+		Addr
+	end,
+    try gen_udp:send(Sock, IpAddr, IpPort, Msg) of
 	ok ->
 	    ?vdebug("sent ~w bytes to ~w:~w [~w]", 
-		    [sz(Msg), Ip, Port, Sock]),
+		    [sz(Msg), IpAddr, IpPort, Sock]),
 	    ok;
 	{error, Reason} ->
-	    error_msg("failed sending message to ~p:~p: "
-		      "~n   ~p",[Ip, Port, Reason]);
-	Error ->
-	    error_msg("failed sending message to ~p:~p: "
-		      "~n   ~p",[Ip, Port, Error])
+	    error_msg("failed sending message to ~p:~p:~n"
+		      "   ~p",[IpAddr, IpPort, Reason])
+    catch
+	error:Error ->
+	    error_msg("failed sending message to ~p:~p:~n"
+		      "   error:~p~n"
+		      "   ~p",
+		      [IpAddr, IpPort, Error, erlang:get_stacktrace()])
     end.
 
 sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 sz(L) when is_list(L) ->
     length(L);
 sz(_) ->
@@ -1025,25 +1182,44 @@ handle_set_log_type(State, _NewType) ->
     {State, {error, not_enabled}}.
 
 
+select_transport_from_domain(Domain, Transports) when is_atom(Domain) ->
+    Pos = #transport.domain,
+    case lists:keyfind(Domain, Pos, Transports) of
+	#transport{domain = Domain} = Transport ->
+	    Transport;
+	false when Domain == snmpUDPDomain ->
+	    lists:keyfind(transportDomainUdpIpv4, Pos, Transports);
+	false when Domain == transportDomainUdpIpv4 ->
+	    lists:keyfind(snmpUDPDomain, Pos, Transports);
+	false ->
+	    false
+    end.
+
 %% If the manager uses legacy snmpUDPDomain e.g has not set
 %% {domain, _}, then make sure snmpm_network_interface_filter
 %% gets legacy arguments to not break backwards compatibility.
 %%
-fix_filter_address(snmpUDPDomain, {Domain, Addr})
-  when Domain =:= snmpUDPDomain;
-       Domain =:= transportDomainUdpIpv4 ->
-    Addr;
-fix_filter_address(_ManagerDomain, {Domain, _} = Address)
-  when is_atom(Domain) ->
-    Address;
-fix_filter_address(snmpUDPDomain, {_, Port} = Addr)
-  when is_integer(Port) ->
-    Addr.
+fix_filter_address(Transports, Address) ->
+    DefaultDomain = snmpm_config:default_transport_domain(),
+    case Transports of
+	[#transport{domain = DefaultDomain}, DefaultDomain] ->
+	    case Address of
+		{Domain, Addr} when is_atom(Domain) ->
+		    Addr;
+		{_, IpPort} = Addr when is_integer(IpPort) ->
+		    Addr
+	    end;
+	_ ->
+	    Address
+    end.
 
 address(Domain, Addr) when is_atom(Domain) ->
     {Domain, Addr};
 address(Ip, Port) when is_integer(Port) ->
     {snmpm_config:default_transport_domain(), {Ip, Port}}.
+
+format_address(Address) ->
+    iolist_to_binary(snmp_conf:mk_addr_string(Address)).
 
 %% -------------------------------------------------------------------
 
@@ -1085,27 +1261,6 @@ t() ->
 
 %% -------------------------------------------------------------------
 
-logger(undefined, _Type, _Domain, _Addr) ->
-    fun(_) ->
-	    ok
-    end;
-logger({Log, Types}, Type, Domain, Addr) ->
-    case lists:member(Type, Types) of
-	true ->
-	    AddrString =
-		iolist_to_binary(snmp_conf:mk_addr_string({Domain, Addr})),
-	    fun(Msg) ->
-		    snmp_log:log(Log, Msg, AddrString)
-	    end;
-	false ->
-	    fun(_) ->
-		    ok
-	    end
-    end.
-
-
-%% -------------------------------------------------------------------
-
 %% info_msg(F, A) ->
 %%     ?snmpm_info("NET-IF server: " ++ F, A).
 
@@ -1130,10 +1285,11 @@ get_opt(Opts, Key, Def) ->
 
 %% -------------------------------------------------------------------
 
-get_info(#state{sock = Id}) ->
+get_info(#state{transports = Transports}) ->
     ProcSize = proc_mem(self()),
-    PortInfo = get_port_info(Id),
-    [{process_memory, ProcSize}, {port_info, PortInfo}].
+    [{process_memory, ProcSize}
+     | [{port_info, get_port_info(Socket)}
+	|| #transport{socket = Socket} <- Transports]].
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of
@@ -1248,4 +1404,3 @@ call(Pid, Req, Timeout) ->
 
 cast(Pid, Msg) ->
     gen_server:cast(Pid, Msg).
-

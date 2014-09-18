@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,7 +39,12 @@
       It is supposed to be used from a Network Interface process 
       (<seealso marker="snmp_manager_netif">Definition of Manager Net if</seealso>).
       </p>
+
+    <p>Legacy API function <c>process_msg/7</c> that has got separate
+      <c>IpAddr</c> and <c>PortNumber</c> arguments still works as before
+      for backwards compatibility reasons.</p>
   </description>
+
   <funcs>
     <func>
       <name>init_mpd(Vsns) -> mpd_state()</name>
@@ -58,13 +63,12 @@
       </desc>
     </func>
     <func>
-      <name>process_msg(Msg, TDomain, Addr, Port, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
+      <name>process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
       <fsummary>Process a message received from the network</fsummary>
       <type>
         <v>Msg = binary()</v>
-        <v>TDomain = snmpUDPDomain</v>
-        <v>Addr = {integer(), integer(), integer(), integer()}</v>
-        <v>Port = integer()</v>
+        <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
         <v>State = mpd_state()</v>
         <v>NoteStore = pid()</v>
         <v>Logger = function()</v>

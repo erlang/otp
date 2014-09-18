@@ -30,6 +30,26 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation erroneously specified that
+	    <c>alarm_handler:clear_alarm/1</c> would clear
+	    <em>all</em> alarms with id <c>AlarmId</c>. This is now
+	    corrected according to the implementation - only the
+	    latest received alarm with the given <c>AlarmId</c> is
+	    cleared by the simple default handler.</p>
+          <p>
+	    Own Id: OTP-12025</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

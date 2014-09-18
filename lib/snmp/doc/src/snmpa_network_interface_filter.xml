@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2013</year>
+      <year>2007</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -58,10 +58,10 @@
       on two levels: </p>
     <list type="bulleted">
       <item>
-        <p>The first level is at the UDP entry / exit point, i.e. 
-          immediately after the receipt of the message, before any message 
+        <p>The first level is at the transport entry / exit point, i.e.
+          immediately after the receipt of the message before any message
           processing is done (accept_recv) and 
-          immediately before sending the message, after all message 
+          immediately before sending the message after all message
           processing is done (accept_send).</p>
       </item>
       <item>
@@ -78,6 +78,12 @@
       <seealso marker="snmp_app#configuration_params">req_limit</seealso> and 
       the function 
       <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>. </p>
+    <p>Legacy network interface filter modules used arguments on the form
+      <c>(IpAddr, PortNumber,...)</c> instead of
+      <c>(Domain, Addr, ...)</c>, and if the SNMP agent is run without
+      changing the configuration to use transport domains
+      the network interface filter will still get
+      the old arguments and work as before.</p>
   </description>
 
   <section>
@@ -88,15 +94,17 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
              'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
              report
     </code>
+    <p>See also the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
     <marker id="accept_recv"></marker>
   </section>
   <funcs>
     <func>
-      <name>accept_recv(Ip, Port) -> boolean()</name>
+      <name>accept_recv(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the received message be accepted</fsummary>
       <type>
-        <v>Ip = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
       </type>
       <desc>
         <p>Called at the reception of a message (before <em>any</em> processing 
@@ -107,11 +115,11 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
       </desc>
     </func>
     <func>
-      <name>accept_send(Ip, Port) -> boolean()</name>
+      <name>accept_send(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the message be sent</fsummary>
       <type>
-        <v>Ip = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
       </type>
       <desc>
         <p>Called before the sending of a message (after <em>all</em> processing 
@@ -122,11 +130,11 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
       </desc>
     </func>
     <func>
-      <name>accept_recv_pdu(Ip, Port, PduType) -> boolean()</name>
+      <name>accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
       <fsummary>Shall the received pdu be accepted</fsummary>
       <type>
-        <v>Ip = ip_address()</v>
-        <v>Port = port()</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
         <v>PduType = pdu_type()</v>
       </type>
       <desc>
@@ -144,7 +152,9 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
       <type>
         <v>Targets = targets()</v>
         <v>targets() = [target()]</v>
-        <v>target() = {ip_address(), port()}</v>
+        <v>target() = {Domain, Addr}</v>
+	<v>Domain = transportDomain()</v>
+	<v>Addr = transportAddressWithPort()</v>
         <v>PduType = pdu_type() > 0</v>
         <v>Reply = boolean() | NewTargets</v>
         <v>NewTargets = targets()</v>
@@ -155,7 +165,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
         <p>For the message to be discarded all together, the function 
           <em>must</em> return <em>false</em>. </p>
         <p>Note that it is possible for this function to filter out targets
-          (but <em>not</em> add its own) by returning an updated
+          (but <em>not</em> to add its own) by returning an updated
           <c>Targets</c> list (<c>NewTargets</c>). </p>
       </desc>
     </func>

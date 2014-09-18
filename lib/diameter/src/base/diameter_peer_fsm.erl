@@ -477,6 +477,7 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
                                                hop_by_hop_id = Hid}}
         = Pkt
         = encode(CER, Dict),
+    incr(send, Pkt, Dict),
     send(TPid, Pkt),
     ?LOG(send, 'CER'),
     start_timer(Tmo, S#state{state = {'Wait-CEA', Hid, Eid}}).
@@ -1100,6 +1101,7 @@ send_dpr(Reason, Opts, #state{transport = TPid,
                          {'Origin-Realm', OR},
                          {'Disconnect-Cause', Cause}],
                  Dict),
+    incr(send, Pkt, Dict),
     send(TPid, Pkt),
     dpa_timer(Tmo),
     ?LOG(send, 'DPR'),

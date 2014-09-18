@@ -47,7 +47,7 @@
 	 read_standard_config/1, 
 
 	 %% target_addr.conf
-	 target_addr_entry/5, target_addr_entry/6, 
+	 target_addr_entry/5, target_addr_entry/6,  target_addr_entry/7,
 	 target_addr_entry/8, target_addr_entry/10, target_addr_entry/11, 
 	 write_target_addr_config/2, write_target_addr_config/3, 
 	 append_target_addr_config/2, 
@@ -386,11 +386,24 @@ target_addr_entry(
     target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, []).
 
 target_addr_entry(
+  Name, Domain, Addr, TagList,
+  ParamsName, EngineId) when is_atom(Domain) ->
+    target_addr_entry(
+      Name, Domain, Addr, TagList,
+      ParamsName, EngineId, []);
+target_addr_entry(
   Name, Ip, TagList, ParamsName,
   EngineId, TMask) ->
     target_addr_entry(
       Name, Ip, 162, TagList, ParamsName,
       EngineId, TMask, 2048).
+
+target_addr_entry(
+  Name, Domain_or_Ip, Addr_or_Port, TagList,
+  ParamsName, EngineId, TMask) ->
+    target_addr_entry(
+      Name, Domain_or_Ip, Addr_or_Port, TagList,
+      ParamsName, EngineId, TMask, 2048).
 
 target_addr_entry(
   Name, Domain_or_Ip, Addr_or_Port, TagList,
@@ -475,6 +488,16 @@ write_target_addr_conf(Fd, Conf) ->
 
 do_write_target_addr_conf(
   Fd,
+  {Name, Domain, Address, Timeout, RetryCount, TagList,
+   ParamsName, EngineId, TMask, MaxMessageSize})
+  when is_atom(Domain) ->
+    io:format(
+      Fd,
+      "{\"~s\", ~w, ~w, ~w, ~w, \"~s\", \"~s\", \"~s\", ~w, ~w}.~n",
+      [Name, Domain, Address, Timeout, RetryCount, TagList,
+       ParamsName, EngineId, TMask, MaxMessageSize]);
+do_write_target_addr_conf(
+  Fd,
   {Name, Ip, Udp, Timeout, RetryCount, TagList,
    ParamsName, EngineId, TMask, MaxMessageSize})
   when is_integer(Udp) ->
@@ -485,15 +508,10 @@ do_write_target_addr_conf(
       {Name, Domain, Address, Timeout, RetryCount, TagList,
        ParamsName, EngineId, TMask, MaxMessageSize});
 do_write_target_addr_conf(
-  Fd,
-  {Name, Domain, Address, Timeout, RetryCount, TagList,
-   ParamsName, EngineId, TMask, MaxMessageSize})
-  when is_atom(Domain) ->
-    io:format(
-      Fd,
-      "{\"~s\", ~w, ~w, ~w, ~w, \"~s\", \"~s\", \"~s\", ~w, ~w}.~n",
-      [Name, Domain, Address, Timeout, RetryCount, TagList,
-       ParamsName, EngineId, TMask, MaxMessageSize]);
+  _Fd,
+  {_Name, Domain, Address, _Timeout, _RetryCount, _TagList,
+   _ParamsName, _EngineId, _TMask, _MaxMessageSize}) ->
+    error({bad_address, {Domain, Address}});
 do_write_target_addr_conf(
   Fd,
   {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,

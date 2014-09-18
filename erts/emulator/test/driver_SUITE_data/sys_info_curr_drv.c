@@ -40,7 +40,9 @@
   "thread=%s "				\
   "smp=%s "				\
   "async_thrs=%d "			\
-  "sched_thrs=%d"
+  "sched_thrs=%d "                      \
+  "emu_nif_vsn=%d.%d "                  \
+  "dirty_sched=%s"
 
 static size_t
 sys_info_drv_max_res_len(ErlDrvSysInfo *sip)
@@ -54,6 +56,8 @@ sys_info_drv_max_res_len(ErlDrvSysInfo *sip)
     slen += 5;		/* smp */
     slen += 20;		/* async_thrs */
     slen += 20;		/* sched_thrs */
+    slen += 2*20;       /* emu_nif_vsn */
+    slen += 5;          /* dirty_sched */
     return slen;
 }
 
@@ -71,7 +75,10 @@ sys_info_drv_sprintf_sys_info(ErlDrvSysInfo *sip, char *str)
 		   sip->thread_support ? "true" : "false",
 		   sip->smp_support ? "true" : "false",
 		   sip->async_threads,
-		   sip->scheduler_threads);
+		   sip->scheduler_threads,
+		   sip->nif_major_version,
+		   sip->nif_minor_version,
+		   sip->dirty_scheduler_support ? "true" : "false");
 }
 
 #include "sys_info_drv_impl.c"

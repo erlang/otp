@@ -532,6 +532,7 @@ groups() ->
      {v3_inform,                     [], v3_inform_cases()}, 
      {v3_security,                   [], v3_security_cases()}, 
      {standard_mibs,                 [], standard_mibs_cases()}, 
+     {standard_mibs_ipv6,            [], standard_mibs_cases_ipv6()},
      {standard_mibs_2,               [], standard_mibs2_cases()}, 
      {standard_mibs_3,               [], standard_mibs3_cases()}, 
      {reported_bugs,                 [], reported_bugs_cases()}, 
@@ -651,11 +652,18 @@ init_per_group(GroupName, Config) ->
 init_per_group_ipv6(GroupName, Config, Init) ->
     case ct:require(ipv6_hosts) of
 	ok ->
-	    Init(
-	      snmp_test_lib:init_group_top_dir(
-		GroupName,
-		[{ipfamily, inet6},
-		 {ip, ?LOCALHOST(inet6)} | lists:keydelete(ip, 1, Config)]));
+	    case gen_udp:open(0, [inet6]) of
+		{ok, S} ->
+		    ok = gen_udp:close(S),
+		    Init(
+		      snmp_test_lib:init_group_top_dir(
+			GroupName,
+			[{ipfamily, inet6},
+			 {ip, ?LOCALHOST(inet6)}
+			 | lists:keydelete(ip, 1, Config)]));
+		{error, _} ->
+		    {skip, "Host seems to not support IPv6"}
+	    end;
 	_ ->
 	    {skip, "Host does not support IPV6"}
     end.
@@ -1714,7 +1722,7 @@ v1_cases_ipv6() ->
      next_across_sa,
      undo,
 %%     {group, reported_bugs},
-     {group, standard_mibs}, % snmp_standard_mib still failing, sends v1 trap
+     {group, standard_mibs_ipv6},
      sparse_table,
 %%     cnt_64, % sends v1 trap
      opaque
@@ -4836,6 +4844,15 @@ standard_mibs_cases() ->
      snmp_view_based_acm_mib
     ].
     
+standard_mibs_cases_ipv6() ->
+    [
+     %% snmp_standard_mib, % Sending v1 traps does not work over IPv6
+     snmp_community_mib,
+     snmp_framework_mib,
+     snmp_target_mib,
+     snmp_notification_mib,
+     snmp_view_based_acm_mib
+    ].
 
 %%-----------------------------------------------------------------
 %% For this test, the agent is configured for v1.

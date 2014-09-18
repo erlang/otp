@@ -59,8 +59,10 @@
 %%% '''
 %%%
 %%% <warning>
+%%% <p>
 %%% This is experimental code which may be changed or removed
-%%% anytime without any warning.  
+%%% anytime without any warning.
+%%% </p>
 %%% </warning>
 %%%
 %%% @end
@@ -78,7 +80,8 @@
 %%%
 %%% @doc Initializes Config for property testing.
 %%%
-%%% <p>The function investigates if support is available for either Quickcheck or PropEr.
+%%% <p>The function investigates if support is available for either Quickcheck, PropEr,
+%%% or Triq.
 %%% The options <c>{property_dir,AbsPath}</c> and
 %%% <c>{property_test_tool,Tool}</c> is set in the Config returned.</p>
 %%% <p>The function is intended to be called in the init_per_suite in the test suite.</p>
@@ -86,7 +89,7 @@
 %%% @end
 
 init_per_suite(Config) ->
-    case which_module_exists([eqc,proper]) of
+    case which_module_exists([eqc,proper,triq]) of
 	{ok,ToolModule} ->
  	    ct:pal("Found property tester ~p",[ToolModule]),
 	    Path = property_tests_path("property_test", Config),
@@ -114,7 +117,8 @@ init_per_suite(Config) ->
 
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
-    mk_ct_return( Tool:quickcheck(Property) ).
+    F = function_name(quickcheck, Tool),
+    mk_ct_return( Tool:F(Property), Tool ).
 
 
 %%%================================================================
@@ -123,10 +127,10 @@ quickcheck(Property, Config) ->
 %%% 
 
 %%% Make return values back to the calling Common Test suite
-mk_ct_return(true) ->
+mk_ct_return(true, _Tool) ->
     true;
-mk_ct_return(Other) -> 
-    try lists:last(hd(eqc:counterexample()))
+mk_ct_return(Other, Tool) ->
+    try lists:last(hd(Tool:counterexample()))
     of
 	{set,{var,_},{call,M,F,Args}} ->
 	    {fail, io_lib:format("~p:~p/~p returned bad result",[M,F,length(Args)])}
@@ -174,5 +178,9 @@ compile_tests(Path, ToolModule) ->
     
 
 macro_def(eqc) -> [{d, 'EQC'}];
-macro_def(proper) -> [{d, 'PROPER'}].
+macro_def(proper) -> [{d, 'PROPER'}];
+macro_def(triq) -> [{d, 'TRIQ'}].
+    
+function_name(quickcheck, triq) -> check;
+function_name(F, _) -> F.
     
