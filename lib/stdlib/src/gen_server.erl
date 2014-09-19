@@ -803,21 +803,9 @@ opt(_, []) ->
 
 debug_options(Name, Opts) ->
     case opt(debug, Opts) of
-	{ok, Options} -> dbg_options(Name, Options);
-	_ -> dbg_options(Name, [])
+	{ok, Options} -> dbg_opts(Name, Options);
+	_ -> []
     end.
-
-dbg_options(Name, []) ->
-    Opts = 
-	case init:get_argument(generic_debug) of
-	    error ->
-		[];
-	    _ ->
-		[log, statistics]
-	end,
-    dbg_opts(Name, Opts);
-dbg_options(Name, Opts) ->
-    dbg_opts(Name, Opts).
 
 dbg_opts(Name, Opts) ->
     case catch sys:debug_options(Opts) of
