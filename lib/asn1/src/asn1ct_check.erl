@@ -2123,7 +2123,6 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
     #valuedef{name=Name,type=Vtype,value=Value,module=ModName} = V0,
     V = V0#valuedef{checked=true},
     Def = Vtype#type.def,
-    Constr = Vtype#type.constraint,
     S1 = S0#state{type=Vtype,tname=Def,value=V0,vname=Name},
     SVal = update_state(S1, ModName),
     case Def of
@@ -2159,10 +2158,8 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 						  module=ModName}),
 	    V#valuedef{value=CheckedV#valuedef.value};
 	'INTEGER' ->
-	    ok = validate_integer(SVal, Value, [], Constr),
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, [])};
-	{'INTEGER',NamedNumberList} ->
-	    ok = validate_integer(SVal, Value, NamedNumberList, Constr),
+	{'INTEGER',_NamedNumberList} ->
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, [])};
 	#'SEQUENCE'{} ->
 	    {ok,SeqVal} = convert_external(SVal, Value),
@@ -2184,50 +2181,6 @@ is_contextswitchtype(#typedef{name='CHARACTER STRING'}) ->
     true;
 is_contextswitchtype(_) ->
     false.
-
-% validate_integer(S,{identifier,Pos,Id},NamedNumberList,Constr) ->
-%     case lists:keysearch(Id,1,NamedNumberList) of
-% 	{value,_} -> ok;
-% 	false -> error({value,"unknown NamedNumber",S})
-%     end;
-%% This case occurs when there is a valuereference
-%% validate_integer(S=#state{mname=M},
-%% 		 #'Externalvaluereference'{module=M,value=Id}=Ref,
-validate_integer(S,#'Externalvaluereference'{value=Id}=Ref,
-		 NamedNumberList,Constr) ->
-    case lists:keysearch(Id,1,NamedNumberList) of
-	{value,_} -> ok;
-	false -> validate_integer_ref(S,Ref,NamedNumberList,Constr)
-	    %%error({value,"unknown NamedNumber",S})
-    end;
-validate_integer(S,Id,NamedNumberList,Constr) when is_atom(Id) ->
-    case lists:keysearch(Id,1,NamedNumberList) of
-	{value,_} -> ok;
-	false -> validate_integer_ref(S,Id,NamedNumberList,Constr)
-		     %error({value,"unknown NamedNumber",S})
-    end;
-validate_integer(_S,Value,_NamedNumberList,Constr) when is_integer(Value) ->
-    check_integer_range(Value,Constr).
-
-validate_integer_ref(S,Id,_,_) when is_atom(Id) ->
-    error({value,"unknown integer referens",S});
-validate_integer_ref(S,Ref,NamedNumberList,Constr) ->
-    case get_referenced_type(S,Ref) of
-	{M,V} when is_record(V,valuedef) -> 
-	    NewS = update_state(S,M),
-	    case check_value(NewS,V) of
-		#valuedef{type=#type{def='INTEGER'},value=Value} ->
-		    validate_integer(NewS,Value,NamedNumberList,Constr);
-		_Err -> error({value,"unknown integer referens",S})
-	    end;
-	_ ->
-	    error({value,"unknown integer referens",S})
-    end.
-	    
-		
-
-check_integer_range(_Int, Constr) when is_list(Constr) ->
-    ok.
 
 %%------------
 %% This can be removed when the old parser is removed
@@ -2475,7 +2428,7 @@ normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
 	{'BOOLEAN',CType,_} ->
 	    normalize_boolean(S,Value,CType);
 	{'INTEGER',CType,_} ->
-	    normalize_integer(S,Value,CType);
+	    normalize_integer(S0, Value, CType);
 	{'BIT STRING',CType,_} ->
 	    normalize_bitstring(S,Value,CType);
 	{'OCTET STRING',CType,_} ->
@@ -2526,28 +2479,25 @@ normalize_boolean(S,Bool=#'Externalvaluereference'{},CType) ->
 normalize_boolean(_,Other,_) ->
     throw({error,{asn1,{'invalid default value',Other}}}).
 
-normalize_integer(_S,Int,_) when is_integer(Int) ->
+normalize_integer(_S, Int, _) when is_integer(Int) ->
     Int;
-normalize_integer(_S,{Name,Int},_) when is_atom(Name),is_integer(Int) ->
-    Int;
-normalize_integer(S,{Name,Int=#'Externalvaluereference'{}},
-		  Type) when is_atom(Name) ->
-    normalize_integer(S,Int,Type);
-normalize_integer(S,Int=#'Externalvaluereference'{value=Name},Type) ->
-    case Type of
-	NNL when is_list(NNL) ->
-	    case lists:keysearch(Name,1,NNL) of
-		{value,{Name,Val}} ->
+normalize_integer(S, #'Externalvaluereference'{value=Name}=Ref, NNL) ->
+    case lists:keyfind(Name, 1, NNL) of
+	{Name,Val} ->
+	    Val;
+	false ->
+	    try get_referenced_value(S, Ref) of
+		Val when is_integer(Val) ->
 		    Val;
-		false ->
-		    get_normalized_value(S,Int,Type,
-					 fun normalize_integer/3,[])
-	    end;
-	_ ->
-	    get_normalized_value(S,Int,Type,fun normalize_integer/3,[])
+		_ ->
+		    asn1_error(S, S#state.value, illegal_integer_value)
+	    catch
+		throw:_ ->
+		    asn1_error(S, S#state.value, illegal_integer_value)
+	    end
     end;
-normalize_integer(_,Int,_) ->
-    exit({'Unknown INTEGER value',Int}).
+normalize_integer(#state{value=Val}=S, _, _) ->
+    asn1_error(S, Val, illegal_integer_value).
 
 %% normalize_bitstring(S, Value, Type) -> bitstring()
 %%  Convert a literal value for a BIT STRING to an Erlang bit string.
@@ -2926,6 +2876,8 @@ call_Func(S,Val,Type,Func,ArgList) ->
 get_canonic_type(S,Type,NameList) ->
     {InnerType,NewType,NewNameList} =
 	case Type#type.def of
+	    'INTEGER'=Name ->
+		{Name,[],NameList};
 	    Name when is_atom(Name) ->
 		{Name,Type,NameList};
 	    Ref when is_record(Ref,'Externaltypereference') ->
@@ -4524,6 +4476,14 @@ check_reference(S,#'Externaltypereference'{pos=Pos,module=Emod,type=Name}) ->
 	    %% that appear before the definition will be an 
 	    %% Externaltypereference in the abstract syntax tree
 	    #'Externaltypereference'{pos=Pos,module=ModName,type=Name}
+    end.
+
+get_referenced_value(S, T) ->
+    case get_referenced_type(S, T) of
+	{ExtMod,#valuedef{value=#'Externalvaluereference'{}=Ref}} ->
+	    get_referenced_value(update_state(S, ExtMod), Ref);
+	{_,#valuedef{value=Val}} ->
+	    Val
     end.
 
 get_referenced_type(S, T) ->
@@ -6730,6 +6690,8 @@ format_error({illegal_instance_of,Class}) ->
     io_lib:format("using INSTANCE OF on class '~s' is illegal, "
 		  "because INSTANCE OF may only be used on the class TYPE-IDENTIFIER",
 		  [Class]);
+format_error(illegal_integer_value) ->
+    "expecting an integer value";
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({illegal_typereference,Name}) ->

@@ -255,6 +255,11 @@ values(Config) ->
 	   "  os1 OCTET STRING ::= \"abc\"\n"
 	   "  os2 OCTET STRING ::= 42\n"
 	   "  os3 OCTET STRING ::= { 1, 3 }\n"
+	   "  os4 OCTET STRING ::= '1234'H\n"
+
+	   "  int1 INTEGER ::= \"string\"\n"
+	   "  int2 INTEGER ::= os4\n"
+	   "  int3 INTEGER ::= not-defined\n"
 	   "END\n">>},
     {error,
      [
@@ -263,7 +268,13 @@ values(Config) ->
       {structured_error,{M,3},asn1ct_check,
        illegal_octet_string_value},
       {structured_error,{M,4},asn1ct_check,
-       illegal_octet_string_value}
+       illegal_octet_string_value},
+      {structured_error,{M,6},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,7},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,8},asn1ct_check,
+       illegal_integer_value}
      ]
     } = run(P, Config),
     ok.

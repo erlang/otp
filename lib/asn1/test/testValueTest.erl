@@ -58,4 +58,9 @@ main() ->
      [0,0,3,145],
      "; try and spot the difference!"] = M:'my-universalstring'(),
 
+    %% Integers
+    42 = M:someInteger(),
+    42 = M:otherInteger(),
+    {'IntegerSeq',42} = M:integerSeq1(),
+
     ok.

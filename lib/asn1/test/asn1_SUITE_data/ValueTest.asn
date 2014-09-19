@@ -50,4 +50,15 @@ my-universalstring UniversalString ::= {"This is a capital A: ",
 					greekCapitalLetterSigma,
 					"; try and spot the difference!"}
 
+-- Useful parameterized SEQUENCE.
+ParamSeq{Type} ::= SEQUENCE {
+    a Type
+}
+
+-- Integer values.
+IntegerSeq ::= ParamSeq{INTEGER}
+someInteger INTEGER ::= 42
+integerSeq1 IntegerSeq ::= { a otherInteger }
+otherInteger INTEGER ::= someInteger
+
 END
