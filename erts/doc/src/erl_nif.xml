@@ -1171,14 +1171,15 @@ typedef enum {
     </func>
     <func><name><ret>int</ret><nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
       <fsummary>Change the size of a binary.</fsummary>
-      <desc><p>Change the size of a binary <c>bin</c>. The source binary
+      <desc><p>Change the size of a binary <c>bin</c>, preserving its contents. The source binary
       may be read-only, in which case it will be left untouched and
       a mutable copy is allocated and assigned to <c>*bin</c>. Return true on success,
       false if memory allocation failed.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary.</fsummary>
-      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c>.</p></desc>
+      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c>. It is safe (but unnecessary) to call
+      this function on a binary that has been made into a term with <c>enif_make_binary</c>.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_release_resource(void* obj)</nametext></name>
       <fsummary>Release a resource object.</fsummary>
