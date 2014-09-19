@@ -693,7 +693,7 @@
 	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
 	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
         <seealso marker="#stream_init-2">stream_init</seealso>.
-	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
+	<c>NewState</c> must be passed into the next call to <c>stream_decrypt</c>.</p>
       </desc>
     </func>
 
