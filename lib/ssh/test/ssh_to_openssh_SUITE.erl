@@ -119,15 +119,7 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     IO ! {input, self(), "echo Hej\n"},
     receive_hej(),
     IO ! {input, self(), "exit\n"},
-    receive
-	<<"logout">> ->
-	    receive
-		<<"Connection closed">> ->
-		    ok
-	    end;
-	Other0 ->
-	    ct:fail({unexpected_msg, Other0})
-    end,
+    receive_logout(),
     receive
 	{'EXIT', Shell, normal} ->
 	    ok;
@@ -543,6 +535,21 @@ receive_hej() ->
 	    ct:pal("Extra info: ~p~n", [Info]),
 	    receive_hej()
     end.
+
+receive_logout() ->
+    receive
+	<<"logout">> ->
+	    receive
+		<<"Connection closed">> ->
+		    ok
+	    end;
+	<<"TERM environment variable not set.\n">> -> %% Windows work around
+	    receive_logout();
+	Other0 ->
+	    ct:fail({unexpected_msg, Other0})
+    end.
+
+
 
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
