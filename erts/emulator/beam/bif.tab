@@ -347,6 +347,7 @@ bif os:getenv/0
 bif os:getenv/1
 bif os:getpid/0
 bif os:timestamp/0
+bif os:isatty/1
 
 #
 # Bifs in the erl_ddll module (the module actually does not exist)

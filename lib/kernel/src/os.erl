@@ -27,6 +27,13 @@
 %%% BIFs
 
 -export([getenv/0, getenv/1, getpid/0, putenv/2, timestamp/0, unsetenv/1]).
+-export([isatty/1]).
+
+-spec isatty(FileDescriptor) -> boolean() when
+      FileDescriptor :: non_neg_integer() | stdin | stdout | stderr.
+
+isatty(_) ->
+    erlang:nif_error(undef).
 
 -spec getenv() -> [string()].
 

@@ -114,6 +114,14 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
+        <name name="isatty" arity="1"/>
+        <fsummary>Check if the file descriptor is a tty</fsummary>
+        <desc>
+          <p>Returns <c>true</c> if <c><anno>FileDescriptor</anno></c> is a tty
+            or <c>false</c> otherwise.</p>
+        </desc>
+    </func>
+    <func>
       <name name="putenv" arity="2"/>
       <fsummary>Set a new value for an environment variable</fsummary>
       <desc>

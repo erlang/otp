@@ -202,3 +202,28 @@ BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
     }
     BIF_RET(am_true);
 }
+
+BIF_RETTYPE os_isatty_1(BIF_ALIST_1)
+{
+    Uint u;
+
+    if (is_atom(BIF_ARG_1)) {
+	if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+            u = 0;
+	} else if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+            u = 1;
+        } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+            u = 2;
+        } else {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+    } else if (!term_to_Uint(BIF_ARG_1, &u) || ((u >> 16) >> 16) != 0) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (isatty(u)) {
+        BIF_RET(am_true);
+    } else {
+        BIF_RET(am_false);
+    }
+}
