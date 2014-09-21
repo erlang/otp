@@ -197,6 +197,7 @@ atom dollar_endonly
 atom dotall
 atom driver
 atom driver_options
+atom drop
 atom dsend
 atom dunlink
 atom duplicate_bag
@@ -332,6 +333,7 @@ atom match_limit_recursion
 atom match_spec
 atom max
 atom maximum
+atom max_message_queue_len
 atom max_tables max_processes
 atom mbuf_size
 atom md5
@@ -480,6 +482,7 @@ atom ready_output
 atom ready_async
 atom reason
 atom receive
+atom receiver_exits
 atom recent_size
 atom reductions
 atom refc

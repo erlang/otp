@@ -1527,6 +1527,74 @@ static BIF_RETTYPE process_flag_aux(Process *BIF_P,
        else
 	   BIF_RET(old_value);
    }
+   else if (flag == am_max_message_queue_len) {
+       Uint32 old_bound;
+       Uint32 flag;
+       Uint32 bound;
+
+       if (val == am_infinity) {
+           flag = 0;
+           bound = 0;
+       } else if (is_small(val)) {
+           bound = unsigned_val(val);
+           if (bound == 0)
+               goto error;
+           flag = ERTS_PMQB_DROP; /* the default */
+       } else if (is_tuple(val)) {
+           Eterm *tp = tuple_val(val);
+
+           if (arityval(*tp) != 2) {
+               goto error;
+           }
+
+           if (tp[1] == am_drop) {
+               flag = ERTS_PMQB_DROP;
+           } else if (tp[1] == am_receiver_exits) {
+               flag = ERTS_PMQB_REXITS;
+           } else
+               goto error;
+
+           if (is_small(tp[2])) {
+               bound = unsigned_val(tp[2]);
+           } else {
+               goto error;
+           }
+
+           /* setting a 0 bound with a flag makes no sense */
+           if (bound == 0) {
+               goto error;
+           }
+       } else {
+           goto error;
+       }
+
+       if (bound > 0x00ffffff) {
+           goto error;
+       }
+
+       old_bound = rp->queue_bound;
+       rp->queue_bound = (bound|flag);
+
+       if (old_bound == 0) {
+           BIF_RET(am_infinity);  /* previously no bound */
+       } else {
+           Eterm type, ret;
+           Eterm *tp;
+           if (old_bound & ERTS_PMQB_DROP) {
+               type = am_drop;
+           } else if (old_bound & ERTS_PMQB_REXITS) {
+               type = am_receiver_exits;
+           } else {
+               goto error;
+           }
+           tp = HAlloc(BIF_P, 3);
+           ret = make_tuple(tp);
+           *tp++ = make_arityval(2);
+           *tp++ = type;
+           *tp = make_small(MASK_PMQB_FLAGS(old_bound));
+           BIF_RET(ret);
+       }
+   }
 
  error:
    BIF_ERROR(BIF_P, BADARG);

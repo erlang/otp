@@ -3894,6 +3894,23 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
+      <name name="process_flag" arity="2" clause_i="8"/>
+      <fsummary>Set a limit for the maximum message queue length for a process</fsummary>
+      <desc>
+        <p>Sets a limit for the maximum queue length allowed for the
+        current process.  This can either be the atom <c>infinity</c>,
+        a number <c>N</c> between 1 and 16777215, or one of <c>{drop, N}</c>
+        or <c>{receiver_exits, N}</c>.  When only a number is set, <c>drop</c>
+        is the default behavior.
+        </p>
+        <p>When this limit is set, if the message queue for this
+        process is larger than <c>N</c> any new message will either be
+        dropped completely or will cause this process to exit,
+        depending on which flag has been passed.
+        </p>
+      </desc>
+    </func>
+    <func>
       <name name="process_flag" arity="3"/>
       <fsummary>Set process flags for a process</fsummary>
       <desc>

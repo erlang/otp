@@ -1869,6 +1869,11 @@ open_port(_PortName,_PortSettings) ->
 -type priority_level() ::
       low | normal | high | max.
 
+-type message_queue_bound() ::
+        infinity | 1..16777215 |
+        {drop, integer()} |
+        {receiver_exits, integer()}.
+
 -spec process_flag(trap_exit, Boolean) -> OldBoolean when
       Boolean :: boolean(),
       OldBoolean :: boolean();
@@ -1890,6 +1895,9 @@ open_port(_PortName,_PortSettings) ->
                   (sensitive, Boolean) -> OldBoolean when
       Boolean :: boolean(),
       OldBoolean :: boolean();
+                  (max_message_queue_len, Bound) -> OldBound when
+      Bound :: message_queue_bound(),
+      OldBound :: message_queue_bound();
                   %% Deliberately not documented.
                   ({monitor_nodes, term()}, term()) -> term();
                   (monitor_nodes, term()) -> term().
@@ -1912,6 +1920,7 @@ process_flag(_Flag, _Value) ->
       initial_call |
       links |
       last_calls |
+      max_message_queue_len |
       memory |
       message_queue_len |
       messages |
@@ -1951,6 +1960,7 @@ process_flag(_Flag, _Value) ->
       {initial_call, mfa()} |
       {links, PidsAndPorts :: [pid() | port()]} |
       {last_calls, false | (Calls :: [mfa()])} |
+      {max_message_queue_len, Bound :: message_queue_bound()} |
       {memory, Size :: non_neg_integer()} |
       {message_queue_len, MessageQueueLen :: non_neg_integer()} |
       {messages, MessageQueue :: [term()]} |

@@ -479,10 +479,32 @@ queue_message(Process *c_p,
 
 #endif
 
-    if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
+    Uint32 bounded_queue_states = (ERTS_PMQB_DROP|ERTS_PMQB_REXITS);
+    if (receiver->queue_bound & bounded_queue_states) {
+        if (receiver->msg.len
 #ifdef ERTS_SMP
-    exiting:
+            + receiver->msg_inq.len
 #endif
+            >= MASK_PMQB_FLAGS(receiver->queue_bound)) {
+            if (receiver->queue_bound & ERTS_PMQB_DROP) {
+                goto exiting;
+            } else if (receiver->queue_bound & ERTS_PMQB_REXITS) {
+                erts_send_exit_signal(
+                    c_p,
+                    c_p->common.id,
+                    receiver,
+                    receiver_locks,
+                    am_max_message_queue_len,
+                    NIL,
+                    NULL,
+                    0);
+                goto exiting;
+            }
+        }
+    }
+
+    if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
+    exiting:
 	/* Drop message if receiver is exiting or has a pending exit... */
 	if (locked_msgq)
 	    erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
