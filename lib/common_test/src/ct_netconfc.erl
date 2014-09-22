@@ -1121,6 +1121,7 @@ handle_msg({get_event_streams=Op,Streams,Timeout}, From, State) ->
     SimpleXml = encode_rpc_operation(get,[Filter]),
     do_send_rpc(Op, SimpleXml, Timeout, From, State).
 
+%% @private
 handle_msg({ssh_cm, CM, {data, Ch, _Type, Data}}, State) ->
     ssh_connection:adjust_window(CM,Ch,size(Data)),
     handle_data(Data, State);
@@ -1742,6 +1743,7 @@ log(#connection{host=Host,port=Port,name=Name},Action,Data) ->
 
 
 %% Log callback - called from the error handler process
+%% @private
 format_data(How,Data) ->
     %% Assuming that the data is encoded as UTF-8.  If it is not, then
     %% the printout might be wrong, but the format function will not
