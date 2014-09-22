@@ -48,7 +48,7 @@
 	 userauth/2, connected/2]).
 
 -export([init/1, handle_event/3,
-	 handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+	 handle_sync_event/4, handle_info/3, terminate/3, format_status/2, code_change/4]).
 
 -record(state, {
 	  role,
@@ -962,6 +962,36 @@ terminate_subsytem(#connection{system_supervisor = SysSup,
     ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
 terminate_subsytem(_) ->
     ok.
+
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}]; 
+format_status(terminate, [_, State]) ->
+    SshParams0 = (State#state.ssh_params),
+    SshParams = SshParams0#ssh{c_keyinit = "***",
+			       s_keyinit = "***",
+			       send_mac_key = "***",
+			       send_mac_size =  "***",
+			       recv_mac_key = "***",
+			       recv_mac_size = "***",
+			       encrypt_keys = "***",
+			       encrypt_ctx = "***",
+			       decrypt_keys = "***",
+			       decrypt_ctx = "***",
+			       compress_ctx = "***",
+			       decompress_ctx = "***",
+			       shared_secret =  "***",
+			       exchanged_hash =  "***",
+			       session_id =  "***", 
+			       keyex_key =  "***", 
+			       keyex_info = "***", 
+			       available_host_keys = "***"},
+    [{data, [{"StateData", State#state{decoded_data_buffer = "***",
+				       encoded_data_buffer =  "***",
+				       key_exchange_init_msg = "***",
+				       opts =  "***",
+				       recbuf =  "***",
+				       ssh_params = SshParams
+				      }}]}].
 
 %%--------------------------------------------------------------------
 -spec code_change(OldVsn::term(), state_name(), Oldstate::term(), Extra::term()) ->
