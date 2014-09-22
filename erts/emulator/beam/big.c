@@ -274,10 +274,9 @@
 	_b = _b << _s;							\
 	_vn1 = _b >> H_EXP;						\
 	_vn0 = _b & LO_MASK;						\
-        /* Sometimes _s is 0 which triggers undefined behaviour for the \
-           (_a0>>(D_EXP-_s)) shift, but this is ok because the          \
-           & -s will make it all to 0 later anyways. */                 \
-	_un32 = (_a1 << _s) | ((_a0>>(D_EXP-_s)) & (-_s >> (D_EXP-1)));	\
+        /* If needed to avoid undefined behaviour */                    \
+        if (_s) _un32 = (_a1 << _s) | ((_a0>>(D_EXP-_s)) & (-_s >> (D_EXP-1))); \
+        else _un32 = _a1;                                               \
 	_un10 = _a0 << _s;						\
 	_un1 = _un10 >> H_EXP;						\
 	_un0 = _un10 & LO_MASK;						\
