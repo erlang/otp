@@ -231,6 +231,15 @@ int_constraints(Rules) ->
     seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 19000),
     seq_roundtrip(Rules, 'SeqOverlapping', 'SeqNonOverlapping', 26900),
 
+    %%==========================================================
+    %%  Constraints from object fields.
+    %%==========================================================
+    range_error(Rules, 'IntObjectConstr', 1),
+    roundtrip('IntObjectConstr', 2),
+    roundtrip('IntObjectConstr', 3),
+    roundtrip('IntObjectConstr', 4),
+    range_error(Rules, 'IntObjectConstr', 5),
+
     ok.
 
 %% PER: Ensure that if the lower bound is Lb, Lb+16#80 is encoded

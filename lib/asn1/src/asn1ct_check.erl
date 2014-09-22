@@ -1160,10 +1160,14 @@ check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
 	    {RefedMod,ObjName,
 	     #'Object'{def=Def}} = check_referenced_object(S,ObjRef),
 	     check_object_list(S,ClassRef,Objs,[{{RefedMod,ObjName},Def}|Acc]);
-	{'ValueFromObject',{_,Object},FieldName} ->
-	    {_,Def} = get_referenced_type(S,Object),
-	    TypeDef = get_fieldname_element(S,Def,FieldName),
-	    (TypeDef#typedef.typespec)#'ObjectSet'.set;
+	{'ValueFromObject',{object,Object},FieldNames} ->
+	    case extract_field(S, Object, FieldNames) of
+		#'Object'{def=Def} ->
+		    check_object_list(S, ClassRef, Objs,
+				      [{{no_mod,no_name},Def}|Acc]);
+		_ ->
+		    asn1_error(S, S#state.type, illegal_object)
+	    end;
 	ObjSet when is_record(ObjSet,type) ->
 	    ObjSetDef = 
 		case ObjSet#type.def of
@@ -1256,13 +1260,45 @@ osfo_intersection(InterSect,ObjList) ->
 	    Res
     end.
 
-%%  get_fieldname_element/3
-%%  gets the type/value/object/... of the referenced element in FieldName
-%%  FieldName is a list and may have more than one element.
-%%  Each element in FieldName can be either {typefieldreference,AnyFieldName}
-%%  or {valuefieldreference,AnyFieldName}
-%%  Def is the def of the first object referenced by FieldName
-get_fieldname_element(S,Def,[{_RefType,FieldName}]) when is_record(Def,typedef) ->
+%%  get_type_from_object(State, ObjectOrObjectSet, [{RefType,FieldName}]) ->
+%%    Type
+get_type_from_object(S, Object, FieldNames)
+  when is_record(Object, 'Externaltypereference');
+       is_record(Object, 'Externalvaluereference') ->
+    extract_field(S, Object, FieldNames).
+
+%% get_value_from_object(State, ObjectOrObjectSet, [{RefType,FieldName}]) ->
+%%    UntaggedValue
+get_value_from_object(S, Def, FieldNames) ->
+    case extract_field(S, Def, FieldNames) of
+	#valuedef{value=Val} ->
+	    Val;
+	_ ->
+	    asn1_error(S, Def, illegal_value)
+    end.
+
+%% extract_field(State, ObjectOrObjectSet, [{RefType,FieldName}])
+%%   RefType = typefieldreference | valuefieldreference
+%%
+%%   Get the type, value, object, object set, or value set from the
+%%   referenced object or object set. The list of field name tuples
+%%   may have more than one element.  All field names but the last
+%%   refers to either an object or object set.
+
+extract_field(S, Def0, FieldNames) ->
+    {_,Def1} = get_referenced_type(S, Def0),
+    Def2 = check_object(S, Def1, Def1#typedef.typespec),
+    Def = Def1#typedef{typespec=Def2},
+    get_fieldname_element(S, Def, FieldNames).
+
+%% get_fieldname_element(State, Element, [{RefType,FieldName}]
+%%   RefType = typefieldreference | valuefieldreference
+%%
+%%   Get the type, value, object, object set, or value set from the referenced
+%%   element. The list of field name tuples may have more than one element.
+%%   All field names but the last refers to either an object or object set.
+
+get_fieldname_element(S, #typedef{}=Def, [{_RefType,FieldName}]) ->
     {_,_,ObjComps} = (Def#typedef.typespec)#'Object'.def,
     check_fieldname_element(S,lists:keysearch(FieldName,1,ObjComps));
 get_fieldname_element(S,Def,[{_RefType,FieldName}|Rest])
@@ -1311,6 +1347,8 @@ check_fieldname_element(S, #valuedef{}=VDef) ->
 	    NewDef = #typedef{checked=C,pos=Pos,name=N,typespec=NewSpec},
 	    check_fieldname_element(S, NewDef)
     end;
+check_fieldname_element(_S, {value_tag,Val}) ->
+    #valuedef{value=Val};
 check_fieldname_element(S,Eref)
   when is_record(Eref,'Externaltypereference');
        is_record(Eref,'Externalvaluereference') ->
@@ -1968,13 +2006,16 @@ get_objectset_def(_S,ObjFieldSetting={{'SingleValue',_},_},CField) ->
     %% a Union of defined objects
     ?dbg("objectsetfield, SingleValue~n",[]),
     union_of_defed_objs(CField,ObjFieldSetting);
-get_objectset_def(S,{object,_,[#type{def={'TypeFromObject',
-					  {object,RefedObj},
-					  FieldName}}]},_CField) ->
-    %% This case occurs when an ObjectSetFromObjects 
-    %% production is used
-    {_M,Def} = get_referenced_type(S,RefedObj),
-    get_fieldname_element(S,Def,FieldName);
+get_objectset_def(S, {object,_,
+		      [#type{def={'TypeFromObject',
+				  {object,Object},
+				  FieldNames}}]},
+		  CField) ->
+    %% This case occurs when an ObjectSetFromObject
+    %% production is used.
+    Def = #typedef{checked=true,
+		   typespec=extract_field(S, Object, FieldNames)},
+    get_objectset_def2(S, Def, CField);
 get_objectset_def(S,{object,_,[{setting,_,ERef}]},CField)
   when is_record(ERef,'Externaltypereference') ->
     {_,T} = get_referenced_type(S,ERef),
@@ -2495,6 +2536,13 @@ normalize_integer(S, #'Externalvaluereference'{value=Name}=Ref, NNL) ->
 		throw:_ ->
 		    asn1_error(S, S#state.value, illegal_integer_value)
 	    end
+    end;
+normalize_integer(S, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
+    case extract_field(S, Obj, FieldNames) of
+	#valuedef{value=Val} when is_integer(Val) ->
+	    Val;
+	_ ->
+	    asn1_error(S, S#state.value, illegal_integer_value)
     end;
 normalize_integer(#state{value=Val}=S, _, _) ->
     asn1_error(S, Val, illegal_integer_value).
@@ -3357,13 +3405,6 @@ get_innertag(_S,#'ObjectClassFieldType'{type=Type}) ->
 	_ -> []
     end.
     
-get_type_from_object(S,Object,TypeField)
-  when is_record(Object,'Externaltypereference');
-       is_record(Object,'Externalvaluereference') ->
-    {_,ObjectDef} = get_referenced_type(S,Object),
-    ObjSpec = check_object(S,ObjectDef,ObjectDef#typedef.typespec),
-    get_fieldname_element(S,ObjectDef#typedef{typespec=ObjSpec},TypeField).
-    
 %% get_class_def(S, Type) -> #classdef{} | 'none'.
 get_class_def(S, #typedef{typespec=#type{def=#'Externaltypereference'{}=Eref}}) ->
     {_,NextDef} = get_referenced_type(S, Eref),
@@ -3708,44 +3749,28 @@ resolv_value1(S, {gt,V}) ->
     case resolv_value1(S, V) of
 	Int when is_integer(Int) ->
 	    Int + 1;
-	Other ->
-	    throw({error,{asn1,{not_integer_value,Other}}})
+	_Other ->
+	    asn1_error(S, S#state.type, illegal_integer_value)
     end;
 resolv_value1(S, {lt,V}) ->
     case resolv_value1(S, V) of
 	Int when is_integer(Int) ->
 	    Int - 1;
-	Other ->
-	    throw({error,{asn1,{not_integer_value,Other}}})
+	_Other ->
+	    asn1_error(S, S#state.type, illegal_integer_value)
     end;
-resolv_value1(S,{'ValueFromObject',{object,Object},[{valuefieldreference,
-						     FieldName}]}) ->
-    %% FieldName can hold either a fixed-type value or a variable-type value
-    %% Object is a DefinedObject, i.e. a #'Externaltypereference'
-    resolve_value_from_object(S,Object,FieldName);
+resolv_value1(S, {'ValueFromObject',{object,Object},FieldName}) ->
+    get_value_from_object(S, Object, FieldName);
 resolv_value1(_,#valuedef{checked=true,value=V}) ->
     V;
-resolv_value1(S,#valuedef{type=_T,
-			  value={'ValueFromObject',{object,Object},
-				 [{valuefieldreference,
-				   FieldName}]}}) ->
-    resolve_value_from_object(S,Object,FieldName);
+resolv_value1(S, #valuedef{value={'ValueFromObject',
+				  {object,Object},FieldName}}) ->
+    get_value_from_object(S, Object, FieldName);
 resolv_value1(S,VDef = #valuedef{}) ->
     #valuedef{value=Val} = check_value(S,VDef),
     Val;
 resolv_value1(_,V) ->
     V.
-resolve_value_from_object(S,Object,FieldName) ->
-    {_,ObjTDef} = get_referenced_type(S,Object),
-    TS = check_object(S,ObjTDef,ObjTDef#typedef.typespec),
-    {_,_,Components} = TS#'Object'.def,
-    case lists:keysearch(FieldName,1,Components) of
-	{value,{_,#valuedef{value=Val}}} ->
-	    Val;
-	_ ->
-	    error({value,"illegal value in constraint",S})
-    end.
-
 
 resolve_namednumber(S,#typedef{typespec=Type},Name) ->
     case Type#type.def of
@@ -3874,19 +3899,9 @@ check_constraint(S,{simpletable,Type}) ->
 	#'ObjectSet'{} ->
 	    io:format("ALERT: simpletable forbidden case!~n",[]),
 	    {simpletable,check_object(S,Type,C)};
-	{'ValueFromObject',{_,ORef},FieldName} ->
-	    %% This is an ObjectFromObject
-	    {_,Object} = get_referenced_type(S,ORef),
-	    ChObject = check_object(S,Object,
-				    Object#typedef.typespec),
-	    ObjFromObj=
-		get_fieldname_element(S,Object#typedef{
-					  typespec=ChObject},
-				      FieldName),
-	    {simpletable,ObjFromObj};
-%% 	     ObjFromObj#typedef{checked=true,typespec=
-%% 				check_object(S,ObjFromObj,
-%% 					     ObjFromObj#typedef.typespec)}};
+	{'ValueFromObject',{_,Object},FieldNames} ->
+	    %% This is an ObjectFromObject.
+	    {simpletable,extract_field(S, Object, FieldNames)};
 	_ -> 
 	    check_type(S,S#state.tname,Type),%% this seems stupid.
 	    OSName = Def#'Externaltypereference'.type,
@@ -6692,10 +6707,14 @@ format_error({illegal_instance_of,Class}) ->
 		  [Class]);
 format_error(illegal_integer_value) ->
     "expecting an integer value";
+format_error(illegal_object) ->
+    "expecting an object";
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({illegal_typereference,Name}) ->
     io_lib:format("'~p' is used as a typereference, but does not start with an uppercase letter", [Name]);
+format_error(illegal_value) ->
+    "expected a value";
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({invalid_bit_number,Bit}) ->

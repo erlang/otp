@@ -78,6 +78,7 @@ MODULES= \
 	testEnumExt \
 	testInfObjectClass \
 	testInfObj \
+	testInfObjExtract \
 	testParameterizedInfObj \
 	testFragmented \
 	testMergeCompile \

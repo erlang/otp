@@ -144,5 +144,21 @@ NonOverlapping ::= INTEGER (7280..7560 |
 23000..24000 |
 24960..26900)
 
+--
+-- Test INTEGER constraints from fields in objects.
+--
+
+INT-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INT-HOLDER OPTIONAL
+} WITH SYNTAX {
+  ID &id
+  [OBJ &obj]
+}
+
+int-holder-1 INT-HOLDER ::= { ID 2 }
+int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
+
+IntObjectConstr ::= INTEGER (int-holder-2.&obj.&id..int-holder-2.&id)
 
 END

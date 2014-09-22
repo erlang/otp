@@ -1,0 +1,51 @@
+InfObjExtract DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+DATA-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type
+} WITH SYNTAX {
+  ID &id
+  TYPE &Type
+}
+
+data-object-1 DATA-CLASS ::= { ID 1 TYPE BOOLEAN }
+data-object-2 DATA-CLASS ::= { ID 2 TYPE OCTET STRING }
+data-object-3 DATA-CLASS ::= { ID 3 TYPE BIT STRING }
+
+ObjSet DATA-CLASS ::= {
+  holder-object-1.&obj |
+  data-object-2 |
+  data-object-3,
+  ...
+}
+
+holder-object-1 HOLDER-CLASS ::= {
+  OBJ data-object-1
+}
+
+holder-object-2 HOLDER-CLASS ::= {
+  OBJ-SET {data-object-1}
+}
+
+holder-object-3 HOLDER-CLASS ::= {
+  OBJ-SET {holder-object-2.&ObjSet}
+}
+
+HOLDER-CLASS ::= CLASS {
+  &obj DATA-CLASS OPTIONAL,
+  &ObjSet DATA-CLASS OPTIONAL
+} WITH SYNTAX {
+  [OBJ &obj]
+  [OBJ-SET &ObjSet]
+}
+
+TestSeq{DATA-CLASS:ObjectSet} ::= SEQUENCE {
+  id DATA-CLASS.&id ({ObjectSet}),
+  data DATA-CLASS.&Type ({ObjectSet}{@id})
+}
+
+DataSeq-1 ::= TestSeq{ {ObjSet} }
+DataSeq-2 ::= TestSeq{ {holder-object-3.&ObjSet} }
+
+END

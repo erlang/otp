@@ -1,4 +1,4 @@
-ValueTest DEFINITIONS  ::= 
+ValueTest DEFINITIONS AUTOMATIC TAGS ::=
 
 BEGIN
 
@@ -41,7 +41,6 @@ objectdescriptor ObjectDescriptor ::= "ObjectDescriptor"
 graphicstring GraphicString ::= "GraphicString"
 generalstring GeneralString ::= "GeneralString"
 bmpstring1 BMPString ::= "BMPString"
---bmpstring2 BMPString ::= [{0,0,0,66},{0,0,0,77},{0,0,0,80},{0,0,0,115},{0,0,0,116},{0,0,0,114},{0,0,0,105},{0,0,0,110},{0,0,0,103}]
 latinCapitalLetterA UniversalString ::= {0,0,0,65}
 greekCapitalLetterSigma UniversalString ::= {0,0,3,145}
 my-universalstring UniversalString ::= {"This is a capital A: ",
@@ -60,5 +59,24 @@ IntegerSeq ::= ParamSeq{INTEGER}
 someInteger INTEGER ::= 42
 integerSeq1 IntegerSeq ::= { a otherInteger }
 otherInteger INTEGER ::= someInteger
+
+--
+-- Values from objects.
+--
+int-from-object-1 INTEGER ::= int-holder-2.&obj.&id
+int-from-object-2 INTEGER ::= int-holder-2.&id
+
+INT-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INT-HOLDER OPTIONAL
+} WITH SYNTAX {
+  ID &id
+  [OBJ &obj]
+}
+
+int-holder-1 INT-HOLDER ::= { ID 2 }
+int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
+
+II ::= INTEGER (int-from-object-1..int-from-object-2)
 
 END

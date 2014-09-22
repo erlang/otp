@@ -135,6 +135,7 @@ groups() ->
        testChoiceIndefinite,
        per_open_type,
        testInfObjectClass,
+       testInfObjExtract,
        testParam,
        testFragmented,
        testMergeCompile,
@@ -766,6 +767,11 @@ testInfObjectClass(Config, Rule, Opts) ->
     testInfObjectClass:main(Rule),
     testInfObj:main(Rule).
 
+testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
+testInfObjExtract(Config, Rule, Opts) ->
+    asn1_test_lib:compile("InfObjExtract", Config, [Rule|Opts]),
+    testInfObjExtract:main().
+
 testParam(Config) ->
     test(Config, fun testParam/3, [ber,{ber,[der]},per,uper]).
 testParam(Config, Rule, Opts) ->
@@ -840,8 +846,7 @@ testContextSwitchingTypes(Config, Rule, Opts) ->
 
 testTypeValueNotation(Config) -> test(Config, fun testTypeValueNotation/3).
 testTypeValueNotation(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["SeqTypeRefPrim", "ValueTest"], Config,
-                              [Rule|Opts]),
+    asn1_test_lib:compile("SeqTypeRefPrim", Config, [Rule|Opts]),
     testTypeValueNotation:main(Rule, Opts).
 
 testValueTest(Config) -> test(Config, fun testValueTest/3).

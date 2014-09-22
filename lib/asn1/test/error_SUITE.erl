@@ -20,9 +20,9 @@
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
 	 already_defined/1,bitstrings/1,
-	 classes/1,enumerated/1,
+	 classes/1,constraints/1,enumerated/1,
 	 imports/1,instance_of/1,integers/1,objects/1,
-	 parameterization/1,values/1]).
+	 object_field_extraction/1,parameterization/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -36,11 +36,13 @@ groups() ->
       [already_defined,
        bitstrings,
        classes,
+       constraints,
        enumerated,
        imports,
        instance_of,
        integers,
        objects,
+       object_field_extraction,
        parameterization,
        values]}].
 
@@ -105,6 +107,29 @@ classes(Config) ->
     {error,
      [{structured_error,{M,2},asn1ct_check,{illegal_class_name,
 					    'LowerCase'}}
+     ]} = run(P, Config),
+    ok.
+
+constraints(Config) ->
+    M = 'Constraints',
+    P = {M,
+	 <<"Constraints DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  II-1 ::= INTEGER (holder-1.&obj)\n"
+	   "  II-2 ::= INTEGER ('1234'H<..20)\n"
+	   "  II-3 ::= INTEGER (1..<\"abc\")\n"
+
+	   "  HOLDER ::= CLASS {\n"
+	   "    &obj HOLDER OPTIONAL\n"
+	   "  }\n"
+
+	   "  holder-1 HOLDER ::= { &obj holder-2 }\n"
+	   "  holder-2 HOLDER ::= { }\n"
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{M,2},asn1ct_check,illegal_value},
+      {structured_error,{M,3},asn1ct_check,illegal_integer_value},
+      {structured_error,{M,4},asn1ct_check,illegal_integer_value}
      ]} = run(P, Config),
     ok.
 
@@ -235,6 +260,36 @@ objects(Config) ->
     } = run(P, Config),
     ok.
 
+object_field_extraction(Config) ->
+    M = 'ObjectFieldExtraction',
+    P = {M,
+	 <<"ObjectFieldExtraction DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+
+	   "  DataObjSet DATA-CLASS ::= {\n"
+	   "    holder-object-1.&int,\n"
+	   "    ...\n"
+	   "  }\n"
+
+	   "  holder-object-1 HOLDER-CLASS ::= {\n"
+	   "    &int 42\n"
+	   "  }\n"
+
+	   "  HOLDER-CLASS ::= CLASS {\n"
+           "    &int INTEGER\n"
+           "  }\n"
+
+	   "  DATA-CLASS ::= CLASS {\n"
+           "    &id INTEGER\n"
+           "  }\n"
+
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{M,2},asn1ct_check,illegal_object}
+     ]
+    } = run(P, Config),
+    ok.
+
 parameterization(Config) ->
     M = 'Parameterization',
     P = {M,
@@ -260,6 +315,16 @@ values(Config) ->
 	   "  int1 INTEGER ::= \"string\"\n"
 	   "  int2 INTEGER ::= os4\n"
 	   "  int3 INTEGER ::= not-defined\n"
+	   "  int4 INTEGER ::= holder-1.&str\n"
+	   "  int5 INTEGER ::= holder-2.&obj\n"
+
+	   "  HOLDER ::= CLASS {\n"
+	   "    &str IA5String,\n"
+	   "    &obj HOLDER OPTIONAL\n"
+	   "  }\n"
+
+	   "  holder-1 HOLDER ::= { &str \"xyz\" }\n"
+	   "  holder-2 HOLDER ::= { &str \"xyz\", &obj holder-1 }\n"
 	   "END\n">>},
     {error,
      [
@@ -274,6 +339,10 @@ values(Config) ->
       {structured_error,{M,7},asn1ct_check,
        illegal_integer_value},
       {structured_error,{M,8},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,9},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,10},asn1ct_check,
        illegal_integer_value}
      ]
     } = run(P, Config),

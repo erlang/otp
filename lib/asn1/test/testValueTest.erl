@@ -63,4 +63,24 @@ main() ->
     42 = M:otherInteger(),
     {'IntegerSeq',42} = M:integerSeq1(),
 
+    %% Value from object
+    2 = M:'int-from-object-1'(),
+    4 = M:'int-from-object-2'(),
+    roundtrip_error('II', 1),
+    roundtrip('II', 2),
+    roundtrip('II', 3),
+    roundtrip('II', 4),
+    roundtrip_error('II', 5),
+
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('ValueTest', T, V).
+
+roundtrip_error(T, V) ->
+    try asn1_test_lib:roundtrip('ValueTest', T, V) of
+	ok ->
+	    test_server:fail()
+    catch _:_ ->
+	    ok
+    end.
