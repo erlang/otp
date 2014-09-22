@@ -161,9 +161,6 @@ int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 
 Uint32 erts_debug_flags;	/* Debug flags. */
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-int count_instructions;
-#endif
 int erts_backtrace_depth;	/* How many functions to show in a backtrace
 				 * in error codes.
 				 */
@@ -1882,11 +1879,6 @@ erl_start(int argc, char **argv)
 	    if (argv[i][2] == 0) { /* -c: documented option */
 		erts_disable_tolerant_timeofday = 1;
 	    }
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-	    else if (argv[i][2] == 'i') { /* -ci: undcoumented option*/
-		count_instructions = 1;
-	    }
-#endif
 	    break;
 	case 'W':
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
