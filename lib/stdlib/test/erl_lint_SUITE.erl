@@ -42,6 +42,7 @@
 	  unused_vars_warn_rec/1,
 	  unused_vars_warn_fun/1, 
 	  unused_vars_OTP_4858/1,
+          unused_unsafe_vars_warn/1,
 	  export_vars_warn/1,
 	  shadow_vars/1,
 	  unused_import/1,
@@ -98,7 +99,7 @@ groups() ->
     [{unused_vars_warn, [],
       [unused_vars_warn_basic, unused_vars_warn_lc,
        unused_vars_warn_rec, unused_vars_warn_fun,
-       unused_vars_OTP_4858]},
+       unused_vars_OTP_4858, unused_unsafe_vars_warn]},
      {on_load, [], [on_load_successful, on_load_failing]}].
 
 init_per_suite(Config) ->
@@ -730,6 +731,48 @@ unused_vars_OTP_4858(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
+unused_unsafe_vars_warn(Config) when is_list(Config) ->
+    Ts = [{unused_unsafe1,
+           <<"t1() ->
+                  UnusedVar1 = unused1,
+                  try
+                      UnusedVar2 = unused2
+                  catch
+                      _:_ ->
+                          ok
+                  end,
+                  ok.
+           ">>,
+           [warn_unused_vars],
+           {warnings,[{2,erl_lint,{unused_var,'UnusedVar1'}},
+                      {4,erl_lint,{unused_var,'UnusedVar2'}}]}},
+          {unused_unsafe2,
+           <<"t2() ->
+                  try
+                      X = 1
+                  catch
+                      _:_ -> ok
+                  end.
+           ">>,
+           [warn_unused_vars],
+           {warnings,[{3,erl_lint,{unused_var,'X'}}]}},
+          {unused_unsafe2,
+           <<"t3(X, Y) ->
+                  X andalso Y.
+           ">>,
+           [warn_unused_vars],
+           []},
+          {unused_unsafe4,
+           <<"t4() ->
+                  _ = (catch X = X = 1),
+                  _ = case ok of _ -> fun() -> ok end end,
+                  fun (X) -> X end.
+           ">>,
+           [warn_unused_vars],
+           []}],
+    run(Config, Ts),
+    ok.
+
 export_vars_warn(doc) ->
     "Warnings for exported variables";
 export_vars_warn(suite) -> [];
@@ -808,7 +851,19 @@ export_vars_warn(Config) when is_list(Config) ->
            [],
            {error,[{9,erl_lint,{unbound_var,'B'}}],
                   [{9,erl_lint,{exported_var,'Y',{'receive',2}}},
-                   {10,erl_lint,{shadowed_var,'B',generate}}]}}
+                   {10,erl_lint,{shadowed_var,'B',generate}}]}},
+
+          {exp4,
+           <<"t(X) ->
+                  if true -> Z = X end,
+                  case X of
+                      1 -> Z;
+                      2 -> X
+                  end,
+                  Z = X.
+           ">>,
+           [],
+           {warnings,[{7,erl_lint,{exported_var,'Z',{'if',2}}}]}}
          ],
     ?line [] = run(Config, Ts),
     ok.
@@ -832,8 +887,15 @@ shadow_vars(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_shadow_vars],
 	   {error,[{9,erl_lint,{unbound_var,'B'}}],
-	    [{9,erl_lint,{exported_var,'Y',{'receive',2}}}]}}],
-    
+	    [{9,erl_lint,{exported_var,'Y',{'receive',2}}}]}},
+          {shadow2,
+           <<"t() ->
+                  _ = (catch MS = MS = 1), % MS used unsafe
+                  _ = case ok of _ -> fun() -> ok end end,
+                  fun (MS) -> MS end. % MS not shadowed here
+           ">>,
+           [],
+           []}],
     ?line [] = run(Config, Ts),
     ok.
 
@@ -958,6 +1020,45 @@ unsafe_vars(Config) when is_list(Config) ->
            [warn_unused_vars],
            {errors,[{3,erl_lint,{unsafe_var,'X',{'if',2}}},
                     {4,erl_lint,{unsafe_var,'X',{'if',2}}}],
+            []}},
+          {unsafe8,
+           <<"t8(X) ->
+                  case X of _ -> catch _Y = 1 end,
+                  _Y."
+           >>,
+           [],
+           {errors,[{3,erl_lint,{unsafe_var,'_Y',{'catch',2}}}],
+            []}},
+           {unsafe9,
+           <<"t9(X) ->
+                  case X of
+                      1 ->
+                          catch A = 1, % unsafe only here
+                          B = 1,
+                          C = 1,
+                          D = 1;
+                      2 ->
+                          A = 2,
+                          % B not bound here
+                          C = 2,
+                          catch D = 2; % unsafe in two clauses
+                      3 ->
+                          A = 3,
+                          B = 3,
+                          C = 3,
+                          catch D = 3; % unsafe in two clauses
+                      4 ->
+                          A = 4,
+                          B = 4,
+                          C = 4,
+                          D = 4
+                  end,
+                  {A,B,C,D}."
+           >>,
+           [],
+           {errors,[{24,erl_lint,{unsafe_var,'A',{'catch',4}}},
+                    {24,erl_lint,{unsafe_var,'B',{'case',2}}},
+                    {24,erl_lint,{unsafe_var,'D',{'case',2}}}],
             []}}
          ],
     ?line [] = run(Config, Ts),

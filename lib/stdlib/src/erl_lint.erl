@@ -2121,8 +2121,8 @@ expr({'receive',Line,Cs,To,ToEs}, Vt, St0) ->
     {Cvt,St3} = icrt_clauses(Cs, Vt, St2),
     %% Csvts = [vtnew(Tevt, Vt)|Cvt],           %This is just NEW variables!
     Csvts = [Tevt|Cvt],
-    {Rvt,St4} = icrt_export(Csvts, Vt, {'receive',Line}, St3),
-    {vtmerge([Tvt,Tevt,Rvt]),St4};
+    Rvt = icrt_export(Csvts, Vt, {'receive',Line}),
+    {vtmerge([Tvt,Tevt,Rvt]),St3};
 expr({'fun',Line,Body}, Vt, St) ->
     %%No one can think funs export!
     case Body of
@@ -2233,21 +2233,20 @@ expr({'try',Line,Es,Scs,Ccs,As}, Vt, St0) ->
     %% passes cannot handle exports in combination with 'after'.
     {Evt0,St1} = exprs(Es, Vt, St0),
     TryLine = {'try',Line},
-    Uvt = vtunsafe(vtnames(vtnew(Evt0, Vt)), TryLine, []),
-    Evt1 = vtupdate(Uvt, vtsubtract(Evt0, Uvt)),
+    Uvt = vtunsafe(TryLine, Evt0, Vt),
+    Evt1 = vtupdate(Uvt, Evt0),
     {Sccs,St2} = icrt_clauses(Scs++Ccs, TryLine, vtupdate(Evt1, Vt), St1),
     Rvt0 = Sccs,
-    Rvt1 = vtupdate(vtunsafe(vtnames(vtnew(Rvt0, Vt)), TryLine, []), Rvt0),
+    Rvt1 = vtupdate(vtunsafe(TryLine, Rvt0, Vt), Rvt0),
     Evt2 = vtmerge(Evt1, Rvt1),
     {Avt0,St} = exprs(As, vtupdate(Evt2, Vt), St2),
-    Avt1 = vtupdate(vtunsafe(vtnames(vtnew(Avt0, Vt)), TryLine, []), Avt0),
+    Avt1 = vtupdate(vtunsafe(TryLine, Avt0, Vt), Avt0),
     Avt = vtmerge(Evt2, Avt1),
     {Avt,St};
 expr({'catch',Line,E}, Vt, St0) ->
     %% No new variables added, flag new variables as unsafe.
-    {Evt,St1} = expr(E, Vt, St0),
-    Uvt = vtunsafe(vtnames(vtnew(Evt, Vt)), {'catch',Line}, []),
-    {vtupdate(Uvt,vtupdate(Evt, Vt)),St1};
+    {Evt,St} = expr(E, Vt, St0),
+    {vtupdate(vtunsafe({'catch',Line}, Evt, Vt), Evt),St};
 expr({match,_Line,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Bvt,St2} = pattern(P, vtupdate(Evt, Vt), St1),
@@ -2260,9 +2259,8 @@ expr({op,Line,Op,L,R}, Vt, St0) when Op =:= 'orelse'; Op =:= 'andalso' ->
     {Evt1,St1} = expr(L, Vt, St0),
     Vt1 = vtupdate(Evt1, Vt),
     {Evt2,St2} = expr(R, Vt1, St1),
-    Vt2 = vtmerge(Evt2, Vt1),
-    {Vt3,St3} = icrt_export([Vt1,Vt2], Vt1, {Op,Line}, St2),
-    {vtmerge(Evt1, Vt3),St3};
+    Evt3 = vtupdate(vtunsafe({Op,Line}, Evt2, Vt1), Evt2),
+    {vtmerge(Evt1, Evt3),St2};
 expr({op,_Line,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
@@ -3024,11 +3022,12 @@ check_local_opaque_types(St) ->
     dict:fold(FoldFun, St, Ts).
 
 %% icrt_clauses(Clauses, In, ImportVarTable, State) ->
-%%      {NewVts,State}.
+%%      {UpdVt,State}.
 
 icrt_clauses(Cs, In, Vt, St0) ->
     {Csvt,St1} = icrt_clauses(Cs, Vt, St0),
-    icrt_export(Csvt, Vt, In, St1).
+    UpdVt = icrt_export(Csvt, Vt, In),
+    {UpdVt,St1}.
 
 %% icrt_clauses(Clauses, ImportVarTable, State) ->
 %%      {NewVts,State}.
@@ -3038,26 +3037,73 @@ icrt_clauses(Cs, Vt, St) ->
 
 icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
     {Hvt,Binvt,St1} = head(H, Vt0, St0),
-    Vt1 = vtupdate(Hvt, vtupdate(Binvt, Vt0)),
-    {Gvt,St2} = guard(G, Vt1, St1),
+    Vt1 = vtupdate(Hvt, Binvt),
+    {Gvt,St2} = guard(G, vtupdate(Vt1, Vt0), St1),
     Vt2 = vtupdate(Gvt, Vt1),
-    {Bvt,St3} = exprs(B, Vt2, St2),
+    {Bvt,St3} = exprs(B, vtupdate(Vt2, Vt0), St2),
     {vtupdate(Bvt, Vt2),St3}.
 
-icrt_export(Csvt, Vt, In, St) ->
-    Vt1 = vtmerge(Csvt),
-    All = ordsets:subtract(vintersection(Csvt), vtnames(Vt)),
-    Some = ordsets:subtract(vtnames(Vt1), vtnames(Vt)),
-    Xvt = vtexport(All, In, []),
-    Evt = vtunsafe(ordsets:subtract(Some, All), In, Xvt),
-    Unused = vtmerge([unused_vars(Vt0, Vt, St) || Vt0 <- Csvt]),
-    %% Exported and unsafe variables may be unused:
-    Uvt = vtmerge(Evt, Unused),
-    %% Make exported and unsafe unused variables unused in subsequent code:
-    Vt2 = vtmerge(Uvt, vtsubtract(Vt1, Uvt)),
-    %% Forget about old variables which were not used:
-    Vt3 = vtmerge(vtnew(Vt2, Vt), vt_no_unused(vtold(Vt2, Vt))),
-    {Vt3,St}.
+icrt_export(Vts, Vt, {Tag,Attrs}) ->
+    {_File,Loc} = loc(Attrs),
+    icrt_export(lists:merge(Vts), Vt, {Tag,Loc}, length(Vts), []).
+
+icrt_export([{V,{{export,_},_,_}}|Vs0], [{V,{{export,_}=S0,_,Ls}}|Vt],
+            In, I, Acc) ->
+    %% V was an exported variable and has been used in an expression in at least
+    %% one clause. Its state needs to be merged from all clauses to silence any
+    %% exported var warning already emitted.
+    {VVs,Vs} = lists:partition(fun ({K,_}) -> K =:= V end, Vs0),
+    S = foldl(fun ({_,{S1,_,_}}, AccS) -> merge_state(AccS, S1) end, S0, VVs),
+    icrt_export(Vs, Vt, In, I, [{V,{S,used,Ls}}|Acc]);
+icrt_export([{V,_}|Vs0], [{V,{_,_,Ls}}|Vt], In, I, Acc) ->
+    %% V was either unsafe or bound and has now been reused. It may also have
+    %% been an export but as it was not matched by the previous clause, it means
+    %% it has been changed to 'bound' in at least one clause because it was used
+    %% in a pattern.
+    Vs = lists:dropwhile(fun ({K,_}) -> K =:= V end, Vs0),
+    icrt_export(Vs, Vt, In, I, [{V,{bound,used,Ls}}|Acc]);
+icrt_export([{V1,_}|_]=Vs, [{V2,_}|Vt], In, I, Acc) when V1 > V2 ->
+    %% V2 was already in scope and has not been reused in any clause.
+    icrt_export(Vs, Vt, In, I, Acc);
+icrt_export([{V,_}|_]=Vs0, Vt, In, I, Acc) ->
+    %% V is a new variable.
+    {VVs,Vs} = lists:partition(fun ({K,_}) -> K =:= V end, Vs0),
+    F = fun ({_,{S,U,Ls}}, {AccI,AccS0,AccLs0}) ->
+                AccS = case {S,AccS0} of
+                           {{unsafe,_},{unsafe,_}} ->
+                               %% V was found unsafe in a previous clause, mark
+                               %% it as unsafe for the whole parent expression.
+                               {unsafe,In};
+                           {{unsafe,_},_} ->
+                               %% V was unsafe in a clause, keep that state and
+                               %% generalize it to the whole expression if it
+                               %% is found unsafe in another one.
+                               S;
+                           _ ->
+                               %% V is either bound or exported, keep original
+                               %% state.
+                               AccS0
+                       end,
+                AccLs = case U of
+                            used -> AccLs0;
+                            unused -> merge_lines(AccLs0, Ls)
+                        end,
+                {AccI + 1,AccS,AccLs}
+        end,
+    %% Initial state is exported from the current expression.
+    {Count,S1,Ls} = foldl(F, {0,{export,In},[]}, VVs),
+    S = case Count of
+            I ->
+                %% V was found in all clauses, keep computed state.
+                S1;
+            _ ->
+                %% V was not bound in some clauses, mark as unsafe.
+                {unsafe,In}
+        end,
+    U = case Ls of [] -> used; _ -> unused end,
+    icrt_export(Vs, Vt, In, I, [{V,{S,U,Ls}}|Acc]);
+icrt_export([], _, _, _, Acc) ->
+    reverse(Acc).
 
 handle_comprehension(E, Qs, Vt0, St0) ->
     {Vt1, Uvt, St1} = lc_quals(Qs, Vt0, St0),
@@ -3155,7 +3201,8 @@ fun_clauses(Cs, Vt, St) ->
                               {Cvt,St1} = fun_clause(C, Vt, St0),
                               {vtmerge(Cvt, Bvt0),St1}
                       end, {[],St#lint{recdef_top = false}}, Cs),
-    {vt_no_unused(vtold(Bvt, Vt)),St2#lint{recdef_top = OldRecDef}}.
+    Uvt = vt_no_unsafe(vt_no_unused(vtold(Bvt, Vt))),
+    {Uvt,St2#lint{recdef_top = OldRecDef}}.
 
 fun_clause({clause,_Line,H,G,B}, Vt0, St0) ->
     {Hvt,Binvt,St1} = head(H, Vt0, [], St0), % No imported pattern variables
@@ -3269,19 +3316,24 @@ pat_binsize_var(V, Line, Vt, Bvt, St) ->
 %%  exported vars are probably safe, warn only if warn_export_vars is
 %%  set.
 
-expr_var(V, Line, Vt, St0) ->
+expr_var(V, Line, Vt, St) ->
     case orddict:find(V, Vt) of
         {ok,{bound,_Usage,Ls}} ->
-            {[{V,{bound,used,Ls}}],St0};
+            {[{V,{bound,used,Ls}}],St};
         {ok,{{unsafe,In},_Usage,Ls}} ->
             {[{V,{bound,used,Ls}}],
-             add_error(Line, {unsafe_var,V,In}, St0)};
+             add_error(Line, {unsafe_var,V,In}, St)};
         {ok,{{export,From},_Usage,Ls}} ->
-            {[{V,{bound,used,Ls}}],
-             exported_var(Line, V, From, St0)};
+            case is_warn_enabled(export_vars, St) of
+                true ->
+                    {[{V,{bound,used,Ls}}],
+                     add_warning(Line, {exported_var,V,From}, St)};
+                false ->
+                    {[{V,{{export,From},used,Ls}}],St}
+            end;
         error ->
             {[{V,{bound,used,[Line]}}],
-             add_error(Line, {unbound_var,V}, St0)}
+             add_error(Line, {unbound_var,V}, St)}
     end.
 
 exported_var(Line, V, From, St) ->
@@ -3345,17 +3397,12 @@ vtupdate(Uvt, Vt0) ->
                           {S, merge_used(U1, U2), merge_lines(L1, L2)}
                   end, Uvt, Vt0).
 
-%% vtexport([Variable], From, VarTable) -> VarTable.
-%% vtunsafe([Variable], From, VarTable) -> VarTable.
-%%  Add the variables to VarTable either as exported from From or as unsafe.
+%% vtunsafe(From, UpdVarTable, VarTable) -> UnsafeVarTable.
+%%  Return all new variables in UpdVarTable as unsafe.
 
-vtexport(Vs, {InTag,FileLine}, Vt0) ->
+vtunsafe({Tag,FileLine}, Uvt, Vt) ->
     {_File,Line} = loc(FileLine),
-    vtupdate([{V,{{export,{InTag,Line}},unused,[]}} || V <- Vs], Vt0).
-
-vtunsafe(Vs, {InTag,FileLine}, Vt0) ->
-    {_File,Line} = loc(FileLine),
-    vtupdate([{V,{{unsafe,{InTag,Line}},unused,[]}} || V <- Vs], Vt0).
+    [{V,{{unsafe,{Tag,Line}},U,Ls}} || {V,{_,U,Ls}} <- vtnew(Uvt, Vt)].
 
 %% vtmerge(VarTable, VarTable) -> VarTable.
 %%  Merge two variables tables generating a new vartable. Give priority to
@@ -3408,8 +3455,6 @@ vtsubtract(New, Old) ->
 vtold(New, Old) ->
     orddict:filter(fun (V, _How) -> orddict:is_key(V, Old) end, New).
 
-vtnames(Vt) -> [ V || {V,_How} <- Vt ].
-
 vt_no_unsafe(Vt) -> [V || {_,{S,_U,_L}}=V <- Vt,
                           case S of
                               {unsafe,_} -> false;
@@ -3417,29 +3462,6 @@ vt_no_unsafe(Vt) -> [V || {_,{S,_U,_L}}=V <- Vt,
                           end].
 
 vt_no_unused(Vt) -> [V || {_,{_,U,_L}}=V <- Vt, U =/= unused].
-
-%% vunion(VarTable1, VarTable2) -> [VarName].
-%% vunion([VarTable]) -> [VarName].
-%% vintersection(VarTable1, VarTable2) -> [VarName].
-%% vintersection([VarTable]) -> [VarName].
-%%  Union/intersection of names of vars in VarTable.
-
--ifdef(NOTUSED).
-vunion(Vs1, Vs2) -> ordsets:union(vtnames(Vs1), vtnames(Vs2)).
-
-vunion(Vss) -> foldl(fun (Vs, Uvs) ->
-                             ordsets:union(vtnames(Vs), Uvs)
-                     end, [], Vss).
-
-vintersection(Vs1, Vs2) -> ordsets:intersection(vtnames(Vs1), vtnames(Vs2)).
--endif.
-
-vintersection([Vs]) ->
-    vtnames(Vs);                %Boundary conditions!!!
-vintersection([Vs|Vss]) ->
-    ordsets:intersection(vtnames(Vs), vintersection(Vss));
-vintersection([]) ->
-    [].
 
 %% copy_expr(Expr, Line) -> Expr.
 %%  Make a copy of Expr converting all line numbers to Line.
