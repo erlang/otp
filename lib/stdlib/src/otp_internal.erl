@@ -421,13 +421,13 @@ obsolete_1(ssh_cm, stop_listener, 1) ->
 obsolete_1(ssh_cm, session_open, A) when A =:= 2; A =:= 4 ->
     {removed,{ssh_connection,session_channel,A},"R14B"};
 obsolete_1(ssh_cm, direct_tcpip, A) when A =:= 6; A =:= 8 ->
-    {removed,{ssh_connection,direct_tcpip,A}};
+    {removed,{ssh_connection,direct_tcpip,A},"R14B"};
 obsolete_1(ssh_cm, tcpip_forward, 3) ->
     {removed,{ssh_connection,tcpip_forward,3},"R14B"};
 obsolete_1(ssh_cm, cancel_tcpip_forward, 3) ->
     {removed,{ssh_connection,cancel_tcpip_forward,3},"R14B"};
 obsolete_1(ssh_cm, open_pty, A) when A =:= 3; A =:= 7; A =:= 9 ->
-    {removed,{ssh_connection,open_pty,A},"R14"};
+    {removed,{ssh_connection,open_pty,A},"R14B"};
 obsolete_1(ssh_cm, setenv, 5) ->
     {removed,{ssh_connection,setenv,5},"R14B"};
 obsolete_1(ssh_cm, shell, 2) ->
@@ -441,11 +441,11 @@ obsolete_1(ssh_cm, winch, A) when A =:= 4; A =:= 6 ->
 obsolete_1(ssh_cm, signal, 3) ->
     {removed,{ssh_connection,signal,3},"R14B"};
 obsolete_1(ssh_cm, attach, A) when A =:= 2; A =:= 3 ->
-    {removed,{ssh,attach,A}};
+    {removed,"no longer useful; removed in R14B"};
 obsolete_1(ssh_cm, detach, 2) ->
-    {removed,"no longer useful; will be removed in R14B"};
+    {removed,"no longer useful; removed in R14B"};
 obsolete_1(ssh_cm, set_user_ack, 4) ->
-    {removed,"no longer useful; will be removed in R14B"};
+    {removed,"no longer useful; removed in R14B"};
 obsolete_1(ssh_cm, adjust_window, 3) ->
     {removed,{ssh_connection,adjust_window,3},"R14B"};
 obsolete_1(ssh_cm, close, 2) ->
@@ -461,9 +461,9 @@ obsolete_1(ssh_cm, send_ack, A) when 3 =< A, A =< 5 ->
 obsolete_1(ssh_ssh, connect, A) when 1 =< A, A =< 3 ->
     {removed,{ssh,shell,A},"R14B"};
 obsolete_1(ssh_sshd, listen, A) when 0 =< A, A =< 3 ->
-    {removed,{ssh,daemon,[1,2,3]},"R14"};
+    {removed,{ssh,daemon,[1,2,3]},"R14B"};
 obsolete_1(ssh_sshd, stop, 1) ->
-    {removed,{ssh,stop_listener,1}};
+    {removed,{ssh,stop_listener,1},"R14B"};
 
 %% Added in R13A.
 obsolete_1(regexp, _, _) ->

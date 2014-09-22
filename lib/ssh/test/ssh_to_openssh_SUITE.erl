@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -119,15 +119,7 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     IO ! {input, self(), "echo Hej\n"},
     receive_hej(),
     IO ! {input, self(), "exit\n"},
-    receive
-	<<"logout">> ->
-	    receive
-		<<"Connection closed">> ->
-		    ok
-	    end;
-	Other0 ->
-	    ct:fail({unexpected_msg, Other0})
-    end,
+    receive_logout(),
     receive
 	{'EXIT', Shell, normal} ->
 	    ok;
@@ -544,6 +536,21 @@ receive_hej() ->
 	    receive_hej()
     end.
 
+receive_logout() ->
+    receive
+	<<"logout">> ->
+	    receive
+		<<"Connection closed">> ->
+		    ok
+	    end;
+	<<"TERM environment variable not set.\n">> -> %% Windows work around
+	    receive_logout();
+	Other0 ->
+	    ct:fail({unexpected_msg, Other0})
+    end.
+
+
+
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
 %% Check if we have a "newer" ssh client that supports these test cases
@@ -564,4 +571,7 @@ check_ssh_client_support2(P) ->
 	    check_ssh_client_support2(P);
 	{P, {exit_status, E}} ->
 	    E
+    after 5000 ->
+	    ct:pal("Openssh command timed out ~n"),
+	    -1
     end.
