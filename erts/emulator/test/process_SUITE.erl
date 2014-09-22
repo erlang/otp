@@ -78,6 +78,7 @@ all() ->
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
+     process_flag_bound,
      spawn_opt_heap_size, otp_6237, {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task}].
@@ -1329,16 +1330,18 @@ process_flag_bound(doc) ->
 process_flag_bound(suite) ->
     [];
 process_flag_bound(Config) when is_list(Config) ->
-    P = spawn(fun () -> receive die -> ok end end),
+    P = spawn_link(fun () -> receive die -> ok end end),
     %% too big
     chk_badarg(fun () -> process_flag(P, max_message_queue_len,
                                       16#ffffffff) end),
     chk_badarg(fun () -> process_flag(P, max_message_queue_len,
                                       {drop,16#ffffffff}) end),
     %% nonexistant flag
-    chk_badarg(fun () -> process_flag(P, max_message_queue_len, {floogle, 1}) end),
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len,
+                                      {floogle, 1}) end),
     %% not an int
-    chk_badarg(fun () -> process_flag(P, max_message_queue_len, {drop, nan}) end),
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len,
+                                      {drop, nan}) end),
     %% 0 is bad
     chk_badarg(fun () -> process_flag(P, max_message_queue_len, 0) end),
     P ! die,
