@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -302,7 +302,7 @@ start_shell(Config) when is_list(Config) ->
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
 
     receive
-    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"Enter command\r\n">>}} ->
+    {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"Enter command\r\n">>}} ->
         ok
     after 5000 ->
         ct:fail("CLI Timeout")
@@ -335,8 +335,8 @@ start_shell_exec(Config) when is_list(Config) ->
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
                   "testing", infinity),
     receive
-    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"testing\r\n">>}} ->
-        ok
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"testing\r\n">>}} ->
+	    ok
     after 5000 ->
         ct:fail("Exec Timeout")
     end,
@@ -370,8 +370,8 @@ start_shell_exec_fun(Config) when is_list(Config) ->
                   "testing", infinity),
 
     receive
-    {ssh_cm,ConnectionRef, {data, ChannelId, 0, <<"testing\r\n">>}} ->
-        ok
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"testing\r\n">>}} ->
+	    ok
     after 5000 ->
         ct:fail("Exec Timeout")
     end,
