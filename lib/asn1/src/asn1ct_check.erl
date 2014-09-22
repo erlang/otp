@@ -1260,6 +1260,8 @@ get_value_from_object(S, Def, FieldNames) ->
     case extract_field(S, Def, FieldNames) of
 	#valuedef{value=Val} ->
 	    Val;
+	{valueset,_}=Val ->
+	    Val;
 	_ ->
 	    asn1_error(S, illegal_value)
     end.
@@ -1286,43 +1288,44 @@ extract_field(S, Def0, FieldNames) ->
 %%   All field names but the last refers to either an object or object set.
 
 get_fieldname_element(S, #typedef{}=Def, [{_RefType,FieldName}]) ->
-    {_,_,ObjComps} = (Def#typedef.typespec)#'Object'.def,
-    check_fieldname_element(S,lists:keysearch(FieldName,1,ObjComps));
-get_fieldname_element(S,Def,[{_RefType,FieldName}|Rest])
-  when is_record(Def,typedef) ->
-    %% As FieldName is followd by other FieldNames it has to be an
+    Object = (Def#typedef.typespec)#'Object'.def,
+    check_fieldname_element(S, FieldName, Object);
+get_fieldname_element(S, #typedef{}=Def, [{_RefType,FieldName}|T]) ->
+    %% As FieldName is followed by other FieldNames it has to be an
     %% object or objectset.
-    {_,_,ObjComps} = (Def#typedef.typespec)#'Object'.def,
-    NewDef = check_fieldname_element(S,lists:keysearch(FieldName,1,ObjComps)),
-    ObjDef = fun(#'Object'{def=D}) -> D;
-		(#'ObjectSet'{set=Set}) -> Set
-	     end 
-	       (NewDef),
-    case ObjDef of
-	L when is_list(L) ->
-	    [get_fieldname_element(S,X,Rest) || X <- L];
-	_ ->
-	    get_fieldname_element(S,ObjDef,Rest)
+    Object = (Def#typedef.typespec)#'Object'.def,
+    case check_fieldname_element(S, FieldName, Object) of
+	#'Object'{def=D} ->
+	    get_fieldname_element(S, D, T);
+	#'ObjectSet'{set=Set0} ->
+	    Set = [get_fieldname_element(S, X, T) || X <- Set0],
+	    get_fieldname_return_set(Set)
     end;
-get_fieldname_element(S,{object,_,Fields},[{_RefType,FieldName}|Rest]) ->
-    NewDef = check_fieldname_element(S,lists:keysearch(FieldName,1,Fields)),
-    get_fieldname_element(S,NewDef,Rest);
-get_fieldname_element(_S,Def,[]) -> 
-    Def;
-get_fieldname_element(_S,Def,[{_RefType,_FieldName}|_RestFName]) 
-  when is_record(Def,typedef) ->
-    ok.
+get_fieldname_element(S, {_,_,_}=Object, [{_RefType,FieldName}|T]) ->
+    Def = check_fieldname_element(S, FieldName, Object),
+    get_fieldname_element(S, Def, T);
+get_fieldname_element(_S, Def, []) ->
+    Def.
 
-check_fieldname_element(S,{value,{_,Def}}) ->
-    check_fieldname_element(S,Def);
-check_fieldname_element(S, #typedef{typespec=Ts}=TDef) ->
+get_fieldname_return_set([#valuedef{}|_]=L) ->
+    {valueset,L}.
+
+check_fieldname_element(S, Name, {_,_,Fields}) ->
+    case lists:keyfind(Name, 1, Fields) of
+	{Name,Def} ->
+	    check_fieldname_element_1(S, Def);
+	false ->
+	    asn1_error(S, {undefined_field,Name})
+    end.
+
+check_fieldname_element_1(S, #typedef{typespec=Ts}=TDef) ->
     case Ts of
 	#'Object'{} ->
 	    check_object(S, TDef, Ts);
 	_ ->
 	    check_type(S, TDef, Ts)
     end;
-check_fieldname_element(S, #valuedef{}=VDef) ->
+check_fieldname_element_1(S, #valuedef{}=VDef) ->
     try
 	check_value(S, VDef)
     catch
@@ -1332,17 +1335,15 @@ check_fieldname_element(S, #valuedef{}=VDef) ->
 	    ClassName = Type#type.def,
 	    NewSpec = #'Object'{classname=ClassName,def=Def},
 	    NewDef = #typedef{checked=C,pos=Pos,name=N,typespec=NewSpec},
-	    check_fieldname_element(S, NewDef)
+	    check_fieldname_element_1(S, NewDef)
     end;
-check_fieldname_element(_S, {value_tag,Val}) ->
+check_fieldname_element_1(_S, {value_tag,Val}) ->
     #valuedef{value=Val};
-check_fieldname_element(S,Eref)
-  when is_record(Eref,'Externaltypereference');
-       is_record(Eref,'Externalvaluereference') ->
-    {_,TDef}=get_referenced_type(S,Eref),
-    check_fieldname_element(S,TDef);
-check_fieldname_element(S,Other) ->
-    throw({error,{assigned_object_error,"not_assigned_object",Other,S}}).
+check_fieldname_element_1(S, Eref)
+  when is_record(Eref, 'Externaltypereference');
+       is_record(Eref, 'Externalvaluereference') ->
+    {_,TDef} = get_referenced_type(S, Eref),
+    check_fieldname_element_1(S, TDef).
     
 transform_set_to_object_list([{Name,_UVal,Fields}|Objs],Acc) ->
     transform_set_to_object_list(Objs,[{Name,{object,generatesyntax,Fields}}|Acc]);
@@ -2372,7 +2373,8 @@ normalize_integer(S, #'Externalvaluereference'{value=Name}=Ref, NNL) ->
 		    asn1_error(S, illegal_integer_value)
 	    end
     end;
-normalize_integer(S, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
+normalize_integer(S0, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
+    S = S0#state{type=S0#state.value},
     case extract_field(S, Obj, FieldNames) of
 	#valuedef{value=Val} when is_integer(Val) ->
 	    Val;
@@ -6544,6 +6546,8 @@ format_error({syntax_undefined_field,Field}) ->
 		  [Field]);
 format_error({undefined,Name}) ->
     io_lib:format("'~s' is referenced, but is not defined", [Name]);
+format_error({undefined_field,FieldName}) ->
+    io_lib:format("the field '&~s' is undefined", [FieldName]);
 format_error({undefined_import,Ref,Module}) ->
     io_lib:format("'~s' is not exported from ~s", [Ref,Module]);
 format_error({value_reused,Val}) ->

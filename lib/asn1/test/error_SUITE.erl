@@ -418,6 +418,8 @@ values(Config) ->
 	   "  int3 INTEGER ::= not-defined\n"
 	   "  int4 INTEGER ::= holder-1.&str\n"
 	   "  int5 INTEGER ::= holder-2.&obj\n"
+	   "  int6 INTEGER ::= holder-2.&undefined-field\n"
+	   "  int7 INTEGER ::= holder-2.&UndefinedField.&id\n"
 
 	   "  HOLDER ::= CLASS {\n"
 	   "    &str IA5String,\n"
@@ -444,7 +446,11 @@ values(Config) ->
       {structured_error,{M,9},asn1ct_check,
        illegal_integer_value},
       {structured_error,{M,10},asn1ct_check,
-       illegal_integer_value}
+       illegal_integer_value},
+      {structured_error,{M,11},asn1ct_check,
+       {undefined_field,'undefined-field'}},
+      {structured_error,{M,12},asn1ct_check,
+       {undefined_field,'UndefinedField'}}
      ]
     } = run(P, Config),
     ok.
