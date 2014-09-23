@@ -1144,9 +1144,9 @@
           <tag><marker id="+secio"><c>+secio true|false</c></marker></tag>
           <item>
 	    <p>Enable or disable eager check I/O scheduling. The default
-	    is currently <c>false</c>, but will most likely be changed
-	    to <c>true</c> in OTP 18. The behaviour before this flag
-	    was introduced corresponds to <c>+secio false</c>.</p>
+	    is currently <c>true</c>. The default was changed from <c>false</c>
+	    to <c>true</c> as of erts version 7.0. The behaviour before this
+	    flag was introduced corresponds to <c>+secio false</c>.</p>
 	    <p>The flag effects when schedulers will check for I/O
 	    operations possible to execute, and when such I/O operations
 	    will execute. As the name of the parameter implies,
