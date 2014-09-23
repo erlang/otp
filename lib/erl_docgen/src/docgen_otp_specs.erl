@@ -616,7 +616,7 @@ ot_map(Es) ->
     {type,0,map,[ot_map_field(E) || E <- get_elem(map_field,Es)]}.
 
 ot_map_field(#xmlElement{content=[K,V]}) ->
-    {type,0,map_field_assoc, ot_utype_elem(K), ot_utype_elem(V)}.
+    {type,0,map_field_assoc,[ot_utype_elem(K),ot_utype_elem(V)]}.
 
 ot_fun(Es) ->
     Range = ot_utype(get_elem(type, Es)),
