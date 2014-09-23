@@ -34,7 +34,7 @@
 	  chunk_decode_empty_chunk_otp_6511/1,
 	  chunk_decode_trailer/1,
 	  http_response/1, http_request/1, validate_request_line/1,
-	  esi_parse_headers/1, cgi_parse_headers/1,
+	  esi_parse_headers/1, cgi_parse_headers/1, to_titlecase/1,
 	  is_absolut_uri/1, convert_netscapecookie_date/1,
 	  check_content_length_encoding/1]).
 
@@ -46,7 +46,7 @@ all() ->
      convert_netscapecookie_date, check_content_length_encoding].
 
 groups() -> 
-    [{script, [], [esi_parse_headers, cgi_parse_headers]},
+    [{script, [], [esi_parse_headers, cgi_parse_headers, to_titlecase]},
      {chunk, [],
       [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
        chunk_decode_otp_6264,
@@ -563,7 +563,19 @@ cgi_parse_headers(Config) when is_list(Config) ->
 	 {"age","4711"}], {200,"ok"}}  = httpd_cgi:handle_headers(Headers3),
 
     ok.
-    
+
+%%--------------------------------------------------------------------
+to_titlecase(doc) ->
+    ["Test http_util:to_titlecase/1 function."];
+to_titlecase(suite) ->
+    [];
+to_titlecase(_Config) ->
+    "Header-Name" = http_util:to_titlecase("HEADER-NAME"),
+    "Header-Name" = http_util:to_titlecase("header-name"),
+    "Header-Name" = http_util:to_titlecase("Header-name"),
+    "Header-Name" = http_util:to_titlecase("hEaDer-NAme"),
+    ok.
+
 %%-------------------------------------------------------------------------
 is_absolut_uri(doc) ->
     ["Test http_request:is_absolut_uri/1."];

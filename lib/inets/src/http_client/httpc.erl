@@ -515,7 +515,7 @@ handle_request(Method, Url,
 	       HTTPOptions0, Options0, Profile) ->
 
     Started     = http_util:timestamp(), 
-    NewHeaders0 = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers0],
+    NewHeaders0 = [{http_util:to_titlecase(Key), Val} || {Key, Val} <- Headers0],
 
     try
 	begin
