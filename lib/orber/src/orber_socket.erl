@@ -37,7 +37,8 @@
 -export([start/0, connect/4, listen/3, listen/4, accept/2, accept/3, write/3,
 	 controlling_process/3, close/2, peername/2, sockname/2, 
 	 peerdata/2, peercert/2, sockdata/2, setopts/3,
-	 clear/2, shutdown/3, post_accept/2, post_accept/3]).
+	 clear/2, shutdown/3, post_accept/2, post_accept/3,
+	 get_ip_family_opts/1]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -491,4 +492,40 @@ check_options(ssl, Options, Generation) ->
     end.
 
 		
-    
+%%-----------------------------------------------------------------
+%% Check IP Family. 
+get_ip_family_opts(Host) ->
+    case inet:parse_address(Host) of
+	{ok, {_,_,_,_}} -> 
+	    [inet];
+	{ok, {_,_,_,_,_,_,_,_}} -> 
+	    [inet6];
+	{error, einval} ->
+	    check_family_for_name(Host, orber_env:ip_version())
+    end.
+
+check_family_for_name(Host, inet) ->
+    case inet:getaddr(Host, inet) of
+	{ok, _Address} ->
+	    [inet];
+	{error, _} ->
+	    case inet:getaddr(Host, inet6) of
+		{ok, _Address} ->
+		    [inet6];
+		{error, _} ->
+		    [inet]
+	    end
+    end;
+check_family_for_name(Host, inet6) ->
+    case inet:getaddr(Host, inet6) of
+	{ok, _Address} ->
+	    [inet6];
+	{error, _} ->
+	    case inet:getaddr(Host, inet) of
+		{ok, _Address} ->
+		    [inet];
+		{error, _} ->
+		    [inet6]
+	    end
+    end.
+
