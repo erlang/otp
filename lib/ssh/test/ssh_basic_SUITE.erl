@@ -798,12 +798,14 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 					       {parallel_login, Parallel},
 					       {negotiation_timeout, NegTimeOut},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:pal("~p Listen ~p:~p",[_Pid,_Host,Port]),
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
     receive
-	{'EXIT', _, _} ->
+	Error = {'EXIT', _, _} ->
+	    ct:pal("~p",[Error]),
 	    ct:fail(no_ssh_connection);  
 	ErlShellStart ->
 	    ct:pal("---Erlang shell start: ~p~n", [ErlShellStart]),
@@ -898,7 +900,12 @@ connect_fun(ssh_sftp__start_channel, _Config) ->
     end.
 
 
-max_sessions(Config, ParallelLogin, Connect) when is_function(Connect,2) ->
+max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
+    Connect = fun(Host,Port) ->
+		      R = Connect0(Host,Port),
+		      ct:pal("Connect(~p,~p) -> ~p",[Host,Port,R]),
+		      R
+	      end,
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
     MaxSessions = 5,
@@ -909,7 +916,7 @@ max_sessions(Config, ParallelLogin, Connect) when is_function(Connect,2) ->
 					     {parallel_login, ParallelLogin},
 					     {max_sessions, MaxSessions}
 					    ]),
-
+    ct:pal("~p Listen ~p:~p for max ~p sessions",[Pid,Host,Port,MaxSessions]),
     try [Connect(Host,Port) || _ <- lists:seq(1,MaxSessions)]
     of
 	Connections ->
