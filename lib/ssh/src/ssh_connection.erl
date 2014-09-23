@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,11 +32,11 @@
 %% API
 -export([session_channel/2, session_channel/4,
 	 exec/4, shell/2, subsystem/4, send/3, send/4, send/5, 
-	 send_eof/2, adjust_window/3, setenv/5, close/2, reply_request/4]).
+	 send_eof/2, adjust_window/3, setenv/5, close/2, reply_request/4,
+	 ptty_alloc/3, ptty_alloc/4]).
 
 %% Potential API currently unsupported and not tested
--export([open_pty/3, open_pty/7,
-	 open_pty/9, window_change/4, window_change/6,
+-export([window_change/4, window_change/6,
 	 direct_tcpip/6, direct_tcpip/8, tcpip_forward/3,
 	 cancel_tcpip_forward/3, signal/3, exit_status/3]).
 
@@ -189,6 +189,25 @@ reply_request(_,false, _, _) ->
     ok.
 
 %%--------------------------------------------------------------------
+-spec ptty_alloc(pid(), channel_id(), proplists:proplist()) -> success | failiure.
+%%
+%%
+%% Description: Sends a ssh connection protocol pty_req.
+%%--------------------------------------------------------------------
+ptty_alloc(ConnectionHandler, Channel, Options) ->
+    ptty_alloc(ConnectionHandler, Channel, Options, infinity).
+ptty_alloc(ConnectionHandler, Channel, Options, TimeOut) ->
+    {Width, PixWidth} = pty_default_dimensions(width, Options),
+    {Hight, PixHight} = pty_default_dimensions(hight, Options),
+    pty_req(ConnectionHandler, Channel,
+	    proplists:get_value(term, Options, default_term()),
+	    proplists:get_value(width, Options, Width),
+	    proplists:get_value(hight, Options, Hight),
+	    proplists:get_value(pixel_widh, Options, PixWidth),
+	    proplists:get_value(pixel_hight, Options, PixHight),
+	    proplists:get_value(pty_opts, Options, []), TimeOut
+	   ).
+%%--------------------------------------------------------------------
 %% Not yet officialy supported! The following functions are part of the
 %% initial contributed ssh application. They are untested. Do we want them?
 %% Should they be documented and tested?
@@ -210,23 +229,6 @@ signal(ConnectionHandler, Channel, Sig) ->
 exit_status(ConnectionHandler, Channel, Status) ->
     ssh_connection_handler:request(ConnectionHandler, Channel,
 				   "exit-status", false, [?uint32(Status)], 0).
-
-open_pty(ConnectionHandler, Channel, TimeOut) ->
-    open_pty(ConnectionHandler, Channel,
-	     os:getenv("TERM"), 80, 24, [], TimeOut).
-
-open_pty(ConnectionHandler, Channel, Term, Width, Height, PtyOpts, TimeOut) ->
-    open_pty(ConnectionHandler, Channel, Term, Width,
-	     Height, 0, 0, PtyOpts, TimeOut).
-
-open_pty(ConnectionHandler, Channel, Term, Width, Height,
-	 PixWidth, PixHeight, PtyOpts, TimeOut) ->
-    ssh_connection_handler:request(ConnectionHandler,
-				   Channel, "pty-req", true, 
-				   [?string(Term),
-				    ?uint32(Width), ?uint32(Height),
-				    ?uint32(PixWidth),?uint32(PixHeight),
-				    encode_pty_opts(PtyOpts)], TimeOut).
 
 direct_tcpip(ConnectionHandler, RemoteHost,
 	     RemotePort, OrigIP, OrigPort, Timeout) ->
@@ -1080,6 +1082,27 @@ flow_control([_|_], #channel{flow_control = From,
 flow_control(_,_,_) ->
 	[].
 
+pty_req(ConnectionHandler, Channel, Term, Width, Height,
+	 PixWidth, PixHeight, PtyOpts, TimeOut) ->
+    ssh_connection_handler:request(ConnectionHandler,
+				   Channel, "pty-req", true,
+				   [?string(Term),
+				    ?uint32(Width), ?uint32(Height),
+				    ?uint32(PixWidth),?uint32(PixHeight),
+				    encode_pty_opts(PtyOpts)], TimeOut).
+
+pty_default_dimensions(Dimension, Options) ->
+    case proplists:get_value(Dimension, Options, 0) of
+	N when is_integer(N), N > 0 ->
+	    {N, 0};
+	_ ->
+	    case proplists:get_value(list_to_atom("pixel_" ++ atom_to_list(Dimension)), Options, 0) of
+		N when is_integer(N), N > 0 ->
+		    {0, N};
+		_ ->
+		    {?TERMINAL_WIDTH, 0}
+	    end
+    end.
 
 encode_pty_opts(Opts) ->
     Bin = list_to_binary(encode_pty_opts2(Opts)),
@@ -1277,3 +1300,10 @@ decode_ip(Addr) when is_binary(Addr) ->
 	{ok,A}    -> A
     end.
 
+default_term() ->
+    case os:getenv("TERM") of
+	false ->
+	    ?DEFAULT_TERMINAL;
+	Str when is_list(Str)->
+	    Str
+    end.	
