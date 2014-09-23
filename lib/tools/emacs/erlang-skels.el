@@ -908,13 +908,13 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Handling event messages" n
     "%%" n
-    "%% @spec handle_event(#wx{}, From, State) ->" n
+    "%% @spec handle_event(#wx{}, State) ->" n
     "%%                                   {noreply, State} |" n
     "%%                                   {noreply, State, Timeout} |" n
     "%%                                   {stop, Reason, Reply, State} |" n
     "%%                                   {stop, Reason, State}" n
     (erlang-skel-separator-end 2)
-    "handle_event(_Request, _From, State) ->" n>
+    "handle_event(_Request, State) ->" n>
     "{noreply, State}." n
     n
     (erlang-skel-separator-start 2)
