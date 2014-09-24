@@ -148,7 +148,12 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
+#ifdef __OSE__
+/* Eager check I/O not supported on OSE yet. */
 int erts_eager_check_io = 0;
+#else
+int erts_eager_check_io = 0;
+#endif
 int erts_sched_compact_load;
 int erts_sched_balance_util = 0;
 Uint erts_no_schedulers;
