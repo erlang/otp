@@ -2308,8 +2308,8 @@ normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
 	    normalize_integer(S0, Value, CType);
 	{'BIT STRING',CType,_} ->
 	    normalize_bitstring(S,Value,CType);
-	{'OCTET STRING',CType,_} ->
-	    normalize_octetstring(S0, Value, CType);
+	{'OCTET STRING',_,_} ->
+	    normalize_octetstring(S0, Value);
 	{'NULL',_CType,_} ->
 	    %%normalize_null(Value);
 	    'NULL';
@@ -2451,17 +2451,26 @@ hex_to_int(D) when $A =< D, D =< $F -> D - ($A - 10).
 %% {bstring,String} each element in String corresponds to one bit in an octet
 %% {hstring,String} each element in String corresponds to one byte in an octet
 %% #'Externalvaluereference'
-normalize_octetstring(S,Value,CType) ->
+normalize_octetstring(S, Value) ->
     case Value of
 	{bstring,String} ->
 	    bstring_to_binary(String);
 	{hstring,String} ->
 	    hstring_to_binary(String);
-	Rec when is_record(Rec,'Externalvaluereference') ->
-	    get_normalized_value(S,Value,CType,
-				 fun normalize_octetstring/3,[]);
-	{Name,String} when is_atom(Name) ->
-	    normalize_octetstring(S,String,CType);
+	#'Externalvaluereference'{} ->
+	    case get_referenced_value(S, Value) of
+		String when is_binary(String) ->
+		    String;
+		Other ->
+		    normalize_octetstring(S, Other)
+	    end;
+	{'ValueFromObject',{object,Obj},FieldNames} ->
+	    case extract_field(S, Obj, FieldNames) of
+		#valuedef{value=Val} when is_binary(Val) ->
+		    Val;
+		_ ->
+		    asn1_error(S, illegal_octet_string_value)
+	    end;
 	_ ->
 	    asn1_error(S, illegal_octet_string_value)
     end.

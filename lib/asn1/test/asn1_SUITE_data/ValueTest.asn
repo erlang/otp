@@ -79,4 +79,28 @@ int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
 
 II ::= INTEGER (int-from-object-1..int-from-object-2)
 
+-- Recursive OCTET STRING definitions.
+
+OS-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &os OCTET STRING
+} WITH SYNTAX {
+  ID &id OS &os
+}
+
+os-holder-1 OS-HOLDER ::= { ID 1 OS '4041FF'H }
+
+OctetStringSeq ::= ParamSeq{OCTET STRING}
+
+someOctetString OCTET STRING ::= '404142'H
+
+octetStringSeq1 OctetStringSeq ::= { a someOctetString }
+octetStringSeq2 OctetStringSeq ::= { a otherOctetString }
+octetStringSeq3 OctetStringSeq ::= { a os-holder-1.&os }
+
+otherOctetString OCTET STRING ::= someOctetString
+
+os-1 OCTET STRING ::= os-2
+os-2 OCTET STRING ::= os-holder-1.&os
+
 END

@@ -412,6 +412,12 @@ values(Config) ->
 	   "  os2 OCTET STRING ::= 42\n"
 	   "  os3 OCTET STRING ::= { 1, 3 }\n"
 	   "  os4 OCTET STRING ::= '1234'H\n"
+	   "  Seq ::= SEQUENCE {\n"
+	   "    an OCTET STRING\n"
+	   "  }\n"
+	   "  seq Seq ::= { an int }\n"
+	   "  os5 OCTET STRING ::= holder-1.&str\n"
+	   "  os6 OCTET STRING ::= int\n"
 
 	   "  int1 INTEGER ::= \"string\"\n"
 	   "  int2 INTEGER ::= os4\n"
@@ -428,6 +434,8 @@ values(Config) ->
 
 	   "  holder-1 HOLDER ::= { &str \"xyz\" }\n"
 	   "  holder-2 HOLDER ::= { &str \"xyz\", &obj holder-1 }\n"
+
+	   "  int INTEGER ::= 42\n"
 	   "END\n">>},
     {error,
      [
@@ -437,19 +445,25 @@ values(Config) ->
        illegal_octet_string_value},
       {structured_error,{M,4},asn1ct_check,
        illegal_octet_string_value},
-      {structured_error,{M,6},asn1ct_check,
-       illegal_integer_value},
-      {structured_error,{M,7},asn1ct_check,
-       illegal_integer_value},
-      {structured_error,{M,8},asn1ct_check,
-       illegal_integer_value},
       {structured_error,{M,9},asn1ct_check,
-       illegal_integer_value},
+       illegal_octet_string_value},
       {structured_error,{M,10},asn1ct_check,
-       illegal_integer_value},
+       illegal_octet_string_value},
       {structured_error,{M,11},asn1ct_check,
-       {undefined_field,'undefined-field'}},
+       illegal_octet_string_value},
       {structured_error,{M,12},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,13},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,14},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,15},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,16},asn1ct_check,
+       illegal_integer_value},
+      {structured_error,{M,17},asn1ct_check,
+       {undefined_field,'undefined-field'}},
+      {structured_error,{M,18},asn1ct_check,
        {undefined_field,'UndefinedField'}}
      ]
     } = run(P, Config),

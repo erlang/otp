@@ -72,7 +72,17 @@ main() ->
     roundtrip('II', 4),
     roundtrip_error('II', 5),
 
+    %% Recursive value definitions.
+    {'OctetStringSeq',<<16#40,16#41,16#42>>} = M:octetStringSeq1(),
+    <<16#40,16#41,16#42>> = M:otherOctetString(),
+    <<16#40,16#41,16#42>> = M:someOctetString(),
+    {'OctetStringSeq',<<16#40,16#41,16#42>>} = M:octetStringSeq2(),
+    {'OctetStringSeq',<<16#40,16#41,16#FF>>} = M:octetStringSeq3(),
+    <<16#40,16#41,16#FF>> = M:'os-1'(),
+    <<16#40,16#41,16#FF>> = M:'os-2'(),
+
     ok.
+
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip('ValueTest', T, V).
