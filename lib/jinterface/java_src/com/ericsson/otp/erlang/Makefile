@@ -66,7 +66,7 @@ ifneq ($(V),0)
 JARFLAGS=-cfv
 endif
 
-JAVA_OPTIONS = 
+JAVA_OPTIONS = -Xlint 
 
 ifeq ($(TESTROOT),)
 RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)"
@@ -113,4 +113,3 @@ release_docs_spec:
 
 
 # ----------------------------------------------------
-
