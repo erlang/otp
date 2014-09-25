@@ -76,6 +76,7 @@ all() ->
 	     get_config,
 	     get_config_xpath,
 	     edit_config,
+	     edit_config_opt_params,
 	     copy_config,
 	     delete_config,
 	     lock,
@@ -396,6 +397,18 @@ edit_config(Config) ->
     ?ok = ct_netconfc:edit_config(Client,running,
 				  {server,[{xmlns,"myns"}],
 				   [{name,["myserver"]}]}),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
+edit_config_opt_params(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    ?NS:expect_reply({'edit-config',{'default-operation',"none"}},ok),
+    ?ok = ct_netconfc:edit_config(Client,running,
+				  {server,[{xmlns,"myns"}],
+				   [{name,["myserver"]}]},
+				  [{'default-operation',["none"]}]),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
