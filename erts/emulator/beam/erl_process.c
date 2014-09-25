@@ -148,6 +148,7 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
+int erts_eager_check_io = 0;
 int erts_sched_compact_load;
 int erts_sched_balance_util = 0;
 Uint erts_no_schedulers;
@@ -2381,29 +2382,47 @@ try_set_sys_scheduling(void)
 #endif
 
 static ERTS_INLINE int
-prepare_for_sys_schedule(ErtsSchedulerData *esdp)
+prepare_for_sys_schedule(ErtsSchedulerData *esdp, int non_blocking)
 {
+    if (non_blocking && erts_eager_check_io) {
 #ifdef ERTS_SMP
-    while (!erts_port_task_have_outstanding_io_tasks()
-	   && try_set_sys_scheduling()) {
 #ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-      if (esdp->no != 1) {
-	/* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
-	   then we make sure to wake scheduler 1 */
-	ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
-	clear_sys_scheduling();
-	wake_scheduler(rq);
-	return 0;
-      }
+	if (esdp->no != 1) {
+	    /* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
+	       then we make sure to wake scheduler 1 */
+	    ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
+	    wake_scheduler(rq);
+	    return 0;
+	}
 #endif
-      if (!erts_port_task_have_outstanding_io_tasks())
-	return 1;
-      clear_sys_scheduling();
-    }
-    return 0;
+	return try_set_sys_scheduling();
 #else
-    return !erts_port_task_have_outstanding_io_tasks();
+	return 1;
 #endif
+    }
+    else {
+#ifdef ERTS_SMP
+	while (!erts_port_task_have_outstanding_io_tasks()
+	       && try_set_sys_scheduling()) {
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+	    if (esdp->no != 1) {
+		/* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
+		   then we make sure to wake scheduler 1 */
+		ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
+		clear_sys_scheduling();
+		wake_scheduler(rq);
+		return 0;
+	    }
+#endif
+	    if (!erts_port_task_have_outstanding_io_tasks())
+		return 1;
+	    clear_sys_scheduling();
+	}
+	return 0;
+#else
+	return !erts_port_task_have_outstanding_io_tasks();
+#endif
+    }
 }
 
 #ifdef ERTS_SMP
@@ -2780,7 +2799,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
      * be waiting in erl_sys_schedule()
      */
 
-    if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule(esdp)) {
+    if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule(esdp, 0)) {
 
 	sched_waiting(esdp->no, rq);
 
@@ -2944,7 +2963,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
 		 */
-		if (!prepare_for_sys_schedule(esdp)) {
+		if (!prepare_for_sys_schedule(esdp, 0)) {
 		    spincount *= ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
 		    goto tse_wait;
 		}
@@ -2966,7 +2985,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * Got to check that we still got I/O tasks; otherwise
 	     * we have to wait in erl_sys_schedule() after all...
 	     */
-	    if (!prepare_for_sys_schedule(esdp)) {
+	    if (!prepare_for_sys_schedule(esdp, 0)) {
 		/*
 		 * Not allowed to wait in erl_sys_schedule;
 		 * do tse wait instead...
@@ -9200,15 +9219,13 @@ Process *schedule(Process *p, int calls)
 	}
 	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
 		 (fcalls > input_reductions &&
-		  prepare_for_sys_schedule(esdp))) {
+		  prepare_for_sys_schedule(esdp, !0))) {
 	    /*
 	     * Schedule system-level activities.
 	     */
 
 	    erts_smp_atomic32_set_relb(&function_calls, 0);
 	    fcalls = 0;
-
-	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
 
 #if 0 /* Not needed since we wont wait in sys schedule */
 	    erts_sys_schedule_interrupt(0);
@@ -9241,7 +9258,9 @@ Process *schedule(Process *p, int calls)
 	if (RUNQ_READ_LEN(&rq->ports.info.len)) {
 	    int have_outstanding_io;
 	    have_outstanding_io = erts_port_task_execute(rq, &esdp->current_port);
-	    if ((have_outstanding_io && fcalls > 2*input_reductions)
+	    if ((!erts_eager_check_io
+		 && have_outstanding_io
+		 && fcalls > 2*input_reductions)
 		|| rq->halt_in_progress) {
 		/*
 		 * If we have performed more than 2*INPUT_REDUCTIONS since

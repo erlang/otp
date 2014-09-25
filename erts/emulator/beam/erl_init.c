@@ -548,6 +548,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sct cput      set cpu topology,\n");
     erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
+    erts_fprintf(stderr, "-secio bool    enable/disable eager check I/O scheduling,\n");
+    erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
     erts_fprintf(stderr, "-sub bool      enable/disable scheduler utilization balancing,\n");
 #else
@@ -1671,6 +1673,19 @@ erl_start(int argc, char **argv)
 				 "bad cpu topology '%s': %s\n",
 				 arg,
 				 estr);
+		    erts_usage();
+		}
+	    }
+	    else if (has_prefix("ecio", sub_param)) {
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+		if (sys_strcmp("true", arg) == 0)
+		    erts_eager_check_io = 1;
+		else if (sys_strcmp("false", arg) == 0)
+		    erts_eager_check_io = 0;
+		else {
+		    erts_fprintf(stderr,
+				 "bad schedule eager check I/O value '%s'\n",
+				 arg);
 		    erts_usage();
 		}
 	    }

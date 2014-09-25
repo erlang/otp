@@ -1141,6 +1141,23 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_info_cpu_topology">erlang:system_info(cpu_topology)</seealso>.</p>
           </item>
+          <tag><marker id="+secio"><c>+secio true|false</c></marker></tag>
+          <item>
+	    <p>Enable or disable eager check I/O scheduling. The default
+	    is currently <c>false</c>, but will most likely be changed
+	    to <c>true</c> in OTP 18. The behaviour before this flag
+	    was introduced corresponds to <c>+secio false</c>.</p>
+	    <p>The flag effects when schedulers will check for I/O
+	    operations possible to execute, and when such I/O operations
+	    will execute. As the name of the parameter implies,
+	    schedulers will be more eager to check for I/O when
+	    <c>true</c> is passed. This however also implies that
+	    execution of outstanding I/O operation will not be
+	    prioritized to the same extent as when <c>false</c> is
+	    passed.</p>
+	    <p><seealso marker="erlang#system_info_eager_check_io"><c>erlang:system_info(eager_check_io)</c></seealso>
+	    returns the value of this parameter used when starting the VM.</p>
+          </item>
           <tag><marker id="+sfwi"><c>+sfwi Interval</c></marker></tag>
           <item>
             <p>Set scheduler forced wakeup interval. All run queues will

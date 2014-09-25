@@ -397,6 +397,7 @@ type	DRV_EV_STATE	LONG_LIVED	SYSTEM		driver_event_state
 type	DRV_EV_D_STATE	FIXED_SIZE	SYSTEM		driver_event_data_state
 type	DRV_SEL_D_STATE	FIXED_SIZE	SYSTEM		driver_select_data_state
 type	FD_LIST		SHORT_LIVED	SYSTEM		fd_list
+type	ACTIVE_FD_ARR	SHORT_LIVED	SYSTEM		active_fd_array
 type	POLLSET		LONG_LIVED	SYSTEM		pollset
 type	POLLSET_UPDREQ	SHORT_LIVED	SYSTEM		pollset_update_req
 type	POLL_FDS	LONG_LIVED	SYSTEM		poll_fds
