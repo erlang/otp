@@ -205,7 +205,7 @@ MBC after deallocating first block:
      ASSERT(((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
      (B)->bhdr = ((Sz) | (F)), \
      (B)->u.carrier = (C))
-      
+
 #  define IS_MBC_FIRST_ABLK(AP,B) \
   ((((UWord)(B) & ~ERTS_SACRR_UNIT_MASK) == MBC_HEADER_SIZE(AP)) \
    && ((B)->bhdr & MBC_ABLK_OFFSET_MASK) == 0)
@@ -378,9 +378,8 @@ do {										\
 
 #ifdef ERTS_SMP
 #define SBC_HEADER_SIZE	   						\
-    (UNIT_CEILING(sizeof(Carrier_t)					\
-		  - sizeof(ErtsAlcCPoolData_t)				\
-		  + ABLK_HDR_SZ)					\
+    (UNIT_CEILING(offsetof(Carrier_t, cpool)                            \
+	          + ABLK_HDR_SZ)	                                \
      - ABLK_HDR_SZ)
 #else
 #define SBC_HEADER_SIZE	   						\
@@ -929,6 +928,88 @@ unlink_carrier(CarrierList_t *cl, Carrier_t *crr)
 
 #ifdef ERTS_SMP
 
+#ifdef DEBUG
+static int is_in_list(ErtsDoubleLink_t* sentinel, ErtsDoubleLink_t* node)
+{
+    ErtsDoubleLink_t* p;
+
+    ASSERT(node != sentinel);
+    for (p = sentinel->next; p != sentinel; p = p->next) {
+	if (p == node)
+	    return 1;
+    }
+    return 0;
+}
+#endif /* DEBUG */
+
+static ERTS_INLINE void
+link_edl_after(ErtsDoubleLink_t* after_me, ErtsDoubleLink_t* node)
+{
+    ErtsDoubleLink_t* before_me = after_me->next;
+    ASSERT(node != after_me && node != before_me);
+    node->next = before_me;
+    node->prev = after_me;
+    before_me->prev = node;
+    after_me->next = node;
+}
+
+static ERTS_INLINE void
+link_edl_before(ErtsDoubleLink_t* before_me, ErtsDoubleLink_t* node)
+{
+    ErtsDoubleLink_t* after_me = before_me->prev;
+    ASSERT(node != before_me && node != after_me);
+    node->next = before_me;
+    node->prev = after_me;
+    before_me->prev = node;
+    after_me->next = node;
+}
+
+static ERTS_INLINE void
+unlink_edl(ErtsDoubleLink_t* node)
+{
+    node->next->prev = node->prev;
+    node->prev->next = node->next;
+}
+
+static ERTS_INLINE void
+relink_edl_before(ErtsDoubleLink_t* before_me, ErtsDoubleLink_t* node)
+{
+    if (node != before_me && node != before_me->prev) {
+	unlink_edl(node);
+	link_edl_before(before_me, node);
+    }
+}
+
+static ERTS_INLINE int is_abandoned(Carrier_t *crr)
+{
+    return crr->cpool.abandoned.next != NULL;
+}
+
+static ERTS_INLINE void
+link_abandoned_carrier(ErtsDoubleLink_t* list, Carrier_t *crr)
+{
+    ASSERT(!is_abandoned(crr));
+
+    link_edl_after(list, &crr->cpool.abandoned);
+
+    ASSERT(crr->cpool.abandoned.next != &crr->cpool.abandoned);
+    ASSERT(crr->cpool.abandoned.prev != &crr->cpool.abandoned);
+}
+
+static ERTS_INLINE void
+unlink_abandoned_carrier(Carrier_t *crr)
+{
+    ASSERT(is_in_list(&crr->cpool.orig_allctr->cpool.pooled_list,
+		      &crr->cpool.abandoned) ||
+	   is_in_list(&crr->cpool.orig_allctr->cpool.traitor_list,
+		      &crr->cpool.abandoned));
+
+    unlink_edl(&crr->cpool.abandoned);
+
+    crr->cpool.abandoned.next = NULL;
+    crr->cpool.abandoned.prev = NULL;
+}
+
 static ERTS_INLINE void
 clear_busy_pool_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
@@ -955,7 +1036,7 @@ clear_busy_pool_carrier(Allctr_t *allctr, Carrier_t *crr)
     }
 }
 
-#endif
+#endif /* ERTS_SMP */
 
 #if 0
 #define ERTS_DBG_CHK_FIX_LIST(A, FIX, IX, B)			\
@@ -2575,10 +2656,9 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 #ifdef ERTS_SMP
 
 #define ERTS_ALC_MAX_DEALLOC_CARRIER		10
-#define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	10
+#define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	20
+#define ERTS_ALC_CPOOL_MAX_TRAITOR_INSPECT	10
 #define ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT	100
-#define ERTS_ALC_CPOOL_MAX_NO_CARRIERS		5
-#define ERTS_ALC_CPOOL_INSERT_ALLOWED_OFFSET	100
 #define ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS	3
 
 #define ERTS_ALC_CPOOL_PTR_MOD_MRK		(((erts_aint_t) 1) << 0)
@@ -2916,19 +2996,184 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 static Carrier_t *
 cpool_fetch(Allctr_t *allctr, UWord size)
 {
-    int i;
+    int i, i_stop, has_passed_sentinel;
     Carrier_t *crr;
     ErtsAlcCPoolData_t *cpdp;
-    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    ErtsAlcCPoolData_t *cpool_entrance;
+    ErtsAlcCPoolData_t *sentinel;
+    ErtsDoubleLink_t* dl;
+    ErtsDoubleLink_t* first_old_traitor;
 
     ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
 			  || erts_thr_progress_is_managed_thread());
 
-    i = 0;
+    i = ERTS_ALC_CPOOL_MAX_FETCH_INSPECT;
+    first_old_traitor = allctr->cpool.traitor_list.next;
+    cpool_entrance = NULL;
 
-    /* First; check our own pending dealloc carrier list... */
+    /*
+     * Search my own pooled_list,
+     * i.e my abandoned carriers that were in the pool last time I checked.
+     */
+
+    dl = allctr->cpool.pooled_list.next;
+    while(dl != &allctr->cpool.pooled_list) {
+	erts_aint_t exp, act;
+	crr = (Carrier_t *) (((char *) dl) - offsetof(Carrier_t, cpool.abandoned));
+
+	ASSERT(!is_in_list(&allctr->cpool.traitor_list, dl));
+	ASSERT(crr->cpool.orig_allctr == allctr);
+	dl = dl->next;
+	exp = erts_smp_atomic_read_rb(&crr->allctr);
+	if ((exp & ERTS_CRR_ALCTR_FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL
+	    && erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
+	    /* Try to fetch it... */
+	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
+					     (erts_aint_t) allctr,
+					     exp);
+	    if (act == exp) {
+		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
+		unlink_abandoned_carrier(crr);
+
+		/* Move sentinel to continue next search from here */
+		relink_edl_before(dl, &allctr->cpool.pooled_list);
+		return crr;
+	    }
+	    exp = act;
+	}
+	if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
+	    if (!cpool_entrance)
+		cpool_entrance = &crr->cpool;
+	}
+	else { /* Not in pool, move to traitor_list */
+	    unlink_abandoned_carrier(crr);
+	    link_abandoned_carrier(&allctr->cpool.traitor_list, crr);
+	}
+	if (--i <= 0) {
+	    /* Move sentinel to continue next search from here */
+	    relink_edl_before(dl, &allctr->cpool.pooled_list);
+	    return NULL;
+	}
+    }
+
+    /* Now search traitor_list.
+     * i.e carriers employed by other allocators last time I checked.
+     * They might have been abandoned since then.
+     */
+
+    i_stop = (i < ERTS_ALC_CPOOL_MAX_TRAITOR_INSPECT ?
+	      0 : i - ERTS_ALC_CPOOL_MAX_TRAITOR_INSPECT);
+    dl = first_old_traitor;
+    while(dl != &allctr->cpool.traitor_list) {
+	erts_aint_t exp, act;
+	crr = (Carrier_t *) (((char *) dl) - offsetof(Carrier_t, cpool.abandoned));
+	ASSERT(dl != &allctr->cpool.pooled_list);
+	ASSERT(crr->cpool.orig_allctr == allctr);
+	dl = dl->next;
+	exp = erts_smp_atomic_read_rb(&crr->allctr);
+	if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
+	    if (!(exp & ERTS_CRR_ALCTR_FLG_BUSY)
+		&& erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
+		/* Try to fetch it... */
+		act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
+						 (erts_aint_t) allctr,
+						 exp);
+		if (act == exp) {
+		    cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
+		    unlink_abandoned_carrier(crr);
+
+		    /* Move sentinel to continue next search from here */
+		    relink_edl_before(dl, &allctr->cpool.traitor_list);
+		    return crr;
+		}
+		exp = act;
+	    }
+	    if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
+		if (!cpool_entrance)
+		    cpool_entrance = &crr->cpool;
+
+		/* Move to pooled_list */
+		unlink_abandoned_carrier(crr);
+		link_abandoned_carrier(&allctr->cpool.pooled_list, crr);
+	    }
+	}
+	if (--i <= i_stop) {
+	    /* Move sentinel to continue next search from here */
+	    relink_edl_before(dl, &allctr->cpool.traitor_list);
+	    if (i > 0)
+		break;
+	    else
+		return NULL;
+	}
+    }
+
+    /*
+     * Finally search the shared pool and try employ foreign carriers
+     */
+
+    sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    if (cpool_entrance) {
+	/* We saw a pooled carried above, use it as entrance into the pool
+	 */
+	cpdp = cpool_entrance;
+    }
+    else {
+	/* No pooled carried seen above. Start search at cpool sentinel,
+	 * but begin by passing one element before trying to fetch.
+	 * This in order to avoid contention with threads inserting elements.
+	 */
+	cpool_entrance = sentinel;
+	cpdp = cpool_aint2cpd(cpool_read(&cpool_entrance->prev));
+	if (cpdp == sentinel)
+	    return NULL;
+    }
+
+    has_passed_sentinel = 0;
+    while (1) {
+	erts_aint_t exp;
+	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
+	if (cpdp == cpool_entrance) {
+	    if (cpool_entrance == sentinel) {
+		cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
+		if (cpdp == sentinel)
+		    return NULL;
+	    }
+	    i = 0; /* Last one to inspect */
+	}
+	else if (cpdp == sentinel) {
+	    if (has_passed_sentinel) {
+		/* We been here before. cpool_entrance must have been removed */
+		return NULL;
+	    }
+	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
+	    if (cpdp == sentinel)
+		return NULL;
+	    has_passed_sentinel = 1;
+	}
+	crr = (Carrier_t *)(((char *)cpdp) - offsetof(Carrier_t, cpool));
+	exp = erts_smp_atomic_read_rb(&crr->allctr);
+	if (((exp & (ERTS_CRR_ALCTR_FLG_MASK)) == ERTS_CRR_ALCTR_FLG_IN_POOL)
+	    && (erts_atomic_read_nob(&cpdp->max_size) >= size)) {
+	    erts_aint_t act;
+	    /* Try to fetch it... */
+	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
+					     (erts_aint_t) allctr,
+					     exp);
+	    if (act == exp) {
+		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
+		if (crr->cpool.orig_allctr == allctr) {
+		    unlink_abandoned_carrier(crr);
+		}
+		return crr;
+	    }
+	}
+	if (--i <= 0)
+	    return NULL;
+    }
+
+    /* Last; check our own pending dealloc carrier list... */
     crr = allctr->cpool.dc_list.last;
-    while (crr && i < ERTS_ALC_CPOOL_MAX_FETCH_INSPECT) {
+    while (crr) {
 	if (erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
 	    unlink_carrier(&allctr->cpool.dc_list, crr);
 #ifdef ERTS_ALC_CPOOL_DEBUG
@@ -2941,47 +3186,10 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    return crr;
 	}
 	crr = crr->prev;
-	i++;
+	if (--i <= 0)
+	    return NULL;
     }
 
-    /* ... then the pool ... */
-
-    /*
-     * We search in 'prev' direction and begin by passing
-     * one element before trying to fetch. This in order to
-     * avoid contention with threads inserting elements.
-     */
-
-    cpdp = cpool_aint2cpd(cpool_read(&sentinel->prev));
-    if (cpdp == sentinel)
-	return NULL;
-
-    while (i < ERTS_ALC_CPOOL_MAX_FETCH_INSPECT) {
-	erts_aint_t exp;
-	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	if (cpdp == sentinel) {
-	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	    if (cpdp == sentinel)
-		return NULL;
-	    i = ERTS_ALC_CPOOL_MAX_FETCH_INSPECT; /* Last one to inspect */
-	}
-	crr = (Carrier_t *) (((char *) cpdp) - offsetof(Carrier_t, cpool));
-	exp = erts_smp_atomic_read_rb(&crr->allctr);
-	if (((exp & (ERTS_CRR_ALCTR_FLG_IN_POOL|ERTS_CRR_ALCTR_FLG_BUSY))
-	     == ERTS_CRR_ALCTR_FLG_IN_POOL)
-	    && (erts_atomic_read_nob(&cpdp->max_size) >= size)) {
-	    erts_aint_t act;
-	    /* Try to fetch it... */
-	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
-					     (erts_aint_t) allctr,
-					     exp);
-	    if (act == exp) {
-		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
-		return crr;
-	    }
-	}
-	i++;
-    }
     return NULL;
 }
 
@@ -3078,6 +3286,9 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	return;
     }
 
+    if (is_abandoned(crr))
+	unlink_abandoned_carrier(crr);
+
     if (crr->cpool.thr_prgr == ERTS_THR_PRGR_INVALID
 	|| erts_thr_progress_has_reached(crr->cpool.thr_prgr)) {
 	dealloc_carrier(allctr, crr, 1);
@@ -3124,6 +3335,8 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
 	    limit = (csz/100)*allctr->cpool.util_limit;
 	crr->cpool.abandon_limit = limit;
     }
+    crr->cpool.abandoned.next = NULL;
+    crr->cpool.abandoned.prev = NULL;
 }
 
 static void
@@ -3154,6 +3367,9 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
     STAT_MBC_CPOOL_INSERT(allctr, crr);
 
     unlink_carrier(&allctr->mbc_list, crr);
+    if (crr->cpool.orig_allctr == allctr) {
+	link_abandoned_carrier(&allctr->cpool.pooled_list, crr);
+    }
 
     allctr->remove_mbc(allctr, crr);
 
@@ -5540,6 +5756,10 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	    allctr->min_block_size = sz;
     }
 
+    allctr->cpool.pooled_list.next  = &allctr->cpool.pooled_list;
+    allctr->cpool.pooled_list.prev  = &allctr->cpool.pooled_list;
+    allctr->cpool.traitor_list.next = &allctr->cpool.traitor_list;
+    allctr->cpool.traitor_list.prev = &allctr->cpool.traitor_list;
     allctr->cpool.dc_list.first = NULL;
     allctr->cpool.dc_list.last = NULL;
     allctr->cpool.abandon_limit = 0;
