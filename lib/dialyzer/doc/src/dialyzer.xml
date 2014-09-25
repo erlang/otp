@@ -238,7 +238,10 @@
       <item>Include warnings for functions that only return by means of an
        exception.</item>
       <tag><c><![CDATA[-Wrace_conditions]]></c>***</tag>
-      <item>Include warnings for possible race conditions.</item>
+      <item>Include warnings for possible race conditions. Note that the
+      analysis that finds data races performs intra-procedural data flow analysis
+      and can sometimes explode in time. Enable it at your own risk.
+      </item>
       <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
