@@ -20,7 +20,7 @@
 -module(http_util).
 
 -export([
-	 to_upper/1, to_lower/1, 
+	 to_upper/1, to_lower/1, to_titlecase/1,
 	 convert_netscapecookie_date/1,
 	 hexlist_to_integer/1, integer_to_hexlist/1, 
 	 convert_month/1, 
@@ -38,6 +38,12 @@ to_upper(Str) ->
 
 to_lower(Str) ->
     string:to_lower(Str).
+
+to_titlecase(Str) ->
+    F = fun([H|Rest]) ->
+                [string:to_upper(H) | string:to_lower(Rest)]
+        end,
+    string:join(lists:map(F, string:tokens(Str, "-")), "-").
 
 %% Example: Mon, 09-Dec-2002 13:46:00 GMT
 convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
