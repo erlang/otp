@@ -3275,7 +3275,7 @@ is_literal_record(Tree) ->
   lists:member(record, Ann).
 
 family(L) ->
-    sofs:to_external(sofs:rel2fam(sofs:relation(L))).
+  dialyzer_utils:family(L).
 
 %% ============================================================================
 %%

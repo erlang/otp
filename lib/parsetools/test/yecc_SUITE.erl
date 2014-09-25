@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -340,8 +340,8 @@ syntax(Config) when is_list(Config) ->
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 28 + SzYeccPre,
-            ?line L2 = 35 + SzYeccPre
+            ?line L1 = 31 + SzYeccPre,
+            ?line L2 = 38 + SzYeccPre
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -358,8 +358,8 @@ syntax(Config) when is_list(Config) ->
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 28 + SzYeccPre,
-            ?line L2 = 35 + SzYeccPre
+            ?line L1 = 31 + SzYeccPre,
+            ?line L2 = 38 + SzYeccPre
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1619,8 +1619,8 @@ otp_7292(Config) when is_list(Config) ->
                         {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 38 + SzYeccPre,
-            ?line L2 = 45 + SzYeccPre
+            L1 = 41 + SzYeccPre,
+            L2 = 48 + SzYeccPre
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1637,8 +1637,8 @@ otp_7292(Config) when is_list(Config) ->
                         {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 37 + SzYeccPre,
-            ?line L2 = 44 + SzYeccPre
+            ?line L1 = 40 + SzYeccPre,
+            ?line L2 = 47 + SzYeccPre
     end(),
 
     file:delete(YeccPre),

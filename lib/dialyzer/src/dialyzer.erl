@@ -282,15 +282,17 @@ cl_check_log(none) ->
 cl_check_log(Output) ->
   io:format("  Check output file `~s' for details\n", [Output]).
 
--spec format_warning(dial_warning()) -> string().
+-spec format_warning(raw_warning()) -> string().
 
 format_warning(W) ->
   format_warning(W, basename).
 
--spec format_warning(dial_warning(), fopt()) -> string().
+-spec format_warning(raw_warning() | dial_warning(), fopt()) -> string().
 
+format_warning({Tag, {File, Line, _MFA}, Msg}, FOpt) ->
+  format_warning({Tag, {File, Line}, Msg}, FOpt);
 format_warning({_Tag, {File, Line}, Msg}, FOpt) when is_list(File),
-						     is_integer(Line) ->
+                                                     is_integer(Line) ->
   F = case FOpt of
 	fullpath -> File;
 	basename -> filename:basename(File)

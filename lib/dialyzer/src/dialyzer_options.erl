@@ -28,7 +28,7 @@
 
 -module(dialyzer_options).
 
--export([build/1]).
+-export([build/1, build_warnings/2]).
 
 -include("dialyzer.hrl").
 
@@ -270,7 +270,7 @@ assert_solvers([v2|Terms]) ->
 assert_solvers([Term|_]) ->
   bad_option("Illegal value for solver", Term).
 
--spec build_warnings([atom()], [dial_warning()]) -> [dial_warning()].
+-spec build_warnings([atom()], dial_warn_tags()) -> dial_warn_tags().
 
 build_warnings([Opt|Opts], Warnings) ->
   NewWarnings =
