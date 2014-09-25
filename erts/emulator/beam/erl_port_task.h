@@ -156,7 +156,7 @@ erts_port_task_handle_init(ErtsPortTaskHandle *pthp)
 ERTS_GLB_INLINE int
 erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp)
 {
-    return ((void *) erts_smp_atomic_read_nob(pthp)) != NULL;
+    return ((void *) erts_smp_atomic_read_acqb(pthp)) != NULL;
 }
 
 ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,

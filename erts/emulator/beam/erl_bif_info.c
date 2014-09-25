@@ -2696,6 +2696,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		? am_disabled
 		: am_enabled);
     }
+    else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
+	BIF_RET(erts_eager_check_io ? am_true : am_false);
+    }
 
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -3304,17 +3307,38 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    BIF_RET(make_small((Uint) words));
 	}
 	else if (ERTS_IS_ATOM_STR("check_io_debug", BIF_ARG_1)) {
-	    /* Used by (emulator) */
-	    int res;
+	    /* Used by driver_SUITE (emulator) */
+	    Uint sz, *szp;
+	    Eterm res, *hp, **hpp;
+	    int no_errors;
+	    ErtsCheckIoDebugInfo ciodi = {0};
 #ifdef HAVE_ERTS_CHECK_IO_DEBUG
 	    erts_smp_proc_unlock(BIF_P,ERTS_PROC_LOCK_MAIN);
-	    res = erts_check_io_debug();
+	    no_errors = erts_check_io_debug(&ciodi);
 	    erts_smp_proc_lock(BIF_P,ERTS_PROC_LOCK_MAIN);
 #else
-	    res = 0;
+	    no_errors = 0;
 #endif
-	    ASSERT(res >= 0);
-	    BIF_RET(erts_make_integer((Uint) res, BIF_P));
+	    sz = 0;
+	    szp = &sz;
+	    hpp = NULL;
+	    while (1) {
+		res = erts_bld_tuple(hpp, szp, 4,
+				     erts_bld_uint(hpp, szp,
+						   (Uint) no_errors),
+				     erts_bld_uint(hpp, szp,
+						   (Uint) ciodi.no_used_fds),
+				     erts_bld_uint(hpp, szp,
+						   (Uint) ciodi.no_driver_select_structs),
+				     erts_bld_uint(hpp, szp,
+						   (Uint) ciodi.no_driver_event_structs));
+		if (hpp)
+		    break;
+		hp = HAlloc(BIF_P, sz);
+		szp = NULL;
+		hpp = &hp;
+	    }
+	    BIF_RET(res);
 	}
 	else if (ERTS_IS_ATOM_STR("process_info_args", BIF_ARG_1)) {
 	    /* Used by process_SUITE (emulator) */

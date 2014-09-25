@@ -284,7 +284,7 @@ struct {
     void (*check_io)(int);
     Uint (*size)(void);
     Eterm (*info)(void *);
-    int (*check_io_debug)(void);
+    int (*check_io_debug)(ErtsCheckIoDebugInfo *);
 } io_func = {0};
 
 
@@ -306,9 +306,9 @@ Eterm erts_check_io_info(void *p)
 }
 
 int
-erts_check_io_debug(void)
+erts_check_io_debug(ErtsCheckIoDebugInfo *ip)
 {
-    return (*io_func.check_io_debug)();
+    return (*io_func.check_io_debug)(ip);
 }
 
 

@@ -32,6 +32,7 @@
 #include "global.h"
 #include "erl_port_task.h"
 #include "dist.h"
+#include "erl_check_io.h"
 #include "dtrace-wrapper.h"
 #include <stdarg.h>
 
@@ -545,6 +546,16 @@ reset_handle(ErtsPortTask *ptp)
 {
     if (ptp->u.alive.handle) {
 	ASSERT(ptp == handle2task(ptp->u.alive.handle));
+	reset_port_task_handle(ptp->u.alive.handle);
+    }
+}
+
+static ERTS_INLINE void
+reset_executed_io_task_handle(ErtsPortTask *ptp)
+{
+    if (ptp->u.alive.handle) {
+	ASSERT(ptp == handle2task(ptp->u.alive.handle));
+	erts_io_notify_port_task_executed(ptp->u.alive.handle);
 	reset_port_task_handle(ptp->u.alive.handle);
     }
 }
@@ -1396,10 +1407,7 @@ erts_port_task_schedule(Eterm id,
     erts_aint32_t act, add_flags;
     unsigned int prof_runnable_ports;
 
-    if (pthp && erts_port_task_is_scheduled(pthp)) {
-	ASSERT(0);
-	erts_port_task_abort(pthp);
-    }
+    ERTS_LC_ASSERT(!pthp || !erts_port_task_is_scheduled(pthp));
 
     ASSERT(is_internal_port(id));
 
@@ -1699,8 +1707,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    goto aborted_port_task;
 	}
 
-	reset_handle(ptp);
-
 	if (erts_system_monitor_long_schedule != 0) {
 	    start_time = erts_timestamp_millis();
 	}
@@ -1711,6 +1717,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
 	switch (ptp->type) {
 	case ERTS_PORT_TASK_TIMEOUT:
+	    reset_handle(ptp);
 	    reds = ERTS_PORT_REDS_TIMEOUT;
 	    if (!(state & ERTS_PORT_SFLGS_DEAD)) {
                 DTRACE_DRIVER(driver_timeout, pp);
@@ -1725,6 +1732,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	       for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
 					ptp->u.alive.td.io.event);
+	    reset_executed_io_task_handle(ptp);
 	    io_tasks_executed++;
 	    break;
 	case ERTS_PORT_TASK_OUTPUT:
@@ -1733,6 +1741,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
             DTRACE_DRIVER(driver_ready_output, pp);
 	    (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data,
 					 ptp->u.alive.td.io.event);
+	    reset_executed_io_task_handle(ptp);
 	    io_tasks_executed++;
 	    break;
 	case ERTS_PORT_TASK_EVENT:
@@ -1742,10 +1751,12 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
 				  ptp->u.alive.td.io.event,
 				  ptp->u.alive.td.io.event_data);
+	    reset_executed_io_task_handle(ptp);
 	    io_tasks_executed++;
 	    break;
 	case ERTS_PORT_TASK_PROC_SIG: {
 	    ErtsProc2PortSigData *sigdp = &ptp->u.alive.td.psig.data;
+	    reset_handle(ptp);
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
 	    if (!pp->sched.taskq.bpq)
 		reds = ptp->u.alive.td.psig.callback(pp,
@@ -1763,6 +1774,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    break;
 	}
 	case ERTS_PORT_TASK_DIST_CMD:
+	    reset_handle(ptp);
 	    reds = erts_dist_command(pp, CONTEXT_REDS - pp->reds);
 	    break;
 	default:
