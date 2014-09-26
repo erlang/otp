@@ -107,6 +107,7 @@ MODULES= \
 	testX420 \
 	test_x691 \
 	testWSParamClass \
+	testValueTest \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \

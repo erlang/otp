@@ -1,0 +1,61 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2014. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+%%
+%%
+-module(testValueTest).
+
+-export([main/0]).
+
+main() ->
+    M = 'ValueTest',
+
+    %% Basic types
+    12 = M:'vANY'(),
+    true = M:'vBOOLEAN'(),
+    12 = M:'vINTEGER'(),
+    0 = M:'vINTEGERNNL'(),
+    button1 = M:'vENUMERATED'(),
+    [zero,two] = M:'vBS'(),
+    'NULL' = M:'vNULL'(),
+    <<16#31,16#32,16#33>> = M:'vOS'(),
+    {2,1,1} = M:'vOD'(),
+
+    %% Character strings
+    "01234567" = M:'numericstring'(),
+    "PrintableString" = M:'printablestring'(),
+    "VisibleString" = M:'visiblestring'(),
+    [0,13] = M:'cr'(),
+    ["First line",[0,13],"Second line"] = M:'ia5string1'(),
+    [[5,5],[4,4],[6,6]] = M:'ia5string2'(),
+    "TeletexString" = M:'teletexstring'(),
+    "VideotexString" = M:'videotexstring'(),
+    "97100211-0500" = M:'utctime'(),
+    "19971002103130.5" = M:'generalizedtime'(),
+    "ObjectDescriptor" = M:'objectdescriptor'(),
+    "GraphicString" = M:'graphicstring'(),
+    "GeneralString" = M:'generalstring'(),
+    "BMPString" = M:'bmpstring1'(),
+    [0,0,0,65] = M:'latinCapitalLetterA'(),
+    [0,0,3,145] = M:'greekCapitalLetterSigma'(),
+    ["This is a capital A: ",
+     [0,0,0,65],
+     ", and a capital sigma: ",
+     [0,0,3,145],
+     "; try and spot the difference!"] = M:'my-universalstring'(),
+
+    ok.

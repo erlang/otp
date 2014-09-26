@@ -167,7 +167,8 @@ groups() ->
        testDoubleEllipses,
        test_x691,
        ticket_6143,
-       test_OTP_9688]},
+       test_OTP_9688,
+       testValueTest]},
 
      {performance, [],
       [testTimer_ber,
@@ -842,6 +843,11 @@ testTypeValueNotation(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["SeqTypeRefPrim", "ValueTest"], Config,
                               [Rule|Opts]),
     testTypeValueNotation:main(Rule, Opts).
+
+testValueTest(Config) -> test(Config, fun testValueTest/3).
+testValueTest(Config, Rule, Opts) ->
+    asn1_test_lib:compile("ValueTest", Config, [Rule|Opts]),
+    testValueTest:main().
 
 testOpenTypeImplicitTag(Config) ->
     test(Config, fun testOpenTypeImplicitTag/3).
