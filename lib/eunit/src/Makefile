@@ -80,7 +80,7 @@ all: $(OBJECTS)
 
 
 clean:
-	rm -f $(OBJECTS)
+	rm -f $(OBJECTS) $(PARSE_TRANSFORM_BIN)
 	rm -f core *~
 
 distclean: clean
