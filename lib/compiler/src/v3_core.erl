@@ -647,8 +647,8 @@ expr({'fun',L,{clauses,Cs},Id}, St) ->
     fun_tq(Id, Cs, L, St, unnamed);
 expr({named_fun,L,'_',Cs,Id}, St) ->
     fun_tq(Id, Cs, L, St, unnamed);
-expr({named_fun,L,Name,Cs,{Index,Uniq,_Fname}}, St) ->
-    fun_tq({Index,Uniq,Name}, Cs, L, St, {named, Name});
+expr({named_fun,L,Name,Cs,Id}, St) ->
+    fun_tq(Id, Cs, L, St, {named,Name});
 expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
     Lanno = lineno_anno(L, St1),
