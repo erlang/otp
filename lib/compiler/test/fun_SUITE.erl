@@ -21,10 +21,10 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
-	 external/1,eep37/1,badarity/1]).
+         external/1,eep37/1,eep37_dup/1,badarity/1]).
 
-%% Internal export.
--export([call_me/1]).
+%% Internal exports.
+-export([call_me/1,dup1/0,dup2/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -32,7 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,badarity].
+    [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,eep37_dup,badarity].
 
 groups() -> 
     [].
@@ -205,6 +205,17 @@ eep37(Config) when is_list(Config) ->
     10 = Add(9),
     50 = UnusedName(8),
     ok.
+
+eep37_dup(Config) when is_list(Config) ->
+    dup1 = (dup1())(),
+    dup2 = (dup2())(),
+    ok.
+
+dup1() ->
+    fun _F() -> dup1 end.
+
+dup2() ->
+    fun _F() -> dup2 end.
 
 badarity(Config) when is_list(Config) ->
     {'EXIT',{{badarity,{_,[]}},_}} = (catch (fun badarity/1)()),
