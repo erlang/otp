@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -82,16 +82,21 @@ format_version({Major,Minor}) ->
 	integer_to_list(Minor) ++ "-Erlang".
 
 handle_hello_version(Version) ->
-    StrVersion = trim_tail(Version),
-    case string:tokens(Version, "-") of
-	[_, "2.0" | _] ->
-	    {{2,0}, StrVersion}; 
-	[_, "1.99" | _] ->
-	    {{2,0}, StrVersion}; 
-	[_, "1.3" | _] ->
-	    {{1,3}, StrVersion}; 
-	[_, "1.5" | _] ->
-	    {{1,5}, StrVersion}
+    try
+	StrVersion = trim_tail(Version),
+	case string:tokens(Version, "-") of
+	    [_, "2.0" | _] ->
+		{{2,0}, StrVersion};
+	    [_, "1.99" | _] ->
+		{{2,0}, StrVersion};
+	    [_, "1.3" | _] ->
+		{{1,3}, StrVersion};
+	    [_, "1.5" | _] ->
+		{{1,5}, StrVersion}
+	end
+    catch
+	error:_ ->
+	    {undefined, "unknown version"}
     end.
 
 key_exchange_init_msg(Ssh0) ->
