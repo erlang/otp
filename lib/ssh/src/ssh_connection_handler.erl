@@ -103,12 +103,22 @@ start_connection(client = Role, Socket, Options, Timeout) ->
     end;
 
 start_connection(server = Role, Socket, Options, Timeout) ->
+    SSH_Opts = proplists:get_value(ssh_opts, Options, []),
     try
-	case proplists:get_value(parallel_login, Options, false) of
+	case proplists:get_value(parallel_login, SSH_Opts, false) of
 	    true ->
-		spawn(fun() -> start_server_connection(Role, Socket, Options, Timeout) end);
+		HandshakerPid = 
+		    spawn_link(fun() -> 
+				       receive
+					   {do_handshake, Pid} ->
+					       handshake(Pid, erlang:monitor(process,Pid), Timeout)
+				       end
+			       end),
+		ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
+		HandshakerPid ! {do_handshake, ChildPid};
 	    false ->
-		start_server_connection(Role, Socket, Options, Timeout)
+		ChildPid = start_the_connection_child(self(), Role, Socket, Options),
+		handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
 	end
     catch
 	exit:{noproc, _} ->
@@ -117,16 +127,14 @@ start_connection(server = Role, Socket, Options, Timeout) ->
 	    {error, Error}
     end.
 
-
-start_server_connection(server = Role, Socket, Options, Timeout) ->
+start_the_connection_child(UserPid, Role, Socket, Options) ->
     Sups = proplists:get_value(supervisors, Options),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
-    Opts = [{supervisors, Sups}, {user_pid, self()} | proplists:get_value(ssh_opts, Options, [])],
+    Opts = [{supervisors, Sups}, {user_pid, UserPid} | proplists:get_value(ssh_opts, Options, [])],
     {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Opts]),
     {_, Callback, _} =  proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
     socket_control(Socket, Pid, Callback),
-    Ref = erlang:monitor(process, Pid),
-    handshake(Pid, Ref, Timeout).
+    Pid.
 
 
 start_link(Role, Socket, Options) ->
