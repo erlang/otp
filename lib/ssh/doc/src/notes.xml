@@ -29,6 +29,56 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully handle bad data from the client when expecting
+	    ssh version exchange.</p>
+          <p>
+	    Own Id: OTP-12157 Aux Id: seq12706 </p>
+        </item>
+        <item>
+          <p>
+	    When restarting an ssh daemon, that was stopped with
+	    ssh:stop_listner/ [1,2] new options given shall replace
+	    old ones.</p>
+          <p>
+	    Own Id: OTP-12168 Aux Id: seq12711 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ssh now has a format_status function to avoid printing
+	    sensitive information in error loggs.</p>
+          <p>
+	    Own Id: OTP-12030</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The option <c>parallel_login</c> didn't work with the
+	    value <c>true</c>. All logins were serial.</p>
+          <p>
+	    Own Id: OTP-12194</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
