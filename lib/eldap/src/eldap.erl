@@ -12,6 +12,7 @@
 -vc('$Id$ ').
 -export([open/1,open/2,simple_bind/3,controlling_process/2,
 	 start_tls/2, start_tls/3,
+	 getopts/2,
 	 baseObject/0,singleLevel/0,wholeSubtree/0,close/1,
 	 equalityMatch/2,greaterOrEqual/2,lessOrEqual/2,
 	 approxMatch/2,search/2,substrings/2,present/1,
@@ -89,6 +90,15 @@ start_tls(Handle, TlsOptions) ->
 
 start_tls(Handle, TlsOptions, Timeout) ->
     send(Handle, {start_tls,TlsOptions,Timeout}),
+    recv(Handle).
+
+%%% --------------------------------------------------------------------
+%%% Ask for option values on the socket.
+%%% Warning: This is an undocumented function for testing purposes only.
+%%%          Use at own risk...
+%%% --------------------------------------------------------------------
+getopts(Handle, OptNames) when is_pid(Handle), is_list(OptNames) ->
+    send(Handle, {getopts, OptNames}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -374,24 +384,35 @@ parse_args([{sslopts, Opts}|T], Cpid, Data) when is_list(Opts) ->
 parse_args([{sslopts, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
 parse_args([{tcpopts, Opts}|T], Cpid, Data) when is_list(Opts) ->
-    parse_args(T, Cpid, Data#eldap{tcp_opts = inet6_opt(Opts) ++ Data#eldap.tcp_opts});
+    parse_args(T, Cpid, Data#eldap{tcp_opts = tcp_opts(Opts,Cpid,Data#eldap.tcp_opts)});
 parse_args([{log, F}|T], Cpid, Data) when is_function(F) ->
     parse_args(T, Cpid, Data#eldap{log = F});
 parse_args([{log, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
 parse_args([H|_], Cpid, _) ->
     send(Cpid, {error,{wrong_option,H}}),
+    unlink(Cpid),
     exit(wrong_option);
 parse_args([], _, Data) ->
     Data.
 
-inet6_opt(Opts) ->
-    case proplists:get_value(inet6, Opts) of
+tcp_opts([Opt|Opts], Cpid, Acc) -> 
+    Key = if is_atom(Opt) -> Opt;
+	     is_tuple(Opt) -> element(1,Opt)
+	  end,
+    case lists:member(Key,[active,binary,deliver,list,mode,packet]) of
+	false ->
+	    tcp_opts(Opts, Cpid, [Opt|Acc]);
 	true ->
-	    [inet6];
-	_ ->
-	    []
-    end.
+	    tcp_opts_error(Opt, Cpid)
+    end;
+tcp_opts([], _Cpid, Acc) -> Acc.
+    
+tcp_opts_error(Opt, Cpid) ->
+    send(Cpid, {error, {{forbidden_tcp_option,Opt}, 
+			"This option affects the eldap functionality and can't be set by user"}}),
+    unlink(Cpid),
+    exit(forbidden_tcp_option).
 
 %%% Try to connect to the hosts in the listed order,
 %%% and stop with the first one to which a successful
@@ -465,6 +486,36 @@ loop(Cpid, Data) ->
 	{_From, close} ->
 	    unlink(Cpid),
 	    exit(closed);
+
+	{From, {getopts, OptNames}} ->
+	    Result = 
+		try
+		    [case OptName of
+			 port ->    {port,    Data#eldap.port};
+			 log ->     {log,     Data#eldap.log};
+			 timeout -> {timeout, Data#eldap.timeout};
+			 ssl ->     {ssl,     Data#eldap.ldaps};
+			 {sslopts, SslOptNames} when Data#eldap.using_tls==true -> 
+			     case ssl:getopts(Data#eldap.fd, SslOptNames) of
+				 {ok,SslOptVals} -> {sslopts, SslOptVals};
+				 {error,Reason} -> throw({error,Reason})
+			     end;
+			 {sslopts, _} ->
+			     throw({error,no_tls});
+			 {tcpopts, TcpOptNames} -> 
+			     case inet:getopts(Data#eldap.fd, TcpOptNames) of
+				 {ok,TcpOptVals} -> {tcpopts, TcpOptVals};
+				 {error,Posix} -> throw({error,Posix})
+			     end
+		     end || OptName <- OptNames]
+		of
+		    OptsList -> {ok,OptsList}
+		catch
+		    throw:Error -> Error;
+		    Class:Error -> {error,{Class,Error}}
+		end,
+	    send(From, Result),
+	    ?MODULE:loop(Cpid, Data);
 
 	{Cpid, 'EXIT', Reason} ->
 	    ?PRINT("Got EXIT from Cpid, reason=~p~n",[Reason]),

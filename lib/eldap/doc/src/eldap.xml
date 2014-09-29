@@ -75,7 +75,9 @@ filter()    See present/1, substrings/2,
         <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order.</p>
 	<p>The log function takes three arguments, <c>fun(Level, FormatString, [FormatArg]) end</c>.</p>
 	<p>Timeout set the maximum time in milliseconds that each server request may take.</p>
-        <p>Currently, the only TCP socket option accepted is <c>inet6</c>. Default is <c>inet</c>.</p>
+	<p>All TCP socket options are accepted except 
+	  <c>active</c>, <c>binary</c>, <c>deliver</c>, <c>list</c>, <c>mode</c> and <c>packet</c>
+	</p>
       </desc>
     </func>
     <func>
