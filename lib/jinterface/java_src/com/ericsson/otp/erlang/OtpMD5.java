@@ -144,7 +144,7 @@ class OtpMD5 {
 
     }
 
-    private void dumpstate() {
+    protected void dumpstate() {
 	System.out.println("state = {" + state[0] + ", " + state[1] + ", "
 		+ state[2] + ", " + state[3] + "}");
 	System.out.println("count = {" + count[0] + ", " + count[1] + "}");

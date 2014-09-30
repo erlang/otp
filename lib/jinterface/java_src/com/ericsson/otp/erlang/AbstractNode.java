@@ -67,7 +67,8 @@ import java.net.UnknownHostException;
 public class AbstractNode {
     static String localHost = null;
     String node;
-    String host;
+    String hostName;
+    String hostAddr;
     String alive;
     String cookie;
     static String defaultCookie = null;
@@ -148,29 +149,41 @@ public class AbstractNode {
      * Create a node with the given name and the default cookie.
      */
     protected AbstractNode(final String node) {
-	this(node, defaultCookie);
+	this(node, defaultCookie, null);
     }
 
     /**
      * Create a node with the given name and cookie.
      */
     protected AbstractNode(final String name, final String cookie) {
+    	this(name, cookie, null);
+    }
+
+    /**
+     * Create a node with the given name, cookie and address.
+     */
+    protected AbstractNode(final String name, final String cookie, final String addr) {
 	this.cookie = cookie;
 
 	final int i = name.indexOf('@', 0);
 	if (i < 0) {
 	    alive = name;
-	    host = localHost;
+	    hostName = localHost;
+	    hostAddr = "127.0.0.1";
 	} else {
 	    alive = name.substring(0, i);
-	    host = name.substring(i + 1, name.length());
+	    hostName = name.substring(i + 1, name.length());
+	    if (addr!=null)
+	    	hostAddr = addr;
+	    else
+	    	hostAddr = hostName;
 	}
 
 	if (alive.length() > 0xff) {
 	    alive = alive.substring(0, 0xff);
 	}
 
-	node = alive + "@" + host;
+	node = alive + "@" + hostName;
     }
 
     /**
@@ -189,8 +202,11 @@ public class AbstractNode {
      * 
      * @return the hostname component of the nodename.
      */
-    public String host() {
-	return host;
+    public String hostName() {
+	return hostName;
+    }
+    public String hostAddr() {
+	return hostAddr;
     }
 
     /**
