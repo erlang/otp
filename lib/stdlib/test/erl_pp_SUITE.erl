@@ -617,6 +617,7 @@ misc_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-record(a, {b,c}). ">>),
     ok = pp_forms(<<"-record(' a ', {}). ">>),
     ok = pp_forms(<<"-record(' a ', {foo = foo:bar()}). ">>),
+    ok = pp_forms(<<"-custom1(#{test1 => init/2, test2 => [val/1, val/2]}). ">>),
     ok.
 
 dialyzer_attrs(suite) ->
