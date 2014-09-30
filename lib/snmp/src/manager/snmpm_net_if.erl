@@ -319,7 +319,7 @@ socket_open(IpPort, SocketOpts) ->
 	    Socket
     end.
 
-socket_params(Domain, {IpAddr, IpPort}, BindTo, CommonSocketOpts) ->
+socket_params(Domain, {IpAddr, IpPort} = Addr, BindTo, CommonSocketOpts) ->
     Family = snmp_conf:tdomain_to_family(Domain),
     SocketOpts =
 	case Family of
@@ -340,15 +340,18 @@ socket_params(Domain, {IpAddr, IpPort}, BindTo, CommonSocketOpts) ->
 			    {0, [{fd, Fd} | SocketOpts]}
 		    end;
 		error ->
-		    {IpPort, [{ip, IpAddr} | SocketOpts]}
+		    socket_params(SocketOpts, Addr, BindTo)
 	    end;
 	_ ->
-	    case BindTo of
-		true ->
-		    {IpPort, [{ip, IpAddr} | SocketOpts]};
-		_ ->
-		    {IpPort, SocketOpts}
-	    end
+	    socket_params(SocketOpts, Addr, BindTo)
+    end.
+%%
+socket_params(SocketOpts, {IpAddr, IpPort}, BindTo) ->
+    case BindTo of
+	true ->
+	    {IpPort, [{ip, IpAddr} | SocketOpts]};
+	_ ->
+	    {IpPort, SocketOpts}
     end.
 
 common_socket_opts(Opts) ->
