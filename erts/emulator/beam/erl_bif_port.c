@@ -493,8 +493,8 @@ void
 erts_cleanup_port_data(Port *prt)
 {
     ASSERT(erts_atomic32_read_nob(&prt->state) & ERTS_PORT_SFLGS_INVALID_LOOKUP);
-    cleanup_old_port_data(erts_smp_atomic_read_nob(&prt->data));
-    erts_smp_atomic_set_nob(&prt->data, (erts_aint_t) THE_NON_VALUE);
+    cleanup_old_port_data(erts_smp_atomic_xchg_nob(&prt->data,
+						   (erts_aint_t) NULL));
 }
 
 Uint
@@ -562,8 +562,14 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 
     data = erts_smp_atomic_xchg_wb(&prt->data, data);
 
+    if (data == (erts_aint_t)NULL) {
+	/* Port terminated by racing thread */
+	data = erts_smp_atomic_xchg_wb(&prt->data, data);
+	ASSERT(data != (erts_aint_t)NULL);
+	cleanup_old_port_data(data);
+	BIF_ERROR(BIF_P, BADARG);
+    }
     cleanup_old_port_data(data);
-
     BIF_RET(am_true);
 }
 
@@ -582,6 +588,8 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
         BIF_ERROR(BIF_P, BADARG);
 
     data = erts_smp_atomic_read_ddrb(&prt->data);
+    if (data == (erts_aint_t)NULL)
+        BIF_ERROR(BIF_P, BADARG);  /* Port terminated by racing thread */
 
     if ((data & 0x3) != 0) {
 	res = (Eterm) (UWord) data;
