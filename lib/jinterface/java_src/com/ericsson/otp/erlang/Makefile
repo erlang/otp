@@ -32,6 +32,15 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/lib/jinterface/vsn.mk
 VSN=$(JINTERFACE_VSN)
 
+#
+
+EBINDIR=$(ERL_TOP)/lib/jinterface/ebin
+
+APP_FILE= jinterface.app
+
+APP_SRC= $(APP_FILE).src
+APP_TARGET= $(EBINDIR)/$(APP_FILE)
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -45,7 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/jinterface-$(VSN)
 # all java sourcefiles listed in common include file
 include $(ERL_TOP)/lib/jinterface/java_src/$(JAVA_CLASS_SUBDIR)/java_files
 
-TARGET_FILES= $(JAVA_FILES:%=$(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR)%.class)
+TARGET_FILES= $(JAVA_FILES:%=$(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR)%.class) $(APP_TARGET)
 JAVA_SRC= $(JAVA_FILES:%=%.java)
 
 JARFILE= OtpErlang.jar
@@ -79,6 +88,9 @@ endif
 # Make Rules
 # ----------------------------------------------------
 
+$(APP_TARGET): $(APP_SRC) $(ERL_TOP)/lib/jinterface/vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(JINTERFACE_VSN);' $< > $@
+
 debug opt: make_dirs $(JAVA_DEST_ROOT)$(JARFILE)
 
 make_dirs:
@@ -106,6 +118,8 @@ release_spec: opt
 	$(V_at)$(INSTALL_DATA) $(JAVA_SRC) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
 	$(V_at)$(INSTALL_DIR) "$(RELSYSDIR)/priv"
 	$(V_at)$(INSTALL_DATA) $(JAVA_DEST_ROOT)$(JARFILE) "$(RELSYSDIR)/priv"
+	$(V_at)$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(V_at)$(INSTALL_DATA) $(APP_TARGET) "$(RELSYSDIR)/ebin/$(APP_FILE)"
 
 release_docs_spec:
 

@@ -113,7 +113,7 @@ stop(Pid) ->
 init({connect, Host, Port, SocketType, SocketOptions, Parent, Key, NewKey}) ->
     process_flag(trap_exit, true), 
     case catch orber_socket:connect(SocketType, Host, Port, 
-				    get_ip_family_opts(Host) ++ SocketOptions) of
+				    orber_socket:get_ip_family_opts(Host) ++ SocketOptions) of
 	{'EXCEPTION', _E} ->
 	    ignore;
 	%% We used to reply the below but since this would generate a CRASH REPORT
@@ -508,38 +508,3 @@ clear_queue(Proxy, RequestId, MRef) ->
             end
     end.
 	    
-get_ip_family_opts(Host) ->
-    case inet:parse_address(Host) of
-	{ok, {_,_,_,_}} -> 
-	    [inet];
-	{ok, {_,_,_,_,_,_,_,_}} -> 
-	    [inet6];
-	{error, einval} ->
-	    check_family_for_name(Host, orber_env:ip_version())
-    end.
-
-check_family_for_name(Host, inet) ->
-    case inet:getaddr(Host, inet) of
-	{ok, _Address} ->
-	    [inet];
-	{error, _} ->
-	    case inet:getaddrs(Host, inet6) of
-		{ok, _Address} ->
-		    [inet6];
-		{error, _} ->
-		    [inet]
-	    end
-    end;
-check_family_for_name(Host, inet6) ->
-    case inet:getaddr(Host, inet6) of
-	{ok, _Address} ->
-	    [inet6];
-	{error, _} ->
-	    case inet:getaddr(Host, inet) of
-		{ok, _Address} ->
-		    [inet];
-		{error, _} ->
-		    [inet6]
-	    end
-    end.
-
