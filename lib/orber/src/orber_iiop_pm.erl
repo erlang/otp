@@ -775,12 +775,11 @@ do_setup_connection(PMPid, Host, Port, SocketType, SocketOptions, Chars,
 
 access_allowed(Host, Port, Type, {_,_,UserInterface}) ->
     Flags = orber:get_flags(),
-    Family = orber_env:ip_version(),
     case ?ORB_FLAG_TEST(Flags, ?ORB_ENV_USE_ACL_OUTGOING) of
 	false when UserInterface == 0 ->
-	    get_local_interface(Type, Family);
+	    get_local_interface(Type);
 	false ->
-	    inet:getaddr(UserInterface, Family);
+	    inet:getaddr(UserInterface, get_ip_family(UserInterface));
 	true ->
 	    SearchFor = 
 		case Type of
@@ -789,43 +788,48 @@ access_allowed(Host, Port, Type, {_,_,UserInterface}) ->
 		    ssl ->
 			ssl_out
 		end,
-	    {ok, Ip} = inet:getaddr(Host, Family),
+	    {ok, Ip} = inet:getaddr(Host, get_ip_family(Host)),
 	    case orber_acl:match(Ip, SearchFor, true) of
 		{true, [], 0} ->
-		    get_local_interface(Type, Family);
+		    get_local_interface(Type);
 		{true, [], Port} ->
-		    get_local_interface(Type, Family);
+		    get_local_interface(Type);
 		{true, [], {Min, Max}} when Port >= Min, Port =< Max ->
-		    get_local_interface(Type, Family);
-		{true, [Interface], 0} ->
-		    {ok, NewIp} = inet:getaddr(Interface, Family),
+		    get_local_interface(Type);
+		{true, [Interface], 0} ->		    
+		    {ok, NewIp} = inet:getaddr(Interface, get_ip_family(Interface)),
 		    {ok, NewIp, {Host, Port, 0}};
 		{true, [Interface], Port} ->
-		    {ok, NewIp} = inet:getaddr(Interface, Family),
+		    
+		    {ok, NewIp} = inet:getaddr(Interface, get_ip_family(Interface)),
 		    {ok, NewIp, {Host, Port, 0}};
 		{true, [Interface], {Min, Max}} when Port >= Min, Port =< Max ->
-		    {ok, NewIp} = inet:getaddr(Interface, Family),
+		    
+		    {ok, NewIp} = inet:getaddr(Interface, get_ip_family(Interface)),
 		    {ok, NewIp, {Host, Port, 0}};
 		_ ->
 		    false
 	    end
     end.
 
-get_local_interface(normal, Family) ->
+get_local_interface(normal) ->
     case orber_env:ip_address_local() of
 	[] ->
 	    ok;
 	[Interface] ->
-	    inet:getaddr(Interface, Family)
+	    inet:getaddr(Interface, get_ip_family(Interface))
     end;
-get_local_interface(ssl, Family) ->
+get_local_interface(ssl) ->
     case orber_env:iiop_ssl_ip_address_local() of
 	[] ->
 	    ok;
 	[Interface] ->
-	    inet:getaddr(Interface, Family)
+	    inet:getaddr(Interface, get_ip_family(Interface))
     end.
 
+get_ip_family(Addr) ->
+    [Family] = orber_socket:get_ip_family_opts(Addr),
+    Family.
 
 invoke_connection_closed(false) ->
     ok;

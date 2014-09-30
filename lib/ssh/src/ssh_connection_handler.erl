@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 	 userauth/2, connected/2]).
 
 -export([init/1, handle_event/3,
-	 handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+	 handle_sync_event/4, handle_info/3, terminate/3, format_status/2, code_change/4]).
 
 -record(state, {
 	  role,
@@ -71,7 +71,8 @@
 	  connection_queue,
 	  address,
 	  port,
-	  opts
+	  opts,
+	  recbuf
 	 }). 
 
 -type state_name()           :: hello | kexinit | key_exchange | new_keys | userauth | connection.
@@ -103,12 +104,22 @@ start_connection(client = Role, Socket, Options, Timeout) ->
     end;
 
 start_connection(server = Role, Socket, Options, Timeout) ->
+    SSH_Opts = proplists:get_value(ssh_opts, Options, []),
     try
-	case proplists:get_value(parallel_login, Options, false) of
+	case proplists:get_value(parallel_login, SSH_Opts, false) of
 	    true ->
-		spawn(fun() -> start_server_connection(Role, Socket, Options, Timeout) end);
+		HandshakerPid = 
+		    spawn_link(fun() -> 
+				       receive
+					   {do_handshake, Pid} ->
+					       handshake(Pid, erlang:monitor(process,Pid), Timeout)
+				       end
+			       end),
+		ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
+		HandshakerPid ! {do_handshake, ChildPid};
 	    false ->
-		start_server_connection(Role, Socket, Options, Timeout)
+		ChildPid = start_the_connection_child(self(), Role, Socket, Options),
+		handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
 	end
     catch
 	exit:{noproc, _} ->
@@ -117,16 +128,14 @@ start_connection(server = Role, Socket, Options, Timeout) ->
 	    {error, Error}
     end.
 
-
-start_server_connection(server = Role, Socket, Options, Timeout) ->
+start_the_connection_child(UserPid, Role, Socket, Options) ->
     Sups = proplists:get_value(supervisors, Options),
     ConnectionSup = proplists:get_value(connection_sup, Sups),
-    Opts = [{supervisors, Sups}, {user_pid, self()} | proplists:get_value(ssh_opts, Options, [])],
+    Opts = [{supervisors, Sups}, {user_pid, UserPid} | proplists:get_value(ssh_opts, Options, [])],
     {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Opts]),
     {_, Callback, _} =  proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
     socket_control(Socket, Pid, Callback),
-    Ref = erlang:monitor(process, Pid),
-    handshake(Pid, Ref, Timeout).
+    Pid.
 
 
 start_link(Role, Socket, Options) ->
@@ -293,28 +302,39 @@ info(ConnectionHandler, ChannelProcess) ->
 hello(socket_control, #state{socket = Socket, ssh_params = Ssh} = State) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh)),
     send_msg(VsnMsg, State),
-    inet:setopts(Socket, [{packet, line}, {active, once}]),
-    {next_state, hello, State};
+    {ok, [{recbuf, Size}]} = inet:getopts(Socket, [recbuf]),
+    inet:setopts(Socket, [{packet, line}, {active, once}, {recbuf, ?MAX_PROTO_VERSION}]),
+    {next_state, hello, State#state{recbuf = Size}};
 
-hello({info_line, _Line},#state{socket = Socket} = State) ->
+hello({info_line, _Line},#state{role = client, socket = Socket} = State) ->
+    %% The server may send info lines before the version_exchange
     inet:setopts(Socket, [{active, once}]),
     {next_state, hello, State};
 
+hello({info_line, _Line},#state{role = server} = State) ->
+    DisconnectMsg =
+	#ssh_msg_disconnect{code =
+				?SSH_DISCONNECT_PROTOCOL_ERROR,
+			    description = "Did not receive expected protocol version exchange",
+			    language = "en"},
+    handle_disconnect(DisconnectMsg, State);
+
 hello({version_exchange, Version}, #state{ssh_params = Ssh0,
-					  socket = Socket} = State) ->
+					  socket = Socket,
+					  recbuf = Size} = State) ->
     {NumVsn, StrVsn} = ssh_transport:handle_hello_version(Version),
     case handle_version(NumVsn, StrVsn, Ssh0) of
 	{ok, Ssh1} ->
-	    inet:setopts(Socket, [{packet,0}, {mode,binary}, {active, once}]),
+	    inet:setopts(Socket, [{packet,0}, {mode,binary}, {active, once}, {recbuf, Size}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
 	    send_msg(SshPacket, State),
 	    {next_state, kexinit, next_packet(State#state{ssh_params = Ssh,
 							  key_exchange_init_msg = 
 							  KeyInitMsg})};
 	not_supported ->
-	   DisconnectMsg =
+	    DisconnectMsg =
 		#ssh_msg_disconnect{code = 
-				    ?SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED,
+					?SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED,
 				    description = "Protocol version " ++  StrVsn 
 				    ++ " not supported",
 				    language = "en"},
@@ -950,6 +970,36 @@ terminate_subsytem(#connection{system_supervisor = SysSup,
     ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
 terminate_subsytem(_) ->
     ok.
+
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}]; 
+format_status(terminate, [_, State]) ->
+    SshParams0 = (State#state.ssh_params),
+    SshParams = SshParams0#ssh{c_keyinit = "***",
+			       s_keyinit = "***",
+			       send_mac_key = "***",
+			       send_mac_size =  "***",
+			       recv_mac_key = "***",
+			       recv_mac_size = "***",
+			       encrypt_keys = "***",
+			       encrypt_ctx = "***",
+			       decrypt_keys = "***",
+			       decrypt_ctx = "***",
+			       compress_ctx = "***",
+			       decompress_ctx = "***",
+			       shared_secret =  "***",
+			       exchanged_hash =  "***",
+			       session_id =  "***", 
+			       keyex_key =  "***", 
+			       keyex_info = "***", 
+			       available_host_keys = "***"},
+    [{data, [{"StateData", State#state{decoded_data_buffer = "***",
+				       encoded_data_buffer =  "***",
+				       key_exchange_init_msg = "***",
+				       opts =  "***",
+				       recbuf =  "***",
+				       ssh_params = SshParams
+				      }}]}].
 
 %%--------------------------------------------------------------------
 -spec code_change(OldVsn::term(), state_name(), Oldstate::term(), Extra::term()) ->

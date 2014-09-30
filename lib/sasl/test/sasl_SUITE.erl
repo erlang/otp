@@ -57,17 +57,29 @@ appup_test(_Config) ->
 
 appup_tests(_App,{[],[]}) ->
     {skip,"no previous releases available"};
-appup_tests(App,{OkVsns,NokVsns}) ->
+appup_tests(App,{OkVsns0,NokVsns}) ->
     application:load(App),
     {_,_,Vsn} = lists:keyfind(App,1,application:loaded_applications()),
     AppupFileName = atom_to_list(App) ++ ".appup",
     AppupFile = filename:join([code:lib_dir(App),ebin,AppupFileName]),
     {ok,[{Vsn,UpFrom,DownTo}=AppupScript]} = file:consult(AppupFile),
     ct:log("~p~n",[AppupScript]),
-    ct:log("Testing ok versions: ~p~n",[OkVsns]),
+    OkVsns =
+	case OkVsns0 -- [Vsn] of
+	    OkVsns0 ->
+		OkVsns0;
+	    Ok ->
+		ct:log("Current version, ~p, is same as in previous release.~n"
+		       "Removing this from the list of ok versions.",
+		      [Vsn]),
+		Ok
+	end,
+    ct:log("Testing that appup allows upgrade from these versions: ~p~n",
+	   [OkVsns]),
     check_appup(OkVsns,UpFrom,{ok,[restart_new_emulator]}),
     check_appup(OkVsns,DownTo,{ok,[restart_new_emulator]}),
-    ct:log("Testing not ok versions: ~p~n",[NokVsns]),
+    ct:log("Testing that appup does not allow upgrade from these versions: ~p~n",
+	   [NokVsns]),
     check_appup(NokVsns,UpFrom,error),
     check_appup(NokVsns,DownTo,error),
     ok.

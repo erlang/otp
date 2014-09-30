@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -173,8 +173,8 @@ ssh_acceptor_sup([_ | Rest]) ->
     ssh_acceptor_sup(Rest).
 
 stop_acceptor(Sup) ->
-    [Name] =
-	[SupName || {SupName, _, _, [ssh_acceptor_sup]} <- 
+    [{Name, AcceptorSup}] =
+	[{SupName, ASup} || {SupName, ASup, _, [ssh_acceptor_sup]} <- 
 			  supervisor:which_children(Sup)],
-    supervisor:terminate_child(Sup, Name).
+    supervisor:terminate_child(AcceptorSup, Name).
 
