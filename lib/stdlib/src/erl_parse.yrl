@@ -763,13 +763,9 @@ attribute_farity(Other) -> Other.
 attribute_farity_list(Args) ->
     [attribute_farity(A) || A <- Args].
 
+%% It is not meaningful to have farity keys.
 attribute_farity_map(Args) ->
-    [attribute_farity_map_field(A) || A <- Args].
-
-attribute_farity_map_field({map_field_assoc,L,K,V}) ->
-    {map_field_assoc,L,attribute_farity(K),attribute_farity(V)};
-attribute_farity_map_field({map_field_exact,L,K,V}) ->
-    {map_field_exact,L,attribute_farity(K),attribute_farity(V)}.
+    [{Op,L,K,attribute_farity(V)} || {Op,L,K,V} <- Args].
 
 -spec error_bad_decl(integer(), attributes()) -> no_return().
 
