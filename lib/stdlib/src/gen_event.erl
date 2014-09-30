@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -302,7 +302,8 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     exit(Reason).
 
 reply({From, Ref}, Msg) ->
-    From ! {Ref, Msg}.
+    From ! {Ref, Msg},
+    ok.
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
