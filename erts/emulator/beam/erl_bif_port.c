@@ -554,6 +554,7 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 	hp = &pdhp->heap[0];
 	pdhp->off_heap.first = NULL;
 	pdhp->off_heap.overhead = 0;
+	pdhp->hsize = hsize;
 	pdhp->data = copy_struct(BIF_ARG_2, hsize, &hp, &pdhp->off_heap);
 	data = (erts_aint_t) pdhp;
 	ASSERT((data & 0x3) == 0);
