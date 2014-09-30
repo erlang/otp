@@ -961,7 +961,9 @@ abstract([H|T], L, none=E) ->
 abstract(List, L, E) when is_list(List) ->
     abstract_list(List, [], L, E);
 abstract(Tuple, L, E) when is_tuple(Tuple) ->
-    {tuple,L,abstract_tuple_list(tuple_to_list(Tuple), L, E)}.
+    {tuple,L,abstract_tuple_list(tuple_to_list(Tuple), L, E)};
+abstract(Map, L, E) when is_map(Map) ->
+    {map,L,abstract_map_fields(maps:to_list(Map),L,E)}.
 
 abstract_list([H|T], String, L, E) ->
     case is_integer(H) andalso H >= 0 andalso E(H) of
@@ -985,6 +987,9 @@ abstract_tuple_list([H|T], L, E) ->
     [abstract(H, L, E)|abstract_tuple_list(T, L, E)];
 abstract_tuple_list([], _L, _E) ->
     [].
+
+abstract_map_fields(Fs,L,E) ->
+    [{map_field_assoc,L,abstract(K,L,E),abstract(V,L,E)}||{K,V}<-Fs].
 
 abstract_byte(Byte, L) when is_integer(Byte) ->
     {bin_element, L, {integer, L, Byte}, default, default};
