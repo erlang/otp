@@ -25,7 +25,6 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
-import java.util.Arrays;
 import java.util.zip.Deflater;
 
 /**
@@ -45,8 +44,11 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     public static final int defaultIncrement = 2048;
 
     // static formats, used to encode floats and doubles
+    @SuppressWarnings("unused")
     private static final DecimalFormat eform = new DecimalFormat("e+00;e-00");
+    @SuppressWarnings("unused")
     private static final BigDecimal ten = new BigDecimal(10.0);
+    @SuppressWarnings("unused")
     private static final BigDecimal one = new BigDecimal(1.0);
 
     private int fixedSize = Integer.MAX_VALUE;
@@ -159,9 +161,9 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @see java.io.ByteArrayOutputStream#write(byte[])
      */
     @Override
-    public void write(final byte[] buf) {
+    public void write(final byte[] abuf) {
 	// don't assume that super.write(byte[]) calls write(buf, 0, buf.length)
-	write(buf, 0, buf.length);
+	write(abuf, 0, abuf.length);
     }
 
     /* (non-Javadoc)
@@ -285,10 +287,11 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @param b
      *            the number of bytes to write from the little end.
      */
-    public void writeLE(long n, final int b) {
+    public void writeLE(final long n, final int b) {
+    long v = n;
 	for (int i = 0; i < b; i++) {
-	    write((byte) (n & 0xff));
-	    n >>= 8;
+        write((byte) (v & 0xff));
+        v >>= 8;
 	}
     }
 
@@ -518,16 +521,17 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	write_double(f);
     }
 
-    public void write_big_integer(BigInteger v) {
+    public void write_big_integer(final BigInteger v) {
 	if (v.bitLength() < 64) {
 	    this.write_long(v.longValue(), true);
 	    return;
 	}
 	final int signum = v.signum();
+    BigInteger val = v;
 	if (signum < 0) {
-	    v = v.negate();
+        val = val.negate();
 	}
-	final byte[] magnitude = v.toByteArray();
+    final byte[] magnitude = val.toByteArray();
 	final int n = magnitude.length;
 	// Reverse the array to make it little endian.
 	for (int i = 0, j = n; i < j--; i++) {
@@ -568,7 +572,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		int n;
 		long mask;
 		for (mask = 0xFFFFffffL, n = 4; (abs & mask) != abs; n++, mask = mask << 8 | 0xffL) {
-		    ; // count nonzero bytes
+            // count nonzero bytes
 		}
 		write1(OtpExternal.smallBigTag);
 		write1(n); // length
@@ -827,7 +831,6 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		    write_nil(); // it should never ever get here...
 		}
 	    } else { // unicode or longer, must code as list
-		final char[] charbuf = s.toCharArray();
 		final int[] codePoints = OtpErlangString.stringToCodePoints(s);
 		write_list_head(codePoints.length);
 		for (final int codePoint : codePoints) {
@@ -867,6 +870,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            the compression level (<tt>0..9</tt>)
      */
     public void write_compressed(final OtpErlangObject o, int level) {
+    @SuppressWarnings("resource")
 	final OtpOutputStream oos = new OtpOutputStream(o);
 	/*
 	 * similar to erts_term_to_binary() in external.c:
@@ -920,6 +924,11 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 			"Intermediate stream failed for Erlang object " + o);
 	    } finally {
 		this.fixedSize = Integer.MAX_VALUE;
+        try {
+            dos.close();
+        } catch (IOException e) {
+            // ignore
+        }
 	    }
 	}
     }

@@ -18,7 +18,6 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 import java.math.BigInteger;
 
 /**
@@ -30,10 +29,9 @@ import java.math.BigInteger;
  * {@link OtpErlangUInt} and {@link OtpErlangUShort} are provided for Corba
  * compatibility. See the documentation for IC for more information.
  */
-public class OtpErlangLong extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangLong extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = 1610466859236755096L;
+    private static final long serialVersionUID = 1610466859236755096L;
 
     private long val;
     private BigInteger bigVal = null;
@@ -94,9 +92,8 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
     public BigInteger bigIntegerValue() {
 	if (bigVal != null) {
 	    return bigVal;
-	} else {
-	    return BigInteger.valueOf(val);
 	}
+    return BigInteger.valueOf(val);
     }
 
     /**
@@ -109,9 +106,8 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
     public long longValue() {
 	if (bigVal != null) {
 	    return bigVal.longValue();
-	} else {
-	    return val;
 	}
+    return val;
     }
 
     /**
@@ -159,7 +155,7 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
 	}
 	if (val == 0 || val == -1) {
 	    return 0;
-	} else {
+    }
 	    // Binary search for bit length
 	    int i = 32; // mask length
 	    long m = (1L << i) - 1; // AND mask with ones in little end
@@ -193,7 +189,6 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
 	    }
 	    return i;
 	}
-    }
 
     /**
      * Return the signum function of this object.
@@ -203,9 +198,8 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
     public int signum() {
 	if (bigVal != null) {
 	    return bigVal.signum();
-	} else {
-	    return val > 0 ? 1 : val < 0 ? -1 : 0;
 	}
+    return val > 0 ? 1 : val < 0 ? -1 : 0;
     }
 
     /**
@@ -342,9 +336,8 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
     public String toString() {
 	if (bigVal != null) {
 	    return "" + bigVal;
-	} else {
-	    return "" + val;
 	}
+    return "" + val;
     }
 
     /**
@@ -392,8 +385,7 @@ public class OtpErlangLong extends OtpErlangObject implements Serializable,
     protected int doHashCode() {
 	if (bigVal != null) {
 	    return bigVal.hashCode();
-	} else {
-	    return BigInteger.valueOf(val).hashCode();
 	}
+    return BigInteger.valueOf(val).hashCode();
     }
 }

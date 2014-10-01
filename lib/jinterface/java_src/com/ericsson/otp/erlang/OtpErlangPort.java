@@ -18,15 +18,13 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang ports.
  */
-public class OtpErlangPort extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangPort extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = 4037115468007644704L;
+    private static final long serialVersionUID = 4037115468007644704L;
 
     private final String node;
     private final int id;
@@ -40,6 +38,7 @@ public class OtpErlangPort extends OtpErlangObject implements Serializable,
      * 
      * @deprecated use OtpLocalNode:createPort() instead
      */
+    @SuppressWarnings("unused")
     private OtpErlangPort(final OtpSelf self) {
 	final OtpErlangPort p = self.createPort();
 

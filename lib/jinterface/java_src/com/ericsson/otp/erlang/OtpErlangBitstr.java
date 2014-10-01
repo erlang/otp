@@ -20,17 +20,15 @@ package com.ericsson.otp.erlang;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang bitstrs. An Erlang bitstr is an
  * Erlang binary with a length not an integral number of bytes (8-bit). Anything
  * can be represented as a sequence of bytes can be made into an Erlang bitstr.
  */
-public class OtpErlangBitstr extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangBitstr extends OtpErlangObject {
     // don't change this!
-    static final long serialVersionUID = -3781009633593609217L;
+    private static final long serialVersionUID = -3781009633593609217L;
 
     protected byte[] bin;
     protected int pad_bits;
@@ -63,18 +61,18 @@ public class OtpErlangBitstr extends OtpErlangObject implements Serializable,
 	check_bitstr(this.bin, this.pad_bits);
     }
 
-    private void check_bitstr(final byte[] bin, final int pad_bits) {
-	if (pad_bits < 0 || 7 < pad_bits) {
+    private void check_bitstr(final byte[] abin, final int a_pad_bits) {
+	if (a_pad_bits < 0 || 7 < a_pad_bits) {
 	    throw new java.lang.IllegalArgumentException(
 		    "Padding must be in range 0..7");
 	}
-	if (pad_bits != 0 && bin.length == 0) {
+	if (a_pad_bits != 0 && abin.length == 0) {
 	    throw new java.lang.IllegalArgumentException(
 		    "Padding on zero length bitstr");
 	}
-	if (bin.length != 0) {
+	if (abin.length != 0) {
 	    // Make sure padding is zero
-	    bin[bin.length - 1] &= ~((1 << pad_bits) - 1);
+	    abin[abin.length - 1] &= ~((1 << a_pad_bits) - 1);
 	}
     }
 
