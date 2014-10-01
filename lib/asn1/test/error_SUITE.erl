@@ -19,7 +19,8 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,bitstrings/1,enumerated/1,
+	 already_defined/1,bitstrings/1,
+	 classes/1,enumerated/1,
 	 imports/1,instance_of/1,integers/1,objects/1,
 	 parameterization/1,values/1]).
 
@@ -34,6 +35,7 @@ groups() ->
     [{p,parallel(),
       [already_defined,
        bitstrings,
+       classes,
        enumerated,
        imports,
        instance_of,
@@ -91,6 +93,18 @@ bitstrings(Config) ->
       {structured_error,{M,3},asn1ct_check,{namelist_redefinition,a}},
       {structured_error,{M,4},asn1ct_check,{value_reused,1}},
       {structured_error,{M,5},asn1ct_check,{invalid_bit_number,-1}}
+     ]} = run(P, Config),
+    ok.
+
+classes(Config) ->
+    M = 'Classes',
+    P = {M,
+	 <<"Classes DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  LowerCase ::= CLASS { &id INTEGER UNIQUE }\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{illegal_class_name,
+					    'LowerCase'}}
      ]} = run(P, Config),
     ok.
 

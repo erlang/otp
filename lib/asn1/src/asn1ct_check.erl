@@ -438,7 +438,15 @@ do_checkp(S0, Name, #ptypedef{typespec=TypeSpec}=Type0) ->
 checkc(S, Names) ->
     check_fold(S, Names, fun do_checkc/3).
 
-do_checkc(S0, Name, Class0) ->
+do_checkc(S, Name, Class) ->
+    case is_classname(Name) of
+	false ->
+	    return_asn1_error(S, Class, {illegal_class_name,Name});
+	true ->
+	    do_checkc_1(S, Name, Class)
+    end.
+
+do_checkc_1(S0, Name, Class0) ->
     {Class1,ClassSpec} =
 	case Class0 of
 	    #classdef{} ->
@@ -456,6 +464,14 @@ do_checkc(S0, Name, Class0) ->
 	     {error,Reason} ->
 		 error({class,Reason,S})
 	 end.
+
+%% is_classname(Atom) -> true|false.
+is_classname(Name) when is_atom(Name) ->
+    lists:all(fun($-) -> true;
+		 (D) when $0 =< D, D =< $9 -> true;
+		 (UC) when $A =< UC, UC =< $Z -> true;
+		 (_) -> false
+	      end, atom_to_list(Name)).
     
 checko(S,[Name|Os],Acc,ExclO,ExclOS) ->
     ?dbg("Checking object ~p~n",[Name]),
@@ -6708,6 +6724,8 @@ asn1_error(S, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({illegal_class_name,Class}) ->
+    io_lib:format("the class name '~s' is illegal (it must start with an uppercase letter and only contain uppercase letters, digits, or hyphens)", [Class]);
 format_error({illegal_instance_of,Class}) ->
     io_lib:format("using INSTANCE OF on class '~s' is illegal, "
 		  "because INSTANCE OF may only be used on the class TYPE-IDENTIFIER",
