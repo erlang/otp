@@ -103,9 +103,9 @@ call(AppMaster, Req) ->
 %%% The reason for not using the logical structrure is that
 %%% the application start function is synchronous, and 
 %%% that the AM is GL.  This means that if AM executed the start
-%%% function, and this function uses spawn_request/1
-%%% or io, deadlock would occur.  Therefore, this function is
-%%% executed by the process X.  Also, AM needs three loops;
+%%% function, and this function uses io, deadlock would occur.  
+%%% Therefore, this function is executed by the process X. 
+%%% Also, AM needs three loops;
 %%% init_loop (waiting for the start function to return)
 %%% main_loop
 %%% terminate_loop (waiting for the process to die)
