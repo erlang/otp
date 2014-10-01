@@ -210,7 +210,7 @@ need_heap_0([], H, Acc) ->
 
 need_heap_1(#l{ke={set,_,{binary,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
-need_heap_1(#l{ke={set,_,{map,_,_}},i=I}, H) ->
+need_heap_1(#l{ke={set,_,{map,_,_,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
 need_heap_1(#l{ke={set,_,Val}}, H) ->
     %% Just pass through adding to needed heap.
