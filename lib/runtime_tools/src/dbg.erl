@@ -778,50 +778,50 @@ tracer_init(Handler, HandlerData) ->
     tracer_loop(Handler, HandlerData).
 
 tracer_loop(Handler, Hdata) ->
-    receive
-	Msg ->
-	    %% Don't match in receive to avoid giving EXIT message higher
-	    %% priority than the trace messages.
-	    case Msg of
-		{'EXIT',_Pid,_Reason} ->
-		    ok;
-		Trace ->
-		    NewData = recv_all_traces(Trace, Handler, Hdata),
-		    tracer_loop(Handler, NewData)
-	    end
+    {State, Suspended, Traces} =  recv_all_traces(),
+    NewHdata = handle_traces(Suspended, Traces, Handler, Hdata),
+    case State of
+	done ->
+	    exit(normal);
+	loop ->
+	    tracer_loop(Handler, NewHdata)
     end.
-    
-recv_all_traces(Trace, Handler, Hdata) ->
-    Suspended = suspend(Trace, []),
-    recv_all_traces(Suspended, Handler, Hdata, [Trace]).
 
-recv_all_traces(Suspended0, Handler, Hdata, Traces) ->
+recv_all_traces() ->
+    recv_all_traces([], [], infinity).
+
+recv_all_traces(Suspended0, Traces, Timeout) ->
     receive
 	Trace when is_tuple(Trace), element(1, Trace) == trace ->
 	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, Handler, Hdata, [Trace|Traces]);
+	    recv_all_traces(Suspended, [Trace|Traces], 0);
 	Trace when is_tuple(Trace), element(1, Trace) == trace_ts ->
 	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, Handler, Hdata, [Trace|Traces]);
+	    recv_all_traces(Suspended, [Trace|Traces], 0);
 	Trace when is_tuple(Trace), element(1, Trace) == seq_trace ->
 	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, Handler, Hdata, [Trace|Traces]);
+	    recv_all_traces(Suspended, [Trace|Traces], 0);
 	Trace when is_tuple(Trace), element(1, Trace) == drop ->
 	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, Handler, Hdata, [Trace|Traces]);
+	    recv_all_traces(Suspended, [Trace|Traces], 0);
+	{'EXIT', _Pid, _Reason} ->
+	    {done, Suspended0, Traces};
 	Other ->
 	    %%% Is this really a good idea?
 	    io:format(user,"** tracer received garbage: ~p~n", [Other]),
-	    recv_all_traces(Suspended0, Handler, Hdata, Traces)
-    after 0 ->
-	    case catch invoke_handler(Traces, Handler, Hdata) of
-		{'EXIT',Reason} -> 
-		    resume(Suspended0),
-		    exit({trace_handler_crashed,Reason});
-		NewHdata ->
-		    resume(Suspended0),
-		    NewHdata
-	    end
+	    recv_all_traces(Suspended0, Traces, Timeout)
+    after Timeout ->
+	      {loop, Suspended0, Traces}
+    end.
+
+handle_traces(Suspended, Traces, Handler, Hdata) ->
+    case catch invoke_handler(Traces, Handler, Hdata) of
+	{'EXIT',Reason} -> 
+	    resume(Suspended),
+	    exit({trace_handler_crashed,Reason});
+	NewHdata ->
+	    resume(Suspended),
+	    NewHdata
     end.
 
 invoke_handler([Tr|Traces], Handler, Hdata0) ->
