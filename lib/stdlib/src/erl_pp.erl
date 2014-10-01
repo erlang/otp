@@ -311,7 +311,7 @@ map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/1).
 
 map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}) ->
-    map_assoc_typed(lexpr(Ktype, options(none)), Vtype).
+    map_assoc_typed(ltype(Ktype), Vtype).
 
 map_assoc_typed(B, {type,_,union,Ts}) ->
     {first,[B,$\s],{seq,[],[],[],map_assoc_union_type(Ts)}};
