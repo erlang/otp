@@ -753,12 +753,19 @@ attribute_farity({cons,L,H,T}) ->
 attribute_farity({tuple,L,Args0}) ->
     Args = attribute_farity_list(Args0),
     {tuple,L,Args};
+attribute_farity({map,L,Args0}) ->
+    Args = attribute_farity_map(Args0),
+    {map,L,Args};
 attribute_farity({op,L,'/',{atom,_,_}=Name,{integer,_,_}=Arity}) ->
     {tuple,L,[Name,Arity]};
 attribute_farity(Other) -> Other.
 
 attribute_farity_list(Args) ->
     [attribute_farity(A) || A <- Args].
+
+%% It is not meaningful to have farity keys.
+attribute_farity_map(Args) ->
+    [{Op,L,K,attribute_farity(V)} || {Op,L,K,V} <- Args].
 
 -spec error_bad_decl(integer(), attributes()) -> no_return().
 
@@ -954,7 +961,9 @@ abstract([H|T], L, none=E) ->
 abstract(List, L, E) when is_list(List) ->
     abstract_list(List, [], L, E);
 abstract(Tuple, L, E) when is_tuple(Tuple) ->
-    {tuple,L,abstract_tuple_list(tuple_to_list(Tuple), L, E)}.
+    {tuple,L,abstract_tuple_list(tuple_to_list(Tuple), L, E)};
+abstract(Map, L, E) when is_map(Map) ->
+    {map,L,abstract_map_fields(maps:to_list(Map),L,E)}.
 
 abstract_list([H|T], String, L, E) ->
     case is_integer(H) andalso H >= 0 andalso E(H) of
@@ -978,6 +987,9 @@ abstract_tuple_list([H|T], L, E) ->
     [abstract(H, L, E)|abstract_tuple_list(T, L, E)];
 abstract_tuple_list([], _L, _E) ->
     [].
+
+abstract_map_fields(Fs,L,E) ->
+    [{map_field_assoc,L,abstract(K,L,E),abstract(V,L,E)}||{K,V}<-Fs].
 
 abstract_byte(Byte, L) when is_integer(Byte) ->
     {bin_element, L, {integer, L, Byte}, default, default};
