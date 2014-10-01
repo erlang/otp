@@ -296,6 +296,7 @@ ctrl_keys(doc) -> ["Tests various control keys"];
 ctrl_keys(_Conf) when is_list(_Conf) ->
     Cu=[$\^u],
     Cw=[$\^w],
+    Cy=[$\^y],
     Home=[27,$O,$H],
     End=[27,$O,$F],
     rtnode([{putline,""},
@@ -308,6 +309,8 @@ ctrl_keys(_Conf) when is_list(_Conf) ->
 	    {putline,"world\"."++Home++"\"hello "},	% test <HOME>
 	    {getline,"\"hello world\""},
 	    {putline,"world"++Home++"\"hello "++End++"\"."},	% test <END>
+	    {getline,"\"hello world\""},
+	    {putline,"\"hello world\""++Cu++Cy++"."},
 	    {getline,"\"hello world\""}]
 	    ++wordLeft()++wordRight(),[]).
 
