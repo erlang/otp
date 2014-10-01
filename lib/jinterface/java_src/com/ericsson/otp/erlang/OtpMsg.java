@@ -129,13 +129,14 @@ public class OtpMsg {
     }
 
     // other message types (link, unlink)
-    OtpMsg(int tag, final OtpErlangPid from, final OtpErlangPid to) {
+    OtpMsg(final int tag, final OtpErlangPid from, final OtpErlangPid to) {
 	// convert TT-tags to equiv non-TT versions
+    int atag = tag;
 	if (tag > 10) {
-	    tag -= 10;
+        atag -= 10;
 	}
 
-	this.tag = tag;
+    this.tag = atag;
 	this.from = from;
 	this.to = to;
     }

@@ -18,14 +18,12 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang booleans, which are special cases of
  * atoms with values 'true' and 'false'.
  */
-public class OtpErlangBoolean extends OtpErlangAtom implements Serializable,
-	Cloneable {
+public class OtpErlangBoolean extends OtpErlangAtom {
     // don't change this!
     static final long serialVersionUID = 1087178844844988393L;
 

@@ -128,14 +128,14 @@ public class OtpMbox {
      * supercede that name.
      * </p>
      * 
-     * @param name
+     * @param aname
      *                the name to register for the mailbox. Specify null to
      *                unregister the existing name from this mailbox.
      * 
      * @return true if the name was available, or false otherwise.
      */
-    public synchronized boolean registerName(final String name) {
-	return home.registerName(name, this);
+    public synchronized boolean registerName(final String aname) {
+	return home.registerName(aname, this);
     }
 
     /**
@@ -350,21 +350,21 @@ public class OtpMbox {
      * Send a message to a named mailbox created from the same node as this
      * mailbox.
      * 
-     * @param name
+     * @param aname
      *                the registered name of recipient mailbox.
      * 
      * @param msg
      *                the body of the message to send.
      * 
      */
-    public void send(final String name, final OtpErlangObject msg) {
-	home.deliver(new OtpMsg(self, name, (OtpErlangObject) msg.clone()));
+    public void send(final String aname, final OtpErlangObject msg) {
+	home.deliver(new OtpMsg(self, aname, (OtpErlangObject) msg.clone()));
     }
 
     /**
      * Send a message to a named mailbox created from another node.
      * 
-     * @param name
+     * @param aname
      *                the registered name of recipient mailbox.
      * 
      * @param node
@@ -375,23 +375,23 @@ public class OtpMbox {
      *                the body of the message to send.
      * 
      */
-    public void send(final String name, final String node,
+    public void send(final String aname, final String node,
 	    final OtpErlangObject msg) {
 	try {
 	    final String currentNode = home.node();
 	    if (node.equals(currentNode)) {
-		send(name, msg);
+		send(aname, msg);
 	    } else if (node.indexOf('@', 0) < 0
 		    && node.equals(currentNode.substring(0, currentNode
 			    .indexOf('@', 0)))) {
-		send(name, msg);
+		send(aname, msg);
 	    } else {
 		// other node
 		final OtpCookedConnection conn = home.getConnection(node);
 		if (conn == null) {
 		    return;
 		}
-		conn.send(self, name, msg);
+		conn.send(self, aname, msg);
 	    }
 	} catch (final Exception e) {
 	}
@@ -629,8 +629,8 @@ public class OtpMbox {
      * @return the {@link OtpErlangPid pid} corresponding to the registered
      *         name, or null if the name is not known on this node.
      */
-    public OtpErlangPid whereis(final String name) {
-	return home.whereis(name);
+    public OtpErlangPid whereis(final String aname) {
+	return home.whereis(aname);
     }
 
     /**

@@ -85,16 +85,17 @@ public class OtpInputStream extends ByteArrayInputStream {
      * 
      * @return the previous position in the stream.
      */
-    public int setPos(int pos) {
+    public int setPos(final int pos) {
 	final int oldpos = super.pos;
 
+    int apos = pos;
 	if (pos > super.count) {
-	    pos = super.count;
+        apos = super.count;
 	} else if (pos < 0) {
-	    pos = 0;
+        apos = 0;
 	}
 
-	super.pos = pos;
+    super.pos = apos;
 
 	return oldpos;
     }
@@ -108,8 +109,8 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next byte cannot be read.
      */
-    public int readN(final byte[] buf) throws OtpErlangDecodeException {
-	return this.readN(buf, 0, buf.length);
+    public int readN(final byte[] abuf) throws OtpErlangDecodeException {
+	return this.readN(abuf, 0, abuf.length);
     }
 
     /**
@@ -121,12 +122,12 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next byte cannot be read.
      */
-    public int readN(final byte[] buf, final int off, final int len)
+    public int readN(final byte[] abuf, final int off, final int len)
 	    throws OtpErlangDecodeException {
 	if (len == 0 && available() == 0) {
 	    return 0;
 	}
-	final int i = super.read(buf, off, len);
+	final int i = super.read(abuf, off, len);
 	if (i < 0) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
@@ -214,7 +215,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[0] << 8 & 0xff00) + (b[1] & 0xff);
     }
 
@@ -233,7 +233,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[0] << 24 & 0xff000000) + (b[1] << 16 & 0xff0000)
 		+ (b[2] << 8 & 0xff00) + (b[3] & 0xff);
     }
@@ -253,7 +252,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[1] << 8 & 0xff00) + (b[0] & 0xff);
     }
 
@@ -272,7 +270,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	return (b[3] << 24 & 0xff000000) + (b[2] << 16 & 0xff0000)
 		+ (b[1] << 8 & 0xff00) + (b[0] & 0xff);
     }
@@ -288,17 +285,17 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next byte cannot be read.
      */
-    public long readLE(int n) throws OtpErlangDecodeException {
+    public long readLE(final int n) throws OtpErlangDecodeException {
 	final byte[] b = new byte[n];
 	try {
 	    super.read(b);
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	long v = 0;
-	while (n-- > 0) {
-	    v = v << 8 | (long) b[n] & 0xff;
+    int i = n;
+    while (i-- > 0) {
+        v = v << 8 | (long) b[i] & 0xff;
 	}
 	return v;
     }
@@ -321,7 +318,6 @@ public class OtpInputStream extends ByteArrayInputStream {
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
-	;
 	long v = 0;
 	for (int i = 0; i < n; i++) {
 	    v = v << 8 | (long) b[i] & 0xff;
@@ -350,6 +346,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @exception OtpErlangDecodeException
      *                if the next term in the stream is not an atom.
      */
+    @SuppressWarnings("fallthrough")
     public String read_atom() throws OtpErlangDecodeException {
 	int tag;
 	int len = -1;
@@ -382,7 +379,7 @@ public class OtpInputStream extends ByteArrayInputStream {
 
 	case OtpExternal.smallAtomUtf8Tag:
 	    len = read1();
-	    /* fall through */
+        // fall-through
 	case OtpExternal.atomUtf8Tag:
 	    if (len < 0) {
 		len = read2BE();
@@ -1055,7 +1052,7 @@ public class OtpInputStream extends ByteArrayInputStream {
 	    }
 	    return new OtpErlangFun(pid, module, index, uniq, freeVars);
 	} else if (tag == OtpExternal.newFunTag) {
-	    final int n = read4BE();
+        read4BE();
 	    final int arity = read1();
 	    final byte[] md5 = new byte[16];
 	    readN(md5);
@@ -1149,13 +1146,13 @@ public class OtpInputStream extends ByteArrayInputStream {
 	}
 
 	final int size = read4BE();
-	final byte[] buf = new byte[size];
+	final byte[] abuf = new byte[size];
 	final java.util.zip.InflaterInputStream is = 
 	    new java.util.zip.InflaterInputStream(this, new java.util.zip.Inflater(), size);
 	int curPos = 0;
 	try {
 	    int curRead;
-	    while(curPos < size && (curRead = is.read(buf, curPos, size - curPos)) != -1) {
+	    while(curPos < size && (curRead = is.read(abuf, curPos, size - curPos)) != -1) {
 		curPos += curRead;
 	    }
 	    if (curPos != size) {
@@ -1166,7 +1163,8 @@ public class OtpInputStream extends ByteArrayInputStream {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
 	}
 
-	final OtpInputStream ois = new OtpInputStream(buf, flags);
+    @SuppressWarnings("resource")
+	final OtpInputStream ois = new OtpInputStream(abuf, flags);
 	return ois.read_any();
     }
 

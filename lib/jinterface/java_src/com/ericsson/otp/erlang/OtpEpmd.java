@@ -160,6 +160,7 @@ public class OtpEpmd {
 
 	try {
 	    s = new Socket((String) null, EpmdPort.get());
+        @SuppressWarnings("resource")
 	    final OtpOutputStream obuf = new OtpOutputStream();
 	    obuf.write2BE(node.alive().length() + 1);
 	    obuf.write1(stopReq);
@@ -189,6 +190,7 @@ public class OtpEpmd {
 	Socket s = null;
 
 	try {
+        @SuppressWarnings("resource")
 	    final OtpOutputStream obuf = new OtpOutputStream();
 	    s = new Socket(node.host(), EpmdPort.get());
 
@@ -219,6 +221,7 @@ public class OtpEpmd {
 			+ node.host() + " when looking up " + node.alive());
 	    }
 
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 
 	    final int response = ibuf.read1();
@@ -279,6 +282,7 @@ public class OtpEpmd {
 	Socket s = null;
 
 	try {
+        @SuppressWarnings("resource")
 	    final OtpOutputStream obuf = new OtpOutputStream();
 	    s = new Socket((String) null, EpmdPort.get());
 
@@ -310,13 +314,12 @@ public class OtpEpmd {
 	    final int n = s.getInputStream().read(tmpbuf);
 
 	    if (n < 0) {
-		if (s != null) {
 		    s.close();
-		}
 		throw new IOException("Nameserver not responding on "
 			+ node.host() + " when publishing " + node.alive());
 	    }
 
+        @SuppressWarnings("resource")
 	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 
 	    final int response = ibuf.read1();
@@ -341,9 +344,7 @@ public class OtpEpmd {
 	    throw new IOException("Nameserver not responding on " + node.host()
 		    + " when publishing " + node.alive());
 	} catch (final OtpErlangDecodeException e) {
-	    if (s != null) {
 		s.close();
-	    }
 	    if (traceLevel >= traceThreshold) {
 		System.out.println("<- (invalid response)");
 	    }
@@ -351,9 +352,7 @@ public class OtpEpmd {
 		    + " when publishing " + node.alive());
 	}
 
-	if (s != null) {
 	    s.close();
-	}
 	return null;
     }
 
@@ -366,6 +365,7 @@ public class OtpEpmd {
 	Socket s = null;
 
 	try {
+        @SuppressWarnings("resource")
 	    final OtpOutputStream obuf = new OtpOutputStream();
 	    try {
 		s = new Socket(address, EpmdPort.get());
@@ -390,6 +390,7 @@ public class OtpEpmd {
 		    out.write(buffer, 0, bytesRead);
 		}
 		final byte[] tmpbuf = out.toByteArray();
+        @SuppressWarnings("resource")
 		final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 		ibuf.read4BE(); // read port int
 		// final int port = ibuf.read4BE();

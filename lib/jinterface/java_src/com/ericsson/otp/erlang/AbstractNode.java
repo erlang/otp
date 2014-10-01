@@ -265,8 +265,7 @@ public class AbstractNode {
 	    final String drive = System.getenv("HOMEDRIVE");
 	    final String path = System.getenv("HOMEPATH");
 	    return (drive != null && path != null) ? drive + path : home;
-	} else {
-	    return home;
 	}
+    return home;
     }
 }

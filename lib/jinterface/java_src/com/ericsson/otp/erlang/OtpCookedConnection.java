@@ -149,6 +149,7 @@ public class OtpCookedConnection extends AbstractConnection {
     /*
      * send to pid
      */
+    @SuppressWarnings("resource")
     void send(final OtpErlangPid from, final OtpErlangPid dest,
 	    final OtpErlangObject msg) throws IOException {
 	// encode and send the message
@@ -159,6 +160,7 @@ public class OtpCookedConnection extends AbstractConnection {
      * send to remote name dest is recipient's registered name, the nodename is
      * implied by the choice of connection.
      */
+    @SuppressWarnings("resource")
     void send(final OtpErlangPid from, final String dest,
 	    final OtpErlangObject msg) throws IOException {
 	// encode and send the message

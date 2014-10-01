@@ -171,14 +171,14 @@ public abstract class OtpErlangObject implements Serializable, Cloneable {
 	    for (j = 0, k = 0;  
 		 j + 4 < b.length;  
 		 j += 4, k += 1, k %= 3) {
-		abc[k] += ((int)b[j+0] & 0xFF) + ((int)b[j+1]<<8 & 0xFF00)
-		    + ((int)b[j+2]<<16 & 0xFF0000) + ((int)b[j+3]<<24);
+        abc[k] += (b[j+0] & 0xFF) + (b[j+1]<<8 & 0xFF00)
+            + (b[j+2]<<16 & 0xFF0000) + (b[j+3]<<24);
 		mix();
 	    }
 	    for (int n = 0, m = 0xFF;
 		 j < b.length;
 		 j++, n += 8, m <<= 8) {
-		abc[k] += (int)b[j]<<n & m;
+        abc[k] += b[j]<<n & m;
 	    }
 	    mix();
 	}
