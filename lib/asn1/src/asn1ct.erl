@@ -34,7 +34,8 @@
 %% Application internal exports
 -export([compile_asn/3,compile_asn1/3,compile_py/3,compile/3,
 	 vsn/0,
-	 get_name_of_def/1,get_pos_of_def/1]).
+	 get_name_of_def/1,get_pos_of_def/1,
+	 unset_pos_mod/1]).
 -export([read_config_data/1,get_gen_state_field/1,
 	 partial_inc_dec_toptype/1,update_gen_state/2,
 	 get_tobe_refed_func/1,reset_gen_state/0,is_function_generated/1,
@@ -559,7 +560,10 @@ unset_pos_mod(Def) when is_record(Def,pvaluesetdef) ->
 unset_pos_mod(Def) when is_record(Def,pobjectdef) ->
     Def#pobjectdef{pos=undefined};
 unset_pos_mod(Def) when is_record(Def,pobjectsetdef) ->
-    Def#pobjectsetdef{pos=undefined}.
+    Def#pobjectsetdef{pos=undefined};
+unset_pos_mod(#'ComponentType'{} = Def) ->
+    Def#'ComponentType'{pos=undefined};
+unset_pos_mod(Def) -> Def.
 
 get_pos_of_def(#typedef{pos=Pos}) ->
     Pos;

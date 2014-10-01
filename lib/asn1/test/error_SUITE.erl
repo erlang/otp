@@ -22,8 +22,8 @@
 	 already_defined/1,bitstrings/1,
 	 classes/1,constraints/1,enumerated/1,
 	 imports/1,instance_of/1,integers/1,objects/1,
-	 object_field_extraction/1,parameterization/1,
-	 syntax/1,values/1]).
+	 object_field_extraction/1, object_sets/1,
+	 parameterization/1, syntax/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -44,6 +44,7 @@ groups() ->
        integers,
        objects,
        object_field_extraction,
+       object_sets,
        parameterization,
        syntax,
        values]}].
@@ -296,6 +297,20 @@ object_field_extraction(Config) ->
      ]
     } = run(P, Config),
     ok.
+
+object_sets(Config) ->
+    M = 'ObjectSets',
+    P = {M, <<"ObjectSets DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	      "TEST-UNIQ ::= CLASS { &id INTEGER UNIQUE,  &test INTEGER }\n"
+	      "UniqSet TEST-UNIQ ::= { { &id 1, &test 1 } | {&id 1, &test 2} }\n"
+
+	      "END\n">>},
+    {error,
+     [{structured_error,{M,3},asn1ct_check,{non_unique_object,1}}
+     ]
+    } = run(P, Config),
+    ok.
+
 
 parameterization(Config) ->
     M = 'Parameterization',

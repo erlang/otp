@@ -135,6 +135,7 @@ groups() ->
        testChoiceIndefinite,
        per_open_type,
        testInfObjectClass,
+       testUniqueObjectSets,
        testInfObjExtract,
        testParam,
        testFragmented,
@@ -766,6 +767,11 @@ testInfObjectClass(Config, Rule, Opts) ->
                               [Rule|Opts]),
     testInfObjectClass:main(Rule),
     testInfObj:main(Rule).
+
+testUniqueObjectSets(Config) -> test(Config, fun testUniqueObjectSets/3).
+testUniqueObjectSets(Config, Rule, Opts) ->
+    CaseDir = ?config(case_dir, Config),
+    testUniqueObjectSets:main(CaseDir, Rule, Opts).
 
 testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
 testInfObjExtract(Config, Rule, Opts) ->

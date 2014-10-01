@@ -914,7 +914,7 @@ check_object(S,
 	    Unknown ->
 		exit({error,{unknown_object_set,Unknown},S})
 	end,
-    NewSet2 = remove_duplicate_objects(NewObjSet#'ObjectSet'.set),
+    NewSet2 = remove_duplicate_objects(S, NewObjSet#'ObjectSet'.set),
     NewObjSet2 = NewObjSet#'ObjectSet'{set=NewSet2},
     Gen = gen_incl_set(S,NewObjSet2#'ObjectSet'.set,
 		       ClassDef),
@@ -924,14 +924,101 @@ check_object(S,
 %% remove_duplicate_objects/1 remove duplicates of objects.
 %% For instance may Set contain objects of same class from
 %% different object sets that in fact might be duplicates.
-remove_duplicate_objects(Set) when is_list(Set) ->
-    Pred = fun({A,B,_},{A,C,_}) when B =< C -> true;
-	      ({A,_,_},{B,_,_}) when A < B -> true;
-	      ('EXTENSIONMARK','EXTENSIONMARK') -> true;
-	      (T,A) when is_tuple(T),is_atom(A) -> true;% EXTENSIONMARK last in list
-	      (_,_) -> false 
-	   end,
-    lists:usort(Pred,Set).
+remove_duplicate_objects(S, Set0) when is_list(Set0) ->
+    Set1 = lists:map(fun({_,Id,_}=Orig) ->
+			     {{a,Id},Orig};
+			('EXTENSIONMARK'=Ext) ->
+			     {{z,Ext},Ext}
+		     end, Set0),
+    Set2 = sofs:relation(Set1),
+    Set3 = sofs:relation_to_family(Set2),
+    Set = sofs:to_external(Set3),
+    remove_duplicate_objects_1(S, Set).
+
+remove_duplicate_objects_1(S, [{{a,no_unique_value},Objs}|T]) ->
+    Objs ++ remove_duplicate_objects_1(S, T);
+remove_duplicate_objects_1(S, [{_,[_]=Objs}|T]) ->
+    Objs ++ remove_duplicate_objects_1(S, T);
+remove_duplicate_objects_1(S, [{{_,Id},[_|_]=Objs}|T]) ->
+    MakeSortable = fun(What) -> sortable_type(S, What) end,
+    Tagged = order_tag_set(Objs, MakeSortable),
+    case lists:ukeysort(1, Tagged) of
+	[{_,Obj}] ->
+	    [Obj|remove_duplicate_objects_1(S, T)];
+	[_|_] ->
+	    asn1_error(S, S#state.type, {non_unique_object,Id})
+    end;
+remove_duplicate_objects_1(_, []) ->
+    [].
+
+order_tag_set([{_, _, Fields}=Orig|Fs], Fun) ->
+    Pair = {[{FId, traverse(F, Fun)} || {FId, F} <- Fields], Orig},
+    [Pair|order_tag_set(Fs, Fun)];
+order_tag_set([], _) -> [].
+
+sortable_type(S, #'Externaltypereference'{}=ERef) ->
+    try get_referenced_type(S, ERef) of
+	 {_,#typedef{}=OI} ->
+	    OI#typedef{pos=undefined,name=undefined}
+    catch
+	_:_ ->
+	    ERef
+    end;
+sortable_type(_, #typedef{}=TD) ->
+    asn1ct:unset_pos_mod(TD#typedef{name=undefined});
+sortable_type(_, Type) ->
+    asn1ct:unset_pos_mod(Type).
+
+traverse(Structure0, Fun) ->
+    Structure = Fun(Structure0),
+    traverse_1(Structure, Fun).
+
+traverse_1(#typedef{typespec=TS0} = TD, Fun) ->
+    TS = traverse(TS0, Fun),
+    TD#typedef{typespec=TS};
+traverse_1(#valuedef{type=TS0} = VD, Fun) ->
+    TS = traverse(TS0, Fun),
+    VD#valuedef{type=TS};
+traverse_1(#type{def=TS0} = TD, Fun) ->
+    TS = traverse(TS0, Fun),
+    TD#type{def=TS};
+traverse_1(#'SEQUENCE'{components=Cs0} = Seq, Fun) ->
+    Cs = traverse_seq_set(Cs0, Fun),
+    Seq#'SEQUENCE'{components=Cs};
+traverse_1({'SEQUENCE OF',Type0}, Fun) ->
+    Type = traverse(Type0, Fun),
+    {'SEQUENCE OF',Type};
+traverse_1({'SET OF',Type0}, Fun) ->
+    Type = traverse(Type0, Fun),
+    {'SET OF',Type};
+traverse_1(#'SET'{components=Cs0} = Set, Fun) ->
+    Cs = traverse_seq_set(Cs0, Fun),
+    Set#'SET'{components=Cs};
+traverse_1({'CHOICE', Cs0}, Fun) ->
+    Cs = traverse_seq_set(Cs0, Fun),
+    {'CHOICE', Cs};
+traverse_1(Leaf, _) ->
+    Leaf.
+
+traverse_seq_set(List, Fun) when is_list(List) ->
+    traverse_seq_set_1(List, Fun);
+traverse_seq_set({Set, Ext}, Fun) ->
+    {traverse_seq_set_1(Set, Fun), traverse_seq_set_1(Ext, Fun)};
+traverse_seq_set({Set1, Set2, Set3}, Fun) ->
+    {traverse_seq_set_1(Set1, Fun),
+     traverse_seq_set_1(Set2, Fun),
+     traverse_seq_set_1(Set3, Fun)}.
+
+traverse_seq_set_1([#'ComponentType'{} = CT0|Cs], Fun) ->
+    CT = #'ComponentType'{typespec=TS0} = Fun(CT0),
+    TS = traverse(TS0, Fun),
+    [CT#'ComponentType'{typespec=TS}|traverse_seq_set_1(Cs, Fun)];
+traverse_seq_set_1([{'COMPONENTS OF', _} = CO0|Cs], Fun) ->
+    {'COMPONENTS OF', TS0} = Fun(CO0),
+    TS = traverse(TS0, Fun),
+    [{'COMPONENTS OF', TS}|traverse_seq_set_1(Cs, Fun)];
+traverse_seq_set_1([], _) ->
+    [].
 
 %%
 extensionmark(L,true) ->
@@ -1002,11 +1089,12 @@ object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,[O|Os],InterSect,Acc) -
 	Obj ->
 	    object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,Os,InterSect,[Obj|Acc])
     end;
-object_set_from_objects(_S,_RefedObjMod,_ClassDef,_FieldName,[],InterSect,Acc) ->
+object_set_from_objects(S,_RefedObjMod,_ClassDef,_FieldName,[],InterSect,Acc) ->
     %% For instance may Acc contain objects of same class from
     %% different object sets that in fact might be duplicates.
-    remove_duplicate_objects(osfo_intersection(InterSect,Acc)).
-%%    Acc.
+    Set = osfo_intersection(InterSect,Acc),
+    remove_duplicate_objects(S, Set).
+
 object_set_from_objects2(S,RefedObjMod,ClassDef,[{valuefieldreference,OName}],
 			 Fields,_InterSect) ->
     %% this is an object
@@ -1364,15 +1452,8 @@ get_unique_valuelist(S,ObjSet,{UFN,Opt}) ->
 
 get_unique_vlist(_S,[],_,_,[]) ->
     ['EXTENSIONMARK'];
-get_unique_vlist(S,[],_,Opt,Acc) ->
-    case catch check_uniqueness(remove_duplicate_objects(Acc)) of
-	{asn1_error,_} when Opt =/= 'OPTIONAL' ->
-	    error({'ObjectSet',"not unique objects in object set",S});
-	{asn1_error,_} ->
-	    lists:reverse(Acc);
-	_ ->
-	    lists:reverse(Acc)
-    end;
+get_unique_vlist(_, [], _, _Opt, Acc) ->
+    lists:reverse(Acc);
 get_unique_vlist(S,['EXTENSIONMARK'|Rest],UniqueFieldName,Opt,Acc) ->
     get_unique_vlist(S,Rest,UniqueFieldName,Opt,Acc);
 get_unique_vlist(S,[{ObjName,Obj}|Rest],UniqueFieldName,Opt,Acc) ->
@@ -1431,18 +1512,6 @@ get_unique_value(S,Fields,UniqueFieldName) ->
 		    no_unique_value
 	    end
     end.
-
-check_uniqueness(NameValueList) ->
-    check_uniqueness1(lists:keysort(2,NameValueList)).
-
-check_uniqueness1([]) ->
-    true;
-check_uniqueness1([_]) ->
-    true;
-check_uniqueness1([{_,N,_},{_,N,_}|_Rest]) ->
-    throw({asn1_error,{'objects in set must have unique values in UNIQUE fields',N}});
-check_uniqueness1([_|Rest]) ->
-    check_uniqueness1(Rest).
 
 %% instantiate_po/4
 %% ClassDef is the class of Object,
@@ -6561,6 +6630,8 @@ format_error({undefined_import,Ref,Module}) ->
     io_lib:format("'~s' is not exported from ~s", [Ref,Module]);
 format_error({value_reused,Val}) ->
     io_lib:format("the value '~p' is used more than once", [Val]);
+format_error({non_unique_object,Id}) ->
+    io_lib:format("object set with a UNIQUE field value of '~p' is used more than once", [Id]);
 format_error(Other) ->
     io_lib:format("~p", [Other]).
 
