@@ -1641,42 +1641,51 @@ pattern({match,_,P1,P2}, St) ->
 
 %% pattern_map_pairs([MapFieldExact],State) -> [#c_map_pairs{}]
 pattern_map_pairs(Ps, St) ->
-    %% check literal key uniqueness (dict is needed)
-    %% pattern all pairs
-    {CMapPairs, {Kdb,Eps,St1}} = lists:mapfoldl(fun
-	    (P,{Kdbi,EpsM,Sti0}) ->
+    %% check literal key uniqueness
+    %%   - guaranteed via aliasing map pairs
+    %% pattern all pairs in two steps
+    %% 1) Construct Core Pattern
+    %% 2) Alias Keys in Core Pattern
+    {CMapPairs, {Eps,St1}} = lists:mapfoldl(fun
+	    (P,{EpsM,Sti0}) ->
 		{CMapPair,EpsP,Sti1} = pattern_map_pair(P,Sti0),
-		#c_map_pair{key=Ck,val=Cv} = CMapPair,
-		K = pattern_map_clean_key(Ck),
-		case dict:find(K,Kdbi) of
-		    {ok, Vs} -> {CMapPair, {dict:store(K,[Cv|Vs],Kdbi),EpsM++EpsP,Sti1}};
-		    _ ->        {CMapPair, {dict:store(K,[Cv],Kdbi),EpsM++EpsP,Sti1}}
-		end
-	end, {dict:new(),[],St}, Ps),
-    {pattern_alias_map_pairs(CMapPairs,Kdb,dict:new(),St1),Eps,St1}.
+		{CMapPair, {EpsM++EpsP,Sti1}}
+	end, {[],St}, Ps),
+    {pattern_alias_map_pairs(CMapPairs,[]),Eps,St1}.
 
 %% remove cluddering annotations
 pattern_map_clean_key(#c_literal{val=V}) -> {literal,V};
 pattern_map_clean_key(#c_var{name=V}) -> {var,V};
 pattern_map_clean_key(_) -> erlang:throw(nomatch).
 
-pattern_alias_map_pairs([],_,_,_) -> [];
-pattern_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Kset,St) ->
-    %% alias same keys if needed
+pattern_alias_map_pairs(Ps1,Ps2) ->
+    Ps = Ps1 ++ Ps2,
+    F = fun(#c_map_pair{key=Ck,val=Cv},Dbi) ->
+		K = pattern_map_clean_key(Ck),
+		case dict:find(K,Dbi) of
+		    {ok,Cvs} -> dict:store(K,[Cv|Cvs],Dbi);
+		    _        -> dict:store(K,[Cv],Dbi)
+		end
+	end,
+    Kdb = lists:foldl(F,dict:new(),Ps),
+    pattern_alias_map_pairs(Ps,Kdb,sets:new()).
+
+pattern_alias_map_pairs([],_,_) -> [];
+pattern_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Set) ->
     K = pattern_map_clean_key(Ck),
-    case dict:find(K,Kset) of
-	{ok,processed} ->
-	    pattern_alias_map_pairs(Pairs,Kdb,Kset,St);
-	_ ->
+    case sets:is_element(K,Set) of
+	true ->
+	    pattern_alias_map_pairs(Pairs,Kdb,Set);
+	false ->
 	    Cvs = dict:fetch(K,Kdb),
-	    Cv = pattern_alias_map_pair_patterns(Cvs),
-	    Kset1 = dict:store(K, processed, Kset),
-	    [Pair#c_map_pair{val=Cv}|pattern_alias_map_pairs(Pairs,Kdb,Kset1,St)]
+	    Cv = pattern_alias_map_pair_values(Cvs),
+	    Set1 = sets:add_element(K,Set),
+	    [Pair#c_map_pair{val=Cv}|pattern_alias_map_pairs(Pairs,Kdb,Set1)]
     end.
 
-pattern_alias_map_pair_patterns([Cv]) -> Cv;
-pattern_alias_map_pair_patterns([Cv1,Cv2|Cvs]) ->
-    pattern_alias_map_pair_patterns([pat_alias(Cv1,Cv2)|Cvs]).
+pattern_alias_map_pair_values([Cv]) -> Cv;
+pattern_alias_map_pair_values([Cv1,Cv2|Cvs]) ->
+    pattern_alias_map_pair_values([pat_alias(Cv1,Cv2)|Cvs]).
 
 pattern_map_pair({map_field_exact,L,K,V}, St0) ->
     {Ck,EpsK,St1} = safe_pattern_expr(K,St0),
