@@ -314,7 +314,8 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     exit(Reason).
 
 reply({From, Ref}, Msg) ->
-    From ! {Ref, Msg}.
+    From ! {Ref, Msg},
+    ok.
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
