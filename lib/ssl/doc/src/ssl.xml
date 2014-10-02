@@ -654,7 +654,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </type>
       <desc>
         <p>Gets one or more statistic options for a socket.</p>
-        <p>See inet:getstat/2 for details.</p>
+        <p>See inet:getstat/2 for statistic options description.</p>
+        <p>Packets in recv_cnt and send_cnt are TLS frames.</p>
+        <p>Options recv_dvi and send_pend currently are not supported
+            and always return zero for compatibility</p>
       </desc>
     </func>
 
