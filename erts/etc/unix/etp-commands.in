@@ -3561,6 +3561,39 @@ document etp-carrier-blocks
 %---------------------------------------------------------------------------
 end
 
+define etp-address-to-beam-opcode
+  set $etp_i = 0
+  set $etp_min_diff = ((UWord)1 << (sizeof(UWord)*8 - 1))
+  set $etp_min_opcode = -1
+  set $etp_addr = (UWord) ($arg0)
+
+  while $etp_i < num_instructions && $etp_min_diff > 0
+    if ($etp_addr - (UWord)beam_ops[$etp_i]) < $etp_min_diff
+      set $etp_min_diff = $etp_addr - (UWord)beam_ops[$etp_i]
+      set $etp_min_opcode = $etp_i
+    end
+    set $etp_i = $etp_i + 1
+  end
+  if $etp_min_diff == 0
+    printf "Address %p is start of '%s'\n", $etp_addr, opc[$etp_min_opcode].name
+  else
+    if $etp_min_opcode >= 0
+      printf "Address is %ld bytes into opcode '%s' at %p\n", $etp_min_diff, opc[$etp_min_opcode].name, beam_ops[$etp_min_opcode]
+    else
+      printf "Invalid opcode address\n"
+    end
+  end
+end
+
+document etp-address-to-beam-opcode
+%---------------------------------------------------------------------------
+% Get beam opcode from a native instruction address (within process_main())
+% Arg: Instructon pointer value
+%
+% Does not work with NO_JUMP_TABLE
+%---------------------------------------------------------------------------
+end
+
 
 ############################################################################
 # Toolbox parameter handling
