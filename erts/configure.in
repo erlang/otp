@@ -3988,7 +3988,7 @@ dnl If set to --with-ssl=PATH we use that path as the prefix, i.e. we
 dnl use "PATH/include" and "PATH/lib".
 
 AC_SUBST(SSL_INCLUDE)
-AC_SUBST(SSL_ROOT)
+AC_SUBST(SSL_INCDIR)
 AC_SUBST(SSL_LIBDIR)
 AC_SUBST(SSL_CRYPTO_LIBNAME)
 AC_SUBST(SSL_SSL_LIBNAME)
@@ -4081,6 +4081,15 @@ AC_ARG_WITH(ssl,
 AS_HELP_STRING([--with-ssl=PATH], [specify location of OpenSSL include and lib])
 AS_HELP_STRING([--with-ssl], [use SSL (default)])
 AS_HELP_STRING([--without-ssl], [don't use SSL]))
+
+AC_ARG_WITH(ssl-incl,
+AS_HELP_STRING([--with-ssl-incl=PATH], [location of OpenSSL include dir, if different than specified by --with-ssl=PATH]),
+[
+case X$with_ssl in
+    X | Xyes | Xno) AC_MSG_ERROR([--with-ssl-incl=PATH set without --with-ssl=PATH]);;
+esac
+],
+[with_ssl_incl=$with_ssl]) #default
 
 AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
@@ -4196,7 +4205,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 	dir="$erl_xcomp_sysroot$rdir"
 	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
 		is_real_ssl=yes
-		SSL_ROOT="$dir"
+		SSL_INCDIR="$dir"
 		if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
 			if test -f "$dir/lib/VC/libeay32.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
@@ -4326,8 +4335,8 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 		  # Trust OpenBSD to have everything the in the correct locations.
 		  ssl_found=yes
 		  ssl_linkable=yes
-		  SSL_ROOT="$erl_xcomp_sysroot/usr"
-	          AC_MSG_RESULT([$SSL_ROOT])
+		  SSL_INCDIR="$erl_xcomp_sysroot/usr"
+	          AC_MSG_RESULT([$SSL_INCDIR])
 		  SSL_RUNTIME_LIB="/usr/lib"
 		  SSL_LIB="$erl_xcomp_sysroot/usr/lib"
 		  SSL_BINDIR="/usr/sbin"
@@ -4394,7 +4403,10 @@ dnl		so it is - be adoptable
     if test ! -d "$with_ssl" ; then
        AC_MSG_ERROR(Invalid path to option --with-ssl=PATH)
     fi
-    SSL_ROOT="$with_ssl"
+    if test ! -d "$with_ssl_incl" ; then
+       AC_MSG_ERROR(Invalid path to option --with-ssl-incl=PATH)
+    fi
+    SSL_INCDIR="$with_ssl_incl"
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
     if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes" && test -d "$with_ssl/lib/VC"; then
@@ -4444,12 +4456,12 @@ dnl		so it is - be adoptable
     elif test '!' -f ${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.so -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
 	SSL_STATIC_ONLY=yes
     fi
-    SSL_INCLUDE="-I$with_ssl/include"
+    SSL_INCLUDE="-I$with_ssl_incl/include"
     SSL_APP=ssl
     CRYPTO_APP=crypto
     SSH_APP=ssh
     if test "$cross_compiling" = "yes"; then
-	SSL_RUNTIME_LIBDIR=`echo "$SSL_LIBDIR" | sed -n "s|^$erl_xcomp_sysroot\(.*\)\$|\1|p"`
+	SSL_RUNTIME_LIBDIR=`echo "$SSL_LIBDIR" | sed -n "s|^$erl_xcomp_sysroot\(/*\)\(.*\)\$|/\2|p"`
     else
 	SSL_RUNTIME_LIBDIR="$SSL_LIBDIR"
     fi
@@ -4507,8 +4519,8 @@ if test "x$SSL_APP" != "x" ; then
     SSL_KRB5_INCLUDE=
     if test "x$ssl_krb5_enabled" = "xyes" ; then
         AC_MSG_CHECKING(for krb5.h in standard locations)
-	for dir in $extra_dir "$SSL_ROOT/include" "$SSL_ROOT/include/openssl" \
-		"$SSL_ROOT/include/kerberos" \
+	for dir in $extra_dir "$SSL_INCDIR/include" "$SSL_INCDIR/include/openssl" \
+		"$SSL_INCDIR/include/kerberos" \
 		"$erl_xcomp_isysroot/cygdrive/c/kerberos/include" \
 		"$erl_xcomp_isysroot/usr/local/kerberos/include" \
 		"$erl_xcomp_isysroot/usr/kerberos/include" \
