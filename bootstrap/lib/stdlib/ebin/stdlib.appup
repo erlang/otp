@@ -15,11 +15,11 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
-{"2.1.1",
+{"2.2",
  %% Up from - max one major revision back
- [{<<"2\\.1(\\.[0-9]+)*">>,[restart_new_emulator]},  %% 17.1
+ [{<<"2\\.[1-2](\\.[0-9]+)*">>,[restart_new_emulator]}, %% 17.1-17.3
   {<<"2\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}], %% 17.0
  %% Down to - max one major revision back
- [{<<"2\\.1(\\.[0-9]+)*">>,[restart_new_emulator]}, %% 17.1
+ [{<<"2\\.[1-2](\\.[0-9]+)*">>,[restart_new_emulator]}, %% 17.1-17.3
   {<<"2\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}] %% 17.0
 }.
