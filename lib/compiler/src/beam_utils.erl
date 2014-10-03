@@ -26,6 +26,8 @@
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2]).
 
+-export([joineven/2,spliteven/1]).
+
 -import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
 -record(live,
@@ -832,3 +834,15 @@ x_live([_|Rs], Regs) -> x_live(Rs, Regs);
 x_live([], Regs) -> Regs.
 
 is_live(X, Regs) -> ((Regs bsr X) band 1) =:= 1.
+
+%% spliteven/1
+%% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
+spliteven(Rs) -> spliteven(Rs,[],[]).
+spliteven([],Ss,Ds) -> {reverse(Ss),reverse(Ds)};
+spliteven([S,D|Rs],Ss,Ds) ->
+    spliteven(Rs,[S|Ss],[D|Ds]).
+
+%% joineven/1
+%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
+joineven([],[]) -> [];
+joineven([S|Ss],[D|Ds]) -> [S,D|joineven(Ss,Ds)].

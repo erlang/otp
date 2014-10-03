@@ -3667,7 +3667,8 @@ maps(Config) ->
                    g := 1 + 1,
                    h := _,
                    i := (_X = _Y),
-                   j := (x ! y) }) ->
+                   j := (x ! y),
+		   <<0:300>> := 33}) ->
                   {A,F}.
             ">>,
            [],
@@ -3680,9 +3681,10 @@ maps(Config) ->
 	   {errors,[{1,erl_lint,illegal_map_construction},
                     {1,erl_lint,{unbound_var,'X'}}],
             []}},
-	  {errors_in_map_keys,
+	  {legal_map_construction,
 	   <<"t(V) -> #{ a => 1,
 			#{a=>V} => 2,
+			#{{a,V}=>V} => 2,
 			#{ \"hi\" => wazzup, hi => ho } => yep,
 			[try a catch _:_ -> b end] => nope,
 			ok => 1.0,
@@ -3694,11 +3696,7 @@ maps(Config) ->
 		      }.
 	   ">>,
 	   [],
-	   {errors,[{2,erl_lint,{illegal_map_key_variable,'V'}},
-		    {4,erl_lint,illegal_map_key},
-		    {6,erl_lint,illegal_map_key},
-		    {8,erl_lint,illegal_map_key},
-		    {10,erl_lint,illegal_map_key}],[]}},
+	   []},
 	   {errors_in_map_keys_pattern,
 	   <<"t(#{ a := 2,
 	           #{} := A,
@@ -3709,8 +3707,8 @@ maps(Config) ->
 	       A.
 	   ">>,
 	   [],
-	   {errors,[{4,erl_lint,illegal_map_key},
-		    {6,erl_lint,{illegal_map_key_variable,'V'}}],[]}}],
+	   {errors,[{4,erl_lint,illegal_map_construction},
+		    {6,erl_lint,illegal_map_key}],[]}}],
     [] = run(Config, Ts),
     ok.
 

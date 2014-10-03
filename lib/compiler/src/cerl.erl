@@ -3063,10 +3063,12 @@ pat_vars(Node, Vs) ->
 	map ->
 	    pat_list_vars(map_es(Node), Vs);
 	map_pair ->
-	    pat_list_vars([map_pair_op(Node),map_pair_key(Node),map_pair_val(Node)],Vs);
+	    %% map_pair_key is not a pattern var, excluded
+	    pat_list_vars([map_pair_op(Node),map_pair_val(Node)],Vs);
 	binary ->
 	    pat_list_vars(binary_segments(Node), Vs);
 	bitstr ->
+	    %% bitstr_size is not a pattern var, excluded
 	    pat_vars(bitstr_val(Node), Vs);
 	alias ->
 	    pat_vars(alias_pat(Node), [alias_var(Node) | Vs])

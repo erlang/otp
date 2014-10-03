@@ -520,9 +520,9 @@ variables(T, S) ->
 	tuple ->
 	    vars_in_list(tuple_es(T), S);
 	map ->
-	    vars_in_list(map_es(T), S);
+	    vars_in_list([map_arg(T)|map_es(T)], S);
 	map_pair ->
-	    vars_in_list([map_pair_op(T),map_pair_key(T), map_pair_val(T)], S);
+	    vars_in_list([map_pair_op(T),map_pair_key(T),map_pair_val(T)], S);
 	'let' ->
 	    Vs = variables(let_body(T), S),
 	    Vs1 = var_list_names(let_vars(T)),
