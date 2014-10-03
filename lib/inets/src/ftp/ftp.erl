@@ -60,6 +60,7 @@
 -define(DATA_ACCEPT_TIMEOUT, infinity).
 -define(DEFAULT_MODE,        passive).
 -define(PROGRESS_DEFAULT,    ignore).
+-define(OVERRIDE_DEFAULT,    false).
 
 %% Internal Constants
 -define(FTP_PORT, 21).
@@ -94,7 +95,8 @@
 	  ipfamily,     % inet | inet6 | inet6fb4
 	  progress = ignore,   % ignore | pid()	    
 	  dtimeout = ?DATA_ACCEPT_TIMEOUT,  % non_neg_integer() | infinity
-	  tls_upgrading_data_connection = false
+	  tls_upgrading_data_connection = false,
+	  override = ?OVERRIDE_DEFAULT
 	 }).
 
 
@@ -969,6 +971,8 @@ start_options(Options) ->
 %%    timeout
 %%    dtimeout
 %%    progress
+%%	  override
+
 open_options(Options) ->
     ?fcrt("open_options", [{options, Options}]), 
     ValidateMode = 
@@ -1013,6 +1017,11 @@ open_options(Options) ->
 	   (_) ->
 		false
 	end,
+	ValidateOverride =
+	fun(true) -> true;
+		(false) -> true;
+		(_) -> false
+	end,	
     ValidOptions = 
 	[{mode,     ValidateMode,     false, ?DEFAULT_MODE}, 
 	 {host,     ValidateHost,     true,  ehost},
@@ -1020,7 +1029,8 @@ open_options(Options) ->
 	 {ipfamily, ValidateIpFamily, false, inet},
 	 {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT}, 
 	 {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT}, 
-	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT}], 
+	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
+	 {override, ValidateOverride, false, ?OVERRIDE_DEFAULT}], 
     validate_options(Options, ValidOptions, []).
 
 tls_options(Options) ->
@@ -1174,12 +1184,14 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 	    DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
 	    Progress = key_search(progress, Opts, ignore),
 	    IpFamily = key_search(ipfamily, Opts, inet),
+	    Override = key_search(override, Opts, ?OVERRIDE_DEFAULT),
 
 	    State2 = State#state{client   = From, 
 				 mode     = Mode,
 				 progress = progress(Progress),
 				 ipfamily = IpFamily, 
-				 dtimeout = DTimeout}, 
+				 dtimeout = DTimeout,
+				 override = Override}, 
 
 	    ?fcrd("handle_call(open) -> setup ctrl connection with", 
 		  [{host, Host}, {port, Port}, {timeout, Timeout}]), 
@@ -1202,11 +1214,13 @@ handle_call({_, {open, ip_comm, Host, Opts}}, From, State) ->
     Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
     DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
     Progress = key_search(progress, Opts, ignore),
+    Override = key_search(override, Opts, ?OVERRIDE_DEFAULT),
     
     State2 = State#state{client   = From, 
 			 mode     = Mode,
 			 progress = progress(Progress), 
-			 dtimeout = DTimeout}, 
+			 dtimeout = DTimeout,
+			 override = Override}, 
 
     case setup_ctrl_connection(Host, Port, Timeout, State2) of
 	{ok, State3, WaitTimeout} ->
@@ -1785,7 +1799,8 @@ handle_ctrl_result({pos_compl, Lines},
 			  ipfamily = inet,
 			  client   = From,
 			  caller   = {setup_data_connection, Caller},
-			  timeout  = Timeout} = State) ->
+			  timeout  = Timeout,
+			  override = false} = State) ->
     
     {_, [?LEFT_PAREN | Rest]} = 
 	lists:splitwith(fun(?LEFT_PAREN) -> false; (_) -> true end, Lines),
@@ -1805,6 +1820,37 @@ handle_ctrl_result({pos_compl, Lines},
 	    gen_server:reply(From, Error),
 	    {noreply,State#state{client = undefined, caller = undefined}}
     end;
+
+handle_ctrl_result({pos_compl, Lines}, 
+		   #state{mode     = passive, 
+			  ipfamily = inet,
+			  client   = From,
+			  caller   = {setup_data_connection, Caller},
+			  csock    = CSock,
+			  timeout  = Timeout,
+			  override = true} = State) ->
+    
+    {_, [?LEFT_PAREN | Rest]} = 
+	lists:splitwith(fun(?LEFT_PAREN) -> false; (_) -> true end, Lines),
+    {NewPortAddr, _} =
+	lists:splitwith(fun(?RIGHT_PAREN) -> false; (_) -> true end, Rest),
+    [A1, A2, A3, A4, P1, P2] = 
+	lists:map(fun(X) -> list_to_integer(X) end, 
+		  string:tokens(NewPortAddr, [$,])),
+    IP1   = {A1, A2, A3, A4}, 
+    Port = (P1 * 256) + P2, 
+
+    {ok, {IP, _}} = peername(CSock),
+    ?DBG('<--override PASV address, got ~p will use ~p~n',[IP1,IP]),
+
+    ?DBG('<--data tcp connect to ~p:~p, Caller=~p~n',[IP,Port,Caller]),
+    case connect(IP, Port, Timeout, State) of
+	{ok, _, Socket}  ->
+	    handle_caller(State#state{caller = Caller, dsock = {tcp,Socket}});
+	{error, _Reason} = Error ->
+	    gen_server:reply(From, Error),
+	    {noreply,State#state{client = undefined, caller = undefined}}
+    end;    
 
 %% FTP server does not support passive mode: try to fallback on active mode
 handle_ctrl_result(_, 
