@@ -21,7 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
-	 find_executable/1, unix_comment_in_command/1, deep_list_command/1, evil/1]).
+	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
+         evil/1, isatty_args/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -29,7 +30,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
-     find_executable, unix_comment_in_command, deep_list_command, evil].
+     find_executable, unix_comment_in_command, deep_list_command, evil,
+     isatty_args].
 
 groups() ->
     [].
@@ -163,6 +165,23 @@ bad_command(Config) when is_list(Config) ->
     ?line os:cmd("xxxxx"),
 
     ok.
+
+isatty_args(suite) -> [];
+isatty_args(doc) ->
+    "Check that arguments are properly handled.";
+isatty_args(_Config) ->
+    os:isatty(stdin),
+    os:isatty(stdout),
+    os:isatty(stderr),
+    os:isatty(0),
+    os:isatty(1),
+    os:isatty(5),
+    V = try
+            os:isatty(-1)
+        catch _:badarg ->
+            badarg
+        end,
+    V = badarg.
 
 find_executable(suite) -> [];
 find_executable(doc) -> [];
