@@ -451,6 +451,8 @@ cleanup_compile_options([asm|Opts]) ->
   Opts;
 cleanup_compile_options([from_core|Opts]) ->
   Opts;
+cleanup_compile_options([warnings_as_errors|Opts]) ->
+  Opts;
 %% The parse transform will already have been applied, may cause problems if it
 %% is re-applied.
 cleanup_compile_options([{parse_transform, _}|Opts]) ->
