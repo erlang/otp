@@ -150,7 +150,7 @@ Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-spec
   '("-spec " (erlang-skel-get-function-name) "( " (erlang-skel-get-function-args) ") -> undefined.")
-    "*The template of a function skeleton.
+    "*The template of a -spec for the function following point.
 Please see the function `tempo-define-template'.")
 
 ;; Attribute templates
