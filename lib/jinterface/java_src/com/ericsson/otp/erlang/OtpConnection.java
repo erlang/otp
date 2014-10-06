@@ -358,6 +358,7 @@ public class OtpConnection extends AbstractConnection {
      *                    if the connection is not active or a communication
      *                    error occurs.
      */
+    @SuppressWarnings("resource")
     public void send(final OtpErlangPid dest, final OtpErlangObject msg)
 	    throws IOException {
 	// encode and send the message
@@ -376,6 +377,7 @@ public class OtpConnection extends AbstractConnection {
      *                    if the connection is not active or a communication
      *                    error occurs.
      */
+    @SuppressWarnings("resource")
     public void send(final String dest, final OtpErlangObject msg)
 	    throws IOException {
 	// encode and send the message

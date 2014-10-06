@@ -604,20 +604,20 @@ import_export(Config) when is_list(Config) ->
 misc_attrs(suite) ->
     [];
 misc_attrs(Config) when is_list(Config) ->
-    ?line ok = pp_forms(<<"-module(m). ">>),
-    ?line ok = pp_forms(<<"-module(m, [Aafjlksfjdlsjflsdfjlsdjflkdsfjlk,"
-                          "Blsjfdlslfjsdf]). ">>),
-    ?line ok = pp_forms(<<"-export([]). ">>),
-    ?line ok = pp_forms(<<"-export([foo/2, bar/0]). ">>),
-    ?line ok = pp_forms(<<"-export([bar/0]). ">>),
-    ?line ok = pp_forms(<<"-import(lists, []). ">>),
-    ?line ok = pp_forms(<<"-import(lists, [map/2]). ">>),
-    ?line ok = pp_forms(<<"-import(lists, [map/2, foreach/2]). ">>),
-    ?line ok = pp_forms(<<"-'wild '({attr2,3}). ">>),
-    ?line ok = pp_forms(<<"-record(a, {b,c}). ">>),
-    ?line ok = pp_forms(<<"-record(' a ', {}). ">>),
-    ?line ok = pp_forms(<<"-record(' a ', {foo = foo:bar()}). ">>),
-
+    ok = pp_forms(<<"-module(m). ">>),
+    ok = pp_forms(<<"-module(m, [Aafjlksfjdlsjflsdfjlsdjflkdsfjlk,"
+                    "Blsjfdlslfjsdf]). ">>),
+    ok = pp_forms(<<"-export([]). ">>),
+    ok = pp_forms(<<"-export([foo/2, bar/0]). ">>),
+    ok = pp_forms(<<"-export([bar/0]). ">>),
+    ok = pp_forms(<<"-import(lists, []). ">>),
+    ok = pp_forms(<<"-import(lists, [map/2]). ">>),
+    ok = pp_forms(<<"-import(lists, [map/2, foreach/2]). ">>),
+    ok = pp_forms(<<"-'wild '({attr2,3}). ">>),
+    ok = pp_forms(<<"-record(a, {b,c}). ">>),
+    ok = pp_forms(<<"-record(' a ', {}). ">>),
+    ok = pp_forms(<<"-record(' a ', {foo = foo:bar()}). ">>),
+    ok = pp_forms(<<"-custom1(#{test1 => init/2, test2 => [val/1, val/2]}). ">>),
     ok.
 
 dialyzer_attrs(suite) ->

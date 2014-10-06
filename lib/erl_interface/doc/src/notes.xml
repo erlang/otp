@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added a <c>.app</c> file for the application.</p>
+          <p>
+	    Own Id: OTP-12178</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

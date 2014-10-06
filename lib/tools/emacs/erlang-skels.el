@@ -577,7 +577,7 @@ Please see the function `tempo-define-template'.")
     "-record(state, {})." n n
 
     (erlang-skel-double-separator-start 3)
-    "%%% gen_event callbacks" n
+    "%%% API" n
     (erlang-skel-double-separator-end 3) n
     (erlang-skel-separator-start 2)
     "%% @doc" n

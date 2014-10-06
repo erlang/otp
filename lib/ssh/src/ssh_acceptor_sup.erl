@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,7 @@
 -module(ssh_acceptor_sup).
 -behaviour(supervisor).
 
--export([start_link/1, start_child/2, stop_child/2]).
+-export([start_link/1, start_child/2, stop_child/3]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -45,18 +45,17 @@ start_child(AccSup, ServerOpts) ->
 	{error, already_present} ->
 	    Address = proplists:get_value(address, ServerOpts),
 	    Port = proplists:get_value(port, ServerOpts),
-	    Name = id(Address, Port),
-	    supervisor:delete_child(?MODULE, Name),
+	    stop_child(AccSup, Address, Port),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
 	    Reply
     end.
 
-stop_child(Address, Port) ->
+stop_child(AccSup, Address, Port) ->
     Name = id(Address, Port),
-    case supervisor:terminate_child(?MODULE, Name) of
+    case supervisor:terminate_child(AccSup, Name) of
         ok ->
-            supervisor:delete_child(?MODULE, Name);
+            supervisor:delete_child(AccSup, Name);
         Error ->
             Error
     end.

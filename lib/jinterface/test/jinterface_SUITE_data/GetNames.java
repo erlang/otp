@@ -18,7 +18,9 @@
  */
 
 import java.util.ArrayList;
-import com.ericsson.otp.erlang.*;
+
+import com.ericsson.otp.erlang.OtpMbox;
+import com.ericsson.otp.erlang.OtpNode;
 
 class GetNames {
 
@@ -37,7 +39,7 @@ class GetNames {
 	    OtpMbox mbox3 = node.createMbox();
 	    node.registerName("mbox3",mbox3);
 
-	    ArrayList existing_names = new ArrayList();
+        ArrayList<String> existing_names = new ArrayList<String>();
 	    existing_names.add("mbox3");
 	    existing_names.add("mbox2");
 	    existing_names.add("mbox1");

@@ -30,7 +30,36 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
-  <section><title>Eldap 1.0.3</title>
+  <section><title>Eldap 1.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>eldap:open/2</c> and <c>eldap:open/3</c> gave wrong
+	    return values for option errors.</p>
+          <p>
+	    Own Id: OTP-12182</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Nearly all TCP options are possible to give in the
+	    <c>eldap:open/2</c> call.</p>
+          <p>
+	    Own Id: OTP-12171</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eldap 1.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -143,7 +143,7 @@ to_xml(#t_fun{args = As, range = T}, Env) ->
     {'fun', [{argtypes, map(fun wrap_utype/2, As, Env)},
 	     wrap_utype(T, Env)]};
 to_xml(#t_map{ types = Ts}, Env) ->
-    {map, map(fun wrap_utype/2, Ts, Env)};
+    {map, map(fun to_xml/2, Ts, Env)};
 to_xml(#t_map_field{ k_type=K, v_type=V}, Env) ->
     {map_field, [wrap_utype(K,Env), wrap_utype(V, Env)]};
 to_xml(#t_tuple{types = Ts}, Env) ->

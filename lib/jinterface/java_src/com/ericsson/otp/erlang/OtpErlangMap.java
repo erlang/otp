@@ -18,7 +18,6 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.io.Serializable;
 
 /**
  * Provides a Java representation of Erlang maps. Maps are created from one or
@@ -29,8 +28,7 @@ import java.io.Serializable;
  * values can be retrieved as arrays and the value for a key can be queried.
  * 
  */
-public class OtpErlangMap extends OtpErlangObject implements Serializable,
-	Cloneable {
+public class OtpErlangMap extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -6410770117696198497L;
 
