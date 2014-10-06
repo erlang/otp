@@ -390,7 +390,7 @@ do_op(end_of_line, Bef, [C|Aft], Rs) ->
 do_op(end_of_line, Bef, [], Rs) ->
     {{Bef,[]},Rs};
 do_op(ctlu, Bef, Aft, Rs) ->
-    put(kill_buffer, Bef),
+    put(kill_buffer, reverse(Bef)),
     {{[], Aft}, [{delete_chars, -length(Bef)} | Rs]};
 do_op(beep, Bef, Aft, Rs) ->
     {{Bef,Aft},[beep|Rs]};
