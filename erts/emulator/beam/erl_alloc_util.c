@@ -3877,6 +3877,11 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	if (busy_pcrr_pp && *busy_pcrr_pp) {
 	    ERTS_ALC_CPOOL_ASSERT(*busy_pcrr_pp == crr);
 	    *busy_pcrr_pp = NULL;
+	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_read_nob(&crr->allctr)
+				  == (((erts_aint_t) allctr)
+				      | ERTS_CRR_ALCTR_FLG_IN_POOL
+				      | ERTS_CRR_ALCTR_FLG_BUSY));
+	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 	    cpool_delete(allctr, allctr, crr);
 	}
 	else
