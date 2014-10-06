@@ -297,7 +297,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revo
 
 	<tag>PKIX X-509-path validation error</tag>
 	<item> Possible such reasons see <seealso
-	marker="public_key#pkix_path_validation-3"> public_key:pkix_path_validation/3 </seealso></item>
+	marker="public_key:public_key#pkix_path_validation-3"> public_key:pkix_path_validation/3 </seealso></item>
       </taglist>
 
       </item>
