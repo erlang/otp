@@ -264,7 +264,7 @@ static void get_parameters(void)
     int len;
 
 
-    if (module = NULL) {
+    if (module == NULL) {
         error("Cannot GetModuleHandle()");
     }
 

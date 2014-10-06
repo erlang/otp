@@ -80,7 +80,7 @@ int wmain(int argc, wchar_t **argv)
 	}
     }
     if (root == NULL) {
-	if (module = NULL) {
+	if (module == NULL) {
 	    fprintf(stderr, "Cannot GetModuleHandle()\n");
 	    exit(1);
 	}
