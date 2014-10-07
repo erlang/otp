@@ -129,7 +129,13 @@ datestr_from_dirname([]) ->
 close(Info, StartDir) ->
     %% close executes on the ct_util process, not on the logger process
     %% so we need to use a local copy of the log cache data
-    LogCacheBin = make_last_run_index(),
+    LogCacheBin = 
+	case make_last_run_index() of
+	    {error,_} ->  % log server not responding
+		undefined;
+	    LCB ->
+		LCB
+	end,
     put(ct_log_cache,LogCacheBin),
     Cache2File = fun() ->
 			 case get(ct_log_cache) of
