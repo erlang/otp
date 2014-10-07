@@ -22,8 +22,8 @@
 	 already_defined/1,bitstrings/1,
 	 classes/1,constraints/1,enumerated/1,
 	 imports/1,instance_of/1,integers/1,objects/1,
-	 object_field_extraction/1, object_sets/1,
-	 parameterization/1, syntax/1,values/1]).
+	 object_field_extraction/1,oids/1,rel_oids/1,
+	 object_sets/1,parameterization/1, syntax/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -45,6 +45,8 @@ groups() ->
        objects,
        object_field_extraction,
        object_sets,
+       oids,
+       rel_oids,
        parameterization,
        syntax,
        values]}].
@@ -311,6 +313,109 @@ object_sets(Config) ->
     } = run(P, Config),
     ok.
 
+oids(Config) ->
+    M = 'OIDS',
+    P = {M,<<"OIDS DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	    "CONTAINER ::= CLASS { &id OBJECT IDENTIFIER UNIQUE,\n"
+	    "                      &int INTEGER OPTIONAL,\n"
+	    "                      &seq SEQUENCE { a INTEGER } OPTIONAL\n"
+	    "}\n"
+
+	    "-- This is line 6.\n"
+	    "object-1 CONTAINER ::= { &id {1 2 3}, &int 42 }\n"
+	    "object-2 CONTAINER ::= { &id {1 999}, &int 0 }\n"
+	    "object-3 CONTAINER ::= { &id {1 2}, &seq { a 42 } }\n"
+	    "oid-1 OBJECT IDENTIFIER ::= object-1.&int\n"
+	    "oid-2 OBJECT IDENTIFIER ::= object-2.&id\n"
+	    "oid-3 OBJECT IDENTIFIER ::= object-3.&seq\n"
+	    "-- This is line 13.\n"
+
+	    "oid-5 OBJECT IDENTIFIER ::= { a 42, b 19 }\n"
+
+	    "oid-6 OBJECT IDENTIFIER ::= int\n"
+	    "int INTEGER ::= 42\n"
+
+	    "oid-7 OBJECT IDENTIFIER ::= seq\n"
+	    "seq SEQUENCE { x INTEGER } ::= { x 11 }\n"
+
+	    "oid-8 OBJECT IDENTIFIER ::= os\n"
+	    "os OCTET STRING ::= '1234'H\n"
+
+	    "oid-9 OBJECT IDENTIFIER ::= { 1 os }\n"
+
+	    "oid-10 OBJECT IDENTIFIER ::= { 1 invalid }\n"
+
+	    "-- This is line 23.\n"
+	    "oid-11 OBJECT IDENTIFIER ::= { 0 legal-oid }\n"
+	    "legal-oid OBJECT IDENTIFIER ::= {1 2 3}\n"
+
+	    "bad-root-1 OBJECT IDENTIFIER ::= {99}\n"
+	    "bad-root-2 OBJECT IDENTIFIER ::= {0 42}\n"
+
+	    "oid-object-ref-1 OBJECT IDENTIFIER ::= object-1\n"
+	    "oid-object-ref-2 OBJECT IDENTIFIER ::= { object-1 19 } \n"
+
+	    "oid-int OBJECT IDENTIFIER ::= 42\n"
+	    "oid-sequence OBJECT IDENTIFIER ::= {a 42, b 35}\n"
+
+	     "END\n">>},
+    {error,
+     [
+      {structured_error,{M,8},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,10},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,11},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,12},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,14},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,15},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,17},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,19},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,21},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,22},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,24},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,26},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,27},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,28},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,29},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,30},asn1ct_check,{illegal_oid,o_id}},
+      {structured_error,{M,31},asn1ct_check,{illegal_oid,o_id}}
+     ]
+    } = run(P, Config),
+    ok.
+
+rel_oids(Config) ->
+    M = 'REL-OIDS',
+    P = {M,<<"REL-OIDS DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	     "legal-oid OBJECT IDENTIFIER ::= {1 2}\n"
+	     "legal-roid RELATIVE-OID ::= {1 2}\n"
+	     "CONTAINER ::= CLASS { &oid OBJECT IDENTIFIER OPTIONAL,\n"
+	     "                      &int INTEGER OPTIONAL,\n"
+	     "                      &seq SEQUENCE { a INTEGER } OPTIONAL\n"
+	     "}\n"
+	     "object-1 CONTAINER ::= { &oid {1 2 3},\n"
+	     "                         &int 42,\n",
+	     "                         &seq {a 42}\n"
+	     "                       }\n"
+
+	     "wrong-type-rel-oid-1 RELATIVE-OID ::= legal-oid\n"
+	     "wrong-type-rel-oid-2 RELATIVE-OID ::= object-1.&oid\n"
+	     "wrong-type-rel-oid-3 RELATIVE-OID ::= object-1.&int\n"
+	     "wrong-type-rel-oid-4 RELATIVE-OID ::= object-1.&seq\n"
+	     "wrong-type-rel-oid-5 RELATIVE-OID ::= object-1.&undef\n"
+
+	     "oid-bad-first OBJECT IDENTIFIER ::= {legal-roid 3}\n"
+	     "END\n">>},
+    {error,
+     [
+      {structured_error,{M,12},asn1ct_check,{illegal_oid,rel_oid}},
+      {structured_error,{M,13},asn1ct_check,{illegal_oid,rel_oid}},
+      {structured_error,{M,14},asn1ct_check,{illegal_oid,rel_oid}},
+      {structured_error,{M,15},asn1ct_check,{illegal_oid,rel_oid}},
+      {structured_error,{M,16},asn1ct_check,{undefined_field,undef}},
+      {structured_error,{M,17},asn1ct_check,{illegal_oid,o_id}}
+     ]
+    } = run(P, Config),
+    ok.
+
 
 parameterization(Config) ->
     M = 'Parameterization',
@@ -350,6 +455,10 @@ syntax(Config) ->
 	   "  obj15 CL ::= { CODE 42 OBJ-SET { A B } }\n"
 	   "  obj16 CL ::= { CODE 42 OBJ-SET SEQUENCE { an INTEGER } }\n"
 
+	   "  obj17 CL ::= { CODE 42 OID {seqtag 42} }\n"
+	   "  obj18 CL ::= { CODE 42 OID {seqtag 42, seqtag-again 43} }\n"
+	   "  obj19 CL ::= { CODE 42 OID {one 1 two 2} }\n"
+
 	   "  BAD-SYNTAX-1 ::= CLASS {\n"
 	   "    &code INTEGER UNIQUE\n"
 	   "  } WITH SYNTAX {\n"
@@ -366,9 +475,11 @@ syntax(Config) ->
 	   "    &code INTEGER UNIQUE,\n"
 	   "    &enum ENUMERATED { a, b, c} OPTIONAL,\n"
 	   "    &Type OPTIONAL,\n"
-	   "    &ObjSet CL OPTIONAL\n"
+	   "    &ObjSet CL OPTIONAL,\n"
+	   "    &oid OBJECT IDENTIFIER OPTIONAL\n"
 	   "  } WITH SYNTAX {\n"
 	   "    CODE &code [ENUM &enum] [TYPE &Type] [OBJ-SET &ObjSet]\n"
+           "    [OID &oid]\n"
 	   "  }\n"
 
 	   "  bs-value BIT STRING ::= '1011'B\n"
@@ -412,8 +523,14 @@ syntax(Config) ->
       {structured_error,{M,18},asn1ct_check,
        {syntax_nomatch,"SEQUENCE"}},
       {structured_error,{M,19},asn1ct_check,
+       {syntax_nomatch,"\"seqtag 42\""}},
+      {structured_error,{M,20},asn1ct_check,
+       {syntax_nomatch,"\"seqtag 42 seqtag-again 43\""}},
+      {structured_error,{M,21},asn1ct_check,
+       {syntax_nomatch,"\"one 1 two 2\""}},
+      {structured_error,{M,22},asn1ct_check,
        {syntax_undefined_field,bad}},
-      {structured_error,{M,24},asn1ct_check,
+      {structured_error,{M,27},asn1ct_check,
        {syntax_undefined_field,'Bad'}}
     ]
     } = run(P, Config),

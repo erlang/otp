@@ -146,6 +146,11 @@ main(_Erule) ->
 
     roundtrip('InfObj', 'ExtClassSeq', {'ExtClassSeq', 4}),
 
+    {1,2,42} = 'InfObj':'value-1'(),
+    {1,2,42,25} = 'InfObj':'value-2'(),
+    {100,101} = 'InfObj':'value-3'(),
+    {1,2,100,101} = 'InfObj':'value-4'(),
+
     ok.
 
 test_objset(Type, Keys) ->

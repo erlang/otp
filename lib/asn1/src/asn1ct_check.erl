@@ -2128,135 +2128,97 @@ is_contextswitchtype(#typedef{name='CHARACTER STRING'}) ->
 is_contextswitchtype(_) ->
     false.
 
-%%------------
-%% This can be removed when the old parser is removed
-%% The function removes 'space' atoms from the list
+%%%
+%%% Start of OBJECT IDENTFIER/RELATIVE-OID validation.
+%%%
 
-is_space_list([H],Acc) ->
-    lists:reverse([H|Acc]);
-is_space_list([H,space|T],Acc) ->
-    is_space_list(T,[H|Acc]);
-is_space_list([],Acc) ->
-    lists:reverse(Acc);
-is_space_list([H|T],Acc) ->
-    is_space_list(T,[H|Acc]).
+validate_objectidentifier(S, OidType, #'Externalvaluereference'{}=Id) ->
+    %% Must be an OBJECT IDENTIFIER or RELATIVE-OID depending on OidType.
+    get_oid_value(S, OidType, false, Id);
+validate_objectidentifier(S, OidType, {'ValueFromObject',{object,Obj},Fields}) ->
+    %% Must be an OBJECT IDENTIFIER/RELATIVE-OID depending on OidType.
+    case extract_field(S, Obj, Fields) of
+	#valuedef{checked=true,value=Value,type=Type} when is_tuple(Value) ->
+	    _ = get_oid_type(S, OidType, Type),
+	    Value;
+	_ ->
+	    asn1_error(S, {illegal_oid,OidType})
+    end;
+validate_objectidentifier(S, OidType,
+			  [{#seqtag{module=Mod,pos=Pos,val=Atom},Val}]) ->
+    %% This case is when an OBJECT IDENTIFIER value has been parsed as a
+    %% SEQUENCE value.
+    Rec = #'Externalvaluereference'{pos=Pos,
+				    module=Mod,
+				    value=Atom},
+    validate_oid(S, OidType, [Rec,Val], []);
+validate_objectidentifier(S, OidType, [_|_]=L0) ->
+    validate_oid(S, OidType, L0, []);
+validate_objectidentifier(S, OidType, _) ->
+    asn1_error(S, {illegal_oid,OidType}).
 
-validate_objectidentifier(S,OID,ERef,C) 
-  when is_record(ERef,'Externalvaluereference') ->
-    validate_objectidentifier(S,OID,[ERef],C);
-validate_objectidentifier(S,OID,Tup,C) when is_tuple(Tup) ->
-    validate_objectidentifier(S,OID,tuple_to_list(Tup),C);
-validate_objectidentifier(S,OID,L,_) ->
-    NewL = is_space_list(L,[]),
-    case validate_objectidentifier1(S,OID,NewL) of
-	NewL2 when is_list(NewL2) ->{ok,list_to_tuple(NewL2)};
-	Other -> {ok,Other}
+get_oid_value(S, OidType, AllowInteger, #'Externalvaluereference'{}=Id) ->
+    case get_referenced_type(S, Id) of
+	{_,#valuedef{checked=Checked,type=Type,value=V}} ->
+	    case get_oid_type(S, OidType, Type) of
+		'INTEGER' when not AllowInteger ->
+		    asn1_error(S, {illegal_oid,OidType});
+		_ when Checked ->
+		    V;
+		'INTEGER' ->
+		    V;
+		_ ->
+		    validate_objectidentifier(S, OidType, V)
+	    end;
+	_ ->
+	    asn1_error(S, {illegal_oid,OidType})
     end.
 
-validate_objectidentifier1(S, OID, [Id|T])
-  when is_record(Id,'Externalvaluereference') ->
-    case catch get_referenced_type(S,Id) of
-	{M,V} when is_record(V,valuedef) -> 
-	    NewS = update_state(S,M),
-	    case check_value(NewS,V) of
-		#valuedef{type=#type{def=ERef},checked=true,
-			  value=Value} when is_tuple(Value) ->
-		    case is_object_id(OID,NewS,ERef) of 
-			true ->
-			    %% T must be a RELATIVE-OID
-			    validate_oid(true,NewS, rel_oid, T, lists:reverse(tuple_to_list(Value)));
-			_ ->
-			    error({value, {"illegal "++to_string(OID),[Id|T]}, S})
-		    end;
-		_ -> 
-		    error({value, {"illegal "++to_string(OID),[Id|T]}, S})
-	    end;
-	_ ->
-	    validate_oid(true,S, OID, [Id|T], [])
-    end;
-validate_objectidentifier1(S,OID,V) ->
-    validate_oid(true,S,OID,V,[]).
-
-validate_oid(false, S, OID, V, Acc) ->
-    error({value, {"illegal "++to_string(OID), V,Acc}, S});
-validate_oid(_,_, _, [], Acc) ->
-    lists:reverse(Acc);
-validate_oid(_, S, OID, [Value|Vrest], Acc) when is_integer(Value) ->
-    validate_oid(valid_objectid(OID,Value,Acc),S, OID, Vrest, [Value|Acc]);
-validate_oid(_, S, OID, [{'NamedNumber',_Name,Value}|Vrest], Acc) 
+validate_oid(S, OidType, [], Acc) ->
+    Oid = lists:reverse(Acc),
+    validate_oid_path(S, OidType, Oid),
+    list_to_tuple(Oid);
+validate_oid(S, OidType, [Value|Vrest], Acc) when is_integer(Value) ->
+    validate_oid(S, OidType, Vrest, [Value|Acc]);
+validate_oid(S, OidType, [{'NamedNumber',_Name,Value}|Vrest], Acc)
   when is_integer(Value) ->
-    validate_oid(valid_objectid(OID,Value,Acc), S, OID, Vrest, [Value|Acc]);
-validate_oid(_, S, OID, [Id|Vrest], Acc) 
-  when is_record(Id,'Externalvaluereference') ->
-    case catch get_referenced_type(S, Id) of
-	{M,V} when is_record(V,valuedef) ->
-	    NewS = update_state(S,M),
-	    NewVal = case check_value(NewS, V) of
-			 #valuedef{checked=true,value=Value} ->
-			     fun(Int) when is_integer(Int) ->  [Int];
-				(L) when is_list(L) -> L;
-				(T) when is_tuple(T) -> tuple_to_list(T)
-			     end (Value);
-			 _ ->
-			     error({value, {"illegal "++to_string(OID),
-					    [Id|Vrest],Acc}, S})
-		     end,
-	    case NewVal of
-		List when is_list(List) ->
-		    validate_oid(valid_objectid(OID,NewVal,Acc), NewS, 
-				 OID, Vrest,lists:reverse(NewVal)++Acc);
-		_ ->
-		    NewVal
-	    end;
-	_ ->
+    validate_oid(S, OidType, Vrest, [Value|Acc]);
+validate_oid(S, OidType, [#'Externalvaluereference'{}=Id|Vrest], Acc) ->
+    NeededOidType = case Acc of
+			[] -> o_id;
+			[_|_] -> rel_oid
+		    end,
+    try get_oid_value(S, NeededOidType, true, Id) of
+	Val when is_integer(Val) ->
+	    validate_oid(S, OidType, Vrest, [Val|Acc]);
+	Val when is_tuple(Val) ->
+	    L = tuple_to_list(Val),
+	    validate_oid(S, OidType, Vrest, lists:reverse(L, Acc))
+    catch
+	_:_ ->
 	    case reserved_objectid(Id#'Externalvaluereference'.value, Acc) of
 		Value when is_integer(Value) ->
-		    validate_oid(valid_objectid(OID,Value,Acc),
-				 S, OID,Vrest, [Value|Acc]);
+		    validate_oid(S, OidType,Vrest, [Value|Acc]);
 		false ->
-		    error({value, {"illegal "++to_string(OID),[Id,Vrest],Acc}, S})
+		    asn1_error(S, {illegal_oid,OidType})
 	    end
     end;
-validate_oid(_, S, OID, [{#seqtag{module=Mod,val=Atom},Value}], [])
-  when is_atom(Atom),is_integer(Value) ->
-    %% this case when an OBJECT IDENTIFIER value has been parsed as a 
-    %% SEQUENCE value
-    Rec = #'Externalvaluereference'{module=Mod,
-				    value=Atom},
-    validate_objectidentifier1(S, OID, [Rec,Value]);
-validate_oid(_, S, OID, [{#seqtag{module=Mod,val=Atom},EVRef}], [])
-  when is_atom(Atom),is_record(EVRef,'Externalvaluereference') ->
-    %% this case when an OBJECT IDENTIFIER value has been parsed as a 
-    %% SEQUENCE value OTP-4354
-    Rec = #'Externalvaluereference'{module=Mod,
-				    value=Atom},
-    validate_objectidentifier1(S, OID, [Rec,EVRef]);
-validate_oid(_, S, OID, [#seqtag{module=Mod,val=Atom}|Rest], Acc)
-  when is_atom(Atom) ->
-    Rec = #'Externalvaluereference'{module=Mod,
-				    value=Atom},
-    validate_oid(true,S, OID, [Rec|Rest],Acc);
-validate_oid(_, S, OID, V, Acc) ->
-    error({value, {"illegal "++to_string(OID),V,Acc},S}).
+validate_oid(S, OidType, _V, _Acc) ->
+    asn1_error(S, {illegal_oid,OidType}).
 
-is_object_id(OID,S,ERef=#'Externaltypereference'{}) ->
-    {_,OI} = get_referenced_type(S,ERef),
-    is_object_id(OID,S,OI#typedef.typespec);
-is_object_id(o_id,_S,'OBJECT IDENTIFIER') ->
-    true;
-is_object_id(rel_oid,_S,'RELATIVE-OID') ->
-    true;
-is_object_id(_,_S,'INTEGER') ->
-    true;
-is_object_id(OID,S,#type{def=Def}) ->
-    is_object_id(OID,S,Def);
-is_object_id(_,_S,_) ->
-    false.
-
-to_string(o_id) ->
-    "OBJECT IDENTIFIER";
-to_string(rel_oid) ->
-    "RELATIVE-OID".
+get_oid_type(S, OidType, #type{def=Def}) ->
+    get_oid_type(S, OidType, Def);
+get_oid_type(S, OidType, #'Externaltypereference'{}=Id) ->
+    {_,OI} = get_referenced_type(S, Id),
+    get_oid_type(S, OidType, OI#typedef.typespec);
+get_oid_type(_S, o_id, 'OBJECT IDENTIFIER'=T) ->
+    T;
+get_oid_type(_S, rel_oid, 'RELATIVE-OID'=T) ->
+    T;
+get_oid_type(_S, _, 'INTEGER'=T) ->
+    T;
+get_oid_type(S, OidType, _) ->
+    asn1_error(S, {illegal_oid,OidType}).
 
 %% ITU-T Rec. X.680 Annex B - D
 reserved_objectid('itu-t',[]) -> 0;
@@ -2295,7 +2257,6 @@ reserved_objectid('x',[0,0]) -> 24;
 reserved_objectid('y',[0,0]) -> 25;
 reserved_objectid('z',[0,0]) -> 26;
 
-
 reserved_objectid(iso,[]) -> 1;
 %% arcs below "iso", note that number 1 is not used
 reserved_objectid('standard',[1]) -> 0;
@@ -2307,23 +2268,20 @@ reserved_objectid('joint-iso-ccitt',[]) -> 2;
 
 reserved_objectid(_,_) -> false.
 
-valid_objectid(_OID,[],_Acc) ->
-    true;
-valid_objectid(OID,[H|T],Acc) ->
-    case valid_objectid(OID, H, Acc) of
-	true ->
-	    valid_objectid(OID,T,[H|Acc]);
-	_ ->
-	    false
-    end;
-valid_objectid(o_id,I,[]) when I =:= 0; I =:= 1; I =:= 2 -> true;
-valid_objectid(o_id,_I,[]) -> false;
-valid_objectid(o_id,I,[0]) when I >= 0; I =< 4 -> true;
-valid_objectid(o_id,_I,[0]) -> false;
-valid_objectid(o_id,I,[1]) when I =:= 0; I =:= 2; I =:= 3 -> true;
-valid_objectid(o_id,_I,[1]) -> false;
-valid_objectid(o_id,_I,[2]) -> true;
-valid_objectid(_,_,_) -> true.
+validate_oid_path(_, rel_oid, _) ->
+    ok;
+validate_oid_path(_, o_id, [0,I|_]) when 0 =< I, I =< 9 ->
+    ok;
+validate_oid_path(_, o_id, [1,I|_]) when 0 =< I, I =< 3 ->
+    ok;
+validate_oid_path(_, o_id, [2|_]) ->
+    ok;
+validate_oid_path(S, o_id=OidType, _) ->
+    asn1_error(S, {illegal_oid,OidType}).
+
+%%%
+%%% End of OBJECT IDENTFIER/RELATIVE-OID validation.
+%%%
 
 convert_external(S=#state{type=Vtype}, Value) ->
     case Vtype of
@@ -2545,12 +2503,10 @@ normalize_octetstring(S, Value) ->
     end.
 
 normalize_objectidentifier(S, Value) ->
-    {ok,Val} = validate_objectidentifier(S, o_id, Value, []),
-    Val.
+    validate_objectidentifier(S, o_id, Value).
 
-normalize_relative_oid(S,Value) ->
-    {ok,Val} = validate_objectidentifier(S, rel_oid, Value, []),
-    Val.
+normalize_relative_oid(S, Value) ->
+    validate_objectidentifier(S, rel_oid, Value).
 
 normalize_objectdescriptor(Value) ->
     Value.
@@ -6599,6 +6555,10 @@ format_error(illegal_integer_value) ->
     "expecting an integer value";
 format_error(illegal_object) ->
     "expecting an object";
+format_error({illegal_oid,o_id}) ->
+    "illegal OBJECT IDENTIFIER";
+format_error({illegal_oid,rel_oid}) ->
+    "illegal RELATIVE-OID";
 format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({illegal_typereference,Name}) ->

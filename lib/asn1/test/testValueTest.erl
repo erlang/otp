@@ -33,7 +33,14 @@ main() ->
     [zero,two] = M:'vBS'(),
     'NULL' = M:'vNULL'(),
     <<16#31,16#32,16#33>> = M:'vOS'(),
+
+    %% OID
     {2,1,1} = M:'vOD'(),
+    {1,2} = M:'integer-first'(),
+    {2,4,5} = M:'rel-oid-1'(),
+    {0,2,4,5} = M:'include-roid'(),
+    {1,2,1} = M:'include-oid'(),
+    {1,2,1,2,4,5,42} = M:'include-all'(),
 
     %% Character strings
     "01234567" = M:'numericstring'(),

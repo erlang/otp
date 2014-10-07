@@ -23,8 +23,15 @@ vENUMERATED RadioButton ::= button1
 vBS BSNNL ::= {zero,two}
 vNULL NULL ::= NULL
 vOS OCTET STRING ::= '313233'H
-vOD OBJECT IDENTIFIER ::= {2 1 1}
 
+-- OBJECT IDENTIFIER
+vOD OBJECT IDENTIFIER ::= {2 1 1}
+one INTEGER ::= 1
+integer-first OBJECT IDENTIFIER ::= {one 2}
+rel-oid-1 RELATIVE-OID ::= {2 4 5}
+include-roid OBJECT IDENTIFIER ::= {0 rel-oid-1}
+include-oid OBJECT IDENTIFIER ::= {integer-first 1}
+include-all OBJECT IDENTIFIER ::= {integer-first 1 rel-oid-1 42}
 
 --Character strings
 numericstring NumericString ::= "01234567"

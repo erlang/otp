@@ -360,6 +360,26 @@ object-with-optional-bit-string PUBLIC-KEY ::= {
  OPTIONAL-BIT-STRING {digitalSignature, nonRepudiation, keyEncipherment}
 }
 
+-- Test object identifiers from objects.
+
+CONTAINER ::= CLASS {
+ &id   OBJECT IDENTIFIER UNIQUE,
+ &rid  RELATIVE-OID OPTIONAL,
+ &Type OPTIONAL
+} WITH SYNTAX {
+  IDENTIFIED BY &id
+  [REL-OID &rid]
+  [TYPE &Type]
+}
+
+id1 OBJECT IDENTIFIER ::= {1 2 42}
+obj1 CONTAINER ::= { IDENTIFIED BY id1 REL-OID {100 101} }
+
+value-2 OBJECT IDENTIFIER ::= { value-1 25 }
+value-1 OBJECT IDENTIFIER ::= obj1.&id
+value-3 RELATIVE-OID ::= obj1.&rid
+value-4 OBJECT IDENTIFIER ::= { 1 2 value-3 }
+
 END
 
 
