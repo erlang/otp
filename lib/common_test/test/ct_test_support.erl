@@ -481,6 +481,7 @@ er_loop(Evs) ->
 	    From ! {event_receiver,lists:reverse(Evs)},
 	    er_loop(Evs);
 	stop ->
+	    unregister(event_receiver),
 	    ok
     end.
 
