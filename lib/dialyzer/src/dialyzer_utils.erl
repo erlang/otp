@@ -444,23 +444,18 @@ cleanup_parse_transforms([]) ->
 
 -spec cleanup_compile_options([compile:option()]) -> [compile:option()].
 
+cleanup_compile_options(Opts) ->
+  lists:filter(fun keep_compile_option/1, Opts).
+
 %% Using abstract, not asm or core.
-cleanup_compile_options([from_asm|Opts]) ->
-  Opts;
-cleanup_compile_options([asm|Opts]) ->
-  Opts;
-cleanup_compile_options([from_core|Opts]) ->
-  Opts;
-cleanup_compile_options([warnings_as_errors|Opts]) ->
-  Opts;
-%% The parse transform will already have been applied, may cause problems if it
-%% is re-applied.
-cleanup_compile_options([{parse_transform, _}|Opts]) ->
-  Opts;
-cleanup_compile_options([Other|Opts]) ->
-  [Other|cleanup_compile_options(Opts)];
-cleanup_compile_options([]) ->
-  [].
+keep_compile_option(from_asm) -> false;
+keep_compile_option(asm) -> false;
+keep_compile_option(from_core) -> false;
+%% The parse transform will already have been applied, may cause
+%% problems if it is re-applied.
+keep_compile_option({parse_transform, _}) -> false;
+keep_compile_option(warnings_as_errors) -> false;
+keep_compile_option(_) -> true.
 
 -spec format_errors([{module(), string()}]) -> [string()].
 
