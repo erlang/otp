@@ -98,7 +98,7 @@ get_abstract_code_from_src(File) ->
 	{'ok', abstract_code()} | {'error', [string()]}.
 
 get_abstract_code_from_src(File, Opts) ->
-  case compile:file(File, [to_pp, binary|Opts]) of
+  case compile:noenv_file(File, [to_pp, binary|Opts]) of
     error -> {error, []};
     {error, Errors, _} -> {error, format_errors(Errors)};
     {ok, _, AbstrCode} -> {ok, AbstrCode}
@@ -173,7 +173,7 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
   AbstrCode1 = cleanup_parse_transforms(AbstrCode),
   %% Remove parse_transforms (and other options) from compile options.
   Opts2 = cleanup_compile_options(Opts),
-  try compile:forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
+  try compile:noenv_forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
       {ok, _, Core} -> {ok, Core};
       _What -> error
   catch
