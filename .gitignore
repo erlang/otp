@@ -208,6 +208,7 @@ JAVADOC-GENERATED
 
 # common_test
 
+/lib/common_test/doc/src/ct_property_test.xml
 /lib/common_test/doc/src/ct_slave.xml
 /lib/common_test/priv/install.sh
 
