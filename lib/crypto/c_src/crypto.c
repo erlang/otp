@@ -2464,11 +2464,12 @@ done:
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec, Data, IsEncrypt) */
     ErlNifBinary key_bin, ivec_bin, data_bin;
-    AES_KEY aes_key;
     unsigned char ivec[16];
-    int i;
+    int enc, i = 0, outlen = 0;
+    EVP_CIPHER_CTX *ctx = NULL;
+    const EVP_CIPHER *cipher = NULL;
     unsigned char* ret_ptr;
-    ERL_NIF_TERM ret;    
+    ERL_NIF_TERM ret;
 
     CHECK_OSE_CRYPTO();
 
@@ -2482,20 +2483,44 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 	return enif_make_badarg(env);
     }
 
-    if (argv[3] == atom_true) {
-	i = AES_ENCRYPT;
-	AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
-    }
-    else {
-	i = AES_DECRYPT;
-	AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
-    }
+    if (argv[3] == atom_true)
+	enc = 1;
+    else
+	enc = 0;
 
-    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
-    memcpy(ivec, ivec_bin.data, 16); /* writable copy */
-    AES_cbc_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
+    if (!(ctx = EVP_CIPHER_CTX_new()))
+	return enif_make_badarg(env);
+
+    if (key_bin.size == 16)
+	cipher = EVP_aes_128_cbc();
+    else if (key_bin.size == 32)
+	cipher = EVP_aes_256_cbc();
+
+    memcpy(ivec, ivec_bin.data, 16); /* writeable copy */
+
+    /* openssl docs say we need to leave at least 3 blocks available
+       at the end of the buffer for EVP calls. let's be safe */
+    ret_ptr = enif_make_new_binary(env, data_bin.size + 16*3, &ret);
+
+    if (EVP_CipherInit_ex(ctx, cipher, NULL, key_bin.data, ivec, enc) != 1)
+	return enif_make_badarg(env);
+
+    /* disable padding, we only handle whole blocks */
+    EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+    if (EVP_CipherUpdate(ctx, ret_ptr, &i, data_bin.data, data_bin.size) != 1)
+	return enif_make_badarg(env);
+    outlen += i;
+    if (EVP_CipherFinal_ex(ctx, ret_ptr + outlen, &i) != 1)
+	return enif_make_badarg(env);
+    outlen += i;
+
+    EVP_CIPHER_CTX_free(ctx);
+
     CONSUME_REDS(env,data_bin);
-    return ret;
+
+    /* the garbage collector is going to love this */
+    return enif_make_sub_binary(env, ret, 0, outlen);
 }
 
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
