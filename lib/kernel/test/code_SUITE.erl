@@ -34,7 +34,8 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
-	 native_early_modules/1, get_mode/1]).
+	 native_early_modules/1, get_mode/1,
+         mod_const_direct/1, mod_const_send/1, mod_const_spawn/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
@@ -60,7 +61,8 @@ all() ->
      where_is_file_cached, purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors,
-     big_boot_embedded, native_early_modules, get_mode].
+     big_boot_embedded, native_early_modules, get_mode,
+     mod_const_direct, mod_const_send, mod_const_spawn].
 
 groups() ->
     [].
@@ -1678,3 +1680,140 @@ start_node(Name, Param) ->
 
 stop_node(Node) ->
     ?t:stop_node(Node).
+
+
+%% Make sure that the use of constants does not create dangling pointers
+%% after a module is purged
+
+%% Constants are used directly (just one process involved)
+
+mod_const_direct(Config) when is_list(Config) ->
+    {ok, CX1, CU1, CS1} = load_module_with_constants(1, Config),
+    1 = check_module_with_constants(CX1),
+    1 = check_module_with_constants(CU1),
+    1 = check_module_with_constants(CS1),
+    mod_const_direct_loop(Config, CX1, CU1, CS1, 2, 100).
+
+mod_const_direct_loop(Config, CX1, CU1, CS1, Version, UpTo) ->
+    %true = code:delete(module_with_constants),
+    %true = code:soft_purge(module_with_constants),
+
+    {ok, CX2, CU2, CS2} = load_module_with_constants(Version, Config),
+    Version = check_module_with_constants(CX2),
+    Version = check_module_with_constants(CU2),
+    Version = check_module_with_constants(CS2),
+
+    N1 = check_module_with_constants(CX1),
+    N2 = check_module_with_constants(CU1),
+    N3 = check_module_with_constants(CS1),
+    case {N1, N2, N3} of
+        {1, 1, 1} ->
+            case Version < UpTo of
+                true ->
+                    mod_const_direct_loop(Config, CX1, CU1, CS1, Version+1, UpTo);
+                false ->
+                    ok
+            end;
+        Reason ->
+            {failed, Reason}
+    end.
+
+load_module_with_constants(Version, Config) ->
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, "module_with_constants"),
+    {ok,module_with_constants,Code} =
+        compile:file(File, [{d,'VERSION',Version},binary,report]),
+    case code:load_binary(module_with_constants, File, Code) of
+	{module,module_with_constants} ->
+	    CX = module_with_constants:get_a_constant(),
+	    CU = module_with_constants:get_a_term_with_unshared_constants(3),
+	    CS = module_with_constants:get_a_term_with_shared_constants(3),
+	    {ok, CX, CU, CS};
+	Error ->
+	    Error
+    end.
+
+check_module_with_constants([{magic, Version, constant}, 1, 2, 7, 17, 42]) ->
+    Version;
+check_module_with_constants([H | T]) when is_list(H) ->
+    Version = check_module_with_constants(H),
+    Version = check_module_with_constants(T),
+    Version;
+check_module_with_constants([_ | T]) ->
+    check_module_with_constants(T);
+check_module_with_constants(_) ->
+    error.
+
+%% Constants are used indirectly (sent to another process)
+%% This test is intended to detect bugs with the sharing-preserving flag
+
+mod_const_send(Config) when is_list(Config) ->
+    {ok, CX1, CU1, CS1} = load_module_with_constants(1, Config),
+    P1 = spawn(fun mod_const_send_proc/0),
+    %% this is copying the constants C?1
+    P1 ! {self(), CX1, CU1, CS1},
+    mod_const_indirect_loop(Config, P1, 2, 100),
+    receive
+        Result ->
+            Result
+    end.
+
+mod_const_send_proc() ->
+    receive
+        {Pid, CX1, CU1, CS1} ->
+            mod_const_indirect_check(Pid, CX1, CU1, CS1, 1)
+    end.
+
+mod_const_indirect_check(Pid, CX1, CU1, CS1, Version) ->
+    N1 = check_module_with_constants(CX1),
+    N2 = check_module_with_constants(CU1),
+    N3 = check_module_with_constants(CS1),
+    case {N1, N2, N3} of
+        {1, 1, 1} ->
+            receive
+                again ->
+                    mod_const_indirect_check(Pid, CX1, CU1, CS1, Version);
+                Reason ->
+                    Pid ! Reason
+            end;
+        Reason ->
+            Pid ! {failed, Reason}
+    end.    
+
+mod_const_indirect_loop(Config, Pid, Version, UpTo) ->
+    %true = code:delete(module_with_constants),
+    %true = code:soft_purge(module_with_constants),
+
+    {ok, CX2, CU2, CS2} = load_module_with_constants(Version, Config),
+    N1 = check_module_with_constants(CX2),
+    N2 = check_module_with_constants(CU2),
+    N3 = check_module_with_constants(CS2),
+
+    case {N1, N2, N3} of
+        {Version, Version, Version} ->
+            Pid ! again,
+            case Version < UpTo of
+                true ->
+                    mod_const_indirect_loop(Config, Pid, Version+1, UpTo);
+                false ->
+                    Pid ! ok
+            end;
+        Reason ->
+            Pid ! {failed, Reason}
+    end.
+
+%% Constants are used indirectly (in a closure that spawns a new process)
+%% This test is intended to detect bugs with the sharing-preserving flag
+
+mod_const_spawn(Config) when is_list(Config) ->
+    {ok, CX1, CU1, CS1} = load_module_with_constants(1, Config),
+    Pid = self(),
+    P1 = spawn(fun () ->
+                       %% this is copying the constants C?1
+                       mod_const_indirect_check(Pid, CX1, CU1, CS1, 1)
+               end),
+    mod_const_indirect_loop(Config, P1, 2, 100),
+    receive
+        Result ->
+            Result
+    end.
