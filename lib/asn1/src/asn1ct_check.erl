@@ -441,7 +441,7 @@ checkc(S, Names) ->
 do_checkc(S, Name, Class) ->
     case is_classname(Name) of
 	false ->
-	    return_asn1_error(S, Class, {illegal_class_name,Name});
+	    return_asn1_error(S, {illegal_class_name,Name});
 	true ->
 	    do_checkc_1(S, Name, Class)
     end.
@@ -473,12 +473,11 @@ is_classname(Name) when is_atom(Name) ->
 		 (_) -> false
 	      end, atom_to_list(Name)).
     
-checko(S,[Name|Os],Acc,ExclO,ExclOS) ->
-    ?dbg("Checking object ~p~n",[Name]),
+checko(S0,[Name|Os],Acc,ExclO,ExclOS) ->
+    Item = asn1_db:dbget(S0#state.mname, Name),
+    S = S0#state{error_context=Item},
     Result = 
-	case asn1_db:dbget(S#state.mname,Name) of
-	    undefined ->
-		error({type,{internal_error,'???'},S});
+	case Item of
 	    Object when is_record(Object,typedef) ->
 		NewS = S#state{type=Object,tname=Name},
 		case catch(check_object(NewS,Object,Object#typedef.typespec)) of
@@ -1154,7 +1153,7 @@ check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
 		    check_object_list(S, ClassRef, Objs,
 				      [{{no_mod,no_name},Def}|Acc]);
 		_ ->
-		    asn1_error(S, S#state.type, illegal_object)
+		    asn1_error(S, illegal_object)
 	    end;
 	ObjSet when is_record(ObjSet,type) ->
 	    ObjSetDef = 
@@ -1262,7 +1261,7 @@ get_value_from_object(S, Def, FieldNames) ->
 	#valuedef{value=Val} ->
 	    Val;
 	_ ->
-	    asn1_error(S, Def, illegal_value)
+	    asn1_error(S, illegal_value)
     end.
 
 %% extract_field(State, ObjectOrObjectSet, [{RefType,FieldName}])
@@ -1613,14 +1612,14 @@ preprocess_syntax(S, [{valuefieldreference,Name}|T], Cs) ->
 	Tuple when is_tuple(Tuple) ->
 	    [{field,Tuple}|preprocess_syntax(S, T, Cs)];
 	false ->
-	    asn1_error(S, S#state.type, {syntax_undefined_field,Name})
+	    asn1_error(S, {syntax_undefined_field,Name})
     end;
 preprocess_syntax(S, [{typefieldreference,Name}|T], Cs) ->
     case lists:keyfind(Name, 2, Cs) of
 	Tuple when is_tuple(Tuple) ->
 	    [{field,Tuple}|preprocess_syntax(S, T, Cs)];
 	false ->
-	    asn1_error(S, S#state.type, {syntax_undefined_field,Name})
+	    asn1_error(S, {syntax_undefined_field,Name})
     end;
 preprocess_syntax(S,[{Token,_}|T], Cs) when is_atom(Token) ->
     [{token,Token}|preprocess_syntax(S, T, Cs)];
@@ -1830,12 +1829,12 @@ match_syntax_objset_1(_, #type{def=#'ObjectClassFieldType'{}}=Set, ClassDef) ->
 make_objset(ClassDef, Set) ->
     #typedef{typespec=#'ObjectSet'{class=ClassDef,set=Set}}.
 
-syntax_match_error(#state{type=Type}=S) ->
-    asn1_error(S, Type, syntax_nomatch).
+syntax_match_error(S) ->
+    asn1_error(S, syntax_nomatch).
 
-syntax_match_error(#state{type=Type}=S, What0) ->
+syntax_match_error(S, What0) ->
     What = printable_string(What0),
-    asn1_error(S, Type, {syntax_nomatch,What}).
+    asn1_error(S, {syntax_nomatch,What}).
 
 printable_string(Def) ->
     printable_string_1(Def).
@@ -1874,18 +1873,18 @@ check_defaultfields(S, Fields, ClassFields) ->
     Mandatory0 = get_mandatory_class_fields(ClassFields),
     Mandatory = ordsets:from_list(Mandatory0),
     All = ordsets:from_list([element(2, F) || F <- ClassFields]),
-    #state{type=T,tname=Obj} = S,
+    #state{tname=Obj} = S,
     case ordsets:subtract(Present, All) of
 	[] ->
 	    ok;
 	[_|_]=Invalid ->
-	    asn1_error(S, T, {invalid_fields,Invalid,Obj})
+	    asn1_error(S, {invalid_fields,Invalid,Obj})
     end,
     case ordsets:subtract(Mandatory, Present) of
 	[] ->
 	    check_defaultfields_1(S, Fields, ClassFields, []);
 	[_|_]=Missing ->
-	    asn1_error(S, T, {missing_mandatory_fields,Missing,Obj})
+	    asn1_error(S, {missing_mandatory_fields,Missing,Obj})
     end.
 
 check_defaultfields_1(_S, [], _ClassFields, Acc) ->
@@ -2367,10 +2366,10 @@ normalize_integer(S, #'Externalvaluereference'{value=Name}=Ref, NNL) ->
 		Val when is_integer(Val) ->
 		    Val;
 		_ ->
-		    asn1_error(S, S#state.value, illegal_integer_value)
+		    asn1_error(S, illegal_integer_value)
 	    catch
 		throw:_ ->
-		    asn1_error(S, S#state.value, illegal_integer_value)
+		    asn1_error(S, illegal_integer_value)
 	    end
     end;
 normalize_integer(S, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
@@ -2378,10 +2377,10 @@ normalize_integer(S, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
 	#valuedef{value=Val} when is_integer(Val) ->
 	    Val;
 	_ ->
-	    asn1_error(S, S#state.value, illegal_integer_value)
+	    asn1_error(S, illegal_integer_value)
     end;
-normalize_integer(#state{value=Val}=S, _, _) ->
-    asn1_error(S, Val, illegal_integer_value).
+normalize_integer(S, _, _) ->
+    asn1_error(S, illegal_integer_value).
 
 %% normalize_bitstring(S, Value, Type) -> bitstring()
 %%  Convert a literal value for a BIT STRING to an Erlang bit string.
@@ -2462,8 +2461,7 @@ normalize_octetstring(S,Value,CType) ->
 	{Name,String} when is_atom(Name) ->
 	    normalize_octetstring(S,String,CType);
 	_ ->
-	    Item = S#state.value,
-	    asn1_error(S, Item, illegal_octet_string_value)
+	    asn1_error(S, illegal_octet_string_value)
     end.
 
 normalize_objectidentifier(S, Value) ->
@@ -2816,8 +2814,8 @@ check_formal_parameter(_, {_,_}) ->
     ok;
 check_formal_parameter(_, #'Externaltypereference'{}) ->
     ok;
-check_formal_parameter(S, #'Externalvaluereference'{value=Name}=Ref) ->
-    asn1_error(S, Ref, {illegal_typereference,Name}).
+check_formal_parameter(S, #'Externalvaluereference'{value=Name}) ->
+    asn1_error(S, {illegal_typereference,Name}).
 
 % check_type(S,Type,ObjSpec={{objectclassname,_},_}) ->
  %     check_class(S,ObjSpec);
@@ -3588,14 +3586,14 @@ resolv_value1(S, {gt,V}) ->
 	Int when is_integer(Int) ->
 	    Int + 1;
 	_Other ->
-	    asn1_error(S, S#state.type, illegal_integer_value)
+	    asn1_error(S, illegal_integer_value)
     end;
 resolv_value1(S, {lt,V}) ->
     case resolv_value1(S, V) of
 	Int when is_integer(Int) ->
 	    Int - 1;
 	_Other ->
-	    asn1_error(S, S#state.type, illegal_integer_value)
+	    asn1_error(S, illegal_integer_value)
     end;
 resolv_value1(S, {'ValueFromObject',{object,Object},FieldName}) ->
     get_value_from_object(S, Object, FieldName);
@@ -4652,7 +4650,6 @@ check_named_number_list(_S, [{_,_}|_]=NNL) ->
     NNL;
 check_named_number_list(S, NNL0) ->
     %% Check that the names are unique.
-    T = S#state.type,
     case check_unique(NNL0, 2) of
 	[] ->
 	    NNL1 = [{Id,resolve_valueref(S, Val)} || {'NamedNumber',Id,Val} <- NNL0],
@@ -4661,10 +4658,10 @@ check_named_number_list(S, NNL0) ->
 		[] ->
 		    NNL;
 		[Val|_] ->
-		    asn1_error(S, T, {value_reused,Val})
+		    asn1_error(S, {value_reused,Val})
 	    end;
 	[H|_] ->
-	    asn1_error(S, T, {namelist_redefinition,H})
+	    asn1_error(S, {namelist_redefinition,H})
     end.
 
 resolve_valueref(S, #'Externalvaluereference'{module=Mod,value=Name}) ->
@@ -4677,7 +4674,7 @@ check_integer(S, NNL) ->
 
 check_bitstring(S, NNL0) ->
     NNL = check_named_number_list(S, NNL0),
-    _ = [asn1_error(S, S#state.type, {invalid_bit_number,Bit}) ||
+    _ = [asn1_error(S, {invalid_bit_number,Bit}) ||
 	    {_,Bit} <- NNL, Bit < 0],
     NNL.
 
@@ -4702,7 +4699,7 @@ check_type_identifier(S, Eref=#'Externaltypereference'{type=Class}) ->
 	{_,TD=#typedef{typespec=#type{def=#'Externaltypereference'{}}}} ->
 	    check_type_identifier(S, (TD#typedef.typespec)#type.def);
 	_ ->
-	    asn1_error(S, S#state.type, {illegal_instance_of,Class})
+	    asn1_error(S, {illegal_instance_of,Class})
     end.
 
 iof_associated_type(S,[]) ->
@@ -6496,9 +6493,15 @@ findtypes_and_values([],Tacc,Vacc,Pacc,Cacc,Oacc,OSacc) ->
     {lists:reverse(Tacc),lists:reverse(Vacc),lists:reverse(Pacc),
      lists:reverse(Cacc),lists:reverse(Oacc),lists:reverse(OSacc)}.
     
+return_asn1_error(#state{error_context=Context}=S, Error) ->
+    return_asn1_error(S, Context, Error).
+
 return_asn1_error(#state{mname=Where}, Item, Error) ->
     Pos = asn1ct:get_pos_of_def(Item),
     {structured_error,{Where,Pos},?MODULE,Error}.
+
+asn1_error(S, Error) ->
+    throw({error,return_asn1_error(S, Error)}).
 
 asn1_error(S, Item, Error) ->
     throw({error,return_asn1_error(S, Item, Error)}).
@@ -6851,8 +6854,9 @@ insert_once(S,Tab,Key) ->
 	    skipped
     end.
 
-check_fold(S, [H|T], Check) ->
-    Type = asn1_db:dbget(S#state.mname, H),
+check_fold(S0, [H|T], Check) ->
+    Type = asn1_db:dbget(S0#state.mname, H),
+    S = S0#state{error_context=Type},
     case Check(S, H, Type) of
 	ok ->
 	    check_fold(S, T, Check);
