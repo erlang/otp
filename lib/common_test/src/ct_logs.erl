@@ -730,6 +730,7 @@ logger_loop(State) ->
 				    %% CtLog or unexpected_io log instead
 				    unexpected_io(Pid,Category,Importance,
 						  List,State),
+
 				    logger_loop(State)			    
 			    end;
 			{ct_log,_Fd,TCGLs} ->
@@ -849,12 +850,35 @@ print_to_log(async, FromPid, Category, TCGL, List, State) ->
 		IoFun = create_io_fun(FromPid, State),
 		fun() ->
 			test_server:permit_io(TCGL, self()),
-			io:format(TCGL, "~ts", [lists:foldl(IoFun, [], List)])
+
+			%% Since asynchronous io gets can get buffered if
+			%% the file system is slow, there is also a risk that
+			%% the group leader has terminated before we get to
+			%% the io:format(GL, ...) call. We check this and
+			%% print "expired" messages to the unexpected io
+			%% log instead (best we can do).
+
+			case erlang:is_process_alive(TCGL) of
+			    true ->
+				try io:format(TCGL, "~ts",
+					      [lists:foldl(IoFun,[],List)]) of
+				    _ -> ok
+				catch
+				    _:terminated ->
+					unexpected_io(FromPid, Category,
+						      ?MAX_IMPORTANCE,
+						      List, State)
+				end;
+			    false ->
+				unexpected_io(FromPid, Category,
+					      ?MAX_IMPORTANCE,
+					      List, State)
+			end
 		end;
 	   true ->
 		fun() ->
-			unexpected_io(FromPid,Category,?MAX_IMPORTANCE,
-				      List,State)
+			unexpected_io(FromPid, Category, ?MAX_IMPORTANCE,
+				      List, State)
 		end
 	end,
     case State#logger_state.async_print_jobs of
