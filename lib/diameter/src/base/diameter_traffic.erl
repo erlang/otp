@@ -1484,7 +1484,7 @@ handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
             %% a missing AVP. If both are optional in the dictionary
             %% then this isn't a decode error: just continue on.
             answer(Pkt, SvcName, App, Req);
-        exit: {invalid_error_bit, RC} ->
+        exit: {invalid_error_bit, {_, _, _, RC}} ->
             #diameter_packet{errors = Es}
                 = Pkt,
             E = {5004, #diameter_avp{name = 'Result-Code', value = RC}},
