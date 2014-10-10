@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2013</year>
+      <year>2011</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -54,9 +54,6 @@
       impact only the active viewer is updated and the other
       views will be updated when activated.
     </p>
-    <note>
-      <p>Only R15B nodes can be observed.</p>
-    </note>
 
     <p> In general the mouse buttons behaves as expected, use left click
     to select objects, right click to pop up a menu with most used
