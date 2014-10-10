@@ -187,6 +187,9 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
 
 void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
+    if (!hipe_bifcall_from_native_is_recursive(p))
+	return;
+
     /* ensure that at least 2 words are available on the BEAM stack */
     if ((p->stop - 2) < p->htop) {
 	DPRINTF("calling gc to reserve BEAM stack size");
@@ -222,6 +225,9 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 
 void hipe_unreserve_beam_trap_frame(Process *p)
 {
+    if (!hipe_bifcall_from_native_is_recursive(p))
+	return;
+
     ASSERT(p->stop[0] == NIL && p->stop[1] == hipe_beam_catch_throw);
     p->stop += 2;
 }
