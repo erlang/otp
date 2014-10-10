@@ -98,7 +98,7 @@ get_abstract_code_from_src(File) ->
 	{'ok', abstract_code()} | {'error', [string()]}.
 
 get_abstract_code_from_src(File, Opts) ->
-  case compile:file(File, [to_pp, binary|Opts]) of
+  case compile:noenv_file(File, [to_pp, binary|Opts]) of
     error -> {error, []};
     {error, Errors, _} -> {error, format_errors(Errors)};
     {ok, _, AbstrCode} -> {ok, AbstrCode}
@@ -173,7 +173,7 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
   AbstrCode1 = cleanup_parse_transforms(AbstrCode),
   %% Remove parse_transforms (and other options) from compile options.
   Opts2 = cleanup_compile_options(Opts),
-  try compile:forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
+  try compile:noenv_forms(AbstrCode1, Opts2 ++ src_compiler_opts()) of
       {ok, _, Core} -> {ok, Core};
       _What -> error
   catch
@@ -444,21 +444,18 @@ cleanup_parse_transforms([]) ->
 
 -spec cleanup_compile_options([compile:option()]) -> [compile:option()].
 
+cleanup_compile_options(Opts) ->
+  lists:filter(fun keep_compile_option/1, Opts).
+
 %% Using abstract, not asm or core.
-cleanup_compile_options([from_asm|Opts]) ->
-  Opts;
-cleanup_compile_options([asm|Opts]) ->
-  Opts;
-cleanup_compile_options([from_core|Opts]) ->
-  Opts;
-%% The parse transform will already have been applied, may cause problems if it
-%% is re-applied.
-cleanup_compile_options([{parse_transform, _}|Opts]) ->
-  Opts;
-cleanup_compile_options([Other|Opts]) ->
-  [Other|cleanup_compile_options(Opts)];
-cleanup_compile_options([]) ->
-  [].
+keep_compile_option(from_asm) -> false;
+keep_compile_option(asm) -> false;
+keep_compile_option(from_core) -> false;
+%% The parse transform will already have been applied, may cause
+%% problems if it is re-applied.
+keep_compile_option({parse_transform, _}) -> false;
+keep_compile_option(warnings_as_errors) -> false;
+keep_compile_option(_) -> true.
 
 -spec format_errors([{module(), string()}]) -> [string()].
 
