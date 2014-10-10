@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,7 +57,8 @@
 	  rep_buf = <<>>,
 	  req_id,
 	  req_list = [],  %% {ReqId, Fun}
-	  inf   %% list of fileinf
+	  inf,   %% list of fileinf,
+	  opts
 	 }).
 
 -record(fileinf,
@@ -85,10 +86,11 @@ start_channel(Host) when is_list(Host) ->
     start_channel(Host, []).					 
 start_channel(Cm, Opts) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, Opts, infinity),
+    {_, SftpOpts} = handle_options(Opts, [], []),
     case ssh_xfer:attach(Cm, []) of
 	{ok, ChannelId, Cm} -> 
 	    case ssh_channel:start(Cm, ChannelId, 
-				   ?MODULE, [Cm, ChannelId, Timeout]) of
+				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -108,11 +110,12 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 start_channel(Host, Opts) ->
     start_channel(Host, 22, Opts).
 start_channel(Host, Port, Opts) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    case ssh_xfer:connect(Host, Port, proplists:delete(timeout, Opts)) of
+    {SshOpts, SftpOpts} = handle_options(Opts, [], []),
+    Timeout = proplists:get_value(timeout, SftpOpts, infinity),
+    case ssh_xfer:connect(Host, Port, SshOpts) of
 	{ok, ChannelId, Cm} ->
 	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
-							    ChannelId, Timeout]) of
+							    ChannelId, SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -392,7 +395,8 @@ write_file_loop(Pid, Handle, Pos, Bin, Remain, PacketSz, FileOpTimeout) ->
 %%                        
 %% Description: 
 %%--------------------------------------------------------------------
-init([Cm, ChannelId, Timeout]) ->
+init([Cm, ChannelId, Options]) ->
+    Timeout = proplists:get_value(timeout, Options, infinity),
     erlang:monitor(process, Cm),
     case ssh_connection:subsystem(Cm, ChannelId, "sftp", Timeout) of
 	success ->
@@ -401,7 +405,8 @@ init([Cm, ChannelId, Timeout]) ->
 	    {ok, #state{xf = Xf,
 			req_id = 0, 
 			rep_buf = <<>>,
-			inf = new_inf()}};
+			inf = new_inf(),
+			opts = Options}};
 	failure ->
 	    {stop, "server failed to start sftp subsystem"};
 	Error ->
@@ -707,8 +712,9 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State0) ->
 %%                        
 %% Description: Handles channel messages
 %%--------------------------------------------------------------------
-handle_msg({ssh_channel_up, _, _}, #state{xf = Xf} = State) ->
-    ssh_xfer:protocol_version_request(Xf),
+handle_msg({ssh_channel_up, _, _}, #state{opts = Options, xf = Xf} = State) ->
+    Version = proplists:get_value(sftp_vsn, Options, ?SSH_SFTP_PROTOCOL_VERSION),
+    ssh_xfer:protocol_version_request(Xf, Version),
     {ok, State};
 
 %% Version negotiation timed out
@@ -754,6 +760,15 @@ terminate(_Reason, State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+handle_options([], Sftp, Ssh) ->
+    {Ssh, Sftp};
+handle_options([{timeout, _} = Opt | Rest], Sftp, Ssh) ->
+    handle_options(Rest, [Opt | Sftp], Ssh);
+handle_options([{sftp_vsn, _} = Opt| Rest], Sftp, Ssh) ->
+    handle_options(Rest, [Opt | Sftp], Ssh);
+handle_options([Opt | Rest], Sftp, Ssh) ->
+    handle_options(Rest, Sftp, [Opt | Ssh]).
+
 call(Pid, Msg, TimeOut) ->
     ssh_channel:call(Pid, {{timeout, TimeOut}, Msg}, infinity).
 
