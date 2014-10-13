@@ -29,6 +29,38 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add option sftp_vsn to SFTP</p>
+          <p>
+	    Own Id: OTP-12227</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix option user_interaction to work as expected. When
+	    password authentication is implemented with ssh
+	    keyboard-interactive method and the password is already
+	    supplied, so that we do not need to query user, then
+	    connections should succeed even though user_interaction
+	    option is set to false.</p>
+          <p>
+	    Own Id: OTP-11329 Aux Id: seq12420, seq12335 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
