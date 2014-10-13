@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,7 +44,8 @@
 -include_lib("kernel/include/file.hrl").
 
 -record(state, {
-	  session_cache,
+	  session_cache_client,
+	  session_cache_server,
 	  session_cache_cb,
 	  session_lifetime,
 	  certificate_db,
@@ -209,12 +210,16 @@ init([Name, Opts]) ->
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
     CertDb = ssl_pkix_db:create(),
-    SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
+    ClientSessionCache = CacheCb:init([{role, client} | 
+				       proplists:get_value(session_cb_init_args, Opts, [])]),
+    ServerSessionCache = CacheCb:init([{role, server} | 
+				       proplists:get_value(session_cb_init_args, Opts, [])]),
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
     {ok, #state{certificate_db = CertDb,
-		session_cache = SessionCache,
+		session_cache_client = ClientSessionCache,
+		session_cache_server = ServerSessionCache,
 		session_cache_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer}}.
@@ -230,15 +235,32 @@ init([Name, Opts]) ->
 %%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({{connection_init, <<>>, _Role}, _Pid}, _From,
+handle_call({{connection_init, <<>>, client}, _Pid}, _From,
 	    #state{certificate_db = [CertDb, FileRefDb, PemChace],
-		   session_cache = Cache} = State) ->
+		   session_cache_client = Cache} = State) ->
+    Result = {ok, make_ref(),CertDb, FileRefDb, PemChace, Cache},
+    {reply, Result, State};
+handle_call({{connection_init, <<>>, server}, _Pid}, _From,
+	    #state{certificate_db = [CertDb, FileRefDb, PemChace],
+		   session_cache_server = Cache} = State) ->
     Result = {ok, make_ref(),CertDb, FileRefDb, PemChace, Cache},
     {reply, Result, State};
 
-handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
+handle_call({{connection_init, Trustedcerts, client}, Pid}, _From,
 	    #state{certificate_db = [CertDb, FileRefDb, PemChace] = Db,
-		   session_cache = Cache} = State) ->
+		   session_cache_client = Cache} = State) ->
+    Result = 
+	try
+	    {ok, Ref} = ssl_pkix_db:add_trusted_certs(Pid, Trustedcerts, Db),
+	    {ok, Ref, CertDb, FileRefDb, PemChace, Cache}
+	catch
+	    _:Reason ->
+		{error, Reason}
+	end,
+    {reply, Result, State};
+handle_call({{connection_init, Trustedcerts, server}, Pid}, _From,
+	    #state{certificate_db = [CertDb, FileRefDb, PemChace] = Db,
+		   session_cache_server = Cache} = State) ->
     Result = 
 	try
 	    {ok, Ref} = ssl_pkix_db:add_trusted_certs(Pid, Trustedcerts, Db),
@@ -249,9 +271,10 @@ handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
 	end,
     {reply, Result, State};
 
+
 handle_call({{new_session_id,Port}, _},
 	    _, #state{session_cache_cb = CacheCb,
-		      session_cache = Cache} = State) ->
+		      session_cache_server = Cache} = State) ->
     Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
     {reply, Id, State};
 
@@ -278,16 +301,22 @@ handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({register_session, Host, Port, Session}, 
-	    #state{session_cache = Cache,
+	    #state{session_cache_client = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     NewSession = Session#session{time_stamp = TimeStamp},
-    CacheCb:update(Cache, {{Host, Port}, 
-		   NewSession#session.session_id}, NewSession),
+    
+    case CacheCb:select_session(Cache, {Host, Port}) of
+	no_session ->
+	    CacheCb:update(Cache, {{Host, Port}, 
+				   NewSession#session.session_id}, NewSession);
+	Sessions ->
+	    register_unique_session(Sessions, NewSession, CacheCb, Cache, {Host, Port})
+    end,
     {noreply, State};
 
 handle_cast({register_session, Port, Session},  
-	    #state{session_cache = Cache,
+	    #state{session_cache_server = Cache,
 		   session_cache_cb = CacheCb} = State) ->    
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     NewSession = Session#session{time_stamp = TimeStamp},
@@ -296,12 +325,12 @@ handle_cast({register_session, Port, Session},
 
 handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
-	    #state{session_cache = Cache,
+	    #state{session_cache_client = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
 
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
-	    #state{session_cache = Cache,
+	    #state{session_cache_server = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {Port, ID}, Session, State).
 
@@ -314,17 +343,18 @@ handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
-				      session_cache = Cache,
+				      session_cache_client = ClientCache,
+				      session_cache_server = ServerCache,
 				      session_lifetime = LifeTime
 				     } = State) ->
     Timer = erlang:send_after(?SESSION_VALIDATION_INTERVAL, 
 			      self(), validate_sessions),
-    start_session_validator(Cache, CacheCb, LifeTime),
+    start_session_validator(ClientCache, CacheCb, LifeTime),
+    start_session_validator(ServerCache, CacheCb, LifeTime),
     {noreply, State#state{session_validation_timer = Timer}};
 
-handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
-                   session_cache_cb = CacheCb
-                   } = State) ->
+handle_info({delayed_clean_session, Key, Cache}, #state{session_cache_cb = CacheCb
+						       } = State) ->
     CacheCb:delete(Cache, Key),
     {noreply, State};
 
@@ -367,12 +397,14 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, #state{certificate_db = Db,
-			  session_cache = SessionCache,
+			  session_cache_client = ClientSessionCache,
+			  session_cache_server = ServerSessionCache,
 			  session_cache_cb = CacheCb,
 			  session_validation_timer = Timer}) ->
     erlang:cancel_timer(Timer),
     ssl_pkix_db:remove(Db),
-    CacheCb:terminate(SessionCache),
+    catch CacheCb:terminate(ClientSessionCache),
+    catch CacheCb:terminate(ServerSessionCache),
     ok.
 
 %%--------------------------------------------------------------------
@@ -445,7 +477,7 @@ invalidate_session(Cache, CacheCb, Key, Session, #state{last_delay_timer = LastT
 	    %% up the session data but new connections should not get to use this session.
 	    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
 	    TRef =
-		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key}),
+		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key, Cache}),
 	    {noreply, State#state{last_delay_timer = last_delay_timer(Key, TRef, LastTimer)}}
     end.
 
@@ -494,3 +526,34 @@ clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
 	_ ->
 	    ok
     end.
+
+%% Do not let dumb clients create a gigantic session table
+%% for itself creating big delays at connection time. 
+register_unique_session(Sessions, Session, CacheCb, Cache, PartialKey) ->
+    case exists_equivalent(Session , Sessions) of
+	true ->
+	    ok;
+	false ->
+	    CacheCb:update(Cache, {PartialKey, 
+				   Session#session.session_id}, Session)
+    end.
+
+exists_equivalent(_, []) ->
+    false;
+exists_equivalent(#session{
+		     peer_certificate = PeerCert,
+		     own_certificate = OwnCert,
+		     compression_method = Compress,
+		     cipher_suite = CipherSuite,
+		     srp_username = SRP,
+		     ecc = ECC} , 
+		  [#session{
+		      peer_certificate = PeerCert,
+		      own_certificate = OwnCert,
+		      compression_method = Compress,
+		      cipher_suite = CipherSuite,
+		      srp_username = SRP,
+		      ecc = ECC} | _]) ->
+    true;
+exists_equivalent(Session, [ _ | Rest]) ->
+    exists_equivalent(Session, Rest).
