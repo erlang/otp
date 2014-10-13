@@ -796,13 +796,10 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 		{_,Object} = get_referenced_type(S,ObjectDef),
 		check_object(S, Object, object_to_check(Object));
 	    [] -> 
-		%% An object with no fields. All class fields must be
-		%% optional or default.  Check that all fields in
-		%% class are 'OPTIONAL' or 'DEFAULT'
-		class_fields_optional_check(S,ClassDef),
-		#'Object'{def={object,defaultsyntax,[]}};
-	    _  ->
-		exit({error,{no_object,ObjectDef},S})
+		%% An object with no fields (parsed as a value).
+		Def = {object,defaultsyntax,[]},
+		NewSettingList = check_objectdefn(S, Def, ClassDef),
+		#'Object'{def=NewSettingList}
 	end,
     Gen = gen_incl(S,NewObj#'Object'.def,
 		   (ClassDef#classdef.typespec)#objectclass.fields),
@@ -966,23 +963,6 @@ prepare_objset({#type{}=Type,#type{}=Ext}) ->
     {set,[Type,Ext],true};
 prepare_objset(Ret) ->
     Ret.
-
-class_fields_optional_check(S,#classdef{typespec=ClassSpec}) ->
-    Fields = ClassSpec#objectclass.fields,
-    class_fields_optional_check1(S,Fields).
-
-class_fields_optional_check1(_S,[]) ->
-    ok;
-class_fields_optional_check1(S,[{typefield,_,'OPTIONAL'}|Rest]) ->
-    class_fields_optional_check1(S,Rest);
-class_fields_optional_check1(S,[{fixedtypevaluefield,_,_,_,'OPTIONAL'}|Rest]) ->
-    class_fields_optional_check1(S,Rest);
-class_fields_optional_check1(S,[{fixedtypevaluesetfield,_,_,'OPTIONAL'}|Rest]) ->
-    class_fields_optional_check1(S,Rest);
-class_fields_optional_check1(S,[{objectfield,_,_,_,'OPTIONAL'}|Rest]) ->
-    class_fields_optional_check1(S,Rest);
-class_fields_optional_check1(S,[{objectsetfield,_,_,'OPTIONAL'}|Rest]) ->
-    class_fields_optional_check1(S,Rest).
 
 %% ObjectSetFromObjects functionality
 

@@ -227,6 +227,7 @@ objects(Config) ->
 	   "  obj3 CL ::= { &Data OCTET STRING }\n"
 	   "  obj4 SMALL ::= { &code 42 }\n"
 	   "  InvalidSet CL ::= { obj1 }\n"
+	   "  obj5 CL ::= {}\n"
 
 	   "  CL ::= CLASS {\n"
 	   "    &code INTEGER UNIQUE,\n"
@@ -255,7 +256,11 @@ objects(Config) ->
       {structured_error,{M,5},asn1ct_check,
        {missing_mandatory_fields,[i],obj4}},
       {structured_error,{M,6},asn1ct_check,
-       {invalid_fields,[wrong],'InvalidSet'}}
+       {invalid_fields,[wrong],'InvalidSet'}},
+      {structured_error,{M,7},asn1ct_check,
+       {missing_mandatory_fields,
+	['Data','Set','VarTypeValue',code,enum,object,
+	 vartypevalue],obj5}}
      ]
     } = run(P, Config),
     ok.
