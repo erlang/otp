@@ -288,7 +288,7 @@ ERL_NIF_INIT_DECL(NAME)			\
 	sizeof(FUNCS) / sizeof(*FUNCS),	\
 	FUNCS,				\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
-	ERL_NIF_VM_VARIANT		\
+	ERL_NIF_VM_VARIANT, 0		\
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\
