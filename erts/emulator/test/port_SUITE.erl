@@ -90,6 +90,7 @@
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
 	 exit_status_multi_scheduling_block/1, ports/1,
 	 spawn_driver/1, spawn_executable/1, close_deaf_port/1,
+	 port_setget_data/1,
 	 unregister_name/1, parallelism_option/1]).
 
 -export([do_iter_max_ports/2]).
@@ -115,6 +116,7 @@ all() ->
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
      spawn_executable, close_deaf_port, unregister_name,
+     port_setget_data,
      parallelism_option].
 
 groups() -> 
@@ -2332,6 +2334,55 @@ close_deaf_port_1(N, Cmd) ->
     	_:eagain ->
 	    {comment, "Could not spawn more than " ++ integer_to_list(N) ++ " OS processes."}
     end.
+
+%% Test undocumented port_set_data/2 and port_get_data/1
+%% Hammer from multiple processes a while
+%% and then abrubtly close the port (OTP-12208).
+port_setget_data(Config) when is_list(Config) ->
+    ok = load_driver(?config(data_dir, Config), "echo_drv"),
+    Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
+
+    NSched = erlang:system_info(schedulers_online),
+    PRs = lists:map(fun(I) ->
+			    spawn_opt(fun() -> port_setget_data_hammer(Port,1) end,
+				      [monitor, {scheduler, I rem NSched}])
+		    end,
+		    lists:seq(1,10)),
+    receive after 100 -> ok end,
+    Papa = self(),
+    lists:foreach(fun({Pid,_}) -> Pid ! {Papa,prepare_for_close} end, PRs),
+    lists:foreach(fun({Pid,_}) ->
+			  receive {Pid,prepare_for_close} -> ok end
+		  end,
+		  PRs),
+    port_close(Port),
+    lists:foreach(fun({Pid,Ref}) ->
+			  receive {'DOWN', Ref, process, Pid, normal} -> ok end
+		  end,
+		  PRs),
+    ok.
+
+port_setget_data_hammer(Port, N) ->
+    Rand = random:uniform(3),
+    try case Rand of
+	    1 -> true = erlang:port_set_data(Port, atom);
+	    2 -> true = erlang:port_set_data(Port, {1,2,3});
+	    3 -> erlang:port_get_data(Port)
+	end
+    catch
+	error:badarg ->
+	    true = get(prepare_for_close),
+	    io:format("~p did ~p rounds before port closed\n", [self(), N]),
+	    exit(normal)
+    end,
+    receive {Papa, prepare_for_close} ->
+	    put(prepare_for_close, true),
+	    Papa ! {self(),prepare_for_close}
+    after 0 ->
+	    ok
+    end,
+    port_setget_data_hammer(Port, N+1).
+
 
 wait_until(Fun) ->
     case catch Fun() of
