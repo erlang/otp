@@ -29,6 +29,14 @@ define(LEAF_WORDS,16)dnl number of stack words for leaf functions
 define(NR_ARG_REGS,4)dnl admissible values are 0 to 6, inclusive
 
 `#define SPARC_LEAF_WORDS	'LEAF_WORDS
+`#define SPARC_NR_ARG_REGS	'NR_ARG_REGS
+`#define NR_ARG_REGS	'NR_ARG_REGS
+
+
+`#ifdef ASM'
+/*
+ * Only assembler stuff from here on (when included from *.S)
+ */
 
 /*
  * Reserved registers.
@@ -80,9 +88,6 @@ define(NR_ARG_REGS,4)dnl admissible values are 0 to 6, inclusive
 /*
  * Argument (parameter) registers.
  */
-`#define SPARC_NR_ARG_REGS	'NR_ARG_REGS
-`#define NR_ARG_REGS	'NR_ARG_REGS
-
 define(defarg,`define(ARG$1,`$2')dnl
 #`define ARG'$1	$2'
 )dnl
@@ -209,5 +214,7 @@ define(QUICK_CALL_RET,`ba $1; NBIF_POP_N(eval(RET_POP($2)))')dnl
 `/* #define QUICK_CALL_RET_F_2 'QUICK_CALL_RET(F,2)` */'
 `/* #define QUICK_CALL_RET_F_3 'QUICK_CALL_RET(F,3)` */'
 `/* #define QUICK_CALL_RET_F_5 'QUICK_CALL_RET(F,5)` */'
+
+`#endif /* ASM */'
 
 `#endif /* HIPE_SPARC_ASM_H */'

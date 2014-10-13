@@ -17,10 +17,9 @@
  * %CopyrightEnd%
  */
 
-
+#define ASM
 #include "hipe_arm_asm.h"
 #include "hipe_literals.h"
-#define ASM
 #include "hipe_mode_switch.h"
 
 	.text

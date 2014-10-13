@@ -19,6 +19,7 @@ changecom(`/*', `*/')dnl
  */
 
 
+#`define ASM'
 include(`hipe/hipe_ppc_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"

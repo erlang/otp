@@ -18,7 +18,7 @@ changecom(`/*', `*/')dnl
  * %CopyrightEnd%
  */
 
-
+#`define ASM'
 include(`hipe/hipe_amd64_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
