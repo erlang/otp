@@ -74,6 +74,12 @@ main(_Erule) ->
 	      {'ConstructedPdu',7,[]}),
     roundtrip('InfObj', 'ConstructedPdu',
 	      {'ConstructedPdu',7,[64,1,19,17,35]}),
+    {'ConstructedPdu',8,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',8,[{'_',-15,35},{'_',533,-70}]}),
+    {'ConstructedPdu',9,[{RecTag9,-15,35},{RecTag9,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',9,[{'_',-15,35},{'_',533,-70}]}),
 
     roundtrip('InfObj', 'ConstructedSet',
 	      {'ConstructedSet',1,{'CONSTRUCTED-DEFAULT_Type',-2001,true}}),
@@ -96,6 +102,12 @@ main(_Erule) ->
 	      {'ConstructedSet',7,[]}),
     roundtrip('InfObj', 'ConstructedSet',
 	      {'ConstructedSet',7,[64,1,19,17,35]}),
+    {'ConstructedSet',8,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',8,[{'_',-15,35},{'_',533,-70}]}),
+    {'ConstructedSet',9,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',9,[{'_',-15,35},{'_',533,-70}]}),
 
     roundtrip('InfObj', 'Seq2',
 	      {'Seq2',42,[true,false,false,true],

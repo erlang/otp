@@ -206,7 +206,9 @@ ConstructedDefaultSet CONSTRUCTED-DEFAULT ::= {
   { &id 4, &Type SET { a INTEGER, b BIT STRING } } |
   { &id 5, &Type CHOICE { i INTEGER, b BIT STRING } } |
   { &id 6, &Type SEQUENCE OF INTEGER (1..16) } |
-  { &id 7, &Type SET OF INTEGER (1..64) }
+  { &id 7, &Type SET OF INTEGER (1..64) } |
+  { &id 8, &Type SEQUENCE OF SEQUENCE { x INTEGER, y INTEGER } } |
+  { &id 9, &Type SET OF SEQUENCE { x INTEGER, y INTEGER } }
 }
 
 ConstructedPdu ::= SEQUENCE {
