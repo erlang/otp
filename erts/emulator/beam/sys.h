@@ -550,7 +550,7 @@ static unsigned long zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-__decl_noreturn void __noreturn erl_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erl_exit(int n, const char*, ...);
 
 /* Some special erl_exit() codes: */
 #define ERTS_INTR_EXIT	INT_MIN		/* called from signal handler */

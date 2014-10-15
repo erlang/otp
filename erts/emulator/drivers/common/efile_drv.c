@@ -124,7 +124,7 @@
 #include "dtrace-wrapper.h" 
 
 
-void erl_exit(int n, char *fmt, ...);
+void erl_exit(int n, const char *fmt, ...);
 
 static ErlDrvSysInfo sys_info;
 

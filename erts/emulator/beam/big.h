@@ -166,7 +166,7 @@ int term_equals_2pow32(Eterm);
 Eterm erts_uint64_to_big(Uint64, Eterm **);
 Eterm erts_sint64_to_big(Sint64, Eterm **);
 
-Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
+Eterm erts_chars_to_integer(Process *, const char*, Uint, const int);
 
 #endif
 

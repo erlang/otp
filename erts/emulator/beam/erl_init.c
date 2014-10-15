@@ -123,7 +123,7 @@ const int etp_big_endian = 0;
  * inherit previous values.
  */
 
-extern void erl_crash_dump_v(char *, int, char *, va_list);
+extern void erl_crash_dump_v(const char *, int, const char *, va_list);
 #ifdef __WIN32__
 extern void ConNormalExit(void);
 extern void ConWaitForExit(void);
@@ -274,7 +274,7 @@ this_rel_num(void)
  * that don't go to the error logger go through here.
  */
 
-void erl_error(char *fmt, va_list args)
+void erl_error(const char *fmt, va_list args)
 {
     erts_vfprintf(stderr, fmt, args);
 }
@@ -2060,7 +2060,8 @@ system_cleanup(int flush_async)
 }
 
 static __decl_noreturn void __noreturn
-erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
+erl_exit_vv(int n, int flush_async, const char *fmt,
+            va_list args1, va_list args2)
 {
     unsigned int an;
 
@@ -2078,7 +2079,7 @@ erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
     /* Produce an Erlang core dump if error */
     if (((n > 0 && erts_no_crash_dump == 0) || n == ERTS_DUMP_EXIT)
 	&& erts_initialized) {
-	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
+        erl_crash_dump_v((const char*) NULL, 0, fmt, args1);
     }
 
     if (fmt != NULL && *fmt != '\0')
@@ -2095,7 +2096,7 @@ erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 }
 
 /* Exit without flushing async threads */
-__decl_noreturn void __noreturn erl_exit(int n, char *fmt, ...)
+__decl_noreturn void __noreturn erl_exit(int n, const char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);
@@ -2106,7 +2107,7 @@ __decl_noreturn void __noreturn erl_exit(int n, char *fmt, ...)
 }
 
 /* Exit after flushing async threads */
-__decl_noreturn void __noreturn erl_exit_flush_async(int n, char *fmt, ...)
+__decl_noreturn void __noreturn erl_exit_flush_async(int n, const char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);

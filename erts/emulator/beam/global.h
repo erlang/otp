@@ -707,9 +707,9 @@ void loaded(int, void *);
 
 /* config.c */
 
-__decl_noreturn void __noreturn erl_exit(int n, char*, ...);
-__decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
-void erl_error(char*, va_list);
+__decl_noreturn void __noreturn erl_exit(int n, const char*, ...);
+__decl_noreturn void __noreturn erl_exit_flush_async(int n, const char*, ...);
+void erl_error(const char*, va_list);
 
 /* copy.c */
 Eterm copy_object(Eterm, Process*);
