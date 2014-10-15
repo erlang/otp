@@ -46,8 +46,8 @@
 #endif
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
-void dbg_bt(Process* p, Eterm* sp);
-void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
+void dbg_bt(const Process* p, const Eterm* sp);
+void dbg_where(const BeamInstr* addr, Eterm x0, const Eterm* reg);
 
 static int print_op(int to, void *to_arg, int op, int size, BeamInstr* addr);
 
@@ -305,7 +305,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 }
 
 void
-dbg_bt(Process* p, Eterm* sp)
+dbg_bt(const Process* p, const Eterm* sp)
 {
     Eterm* stack = STACK_START(p);
 
@@ -322,9 +322,9 @@ dbg_bt(Process* p, Eterm* sp)
 }
 
 void
-dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
+dbg_where(const BeamInstr* addr, Eterm x0, const Eterm* reg)
 {
-    BeamInstr* f = find_function_from_pc(addr);
+    const BeamInstr* f = find_function_from_pc(addr);
 
     if (f == NULL) {
 	erts_fprintf(stderr, "???\n");

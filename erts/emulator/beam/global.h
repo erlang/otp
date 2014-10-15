@@ -678,7 +678,7 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-BeamInstr* find_function_from_pc(BeamInstr* pc);
+BeamInstr* find_function_from_pc(const BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
 void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
@@ -693,7 +693,8 @@ void erts_end_staging_ranges(int commit);
 void erts_update_ranges(BeamInstr* code, Uint size);
 void erts_remove_from_ranges(BeamInstr* code);
 UWord erts_ranges_sz(void);
-void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
+void erts_lookup_function_info(FunctionInfo* fi, const BeamInstr* pc,
+                               int full_info);
 
 /* break.c */
 void init_break_handler(void);

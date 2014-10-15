@@ -5433,7 +5433,7 @@ erts_set_current_function(FunctionInfo* fi, BeamInstr* current)
  * Returns a pointer to {module, function, arity}, or NULL if not found.
  */
 BeamInstr*
-find_function_from_pc(BeamInstr* pc)
+find_function_from_pc(const BeamInstr* pc)
 {
     FunctionInfo fi;
 
