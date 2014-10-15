@@ -27,27 +27,59 @@
 
 all() ->
     [
-     tcp_connection,
-     tcp_inet6_connection,
-     tcp_connection_option,
-     tcp_inet6_connection_option
+     {group, v4},
+     {group, v6}
+    ].
+
+     
+init_per_group(v4, Config) ->
+    [{listen_opts,  []},
+     {listen_host,  "localhost"},
+     {connect_opts, []}
+     |  Config];
+init_per_group(v6, Config) ->
+    {ok, Hostname} = inet:gethostname(),
+    case lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts,[])) of
+	true -> 
+	    [{listen_opts,  [inet6]},
+	     {listen_host,  "::"},
+	     {connect_opts, [{tcpopts,[inet6]}]}
+	     |  Config];
+	false -> 
+	    {skip, io_lib:format("~p is not an ipv6_host",[Hostname])}
+    end.
+
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+groups() ->
+    [{v4, [], [tcp_connection, tcp_connection_option]},
+     {v6, [], [tcp_connection, tcp_connection_option]}
     ].
 
 
 init_per_suite(Config) -> Config.
 
+
 end_per_suite(_Config) -> ok.
 
 
 init_per_testcase(_TestCase, Config) ->
-    {ok,Sl} = gen_tcp:listen(0,[]),
-    {ok,Sl6} = gen_tcp:listen(0,[inet6]),
-    [{listen_socket,Sl}, {listen_socket6,Sl6} | Config].
+    case gen_tcp:listen(0, proplists:get_value(listen_opts,Config)) of
+	{ok,LSock} ->
+	    {ok,{_,Port}} = inet:sockname(LSock),
+	    [{listen_socket,LSock},
+	     {listen_port,Port}
+	     | Config];
+	Other ->
+	    {fail, Other}
+    end.
+
 
 end_per_testcase(_TestCase, Config) ->
-    catch gen_tcp:close( proplists:get_value(listen_socket, Config) ),
-    catch gen_tcp:close( proplists:get_value(listen_socket6, Config) ),
-    ok.
+    catch gen_tcp:close( proplists:get_value(listen_socket, Config) ).
 
 %%%================================================================
 %%%
@@ -55,35 +87,26 @@ end_per_testcase(_TestCase, Config) ->
 %%% 
 %%%----------------------------------------------------------------
 tcp_connection(Config) ->
-    do_tcp_connection(Config, listen_socket, "localhost", []).
-
-tcp_inet6_connection(Config) ->
-    do_tcp_connection(Config, listen_socket6, "::", [{tcpopts,[inet6]}]).
-
-
-do_tcp_connection(Config, SockKey, Host, Opts) ->
-    Sl = proplists:get_value(SockKey, Config),
-    {ok,{_,Port}} = inet:sockname(Sl),
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(connect_opts, Config),
     case eldap:open([Host], [{port,Port}|Opts]) of
 	{ok,_H} ->
+	    Sl = proplists:get_value(listen_socket, Config),
 	    case gen_tcp:accept(Sl,1000) of
 		{ok,_S} -> ok;
 		{error,timeout} -> ct:fail("server side accept timeout",[])
 	    end;
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
     end.
-	    
+
+
 %%%----------------------------------------------------------------
 tcp_connection_option(Config) -> 
-    do_tcp_connection_option(Config, listen_socket, "localhost", []).
-
-tcp_inet6_connection_option(Config) -> 
-    do_tcp_connection_option(Config, listen_socket6, "::", [{tcpopts,[inet6]}]).
-
-
-do_tcp_connection_option(Config, SockKey, Host, Opts) ->
-    Sl = proplists:get_value(SockKey, Config),
-    {ok,{_,Port}} = inet:sockname(Sl),
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(connect_opts, Config),
+    Sl = proplists:get_value(listen_socket, Config),
 
     %% Make an option value to test.  The option must be implemented on all
     %% platforms that we test on.  Must check what the default value is
@@ -95,7 +118,7 @@ do_tcp_connection_option(Config, SockKey, Host, Opts) ->
 		 end,
 
     case catch eldap:open([Host], 
-		    [{port,Port},{tcpopts,[{linger,TestLinger}]}|Opts]) of
+			  [{port,Port},{tcpopts,[{linger,TestLinger}]}|Opts]) of
 	{ok,H} ->
 	    case gen_tcp:accept(Sl,1000) of
 		{ok,_} -> 
@@ -122,5 +145,3 @@ do_tcp_connection_option(Config, SockKey, Host, Opts) ->
 	Other ->
 	    ct:fail("eldap:open failed: ~p",[Other])
     end.
-
-%%%----------------------------------------------------------------

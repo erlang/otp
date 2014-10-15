@@ -25,7 +25,23 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.6</title>
+  <section><title>SSL 5.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle the fact that servers may send an empty SNI
+	    extension to the client.</p>
+          <p>
+	    Own Id: OTP-12198</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

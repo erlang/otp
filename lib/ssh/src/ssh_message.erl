@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -162,8 +162,15 @@ encode(#ssh_msg_userauth_info_request{
 encode(#ssh_msg_userauth_info_response{
 	  num_responses = Num,
 	  data = Data}) ->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_INFO_RESPONSE, Num, Data],
-		    [byte, uint32, '...']);
+    Responses = lists:map(fun("") ->
+				  <<>>;
+			     (Response) ->
+				  ssh_bits:encode([Response], [string])
+			  end, Data),
+    Start = ssh_bits:encode([?SSH_MSG_USERAUTH_INFO_RESPONSE, Num],
+			    [byte, uint32]),
+    iolist_to_binary([Start, Responses]);
+
 encode(#ssh_msg_disconnect{
 	  code = Code,
 	  description = Desc,

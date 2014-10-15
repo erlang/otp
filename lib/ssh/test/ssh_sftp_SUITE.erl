@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ groups() ->
     [{erlang_server, [], [open_close_file, open_close_dir, read_file, read_dir,
 			  write_file, rename_file, mk_rm_dir, remove_file, links,
 			  retrieve_attributes, set_attributes, async_read,
-			  async_write, position, pos_read, pos_write]},
+			  async_write, position, pos_read, pos_write, version_option]},
      {openssh_server, [], [open_close_file, open_close_dir, read_file, read_dir,
 			   write_file, rename_file, mk_rm_dir, remove_file, links,
 			   retrieve_attributes, set_attributes, async_read,
@@ -111,6 +111,21 @@ init_per_testcase(sftp_nonexistent_subsystem, Config) ->
 				]),
     [{sftpd, Sftpd} | Config];
 
+init_per_testcase(version_option, Config) ->
+    prep(Config),
+    TmpConfig0 = lists:keydelete(watchdog, 1, Config),
+    TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
+    Dog = ct:timetrap(?default_timeout),
+    {_,Host, Port} =  ?config(sftpd, Config),
+    {ok, ChannelPid, Connection}  = 
+	ssh_sftp:start_channel(Host, Port,
+			       [{sftp_vsn, 3},
+				{user, ?USER},
+				{password, ?PASSWD},
+				{user_interaction, false},
+				{silently_accept_hosts, true}]),
+    Sftp = {ChannelPid, Connection},
+    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig];
 init_per_testcase(Case, Config) ->
     prep(Config),
     TmpConfig0 = lists:keydelete(watchdog, 1, Config),
@@ -446,6 +461,11 @@ sftp_nonexistent_subsystem(Config) when is_list(Config) ->
 				{user, ?USER}, {password, ?PASSWD},
 				{silently_accept_hosts, true}]).
 
+%%--------------------------------------------------------------------
+version_option()  ->
+    [{doc, "Test API option sftp_vsn"}].
+version_option(Config) when is_list(Config) ->
+    open_close_dir(Config).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
