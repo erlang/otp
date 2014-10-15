@@ -103,7 +103,7 @@ typedef struct erts_cpu_groups_callback_list_t_ erts_cpu_groups_callback_list_t;
 struct erts_cpu_groups_callback_list_t_ {
     erts_cpu_groups_callback_list_t *next;
     erts_cpu_groups_callback_t callback;
-    void *arg;
+    const void *arg;
 };
 
 typedef struct erts_cpu_groups_map_t_ erts_cpu_groups_map_t;
@@ -119,7 +119,7 @@ struct erts_cpu_groups_map_t_ {
 typedef struct {
     erts_cpu_groups_callback_t callback;
     int ix;
-    void *arg;
+    const void *arg;
 } erts_cpu_groups_callback_call_t;
 
 static erts_cpu_groups_map_t *cpu_groups_maps;
@@ -138,10 +138,10 @@ static void cpu_bind_order_sort(erts_cpu_topology_t *cpudata,
 static void write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size);
 #endif
 
-static void reader_groups_callback(int, ErtsSchedulerData *, int, void *);
+static void reader_groups_callback(int, ErtsSchedulerData *, int, const void *);
 static erts_cpu_groups_map_t *add_cpu_groups(int groups,
 					     erts_cpu_groups_callback_t callback,
-					     void *arg);
+                                             const void *arg);
 static void update_cpu_groups_maps(void);
 static void make_cpu_groups_map(erts_cpu_groups_map_t *map, int test);
 static int cpu_groups_lookup(erts_cpu_groups_map_t *map,
@@ -1801,7 +1801,7 @@ void
 reader_groups_callback(int suspending,
 		       ErtsSchedulerData *esdp,
 		       int group,
-		       void *unused)
+                       const void *unused)
 {
     if (reader_groups && esdp->no <= max_main_threads)
 	erts_smp_rwmtx_set_reader_group(suspending ? 0 : group+1);
@@ -2209,7 +2209,7 @@ make_cpu_groups_map(erts_cpu_groups_map_t *map, int test)
 static erts_cpu_groups_map_t *
 add_cpu_groups(int groups,
 	       erts_cpu_groups_callback_t callback,
-	       void *arg)
+               const void *arg)
 {
     int use_groups = groups;
     erts_cpu_groups_callback_list_t *cgcl;
@@ -2257,7 +2257,7 @@ add_cpu_groups(int groups,
 }
 
 static void
-remove_cpu_groups(erts_cpu_groups_callback_t callback, void *arg)
+remove_cpu_groups(erts_cpu_groups_callback_t callback, const void *arg)
 {
     erts_cpu_groups_map_t *prev_cgm, *cgm;
     erts_cpu_groups_callback_list_t *prev_cgcl, *cgcl;
@@ -2338,7 +2338,7 @@ update_cpu_groups_maps(void)
 void
 erts_add_cpu_groups(int groups,
 		    erts_cpu_groups_callback_t callback,
-		    void *arg)
+                    const void *arg)
 {
     erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
     add_cpu_groups(groups, callback, arg);
@@ -2346,7 +2346,7 @@ erts_add_cpu_groups(int groups,
 }
 
 void erts_remove_cpu_groups(erts_cpu_groups_callback_t callback,
-			    void *arg)
+                            const void *arg)
 {
     erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
     remove_cpu_groups(callback, arg);

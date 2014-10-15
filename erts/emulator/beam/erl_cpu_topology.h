@@ -94,12 +94,12 @@ Eterm erts_debug_cpu_groups_map(Process *c_p, int groups);
 typedef void (*erts_cpu_groups_callback_t)(int,
 					   ErtsSchedulerData *,
 					   int,
-					   void *);
+                                           const void *);
 
 void erts_add_cpu_groups(int groups,
 			 erts_cpu_groups_callback_t callback,
-			 void *arg);
+                         const void *arg);
 void erts_remove_cpu_groups(erts_cpu_groups_callback_t callback,
-			    void *arg);
+                            const void *arg);
 
 #endif

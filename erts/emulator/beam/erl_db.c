@@ -3776,7 +3776,7 @@ static void print_table(int to, void *to_arg, int show,  DbTable* tb)
 		       / sizeof(Uint)));
 }
 
-void db_info(int to, void *to_arg, int show)    /* Called by break handler */
+void db_info(int to, const void *to_arg, int show)    /* Called by break handler */
 {
     int i;
     for (i=0; i < db_max_tabs; i++) 

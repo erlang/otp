@@ -63,7 +63,7 @@ union db_table {
 
 void init_db(void);
 int erts_db_process_exiting(Process *, ErtsProcLocks);
-void db_info(int, void *, int);
+void db_info(int, const void *, int);
 void erts_db_foreach_table(void (*)(DbTable *, const void *), const void *);
 void erts_db_foreach_offheap(DbTable *,
                              void (*func)(ErlOffHeap *, const void *),
