@@ -153,7 +153,7 @@ Eterm erts_new_mso_binary(Process *p, const byte *buf, int len)
  */
 
 Eterm
-erts_new_heap_binary(Process *p, const byte *buf, int len, byte** datap)
+erts_new_heap_binary(Process *p, const byte *buf, int len, byte** datap /*out*/)
 {
     ErlHeapBin* hb = (ErlHeapBin *) HAlloc(p, heap_bin_size(len));
 

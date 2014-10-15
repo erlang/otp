@@ -809,7 +809,7 @@ typedef struct {
 
 void MD5Init(MD5_CTX *);
 void MD5Update(MD5_CTX *, const unsigned char *, const unsigned int);
-void MD5Final(unsigned char [16], MD5_CTX *);
+void MD5Final(unsigned char [16] /*out*/, MD5_CTX *);
 
 /* ggc.c */
 

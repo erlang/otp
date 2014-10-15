@@ -174,9 +174,7 @@ void MD5Update (MD5_CTX *context,
  * MD5 finalization. Ends an MD5 message-digest operation, writing the
   the message digest and zeroizing the context.
  */
-void MD5Final (digest, context)
-    unsigned char digest[16];                         /* message digest */
-    MD5_CTX *context;                                       /* context */
+void MD5Final (unsigned char digest[16] /*out*/, MD5_CTX *context)
 {
     unsigned char bits[8];
     unsigned int index, padLen;

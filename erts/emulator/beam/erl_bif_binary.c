@@ -286,7 +286,7 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
 /*
  * The same initialization of allocator and basic data for Boyer-Moore.
  */
-static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
+static BMData *create_bmdata(MyAllocator *my, const byte *x, Uint len,
 			     Binary **the_bin /* out */)
 {
     Uint datasize = BM_SIZE(len);
@@ -318,7 +318,8 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 /*
  * Helper called once for each search pattern
  */
-static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, byte *x, Uint len)
+static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, const byte *x,
+                               Uint len)
 {
     ACNode *acn = act->root;
     Uint32 n = ++act->counter; /* Always increase counter, even if it's a
@@ -432,7 +433,8 @@ typedef struct {
 } ACFindFirstState;
 
 
-static void ac_init_find_first_match(ACFindFirstState *state, ACTrie *act, Sint startpos, Uint len)
+static void ac_init_find_first_match(ACFindFirstState *state, ACTrie *act,
+                                    Sint startpos, Uint len)
 {
     state->q = act->root;
     state->pos = startpos;
@@ -446,7 +448,7 @@ static void ac_init_find_first_match(ACFindFirstState *state, ACTrie *act, Sint 
 
 #define AC_LOOP_FACTOR 10
 
-static int ac_find_first_match(ACFindFirstState *state, byte *haystack,
+static int ac_find_first_match(ACFindFirstState *state, const byte *haystack,
 				Uint *mpos, Uint *mlen, Uint *reductions)
 {
     ACNode *q = state->q;
@@ -523,7 +525,8 @@ typedef struct {
     FindallData *out;
 } ACFindAllState;
 
-static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos, Uint len)
+static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos,
+                             Uint len)
 {
     state->q = act->root;
     state->pos = startpos;
@@ -533,7 +536,7 @@ static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos, 
     state->out = NULL;
 }
 
-static void ac_restore_find_all(ACFindAllState *state, char *buff)
+static void ac_restore_find_all(ACFindAllState *state, const char *buff)
 {
     memcpy(state,buff,sizeof(ACFindAllState));
     if (state->allocated > 0) {
@@ -544,7 +547,7 @@ static void ac_restore_find_all(ACFindAllState *state, char *buff)
     }
 }
 
-static void ac_serialize_find_all(ACFindAllState *state, char *buff)
+static void ac_serialize_find_all(ACFindAllState *state, char *buff /*out*/)
 {
     memcpy(buff,state,sizeof(ACFindAllState));
     memcpy(buff+sizeof(ACFindAllState),state->out,sizeof(FindallData)*state->m);
@@ -568,7 +571,8 @@ static void ac_clean_find_all(ACFindAllState *state)
  * Differs to the find_first function in that it stores all matches and the values
  * arte returned only in the state.
  */
-static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack,
+static int ac_find_all_non_overlapping(ACFindAllState *state,
+                                       const byte *haystack,
 				       Uint *reductions)
 {
     ACNode *q = state->q;
@@ -686,7 +690,7 @@ static void compute_badshifts(BMData *bmd)
 }
 
 /* Helper for "compute_goodshifts" */
-static void compute_suffixes(byte *x, Sint m, Sint *suffixes)
+static void compute_suffixes(const byte *x, Sint m, Sint *suffixes)
 {
     int f,g,i;
 
@@ -765,7 +769,7 @@ static void bm_init_find_first_match(BMFindFirstState *state, Sint startpos,
 
 
 static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd,
-				byte *haystack, Uint *reductions)
+                                const byte *haystack, Uint *reductions)
 {
     Sint blen = bmd->len;
     Sint len = state->len;
@@ -810,7 +814,7 @@ static void bm_init_find_all(BMFindAllState *state, Sint startpos, Uint len)
     state->out = NULL;
 }
 
-static void bm_restore_find_all(BMFindAllState *state, char *buff)
+static void bm_restore_find_all(BMFindAllState *state, const char *buff)
 {
     memcpy(state,buff,sizeof(BMFindAllState));
     if (state->allocated > 0) {
@@ -823,7 +827,7 @@ static void bm_restore_find_all(BMFindAllState *state, char *buff)
     }
 }
 
-static void bm_serialize_find_all(BMFindAllState *state, char *buff)
+static void bm_serialize_find_all(BMFindAllState *state, char *buff /*out*/)
 {
     memcpy(buff,state,sizeof(BMFindAllState));
     memcpy(buff+sizeof(BMFindAllState),state->out,
@@ -849,7 +853,7 @@ static void bm_clean_find_all(BMFindAllState *state)
  * values are returned only in the state.
  */
 static Sint bm_find_all_non_overlapping(BMFindAllState *state,
-					BMData *bmd, byte *haystack,
+                                        BMData *bmd, const byte *haystack,
 					Uint *reductions)
 {
     Sint blen = bmd->len;
