@@ -51,7 +51,7 @@ erts_sys_putenv_raw(char *key, char *value)
 }
 
 int
-erts_sys_putenv(char *key, char *value)
+erts_sys_putenv(const char *key, const char *value)
 {
     int res;
     WCHAR *wkey = (WCHAR *) key;
@@ -64,7 +64,7 @@ erts_sys_putenv(char *key, char *value)
 }
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv(const char *key, const char *value, size_t *size)
 {
     size_t req_size = 0;
     int res = 0;
@@ -87,7 +87,7 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     return res;
 }
 int
-erts_sys_getenv__(char *key, char *value, size_t *size)
+erts_sys_getenv__(const char *key, const char *value, size_t *size)
 {
     size_t req_size = 0;
     int res = 0;
@@ -106,7 +106,7 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 }
 
 int
-erts_sys_getenv_raw(char *key, char *value, size_t *size)
+erts_sys_getenv_raw(const char *key, const char *value, size_t *size)
 {
     int res;
     erts_smp_rwmtx_rlock(&environ_rwmtx);

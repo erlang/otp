@@ -153,7 +153,7 @@ int erts_fit_in_bits_int32(Sint32);
 int erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 make_broken_hash(Eterm);
-Uint32 block_hash(byte *, unsigned, Uint32);
+Uint32 block_hash(const byte *k, unsigned length, Uint32 init_val);
 Uint32 make_hash2(Eterm);
 Uint32 make_hash(Eterm);
 
@@ -161,7 +161,7 @@ void erts_save_emu_args(int argc, const char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
 Eterm erts_get_ethread_info(struct process * c_p);
 
-Eterm erts_bld_atom(Uint **hpp, Uint *szp, char *str);
+Eterm erts_bld_atom(Uint **hpp, Uint *szp, const char *str);
 Eterm erts_bld_uint(Uint **hpp, Uint *szp, Uint ui);
 Eterm erts_bld_uword(Uint **hpp, Uint *szp, UWord uw);
 Eterm erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64);

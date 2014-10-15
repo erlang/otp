@@ -834,7 +834,7 @@ void erts_sweep_monitors(ErtsMonitor *root,
 }
 
 void erts_sweep_links(ErtsLink *root, 
-		      void (*doit)(ErtsLink *, void *),
+                      void (*doit)(ErtsLink *, void *),
 		      void *context) 
 {
     ErtsLink *tstack[STACK_NEED];

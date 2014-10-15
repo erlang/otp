@@ -5680,7 +5680,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, const Eterm* reg,
 }
 
 void
-erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
+erts_save_stacktrace(const Process* p, struct StackTrace* s, int depth)
 {
     if (depth > 0) {
 	Eterm *ptr;

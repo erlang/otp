@@ -371,10 +371,12 @@ erts_putc(int to, const void *arg, char c)
 \*                                                                           */
 
 Eterm
-erts_bld_atom(Uint **hpp, Uint *szp, char *str)
+erts_bld_atom(Uint **hpp, Uint *szp, const char *str)
 {
     if (hpp)
-	return erts_atom_put((byte *) str, sys_strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
+        return erts_atom_put((const byte *) str,
+                             sys_strlen(str),
+                             ERTS_ATOM_ENC_LATIN1, 1);
     else
 	return THE_NON_VALUE;
 }
@@ -1047,7 +1049,7 @@ do {                               \
 #define HCONST 0x9e3779b9UL /* the golden ratio; an arbitrary value */
 
 Uint32
-block_hash(byte *k, unsigned length, Uint32 initval)
+block_hash(const byte *k, unsigned length, Uint32 initval)
 {
    Uint32 a,b,c;
    unsigned len;
@@ -1757,7 +1759,7 @@ tail_recur:
 #undef MAKE_HASH_CDR_POST_OP
 }
 
-static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
+static int do_send_to_logger(Eterm tag, Eterm gleader, const char *buf, int len)
 {
     /* error_logger ! 
        {notify,{info_msg,gleader,{emulator,"~s~n",[<message as list>]}}} |
@@ -1856,13 +1858,13 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 }
 
 static ERTS_INLINE int
-send_info_to_logger(Eterm gleader, char *buf, int len) 
+send_info_to_logger(Eterm gleader, const char *buf, int len)
 {
     return do_send_to_logger(am_info_msg, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_warning_to_logger(Eterm gleader, char *buf, int len) 
+send_warning_to_logger(Eterm gleader, const char *buf, int len)
 {
     Eterm tag;
     switch (erts_error_logger_warnings) {
@@ -1874,7 +1876,7 @@ send_warning_to_logger(Eterm gleader, char *buf, int len)
 }
 
 static ERTS_INLINE int
-send_error_to_logger(Eterm gleader, char *buf, int len) 
+send_error_to_logger(Eterm gleader, const char *buf, int len)
 {
     return do_send_to_logger(am_error, gleader, buf, len);
 }
@@ -1954,19 +1956,19 @@ erts_send_error_to_logger(Eterm gleader, erts_dsprintf_buf_t *dsbufp)
 }
 
 int
-erts_send_info_to_logger_str(Eterm gleader, char *str)
+erts_send_info_to_logger_str(Eterm gleader, const char *str)
 {
     return send_info_to_logger(gleader, str, sys_strlen(str));
 }
 
 int
-erts_send_warning_to_logger_str(Eterm gleader, char *str)
+erts_send_warning_to_logger_str(Eterm gleader, const char *str)
 {
     return send_warning_to_logger(gleader, str, sys_strlen(str));
 }
 
 int
-erts_send_error_to_logger_str(Eterm gleader, char *str)
+erts_send_error_to_logger_str(Eterm gleader, const char *str)
 {
     return send_error_to_logger(gleader, str, sys_strlen(str));
 }
@@ -1990,19 +1992,19 @@ erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *dsbuf)
 }
 
 int
-erts_send_info_to_logger_str_nogl(char *str)
+erts_send_info_to_logger_str_nogl(const char *str)
 {
     return erts_send_info_to_logger_str(NIL, str);
 }
 
 int
-erts_send_warning_to_logger_str_nogl(char *str)
+erts_send_warning_to_logger_str_nogl(const char *str)
 {
     return erts_send_warning_to_logger_str(NIL, str);
 }
 
 int
-erts_send_error_to_logger_str_nogl(char *str)
+erts_send_error_to_logger_str_nogl(const char *str)
 {
     return erts_send_error_to_logger_str(NIL, str);
 }
@@ -2388,7 +2390,7 @@ not_equal:
  *	s1 = s2	return  0
  *	s1 > s2 return +1
  */
-static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
+static int cmpbytes(const byte *s1, int l1, const byte *s2, int l2)
 {
     int i;
     i = 0;
@@ -3092,7 +3094,7 @@ void bin_write(int to, const void *to_arg, const byte* buf, size_t sz)
    return number of chars in list or -1 for error */
 
 int
-intlist_to_buf(Eterm list, char *buf, int len)
+intlist_to_buf(Eterm list, char *buf /*out*/, int len)
 {
     Eterm* listptr;
     int sz = 0;
@@ -3888,7 +3890,7 @@ sys_alloc_stat(SysAllocStat *sasp)
 }
 
 char *
-erts_read_env(char *key)
+erts_read_env(const char *key)
 {
     size_t value_len = 256;
     char *value = erts_alloc(ERTS_ALC_T_TMP, value_len);

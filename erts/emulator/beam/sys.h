@@ -425,7 +425,7 @@ typedef union {
 #include "erl_lock_check.h"
 
 /* needed by erl_smp.h */
-int erts_send_warning_to_logger_str_nogl(char *);
+int erts_send_warning_to_logger_str_nogl(const char *);
 
 #include "erl_smp.h"
 
@@ -597,16 +597,16 @@ erts_dsprintf_buf_t *erts_create_logger_dsbuf(void);
 int erts_send_info_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_error_to_logger(Eterm, erts_dsprintf_buf_t *);
-int erts_send_info_to_logger_str(Eterm, char *); 
-int erts_send_warning_to_logger_str(Eterm, char *);
-int erts_send_error_to_logger_str(Eterm, char *);
+int erts_send_info_to_logger_str(Eterm, const char *);
+int erts_send_warning_to_logger_str(Eterm, const char *);
+int erts_send_error_to_logger_str(Eterm, const char *);
 int erts_send_info_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *);
-int erts_send_info_to_logger_str_nogl(char *);
+int erts_send_info_to_logger_str_nogl(const char *);
 /* needed by erl_smp.h (declared above)
    int erts_send_warning_to_logger_str_nogl(char *); */
-int erts_send_error_to_logger_str_nogl(char *);
+int erts_send_error_to_logger_str_nogl(const char *);
 
 typedef struct preload {
     char *name;			/* Name of module */
@@ -755,22 +755,22 @@ int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *, size_t);
 
 /* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */
-int erts_sys_putenv(char *key, char *value);
+int erts_sys_putenv(const char *key, const char *value);
 /* Simple variant used from drivers, raw eightbit interface */
-int erts_sys_putenv_raw(char *key, char *value);
+int erts_sys_putenv_raw(const char *key, const char *value);
 /* erts_sys_getenv() returns 0 on success (length of value string in
    *size), a value > 0 if value buffer is too small (*size is set to needed
    size), and a value < 0 on failure. */
-int erts_sys_getenv(char *key, char *value, size_t *size);
+int erts_sys_getenv(const char *key, const char *value, size_t *size);
 /* Simple variant used from drivers, raw eightbit interface */
-int erts_sys_getenv_raw(char *key, char *value, size_t *size);
+int erts_sys_getenv_raw(const char *key, const char *value, size_t *size);
 /* erts_sys_getenv__() is only allowed to be used in early init phase */
-int erts_sys_getenv__(char *key, char *value, size_t *size);
+int erts_sys_getenv__(const char *key, const char *value, size_t *size);
 /* erst_sys_unsetenv() returns 0 on success and a value != 0 on failure. */
-int erts_sys_unsetenv(char *key);
+int erts_sys_unsetenv(const char *key);
 
 /* Easier to use, but not as efficient, environment functions */
-char *erts_read_env(char *key);
+char *erts_read_env(const char *key);
 void erts_free_read_env(void *value);
 
 /* utils.c */

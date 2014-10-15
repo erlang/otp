@@ -2443,11 +2443,11 @@ void sys_get_pid(char *buffer, size_t buffer_size){
 }
 
 int
-erts_sys_putenv_raw(char *key, char *value) {
+erts_sys_putenv_raw(const char *key, const char *value) {
     return erts_sys_putenv(key, value);
 }
 int
-erts_sys_putenv(char *key, char *value)
+erts_sys_putenv(const char *key, const char *value)
 {
     int res;
     char *env;
@@ -2472,7 +2472,7 @@ erts_sys_putenv(char *key, char *value)
 }
 
 int
-erts_sys_getenv__(char *key, char *value, size_t *size)
+erts_sys_getenv__(const char *key, const char *value, size_t *size)
 {
     int res;
     char *orig_value = getenv(key);
@@ -2494,7 +2494,7 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 }
 
 int
-erts_sys_getenv_raw(char *key, char *value, size_t *size) {
+erts_sys_getenv_raw(const char *key, const char *value, size_t *size) {
     return erts_sys_getenv(key, value, size);
 }
 
@@ -2508,7 +2508,7 @@ erts_sys_getenv_raw(char *key, char *value, size_t *size) {
  */
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv(const char *key, const char *value, size_t *size)
 {
     int res;
     erts_smp_rwmtx_rlock(&environ_rwmtx);
@@ -2518,7 +2518,7 @@ erts_sys_getenv(char *key, char *value, size_t *size)
 }
 
 int
-erts_sys_unsetenv(char *key)
+erts_sys_unsetenv(const char *key)
 {
     int res;
     erts_smp_rwmtx_rwlock(&environ_rwmtx);
@@ -2660,8 +2660,7 @@ void sys_preload_end(Preload* p)
 
 /* Read a key from console (?) */
 
-int sys_get_key(fd)
-int fd;
+int sys_get_key(int fd)
 {
     int c;
     unsigned char rbuf[64];
@@ -2669,10 +2668,10 @@ int fd;
     fflush(stdout);		/* Flush query ??? */
 
     if ((c = read(fd,rbuf,64)) <= 0) {
-      return c; 
+      return c;
     }
 
-    return rbuf[0]; 
+    return rbuf[0];
 }
 
 
@@ -2700,7 +2699,7 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
 #ifdef DEBUG
 
 void
-erl_debug(char* fmt, ...)
+erl_debug(const char* fmt, ...)
 {
     char sbuf[1024];		/* Temporary buffer. */
     va_list va;
