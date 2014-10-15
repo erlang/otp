@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -73,7 +73,9 @@ read_password(Prompt, Ssh) ->
 listify(A) when is_atom(A) ->
     atom_to_list(A);
 listify(L) when is_list(L) ->
-    L.
+    L;
+listify(B) when is_binary(B)  ->
+    binary_to_list(B).
 
 format(Fmt, Args) ->
     io:format(Fmt, Args).

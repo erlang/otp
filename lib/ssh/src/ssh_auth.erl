@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -119,8 +119,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 		false ->
 		    FirstAlg = proplists:get_value(public_key_alg, Opts, ?PREFERRED_PK_ALG),
 		    SecondAlg = other_alg(FirstAlg),
-		    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
-		    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
+		    Prefs = method_preference(FirstAlg, SecondAlg),
 		    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 							  userauth_preference = Prefs,
 							  userauth_methods = none,
@@ -130,15 +129,13 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 		    case length(Algs) =:= 2 of
 			true ->
 			    SecondAlg = other_alg(FirstAlg),
-			    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
-			    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
+			    Prefs = method_preference(FirstAlg, SecondAlg),
 			    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 								  userauth_preference = Prefs,
 								  userauth_methods = none,
 								  service = "ssh-connection"});
 			_ ->
-			    AllowUserInt = proplists:get_value(user_interaction, Opts, true),
-			    Prefs = method_preference(FirstAlg, AllowUserInt),
+			    Prefs = method_preference(FirstAlg),
 			    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 								  userauth_preference = Prefs,
 								  userauth_methods = none,
@@ -256,15 +253,12 @@ handle_userauth_info_request(
 				 data  = Data}, IoCb, 
   #ssh{opts = Opts} = Ssh) ->
     PromptInfos = decode_keyboard_interactive_prompts(NumPrompts,Data),
-    Resps = keyboard_interact_get_responses(IoCb, Opts,
+    Responses = keyboard_interact_get_responses(IoCb, Opts,
 					    Name, Instr, PromptInfos),
-    RespBin = list_to_binary(
-		lists:map(fun(S) -> <<?STRING(list_to_binary(S))>> end,
-			  Resps)),
     {ok, 
      ssh_transport:ssh_packet(
        #ssh_msg_userauth_info_response{num_responses = NumPrompts,
-				       data = RespBin}, Ssh)}.
+				       data = Responses}, Ssh)}.
 
 handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 			      _Auth) ->
@@ -276,25 +270,16 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-method_preference(Alg1, Alg2, true) ->
+method_preference(Alg1, Alg2) ->
     [{"publickey", ?MODULE, publickey_msg, [Alg1]},
      {"publickey", ?MODULE, publickey_msg,[Alg2]},
      {"password", ?MODULE, password_msg, []},
      {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
-    ];
-method_preference(Alg1, Alg2, false) ->
-    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
-     {"publickey", ?MODULE, publickey_msg,[Alg2]},
-     {"password", ?MODULE, password_msg, []}
     ].
-method_preference(Alg1, true) ->
+method_preference(Alg1) ->
     [{"publickey", ?MODULE, publickey_msg, [Alg1]},
      {"password", ?MODULE, password_msg, []},
      {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
-    ];
-method_preference(Alg1, false) ->
-    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
-     {"password", ?MODULE, password_msg, []}
     ].
 
 user_name(Opts) ->
@@ -362,35 +347,29 @@ build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
 algorithm_string('ssh-rsa') ->
     "ssh-rsa";
 algorithm_string('ssh-dss') ->
-     "ssh-dss".
+    "ssh-dss".
 
 decode_keyboard_interactive_prompts(_NumPrompts, Data) ->
     ssh_message:decode_keyboard_interactive_prompts(Data, []).
 
 keyboard_interact_get_responses(IoCb, Opts, Name, Instr, PromptInfos) ->
     NumPrompts = length(PromptInfos),
-    case proplists:get_value(keyboard_interact_fun, Opts) of
-	undefined when NumPrompts == 1 ->
-	    %% Special case/fallback for just one prompt
-	    %% (assumed to be the password prompt)
-	    case proplists:get_value(password, Opts) of
-		undefined -> keyboard_interact(IoCb, Name, Instr, PromptInfos, Opts);
-		PW        -> [PW]
-	    end;
-	undefined ->
-	    keyboard_interact(IoCb, Name, Instr, PromptInfos, Opts);
-	KbdInteractFun ->
-	    Prompts = lists:map(fun({Prompt, _Echo}) -> Prompt end,
-				PromptInfos),
-	    case KbdInteractFun(Name, Instr, Prompts) of
-		Rs when length(Rs) == NumPrompts ->
-		    Rs;
-		Rs ->
-		    erlang:error({mismatching_number_of_responses,
-				  {got,Rs},
-				  {expected,NumPrompts}})
-	    end
-    end.
+    keyboard_interact_get_responses(proplists:get_value(user_interaction, Opts, true),
+				    proplists:get_value(keyboard_interact_fun, Opts),
+				    proplists:get_value(password, Opts, undefined), IoCb, Name,
+				    Instr, PromptInfos, Opts, NumPrompts).
+
+keyboard_interact_get_responses(_, undefined, Password, _, _, _, _, _,
+				1) when Password =/= undefined ->
+    [Password]; %% Password auth implemented with keyboard-interaction and passwd is known
+keyboard_interact_get_responses(_, _, _, _, _, _, _, _, 0)  ->
+    [""];
+keyboard_interact_get_responses(false, undefined, undefined, _, _, _, [Prompt|_], Opts, _) ->
+    ssh_no_io:read_line(Prompt, Opts); %% Throws error as keyboard interaction is not allowed
+keyboard_interact_get_responses(true, undefined, _,IoCb, Name, Instr, PromptInfos, Opts, _) ->
+    keyboard_interact(IoCb, Name, Instr, PromptInfos, Opts);
+keyboard_interact_get_responses(true, Fun, _, Name, Instr, PromptInfos, _, _, NumPrompts) ->
+    keyboard_interact_fun(Fun, Name, Instr, PromptInfos, NumPrompts).
 
 keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
     if Name /= "" -> IoCb:format("~s", [Name]);
@@ -403,6 +382,21 @@ keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
 		 ({Prompt, false}) -> IoCb:read_password(Prompt, Opts)
 	      end,
 	      Prompts).
+
+keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
+    Prompts = lists:map(fun({Prompt, _Echo}) -> Prompt end,
+			PromptInfos),
+    case KbdInteractFun(Name, Instr, Prompts) of
+	Rs when length(Rs) == NumPrompts ->
+	    Rs;
+	Rs ->
+	    throw({mismatching_number_of_responses,
+		   {got,Rs},
+		   {expected, NumPrompts},
+		   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+				       description = "User interaction failed",
+				       language = "en"}})
+    end.
 
 other_alg('ssh-rsa') ->
     'ssh-dss';

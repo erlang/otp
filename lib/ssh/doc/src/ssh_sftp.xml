@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2013</year>
+      <year>2005</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -80,6 +80,17 @@
 	  <item>
 	    <p>The timeout is passed to the ssh_channel start function,
 	    and defaults to infinity.</p>
+	  </item>
+	  <tag>
+	    <p><c><![CDATA[{sftp_vsn, integer()}]]></c></p>
+	  </tag>
+	  <item>
+	    <p>
+	      Desired SFTP protocol version.
+	      The actual version will be the minimum of
+	      the desired version and the maximum supported
+	      versions by the SFTP server.
+	    </p>
 	  </item>
 	</taglist>
 	<p>All other options are  directly passed to

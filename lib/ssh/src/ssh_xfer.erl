@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
 	 readlink/3, fsetstat/4, symlink/4,
-	 protocol_version_request/1,
+	 protocol_version_request/2,
 	 xf_reply/2,
 	 xf_send_reply/3, xf_send_names/3, xf_send_name/4,
 	 xf_send_status/3, xf_send_status/4, xf_send_status/5,
@@ -67,8 +67,8 @@ open_xfer(CM, Opts) ->
 	    Error
     end.
 
-protocol_version_request(XF) ->
-    xf_request(XF, ?SSH_FXP_INIT, <<?UINT32(?SSH_SFTP_PROTOCOL_VERSION)>>).
+protocol_version_request(XF, Version) ->
+    xf_request(XF, ?SSH_FXP_INIT, <<?UINT32(Version)>>).
 
 open(XF, ReqID, FileName, Access, Flags, Attrs) -> 
     Vsn = XF#ssh_xfer.vsn,
