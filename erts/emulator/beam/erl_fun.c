@@ -38,9 +38,9 @@ static erts_smp_rwmtx_t erts_fun_table_lock;
 #define erts_fun_write_lock()	erts_smp_rwmtx_rwlock(&erts_fun_table_lock)
 #define erts_fun_write_unlock()	erts_smp_rwmtx_rwunlock(&erts_fun_table_lock)
 
-static HashValue fun_hash(ErlFunEntry* obj);
-static int fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2);
-static ErlFunEntry* fun_alloc(ErlFunEntry* template);
+static HashValue fun_hash(const ErlFunEntry* obj);
+static int fun_cmp(const ErlFunEntry* obj1, const ErlFunEntry* obj2);
+static ErlFunEntry* fun_alloc(const ErlFunEntry* template);
 static void fun_free(ErlFunEntry* obj);
 
 /*
@@ -115,7 +115,7 @@ erts_put_fun_entry(Eterm mod, int uniq, int index)
 
 ErlFunEntry*
 erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
-		    byte* uniq, int index, int arity)
+                    const byte* uniq, int index, int arity)
 {
     ErlFunEntry template;
     ErlFunEntry* fe;
@@ -195,7 +195,7 @@ erts_erase_fun_entry(ErlFunEntry* fe)
 }
 
 void
-erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
+erts_cleanup_funs_on_purge(const BeamInstr* start, const BeamInstr* end)
 {
     int limit;
     HashBucket** bucket;
@@ -266,13 +266,13 @@ erts_dump_fun_entries(int to, void *to_arg)
 }
 
 static HashValue
-fun_hash(ErlFunEntry* obj)
+fun_hash(const ErlFunEntry* obj)
 {
     return (HashValue) (obj->old_uniq ^ obj->old_index ^ atom_val(obj->module));
 }
 
 static int
-fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2)
+fun_cmp(const ErlFunEntry* obj1, const ErlFunEntry* obj2)
 {
     return !(obj1->module == obj2->module && 
 	     obj1->old_uniq == obj2->old_uniq &&
@@ -280,7 +280,7 @@ fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2)
 }
 
 static ErlFunEntry*
-fun_alloc(ErlFunEntry* template)
+fun_alloc(const ErlFunEntry* template)
 {
     ErlFunEntry* obj = (ErlFunEntry *) erts_alloc(ERTS_ALC_T_FUN_ENTRY,
 						  sizeof(ErlFunEntry));
