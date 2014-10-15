@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -132,7 +132,7 @@ code_change(_Vsn, Chs, _Extra) ->
       loaded.</p>
     <p>Thus, <c>ch3</c> must be loaded before <c>m1</c> is, in
       the upgrade case, and vice versa in the downgrade case. We say
-      that <c>m1</c><em>is dependent on</em><c>ch3</c>. In a release
+      that <c>m1</c> <em>is dependent on</em> <c>ch3</c>. In a release
       handling instruction, this is expressed by the element
       <c>DepMods</c>:</p>
     <code type="none">
