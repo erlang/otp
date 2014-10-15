@@ -1533,10 +1533,10 @@ ERTS_GLB_INLINE int erts_proclist_is_last(ErtsProcList *list,
 
 #endif
 
-int erts_sched_set_wakeup_other_thresold(char *str);
-int erts_sched_set_wakeup_other_type(char *str);
-int erts_sched_set_busy_wait_threshold(char *str);
-int erts_sched_set_wake_cleanup_threshold(char *);
+int erts_sched_set_wakeup_other_thresold(const char *str);
+int erts_sched_set_wakeup_other_type(const char *str);
+int erts_sched_set_busy_wait_threshold(const char *str);
+int erts_sched_set_wake_cleanup_threshold(const char *);
 
 void erts_schedule_thr_prgr_later_op(void (*)(void *),
 				     void *,

@@ -252,7 +252,7 @@ typedef struct LoaderState {
      */
 
     char* file_name;		/* Name of file we are reading (usually chunk name). */
-    const byte* file_p;		/* Current pointer within file. */
+    byte* file_p;		/* Current pointer within file. */
     unsigned file_left;		/* Number of bytes left in file. */
     ErlDrvBinary* bin;		/* Binary holding BEAM file (or NULL) */
 
@@ -272,7 +272,7 @@ typedef struct LoaderState {
      */
 
     struct {
-        const byte* start;	/* Start of chunk (in binary). */
+        byte* start;            /* Start of chunk (in binary). */
 	unsigned size;		/* Size of chunk. */
     } chunks[NUM_CHUNK_TYPES];
 
@@ -280,7 +280,7 @@ typedef struct LoaderState {
      * Used for code loading (mainly).
      */
 
-    const byte* code_start;	/* Start of code file. */
+    byte* code_start;           /* Start of code file. */
     unsigned code_size;		/* Size of code file. */
     int specific_op;		/* Specific opcode (-1 if not found). */
     int num_functions;		/* Number of functions in module. */
@@ -480,7 +480,7 @@ static void loader_state_dtor(Binary* magic);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     Eterm group_leader, Eterm module,
 			     BeamInstr* code, Uint size);
-static int init_iff_file(LoaderState* stp, const byte* code, Uint size);
+static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
 static int verify_chunks(LoaderState* stp);
@@ -1001,7 +1001,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 }
 
 static int
-init_iff_file(LoaderState* stp, const byte* code, Uint size)
+init_iff_file(LoaderState* stp, byte* code, Uint size)
 {
     Uint form_id = MakeIffId('F', 'O', 'R', '1');
     Uint id;
@@ -1166,7 +1166,7 @@ verify_chunks(LoaderState* stp)
      * If there is a lambda chunk, include parts of it in the MD5.
      */
     if (stp->chunks[LAMBDA_CHUNK].start != 0) {
-	byte* start = stp->chunks[LAMBDA_CHUNK].start;
+        byte* start = stp->chunks[LAMBDA_CHUNK].start;
 	Uint left = stp->chunks[LAMBDA_CHUNK].size;
 
 	/*
@@ -1226,7 +1226,7 @@ load_atom_table(LoaderState* stp)
      */
 
     for (i = 1; i < stp->num_atoms; i++) {
-	byte* atom;
+        byte* atom;
 	Uint n;
 
 	GetByte(stp, n);
@@ -1473,7 +1473,7 @@ read_literal_table(LoaderState* stp)
     for (i = 0; i < stp->num_literals; i++) {
 	int sz;
 	Sint heap_size;
-	byte* p;
+        byte* p;
 	Eterm val;
 	Eterm* hp;
 

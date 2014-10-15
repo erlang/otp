@@ -704,7 +704,7 @@ void erts_sys_main_thread(void);
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
 extern void erl_sys_init(void);
-extern void erl_sys_args(int *argc, char **argv);
+extern void erl_sys_args(int *argc, const char **argv);
 extern void erl_sys_schedule(int);
 void sys_tty_reset(int);
 

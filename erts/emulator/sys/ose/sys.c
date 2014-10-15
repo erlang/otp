@@ -126,7 +126,7 @@ static ERTS_INLINE void report_exit_status(ErtsSysReportExit *rep, int status);
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
-extern void erl_sys_args(int*, char**);
+extern void erl_sys_args(int*, const char**);
 
 /* The following two defs should probably be moved somewhere else */
 

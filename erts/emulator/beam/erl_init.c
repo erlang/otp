@@ -366,7 +366,8 @@ erl_init(int ncpu,
 }
 
 static void
-erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
+erl_first_process_otp(const char* modname, void* code, unsigned size,
+                      int argc, const char** argv)
 {
     int i;
     Eterm start_mod;
@@ -440,7 +441,7 @@ static const char* program;
 static const char* init = "init";
 static const char* boot = "boot";
 static int    boot_argc;
-static char** boot_argv;
+static const char** boot_argv;
 
 static const char *
 get_arg(const char* rest, const char* next, int* ip)
@@ -1401,7 +1402,7 @@ erl_start(int argc, const char **argv)
 	    break;
 
 	case 'h': {
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    /* set default heap size
 	     *
 	     * h|ms  - min_heap_size
@@ -1564,7 +1565,7 @@ erl_start(int argc, const char **argv)
 
 	case 'S' : /* Was handled in early_init() just read past it */
 	    if (argv[i][2] == 'D') {
-		char* type = argv[i]+3;
+                const char* type = argv[i]+3;
 		if (strcmp(type, "Pcpu") == 0)
 		    (void) get_arg(argv[i]+7, argv[i+1], &i);
 		if (strcmp(type, "cpu") == 0)
@@ -1580,7 +1581,7 @@ erl_start(int argc, const char **argv)
 	case 's' : {
 	    char *estr;
 	    int res;
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    if (has_prefix("bt", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		res = erts_init_scheduler_bind_type_string(arg);
@@ -1868,7 +1869,7 @@ erl_start(int argc, const char **argv)
 	    break;
 
 	case 'r': {
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    if (has_prefix("g", sub_param)) {
 		get_arg(sub_param+1, argv[i+1], &i);
 		/* already handled */
@@ -1906,7 +1907,7 @@ erl_start(int argc, const char **argv)
 	    break;
 
 	case 'z': {
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    int new_limit;
 
 	    if (has_prefix("dbbl", sub_param)) {

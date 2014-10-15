@@ -1652,8 +1652,8 @@ handle_args(int *argc, const char **argv, erts_alc_hndl_args_init_t *init)
 		    else {
 			int a;
 			int start = i;
-			char *param = argv[i];
-			char *val = i+1 < *argc ? argv[i+1] : NULL;
+                        const char *param = argv[i];
+                        const char *val = i+1 < *argc ? argv[i+1] : NULL;
 
 			for (a = 0; a < aui_sz; a++) {
 			    if (a > 0) {
@@ -3412,8 +3412,8 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    init.init.util.name_prefix = (char *) a1;
 	    init.init.util.ts = a2 ? 1 : 0;
 
-	    if ((char **) a3) {
-		char **argv = (char **) a3;
+            if ((const char **) a3) {
+                const char **argv = (const char **) a3;
 		int i = 0;
 		while (argv[i]) {
 		    if (argv[i][0] == '-' && argv[i][1] == 't')

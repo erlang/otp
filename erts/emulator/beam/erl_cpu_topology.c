@@ -618,7 +618,7 @@ write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size)
 }
 
 int
-erts_init_scheduler_bind_type_string(char *how)
+erts_init_scheduler_bind_type_string(const char *how)
 {
     ErtsCpuBindOrder order;
 
@@ -1004,14 +1004,16 @@ destroy_cpu_top_entry(ErtsCpuTopEntry *cte)
 }
 
 static int
-get_cput_value_or_range(int *v, int *vr, char **str)
+get_cput_value_or_range(int *v, int *vr, const char **str)
 {
     long l;
-    char *c = *str;
+    const char *c = *str;
+    char *c_end;
     errno = 0;
     if (!isdigit((unsigned char)*c))
 	return ERTS_INIT_CPU_TOPOLOGY_INVALID_ID;
-    l = strtol(c, &c, 10);
+    l = strtol(c, &c_end, 10);
+    c = c_end;
     if (errno != 0 || l < 0 || ERTS_MAX_CPU_TOPOLOGY_ID < l)
 	return ERTS_INIT_CPU_TOPOLOGY_INVALID_ID;
     *v = (int) l;
@@ -1019,7 +1021,8 @@ get_cput_value_or_range(int *v, int *vr, char **str)
 	c++;
 	if (!isdigit((unsigned char)*c))
 	    return ERTS_INIT_CPU_TOPOLOGY_INVALID_ID_RANGE;
-	l = strtol(c, &c, 10);
+        l = strtol(c, &c_end, 10);
+        c = c_end;
 	if (errno != 0 || l < 0 || ERTS_MAX_CPU_TOPOLOGY_ID < l)
 	    return ERTS_INIT_CPU_TOPOLOGY_INVALID_ID_RANGE;
 	*vr = (int) l;
@@ -1029,11 +1032,11 @@ get_cput_value_or_range(int *v, int *vr, char **str)
 }
 
 static int
-get_cput_id_seq(ErtsCpuTopIdSeq *idseq, char **str)
+get_cput_id_seq(ErtsCpuTopIdSeq *idseq, const char **str)
 {
     int ix = 0;
     int need_size = 0;
-    char *c = *str;
+    const char *c = *str;
 
     while (1) {
 	int res;
@@ -1078,10 +1081,10 @@ get_cput_id_seq(ErtsCpuTopIdSeq *idseq, char **str)
 }
 
 static int
-get_cput_entry(ErtsCpuTopEntry *cput, char **str)
+get_cput_entry(ErtsCpuTopEntry *cput, const char **str)
 {
     int h;
-    char *c = *str;
+    const char *c = *str;
 
     cput->logical.used = 0;
     cput->thread.id[0] = 0;
@@ -1138,7 +1141,7 @@ get_cput_entry(ErtsCpuTopEntry *cput, char **str)
 	    }
 	    else {
 		int p_node = 0;
-		char *p_chk = c;
+                const char *p_chk = c;
 		while (*p_chk != '\0' && *p_chk != ':') {
 		    if (*p_chk == 'p' || *p_chk == 'P') {
 			p_node = 1;
@@ -1253,11 +1256,11 @@ verify_topology(erts_cpu_topology_t *cpudata, int size)
 }
 
 int
-erts_init_cpu_topology_string(char *topology_str)
+erts_init_cpu_topology_string(const char *topology_str)
 {
     ErtsCpuTopEntry cput;
     int need_size;
-    char *c;
+    const char *c;
     int ix;
     int error = ERTS_INIT_CPU_TOPOLOGY_OK;
 

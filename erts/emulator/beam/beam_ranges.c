@@ -37,7 +37,7 @@ typedef struct {
 
 static Range* find_range(const BeamInstr* pc);
 static void lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
-		       BeamInstr* modp, int idx);
+                       const BeamInstr* modp, int idx);
 
 /*
  * The following variables keep a sorted list of address ranges for
@@ -294,7 +294,8 @@ find_range(const BeamInstr* pc)
 }
 
 static void
-lookup_loc(FunctionInfo* fi, const BeamInstr* orig_pc, BeamInstr* modp, int idx)
+lookup_loc(FunctionInfo* fi, const BeamInstr* orig_pc, const BeamInstr* modp,
+           int idx)
 {
     Eterm* line = (Eterm *) modp[MI_LINE_TABLE];
     Eterm* low;

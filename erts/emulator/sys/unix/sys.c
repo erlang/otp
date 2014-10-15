@@ -139,7 +139,7 @@ static ErtsSysReportExit *report_exit_transit_list;
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
-extern void erl_sys_args(int*, char**);
+extern void erl_sys_args(int*, const char**);
 
 /* The following two defs should probably be moved somewhere else */
 
@@ -3100,13 +3100,13 @@ erts_sys_main_thread(void)
 
 /* Get arg marks argument as handled by
    putting NULL in argv */
-static char *
-get_value(char* rest, char** argv, int* ip)
+static const char *
+get_value(const char* rest, const char** argv, int* ip)
 {
-    char *param = argv[*ip]+1;
+    const char *param = argv[*ip]+1;
     argv[*ip] = NULL;
     if (*rest == '\0') {
-	char *next = argv[*ip + 1];
+        const char *next = argv[*ip + 1];
 	if (next[0] == '-'
 	    && next[1] == '-'
 	    &&  next[2] == '\0') {
@@ -3123,7 +3123,7 @@ get_value(char* rest, char** argv, int* ip)
 #endif /* ERTS_ENABLE_KERNEL_POLL */
 
 void
-erl_sys_args(int* argc, char** argv)
+erl_sys_args(int* argc, const char** argv)
 {
     int i, j;
 
@@ -3138,7 +3138,7 @@ erl_sys_args(int* argc, char** argv)
 	    switch (argv[i][1]) {
 #ifdef ERTS_ENABLE_KERNEL_POLL
 	    case 'K': {
-		char *arg = get_value(argv[i] + 2, argv, &i);
+                const char *arg = get_value(argv[i] + 2, argv, &i);
 		if (strcmp("true", arg) == 0) {
 		    erts_use_kernel_poll = 1;
 		}

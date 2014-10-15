@@ -5096,7 +5096,7 @@ erts_early_init_scheduling(int no_schedulers)
 }
 
 int
-erts_sched_set_wakeup_other_thresold(char *str)
+erts_sched_set_wakeup_other_thresold(const char *str)
 {
 #ifdef ERTS_SMP
     ErtsSchedWakeupOtherThreshold threshold;
@@ -5126,7 +5126,7 @@ erts_sched_set_wakeup_other_thresold(char *str)
 }
 
 int
-erts_sched_set_wakeup_other_type(char *str)
+erts_sched_set_wakeup_other_type(const char *str)
 {
 #ifdef ERTS_SMP
     ErtsSchedWakeupOtherType type;
@@ -5147,7 +5147,7 @@ erts_sched_set_wakeup_other_type(char *str)
 }
 
 int
-erts_sched_set_busy_wait_threshold(char *str)
+erts_sched_set_busy_wait_threshold(const char *str)
 {
     int sys_sched;
     int aux_work_fact;
@@ -5188,7 +5188,7 @@ erts_sched_set_busy_wait_threshold(char *str)
 }
 
 int
-erts_sched_set_wake_cleanup_threshold(char *str)
+erts_sched_set_wake_cleanup_threshold(const char *str)
 {
     if (sys_strcmp(str, "very_lazy") == 0)
 	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_LAZY;
