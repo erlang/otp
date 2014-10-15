@@ -842,9 +842,10 @@ typedef struct {
 int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
 void erts_destroy_driver(erts_driver_t *drv);
 int erts_save_suspend_process_on_port(Port*, Process*);
-Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
+Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*,
+                       int *, int *);
 void erts_init_io(int, int, int);
-void erts_raw_port_command(Port*, byte*, Uint);
+void erts_raw_port_command(Port*, const byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);
 LineBuf* allocate_linebuf(int);
 int async_ready(Port *, void*);
@@ -913,11 +914,12 @@ Sint erts_unicode_set_loop_limit(Sint limit);
 
 void erts_native_filename_put(Eterm ioterm, int encoding, byte *p) ;
 Sint erts_native_filename_need(Eterm ioterm, int encoding);
-void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars);
-int erts_analyze_utf8(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left);
-int erts_analyze_utf8_x(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left,
+void erts_copy_utf8_to_utf16_little(byte *target, const byte *bytes,
+                                    int num_chars);
+int erts_analyze_utf8(const byte *source, Uint size,
+                        const byte **err_pos, Uint *num_chars, int *left);
+int erts_analyze_utf8_x(const byte *source, Uint size,
+                        const byte **err_pos, Uint *num_chars, int *left,
 			Sint *num_latin1_chars, Uint max_chars);
 char *erts_convert_filename_to_native(Eterm name, char *statbuf, 
 				      size_t statbuf_size, 

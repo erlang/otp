@@ -200,7 +200,7 @@ static int free_table_cont(Process *p,
 			   DbTable *tb,
 			   int first,
 			   int clean_meta_tab);
-static void print_table(int to, void *to_arg, int show,  DbTable* tb);
+static void print_table(int to, const void *to_arg, int show,  DbTable* tb);
 static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1);
@@ -3761,7 +3761,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     return ret;
 }
 
-static void print_table(int to, void *to_arg, int show,  DbTable* tb)
+static void print_table(int to, const void *to_arg, int show,  DbTable* tb)
 {
     erts_print(to, to_arg, "Table: %T\n", tb->common.id);
     erts_print(to, to_arg, "Name: %T\n", tb->common.the_name);

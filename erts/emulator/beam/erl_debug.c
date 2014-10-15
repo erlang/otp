@@ -59,10 +59,10 @@ static const char dashes[PTR_SIZE+3] = {
 
 void pps(Process*, Eterm*);
 void ptd(Process*, Eterm);
-void paranoid_display(int, void*, Process*, Eterm);
+void paranoid_display(int, const void*, Process*, Eterm);
 static int dcount;
 
-static int pdisplay1(int to, void *to_arg, Process* p, Eterm obj);
+static int pdisplay1(int to, const void *to_arg, Process* p, Eterm obj);
 
 void ptd(Process* p, Eterm x) 
 {
@@ -76,14 +76,14 @@ void ptd(Process* p, Eterm x)
  */
 
 void
-paranoid_display(int to, void *to_arg, Process* p, Eterm obj)
+paranoid_display(int to, const void *to_arg, Process* p, Eterm obj)
 {
     dcount = 100000;
     pdisplay1(to, to_arg, p, obj);
 }
 
 static int
-pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
+pdisplay1(int to, const void *to_arg, Process* p, Eterm obj)
 {
     int i, k;
     Eterm* nobj;
@@ -514,8 +514,8 @@ void print_tagged_memory(Eterm *pos, Eterm *end)
     erts_printf("+-%s-+-%s-+\n",dashes,dashes);
 }
 
-static void print_process_memory(Process *p);
-static void print_process_memory(Process *p)
+static void print_process_memory(const Process *p);
+static void print_process_memory(const Process *p)
 {
     ErlHeapFragment* bp = MBUF(p);
 
@@ -594,14 +594,14 @@ static void print_process_memory(Process *p)
 }
 
 
-void print_memory(Process *p)
+void print_memory(const Process *p)
 {
     if (p != NULL) {
         print_process_memory(p);
     }
 }
 
-void print_memory_info(Process *p)
+void print_memory_info(const Process *p)
 {
     if (p != NULL) {
         erts_printf("======================================\n");

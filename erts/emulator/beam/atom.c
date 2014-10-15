@@ -299,7 +299,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 
     if (enc == ERTS_ATOM_ENC_UTF8) {
 	/* Need to verify encoding and length */
-	byte *err_pos;
+        const byte *err_pos;
 	Uint no_chars;
 	switch (erts_analyze_utf8_x((byte *) text,
 				    (Uint) tlen,

@@ -4481,7 +4481,7 @@ Uint64 erts_timestamp_millis(void)
  * Handy functions when using a debugger - don't use in the code!
  */
 
-void upp(byte *buf, size_t sz)
+void upp(const byte *buf, size_t sz)
 {
     bin_write(ERTS_PRINT_STDERR, NULL, buf, sz);
 }

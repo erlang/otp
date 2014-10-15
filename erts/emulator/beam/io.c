@@ -149,7 +149,7 @@ erts_port_ioq_size(Port *pp)
  */
 typedef struct line_buf_context {
     LineBuf **b;
-    char *buf;
+    const char *buf;
     ErlDrvSizeT left;
     ErlDrvSizeT retlen;
 } LineBufContext;
@@ -290,7 +290,7 @@ static void insert_port_struct(void *vprt, Eterm data)
 
 #define ERTS_CREATE_PORT_FLAG_PARALLELISM		(1 << 0)
 
-static Port *create_port(char *name,
+static Port *create_port(const char *name,
 			 erts_driver_t *driver,
 			 erts_mtx_t *driver_lock,
 			 int create_flags,
@@ -566,7 +566,7 @@ erts_save_suspend_process_on_port(Port *prt, Process *process)
 Port *
 erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 		 Eterm pid,		/* Current process. */
-		 char* name,		/* Driver name. */
+                 char* name,		/* Driver name. */
 		 SysDriverOpts* opts,	/* Options. */
 		 int *error_type_ptr,	/* error type */
 		 int *error_number_ptr)	/* errno in case of error type -2 */
@@ -604,7 +604,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	}
     }
     if (driver == &spawn_driver) {
-	char *p;
+        char *p;
 	erts_driver_t *d;
 
 	/*
@@ -702,7 +702,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
         }
 #endif
 	fpe_was_unmasked = erts_block_fpe();
-	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
+        drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
 	if (((SWord) drv_data) == -1)
 	    error_type = -1;
 	else if (((SWord) drv_data) == -2) {
@@ -780,7 +780,7 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(xports_list, ErtsXPortsList, 50, ERTS_ALC_T_XPO
 ErlDrvPort
 driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
 		   ErlDrvTermData pid,    /* Owner/Caller */
-		   char* name,            /* Driver name */
+                   const char* name,      /* Driver name */
 		   ErlDrvData drv_data)   /* Driver data */
 {
     int cprt_flgs = 0;
@@ -2930,7 +2930,7 @@ int bufsiz;
  * len - The number of bytes in buf.
  */
 static int init_linebuf_context(LineBufContext *lc, LineBuf **lb,
-				char *buf, ErlDrvSizeT len)
+                                const char *buf, ErlDrvSizeT len)
 {
     if(lc == NULL || lb == NULL)
 	return -1;
@@ -3109,8 +3109,8 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
  */
 
 static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
-				 char *hbuf, ErlDrvSizeT hlen,
-				 char *buf, ErlDrvSizeT len, int eol)
+                                 const char *hbuf, ErlDrvSizeT hlen,
+                                 const char *buf, ErlDrvSizeT len, int eol)
 {
     ErlDrvSizeT need;
     Eterm listp;
@@ -3204,8 +3204,8 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
  */
 static void deliver_linebuf_message(Port* prt, erts_aint_t state,
 				    Eterm to, 
-				    char* hbuf, ErlDrvSizeT hlen,
-				    char *buf, ErlDrvSizeT len)
+                                    const char* hbuf, ErlDrvSizeT hlen,
+                                    const char *buf, ErlDrvSizeT len)
 {
     LineBufContext lc;
     int ret;
@@ -3252,7 +3252,7 @@ static void flush_linebuf_messages(Port *prt, erts_aint32_t state)
 static void
 deliver_vec_message(Port* prt,			/* Port */
 		    Eterm to,			/* Receiving pid */
-		    char* hbuf,			/* "Header" buffer... */
+                    const char* hbuf,		/* "Header" buffer... */
 		    ErlDrvSizeT hlen,		/* ... and its length */
 		    ErlDrvBinary** binv,	/* Vector of binaries */
 		    SysIOVec* iov,		/* I/O vector */
@@ -3371,7 +3371,7 @@ deliver_vec_message(Port* prt,			/* Port */
 
 static void deliver_bin_message(Port*  prt,         /* port */
 				Eterm to,           /* receiving pid */
-				char* hbuf,         /* "header" buffer */
+                                const char* hbuf,   /* "header" buffer */
 				ErlDrvSizeT hlen,   /* and it's length */
 				ErlDrvBinary* bin,  /* binary data */
 				ErlDrvSizeT offs,   /* offset into binary */
@@ -4817,7 +4817,7 @@ int get_port_flags(ErlDrvPort ix)
     return flags;
 }
 
-void erts_raw_port_command(Port* p, byte* buf, Uint len)
+void erts_raw_port_command(Port* p, const byte* buf, Uint len)
 {
     int fpe_was_unmasked;
 
@@ -5794,7 +5794,7 @@ driver_send_term(ErlDrvPort drvport,
  * and data is len length of bin starting from offset offs.
  */
 
-int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+int driver_output_binary(ErlDrvPort ix, const char* hbuf, ErlDrvSizeT hlen,
 			 ErlDrvBinary* bin, ErlDrvSizeT offs, ErlDrvSizeT len)
 {
     erts_aint32_t state;
@@ -5829,8 +5829,8 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 ** Example: if hlen = 3 then the port owner will receive the data
 ** [H1,H2,H3 | T]
 */
-int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
-		   char* buf, ErlDrvSizeT len)
+int driver_output2(ErlDrvPort ix, const char* hbuf, ErlDrvSizeT hlen,
+                   const char* buf, ErlDrvSizeT len)
 {
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
@@ -5869,13 +5869,13 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 
 /* Interface functions available to driver writers */
 
-int driver_output(ErlDrvPort ix, char* buf, ErlDrvSizeT len)
+int driver_output(ErlDrvPort ix, const char* buf, ErlDrvSizeT len)
 {
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return driver_output2(ix, NULL, 0, buf, len);
 }
 
-int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+int driver_outputv(ErlDrvPort ix, const char* hbuf, ErlDrvSizeT hlen,
 		   ErlIOVec* vec, ErlDrvSizeT skip)
 {
     int n;
@@ -5933,7 +5933,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 ** input is a vector a buffer and a max length
 ** return bytes copied
 */
-ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf, ErlDrvSizeT len)
+ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf /*out*/, ErlDrvSizeT len)
 {
     SysIOVec* iov = vec->iov;
     int n = vec->vsize;
@@ -6564,7 +6564,7 @@ int driver_enq_bin(ErlDrvPort ix, ErlDrvBinary* bin,
     return driver_enqv(ix, &ev, 0);
 }
 
-int driver_enq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
+int driver_enq(ErlDrvPort ix, const char* buffer, ErlDrvSizeT len)
 {
     int code;
     ErlDrvBinary* bin;
@@ -6598,7 +6598,7 @@ int driver_pushq_bin(ErlDrvPort ix, ErlDrvBinary* bin,
     return driver_pushqv(ix, &ev, 0);
 }
 
-int driver_pushq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
+int driver_pushq(ErlDrvPort ix, const char* buffer, ErlDrvSizeT len)
 {
     int code;
     ErlDrvBinary* bin;
@@ -7035,10 +7035,10 @@ int driver_failure(ErlDrvPort ix, int code)
     return driver_failure_term(ix, make_small(code), code == 0);
 }
 
-int driver_failure_atom(ErlDrvPort ix, char* string)
+int driver_failure_atom(ErlDrvPort ix, const char* string)
 {
     return driver_failure_term(ix,
-			       erts_atom_put((byte *) string,
+                               erts_atom_put((const byte *) string,
 					     strlen(string),
 					     ERTS_ATOM_ENC_LATIN1,
 					     1),
@@ -7057,9 +7057,9 @@ int driver_failure_eof(ErlDrvPort ix)
 
 
 
-ErlDrvTermData driver_mk_atom(char* string)
+ErlDrvTermData driver_mk_atom(const char* string)
 {
-    Eterm am = erts_atom_put((byte *) string,
+    Eterm am = erts_atom_put((const byte *) string,
 			     sys_strlen(string),
 			     ERTS_ATOM_ENC_LATIN1,
 			     1);

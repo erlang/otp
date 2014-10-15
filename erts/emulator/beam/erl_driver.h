@@ -415,15 +415,16 @@ EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
 EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
 			ErlDrvEventData event_data);
 
-EXTERN int driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len);
-EXTERN int driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
-			  char *buf, ErlDrvSizeT len);
-EXTERN int driver_output_binary(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
-				ErlDrvBinary* bin,
+EXTERN int driver_output(ErlDrvPort port, const char *buf, ErlDrvSizeT len);
+EXTERN int driver_output2(ErlDrvPort port, const char *hbuf, ErlDrvSizeT hlen,
+                          const char *buf, ErlDrvSizeT len);
+EXTERN int driver_output_binary(ErlDrvPort port, const char *hbuf,
+                                ErlDrvSizeT hlen, ErlDrvBinary* bin,
 				ErlDrvSizeT offset, ErlDrvSizeT len);
-EXTERN int driver_outputv(ErlDrvPort port, char* hbuf, ErlDrvSizeT hlen,
+EXTERN int driver_outputv(ErlDrvPort port, const char* hbuf, ErlDrvSizeT hlen,
 			  ErlIOVec *ev, ErlDrvSizeT skip);
-EXTERN ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len);
+EXTERN ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev, char *buf /*out*/,
+                                     ErlDrvSizeT len);
 EXTERN int driver_set_timer(ErlDrvPort port, unsigned long time);
 EXTERN int driver_cancel_timer(ErlDrvPort port);
 EXTERN int driver_read_timer(ErlDrvPort port, unsigned long *time_left);
@@ -443,7 +444,7 @@ EXTERN char* erl_errno_id(int error);
  * from a driver.
  */
 EXTERN int driver_failure_eof(ErlDrvPort port);
-EXTERN int driver_failure_atom(ErlDrvPort port, char *string);
+EXTERN int driver_failure_atom(ErlDrvPort port, const char *string);
 EXTERN int driver_failure_posix(ErlDrvPort port, int error);
 EXTERN int driver_failure(ErlDrvPort port, int error);
 EXTERN int driver_exit (ErlDrvPort port, int err);
@@ -504,8 +505,8 @@ EXTERN void *driver_realloc(void *ptr, ErlDrvSizeT size);
 EXTERN void driver_free(void *ptr);
 
 /* Queue interface */
-EXTERN int driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
-EXTERN int driver_pushq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
+EXTERN int driver_enq(ErlDrvPort port, const char* buf, ErlDrvSizeT len);
+EXTERN int driver_pushq(ErlDrvPort port, const char* buf, ErlDrvSizeT len);
 EXTERN ErlDrvSizeT driver_deq(ErlDrvPort port, ErlDrvSizeT size);
 EXTERN ErlDrvSizeT driver_sizeq(ErlDrvPort port);
 EXTERN int driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset,
@@ -625,7 +626,7 @@ EXTERN int null_func(void);
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 /* make terms for driver_output_term and driver_send_term */
-EXTERN ErlDrvTermData driver_mk_atom(char*);
+EXTERN ErlDrvTermData driver_mk_atom(const char*);
 EXTERN ErlDrvTermData driver_mk_port(ErlDrvPort);
 EXTERN ErlDrvTermData driver_connected(ErlDrvPort);
 EXTERN ErlDrvTermData driver_caller(ErlDrvPort);
@@ -633,7 +634,7 @@ extern const ErlDrvTermData driver_term_nil;
 EXTERN ErlDrvTermData driver_mk_term_nil(void);
 EXTERN ErlDrvPort driver_create_port(ErlDrvPort creator_port, 
 				     ErlDrvTermData connected, /* pid */
-				     char* name, /* driver name */
+                                     const char* name, /* driver name */
 				     ErlDrvData drv_data);
 					 
 
