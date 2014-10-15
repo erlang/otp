@@ -1101,8 +1101,8 @@ extern Eterm erts_match_set_run(Process *p, Binary *mpsp,
 				Uint32 *return_flags);
 extern Eterm erts_match_set_get_source(Binary *mpsp);
 extern void erts_match_prog_foreach_offheap(Binary *b,
-					    void (*)(ErlOffHeap *, void *),
-					    void *);
+                                            void (*)(ErlOffHeap *, const void *),
+                                            const void *);
 
 #define MATCH_SET_RETURN_TRACE    (0x1) /* return trace requested */
 #define MATCH_SET_RETURN_TO_TRACE (0x2) /* Misleading name, it is not actually

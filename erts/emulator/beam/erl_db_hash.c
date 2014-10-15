@@ -427,7 +427,7 @@ static int db_select_count_continue_hash(Process *p, DbTable *tbl,
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
 					  Eterm continuation, Eterm *ret);
 static void db_print_hash(int to,
-			  void *to_arg,
+                          const void *to_arg,
 			  int show,
 			  DbTable *tbl);
 static int db_free_table_hash(DbTable *tbl);
@@ -436,8 +436,8 @@ static int db_free_table_continue_hash(DbTable *tbl);
 
 
 static void db_foreach_offheap_hash(DbTable *,
-				    void (*)(ErlOffHeap *, void *),
-				    void *);
+                                    void (*)(ErlOffHeap *, const void *),
+                                    const void *);
 
 static int db_delete_all_objects_hash(Process* p, DbTable* tbl);
 #ifdef HARDDEBUG
@@ -2101,7 +2101,7 @@ int db_mark_all_deleted_hash(DbTable *tbl)
 
 
 /* Display hash table contents (for dump) */
-static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
+static void db_print_hash(int to, const void *to_arg, int show, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
     int i;
@@ -2806,8 +2806,8 @@ static int db_delete_all_objects_hash(Process* p, DbTable* tbl)
 }
 
 void db_foreach_offheap_hash(DbTable *tbl,
-			     void (*func)(ErlOffHeap *, void *),
-			     void * arg)
+                             void (*func)(ErlOffHeap *, const void *),
+                             const void * arg)
 {
     DbTableHash *tb = &tbl->hash;
     HashDbTerm* list;

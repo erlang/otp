@@ -64,10 +64,10 @@ union db_table {
 void init_db(void);
 int erts_db_process_exiting(Process *, ErtsProcLocks);
 void db_info(int, void *, int);
-void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
+void erts_db_foreach_table(void (*)(DbTable *, const void *), const void *);
 void erts_db_foreach_offheap(DbTable *,
-			     void (*func)(ErlOffHeap *, void *),
-			     void *);
+                             void (*func)(ErlOffHeap *, const void *),
+                             const void *);
 
 extern int user_requested_db_max_tabs; /* set in erl_init */
 extern int erts_ets_realloc_always_moves;  /* set in erl_init */

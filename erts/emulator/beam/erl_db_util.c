@@ -1604,8 +1604,8 @@ void erts_db_match_prog_destructor(Binary *bprog)
 
 void
 erts_match_prog_foreach_offheap(Binary *bprog,
-				void (*func)(ErlOffHeap *, void *),
-				void *arg)
+                                void (*func)(ErlOffHeap *, const void *),
+                                const void *arg)
 {
     MatchProg *prog;
     ErlHeapFragment *tmp;

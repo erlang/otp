@@ -3803,7 +3803,7 @@ erts_get_ets_misc_mem_size(void)
 
 /* SMP Note: May only be used when system is locked */
 void
-erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
+erts_db_foreach_table(void (*func)(DbTable *, const void *), const void *arg)
 {
     int i, j;
     j = 0;
@@ -3819,8 +3819,8 @@ erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
 /* SMP Note: May only be used when system is locked */
 void
 erts_db_foreach_offheap(DbTable *tb,
-			void (*func)(ErlOffHeap *, void *),
-			void *arg)
+                        void (*func)(ErlOffHeap *, const void *),
+                        const void *arg)
 {
     tb->common.meth->db_foreach_offheap(tb, func, arg);
 }

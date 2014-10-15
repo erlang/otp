@@ -173,13 +173,13 @@ typedef struct db_table_method
     int (*db_free_table_continue)(DbTable* db); /* [in out] */  
     
     void (*db_print)(int to, 
-		     void* to_arg, 
+                     const void* to_arg,
 		     int show, 
 		     DbTable* tb /* [in out] */ );
 
     void (*db_foreach_offheap)(DbTable* db,  /* [in out] */ 
-			       void (*func)(ErlOffHeap *, void *),
-			       void *arg);
+                               void (*func)(ErlOffHeap *, const void *),
+                               const void *arg);
     void (*db_check_table)(DbTable* tb);
 
     /* Lookup a dbterm for updating. Return false if not found.

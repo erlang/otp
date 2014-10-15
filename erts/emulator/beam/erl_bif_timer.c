@@ -600,7 +600,7 @@ BIF_RETTYPE read_timer_1(BIF_ALIST_1)
 }
 
 void
-erts_print_bif_timer_info(int to, void *to_arg)
+erts_print_bif_timer_info(int to, const void *to_arg)
 {
     int i;
     int lock = !ERTS_IS_CRASH_DUMPING;
@@ -684,8 +684,8 @@ erts_bif_timer_memory_size(void)
 
 
 void
-erts_bif_timer_foreach(void (*func)(Eterm, Eterm, ErlHeapFragment *, void *),
-		       void *arg)
+erts_bif_timer_foreach(void (*func)(Eterm, Eterm, ErlHeapFragment *, const void *),
+                       const void *arg)
 {
     int i;
 

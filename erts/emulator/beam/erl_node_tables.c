@@ -1099,7 +1099,7 @@ struct insert_offheap2_arg {
 static void insert_offheap(ErlOffHeap *, int, Eterm);
 
 static void
-insert_offheap2(ErlOffHeap *oh, void *arg) 
+insert_offheap2(ErlOffHeap *oh, const void *arg)
 {
     struct insert_offheap2_arg *a = (struct insert_offheap2_arg *) arg;
     insert_offheap(oh, a->type, a->id);
@@ -1143,7 +1143,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 #endif
 		    erts_match_prog_foreach_offheap(u.pb->val,
 						    insert_offheap2,
-						    (void *) &a);
+                                                    (const void *) &a);
 		    nib = erts_alloc(ERTS_ALC_T_NC_TMP, sizeof(InsertedBin));
 		    nib->bin_val = u.pb->val;
 		    nib->next = inserted_bins;
@@ -1212,7 +1212,7 @@ insert_links2(ErtsLink *lnk, Eterm id)
 }
 
 static void
-insert_ets_table(DbTable *tab, void *unused)
+insert_ets_table(DbTable *tab, const void *unused)
 {
     struct insert_offheap2_arg a;
     a.type = ETS_REF;
@@ -1221,7 +1221,7 @@ insert_ets_table(DbTable *tab, void *unused)
 }
 
 static void
-insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, void *arg)
+insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, const void *arg)
 {
     if (bp) {
 	DeclareTmpHeapNoproc(heap,3);

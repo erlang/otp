@@ -383,15 +383,15 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 				 Eterm pattern,  Eterm *ret);
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
 					  Eterm continuation, Eterm *ret);
-static void db_print_tree(int to, void *to_arg,
+static void db_print_tree(int to, const void *to_arg,
 			  int show, DbTable *tbl);
 static int db_free_table_tree(DbTable *tbl);
 
 static int db_free_table_continue_tree(DbTable *tbl);
 
 static void db_foreach_offheap_tree(DbTable *,
-				    void (*)(ErlOffHeap *, void *),
-				    void *);
+                                    void (*)(ErlOffHeap *, const void *),
+                                    const void *);
 
 static int db_delete_all_objects_tree(Process* p, DbTable* tbl);
 
@@ -1728,7 +1728,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 
 
 /* Display tree contents (for dump) */
-static void db_print_tree(int to, void *to_arg, 
+static void db_print_tree(int to, const void *to_arg,
 			  int show,
 			  DbTable *tbl)
 {
@@ -1785,12 +1785,12 @@ static int db_delete_all_objects_tree(Process* p, DbTable* tbl)
 }
 
 static void do_db_tree_foreach_offheap(TreeDbTerm *,
-				       void (*)(ErlOffHeap *, void *),
-				       void *);
+                                       void (*)(ErlOffHeap *, const void *),
+                                       const void *);
 
 static void db_foreach_offheap_tree(DbTable *tbl,
-				    void (*func)(ErlOffHeap *, void *),
-				    void * arg)
+                                    void (*func)(ErlOffHeap *, const void *),
+                                    const void * arg)
 {
     do_db_tree_foreach_offheap(tbl->tree.root, func, arg);
 }
@@ -1803,8 +1803,8 @@ static void db_foreach_offheap_tree(DbTable *tbl,
 
 static void
 do_db_tree_foreach_offheap(TreeDbTerm *tdbt,
-			   void (*func)(ErlOffHeap *, void *),
-			   void * arg)
+                           void (*func)(ErlOffHeap *, const void *),
+                           const void * arg)
 {
     ErlOffHeap tmp_offheap;
     if(!tdbt)
