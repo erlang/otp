@@ -151,6 +151,8 @@ main(_Erule) ->
     {100,101} = 'InfObj':'value-3'(),
     {1,2,100,101} = 'InfObj':'value-4'(),
 
+    roundtrip('InfObj', 'Rdn', {'Rdn',{2,5,4,41},"abc"}),
+
     ok.
 
 test_objset(Type, Keys) ->

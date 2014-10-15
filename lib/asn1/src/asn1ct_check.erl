@@ -2079,7 +2079,13 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	    case Type of
 		#classdef{} ->
 		    throw({objectdef});
-		#typedef{typespec=TypeSpec} ->
+		#typedef{typespec=TypeSpec0}=TypeDef ->
+		    TypeSpec = try check_type(S2, TypeDef, TypeSpec0) of
+				   TypeSpec1 -> TypeSpec1
+			       catch
+				   throw:{asn1_class,_} ->
+				       throw({objectdef})
+			       end,
 		    S3 = case is_contextswitchtype(Type) of
 			     true ->
 				 S2;

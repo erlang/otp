@@ -380,6 +380,30 @@ value-1 OBJECT IDENTIFIER ::= obj1.&id
 value-3 RELATIVE-OID ::= obj1.&rid
 value-4 OBJECT IDENTIFIER ::= { 1 2 value-3 }
 
+
+-- Test an obscure issue when ATTRIBUTE.&id was not
+-- properly evaluated.
+
+Rdn ::= SingleAttribute { {SupportedAttributes} }
+
+ATTRIBUTE ::= CLASS {
+   &id             OBJECT IDENTIFIER UNIQUE,
+   &Type           OPTIONAL
+}
+
+SingleAttribute{ATTRIBUTE:AttrSet} ::= SEQUENCE {
+   type      ATTRIBUTE.&id({AttrSet}),
+   value     ATTRIBUTE.&Type({AttrSet}{@type})
+}
+
+AttributeType ::= ATTRIBUTE.&id
+
+SupportedAttributes ATTRIBUTE ::= { at-name }
+
+id-at OBJECT IDENTIFIER ::= { 2 5 4 41 }
+id-at-name AttributeType ::= id-at
+at-name ATTRIBUTE ::= { &Type PrintableString, &id id-at-name }
+
 END
 
 
