@@ -127,7 +127,7 @@ atom_text_alloc(int bytes)
  */
 
 static HashValue
-atom_hash(Atom* obj)
+atom_hash(const Atom* obj)
 {
     byte* p = obj->name;
     int len = obj->len;
@@ -153,7 +153,7 @@ atom_hash(Atom* obj)
 
 
 static int 
-atom_cmp(Atom* tmpl, Atom* obj)
+atom_cmp(const Atom* tmpl, const Atom* obj)
 {
     if (tmpl->len == obj->len &&
 	sys_memcmp(tmpl->name, obj->name, tmpl->len) == 0)
@@ -163,7 +163,7 @@ atom_cmp(Atom* tmpl, Atom* obj)
 
 
 static Atom*
-atom_alloc(Atom* tmpl)
+atom_alloc(const Atom* tmpl)
 {
     Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
 
@@ -196,7 +196,7 @@ atom_alloc(Atom* tmpl)
 }
 
 static void
-atom_free(Atom* obj)
+atom_free(const Atom* obj)
 {
     erts_free(ERTS_ALC_T_ATOM, (void*) obj);
 }
