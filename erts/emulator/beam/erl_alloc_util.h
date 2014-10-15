@@ -519,11 +519,12 @@ struct Allctr_t_ {
 
     /* Callback functions (first 4 are mandatory) */
     Block_t *		(*get_free_block)	(Allctr_t *, Uint,
-						 Block_t *, Uint);
+                                                 const Block_t *, Uint);
     void		(*link_free_block)	(Allctr_t *, Block_t *);
     void		(*unlink_free_block)	(Allctr_t *, Block_t *);
-    Eterm		(*info_options)		(Allctr_t *, char *, int *,
-						 void *, Uint **, Uint *);
+    Eterm		(*info_options)		(Allctr_t *, const char *,
+                                                 const int *, const void *,
+                                                 Uint **, Uint *);
 
     Uint		(*get_next_mbc_size)	(Allctr_t *);
     void		(*creating_mbc)		(Allctr_t *, Carrier_t *);
@@ -586,7 +587,7 @@ struct Allctr_t_ {
 #endif
 };
 
-int	erts_alcu_start(Allctr_t *, AllctrInit_t *);
+int	erts_alcu_start(Allctr_t *, const AllctrInit_t* init);
 void	erts_alcu_stop(Allctr_t *);
 
 void	erts_alcu_verify_unused(Allctr_t *);
@@ -594,7 +595,8 @@ void	erts_alcu_verify_unused_ts(Allctr_t *allctr);
 
 UWord	erts_alcu_test(UWord, UWord, UWord);
 
-void erts_alcu_assert_failed(char* expr, char* file, int line, char *func);
+void erts_alcu_assert_failed(const char* expr, const char* file, int line,
+                             const char *func);
 
 #ifdef DEBUG
 int is_sbc_blk(Block_t*);

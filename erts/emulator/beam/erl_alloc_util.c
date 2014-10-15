@@ -5438,7 +5438,7 @@ erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
 /* ------------------------------------------------------------------------- */
 
 int
-erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
+erts_alcu_start(Allctr_t *allctr, const AllctrInit_t *init)
 {
     /* erts_alcu_start assumes that allctr has been zeroed */
 
@@ -5804,7 +5804,8 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
 \*                                                                           */
 
 void
-erts_alcu_assert_failed(char* expr, char* file, int line, char *func)
+erts_alcu_assert_failed(const char* expr, const char* file, int line,
+                        const char *func)
 {
     fflush(stdout);
     fprintf(stderr, "%s:%d:%s(): Assertion failed: %s\n",

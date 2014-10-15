@@ -48,13 +48,14 @@ struct AFFreeBlock_t_ {
 #define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 /* Prototypes of callback functions */
-static Block_t *	get_free_block		(Allctr_t *, Uint, Block_t *, Uint);
-static void		link_free_block		(Allctr_t *, Block_t *);
-static void		unlink_free_block	(Allctr_t *, Block_t *);
+static Block_t *  get_free_block    (Allctr_t *, Uint, const Block_t *, Uint);
+static void       link_free_block   (Allctr_t *, Block_t *);
+static void       unlink_free_block (Allctr_t *, Block_t *);
 
 
-static Eterm		info_options		(Allctr_t *, char *, int *,
-						 void *arg, Uint **, Uint *);
+static Eterm		info_options		(Allctr_t *, const char *,
+                                                 const int *, const void *arg,
+                                                 Uint **, Uint *);
 static void		init_atoms		(void);
 
 static int atoms_initialized = 0;
@@ -68,7 +69,7 @@ erts_afalc_init(void)
 Allctr_t *
 erts_afalc_start(AFAllctr_t *afallctr,
 		 AFAllctrInit_t *afinit,
-		 AllctrInit_t *init)
+                 const AllctrInit_t *init)
 {
     struct {
 	int dummy;
@@ -117,7 +118,8 @@ erts_afalc_start(AFAllctr_t *afallctr,
 }
 
 static Block_t *
-get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
+get_free_block(Allctr_t *allctr, Uint size, const Block_t *cand_blk,
+               Uint cand_size)
 {
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
 
@@ -225,9 +227,9 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 
 static Eterm
 info_options(Allctr_t *allctr,
-	     char *prefix,
-	     int *print_to_p,
-	     void *print_to_arg,
+             const char *prefix,
+             const int *print_to_p,
+             const void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {

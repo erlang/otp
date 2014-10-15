@@ -92,19 +92,20 @@ static void tree_delete(Allctr_t *allctr, Block_t *del);
 
 /* "address order best fit" specific callback functions */
 static Block_t *	aobf_get_free_block	(Allctr_t *, Uint,
-						 Block_t *, Uint);
+                                                 const Block_t *, Uint);
 static void		aobf_link_free_block	(Allctr_t *, Block_t *);
 #define			aobf_unlink_free_block	tree_delete
 
 /* "best fit" specific callback functions */
 static Block_t *	bf_get_free_block	(Allctr_t *, Uint,
-						 Block_t *, Uint);
+                                                 const Block_t *, Uint);
 static void		bf_link_free_block	(Allctr_t *, Block_t *);
 static ERTS_INLINE void	bf_unlink_free_block	(Allctr_t *, Block_t *);
 
 
-static Eterm		info_options		(Allctr_t *, char *, int *,
-						 void *, Uint **, Uint *);
+static Eterm		info_options		(Allctr_t *, const char *,
+                                                 const int *, const void *,
+                                                 Uint **, Uint *);
 static void		init_atoms		(void);
 
 /* Types... */
@@ -652,7 +653,7 @@ aobf_unlink_free_block(Allctr_t *allctr, Block_t *block)
 
 static Block_t *
 aobf_get_free_block(Allctr_t *allctr, Uint size,
-		    Block_t *cand_blk, Uint cand_size)
+                    const Block_t *cand_blk, Uint cand_size)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -811,7 +812,7 @@ bf_unlink_free_block(Allctr_t *allctr, Block_t *block)
 
 static Block_t *
 bf_get_free_block(Allctr_t *allctr, Uint size,
-		  Block_t *cand_blk, Uint cand_size)
+                  const Block_t *cand_blk, Uint cand_size)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -872,7 +873,7 @@ static struct {
 #endif
 } am;
 
-static void ERTS_INLINE atom_init(Eterm *atom, char *name)
+static void ERTS_INLINE atom_init(Eterm *atom, const char *name)
 {
     *atom = am_atom_put(name, strlen(name));
 }
@@ -919,9 +920,9 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 
 static Eterm
 info_options(Allctr_t *allctr,
-	     char *prefix,
-	     int *print_to_p,
-	     void *print_to_arg,
+             const char *prefix,
+             const int *print_to_p,
+             const void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {
