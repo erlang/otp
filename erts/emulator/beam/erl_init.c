@@ -1172,7 +1172,7 @@ static void set_main_stack_size(void)
 #endif
 
 void
-erl_start(int argc, char **argv)
+erl_start(int argc, const char **argv)
 {
     int i = 1;
     char* arg=NULL;

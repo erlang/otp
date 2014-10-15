@@ -1735,14 +1735,14 @@ do {									\
 void *erts_psd_set_init(Process *p, ErtsProcLocks plocks, int ix, void *data);
 
 ERTS_GLB_INLINE void *
-erts_psd_get(Process *p, int ix);
+erts_psd_get(const Process *p, int ix);
 ERTS_GLB_INLINE void *
 erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *new);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void *
-erts_psd_get(Process *p, int ix)
+erts_psd_get(const Process *p, int ix)
 {
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
@@ -1820,14 +1820,14 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
     erts_psd_set((P), (L), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (NTE))
 
 
-ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
+ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(const Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p,
 						  ErtsProcLocks plocks,
 						  Eterm handler);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Eterm
-erts_proc_get_error_handler(Process *p)
+erts_proc_get_error_handler(const Process *p)
 {
     void *val = erts_psd_get(p, ERTS_PSD_ERROR_HANDLER);
     if (!val)

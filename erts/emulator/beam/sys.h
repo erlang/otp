@@ -586,8 +586,9 @@ typedef struct {
     size_t size;
 } erts_print_sn_buf;
 
-int erts_print(int to, void *arg, char *format, ...);	/* in utils.c */
-int erts_putc(int to, void *arg, char);			/* in utils.c */
+/* in utils.c */
+int erts_print(int to, const void *arg, const char *format, ...);
+int erts_putc(int to, const void *arg, char);
 
 /* logger stuff is declared here instead of in global.h, so sys files
    won't have to include global.h */

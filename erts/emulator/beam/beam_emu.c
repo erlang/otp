@@ -945,9 +945,9 @@ extern int count_instructions;
  * The following functions are called directly by process_main().
  * Don't inline them.
  */
-static BifFunction translate_gc_bif(void* gcf) NOINLINE;
+static BifFunction translate_gc_bif(const void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-			       Eterm* reg, BifFunction bf) NOINLINE;
+                               Eterm* reg, BifFunction bf) NOINLINE;
 static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
 				     Eterm* reg, Eterm func) NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity) NOINLINE;
@@ -970,13 +970,13 @@ static Eterm get_map_element(Eterm map, Eterm key);
 /*
  * Functions not directly called by process_main(). OK to inline.
  */
-static BeamInstr* next_catch(Process* c_p, Eterm *reg);
+static BeamInstr* next_catch(Process* c_p, const Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);
 static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
-static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
+static void save_stacktrace(Process* c_p, BeamInstr* pc, const Eterm* reg,
 			     BifFunction bf, Eterm args);
 static struct StackTrace * get_trace_from_exc(Eterm exc);
-static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
+static Eterm make_arglist(Process* c_p, const Eterm* reg, int a);
 
 void
 init_emulator(void)
@@ -5214,7 +5214,7 @@ get_map_elements_fail:
 }
 
 static BifFunction
-translate_gc_bif(void* gcf)
+translate_gc_bif(const void* gcf)
 {
     if (gcf == erts_gc_length_1) {
 	return length_1;
@@ -5378,7 +5378,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
  * Find the nearest catch handler
  */
 static BeamInstr*
-next_catch(Process* c_p, Eterm *reg) {
+next_catch(Process* c_p, const Eterm *reg) {
     int active_catches = c_p->catches > 0;
     int have_return_to_trace = 0;
     Eterm *ptr, *prev, *return_to_trace_ptr = NULL;
@@ -5580,8 +5580,8 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
  */
 
 static void
-save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
-		Eterm args) {
+save_stacktrace(Process* c_p, BeamInstr* pc, const Eterm* reg,
+                BifFunction bf, Eterm args) {
     struct StackTrace* s;
     int sz;
     int depth = erts_backtrace_depth;    /* max depth (never negative) */
@@ -5769,7 +5769,7 @@ static int is_raised_exc(Eterm exc) {
  * Creating a list with the argument registers
  */
 static Eterm
-make_arglist(Process* c_p, Eterm* reg, int a) {
+make_arglist(Process* c_p, const Eterm* reg, int a) {
     Eterm args = NIL;
     Eterm* hp = HAlloc(c_p, 2*a);
     while (a > 0) {
@@ -6814,7 +6814,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 }
 #undef GET_TERM
 
-int catchlevel(Process *p)
+int catchlevel(const Process *p)
 {
     return p->catches;
 }
@@ -6849,7 +6849,7 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
  */
 
 Uint
-erts_current_reductions(Process *current, Process *p)
+erts_current_reductions(const Process *current, const Process *p)
 {
     if (current != p) {
 	return 0;

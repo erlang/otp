@@ -307,7 +307,7 @@ make_link_list(Process *p, ErtsLink *root, Eterm tail)
 }
 
 int
-erts_print_system_version(int to, void *arg, Process *c_p)
+erts_print_system_version(int to, const void *arg, const Process *c_p)
 {
     int i, rc = -1;
     char *rc_str = "";

@@ -762,7 +762,7 @@ void print_pass_through(int, byte*, int);
 #endif
 
 /* beam_emu.c */
-int catchlevel(Process*);
+int catchlevel(const Process*);
 void init_emulator(void);
 void process_main(void);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
@@ -795,7 +795,7 @@ extern int erts_initialized;
 extern int erts_compat_rel;
 extern int erts_use_sender_punish;
 void erts_short_init(void);
-void erl_start(int, char**);
+void erl_start(int, const char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
 /* erl_md5.c */
@@ -1058,9 +1058,9 @@ Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
 
-Uint erts_current_reductions(Process* current, Process *p);
+Uint erts_current_reductions(const Process* current, const Process *p);
 
-int erts_print_system_version(int to, void *arg, Process *c_p);
+int erts_print_system_version(int to, const void *arg, const Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
 

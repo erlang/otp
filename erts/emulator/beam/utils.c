@@ -311,7 +311,7 @@ int erts_fit_in_bits_int32(Sint32 value)
 }
 
 int
-erts_print(int to, void *arg, char *format, ...)
+erts_print(int to, const void *arg, const char *format, ...)
 {
     int res;
     va_list arg_list;
@@ -356,7 +356,7 @@ erts_print(int to, void *arg, char *format, ...)
 }
 
 int
-erts_putc(int to, void *arg, char c)
+erts_putc(int to, const void *arg, char c)
 {
     return erts_print(to, arg, "%c", c);
 }
