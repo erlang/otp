@@ -32,10 +32,10 @@
 
 typedef unsigned long HashValue;
 
-typedef int (*HCMP_FUN)(void*, void*);
-typedef HashValue (*H_FUN)(void*);
-typedef void* (*HALLOC_FUN)(void*);
-typedef void (*HFREE_FUN)(void*);
+typedef int (*HCMP_FUN)(const void*, const void*);
+typedef HashValue (*H_FUN)(const void*);
+typedef void* (*HALLOC_FUN)(const void*);
+typedef void (*HFREE_FUN)(const void*);
 
 /*
 ** This bucket must be placed in top of 
@@ -83,14 +83,16 @@ Hash* hash_init(ErtsAlcType_t, Hash*, char*, int, HashFunctions);
 
 void  hash_delete(Hash*);
 void  hash_get_info(HashInfo*, Hash*);
-void  hash_info(int, void *, Hash*);
+void  hash_info(int, const void * to_arg, Hash*);
 int   hash_table_sz(Hash *);
 
-void* hash_get(Hash*, void*);
-void* hash_put(Hash*, void*);
-void* hash_erase(Hash*, void*);
-void* hash_remove(Hash*, void*);
-void  hash_foreach(Hash*, void (*func)(void *, void *), void *);
+void* hash_get(Hash*, const void*);
+void* hash_put(Hash*, const void*);
+const void* hash_erase(Hash*, const void*);
+void* hash_remove(Hash*, const void*);
+void  hash_foreach(Hash*,
+                   void (*func)(const void *, const void *),
+                   const void *);
 
 void erts_hash_merge(Hash* src, Hash* dst);
 

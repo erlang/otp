@@ -3072,7 +3072,7 @@ store_external_or_ref_in_proc_(Process *proc, Eterm ns)
     return store_external_or_ref_(&hp, &MSO(proc), ns);
 }
 
-void bin_write(int to, void *to_arg, byte* buf, size_t sz)
+void bin_write(int to, const void *to_arg, const byte* buf, size_t sz)
 {
     size_t i;
 

@@ -593,7 +593,7 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
 
 int
 erts_prepare_dist_ext(ErtsDistExternal *edep,
-		      byte *ext,
+                      byte *ext,
 		      Uint size,
 		      DistEntry *dep,
 		      ErtsAtomCache *cache)

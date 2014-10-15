@@ -188,7 +188,7 @@ dist_table_free(void *vdep)
 
 
 void
-erts_dist_table_info(int to, void *to_arg)
+erts_dist_table_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -568,7 +568,7 @@ erts_node_table_size(void)
 }
 
 void
-erts_node_table_info(int to, void *to_arg)
+erts_node_table_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -629,13 +629,13 @@ void erts_delete_node(ErlNode *enp)
 
 struct pn_data {
     int to;
-    void *to_arg;
+    const void *to_arg;
     Eterm sysname;
     int no_sysname;
     int no_total;
 };
 
-static void print_node(void *venp, void *vpndp)
+static void print_node(const void *venp, const void *vpndp)
 {
     struct pn_data *pndp = ((struct pn_data *) vpndp);
     ErlNode *enp = ((ErlNode *) venp);
@@ -659,7 +659,7 @@ static void print_node(void *venp, void *vpndp)
 }
 
 void erts_print_node_info(int to,
-			  void *to_arg,
+                          const void *to_arg,
 			  Eterm sysname,
 			  int *no_sysname,
 			  int *no_total)
@@ -675,7 +675,7 @@ void erts_print_node_info(int to,
 
     if (lock)
 	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
-    hash_foreach(&erts_node_table, print_node, (void *) &pnd);
+    hash_foreach(&erts_node_table, print_node, (const void *) &pnd);
     if (pnd.no_sysname != 0) {
 	erts_print(to, to_arg, "\n");
     }
@@ -1084,7 +1084,7 @@ insert_node(ErlNode *node, int type, Eterm id)
 }
 
 static void
-insert_erl_node(void *venp, void *unused)
+insert_erl_node(const void *venp, const void *unused)
 {
     ErlNode *enp = (ErlNode *) venp;
 
@@ -1237,7 +1237,7 @@ insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, void *arg)
 }
 
 static void
-init_referred_node(void *node, void *unused)
+init_referred_node(const void *node, const void *unused)
 {
     referred_nodes[no_referred_nodes].node = (ErlNode *) node;
     referred_nodes[no_referred_nodes].referrers = NULL;
@@ -1245,7 +1245,7 @@ init_referred_node(void *node, void *unused)
 }
 
 static void
-init_referred_dist(void *dist, void *unused)
+init_referred_dist(const void *dist, const void *unused)
 {
     referred_dists[no_referred_dists].dist = (DistEntry *) dist;
     referred_dists[no_referred_dists].referrers = NULL;

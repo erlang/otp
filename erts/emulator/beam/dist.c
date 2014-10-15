@@ -55,7 +55,7 @@
 #endif
 
 #if defined(ERTS_DIST_MSG_DBG) || defined(ERTS_RAW_DIST_MSG_DBG)
-static void bw(byte *buf, ErlDrvSizeT sz)
+static void bw(const byte *buf, ErlDrvSizeT sz)
 {
     bin_write(ERTS_PRINT_STDERR, NULL, buf, sz);
 }
@@ -63,7 +63,7 @@ static void bw(byte *buf, ErlDrvSizeT sz)
 
 #ifdef ERTS_DIST_MSG_DBG
 static void
-dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
+dist_msg_dbg(ErtsDistExternal *edep, const char *what, const byte *buf, int sz)
 {
     byte *extp = edep->extp;
     Eterm msg;
@@ -198,7 +198,7 @@ get_suspended_on_de(DistEntry *dep, Uint32 unset_qflgs)
 */
 
 
-static int is_node_name(char *ptr, int len)
+static int is_node_name(const char *ptr, int len)
 {
    int c = '\0';		/* suppress use-before-set warning */
    int pos = 0;
@@ -303,6 +303,7 @@ typedef struct {
 */
 static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
 {
+
     ErtsLink *lnk = ((LinkNetExitsContext *) vlnecp)->lnk; /* the local pid */
     ErtsLink *rlnk;
     Process *rp;
@@ -1088,7 +1089,7 @@ int erts_net_message(Port *prt,
 		     DistEntry *dep,
 		     byte *hbuf,
 		     ErlDrvSizeT hlen,
-		     byte *buf,
+                     byte *buf,
 		     ErlDrvSizeT len)
 {
 #define DIST_CTL_DEFAULT_SIZE 64
@@ -2326,13 +2327,13 @@ erts_kill_dist_connection(DistEntry *dep, Uint32 connection_id)
 
 struct print_to_data {
     int to;
-    void *arg;
+    const void *arg;
 };
 
 static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
 {
     int to = ((struct print_to_data *) vptdp)->to;
-    void *arg = ((struct print_to_data *) vptdp)->arg;
+    const void *arg = ((struct print_to_data *) vptdp)->arg;
     Process *rp;
     ErtsMonitor *rmon;
     rp = erts_proc_lookup(mon->pid);
@@ -2354,7 +2355,7 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
     }
 }    
 
-static void print_monitor_info(int to, void *arg, ErtsMonitor *mon)
+static void print_monitor_info(int to, const void *arg, ErtsMonitor *mon)
 {
     struct print_to_data ptd = {to, arg};
     erts_doforall_monitors(mon,&doit_print_monitor_info,&ptd);
@@ -2380,7 +2381,7 @@ static void doit_print_link_info(ErtsLink *lnk, void *vptdp)
     } 
 }
 
-static void print_link_info(int to, void *arg, ErtsLink *lnk)
+static void print_link_info(int to, const void *arg, ErtsLink *lnk)
 {
     struct print_to_data ptd = {to, arg};
     erts_doforall_links(lnk, &doit_print_link_info, (void *) &ptd);
@@ -2401,7 +2402,8 @@ static void doit_print_nodelink_info(ErtsLink *lnk, void *vpcontext)
 		   "Remote monitoring: %T %T\n", lnk->pid, pcontext->sysname);
 }
 
-static void print_nodelink_info(int to, void *arg, ErtsLink *lnk, Eterm sysname)
+static void print_nodelink_info(int to, const void *arg, ErtsLink *lnk,
+                                Eterm sysname)
 {
     PrintNodeLinkContext context = {{to, arg}, sysname};
     erts_doforall_links(lnk, &doit_print_nodelink_info, &context);
@@ -2409,7 +2411,8 @@ static void print_nodelink_info(int to, void *arg, ErtsLink *lnk, Eterm sysname)
 
 
 static int
-info_dist_entry(int to, void *arg, DistEntry *dep, int visible, int connected)
+info_dist_entry(int to, const void *arg, DistEntry *dep, int visible,
+                int connected)
 {
 
   if (visible && connected) {
@@ -2458,7 +2461,7 @@ info_dist_entry(int to, void *arg, DistEntry *dep, int visible, int connected)
   return 0;
     
 }
-int distribution_info(int to, void *arg)	/* Called by break handler */
+int distribution_info(int to, const void *arg)	/* Called by break handler */
 {
     DistEntry *dep;
 

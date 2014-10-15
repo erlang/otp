@@ -91,7 +91,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
 **
 */
 
-void hash_info(int to, void *arg, Hash* h)
+void hash_info(int to, const void *arg, Hash* h)
 {
     HashInfo hi;
 
@@ -237,7 +237,7 @@ static void rehash(Hash* h, int grow)
 ** Find an object in the hash table
 **
 */
-void* hash_get(Hash* h, void* tmpl)
+void* hash_get(Hash* h, const void* tmpl)
 {
     HashValue hval = h->fun.hash(tmpl);
     int ix = hval % h->size;
@@ -254,7 +254,7 @@ void* hash_get(Hash* h, void* tmpl)
 /*
 ** Find or insert an object in the hash table
 */
-void* hash_put(Hash* h, void* tmpl)
+void* hash_put(Hash* h, const void* tmpl)
 {
     HashValue hval = h->fun.hash(tmpl);
     int ix = hval % h->size;
@@ -333,7 +333,7 @@ erts_hash_merge(Hash* src, Hash* dst)
 ** Erase hash entry return template if erased
 ** return 0 if not erased
 */
-void* hash_erase(Hash* h, void* tmpl)
+const void* hash_erase(Hash* h, const void* tmpl)
 {
     HashValue hval = h->fun.hash(tmpl);
     int ix = hval % h->size;
@@ -367,7 +367,7 @@ void* hash_erase(Hash* h, void* tmpl)
 **       *not* call the free() callback.
 */
 void *
-hash_remove(Hash *h, void *tmpl)
+hash_remove(Hash *h, const void *tmpl)
 {
     HashValue hval = h->fun.hash(tmpl);
     int ix = hval % h->size;
@@ -392,7 +392,9 @@ hash_remove(Hash *h, void *tmpl)
     return NULL;
 }
 
-void hash_foreach(Hash* h, void (*func)(void *, void *), void *func_arg2)
+void hash_foreach(Hash* h,
+                  void (*func)(const void *, const void *),
+                  const void *func_arg2)
 {
     int i;
 

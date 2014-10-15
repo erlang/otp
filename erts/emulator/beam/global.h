@@ -746,11 +746,12 @@ extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
 extern Eterm erts_monitor_nodes(Process *, Eterm, Eterm);
 extern Eterm erts_processes_monitoring_nodes(Process *);
 extern int erts_do_net_exits(DistEntry*, Eterm);
-extern int distribution_info(int, void *);
+extern int distribution_info(int, const void * to_arg);
 extern int is_node_name_atom(Eterm a);
 
 extern int erts_net_message(Port *, DistEntry *,
-			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
+                            byte * unused_hbuf, ErlDrvSizeT,
+                            byte * buf, ErlDrvSizeT);
 
 extern void init_dist(void);
 extern int stop_dist(void);
@@ -944,7 +945,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_ANALYZE_MORE 3
 #define ERTS_UTF8_OK_MAX_CHARS 4
 
-void bin_write(int, void*, byte*, size_t);
+void bin_write(int, const void* to_arg, const byte* buf, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
