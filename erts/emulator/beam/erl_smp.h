@@ -62,7 +62,7 @@ typedef erts_tsd_key_t erts_smp_tsd_key_t;
 #define erts_smp_atomic32_t erts_atomic32_t
 typedef erts_spinlock_t erts_smp_spinlock_t;
 typedef erts_rwlock_t erts_smp_rwlock_t;
-void erts_thr_fatal_error(int, char *); /* implemented in erl_init.c */
+void erts_thr_fatal_error(int, const char *); /* implemented in erl_init.c */
 
 #define ERTS_SMP_MEMORY_BARRIER ERTS_THR_MEMORY_BARRIER
 #define ERTS_SMP_WRITE_MEMORY_BARRIER ERTS_THR_WRITE_MEMORY_BARRIER

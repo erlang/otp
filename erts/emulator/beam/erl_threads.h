@@ -369,7 +369,7 @@ typedef struct {
 #endif
 } erts_rwlock_t;
 
-__decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *); 
+__decl_noreturn void  __noreturn erts_thr_fatal_error(int, const char *);
                                  /* implemented in erl_init.c */
 
 #define ERTS_THR_INIT_DATA_DEF_INITER	ETHR_INIT_DATA_DEFAULT_INITER
