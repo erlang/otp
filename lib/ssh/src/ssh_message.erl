@@ -505,6 +505,11 @@ erl_boolean(1) ->
 
 decode_kex_init(<<?BYTE(Bool), ?UINT32(X)>>, Acc, 0) ->
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
+decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
+    %% The mandatory trailing UINT32 is missing. Assume the value it anyhow must have
+    %% See rfc 4253 7.1
+    X = 0,
+    list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
 decode_kex_init(<<?UINT32(Len), Data:Len/binary, Rest/binary>>, Acc, N) ->
     Names = string:tokens(unicode:characters_to_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).

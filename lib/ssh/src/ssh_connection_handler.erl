@@ -45,7 +45,8 @@
 
 %% gen_fsm callbacks
 -export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
-	 userauth/2, connected/2]).
+	 userauth/2, connected/2,
+	 error/2]).
 
 -export([init/1, handle_event/3,
 	 handle_sync_event/4, handle_info/3, terminate/3, format_status/2, code_change/4]).
@@ -173,6 +174,13 @@ init([Role, Socket, SshOpts]) ->
 	_:Error ->
 	    gen_fsm:enter_loop(?MODULE, [], error, {Error, State0})
     end.
+
+%% Temporary fix for the Nessus error.  SYN->   <-SYNACK  ACK->  RST-> ?
+error(_Event, {Error, %%={badmatch,{error,enotconn}}, 
+	       State=#state{socket=Socket, 
+			    transport_cb=Transport}}) ->
+    (catch Transport:close(Socket)),
+    {stop, {shutdown,init,Error}, State}.
 
 %%--------------------------------------------------------------------
 -spec open_channel(pid(), string(), iodata(), integer(), integer(),
@@ -951,8 +959,14 @@ terminate({shutdown, #ssh_msg_disconnect{} = Msg}, StateName,
      {SshPacket, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
     send_msg(SshPacket, State),
      terminate(normal, StateName, State#state{ssh_params = Ssh});
+
 terminate({shutdown, _}, StateName, State) ->
     terminate(normal, StateName, State);
+
+terminate({shutdown,init,Reason}, StateName, State) ->
+    error_logger:info_report(io_lib:format("Erlang ssh in connection handler init: ~p~n",[Reason])),
+    terminate(normal, StateName, State);
+
 terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
 				   connection_state = Connection} = State) ->
     terminate_subsytem(Connection),
@@ -964,6 +978,7 @@ terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
     {SshPacket, Ssh} = ssh_transport:ssh_packet(DisconnectMsg, Ssh0),
     send_msg(SshPacket, State),
     terminate(normal, StateName, State#state{ssh_params = Ssh}).
+
 
 terminate_subsytem(#connection{system_supervisor = SysSup,
 			       sub_system_supervisor = SubSysSup}) when is_pid(SubSysSup) ->
