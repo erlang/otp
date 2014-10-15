@@ -605,9 +605,9 @@ do {						\
 /* binary.c */
 
 void erts_emasculate_writable_binary(ProcBin* pb);
-Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
-Eterm erts_new_mso_binary(Process*, byte*, int);
-Eterm new_binary(Process*, byte*, Uint);
+Eterm erts_new_heap_binary(Process *p, const byte *buf, int len, byte** datap);
+Eterm erts_new_mso_binary(Process*, const byte* src, int);
+Eterm new_binary(Process*, const byte* src, Uint);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
 
 /* erl_bif_info.c */

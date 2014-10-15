@@ -64,7 +64,7 @@ erts_init_binary(void)
  */
 
 Eterm
-new_binary(Process *p, byte *buf, Uint len)
+new_binary(Process *p, const byte *buf, Uint len)
 {
     ProcBin* pb;
     Binary* bptr;
@@ -113,7 +113,7 @@ new_binary(Process *p, byte *buf, Uint len)
  * When heap binary is not desired...
  */
 
-Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
+Eterm erts_new_mso_binary(Process *p, const byte *buf, int len)
 {
     ProcBin* pb;
     Binary* bptr;
@@ -153,7 +153,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
  */
 
 Eterm
-erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap)
+erts_new_heap_binary(Process *p, const byte *buf, int len, byte** datap)
 {
     ErlHeapBin* hb = (ErlHeapBin *) HAlloc(p, heap_bin_size(len));
 
