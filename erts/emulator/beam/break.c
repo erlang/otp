@@ -54,7 +54,8 @@ static void print_garb_info(int to, void *to_arg, Process* p);
 static void dump_frequencies(void);
 #endif
 
-static void dump_attributes(int to, void *to_arg, byte* ptr, int size);
+static void dump_attributes(int to, const  void *to_arg, const byte* ptr,
+                            int size);
 
 extern char* erts_system_version[];
 
@@ -483,7 +484,7 @@ loaded(int to, void *to_arg)
 
 
 static void
-dump_attributes(int to, void *to_arg, byte* ptr, int size)
+dump_attributes(int to, const void *to_arg, const byte* ptr, int size)
 {
     while (size-- > 0) {
 	erts_print(to, to_arg, "%02X", *ptr++);

@@ -196,7 +196,7 @@ int erts_ptab_initialized(ErtsPTab *ptab);
 UWord erts_ptab_mem_size(ErtsPTab *ptab);
 
 ERTS_GLB_INLINE erts_interval_t *erts_ptab_interval(ErtsPTab *ptab);
-ERTS_GLB_INLINE int erts_ptab_max(ErtsPTab *ptab);
+ERTS_GLB_INLINE int erts_ptab_max(const ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_count(ErtsPTab *ptab);
 ERTS_GLB_INLINE Uint erts_ptab_pixdata2data(ErtsPTab *ptab, Eterm pixdata);
 ERTS_GLB_INLINE Uint32 erts_ptab_pixdata2pix(ErtsPTab *ptab, Eterm pixdata);
@@ -231,7 +231,7 @@ erts_ptab_interval(ErtsPTab *ptab)
 }
 
 ERTS_GLB_INLINE int
-erts_ptab_max(ErtsPTab *ptab)
+erts_ptab_max(const ErtsPTab *ptab)
 {
     int max = ptab->r.o.max;
     return max == ERTS_PTAB_MAX_SIZE ? max - 1 : max;
