@@ -205,7 +205,7 @@ void sys_tty_reset(int exit_code)
 	ConNormalExit();
 }
 
-void erl_sys_args(int* argc, char** argv)
+void erl_sys_args(int* argc, const char** argv)
 {
     char *event_name;
 

@@ -157,7 +157,7 @@ Uint32 block_hash(byte *, unsigned, Uint32);
 Uint32 make_hash2(Eterm);
 Uint32 make_hash(Eterm);
 
-void erts_save_emu_args(int argc, char **argv);
+void erts_save_emu_args(int argc, const char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
 Eterm erts_get_ethread_info(struct process * c_p);
 

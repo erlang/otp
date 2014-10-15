@@ -89,7 +89,7 @@ typedef struct {
     int pre_alc_ix;
 } ErtsSchedAllocData;
 
-void erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop);
+void erts_alloc_init(int *argc, const char **argv, ErtsAllocInitOpts *eaiop);
 void erts_alloc_late_init(void);
 
 #if defined(GET_ERTS_ALC_TEST) || defined(ERTS_ALC_INTERNAL__)

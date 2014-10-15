@@ -359,7 +359,7 @@ send_trace_buffer(void)
 
 
 static int
-write_trace_header(char *nodename, char *pid, char *hostname)
+write_trace_header(const char *nodename, const char *pid, const char *hostname)
 {
 #ifdef DEBUG
     byte *startp;
@@ -569,7 +569,7 @@ void erts_mtrace_pre_init(void)
 {
 }
 
-void erts_mtrace_init(char *receiver, char *nodename)
+void erts_mtrace_init(const char *receiver, const char *nodename)
 {
     char hostname[MAXHOSTNAMELEN];
     char pid[21]; /* enough for a 64 bit number */

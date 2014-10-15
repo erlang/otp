@@ -235,8 +235,8 @@ has_prefix(const char *prefix, const char *string)
     return 1;
 }
 
-static char*
-progname(char *fullname) 
+static const char*
+progname(const char *fullname)
 {
     int i;
     
@@ -279,7 +279,7 @@ void erl_error(char *fmt, va_list args)
     erts_vfprintf(stderr, fmt, args);
 }
 
-static int early_init(int *argc, char **argv);
+static int early_init(int *argc, const char **argv);
 
 void
 erts_short_init(void)
@@ -436,14 +436,14 @@ erts_preloaded(Process* p)
 
 
 /* static variables that must not change (use same values at restart) */
-static char* program;
-static char* init = "init";
-static char* boot = "boot";
+static const char* program;
+static const char* init = "init";
+static const char* boot = "boot";
 static int    boot_argc;
 static char** boot_argv;
 
-static char *
-get_arg(char* rest, char* next, int* ip)
+static const char *
+get_arg(const char* rest, const char* next, int* ip)
 {
     if (*rest == '\0') {
 	if (next == NULL) {
@@ -648,9 +648,9 @@ static void ethr_ll_free(void *ptr)
 #endif
 
 static int
-early_init(int *argc, char **argv) /*
+early_init(int *argc, const char **argv) /*
 				   * Only put things here which are
-				   * really important initialize
+                                   * really important to initialize
 				   * early!
 				   */
 {
@@ -771,9 +771,9 @@ early_init(int *argc, char **argv) /*
 	    if (argv[i][0] == '-') {
 		switch (argv[i][1]) {
 		case 'r': {
-		    char *sub_param = argv[i]+2;
+                    const char *sub_param = argv[i]+2;
 		    if (has_prefix("g", sub_param)) {
-			char *arg = get_arg(sub_param+1, argv[i+1], &i);
+                        const char *arg = get_arg(sub_param+1, argv[i+1], &i);
 			if (sscanf(arg, "%d", &max_reader_groups) != 1) {
 			    erts_fprintf(stderr,
 					 "bad reader groups limit: %s\n", arg);
@@ -790,7 +790,7 @@ early_init(int *argc, char **argv) /*
 		}
 		case 'A': {
 		    /* set number of threads in thread pool */
-		    char *arg = get_arg(argv[i]+2, argv[i+1], &i);
+                    const char *arg = get_arg(argv[i]+2, argv[i+1], &i);
 		    if (((erts_async_max_threads = atoi(arg)) < ERTS_MIN_NO_OF_ASYNC_THREADS) ||
 			(erts_async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)) {
 			erts_fprintf(stderr,
@@ -805,7 +805,7 @@ early_init(int *argc, char **argv) /*
 		case 'S' :
 		    if (argv[i][2] == 'P') {
 			int ptot, ponln;
-			char *arg = get_arg(argv[i]+3, argv[i+1], &i);
+                        const char *arg = get_arg(argv[i]+3, argv[i+1], &i);
 			switch (sscanf(arg, "%d:%d", &ptot, &ponln)) {
 			case 0:
 			    switch (sscanf(arg, ":%d", &ponln)) {
@@ -957,7 +957,7 @@ early_init(int *argc, char **argv) /*
 #endif
 		    else {
 			int tot, onln;
-			char *arg = get_arg(argv[i]+2, argv[i+1], &i);
+                        const char *arg = get_arg(argv[i]+2, argv[i+1], &i);
 			switch (sscanf(arg, "%d:%d", &tot, &onln)) {
 			case 0:
 			    switch (sscanf(arg, ":%d", &onln)) {
@@ -1175,7 +1175,7 @@ void
 erl_start(int argc, const char **argv)
 {
     int i = 1;
-    char* arg=NULL;
+    const char* arg=NULL;
     int have_break_handler = 1;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;

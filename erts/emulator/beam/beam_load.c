@@ -43,7 +43,7 @@
 #include "hipe_arch.h"
 #endif
 
-ErlDrvBinary* erts_gzinflate_buffer(char*, int);
+ErlDrvBinary* erts_gzinflate_buffer(char*, int);  /* gzio.c */
 
 #define MAX_OPARGS 8
 #define CALLED    0
@@ -252,7 +252,7 @@ typedef struct LoaderState {
      */
 
     char* file_name;		/* Name of file we are reading (usually chunk name). */
-    byte* file_p;		/* Current pointer within file. */
+    const byte* file_p;		/* Current pointer within file. */
     unsigned file_left;		/* Number of bytes left in file. */
     ErlDrvBinary* bin;		/* Binary holding BEAM file (or NULL) */
 
@@ -272,7 +272,7 @@ typedef struct LoaderState {
      */
 
     struct {
-	byte* start;		/* Start of chunk (in binary). */
+        const byte* start;	/* Start of chunk (in binary). */
 	unsigned size;		/* Size of chunk. */
     } chunks[NUM_CHUNK_TYPES];
 
@@ -280,7 +280,7 @@ typedef struct LoaderState {
      * Used for code loading (mainly).
      */
 
-    byte* code_start;		/* Start of code file. */
+    const byte* code_start;	/* Start of code file. */
     unsigned code_size;		/* Size of code file. */
     int specific_op;		/* Specific opcode (-1 if not found). */
     int num_functions;		/* Number of functions in module. */
@@ -480,7 +480,7 @@ static void loader_state_dtor(Binary* magic);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     Eterm group_leader, Eterm module,
 			     BeamInstr* code, Uint size);
-static int init_iff_file(LoaderState* stp, byte* code, Uint size);
+static int init_iff_file(LoaderState* stp, const byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
 static int verify_chunks(LoaderState* stp);
@@ -1001,7 +1001,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 }
 
 static int
-init_iff_file(LoaderState* stp, byte* code, Uint size)
+init_iff_file(LoaderState* stp, const byte* code, Uint size)
 {
     Uint form_id = MakeIffId('F', 'O', 'R', '1');
     Uint id;

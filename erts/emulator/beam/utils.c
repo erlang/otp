@@ -3928,7 +3928,7 @@ typedef struct {
 ErtsEmuArgs saved_emu_args = {0};
 
 void
-erts_save_emu_args(int argc, char **argv)
+erts_save_emu_args(int argc, const char **argv)
 {
 #ifdef DEBUG
     char *end_ptr;
