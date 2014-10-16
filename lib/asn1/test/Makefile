@@ -110,6 +110,7 @@ MODULES= \
 	testWSParamClass \
 	testValueTest \
 	testUniqueObjectSets \
+	testRfcs \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \

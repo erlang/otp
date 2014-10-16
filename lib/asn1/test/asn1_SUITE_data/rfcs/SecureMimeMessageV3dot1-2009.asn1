@@ -1,0 +1,122 @@
+ SecureMimeMessageV3dot1-2009
+       {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+       smime(16) modules(0) id-mod-msg-v3dot1-02(39)}
+ DEFINITIONS IMPLICIT TAGS ::=
+ BEGIN
+ IMPORTS
+
+ SMIME-CAPS, SMIMECapabilities{}
+ FROM AlgorithmInformation-2009
+     {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+     mechanisms(5) pkix(7) id-mod(0)
+     id-mod-algorithmInformation-02(58)}
+
+ ATTRIBUTE
+ FROM PKIX-CommonTypes-2009
+     {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+     mechanisms(5) pkix(7) id-mod(0) id-mod-pkixCommon-02(57)}
+
+ SubjectKeyIdentifier, IssuerAndSerialNumber, RecipientKeyIdentifier
+ FROM CryptographicMessageSyntax-2009
+     {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+     smime(16) modules(0) id-mod-cms-2004-02(41)}
+
+ rc2-cbc, SMimeCaps
+ FROM CryptographicMessageSyntaxAlgorithms-2009
+     {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+     smime(16) modules(0) id-mod-cmsalg-2001-02(37)}
+
+ SMimeCaps
+ FROM PKIXAlgs-2009
+     {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+     mechanisms(5) pkix(7) id-mod(0)
+     id-mod-pkix1-algorithms2008-02(56)}
+
+ SMimeCaps
+ FROM PKIX1-PSS-OAEP-Algorithms-2009
+      {iso(1) identified-organization(3) dod(6) internet(1)
+      security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-rsa-pkalgs-02(54)};
+
+ SMimeAttributeSet ATTRIBUTE ::=
+     { aa-smimeCapabilities | aa-encrypKeyPref, ... }
+
+ --  id-aa is the arc with all new authenticated and unauthenticated
+ --  attributes produced by the S/MIME Working Group
+
+ id-aa OBJECT IDENTIFIER ::=
+     { iso(1) member-body(2) usa(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+     smime(16) attributes(2)}
+
+ -- The S/MIME Capabilities attribute provides a method of broadcasting
+ -- the symmetric capabilities understood.  Algorithms SHOULD be ordered
+ -- by preference and grouped by type
+
+ aa-smimeCapabilities ATTRIBUTE ::=
+     { TYPE SMIMECapabilities{{SMimeCapsSet}} IDENTIFIED BY
+           smimeCapabilities }
+ smimeCapabilities OBJECT IDENTIFIER ::=
+     { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+     15 }
+
+ SMimeCapsSet SMIME-CAPS ::=
+     { cap-preferBinaryInside | cap-RC2CBC |
+     PKIXAlgs-2009.SMimeCaps |
+     CryptographicMessageSyntaxAlgorithms-2009.SMimeCaps |
+     PKIX1-PSS-OAEP-Algorithms-2009.SMimeCaps, ... }
+
+ -- Encryption Key Preference provides a method of broadcasting the
+ -- preferred encryption certificate.
+
+ aa-encrypKeyPref ATTRIBUTE ::=
+     { TYPE SMIMEEncryptionKeyPreference
+         IDENTIFIED BY id-aa-encrypKeyPref }
+
+ id-aa-encrypKeyPref OBJECT IDENTIFIER ::= {id-aa 11}
+
+ SMIMEEncryptionKeyPreference ::= CHOICE {
+    issuerAndSerialNumber   [0] IssuerAndSerialNumber,
+    receipentKeyId          [1] RecipientKeyIdentifier,
+    subjectAltKeyIdentifier [2] SubjectKeyIdentifier
+ }
+
+ -- receipentKeyId is spelt incorrectly, but kept for historical
+ -- reasons.
+
+ id-smime OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+    us(840) rsadsi(113549) pkcs(1) pkcs9(9) 16 }
+
+ id-cap  OBJECT IDENTIFIER ::= { id-smime 11 }
+
+ -- The preferBinaryInside indicates an ability to receive messages
+ -- with binary encoding inside the CMS wrapper
+
+ cap-preferBinaryInside SMIME-CAPS ::=
+     { -- No value -- IDENTIFIED BY id-cap-preferBinaryInside }
+
+ id-cap-preferBinaryInside  OBJECT IDENTIFIER ::= { id-cap 1 }
+
+ --  The following list OIDs to be used with S/MIME V3
+
+ -- Signature Algorithms Not Found in [RFC3370]
+ --
+ -- md2WithRSAEncryption OBJECT IDENTIFIER ::=
+ --    {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1)
+ --     2}
+ --
+ -- Other Signed Attributes
+ --
+ -- signingTime OBJECT IDENTIFIER ::=
+ --    {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+ --     5}
+ --    See [RFC5652] for a description of how to encode the attribute
+ --    value.
+
+ cap-RC2CBC SMIME-CAPS ::=
+     { TYPE SMIMECapabilitiesParametersForRC2CBC
+         IDENTIFIED BY rc2-cbc}
+
+ SMIMECapabilitiesParametersForRC2CBC ::= INTEGER (40 | 128, ...)
+ --    (RC2 Key Length (number of bits))
+
+ END

@@ -162,9 +162,12 @@ groups() ->
        {group, [], [test_WS_ParamClass,
 		    test_modified_x420,
                     testX420]},
-       testTcapsystem,
-       testNBAPsystem,
-       testS1AP,
+       %% Don't run all these at the same time.
+       {group, [],
+	[testTcapsystem,
+	 testNBAPsystem,
+	 testS1AP,
+	 testRfcs]},
        test_compile_options,
        testDoubleEllipses,
        test_x691,
@@ -1006,6 +1009,11 @@ testS1AP(Config, Rule, Opts) ->
 	ber ->
 	    ok
     end.
+
+testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
+testRfcs(Config, Rule, Opts) ->
+    testRfcs:compile(Config, Rule, Opts),
+    testRfcs:test().
 
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),
