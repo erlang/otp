@@ -814,7 +814,7 @@ ERTS_GLB_INLINE erts_aint_t erts_refc_dectest(erts_refc_t *refcp,
 					      erts_aint_t min_val);
 ERTS_GLB_INLINE void erts_refc_add(erts_refc_t *refcp, erts_aint_t diff,
 				   erts_aint_t min_val);
-ERTS_GLB_INLINE erts_aint_t erts_refc_read(erts_refc_t *refcp,
+ERTS_GLB_INLINE erts_aint_t erts_refc_read(const erts_refc_t *refcp,
 					   erts_aint_t min_val);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -894,7 +894,7 @@ erts_refc_add(erts_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
 }
 
 ERTS_GLB_INLINE erts_aint_t
-erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
+erts_refc_read(const erts_refc_t *refcp, erts_aint_t min_val)
 {
     erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG

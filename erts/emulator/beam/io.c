@@ -4870,7 +4870,7 @@ int async_ready(Port *p, void* data)
 }
 
 static void
-report_missing_drv_callback(Port *p, char *drv_type, char *callback)
+report_missing_drv_callback(Port *p, const char *drv_type, const char *callback)
 {
     ErtsPortNames *pnp = erts_get_port_names(p->common.id,
 					     ERTS_Port2ErlDrvPort(p));
@@ -5966,7 +5966,7 @@ ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf /*out*/, ErlDrvSizeT len)
  */
 
 ErlDrvSInt
-driver_binary_get_refc(ErlDrvBinary *dbp)
+driver_binary_get_refc(const ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
     return (ErlDrvSInt) erts_refc_read(&bp->refc, 1);

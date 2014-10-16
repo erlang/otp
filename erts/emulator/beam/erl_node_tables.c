@@ -55,9 +55,9 @@ static int references_atoms_need_init = 1;
 
 #ifdef DEBUG
 static int
-is_in_de_list(DistEntry *dep, DistEntry *dep_list)
+is_in_de_list(const DistEntry *dep, const DistEntry *dep_list)
 {
-    DistEntry *tdep;
+    const DistEntry *tdep;
     for(tdep = dep_list; tdep; tdep = tdep->next)
 	if(tdep == dep)
 	    return 1;
@@ -66,15 +66,15 @@ is_in_de_list(DistEntry *dep, DistEntry *dep_list)
 #endif
 
 static HashValue
-dist_table_hash(void *dep)
+dist_table_hash(const void *dep)
 {
-    return atom_tab(atom_val(((DistEntry *) dep)->sysname))->slot.bucket.hvalue;
+    return atom_tab(atom_val(((const DistEntry *) dep)->sysname))->slot.bucket.hvalue;
 }
 
 static int
-dist_table_cmp(void *dep1, void *dep2)
+dist_table_cmp(const void *dep1, const void *dep2)
 {
-    return (((DistEntry *) dep1)->sysname == ((DistEntry *) dep2)->sysname
+    return (((const DistEntry *) dep1)->sysname == ((const DistEntry *) dep2)->sysname
 	    ? 0 : 1);
 }
 
@@ -501,10 +501,10 @@ node_table_hash(void *venp)
 }
 
 static int
-node_table_cmp(void *venp1, void *venp2)
+node_table_cmp(const void *venp1, const void *venp2)
 {
-    return ((((ErlNode *) venp1)->sysname == ((ErlNode *) venp2)->sysname
-	     && ((ErlNode *) venp1)->creation == ((ErlNode *) venp2)->creation)
+    return ((((const ErlNode *) venp1)->sysname == ((const ErlNode *) venp2)->sysname
+             && ((const ErlNode *) venp1)->creation == ((const ErlNode *) venp2)->creation)
 	    ? 0
 	    : 1);
 }

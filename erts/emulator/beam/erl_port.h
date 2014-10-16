@@ -238,13 +238,13 @@ erts_port_runq(Port *prt)
 #endif
 
 
-ERTS_GLB_INLINE void *erts_prtsd_get(Port *p, int ix);
+ERTS_GLB_INLINE void *erts_prtsd_get(const Port *p, int ix);
 ERTS_GLB_INLINE void *erts_prtsd_set(Port *p, int ix, void *new);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void *
-erts_prtsd_get(Port *prt, int ix)
+erts_prtsd_get(const Port *prt, int ix)
 {
     return prt->psd ? prt->psd->data[ix] : NULL;
 }
