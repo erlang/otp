@@ -429,7 +429,7 @@ ix_to_free_id_data_ix(ErtsPTab *ptab, Uint32 ix)
 }
 
 UWord
-erts_ptab_mem_size(ErtsPTab *ptab)
+erts_ptab_mem_size(const ErtsPTab *ptab)
 {
     UWord size = ptab->r.o.max*sizeof(erts_smp_atomic_t);
     if (ptab->r.o.free_id_data)
@@ -570,7 +570,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 }
 
 int
-erts_ptab_initialized(ErtsPTab *ptab)
+erts_ptab_initialized(const ErtsPTab *ptab)
 {
     return ptab->r.o.tab != NULL;
 }

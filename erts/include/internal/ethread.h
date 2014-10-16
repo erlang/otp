@@ -531,7 +531,7 @@ void ethr_thr_exit(void *);
 ethr_tid ethr_self(void);
 int ethr_equal_tids(ethr_tid, ethr_tid);
 
-int ethr_tsd_key_create(ethr_tsd_key *,char *);
+int ethr_tsd_key_create(ethr_tsd_key *, const char *);
 int ethr_tsd_key_delete(ethr_tsd_key);
 int ethr_tsd_set(ethr_tsd_key, void *);
 void *ethr_tsd_get(ethr_tsd_key);

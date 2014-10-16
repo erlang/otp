@@ -472,7 +472,7 @@ ethr_leave_ts_event(ethr_ts_event *tsep)
  */
 
 int
-ethr_tsd_key_create(ethr_tsd_key *keyp, char *keyname)
+ethr_tsd_key_create(ethr_tsd_key *keyp, const char *keyname)
 {
 #if ETHR_XCHK
     if (ethr_not_inited__) {

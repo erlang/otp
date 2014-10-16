@@ -371,7 +371,7 @@ void erts_proc_unlock_failed(Process *,
 
 ERTS_GLB_INLINE void erts_pix_lock(erts_pix_lock_t *);
 ERTS_GLB_INLINE void erts_pix_unlock(erts_pix_lock_t *);
-ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(erts_pix_lock_t *);
+ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(const erts_pix_lock_t *);
 
 ERTS_GLB_INLINE ErtsProcLocks erts_smp_proc_raw_trylock__(Process *p,
 							  ErtsProcLocks locks);
@@ -410,7 +410,7 @@ ERTS_GLB_INLINE void erts_pix_unlock(erts_pix_lock_t *pixlck)
     erts_mtx_unlock(&pixlck->u.mtx);
 }
 
-ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(erts_pix_lock_t *pixlck)
+ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(const erts_pix_lock_t *pixlck)
 {
     return erts_lc_mtx_is_locked(&pixlck->u.mtx);
 }

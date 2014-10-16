@@ -192,8 +192,8 @@ int erts_ptab_new_element(ErtsPTab *ptab,
 			  void (*init_ptab_el)(void *, Eterm));
 void erts_ptab_delete_element(ErtsPTab *ptab,
 			      ErtsPTabElementCommon *ptab_el);
-int erts_ptab_initialized(ErtsPTab *ptab);
-UWord erts_ptab_mem_size(ErtsPTab *ptab);
+int erts_ptab_initialized(const ErtsPTab *ptab);
+UWord erts_ptab_mem_size(const ErtsPTab *ptab);
 
 ERTS_GLB_INLINE erts_interval_t *erts_ptab_interval(ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_max(const ErtsPTab *ptab);

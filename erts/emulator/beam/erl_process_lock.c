@@ -1120,7 +1120,8 @@ void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
     }
 }
 
-void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks, char *file, unsigned int line) {
+void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks,
+                                const char *file, unsigned int line) {
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK) { 
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	erts_lcnt_lock_post_x(&(lock->lcnt_main), file, line);
@@ -1218,7 +1219,8 @@ void erts_lcnt_enable_proc_lock_count(int enable)
 #if ERTS_PROC_LOCK_OWN_IMPL
 
 void
-erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
+erts_proc_lc_lock(Process *p, ErtsProcLocks locks,
+                  const char *file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
@@ -1243,7 +1245,7 @@ erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line
 
 void
 erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked,
-		     char* file, unsigned int line)
+                     const char* file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
@@ -1328,8 +1330,8 @@ erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks)
 }
 
 void
-erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks, char *file,
-			  unsigned int line)
+erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks,
+                          const char *file, unsigned int line)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
@@ -1594,7 +1596,7 @@ erts_proc_lc_my_proc_locks(Process *p)
 }
 
 void
-erts_proc_lc_chk_no_proc_locks(char *file, int line)
+erts_proc_lc_chk_no_proc_locks(const char *file, int line)
 {
     int resv[4];
     int ids[4] = {lc_id.proc_lock_main,
