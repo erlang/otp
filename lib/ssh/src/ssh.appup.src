@@ -22,8 +22,8 @@
   {"3.0.6", [{load_module, ssh_auth, soft_purge, soft_purge, [ssh_connection_handler]},
 	     {load_module, ssh_message, soft_purge, soft_purge, [ssh_connection_handler]},
 	     {load_module, ssh_io, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_sftp, soft_purge, soft_purge, [ssh_connection_handler]}]},
-	     {load_module, ssh_xfer, soft_purge, soft_purge, [ssh_connection_handler]},
+	     {load_module, ssh_sftp, soft_purge, soft_purge, [ssh_connection_handler]},
+	     {load_module, ssh_xfer, soft_purge, soft_purge, [ssh_connection_handler]}]},
   {<<".*">>, [{restart_application, ssh}]}
  ],
  [
