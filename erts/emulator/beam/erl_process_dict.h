@@ -30,11 +30,11 @@ typedef struct proc_dict {
     Eterm data[1]; /* The beginning of an array of erlang terms */
 } ProcDict;
 
-Uint erts_dicts_mem_size(struct process *p);
+Uint erts_dicts_mem_size(const struct process *p);
 void erts_erase_dicts(struct process *p);
-void erts_dictionary_dump(int to, void *to_arg, ProcDict *pd);
-void erts_deep_dictionary_dump(int to, void *to_arg,
-			       ProcDict* pd, void (*cb)(int, void *, Eterm obj));
+void erts_dictionary_dump(int to, const void *to_arg, ProcDict *pd);
+void erts_deep_dictionary_dump(int to, const void *to_arg, ProcDict* pd,
+                               void (*cb)(int, const void *, Eterm obj));
 Eterm erts_dictionary_copy(struct process *p, ProcDict *pd);
 
 Eterm erts_pd_hash_get(struct process *p, Eterm id);

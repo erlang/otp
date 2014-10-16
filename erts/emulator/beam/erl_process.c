@@ -450,9 +450,9 @@ do {									\
  */
 
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
-static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
-			      int yreg);
+static void print_function_from_pc(int to, const void *to_arg, BeamInstr* x);
+static int stack_element_dump(int to, const void *to_arg, Process* p, Eterm* sp,
+                              int yreg);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int no_schedulers);
@@ -12214,7 +12214,7 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, BeamInstr* x)
+print_function_from_pc(int to, const void *to_arg, BeamInstr* x)
 {
     BeamInstr* addr = find_function_from_pc(x);
     if (addr == NULL) {
@@ -12236,7 +12236,7 @@ print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 }
 
 static int
-stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
+stack_element_dump(int to, const void *to_arg, Process* p, Eterm* sp, int yreg)
 {
     Eterm x = *sp;
 

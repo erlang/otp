@@ -126,7 +126,7 @@ static unsigned int misc_measure(char* name);
 #endif
 static void send(unsigned int data);
 static void sendv(unsigned int data[], int ints);
-static void error(char* err_msg);
+static void error(const char* err_msg);
 
 #if defined(__sun__)
 static kstat_ctl_t *kstat_ctl;
@@ -458,7 +458,7 @@ static void sendv(unsigned int data[], int ints) {
 
 }
 
-static void error(char* err_msg) {
+static void error(const char* err_msg) {
   /* 
    * if we get error here we have trouble,
    * silence unnecessary warnings
