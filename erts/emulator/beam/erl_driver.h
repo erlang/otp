@@ -437,7 +437,7 @@ EXTERN int erl_drv_consume_timeslice(ErlDrvPort port, int percent);
 /*
  * Get plain-text error message from within a driver
  */
-EXTERN char* erl_errno_id(int error);
+EXTERN const char* erl_errno_id(int error);
 
 /*
  * The following functions are used to initiate a close of a port

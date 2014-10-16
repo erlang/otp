@@ -44,17 +44,17 @@ typedef long long          ErlPfSWord;
 #endif
 
 
-typedef int (*fmtfn_t)(void*, char*, size_t);
+typedef int (*fmtfn_t)(const void*, const char*, size_t);
 
-extern int erts_printf_format(fmtfn_t, void*, char*, va_list);
+extern int erts_printf_format(fmtfn_t, const void*, const char*, va_list);
 
-extern int erts_printf_char(fmtfn_t, void*, char);
-extern int erts_printf_string(fmtfn_t, void*, char *);
-extern int erts_printf_buf(fmtfn_t, void*, char *, size_t);
-extern int erts_printf_pointer(fmtfn_t, void*, void *);
-extern int erts_printf_uword(fmtfn_t, void*, char, int, int, ErlPfUWord);
-extern int erts_printf_sword(fmtfn_t, void*, char, int, int, ErlPfSWord);
-extern int erts_printf_double(fmtfn_t, void *, char, int, int, double);
+extern int erts_printf_char(fmtfn_t, const void*, const char);
+extern int erts_printf_string(fmtfn_t, const void*, const char *);
+extern int erts_printf_buf(fmtfn_t, const void*, const char *, size_t);
+extern int erts_printf_pointer(fmtfn_t, const void*, const void *);
+extern int erts_printf_uword(fmtfn_t, const void*, char, int, int, ErlPfUWord);
+extern int erts_printf_sword(fmtfn_t, const void*, char, int, int, ErlPfSWord);
+extern int erts_printf_double(fmtfn_t, const void *, char, int, int, double);
 
 #ifdef HALFWORD_HEAP_EMULATOR
 #  if SIZEOF_INT != 4
@@ -65,7 +65,7 @@ typedef unsigned int ErlPfEterm;
 typedef ErlPfUWord ErlPfEterm;
 #endif
 
-extern int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long, ErlPfEterm*);
+extern int (*erts_printf_eterm_func)(fmtfn_t, const void*, ErlPfEterm, long, ErlPfEterm*);
 
 
 #endif /* ERL_PRINTF_FORMAT_H__ */

@@ -53,7 +53,7 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
 {
     Port *port;
     Eterm port_id;
-    char *str;
+    const char *str;
     int err_type, err_num;
 
     port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);

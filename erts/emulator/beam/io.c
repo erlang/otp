@@ -7022,7 +7022,7 @@ int driver_exit(ErlDrvPort ix, int err)
     if (err == 0)
         return driver_failure_term(ix, am_normal, 0);
     else {
-        char* err_str = erl_errno_id(err);
+        const char* err_str = erl_errno_id(err);
         Eterm am_err = erts_atom_put((byte *) err_str, sys_strlen(err_str),
 				     ERTS_ATOM_ENC_LATIN1, 1);
         return driver_failure_term(ix, am_err, 0);

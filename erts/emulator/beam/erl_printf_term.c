@@ -139,7 +139,7 @@ is_printable_string(Eterm list, Eterm* base)
 }
 
 /* print a atom doing what quoting is necessary */
-static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
+static int print_atom_name(fmtfn_t fn, const void* arg, Eterm atom, long *dcount)
 {
     int n, i;
     int res;
@@ -228,7 +228,7 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 #define PRT_LAST_ARRAY_ELEMENT ((Eterm) 8) /* Note! Must be last... */
 
 static int
-print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
+print_term(fmtfn_t fn, const void* arg, Eterm obj, long *dcount,
 	   Eterm* obj_base) /* ignored if !HALFWORD_HEAP */
 {
     DECLARE_WSTACK(s);
@@ -534,7 +534,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 }
 
 int
-erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,
+erts_printf_term(fmtfn_t fn, const void* arg, ErlPfEterm term, long precision,
 		 ErlPfEterm* term_base)
 {
     int res;

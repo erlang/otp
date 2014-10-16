@@ -228,7 +228,7 @@ static ErtsAllocatorWrapper_t mtrace_wrapper;
 #error ERTS_MTRACE_SEGMENT_ID >= ERTS_ALC_A_MIN || ERTS_MTRACE_SEGMENT_ID < 0
 #endif
 
-char* erl_errno_id(int error);
+const char* erl_errno_id(int error);
 
 #define INVALID_TIME_INC (0xffffffff)
 
@@ -303,7 +303,7 @@ static void
 disable_trace(int error, const char *reason, int eno)
 {
     char *mt_dis = "Memory trace disabled";
-    char *eno_str;
+    const char *eno_str;
 
     erts_mtrace_enabled = 0;
     erts_sock_close(socket_desc);

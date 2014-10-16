@@ -1495,7 +1495,7 @@ static ErlDrvTermData am_netns;
 
 
 static int inet_init(void);
-static ErlDrvSSizeT ctl_reply(int, char*, ErlDrvSizeT, char**, ErlDrvSizeT);
+static ErlDrvSSizeT ctl_reply(int, const char*, ErlDrvSizeT, char**, ErlDrvSizeT);
 
 struct erl_drv_entry inet_driver_entry = 
 {
@@ -1971,7 +1971,7 @@ static struct erl_drv_entry dummy_sctp_driver_entry =
 #endif
 
 /* return lowercase string form of errno value */
-static char *errno_str(int err)
+static const char *errno_str(int err)
 {
     switch (err) {
     case INET_ERRNO_SYSTEM_LIMIT:
@@ -1982,7 +1982,7 @@ static char *errno_str(int err)
 }
 
 /* general control reply function */
-static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
+static ErlDrvSSizeT ctl_reply(int rep, const char* buf, ErlDrvSizeT len,
 			      char** rbuf, ErlDrvSizeT rsize)
 {
     char* ptr;
@@ -2001,7 +2001,7 @@ static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
 /* general control error reply function */
 static ErlDrvSSizeT ctl_error(int err, char** rbuf, ErlDrvSizeT rsize)
 {
-    char* s = errno_str(err);
+    const char* s = errno_str(err);
 
     return ctl_reply(INET_REP_ERROR, s, strlen(s), rbuf, rsize);
 }

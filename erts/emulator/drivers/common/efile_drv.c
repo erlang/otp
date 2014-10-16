@@ -875,7 +875,7 @@ static void free_data(void *data)
 
 static void reply_posix_error(file_descriptor *desc, int posix_errno) {
     char response[256];		/* Response buffer. */
-    char* s;
+    const char* s;
     char* t;
     
     /*
@@ -897,7 +897,7 @@ static void reply_posix_error(file_descriptor *desc, int posix_errno) {
 static void reply_Uint_posix_error(file_descriptor *desc, Uint num, 
 				   int posix_errno) {
     char response[256];		/* Response buffer. */
-    char* s;
+    const char* s;
     char* t;
     
     /*
