@@ -49,7 +49,7 @@ static Uint max_loop_limit;
 
 static BIF_RETTYPE utf8_to_list(Process *p, Eterm arg1);
 static BIF_RETTYPE finalize_list_to_list(Process *p, 
-					 byte *bytes,
+                                         byte *bytes,
 					 Eterm rest,
 					 Uint num_processed_bytes,
 					 Uint num_bytes_to_process, 
@@ -1255,13 +1255,13 @@ int erts_analyze_utf8_x(const byte *source, Uint size,
 /*
  * No errors should be able to occur - no overlongs, no malformed, no nothing
  */
-static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, 
+static Eterm do_utf8_to_list(Process *p, Uint num, const byte *bytes, Uint sz,
 			     Uint left,
 			     Uint *num_built, Uint *num_eaten, Eterm tail)
 {
     Eterm *hp;
     Eterm ret;
-    byte *source, *ssource;
+    const byte *source, *ssource;
     Uint unipoint;
 
     ASSERT(num > 0);
@@ -1310,8 +1310,8 @@ static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
     return ret;
 }
 
-Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
-			Uint *num_built, Uint *num_eaten, Eterm tail)
+Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
+                        Uint left, Uint *num_built, Uint *num_eaten, Eterm tail)
 {
     return do_utf8_to_list(p, num, bytes, sz, left, num_built, num_eaten, tail);
 }
@@ -1467,11 +1467,11 @@ static void handle_potential_norm(Eterm **hpp, Uint16 *savepoints, int *numpoint
     *retp = ret;
 } 
 
-static Eterm do_utf8_to_list_normalize(Process *p, Uint num, byte *bytes, Uint sz)
+static Eterm do_utf8_to_list_normalize(Process *p, Uint num, const byte *bytes, Uint sz)
 {
     Eterm *hp,*hp_end;
     Eterm ret;
-    byte *source;
+    const byte *source;
     Uint unipoint;
     Uint16 savepoints[4];
     int numpoints = 0;
@@ -1535,7 +1535,7 @@ static Eterm do_utf8_to_list_normalize(Process *p, Uint num, byte *bytes, Uint s
  * "magic binary" during trapping.
  */
 static BIF_RETTYPE finalize_list_to_list(Process *p, 
-					 byte *bytes,
+                                         byte *bytes,
 					 Eterm rest,
 					 Uint num_processed_bytes,
 					 Uint num_bytes_to_process, 
@@ -2101,15 +2101,15 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
 }
 
 
-static int filename_len_16bit(byte *str) 
+static int filename_len_16bit(const byte *str)
 {
-    byte *p = str;
+    const byte *p = str;
     while(*p != '\0' || p[1] != '\0') {
 	p += 2;
     }
     return (p - str);
 }
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
+Eterm erts_convert_native_to_filename(Process *p, const byte *bytes)
 {
     Uint size,num_chars;
     Eterm *hp;
@@ -2323,7 +2323,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
     return need;
 }
 
-void erts_native_filename_put(Eterm ioterm, int encoding, byte *p) 
+void erts_native_filename_put(Eterm ioterm, int encoding, byte *p /*out*/)
 {
     Eterm *objp;
     Eterm obj;
@@ -2479,7 +2479,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
     DESTROY_ESTACK(stack);
     return;
 }
-void erts_copy_utf8_to_utf16_little(byte *target, const byte *bytes,
+void erts_copy_utf8_to_utf16_little(byte *target /*out*/, const byte *bytes,
                                     int num_chars)
 {
     Uint unipoint;
@@ -2785,7 +2785,7 @@ BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
     }
 }
 
-int erts_utf8_to_latin1(byte* dest, const byte* source, int slen)
+int erts_utf8_to_latin1(byte* dest /*out*/, const byte* source, int slen)
 {
     /*
      * Assumes source contains valid utf8 that can be encoded as latin1,

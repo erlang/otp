@@ -921,7 +921,7 @@ int erts_analyze_utf8(const byte *source, Uint size,
 int erts_analyze_utf8_x(const byte *source, Uint size,
                         const byte **err_pos, Uint *num_chars, int *left,
 			Sint *num_latin1_chars, Uint max_chars);
-char *erts_convert_filename_to_native(Eterm name, char *statbuf, 
+char *erts_convert_filename_to_native(Eterm name, char *statbuf,
 				      size_t statbuf_size, 
 				      ErtsAlcType_t alloc_type, 
 				      int allow_empty, int allow_atom,
@@ -937,9 +937,9 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
                                      char *statbuf, size_t statbuf_size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars);
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
-Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
-			Uint *num_built, Uint *num_eaten, Eterm tail);
+Eterm erts_convert_native_to_filename(Process *p, const byte *bytes);
+Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
+                        Uint left, Uint *num_built, Uint *num_eaten, Eterm tail);
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_OK 0
 #define ERTS_UTF8_INCOMPLETE 1
@@ -948,7 +948,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_OK_MAX_CHARS 4
 
 void bin_write(int, const void* to_arg, const byte* buf, size_t);
-int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
+int intlist_to_buf(Eterm, char* /*out*/, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
 #if defined(ARCH_64) && !HALFWORD_HEAP
@@ -1017,7 +1017,7 @@ Eterm buf_to_intlist(Eterm**, const char*, size_t, Eterm); /* most callers pass 
 #define ERTS_IOLIST_TO_BUF_SUCCEEDED(R) \
     (!ERTS_IOLIST_TO_BUF_FAILED((R)))
 
-ErlDrvSizeT erts_iolist_to_buf(Eterm, char*, ErlDrvSizeT);
+ErlDrvSizeT erts_iolist_to_buf(Eterm, char* /*out*/, ErlDrvSizeT);
 ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *);
 int erts_iolist_size_yielding(ErtsIOListState *state);
 int erts_iolist_size(Eterm, ErlDrvSizeT *);

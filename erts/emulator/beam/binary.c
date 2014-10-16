@@ -226,7 +226,8 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t al
 }
 
 Eterm
-erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs)
+erts_bin_bytes_to_list(Eterm previous, Eterm* hp, const byte* bytes, Uint size,
+                       Uint bitoffs)
 {
     if (bitoffs == 0) {
 	while (size) {

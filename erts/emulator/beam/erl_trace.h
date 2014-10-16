@@ -55,12 +55,13 @@ void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
 void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 void trace_send(Process*, Eterm, Eterm);
 void trace_receive(Process*, Eterm);
-Uint32 erts_call_trace(Process *p, BeamInstr mfa[], struct binary *match_spec, Eterm* args,
-		       int local, Eterm *tracer_pid);
-void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, Eterm *tracer_pid);
-void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
-			  Eterm *tracer);
-void erts_trace_return_to(Process *p, BeamInstr *pc);
+Uint32 erts_call_trace(Process *p, const BeamInstr mfa[],
+                       struct binary *match_spec, Eterm* args,
+                       int local, Eterm *tracer_pid);
+void erts_trace_return(Process* p, const BeamInstr* fi, Eterm retval, Eterm *tracer_pid);
+void erts_trace_exception(Process* p, const BeamInstr mfa[], Eterm class,
+                          Eterm value, Eterm *tracer);
+void erts_trace_return_to(Process *p, const BeamInstr *pc);
 void trace_sched(Process*, Eterm);
 void trace_proc(Process*, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm pid, Eterm mod, Eterm func, Eterm args);

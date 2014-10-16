@@ -445,7 +445,7 @@ erts_cancel_timer(ErlTimer* p)
   immediately if it hadn't been cancelled).
 */
 Uint
-erts_time_left(ErlTimer *p)
+erts_time_left(const ErlTimer *p)
 {
     Uint left;
     erts_short_time_t dt;

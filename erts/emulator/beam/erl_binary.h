@@ -160,7 +160,8 @@ void erts_init_binary(void);
 
 byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, ErtsAlcType_t, unsigned extra);
 /* Used by unicode module */
-Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs);
+Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, const byte* bytes,
+                             Uint size, Uint bitoffs);
 
 /*
  * Common implementation for erlang:list_to_binary/1 and binary:list_to_bin/1
