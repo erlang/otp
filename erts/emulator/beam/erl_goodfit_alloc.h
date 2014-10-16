@@ -36,7 +36,8 @@ typedef struct {
 }
 
 void erts_gfalc_init(void);
-Allctr_t *erts_gfalc_start(GFAllctr_t *, GFAllctrInit_t *, AllctrInit_t *);
+Allctr_t *erts_gfalc_start(GFAllctr_t *, GFAllctrInit_t *,
+                           const AllctrInit_t * init);
 
 #endif /* #ifndef ERL_GOODFIT_ALLOC__ */
 

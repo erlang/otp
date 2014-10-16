@@ -179,7 +179,7 @@ do {									\
    : (endp - tracep < (SZ) ? send_trace_buffer() : 1))
 
 
-static void disable_trace(int error, char *reason, int eno);
+static void disable_trace(int error, const char *reason, int eno);
 static int send_trace_buffer(void);
 
 #ifdef DEBUG
@@ -300,7 +300,7 @@ get_time_inc(void)
 
 
 static void
-disable_trace(int error, char *reason, int eno)
+disable_trace(int error, const char *reason, int eno)
 {
     char *mt_dis = "Memory trace disabled";
     char *eno_str;
@@ -725,7 +725,7 @@ erts_mtrace_exit(Uint32 exit_value)
 
 static ERTS_INLINE void
 write_alloc_entry(byte tag,
-		  void *res,
+                  const void *res,
 		  ErtsAlcType_t x,
 		  ErtsAlcType_t y,
 		  Uint size)
@@ -800,10 +800,10 @@ write_alloc_entry(byte tag,
 
 static ERTS_INLINE void
 write_realloc_entry(byte tag,
-		    void *res,
+                    const void *res,
 		    ErtsAlcType_t x,
 		    ErtsAlcType_t y,
-		    void *ptr,
+                    const void *ptr,
 		    Uint size)
 {
     erts_mtx_lock(&mtrace_buf_mutex);
@@ -881,7 +881,7 @@ static ERTS_INLINE void
 write_free_entry(byte tag,
 		 ErtsAlcType_t x,
 		 ErtsAlcType_t y,
-		 void *ptr)
+                 const void *ptr)
 {
     erts_mtx_lock(&mtrace_buf_mutex);
     if (erts_mtrace_enabled) {

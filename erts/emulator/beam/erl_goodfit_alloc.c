@@ -189,7 +189,7 @@ erts_gfalc_init(void)
 Allctr_t *
 erts_gfalc_start(GFAllctr_t *gfallctr,
 		 GFAllctrInit_t *gfinit,
-		 AllctrInit_t *init)
+                 const AllctrInit_t *init)
 {
     struct {
 	int dummy;
