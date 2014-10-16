@@ -156,9 +156,8 @@ void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
 void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
-Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 
-Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
+Uint erts_encode_ext_dist_header_size(const ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_finalize(byte *, ErtsAtomCache *, Uint32);
 Uint erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap *);
@@ -175,7 +174,7 @@ ERTS_GLB_INLINE void erts_peek_dist_header(ErtsDistHeaderPeek *, byte *, Uint);
 #endif
 ERTS_GLB_INLINE void erts_free_dist_ext_copy(ErtsDistExternal *);
 ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
-ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
+ErtsDistExternal *erts_make_dist_ext_copy(const ErtsDistExternal *, Uint);
 void *erts_dist_ext_trailer(ErtsDistExternal *);
 void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
@@ -183,8 +182,8 @@ int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
 Sint erts_decode_dist_ext_size(ErtsDistExternal *);
 Eterm erts_decode_dist_ext(Eterm **, ErlOffHeap *, ErtsDistExternal *);
 
-Sint erts_decode_ext_size(byte*, Uint);
-Sint erts_decode_ext_size_ets(byte*, Uint);
+Sint erts_decode_ext_size(const byte*, Uint);
+Sint erts_decode_ext_size_ets(const byte*, Uint);
 Eterm erts_decode_ext(Eterm **, ErlOffHeap *, byte**);
 Eterm erts_decode_ext_ets(Eterm **, ErlOffHeap *, byte*);
 
