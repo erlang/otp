@@ -51,10 +51,10 @@ typedef struct index_table
 #define INDEX_PAGE_MASK ((1 << INDEX_PAGE_SHIFT)-1)
 
 IndexTable *erts_index_init(ErtsAlcType_t,IndexTable*,char*,int,int,HashFunctions);
-void index_info(int, void *, IndexTable*);
+void index_info(int, const void* to_arg, const IndexTable*);
 int index_table_sz(IndexTable *);
 
-int index_get(IndexTable*, void*);
+int index_get(const IndexTable*, const void*);
 
 IndexSlot* index_put_entry(IndexTable*, void*);
 void erts_index_merge(Hash*, IndexTable*);
@@ -64,7 +64,7 @@ void erts_index_merge(Hash*, IndexTable*);
 void index_erase_latest_from(IndexTable*, Uint ix);
 
 ERTS_GLB_INLINE int index_put(IndexTable*, void*);
-ERTS_GLB_INLINE IndexSlot* erts_index_lookup(IndexTable*, Uint);
+ERTS_GLB_INLINE IndexSlot* erts_index_lookup(const IndexTable*, Uint);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -74,7 +74,7 @@ ERTS_GLB_INLINE int index_put(IndexTable* t, void* tmpl)
 }
 
 ERTS_GLB_INLINE IndexSlot*
-erts_index_lookup(IndexTable* t, Uint ix)
+erts_index_lookup(const IndexTable* t, Uint ix)
 {
     return t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK];
 }

@@ -26,7 +26,7 @@
 #include "global.h"
 #include "index.h"
 
-void index_info(int to, void *arg, IndexTable *t)
+void index_info(int to, const void *arg, const IndexTable *t)
 {
     hash_info(to, arg, &t->htable);
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);
@@ -96,7 +96,7 @@ index_put_entry(IndexTable* t, void* tmpl)
     return p;
 }
 
-int index_get(IndexTable* t, void* tmpl)
+int index_get(const IndexTable* t, const void* tmpl)
 {
     IndexSlot* p = (IndexSlot*) hash_get(&t->htable, tmpl);
 

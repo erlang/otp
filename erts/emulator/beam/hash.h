@@ -57,7 +57,7 @@ typedef struct hash_functions
 } HashFunctions;
 
 typedef struct {
-  char *name;
+  const char *name;
   int   size;
   int   used;
   int   objs;
@@ -69,7 +69,7 @@ typedef struct hash
     HashFunctions fun;   /* Function block */
     int is_allocated;    /* 0 iff hash structure is on stack or is static */
     ErtsAlcType_t type;
-    char* name;          /* Table name (static string, for debugging) */
+    const char* name;    /* Table name (static string, for debugging) */
     int size;		 /* Number of slots */
     int size20percent;   /* 20 percent of number of slots */
     int size80percent;   /* 80 percent of number of slots */
@@ -78,15 +78,15 @@ typedef struct hash
     HashBucket** bucket; /* Vector of bucket pointers (objects) */
 } Hash;
 
-Hash* hash_new(ErtsAlcType_t, char*, int, HashFunctions);
-Hash* hash_init(ErtsAlcType_t, Hash*, char*, int, HashFunctions);
+Hash* hash_new(ErtsAlcType_t, const char*, int, HashFunctions);
+Hash* hash_init(ErtsAlcType_t, Hash*, const char*, int, HashFunctions);
 
 void  hash_delete(Hash*);
-void  hash_get_info(HashInfo*, Hash*);
-void  hash_info(int, const void * to_arg, Hash*);
-int   hash_table_sz(Hash *);
+void  hash_get_info(HashInfo*, const Hash*);
+void  hash_info(int, const void * to_arg, const Hash*);
+int   hash_table_sz(const Hash *);
 
-void* hash_get(Hash*, const void*);
+void* hash_get(const Hash*, const void*);
 void* hash_put(Hash*, const void*);
 const void* hash_erase(Hash*, const void*);
 void* hash_remove(Hash*, const void*);

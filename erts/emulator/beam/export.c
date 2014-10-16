@@ -83,7 +83,7 @@ static struct export_blob* entry_to_blob(struct export_entry* ee)
 }
 
 void
-export_info(int to, void *to_arg)
+export_info(int to, const void *to_arg)
 {
 #ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
@@ -100,7 +100,7 @@ export_info(int to, void *to_arg)
 
 
 static HashValue
-export_hash(struct export_entry* ee)
+export_hash(const struct export_entry* ee)
 {
     Export* x = ee->ep;
     return EXPORT_HASH(x->code[0], x->code[1], x->code[2]);
