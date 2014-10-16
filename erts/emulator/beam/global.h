@@ -138,7 +138,7 @@ struct erts_driver_t_ {
 #ifdef ERTS_SMP
     erts_smp_mtx_t *lock;
 #endif
-    ErlDrvEntry *entry;
+    const ErlDrvEntry *entry;
     ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
     void (*finish)(void);

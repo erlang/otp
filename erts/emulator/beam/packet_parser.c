@@ -55,7 +55,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
     int i;
 
     for (i=0;i<n-1 && s1[i] && s2[i] && toupper(s1[i]) == toupper(s2[i]);++i)
-	;
+        ;
     return (toupper(s1[i]) - toupper(s2[i]));
 }
 	

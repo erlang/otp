@@ -54,7 +54,7 @@ index_table_sz(IndexTable *t)
 ** and allocate buckets.
 */
 IndexTable*
-erts_index_init(ErtsAlcType_t type, IndexTable* t, char* name,
+erts_index_init(ErtsAlcType_t type, IndexTable* t, const char* name,
 		int size, int limit, HashFunctions fun)
 {
     Uint base_size = ((limit+INDEX_PAGE_SIZE-1)/INDEX_PAGE_SIZE)*sizeof(IndexSlot*);

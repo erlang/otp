@@ -50,7 +50,8 @@ typedef struct index_table
 #define INDEX_PAGE_SIZE (1 << INDEX_PAGE_SHIFT)
 #define INDEX_PAGE_MASK ((1 << INDEX_PAGE_SHIFT)-1)
 
-IndexTable *erts_index_init(ErtsAlcType_t,IndexTable*,char*,int,int,HashFunctions);
+IndexTable *erts_index_init(ErtsAlcType_t, IndexTable *, const char*,
+                            int, int, HashFunctions);
 void index_info(int, const void* to_arg, const IndexTable*);
 int index_table_sz(IndexTable *);
 

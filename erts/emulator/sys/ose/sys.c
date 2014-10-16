@@ -1602,7 +1602,7 @@ erts_sys_unsetenv(char *key)
 }
 
 int
-erts_sys_getenv__(char *key, char *value, size_t *size)
+erts_sys_getenv__(const char *key, char *value /*out*/, size_t *size)
 {
     int res;
     char *orig_value = get_env(get_bid(current_process()), key);
@@ -1625,7 +1625,7 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 }
 
 int
-erts_sys_getenv_raw(char *key, char *value, size_t *size) {
+erts_sys_getenv_raw(const char *key, char *value /*out*/, size_t *size) {
     return erts_sys_getenv(key, value, size);
 }
 
@@ -1639,7 +1639,7 @@ erts_sys_getenv_raw(char *key, char *value, size_t *size) {
  */
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv(const char *key, char *value /*out*/, size_t *size)
 {
     int res;
     erts_smp_rwmtx_rlock(&environ_rwmtx);

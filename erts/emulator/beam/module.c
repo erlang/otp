@@ -49,25 +49,25 @@ static erts_smp_atomic_t tot_module_bytes;
 
 #include "erl_smp.h"
 
-void module_info(int to, void *to_arg)
+void module_info(int to, const void *to_arg)
 {
     index_info(to, to_arg, &module_tables[erts_active_code_ix()]);
 }
 
 
-static HashValue module_hash(Module* x)
+static HashValue module_hash(const Module* x)
 {
     return (HashValue) x->module;
 }
 
 
-static int module_cmp(Module* tmpl, Module* obj)
+static int module_cmp(const Module* tmpl, const Module* obj)
 {
     return tmpl->module != obj->module;
 }
 
 
-static Module* module_alloc(Module* tmpl)
+static Module* module_alloc(const Module* tmpl)
 {
     Module* obj = (Module*) erts_alloc(ERTS_ALC_T_MODULE, sizeof(Module));
     erts_smp_atomic_add_nob(&tot_module_bytes, sizeof(Module));

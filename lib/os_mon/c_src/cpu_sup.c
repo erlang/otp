@@ -474,7 +474,8 @@ static void error(const char* err_msg) {
   buffer[i++] = '\n';
 
   /* try to use one write only */
-  if(write(FD_ERR, buffer, i));
+  if(write(FD_ERR, buffer, i)) {
+  }
   exit(-1);
 }
 

@@ -523,7 +523,7 @@ EXTERN int driver_pushqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip);
  * Add and remove driver entries.
  */
 EXTERN void add_driver_entry(ErlDrvEntry *de);
-EXTERN int remove_driver_entry(ErlDrvEntry *de);
+EXTERN int remove_driver_entry(const ErlDrvEntry *de);
 
 /*
  * System info
@@ -687,14 +687,14 @@ EXTERN int driver_get_now(ErlDrvNowData *now);
 
 /* These were removed from the ANSI version, now they're back. */
 
-EXTERN void *driver_dl_open(char *);
-EXTERN void *driver_dl_sym(void *, char *);
+EXTERN void *driver_dl_open(const char *);
+EXTERN void *driver_dl_sym(void *, const char *);
 EXTERN int driver_dl_close(void *);
 EXTERN char *driver_dl_error(void);
 
 /* environment */
-EXTERN int erl_drv_putenv(char *key, char *value);
-EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+EXTERN int erl_drv_putenv(const char *key, const char *value);
+EXTERN int erl_drv_getenv(const char *key, char *value /*out*/, size_t *value_size);
 
 #ifdef __OSE__
 typedef ErlDrvUInt ErlDrvOseEventId;

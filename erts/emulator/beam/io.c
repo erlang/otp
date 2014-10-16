@@ -79,7 +79,7 @@ int erts_port_schedule_all_ops = 0;
 int erts_port_parallelism = 0;
 
 static void deliver_result(Eterm sender, Eterm pid, Eterm res);
-static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *);
+static int init_driver(erts_driver_t *, const ErlDrvEntry *, DE_Handle *);
 static void terminate_port(Port *p);
 static void pdl_init(void);
 #ifdef ERTS_SMP
@@ -7151,7 +7151,7 @@ static void maybe_unlock_driver_list(int doit)
    Writing code using these interfaces spanning several driver callbacks between loading/lookup 
    and error handling may give undesired results...
 */
-void *driver_dl_open(char * path)
+void *driver_dl_open(const char * path)
 {
     void *ptr;
     int res;
@@ -7171,7 +7171,7 @@ void *driver_dl_open(char * path)
     }
 }
 
-void *driver_dl_sym(void * handle, char *func_name)
+void *driver_dl_sym(void * handle, const char *func_name)
 {
     void *ptr;
     int res;
@@ -7351,7 +7351,7 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
 
 
 static int
-init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
+init_driver(erts_driver_t *drv, const ErlDrvEntry *de, DE_Handle *handle)
 {
     drv->name = de->driver_name;
     ASSERT(de->extended_marker == ERL_DRV_EXTENDED_MARKER);
@@ -7482,7 +7482,7 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
 }
 
 /* Not allowed for dynamic drivers */
-int remove_driver_entry(ErlDrvEntry *drv)
+int remove_driver_entry(const ErlDrvEntry *drv)
 {
     erts_driver_t *dp;
     void *rec_lock;
@@ -7530,13 +7530,13 @@ int null_func(void)
 }
 
 int
-erl_drv_putenv(char *key, char *value)
+erl_drv_putenv(const char *key, const char *value)
 {
     return erts_sys_putenv_raw(key, value);
 }
 
 int
-erl_drv_getenv(char *key, char *value, size_t *value_size)
+erl_drv_getenv(const char *key, char *value /*out*/, size_t *value_size)
 {
     return erts_sys_getenv_raw(key, value, value_size);
 }
