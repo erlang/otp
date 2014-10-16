@@ -67,7 +67,7 @@ static Uint atom_space;		/* Amount of atom text space used */
 /*
  * Print info about atom tables
  */
-void atom_info(int to, void *to_arg)
+void atom_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)

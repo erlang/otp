@@ -42,7 +42,7 @@ int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* e
    return ERL_DE_ERROR_NO_DDLL_FUNCTIONALITY;
 }
 
-int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open_noext(const char *dlname, void **handle, ErtsSysDdllError* err)
 {
    return ERL_DE_ERROR_NO_DDLL_FUNCTIONALITY;
 }

@@ -139,7 +139,7 @@ Eterm erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc);
 int atom_erase(byte*, int);
 int atom_static_put(byte*, int);
 void init_atom_table(void);
-void atom_info(int, void *);
+void atom_info(int, const void *);
 void dump_atoms(int, void *);
 int erts_atom_get(const char* name, int len, Eterm* ap, ErtsAtomEncoding enc);
 void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used);

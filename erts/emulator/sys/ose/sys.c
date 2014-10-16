@@ -1566,7 +1566,7 @@ int getpagesize(void)
 ** no interpretatione of this should be done by the rest of the
 ** emulator. The buffer should be at least 21 bytes long.
 */
-void sys_get_pid(char *buffer, size_t buffer_size){
+void sys_get_pid(char *buffer /*out*/, size_t buffer_size){
     pid_t p = getpid();
     /* Assume the pid is scalar and can rest in an unsigned long... */
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);

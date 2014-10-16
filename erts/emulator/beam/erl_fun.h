@@ -69,7 +69,7 @@ typedef struct erl_fun_thing {
 #define ERL_FUN_SIZE ((sizeof(ErlFunThing)/sizeof(Eterm))-1)
 
 void erts_init_fun_table(void);
-void erts_fun_info(int, void *);
+void erts_fun_info(int, const void *);
 int erts_fun_table_sz(void);
 
 ErlFunEntry* erts_put_fun_entry(Eterm mod, int uniq, int index);

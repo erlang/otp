@@ -186,7 +186,7 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
+erl_grow_estack(ErtsEStack* s, const Eterm* default_estack)
 {
     Uint old_size = (s->end - s->start);
     Uint new_size = old_size * 2;
@@ -206,7 +206,7 @@ erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
  * Helper function for the WSTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
+erl_grow_wstack(ErtsWStack* s, const UWord* default_wstack)
 {
     Uint old_size = (s->wend - s->wstart);
     Uint new_size = old_size * 2;
@@ -382,7 +382,7 @@ erts_bld_atom(Uint **hpp, Uint *szp, const char *str)
 }
 
 Eterm
-erts_bld_uint(Uint **hpp, Uint *szp, Uint ui)
+erts_bld_uint(Uint **hpp /*out*/, Uint *szp /*out*/, Uint ui)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_USMALL(0, ui)) {
@@ -406,7 +406,7 @@ erts_bld_uint(Uint **hpp, Uint *szp, Uint ui)
  */
 
 Eterm
-erts_bld_uword(Uint **hpp, Uint *szp, UWord uw)
+erts_bld_uword(Uint **hpp /*out*/, Uint *szp /*out*/, UWord uw)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_USMALL(0, uw)) {
@@ -426,7 +426,7 @@ erts_bld_uword(Uint **hpp, Uint *szp, UWord uw)
 
 
 Eterm
-erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64)
+erts_bld_uint64(Uint **hpp /*out*/, Uint *szp /*out*/, Uint64 ui64)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_USMALL(0, ui64)) {
@@ -443,7 +443,7 @@ erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64)
 }
 
 Eterm
-erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64)
+erts_bld_sint64(Uint **hpp /*out*/, Uint *szp /*out*/, Sint64 si64)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_SSMALL(si64)) {
@@ -461,7 +461,7 @@ erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64)
 
 
 Eterm
-erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr)
+erts_bld_cons(Uint **hpp /*out*/, Uint *szp /*out*/, Eterm car, Eterm cdr)
 {
     Eterm res = THE_NON_VALUE;
     if (szp)
@@ -474,7 +474,7 @@ erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr)
 }
 
 Eterm
-erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...)
+erts_bld_tuple(Uint **hpp /*out*/, Uint *szp /*out*/, Uint arity, ...)
 {
     Eterm res = THE_NON_VALUE;
 
@@ -562,7 +562,7 @@ erts_bld_list(Uint **hpp /*out*/, Uint *szp /*out*/, Sint length, Eterm terms[])
 }
 
 Eterm
-erts_bld_2tup_list(Uint **hpp, Uint *szp,
+erts_bld_2tup_list(Uint **hpp /*out*/, Uint *szp /*out*/,
 		   Sint length, Eterm terms1[], Uint terms2[])
 {
     Eterm res = THE_NON_VALUE;
@@ -3022,7 +3022,7 @@ not_equal:
 
 
 Eterm
-store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
+store_external_or_ref_(Uint **hpp /*out*/, ErlOffHeap* oh, Eterm ns)
 {
     Uint i;
     Uint size;
@@ -3151,7 +3151,7 @@ char* Sint_to_buf(Sint n, struct Sint_buf *buf)
 */
 
 Eterm
-buf_to_intlist(Eterm** hpp, const char *buf, size_t len, Eterm tail)
+buf_to_intlist(Eterm** hpp /*out*/, const char *buf, size_t len, Eterm tail)
 {
     Eterm* hp = *hpp;
     size_t i = len;
@@ -3493,7 +3493,7 @@ ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *state)
     return iolist_to_buf(1, state, state->iolist.obj, state->buf, state->len);
 }
 
-ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
+ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf /*out*/, ErlDrvSizeT alloced_len)
 {
     return iolist_to_buf(0, NULL, obj, buf, alloced_len);
 }
@@ -3508,7 +3508,8 @@ ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
  */
 
 static ERTS_INLINE int
-iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSizeT* sizep)
+iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj,
+            ErlDrvSizeT* sizep /*out*/)
 {
     int res, init_yield_count, yield_count;
     Eterm* objp;
@@ -4499,8 +4500,7 @@ void pinfo()
 }
 
 
-void pp(p)
-Process *p;
+void pp(const Process *p)
 {
     if(p)
 	print_process_info(ERTS_PRINT_STDERR, NULL, p);
@@ -4517,7 +4517,7 @@ void td(Eterm x)
 }
 
 void
-ps(Process* p, Eterm* stop)
+ps(const Process* p, const Eterm* stop)
 {
     Eterm* sp = STACK_START(p) - 1;
 

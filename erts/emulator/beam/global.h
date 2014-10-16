@@ -379,7 +379,7 @@ typedef struct {
 
 #define DEF_ESTACK_SIZE (16)
 
-void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
+void erl_grow_estack(ErtsEStack*, const Eterm* def_stack);
 #define ESTK_CONCAT(a,b) a##b
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
@@ -497,7 +497,7 @@ typedef struct {
 
 #define DEF_WSTACK_SIZE (16)
 
-void erl_grow_wstack(ErtsWStack*, UWord* def_stack);
+void erl_grow_wstack(ErtsWStack*, const UWord* def_stack);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
@@ -700,10 +700,10 @@ void erts_lookup_function_info(FunctionInfo* fi, const BeamInstr* pc,
 void init_break_handler(void);
 void erts_set_ignore_break(void);
 void erts_replace_intr(void);
-void process_info(int, void *);
-void print_process_info(int, void *, Process*);
-void info(int, void *);
-void loaded(int, void *);
+void process_info(int, const void *);
+void print_process_info(int, const void *, Process*);
+void info(int, const void *);
+void loaded(int, const void *);
 
 /* config.c */
 

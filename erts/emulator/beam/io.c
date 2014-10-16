@@ -4618,7 +4618,7 @@ erts_port_info(Process* c_p,
 
 typedef struct {
     int to;
-    void *arg;
+    const void *arg;
 } prt_one_lnk_data;
 
 static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
@@ -4634,7 +4634,7 @@ static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
 }
 
 void
-print_port_info(Port *p, int to, void *arg)
+print_port_info(Port *p, int to, const void *arg)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&p->state);
 

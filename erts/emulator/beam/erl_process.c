@@ -12169,7 +12169,7 @@ set_timer(Process* p, Uint timeout)
  */
 
 void
-erts_stack_dump(int to, void *to_arg, Process *p)
+erts_stack_dump(int to, const void *to_arg, Process *p)
 {
     Eterm* sp;
     int yreg = -1;
@@ -12184,7 +12184,7 @@ erts_stack_dump(int to, void *to_arg, Process *p)
 }
 
 void
-erts_program_counter_info(int to, void *to_arg, Process *p)
+erts_program_counter_info(int to, const void *to_arg, Process *p)
 {
     erts_aint32_t state;
     int i;

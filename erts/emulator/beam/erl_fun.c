@@ -70,7 +70,7 @@ erts_init_fun_table(void)
 }
 
 void
-erts_fun_info(int to, void *to_arg)
+erts_fun_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)

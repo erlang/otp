@@ -136,7 +136,7 @@ static char* find_first_trailing_zero(char* p)
 }
 
 int
-sys_double_to_chars(double fp, char *buffer, size_t buffer_size)
+sys_double_to_chars(double fp, char *buffer /*out*/, size_t buffer_size)
 {
     return sys_double_to_chars_ext(fp, buffer, buffer_size, SYS_DEFAULT_FLOAT_DECIMALS);
 }
@@ -146,8 +146,8 @@ sys_double_to_chars(double fp, char *buffer, size_t buffer_size)
  *   if compact != 0, the trailing 0's will be truncated
  */
 int
-sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
-			 int compact)
+sys_double_to_chars_fast(double f, char *buffer /*out*/, int buffer_size,
+                         int decimals, int compact)
 {
     /* Note that some C compilers don't support "static const" propagation
      * so we use a defines */

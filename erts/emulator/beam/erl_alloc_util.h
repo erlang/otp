@@ -163,10 +163,10 @@ void *	erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
 #endif
 #endif
-Eterm	erts_alcu_au_info_options(int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_au_info_options(int *, const void *, Uint **, Uint *);
 Eterm	erts_alcu_info_options(Allctr_t *, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_sz_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_sz_info(Allctr_t *, int, int, int *, const void *, Uint **, Uint *);
+Eterm	erts_alcu_info(Allctr_t *, int, int, int *, const void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);

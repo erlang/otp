@@ -107,7 +107,7 @@ void  erts_mseg_init(ErtsMsegInit_t *init);
 void  erts_mseg_late_init(void); /* Have to be called after all allocators,
 				   threads and timers have been initialized. */
 Eterm erts_mseg_info_options(int, int *, void*, Uint **, Uint *);
-Eterm erts_mseg_info(int, int *, void*, int, Uint **, Uint *);
+Eterm erts_mseg_info(int, int *, const void*, int, Uint **, Uint *);
 
 #endif /* #if HAVE_ERTS_MSEG */
 

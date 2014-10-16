@@ -763,7 +763,7 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
 /* Float conversion */
 
 int
-sys_chars_to_double(char* buf, double* fp)
+sys_chars_to_double(char* buf /*in+out*/, double* fp /*out*/)
 {
 #ifndef NO_FPE_SIGNALS
     volatile unsigned long *fpexnp = erts_get_current_fp_exception();

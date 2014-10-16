@@ -333,7 +333,7 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 #define ERTS_PORT_REDS_INFO		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_TERMINATE	(CONTEXT_REDS/50)
 
-void print_port_info(Port *, int, void *);
+void print_port_info(Port *, int, const void *);
 void erts_port_free(Port *);
 #ifndef ERTS_SMP
 void erts_port_cleanup(Port *);

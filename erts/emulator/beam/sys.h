@@ -677,7 +677,7 @@ typedef struct {
 extern void erts_sys_ddll_free_error(ErtsSysDdllError*);
 extern void erl_sys_ddll_init(void); /* to initialize mutexes etc */
 extern int erts_sys_ddll_open(const char *path, void **handle, ErtsSysDdllError*);
-extern int erts_sys_ddll_open_noext(char *path, void **handle, ErtsSysDdllError*);
+extern int erts_sys_ddll_open_noext(const char *path, void **handle, ErtsSysDdllError*);
 extern int erts_sys_ddll_load_driver_init(void *handle, void **function);
 extern int erts_sys_ddll_load_nif_init(void *handle, void **function,ErtsSysDdllError*);
 extern int erts_sys_ddll_close2(void *handle, ErtsSysDdllError*);
@@ -748,11 +748,11 @@ void fini_getenv_state(GETENV_STATE *);
 /* xxxP */
 #define SYS_DEFAULT_FLOAT_DECIMALS 20
 void init_sys_float(void);
-int sys_chars_to_double(char*, double*);
-int sys_double_to_chars(double, char*, size_t);
-int sys_double_to_chars_ext(double, char*, size_t, size_t);
-int sys_double_to_chars_fast(double, char*, int, int, int);
-void sys_get_pid(char *, size_t);
+int sys_chars_to_double(char* /*in+out*/, double* /*out*/);
+int sys_double_to_chars(double, char* /*out*/, size_t);
+int sys_double_to_chars_ext(double, char* /*out*/, size_t, size_t);
+int sys_double_to_chars_fast(double, char* /*out*/, int, int, int);
+void sys_get_pid(char * /*out*/, size_t);
 
 /* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */
 int erts_sys_putenv(const char *key, const char *value);

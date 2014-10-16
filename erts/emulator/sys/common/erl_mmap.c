@@ -2313,7 +2313,7 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 }
 
 Eterm erts_mmap_info(int *print_to_p,
-                     void *print_to_arg,
+                     const void *print_to_arg,
                      Eterm** hpp, Uint* szp,
                      struct erts_mmap_info_struct* emis)
 {
@@ -2348,7 +2348,7 @@ Eterm erts_mmap_info(int *print_to_p,
 
     if (print_to_p) {
         int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
         if (mmap_state.supercarrier) {
             const char* prefix = "supercarrier ";
             erts_print(to, arg, "%stotal size: %bpu\n", prefix, emis->sizes[0]);
@@ -2402,9 +2402,9 @@ Eterm erts_mmap_info(int *print_to_p,
 
 Eterm erts_mmap_info_options(char *prefix,
                              int *print_to_p,
-                             void *print_to_arg,
-                             Uint **hpp,
-                             Uint *szp)
+                             const void *print_to_arg,
+                             Uint **hpp /*out*/,
+                             Uint *szp /*out*/)
 {
     const UWord scs = mmap_state.sua.top - mmap_state.sa.bot;
     const Eterm sco = mmap_state.no_os_mmap ? am_true : am_false;
@@ -2413,7 +2413,7 @@ Eterm erts_mmap_info_options(char *prefix,
 
     if (print_to_p) {
         int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
         erts_print(to, arg, "%sscs: %bpu\n", prefix, scs);
         if (mmap_state.supercarrier) {
             erts_print(to, arg, "%ssco: %T\n", prefix, sco);
