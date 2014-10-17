@@ -716,6 +716,7 @@ logger_loop(State) ->
 			end
 		end,
 	    if Importance >= (100-VLvl) ->
+		    CtLogFd = State#logger_state.ct_log_fd,
 		    case get_groupleader(Pid, GL, State) of
 			{tc_log,TCGL,TCGLs} ->
 			    case erlang:is_process_alive(TCGL) of
@@ -729,7 +730,7 @@ logger_loop(State) ->
 				    %% Group leader is dead, so write to the
 				    %% CtLog or unexpected_io log instead
 				    unexpected_io(Pid,Category,Importance,
-						  List,State),
+						  List,CtLogFd),
 
 				    logger_loop(State)			    
 			    end;
@@ -737,7 +738,7 @@ logger_loop(State) ->
 			    %% If category is ct_internal then write
 			    %% to ct_log, else write to unexpected_io
 			    %% log
-			    unexpected_io(Pid,Category,Importance,List,State),
+			    unexpected_io(Pid,Category,Importance,List,CtLogFd),
 			    logger_loop(State#logger_state{
 					  tc_groupleaders = TCGLs})
 		    end;
@@ -810,16 +811,15 @@ logger_loop(State) ->
 	    ok
     end.
 
-create_io_fun(FromPid, State) ->
+create_io_fun(FromPid, CtLogFd) ->
     %% we have to build one io-list of all strings
     %% before printing, or other io printouts (made in
     %% parallel) may get printed between this header 
     %% and footer
-    Fd = State#logger_state.ct_log_fd,
     fun({Str,Args}, IoList) ->
 	    case catch io_lib:format(Str,Args) of
 		{'EXIT',_Reason} ->
-		    io:format(Fd, "Logging fails! Str: ~p, Args: ~p~n",
+		    io:format(CtLogFd, "Logging fails! Str: ~p, Args: ~p~n",
 			      [Str,Args]),
 		    %% stop the testcase, we need to see the fault
 		    exit(FromPid, {log_printout_error,Str,Args}),
@@ -834,20 +834,22 @@ create_io_fun(FromPid, State) ->
 print_to_log(sync, FromPid, Category, TCGL, List, State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
+    CtLogFd = State#logger_state.ct_log_fd,
     if FromPid /= TCGL ->
-	    IoFun = create_io_fun(FromPid, State),
+	    IoFun = create_io_fun(FromPid, CtLogFd),
 	    io:format(TCGL,"~ts", [lists:foldl(IoFun, [], List)]);
        true ->
-	    unexpected_io(FromPid,Category,?MAX_IMPORTANCE,List,State)
+	    unexpected_io(FromPid,Category,?MAX_IMPORTANCE,List,CtLogFd)
     end,
     State;
 
 print_to_log(async, FromPid, Category, TCGL, List, State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
+    CtLogFd = State#logger_state.ct_log_fd,
     Printer =
 	if FromPid /= TCGL ->
-		IoFun = create_io_fun(FromPid, State),
+		IoFun = create_io_fun(FromPid, CtLogFd),
 		fun() ->
 			test_server:permit_io(TCGL, self()),
 
@@ -867,18 +869,18 @@ print_to_log(async, FromPid, Category, TCGL, List, State) ->
 				    _:terminated ->
 					unexpected_io(FromPid, Category,
 						      ?MAX_IMPORTANCE,
-						      List, State)
+						      List, CtLogFd)
 				end;
 			    false ->
 				unexpected_io(FromPid, Category,
 					      ?MAX_IMPORTANCE,
-					      List, State)
+					      List, CtLogFd)
 			end
 		end;
 	   true ->
 		fun() ->
 			unexpected_io(FromPid, Category, ?MAX_IMPORTANCE,
-				      List, State)
+				      List, CtLogFd)
 		end
 	end,
     case State#logger_state.async_print_jobs of
@@ -3179,12 +3181,11 @@ html_encoding(latin1) ->
 html_encoding(utf8) ->
     "utf-8".
 
-unexpected_io(Pid,ct_internal,_Importance,List,State) ->
-    IoFun = create_io_fun(Pid,State),
-    io:format(State#logger_state.ct_log_fd, "~ts",
-	      [lists:foldl(IoFun, [], List)]);
-unexpected_io(Pid,_Category,_Importance,List,State) ->
-    IoFun = create_io_fun(Pid,State),
+unexpected_io(Pid,ct_internal,_Importance,List,CtLogFd) ->
+    IoFun = create_io_fun(Pid,CtLogFd),
+    io:format(CtLogFd, "~ts", [lists:foldl(IoFun, [], List)]);
+unexpected_io(Pid,_Category,_Importance,List,CtLogFd) ->
+    IoFun = create_io_fun(Pid,CtLogFd),
     Data = io_lib:format("~ts", [lists:foldl(IoFun, [], List)]),
     test_server_io:print_unexpected(Data),
     ok.
