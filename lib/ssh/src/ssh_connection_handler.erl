@@ -565,7 +565,7 @@ connected({#ssh_msg_kexinit{}, _Payload} = Event, State) ->
 
 %%--------------------------------------------------------------------
 handle_event(#ssh_msg_disconnect{description = Desc} = DisconnectMsg, _StateName, #state{} = State) ->
-    handle_disconnect(DisconnectMsg, State),
+    handle_disconnect(peer, DisconnectMsg, State),
     {stop, {shutdown, Desc}, State};
 
 handle_event(#ssh_msg_ignore{}, StateName, State) ->
@@ -1280,13 +1280,23 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 generate_event(Msg, StateName, State0, EncData) ->
     Event = ssh_message:decode(Msg),
     State = generate_event_new_state(State0, EncData),
-    case Event of
-	#ssh_msg_kexinit{} ->
-	    %% We need payload for verification later.
-	    event({Event, Msg}, StateName, State);
-	_ ->
-	    event(Event, StateName, State)
-    end.
+    try 
+	case Event of
+	    #ssh_msg_kexinit{} ->
+		%% We need payload for verification later.
+		event({Event, Msg}, StateName, State);
+	    _ ->
+		event(Event, StateName, State)
+	end
+    catch 
+	_:_  ->
+	    DisconnectMsg =
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR, 
+				    description = "Encountered unexpected input",
+				    language = "en"},
+	    handle_disconnect(DisconnectMsg, State)   
+    end.		
+	    
 
 
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From,
@@ -1464,16 +1474,26 @@ handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
 	    handle_disconnect(DisconnectMsg, State0)
     end.
 
-handle_disconnect(#ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
-									role = Role} = State0) ->
+handle_disconnect(DisconnectMsg, State) ->
+    handle_disconnect(own, DisconnectMsg, State).
+
+handle_disconnect(#ssh_msg_disconnect{} = DisconnectMsg, State, Error) ->
+    handle_disconnect(own, DisconnectMsg, State, Error);
+handle_disconnect(Type,  #ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,									role = Role} = State0) ->
     {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
-    State = send_replies(Replies, State0),
+    State = send_replies(disconnect_replies(Type, Msg, Replies), State0),
     {stop, {shutdown, Desc}, State#state{connection_state = Connection}}.
-handle_disconnect(#ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
-									role = Role} = State0, ErrorMsg) ->
+
+handle_disconnect(Type, #ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
+									      role = Role} = State0, ErrorMsg) ->
     {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
-    State = send_replies(Replies, State0),
+    State = send_replies(disconnect_replies(Type, Msg, Replies), State0),
     {stop, {shutdown, {Desc, ErrorMsg}}, State#state{connection_state = Connection}}.
+
+disconnect_replies(own, Msg, Replies) ->
+    [{connection_reply, Msg} | Replies];
+disconnect_replies(peer, _, Replies) ->
+    Replies.
 
 counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
     Ssh#ssh{c_vsn = NumVsn , c_version = StrVsn};
