@@ -176,11 +176,18 @@ init([Role, Socket, SshOpts]) ->
     end.
 
 %% Temporary fix for the Nessus error.  SYN->   <-SYNACK  ACK->  RST-> ?
-error(_Event, {Error, %%={badmatch,{error,enotconn}}, 
-	       State=#state{socket=Socket, 
-			    transport_cb=Transport}}) ->
-    (catch Transport:close(Socket)),
-    {stop, {shutdown,init,Error}, State}.
+error(_Event, {Error,State=#state{}}) ->
+    case Error of
+	{badmatch,{error,enotconn}} ->
+	    %% {error,enotconn} probably from inet:peername in
+	    %% init_ssh(server,..)/5 called from init/1
+	    {stop, {shutdown,"TCP connenction to server was prematurely closed by the client"}, State};
+	_ ->
+	    {stop, {shutdown,{init,Error}}, State}
+    end;
+error(Event, State) -> 
+    %% State deliberately not checked beeing #state. This is a panic-clause...
+    {stop, {shutdown,{init,{spurious_error,Event}}}, State}.
 
 %%--------------------------------------------------------------------
 -spec open_channel(pid(), string(), iodata(), integer(), integer(),
@@ -944,6 +951,10 @@ terminate(normal, _, #state{transport_cb = Transport,
     (catch Transport:close(Socket)),
     ok;
 
+terminate({shutdown,{init,Reason}}, StateName, State) ->
+    error_logger:info_report(io_lib:format("Erlang ssh in connection handler init: ~p~n",[Reason])),
+    terminate(normal, StateName, State);
+
 %% Terminated by supervisor
 terminate(shutdown, StateName, #state{ssh_params = Ssh0} = State) ->
     DisconnectMsg = 
@@ -961,10 +972,6 @@ terminate({shutdown, #ssh_msg_disconnect{} = Msg}, StateName,
      terminate(normal, StateName, State#state{ssh_params = Ssh});
 
 terminate({shutdown, _}, StateName, State) ->
-    terminate(normal, StateName, State);
-
-terminate({shutdown,init,Reason}, StateName, State) ->
-    error_logger:info_report(io_lib:format("Erlang ssh in connection handler init: ~p~n",[Reason])),
     terminate(normal, StateName, State);
 
 terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
