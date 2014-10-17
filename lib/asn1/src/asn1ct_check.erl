@@ -1664,38 +1664,80 @@ check_objectdefn(S, Def, #classdef{typespec=ObjClass}) ->
 	    end
     end.
 
-get_syntax(_, {preprocessed_syntax,Syntax}, _) ->
-    Syntax;
-get_syntax(S, {'WITH SYNTAX',Syntax}, ClassFields) ->
-    preprocess_syntax(S, Syntax, ClassFields).
-
 
 %%%
 %%% Pre-process the simplified syntax so that it can be more
 %%% easily matched.
 %%%
 
-preprocess_syntax(S, [H|T], Cs) when is_list(H) ->
-    [{optional,preprocess_syntax(S, H, Cs)}|preprocess_syntax(S, T, Cs)];
-preprocess_syntax(S, [{valuefieldreference,Name}|T], Cs) ->
+get_syntax(_, {preprocessed_syntax,Syntax}, _) ->
+    Syntax;
+get_syntax(S, {'WITH SYNTAX',Syntax}, ClassFields) ->
+    preprocess_syntax(S, Syntax, ClassFields).
+
+preprocess_syntax(S, Syntax0, Cs) ->
+    Syntax = preprocess_syntax_1(S, Syntax0, Cs, true),
+    Present0 = preprocess_get_fields(Syntax, []),
+    Present1 = lists:sort(Present0),
+    Present = ordsets:from_list(Present1),
+    case Present =:= Present1 of
+	false ->
+	    Dupl = Present1 -- Present,
+	    asn1_error(S, {syntax_duplicated_fields,Dupl});
+	true ->
+	    ok
+    end,
+    Mandatory0 = get_mandatory_class_fields(Cs),
+    Mandatory = ordsets:from_list(Mandatory0),
+    case ordsets:subtract(Mandatory, Present) of
+	[] ->
+	    Syntax;
+	[_|_]=Missing ->
+	    asn1_error(S, {syntax_missing_mandatory_fields,Missing})
+    end.
+
+preprocess_syntax_1(S, [H|T], Cs, Mandatory) when is_list(H) ->
+    [{optional,preprocess_syntax_1(S, H, Cs, false)}|
+     preprocess_syntax_1(S, T, Cs, Mandatory)];
+preprocess_syntax_1(S, [{valuefieldreference,Name}|T], Cs, Mandatory) ->
+    F = preprocess_check_field(S, Name, Cs, Mandatory),
+    [F|preprocess_syntax_1(S, T, Cs, Mandatory)];
+preprocess_syntax_1(S, [{typefieldreference,Name}|T], Cs, Mandatory) ->
+    F = preprocess_check_field(S, Name, Cs, Mandatory),
+    [F|preprocess_syntax_1(S, T, Cs, Mandatory)];
+preprocess_syntax_1(S,[{Token,_}|T], Cs, Mandatory) when is_atom(Token) ->
+    [{token,Token}|preprocess_syntax_1(S, T, Cs, Mandatory)];
+preprocess_syntax_1(S, [Token|T], Cs, Mandatory) when is_atom(Token) ->
+    [{token,Token}|preprocess_syntax_1(S, T, Cs, Mandatory)];
+preprocess_syntax_1(_, [], _, _) -> [].
+
+preprocess_check_field(S, Name, Cs, Mandatory) ->
     case lists:keyfind(Name, 2, Cs) of
 	Tuple when is_tuple(Tuple) ->
-	    [{field,Tuple}|preprocess_syntax(S, T, Cs)];
+	    case not Mandatory andalso is_mandatory_class_field(Tuple) of
+		true ->
+		    asn1_error(S, {syntax_mandatory_in_optional_group,Name});
+		false ->
+		    {field,Tuple}
+	    end;
 	false ->
 	    asn1_error(S, {syntax_undefined_field,Name})
-    end;
-preprocess_syntax(S, [{typefieldreference,Name}|T], Cs) ->
-    case lists:keyfind(Name, 2, Cs) of
-	Tuple when is_tuple(Tuple) ->
-	    [{field,Tuple}|preprocess_syntax(S, T, Cs)];
-	false ->
-	    asn1_error(S, {syntax_undefined_field,Name})
-    end;
-preprocess_syntax(S,[{Token,_}|T], Cs) when is_atom(Token) ->
-    [{token,Token}|preprocess_syntax(S, T, Cs)];
-preprocess_syntax(S, [Token|T], Cs) when is_atom(Token) ->
-    [{token,Token}|preprocess_syntax(S, T, Cs)];
-preprocess_syntax(_, [], _) -> [].
+    end.
+
+preprocess_get_fields([{field,F}|T], Acc) ->
+    Name = element(2, F),
+    preprocess_get_fields(T, [Name|Acc]);
+preprocess_get_fields([{optional,L}|T], Acc) ->
+    preprocess_get_fields(T, preprocess_get_fields(L, Acc));
+preprocess_get_fields([_|T], Acc) ->
+    preprocess_get_fields(T, Acc);
+preprocess_get_fields([], Acc) ->
+    Acc.
+
+%%%
+%%% Match the actual fields in the object definition to
+%%% the pre-processed simplified syntax.
+%%%
 
 match_syntax(S, [{token,Token}|T], [A|As]=Args, Acc) ->
     case A of
@@ -1730,7 +1772,7 @@ match_syntax(S, [{optional,L}|T], As0, Acc)         ->
 match_syntax(_, [_|_], [], _Acc)                    ->
     {nomatch,[]};
 match_syntax(_, [], As, Acc)                        ->
-    {match,lists:reverse(Acc),As}.
+    {match,Acc,As}.
 
 match_syntax_type(S, Type, {value_tag,Val})         ->
     match_syntax_type(S, Type, Val);
@@ -1964,22 +2006,24 @@ check_defaultfields_1(S, [{FName,Spec}|Fields], ClassFields, Acc) ->
     {match,Match} = match_syntax_type(S, CField, Spec),
     check_defaultfields_1(S, Fields, ClassFields, Match++Acc).
 
-get_mandatory_class_fields([{fixedtypevaluefield,Name,_,_,'MANDATORY'}|T]) ->
-    [Name|get_mandatory_class_fields(T)];
-get_mandatory_class_fields([{objectfield,Name,_,_,'MANDATORY'}|T]) ->
-    [Name|get_mandatory_class_fields(T)];
-get_mandatory_class_fields([{objectsetfield,Name,_,'MANDATORY'}|T]) ->
-    [Name|get_mandatory_class_fields(T)];
-get_mandatory_class_fields([{typefield,Name,'MANDATORY'}|T]) ->
-    [Name|get_mandatory_class_fields(T)];
-get_mandatory_class_fields([{variabletypevaluefield,Name,_,'MANDATORY'}|T]) ->
-    [Name|get_mandatory_class_fields(T)];
-get_mandatory_class_fields([{variabletypevaluesetfield,
-			     Name,_,'MANDATORY'}|T]) ->
-    [Name|get_mandatory_class_fields(T)];
-get_mandatory_class_fields([_|T]) ->
-    get_mandatory_class_fields(T);
-get_mandatory_class_fields([]) -> [].
+get_mandatory_class_fields(ClassFields) ->
+    [element(2, F) || F <- ClassFields,
+		      is_mandatory_class_field(F)].
+
+is_mandatory_class_field({fixedtypevaluefield,_,_,_,'MANDATORY'}) ->
+    true;
+is_mandatory_class_field({objectfield,_,_,_,'MANDATORY'}) ->
+    true;
+is_mandatory_class_field({objectsetfield,_,_,'MANDATORY'}) ->
+    true;
+is_mandatory_class_field({typefield,_,'MANDATORY'}) ->
+    true;
+is_mandatory_class_field({variabletypevaluefield,_,_,'MANDATORY'}) ->
+    true;
+is_mandatory_class_field({variabletypevaluesetfield,_,_,'MANDATORY'}) ->
+    true;
+is_mandatory_class_field(_) ->
+    false.
 
 merged_name(#state{inputmodules=[]},ERef) ->
     ERef;
@@ -6580,8 +6624,17 @@ format_error({missing_mandatory_fields,Fields,Obj}) ->
 		  [format_fields(Fields),Obj]);
 format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
+format_error({syntax_duplicated_fields,Fields}) ->
+    io_lib:format("~s must only occur once in the syntax list",
+		  [format_fields(Fields)]);
 format_error(syntax_nomatch) ->
     "unexpected end of object definition";
+format_error({syntax_mandatory_in_optional_group,Name}) ->
+    io_lib:format("the field '&~s' must not be within an optional group since it is not optional",
+		  [Name]);
+format_error({syntax_missing_mandatory_fields,Fields}) ->
+    io_lib:format("missing mandatory ~s in the syntax list",
+		  [format_fields(Fields)]);
 format_error({syntax_nomatch,Actual}) ->
     io_lib:format("~s is not the next item allowed according to the defined syntax",
 		  [Actual]);
@@ -6602,10 +6655,10 @@ format_error(Other) ->
     io_lib:format("~p", [Other]).
 
 format_fields([F]) ->
-    io_lib:format("field &~s", [F]);
+    io_lib:format("field '&~s'", [F]);
 format_fields([H|T]) ->
-    [io_lib:format("fields &~s", [H])|
-     [io_lib:format(", &~s", [F]) || F <- T]].
+    [io_lib:format("fields '&~s'", [H])|
+     [io_lib:format(", '&~s'", [F]) || F <- T]].
 
 error({_,{structured_error,_,_,_}=SE,_}) ->
     SE;

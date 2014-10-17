@@ -471,6 +471,38 @@ syntax(Config) ->
 	   "    BAD &Bad\n"
 	   "  }\n"
 
+	   "  BAD-SYNTAX-3 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE\n"
+	   "  } WITH SYNTAX {\n"
+	   "    [ID &code]\n"
+	   "  }\n"
+
+	   "  BAD-SYNTAX-4 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE\n"
+	   "  } WITH SYNTAX {\n"
+	   "    ID\n"
+	   "  }\n"
+
+	   "  BAD-SYNTAX-5 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE,\n"
+	   "    &Type\n"
+	   "  } WITH SYNTAX {\n"
+	   "    ID\n"
+	   "  }\n"
+
+	   "  BAD-SYNTAX-6 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE\n"
+	   "  } WITH SYNTAX {\n"
+	   "    ID &code, &code\n"
+	   "  }\n"
+
+	   "  BAD-SYNTAX-7 ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE,\n"
+	   "    &Type\n"
+	   "  } WITH SYNTAX {\n"
+	   "    ID &Type, &code, &code, &Type\n"
+	   "  }\n"
+
 	   "  CL ::= CLASS {\n"
 	   "    &code INTEGER UNIQUE,\n"
 	   "    &enum ENUMERATED { a, b, c} OPTIONAL,\n"
@@ -531,8 +563,18 @@ syntax(Config) ->
       {structured_error,{M,22},asn1ct_check,
        {syntax_undefined_field,bad}},
       {structured_error,{M,27},asn1ct_check,
-       {syntax_undefined_field,'Bad'}}
-    ]
+       {syntax_undefined_field,'Bad'}},
+      {structured_error,{M,32},asn1ct_check,
+       {syntax_mandatory_in_optional_group,code}},
+      {structured_error,{M,37},asn1ct_check,
+       {syntax_missing_mandatory_fields,[code]}},
+      {structured_error,{M,42},asn1ct_check,
+       {syntax_missing_mandatory_fields,['Type',code]}},
+      {structured_error,{M,48},asn1ct_check,
+       {syntax_duplicated_fields,[code]}},
+      {structured_error,{M,53},asn1ct_check,
+       {syntax_duplicated_fields,['Type',code]}}
+     ]
     } = run(P, Config),
     ok.
 
