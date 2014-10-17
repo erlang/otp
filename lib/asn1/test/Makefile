@@ -105,7 +105,6 @@ MODULES= \
 	test_compile_options \
 	testDoubleEllipses \
 	test_modified_x420 \
-	testX420 \
 	test_x691 \
 	testWSParamClass \
 	testValueTest \

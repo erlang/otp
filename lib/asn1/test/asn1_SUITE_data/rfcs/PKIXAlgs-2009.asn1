@@ -145,6 +145,8 @@
     pgenCounter  INTEGER
    }
 
+   DiffieHellmanPublicNumber ::= INTEGER   -- according to http://wikisec.free.fr/crypto/crypto.html
+
    DHPublicKey ::= INTEGER  -- public key, y = g^x mod p
 
    -- KEA PK Algorithm and Parameters

@@ -160,8 +160,7 @@ groups() ->
        testNortel,
        % Uses 'PKCS7', 'InformationFramework'
        {group, [], [test_WS_ParamClass,
-		    test_modified_x420,
-                    testX420]},
+		    test_modified_x420]},
        %% Don't run all these at the same time.
        {group, [],
 	[testTcapsystem,
@@ -202,7 +201,7 @@ init_per_testcase(Func, Config) ->
     true = code:add_patha(CaseDir),
 
     Dog = case Func of
-              testX420 -> ct:timetrap({minutes, 90});
+              testRfcs -> ct:timetrap({minutes, 90});
               _        -> ct:timetrap({minutes, 60})
           end,
     [{case_dir, CaseDir}, {watchdog, Dog}|Config].
@@ -1012,8 +1011,13 @@ testS1AP(Config, Rule, Opts) ->
 
 testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
 testRfcs(Config, Rule, Opts) ->
-    testRfcs:compile(Config, Rule, Opts),
-    testRfcs:test().
+    case erlang:system_info(system_architecture) of
+	"sparc-sun-solaris2.10" ->
+	    {skip,"Too slow for an old Sparc"};
+	_ ->
+	    testRfcs:compile(Config, Rule, Opts),
+	    testRfcs:test()
+    end.
 
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),

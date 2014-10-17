@@ -6,7 +6,7 @@ BEGIN
 IMPORTS
   -- PKCS#7
   ContentInfo
-    FROM PKCS7 {iso(1) member-body(2) usa(840) rsadsi(113549) pkcs(1) 
+    FROM PKCS-7 {iso(1) member-body(2) usa(840) rsadsi(113549) pkcs(1)
       7 module(0)}
   -- module not formally defined in the PKCS#7document, therefore defined in Annex O
   -- IPMS Information Objects
