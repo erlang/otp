@@ -91,6 +91,20 @@ ethr_native_atomic32_add_return_acqb(ethr_native_atomic32_t *var, ethr_sint32_t 
     return res;
 }
 
+
+#ifndef ETHR_PPC_HAVE_NO_LWSYNC
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADD_RETURN_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_add_return_relb(ethr_native_atomic32_t *var, ethr_sint32_t incr)
+{
+    ethr_lwsync__();
+    return ethr_native_atomic32_add_return(var, incr);
+}
+
+#endif
+
 #define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_INC_RETURN 1
 
 static ETHR_INLINE ethr_sint32_t
@@ -120,7 +134,19 @@ ethr_native_atomic32_inc_return_acqb(ethr_native_atomic32_t *var)
     __asm__ __volatile("isync\n\t" : : : "memory");
     return res;
 }
-    
+
+#ifndef ETHR_PPC_HAVE_NO_LWSYNC
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_INC_RETURN_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_inc_return_relb(ethr_native_atomic32_t *var)
+{
+    ethr_lwsync__();
+    return ethr_native_atomic32_inc_return(var);
+}
+
+#endif
 
 #define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_DEC_RETURN 1
 
@@ -152,6 +178,19 @@ ethr_native_atomic32_dec_return_acqb(ethr_native_atomic32_t *var)
     return res;
 }
 
+#ifndef ETHR_PPC_HAVE_NO_LWSYNC
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_DEC_RETURN_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_dec_return_relb(ethr_native_atomic32_t *var)
+{
+    ethr_lwsync__();
+    return ethr_native_atomic32_dec_return(var);
+}
+
+#endif
+
 #define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_AND_RETOLD 1
 
 static ETHR_INLINE ethr_sint32_t
@@ -181,6 +220,19 @@ ethr_native_atomic32_and_retold_acqb(ethr_native_atomic32_t *var, ethr_sint32_t 
     __asm__ __volatile("isync\n\t" : : : "memory");
     return res;
 }
+
+#ifndef ETHR_PPC_HAVE_NO_LWSYNC
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_AND_RETOLD_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_and_retold_relb(ethr_native_atomic32_t *var, ethr_sint32_t mask)
+{
+    ethr_lwsync__();
+    return ethr_native_atomic32_and_retold(var, mask);
+}
+
+#endif
 
 #define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_OR_RETOLD 1
 
@@ -212,6 +264,18 @@ ethr_native_atomic32_or_retold_acqb(ethr_native_atomic32_t *var, ethr_sint32_t m
     return res;
 }
 
+#ifndef ETHR_PPC_HAVE_NO_LWSYNC
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_OR_RETOLD_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_or_retold_relb(ethr_native_atomic32_t *var, ethr_sint32_t mask)
+{
+    ethr_lwsync__();
+    return ethr_native_atomic32_or_retold(var, mask);
+}
+
+#endif
 
 #define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_XCHG 1
 
@@ -241,6 +305,19 @@ ethr_native_atomic32_xchg_acqb(ethr_native_atomic32_t *var, ethr_sint32_t val)
     __asm__ __volatile("isync\n\t" : : : "memory");
     return res;
 }
+
+#ifndef ETHR_PPC_HAVE_NO_LWSYNC
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_XCHG_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_xchg_relb(ethr_native_atomic32_t *var, ethr_sint32_t val)
+{
+    ethr_lwsync__();
+    return ethr_native_atomic32_xchg(var, val);
+}
+
+#endif
 
 #define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_CMPXCHG 1
 
@@ -290,6 +367,73 @@ ethr_native_atomic32_cmpxchg_acqb(ethr_native_atomic32_t *var,
 
     return old;
 }
+
+#if !defined(ETHR_DISABLE_LWSYNC_FOR_CMPXCHG_RELB) && !defined(ETHR_PPC_HAVE_NO_LWSYNC)
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_CMPXCHG_RELB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_cmpxchg_relb(ethr_native_atomic32_t *var,
+				  ethr_sint32_t new,
+				  ethr_sint32_t expected)
+{
+    ethr_sint32_t actual;
+
+    /*
+     * We want to implement the release barrier using the
+     * 'lwsync' instruction instead of using the more
+     * expensive 'sync' instruction.
+     *
+     * cmpxchg looks something like this:
+     *
+     *   lwarx # Load
+     *   ...
+     *   if (fail)
+     *      goto done;
+     *   stwcx # Store
+     *   if (fail)
+     *      goto done;
+     *   ...
+     *
+     * In the case we succeeded, 'lwsync' will have
+     * ordered all previously issued loads and stores
+     * against the successful store to this variable.
+     * That is everything is fine!
+     *
+     * In the case we did not succeed, we need to order
+     * all previously issued loads and stores against
+     * the load of this variable. 'lwsync' does not
+     * guarantee this. In order to solve this we issue
+     * a 'sync' and redo the load. If the value has
+     * changed to what the user passed as expected value
+     * we need to try the cmpxchg operation again, since
+     * this value indicates success.
+     */
+
+    ethr_lwsync__();
+
+    actual = ethr_native_atomic32_cmpxchg(var, new, expected);
+
+#ifndef ETHR_PPC_HAVE_LWSYNC
+    /* We checked for lwsync support in runtime... */
+    if (ETHR_PPC_RUNTIME_CONF_HAVE_NO_LWSYNC__)
+	return actual; /* No need to; ethr_lwsync__() issued a sync... */
+#endif
+
+    /* ethr_lwsync__() issued an lwsync... */
+    if (actual == expected)
+	return actual; /* Successful operation */
+
+    /* Failure... need to issue a sync... */
+    ethr_sync__();
+    actual = ethr_native_atomic32_read(var);
+    if (actual != expected)
+	return actual; /* Fail... */
+    /* Try again... */
+    return ethr_native_atomic32_cmpxchg(var, new, expected);
+}
+
+#endif
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 
