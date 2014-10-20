@@ -3194,12 +3194,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		TempNewDef#newt{type={'SET OF',check_setof(S,Type,Components)},
 				tag=
 				merge_tags(Tag,?TAG_CONSTRUCTED(?N_SET))};
-	    %% This is a temporary hack until the full Information Obj Spec
-	    %% in X.681 is supported
-	    {#'Externaltypereference'{type='TYPE-IDENTIFIER'},
-	     [{typefieldreference,_,'Type'}]} ->
-		Ct=maybe_illicit_implicit_tag(open_type,Tag),
-		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
 
 	    {pt,Ptype,ParaList} ->
 		%% Ptype might be a parameterized - type, object set or

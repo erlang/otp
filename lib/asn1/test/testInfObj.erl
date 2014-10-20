@@ -153,6 +153,9 @@ main(_Erule) ->
 
     roundtrip('InfObj', 'Rdn', {'Rdn',{2,5,4,41},"abc"}),
 
+    roundtrip('InfObj', 'TiAliasSeq',
+	      {'TiAliasSeq',{'TiAliasSeq_prf',{2,1,2},'NULL'}}),
+
     ok.
 
 test_objset(Type, Keys) ->

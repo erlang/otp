@@ -752,17 +752,8 @@ parse_DefinedType(Tokens=[{typereference,_L1,_Module},{'.',_},
 parse_DefinedType([{typereference,L1,Module},{'.',_},{typereference,_,TypeName}|Rest]) ->
     {#type{def = #'Externaltypereference'{pos=L1,module=Module,type=TypeName}},Rest};
 parse_DefinedType([{typereference,L1,TypeName}|Rest]) ->
-    case is_pre_defined_class(TypeName) of
-	false  ->
-	    {#type{def = #'Externaltypereference'{pos=L1,module=resolve_module(TypeName),
-						  type=TypeName}},Rest};
-	_ ->
-	    throw({asn1_error,
-		   {L1,get(asn1_module),
-		    [got,TypeName,expected,
-		     [typereference,'typereference.typereference',
-		      'typereference typereference']]}})
-    end;
+    {#type{def = #'Externaltypereference'{pos=L1,module=resolve_module(TypeName),
+					  type=TypeName}},Rest};
 parse_DefinedType(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,
@@ -3234,11 +3225,3 @@ lookahead_assignment([{'END',_}|_Rest]) ->
 lookahead_assignment(Tokens) ->
     parse_Assignment(Tokens),
     ok.
-	
-is_pre_defined_class('TYPE-IDENTIFIER') ->
-    true;
-is_pre_defined_class('ABSTRACT-SYNTAX') ->
-    true;
-is_pre_defined_class(_) ->
-    false.
-    

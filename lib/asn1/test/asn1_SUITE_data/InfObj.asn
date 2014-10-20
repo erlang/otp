@@ -404,6 +404,26 @@ id-at OBJECT IDENTIFIER ::= { 2 5 4 41 }
 id-at-name AttributeType ::= id-at
 at-name ATTRIBUTE ::= { &Type PrintableString, &id id-at-name }
 
+--
+-- Test using an alias for TYPE-IDENTIFIER.
+--
+
+TiAliasParameterized { TI-ALIAS:InfoObjectSet } ::= SEQUENCE {
+  algorithm TI-ALIAS.&id({InfoObjectSet}),
+  parameters TI-ALIAS.&Type({InfoObjectSet} {@algorithm}) OPTIONAL
+}
+
+TI-ALIAS ::= TYPE-IDENTIFIER
+
+TiAliasSeq ::= SEQUENCE {
+  prf TiAliasParameterized {{TiAliasSet}}
+}
+
+TiAliasSet TI-ALIAS ::= {
+  {NULL IDENTIFIED BY {2 1 2}},
+   ...
+}
+
 END
 
 
