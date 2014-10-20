@@ -172,17 +172,17 @@ server_loop(Iport, Oport, Curr, User, Gr) ->
 	{Iport,eof} ->
 	    Curr ! {self(),eof},
 	    server_loop(Iport, Oport, Curr, User, Gr);
+	{Pid,tty_geometry} when Pid =:= User; Pid =:= Curr ->
+	    Pid ! {self(),tty_geometry,get_tty_geometry(Iport)},
+	    server_loop(Iport, Oport, Curr, User, Gr);
+	{Pid,get_unicode_state} when Pid =:= User; Pid =:= Curr ->
+	    Pid ! {self(),get_unicode_state,get_unicode_state(Iport)},
+	    server_loop(Iport, Oport, Curr, User, Gr);
+	{Pid,set_unicode_state, Bool} when Pid =:= User; Pid =:= Curr ->
+	    Pid ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
+	    server_loop(Iport, Oport, Curr, User, Gr);
 	{User,Req} ->	% never block from user!
 	    io_request(Req, Iport, Oport),
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,tty_geometry} ->
-	    Curr ! {self(),tty_geometry,get_tty_geometry(Iport)},
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,get_unicode_state} ->
-	    Curr ! {self(),get_unicode_state,get_unicode_state(Iport)},
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,set_unicode_state, Bool} ->
-	    Curr ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
 	    server_loop(Iport, Oport, Curr, User, Gr);
 	{Curr,Req} ->
 	    io_request(Req, Iport, Oport),
