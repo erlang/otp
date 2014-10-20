@@ -36,7 +36,7 @@
 
 all() ->
     [
-     {group, openssh_payload},
+     {group, openssh},
      start_subsystem_on_closed_channel,
      interrupted_send,
      start_shell,
@@ -49,11 +49,19 @@ all() ->
      stop_listener
     ].
 groups() ->
-    [{openssh_payload, [], [simple_exec,
-			    small_cat,
-			    big_cat,
-			    send_after_exit
-			   ]}].
+    [{openssh, [], payload() ++ ptty()}].
+
+payload() ->
+    [simple_exec,
+     small_cat,
+     big_cat,
+     send_after_exit].
+
+ptty() ->
+    [ptty_alloc_default,
+     ptty_alloc,
+     ptty_alloc_pixel].
+
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     case catch crypto:start() of
@@ -67,7 +75,7 @@ end_per_suite(_Config) ->
     crypto:stop().
 
 %%--------------------------------------------------------------------
-init_per_group(openssh_payload, _Config) ->
+init_per_group(openssh, _Config) ->
     case gen_tcp:connect("localhost", 22, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon"};
@@ -240,6 +248,42 @@ send_after_exit(Config) when is_list(Config) ->
 	Else ->
 	    ct:fail(Else)
     end.
+
+%%--------------------------------------------------------------------
+ptty_alloc_default() ->
+    [{doc, "Test sending PTTY alloc message with only defaults."}].
+
+ptty_alloc_default(Config) when is_list(Config) ->
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+							     {user_interaction, false}]),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+    ssh:close(ConnectionRef).
+
+%%--------------------------------------------------------------------
+ptty_alloc() ->
+    [{doc, "Test sending PTTY alloc message with width,height options."}].
+
+ptty_alloc(Config) when is_list(Config) ->
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+							     {user_interaction, false}]),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
+					[{term, default_term()}, {width, 70}, {high, 20}]),
+    ssh:close(ConnectionRef).
+
+
+%%--------------------------------------------------------------------
+ptty_alloc_pixel() ->
+    [{doc, "Test sending PTTY alloc message pixel options."}].
+
+ptty_alloc_pixel(Config) when is_list(Config) ->
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+							     {user_interaction, false}]),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
+					[{term, default_term()}, {pixel_widh, 630}, {pixel_hight, 470}]),
+    ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
 start_subsystem_on_closed_channel(Config) ->
@@ -603,3 +647,11 @@ ssh_exec(Cmd) ->
     spawn(fun() ->
 		  io:format(Cmd ++ "\n")
           end).
+
+default_term() ->
+    case os:getenv("TERM") of
+	false ->
+	    "vt100";
+	Str when is_list(Str)->
+	    Str
+    end.	
