@@ -61,6 +61,10 @@ run([]) ->
 	(catch 'Constructed':decode('S', sub(<<40,16#80,1,1,255,0,0>>, 6))),
     {error,{asn1,{invalid_length,_}}} =
 	(catch 'Constructed':decode('S', sub(<<40,16#80,1,1,255,0,0>>, 5))),
+
+    %% A primitive must not be encoded with an indefinite length.
+    {error,{asn1,{invalid_length,_}}} =
+	(catch 'Constructed':decode('OS', <<4,128,4,3,97,98,99,0,0>>)),
     ok.
 
 sub(Bin, Bytes) ->

@@ -949,7 +949,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     } else if (in_buf[*ib_index] == ASN1_INDEFINITE_LENGTH) {
 	(*ib_index)++;
 	curr_head = enif_make_list(env, 0);
-	if (*ib_index+1 >= in_buf_len) {
+	if (*ib_index+1 >= in_buf_len || form == ASN1_PRIMITIVE) {
 	    return ASN1_INDEF_LEN_ERROR;
 	}
 	while (!(in_buf[*ib_index] == 0 && in_buf[*ib_index + 1] == 0)) {
