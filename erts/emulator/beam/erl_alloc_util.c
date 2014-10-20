@@ -2835,9 +2835,6 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 			(erts_aint_t) CARRIER_SZ(crr));
     erts_atomic_inc_nob(&allctr->cpool.stat.no_carriers);
 
-    erts_smp_atomic_set_nob(&crr->allctr,
-			    ((erts_aint_t) allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL);
-
     /*
      * We search in 'next' direction and begin by passing
      * one element before trying to insert. This in order to
@@ -2896,6 +2893,9 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
     cpool_set_mod_marked(&cpd2p->prev,
 			 (erts_aint_t) &crr->cpool,
 			 (erts_aint_t) cpd1p);
+
+    erts_smp_atomic_set_wb(&crr->allctr,
+			   ((erts_aint_t) allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL);
 }
 
 static void
