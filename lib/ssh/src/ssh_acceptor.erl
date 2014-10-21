@@ -141,5 +141,6 @@ handle_error(Reason) ->
 number_of_connections(SystemSup) ->
     length([X || 
 	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
+	       is_pid(X),
 	       is_reference(R)
 	  ]).
