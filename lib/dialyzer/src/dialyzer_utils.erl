@@ -471,7 +471,6 @@ cleanup_compile_options(Opts) ->
 
 %% Using abstract, not asm or core.
 keep_compile_option(from_asm) -> false;
-keep_compile_option(asm) -> false;
 keep_compile_option(from_core) -> false;
 %% The parse transform will already have been applied, may cause
 %% problems if it is re-applied.
