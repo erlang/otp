@@ -107,11 +107,9 @@
 /*
  * Our own type of "FD's"
  */
+#define ERTS_SYS_FD_INVALID INVALID_HANDLE_VALUE
 #define ERTS_SYS_FD_TYPE HANDLE
 #define NO_FSTAT_ON_SYS_FD_TYPE 1 /* They are events, not files */
-
-#define HAVE_ERTS_CHECK_IO_DEBUG
-int erts_check_io_debug(void);
 
 /*
  * For erl_time_sup

@@ -1085,7 +1085,7 @@ void erts_poll_controlv(ErtsPollSet ps,
 					 pcev[i].events,
 					 pcev[i].on);
     }
-    ERTS_POLLSET_LOCK(ps);
+    ERTS_POLLSET_UNLOCK(ps);
     HARDTRACEF(("Out erts_poll_controlv"));
 }
 

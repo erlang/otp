@@ -2106,6 +2106,7 @@ tuple_to_list(_Tuple) ->
 	 (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
          (elib_malloc) -> false;
+         (eager_check_io) -> boolean();
          (ets_limit) -> pos_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
          (garbage_collection) -> [{atom(), integer()}];

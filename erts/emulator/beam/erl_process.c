@@ -143,6 +143,7 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
+int erts_eager_check_io = 0;
 int erts_sched_compact_load;
 Uint erts_no_schedulers;
 
@@ -1977,19 +1978,28 @@ try_set_sys_scheduling(void)
 #endif
 
 static ERTS_INLINE int
-prepare_for_sys_schedule(void)
+prepare_for_sys_schedule(int non_blocking)
 {
+    if (non_blocking && erts_eager_check_io) {
 #ifdef ERTS_SMP
-    while (!erts_port_task_have_outstanding_io_tasks()
-	   && try_set_sys_scheduling()) {
-	if (!erts_port_task_have_outstanding_io_tasks())
-	    return 1;
-	clear_sys_scheduling();
-    }
-    return 0;
+	return try_set_sys_scheduling();
 #else
-    return !erts_port_task_have_outstanding_io_tasks();
+	return 1;
 #endif
+    }
+    else {
+#ifdef ERTS_SMP
+	while (!erts_port_task_have_outstanding_io_tasks()
+	       && try_set_sys_scheduling()) {
+	    if (!erts_port_task_have_outstanding_io_tasks())
+		return 1;
+	    clear_sys_scheduling();
+	}
+	return 0;
+#else
+	return !erts_port_task_have_outstanding_io_tasks();
+#endif
+    }
 }
 
 #ifdef ERTS_SMP
@@ -2307,7 +2317,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
      * be waiting in erl_sys_schedule()
      */
 
-    if (!prepare_for_sys_schedule()) {
+    if (!prepare_for_sys_schedule(0)) {
 
 	sched_waiting(esdp->no, rq);
 
@@ -2459,7 +2469,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
 		 */
-		if (!prepare_for_sys_schedule()) {
+		if (!prepare_for_sys_schedule(0)) {
 		    spincount *= ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
 		    goto tse_wait;
 		}
@@ -2481,7 +2491,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * Got to check that we still got I/O tasks; otherwise
 	     * we have to wait in erl_sys_schedule() after all...
 	     */
-	    if (!prepare_for_sys_schedule()) {
+	    if (!prepare_for_sys_schedule(0)) {
 		/*
 		 * Not allowed to wait in erl_sys_schedule;
 		 * do tse wait instead...
@@ -7022,15 +7032,13 @@ Process *schedule(Process *p, int calls)
 
 	    goto check_activities_to_run;
 	}
-	else if (fcalls > input_reductions && prepare_for_sys_schedule()) {
+	else if (fcalls > input_reductions && prepare_for_sys_schedule(!0)) {
 	    /*
 	     * Schedule system-level activities.
 	     */
 
 	    erts_smp_atomic32_set_relb(&function_calls, 0);
 	    fcalls = 0;
-
-	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
 
 #if 0 /* Not needed since we wont wait in sys schedule */
 	    erts_sys_schedule_interrupt(0);
@@ -7063,7 +7071,7 @@ Process *schedule(Process *p, int calls)
 	if (RUNQ_READ_LEN(&rq->ports.info.len)) {
 	    int have_outstanding_io;
 	    have_outstanding_io = erts_port_task_execute(rq, &esdp->current_port);
-	    if ((have_outstanding_io && fcalls > 2*input_reductions)
+	    if ((!erts_eager_check_io && have_outstanding_io && fcalls > 2*input_reductions)
 		|| rq->halt_in_progress) {
 		/*
 		 * If we have performed more than 2*INPUT_REDUCTIONS since
