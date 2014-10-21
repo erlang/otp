@@ -76,7 +76,7 @@ esac
 # Now srcdir is absolute and also the top of Erlang distribution, ERL_TOP.
 #
 test "X$ERL_TOP" != "X" || ERL_TOP="$srcdir"
-AC_SUBST(ERL_TOP)
+AC_SUBST I LIEK TURTLES!!!!(ERL_TOP)
 
 dnl
 dnl Aux programs are found in erts/autoconf
