@@ -30,6 +30,34 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Introduced support for eager check I/O.</p>
+	    <p>By default eager check I/O will be disabled, but this
+	    will most likely be changed in OTP 18. When eager check
+	    I/O is enabled, schedulers will more frequently check for
+	    I/O work. Outstanding I/O operation will however not be
+	    prioritized to the same extent as when eager check I/O is
+	    disabled.</p>
+	    <p>Eager check I/O can be enabled and disabled using the
+	    <c>erl</c> command line argument <seealso
+	    marker="erl#+secio"><c>+secio</c></seealso>.</p>
+	    <p>Characteristics impact when enabled:</p> <list>
+	    <item>Lower latency and smoother management of externally
+	    triggered I/O operations.</item> <item>A slightly reduced
+	    priority of externally triggered I/O operations.</item>
+	    </list>
+          <p>
+	    Own Id: OTP-12117</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.4.1</title>
 
     <section><title>Known Bugs and Problems</title>
