@@ -22,7 +22,8 @@
 -module(ssh_acceptor).
 
 %% Internal application API
--export([start_link/5]).
+-export([start_link/5,
+	 number_of_connections/1]).
 
 %% spawn export  
 -export([acceptor_init/6, acceptor_loop/6]).

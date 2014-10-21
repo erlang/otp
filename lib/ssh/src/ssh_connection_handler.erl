@@ -41,7 +41,8 @@
 	 global_request/4, send/5, send_eof/2, info/1, info/2,
 	 connection_info/2, channel_info/3,
 	 adjust_window/3, close/2, stop/1, renegotiate/1, renegotiate_data/1,
-	 start_connection/4]).
+	 start_connection/4,
+	 get_print_info/1]).
 
 %% gen_fsm callbacks
 -export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
@@ -255,6 +256,9 @@ send_eof(ConnectionHandler, ChannelId) ->
 %%--------------------------------------------------------------------
 -spec connection_info(pid(), [atom()]) -> proplists:proplist().
 %%--------------------------------------------------------------------
+get_print_info(ConnectionHandler) ->
+    sync_send_all_state_event(ConnectionHandler, get_print_info, 1000).
+
 connection_info(ConnectionHandler, Options) ->
     sync_send_all_state_event(ConnectionHandler, {connection_info, Options}).
 
@@ -773,6 +777,20 @@ handle_sync_event({recv_window, ChannelId}, _From, StateName,
 	    end,
     {reply, Reply, StateName, next_packet(State)};
 
+handle_sync_event(get_print_info, _From, StateName, State) ->
+    Reply =
+	try
+	    {inet:sockname(State#state.socket),
+	     inet:peername(State#state.socket)
+	    }
+	of
+	    {{ok,Local}, {ok,Remote}} -> {{Local,Remote},io_lib:format("statename=~p",[StateName])};
+	    _ -> {{"-",0},"-"}
+	catch
+	    _:_ -> {{"?",0},"?"}
+	end,
+    {reply, Reply, StateName, State};
+
 handle_sync_event({connection_info, Options}, _From, StateName, State) ->
     Info = ssh_info(Options, State, []),
     {reply, Info, StateName, State};
@@ -1183,7 +1201,10 @@ send_all_state_event(FsmPid, Event) ->
     gen_fsm:send_all_state_event(FsmPid, Event).
 
 sync_send_all_state_event(FsmPid, Event) ->
-    try gen_fsm:sync_send_all_state_event(FsmPid, Event, infinity)
+    sync_send_all_state_event(FsmPid, Event, infinity).
+
+sync_send_all_state_event(FsmPid, Event, Timeout) ->
+    try gen_fsm:sync_send_all_state_event(FsmPid, Event, Timeout)
     catch
 	exit:{noproc, _} ->
 	    {error, closed};
