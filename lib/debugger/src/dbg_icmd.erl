@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,10 +48,6 @@
 %%                  | Le
 %% specifies if the process should break.
 %%--------------------------------------------------------------------
-
-%% Common Test adaptation
-cmd({call_remote,0,ct_line,line,_As}, Bs, _Ieval) -> 
-    Bs;
 
 cmd(Expr, Bs, Ieval) ->
     cmd(Expr, Bs, get(next_break), Ieval).
