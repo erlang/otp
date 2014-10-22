@@ -52,7 +52,15 @@ init([Pid, ParentFrame, Parent]) ->
     try
 	Table = ets:new(observer_expand,[set,public]),
 	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
-		  [] -> io_lib:format("~p",[Pid]);
+		  [] -> 
+		  	case global:pid2name(Pid) of
+				undefined -> 
+					io_lib:format("~p",[Pid]);
+				Name -> 
+					NewName = "*g*" ++ atom_to_list(Name),
+					io_lib:format("~p (~p)",[NewName, Pid])	
+		    end;
+		  	
 		  {registered_name, Registered} -> io_lib:format("~p (~p)",[Registered, Pid]);
 		  undefined -> throw(process_undefined)
 	      end,

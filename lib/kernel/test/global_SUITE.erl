@@ -4309,6 +4309,16 @@ trace_message(M) ->
             ok
     end.
 
+pid2name_test() ->
+    Pid = spawn(fun() -> pid2name_proc() end),
+    yes = global:register_name(test_global_name, Pid),
+    test_global_name = global:pid2name(Pid),
+    global:unregister_name(test_global_name),
+    Pid ! die.
+
+pid2name_proc() ->
+    receive die -> ok end.
+
 %%-----------------------------------------------------------------
 %% The error_logger handler used for OTP-6931.
 %%-----------------------------------------------------------------
