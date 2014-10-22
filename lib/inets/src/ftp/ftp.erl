@@ -60,6 +60,7 @@
 -define(DATA_ACCEPT_TIMEOUT, infinity).
 -define(DEFAULT_MODE,        passive).
 -define(PROGRESS_DEFAULT,    ignore).
+-define(FTP_EXT_DEFAULT,    false).
 
 %% Internal Constants
 -define(FTP_PORT, 21).
@@ -94,7 +95,8 @@
 	  ipfamily,     % inet | inet6 | inet6fb4
 	  progress = ignore,   % ignore | pid()	    
 	  dtimeout = ?DATA_ACCEPT_TIMEOUT,  % non_neg_integer() | infinity
-	  tls_upgrading_data_connection = false
+	  tls_upgrading_data_connection = false,
+	  ftp_extension = ?FTP_EXT_DEFAULT
 	 }).
 
 
@@ -969,6 +971,8 @@ start_options(Options) ->
 %%    timeout
 %%    dtimeout
 %%    progress
+%%	  ftp_extension
+
 open_options(Options) ->
     ?fcrt("open_options", [{options, Options}]), 
     ValidateMode = 
@@ -1013,6 +1017,11 @@ open_options(Options) ->
 	   (_) ->
 		false
 	end,
+	ValidateFtpExtension =
+	fun(true) -> true;
+		(false) -> true;
+		(_) -> false
+	end,	
     ValidOptions = 
 	[{mode,     ValidateMode,     false, ?DEFAULT_MODE}, 
 	 {host,     ValidateHost,     true,  ehost},
@@ -1020,7 +1029,8 @@ open_options(Options) ->
 	 {ipfamily, ValidateIpFamily, false, inet},
 	 {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT}, 
 	 {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT}, 
-	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT}], 
+	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
+	 {ftp_extension, ValidateFtpExtension, false, ?FTP_EXT_DEFAULT}], 
     validate_options(Options, ValidOptions, []).
 
 tls_options(Options) ->
@@ -1174,12 +1184,14 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 	    DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
 	    Progress = key_search(progress, Opts, ignore),
 	    IpFamily = key_search(ipfamily, Opts, inet),
+	    FtpExt   = key_search(ftp_extension, Opts, ?FTP_EXT_DEFAULT),
 
 	    State2 = State#state{client   = From, 
 				 mode     = Mode,
 				 progress = progress(Progress),
 				 ipfamily = IpFamily, 
-				 dtimeout = DTimeout}, 
+				 dtimeout = DTimeout,
+				 ftp_extension = FtpExt}, 
 
 	    ?fcrd("handle_call(open) -> setup ctrl connection with", 
 		  [{host, Host}, {port, Port}, {timeout, Timeout}]), 
@@ -1202,11 +1214,13 @@ handle_call({_, {open, ip_comm, Host, Opts}}, From, State) ->
     Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
     DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
     Progress = key_search(progress, Opts, ignore),
+    FtpExt   = key_search(ftp_extension, Opts, ?FTP_EXT_DEFAULT),
     
     State2 = State#state{client   = From, 
 			 mode     = Mode,
 			 progress = progress(Progress), 
-			 dtimeout = DTimeout}, 
+			 dtimeout = DTimeout,
+			 ftp_extension = FtpExt}, 
 
     case setup_ctrl_connection(Host, Port, Timeout, State2) of
 	{ok, State3, WaitTimeout} ->
@@ -1785,7 +1799,8 @@ handle_ctrl_result({pos_compl, Lines},
 			  ipfamily = inet,
 			  client   = From,
 			  caller   = {setup_data_connection, Caller},
-			  timeout  = Timeout} = State) ->
+			  timeout  = Timeout,
+			  ftp_extension = false} = State) ->
     
     {_, [?LEFT_PAREN | Rest]} = 
 	lists:splitwith(fun(?LEFT_PAREN) -> false; (_) -> true end, Lines),
@@ -1805,6 +1820,28 @@ handle_ctrl_result({pos_compl, Lines},
 	    gen_server:reply(From, Error),
 	    {noreply,State#state{client = undefined, caller = undefined}}
     end;
+
+handle_ctrl_result({pos_compl, Lines}, 
+		   #state{mode     = passive, 
+			  ipfamily = inet,
+			  client   = From,
+			  caller   = {setup_data_connection, Caller},
+			  csock    = CSock,
+			  timeout  = Timeout,
+			  ftp_extension = true} = State) ->
+      
+    [_, PortStr | _] =  lists:reverse(string:tokens(Lines, "|")),
+    {ok, {IP, _}} = peername(CSock),
+
+    ?DBG('<--data tcp connect to ~p:~p, Caller=~p~n',[IP,PortStr,Caller]),
+	case connect(IP, list_to_integer(PortStr), Timeout, State) of
+		{ok, _, Socket} ->	       
+		    handle_caller(State#state{caller = Caller, dsock = {tcp, Socket}});
+		{error, _Reason} = Error ->
+		    gen_server:reply(From, Error),
+		    {noreply, State#state{client = undefined, caller = undefined}}
+    end;
+   
 
 %% FTP server does not support passive mode: try to fallback on active mode
 handle_ctrl_result(_, 
@@ -2157,7 +2194,8 @@ setup_ctrl_connection(Host, Port, Timeout, State) ->
 
 setup_data_connection(#state{mode   = active, 
 			     caller = Caller, 
-			     csock  = CSock} = State) ->    
+			     csock  = CSock,
+			     ftp_extension = FtpExt} = State) ->    
     case (catch sockname(CSock)) of
 	{ok, {{_, _, _, _, _, _, _, _} = IP, _}} ->
 	    {ok, LSock} = 
@@ -2174,11 +2212,18 @@ setup_data_connection(#state{mode   = active,
 	    {ok, LSock} = gen_tcp:listen(0, [{ip, IP}, {active, false},
 					     binary, {packet, 0}]),
 	    {ok, Port} = inet:port(LSock),
-	    {IP1, IP2, IP3, IP4} = IP,
-	    {Port1, Port2} = {Port div 256, Port rem 256},
-	    send_ctrl_message(State, 
-			      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
-				     [IP1, IP2, IP3, IP4, Port1, Port2])),
+	    case FtpExt of
+	    	false ->
+			    {IP1, IP2, IP3, IP4} = IP,
+			    {Port1, Port2} = {Port div 256, Port rem 256},
+			    send_ctrl_message(State, 
+					      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
+						     [IP1, IP2, IP3, IP4, Port1, Port2]));
+			true -> 
+			    IpAddress = inet_parse:ntoa(IP),
+			    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
+			    send_ctrl_message(State, Cmd)
+		end,	        
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}}
@@ -2191,8 +2236,16 @@ setup_data_connection(#state{mode = passive, ipfamily = inet6,
     {noreply, State#state{caller = {setup_data_connection, Caller}}};
 
 setup_data_connection(#state{mode = passive, ipfamily = inet,
-			     caller = Caller} = State) ->
+			     caller = Caller,
+			     ftp_extension = false} = State) ->
     send_ctrl_message(State, mk_cmd("PASV", [])),
+    activate_ctrl_connection(State),
+    {noreply, State#state{caller = {setup_data_connection, Caller}}};    
+
+setup_data_connection(#state{mode = passive, ipfamily = inet,
+			     caller = Caller,
+			     ftp_extension = true} = State) ->
+    send_ctrl_message(State, mk_cmd("EPSV", [])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {setup_data_connection, Caller}}}.
 
