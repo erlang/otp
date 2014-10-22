@@ -115,8 +115,9 @@
          sockets/pipes can be used simultaneously by Erlang (due to
          limitations in the Unix <c><![CDATA[select]]></c> call).  The number of
          open regular files is not affected by this.</item>
-        <item>"Received SIGUSR1" - The SIGUSR1 signal was sent to the
-         Erlang machine (Unix only).</item>
+        <item>"Received SIGUSR1" - Sending the SIGUSR1 signal to a
+         Erlang machine (Unix only) forces a crash dump. This slogan reflects
+         that the Erlang machine crash-dumped due to receiving that signal.</item>
         <item>"Kernel pid terminated (<em>Who</em>)
          (<em>Exit-reason</em>)" - The kernel supervisor has detected
          a failure, usually that the <c><![CDATA[application_controller]]></c>

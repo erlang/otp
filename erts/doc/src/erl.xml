@@ -525,7 +525,8 @@
 	core dump and no crash dump if an internal error is detected.</p>
 
 	<p>Calling <c>erlang:halt/1</c> with a string argument will still
-	produce a crash dump.</p>
+	produce a crash dump. On Unix systems, sending an emulator process
+	a SIGUSR1 signal will also force a crash dump.</p>
       </item>
       <tag><marker id="+e"><c><![CDATA[+e Number]]></c></marker></tag>
       <item>
