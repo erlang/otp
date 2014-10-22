@@ -424,6 +424,22 @@ TiAliasSet TI-ALIAS ::= {
    ...
 }
 
+--
+-- Test using an alias for a class.
+--
+
+ALIAS-CONTAINER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INDIRECT-CLASS
+}
+
+INDIRECTED-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type
+}
+
+INDIRECT-CLASS ::= INDIRECTED-CLASS
+
 END
 
 

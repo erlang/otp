@@ -645,7 +645,7 @@ check_class_fields(S,[F|Fields],Acc) ->
 		Cat = 
 		    case asn1ct_gen:type(asn1ct_gen:get_inner(Type2#type.def)) of
 			Def when is_record(Def,'Externaltypereference') ->
-			    {_,D} = get_referenced_type(S,Def),
+			    {_,D} = get_referenced_type(S, Def, true),
 			    D;
 			{undefined,user} -> 
 			    %% neither of {primitive,bif} or {constructed,bif}
@@ -2923,7 +2923,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		       inlined=IsInlined},
     TestFun = 
 	fun(Tref) ->
-		MaybeChoice = get_non_typedef(S, Tref),
+		{_, MaybeChoice} = get_referenced_type(S, Tref, true),
 		case catch((MaybeChoice#typedef.typespec)#type.def) of
 		    {'CHOICE',_} ->
 			maybe_illicit_implicit_tag(choice,Tag);
@@ -2941,7 +2941,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 	case Def of 
 	    Ext when is_record(Ext,'Externaltypereference') ->
 		{RefMod,RefTypeDef,IsParamDef} = 
-		    case get_referenced_type(S,Ext) of
+		    case get_referenced_type(S, Ext) of
 			{undefined,TmpTDef} -> %% A parameter
 			    {get(top_module),TmpTDef,true};
 			{TmpRefMod,TmpRefDef} ->
@@ -3261,14 +3261,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 check_type(_S,Type,Ts) ->
     exit({error,{asn1,internal_error,Type,Ts}}).
 
-get_non_typedef(S, Tref0) ->
-    case get_referenced_type(S, Tref0) of
-	{_,#typedef{typespec=#type{def=#'Externaltypereference'{}=Tref}}} ->
-	    get_non_typedef(S, Tref);
-	{_,Type} ->
-	    Type
-    end.
-
 
 %%
 %% Simplify the backends by getting rid of an #'ObjectClassFieldType'{}
@@ -3321,10 +3313,10 @@ get_innertag(_S,#'ObjectClassFieldType'{type=Type}) ->
     
 %% get_class_def(S, Type) -> #classdef{} | 'none'.
 get_class_def(S, #typedef{typespec=#type{def=#'Externaltypereference'{}=Eref}}) ->
-    {_,NextDef} = get_referenced_type(S, Eref),
+    {_,NextDef} = get_referenced_type(S, Eref, true),
     get_class_def(S, NextDef);
 get_class_def(S, #'Externaltypereference'{}=Eref) ->
-    {_,NextDef} = get_referenced_type(S, Eref),
+    {_,NextDef} = get_referenced_type(S, Eref, true),
     get_class_def(S, NextDef);
 get_class_def(_S, #classdef{}=CD) ->
     CD;
@@ -4416,11 +4408,13 @@ get_referenced_value(S, T) ->
     end.
 
 get_referenced_type(S, T) ->
+    get_referenced_type(S, T, false).
+
+get_referenced_type(S, T, Recurse) ->
     case do_get_referenced_type(S, T) of
-	{_,#type{def=#'Externaltypereference'{}=ERef}} ->
-	    get_referenced_type(S, ERef);
-	{_,#type{def=#'Externalvaluereference'{}=VRef}} ->
-	    get_referenced_type(S, VRef);
+	{_,#typedef{typespec=#type{def=#'Externaltypereference'{}=ERef}}}
+	  when Recurse ->
+	    get_referenced_type(S, ERef, Recurse);
 	{_,_}=Res ->
 	    Res
     end.
