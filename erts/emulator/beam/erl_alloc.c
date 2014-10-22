@@ -103,9 +103,9 @@ static Uint install_debug_functions(void);
 
 static int lock_all_physical_memory = 0;
 
-ErtsAllocatorFunctions_t erts_allctrs[ERTS_ALC_A_MAX+1];
+ErtsAllocatorFunctions_t ERTS_WRITE_UNLIKELY(erts_allctrs[ERTS_ALC_A_MAX+1]);
 ErtsAllocatorInfo_t erts_allctrs_info[ERTS_ALC_A_MAX+1];
-ErtsAllocatorThrSpec_t erts_allctr_thr_spec[ERTS_ALC_A_MAX+1];
+ErtsAllocatorThrSpec_t ERTS_WRITE_UNLIKELY(erts_allctr_thr_spec[ERTS_ALC_A_MAX+1]);
 
 #define ERTS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define ERTS_MAX(A, B) ((A) > (B) ? (A) : (B))

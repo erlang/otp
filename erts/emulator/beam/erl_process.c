@@ -148,14 +148,14 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
-int erts_default_spo_flags = 0;
-int erts_eager_check_io = 1;
-int erts_sched_compact_load;
-int erts_sched_balance_util = 0;
-Uint erts_no_schedulers;
+int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = 0;
+int ERTS_WRITE_UNLIKELY(erts_eager_check_io) = 1;
+int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
+int ERTS_WRITE_UNLIKELY(erts_sched_balance_util) = 0;
+Uint ERTS_WRITE_UNLIKELY(erts_no_schedulers);
 #ifdef ERTS_DIRTY_SCHEDULERS
-Uint erts_no_dirty_cpu_schedulers;
-Uint erts_no_dirty_io_schedulers;
+Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_cpu_schedulers);
+Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_io_schedulers);
 #endif
 
 static char *erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_NO_FLAGS] = {0};
@@ -295,7 +295,7 @@ do {							\
 erts_sched_stat_t erts_sched_stat;
 
 #ifdef USE_THREADS
-static erts_tsd_key_t sched_data_key;
+static erts_tsd_key_t ERTS_WRITE_UNLIKELY(sched_data_key);
 #endif
 
 static erts_smp_atomic32_t function_calls;
@@ -335,10 +335,10 @@ static ErtsAlignedSchedulerSleepInfo *aligned_dirty_io_sched_sleep_info;
 
 static Uint last_reductions;
 static Uint last_exact_reductions;
-Eterm erts_system_monitor;
-Eterm erts_system_monitor_long_gc;
-Uint erts_system_monitor_long_schedule;
-Eterm erts_system_monitor_large_heap;
+Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
+Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
+Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
+Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
 struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system performance monitor */
