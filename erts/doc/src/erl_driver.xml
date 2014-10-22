@@ -2033,7 +2033,8 @@ ERL_DRV_MAP          int sz
           entry function is called. If <c>ready_async</c> is null in
           the driver entry, the <c>async_free</c> function is called
           instead.</p>
-        <p>The return value is a handle to the asynchronous task.</p>
+        <p>The return value is -1 if the <c>driver_async</c> call
+          fails.</p>
         <note>
           <p>As of erts version 5.5.4.3 the default stack size for
             threads in the async-thread pool is 16 kilowords,
