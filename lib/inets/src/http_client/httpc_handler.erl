@@ -350,7 +350,7 @@ handle_call(#request{address = Addr} = Request, _,
 	    {reply, ok, State0#state{keep_alive = NewKeepAlive,
 				    session    = NewSession}};
 	undefined ->
-	    %% Note: tcp-message reciving has already been
+	    %% Note: tcp-message receiving has already been
 	    %% activated by handle_pipeline/2.
 	    ?hcrd("no current request", []),
 	    cancel_timer(Timers#timers.queue_timer,
@@ -632,7 +632,7 @@ handle_info({timeout, RequestId},
 handle_info(timeout_queue, State = #state{request = undefined}) ->
     {stop, normal, State};
 
-%% Timing was such as the pipeline_timout was not canceled!
+%% Timing was such as the queue_timeout was not canceled!
 handle_info(timeout_queue, #state{timers = Timers} = State) ->
     {noreply, State#state{timers = 
                           Timers#timers{queue_timer = undefined}}};
