@@ -173,7 +173,7 @@ init([Role, Socket, SshOpts]) ->
 			       State#state{ssh_params = Ssh})
     catch
 	_:Error ->
-	    gen_fsm:enter_loop(?MODULE, [], error, {Error, State0})
+	    gen_fsm:enter_loop(?MODULE, [], error, {Error, State})
     end.
 
 %% Temporary fix for the Nessus error.  SYN->   <-SYNACK  ACK->  RST-> ?
