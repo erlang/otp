@@ -54,15 +54,15 @@ appup_test(Config) when is_list(Config) ->
 
 %% Read and parse all source in the OTP release.
 smoke_test(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(12)),
-    ?line Wc = filename:join([code:lib_dir(),"*","src","*.erl"]),
-    ?line Fs = filelib:wildcard(Wc),
-    ?line io:format("~p files\n", [length(Fs)]),
-    ?line case p_run(fun smoke_test_file/1, Fs) of
-	      0 -> ok;
-	      N -> ?line ?t:fail({N,errors})
-	  end,
-    ?line ?t:timetrap_cancel(Dog).
+    Dog = ?t:timetrap(?t:minutes(12)),
+    Wc = filename:join([code:lib_dir(),"*","src","*.erl"]),
+    Fs = filelib:wildcard(Wc),
+    io:format("~p files\n", [length(Fs)]),
+    case p_run(fun smoke_test_file/1, Fs) of
+        0 -> ok;
+        N -> ?t:fail({N,errors})
+    end,
+    ?t:timetrap_cancel(Dog).
 
 smoke_test_file(File) ->
     case epp_dodger:parse_file(File) of
@@ -94,9 +94,9 @@ revert(Config) when is_list(Config) ->
     io:format("~p files\n", [length(Fs)]),
     case p_run(fun (File) -> revert_file(File, Path) end, Fs) of
         0 -> ok;
-        N -> ?line ?t:fail({N,errors})
+        N -> ?t:fail({N,errors})
         end,
-    ?line ?t:timetrap_cancel(Dog).
+    ?t:timetrap_cancel(Dog).
 
 revert_file(File, Path) ->
     case epp:parse_file(File, Path, []) of
@@ -112,12 +112,11 @@ revert_file(File, Path) ->
 %% Testing bug fix for reverting map_field_assoc
 revert_map(Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),
-    ?line [{map_field_assoc,16,{atom,17,name},{var,18,'Value'}}] =
-        erl_syntax:revert_forms([{tree,map_field_assoc,
-                                  {attr,16,[],none},
-                                  {map_field_assoc,
-                                   {atom,17,name},{var,18,'Value'}}}]),
-    ?line ?t:timetrap_cancel(Dog).
+    [{map_field_assoc,16,{atom,17,name},{var,18,'Value'}}] =
+    erl_syntax:revert_forms([{tree,map_field_assoc,
+                             {attr,16,[],none},
+			     {map_field_assoc,{atom,17,name},{var,18,'Value'}}}]),
+    ?t:timetrap_cancel(Dog).
 
 p_run(Test, List) ->
     N = erlang:system_info(schedulers),
@@ -138,4 +137,3 @@ p_run_loop(Test, List, N, Refs0, Errors0) ->
 	    Refs = Refs0 -- [Ref],
 	    p_run_loop(Test, List, N, Refs, Errors)
     end.
-    
