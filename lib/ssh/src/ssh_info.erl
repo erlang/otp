@@ -38,6 +38,7 @@ print() ->
 	    io:nl(),
 	    underline("Server part", $=),
 	    print_servers(),
+	    io:nl(),
 	    %% case os:type() of
 	    %% 	{unix,_} ->
 	    %% 	    io:nl(),
@@ -49,7 +50,9 @@ print() ->
 	    %% 	    catch io:format(os:cmd("netstat -tpn"));
 	    %% 	_ -> ok
 	    %% end,
-	    ok
+	    underline("Supervisors", $=),
+	    walk_sups(ssh_sup),
+	    io:nl()
     catch
 	_:_ ->
 	    io:format("Ssh not found~n",[])
@@ -116,6 +119,52 @@ print_channel({Ref,Pid,worker,[ssh_channel]}) when is_reference(Ref),
 print_channel(Other) -> 
     io:format("    [[Other 5: ~p]]~n",[Other]).
 	      
+%%%================================================================
+-define(inc(N), (N+4)).
+
+walk_sups(StartPid) ->
+    io:format("Start at ~p, ~s.~n",[StartPid,dead_or_alive(StartPid)]),
+    walk_sups(children(StartPid), _Indent=?inc(0)).
+
+walk_sups([H={_,Pid,SupOrWorker,_}|T], Indent) ->
+    indent(Indent), io:format('~200p  ~p is ~s~n',[H,Pid,dead_or_alive(Pid)]),
+    case SupOrWorker of
+	supervisor -> walk_sups(children(Pid), ?inc(Indent));
+	_ -> ok
+    end,
+    walk_sups(T, Indent);
+walk_sups([], _) ->
+    ok.
+
+dead_or_alive(Name) when is_atom(Name) ->
+    case whereis(Name) of
+	undefined -> 
+	    "**UNDEFINED**";
+	Pid -> 
+	    dead_or_alive(Pid)
+    end;
+dead_or_alive(Pid) when is_pid(Pid) ->
+    case process_info(Pid) of
+	undefined -> "**DEAD**";
+	_ -> "alive"
+    end.
+
+indent(I) -> io:format('~*c',[I,$ ]). 
+
+children(Pid) ->
+    Parent = self(),
+    Helper = spawn(fun() ->
+			   Parent ! {self(),supervisor:which_children(Pid)}
+		   end),
+    receive
+	{Helper,L} when is_list(L) ->
+	    L
+    after
+	2000 -> 
+	    catch exit(Helper, kill),
+	    []
+    end.
+
 %%%================================================================
 underline(Str) ->
     underline(Str, $-).
