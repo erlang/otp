@@ -24,12 +24,14 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1]).
+-export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
+	t_abstract_type/1,t_erl_parse_type/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test,appup_test,smoke_test,revert,revert_map].
+    [app_test,appup_test,smoke_test,revert,revert_map,
+    t_abstract_type,t_erl_parse_type].
 
 groups() -> 
     [].
@@ -110,13 +112,186 @@ revert_file(File, Path) ->
     end.
 
 %% Testing bug fix for reverting map_field_assoc
-revert_map(Config) ->
+revert_map(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),
     [{map_field_assoc,16,{atom,17,name},{var,18,'Value'}}] =
     erl_syntax:revert_forms([{tree,map_field_assoc,
                              {attr,16,[],none},
 			     {map_field_assoc,{atom,17,name},{var,18,'Value'}}}]),
     ?t:timetrap_cancel(Dog).
+
+
+
+%% api tests
+
+t_abstract_type(Config) when is_list(Config) ->
+    F = fun validate_abstract_type/1,
+    ok = validate(F,[{hi,atom},
+		     {1,integer},
+		     {1.0,float},
+		     {$a,integer},
+		     {[],nil},
+		     {[<<1,2>>,a,b],list},
+		     {[2,3,<<1,2>>,a,b],list},
+		     {[$a,$b,$c],string},
+		     {"hello world",string},
+		     {<<1,2,3>>,binary},
+		     {{a,b,c},tuple}]),
+    ok.
+
+t_erl_parse_type(Config) when is_list(Config) ->
+    F = fun validate_erl_parse_type/1,
+    %% leaf types
+    ok = validate(F,[{"1",integer,true},
+		     {"123456789",integer,true},
+		     {"$h", char,true},
+		     {"3.1415", float,true},
+		     {"1.33e36", float,true},
+		     {"\"1.33e36: hello\"", string,true},
+		     {"Var1", variable,true},
+		     {"_", underscore,true},
+		     {"[]", nil,true},
+		     {"{}", tuple,true},
+		     {"'some atom'", atom, true}]),
+    %% composite types
+    ok = validate(F,[{"case X of t -> t; f -> f end", case_expr,false},
+		     {"try X of t -> t catch C:R -> error end", try_expr,false},
+		     {"receive X -> X end", receive_expr,false},
+		     {"receive M -> X1 after T -> X2 end", receive_expr,false},
+		     {"catch (X)", catch_expr,false},
+		     {"fun(X) -> X end", fun_expr,false},
+		     {"fun Foo(X) -> X end", named_fun_expr,false},
+		     {"fun foo/2", implicit_fun,false},
+		     {"fun bar:foo/2", implicit_fun,false},
+		     {"if X -> t; true -> f end", if_expr,false},
+		     {"<<1,2,3,4>>", binary,false},
+		     {"<<1,2,3,4:5>>", binary,false},
+		     {"<<V1:63,V2:22/binary, V3/bits>>", binary,false},
+		     {"begin X end", block_expr,false},
+		     {"foo(X1,X2)", application,false},
+		     {"bar:foo(X1,X2)", application,false},
+		     {"[1,2,3,4]", list,false},
+		     {"[1|4]", list, false},
+		     {"[<<1>>,<<2>>,-2,<<>>,[more,list]]", list,false},
+		     {"[1|[2|[3|[4|[]]]]]", list,false},
+		     {"#{ a=>1, b=>2 }", map_expr,false},
+		     {"#{ a:=1, b:=2 }", map_expr,false},
+		     {"M#{ a=>1, b=>2 }", map_expr,false},
+		     {"[V||V <- Vs]", list_comp,false},
+		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+		     {"#state{ a = A, b = B}", record_expr,false},
+		     {"#state{}", record_expr,false},
+		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
+		     {"State#state{ a = A, b = B}", record_expr,false},
+		     {"State#state.a", record_access,false},
+		     {"#state.a", record_index_expr,false},
+		     {"-X", prefix_expr,false},
+		     {"X1 + X2", infix_expr,false},
+		     {"(X1 + X2) * X3", infix_expr,false},
+		     {"X1 = X2", match_expr,false},
+		     {"{a,b,c}", tuple,false}]),
+    ok.
+
+validate(_,[]) -> ok;
+validate(F,[V|Vs]) ->
+    ok = F(V),
+    validate(F,Vs).
+
+
+validate_abstract_type({Lit,Type}) ->
+    Tree = erl_syntax:abstract(Lit),
+    ok   = validate_special_type(Type,Tree),
+    Type = erl_syntax:type(Tree),
+    true = erl_syntax:is_literal(Tree),
+    ErlT = erl_syntax:revert(Tree),
+    Type = erl_syntax:type(ErlT),
+    ok   = validate_special_type(Type,ErlT),
+    Conc = erl_syntax:concrete(Tree),
+    Lit  = Conc,
+    ok.
+
+validate_erl_parse_type({String,Type,Leaf}) ->
+    ErlT = string_to_expr(String),
+    ok   = validate_special_type(Type,ErlT),
+    Type = erl_syntax:type(ErlT),
+    Leaf = erl_syntax:is_leaf(ErlT),
+    Tree = erl_syntax_lib:map(fun(Node) -> Node end, ErlT),
+    Type = erl_syntax:type(Tree),
+    _    = erl_syntax:meta(Tree),
+    ok   = validate_special_type(Type,Tree),
+    RevT = erl_syntax:revert(Tree),
+    ok   = validate_special_type(Type,RevT),
+    Type = erl_syntax:type(RevT),
+    ok.
+
+validate_special_type(string,Node) ->
+    Val  = erl_syntax:string_value(Node),
+    true = erl_syntax:is_string(Node,Val),
+    _    = erl_syntax:string_literal(Node),
+    ok;
+validate_special_type(variable,Node) ->
+    _ = erl_syntax:variable_literal(Node),
+    ok;
+validate_special_type(fun_expr,Node) ->
+    A = erl_syntax:fun_expr_arity(Node),
+    true = is_integer(A),
+    ok;
+validate_special_type(named_fun_expr,Node) ->
+    A = erl_syntax:named_fun_expr_arity(Node),
+    true = is_integer(A),
+    ok;
+validate_special_type(tuple,Node) ->
+    Size = erl_syntax:tuple_size(Node),
+    true = is_integer(Size),
+    ok;
+validate_special_type(float,Node) ->
+    Str   = erl_syntax:float_literal(Node),
+    Val   = list_to_float(Str),
+    Val   = erl_syntax:float_value(Node),
+    false = erl_syntax:is_proper_list(Node),
+    false = erl_syntax:is_list_skeleton(Node),
+    ok;
+validate_special_type(integer,Node) ->
+    Str   = erl_syntax:integer_literal(Node),
+    Val   = list_to_integer(Str),
+    true  = erl_syntax:is_integer(Node,Val),
+    Val   = erl_syntax:integer_value(Node),
+    false = erl_syntax:is_proper_list(Node),
+    ok;
+validate_special_type(nil,Node) ->
+    true  = erl_syntax:is_proper_list(Node),
+    ok;
+validate_special_type(list,Node) ->
+    true  = erl_syntax:is_list_skeleton(Node),
+    _     = erl_syntax:list_tail(Node),
+    ErrV  = erl_syntax:list_head(Node),
+    false = erl_syntax:is_string(Node,ErrV),
+    Norm  = erl_syntax:normalize_list(Node),
+    list  = erl_syntax:type(Norm),
+    case erl_syntax:is_proper_list(Node) of
+	true ->
+	    true = erl_syntax:is_list_skeleton(Node),
+	    Compact = erl_syntax:compact_list(Node),
+	    list = erl_syntax:type(Compact),
+	    [_|_] = erl_syntax:list_elements(Node),
+	    _  = erl_syntax:list_elements(Node),
+	    N  = erl_syntax:list_length(Node),
+	    true = N > 0,
+	    ok;
+	false ->
+	    ok
+    end;
+validate_special_type(_,_) ->
+    ok.
+
+%%% scan_and_parse
+%
+string_to_expr(String) ->
+    io:format("Str: ~p~n", [String]),
+    {ok, Ts, _} = erl_scan:string(String++"."),
+    {ok,[Expr]} = erl_parse:parse_exprs(Ts),
+    Expr.
+
 
 p_run(Test, List) ->
     N = erlang:system_info(schedulers),
