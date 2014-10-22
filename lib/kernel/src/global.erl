@@ -35,7 +35,7 @@
 	 set_lock/1, set_lock/2, set_lock/3,
 	 del_lock/1, del_lock/2,
 	 trans/2, trans/3, trans/4,
-	 random_exit_name/3, random_notify_name/3, notify_all_name/3]).
+	 random_exit_name/3, random_notify_name/3, notify_all_name/3, pid_2_name/1]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -2231,3 +2231,16 @@ allow_tuple_fun({M, F}) when is_atom(M), is_atom(F) ->
     fun M:F/3;
 allow_tuple_fun(Fun) when is_function(Fun, 3) ->
     Fun.
+pid_2_name(Pid) ->
+    case ets:lookup(global_pid_names, Pid) of
+[{Pid, Name}] -> 
+    if node(Pid) == node() ->
+    case is_process_alive(Pid) of
+true -> Name;
+false -> undefined
+    end;
+       true ->
+    Name
+    end;
+[] -> undefined
+    end.

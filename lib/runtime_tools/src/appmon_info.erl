@@ -708,8 +708,12 @@ format(P) when is_pid(P), node(P) /= node() ->
 format(P) when is_pid(P) ->
     case process_info(P, registered_name) of
 	{registered_name, Name} -> atom_to_list(Name);
-	_ -> pid_to_list(P)
-    end;
+	_ ->
+	    case global:pid_2_name(P) of
+		undefined -> pid_to_list(P);
+		Name -> "*g*" ++ atom_to_list(Name)
+	    end
+	end;
 format(P) when is_port(P) ->
     "port " ++ integer_to_list(element(2, erlang:port_info(P, id)));
 format(X) ->
