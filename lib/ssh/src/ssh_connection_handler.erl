@@ -41,11 +41,13 @@
 	 global_request/4, send/5, send_eof/2, info/1, info/2,
 	 connection_info/2, channel_info/3,
 	 adjust_window/3, close/2, stop/1, renegotiate/1, renegotiate_data/1,
-	 start_connection/4]).
+	 start_connection/4,
+	 get_print_info/1]).
 
 %% gen_fsm callbacks
 -export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
-	 userauth/2, connected/2]).
+	 userauth/2, connected/2,
+	 error/2]).
 
 -export([init/1, handle_event/3,
 	 handle_sync_event/4, handle_info/3, terminate/3, format_status/2, code_change/4]).
@@ -171,8 +173,22 @@ init([Role, Socket, SshOpts]) ->
 			       State#state{ssh_params = Ssh})
     catch
 	_:Error ->
-	    gen_fsm:enter_loop(?MODULE, [], error, {Error, State0})
+	    gen_fsm:enter_loop(?MODULE, [], error, {Error, State})
     end.
+
+%% Temporary fix for the Nessus error.  SYN->   <-SYNACK  ACK->  RST-> ?
+error(_Event, {Error,State=#state{}}) ->
+    case Error of
+	{badmatch,{error,enotconn}} ->
+	    %% {error,enotconn} probably from inet:peername in
+	    %% init_ssh(server,..)/5 called from init/1
+	    {stop, {shutdown,"TCP connenction to server was prematurely closed by the client"}, State};
+	_ ->
+	    {stop, {shutdown,{init,Error}}, State}
+    end;
+error(Event, State) -> 
+    %% State deliberately not checked beeing #state. This is a panic-clause...
+    {stop, {shutdown,{init,{spurious_error,Event}}}, State}.
 
 %%--------------------------------------------------------------------
 -spec open_channel(pid(), string(), iodata(), integer(), integer(),
@@ -240,6 +256,9 @@ send_eof(ConnectionHandler, ChannelId) ->
 %%--------------------------------------------------------------------
 -spec connection_info(pid(), [atom()]) -> proplists:proplist().
 %%--------------------------------------------------------------------
+get_print_info(ConnectionHandler) ->
+    sync_send_all_state_event(ConnectionHandler, get_print_info, 1000).
+
 connection_info(ConnectionHandler, Options) ->
     sync_send_all_state_event(ConnectionHandler, {connection_info, Options}).
 
@@ -550,7 +569,7 @@ connected({#ssh_msg_kexinit{}, _Payload} = Event, State) ->
 
 %%--------------------------------------------------------------------
 handle_event(#ssh_msg_disconnect{description = Desc} = DisconnectMsg, _StateName, #state{} = State) ->
-    handle_disconnect(DisconnectMsg, State),
+    handle_disconnect(peer, DisconnectMsg, State),
     {stop, {shutdown, Desc}, State};
 
 handle_event(#ssh_msg_ignore{}, StateName, State) ->
@@ -758,6 +777,20 @@ handle_sync_event({recv_window, ChannelId}, _From, StateName,
 	    end,
     {reply, Reply, StateName, next_packet(State)};
 
+handle_sync_event(get_print_info, _From, StateName, State) ->
+    Reply =
+	try
+	    {inet:sockname(State#state.socket),
+	     inet:peername(State#state.socket)
+	    }
+	of
+	    {{ok,Local}, {ok,Remote}} -> {{Local,Remote},io_lib:format("statename=~p",[StateName])};
+	    _ -> {{"-",0},"-"}
+	catch
+	    _:_ -> {{"?",0},"?"}
+	end,
+    {reply, Reply, StateName, State};
+
 handle_sync_event({connection_info, Options}, _From, StateName, State) ->
     Info = ssh_info(Options, State, []),
     {reply, Info, StateName, State};
@@ -936,6 +969,10 @@ terminate(normal, _, #state{transport_cb = Transport,
     (catch Transport:close(Socket)),
     ok;
 
+terminate({shutdown,{init,Reason}}, StateName, State) ->
+    error_logger:info_report(io_lib:format("Erlang ssh in connection handler init: ~p~n",[Reason])),
+    terminate(normal, StateName, State);
+
 %% Terminated by supervisor
 terminate(shutdown, StateName, #state{ssh_params = Ssh0} = State) ->
     DisconnectMsg = 
@@ -951,8 +988,10 @@ terminate({shutdown, #ssh_msg_disconnect{} = Msg}, StateName,
      {SshPacket, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
     send_msg(SshPacket, State),
      terminate(normal, StateName, State#state{ssh_params = Ssh});
+
 terminate({shutdown, _}, StateName, State) ->
     terminate(normal, StateName, State);
+
 terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
 				   connection_state = Connection} = State) ->
     terminate_subsytem(Connection),
@@ -964,6 +1003,7 @@ terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
     {SshPacket, Ssh} = ssh_transport:ssh_packet(DisconnectMsg, Ssh0),
     send_msg(SshPacket, State),
     terminate(normal, StateName, State#state{ssh_params = Ssh}).
+
 
 terminate_subsytem(#connection{system_supervisor = SysSup,
 			       sub_system_supervisor = SubSysSup}) when is_pid(SubSysSup) ->
@@ -1161,7 +1201,10 @@ send_all_state_event(FsmPid, Event) ->
     gen_fsm:send_all_state_event(FsmPid, Event).
 
 sync_send_all_state_event(FsmPid, Event) ->
-    try gen_fsm:sync_send_all_state_event(FsmPid, Event, infinity)
+    sync_send_all_state_event(FsmPid, Event, infinity).
+
+sync_send_all_state_event(FsmPid, Event, Timeout) ->
+    try gen_fsm:sync_send_all_state_event(FsmPid, Event, Timeout)
     catch
 	exit:{noproc, _} ->
 	    {error, closed};
@@ -1258,13 +1301,23 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 generate_event(Msg, StateName, State0, EncData) ->
     Event = ssh_message:decode(Msg),
     State = generate_event_new_state(State0, EncData),
-    case Event of
-	#ssh_msg_kexinit{} ->
-	    %% We need payload for verification later.
-	    event({Event, Msg}, StateName, State);
-	_ ->
-	    event(Event, StateName, State)
-    end.
+    try 
+	case Event of
+	    #ssh_msg_kexinit{} ->
+		%% We need payload for verification later.
+		event({Event, Msg}, StateName, State);
+	    _ ->
+		event(Event, StateName, State)
+	end
+    catch 
+	_:_  ->
+	    DisconnectMsg =
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR, 
+				    description = "Encountered unexpected input",
+				    language = "en"},
+	    handle_disconnect(DisconnectMsg, State)   
+    end.		
+	    
 
 
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From,
@@ -1442,16 +1495,26 @@ handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
 	    handle_disconnect(DisconnectMsg, State0)
     end.
 
-handle_disconnect(#ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
-									role = Role} = State0) ->
+handle_disconnect(DisconnectMsg, State) ->
+    handle_disconnect(own, DisconnectMsg, State).
+
+handle_disconnect(#ssh_msg_disconnect{} = DisconnectMsg, State, Error) ->
+    handle_disconnect(own, DisconnectMsg, State, Error);
+handle_disconnect(Type,  #ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,									role = Role} = State0) ->
     {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
-    State = send_replies(Replies, State0),
+    State = send_replies(disconnect_replies(Type, Msg, Replies), State0),
     {stop, {shutdown, Desc}, State#state{connection_state = Connection}}.
-handle_disconnect(#ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
-									role = Role} = State0, ErrorMsg) ->
+
+handle_disconnect(Type, #ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
+									      role = Role} = State0, ErrorMsg) ->
     {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
-    State = send_replies(Replies, State0),
+    State = send_replies(disconnect_replies(Type, Msg, Replies), State0),
     {stop, {shutdown, {Desc, ErrorMsg}}, State#state{connection_state = Connection}}.
+
+disconnect_replies(own, Msg, Replies) ->
+    [{connection_reply, Msg} | Replies];
+disconnect_replies(peer, _, Replies) ->
+    Replies.
 
 counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
     Ssh#ssh{c_vsn = NumVsn , c_version = StrVsn};

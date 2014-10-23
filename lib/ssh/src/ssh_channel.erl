@@ -67,7 +67,8 @@
 %% Internal application API
 -export([cache_create/0, cache_lookup/2, cache_update/2, 
 	 cache_delete/1, cache_delete/2,  cache_foldl/3,
-	 cache_find/2]).
+	 cache_find/2,
+	 get_print_info/1]).
 
 -record(state, {
 	  cm,
@@ -190,6 +191,14 @@ init([Options]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+handle_call(get_print_info, _From, State) ->
+    Reply =
+	{{State#state.cm,
+	  State#state.channel_id},
+	 io_lib:format('CB=~p',[State#state.channel_cb])
+	},
+    {reply, Reply, State};
+
 handle_call(Request, From, #state{channel_cb = Module, 
 				  channel_state = ChannelState} = State) ->
    try Module:handle_call(Request, From, ChannelState) of
@@ -332,6 +341,9 @@ cache_find(ChannelPid, Cache) ->
        [Channel] ->
 	   Channel
    end.
+
+get_print_info(Pid) ->
+    call(Pid, get_print_info, 1000).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
