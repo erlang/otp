@@ -97,23 +97,13 @@ display_check_io(ChkIo) ->
     catch erlang:display('--- CHECK IO INFO ---'),
     catch erlang:display(ChkIo),
     catch erts_debug:set_internal_state(available_internal_state, true),
-    NoOfErrorFds = (catch erts_debug:get_internal_state(check_io_debug)),
+    NoOfErrorFds = (catch element(1, erts_debug:get_internal_state(check_io_debug))),
     catch erlang:display({'NoOfErrorFds', NoOfErrorFds}),
     catch erts_debug:set_internal_state(available_internal_state, false),
     catch erlang:display('--- CHECK IO INFO ---'),
     ok.
 
 get_check_io_info() ->
-    ChkIo = erlang:system_info(check_io),
-    case lists:keysearch(pending_updates, 1, ChkIo) of
-	{value, {pending_updates, 0}} ->
-	    display_check_io(ChkIo),
-	    ChkIo;
-	false ->
-	    ChkIo;
-	_ ->
-	    receive after 10 -> ok end,
-	    get_check_io_info()
-    end.
+    z_SUITE:get_check_io_info().
 
 
