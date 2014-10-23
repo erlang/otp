@@ -223,8 +223,7 @@ open(Config, Version) ->
 
     ?format("Crashing dets server \n", []),
     process_flag(trap_exit, true),
-    Procs = [whereis(?DETS_SERVER) | map(fun(Tab) -> dets:info(Tab, pid) end,
-				 Tabs)],
+    Procs = [whereis(?DETS_SERVER) | [dets:info(Tab, pid) || Tab <- Tabs]],
     foreach(fun(Pid) -> exit(Pid, kill) end, Procs),
     timer:sleep(100),
     c:flush(),  %% flush all the EXIT sigs
@@ -235,18 +234,32 @@ open(Config, Version) ->
     open_files(1, All, Version),
     ?format("Checking contents of repaired files \n", []),
     check(Tabs, Data),
-    
-    close_all(Tabs),
 
+    close_all(Tabs),
     delete_files(All),
-    P1 = pps(),
+
     {Ports0, Procs0} = P0,
-    {Ports1, Procs1} = P1,
-    true = Ports1 =:= Ports0,
-    %% The dets_server process has been restarted:
-    [_] = Procs0 -- Procs1,
-    [_] = Procs1 -- Procs0,
-    ok.
+    Test = fun() ->
+                   P1 = pps(),
+                   {Ports1, Procs1} = P1,
+                   show("Old port", Ports0 -- Ports1),
+                   show("New port", Ports1 -- Ports0),
+                   show("Old procs", Procs0 -- Procs1),
+                   show("New procs", Procs1 -- Procs0),
+                   io:format("Remaining Dets-pids (should be nil): ~p~n",
+                             [find_dets_pids()]),
+                   true = Ports1 =:= Ports0,
+                   %% The dets_server process has been restarted:
+                   [_] = Procs0 -- Procs1,
+                   [_] = Procs1 -- Procs0,
+                   ok
+           end,
+    case catch Test() of
+        ok -> ok;
+        _ ->
+            timer:sleep(500),
+            ok = Test()
+    end.
     
 check(Tabs, Data) ->
     foreach(fun(Tab) ->
@@ -3275,12 +3288,22 @@ simultaneous_open(Config) ->
     File = filename(Tab, Config),
     
     ok = monit(Tab, File),
-    ok = kill_while_repairing(Tab, File),
-    ok = kill_while_init(Tab, File),
-    ok = open_ro(Tab, File),
-    ok = open_w(Tab, File, 0, Config),
-    ok = open_w(Tab, File, 100, Config),
-    ok.
+    case feasible() of
+        false -> {comment, "OK, but did not run all of the test"};
+        true ->
+            ok = kill_while_repairing(Tab, File),
+            ok = kill_while_init(Tab, File),
+            ok = open_ro(Tab, File),
+            ok = open_w(Tab, File, 0, Config),
+            ok = open_w(Tab, File, 100, Config)
+    end.
+
+feasible() ->
+    LP = erlang:system_info(logical_processors),
+    (is_integer(LP)
+     andalso LP >= erlang:system_info(schedulers_online)
+     andalso not erlang:system_info(debug_compiled)
+     andalso not erlang:system_info(lock_checking)).
 
 %% One process logs and another process closes the log. Before
 %% monitors were used, this would make the client never return.
@@ -3307,7 +3330,6 @@ kill_while_repairing(Tab, File) ->
     Delay = 1000,
     dets:start(),
     Parent = self(),
-    Ps = processes(),
     F = fun() -> 
                 R = (catch dets:open_file(Tab, [{file,File}])),
                 timer:sleep(Delay),
@@ -3318,7 +3340,7 @@ kill_while_repairing(Tab, File) ->
     P1 = spawn(F),
     P2 = spawn(F),
     P3 = spawn(F),
-    DetsPid = find_dets_pid([P1, P2, P3 | Ps]),
+    DetsPid = find_dets_pid(),
     exit(DetsPid, kill),
 
     receive {P1,R1} -> R1 end,
@@ -3341,12 +3363,6 @@ kill_while_repairing(Tab, File) ->
 
     file:delete(File),
     ok.
-
-find_dets_pid(P0) ->
-    case lists:sort(processes() -- P0) of
-        [P, _] -> P;
-        _ -> timer:sleep(100), find_dets_pid(P0)
-    end.
 
 find_dets_pid() ->
     case find_dets_pids() of
@@ -3421,6 +3437,13 @@ open_ro(Tab, File) ->
 
 open_w(Tab, File, Delay, Config) ->
     create_opened_log(File),
+
+    Tab2 = t2,
+    File2 = filename(Tab2, Config),
+    file:delete(File2),
+    {ok,Tab2} = dets:open_file(Tab2, [{file,File2}]),
+    ok = dets:close(Tab2),
+
     Parent = self(),
     F = fun() -> 
                 R = dets:open_file(Tab, [{file,File}]),
@@ -3430,16 +3453,16 @@ open_w(Tab, File, Delay, Config) ->
     Pid1 = spawn(F),
     Pid2 = spawn(F),
     Pid3 = spawn(F),
-    undefined = dets:info(Tab), % is repairing now
-    0 = qlen(),
 
-    Tab2 = t2,
-    File2 = filename(Tab2, Config),
-    file:delete(File2),
+    ok = wait_for_repair_to_start(Tab),
+
+    %% It is assumed that it takes some time to repair the file.
     {ok,Tab2} = dets:open_file(Tab2, [{file,File2}]),
+    %% The Dets server managed to handle to open_file request.
+    0 = qlen(), % still repairing
+
     ok = dets:close(Tab2),
     file:delete(File2),
-    0 = qlen(), % still repairing
 
     receive {Pid1,R1} -> {ok, Tab} = R1 end,
     receive {Pid2,R2} -> {ok, Tab} = R2 end,
@@ -3455,6 +3478,15 @@ open_w(Tab, File, Delay, Config) ->
 
     file:delete(File),
     ok.
+
+wait_for_repair_to_start(Tab) ->
+    case catch dets_server:get_pid(Tab) of
+        {'EXIT', _} ->
+            timer:sleep(1),
+            wait_for_repair_to_start(Tab);
+        Pid when is_pid(Pid) ->
+            ok
+    end.
 
 qlen() ->
     {_, {_, N}} = lists:keysearch(message_queue_len, 1, process_info(self())),
@@ -4350,6 +4382,7 @@ check_badarg({'EXIT', {badarg, [{M,F,A,_} | _]}}, M, F, Args)  ->
     true = test_server:is_native(M) andalso length(Args) =:= A.
 
 check_pps({Ports0,Procs0} = P0) ->
+    ok = check_dets_tables(),
     case pps() of
         P0 ->
             ok;
@@ -4375,13 +4408,45 @@ check_pps({Ports0,Procs0} = P0) ->
 	    end
     end.
 
+%% Copied from dets_server.erl:
+-define(REGISTRY, dets_registry).
+-define(OWNERS, dets_owners).
+-define(STORE, dets).
+
+check_dets_tables() ->
+    Store = [T ||
+                T <- ets:all(),
+                ets:info(T, name) =:= ?STORE,
+                owner(T) =:= dets],
+    S = case Store of
+            [Tab] -> ets:tab2list(Tab);
+            [] -> []
+        end,
+    case {ets:tab2list(?REGISTRY), ets:tab2list(?OWNERS), S} of
+        {[], [], []} -> ok;
+        {R, O, _} ->
+            io:format("Registry: ~p~n", [R]),
+            io:format("Owners: ~p~n", [O]),
+            io:format("Store: ~p~n", [S]),
+            not_ok
+    end.
+
+owner(Tab) ->
+    Owner = ets:info(Tab, owner),
+    case process_info(Owner, registered_name) of
+	{registered_name, Name} -> Name;
+	_ -> Owner
+    end.
+
 show(_S, []) ->
     ok;
-show(S, [Pid|Pids]) when is_pid(Pid) ->
-    io:format("~s: ~p~n", [S, erlang:process_info(Pid)]),
+show(S, [{Pid, Name, InitCall}|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~w (~w), ~w: ~p~n",
+              [S, Pid, proc_reg_name(Name), InitCall,
+               erlang:process_info(Pid)]),
     show(S, Pids);
-show(S, [Port|Ports]) when is_port(Port)->
-    io:format("~s: ~p~n", [S, erlang:port_info(Port)]),
+show(S, [{Port, _}|Ports]) when is_port(Port)->
+    io:format("~s: ~w: ~p~n", [S, Port, erlang:port_info(Port)]),
     show(S, Ports).
 
 pps() ->
@@ -4396,6 +4461,9 @@ process_list() ->
     [{P,process_info(P, registered_name),
       safe_second_element(process_info(P, initial_call))} || 
         P <- processes()].
+
+proc_reg_name({registered_name, Name}) -> Name;
+proc_reg_name([]) -> no_reg_name.
 
 safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.
