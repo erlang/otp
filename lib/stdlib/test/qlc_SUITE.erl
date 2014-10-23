@@ -7891,7 +7891,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
     {module, _} = code:load_abs(AbsFile, Mod),
 
     Ms0 = erlang:process_info(self(),messages),
-    Before = {get(), pps(), ets:all(), Ms0},
+    Before = {{get(), ets:all(), Ms0}, pps()},
 
     %% Prepare the check that the qlc module does not call qlc_pt.
     _ = [unload_pt() || {file, Name} <- [code:is_loaded(qlc_pt)], 
@@ -7921,12 +7921,29 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
 run_test(Config, Extra, Body) ->
     run_test(Config, Extra, {cres,Body,[]}).
 
-wait_for_expected(R, Before, SourceFile, Wait) ->
+wait_for_expected(R, {Strict0,PPS0}=Before, SourceFile, Wait) ->
     Ms = erlang:process_info(self(),messages),
-    After = {get(), pps(), ets:all(), Ms},
+    After = {_,PPS1} = {{get(), ets:all(), Ms}, pps()},
     case {R, After} of
         {ok, Before} ->
             ok;
+        {ok, {Strict0,_}} ->
+            {Ports0,Procs0} = PPS0,
+            {Ports1,Procs1} = PPS1,
+            case {Ports1 -- Ports0, Procs1 -- Procs0} of
+                {[], []} -> ok;
+                _ when Wait ->
+                    timer:sleep(1000),
+                    wait_for_expected(R, Before, SourceFile, false);
+                {PortsDiff,ProcsDiff} ->
+                    io:format("failure, got ~p~n, expected ~p\n",
+                              [PPS1, PPS0]),
+                    show("Old port", Ports0 -- Ports1),
+                    show("New port", PortsDiff),
+                    show("Old proc", Procs0 -- Procs1),
+                    show("New proc", ProcsDiff),
+                    fail(SourceFile)
+            end;
         _ when Wait ->
             timer:sleep(1000),
             wait_for_expected(R, Before, SourceFile, false);
@@ -7993,7 +8010,7 @@ compile_file(Config, Test0, Opts0) ->
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);
         {error, [{File,Es}], []} -> {errors, Es, []};
-        {error, [{File,Es}], [{File,Ws}]} -> {error, Es, Ws}
+        {error, [{File,Es}], [{File,Ws}]} -> {errors, Es, Ws}
     end.
 
 comp_compare(T, T) ->
@@ -8058,6 +8075,17 @@ filename(Name, Config) when is_atom(Name) ->
 filename(Name, Config) ->
     filename:join(?privdir, Name).
 
+show(_S, []) ->
+    ok;
+show(S, [{Pid, Name, InitCall}|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~w (~w), ~w: ~p~n",
+              [S, Pid, proc_reg_name(Name), InitCall,
+               erlang:process_info(Pid)]),
+    show(S, Pids);
+show(S, [{Port, _}|Ports]) when is_port(Port)->
+    io:format("~s: ~w: ~p~n", [S, Port, erlang:port_info(Port)]),
+    show(S, Ports).
+
 pps() ->
     {port_list(), process_list()}.
 
@@ -8069,6 +8097,9 @@ process_list() ->
     [{P,process_info(P, registered_name),
       safe_second_element(process_info(P, initial_call))} || 
         P <- processes(), is_process_alive(P)].
+
+proc_reg_name({registered_name, Name}) -> Name;
+proc_reg_name([]) -> no_reg_name.
 
 safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.
