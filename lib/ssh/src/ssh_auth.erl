@@ -184,9 +184,8 @@ handle_userauth_request(#ssh_msg_service_request{name =
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "password",
-						  data = Data}, _, 
+						  data = <<?FALSE, ?UINT32(Sz), BinPwd:Sz/binary>>}, _, 
 			#ssh{opts = Opts} = Ssh) ->
-    <<_:8, ?UINT32(Sz), BinPwd:Sz/binary>> = Data,
     Password = unicode:characters_to_list(BinPwd),
     case check_password(User, Password, Opts) of
 	true ->
@@ -198,6 +197,27 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 		     authentications = "",
 		     partial_success = false}, Ssh)}
     end;
+
+handle_userauth_request(#ssh_msg_userauth_request{user = User,
+						  service = "ssh-connection",
+						  method = "password",
+						  data = <<?TRUE,
+							   _/binary
+							   %% ?UINT32(Sz1), OldBinPwd:Sz1/binary,
+							   %% ?UINT32(Sz2), NewBinPwd:Sz2/binary
+							 >>
+						 }, _, 
+			Ssh) ->
+    %% Password change without us having sent SSH_MSG_USERAUTH_PASSWD_CHANGEREQ (because we never do)
+    %% RFC 4252 says:
+    %%   SSH_MSG_USERAUTH_FAILURE without partial success - The password
+    %%   has not been changed.  Either password changing was not supported,
+    %%   or the old password was bad. 
+
+    {not_authorized, {User, {error,"Password change not supported"}}, 
+     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
+				 authentications = "",
+				 partial_success = false}, Ssh)};
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",

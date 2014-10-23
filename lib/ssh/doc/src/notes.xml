@@ -29,6 +29,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes of login blocking after port scanning.</p>
+          <p>
+	    Own Id: OTP-12247 Aux Id: seq12726 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
