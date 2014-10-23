@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -457,11 +457,6 @@ do_eval_function(Mod, Fun, As0, Bs0, _, Ieval0) when is_function(Fun);
 	    exception(error, Reason, Bs0, Ieval0)
     end;
 
-%% Common Test adaptation
-do_eval_function(ct_line, line, As, Bs, extern, #ieval{level=Le}=Ieval) ->
-    debugged_cmd({apply,ct_line,line,As}, Bs, Ieval#ieval{level=Le+1}),
-    {value, ignore, Bs};
-
 do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
     #ieval{level=Le,line=Li,top=Top} = Ieval0,
     trace(call, {Called, {Le,Li,Mod,Name,As0}}),
@@ -895,11 +890,6 @@ expr({make_ext_fun,Line,MFA0}, Bs0, Ieval0) ->
 				 arguments=[M,F,A],line=-1},
 	    exception(error, badarg, Bs, Ieval, true)
     end;
-
-%% Common test adaptation
-expr({call_remote,0,ct_line,line,As0,Lc}, Bs0, Ieval0) ->
-    {As,_Bs} = eval_list(As0, Bs0, Ieval0),
-    eval_function(ct_line, line, As, Bs0, extern, Ieval0, Lc);
 
 %% Local function call
 expr({local_call,Line,F,As0,Lc}, Bs0, #ieval{module=M} = Ieval0) ->
