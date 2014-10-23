@@ -25,13 +25,13 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-	t_abstract_type/1,t_erl_parse_type/1]).
+	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,
-    t_abstract_type,t_erl_parse_type].
+    t_abstract_type,t_erl_parse_type,t_epp_dodger].
 
 groups() -> 
     [].
@@ -192,6 +192,53 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"{a,b,c}", tuple,false}]),
     ok.
 
+%% the macro ?MODULE seems faulty
+t_epp_dodger(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    PrivDir   = ?config(priv_dir, Config),
+    Filenames = ["syntax_tools_SUITE_test_module.erl",
+		 "syntax_tools_test.erl"],
+    ok = test_epp_dodger(Filenames,DataDir,PrivDir),
+    ok.
+
+test_epp_dodger([], _, _) -> ok;
+test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
+    io:format("Parsing ~p~n", [Filename]),
+    InFile   = filename:join(DataDir, Filename),
+    Parsers  = [{fun epp_dodger:parse_file/1,parse_file},
+		{fun epp_dodger:quick_parse_file/1,quick_parse_file},
+		{fun (File) ->
+			{ok,Dev} = file:open(File,[read]),
+			Res = epp_dodger:parse(Dev),
+			file:close(File),
+			Res
+		 end, parse},
+		{fun (File) ->
+			{ok,Dev} = file:open(File,[read]),
+			Res = epp_dodger:quick_parse(Dev),
+			file:close(File),
+			Res
+		 end, quick_parse}],
+    FsForms  = parse_with(Parsers, InFile),
+    ok = pretty_print_parse_forms(FsForms,PrivDir,Filename),
+    test_epp_dodger(Files,DataDir,PrivDir).
+
+parse_with([],_) -> [];
+parse_with([{Fun,ParserType}|Funs],File) ->
+    {ok, Fs} = Fun(File),
+    [{Fs,ParserType}|parse_with(Funs,File)].
+
+pretty_print_parse_forms([],_,_) -> ok;
+pretty_print_parse_forms([{Fs0,Type}|FsForms],PrivDir,Filename) ->
+    Parser  = atom_to_list(Type),
+    OutFile = filename:join(PrivDir, Parser ++"_" ++ Filename),
+    io:format("Pretty print ~p (~w) to ~p~n", [Filename,Type,OutFile]),
+    Fs1     = erl_syntax:form_list(Fs0),
+    PP      = erl_prettypr:format(Fs1),
+    ok      = file:write_file(OutFile,iolist_to_binary(PP)),
+    pretty_print_parse_forms(FsForms,PrivDir,Filename).
+
+
 validate(_,[]) -> ok;
 validate(F,[V|Vs]) ->
     ok = F(V),
@@ -285,7 +332,7 @@ validate_special_type(_,_) ->
     ok.
 
 %%% scan_and_parse
-%
+
 string_to_expr(String) ->
     io:format("Str: ~p~n", [String]),
     {ok, Ts, _} = erl_scan:string(String++"."),
