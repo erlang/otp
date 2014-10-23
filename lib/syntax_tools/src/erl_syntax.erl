@@ -6209,10 +6209,17 @@ is_literal(T) ->
 	    is_literal(list_head(T)) andalso is_literal(list_tail(T));
 	tuple ->
 	    lists:all(fun is_literal/1, tuple_elements(T));
+	binary ->
+	    lists:all(fun is_literal_binary_field/1, binary_fields(T));
 	_ ->
 	    false
     end.
 
+is_literal_binary_field(F) ->
+    case binary_field_types(F) of
+	[] -> is_literal(binary_field_body(F));
+	_  -> false
+    end.
 
 %% =====================================================================
 %% @doc Returns an `erl_parse'-compatible representation of a
