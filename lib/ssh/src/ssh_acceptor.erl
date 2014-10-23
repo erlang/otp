@@ -22,7 +22,8 @@
 -module(ssh_acceptor).
 
 %% Internal application API
--export([start_link/5]).
+-export([start_link/5,
+	 number_of_connections/1]).
 
 %% spawn export  
 -export([acceptor_init/6, acceptor_loop/6]).
@@ -140,5 +141,6 @@ handle_error(Reason) ->
 number_of_connections(SystemSup) ->
     length([X || 
 	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
+	       is_pid(X),
 	       is_reference(R)
 	  ]).
