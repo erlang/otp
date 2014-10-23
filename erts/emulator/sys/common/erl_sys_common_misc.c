@@ -44,6 +44,14 @@
 #endif
 #endif
 
+/*
+ * erts_check_io_time is used by the erl_check_io implementation. The
+ * global erts_check_io_time variable is declared here since there
+ * (often) exist two versions of erl_check_io (kernel-poll and
+ * non-kernel-poll), and we dont want two versions of this variable.
+ */
+erts_smp_atomic_t erts_check_io_time;
+
 /* Written once and only once */
 
 static int filename_encoding = ERL_FILENAME_UNKNOWN;

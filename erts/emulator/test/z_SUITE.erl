@@ -38,7 +38,7 @@
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
-	 check_io_debug/1]).
+	 check_io_debug/1, get_check_io_info/0]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
@@ -288,11 +288,14 @@ check_io_debug(Config) when is_list(Config) ->
 	  end.
 
 check_io_debug_test() ->
+    ?line erlang:display(get_check_io_info()),
     ?line erts_debug:set_internal_state(available_internal_state, true),
-    ?line erlang:display(erlang:system_info(check_io)),
-    ?line NoOfErrorFds = erts_debug:get_internal_state(check_io_debug),
+    ?line {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs}
+	= erts_debug:get_internal_state(check_io_debug),
     ?line erts_debug:set_internal_state(available_internal_state, false),
-    ?line 0 = NoOfErrorFds,
+    ?line 0 = NoErrorFds,
+    ?line NoUsedFds = NoDrvSelStructs,
+    ?line 0 = NoDrvEvStructs,
     ?line ok.
 
 
@@ -305,7 +308,7 @@ display_check_io(ChkIo) ->
     catch erlang:display('--- CHECK IO INFO ---'),
     catch erlang:display(ChkIo),
     catch erts_debug:set_internal_state(available_internal_state, true),
-    NoOfErrorFds = (catch erts_debug:get_internal_state(check_io_debug)),
+    NoOfErrorFds = (catch element(1, erts_debug:get_internal_state(check_io_debug))),
     catch erlang:display({'NoOfErrorFds', NoOfErrorFds}),
     catch erts_debug:set_internal_state(available_internal_state, false),
     catch erlang:display('--- CHECK IO INFO ---'),
@@ -313,14 +316,19 @@ display_check_io(ChkIo) ->
 
 get_check_io_info() ->
     ChkIo = erlang:system_info(check_io),
-    case lists:keysearch(pending_updates, 1, ChkIo) of
-	{value, {pending_updates, 0}} ->
+    PendUpdNo = case lists:keysearch(pending_updates, 1, ChkIo) of
+		    {value, {pending_updates, PendNo}} ->
+			PendNo;
+		    false ->
+			0
+		end,
+    {value, {active_fds, ActFds}} = lists:keysearch(active_fds, 1, ChkIo),
+    case {PendUpdNo, ActFds} of
+	{0, 0} ->
 	    display_check_io(ChkIo),
 	    ChkIo;
-	false ->
-	    ChkIo;
 	_ ->
-	    receive after 10 -> ok end,
+	    receive after 100 -> ok end,
 	    get_check_io_info()
     end.
 

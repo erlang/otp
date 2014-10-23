@@ -128,6 +128,7 @@ static char *pluss_val_switches[] = {
     "bwt",
     "cl",
     "ct",
+    "ecio",
     "fwi",
     "tbt",
     "wct",
