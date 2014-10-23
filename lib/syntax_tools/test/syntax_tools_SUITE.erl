@@ -136,6 +136,8 @@ t_abstract_type(Config) when is_list(Config) ->
 		     {[$a,$b,$c],string},
 		     {"hello world",string},
 		     {<<1,2,3>>,binary},
+		     {#{a=>1,"b"=>2},map_expr},
+		     {#{#{i=>1}=>1,"b"=>#{v=>2}},map_expr},
 		     {{a,b,c},tuple}]),
     ok.
 
@@ -152,6 +154,7 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"_", underscore,true},
 		     {"[]", nil,true},
 		     {"{}", tuple,true},
+		     {"#{}",map_expr,true},
 		     {"'some atom'", atom, true}]),
     %% composite types
     ok = validate(F,[{"case X of t -> t; f -> f end", case_expr,false},
@@ -175,6 +178,7 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"[<<1>>,<<2>>,-2,<<>>,[more,list]]", list,false},
 		     {"[1|[2|[3|[4|[]]]]]", list,false},
 		     {"#{ a=>1, b=>2 }", map_expr,false},
+		     {"#{3=>3}#{ a=>1, b=>2 }", map_expr,false},
 		     {"#{ a:=1, b:=2 }", map_expr,false},
 		     {"M#{ a=>1, b=>2 }", map_expr,false},
 		     {"[V||V <- Vs]", list_comp,false},
