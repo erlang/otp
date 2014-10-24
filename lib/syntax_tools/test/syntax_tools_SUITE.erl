@@ -237,9 +237,31 @@ pretty_print_parse_forms([{Fs0,Type}|FsForms],PrivDir,Filename) ->
     Parser  = atom_to_list(Type),
     OutFile = filename:join(PrivDir, Parser ++"_" ++ Filename),
     io:format("Pretty print ~p (~w) to ~p~n", [Filename,Type,OutFile]),
-    Fs1     = erl_syntax:form_list(Fs0),
-    PP      = erl_prettypr:format(Fs1),
-    ok      = file:write_file(OutFile,iolist_to_binary(PP)),
+    Comment = fun (Node,{CntCase,CntTry}=Cnt) ->
+		      case erl_syntax:type(Node) of
+			  case_expr ->
+			      C1    = erl_syntax:comment(2,["Before a case expression"]),
+			      Node1 = erl_syntax:add_precomments([C1],Node),
+			      C2    = erl_syntax:comment(2,["After a case expression"]),
+			      Node2 = erl_syntax:add_postcomments([C2],Node1),
+			      {Node2,{CntCase+1,CntTry}};
+			  try_expr ->
+			      C1    = erl_syntax:comment(2,["Before a try expression"]),
+			      Node1 = erl_syntax:set_precomments(Node,
+						     erl_syntax:get_precomments(Node) ++ [C1]),
+			      C2    = erl_syntax:comment(2,["After a try expression"]),
+			      Node2 = erl_syntax:set_postcomments(Node1,
+						     erl_syntax:get_postcomments(Node1) ++ [C2]),
+			      {Node2,{CntCase,CntTry+1}};
+			  _ ->
+			      {Node,Cnt}
+		      end
+	      end,
+    Fs1 = erl_syntax:form_list(Fs0),
+    {Fs2,{CC,CT}} = erl_syntax_lib:mapfold(Comment,{0,0}, Fs1),
+    io:format("Commented on ~w cases and ~w tries~n", [CC,CT]),
+    PP  = erl_prettypr:format(Fs2),
+    ok  = file:write_file(OutFile,iolist_to_binary(PP)),
     pretty_print_parse_forms(FsForms,PrivDir,Filename).
 
 
