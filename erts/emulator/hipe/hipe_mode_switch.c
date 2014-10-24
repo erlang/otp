@@ -2,7 +2,7 @@
  * %CopyrightBegin%
 
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -187,6 +187,9 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
 
 void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
+    if (!hipe_bifcall_from_native_is_recursive(p))
+	return;
+
     /* ensure that at least 2 words are available on the BEAM stack */
     if ((p->stop - 2) < p->htop) {
 	DPRINTF("calling gc to reserve BEAM stack size");
@@ -195,25 +198,26 @@ void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
     }
     p->stop -= 2;
     p->stop[0] = NIL;
-    p->stop[1] = NIL;
+    p->stop[1] = hipe_beam_catch_throw;
 }
 
 static __inline__ void
 hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
-    if (p->flags & F_DISABLE_GC) {
+    if (&p->stop[1] < p->hend && p->stop[1] == hipe_beam_catch_throw) {
 	/* Trap frame already reserved */
-	ASSERT(p->stop[0] == NIL && p->stop[1] == NIL);
+	ASSERT(p->stop[0] == NIL);
     }
     else {
+	ASSERT(!(p->flags & F_DISABLE_GC));
 	if ((p->stop - 2) < p->htop) {
 	    DPRINTF("calling gc to increase BEAM stack size");
 	    p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
 	    ASSERT(!((p->stop - 2) < p->htop));
 	}
 	p->stop -= 2;
+	p->stop[1] = hipe_beam_catch_throw;
     }
-    p->stop[1] = hipe_beam_catch_throw;
     p->stop[0] = make_cp(p->cp);
     ++p->catches;
     p->cp = hipe_beam_pc_return;
@@ -221,12 +225,16 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 
 void hipe_unreserve_beam_trap_frame(Process *p)
 {
-    ASSERT(p->stop[0] == NIL && p->stop[1] == NIL);
+    if (!hipe_bifcall_from_native_is_recursive(p))
+	return;
+
+    ASSERT(p->stop[0] == NIL && p->stop[1] == hipe_beam_catch_throw);
     p->stop += 2;
 }
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)
 {
+    ASSERT(p->stop[1] == hipe_beam_catch_throw);
     p->cp = cp_val(p->stop[0]);
     --p->catches;
     p->stop += 2;

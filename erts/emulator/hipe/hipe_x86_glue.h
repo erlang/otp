@@ -207,6 +207,14 @@ hipe_trap_from_native_is_recursive(Process *p)
     return 0;
 }
 
+/* Native called BIF. Is it a recursive call?
+   i.e should we return back to native when BIF is done? */
+static __inline__ int
+hipe_bifcall_from_native_is_recursive(Process *p)
+{
+    return (*p->hipe.nsp != (Eterm)nbif_return);
+}
+
 
 /* Native makes a call which needs to unload the parameters.
    This differs from hipe_call_from_native_is_recursive() in
