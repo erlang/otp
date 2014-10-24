@@ -25,13 +25,15 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1]).
+	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
+	t_comment_scan/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,
-    t_abstract_type,t_erl_parse_type,t_epp_dodger].
+    t_abstract_type,t_erl_parse_type,t_epp_dodger,
+    t_comment_scan].
 
 groups() -> 
     [].
@@ -204,6 +206,36 @@ t_epp_dodger(Config) when is_list(Config) ->
 		 "syntax_tools_test.erl"],
     ok = test_epp_dodger(Filenames,DataDir,PrivDir),
     ok.
+
+t_comment_scan(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    Filenames = ["syntax_tools_SUITE_test_module.erl",
+		 "syntax_tools_test.erl"],
+    ok = test_comment_scan(Filenames,DataDir),
+    ok.
+
+test_comment_scan([],_) -> ok;
+test_comment_scan([File|Files],DataDir) ->
+    Filename  = filename:join(DataDir,File),
+    {ok, Fs0} = epp:parse_file(Filename, [], []),
+    Comments  = erl_comment_scan:file(Filename),
+    Fun = fun(Node) ->
+		  case erl_syntax:is_form(Node) of
+		      true ->
+			  C1    = erl_syntax:comment(2,[" This is a form."]),
+			  Node1 = erl_syntax:add_precomments([C1],Node),
+			  Node1;
+		      false ->
+			  Node
+		  end
+	  end,
+    Fs1 = erl_recomment:recomment_forms(Fs0, Comments),
+    Fs2 = erl_syntax_lib:map(Fun, Fs1),
+    io:format("File: ~s~n", [Filename]),
+    io:put_chars(erl_prettypr:format(Fs2, [{paper,  120},
+					   {ribbon, 110}])),
+    test_comment_scan(Files,DataDir).
+
 
 test_epp_dodger([], _, _) -> ok;
 test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
