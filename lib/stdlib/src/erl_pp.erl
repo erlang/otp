@@ -22,7 +22,7 @@
 %%% the parser. It does not always produce pretty code.
 
 -export([form/1,form/2,
-         attribute/1,attribute/2,function/1,function/2,rule/1,rule/2,
+         attribute/1,attribute/2,function/1,function/2,
          guard/1,guard/2,exprs/1,exprs/2,exprs/3,expr/1,expr/2,expr/3,expr/4]).
 
 -import(lists, [append/1,foldr/3,mapfoldl/3,reverse/1,reverse/2]).
@@ -90,12 +90,6 @@ function(F) ->
 
 function(F, Options) ->
     frmt(lfunction(F, options(Options)), state(Options)).
-
-rule(R) ->
-    rule(R, none).
-
-rule(R, Options) ->
-    frmt(lrule(R, options(Options)), state(Options)).
 
 -spec(guard(Guard) -> io_lib:chars() when
       Guard :: [erl_parse:abstract_expr()]).
@@ -199,8 +193,6 @@ lform({attribute,Line,Name,Arg}, Opts, State) ->
     lattribute({attribute,Line,Name,Arg}, Opts, State);
 lform({function,Line,Name,Arity,Clauses}, Opts, _State) ->
     lfunction({function,Line,Name,Arity,Clauses}, Opts);
-lform({rule,Line,Name,Arity,Clauses}, Opts, _State) ->
-    lrule({rule,Line,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
 lform({error,E}, _Opts, _State) ->
     leaf(format("~p\n", [{error,E}]));
@@ -417,19 +409,6 @@ func_clause(Name, {clause,Line,Head,Guard,Body}, Opts) ->
     Gl = guard_when(Hl, Guard, Opts),
     Bl = body(Body, Opts),
     {step,Gl,Bl}.
-
-lrule({rule,_Line,Name,_Arity,Cs}, Opts) ->
-    Cll = nl_clauses(fun (C, H) -> rule_clause(Name, C, H) end, $;, Opts, Cs),
-    [Cll,leaf(".\n")].
-
-rule_clause(Name, {clause,Line,Head,Guard,Body}, Opts) ->
-    Hl = call({atom,Line,Name}, Head, 0, Opts),
-    Gl = guard_when(Hl, Guard, Opts, leaf(" :-")),
-    Bl = rule_body(Body, Opts),
-    {step,Gl,Bl}.
-
-rule_body(Es, Opts) ->
-    lc_quals(Es, Opts).
 
 guard_when(Before, Guard, Opts) ->
     guard_when(Before, Guard, Opts, ' ->').
