@@ -23,6 +23,22 @@ changecom(`/*', `*/')dnl
 #define HIPE_PPC_ASM_H'
 
 /*
+ * Tunables.
+ */
+define(LEAF_WORDS,16)dnl number of stack words for leaf functions
+define(NR_ARG_REGS,4)dnl admissible values are 0 to 6, inclusive
+
+`#define PPC_LEAF_WORDS	'LEAF_WORDS
+`#define PPC_NR_ARG_REGS	'NR_ARG_REGS
+`#define NR_ARG_REGS	'NR_ARG_REGS
+
+
+`#ifdef ASM'
+/*
+ * Only assembler stuff from here on (when included from *.S)
+ */
+
+/*
  * Handle 32 vs 64-bit.
  */
 ifelse(ARCH,ppc64,`
@@ -53,13 +69,6 @@ define(WSIZE,4)dnl
 `#define STORE	'STORE
 `#define CMPI	'CMPI
 
-/*
- * Tunables.
- */
-define(LEAF_WORDS,16)dnl number of stack words for leaf functions
-define(NR_ARG_REGS,4)dnl admissible values are 0 to 6, inclusive
-
-`#define PPC_LEAF_WORDS	'LEAF_WORDS
 
 /*
  * Workarounds for Darwin.
@@ -193,8 +202,6 @@ NAME:						\
 /*
  * Argument (parameter) registers.
  */
-`#define PPC_NR_ARG_REGS	'NR_ARG_REGS
-`#define NR_ARG_REGS	'NR_ARG_REGS
 
 define(defarg,`define(ARG$1,`$2')dnl
 #`define ARG'$1	$2'
@@ -308,5 +315,7 @@ define(QUICK_CALL_RET,`NBIF_POP_N(eval(RET_POP($2)))b $1')dnl
 `/* #define QUICK_CALL_RET_F_2 'QUICK_CALL_RET(F,2)` */'
 `/* #define QUICK_CALL_RET_F_3 'QUICK_CALL_RET(F,3)` */'
 `/* #define QUICK_CALL_RET_F_5 'QUICK_CALL_RET(F,5)` */'
+
+`#endif /* ASM */'
 
 `#endif /* HIPE_PPC_ASM_H */'

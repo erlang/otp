@@ -22,6 +22,9 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#define ERL_WANT_GC_INTERNALS__
+
 #include "global.h"
 
 #include "erl_gc.h"

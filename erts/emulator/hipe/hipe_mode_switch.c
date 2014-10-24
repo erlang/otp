@@ -140,7 +140,6 @@ void hipe_check_pcb(Process *p, const char *file, unsigned line)
 #endif	/* HIPE_DEBUG > 0 */
 
 /* ensure that at least nwords words are available on the native stack */
-static void hipe_check_nstack(Process *p, unsigned nwords);
 
 #if defined(__sparc__)
 #include "hipe_sparc_glue.h"
@@ -159,7 +158,7 @@ static void hipe_check_nstack(Process *p, unsigned nwords);
 Uint hipe_beam_pc_return[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_throw[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_resume[1];	/* needed by hipe_set_timeout() */
-static Eterm hipe_beam_catch_throw;
+Eterm hipe_beam_catch_throw;
 
 void hipe_mode_switch_init(void)
 {
@@ -185,22 +184,6 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
     bfun[-4] = (Uint)nfun;
 }
 
-void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
-{
-    if (!hipe_bifcall_from_native_is_recursive(p))
-	return;
-
-    /* ensure that at least 2 words are available on the BEAM stack */
-    if ((p->stop - 2) < p->htop) {
-	DPRINTF("calling gc to reserve BEAM stack size");
-	p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
-	ASSERT(!((p->stop - 2) < p->htop));
-    }
-    p->stop -= 2;
-    p->stop[0] = NIL;
-    p->stop[1] = hipe_beam_catch_throw;
-}
-
 static __inline__ void
 hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
@@ -221,15 +204,6 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
     p->stop[0] = make_cp(p->cp);
     ++p->catches;
     p->cp = hipe_beam_pc_return;
-}
-
-void hipe_unreserve_beam_trap_frame(Process *p)
-{
-    if (!hipe_bifcall_from_native_is_recursive(p))
-	return;
-
-    ASSERT(p->stop[0] == NIL && p->stop[1] == hipe_beam_catch_throw);
-    p->stop += 2;
 }
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)
@@ -607,7 +581,6 @@ static unsigned hipe_next_nstack_size(unsigned size)
 }
 
 #if 0 && defined(HIPE_NSTACK_GROWS_UP)
-#define hipe_nstack_avail(p)	((p)->hipe.nstend - (p)->hipe.nsp)
 void hipe_inc_nstack(Process *p)
 {
     Eterm *old_nstack = p->hipe.nstack;
@@ -631,7 +604,6 @@ void hipe_inc_nstack(Process *p)
 #endif
 
 #if defined(HIPE_NSTACK_GROWS_DOWN)
-#define hipe_nstack_avail(p)	((unsigned)((p)->hipe.nsp - (p)->hipe.nstack))
 void hipe_inc_nstack(Process *p)
 {
     unsigned old_size = p->hipe.nstend - p->hipe.nstack;
@@ -661,12 +633,6 @@ void hipe_empty_nstack(Process *p)
     p->hipe.nsp = NULL;
     p->hipe.nstack = NULL;
     p->hipe.nstend = NULL;
-}
-
-static void hipe_check_nstack(Process *p, unsigned nwords)
-{
-    while (hipe_nstack_avail(p) < nwords)
-	hipe_inc_nstack(p);
 }
 
 void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free)

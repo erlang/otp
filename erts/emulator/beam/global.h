@@ -41,6 +41,7 @@
 #include "error.h"
 #include "erl_utils.h"
 #include "erl_port.h"
+#include "erl_gc.h"
 
 struct enif_environment_t /* ErlNifEnv */
 {
@@ -809,23 +810,6 @@ void MD5Init(MD5_CTX *);
 void MD5Update(MD5_CTX *, unsigned char *, unsigned int);
 void MD5Final(unsigned char [16], MD5_CTX *);
 
-/* ggc.c */
-
-void erts_gc_info(ErtsGCInfo *gcip);
-void erts_init_gc(void);
-int erts_garbage_collect(Process*, int, Eterm*, int);
-void erts_garbage_collect_hibernate(Process* p);
-Eterm erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity);
-void erts_garbage_collect_literals(Process* p, Eterm* literals,
-				   Uint lit_size,
-				   struct erl_off_heap_header* oh);
-Uint erts_next_heap_size(Uint, Uint);
-Eterm erts_heap_sizes(Process* p);
-
-void erts_offset_off_heap(ErlOffHeap *, Sint, Eterm*, Eterm*);
-void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
-void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
-void erts_free_heap_frags(Process* p);
 
 /* io.c */
 

@@ -33,6 +33,18 @@ define(SIMULATE_NSP,0)dnl change to 1 to simulate call/ret insns
 `#define X86_LEAF_WORDS	'LEAF_WORDS
 `#define LEAF_WORDS	'LEAF_WORDS
 
+`#define X86_NR_ARG_REGS	'NR_ARG_REGS
+`#define NR_ARG_REGS	'NR_ARG_REGS
+
+`#define X86_HP_IN_ESI	'HP_IN_ESI
+`#define X86_SIMULATE_NSP	'SIMULATE_NSP
+
+
+`#ifdef ASM'
+/*
+ * Only assembler stuff from here on (when included from *.S)
+ */
+
 /*
  * Workarounds for Darwin.
  */
@@ -60,7 +72,6 @@ ifelse(OPSYS,darwin,``
  */
 `#define P	%ebp'
 
-`#define X86_HP_IN_ESI	'HP_IN_ESI
 `#if X86_HP_IN_ESI
 #define SAVE_HP		movl %esi, P_HP(P)
 #define RESTORE_HP	movl P_HP(P), %esi
@@ -73,7 +84,6 @@ ifelse(OPSYS,darwin,``
 #define SAVE_CSP	movl %esp, P_CSP(P)
 #define RESTORE_CSP	movl P_CSP(P), %esp'
 
-`#define X86_SIMULATE_NSP	'SIMULATE_NSP
 
 /*
  * Context switching macros.
@@ -100,12 +110,10 @@ ifelse(OPSYS,darwin,``
 	SAVE_CACHED_STATE;	\
 	SWITCH_ERLANG_TO_C_QUICK'
 
+
 /*
  * Argument (parameter) registers.
  */
-`#define X86_NR_ARG_REGS	'NR_ARG_REGS
-`#define NR_ARG_REGS	'NR_ARG_REGS
-
 ifelse(eval(NR_ARG_REGS >= 1),0,,
 ``#define ARG0	%eax
 '')dnl
@@ -281,5 +289,7 @@ define(STORE_CALLER_SAVE,`SAR_N(eval(NR_CALLER_SAVE-1))')dnl
 define(LOAD_CALLER_SAVE,`LAR_N(eval(NR_CALLER_SAVE-1))')dnl
 `#define STORE_CALLER_SAVE	'STORE_CALLER_SAVE
 `#define LOAD_CALLER_SAVE	'LOAD_CALLER_SAVE
+
+`#endif /* ASM */'
 
 `#endif /* HIPE_X86_ASM_H */'

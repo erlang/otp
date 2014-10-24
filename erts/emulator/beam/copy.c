@@ -21,6 +21,8 @@
 #  include "config.h"
 #endif
 
+#define ERL_WANT_GC_INTERNALS__
+
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
