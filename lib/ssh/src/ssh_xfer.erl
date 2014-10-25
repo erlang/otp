@@ -23,7 +23,7 @@
 
 -module(ssh_xfer).
 
--export([attach/2, connect/3]).
+-export([attach/2, connect/3, connect/4]).
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
@@ -55,6 +55,13 @@ attach(CM, Opts) ->
 connect(Host, Port, Opts) ->
     case ssh:connect(Host, Port, Opts) of
 	{ok, CM} -> open_xfer(CM, Opts);
+	Error -> Error
+    end.
+
+connect(Host, Port, Opts, Timeout) ->
+    case ssh:connect(Host, Port, Opts, Timeout) of
+	{ok, CM} -> open_xfer(CM, [{timeout, Timeout}|Opts]);
+	{error, Timeout} -> {error, timeout};
 	Error -> Error
     end.
 
