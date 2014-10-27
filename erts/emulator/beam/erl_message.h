@@ -267,6 +267,7 @@ ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg)
     return sz;
 }
 
+/* msg is not const because _aux func attempts to write to it under condition */
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg)
 {
     ASSERT(msg->data.attached);

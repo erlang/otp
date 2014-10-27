@@ -43,7 +43,7 @@
 #include "hipe_arch.h"
 #endif
 
-ErlDrvBinary* erts_gzinflate_buffer(char*, int);
+ErlDrvBinary* erts_gzinflate_buffer(char*, int);  /* gzio.c */
 
 #define MAX_OPARGS 8
 #define CALLED    0
@@ -272,7 +272,7 @@ typedef struct LoaderState {
      */
 
     struct {
-	byte* start;		/* Start of chunk (in binary). */
+        byte* start;            /* Start of chunk (in binary). */
 	unsigned size;		/* Size of chunk. */
     } chunks[NUM_CHUNK_TYPES];
 
@@ -280,7 +280,7 @@ typedef struct LoaderState {
      * Used for code loading (mainly).
      */
 
-    byte* code_start;		/* Start of code file. */
+    byte* code_start;           /* Start of code file. */
     unsigned code_size;		/* Size of code file. */
     int specific_op;		/* Specific opcode (-1 if not found). */
     int num_functions;		/* Number of functions in module. */
@@ -1166,7 +1166,7 @@ verify_chunks(LoaderState* stp)
      * If there is a lambda chunk, include parts of it in the MD5.
      */
     if (stp->chunks[LAMBDA_CHUNK].start != 0) {
-	byte* start = stp->chunks[LAMBDA_CHUNK].start;
+        byte* start = stp->chunks[LAMBDA_CHUNK].start;
 	Uint left = stp->chunks[LAMBDA_CHUNK].size;
 
 	/*
@@ -1226,7 +1226,7 @@ load_atom_table(LoaderState* stp)
      */
 
     for (i = 1; i < stp->num_atoms; i++) {
-	byte* atom;
+        byte* atom;
 	Uint n;
 
 	GetByte(stp, n);
@@ -1473,7 +1473,7 @@ read_literal_table(LoaderState* stp)
     for (i = 0; i < stp->num_literals; i++) {
 	int sz;
 	Sint heap_size;
-	byte* p;
+        byte* p;
 	Eterm val;
 	Eterm* hp;
 
@@ -5433,7 +5433,7 @@ erts_set_current_function(FunctionInfo* fi, BeamInstr* current)
  * Returns a pointer to {module, function, arity}, or NULL if not found.
  */
 BeamInstr*
-find_function_from_pc(BeamInstr* pc)
+find_function_from_pc(const BeamInstr* pc)
 {
     FunctionInfo fi;
 

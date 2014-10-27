@@ -77,7 +77,7 @@ void erts_set_timer(ErlTimer*, ErlTimeoutProc, ErlCancelProc, void*, Uint);
 void erts_cancel_timer(ErlTimer*);
 void erts_bump_timer(erts_short_time_t);
 Uint erts_timer_wheel_memory_size(void);
-Uint erts_time_left(ErlTimer *);
+Uint erts_time_left(const ErlTimer *);
 erts_short_time_t erts_next_time(void);
 
 #ifdef DEBUG
@@ -121,15 +121,15 @@ void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 typedef UWord erts_approx_time_t;
 erts_approx_time_t erts_get_approx_time(void);
 
-void erts_get_timeval(SysTimeval *tv);
+void erts_get_timeval(SysTimeval *tv /*out*/);
 erts_time_t erts_get_time(void);
 
-ERTS_GLB_INLINE int erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p);
+ERTS_GLB_INLINE int erts_cmp_timeval(const SysTimeval *t1p, const SysTimeval *t2p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE int
-erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p)
+erts_cmp_timeval(const SysTimeval *t1p, const SysTimeval *t2p)
 {
     if (t1p->tv_sec == t2p->tv_sec) {
 	if (t1p->tv_usec < t2p->tv_usec)

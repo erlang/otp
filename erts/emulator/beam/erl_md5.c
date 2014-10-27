@@ -60,9 +60,9 @@ typedef void *POINTER;
 #define S43 15
 #define S44 21
 
-static void MD5Transform(Uint32 [4], unsigned char [64]);
-static void Encode(unsigned char *, Uint32 *, unsigned int);
-static void Decode(Uint32 *, unsigned char *, unsigned int);
+static void MD5Transform(Uint32 [4], const unsigned char [64]);
+static void Encode(unsigned char * out, const Uint32 * input, unsigned int);
+static void Decode(Uint32 * out, const unsigned char * input, unsigned int);
 
 static unsigned char PADDING[64] = {
     0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -129,10 +129,9 @@ void MD5Init(MD5_CTX* context)
  * operation, processing another message block, and updating the
  * context.
  */
-void MD5Update (context, input, inputLen)
-    MD5_CTX *context;                                        /* context */
-    unsigned char *input;                                /* input block */
-    unsigned int inputLen;                     /* length of input block */
+void MD5Update (MD5_CTX *context,
+                const unsigned char *input,
+                unsigned int inputLen)
 {
     unsigned int i, index, partLen;
 
@@ -175,9 +174,7 @@ void MD5Update (context, input, inputLen)
  * MD5 finalization. Ends an MD5 message-digest operation, writing the
   the message digest and zeroizing the context.
  */
-void MD5Final (digest, context)
-    unsigned char digest[16];                         /* message digest */
-    MD5_CTX *context;                                       /* context */
+void MD5Final (unsigned char digest[16] /*out*/, MD5_CTX *context)
 {
     unsigned char bits[8];
     unsigned int index, padLen;
@@ -213,9 +210,8 @@ void MD5Final (digest, context)
 /*
  * MD5 basic transformation. Transforms state based on block.
  */
-static void MD5Transform (state, block)
-    Uint32 state[4];
-    unsigned char block[64];
+static void MD5Transform (Uint32 state[4],
+                          const unsigned char block[64])
 {
     Uint32 a = state[0], b = state[1], c = state[2], d = state[3], x[16];
 
@@ -308,10 +304,9 @@ static void MD5Transform (state, block)
  * Encodes input (Uint32) into output (unsigned char). Assumes len is
  * a multiple of 4.
  */
-static void Encode (output, input, len)
-    unsigned char *output;
-    Uint32 *input;
-    unsigned int len;
+static void Encode (unsigned char *output,
+                    const Uint32 *input,
+                    unsigned int len)
 {
     unsigned int i, j;
 
@@ -327,10 +322,9 @@ static void Encode (output, input, len)
  * Decodes input (unsigned char) into output (Uint32). Assumes len is
  * a multiple of 4.
  */
-static void Decode (output, input, len)
-    Uint32 *output;
-    unsigned char *input;
-    unsigned int len;
+static void Decode (Uint32 *output,
+                    const unsigned char *input,
+                    unsigned int len)
 {
     unsigned int i, j;
 

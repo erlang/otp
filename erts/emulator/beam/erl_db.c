@@ -200,7 +200,7 @@ static int free_table_cont(Process *p,
 			   DbTable *tb,
 			   int first,
 			   int clean_meta_tab);
-static void print_table(int to, void *to_arg, int show,  DbTable* tb);
+static void print_table(int to, const void *to_arg, int show,  DbTable* tb);
 static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1);
@@ -3761,7 +3761,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     return ret;
 }
 
-static void print_table(int to, void *to_arg, int show,  DbTable* tb)
+static void print_table(int to, const void *to_arg, int show,  DbTable* tb)
 {
     erts_print(to, to_arg, "Table: %T\n", tb->common.id);
     erts_print(to, to_arg, "Name: %T\n", tb->common.the_name);
@@ -3776,7 +3776,7 @@ static void print_table(int to, void *to_arg, int show,  DbTable* tb)
 		       / sizeof(Uint)));
 }
 
-void db_info(int to, void *to_arg, int show)    /* Called by break handler */
+void db_info(int to, const void *to_arg, int show)    /* Called by break handler */
 {
     int i;
     for (i=0; i < db_max_tabs; i++) 
@@ -3803,7 +3803,7 @@ erts_get_ets_misc_mem_size(void)
 
 /* SMP Note: May only be used when system is locked */
 void
-erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
+erts_db_foreach_table(void (*func)(DbTable *, const void *), const void *arg)
 {
     int i, j;
     j = 0;
@@ -3819,8 +3819,8 @@ erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
 /* SMP Note: May only be used when system is locked */
 void
 erts_db_foreach_offheap(DbTable *tb,
-			void (*func)(ErlOffHeap *, void *),
-			void *arg)
+                        void (*func)(ErlOffHeap *, const void *),
+                        const void *arg)
 {
     tb->common.meth->db_foreach_offheap(tb, func, arg);
 }

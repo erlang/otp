@@ -42,24 +42,25 @@
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
 void do_break(void);
-void erl_crash_dump_v(char *file, int line, char* fmt, va_list args);
-void erl_crash_dump(char* file, int line, char* fmt, ...);
+void erl_crash_dump_v(const char *file, int line, const char* fmt, va_list args);
+void erl_crash_dump(const char* file, int line, const char* fmt, ...);
 
 #ifdef DEBUG
 static void bin_check(void);
 #endif
 
-static void print_garb_info(int to, void *to_arg, Process* p);
+static void print_garb_info(int to, const void *to_arg, Process* p);
 #ifdef OPPROF
 static void dump_frequencies(void);
 #endif
 
-static void dump_attributes(int to, void *to_arg, byte* ptr, int size);
+static void dump_attributes(int to, const void *to_arg, const byte* ptr,
+                            int size);
 
 extern char* erts_system_version[];
 
 static void
-port_info(int to, void *to_arg)
+port_info(int to, const void *to_arg)
 {
     int i, max = erts_ptab_max(&erts_port);
     for (i = 0; i < max; i++) {
@@ -70,7 +71,7 @@ port_info(int to, void *to_arg)
 }
 
 void
-process_info(int to, void *to_arg)
+process_info(int to, const void *to_arg)
 {
     int i, max = erts_ptab_max(&erts_proc);
     for (i = 0; i < max; i++) {
@@ -195,7 +196,7 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 			       
 /* Display info about an individual Erlang process */
 void
-print_process_info(int to, void *to_arg, Process *p)
+print_process_info(int to, const void *to_arg, Process *p)
 {
     time_t approx_started;
     int garbing = 0;
@@ -355,7 +356,7 @@ print_process_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_garb_info(int to, void *to_arg, Process* p)
+print_garb_info(int to, const void *to_arg, Process* p)
 {
     /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
 #ifndef ERTS_SMP
@@ -370,7 +371,7 @@ print_garb_info(int to, void *to_arg, Process* p)
 }
 
 void
-info(int to, void *to_arg)
+info(int to, const void *to_arg)
 {
     erts_memory(&to, to_arg, NULL, THE_NON_VALUE);
     atom_info(to, to_arg);
@@ -386,7 +387,7 @@ info(int to, void *to_arg)
 }
 
 void
-loaded(int to, void *to_arg)
+loaded(int to, const void *to_arg)
 {
     int i;
     int old = 0;
@@ -483,7 +484,7 @@ loaded(int to, void *to_arg)
 
 
 static void
-dump_attributes(int to, void *to_arg, byte* ptr, int size)
+dump_attributes(int to, const void *to_arg, const byte* ptr, int size)
 {
     while (size-- > 0) {
 	erts_print(to, to_arg, "%02X", *ptr++);
@@ -667,7 +668,7 @@ bin_check(void)
 
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */
 void
-erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
+erl_crash_dump_v(const char *file, int line, const char* fmt, va_list args)
 {
 #ifdef ERTS_SMP
     ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
@@ -808,7 +809,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 }
 
 void
-erl_crash_dump(char* file, int line, char* fmt, ...)
+erl_crash_dump(const char* file, int line, const char* fmt, ...)
 {
   va_list args;
   

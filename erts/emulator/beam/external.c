@@ -95,7 +95,8 @@ struct B2TContext_t;
 static byte* dec_term(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*, struct B2TContext_t*);
 static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
 static byte* dec_pid(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*);
-static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
+static Sint decoded_size(const byte *ep, const byte* endp, int internal_tags,
+                         struct B2TContext_t*);
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
 static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 
@@ -302,7 +303,7 @@ erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 }
 
 Uint
-erts_encode_ext_dist_header_size(ErtsAtomCacheMap *acmp)
+erts_encode_ext_dist_header_size(const ErtsAtomCacheMap *acmp)
 {
     if (!acmp)
 	return 0;
@@ -561,7 +562,7 @@ byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off
 }
 
 ErtsDistExternal *
-erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
+erts_make_dist_ext_copy(const ErtsDistExternal *edep, Uint xsize)
 {
     size_t align_sz;
     size_t dist_ext_sz;
@@ -593,7 +594,7 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
 
 int
 erts_prepare_dist_ext(ErtsDistExternal *edep,
-		      byte *ext,
+                      byte *ext,
 		      Uint size,
 		      DistEntry *dep,
 		      ErtsAtomCache *cache)
@@ -888,14 +889,14 @@ erts_decode_dist_ext_size(ErtsDistExternal *edep)
     return -1;
 }
 
-Sint erts_decode_ext_size(byte *ext, Uint size)
+Sint erts_decode_ext_size(const byte *ext, Uint size)
 {
     if (size == 0 || *ext != VERSION_MAGIC)
 	return -1;
     return decoded_size(ext+1, ext+size, 0, NULL);
 }
 
-Sint erts_decode_ext_size_ets(byte *ext, Uint size)
+Sint erts_decode_ext_size_ets(const byte *ext, Uint size)
 {
     Sint sz = decoded_size(ext, ext+size, 1, NULL);
     ASSERT(sz >= 0);
@@ -1148,7 +1149,7 @@ enum B2TState { /* order is somewhat significant */
 typedef struct {
     int heap_size;
     int terms;
-    byte* ep;
+    const byte* ep;
     int atom_extra_skip;
 } B2TSizeContext;
 
@@ -2341,7 +2342,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 
 static int
 enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
-	     struct erl_off_heap_header** off_heap, Sint *reds, byte **res)
+             struct erl_off_heap_header** off_heap, Sint *reds, byte **res)
 {
     DECLARE_WSTACK(s);
     Uint n;
@@ -3851,7 +3852,7 @@ static Uint encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dfla
 
 static int
 encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
-		       unsigned dflags, Sint *reds, Uint *res)
+                       unsigned dflags, Sint *reds, Uint *res)
 {
     DECLARE_ESTACK(s);
     Uint m, i, arity;
@@ -4149,7 +4150,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 }
 
 static Sint
-decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
+decoded_size(const byte *ep, const byte* endp, int internal_tags, B2TContext* ctx)
 {
     int heap_size;
     int terms;

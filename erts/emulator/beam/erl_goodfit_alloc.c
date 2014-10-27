@@ -163,12 +163,13 @@ BKT_MIN_SZ(GFAllctr_t *gfallctr, int ix)
 
 /* Prototypes of callback functions */
 static Block_t *	get_free_block		(Allctr_t *, Uint,
-						 Block_t *, Uint);
+                                                 const Block_t *, Uint);
 static void		link_free_block		(Allctr_t *, Block_t *);
 static void		unlink_free_block	(Allctr_t *, Block_t *);
 static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *);
-static Eterm		info_options		(Allctr_t *, char *, int *,
-						 void *, Uint **, Uint *);
+static Eterm		info_options		(Allctr_t *, const char *,
+                                                 const int *, const void *,
+                                                 Uint **, Uint *);
 static void		init_atoms		(void);
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -188,7 +189,7 @@ erts_gfalc_init(void)
 Allctr_t *
 erts_gfalc_start(GFAllctr_t *gfallctr,
 		 GFAllctrInit_t *gfinit,
-		 AllctrInit_t *init)
+                 const AllctrInit_t *init)
 {
     struct {
 	int dummy;
@@ -385,7 +386,7 @@ search_bucket(Allctr_t *allctr, int ix, Uint size)
 
 static Block_t *
 get_free_block(Allctr_t *allctr, Uint size,
-	       Block_t *cand_blk, Uint cand_size)
+               const Block_t *cand_blk, Uint cand_size)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     int unsafe_bi, min_bi;
@@ -549,9 +550,9 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 
 static Eterm
 info_options(Allctr_t *allctr,
-	     char *prefix,
-	     int *print_to_p,
-	     void *print_to_arg,
+             const char *prefix,
+             const int *print_to_p,
+             const void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {

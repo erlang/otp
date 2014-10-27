@@ -36,12 +36,15 @@
 #include "erl_thr_progress.h"
 
 static void set_default_trace_pattern(Eterm module);
-static Eterm check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp);
+static Eterm check_process_code(Process* rp, const Module* modp,
+                                int allow_gc, int *redsp);
 static void delete_code(Module* modp);
 static void decrement_refc(BeamInstr* code);
-static int is_native(BeamInstr* code);
-static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
-static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
+static int is_native(const BeamInstr* code);
+static int any_heap_ref_ptrs(const Eterm* start, const Eterm* end,
+                             const char* mod_start, Uint mod_size);
+static int any_heap_refs(const Eterm* start, const Eterm* end,
+                         const char* mod_start, Uint mod_size);
 
 
 
@@ -723,7 +726,7 @@ set_default_trace_pattern(Eterm module)
 }
 
 static Eterm
-check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
+check_process_code(Process* rp, const Module* modp, int allow_gc, int *redsp)
 {
     BeamInstr* start;
     char* mod_start;
@@ -904,9 +907,10 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
     ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 static int
-any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
+any_heap_ref_ptrs(const Eterm* start, const Eterm* end, const char* mod_start,
+                  Uint mod_size)
 {
-    Eterm* p;
+    const Eterm* p;
     Eterm val;
 
     for (p = start; p < end; p++) {
@@ -924,9 +928,10 @@ any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 }
 
 static int
-any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
+any_heap_refs(const Eterm* start, const Eterm* end, const char* mod_start,
+              Uint mod_size)
 {
-    Eterm* p;
+    const Eterm* p;
     Eterm val;
 
     for (p = start; p < end; p++) {
@@ -940,7 +945,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (!header_is_transparent(val)) {
-		Eterm* new_p = p + thing_arityval(val);
+                const Eterm* new_p = p + thing_arityval(val);
 		ASSERT(start <= new_p && new_p < end);
 		p = new_p;
 	    }
@@ -1108,7 +1113,7 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
 }
 
 static int
-is_native(BeamInstr* code)
+is_native(const BeamInstr* code)
 {
     Uint i, num_functions = code[MI_NUM_FUNCTIONS];
 

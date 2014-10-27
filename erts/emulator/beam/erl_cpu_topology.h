@@ -42,7 +42,7 @@ void erts_init_cpu_topology(void);
 #define ERTS_INIT_SCHED_BIND_TYPE_ERROR_NO_CPU_TOPOLOGY	2
 #define ERTS_INIT_SCHED_BIND_TYPE_ERROR_BAD_TYPE	3
 
-int erts_init_scheduler_bind_type_string(char *how);
+int erts_init_scheduler_bind_type_string(const char *how);
 
 
 #define ERTS_INIT_CPU_TOPOLOGY_OK			0
@@ -56,7 +56,7 @@ int erts_init_scheduler_bind_type_string(char *how);
 #define ERTS_INIT_CPU_TOPOLOGY_NOT_UNIQUE_ENTITIES	8
 #define ERTS_INIT_CPU_TOPOLOGY_MISSING			9
 
-int erts_init_cpu_topology_string(char *topology_str);
+int erts_init_cpu_topology_string(const char *topology_str);
 
 void erts_sched_check_cpu_bind(ErtsSchedulerData *esdp);
 #ifdef ERTS_SMP
@@ -94,12 +94,12 @@ Eterm erts_debug_cpu_groups_map(Process *c_p, int groups);
 typedef void (*erts_cpu_groups_callback_t)(int,
 					   ErtsSchedulerData *,
 					   int,
-					   void *);
+                                           const void *);
 
 void erts_add_cpu_groups(int groups,
 			 erts_cpu_groups_callback_t callback,
-			 void *arg);
+                         const void *arg);
 void erts_remove_cpu_groups(erts_cpu_groups_callback_t callback,
-			    void *arg);
+                            const void *arg);
 
 #endif

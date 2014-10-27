@@ -180,7 +180,7 @@ int erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm Integer, Uint flags));
 int erts_new_bs_put_binary(ERL_BITS_PROTO_2(Eterm Bin, Uint num_bits));
 int erts_new_bs_put_binary_all(ERL_BITS_PROTO_2(Eterm Bin, Uint unit));
 int erts_new_bs_put_float(Process *c_p, Eterm Float, Uint num_bits, int flags);
-void erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes));
+void erts_new_bs_put_string(ERL_BITS_PROTO_2(const byte* iptr, Uint num_bytes));
 
 Uint erts_bits_bufs_size(void);
 Uint32 erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb);
@@ -195,9 +195,11 @@ Eterm erts_bs_init_writable(Process* p, Eterm sz);
 /*
  * Common utilities.
  */
-void erts_copy_bits(byte* src, size_t soffs, int sdir,
-		    byte* dst, size_t doffs,int ddir, size_t n);        
-int erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size); 
+void erts_copy_bits(const byte* src, size_t soffs, int sdir,
+                    byte* dst, size_t doffs, int ddir, size_t n);
+int erts_cmp_bits(const byte* a_ptr, size_t a_offs,
+                  const byte* b_ptr, size_t b_offs,
+                  size_t size);
 
 /*
  * Flags for bs_get_* / bs_put_* / bs_init* instructions.

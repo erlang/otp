@@ -63,10 +63,12 @@ struct erts_mmap_info_struct
     UWord segs[6];
     UWord os_used;
 };
-Eterm erts_mmap_info(int *print_to_p, void *print_to_arg,
-                     Eterm** hpp, Uint* szp, struct erts_mmap_info_struct*);
-Eterm erts_mmap_info_options(char *prefix, int *print_to_p, void *print_to_arg,
-                             Uint **hpp, Uint *szp);
+Eterm erts_mmap_info(int *print_to_p, const void *print_to_arg,
+                     Eterm** hpp /*out*/, Uint* szp /*out*/,
+                     struct erts_mmap_info_struct*);
+Eterm erts_mmap_info_options(char *prefix, int *print_to_p,
+                             const void *print_to_arg,
+                             Uint **hpp /*out*/, Uint *szp /*out*/);
 struct process;
 Eterm erts_mmap_debug_info(struct process*);
 

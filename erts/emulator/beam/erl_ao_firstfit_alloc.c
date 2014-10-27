@@ -191,7 +191,7 @@ static ERTS_INLINE SWord cmp_blocks(enum AOFF_Flavor flavor,
 }
 
 static ERTS_INLINE SWord cmp_cand_blk(enum AOFF_Flavor flavor,
-				      Block_t* cand_blk, AOFF_RBTree_t* rhs)
+                                      const Block_t* cand_blk, AOFF_RBTree_t* rhs)
 {
     if (flavor != AOFF_AOFF) {
 	if (BLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
@@ -204,7 +204,7 @@ static ERTS_INLINE SWord cmp_cand_blk(enum AOFF_Flavor flavor,
 
 
 /* Prototypes of callback functions */
-static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint);
+static Block_t*	aoff_get_free_block(Allctr_t *, Uint, const Block_t *, Uint);
 static void aoff_link_free_block(Allctr_t *, Block_t*);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del);
 static void aoff_creating_mbc(Allctr_t*, Carrier_t*);
@@ -221,7 +221,8 @@ static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, Uint size);
 static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
 #endif
 
-static Eterm info_options(Allctr_t *, char *, int *, void *, Uint **, Uint *);
+static Eterm info_options(Allctr_t *, const char *, const int *, const void *,
+                          Uint **, Uint *);
 static void init_atoms(void);
 
 
@@ -821,7 +822,7 @@ rbt_search(AOFF_RBTree_t* root, Uint size)
 
 static Block_t *
 aoff_get_free_block(Allctr_t *allctr, Uint size,
-		    Block_t *cand_blk, Uint cand_size)
+                    const Block_t *cand_blk, Uint cand_size)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_RBTree_t *crr_node = alc->mbc_root;
@@ -1000,9 +1001,9 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 
 static Eterm
 info_options(Allctr_t *allctr,
-	     char *prefix,
-	     int *print_to_p,
-	     void *print_to_arg,
+             const char *prefix,
+             const int *print_to_p,
+             const void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {

@@ -456,9 +456,9 @@ do {									\
  */
 
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
-static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
-			      int yreg);
+static void print_function_from_pc(int to, const void *to_arg, BeamInstr* x);
+static int stack_element_dump(int to, const void *to_arg, Process* p, Eterm* sp,
+                              int yreg);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int no_schedulers);
@@ -5120,7 +5120,7 @@ erts_early_init_scheduling(int no_schedulers)
 }
 
 int
-erts_sched_set_wakeup_other_thresold(char *str)
+erts_sched_set_wakeup_other_thresold(const char *str)
 {
 #ifdef ERTS_SMP
     ErtsSchedWakeupOtherThreshold threshold;
@@ -5150,7 +5150,7 @@ erts_sched_set_wakeup_other_thresold(char *str)
 }
 
 int
-erts_sched_set_wakeup_other_type(char *str)
+erts_sched_set_wakeup_other_type(const char *str)
 {
 #ifdef ERTS_SMP
     ErtsSchedWakeupOtherType type;
@@ -5171,7 +5171,7 @@ erts_sched_set_wakeup_other_type(char *str)
 }
 
 int
-erts_sched_set_busy_wait_threshold(char *str)
+erts_sched_set_busy_wait_threshold(const char *str)
 {
     int sys_sched;
     int aux_work_fact;
@@ -5212,7 +5212,7 @@ erts_sched_set_busy_wait_threshold(char *str)
 }
 
 int
-erts_sched_set_wake_cleanup_threshold(char *str)
+erts_sched_set_wake_cleanup_threshold(const char *str)
 {
     if (sys_strcmp(str, "very_lazy") == 0)
 	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_LAZY;
@@ -12193,7 +12193,7 @@ set_timer(Process* p, Uint timeout)
  */
 
 void
-erts_stack_dump(int to, void *to_arg, Process *p)
+erts_stack_dump(int to, const void *to_arg, Process *p)
 {
     Eterm* sp;
     int yreg = -1;
@@ -12208,7 +12208,7 @@ erts_stack_dump(int to, void *to_arg, Process *p)
 }
 
 void
-erts_program_counter_info(int to, void *to_arg, Process *p)
+erts_program_counter_info(int to, const void *to_arg, Process *p)
 {
     erts_aint32_t state;
     int i;
@@ -12238,7 +12238,7 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, BeamInstr* x)
+print_function_from_pc(int to, const void *to_arg, BeamInstr* x)
 {
     BeamInstr* addr = find_function_from_pc(x);
     if (addr == NULL) {
@@ -12260,7 +12260,7 @@ print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 }
 
 static int
-stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
+stack_element_dump(int to, const void *to_arg, Process* p, Eterm* sp, int yreg)
 {
     Eterm x = *sp;
 

@@ -157,7 +157,7 @@ ErtsLink *erts_add_or_lookup_link(ErtsLink **root, Uint type, Eterm pid);
 ErtsLink *erts_remove_link(ErtsLink **root, Eterm pid);
 ErtsLink *erts_lookup_link(ErtsLink *root, Eterm pid);
 void erts_sweep_links(ErtsLink *root, 
-		      void (*doit)(ErtsLink *, void *),
+                      void (*doit)(ErtsLink *, void *),
 		      void *context);
 
 void erts_destroy_suspend_monitor(ErtsSuspendMonitor *sproc);

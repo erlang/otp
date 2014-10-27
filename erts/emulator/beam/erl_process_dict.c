@@ -82,7 +82,7 @@
 static void pd_hash_erase(Process *p, Eterm id, Eterm *ret);
 static void pd_hash_erase_all(Process *p);
 static Eterm pd_hash_get_keys(Process *p, Eterm value);
-static Eterm pd_hash_get_all(Process *p, ProcDict *pd);
+static Eterm pd_hash_get_all(Process *p, const ProcDict *pd);
 static Eterm pd_hash_put(Process *p, Eterm id, Eterm value);
 
 static void shrink(Process *p, Eterm* ret); 
@@ -136,7 +136,7 @@ static void pd_check(ProcDict *pd);
  * Called from break handler
  */
 void
-erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
+erts_dictionary_dump(int to, const void *to_arg, ProcDict *pd)
 {
     unsigned int i;
 #ifdef DEBUG
@@ -176,8 +176,8 @@ erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
 }
 
 void
-erts_deep_dictionary_dump(int to, void *to_arg,
-			  ProcDict* pd, void (*cb)(int, void *, Eterm))
+erts_deep_dictionary_dump(int to, const void *to_arg,
+                          ProcDict* pd, void (*cb)(int, const void *, Eterm))
 {
     unsigned int i;
     Eterm t;
@@ -197,7 +197,7 @@ erts_deep_dictionary_dump(int to, void *to_arg,
 }
 
 Uint
-erts_dicts_mem_size(Process *p)
+erts_dicts_mem_size(const Process *p)
 {
     Uint size = 0;
     if (p->dictionary)
@@ -449,7 +449,7 @@ static Eterm pd_hash_get_keys(Process *p, Eterm value)
 	
 
 static Eterm
-pd_hash_get_all(Process *p, ProcDict *pd)
+pd_hash_get_all(Process *p, const ProcDict *pd)
 {
     Eterm* hp;
     Eterm res = NIL;

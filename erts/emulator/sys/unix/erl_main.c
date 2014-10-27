@@ -24,7 +24,7 @@
 #include "global.h"
 
 int
-main(int argc, char **argv)
+main(int argc, const char **argv)
 {
     erl_start(argc, argv);
     return 0;

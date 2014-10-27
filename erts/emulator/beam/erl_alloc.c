@@ -216,8 +216,8 @@ typedef struct {
     struct {
 	int stat;
 	int map;
-	char *mtrace;
-	char *nodename;
+        const char *mtrace;
+        const char *nodename;
     } instr;
     struct au_init sl_alloc;
     struct au_init std_alloc;
@@ -456,7 +456,7 @@ adjust_tpref(struct au_init *ip, int no_sched)
 
 #endif
 
-static void handle_args(int *, char **, erts_alc_hndl_args_init_t *);
+static void handle_args(int *, const char **, erts_alc_hndl_args_init_t *);
 
 static void
 set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu);
@@ -542,7 +542,7 @@ adjust_carrier_migration_support(struct au_init *auip)
 }
 
 void
-erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
+erts_alloc_init(int *argc, const char **argv, ErtsAllocInitOpts *eaiop)
 {
     UWord extra_block_size = 0;
     int i, ncpu;
@@ -1080,7 +1080,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 }
 
 
-static void bad_param(char *param_start, char *param_end)
+static void bad_param(const char *param_start, const char *param_end)
 {
     size_t len = param_end - param_start;
     char param[100];
@@ -1092,7 +1092,8 @@ static void bad_param(char *param_start, char *param_end)
     erts_usage();
 }
 
-static void bad_value(char *param_start, char *param_end, char *value)
+static void bad_value(const char *param_start, const char *param_end,
+                      const char *value)
 {
     size_t len = param_end - param_start;
     char param[100];
@@ -1106,13 +1107,13 @@ static void bad_value(char *param_start, char *param_end, char *value)
 
 /* Get arg marks argument as handled by
    putting NULL in argv */
-static char *
-get_value(char* rest, char** argv, int* ip)
+static const char *
+get_value(const char* rest, const char** argv, int* ip)
 {
-    char *param = argv[*ip]+1;
+    const char *param = argv[*ip]+1;
     argv[*ip] = NULL;
     if (*rest == '\0') {
-	char *next = argv[*ip + 1];
+        const char *next = argv[*ip + 1];
 	if (next[0] == '-'
 	    && next[1] == '-'
 	    &&  next[2] == '\0') {
@@ -1136,10 +1137,10 @@ has_prefix(const char *prefix, const char *string)
 }
 
 static int
-get_bool_value(char *param_end, char** argv, int* ip)
+get_bool_value(const char *param_end, const char** argv, int* ip)
 {
-    char *param = argv[*ip]+1;
-    char *value = get_value(param_end, argv, ip);
+    const char *param = argv[*ip]+1;
+    const char *value = get_value(param_end, argv, ip);
     if (strcmp(value, "true") == 0)
 	return 1;
     else if (strcmp(value, "false") == 0)
@@ -1150,13 +1151,13 @@ get_bool_value(char *param_end, char** argv, int* ip)
 }
 
 static Uint
-get_kb_value(char *param_end, char** argv, int* ip)
+get_kb_value(const char *param_end, const char** argv, int* ip)
 {
     Sint tmp;
     Uint max = ((~((Uint) 0))/1024) + 1;
     char *rest;
-    char *param = argv[*ip]+1;
-    char *value = get_value(param_end, argv, ip);
+    const char *param = argv[*ip]+1;
+    const char *value = get_value(param_end, argv, ip);
     errno = 0;
     tmp = (Sint) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0 || max < ((Uint) tmp))
@@ -1168,13 +1169,13 @@ get_kb_value(char *param_end, char** argv, int* ip)
 }
 
 static UWord
-get_mb_value(char *param_end, char** argv, int* ip)
+get_mb_value(const char *param_end, const char** argv, int* ip)
 {
     SWord tmp;
     UWord max = ((~((UWord) 0))/(1024*1024)) + 1;
     char *rest;
-    char *param = argv[*ip]+1;
-    char *value = get_value(param_end, argv, ip);
+    const char *param = argv[*ip]+1;
+    const char *value = get_value(param_end, argv, ip);
     errno = 0;
     tmp = (SWord) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0 || max < ((UWord) tmp))
@@ -1203,12 +1204,12 @@ get_byte_value(char *param_end, char** argv, int* ip)
 #endif
 
 static Uint
-get_amount_value(char *param_end, char** argv, int* ip)
+get_amount_value(const char *param_end, const char** argv, int* ip)
 {
     Sint tmp;
     char *rest;
-    char *param = argv[*ip]+1;
-    char *value = get_value(param_end, argv, ip);
+    const char *param = argv[*ip]+1;
+    const char *value = get_value(param_end, argv, ip);
     errno = 0;
     tmp = (Sint) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0)
@@ -1217,12 +1218,13 @@ get_amount_value(char *param_end, char** argv, int* ip)
 }
 
 static Uint
-get_acul_value(struct au_init *auip, char *param_end, char** argv, int* ip)
+get_acul_value(struct au_init *auip, const char *param_end, const char** argv,
+               int* ip)
 {
     Sint tmp;
     char *rest;
-    char *param = argv[*ip]+1;
-    char *value = get_value(param_end, argv, ip);
+    const char *param = argv[*ip]+1;
+    const char *value = get_value(param_end, argv, ip);
     if (sys_strcmp(value, "de") == 0) {
 	switch (auip->init.util.alloc_no) {
 	case ERTS_ALC_A_LONG_LIVED:
@@ -1245,12 +1247,12 @@ get_acul_value(struct au_init *auip, char *param_end, char** argv, int* ip)
 
 static void
 handle_au_arg(struct au_init *auip,
-	      char* sub_param,
-	      char** argv,
+              const char* sub_param,
+              const char** argv,
 	      int* ip,
 	      int u_switch)
 {
-    char *param = argv[*ip]+1;
+    const char *param = argv[*ip]+1;
 
     switch (sub_param[0]) {
     case 'a':
@@ -1270,7 +1272,7 @@ handle_au_arg(struct au_init *auip,
 	    auip->init.util.asbcst = get_kb_value(sub_param + 6, argv, ip);
 	}
 	else if(has_prefix("as", sub_param)) {
-	    char *alg = get_value(sub_param + 2, argv, ip);
+            const char *alg = get_value(sub_param + 2, argv, ip);
 	    if (strcmp("bf", alg) == 0) {
 		auip->atype = BESTFIT;
 		auip->init.bf.ao = 0;
@@ -1394,7 +1396,7 @@ handle_au_arg(struct au_init *auip,
 }
 
 static void
-handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
+handle_args(int *argc, const char **argv, erts_alc_hndl_args_init_t *init)
 {
     struct au_init *aui[] = {
 	&init->binary_alloc,
@@ -1408,7 +1410,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	&init->temp_alloc
     };
     int aui_sz = (int) sizeof(aui)/sizeof(aui[0]);
-    char *arg;
+    const char *arg;
     char *rest;
     int i, j;
 
@@ -1418,7 +1420,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 
     while (i < *argc) {
 	if(argv[i][0] == '-') {
-	    char *param = argv[i]+1;
+            const char *param = argv[i]+1;
 	    switch (argv[i][1]) {
 	    case 'M':
 		switch (argv[i][2]) {
@@ -1650,8 +1652,8 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    else {
 			int a;
 			int start = i;
-			char *param = argv[i];
-			char *val = i+1 < *argc ? argv[i+1] : NULL;
+                        const char *param = argv[i];
+                        const char *val = i+1 < *argc ? argv[i+1] : NULL;
 
 			for (a = 0; a < aui_sz; a++) {
 			    if (a > 0) {
@@ -1998,7 +2000,7 @@ add_fix_values(UWord *ap, UWord *up, ErtsAlcUFixInfo_t *fi, ErtsAlcType_t type)
 }
 
 Eterm
-erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
+erts_memory(int *print_to_p, const void *print_to_arg, void *proc, Eterm earg)
 {
 /*
  * NOTE! When updating this function, make sure to also update
@@ -2368,7 +2370,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     if (print_to_p) {
 	int i;
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 
 	/* Print result... */
 	erts_print(to, arg, "=memory\n");
@@ -2421,7 +2423,7 @@ struct aa_values {
 };
 
 Eterm
-erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
+erts_allocated_areas(int *print_to_p, const void *print_to_arg, void *proc)
 {
 #define MAX_AA_VALUES (24)
     struct aa_values values[MAX_AA_VALUES];
@@ -2557,7 +2559,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
     if (print_to_p) {
 	/* Print result... */
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 
 	erts_print(to, arg, "=allocated_areas\n");
 	for (i = 0; i < length; i++) {
@@ -2667,7 +2669,7 @@ erts_alloc_util_allocators(void *proc)
 }
 
 void
-erts_allocator_info(int to, void *arg)
+erts_allocator_info(int to, const void *arg)
 {
     ErtsAlcType_t a;
 
@@ -2973,7 +2975,7 @@ reply_alloc_info(void *vair)
 		       int,
 		       int,
 		       int *,
-		       void *,
+                       const void *,
 		       Uint **,
 		       Uint *) = (air->only_sz
 				  ? erts_alcu_sz_info
@@ -3410,8 +3412,8 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    init.init.util.name_prefix = (char *) a1;
 	    init.init.util.ts = a2 ? 1 : 0;
 
-	    if ((char **) a3) {
-		char **argv = (char **) a3;
+            if ((const char **) a3) {
+                const char **argv = (const char **) a3;
 		int i = 0;
 		while (argv[i]) {
 		    if (argv[i][0] == '-' && argv[i][1] == 't')

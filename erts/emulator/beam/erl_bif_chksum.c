@@ -31,7 +31,7 @@
 #include "zlib.h"
 
 
-typedef void (*ChksumFun)(void *sum_in_out, unsigned char *buf, 
+typedef void (*ChksumFun)(void *sum_in_out, const unsigned char *buf,
 			  unsigned buflen);
 
 /* Hidden trap target */
@@ -285,21 +285,21 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
     return ioterm;
 }
 
-static void adler32_wrap(void *vsum, unsigned char *buf, unsigned buflen)
+static void adler32_wrap(void *vsum, const unsigned char *buf, unsigned buflen)
 {
     unsigned long sum = *((unsigned long *) vsum);
     sum = adler32(sum,buf,buflen);
     *((unsigned long *) vsum) = sum;
 }
 
-static void crc32_wrap(void *vsum, unsigned char *buf, unsigned buflen)
+static void crc32_wrap(void *vsum, const unsigned char *buf, unsigned buflen)
 {
     unsigned long sum = *((unsigned long *) vsum);
     sum = crc32(sum,buf,buflen);
     *((unsigned long *) vsum) = sum;
 }
 
-static void md5_wrap(void *vsum, unsigned char *buf, unsigned buflen)
+static void md5_wrap(void *vsum, const unsigned char *buf, unsigned buflen)
 {
     MD5_CTX *ctx = ((MD5_CTX *) vsum);
     MD5Update(ctx,buf,buflen);

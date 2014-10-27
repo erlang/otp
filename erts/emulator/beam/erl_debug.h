@@ -50,7 +50,7 @@
 
 extern Uint32 verbose;
 
-void upp(byte*, size_t);
+void upp(const byte*, size_t);
 void pat(Eterm);
 void pinfo(void);
 void pp(Process*);
@@ -89,8 +89,8 @@ extern void erts_check_memory(Process *p, Eterm *start, Eterm *end);
 extern void verify_process(Process *p);
 extern void print_tagged_memory(Eterm *start, Eterm *end);
 extern void print_untagged_memory(Eterm *start, Eterm *end);
-extern void print_memory(Process *p);
-extern void print_memory_info(Process *p);
+extern void print_memory(const Process *p);
+extern void print_memory_info(const Process *p);
 #if defined(DEBUG) && !HEAP_ON_C_STACK
 extern Eterm *erts_debug_allocate_tmp_heap(int, Process *);
 extern void erts_debug_use_tmp_heap(int, Process *);

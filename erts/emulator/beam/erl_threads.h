@@ -369,7 +369,7 @@ typedef struct {
 #endif
 } erts_rwlock_t;
 
-__decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *); 
+__decl_noreturn void  __noreturn erts_thr_fatal_error(int, const char *);
                                  /* implemented in erl_init.c */
 
 #define ERTS_THR_INIT_DATA_DEF_INITER	ETHR_INIT_DATA_DEFAULT_INITER
@@ -464,28 +464,28 @@ ERTS_GLB_INLINE void erts_thr_exit(void *res);
 ERTS_GLB_INLINE void erts_thr_install_exit_handler(void (*exit_handler)(void));
 ERTS_GLB_INLINE erts_tid_t erts_thr_self(void);
 ERTS_GLB_INLINE int erts_equal_tids(erts_tid_t x, erts_tid_t y);
-ERTS_GLB_INLINE void erts_mtx_init_x(erts_mtx_t *mtx, char *name, Eterm extra,
+ERTS_GLB_INLINE void erts_mtx_init_x(erts_mtx_t *mtx, const char *name, Eterm extra,
 				     int enable_lcnt);
-ERTS_GLB_INLINE void erts_mtx_init_x_opt(erts_mtx_t *mtx, char *name, Eterm extra,
+ERTS_GLB_INLINE void erts_mtx_init_x_opt(erts_mtx_t *mtx, const char *name, Eterm extra,
 					 Uint16 opt, int enable_lcnt);
 ERTS_GLB_INLINE void erts_mtx_init_locked_x(erts_mtx_t *mtx,
-					    char *name,
+                                            const char *name,
 					    Eterm extra,
 					    int enable_lcnt);
-ERTS_GLB_INLINE void erts_mtx_init(erts_mtx_t *mtx, char *name);
-ERTS_GLB_INLINE void erts_mtx_init_locked(erts_mtx_t *mtx, char *name);
+ERTS_GLB_INLINE void erts_mtx_init(erts_mtx_t *mtx, const char *name);
+ERTS_GLB_INLINE void erts_mtx_init_locked(erts_mtx_t *mtx, const char *name);
 ERTS_GLB_INLINE void erts_mtx_destroy(erts_mtx_t *mtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE int erts_mtx_trylock_x(erts_mtx_t *mtx, char *file,
+ERTS_GLB_INLINE int erts_mtx_trylock_x(erts_mtx_t *mtx, const char *file,
 				       unsigned int line);
-ERTS_GLB_INLINE void erts_mtx_lock_x(erts_mtx_t *mtx, char *file,
+ERTS_GLB_INLINE void erts_mtx_lock_x(erts_mtx_t *mtx, const char *file,
 				     unsigned int line);
 #else
 ERTS_GLB_INLINE int erts_mtx_trylock(erts_mtx_t *mtx);
 ERTS_GLB_INLINE void erts_mtx_lock(erts_mtx_t *mtx);
 #endif
 ERTS_GLB_INLINE void erts_mtx_unlock(erts_mtx_t *mtx);
-ERTS_GLB_INLINE int erts_lc_mtx_is_locked(erts_mtx_t *mtx);
+ERTS_GLB_INLINE int erts_lc_mtx_is_locked(const erts_mtx_t *mtx);
 ERTS_GLB_INLINE void erts_cnd_init(erts_cnd_t *cnd);
 ERTS_GLB_INLINE void erts_cnd_destroy(erts_cnd_t *cnd);
 ERTS_GLB_INLINE void erts_cnd_wait(erts_cnd_t *cnd, erts_mtx_t *mtx);
@@ -494,22 +494,26 @@ ERTS_GLB_INLINE void erts_cnd_broadcast(erts_cnd_t *cnd);
 ERTS_GLB_INLINE void erts_rwmtx_set_reader_group(int no);
 ERTS_GLB_INLINE void erts_rwmtx_init_opt_x(erts_rwmtx_t *rwmtx,
 					   erts_rwmtx_opt_t *opt,
-					   char *name,
+                                           const char *name,
 					   Eterm extra);
 ERTS_GLB_INLINE void erts_rwmtx_init_x(erts_rwmtx_t *rwmtx,
-				       char *name,
+                                       const char *name,
 				       Eterm extra);
 ERTS_GLB_INLINE void erts_rwmtx_init_opt(erts_rwmtx_t *rwmtx,
 					 erts_rwmtx_opt_t *opt,
-					 char *name);
+                                         const char *name);
 ERTS_GLB_INLINE void erts_rwmtx_init(erts_rwmtx_t *rwmtx,
-					 char *name);
+                                         const char *name);
 ERTS_GLB_INLINE void erts_rwmtx_destroy(erts_rwmtx_t *rwmtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE int erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
-ERTS_GLB_INLINE void erts_rwmtx_rlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
-ERTS_GLB_INLINE void erts_rwmtx_rwlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
-ERTS_GLB_INLINE int erts_rwmtx_tryrwlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
+ERTS_GLB_INLINE int erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx,
+                                          const char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_rwmtx_rlock_x(erts_rwmtx_t *rwmtx,
+                                        const char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_rwmtx_rwlock_x(erts_rwmtx_t *rwmtx,
+                                         const char *file, unsigned int line);
+ERTS_GLB_INLINE int erts_rwmtx_tryrwlock_x(erts_rwmtx_t *rwmtx,
+                                           const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE int erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_rwmtx_rlock(erts_rwmtx_t *rwmtx);
@@ -572,32 +576,35 @@ ERTS_GLB_INLINE erts_aint32_t erts_no_atomic32_read_bset(erts_no_atomic32_t *var
 							 erts_aint32_t set);
 
 ERTS_GLB_INLINE void erts_spinlock_init_x_opt(erts_spinlock_t *lock,
-					      char *name,
+                                              const char *name,
 					      Eterm extra,
 					      Uint16 opt);
 ERTS_GLB_INLINE void erts_spinlock_init_x(erts_spinlock_t *lock,
-					  char *name,
+                                          const char *name,
 					  Eterm extra);
 ERTS_GLB_INLINE void erts_spinlock_init(erts_spinlock_t *lock,
-					char *name);
+                                        const char *name);
 ERTS_GLB_INLINE void erts_spinlock_destroy(erts_spinlock_t *lock);
 ERTS_GLB_INLINE void erts_spin_unlock(erts_spinlock_t *lock);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE void erts_spin_lock_x(erts_spinlock_t *lock, char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_spin_lock_x(erts_spinlock_t *lock,
+                                      const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_spin_lock(erts_spinlock_t *lock);
 #endif
 ERTS_GLB_INLINE int erts_lc_spinlock_is_locked(erts_spinlock_t *lock);
 ERTS_GLB_INLINE void erts_rwlock_init_x(erts_rwlock_t *lock,
-					char *name,
+                                        const char *name,
 					Eterm extra);
 ERTS_GLB_INLINE void erts_rwlock_init(erts_rwlock_t *lock,
-				      char *name);
+                                      const char *name);
 ERTS_GLB_INLINE void erts_rwlock_destroy(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_read_unlock(erts_rwlock_t *lock);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE void erts_read_lock_x(erts_rwlock_t *lock, char *file, unsigned int line);
-ERTS_GLB_INLINE void erts_write_lock_x(erts_rwlock_t *lock, char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_read_lock_x(erts_rwlock_t *lock,
+                                      const char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_write_lock_x(erts_rwlock_t *lock,
+                                       const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_read_lock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_write_lock(erts_rwlock_t *lock);
@@ -605,7 +612,7 @@ ERTS_GLB_INLINE void erts_write_lock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_write_unlock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_lc_rwlock_is_rlocked(erts_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock);
-ERTS_GLB_INLINE void erts_tsd_key_create(erts_tsd_key_t *keyp, char *keyname);
+ERTS_GLB_INLINE void erts_tsd_key_create(erts_tsd_key_t *keyp, const char *keyname);
 ERTS_GLB_INLINE void erts_tsd_key_delete(erts_tsd_key_t key);
 ERTS_GLB_INLINE void erts_tsd_set(erts_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_tsd_get(erts_tsd_key_t key);
@@ -1560,7 +1567,7 @@ erts_equal_tids(erts_tid_t x, erts_tid_t y)
 }
 
 ERTS_GLB_INLINE void
-erts_mtx_init_x(erts_mtx_t *mtx, char *name, Eterm extra, int enable_lcnt)
+erts_mtx_init_x(erts_mtx_t *mtx, const char *name, Eterm extra, int enable_lcnt)
 {
 #ifdef USE_THREADS
     int res = ethr_mutex_init(&mtx->mtx);
@@ -1579,7 +1586,7 @@ erts_mtx_init_x(erts_mtx_t *mtx, char *name, Eterm extra, int enable_lcnt)
 }
 
 ERTS_GLB_INLINE void
-erts_mtx_init_x_opt(erts_mtx_t *mtx, char *name, Eterm extra, Uint16 opt,
+erts_mtx_init_x_opt(erts_mtx_t *mtx, const char *name, Eterm extra, Uint16 opt,
 		    int enable_lcnt)
 {
 #ifdef USE_THREADS
@@ -1600,7 +1607,7 @@ erts_mtx_init_x_opt(erts_mtx_t *mtx, char *name, Eterm extra, Uint16 opt,
 
 
 ERTS_GLB_INLINE void
-erts_mtx_init_locked_x(erts_mtx_t *mtx, char *name, Eterm extra, int enable_lcnt)
+erts_mtx_init_locked_x(erts_mtx_t *mtx, const char *name, Eterm extra, int enable_lcnt)
 {
 #ifdef USE_THREADS
     int res = ethr_mutex_init(&mtx->mtx);
@@ -1626,7 +1633,7 @@ erts_mtx_init_locked_x(erts_mtx_t *mtx, char *name, Eterm extra, int enable_lcnt
 }
 
 ERTS_GLB_INLINE void
-erts_mtx_init(erts_mtx_t *mtx, char *name)
+erts_mtx_init(erts_mtx_t *mtx, const char *name)
 {
 #ifdef USE_THREADS
     int res = ethr_mutex_init(&mtx->mtx);
@@ -1642,7 +1649,7 @@ erts_mtx_init(erts_mtx_t *mtx, char *name)
 }
 
 ERTS_GLB_INLINE void
-erts_mtx_init_locked(erts_mtx_t *mtx, char *name)
+erts_mtx_init_locked(erts_mtx_t *mtx, const char *name)
 {
 #ifdef USE_THREADS
     int res = ethr_mutex_init(&mtx->mtx);
@@ -1765,7 +1772,7 @@ erts_mtx_unlock(erts_mtx_t *mtx)
 }
 
 ERTS_GLB_INLINE int
-erts_lc_mtx_is_locked(erts_mtx_t *mtx)
+erts_lc_mtx_is_locked(const erts_mtx_t *mtx)
 {
 #if defined(USE_THREADS) && defined(ERTS_ENABLE_LOCK_CHECK)
     int res;
@@ -1879,7 +1886,7 @@ erts_rwmtx_set_reader_group(int no)
 ERTS_GLB_INLINE void
 erts_rwmtx_init_opt_x(erts_rwmtx_t *rwmtx,
 		      erts_rwmtx_opt_t *opt,
-		      char *name,
+                      const char *name,
 		      Eterm extra)
 {
 #ifdef USE_THREADS
@@ -1900,7 +1907,7 @@ erts_rwmtx_init_opt_x(erts_rwmtx_t *rwmtx,
 
 ERTS_GLB_INLINE void
 erts_rwmtx_init_x(erts_rwmtx_t *rwmtx,
-		  char *name,
+                  const char *name,
 		  Eterm extra)
 {
     erts_rwmtx_init_opt_x(rwmtx, NULL, name, extra);
@@ -1909,7 +1916,7 @@ erts_rwmtx_init_x(erts_rwmtx_t *rwmtx,
 ERTS_GLB_INLINE void
 erts_rwmtx_init_opt(erts_rwmtx_t *rwmtx,
 		    erts_rwmtx_opt_t *opt,
-		    char *name)
+                    const char *name)
 {
 #ifdef USE_THREADS
     int res = ethr_rwmutex_init_opt(&rwmtx->rwmtx, opt);
@@ -1925,7 +1932,7 @@ erts_rwmtx_init_opt(erts_rwmtx_t *rwmtx,
 }
 
 ERTS_GLB_INLINE void
-erts_rwmtx_init(erts_rwmtx_t *rwmtx, char *name)
+erts_rwmtx_init(erts_rwmtx_t *rwmtx, const char *name)
 {
     erts_rwmtx_init_opt(rwmtx, NULL, name);
 }
@@ -2386,7 +2393,7 @@ erts_no_atomic32_read_bset(erts_no_atomic32_t *var,
 /* spinlock */
 
 ERTS_GLB_INLINE void
-erts_spinlock_init_x(erts_spinlock_t *lock, char *name, Eterm extra)
+erts_spinlock_init_x(erts_spinlock_t *lock, const char *name, Eterm extra)
 {
 #ifdef USE_THREADS
     int res = ethr_spinlock_init(&lock->slck);
@@ -2404,7 +2411,7 @@ erts_spinlock_init_x(erts_spinlock_t *lock, char *name, Eterm extra)
 }
 
 ERTS_GLB_INLINE void
-erts_spinlock_init_x_opt(erts_spinlock_t *lock, char *name, Eterm extra,
+erts_spinlock_init_x_opt(erts_spinlock_t *lock, const char *name, Eterm extra,
 			 Uint16 opt)
 {
 #ifdef USE_THREADS
@@ -2424,7 +2431,7 @@ erts_spinlock_init_x_opt(erts_spinlock_t *lock, char *name, Eterm extra,
 
 
 ERTS_GLB_INLINE void
-erts_spinlock_init(erts_spinlock_t *lock, char *name)
+erts_spinlock_init(erts_spinlock_t *lock, const char *name)
 {
 #ifdef USE_THREADS
     int res = ethr_spinlock_init(&lock->slck);
@@ -2529,7 +2536,7 @@ erts_lc_spinlock_is_locked(erts_spinlock_t *lock)
 /* rwspinlock */
 
 ERTS_GLB_INLINE void
-erts_rwlock_init_x(erts_rwlock_t *lock, char *name, Eterm extra)
+erts_rwlock_init_x(erts_rwlock_t *lock, const char *name, Eterm extra)
 {
 #ifdef USE_THREADS
     int res = ethr_rwlock_init(&lock->rwlck);
@@ -2547,7 +2554,7 @@ erts_rwlock_init_x(erts_rwlock_t *lock, char *name, Eterm extra)
 }
 
 ERTS_GLB_INLINE void
-erts_rwlock_init(erts_rwlock_t *lock, char *name)
+erts_rwlock_init(erts_rwlock_t *lock, const char *name)
 {
 #ifdef USE_THREADS
     int res = ethr_rwlock_init(&lock->rwlck);
@@ -2707,7 +2714,7 @@ erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-erts_tsd_key_create(erts_tsd_key_t *keyp, char *keyname)
+erts_tsd_key_create(erts_tsd_key_t *keyp, const char *keyname)
 {
 #ifdef USE_THREADS
     int res = ethr_tsd_key_create(keyp, keyname);

@@ -132,7 +132,7 @@ static __inline__ int i32(char* buf)
 		  (((int)((unsigned char*)buf)[3]) << 0));
 }
 
-static char* zlib_reason(int code, int* err)
+static const char* zlib_reason(int code, int* err)
 {
     switch(code) {
     case Z_OK:
@@ -170,7 +170,7 @@ static ErlDrvSSizeT zlib_return(int code, char** rbuf, ErlDrvSizeT rlen)
 {
     int msg_code = 0; /* 0=ok, 1=error */
     char* dst = *rbuf;
-    char* src;
+    const char* src;
     ErlDrvSizeT len = 0;
 
     src = zlib_reason(code, &msg_code);

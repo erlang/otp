@@ -149,7 +149,7 @@ void erl_drv_thr_init(void)
  */
 
 ErlDrvMutex *
-erl_drv_mutex_create(char *name)
+erl_drv_mutex_create(const char *name)
 {
 #ifdef USE_THREADS
     ErlDrvMutex *dmtx = erts_alloc_fnf(ERTS_ALC_T_DRV_MTX,
@@ -187,8 +187,8 @@ erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
 }
 
 
-char *
-erl_drv_mutex_name(ErlDrvMutex *dmtx)
+const char *
+erl_drv_mutex_name(const ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
     return dmtx ? dmtx->name : NULL;
@@ -230,7 +230,7 @@ erl_drv_mutex_unlock(ErlDrvMutex *dmtx)
 }
 
 ErlDrvCond *
-erl_drv_cond_create(char *name)
+erl_drv_cond_create(const char *name)
 {
 #ifdef USE_THREADS
     ErlDrvCond *dcnd = erts_alloc_fnf(ERTS_ALC_T_DRV_CND,
@@ -267,8 +267,8 @@ erl_drv_cond_destroy(ErlDrvCond *dcnd)
 #endif
 }
 
-char *
-erl_drv_cond_name(ErlDrvCond *dcnd)
+const char *
+erl_drv_cond_name(const ErlDrvCond *dcnd)
 {
 #ifdef USE_THREADS
     return dcnd ? dcnd->name : NULL;
@@ -314,7 +314,7 @@ erl_drv_cond_wait(ErlDrvCond *dcnd, ErlDrvMutex *dmtx)
 }
 
 ErlDrvRWLock *
-erl_drv_rwlock_create(char *name)
+erl_drv_rwlock_create(const char *name)
 {
 #ifdef USE_THREADS
     ErlDrvRWLock *drwlck = erts_alloc_fnf(ERTS_ALC_T_DRV_RWLCK,
@@ -349,8 +349,8 @@ erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
 #endif
 }
 
-char *
-erl_drv_rwlock_name(ErlDrvRWLock *drwlck)
+const char *
+erl_drv_rwlock_name(const ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
     return drwlck ? drwlck->name : NULL;
@@ -424,7 +424,7 @@ erl_drv_rwlock_rwunlock(ErlDrvRWLock *drwlck)
 }
 
 int
-erl_drv_tsd_key_create(char *name, ErlDrvTSDKey *key)
+erl_drv_tsd_key_create(const char *name, ErlDrvTSDKey *key)
 {
     char *name_copy;
     Uint old_used_tsd_keys_len;
@@ -573,7 +573,7 @@ erl_drv_tsd_get(ErlDrvTSDKey key)
 #undef ERL_DRV_TSD__
 
 ErlDrvThreadOpts *
-erl_drv_thread_opts_create(char *name)
+erl_drv_thread_opts_create(const char *name)
 {
     ErlDrvThreadOpts *opts = erts_alloc_fnf(ERTS_ALC_T_DRV_THR_OPTS,
 					    sizeof(ErlDrvThreadOpts));
@@ -592,7 +592,7 @@ erl_drv_thread_opts_destroy(ErlDrvThreadOpts *opts)
 }
 
 int
-erl_drv_thread_create(char *name,
+erl_drv_thread_create(const char *name,
 		      ErlDrvTid *tid,
 		      void* (*func)(void*),
 		      void* arg,
@@ -646,8 +646,8 @@ erl_drv_thread_create(char *name,
 #endif
 }
 
-char *
-erl_drv_thread_name(ErlDrvTid tid)
+const char *
+erl_drv_thread_name(const ErlDrvTid tid)
 {
 #ifdef USE_THREADS
     struct ErlDrvTid_ *dtid = (struct ErlDrvTid_ *) tid;
@@ -686,7 +686,7 @@ erl_drv_thread_self(void)
 }
 
 int
-erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2)
+erl_drv_equal_tids(const ErlDrvTid tid1, const ErlDrvTid tid2)
 {   
 #ifdef USE_THREADS
     int res;

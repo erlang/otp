@@ -960,7 +960,7 @@ void erts_deliver_time(void) {
    isn't one, give a "long" time, that is guaranteed
    to not cause overflow when we report elapsed time later on */
 
-void erts_time_remaining(SysTimeval *rem_time)
+void erts_time_remaining(SysTimeval *rem_time /*out*/)
 {
     erts_time_t ticks;
     SysTimeval cur_time;
@@ -997,7 +997,7 @@ void erts_time_remaining(SysTimeval *rem_time)
     }
 }
 
-void erts_get_timeval(SysTimeval *tv)
+void erts_get_timeval(SysTimeval *tv /*out*/)
 {
     erts_smp_mtx_lock(&erts_timeofday_mtx);
     get_tolerant_timeofday(tv);

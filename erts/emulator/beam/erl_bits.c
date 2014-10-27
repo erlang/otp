@@ -1207,7 +1207,7 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 }
 
 void 
-erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes))
+erts_new_bs_put_string(ERL_BITS_PROTO_2(const byte* iptr, Uint num_bytes))
 {
     if (BIT_OFFSET(erts_bin_offset) != 0) {
 	erts_copy_bits(iptr, 0, 1, erts_current_bin, erts_bin_offset, 1, num_bytes*8);
@@ -1800,7 +1800,8 @@ get_bit(byte b, size_t offs)
 }
 
 int
-erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size) 
+erts_cmp_bits(const byte* a_ptr, size_t a_offs,
+              const byte* b_ptr, size_t b_offs, size_t size)
 {
     byte a;
     byte b;
@@ -1902,7 +1903,7 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
 
 
 void 
-erts_copy_bits(byte* src,	/* Base pointer to source. */
+erts_copy_bits(const byte* src,	/* Base pointer to source. */
 	       size_t soffs,	/* Bit offset for source relative to src. */
 	       int sdir,	/* Direction: 1 (forward) or -1 (backward). */
 	       byte* dst,	/* Base pointer to destination. */

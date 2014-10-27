@@ -33,7 +33,7 @@
 extern int erts_mtrace_enabled;
 
 void erts_mtrace_pre_init(void);
-void erts_mtrace_init(char *receiver, char *nodename);
+void erts_mtrace_init(const char *receiver, const char *nodename);
 void erts_mtrace_install_wrapper_functions(void);
 void erts_mtrace_stop(void);
 void erts_mtrace_exit(Uint32 exit_value);

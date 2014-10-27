@@ -123,7 +123,7 @@ const int etp_big_endian = 0;
  * inherit previous values.
  */
 
-extern void erl_crash_dump_v(char *, int, char *, va_list);
+extern void erl_crash_dump_v(const char *, int, const char *, va_list);
 #ifdef __WIN32__
 extern void ConNormalExit(void);
 extern void ConWaitForExit(void);
@@ -235,8 +235,8 @@ has_prefix(const char *prefix, const char *string)
     return 1;
 }
 
-static char*
-progname(char *fullname) 
+static const char*
+progname(const char *fullname)
 {
     int i;
     
@@ -274,12 +274,12 @@ this_rel_num(void)
  * that don't go to the error logger go through here.
  */
 
-void erl_error(char *fmt, va_list args)
+void erl_error(const char *fmt, va_list args)
 {
     erts_vfprintf(stderr, fmt, args);
 }
 
-static int early_init(int *argc, char **argv);
+static int early_init(int *argc, const char **argv);
 
 void
 erts_short_init(void)
@@ -366,7 +366,8 @@ erl_init(int ncpu,
 }
 
 static void
-erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
+erl_first_process_otp(const char* modname, void* code, unsigned size,
+                      int argc, const char** argv)
 {
     int i;
     Eterm start_mod;
@@ -436,14 +437,14 @@ erts_preloaded(Process* p)
 
 
 /* static variables that must not change (use same values at restart) */
-static char* program;
-static char* init = "init";
-static char* boot = "boot";
+static const char* program;
+static const char* init = "init";
+static const char* boot = "boot";
 static int    boot_argc;
-static char** boot_argv;
+static const char** boot_argv;
 
-static char *
-get_arg(char* rest, char* next, int* ip)
+static const char *
+get_arg(const char* rest, const char* next, int* ip)
 {
     if (*rest == '\0') {
 	if (next == NULL) {
@@ -650,9 +651,9 @@ static void ethr_ll_free(void *ptr)
 #endif
 
 static int
-early_init(int *argc, char **argv) /*
+early_init(int *argc, const char **argv) /*
 				   * Only put things here which are
-				   * really important initialize
+                                   * really important to initialize
 				   * early!
 				   */
 {
@@ -773,9 +774,9 @@ early_init(int *argc, char **argv) /*
 	    if (argv[i][0] == '-') {
 		switch (argv[i][1]) {
 		case 'r': {
-		    char *sub_param = argv[i]+2;
+                    const char *sub_param = argv[i]+2;
 		    if (has_prefix("g", sub_param)) {
-			char *arg = get_arg(sub_param+1, argv[i+1], &i);
+                        const char *arg = get_arg(sub_param+1, argv[i+1], &i);
 			if (sscanf(arg, "%d", &max_reader_groups) != 1) {
 			    erts_fprintf(stderr,
 					 "bad reader groups limit: %s\n", arg);
@@ -792,7 +793,7 @@ early_init(int *argc, char **argv) /*
 		}
 		case 'A': {
 		    /* set number of threads in thread pool */
-		    char *arg = get_arg(argv[i]+2, argv[i+1], &i);
+                    const char *arg = get_arg(argv[i]+2, argv[i+1], &i);
 		    if (((erts_async_max_threads = atoi(arg)) < ERTS_MIN_NO_OF_ASYNC_THREADS) ||
 			(erts_async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)) {
 			erts_fprintf(stderr,
@@ -807,7 +808,7 @@ early_init(int *argc, char **argv) /*
 		case 'S' :
 		    if (argv[i][2] == 'P') {
 			int ptot, ponln;
-			char *arg = get_arg(argv[i]+3, argv[i+1], &i);
+                        const char *arg = get_arg(argv[i]+3, argv[i+1], &i);
 			switch (sscanf(arg, "%d:%d", &ptot, &ponln)) {
 			case 0:
 			    switch (sscanf(arg, ":%d", &ponln)) {
@@ -959,7 +960,7 @@ early_init(int *argc, char **argv) /*
 #endif
 		    else {
 			int tot, onln;
-			char *arg = get_arg(argv[i]+2, argv[i+1], &i);
+                        const char *arg = get_arg(argv[i]+2, argv[i+1], &i);
 			switch (sscanf(arg, "%d:%d", &tot, &onln)) {
 			case 0:
 			    switch (sscanf(arg, ":%d", &onln)) {
@@ -1174,10 +1175,10 @@ static void set_main_stack_size(void)
 #endif
 
 void
-erl_start(int argc, char **argv)
+erl_start(int argc, const char **argv)
 {
     int i = 1;
-    char* arg=NULL;
+    const char* arg=NULL;
     int have_break_handler = 1;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
@@ -1403,7 +1404,7 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'h': {
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    /* set default heap size
 	     *
 	     * h|ms  - min_heap_size
@@ -1566,7 +1567,7 @@ erl_start(int argc, char **argv)
 
 	case 'S' : /* Was handled in early_init() just read past it */
 	    if (argv[i][2] == 'D') {
-		char* type = argv[i]+3;
+                const char* type = argv[i]+3;
 		if (strcmp(type, "Pcpu") == 0)
 		    (void) get_arg(argv[i]+7, argv[i+1], &i);
 		if (strcmp(type, "cpu") == 0)
@@ -1582,7 +1583,7 @@ erl_start(int argc, char **argv)
 	case 's' : {
 	    char *estr;
 	    int res;
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    if (has_prefix("bt", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		res = erts_init_scheduler_bind_type_string(arg);
@@ -1886,7 +1887,7 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'r': {
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    if (has_prefix("g", sub_param)) {
 		get_arg(sub_param+1, argv[i+1], &i);
 		/* already handled */
@@ -1924,7 +1925,7 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'z': {
-	    char *sub_param = argv[i]+2;
+            const char *sub_param = argv[i]+2;
 	    int new_limit;
 
 	    if (has_prefix("dbbl", sub_param)) {
@@ -2012,7 +2013,7 @@ erl_start(int argc, char **argv)
 
 #ifdef USE_THREADS
 
-__decl_noreturn void erts_thr_fatal_error(int err, char *what)
+__decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 {
     char *errstr = err ? strerror(err) : NULL;
     erts_fprintf(stderr,
@@ -2077,7 +2078,8 @@ system_cleanup(int flush_async)
 }
 
 static __decl_noreturn void __noreturn
-erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
+erl_exit_vv(int n, int flush_async, const char *fmt,
+            va_list args1, va_list args2)
 {
     unsigned int an;
 
@@ -2095,7 +2097,7 @@ erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
     /* Produce an Erlang core dump if error */
     if (((n > 0 && erts_no_crash_dump == 0) || n == ERTS_DUMP_EXIT)
 	&& erts_initialized) {
-	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
+        erl_crash_dump_v((const char*) NULL, 0, fmt, args1);
     }
 
     if (fmt != NULL && *fmt != '\0')
@@ -2112,7 +2114,7 @@ erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 }
 
 /* Exit without flushing async threads */
-__decl_noreturn void __noreturn erl_exit(int n, char *fmt, ...)
+__decl_noreturn void __noreturn erl_exit(int n, const char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);
@@ -2123,7 +2125,7 @@ __decl_noreturn void __noreturn erl_exit(int n, char *fmt, ...)
 }
 
 /* Exit after flushing async threads */
-__decl_noreturn void __noreturn erl_exit_flush_async(int n, char *fmt, ...)
+__decl_noreturn void __noreturn erl_exit_flush_async(int n, const char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);

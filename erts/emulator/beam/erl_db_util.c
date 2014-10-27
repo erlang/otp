@@ -850,8 +850,8 @@ static DMCGuardBif *dmc_lookup_bif(Eterm t, int arity);
 #ifdef DMC_DEBUG
 static Eterm dmc_lookup_bif_reversed(void *f);
 #endif
-static int cmp_uint(void *a, void *b);
-static int cmp_guard_bif(void *a, void *b);
+static int cmp_uint(const void *a, const void *b);
+static int cmp_guard_bif(const void *a, const void *b);
 static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info);
 static Uint my_size_object(Eterm t);
 static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap);
@@ -1604,8 +1604,8 @@ void erts_db_match_prog_destructor(Binary *bprog)
 
 void
 erts_match_prog_foreach_offheap(Binary *bprog,
-				void (*func)(ErlOffHeap *, void *),
-				void *arg)
+                                void (*func)(ErlOffHeap *, const void *),
+                                const void *arg)
 {
     MatchProg *prog;
     ErlHeapFragment *tmp;
@@ -4699,7 +4699,7 @@ static DMCGuardBif *dmc_lookup_bif(Eterm t, int arity)
 }
 
 #ifdef DMC_DEBUG
-static Eterm dmc_lookup_bif_reversed(void *f)
+static Eterm dmc_lookup_bif_reversed(const void *f)
 {
     int i;
     for (i = 0; i < (sizeof(guard_tab) / sizeof(DMCGuardBif)); ++i)
@@ -4710,7 +4710,7 @@ static Eterm dmc_lookup_bif_reversed(void *f)
 #endif
 
 /* For sorting. */
-static int cmp_uint(void *a, void *b) 
+static int cmp_uint(const void *a, const void *b)
 {
     if (*((unsigned *)a) <  *((unsigned *)b))
 	return -1;
@@ -4718,7 +4718,7 @@ static int cmp_uint(void *a, void *b)
 	return (*((unsigned *)a) >  *((unsigned *)b));
 }
 
-static int cmp_guard_bif(void *a, void *b)
+static int cmp_guard_bif(const void *a, const void *b)
 {
     int ret;
     if (( ret = ((int) atom_val(((DMCGuardBif *) a)->name)) -

@@ -79,7 +79,7 @@ int erts_port_schedule_all_ops = 0;
 int erts_port_parallelism = 0;
 
 static void deliver_result(Eterm sender, Eterm pid, Eterm res);
-static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *);
+static int init_driver(erts_driver_t *, const ErlDrvEntry *, DE_Handle *);
 static void terminate_port(Port *p);
 static void pdl_init(void);
 #ifdef ERTS_SMP
@@ -149,7 +149,7 @@ erts_port_ioq_size(Port *pp)
  */
 typedef struct line_buf_context {
     LineBuf **b;
-    char *buf;
+    const char *buf;
     ErlDrvSizeT left;
     ErlDrvSizeT retlen;
 } LineBufContext;
@@ -290,7 +290,7 @@ static void insert_port_struct(void *vprt, Eterm data)
 
 #define ERTS_CREATE_PORT_FLAG_PARALLELISM		(1 << 0)
 
-static Port *create_port(char *name,
+static Port *create_port(const char *name,
 			 erts_driver_t *driver,
 			 erts_mtx_t *driver_lock,
 			 int create_flags,
@@ -566,7 +566,7 @@ erts_save_suspend_process_on_port(Port *prt, Process *process)
 Port *
 erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 		 Eterm pid,		/* Current process. */
-		 char* name,		/* Driver name. */
+                 char* name,		/* Driver name. */
 		 SysDriverOpts* opts,	/* Options. */
 		 int *error_type_ptr,	/* error type */
 		 int *error_number_ptr)	/* errno in case of error type -2 */
@@ -604,7 +604,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	}
     }
     if (driver == &spawn_driver) {
-	char *p;
+        char *p;
 	erts_driver_t *d;
 
 	/*
@@ -702,7 +702,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
         }
 #endif
 	fpe_was_unmasked = erts_block_fpe();
-	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
+        drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
 	if (((SWord) drv_data) == -1)
 	    error_type = -1;
 	else if (((SWord) drv_data) == -2) {
@@ -780,7 +780,7 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(xports_list, ErtsXPortsList, 50, ERTS_ALC_T_XPO
 ErlDrvPort
 driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
 		   ErlDrvTermData pid,    /* Owner/Caller */
-		   char* name,            /* Driver name */
+                   const char* name,      /* Driver name */
 		   ErlDrvData drv_data)   /* Driver data */
 {
     int cprt_flgs = 0;
@@ -2930,7 +2930,7 @@ int bufsiz;
  * len - The number of bytes in buf.
  */
 static int init_linebuf_context(LineBufContext *lc, LineBuf **lb,
-				char *buf, ErlDrvSizeT len)
+                                const char *buf, ErlDrvSizeT len)
 {
     if(lc == NULL || lb == NULL)
 	return -1;
@@ -3109,8 +3109,8 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
  */
 
 static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
-				 char *hbuf, ErlDrvSizeT hlen,
-				 char *buf, ErlDrvSizeT len, int eol)
+                                 const char *hbuf, ErlDrvSizeT hlen,
+                                 const char *buf, ErlDrvSizeT len, int eol)
 {
     ErlDrvSizeT need;
     Eterm listp;
@@ -3204,8 +3204,8 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
  */
 static void deliver_linebuf_message(Port* prt, erts_aint_t state,
 				    Eterm to, 
-				    char* hbuf, ErlDrvSizeT hlen,
-				    char *buf, ErlDrvSizeT len)
+                                    const char* hbuf, ErlDrvSizeT hlen,
+                                    const char *buf, ErlDrvSizeT len)
 {
     LineBufContext lc;
     int ret;
@@ -3252,7 +3252,7 @@ static void flush_linebuf_messages(Port *prt, erts_aint32_t state)
 static void
 deliver_vec_message(Port* prt,			/* Port */
 		    Eterm to,			/* Receiving pid */
-		    char* hbuf,			/* "Header" buffer... */
+                    const char* hbuf,		/* "Header" buffer... */
 		    ErlDrvSizeT hlen,		/* ... and its length */
 		    ErlDrvBinary** binv,	/* Vector of binaries */
 		    SysIOVec* iov,		/* I/O vector */
@@ -3371,7 +3371,7 @@ deliver_vec_message(Port* prt,			/* Port */
 
 static void deliver_bin_message(Port*  prt,         /* port */
 				Eterm to,           /* receiving pid */
-				char* hbuf,         /* "header" buffer */
+                                const char* hbuf,   /* "header" buffer */
 				ErlDrvSizeT hlen,   /* and it's length */
 				ErlDrvBinary* bin,  /* binary data */
 				ErlDrvSizeT offs,   /* offset into binary */
@@ -4618,7 +4618,7 @@ erts_port_info(Process* c_p,
 
 typedef struct {
     int to;
-    void *arg;
+    const void *arg;
 } prt_one_lnk_data;
 
 static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
@@ -4634,7 +4634,7 @@ static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
 }
 
 void
-print_port_info(Port *p, int to, void *arg)
+print_port_info(Port *p, int to, const void *arg)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&p->state);
 
@@ -4817,7 +4817,7 @@ int get_port_flags(ErlDrvPort ix)
     return flags;
 }
 
-void erts_raw_port_command(Port* p, byte* buf, Uint len)
+void erts_raw_port_command(Port* p, const byte* buf, Uint len)
 {
     int fpe_was_unmasked;
 
@@ -4870,7 +4870,7 @@ int async_ready(Port *p, void* data)
 }
 
 static void
-report_missing_drv_callback(Port *p, char *drv_type, char *callback)
+report_missing_drv_callback(Port *p, const char *drv_type, const char *callback)
 {
     ErtsPortNames *pnp = erts_get_port_names(p->common.id,
 					     ERTS_Port2ErlDrvPort(p));
@@ -5794,7 +5794,7 @@ driver_send_term(ErlDrvPort drvport,
  * and data is len length of bin starting from offset offs.
  */
 
-int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+int driver_output_binary(ErlDrvPort ix, const char* hbuf, ErlDrvSizeT hlen,
 			 ErlDrvBinary* bin, ErlDrvSizeT offs, ErlDrvSizeT len)
 {
     erts_aint32_t state;
@@ -5829,8 +5829,8 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 ** Example: if hlen = 3 then the port owner will receive the data
 ** [H1,H2,H3 | T]
 */
-int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
-		   char* buf, ErlDrvSizeT len)
+int driver_output2(ErlDrvPort ix, const char* hbuf, ErlDrvSizeT hlen,
+                   const char* buf, ErlDrvSizeT len)
 {
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
@@ -5869,13 +5869,13 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 
 /* Interface functions available to driver writers */
 
-int driver_output(ErlDrvPort ix, char* buf, ErlDrvSizeT len)
+int driver_output(ErlDrvPort ix, const char* buf, ErlDrvSizeT len)
 {
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return driver_output2(ix, NULL, 0, buf, len);
 }
 
-int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+int driver_outputv(ErlDrvPort ix, const char* hbuf, ErlDrvSizeT hlen,
 		   ErlIOVec* vec, ErlDrvSizeT skip)
 {
     int n;
@@ -5933,7 +5933,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 ** input is a vector a buffer and a max length
 ** return bytes copied
 */
-ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf, ErlDrvSizeT len)
+ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf /*out*/, ErlDrvSizeT len)
 {
     SysIOVec* iov = vec->iov;
     int n = vec->vsize;
@@ -5966,7 +5966,7 @@ ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf, ErlDrvSizeT len)
  */
 
 ErlDrvSInt
-driver_binary_get_refc(ErlDrvBinary *dbp)
+driver_binary_get_refc(const ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
     return (ErlDrvSInt) erts_refc_read(&bp->refc, 1);
@@ -6564,7 +6564,7 @@ int driver_enq_bin(ErlDrvPort ix, ErlDrvBinary* bin,
     return driver_enqv(ix, &ev, 0);
 }
 
-int driver_enq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
+int driver_enq(ErlDrvPort ix, const char* buffer, ErlDrvSizeT len)
 {
     int code;
     ErlDrvBinary* bin;
@@ -6598,7 +6598,7 @@ int driver_pushq_bin(ErlDrvPort ix, ErlDrvBinary* bin,
     return driver_pushqv(ix, &ev, 0);
 }
 
-int driver_pushq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
+int driver_pushq(ErlDrvPort ix, const char* buffer, ErlDrvSizeT len)
 {
     int code;
     ErlDrvBinary* bin;
@@ -7022,7 +7022,7 @@ int driver_exit(ErlDrvPort ix, int err)
     if (err == 0)
         return driver_failure_term(ix, am_normal, 0);
     else {
-        char* err_str = erl_errno_id(err);
+        const char* err_str = erl_errno_id(err);
         Eterm am_err = erts_atom_put((byte *) err_str, sys_strlen(err_str),
 				     ERTS_ATOM_ENC_LATIN1, 1);
         return driver_failure_term(ix, am_err, 0);
@@ -7035,10 +7035,10 @@ int driver_failure(ErlDrvPort ix, int code)
     return driver_failure_term(ix, make_small(code), code == 0);
 }
 
-int driver_failure_atom(ErlDrvPort ix, char* string)
+int driver_failure_atom(ErlDrvPort ix, const char* string)
 {
     return driver_failure_term(ix,
-			       erts_atom_put((byte *) string,
+                               erts_atom_put((const byte *) string,
 					     strlen(string),
 					     ERTS_ATOM_ENC_LATIN1,
 					     1),
@@ -7057,9 +7057,9 @@ int driver_failure_eof(ErlDrvPort ix)
 
 
 
-ErlDrvTermData driver_mk_atom(char* string)
+ErlDrvTermData driver_mk_atom(const char* string)
 {
-    Eterm am = erts_atom_put((byte *) string,
+    Eterm am = erts_atom_put((const byte *) string,
 			     sys_strlen(string),
 			     ERTS_ATOM_ENC_LATIN1,
 			     1);
@@ -7151,7 +7151,7 @@ static void maybe_unlock_driver_list(int doit)
    Writing code using these interfaces spanning several driver callbacks between loading/lookup 
    and error handling may give undesired results...
 */
-void *driver_dl_open(char * path)
+void *driver_dl_open(const char * path)
 {
     void *ptr;
     int res;
@@ -7171,7 +7171,7 @@ void *driver_dl_open(char * path)
     }
 }
 
-void *driver_dl_sym(void * handle, char *func_name)
+void *driver_dl_sym(void * handle, const char *func_name)
 {
     void *ptr;
     int res;
@@ -7351,7 +7351,7 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
 
 
 static int
-init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
+init_driver(erts_driver_t *drv, const ErlDrvEntry *de, DE_Handle *handle)
 {
     drv->name = de->driver_name;
     ASSERT(de->extended_marker == ERL_DRV_EXTENDED_MARKER);
@@ -7482,7 +7482,7 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
 }
 
 /* Not allowed for dynamic drivers */
-int remove_driver_entry(ErlDrvEntry *drv)
+int remove_driver_entry(const ErlDrvEntry *drv)
 {
     erts_driver_t *dp;
     void *rec_lock;
@@ -7530,13 +7530,13 @@ int null_func(void)
 }
 
 int
-erl_drv_putenv(char *key, char *value)
+erl_drv_putenv(const char *key, const char *value)
 {
     return erts_sys_putenv_raw(key, value);
 }
 
 int
-erl_drv_getenv(char *key, char *value, size_t *value_size)
+erl_drv_getenv(const char *key, char *value /*out*/, size_t *value_size)
 {
     return erts_sys_getenv_raw(key, value, value_size);
 }

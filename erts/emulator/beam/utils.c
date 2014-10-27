@@ -187,7 +187,7 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
+erl_grow_estack(ErtsEStack* s, const Eterm* default_estack)
 {
     Uint old_size = (s->end - s->start);
     Uint new_size = old_size * 2;
@@ -207,7 +207,7 @@ erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
  * Helper function for the WSTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
+erl_grow_wstack(ErtsWStack* s, const UWord* default_wstack)
 {
     Uint old_size = (s->wend - s->wstart);
     Uint new_size = old_size * 2;
@@ -312,7 +312,7 @@ int erts_fit_in_bits_int32(Sint32 value)
 }
 
 int
-erts_print(int to, void *arg, char *format, ...)
+erts_print(int to, const void *arg, const char *format, ...)
 {
     int res;
     va_list arg_list;
@@ -357,7 +357,7 @@ erts_print(int to, void *arg, char *format, ...)
 }
 
 int
-erts_putc(int to, void *arg, char c)
+erts_putc(int to, const void *arg, char c)
 {
     return erts_print(to, arg, "%c", c);
 }
@@ -372,16 +372,18 @@ erts_putc(int to, void *arg, char c)
 \*                                                                           */
 
 Eterm
-erts_bld_atom(Uint **hpp, Uint *szp, char *str)
+erts_bld_atom(Uint **hpp, Uint *szp, const char *str)
 {
     if (hpp)
-	return erts_atom_put((byte *) str, sys_strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
+        return erts_atom_put((const byte *) str,
+                             sys_strlen(str),
+                             ERTS_ATOM_ENC_LATIN1, 1);
     else
 	return THE_NON_VALUE;
 }
 
 Eterm
-erts_bld_uint(Uint **hpp, Uint *szp, Uint ui)
+erts_bld_uint(Uint **hpp /*out*/, Uint *szp /*out*/, Uint ui)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_USMALL(0, ui)) {
@@ -405,7 +407,7 @@ erts_bld_uint(Uint **hpp, Uint *szp, Uint ui)
  */
 
 Eterm
-erts_bld_uword(Uint **hpp, Uint *szp, UWord uw)
+erts_bld_uword(Uint **hpp /*out*/, Uint *szp /*out*/, UWord uw)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_USMALL(0, uw)) {
@@ -425,7 +427,7 @@ erts_bld_uword(Uint **hpp, Uint *szp, UWord uw)
 
 
 Eterm
-erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64)
+erts_bld_uint64(Uint **hpp /*out*/, Uint *szp /*out*/, Uint64 ui64)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_USMALL(0, ui64)) {
@@ -442,7 +444,7 @@ erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64)
 }
 
 Eterm
-erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64)
+erts_bld_sint64(Uint **hpp /*out*/, Uint *szp /*out*/, Sint64 si64)
 {
     Eterm res = THE_NON_VALUE;
     if (IS_SSMALL(si64)) {
@@ -460,7 +462,7 @@ erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64)
 
 
 Eterm
-erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr)
+erts_bld_cons(Uint **hpp /*out*/, Uint *szp /*out*/, Eterm car, Eterm cdr)
 {
     Eterm res = THE_NON_VALUE;
     if (szp)
@@ -473,7 +475,7 @@ erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr)
 }
 
 Eterm
-erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...)
+erts_bld_tuple(Uint **hpp /*out*/, Uint *szp /*out*/, Uint arity, ...)
 {
     Eterm res = THE_NON_VALUE;
 
@@ -500,7 +502,7 @@ erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...)
 }
 
 
-Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[])
+Eterm erts_bld_tuplev(Uint **hpp /*out*/, Uint *szp /*out*/, Uint arity, Eterm terms[])
 {
     Eterm res = THE_NON_VALUE;
     /*
@@ -526,7 +528,7 @@ Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[])
 }
 
 Eterm
-erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len)
+erts_bld_string_n(Uint **hpp /*out*/, Uint *szp /*out*/, const char *str, Sint len)
 {
     Eterm res = THE_NON_VALUE;
     Sint i = len;
@@ -543,7 +545,7 @@ erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len)
 }
 
 Eterm
-erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[])
+erts_bld_list(Uint **hpp /*out*/, Uint *szp /*out*/, Sint length, Eterm terms[])
 {
     Eterm list = THE_NON_VALUE;
     if (szp)
@@ -561,7 +563,7 @@ erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[])
 }
 
 Eterm
-erts_bld_2tup_list(Uint **hpp, Uint *szp,
+erts_bld_2tup_list(Uint **hpp /*out*/, Uint *szp /*out*/,
 		   Sint length, Eterm terms1[], Uint terms2[])
 {
     Eterm res = THE_NON_VALUE;
@@ -580,7 +582,7 @@ erts_bld_2tup_list(Uint **hpp, Uint *szp,
 }
 
 Eterm
-erts_bld_atom_uword_2tup_list(Uint **hpp, Uint *szp,
+erts_bld_atom_uword_2tup_list(Uint **hpp /*out*/, Uint *szp /*out*/,
                               Sint length, Eterm atoms[], UWord uints[])
 {
     Sint i;
@@ -615,7 +617,7 @@ erts_bld_atom_uword_2tup_list(Uint **hpp, Uint *szp,
 }
 
 Eterm
-erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
+erts_bld_atom_2uint_3tup_list(Uint **hpp /*out*/, Uint *szp /*out*/, Sint length,
 			      Eterm atoms[], Uint uints1[], Uint uints2[])
 {
     Sint i;
@@ -1048,7 +1050,7 @@ do {                               \
 #define HCONST 0x9e3779b9UL /* the golden ratio; an arbitrary value */
 
 Uint32
-block_hash(byte *k, unsigned length, Uint32 initval)
+block_hash(const byte *k, unsigned length, Uint32 initval)
 {
    Uint32 a,b,c;
    unsigned len;
@@ -1758,7 +1760,7 @@ tail_recur:
 #undef MAKE_HASH_CDR_POST_OP
 }
 
-static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
+static int do_send_to_logger(Eterm tag, Eterm gleader, const char *buf, int len)
 {
     /* error_logger ! 
        {notify,{info_msg,gleader,{emulator,"~s~n",[<message as list>]}}} |
@@ -1857,13 +1859,13 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 }
 
 static ERTS_INLINE int
-send_info_to_logger(Eterm gleader, char *buf, int len) 
+send_info_to_logger(Eterm gleader, const char *buf, int len)
 {
     return do_send_to_logger(am_info_msg, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_warning_to_logger(Eterm gleader, char *buf, int len) 
+send_warning_to_logger(Eterm gleader, const char *buf, int len)
 {
     Eterm tag;
     switch (erts_error_logger_warnings) {
@@ -1875,7 +1877,7 @@ send_warning_to_logger(Eterm gleader, char *buf, int len)
 }
 
 static ERTS_INLINE int
-send_error_to_logger(Eterm gleader, char *buf, int len) 
+send_error_to_logger(Eterm gleader, const char *buf, int len)
 {
     return do_send_to_logger(am_error, gleader, buf, len);
 }
@@ -1955,19 +1957,19 @@ erts_send_error_to_logger(Eterm gleader, erts_dsprintf_buf_t *dsbufp)
 }
 
 int
-erts_send_info_to_logger_str(Eterm gleader, char *str)
+erts_send_info_to_logger_str(Eterm gleader, const char *str)
 {
     return send_info_to_logger(gleader, str, sys_strlen(str));
 }
 
 int
-erts_send_warning_to_logger_str(Eterm gleader, char *str)
+erts_send_warning_to_logger_str(Eterm gleader, const char *str)
 {
     return send_warning_to_logger(gleader, str, sys_strlen(str));
 }
 
 int
-erts_send_error_to_logger_str(Eterm gleader, char *str)
+erts_send_error_to_logger_str(Eterm gleader, const char *str)
 {
     return send_error_to_logger(gleader, str, sys_strlen(str));
 }
@@ -1991,19 +1993,19 @@ erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *dsbuf)
 }
 
 int
-erts_send_info_to_logger_str_nogl(char *str)
+erts_send_info_to_logger_str_nogl(const char *str)
 {
     return erts_send_info_to_logger_str(NIL, str);
 }
 
 int
-erts_send_warning_to_logger_str_nogl(char *str)
+erts_send_warning_to_logger_str_nogl(const char *str)
 {
     return erts_send_warning_to_logger_str(NIL, str);
 }
 
 int
-erts_send_error_to_logger_str_nogl(char *str)
+erts_send_error_to_logger_str_nogl(const char *str)
 {
     return erts_send_error_to_logger_str(NIL, str);
 }
@@ -2389,7 +2391,7 @@ not_equal:
  *	s1 = s2	return  0
  *	s1 > s2 return +1
  */
-static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
+static int cmpbytes(const byte *s1, int l1, const byte *s2, int l2)
 {
     int i;
     i = 0;
@@ -3021,7 +3023,7 @@ not_equal:
 
 
 Eterm
-store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
+store_external_or_ref_(Uint **hpp /*out*/, ErlOffHeap* oh, Eterm ns)
 {
     Uint i;
     Uint size;
@@ -3073,7 +3075,7 @@ store_external_or_ref_in_proc_(Process *proc, Eterm ns)
     return store_external_or_ref_(&hp, &MSO(proc), ns);
 }
 
-void bin_write(int to, void *to_arg, byte* buf, size_t sz)
+void bin_write(int to, const void *to_arg, const byte* buf, size_t sz)
 {
     size_t i;
 
@@ -3093,7 +3095,7 @@ void bin_write(int to, void *to_arg, byte* buf, size_t sz)
    return number of chars in list or -1 for error */
 
 int
-intlist_to_buf(Eterm list, char *buf, int len)
+intlist_to_buf(Eterm list, char *buf /*out*/, int len)
 {
     Eterm* listptr;
     int sz = 0;
@@ -3150,7 +3152,7 @@ char* Sint_to_buf(Sint n, struct Sint_buf *buf)
 */
 
 Eterm
-buf_to_intlist(Eterm** hpp, const char *buf, size_t len, Eterm tail)
+buf_to_intlist(Eterm** hpp /*out*/, const char *buf, size_t len, Eterm tail)
 {
     Eterm* hp = *hpp;
     size_t i = len;
@@ -3492,7 +3494,7 @@ ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *state)
     return iolist_to_buf(1, state, state->iolist.obj, state->buf, state->len);
 }
 
-ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
+ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf /*out*/, ErlDrvSizeT alloced_len)
 {
     return iolist_to_buf(0, NULL, obj, buf, alloced_len);
 }
@@ -3507,7 +3509,8 @@ ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
  */
 
 static ERTS_INLINE int
-iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSizeT* sizep)
+iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj,
+            ErlDrvSizeT* sizep /*out*/)
 {
     int res, init_yield_count, yield_count;
     Eterm* objp;
@@ -3889,7 +3892,7 @@ sys_alloc_stat(SysAllocStat *sasp)
 }
 
 char *
-erts_read_env(char *key)
+erts_read_env(const char *key)
 {
     size_t value_len = 256;
     char *value = erts_alloc(ERTS_ALC_T_TMP, value_len);
@@ -3929,7 +3932,7 @@ typedef struct {
 ErtsEmuArgs saved_emu_args = {0};
 
 void
-erts_save_emu_args(int argc, char **argv)
+erts_save_emu_args(int argc, const char **argv)
 {
 #ifdef DEBUG
     char *end_ptr;
@@ -4480,7 +4483,7 @@ Uint64 erts_timestamp_millis(void)
  * Handy functions when using a debugger - don't use in the code!
  */
 
-void upp(byte *buf, size_t sz)
+void upp(const byte *buf, size_t sz)
 {
     bin_write(ERTS_PRINT_STDERR, NULL, buf, sz);
 }
@@ -4498,8 +4501,7 @@ void pinfo()
 }
 
 
-void pp(p)
-Process *p;
+void pp(const Process *p)
 {
     if(p)
 	print_process_info(ERTS_PRINT_STDERR, NULL, p);
@@ -4516,7 +4518,7 @@ void td(Eterm x)
 }
 
 void
-ps(Process* p, Eterm* stop)
+ps(const Process* p, const Eterm* stop)
 {
     Eterm* sp = STACK_START(p) - 1;
 

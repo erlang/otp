@@ -35,9 +35,9 @@ typedef struct {
     by setting end=start in active code_ix */
 #define RANGE_END(R) ((BeamInstr*)erts_smp_atomic_read_nob(&(R)->end))
 
-static Range* find_range(BeamInstr* pc);
-static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
-		       BeamInstr* modp, int idx);
+static Range* find_range(const BeamInstr* pc);
+static void lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
+                       const BeamInstr* modp, int idx);
 
 /*
  * The following variables keep a sorted list of address ranges for
@@ -234,7 +234,7 @@ erts_ranges_sz(void)
  */
 
 void
-erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
+erts_lookup_function_info(FunctionInfo* fi, const BeamInstr* pc, int full_info)
 {
     BeamInstr** low;
     BeamInstr** high;
@@ -271,7 +271,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 }
 
 static Range*
-find_range(BeamInstr* pc)
+find_range(const BeamInstr* pc)
 {
     ErtsCodeIndex active = erts_active_code_ix();
     Range* low = r[active].modules;
@@ -294,7 +294,8 @@ find_range(BeamInstr* pc)
 }
 
 static void
-lookup_loc(FunctionInfo* fi, BeamInstr* orig_pc, BeamInstr* modp, int idx)
+lookup_loc(FunctionInfo* fi, const BeamInstr* orig_pc, const BeamInstr* modp,
+           int idx)
 {
     Eterm* line = (Eterm *) modp[MI_LINE_TABLE];
     Eterm* low;

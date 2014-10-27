@@ -94,15 +94,17 @@ typedef struct {
 
 static Uint setup_rootset(Process*, Eterm*, int, Rootset*);
 static void cleanup_rootset(Rootset *rootset);
-static Uint combined_message_size(Process* p);
+static Uint combined_message_size(const Process* p);
 static void remove_message_buffers(Process* p);
 static int major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
 static int minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
 static void do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj);
-static Eterm* sweep_rootset(Rootset *rootset, Eterm* htop, char* src, Uint src_size);
-static Eterm* sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size);
+static Eterm* sweep_rootset(Rootset *rootset, Eterm* htop,
+                            const char* src, Uint src_size);
+static Eterm* sweep_one_area(Eterm* n_hp, Eterm* n_htop,
+                             const char* src, Uint src_size);
 static Eterm* sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
-			     char* src, Uint src_size);
+                             const char* src, Uint src_size);
 static Eterm* collect_heap_frags(Process* p, Eterm* heap,
 				 Eterm* htop, Eterm* objv, int nobj);
 static Uint adjust_after_fullsweep(Process *p, Uint size_before,
@@ -110,12 +112,17 @@ static Uint adjust_after_fullsweep(Process *p, Uint size_before,
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static void sweep_off_heap(Process *p, int fullsweep);
-static void offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
-static void offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
-static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
-			   Eterm* objv, int nobj);
-static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_size);
-static void offset_mqueue(Process *p, Sint offs, char* area, Uint area_size);
+static void offset_heap(Eterm* hp, Uint sz, Sint offs,
+                        const char* area, Uint area_size);
+static void offset_heap_ptr(Eterm* hp, Uint sz, Sint offs,
+                            const char* area, Uint area_size);
+static void offset_rootset(Process *p, Sint offs,
+                           const char* area, Uint area_size,
+                           Eterm* objv, int nobj);
+static void offset_off_heap(Process* p, Sint offs,
+                            const char* area, Uint area_size);
+static void offset_mqueue(Process *p, Sint offs,
+                          const char* area, Uint area_size);
 
 static void init_gc_info(ErtsGCInfo *gcip);
 
@@ -974,7 +981,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
  * nstack, such as floats, then this will have to be changed.
  */
 static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
-				      char* area, Uint area_size)
+                                      const char* area, Uint area_size)
 {
     if (p->hipe.nstack) {
 	ASSERT(p->hipe.nsp && p->hipe.nstend);
@@ -1499,7 +1506,7 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
  * mbuf list.
  */
 static Uint
-combined_message_size(Process* p)
+combined_message_size(const Process* p)
 {
     Uint sz = 0;
     ErlMessage *msgp;
@@ -1711,7 +1718,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 #endif
 
 static Eterm*
-sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
+sweep_rootset(Rootset* rootset, Eterm* htop, const char* src, Uint src_size)
 {
     Roots* roots = rootset->roots;
     Uint n = rootset->num_roots;
@@ -1765,7 +1772,7 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 
 
 static Eterm*
-sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
+sweep_one_area(Eterm* n_hp, Eterm* n_htop, const char* src, Uint src_size)
 {
     Eterm* ptr;
     Eterm val;
@@ -1832,7 +1839,8 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 }
 
 static Eterm*
-sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint src_size)
+sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
+               const char* src, Uint src_size)
 {
     while (heap_ptr < heap_end) {
 	Eterm* ptr;
@@ -1885,7 +1893,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
  * Move an area (heap fragment) by sweeping over it and set move markers.
  */
 static Eterm*
-move_one_area(Eterm* n_htop, char* src, Uint src_size)
+move_one_area(Eterm* n_htop, const char* src, Uint src_size)
 {
     Eterm* ptr = (Eterm*) src;
     Eterm* end = ptr + src_size/sizeof(Eterm);
@@ -2210,7 +2218,7 @@ do_next_vheap_size(Uint64 vheap, Uint64 vheap_sz) {
 }
 
 static Uint64
-next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz) {
+next_vheap_size(const Process* p, Uint64 vheap, Uint64 vheap_sz) {
     Uint64 new_vheap_sz = do_next_vheap_size(vheap, vheap_sz);
     return new_vheap_sz < p->min_vheap_size ? p->min_vheap_size : new_vheap_sz;
 }
@@ -2432,7 +2440,7 @@ sweep_off_heap(Process *p, int fullsweep)
  */
 
 static void 
-offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
+offset_heap(Eterm* hp, Uint sz, Sint offs, const char* area, Uint area_size)
 {
     while (sz--) {
 	Eterm val = *hp;
@@ -2494,7 +2502,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
  */
 
 static void 
-offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
+offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, const char* area, Uint area_size)
 {
     while (sz--) {
 	Eterm val = *hp;
@@ -2514,7 +2522,7 @@ offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 }
 
 static void
-offset_off_heap(Process* p, Sint offs, char* area, Uint area_size)
+offset_off_heap(Process* p, Sint offs, const char* area, Uint area_size)
 {
     if (MSO(p).first && in_area((Eterm *)MSO(p).first, area, area_size)) {
         Eterm** uptr = (Eterm**) (void *) &MSO(p).first;
@@ -2526,7 +2534,7 @@ offset_off_heap(Process* p, Sint offs, char* area, Uint area_size)
  * Offset pointers in message queue.
  */
 static void
-offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
+offset_mqueue(Process *p, Sint offs, const char* area, Uint area_size)
 {
     ErlMessage* mp = p->msg.first;
 
@@ -2561,7 +2569,7 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
 }
 
 static void ERTS_INLINE
-offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
+offset_one_rootset(Process *p, Sint offs, const char* area, Uint area_size,
 	       Eterm* objv, int nobj)
 {
     if (p->dictionary)  {
@@ -2587,7 +2595,7 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 }
 
 static void
-offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
+offset_rootset(Process *p, Sint offs, const char* area, Uint area_size,
 	       Eterm* objv, int nobj)
 {
     offset_one_rootset(p, offs, area, area_size, objv, nobj);
@@ -2661,7 +2669,7 @@ reply_gc_info(void *vgcirp)
     erts_smp_proc_dec_refc(rp);
 
     if (erts_smp_atomic32_dec_read_nob(&gcirp->refc) == 0)
-	gcireq_free(vgcirp);
+        gcireq_free(vgcirp);
 }
 
 Eterm
@@ -2700,7 +2708,7 @@ erts_gc_info_request(Process *c_p)
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 
 static int
-within2(Eterm *ptr, Process *p, Eterm *real_htop)
+within2(const Eterm *ptr, const Process *p, const Eterm *real_htop)
 {
     ErlHeapFragment* bp = MBUF(p);
     ErlMessage* mp = p->msg.first;
@@ -2736,7 +2744,7 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
 }
 
 int
-within(Eterm *ptr, Process *p)
+within(const Eterm *ptr, const Process *p)
 {
     return within2(ptr, p, NULL);
 }
@@ -2759,7 +2767,7 @@ do {							\
 
 
 void
-erts_check_off_heap2(Process *p, Eterm *htop)
+erts_check_off_heap2(const Process *p, const Eterm *htop)
 {
     Eterm *oheap = (Eterm *) OLD_HEAP(p);
     Eterm *ohtop = (Eterm *) OLD_HTOP(p);
@@ -2806,7 +2814,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 }
 
 void
-erts_check_off_heap(Process *p)
+erts_check_off_heap(const Process *p)
 {
     erts_check_off_heap2(p, NULL);
 }

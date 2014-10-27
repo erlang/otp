@@ -165,17 +165,17 @@ static char heX[] = "0123456789ABCDEF";
 #define SIGN(X) ((X) > 0 ? 1 : ((X) < 0 ? -1 : 0)) 
 #define USIGN(X) ((X) == 0 ? 0 : 1)
 
-int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long, ErlPfEterm*) = NULL;
+int (*erts_printf_eterm_func)(fmtfn_t, const void*, ErlPfEterm, long, ErlPfEterm*) = NULL;
 
 static int
-noop_fn(void *vfp, char* buf, size_t len)
+noop_fn(const void *vfp, const char* buf, size_t len)
 {
     return 0;
 }
 
-static int fmt_fld(fmtfn_t fn,void* arg,
-		   char* wbuf, int w, int sign,
-		   int width,int precision,int fmt,int* count)
+static int fmt_fld(fmtfn_t fn, const void* arg,
+                   const char* wbuf, int w, int sign,
+                   int width, int precision, int fmt, int* count)
 {
     char prefix[8];
     char* pp = prefix;
@@ -234,8 +234,8 @@ static int fmt_fld(fmtfn_t fn,void* arg,
     return 0;
 }
 
-static int fmt_uword(fmtfn_t fn,void* arg,int sign,ErlPfUWord uval,
-		    int width,int precision,int fmt,int* count)
+static int fmt_uword(fmtfn_t fn, const void* arg, int sign, ErlPfUWord uval,
+                    int width, int precision, int fmt, int* count)
 {
     char buf[32];
     int base = 10;
@@ -285,9 +285,9 @@ do_div(unsigned_long_long *n, unsigned_long_long base)
     return mod;
 }
 
-static int fmt_long_long(fmtfn_t fn,void* arg,int sign,
+static int fmt_long_long(fmtfn_t fn, const void* arg, int sign,
 			 unsigned_long_long uval,
-			 int width,int precision,int fmt,int* count)
+                         int width, int precision, int fmt, int* count)
 {
     char buf[32];
     int base = 10;
@@ -328,8 +328,8 @@ static int fmt_long_long(fmtfn_t fn,void* arg,int sign,
 
 #endif /* #if SIZEOF_LONG_LONG */
 
-static int fmt_double(fmtfn_t fn,void*arg,double val,
-		      int width, int precision, int fmt,int* count)
+static int fmt_double(fmtfn_t fn, const void*arg, double val,
+                      int width, int precision, int fmt, int* count)
 {
     int res;
     int fi = 0;
@@ -466,10 +466,10 @@ static size_t my_strnlen(const char *s, size_t maxlen)
     return i;
 }
 
-int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
+int erts_printf_format(fmtfn_t fn, const void* arg, const char* fmt, va_list ap)
 {
-    char* ptr0 = fmt;
-    char* ptr = ptr0;
+    const char* ptr0 = fmt;
+    const char* ptr = ptr0;
     int count = 0;
     int n;
     int res = 0;
@@ -868,26 +868,26 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 
 
 int
-erts_printf_char(fmtfn_t fn, void *arg, char c)
+erts_printf_char(fmtfn_t fn, const void *arg, char c)
 {
     return (*fn)(arg, &c, 1);
 }
 
 int
-erts_printf_string(fmtfn_t fn, void *arg, char *str)
+erts_printf_string(fmtfn_t fn, const void *arg, const char *str)
 {
     size_t sz = strlen(str);
     return (*fn)(arg, str, sz);
 }
 
 int
-erts_printf_buf(fmtfn_t fn, void *arg, char *buf, size_t sz)
+erts_printf_buf(fmtfn_t fn, const void *arg, const char *buf, size_t sz)
 {
     return (*fn)(arg, buf, sz);
 }
 
 int
-erts_printf_pointer(fmtfn_t fn, void *arg, void *ptr)
+erts_printf_pointer(fmtfn_t fn, const void *arg, const void *ptr)
 {
     int count = 0;
     int res = fmt_uword(fn, arg, USIGN((ErlPfUWord) ptr),
@@ -899,7 +899,7 @@ erts_printf_pointer(fmtfn_t fn, void *arg, void *ptr)
 }
 
 int
-erts_printf_uword(fmtfn_t fn, void *arg, char conv, int pad, int width,
+erts_printf_uword(fmtfn_t fn, const void *arg, char conv, int pad, int width,
 		  ErlPfUWord val)
 {
     int count = 0;
@@ -924,7 +924,7 @@ erts_printf_uword(fmtfn_t fn, void *arg, char conv, int pad, int width,
 }
 
 int
-erts_printf_sword(fmtfn_t fn, void *arg, char conv, int pad, int width,
+erts_printf_sword(fmtfn_t fn, const void *arg, char conv, int pad, int width,
 		  ErlPfSWord val)
 {
     int count = 0;
@@ -951,8 +951,8 @@ erts_printf_sword(fmtfn_t fn, void *arg, char conv, int pad, int width,
 }
 
 int
-erts_printf_double(fmtfn_t fn, void *arg, char conv, int precision, int width,
-		   double val)
+erts_printf_double(fmtfn_t fn, const void *arg, char conv, int precision,
+                   int width, double val)
 {
     int count = 0;
     int res;

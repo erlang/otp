@@ -3942,7 +3942,7 @@ static Eterm
 sz_info_fix(Allctr_t *allctr,
 	    int internal,
 	    int *print_to_p,
-	    void *print_to_arg,
+            const void *print_to_arg,
 	    Uint **hpp,
 	    Uint *szp)
 {
@@ -3963,7 +3963,7 @@ sz_info_fix(Allctr_t *allctr,
 
 		if (print_to_p) {
 		    int to = *print_to_p;
-		    void *arg = print_to_arg;
+                    const void *arg = print_to_arg;
 		    erts_print(to,
 			       arg,
 			       "fix type internal: %s %bpu %bpu\n",
@@ -3991,7 +3991,7 @@ sz_info_fix(Allctr_t *allctr,
 
 	    if (print_to_p) {
 		int to = *print_to_p;
-		void *arg = print_to_arg;
+                const void *arg = print_to_arg;
 		erts_print(to,
 			   arg,
 			   "fix type: %s %bpu %bpu\n",
@@ -4017,16 +4017,16 @@ sz_info_carriers(Allctr_t *allctr,
 		 CarriersStats_t *cs,
 		 char *prefix,
 		 int *print_to_p,
-		 void *print_to_arg,
-		 Uint **hpp,
-		 Uint *szp)
+                 const void *print_to_arg,
+                 Uint **hpp /*out*/,
+                 Uint *szp /*out*/)
 {
     Eterm res = THE_NON_VALUE;
     UWord curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
 
     if (print_to_p) {
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 	erts_print(to,
 		   arg,
 		   "%sblocks size: %bpu %bpu %bpu\n",
@@ -4067,7 +4067,7 @@ info_cpool(Allctr_t *allctr,
 	   int sz_only,
 	   char *prefix,
 	   int *print_to_p,
-	   void *print_to_arg,
+           const void *print_to_arg,
 	   Uint **hpp,
 	   Uint *szp)
 {
@@ -4084,7 +4084,7 @@ info_cpool(Allctr_t *allctr,
 
     if (print_to_p) {
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 	if (!sz_only)
 	    erts_print(to, arg, "%sblocks: %bpu\n", prefix, nob);
 	erts_print(to, arg, "%sblocks size: %bpu\n", prefix, bsz);
@@ -4121,7 +4121,7 @@ info_carriers(Allctr_t *allctr,
 	      CarriersStats_t *cs,
 	      char *prefix,
 	      int *print_to_p,
-	      void *print_to_arg,
+              const void *print_to_arg,
 	      Uint **hpp,
 	      Uint *szp)
 {
@@ -4133,7 +4133,7 @@ info_carriers(Allctr_t *allctr,
 
     if (print_to_p) {
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 	erts_print(to,
 		   arg,
 		   "%sblocks: %bpu %bpu %bpu\n",
@@ -4259,7 +4259,7 @@ make_name_atoms(Allctr_t *allctr)
 static Eterm
 info_calls(Allctr_t *allctr,
 	   int *print_to_p,
-	   void *print_to_arg,
+           const void *print_to_arg,
 	   Uint **hpp,
 	   Uint *szp)
 {
@@ -4276,7 +4276,7 @@ info_calls(Allctr_t *allctr,
 
 	char *prefix = allctr->name_prefix;
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 
 	PRINT_CC_5(to, arg, prefix, "alloc",        allctr->calls.this_alloc);
 	PRINT_CC_5(to, arg, prefix, "free",         allctr->calls.this_free);
@@ -4352,7 +4352,7 @@ info_calls(Allctr_t *allctr,
 static Eterm
 info_options(Allctr_t *allctr,
              int *print_to_p,
-	     void *print_to_arg,
+             const void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {
@@ -4512,7 +4512,7 @@ reset_max_values(CarriersStats_t *cs)
 \*                                                                         */
 
 Eterm
-erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
+erts_alcu_au_info_options(int *print_to_p, const void *print_to_arg,
 			  Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;    
@@ -4588,7 +4588,7 @@ erts_alcu_sz_info(Allctr_t *allctr,
 		  int internal,
 		  int begin_max_period,
 		  int *print_to_p,
-		  void *print_to_arg,
+                  const void *print_to_arg,
 		  Uint **hpp,
 		  Uint *szp)
 {
@@ -4674,7 +4674,7 @@ erts_alcu_info(Allctr_t *allctr,
 	       int internal,
 	       int begin_max_period,
 	       int *print_to_p,
-	       void *print_to_arg,
+               const void *print_to_arg,
 	       Uint **hpp,
 	       Uint *szp)
 {
@@ -5438,7 +5438,7 @@ erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
 /* ------------------------------------------------------------------------- */
 
 int
-erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
+erts_alcu_start(Allctr_t *allctr, const AllctrInit_t *init)
 {
     /* erts_alcu_start assumes that allctr has been zeroed */
 
@@ -5804,7 +5804,8 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
 \*                                                                           */
 
 void
-erts_alcu_assert_failed(char* expr, char* file, int line, char *func)
+erts_alcu_assert_failed(const char* expr, const char* file, int line,
+                        const char *func)
 {
     fflush(stdout);
     fprintf(stderr, "%s:%d:%s(): Assertion failed: %s\n",

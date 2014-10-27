@@ -153,15 +153,15 @@ int erts_fit_in_bits_int32(Sint32);
 int erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 make_broken_hash(Eterm);
-Uint32 block_hash(byte *, unsigned, Uint32);
+Uint32 block_hash(const byte *k, unsigned length, Uint32 init_val);
 Uint32 make_hash2(Eterm);
 Uint32 make_hash(Eterm);
 
-void erts_save_emu_args(int argc, char **argv);
+void erts_save_emu_args(int argc, const char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
 Eterm erts_get_ethread_info(struct process * c_p);
 
-Eterm erts_bld_atom(Uint **hpp, Uint *szp, char *str);
+Eterm erts_bld_atom(Uint **hpp, Uint *szp, const char *str);
 Eterm erts_bld_uint(Uint **hpp, Uint *szp, Uint ui);
 Eterm erts_bld_uword(Uint **hpp, Uint *szp, UWord uw);
 Eterm erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64);
@@ -172,17 +172,20 @@ Eterm erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...);
 #define erts_bld_tuple3(H,S,E1,E2,E3) erts_bld_tuple(H,S,3,E1,E2,E3)
 #define erts_bld_tuple4(H,S,E1,E2,E3,E4) erts_bld_tuple(H,S,4,E1,E2,E3,E4)
 #define erts_bld_tuple5(H,S,E1,E2,E3,E4,E5) erts_bld_tuple(H,S,5,E1,E2,E3,E4,E5)
-Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[]);
-Eterm erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len);
+Eterm erts_bld_tuplev(Uint **hpp /*out*/, Uint *szp /*out*/,
+                      Uint arity, Eterm terms[]);
+Eterm erts_bld_string_n(Uint **hpp /*out*/, Uint *szp /*out*/,
+                        const char *str, Sint len);
 #define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,strlen(str))
-Eterm erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[]);
-Eterm erts_bld_2tup_list(Uint **hpp, Uint *szp,
+Eterm erts_bld_list(Uint **hpp /*out*/, Uint *szp /*out*/,
+                    Sint length, Eterm terms[]);
+Eterm erts_bld_2tup_list(Uint **hpp /*out*/, Uint *szp /*out*/,
 			 Sint length, Eterm terms1[], Uint terms2[]);
 Eterm
-erts_bld_atom_uword_2tup_list(Uint **hpp, Uint *szp,
+erts_bld_atom_uword_2tup_list(Uint **hpp /*out*/, Uint *szp /*out*/,
 			     Sint length, Eterm atoms[], UWord uints[]);
 Eterm
-erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
+erts_bld_atom_2uint_3tup_list(Uint **hpp /*out*/, Uint *szp /*out*/, Sint length,
 			      Eterm atoms[], Uint uints1[], Uint uints2[]);
 
 void erts_init_utils(void);

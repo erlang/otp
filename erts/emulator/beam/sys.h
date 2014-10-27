@@ -429,7 +429,7 @@ typedef union {
 #include "erl_lock_check.h"
 
 /* needed by erl_smp.h */
-int erts_send_warning_to_logger_str_nogl(char *);
+int erts_send_warning_to_logger_str_nogl(const char *);
 
 #include "erl_smp.h"
 
@@ -554,7 +554,7 @@ static unsigned long zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-__decl_noreturn void __noreturn erl_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erl_exit(int n, const char*, ...);
 
 /* Some special erl_exit() codes: */
 #define ERTS_INTR_EXIT	INT_MIN		/* called from signal handler */
@@ -590,8 +590,9 @@ typedef struct {
     size_t size;
 } erts_print_sn_buf;
 
-int erts_print(int to, void *arg, char *format, ...);	/* in utils.c */
-int erts_putc(int to, void *arg, char);			/* in utils.c */
+/* in utils.c */
+int erts_print(int to, const void *arg, const char *format, ...);
+int erts_putc(int to, const void *arg, char);
 
 /* logger stuff is declared here instead of in global.h, so sys files
    won't have to include global.h */
@@ -600,16 +601,16 @@ erts_dsprintf_buf_t *erts_create_logger_dsbuf(void);
 int erts_send_info_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_error_to_logger(Eterm, erts_dsprintf_buf_t *);
-int erts_send_info_to_logger_str(Eterm, char *); 
-int erts_send_warning_to_logger_str(Eterm, char *);
-int erts_send_error_to_logger_str(Eterm, char *);
+int erts_send_info_to_logger_str(Eterm, const char *);
+int erts_send_warning_to_logger_str(Eterm, const char *);
+int erts_send_error_to_logger_str(Eterm, const char *);
 int erts_send_info_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *);
-int erts_send_info_to_logger_str_nogl(char *);
+int erts_send_info_to_logger_str_nogl(const char *);
 /* needed by erl_smp.h (declared above)
    int erts_send_warning_to_logger_str_nogl(char *); */
-int erts_send_error_to_logger_str_nogl(char *);
+int erts_send_error_to_logger_str_nogl(const char *);
 
 typedef struct preload {
     char *name;			/* Name of module */
@@ -680,7 +681,7 @@ typedef struct {
 extern void erts_sys_ddll_free_error(ErtsSysDdllError*);
 extern void erl_sys_ddll_init(void); /* to initialize mutexes etc */
 extern int erts_sys_ddll_open(const char *path, void **handle, ErtsSysDdllError*);
-extern int erts_sys_ddll_open_noext(char *path, void **handle, ErtsSysDdllError*);
+extern int erts_sys_ddll_open_noext(const char *path, void **handle, ErtsSysDdllError*);
 extern int erts_sys_ddll_load_driver_init(void *handle, void **function);
 extern int erts_sys_ddll_load_nif_init(void *handle, void **function,ErtsSysDdllError*);
 extern int erts_sys_ddll_close2(void *handle, ErtsSysDdllError*);
@@ -707,7 +708,7 @@ void erts_sys_main_thread(void);
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
 extern void erl_sys_init(void);
-extern void erl_sys_args(int *argc, char **argv);
+extern void erl_sys_args(int *argc, const char **argv);
 extern void erl_sys_schedule(int);
 void sys_tty_reset(int);
 
@@ -759,29 +760,29 @@ int erts_check_io_debug(ErtsCheckIoDebugInfo *ip);
 /* xxxP */
 #define SYS_DEFAULT_FLOAT_DECIMALS 20
 void init_sys_float(void);
-int sys_chars_to_double(char*, double*);
-int sys_double_to_chars(double, char*, size_t);
-int sys_double_to_chars_ext(double, char*, size_t, size_t);
-int sys_double_to_chars_fast(double, char*, int, int, int);
-void sys_get_pid(char *, size_t);
+int sys_chars_to_double(char* /*in+out*/, double* /*out*/);
+int sys_double_to_chars(double, char* /*out*/, size_t);
+int sys_double_to_chars_ext(double, char* /*out*/, size_t, size_t);
+int sys_double_to_chars_fast(double, char* /*out*/, int, int, int);
+void sys_get_pid(char * /*out*/, size_t);
 
 /* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */
-int erts_sys_putenv(char *key, char *value);
+int erts_sys_putenv(const char *key, const char *value);
 /* Simple variant used from drivers, raw eightbit interface */
-int erts_sys_putenv_raw(char *key, char *value);
+int erts_sys_putenv_raw(const char *key, const char *value);
 /* erts_sys_getenv() returns 0 on success (length of value string in
    *size), a value > 0 if value buffer is too small (*size is set to needed
    size), and a value < 0 on failure. */
-int erts_sys_getenv(char *key, char *value, size_t *size);
+int erts_sys_getenv(const char *key, const char *value, size_t *size);
 /* Simple variant used from drivers, raw eightbit interface */
-int erts_sys_getenv_raw(char *key, char *value, size_t *size);
+int erts_sys_getenv_raw(const char *key, const char *value, size_t *size);
 /* erts_sys_getenv__() is only allowed to be used in early init phase */
-int erts_sys_getenv__(char *key, char *value, size_t *size);
+int erts_sys_getenv__(const char *key, const char *value, size_t *size);
 /* erst_sys_unsetenv() returns 0 on success and a value != 0 on failure. */
-int erts_sys_unsetenv(char *key);
+int erts_sys_unsetenv(const char *key);
 
 /* Easier to use, but not as efficient, environment functions */
-char *erts_read_env(char *key);
+char *erts_read_env(const char *key);
 void erts_free_read_env(void *value);
 
 /* utils.c */
@@ -825,7 +826,7 @@ ERTS_GLB_INLINE erts_aint_t erts_refc_dectest(erts_refc_t *refcp,
 					      erts_aint_t min_val);
 ERTS_GLB_INLINE void erts_refc_add(erts_refc_t *refcp, erts_aint_t diff,
 				   erts_aint_t min_val);
-ERTS_GLB_INLINE erts_aint_t erts_refc_read(erts_refc_t *refcp,
+ERTS_GLB_INLINE erts_aint_t erts_refc_read(const erts_refc_t *refcp,
 					   erts_aint_t min_val);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -905,7 +906,7 @@ erts_refc_add(erts_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
 }
 
 ERTS_GLB_INLINE erts_aint_t
-erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
+erts_refc_read(const erts_refc_t *refcp, erts_aint_t min_val)
 {
     erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG

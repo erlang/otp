@@ -121,7 +121,7 @@ int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* e
 #endif
 }
 
-int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open_noext(const char *dlname, void **handle, ErtsSysDdllError* err)
 {
 #if defined(HAVE_DLOPEN)   
     int ret = ERL_DE_NO_ERROR;

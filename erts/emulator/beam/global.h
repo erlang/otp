@@ -138,7 +138,7 @@ struct erts_driver_t_ {
 #ifdef ERTS_SMP
     erts_smp_mtx_t *lock;
 #endif
-    ErlDrvEntry *entry;
+    const ErlDrvEntry *entry;
     ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
     void (*finish)(void);
@@ -379,7 +379,7 @@ typedef struct {
 
 #define DEF_ESTACK_SIZE (16)
 
-void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
+void erl_grow_estack(ErtsEStack*, const Eterm* def_stack);
 #define ESTK_CONCAT(a,b) a##b
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
@@ -497,7 +497,7 @@ typedef struct {
 
 #define DEF_WSTACK_SIZE (16)
 
-void erl_grow_wstack(ErtsWStack*, UWord* def_stack);
+void erl_grow_wstack(ErtsWStack*, const UWord* def_stack);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
@@ -605,9 +605,9 @@ do {						\
 /* binary.c */
 
 void erts_emasculate_writable_binary(ProcBin* pb);
-Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
-Eterm erts_new_mso_binary(Process*, byte*, int);
-Eterm new_binary(Process*, byte*, Uint);
+Eterm erts_new_heap_binary(Process *p, const byte *buf, int len, byte** datap);
+Eterm erts_new_mso_binary(Process*, const byte* src, int);
+Eterm new_binary(Process*, const byte* src, Uint);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
 
 /* erl_bif_info.c */
@@ -678,7 +678,7 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-BeamInstr* find_function_from_pc(BeamInstr* pc);
+BeamInstr* find_function_from_pc(const BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
 void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
@@ -693,22 +693,23 @@ void erts_end_staging_ranges(int commit);
 void erts_update_ranges(BeamInstr* code, Uint size);
 void erts_remove_from_ranges(BeamInstr* code);
 UWord erts_ranges_sz(void);
-void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
+void erts_lookup_function_info(FunctionInfo* fi, const BeamInstr* pc,
+                               int full_info);
 
 /* break.c */
 void init_break_handler(void);
 void erts_set_ignore_break(void);
 void erts_replace_intr(void);
-void process_info(int, void *);
-void print_process_info(int, void *, Process*);
-void info(int, void *);
-void loaded(int, void *);
+void process_info(int, const void *);
+void print_process_info(int, const void *, Process*);
+void info(int, const void *);
+void loaded(int, const void *);
 
 /* config.c */
 
-__decl_noreturn void __noreturn erl_exit(int n, char*, ...);
-__decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
-void erl_error(char*, va_list);
+__decl_noreturn void __noreturn erl_exit(int n, const char*, ...);
+__decl_noreturn void __noreturn erl_exit_flush_async(int n, const char*, ...);
+void erl_error(const char*, va_list);
 
 /* copy.c */
 Eterm copy_object(Eterm, Process*);
@@ -745,11 +746,12 @@ extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
 extern Eterm erts_monitor_nodes(Process *, Eterm, Eterm);
 extern Eterm erts_processes_monitoring_nodes(Process *);
 extern int erts_do_net_exits(DistEntry*, Eterm);
-extern int distribution_info(int, void *);
+extern int distribution_info(int, const void * to_arg);
 extern int is_node_name_atom(Eterm a);
 
 extern int erts_net_message(Port *, DistEntry *,
-			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
+                            byte * unused_hbuf, ErlDrvSizeT,
+                            byte * buf, ErlDrvSizeT);
 
 extern void init_dist(void);
 extern int stop_dist(void);
@@ -761,12 +763,12 @@ void print_pass_through(int, byte*, int);
 #endif
 
 /* beam_emu.c */
-int catchlevel(Process*);
+int catchlevel(const Process*);
 void init_emulator(void);
 void process_main(void);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
-void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
+void erts_save_stacktrace(const Process* p, struct StackTrace* s, int depth);
 
 /* erl_init.c */
 
@@ -794,7 +796,7 @@ extern int erts_initialized;
 extern int erts_compat_rel;
 extern int erts_use_sender_punish;
 void erts_short_init(void);
-void erl_start(int, char**);
+void erl_start(int, const char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
 /* erl_md5.c */
@@ -806,8 +808,8 @@ typedef struct {
 } MD5_CTX;
 
 void MD5Init(MD5_CTX *);
-void MD5Update(MD5_CTX *, unsigned char *, unsigned int);
-void MD5Final(unsigned char [16], MD5_CTX *);
+void MD5Update(MD5_CTX *, const unsigned char *, const unsigned int);
+void MD5Final(unsigned char [16] /*out*/, MD5_CTX *);
 
 /* ggc.c */
 
@@ -840,9 +842,10 @@ typedef struct {
 int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
 void erts_destroy_driver(erts_driver_t *drv);
 int erts_save_suspend_process_on_port(Port*, Process*);
-Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
+Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*,
+                       int *, int *);
 void erts_init_io(int, int, int);
-void erts_raw_port_command(Port*, byte*, Uint);
+void erts_raw_port_command(Port*, const byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);
 LineBuf* allocate_linebuf(int);
 int async_ready(Port *, void*);
@@ -911,13 +914,14 @@ Sint erts_unicode_set_loop_limit(Sint limit);
 
 void erts_native_filename_put(Eterm ioterm, int encoding, byte *p) ;
 Sint erts_native_filename_need(Eterm ioterm, int encoding);
-void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars);
-int erts_analyze_utf8(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left);
-int erts_analyze_utf8_x(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left,
+void erts_copy_utf8_to_utf16_little(byte *target, const byte *bytes,
+                                    int num_chars);
+int erts_analyze_utf8(const byte *source, Uint size,
+                        const byte **err_pos, Uint *num_chars, int *left);
+int erts_analyze_utf8_x(const byte *source, Uint size,
+                        const byte **err_pos, Uint *num_chars, int *left,
 			Sint *num_latin1_chars, Uint max_chars);
-char *erts_convert_filename_to_native(Eterm name, char *statbuf, 
+char *erts_convert_filename_to_native(Eterm name, char *statbuf,
 				      size_t statbuf_size, 
 				      ErtsAlcType_t alloc_type, 
 				      int allow_empty, int allow_atom,
@@ -933,9 +937,9 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
                                      char *statbuf, size_t statbuf_size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars);
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
-Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
-			Uint *num_built, Uint *num_eaten, Eterm tail);
+Eterm erts_convert_native_to_filename(Process *p, const byte *bytes);
+Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
+                        Uint left, Uint *num_built, Uint *num_eaten, Eterm tail);
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_OK 0
 #define ERTS_UTF8_INCOMPLETE 1
@@ -943,8 +947,8 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_ANALYZE_MORE 3
 #define ERTS_UTF8_OK_MAX_CHARS 4
 
-void bin_write(int, void*, byte*, size_t);
-int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
+void bin_write(int, const void* to_arg, const byte* buf, size_t);
+int intlist_to_buf(Eterm, char* /*out*/, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
 #if defined(ARCH_64) && !HALFWORD_HEAP
@@ -1013,7 +1017,7 @@ Eterm buf_to_intlist(Eterm**, const char*, size_t, Eterm); /* most callers pass 
 #define ERTS_IOLIST_TO_BUF_SUCCEEDED(R) \
     (!ERTS_IOLIST_TO_BUF_FAILED((R)))
 
-ErlDrvSizeT erts_iolist_to_buf(Eterm, char*, ErlDrvSizeT);
+ErlDrvSizeT erts_iolist_to_buf(Eterm, char* /*out*/, ErlDrvSizeT);
 ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *);
 int erts_iolist_size_yielding(ErtsIOListState *state);
 int erts_iolist_size(Eterm, ErlDrvSizeT *);
@@ -1057,9 +1061,9 @@ Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
 
-Uint erts_current_reductions(Process* current, Process *p);
+Uint erts_current_reductions(const Process* current, const Process *p);
 
-int erts_print_system_version(int to, void *arg, Process *c_p);
+int erts_print_system_version(int to, const void *arg, const Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
 
@@ -1099,8 +1103,8 @@ extern Eterm erts_match_set_run(Process *p, Binary *mpsp,
 				Uint32 *return_flags);
 extern Eterm erts_match_set_get_source(Binary *mpsp);
 extern void erts_match_prog_foreach_offheap(Binary *b,
-					    void (*)(ErlOffHeap *, void *),
-					    void *);
+                                            void (*)(ErlOffHeap *, const void *),
+                                            const void *);
 
 #define MATCH_SET_RETURN_TRACE    (0x1) /* return trace requested */
 #define MATCH_SET_RETURN_TO_TRACE (0x2) /* Misleading name, it is not actually

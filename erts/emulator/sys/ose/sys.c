@@ -126,7 +126,7 @@ static ERTS_INLINE void report_exit_status(ErtsSysReportExit *rep, int status);
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
-extern void erl_sys_args(int*, char**);
+extern void erl_sys_args(int*, const char**);
 
 /* The following two defs should probably be moved somewhere else */
 
@@ -1566,7 +1566,7 @@ int getpagesize(void)
 ** no interpretatione of this should be done by the rest of the
 ** emulator. The buffer should be at least 21 bytes long.
 */
-void sys_get_pid(char *buffer, size_t buffer_size){
+void sys_get_pid(char *buffer /*out*/, size_t buffer_size){
     pid_t p = getpid();
     /* Assume the pid is scalar and can rest in an unsigned long... */
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
@@ -1602,7 +1602,7 @@ erts_sys_unsetenv(char *key)
 }
 
 int
-erts_sys_getenv__(char *key, char *value, size_t *size)
+erts_sys_getenv__(const char *key, char *value /*out*/, size_t *size)
 {
     int res;
     char *orig_value = get_env(get_bid(current_process()), key);
@@ -1625,7 +1625,7 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 }
 
 int
-erts_sys_getenv_raw(char *key, char *value, size_t *size) {
+erts_sys_getenv_raw(const char *key, char *value /*out*/, size_t *size) {
     return erts_sys_getenv(key, value, size);
 }
 
@@ -1639,7 +1639,7 @@ erts_sys_getenv_raw(char *key, char *value, size_t *size) {
  */
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv(const char *key, char *value /*out*/, size_t *size)
 {
     int res;
     erts_smp_rwmtx_rlock(&environ_rwmtx);

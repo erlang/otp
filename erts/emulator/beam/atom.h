@@ -56,7 +56,8 @@ typedef struct atom {
 extern IndexTable erts_atom_table;
 
 ERTS_GLB_INLINE Atom* atom_tab(Uint i);
-ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term);
+ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(const byte *text, size_t len,
+                                            Eterm term);
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -66,7 +67,8 @@ atom_tab(Uint i)
     return (Atom *) erts_index_lookup(&erts_atom_table, i);
 }
 
-ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term)
+ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(const byte *text, size_t len,
+                                            Eterm term)
 {
     Atom *a;
     if (!is_atom(term))
@@ -137,7 +139,7 @@ Eterm erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc);
 int atom_erase(byte*, int);
 int atom_static_put(byte*, int);
 void init_atom_table(void);
-void atom_info(int, void *);
+void atom_info(int, const void *);
 void dump_atoms(int, void *);
 int erts_atom_get(const char* name, int len, Eterm* ap, ErtsAtomEncoding enc);
 void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used);

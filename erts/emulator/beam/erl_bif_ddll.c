@@ -69,14 +69,17 @@ typedef struct {
  * Forward
  */
 static char *pick_list_or_atom(Eterm name_term);
-static erts_driver_t *lookup_driver(char *name);
-static Eterm mkatom(char *str);
+static erts_driver_t *lookup_driver(const char *name);
+static Eterm mkatom(const char *str);
 static void add_proc_loaded(DE_Handle *dh, Process *proc); 
 static void add_proc_loaded_deref(DE_Handle *dh, Process *proc);
-static void set_driver_reloading(DE_Handle *dh, Process *proc, char *path, char *name, Uint flags);
-static int load_driver_entry(DE_Handle **dhp, char *path, char *name);
+static void set_driver_reloading(DE_Handle *dh, Process *proc, const char *path,
+                                 const char *name, Uint flags);
+static int load_driver_entry(DE_Handle **dhp, const char *path,
+                             const char *name);
 static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name);
-static int do_load_driver_entry(DE_Handle *dh, char *path, char *name);
+static int do_load_driver_entry(DE_Handle *dh, const char *path,
+                                const char *name);
 #if 0
 static void unload_driver_entry(DE_Handle *dh);
 #endif
@@ -89,15 +92,16 @@ static int num_procs(DE_Handle *dh, Uint status);
 /*static int num_entries(DE_Handle *dh, Process *proc, Uint status);*/
 static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, 
 			Eterm type, Eterm tag, int errcode);
-static void notify_all(DE_Handle *dh, char *name, Uint awaiting, Eterm type, Eterm tag);
+static void notify_all(DE_Handle *dh, const char *name, Uint awaiting,
+                       Eterm type, Eterm tag);
 static int load_error_need(int code);
 static Eterm build_load_error_hp(Eterm *hp, int code);
 static Eterm build_load_error(Process *p, int code);
 static int errdesc_to_code(Eterm errdesc, int *code /* out */);
 static Eterm add_monitor(Process *p, DE_Handle *dh, Uint status);
-static Eterm notify_when_loaded(Process *p, Eterm name_term, char *name,
+static Eterm notify_when_loaded(Process *p, Eterm name_term, const char *name,
 				ErtsProcLocks plocks);
-static Eterm notify_when_unloaded(Process *p, Eterm name_term, char *name,
+static Eterm notify_when_unloaded(Process *p, Eterm name_term, const char *name,
 				  ErtsProcLocks plocks, Uint flag);
 static void first_ddll_reference(DE_Handle *dh);
 static void dereference_all_processes(DE_Handle *dh);
@@ -1271,7 +1275,8 @@ char *erts_ddll_error(int code) {
 /*
  * Utilities
  */
-static Eterm notify_when_loaded(Process *p, Eterm name_term, char *name, ErtsProcLocks plocks)
+static Eterm notify_when_loaded(Process *p, Eterm name_term, const char *name,
+                                ErtsProcLocks plocks)
 { 
     Eterm r = NIL;
     Eterm immediate_tag = NIL;
@@ -1328,7 +1333,8 @@ static Eterm notify_when_loaded(Process *p, Eterm name_term, char *name, ErtsPro
     BIF_RET(r);
 }
 
-static Eterm notify_when_unloaded(Process *p, Eterm name_term, char *name, ErtsProcLocks plocks, Uint flag)
+static Eterm notify_when_unloaded(Process *p, Eterm name_term, const char *name,
+                                  ErtsProcLocks plocks, Uint flag)
 { 
     Eterm r = NIL;
     Eterm immediate_tag = NIL;
@@ -1503,7 +1509,8 @@ static Eterm add_monitor(Process *p, DE_Handle *dh, Uint status)
 }
     
 
-static void set_driver_reloading(DE_Handle *dh, Process *proc, char *path, char *name, Uint flags)
+static void set_driver_reloading(DE_Handle *dh, Process *proc, const char *path,
+                                 const char *name, Uint flags)
 {
     DE_ProcEntry *p;
 
@@ -1522,7 +1529,8 @@ static void set_driver_reloading(DE_Handle *dh, Process *proc, char *path, char 
     dh->reload_flags = flags;
 }
 
-static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
+static int do_load_driver_entry(DE_Handle *dh, const char *path,
+                                const char *name)
 {
     void *init_handle;
     int res;
@@ -1629,7 +1637,8 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
     return 0;
 }
 
-static int load_driver_entry(DE_Handle **dhp, char *path, char *name)
+static int load_driver_entry(DE_Handle **dhp, const char *path,
+                             const char *name)
 {
     int res;
     DE_Handle *dh = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sizeof(DE_Handle));
@@ -1739,7 +1748,8 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 }
 
-static void notify_all(DE_Handle *dh, char *name, Uint awaiting, Eterm type, Eterm tag)
+static void notify_all(DE_Handle *dh, const char *name, Uint awaiting,
+                       Eterm type, Eterm tag)
 {
     DE_ProcEntry **p;
 
@@ -1841,9 +1851,9 @@ static Eterm build_load_error_hp(Eterm *hp, int code)
     
 
 
-static Eterm mkatom(char *str)
+static Eterm mkatom(const char *str)
 {
-    return erts_atom_put((byte *) str,
+    return erts_atom_put((const byte *) str,
 			 sys_strlen(str),
 			 ERTS_ATOM_ENC_LATIN1,
 			 1);
@@ -1928,7 +1938,7 @@ static int build_proc_info(DE_Handle *dh, ProcEntryInfo **out_pei, Uint filter)
 	    
     
 
-static erts_driver_t *lookup_driver(char *name)
+static erts_driver_t *lookup_driver(const char *name)
 {
     erts_driver_t *drv;
     assert_drv_list_locked();

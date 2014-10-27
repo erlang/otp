@@ -2552,7 +2552,7 @@ const Uint d_base_base_lookup[] = { 2147483648u, 1162261467u, 1073741824u,
 	601692057u, 656356768u, 714924299u, 777600000u, 844596301u, 916132832u,
 	992436543u, 1073741824u };
 
-Eterm erts_chars_to_integer(Process *BIF_P, char *bytes, 
+Eterm erts_chars_to_integer(Process *BIF_P, const char *bytes,
 			   Uint size, const int base) {
     Eterm res;
     Sint i = 0;

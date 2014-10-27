@@ -55,9 +55,9 @@ static int references_atoms_need_init = 1;
 
 #ifdef DEBUG
 static int
-is_in_de_list(DistEntry *dep, DistEntry *dep_list)
+is_in_de_list(const DistEntry *dep, const DistEntry *dep_list)
 {
-    DistEntry *tdep;
+    const DistEntry *tdep;
     for(tdep = dep_list; tdep; tdep = tdep->next)
 	if(tdep == dep)
 	    return 1;
@@ -66,15 +66,15 @@ is_in_de_list(DistEntry *dep, DistEntry *dep_list)
 #endif
 
 static HashValue
-dist_table_hash(void *dep)
+dist_table_hash(const void *dep)
 {
-    return atom_tab(atom_val(((DistEntry *) dep)->sysname))->slot.bucket.hvalue;
+    return atom_tab(atom_val(((const DistEntry *) dep)->sysname))->slot.bucket.hvalue;
 }
 
 static int
-dist_table_cmp(void *dep1, void *dep2)
+dist_table_cmp(const void *dep1, const void *dep2)
 {
-    return (((DistEntry *) dep1)->sysname == ((DistEntry *) dep2)->sysname
+    return (((const DistEntry *) dep1)->sysname == ((const DistEntry *) dep2)->sysname
 	    ? 0 : 1);
 }
 
@@ -188,7 +188,7 @@ dist_table_free(void *vdep)
 
 
 void
-erts_dist_table_info(int to, void *to_arg)
+erts_dist_table_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -501,10 +501,10 @@ node_table_hash(void *venp)
 }
 
 static int
-node_table_cmp(void *venp1, void *venp2)
+node_table_cmp(const void *venp1, const void *venp2)
 {
-    return ((((ErlNode *) venp1)->sysname == ((ErlNode *) venp2)->sysname
-	     && ((ErlNode *) venp1)->creation == ((ErlNode *) venp2)->creation)
+    return ((((const ErlNode *) venp1)->sysname == ((const ErlNode *) venp2)->sysname
+             && ((const ErlNode *) venp1)->creation == ((const ErlNode *) venp2)->creation)
 	    ? 0
 	    : 1);
 }
@@ -568,7 +568,7 @@ erts_node_table_size(void)
 }
 
 void
-erts_node_table_info(int to, void *to_arg)
+erts_node_table_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -629,13 +629,13 @@ void erts_delete_node(ErlNode *enp)
 
 struct pn_data {
     int to;
-    void *to_arg;
+    const void *to_arg;
     Eterm sysname;
     int no_sysname;
     int no_total;
 };
 
-static void print_node(void *venp, void *vpndp)
+static void print_node(const void *venp, const void *vpndp)
 {
     struct pn_data *pndp = ((struct pn_data *) vpndp);
     ErlNode *enp = ((ErlNode *) venp);
@@ -659,7 +659,7 @@ static void print_node(void *venp, void *vpndp)
 }
 
 void erts_print_node_info(int to,
-			  void *to_arg,
+                          const void *to_arg,
 			  Eterm sysname,
 			  int *no_sysname,
 			  int *no_total)
@@ -675,7 +675,7 @@ void erts_print_node_info(int to,
 
     if (lock)
 	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
-    hash_foreach(&erts_node_table, print_node, (void *) &pnd);
+    hash_foreach(&erts_node_table, print_node, (const void *) &pnd);
     if (pnd.no_sysname != 0) {
 	erts_print(to, to_arg, "\n");
     }
@@ -1084,7 +1084,7 @@ insert_node(ErlNode *node, int type, Eterm id)
 }
 
 static void
-insert_erl_node(void *venp, void *unused)
+insert_erl_node(const void *venp, const void *unused)
 {
     ErlNode *enp = (ErlNode *) venp;
 
@@ -1099,7 +1099,7 @@ struct insert_offheap2_arg {
 static void insert_offheap(ErlOffHeap *, int, Eterm);
 
 static void
-insert_offheap2(ErlOffHeap *oh, void *arg) 
+insert_offheap2(ErlOffHeap *oh, const void *arg)
 {
     struct insert_offheap2_arg *a = (struct insert_offheap2_arg *) arg;
     insert_offheap(oh, a->type, a->id);
@@ -1143,7 +1143,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 #endif
 		    erts_match_prog_foreach_offheap(u.pb->val,
 						    insert_offheap2,
-						    (void *) &a);
+                                                    (const void *) &a);
 		    nib = erts_alloc(ERTS_ALC_T_NC_TMP, sizeof(InsertedBin));
 		    nib->bin_val = u.pb->val;
 		    nib->next = inserted_bins;
@@ -1212,7 +1212,7 @@ insert_links2(ErtsLink *lnk, Eterm id)
 }
 
 static void
-insert_ets_table(DbTable *tab, void *unused)
+insert_ets_table(DbTable *tab, const void *unused)
 {
     struct insert_offheap2_arg a;
     a.type = ETS_REF;
@@ -1221,7 +1221,7 @@ insert_ets_table(DbTable *tab, void *unused)
 }
 
 static void
-insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, void *arg)
+insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, const void *arg)
 {
     if (bp) {
 	DeclareTmpHeapNoproc(heap,3);
@@ -1237,7 +1237,7 @@ insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, void *arg)
 }
 
 static void
-init_referred_node(void *node, void *unused)
+init_referred_node(const void *node, const void *unused)
 {
     referred_nodes[no_referred_nodes].node = (ErlNode *) node;
     referred_nodes[no_referred_nodes].referrers = NULL;
@@ -1245,7 +1245,7 @@ init_referred_node(void *node, void *unused)
 }
 
 static void
-init_referred_dist(void *dist, void *unused)
+init_referred_dist(const void *dist, const void *unused)
 {
     referred_dists[no_referred_dists].dist = (DistEntry *) dist;
     referred_dists[no_referred_dists].referrers = NULL;

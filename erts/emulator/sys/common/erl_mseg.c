@@ -1063,7 +1063,7 @@ static Eterm
 info_options(ErtsMsegAllctr_t *ma,
 	     char *prefix,
 	     int *print_to_p,
-	     void *print_to_arg,
+             const void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {
@@ -1073,7 +1073,7 @@ info_options(ErtsMsegAllctr_t *ma,
 
     if (print_to_p) {
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 	erts_print(to, arg, "%samcbf: %beu\n", prefix, ma->abs_max_cache_bad_fit);
 	erts_print(to, arg, "%srmcbf: %beu\n", prefix, ma->rel_max_cache_bad_fit);
 	erts_print(to, arg, "%smcs: %beu\n", prefix, ma->max_cache_size);
@@ -1100,7 +1100,8 @@ info_options(ErtsMsegAllctr_t *ma,
 }
 
 static Eterm
-info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp, Uint *szp)
+info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, const void *print_to_arg,
+           Uint **hpp /*out*/, Uint *szp /*out*/)
 {
     Eterm res = THE_NON_VALUE;
 
@@ -1114,7 +1115,7 @@ info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp
 		   ma->calls.CC.giga_no, ma->calls.CC.no)
 
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 
 	PRINT_CC(to, arg, alloc);
 	PRINT_CC(to, arg, dealloc);
@@ -1179,8 +1180,9 @@ info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp
 }
 
 static Eterm
-info_status(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p, void *print_to_arg,
-	    int begin_new_max_period, Uint **hpp, Uint *szp)
+info_status(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p,
+            const void *print_to_arg, int begin_new_max_period,
+            Uint **hpp /*out*/, Uint *szp /*out*/)
 {
     Eterm res = THE_NON_VALUE;
     
@@ -1191,7 +1193,7 @@ info_status(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p, void *print_to_a
 
     if (print_to_p) {
 	int to = *print_to_p;
-	void *arg = print_to_arg;
+        const void *arg = print_to_arg;
 
 	erts_print(to, arg, "cached_segments: %beu\n", mk->cache_size);
 	erts_print(to, arg, "cache_hits: %beu\n", mk->cache_hits);
@@ -1235,8 +1237,9 @@ info_status(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p, void *print_to_a
     return res;
 }
 
-static Eterm info_memkind(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p, void *print_to_arg,
-			  int begin_max_per, Uint **hpp, Uint *szp)
+static Eterm info_memkind(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p,
+                          const void *print_to_arg, int begin_max_per,
+                          Uint **hpp /*out*/, Uint *szp /*out*/)
 {
     Eterm res = THE_NON_VALUE;
     Eterm atoms[3];
@@ -1262,7 +1265,8 @@ static Eterm info_memkind(ErtsMsegAllctr_t *ma, MemKind* mk, int *print_to_p, vo
 
 
 static Eterm
-info_version(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp, Uint *szp)
+info_version(ErtsMsegAllctr_t *ma, int *print_to_p, const void *print_to_arg,
+             Uint **hpp /*out*/, Uint *szp /*out*/)
 {
     Eterm res = THE_NON_VALUE;
 
@@ -1298,7 +1302,7 @@ erts_mseg_info_options(int ix,
 Eterm
 erts_mseg_info(int ix,
 	       int *print_to_p,
-	       void *print_to_arg,
+               const void *print_to_arg,
 	       int begin_max_per,
 	       Uint **hpp,
 	       Uint *szp)

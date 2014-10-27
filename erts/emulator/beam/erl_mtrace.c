@@ -179,7 +179,7 @@ do {									\
    : (endp - tracep < (SZ) ? send_trace_buffer() : 1))
 
 
-static void disable_trace(int error, char *reason, int eno);
+static void disable_trace(int error, const char *reason, int eno);
 static int send_trace_buffer(void);
 
 #ifdef DEBUG
@@ -228,7 +228,7 @@ static ErtsAllocatorWrapper_t mtrace_wrapper;
 #error ERTS_MTRACE_SEGMENT_ID >= ERTS_ALC_A_MIN || ERTS_MTRACE_SEGMENT_ID < 0
 #endif
 
-char* erl_errno_id(int error);
+const char* erl_errno_id(int error);
 
 #define INVALID_TIME_INC (0xffffffff)
 
@@ -300,10 +300,10 @@ get_time_inc(void)
 
 
 static void
-disable_trace(int error, char *reason, int eno)
+disable_trace(int error, const char *reason, int eno)
 {
     char *mt_dis = "Memory trace disabled";
-    char *eno_str;
+    const char *eno_str;
 
     erts_mtrace_enabled = 0;
     erts_sock_close(socket_desc);
@@ -359,7 +359,7 @@ send_trace_buffer(void)
 
 
 static int
-write_trace_header(char *nodename, char *pid, char *hostname)
+write_trace_header(const char *nodename, const char *pid, const char *hostname)
 {
 #ifdef DEBUG
     byte *startp;
@@ -569,7 +569,7 @@ void erts_mtrace_pre_init(void)
 {
 }
 
-void erts_mtrace_init(char *receiver, char *nodename)
+void erts_mtrace_init(const char *receiver, const char *nodename)
 {
     char hostname[MAXHOSTNAMELEN];
     char pid[21]; /* enough for a 64 bit number */
@@ -725,7 +725,7 @@ erts_mtrace_exit(Uint32 exit_value)
 
 static ERTS_INLINE void
 write_alloc_entry(byte tag,
-		  void *res,
+                  const void *res,
 		  ErtsAlcType_t x,
 		  ErtsAlcType_t y,
 		  Uint size)
@@ -800,10 +800,10 @@ write_alloc_entry(byte tag,
 
 static ERTS_INLINE void
 write_realloc_entry(byte tag,
-		    void *res,
+                    const void *res,
 		    ErtsAlcType_t x,
 		    ErtsAlcType_t y,
-		    void *ptr,
+                    const void *ptr,
 		    Uint size)
 {
     erts_mtx_lock(&mtrace_buf_mutex);
@@ -881,7 +881,7 @@ static ERTS_INLINE void
 write_free_entry(byte tag,
 		 ErtsAlcType_t x,
 		 ErtsAlcType_t y,
-		 void *ptr)
+                 const void *ptr)
 {
     erts_mtx_lock(&mtrace_buf_mutex);
     if (erts_mtrace_enabled) {

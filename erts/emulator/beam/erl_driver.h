@@ -415,15 +415,16 @@ EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
 EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
 			ErlDrvEventData event_data);
 
-EXTERN int driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len);
-EXTERN int driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
-			  char *buf, ErlDrvSizeT len);
-EXTERN int driver_output_binary(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
-				ErlDrvBinary* bin,
+EXTERN int driver_output(ErlDrvPort port, const char *buf, ErlDrvSizeT len);
+EXTERN int driver_output2(ErlDrvPort port, const char *hbuf, ErlDrvSizeT hlen,
+                          const char *buf, ErlDrvSizeT len);
+EXTERN int driver_output_binary(ErlDrvPort port, const char *hbuf,
+                                ErlDrvSizeT hlen, ErlDrvBinary* bin,
 				ErlDrvSizeT offset, ErlDrvSizeT len);
-EXTERN int driver_outputv(ErlDrvPort port, char* hbuf, ErlDrvSizeT hlen,
+EXTERN int driver_outputv(ErlDrvPort port, const char* hbuf, ErlDrvSizeT hlen,
 			  ErlIOVec *ev, ErlDrvSizeT skip);
-EXTERN ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len);
+EXTERN ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev, char *buf /*out*/,
+                                     ErlDrvSizeT len);
 EXTERN int driver_set_timer(ErlDrvPort port, unsigned long time);
 EXTERN int driver_cancel_timer(ErlDrvPort port);
 EXTERN int driver_read_timer(ErlDrvPort port, unsigned long *time_left);
@@ -436,14 +437,14 @@ EXTERN int erl_drv_consume_timeslice(ErlDrvPort port, int percent);
 /*
  * Get plain-text error message from within a driver
  */
-EXTERN char* erl_errno_id(int error);
+EXTERN const char* erl_errno_id(int error);
 
 /*
  * The following functions are used to initiate a close of a port
  * from a driver.
  */
 EXTERN int driver_failure_eof(ErlDrvPort port);
-EXTERN int driver_failure_atom(ErlDrvPort port, char *string);
+EXTERN int driver_failure_atom(ErlDrvPort port, const char *string);
 EXTERN int driver_failure_posix(ErlDrvPort port, int error);
 EXTERN int driver_failure(ErlDrvPort port, int error);
 EXTERN int driver_exit (ErlDrvPort port, int err);
@@ -494,7 +495,7 @@ EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size);
 EXTERN void driver_free_binary(ErlDrvBinary *bin);
 
 /* Referenc count on driver binaries */
-EXTERN ErlDrvSInt driver_binary_get_refc(ErlDrvBinary *dbp);
+EXTERN ErlDrvSInt driver_binary_get_refc(const ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_inc_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_dec_refc(ErlDrvBinary *dbp);
 
@@ -504,8 +505,8 @@ EXTERN void *driver_realloc(void *ptr, ErlDrvSizeT size);
 EXTERN void driver_free(void *ptr);
 
 /* Queue interface */
-EXTERN int driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
-EXTERN int driver_pushq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
+EXTERN int driver_enq(ErlDrvPort port, const char* buf, ErlDrvSizeT len);
+EXTERN int driver_pushq(ErlDrvPort port, const char* buf, ErlDrvSizeT len);
 EXTERN ErlDrvSizeT driver_deq(ErlDrvPort port, ErlDrvSizeT size);
 EXTERN ErlDrvSizeT driver_sizeq(ErlDrvPort port);
 EXTERN int driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset,
@@ -522,7 +523,7 @@ EXTERN int driver_pushqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip);
  * Add and remove driver entries.
  */
 EXTERN void add_driver_entry(ErlDrvEntry *de);
-EXTERN int remove_driver_entry(ErlDrvEntry *de);
+EXTERN int remove_driver_entry(const ErlDrvEntry *de);
 
 /*
  * System info
@@ -533,17 +534,17 @@ EXTERN void driver_system_info(ErlDrvSysInfo *sip, size_t si_size);
  * erl driver thread functions.
  */
 
-EXTERN ErlDrvMutex *erl_drv_mutex_create(char *name);
+EXTERN ErlDrvMutex *erl_drv_mutex_create(const char *name);
 EXTERN void erl_drv_mutex_destroy(ErlDrvMutex *mtx);
 EXTERN int erl_drv_mutex_trylock(ErlDrvMutex *mtx);
 EXTERN void erl_drv_mutex_lock(ErlDrvMutex *mtx);
 EXTERN void erl_drv_mutex_unlock(ErlDrvMutex *mtx);
-EXTERN ErlDrvCond *erl_drv_cond_create(char *name);
+EXTERN ErlDrvCond *erl_drv_cond_create(const char *name);
 EXTERN void erl_drv_cond_destroy(ErlDrvCond *cnd);
 EXTERN void erl_drv_cond_signal(ErlDrvCond *cnd);
 EXTERN void erl_drv_cond_broadcast(ErlDrvCond *cnd);
 EXTERN void erl_drv_cond_wait(ErlDrvCond *cnd, ErlDrvMutex *mtx);
-EXTERN ErlDrvRWLock *erl_drv_rwlock_create(char *name);
+EXTERN ErlDrvRWLock *erl_drv_rwlock_create(const char *name);
 EXTERN void erl_drv_rwlock_destroy(ErlDrvRWLock *rwlck);
 EXTERN int erl_drv_rwlock_tryrlock(ErlDrvRWLock *rwlck);
 EXTERN void erl_drv_rwlock_rlock(ErlDrvRWLock *rwlck);
@@ -551,26 +552,26 @@ EXTERN void erl_drv_rwlock_runlock(ErlDrvRWLock *rwlck);
 EXTERN int erl_drv_rwlock_tryrwlock(ErlDrvRWLock *rwlck);
 EXTERN void erl_drv_rwlock_rwlock(ErlDrvRWLock *rwlck);
 EXTERN void erl_drv_rwlock_rwunlock(ErlDrvRWLock *rwlck);
-EXTERN int erl_drv_tsd_key_create(char *name, ErlDrvTSDKey *key);
+EXTERN int erl_drv_tsd_key_create(const char *name, ErlDrvTSDKey *key);
 EXTERN void erl_drv_tsd_key_destroy(ErlDrvTSDKey key);
 EXTERN void erl_drv_tsd_set(ErlDrvTSDKey key, void *data);
 EXTERN void *erl_drv_tsd_get(ErlDrvTSDKey key);
-EXTERN ErlDrvThreadOpts *erl_drv_thread_opts_create(char *name);
+EXTERN ErlDrvThreadOpts *erl_drv_thread_opts_create(const char *name);
 EXTERN void erl_drv_thread_opts_destroy(ErlDrvThreadOpts *opts);
-EXTERN int erl_drv_thread_create(char *name,
+EXTERN int erl_drv_thread_create(const char *name,
 				 ErlDrvTid *tid,
 				 void * (*func)(void *),
 				 void *args,
 				 ErlDrvThreadOpts *opts);
 EXTERN ErlDrvTid erl_drv_thread_self(void);
-EXTERN int erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2);
+EXTERN int erl_drv_equal_tids(const ErlDrvTid tid1, const ErlDrvTid tid2);
 EXTERN void erl_drv_thread_exit(void *resp);
 EXTERN int erl_drv_thread_join(ErlDrvTid, void **respp);
 
-EXTERN char* erl_drv_mutex_name(ErlDrvMutex *mtx);
-EXTERN char* erl_drv_cond_name(ErlDrvCond *cnd);
-EXTERN char* erl_drv_rwlock_name(ErlDrvRWLock *rwlck);
-EXTERN char* erl_drv_thread_name(ErlDrvTid tid);
+EXTERN const char* erl_drv_mutex_name(const ErlDrvMutex *mtx);
+EXTERN const char* erl_drv_cond_name(const ErlDrvCond *cnd);
+EXTERN const char* erl_drv_rwlock_name(const ErlDrvRWLock *rwlck);
+EXTERN const char* erl_drv_thread_name(const ErlDrvTid tid);
 
 /*
  * Misc.
@@ -625,7 +626,7 @@ EXTERN int null_func(void);
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 /* make terms for driver_output_term and driver_send_term */
-EXTERN ErlDrvTermData driver_mk_atom(char*);
+EXTERN ErlDrvTermData driver_mk_atom(const char*);
 EXTERN ErlDrvTermData driver_mk_port(ErlDrvPort);
 EXTERN ErlDrvTermData driver_connected(ErlDrvPort);
 EXTERN ErlDrvTermData driver_caller(ErlDrvPort);
@@ -633,7 +634,7 @@ extern const ErlDrvTermData driver_term_nil;
 EXTERN ErlDrvTermData driver_mk_term_nil(void);
 EXTERN ErlDrvPort driver_create_port(ErlDrvPort creator_port, 
 				     ErlDrvTermData connected, /* pid */
-				     char* name, /* driver name */
+                                     const char* name, /* driver name */
 				     ErlDrvData drv_data);
 					 
 
@@ -686,14 +687,14 @@ EXTERN int driver_get_now(ErlDrvNowData *now);
 
 /* These were removed from the ANSI version, now they're back. */
 
-EXTERN void *driver_dl_open(char *);
-EXTERN void *driver_dl_sym(void *, char *);
+EXTERN void *driver_dl_open(const char *);
+EXTERN void *driver_dl_sym(void *, const char *);
 EXTERN int driver_dl_close(void *);
 EXTERN char *driver_dl_error(void);
 
 /* environment */
-EXTERN int erl_drv_putenv(char *key, char *value);
-EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+EXTERN int erl_drv_putenv(const char *key, const char *value);
+EXTERN int erl_drv_getenv(const char *key, char *value /*out*/, size_t *value_size);
 
 #ifdef __OSE__
 typedef ErlDrvUInt ErlDrvOseEventId;

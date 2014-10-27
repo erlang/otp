@@ -51,8 +51,8 @@
 #define S44 21
 
 static void MD5Transform(UINT4 [4], unsigned char [64]);
-static void Encode(unsigned char *, UINT4 *, unsigned int);
-static void Decode(UINT4 *, unsigned char *, unsigned int);
+static void Encode(unsigned char * out, const UINT4 * input, unsigned int);
+static void Decode(UINT4 * out, const unsigned char * input, unsigned int);
 
 static unsigned char PADDING[64] = {
     0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -293,7 +293,7 @@ static void MD5Transform (UINT4 state[4], unsigned char block[64])
  * Encodes input (UINT4) into output (unsigned char). Assumes len is
  * a multiple of 4.
  */
-static void Encode (unsigned char *output, UINT4 *input, unsigned int len)
+static void Encode (unsigned char *output, const UINT4 *input, unsigned int len)
 {
     unsigned int i, j;
 
@@ -309,7 +309,7 @@ static void Encode (unsigned char *output, UINT4 *input, unsigned int len)
  * Decodes input (unsigned char) into output (UINT4). Assumes len is
  * a multiple of 4.
  */
-static void Decode (UINT4 *output, unsigned char *input, unsigned int len)
+static void Decode (UINT4 *output, const unsigned char *input, unsigned int len)
 {
     unsigned int i, j;
 

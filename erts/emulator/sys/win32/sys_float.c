@@ -50,7 +50,7 @@ void erts_thread_disable_fpe(void)
  */
 
 int 
-sys_chars_to_double(char *buf, double *fp)
+sys_chars_to_double(const char *buf, double *fp)
 {
     unsigned char *s = buf, *t, *dp;
     
@@ -118,7 +118,8 @@ sys_chars_to_double(char *buf, double *fp)
 */
 
 int
-sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t decimals)
+sys_double_to_chars_ext(double fp, char *buffer /*out*/, size_t buffer_size,
+                        size_t decimals)
 {
     unsigned char *s = buffer;
 

@@ -36,7 +36,9 @@ typedef struct {
 }
 
 void erts_afalc_init(void);
-Allctr_t *erts_afalc_start(AFAllctr_t *, AFAllctrInit_t *, AllctrInit_t *);
+Allctr_t *erts_afalc_start(AFAllctr_t *,
+                           AFAllctrInit_t *,
+                           const AllctrInit_t * init);
 
 #endif /* #ifndef ERL_BESTFIT_ALLOC__ */
 

@@ -32,8 +32,7 @@
 typedef unsigned long  u_long;
 typedef unsigned short u_short;
 
-static void copy_high(dst, src, n)
-char* dst; char* src; int n;
+static void copy_high(char* dst, const char* src, int n)
 {
     dst += n;
     src += n;
@@ -66,8 +65,7 @@ char* dst; char* src; int n;
     }
 }
 
-static void copy_low(dst, src, n)
-char* dst; char* src; int n;
+static void copy_low(char* dst, const char* src, int n)
 {
     if (n >= MEMCPY_LIMIT) {
 	while(((u_long) dst) & 3) {
@@ -100,8 +98,7 @@ char* dst; char* src; int n;
 /*
 ** Move memory (with overlap)
 */
-void* memmove(dst, src, n)
-char* dst; char* src; int n;
+void* memmove(char* dst, const char* src, int n)
 {
     if (dst < src)
 	copy_low(dst, src, n);

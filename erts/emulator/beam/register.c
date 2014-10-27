@@ -101,7 +101,7 @@ is_proc_alive(Process *p)
     return !ERTS_PROC_IS_EXITING(p);
 }
 
-void register_info(int to, void *to_arg)
+void register_info(int to, const void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -111,7 +111,7 @@ void register_info(int to, void *to_arg)
 	reg_read_unlock();
 }
 
-static HashValue reg_hash(RegProc* obj)
+static HashValue reg_hash(const RegProc* obj)
 {
     return REG_HASH(obj->name);
 }

@@ -2645,7 +2645,7 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 {
     Atom* ap;
     Uint num_chars, num_built, num_eaten;
-    byte* err_pos;
+    const byte* err_pos;
     Eterm res;
 #ifdef DEBUG
     int ares;
