@@ -527,9 +527,9 @@ map_split_pairs(A, Var, Ces, Sub, St0) ->
     Pairs0 = [{Op,K,V} || #c_map_pair{op=#c_literal{val=Op},key=K,val=V} <- Ces],
     {Pairs,Esp,St1} = foldr(fun
 	    ({Op,K0,V0}, {Ops,Espi,Sti0}) when Op =:= assoc; Op =:= exact ->
-		{K,[],Sti1} = expr(K0, Sub, Sti0),
-		{V,Ep,Sti2} = atomic(V0, Sub, Sti1),
-		{[{Op,K,V}|Ops],Ep ++ Espi,Sti2}
+		{K,Eps1,Sti1} = atomic(K0, Sub, Sti0),
+		{V,Eps2,Sti2} = atomic(V0, Sub, Sti1),
+		{[{Op,K,V}|Ops],Eps1 ++ Eps2 ++ Espi,Sti2}
 	end, {[],[],St0}, Pairs0),
 
     case map_group_pairs(Pairs) of
@@ -577,11 +577,12 @@ map_key_is_used(K,Used) ->
     dict:find(map_key_clean(K),Used).
 
 %% Be explicit instead of using set_kanno(K,[])
-map_key_clean(#k_literal{val=V}) -> {k_literal,V};
-map_key_clean(#k_int{val=V})     -> {k_int,V};
-map_key_clean(#k_float{val=V})   -> {k_float,V};
-map_key_clean(#k_atom{val=V})    -> {k_atom,V};
-map_key_clean(#k_nil{})          -> k_nil.
+map_key_clean(#k_var{name=V})    -> {var,V};
+map_key_clean(#k_literal{val=V}) -> {lit,V};
+map_key_clean(#k_int{val=V})     -> {lit,V};
+map_key_clean(#k_float{val=V})   -> {lit,V};
+map_key_clean(#k_atom{val=V})    -> {lit,V};
+map_key_clean(#k_nil{})          -> {lit,[]}.
 
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
@@ -757,23 +758,22 @@ flatten_alias(#c_alias{var=V,pat=P}) ->
 flatten_alias(Pat) -> {[],Pat}.
 
 pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
-    %% It is assumed that all core keys are literals
-    %% It is later assumed that these keys are term sorted
-    %% so we need to sort them here
-    Ces1 = lists:sort(fun
-	    (#c_map_pair{key=CkA},#c_map_pair{key=CkB}) ->
-		A = core_lib:literal_value(CkA),
-		B = core_lib:literal_value(CkB),
-		erts_internal:cmp_term(A,B) < 0
-	end, Ces0),
     %% pattern the pair keys and values as normal
     {Kes,{Osub1,St1}} = lists:mapfoldl(fun
 	    (#c_map_pair{anno=A,key=Ck,val=Cv},{Osubi0,Sti0}) ->
-		{Kk,Osubi1,Sti1} = pattern(Ck, Isub, Osubi0, Sti0),
-		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi1, Sti1),
+		{Kk,[],Sti1} = expr(Ck, Isub, Sti0),
+		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi0, Sti1),
 		{#k_map_pair{anno=A,key=Kk,val=Kv},{Osubi2,Sti2}}
-	end, {Osub0, St0}, Ces1),
-    {Kes,Osub1,St1}.
+	end, {Osub0, St0}, Ces0),
+    %% It is later assumed that these keys are term sorted
+    %% so we need to sort them here
+    Kes1 = lists:sort(fun
+	    (#k_map_pair{key=KkA},#k_map_pair{key=KkB}) ->
+		A = map_key_clean(KkA),
+		B = map_key_clean(KkB),
+		erts_internal:cmp_term(A,B) < 0
+	end, Kes),
+    {Kes1,Osub1,St1}.
 
 pattern_bin(Es, Isub, Osub0, St0) ->
     {Kbin,{_,Osub},St} = pattern_bin_1(Es, Isub, Osub0, St0),
@@ -1550,13 +1550,11 @@ arg_val(Arg, C) ->
 		    {set_kanno(S, []),U,T,Fs}
 	    end;
 	#k_map{op=exact,es=Es} ->
-	    Keys = [begin
-			#k_map_pair{key=#k_literal{val=Key}} = Pair,
-			Key
-		    end || Pair <- Es],
-	    %% multiple keys may have the same name
-	    %% do not use ordsets
-	    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, Keys)
+	    lists:sort(fun(A,B) ->
+			%% on the form K :: {'lit' | 'var', term()}
+			%% lit < var as intended
+			erts_internal:cmp_term(A,B) < 0
+		end, [map_key_clean(Key) || #k_map_pair{key=Key} <- Es])
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]
@@ -1943,6 +1941,7 @@ lit_list_vars(Ps) ->
 %% pat_vars(Pattern) -> {[UsedVarName],[NewVarName]}.
 %%  Return variables in a pattern.  All variables are new variables
 %%  except those in the size field of binary segments.
+%%  and map_pair keys
 
 pat_vars(#k_var{name=N}) -> {[],[N]};
 %%pat_vars(#k_char{}) -> {[],[]};
@@ -1967,8 +1966,10 @@ pat_vars(#k_tuple{es=Es}) ->
     pat_list_vars(Es);
 pat_vars(#k_map{es=Es}) ->
     pat_list_vars(Es);
-pat_vars(#k_map_pair{val=V}) ->
-    pat_vars(V).
+pat_vars(#k_map_pair{key=K,val=V}) ->
+    {U1,New} = pat_vars(V),
+    {[], U2} = pat_vars(K),
+    {union(U1,U2),New}.
 
 pat_list_vars(Ps) ->
     foldl(fun (P, {Used0,New0}) ->

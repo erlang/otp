@@ -577,8 +577,6 @@ obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
     {deprecated,{unicode,characters_to_list,1}};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
     {deprecated,{unicode,characters_to_binary,1}};
-obsolete_1(pg, _, _) ->
-    {deprecated,"deprecated; will be removed in OTP 18"};
 
 obsolete_1(_, _, _) ->
     no.

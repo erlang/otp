@@ -1299,7 +1299,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     if (binp->orig_size < pb->size) {
 	Uint new_size = 2*pb->size;
 	binp = erts_bin_realloc(binp, new_size);
-	binp->orig_size = new_size;
 	pb->val = binp;
 	pb->bytes = (byte *) binp->orig_bytes;
     }
@@ -1371,8 +1370,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Allocate the binary data struct itself.
 	 */
 	bptr = erts_bin_nrml_alloc(bin_size);
-	bptr->flags = 0;
-	bptr->orig_size = bin_size;
 	erts_refc_init(&bptr->refc, 1);
 	erts_current_bin = (byte *) bptr->orig_bytes;
 
@@ -1475,7 +1472,6 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     * is safe to reallocate it.
 	     */
 	    binp = erts_bin_realloc(binp, new_size);
-	    binp->orig_size = new_size;
 	    pb->val = binp;
 	    pb->bytes = (byte *) binp->orig_bytes;
 	} else {
@@ -1488,8 +1484,6 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     * binary and copy the contents of the old binary into it.
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-	    bptr->flags = 0;
-	    bptr->orig_size = new_size;
 	    erts_refc_init(&bptr->refc, 1);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
@@ -1537,8 +1531,6 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate the binary data struct itself.
      */
     bptr = erts_bin_nrml_alloc(bin_size);
-    bptr->flags = 0;
-    bptr->orig_size = bin_size;
     erts_refc_init(&bptr->refc, 1);
     
     /*
@@ -1585,9 +1577,7 @@ erts_emasculate_writable_binary(ProcBin* pb)
     /* Our allocators are 8 byte aligned, i.e., shrinking with
        less than 8 bytes will have no real effect */
     if (unused >= 8) {
-	Uint new_size = pb->size;
 	binp = erts_bin_realloc(binp, pb->size);
-	binp->orig_size = new_size;
 	pb->val = binp;
 	pb->bytes = (byte *) binp->orig_bytes;
     }

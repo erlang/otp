@@ -43,7 +43,7 @@
       addressing mechanism is required to ensure that it can be
       addressed by other applications, regardless on which node it
       currently executes. This issue is not addressed here, but the
-      Kernel module <c>global</c> or STDLIB module <c>pg</c> can be
+      Kernel modules <c>global</c> or <c>pg2</c> can be
       used for this purpose.</p>
   </section>
 

@@ -405,7 +405,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
   case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
     error ->
       {{F, A}, {Range, Arg}};
-    {ok, {_FileLine, Contract}} ->
+    {ok, {_FileLine, Contract, _Xtra}} ->
       Sig = erl_types:t_fun(Arg, Range),
       case dialyzer_contracts:check_contract(Contract, Sig) of
 	ok -> {{F, A}, {contract, Contract}};

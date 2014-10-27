@@ -279,7 +279,6 @@ atom http httph https http_response http_request http_header http_eoh http_error
 atom id
 atom if_clause
 atom ignore
-atom imports
 atom in
 atom in_exiting
 atom inactive
@@ -335,6 +334,7 @@ atom max
 atom maximum
 atom max_tables max_processes
 atom mbuf_size
+atom md5
 atom memory
 atom memory_internal
 atom memory_types

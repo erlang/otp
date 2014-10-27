@@ -125,8 +125,8 @@ format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
 	_ -> assoc
     end,
     Cpairs = [#c_map_pair{op=#c_literal{val=Op},
-			  key=#c_literal{val=V},
-			  val=#c_literal{val=K}} || {K,V} <- Pairs],
+			  key=#c_literal{val=K},
+			  val=#c_literal{val=V}} || {K,V} <- Pairs],
 	format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];

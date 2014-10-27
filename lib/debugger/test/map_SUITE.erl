@@ -32,9 +32,30 @@
 	t_guard_receive/1, t_guard_fun/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
-	%t_size/1,
 	t_map_size/1,
+	t_build_and_match_aliasing/1,
 
+	%% variables
+	t_build_and_match_variables/1,
+	t_update_assoc_variables/1,t_update_exact_variables/1,
+	t_nested_pattern_expressions/1,
+	t_guard_update_variables/1,
+	t_guard_sequence_variables/1,
+	t_guard_sequence_mixed/1,
+	t_frequency_table/1,
+
+	%% not covered in 17.0-rc1
+	t_build_and_match_over_alloc/1,
+	t_build_and_match_empty_val/1,
+	t_build_and_match_val/1,
+	t_build_and_match_nil/1,
+	t_build_and_match_structure/1,
+
+	%% errors in 17.0-rc1
+	t_update_values/1,
+        t_expand_map_update/1,
+        t_export/1,
+ 
 	%% Specific Map BIFs
 	t_bif_map_get/1,
 	t_bif_map_find/1,
@@ -61,8 +82,7 @@
 
 	%% misc
 	t_pdict/1,
-	t_ets/1,
-	t_dets/1
+	t_ets/1
     ]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -77,7 +97,30 @@ all() -> [
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
+	t_build_and_match_aliasing,
 
+	%% variables
+	t_build_and_match_variables,
+	t_update_assoc_variables,t_update_exact_variables,
+	t_nested_pattern_expressions,
+	t_guard_update_variables,
+	t_guard_sequence_variables,
+	t_guard_sequence_mixed,
+	t_frequency_table,
+
+	%% not covered in 17.0-rc1
+	t_build_and_match_over_alloc,
+	t_build_and_match_empty_val,
+	t_build_and_match_val,
+	t_build_and_match_nil,
+	t_build_and_match_structure,
+
+
+	%% errors in 17.0-rc1
+	t_update_values,
+        t_expand_map_update,
+        t_export,
+    
 	%% Specific Map BIFs
 	t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
 	t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
@@ -93,7 +136,6 @@ all() -> [
 	%% maps module
 	t_maps_fold, t_maps_map,
 	t_maps_size, t_maps_without,
-
 
         %% Other functions
 	t_pdict,
@@ -146,18 +188,6 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{y=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
     ok.
-
-
-%% Tests size(Map).
-%% not implemented, perhaps it shouldn't be either
-
-%t_size(Config) when is_list(Config) ->
-%    0 = size(#{}),
-%    1 = size(#{a=>1}),
-%    1 = size(#{a=>#{a=>1}}),
-%    2 = size(#{a=>1, b=>2}),
-%    3 = size(#{a=>1, b=>2, b=>"3"}),
-%    ok.
 
 t_map_size(Config) when is_list(Config) ->
     0 = map_size(id(#{})),
@@ -267,6 +297,44 @@ t_update_exact(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
 
     ok.
+
+t_update_values(Config) when is_list(Config) ->
+    V0 = id(1337),
+    M0 = #{ a => 1, val => V0},
+    V1 = get_val(M0),
+    M1 = id(M0#{ val := [V0,V1], "wazzup" => 42 }),
+    [1337, {some_val, 1337}] = get_val(M1),
+    M2 = id(M1#{ <<42:333>> => 1337 }),
+    {bin_key,1337} = get_val(M2),
+
+    N = 110,
+    List = [{[I,1,2,3,I],{1,2,3,"wat",I}}|| I <- lists:seq(1,N)],
+
+    {_,_,#{val2 := {1,2,3,"wat",N}, val1 := [N,1,2,3,N]}} = lists:foldl(fun
+	    ({V2,V3},{Old2,Old3,Mi}) ->
+		ok = check_val(Mi,Old2,Old3),
+		#{ val1 := Old2, val2 := Old3 } = Mi,
+		{V2,V3, Mi#{ val1 := id(V2), val2 := V1, val2 => id(V3)}}
+	end, {none, none, #{val1=>none,val2=>none}},List),
+    ok.
+
+t_expand_map_update(Config) when is_list(Config) ->
+    M = #{<<"hello">> => <<"world">>}#{<<"hello">> := <<"les gens">>},
+    #{<<"hello">> := <<"les gens">>} = M,
+    ok.
+
+t_export(Config) when is_list(Config) ->
+    Raclette = id(#{}),
+    case brie of brie -> Fromage = Raclette end,
+    Raclette = Fromage#{},
+    ok.
+
+check_val(#{val1:=V1, val2:=V2},V1,V2) -> ok.
+
+get_val(#{ <<42:333>> := V }) -> {bin_key, V};
+get_val(#{ "wazzup" := _, val := V}) -> V;
+get_val(#{ val := V }) -> {some_val, V}.
+
 
 t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_head(#{a=>1}),
@@ -988,16 +1056,385 @@ t_ets(_Config) ->
     ets:delete(Tid),
     ok.
 
-t_dets(_Config) ->
+t_build_and_match_aliasing(Config) when is_list(Config) ->
+    M1 = id(#{a=>1,b=>2,c=>3,d=>4}),
+    #{c:=C1=_=_=C2} = M1,
+    true = C1 =:= C2,
+    #{a:=A,a:=A,a:=A,b:=B,b:=B} = M1,
+    #{a:=A,a:=A,a:=A,b:=B,b:=B,b:=2} = M1,
+    #{a:=A=1,a:=A,a:=A,b:=B=2,b:=B,b:=2} = M1,
+    #{c:=C1, c:=_, c:=3, c:=_, c:=C2} = M1,
+    #{c:=C=_=3=_=C} = M1,
+
+    M2 = id(#{"a"=>1,"b"=>2,"c"=>3,"d"=>4}),
+    #{"a":=A2,"a":=A2,"a":=A2,"b":=B2,"b":=B2,"b":=2} = M2,
+    #{"a":=_,"a":=_,"a":=_,"b":=_,"b":=_,"b":=2} = M2,
     ok.
 
-getmsg(_Tracer) ->
-    receive V -> V after 100 -> timeout end.
+%% simple build and match variables
+t_build_and_match_variables(Config) when is_list(Config) ->
+    K0 = id(#{}),
+    K1 = id(1),       V1 = id(a),
+    K2 = id(2),       V2 = id(b),
+    K3 = id(3),       V3 = id("c"),
+    K4 = id("4"),     V4 = id("d"),
+    K5 = id(<<"5">>), V5 = id(<<"e">>),
+    K6 = id({"6",7}), V6 = id("f"),
+    K7 = id(#{ "a" => 3 }),
+    #{K1:=V1} = id(#{K1=>V1}),
+    #{K1:=V1,K2:=V2} = id(#{K1=>V1,K2=>V2}),
+    #{K1:=V1,K2:=V2,K3:=V3} = id(#{K1=>V1,K2=>V2,K3=>V3}),
+    #{K1:=V1,K2:=V2,K3:=V3,K4:=V4} = id(#{K1=>V1,K2=>V2,K3=>V3,K4=>V4}),
+    #{K1:=V1,K2:=V2,K3:=V3,K4:=V4,K5:=V5} = id(#{K1=>V1,K2=>V2,K3=>V3,K4=>V4,K5=>V5}),
+    #{K1:=V1,K2:=V2,K3:=V3,K4:=V4,K5:=V5,K6:=V6} = id(#{K1=>V1,K2=>V2,K3=>V3,K4=>V4,K5=>V5,K6=>V6}),
 
-trace_collector(Msg,Parent) ->
-    io:format("~p~n",[Msg]),
-    Parent ! Msg,
-    Parent.
+    #{K5:=X,K5:=X=3,K4:=4} = id(#{K5=>3,K4=>4}),
+    #{K5:=X,<<"5">>:=X=3,K4:=4} = id(#{K5=>3,K4=>4}),
+    #{K5:=X,<<"5">>:=X=3,K4:=4} = id(#{<<"5">>=>3,K4=>4}),
+
+    #{ K4:=#{ K3:=#{K1:=V1, K2:=V2}}, K5:=V5} =
+	id(#{ K5=>V5, K4=>#{ K3=>#{K2 => V2, K1 => V1}}}),
+    #{ K4 := #{ K5 := Res }, K6 := Res} = id(#{K4=>#{K5 => 99}, K6 => 99}),
+
+    %% has keys
+    #{a :=_,b :=_,K1:=_,K2:=_,K3:=V3,K4:=ResKey,K4:=ResKey,"4":=ResKey,"4":="ok"} =
+	id(#{ a=>1, b=>1, K1=>V1, K2=>V2, K3=>V3, K4=>"nope", "4"=>"ok" }),
+
+    %% function
+    ok = match_function_map_neg_keys(#{ -1 => a, -2 => b, -3 => c }),
+
+    %% map key
+    #{ K0 := 42 } = id(#{ K0 => 42 }),
+    #{ K7 := 42 } = id(#{ K7 => 42 }),
+
+    %% nil key
+    KNIL = id([]),
+    #{KNIL:=ok,1:=2} = id(#{KNIL=>ok,1=>2}),
+
+    Bin = <<0:258>>,
+    #{ Bin := "three" } = id(#{<<0:258>> =>"three"}),
+
+    %% error case
+    {'EXIT',{{badmatch,_},_}} = (catch (#{K5:=3,x:=2} = id(#{K5=>3}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{K5:=2} = id(#{K5=>3}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{K5:=3} = id({a,b,c}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{K5:=3} = id(#{K6=>3}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{K5:=3} = id(K7))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{K7:=3} = id(#{K7=>42}))),
+    ok.
+
+
+match_function_map_neg_keys(#{ -1 := a, -2 := b, -3 := c }) -> ok.
+
+t_update_assoc_variables(Config) when is_list(Config) ->
+    K1 = id(1),
+    K2 = id(2),
+    K3 = id(3.0),
+    K4 = id(4),
+    K5 = id(5),
+    K6 = id(2.0),
+
+    M0 = #{K1=>a,K2=>b,K3=>c,K4=>d,K5=>e},
+
+    M1 = M0#{K1=>42,K2=>100,K4=>[a,b,c]},
+    #{1:=42,2:=100,3.0:=c,4:=[a,b,c],5:=e} = M1,
+    #{1:=42,2:=b,4:=d,5:=e,2.0:=100,K3:=c,4.0:=[a,b,c]} = M0#{1.0=>float,1:=42,2.0=>wrong,K6=>100,4.0=>[a,b,c]},
+
+    M2 = M0#{K3=>new},
+    #{1:=a,2:=b,K3:=new,4:=d,5:=e} = M2,
+    M2 = M0#{3.0:=wrong,K3=>new},
+
+    #{ <<0:258>> := val } = id(M0#{<<0:258>> => val}), %% binary limitation
+
+    %% Errors cases.
+    BadMap = id(badmap),
+    {'EXIT',{{badarg,_},_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{{badarg,_},_}} = (catch <<>>#{nonexisting=>val}),
+    ok.
+
+t_update_exact_variables(Config) when is_list(Config) ->
+    K1 = id(1),
+    K2 = id(2),
+    K3 = id(3.0),
+    K4 = id(4),
+
+    M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
+
+    M1 = M0#{K1:=42,K2:=100,K4:=[a,b,c]},
+    #{1:=42,2:=100,3.0:=c,K4:=[a,b,c],5:=e} = M1,
+    M1 = M0#{K1:=wrong,1:=also_wrong,K1=>42,2=>wrong,K2:=100,4:=[a,b,c]},
+
+    M2 = M0#{K3:=new},
+    #{1:=a,K2:=b,3.0:=new,K4:=d,5:=e} = M2,
+    M2 = M0#{3.0=>wrong,K3:=new},
+    true = M2 =/= M0#{3=>right,3.0:=new},
+    #{ 3 := right, 3.0 := new } = M0#{3=>right,K3:=new},
+
+    M3 = id(#{ 1 => val}),
+    #{1 := update2,1.0 := new_val4} = M3#{
+	1.0 => new_val1, K1 := update, K1=> update3,
+	K1 := update2, 1.0 := new_val2, 1.0 => new_val3,
+	1.0 => new_val4 },
+
+    %% Errors cases.
+    {'EXIT',{{badarg,_},_}} = (catch ((id(nil))#{ a := b })),
+    {'EXIT',{{badarg,_},_}} = (catch <<>>#{nonexisting:=val}),
+
+    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
+    ok.
+
+t_nested_pattern_expressions(Config) when is_list(Config) ->
+    K1 = id("hello"),
+    %K2 = id({ok}),
+    [_,_,#{ <<"hi">> := wat, K1 := 42 }|_] = id([k,k,#{<<"hi">> => wat, K1 => 42}]),
+    [_,_,#{ -1 := wat, K1 := 42 }|_] = id([k,k,#{-1 => wat, K1 => 42}]),
+    [_,_,{#{ -1 := #{ {-3,<<0:300>>} := V1 }, K1 := 42 },3}|_] = id([k,k,{#{-1 => #{{-3,<<0:300>>}=>"hi"}, K1 => 42},3}]),
+    "hi" = V1,
+    %[k,#{ {-1,K1,[]} := {wat,K1}, K2 := 42 }|_] = id([k,#{{-1,K1,[]} => {wat,K1}, K2 => 42}]),
+    %[k,#{ [-1,K2,[]] := {wat,K1}, K1 := 42 }|_] = id([k,#{[-1,K2,[]] => {wat,K1}, K1 => 42}]),
+    ok.
+
+t_guard_update_variables(Config) when is_list(Config) ->
+    error  = map_guard_update_variables(n,#{},#{}),
+    first  = map_guard_update_variables(x,#{}, #{x=>first}),
+    second = map_guard_update_variables(x,#{y=>old}, #{x=>second,y=>old}),
+    third  = map_guard_update_variables(x,#{x=>old,y=>old}, #{x=>third,y=>old}),
+    fourth = map_guard_update_variables(x,#{x=>old,y=>old}, #{x=>4,y=>new}),
+    ok.
+
+map_guard_update_variables(K,M1,M2) when M1#{K=>first}    =:= M2 -> first;
+map_guard_update_variables(K,M1,M2) when M1#{K=>second}   =:= M2 -> second;
+map_guard_update_variables(K,M1,M2) when M1#{K:=third}    =:= M2 -> third;
+map_guard_update_variables(K,M1,M2) when M1#{K:=4,y=>new} =:= M2 -> fourth;
+map_guard_update_variables(_,_,_) -> error.
+
+t_guard_sequence_variables(Config) when is_list(Config) ->
+    {1,"a"} = map_guard_sequence_var_1(a,#{seq=>1,a=>id("a"),b=>no}),
+    {2,"b"} = map_guard_sequence_var_1(b,#{seq=>2,b=>id("b"),a=>no}),
+    {3,"c"} = map_guard_sequence_var_1(a,#{seq=>3,a=>id("c"),b=>no}),
+    {4,"d"} = map_guard_sequence_var_1(b,#{seq=>4,b=>id("d"),a=>no}),
+    {4,4}   = map_guard_sequence_var_1(seq,#{seq=>4}),
+    {4,4,y} = map_guard_sequence_var_1(seq,#{seq=>4,b=>id("d"),a=>y}),
+    {5,"d"} = map_guard_sequence_var_1(b,#{seq=>5,b=>id("d"),a=>y}),
+
+    %% error case
+    {'EXIT',{{case_clause,_},_}} = (catch map_guard_sequence_var_1("a",#{seq=>4,val=>id("e")})),
+    ok.
+
+
+map_guard_sequence_var_1(K,M) ->
+    case M of
+	#{seq:=1=Seq, K:=Val} -> {Seq,Val};
+	#{seq:=2=Seq, K:=Val} -> {Seq,Val};
+	#{seq:=3=Seq, K:=Val} -> {Seq,Val};
+	#{K:=4=Seq,   K:=Val1,a:=Val2} -> {Seq,Val1,Val2};
+	#{seq:=4=Seq, K:=Val} -> {Seq,Val};
+	#{K:=4=Seq,   K:=Val} -> {Seq,Val};
+	#{seq:=5=Seq, K:=Val} -> {Seq,Val}
+    end.
+
+
+t_guard_sequence_mixed(Config) when is_list(Config) ->
+    M0 = id(#{ a=>1, b=>1, c=>1, d=>1, e=>1, f=>1, g=>1, h=>1 }),
+    M1 = id(M0#{ d := 3 }),
+    1 = map_guard_sequence_mixed(a,d,M1),
+    M2 = id(M1#{ b := 2, d := 4, h := 2 }),
+    2 = map_guard_sequence_mixed(a,d,M2),
+    M3 = id(M2#{ b := 3, e := 5, g := 3 }),
+    3 = map_guard_sequence_mixed(a,e,M3),
+    M4 = id(M3#{ c := 4, e := 6, h := 1 }),
+    4 = map_guard_sequence_mixed(a,e,M4),
+    M5 = id(M4#{ c := 5, f := 7, g := 2 }),
+    5 = map_guard_sequence_mixed(a,f,M5),
+    M6 = id(M5#{ c := 6, f := 8, h := 3 }),
+    6 = map_guard_sequence_mixed(a,f,M6),
+
+    %% error case
+    {'EXIT',{{case_clause,_},_}} = (catch map_guard_sequence_mixed(a,b,M0)),
+    ok.
+
+map_guard_sequence_mixed(K1,K2,M) ->
+    case M of
+	#{ K1 := 1, b := 1, K2 := 3, g := 1} -> 1;
+	#{ K1 := 1, b := 2, K2 := 4, h := 2} -> 2;
+	#{ K1 := 1, b := 3, K2 := 5, g := 3} -> 3;
+	#{ K1 := 1, c := 4, K2 := 6, h := 1} -> 4;
+	#{ K1 := 1, c := 5, K2 := 7, g := 2} -> 5;
+	#{ K1 := 1, c := 6, K2 := 8, h := 3} -> 6
+    end.
+
+
+
+t_frequency_table(Config) when is_list(Config) ->
+    random:seed({13,1337,54}),  % pseudo random
+    N = 100000,
+    Ts = rand_terms(N),
+    #{ n:=N, tf := Tf } = frequency_table(Ts,#{ n=>0, tf => #{}}),
+    ok = check_frequency(Ts,Tf),
+    ok.
+
+
+frequency_table([T|Ts], M) ->
+    case M of
+	#{ n := N, tf := #{ T := C } = F } ->
+	    frequency_table(Ts,M#{ n := N + 1, tf := F#{ T := C + 1 }});
+	#{ n := N, tf := F } ->
+	    frequency_table(Ts,M#{ n := N + 1, tf := F#{ T => 1 }})
+    end;
+frequency_table([], M) -> M.
+
+
+check_frequency(Ts,Tf) ->
+    check_frequency(Ts,Tf,dict:new()).
+
+check_frequency([T|Ts],Tf,D) ->
+    case dict:find(T,D) of
+	error  -> check_frequency(Ts,Tf,dict:store(T,1,D));
+	{ok,C} -> check_frequency(Ts,Tf,dict:store(T,C+1,D))
+    end;
+check_frequency([],Tf,D) ->
+    validate_frequency(dict:to_list(D),Tf).
+
+validate_frequency([{T,C}|Fs],Tf) ->
+    case Tf of
+	#{ T := C } -> validate_frequency(Fs,Tf);
+	_ -> error
+    end;
+validate_frequency([], _) -> ok.
+
+
+%% aux
+
+rand_terms(0) -> [];
+rand_terms(N) -> [rand_term()|rand_terms(N-1)].
+
+rand_term() ->
+    case random:uniform(6) of
+	1 -> rand_binary();
+	2 -> rand_number();
+	3 -> rand_atom();
+	4 -> rand_tuple();
+	5 -> rand_list();
+	6 -> rand_map()
+    end.
+
+rand_binary() ->
+    case random:uniform(3) of
+	1 -> <<>>;
+	2 -> <<"hi">>;
+	3 -> <<"message text larger than 64 bytes. yep, message text larger than 64 bytes.">>
+    end.
+
+rand_number() ->
+    case random:uniform(3) of
+	1 -> random:uniform(5);
+	2 -> float(random:uniform(5));
+	3 -> 1 bsl (63 + random:uniform(3))
+    end.
+
+rand_atom() ->
+    case random:uniform(3) of
+	1 -> hi;
+	2 -> some_atom;
+	3 -> some_other_atom
+    end.
+
+
+rand_tuple() ->
+    case random:uniform(3) of
+	1 -> {ok, rand_term()}; % careful
+	2 -> {1, 2, 3};
+	3 -> {<<"yep">>, 1337}
+    end.
+
+rand_list() ->
+    case random:uniform(3) of
+	1 -> "hi";
+	2 -> [1,rand_term()]; % careful
+	3 -> [improper|list]
+    end.
+
+rand_map() ->
+    case random:uniform(3) of
+	1 -> #{ hi => 3 };
+	2 -> #{ wat => rand_term(), other => 3 };  % careful
+	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }
+    end.
+
+
+t_build_and_match_over_alloc(Config) when is_list(Config) ->
+    Ls = id([1,2,3]),
+    V0 = [a|Ls],
+    M0 = id(#{ "a" => V0 }),
+    #{ "a" := V1 } = M0,
+    V2 = id([c|Ls]),
+    M2 = id(#{ "a" => V2 }),
+    #{ "a" := V3 } = M2,
+    {[a,1,2,3],[c,1,2,3]} = id({V1,V3}),
+    ok.
+
+t_build_and_match_empty_val(Config) when is_list(Config) ->
+    F = fun(#{ "hi":=_,{1,2}:=_,1337:=_}) -> ok end,
+    ok = F(id(#{"hi"=>ok,{1,2}=>ok,1337=>ok})),
+
+    %% error case
+    case (catch (F(id(#{"hi"=>ok})))) of
+	{'EXIT',{function_clause,_}} -> ok;
+	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
+	Other ->
+	    test_server:fail({no_match, Other})
+    end.
+
+t_build_and_match_val(Config) when is_list(Config) ->
+    F = fun
+	(#{ "hi" := first,  v := V}) -> {1,V};
+	(#{ "hi" := second, v := V}) -> {2,V}
+    end,
+
+
+    {1,"hello"}  = F(id(#{"hi"=>first,v=>"hello"})),
+    {2,"second"} = F(id(#{"hi"=>second,v=>"second"})),
+
+    %% error case
+    case (catch (F(id(#{"hi"=>ok})))) of
+	{'EXIT',{function_clause,_}} -> ok;
+	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
+	Other ->
+	    test_server:fail({no_match, Other})
+    end.
+
+t_build_and_match_nil(Config) when is_list(Config) ->
+    %% literals removed the coverage
+    V1 = id(cookie),
+    V2 = id(cake),
+    V3 = id(crisps),
+
+    #{ [] := V1, "treat" := V2, {your,treat} := V3 } = id(#{
+	    {your,treat} => V3,
+	    "treat" => V2, 
+	    [] => V1 }),
+    #{ [] := V3, [] := V3 } = id(#{ [] => V1, [] => V3 }),
+    ok.
+
+t_build_and_match_structure(Config) when is_list(Config) ->
+    V2 = id("it"),
+    S = id([42,{"hi", "=)", #{ "a" => 42, any => any, val => "get_" ++ V2}}]),
+
+    %% match deep map values
+    V2 = case S of
+	[42,{"hi",_, #{ "a" := 42, val := "get_" ++ V1, any := _ }}] -> V1
+    end,
+    %% match deep map
+    ok = case S of
+	[42,{"hi",_, #{ }}] -> ok
+    end,
+    ok.
+
+
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.

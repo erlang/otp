@@ -365,7 +365,7 @@ listings_big(Config) when is_list(Config) ->
     ?line do_listing(Big, TargetDir, dkern, ".kernel"),
 
     ?line Target = filename:join(TargetDir, big),
-    ?line {ok,big} = compile:file(Target, [asm,{outdir,TargetDir}]),
+    {ok,big} = compile:file(Target, [from_asm,{outdir,TargetDir}]),
 
     %% Cleanup.
     ?line ok = file:delete(Target ++ ".beam"),

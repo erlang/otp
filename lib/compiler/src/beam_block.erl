@@ -155,7 +155,8 @@ collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
 collect({get_map_elements,F,S,{list,Gets}}) ->
-    {set,Gets,[S],{get_map_elements,F}};
+    {Ss,Ds} = beam_utils:spliteven(Gets),
+    {set,Ds,[S|Ss],{get_map_elements,F}};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};

@@ -136,7 +136,7 @@
     </c></p>
 
    <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
-      | aes_128_cbc | aes_256_cbc </c></p>
+      | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm </c></p>
 
    <p> <c>hash() = md5 | sha
     </c></p>

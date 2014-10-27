@@ -1172,7 +1172,7 @@ match_tuple([], _, _, Bs, _BBs) ->
 
 match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
     Vm = try
-	{value, Ke, _} = expr(K, new_bindings()),
+	{value, Ke, _} = expr(K, Bs0),
 	maps:get(Ke,Map)
     catch error:_ ->
 	throw(nomatch)

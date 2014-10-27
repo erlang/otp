@@ -106,6 +106,20 @@ simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
 	    Ts = update(I, Ts0),
 	    simplify_basic_1(Is, Ts, [I|Acc])
     end;
+simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	map -> simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
+simplify_basic_1([{test,is_nonempty_list,_,[R]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	nonempty_list -> simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
 simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) ->
     Acc = case tdb_find(R, Ts0) of
 	      {atom,_}=Atom -> Acc0;
@@ -402,6 +416,10 @@ update({test,is_float,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,float}], Ts0);
 update({test,test_arity,_Fail,[Src,Arity]}, Ts0) ->
     tdb_update([{Src,{tuple,Arity,[]}}], Ts0);
+update({test,is_map,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,map}], Ts0);
+update({test,is_nonempty_list,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,nonempty_list}], Ts0);
 update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
     case tdb_find(Reg, Ts) of
 	error ->
@@ -710,6 +728,8 @@ merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
+verify_type(map) -> ok;
+verify_type(nonempty_list) -> ok;
 verify_type({tuple,Sz,[]}) when is_integer(Sz) -> ok;
 verify_type({tuple,Sz,[_]}) when is_integer(Sz) -> ok;
 verify_type({tuple_element,_,_}) -> ok;

@@ -21,7 +21,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "3.0.2"},
+  {vsn, "3.0.3"},
   {modules, [application,
 	     application_controller,
 	     application_master,

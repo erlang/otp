@@ -49,6 +49,9 @@
 #include "beam_bp.h"
 #include "erl_ptab.h"
 #include "erl_check_io.h"
+#ifdef HIPE
+#  include "hipe_mode_switch.h"
+#endif
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD

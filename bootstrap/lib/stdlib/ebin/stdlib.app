@@ -19,7 +19,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "2.1.1"},
+  {vsn, "2.2"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -77,7 +77,6 @@
 	     orddict,
 	     ordsets,
 	     otp_internal,
-	     pg,
 	     pool,
 	     proc_lib,
 	     proplists,

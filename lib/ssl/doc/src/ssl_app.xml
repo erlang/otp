@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -75,10 +75,10 @@
           </p>
       </item>
 
-      <tag><c><![CDATA[session_cb_init_args = list() <optional>]]></c></tag>
+      <tag><c><![CDATA[session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
       <item>
 	<p>
-	  List of arguments to the init function in session cache
+	  List of additional user defined arguments to the init function in session cache
 	  callback module, defaults to [].
 	</p>
       </item>

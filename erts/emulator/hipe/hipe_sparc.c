@@ -204,9 +204,7 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
-void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
+void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 {
     unsigned int *code;
     unsigned int callEmuOffset;
@@ -215,11 +213,11 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
     code = alloc_code(5*sizeof(int));
 
     /* sethi %hi(Address), %i4 */
-    code[0] = 0x39000000 | (((unsigned int)beamAddress >> 10) & 0x3FFFFF);
+    code[0] = 0x39000000 | (((unsigned int)callee_exp >> 10) & 0x3FFFFF);
     /* or %g0, %o7, %i3 ! mov %o7, %i3 */
     code[1] = 0xB610000F;
     /* or %i4, %lo(Address), %i4 */
-    code[2] = 0xB8172000 | ((unsigned int)beamAddress & 0x3FF);
+    code[2] = 0xB8172000 | ((unsigned int)callee_exp & 0x3FF);
     /* call callemu */
     callEmuOffset = (char*)nbif_callemu - (char*)&code[3];
     code[3] = (1 << 30) | ((callEmuOffset >> 2) & 0x3FFFFFFF);

@@ -37,6 +37,7 @@ VSN=$(GS_VSN)
 MODULES = \
 	ssl_test_lib \
 	ssl_basic_SUITE \
+	ssl_bench_SUITE \
 	ssl_cipher_SUITE \
 	ssl_certificate_verify_SUITE\
 	ssl_crl_SUITE\
@@ -130,7 +131,7 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(HRL_FILES_NEEDED_IN_TEST) $(COVER_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DATA) ssl.spec ssl.cover "$(RELSYSDIR)"
+	$(INSTALL_DATA) ssl.spec ssl_bench.spec ssl.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 

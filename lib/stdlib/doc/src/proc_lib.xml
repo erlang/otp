@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -296,6 +296,40 @@ init(Parent) ->
           work as expected when the process wakes up. Always use this
           function instead of the BIF for processes started using
           <c>proc_lib</c> functions.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stop" arity="1"/>
+      <fsummary>Terminate a process synchronously.</fsummary>
+      <type variable="Process"/>
+      <desc>
+	<p>Equivalent to <seealso marker="#stop/3">stop(Process,
+	    normal, infinity)</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="stop" arity="3"/>
+      <fsummary>Terminate a process synchronously.</fsummary>
+      <type variable="Process"/>
+      <type variable="Reason"/>
+      <type variable="Timeout"/>
+      <desc>
+        <p>Orders the process to exit with the given <c>Reason</c> and
+          waits for it to terminate.</p>
+	<p>The function returns <c>ok</c> if the process exits with
+	  the given <c>Reason</c> within <c>Timeout</c>
+	  milliseconds.</p>
+	<p>If the call times out, a <c>timeout</c> exception is
+	  raised.</p>
+	<p>If the process does not exist, a <c>noproc</c>
+	  exception is raised.</p>
+	<p>The implementation of this function is based on the
+	  <c>terminate</c> system message, and requires that the
+	  process handles system messages  correctly.
+	  See <seealso marker="sys">sys(3)</seealso>
+	  and <seealso marker="doc/design_principles:spec_proc">OTP
+	  Design Principles</seealso> for information about system
+	  messages.</p>
       </desc>
     </func>
   </funcs>

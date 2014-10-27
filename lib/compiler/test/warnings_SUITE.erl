@@ -601,7 +601,7 @@ maps(Config) when is_list(Config) ->
            ">>,
            [],
 	   {warnings,[{3,v3_core,bad_map}]}},
-	   {bad_map_literal_key,
+	   {ok_map_literal_key,
            <<"
              t() ->
 		 V = id(1),
@@ -614,7 +614,7 @@ maps(Config) when is_list(Config) ->
 	     id(I) -> I.
            ">>,
            [],
-	   {warnings,[{6,v3_core,nomatch}]}}],
+	   []}],
     run(Config, Ts),
     ok.
 

@@ -1065,8 +1065,8 @@ define etp-cp-1
     set $etp_cp_mid = $etp_cp_low + ($etp_cp_high-$etp_cp_low)/2
   end
   if $etp_cp_p
-    # 12 = MI_FUNCTIONS
-    set $etp_cp_low = (Eterm**)($etp_cp_p->start + 12)
+    # 13 = MI_FUNCTIONS
+    set $etp_cp_low = (Eterm**)($etp_cp_p->start + 13)
     # 0 = MI_NUM_FUNCTIONS
     set $etp_cp_high = $etp_cp_low +$etp_cp_p->start[0]
     set $etp_cp_p = 0
@@ -3481,11 +3481,13 @@ end
 define etp-carrier-blocks
   set $etp_crr = (Carrier_t*) $arg0
   set $etp_alc = (Allctr_t*)($etp_crr->allctr.counter & ~7)
+  set $etp_crr_end = ((char*)$etp_crr + ($etp_crr->chdr & ~7) - (sizeof(void*) & ~8))
   set $etp_blk = (Block_t*) ((char*)$etp_crr + $etp_alc->mbc_header_size)
   set $etp_prev_blk = 0
   set $etp_error_cnt = 0
   set $etp_ablk_cnt = 0
   set $etp_fblk_cnt = 0
+  set $etp_aborted = 0
 
   if $argc == 2
     set $etp_be_silent = $arg1
@@ -3532,14 +3534,21 @@ define etp-carrier-blocks
     end
     set $etp_prev_blk = $etp_blk
     set $etp_blk = (Block_t*) ((char*)$etp_blk + $etp_blk_sz)
+    if $etp_blk < (Block_t*) ((char*)$etp_prev_blk + $etp_alc->min_block_size) || $etp_blk >= $etp_crr_end
+      printf "ERROR: Invalid size of block at %#lx. ABORTING\n", $etp_prev_blk
+      set $etp_aborted = 1
+      loop_break
+    end
   end
 
-  if ((char*)$etp_blk + $etp_blk_sz) != ((char*)$etp_crr + ($etp_crr->chdr & ~7))
-    printf "ERROR: Last block not at end of carrier\n"
-    set $etp_error_cnt = $etp_error_cnt + 1
+  if !$etp_aborted
+    if ((char*)$etp_blk + $etp_blk_sz) != $etp_crr_end
+      printf "ERROR: Last block not at end of carrier\n"
+      set $etp_error_cnt = $etp_error_cnt + 1
+    end
+    printf "Allocated blocks: %u\n", $etp_ablk_cnt
+    printf "Free      blocks: %u\n", $etp_fblk_cnt
   end
-  printf "Allocated blocks: %u\n", $etp_ablk_cnt
-  printf "Free      blocks: %u\n", $etp_fblk_cnt
   if $etp_error_cnt
     printf "%u ERRORs reported above\n", $etp-error-cnt
   end

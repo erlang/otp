@@ -32,7 +32,9 @@
 #include "global.h"
 #include "erl_process.h"
 #include "error.h"
+#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
+#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
@@ -2424,8 +2426,6 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	}
 	cbs->result = erts_bin_nrml_alloc(target_size); /* Always offheap
 							   if trapping */
-	cbs->result->flags = 0;
-	cbs->result->orig_size = target_size;
 	erts_refc_init(&(cbs->result->refc), 1);
 	t = (byte *) cbs->result->orig_bytes; /* No offset or anything */
 	pos = 0;

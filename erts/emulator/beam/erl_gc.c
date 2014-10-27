@@ -20,6 +20,8 @@
 #  include "config.h"
 #endif
 
+#define ERL_WANT_GC_INTERNALS__
+
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
@@ -2400,7 +2402,6 @@ sweep_off_heap(Process *p, int fullsweep)
 		}
 
 		pb->val = erts_bin_realloc(pb->val, new_size);
-		pb->val->orig_size = new_size;
 		pb->bytes = (byte *) pb->val->orig_bytes;
 	    }
 	}

@@ -86,9 +86,9 @@ aes_decipher_good(Config) when is_list(Config) ->
     Content = <<183,139,16,132,10,209,67,86,168,100,61,217,145,57,36,56, "HELLO\n">>,
     Mac = <<71,136,212,107,223,200,70,232,127,116,148,205,232,35,158,113,237,174,15,217,192,168,35,8,6,107,107,233,25,174,90,111>>,
     Version = {3,0},
-    {Content, Mac, _} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+    {Content, Mac, _} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version),
     Version1 = {3,1},
-    {Content, Mac, _} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version1),
+    {Content, Mac, _} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version1),
     ok.
 
 %%--------------------------------------------------------------------
@@ -110,9 +110,9 @@ aes_decipher_good_tls11(Config) when is_list(Config) ->
     NextIV = <<183,139,16,132,10,209,67,86,168,100,61,217,145,57,36,56>>,
     Mac = <<71,136,212,107,223,200,70,232,127,116,148,205,232,35,158,113,237,174,15,217,192,168,35,8,6,107,107,233,25,174,90,111>>,
     Version = {3,2},
-    {Content, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+    {Content, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version),
     Version1 = {3,2},
-    {Content, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version1),
+    {Content, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version1),
     ok.
 
 %%--------------------------------------------------------------------
@@ -130,11 +130,11 @@ aes_decipher_fail(Config) when is_list(Config) ->
 		 198,181,81,19,98,162,213,228,74,224,253,168,156,59,195,122,
 		 108,101,107,242,20,15,169,150,163,107,101,94,93,104,241,165>>,
     Version = {3,0},
-    {Content, Mac, _} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+    {Content, Mac, _} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version),
     32 = byte_size(Content),
     32 = byte_size(Mac),
     Version1 = {3,1},
-    {Content1, Mac1, _} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version1),
+    {Content1, Mac1, _} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version1),
     32 = byte_size(Content1),
     32 = byte_size(Mac1),
     ok.
@@ -156,10 +156,10 @@ aes_decipher_fail_tls11(Config) when is_list(Config) ->
 		 108,101,107,242,20,15,169,150,163,107,101,94,93,104,241,165>>,
     Version = {3,2},
     #alert{level = ?FATAL, description = ?BAD_RECORD_MAC} =
-	ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version),
     Version1 = {3,3},
     #alert{level = ?FATAL, description = ?BAD_RECORD_MAC} =
-	ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version1),
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, Fragment, Version1),
     ok.
 
 %%--------------------------------------------------------------------
