@@ -54,7 +54,7 @@ do_init(Config) ->
     %% Setup sizers
     MainSizer = wxBoxSizer:new(?wxVERTICAL),
     Sizer = wxStaticBoxSizer:new(?wxVERTICAL, Panel, 
-				 [{label, "wxGrapicsContext"}]),
+				 [{label, "wxGraphicsContext"}]),
 
     Win = wxPanel:new(Panel, []),
     Pen = ?wxBLACK_PEN,
