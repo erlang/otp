@@ -1733,7 +1733,7 @@ int enif_get_map_value(ErlNifEnv* env,
 		       Eterm key,
 		       Eterm *value)
 {
-    Eterm *ret;
+    const Eterm *ret;
     if (is_not_map(map)) {
 	return 0;
     }
