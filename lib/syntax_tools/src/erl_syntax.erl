@@ -669,6 +669,9 @@ is_leaf(Node) ->
 	operator -> true;	% nonstandard type
 	string -> true;
 	text -> true;		% nonstandard type
+	map_expr ->
+	    map_expr_fields(Node) =:= [] andalso
+	    map_expr_argument(Node) =:= none;
 	tuple -> tuple_elements(Node) =:= [];
 	underscore -> true;
 	variable -> true;
@@ -6093,6 +6096,9 @@ abstract([]) ->
     nil();
 abstract(T) when is_tuple(T) ->
     tuple(abstract_list(tuple_to_list(T)));
+abstract(T) when is_map(T) ->
+    map_expr([map_field_assoc(abstract(Key),abstract(Value))
+	      || {Key,Value} <- maps:to_list(T)]);
 abstract(T) when is_binary(T) ->
     binary([binary_field(integer(B)) || B <- binary_to_list(T)]);
 abstract(T) ->
@@ -6154,6 +6160,14 @@ concrete(Node) ->
 	     | concrete(list_tail(Node))];
 	tuple ->
 	    list_to_tuple(concrete_list(tuple_elements(Node)));
+	map_expr ->
+	    As = [tuple([map_field_assoc_name(F),
+			 map_field_assoc_value(F)]) || F <- map_expr_fields(Node)],
+	    M0 = maps:from_list(concrete_list(As)),
+	    case map_expr_argument(Node) of
+		none  -> M0;
+		Node0 -> maps:merge(concrete(Node0),M0)
+	    end;
 	binary ->
 	    Fs = [revert_binary_field(
 		    binary_field(binary_field_body(F),
@@ -6209,10 +6223,31 @@ is_literal(T) ->
 	    is_literal(list_head(T)) andalso is_literal(list_tail(T));
 	tuple ->
 	    lists:all(fun is_literal/1, tuple_elements(T));
+	map_expr ->
+	    case map_expr_argument(T) of
+		none -> true;
+		Arg  -> is_literal(Arg)
+	    end andalso lists:all(fun is_literal_map_field/1, map_expr_fields(T));
+	binary ->
+	    lists:all(fun is_literal_binary_field/1, binary_fields(T));
 	_ ->
 	    false
     end.
 
+is_literal_binary_field(F) ->
+    case binary_field_types(F) of
+	[] -> is_literal(binary_field_body(F));
+	_  -> false
+    end.
+
+is_literal_map_field(F) ->
+    case type(F) of
+	map_field_assoc ->
+	    is_literal(map_field_assoc_name(F)) andalso
+	    is_literal(map_field_assoc_value(F));
+	map_field_exact ->
+	    false
+    end.
 
 %% =====================================================================
 %% @doc Returns an `erl_parse'-compatible representation of a

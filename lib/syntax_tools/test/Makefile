@@ -61,5 +61,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) syntax_tools.spec syntax_tools.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
