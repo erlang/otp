@@ -112,16 +112,22 @@ NO_INLINE_FUNCTIONS=true
 else
 
 ifeq ($(TYPE),lcnt)
-PURIFY = 
+PURIFY =
 TYPEMARKER = .lcnt
 TYPE_FLAGS = @CFLAGS@ -DERTS_ENABLE_LOCK_COUNT
 else
 
 ifeq ($(TYPE),frmptr)
-PURIFY = 
+PURIFY =
 OMIT_OMIT_FP=yes
 TYPEMARKER = .frmptr
 TYPE_FLAGS = @CFLAGS@ -DERTS_FRMPTR
+else
+
+ifeq ($(TYPE),icount)
+PURIFY =
+TYPEMARKER = .icount
+TYPE_FLAGS = @CFLAGS@ -DERTS_OPCODE_COUNTER_SUPPORT
 else
 
 # If type isn't one of the above, it *is* opt type...
@@ -129,6 +135,7 @@ override TYPE=opt
 PURIFY =
 TYPEMARKER =
 TYPE_FLAGS = @CFLAGS@
+endif
 endif
 endif
 endif

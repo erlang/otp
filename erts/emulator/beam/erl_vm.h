@@ -20,8 +20,6 @@
 #ifndef __ERL_VM_H__
 #define __ERL_VM_H__
 
-/* #define ERTS_OPCODE_COUNTER_SUPPORT */
-
 /* FORCE_HEAP_FRAGS:
  * Debug provocation to make HAlloc always create heap fragments (if allowed)
  * even if there is room on heap.

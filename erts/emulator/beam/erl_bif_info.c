@@ -115,6 +115,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef ERTS_ENABLE_LOCK_COUNT
 				     " [lock-counting]"
 #endif
+#ifdef ERTS_OPCODE_COUNTER_SUPPORT
+				     " [instruction-counting]"
+#endif
 #ifdef PURIFY
 				     " [purify-compiled]"
 #endif	
@@ -2300,7 +2303,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	for (i = num_instructions-1; i >= 0; i--) {
 	    res = erts_bld_cons(hpp, hszp,
 				erts_bld_tuple(hpp, hszp, 2,
-					       erts_atom_put(opc[i].name,
+					       erts_atom_put((byte *)opc[i].name,
 							     strlen(opc[i].name),
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
