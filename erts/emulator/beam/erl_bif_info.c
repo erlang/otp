@@ -90,7 +90,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [smp:%beu:%beu]"
 #endif
 #ifdef USE_THREADS
-#ifdef ERTS_DIRTY_SCHEDULERS
+#if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
 				     " [ds:%beu:%beu:%beu]"
 #endif
 				     " [async-threads:%d]"
