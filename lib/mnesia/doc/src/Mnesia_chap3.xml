@@ -152,7 +152,7 @@ Transformer =
             <c>ignore</c>, it indicates that only the meta data about the table will
             be updated. Usage of <c>ignore</c> is not recommended (since it creates
             inconsistencies between the meta data and the actual data) but included
-            as a possibility for the user do to his own (off-line) transform.</p>
+            as a possibility for the user to do his own (off-line) transform.</p>
         </item>
         <item><c>change_table_copy_type(Tab, Node, ToType)</c>. This
          function changes the storage type of a table. For example, a
