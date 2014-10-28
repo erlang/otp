@@ -29,9 +29,14 @@
 #if defined (__GNUC__)
 int _finite(double x);
 #endif
-#ifndef finite
-#define finite _finite
+#ifndef isfinite
+#define isfinite _finite
 #endif
+#elif !defined(HAVE_ISFINITE) && defined(HAVE_FINITE)
+/* If not windows and we do not have isfinite */
+#define isfinite finite
+#elif !defined(HAVE_ISFINITE)
+# error "No finite function found!"
 #endif
 #include "erl_driver.h"
 
@@ -79,21 +84,21 @@ do_test(void *unused)
     x = 3.23e133;
     y = 3.57e257;
     z = x*y;
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (1)";
 
     x = 5.0;
     y = 0.0;
     z = x/y;
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (2)";
 
     z = log(-1.0);
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (3)";
 
     z = log(0.0);
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (4)";
 
     return "ok";
