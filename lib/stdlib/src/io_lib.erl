@@ -296,8 +296,8 @@ write(T, D) when is_tuple(T) ->
               write_tail(tl(tuple_to_list(T)), D-1, $,)],
 	     $}]
     end;
-%write(Term, D)  when is_map(Term) -> write_map(Term, D);
-write(Term, D) -> write_map(Term, D).
+write(Term, D) when is_map(Term) -> write_map(Term, D);
+write(Term, D) -> write_hashmap(Term, D).
 
 %% write_tail(List, Depth, CharacterBeforeDots)
 %%  Test the terminating case first as this looks better with depth.
@@ -314,6 +314,9 @@ write_port(Port) ->
 
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
+
+write_hashmap(Map,D) ->
+    ["#{", write_map_body(hashmap:to_list(Map),D), $}].
 
 write_map(Map, D) when is_integer(D) ->
     [$#,${,write_map_body(maps:to_list(Map), D),$}].
