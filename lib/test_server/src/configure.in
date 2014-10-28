@@ -360,6 +360,22 @@ AC_HAVE_LIBRARY(resolv)
 AC_CHECK_LIB(resolv, res_gethostbyname,[DEFS="$DEFS -DHAVE_RES_GETHOSTBYNAME=1"])
 
 #--------------------------------------------------------------------
+# Check for isfinite
+#--------------------------------------------------------------------
+
+AC_MSG_CHECKING([for isfinite])
+AC_TRY_COMPILE([#include <math.h>],
+               [isfinite(0);], have_isfinite=yes, have_isfinite=no),
+
+if test $have_isfinite = yes; then
+    DEFS="$DEFS -DHAVE_ISFINITE=1"
+    AC_MSG_RESULT(yes)
+else
+    DEFS="$DEFS -DHAVE_FINITE=1"
+    AC_MSG_RESULT(no)
+fi
+
+#--------------------------------------------------------------------
 # Emulator compatible flags (for drivers)
 #--------------------------------------------------------------------
 

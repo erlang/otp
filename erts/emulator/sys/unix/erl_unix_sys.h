@@ -227,8 +227,13 @@ extern void sys_stop_cat(void);
  */
 
 #ifdef USE_ISINF_ISNAN		/* simulate finite() */
-#  define finite(f) (!isinf(f) && !isnan(f))
-#  define HAVE_FINITE
+#  define isfinite(f) (!isinf(f) && !isnan(f))
+#  define HAVE_ISFINITE
+#elif defined(isfinite) && !defined(HAVE_ISFINITE)
+#  define HAVE_ISFINITE
+#elif !defined(HAVE_ISFINITE) && defined(HAVE_FINITE)
+#  define isfinite finite
+#  define HAVE_ISFINITE
 #endif
 
 #ifdef NO_FPE_SIGNALS
@@ -238,7 +243,7 @@ extern void sys_stop_cat(void);
 #define erts_thread_init_fp_exception() do{}while(0)
 #endif
 #  define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
-#  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!finite(f)) { Action; } else {}
+#  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!isfinite(f)) { Action; } else {}
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) __ERTS_FP_ERROR(fpexnp, f, Action)
 #  define __ERTS_SAVE_FP_EXCEPTION(fpexnp)
 #  define __ERTS_RESTORE_FP_EXCEPTION(fpexnp)
@@ -302,7 +307,7 @@ static __inline__ void __ERTS_FP_CHECK_INIT(volatile unsigned long *fp_exception
       code to always throw floating-point exceptions on errors. */
 static __inline__ int erts_check_fpe_thorough(volatile unsigned long *fp_exception, double f)
 {
-    return erts_check_fpe(fp_exception, f) || !finite(f);
+    return erts_check_fpe(fp_exception, f) || !isfinite(f);
 }
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) \
   do { if (erts_check_fpe_thorough((fpexnp),(f))) { Action; } } while (0)

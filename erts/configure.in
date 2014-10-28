@@ -2109,6 +2109,17 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall])
 
+AC_MSG_CHECKING([for isfinite])
+AC_TRY_COMPILE([#include <math.h>],
+               [isfinite(0);], have_isfinite=yes, have_isfinite=no),
+
+if test $have_isfinite = yes; then
+    AC_DEFINE(HAVE_ISFINITE,[1],
+              [Define to 1 if you have the `isfinite' function.])
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+fi
 
 case X$erl_xcomp_posix_memalign in
      Xno) ;;
@@ -4817,7 +4828,7 @@ AH_BOTTOM([
 #define HAVE_GETHRVTIME
 #endif
 
-#ifndef HAVE_FINITE
+#if !defined(HAVE_ISFINITE) && !defined(HAVE_FINITE)
 # if defined(HAVE_ISINF) && defined(HAVE_ISNAN)
 #  define USE_ISINF_ISNAN
 # endif
