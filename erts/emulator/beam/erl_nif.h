@@ -241,21 +241,10 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  else
 #    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
 #  endif
-#  ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#    define ERL_NIF_INIT_BODY do {					\
-	memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks)); \
-	entry.options = ERL_NIF_DIRTY_NIF_OPTION;			\
-     } while(0)
-#  else
-#    define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
-#  endif
+#  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
 #else 
 #  define ERL_NIF_INIT_GLOB
-#  ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#    define ERL_NIF_INIT_BODY entry.options = ERL_NIF_DIRTY_NIF_OPTION
-#  else
-#    define ERL_NIF_INIT_BODY
-#  endif
+#  define ERL_NIF_INIT_BODY
 #  ifdef STATIC_ERLANG_NIF
 #    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* MODNAME ## _nif_init(void)
 #  else
@@ -263,6 +252,11 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  endif
 #endif
 
+#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+#  define ERL_NIF_ENTRY_OPTIONS ERL_NIF_DIRTY_NIF_OPTION
+#else
+#  define ERL_NIF_ENTRY_OPTIONS 0
+#endif
 
 #ifdef __cplusplus
 }
@@ -288,7 +282,8 @@ ERL_NIF_INIT_DECL(NAME)			\
 	sizeof(FUNCS) / sizeof(*FUNCS),	\
 	FUNCS,				\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
-	ERL_NIF_VM_VARIANT		\
+	ERL_NIF_VM_VARIANT,		\
+	ERL_NIF_ENTRY_OPTIONS		\
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\
