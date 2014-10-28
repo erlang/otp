@@ -761,30 +761,19 @@ check_object(_S,ObjDef,ObjSpec) when (ObjDef#typedef.checked == true) ->
     ObjSpec;
 check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
     ?dbg("check_object ~p~n",[ObjectDef]),
-%%    io:format("check_object,object: ~p~n",[ObjectDef]),
-%    {MName,_ClassDef} = get_referenced_type(S,ClassRef),
-    NewClassRef = check_externaltypereference(S,ClassRef),
-    ClassDef =
-	case get_referenced_type(S,ClassRef) of
-	    {MName,ClDef=#classdef{checked=false}} ->
-		NewState = update_state(S#state{type=ClDef,
-				   tname=ClassRef#'Externaltypereference'.type},MName),
-		ObjClass= 
-		    check_class(NewState,ClDef),
-		#classdef{checked=true,
-			  typespec=ObjClass};
-	    {_,_ClDef} when is_record(_ClDef,classdef) ->		
-		_ClDef;
-	    {MName,_TDef=#typedef{checked=false,pos=Pos,
-				   name=_TName,typespec=TS}} ->
-		ClDef = #classdef{pos=Pos,name=_TName,typespec=TS},
-		NewState = update_state(S#state{type=_TDef,
-			tname=ClassRef#'Externaltypereference'.type},MName),	   
-		ObjClass =
-		    check_class(NewState,ClDef),
-		ClDef#classdef{checked=true,typespec=ObjClass};
-	    {_,_ClDef} ->
-		_ClDef
+    _ = check_externaltypereference(S,ClassRef),
+    {ClassDef, NewClassRef} =
+	case get_referenced_type(S, ClassRef, true) of
+	    {MName,#classdef{checked=false, name=CLName}=ClDef} ->
+		Type = ClassRef#'Externaltypereference'.type,
+		NewState = update_state(S#state{type=ClDef, tname=Type}, MName),
+		ObjClass = check_class(NewState, ClDef),
+		{ClDef#classdef{checked=true, typespec=ObjClass},
+		 #'Externaltypereference'{module=MName, type=CLName}};
+	    {MName,#classdef{name=CLName}=ClDef} ->
+		{ClDef, #'Externaltypereference'{module=MName, type=CLName}};
+	    _ ->
+		asn1_error(S, illegal_object)
 	end,
     NewObj =
 	case ObjectDef of
@@ -809,8 +798,8 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 		NewSettingList = check_objectdefn(S, Def, ClassDef),
 		#'Object'{def=NewSettingList}
 	end,
-    Gen = gen_incl(S,NewObj#'Object'.def,
-		   (ClassDef#classdef.typespec)#objectclass.fields),
+    Fields = (ClassDef#classdef.typespec)#objectclass.fields,
+    Gen = gen_incl(S,NewObj#'Object'.def, Fields),
     NewObj#'Object'{classname=NewClassRef,gen=Gen};
 
 

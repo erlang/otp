@@ -46,6 +46,10 @@ main(Rules) ->
     roundtrip('AnAlgorithm', {'AnAlgorithm',1,42}),
     roundtrip('AnAlgorithm', {'AnAlgorithm',2,true}),
     roundtrip('AnAlgorithm', {'AnAlgorithm',2,false}),
+
+    roundtrip('Seq', {'Seq',
+		      {'Seq_c1',{2,1,1},42},
+		      {'Seq_c2',{2,1,1,1},asn1_NOVALUE}}),
     ok.
 
 roundtrip(Type, Value) ->

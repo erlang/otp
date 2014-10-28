@@ -42,4 +42,23 @@ SIGNATURE-ALGORITHM ::= CLASS {
     KEY &id CONTAINING &Type
 }
 
+--
+-- Test that indirect classes references are resolved.
+--
+
+AlgorithmIdentifier2 { ALGORITHM-IDENTIFIER:InfoObjectSet } ::= SEQUENCE {
+  algorithm ALGORITHM-IDENTIFIER.&id({InfoObjectSet}),
+  parameters ALGORITHM-IDENTIFIER.&Type({InfoObjectSet} {@algorithm}) OPTIONAL
+}
+
+ALGORITHM-IDENTIFIER ::= TYPE-IDENTIFIER
+
+Seq ::= SEQUENCE {
+  c1 AlgorithmIdentifier2 {{ObjectSet-1}},
+  c2 AlgorithmIdentifier2 {{ObjectSet-2}}
+}
+
+ObjectSet-1 ALGORITHM-IDENTIFIER ::= { {INTEGER IDENTIFIED BY {2 1 1}}, ... }
+ObjectSet-2 ALGORITHM-IDENTIFIER ::= { ... }
+
 END
