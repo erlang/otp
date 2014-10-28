@@ -1954,10 +1954,16 @@ int enif_get_map_value(ErlNifEnv* env,
 		       Eterm key,
 		       Eterm *value)
 {
+    const Eterm *ret;
     if (is_not_map(map)) {
 	return 0;
     }
-    return erts_maps_get(key, map, value);
+    ret = erts_maps_get(key, map);
+    if (ret) {
+        *value = *ret;
+        return 1;
+    }
+    return 0;
 }
 
 int enif_make_map_update(ErlNifEnv* env,

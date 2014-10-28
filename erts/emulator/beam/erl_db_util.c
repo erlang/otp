@@ -198,11 +198,6 @@ set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
     return ret;
 }
 
-
-/* Type checking... */
-
-#define BOXED_IS_TUPLE(Boxed) is_arity_value(*boxed_val((Boxed)))
-
 /*
 **
 ** Types and enum's (compiled matches)
@@ -218,6 +213,8 @@ typedef enum {
     matchTuple,
     matchPushT,
     matchPushL,
+    matchPushM,
+    matchPushK,
     matchPop,
     matchBind,
     matchCmp,
@@ -227,11 +224,13 @@ typedef enum {
     matchEqRef,
     matchEq,
     matchList,
+    matchMap,
     matchSkip,
     matchPushC,
     matchConsA, /* Car is below Cdr */
     matchConsB, /* Cdr is below Car (unusual) */
     matchMkTuple,
+    matchMkMap,
     matchCall0,
     matchCall1,
     matchCall2,
@@ -856,6 +855,13 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info);
 static Uint my_size_object(Eterm t);
 static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap);
 
+/* Guard subroutines */
+static void
+dmc_rearrange_constants(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
+                        int textpos, Eterm *p, Uint nelems);
+static DMCRet
+dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+          Eterm *p, Uint nelems, int *constant);
 /* Guard compilation */
 static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 			     Eterm t);
@@ -869,6 +875,9 @@ static DMCRet dmc_tuple(DMCContext *context,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant);
+static DMCRet
+dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+        Eterm t, int *constant);
 static DMCRet dmc_variable(DMCContext *context,
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(UWord) *text,
@@ -888,12 +897,14 @@ static DMCRet compile_guard_expr(DMCContext *context,
 				    DMCHeap *heap,
 				    DMC_STACK_TYPE(UWord) *text,
 				    Eterm t);
-/* match expression subroutine */
+/* match expression subroutines */
 static DMCRet dmc_one_term(DMCContext *context, 
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(Eterm) *stack,
 			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm c);
+static Eterm
+dmc_private_copy(DMCContext *context, Eterm c);
 
 
 #ifdef DMC_DEBUG
@@ -1364,7 +1375,51 @@ restart:
 	for (;;) {
 	    switch (t & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_BOXED:
-		if (!BOXED_IS_TUPLE(t)) {
+                if (is_map(t)) {
+                    num_iters = map_get_size(map_val(t));
+                    if (!structure_checked) {
+                        DMC_PUSH(text, matchMap);
+                        DMC_PUSH(text, num_iters);
+                    }
+                    structure_checked = 0;
+                    for (i = 0; i < num_iters; ++i) {
+                        Eterm key = map_get_keys(map_val(t))[i];
+                        if (db_is_variable(key) >= 0) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                            "Variable found in map key.",
+                                            -1, 0UL, dmcError);
+                            }
+                            goto error;
+                        } else if (key == am_Underscore) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                            "Underscore found in map key.",
+                                            -1, 0UL, dmcError);
+                            }
+                            goto error;
+                        }
+                        DMC_PUSH(text, matchPushK);
+                        ++(context.stack_used);
+                        DMC_PUSH(text, dmc_private_copy(&context, key));
+                    }
+                    if (context.stack_used > context.stack_need) {
+                        context.stack_need = context.stack_used;
+                    }
+                    for (i = num_iters; i--; ) {
+                        Eterm value = map_get_values(map_val(t))[i];
+                        DMC_PUSH(text, matchPop);
+                        --(context.stack_used);
+                        res = dmc_one_term(&context, &heap, &stack, &text,
+                                           value);
+                        ASSERT(res != retFail);
+                        if (res == retRestart) {
+                            goto restart;
+                        }
+                    }
+                    break;
+                }
+		if (!is_tuple(t)) {
 		    goto simple_term;
 		}
 		num_iters = arityval(*tuple_val(t));
@@ -1715,10 +1770,8 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 		    Uint32 *return_flags)
 {
     MatchProg *prog = Binary2MatchProg(bprog);
-    Eterm *ep;
-    Eterm *tp;
+    const Eterm *ep, *tp, **sp;
     Eterm t;
-    Eterm **sp;
     Eterm *esp;
     MatchVariable* variables;
     BeamInstr *cp;
@@ -1808,7 +1861,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 restart:
     ep = &term;
     esp = (Eterm*)((char*)mpsp->u.heap + prog->stack_offset);
-    sp = (Eterm **) esp;
+    sp = (const Eterm **)esp;
     ret = am_true;
     do_catch = 0;
     fail_label = -1;
@@ -1887,6 +1940,34 @@ restart:
 	    *sp++ = list_val_rel(*ep,base);
 	    ++ep;
 	    break;
+        case matchMap:
+            if (!is_map_rel(*ep, base)) {
+                FAIL();
+            }
+            n = *pc++;
+            if (map_get_size(map_val_rel(*ep, base)) < n) {
+                FAIL();
+            }
+            ep = map_val_rel(*ep, base);
+            break;
+        case matchPushM:
+            if (!is_map_rel(*ep, base)) {
+                FAIL();
+            }
+            n = *pc++;
+            if (map_get_size(map_val_rel(*ep, base)) < n) {
+                FAIL();
+            }
+            *sp++ = map_val_rel(*ep++, base);
+            break;
+        case matchPushK:
+            t = (Eterm) *pc++;
+            tp = erts_maps_get_rel(t, make_map_rel(ep, base), base);
+            if (!tp) {
+                FAIL();
+            }
+            *sp++ = tp;
+            break;
 	case matchPop:
 	    ep = *(--sp);
 	    break;
@@ -1987,6 +2068,23 @@ restart:
 	    }
 	    *esp++ = t;
 	    break;
+        case matchMkMap:
+            n = *pc++;
+            ehp = HAllocX(build_proc, 1 + MAP_HEADER_SIZE + n, HEAP_XTRA);
+            t = *ehp++ = *--esp;
+            {
+                map_t *m = (map_t *)ehp;
+                m->thing_word = MAP_HEADER;
+                m->size = n;
+                m->keys = t;
+            }
+            t = make_map(ehp);
+            ehp += MAP_HEADER_SIZE;
+            while (n--) {
+                *ehp++ = *--esp;
+            }
+            *esp++ = t;
+            break;
 	case matchCall0:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
 	    t = (*bif)(build_proc, bif_args);
@@ -3168,7 +3266,7 @@ int db_has_variable(Eterm obj)
 	return(db_has_variable(obj));  /* Non wellformed list or [] */
     }
     case TAG_PRIMARY_BOXED: 
-	if (!BOXED_IS_TUPLE(obj)) {
+	if (!is_tuple(obj)) {
 	    return 0;
 	} else {
 	    Eterm *tuple = tuple_val(obj);
@@ -3243,7 +3341,6 @@ static DMCRet dmc_one_term(DMCContext *context,
 {
     Sint n;
     Eterm *hp;
-    ErlHeapFragment *tmp_mb;
     Uint sz, sz2, sz3;
     Uint i, j;
 
@@ -3334,6 +3431,13 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*text, n);
 	    DMC_PUSH(*stack, c);
 	    break;
+        case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):
+            n = map_get_size(map_val(c));
+            DMC_PUSH(*text, matchPushM);
+            ++(context->stack_used);
+            DMC_PUSH(*text, n);
+            DMC_PUSH(*stack, c);
+            break;
 	case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
 	{
 	    Eterm* ref_val = internal_ref_val(c);
@@ -3415,16 +3519,8 @@ static DMCRet dmc_one_term(DMCContext *context,
 #endif
 	    break;
 	default: /* BINARY, FUN, VECTOR, or EXTERNAL */
-	    /*
-	    ** Make a private copy...
-	    */
-	    n = size_object(c);
-	    tmp_mb = new_message_buffer(n);
-	    hp = tmp_mb->mem;
 	    DMC_PUSH(*text, matchEqBin);
-	    DMC_PUSH(*text, copy_struct(c, n, &hp, &(tmp_mb->off_heap)));
-	    tmp_mb->next = context->save;
-	    context->save = tmp_mb;
+            DMC_PUSH(*text, dmc_private_copy(context, c));
 	    break;
 	}
 	break;
@@ -3434,6 +3530,22 @@ static DMCRet dmc_one_term(DMCContext *context,
 		 "Bad object on heap: 0x%bex\n", c);
     }
     return retOk;
+}
+
+/*
+** Make a private copy of a term in a context.
+*/
+
+static Eterm
+dmc_private_copy(DMCContext *context, Eterm c)
+{
+    Uint n = size_object(c);
+    ErlHeapFragment *tmp_mb = new_message_buffer(n);
+    Eterm *hp = tmp_mb->mem;
+    Eterm copy = copy_struct(c, n, &hp, &(tmp_mb->off_heap));
+    tmp_mb->next = context->save;
+    context->save = tmp_mb;
+    return copy;
 }
 
 /*
@@ -3527,61 +3639,112 @@ static DMCRet dmc_list(DMCContext *context,
     return retOk;
 }
 
-static DMCRet dmc_tuple(DMCContext *context,
-		       DMCHeap *heap,
-		       DMC_STACK_TYPE(UWord) *text,
-		       Eterm t,
-		       int *constant)
+static void
+dmc_rearrange_constants(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
+                        int textpos, Eterm *p, Uint nelems)
 {
     DMC_STACK_TYPE(UWord) instr_save;
+    Uint i;
+
+    DMC_INIT_STACK(instr_save);
+    while (DMC_STACK_NUM(*text) > textpos) {
+        DMC_PUSH(instr_save, DMC_POP(*text));
+    }
+    for (i = nelems; i--;) {
+        do_emit_constant(context, text, p[i]);
+    }
+    while(!DMC_EMPTY(instr_save)) {
+        DMC_PUSH(*text, DMC_POP(instr_save));
+    }
+    DMC_FREE(instr_save);
+}
+
+static DMCRet
+dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+          Eterm *p, Uint nelems, int *constant)
+{
     int all_constant = 1;
     int textpos = DMC_STACK_NUM(*text);
-    Eterm *p = tuple_val(t);
-    Uint nelems = arityval(*p);
     Uint i;
-    int c;
-    DMCRet ret;
 
     /*
-    ** We remember where we started to layout code, 
+    ** We remember where we started to layout code,
     ** assume all is constant and back up and restart if not so.
-    ** The tuple should be laid out with the last element first,
-    ** so we can memcpy the tuple to the eheap.
+    ** The array should be laid out with the last element first,
+    ** so we can memcpy it to the eheap.
     */
-    for (i = nelems; i > 0; --i) {
-	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
-	    return ret;
-	if (!c && all_constant) {
-	    all_constant = 0;
-	    if (i < nelems) {
-		Uint j;
+    for (i = nelems; i--;) {
+        DMCRet ret;
+        int c;
 
-		/*
-		 * Oops, we need to relayout the constants.
-		 * Save the already laid out instructions.
-		 */
-		DMC_INIT_STACK(instr_save);
-		while (DMC_STACK_NUM(*text) > textpos) 
-		    DMC_PUSH(instr_save, DMC_POP(*text));
-		for (j = nelems; j > i; --j)
-		    do_emit_constant(context, text, p[j]);
-		while(!DMC_EMPTY(instr_save))
-		    DMC_PUSH(*text, DMC_POP(instr_save));
-		DMC_FREE(instr_save);
-	    }
-	} else if (c && !all_constant) {
-	    /* push a constant */
-	    do_emit_constant(context, text, p[i]);
-	}
+        ret = dmc_expr(context, heap, text, p[i], &c);
+        if (ret != retOk) {
+            return ret;
+        }
+        if (!c && all_constant) {
+            all_constant = 0;
+            if (i < nelems - 1) {
+                dmc_rearrange_constants(context, text, textpos,
+                                        p + i + 1, nelems - i - 1);
+            }
+        } else if (c && !all_constant) {
+            do_emit_constant(context, text, p[i]);
+        }
     }
-    
+    *constant = all_constant;
+    return retOk;
+}
+
+static DMCRet
+dmc_tuple(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+          Eterm t, int *constant)
+{
+    int all_constant;
+    Eterm *p = tuple_val(t);
+    Uint nelems = arityval(*p);
+    DMCRet ret;
+
+    ret = dmc_array(context, heap, text, p + 1, nelems, &all_constant);
+    if (ret != retOk) {
+        return ret;
+    }
     if (all_constant) {
-	*constant = 1;
-	return retOk;
+        *constant = 1;
+        return retOk;
     }
     DMC_PUSH(*text, matchMkTuple);
     DMC_PUSH(*text, nelems);
     context->stack_used -= (nelems - 1);
+    *constant = 0;
+    return retOk;
+}
+
+static DMCRet
+dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+        Eterm t, int *constant)
+{
+    map_t *m = (map_t *)map_val(t);
+    Eterm *values = map_get_values(m);
+    int nelems = map_get_size(m);
+    int constant_values;
+    DMCRet ret;
+
+    ret = dmc_array(context, heap, text, values, nelems, &constant_values);
+    if (ret != retOk) {
+        return ret;
+    }
+    if (constant_values) {
+        *constant = 1;
+        return retOk;
+    }
+    DMC_PUSH(*text, matchPushC);
+    DMC_PUSH(*text, dmc_private_copy(context, m->keys));
+    if (++context->stack_used > context->stack_need) {
+        context->stack_need = context->stack_used;
+    }
+    DMC_PUSH(*text, matchMkMap);
+    DMC_PUSH(*text, nelems);
+    context->stack_used -= nelems;
     *constant = 0;
     return retOk;
 }
@@ -4580,7 +4743,10 @@ static DMCRet dmc_expr(DMCContext *context,
 	    return ret;
 	break;
     case TAG_PRIMARY_BOXED:
-	if (!BOXED_IS_TUPLE(t)) {
+        if (is_map(t)) {
+            return dmc_map(context, heap, text, t, constant);
+        }
+	if (!is_tuple(t)) {
 	    goto simple_term;
 	}
 	p = tuple_val(t);
@@ -4855,7 +5021,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 	*hp += 2;
 	break;
     case TAG_PRIMARY_BOXED:
-	if (BOXED_IS_TUPLE(t)) {
+	if (is_tuple(t)) {
 	    if (arityval(*tuple_val(t)) == 1 && 
 		is_tuple(a = tuple_val(t)[1])) {
 		Uint i,n;
@@ -5126,6 +5292,12 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("Tuple\t%beu\n", n);
 	    break;
+        case matchMap:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("Map\t%beu\n", n);
+            break;
 	case matchPushT:
 	    ++t;
 	    n = *t;
@@ -5136,6 +5308,18 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("PushL\n");
 	    break;
+        case matchPushM:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("PushM\t%beu\n", n);
+            break;
+        case matchPushK:
+            ++t;
+            p = (Eterm) *t;
+            ++t;
+            erts_printf("PushK\t%p (%T)\n", t, p);
+            break;
 	case matchPop:
 	    ++t;
 	    erts_printf("Pop\n");
@@ -5252,6 +5436,12 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("MkTuple\t%beu\n", n);
 	    break;
+        case matchMkMap:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("MkMapA\t%beu\n", n);
+            break;
 	case matchOr:
 	    ++t;
 	    n = *t;

@@ -30,6 +30,7 @@
 -export([fpe/1]).
 -export([otp_9422/1]).
 -export([faulty_seq_trace/1, do_faulty_seq_trace/0]).
+-export([maps/1]).
 -export([runner/2, loop_runner/3]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
 -export([do_boxed_and_small/0]).
@@ -62,7 +63,8 @@ all() ->
 	     moving_labels,
 	     faulty_seq_trace,
 	     empty_list,
-	     otp_9422];
+             otp_9422,
+             maps];
 	true -> [not_run]
     end.
 
@@ -898,6 +900,31 @@ fpe(Config) when is_list(Config) ->
 					"Floating point exceptions faulty"});
 	_ -> ok 
     end.
+
+maps(Config) when is_list(Config) ->
+    {ok,#{},[],[]} = erlang:match_spec_test(#{}, [{'_',[],['$_']}], table),
+    {ok,#{},[],[]} = erlang:match_spec_test(#{}, [{#{},[],['$_']}], table),
+    {ok,false,[],[]} =
+        erlang:match_spec_test(#{}, [{not_a_map,[],['$_']}], table),
+    {ok,bar,[],[]} =
+        erlang:match_spec_test(#{foo => bar},
+                               [{#{foo => '$1'},[],['$1']}],
+                               table),
+    {ok,false,[],[]} =
+        erlang:match_spec_test(#{foo => bar},
+                               [{#{foo => qux},[],[qux]}],
+                               table),
+    {ok,false,[],[]} =
+        erlang:match_spec_test(#{}, [{#{foo => '_'},[],[foo]}], table),
+    {error,_} =
+        erlang:match_spec_test(#{}, [{#{'$1' => '_'},[],[foo]}], table),
+    {ok,bar,[],[]} =
+        erlang:match_spec_test({#{foo => bar}},
+                               [{{#{foo => '$1'}},[],['$1']}],
+                               table),
+    {ok,#{foo := 3},[],[]} =
+        erlang:match_spec_test({}, [{{},[],[#{foo => {'+',1,2}}]}], table),
+    ok.
 
 empty_list(Config) when is_list(Config) ->
     Val=[{'$1',[], [{message,'$1'},{message,{caller}},{return_trace}]}],
