@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2439,7 +2439,8 @@ bit_string_name2pos_fun(NNL, Src) ->
 gen_name2pos(Fd, Name, Names) ->
     Cs0 = gen_name2pos_cs(Names, Name),
     Cs = Cs0 ++ [bit_clause(Name),nil_clause(),invalid_clause()],
-    F = {function,1,Name,1,Cs},
+    F0 = {function,1,Name,1,Cs},
+    F = erl_parse:new_anno(F0),
     file:write(Fd, [erl_pp:function(F)]).
 
 gen_name2pos_cs([{K,V}|T], Name) ->
