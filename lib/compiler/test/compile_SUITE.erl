@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -126,7 +126,8 @@ file_1(Config) when is_list(Config) ->
 forms_2(Config) when is_list(Config) ->
     Src = "/foo/bar",
     AbsSrc = filename:absname(Src),
-    {ok,simple,Binary} = compile:forms([{attribute,1,module,simple}],
+    Anno = erl_anno:new(1),
+    {ok,simple,Binary} = compile:forms([{attribute,Anno,module,simple}],
 				       [binary,{source,Src}]),
     code:load_binary(simple, Src, Binary),
     Info = simple:module_info(compile),
