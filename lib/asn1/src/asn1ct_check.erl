@@ -2471,35 +2471,33 @@ normalize_bitstring(S, Value, Type)->
 	{bstring,String} when is_list(String) ->
 	    bstring_to_bitstring(String);
 	#'Externalvaluereference'{} ->
-	    get_normalized_value(S, Value, Type,
-				 fun normalize_bitstring/3, []);
-	RecList when is_list(RecList) ->
-	    F = fun(#'Externalvaluereference'{value=Name}) ->
-			case lists:keymember(Name, 1, Type) of
-			    true -> Name;
-			    false -> throw({error,false})
-			end;
-		   (Name) when is_atom(Name) ->
-			%% Already normalized.
-			Name;
-		   (Other) ->
-			throw({error,Other})
-		end,
-	    try
-		lists:map(F, RecList)
-	    catch
-		throw:{error,Reason} ->
-		    asn1ct:warning("default value not "
-				   "compatible with type definition ~p~n",
-				   [Reason],S,
-				   "default value not "
-				   "compatible with type definition"),
-		    Value
+	    Val = get_referenced_value(S, Value),
+	    normalize_bitstring(S, Val, Type);
+	{'ValueFromObject',{object,Obj},FieldNames} ->
+	    case extract_field(S, Obj, FieldNames) of
+		#valuedef{value=Val} ->
+		    normalize_bitstring(S, Val, Type);
+		_ ->
+		    asn1_error(S, illegal_bitstring_value)
 	    end;
+	RecList when is_list(RecList) ->
+	    [normalize_bs_item(S, Item, Type) || Item <- RecList];
 	Bs when is_bitstring(Bs) ->
 	    %% Already normalized.
-	    Bs
+	    Bs;
+	_ ->
+	    asn1_error(S, illegal_bitstring_value)
     end.
+
+normalize_bs_item(S, #'Externalvaluereference'{value=Name}, Type) ->
+    case lists:keymember(Name, 1, Type) of
+	true -> Name;
+	false -> asn1_error(S, illegal_bitstring_value)
+    end;
+normalize_bs_item(_, Atom, _) when is_atom(Atom) ->
+    Atom;
+normalize_bs_item(S, _, _) ->
+    asn1_error(S, illegal_bitstring_value).
 
 hstring_to_binary(L) ->
     byte_align(hstring_to_bitstring(L)).
@@ -6595,6 +6593,8 @@ asn1_error(S, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error(illegal_bitstring_value) ->
+    "expecting a BIT STRING value";
 format_error({illegal_class_name,Class}) ->
     io_lib:format("the class name '~s' is illegal (it must start with an uppercase letter and only contain uppercase letters, digits, or hyphens)", [Class]);
 format_error({illegal_instance_of,Class}) ->

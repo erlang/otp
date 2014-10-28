@@ -601,6 +601,13 @@ values(Config) ->
 	   "  int6 INTEGER ::= holder-2.&undefined-field\n"
 	   "  int7 INTEGER ::= holder-2.&UndefinedField.&id\n"
 
+	   "  bs1 BIT STRING ::= 42\n"
+	   "  bs2 BIT STRING ::= {a,b}\n"
+	   "  bs3 BIT STRING {a(0),z(25)} ::= {a,b}\n"
+	   "  bs4 BIT STRING {a(0),z(25)} ::= int\n"
+	   "  bs5 BIT STRING ::= holder-2.&str\n"
+	   "  bs6 BIT STRING ::= holder-2.&obj\n"
+
 	   "  HOLDER ::= CLASS {\n"
 	   "    &str IA5String,\n"
 	   "    &obj HOLDER OPTIONAL\n"
@@ -638,7 +645,19 @@ values(Config) ->
       {structured_error,{M,17},asn1ct_check,
        {undefined_field,'undefined-field'}},
       {structured_error,{M,18},asn1ct_check,
-       {undefined_field,'UndefinedField'}}
+       {undefined_field,'UndefinedField'}},
+      {structured_error,{M,19},asn1ct_check,
+       illegal_bitstring_value},
+      {structured_error,{M,20},asn1ct_check,
+       illegal_bitstring_value},
+      {structured_error,{M,21},asn1ct_check,
+       illegal_bitstring_value},
+      {structured_error,{M,22},asn1ct_check,
+       illegal_bitstring_value},
+      {structured_error,{M,23},asn1ct_check,
+       illegal_bitstring_value},
+      {structured_error,{M,24},asn1ct_check,
+       illegal_bitstring_value}
      ]
     } = run(P, Config),
     ok.

@@ -88,6 +88,17 @@ main() ->
     <<16#40,16#41,16#FF>> = M:'os-1'(),
     <<16#40,16#41,16#FF>> = M:'os-2'(),
 
+    %% Recursive BIT STRING definitions.
+    {'BsSeq',<<2#101101:6>>,[c]} = M:bsSeq1(),
+    {'BsSeq',<<2#101101:6>>,[c]} = M:bsSeq2(),
+    {'BsSeq',<<2#101:3>>,[a,c]} = M:bsSeq3(),
+    <<2#101101:6>> = M:someBitString(),
+    <<2#101101:6>> = M:otherBitString(),
+    <<2#101:3>> = M:bsFromObject(),
+    <<2#101:3>> = M:bsFromObjectInd(),
+    [c] = M:someNamedBs(),
+    [c] = M:someOtherNamedBs(),
+
     ok.
 
 
