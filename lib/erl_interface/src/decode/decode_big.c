@@ -151,13 +151,18 @@ int ei_big_comp(erlang_big *x, erlang_big *y)
 #endif
 
 #ifdef USE_ISINF_ISNAN		/* simulate finite() */
-#  define finite(f) (!isinf(f) && !isnan(f))
-#  define HAVE_FINITE
+#  define isfinite(f) (!isinf(f) && !isnan(f))
+#  define HAVE_ISFINITE
+#elif defined(isfinite) && !defined(HAVE_ISFINITE)
+#  define HAVE_ISFINITE
+#elif !defined(HAVE_ISFINITE) && defined(HAVE_FINITE)
+#  define isfinite finite
+#  define HAVE_ISFINITE
 #endif
 
 #ifdef NO_FPE_SIGNALS
 #  define ERTS_FP_CHECK_INIT() do {} while (0)
-#  define ERTS_FP_ERROR(f, Action) if (!finite(f)) { Action; } else {}
+#  define ERTS_FP_ERROR(f, Action) if (!isfinite(f)) { Action; } else {}
 #  define ERTS_SAVE_FP_EXCEPTION()
 #  define ERTS_RESTORE_FP_EXCEPTION()
 #else
