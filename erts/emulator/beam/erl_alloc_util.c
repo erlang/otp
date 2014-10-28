@@ -1775,6 +1775,18 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	     * data has been overwritten by the queue.
 	     */
 	    Carrier_t *crr = FIRST_BLK_TO_MBC(allctr, blk);
+
+	     /* Restore word overwritten by the dd-queue as it will be read
+	      * if this carrier is pulled from dc_list by cpool_fetch()
+	      */
+	    ERTS_ALC_CPOOL_ASSERT(FBLK_TO_MBC(blk) != crr);
+	    ERTS_ALC_CPOOL_ASSERT(sizeof(ErtsAllctrDDBlock_t) == sizeof(void*));
+#ifdef MBC_ABLK_OFFSET_BITS
+	    blk->u.carrier = crr;
+#else
+	    blk->carrier = crr;
+#endif
+
 	    ERTS_ALC_CPOOL_ASSERT(ERTS_ALC_IS_CPOOL_ENABLED(allctr));
 	    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
 	    ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
