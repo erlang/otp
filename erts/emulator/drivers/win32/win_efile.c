@@ -1288,6 +1288,10 @@ do_fileinfo(Efile_call_state* state, Efile_info* pInfo,
 	{
 	    HANDLE handle;	/* Handle returned by CreateFile() */
 	    BY_HANDLE_FILE_INFORMATION fileInfo; /* from  CreateFile() */
+
+            /* We initialise nNumberOfLinks as GetFileInformationByHandle
+               does not always initialise this field */
+            fileInfo.nNumberOfLinks = 1;
 	    if (handle = CreateFileW(name, GENERIC_READ, FILE_SHARE_FLAGS, NULL,
 				    OPEN_EXISTING, 0, NULL)) {
 		GetFileInformationByHandle(handle, &fileInfo);
