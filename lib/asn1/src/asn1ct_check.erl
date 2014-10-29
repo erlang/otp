@@ -2983,11 +2983,9 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		case asn1ct_gen:prim_bif(asn1ct_gen:get_inner(RefType#type.def)) of
 		    true ->
 			%% Here we expand to a built in type and inline it
-			NewS2 = S#state{type=#typedef{typespec=RefType}},
-			NewC = 
-			    constraint_merge(NewS2,
-					     check_constraints(NewS2,Constr)++
-					     RefType#type.constraint),
+			Constr2 = check_constraints(S, RefType, Constr),
+			NewC = constraint_merge(S, Constr2 ++
+						RefType#type.constraint),
 			TempNewDef#newt{
 			  type = RefType#type.def, 
 			  tag = merge_tags(Ct,RefType#type.tag),
@@ -3242,7 +3240,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
     #newt{type=TDef,tag=NewTags,constraint=NewConstr,inlined=Inlined} = NewDef,
     Ts#type{def=TDef,
 	    inlined=Inlined,
-	    constraint=check_constraints(S, NewConstr),
+	    constraint=check_constraints(S, #type{def=TDef}, NewConstr),
 	    tag=lists:map(fun(#tag{type={default,TTx}}=TempTag) ->
 				  TempTag#tag{type=TTx};
 			     (Other) -> Other
@@ -3611,86 +3609,85 @@ parse_objectset(Set) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% check_constraints/2
 %%    
-check_constraints(S,C) when is_list(C) -> 
-    check_constraints(S, C, []).
+check_constraints(S, T, C) when is_list(C) ->
+    check_constraints(S, T, C, []).
 
-resolv_tuple_or_list(S,List) when is_list(List) ->
-    lists:map(fun(X)->resolv_value(S,X) end, List);
-resolv_tuple_or_list(S,{Lb,Ub}) ->
-    {resolv_value(S,Lb),resolv_value(S,Ub)}.
+resolve_tuple_or_list(S, HostType, List) when is_list(List) ->
+    [resolve_value(S, HostType, X) || X <- List];
+resolve_tuple_or_list(S, HostType, {Lb,Ub}) ->
+    {resolve_value(S, HostType, Lb),resolve_value(S, HostType, Ub)}.
 
 %%%-----------------------------------------
 %% If the constraint value is a defined value the valuename
 %% is replaced by the actual value
 %%
-resolv_value(S,Val) ->
+resolve_value(S, HostType, Val) ->
     Id = match_parameters(S,Val, S#state.parameters),
-    resolv_value1(S,Id).
+    resolve_value1(S, HostType, Id).
 
-resolv_value1(S, ERef = #'Externalvaluereference'{value=Name}) ->
-    case catch resolve_namednumber(S, S#state.type, Name) of
+resolve_value1(S, HostType, #'Externalvaluereference'{value=Name}=ERef) ->
+    case resolve_namednumber(S, HostType, Name) of
 	V when is_integer(V) ->
 	    V;
-	_ ->
-	    case get_referenced_type(S,ERef) of
-		{Err,_Reason} when Err == error; Err == 'EXIT' ->
-		    throw({error,{asn1,{undefined_type_or_value,
-				Name}}});
-		{_M,VDef} ->
-		    resolv_value1(S,VDef)
-	    end
+	not_named ->
+	    resolve_value1(S, HostType, get_referenced_value(S, ERef))
     end;
-resolv_value1(S, {gt,V}) ->
-    case resolv_value1(S, V) of
+resolve_value1(S, HostType, {gt,V}) ->
+    case resolve_value1(S, HostType, V) of
 	Int when is_integer(Int) ->
 	    Int + 1;
 	_Other ->
 	    asn1_error(S, illegal_integer_value)
     end;
-resolv_value1(S, {lt,V}) ->
-    case resolv_value1(S, V) of
+resolve_value1(S, HostType, {lt,V}) ->
+    case resolve_value1(S, HostType, V) of
 	Int when is_integer(Int) ->
 	    Int - 1;
 	_Other ->
 	    asn1_error(S, illegal_integer_value)
     end;
-resolv_value1(S, {'ValueFromObject',{object,Object},FieldName}) ->
+resolve_value1(S, _HostType, {'ValueFromObject',{object,Object},FieldName}) ->
     get_value_from_object(S, Object, FieldName);
-resolv_value1(_,#valuedef{checked=true,value=V}) ->
+resolve_value1(_, _, #valuedef{checked=true,value=V}) ->
     V;
-resolv_value1(S, #valuedef{value={'ValueFromObject',
-				  {object,Object},FieldName}}) ->
+resolve_value1(S, _, #valuedef{value={'ValueFromObject',
+				     {object,Object},FieldName}}) ->
     get_value_from_object(S, Object, FieldName);
-resolv_value1(S,VDef = #valuedef{}) ->
+resolve_value1(S, _HostType, #valuedef{}=VDef) ->
     #valuedef{value=Val} = check_value(S,VDef),
     Val;
-resolv_value1(_,V) ->
+resolve_value1(_, _, V) ->
     V.
 
-resolve_namednumber(S,#typedef{typespec=Type},Name) ->
-    case Type#type.def of
+resolve_namednumber(S, #type{def=Def}=Type, Name) ->
+    case Def of
 	{'ENUMERATED',NameList} ->
 	    resolve_namednumber_1(S, Name, NameList, Type);
 	{'INTEGER',NameList} ->
 	    resolve_namednumber_1(S, Name, NameList, Type);
 	_ ->
-	    not_enumerated
+	    not_named
     end.
 
 resolve_namednumber_1(S, Name, NameList, Type) ->
-    NamedNumberList = check_enumerated(S, NameList, Type#type.constraint),
-    {_,N} = lookup_enum_value(S, Name, NamedNumberList),
-    N.
+    try
+	NamedNumberList = check_enumerated(S, NameList, Type#type.constraint),
+	{_,N} = lookup_enum_value(S, Name, NamedNumberList),
+	N
+    catch _:_ ->
+	    not_named
+    end.
     
-check_constraints(S,[{'ContainedSubtype',Type} | Rest], Acc) ->
+check_constraints(S, HostType, [{'ContainedSubtype',Type}|T], Acc) ->
     {RefMod,CTDef} = get_referenced_type(S,Type#type.def),
     NewS = S#state{module=load_asn1_module(S,RefMod),mname=RefMod,
 		   type=CTDef,tname=get_datastr_name(CTDef)},
     CType = check_type(NewS,S#state.tname,CTDef#typedef.typespec),    
-    check_constraints(S,Rest,CType#type.constraint ++ Acc);
-check_constraints(S,[C | Rest], Acc) ->
-    check_constraints(S,Rest,[check_constraint(S,C) | Acc]);
-check_constraints(S,[],Acc) ->
+    check_constraints(S, HostType, T, CType#type.constraint ++ Acc);
+check_constraints(S, HostType, [C0|T], Acc) ->
+    C = check_constraint(S, HostType, C0),
+    check_constraints(S, HostType, T, [C|Acc]);
+check_constraints(S, _, [], Acc) ->
     constraint_merge(S,Acc).
 
 
@@ -3704,17 +3701,15 @@ range_check(Err={_,_}) ->
 range_check(Value) ->
     Value.
 
-check_constraint(S,Ext) when is_record(Ext,'Externaltypereference') ->
-    check_externaltypereference(S,Ext);
-
-
-check_constraint(S,{'SizeConstraint',{Lb,Ub}}) 
+check_constraint(S, _HostType, #'Externaltypereference'{}=Ext) ->
+    check_externaltypereference(S, Ext);
+check_constraint(S, HostType, {'SizeConstraint',{Lb,Ub}})
   when is_list(Lb); tuple_size(Lb) =:= 2 ->
-    NewLb = range_check(resolv_tuple_or_list(S,Lb)),
-    NewUb = range_check(resolv_tuple_or_list(S,Ub)),
+    NewLb = range_check(resolve_tuple_or_list(S, HostType, Lb)),
+    NewUb = range_check(resolve_tuple_or_list(S, HostType, Ub)),
     {'SizeConstraint',{NewLb,NewUb}};
-check_constraint(S,{'SizeConstraint',{Lb,Ub}}) ->
-    case {resolv_value(S,Lb),resolv_value(S,Ub)} of
+check_constraint(S, HostType, {'SizeConstraint',{Lb,Ub}}) ->
+    case {resolve_value(S, HostType, Lb),resolve_value(S, HostType, Ub)} of
 	{FixV,FixV} ->
 	    {'SizeConstraint',FixV};
 	{Low,High} when Low < High ->
@@ -3722,35 +3717,27 @@ check_constraint(S,{'SizeConstraint',{Lb,Ub}}) ->
 	Err ->
 	    throw({error,{asn1,{illegal_size_constraint,Err}}})
     end;
-check_constraint(S,{'SizeConstraint',Lb}) ->
-    {'SizeConstraint',resolv_value(S,Lb)};
-
-check_constraint(S,{'SingleValue', L}) when is_list(L) ->
-    F = fun(A) -> resolv_value(S,A) end,
+check_constraint(S, HostType, {'SizeConstraint',Lb}) ->
+    {'SizeConstraint',resolve_value(S, HostType, Lb)};
+check_constraint(S, HostType, {'SingleValue', L}) when is_list(L) ->
+    F = fun(A) -> resolve_value(S, HostType, A) end,
     {'SingleValue',lists:sort(lists:map(F,L))};
-    
-check_constraint(S,{'SingleValue', V}) when is_integer(V) ->
-    Val = resolv_value(S,V),
-%%    [{'SingleValue',Val},{'ValueRange',{Val,Val}}]; % Why adding value range?
-    {'SingleValue',Val};
-check_constraint(S,{'SingleValue', V}) ->
-    {'SingleValue',resolv_value(S,V)};
-
-check_constraint(S,{'ValueRange', {Lb, Ub}}) ->
-    {'ValueRange',{resolv_value(S,Lb),resolv_value(S,Ub)}};
+check_constraint(S,  HostType, {'SingleValue', V}) ->
+    {'SingleValue',resolve_value(S, HostType, V)};
+check_constraint(S, HostType, {'ValueRange', {Lb, Ub}}) ->
+    {'ValueRange',{resolve_value(S, HostType, Lb),
+		   resolve_value(S, HostType, Ub)}};
 %% In case of a constraint with extension marks like (1..Ub,...)
-check_constraint(S,{VR={'ValueRange', {_Lb, _Ub}},Rest}) ->
-    {check_constraint(S,VR),Rest};
-check_constraint(_S,{'PermittedAlphabet',PA}) ->
+check_constraint(S, HostType, {VR={'ValueRange', {_Lb, _Ub}},Rest}) ->
+    {check_constraint(S, HostType, VR),Rest};
+check_constraint(_S, _HostType, {'PermittedAlphabet',PA}) ->
     {'PermittedAlphabet',permitted_alphabet_cnstr(PA)};
-
-check_constraint(S,{valueset,Type}) ->
-    {valueset,check_type(S,S#state.tname,Type)};
-
-check_constraint(_S,ST={simpletable,Type}) when is_atom(Type) ->
+check_constraint(S, HostType, {valueset,Type}) ->
+    {valueset,check_type(S, #typedef{typespec=HostType}, Type)};
+check_constraint(_S, _HostType, {simpletable,Type}=ST) when is_atom(Type) ->
     %% An already checked constraint
     ST;
-check_constraint(S,{simpletable,Type}) ->
+check_constraint(S, HostType, {simpletable,Type}) ->
     Def = case Type of
 	      #type{def=D} -> D;
 	      {'SingleValue',ObjRef = #'Externalvaluereference'{}} ->
@@ -3760,9 +3747,6 @@ check_constraint(S,{simpletable,Type}) ->
     case C of
 	#'Externaltypereference'{} ->
 	    ERef = check_externaltypereference(S,C),
-	    {simpletable,ERef#'Externaltypereference'.type};
-	#type{def=#'Externaltypereference'{}=ExtTypeRef} ->
-	    ERef = check_externaltypereference(S, ExtTypeRef),
 	    {simpletable,ERef#'Externaltypereference'.type};
 	{valueset,#type{def=ERef=#'Externaltypereference'{}}} -> % this is an object set
 	    {_,TDef} = get_referenced_type(S,ERef),
@@ -3798,12 +3782,11 @@ check_constraint(S,{simpletable,Type}) ->
 	    %% This is an ObjectFromObject.
 	    {simpletable,extract_field(S, Object, FieldNames)};
 	_ -> 
-	    check_type(S,S#state.tname,Type),%% this seems stupid.
+	    check_type(S, HostType, Type),%% this seems stupid.
 	    OSName = Def#'Externaltypereference'.type,
 	    {simpletable,OSName}
     end;
-
-check_constraint(S,{componentrelation,{objectset,Opos,Objset},Id}) ->
+check_constraint(S, _HostType, {componentrelation,{objectset,Opos,Objset},Id}) ->
     %% Objset is an 'Externaltypereference' record, since Objset is
     %% a DefinedObjectSet.
     RealObjset = match_parameters(S,Objset,S#state.parameters),
@@ -3815,16 +3798,13 @@ check_constraint(S,{componentrelation,{objectset,Opos,Objset},Id}) ->
 	end,
     Ext = check_externaltypereference(S,ObjSetRef),
     {componentrelation,{objectset,Opos,Ext},Id};
-
-check_constraint(S,Type) when is_record(Type,type) ->
-    #type{def=Def} = check_type(S,S#state.tname,Type),
+check_constraint(S, HostType, #type{}=Type) ->
+    #type{def=Def} = check_type(S, HostType, Type),
     Def;
-
-check_constraint(S,C) when is_list(C) ->
-    lists:map(fun(X)->check_constraint(S,X) end,C);
-% else keep the constraint unchanged
-check_constraint(_S,Any) ->
-%    io:format("Constraint = ~p~n",[Any]),
+check_constraint(S, HostType, C) when is_list(C) ->
+    [check_constraint(S, HostType, X) || X <- C];
+%% else keep the constraint unchanged
+check_constraint(_S, _HostType, Any) ->
     Any.
 
 permitted_alphabet_cnstr(T) when is_tuple(T) ->

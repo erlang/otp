@@ -161,4 +161,30 @@ int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
 
 IntObjectConstr ::= INTEGER (int-holder-2.&obj.&id..int-holder-2.&id)
 
+--
+-- INTEGER constraints defined using named INTEGERs.
+--
+
+ConstrainedNamedInt ::= INTEGER {v1(42)} (v1)
+constrainedNamedInt-1 INTEGER {v1(42)} (v1) ::= 42
+constrainedNamedInt-2 ConstrainedNamedInt ::= 100
+
+SeqWithNamedInt ::= SEQUENCE {
+   int INTEGER {v2(7)} (v2)
+}
+
+--
+-- Cover simpletable constraint checking code.
+--
+
+ContentInfo ::= SEQUENCE {
+  contentType ContentType
+}
+
+Contents TYPE-IDENTIFIER ::= {
+  {OCTET STRING IDENTIFIED BY {2 1 1 1 1 1 1}}
+}
+
+ContentType ::= TYPE-IDENTIFIER.&id({Contents})
+
 END
