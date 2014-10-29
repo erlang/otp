@@ -621,7 +621,10 @@ fe80::204:acff:fe17:bf38
 				  the kernel socket buffers. It is recommended
 				  to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c>.
 				  In fact, the <c>val(buffer)</c> is automatically set to
-				  the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.</p>
+				  the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.
+                                  Increasing this value can significantly speed up certain operations,
+                                  at the cost of additional memory usage.
+                          </p>
 		  </item>
 
           <tag><c>{delay_send, Boolean}</c></tag>
