@@ -1130,6 +1130,39 @@ document etp-cp
 %---------------------------------------------------------------------------
 end
 
+define etp-check-beam-ranges
+  set $etp_ci = 0
+  while $etp_ci < 3
+    printf "Checking code index %i...\n", $etp_ci
+    set $etp_j = 0
+    while $etp_j < r[$etp_ci].n
+      set $etp_p = &r[$etp_ci].modules[$etp_j]
+      if $etp_j > 0 && $etp_p->start < (Range*)$etp_p[-1].end.counter
+        printf "r[%i].modules[%i]: ERROR start < previous\n", $etp_ci, $etp_j
+      end
+      if $etp_p->start > (Range*)$etp_p->end.counter
+        printf "r[%i].modules[%i]: ERROR start > end\n", $etp_ci, $etp_j
+      else
+        if $etp_p->start == (Range*)$etp_p->end.counter
+          printf "r[%i].modules[%i]: Purged\n", $etp_ci, $etp_j
+        end
+      end
+      set $etp_j = $etp_j + 1
+    end
+    set $etp_ci = $etp_ci + 1
+  end
+end
+
+document etp-check-beam-ranges
+%---------------------------------------------------------------------------
+% etp-check-beam-ranges
+%
+% Do consistency check of beam_ranges data structure
+% and print errors and empty slots from purged modules.
+%---------------------------------------------------------------------------
+end
+
+
 ############################################################################
 # Commands for special term bunches.
 #
