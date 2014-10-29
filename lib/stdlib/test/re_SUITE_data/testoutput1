@@ -22,6 +22,10 @@ No match
     What do you know about THE QUICK BROWN FOX?
  0: THE QUICK BROWN FOX
 
+/\s/
+    \x20\x20\x20A\x20\x20\x20B\x20\x20\x20C\x20\x20\x20\x20\x20\x20\x20\x20\x20
+ 0: \x20
+
 /abcd\t\n\r\f\a\e\071\x3b\$\\\?caxyz/
     abcd\t\n\r\f\a\e9;\$\\?caxyz
  0: abcd\x09\x0a\x0d\x0c\x07\x1b9;$\?caxyz
