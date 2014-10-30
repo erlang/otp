@@ -490,7 +490,7 @@ static void pass_on(pid_t childpid)
 #ifdef DEBUG
 		erts_run_erl_log_status("Pty master write; ");
 #endif
-		len = erts_run_erl_extract_ctrl_seq(buf, len);
+		len = erts_run_erl_extract_ctrl_seq(buf, len, mfd);
 
 		if(len==1 && buf[0] == '\003') {
 		    kill(childpid,SIGINT);
