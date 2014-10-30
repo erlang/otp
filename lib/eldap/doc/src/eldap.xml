@@ -48,7 +48,7 @@ scope()     See baseObject/0, singleLevel/0, wholeSubtree/0
 dereference() See neverDerefAliases/0, derefInSearching/0, derefFindingBaseObj/0, derefAlways/0
 filter()    See present/1, substrings/2,
                 equalityMatch/2, greaterOrEqual/2, lessOrEqual/2,
-                approxMatch/2,
+                approxMatch/2, extensibleMatch/2,
                 'and'/1, 'or'/1, 'not'/1.
     </pre>
     <p></p>
@@ -346,6 +346,16 @@ filter()    See present/1, substrings/2,
 	<v>Value = string()</v>
       </type>
       <desc> <p>Create a approximation match filter.</p> </desc>
+    </func>
+    <func>
+      <name>extensibleMatch(MatchValue, OptionalAttrs) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>MatchValue = string()</v>
+	<v>OptionalAttrs = [Attr]</v>
+	<v>Attr = {matchingRule,string()} | {type,string()} | {dnAttributes,boolean()}</v>
+      </type>
+      <desc> <p>Creates an extensible match filter. For example, <c>eldap:extensibleMatch("Bar",[{type,"sn"},{matchingRule,"caseExactMatch"}]))</c> creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
     </func>
     <func>
       <name>'and'([Filter]) -> filter()</name>

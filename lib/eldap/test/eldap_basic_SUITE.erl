@@ -106,7 +106,9 @@ api(doc) -> "Basic test that all api functions works as expected";
 api(suite) -> [];
 api(Config) ->
     {Host,Port} = proplists:get_value(ldap_server, Config),
-    {ok, H} = eldap:open([Host], [{port,Port}]),
+    {ok, H} = eldap:open([Host], [{port,Port}
+  ,{log,fun(Lvl,Fmt,Args)-> io:format("~p: ~s",[Lvl,io_lib:format(Fmt,Args)]) end}
+				 ]),
     %% {ok, H} = eldap:open([Host], [{port,Port+1}, {ssl, true}]),
     do_api_checks(H, Config),
     eldap:close(H),
@@ -232,6 +234,12 @@ chk_search(H, BasePath) ->
     {ok, #eldap_search_result{entries=[#eldap_entry{}]}} = Search(F_AND),
     F_NOT = eldap:'and'([eldap:present("objectclass"), eldap:'not'(eldap:present("ou"))]),
     {ok, #eldap_search_result{entries=[#eldap_entry{}, #eldap_entry{}]}} = Search(F_NOT),
+    {ok, #eldap_search_result{entries=[#eldap_entry{}]}} = Search(eldap:extensibleMatch("Bar",[{type,"sn"},{matchingRule,"caseExactMatch"}])),
+    {ok, #eldap_search_result{entries=[#eldap_entry{}]}} = Search(eldap:extensibleMatch("Bar",[{type,"sn"},{matchingRule,"2.5.13.5"}])),
+    {ok, #eldap_search_result{entries=[#eldap_entry{}]}} = Search(eldap:extensibleMatch("Bar",[{type,"sn"},{matchingRule,"caseIgnoreMatch"}])),
+    {ok, #eldap_search_result{entries=[#eldap_entry{}]}} = Search(eldap:extensibleMatch("bar",[{type,"sn"},{matchingRule,"caseIgnoreMatch"}])),
+    {ok, #eldap_search_result{entries=[]}} = Search(eldap:extensibleMatch("bar",[{type,"sn"},{matchingRule,"gluffgluff"}])),
+    {ok, #eldap_search_result{entries=[]}} = Search(eldap:extensibleMatch("bar",[{type,"sn"},{matchingRule,"caseExactMatch"}])),
     {ok,FB}.					%% FIXME
 
 chk_modify(H, FB) ->
