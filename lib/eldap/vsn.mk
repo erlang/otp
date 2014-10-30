@@ -1,1 +1,1 @@
-ELDAP_VSN = 1.0.4
+ELDAP_VSN = 1.1

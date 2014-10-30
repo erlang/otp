@@ -15,6 +15,7 @@
 	 getopts/2,
 	 baseObject/0,singleLevel/0,wholeSubtree/0,close/1,
 	 equalityMatch/2,greaterOrEqual/2,lessOrEqual/2,
+	 extensibleMatch/2,
 	 approxMatch/2,search/2,substrings/2,present/1,
 	 'and'/1,'or'/1,'not'/1,modify/3, mod_add/2, mod_delete/2,
 	 mod_replace/2, add/3, delete/2, modify_dn/5,parse_dn/1,
@@ -349,6 +350,27 @@ substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
     Ss = v_substr(SubStr),
     {substrings,#'SubstringFilter'{type = Type,
 				   substrings = Ss}}.
+
+%%%
+%%% Filter for extensibleMatch
+%%%
+extensibleMatch(MatchValue, OptArgs) ->
+    MatchingRuleAssertion =  
+	mra(OptArgs, #'MatchingRuleAssertion'{matchValue = MatchValue}),
+    {extensibleMatch, MatchingRuleAssertion}.
+
+mra([{matchingRule,Val}|T], Ack) when is_list(Val) ->
+    mra(T, Ack#'MatchingRuleAssertion'{matchingRule=Val});
+mra([{type,Val}|T], Ack) when is_list(Val) ->
+    mra(T, Ack#'MatchingRuleAssertion'{type=Val});
+mra([{dnAttributes,true}|T], Ack) ->
+    mra(T, Ack#'MatchingRuleAssertion'{dnAttributes="TRUE"});
+mra([{dnAttributes,false}|T], Ack) ->
+    mra(T, Ack#'MatchingRuleAssertion'{dnAttributes="FALSE"});
+mra([H|_], _) ->
+    throw({error,{extensibleMatch_arg,H}});
+mra([], Ack) -> 
+    Ack.
 
 %%% --------------------------------------------------------------------
 %%% Worker process. We keep track of a controlling process to
@@ -862,6 +884,7 @@ v_filter({lessOrEqual,AV})    -> {lessOrEqual,AV};
 v_filter({approxMatch,AV})    -> {approxMatch,AV};
 v_filter({present,A})         -> {present,A};
 v_filter({substrings,S}) when is_record(S,'SubstringFilter') -> {substrings,S};
+v_filter({extensibleMatch,S}) when is_record(S,'MatchingRuleAssertion') -> {extensibleMatch,S};
 v_filter(_Filter) -> throw({error,concat(["unknown filter: ",_Filter])}).
 
 v_modifications(Mods) ->
