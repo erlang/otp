@@ -395,7 +395,7 @@ do_checkv(S, Name, Value)
 	    {pobjectsetdef,Name};
 	{objectsetdef} ->
 	    {objectsetdef,Name};
-	{objectdef} ->
+	{asn1_class, _} ->
 	    %% this is an object, save as typedef
 	    #valuedef{checked=C,pos=Pos,name=N,type=Type,
 		      value=Def} = Value,
@@ -1398,7 +1398,7 @@ check_fieldname_element_1(S, #valuedef{}=VDef) ->
     try
 	check_value(S, VDef)
     catch
-	throw:{objectdef} ->
+	throw:{asn1_class, _} ->
 	    #valuedef{checked=C,pos=Pos,name=N,type=Type,
 		      value=Def} = VDef,
 	    ClassName = Type#type.def,
@@ -2091,8 +2091,9 @@ check_value(S, #valuedef{}=V) ->
     end.
 
 check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
-    #valuedef{name=Name,type=Vtype,value=Value,module=ModName} = V0,
+    #valuedef{name=Name,type=Vtype0,value=Value,module=ModName} = V0,
     V = V0#valuedef{checked=true},
+    Vtype = check_type(S0, #typedef{name=Name,typespec=Vtype0},Vtype0),
     Def = Vtype#type.def,
     S1 = S0#state{type=Vtype,tname=Def,value=V0,vname=Name},
     SVal = update_state(S1, ModName),
@@ -2102,15 +2103,8 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	    %% If V isn't a value but an object Type is a #classdef{}
 	    S2 = update_state(S1, RefM),
 	    case Type of
-		#classdef{} ->
-		    throw({objectdef});
 		#typedef{typespec=TypeSpec0}=TypeDef ->
-		    TypeSpec = try check_type(S2, TypeDef, TypeSpec0) of
-				   TypeSpec1 -> TypeSpec1
-			       catch
-				   throw:{asn1_class,_} ->
-				       throw({objectdef})
-			       end,
+		    TypeSpec = check_type(S2, TypeDef, TypeSpec0),
 		    S3 = case is_contextswitchtype(Type) of
 			     true ->
 				 S2;
@@ -2127,7 +2121,7 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 				    V#valuedef{type=Type}),
 		    V#valuedef{value=CheckedVal}
 	    end;
-	'ANY' ->
+	'ASN1_OPEN_TYPE' ->
 	    {opentypefieldvalue,ANYType,ANYValue} = Value,
 	    CheckedV = check_value(SVal,#valuedef{name=Name,
 						  type=ANYType,
@@ -2141,11 +2135,6 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	#'SEQUENCE'{} ->
 	    {ok,SeqVal} = convert_external(SVal, Value),
 	    V#valuedef{value=normalize_value(SVal, Vtype, SeqVal, TopName)};
-	{'SelectionType',SelName,SelT} ->
-	    CheckedT = check_selectiontype(SVal, SelName, SelT),
-	    NewV = V#valuedef{type=CheckedT},
-	    SelVDef = check_value(S1#state{value=NewV}, NewV),
-	    V#valuedef{value=SelVDef#valuedef.value};
 	_ ->
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, TopName)}
     end.
@@ -3220,6 +3209,8 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		CheckedT = check_selectiontype(S,Name,T),
 		TempNewDef#newt{tag=merge_tags(Tag,CheckedT#type.tag),
 				type=CheckedT#type.def};
+	    'ASN1_OPEN_TYPE' ->
+		TempNewDef;
 	    Other ->
 		exit({'cant check' ,Other})
 	end,
