@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -137,7 +137,7 @@
 
 	 <tag><c><![CDATA[{pty, ssh_channel_id(),
 	 boolean() = WantReply, {string() = Terminal, integer() = CharWidth,
-	 integer() = RowHeight, integer() = PixelWidth, integer() = PixelHight,
+	 integer() = RowHeight, integer() = PixelWidth, integer() = PixelHeight,
 	 [{atom() | integer() = Opcode,
 	 integer() = Value}] = TerminalModes}}]]></c></tag>
 	 <item>A pseudo-terminal has been requested for the
@@ -148,11 +148,11 @@
 	 drawable area of the window. The <c>Opcode</c> in the
 	 <c>TerminalModes</c> list is the mnemonic name, represented
 	 as an lowercase erlang atom, defined in
-	 <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254  </url> section 8,
-	 or the opcode if the mnemonic name is not listed in the
+	 <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254  </url> section 8.
+	 It may also be an opcode if the mnemonic name is not listed in the
 	 RFC. Example <c>OP code: 53, mnemonic name ECHO erlang atom:
-	 echo</c>. There is currently no API function to generate this
-	 event.</item>
+	 echo</c>.This event is sent as result of calling <seealso
+	 marker="ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</seealso></item>
 
 	 <tag><c><![CDATA[{shell, boolean() = WantReply}]]></c></tag>
 	 <item> This message will request that the user's default shell
@@ -273,7 +273,52 @@
      </desc>
    </func>
    
-     <func>
+   <func>
+       <name>ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) -> success | failure</name>
+       <fsummary>Send status replies to requests that want such replies. </fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref() </v>
+	<v> ChannelId = ssh_channel_id()</v>
+	<v> Options = proplists:proplist()</v>
+      </type>
+      <desc>
+	<p> Sends a SSH Connection Protocol pty_req, to allocate a pseudo tty.
+	Should be called by a SSH client process.
+	Options are:
+	</p>
+
+	<taglist>
+	  <tag>{term, string()}</tag>
+	  <item>
+	    Defaults to os:getenv("TERM") or "vt100" if it is undefined. 
+	  </item>
+	  <tag>{width, integer()}</tag>
+	  <item>
+	    Defaults to 80 if pixel_width is not defined.
+	  </item>
+	  <tag>{height, integer()}</tag>
+	  <item>
+	    Defaults to 24 if pixel_height is not defined.
+	  </item>
+	  <tag>{pixel_width, integer()}</tag>
+	  <item>
+	    Is disregarded if width is defined.
+	  </item>
+	  <tag>{pixel_height, integer()}</tag>
+	  <item>
+	    Is disregarded if height is defined.
+	  </item>
+	  <tag>{pty_opts, [{posix_atom(), integer()}]}</tag>
+	  <item>
+	    Option may be an empty list, otherwise
+	    see possible POSIX names in section 8 in <url href="http://www.ietf.org/rfc/rfc4254.txt"> RFC 4254</url>.
+	  </item>
+	 </taglist>
+
+      </desc>
+     </func>
+
+   <func>
        <name>reply_request(ConnectionRef, WantReply, Status, ChannelId) -> ok</name>
        <fsummary>Send status replies to requests that want such replies. </fsummary>
       <type>

@@ -194,6 +194,7 @@ shell(Host, Port, Options) ->
 	{ok, ConnectionRef} ->
 	    case ssh_connection:session_channel(ConnectionRef, infinity) of
 		{ok,ChannelId}  ->
+		    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
 		    Args = [{channel_cb, ssh_shell}, 
 			    {init_args,[ConnectionRef, ChannelId]},
 			    {cm, ConnectionRef}, {channel_id, ChannelId}],

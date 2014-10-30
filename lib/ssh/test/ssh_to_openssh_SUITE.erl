@@ -120,13 +120,8 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     receive_hej(),
     IO ! {input, self(), "exit\n"},
     receive_logout(),
-    receive
-	{'EXIT', Shell, normal} ->
-	    ok;
-	Other1 ->
-	    ct:fail({unexpected_msg, Other1})
-    end.
-
+    receive_normal_exit(Shell).
+   
 %--------------------------------------------------------------------
 erlang_client_openssh_server_exec() ->
     [{doc, "Test api function ssh_connection:exec"}].
@@ -529,11 +524,22 @@ erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) 
 %%--------------------------------------------------------------------
 receive_hej() ->
     receive
-	<<"Hej\n">> = Hej->
+	<<"Hej", _binary>> = Hej ->
+	    ct:pal("Expected result: ~p~n", [Hej]);
+	<<"Hej\n", _binary>> = Hej ->
+	    ct:pal("Expected result: ~p~n", [Hej]);
+	<<"Hej\r\n", _/binary>> = Hej ->
 	    ct:pal("Expected result: ~p~n", [Hej]);
 	Info ->
-	    ct:pal("Extra info: ~p~n", [Info]),
-	    receive_hej()
+	    Lines = binary:split(Info, [<<"\r\n">>], [global]),
+	    case lists:member(<<"Hej">>, Lines) of
+		true ->
+		    ct:pal("Expected result found in lines: ~p~n", [Lines]),
+		    ok;
+		false ->
+		    ct:pal("Extra info: ~p~n", [Info]),
+		    receive_hej()
+	    end
     end.
 
 receive_logout() ->
@@ -543,13 +549,20 @@ receive_logout() ->
 		<<"Connection closed">> ->
 		    ok
 	    end;
-	<<"TERM environment variable not set.\n">> -> %% Windows work around
-	    receive_logout();
-	Other0 ->
-	    ct:fail({unexpected_msg, Other0})
+	Info ->
+	    ct:pal("Extra info when logging out: ~p~n", [Info]),
+	    receive_logout()
+	end.
+
+receive_normal_exit(Shell) ->
+    receive
+	{'EXIT', Shell, normal} ->
+	    ok;
+	<<"\r\n">> ->
+	    receive_normal_exit(Shell);
+	Other ->
+	    ct:fail({unexpected_msg, Other})
     end.
-
-
 
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------

@@ -165,6 +165,10 @@
 	  recipient_channel
 	 }).
 
+-define(TERMINAL_WIDTH, 80).
+-define(TERMINAL_HEIGHT, 24).
+-define(DEFAULT_TERMINAL, "vt100").
+
 -define(TTY_OP_END,0).  %% Indicates end of options.
 -define(VINTR,1).       %% Interrupt character; 255 if none. Similarly for the
 			%% other characters. Not all of these characters are
