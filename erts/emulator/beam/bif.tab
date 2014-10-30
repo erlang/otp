@@ -92,6 +92,8 @@ bif erlang:loaded/0
 bif erlang:localtime/0
 bif erlang:localtime_to_universaltime/2
 bif erlang:make_ref/0
+bif erlang:unique_integer/0
+bif erlang:unique_integer/1
 bif erlang:md5/1
 bif erlang:md5_init/0
 bif erlang:md5_update/2
@@ -104,6 +106,13 @@ ubif erlang:node/1
 ubif erlang:node/0
 bif erlang:nodes/1
 bif erlang:now/0
+bif erlang:monotonic_time/0
+bif erlang:monotonic_time/1
+bif erlang:system_time/0
+bif erlang:system_time/1
+bif erlang:time_offset/0
+bif erlang:time_offset/1
+bif erlang:timestamp/0
 
 bif erlang:open_port/2
 
@@ -157,6 +166,15 @@ bif erts_internal:request_system_task/3
 bif erts_internal:check_process_code/2
 
 bif erts_internal:map_to_tuple_keys/1
+
+bif erts_internal:time_unit/0
+
+bif erts_internal:get_bif_timer_servers/0
+bif erts_internal:create_bif_timer/0
+bif erts_internal:access_bif_timer/1
+
+bif erts_internal:monitor_process/2
+bif erts_internal:is_system_process/1
 
 # inet_db support
 bif erlang:port_set_data/2
@@ -347,6 +365,8 @@ bif os:getenv/0
 bif os:getenv/1
 bif os:getpid/0
 bif os:timestamp/0
+bif os:system_time/0
+bif os:system_time/1
 
 #
 # Bifs in the erl_ddll module (the module actually does not exist)

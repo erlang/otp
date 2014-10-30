@@ -49,6 +49,7 @@
 #include "beam_bp.h"
 #include "erl_ptab.h"
 #include "erl_check_io.h"
+#include "erl_bif_unique.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -4353,8 +4354,8 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
  */
 Uint64 erts_timestamp_millis(void)
 {
-#ifdef HAVE_GETHRTIME
-    return (Uint64) (sys_gethrtime() / 1000000);
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    return ERTS_MONOTONIC_TO_MSEC(erts_os_monotonic_time());
 #else
     Uint64 res;
     SysTimeval tv;

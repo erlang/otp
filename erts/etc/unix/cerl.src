@@ -375,7 +375,9 @@ elif [ "x$GDB" = "xegdb" ]; then
         # Set annotation level for gdb in emacs 22 and higher. Seems to
         # be working with level 1 for emacs 22 and level 3 for emacs 23...
 	emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
-	if [ '!' -z "$emacs_major" -a $emacs_major -gt 22 ]; then
+	if [ '!' -z "$emacs_major" -a $emacs_major -gt 23 ]; then
+	    GDBARGS="-i=mi "
+	elif [ '!' -z "$emacs_major" -a $emacs_major -gt 22 ]; then
 	    GDBARGS="--annotate=3 "
 	elif [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
 	    GDBARGS="--annotate=1 "

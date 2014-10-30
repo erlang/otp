@@ -269,6 +269,7 @@ type    BUSY_CALLER_TAB	SHORT_LIVED	SYSTEM		busy_caller_table
 type    BUSY_CALLER	SHORT_LIVED	SYSTEM		busy_caller
 type	PROC_SYS_TSK	SHORT_LIVED	PROCESSES	proc_sys_task
 type	PROC_SYS_TSK_QS	SHORT_LIVED	PROCESSES	proc_sys_task_queues
+type    NEW_TIME_OFFSET	SHORT_LIVED	SYSTEM		new_time_offset
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

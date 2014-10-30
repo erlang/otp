@@ -43,6 +43,7 @@
 #include "erl_async.h"
 #include "dtrace-wrapper.h"
 #include "erl_ptab.h"
+#include "erl_bif_unique.h"
 
 
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
@@ -702,8 +703,8 @@ init_sched_wall_time(ErtsSchedWallTime *swtp)
 static ERTS_INLINE Uint64
 sched_wall_time_ts(void)
 {
-#ifdef HAVE_GETHRTIME
-    return (Uint64) sys_gethrtime();
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    return (Uint64) erts_os_monotonic_time();
 #else
     Uint64 res;
     SysTimeval tv;
@@ -2843,7 +2844,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     else
 #endif
     {
-	erts_aint_t dt;
 
 	erts_smp_atomic32_set_relb(&function_calls, 0);
 	*fcalls = 0;
@@ -2868,6 +2868,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    goto sys_aux_work;
 
 	while (spincount-- > 0) {
+	    ErtsMonotonicTime current_time;
 
 	sys_poll_aux_work:
 
@@ -2877,8 +2878,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
 	    erl_sys_schedule(1); /* Might give us something to do */
 
-	    dt = erts_do_time_read_and_reset();
-	    if (dt) erts_bump_timer(dt);
+	    current_time = erts_get_monotonic_time();
+	    if (current_time >= erts_next_timeout_time())
+		erts_bump_timers(current_time);
 
 	sys_aux_work:
 #ifndef ERTS_SMP
@@ -2993,8 +2995,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	erl_sys_schedule(0);
 
-	dt = erts_do_time_read_and_reset();
-	if (dt) erts_bump_timer(dt);
+	{
+	    ErtsMonotonicTime current_time = erts_get_monotonic_time();
+	    if (current_time >= erts_next_timeout_time())
+		erts_bump_timers(current_time);
+	}
 
 #ifndef ERTS_SMP
 	if (rq->len == 0 && !rq->misc.start)
@@ -5275,6 +5280,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
 
     esdp->run_queue = runq;
     esdp->run_queue->scheduler = esdp;
+
+    esdp->thr_id = (Uint32) num;
+    erts_sched_bif_unique_init(esdp);
 
     if (daww_ptr) {
 	init_aux_work_data(&esdp->aux_work_data, esdp, *daww_ptr);
@@ -7717,6 +7725,8 @@ sched_dirty_cpu_thread_func(void *vesdp)
     callbacks.wait = NULL;
     callbacks.finalize_wait = NULL;
 
+    esdp->thr_id += erts_no_schedulers;
+
     erts_thr_progress_register_unmanaged_thread(&callbacks);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     {
@@ -7777,6 +7787,8 @@ sched_dirty_io_thread_func(void *vesdp)
     callbacks.prepare_wait = NULL;
     callbacks.wait = NULL;
     callbacks.finalize_wait = NULL;
+
+    esdp->thr_id += erts_no_schedulers + erts_no_dirty_cpu_schedulers;
 
     erts_thr_progress_register_unmanaged_thread(&callbacks);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -8897,7 +8909,6 @@ Process *schedule(Process *p, int calls)
 {
     Process *proxy_p = NULL;
     ErtsRunQueue *rq;
-    erts_aint_t dt;
     ErtsSchedulerData *esdp;
     int context_reds;
     int fcalls;
@@ -9027,11 +9038,13 @@ Process *schedule(Process *p, int calls)
 
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-	dt = erts_do_time_read_and_reset();
-	if (dt) {
-	    erts_smp_runq_unlock(rq);
-	    erts_bump_timer(dt);
-	    erts_smp_runq_lock(rq);
+	{
+	    ErtsMonotonicTime current_time = erts_get_monotonic_time();
+	    if (current_time >= erts_next_timeout_time()) {
+		erts_smp_runq_unlock(rq);
+		erts_bump_timers(current_time);
+		erts_smp_runq_lock(rq);
+	    }
 	}
 	BM_STOP_TIMER(system);
 
@@ -9177,6 +9190,7 @@ Process *schedule(Process *p, int calls)
 	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
 		 (fcalls > input_reductions &&
 		  prepare_for_sys_schedule(esdp, !0))) {
+	    ErtsMonotonicTime current_time;
 	    /*
 	     * Schedule system-level activities.
 	     */
@@ -9189,8 +9203,10 @@ Process *schedule(Process *p, int calls)
 #endif
 	    erts_smp_runq_unlock(rq);
 	    erl_sys_schedule(1);
-	    dt = erts_do_time_read_and_reset();
-	    if (dt) erts_bump_timer(dt);
+
+	    current_time = erts_get_monotonic_time();
+	    if (current_time >= erts_next_timeout_time())
+		erts_bump_timers(current_time);
 
 #ifdef ERTS_SMP
 	    erts_smp_runq_lock(rq);
@@ -11501,7 +11517,8 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
     ErtsMonitor *rmon;
     Process *rp;
 
-    if (mon->type == MON_ORIGIN) {
+    switch (mon->type) {
+    case MON_ORIGIN:
 	/* We are monitoring someone else, we need to demonitor that one.. */
 	if (is_atom(mon->pid)) { /* remote by name */
 	    ASSERT(is_node_name_atom(mon->pid));
@@ -11564,7 +11581,8 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		}
 	    }
 	}
-    } else { /* type == MON_TARGET */
+	break;
+    case MON_TARGET:
 	ASSERT(mon->type == MON_TARGET);
 	ASSERT(is_pid(mon->pid) || is_internal_port(mon->pid));
 	if (is_internal_port(mon->pid)) {
@@ -11623,6 +11641,12 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		}
 	    }
 	}
+	break;
+    case MON_TIME_OFFSET:
+	erts_demonitor_time_offset(mon->ref);
+	break;
+    default:
+	ERTS_INTERNAL_ERROR("Invalid monitor type");
     }
  done:
     /* As the monitors are previously removed from the process, 

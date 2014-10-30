@@ -280,7 +280,7 @@ struct {
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
     void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
-    void (*check_io_interrupt_tmd)(int, erts_short_time_t);
+    void (*check_io_interrupt_tmd)(int, ErtsMonotonicTime);
     void (*check_io)(int);
     Uint (*size)(void);
     Eterm (*info)(void *);
@@ -386,9 +386,9 @@ erts_sys_schedule_interrupt(int set)
 
 #ifdef ERTS_SMP
 void
-erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec)
+erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
 {
-    ERTS_CHK_IO_INTR_TMD(set, msec);
+    ERTS_CHK_IO_INTR_TMD(set, timeout_time);
 }
 #endif
 
@@ -984,24 +984,6 @@ static void unblock_signals(void)
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
 #endif
 }
-/************************** Time stuff **************************/
-#ifdef HAVE_GETHRTIME
-#ifdef GETHRTIME_WITH_CLOCK_GETTIME
-
-SysHrTime sys_gethrtime(void)
-{
-    struct timespec ts;
-    long long result;
-    if (clock_gettime(CLOCK_MONOTONIC,&ts) != 0) {
-	erl_exit(1,"Fatal, could not get clock_monotonic value!, "
-		 "errno = %d\n", errno);
-    }
-    result = ((long long) ts.tv_sec) * 1000000000LL + 
-	((long long) ts.tv_nsec);
-    return (SysHrTime) result;
-}
-#endif
-#endif
 
 /************************** OS info *******************************/
 

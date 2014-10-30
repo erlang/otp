@@ -341,7 +341,7 @@ typedef struct {
 } ErtsRunQueueInfo;
 
 
-#ifdef HAVE_GETHRTIME
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 #  undef ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
 #  define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT 1
 #endif
@@ -587,6 +587,10 @@ struct ErtsSchedulerData_ {
     int cpu_id;			/* >= 0 when bound */
     ErtsAuxWorkData aux_work_data;
     ErtsAtomCacheMap atom_cache_map;
+
+    Uint32 thr_id;
+    Uint64 unique;
+    Uint64 ref;
 
     ErtsSchedAllocData alloc_data;
 

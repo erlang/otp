@@ -1577,6 +1577,46 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
     return make_big(hp);
 }
 
+Eterm
+erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
+{
+    Uint *headerp;
+    int i, pot_digits, digits;
+
+    headerp = *hpp;
+
+    pot_digits = digits = 0;
+    for (i = 0; i < len; i++) {
+#if defined(ARCH_32) || HALFWORD_HEAP
+	Uint low_val = array[i] & ((Uint) 0xffffffff);
+	Uint high_val = (array[i] >> 32) & ((Uint) 0xffffffff);
+	BIG_DIGIT(headerp, pot_digits) = low_val;
+	pot_digits++;
+	if (low_val)
+	    digits = pot_digits;
+	BIG_DIGIT(headerp, pot_digits) = high_val;
+	pot_digits++;
+	if (high_val)
+	    digits = pot_digits;
+#else
+	Uint val = array[i];
+	BIG_DIGIT(headerp, pot_digits) = val;
+	pot_digits++;
+	if (val)
+	    digits = pot_digits;
+#endif
+    }	
+
+    if (neg)
+	*headerp = make_neg_bignum_header(digits);
+    else
+	*headerp = make_pos_bignum_header(digits);
+
+    *hpp = headerp + 1 + digits;
+
+    return make_big(headerp);
+}
+
 /*
 ** Convert a bignum to a double float
 */

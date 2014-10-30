@@ -36,6 +36,7 @@
 #include "big.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_bif_unique.h"
 
 
 /*

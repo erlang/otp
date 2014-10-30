@@ -1342,18 +1342,16 @@ erts_thr_progress_fatal_error_block(SWord timeout,
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
     erts_aint32_t bc;
     SWord time_left = timeout;
-    SysTimeval to;
+    ErtsMonotonicTime timeout_time;
 
     /*
      * Counting poll intervals may give us a too long timeout
-     * if cpu is busy. If we got tolerant time of day we use it
-     * to prevent this.
+     * if cpu is busy. We use timeout time to try to prevent
+     * this. In case we havn't got time correction this may
+     * however fail too...
      */
-    if (!erts_disable_tolerant_timeofday) {
-	erts_get_timeval(&to);
-	to.tv_sec += timeout / 1000;
-	to.tv_sec += timeout % 1000;
-    }
+    timeout_time = erts_get_monotonic_time();
+    timeout_time += ERTS_MSEC_TO_MONOTONIC((ErtsMonotonicTime) timeout);
 
     if (!tpd) {
 	/*
@@ -1378,14 +1376,8 @@ erts_thr_progress_fatal_error_block(SWord timeout,
 	    break; /* Succefully blocked all managed threads */
 	if (time_left <= 0)
 	    break; /* Timeout */
-	if (!erts_disable_tolerant_timeofday) {
-	    SysTimeval now;
-	    erts_get_timeval(&now);
-	    if (now.tv_sec > to.tv_sec)
-		break; /* Timeout */
-	    if (now.tv_sec == to.tv_sec && now.tv_usec >= to.tv_usec)
-		break; /* Timeout */
-	}
+	if (timeout_time <= erts_get_monotonic_time())
+	    break; /* Timeout */
     }
 }
 

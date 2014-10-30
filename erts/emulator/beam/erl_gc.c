@@ -37,6 +37,7 @@
 #include "hipe_mode_switch.h"
 #endif
 #include "dtrace-wrapper.h"
+#include "erl_bif_unique.h"
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20

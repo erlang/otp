@@ -27,6 +27,7 @@
 #include "error.h"
 #include "big.h"
 #include "erl_thr_progress.h"
+#include "erl_bif_unique.h"
 
 /****************************************************************************
 ** BIF Timer support

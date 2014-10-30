@@ -175,10 +175,10 @@ extern BM_TIMER_T start_time;
 
 #else /* !USE_PERFCTR  (Assuming Solaris) */
 
-#define BM_TIMER_T hrtime_t
-#define BM_START_TIMER(t) system_clock = sys_gethrtime()
+#define BM_TIMER_T ErtsMonotonicTime
+#define BM_START_TIMER(t) system_clock = ERTS_MONOTONIC_TO_NSEC(erts_os_monotonic_time())
 #define BM_STOP_TIMER(t) do {                                        \
-    BM_TIMER_T tmp = (sys_gethrtime() - system_clock) - timer_time;  \
+    BM_TIMER_T tmp = (ERTS_MONOTONIC_TO_NSEC(erts_os_monotonic_time()) - system_clock) - timer_time;  \
     t##_time += (tmp > 0 ? tmp : 0);                                 \
 } while(0)
 

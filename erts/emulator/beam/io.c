@@ -47,6 +47,7 @@
 #include "external.h"
 #include "dtrace-wrapper.h"
 #include "erl_map.h"
+#include "erl_bif_unique.h"
 
 extern ErlDrvEntry fd_driver_entry;
 #ifndef __OSE__

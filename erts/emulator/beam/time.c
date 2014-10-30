@@ -83,6 +83,10 @@
 #define ASSERT_NO_LOCKED_LOCKS
 #endif
 
+#define ERTS_MONOTONIC_DAY ERTS_SEC_TO_MONOTONIC(60*60*24)
+#define ERTS_CLKTCKS_DAY ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY)
+
+static erts_smp_atomic32_t is_bumping;
 static erts_smp_mtx_t tiw_lock;
 
 
@@ -91,18 +95,20 @@ static erts_smp_mtx_t tiw_lock;
 ** The individual timer cells in tiw are also protected by the same mutex.
 */
 
+/* timing wheel size NEED to be a power of 2 */
 #ifdef SMALL_MEMORY
-#define TIW_SIZE 8192
+#define TIW_SIZE (1 << 13)
 #else
-#define TIW_SIZE 65536		/* timing wheel size (should be a power of 2) */
+#define TIW_SIZE (1 << 20)
 #endif
 static ErlTimer** tiw;		/* the timing wheel, allocated in init_time() */
-static Uint tiw_pos;		/* current position in wheel */
+static ErtsMonotonicTime tiw_pos; /* current position in wheel */
 static Uint tiw_nto;		/* number of timeouts in wheel */
-static Uint tiw_min;
-static ErlTimer *tiw_min_ptr;
-
-/* END tiw_lock protected variables */
+static struct {
+    ErlTimer *head;
+    ErlTimer **tail;
+    Uint nto;
+} tiw_at_once;
 
 /* Actual interval time chosen by sys_init_time() */
 
@@ -114,77 +120,97 @@ static int tiw_itime; /* Constant after init */
 #  define TIW_ITIME tiw_itime
 #endif
 
-erts_smp_atomic32_t do_time;	/* set at clock interrupt */
-static ERTS_INLINE erts_short_time_t do_time_read(void)
+static int true_next_timeout_time;
+static ErtsMonotonicTime next_timeout_time;
+erts_atomic64_t erts_next_timeout__;
+
+static ERTS_INLINE void
+init_next_timeout(ErtsMonotonicTime time)
 {
-    return erts_smp_atomic32_read_acqb(&do_time);
+    erts_atomic64_init_nob(&erts_next_timeout__,
+			   (erts_aint64_t) time);
 }
 
-static ERTS_INLINE erts_short_time_t do_time_update(void)
+static ERTS_INLINE void
+set_next_timeout(ErtsMonotonicTime time, int true_timeout)
 {
-    return do_time_read();
-}
-
-static ERTS_INLINE void do_time_init(void)
-{
-    erts_smp_atomic32_init_nob(&do_time, 0);
+    true_next_timeout_time = true_timeout;
+    next_timeout_time = time;
+    erts_atomic64_set_relb(&erts_next_timeout__,
+			   (erts_aint64_t) time);
 }
 
 /* get the time (in units of TIW_ITIME) to the next timeout,
    or -1 if there are no timeouts                     */
 
-static erts_short_time_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
+static ERTS_INLINE ErtsMonotonicTime
+find_next_timeout(ErtsMonotonicTime curr_time,
+		  ErtsMonotonicTime max_search_time)
 {
-    int i, tm, nto;
-    Uint32 min;
-    ErlTimer* p;
-    erts_short_time_t dt;
-  
-    if (tiw_nto == 0)
-	return -1;	/* no timeouts in wheel */
+    int start_ix, tiw_pos_ix;
+    ErlTimer *p;
+    int true_min_timeout;
+    ErtsMonotonicTime min_timeout, min_timeout_pos, slot_timeout_pos, timeout_limit;
 
-    if (tiw_min_ptr) {
-	min = tiw_min;
-	dt  = do_time_read();
-	return ((min >= dt) ? (min - dt) : 0);
+    ERTS_SMP_LC_ASSERT(erts_smp_lc_mtx_is_locked(&tiw_lock));
+
+    if (true_next_timeout_time)
+	return next_timeout_time;
+
+    /* We never set next timeout beyond timeout_limit */
+    timeout_limit = curr_time + ERTS_MONOTONIC_DAY;
+
+    if (tiw_nto == 0) { /* no timeouts in wheel */
+	true_min_timeout = true_next_timeout_time = 0;
+	min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(timeout_limit);
+	goto found_next;
     }
-  
-    /* start going through wheel to find next timeout */
-    tm = nto = 0;
-    min = (Uint32) -1;	/* max Uint32 */
-    i = tiw_pos;
+
+    /*
+     * Don't want others entering trying to bump
+     * timers while we are checking...
+     */
+    set_next_timeout(timeout_limit, 0);
+
+    true_min_timeout = 1;
+    slot_timeout_pos = tiw_pos;
+    min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + max_search_time);
+
+    start_ix = tiw_pos_ix = (int) (tiw_pos & (TIW_SIZE-1));
+
     do {
-	p = tiw[i];
-	while (p != NULL) {
-	    nto++;
-	    if (p->count == 0) {
-		/* found next timeout */
-		dt = do_time_read();
-		/* p->count is zero */
-		tiw_min_ptr = p;
-		tiw_min     = tm;
-		return ((tm >= dt) ? (tm - dt) : 0);
-	    } else {
-		/* keep shortest time in 'min' */
-		if (tm + p->count*TIW_SIZE < min) {
-		    min = tm + p->count*TIW_SIZE;
-		    tiw_min_ptr = p;
-		    tiw_min     = min;
-		}
+	slot_timeout_pos++;
+	if (slot_timeout_pos >= min_timeout_pos) {
+	    true_min_timeout = 0;
+	    break;
+	}
+
+	p = tiw[tiw_pos_ix];
+
+	while (p) {
+	    ErtsMonotonicTime timeout_pos;
+	    ASSERT(p != p->next);
+	    timeout_pos = p->timeout_pos;
+	    if (min_timeout_pos > timeout_pos) {
+		min_timeout_pos = timeout_pos;
+		if (min_timeout_pos <= slot_timeout_pos)
+		    goto found_next;
 	    }
 	    p = p->next;
 	}
-	/* when we have found all timeouts the shortest time will be in min */
-	if (nto == tiw_nto) break;
-	tm++;
-	i = (i + 1) % TIW_SIZE;
-    } while (i != tiw_pos);
-    dt = do_time_read();
-    if (min <= (Uint32) dt)
-	return 0;
-    if ((min - (Uint32) dt) > (Uint32) ERTS_SHORT_TIME_T_MAX)
-	return ERTS_SHORT_TIME_T_MAX;
-    return (erts_short_time_t) (min - (Uint32) dt);
+
+	tiw_pos_ix++;
+	if (tiw_pos_ix == TIW_SIZE)
+	    tiw_pos_ix = 0;
+    } while (start_ix != tiw_pos_ix);
+
+found_next:
+
+    min_timeout = ERTS_CLKTCKS_TO_MONOTONIC(min_timeout_pos);
+    if (min_timeout != next_timeout_time)
+	set_next_timeout(min_timeout, true_min_timeout);
+
+    return min_timeout;
 }
 
 static void remove_timer(ErlTimer *p) {
@@ -212,72 +238,153 @@ static void remove_timer(ErlTimer *p) {
     tiw_nto--;
 }
 
-/* Private export to erl_time_sup.c */
-erts_short_time_t erts_next_time(void)
+ErtsMonotonicTime
+erts_check_next_timeout_time(ErtsMonotonicTime max_search_time)
 {
-    erts_short_time_t ret;
+    ErtsMonotonicTime next, curr;
+
+    curr = erts_get_monotonic_time();
 
     erts_smp_mtx_lock(&tiw_lock);
-    (void)do_time_update();
-    ret = next_time_internal();
+
+    next = find_next_timeout(curr, max_search_time);
+
     erts_smp_mtx_unlock(&tiw_lock);
-    return ret;
+
+    return next;
 }
 
-static ERTS_INLINE void bump_timer_internal(erts_short_time_t dt) /* PRE: tiw_lock is write-locked */
+#ifndef DEBUG
+#define ERTS_DBG_CHK_SAFE_TO_SKIP_TO(TO) ((void) 0)
+#else
+#define ERTS_DBG_CHK_SAFE_TO_SKIP_TO(TO) debug_check_safe_to_skip_to((TO))
+static void
+debug_check_safe_to_skip_to(ErtsMonotonicTime skip_to_pos)
 {
-    Uint keep_pos;
-    Uint count;
-    ErlTimer *p, **prev, *timeout_head, **timeout_tail;
-    Uint dtime = (Uint) dt;  
+    int slots, ix;
+    ErlTimer *tmr;
+    ErtsMonotonicTime tmp;
 
-    /* no need to bump the position if there aren't any timeouts */
-    if (tiw_nto == 0) {
-	erts_smp_mtx_unlock(&tiw_lock);
-	return;
+    ix = (int) (tiw_pos & (TIW_SIZE-1));
+    tmp = skip_to_pos - tiw_pos;
+    ASSERT(tmp >= 0);
+    if (tmp < (ErtsMonotonicTime) TIW_SIZE)
+	slots = (int) tmp;
+    else
+	slots = TIW_SIZE;
+
+     while (slots > 0) {
+	tmr = tiw[ix];
+	while (tmr) {
+	    ASSERT(tmr->timeout_pos > skip_to_pos);
+	    tmr = tmr->next;
+	}
+	ix++;
+	if (ix == TIW_SIZE)
+	    ix = 0;
+	slots--;
+    }
+}
+#endif
+
+void erts_bump_timers(ErtsMonotonicTime curr_time)
+{
+    int tiw_pos_ix, slots;
+    ErlTimer *p, *timeout_head, **timeout_tail;
+    ErtsMonotonicTime bump_to, tmp_slots;
+
+    if (erts_smp_atomic32_cmpxchg_nob(&is_bumping, 1, 0) != 0)
+	return; /* Another thread is currently bumping... */
+
+    bump_to = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
+
+    erts_smp_mtx_lock(&tiw_lock);
+
+    if (tiw_pos >= bump_to) {
+	timeout_head = NULL;
+	goto done;
     }
 
-    /* if do_time > TIW_SIZE we want to go around just once */
-    count = (Uint)(dtime / TIW_SIZE) + 1;
-    keep_pos = (tiw_pos + dtime) % TIW_SIZE;
-    if (dtime > TIW_SIZE) dtime = TIW_SIZE;
-  
-    timeout_head = NULL;
-    timeout_tail = &timeout_head;
-    while (dtime > 0) {
-	/* this is to decrease the counters with the right amount */
-	/* when dtime >= TIW_SIZE */
-	if (tiw_pos == keep_pos) count--;
-	prev = &tiw[tiw_pos];
-	while ((p = *prev) != NULL) {
-	    ASSERT( p != p->next);
-	    if (p->count < count) {     /* we have a timeout */
-		/* remove min time */
-		if (tiw_min_ptr == p) {
-		    tiw_min_ptr = NULL;
-		    tiw_min = 0;
-		}
+    /* Don't want others here while we are bumping... */
+    set_next_timeout(curr_time + ERTS_MONOTONIC_DAY, 0);
 
+    if (!tiw_at_once.head) {
+	timeout_head = NULL;
+	timeout_tail = &timeout_head;
+    }
+    else {
+	ASSERT(tiw_nto >= tiw_at_once.nto);
+	timeout_head = tiw_at_once.head;
+	timeout_tail = tiw_at_once.tail;
+	tiw_nto -= tiw_at_once.nto;
+	tiw_at_once.head = NULL;
+	tiw_at_once.tail = &tiw_at_once.head;
+	tiw_at_once.nto = 0;
+    }
+
+    if (tiw_nto == 0) {
+	ERTS_DBG_CHK_SAFE_TO_SKIP_TO(bump_to);
+	tiw_pos = bump_to;
+	goto done;
+    }
+
+    if (true_next_timeout_time) {
+	ErtsMonotonicTime skip_until_pos;
+	/*
+	 * No need inspecting slots where we know no timeouts
+	 * to trigger should reside.
+	 */
+
+	skip_until_pos = ERTS_MONOTONIC_TO_CLKTCKS(next_timeout_time);
+	if (skip_until_pos > bump_to)
+	    skip_until_pos = bump_to;
+
+	ERTS_DBG_CHK_SAFE_TO_SKIP_TO(skip_until_pos);
+	ASSERT(skip_until_pos > tiw_pos);
+
+	tiw_pos = skip_until_pos - 1;
+    }
+
+    tiw_pos_ix = (int) ((tiw_pos+1) & (TIW_SIZE-1));
+    tmp_slots = (bump_to - tiw_pos);
+    if (tmp_slots < (ErtsMonotonicTime) TIW_SIZE)
+	slots = (int) tmp_slots;
+    else
+	slots = TIW_SIZE;
+ 
+    while (slots > 0) {
+	p = tiw[tiw_pos_ix];
+	while (p) {
+	    ErlTimer *next = p->next;
+	    ASSERT(p != next);
+	    if (p->timeout_pos <= bump_to) { /* we have a timeout */
 		/* Remove from list */
 		remove_timer(p);
 		*timeout_tail = p;	/* Insert in timeout queue */
 		timeout_tail = &p->next;
 	    }
-	    else {
-		/* no timeout, just decrease counter */
-		p->count -= count;
-		prev = &p->next;
-	    }
+	    p = next;
 	}
-	tiw_pos = (tiw_pos + 1) % TIW_SIZE;
-	dtime--;
+	tiw_pos_ix++;
+	if (tiw_pos_ix == TIW_SIZE)
+	    tiw_pos_ix = 0;
+	slots--;
     }
-    tiw_pos = keep_pos;
-    if (tiw_min_ptr)
-	tiw_min -= dt;
-    
+
+    ASSERT(tmp_slots >= (ErtsMonotonicTime) TIW_SIZE
+	   || tiw_pos_ix == (int) ((bump_to+1) & (TIW_SIZE-1)));
+
+    tiw_pos = bump_to;
+
+    /* Search at most two seconds ahead... */
+    (void) find_next_timeout(curr_time, ERTS_SEC_TO_MONOTONIC(2));
+
+done:
+
     erts_smp_mtx_unlock(&tiw_lock);
     
+    erts_smp_atomic32_set_nob(&is_bumping, 0);
+
     /* Call timedout timers callbacks */
     while (timeout_head) {
 	p = timeout_head;
@@ -288,17 +395,12 @@ static ERTS_INLINE void bump_timer_internal(erts_short_time_t dt) /* PRE: tiw_lo
 	 * accesses any field until the ->timeout
 	 * callback is called.
 	 */
+	ASSERT(p->timeout_pos <= bump_to);
 	p->next = NULL;
 	p->prev = NULL;
 	p->slot = 0;
 	(*p->timeout)(p->arg);
     }
-}
-
-void erts_bump_timer(erts_short_time_t dt) /* dt is value from do_time */
-{
-    erts_smp_mtx_lock(&tiw_lock);
-    bump_timer_internal(dt);
 }
 
 Uint
@@ -310,13 +412,14 @@ erts_timer_wheel_memory_size(void)
 /* this routine links the time cells into a free list at the start
    and sets the time queue as empty */
 void
-erts_init_time(void)
+erts_init_time(int time_correction, ErtsTimeWarpMode time_warp_mode)
 {
+    ErtsMonotonicTime mtime;
     int i, itime;
 
     /* system dependent init; must be done before do_time_init()
        if timer thread is enabled */
-    itime = erts_init_time_sup();
+    itime = erts_init_time_sup(time_correction, time_warp_mode);
 #ifdef TIW_ITIME_IS_CONSTANT 
     if (itime != TIW_ITIME) {
 	erl_exit(ERTS_ABORT_EXIT, "timer resolution mismatch %d != %d", itime, TIW_ITIME);
@@ -325,16 +428,23 @@ erts_init_time(void)
     tiw_itime = itime;
 #endif
 
+    erts_smp_atomic32_init_nob(&is_bumping, 0);
     erts_smp_mtx_init(&tiw_lock, "timer_wheel");
 
     tiw = (ErlTimer**) erts_alloc(ERTS_ALC_T_TIMER_WHEEL,
 				  TIW_SIZE * sizeof(ErlTimer*));
     for(i = 0; i < TIW_SIZE; i++)
 	tiw[i] = NULL;
-    do_time_init();
-    tiw_pos = tiw_nto = 0;
-    tiw_min_ptr = NULL;
-    tiw_min = 0;
+
+    mtime = erts_get_monotonic_time();
+    tiw_pos = ERTS_MONOTONIC_TO_CLKTCKS(mtime);
+    tiw_nto = 0;
+    tiw_at_once.head = NULL;
+    tiw_at_once.tail = &tiw_at_once.head;
+    tiw_at_once.nto = 0;
+    init_next_timeout(mtime + ERTS_MONOTONIC_DAY);
+
+    erts_late_init_time_sup();
 }
 
 
@@ -343,58 +453,62 @@ erts_init_time(void)
 /*
 ** Insert a process into the time queue, with a timeout 't'
 */
-static void
-insert_timer(ErlTimer* p, Uint t)
+static ErtsMonotonicTime
+insert_timer(ErlTimer* p, ErtsMonotonicTime curr_time, ErtsMonotonicTime to)
 {
-    Uint tm;
-    Uint64 ticks;
+    ErtsMonotonicTime timeout_time, timeout_pos;
 
-    /* The current slot (tiw_pos) in timing wheel is the next slot to be
-     * be processed. Hence no extra time tick is needed.
-     *
-     * (x + y - 1)/y is precisely the "number of bins" formula.
-     */
-    ticks = (t + (TIW_ITIME - 1)) / TIW_ITIME;
+    if (to == 0) {
+	timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
+	tiw_nto++;
+	tiw_at_once.nto++;
+	*tiw_at_once.tail = p;
+	p->next = NULL;
+	p->timeout_pos = timeout_pos;
+	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(timeout_pos);
+    }
+    else {
+	int tm;
+	ErtsMonotonicTime ticks;
 
-    /* 
-     * Ticks must be a Uint64, or the addition may overflow here,
-     * resulting in an incorrect value for p->count below.
-     */
-    ticks += do_time_update(); /* Add backlog of unprocessed time */
-    
-    /* calculate slot */
-    tm = (ticks + tiw_pos) % TIW_SIZE;
-    p->slot = (Uint) tm;
-    p->count = (Uint) (ticks / TIW_SIZE);
+	ticks = ERTS_MSEC_TO_CLKTCKS(to);
+	timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time - 1) + 1 + ticks;
+
+	/* calculate slot */
+	tm = (int) (timeout_pos & (TIW_SIZE-1));
+	p->slot = (Uint) tm;
   
-    /* insert at head of list at slot */
-    p->next = tiw[tm];
-    p->prev = NULL;
-    if (p->next != NULL)
-	p->next->prev = p;
-    tiw[tm] = p;
+	/* insert at head of list at slot */
+	p->next = tiw[tm];
+	p->prev = NULL;
+	if (p->next != NULL)
+	    p->next->prev = p;
+	tiw[tm] = p;
 
+	tiw_nto++;
 
-    /* insert min time */
-    if ((tiw_nto == 0) || ((tiw_min_ptr != NULL) && (ticks < tiw_min))) {
-	tiw_min = ticks;
-	tiw_min_ptr = p;
-    }
-    if ((tiw_min_ptr == p) && (ticks > tiw_min)) {
-	/* some other timer might be 'min' now */
-	tiw_min = 0;
-	tiw_min_ptr = NULL;
+	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(timeout_pos);
+	p->timeout_pos = timeout_pos;
+
+	ASSERT(ERTS_MSEC_TO_MONOTONIC(to) <= timeout_time - curr_time);
+	ASSERT(timeout_time - curr_time
+	       < ERTS_MSEC_TO_MONOTONIC(to) + ERTS_CLKTCKS_TO_MONOTONIC(1));
     }
 
-    tiw_nto++;
+    if (timeout_time < next_timeout_time)
+	set_next_timeout(timeout_time, 1);
+
+    return timeout_time;
 }
 
 void
 erts_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
 	      void* arg, Uint t)
 {
-
-    erts_deliver_time();
+#ifdef ERTS_SMP
+    ErtsMonotonicTime timeout_time;
+#endif
+    ErtsMonotonicTime current_time = erts_get_monotonic_time();
     erts_smp_mtx_lock(&tiw_lock);
     if (p->active) { /* XXX assert ? */
 	erts_smp_mtx_unlock(&tiw_lock);
@@ -404,11 +518,15 @@ erts_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
     p->cancel = cancel;
     p->arg = arg;
     p->active = 1;
-    insert_timer(p, t);
+#ifdef ERTS_SMP
+    timeout_time =
+#else
+	(void)
+#endif
+	insert_timer(p, current_time, (ErtsMonotonicTime) t);
     erts_smp_mtx_unlock(&tiw_lock);
 #if defined(ERTS_SMP)
-    if (t <= (Uint) ERTS_SHORT_TIME_T_MAX)
-	erts_sys_schedule_interrupt_timed(1, (erts_short_time_t) t);
+    erts_sys_schedule_interrupt_timed(1, timeout_time);
 #endif
 }
 
@@ -421,14 +539,8 @@ erts_cancel_timer(ErlTimer* p)
 	return;
     }
 
-    /* is it the 'min' timer, remove min */
-    if (p == tiw_min_ptr) {
-	tiw_min_ptr = NULL;
-	tiw_min     = 0;
-    }
-
     remove_timer(p);
-    p->slot = p->count = 0;
+    p->slot = 0;
 
     if (p->cancel != NULL) {
 	erts_smp_mtx_unlock(&tiw_lock);
@@ -447,8 +559,7 @@ erts_cancel_timer(ErlTimer* p)
 Uint
 erts_time_left(ErlTimer *p)
 {
-    Uint left;
-    erts_short_time_t dt;
+    ErtsMonotonicTime current_time, timeout_time;
 
     erts_smp_mtx_lock(&tiw_lock);
 
@@ -457,45 +568,43 @@ erts_time_left(ErlTimer *p)
 	return 0;
     }
 
-    if (p->slot < tiw_pos)
-	left = (p->count + 1) * TIW_SIZE + p->slot - tiw_pos;
-    else
-	left = p->count * TIW_SIZE + p->slot - tiw_pos;
-    dt = do_time_read();
-    if (left < dt)
-	left = 0;
-    else
-	left -= dt;
+    timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(p->timeout_pos);
 
     erts_smp_mtx_unlock(&tiw_lock);
 
-    return (Uint) left * TIW_ITIME;
+    current_time = erts_get_monotonic_time();
+    if (timeout_time <= current_time)
+	return 0;
+    return (Uint) ERTS_MONOTONIC_TO_MSEC(timeout_time - current_time);
 }
 
 #ifdef DEBUG
 void erts_p_slpq(void)
 {
+    ErtsMonotonicTime current_time = erts_get_monotonic_time();
     int i;
     ErlTimer* p;
   
     erts_smp_mtx_lock(&tiw_lock);
 
     /* print the whole wheel, starting at the current position */
-    erts_printf("\ntiw_pos = %d tiw_nto %d\n", tiw_pos, tiw_nto);
+    erts_printf("\ncurrent time = %bps tiw_pos = %d tiw_nto %d\n",
+		current_time, tiw_pos, tiw_nto);
     i = tiw_pos;
     if (tiw[i] != NULL) {
 	erts_printf("%d:\n", i);
 	for(p = tiw[i]; p != NULL; p = p->next) {
-	    erts_printf(" (count %d, slot %d)\n",
-			p->count, p->slot);
+	    erts_printf(" (timeout time %bps, slot %d)\n",
+			ERTS_CLKTCKS_TO_MONOTONIC(p->timeout_pos),
+			p->slot);
 	}
     }
-    for(i = (i+1)%TIW_SIZE; i != tiw_pos; i = (i+1)%TIW_SIZE) {
+    for(i = ((i+1) & (TIW_SIZE-1)); i != (tiw_pos & (TIW_SIZE-1)); i = ((i+1) & (TIW_SIZE-1))) {
 	if (tiw[i] != NULL) {
 	    erts_printf("%d:\n", i);
 	    for(p = tiw[i]; p != NULL; p = p->next) {
-		erts_printf(" (count %d, slot %d)\n",
-			    p->count, p->slot);
+		erts_printf(" (timeout time %bps, slot %d)\n",
+			    ERTS_CLKTCKS_TO_MONOTONIC(p->timeout_pos), p->slot);
 	    }
 	}
     }

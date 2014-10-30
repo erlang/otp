@@ -38,6 +38,10 @@
 
 -export([check_process_code/2]).
 
+-export([flush_monitor_messages/3]).
+
+-export([time_unit/0]).
+
 %%
 %% Await result of send to port
 %%
@@ -177,4 +181,30 @@ cmp_term(_A,_B) ->
     Keys :: tuple().
 
 map_to_tuple_keys(_M) ->
+    erlang:nif_error(undefined).
+
+-spec erts_internal:flush_monitor_messages(Ref, Multi, Res) -> term() when
+      Ref :: reference(),
+      Multi :: boolean(),
+      Res :: term().
+
+%% erlang:demonitor(Ref, [flush]) traps to
+%% erts_internal:flush_monitor_messages(Ref, Res) when
+%% it needs to flush monitor messages.
+flush_monitor_messages(Ref, Multi, Res) when is_reference(Ref) ->
+    receive
+	{_, Ref, _, _, _} ->
+	    case Multi of
+		false ->
+		    Res;
+		_ ->
+		    flush_monitor_messages(Ref, Multi, Res)
+	    end
+    after 0 ->
+	    Res
+    end.
+
+-spec erts_internal:time_unit() -> pos_integer().
+
+time_unit() ->
     erlang:nif_error(undefined).

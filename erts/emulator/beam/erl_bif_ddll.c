@@ -45,6 +45,7 @@
 #include "big.h"
 #include "dist.h"
 #include "erl_version.h"
+#include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 
 #ifdef ERTS_SMP

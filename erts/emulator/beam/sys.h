@@ -21,6 +21,25 @@
 #define __SYS_H__
 
 
+#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
+#  undef ERTS_CAN_INLINE
+#  define ERTS_CAN_INLINE 0
+#  undef ERTS_INLINE
+#  define ERTS_INLINE
+#endif
+
+#if ERTS_CAN_INLINE
+#define ERTS_GLB_INLINE static ERTS_INLINE
+#else
+#define ERTS_GLB_INLINE
+#endif
+
+#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF) 
+#  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
+#else
+#  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
+#endif
+
 #if defined(VALGRIND) && !defined(NO_FPE_SIGNALS)
 #  define NO_FPE_SIGNALS
 #endif
@@ -132,24 +151,8 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  endif
 #endif
 
-#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
-#  undef ERTS_CAN_INLINE
-#  define ERTS_CAN_INLINE 0
-#  undef ERTS_INLINE
-#  define ERTS_INLINE
-#endif
-
-#if ERTS_CAN_INLINE
-#define ERTS_GLB_INLINE static ERTS_INLINE
-#else
-#define ERTS_GLB_INLINE
-#endif
-
-#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF) 
-#  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
-#else
-#  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
-#endif
+#define ERTS_MK_VSN_INT(Major, Minor, Build) \
+    ((((Major) & 0x3ff) << 20) | (((Minor) & 0x3ff) << 10) | ((Build) & 0x3ff))
 
 #ifndef ERTS_EXIT_AFTER_DUMP
 #  define ERTS_EXIT_AFTER_DUMP exit
@@ -359,17 +362,45 @@ typedef Sint SWord;
 typedef UWord BeamInstr;
 
 #ifndef HAVE_INT64
-#if SIZEOF_LONG == 8
-#define HAVE_INT64 1
+#  if SIZEOF_LONG == 8
+#    define HAVE_INT64 1
 typedef unsigned long Uint64;
 typedef long          Sint64;
-#elif SIZEOF_LONG_LONG == 8
-#define HAVE_INT64 1
+#    ifdef ULONG_MAX
+#      define ERTS_UINT64_MAX ULONG_MAX
+#    endif
+#    ifdef LONG_MAX
+#      define ERTS_SINT64_MAX LONG_MAX
+#    endif
+#    ifdef LONG_MIN
+#      define ERTS_SINT64_MIN LONG_MIN
+#    endif
+#  elif SIZEOF_LONG_LONG == 8
+#    define HAVE_INT64 1
 typedef unsigned long long Uint64;
 typedef long long          Sint64;
-#else
-#define HAVE_INT64 0
+#    ifdef ULLONG_MAX
+#      define ERTS_UINT64_MAX ULLONG_MAX
+#    endif
+#    ifdef LLONG_MAX
+#      define ERTS_SINT64_MAX LLONG_MAX
+#    endif
+#    ifdef LLONG_MIN
+#      define ERTS_SINT64_MIN LLONG_MIN
+#    endif
+#  else
+#    error "No 64-bit integer type found"
+#  endif
 #endif
+
+#ifndef ERTS_UINT64_MAX
+#  define ERTS_UINT64_MAX (~((Uint64) 0))
+#endif
+#ifndef ERTS_SINT64_MAX
+#  define ERTS_SINT64_MAX ((Sint64) ((((Uint64) 1) << 63)-1))
+#endif
+#ifndef ERTS_SINT64_MIN
+#  define ERTS_SINT64_MIN (-1*(((Sint64) 1) << 63))
 #endif
 
 #if SIZEOF_LONG == 4
@@ -646,10 +677,31 @@ extern char *erts_default_arg0;
 
 extern char os_type[];
 
-extern int sys_init_time(void);
+typedef enum {
+    ERTS_NO_TIME_WARP_MODE,
+    ERTS_SINGLE_TIME_WARP_MODE,
+    ERTS_MULTI_TIME_WARP_MODE
+} ErtsTimeWarpMode;
+
+typedef struct {
+    int have_os_monotonic;
+    ErtsMonotonicTime os_monotonic_time_unit;
+    ErtsMonotonicTime sys_clock_resolution;
+    struct {
+	Uint64 resolution;
+	char *func;
+	char *clock_id;
+	int locked_use;
+    } os_monotonic_info;
+} ErtsSysInitTimeResult;
+
+#define ERTS_SYS_INIT_TIME_RESULT_INITER \
+    {0, (ErtsMonotonicTime) -1, (ErtsMonotonicTime) 1}
+
+extern void sys_init_time(ErtsSysInitTimeResult *);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);
-extern int erts_init_time_sup(void);
+extern int erts_init_time_sup(int, ErtsTimeWarpMode);
 extern void erts_sys_init_float(void);
 extern void erts_thread_init_float(void);
 extern void erts_thread_disable_fpe(void);
@@ -700,7 +752,7 @@ extern char *erts_sys_ddll_error(int code);
 
 void erts_sys_schedule_interrupt(int set);
 #ifdef ERTS_SMP
-void erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec);
+void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
 void erts_sys_main_thread(void);
 #endif
 
@@ -739,6 +791,7 @@ int univ_to_local(
 int local_to_univ(Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second, int isdst);
 void get_now(Uint*, Uint*, Uint*);
+ErtsMonotonicTime erts_get_monotonic_time(void);
 void get_sys_now(Uint*, Uint*, Uint*);
 void set_break_quit(void (*)(void), void (*)(void));
 
