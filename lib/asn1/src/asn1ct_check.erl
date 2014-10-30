@@ -60,17 +60,9 @@
 -define(N_BMPString, 30).
 
 -define(TAG_PRIMITIVE(Num),
-	case S#state.erule of
-	    ber ->
-		#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=0};
-	    _ -> []
-	end).
+	#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=0}).
 -define(TAG_CONSTRUCTED(Num),
-	case S#state.erule of
-	    ber ->
-		#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=32};
-	    _ -> []
-	end).
+	#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=32}).
 
 -record(newt,{type=unchanged,tag=unchanged,constraint=unchanged,inlined=no}). % used in check_type to update type and tag
  
@@ -2996,13 +2988,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			NewExt = ExtRef#'Externaltypereference'{module=merged_mod(S,RefMod,Ext)},
 			TempNewDef#newt{
 			  type = check_externaltypereference(S,NewExt),
-			  tag = case S#state.erule of
-				    ber ->
-					merge_tags(Ct,RefType#type.tag);
-				    _ ->
-					Ct
-				end
-			 }
+			  tag = merge_tags(Ct,RefType#type.tag)}
 		end;
 	    'ANY' ->
 		Ct=maybe_illicit_implicit_tag(open_type,Tag),
@@ -4749,12 +4735,7 @@ iof_associated_type(S,[]) ->
     case get(instance_of) of
 	undefined ->
 	    AssociateSeq = iof_associated_type1(S,[]),
-	    Tag =
-		case S#state.erule of
-		    ber ->
-			[?TAG_CONSTRUCTED(?N_INSTANCE_OF)];
-		    _ -> []
-		end,
+	    Tag = [?TAG_CONSTRUCTED(?N_INSTANCE_OF)],
 	    TypeDef=#typedef{checked=true,
 			     name='INSTANCE OF',
 			     typespec=#type{tag=Tag,
@@ -4780,16 +4761,11 @@ iof_associated_type1(S,C) ->
 	    [] -> 'ASN1_OPEN_TYPE';
 	    _ -> {typefield,'Type'}
 	end,
-    {ObjIdTag,C1TypeTag}=
-	case S#state.erule of
-	    ber ->
-		{[{'UNIVERSAL',8}],
-		 [#tag{class='UNIVERSAL',
-		       number=6,
-		       type='IMPLICIT',
-		       form=0}]};
-	    _ -> {[{'UNIVERSAL','INTEGER'}],[]}
-	end,
+    ObjIdTag = [{'UNIVERSAL',8}],
+    C1TypeTag = [#tag{class='UNIVERSAL',
+		      number=6,
+		      type='IMPLICIT',
+		      form=0}],
     TypeIdentifierRef=#'Externaltypereference'{module=ModuleName,
 					       type='TYPE-IDENTIFIER'},
     ObjectIdentifier =
@@ -6333,18 +6309,8 @@ get_taglist(S,{ObjCl,FieldNameList}) when is_record(ObjCl,objectclass),
 	{fixedtypevaluefield,_,Type} -> get_taglist(S,Type);
 	{TypeFieldName,_} when is_atom(TypeFieldName) -> []%should check if allowed
     end;
-get_taglist(S,Def) ->
-    case S#state.erule of
-	ber ->
-	    [];
-	_ ->
-	    case Def of
-		'ASN1_OPEN_TYPE' -> % open_type has no UNIVERSAL tag as such
-		    [];
-		_ ->
-		    [asn1ct_gen:def_to_tag(Def)]
-	    end
-    end.
+get_taglist(_, _) ->
+    [].
 
 get_taglist1(S,[#'ComponentType'{name=_Cname,tags=TagL}|Rest]) when is_list(TagL) -> 
     %% tag_list has been here , just return TagL and continue with next alternative
@@ -6832,7 +6798,7 @@ default_type_list() ->
 
 include_default_class(S, Module) ->
     _ = [include_default_class1(S, Module, ClassDef) ||
-	    ClassDef <- default_class_list(S)],
+	    ClassDef <- default_class_list()],
 	ok.
 
 include_default_class1(S, Module, {Name,Ts0}) ->
@@ -6849,11 +6815,11 @@ include_default_class1(S, Module, {Name,Ts0}) ->
 	    ok
     end.
 
-default_class_list(S) ->
+default_class_list() ->
     [{'TYPE-IDENTIFIER',
       #objectclass{fields=[{fixedtypevaluefield,
 			    id,
-			    #type{tag=?TAG_PRIMITIVE(?N_OBJECT_IDENTIFIER),
+			    #type{tag=[?TAG_PRIMITIVE(?N_OBJECT_IDENTIFIER)],
 				  def='OBJECT IDENTIFIER'},
 			    'UNIQUE',
 			    'MANDATORY'},
@@ -6866,14 +6832,14 @@ default_class_list(S) ->
      {'ABSTRACT-SYNTAX',
       #objectclass{fields=[{fixedtypevaluefield,
 			    id,
-			    #type{tag=?TAG_PRIMITIVE(?N_OBJECT_IDENTIFIER),
+			    #type{tag=[?TAG_PRIMITIVE(?N_OBJECT_IDENTIFIER)],
 				  def='OBJECT IDENTIFIER'},
 			    'UNIQUE',
 			    'MANDATORY'},
 			   {typefield,'Type','MANDATORY'},
 			   {fixedtypevaluefield,
 			    property,
-			    #type{tag=?TAG_PRIMITIVE(?N_BIT_STRING),
+			    #type{tag=[?TAG_PRIMITIVE(?N_BIT_STRING)],
 				  def={'BIT STRING',[]}},
 			    undefined,
 			    {'DEFAULT',
