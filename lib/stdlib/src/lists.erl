@@ -166,8 +166,14 @@ reverse([A, B | L]) ->
       T :: term().
 
 nth(1, [H|_]) -> H;
+nth(N, []) when N > 0 ->
+	error_exceed;
 nth(N, [_|T]) when N > 1 ->
-    nth(N - 1, T).
+	case T of
+		[] -> error_exceed;
+		_  ->
+    		nth(N - 1, T)
+    end.
 
 -spec nthtail(N, List) -> Tail when
       N :: non_neg_integer(),
