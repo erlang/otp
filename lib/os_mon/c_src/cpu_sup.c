@@ -31,12 +31,26 @@
 #include <unistd.h>
 #include <string.h>
 
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <limits.h>
+#include <fcntl.h>
+#endif
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+#include <kvm.h>
+#include <sys/user.h>
+#endif
+
 #if defined(__sun__)
 #include <kstat.h>
 #endif
 
-#include <sys/sysinfo.h>
 #include <errno.h>
+
+#if defined(__sun__) || defined(__linux__)
+#include <sys/sysinfo.h>
+#endif
 
 #if defined(__linux__)
 #include <string.h>  /* strlen */
@@ -128,6 +142,11 @@ static void send(unsigned int data);
 static void sendv(unsigned int data[], int ints);
 static void error(char* err_msg);
 
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+static void bsd_count_procs(void);
+static void bsd_loadavg(int);
+#endif
+
 #if defined(__sun__)
 static kstat_ctl_t *kstat_ctl;
 #endif
@@ -179,14 +198,98 @@ int main(int argc, char** argv) {
     case AVG1:		send(misc_measure("avenrun_1min"));		break;
     case AVG5:		send(misc_measure("avenrun_5min"));		break;
     case AVG15:		send(misc_measure("avenrun_15min"));		break;
+#elif defined(__OpenBSD__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__DragonFly__)
+    case NPROCS:	bsd_count_procs();				break;
+    case AVG1:		bsd_loadavg(0);					break;
+    case AVG5:		bsd_loadavg(1);					break;
+    case AVG15:		bsd_loadavg(2);					break;
 #endif
+#if defined(__sun__) || defined(__linux__)
     case UTIL:		util_measure(&rv,&sz); 	sendv(rv, sz);		break;
+#endif
     case QUIT:		free((void*)rv); return 0;
     default:		error("Bad command");				break;
     }
   }
   return 0; /* supress warnings */
 }
+
+/* ---------------------------- *
+ *     BSD stat functions 	*
+ * ---------------------------- */
+#if defined(__OpenBSD__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__DragonFly__)
+
+static void bsd_loadavg(int idx) {
+    double avgs[3];
+    if (getloadavg(avgs, 3) < 0) {
+	error(strerror(errno));
+	return;
+    }
+    send((unsigned int)(avgs[idx] * 256));
+}
+
+#endif
+
+#if defined(__OpenBSD__)
+
+static void bsd_count_procs(void) {
+    int err, nproc;
+    size_t len = sizeof(nproc);
+    int mib[] = { CTL_KERN, KERN_NPROCS };
+
+    err = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &nproc, &len, NULL, 0);
+    if (err) {
+	error(strerror(errno));
+	return;
+    }
+
+    send((unsigned int)nproc);
+}
+
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+
+static void bsd_count_procs(void) {
+    kvm_t *kd;
+    struct kinfo_proc *kp;
+    char err[_POSIX2_LINE_MAX];
+    int cnt = 0;
+
+    if ((kd = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, err)) == NULL) {
+	error(err);
+	return;
+    }
+
+#if defined(KERN_PROC_PROC)
+    if ((kp = kvm_getprocs(kd, KERN_PROC_PROC, 0, &cnt)) == NULL) {
+#else
+    if ((kp = kvm_getprocs(kd, KERN_PROC_ALL, 0, &cnt)) == NULL) {
+#endif
+	error(strerror(errno));
+	return;
+    }
+
+    (void)kvm_close(kd);
+    send((unsigned int)cnt);
+}
+
+#elif (defined(__APPLE__) && defined(__MACH__))
+
+static void bsd_count_procs(void) {
+    int err;
+    size_t len = 0;
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
+
+    err = sysctl(mib, sizeof(mib) / sizeof(mib[0]), NULL, &len, NULL, 0);
+    if (err) {
+	error(strerror(errno));
+	return;
+    }
+
+    send((unsigned int)(len / sizeof(struct kinfo_proc)));
+}
+
+#endif
+
 /* ---------------------------- *
  *     Linux stat functions 	*
  * ---------------------------- */
@@ -474,7 +577,8 @@ static void error(char* err_msg) {
   buffer[i++] = '\n';
 
   /* try to use one write only */
-  if(write(FD_ERR, buffer, i));
+  if(write(FD_ERR, buffer, i))
+     ;
   exit(-1);
 }
 
