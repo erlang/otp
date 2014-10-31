@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,7 +122,7 @@ connect1(Name,Ip,Port,Timeout,KeepAlive,Username,Password) ->
 				ok = ct_telnet_client:send_data(Pid,Password),
 				Stars = lists:duplicate(length(Password),$*),
 				log(Name,send,"Password: ~s",[Stars]),
-				ok = ct_telnet_client:send_data(Pid,""),
+%				ok = ct_telnet_client:send_data(Pid,""),
 				case ct_telnet:silent_teln_expect(Name,Pid,[],
 								  prompt,
 								  ?prx,[]) of
