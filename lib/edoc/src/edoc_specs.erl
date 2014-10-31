@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,7 +58,7 @@ type(Form, TypeDocs) ->
                     end,
                 {#t_name{name = N}, T, As, Doc0}
         end,
-    #tag{name = type, line = element(2, Type),
+    #tag{name = type, line = get_line(element(2, Type)),
          origin = code,
          data = {#t_typedef{name = TypeName,
                             args = d2e(Args),
@@ -71,7 +71,7 @@ type(Form, TypeDocs) ->
 spec(Form, Clause) ->
     {Name, _Arity, TypeSpecs} = get_spec(Form),
     TypeSpec = lists:nth(Clause, TypeSpecs),
-    #tag{name = spec, line = element(2, TypeSpec),
+    #tag{name = spec, line = get_line(element(2, TypeSpec)),
          origin = code,
          data = aspec(d2e(TypeSpec), Name)}.
 
@@ -83,7 +83,7 @@ dummy_spec(Form) ->
     {#t_name{name = Name}, Arity, TypeSpecs} = get_spec(Form),
     As = string:join(lists:duplicate(Arity, "_X"), ","),
     S = lists:flatten(io_lib:format("~p(~s) -> true\n", [Name, As])),
-    #tag{name = spec, line = element(2, hd(TypeSpecs)),
+    #tag{name = spec, line = get_line(element(2, hd(TypeSpecs))),
          origin = code, data = S}.
 
 -spec docs(Forms::[syntaxTree()],
@@ -140,7 +140,7 @@ find_type_docs([F | Fs], Cs, Fun) ->
             %% Postcomments before the dot after the typespec are ignored.
             C2 = [C1 | [C ||
                            C <- erl_syntax:get_postcomments(F),
-                           get_line(erl_syntax:get_pos(C)) >= LastTypeLine]],
+                           erl_syntax:get_pos(C) >= LastTypeLine]],
             C3 = collect_comments(Fs, LastTypeLine),
             #tag{data = Doc0} = Fun(lists:reverse(C2 ++ C3), LastTypeLine),
             case strip(Doc0) of % Strip away "f(). \n"
@@ -157,7 +157,7 @@ find_type_docs([F | Fs], Cs, Fun) ->
 collect_comments([], _Line) ->
     [];
 collect_comments([F | Fs], Line) ->
-    L1 = get_line(erl_syntax:get_pos(F)),
+    L1 = erl_syntax:get_pos(F),
     if
         L1 =:= Line + 1;
         L1 =:= Line -> % a separate postcomment
@@ -190,29 +190,26 @@ get_name_and_last_line(F) ->
     {Name, Data} = erl_syntax_lib:analyze_wild_attribute(F),
     type = edoc_specs:tag(Name),
     Attr = {attribute, erl_syntax:get_pos(F), Name, Data},
-    Ref = make_ref(),
-    Fun = fun(L) -> {Ref, get_line(L)} end,
+    Fun = fun(A) ->
+                  Line = get_line(A),
+                  case get('$max_line') of
+                      Max when Max < Line ->
+                          _ = put('$max_line', Line);
+                      _ ->
+                          ok
+                  end
+          end,
+    undefined = put('$max_line', 0),
+    _ = erl_parse:map_anno(Fun, Attr),
+    Line = erase('$max_line'),
     TypeName = case Data of
                    {N, _T, As} when is_atom(N) -> % skip records
                        {N, length(As)}
                end,
-    Line = gll(erl_lint:modify_line(Attr, Fun), Ref),
     {TypeName, Line}.
 
-gll({Ref, Line}, Ref) ->
-    Line;
-gll([], _Ref) ->
-    0;
-gll(List, Ref) when is_list(List) ->
-    lists:max([gll(E, Ref) || E <- List]);
-gll(Tuple, Ref) when is_tuple(Tuple) ->
-    gll(tuple_to_list(Tuple), Ref);
-gll(_, _) ->
-    0.
-
-get_line(Pos) ->
-    {line, Line} = erl_scan:attributes_info(Pos, line),
-    Line.
+get_line(Anno) ->
+    erl_anno:line(Anno).
 
 %% Collect all Erlang types. Types in comments (@type) shadow Erlang
 %% types (-spec/-opaque).
@@ -348,7 +345,7 @@ d2e({type,_,constraint,[Sub,Ts0]}) ->
             Ts = [ST,T] = d2e([ST0,T0]),
             #t_def{name = ST, type = typevar_anno(T, Ts)};
         _ ->
-            throw_error(element(2, Sub), "cannot handle guard", [])
+            throw_error(get_line(element(2, Sub)), "cannot handle guard", [])
     end;
 d2e({type,_,union,Ts0}) ->
     Ts = d2e(Ts0),

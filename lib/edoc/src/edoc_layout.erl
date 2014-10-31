@@ -535,7 +535,8 @@ t_clause(Name, Type) ->
 pp_clause(Pre, Type) ->
     Types = ot_utype([Type]),
     Atom = lists:duplicate(iolist_size(Pre), $a),
-    L1 = erl_pp:attribute({attribute,0,spec,{{list_to_atom(Atom),0},[Types]}}),
+    Attr = {attribute,0,spec,{{list_to_atom(Atom),0},[Types]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     "-spec " ++ L2 = lists:flatten(L1),
     L3 = Pre ++ lists:nthtail(length(Atom), L2),
     re:replace(L3, "\n      ", "\n", [{return,list},global]).
@@ -555,7 +556,8 @@ format_type(Prefix, _Name, Type, Last, _Opts) ->
 
 pp_type(Prefix, Type) ->
     Atom = list_to_atom(lists:duplicate(iolist_size(Prefix), $a)),
-    L1 = erl_pp:attribute({attribute,0,type,{Atom,ot_utype(Type),[]}}),
+    Attr = {attribute,0,type,{Atom,ot_utype(Type),[]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     {L2,N} = case lists:dropwhile(fun(C) -> C =/= $: end, lists:flatten(L1)) of
                  ":: " ++ L3 -> {L3,9}; % compensation for extra "()" and ":"
                  "::\n" ++ L3 -> {"\n"++L3,6}
@@ -1085,8 +1087,8 @@ ot_var(E) ->
     {var,0,list_to_atom(get_attrval(name, E))}.
 
 ot_atom(E) ->
-    {ok, [Atom], _} = erl_scan:string(get_attrval(value, E), 0),
-    Atom.
+    {ok, [{atom,A,Name}], _} = erl_scan:string(get_attrval(value, E), 0),
+    {atom,erl_anno:line(A),Name}.
 
 ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.
