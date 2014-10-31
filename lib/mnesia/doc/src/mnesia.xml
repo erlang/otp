@@ -2766,7 +2766,7 @@ raise(Name, Amount) ->
           new type. The <c>Fun</c> argument can also be the atom
           <c>ignore</c>, it indicates that only the meta data about the table will
           be updated. Usage of <c>ignore</c> is not recommended but included
-          as a possibility for the user do to his own transform.
+          as a possibility for the user to do his own transform.
           <c>NewAttributeList</c> and <c>NewRecordName</c>
           specifies the attributes and the new record type of converted
           table. Table name will always remain unchanged, if the
