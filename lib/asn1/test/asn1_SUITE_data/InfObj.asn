@@ -440,6 +440,21 @@ INDIRECTED-CLASS ::= CLASS {
 
 INDIRECT-CLASS ::= INDIRECTED-CLASS
 
+--
+-- Indirect ObjectClassFieldType in a SEQUENCE.
+--
+
+ContentInfo ::= SEQUENCE {
+  contentType  ContentType, -- Indirect ObjectClassFieldType
+  content      TYPE-IDENTIFIER.&Type({Contents}{@contentType})
+OPTIONAL
+}
+
+Contents TYPE-IDENTIFIER ::= {
+  {IA5String IDENTIFIED BY id-content-type}
+}
+
+ContentType ::= TYPE-IDENTIFIER.&id({Contents})
+id-content-type ContentType ::= { 2 7 8 9 }
+
 END
-
-

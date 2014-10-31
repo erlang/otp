@@ -23,7 +23,8 @@
 	 classes/1,constraints/1,enumerated/1,
 	 imports/1,instance_of/1,integers/1,objects/1,
 	 object_field_extraction/1,oids/1,rel_oids/1,
-	 object_sets/1,parameterization/1, syntax/1,values/1]).
+	 object_sets/1,parameterization/1,
+	 syntax/1,table_constraints/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -49,6 +50,7 @@ groups() ->
        rel_oids,
        parameterization,
        syntax,
+       table_constraints,
        values]}].
 
 parallel() ->
@@ -576,6 +578,44 @@ syntax(Config) ->
        {syntax_duplicated_fields,['Type',code]}}
      ]
     } = run(P, Config),
+    ok.
+
+table_constraints(Config) ->
+    M = 'TableConstraints',
+    P = {M,
+	 <<"TableConstraints DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Seq-1 ::= SEQUENCE {\n"
+	   "    contentType CONTENTS.&id,\n"
+	   "    content CONTENTS.&Type({Contents}{@contentType})\n"
+	   "  }\n"
+
+	   "  Seq-2 ::= SEQUENCE {\n"
+	   "    contentType INTEGER({Contents}),\n"
+	   "    content CONTENTS.&Type({Contents}{@contentType})\n"
+	   "  }\n"
+
+	   "  Seq-3 ::= SEQUENCE {\n"
+	   "    contentType INTEGER,\n"
+	   "    content CONTENTS.&Type({Contents}{@contentType})\n"
+	   "  }\n"
+
+	   "Contents CONTENTS ::= {\n"
+	   "  {OCTET STRING IDENTIFIED BY {2 1 1}}\n"
+	   "}\n"
+
+	   "CONTENTS ::= TYPE-IDENTIFIER\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,
+       {M,2},asn1ct_check,
+       {missing_table_constraint,contentType}},
+      {structured_error,
+       {M,6},asn1ct_check,
+       {missing_ocft,contentType}},
+      {structured_error,
+       {M,10},asn1ct_check,
+       {missing_ocft,contentType}}
+     ]} = run(P, Config),
     ok.
 
 values(Config) ->

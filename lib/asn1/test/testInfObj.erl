@@ -156,6 +156,10 @@ main(_Erule) ->
     roundtrip('InfObj', 'TiAliasSeq',
 	      {'TiAliasSeq',{'TiAliasSeq_prf',{2,1,2},'NULL'}}),
 
+    roundtrip('InfObj', 'ContentInfo',
+	      {'ContentInfo',{2,7,8,9},"string"}),
+    {2,7,8,9} = 'InfObj':'id-content-type'(),
+
     ok.
 
 test_objset(Type, Keys) ->

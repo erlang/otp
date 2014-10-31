@@ -3184,9 +3184,11 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		case TopName of
 		    [] when Type#typedef.name =/= undefined ->
 			%% This is a top-level type.
-			#type{def=Simplified} =
-			    simplify_type(#type{def=NewTypeDef}),
-			TempNewDef#newt{type=Simplified,tag=Ct};
+			#type{constraint=C,def=Simplified} =
+			    simplify_type(#type{def=NewTypeDef,
+						constraint=Constr}),
+			TempNewDef#newt{type=Simplified,tag=Ct,
+					constraint=C};
 		    _ ->
 			TempNewDef#newt{type=NewTypeDef,tag=Ct}
 		end;
@@ -3232,10 +3234,11 @@ simplify_comp(#'ComponentType'{typespec=Type0}=C) ->
     C#'ComponentType'{typespec=Type};
 simplify_comp(Other) -> Other.
 
-simplify_type(#type{tag=Tag,def=Inner}=T) ->
+simplify_type(#type{tag=Tag,def=Inner,constraint=Constr0}=T) ->
     case Inner of
-	#'ObjectClassFieldType'{type={fixedtypevaluefield,_,Type}} ->
-	    Type#type{tag=Tag};
+	#'ObjectClassFieldType'{type={fixedtypevaluefield,_,Type}}=OCFT ->
+	    Constr = [{ocft,OCFT}|Type#type.constraint++Constr0],
+	    Type#type{tag=Tag,constraint=Constr};
 	_ ->
 	    T
     end.
@@ -5680,7 +5683,7 @@ remove_doubles1(El,L) ->
 	NewL -> remove_doubles1(El,NewL)
     end.
 
-%% get_simple_table_info searches the commponents Cs by the path from
+%% get_simple_table_info searches the components Cs by the path from
 %% an at-list (third argument), and follows into a component of it if
 %% necessary, to get information needed for code generating.
 %%
@@ -5695,32 +5698,35 @@ remove_doubles1(El,L) ->
 % %% at least one step below the outermost level, i.e. the leading
 % %% information shall be on a sub level. 2) They don't have any common
 % %% path.
-get_simple_table_info(S,Cs,[AtList|Rest]) ->
-    [get_simple_table_info1(S,Cs,AtList,[])|get_simple_table_info(S,Cs,Rest)];
-get_simple_table_info(_,_,[]) ->
-    [].
-get_simple_table_info1(S,Cs,[Cname|Cnames],Path) when is_list(Cs) ->
-    case lists:keysearch(Cname,#'ComponentType'.name,Cs) of
-	{value,C} ->
-	    get_simple_table_info1(S,C,Cnames,[Cname|Path]);
-        _ ->
-	    error({type,"Missing expected simple table constraint",S})
-    end;
-get_simple_table_info1(S,#'ComponentType'{typespec=TS},[],Path) ->
-    %% In this component there must be a simple table constraint
-    %% o.w. the asn1 code is wrong.
-    #type{def=OCFT,constraint=Cnstr} = TS,
-    case lists:keymember(simpletable, 1, Cnstr) of
-	true ->
-	    simple_table_info(S,OCFT,Path);
-	false ->
-	    error({type,{"missing expected simple table constraint",
-			 Cnstr},S})
-    end;
-get_simple_table_info1(S,#'ComponentType'{typespec=TS},Cnames,Path) ->
-    Components = get_atlist_components(TS#type.def),
-    get_simple_table_info1(S,Components,Cnames,Path).
+get_simple_table_info(S, Cs, AtLists) ->
+    [get_simple_table_info1(S, Cs, AtList, []) || AtList <- AtLists].
 
+get_simple_table_info1(S, Cs, [Cname|Cnames], Path) ->
+    #'ComponentType'{} = C =
+	lists:keyfind(Cname, #'ComponentType'.name, Cs),
+    get_simple_table_info2(S, C, Cnames, [Cname|Path]).
+
+get_simple_table_info2(S, #'ComponentType'{name=Name,typespec=TS}, [], Path) ->
+    OCFT = simple_table_get_ocft(S, Name, TS),
+    case lists:keymember(simpletable, 1, TS#type.constraint) of
+	true ->
+	    simple_table_info(S, OCFT, Path);
+	false ->
+	    asn1_error(S, {missing_table_constraint,Name})
+    end;
+get_simple_table_info2(S, #'ComponentType'{typespec=TS}, Cnames, Path) ->
+    Components = get_atlist_components(TS#type.def),
+    get_simple_table_info1(S, Components, Cnames, Path).
+
+simple_table_get_ocft(_, _, #type{def=#'ObjectClassFieldType'{}=OCFT}) ->
+    OCFT;
+simple_table_get_ocft(S, Component, #type{constraint=Constr}) ->
+    case lists:keyfind(ocft, 1, Constr) of
+	{ocft,OCFT} ->
+	    OCFT;
+	false ->
+	    asn1_error(S, {missing_ocft,Component})
+    end.
 
 simple_table_info(S,#'ObjectClassFieldType'{classname=ClRef,
 					    class=ObjectClass,
@@ -5752,10 +5758,7 @@ simple_table_info(S,#'ObjectClassFieldType'{classname=ClRef,
 		error({type,{internal_error,Msg},S});
 	    {Other,_} -> Other
 	end,
-    {lists:reverse(Path),ObjectClassFieldName,UniqueName};
-simple_table_info(S,Type,_) ->
-    error({type,{"the type referenced by a componentrelation constraint must be a ObjectClassFieldType",Type},S}).
-
+    {lists:reverse(Path),ObjectClassFieldName,UniqueName}.
 
 %% any_component_relation searches for all component relation
 %% constraints that refers to the actual level and returns a list of
@@ -5908,14 +5911,8 @@ get_choice_components(S,ERef=#'Externaltypereference'{}) ->
     #typedef{typespec=TS} = TypeDef,
     get_choice_components(S,TS#type.def).
 
-extract_at_notation([{Level,[#'Externalvaluereference'{value=Name}|Rest]}]) ->
-    {Level,[Name|extract_at_notation1(Rest)]};
-extract_at_notation(At) ->
-    exit({error,{asn1,{at_notation,At}}}).
-extract_at_notation1([#'Externalvaluereference'{value=Name}|Rest]) ->
-    [Name|extract_at_notation1(Rest)];
-extract_at_notation1([]) ->
-    [].
+extract_at_notation([{Level,ValueRefs}]) ->
+    {Level,[Name || #'Externalvaluereference'{value=Name} <- ValueRefs]}.
     
 %% componentrelation1/1 identifies all componentrelation constraints
 %% that exist in C or in the substructure of C. Info about the found
@@ -6532,6 +6529,11 @@ format_error({invalid_bit_number,Bit}) ->
 format_error({missing_mandatory_fields,Fields,Obj}) ->
     io_lib:format("missing mandatory ~s in ~p",
 		  [format_fields(Fields),Obj]);
+format_error({missing_table_constraint,Component}) ->
+    io_lib:format("the component '~s' is referenced by a component relation constraint using the '@field-name' notation, but does not have a table constraint",
+		  [Component]);
+format_error({missing_ocft,Component}) ->
+    io_lib:format("the component '~s' must be an ObjectClassFieldType (CLASSNAME.&field-name)", [Component]);
 format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
 format_error({syntax_duplicated_fields,Fields}) ->
