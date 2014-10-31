@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1521,7 +1521,9 @@ otp_7945(doc) ->
     "OTP-7945. A bug introduced in R13A.";
 otp_7945(suite) -> [];
 otp_7945(Config) when is_list(Config) ->
-    ?line {error,_} = erl_parse:parse([{atom,3,foo},{'.',2,9,9}]),
+    A2 = erl_anno:new(2),
+    A3 = erl_anno:new(3),
+    {error,_} = erl_parse:parse([{atom,3,foo},{'.',A2,9,9}]),
     ok.
 
 otp_8483(doc) ->
@@ -1786,7 +1788,8 @@ otp_7969(Config) when is_list(Config) ->
 
     ?line {ok, Ts11, _}=R1 = erl_scan:string("f() -> a."),
     ?line F1 = fun() -> {ok,Ts11 ++ [{'$end',2}],2} end,
-    ?line{ok,{function,1,f,0,[{clause,1,[],[],[{atom,1,a}]}]}} =
+    A1 = erl_anno:new(1),
+    {ok,{function,A1,f,0,[{clause,A1,[],[],[{atom,A1,a}]}]}} =
         erl_parse:parse_and_scan({F1, []}),
     ?line F2 = fun() -> erl_scan:string("f() -> ,") end,
     ?line {error,{1,erl_parse,_}} = erl_parse:parse_and_scan({F2, []}),
@@ -1797,7 +1800,7 @@ otp_7969(Config) when is_list(Config) ->
                                 put(foo,bar), R1
                         end
                end,
-    ?line {ok,{function,1,f,0,[{clause,1,[],[],[{atom,1,a}]}]}} =
+    {ok,{function,A1,f,0,[{clause,A1,[],[],[{atom,A1,a}]}]}} =
         erl_parse:parse_and_scan({F3,[]}),
     F4 = fun() -> {error, {1, ?MODULE, bad}, 2} end,
     ?line {error, {1,?MODULE,bad}} = erl_parse:parse_and_scan({F4, []}),
@@ -1813,7 +1816,8 @@ otp_8919(doc) ->
     "OTP-8919. Improve formating of Yecc error messages.";
 otp_8919(suite) -> [];
 otp_8919(Config) when is_list(Config) ->
-    {error,{1,Mod,Mess}} = erl_parse:parse([{cat,1,"hello"}]),
+    A1 = erl_anno:new(1),
+    {error,{1,Mod,Mess}} = erl_parse:parse([{cat,A1,"hello"}]),
     "syntax error before: \"hello\"" = lists:flatten(Mod:format_error(Mess)),
     ok.
 
