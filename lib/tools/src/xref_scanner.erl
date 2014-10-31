@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,8 @@
 %%
 
 -module(xref_scanner).
+
+-include("xref.hrl").
 
 -export([scan/1]).
 
@@ -77,7 +79,7 @@ lex([V={var,N,Var} | L]) ->
 lex([T | Ts]) ->
     [T | lex(Ts)];
 lex([]) ->
-    [{'$end', -1}].
+    [{'$end', erl_anno:new(?XREF_END_LINE)}].
 
 is_type('Rel')         -> true;
 is_type('App')         -> true;
