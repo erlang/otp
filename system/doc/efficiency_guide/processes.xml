@@ -186,7 +186,7 @@ kilo_byte(0, Acc) ->
 kilo_byte(N, Acc) ->
     kilo_byte(N-1, [Acc|Acc]).</code>
 
-       <p><c>kilo_byte/1</c> creates a deep list. If we call
+       <p><c>kilo_byte/0</c> creates a deep list. If we call
        <c>list_to_binary/1</c>, we can convert the deep list to a binary
        of 1024 bytes:</p>
 
