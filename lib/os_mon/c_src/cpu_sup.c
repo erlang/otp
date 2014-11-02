@@ -138,7 +138,7 @@ static void util_measure(unsigned int **result_vec, int *result_sz);
 #if defined(__sun__)
 static unsigned int misc_measure(char* name);
 #endif
-static void send(unsigned int data);
+static void sendi(unsigned int data);
 static void sendv(unsigned int data[], int ints);
 static void error(char* err_msg);
 
@@ -192,12 +192,12 @@ int main(int argc, char** argv) {
       error("Erlang has closed");
     
     switch(cmd) {
-    case PING:		send(4711);					break;
+    case PING:		sendi(4711);					break;
 #if defined(__sun__)
-    case NPROCS:	send(misc_measure("nproc"));			break;
-    case AVG1:		send(misc_measure("avenrun_1min"));		break;
-    case AVG5:		send(misc_measure("avenrun_5min"));		break;
-    case AVG15:		send(misc_measure("avenrun_15min"));		break;
+    case NPROCS:	sendi(misc_measure("nproc"));			break;
+    case AVG1:		sendi(misc_measure("avenrun_1min"));		break;
+    case AVG5:		sendi(misc_measure("avenrun_5min"));		break;
+    case AVG15:		sendi(misc_measure("avenrun_15min"));		break;
 #elif defined(__OpenBSD__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__DragonFly__)
     case NPROCS:	bsd_count_procs();				break;
     case AVG1:		bsd_loadavg(0);					break;
@@ -225,7 +225,7 @@ static void bsd_loadavg(int idx) {
 	error(strerror(errno));
 	return;
     }
-    send((unsigned int)(avgs[idx] * 256));
+    sendi((unsigned int)(avgs[idx] * 256));
 }
 
 #endif
@@ -243,7 +243,7 @@ static void bsd_count_procs(void) {
 	return;
     }
 
-    send((unsigned int)nproc);
+    sendi((unsigned int)nproc);
 }
 
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
@@ -269,7 +269,7 @@ static void bsd_count_procs(void) {
     }
 
     (void)kvm_close(kd);
-    send((unsigned int)cnt);
+    sendi((unsigned int)cnt);
 }
 
 #elif (defined(__APPLE__) && defined(__MACH__))
@@ -285,7 +285,7 @@ static void bsd_count_procs(void) {
 	return;
     }
 
-    send((unsigned int)(len / sizeof(struct kinfo_proc)));
+    sendi((unsigned int)(len / sizeof(struct kinfo_proc)));
 }
 
 #endif
@@ -523,7 +523,7 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
  *	 Generic functions 	*
  * ---------------------------- */
 
-static void send(unsigned int data) { sendv(&data, 1); }
+static void sendi(unsigned int data) { sendv(&data, 1); }
 
 static void sendv(unsigned int data[], int ints) {
     static unsigned char *buf = NULL;
