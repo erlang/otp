@@ -255,11 +255,15 @@ close({'DOWN', _, process, TPid, {shutdown, Reason}},
 close(_, _) ->
     ok.
 
-event(_, #watchdog{status = T}, #watchdog{status = T}) ->
+event(_,
+      #watchdog{status = From, transport = F},
+      #watchdog{status = To, transport = T})
+  when F == undefined, T == undefined;  %% transport not started
+       From == initial, To == down;     %% never really left INITIAL
+       From == To ->                    %% no state transition
     ok;
-
-event(_, #watchdog{transport = undefined}, #watchdog{transport = undefined}) ->
-    ok;
+%% Note that there is no INITIAL -> DOWN transition in RFC 3539: ours
+%% is just a consequence of stop.
 
 event(Msg,
       #watchdog{status = From, transport = F, parent = Pid},
@@ -411,7 +415,7 @@ transition({'DOWN', _, process, TPid, _Reason},
     stop;
 
 %% ... or not.
-transition({'DOWN', _, process, TPid, _Reason},
+transition({'DOWN', _, process, TPid, _Reason} = D,
            #watchdog{transport = TPid,
                      status = T,
                      restrict = {_,R}}
@@ -422,20 +426,14 @@ transition({'DOWN', _, process, TPid, _Reason},
 
     %% Close an accepting watchdog immediately if there's no
     %% restriction on the number of connections to the same peer: the
-    %% state machine never enters state REOPEN in this case. The
-    %% 'close' message (instead of stop) is so as not to bypass the
-    %% sending of messages to the service process in handle_info/2.
+    %% state machine never enters state REOPEN in this case.
 
-    if T /= initial, M == accept, not R ->
-            send(self(), close),
-            S#watchdog{status = down};
-       T /= initial ->
-            set_watchdog(S#watchdog{status = down});
-       M == connect ->
-            set_watchdog(S);
-       M == accept ->
-            send(self(), close),
-            S
+    if T == initial;
+       M == accept, not R ->
+            close(D, S0),
+            stop;
+       true ->
+            set_watchdog(S#watchdog{status = down})
     end;
 
 %% Incoming message.
