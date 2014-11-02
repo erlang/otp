@@ -27,6 +27,7 @@
 #include "erl_process.h"
 #include "error.h"
 #include "erl_driver.h"
+#include "erl_nif.h"
 #include "bif.h"
 #include "big.h"
 #include "erl_version.h"
@@ -2457,6 +2458,13 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	int n = erts_snprintf(buf, 42, "%d.%d",
 			      ERL_DRV_EXTENDED_MAJOR_VERSION,
 			      ERL_DRV_EXTENDED_MINOR_VERSION);
+	hp = HAlloc(BIF_P, 2*n);
+	BIF_RET(buf_to_intlist(&hp, buf, n, NIL));
+    } else if (ERTS_IS_ATOM_STR("nif_version", BIF_ARG_1)) {
+	char buf[42];
+	int n = erts_snprintf(buf, 42, "%d.%d",
+			      ERL_NIF_MAJOR_VERSION,
+			      ERL_NIF_MINOR_VERSION);
 	hp = HAlloc(BIF_P, 2*n);
 	BIF_RET(buf_to_intlist(&hp, buf, n, NIL));
     } else if (ERTS_IS_ATOM_STR("smp_support", BIF_ARG_1)) {
