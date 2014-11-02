@@ -213,7 +213,7 @@ void run(EpmdVars *g)
   node_init(g);
   g->conn = conn_init(g);
 
-#ifdef HAVE_SYSTEMD_DAEMON
+#ifdef HAVE_SYSTEMD_SD_DAEMON
   if (g->is_systemd)
     {
       int n;
@@ -244,7 +244,7 @@ void run(EpmdVars *g)
     }
   else
     {
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON */
 
   dbg_printf(g,2,"try to initiate listening port %d", g->port);
 
@@ -310,9 +310,9 @@ void run(EpmdVars *g)
       SET_ADDR(iserv_addr[0],EPMD_ADDR_ANY,sport);
       num_sockets = 1;
     }
-#ifdef HAVE_SYSTEMD_DAEMON
+#ifdef HAVE_SYSTEMD_SD_DAEMON
     }
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON */
 
 #if !defined(__WIN32__) && !defined(__OSE__)
   /* We ignore the SIGPIPE signal that is raised when we call write
@@ -336,7 +336,7 @@ void run(EpmdVars *g)
           select_fd_set(g, listensock[i]);
   else
     {
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON */
   for (i = 0; i < num_sockets; i++)
     {
       if ((listensock[i] = socket(FAMILY,SOCK_STREAM,0)) < 0)
@@ -404,7 +404,7 @@ void run(EpmdVars *g)
     sd_notifyf(0, "READY=1\n"
                   "STATUS=Processing port mapping requests...\n"
                   "MAINPID=%lu", (unsigned long) getpid());
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON_H */
 
   dbg_tty_printf(g,2,"entering the main select() loop");
 

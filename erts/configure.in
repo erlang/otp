@@ -1699,7 +1699,6 @@ AC_CHECK_HEADERS(systemd/sd-daemon.h,
 if test x"$have_sd_listen_fds" = x"yes" && \
    test x"$have_sd_notify" = x"yes" && \
    test x"$have_systemd_sd_daemon_h" = x"yes"; then
-  AC_DEFINE([HAVE_SYSTEMD_DAEMON],[1],[Define if you have systemd daemon])
   SYSTEMD_DAEMON_LIBS=$LIBS
 elif test x"$enable_systemd" = x"yes"; then
   AC_MSG_FAILURE([--enable-systemd was given, but test for systemd failed])

@@ -177,7 +177,7 @@ int main(int argc, char** argv)
     g->active_conn    = 0;
 #ifdef HAVE_SYSTEMD_SD_DAEMON_H
     g->is_systemd     = 0;
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON */
 
     for (i = 0; i < MAX_LISTEN_SOCKETS; i++)
 	g->listenfd[i] = -1;
@@ -255,7 +255,7 @@ int main(int argc, char** argv)
 	} else if (strcmp(argv[0], "-systemd") == 0) {
             g->is_systemd = 1;
             argv++; argc--;
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON */
 	} else
 	    usage(g);
     }
@@ -465,7 +465,7 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "    -systemd\n");
     fprintf(stderr, "        Wait for socket from systemd. The option makes sense\n");
     fprintf(stderr, "        when started from .socket unit.\n");
-#endif
+#endif /* HAVE_SYSTEMD_SD_DAEMON */
     epmd_cleanup_exit(g,1);
 }
 
@@ -597,7 +597,7 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
 #ifdef HAVE_SYSTEMD_SD_DAEMON_H
   sd_notifyf(0, "STATUS=Exited.\n"
                 "ERRNO=%i", exitval);
-#endif // HAVE_SYSTEMD_SD_DAEMON_H
+#endif /* HAVE_SYSTEMD_SD_DAEMON_H */
   exit(exitval);
 }
 
