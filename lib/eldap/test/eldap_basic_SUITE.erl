@@ -200,6 +200,7 @@ do_api_checks(H, Config) ->
     chk_add(H, BasePath),
     {ok,FB} = chk_search(H, BasePath),
     chk_modify(H, FB),
+    chk_modify_password(H, FB),
     chk_delete(H, BasePath),
     chk_modify_dn(H, FB).
 
@@ -250,6 +251,23 @@ chk_modify(H, FB) ->
     %% DELETE ATTR
     ok = eldap:modify(H, FB, [eldap:mod_delete("telephoneNumber", [])]).
 
+chk_modify_password(H, FB) ->
+    %% Change password, and ensure we can bind with it.
+    ok = eldap:simple_bind(H, "cn=Manager,dc=ericsson,dc=se", "hejsan"),
+    ok = eldap:modify_password(H, FB, "example"),
+    ok = eldap:simple_bind(H, FB, "example"),
+    %% Change password to a server generated value.
+    ok = eldap:simple_bind(H, "cn=Manager,dc=ericsson,dc=se", "hejsan"),
+    {ok, Passwd} = eldap:modify_password(H, FB, []),
+    ok = eldap:simple_bind(H, FB, Passwd),
+    %% Change own password to server generated value.
+    {ok, NewPasswd} = eldap:modify_password(H, [], [], Passwd),
+    ok = eldap:simple_bind(H, FB, NewPasswd),
+    %% Change own password to explicit value.
+    ok = eldap:modify_password(H, [], "example", NewPasswd),
+    ok = eldap:simple_bind(H, FB, "example"),
+    %% Restore original binding.
+    ok = eldap:simple_bind(H, "cn=Manager,dc=ericsson,dc=se", "hejsan").
 
 chk_delete(H, BasePath) ->
     {error, entryAlreadyExists} = eldap:add(H, "cn=Jonas Jonsson," ++ BasePath,
