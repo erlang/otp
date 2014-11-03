@@ -564,9 +564,7 @@ check_class(S = #state{mname=M,tname=T},ClassSpec)
 	{pt,ClassRef,Params} ->
 	    %% parameterized class
 	    {_,PClassDef} = get_referenced_type(S,ClassRef),
-	    NewParaList = 
-		[match_parameters(S,TmpParam,S#state.parameters)|| 
-		    TmpParam <- Params],
+	    NewParaList = match_parameters(S, Params),
 	    instantiate_pclass(S,PClassDef,NewParaList)
     end;
 check_class(S, #objectclass{}=C) ->
@@ -844,9 +842,7 @@ check_object(S,
 			     NewOS);
 	    #type{def={pt,DefinedObjSet,ParamList}} ->
 		{_,PObjSetDef} = get_referenced_type(S,DefinedObjSet),
-		NewParamList = 
-		    [match_parameters(S,TmpParam,S#state.parameters)|| 
-			TmpParam <- ParamList],
+		NewParamList = match_parameters(S, ParamList),
 		instantiate_pos(S,ClassRef,PObjSetDef,NewParamList);
 
 	    %% actually this is an ObjectSetFromObjects construct, it
@@ -888,9 +884,7 @@ check_object(S,
 		OS2;
 	    {pos,{objectset,_,DefinedObjSet},Params} ->
 		{_,PObjSetDef} = get_referenced_type(S,DefinedObjSet),
-		NewParamList = 
-		    [match_parameters(S,TmpParam,S#state.parameters)|| 
-			TmpParam <- Params],
+		NewParamList = match_parameters(S, Params),
 		instantiate_pos(S,ClassRef,PObjSetDef,NewParamList);
 	    Unknown ->
 		exit({error,{unknown_object_set,Unknown},S})
@@ -1246,8 +1240,7 @@ check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
 						     set=OSDef}),
 	    check_object_list(S,ClassRef,Objs,Set ++ Acc);
 	{pv,{simpledefinedvalue,DefinedObject},Params} ->
-	    Args = [match_parameters(S,Param,S#state.parameters)||
-		       Param<-Params],
+	    Args = match_parameters(S, Params),
 	    #'Object'{def=Def} =
 		check_object(S,ObjOrSet,
 			     #'Object'{classname=ClassRef ,
@@ -2881,7 +2874,7 @@ check_type(_S,Type,Ts) when is_record(Type,typedef),
     Ts;
 check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
     {Def,Tag,Constr,IsInlined} = 
-	case match_parameters(S,Ts#type.def,S#state.parameters) of
+	case match_parameter(S, Ts#type.def) of
 	    #type{tag=PTag,constraint=_Ctmp,def=Dtmp,inlined=Inl} ->
 		{Dtmp,merge_tags(Ts#type.tag,PTag),Ts#type.constraint,Inl};
 	    #typedef{typespec=#type{tag=PTag,def=Dtmp,inlined=Inl}} ->
@@ -3163,9 +3156,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		%% calling function.
 		{_RefMod,Ptypedef} = get_referenced_type(S,Ptype),
 		notify_if_not_ptype(S,Ptypedef),
-		NewParaList = 
-		    [match_parameters(S,TmpParam,S#state.parameters)|| 
-				  TmpParam <- ParaList],
+		NewParaList = match_parameters(S, ParaList),
 		Instance = instantiate_ptype(S,Ptypedef,NewParaList),
 		TempNewDef#newt{type=Instance#type.def,
 				tag=merge_tags(Tag,Instance#type.tag),
@@ -3599,7 +3590,7 @@ resolve_tuple_or_list(S, HostType, {Lb,Ub}) ->
 %% is replaced by the actual value
 %%
 resolve_value(S, HostType, Val) ->
-    Id = match_parameters(S,Val, S#state.parameters),
+    Id = match_parameter(S, Val),
     resolve_value1(S, HostType, Id).
 
 resolve_value1(S, HostType, #'Externalvaluereference'{value=Name}=ERef) ->
@@ -3720,7 +3711,7 @@ check_constraint(S, HostType, {simpletable,Type}) ->
 	      {'SingleValue',ObjRef = #'Externalvaluereference'{}} ->
 		  ObjRef
 	  end,
-    C = match_parameters(S,Def,S#state.parameters),
+    C = match_parameter(S, Def),
     case C of
 	#'Externaltypereference'{} ->
 	    ERef = check_externaltypereference(S,C),
@@ -3766,7 +3757,7 @@ check_constraint(S, HostType, {simpletable,Type}) ->
 check_constraint(S, _HostType, {componentrelation,{objectset,Opos,Objset},Id}) ->
     %% Objset is an 'Externaltypereference' record, since Objset is
     %% a DefinedObjectSet.
-    RealObjset = match_parameters(S,Objset,S#state.parameters),
+    RealObjset = match_parameter(S, Objset),
     ObjSetRef =
 	case RealObjset of
 	    #'Externaltypereference'{} -> RealObjset;
@@ -4365,8 +4356,8 @@ get_referenced_type(S, T, Recurse) ->
 	    Res
     end.
 
-do_get_referenced_type(#state{parameters=Ps}=S, T0) ->
-    case match_parameters(S, T0, Ps) of
+do_get_referenced_type(S, T0) ->
+    case match_parameter(S, T0) of
 	T0 ->
 	    do_get_ref_type_1(S, T0);
 	T ->
@@ -4584,34 +4575,43 @@ get_importmoduleoftype([I|Is],Name) ->
 get_importmoduleoftype([],_) ->
     undefined.
 		     
+match_parameters(S, Names) ->
+    [match_parameter(S, Name) || Name <- Names].
 
-match_parameters(_S,Name,[]) ->
+match_parameter(#state{parameters=Ps}=S, Name) ->
+    match_parameter(S, Name, Ps).
+
+match_parameter(_S, Name, []) ->
     Name;
-
-match_parameters(_S,#'Externaltypereference'{type=Name},[{#'Externaltypereference'{type=Name},NewName}|_T]) ->
+match_parameter(_S, #'Externaltypereference'{type=Name},
+		[{#'Externaltypereference'{type=Name},NewName}|_T]) ->
     NewName;
-match_parameters(_S,#'Externaltypereference'{type=Name},[{{_,#'Externaltypereference'{type=Name}},NewName}|_T]) ->
+match_parameter(_S, #'Externaltypereference'{type=Name},
+		[{{_,#'Externaltypereference'{type=Name}},NewName}|_T]) ->
     NewName;
-match_parameters(_S,#'Externalvaluereference'{value=Name},[{#'Externalvaluereference'{value=Name},NewName}|_T]) ->
+match_parameter(_S, #'Externalvaluereference'{value=Name},
+		[{#'Externalvaluereference'{value=Name},NewName}|_T]) ->
     NewName;
-match_parameters(_S,#'Externalvaluereference'{value=Name},[{{_,#'Externalvaluereference'{value=Name}},NewName}|_T]) ->
+match_parameter(_S, #'Externalvaluereference'{value=Name},
+		[{{_,#'Externalvaluereference'{value=Name}},NewName}|_T]) ->
     NewName;
-match_parameters(_S,#type{def=#'Externaltypereference'{module=M,type=Name}},
-		 [{#'Externaltypereference'{module=M,type=Name},Type}]) ->
+match_parameter(_S, #type{def=#'Externaltypereference'{module=M,type=Name}},
+		[{#'Externaltypereference'{module=M,type=Name},Type}]) ->
     Type;
-match_parameters(_S,{valueset,#type{def=#'Externaltypereference'{type=Name}}},
-		 [{{_,#'Externaltypereference'{type=Name}},{valueset,#type{def=NewName}}}|_T]) ->
+match_parameter(_S, {valueset,#type{def=#'Externaltypereference'{type=Name}}},
+		[{{_,#'Externaltypereference'{type=Name}},
+		  {valueset,#type{def=NewName}}}|_T]) ->
     NewName;
-match_parameters(_S,{valueset,#type{def=#'Externaltypereference'{type=Name}}},
-		 [{{_,#'Externaltypereference'{type=Name}},
-		   NewName=#type{def=#'Externaltypereference'{}}}|_T]) ->
+match_parameter(_S, {valueset,#type{def=#'Externaltypereference'{type=Name}}},
+		[{{_,#'Externaltypereference'{type=Name}},
+		  NewName=#type{def=#'Externaltypereference'{}}}|_T]) ->
     NewName#type.def;
-match_parameters(_S,{valueset,#type{def=#'Externaltypereference'{type=Name}}},
-		 [{{_,#'Externaltypereference'{type=Name}},NewName}|_T]) ->
+match_parameter(_S, {valueset,#type{def=#'Externaltypereference'{type=Name}}},
+		[{{_,#'Externaltypereference'{type=Name}},NewName}|_T]) ->
     NewName;
 %% When a parameter is a parameterized element it has to be
 %% instantiated now!
-match_parameters(S,{valueset,T=#type{def={pt,_,_Args}}},_Parameters) ->
+match_parameter(S, {valueset,T=#type{def={pt,_,_Args}}}, _Ps) ->
     case catch check_type(S,#typedef{name=S#state.tname,typespec=T},T) of
 	pobjectsetdef ->
 
@@ -4638,11 +4638,11 @@ match_parameters(S,{valueset,T=#type{def={pt,_,_Args}}},_Parameters) ->
 	Ts when is_record(Ts,type) -> Ts#type.def
     end;
 %% same as previous, only depends on order of parsing
-match_parameters(S,{valueset,{pos,{objectset,_,POSref},Args}},Parameters) ->
-    match_parameters(S,{valueset,#type{def={pt,POSref,Args}}},Parameters);
-match_parameters(S,Name, [_H|T]) ->
-    %%io:format("match_parameters(~p,~p)~n",[Name,[H|T]]),
-    match_parameters(S,Name,T).
+match_parameter(S, {valueset,{pos,{objectset,_,POSref},Args}}, Ps) ->
+    match_parameter(S, {valueset,#type{def={pt,POSref,Args}}}, Ps);
+match_parameter(S, Name, [_H|T]) ->
+    %%io:format("match_parameter(~p,~p)~n",[Name,[H|T]]),
+    match_parameter(S, Name, T).
 
 imported(S,Name) ->
     {imports,Ilist} = (S#state.module)#module.imports,
