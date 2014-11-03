@@ -114,12 +114,12 @@ up(Config) ->
 
 %% Connect with non-matching capabilities and expect CEA from the peer
 %% to indicate as much and then for the transport to be restarted
-%% (after reconnect_timer).
+%% (after connect_timer).
 down(Config) ->
     {Svc, Ref} = connect(Config, [{capabilities, [{'Acct-Application-Id',
                                                    [?DICT_ACCT:id()]}]},
                                   {applications, [?DICT_ACCT]},
-                                  {reconnect_timer, 5000}]),
+                                  {connect_timer, 5000}]),
     start = event(Svc),
     {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{}}, _}
         = event(Svc),
@@ -129,7 +129,7 @@ down(Config) ->
 %% CEA and cause the client to timeout.
 cea_timeout(Config) ->
     {Svc, Ref} = connect(Config, [{capx_timeout, ?SERVER_CAPX_TMO div 2},
-                                  {reconnect_timer, 2*?SERVER_CAPX_TMO}]),
+                                  {connect_timer, 2*?SERVER_CAPX_TMO}]),
     start = event(Svc),
     {closed, Ref, {'CEA', timeout}, _} = event(Svc).
 
