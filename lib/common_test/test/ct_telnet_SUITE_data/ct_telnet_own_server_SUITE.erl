@@ -22,6 +22,8 @@
 -define(DONT,	254).
 -define(IAC,	255).
 
+-define(SHORT_TIME,2000).
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -115,7 +117,7 @@ expect_error_prompt(_) ->
 expect_error_timeout1(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
     ok = ct_telnet:send(Handle, "echo_no_prompt xxx"),
-    {error,timeout} = ct_telnet:expect(Handle, ["xxx"], [{timeout,1000}]),
+    {error,timeout} = ct_telnet:expect(Handle, ["xxx"], [{timeout,?SHORT_TIME}]),
     ok = ct_telnet:close(Handle),
     ok.
 
@@ -178,16 +180,16 @@ ignore_prompt_timeout(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
     ok = ct_telnet:send(Handle, "echo xxx"),
     {error,timeout} = ct_telnet:expect(Handle, ["yyy"], [ignore_prompt,
-							 {timeout,1000}]),
+							 {timeout,?SHORT_TIME}]),
     ok = ct_telnet:send(Handle, "echo xxx"), % sends prompt and newline
     {ok,["xxx"]} = ct_telnet:expect(Handle, ["xxx"], [ignore_prompt,
-						      {timeout,1000}]),
+						      {timeout,?SHORT_TIME}]),
     ok = ct_telnet:send(Handle, "echo_no_prompt xxx\n"), % no prompt, but newline
     {ok,["xxx"]} = ct_telnet:expect(Handle, ["xxx"], [ignore_prompt,
-						      {timeout,1000}]),
+						      {timeout,?SHORT_TIME}]),
     ok = ct_telnet:send(Handle, "echo_no_prompt xxx"), % no prompt, no newline
     {error,timeout} = ct_telnet:expect(Handle, ["xxx"], [ignore_prompt,
-							 {timeout,1000}]),
+							 {timeout,?SHORT_TIME}]),
     ok = ct_telnet:close(Handle),
     ok.
 
@@ -233,7 +235,7 @@ no_prompt_check_timeout(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
     ok = ct_telnet:send(Handle, "echo xxx"),
     {error,timeout} = ct_telnet:expect(Handle, ["yyy"], [no_prompt_check,
-							 {timeout,1000}]),
+							 {timeout,?SHORT_TIME}]),
     ok = ct_telnet:close(Handle),
     ok.
 
@@ -283,7 +285,7 @@ server_speaks(_) ->
     ok = ct_telnet:send(Handle, "echo_no_prompt This is the third message\r\n"),
     {ok,_} = ct_telnet:expect(Handle, ["the"], [no_prompt_check]),
     {error,timeout} = ct_telnet:expect(Handle, ["the"], [no_prompt_check,
-							 {timeout,1000}]),
+							 {timeout,?SHORT_TIME}]),
     ok = ct_telnet:send(Handle, "echo_no_prompt This is the fourth message\r\n"),
     %% give the server time to respond
     timer:sleep(2000),
