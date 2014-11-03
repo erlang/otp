@@ -29,7 +29,8 @@
 	 leap_years/1,
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
-	 iso_week_number/1]).
+	 iso_week_number/1,
+         iso_week_to_date/1]).
 
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
@@ -39,7 +40,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
-     last_day_of_the_month, local_time_to_universal_time_dst, iso_week_number].
+     last_day_of_the_month, local_time_to_universal_time_dst, iso_week_number,
+     iso_week_to_date].
 
 groups() -> 
     [].
@@ -180,6 +182,16 @@ iso_week_number(suite) ->
 iso_week_number(Config) when is_list(Config) ->
 	?line check_iso_week_number().
 
+iso_week_to_date(doc) ->
+	"Test the inverse of iso week number calculation for all three possibilities."
+	" When the date falls on the last week of the previous year,"
+	" when the date falls on a week within the given year and finally,"
+	" when the date falls on the first week of the next year.";
+iso_week_to_date(suite) ->
+	[];
+iso_week_to_date(Config) when is_list(Config) ->
+	?line check_iso_week_to_date().
+
 %%
 %% LOCAL FUNCTIONS
 %%
@@ -274,6 +286,10 @@ check_iso_week_number() ->
     ?line {2004, 53} = calendar:iso_week_number({2005, 1, 1}),
     ?line {2007, 1} = calendar:iso_week_number({2007, 1, 1}),
     ?line {2009, 1} = calendar:iso_week_number({2008, 12, 29}).
-    
 
-
+%% check_iso_week_to_date
+%%
+check_iso_week_to_date() ->
+    ?line {2005, 1, 1} = calendar:iso_week_to_date(2004, 53, 6),
+    ?line {2007, 1, 1} = calendar:iso_week_to_date(2007, 1, 1),
+    ?line {2008, 12, 29} = calendar:iso_week_to_date(2009, 1, 1).
