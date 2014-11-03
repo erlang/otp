@@ -4795,9 +4795,15 @@ iof_associated_type1(S,C) ->
 
 %% returns the leading attribute, the constraint of the components and
 %% the tablecinf value for the second component.
-instance_of_constraints(_,[]) ->
-    {false,[],[],[]};
-instance_of_constraints(S, [{simpletable,Type}]) ->
+instance_of_constraints(S, Constr) ->
+    case lists:keyfind(simpletable, 1, Constr) of
+	false ->
+	    {false,[],[],[]};
+	{simpletable,Type} ->
+	    instance_of_constraints_1(S, Type)
+    end.
+
+instance_of_constraints_1(S, Type) ->
     #type{def=#'Externaltypereference'{type=Name}} = Type,
     ModuleName = S#state.mname,
     ObjectSetRef=#'Externaltypereference'{module=ModuleName,
@@ -5702,10 +5708,10 @@ get_simple_table_info1(S,#'ComponentType'{typespec=TS},[],Path) ->
     %% In this component there must be a simple table constraint
     %% o.w. the asn1 code is wrong.
     #type{def=OCFT,constraint=Cnstr} = TS,
-    case constraint_member(simpletable,Cnstr) of
-	{true,{simpletable,_OSRef}} ->
+    case lists:keymember(simpletable, 1, Cnstr) of
+	true ->
 	    simple_table_info(S,OCFT,Path);
-	_ ->
+	false ->
 	    error({type,{"missing expected simple table constraint",
 			 Cnstr},S})
     end;
@@ -5761,9 +5767,8 @@ simple_table_info(S,Type,_) ->
 %% is found to check the validity of the at-list.
 any_component_relation(S,[#'ComponentType'{name=CName,typespec=Type}|Cs],CNames,NamePath,Acc) ->
     CRelPath =
-	case constraint_member(componentrelation,Type#type.constraint) of
-%%	    [{componentrelation,_,AtNotation}] ->
-	    {true,{_,_,AtNotation}} ->
+	case lists:keyfind(componentrelation, 1, Type#type.constraint) of
+	    {_,_,AtNotation} ->
 		%% Found component relation constraint, now check
 		%% whether this constraint is relevant for the level
 		%% where the search started
@@ -5772,7 +5777,7 @@ any_component_relation(S,[#'ComponentType'{name=CName,typespec=Type}|Cs],CNames,
 		%% simple table constraint from where the component
 		%% relation is found.
 		evaluate_atpath(S,NamePath,CNames,AtNot);
-	    _ ->
+	    false ->
 		[]
 	end,
     InnerAcc =
@@ -5794,11 +5799,11 @@ any_component_relation(S,[#'ComponentType'{name=CName,typespec=Type}|Cs],CNames,
     any_component_relation(S,Cs,CNames,NamePath,InnerAcc++CRelPath++Acc);
 any_component_relation(S,Type,CNames,NamePath,Acc) when is_record(Type,type) ->
     CRelPath =
-	case constraint_member(componentrelation,Type#type.constraint) of
-	    {true,{_,_,AtNotation}} ->
+	case lists:keyfind(componentrelation, 1, Type#type.constraint) of
+	    {_,_,AtNotation} ->
 		AtNot = extract_at_notation(AtNotation),
 		evaluate_atpath(S,NamePath,CNames,AtNot);
-	    _ ->
+	    false ->
 		[]
 	end,
     InnerAcc =
@@ -5820,15 +5825,6 @@ any_component_relation(S,['ExtensionAdditionGroupEnd'|Cs],CNames,NamePath,Acc) -
 any_component_relation(_,[],_,_,Acc) ->
     Acc.
 
-constraint_member(componentrelation,[CRel={componentrelation,_,_}|_Rest]) ->
-    {true,CRel};
-constraint_member(simpletable,[ST={simpletable,_}|_Rest]) ->
-    {true,ST};
-constraint_member(Key,[_H|T]) ->
-    constraint_member(Key,T);
-constraint_member(_,[]) ->
-    false.
-    
 %% evaluate_atpath/4 finds out whether the at notation refers to the
 %% search level. The list of referenced names in the AtNot list shall
 %% begin with a name that exists on the level it refers to. If the
@@ -5936,8 +5932,8 @@ componentrelation1(S,C = #type{def=Def,constraint=Constraint,tablecinf=TCI},
     Ret =
 %	case Constraint of
 %	    [{componentrelation,{_,_,ObjectSet},AtList}|_Rest] ->
-	case constraint_member(componentrelation,Constraint) of
-	    {true,{_,{_,_,ObjectSet},AtList}} ->
+	case lists:keyfind(componentrelation, 1, Constraint) of
+	    {_,{_,_,ObjectSet},AtList} ->
 		[{_,AL=[#'Externalvaluereference'{}|_R1]}|_R2] = AtList,
 		%% Note: if Path is longer than one,i.e. it is within
 		%% an inner type of the actual level, then the only
@@ -5948,7 +5944,7 @@ componentrelation1(S,C = #type{def=Def,constraint=Constraint,tablecinf=TCI},
 		    lists:map(fun(#'Externalvaluereference'{value=V})->V end,
 			      AL),
 		{[{ObjectSet,AtPath,ClassDef,Path}],Def};
-	    _ ->
+	    false ->
 		%% check the inner type of component
 		innertype_comprel(S,Def,Path)
 	end,
@@ -6022,10 +6018,8 @@ componentlist_comprel(_,[],Acc,_,NewCL) ->
 
 innertype_comprel1(S,T = #type{def=Def,constraint=Cons,tablecinf=TCI},Path) ->
     Ret =
-%	case Cons of
-%	    [{componentrelation,{_,_,ObjectSet},AtList}|_Rest] ->
-	case constraint_member(componentrelation,Cons) of
-	    {true,{_,{_,_,ObjectSet},AtList}} ->
+	case lists:keyfind(componentrelation, 1, Cons) of
+	    {_,{_,_,ObjectSet},AtList} ->
 		%% This AtList must have an "outermost" at sign to be
 		%% relevent here.
 		[{_,AL=[#'Externalvaluereference'{value=_Attr}|_R1]}|_R2] 
@@ -6036,7 +6030,7 @@ innertype_comprel1(S,T = #type{def=Def,constraint=Cons,tablecinf=TCI},Path) ->
 		    lists:map(fun(#'Externalvaluereference'{value=V})->V end,
 			      AL),
 		[{ObjectSet,AtPath,ClassDef,Path}];
-	    _ ->
+	    false ->
 		innertype_comprel(S,Def,Path)
 	end,
     case Ret of
