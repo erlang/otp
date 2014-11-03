@@ -310,4 +310,14 @@ get_line([],_) ->
 dbg(_F) ->
     dbg(_F,[]).
 dbg(_F,_A) ->
-    io:format("[telnet_server] " ++ _F,_A).
+    TS = timestamp(),
+    io:format("[telnet_server, ~s]\n" ++ _F,[TS|_A]).
+
+timestamp() ->
+    {MS,S,US} = now(),
+    {{Year,Month,Day}, {Hour,Min,Sec}} =
+        calendar:now_to_local_time({MS,S,US}),
+    MilliSec = trunc(US/1000),
+    lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
+                                "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
+                                [Year,Month,Day,Hour,Min,Sec,MilliSec])).
