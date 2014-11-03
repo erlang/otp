@@ -48,7 +48,7 @@ static Export* set_cpu_topology_trap = NULL;
 static Export* await_proc_exit_trap = NULL;
 static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
-
+static Export dsend_continue_trap_export;
 static Export *await_sched_wall_time_mod_trap;
 static erts_smp_atomic32_t sched_wall_time;
 
@@ -1779,6 +1779,8 @@ BIF_RETTYPE whereis_1(BIF_ALIST_1)
  * erlang:'!'/2
  */
 
+HIPE_WRAPPER_BIF_DISABLE_GC(ebif_bang, 2)
+
 BIF_RETTYPE
 ebif_bang_2(BIF_ALIST_2)
 {
@@ -1797,34 +1799,36 @@ ebif_bang_2(BIF_ALIST_2)
 #define SEND_USER_ERROR		(-5)
 #define SEND_INTERNAL_ERROR	(-6)
 #define SEND_AWAIT_RESULT	(-7)
+#define SEND_YIELD_CONTINUE     (-8)
 
-Sint do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp);
+
+Sint do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext*);
 
 static Sint remote_send(Process *p, DistEntry *dep,
-			Eterm to, Eterm full_to, Eterm msg, int suspend)
+			Eterm to, Eterm full_to, Eterm msg,
+			ErtsSendContext* ctx)
 {
     Sint res;
     int code;
-    ErtsDSigData dsd;
 
     ASSERT(is_atom(to) || is_external_pid(to));
 
-    code = erts_dsig_prepare(&dsd, dep, p, ERTS_DSP_NO_LOCK, !suspend);
+    code = erts_dsig_prepare(&ctx->dsd, dep, p, ERTS_DSP_NO_LOCK, !ctx->suspend);
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
 	res = SEND_TRAP;
 	break;
     case ERTS_DSIG_PREP_WOULD_SUSPEND:
-	ASSERT(!suspend);
+	ASSERT(!ctx->suspend);
 	res = SEND_YIELD;
 	break;
     case ERTS_DSIG_PREP_CONNECTED: {
 
 	if (is_atom(to))
-	    code = erts_dsig_send_reg_msg(&dsd, to, msg);
+	    code = erts_dsig_send_reg_msg(to, msg, ctx);
 	else
-	    code = erts_dsig_send_msg(&dsd, to, msg);
+	    code = erts_dsig_send_msg(to, msg, ctx);
 	/*
 	 * Note that reductions have been bumped on calling
 	 * process by erts_dsig_send_reg_msg() or
@@ -1832,6 +1836,8 @@ static Sint remote_send(Process *p, DistEntry *dep,
 	 */
 	if (code == ERTS_DSIG_SEND_YIELD)
 	    res = SEND_YIELD_RETURN;
+	else if (code == ERTS_DSIG_SEND_CONTINUE)
+	    res = SEND_YIELD_CONTINUE;
 	else
 	    res = 0;
 	break;
@@ -1852,7 +1858,8 @@ static Sint remote_send(Process *p, DistEntry *dep,
 }
 
 Sint
-do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
+do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
+{
     Eterm portid;
     Port *pt;
     Process* rp;
@@ -1885,7 +1892,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 #endif
 	    return 0;
 	}
-	return remote_send(p, dep, to, to, msg, suspend);
+	return remote_send(p, dep, to, to, msg, ctx);
     } else if (is_atom(to)) {
 	Eterm id = erts_whereis_name_to_id(p, to);
 
@@ -1942,7 +1949,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	ret_val = 0;
         
 	if (pt) {
-	    int ps_flags = suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
+	    int ps_flags = ctx->suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    *refp = NIL;
 
 	    switch (erts_port_command(p, ps_flags, pt, msg, refp)) {
@@ -1951,12 +1958,12 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 		return SEND_USER_ERROR;
 	    case ERTS_PORT_OP_BUSY:
 		/* Nothing has been sent */
-		if (suspend)
+		if (ctx->suspend)
 		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
 		return SEND_YIELD;
 	    case ERTS_PORT_OP_BUSY_SCHEDULED:
 		/* Message was sent */
-		if (suspend) {
+		if (ctx->suspend) {
 		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
 		    ret_val = SEND_YIELD_RETURN;
 		    break;
@@ -2036,9 +2043,14 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
 	    return 0;
 	}
 
-	ret = remote_send(p, dep, tp[1], to, msg, suspend);
-	if (dep)
-	    erts_deref_dist_entry(dep);
+	ret = remote_send(p, dep, tp[1], to, msg, ctx);
+	if (ret != SEND_YIELD_CONTINUE) {
+	    if (dep) {
+		erts_deref_dist_entry(dep);
+	    }
+	} else {
+	    ctx->dep_to_deref = dep;
+	}
 	return ret;
     } else {
 	if (IS_TRACED(p)) /* XXX Is this really neccessary ??? */
@@ -2069,9 +2081,11 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend, Eterm *refp) {
     }
 }
 
+HIPE_WRAPPER_BIF_DISABLE_GC(send, 3)
 
 BIF_RETTYPE send_3(BIF_ALIST_3)
 {
+    BIF_RETTYPE retval;
     Eterm ref;
     Process *p = BIF_P;
     Eterm to = BIF_ARG_1;
@@ -2079,34 +2093,44 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     Eterm opts = BIF_ARG_3;
 
     int connect = !0;
-    int suspend = !0;
     Eterm l = opts;
     Sint result;
-    
+    DeclareTypedTmpHeap(ErtsSendContext, ctx, BIF_P);
+    UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
+
+    ctx->suspend = !0;
+    ctx->dep_to_deref = NULL;
+    ctx->return_term = am_ok;
+    ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
+    ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
+
     while (is_list(l)) {
 	if (CAR(list_val(l)) == am_noconnect) {
 	    connect = 0;
 	} else if (CAR(list_val(l)) == am_nosuspend) {
-	    suspend = 0;
+	    ctx->suspend = 0;
 	} else {
-	    BIF_ERROR(p, BADARG);
+	    ERTS_BIF_PREP_ERROR(retval, p, BADARG);
+	    goto done;
 	}
 	l = CDR(list_val(l));
     }
     if(!is_nil(l)) {
-	BIF_ERROR(p, BADARG);
+	ERTS_BIF_PREP_ERROR(retval, p, BADARG);
+	goto done;
     }
 
 #ifdef DEBUG
     ref = NIL;
 #endif
 
-    result = do_send(p, to, msg, suspend, &ref);
+    result = do_send(p, to, msg, &ref, ctx);
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
 	    goto yield_return;
-	BIF_RET(am_ok);
+	ERTS_BIF_PREP_RET(retval, am_ok);
+	goto done;
     }
 
     switch (result) {
@@ -2114,68 +2138,127 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	/* May need to yield even though we do not bump reds here... */
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
 	    goto yield_return;
-	BIF_RET(am_ok); 
+	ERTS_BIF_PREP_RET(retval, am_ok);
 	break;
     case SEND_TRAP:
 	if (connect) {
-	    BIF_TRAP3(dsend3_trap, p, to, msg, opts); 
+	    ERTS_BIF_PREP_TRAP3(retval, dsend3_trap, p, to, msg, opts);
 	} else {
-	    BIF_RET(am_noconnect);
+	    ERTS_BIF_PREP_RET(retval, am_noconnect);
 	}
 	break;
     case SEND_YIELD:
-	if (suspend) {
-	    ERTS_BIF_YIELD3(bif_export[BIF_send_3], p, to, msg, opts);
+	if (ctx->suspend) {
+	    ERTS_BIF_PREP_YIELD3(retval,
+				 bif_export[BIF_send_3], p, to, msg, opts);
 	} else {
-	    BIF_RET(am_nosuspend);
+	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
 	}
 	break;
     case SEND_YIELD_RETURN:
-	if (!suspend)
-	    BIF_RET(am_nosuspend);
+	if (!ctx->suspend) {
+	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
+	    break;
+	}
     yield_return:
-	ERTS_BIF_YIELD_RETURN(p, am_ok);
+	ERTS_BIF_PREP_YIELD_RETURN(retval, p, am_ok);
+        break;
     case SEND_AWAIT_RESULT:
 	ASSERT(is_internal_ref(ref));
-	BIF_TRAP3(await_port_send_result_trap, p, ref, am_nosuspend, am_ok);
+	ERTS_BIF_PREP_TRAP3(retval, await_port_send_result_trap, p, ref, am_nosuspend, am_ok);
+	break;
     case SEND_BADARG:
-	BIF_ERROR(p, BADARG); 
+	ERTS_BIF_PREP_ERROR(retval, p, BADARG);
 	break;
     case SEND_USER_ERROR:
-	BIF_ERROR(p, EXC_ERROR); 
+	ERTS_BIF_PREP_ERROR(retval, p, EXC_ERROR);
 	break;
     case SEND_INTERNAL_ERROR:
-	BIF_ERROR(p, EXC_INTERNAL_ERROR);
+	ERTS_BIF_PREP_ERROR(retval, p, EXC_INTERNAL_ERROR);
+	break;
+    case SEND_YIELD_CONTINUE:
+	BUMP_ALL_REDS(p);
+	erts_set_gc_state(p, 0);
+	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p,
+			    erts_dsend_export_trap_context(p, ctx));
 	break;
     default:
-	ASSERT(! "Illegal send result"); 
+	erl_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
 	break;
     }
-    ASSERT(! "Can not arrive here");
-    BIF_ERROR(p, BADARG);
+
+done:
+    UnUseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
+    return retval;
 }
+
+HIPE_WRAPPER_BIF_DISABLE_GC(send, 2)
 
 BIF_RETTYPE send_2(BIF_ALIST_2)
 {
     return erl_send(BIF_P, BIF_ARG_1, BIF_ARG_2);
 }
 
+static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
+{
+    Binary* bin = ((ProcBin*) binary_val(BIF_ARG_1))->val;
+    ErtsSendContext* ctx = (ErtsSendContext*) ERTS_MAGIC_BIN_DATA(bin);
+    Sint initial_reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
+    int result;
+
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dsend_context_dtor);
+
+    ctx->dss.reds = initial_reds;
+    result = erts_dsig_send(&ctx->dsd, &ctx->dss);
+
+    switch (result) {
+    case ERTS_DSIG_SEND_OK:
+	erts_set_gc_state(BIF_P, 1);
+	BIF_RET(ctx->return_term);
+	break;
+    case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
+	erts_set_gc_state(BIF_P, 1);
+	if (!ctx->suspend)
+	    BIF_RET(am_nosuspend);
+	ERTS_BIF_YIELD_RETURN(BIF_P, ctx->return_term);
+
+    case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
+	BUMP_ALL_REDS(BIF_P);
+	BIF_TRAP1(&dsend_continue_trap_export, BIF_P, BIF_ARG_1);
+    }
+    default:
+	erl_exit(ERTS_ABORT_EXIT, "dsend_continue_trap invalid result %d\n", (int)result);
+	break;
+    }
+    ASSERT(! "Can not arrive here");
+    BIF_ERROR(BIF_P, BADARG);
+}
+
 Eterm erl_send(Process *p, Eterm to, Eterm msg)
 {
+    Eterm retval;
     Eterm ref;
     Sint result;
+    DeclareTypedTmpHeap(ErtsSendContext, ctx, p);
+    UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), p);
 
 #ifdef DEBUG
     ref = NIL;
 #endif
+    ctx->suspend = !0;
+    ctx->dep_to_deref = NULL;
+    ctx->return_term = msg;
+    ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
+    ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
 
-    result = do_send(p, to, msg, !0, &ref);
+    result = do_send(p, to, msg, &ref, ctx);
     
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
 	    goto yield_return;
-	BIF_RET(msg);
+	ERTS_BIF_PREP_RET(retval, msg);
+	goto done;
     }
 
     switch (result) {
@@ -2183,35 +2266,46 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	/* May need to yield even though we do not bump reds here... */
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
 	    goto yield_return;
-	BIF_RET(msg); 
+	ERTS_BIF_PREP_RET(retval, msg);
 	break;
     case SEND_TRAP:
-	BIF_TRAP2(dsend2_trap, p, to, msg); 
+	ERTS_BIF_PREP_TRAP2(retval, dsend2_trap, p, to, msg);
 	break;
     case SEND_YIELD:
-	ERTS_BIF_YIELD2(bif_export[BIF_send_2], p, to, msg);
+	ERTS_BIF_PREP_YIELD2(retval, bif_export[BIF_send_2], p, to, msg);
 	break;
     case SEND_YIELD_RETURN:
     yield_return:
-	ERTS_BIF_YIELD_RETURN(p, msg);
+	ERTS_BIF_PREP_YIELD_RETURN(retval, p, msg);
+        break;
     case SEND_AWAIT_RESULT:
 	ASSERT(is_internal_ref(ref));
-	BIF_TRAP3(await_port_send_result_trap, p, ref, msg, msg);
+	ERTS_BIF_PREP_TRAP3(retval,
+			    await_port_send_result_trap, p, ref, msg, msg);
+	break;
     case SEND_BADARG:
-	BIF_ERROR(p, BADARG); 
+	ERTS_BIF_PREP_ERROR(retval, p, BADARG);
 	break;
     case SEND_USER_ERROR:
-	BIF_ERROR(p, EXC_ERROR); 
+	ERTS_BIF_PREP_ERROR(retval, p, EXC_ERROR);
 	break;
     case SEND_INTERNAL_ERROR:
-	BIF_ERROR(p, EXC_INTERNAL_ERROR);
+	ERTS_BIF_PREP_ERROR(retval, p, EXC_INTERNAL_ERROR);
+	break;
+    case SEND_YIELD_CONTINUE:
+	BUMP_ALL_REDS(p);
+	erts_set_gc_state(p, 0);
+	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p,
+			    erts_dsend_export_trap_context(p, ctx));
 	break;
     default:
-	ASSERT(! "Illegal send result"); 
+	erl_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
 	break;
     }
-    ASSERT(! "Can not arrive here");
-    BIF_ERROR(p, BADARG);
+
+done:
+    UnUseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), p);
+    return retval;
 }
 
 /**********************************************************************/
@@ -4818,6 +4912,10 @@ void erts_init_bif(void)
 		     1
 #endif
 		     , &bif_return_trap);
+
+    erts_init_trap_export(&dsend_continue_trap_export,
+			  am_erts_internal, am_dsend_continue_trap, 1,
+			  dsend_continue_trap_1);
 
     flush_monitor_message_trap = erts_export_put(am_erlang,
 						 am_flush_monitor_message,

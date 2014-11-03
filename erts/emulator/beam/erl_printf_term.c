@@ -303,13 +303,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		    tl = CDR(cons);
 		    if (is_not_nil(tl)) {
 			if (is_list(tl)) {
-			    WSTACK_PUSH(s, tl);
-			    WSTACK_PUSH(s, PRT_ONE_CONS);
-			    WSTACK_PUSH(s, PRT_COMMA);
+			    WSTACK_PUSH3(s, tl, PRT_ONE_CONS, PRT_COMMA);
 			} else {
-			    WSTACK_PUSH(s, tl);
-			    WSTACK_PUSH(s, PRT_TERM);
-			    WSTACK_PUSH(s, PRT_BAR);
+			    WSTACK_PUSH3(s, tl, PRT_TERM, PRT_BAR);
 			}
 		    }
 		}
@@ -319,9 +315,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		break;
 	    default:		/* PRT_LAST_ARRAY_ELEMENT+1 and upwards */
 		obj = *popped.ptr;
-	        WSTACK_PUSH(s, (UWord) (popped.ptr + 1));
-		WSTACK_PUSH(s, val-1);
-		WSTACK_PUSH(s, PRT_COMMA);
+	        WSTACK_PUSH3(s, (UWord) (popped.ptr + 1), val-1, PRT_COMMA);
 		break;
 	    }
 	    break;
@@ -451,8 +445,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
 	    ++nobj;
 	    if (i > 0) {
-		WSTACK_PUSH(s, (UWord) nobj);
-		WSTACK_PUSH(s, PRT_LAST_ARRAY_ELEMENT+i-1);
+		WSTACK_PUSH2(s, (UWord) nobj, PRT_LAST_ARRAY_ELEMENT+i-1);
 	    }
 	    break;
 	case FLOAT_DEF: {
@@ -574,19 +567,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
 		if (n > 0) {
 		    n--;
-		    WSTACK_PUSH(s, vs[n]);
-		    WSTACK_PUSH(s, PRT_TERM);
-		    WSTACK_PUSH(s, PRT_ASSOC);
-		    WSTACK_PUSH(s, ks[n]);
-		    WSTACK_PUSH(s, PRT_TERM);
-
+		    WSTACK_PUSH5(s, vs[n], PRT_TERM, PRT_ASSOC, ks[n], PRT_TERM);
 		    while (n--) {
-			WSTACK_PUSH(s, PRT_COMMA);
-			WSTACK_PUSH(s, vs[n]);
-			WSTACK_PUSH(s, PRT_TERM);
-			WSTACK_PUSH(s, PRT_ASSOC);
-			WSTACK_PUSH(s, ks[n]);
-			WSTACK_PUSH(s, PRT_TERM);
+			WSTACK_PUSH6(s, PRT_COMMA, vs[n], PRT_TERM, PRT_ASSOC,
+				     ks[n], PRT_TERM);
 		    }
 		}
 	    }

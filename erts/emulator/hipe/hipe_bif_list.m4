@@ -277,7 +277,10 @@ ifelse($1,list_to_binary_1,hipe_wrapper_list_to_binary_1,
 ifelse($1,iolist_to_binary_1,hipe_wrapper_iolist_to_binary_1,
 ifelse($1,binary_list_to_bin_1,hipe_wrapper_binary_list_to_bin_1,
 ifelse($1,list_to_bitstring_1,hipe_wrapper_list_to_bitstring_1,
-$1)))))))))))')
+ifelse($1,send_2,hipe_wrapper_send_2,
+ifelse($1,send_3,hipe_wrapper_send_3,
+ifelse($1,ebif_bang_2,hipe_wrapper_ebif_bang_2,
+$1))))))))))))))')
 
 define(BIF_LIST,`standard_bif_interface_$3(nbif_$4, CFUN($4))')
 include(TARGET/`erl_bif_list.h')

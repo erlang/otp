@@ -1232,25 +1232,20 @@ make_hash2(Eterm term)
 		if (size == 0) {
 		    goto hash2_common;
 		}
-		ESTACK_PUSH(s, hash_xor_values);
-		ESTACK_PUSH(s, hash_xor_keys);
-		ESTACK_PUSH(s, hash);
-		ESTACK_PUSH(s, HASH_MAP_TAIL);
+		ESTACK_PUSH4(s, hash_xor_values, hash_xor_keys, hash, HASH_MAP_TAIL);
 		hash = 0;
 		hash_xor_keys = 0;
 		hash_xor_values = 0;
 		for (i = size - 1; i >= 0; i--) {
 		    tmp = vs[i];
-		    ESTACK_PUSH(s, HASH_MAP_VAL);
-		    ESTACK_PUSH(s, tmp);
+		    ESTACK_PUSH2(s, HASH_MAP_VAL, tmp);
 		}
 		/* We do not want to expose the tuple representation.
 		 * Do not push the keys as a tuple.
 		 */
 		for (i = size - 1; i >= 0; i--) {
 		    tmp = ks[i];
-		    ESTACK_PUSH(s, HASH_MAP_KEY);
-		    ESTACK_PUSH(s, tmp);
+		    ESTACK_PUSH2(s, HASH_MAP_KEY, tmp);
 		}
 		goto hash2_common;
 	    }

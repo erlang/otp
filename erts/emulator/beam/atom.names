@@ -198,6 +198,7 @@ atom dotall
 atom driver
 atom driver_options
 atom dsend
+atom dsend_continue_trap
 atom dunlink
 atom duplicate_bag
 atom dupnames

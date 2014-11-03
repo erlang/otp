@@ -500,15 +500,37 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
     return ep;
 }
 
-Uint erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp)
+int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
+			      Uint* szp)
 {
-    Uint sz = 0;
+    Uint sz;
+    if (encode_size_struct_int(NULL, acmp, term, flags, NULL, &sz)) {
+	return -1;
+    } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 #endif
-	sz++ /* VERSION_MAGIC */;
-    sz += encode_size_struct2(acmp, term, flags);
-    return sz;
+	    sz++ /* VERSION_MAGIC */;
+
+	*szp += sz;
+	return 0;
+    }
+}
+
+int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp)
+{
+    Uint sz;
+    if (encode_size_struct_int(&ctx->u.sc, ctx->acmp, term, ctx->flags, &ctx->reds, &sz)) {
+	return -1;
+    } else {
+#ifndef ERTS_DEBUG_USE_DIST_SEP
+	if (!(ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE))
+#endif
+	    sz++ /* VERSION_MAGIC */;
+
+	*szp += sz;
+	return 0;
+    }
 }
 
 Uint erts_encode_ext_size(Eterm term)
@@ -529,19 +551,16 @@ Uint erts_encode_ext_size_ets(Eterm term)
 }
 
 
-void erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp)
+int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp,
+			  TTBEncodeContext* ctx, Sint* reds)
 {
-    byte *ep = *ext;
-#ifndef ERTS_DEBUG_USE_DIST_SEP
-    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
-#endif
-	*ep++ = VERSION_MAGIC;
-    ep = enc_term(acmp, term, ep, flags, NULL);
-    if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s:%d:erts_encode_dist_ext(): Internal data structure error\n",
-		 __FILE__, __LINE__);
-    *ext = ep;
+    if (!ctx || !ctx->wstack.wstart) {
+    #ifndef ERTS_DEBUG_USE_DIST_SEP
+	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+    #endif
+	    *(*ext)++ = VERSION_MAGIC;
+    }
+    return enc_term_int(ctx, acmp, term, *ext, flags, NULL, reds, ext);
 }
 
 void erts_encode_ext(Eterm term, byte **ext)
@@ -1742,54 +1761,14 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
     return erts_term_to_binary_simple(p, Term, size, level, flags);
 }
 
-/* Define for testing */
-/* #define EXTREME_TTB_TRAPPING 1 */
+/* Define EXTREME_TTB_TRAPPING for testing in dist.h */
 
 #ifndef EXTREME_TTB_TRAPPING
-#define TERM_TO_BINARY_LOOP_FACTOR 32
 #define TERM_TO_BINARY_COMPRESS_CHUNK (1 << 18)
 #else
-#define TERM_TO_BINARY_LOOP_FACTOR 1
 #define TERM_TO_BINARY_COMPRESS_CHUNK 10
 #endif
-
-
-typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
-typedef struct TTBSizeContext_ {
-    Uint flags;
-    int level;
-    Uint result;
-    Eterm obj;
-    ErtsEStack estack;
-} TTBSizeContext;
-
-typedef struct TTBEncodeContext_ {
-    Uint flags;
-    int level;
-    byte* ep;
-    Eterm obj;
-    ErtsWStack wstack;
-    Binary *result_bin;
-} TTBEncodeContext;
-
-typedef struct {
-    Uint real_size;
-    Uint dest_len;
-    byte *dbytes;
-    Binary *result_bin;
-    Binary *destination_bin;
-    z_stream stream;
-} TTBCompressContext;
-
-typedef struct {
-    int alive;
-    TTBState state;
-    union {
-	TTBSizeContext sc;
-	TTBEncodeContext ec;
-	TTBCompressContext cc;
-    } s;
-} TTBContext;
+#define TERM_TO_BINARY_MEMCPY_FACTOR 8
 
 static void ttb_context_destructor(Binary *context_bin)
 {
@@ -2323,8 +2302,9 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 #define ENC_TERM ((Eterm) 0)
 #define ENC_ONE_CONS ((Eterm) 1)
 #define ENC_PATCH_FUN_SIZE ((Eterm) 2)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 3)
-
+#define ENC_BIN_COPY ((Eterm) 3)
+#define ENC_MAP_PAIR ((Eterm) 4)
+#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 5)
 
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
@@ -2360,6 +2340,9 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_RESTORE(s, &ctx->wstack);
 	    ep = ctx->ep;
 	    obj = ctx->obj;
+	    if (is_non_value(obj)) {
+		goto outer_loop;
+	    }
 	}
     }
 
@@ -2383,8 +2366,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 		obj = CAR(cons);
 		tl = CDR(cons);
-		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		WSTACK_PUSH(s, tl);
+		WSTACK_PUSH2(s, (is_list(tl) ? ENC_ONE_CONS : ENC_TERM),
+			     tl);
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
@@ -2397,6 +2380,39 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
+	case ENC_BIN_COPY: {
+	    Uint bits = (Uint)obj;
+	    Uint bitoffs = WSTACK_POP(s);
+	    byte* bytes = (byte*) WSTACK_POP(s);
+	    byte* dst = (byte*) WSTACK_POP(s);
+	    if (bits > r * (TERM_TO_BINARY_MEMCPY_FACTOR * 8)) {
+		Uint n = r * TERM_TO_BINARY_MEMCPY_FACTOR;
+		WSTACK_PUSH5(s, (UWord)(dst + n), (UWord)(bytes + n), bitoffs,
+			     ENC_BIN_COPY, bits - 8*n);
+		bits = 8*n;
+		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
+		obj = THE_NON_VALUE;
+		r = 0; /* yield */
+		break;
+	    } else {
+		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
+		r -= bits / (TERM_TO_BINARY_MEMCPY_FACTOR * 8);
+		goto outer_loop;
+	    }
+	}
+	case ENC_MAP_PAIR: {
+	    Uint pairs_left = obj;
+	    Eterm *vptr = (Eterm*) WSTACK_POP(s);
+	    Eterm *kptr = (Eterm*) WSTACK_POP(s);
+
+	    obj = *kptr;
+	    if (--pairs_left > 0) {
+		WSTACK_PUSH4(s, (UWord)(kptr+1), (UWord)(vptr+1),
+			     ENC_MAP_PAIR, pairs_left);
+	    }
+	    WSTACK_PUSH2(s, ENC_TERM, *vptr);
+	    break;
+	}
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
@@ -2415,17 +2431,16 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 #else
 		Eterm* ptr = (Eterm *) obj;
 #endif
-		WSTACK_PUSH(s, val-1);
 		obj = *ptr++;
-		WSTACK_PUSH(s, (UWord)ptr);
+		WSTACK_PUSH2(s, val-1, (UWord)ptr);
 	    }
 	    break;
 	}
 
     L_jump_start:
 
-	if (ctx && --r == 0) {
-	    *reds = r;
+	if (ctx && --r <= 0) {
+	    *reds = 0;
 	    ctx->obj = obj;
 	    ctx->ep = ep;
 	    WSTACK_SAVE(s, &ctx->wstack);
@@ -2574,8 +2589,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		ep += 4;
 	    }
 	    if (i > 0) {
-		WSTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
-		WSTACK_PUSH(s, (UWord)ptr);
+		WSTACK_PUSH2(s, ENC_LAST_ARRAY_ELEMENT+i-1, (UWord)ptr);
 	    }
 	    break;
 
@@ -2591,18 +2605,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    Eterm *kptr = map_get_keys(mp);
 		    Eterm *vptr = map_get_values(mp);
 
-		    for (i = size-1; i >= 1; i--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) vptr[i]);
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) kptr[i]);
-		    }
-
-		    WSTACK_PUSH(s, ENC_TERM);
-		    WSTACK_PUSH(s, (UWord) vptr[0]);
-
-		    obj = kptr[0];
-		    goto L_jump_start;
+		    WSTACK_PUSH4(s, (UWord)kptr, (UWord)vptr,
+				 ENC_MAP_PAIR, size);
 		}
 	    }
 	    break;
@@ -2640,6 +2644,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		Uint bitoffs;
 		Uint bitsize;
 		byte* bytes;
+		byte* data_dst;
 
 		ERTS_GET_BINARY_BYTES(obj, bytes, bitoffs, bitsize);
 		if (dflags & DFLAG_INTERNAL_TAGS) {
@@ -2685,7 +2690,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    j = binary_size(obj);
 		    put_int32(j, ep);
 		    ep += 4;
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j);
+		    data_dst = ep;
 		    ep += j;
 		} else if (dflags & DFLAG_BIT_BINARIES) {
 		    /* Bit-level binary. */
@@ -2695,7 +2700,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep += 4;
 		    *ep++ = bitsize;
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j+bitsize);
+		    data_dst = ep;
 		    ep += j + 1;
 		} else {
 		    /*
@@ -2709,10 +2714,17 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    put_int32((j+1), ep);
 		    ep += 4;
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j+bitsize);
+		    data_dst = ep;
 		    ep += j+1;
 		    *ep++ = SMALL_INTEGER_EXT;
 		    *ep++ = bitsize;
+		}
+		if (ctx && j > r * TERM_TO_BINARY_MEMCPY_FACTOR) {
+		    WSTACK_PUSH5(s, (UWord)data_dst, (UWord)bytes, bitoffs,
+				 ENC_BIN_COPY, 8*j + bitsize);
+		} else {
+		    copy_binary_to_buffer(data_dst, 0, bytes, bitoffs,
+					  8 * j + bitsize);
 		}
 	    }
 	    break;
@@ -2742,13 +2754,12 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case FUN_DEF:
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
+		int ei;
 
 		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    int ei;
-
 		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
-		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
+		    WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
+				 (UWord) ep); /* Position for patching in size */
 		    ep += 4;
 		    *ep = funp->arity;
 		    ep += 1;
@@ -2762,16 +2773,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
 		    ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
 		    ep = enc_pid(acmp, funp->creator, ep, dflags);
-
-		fun_env:
-		    for (ei = funp->num_free-1; ei > 0; ei--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) funp->env[ei]);
-		    }
-		    if (funp->num_free != 0) {
-			obj = funp->env[0];
-			goto L_jump_start;
-		    }
 		} else {
 		    /*
 		     * Communicating with an obsolete erl_interface or
@@ -2803,7 +2804,13 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    *ep++ = SMALL_TUPLE_EXT;
 		    put_int8(funp->num_free, ep);
 		    ep += 1;
-		    goto fun_env;
+		}
+		for (ei = funp->num_free-1; ei > 0; ei--) {
+		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
+		}
+		if (funp->num_free != 0) {
+		    obj = funp->env[0];
+		    goto L_jump_start;
 		}
 	    }
 	    break;
