@@ -1766,7 +1766,7 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
 #else
 #define TERM_TO_BINARY_COMPRESS_CHUNK 10
 #endif
-
+#define TERM_TO_BINARY_MEMCPY_FACTOR 8
 
 static void ttb_context_destructor(Binary *context_bin)
 {
@@ -2387,8 +2387,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    Uint bitoffs = WSTACK_POP(s);
 	    byte* bytes = (byte*) WSTACK_POP(s);
 	    byte* dst = (byte*) WSTACK_POP(s);
-	    if (bits > r * (B2T_MEMCPY_FACTOR * 8)) {
-		Uint n = r * B2T_MEMCPY_FACTOR;
+	    if (bits > r * (TERM_TO_BINARY_MEMCPY_FACTOR * 8)) {
+		Uint n = r * TERM_TO_BINARY_MEMCPY_FACTOR;
 		WSTACK_PUSH5(s, (UWord)(dst + n), (UWord)(bytes + n), bitoffs,
 			     ENC_BIN_COPY, bits - 8*n);
 		bits = 8*n;
@@ -2398,7 +2398,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		break;
 	    } else {
 		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
-		r -= bits / (B2T_MEMCPY_FACTOR * 8);
+		r -= bits / (TERM_TO_BINARY_MEMCPY_FACTOR * 8);
 		goto outer_loop;
 	    }
 	}
@@ -2721,7 +2721,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    *ep++ = SMALL_INTEGER_EXT;
 		    *ep++ = bitsize;
 		}
-		if (ctx && j > r * B2T_MEMCPY_FACTOR) {
+		if (ctx && j > r * TERM_TO_BINARY_MEMCPY_FACTOR) {
 		    WSTACK_PUSH5(s, (UWord)data_dst, (UWord)bytes, bitoffs,
 				 ENC_BIN_COPY, 8*j + bitsize);
 		} else {
