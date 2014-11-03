@@ -3163,9 +3163,11 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 				constraint=Instance#type.constraint,
 				inlined=yes};
 
-	    OCFT=#'ObjectClassFieldType'{classname=ClRef} ->
+	    #'ObjectClassFieldType'{classname=ClRef0}=OCFT0 ->
 		%% this case occures in a SEQUENCE when 
 		%% the type of the component is a ObjectClassFieldType
+		ClRef = match_parameter(S, ClRef0),
+		OCFT = OCFT0#'ObjectClassFieldType'{classname=ClRef},
 		ClassSpec = check_class(S,ClRef),
 		NewTypeDef = 
 		    maybe_open_type(S,ClassSpec,
