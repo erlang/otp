@@ -107,10 +107,18 @@ start_server(Config) ->
 %% Connect with matching capabilities and expect the connection to
 %% come up.
 up(Config) ->
-    {Svc, Ref} = connect(Config, []),
+    {Svc, Ref} = connect(Config, [{connect_timer, 5000},
+                                  {watchdog_timer, 15000}]),
     start = event(Svc),
-    {up, Ref, {_,_Caps}, _Config, #diameter_packet{}} = event(Svc),
-    {watchdog, Ref, _, {initial, okay}, _} = event(Svc).
+    {up, Ref, {TPid, Caps}, Cfg, #diameter_packet{}} = event(Svc),
+    {watchdog, Ref, _, {initial, okay}, _} = event(Svc),
+    %% Kill the transport process and see that the connection is
+    %% reestablished after a watchdog timeout, not after connect_timer
+    %% expiry.
+    exit(TPid, kill),
+    {down, Ref, {TPid, Caps}, Cfg} = event(Svc),
+    {watchdog, Ref, _, {okay, down}, _} = event(Svc),
+    {reconnect, Ref, _} = event(Svc, 10000, 20000).
 
 %% Connect with non-matching capabilities and expect CEA from the peer
 %% to indicate as much and then for the transport to be restarted
@@ -119,11 +127,12 @@ down(Config) ->
     {Svc, Ref} = connect(Config, [{capabilities, [{'Acct-Application-Id',
                                                    [?DICT_ACCT:id()]}]},
                                   {applications, [?DICT_ACCT]},
-                                  {connect_timer, 5000}]),
+                                  {connect_timer, 5000},
+                                  {watchdog_timer, 20000}]),
     start = event(Svc),
     {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{}}, _}
         = event(Svc),
-    {reconnect, Ref, _} = event(Svc).
+    {reconnect, Ref, _} = event(Svc, 4000, 10000).
 
 %% Connect with matching capabilities but have the server delay its
 %% CEA and cause the client to timeout.
@@ -164,6 +173,13 @@ uniq() ->
 
 event(Name) ->
     receive #diameter_event{service = Name, info = T} -> T end.
+
+event(Name, TL, TH) ->
+    T0 = now(),
+    Event = event(Name),
+    DT = timer:now_diff(now(), T0) div 1000,
+    {true, true, DT, Event} = {TL < DT, DT < TH, DT, Event},
+    Event.
 
 start_service(Name, Opts) ->
     diameter:start_service(Name, [{monitor, self()} | Opts]).
