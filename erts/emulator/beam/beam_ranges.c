@@ -282,7 +282,7 @@ find_range(BeamInstr* pc)
     while (low < high) {
 	if (pc < mid->start) {
 	    high = mid;
-	} else if (pc > RANGE_END(mid)) {
+	} else if (pc >= RANGE_END(mid)) {
 	    low = mid + 1;
 	} else {
 	    erts_smp_atomic_set_nob(&r[active].mid, (erts_aint_t) mid);
