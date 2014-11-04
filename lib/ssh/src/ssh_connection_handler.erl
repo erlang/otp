@@ -624,7 +624,7 @@ handle_event(renegotiate, connected, #state{ssh_params = Ssh0}
 			     renegotiate = true})};
 
 handle_event(renegotiate, StateName, State) ->
-    timer:apply_after(?REKEY_TIMOUT, gen_fsm, send_all_state_event, [self(), renegotiatie]),
+    timer:apply_after(?REKEY_TIMOUT, gen_fsm, send_all_state_event, [self(), renegotiate]),
     %% Allready in keyexcahange so ignore
     {next_state, StateName, State};
 
