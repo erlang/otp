@@ -36,6 +36,10 @@
 #  include <syslog.h>
 #endif
 
+#ifdef HAVE_SYS_IOCTL_H
+#  include <sys/ioctl.h>
+#endif
+
 #ifdef __OSE__
 #  include "ramlog.h"
 #endif
@@ -637,7 +641,7 @@ int erts_run_erl_open_fifo(char *pipename,char *w_pipename,char *r_pipename) {
 /* Extract any control sequences that are ment only for run_erl
  * and should not be forwarded to the pty.
  */
-int erts_run_erl_extract_ctrl_seq(char* buf, int len)
+int erts_run_erl_extract_ctrl_seq(char* buf, int len, int mfd)
 {
     static const char prefix[] = "\033_";
     static const char suffix[] = "\033\\";
@@ -662,7 +666,7 @@ int erts_run_erl_extract_ctrl_seq(char* buf, int len)
 	      struct winsize ws;
 	      ws.ws_col = col;
 	      ws.ws_row = row;
-	      if (ioctl(MFD, TIOCSWINSZ, &ws) < 0) {
+	      if (ioctl(mfd, TIOCSWINSZ, &ws) < 0) {
 		ERRNO_ERR0(LOG_ERR,"Failed to set window size");
 	      }
 #endif
