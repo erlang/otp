@@ -1646,6 +1646,7 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
     ep->m = env->mod_nif;
     ep->fp = indirect_fp;
     proc->freason = TRAP;
+    proc->arity = argc;
     return THE_NON_VALUE;
 }
 
