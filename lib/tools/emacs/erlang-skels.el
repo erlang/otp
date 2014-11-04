@@ -31,6 +31,7 @@
     ("Module"        "module"        erlang-skel-module)
     ("Author"        "author"        erlang-skel-author)
     ("Function"      "function"      erlang-skel-function)
+    ("Spec"          "spec"          erlang-skel-spec)
     ()
     ("Small Header"  "small-header"
      erlang-skel-small-header erlang-skel-header)
@@ -149,6 +150,10 @@ Please see the function `tempo-define-template'.")
     "*The template of a function skeleton.
 Please see the function `tempo-define-template'.")
 
+(defvar erlang-skel-spec
+  '("-spec " (erlang-skel-get-function-name) "(" (erlang-skel-get-function-args) ") -> undefined.")
+    "*The template of a -spec for the function following point.
+Please see the function `tempo-define-template'.")
 
 ;; Attribute templates
 
@@ -1678,6 +1683,16 @@ The first character of DD is space if the value is less than 10."
             (string-to-int (substring date 8 10))
             (substring date 4 7)
             (substring date -4))))
+
+(defun erlang-skel-get-function-name ()
+  (save-excursion
+    (erlang-beginning-of-function -1)
+    (erlang-get-function-name)))
+
+(defun erlang-skel-get-function-args ()
+  (save-excursion
+    (erlang-beginning-of-function -1)
+    (erlang-get-function-arguments)))
 
 ;; Local variables:
 ;; coding: iso-8859-1
