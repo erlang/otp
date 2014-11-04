@@ -10785,6 +10785,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->fp_exception = 0;
 #endif
 
+    p->queue_bound = 0; /* unbounded queues by default */
+
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 
     res = p->common.id;

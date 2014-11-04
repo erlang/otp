@@ -43,7 +43,7 @@
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
-	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
+	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1, process_flag_bound/1,
 	 spawn_opt_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
@@ -78,6 +78,7 @@ all() ->
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
+     process_flag_bound,
      spawn_opt_heap_size, otp_6237, {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task}].
@@ -1322,6 +1323,57 @@ process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(P, save_calls, hmmm) end),
     chk_badarg(fun () -> process_flag(gurka, save_calls, hmmm) end),
     P ! die,
+    ok.
+
+process_flag_bound(doc) ->
+    [];
+process_flag_bound(suite) ->
+    [];
+process_flag_bound(Config) when is_list(Config) ->
+    P = spawn_link(fun () -> receive die -> ok end end),
+    %% too big
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len,
+                                      16#ffffffff) end),
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len,
+                                      {drop,16#ffffffff}) end),
+    %% nonexistant flag
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len,
+                                      {floogle, 1}) end),
+    %% not an int
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len,
+                                      {drop, nan}) end),
+    %% 0 is bad
+    chk_badarg(fun () -> process_flag(P, max_message_queue_len, 0) end),
+    P ! die,
+
+    {P2, R} = spawn_monitor(fun () -> receive die -> ok end end),
+    %% test the actual functionality
+    infinity = process_flag(P2, max_message_queue_len, {drop, 3}),
+    _ = [P2 ! list_to_atom("foo" ++ integer_to_list(N)) ||
+            N <- lists:seq(1,6)],
+    {messages, [foo1, foo2, foo3]} =
+        erlang:process_info(P2, messages),
+
+    %% test removing queue bounds after set
+    {max_message_queue_len, {drop, 3}} = process_info(P2, max_message_queue_len),
+    {drop, 3} = process_flag(P2, max_message_queue_len, infinity),
+
+    _ = [P2 ! list_to_atom("foo" ++ integer_to_list(N)) ||
+            N <- lists:seq(4,6)],
+    {messages, [foo1, foo2, foo3, foo4, foo5, foo6]} =
+        erlang:process_info(P2, messages),
+
+    infinity = process_flag(P2, max_message_queue_len, {receiver_exits, 3}),
+    {max_message_queue_len, {receiver_exits, 3}} =
+        process_info(P2, max_message_queue_len),
+    _ = [P2 ! list_to_atom("foo" ++ integer_to_list(N)) ||
+            N <- lists:seq(1,6)],
+    receive
+        {'DOWN',R,process,P2,max_message_queue_len} ->
+            ok
+    after 100 ->
+         false = true
+    end,
     ok.
 
 -include_lib("stdlib/include/ms_transform.hrl").

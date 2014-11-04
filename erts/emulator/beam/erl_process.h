@@ -960,6 +960,7 @@ struct process {
 
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
 
+    Uint32 queue_bound;         /* Flags and limit for queue sizes */
 #ifdef ERTS_SMP
     ErlMessageInQueue msg_inq;
     ErtsPendExit pending_exit;

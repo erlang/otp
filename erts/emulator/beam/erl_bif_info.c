@@ -591,6 +591,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
+    am_max_message_queue_len,
 };    
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -638,6 +639,7 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
+    case am_max_message_queue_len:			return 31;
     default:					return -1;
     }
 }
@@ -1221,6 +1223,31 @@ process_info_aux(Process *BIF_P,
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 	res = make_small(rp->msg.len);
 	break;
+
+    case am_max_message_queue_len: {
+        hp = HAlloc(BIF_P, 3);
+
+	Uint32 bound = rp->queue_bound;
+        if (bound == 0) {
+            res = am_infinity;
+        } else {
+            Eterm type;
+            Eterm *tp;
+            if (bound & ERTS_PMQB_DROP) {
+                type = am_drop;
+            } else {
+                type = am_receiver_exits;
+            }
+
+            tp = HAlloc(BIF_P, 3);
+            res = make_tuple(tp);
+
+            *tp++ = make_arityval(2);
+            *tp++ = type;
+            *tp = make_small(MASK_PMQB_FLAGS(bound));
+        }
+	break;
+    }
 
     case am_links: {
 	MonitorInfoCollection mic;

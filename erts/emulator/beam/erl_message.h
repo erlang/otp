@@ -176,6 +176,11 @@ do {									\
 #define SAVE_MESSAGE(p) \
      (p)->msg.save = &(*(p)->msg.save)->next
 
+#define ERTS_PMQB_DROP (1<<24)
+#define ERTS_PMQB_REXITS (2<<24)
+
+#define MASK_PMQB_FLAGS(X) (X&0x00ffffff)
+
 /*
  * ErtsMoveMsgAttachmentIntoProc() moves data attached to a message
  * onto the heap of a process. The attached data is the content of
