@@ -30,6 +30,31 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug when an migrated empty memory carrier is reused
+	    just before it should be destroyed by the thread that
+	    created it.</p>
+          <p>
+	    Own Id: OTP-12249</p>
+        </item>
+        <item>
+          <p>
+	    Repair run_erl terminal window size adjustment sent from
+	    to_erl. This was broken in OTP 17.0 which could lead to
+	    strange cursor behaviour in the to_erl shell.</p>
+          <p>
+	    Own Id: OTP-12275 Aux Id: seq12739 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

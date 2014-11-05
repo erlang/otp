@@ -40,7 +40,7 @@ void erts_run_erl_log_error(int priority, int line, const char *format,...);
 
 int erts_run_erl_open_fifo(char *pipename,char *w_pipename,char *r_pipename);
 int erts_run_erl_log_alive_minutes(void);
-int erts_run_erl_extract_ctrl_seq(char* buf, int len);
+int erts_run_erl_extract_ctrl_seq(char* buf, int len, int mfd);
 
 /* File operations */
 ssize_t sf_read(int fd, void *buffer, size_t len);
