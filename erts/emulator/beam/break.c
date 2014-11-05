@@ -754,6 +754,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 	dumpname = "erl_crash.dump";
     else
 	dumpname = &dumpnamebuf[0];
+    
+    erts_fprintf(stderr,"\nCrash dump is being written to: %s...", dumpname);
 
     fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
     if (fd < 0) 
@@ -804,7 +806,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     erts_fdprintf(fd, "=end\n");
     close(fd);
-    erts_fprintf(stderr,"\nCrash dump was written to: %s\n", dumpname);
+    erts_fprintf(stderr,"done\n");
 }
 
 void
