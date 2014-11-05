@@ -2184,7 +2184,7 @@ static void fd_stop(ErlDrvData data)
 	ASSERT(dp->out.flushEvent);
 	SetEvent(dp->out.flushEvent);
       } while (WaitForSingleObject(dp->out.flushReplyEvent, 10) == WAIT_TIMEOUT
-	       || !(dp->out.flags & DF_THREAD_FLUSHED));
+	       && !(dp->out.flags & DF_THREAD_FLUSHED));
   }    
 
 }
