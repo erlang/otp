@@ -4,6 +4,24 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+%% telnet control characters
+-define(SE,	240).
+-define(NOP,	241).
+-define(DM,	242).
+-define(BRK,	243).
+-define(IP,	244).
+-define(AO,	245).
+-define(AYT,	246).
+-define(EC,	247).
+-define(EL,	248).
+-define(GA,	249).
+-define(SB,	250).
+-define(WILL,	251).
+-define(WONT,	252).
+-define(DO,	253).
+-define(DONT,	254).
+-define(IAC,	255).
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -34,7 +52,9 @@ all() ->
      ignore_prompt_timeout,
      large_string,
      server_speaks,
-     server_disconnects
+     server_disconnects,
+     newline_ayt,
+     newline_break
     ].
 
 groups() ->
@@ -284,4 +304,23 @@ server_disconnects(_) ->
     %% printed in the log
     timer:sleep(3000),
     _ = ct_telnet:close(Handle),
+    ok.
+
+%% Test option {newline,false} to send telnet command sequence.
+newline_ayt(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, [?IAC,?AYT], [{newline,false}]),
+    {ok,["yes"]} = ct_telnet:expect(Handle, ["yes"]),
+    ok = ct_telnet:close(Handle),
+    ok.
+
+%% Test option {newline,false} to send telnet command sequence.
+newline_break(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, [?IAC,?BRK], [{newline,false}]),
+    %% '#' is the prompt in break mode
+    {ok,["# "]} = ct_telnet:expect(Handle, ["# "], [no_prompt_check]),
+    {ok,R} = ct_telnet:cmd(Handle, "q", [{newline,false}]),
+    "> " = lists:flatten(R),
+    ok = ct_telnet:close(Handle),
     ok.

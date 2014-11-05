@@ -31,7 +31,8 @@
 	 users,
 	 authorized=false,
 	 suppress_go_ahead=false,
-	 buffer=[]}).
+	 buffer=[],
+	 break=false}).
 
 -type options() :: [{port,pos_integer()} | {users,users()}].
 -type users() :: [{user(),password()}].
@@ -148,6 +149,9 @@ loop(State, N) ->
 	    stopped
     end.
 
+handle_data(Cmd,#state{break=true}=State) ->
+    dbg("Server got data when in break mode: ~p~n",[Cmd]),
+    handle_break_cmd(Cmd,State);
 handle_data([?IAC|Cmd],State) ->
     dbg("Server got cmd: ~p~n",[Cmd]),
     handle_cmd(Cmd,State);
@@ -171,23 +175,37 @@ handle_data(Data,State) ->
 	    {ok,State#state{buffer=[Data|State#state.buffer]}}
     end.
 
-%% Add function clause below to handle new telnet commands (sent with
-%% ?IAC from client - this is not possible to do from ct_telnet API,
-%% but ct_telnet sends DONT SUPPRESS_GO_AHEAD)
+%% Add function clause below to handle new telnet commands sent with
+%% ?IAC from client. This can be done from ct_telnet:send or
+%% ct_telnet:cmd if using the option {newline,false}. Also, ct_telnet
+%% sends DONT SUPPRESS_GO_AHEAD.
 handle_cmd([?DO,?SUPPRESS_GO_AHEAD|T],State) ->
     send([?IAC,?WILL,?SUPPRESS_GO_AHEAD],State),
-    handle_cmd(T,State#state{suppress_go_ahead=true});
+    handle_data(T,State#state{suppress_go_ahead=true});
 handle_cmd([?DONT,?SUPPRESS_GO_AHEAD|T],State) ->
     send([?IAC,?WONT,?SUPPRESS_GO_AHEAD],State),
-    handle_cmd(T,State#state{suppress_go_ahead=false});
-handle_cmd([?IAC|T],State) ->
-    %% Multiple commands in one packet
-    handle_cmd(T,State);
+    handle_data(T,State#state{suppress_go_ahead=false});
+handle_cmd([?BRK|T],State) ->
+    %% Used when testing 'newline' option in ct_telnet:send and ct_telnet:cmd.
+    send("# ",State),
+    handle_data(T,State#state{break=true});
+handle_cmd([?AYT|T],State) ->
+    %% Used when testing 'newline' option in ct_telnet:send and ct_telnet:cmd.
+    send("yes\r\n> ",State),
+    handle_data(T,State);
 handle_cmd([_H|T],State) ->
     %% Not responding to this command
     handle_cmd(T,State);
 handle_cmd([],State) ->
     {ok,State}.
+
+handle_break_cmd([$q|T],State) ->
+    %% Dummy cmd allowed in break mode - quit break mode
+    send("\r\n> ",State),
+    handle_data(T,State#state{break=false});
+handle_break_cmd([],State) ->
+    {ok,State}.
+
 
 %% Add function clause below to handle new text command (text entered
 %% from the telnet prompt)
