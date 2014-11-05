@@ -564,14 +564,14 @@ match(REGISTER PCRE_PUCHAR eptr, REGISTER const pcre_uchar *ecode,
 so they can be ordinary variables in all cases. Mark some of them with
 "register" because they are used a lot in loops. */
 
-register int  rrc;         /* Returns from recursive calls */
-register int  i;           /* Used for loops not involving calls to RMATCH() */
-register pcre_uint32 c;    /* Character values not kept over RMATCH() calls */
+register int  rrc = 0;     /* Returns from recursive calls */
+register int  i = 0;       /* Used for loops not involving calls to RMATCH() */
+register pcre_uint32 c = 0;/* Character values not kept over RMATCH() calls */
 register BOOL utf;         /* Local copy of UTF flag for speed */
 
-BOOL minimize, possessive; /* Quantifier options */
-BOOL caseless;
-int condcode;
+BOOL minimize = FALSE, possessive = FALSE; /* Quantifier options */
+BOOL caseless = FALSE;
+int condcode = 0;
 
 /* When recursion is not being used, all "local" variables that have to be
 preserved over calls to RMATCH() are part of a "frame". We set up the top-level

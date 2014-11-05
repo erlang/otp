@@ -851,7 +851,7 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     int cret = DB_ERROR_BADITEM;
     Eterm upop_list;
     int list_size;
-    Eterm ret;  /* int or [int] */
+    Eterm ret = NIL;  /* int or [int] */
     Eterm* ret_list_currp = NULL;
     Eterm* ret_list_prevp = NULL;
     Eterm iter;

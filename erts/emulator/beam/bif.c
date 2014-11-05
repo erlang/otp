@@ -177,7 +177,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
 	if (send_link_signal) {
-	    Eterm ref;
+            Eterm ref = NIL;
 	    Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
 
 	    switch (erts_port_link(BIF_P, prt, BIF_P->common.id, refp)) {
@@ -982,7 +982,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_DEAD);
 	    if (prt) {
 		ErtsPortOpResult res;
-		Eterm ref;
+                Eterm ref = NIL;
 		Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
 #ifdef DEBUG
 		ref = NIL;
@@ -1366,7 +1366,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
       */
 
      if (is_internal_port(BIF_ARG_1)) {
-	 Eterm ref, *refp;
+         Eterm ref = NIL, *refp;
 	 Uint32 invalid_flags;
 	 Port *prt;
 

@@ -9739,7 +9739,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
     do {
 	ErtsProcSysTask *st;
 	int st_prio;
-	Eterm st_res;
+        Eterm st_res = NIL;
 
 	if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
 #ifdef ERTS_SMP

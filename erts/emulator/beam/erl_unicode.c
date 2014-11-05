@@ -1158,12 +1158,11 @@ static ERTS_INLINE int
 analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left,
 	     Sint *num_latin1_chars, Uint max_chars)
 {
-    Uint latin1_count;
-    int is_latin1;
+    Uint latin1_count = 0;
+    int is_latin1 = 0;
     *err_pos = source;
     if (num_latin1_chars) {
 	is_latin1 = 1;
-	latin1_count = 0;
     }
     *num_chars = 0;
     while (size) {
