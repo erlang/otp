@@ -3313,18 +3313,21 @@ merged_mod(S,RefMod,Ext) ->
 %% any UNIQUE field, so that a component relation constraint cannot specify
 %% the type of a typefield, return 'ASN1_OPEN_TYPE'.
 %% 
-maybe_open_type(S,ClassSpec=#objectclass{fields=Fs},
-		OCFT=#'ObjectClassFieldType'{fieldname=FieldRefList},
+maybe_open_type(_, _, #'ObjectClassFieldType'{fieldname={_,_}}=OCFT, _) ->
+    %% Already converted.
+    OCFT;
+maybe_open_type(S, #objectclass{fields=Fs}=ClassSpec,
+		#'ObjectClassFieldType'{fieldname=FieldRefList}=OCFT,
 		Constr) ->
-    Type = get_ObjectClassFieldType(S,Fs,FieldRefList),
-    FieldNames=get_referenced_fieldname(FieldRefList),
-    case last_fieldname(FieldRefList) of
+    Type = get_OCFType(S, Fs, FieldRefList),
+    FieldNames = get_referenced_fieldname(FieldRefList),
+    case lists:last(FieldRefList) of
 	{valuefieldreference,_} ->
 	    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 					type=Type};
 	{typefieldreference,_} ->
 	    case {catch get_unique_fieldname(S,#classdef{typespec=ClassSpec}),
-		  asn1ct_gen:get_constraint(Constr,componentrelation)}of
+		  asn1ct_gen:get_constraint(Constr, componentrelation)} of
 		{Tuple,_} when tuple_size(Tuple) =:= 3 ->
 		    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 						type='ASN1_OPEN_TYPE'};
@@ -3335,17 +3338,6 @@ maybe_open_type(S,ClassSpec=#objectclass{fields=Fs},
 		    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 						type=Type}
 	    end
-    end.
-
-last_fieldname(FieldRefList) when is_list(FieldRefList) ->
-    lists:last(FieldRefList);
-last_fieldname({FieldName,_}) when is_atom(FieldName) ->
-    [A|_] = atom_to_list(FieldName),
-    case is_lowercase(A) of
-	true ->
-	    {valuefieldreference,FieldName};
-	_ ->
-	    {typefieldreference,FieldName}
     end.
 
 is_open_type(#'ObjectClassFieldType'{type='ASN1_OPEN_TYPE'}) ->
@@ -3527,11 +3519,6 @@ parameter_name_style(#'Externaltypereference'{}) ->
 parameter_name_style(#'Externalvaluereference'{}) ->
     beginning_lowercase.
 
-is_lowercase(X) when X >= $A,X =< $W ->
-    false;
-is_lowercase(_) ->
-    true.
-		
 %% categorize(Parameter) -> CategorizedParameter
 %% If Parameter has an abstract syntax of another category than
 %% Category, transform it to a known syntax.
@@ -6196,31 +6183,8 @@ get_tableconstraint_info(S,Type,[C|Cs],Acc) ->
 
 get_referenced_fieldname([{_,FirstFieldname}]) ->
     {FirstFieldname,[]};
-get_referenced_fieldname([{_,FirstFieldname}|Rest]) ->
-    {FirstFieldname,lists:map(fun(X)->element(2,X) end,Rest)};
-get_referenced_fieldname(Def={FieldName,RestFieldName}) when is_atom(FieldName),is_list(RestFieldName)->
-    Def;
-get_referenced_fieldname(Def) ->
-    {no_type,Def}.
-
-%% get_ObjectClassFieldType extracts the type from the chain of
-%% objects that leads to a final type.
-get_ObjectClassFieldType(S,ERef,PrimFieldNameList) when
-  is_record(ERef,'Externaltypereference') ->
-    {MName,Type} = get_referenced_type(S,ERef),
-    NewS = update_state(S#state{type=Type,
-		   tname=ERef#'Externaltypereference'.type},MName),
-    ClassSpec = check_class(NewS,Type),
-    Fields = ClassSpec#objectclass.fields,
-    get_ObjectClassFieldType(S,Fields,PrimFieldNameList);
-get_ObjectClassFieldType(S,Fields,L=[_PrimFieldName1|_Rest]) ->
-    check_PrimitiveFieldNames(S,Fields,L),
-    get_OCFType(S,Fields,L);
-get_ObjectClassFieldType(S,ERef,{FieldName,Rest}) ->
-    get_ObjectClassFieldType(S,ERef,Rest ++ [FieldName]).
-
-check_PrimitiveFieldNames(_S,_Fields,_) ->
-    ok.
+get_referenced_fieldname([{_,FirstFieldname}|T]) ->
+    {FirstFieldname,[element(2, X) || X <- T]}.
 
 %% get_ObjectClassFieldType_classdef gets the def of the class of the
 %% ObjectClassFieldType, i.e. the objectclass record. If the type has
@@ -6281,18 +6245,6 @@ get_taglist(_S,#'ObjectClassFieldType'{type={typefield,_}}) ->
     [];
 get_taglist(S,#'ObjectClassFieldType'{type={fixedtypevaluefield,_,Type}}) ->
     get_taglist(S,Type);
-get_taglist(S,{ERef=#'Externaltypereference'{},FieldNameList})
-  when is_list(FieldNameList) ->
-    case get_ObjectClassFieldType(S,ERef,FieldNameList) of
-	{fixedtypevaluefield,_,Type} -> get_taglist(S,Type);
-	{TypeFieldName,_} when is_atom(TypeFieldName) -> []%should check if allowed
-    end;
-get_taglist(S,{ObjCl,FieldNameList}) when is_record(ObjCl,objectclass),
-					  is_list(FieldNameList) ->
-    case get_ObjectClassFieldType(S,ObjCl#objectclass.fields,FieldNameList) of
-	{fixedtypevaluefield,_,Type} -> get_taglist(S,Type);
-	{TypeFieldName,_} when is_atom(TypeFieldName) -> []%should check if allowed
-    end;
 get_taglist(_, _) ->
     [].
 
