@@ -2772,6 +2772,7 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
 			      Eterm *integer, Eterm *rest)
 {
      Sint i = 0;
+     Uint ui = 0;
      int skip = 0;
      int neg = 0;
      int n = 0;
@@ -2825,8 +2826,8 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
 	     unsigned_val(CAR(list_val(lst))) > '9') {
 	     break;
 	 }
-	 i = i * 10;
-	 i = i + unsigned_val(CAR(list_val(lst))) - '0';
+	 ui = ui * 10;
+	 ui = ui + unsigned_val(CAR(list_val(lst))) - '0';
 	 n++;
 	 lst = CDR(list_val(lst));
 	 if (is_nil(lst)) {
@@ -2850,7 +2851,8 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
       */
 
      if (n <= SMALL_DIGITS) {  /* It must be small */
-	 if (neg) i = -i;
+	 if (neg) i = -(Sint)ui;
+         else i = (Sint)ui;
 	 res = make_small(i);
      } else {
 	 lg2 =  (n+1)*230/69+1;
