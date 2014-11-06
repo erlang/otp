@@ -850,38 +850,14 @@ check_object(S,
 	    %% field.
 	    #type{def=#'ObjectClassFieldType'{classname=ObjName,
 					      fieldname=FieldName}} ->
-		{RefedObjMod,TDef} = get_referenced_type(S,ObjName),
-		OS=TDef#typedef.typespec,
-		%% should get the right object set here. Get the field
-		%% FieldName out of the object set OS of class
-		%% OS#'ObjectSet'.class
-		OS2=check_object(S,TDef,OS),
-		NewSet=object_set_from_objects(S,RefedObjMod,FieldName,OS2),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName,
-				   set=NewSet};
+		NewSet = check_ObjectSetFromObjects(S, ObjName, FieldName, []),
+		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName, set=NewSet};
 	    {'ObjectSetFromObjects',{_,_,ObjName},FieldName} ->
-		{RefedObjMod,TDef} = get_referenced_type(S,ObjName),
-		OS=TDef#typedef.typespec,
-		%% should get the right object set here. Get the field
-		%% FieldName out of the object set OS of class
-		%% OS#'ObjectSet'.class
-		OS2=check_object(S,TDef,OS),
-		NewSet=object_set_from_objects(S,RefedObjMod,FieldName,OS2),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName,
-				   set=NewSet};
-	     {'ObjectSetFromObjects',{_,ObjName},FieldName} ->
-		%% This is a ObjectSetFromObjects, i.e.
-		%% ObjectSetFromObjects ::= ReferencedObjects "." FieldName
-		%% with a defined object as ReferencedObjects. And
-		%% the FieldName of the Class (object) contains an object set.
-		{RefedObjMod,TDef} = get_referenced_type(S,ObjName),
-		O1 = TDef#typedef.typespec,
-		O2 = check_object(S,TDef,O1),
-		NewSet = object_set_from_objects(S,RefedObjMod,FieldName,O2),
-		OS2=ObjSet#'ObjectSet'{uniquefname=UniqueFieldName,
-				   set=NewSet},
-		%%io:format("ObjectSet: ~p~n",[OS2]),
-		OS2;
+		NewSet = check_ObjectSetFromObjects(S, ObjName, FieldName, []),
+		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName, set=NewSet};
+	    {'ObjectSetFromObjects',{_,ObjName},FieldName} ->
+		NewSet = check_ObjectSetFromObjects(S, ObjName, FieldName, []),
+		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName, set=NewSet};
 	    {pos,{objectset,_,DefinedObjSet},Params} ->
 		{_,PObjSetDef} = get_referenced_type(S,DefinedObjSet),
 		NewParamList = match_parameters(S, Params),
@@ -1034,135 +1010,6 @@ prepare_objset({#type{}=Type,#type{}=Ext}) ->
 prepare_objset(Ret) ->
     Ret.
 
-%% ObjectSetFromObjects functionality
-
-%% The fieldname is a list of field names.They may be objects or
-%% object sets. If ObjectSet is an object set the resulting object set
-%% is the union of object sets if the last field name is an object
-%% set.  If the last field is an object the resulting object set is
-%% the set of objects in ObjectSet.
-object_set_from_objects(S,RefedObjMod,FieldName,ObjectSet) ->
-    object_set_from_objects(S,RefedObjMod,FieldName,ObjectSet,[]).
-object_set_from_objects(S,RefedObjMod,FieldName,ObjectSet,InterSect)
-  when is_record(ObjectSet,'ObjectSet') ->
-    #'ObjectSet'{class=Cl,set=Set} = ObjectSet,
-    {_,ClassDef} = get_referenced_type(S,Cl),
-    object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,Set,InterSect,[]);
-object_set_from_objects(S,RefedObjMod,FieldName,Object,InterSect) 
-  when is_record(Object,'Object') ->
-    #'Object'{classname=Cl,def=Def}=Object,
-    object_set_from_objects(S,RefedObjMod,Cl,FieldName,[Def],InterSect,[]).
-object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,['EXTENSIONMARK'|Os],
-			InterSect,Acc) ->
-    object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,Os,InterSect,%%Acc);
-			    ['EXTENSIONMARK'|Acc]);
-object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,[O|Os],InterSect,Acc) ->
-    case object_set_from_objects2(S,mod_of_obj(RefedObjMod,element(1,O)),
-				  ClassDef,FieldName,element(3,O),InterSect) of
-	ObjS when is_list(ObjS) ->
-	    object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,Os,InterSect,ObjS++Acc);
-	Obj ->
-	    object_set_from_objects(S,RefedObjMod,ClassDef,FieldName,Os,InterSect,[Obj|Acc])
-    end;
-object_set_from_objects(S,_RefedObjMod,_ClassDef,_FieldName,[],InterSect,Acc) ->
-    %% For instance may Acc contain objects of same class from
-    %% different object sets that in fact might be duplicates.
-    Set = osfo_intersection(InterSect,Acc),
-    remove_duplicate_objects(S, Set).
-
-object_set_from_objects2(S,RefedObjMod,ClassDef,[{valuefieldreference,OName}],
-			 Fields,_InterSect) ->
-    %% this is an object
-    case lists:keysearch(OName,1,Fields) of
-	{value,{_,TDef}} ->
-	    mk_object_set_from_object(S,RefedObjMod,TDef,ClassDef);
-	_ ->
-	    [] % it may be an absent optional field
-    end;
-object_set_from_objects2(S,RefedObjMod,ClassDef,[{typefieldreference,OSName}],
-			Fields,_InterSect) ->
-    %% this is an object set
-    case lists:keysearch(OSName,1,Fields) of
-	{value,{_,TDef}} ->
-	    case TDef#typedef.typespec of
-		#'ObjectSet'{class=_NextClName,set=NextSet} ->%% = TDef#typedef.typespec,
-		    NextSet;
-		#'Object'{def=_ObjDef} ->
-		    mk_object_set_from_object(S,RefedObjMod,TDef,ClassDef)
-%%		    ObjDef
-		    %% error({error,{internal,unexpected_object,TDef}})
-	    end;
-	_ ->
-	    [] % it may be an absent optional field
-    end;
-object_set_from_objects2(S,RefedObjMod,_ClassDef,[{valuefieldreference,OName}|Rest],
-			 Fields,InterSect) ->
-    %% this is an object
-    case lists:keysearch(OName,1,Fields) of
-	{value,{_,TDef}} ->
-	    #'Object'{classname=NextClName,def=ODef}=TDef#typedef.typespec,
-	    {_,_,NextFields}=ODef,
-	    {_,NextClass} = get_referenced_type(S,NextClName),
-	    object_set_from_objects2(S,RefedObjMod,NextClass,Rest,NextFields,InterSect);
-	_ ->
-	    []
-    end;
-object_set_from_objects2(S,RefedObjMod,_ClassDef,[{typefieldreference,OSName}|Rest],
-			Fields,InterSect) ->
-    %% this is an object set
-    Next = {NextClName,NextSet} = 
-	case lists:keysearch(OSName,1,Fields) of
-	    {value,{_,TDef}} when is_record(TDef,'ObjectSet') ->    
-		#'ObjectSet'{class=NextClN,set=NextS} = TDef,
-		{NextClN,NextS};
-	    {value,{_,#typedef{typespec=OS}}} ->
-		%% objectsets in defined syntax will come here as typedef{}
-		%% #'ObjectSet'{class=NextClN,set=NextS} = OS,
-		case OS of
-		    #'ObjectSet'{class=NextClN,set=NextS} ->
-			{NextClN,NextS};
-		    #'Object'{classname=NextClN,def=NextDef} ->
-			{NextClN,[NextDef]}
-		end;
-	_ ->
-	    {[],[]}
-    end,
-    case Next of
-	{[],[]} ->
-	    [];
-	_ ->
-	    {_,NextClass} = get_referenced_type(S,NextClName),
-	    object_set_from_objects(S,RefedObjMod,NextClass,Rest,NextSet,InterSect,[])
-    end.
-		
-mk_object_set_from_object(S,RefedObjMod,TDef,Class) -> 
-    #'Object'{classname=_NextClName,def=ODef} = TDef#typedef.typespec,
-    {_,_,NextFields}=ODef,
-
-    UniqueFieldName = 
-	case (catch get_unique_fieldname(S,Class)) of
-	    {error,'__undefined_',_} -> {unique,undefined};
-	    {asn1,Msg,_} -> error({class,Msg,S});
-	    {'EXIT',Msg} -> error({class,{internal_error,Msg},S});
-	    {Other,_} -> Other
-	end,
-    VDef = get_unique_value(S,NextFields,UniqueFieldName),
-    %% XXXXXXXXXXX
-    case VDef of
-	[] ->
-	    ['EXTENSIONMARK'];
-	_ ->
-	    {{RefedObjMod,get_datastr_name(TDef)},VDef,NextFields}    
-    end.
-    
-    
-mod_of_obj(_RefedObjMod,{NewMod,ObjName}) 
-  when is_atom(NewMod),is_atom(ObjName) ->
-    NewMod;
-mod_of_obj(RefedObjMod,_) ->
-    RefedObjMod.
-    
-
 merge_sets(Root,{'SingleValue',Ext}) ->
     merge_sets(Root,Ext);
 merge_sets(Root,Ext) when is_list(Root),is_list(Ext) ->
@@ -1253,13 +1100,10 @@ check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
 					   FieldName,[]),
 	    check_object_list(S,ClassRef,Objs,NewSet++Acc);
 	{{'ObjectSetFromObjects',Os,FieldName},InterSection}
-	when is_tuple(Os) ->
-	    NewSet =
-		check_ObjectSetFromObjects(S, element(tuple_size(Os), Os),
-					   FieldName,InterSection),
-	    check_object_list(S,ClassRef,Objs,NewSet++Acc);
-	Other ->
-	    exit({error,{'unknown object',Other},S})
+	  when is_tuple(Os) ->
+	    Set = check_ObjectSetFromObjects(S, element(tuple_size(Os), Os),
+					     FieldName, InterSection),
+	    check_object_list(S, ClassRef, Objs, Set++Acc)
     end;
 %% Finally reverse the accumulated list and if there are any extension
 %% marks in the object set put one indicator of that in the end of the
@@ -1282,11 +1126,21 @@ check_referenced_object(S,ObjRef)
 	     check_object(update_state(S,RefedMod),ObjectDef,ObjectDef#typedef.typespec)}
     end.
 
-check_ObjectSetFromObjects(S,ObjName,FieldName,InterSection) ->
-    {RefedMod,TDef} = get_referenced_type(S,ObjName),
-    ObjOrSet = check_object(update_state(S,RefedMod),TDef,TDef#typedef.typespec),
-    InterSec = prepare_intersection(S,InterSection),
-    _NewSet = object_set_from_objects(S,RefedMod,FieldName,ObjOrSet,InterSec).
+check_ObjectSetFromObjects(S, ObjName, Fields, InterSection) ->
+    {_,Obj0} = get_referenced_type(S, ObjName),
+    Objs = case check_object(S, Obj0, Obj0#typedef.typespec) of
+	       #'ObjectSet'{}=Obj1 ->
+		   get_fieldname_set(S, Obj1, Fields);
+	       #'Object'{classname=Class,
+			 def={object,_,ObjFs}} ->
+		   ObjSet = #'ObjectSet'{class=Class,
+					 set=[{'_','_',ObjFs}]},
+		   get_fieldname_set(S, ObjSet, Fields)
+	   end,
+    InterSec = prepare_intersection(S, InterSection),
+    Set = osfo_intersection(InterSec, Objs),
+    remove_duplicate_objects(S, Set).
+
 
 prepare_intersection(_S,[]) ->
     [];
@@ -1349,28 +1203,46 @@ extract_field(S, Def0, FieldNames) ->
 %%   element. The list of field name tuples may have more than one element.
 %%   All field names but the last refers to either an object or object set.
 
-get_fieldname_element(S, #typedef{}=Def, [{_RefType,FieldName}]) ->
-    Object = (Def#typedef.typespec)#'Object'.def,
-    check_fieldname_element(S, FieldName, Object);
-get_fieldname_element(S, #typedef{}=Def, [{_RefType,FieldName}|T]) ->
-    %% As FieldName is followed by other FieldNames it has to be an
-    %% object or objectset.
-    Object = (Def#typedef.typespec)#'Object'.def,
+get_fieldname_element(S, Object0, [{_RefType,FieldName}|Fields]) ->
+    Object = case Object0 of
+		 #typedef{typespec=#'Object'{def=Obj}} -> Obj;
+		 {_,_,_}=Obj -> Obj
+	     end,
     case check_fieldname_element(S, FieldName, Object) of
-	#'Object'{def=D} ->
-	    get_fieldname_element(S, D, T);
-	#'ObjectSet'{set=Set0} ->
-	    Set = [get_fieldname_element(S, X, T) || X <- Set0],
-	    get_fieldname_return_set(Set)
+	#'Object'{def=D} when Fields =/= [] ->
+	    get_fieldname_element(S, D, Fields);
+	#'ObjectSet'{}=Set ->
+	    get_fieldname_set(S, Set, Fields);
+	Result when Fields =:= [] ->
+	    Result
     end;
-get_fieldname_element(S, {_,_,_}=Object, [{_RefType,FieldName}|T]) ->
-    Def = check_fieldname_element(S, FieldName, Object),
-    get_fieldname_element(S, Def, T);
 get_fieldname_element(_S, Def, []) ->
     Def.
 
-get_fieldname_return_set([#valuedef{}|_]=L) ->
-    {valueset,L}.
+get_fieldname_set(S, #'ObjectSet'{set=Set0}, T) ->
+    get_fieldname_set_1(S, Set0, T, []).
+
+get_fieldname_set_1(S, ['EXTENSIONMARK'=Ext|T], Fields, Acc) ->
+    get_fieldname_set_1(S, T, Fields, [Ext|Acc]);
+get_fieldname_set_1(S, [H|T], Fields, Acc) ->
+    try get_fieldname_element(S, H, Fields) of
+	L when is_list(L) ->
+	    get_fieldname_set_1(S, T, Fields, L++Acc);
+	{valueset,L} ->
+	    get_fieldname_set_1(S, T, Fields, L++Acc);
+	Other ->
+	    get_fieldname_set_1(S, T, Fields, [Other|Acc])
+    catch
+	throw:{error,_} ->
+	    get_fieldname_set_1(S, T, Fields, Acc)
+    end;
+get_fieldname_set_1(_, [], _Fields, Acc) ->
+    case Acc of
+	[#valuedef{}|_] ->
+	    {valueset,Acc};
+	_ ->
+	    Acc
+    end.
 
 check_fieldname_element(S, Name, {_,_,Fields}) ->
     case lists:keyfind(Name, 1, Fields) of
@@ -1905,10 +1777,11 @@ match_syntax_objset_1(S, {setting,_,Set}, ClassDef) ->
 match_syntax_objset_1(S, {word_or_setting,_,Set}, ClassDef) ->
     %% Word in uppercase/hyphens only.
     match_syntax_objset(S, Set, ClassDef);
-match_syntax_objset_1(S, #type{def={'TypeFromObject',
-				    {object,Object},
-				    FieldNames}}, _) ->
-    #typedef{checked=true,typespec=extract_field(S, Object, FieldNames)};
+match_syntax_objset_1(S, #type{def={'TypeFromObject', {object,Object}, FNs}},
+		      ClassDef) ->
+    Set = extract_field(S, Object, FNs),
+    [_|_] = Set,
+    #typedef{checked=true,typespec=#'ObjectSet'{class=ClassDef,set=Set}};
 match_syntax_objset_1(_, #type{def=#'ObjectClassFieldType'{}}=Set, ClassDef) ->
     make_objset(ClassDef, Set).
 

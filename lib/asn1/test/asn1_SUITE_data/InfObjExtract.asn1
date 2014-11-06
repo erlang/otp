@@ -83,4 +83,40 @@ DataSeq-4 ::= TestSeq{ {holder-object-5.&ObjSet} }
 DataSeq-5 ::= TestSeq{ {holder-object-6.&ObjSet} }
 DataSeq-6 ::= TestSeq{ {holder-object-7.&ObjSet} }
 
+--
+-- Test ObjectSetFromObjects.
+--
+
+OBJ-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Data OPTIONAL,
+  &Obj OBJ-CLASS OPTIONAL,
+  &obj OBJ-CLASS OPTIONAL
+}
+
+obj-class-obj-1 OBJ-CLASS ::= { &id 1, &Data BOOLEAN }
+
+obj-class-obj-2 OBJ-CLASS ::= { &id 2, &Data BOOLEAN,
+			         &Obj {obj-class-obj-1} }
+
+obj-class-obj-3 OBJ-CLASS ::= { &id 3, &Data BOOLEAN,
+			         &obj {&id 99, &Obj {obj-class-obj-1}} }
+
+obj-class-obj-4 OBJ-CLASS ::= { &id 4, &Data BOOLEAN, &obj obj-class-obj-2 }
+
+obj-class-obj-5 OBJ-CLASS ::= { &id 5, &Data BOOLEAN,
+		                &Obj {obj-class-obj-4.&obj} }
+
+ObjClassSet OBJ-CLASS ::= { obj-class-obj-3.&obj.&Obj |
+			    obj-class-obj-4.&Obj | -- Non-existing field
+			    obj-class-obj-5.&Obj
+			   }
+
+TestObjClassSeq{OBJ-CLASS:ObjectSet} ::= SEQUENCE {
+  id OBJ-CLASS.&id ({ObjectSet}),
+  data OBJ-CLASS.&Data ({ObjectSet}{@id})
+}
+
+ObjClassSeq-1 ::= TestObjClassSeq{{ObjClassSet}}
+
 END
