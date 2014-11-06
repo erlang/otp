@@ -21,7 +21,7 @@ start version, includes b_lib and b_server
 
 b-2.0:
 can be upgraded to from b-1.0.
-Removes b_lib (soft_purge) and updates b_server (brutal_purge)
+Removes b_lib (brutal_purge) and updates b_server (soft_purge)
 * The diff in purge method is important for test "check_and_purge", in
   order to check that the purge option to check_install_release works
   for both methods.
