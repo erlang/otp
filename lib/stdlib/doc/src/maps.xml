@@ -330,7 +330,7 @@ false</code>
 				<code type="none">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   Ks = ["a",42,"other key"],
-  maps:without(Ks,Map).
+  maps:with(Ks,Map).
 #{42 => value_three,"a" => 1}</code>
 			</desc>
 		</func>
