@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -239,7 +239,7 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
     <marker id="sup"></marker>
     <title>Changing a Supervisor</title>
     <p>The supervisor behaviour supports changing the internal state,
-      i.e. changing restart strategy and maximum restart frequency
+      i.e. changing restart strategy and maximum restart intensity
       properties, as well as changing existing child specifications.</p>
     <p>Adding and deleting child processes are also possible, but not
       handled automatically. Instructions must be given by in
@@ -267,7 +267,7 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
 ...
 
 init(_Args) ->
-    {ok, {{one_for_all, 1, 60}, ...}}.</code>
+    {ok, {#{strategy => one_for_all, ...}, ...}}.</code>
       <p>The file <c>ch_app.appup</c>:</p>
       <code type="none">
 {"2",
