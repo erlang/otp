@@ -6158,6 +6158,11 @@ ok
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
+          <tag><c>nif_version</c></tag>
+          <item>
+            <p>Returns a string containing the erlang NIF version
+              used by the runtime system. It will be on the form "&lt;major ver&gt;.&lt;minor ver&gt;".</p>
+          </item>
           <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>
             <p>Returns a string containing the OTP release number of the

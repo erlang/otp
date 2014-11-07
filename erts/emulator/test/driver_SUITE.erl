@@ -1204,8 +1204,8 @@ check_si_res(["sched_thrs", Value]) ->
     ?line Value = integer_to_list(erlang:system_info(schedulers));
 
 %% Data added in 3rd version of driver_system_info() (driver version 1.5)
-check_si_res(["emu_nif_vsn", _Value]) ->
-    true;
+check_si_res(["emu_nif_vsn", Value]) ->
+    ?line Value = erlang:system_info(nif_version);
 
 %% Data added in 4th version of driver_system_info() (driver version 3.1)
 check_si_res(["dirty_sched", _Value]) ->
