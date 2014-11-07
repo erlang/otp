@@ -371,6 +371,7 @@ erlang_system_info() ->
 	    logical_processors_online,
 	    logical_processors_available,
 	    driver_version,
+	    nif_version,
 	    emu_args,
 	    ethread_info,
 	    beam_jump_table,
