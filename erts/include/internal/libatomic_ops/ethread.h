@@ -38,6 +38,7 @@
 #include "atomic_ops.h"
 #include "ethr_membar.h"
 #include "ethr_atomic.h"
+#include "ethr_dw_atomic.h"
 
 #endif
 
