@@ -1421,9 +1421,31 @@ case "$THR_LIB_NAME" in
 	    	    	    int z;
 
 	    	    	    AO_nop_full();
+#if defined(AO_HAVE_store)
 	    	    	    AO_store(&x, (AO_t) 0);
+#elif defined(AO_HAVE_store_release)
+	    	    	    AO_store_release(&x, (AO_t) 0);
+#else
+#error No store
+#endif
+#if defined(AO_HAVE_load)
 	    	    	    z = AO_load(&x);
+#elif defined(AO_HAVE_load_acquire)
+	    	    	    z = AO_load_acquire(&x);
+#else
+#error No load
+#endif
+#if defined(AO_HAVE_compare_and_swap_full)
 	    	    	    z = AO_compare_and_swap_full(&x, (AO_t) 0, (AO_t) 1);
+#elif defined(AO_HAVE_compare_and_swap_release)
+	    	    	    z = AO_compare_and_swap_release(&x, (AO_t) 0, (AO_t) 1);
+#elif defined(AO_HAVE_compare_and_swap_acquire)
+	    	    	    z = AO_compare_and_swap_acquire(&x, (AO_t) 0, (AO_t) 1);
+#elif defined(AO_HAVE_compare_and_swap)
+	    	    	    z = AO_compare_and_swap(&x, (AO_t) 0, (AO_t) 1);
+#else
+#error No compare_and_swap
+#endif
 	    	        ],
 	    	        [ethr_have_native_atomics=yes
 	    	         ethr_have_libatomic_ops=yes])

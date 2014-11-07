@@ -364,8 +364,8 @@ extern ethr_runtime_t ethr_runtime__;
 #          include "sparc64/ethread.h"
 #        endif
 #      endif
-#      include "gcc/ethread.h"
 #      include "libatomic_ops/ethread.h"
+#      include "gcc/ethread.h"
 #    endif
 #  elif defined(ETHR_HAVE_LIBATOMIC_OPS)
 #    include "libatomic_ops/ethread.h"
