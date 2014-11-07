@@ -103,7 +103,7 @@
         | Map
         | Tuple
         | Union
-        | UserDefined           %% described in Section 6.3
+        | UserDefined           %% described in Section 7.3
 
   Atom :: atom()
         | Erlang_Atom           %% 'foo', 'bar', ...
