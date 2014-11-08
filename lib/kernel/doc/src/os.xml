@@ -100,6 +100,19 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
+      <name name="getenv" arity="2"/>
+      <fsummary>Get the value of an environment variable</fsummary>
+      <desc>
+        <p>Returns the <c><anno>Value</anno></c> of the environment variable
+          <c><anno>VarName</anno></c>, or <c>DefaultValue</c> if the environment variable
+          is undefined.</p>
+	<p>If Unicode file name encoding is in effect (see the <seealso
+	marker="erts:erl#file_name_encoding">erl manual
+	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
+	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
+      </desc>
+    </func>
+    <func>
       <name name="getpid" arity="0"/>
       <fsummary>Return the process identifier of the emulator process</fsummary>
       <desc>
