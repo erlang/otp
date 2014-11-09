@@ -1173,7 +1173,7 @@ preprocess_quals(Line, [Q|Qs0], St0, Acc) ->
             {Gen,St} = generator(Line, Q, Gs, St0),
             preprocess_quals(Line, Qs, St, [Gen|Acc]);
         false ->
-            LAnno = #a{anno=lineno_anno(get_anno(Q), St0)},
+            LAnno = #a{anno=lineno_anno(get_qual_line(Q), St0)},
             case is_guard_test(Q) of
                 true ->
                     %% When a filter is a guard test, its argument in the
@@ -1197,6 +1197,16 @@ preprocess_quals(_, [], St, Acc) ->
 is_generator({generate,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
 is_generator(_) -> false.
+
+get_qual_line({call,Line,_,_}) -> Line;
+get_qual_line({op,Line,_,_,_}) -> Line;
+get_qual_line({op,Line,_,_}) -> Line;
+get_qual_line({'case',Line,_,_}) -> Line;
+get_qual_line({'if',Line,_}) -> Line;
+get_qual_line({block,Line,_}) -> Line;
+get_qual_line({match,Line,_}) -> Line;
+get_qual_line({atom,Line,_}) -> Line;
+get_qual_line({var,Line,_}) -> Line.
 
 %%
 %% Generators are abstracted as sextuplets:
@@ -1491,7 +1501,7 @@ bc_bsr(E1, E2) ->
 	   name=#c_literal{val='bsr'},
 	   args=[E1,E2]}.
 
-%% is_guard_test(Expression) -> true | false.
+%% is_guard_test(Expression) -> boolean().
 %%  Test if a general expression is a guard test.  Use erl_lint here
 %%  as it now allows sys_pre_expand transformed source.
 
