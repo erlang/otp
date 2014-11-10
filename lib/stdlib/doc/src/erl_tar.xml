@@ -80,6 +80,12 @@
   </section>
 
   <section>
+    <title>OTHER STORAGE MEDIA</title>
+    <p>The <c>erl_ftp</c> module normally accesses the tar-file on disk using the <seealso marker="kernel:file">file module</seealso>.  When other needs arise, there is a way to define your own low-level Erlang functions to perform the writing and reading on the storage media. See <seealso marker="#init/3">init/3</seealso> for usage.</p>
+    <p>An example of this is the sftp support in <seealso marker="ssh:ssh_sftp#open_tar/3">ssh_sftp:open_tar/3</seealso>. That function opens a tar file on a remote machine using an sftp channel.</p>
+  </section>
+
+  <section>
     <title>LIMITATIONS</title>
     <p>For maximum compatibility, it is safe to archive files with names
       up to 100 characters in length. Such tar files can generally be
@@ -99,7 +105,8 @@
         <v>TarDescriptor = term()</v>
         <v>Filename = filename()</v>
         <v>Options = [Option]</v>
-        <v>Option = dereference|verbose</v>
+        <v>Option = dereference|verbose|{chunks,ChunkSize}</v>
+	<v>ChunkSize = positive_integer()</v>
         <v>RetValue = ok|{error,{Filename,Reason}}</v>
         <v>Reason = term()</v>
       </type>
@@ -119,6 +126,12 @@
           <item>
             <p>Print an informational message about the file being added.</p>
           </item>
+	  <tag><c>{chunks,ChunkSize}</c></tag>
+	  <item>
+	    <p>Read data in parts from the file. This is intended for memory-limited
+	    machines that for example builds a tar file on a remote machine over
+	    <seealso marker="ssh:ssh_sftp#open_tar/3">sftp</seealso>.</p>
+	  </item>
         </taglist>
       </desc>
     </func>
@@ -389,6 +402,101 @@
         </warning>
       </desc>
     </func>
+
+    <func>
+      <name>init(UserPrivate, AccessMode, Fun) -> {ok,TarDescriptor} | {error,Reason}
+</name>
+      <fsummary>Creates a TarDescriptor used in subsequent tar operations when
+      defining own low-level storage access functions
+      </fsummary>
+      <type>
+	<v>UserPrivate = term()</v>
+	<v>AccessMode = [write] | [read]</v>
+	<v>Fun when AccessMode is [write] = fun(write,   {UserPrivate,DataToWrite})->...;
+	                                       (position,{UserPrivate,Position})->...;
+	                                       (close,   UserPrivate)->...
+					    end
+        </v>
+	<v>Fun when AccessMode is [read] = fun(read2,   {UserPrivate,Size})->...;
+	                                      (position,{UserPrivate,Position})->...;
+	                                      (close,   UserPrivate)->...
+					    end
+        </v>
+	<v>TarDescriptor = term()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>The <c>Fun</c> is the definition of what to do when the different
+	storage operations functions are to be called from the higher tar
+	handling functions (<c>add/3</c>, <c>add/4</c>, <c>close/1</c>...).
+	</p>
+	<p>The <c>Fun</c> will be called when the tar function wants to do
+	a low-level operation, like writing a block to a file.  The Fun is called
+	as <c>Fun(Op,{UserPrivate,Parameters...})</c> where <c>Op</c> is the operation name,
+	<c>UserPrivate</c> is the term passed as the first argument to <c>init/1</c> and
+	<c>Parameters...</c> are the data added by the tar function to be passed down to
+	the storage handling function.
+	</p>
+	<p>The parameter <c>UserPrivate</c> is typically the result of opening a low level
+	structure like a file descriptor, a sftp channel id or such.  The different <c>Fun</c>
+	clauses operates on that very term.
+	</p>
+	<p>The fun clauses parameter lists are:
+	<taglist>
+	  <tag><c>(write, {UserPrivate,DataToWrite})</c></tag>
+	  <item>Write the term <c>DataToWrite</c> using <c>UserPrivate</c></item>
+	  <tag><c>(close, UserPrivate)</c></tag>
+	  <item>Close the access.</item>
+	  <tag><c>(read2, {UserPrivate,Size})</c></tag>
+	  <item>Read using <c>UserPrivate</c> but only <c>Size</c> bytes. Note that there is
+	  only an arity-2 read function, not an arity-1
+	  </item>
+	  <tag><c> (position,{UserPrivate,Position})</c></tag>
+	  <item>Sets the position of <c>UserPrivate</c> as defined for files in <seealso marker="kernel:file#position-2">file:position/2</seealso></item>
+	  <tag><c></c></tag>
+	  <item></item>
+	</taglist>
+	</p>
+	<p>A complete <c>Fun</c> parameter for reading and writing on files using the
+	<seealso marker="kernel:file">file module</seealso> could be:
+	</p>
+	<code type="none">
+	  ExampleFun = 
+	     fun(write, {Fd,Data}) ->  file:write(Fd, Data);
+	        (position, {Fd,Pos}) -> file:position(Fd, Pos);
+	        (read2, {Fd,Size}) -> file:read(Fd,Size);
+	        (close, Fd) -> file:close(Fd)
+	     end
+	</code>
+	<p>where <c>Fd</c> was given to the <c>init/3</c> function as:</p>
+	<code>
+	  {ok,Fd} = file:open(Name,...).
+	  {ok,TarDesc} = erl_tar:init(Fd, [write], ExampleFun),
+	</code>
+	<p>The <c>TarDesc</c> is then used:</p>
+	<code>
+	  erl_tar:add(TarDesc, SomeValueIwantToAdd, FileNameInTarFile),
+	  ....,
+	  erl_tar:close(TarDesc)
+	</code>
+	<p>When the erl_tar core wants to e.g. write a piece of Data, it would call
+	<c>ExampleFun(write,{UserPrivate,Data})</c>.
+	</p>
+	<note>
+	  <p>The example above with <c>file</c> module operations is not necessary to
+	  use directly since that is what the <seealso marker="#open">open</seealso> function
+	  in principle does.
+	  </p>
+	</note>
+        <warning>
+          <p>The <c>TarDescriptor</c> term is not a file descriptor.
+            You should not rely on the specific contents of the <c>TarDescriptor</c>
+            term, as it may change in future versions as more features are added
+            to the <c>erl_tar</c> module.</p>
+        </warning>
+      </desc>
+    </func>
+
     <func>
       <name>table(Name) -> RetValue</name>
       <fsummary>Retrieve the name of all files in a tar file</fsummary>
