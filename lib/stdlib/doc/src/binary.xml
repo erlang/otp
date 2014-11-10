@@ -578,6 +578,10 @@ store(Binary, GBSet) ->
 
       <item><p>Removes trailing empty parts of the result (as does trim in <c>re:split/3</c>)</p></item>
 
+      <tag>trim_all</tag>
+
+      <item><p>Removes all empty parts of the result.</p></item>
+
       <tag>global</tag>
 
       <item><p>Repeats the split until the <c><anno>Subject</anno></c> is
