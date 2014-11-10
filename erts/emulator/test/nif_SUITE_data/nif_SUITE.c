@@ -1623,6 +1623,18 @@ static ERL_NIF_TERM call_dirty_nif_exception(ErlNifEnv* env, int argc, const ERL
 				 call_dirty_nif_exception, argc-1, argv);
     }
 }
+
+static ERL_NIF_TERM call_dirty_nif_zero_args(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int i;
+    ERL_NIF_TERM result[1000];
+    ERL_NIF_TERM ok = enif_make_atom(env, "ok");
+    assert(argc == 0);
+    for (i = 0; i < sizeof(result)/sizeof(*result); i++) {
+	result[i] = ok;
+    }
+    return enif_make_list_from_array(env, result, i);
+}
 #endif
 
 static ERL_NIF_TERM is_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1807,6 +1819,7 @@ static ErlNifFunc nif_funcs[] =
     {"call_dirty_nif", 3, call_dirty_nif},
     {"send_from_dirty_nif", 1, send_from_dirty_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"call_dirty_nif_exception", 0, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
 #endif
     {"is_map_nif", 1, is_map_nif},
     {"get_map_size_nif", 1, get_map_size_nif},
