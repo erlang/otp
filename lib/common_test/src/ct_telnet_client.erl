@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 %% -define(debug, true).
 
 -export([open/2, open/3, open/4, open/5, close/1]).
--export([send_data/2, get_data/1]).
+-export([send_data/2, send_data/3, get_data/1]).
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
@@ -97,7 +97,11 @@ close(Pid) ->
     end.	    
 
 send_data(Pid, Data) ->
-    Pid ! {send_data, Data++"\n"},
+    send_data(Pid, Data, true).
+send_data(Pid, Data, true) ->
+    send_data(Pid, Data++"\n", false);
+send_data(Pid, Data, false) ->
+    Pid ! {send_data, Data},
     ok.
 
 get_data(Pid) ->
