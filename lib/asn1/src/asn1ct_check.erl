@@ -1783,7 +1783,9 @@ match_syntax_objset_1(S, #type{def={'TypeFromObject', {object,Object}, FNs}},
     [_|_] = Set,
     #typedef{checked=true,typespec=#'ObjectSet'{class=ClassDef,set=Set}};
 match_syntax_objset_1(_, #type{def=#'ObjectClassFieldType'{}}=Set, ClassDef) ->
-    make_objset(ClassDef, Set).
+    make_objset(ClassDef, Set);
+match_syntax_objset_1(_, {object,_,_}=Object, ClassDef) ->
+    make_objset(ClassDef, [Object]).
 
 make_objset(ClassDef, Set) ->
     #typedef{typespec=#'ObjectSet'{class=ClassDef,set=Set}}.

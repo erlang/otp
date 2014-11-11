@@ -119,4 +119,11 @@ TestObjClassSeq{OBJ-CLASS:ObjectSet} ::= SEQUENCE {
 
 ObjClassSeq-1 ::= TestObjClassSeq{{ObjClassSet}}
 
+--
+-- Test several levels of inlined definitions.
+--
+
+obj-class-obj-6 OBJ-CLASS ::= { &id 6, &Obj {{&id 100, &Data INTEGER}},
+		                &Data INTEGER }
+
 END
