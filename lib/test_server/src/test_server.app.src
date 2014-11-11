@@ -34,5 +34,5 @@
   {env, []},
   {runtime_dependencies, ["tools-2.6.14","stdlib-2.0","runtime_tools-1.8.14",
 			  "observer-2.0","kernel-3.0","inets-5.10",
-			  "erts-6.0"]}]}.
+			  "syntax_tools-1.6.16","erts-6.0"]}]}.
   

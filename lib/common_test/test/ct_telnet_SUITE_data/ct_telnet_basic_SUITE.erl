@@ -20,7 +20,7 @@ suite() -> [
 
 operations() -> 
     [start_stop, send_and_get, expect, already_closed, 
-     cmd, sendf, close_wrong_type].
+     cmd, sendf, no_newline, close_wrong_type].
 
 mult_case(_Case, 0) ->
     [];
@@ -126,6 +126,16 @@ cmd(Config) ->
 sendf(Config) ->
     {ok, Handle} = ct_telnet:open(?conn_name(?get_n(Config))),
     ok = ct_telnet:sendf(Handle, "~s", ["ayt"]),
+    ok = ct_telnet:close(Handle),
+    ok.
+
+no_newline(Config) ->
+    {ok, Handle} = ct_telnet:open(?conn_name(?get_n(Config))),
+    IAC = 255, % interprete as command
+    AYT = 246, % are you there
+    ok = ct_telnet:send(Handle, [IAC,AYT], [{newline,false}]),
+    {ok,_} = ct_telnet:expect(Handle,"yes",[no_prompt_check]),
+    {ok,_} = ct_telnet:cmd(Handle, ""), % send newline only to get back prompt
     ok = ct_telnet:close(Handle),
     ok.
 

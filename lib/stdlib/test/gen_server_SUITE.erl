@@ -378,7 +378,9 @@ crash(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader4,{Pid4,
 			      "** Generic server"++_,
-			      [Pid4,crash,{formatted, state4},crashed]}} ->
+			      [Pid4,crash,{formatted, state4},
+			       {crashed,[{?MODULE,handle_call,3,_}
+					 |_Stacktrace]}]}} ->
 	    ok;
 	Other4a ->
  	    ?line io:format("Unexpected: ~p", [Other4a]),
@@ -1129,7 +1131,9 @@ error_format_status(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
-			     [Pid,crash,{formatted, State},crashed]}} ->
+			     [Pid,crash,{formatted, State},
+			      {crashed,[{?MODULE,handle_call,3,_}
+					|_Stacktrace]}]}} ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
@@ -1151,7 +1155,9 @@ terminate_crash_format(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
-			     [Pid,stop, {formatted, State},{crash, terminate}]}} ->
+			     [Pid,stop, {formatted, State},
+			      {{crash, terminate},[{?MODULE,terminate,2,_}
+						  |_Stacktrace]}]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
