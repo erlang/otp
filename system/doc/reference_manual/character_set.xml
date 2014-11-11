@@ -101,9 +101,10 @@
       <tcaption>Character Classes.</tcaption>
     </table>
     <p>In Erlang/OTP R16B the syntax of Erlang tokens was extended to
-       handle Unicode. To begin with the support is limited to
-       strings, but Erlang/OTP 18 is expected to handle Unicode atoms
-       as well. More about the usage of Unicode in Erlang source files
+       handle Unicode. The support is limited to
+       string literals and comments. Atoms, module names, and
+       function names are restricted to the ISO-Latin-1 range.
+       More about the usage of Unicode in Erlang source files
        can be found in <seealso
        marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User's
        Guide</seealso>.</p>
