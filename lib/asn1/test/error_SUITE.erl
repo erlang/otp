@@ -282,6 +282,10 @@ object_field_extraction(Config) ->
 	   "    ...\n"
 	   "  }\n"
 
+	   "  DataObjSetNoExt DATA-CLASS ::= {\n"
+	   "    holder-object-1.&int\n"
+	   "  }\n"
+
 	   "  holder-object-1 HOLDER-CLASS ::= {\n"
 	   "    &int 42\n"
 	   "  }\n"
@@ -297,7 +301,8 @@ object_field_extraction(Config) ->
 	   "END\n">>},
     {error,
      [
-      {structured_error,{M,2},asn1ct_check,illegal_object}
+      {structured_error,{M,2},asn1ct_check,illegal_object},
+      {structured_error,{M,6},asn1ct_check,illegal_object}
      ]
     } = run(P, Config),
     ok.

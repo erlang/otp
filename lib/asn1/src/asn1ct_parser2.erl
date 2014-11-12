@@ -893,7 +893,7 @@ parse_ElementSetSpecs(Tokens) ->
 
 parse_ElementSetSpec([{'ALL',_},{'EXCEPT',_}|Rest]) ->
     {Exclusions,Rest2} = parse_Elements(Rest),
-    {{'ALL',{'EXCEPT',Exclusions}},Rest2};
+    {{'ALL-EXCEPT',Exclusions},Rest2};
 parse_ElementSetSpec(Tokens) ->
     parse_Unions(Tokens).
 
@@ -983,7 +983,7 @@ parse_IntersectionElements(Tokens) ->
     case Rest of
 	[{'EXCEPT',_}|Rest2] ->
 	    {Exclusion,Rest3} = parse_Elements(Rest2),
-	    {{InterSec,{'EXCEPT',Exclusion}},Rest3};
+	    {{'EXCEPT',InterSec,Exclusion},Rest3};
 	Rest ->
 	    {InterSec,Rest}
     end.

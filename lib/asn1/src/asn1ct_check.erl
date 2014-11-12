@@ -747,6 +747,13 @@ check_pobjectset(S,PObjSet) ->
 	    PObjSet
     end.
 
+-record(osi,					%Object set information.
+	{st,
+	 classref,
+	 uniq,
+	 ext
+	}).
+
 check_object(_S,ObjDef,ObjSpec) when (ObjDef#typedef.checked == true) ->
     ObjSpec;
 check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
@@ -791,15 +798,9 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
     Fields = (ClassDef#classdef.typespec)#objectclass.fields,
     Gen = gen_incl(S,NewObj#'Object'.def, Fields),
     NewObj#'Object'{classname=NewClassRef,gen=Gen};
-
-
-check_object(S,
-	     _ObjSetDef,
-	     ObjSet=#'ObjectSet'{class=ClassRef}) ->
-%%    io:format("check_object,SET: ~p~n",[ObjSet#'ObjectSet'.set]),
-    ?dbg("check_object set: ~p~n",[ObjSet#'ObjectSet'.set]),
-    {_,ClassDef} = get_referenced_type(S,ClassRef),
-    NewClassRef = check_externaltypereference(S,ClassRef),
+check_object(S, _, #'ObjectSet'{class=ClassRef0,set=Set0}=ObjSet0) ->
+    {_,ClassDef} = get_referenced_type(S, ClassRef0),
+    ClassRef = check_externaltypereference(S, ClassRef0),
     {UniqueFieldName,UniqueInfo} = 
 	case (catch get_unique_fieldname(S,ClassDef)) of
 	    {error,'__undefined_',_} -> 
@@ -808,89 +809,172 @@ check_object(S,
 	    {'EXIT',Msg} -> error({class,{internal_error,Msg},S});
 	    Other -> {element(1,Other),Other}
 	end,
-    NewObjSet=
-	case prepare_objset(ObjSet#'ObjectSet'.set) of
-	    {set,SET,EXT} ->
-		CheckedSet = check_object_list(S,NewClassRef,SET),
-		NewSet = get_unique_valuelist(S,CheckedSet,UniqueInfo),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName,
-				   set=extensionmark(NewSet,EXT)};
+    OSI0 = #osi{st=S,classref=ClassRef,uniq=UniqueInfo,ext=false},
+    {Set1,OSI1} = if
+		      is_list(Set0) ->
+			  check_object_set_list(Set0, OSI0);
+		      true ->
+			  check_object_set(Set0, OSI0)
+		  end,
+    Ext = case Set1 of
+	      [] ->
+		  %% FIXME: X420 does not compile unless we force
+		  %% empty sets to be extensible. There should be
+		  %% a better way.
+		  true;
+	      [_|_] ->
+		  OSI1#osi.ext
+	  end,
+    Set2 = remove_duplicate_objects(S, Set1),
+    Set = case Ext of
+	      false -> Set2;
+	      true -> Set2 ++ ['EXTENSIONMARK']
+	  end,
+    ObjSet = ObjSet0#'ObjectSet'{uniquefname=UniqueFieldName,set=Set},
+    Gen = gen_incl_set(S, Set, ClassDef),
+    ObjSet#'ObjectSet'{class=ClassRef,gen=Gen}.
 
-	    {'SingleValue',ERef = #'Externalvaluereference'{}} ->
-		{RefedMod,ObjDef} = get_referenced_type(S,ERef),
-		#'Object'{def=CheckedObj} = 
-		    check_object(S, ObjDef, object_to_check(ObjDef)),
-		NewSet = get_unique_valuelist(S,[{{RefedMod,get_datastr_name(ObjDef)},
-						  CheckedObj}],
-					      UniqueInfo),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName,
-				   set=NewSet};
-	    ['EXTENSIONMARK'] ->
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName,
-				   set=['EXTENSIONMARK']};
+check_object_set(#'Externaltypereference'{}=Ref, #osi{st=S}=OSI) ->
+    {_,#typedef{typespec=OSdef}=OS} = get_referenced_type(S, Ref),
+    ObjectSet = check_object(S, OS, OSdef),
+    check_object_set_objset(ObjectSet, OSI);
+check_object_set(#'Externalvaluereference'{}=Ref, #osi{st=S}=OSI) ->
+    {RefedMod,ObjName,#'Object'{def=Def}} = check_referenced_object(S, Ref),
+    ObjList = check_object_set_mk(RefedMod, ObjName, Def, OSI),
+    {ObjList,OSI};
+check_object_set({'EXCEPT',Incl0,Excl0}, OSI) ->
+    {Incl1,_} = check_object_set(Incl0, OSI),
+    {Excl1,_} = check_object_set(Excl0, OSI),
+    Exclude = sofs:set([N || {N,_} <- Excl1], [name]),
+    Incl2 = [{Name,Obj} || {Name,_,_}=Obj <- Incl1],
+    Incl3 = sofs:relation(Incl2, [{name,object}]),
+    Incl4 = sofs:drestriction(Incl3, Exclude),
+    Incl5 = sofs:to_external(Incl4),
+    Incl = [Obj || {_,Obj} <- Incl5],
+    {Incl,OSI};
+check_object_set('EXTENSIONMARK', OSI) ->
+    {[],OSI#osi{ext=true}};
+check_object_set({object,_,_}=Obj0, OSI) ->
+    #osi{st=S,classref=ClassRef} = OSI,
+    #'Object'{def=Def} =
+	check_object(S, #typedef{typespec=Obj0},
+		     #'Object'{classname=ClassRef,def=Obj0}),
+    ObjList = check_object_set_mk(Def, OSI),
+    {ObjList,OSI};
+check_object_set(#'ObjectClassFieldType'{classname=ObjName,
+					 fieldname=FieldNames},
+		 #osi{st=S}=OSI) ->
+    Set = check_ObjectSetFromObjects(S, ObjName, FieldNames),
+    check_object_set_objset_list(Set, OSI);
+check_object_set({'ObjectSetFromObjects',Obj,FieldNames}, #osi{st=S}=OSI) ->
+    ObjName = element(tuple_size(Obj), Obj),
+    Set = check_ObjectSetFromObjects(S, ObjName, FieldNames),
+    check_object_set_objset_list(Set, OSI);
+check_object_set({pt,DefinedObjSet,ParamList0}, OSI) ->
+    #osi{st=S,classref=ClassRef} = OSI,
+    {_,PObjSetDef} = get_referenced_type(S, DefinedObjSet),
+    ParamList = match_parameters(S, ParamList0),
+    ObjectSet = instantiate_pos(S, ClassRef, PObjSetDef, ParamList),
+    check_object_set_objset(ObjectSet, OSI);
+check_object_set({pos,{objectset,_,DefinedObjSet},Params0}, OSI) ->
+    #osi{st=S,classref=ClassRef} = OSI,
+    {_,PObjSetDef} = get_referenced_type(S, DefinedObjSet),
+    Params = match_parameters(S, Params0),
+    ObjectSet = instantiate_pos(S, ClassRef, PObjSetDef, Params),
+    check_object_set_objset(ObjectSet, OSI);
+check_object_set({pv,{simpledefinedvalue,DefinedObject},Params}=PV, OSI) ->
+    #osi{st=S,classref=ClassRef} = OSI,
+    Args = match_parameters(S, Params),
+    #'Object'{def=Def} =
+	check_object(S, PV,
+		     #'Object'{classname=ClassRef ,
+			       def={po,{object,DefinedObject},Args}}),
+    ObjList = check_object_set_mk(Def, OSI),
+    {ObjList,OSI};
+check_object_set({'SingleValue',Set}, OSI) when is_list(Set) ->
+    check_object_set_list(Set, OSI);
+check_object_set({'SingleValue',Val}, OSI) ->
+    check_object_set(Val, OSI);
+check_object_set({{'SingleValue',Root},Ext}, OSI) ->
+    Set = merge_sets(Root, Ext),
+    check_object_set_list(Set, OSI#osi{ext=true});
+check_object_set({'ValueFromObject',{object,Object},FieldNames}, OSI) ->
+    #osi{st=S} = OSI,
+    case extract_field(S, Object, FieldNames) of
+	#'Object'{def=Def} ->
+	    ObjList = check_object_set_mk(Def, OSI),
+	    {ObjList,OSI};
+	_ ->
+	    asn1_error(S, illegal_object)
+    end;
+check_object_set(#type{def=Def}, OSI) ->
+    check_object_set(Def, OSI);
+check_object_set(union, OSI) ->
+    {[],OSI};
+check_object_set({Root,Ext}, OSI) ->
+    Set = merge_sets(Root, Ext),
+    check_object_set_list(Set, OSI#osi{ext=true}).
 
-	    OSref when is_record(OSref,'Externaltypereference') ->
-		{_,OS=#typedef{typespec=OSdef}} = get_referenced_type(S,OSref),
-		check_object(S,OS,OSdef);
+check_object_set_list([H|T], OSI0) ->
+    {Set0,OSI1} = check_object_set(H, OSI0),
+    {Set1,OSI2} = check_object_set_list(T, OSI1),
+    {Set0++Set1,OSI2};
+check_object_set_list([], OSI) ->
+    {[],OSI}.
 
-	    {Type,{'EXCEPT',Exclusion}} when is_record(Type,type) ->
-		{_,TDef} = get_referenced_type(S,Type#type.def),
-		OS = TDef#typedef.typespec,
-		NewSet = reduce_objectset(OS#'ObjectSet'.set,Exclusion),
-		NewOS = OS#'ObjectSet'{set=NewSet},
-		check_object(S,TDef#typedef{typespec=NewOS},
-			     NewOS);
-	    #type{def={pt,DefinedObjSet,ParamList}} ->
-		{_,PObjSetDef} = get_referenced_type(S,DefinedObjSet),
-		NewParamList = match_parameters(S, ParamList),
-		instantiate_pos(S,ClassRef,PObjSetDef,NewParamList);
+check_object_set_objset(#'ObjectSet'{set=Set}, OSI) ->
+    check_object_set_objset_list(Set, OSI).
 
-	    %% actually this is an ObjectSetFromObjects construct, it
-	    %% is when the object set is retrieved from an object
-	    %% field.
-	    #type{def=#'ObjectClassFieldType'{classname=ObjName,
-					      fieldname=FieldName}} ->
-		NewSet = check_ObjectSetFromObjects(S, ObjName, FieldName, []),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName, set=NewSet};
-	    {'ObjectSetFromObjects',{_,_,ObjName},FieldName} ->
-		NewSet = check_ObjectSetFromObjects(S, ObjName, FieldName, []),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName, set=NewSet};
-	    {'ObjectSetFromObjects',{_,ObjName},FieldName} ->
-		NewSet = check_ObjectSetFromObjects(S, ObjName, FieldName, []),
-		ObjSet#'ObjectSet'{uniquefname=UniqueFieldName, set=NewSet};
-	    {pos,{objectset,_,DefinedObjSet},Params} ->
-		{_,PObjSetDef} = get_referenced_type(S,DefinedObjSet),
-		NewParamList = match_parameters(S, Params),
-		instantiate_pos(S,ClassRef,PObjSetDef,NewParamList);
-	    Unknown ->
-		exit({error,{unknown_object_set,Unknown},S})
-	end,
-    NewSet2 = remove_duplicate_objects(S, NewObjSet#'ObjectSet'.set),
-    NewObjSet2 = NewObjSet#'ObjectSet'{set=NewSet2},
-    Gen = gen_incl_set(S,NewObjSet2#'ObjectSet'.set,
-		       ClassDef),
-    ?dbg("check_object done~n",[]),
-    NewObjSet2#'ObjectSet'{class=NewClassRef,gen=Gen}.
+check_object_set_objset_list(Set, OSI) ->
+    check_object_set_objset_list_1(Set, OSI, []).
+
+check_object_set_objset_list_1(['EXTENSIONMARK'|T], OSI, Acc) ->
+    check_object_set_objset_list_1(T, OSI#osi{ext=true}, Acc);
+check_object_set_objset_list_1([H|T], OSI, Acc) ->
+    check_object_set_objset_list_1(T, OSI, [H|Acc]);
+check_object_set_objset_list_1([], OSI, Acc) ->
+    {Acc,OSI}.
+
+check_object_set_mk(Fields, OSI) ->
+    check_object_set_mk(no_mod, no_name, Fields, OSI).
+
+check_object_set_mk(M, N, Def, #osi{uniq={unique,undefined}}) ->
+    {_,_,Fields} = Def,
+    [{{M,N},no_unique_value,Fields}];
+check_object_set_mk(M, N, Def, #osi{uniq={UniqField,_}}) ->
+    {_,_,Fields} = Def,
+    case lists:keyfind(UniqField, 1, Fields) of
+	{UniqField,#valuedef{value=Val}} ->
+	    [{{M,N},Val,Fields}];
+	false ->
+	    case Fields of
+		[{_,#typedef{typespec=#'ObjectSet'{set=['EXTENSIONMARK']}}}] ->
+		    %% FIXME: If object is missing the unique field and
+		    %% only contains a reference to an empty object set,
+		    %% we will remove the entire object as a workaround
+		    %% to get X420 to compile. There should be a better
+		    %% way.
+		    [];
+		_ ->
+		    [{{M,N},no_unique_value,Fields}]
+	    end
+    end.
 
 %% remove_duplicate_objects/1 remove duplicates of objects.
 %% For instance may Set contain objects of same class from
 %% different object sets that in fact might be duplicates.
 remove_duplicate_objects(S, Set0) when is_list(Set0) ->
-    Set1 = lists:map(fun({_,Id,_}=Orig) ->
-			     {{a,Id},Orig};
-			('EXTENSIONMARK'=Ext) ->
-			     {{z,Ext},Ext}
-		     end, Set0),
+    Set1 = [{Id,Orig} || {_,Id,_}=Orig <- Set0],
     Set2 = sofs:relation(Set1),
     Set3 = sofs:relation_to_family(Set2),
     Set = sofs:to_external(Set3),
     remove_duplicate_objects_1(S, Set).
 
-remove_duplicate_objects_1(S, [{{a,no_unique_value},Objs}|T]) ->
+remove_duplicate_objects_1(S, [{no_unique_value,Objs}|T]) ->
     Objs ++ remove_duplicate_objects_1(S, T);
 remove_duplicate_objects_1(S, [{_,[_]=Objs}|T]) ->
     Objs ++ remove_duplicate_objects_1(S, T);
-remove_duplicate_objects_1(S, [{{_,Id},[_|_]=Objs}|T]) ->
+remove_duplicate_objects_1(S, [{Id,[_|_]=Objs}|T]) ->
     MakeSortable = fun(What) -> sortable_type(S, What) end,
     Tagged = order_tag_set(Objs, MakeSortable),
     case lists:ukeysort(1, Tagged) of
@@ -971,15 +1055,6 @@ traverse_seq_set_1([{'COMPONENTS OF', _} = CO0|Cs], Fun) ->
 traverse_seq_set_1([], _) ->
     [].
 
-%%
-extensionmark(L,true) ->
-    case lists:member('EXTENSIONMARK',L) of
-	true -> L;
-	_ -> L ++ ['EXTENSIONMARK']
-    end;
-extensionmark(L,_) ->
-    L.
-
 object_to_check(#typedef{typespec=ObjDef}) ->
     ObjDef;
 object_to_check(#valuedef{type=ClassName,value=ObjectRef}) ->
@@ -987,129 +1062,13 @@ object_to_check(#valuedef{type=ClassName,value=ObjectRef}) ->
     %% is parsed as a type
     #'Object'{classname=ClassName#type.def,def=ObjectRef}.
 
-prepare_objset({'SingleValue',Set}) when is_list(Set) ->
-    {set,Set,false};
-prepare_objset(L=['EXTENSIONMARK']) ->
-    L;
-prepare_objset(Set) when is_list(Set) ->
-    {set,Set,false};
-prepare_objset({{'SingleValue',Set},Ext}) ->
-    {set,merge_sets(Set,Ext),true};
-%%prepare_objset({Set,Ext}) when is_list(Set),is_list(Ext) ->
-%%    {set,lists:append([Set,Ext]),true};
-prepare_objset({Set,Ext}) when is_list(Set) ->
-    {set,merge_sets(Set,Ext),true};
-prepare_objset({{object,definedsyntax,_ObjFields}=Set,Ext}) ->
-    {set,merge_sets(Set, Ext),true};
-prepare_objset(ObjDef={object,definedsyntax,_ObjFields}) ->
-    {set,[ObjDef],false};
-prepare_objset({ObjDef=#type{},Ext}) when is_list(Ext) ->
-    {set,[ObjDef|Ext],true};
-prepare_objset({#type{}=Type,#type{}=Ext}) ->
-    {set,[Type,Ext],true};
-prepare_objset(Ret) ->
-    Ret.
-
-merge_sets(Root,{'SingleValue',Ext}) ->
-    merge_sets(Root,Ext);
-merge_sets(Root,Ext) when is_list(Root),is_list(Ext) ->
-    Root ++ Ext;
-merge_sets(Root,Ext) when is_list(Ext) ->
-    [Root|Ext];
-merge_sets(Root,Ext) when is_list(Root) ->
-    Root++[Ext];
-merge_sets(Root,Ext) ->
-    [Root]++[Ext].
-
-reduce_objectset(ObjectSet,Exclusion) ->
-    case Exclusion of
-	{'SingleValue',#'Externalvaluereference'{value=Name}} ->
-	    case lists:keysearch(Name,1,ObjectSet) of
-		{value,El} ->
-		    lists:subtract(ObjectSet,[El]);
-		_ ->
-		    ObjectSet
-	    end
+merge_sets(Root, Ext) ->
+    case {is_list(Root),is_list(Ext)} of
+	{false,false} -> [Root,Ext];
+	{false,true} -> [Root|Ext];
+	{true,false} -> Root ++ [Ext];
+	{true,true} -> Root ++ Ext
     end.
-	    
-%% Checks a list of objects or object sets and returns a list of selected
-%% information for the code generation.
-check_object_list(S,ClassRef,ObjectList) ->
-    check_object_list(S,ClassRef,ObjectList,[]).
-
-check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
-    ?dbg("check_object_list: ~p~n",[ObjOrSet]),
-    case ObjOrSet of
-	ObjDef when is_tuple(ObjDef),(element(1,ObjDef)==object) ->
-	    Def = 
-		check_object(S,#typedef{typespec=ObjDef},
-%			     #'Object'{classname={objectclassname,ClassRef},
-			     #'Object'{classname=ClassRef,
-				       def=ObjDef}),
-	    check_object_list(S,ClassRef,Objs,[{{no_mod,no_name},Def#'Object'.def}|Acc]);
-	{'SingleValue',Ref = #'Externalvaluereference'{}} ->
-	    ?dbg("{SingleValue,Externalvaluereference}~n",[]),
-	    {RefedMod,ObjName,
-	     #'Object'{def=Def}} = check_referenced_object(S,Ref),
-	    check_object_list(S,ClassRef,Objs,[{{RefedMod,ObjName},Def}|Acc]);
-	ObjRef when is_record(ObjRef,'Externalvaluereference') ->
-	    ?dbg("Externalvaluereference~n",[]),
-	    {RefedMod,ObjName,
-	     #'Object'{def=Def}} = check_referenced_object(S,ObjRef),
-	     check_object_list(S,ClassRef,Objs,[{{RefedMod,ObjName},Def}|Acc]);
-	{'ValueFromObject',{object,Object},FieldNames} ->
-	    case extract_field(S, Object, FieldNames) of
-		#'Object'{def=Def} ->
-		    check_object_list(S, ClassRef, Objs,
-				      [{{no_mod,no_name},Def}|Acc]);
-		_ ->
-		    asn1_error(S, illegal_object)
-	    end;
-	ObjSet when is_record(ObjSet,type) ->
-	    ObjSetDef = 
-		case ObjSet#type.def of
-		    Ref when is_record(Ref,'Externaltypereference') ->
-			{_,D} = get_referenced_type(S,ObjSet#type.def),
-			D;
-		    Other ->
-			throw({asn1_error,{'unknown objecset',Other,S}})
-		end,
-	    #'ObjectSet'{set=ObjectsInSet} = 
-		check_object(S,ObjSetDef,ObjSetDef#typedef.typespec),
-	    AccList = transform_set_to_object_list(ObjectsInSet,[]),
-	    check_object_list(S,ClassRef,Objs,AccList++Acc);
-	union ->
-	    check_object_list(S,ClassRef,Objs,Acc);
-	{pos,{objectset,_,DefinedObjectSet},Params} ->
-	    OSDef = #type{def={pt,DefinedObjectSet,Params}},
-	    #'ObjectSet'{set=Set} =
-		check_object(S,ObjOrSet,#'ObjectSet'{class=ClassRef,
-						     set=OSDef}),
-	    check_object_list(S,ClassRef,Objs,Set ++ Acc);
-	{pv,{simpledefinedvalue,DefinedObject},Params} ->
-	    Args = match_parameters(S, Params),
-	    #'Object'{def=Def} =
-		check_object(S,ObjOrSet,
-			     #'Object'{classname=ClassRef ,
-				       def={po,{object,DefinedObject},
-					    Args}}),
-	    check_object_list(S,ClassRef,Objs,[{{no_mod,no_name},Def}|Acc]);
-	{'ObjectSetFromObjects',Os,FieldName} when is_tuple(Os) ->
-	    NewSet =
-		check_ObjectSetFromObjects(S, element(tuple_size(Os), Os),
-					   FieldName,[]),
-	    check_object_list(S,ClassRef,Objs,NewSet++Acc);
-	{{'ObjectSetFromObjects',Os,FieldName},InterSection}
-	  when is_tuple(Os) ->
-	    Set = check_ObjectSetFromObjects(S, element(tuple_size(Os), Os),
-					     FieldName, InterSection),
-	    check_object_list(S, ClassRef, Objs, Set++Acc)
-    end;
-%% Finally reverse the accumulated list and if there are any extension
-%% marks in the object set put one indicator of that in the end of the
-%% list.
-check_object_list(_,_,[],Acc) ->
-    lists:reverse(Acc).
 
 check_referenced_object(S,ObjRef) 
   when is_record(ObjRef,'Externalvaluereference')->
@@ -1126,41 +1085,16 @@ check_referenced_object(S,ObjRef)
 	     check_object(update_state(S,RefedMod),ObjectDef,ObjectDef#typedef.typespec)}
     end.
 
-check_ObjectSetFromObjects(S, ObjName, Fields, InterSection) ->
+check_ObjectSetFromObjects(S, ObjName, Fields) ->
     {_,Obj0} = get_referenced_type(S, ObjName),
-    Objs = case check_object(S, Obj0, Obj0#typedef.typespec) of
-	       #'ObjectSet'{}=Obj1 ->
-		   get_fieldname_set(S, Obj1, Fields);
-	       #'Object'{classname=Class,
-			 def={object,_,ObjFs}} ->
-		   ObjSet = #'ObjectSet'{class=Class,
-					 set=[{'_','_',ObjFs}]},
-		   get_fieldname_set(S, ObjSet, Fields)
-	   end,
-    InterSec = prepare_intersection(S, InterSection),
-    Set = osfo_intersection(InterSec, Objs),
-    remove_duplicate_objects(S, Set).
-
-
-prepare_intersection(_S,[]) ->
-    [];
-prepare_intersection(S,{'EXCEPT',ObjRef}) ->
-    except_names(S,ObjRef);
-prepare_intersection(_S,T) ->
-    exit({error,{internal_error,not_implemented,object_set_from_objects,T}}).
-except_names(_S,{'SingleValue',#'Externalvaluereference'{value=ObjName}})  ->
-    [{except,ObjName}];
-except_names(_,T) ->
-    exit({error,{internal_error,not_implemented,object_set_from_objects,T}}).
-
-osfo_intersection(InterSect,ObjList) ->
-    Res = [X|| X = {{_,N},_,_} <- ObjList,
-	       lists:member({except,N},InterSect) == false],
-    case lists:member('EXTENSIONMARK',ObjList) of
-	true ->
-	    Res ++ ['EXTENSIONMARK'];
-	_ ->
-	    Res
+    case check_object(S, Obj0, Obj0#typedef.typespec) of
+	#'ObjectSet'{}=Obj1 ->
+	    get_fieldname_set(S, Obj1, Fields);
+	#'Object'{classname=Class,
+		  def={object,_,ObjFs}} ->
+	    ObjSet = #'ObjectSet'{class=Class,
+				  set=[{'_','_',ObjFs}]},
+	    get_fieldname_set(S, ObjSet, Fields)
     end.
 
 %%  get_type_from_object(State, ObjectOrObjectSet, [{RefType,FieldName}]) ->
@@ -1279,86 +1213,6 @@ check_fieldname_element_1(S, Eref)
     {_,TDef} = get_referenced_type(S, Eref),
     check_fieldname_element_1(S, TDef).
     
-transform_set_to_object_list([{Name,_UVal,Fields}|Objs],Acc) ->
-    transform_set_to_object_list(Objs,[{Name,{object,generatesyntax,Fields}}|Acc]);
-transform_set_to_object_list(['EXTENSIONMARK'|Objs],Acc) ->
-%%    transform_set_to_object_list(Objs,['EXTENSIONMARK'|Acc]);
-    transform_set_to_object_list(Objs,Acc);
-transform_set_to_object_list([],Acc) ->
-    Acc.
-
-get_unique_valuelist(_S,ObjSet,{unique,undefined}) -> % no unique field in object
-    lists:map(fun({N,{_,_,F}})->{N,no_unique_value,F};
-		 (V={_,_,_}) ->V;
-		 ({A,B}) -> {A,no_unique_value,B} 
-	      end, ObjSet);
-get_unique_valuelist(S,ObjSet,{UFN,Opt}) ->
-    get_unique_vlist(S,ObjSet,UFN,Opt,[]).
-
-
-get_unique_vlist(_S,[],_,_,[]) ->
-    ['EXTENSIONMARK'];
-get_unique_vlist(_, [], _, _Opt, Acc) ->
-    lists:reverse(Acc);
-get_unique_vlist(S,['EXTENSIONMARK'|Rest],UniqueFieldName,Opt,Acc) ->
-    get_unique_vlist(S,Rest,UniqueFieldName,Opt,Acc);
-get_unique_vlist(S,[{ObjName,Obj}|Rest],UniqueFieldName,Opt,Acc) ->
-    {_,_,Fields} = Obj,
-    NewObjInf = 
-	case get_unique_value(S,Fields,UniqueFieldName) of
-	    #valuedef{value=V} -> [{ObjName,V,Fields}];
-	    [] -> []; % maybe the object only was a reference to an
-                     % empty object set.
-	    no_unique_value -> [{ObjName,no_unique_value,Fields}]
-	end,
-    get_unique_vlist(S,Rest,UniqueFieldName,Opt,NewObjInf++Acc);
-
-get_unique_vlist(S,[V={_,_,_}|Rest],UniqueFieldName,Opt,Acc) ->
-    get_unique_vlist(S,Rest,UniqueFieldName,Opt,[V|Acc]).
-
-get_unique_value(S,Fields,UniqueFieldName) ->
-    Module = S#state.mname,
-    case lists:keysearch(UniqueFieldName,1,Fields) of
-	{value,Field} ->
-	    case element(2,Field) of
-		VDef when is_record(VDef,valuedef) ->
-		    VDef;
-		{'ValueFromObject',Object,Name} ->
-		    case Object of
-			{object,Ext} when is_record(Ext,'Externaltypereference') ->
-			    OtherModule = Ext#'Externaltypereference'.module,
-			    ExtObjName = Ext#'Externaltypereference'.type,
-			    ObjDef = asn1_db:dbget(OtherModule,ExtObjName),
-			    ObjSpec = ObjDef#typedef.typespec,
-			    get_unique_value(OtherModule,element(3,ObjSpec),Name);
-			{object,{_,_,ObjName}} ->
-			    ObjDef = asn1_db:dbget(Module,ObjName),
-			    ObjSpec = ObjDef#typedef.typespec,
-			    get_unique_value(Module,element(3,ObjSpec),Name);
-			{po,Object,_Params} ->
-			    exit({error,{'parameterized object not implemented yet',
-					 Object},S})
-		    end;
-		Value when is_atom(Value);is_number(Value) ->
-		    #valuedef{value=Value,module=Module};
-		{'CHOICE',{C,Value}} when is_atom(C) ->
-		    %% #valuedef{value=normalize_value(S,element(3,Field),VDef,[])}
-		    case Value of
-			Scalar when is_atom(Scalar);is_number(Scalar) ->
-			    #valuedef{value=Value,module=Module};
-			Eref = #'Externalvaluereference'{} ->
-			    element(2,get_referenced_type(S,Eref))
-		    end
-	    end;
-	false ->
-	    case Fields of
-		[{_,#typedef{typespec=#'ObjectSet'{set=['EXTENSIONMARK']}}}] -> 
-		    [];
-		_ ->
-		    no_unique_value
-	    end
-    end.
-
 %% instantiate_po/4
 %% ClassDef is the class of Object,
 %% Object is the Parameterized object, which is referenced,

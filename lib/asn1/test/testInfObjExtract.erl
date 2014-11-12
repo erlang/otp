@@ -32,6 +32,9 @@ main() ->
     roundtrip_data_object_13('DataSeq-5'),
     roundtrip_data_object_13('DataSeq-6'),
 
+    roundtrip_data_object_1('DataSeqSingleSet-1'),
+    roundtrip_data_object_1('DataSeqSingleSet-2'),
+
     roundtrip('ObjClassSeq-1', {'ObjClassSeq-1',1,true}),
     roundtrip('ObjClassSeq-1', {'ObjClassSeq-1',2,true}),
 

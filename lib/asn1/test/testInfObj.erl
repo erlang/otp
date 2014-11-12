@@ -138,11 +138,17 @@ main(_Erule) ->
     test_objset('OstSeq45', [4,5]),
     test_objset('OstSeq12345', [1,2,3,4,5]),
 
+    test_objset('OstSeq12Except', [1,2]),
+    test_objset('OstSeq123Except', [1,2]),
+
     test_objset('ExOstSeq12', [1,2]),
     test_objset('ExOstSeq123', [1,2,3]),
-    %%test_objset('ExOstSeq1234', [1,2,3,4]),
+    test_objset('ExOstSeq1234', [1,2,3,4]),
     test_objset('ExOstSeq45', [4,5]),
     test_objset('ExOstSeq12345', [1,2,3,4,5]),
+
+    test_objset('ExOstSeq12Except', [1,2]),
+    test_objset('ExOstSeq123Except', [1,2]),
 
     roundtrip('InfObj', 'ExtClassSeq', {'ExtClassSeq', 4}),
 
