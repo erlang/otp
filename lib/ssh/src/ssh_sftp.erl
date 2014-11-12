@@ -112,7 +112,7 @@ start_channel(Host, Opts) ->
 start_channel(Host, Port, Opts) ->
     {SshOpts, SftpOpts} = handle_options(Opts, [], []),
     Timeout = proplists:get_value(timeout, SftpOpts, infinity),
-    case ssh_xfer:connect(Host, Port, SshOpts) of
+    case ssh_xfer:connect(Host, Port, SshOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
 	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
 							    ChannelId, SftpOpts]) of
