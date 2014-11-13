@@ -500,6 +500,18 @@ Matches only those peers matched by each filter in the specified list.</p>
 <p>
 Matches only those peers matched by at least one filter in the
 specified list.</p>
+
+<p>
+The resulting peer list will be in match order, peers matching the
+first filter of the list sorting before those matched by the second,
+and so on.
+For example, the following filter causes peers matching both the host
+and realm filters to be presented before those matching only the realm
+filter.</p>
+
+<pre>
+{any, [{all, [host, realm]}, realm]}
+</pre>
 </item>
 
 </taglist>

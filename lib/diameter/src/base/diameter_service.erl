@@ -1460,42 +1460,52 @@ pick_peer(Local,
 peers(Alias, RH, Filter, Peers) ->
     case ?Dict:find(Alias, Peers) of
         {ok, L} ->
-            ps(L, RH, Filter, {[],[]});
+            filter(L, RH, Filter);
         error ->
             []
     end.
 
-%% Place a peer whose Destination-Host/Realm matches those of the
-%% request at the front of the result list. Could add some sort of
-%% 'sort' option to allow more control.
+%% filter/3
+%%
+%% Return peers in match order.
 
-ps([], _, _, {Ys, Ns}) ->
-    lists:reverse(Ys, Ns);
-ps([{_TPid, #diameter_caps{} = Caps} = TC | Rest], RH, Filter, Acc) ->
-    ps(Rest, RH, Filter, pacc(caps_filter(Caps, RH, Filter),
-                              caps_filter(Caps, RH, {all, [host, realm]}),
-                              TC,
-                              Acc)).
+filter(Peers, RH, Filter) ->
+    {Ts, _} = fltr(Peers, RH, Filter),
+    Ts.
 
-pacc(true, true, Peer, {Ts, Fs}) ->
-    {[Peer|Ts], Fs};
-pacc(true, false, Peer, {Ts, Fs}) ->
-    {Ts, [Peer|Fs]};
-pacc(_, _, _, Acc) ->
-    Acc.
+%% fltr/4
+
+fltr(Peers, _, none) ->
+    {Peers, []};
+
+fltr(Peers, RH, {neg, F}) ->
+    {Ts, Fs} = fltr(Peers, RH, F),
+    {Fs, Ts};
+
+fltr(Peers, RH, {all, L})
+  when is_list(L) ->
+    lists:foldl(fun(F,A) -> fltr_all(F, A, RH) end,
+                {Peers, []},
+                L);
+
+fltr(Peers, RH, {any, L})
+  when is_list(L) ->
+    lists:foldl(fun(F,A) -> fltr_any(F, A, RH) end,
+                {[], Peers},
+                L);
+
+fltr(Peers, RH, F) ->
+    lists:partition(fun({_,C}) -> caps_filter(C, RH, F) end, Peers).
+
+fltr_all(F, {Ts0, Fs0}, RH) ->
+    {Ts1, Fs1} = fltr(Ts0, RH, F),
+    {Ts1, Fs0 ++ Fs1}.
+
+fltr_any(F, {Ts0, Fs0}, RH) ->
+    {Ts1, Fs1} = fltr(Fs0, RH, F),
+    {Ts0 ++ Ts1, Fs1}.
 
 %% caps_filter/3
-
-caps_filter(C, RH, {neg, F}) ->
-    not caps_filter(C, RH, F);
-
-caps_filter(C, RH, {all, L})
-  when is_list(L) ->
-    lists:all(fun(F) -> caps_filter(C, RH, F) end, L);
-
-caps_filter(C, RH, {any, L})
-  when is_list(L) ->
-    lists:any(fun(F) -> caps_filter(C, RH, F) end, L);
 
 caps_filter(#diameter_caps{origin_host = {_,OH}}, [_,DH], host) ->
     eq(undefined, DH, OH);
@@ -1507,9 +1517,6 @@ caps_filter(C, _, Filter) ->
     caps_filter(C, Filter).
 
 %% caps_filter/2
-
-caps_filter(_, none) ->
-    true;
 
 caps_filter(#diameter_caps{origin_host = {_,OH}}, {host, H}) ->
     eq(any, H, OH);
