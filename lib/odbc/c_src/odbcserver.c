@@ -1802,10 +1802,23 @@ static int read_exact(byte *buffer, int len) {
 #endif
 
 
+static size_t length_buffer_to_size(byte length_buffer[LENGTH_INDICATOR_SIZE])
+{
+  size_t size = 0, i;
+
+  for (i = 0; i < LENGTH_INDICATOR_SIZE; ++i) {
+    size <<= 8;
+    size |= (unsigned char)length_buffer[i];
+  }
+
+  return size;
+}
+
+
 /* Recieive (read) data from erlang on stdin */
 static byte * receive_erlang_port_msg(void)
 {
-    int i, len = 0;
+    size_t len;
     byte *buffer;
     byte lengthstr[LENGTH_INDICATOR_SIZE];
 
@@ -1814,10 +1827,8 @@ static byte * receive_erlang_port_msg(void)
     {
 	DO_EXIT(EXIT_STDIN_HEADER);
     }
-    for(i=0; i < LENGTH_INDICATOR_SIZE; i++) {
-	len <<= 8;
-	len |= lengthstr[i];
-    }
+
+    len = length_buffer_to_size(lengthstr);
     
     if (len <= 0 || len > 1024) {
 	DO_EXIT(EXIT_STDIN_HEADER);
@@ -1918,8 +1929,7 @@ static byte * receive_msg(int socket)
 #endif
 {
     byte lengthstr[LENGTH_INDICATOR_SIZE];
-    size_t msg_len = 0;
-    int i;
+    size_t msg_len;
     byte *buffer = NULL;
     
     if(!receive_msg_part(socket, lengthstr, LENGTH_INDICATOR_SIZE)) {
@@ -1927,10 +1937,7 @@ static byte * receive_msg(int socket)
 	DO_EXIT(EXIT_SOCKET_RECV_HEADER);
     }
     
-    for(i = 0; i < LENGTH_INDICATOR_SIZE; i++) {
-	msg_len <<= 8;
-	msg_len |= lengthstr[i];
-    }
+    msg_len = length_buffer_to_size(lengthstr);
     
     buffer = (byte *)safe_malloc(msg_len);
 
