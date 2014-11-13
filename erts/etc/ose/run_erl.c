@@ -495,7 +495,7 @@ int pass_on(ProgramState *s) {
 #ifdef DEBUG
 	  erts_run_erl_log_status("Pty master write; ");
 #endif
-	  len = erts_run_erl_extract_ctrl_seq(buffer,len);
+	  len = erts_run_erl_extract_ctrl_seq(buffer,len, s->ofd);
 
 	  if (len > 0) {
 	    int wlen = erts_run_erl_write_all(s->ofd, buffer, len);

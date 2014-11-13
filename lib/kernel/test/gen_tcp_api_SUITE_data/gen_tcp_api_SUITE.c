@@ -26,8 +26,10 @@
 
 #ifdef __WIN32__
 #include <winsock2.h>
+#define sock_close(s) closesocket(s)
 #else
 #include <sys/socket.h>
+#define sock_close(s) close(s)
 #endif
 
 #define sock_open(af, type, proto)  socket((af), (type), (proto))
@@ -46,7 +48,7 @@ static ERL_NIF_TERM closesockfd(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     enif_get_int(env, argv[0], &fd);
 
-    close(fd);
+    sock_close(fd);
 
     return enif_make_int(env, fd);
 }

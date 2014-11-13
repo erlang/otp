@@ -9720,6 +9720,7 @@
                  {logical_processors_online,4},
                  {logical_processors_available,4},
                  {driver_version,"2.1"},
+                 {nif_version,"1.1"},
                  {taints,[]}]},
                {erts_compile_info,
                 [{ldflags,[]},

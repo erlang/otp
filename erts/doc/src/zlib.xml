@@ -302,7 +302,7 @@ list_to_binary([B1,B2])</pre>
       <fsummary>Decompress data</fsummary>
       <desc>
         <p><c>inflate/2</c> decompresses as much data as possible.
-          It may some introduce some output latency (reading
+          It may introduce some output latency (reading
           input without producing any output).</p>
         <p>If a preset dictionary is needed at this point (see
           <c>inflateSetDictionary</c> below), <c>inflate/2</c> throws a

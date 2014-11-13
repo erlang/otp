@@ -1564,6 +1564,8 @@ dirty_nif(Config) when is_list(Config) ->
 	    Val2 = "Erlang",
 	    Val3 = list_to_binary([Val2, 0]),
 	    {Val1, Val2, Val3} = call_dirty_nif(Val1, Val2, Val3),
+	    LargeArray = lists:duplicate(1000, ok),
+	    LargeArray = call_dirty_nif_zero_args(),
 	    ok
     catch
 	error:badarg ->
@@ -1740,6 +1742,7 @@ call_nif_schedule(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
 call_dirty_nif_exception() -> ?nif_stub.
+call_dirty_nif_zero_args() -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

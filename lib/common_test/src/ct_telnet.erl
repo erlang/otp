@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -141,7 +141,8 @@
 
 -export([open/1, open/2, open/3, open/4, close/1]).
 -export([cmd/2, cmd/3, cmdf/3, cmdf/4, get_data/1, 
-	 send/2, sendf/3, expect/2, expect/3]).
+	 send/2, send/3, sendf/3, sendf/4,
+	 expect/2, expect/3]).
 
 %% Callbacks
 -export([init/3,handle_msg/2,reconnect/2,terminate/2]).
@@ -304,42 +305,74 @@ close(Connection) ->
 %%% Test suite interface
 %%%-----------------------------------------------------------------
 %%% @spec cmd(Connection,Cmd) -> {ok,Data} | {error,Reason}
-%%% @equiv cmd(Connection,Cmd,DefaultTimeout)
+%%% @equiv cmd(Connection,Cmd,[])
 cmd(Connection,Cmd) ->
-    cmd(Connection,Cmd,default).
+    cmd(Connection,Cmd,[]).
 %%%-----------------------------------------------------------------
-%%% @spec cmd(Connection,Cmd,Timeout) -> {ok,Data} | {error,Reason}
+%%% @spec cmd(Connection,Cmd,Opts) -> {ok,Data} | {error,Reason}
 %%%      Connection = ct_telnet:connection()
 %%%      Cmd = string()
-%%%      Timeout = integer()
+%%%      Opts = [Opt]
+%%%      Opt = {timeout,timeout()} | {newline,boolean()}
 %%%      Data = [string()]
 %%%      Reason = term()
 %%% @doc Send a command via telnet and wait for prompt.
-cmd(Connection,Cmd,Timeout) ->
-    case get_handle(Connection) of
-	{ok,Pid} ->
-	    call(Pid,{cmd,Cmd,Timeout});
+%%%
+%%% This function will by default add a newline to the end of the
+%%% given command. If this is not desired, the option
+%%% `{newline,false}' can be used. This is necessary, for example,
+%%% when sending telnet command sequences (prefixed with the
+%%% Interprete As Command, IAC, character).
+%%%
+%%% The option `timeout' specifies how long the client shall wait for
+%%% prompt. If the time expires, the function returns
+%%% `{error,timeout}'. See the module description for information
+%%% about the default value for the command timeout.
+cmd(Connection,Cmd,Opts) when is_list(Opts) ->
+    case check_cmd_opts(Opts) of
+	ok ->
+	    case get_handle(Connection) of
+		{ok,Pid} ->
+		    call(Pid,{cmd,Cmd,Opts});
+		Error ->
+		    Error
+	    end;
 	Error ->
 	    Error
-    end.
+    end;
+cmd(Connection,Cmd,Timeout) when is_integer(Timeout); Timeout==default ->
+    %% This clause is kept for backwards compatibility only
+    cmd(Connection,Cmd,[{timeout,Timeout}]).
+
+check_cmd_opts([{timeout,Timeout}|Opts]) when is_integer(Timeout);
+					      Timeout==default ->
+    check_cmd_opts(Opts);
+check_cmd_opts([]) ->
+    ok;
+check_cmd_opts(Opts) ->
+    check_send_opts(Opts).
+
 %%%-----------------------------------------------------------------
 %%% @spec cmdf(Connection,CmdFormat,Args) -> {ok,Data} | {error,Reason}
-%%% @equiv cmdf(Connection,CmdFormat,Args,DefaultTimeout)
+%%% @equiv cmdf(Connection,CmdFormat,Args,[])
 cmdf(Connection,CmdFormat,Args) ->
-    cmdf(Connection,CmdFormat,Args,default).
+    cmdf(Connection,CmdFormat,Args,[]).
 %%%-----------------------------------------------------------------
-%%% @spec cmdf(Connection,CmdFormat,Args,Timeout) -> {ok,Data} | {error,Reason}
+%%% @spec cmdf(Connection,CmdFormat,Args,Opts) -> {ok,Data} | {error,Reason}
 %%%      Connection = ct_telnet:connection()
 %%%      CmdFormat = string()
 %%%      Args = list()
-%%%      Timeout = integer()
+%%%      Opts = [Opt]
+%%%      Opt = {timeout,timeout()} | {newline,boolean()}
 %%%      Data = [string()]
 %%%      Reason = term()
 %%% @doc Send a telnet command and wait for prompt 
 %%%      (uses a format string and list of arguments to build the command).
-cmdf(Connection,CmdFormat,Args,Timeout) when is_list(Args) ->
+%%%
+%%% See {@link cmd/3} further description.
+cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
-    cmd(Connection,Cmd,Timeout).
+    cmd(Connection,Cmd,Opts).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_data(Connection) -> {ok,Data} | {error,Reason}
@@ -358,32 +391,67 @@ get_data(Connection) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec send(Connection,Cmd) -> ok | {error,Reason}
+%%% @equiv send(Connection,Cmd,[])
+send(Connection,Cmd) ->
+    send(Connection,Cmd,[]).
+
+%%%-----------------------------------------------------------------
+%%% @spec send(Connection,Cmd,Opts) -> ok | {error,Reason}
 %%%      Connection = ct_telnet:connection()
 %%%      Cmd = string()
+%%%      Opts = [Opt]
+%%%      Opt = {newline,boolean()}
 %%%      Reason = term()
 %%% @doc Send a telnet command and return immediately.
 %%%
+%%% This function will by default add a newline to the end of the
+%%% given command. If this is not desired, the option
+%%% `{newline,false}' can be used. This is necessary, for example,
+%%% when sending telnet command sequences (prefixed with the
+%%% Interprete As Command, IAC, character).
+%%%
 %%% <p>The resulting output from the command can be read with
 %%% <code>get_data/1</code> or <code>expect/2/3</code>.</p>
-send(Connection,Cmd) ->
-    case get_handle(Connection) of
-	{ok,Pid} ->
-	    call(Pid,{send,Cmd});
+send(Connection,Cmd,Opts) ->
+    case check_send_opts(Opts) of
+	ok ->
+	    case get_handle(Connection) of
+		{ok,Pid} ->
+		    call(Pid,{send,Cmd,Opts});
+		Error ->
+		    Error
+	    end;
 	Error ->
 	    Error
     end.
 
+check_send_opts([{newline,Bool}|Opts]) when is_boolean(Bool) ->
+    check_send_opts(Opts);
+check_send_opts([Invalid|_]) ->
+    {error,{invalid_option,Invalid}};
+check_send_opts([]) ->
+    ok.
+
+
 %%%-----------------------------------------------------------------
 %%% @spec sendf(Connection,CmdFormat,Args) -> ok | {error,Reason}
+%%% @equiv sendf(Connection,CmdFormat,Args,[])
+sendf(Connection,CmdFormat,Args) when is_list(Args) ->
+    sendf(Connection,CmdFormat,Args,[]).
+
+%%%-----------------------------------------------------------------
+%%% @spec sendf(Connection,CmdFormat,Args,Opts) -> ok | {error,Reason}
 %%%      Connection = ct_telnet:connection()
 %%%      CmdFormat = string()
 %%%      Args = list()
+%%%      Opts = [Opt]
+%%%      Opt = {newline,boolean()}
 %%%      Reason = term()
 %%% @doc Send a telnet command and return immediately (uses a format
 %%% string and a list of arguments to build the command).
-sendf(Connection,CmdFormat,Args) when is_list(Args) ->
+sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
-    send(Connection,Cmd).
+    send(Connection,Cmd,Opts).
 
 %%%-----------------------------------------------------------------
 %%% @spec expect(Connection,Patterns) -> term()
@@ -559,7 +627,7 @@ set_telnet_defaults([],S) ->
     S.
 
 %% @hidden
-handle_msg({cmd,Cmd,Timeout},State) ->
+handle_msg({cmd,Cmd,Opts},State) ->
     start_gen_log(heading(cmd,State#state.name)),
     log(State,cmd,"Cmd: ~p",[Cmd]),
 
@@ -584,11 +652,14 @@ handle_msg({cmd,Cmd,Timeout},State) ->
 	{ip,true} ->
 	    ok
     end,
-    TO = if Timeout == default -> State#state.com_to;
-	    true -> Timeout
+    TO = case proplists:get_value(timeout,Opts,default) of
+	     default -> State#state.com_to;
+	     Timeout -> Timeout
 	 end,
+    Newline = proplists:get_value(newline,Opts,true),
     {Return,NewBuffer,Prompt} = 
-	case teln_cmd(State#state.teln_pid, Cmd, State#state.prx, TO) of
+	case teln_cmd(State#state.teln_pid, Cmd, State#state.prx,
+		      Newline, TO) of
 	    {ok,Data,_PromptType,Rest} ->
 		log(State,recv,"Return: ~p",[{ok,Data}]),
 		{{ok,Data},Rest,true};
@@ -597,13 +668,13 @@ handle_msg({cmd,Cmd,Timeout},State) ->
 				{State#state.name,
 				 State#state.type},
 				State#state.teln_pid,
-				{cmd,Cmd,TO}}},
+				{cmd,Cmd,Opts}}},
 		log(State,recv,"Return: ~p",[Error]),
 		{Retry,[],false}
 	end,
     end_gen_log(),
     {Return,State#state{buffer=NewBuffer,prompt=Prompt}};
-handle_msg({send,Cmd},State) ->
+handle_msg({send,Cmd,Opts},State) ->
     start_gen_log(heading(send,State#state.name)),
     log(State,send,"Sending: ~p",[Cmd]),
     
@@ -628,7 +699,8 @@ handle_msg({send,Cmd},State) ->
 	{ip,true} ->
 	    ok
     end,
-    ct_telnet_client:send_data(State#state.teln_pid,Cmd),
+    Newline = proplists:get_value(newline,Opts,true),
+    ct_telnet_client:send_data(State#state.teln_pid,Cmd,Newline),
     end_gen_log(),
     {ok,State#state{buffer=[],prompt=false}};
 handle_msg(get_data,State) ->
@@ -868,8 +940,8 @@ format_data(_How,{String,Args}) ->
 
 %%%=================================================================
 %%% Abstraction layer on top of ct_telnet_client.erl
-teln_cmd(Pid,Cmd,Prx,Timeout) ->
-    ct_telnet_client:send_data(Pid,Cmd),
+teln_cmd(Pid,Cmd,Prx,Newline,Timeout) ->
+    ct_telnet_client:send_data(Pid,Cmd,Newline),
     teln_receive_until_prompt(Pid,Prx,Timeout).
 
 teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->

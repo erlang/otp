@@ -88,34 +88,73 @@ convert(File, Dest, Header) ->
 %%%
 %%% All function clauses are also marked in order to allow
 %%% possibly_enhance/2 to write these in bold.
+%%%
+%%% Use expanded preprocessor directives if possible (epp). Only if
+%%% this fails, fall back on using non-expanded code (epp_dodger).
+
 parse_file(File) ->
     case epp:open(File, [], []) of
 	{ok,Epp} ->
-	    Forms = parse_file(Epp,File,false),
-	    epp:close(Epp),
-	    {ok,Forms};
-	{error,E} ->
-	    {error,E}
+	    try parse_preprocessed_file(Epp,File,false) of
+		Forms ->
+		    epp:close(Epp),
+		    {ok,Forms}
+	    catch
+		_:{error,_Reason,true} ->
+		    parse_non_preprocessed_file(File);
+		_:{error,_Reason,false} ->
+		    {ok,[]}
+	    end;
+	Error = {error,_} ->
+	    Error
     end.
 
-
-parse_file(Epp,File,InCorrectFile) ->
+parse_preprocessed_file(Epp,File,InCorrectFile) ->
     case epp:parse_erl_form(Epp) of
 	{ok,Form} ->
 	    case Form of
 		{attribute,_,file,{File,_}} ->
-		    parse_file(Epp,File,true);
+		    parse_preprocessed_file(Epp,File,true);
 		{attribute,_,file,{_OtherFile,_}} ->
-		    parse_file(Epp,File,false);
+		    parse_preprocessed_file(Epp,File,false);
 		{function,L,F,A,[_|C]} when InCorrectFile ->
 		    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
 		    [{atom_to_list(F),A,L} | Clauses] ++
-			parse_file(Epp,File,true);
+			parse_preprocessed_file(Epp,File,true);
 		_ ->
-		    parse_file(Epp,File,InCorrectFile)
+		    parse_preprocessed_file(Epp,File,InCorrectFile)
 	    end;
-	{error,_E} ->
-	    parse_file(Epp,File,InCorrectFile);
+	{error,Reason={_L,epp,{undefined,_Macro,none}}} ->
+	    throw({error,Reason,InCorrectFile});
+	{error,_Reason} ->
+	    parse_preprocessed_file(Epp,File,InCorrectFile);
+	{eof,_Location} ->
+	    []
+    end.
+
+parse_non_preprocessed_file(File) ->
+    case file:open(File, []) of
+	{ok,Epp} ->
+	    Forms = parse_non_preprocessed_file(Epp, File, 1),
+	    file:close(Epp),
+	    {ok,Forms};
+	Error = {error,_E} ->
+	    Error
+    end.
+
+parse_non_preprocessed_file(Epp, File, Location) ->
+    case epp_dodger:parse_form(Epp, Location) of
+	{ok,Tree,Location1} ->
+	    case erl_syntax:revert(Tree) of
+		{function,L,F,A,[_|C]} ->
+		    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
+		    [{atom_to_list(F),A,L} | Clauses] ++
+			parse_non_preprocessed_file(Epp, File, Location1);
+		_ ->
+		    parse_non_preprocessed_file(Epp, File, Location1)
+	    end;
+	{error,_E,Location1} ->
+	    parse_non_preprocessed_file(Epp, File, Location1);
 	{eof,_Location} ->
 	    []
     end.

@@ -138,7 +138,7 @@ fe80::204:acff:fe17:bf38
       <name name="get_rc" arity="0"/>
       <fsummary>Return a list of IP configuration parameters</fsummary>
       <desc>
-        <p>Returns the state of the Inet configuration database in 
+        <p>Returns the state of the Inet configuration database in
           form of a list of recorded configuration parameters. (See the
           ERTS User's Guide, Inet configuration, for more information).
           Only parameters with other than default values are returned.</p>
@@ -258,8 +258,8 @@ fe80::204:acff:fe17:bf38
       <type name="socket_getopt"/>
       <type name="socket_setopt"/>
       <desc>
-        <p>Gets one or more options for a socket. 
-          See <seealso marker="#setopts/2">setopts/2</seealso> 
+        <p>Gets one or more options for a socket.
+          See <seealso marker="#setopts/2">setopts/2</seealso>
           for a list of available options.</p>
         <p>The number of elements in the returned <c><anno>OptionValues</anno></c>
           list does not necessarily correspond to the number of options
@@ -278,14 +278,14 @@ fe80::204:acff:fe17:bf38
           by the protocol level, the option number and either a binary
           or the size, in bytes, of the
           buffer in which the option value is to be stored. A binary
-          should be used when the underlying <c>getsockopt</c> requires 
+          should be used when the underlying <c>getsockopt</c> requires
           <em>input</em>
           in the argument field, in which case the size of the binary
           should correspond to the required buffer
           size of the return value. The supplied values in a <c>RawOptReq</c>
           correspond to the second, third and fourth/fifth parameters to the
           <c>getsockopt</c> call in the C socket API. The value stored
-          in the buffer is returned as a binary <c>ValueBin</c> 
+          in the buffer is returned as a binary <c>ValueBin</c>
           where all values are coded in the native endianess.</p>
         <p>Asking for and inspecting raw socket options require low
           level information about the current operating system and TCP
@@ -306,7 +306,7 @@ fe80::204:acff:fe17:bf38
           value to be a 32 bit integer. We could use the following
           code to retrieve the value:</p>
         <code type="none"><![CDATA[
-        get_tcpi_sacked(Sock) -> 
+        get_tcpi_sacked(Sock) ->
             {ok,[{raw,_,_,Info}]} = inet:getopts(Sock,[{raw,6,11,92}]),
             <<_:28/binary,TcpiSacked:32/native,_/binary>> = Info,
             TcpiSacked.]]></code>
@@ -408,7 +408,7 @@ fe80::204:acff:fe17:bf38
       <name name="parse_ipv6strict_address" arity="1" />
       <fsummary>Parse an IPv6 address strict.</fsummary>
       <desc>
-	<p>Parses an IPv6 address string and returns an <a href="#type-ip6_address">ip6_address()</a>. 
+	<p>Parses an IPv6 address string and returns an <a href="#type-ip6_address">ip6_address()</a>.
 	Does <b>not</b> accept IPv4 adresses.</p>
       </desc>
     </func>
@@ -613,15 +613,20 @@ fe80::204:acff:fe17:bf38
 			<marker id="option-buffer"></marker>
           </item>
 
-		  <tag><c>{buffer, Size}</c></tag>
+                  <tag><c>{buffer, Size}</c></tag>
 		  <item>
-			  <p>Determines the size of the user-level software buffer used by
-				  the driver. Not to be confused with <c>sndbuf</c>
-				  and <c>recbuf</c> options which correspond to
-				  the kernel socket buffers. It is recommended
-				  to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c>.
-				  In fact, the <c>val(buffer)</c> is automatically set to
-				  the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.</p>
+                    <p>The size of the user-level software buffer used by
+                    the driver. Not to be confused with <c>sndbuf</c>
+                    and <c>recbuf</c> options which correspond to
+                    the kernel socket buffers. It is recommended
+                    to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c> to
+                    avoid performance issues due to unnecessary copying.
+                    In fact, the <c>val(buffer)</c> is automatically set to
+                    the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.
+                    However, since the actual sizes set for <c>sndbuf</c> and <c>recbuf</c>
+                    usually becomes larger, you are encouraged to use
+                    <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>
+                     to analyze the behavior of your operating system.</p>
 		  </item>
 
           <tag><c>{delay_send, Boolean}</c></tag>
@@ -998,8 +1003,12 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
           </item>
           <tag><c>{recbuf, Size}</c></tag>
           <item>
-            <p>Gives the size of the receive buffer to use for
-              the socket.</p>
+            <p>The minimum size of the receive buffer to use for
+              the socket. You are encouraged to use
+              <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>,
+               to retrieve the actual size set by your operating system.
+
+            </p>
           </item>
           <tag><c>{reuseaddr, Boolean}</c></tag>
           <item>
@@ -1030,20 +1039,24 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
 
           <tag><c>{sndbuf, Size}</c></tag>
           <item>
-            <p>Gives the size of the send buffer to use for the socket.</p>
+            <p>The minimum size of the send buffer to use for the socket.
+            You are encouraged to use
+            <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>,
+            to retrieve the actual size set by your operating system.
+            </p>
           </item>
           <tag><c>{priority, Integer}</c></tag>
           <item>
-            <p>Sets the SO_PRIORITY socket level option on platforms where 
-              this is implemented. The behaviour and allowed range varies on 
-              different systems. The option is ignored on platforms where the 
+            <p>Sets the SO_PRIORITY socket level option on platforms where
+              this is implemented. The behaviour and allowed range varies on
+              different systems. The option is ignored on platforms where the
               option is not implemented. Use with caution.</p>
           </item>
           <tag><c>{tos, Integer}</c></tag>
           <item>
-            <p>Sets IP_TOS IP level options on platforms where this is 
-              implemented. The behaviour and allowed range varies on different 
-              systems. The option is ignored on platforms where the option is 
+            <p>Sets IP_TOS IP level options on platforms where this is
+              implemented. The behaviour and allowed range varies on different
+              systems. The option is ignored on platforms where the option is
               not implemented. Use with caution.</p>
           </item>
         </taglist>
