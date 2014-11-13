@@ -564,7 +564,6 @@ static db_result_msg db_connect(byte *args, db_state *state)
 /* Close the connection to the database. Returns an ok or error message. */
 static db_result_msg db_close_connection(db_state *state)
 {
-    int index;
     SQLRETURN result;
     diagnos diagnos;
 
@@ -613,11 +612,7 @@ static db_result_msg db_end_tran(byte compleationtype, db_state *state)
    erlang term into the message buffer of the returned message-struct. */
 static db_result_msg db_query(byte *sql, db_state *state)
 {
-    char *atom;
-    int num_of_rows, elements, update;
-    SQLSMALLINT num_of_columns;
     SQLRETURN result;
-    SQLINTEGER RowCountPtr;
     db_result_msg msg;
     diagnos diagnos;
     byte is_error[6];
@@ -701,12 +696,9 @@ static db_result_msg db_query(byte *sql, db_state *state)
    set. */
 static db_result_msg db_select_count(byte *sql, db_state *state)
 {
-    SQLSMALLINT num_of_columns, intresult;
+    SQLSMALLINT num_of_columns;
     SQLLEN num_of_rows;
-    SQLRETURN result;
     diagnos diagnos;
-    db_result_msg msg;
-    int index;
 
     if (associated_result_set(state)) {
 	clean_state(state);
@@ -1295,7 +1287,6 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
     SQLCHAR name[MAX_NAME];
     SQLSMALLINT name_len, sql_type, dec_digits, nullable;
     SQLLEN size; 
-    SQLRETURN result;
 
     msg = encode_empty_message();
     
@@ -1357,9 +1348,8 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 static db_result_msg encode_value_list(SQLSMALLINT num_of_columns,
 				       db_state *state)
 {
-    int i, msg_len;
+    int i;
     SQLRETURN result;
-    db_result_msg list_result;
     db_result_msg msg;
 
     msg = encode_empty_message();
@@ -1402,9 +1392,8 @@ static db_result_msg encode_value_list_scroll(SQLSMALLINT num_of_columns,
 					      SQLINTEGER OffSet, int N,
 					      db_state *state)
 {
-    int i, j,  msg_len;
+    int i, j;
     SQLRETURN result;
-    db_result_msg list_result;
     db_result_msg msg;
 
     msg = encode_empty_message();
@@ -2200,8 +2189,7 @@ static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 static void init_param_column(param_array *params, byte *buffer, int *index,
 			      int num_param_values, db_state* state)
 {
-    int size, erl_type;
-    long user_type, precision, scale, length, dummy;
+    long user_type, precision, scale, length;
     long in_or_out;
     
     ei_decode_long(buffer, index, &user_type);
@@ -2514,8 +2502,7 @@ static param_array * bind_parameter_arrays(byte *buffer, int *index,
 					   int cols, int num_param_values,
 					   db_state *state)
 {
-    int i, j, k, size, erl_type;
-    db_result_msg msg;
+    int i, j, size, erl_type;
     long dummy;
     void *Values;
     param_array *params;
@@ -2601,7 +2588,6 @@ static db_column retrive_binary_data(db_column column, int column_nr,
 				     db_state *state)
 { 
     char *outputptr;
-    char *sqlState;
     int blocklen, outputlen, result;
     diagnos diagnos;
   
