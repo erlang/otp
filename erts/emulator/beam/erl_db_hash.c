@@ -382,7 +382,7 @@ static HashDbTerm* search_list(DbTableHash* tb, Eterm key,
 static void shrink(DbTableHash* tb, int nactive);
 static void grow(DbTableHash* tb, int nactive);
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
-			   DbTableHash*);
+			   Uint sz, DbTableHash*);
 static int analyze_pattern(DbTableHash *tb, Eterm pattern, 
 			   struct mp_info *mpi);
 
@@ -887,13 +887,17 @@ get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
 {
     HashDbTerm* b2 = b1->next;
     Eterm copy;
+    Uint sz = b1->dbterm.size + 2;
 
     if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
         while (b2 && has_key(tb, b2, key, hval)) {
+	    if (b2->hvalue != INVALID_HASH)
+		sz += b2->dbterm.size + 2;
+
             b2 = b2->next;
         }
     }
-    copy = build_term_list(p, b1, b2, tb);
+    copy = build_term_list(p, b1, b2, sz, tb);
     CHECK_TABLES();
     if (bend) {
         *bend = b2;
@@ -1253,7 +1257,7 @@ static int db_slot_hash(Process *p, DbTable *tbl, Eterm slot_term, Eterm *ret)
     lck = RLOCK_HASH(tb, slot);
     nactive = NACTIVE(tb);
     if (slot < nactive) {
-	*ret = build_term_list(p, BUCKET(tb, slot), 0, tb);
+	*ret = build_term_list(p, BUCKET(tb, slot), NULL, 0, tb);
 	retval = DB_ERROR_NONE;
     }
     else if (slot == nactive) {
@@ -2536,23 +2540,23 @@ static int free_seg(DbTableHash *tb, int free_records)
 ** Copy terms from ptr1 until ptr2
 ** works for ptr1 == ptr2 == 0  => []
 ** or ptr2 == 0
+** sz is either precalculated heap size or 0 if not known
 */
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
-			   DbTableHash* tb)
+			     Uint sz, DbTableHash* tb)
 {
-    int sz = 0;
     HashDbTerm* ptr;
     Eterm list = NIL;
     Eterm copy;
     Eterm *hp, *hend;
 
-    ptr = ptr1;
-    while(ptr != ptr2) {
-
-	if (ptr->hvalue != INVALID_HASH)
-	    sz += ptr->dbterm.size + 2;
-
-	ptr = ptr->next;
+    if (!sz) {
+	ptr = ptr1;
+	while(ptr != ptr2) {
+	    if (ptr->hvalue != INVALID_HASH)
+		sz += ptr->dbterm.size + 2;
+	    ptr = ptr->next;
+	}
     }
 
     hp = HAlloc(p, sz);
