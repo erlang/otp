@@ -784,6 +784,9 @@ static db_result_msg db_select(byte *args, db_state *state)
 	orientation = SQL_FETCH_NEXT;
 	offset = atoi(strtok((char *)(args + sizeof(byte)), ";"));
 	n =  atoi(strtok(NULL, ";"));
+	break;
+    default:
+	DO_EXIT(EXIT_PARAM_ARRAY);
     }
 
     msg = encode_empty_message();
@@ -934,7 +937,7 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
     SQLSMALLINT num_of_columns;
     SQLCHAR name[MAX_NAME];
     SQLSMALLINT name_len, sql_type, dec_digits, nullable;
-    SQLLEN size;
+    SQLULEN size;
     diagnos diagnos;
     int i;
     
@@ -1286,7 +1289,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
     db_result_msg msg;
     SQLCHAR name[MAX_NAME];
     SQLSMALLINT name_len, sql_type, dec_digits, nullable;
-    SQLLEN size; 
+    SQLULEN size;
 
     msg = encode_empty_message();
     
