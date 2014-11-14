@@ -438,24 +438,31 @@ do_checkc(S, Name, Class) ->
 	    do_checkc_1(S, Name, Class)
     end.
 
-do_checkc_1(S0, Name, Class0) ->
-    {Class1,ClassSpec} =
-	case Class0 of
-	    #classdef{} ->
-		{Class0,Class0};
-	    #typedef{} ->
-		{#classdef{name=Name},Class0#typedef.typespec}
-	end,
-    S = S0#state{type=Class0,tname=Name},
-    try check_class(S, ClassSpec) of
+do_checkc_1(S, Name, #classdef{}=Class) ->
+    try check_class(S, Class) of
 	C ->
-	    Class = Class1#classdef{checked=true,typespec=C},
-	    asn1_db:dbput(S#state.mname, Name, Class),
+	    store_class(S, true, Class#classdef{typespec=C}, Name),
 	    ok
-	 catch
-	     {error,Reason} ->
-		 error({class,Reason,S})
-	 end.
+    catch
+	{error,Reason} ->
+	    error({class,Reason,S})
+    end;
+do_checkc_1(S, Name, #typedef{typespec=#type{def=Def}=TS}) ->
+    try check_class(S, TS) of
+	C ->
+	    {Mod,Pos} = case Def of
+			    #'Externaltypereference'{module=M, pos=P} ->
+				{M,P};
+			    {pt, #'Externaltypereference'{module=M, pos=P}, _} ->
+				{M,P}
+			end,
+	    Class = #classdef{name=Name, typespec=C, pos=Pos, module=Mod},
+	    store_class(S, true, Class, Name),
+	    ok
+    catch
+	{error,Reason} ->
+	    error({class,Reason,S})
+    end.
 
 %% is_classname(Atom) -> true|false.
 is_classname(Name) when is_atom(Name) ->
@@ -1296,7 +1303,7 @@ gen_incl1(S,Fields,[C|CFields]) ->
     end.
 
 get_objclass_fields(S,Eref=#'Externaltypereference'{}) ->
-    {_,ClassDef} = get_referenced_type(S,Eref),
+    {_,ClassDef} = get_referenced_type(S,Eref, true),
     get_objclass_fields(S,ClassDef);
 get_objclass_fields(S,CD=#classdef{typespec=#'Externaltypereference'{}}) ->
     get_objclass_fields(S,CD#classdef.typespec);
