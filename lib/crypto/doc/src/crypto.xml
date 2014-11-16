@@ -269,7 +269,7 @@
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
-	<v>PrivKeyIn = undefined | dh_private() | srp_private() </v>
+	<v>PrivKeyIn = undefined | dh_private() | ecdh_private() | srp_private() </v>
 	<v>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </v>
       </type>
       <desc>

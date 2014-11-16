@@ -410,7 +410,7 @@ static ErlNifFunc nif_funcs[] = {
     {"bf_ecb_crypt", 3, bf_ecb_crypt},
     {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt},
 
-    {"ec_key_generate", 1, ec_key_generate},
+    {"ec_key_generate", 2, ec_key_generate},
     {"ecdsa_sign_nif", 4, ecdsa_sign_nif},
     {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
@@ -3689,32 +3689,37 @@ out:
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #if defined(HAVE_EC)
-    EC_KEY *key = ec_key_new(env, argv[0]);
+    EC_KEY *key;
+    const EC_GROUP *group;
+    const EC_POINT *public_key;
+    ERL_NIF_TERM priv_key;
+    ERL_NIF_TERM pub_key = atom_undefined;
 
     CHECK_OSE_CRYPTO();
 
-    if (key && EC_KEY_generate_key(key)) {
-	const EC_GROUP *group;
-	const EC_POINT *public_key;
-	ERL_NIF_TERM priv_key;
-	ERL_NIF_TERM pub_key = atom_undefined;
+    if (!get_ec_key(env, argv[0], argv[1], atom_undefined, &key))
+	goto badarg;
 
-	group = EC_KEY_get0_group(key);
-	public_key = EC_KEY_get0_public_key(key);
+    if (argv[1] == atom_undefined) {
+	if (!EC_KEY_generate_key(key))
+	    goto badarg;
+    }
 
-	if (group && public_key) {
-	    pub_key = point2term(env, group, public_key,
-				 EC_KEY_get_conv_form(key));
-	}
-	priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    group = EC_KEY_get0_group(key);
+    public_key = EC_KEY_get0_public_key(key);
+
+    if (group && public_key) {
+	pub_key = point2term(env, group, public_key,
+			     EC_KEY_get_conv_form(key));
+    }
+    priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    EC_KEY_free(key);
+    return enif_make_tuple2(env, pub_key, priv_key);
+
+badarg:
+    if (key)
 	EC_KEY_free(key);
-	return enif_make_tuple2(env, pub_key, priv_key);
-    }
-    else {
-	if (key)
-	    EC_KEY_free(key);
-	return enif_make_badarg(env);
-    }
+    return enif_make_badarg(env);
 #else
     return atom_notsup;
 #endif

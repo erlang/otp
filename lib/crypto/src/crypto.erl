@@ -588,9 +588,8 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
 	      end,
     user_srp_gen_key(Private, Generator, Prime);
 
-generate_key(ecdh, Curve, undefined) ->
-    ec_key_generate(nif_curve_params(Curve)).
-
+generate_key(ecdh, Curve, PrivKey) ->
+    ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
     case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
@@ -1555,7 +1554,7 @@ dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
 
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
-ec_key_generate(_Key) -> ?nif_stub.
+ec_key_generate(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
