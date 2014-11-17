@@ -276,17 +276,31 @@ large_string(_) ->
 
 %% The server says things. Manually check that it gets printed correctly
 %% in the general IO log.
+%%
+%% In this test case we simulate data sent spontaneously from the
+%% server. We use ct_telnet_client:send_data instead of ct_telnet:send
+%% to avoid flushing of buffers in the client, and we use
+%% echo_no_prompt since the server would normally not send a prompt in
+%% this case.
 server_speaks(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
-    ok = ct_telnet:send(Handle, "echo_no_prompt This is the first message\r\n"),
-    ok = ct_telnet:send(Handle, "echo_no_prompt This is the second message\r\n"),
-    %% let ct_telnet_client get an idle timeout
+
+    Backdoor = ct_gen_conn:get_conn_pid(Handle),
+    ok = ct_telnet_client:send_data(Backdoor,
+				    "echo_no_prompt This is the first message"),
+    ok = ct_telnet_client:send_data(Backdoor,
+				    "echo_no_prompt This is the second message"),
+    %% Let ct_telnet_client get an idle timeout. This should print the
+    %% two messages to the log. Note that the buffers are not flushed here!
     timer:sleep(15000),
-    ok = ct_telnet:send(Handle, "echo_no_prompt This is the third message\r\n"),
-    {ok,_} = ct_telnet:expect(Handle, ["the"], [no_prompt_check]),
+    ok = ct_telnet_client:send_data(Backdoor,
+				    "echo_no_prompt This is the third message"),
+    {ok,_} = ct_telnet:expect(Handle, ["first.*second.*third"],
+			      [no_prompt_check, sequence]),
     {error,timeout} = ct_telnet:expect(Handle, ["the"], [no_prompt_check,
 							 {timeout,?SHORT_TIME}]),
-    ok = ct_telnet:send(Handle, "echo_no_prompt This is the fourth message\r\n"),
+    ok = ct_telnet_client:send_data(Backdoor,
+				    "echo_no_prompt This is the fourth message"),
     %% give the server time to respond
     timer:sleep(2000),
     %% closing the connection should print last message in log
@@ -301,7 +315,7 @@ server_disconnects(_) ->
     %% wait until the get_data operation (triggered by send/2) times out
     %% before sending the msg
     timer:sleep(500),
-    ok = ct_telnet:send(Handle, "echo_no_prompt This is the message\r\n"),
+    ok = ct_telnet:send(Handle, "echo_no_prompt This is the message"),
     %% when the server closes the connection, the last message should be
     %% printed in the log
     timer:sleep(3000),
