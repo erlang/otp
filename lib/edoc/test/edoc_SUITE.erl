@@ -22,12 +22,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1]).
+-export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1, build_app/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app,appup,build_std,build_map_module,otp_12008].
+    [app,appup,build_std,build_map_module,otp_12008, build_app].
 
 groups() -> 
     [].
@@ -95,3 +95,20 @@ otp_12008(Config) when is_list(Config) ->
     ok = edoc:files([Un2], Opts2),
     {'EXIT', error} = (catch edoc:files([Un3], Opts2)),
     ok.
+
+build_app(suite) -> [];
+build_app(doc) -> ["Build a local app with nested source directories"];
+build_app(Config) ->
+    DataDir  = ?config(data_dir, Config),
+    PrivDir  = ?config(priv_dir, Config),
+	OutDir = filename:join(PrivDir, "myapp"),
+	Src = filename:join(DataDir, "myapp"),
+
+	ok = edoc:application(myapp, Src, [{dir, OutDir}, {packages, false}, {subpackages, false}]),
+	true = filelib:is_regular(filename:join(OutDir, "a.html")),
+	false = filelib:is_regular(filename:join(OutDir, "b.html")),
+
+	ok = edoc:application(myapp, Src, [{dir, OutDir}, {packages, false}]),
+	true = filelib:is_regular(filename:join(OutDir, "a.html")),
+	true = filelib:is_regular(filename:join(OutDir, "b.html")),
+	ok.
