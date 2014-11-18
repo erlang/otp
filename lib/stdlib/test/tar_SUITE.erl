@@ -654,6 +654,7 @@ open_add_close(Config) when is_list(Config) ->
     ?line ok = erl_tar:add(AD, FileOne, []),
     ?line ok = erl_tar:add(AD, FileTwo, "second file", []),
     ?line ok = erl_tar:add(AD, FileThree, [verbose]),
+    ?line ok = erl_tar:add(AD, FileThree, "chunked", [{chunks,11411},verbose]),
     ?line ok = erl_tar:add(AD, ADir, [verbose]),
     ?line ok = erl_tar:add(AD, AnotherDir, [verbose]),
     ?line ok = erl_tar:close(AD),
@@ -661,7 +662,7 @@ open_add_close(Config) when is_list(Config) ->
     ?line ok = erl_tar:t(TarOne),
     ?line ok = erl_tar:tt(TarOne),
 
-    ?line {ok,[FileOne,"second file",FileThree,ADir,SomeContent]} = erl_tar:table(TarOne),
+    ?line {ok,[FileOne,"second file",FileThree,"chunked",ADir,SomeContent]} = erl_tar:table(TarOne),
 
     ?line delete_files(["oac_file","oac_small","oac_big",Dir,AnotherDir,ADir]),
 

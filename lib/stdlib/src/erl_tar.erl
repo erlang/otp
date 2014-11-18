@@ -22,7 +22,7 @@
 %% Purpose: Unix tar (tape archive) utility.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([create/2, create/3, extract/1, extract/2, table/1, table/2,
+-export([init/3, create/2, create/3, extract/1, extract/2, table/1, table/2,
 	 open/2, close/1, add/3, add/4,
 	 t/1, tt/1, format_error/1]).
 
@@ -30,10 +30,16 @@
 
 -record(add_opts,
 	{read_info,				% Fun to use for read file/link info.
+	 chunk_size = 0,  % For file reading when sending to sftp. 0=do not chunk
 	 verbose = false :: boolean()}).	% Verbose on/off.
 
 %% Opens a tar archive.
 
+init(UsrHandle, AccessMode, Fun) when is_function(Fun,2) ->   
+    {ok, {AccessMode,{UsrHandle,Fun}}}.
+
+%%%================================================================		   
+%%% The open function with friends is to keep the file and binary api of this module
 open(Name, Mode) ->
     case open_mode(Mode) of
 	{ok, Access, Raw, Opts} ->
@@ -46,27 +52,37 @@ open1({binary,Bin}, read, _Raw, Opts) ->
     case file:open(Bin, [ram,binary,read]) of
 	{ok,File} ->
             _ = [ram_file:uncompress(File) || Opts =:= [compressed]],
-	    {ok,{read,File}};
+	    init(File,read,file_fun());
 	Error ->
 	    Error
     end;
 open1({file, Fd}, read, _Raw, _Opts) ->
-    {ok, {read, Fd}};
+    init(Fd, read, file_fun());
 open1(Name, Access, Raw, Opts) ->
     case file:open(Name, Raw ++ [binary, Access|Opts]) of
 	{ok, File} ->
-	    {ok, {Access, File}};
+	    init(File, Access, file_fun());
 	{error, Reason} ->
 	    {error, {Name, Reason}}
     end.
 
+file_fun() ->
+    fun(write, {Fd,Data}) ->  file:write(Fd, Data);
+       (position, {Fd,Pos}) -> file:position(Fd, Pos);
+       (read2, {Fd,Size}) -> file:read(Fd,Size);
+       (close, Fd) -> file:close(Fd)
+    end.
+
+%%% End of file and binary api (except for open_mode/1 downwards
+%%%================================================================		   
+
 %% Closes a tar archive.
 
 close({read, File}) ->
-    ok = file:close(File);
+    ok = do_close(File);
 close({write, File}) ->
     PadResult = pad_file(File),
-    ok = file:close(File),
+    ok = do_close(File),
     PadResult;
 close(_) ->
     {error, einval}.
@@ -75,7 +91,6 @@ close(_) ->
 
 add(File, Name, Options) ->
     add(File, Name, Name, Options).
-
 add({write, File}, Name, NameInArchive, Options) ->
     Opts = #add_opts{read_info=fun(F) -> file:read_link_info(F) end},
     add1(File, Name, NameInArchive, add_opts(Options, Opts));
@@ -88,6 +103,8 @@ add_opts([dereference|T], Opts) ->
     add_opts(T, Opts#add_opts{read_info=fun(F) -> file:read_file_info(F) end});
 add_opts([verbose|T], Opts) ->
     add_opts(T, Opts#add_opts{verbose=true});
+add_opts([{chunks,N}|T], Opts) ->
+    add_opts(T, Opts#add_opts{chunk_size=N});
 add_opts([_|T], Opts) ->
     add_opts(T, Opts);
 add_opts([], Opts) ->
@@ -321,16 +338,46 @@ add1(TarFile, Name, NameInArchive, Opts) ->
 	    {error, {Name, Reason}}
     end.
 
+add1(Tar, Name, Header, chunked, Options) ->
+    add_verbose(Options, "a ~ts [chunked ", [Name]),
+    try
+	ok = do_write(Tar, Header),
+	{ok,D} = file:open(Name, [read,binary]),
+	{ok,NumBytes} = add_read_write_chunks(D, Tar, Options#add_opts.chunk_size, 0, Options),
+	_ = file:close(D),
+	ok = do_write(Tar, padding(NumBytes,?record_size))
+    of 
+	ok ->
+	    add_verbose(Options, "~n", []),
+	    ok
+    catch
+	error:{badmatch,{error,Error}} ->
+	    add_verbose(Options, "~n", []),
+	    {error,{Name,Error}}
+    end;
 add1(Tar, Name, Header, Bin, Options) ->
     add_verbose(Options, "a ~ts~n", [Name]),
-    file:write(Tar, [Header, Bin, padding(byte_size(Bin), ?record_size)]).
+    do_write(Tar, [Header, Bin, padding(byte_size(Bin), ?record_size)]).
+
+add_read_write_chunks(D, Tar, ChunkSize, SumNumBytes, Options) ->
+    case file:read(D, ChunkSize) of
+	{ok,Bin} -> 
+	    ok = do_write(Tar, Bin),
+	    add_verbose(Options, ".", []),
+	    add_read_write_chunks(D, Tar, ChunkSize, SumNumBytes+byte_size(Bin), Options);
+	eof ->
+	    add_verbose(Options, "]", []),
+	    {ok,SumNumBytes};
+	Other ->
+	    Other
+    end.
 
 add_directory(TarFile, DirName, NameInArchive, Info, Options) ->
     case file:list_dir(DirName) of
 	{ok, []} ->
 	    add_verbose(Options, "a ~ts~n", [DirName]),
 	    Header = create_header(NameInArchive, Info),
-	    file:write(TarFile, Header);
+	    do_write(TarFile, Header);
 	{ok, Files} ->
 	    Add = fun (File) ->
 			  add1(TarFile,
@@ -396,7 +443,7 @@ to_string(Str0, Count) ->
 %% Pads out end of file.
 
 pad_file(File) ->
-    {ok,Position} = file:position(File, {cur,0}),
+    {ok,Position} = do_position(File, {cur,0}),
     %% There must be at least two zero records at the end.
     Fill = case ?block_size - (Position rem ?block_size) of
 	       Fill0 when Fill0 < 2*?record_size ->
@@ -407,7 +454,7 @@ pad_file(File) ->
 		   %% Large enough.
 		   Fill0
 	   end,
-    file:write(File, zeroes(Fill)).
+    do_write(File, zeroes(Fill)).
 
 split_filename(Name) when length(Name) =< ?th_name_len ->
     {"", Name};
@@ -500,7 +547,7 @@ foldl_read(TarName, Fun, Accu, Opts) ->
 		    Ok ->
 			Ok
 		end,
-	    ok = file:close(File),
+	    ok = do_close(File),
 	    Result;
 	Error ->
 	    Error
@@ -559,7 +606,7 @@ check_extract(Name, #read_opts{files=Files}) ->
     ordsets:is_element(Name, Files).
 
 get_header(File) ->
-    case file:read(File, ?record_size) of
+    case do_read(File, ?record_size) of
 	eof ->
 	    throw({error,eof});
 	{ok, Bin} when is_binary(Bin) ->
@@ -690,7 +737,7 @@ get_element(File, #tar_header{size = 0}) ->
     skip_to_next(File),
     {ok,<<>>};
 get_element(File, #tar_header{size = Size}) ->
-    case file:read(File, Size) of
+    case do_read(File, Size) of
 	{ok,Bin}=Res when byte_size(Bin) =:= Size ->
 	    skip_to_next(File),
 	    Res;
@@ -880,7 +927,7 @@ skip(File, Size) ->
     %% Note: There is no point in handling failure to get the current position
     %% in the file.  If it doesn't work, something serious is wrong.
     Amount = ((Size + ?record_size - 1) div ?record_size) * ?record_size,
-    {ok,_} = file:position(File, {cur, Amount}),
+    {ok,_} = do_position(File, {cur, Amount}),
     ok.
 
 %% Skips to the next record in the file.
@@ -888,9 +935,9 @@ skip(File, Size) ->
 skip_to_next(File) ->
     %% Note: There is no point in handling failure to get the current position
     %% in the file.  If it doesn't work, something serious is wrong.
-    {ok, Position} = file:position(File, {cur, 0}),
+    {ok, Position} = do_position(File, {cur, 0}),
     NewPosition = ((Position + ?record_size - 1) div ?record_size) * ?record_size,
-    {ok,NewPosition} = file:position(File, NewPosition),
+    {ok,NewPosition} = do_position(File, NewPosition),
     ok.
 
 %% Prints the message on if the verbose option is given.
@@ -916,6 +963,9 @@ posix_to_erlang_time(Sec) ->
 read_file_and_info(Name, Opts) ->
     ReadInfo = Opts#add_opts.read_info,
     case ReadInfo(Name) of
+	{ok,Info} when Info#file_info.type =:= regular,
+		       Opts#add_opts.chunk_size>0 ->
+	    {ok,chunked,Info};
 	{ok,Info} when Info#file_info.type =:= regular ->
 	    case file:read_file(Name) of
 		{ok,Bin} ->
@@ -962,3 +1012,12 @@ open_mode([], Access, Raw, Opts) ->
     {ok, Access, Raw, Opts};
 open_mode(_, _, _, _) ->
     {error, einval}.
+
+%%%================================================================
+do_write({UsrHandle,Fun}, Data) -> Fun(write,{UsrHandle,Data}).
+
+do_position({UsrHandle,Fun}, Pos) -> Fun(position,{UsrHandle,Pos}).
+
+do_read({UsrHandle,Fun}, Len) -> Fun(read2,{UsrHandle,Len}).
+
+do_close({UsrHandle,Fun}) -> Fun(close,UsrHandle).
