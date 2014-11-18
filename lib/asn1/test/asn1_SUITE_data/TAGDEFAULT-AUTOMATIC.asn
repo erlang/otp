@@ -1,0 +1,25 @@
+TAGDEFAULT-AUTOMATIC DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+EXPORTS
+	Tagged,
+	Untagged,
+	Mixed
+;
+
+Tagged ::= SEQUENCE {
+	o0	[0]	OCTET STRING,
+	o1	[1]	OCTET STRING
+}
+
+Untagged ::= SEQUENCE {
+	o0		OCTET STRING,
+	o1		OCTET STRING
+}
+
+Mixed ::= SEQUENCE {
+	o0		OCTET STRING,
+	o2	[2]	OCTET STRING
+}
+
+END
