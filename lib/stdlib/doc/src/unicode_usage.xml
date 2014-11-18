@@ -50,12 +50,8 @@
   encoded files in several circumstances. Most notable is the support
   for UTF-8 in files read by <c>file:consult/1</c>, release handler support
   for UTF-8 and more support for Unicode character sets in the
-  I/O-system.</p>
-
-  <p>In Erlang/OTP 17.0, the encoding default for Erlang source files was
-  switched to UTF-8 and in Erlang/OTP 18.0 Erlang will support atoms in the full
-  Unicode range, meaning full Unicode function and module
-  names</p>
+  I/O-system. In Erlang/OTP 17.0, the encoding default for Erlang source files was
+  switched to UTF-8.</p>
 
   <p>This guide outlines the current Unicode support and gives a couple
   of recipes for working with Unicode data.</p>
@@ -289,8 +285,8 @@
     <tag>The language</tag>
     <item>Having the source code in UTF-8 also allows you to write
     string literals containing Unicode characters with code points &gt;
-    255, although atoms, module names and function names will be
-    restricted to the ISO-Latin-1 range until the Erlang/OTP 18.0 release. Binary
+    255, although atoms, module names and function names are
+    restricted to the ISO-Latin-1 range. Binary
     literals where you use the <c>/utf8</c> type, can also be
     expressed using Unicode characters &gt; 255. Having module names
     using characters other than 7-bit ASCII can cause trouble on
@@ -385,8 +381,7 @@ external_charlist() = maybe_improper_list(char() |
   using characters from the ISO-latin-1 character set and atoms are
   restricted to the same ISO-latin-1 range. These restrictions in the
   language are of course independent of the encoding of the source
-  file. Erlang/OTP 18.0 is expected to handle functions named in
-  Unicode as well as Unicode atoms.</p>
+  file.</p>
   <section>
     <title>Bit-syntax</title>
     <p>The bit-syntax contains types for coping with binary data in the
