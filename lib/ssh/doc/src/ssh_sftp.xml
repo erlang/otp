@@ -194,6 +194,24 @@
           can be used for reading directory contents.</p>
       </desc>
     </func>
+
+    <func>
+      <name>open_tar(ChannelPid, Path) -></name>
+      <name>open_tar(ChannelPid, Path, Timeout) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a tar file on the server to which <v>ChannelPid</v> is connected and return a handle</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Path = string()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Opens a handle to a tar file on the server, the handle
+	can be used for remote tar manipulation as defined by the
+	<seealso marker="stdlib:erl_tar#init/3">erl_tar:init/3</seealso> function.</p>
+      </desc>
+    </func>
+
     <func>
       <name>close(ChannelPid, Handle) -> </name>
       <name>close(ChannelPid, Handle, Timeout) -> ok | {error, Reason}</name>

@@ -33,8 +33,8 @@
 
 -export([start_channel/1, start_channel/2, start_channel/3, stop_channel/1]).
 
--export([open/3, opendir/2, close/2, readdir/2, pread/4, read/3,
-         open/4, opendir/3, close/3, readdir/3, pread/5, read/4,
+-export([open/3, open_tar/3, opendir/2, close/2, readdir/2, pread/4, read/3,
+         open/4, open_tar/4, opendir/3, close/3, readdir/3, pread/5, read/4,
 	 apread/4, aread/3, pwrite/4, write/3, apwrite/4, awrite/3,
 	 pwrite/5, write/4, 
 	 position/3, real_path/2, read_file_info/2, get_file_info/2,
@@ -161,6 +161,28 @@ open(Pid, File, Mode) ->
     open(Pid, File, Mode, ?FILEOP_TIMEOUT).
 open(Pid, File, Mode, FileOpTimeout) ->
     call(Pid, {open, false, File, Mode}, FileOpTimeout).
+
+open_tar(Pid, File, Mode) ->
+    open_tar(Pid, File, Mode, ?FILEOP_TIMEOUT).
+open_tar(Pid, File, Mode=[write], FileOpTimeout) ->
+    {ok,R} = open(Pid, File, Mode, FileOpTimeout),
+    erl_tar:init({Pid,R,FileOpTimeout}, write,
+		 fun(write, {{P,H,T},Data}) ->
+			 Bin = if is_list(Data) -> list_to_binary(Data);
+				  is_binary(Data) -> Data
+			       end,
+			 {ok,{_Window,Packet}} = send_window(P, T),
+			 write_file_loop(P, H, 0, Bin, size(Bin), Packet, T);
+		    (position, {{P,H,T},Pos}) -> 
+			 position(P, H, Pos, T);
+		    (close, {P,H,T}) -> 
+			 close(P, H, T)
+		 end);
+open_tar(_Pid, _File, Mode, _FileOpTimeout) ->
+    {error,{illegal_mode,Mode}}.
+
+
+
 
 opendir(Pid, Path) ->
     opendir(Pid, Path, ?FILEOP_TIMEOUT).
