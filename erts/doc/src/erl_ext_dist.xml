@@ -126,9 +126,8 @@
     However, only characters that can be encoded using Latin1 (ISO-8859-1)
     are currently supported in atoms. The support for UTF-8 encoded atoms
     in the external format has been implemented in order to be able to support
-    all Unicode characters in atoms in <em>some future release</em>. Full
-    support for Unicode atoms will not happen before OTP-R18, and might
-    be introduced even later than that. Until full Unicode support for
+    all Unicode characters in atoms in <em>some future release</em>.
+    Until full Unicode support for
     atoms has been introduced, it is an <em>error</em> to pass atoms containing
     characters that cannot be encoded in Latin1, and <em>the behavior is
     undefined</em>.</p>
