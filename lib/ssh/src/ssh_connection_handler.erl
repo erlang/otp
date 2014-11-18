@@ -1299,9 +1299,9 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
     end;
 
 generate_event(Msg, StateName, State0, EncData) ->
-    Event = ssh_message:decode(Msg),
-    State = generate_event_new_state(State0, EncData),
     try 
+	Event = ssh_message:decode(Msg),
+	State = generate_event_new_state(State0, EncData),
 	case Event of
 	    #ssh_msg_kexinit{} ->
 		%% We need payload for verification later.
@@ -1315,7 +1315,7 @@ generate_event(Msg, StateName, State0, EncData) ->
 		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR, 
 				    description = "Encountered unexpected input",
 				    language = "en"},
-	    handle_disconnect(DisconnectMsg, State)   
+	    handle_disconnect(DisconnectMsg, State0)   
     end.		
 	    
 
@@ -1475,25 +1475,35 @@ handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
 					    ssh_params = Ssh0,
 					    transport_protocol = _Protocol,
 					    socket = _Socket} = State0) ->
-    {Ssh1, DecData, EncData, Mac} = 
-	ssh_transport:unpack(EncData0, Length, Ssh0),
-    SshPacket = <<DecData0/binary, DecData/binary>>,
-    case ssh_transport:is_valid_mac(Mac, SshPacket, Ssh1) of
-	true ->
-	    PacketData = ssh_transport:msg_data(SshPacket),
-	    {Ssh1, Msg} = ssh_transport:decompress(Ssh1, PacketData),
-	    generate_event(Msg, StateName, 
-			   State0#state{ssh_params = Ssh1,
-					%% Important to be set for
-					%% next_packet
-					decoded_data_buffer = <<>>}, EncData);
-	false ->
-	    DisconnectMsg = 
+    try 
+	{Ssh1, DecData, EncData, Mac} = 
+	    ssh_transport:unpack(EncData0, Length, Ssh0),
+	SshPacket = <<DecData0/binary, DecData/binary>>,
+	case ssh_transport:is_valid_mac(Mac, SshPacket, Ssh1) of
+	    true ->
+		PacketData = ssh_transport:msg_data(SshPacket),
+		{Ssh1, Msg} = ssh_transport:decompress(Ssh1, PacketData),
+		generate_event(Msg, StateName, 
+			       State0#state{ssh_params = Ssh1,
+					    %% Important to be set for
+					    %% next_packet
+					    decoded_data_buffer = <<>>},
+			       EncData);
+	    false ->
+		DisconnectMsg = 
+		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+					description = "Bad mac",
+					language = "en"},
+		handle_disconnect(DisconnectMsg, State0)
+	end
+    catch _:_ ->
+	    Disconnect = 
 		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				    description = "Bad mac",
+				    description = "Bad input",
 				    language = "en"},
-	    handle_disconnect(DisconnectMsg, State0)
-    end.
+	    handle_disconnect(Disconnect, State0) 
+    end.  
+
 
 handle_disconnect(DisconnectMsg, State) ->
     handle_disconnect(own, DisconnectMsg, State).
