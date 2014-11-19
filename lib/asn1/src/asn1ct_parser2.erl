@@ -655,7 +655,8 @@ parse_TypeWithConstraint([{'SEQUENCE',_},Lpar = {'(',_}|Rest]) ->
 parse_TypeWithConstraint([{'SEQUENCE',_},{'SIZE',_},Lpar = {'(',_}|Rest]) ->
     {Constraint,Rest2} = parse_Constraint([Lpar|Rest]),
     #constraint{c=C} = Constraint,
-    Constraint2 = Constraint#constraint{c={'SizeConstraint',C}},
+    Constraint2 = Constraint#constraint{c={element_set,{'SizeConstraint',C},
+					   none}},
     Rest4 = case Rest2 of
 		[{'OF',_}, {identifier,_,_Id}|Rest3] ->
 %%% TODO: make some use of the identifier, maybe useful in the XML mapping
@@ -689,7 +690,8 @@ parse_TypeWithConstraint([{'SET',_},Lpar = {'(',_}|Rest]) ->
 parse_TypeWithConstraint([{'SET',_},{'SIZE',_},Lpar = {'(',_}|Rest]) ->
     {Constraint,Rest2} = parse_Constraint([Lpar|Rest]),
     #constraint{c=C} = Constraint,
-    Constraint2 = Constraint#constraint{c={'SizeConstraint',C}},
+    Constraint2 = Constraint#constraint{c={element_set,
+					   {'SizeConstraint',C},none}},
     Rest4 = case Rest2 of
 		[{'OF',_}, {identifier,_,_Id}|Rest3] ->
 %%% TODO: make some use of the identifier, maybe useful in the XML mapping
@@ -876,19 +878,16 @@ parse_TypeColonValue(Tokens) ->
 parse_SubtypeConstraint(Tokens) ->
     parse_ElementSetSpecs(Tokens).
 
-parse_ElementSetSpecs([{'...',_}|Rest]) ->
-    {Elements,Rest2} = parse_ElementSetSpec(Rest),
-    {{[],Elements},Rest2};
 parse_ElementSetSpecs(Tokens) ->
     {RootElems,Rest} = parse_ElementSetSpec(Tokens),
     case Rest of
 	[{',',_},{'...',_},{',',_}|Rest2] ->
 	    {AdditionalElems,Rest3} = parse_ElementSetSpec(Rest2),
-	    {{RootElems,AdditionalElems},Rest3};
+	    {{element_set,RootElems,AdditionalElems},Rest3};
 	[{',',_},{'...',_}|Rest2] ->
-	    {{RootElems,[]},Rest2};
+	    {{element_set,RootElems,empty},Rest2};
 	_ ->
-	    {RootElems,Rest}
+	    {{element_set,RootElems,none},Rest}
     end.
 
 parse_ElementSetSpec([{'ALL',_},{'EXCEPT',_}|Rest]) ->
@@ -909,14 +908,8 @@ parse_Unions(Tokens) ->
     case {InterSec,Unions} of
 	{InterSec,[]} ->
 	    {InterSec,Rest2};
-	{{'SingleValue',V1},{'SingleValue',V2}} ->
-	    {{'SingleValue',ordsets:union(to_set(V1),to_set(V2))},Rest2};
-	{V1,V2} when is_list(V2) ->
-	    {[V1] ++ [union|V2],Rest2};
 	{V1,V2} ->
-	    {[V1,union,V2],Rest2}
-%	Other ->
-%	    throw(Other)
+	    {{union,V1,V2},Rest2}
     end.
 
 parse_UnionsRec([{'|',_}|Rest]) ->
@@ -925,12 +918,8 @@ parse_UnionsRec([{'|',_}|Rest]) ->
     case {InterSec,URec} of
 	{V1,[]} ->
 	    {V1,Rest3};
-	{{'SingleValue',V1},{'SingleValue',V2}} ->
-	    {{'SingleValue',ordsets:union(to_set(V1),to_set(V2))},Rest3};
-	{V1,V2} when is_list(V2) ->
-	    {[V1] ++ [union|V2],Rest3};
 	{V1,V2} ->
-	    {[V1,union,V2],Rest3}
+	    {{union,V1,V2},Rest3}
 	end;
 parse_UnionsRec([{'UNION',Info}|Rest]) ->
     parse_UnionsRec([{'|',Info}|Rest]);
@@ -943,13 +932,8 @@ parse_Intersections(Tokens) ->
     case {InterSec,IRec} of
 	{V1,[]} ->
 	    {V1,Rest2};
-	{{'SingleValue',V1},{'SingleValue',V2}} ->
-	    {{'SingleValue',
-	      ordsets:intersection(to_set(V1),to_set(V2))},Rest2};
-	{V1,V2} when is_list(V2) ->
-	    {[V1] ++ [intersection|V2],Rest2};
 	{V1,V2} ->
-	    {[V1,intersection,V2],Rest2}
+	    {{intersection,V1,V2},Rest2}
     end.
 
 %% parse_IElemsRec(Tokens) -> Result
@@ -958,15 +942,10 @@ parse_IElemsRec([{'^',_}|Rest]) ->
     {InterSec,Rest2} = parse_IntersectionElements(Rest),
     {IRec,Rest3} = parse_IElemsRec(Rest2),
     case {InterSec,IRec} of
-	{{'SingleValue',V1},{'SingleValue',V2}} ->
-	    {{'SingleValue',
-	      ordsets:intersection(to_set(V1),to_set(V2))},Rest3};
 	{V1,[]} ->
-	    {V1,Rest3};
-	{V1,V2} when is_list(V2) ->
-	    {[V1] ++ [intersection|V2],Rest3};
+	    {V1,Rest2};
 	{V1,V2} ->
-	    {[V1,intersection,V2],Rest3}
+	    {{intersection,V1,V2},Rest3}
     end;
 parse_IElemsRec([{'INTERSECTION',Info}|Rest]) ->
     parse_IElemsRec([{'^',Info}|Rest]);
@@ -1589,14 +1568,11 @@ parse_ObjectSet(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,'{']}}).
 
-parse_ObjectSetSpec([{'...',_}|Rest]) ->
-    case Rest of
-	[{',',_}|Rest2] ->
-	    {Elements,Rest3}=parse_ElementSetSpecs(Rest2),
-	    {{[],Elements},Rest3};
-	_ ->
-	    {['EXTENSIONMARK'],Rest}
-    end;
+parse_ObjectSetSpec([{'...',_},{',',_}|Tokens0]) ->
+    {Elements,Tokens} = parse_ElementSetSpec(Tokens0),
+    {{element_set,empty,Elements},Tokens};
+parse_ObjectSetSpec([{'...',_}|Tokens]) ->
+    {{element_set,empty,empty},Tokens};
 parse_ObjectSetSpec(Tokens) ->
     parse_ElementSetSpecs(Tokens).
 
@@ -1885,7 +1861,7 @@ parse_TableConstraint(Tokens) ->
 
 parse_SimpleTableConstraint(Tokens) ->
     {ObjectSet,Rest} = parse_ObjectSet(Tokens),
-    {{simpletable,ObjectSet},Rest}.
+    {{element_set,{simpletable,ObjectSet},none},Rest}.
 
 parse_ComponentRelationConstraint([{'{',_}|Rest]) ->
     {ObjectSet,Rest2} = parse_DefinedObjectSet(Rest),
@@ -1894,7 +1870,10 @@ parse_ComponentRelationConstraint([{'{',_}|Rest]) ->
 	    {AtNot,Rest4} = parse_AtNotationList(Rest3,[]),
 	    case Rest4 of
 		[{'}',_}|Rest5] ->
-		    {{componentrelation,ObjectSet,AtNot},Rest5};
+		    Ret = {element_set,
+			   {componentrelation,ObjectSet,AtNot},
+			   none},
+		    {Ret,Rest5};
 		[H|_T]  ->
 		    throw({asn1_error,{get_line(H),get(asn1_module),
 				       [got,get_token(H),expected,'}']}})
@@ -2332,12 +2311,6 @@ check_rest([]) ->
     true;
 check_rest(_) ->
     false.
-
-
-to_set(V) when is_list(V) ->
-	ordsets:from_list(V);
-to_set(V) ->
-	ordsets:from_list([V]).
 
 parse_AlternativeTypeLists(Tokens) ->
     parse_AlternativeTypeLists(Tokens,[]).
@@ -3062,95 +3035,20 @@ parse_PresenceConstraint(Tokens) ->
     {asn1_empty,Tokens}.
 
 
-% merge_constraints({Rlist,ExtList}) -> % extensionmarker in constraint
-%     {merge_constraints(Rlist,[],[]),
-%      merge_constraints(ExtList,[],[])};
-
-%% An arg with a constraint with extension marker will look like
-%% [#constraint{c={Root,Ext}}|Rest]
-	
 merge_constraints(Clist) ->
     merge_constraints(Clist, [], []).
 
-merge_constraints([Ch|Ct],Cacc, Eacc) ->
-    NewEacc = case Ch#constraint.e of
-		  undefined -> Eacc;
-		  E -> [E|Eacc]
-	      end,
-    merge_constraints(Ct,[fixup_constraint(Ch#constraint.c)|Cacc],NewEacc);
-
-merge_constraints([],Cacc,[]) ->
-%%    lists:flatten(Cacc);
+merge_constraints([#constraint{c=C,e=E}|T], Cacc0, Eacc0) ->
+    Eacc = case E of
+	       undefined -> Eacc0;
+	       E -> [E|Eacc0]
+	   end,
+    Cacc = [C|Cacc0],
+    merge_constraints(T, Cacc, Eacc);
+merge_constraints([], Cacc, []) ->
     lists:reverse(Cacc);
-merge_constraints([],Cacc,Eacc) ->
-%%    lists:flatten(Cacc) ++ [{'Errors',Eacc}].
-    lists:reverse(Cacc) ++ [{'Errors',Eacc}].
-
-
-fixup_constraint(C) ->
-    case C of
-	{'SingleValue',SubType} when element(1,SubType) == 'ContainedSubtype' ->
-	    SubType;
-	{'SingleValue',V} when is_list(V) ->
-	    C;
-	%%	    [C,{'ValueRange',{lists:min(V),lists:max(V)}}]; 
-	%% bug, turns wrong when an element in V is a reference to a defined value
-	{'PermittedAlphabet',{'SingleValue',V}} when is_list(V) ->
-	    %%sort and remove duplicates
-	    V2 = {'SingleValue',
-		  ordsets:from_list(lists:flatten(V))},
-	    {'PermittedAlphabet',V2};
-	{'PermittedAlphabet',{'SingleValue',V}} ->
-	    V2 = {'SingleValue',[V]},
-	    {'PermittedAlphabet',V2};
-	{'SizeConstraint',Sc} ->
-	    {'SizeConstraint',fixup_size_constraint(Sc)};
-	
-	List when is_list(List) ->  %% In This case maybe a union or intersection
-	    [fixup_constraint(Xc)||Xc <- List];
-	Other ->
-	    Other
-    end.
-
-fixup_size_constraint({'ValueRange',{Lb,Ub}}) ->
-	{Lb,Ub};
-fixup_size_constraint({{'ValueRange',R},[]}) ->
-	{R,[]};
-fixup_size_constraint({[],{'ValueRange',R}}) ->
-	{[],R};
-fixup_size_constraint({{'ValueRange',R1},{'ValueRange',R2}}) ->
-	{R1,R2};
-fixup_size_constraint({'SingleValue',[Sv]}) ->
-	fixup_size_constraint({'SingleValue',Sv});
-fixup_size_constraint({'SingleValue',L}) when is_list(L) ->
-	ordsets:from_list(L);
-fixup_size_constraint({'SingleValue',L}) ->
-	{L,L};
-fixup_size_constraint({'SizeConstraint',C}) ->
-    %% this is a second SIZE
-    fixup_size_constraint(C);
-fixup_size_constraint({C1,C2}) ->
-    %% this is with extension marks
-    {turn2vr(fixup_size_constraint(C1)), extension_size(fixup_size_constraint(C2))};
-fixup_size_constraint(CList) when is_list(CList) ->
-    [fixup_constraint(Xc)||Xc <- CList].
-   
-turn2vr(L) when is_list(L) ->
-    L2 =[X||X<-ordsets:from_list(L),is_integer(X)],
-    case L2 of
-	[H|_] ->
-	    {H,hd(lists:reverse(L2))};
-	_ ->
-	    L
-    end;
-turn2vr(VR) ->
-    VR.
-extension_size({I,I}) ->
-    [I];
-extension_size({I1,I2}) ->
-    [I1,I2];
-extension_size(C) ->
-    C.
+merge_constraints([], Cacc, Eacc) ->
+    lists:reverse(Cacc) ++ [{element_set,{'Errors',Eacc},none}].
 
 get_line({_,Pos,Token}) when is_integer(Pos),is_atom(Token) ->
     Pos;

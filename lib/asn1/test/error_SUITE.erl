@@ -124,6 +124,7 @@ constraints(Config) ->
 	   "  II-1 ::= INTEGER (holder-1.&obj)\n"
 	   "  II-2 ::= INTEGER ('1234'H<..20)\n"
 	   "  II-3 ::= INTEGER (1..<\"abc\")\n"
+	   "  II-4 ::= INTEGER (10..1)\n"
 
 	   "  HOLDER ::= CLASS {\n"
 	   "    &obj HOLDER OPTIONAL\n"
@@ -136,7 +137,8 @@ constraints(Config) ->
      [
       {structured_error,{M,2},asn1ct_check,illegal_value},
       {structured_error,{M,3},asn1ct_check,illegal_integer_value},
-      {structured_error,{M,4},asn1ct_check,illegal_integer_value}
+      {structured_error,{M,4},asn1ct_check,illegal_integer_value},
+      {structured_error,{M,5},asn1ct_check,reversed_range}
      ]} = run(P, Config),
     ok.
 
@@ -595,13 +597,14 @@ table_constraints(Config) ->
 	   "  }\n"
 
 	   "  Seq-2 ::= SEQUENCE {\n"
-	   "    contentType INTEGER({Contents}),\n"
+	   "    contentType INTEGER,\n"
 	   "    content CONTENTS.&Type({Contents}{@contentType})\n"
 	   "  }\n"
 
+	   "  Int ::= INTEGER ({1})\n"
+
 	   "  Seq-3 ::= SEQUENCE {\n"
-	   "    contentType INTEGER,\n"
-	   "    content CONTENTS.&Type({Contents}{@contentType})\n"
+	   "    contentType CONTENTS.&id({1})\n"
 	   "  }\n"
 
 	   "Contents CONTENTS ::= {\n"
@@ -619,7 +622,10 @@ table_constraints(Config) ->
        {missing_ocft,contentType}},
       {structured_error,
        {M,10},asn1ct_check,
-       {missing_ocft,contentType}}
+       illegal_table_constraint},
+      {structured_error,
+       {M,11},asn1ct_check,
+       invalid_table_constraint}
      ]} = run(P, Config),
     ok.
 

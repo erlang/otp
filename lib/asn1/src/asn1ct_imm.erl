@@ -499,6 +499,8 @@ per_dec_enumerated_fix_list([], Tail, _) -> Tail.
 
 per_dec_integer_1([{'SingleValue',Value}], _Aligned) ->
     {value,Value};
+per_dec_integer_1([{'ValueRange',{'MIN',_}}], Aligned) ->
+    per_dec_unconstrained(Aligned);
 per_dec_integer_1([{'ValueRange',{Lb,'MAX'}}], Aligned) when is_integer(Lb) ->
     per_decode_semi_constrained(Lb, Aligned);
 per_dec_integer_1([{'ValueRange',{Lb,Ub}}], Aligned) when is_integer(Lb),
@@ -1094,6 +1096,9 @@ per_enc_integer_1(Val0, [Constr], Aligned) ->
 
 per_enc_integer_2(Val, {'SingleValue',Sv}, Aligned) when is_integer(Sv) ->
     per_enc_constrained(Val, Sv, Sv, Aligned);
+per_enc_integer_2(Val, {'ValueRange',{'MIN',Ub}}, Aligned)
+  when is_integer(Ub) ->
+    {[],{lt,Val,Ub+1},per_enc_unconstrained(Val, Aligned)};
 per_enc_integer_2(Val0, {'ValueRange',{Lb,'MAX'}}, Aligned)
   when is_integer(Lb) ->
     {Prefix,Val} = sub_lb(Val0, Lb),

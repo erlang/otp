@@ -81,7 +81,7 @@ maxNrOfCellPortionsPerCell-1 INTEGER ::= 35
 CellPortionID	::= INTEGER (0..maxNrOfCellPortionsPerCell-1,...)
 
 -- OTP-6763
-T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3))) -- Dubuisson 268
+T ::=  IA5String (SIZE (1|2), ..., SIZE (1|2|3)) -- Dubuisson 268
 T2 ::= IA5String (SIZE (1|2, ..., 3)) -- equal with T
 
 -- OTP-8046

@@ -841,6 +841,18 @@ check_object(S, _, #'ObjectSet'{class=ClassRef0,set=Set0}=ObjSet0) ->
     Gen = gen_incl_set(S, Set, ClassDef),
     ObjSet#'ObjectSet'{class=ClassRef,gen=Gen}.
 
+check_object_set({element_set,Root0,Ext0}, OSI0) ->
+    OSI = case Ext0 of
+	      none -> OSI0;
+	      _ -> OSI0#osi{ext=true}
+	  end,
+    case {Root0,Ext0} of
+	{empty,empty} -> {[],OSI};
+	{empty,Ext} -> check_object_set(Ext, OSI);
+	{Root,none} -> check_object_set(Root, OSI);
+	{Root,empty} -> check_object_set(Root, OSI);
+	{Root,Ext} -> check_object_set_list([Root,Ext], OSI)
+    end;
 check_object_set(#'Externaltypereference'{}=Ref, #osi{st=S}=OSI) ->
     {_,#typedef{typespec=OSdef}=OS} = get_referenced_type(S, Ref),
     ObjectSet = check_object(S, OS, OSdef),
@@ -859,8 +871,6 @@ check_object_set({'EXCEPT',Incl0,Excl0}, OSI) ->
     Incl5 = sofs:to_external(Incl4),
     Incl = [Obj || {_,Obj} <- Incl5],
     {Incl,OSI};
-check_object_set('EXTENSIONMARK', OSI) ->
-    {[],OSI#osi{ext=true}};
 check_object_set({object,_,_}=Obj0, OSI) ->
     #osi{st=S,classref=ClassRef} = OSI,
     #'Object'{def=Def} =
@@ -898,13 +908,8 @@ check_object_set({pv,{simpledefinedvalue,DefinedObject},Params}=PV, OSI) ->
 			       def={po,{object,DefinedObject},Args}}),
     ObjList = check_object_set_mk(Def, OSI),
     {ObjList,OSI};
-check_object_set({'SingleValue',Set}, OSI) when is_list(Set) ->
-    check_object_set_list(Set, OSI);
 check_object_set({'SingleValue',Val}, OSI) ->
     check_object_set(Val, OSI);
-check_object_set({{'SingleValue',Root},Ext}, OSI) ->
-    Set = merge_sets(Root, Ext),
-    check_object_set_list(Set, OSI#osi{ext=true});
 check_object_set({'ValueFromObject',{object,Object},FieldNames}, OSI) ->
     #osi{st=S} = OSI,
     case extract_field(S, Object, FieldNames) of
@@ -916,11 +921,10 @@ check_object_set({'ValueFromObject',{object,Object},FieldNames}, OSI) ->
     end;
 check_object_set(#type{def=Def}, OSI) ->
     check_object_set(Def, OSI);
-check_object_set(union, OSI) ->
-    {[],OSI};
-check_object_set({Root,Ext}, OSI) ->
-    Set = merge_sets(Root, Ext),
-    check_object_set_list(Set, OSI#osi{ext=true}).
+check_object_set({union,A0,B0}, OSI0) ->
+    {A,OSI1} = check_object_set(A0, OSI0),
+    {B,OSI} = check_object_set(B0, OSI1),
+    {A++B,OSI}.
 
 check_object_set_list([H|T], OSI0) ->
     {Set0,OSI1} = check_object_set(H, OSI0),
@@ -1068,14 +1072,6 @@ object_to_check(#valuedef{type=ClassName,value=ObjectRef}) ->
     %% If the object definition is parsed as an object the ClassName
     %% is parsed as a type
     #'Object'{classname=ClassName#type.def,def=ObjectRef}.
-
-merge_sets(Root, Ext) ->
-    case {is_list(Root),is_list(Ext)} of
-	{false,false} -> [Root,Ext];
-	{false,true} -> [Root|Ext];
-	{true,false} -> Root ++ [Ext];
-	{true,true} -> Root ++ Ext
-    end.
 
 check_referenced_object(S,ObjRef) 
   when is_record(ObjRef,'Externalvaluereference')->
@@ -1607,6 +1603,8 @@ match_syntax_external(#state{mname=Mname}=S0, Name, Ref0) ->
 	    {match,[{Name,Ref}]}
     end.
 
+match_syntax_objset(_S, {element_set,_,_}=Set, ClassDef) ->
+    make_objset(ClassDef, Set);
 match_syntax_objset(S, #'Externaltypereference'{}=Ref, _) ->
     {_,T} = get_referenced_type(S, Ref),
     T;
@@ -1614,10 +1612,6 @@ match_syntax_objset(S, #'Externalvaluereference'{}=Ref, _) ->
     {_,T} = get_referenced_type(S, Ref),
     T;
 match_syntax_objset(_, [_|_]=Set, ClassDef) ->
-    make_objset(ClassDef, Set);
-match_syntax_objset(_, {'SingleValue',_}=Set, ClassDef) ->
-    make_objset(ClassDef, Set);
-match_syntax_objset(_, {{'SingleValue',_},_}=Set, ClassDef) ->
     make_objset(ClassDef, Set);
 match_syntax_objset(S, {object,definedsyntax,Words}, ClassDef) ->
     case Words of
@@ -1784,8 +1778,7 @@ check_value(OldS,V) when is_record(V,typedef) ->
     #typedef{typespec=TS} = V,
     case TS of 
 	#'ObjectSet'{class=ClassRef} ->
-	    {RefM,TSDef} = get_referenced_type(OldS,ClassRef),
-	    %%IsObjectSet(TSDef);
+	    {_RefM,TSDef} = get_referenced_type(OldS, ClassRef),
 	    case TSDef of
 		#classdef{} -> throw({objectsetdef});
 		#typedef{typespec=#type{def=Eref}} when 
@@ -1793,14 +1786,12 @@ check_value(OldS,V) when is_record(V,typedef) ->
 		    %% This case if the class reference is a defined
 		    %% reference to class
 		    check_value(OldS,V#typedef{typespec=TS#'ObjectSet'{class=Eref}});
-		#typedef{} ->
+		#typedef{typespec=HostType} ->
 		    % an ordinary value set with a type in #typedef.typespec
-		    ValueSet = TS#'ObjectSet'.set,
-		    Type=check_type(OldS,TSDef,TSDef#typedef.typespec),
-		    Value = check_value(OldS,#valuedef{type=Type,
-						       value=ValueSet,
-						       module=RefM}),
-		    {valueset,Type#type{constraint=Value#valuedef.value}}
+		    ValueSet0 = TS#'ObjectSet'.set,
+		    Constr = check_constraints(OldS, HostType, [ValueSet0]),
+		    Type = check_type(OldS,TSDef,TSDef#typedef.typespec),
+		    {valueset,Type#type{constraint=Constr}}
 	    end;
 	_ ->
 	    throw({objectsetdef})
@@ -2693,9 +2684,8 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		case asn1ct_gen:prim_bif(asn1ct_gen:get_inner(RefType#type.def)) of
 		    true ->
 			%% Here we expand to a built in type and inline it
-			Constr2 = check_constraints(S, RefType, Constr),
-			NewC = constraint_merge(S, Constr2 ++
-						RefType#type.constraint),
+			NewC = check_constraints(S, RefType, Constr ++
+						     RefType#type.constraint),
 			TempNewDef#newt{
 			  type = RefType#type.def, 
 			  tag = merge_tags(Ct,RefType#type.tag),
@@ -2934,8 +2924,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		TempNewDef#newt{tag=merge_tags(Tag,CheckedT#type.tag),
 				type=CheckedT#type.def};
 
-	    {valueset,Vtype} ->
-		TempNewDef#newt{type={valueset,check_type(S,Type,Vtype)}};
 	    {'SelectionType',Name,T} ->
 		CheckedT = check_selectiontype(S,Name,T),
 		TempNewDef#newt{tag=merge_tags(Tag,CheckedT#type.tag),
@@ -3062,8 +3050,10 @@ maybe_open_type(S, #objectclass{fields=Fs}=ClassSpec,
 	    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 					type=Type};
 	{typefieldreference,_} ->
+	    %% Note: The constraints have not been checked yet,
+	    %% so we must use a special lookup routine.
 	    case {catch get_unique_fieldname(S,#classdef{typespec=ClassSpec}),
-		  asn1ct_gen:get_constraint(Constr, componentrelation)} of
+		  get_componentrelation(Constr)} of
 		{Tuple,_} when tuple_size(Tuple) =:= 3 ->
 		    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 						type='ASN1_OPEN_TYPE'};
@@ -3075,6 +3065,13 @@ maybe_open_type(S, #objectclass{fields=Fs}=ClassSpec,
 						type=Type}
 	    end
     end.
+
+get_componentrelation([{element_set,{componentrelation,_,_}=Cr,none}|_]) ->
+    Cr;
+get_componentrelation([_|T]) ->
+    get_componentrelation(T);
+get_componentrelation([]) ->
+    no.
 
 is_open_type(#'ObjectClassFieldType'{type='ASN1_OPEN_TYPE'}) ->
     true;
@@ -3303,15 +3300,438 @@ parse_objectset(Set) ->
     Set.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% check_constraints/2
-%%    
-check_constraints(S, T, C) when is_list(C) ->
-    check_constraints(S, T, C, []).
+%%
+%% Check and simplify constraints.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-resolve_tuple_or_list(S, HostType, List) when is_list(List) ->
-    [resolve_value(S, HostType, X) || X <- List];
-resolve_tuple_or_list(S, HostType, {Lb,Ub}) ->
-    {resolve_value(S, HostType, Lb),resolve_value(S, HostType, Ub)}.
+check_constraints(_S, _HostType, []) ->
+    [];
+check_constraints(S, HostType0, [_|_]=Cs0) ->
+    HostType = get_real_host_type(HostType0, Cs0),
+    Cs1 = top_level_intersections(Cs0),
+    Cs2 = [coalesce_constraints(C) || C <- Cs1],
+    {_,Cs3} = filter_extensions(Cs2),
+    Cs = simplify_element_sets(S, HostType, Cs3),
+    finish_constraints(Cs).
+
+get_real_host_type(HostType, Cs) ->
+    case lists:keyfind(ocft, 1, Cs) of
+	false -> HostType;
+	{_,OCFT} -> HostType#type{def=OCFT}
+    end.
+
+top_level_intersections([{element_set,{intersection,_,_}=C,none}]) ->
+    top_level_intersections_1(C);
+top_level_intersections(Cs) ->
+    Cs.
+
+top_level_intersections_1({intersection,A,B}) ->
+    [{element_set,A,none}|top_level_intersections_1(B)];
+top_level_intersections_1(Other) ->
+    [{element_set,Other,none}].
+
+coalesce_constraints({element_set,
+		  {Tag,{element_set,A,_}},
+		  {Tag,{element_set,B,_}}}) ->
+    %% (SIZE (C1), ..., (SIZE (C2)) => (SIZE (C1, ..., C2))
+    {element_set,{Tag,{element_set,A,B}},none};
+coalesce_constraints(Other) ->
+    Other.
+
+%% Remove all outermost extensions except the last.
+
+filter_extensions([H0|T0]) ->
+    case filter_extensions(T0) of
+	{true,T} ->
+	    H = remove_extension(H0),
+	    {true,[H|T]};
+	{false,T} ->
+	    {any_extension(H0),[H0|T]}
+    end;
+filter_extensions([]) ->
+    {false,[]}.
+
+remove_extension({element_set,Root,_}) ->
+    {element_set,remove_extension(Root),none};
+remove_extension(Tuple) when is_tuple(Tuple) ->
+    L = [remove_extension(El) || El <- tuple_to_list(Tuple)],
+    list_to_tuple(L);
+remove_extension(Other) -> Other.
+
+any_extension({element_set,_,Ext}) when Ext =/= none ->
+    true;
+any_extension(Tuple) when is_tuple(Tuple) ->
+    any_extension_tuple(1, Tuple);
+any_extension(_) -> false.
+
+any_extension_tuple(I, T) when I =< tuple_size(T) ->
+    any_extension(element(I, T)) orelse any_extension_tuple(I+1, T);
+any_extension_tuple(_, _) -> false.
+
+simplify_element_sets(S, HostType, [{element_set,R0,E0}|T0]) ->
+    R1 = simplify_element_set(S, HostType, R0),
+    E1 = simplify_element_set(S, HostType, E0),
+    case simplify_element_sets(S, HostType, T0) of
+	[{element_set,R2,E2}] ->
+	    [{element_set,cs_intersection(S, R1, R2),
+	      cs_intersection(S, E1, E2)}];
+	L when is_list(L) ->
+	    [{element_set,R1,E1}|L]
+    end;
+simplify_element_sets(S, HostType, [H|T]) ->
+    [H|simplify_element_sets(S, HostType, T)];
+simplify_element_sets(_, _, []) ->
+    [].
+
+simplify_element_set(_S, _HostType, empty) ->
+    {set,[]};
+simplify_element_set(S, HostType, {'SingleValue',Vs0}) when is_list(Vs0) ->
+    Vs1 = [resolve_value(S, HostType, V) || V <- Vs0],
+    Vs = make_constr_set_vs(Vs1),
+    simplify_element_set(S, HostType, Vs);
+simplify_element_set(S, HostType, {'SingleValue',V0}) ->
+    V1 = resolve_value(S, HostType, V0),
+    V = {set,[{range,V1,V1}]},
+    simplify_element_set(S, HostType, V);
+simplify_element_set(S, HostType, {'ValueRange',{Lb0,Ub0}}) ->
+    Lb = resolve_value(S, HostType, Lb0),
+    Ub = resolve_value(S, HostType, Ub0),
+    V = make_constr_set(S, Lb, Ub),
+    simplify_element_set(S, HostType, V);
+simplify_element_set(S, HostType, {'ALL-EXCEPT',Set0}) ->
+    Set = simplify_element_set(S, HostType, Set0),
+    {'ALL-EXCEPT',Set};
+simplify_element_set(S, HostType, {intersection,A0,B0}) ->
+    A = simplify_element_set(S, HostType, A0),
+    B = simplify_element_set(S, HostType, B0),
+    cs_intersection(S, A, B);
+simplify_element_set(S, HostType, {union,A0,B0}) ->
+    A = simplify_element_set(S, HostType, A0),
+    B = simplify_element_set(S, HostType, B0),
+    cs_union(S, A, B);
+simplify_element_set(S, HostType, {simpletable,{element_set,Type,_}}) ->
+    check_simpletable(S, HostType, Type);
+simplify_element_set(S, _, {componentrelation,R,Id}) ->
+    check_componentrelation(S, R, Id);
+simplify_element_set(S, HostType, {Tag,{element_set,_,_}=El0}) ->
+    [El1] = simplify_element_sets(S, HostType, [El0]),
+    {Tag,El1};
+simplify_element_set(S, HostType, #type{}=Type) ->
+    simplify_element_set_type(S, HostType, Type);
+simplify_element_set(_, _, C) ->
+    C.
+
+simplify_element_set_type(S, HostType, #type{def=Def0}=Type0) ->
+    #'Externaltypereference'{} = Def0,		%Assertion.
+    case get_referenced_type(S, Def0) of
+	{_,#valuedef{checked=false,value={valueset,Vs0}}} ->
+	    [Vs1] = simplify_element_sets(S, HostType, [Vs0]),
+	    case Vs1 of
+		{element_set,Set,none} ->
+		    Set;
+		{element_set,Set,{set,[]}} ->
+		    Set
+	    end;
+	{_,{valueset,#type{def=#'Externaltypereference'{}}=Type}} ->
+	    simplify_element_set_type(S, HostType, Type);
+	_ ->
+	    case HostType of
+		#type{def=#'ObjectClassFieldType'{}} ->
+		    %% Open type.
+		    #type{def=Def} = check_type(S, HostType, Type0),
+		    Def;
+		_ ->
+		    #type{constraint=Cs} = check_type(S, HostType, Type0),
+		    C = convert_back(Cs),
+		    simplify_element_set(S, HostType, C)
+	    end
+    end.
+
+convert_back([H1,H2|T]) ->
+   {intersection,H1,convert_back([H2|T])};
+convert_back([H]) ->
+    H;
+convert_back([]) ->
+    none.
+
+check_simpletable(S, HostType, Type) ->
+    case HostType of
+	#type{def=#'ObjectClassFieldType'{}} ->
+	    ok;
+	_ ->
+	    %% Table constraints may only be applied to
+	    %% CLASS.&field constructs.
+	    asn1_error(S, illegal_table_constraint)
+    end,
+    Def = case Type of
+	      #type{def=D} -> D;
+	      {'SingleValue',#'Externalvaluereference'{}=ObjRef} ->
+		  ObjRef;
+	      _ ->
+		  asn1_error(S, invalid_table_constraint)
+	  end,
+    C = match_parameter(S, Def),
+    case C of
+	#'Externaltypereference'{} ->
+	    ERef = check_externaltypereference(S, C),
+	    {simpletable,ERef#'Externaltypereference'.type};
+	#'Externalvaluereference'{} ->
+	    %% This is an object set with a referenced object
+	    {_,TorVDef} = get_referenced_type(S, C),
+	    Set = case TorVDef of
+		      #typedef{typespec=#'Object'{classname=ClassName}} ->
+			  #'ObjectSet'{class=ClassName,
+				       set={'SingleValue',C}};
+		      #valuedef{type=#type{def=ClassDef},
+				value=#'Externalvaluereference'{}=Obj} ->
+			  %% an object might reference another object
+			  #'ObjectSet'{class=ClassDef,
+				       set={'SingleValue',Obj}}
+		  end,
+	    {simpletable,check_object(S, Type, Set)};
+	{'ValueFromObject',{_,Object},FieldNames} ->
+	    %% This is an ObjectFromObject.
+	    {simpletable,extract_field(S, Object, FieldNames)}
+    end.
+
+check_componentrelation(S, {objectset,Opos,Objset0}, Id) ->
+    %% Objset is an 'Externaltypereference' record, since Objset is
+    %% a DefinedObjectSet.
+    ObjSet = match_parameter(S, Objset0),
+    Ext = check_externaltypereference(S, ObjSet),
+    {componentrelation,{objectset,Opos,Ext},Id}.
+
+%%%
+%%% Internal set representation.
+%%%
+%%% We represent sets as a union of strictly disjoint ranges:
+%%%
+%%%   {set,[Range]}
+%%%
+%%% A range is represented as:
+%%%
+%%%   Range = {a_range,UpperBound} | {range,LowerBound,UpperBound}
+%%%
+%%% We don't use the atom 'MIN' to represent MIN, because atoms
+%%% compare higher than integer. Instead we use {a_range,UpperBound}
+%%% to represent MIN..UpperBound. We represent MAX as 'MAX' because
+%%% 'MAX' compares higher than any integer.
+%%%
+%%% The ranges are sorted in term order. The ranges must not overlap
+%%% or be adjacent to each other. This invariant is established when
+%%% creating sets, and maintained by the intersection and union
+%%% operators.
+%%%
+%%% Example of invalid set representaions:
+%%%
+%%%   [{range,0,10},{range,5,10}]    %Overlapping ranges
+%%%   [{range,0,5},{range,6,10}]     %Adjancent ranges
+%%%   [{range,10,20},{a_range,100}]  %Not sorted
+%%%
+
+make_constr_set(_, 'MIN', Ub) ->
+    {set,[{a_range,make_constr_set_val(Ub)}]};
+make_constr_set(_, Lb, Ub) when Lb =< Ub ->
+    {set,[{range,make_constr_set_val(Lb),
+	   make_constr_set_val(Ub)}]};
+make_constr_set(S, _, _) ->
+    asn1_error(S, reversed_range).
+
+make_constr_set_val([C]) when is_integer(C) -> C;
+make_constr_set_val(Val) -> Val.
+
+make_constr_set_vs(Vs) ->
+    {set,make_constr_set_vs_1(Vs)}.
+
+make_constr_set_vs_1([]) ->
+    [];
+make_constr_set_vs_1([V]) ->
+    [{range,V,V}];
+make_constr_set_vs_1([V0|Vs]) ->
+    V1 = make_constr_set_vs_1(Vs),
+    range_union([{range,V0,V0}], V1).
+
+%%%
+%%% Set operators.
+%%%
+
+cs_intersection(_S, Other, none) ->
+    Other;
+cs_intersection(_S, none, Other) ->
+    Other;
+cs_intersection(_S, {set,SetA}, {set,SetB}) ->
+    {set,range_intersection(SetA, SetB)};
+cs_intersection(_S, A, B) ->
+    {intersection,A,B}.
+
+range_intersection([], []) ->
+    [];
+range_intersection([_|_], []) ->
+    [];
+range_intersection([], [_|_]) ->
+    [];
+range_intersection([H1|_]=A, [H2|_]=B) when H1 > H2 ->
+    range_intersection(B, A);
+range_intersection([H1|T1], [H2|T2]=B) ->
+    %% Now H1 =< H2.
+    case {H1,H2} of
+	{{a_range,Ub0},{a_range,Ub1}} when Ub0 < Ub1 ->
+	    %% Ub0 =/= 'MAX'
+	    [H1|range_intersection(T1, [{range,Ub0+1,Ub1}|T2])];
+	{{a_range,_},{a_range,_}} ->
+	    %% Must be equal.
+	    [H1|range_intersection(T1, T2)];
+	{{a_range,Ub0},{range,Lb1,_Ub1}} when Ub0 < Lb1 ->
+	    %% No intersection.
+	    range_intersection(T1, B);
+	{{a_range,Ub0},{range,Lb1,Ub1}} when Ub0 < Ub1 ->
+	    %% Ub0 =/= 'MAX'
+	    [{range,Lb1,Ub0}|range_intersection(T1, [{range,Ub0+1,Ub1}|T2])];
+	{{a_range,Ub},{range,_Lb1,Ub}} ->
+	    %% The first range covers the second range, but does not
+	    %% go beyond. We handle this case specially because Ub may
+	    %% be 'MAX', and evaluating 'MAX'+1 will fail.
+	    [H2|range_intersection(T1, T2)];
+	{{a_range,Ub0},{range,_Lb1,Ub1}} ->
+	    %% Ub0 > Ub1, Ub1 =/= 'MAX'. The first range completely
+	    %% covers and extends beyond the second range.
+	    [H2|range_intersection([{range,Ub1+1,Ub0}|T1], T2)];
+	{{range,_Lb0,Ub0},{range,Lb1,_Ub1}} when Ub0 < Lb1 ->
+	    %% Lb0 < Lb1. No intersection.
+	    range_intersection(T1, B);
+	{{range,_Lb0,Ub0},{range,Lb1,Ub1}} when Ub0 < Ub1 ->
+	    %% Ub0 >= Lb1, Ub0 =/= 'MAX'. Partial overlap.
+	    [{range,Lb1,Ub0}|range_intersection(T1, [{range,Ub0+1,Ub1}|T2])];
+	{{range,_Lb0,Ub},{range,_Lb1,Ub}} ->
+	    %% The first range covers the second range, but does not
+	    %% go beyond. We handle this case specially because Ub may
+	    %% be 'MAX', and evaluating 'MAX'+1 will fail.
+	    [H2|range_intersection(T1, T2)];
+	{{range,_Lb0,Ub0},{range,_Lb1,Ub1}} ->
+	    %% Ub1 =/= MAX. The first range completely covers and
+	    %% extends beyond the second.
+	    [H2|range_intersection([{range,Ub1+1,Ub0}|T1], T2)]
+    end.
+
+cs_union(_S, {set,SetA}, {set,SetB}) ->
+    {set,range_union(SetA, SetB)};
+cs_union(_S, A, B) ->
+    {union,A,B}.
+
+range_union(A, B) ->
+    range_union_1(lists:merge(A, B)).
+
+range_union_1([{a_range,Ub0},{a_range,Ub1}|T]) ->
+    range_union_1([{a_range,max(Ub0, Ub1)}|T]);
+range_union_1([{a_range,Ub0},{range,Lb1,Ub1}|T]) when Lb1-1 =< Ub0 ->
+    range_union_1([{a_range,max(Ub0, Ub1)}|T]);
+range_union_1([{a_range,_}=H|T]) ->
+    %% Ranges are disjoint.
+    [H|range_union_1(T)];
+range_union_1([{range,Lb0,Ub0},{range,Lb1,Ub1}|T]) when Lb1-1 =< Ub0 ->
+    range_union_1([{range,Lb0,max(Ub0, Ub1)}|T]);
+range_union_1([{range,_,_}=H|T]) ->
+    %% Ranges are disjoint.
+    [H|range_union_1(T)];
+range_union_1([]) ->
+    [].
+
+%%%
+%%% Finish up constrains, making them suitable for the back-ends.
+%%%
+%%% A 'PermittedAlphabet' (FROM) constraint will be reduced to:
+%%%
+%%%   {'SingleValue',[integer()]}
+%%%
+%%% A 'SizeConstraint' (SIZE) constraint will be reduced to:
+%%%
+%%%   {Lb,Ub}
+%%%
+%%% All other constraints will be reduced to:
+%%%
+%%%   {'SingleValue',[integer()]} | {'ValueRange',Lb,Ub}
+%%%
+
+finish_constraints(Cs) ->
+    finish_constraints_1(Cs, fun smart_collapse/1).
+
+finish_constraints_1([{element_set,{Tag,{element_set,_,_}=Set0},none}|T],
+		     Collapse0) ->
+    Collapse = collapse_fun(Tag),
+    case finish_constraints_1([Set0], Collapse) of
+	[] ->
+	    finish_constraints_1(T, Collapse0);
+	[Set] ->
+	    [{Tag,Set}|finish_constraints_1(T, Collapse0)]
+    end;
+finish_constraints_1([{element_set,{set,[{a_range,'MAX'}]},_}|T], Collapse) ->
+    finish_constraints_1(T, Collapse);
+finish_constraints_1([{element_set,{intersection,A0,B0},none}|T], Collapse) ->
+    A = {element_set,A0,none},
+    B = {element_set,B0,none},
+    finish_constraints_1([A,B|T], Collapse);
+finish_constraints_1([{element_set,Root,Ext}|T], Collapse) ->
+    case finish_constraint(Root, Ext, Collapse) of
+	none ->
+	    finish_constraints_1(T, Collapse);
+	Constr ->
+	    [Constr|finish_constraints_1(T, Collapse)]
+    end;
+finish_constraints_1([H|T], Collapse) ->
+    [H|finish_constraints_1(T, Collapse)];
+finish_constraints_1([], _) ->
+    [].
+
+finish_constraint({set,Root0}, Ext, Collapse) ->
+    case Collapse(Root0) of
+	none -> none;
+	Root -> finish_constraint(Root, Ext, Collapse)
+    end;
+finish_constraint(Root, Ext, _Collapse) ->
+    case Ext of
+	none -> Root;
+	_ -> {Root,[]}
+    end.
+
+collapse_fun('SizeConstraint') ->
+    fun size_constraint_collapse/1;
+collapse_fun('PermittedAlphabet') ->
+    fun single_value_collapse/1.
+
+single_value_collapse(V) ->
+    {'SingleValue',ordsets:from_list(single_value_collapse_1(V))}.
+
+single_value_collapse_1([{range,Lb,Ub}|T]) when is_integer(Lb),
+					      is_integer(Ub) ->
+    lists:seq(Lb, Ub) ++ single_value_collapse_1(T);
+single_value_collapse_1([]) ->
+    [].
+
+smart_collapse([{a_range,Ub}]) ->
+    {'ValueRange',{'MIN',Ub}};
+smart_collapse([{a_range,_}|T]) ->
+    {range,_,Ub} = lists:last(T),
+    {'ValueRange',{'MIN',Ub}};
+smart_collapse([{range,Lb,Ub}]) ->
+    {'ValueRange',{Lb,Ub}};
+smart_collapse([_|_]=L) ->
+    V = lists:foldr(fun({range,Lb,Ub}, A) ->
+			    seq(Lb, Ub) ++ A
+		    end, [], L),
+    {'SingleValue',V}.
+
+size_constraint_collapse([{range,0,'MAX'}]) ->
+    none;
+size_constraint_collapse(Root) ->
+    [{range,Lb,_}|_] = Root,
+    {range,_,Ub} = lists:last(Root),
+    {Lb,Ub}.
+
+seq(Same, Same) ->
+    [Same];
+seq(Lb, Ub) when is_integer(Lb), is_integer(Ub) ->
+    lists:seq(Lb, Ub).
 
 %%%-----------------------------------------
 %% If the constraint value is a defined value the valuename
@@ -3373,611 +3793,10 @@ resolve_namednumber_1(S, Name, NameList, Type) ->
     catch _:_ ->
 	    not_named
     end.
-    
-check_constraints(S, HostType, [{'ContainedSubtype',Type}|T], Acc) ->
-    {RefMod,CTDef} = get_referenced_type(S,Type#type.def),
-    NewS = S#state{module=load_asn1_module(S,RefMod),mname=RefMod,
-		   type=CTDef,tname=get_datastr_name(CTDef)},
-    CType = check_type(NewS,S#state.tname,CTDef#typedef.typespec),    
-    check_constraints(S, HostType, T, CType#type.constraint ++ Acc);
-check_constraints(S, HostType, [C0|T], Acc) ->
-    C = check_constraint(S, HostType, C0),
-    check_constraints(S, HostType, T, [C|Acc]);
-check_constraints(S, _, [], Acc) ->
-    constraint_merge(S,Acc).
 
-
-range_check(F={FixV,FixV}) ->
-%    FixV;
-    F;
-range_check(VR={Lb,Ub}) when Lb < Ub ->
-    VR;
-range_check(Err={_,_}) ->
-    throw({error,{asn1,{illegal_size_constraint,Err}}});
-range_check(Value) ->
-    Value.
-
-check_constraint(S, _HostType, #'Externaltypereference'{}=Ext) ->
-    check_externaltypereference(S, Ext);
-check_constraint(S, HostType, {'SizeConstraint',{Lb,Ub}})
-  when is_list(Lb); tuple_size(Lb) =:= 2 ->
-    NewLb = range_check(resolve_tuple_or_list(S, HostType, Lb)),
-    NewUb = range_check(resolve_tuple_or_list(S, HostType, Ub)),
-    {'SizeConstraint',{NewLb,NewUb}};
-check_constraint(S, HostType, {'SizeConstraint',{Lb,Ub}}) ->
-    case {resolve_value(S, HostType, Lb),resolve_value(S, HostType, Ub)} of
-	{FixV,FixV} ->
-	    {'SizeConstraint',FixV};
-	{Low,High} when Low < High ->
-	    {'SizeConstraint',{Low,High}};
-	Err ->
-	    throw({error,{asn1,{illegal_size_constraint,Err}}})
-    end;
-check_constraint(S, HostType, {'SizeConstraint',Lb}) ->
-    {'SizeConstraint',resolve_value(S, HostType, Lb)};
-check_constraint(S, HostType, {'SingleValue', L}) when is_list(L) ->
-    F = fun(A) -> resolve_value(S, HostType, A) end,
-    {'SingleValue',lists:sort(lists:map(F,L))};
-check_constraint(S,  HostType, {'SingleValue', V}) ->
-    {'SingleValue',resolve_value(S, HostType, V)};
-check_constraint(S, HostType, {'ValueRange', {Lb, Ub}}) ->
-    {'ValueRange',{resolve_value(S, HostType, Lb),
-		   resolve_value(S, HostType, Ub)}};
-%% In case of a constraint with extension marks like (1..Ub,...)
-check_constraint(S, HostType, {VR={'ValueRange', {_Lb, _Ub}},Rest}) ->
-    {check_constraint(S, HostType, VR),Rest};
-check_constraint(_S, _HostType, {'PermittedAlphabet',PA}) ->
-    {'PermittedAlphabet',permitted_alphabet_cnstr(PA)};
-check_constraint(S, HostType, {valueset,Type}) ->
-    {valueset,check_type(S, #typedef{typespec=HostType}, Type)};
-check_constraint(_S, _HostType, {simpletable,Type}=ST) when is_atom(Type) ->
-    %% An already checked constraint
-    ST;
-check_constraint(S, HostType, {simpletable,Type}) ->
-    Def = case Type of
-	      #type{def=D} -> D;
-	      {'SingleValue',ObjRef = #'Externalvaluereference'{}} ->
-		  ObjRef
-	  end,
-    C = match_parameter(S, Def),
-    case C of
-	#'Externaltypereference'{} ->
-	    ERef = check_externaltypereference(S,C),
-	    {simpletable,ERef#'Externaltypereference'.type};
-	{valueset,#type{def=ERef=#'Externaltypereference'{}}} -> % this is an object set
-	    {_,TDef} = get_referenced_type(S,ERef),
-	    case TDef#typedef.typespec of 
-		#'ObjectSet'{} ->
-		    check_object(S,TDef,TDef#typedef.typespec),
-		    {simpletable,ERef#'Externaltypereference'.type};
-		Err ->
-		    exit({error,{internal_error,Err}})
-	    end;
-	#'Externalvaluereference'{} ->
-	    %% This is an object set with a referenced object
-	    {_,TorVDef} = get_referenced_type(S,C),
-	    GetObjectSet = 
-		fun(#typedef{typespec=O}) when is_record(O,'Object') ->
-			#'ObjectSet'{class=O#'Object'.classname,
-				     set={'SingleValue',C}};
-		   (#valuedef{type=Cl,value=O}) 
-		   when is_record(O,'Externalvaluereference'),
-			is_record(Cl,type) ->
-			%% an object might reference another object
-			#'ObjectSet'{class=Cl#type.def,
-				     set={'SingleValue',O}};
-		   (Err) -> 
-			exit({error,{internal_error,simpletable_constraint,Err}})
-		end,
-	    ObjSet = GetObjectSet(TorVDef),
-	    {simpletable,check_object(S,Type,ObjSet)};
-	#'ObjectSet'{} ->
-	    io:format("ALERT: simpletable forbidden case!~n",[]),
-	    {simpletable,check_object(S,Type,C)};
-	{'ValueFromObject',{_,Object},FieldNames} ->
-	    %% This is an ObjectFromObject.
-	    {simpletable,extract_field(S, Object, FieldNames)};
-	_ -> 
-	    check_type(S, HostType, Type),%% this seems stupid.
-	    OSName = Def#'Externaltypereference'.type,
-	    {simpletable,OSName}
-    end;
-check_constraint(S, _HostType, {componentrelation,{objectset,Opos,Objset},Id}) ->
-    %% Objset is an 'Externaltypereference' record, since Objset is
-    %% a DefinedObjectSet.
-    RealObjset = match_parameter(S, Objset),
-    ObjSetRef =
-	case RealObjset of
-	    #'Externaltypereference'{} -> RealObjset;
-	    #type{def=#'Externaltypereference'{}} -> RealObjset#type.def;
-	    {valueset,OS = #type{def=#'Externaltypereference'{}}} -> OS#type.def
-	end,
-    Ext = check_externaltypereference(S,ObjSetRef),
-    {componentrelation,{objectset,Opos,Ext},Id};
-check_constraint(S, HostType, #type{}=Type) ->
-    #type{def=Def} = check_type(S, HostType, Type),
-    Def;
-check_constraint(S, HostType, C) when is_list(C) ->
-    [check_constraint(S, HostType, X) || X <- C];
-%% else keep the constraint unchanged
-check_constraint(_S, _HostType, Any) ->
-    Any.
-
-permitted_alphabet_cnstr(T) when is_tuple(T) ->
-    permitted_alphabet_cnstr([T]);
-permitted_alphabet_cnstr(L) when is_list(L) ->
-    VRexpand = fun({'ValueRange',{A,B}}) ->
-		       {'SingleValue',expand_valuerange(A,B)};
-		  (Other) ->
-		       Other
-	       end,
-    L2 = lists:map(VRexpand,L),
-    %% first perform intersection
-    L3 = permitted_alphabet_intersection(L2),
-    [Res] = permitted_alphabet_union(L3),
-    Res.
-
-expand_valuerange([A],[A]) ->
-    [A];
-expand_valuerange([A],[B]) when A < B ->
-    [A|expand_valuerange([A+1],[B])].
-
-permitted_alphabet_intersection(C) ->
-    permitted_alphabet_merge(C,intersection, []).
-
-permitted_alphabet_union(C) ->
-    permitted_alphabet_merge(C,union, []).
-
-permitted_alphabet_merge([],_,Acc) ->
-    lists:reverse(Acc);
-permitted_alphabet_merge([{'SingleValue',L1},
-			  UorI,
-			  {'SingleValue',L2}|Rest],UorI,Acc)
-  when is_list(L1),is_list(L2) ->
-    UI = ordsets:UorI([ordsets:from_list(L1),ordsets:from_list(L2)]),
-    permitted_alphabet_merge([{'SingleValue',UI}|Rest],UorI,Acc);
-permitted_alphabet_merge([C1|Rest],UorI,Acc) ->
-    permitted_alphabet_merge(Rest,UorI,[C1|Acc]).
-
-
-%% constraint_merge/2
-%% Compute the intersection of the outermost level of the constraint list.
-%% See Dubuisson second paragraph and fotnote on page 285.
-%% If constraints with extension are included in combined constraints. The 
-%% resulting combination will have the extension of the last constraint. Thus,
-%% there will be no extension if the last constraint is without extension.
-%% The rootset of all constraints are considered in the "outermoust 
-%% intersection". See section 13.1.2 in Dubuisson.
-constraint_merge(St, Cs0) ->
-    Cs = constraint_merge_1(St, Cs0),
-    normalize_cs(Cs).
-
-normalize_cs([{'SingleValue',[V]}|Cs]) ->
-    [{'SingleValue',V}|normalize_cs(Cs)];
-normalize_cs([{'SingleValue',[_|_]=L0}|Cs]) ->
-    [H|T] = L = lists:usort(L0),
-    [case is_range(H, T) of
-	 false -> {'SingleValue',L};
-	 true -> {'ValueRange',{H,lists:last(T)}}
-     end|normalize_cs(Cs)];
-normalize_cs([{'ValueRange',{Sv,Sv}}|Cs]) ->
-    [{'SingleValue',Sv}|normalize_cs(Cs)];
-normalize_cs([{'ValueRange',{'MIN','MAX'}}|Cs]) ->
-    normalize_cs(Cs);
-normalize_cs([{'SizeConstraint',C0}|Cs]) ->
-    case normalize_size_constraint(C0) of
-	none ->
-	    normalize_cs(Cs);
-	C ->
-	    [{'SizeConstraint',C}|normalize_cs(Cs)]
-    end;
-normalize_cs([H|T]) ->
-    [H|normalize_cs(T)];
-normalize_cs([]) -> [].
-
-%% Normalize a size constraint to make it non-ambiguous and
-%% easy to interpret for the backends.
-%%
-%% Returns one of the following terms:
-%%  {LowerBound,UpperBound}
-%%  {{LowerBound,UpperBound},[]}     % Extensible
-%%  none                             % Remove size constraint from list
-%%
-%% where:
-%%  LowerBound = integer()
-%%  UpperBound = integer() | 'MAX'
-
-normalize_size_constraint(Sv) when is_integer(Sv) ->
-    {Sv,Sv};
-normalize_size_constraint({Root,Ext}) when is_list(Ext) ->
-    {normalize_size_constraint(Root),[]};
-normalize_size_constraint({{_,_},Ext}) when is_integer(Ext) ->
-    normalize_size_constraint(Ext);
-normalize_size_constraint([H|T]) ->
-    {H,lists:last(T)};
-normalize_size_constraint({0,'MAX'}) ->
-    none;
-normalize_size_constraint({Lb,Ub}=Range)
-  when is_integer(Lb), is_integer(Ub) orelse Ub =:= 'MAX' ->
-    Range.
-
-is_range(Prev, [H|T]) when Prev =:= H - 1 -> is_range(H, T);
-is_range(_, [_|_]) -> false;
-is_range(_, []) -> true.
-
-constraint_merge_1(_S, [H]=C) when is_tuple(H) ->
-    C;
-constraint_merge_1(_S, []) ->
-    [];
-constraint_merge_1(S, C) ->
-    %% skip all extension but the last extension
-    C1 = filter_extensions(C),
-    %% perform all internal level intersections, intersections first
-    %% since they have precedence over unions
-    C2 = lists:map(fun(X)when is_list(X)->constraint_intersection(S,X);
-		      (X) -> X end,
-		   C1),
-    %% perform all internal level unions
-    C3 = lists:map(fun(X)when is_list(X)->constraint_union(S,X);
-		      (X) -> X end,
-		   C2),
-
-    %% now get intersection of the outermost level
-    %% get the least common single value constraint
-    SVs = get_constraints(C3,'SingleValue'),
-    CombSV = intersection_of_sv(S,SVs),
-    %% get the least common value range constraint
-    VRs = get_constraints(C3,'ValueRange'),
-    CombVR = intersection_of_vr(S,VRs),
-    %% get the least common size constraint
-    SZs = get_constraints(C3,'SizeConstraint'),
-    CombSZ = intersection_of_size(S,SZs),
-    RestC = ordsets:subtract(ordsets:from_list(C3),
-			     ordsets:from_list(SZs ++ VRs ++ SVs)),
-    %% get the least common combined constraint. That is the union of each
-    %% deep constraint and merge of single value and value range constraints.
-    %% FIXME: Removing 'intersection' from the flattened list essentially
-    %% means that intersections are converted to unions!
-    Cs = combine_constraints(S, CombSV, CombVR, CombSZ++RestC),
-    [X || X <- lists:flatten(Cs),
-	  X =/= intersection,
-	  X =/= union].
-
-%% constraint_union(S,C) takes a list of constraints as input and
-%% merge them to a union. Unions are performed when two
-%% constraints is found with an atom union between. 
-%% The list may be nested. Fix that later !!!
-constraint_union(_S,[]) ->
-    [];
-constraint_union(_S,C=[_E]) ->
-    C;
-constraint_union(S,C) when is_list(C) ->
-    case lists:member(union,C) of
-	true ->
-	    constraint_union1(S,C,[]);
-	_ ->
-	    C
-    end;
-%     SV = get_constraints(C,'SingleValue'),
-%     SV1 = constraint_union_sv(S,SV),
-%     VR = get_constraints(C,'ValueRange'),
-%     VR1 = constraint_union_vr(VR),
-%     RestC = ordsets:filter(fun({'SingleValue',_})->false;
-% 			      ({'ValueRange',_})->false;
-% 			      (_) -> true end,ordsets:from_list(C)),
-%     SV1++VR1++RestC;
-constraint_union(_S,C) ->
-    [C].
-
-constraint_union1(S, [{'ValueRange',{Lb1,Ub1}},union,
-		      {'ValueRange',{Lb2,Ub2}}|Rest], Acc) ->
-    AunionB = {'ValueRange',{c_min(Lb1, Lb2),max(Ub1, Ub2)}},
-    constraint_union1(S,  [AunionB|Rest], Acc);
-constraint_union1(S,[A={'SingleValue',_},union,B={'SingleValue',_}|Rest],Acc) ->
-    AunionB = constraint_union_sv(S,[A,B]),
-    constraint_union1(S,Rest,Acc ++ AunionB);
-constraint_union1(S,[A={'SingleValue',_},union,B={'ValueRange',_}|Rest],Acc) ->
-    AunionB = union_sv_vr(S,A,B),
-    constraint_union1(S, AunionB++Rest, Acc);
-constraint_union1(S,[A={'ValueRange',_},union,B={'SingleValue',_}|Rest],Acc) ->
-    AunionB = union_sv_vr(S,B,A),
-    constraint_union1(S, AunionB++Rest, Acc);
-constraint_union1(S,[union|Rest],Acc) -> %skip when unsupported constraints
-    constraint_union1(S,Rest,Acc);
-constraint_union1(S,[A|Rest],Acc) ->
-    constraint_union1(S,Rest,[A|Acc]);
-constraint_union1(_S,[],Acc) ->
-    Acc.
-
-constraint_union_sv(_S,SV) ->
-    Values=lists:map(fun({_,V})->V end,SV),
-    case ordsets:from_list(Values) of
-	[] -> [];
-	[N] -> [{'SingleValue',N}];
-	L -> [{'SingleValue',L}]
-    end.
-c_min('MIN', _) -> 'MIN';
-c_min(_, 'MIN') -> 'MIN';
-c_min(A, B) -> min(A, B).
-
-union_sv_vr(_S,{'SingleValue',SV},VR) 
-  when is_integer(SV) ->
-    union_sv_vr(_S,{'SingleValue',[SV]},VR);
-union_sv_vr(_S,{'SingleValue',SV},{'ValueRange',{VLb,VUb}}) 
-  when is_list(SV) ->
-    L = lists:sort(SV++[VLb,VUb]),
-    {Lb,L1} = case lists:member('MIN',L) of 
-		  true -> {'MIN',L--['MIN']}; % remove 'MIN' so it does not disturb
-		  false -> {hd(L),tl(L)}
-	      end,
-    Ub = case lists:member('MAX',L1) of
-	     true -> 'MAX';
-	     false -> lists:last(L1)
-	 end,
-    case SV of
-	[H] -> H;
-	_ -> SV
-    end,
-    %% for now we through away the Singlevalues so that they don't disturb
-    %% in the code generating phase (the effective Valuerange is already
-    %% calculated. If we want to keep the Singlevalues as well for
-    %% use in code gen phases we need to introduce a new representation
-    %% like {'ValueRange',{Lb,Ub},[ListOfRanges|AntiValues|Singlevalues]
-    %% These could be used to generate guards which allows only the specific
-    %% values , not the full range
-    [{'ValueRange',{Lb,Ub}}]. 
-
-		    
-%% get_constraints/2  
-%% Arguments are a list of constraints, which has the format {key,value},
-%% and a constraint type
-%% Returns a list of constraints only of the requested type or the atom
-%% 'no' if no such constraints were found
-get_constraints(L=[{CType,_}],CType) ->
-    L;
-get_constraints(C,CType) ->
-   keysearch_allwithkey(CType,1,C).
-
-%% keysearch_allwithkey(Key,Ix,L)
-%% Types:
-%% Key = is_atom()
-%% Ix = integer()
-%% L  = [TwoTuple]
-%% TwoTuple = [{atom(),term()}|...]
-%% Returns a List that contains all 
-%% elements from L that has a key Key as element Ix
-keysearch_allwithkey(Key,Ix,L) ->
-    lists:filter(fun(X) when is_tuple(X) ->
-			 case element(Ix,X) of
-			     Key -> true;
-			     _ -> false
-			 end;
-		    (_) -> false
-		 end, L).
-
-
-%% filter_extensions(C)
-%% takes a list of constraints as input and returns a list with the
-%% constraints and all extensions but the last are removed.
-filter_extensions([L]) when is_list(L) ->
-    [filter_extensions(L)];
-filter_extensions(C=[_H]) ->
-    C;
-filter_extensions(C) when is_list(C) ->
-    filter_extensions(C,[], []).
-
-filter_extensions([],Acc,[]) ->
-    Acc;
-filter_extensions([],Acc,[EC|ExtAcc]) ->
-    CwoExt = remove_extension(ExtAcc,[]),
-    CwoExt ++ [EC|Acc];
-filter_extensions([C={A,_E}|T],Acc,ExtAcc) when is_tuple(A) ->
-    filter_extensions(T,Acc,[C|ExtAcc]);
-filter_extensions([C={'SizeConstraint',{A,_B}}|T],Acc,ExtAcc) 
-  when is_list(A);is_tuple(A) ->
-    filter_extensions(T,Acc,[C|ExtAcc]);
-filter_extensions([C={'PermittedAlphabet',{{'SingleValue',_},E}}|T],Acc,ExtAcc)
-  when is_tuple(E); is_list(E) ->
-    filter_extensions(T,Acc,[C|ExtAcc]);
-filter_extensions([H|T],Acc,ExtAcc) ->
-    filter_extensions(T,[H|Acc],ExtAcc).
-
-remove_extension([],Acc) ->
-    Acc;
-remove_extension([{'SizeConstraint',{A,_B}}|R],Acc) ->
-    remove_extension(R,[{'SizeConstraint',A}|Acc]);
-remove_extension([{C,_E}|R],Acc) when is_tuple(C) ->
-    remove_extension(R,[C|Acc]);
-remove_extension([{'PermittedAlphabet',{A={'SingleValue',_},
-					E}}|R],Acc) 
-  when is_tuple(E);is_list(E) ->
-    remove_extension(R,[{'PermittedAlphabet',A}|Acc]).
-
-%% constraint_intersection(S,C) takes a list of constraints as input and
-%% performs intersections. Intersecions are performed when an 
-%% atom intersection is found between two constraints. 
-%% The list may be nested. Fix that later !!!
-constraint_intersection(_S,[]) ->
-    [];
-constraint_intersection(_S,C=[_E]) ->
-    C;
-constraint_intersection(S,C) when is_list(C) ->
-%    io:format("constraint_intersection: ~p~n",[C]),
-    case lists:member(intersection,C) of
-	true ->
-	    constraint_intersection1(S,C,[]);
-	_ ->
-	    C
-    end;
-constraint_intersection(_S,C) ->
-    [C].
-
-constraint_intersection1(S,[A,intersection,B|Rest],Acc) ->
-    AisecB = c_intersect(S,A,B),
-    constraint_intersection1(S, AisecB++Rest, Acc);
-constraint_intersection1(S,[A|Rest],Acc) ->
-    constraint_intersection1(S,Rest,[A|Acc]);
-constraint_intersection1(_, [], [C]) ->
-    C;
-constraint_intersection1(_,[],Acc) ->
-    lists:reverse(Acc).
-
-c_intersect(S,C1={'SingleValue',_},C2={'SingleValue',_}) ->
-    intersection_of_sv(S,[C1,C2]);
-c_intersect(S,C1={'ValueRange',_},C2={'ValueRange',_}) ->
-    intersection_of_vr(S,[C1,C2]);
-c_intersect(S,C1={'ValueRange',_},C2={'SingleValue',_}) ->
-    intersection_sv_vr(S,[C2],[C1]);
-c_intersect(S,C1={'SingleValue',_},C2={'ValueRange',_}) ->
-    intersection_sv_vr(S,[C1],[C2]);
-c_intersect(_S,C1,C2) ->
-    [C1,C2].
-
-%% combine_constraints(S,SV,VR,CComb)
-%% Types:
-%% S = is_record(state,S)
-%% SV = [] | [SVC]
-%% VR = [] | [VRC]
-%% CComb = [] | [Lists]
-%% SVC = {'SingleValue',integer()} | {'SingleValue',[integer(),...]}
-%% VRC = {'ValueRange',{Lb,Ub}}
-%% Lists = List of lists containing any constraint combination
-%% Lb = 'MIN' | integer()
-%% Ub = 'MAX' | integer()
-%% Returns a combination of the least common constraint among SV,VR and all
-%% elements in CComb
-combine_constraints(_S,[],VR,CComb) ->
-    VR ++ CComb;
-%    combine_combined_cnstr(S,VR,CComb);
-combine_constraints(_S,SV,[],CComb) ->
-    SV ++ CComb;
-%    combine_combined_cnstr(S,SV,CComb);
-combine_constraints(S,SV,VR,CComb) ->
-    C=intersection_sv_vr(S,SV,VR),
-    C ++ CComb.
-%    combine_combined_cnstr(S,C,CComb).
-
-intersection_sv_vr(_S,[C1={'SingleValue',SV}],[C2={'ValueRange',{_Lb,_Ub}}]) 
-  when is_integer(SV) ->
-    case is_int_in_vr(SV,C2) of
-	true -> [C1];
-	_ -> %%error({type,{"asn1 illegal constraint",C1,C2},S})
-	    %throw({error,{"asn1 illegal constraint",C1,C2}})
-	    %io:format("warning: could not analyze constraint ~p~n",[[C1,C2]]),
-	    [C1,C2]
-    end;
-intersection_sv_vr(_S,[C1={'SingleValue',SV}],[C2]) 
-  when is_list(SV) ->
-    case lists:filter(fun(X)->is_int_in_vr(X,C2) end,SV) of
-	[] ->
-	    %%error({type,{"asn1 illegal constraint",C1,C2},S});
-	    %throw({error,{"asn1 illegal constraint",C1,C2}});
-	    %io:format("warning: could not analyze constraint ~p~n",[[C1,C2]]),
-	    [C1,C2];
-	[V] -> [{'SingleValue',V}];
-	L -> [{'SingleValue',L}]
-    end.
-
-
-%% Size constraint [{'SizeConstraint',1},{'SizeConstraint',{{1,64},[]}}]
-
-intersection_of_size(_,[]) ->
-    [];
-intersection_of_size(_,C=[_SZ]) ->
-    C;
-intersection_of_size(S,[SZ,SZ|Rest]) ->
-    intersection_of_size(S,[SZ|Rest]);
-intersection_of_size(S,C=[C1={_,Int},{_,Range}|Rest]) 
-  when is_integer(Int),is_tuple(Range) ->
-    case Range of
-	{Lb,Ub} when Int >= Lb,
-		     Int =< Ub ->
-	    intersection_of_size(S,[C1|Rest]);
-	{{Lb,Ub},Ext} when is_list(Ext),Int >= Lb,Int =< Ub ->
-	    intersection_of_size(S,[C1|Rest]);
-	_ ->
-	    throw({error,{asn1,{illegal_size_constraint,C}}})
-    end;
-intersection_of_size(S,[C1={_,Range},C2={_,Int}|Rest]) 
-  when is_integer(Int),is_tuple(Range) ->
-    intersection_of_size(S,[C2,C1|Rest]);
-intersection_of_size(S,[{_,{Lb1,Ub1}},{_,{Lb2,Ub2}}|Rest]) ->
-    Lb=greatest_LB(ordsets:from_list([Lb1,Lb2])),
-    Ub=smallest_UB(ordsets:from_list([Ub1,Ub2])),
-    intersection_of_size(S,[{'SizeConstraint',{Lb,Ub}}|Rest]);
-intersection_of_size(_,SZ) ->
-    throw({error,{asn1,{illegal_size_constraint,SZ}}}).
-
-intersection_of_vr(_,[]) ->
-    [];
-intersection_of_vr(_,VR=[_C]) ->
-    VR;
-intersection_of_vr(S,[{_,{Lb1,Ub1}},{_,{Lb2,Ub2}}|Rest]) ->
-    Lb=greatest_LB(ordsets:from_list([Lb1,Lb2])),
-    Ub=smallest_UB(ordsets:from_list([Ub1,Ub2])),
-    intersection_of_vr(S,[{'ValueRange',{Lb,Ub}}|Rest]);
-intersection_of_vr(_S,VR) ->
-    %%error({type,{asn1,{illegal_value_range_constraint,VR}},S});
-    throw({error,{asn1,{illegal_value_range_constraint,VR}}}).
-
-intersection_of_sv(_,[]) ->
-    [];
-intersection_of_sv(_,SV=[_C]) ->
-    SV;
-intersection_of_sv(S,[SV,SV|Rest]) ->
-    intersection_of_sv(S,[SV|Rest]);
-intersection_of_sv(S,[{_,Int},{_,SV}|Rest]) when is_integer(Int),
-						 is_list(SV) ->
-    SV2=intersection_of_sv1(S,Int,SV),
-    intersection_of_sv(S,[SV2|Rest]);
-intersection_of_sv(S,[{_,SV},{_,Int}|Rest]) when is_integer(Int),
-						 is_list(SV) ->
-    SV2=intersection_of_sv1(S,Int,SV),
-    intersection_of_sv(S,[SV2|Rest]);
-intersection_of_sv(S,[{_,SV1},{_,SV2}|Rest]) when is_list(SV1),
-						  is_list(SV2) ->
-    SV3=common_set(SV1,SV2),
-    intersection_of_sv(S,[SV3|Rest]);
-intersection_of_sv(_S,SV) ->
-    %%error({type,{asn1,{illegal_single_value_constraint,SV}},S}).
-    throw({error,{asn1,{illegal_single_value_constraint,SV}}}).
-
-intersection_of_sv1(_S,Int,SV) when is_integer(Int),is_list(SV) ->
-    case lists:member(Int,SV) of
-	true -> {'SingleValue',Int};
-	_ ->
-	    %%error({type,{asn1,{illegal_single_value_constraint,Int,SV}},S})
-	    throw({error,{asn1,{illegal_single_value_constraint,Int,SV}}})
-    end;
-intersection_of_sv1(_S,SV1,SV2) ->
-    %%error({type,{asn1,{illegal_single_value_constraint,SV1,SV2}},S}).
-    throw({error,{asn1,{illegal_single_value_constraint,SV1,SV2}}}).
-
-greatest_LB([H]) ->
-    H;
-greatest_LB(L) ->
-    greatest_LB1(lists:reverse(L)).
-greatest_LB1(['MIN',H2|_T])->
-    H2;
-greatest_LB1([H|_T]) ->
-    H.
-smallest_UB(L) ->
-    hd(L).
-
-common_set(SV1,SV2) ->
-    lists:filter(fun(X)->lists:member(X,SV1) end,SV2).
-
-is_int_in_vr(Int,{_,{'MIN','MAX'}}) when is_integer(Int) ->
-    true;
-is_int_in_vr(Int,{_,{'MIN',Ub}}) when is_integer(Int),Int =< Ub ->
-    true;
-is_int_in_vr(Int,{_,{Lb,'MAX'}}) when is_integer(Int),Int >= Lb ->
-    true;
-is_int_in_vr(Int,{_,{Lb,Ub}}) when is_integer(Int),Int >= Lb,Int =< Ub ->
-    true;
-is_int_in_vr(_,_) ->
-    false.
-    
+%%%
+%%% End of constraint handling.
+%%%
 
 check_imported(S,Imodule,Name) ->
     check_imported(S,Imodule,Name,false).
@@ -4311,6 +4130,8 @@ match_parameter(#state{parameters=Ps}=S, Name) ->
 
 match_parameter(_S, Name, []) ->
     Name;
+match_parameter(S, {valueset,{element_set,#type{}=Ts,none}}, Ps) ->
+    match_parameter(S, {valueset,Ts}, Ps);
 match_parameter(_S, #'Externaltypereference'{type=Name},
 		[{#'Externaltypereference'{type=Name},NewName}|_T]) ->
     NewName;
@@ -4523,13 +4344,11 @@ iof_associated_type1(S,C) ->
 
 %% returns the leading attribute, the constraint of the components and
 %% the tablecinf value for the second component.
-instance_of_constraints(S, Constr) ->
-    case lists:keyfind(simpletable, 1, Constr) of
-	false ->
-	    {false,[],[],[]};
-	{simpletable,Type} ->
-	    instance_of_constraints_1(S, Type)
-    end.
+instance_of_constraints(_, []) ->
+    {false,[],[],[]};
+instance_of_constraints(S, [{element_set,{simpletable,C},none}]) ->
+    {element_set,Type,none} = C,
+    instance_of_constraints_1(S, Type).
 
 instance_of_constraints_1(S, Type) ->
     #type{def=#'Externaltypereference'{type=Name}} = Type,
@@ -6064,49 +5883,6 @@ merge_tags2([H|T],Acc) ->
 merge_tags2([], Acc) ->
     lists:reverse(Acc).
 
-%% merge_constraints(C1, []) ->
-%%     C1;
-%% merge_constraints([], C2) ->
-%%     C2;
-%% merge_constraints(C1, C2) ->
-%%     {SList,VList,PAList,Rest} = splitlist(C1++C2,[],[],[],[]),
-%%     SizeC = merge_constraints(SList),
-%%     ValueC = merge_constraints(VList),
-%%     PermAlphaC = merge_constraints(PAList),
-%%     case Rest of
-%%         [] ->
-%%             SizeC ++ ValueC ++ PermAlphaC;
-%%         _ ->
-%%             throw({error,{asn1,{not_implemented,{merge_constraints,Rest}}}})
-%%     end.
-    
-%% merge_constraints([]) -> [];
-%% merge_constraints([C1 = {_,{Low1,High1}},{_,{Low2,High2}}|Rest]) when Low1 >= Low2,
-%%                                                                       High1 =< High2 ->
-%%     merge_constraints([C1|Rest]);
-%% merge_constraints([C1={'PermittedAlphabet',_},C2|Rest]) ->
-%%     [C1|merge_constraints([C2|Rest])];
-%% merge_constraints([C1 = {_,{_Low1,_High1}},C2 = {_,{_Low2,_High2}}|_Rest]) ->
-%%     throw({error,asn1,{conflicting_constraints,{C1,C2}}});
-%% merge_constraints([C]) ->
-%%     [C].
-
-%% splitlist([C={'SizeConstraint',_}|Rest],Sacc,Vacc,PAacc,Restacc) ->
-%%     splitlist(Rest,[C|Sacc],Vacc,PAacc,Restacc);
-%% splitlist([C={'ValueRange',_}|Rest],Sacc,Vacc,PAacc,Restacc) ->
-%%     splitlist(Rest,Sacc,[C|Vacc],PAacc,Restacc);
-%% splitlist([C={'PermittedAlphabet',_}|Rest],Sacc,Vacc,PAacc,Restacc) ->
-%%     splitlist(Rest,Sacc,Vacc,[C|PAacc],Restacc);
-%% splitlist([C|Rest],Sacc,Vacc,PAacc,Restacc) ->
-%%     splitlist(Rest,Sacc,Vacc,PAacc,[C|Restacc]);
-%% splitlist([],Sacc,Vacc,PAacc,Restacc) ->
-%%     {lists:reverse(Sacc),
-%%      lists:reverse(Vacc),
-%%      lists:reverse(PAacc),
-%%      lists:reverse(Restacc)}.
-
-
-
 storeindb(S,M) when is_record(M,module) ->
     TVlist = M#module.typeorval,
     NewM = M#module{typeorval=findtypes_and_values(TVlist)},
@@ -6208,12 +5984,16 @@ format_error(illegal_octet_string_value) ->
     "expecting a bstring or an hstring as value for an OCTET STRING";
 format_error({illegal_typereference,Name}) ->
     io_lib:format("'~p' is used as a typereference, but does not start with an uppercase letter", [Name]);
+format_error(illegal_table_constraint) ->
+    "table constraints may only be applied to CLASS.&field constructs";
 format_error(illegal_value) ->
     "expected a value";
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({invalid_bit_number,Bit}) ->
     io_lib:format("the bit number '~p' is invalid", [Bit]);
+format_error(invalid_table_constraint) ->
+    "the table constraint is not an object set";
 format_error({missing_mandatory_fields,Fields,Obj}) ->
     io_lib:format("missing mandatory ~s in ~p",
 		  [format_fields(Fields),Obj]);
@@ -6224,6 +6004,8 @@ format_error({missing_ocft,Component}) ->
     io_lib:format("the component '~s' must be an ObjectClassFieldType (CLASSNAME.&field-name)", [Component]);
 format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
+format_error(reversed_range) ->
+    "ranges must be given in increasing order";
 format_error({syntax_duplicated_fields,Fields}) ->
     io_lib:format("~s must only occur once in the syntax list",
 		  [format_fields(Fields)]);
