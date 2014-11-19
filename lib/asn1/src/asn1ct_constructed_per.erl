@@ -569,10 +569,10 @@ gen_encode_sof_imm(Erule, Typename, SeqOrSetOf, #type{}=D) ->
 
 gen_decode_sof(Erules, Typename, SeqOrSetOf, #type{}=D) ->
     asn1ct_name:start(),
-    do_gen_decode_sof(Erules, Typename, SeqOrSetOf, D, true),
+    do_gen_decode_sof(Erules, Typename, SeqOrSetOf, D),
     emit([".",nl,nl]).
 
-do_gen_decode_sof(Erules, Typename, SeqOrSetOf, D, NeedRest) ->
+do_gen_decode_sof(Erules, Typename, SeqOrSetOf, D) ->
     {_SeqOrSetOf,ComponentType} = D#type.def,
     SizeConstraint = asn1ct_imm:effective_constraint(bitstring,
 						     D#type.constraint),
@@ -584,12 +584,11 @@ do_gen_decode_sof(Erules, Typename, SeqOrSetOf, D, NeedRest) ->
 		""
 	end,
     {Num,Buf} = gen_decode_length(SizeConstraint, Erules),
-    Key = erlang:md5(term_to_binary({Typename,SeqOrSetOf,
-				     ComponentType,NeedRest})),
+    Key = erlang:md5(term_to_binary({Typename,SeqOrSetOf,ComponentType})),
     Gen = fun(_Fd, Name) ->
 		  gen_decode_sof_components(Erules, Name,
 					    Typename, SeqOrSetOf,
-					    ComponentType, NeedRest)
+					    ComponentType)
 	  end,
     F = asn1ct_func:call_gen("dec_components", Key, Gen),
     emit([",",nl,
@@ -603,7 +602,7 @@ gen_decode_length(Constraint, Erule) ->
     Imm = asn1ct_imm:per_dec_length(Constraint, true, is_aligned(Erule)),
     asn1ct_imm:dec_slim_cg(Imm, "Bytes").
 
-gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont, NeedRest) ->
+gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
     {ObjFun,ObjFun_Var} =
 	case Cont#type.tablecinf of
 	    [{objfun,_}|_R] ->
@@ -611,14 +610,8 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont, NeedRest) ->
 	    _ ->
 		{"",""}
 	end,
-    case NeedRest of
-	false ->
-	    emit([{asis,Name},"(0, _Bytes",ObjFun_Var,", Acc) ->",nl,
-		  "lists:reverse(Acc);",nl]);
-	true ->
-	    emit([{asis,Name},"(0, Bytes",ObjFun_Var,", Acc) ->",nl,
-		  "{lists:reverse(Acc),Bytes};",nl])
-    end,
+    emit([{asis,Name},"(0, Bytes",ObjFun_Var,", Acc) ->",nl,
+	  "{lists:reverse(Acc),Bytes};",nl]),
     emit([{asis,Name},"(Num, Bytes",ObjFun,", Acc) ->",nl,
 	  "{Term,Remain} = "]),
     Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
