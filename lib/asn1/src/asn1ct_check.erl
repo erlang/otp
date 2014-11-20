@@ -268,53 +268,18 @@ check_imports(S, #module{imports={imports,Imports}}) ->
 
 check_imports_1(_S, [], Acc) ->
     Acc;
-check_imports_1(S, [#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs], Acc0) ->
+check_imports_1(S, [#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs], Acc) ->
     Module = name_of_def(ModuleRef),
-    Refs0 = [{catch get_referenced_type(S, Ref),Ref} || Ref <- Imports],
-    Refs = [{M,R} || {{M,_},R} <- Refs0],
-    {Illegal,Other} = lists:splitwith(fun({error,_}) -> true;
-					 (_) -> false
-				      end, Refs),
-    ChainedRefs = [R || {M,R} <- Other, M =/= Module],
-    IllegalRefs = [R || {error,R} <- Illegal] ++
-	[R || {M,R} <- ChainedRefs,
-	      ok =/= chained_import(S, Module, M, name_of_def(R))],
-    Acc = [return_asn1_error(S, Ref, {undefined_import,name_of_def(Ref),Module}) ||
-	      Ref <- IllegalRefs] ++ Acc0,
-    check_imports_1(S, SFMs, Acc).
-
-chained_import(S,ImpMod,DefMod,Name) ->
-    %% Name is a referenced structure that is not defined in ImpMod,
-    %% but must be present in the Imports list of ImpMod. The chain of
-    %% imports of Name must end in DefMod.
-    GetImports =
-	fun(_M_) ->
-		case asn1_db:dbget(_M_,'MODULE') of
-		    #module{imports={imports,ImportList}} ->
-			ImportList;
-		    _ -> []
-		end
-	end,
-    FindNameInImports =
-	fun([],N,_) -> {no_mod,N};
-	   ([#'SymbolsFromModule'{symbols=Imports,module=ModuleRef}|SFMs],N,F) ->
-		case [name_of_def(X) || X <- Imports, name_of_def(X) =:= N] of
-		    [] -> F(SFMs,N,F);
-		    [N] -> {name_of_def(ModuleRef),N}
-		end
-	end,
-    case GetImports(ImpMod) of
-	[] ->
-	    error;
-	Imps ->
-	    case FindNameInImports(Imps,Name,FindNameInImports) of
-		{no_mod,_} ->
-		    error;
-		{DefMod,_} -> ok;
-		{OtherMod,_} ->
-		    chained_import(S,OtherMod,DefMod,Name)
-	    end
-    end.
+    Refs = [{try get_referenced_type(S, Ref)
+	     catch throw:Error -> Error end,
+	     Ref}
+	    || Ref <- Imports],
+    CreateError = fun(Ref) ->
+			  Error = {undefined_import,name_of_def(Ref),Module},
+			  return_asn1_error(S, Ref, Error)
+		  end,
+    Errors = [CreateError(Ref) || {{error, _}, Ref} <- Refs],
+    check_imports_1(S, SFMs, Errors ++ Acc).
 
 checkt(S0, Names) ->
     Check = fun do_checkt/3,

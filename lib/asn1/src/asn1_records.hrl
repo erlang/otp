@@ -90,7 +90,7 @@
 	 vname,
 	 erule,
 	 parameters=[],
-	 inputmodules,
+	 inputmodules=[],
 	 abscomppath=[],
 	 recordtopname=[],
 	 options,

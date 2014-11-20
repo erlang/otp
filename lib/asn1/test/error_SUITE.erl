@@ -174,23 +174,39 @@ imports(Config) ->
     Ext = 'ExternalModule',
     ExtP = {Ext,
 	    <<"ExternalModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	      "IMPORTS\n"
+	      " Int, NonExistingImport FROM ImportsFrom;\n"
+
+	      " Existing ::= INTEGER\n"
 	      "END\n">>},
-    ok = run(ExtP, Config),
+    {error,
+     [{structured_error,
+       {Ext,3},
+       asn1ct_check,
+       {undefined_import,'NonExistingImport',
+	'ImportsFrom'}}]} = run(ExtP, Config),
 
     M = 'Imports',
     P = {M,
 	 <<"Imports DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
-	   "IMPORTS NotDefined FROM ExternalModule\n"
-	   "X FROM UndefinedModule objid\n"
-	   "Y, Z FROM UndefinedModule2;\n"
+	   "IMPORTS\n"
+	   " NotDefined, Existing, Int, NonExistingImport\n"
+	   "   FROM ExternalModule\n"
+	   " X FROM UndefinedModule objid\n"
+	   " Y, Z FROM UndefinedModule2;\n"
 	   "objid OBJECT IDENTIFIER ::= {joint-iso-ccitt(2) remote-operations(4)\n"
 	   "    notation(0)}\n"
 	   "END\n">>},
-    {error,[{structured_error,{M,2},asn1ct_check,
-	     {undefined_import,'NotDefined','ExternalModule'}},
-	    {structured_error,{M,3},asn1ct_check,{undefined_import,'X','UndefinedModule'}},
-	    {structured_error,{M,4},asn1ct_check,{undefined_import,'Y','UndefinedModule2'}},
-	    {structured_error,{M,4},asn1ct_check,{undefined_import,'Z','UndefinedModule2'}}
+    {error,[{structured_error,{M,3},asn1ct_check,
+	     {undefined_import,'NonExistingImport',Ext}},
+	    {structured_error,{M,3},asn1ct_check,
+	     {undefined_import,'NotDefined',Ext}},
+	    {structured_error,{M,5},asn1ct_check,
+	     {undefined_import,'X','UndefinedModule'}},
+	    {structured_error,{M,6},asn1ct_check,
+	     {undefined_import,'Y','UndefinedModule2'}},
+	    {structured_error,{M,6},asn1ct_check,
+	     {undefined_import,'Z','UndefinedModule2'}}
 	   ]} = run(P, Config),
     ok.
 
@@ -717,5 +733,7 @@ values(Config) ->
 run({Mod,Spec}, Config) ->
     Base = atom_to_list(Mod) ++ ".asn1",
     File = filename:join(?config(priv_dir, Config), Base),
+    Include0 = filename:dirname(?config(data_dir, Config)),
+    Include = filename:join(filename:dirname(Include0), "asn1_SUITE_data"),
     ok = file:write_file(File, Spec),
-    asn1ct:compile(File).
+    asn1ct:compile(File, [{i, Include}]).
