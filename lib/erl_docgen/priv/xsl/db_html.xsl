@@ -23,10 +23,75 @@
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:exsl="http://exslt.org/common"
-  extension-element-prefixes="exsl"
+  xmlns:func="http://exslt.org/functions"
+  xmlns:erl="http://erlang.org"
+  extension-element-prefixes="exsl func"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions">
 
   <xsl:include href="db_html_params.xsl"/>
+
+  <func:function name="erl:flip_first_char">
+    <xsl:param name="in"/>
+
+    <xsl:variable name="uppercase" select="'ABCDEFGHIJKLMNOPQRSTUVWXYZ'"/>
+    <xsl:variable name="lowercase" select="'abcdefghijklmnopqrstuvwxyz'"/>
+
+    <xsl:variable name="first-char" select="substring($in, 1, 1)"/>
+
+    <xsl:variable name="result">
+      <xsl:choose>
+        <xsl:when test="contains($uppercase, $first-char)">
+          <xsl:value-of select="concat(translate($first-char, $uppercase, $lowercase), substring($in, 2))"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="concat(translate($first-char, $lowercase, $uppercase), substring($in, 2))"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <func:result select="$result"/>
+  </func:function>
+
+  <!-- Used from template menu.funcs to sort a module's functions for the lefthand index list,
+       from the module's .xml file. Returns a value on which to sort the entity in question
+       (a <name> element).
+
+       Some functions are listed with the name as an attribute, as in string.xml:
+       <name name="join" arity="2"/>       
+
+       Others use the element value for the name, as in gen_server.xml:
+       <name>start_link(Module, Args, Options) -> Result</name>
+
+       Additionally, callbacks may be included, as in gen_server.xml:
+       <name>Module:handle_call(Request, From, State) -> Result</name>
+
+       So first, get the name from either the attribute or the element value.
+       Then, reverse the case of the first character. This is because xsltproc, used for processing,
+       orders uppercase before lowercase (even when the 'case-order="lower-first"' option
+       is given). But we want the Module callback functions listed after a module's regular
+       functions, as they are now. This doesn't affect the actual value used in the output, but
+       just the value used as a sort key. To then ensure that uppercase is indeed sorted before
+       lower, as we now want it to be, the 'case-order="upper-first"' option is used.
+
+       This processing only affect the lefthand index list- the body of the doc page is not 
+       affected.
+  -->
+  <func:function name="erl:get_sort_field">
+    <xsl:param name="elem"/>
+
+    <xsl:variable name="base">
+      <xsl:choose>
+        <xsl:when test="string-length($elem/@name) > 0">
+          <xsl:value-of select="$elem/@name"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="$elem"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <func:result select="erl:flip_first_char($base)"/>
+  </func:function>
 
   <!-- Start of Dialyzer type/spec tags.
        See also the templates matching "name" and "seealso" as well as
@@ -1420,6 +1485,8 @@
     <xsl:param name="cval"/>
 
     <xsl:for-each select="$entries">
+      <!-- Sort on function name, so the index list in lefthand frame is ordered. -->
+      <xsl:sort select="erl:get_sort_field(.)" data-type="text" case-order="upper-first"/>
 
       <xsl:choose>
         <xsl:when test="ancestor::cref">
