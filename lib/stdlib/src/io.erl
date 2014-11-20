@@ -566,12 +566,23 @@ request(Name, Request) when is_atom(Name) ->
 
 execute_request(Pid, {Convert,Converted}) ->
     Mref = erlang:monitor(process, Pid),
-    Pid ! {io_request,self(),Pid,Converted},
-    if
-	Convert ->
-	    convert_binaries(wait_io_mon_reply(Pid, Mref));
-	true ->
-	    wait_io_mon_reply(Pid, Mref)
+    Pid ! {io_request,self(),Mref,Converted},
+
+    receive
+	{io_reply, Mref, Reply} ->
+	    erlang:demonitor(Mref, [flush]),
+	    if
+		Convert ->
+		    convert_binaries(Reply);
+		true ->
+		    Reply
+	    end;
+	{'DOWN', Mref, _, _, _} ->
+	    receive
+		{'EXIT', Pid, _What} -> true
+	    after 0 -> true
+	    end,
+	    {error,terminated}
     end.
 
 requests(Requests) ->				%Requests as atomic action
@@ -596,26 +607,6 @@ default_input() ->
 
 default_output() ->
     group_leader().
-
-wait_io_mon_reply(From, Mref) ->
-    receive
-	{io_reply, From, Reply} ->
-	    erlang:demonitor(Mref, [flush]),
-	    Reply;
-	{'EXIT', From, _What} ->
-	    receive
-		{'DOWN', Mref, _, _, _} -> true
-	    after 0 -> true
-	    end,
-	    {error,terminated};
-	{'DOWN', Mref, _, _, _} ->
-	    receive
-		{'EXIT', From, _What} -> true
-	    after 0 -> true
-	    end,
-	    {error,terminated}
-    end.
-
 
 %% io_requests(Requests)
 %%  Transform requests into correct i/o server messages. Only handle the
