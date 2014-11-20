@@ -136,7 +136,7 @@ print_person(PersonId) ->
             io:format("No person with ID = ~p~n", [PersonID])
     end.
 
-%%% Internal functionss
+%%% Internal functions
 print_name(PersonID) -> 
     [Person] = ets:lookup(person, PersonId),
     io:format("No person ~p~n", [Person#person.name]).

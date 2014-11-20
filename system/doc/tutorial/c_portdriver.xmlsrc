@@ -35,7 +35,7 @@
 
   <section>
     <title>Port Drivers</title>
-    <p>A port driver is a linked in driver, that is accessible as a
+    <p>A port driver is a linked in driver that is accessible as a
       port from an Erlang program. It is a shared library (SO in Unix,
       DLL in Windows), with special entry points. The Erlang runtime
       calls these entry points, when the driver is started and when

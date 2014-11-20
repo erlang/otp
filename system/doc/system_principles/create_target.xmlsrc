@@ -91,7 +91,7 @@
   {pea, "1.0"}]}.</code>
     <p>The listed applications are not only original Erlang/OTP
       applications but possibly also new applications that you have
-      written yourself (here examplified by the application
+      written yourself (here exemplified by the application
       <c>pea</c>). </p>
     <p><em>Step 2.</em> From the directory where the <c>mysystem.rel</c>
       file reside, start the Erlang/OTP system:</p>
@@ -251,7 +251,7 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
       <c>target_system:create/1</c>. In fact, if you create, in the
       current directory, not only the <c>mysystem.rel</c> file, but
       also a <c>sys.config</c> file, that latter file will be tacitly
-      put in the apropriate directory.</p>
+      put in the appropriate directory.</p>
   </section>
 
   <section>
@@ -408,7 +408,7 @@ heart: Tue Apr  1 12:15:11 2014: Executed "/usr/local/erl-target/bin/start /usr/
       Erlang/OTP has Changed</seealso> for more infomation about this.
     </p>
     <p>
-      The node will be accessable via a new pipe:
+      The node will be accessible via a new pipe:
     </p>
     <pre>
 os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</input></pre>

@@ -31,14 +31,14 @@
 
   <section>
     <title>The Erlang Shell</title>
-    <p>Most operating systems have a command interpreter or shell, Unix
-      and Linux have many, Windows has the Command Prompt. Erlang has
+    <p>Most operating systems have a command interpreter or shell- Unix
+      and Linux have many, while Windows has the Command Prompt. Erlang has
       its own shell where you can directly write bits of Erlang code
       and evaluate (run) them to see what happens (see
       <seealso marker="stdlib:shell">shell(3)</seealso>). Start
       the Erlang shell (in Linux or UNIX) by starting a shell or
       command interpreter in your operating system and typing
-      <c>erl</c>, you will see something like this.</p>
+      <c>erl</c>. You will see something like this.</p>
     <pre>
 % <input>erl</input>
 Erlang R15B (erts-5.9.1) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
@@ -481,7 +481,7 @@ blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
 > <input>color:blend(C2,C1).</input>
 #{alpha => 1.0,blue => 0.38,green => 0.52,red => 0.51}
 </pre>
-    <p>This example warrant some explanation:</p>
+    <p>This example warrants some explanation:</p>
     <code type="none">
 -define(is_channel(V), (is_float(V) andalso V &gt;= 0.0 andalso V =&lt; 1.0)).</code>
     <p>
@@ -1152,13 +1152,13 @@ month_length(Year, Month) ->
 
   <section>
     <title>Built In Functions (BIFs)</title>
-    <p>Built in functions BIFs are functions which for some reason is
+    <p>Built in functions (BIFs) are functions which for some reason are
       built in to the Erlang virtual machine. BIFs often implement 
       functionality that is impossible to implement in Erlang or is too
       inefficient to implement in Erlang. Some BIFs can be called 
-      by use of the function name only but they are by default belonging
-      to the erlang module so for example the call to the BIF <c>trunc</c>
-      below is equivalent with a call to <c>erlang:trunc</c>.</p>
+      by use of the function name only, but they by default belong
+      to the erlang module. So for example, the call to the BIF <c>trunc</c>
+      below is equivalent to a call to <c>erlang:trunc</c>.</p>
     <p>As you can see, we first find out if a year is leap or not. If a
       year is divisible by 400, it is a leap year. To find this out we
       first divide the year by 400 and use the built in function
@@ -1175,14 +1175,14 @@ trunc(5.01) = 5
 2000 / 400 = 5.0
 trunc(5.0) = 5
 5 * 400 = 2000</code>
-    <p>so we have a leap year. The next two tests if the year is
-      divisible by 100 or 4 are done in the same way. The first
-      <c>if</c> returns <c>leap</c> or <c>not_leap</c> which lands up
+    <p>so we have a leap year. The next two tests, which check if the year is
+      divisible by 100 or 4, are done in the same way. The first
+      <c>if</c> returns <c>leap</c> or <c>not_leap</c> which ends up
       in the variable <c>Leap</c>. We use this variable in the guard
       for <c>feb</c> in the following <c>case</c> which tells us how
       long the month is.</p>
-    <p>This example showed the use of <c>trunc</c>, an easier way would
-      be to use the Erlang operator <c>rem</c> which gives the remainder
+    <p>This example showed the use of <c>trunc</c>. An easier way would
+      be to use the Erlang operator <c>rem</c>, which gives the remainder
       after division. For example:</p>
     <pre>
 74> <input>2004 rem 400.</input>

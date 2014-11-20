@@ -352,8 +352,8 @@ pong ! {ping, self()},</code>
       on different computers. Before we do this, there are a few things
       we need to set up to get this to work. The distributed Erlang
       implementation provides a basic security mechanism to prevent
-      unauthorized access to an Erlang system on another computer
-      (*manual*). Erlang systems which talk to each other must have
+      unauthorized access to an Erlang system on another computer.
+      Erlang systems which talk to each other must have
       the same <em>magic cookie</em>. The easiest way to achieve this
       is by having a file called <c>.erlang.cookie</c> in your home
       directory on all machines which on which you are going to run
@@ -363,7 +363,7 @@ pong ! {ping, self()},</code>
       you can safely ignore this and simply create a file called
       <c>.erlang.cookie</c> in the directory you get to after executing
       the command <c>cd</c> without any argument).
-      The <c>.erlang.cookie</c> file should contain on line with
+      The <c>.erlang.cookie</c> file should contain one line with
       the same atom. For example on Linux or Unix in the OS shell:</p>
     <pre>
 $ <input>cd</input>
@@ -376,7 +376,7 @@ $ <input>chmod 400 .erlang.cookie</input></pre>
       Erlang systems, you must give it a name, eg: </p>
     <pre>
 $ <input>erl -sname my_name</input></pre>
-    <p>We will see more details of this later (*manual*). If you want to
+    <p>We will see more details of this later. If you want to
       experiment with distributed Erlang, but you only have one
       computer to work on, you can start two separate Erlang systems on
       the same computer but give them different names. Each Erlang
@@ -385,7 +385,7 @@ $ <input>erl -sname my_name</input></pre>
       IP domain and we can use only the first component of the IP
       address, if we want to use nodes in different domains we use
       <c>-name</c> instead, but then all IP address must be given in
-      full (*manual*).</p>
+      full.</p>
     <p>Here is the ping pong example modified to run on two separate
       nodes:</p>
     <code type="none">
@@ -538,9 +538,9 @@ ping finished</pre>
     <p>Before we start, let's note the following:</p>
     <list type="bulleted">
       <item>
-        <p>This example will just show the message passing logic no
+        <p>This example will just show the message passing logic- no
           attempt at all has been made to provide a nice graphical user
-          interface - this can of course also be done in Erlang - but
+          interface. This can, of course, also be done in Erlang - but
           that's another tutorial.</p>
       </item>
       <item>
@@ -550,8 +550,8 @@ ping finished</pre>
           tutorial.</p>
       </item>
       <item>
-        <p>The first program we write will contain some inadequacies as
-          regards handling of nodes which disappear, we will correct
+        <p>The first program we write will contain some inadequacies
+          regarding the handling of nodes which disappear. We will correct
           these in a later version of the program.</p>
       </item>
     </list>
@@ -734,11 +734,11 @@ await_result() ->
       <item>copy the compiled code (<c>messenger.beam</c>) to
        the directory on each    computer where you start Erlang.</item>
     </list>
-    <p>In the following example of use of this program, I have started
+    <p>In the following example of use of this program I have started
       nodes on four different computers, but if you don't have that
-      many machines available on your network, you could start up
+      many machines available on your network you could start up
       several nodes on the same machine.</p>
-    <p>We start up four Erlang nodes, messenger@super, c1@bilbo,
+    <p>We start up four Erlang nodes: messenger@super, c1@bilbo,
       c2@kosken, c3@gollum.</p>
     <p>First we start up a the server at messenger@super:</p>
     <pre>
@@ -780,19 +780,19 @@ ok
 receiver_not_found</pre>
     <p>But this fails as Fred has already logged off.</p>
     <p>First let's look at some of the new concepts we have introduced.</p>
-    <p>There are two versions of the <c>server_transfer</c> function,
+    <p>There are two versions of the <c>server_transfer</c> function:
       one with four arguments (<c>server_transfer/4</c>) and one with
       five (<c>server_transfer/5</c>). These are regarded by Erlang as
       two separate functions.</p>
     <p>Note how we write the <c>server</c> function so that it calls
-      itself, <c>server(User_List)</c> and thus creates a loop.
+      itself, via <c>server(User_List)</c>, and thus creates a loop.
       The Erlang compiler is "clever" and optimizes the code so that
       this really is a sort of loop and not a proper function call. But
       this only works if there is no code after the call, otherwise
       the compiler will expect the call to return and make a proper
       function call. This would result in the process getting bigger
       and bigger for every loop.</p>
-    <p>We use functions in the <c>lists</c> module. This is a very
+    <p>We use functions from the <c>lists</c> module. This is a very
       useful module and a study of the manual page is recommended
       (<c>erl -man lists</c>).
       <c>lists:keymember(Key,Position,Lists)</c> looks through a list
