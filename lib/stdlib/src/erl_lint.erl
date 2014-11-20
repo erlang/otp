@@ -389,9 +389,7 @@ format_error({underspecified_opaque, {TypeName, Arity}}) ->
                   [TypeName, gen_type_paren(Arity)]);
 %% --- obsolete? unused? ---
 format_error({format_error, {Fmt, Args}}) ->
-    io_lib:format(Fmt, Args);
-format_error({mnemosyne, What}) ->
-    "mnemosyne " ++ What ++ ", missing transformation".
+    io_lib:format(Fmt, Args).
 
 gen_type_paren(Arity) when is_integer(Arity), Arity >= 0 ->
     gen_type_paren_1(Arity, ")").
@@ -759,8 +757,6 @@ function_state({attribute,La,Attr,_Val}, St) ->
     add_error(La, {attribute,Attr}, St);
 function_state({function,L,N,A,Cs}, St) ->
     function(L, N, A, Cs, St);
-function_state({rule,L,_N,_A,_Cs}, St) ->
-    add_error(L, {mnemosyne,"rule"}, St);
 function_state({eof,L}, St) -> eof(L, St).
 
 %% eof(LastLine, State) ->

@@ -42,7 +42,6 @@ function_call argument_list
 exprs guard
 atomic strings
 prefix_op mult_op add_op list_op comp_op
-rule rule_clauses rule_clause rule_body
 binary bin_elements bin_element bit_expr
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
@@ -54,7 +53,7 @@ bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
 Terminals
 char integer float atom string var
 
-'(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
+'(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'andalso' 'orelse'
 'bnot' 'not'
@@ -73,7 +72,6 @@ Rootsymbol form.
 
 form -> attribute dot : '$1'.
 form -> function dot : '$1'.
-form -> rule dot : '$1'.
 
 attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
@@ -520,17 +518,6 @@ comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
 
-rule -> rule_clauses : build_rule('$1').
-
-rule_clauses -> rule_clause : ['$1'].
-rule_clauses -> rule_clause ';' rule_clauses : ['$1'|'$3'].
-
-rule_clause -> atom clause_args clause_guard rule_body :
-	{clause,?line('$1'),element(3, '$1'),'$2','$3','$4'}.
-
-rule_body -> ':-' lc_exprs: '$2'.
-
-
 Erlang code.
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
@@ -845,13 +832,6 @@ build_function(Cs) ->
     Name = element(3, hd(Cs)),
     Arity = length(element(4, hd(Cs))),
     {function,?line(hd(Cs)),Name,Arity,check_clauses(Cs, Name, Arity)}.
-
-%% build_rule([Clause]) -> {rule,Line,Name,Arity,[Clause]'}
-
-build_rule(Cs) ->
-    Name = element(3, hd(Cs)),
-    Arity = length(element(4, hd(Cs))),
-    {rule,?line(hd(Cs)),Name,Arity,check_clauses(Cs, Name, Arity)}.
 
 %% build_fun(Line, [Clause]) -> {'fun',Line,{clauses,[Clause]}}.
 

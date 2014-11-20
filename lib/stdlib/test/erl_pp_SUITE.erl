@@ -42,7 +42,6 @@
 -export([ func/1, call/1, recs/1, try_catch/1, if_then/1,
 	  receive_after/1, bits/1, head_tail/1,
 	  cond1/1, block/1, case1/1, ops/1, messages/1,
-	  old_mnemosyne_syntax/1,
 	  import_export/1, misc_attrs/1, dialyzer_attrs/1,
 	  hook/1,
 	  neg_indent/1,
@@ -77,7 +76,7 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, old_mnemosyne_syntax, maps_syntax
+       messages, maps_syntax
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
@@ -561,27 +560,6 @@ messages(Config) when is_list(Config) ->
     ?line true = "\n" =:= lists:flatten(erl_pp:form({eof,0})),
     ok.
 
-old_mnemosyne_syntax(Config) when is_list(Config) ->
-    %% Since we have kept the ':-' token,
-    %% better test that we can pretty print it.
-    R = {rule,12,sales,2,
-         [{clause,12,
-           [{var,12,'E'},{atom,12,employee}],
-           [],
-           [{generate,13,
-             {var,13,'E'},
-             {call,13,{atom,13,table},[{atom,13,employee}]}},
-            {match,14,
-             {record_field,14,{var,14,'E'},{atom,14,salary}},
-             {atom,14,sales}}]}]},
-    ?line "sales(E, employee) :-\n"
-          "    E <- table(employee),\n"
-          "    E.salary = sales.\n" =
-        lists:flatten(erl_pp:form(R)),
-    ok.
-
-
-
 import_export(suite) ->
     [];
 import_export(Config) when is_list(Config) ->
@@ -663,26 +641,6 @@ do_hook(HookFun) ->
     ?line true = AChars =:= lists:flatten(AChars2),
     AFormChars = erl_pp:form(A, H),
     ?line true = AChars =:= lists:flatten(AFormChars),
-
-    R = {rule,0,sales,0,
-         [{clause,0,[{var,0,'E'},{atom,0,employee}],[],
-           [{generate,2,{var,2,'E'},
-             {call,2,{atom,2,table},[{atom,2,employee}]}},
-            {match,3,
-             {record_field,3,{var,3,'E'},{atom,3,salary}},
-             {foo,Expr}}]}]},
-    RChars = lists:flatten(erl_pp:rule(R, H)),
-    R2 = {rule,0,sales,0,
-          [{clause,0,[{var,0,'E'},{atom,0,employee}],[],
-            [{generate,2,{var,2,'E'},
-              {call,2,{atom,2,table},[{atom,2,employee}]}},
-             {match,3,
-              {record_field,3,{var,3,'E'},{atom,3,salary}},
-              {call,0,{atom,0,foo},[Expr2]}}]}]},
-    RChars2 = erl_pp:rule(R2),
-    ?line true = RChars =:= lists:flatten(RChars2),
-    ARChars = erl_pp:form(R, H),
-    ?line true = RChars =:= lists:flatten(ARChars),
 
     ?line "INVALID-FORM:{foo,bar}:" = lists:flatten(erl_pp:expr({foo,bar})),
 
