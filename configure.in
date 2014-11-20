@@ -266,6 +266,13 @@ AC_ARG_WITH(ssl-incl,
 AS_HELP_STRING([--with-ssl-incl=PATH],
                [location of OpenSSL include dir, if different than specified by --with-ssl=PATH]))
 
+AC_ARG_WITH(ssl-rpath,
+AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
+               [runtime library path for OpenSSL. Default is 'yes', which equates to a
+	       number of standard locations. If 'no', then no runtime
+	       library paths wil be used. Anything else should be a
+	       comma separated list of paths.]))
+
 AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]))

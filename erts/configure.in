@@ -4102,6 +4102,20 @@ esac
 ],
 [with_ssl_incl=$with_ssl]) #default
 
+AC_ARG_WITH(ssl-rpath,
+AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
+               [runtime library path for OpenSSL. Default is "yes", which equates to a
+	       number of standard locations. If "no", then no runtime
+	       library paths wil be used. Anything else should be a
+	       comma separated list of paths.]),
+[
+case X$with_ssl in
+    Xno) AC_MSG_ERROR([--with-ssl-rpath set without --with-ssl]);;
+esac
+],
+[with_ssl_rpath=yes]) #default
+
+
 AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]),
@@ -4567,7 +4581,12 @@ cc_rflg="$CFLAG_RUNTIME_LIBRARY_PATH"
 ld_rflg="$LDFLAG_RUNTIME_LIBRARY_PATH"
 ded_ld_rflg="$DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
 
-if test "$SSL_APP" != "" && test "$SSL_DYNAMIC_ONLY" = "yes" && \
+
+case "$with_ssl_rpath" in
+
+yes)   # Use standard lib locations for ssl runtime library path
+
+  if test "$SSL_APP" != "" && test "$SSL_DYNAMIC_ONLY" = "yes" && \
    { test "$cc_rflg" != "" || test "$ld_rflg" != "" || test "$ded_ld_rflg" != ""; } ; then
 
     AC_MSG_CHECKING(for ssl runtime library path to use)
@@ -4651,7 +4670,25 @@ if test "$SSL_APP" != "" && test "$SSL_DYNAMIC_ONLY" = "yes" && \
 
     AC_MSG_RESULT([$rpath])
     test "$rpath" != "" || AC_MSG_WARN([Cannot set run path during linking])
-fi
+  fi
+  ;;
+
+no)   # Use no ssl runtime library path
+  SSL_DED_LD_RUNTIME_LIBRARY_PATH=
+  ;;
+
+*)    # Use ssl runtime library paths set by --with-ssl-rpath (without any check)
+  ded_ld_rpath=
+  delimit=
+  for dir in `echo $with_ssl_rpath | sed "s/,/ /g"`; do
+      ded_ld_rpath="$ded_ld_rpath$delimit$ded_ld_rflg$dir"
+      delimit=" "
+  done
+  SSL_DED_LD_RUNTIME_LIBRARY_PATH="$ded_ld_rpath"
+  ;;
+
+esac
+
 
 #--------------------------------------------------------------------
 # Os mon stuff.
