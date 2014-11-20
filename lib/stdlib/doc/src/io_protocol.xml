@@ -76,10 +76,11 @@ the server eventually sends a corresponding <c>io_reply</c> tuple.</p>
 the I/O server sends the IO reply to.</item>
 
 <item><c>ReplyAs</c> can be any datum and is returned in the corresponding
-<c>io_reply</c>. The <seealso marker="stdlib:io">io</seealso> module simply uses the pid()
-of the I/O server as the <c>ReplyAs</c> datum, but a more complicated client
+<c>io_reply</c>. The <seealso marker="stdlib:io">io</seealso> module monitors
+the I/O server, and uses the monitor reference as the <c>ReplyAs</c> datum.
+A more complicated client
 could have several outstanding I/O requests to the same I/O server and
-would then use i.e. a <c>reference()</c> or something else to differentiate among
+would then use different references (or something else) to differentiate among
 the incoming IO replies. The <c>ReplyAs</c> element should be considered
 opaque by the I/O server. Note that the <c>pid()</c> of the I/O server is not
 explicitly present in the <c>io_reply</c> tuple. The reply can be sent from any
