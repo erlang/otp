@@ -27,6 +27,7 @@
  * lists:foreach(fun(I) -> io:format("looking up ~p got ~p~n", [I, hashmap:get(I, A)]), I = hashmap:get(I,A) end, Ls).
  *
  * lists:foldl(fun(I,O) -> hashmap:put(I,I,O) end, hashmap:new(), lists:seq(1,7)).
+ * lists:foldl(fun(I,O) -> hashmap:info(O), hashmap:put(I,I,O) end, hashmap:new(), lists:seq(1,5)).
  *
  */
 
@@ -61,6 +62,7 @@ static Uint32 hashmap_restore_hash(Uint lvl, Eterm key);
 static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node);
 static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_to_list(Process *p, Eterm map);
+static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
 
 /* hashmap:new/0 */
 
@@ -503,4 +505,133 @@ static Uint32 hashmap_shift_hash(Uint32 hx, Uint *lvl, Eterm key) {
 
     ret = CONS(heap, make_small((*lvl)), key);
     return make_hash2(ret);
+}
+
+/* hashmap:info/0 */
+
+static Eterm hashmap_info(Process *p, Eterm node) {
+    Eterm *hp, **hpp;
+    Eterm res = NIL, info = NIL;
+    Eterm *ptr, tup, hdr;
+    Uint sz;
+    DECL_AM(depth);
+    DECL_AM(leafs);
+    DECL_AM(bitmaps);
+    DECL_AM(arrays);
+    Uint nleaf=0, nbitmap=0, narray=0;
+    Uint bitmap_usage[16], leaf_usage[16];
+    Uint lvl = 0, clvl;
+    DECLARE_ESTACK(stack);
+
+    for (sz = 0; sz < 16; sz++) {
+	bitmap_usage[sz] = 0;
+	leaf_usage[sz] = 0;
+    }
+
+    ptr = boxed_val(node);
+    ESTACK_PUSH(stack, 0);
+    ESTACK_PUSH(stack, node);
+    do {
+	node = ESTACK_POP(stack);
+	clvl = ESTACK_POP(stack);
+	lvl  = MAX(lvl,clvl);
+	switch(primary_tag(node)) {
+	    case TAG_PRIMARY_LIST:
+		nleaf++;
+		leaf_usage[clvl] += 1;
+		break;
+	    case TAG_PRIMARY_BOXED:
+		ptr = boxed_val(node);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		    case HAMT_SUBTAG_NODE_ARRAY:
+			narray++;
+			sz = 16;
+			while(sz--) {
+			    ESTACK_PUSH(stack, clvl + 1);
+			    ESTACK_PUSH(stack, ptr[sz+1]);
+			}
+			break;
+		    case HAMT_SUBTAG_NODE_BITMAP:
+			nbitmap++;
+			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			ASSERT(sz < 17);
+			bitmap_usage[sz-1] += 1;
+			while(sz--) {
+			    ESTACK_PUSH(stack, clvl + 1);
+			    ESTACK_PUSH(stack, ptr[sz+1]);
+			}
+			break;
+		    case HAMT_SUBTAG_HEAD_BITMAP:
+			nbitmap++;
+			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			bitmap_usage[sz-1] += 1;
+			while(sz--) {
+			    ESTACK_PUSH(stack, clvl + 1);
+			    ESTACK_PUSH(stack, ptr[sz+2]);
+			}
+			break;
+		    case HAMT_SUBTAG_HEAD_ARRAY:
+			narray++;
+			sz = 16;
+			while(sz--) {
+			    ESTACK_PUSH(stack, clvl + 1);
+			    ESTACK_PUSH(stack, ptr[sz+2]);
+			}
+			break;
+		    default:
+			erl_exit(1, "bad header\r\n");
+			break;
+		}
+	}
+    } while(!ESTACK_ISEMPTY(stack));
+
+
+    /* size */
+    sz = 0;
+    hashmap_bld_tuple_uint(NULL,&sz,16,leaf_usage);
+    hashmap_bld_tuple_uint(NULL,&sz,16,bitmap_usage);
+
+    /* alloc */
+    hp   = HAlloc(p, 2+3 + 3*(2+4) + sz);
+
+    info = hashmap_bld_tuple_uint(&hp,NULL,16,leaf_usage);
+    tup  = TUPLE3(hp, AM_leafs, make_small(nleaf),info); hp += 4;
+    res  = CONS(hp, tup, res); hp += 2;
+
+    info = hashmap_bld_tuple_uint(&hp,NULL,16,bitmap_usage);
+    tup  = TUPLE3(hp, AM_bitmaps, make_small(nbitmap), info); hp += 4;
+    res  = CONS(hp, tup, res); hp += 2;
+
+    tup  = TUPLE3(hp, AM_arrays, make_small(narray),NIL); hp += 4;
+    res  = CONS(hp, tup, res); hp += 2;
+
+    tup  = TUPLE2(hp, AM_depth, make_small(lvl)); hp += 3;
+    res  = CONS(hp, tup, res); hp += 2;
+
+    DESTROY_ESTACK(stack);
+    ERTS_HOLE_CHECK(p);
+    return res;
+}
+
+static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) {
+    Eterm res = THE_NON_VALUE;
+    Eterm *ts = (Eterm *)erts_alloc(ERTS_ALC_T_TMP, n * sizeof(Eterm));
+    Uint i;
+
+
+    for (i = 0; i < n; i++) {
+	ts[i] = erts_bld_uint(hpp, szp, nums[i]);
+    }
+    res = erts_bld_tuplev(hpp, szp, n, ts);
+    erts_free(ERTS_ALC_T_TMP, (void *) ts);
+    return res;
+}
+
+BIF_RETTYPE hashmap_info_1(BIF_ALIST_1) {
+    if (is_hashmap(BIF_ARG_1)) {
+	BIF_RET(hashmap_info(BIF_P,BIF_ARG_1));
+    }
+    BIF_ERROR(BIF_P, BADARG);
 }
