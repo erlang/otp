@@ -48,6 +48,11 @@
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 #endif
 
+#define hashmap_restore_hash(Heap,Lvl,Key) \
+    ((Lvl) < 8) ? make_hash2(Key) >> (4*(Lvl)) : make_hash2(CONS(Heap, make_small(Lvl), (Key))) >> (4*((Lvl) % 8))
+#define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
+    ((++(Lvl)) % 8) ? (Hx) >> 4 : make_hash2(CONS(Heap, make_small(Lvl), Key))
+
 #if 0
 static char *format_binary(Uint64 x, char *b) {
     int z;
@@ -59,8 +64,6 @@ static char *format_binary(Uint64 x, char *b) {
 }
 #endif
 
-static Uint32 hashmap_shift_hash(Uint32 hx, Uint *lvl, Eterm key);
-static Uint32 hashmap_restore_hash(Uint lvl, Eterm key);
 static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node);
 static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
@@ -160,6 +163,7 @@ BIF_RETTYPE is_hashmap_1(BIF_ALIST_1) {
 
 static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
     Eterm *ptr, hdr;
+    Eterm th[2];
     Uint ix,slot, lvl = 0;
     Uint32 hval,bp;
 
@@ -179,12 +183,12 @@ static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_NODE_ARRAY:
 			ix   = hashmap_index(hx);
-			hx   = hashmap_shift_hash(hx,&lvl,key);
+			hx   = hashmap_shift_hash(th,hx,lvl,key);
 			node = ptr[ix+1];
 			break;
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			ix   = hashmap_index(hx);
-			hx   = hashmap_shift_hash(hx,&lvl,key);
+			hx   = hashmap_shift_hash(th,hx,lvl,key);
 			node = ptr[ix+2];
 			break;
 		    case HAMT_SUBTAG_NODE_BITMAP:
@@ -195,7 +199,7 @@ static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(hx,&lvl,key);
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
 			    node  = ptr[slot+1];
 			    break;
 			}
@@ -209,7 +213,7 @@ static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(hx,&lvl,key);
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
 			    node  = ptr[slot+2];
 			    break;
 			}
@@ -232,6 +236,7 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
     Eterm *hp = NULL, *nhp = NULL;
     Eterm *ptr;
     Eterm hdr,res,ckey,fake;
+    Eterm th[2];
     Uint32 ix, cix, bp, hval, chx;
     Uint slot, lvl = 0, clvl;
     Uint size = 0, n = 0, update_size = 1;
@@ -255,14 +260,14 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_NODE_ARRAY:
 			ix    = hashmap_index(hx);
-			hx    = hashmap_shift_hash(hx,&lvl,key);
+			hx    = hashmap_shift_hash(th,hx,lvl,key);
 			size += HAMT_NODE_ARRAY_SZ;
 			ESTACK_PUSH2(stack, ix, node);
 			node  = ptr[ix+1];
 			break;
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			ix    = hashmap_index(hx);
-			hx    = hashmap_shift_hash(hx,&lvl,key);
+			hx    = hashmap_shift_hash(th,hx,lvl,key);
 			size += HAMT_HEAD_ARRAY_SZ;
 			ESTACK_PUSH2(stack, ix, node);
 			node  = ptr[ix+2];
@@ -279,7 +284,7 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(hx,&lvl,key);
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
 			    node  = ptr[slot+1];
 			    ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17); 
 			    size += HAMT_NODE_BITMAP_SZ(n);
@@ -300,7 +305,7 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(hx,&lvl,key);
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
 			    node  = ptr[slot+2];
 			    ASSERT(HAMT_HEAD_BITMAP_SZ(n) <= 18); 
 			    size += HAMT_HEAD_BITMAP_SZ(n);
@@ -321,7 +326,7 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
     }
 insert_subnodes:
     clvl  = lvl;
-    chx   = hashmap_restore_hash(clvl,ckey);
+    chx   = hashmap_restore_hash(th,clvl,ckey);
     size += HAMT_NODE_BITMAP_SZ(2);
     ix    = hashmap_index(hx);
     cix   = hashmap_index(chx);
@@ -330,8 +335,8 @@ insert_subnodes:
 	ESTACK_PUSH(stack, 0);
 	ESTACK_PUSH3(stack, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
 	size += HAMT_NODE_BITMAP_SZ(1);
-	hx    = hashmap_shift_hash(hx,&lvl,key);
-	chx   = hashmap_shift_hash(chx,&clvl,ckey);
+	hx    = hashmap_shift_hash(th,hx,lvl,key);
+	chx   = hashmap_shift_hash(th,chx,clvl,ckey);
 	ix    = hashmap_index(hx);
 	cix   = hashmap_index(chx);
     }
@@ -447,6 +452,7 @@ unroll:
 
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node) {
     Eterm *hp = NULL, *nhp = NULL, *hp_end = NULL;
+    Eterm th[2];
     Eterm *ptr;
     Eterm hdr,res = node;
     Uint32 ix, bp, hval;
@@ -469,14 +475,14 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node) {
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_NODE_ARRAY:
 			ix    = hashmap_index(hx);
-			hx    = hashmap_shift_hash(hx,&lvl,key);
+			hx    = hashmap_shift_hash(th,hx,lvl,key);
 			size += HAMT_NODE_ARRAY_SZ;
 			ESTACK_PUSH2(stack, ix, node);
 			node  = ptr[ix+1];
 			break;
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			ix    = hashmap_index(hx);
-			hx    = hashmap_shift_hash(hx,&lvl,key);
+			hx    = hashmap_shift_hash(th,hx,lvl,key);
 			size += HAMT_HEAD_ARRAY_SZ;
 			ESTACK_PUSH2(stack, ix, node);
 			node  = ptr[ix+2];
@@ -493,7 +499,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node) {
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(hx,&lvl,key);
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
 			    node  = ptr[slot+1];
 			    ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
 			    size += HAMT_NODE_BITMAP_SZ(n);
@@ -513,7 +519,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node) {
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(hx,&lvl,key);
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
 			    node  = ptr[slot+2];
 			    ASSERT(HAMT_HEAD_BITMAP_SZ(n) <= 18);
 			    size += HAMT_HEAD_BITMAP_SZ(n);
@@ -742,30 +748,6 @@ static Eterm hashmap_to_list(Process *p, Eterm node) {
     DESTROY_ESTACK(stack);
     ERTS_HOLE_CHECK(p);
     return res;
-}
-
-static Uint32 hashmap_restore_hash(Uint lvl, Eterm key) {
-    Eterm heap[2], ret;
-
-    if (lvl < 8) {
-	return make_hash2(key) >> (4*lvl);
-    }
-    ret = CONS(heap, make_small(lvl), key);
-
-    return make_hash2(ret) >> (4*(lvl % 8));
-}
-
-static Uint32 hashmap_shift_hash(Uint32 hx, Uint *lvl, Eterm key) {
-    Eterm heap[2], ret;
-
-    /* rehash with [ lvl | key ] */
-    *lvl = *lvl + 1;
-    if (*lvl % 8) {
-	return hx >> 4;
-    }
-
-    ret = CONS(heap, make_small((*lvl)), key);
-    return make_hash2(ret);
 }
 
 /* hashmap:info/0 */
