@@ -1024,8 +1024,7 @@ test_compile_options(Config) ->
     ok = test_compile_options:path(Config),
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
-    ok = test_compile_options:verbose(Config),
-    ok = test_compile_options:warnings_as_errors(Config).
+    ok = test_compile_options:verbose(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->
