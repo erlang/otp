@@ -310,7 +310,7 @@
         the following instruction is used:</p>
       <code type="none">
 {apply, {M, F, A}}</code>
-      <p>The release handler will evalute <c>apply(M, F, A)</c>.</p>
+      <p>The release handler will evaluate <c>apply(M, F, A)</c>.</p>
     </section>
 
     <section>
@@ -350,7 +350,7 @@
 	possible.</p>
       </warning>
       <p>An info report is written when the upgrade is completed. To
-        programatically find out if the upgrade is complete,
+        programmatically find out if the upgrade is complete,
         call <c>release_handler:which_releases(current)</c> and check
         if it returns the expected (i.e. the new) release.</p>
       <p>The new release version must be made permanent when the new

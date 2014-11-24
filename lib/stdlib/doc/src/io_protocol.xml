@@ -49,7 +49,7 @@ current I/O-protocol.</p>
 <p>The original I/O-protocol was simple and flexible. Demands for spacial
 and execution time efficiency has triggered extensions to the protocol
 over the years, making the protocol larger and somewhat less easy to
-implement than the original. It can certainly be argumented that the
+implement than the original. It can certainly be argued that the
 current protocol is too complex, but this text describes how it looks
 today, not how it should have looked.</p>
 
