@@ -283,7 +283,7 @@ fun lists:append/2([1,2], [3,4])
 length([]) ->
     0;
 length([H|T]) ->
-    1 + length(T). %% Calls the local funtion length/1
+    1 + length(T). %% Calls the local function length/1
 
 f(X) when erlang:length(X) > 3 -> %% Calls erlang:length/1,
                                   %% which is allowed in guards
@@ -301,7 +301,7 @@ f(X) when erlang:length(X) > 3 -> %% Calls erlang:length/1,
 
 -import(mod,[length/1]).
 
-f(X) when erlang:length(X) > 33 -> %% Calls erlang:lenght/1,
+f(X) when erlang:length(X) > 33 -> %% Calls erlang:length/1,
                                    %% which is allowed in guards
 
     erlang:length(X);              %% Explicit call to erlang:length in body
