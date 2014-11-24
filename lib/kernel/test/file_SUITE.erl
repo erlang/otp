@@ -1349,8 +1349,15 @@ file_info_int(Config) ->
 
     %% check that the file got a modify date max a few seconds away from now
     {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Name),
-    {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Name, [raw]),
+    {ok,FileInfo1Raw} = ?FILE_MODULE:read_file_info(Name, [raw]),
+
+    %% We assert that everything but the size is the same, on some OSs the
+    %% size may not have been flushed to disc and we do not want to do a
+    %% sync to force it.
+    FileInfo1Raw = FileInfo1#file_info{ size = FileInfo1Raw#file_info.size },
+
     #file_info{type=regular,atime=AccTime1,mtime=ModTime1} = FileInfo1,
+
     ?line Now = erlang:localtime(), %???
     ?line io:format("Now ~p",[Now]),
     ?line io:format("Open file Acc ~p Mod ~p",[AccTime1,ModTime1]),
