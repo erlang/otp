@@ -174,5 +174,8 @@ long_connection_line(doc)->
     ["Test a connection line longer than 127 characters"];
 long_connection_line(suite) -> [];
 long_connection_line(_Config)  ->
+    odbc:start(),
     String133 = "unknown_odbc_parameter=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
-    {error,"[unixODBC][Driver Manager]Data source name" ++ _} = odbc:connect(String133, []).
+    {error, Reason} = odbc:connect(String133, []),
+    odbc:stop(),
+    ct:pal("Driver error reason: ~p",[Reason]).
