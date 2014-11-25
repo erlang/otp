@@ -125,9 +125,9 @@
 #  include "sys/select.h"
 #endif
 
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef HAVE_SYSTEMD_DAEMON
 #  include <systemd/sd-daemon.h>
-#endif
+#endif /* HAVE_SYSTEMD_DAEMON */
 
 /* ************************************************************************ */
 /* Replace some functions by others by making the function name a macro */
@@ -340,9 +340,9 @@ typedef struct {
   int listenfd[MAX_LISTEN_SOCKETS];
   char *addresses;
   char **argv;
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef HAVE_SYSTEMD_DAEMON
   int is_systemd;
-#endif
+#endif /* HAVE_SYSTEMD_DAEMON */
 } EpmdVars;
 
 void dbg_printf(EpmdVars*,int,const char*,...);
