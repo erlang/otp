@@ -702,9 +702,10 @@ record_update(R, Name, Fs, Us0, St0) ->
 record_match(R, Name, Lr, Fs, Us, St0) ->
     {Ps,News,St1} = record_upd_fs(Fs, Us, St0),
     NLr = neg_line(Lr),
+    RLine = record_offset(Lr, St1),
     {{'case',Lr,R,
-      [{clause,Lr,[{tuple,Lr,[{atom,Lr,Name} | Ps]}],[],
-        [{tuple,Lr,[{atom,Lr,Name} | News]}]},
+      [{clause,Lr,[{tuple,RLine,[{atom,Lr,Name} | Ps]}],[],
+        [{tuple,RLine,[{atom,Lr,Name} | News]}]},
        {clause,NLr,[{var,NLr,'_'}],[],
         [call_error(NLr, {tuple,NLr,[{atom,NLr,badrecord},{atom,NLr,Name}]})]}
       ]},
@@ -733,6 +734,10 @@ record_setel(R, Name, Fs, Us0) ->
     Lr = element(2, hd(Us)),
     Wildcards = duplicate(length(Fs), {var,Lr,'_'}),
     NLr = neg_line(Lr),
+    %% Note: calling record_offset() here is not necessary since it is
+    %% targeted at Dialyzer which always calls the compiler with
+    %% 'strict_record_updates' meaning that record_setel() will never
+    %% be called.
     {'case',Lr,R,
      [{clause,Lr,[{tuple,Lr,[{atom,Lr,Name} | Wildcards]}],[],
        [foldr(fun ({I,Lf,Val}, Acc) ->
