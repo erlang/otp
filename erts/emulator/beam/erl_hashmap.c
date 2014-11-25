@@ -49,9 +49,9 @@
 #endif
 
 #define hashmap_restore_hash(Heap,Lvl,Key) \
-    ((Lvl) < 8) ? make_hash2(Key) >> (4*(Lvl)) : make_hash2(CONS(Heap, make_small(Lvl), (Key))) >> (4*((Lvl) % 8))
+    ((Lvl) < 8) ? make_hash2(Key) >> (4*(Lvl)) : make_hash2(CONS(Heap, make_small(Lvl), (Key))) >> (4*((Lvl) & 7))
 #define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
-    ((++(Lvl)) % 8) ? (Hx) >> 4 : make_hash2(CONS(Heap, make_small(Lvl), Key))
+    ((++(Lvl)) & 7) ? (Hx) >> 4 : make_hash2(CONS(Heap, make_small(Lvl), Key))
 
 #if 0
 static char *format_binary(Uint64 x, char *b) {
