@@ -3244,11 +3244,11 @@ chk_wake_sched(ErtsRunQueue *crq, int ix, int activate)
 	return 0;
     wrq = ERTS_RUNQ_IX(ix);
     flags = ERTS_RUNQ_FLGS_GET(wrq);
+    if (activate && !(flags & ERTS_RUNQ_FLG_SUSPENDED)) {
+	if (try_inc_no_active_runqs(ix+1))
+	    (void) ERTS_RUNQ_FLGS_UNSET(wrq, ERTS_RUNQ_FLG_INACTIVE);
+    }
     if (!(flags & (ERTS_RUNQ_FLG_SUSPENDED|ERTS_RUNQ_FLG_NONEMPTY))) {
-	if (activate) {
-	    if (try_inc_no_active_runqs(ix+1))
-		(void) ERTS_RUNQ_FLGS_UNSET(wrq, ERTS_RUNQ_FLG_INACTIVE);
-	}
 	wake_scheduler(wrq);
 	return 1;
     }
