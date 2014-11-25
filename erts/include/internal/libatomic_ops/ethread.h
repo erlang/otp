@@ -33,9 +33,12 @@
 #define AO_USE_PENTIUM4_INSTRS
 #endif
 
+#define ETHR_NATIVE_IMPL__ "libatomic_ops"
+
 #include "atomic_ops.h"
 #include "ethr_membar.h"
 #include "ethr_atomic.h"
+#include "ethr_dw_atomic.h"
 
 #endif
 
