@@ -268,6 +268,11 @@ typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
 #ifdef ERTS_SMP
 
+typedef struct ErtsDoubleLink_t_ {
+    struct ErtsDoubleLink_t_ *next;
+    struct ErtsDoubleLink_t_ *prev;
+}ErtsDoubleLink_t;
+
 typedef struct {
     erts_atomic_t next;
     erts_atomic_t prev;
@@ -277,6 +282,7 @@ typedef struct {
     UWord abandon_limit;
     UWord blocks;
     UWord blocks_size;
+    ErtsDoubleLink_t abandoned; /* node in pooled_list or traitor_list */
 } ErtsAlcCPoolData_t;
 
 #endif
@@ -500,7 +506,12 @@ struct Allctr_t_ {
     CarrierList_t	sbc_list;
 #ifdef ERTS_SMP
     struct {
-	CarrierList_t	dc_list;
+	/* pooled_list, traitor list and dc_list contain only
+           carriers _created_ by this allocator */
+	ErtsDoubleLink_t pooled_list;
+	ErtsDoubleLink_t traitor_list;
+	CarrierList_t	 dc_list;
+
 	UWord		abandon_limit;
 	int		disable_abandon;
 	int		check_limit_count;
