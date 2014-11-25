@@ -2343,8 +2343,10 @@ port_setget_data(Config) when is_list(Config) ->
     Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
 
     NSched = erlang:system_info(schedulers_online),
+    HeapData = {1,2,3,<<"A heap binary">>,fun()->"This is fun"end,
+	       list_to_binary(lists:seq(1,100))},
     PRs = lists:map(fun(I) ->
-			    spawn_opt(fun() -> port_setget_data_hammer(Port,1) end,
+			    spawn_opt(fun() -> port_setget_data_hammer(Port,HeapData,false,1) end,
 				      [monitor, {scheduler, I rem NSched}])
 		    end,
 		    lists:seq(1,10)),
@@ -2362,13 +2364,17 @@ port_setget_data(Config) when is_list(Config) ->
 		  PRs),
     ok.
 
-port_setget_data_hammer(Port, N) ->
+port_setget_data_hammer(Port, HeapData, IsSet0, N) ->
     Rand = random:uniform(3),
-    try case Rand of
-	    1 -> true = erlang:port_set_data(Port, atom);
-	    2 -> true = erlang:port_set_data(Port, {1,2,3});
-	    3 -> erlang:port_get_data(Port)
-	end
+    IsSet1 = try case Rand of
+		     1 -> true = erlang:port_set_data(Port, atom), true;
+		     2 -> true = erlang:port_set_data(Port, HeapData), true;
+		     3 -> case erlang:port_get_data(Port) of
+			      atom -> true;
+			      HeapData -> true;
+			      undefined -> false=IsSet0
+			  end
+		 end
     catch
 	error:badarg ->
 	    true = get(prepare_for_close),
@@ -2381,7 +2387,7 @@ port_setget_data_hammer(Port, N) ->
     after 0 ->
 	    ok
     end,
-    port_setget_data_hammer(Port, N+1).
+    port_setget_data_hammer(Port, HeapData, IsSet1, N+1).
 
 
 wait_until(Fun) ->

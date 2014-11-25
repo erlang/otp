@@ -472,7 +472,7 @@ cleanup_old_port_data(erts_aint_t data)
 	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
 	size_t size;
 	ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
-	size = sizeof(ErtsPortDataHeap) + pdhp->hsize*(sizeof(Eterm) - 1);
+	size = sizeof(ErtsPortDataHeap) + (pdhp->hsize-1)*sizeof(Eterm);
 	erts_schedule_thr_prgr_later_cleanup_op(free_port_data_heap,
 						(void *) pdhp,
 						&pdhp->later_op,
@@ -508,7 +508,7 @@ erts_port_data_size(Port *prt)
     }
     else {
 	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
-	return (Uint) sizeof(ErtsPortDataHeap) + pdhp->hsize*(sizeof(Eterm)-1);
+	return (Uint) sizeof(ErtsPortDataHeap) + (pdhp->hsize-1)*sizeof(Eterm);
     }
 }
 
@@ -550,7 +550,7 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 
 	hsize = size_object(BIF_ARG_2);
 	pdhp = erts_alloc(ERTS_ALC_T_PORT_DATA_HEAP,
-			  sizeof(ErtsPortDataHeap) + hsize*(sizeof(Eterm)-1));
+			  sizeof(ErtsPortDataHeap) + (hsize-1)*sizeof(Eterm));
 	hp = &pdhp->heap[0];
 	pdhp->off_heap.first = NULL;
 	pdhp->off_heap.overhead = 0;
