@@ -409,6 +409,30 @@ Some of the available `configure` options are:
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
 
+#### Atomic Memory Operations and the VM ####
+
+The VM with SMP support makes quite a heavy use of atomic memory operations.
+An implementation providing native atomic memory operations is therefore very
+important when building Erlang/OTP. By default the VM will refuse to build
+if native atomic memory operations are not available.
+
+Erlang/OTP itself provides implementations of native atomic memory operations
+that can be used when compiling with a `gcc` compatible compiler on 32-bit
+and 64-bit x86, 32-bit and 64-bit SPARC V9, and 32-bit PowerPC. When compiling
+with a `gcc` compatible compiler on other architectures, the VM may be able to
+make use of native atomic operations using the `__sync_*` primitives, but this
+should only be used as a last resort since this wont give you optimal
+performance. When compiling on Windows using a MicroSoft Visual C++ compiler
+native atomic memory operations are provided by Windows APIs.
+
+You are recommended to use the native atomic implementation provided by
+Erlang/OTP, or the API provided by Windows. If these do not provide native
+atomics on your platform, you are recommended to build and install
+[libatomic_ops][] before building Erlang/OTP. The `libatomic_ops` library
+provides native atomic memory operations for a variety of platforms and
+compilers. When building Erlang/OTP you need to inform the build system of
+where the `libatomic_ops` library is installed using the
+`--with-libatomic_ops=PATH` configure switch.
 
 ### Building ###
 
@@ -862,3 +886,4 @@ under the License.
    [Optional Utilities]: #Optional-Utilities
    [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_OS-X-Darwin
    [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
+   [libatomic_ops]: https://github.com/ivmai/libatomic_ops/
