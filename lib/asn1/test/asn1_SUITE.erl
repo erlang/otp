@@ -60,7 +60,8 @@ groups() ->
      {ber, Parallel,
       [ber_choiceinseq,
        % Uses 'SOpttest'
-       ber_optional]},
+       ber_optional,
+       tagdefault_automatic]},
 
      {app_test, [], [{asn1_app_test, all}]},
 
@@ -658,6 +659,19 @@ ber_optional(Config, Rule, Opts) ->
               {'B', asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE},
               {'C', asn1_NOVALUE, 111, asn1_NOVALUE}},
     asn1_test_lib:roundtrip('SOpttest', 'S', V).
+
+tagdefault_automatic(Config) ->
+    test(Config, fun tagdefault_automatic/3, [ber]).
+tagdefault_automatic(Config, Rule, Opts) ->
+    asn1_test_lib:compile("TAGDEFAULT-AUTOMATIC", Config, [Rule|Opts]),
+    << 48,8,128,2,100,101,129,2,110,111 >> =
+	asn1_test_lib:roundtrip_enc('TAGDEFAULT-AUTOMATIC', 'Tagged', {'Tagged', << 100,101 >>, << 110,111 >>}),
+    << 48,8,128,2,100,101,129,2,110,111 >> =
+	asn1_test_lib:roundtrip_enc('TAGDEFAULT-AUTOMATIC', 'Untagged', {'Untagged', << 100,101 >>, << 110,111 >>}),
+    << 48,8,4,2,100,101,130,2,110,111 >> =
+	asn1_test_lib:roundtrip_enc('TAGDEFAULT-AUTOMATIC', 'Mixed', {'Mixed', << 100,101 >>, << 110,111 >>}),
+
+    ok.
 
 %% records used by test-case default
 -record('Def1', {bool0,
