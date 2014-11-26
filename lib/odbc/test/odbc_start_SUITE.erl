@@ -109,8 +109,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case odbc_test_lib:odbc_check() of
-	ok -> [app, appup, start];
-	Other -> [app, appup]
+	ok -> [app, appup, start, long_connection_line];
+	_Other -> [app, appup]
     end.
 
 groups() -> 
@@ -168,3 +168,14 @@ start_odbc(Type) ->
 	{error, odbc_not_started} ->
 	    test_server:fail(start_failed)
     end.
+
+
+long_connection_line(doc)->
+    ["Test a connection line longer than 127 characters"];
+long_connection_line(suite) -> [];
+long_connection_line(_Config)  ->
+    odbc:start(),
+    String133 = "unknown_odbc_parameter=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+    {error, Reason} = odbc:connect(String133, []),
+    odbc:stop(),
+    ct:pal("Driver error reason: ~p",[Reason]).
