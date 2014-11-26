@@ -599,6 +599,14 @@ c_implicit_before_choice(Config, Rule, Opts) ->
                                   [Rule, {outdir, CaseDir}|Opts]).
 
 constraint_equivalence(Config) ->
+    constraint_equivalence_abs(Config),
+    test(Config, fun constraint_equivalence/3).
+
+constraint_equivalence(Config, Rule, Opts) ->
+    M = 'ConstraintEquivalence',
+    asn1_test_lib:compile(M, Config, [Rule|Opts]).
+
+constraint_equivalence_abs(Config) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
     Asn1Spec = "ConstraintEquivalence",
