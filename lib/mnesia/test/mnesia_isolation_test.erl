@@ -1584,7 +1584,8 @@ write_shadows(Config) when is_list(Config) ->
 
 		  ?match([RecA2], mnesia:read({Tab, a})), 
 		  ?match([RecA2], mnesia:wread({Tab, a})), 
-		  ?match([RecA2], mnesia:match_object(PatA2)), 		  %% delete shadow old but not new write - is the new value visable
+		   ?match([],      mnesia:match_object(PatA1)), %% delete shadow old but not new write
+		   ?match([RecA2], mnesia:match_object(PatA2)), %% is the new value visable
 
 		  ?match([a], mnesia:all_keys(Tab)), 
 		  ?match([RecA2], mnesia:index_match_object(PatA2, ValPos)), 
@@ -1643,6 +1644,7 @@ delete_shadows(Config) when is_list(Config) ->
 
 		  ?match([RecA2], mnesia:read({Tab, a})), 
 		  ?match([RecA2], mnesia:wread({Tab, a})), 
+		  ?match([],  mnesia:match_object(PatA1)),
 		  ?match([RecA2], mnesia:match_object(PatA2)), 
 		  ?match([a], mnesia:all_keys(Tab)), 
 		  ?match([RecA2], mnesia:index_match_object(PatA2, ValPos)), 

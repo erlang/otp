@@ -1140,10 +1140,12 @@ match_object(_Tid, _Ts, Tab, Pat, _LockKind) ->
 
 add_written_match(S, Pat, Tab, Objs) ->
     Ops = find_ops(S, Tab, Pat),
-    add_match(Ops, Objs, val({Tab, setorbag})).
+    FixedRes = add_match(Ops, Objs, val({Tab, setorbag})),
+    MS = ets:match_spec_compile([{Pat, [], ['$_']}]),
+    ets:match_spec_run(FixedRes, MS).
 
 find_ops(S, Tab, Pat) ->
-    GetWritten = [{{{Tab, '_'}, Pat, write}, [], ['$_']},
+    GetWritten = [{{{Tab, '_'}, '_', write}, [], ['$_']},
 		  {{{Tab, '_'}, '_', delete}, [], ['$_']},
 		  {{{Tab, '_'}, Pat, delete_object}, [], ['$_']}],
     ets:select(S, GetWritten).
