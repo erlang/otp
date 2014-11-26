@@ -225,7 +225,7 @@ call(Msg) ->
 	    Res = gen_server:call(Pid, Msg, infinity),
             %% We get an exit signal if server dies
             receive
-                {'EXIT', _Pid, _Reason} ->
+                {'EXIT', Pid, _Reason} ->
                     {error, {node_not_running, node()}}
             after 0 ->
                     Res

@@ -538,7 +538,7 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    io:format("Timeout: expected error logger msg", []),
 	    ?t:fail()
     end,
-    [] = ?t:messages_get(),
+    _ = ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 
