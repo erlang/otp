@@ -6581,6 +6581,8 @@ merge_tags2([T1= #tag{type='IMPLICIT'}, T2 |Rest], Acc) ->
     merge_tags2([T1#tag{type=T2#tag.type, form=T2#tag.form}|Rest],Acc);
 merge_tags2([T1= #tag{type={default,'IMPLICIT'}}, T2 |Rest], Acc) ->
     merge_tags2([T1#tag{type=T2#tag.type, form=T2#tag.form}|Rest],Acc);
+merge_tags2([T1= #tag{type={default,'AUTOMATIC'}}, T2 |Rest], Acc) ->
+    merge_tags2([T1#tag{type=T2#tag.type, form=T2#tag.form}|Rest],Acc);
 merge_tags2([H|T],Acc) ->
     merge_tags2(T, [H|Acc]);
 merge_tags2([], Acc) ->
