@@ -1283,6 +1283,8 @@
 			or before unix time epoch which is 1970-01-01 00:00 UTC. 
 			Default is <c>{time, local}</c>.
 		</p> 
+        <p>If the <c>raw</c> option is set, the file server will not be called
+          and only informations about local files will be returned.</p>
 		<note>
           <p>
 			  Since file times is stored in posix time on most OS it is
@@ -1509,6 +1511,8 @@
           the link will be returned in the <c>file_info</c> record and
           the <c>type</c> field of the record will be set to
           <c>symlink</c>.</p>
+      <p>If the <c>raw</c> option is set, the file server will not be called
+        and only informations about local files will be returned.</p>
         <p>If <c><anno>Name</anno></c> is not a symbolic link, this function returns
           exactly the same result as <c>read_file_info/1</c>.
           On platforms that do not support symbolic links, this function
@@ -1847,6 +1851,8 @@
 			interpret it as universal time and <c>posix</c> must be seconds since
 			or before unix time epoch which is 1970-01-01 00:00 UTC.
 			Default is <c>{time, local}</c>.
+        <p>If the <c>raw</c> option is set, the file server will not be called
+          and only informations about local files will be returned.</p>
 		</p>
         <p>The following fields are used from the record, if they are
           given.</p>
