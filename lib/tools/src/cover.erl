@@ -1696,6 +1696,8 @@ fix_expr(T, Line, Bump) when is_tuple(T) ->
 fix_expr(E, _Line, _Bump) ->
     E.
 
+fix_clauses([], _Line, _Bump) ->
+    [];
 fix_clauses(Cs, Line, Bump) ->
     case bumps_line(lists:last(Cs), Line) of
         true ->
