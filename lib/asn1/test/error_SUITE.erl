@@ -683,6 +683,9 @@ values(Config) ->
 	   "  holder-1 HOLDER ::= { &str \"xyz\" }\n"
 	   "  holder-2 HOLDER ::= { &str \"xyz\", &obj holder-1 }\n"
 
+	   "  ext-1 EXTERNAL ::= {identification bad:{1 2 3}, data-value '123'H}\n"
+	   "  ext-2 EXTERNAL ::= {identification syntax:{1 2 3}, data '123'H}\n"
+
 	   "  int INTEGER ::= 42\n"
 	   "END\n">>},
     {error,
@@ -724,7 +727,11 @@ values(Config) ->
       {structured_error,{M,23},asn1ct_check,
        illegal_bitstring_value},
       {structured_error,{M,24},asn1ct_check,
-       illegal_bitstring_value}
+       illegal_bitstring_value},
+      {structured_error,{M,31},asn1ct_check,
+       illegal_external_value},
+      {structured_error,{M,32},asn1ct_check,
+       illegal_external_value}
      ]
     } = run(P, Config),
     ok.

@@ -2013,7 +2013,7 @@ to_EXTERNAL1990(S, [{#seqtag{val=identification}=T,
     to_EXTERNAL1990(S, Rest, [{T#seqtag{val='indirect-reference'},PCid},
 			      {T#seqtag{val='direct-reference'},TrStx}]);
 to_EXTERNAL1990(S, _) ->
-    error({value,"illegal value in EXTERNAL type",S}).
+    asn1_error(S, illegal_external_value).
 
 to_EXTERNAL1990(S, [V={#seqtag{val='data-value-descriptor'},_}|Rest], Acc) ->
     to_EXTERNAL1990(S, Rest, [V|Acc]);
@@ -2021,7 +2021,7 @@ to_EXTERNAL1990(_S, [{#seqtag{val='data-value'}=T,Val}], Acc) ->
     Encoding = {T#seqtag{val=encoding},{'CHOICE',{'octet-aligned',Val}}},
     lists:reverse([Encoding|Acc]);
 to_EXTERNAL1990(S, _, _) ->
-    error({value,"illegal value in EXTERNAL type",S}).
+    asn1_error(S, illegal_external_value).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Functions to normalize the default values of SEQUENCE 
@@ -5933,6 +5933,8 @@ format_error(illegal_bitstring_value) ->
     "expecting a BIT STRING value";
 format_error({illegal_class_name,Class}) ->
     io_lib:format("the class name '~s' is illegal (it must start with an uppercase letter and only contain uppercase letters, digits, or hyphens)", [Class]);
+format_error(illegal_external_value) ->
+    "illegal value in EXTERNAL type";
 format_error({illegal_instance_of,Class}) ->
     io_lib:format("using INSTANCE OF on class '~s' is illegal, "
 		  "because INSTANCE OF may only be used on the class TYPE-IDENTIFIER",
