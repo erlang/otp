@@ -21,7 +21,7 @@
 -export([suite/0,all/0,groups/0,
 	 already_defined/1,bitstrings/1,
 	 classes/1,constraints/1,enumerated/1,
-	 imports/1,instance_of/1,integers/1,objects/1,
+	 imports_exports/1,instance_of/1,integers/1,objects/1,
 	 object_field_extraction/1,oids/1,rel_oids/1,
 	 object_sets/1,parameterization/1,
 	 syntax/1,table_constraints/1,values/1]).
@@ -40,7 +40,7 @@ groups() ->
        classes,
        constraints,
        enumerated,
-       imports,
+       imports_exports,
        instance_of,
        integers,
        objects,
@@ -170,7 +170,7 @@ enumerated(Config) ->
     } = run(P, Config),
     ok.
 
-imports(Config) ->
+imports_exports(Config) ->
     Ext = 'ExternalModule',
     ExtP = {Ext,
 	    <<"ExternalModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
@@ -189,23 +189,30 @@ imports(Config) ->
     M = 'Imports',
     P = {M,
 	 <<"Imports DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "EXPORTS\n"
+	   " T, UndefinedType;\n"
+
 	   "IMPORTS\n"
 	   " NotDefined, Existing, Int, NonExistingImport\n"
 	   "   FROM ExternalModule\n"
 	   " X FROM UndefinedModule objid\n"
 	   " Y, Z FROM UndefinedModule2;\n"
+
 	   "objid OBJECT IDENTIFIER ::= {joint-iso-ccitt(2) remote-operations(4)\n"
 	   "    notation(0)}\n"
+	   "T ::= INTEGER\n"
 	   "END\n">>},
     {error,[{structured_error,{M,3},asn1ct_check,
-	     {undefined_import,'NonExistingImport',Ext}},
-	    {structured_error,{M,3},asn1ct_check,
-	     {undefined_import,'NotDefined',Ext}},
+	     {undefined_export, 'UndefinedType'}},
 	    {structured_error,{M,5},asn1ct_check,
+	     {undefined_import,'NonExistingImport',Ext}},
+	    {structured_error,{M,5},asn1ct_check,
+	     {undefined_import,'NotDefined',Ext}},
+	    {structured_error,{M,7},asn1ct_check,
 	     {undefined_import,'X','UndefinedModule'}},
-	    {structured_error,{M,6},asn1ct_check,
+	    {structured_error,{M,8},asn1ct_check,
 	     {undefined_import,'Y','UndefinedModule2'}},
-	    {structured_error,{M,6},asn1ct_check,
+	    {structured_error,{M,8},asn1ct_check,
 	     {undefined_import,'Z','UndefinedModule2'}}
 	   ]} = run(P, Config),
     ok.

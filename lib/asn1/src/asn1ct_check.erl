@@ -241,26 +241,18 @@ check_exports(S,Module = #module{}) ->
 	{exports,all} ->
 	    [];
 	{exports,ExportList} when is_list(ExportList) ->
-	    IsNotDefined = 
+	    IsNotDefined =
 		fun(X) ->
-			case catch get_referenced_type(S,X) of
-			    {error,{asn1,_}} ->
-				true;
-			    _ -> false
+			try
+			    _ = get_referenced_type(S,X),
+			    false
+			catch {error,_} ->
+				true
 			end
 		end,
-	    case lists:filter(IsNotDefined,ExportList) of
-		[] ->
-		    [];
-		NoDefExp ->
-		    GetName =
-			fun(T = #'Externaltypereference'{type=N})-> 
-				%%{exported,undefined,entity,N} 
-				NewS=S#state{type=T,tname=N},
-				error({export,"exported undefined entity",NewS})
-			end,
-		    lists:map(GetName,NoDefExp)
-	    end
+	    [return_asn1_error(S, Ext, {undefined_export, Undef}) ||
+		Ext = #'Externaltypereference'{type=Undef} <- ExportList,
+		IsNotDefined(Ext)]
     end.
 
 check_imports(S, #module{imports={imports,Imports}}) ->
@@ -5992,6 +5984,8 @@ format_error({syntax_undefined_field,Field}) ->
 		  [Field]);
 format_error({undefined,Name}) ->
     io_lib:format("'~s' is referenced, but is not defined", [Name]);
+format_error({undefined_export,Ref}) ->
+    io_lib:format("'~s' is exported but is not defined", [Ref]);
 format_error({undefined_field,FieldName}) ->
     io_lib:format("the field '&~s' is undefined", [FieldName]);
 format_error({undefined_import,Ref,Module}) ->
@@ -6011,15 +6005,6 @@ format_fields([H|T]) ->
 
 error({_,{structured_error,_,_,_}=SE,_}) ->
     SE;
-error({export,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
-    Pos = Ref#'Externaltypereference'.pos,
-    io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
-    {error,{export,Pos,Mname,Typename,Msg}};
-% error({type,{Msg1,Msg2},#state{mname=Mname,type=Type,tname=Typename}}) 
-%   when is_record(Type,typedef) ->
-%     io:format("asn1error:~p:~p:~p ~p~n",
-% 	      [Type#typedef.pos,Mname,Typename,Msg1]),
-%     {error,{type,Type#typedef.pos,Mname,Typename,Msg1,Msg2}};
 error({type,Msg,#state{mname=Mname,type=Type,tname=Typename}}) 
   when is_record(Type,type) ->
     io:format("asn1error:~p:~p~n~p~n",

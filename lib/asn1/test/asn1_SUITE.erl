@@ -142,7 +142,6 @@ groups() ->
        testMergeCompile,
        testobj,
        testDeepTConstr,
-       testExport,
        testImport,
        testDER,
        testDEFAULT,
@@ -826,12 +825,6 @@ testDeepTConstr(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["TConstrChoice", "TConstr"], Config,
                               [Rule|Opts]),
     testDeepTConstr:main(Rule).
-
-testExport(Config) ->
-    {error, _} =
-	asn1ct:compile(filename:join(?config(data_dir, Config),
-				     "IllegalExport"),
-		       [{outdir, ?config(case_dir, Config)}]).
 
 testImport(Config) ->
     test(Config, fun testImport/3).
