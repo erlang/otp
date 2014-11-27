@@ -24,7 +24,7 @@
 	 imports_exports/1,instance_of/1,integers/1,objects/1,
 	 object_field_extraction/1,oids/1,rel_oids/1,
 	 object_sets/1,parameterization/1,
-	 syntax/1,table_constraints/1,values/1]).
+	 syntax/1,table_constraints/1,tags/1,values/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -51,6 +51,7 @@ groups() ->
        parameterization,
        syntax,
        table_constraints,
+       tags,
        values]}].
 
 parallel() ->
@@ -651,6 +652,52 @@ table_constraints(Config) ->
        invalid_table_constraint}
      ]} = run(P, Config),
     ok.
+
+tags(Config) ->
+    M = 'Tags',
+    P = {M,
+	 <<"Tags DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "SeqOpt1 ::= SEQUENCE\n"
+	   "{\n"
+	   "bool1  BOOLEAN OPTIONAL,\n"
+	   "int1  INTEGER,\n"
+	   "seq1  SeqIn OPTIONAL\n"
+	   "}\n"
+
+	   "SeqOpt1Imp ::= SEQUENCE \n"
+	   "{\n"
+	   "bool1 [1] BOOLEAN OPTIONAL,\n"
+	   "int1  INTEGER,\n"
+	   "seq1  [2] SeqIn OPTIONAL,\n"
+	   "seq2  [2] SeqIn OPTIONAL,\n"
+	   "...,\n"
+	   "int2  [3] SeqIn,\n"
+	   "int3  [3] SeqIn\n"
+	   "}\n"
+
+	   "SeqIn ::= SEQUENCE \n"
+	   "{\n"
+	   "boolIn  BOOLEAN,\n"
+	   "intIn  INTEGER\n"
+	   "}\n"
+	   "\n"
+
+	   "Set1 ::= SET {\n"
+	   " os [0] OCTET STRING,\n"
+	   " bool [0] BOOLEAN\n"
+	   "}\n"
+
+	   "END\n">>},
+    {error,
+     [{structured_error,
+       {M,8},asn1ct_check,
+       {duplicate_tags,[seq1,seq2]}},
+      {structured_error,
+       {M,24},asn1ct_check,
+       {duplicate_tags,[bool,os]}}
+     ]} = run(P, Config),
+    ok.
+
 
 values(Config) ->
     M = 'Values',

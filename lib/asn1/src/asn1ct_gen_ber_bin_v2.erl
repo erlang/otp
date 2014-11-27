@@ -24,7 +24,7 @@
 
 -include("asn1_records.hrl").
 
--export([decode_class/1, decode_type/1]).
+-export([decode_class/1]).
 -export([gen_encode/2,gen_encode/3,gen_decode/2,gen_decode/3]).
 -export([gen_encode_prim/4]).
 -export([gen_dec_prim/3]).
@@ -1543,39 +1543,6 @@ decode_class('CONTEXT') ->
     ?CONTEXT;
 decode_class('PRIVATE') ->
     ?PRIVATE.
-
-decode_type('BOOLEAN') -> 1;
-decode_type('INTEGER') -> 2;
-decode_type('BIT STRING') -> 3; 
-decode_type('OCTET STRING') -> 4; 
-decode_type('NULL') -> 5;
-decode_type('OBJECT IDENTIFIER') -> 6;
-decode_type('ObjectDescriptor') -> 7;
-decode_type('EXTERNAL') -> 8;
-decode_type('REAL') -> 9;
-decode_type('ENUMERATED') -> 10;
-decode_type('EMBEDDED_PDV') -> 11;
-decode_type('UTF8String') -> 12;
-decode_type('RELATIVE-OID') -> 13;
-decode_type('SEQUENCE') -> 16;
-decode_type('SEQUENCE OF') -> 16;
-decode_type('SET') -> 17;
-decode_type('SET OF') -> 17;
-decode_type('NumericString') -> 18;  
-decode_type('PrintableString') -> 19;  
-decode_type('TeletexString') -> 20;  
-decode_type('T61String') -> 20;
-decode_type('VideotexString') -> 21;  
-decode_type('IA5String') -> 22;  
-decode_type('UTCTime') -> 23;  
-decode_type('GeneralizedTime') -> 24;  
-decode_type('GraphicString') -> 25;  
-decode_type('VisibleString') -> 26;  
-decode_type('GeneralString') -> 27;  
-decode_type('UniversalString') -> 28;  
-decode_type('BMPString') -> 30;
-decode_type('CHOICE') -> 'CHOICE'; % choice gets the tag from the actual alternative  
-decode_type(Else) -> exit({error,{asn1,{unrecognized_type,Else}}}).
 
 mkfuncname(#'Externaltypereference'{module=Mod,type=EType}, DecOrEnc) ->
     CurrMod = get(currmod),

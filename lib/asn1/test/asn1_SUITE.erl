@@ -148,7 +148,6 @@ groups() ->
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
-       duplicate_tags,
        testROSE,
        testINSTANCE_OF,
        testTCAP,
@@ -869,14 +868,6 @@ testOpenTypeImplicitTag(Config, Rule, Opts) ->
     asn1_test_lib:compile("OpenTypeImplicitTag", Config, [Rule|Opts]),
     testOpenTypeImplicitTag:main(Rule).
 
-duplicate_tags(Config) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    {error, [{error, {type, _, _, 'SeqOpt1Imp',
-			     {asn1, {duplicates_of_the_tags, _}}}}]} =
-	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
-		       [abs, {outdir, CaseDir}]).
-
 rtUI(Config) -> test(Config, fun rtUI/3).
 rtUI(Config, Rule, Opts) ->
     asn1_test_lib:compile("Prim", Config, [Rule|Opts]),
@@ -1147,7 +1138,8 @@ test_modules() ->
      "Def",
      "Opt",
      "ELDAPv3",
-     "LDAP"].
+     "LDAP",
+     "SeqOptional2"].
 
 test_OTP_9688(Config) ->
     PrivDir = ?config(case_dir, Config),

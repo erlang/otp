@@ -4565,7 +4565,7 @@ check_sequenceof(S,Type,Component) when is_record(Component,type) ->
 
 check_set(S,Type,Components) ->
     {TableCInf,NewComponents} = check_sequence(S,Type,Components),
-    check_distinct_tags(NewComponents,[]),
+    check_unique_tags(S, collect_components(NewComponents), []),
     case {lists:member(der,S#state.options),S#state.erule} of
 	{true,_} ->
 	    {Sorted,SortedComponents} = sort_components(der,S,NewComponents),
@@ -4577,35 +4577,21 @@ check_set(S,Type,Components) ->
 	    {false,TableCInf,NewComponents}
     end.
 
-
-%% check that all tags are distinct according to X.680 26.3
-check_distinct_tags({C1,C2,C3},Acc) when is_list(C1),is_list(C2),is_list(C3) ->
-    check_distinct_tags(C1++C2++C3,Acc);
-check_distinct_tags({C1,C2},Acc) when is_list(C1),is_list(C2) ->
-    check_distinct_tags(C1++C2,Acc);
-check_distinct_tags([#'ComponentType'{tags=[T]}|Cs],Acc) ->
-    check_distinct(T,Acc),
-    check_distinct_tags(Cs,[T|Acc]);
-check_distinct_tags([C=#'ComponentType'{tags=[T|Ts]}|Cs],Acc) ->
-    check_distinct(T,Acc),
-    check_distinct_tags([C#'ComponentType'{tags=Ts}|Cs],[T|Acc]);
-check_distinct_tags([#'ComponentType'{tags=[]}|_Cs],_Acc) ->
-    throw({error,"Not distinct tags in SET"});
-check_distinct_tags([],_) ->
-    ok.
-check_distinct(T,Acc) ->
-    case lists:member(T,Acc) of
-	true ->
-	    throw({error,"Not distinct tags in SET"});
-	_ -> ok
-    end.
+collect_components({C1,C2,C3}) ->
+    collect_components(C1++C2++C3);
+collect_components({C1,C2}) ->
+    collect_components(C1++C2);
+collect_components(Cs) ->
+    %% Assert that tags are not empty
+    [] = [EmptyTag || EmptyTag = #'ComponentType'{tags=[]} <- Cs],
+    Cs.
 
 %% sorting in canonical order according to X.680 8.6, X.691 9.2
 %% DER: all components shall be sorted in canonical order.
 %% PER: only root components shall be sorted in canonical order. The
 %%      extension components shall remain in textual order.
 %%
-sort_components(der,S=#state{tname=TypeName},Components) ->
+sort_components(der, S, Components) ->
     {R1,Ext,R2} = extension(textual_order(Components)),
     CompsList = case Ext of
 		    noext -> R1;
@@ -4613,88 +4599,34 @@ sort_components(der,S=#state{tname=TypeName},Components) ->
 		end,
     case {untagged_choice(S,CompsList),Ext} of
 	{false,noext} ->
-	    {true,sort_components1(S,TypeName,CompsList,[],[],[],[])};
+	    {true,sort_components1(CompsList)};
 	{false,_} ->
-	    {true,{sort_components1(S,TypeName,CompsList,[],[],[],[]), []}};
+	    {true,{sort_components1(CompsList),[]}};
 	{true,noext} ->
 	    %% sort in run-time
 	    {dynamic,R1};
 	_ ->
 	    {dynamic,{R1, Ext, R2}}
     end;
-sort_components(per,S=#state{tname=TypeName},Components) ->
+sort_components(per, S, Components) ->
     {R1,Ext,R2} = extension(textual_order(Components)),
     Root = tag_untagged_choice(S,R1++R2),
     case Ext of
 	noext ->
-	    {true,sort_components1(S,TypeName,Root,[],[],[],[])};
+	    {true,sort_components1(Root)};
 	_ ->
-	    {true,{sort_components1(S,TypeName,Root,[],[],[],[]),
-		   Ext}}
+	    {true,{sort_components1(Root),Ext}}
     end.
 
-sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'UNIVERSAL',_}|_R]}|Cs],
-		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(S,TypeName,Cs,[C|UnivAcc],ApplAcc,ContAcc,PrivAcc);
-sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'APPLICATION',_}|_R]}|Cs],
-		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(S,TypeName,Cs,UnivAcc,[C|ApplAcc],ContAcc,PrivAcc);
-sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'CONTEXT',_}|_R]}|Cs],
-		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(S,TypeName,Cs,UnivAcc,ApplAcc,[C|ContAcc],PrivAcc);
-sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'PRIVATE',_}|_R]}|Cs],
-		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(S,TypeName,Cs,UnivAcc,ApplAcc,ContAcc,[C|PrivAcc]);
-sort_components1(S,TypeName,[],UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    I = #'ComponentType'.tags,
-    ascending_order_check(S,TypeName,sort_universal_type(UnivAcc)) ++
-	ascending_order_check(S,TypeName,lists:keysort(I,ApplAcc)) ++
-	ascending_order_check(S,TypeName,lists:keysort(I,ContAcc)) ++
-	ascending_order_check(S,TypeName,lists:keysort(I,PrivAcc)).
+sort_components1(Cs0) ->
+    Cs1 = [{tag_key(Tag),C} || #'ComponentType'{tags=[Tag|_]}=C <- Cs0],
+    Cs = lists:sort(Cs1),
+    [C || {_,C} <- Cs].
 
-ascending_order_check(S,TypeName,Components) ->
-    ascending_order_check1(S,TypeName,Components),
-    Components.
-
-ascending_order_check1(S,TypeName,
-		       [C1 = #'ComponentType'{tags=[{_,T}|_]},
-			C2 = #'ComponentType'{tags=[{_,T}|_]}|Rest]) ->
-    asn1ct:warning("Indistinct tag ~p in SET ~p, components ~p and ~p~n",
-		   [T,TypeName,C1#'ComponentType'.name,C2#'ComponentType'.name],S,
-		   "Indistinct tag in SET"),
-    ascending_order_check1(S,TypeName,[C2|Rest]);
-ascending_order_check1(S,TypeName,
-		       [C1 = #'ComponentType'{tags=[{'UNIVERSAL',T1}|_]},
-			C2 = #'ComponentType'{tags=[{'UNIVERSAL',T2}|_]}|Rest]) ->
-    case (decode_type(T1) == decode_type(T2)) of
-	true ->
-	    asn1ct:warning("Indistinct tags ~p and ~p in"
-			   " SET ~p, components ~p and ~p~n",
-			   [T1,T2,TypeName,C1#'ComponentType'.name,
-			    C2#'ComponentType'.name],S,
-			   "Indistinct tags and in SET"),
-	    ascending_order_check1(S,TypeName,[C2|Rest]);
-	_ ->
-	    ascending_order_check1(S,TypeName,[C2|Rest])
-    end;
-ascending_order_check1(S,N,[_|Rest]) ->
-    ascending_order_check1(S,N,Rest);
-ascending_order_check1(_,_,[]) ->
-    ok.
-    
-sort_universal_type(Components) ->
-    List = lists:map(fun(C) ->
-			     #'ComponentType'{tags=[{_,T}|_]} = C,
-			     {decode_type(T),C}
-		     end,
-		     Components),
-    SortedList = lists:keysort(1,List),
-    lists:map(fun(X)->element(2,X) end,SortedList).
-
-decode_type(I) when is_integer(I) ->
-    I;
-decode_type(T) ->
-    asn1ct_gen_ber_bin_v2:decode_type(T).
+tag_key({'UNIVERSAL',Tag}) ->   {0,Tag};
+tag_key({'APPLICATION',Tag}) -> {1,Tag};
+tag_key({'CONTEXT',Tag}) ->     {2,Tag};
+tag_key({'PRIVATE',Tag}) ->     {3,Tag}.
 
 untagged_choice(_S,[#'ComponentType'{typespec=#type{tag=[],def={'CHOICE',_}}}|_Rest]) ->
     true;
@@ -4948,25 +4880,30 @@ check_unique_tags(S,C) ->
     case (S#state.module)#module.tagdefault of
 	'AUTOMATIC' ->
 	    case any_manual_tag(C) of
-		false -> true;
-		_ -> collect_and_sort_tags(C,[])
+		false ->
+		    true;
+		true ->
+		    check_unique_tags(S, C, [])
 	    end;
 	_ ->
-    	    collect_and_sort_tags(C,[])
+	    check_unique_tags(S, C, [])
     end.
 
-collect_and_sort_tags([C|Rest],Acc) when is_record(C,'ComponentType') ->
-    collect_and_sort_tags(Rest,C#'ComponentType'.tags ++ Acc);
-collect_and_sort_tags([_|Rest],Acc) ->
-    collect_and_sort_tags(Rest,Acc);
-collect_and_sort_tags([],Acc) ->
-    {Dupl,_}= lists:mapfoldl(fun(El,El)->{{dup,El},El};(El,_Prev)-> {El,El} end,notag,lists:sort(Acc)),
-    Dupl2 = [Dup|| {dup,Dup} <- Dupl],
-    if 
-	length(Dupl2) > 0 ->
-	    throw({error,{asn1,{duplicates_of_the_tags,Dupl2}}});
-	true ->
-	    true
+check_unique_tags(S, [#'ComponentType'{name=Name,tags=Tags0}|T], Acc) ->
+    Tags = [{Tag,Name} || Tag <- Tags0],
+    check_unique_tags(S, T, Tags ++ Acc);
+check_unique_tags(S, [_|T], Acc) ->
+    check_unique_tags(S, T, Acc);
+check_unique_tags(S, [], Acc) ->
+    R0 = sofs:relation(Acc),
+    R1 = sofs:relation_to_family(R0),
+    R2 = sofs:to_external(R1),
+    Dup = [Els || {_,[_,_|_]=Els} <- R2],
+    case Dup of
+	[] ->
+	    ok;
+	[FirstDupl|_] ->
+	    asn1_error(S, {duplicate_tags,FirstDupl})
     end.
 
 check_unique(L,Pos) ->
@@ -5921,6 +5858,9 @@ asn1_error(S, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({duplicate_tags,Elements}) ->
+    io_lib:format("duplicate tags in the elements: ~s",
+		  [format_elements(Elements)]);
 format_error(illegal_bitstring_value) ->
     "expecting a BIT STRING value";
 format_error({illegal_class_name,Class}) ->
@@ -6002,6 +5942,11 @@ format_fields([F]) ->
 format_fields([H|T]) ->
     [io_lib:format("fields '&~s'", [H])|
      [io_lib:format(", '&~s'", [F]) || F <- T]].
+
+format_elements([H1,H2|T]) ->
+    [io_lib:format("~p, ", [H1])|format_elements([H2|T])];
+format_elements([H]) ->
+    io_lib:format("~p", [H]).
 
 error({_,{structured_error,_,_,_}=SE,_}) ->
     SE;
