@@ -217,6 +217,9 @@
       <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
     </row>
     <row>
+      <cell><c>function()</c></cell><cell><c>fun()</c></cell>
+    </row>
+    <row>
       <cell><c>module()</c></cell><cell><c>atom()</c></cell>
     </row>
     <row> 
