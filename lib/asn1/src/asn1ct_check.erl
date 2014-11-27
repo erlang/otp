@@ -2148,11 +2148,9 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	{'INTEGER',NamedNumberList} ->
 	    ok = validate_integer(SVal, Value, NamedNumberList, Constr),
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, [])};
-	#'SEQUENCE'{components=Components} ->
-	    {ok,SeqVal} = validate_sequence(SVal, Value,
-					    Components, Constr),
-	    V#valuedef{value=normalize_value(SVal, Vtype,
-					    SeqVal, TopName)};
+	#'SEQUENCE'{} ->
+	    {ok,SeqVal} = convert_external(SVal, Value),
+	    V#valuedef{value=normalize_value(SVal, Vtype, SeqVal, TopName)};
 	{'SelectionType',SelName,SelT} ->
 	    CheckedT = check_selectiontype(SVal, SelName, SelT),
 	    NewV = V#valuedef{type=CheckedT},
@@ -2412,13 +2410,13 @@ valid_objectid(o_id,_I,[1]) -> false;
 valid_objectid(o_id,_I,[2]) -> true;
 valid_objectid(_,_,_) -> true.
 
-validate_sequence(S=#state{type=Vtype},Value,_Components,_Constr) ->
+convert_external(S=#state{type=Vtype}, Value) ->
     case Vtype of
 	#type{tag=[{tag,'UNIVERSAL',8,'IMPLICIT',32}]} ->
 	    %% this is an 'EXTERNAL' (or INSTANCE OF)
 	    case Value of
-		[{identification,_}|_RestVal] ->
-		    {ok,to_EXTERNAL1990(S,Value)};
+		[{#seqtag{val=identification},_}|_] ->
+		    {ok,to_EXTERNAL1990(S, Value)};
 		_ ->
 		    {ok,Value}
 	    end;
@@ -2426,21 +2424,25 @@ validate_sequence(S=#state{type=Vtype},Value,_Components,_Constr) ->
 	    {ok,Value}
     end.
 
-to_EXTERNAL1990(S,[{identification,{'CHOICE',{syntax,Stx}}}|Rest]) ->
-    to_EXTERNAL1990(S,Rest,[{'direct-reference',Stx}]);
-to_EXTERNAL1990(S,[{identification,{'CHOICE',{'presentation-context-id',I}}}|Rest]) ->
-    to_EXTERNAL1990(S,Rest,[{'indirect-reference',I}]);
-to_EXTERNAL1990(S,[{identification,{'CHOICE',{'context-negotiation',[{_,PCid},{_,TrStx}]}}}|Rest]) ->
-    to_EXTERNAL1990(S,Rest,[{'indirect-reference',PCid},{'direct-reference',TrStx}]);
-to_EXTERNAL1990(S,_) ->
+to_EXTERNAL1990(S, [{#seqtag{val=identification}=T,
+		     {'CHOICE',{syntax,Stx}}}|Rest]) ->
+    to_EXTERNAL1990(S, Rest, [{T#seqtag{val='direct-reference'},Stx}]);
+to_EXTERNAL1990(S, [{#seqtag{val=identification}=T,
+		     {'CHOICE',{'presentation-context-id',I}}}|Rest]) ->
+    to_EXTERNAL1990(S, Rest, [{T#seqtag{val='indirect-reference'},I}]);
+to_EXTERNAL1990(S, [{#seqtag{val=identification}=T,
+		     {'CHOICE',{'context-negotiation',[{_,PCid},{_,TrStx}]}}}|Rest]) ->
+    to_EXTERNAL1990(S, Rest, [{T#seqtag{val='indirect-reference'},PCid},
+			      {T#seqtag{val='direct-reference'},TrStx}]);
+to_EXTERNAL1990(S, _) ->
     error({value,"illegal value in EXTERNAL type",S}).
 
-to_EXTERNAL1990(S,[V={'data-value-descriptor',_}|Rest],Acc) ->
-    to_EXTERNAL1990(S,Rest,[V|Acc]);
-to_EXTERNAL1990(_S,[{'data-value',Val}],Acc) ->
-    Encoding = {encoding,{'CHOICE',{'octet-aligned',Val}}},
+to_EXTERNAL1990(S, [V={#seqtag{val='data-value-descriptor'},_}|Rest], Acc) ->
+    to_EXTERNAL1990(S, Rest, [V|Acc]);
+to_EXTERNAL1990(_S, [{#seqtag{val='data-value'}=T,Val}], Acc) ->
+    Encoding = {T#seqtag{val=encoding},{'CHOICE',{'octet-aligned',Val}}},
     lists:reverse([Encoding|Acc]);
-to_EXTERNAL1990(S,_,_) ->
+to_EXTERNAL1990(S, _, _) ->
     error({value,"illegal value in EXTERNAL type",S}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

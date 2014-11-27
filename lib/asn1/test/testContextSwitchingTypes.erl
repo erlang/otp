@@ -24,11 +24,21 @@
 -include_lib("test_server/include/test_server.hrl").
 
 test(Config) ->
-    ValT = 'ContextSwitchingTypes':'val1-T'(),
-    check_EXTERNAL(enc_dec('T', ValT)),
+    ValT_1 = 'ContextSwitchingTypes':'val1-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_1)),
+
+    ValT_2 = 'ContextSwitchingTypes':'val2-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_2)),
+
+    ValT_3 = 'ContextSwitchingTypes':'val3-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_3)),
+
+    ValT_4 = 'ContextSwitchingTypes':'val4-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_4)),
 
     {ok,ValT2} = asn1ct:value('ContextSwitchingTypes', 'T',
 			      [{i,?config(case_dir, Config)}]),
+    io:format("ValT2 ~p~n",[ValT2]),
     check_EXTERNAL(enc_dec('T', ValT2)),
 
     ValEP = 'ContextSwitchingTypes':'val1-EP'(),
