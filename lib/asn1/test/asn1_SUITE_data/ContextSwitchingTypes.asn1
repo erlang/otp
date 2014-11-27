@@ -21,6 +21,10 @@ val3-T T ::= {identification context-negotiation:{presentation-context-id 12,
 						transfer-syntax {1 2 3}}, 
 	    data-value '123'H}
 
+val4-T T ::= {identification presentation-context-id:42,
+              data-value-descriptor "FooBar",
+	      data-value '123'H}
+
 -- EMBEDDED PDV type 
 
 EP ::= EMBEDDED PDV
