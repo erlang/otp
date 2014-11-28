@@ -339,9 +339,13 @@ object_sets(Config) ->
 	      "TEST-UNIQ ::= CLASS { &id INTEGER UNIQUE,  &test INTEGER }\n"
 	      "UniqSet TEST-UNIQ ::= { { &id 1, &test 1 } | {&id 1, &test 2} }\n"
 
+	      "DOUBLE-UNIQ ::= CLASS { &id1 INTEGER UNIQUE,"
+              "           &id INTEGER UNIQUE }\n"
+              "DoubleSet DOUBLE-UNIQ ::= { {&id1 1, &id2 2} }\n"
 	      "END\n">>},
     {error,
-     [{structured_error,{M,3},asn1ct_check,{non_unique_object,1}}
+     [{structured_error,{M,3},asn1ct_check,{non_unique_object,1}},
+      {structured_error,{M,5},asn1ct_check,multiple_uniqs}
      ]
     } = run(P, Config),
     ok.

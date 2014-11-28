@@ -441,8 +441,6 @@ checko(S0,[Name|Os],Acc,ExclO,ExclOS) ->
 			error({type,Reason,NewS});
 		    {'EXIT',Reason} ->
 			error({type,{internal_error,Reason},NewS});
-		    {asn1,Reason} ->
-			error({type,Reason,NewS});
 		    O ->
 			NewObj = Object#typedef{checked=true,typespec=O},
 			asn1_db:dbput(NewS#state.mname,Name,NewObj),
@@ -470,8 +468,6 @@ checko(S0,[Name|Os],Acc,ExclO,ExclOS) ->
 			error({type,Reason,NewS});
 		    {'EXIT',Reason} ->
 			error({type,{internal_error,Reason},NewS});
-		    {asn1,Reason} ->
-			error({type,Reason,NewS});
 		    PO ->
 			NewPObj = PObject#pobjectdef{def=PO},
 			asn1_db:dbput(NewS#state.mname,Name,NewPObj),
@@ -486,8 +482,6 @@ checko(S0,[Name|Os],Acc,ExclO,ExclOS) ->
 			error({type,Reason,NewS});
 		    {'EXIT',Reason} ->
 			error({type,{internal_error,Reason},NewS});
-		    {asn1,Reason} ->
-			error({type,Reason,NewS});
 		    POS ->
 			%%NewPObjSet = PObjSet#pvaluesetdef{valueset=POS},
 			asn1_db:dbput(NewS#state.mname,Name,POS),
@@ -765,12 +759,9 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 check_object(S, _, #'ObjectSet'{class=ClassRef0,set=Set0}=ObjSet0) ->
     {_,ClassDef} = get_referenced_type(S, ClassRef0),
     ClassRef = check_externaltypereference(S, ClassRef0),
-    {UniqueFieldName,UniqueInfo} = 
-	case (catch get_unique_fieldname(S,ClassDef)) of
-	    {error,'__undefined_',_} -> 
-		{{unique,undefined},{unique,undefined}};
-	    {asn1,Msg,_} -> error({class,Msg,S});
-	    {'EXIT',Msg} -> error({class,{internal_error,Msg},S});
+    {UniqueFieldName,UniqueInfo} =
+	case get_unique_fieldname(S, ClassDef) of
+	    no_unique -> {{unique,undefined},{unique,undefined}};
 	    Other -> {element(1,Other),Other}
 	end,
     OSI0 = #osi{st=S,classref=ClassRef,uniq=UniqueInfo,ext=false},
@@ -1272,10 +1263,10 @@ gen_incl_set(S,Fields,#typedef{typespec=#type{def=Eref}})
     {_,CDef} = get_referenced_type(S,Eref),
     gen_incl_set(S,Fields,CDef);
 gen_incl_set(S,Fields,ClassDef) ->
-    case catch get_unique_fieldname(S,ClassDef) of
-	Tuple when tuple_size(Tuple) =:= 3 ->
+    case get_unique_fieldname(S, ClassDef) of
+	no_unique ->
 	    false;
-	_ ->
+	{_, _} ->
 	    gen_incl_set1(S,Fields,
 			  (ClassDef#classdef.typespec)#objectclass.fields)
     end.
@@ -3009,9 +3000,9 @@ maybe_open_type(S, #objectclass{fields=Fs}=ClassSpec,
 	{typefieldreference,_} ->
 	    %% Note: The constraints have not been checked yet,
 	    %% so we must use a special lookup routine.
-	    case {catch get_unique_fieldname(S,#classdef{typespec=ClassSpec}),
+	    case {get_unique_fieldname(S, #classdef{typespec=ClassSpec}),
 		  get_componentrelation(Constr)} of
-		{Tuple,_} when tuple_size(Tuple) =:= 3 ->
+		{no_unique,_} ->
 		    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 						type='ASN1_OPEN_TYPE'};
 		{_,no} ->
@@ -5045,28 +5036,18 @@ componentrelation_leadingattr(S,[C= #'ComponentType'{}|Cs],CompList,Acc,CompAcc)
 			{[],C};
 		    [{ObjSet,Attr,N,ClassDef,_Path,ValueIndex}|_NewRest] ->
 			OS = object_set_mod_name(S,ObjSet),
-			UniqueFieldName = 
-			    case (catch get_unique_fieldname(S,#classdef{typespec=ClassDef})) of
-				{error,'__undefined_',_} ->
-				    no_unique;
-				{asn1,Msg,_} ->
-				    error({type,Msg,S});
-				{'EXIT',Msg} ->
-				    error({type,{internal_error,Msg},S});
-				{Other,_} -> Other
-			    end,
-%			UsedFieldName = get_used_fieldname(S,Attr,STList),
+			UniqFN = get_unique_fieldname(S,
+						      #classdef{typespec=ClassDef}),
 			%% Res should be done differently: even though
 			%% a unique field name exists it is not
 			%% certain that the ObjectClassFieldType of
 			%% the simple table constraint picks that
 			%% class field.
 			Res = #simpletableattributes{objectsetname=OS,
-%%						     c_name=asn1ct_gen:un_hyphen_var(Attr),
 						     c_name=Attr,
 						     c_index=N,
-						     usedclassfield=UniqueFieldName,
-						     uniqueclassfield=UniqueFieldName,
+						     usedclassfield=UniqFN,
+						     uniqueclassfield=UniqFN,
 						     valueindex=ValueIndex},
 			{[Res],C#'ComponentType'{typespec=NewTSpec}}
 		end;
@@ -5185,15 +5166,7 @@ simple_table_info(S,#'ObjectClassFieldType'{classname=ClRef,
 		CDef;
 	    _ -> #classdef{typespec=ObjectClass}
 	end,
-    UniqueName =
-	case (catch get_unique_fieldname(S,ClassDef)) of
-	    {error,'__undefined_',_} -> no_unique;
-	    {asn1,Msg,_} ->
-		error({type,Msg,S});
-	    {'EXIT',Msg} ->
-		error({type,{internal_error,Msg},S});
-	    {Other,_} -> Other
-	end,
+    UniqueName = get_unique_fieldname(S, ClassDef),
     {lists:reverse(Path),ObjectClassFieldName,UniqueName}.
 
 %% any_component_relation searches for all component relation
@@ -5557,26 +5530,25 @@ component_index1(S,Name,[],_) ->
     error({type,{asn1,"component of at-list was not"
 		 " found in substructure",Name},S}).
 
-get_unique_fieldname(_S,ClassDef) when is_record(ClassDef,classdef) ->
-%%    {_,Fields,_} = ClassDef#classdef.typespec,
-    Fields = (ClassDef#classdef.typespec)#objectclass.fields,
-    get_unique_fieldname1(Fields,[]);
+get_unique_fieldname(S, #classdef{typespec=TS}) ->
+    Fields = TS#objectclass.fields,
+    get_unique_fieldname1(S, Fields, []);
 get_unique_fieldname(S,#typedef{typespec=#type{def=ClassRef}}) ->
     %% A class definition may be referenced as
     %% REFED-CLASS ::= DEFINED-CLASS and then REFED-CLASS is a typedef
     {_M,ClassDef} = get_referenced_type(S,ClassRef),
     get_unique_fieldname(S,ClassDef).
 
-get_unique_fieldname1([],[]) ->
-    throw({error,'__undefined_',[]});
-get_unique_fieldname1([],[Name]) ->
-    Name;
-get_unique_fieldname1([],Acc) ->
-    throw({asn1,'only one UNIQUE field is allowed in CLASS',Acc});
-get_unique_fieldname1([{fixedtypevaluefield,Name,_,'UNIQUE',Opt}|Rest],Acc) ->
-    get_unique_fieldname1(Rest,[{Name,Opt}|Acc]);
-get_unique_fieldname1([_H|T],Acc) ->
-    get_unique_fieldname1(T,Acc).
+get_unique_fieldname1(S, [{fixedtypevaluefield,Name,_,'UNIQUE',Opt}|T], Acc) ->
+    get_unique_fieldname1(S, T, [{Name,Opt}|Acc]);
+get_unique_fieldname1(S, [_|T], Acc) ->
+    get_unique_fieldname1(S, T, Acc);
+get_unique_fieldname1(S, [], Acc) ->
+    case Acc of
+	[] -> no_unique;
+	[Name] -> Name;
+	[_|_] -> asn1_error(S, multiple_uniqs)
+    end.
 
 get_tableconstraint_info(S,Type,{CheckedTs,EComps,CheckedTs2}) ->
     {get_tableconstraint_info(S,Type,CheckedTs,[]),
@@ -5901,6 +5873,8 @@ format_error({missing_table_constraint,Component}) ->
 		  [Component]);
 format_error({missing_ocft,Component}) ->
     io_lib:format("the component '~s' must be an ObjectClassFieldType (CLASSNAME.&field-name)", [Component]);
+format_error(multiple_uniqs) ->
+    "implementation limitation: only one UNIQUE field is allowed in CLASS";
 format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
 format_error(reversed_range) ->
