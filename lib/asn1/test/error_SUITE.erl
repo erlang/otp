@@ -693,9 +693,22 @@ tags(Config) ->
 	   "}\n"
 	   "\n"
 
+
 	   "Set1 ::= SET {\n"
 	   " os [0] OCTET STRING,\n"
 	   " bool [0] BOOLEAN\n"
+	   "}\n"
+
+	   "Seq1 ::= SEQUENCE {\n"
+	   "a [0] IMPLICIT Choice OPTIONAL\n"
+	   "}\n"
+	   "Seq2 ::= SEQUENCE {\n"
+	   "a [0] IMPLICIT ANY OPTIONAL\n"
+	   "}\n"
+	   "Choice ::=\n"
+	   "CHOICE {\n"
+	   "a [0] BOOLEAN,\n"
+	   "b [1] INTEGER\n"
 	   "}\n"
 
 	   "END\n">>},
@@ -705,7 +718,13 @@ tags(Config) ->
        {duplicate_tags,[seq1,seq2]}},
       {structured_error,
        {M,24},asn1ct_check,
-       {duplicate_tags,[bool,os]}}
+       {duplicate_tags,[bool,os]}},
+      {structured_error,
+       {M,28},asn1ct_check,
+       {implicit_tag_before,choice}},
+      {structured_error,
+       {M,31},asn1ct_check,
+       {implicit_tag_before,open_type}}
      ]} = run(P, Config),
     ok.
 

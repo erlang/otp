@@ -2564,13 +2564,13 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		{_, MaybeChoice} = get_referenced_type(S, Tref, true),
 		case catch((MaybeChoice#typedef.typespec)#type.def) of
 		    {'CHOICE',_} ->
-			maybe_illicit_implicit_tag(choice,Tag);
+			maybe_illicit_implicit_tag(S, choice, Tag);
 		    'ANY' ->
-			maybe_illicit_implicit_tag(open_type,Tag);
+			maybe_illicit_implicit_tag(S, open_type, Tag);
 		    'ANY DEFINED BY' ->
-			maybe_illicit_implicit_tag(open_type,Tag);
+			maybe_illicit_implicit_tag(S, open_type, Tag);
 		    'ASN1_OPEN_TYPE' ->
-			maybe_illicit_implicit_tag(open_type,Tag);
+			maybe_illicit_implicit_tag(S, open_type, Tag);
 		    _ ->
 			Tag
 		end
@@ -2647,10 +2647,10 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			  tag = merge_tags(Ct,RefType#type.tag)}
 		end;
 	    'ANY' ->
-		Ct=maybe_illicit_implicit_tag(open_type,Tag),
+		Ct = maybe_illicit_implicit_tag(S, open_type, Tag),
 		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
 	    {'ANY_DEFINED_BY',_} ->
-		Ct=maybe_illicit_implicit_tag(open_type,Tag),
+		Ct = maybe_illicit_implicit_tag(S, open_type, Tag),
 		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
 	    'INTEGER' ->
 		TempNewDef#newt{tag=
@@ -2800,7 +2800,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 				tag=
 				merge_tags(Tag,?TAG_CONSTRUCTED(?N_SEQUENCE))};
 	    {'CHOICE',Components} ->
-		Ct = maybe_illicit_implicit_tag(choice,Tag),
+		Ct = maybe_illicit_implicit_tag(S, choice, Tag),
 		TempNewDef#newt{type={'CHOICE',check_choice(S,Type,Components)},tag=Ct};
 	    Set when is_record(Set,'SET') ->
 		RecordName=
@@ -2851,7 +2851,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		Ct =
 		    case is_open_type(NewTypeDef) of
 			true ->
-			    maybe_illicit_implicit_tag(open_type,MergedTag);
+			    maybe_illicit_implicit_tag(S, open_type, MergedTag);
 			_ ->
 			    MergedTag
 		    end,
@@ -2955,10 +2955,10 @@ get_class_def(_S, #classdef{}=CD) ->
 get_class_def(_S, _) ->
     none.
     
-maybe_illicit_implicit_tag(Kind,Tag) ->
+maybe_illicit_implicit_tag(S, Kind, Tag) ->
     case Tag of
 	[#tag{type='IMPLICIT'}|_T] ->
-	    throw({error,{asn1,{implicit_tag_before,Kind}}});
+	    asn1_error(S, {implicit_tag_before,Kind});
 	[ChTag = #tag{type={default,_}}|T] -> 
 	    case Kind of
 		open_type ->
@@ -5865,6 +5865,12 @@ format_error({invalid_bit_number,Bit}) ->
     io_lib:format("the bit number '~p' is invalid", [Bit]);
 format_error(invalid_table_constraint) ->
     "the table constraint is not an object set";
+format_error({implicit_tag_before,Kind}) ->
+    "illegal implicit tag before " ++
+	case Kind of
+	    choice -> "'CHOICE'";
+	    open_type -> "open type"
+	end;
 format_error({missing_mandatory_fields,Fields,Obj}) ->
     io_lib:format("missing mandatory ~s in ~p",
 		  [format_fields(Fields),Obj]);

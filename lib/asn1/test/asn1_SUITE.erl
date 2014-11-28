@@ -54,7 +54,6 @@ groups() ->
     [{compile, Parallel,
       [c_syntax,
        c_string,
-       c_implicit_before_choice,
        constraint_equivalence]},
 
      {ber, Parallel,
@@ -587,14 +586,6 @@ c_string(Config) ->
 c_string(Config, Rule, Opts) ->
     asn1_test_lib:compile("String", Config, [Rule|Opts]),
     asn1ct:test('String').
-
-c_implicit_before_choice(Config) ->
-    test(Config, fun c_implicit_before_choice/3, [ber]).
-c_implicit_before_choice(Config, Rule, Opts) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    {error, _R2} = asn1ct:compile(filename:join(DataDir, "CCSNARG3"),
-                                  [Rule, {outdir, CaseDir}|Opts]).
 
 constraint_equivalence(Config) ->
     constraint_equivalence_abs(Config),
@@ -1139,7 +1130,8 @@ test_modules() ->
      "Opt",
      "ELDAPv3",
      "LDAP",
-     "SeqOptional2"].
+     "SeqOptional2",
+     "CCSNARG3"].
 
 test_OTP_9688(Config) ->
     PrivDir = ?config(case_dir, Config),
