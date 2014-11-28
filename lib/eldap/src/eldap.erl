@@ -477,7 +477,8 @@ do_connect(Host, Data, Opts) when Data#eldap.ldaps == false ->
 		    Data#eldap.timeout);
 do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
     ssl:connect(Host, Data#eldap.port,
-		Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts).
+		Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts,
+		Data#eldap.timeout).
 
 loop(Cpid, Data) ->
     receive
