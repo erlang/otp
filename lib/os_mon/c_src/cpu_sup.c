@@ -53,7 +53,6 @@
 #endif
 
 #if defined(__linux__)
-#include <string.h>  /* strlen */
 
 #define PROCSTAT "/proc/stat"
 #define BUFFERSIZE (256)
@@ -72,6 +71,13 @@ typedef struct {
 } cpu_t;
 
 #endif
+
+#if defined(__FreeBSD__)
+#include <sys/resource.h>
+#include <sys/sysctl.h>
+#define CU_BSD_VALUES (6)
+#endif
+
 
 #define FD_IN		(0)
 #define FD_OUT		(1)
@@ -157,12 +163,16 @@ static int processors_online() {
 }
 #endif
 
+#if defined(__FreeBSD__)
+void getsysctl(const char *, void *, size_t);
+#endif
+
 int main(int argc, char** argv) {
   char cmd;
   int rc;
   int sz;
   unsigned int *rv;
-#if defined(__linux__)
+#if defined(__linux__) || defined(__FreeBSD__)
   unsigned int no_of_cpus = 0;
 #endif
 
@@ -175,7 +185,14 @@ int main(int argc, char** argv) {
 #if defined(__linux__)
     no_of_cpus = processors_online(); 
     if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_VALUES))) == NULL) {
-	error("cpu_cup: malloc error");
+	error("cpu_sup: malloc error");
+    }
+#endif
+
+#if defined(__FreeBSD__)
+    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+    if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_BSD_VALUES))) == NULL) {
+	error("cpu_sup: malloc error");
     }
 #endif
 
@@ -204,14 +221,14 @@ int main(int argc, char** argv) {
     case AVG5:		bsd_loadavg(1);					break;
     case AVG15:		bsd_loadavg(2);					break;
 #endif
-#if defined(__sun__) || defined(__linux__)
+#if defined(__sun__) || defined(__linux__) || defined(__FreeBSD__)
     case UTIL:		util_measure(&rv,&sz); 	sendv(rv, sz);		break;
 #endif
     case QUIT:		free((void*)rv); return 0;
     default:		error("Bad command");				break;
     }
   }
-  return 0; /* supress warnings */
+  return 0; /* suppress warnings */
 }
 
 /* ---------------------------- *
@@ -520,6 +537,70 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 #endif
 
 /* ---------------------------- *
+ *     FreeBSD stat functions 	*
+ * ---------------------------- */
+
+#if defined(__FreeBSD__)
+
+#define EXIT_WITH(msg) (rich_error(msg, __FILE__, __LINE__))
+
+void rich_error(const char *reason, const char *file, const int line) {
+    const size_t buflen = 213; // left in error(char*)
+    char buf[buflen];
+    snprintf(buf, buflen, "%s (%s:%i)", reason, file, line);
+    error(buf);
+}
+
+
+static void util_measure(unsigned int **result_vec, int *result_sz) {
+    int no_of_cpus;
+    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+
+    // Header constant CPUSTATES = #long values per cpu.
+    size_t size_cpu_times = sizeof(long) * CPUSTATES * no_of_cpus;
+    unsigned long *cpu_times = malloc(size_cpu_times);
+    if (!cpu_times) {
+	EXIT_WITH("badalloc");
+    }
+    getsysctl("kern.cp_times", cpu_times, size_cpu_times);
+
+    unsigned int *rv = NULL;
+
+    rv = *result_vec;
+    rv[0] = no_of_cpus;
+    rv[1] = CU_BSD_VALUES;
+    ++rv; /* first value is number of cpus */
+    ++rv; /* second value is number of entries */
+
+    int i;
+    for (i = 0; i < no_of_cpus; ++i) {
+        int offset = i * CPUSTATES;
+	rv[ 0] = CU_CPU_ID;    rv[ 1] = i;
+	rv[ 2] = CU_USER;      rv[ 3] = cpu_times[CP_USER + offset];
+	rv[ 4] = CU_NICE_USER; rv[ 5] = cpu_times[CP_NICE + offset];
+	rv[ 6] = CU_KERNEL;    rv[ 7] = cpu_times[CP_SYS + offset];
+	rv[ 8] = CU_IDLE;      rv[ 9] = cpu_times[CP_IDLE + offset];
+	rv[10] = CU_HARD_IRQ;  rv[11] = cpu_times[CP_INTR + offset];
+	rv += CU_BSD_VALUES*2;
+    }
+
+    *result_sz = 2 + 2*CU_BSD_VALUES * no_of_cpus;
+}
+
+void getsysctl(const char *name, void *ptr, size_t len)
+{
+    size_t gotlen = len;
+    if (sysctlbyname(name, ptr, &gotlen, NULL, 0) != 0) {
+	EXIT_WITH("sysctlbyname failed");
+    }
+    if (gotlen != len) {
+	EXIT_WITH("sysctlbyname: unexpected length");
+    }
+}
+#endif
+
+
+/* ---------------------------- *
  *	 Generic functions 	*
  * ---------------------------- */
 
@@ -581,5 +662,3 @@ static void error(char* err_msg) {
      ;
   exit(-1);
 }
-
-
