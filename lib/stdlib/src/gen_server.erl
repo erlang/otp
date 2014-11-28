@@ -799,8 +799,11 @@ print_event(Dev, Event, Name) ->
 %%% Terminate the server.
 %%% ---------------------------------------------------
 
+-spec terminate(_, _, _, _, _, _) -> no_return().
 terminate(Reason, Name, Msg, Mod, State, Debug) ->
     terminate(Reason, Reason, Name, Msg, Mod, State, Debug).
+
+-spec terminate(_, _, _, _, _, _, _) -> no_return().
 terminate(ExitReason, ReportReason, Name, Msg, Mod, State, Debug) ->
     Reply = try_terminate(Mod, ExitReason, State),
     case Reply of
