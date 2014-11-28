@@ -4707,7 +4707,7 @@ AC_CHECK_LIB(kstat, kstat_open, [
 case $host_os in
 	solaris2*)
 		os_mon_programs="$os_mon_programs ferrule mod_syslog" ;;
-	linux*)
+	linux*|freebsd*)
 		os_mon_programs="$os_mon_programs cpu_sup" ;;
 esac
 

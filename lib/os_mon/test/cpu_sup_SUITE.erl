@@ -64,6 +64,8 @@ all() ->
 	    [load_api, util_api, util_values, port, unavailable];
 	{unix, linux} ->
 	    [load_api, util_api, util_values, port, unavailable];
+	{unix, freebsd} ->
+	    [load_api, util_api, util_values, port, unavailable];
 	{unix, _OSname} -> [load_api];
 	_OS -> [unavailable]
     end.
